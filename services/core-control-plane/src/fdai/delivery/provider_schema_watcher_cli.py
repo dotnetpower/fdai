@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import json
 import os
+import shutil
 import sys
 import tempfile
 from collections.abc import Mapping, Sequence
@@ -171,7 +172,9 @@ async def run(
                 )
             )
             ledger_root = Path(temporary)
-            await durable.hydrate(ledger_root)
+            hydrated = await durable.hydrate(ledger_root)
+            if not hydrated:
+                _seed_reviewed_catalog(config.ledger_root, ledger_root)
             receipt = await _run_local(
                 replace(config, ledger_root=ledger_root, state_store_dsn=None),
                 now=now,
@@ -180,6 +183,23 @@ async def run(
             receipt["durable_generation_digest"] = await durable.persist(ledger_root)
             return receipt
     return await _run_local(config, now=now, force=force)
+
+
+def _seed_reviewed_catalog(source: Path, target: Path) -> bool:
+    """Copy a validated reviewed baseline only into an empty durable staging root."""
+
+    if source.is_symlink():
+        raise ValueError("provider schema seed root MUST NOT be a symbolic link")
+    if not source.is_dir():
+        return False
+    if any(target.iterdir()):
+        raise ValueError("provider schema seed target MUST be empty")
+    if any(path.is_symlink() for path in source.rglob("*")):
+        raise ValueError("provider schema seed MUST NOT contain symbolic links")
+    if ProviderSchemaLedger(source).read_baseline("azure") is None:
+        return False
+    shutil.copytree(source, target, dirs_exist_ok=True)
+    return True
 
 
 async def _run_local(

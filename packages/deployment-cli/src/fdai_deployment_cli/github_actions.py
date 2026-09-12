@@ -21,7 +21,9 @@ _REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$")
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
-_REQUEST_ID = re.compile(r"^(?:plan|apply)-(?:cost-|history-|identity-|rca-)?[0-9a-f]{48}$")
+_REQUEST_ID = re.compile(
+    r"^(?:plan|apply)-(?:cost-|history-|identity-|provider-|rca-)?[0-9a-f]{48}$"
+)
 _ENVIRONMENTS = frozenset({"dev", "staging", "prod"})
 _RUNTIME_IMAGE_PROFILES = frozenset({"core-control-plane", "cost-governance"})
 _BOOL_INPUTS = (
@@ -66,6 +68,7 @@ class DeploymentSelection:
     deploy_operational_history: bool = False
     deploy_operator_api: bool = True
     deploy_operator_channel_edge: bool = False
+    deploy_provider_schema: bool = False
     deploy_rca_reader_identity: bool = False
     runtime_image_revision: str = ""
     runtime_image_profile: str = "core-control-plane"
@@ -79,6 +82,7 @@ class DeploymentSelection:
             self.deploy_operational_history,
             self.deploy_operator_api,
             self.deploy_operator_channel_edge,
+            self.deploy_provider_schema,
         )
         if self.deploy_monitoring and not any(application_targets) and self.runtime_image_revision:
             raise ValueError("monitoring deployment cannot be combined with application targets")
@@ -97,6 +101,29 @@ class DeploymentSelection:
             raise ValueError(
                 "non-default runtime_image_profile cannot be combined with a bounded operation"
             )
+        if self.deploy_provider_schema:
+            if self.runtime_image_profile != "core-control-plane":
+                raise ValueError(
+                    "deploy_provider_schema requires the core-control-plane runtime image profile"
+                )
+            provider_schema_mixed = (
+                self.deploy_console,
+                self.deploy_dev_operations_gateway,
+                self.deploy_document_ingestion,
+                self.deploy_identity_migration,
+                self.deploy_isolated_executor,
+                self.deploy_monitoring,
+                self.deploy_operational_history,
+                self.deploy_operator_api,
+                self.deploy_operator_channel_edge,
+                self.deploy_rca_reader_identity,
+            )
+            if any(provider_schema_mixed):
+                raise ValueError(
+                    "deploy_provider_schema cannot be combined with another deployment target"
+                )
+            if not self.runtime_image_revision:
+                raise ValueError("deploy_provider_schema requires runtime_image_revision")
         if self.deploy_rca_reader_identity and (
             any(application_targets) or self.deploy_monitoring or self.runtime_image_revision
         ):
@@ -120,6 +147,8 @@ class DeploymentSelection:
         result: dict[str, bool | str] = {name: bool(getattr(self, name)) for name in _BOOL_INPUTS}
         if self.deploy_operator_channel_edge:
             result["deploy_operator_channel_edge"] = True
+        if self.deploy_provider_schema:
+            result["deploy_provider_schema"] = True
         result["deploy_rca_reader_identity"] = self.deploy_rca_reader_identity
         result["document_ocr_action"] = "preserve"
         result["runtime_call_evidence_transition"] = False
@@ -262,6 +291,8 @@ def dispatch_plan(
     )
     if selection.deploy_rca_reader_identity:
         bounded_request_id = bounded_request_id.replace("plan-", "plan-rca-", 1)
+    elif selection.deploy_provider_schema:
+        bounded_request_id = bounded_request_id.replace("plan-", "plan-provider-", 1)
     elif selection.deploy_identity_migration:
         bounded_request_id = bounded_request_id.replace("plan-", "plan-identity-", 1)
     elif selection.deploy_operational_history:
@@ -336,6 +367,8 @@ def dispatch_apply(
     )
     if selection.deploy_rca_reader_identity:
         bounded_request_id = bounded_request_id.replace("apply-", "apply-rca-", 1)
+    elif selection.deploy_provider_schema:
+        bounded_request_id = bounded_request_id.replace("apply-", "apply-provider-", 1)
     elif selection.deploy_identity_migration:
         bounded_request_id = bounded_request_id.replace("apply-", "apply-identity-", 1)
     elif selection.deploy_operational_history:
@@ -494,6 +527,8 @@ def _request_binding_from_id(request_id_value: str) -> str:
         "apply-history-",
         "plan-identity-",
         "apply-identity-",
+        "plan-provider-",
+        "apply-provider-",
         "plan-rca-",
         "apply-rca-",
         "plan-cost-",
@@ -595,6 +630,7 @@ def _dispatch(
             not in {
                 "deploy_identity_migration",
                 "deploy_operational_history",
+                "deploy_provider_schema",
                 "deploy_rca_reader_identity",
                 "runtime_call_evidence_transition",
                 "runtime_image_profile",

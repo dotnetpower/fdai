@@ -237,6 +237,7 @@ def _parser() -> argparse.ArgumentParser:
     guided.add_argument("--resume-verification", action="store_true")
     guided.add_argument("--deploy-console", action=argparse.BooleanOptionalAction, default=True)
     guided.add_argument("--deploy-dev-operations-gateway", action="store_true")
+    guided.add_argument("--deploy-provider-schema", action="store_true")
     guided.add_argument(
         "--deploy-operator-api", action=argparse.BooleanOptionalAction, default=True
     )
@@ -269,6 +270,7 @@ def _add_deploy_context_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--attempt", type=int, default=1)
     parser.add_argument("--deploy-console", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--deploy-dev-operations-gateway", action="store_true")
+    parser.add_argument("--deploy-provider-schema", action="store_true")
     parser.add_argument(
         "--deploy-operator-api", action=argparse.BooleanOptionalAction, default=True
     )
@@ -986,6 +988,7 @@ def _deployment_selection(args: argparse.Namespace) -> DeploymentSelection:
         deploy_dev_operations_gateway=args.deploy_dev_operations_gateway,
         deploy_operator_api=args.deploy_operator_api,
         deploy_operator_channel_edge=args.deploy_operator_channel_edge,
+        deploy_provider_schema=args.deploy_provider_schema,
         deploy_document_ingestion=args.deploy_document_ingestion,
         deploy_identity_migration=args.deploy_identity_migration,
         deploy_isolated_executor=args.deploy_isolated_executor,

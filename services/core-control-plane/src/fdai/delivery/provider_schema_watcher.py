@@ -92,6 +92,7 @@ class ProviderSchemaRefreshReceipt:
     checked_at: str
     source_name: str | None
     source_kind: ProviderSchemaSourceKind | None
+    source_revision: str | None
     fallback_used: bool
     baseline_digest: str | None
     observed_digest: str | None
@@ -118,6 +119,7 @@ class ProviderSchemaRefreshReceipt:
             "checked_at": self.checked_at,
             "source_name": self.source_name,
             "source_kind": None if self.source_kind is None else self.source_kind.value,
+            "source_revision": self.source_revision,
             "fallback_used": self.fallback_used,
             "baseline_digest": self.baseline_digest,
             "observed_digest": self.observed_digest,
@@ -309,6 +311,7 @@ class ProviderSchemaWatcher:
             checked_at=provider_schema_observation_time(checked_at),
             source_name=None if selected is None else selected.name,
             source_kind=None if selected is None else selected.kind,
+            source_revision=None if observed is None else observed.source_revision,
             fallback_used=fallback_used,
             baseline_digest=None if baseline is None else baseline.schema_digest,
             observed_digest=None if observed is None else observed.schema_digest,

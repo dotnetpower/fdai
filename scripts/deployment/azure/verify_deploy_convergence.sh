@@ -10,6 +10,7 @@ set -euo pipefail
 request_id="${1:-}"
 observability_only=false
 deploy_identity_only=false
+provider_schema_only=false
 runtime_call_evidence_only=false
 if [[ "$request_id" == apply-observability-* ]]; then
   observability_only=true
@@ -17,6 +18,9 @@ if [[ "$request_id" == apply-observability-* ]]; then
 elif [[ "$request_id" == apply-runtime-* ]]; then
   runtime_call_evidence_only=true
   export TF_CLI_ARGS_plan="-target=terraform_data.runtime_call_evidence_transition -target=terraform_data.inventory_runtime_image_update -target=terraform_data.runtime_workspace_binding_transition"
+elif [[ "$request_id" == apply-provider-* ]]; then
+  provider_schema_only=true
+  export TF_CLI_ARGS_plan="-target=module.compute.azurerm_container_app_job.provider_schema[0]"
 elif [[ "$request_id" == apply-identity-* ]]; then
   deploy_identity_only=true
 fi
@@ -40,7 +44,16 @@ if [[ "$deploy_identity_only" == "true" || "$runtime_call_evidence_only" == "tru
 fi
 
 resource_group="$(terraform output -raw resource_group_name)"
-if [[ "$observability_only" == "true" ]]; then
+if [[ "$provider_schema_only" == "true" ]]; then
+  job_id="$(terraform output -raw provider_schema_job_id)"
+  if [[ ! "$job_id" =~ ^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft[.]App/jobs/[^/]+$ ]]; then
+    echo "provider-schema Job resource id is unavailable after apply" >&2
+    exit 1
+  fi
+  container_name="provider-schema"
+  evidence_path="$RUNNER_TEMP/provider-schema-job.json"
+  az resource show --ids "$job_id" --api-version 2024-03-01 --output json > "$evidence_path"
+elif [[ "$observability_only" == "true" ]]; then
   job_name="ca-fdai-${TF_VAR_env}-${TF_VAR_region_short}-core-analyzer"
   container_name="analyzer-tick"
   evidence_path="$RUNNER_TEMP/analyzer-job.json"
@@ -52,10 +65,12 @@ else
   exit 0
 fi
 
-az containerapp job show \
-  --resource-group "$resource_group" \
-  --name "$job_name" \
-  --output json > "$evidence_path"
+if [[ "$provider_schema_only" != "true" ]]; then
+  az containerapp job show \
+    --resource-group "$resource_group" \
+    --name "$job_name" \
+    --output json > "$evidence_path"
+fi
 uv run --frozen --package fdai-core-control-plane python \
   ../scripts/deployment/azure/verify_job_image.py \
   --job "$evidence_path" \

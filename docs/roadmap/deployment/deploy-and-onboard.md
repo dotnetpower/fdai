@@ -117,8 +117,8 @@ When the development operations gateway is selected, Terraform targets that Func
 ingestion, the isolated Executor when selected, operational canary, inventory reconciliation Job,
 realtime inventory publishers, and their dependency graphs. This keeps the Job's image and required
 shared runtime configuration converged while unrelated runtime-resource changes stay outside the plan.
-The target set includes both source and
-destination addresses from active Terraform `moved` blocks, and the workflow contract test keeps
+Provider-schema deployment uses `fdaictl deploy plan --deploy-provider-schema` to create a separate `plan-provider-*` and `apply-provider-*` mode instead of that broad gateway target. It admits only the provider-schema Job address, binds the exact attested Core image revision, rejects every mixed target, and requires a targeted zero-change plan after apply. Plan and apply both require that exact image to be the active, healthy, provisioned Core revision with rollback retention enabled. Plan stores that sanitized baseline under its immutable plan path; apply verifies the stored receipt and observes the live baseline again before mutation. A dedicated bounded verifier starts the Job once and retains Core-baseline, source-revision, durable-generation, Heimdall-handoff, and matching Forseti-decision and Saga-audit evidence. A verification-only resume never reapplies Terraform: it reuses exact immutable evidence when present and otherwise reruns only the Job verification. An unchanged schema records agent review as not applicable instead of fabricating a decision.
+The target set includes both source and destination addresses from active Terraform `moved` blocks, and the workflow contract test keeps
 those addresses synchronized so state migrations cannot invalidate a protected plan. This includes
 the unindexed destination addresses for the baseline-regression and pattern-growth jobs. A `for_each`
 key rename uses an explicit `moved` block so Terraform preserves the existing resource instead of

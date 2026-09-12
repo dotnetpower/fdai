@@ -39,8 +39,28 @@ async def test_persists_and_hydrates_one_complete_generation(tmp_path: Path) -> 
     assert manifest["revision"] == 1
 
 
+async def test_hydrates_and_returns_exact_generation_identity(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "baseline.json").write_text("{}\n", encoding="utf-8")
+    mirror = StateStoreProviderSchemaLedger(InMemoryStateStore())
+    generation_digest = await mirror.persist(source)
+    restored = tmp_path / "restored"
+    restored.mkdir()
+
+    generation = await mirror.hydrate_generation(restored)
+
+    assert generation is not None
+    assert generation.revision == 1
+    assert generation.generation_digest == generation_digest
+
+
 async def test_empty_store_has_no_generation(tmp_path: Path) -> None:
     assert await StateStoreProviderSchemaLedger(InMemoryStateStore()).hydrate(tmp_path) is False
+    assert (
+        await StateStoreProviderSchemaLedger(InMemoryStateStore()).hydrate_generation(tmp_path)
+        is None
+    )
 
 
 async def test_hydration_rejects_tampered_blob(tmp_path: Path) -> None:

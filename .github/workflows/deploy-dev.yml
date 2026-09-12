@@ -189,6 +189,7 @@ jobs:
       VALIDATE_CHATOPS_CHANNELS: ${{ startsWith(inputs.request_id, 'plan-chatops-') || startsWith(inputs.request_id, 'apply-chatops-') }}
       MONITORING_ONLY: ${{ inputs.deploy_monitoring && !inputs.deploy_console && !inputs.deploy_operator_api && !inputs.deploy_isolated_executor && !inputs.deploy_dev_operations_gateway && !inputs.deploy_ohl_scale_out_evidence_target && !inputs.deploy_document_ingestion && inputs.document_ocr_action == 'preserve' }}
       OPERATIONAL_HISTORY_ONLY: ${{ startsWith(inputs.request_id, 'plan-history-') || startsWith(inputs.request_id, 'apply-history-') }}
+      PROVIDER_SCHEMA_ONLY: ${{ startsWith(inputs.request_id, 'plan-provider-') || startsWith(inputs.request_id, 'apply-provider-') }}
       RCA_READER_IDENTITY_ONLY: ${{ startsWith(inputs.request_id, 'plan-rca-') || startsWith(inputs.request_id, 'apply-rca-') }}
       TF_VAR_core_image: ${{ vars.CORE_IMAGE || vars.OPERATOR_API_IMAGE }}
       # Operator API image + Entra/RBAC ids (tenant-specific; via repo Variables,
@@ -347,8 +348,8 @@ jobs:
               --dev-required-approvals "$DEV_DEPLOY_REQUIRED_APPROVALS"
           fi
       - name: Bind model-binding Terraform target
-        if: ${{ env.MODEL_BINDING_ONLY == 'true' }}
-        run: echo 'TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability' >> "$GITHUB_ENV"
+        if: ${{ env.MODEL_BINDING_ONLY == 'true' || env.PROVIDER_SCHEMA_ONLY == 'true' }}
+        run: if [[ "$MODEL_BINDING_ONLY" == "true" ]]; then echo 'TF_CLI_ARGS_plan=-target=module.llm_azure_openai[0].azurerm_cognitive_deployment.capability' >> "$GITHUB_ENV"; else echo 'TF_CLI_ARGS_plan=-target=module.compute.azurerm_container_app_job.provider_schema[0]' >> "$GITHUB_ENV"; fi
       - name: Verify production architecture-review evidence
         if: inputs.environment == 'prod'
         run: >-
@@ -389,7 +390,7 @@ jobs:
               "$RUNNER_TEMP/document-ocr-proposal.json"
           fi
       - name: Resolve and seal model capabilities
-        if: ${{ !inputs.apply && env.MONITORING_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.TF_VAR_enable_llm == 'true' }}
+        if: ${{ !inputs.apply && env.MONITORING_ONLY != 'true' && env.PROVIDER_SCHEMA_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.TF_VAR_enable_llm == 'true' }}
         working-directory: ${{ github.workspace }}
         env:
           MODEL_COMPLETENESS_FAIL_ON: ${{ (env.VALIDATE_CHATOPS_CHANNELS == 'true' || inputs.deploy_dev_operations_gateway || env.MODEL_BINDING_ONLY == 'true') && 'none' || 'critical' }}
@@ -583,8 +584,8 @@ jobs:
         if: ${{ !inputs.apply && !inputs.deploy_design_mocks }}
         run: |
           set -euo pipefail
+          [[ "$PROVIDER_SCHEMA_ONLY" != "true" ]] || bash ../scripts/deployment/azure/verify-provider-schema-core-baseline.sh "$FDAI_RUNTIME_IMAGE_REVISION" "$FDAI_RUNTIME_IMAGE_DIGEST" . "$RUNNER_TEMP/provider-schema-core-baseline-plan.json"
           rg="rg-fdai-${TF_VAR_env}-${TF_VAR_region_short}"; namespace="evhns-fdai-${TF_VAR_env}-${TF_VAR_region_short}"
-
           import_if_missing() {
             local address="$1"
             local resource_id="$2"
@@ -736,7 +737,7 @@ jobs:
             --plan-json "$RUNNER_TEMP/legacy-runtime-plan.json"
 
       - name: Enforce bounded Terraform plan scope
-        if: ${{ !inputs.apply && (env.CORE_MODEL_QUORUM_ONLY == 'true' || inputs.deploy_design_mocks || env.MONITORING_ONLY == 'true' || env.OPERATIONAL_HISTORY_ONLY == 'true' || env.RCA_READER_IDENTITY_ONLY == 'true' || env.MODEL_BINDING_ONLY == 'true' || env.DEPLOY_IDENTITY_MIGRATION_ONLY == 'true' || startsWith(inputs.request_id, 'plan-observability-') || startsWith(inputs.request_id, 'plan-runtime-')) }}
+        if: ${{ !inputs.apply && (env.CORE_MODEL_QUORUM_ONLY == 'true' || inputs.deploy_design_mocks || env.MONITORING_ONLY == 'true' || env.OPERATIONAL_HISTORY_ONLY == 'true' || env.PROVIDER_SCHEMA_ONLY == 'true' || env.RCA_READER_IDENTITY_ONLY == 'true' || env.MODEL_BINDING_ONLY == 'true' || env.DEPLOY_IDENTITY_MIGRATION_ONLY == 'true' || startsWith(inputs.request_id, 'plan-observability-') || startsWith(inputs.request_id, 'plan-runtime-')) }}
         working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
@@ -753,6 +754,7 @@ jobs:
             mode=monitoring; extra=()
           elif [[ "$OPERATIONAL_HISTORY_ONLY" == "true" ]]; then
             mode=operational-history; extra=()
+          elif [[ "$PROVIDER_SCHEMA_ONLY" == "true" ]]; then mode=provider-schema; extra=()
           elif [[ "$RCA_READER_IDENTITY_ONLY" == "true" ]]; then
             mode=rca-reader-identity; extra=()
           elif [[ "${{ startsWith(inputs.request_id, 'plan-runtime-') }}" == "true" ]]; then mode=runtime-call-evidence; extra=()
@@ -1192,6 +1194,7 @@ jobs:
             --name "${blob_prefix}/azure-preflight-evidence.json" \
             --file azure-preflight-evidence.json --auth-mode login --overwrite false \
             --only-show-errors --content-type application/json --output none
+          [[ "$PROVIDER_SCHEMA_ONLY" != "true" ]] || az storage blob upload --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" --container-name deployment-plans --name "${blob_prefix}/provider-schema-core-baseline.json" --file "$RUNNER_TEMP/provider-schema-core-baseline-plan.json" --auth-mode login --overwrite false --only-show-errors --content-type application/json --output none
           if [[ -n "${FDAI_RESOLVED_MODELS_PATH:-}" ]]; then
             az storage blob upload \
               --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
@@ -1223,7 +1226,6 @@ jobs:
             echo "Plan digest: \`$plan_digest\`"
             echo "Expires at: \`$expires_at\`"
           } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Publish sanitized protected plan metadata
         if: ${{ !inputs.apply && inputs.request_id != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -1232,7 +1234,6 @@ jobs:
           path: infra/plan-metadata.json
           if-no-files-found: error
           retention-days: 1
-
       - name: Restore and verify exact protected plan
         if: ${{ inputs.apply }}
         env:
@@ -1279,6 +1280,7 @@ jobs:
             --name "${blob_prefix}/azure-preflight-evidence.json" \
             --file plan-azure-preflight-evidence.json \
             --auth-mode login --overwrite --only-show-errors --output none
+          [[ "$PROVIDER_SCHEMA_ONLY" != "true" ]] || az storage blob download --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" --container-name deployment-plans --name "${blob_prefix}/provider-schema-core-baseline.json" --file provider-schema-core-baseline-plan.json --auth-mode login --overwrite --only-show-errors --output none
           read -r resolved_models_digest deployment_models_digest < <(
             python3 -c 'import json; evidence=json.load(open("plan-metadata.json", encoding="utf-8")).get("model_resolution"); print("- -" if evidence is None else f"{evidence.get('"'"'resolved_models_digest'"'"', '"'"''"'"')} {evidence.get('"'"'deployment_models_digest'"'"', '"'"''"'"')}")'
           )
@@ -1319,7 +1321,7 @@ jobs:
             --plan-id "$APPLY_PLAN_ID" --plan-digest "$APPLY_PLAN_DIGEST" \
             --context-digest "$APPLY_CONTEXT_DIGEST" --commit-sha "$APPLY_COMMIT_SHA" \
             --request-kind "$apply_request_kind" --environment "$APPLY_ENVIRONMENT"
-          PYTHONPATH="$GITHUB_WORKSPACE/services/core-control-plane/src:$GITHUB_WORKSPACE/packages/service-contracts/src" uv run --frozen --package fdai-core-control-plane python ../scripts/deployment/azure/require_resolved_capability.py --resolved resolved-models.json --endpoint-ref "azure-foundry:aif-fdai-models-${APPLY_ENVIRONMENT}-${TF_VAR_region_short}" --plan-metadata plan-metadata.json --requested-validation "$VALIDATE_CHATOPS_CHANNELS"
+          [[ "$resolved_models_digest" == "-" ]] || PYTHONPATH="$GITHUB_WORKSPACE/services/core-control-plane/src:$GITHUB_WORKSPACE/packages/service-contracts/src" uv run --frozen --package fdai-core-control-plane python ../scripts/deployment/azure/require_resolved_capability.py --resolved resolved-models.json --endpoint-ref "azure-foundry:aif-fdai-models-${APPLY_ENVIRONMENT}-${TF_VAR_region_short}" --plan-metadata plan-metadata.json --requested-validation "$VALIDATE_CHATOPS_CHANNELS"
           if [[ "$apply_request_kind" == "model" ]]; then
             policy_digest="$(python3 -c 'import json; evidence=json.load(open("plan-metadata.json", encoding="utf-8"))["model_resolution"]; print(evidence["binding_policy_digest"].removeprefix("sha256:"))')"
             [[ "$APPLY_REQUEST_ID" == "apply-model-${policy_digest}" ]] || {
@@ -1377,7 +1379,7 @@ jobs:
             python3 ../scripts/deployment/azure/guard_deploy_identity_plan.py \
               validate --plan "$RUNNER_TEMP/deploy-identity-applied-plan.json"
           fi
-
+          if [[ "$PROVIDER_SCHEMA_ONLY" == "true" ]]; then bash ../scripts/deployment/azure/verify-provider-schema-core-baseline.sh --verify-receipt provider-schema-core-baseline-plan.json "$runtime_revision" "$runtime_digest"; bash ../scripts/deployment/azure/verify-provider-schema-core-baseline.sh "$runtime_revision" "$runtime_digest" . provider-schema-core-baseline.json; fi
       - name: Reverify active Core model fence
         if: ${{ inputs.apply && env.MODEL_BINDING_ONLY == 'true' }}
         env:
@@ -1543,6 +1545,7 @@ jobs:
         run: |
           bash ../scripts/deployment/azure/verify_deploy_convergence.sh "${{ inputs.request_id }}"
           [[ "$DEPLOY_IDENTITY_MIGRATION_ONLY" != "true" ]] || bash ../scripts/deployment/azure/verify-deploy-identity-effect.sh "$RUNNER_TEMP/deploy-identity-applied-plan.json" "$DEPLOY_RUNNER_PRINCIPAL_ID" "$RUNNER_TEMP/deploy-identity-effect-receipt.json" "${{ vars.STATE_STORAGE_ACCOUNT }}" "$TF_VAR_env" "${{ inputs.plan_id }}"
+          [[ "$PROVIDER_SCHEMA_ONLY" != "true" ]] || bash ../scripts/deployment/azure/verify-provider-schema-deployment.sh "${{ inputs.commit_sha }}" "${{ inputs.runtime_image_revision }}" "${{ inputs.plan_id }}" provider-schema-deployment-evidence.json "${{ vars.STATE_STORAGE_ACCOUNT }}" "$TF_VAR_env" "${{ inputs.resume_verification }}"
           [[ "${{ startsWith(inputs.request_id, 'apply-runtime-') }}" != "true" ]] || bash ../scripts/deployment/azure/verify-runtime-call-evidence-job.sh "${{ inputs.commit_sha }}" "${{ inputs.plan_id }}" runtime-call-evidence-job-readback.json
 
       - name: Verify model deployment readback
@@ -1780,7 +1783,7 @@ jobs:
           echo "Design mocks: https://$hostname" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run schema migrations
-        if: ${{ inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
+        if: ${{ inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.PROVIDER_SCHEMA_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
         working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
@@ -1831,7 +1834,7 @@ jobs:
           fi
 
       - name: Publish integrated migration adoption evidence
-        if: ${{ always() && steps.protected-source.outcome == 'success' && inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' }}
+        if: ${{ always() && steps.protected-source.outcome == 'success' && inputs.apply && !inputs.resume_verification && !inputs.deploy_design_mocks && env.MONITORING_ONLY != 'true' && env.PROVIDER_SCHEMA_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.MODEL_BINDING_ONLY != 'true' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: integrated-service-migration-adoption-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -1840,7 +1843,7 @@ jobs:
           retention-days: 90
 
       - name: Verify deployed health endpoints
-        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.CORE_MODEL_QUORUM_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
+        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.CORE_MODEL_QUORUM_ONLY != 'true' && env.PROVIDER_SCHEMA_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
         run: |
           set -euo pipefail
           rg="$(terraform output -raw resource_group_name)"
@@ -2227,7 +2230,7 @@ jobs:
           retention-days: 7
 
       - name: Run canary publisher smoke
-        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
+        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.PROVIDER_SCHEMA_ONLY != 'true' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' }}
         run: |
           set -euo pipefail
           rg="$(terraform output -raw resource_group_name)"
@@ -2291,8 +2294,9 @@ jobs:
           if [[ -f runtime-call-evidence-job-readback.json ]]; then
             install -m 0600 runtime-call-evidence-job-readback.json "$candidate/runtime-call-evidence-job-readback.json"
           fi
+          [[ ! -f provider-schema-deployment-evidence.json ]] || install -m 0600 provider-schema-deployment-evidence.json "$candidate/provider-schema-deployment-evidence.json"
+          for evidence in provider-schema-core-baseline-plan.json provider-schema-core-baseline.json; do [[ ! -f "$evidence" ]] || install -m 0600 "$evidence" "$candidate/$evidence"; done
           echo "Applied protected plan: \`$APPLY_PLAN_ID\`" >> "$GITHUB_STEP_SUMMARY"
-
       - name: Publish sanitized apply receipt
         if: ${{ inputs.apply && success() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

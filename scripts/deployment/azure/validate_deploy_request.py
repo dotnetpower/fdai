@@ -13,11 +13,11 @@ from collections.abc import Mapping
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA64 = re.compile(r"^[0-9a-f]{64}$")
 _PLAN_REQUEST = re.compile(
-    r"^plan-([0-9a-f]{48}|cost-[0-9a-f]{48}|history-[0-9a-f]{48}|identity-[0-9a-f]{48}|observability-[0-9a-f]{48}|rca-[0-9a-f]{48}|runtime-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^plan-([0-9a-f]{48}|cost-[0-9a-f]{48}|history-[0-9a-f]{48}|identity-[0-9a-f]{48}|observability-[0-9a-f]{48}|provider-[0-9a-f]{48}|rca-[0-9a-f]{48}|runtime-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{32}-[0-9a-f]{64}|ocr-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _APPLY_REQUEST = re.compile(
-    r"^apply-([0-9a-f]{48}|cost-[0-9a-f]{48}|history-[0-9a-f]{48}|identity-[0-9a-f]{48}|observability-[0-9a-f]{48}|rca-[0-9a-f]{48}|runtime-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
+    r"^apply-([0-9a-f]{48}|cost-[0-9a-f]{48}|history-[0-9a-f]{48}|identity-[0-9a-f]{48}|observability-[0-9a-f]{48}|provider-[0-9a-f]{48}|rca-[0-9a-f]{48}|runtime-[0-9a-f]{48}|chatops-[0-9a-f]{24}|quorum-[0-9a-f]{24}|"
     r"model-[0-9a-f]{64}|ocr-[0-9a-f]{32}-[0-9a-f]{64})$"
 )
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
@@ -51,6 +51,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
     deploy_identity_migration = _enabled(values, "DEPLOY_IDENTITY_MIGRATION_ONLY")
     deploy_ohl = _enabled(values, "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET")
     deploy_operational_history = _enabled(values, "DEPLOY_OPERATIONAL_HISTORY")
+    deploy_provider_schema = _enabled(values, "PROVIDER_SCHEMA_ONLY")
     promote_image = _enabled(values, "PROMOTE_RUNTIME_IMAGE")
     verify_effect = _enabled(values, "VERIFY_EXECUTOR_EFFECT")
     cutover = _enabled(values, "CUTOVER_ISOLATED_EXECUTOR_AUTHORITY")
@@ -86,7 +87,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             "when deploy_console is enabled"
         )
     if re.fullmatch(
-        r"(?:plan|apply)-(?:cost-|history-|identity-|observability-|rca-|runtime-)?[0-9a-f]{48}",
+        r"(?:plan|apply)-(?:cost-|history-|identity-|observability-|provider-|rca-|runtime-)?[0-9a-f]{48}",
         request_id,
     ):
         if values.get("TARGET_ENVIRONMENT") == "prod":
@@ -112,6 +113,7 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
         request_suffix = request_suffix.removeprefix("history-")
         request_suffix = request_suffix.removeprefix("identity-")
         request_suffix = request_suffix.removeprefix("observability-")
+        request_suffix = request_suffix.removeprefix("provider-")
         request_suffix = request_suffix.removeprefix("runtime-")
         request_suffix = request_suffix.removeprefix("cost-")
         if request_suffix[:24] != expected_prefix:
@@ -244,6 +246,44 @@ def validate(values: Mapping[str, str], *, checkout_commit: str) -> None:
             raise ValueError(
                 "deploy identity migration cannot be combined with another bounded operation"
             )
+    provider_schema_only = (
+        re.fullmatch(r"(?:plan|apply)-provider-[0-9a-f]{48}", request_id) is not None
+    )
+    if deploy_provider_schema != provider_schema_only:
+        raise ValueError("provider-schema request prefix and mode must match")
+    if deploy_provider_schema:
+        provider_schema_mixed = (
+            "DEPLOY_CONSOLE",
+            "DEPLOY_CORE_MODEL_QUORUM",
+            "DEPLOY_OPERATOR_API",
+            "DEPLOY_ISOLATED_EXECUTOR",
+            "DEPLOY_DEV_OPERATIONS_GATEWAY",
+            "DEPLOY_OHL_SCALE_OUT_EVIDENCE_TARGET",
+            "DEPLOY_DOCUMENT_INGESTION",
+            "DEPLOY_MONITORING",
+            "DEPLOY_OPERATIONAL_HISTORY",
+            "DEPLOY_DESIGN_MOCKS",
+            "DEPLOY_OPERATOR_CHANNEL_EDGE",
+            "CUTOVER_ISOLATED_EXECUTOR_AUTHORITY",
+            "VERIFY_EXECUTOR_EFFECT",
+        )
+        if values.get("TARGET_ENVIRONMENT") != "dev":
+            raise ValueError("provider-schema deployment is restricted to dev")
+        if runtime_image_profile != "core-control-plane":
+            raise ValueError(
+                "provider-schema deployment requires the core-control-plane runtime image profile"
+            )
+        if (
+            any(_enabled(values, key) for key in provider_schema_mixed)
+            or document_ocr_action != "preserve"
+            or model_only
+            or validate_chatops
+            or rca_reader_identity
+            or deploy_identity_migration
+        ):
+            raise ValueError("provider-schema deployment cannot be combined with another target")
+        if not runtime_image_revision:
+            raise ValueError("provider-schema deployment requires runtime_image_revision")
     if deploy_operational_history:
         operational_history_mixed = (
             "DEPLOY_CONSOLE",
@@ -501,6 +541,8 @@ def _deployment_context_digest(values: Mapping[str, str]) -> str:
     }
     if _enabled(values, "DEPLOY_OPERATOR_CHANNEL_EDGE"):
         selection["deploy_operator_channel_edge"] = True
+    if _enabled(values, "PROVIDER_SCHEMA_ONLY"):
+        selection["deploy_provider_schema"] = True
     material = json.dumps(
         {
             "schema_version": "fdai.deployment-context.v1",

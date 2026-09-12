@@ -131,6 +131,7 @@ async def test_refresh_receipt_authority_is_literal_false_and_serialized_false(
             checked_at=NOW.isoformat(),
             source_name=None,
             source_kind=None,
+            source_revision=None,
             fallback_used=False,
             baseline_digest=None,
             observed_digest=None,
@@ -176,6 +177,7 @@ async def test_mirror_fallback_establishes_complete_baseline(tmp_path: Path) -> 
     assert receipt.disposition is ProviderSchemaRefreshDisposition.COMPATIBLE
     assert receipt.reason == "baseline_established"
     assert receipt.source_kind is ProviderSchemaSourceKind.MIRROR
+    assert receipt.source_revision == snapshot.source_revision
     assert receipt.fallback_used is True
     assert receipt.type_count == 1
     assert receipt.modeled_count == 1

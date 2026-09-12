@@ -70,6 +70,7 @@ def _request(**overrides: str) -> dict[str, str]:
         "DOCUMENT_OCR_ACTION": "preserve",
         "DEPLOY_MONITORING": "false",
         "DEPLOY_OPERATIONAL_HISTORY": "false",
+        "PROVIDER_SCHEMA_ONLY": "false",
         "RCA_READER_IDENTITY_ONLY": "false",
         "RUNTIME_CALL_EVIDENCE_TRANSITION": "false",
         "RUNTIME_IMAGE_REVISION": "",
@@ -744,6 +745,124 @@ def test_fdaictl_gateway_rejects_non_dev_environment() -> None:
                 DEPLOY_DEV_OPERATIONS_GATEWAY="true",
                 DEPLOY_PREFLIGHT_INPUT_JSON="{}",
             ),
+            checkout_commit=_COMMIT,
+        )
+
+
+def test_provider_schema_plan_and_apply_are_context_bound_and_exclusive() -> None:
+    values = _request(
+        COMMIT_SHA=_COMMIT,
+        PROVIDER_SCHEMA_ONLY="true",
+        RUNTIME_IMAGE_REVISION=_COMMIT,
+    )
+    context = _MODULE._deployment_context_digest(values)
+
+    def bound(mode: str) -> str:
+        prefix = _MODULE._request_binding_prefix(
+            target_binding=_TARGET_BINDING,
+            context_digest=context,
+            mode=mode,
+            region="koreacentral",
+        )
+        wire_mode = "apply" if mode == "resume" else mode
+        return f"{wire_mode}-provider-{prefix}{'abcd' * 5}0001"
+
+    validate(
+        {
+            **values,
+            "REQUEST_ID": bound("plan"),
+            "CONTEXT_DIGEST": context,
+            "PROMOTE_RUNTIME_IMAGE": "true",
+            "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+        },
+        checkout_commit=_COMMIT,
+    )
+    validate(
+        {
+            **values,
+            "APPLY": "true",
+            "REQUEST_ID": bound("apply"),
+            "CONTEXT_DIGEST": context,
+            "PLAN_ID": "plan-123-1",
+            "PLAN_DIGEST": _DIGEST,
+        },
+        checkout_commit=_COMMIT,
+    )
+    validate(
+        {
+            **values,
+            "APPLY": "true",
+            "RESUME_VERIFICATION": "true",
+            "REQUEST_ID": bound("resume"),
+            "CONTEXT_DIGEST": context,
+            "PLAN_ID": "plan-123-1",
+            "PLAN_DIGEST": _DIGEST,
+        },
+        checkout_commit=_COMMIT,
+    )
+
+    with pytest.raises(ValueError, match="prefix and mode must match"):
+        validate(
+            {
+                **values,
+                "REQUEST_ID": bound("plan").replace("plan-provider-", "plan-", 1),
+                "CONTEXT_DIGEST": context,
+                "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+            },
+            checkout_commit=_COMMIT,
+        )
+    mixed = {**values, "DEPLOY_DEV_OPERATIONS_GATEWAY": "true"}
+    mixed_context = _MODULE._deployment_context_digest(mixed)
+    mixed_prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=mixed_context,
+        mode="plan",
+        region="koreacentral",
+    )
+    with pytest.raises(ValueError, match="cannot be combined"):
+        validate(
+            {
+                **mixed,
+                "REQUEST_ID": f"plan-provider-{mixed_prefix}{'abcd' * 5}0001",
+                "CONTEXT_DIGEST": mixed_context,
+                "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+            },
+            checkout_commit=_COMMIT,
+        )
+    with pytest.raises(ValueError, match="requires runtime_image_revision"):
+        missing_image = {**values, "RUNTIME_IMAGE_REVISION": ""}
+        missing_context = _MODULE._deployment_context_digest(missing_image)
+        prefix = _MODULE._request_binding_prefix(
+            target_binding=_TARGET_BINDING,
+            context_digest=missing_context,
+            mode="plan",
+            region="koreacentral",
+        )
+        validate(
+            {
+                **missing_image,
+                "REQUEST_ID": f"plan-provider-{prefix}{'abcd' * 5}0001",
+                "CONTEXT_DIGEST": missing_context,
+                "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+            },
+            checkout_commit=_COMMIT,
+        )
+    wrong_profile = {**values, "RUNTIME_IMAGE_PROFILE": "cost-governance"}
+    wrong_profile_context = _MODULE._deployment_context_digest(wrong_profile)
+    wrong_profile_prefix = _MODULE._request_binding_prefix(
+        target_binding=_TARGET_BINDING,
+        context_digest=wrong_profile_context,
+        mode="plan",
+        region="koreacentral",
+    )
+    with pytest.raises(ValueError, match="requires the core-control-plane runtime image profile"):
+        validate(
+            {
+                **wrong_profile,
+                "REQUEST_ID": f"plan-provider-{wrong_profile_prefix}{'abcd' * 5}0001",
+                "CONTEXT_DIGEST": wrong_profile_context,
+                "DEPLOY_PREFLIGHT_INPUT_JSON": "{}",
+            },
             checkout_commit=_COMMIT,
         )
 
