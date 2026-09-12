@@ -9,12 +9,16 @@ set -euo pipefail
 
 request_id="${1:-}"
 observability_only=false
+cost_governance_only=false
 deploy_identity_only=false
 provider_schema_only=false
 runtime_call_evidence_only=false
 if [[ "$request_id" == apply-observability-* ]]; then
   observability_only=true
   export TF_CLI_ARGS_plan="-target=terraform_data.observability_analyzer_image_update"
+elif [[ "$request_id" == apply-cost-* ]]; then
+  cost_governance_only=true
+  export TF_CLI_ARGS_plan="-target=azurerm_role_assignment.inventory_cost_reader -target=azurerm_container_app_job.cost_governance_collector[0] -target=azurerm_container_app_job.cost_governance_analyzer[0]"
 elif [[ "$request_id" == apply-runtime-* ]]; then
   runtime_call_evidence_only=true
   export TF_CLI_ARGS_plan="-target=terraform_data.runtime_call_evidence_transition -target=terraform_data.inventory_runtime_image_update -target=terraform_data.runtime_workspace_binding_transition"
@@ -44,7 +48,36 @@ if [[ "$deploy_identity_only" == "true" || "$runtime_call_evidence_only" == "tru
 fi
 
 resource_group="$(terraform output -raw resource_group_name)"
-if [[ "$provider_schema_only" == "true" ]]; then
+if [[ "$cost_governance_only" == "true" ]]; then
+  : "${TF_VAR_cost_governance_image:?TF_VAR_cost_governance_image is required}"
+  collector_job_name="$(terraform output -raw cost_governance_collector_job_name)"
+  analyzer_job_name="$(terraform output -raw cost_governance_analyzer_job_name)"
+  [[ -n "$collector_job_name" && -n "$analyzer_job_name" ]] || {
+    echo "Cost Governance Job names are unavailable after apply" >&2
+    exit 1
+  }
+  collector_evidence_path="$RUNNER_TEMP/cost-governance-collector-job.json"
+  analyzer_evidence_path="$RUNNER_TEMP/cost-governance-analyzer-job.json"
+  az containerapp job show \
+    --resource-group "$resource_group" \
+    --name "$collector_job_name" \
+    --output json > "$collector_evidence_path"
+  az containerapp job show \
+    --resource-group "$resource_group" \
+    --name "$analyzer_job_name" \
+    --output json > "$analyzer_evidence_path"
+  uv run --frozen --package fdai-core-control-plane python \
+    ../scripts/deployment/azure/verify_job_image.py \
+    --job "$collector_evidence_path" \
+    --container "cost-governance-collector" \
+    --expected-image "$TF_VAR_cost_governance_image"
+  uv run --frozen --package fdai-core-control-plane python \
+    ../scripts/deployment/azure/verify_job_image.py \
+    --job "$analyzer_evidence_path" \
+    --container "cost-governance-analyzer" \
+    --expected-image "$TF_VAR_cost_governance_image"
+  exit 0
+elif [[ "$provider_schema_only" == "true" ]]; then
   job_id="$(terraform output -raw provider_schema_job_id)"
   if [[ ! "$job_id" =~ ^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft[.]App/jobs/[^/]+$ ]]; then
     echo "provider-schema Job resource id is unavailable after apply" >&2
