@@ -1,4 +1,5 @@
 name: container-supply-chain
+run-name: "Candidate images: ${{ inputs.images || 'pr-packaging' }}"
 
 on:
   pull_request:

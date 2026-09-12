@@ -44,12 +44,14 @@ domain code and assets. It does not create another control plane or move authori
 > additive kernel declaration refreshes their profile, manifest, and fixture identities together.
 > Container publication verifies the protected workflow source before any manual-dispatch
 > validation code runs and restricts root dispatch jobs to protected `main`, so unverified
-> workflow text cannot execute ahead of the provenance gate. The verifier also rejects an
+> workflow text cannot execute ahead of the provenance gate. The verifier also rejects a
 > publication workflow dispatch outside protected `main`.
 > Build-input pull requests retain a separate read-only image build and vulnerability scan.
 > Registry publication, SBOMs, and attestations require an explicit candidate dispatch with
 > selected images and the exact protected source SHA. Ordinary source pushes and version tags
 > do not publish images, and no pull request condition can inherit publication permissions.
+> The candidate title binds the selected image set, and Genesis reuses only an exact successful
+> candidate for the same protected source revision.
 
 ## Design at a glance
 
