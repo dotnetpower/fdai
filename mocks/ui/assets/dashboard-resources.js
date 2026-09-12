@@ -1,13 +1,17 @@
 // Mock-only interaction controller. No network, model, approval, or resource mutation.
 (function () {
   "use strict";
-  const { createSnapshot, query, statusKey, definitions, typeNames, typeCounts } = window.FdaiDashboardData;
-  const { element, badge } = window.FdaiDashboardViews;
+  const { createSnapshot, query, statusKey, definitions, typeNames, typeCounts, typeCatalog } = window.FdaiDashboardData;
+  const { element, badge, formatCount } = window.FdaiDashboardViews;
   const byId = (id) => document.getElementById(id);
   const state = { lens: "operation", view: "honeycomb", density: "comfortable", effectiveDensity: "comfortable", columns: 4, subscription: "all", group: "all", type: "all", status: null, query: "", selected: null, page: 0 };
   let snapshot;
   let result;
   const record = byId("resource-evidence");
+  const root = document.querySelector(".dashboard-v2");
+  const mapSurface = root.querySelector(".rd-map-surface");
+  let exampleSize = 24;
+  let exampleScenario = "complete";
   const touchLayout = matchMedia("(max-width: 700px), (pointer: coarse)");
   const preview = window.FdaiDashboardPreview.create(() => snapshot);
   const typePicker = window.FdaiDashboardTypePicker.create((type) => {
@@ -62,6 +66,7 @@
   function inspector() {
     const resource = snapshot.byId.get(state.selected);
     byId("resource-inspector").hidden = !resource;
+    byId("resource-inspector-jump").hidden = !resource;
     byId("resource-side").classList.toggle("has-selection", Boolean(resource));
     byId("resource-selection-empty").hidden = Boolean(resource);
     byId("resource-selection").hidden = !resource;
@@ -111,9 +116,8 @@
   }
   let legendLens = "";
   function geometry() {
-    const panel = document.querySelector(".dr-resource-panel");
-    const style = getComputedStyle(panel);
-    const width = panel.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    const style = getComputedStyle(mapSurface);
+    const width = mapSurface.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
     return {
       columns: Math.max(4, Math.min(34, Math.floor((width - 11) / 26))),
       effectiveDensity: touchLayout.matches ? "comfortable" : state.density,
@@ -154,6 +158,7 @@
       ["all", ...Object.keys(definitions[state.lens])].forEach((key) => {
         const button = element("button");
         button.type = "button";
+        button.id = `resource-status-${state.lens}-${key}`;
         button.dataset.stateKey = key;
         button.addEventListener("click", () => { state.status = key === "all" ? null : key; state.page = 0; render(); });
         legend.appendChild(button);
@@ -163,13 +168,13 @@
       const key = button.dataset.stateKey;
       const total = key === "all" ? result.eligibleCount : result.counts[key];
       button.replaceChildren();
-      if (key === "all") button.textContent = "All " + total;
+      if (key === "all") button.textContent = "All " + formatCount(total);
       else {
         const [label, tone, symbol] = definitions[state.lens][key];
         const mark = element("span", "dr-key", symbol);
         mark.dataset.tone = tone;
         mark.setAttribute("aria-hidden", "true");
-        button.append(mark, element("span", "", `${label} ${total}`));
+        button.append(mark, element("span", "", `${label} ${formatCount(total)}`));
       }
       button.dataset.count = String(total);
       button.setAttribute("aria-pressed", String(key === (state.status || "all")));
@@ -177,20 +182,24 @@
     document.querySelectorAll("[data-resource-view]").forEach((button) => button.setAttribute("aria-pressed", String(state.view === button.dataset.resourceView)));
     document.querySelectorAll("[data-resource-lens]").forEach((button) => button.setAttribute("aria-pressed", String(state.lens === button.dataset.resourceLens)));
     byId("resource-pagination").hidden = result.total <= result.limit;
-    byId("resource-page-label").textContent = `${grouped ? "Groups" : "Resources"} ${result.start + 1}-${Math.min(result.start + result.limit, result.total)} of ${result.total} matching / Page ${state.page + 1} of ${Math.max(1, Math.ceil(result.total / result.limit))}`;
+    byId("resource-page-label").textContent = `${grouped ? "Groups" : "Resources"} ${formatCount(result.start + 1)}-${formatCount(Math.min(result.start + result.limit, result.total))} of ${formatCount(result.total)} matching / Page ${formatCount(state.page + 1)} of ${formatCount(Math.max(1, Math.ceil(result.total / result.limit)))}`;
     byId("resource-previous").disabled = state.page === 0;
     byId("resource-next").disabled = result.start + result.limit >= result.total;
     byId("resource-page-boundary").textContent = snapshot.complete
-      ? `${count} observed resources. ${result.limit} ${grouped ? "group summaries" : "resources"} per page at most${state.view === "honeycomb" && state.effectiveDensity === "dense" ? " at this width" : ""}. Other pages are not missing observations. Groups are excluded from resource totals.`
-      : `${count} observed resources from a partial inventory; full total unknown. Search and groups cover only received records. Other pages are separate from missing observations.`;
+      ? `${formatCount(count)} observed resources. ${formatCount(result.limit)} ${grouped ? "group summaries" : "resources"} per page at most${state.view === "honeycomb" && state.effectiveDensity === "dense" ? " at this width" : ""}. Other pages are not missing observations. Groups are excluded from resource totals.`
+      : `${formatCount(count)} observed resources from a partial inventory; full total unknown. Search and groups cover only received records. Other pages are separate from missing observations.`;
     views.render(result, state, snapshot);
     inspector();
+    // Synchronous, page-owned notification: facts and history observe one completed render.
+    root.dispatchEvent(new Event("fdai-preview-state-change"));
   }
-  function loadExample() {
+  function loadExample(restored = null, generation = null) {
     typePicker.close();
     const size = Number(byId("resource-example-size").value);
     const mode = byId("resource-example-state").value;
-    snapshot = createSnapshot(size, mode);
+    snapshot = generation || createSnapshot(size, mode);
+    exampleSize = size;
+    exampleScenario = mode;
     state.selected = null;
     state.lens = "operation";
     state.view = "honeycomb";
@@ -206,21 +215,21 @@
     byId("resource-read-state").setAttribute("aria-busy", String(mode === "loading"));
     byId("resource-snapshot-id").textContent = snapshot.id;
     byId("resource-scope-name").textContent = snapshot.subscriptions.size === 1
-      ? [...snapshot.subscriptions.values()][0] : `${snapshot.subscriptions.size} observed subscriptions`;
-    byId("resource-scope-description").textContent = `${snapshot.groups.size} observed resource groups / Inventory only, not execution authority`;
+      ? [...snapshot.subscriptions.values()][0] : `${formatCount(snapshot.subscriptions.size)} observed subscriptions`;
+    byId("resource-scope-description").textContent = `${formatCount(snapshot.groups.size)} observed resource groups / Inventory only, not execution authority`;
     byId("resource-snapshot-status").textContent = mode === "partial" ? "Partial inventory / full total unknown"
       : mode === "stale" ? "Historical snapshot / current state unknown" : "State coverage is partial";
     byId("resource-snapshot-status").hidden = snapshot.resources.length === 0;
     const operations = snapshot.operationCounts;
     const known = snapshot.resources.length - operations.unknown - operations.na;
-    byId("count-resources").textContent = snapshot.resources.length;
-    byId("count-known").textContent = known;
-    byId("count-unknown").textContent = operations.unknown;
-    byId("count-na").textContent = operations.na;
-    byId("inventory-coverage").textContent = `${snapshot.complete ? "Complete example" : "Partial example; full total unknown"} / ${snapshot.resources.length} observed resources / 12:00 KST`;
-    byId("operation-coverage").textContent = `${known} known / ${operations.unknown} unknown / ${operations.na} not applicable`;
+    byId("count-resources").textContent = formatCount(snapshot.resources.length);
+    byId("count-known").textContent = formatCount(known);
+    byId("count-unknown").textContent = formatCount(operations.unknown);
+    byId("count-na").textContent = formatCount(operations.na);
+    byId("inventory-coverage").textContent = `${snapshot.complete ? "Complete example" : "Partial example; full total unknown"} / ${formatCount(snapshot.resources.length)} observed resources / 12:00 KST`;
+    byId("operation-coverage").textContent = `${formatCount(known)} known / ${formatCount(operations.unknown)} unknown / ${formatCount(operations.na)} not applicable`;
     const available = snapshot.availabilityCounts;
-    byId("availability-coverage").textContent = `${available.available + available.degraded + available.unavailable} known / ${available.unknown + available.unsupported} unknown or unsupported`;
+    byId("availability-coverage").textContent = `${formatCount(available.available + available.degraded + available.unavailable)} known / ${formatCount(available.unknown + available.unsupported)} unknown or unsupported`;
     byId("resource-priorities").hidden = snapshot.resources.length === 0;
     byId("resource-priorities-empty").hidden = snapshot.resources.length !== 0;
     document.querySelectorAll("[data-event-resource]").forEach((button) => {
@@ -231,14 +240,78 @@
       const resource = snapshot.byId.get(label.dataset.priorityState);
       if (resource) label.replaceChildren(badge("availability", statusKey(resource, "availability", snapshot)));
     });
+    if (restored) {
+      for (const key of ["lens", "view", "density", "subscription", "group", "type", "status", "query", "selected", "page"]) {
+        state[key] = restored[key];
+      }
+      window.FdaiDashboardV2SummaryFilter = restored.summaryFilter;
+      syncInputs();
+    }
     render();
   }
+  const viewKeys = ["version", "size", "scenario", "lens", "view", "density", "subscription", "group", "type", "status", "query", "selected", "page", "summaryFilter"];
+  function compatibleView(value) {
+    return value && typeof value === "object" && !Array.isArray(value) &&
+      Object.keys(value).length === viewKeys.length && viewKeys.every(key => Object.hasOwn(value, key)) &&
+      value.version === 1 && [24, 100, 1000, 10000].includes(value.size) &&
+      ["complete", "partial", "stale", "loading", "error", "empty"].includes(value.scenario) &&
+      ["operation", "provisioning", "availability", "observation"].includes(value.lens) &&
+      ["groups", "honeycomb", "list"].includes(value.view) &&
+      ["comfortable", "dense"].includes(value.density) &&
+      [value.subscription, value.group].every(item => typeof item === "string" && item.length <= 80) &&
+      (value.type === "all" || typeCatalog.some(type => type.key === value.type)) &&
+      (value.status === null || (typeof value.status === "string" && Object.hasOwn(definitions[value.lens], value.status))) &&
+      typeof value.query === "string" && value.query.length <= 200 &&
+      (value.selected === null || (typeof value.selected === "string" && value.selected.length <= 80)) &&
+      Number.isInteger(value.page) && value.page >= 0 && value.page < 10000 &&
+      [null, "known", "provisioning"].includes(value.summaryFilter) &&
+      new TextEncoder().encode(JSON.stringify(value)).length <= 2048;
+  }
+  /** Explicit mock-only history payload. Reject unknown fields before changing the visible view. */
+  root.fdaiPreviewState = Object.freeze({
+    capture() {
+      return {
+        version: 1, size: exampleSize, scenario: exampleScenario,
+        lens: state.lens, view: state.view, density: state.density,
+        subscription: state.subscription, group: state.group, type: state.type,
+        status: state.status, query: state.query, selected: state.selected, page: state.page,
+        summaryFilter: window.FdaiDashboardV2SummaryFilter || null,
+      };
+    },
+    restore(value) {
+      if (!compatibleView(value)) {
+        console.warn("Ignoring incompatible resource preview state.");
+        return false;
+      }
+      const previousSnapshot = window.FdaiDashboardV2Snapshot;
+      const previousFilter = window.FdaiDashboardV2SummaryFilter;
+      const generation = createSnapshot(value.size, value.scenario);
+      const validScope = (value.subscription === "all" || generation.subscriptions.has(value.subscription)) &&
+        (value.group === "all" || generation.resources.some(resource =>
+          resource.group === value.group && (value.subscription === "all" || resource.subscription === value.subscription)));
+      if (!validScope || (value.selected !== null && !generation.byId.has(value.selected))) {
+        // The fixture wrapper publishes source flags when generating; rejected input must not change them.
+        window.FdaiDashboardV2Snapshot = previousSnapshot;
+        window.FdaiDashboardV2SummaryFilter = previousFilter;
+        console.warn("Ignoring incompatible resource preview state.");
+        return false;
+      }
+      byId("resource-example-size").value = String(value.size);
+      byId("resource-example-state").value = value.scenario;
+      loadExample(value, generation);
+      return true;
+    },
+  });
   ["subscription", "group"].forEach((key) => byId("resource-" + key).addEventListener("change", (event) => {
     state[key] = event.target.value;
     if (key === "subscription") { state.group = "all"; syncInputs(); }
     state.page = 0; render();
   }));
-  byId("resource-search").addEventListener("input", (event) => { state.query = event.target.value.trim().toLowerCase(); state.page = 0; render(); });
+  byId("resource-search").maxLength = 200;
+  byId("resource-search").addEventListener("input", (event) => {
+    event.target.value = event.target.value.slice(0, 200);
+    state.query = event.target.value.trim().toLowerCase().slice(0, 200); state.page = 0; render();
+  });
   byId("resource-reset").addEventListener("click", () => { resetFilters(); render(); });
   byId("resource-scope-reset").addEventListener("click", () => { resetFilters(); state.view = "groups"; render(); });
   document.querySelectorAll("[data-resource-lens]").forEach((button) => button.addEventListener("click", () => { state.lens = button.dataset.resourceLens; state.status = null; state.page = 0; render(); }));
@@ -280,17 +353,21 @@
     li.append(stamp, copy);
     byId("resource-changes").appendChild(li);
   });
-  byId("resource-example-size").addEventListener("change", loadExample);
-  byId("resource-example-state").addEventListener("change", loadExample);
-  byId("resource-example-restore").addEventListener("click", () => { byId("resource-example-state").value = "complete"; loadExample(); });
+  byId("resource-example-size").addEventListener("change", () => loadExample());
+  byId("resource-example-state").addEventListener("change", () => loadExample());
+  byId("resource-example-restore").addEventListener("click", () => {
+    byId("resource-example-state").value = "complete";
+    loadExample();
+    byId("resource-map-title").focus({ preventScroll: true });
+    byId("resource-selection-status").textContent = "Complete example shown. No runtime request.";
+  });
   loadExample();
   function resize() {
     const next = geometry();
     if (next.columns !== state.columns || next.effectiveDensity !== state.effectiveDensity) {
-      state.page = 0;
       render();
     }
   }
-  new ResizeObserver(resize).observe(document.querySelector(".dr-resource-panel"));
+  new ResizeObserver(resize).observe(mapSurface);
   touchLayout.addEventListener("change", resize);
 })();

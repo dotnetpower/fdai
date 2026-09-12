@@ -4,79 +4,186 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
-  <link rel="stylesheet" href="assets/overview-hubs.css?v=overview-v2" />
-  <link rel="stylesheet" href="assets/overview-workspace.css?v=1" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=metric-links-v1" />
   <link rel="stylesheet" href="assets/operator-workspace.css?v=2" />
-  <link rel="stylesheet" href="assets/dashboard-essential.css?v=11" />
+  <link rel="stylesheet" href="assets/dashboard-essential.css?v=16" />
+  <link rel="stylesheet" href="assets/dashboard-evidence.css?v=2" />
+  <link rel="stylesheet" href="assets/dashboard-readability.css?v=1" />
   <script src="assets/calm-slate.js?v=operator-workspaces-v2" defer></script>
 </head>
-<body class="cs-operator-neutral cs-dashboard-essential" data-chat-theme="clear-neutral">
-  <div class="de-toast" role="status" aria-live="polite" aria-atomic="true">
-    <strong>Synthetic preview.</strong>
-    <span>Frozen example scope. No runtime reads, approvals, promotion, or resource actions.</span>
-  </div>
-  <main class="cs-container cs-page ov-page ow-page">
+<body class="cs-operator-neutral cs-dashboard-essential cs-dashboard-overview" data-chat-theme="clear-neutral">
+  <a class="de-skip-link" href="#dashboard-main">Skip to dashboard content</a>
+  <main id="dashboard-main" class="cs-container cs-page de-page" data-preview-view="dashboard-v1" tabindex="-1">
     <header class="de-page-header">
-      <div><h1>Dashboard</h1><p>Operational exceptions, evidence trust, and verified outcomes at a glance.</p></div>
+      <div>
+        <h1>Dashboard</h1>
+        <p class="de-preview-note">
+          <strong>Simulated data</strong>
+          <span>30-day sample. No live reads or actions.</span>
+        </p>
+      </div>
       <a class="cs-control-button" href="dashboard-v2.html">Resource dashboard</a>
     </header>
-    <section class="de-card de-attention" aria-labelledby="attention-title">
-      <header class="de-card-head"><div><h2 id="attention-title">Needs judgment now</h2><p>Residual decisions and evidence gaps that automation cannot resolve.</p></div><span class="de-status is-review">3 signals</span></header>
+    <section class="de-section de-attention" aria-labelledby="attention-title">
+      <header class="de-section-head">
+        <div><h2 id="attention-title">Items to review</h2><p>Start with pending approvals and evidence gaps.</p></div>
+        <span class="de-status is-review">3 signals</span>
+      </header>
       <div class="de-attention-grid">
-        <a href="hil.html?status=pending"><span class="de-status is-review">Approval</span><strong>2 decisions are waiting</strong><small>A current human approver is required.</small></a>
-        <a href="operating-outcomes.html"><span class="de-status is-unknown">Evidence</span><strong>Confidence unavailable</strong><small>The confidence source is not connected.</small></a>
-        <a href="control-assurance.html"><span class="de-status is-unknown">Verification</span><strong>Effect unknown</strong><small>The independent observation is missing.</small></a>
+        <a href="hil.html?status=pending">
+          <span class="de-status is-review">Human approval</span><span class="de-link-arrow" aria-hidden="true">&rarr;</span>
+          <strong>Pending: 2</strong>
+        </a>
+        <a href="operating-outcomes.html">
+          <span class="de-status is-unknown">Evidence limit</span><span class="de-link-arrow" aria-hidden="true">&rarr;</span>
+          <strong class="de-value-unknown">Confidence unavailable</strong>
+        </a>
+        <a href="control-assurance.html">
+          <span class="de-status is-unknown">Verification limit</span><span class="de-link-arrow" aria-hidden="true">&rarr;</span>
+          <strong class="de-value-unknown">Effect unknown</strong>
+        </a>
       </div>
     </section>
-    <section class="de-card de-posture" aria-labelledby="posture-title">
-      <header class="de-card-head"><div><h2 id="posture-title">Current posture</h2><p>Measured results remain separate from unverified effects.</p></div><span class="de-status is-neutral">Simulated</span></header>
+    <section class="de-section de-posture" aria-labelledby="posture-title">
+      <header class="de-section-head"><div><h2 id="posture-title">Current posture</h2><p>Measured results, not assumed effects.</p></div></header>
       <div class="de-posture-grid">
-        <a class="de-primary-metric" href="operating-outcomes.html#auto-resolution"><span>Auto-resolution</span><strong>73%</strong><small>Baseline 65% / Higher is better</small></a>
+        <a class="cs-metric-link de-primary-metric" href="operating-outcomes.html#auto-resolution">
+          <span>Auto-resolution</span>
+          <span class="de-progress-ring">
+            <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+              <circle class="de-ring-track" cx="50" cy="50" r="42"></circle>
+              <circle class="de-ring-value" cx="50" cy="50" r="42" pathLength="100" stroke-dasharray="73 27"></circle>
+              <line class="de-ring-baseline" x1="28.252" y1="20.067" x2="22.374" y2="11.976"></line>
+            </svg>
+            <strong>73%</strong>
+          </span>
+          <small class="de-comparison-note"><span>Marker: 65% baseline</span><span>8 percentage points higher</span></small>
+        </a>
         <div class="de-posture-facts">
-          <a href="audit.html?window=30d&amp;mode=shadow"><span>Shadow share</span><strong>80%</strong><small>No promotion authority</small></a>
-          <a href="promotion.html"><span>Policy escapes</span><strong>Unavailable</strong><small>Registry not connected</small></a>
-          <a href="audit.html?from_seq=1&amp;through_seq=30"><span>Evidence window</span><strong>30 events</strong><small>Sequence 1-30</small></a>
+          <a class="cs-metric-link" href="audit.html?window=30d&amp;mode=shadow"><span>Observation mode</span><strong>80%</strong><small>Shadow: no changes applied</small></a>
+          <a class="cs-metric-link" href="promotion.html"><span>Safety-policy bypasses</span><strong class="de-value-unknown">Unavailable</strong><small>Registry not connected</small></a>
+          <a class="cs-metric-link" href="audit.html?from_seq=1&amp;through_seq=30"><span>Evidence sample</span><strong>30 events</strong><small>Sequence 1-30</small></a>
         </div>
       </div>
-      <footer class="de-provenance"><span>Simulated audit projection</span><span>30-day window</span><span>Source: example-autonomy / 2026-07-22T15:18:00Z</span><a href="operating-outcomes.html">Inspect measurement evidence</a></footer>
     </section>
-    <section class="de-card de-outcomes">
-      <div class="ov-section-head"><div><h2>Operating outcomes</h2><p>Current results and their paired baseline. Missing evidence is not a zero.</p></div></div>
-      <div class="ow-metrics ow-dashboard-outcomes">
-        <a class="ow-metric" href="operating-outcomes.html#human-touchpoints"><span>Human touchpoints / 100</span><strong>13.3</strong><small>Baseline 26.7 / Lower is better</small></a>
-        <a class="ow-metric" href="operating-outcomes.html#mttr"><span>MTTR</span><strong>15m</strong><small>Baseline 26m / Lower is better</small></a>
-        <a class="ow-metric" href="operating-outcomes.html#change-lead-time"><span>Change lead time</span><strong>48m</strong><small>Baseline 98m / Lower is better</small></a>
-        <a class="ow-metric" href="operating-outcomes.html#cost-per-resolved-event"><span>Cost / resolved event</span><strong>Unavailable</strong><small>Attribution not connected</small></a>
-      </div>
-    </section>
-    <section class="de-card de-routing">
-      <div class="ov-section-head"><div><h2>Routing and control</h2><p>Tier classification and control disposition are separate from verified effect.</p></div></div>
-      <div class="ow-grid">
-        <section class="ov-panel js-chartable" data-chart-title="Trust tier distribution" data-chart-columns='["Tier","Events"]' data-chart-rows='[["T0","22"],["T1","6"],["T2","2"]]' data-chart-num-cols='[1]' data-chart-source="Synthetic example-autonomy, 30 days.">
-          <h3>Trust tier mix</h3><div class="cs-stackbar" aria-hidden="true"><span class="is-t0" style="width:73.33%"></span><span class="is-t1" style="width:20%"></span><span class="is-t2" style="width:6.67%"></span></div>
-          <nav class="ov-footer-links" aria-label="Tier evidence"><a href="trust-routing.html#t0">T0 22 / 73%</a><a href="trust-routing.html#t1">T1 6 / 20%</a><a href="trust-routing.html#t2">T2 2 / 7%</a></nav>
+    <section class="de-section de-routing" aria-labelledby="routing-title">
+      <header class="de-section-head"><div><h2 id="routing-title">Routing and control</h2><p>Classification does not prove an effect.</p></div></header>
+      <div class="de-routing-body">
+        <section class="de-chart js-chartable" data-chart-title="Trust tier distribution" data-chart-columns='["Tier","Events"]' data-chart-rows='[["T0","22"],["T1","6"],["T2","2"]]' data-chart-num-cols='[1]' data-chart-source="Synthetic example-autonomy, 30 days.">
+          <div class="de-chart-head"><h3>Trust tier mix</h3><button type="button" class="de-inspect" data-cs-chart-inspect aria-label="Inspect trust tier distribution" title="Inspect trust tier distribution"><span aria-hidden="true">&nearr;</span></button></div>
+          <div class="cs-stackbar" aria-hidden="true"><span class="is-t0" style="width:73.33%"></span><span class="is-t1" style="width:20%"></span><span class="is-t2" style="width:6.67%"></span></div>
+          <nav class="de-chart-links" aria-label="Tier evidence">
+            <a href="trust-routing.html#t0"><i class="de-chart-key is-t0" aria-hidden="true"></i><span>Rules (T0)</span><strong>22 / 73%</strong></a>
+            <a href="trust-routing.html#t1"><i class="de-chart-key is-t1" aria-hidden="true"></i><span>Reuse (T1)</span><strong>6 / 20%</strong></a>
+            <a href="trust-routing.html#t2"><i class="de-chart-key is-t2" aria-hidden="true"></i><span>Reasoning (T2)</span><strong>2 / 7%</strong></a>
+          </nav>
         </section>
-        <section class="ov-panel"><h3>Control outcomes</h3><div class="cs-stackbar" aria-hidden="true"><span class="is-auto" style="width:73.33%"></span><span class="is-hil" style="width:6.67%"></span><span class="is-abstain" style="width:16.67%"></span><span class="is-deny" style="width:3.33%"></span></div>
-          <nav class="ov-footer-links" aria-label="Control evidence"><a href="audit.html?window=30d&amp;outcome=auto">Auto 22</a><a href="audit.html?window=30d&amp;outcome=hil">Approval 2</a><a href="audit.html?window=30d&amp;outcome=abstain">Held 5</a><a href="audit.html?window=30d&amp;outcome=deny">Denied 1</a></nav>
-          <div class="cs-stackbar" aria-hidden="true"><span class="is-abstain" style="width:80%"></span><span class="is-auto" style="width:20%"></span></div><nav class="ov-footer-links" aria-label="Mode evidence"><a href="audit.html?window=30d&amp;mode=shadow">Shadow 80%</a><a href="audit.html?window=30d&amp;mode=enforce">Enforce 20%</a></nav>
+        <section class="de-chart"><div class="de-chart-head"><h3>Control outcomes</h3></div><div class="cs-stackbar" aria-hidden="true"><span class="is-auto" style="width:73.33%"></span><span class="is-hil" style="width:6.67%"></span><span class="is-abstain" style="width:16.67%"></span><span class="is-deny" style="width:3.33%"></span></div>
+          <nav class="de-chart-links" aria-label="Control evidence">
+            <a href="audit.html?window=30d&amp;outcome=auto"><i class="de-chart-key is-auto" aria-hidden="true"></i><span>Automated</span><strong>22</strong></a>
+            <a href="audit.html?window=30d&amp;outcome=hil"><i class="de-chart-key is-hil" aria-hidden="true"></i><span>Human approval</span><strong>2</strong></a>
+            <a href="audit.html?window=30d&amp;outcome=abstain"><i class="de-chart-key is-abstain" aria-hidden="true"></i><span>Held for review</span><strong>5</strong></a>
+            <a href="audit.html?window=30d&amp;outcome=deny"><i class="de-chart-key is-deny" aria-hidden="true"></i><span>Denied</span><strong>1</strong></a>
+          </nav>
         </section>
       </div>
     </section>
-    <section class="de-card de-verticals">
-      <div class="ov-section-head"><div><h2>Vertical outcomes</h2><p>Same synthetic 30-day window. Unattributed records are not assigned to a vertical.</p></div></div>
-      <div class="ow-metrics">
-        <a class="ow-metric" href="verticals.html#resilience"><span>Resilience / Simulated</span><strong>12 events</strong><small>10 auto-resolved / 1 open risk / $0 monthly savings</small></a>
-        <a class="ow-metric" href="verticals.html#change-safety"><span>Change safety / Simulated</span><strong>11 events</strong><small>8 auto-resolved / 2 open risks / $0 monthly savings</small></a>
-        <a class="ow-metric" href="verticals.html#cost-governance"><span>Cost governance / Simulated</span><strong>7 events</strong><small>4 auto-resolved / 3 open risks / $0 monthly savings</small></a>
+    <section class="de-section de-outcomes" aria-labelledby="outcomes-title">
+      <header class="de-section-head"><div><h2 id="outcomes-title">Operating outcomes</h2><p>Missing evidence is not zero.</p></div></header>
+      <div class="cs-metric-grid de-outcome-grid">
+        <a class="cs-metric-link" href="operating-outcomes.html#human-touchpoints"><span>Human interactions / 100 events</span><strong>13.3</strong><small>Baseline 26.7 / Lower is better</small></a>
+        <a class="cs-metric-link" href="operating-outcomes.html#mttr"><span>Mean recovery time</span><strong>15 min</strong><small>Baseline 26 min / Lower is better</small></a>
+        <a class="cs-metric-link" href="operating-outcomes.html#change-lead-time"><span>Change lead time</span><strong>48 min</strong><small>Baseline 98 min / Lower is better</small></a>
+        <a class="cs-metric-link" href="operating-outcomes.html#cost-per-resolved-event"><span>Cost per resolved event</span><strong class="de-value-unknown">Unavailable</strong><small>USD attribution not connected</small></a>
       </div>
     </section>
-    <details class="de-card de-evidence"><summary>Operational evidence</summary><div>
-      <div class="ow-metrics"><a href="audit.html?from_seq=1&amp;through_seq=30" class="ow-metric"><span>Audit sample</span><strong>30</strong><small>Sequence 1-30 / Bounded sample</small></a><a href="rules.html" class="ow-metric"><span>Living rules</span><strong>61 active</strong><small>4 candidates / 1 promoted in example window</small></a></div>
-      <div class="ow-grid"><section><h3>By action kind</h3><div class="cs-table-wrap"><table class="cs-table"><thead><tr><th>Action kind</th><th>Count</th></tr></thead><tbody><tr><td><a href="audit.html?action_kind=observe&amp;from_seq=1&amp;through_seq=30">Observe</a></td><td>24</td></tr><tr><td><a href="audit.html?action_kind=remediation-pr&amp;from_seq=1&amp;through_seq=30">Remediation PR</a></td><td>6</td></tr></tbody></table></div></section>
-      <section><h3>By outcome</h3><div class="cs-table-wrap"><table class="cs-table"><thead><tr><th>Outcome</th><th>Count</th></tr></thead><tbody><tr><td><a href="audit.html?outcome=auto&amp;from_seq=1&amp;through_seq=30">Auto</a></td><td>22</td></tr><tr><td><a href="audit.html?outcome=abstain&amp;from_seq=1&amp;through_seq=30">Held</a></td><td>5</td></tr><tr><td><a href="audit.html?outcome=hil&amp;from_seq=1&amp;through_seq=30">Approval</a></td><td>2</td></tr><tr><td><a href="audit.html?outcome=deny&amp;from_seq=1&amp;through_seq=30">Denied</a></td><td>1</td></tr></tbody></table></div></section></div>
-      <p class="ow-note">Broker acceptance and an API success do not prove an operational outcome. The mock issues no commands.</p>
-    </div></details>
+    <details id="operational-evidence" class="de-section de-evidence" data-preview-persist>
+      <summary><span>Operational evidence</span><span class="de-disclosure-hint">Sources, vertical outcomes, and audit records</span></summary>
+      <div class="de-evidence-body">
+        <section class="de-evidence-section" aria-labelledby="evidence-context-title">
+          <header class="de-section-head">
+            <div><h2 id="evidence-context-title">Evidence context</h2><p>Frozen example scope. No runtime reads, approvals, promotion, or resource actions.</p></div>
+            <a class="de-evidence-link" href="operating-outcomes.html">Inspect measurement evidence</a>
+          </header>
+          <dl class="de-source-facts">
+            <div><dt>Data kind</dt><dd>Simulated audit projection</dd></div>
+            <div><dt>Source</dt><dd>example-autonomy</dd></div>
+            <div><dt>Window</dt><dd>30-day illustrative fixture</dd></div>
+            <div><dt>Captured at</dt><dd><time datetime="2026-07-22T15:18:00Z">22 Jul 2026, 15:18 UTC</time></dd></div>
+            <div><dt>Example start (inclusive)</dt><dd><time data-window-start datetime="2026-06-22T15:18:00Z">22 Jun 2026, 15:18 UTC</time></dd></div>
+            <div><dt>Example end (exclusive)</dt><dd><time data-window-end datetime="2026-07-22T15:18:00Z">22 Jul 2026, 15:18 UTC</time></dd></div>
+            <div><dt>Fixture coverage</dt><dd>30 of 30 example events, sequence 1-30</dd></div>
+            <div><dt>Currency</dt><dd>USD (illustrative)</dd></div>
+          </dl>
+          <p class="de-source-scope">This interval defines the static example, not a provider collection. Scope is limited to these 30 events; tenant-wide completeness and live freshness are not assessed.</p>
+        </section>
+        <section class="de-section de-verticals de-evidence-section" aria-labelledby="verticals-title">
+          <header class="de-section-head"><div><h2 id="verticals-title">Vertical outcomes</h2><p>Same 30-day sample. Unattributed records remain unassigned.</p></div><span class="de-status is-neutral">Simulated</span></header>
+          <div class="cs-metric-grid">
+            <a class="cs-metric-link" href="verticals.html#resilience">
+              <span>Resilience</span><strong>12 events</strong>
+              <dl class="de-vertical-facts">
+                <div><dt>Auto-resolved</dt><dd>10</dd></div>
+                <div><dt>Open risks</dt><dd>1</dd></div>
+                <div><dt>Monthly savings</dt><dd>USD 0</dd></div>
+              </dl>
+            </a>
+            <a class="cs-metric-link" href="verticals.html#change-safety">
+              <span>Change safety</span><strong>11 events</strong>
+              <dl class="de-vertical-facts">
+                <div><dt>Auto-resolved</dt><dd>8</dd></div>
+                <div><dt>Open risks</dt><dd>2</dd></div>
+                <div><dt>Monthly savings</dt><dd>USD 0</dd></div>
+              </dl>
+            </a>
+            <a class="cs-metric-link" href="verticals.html#cost-governance">
+              <span>Cost governance</span><strong>7 events</strong>
+              <dl class="de-vertical-facts">
+                <div><dt>Auto-resolved</dt><dd>4</dd></div>
+                <div><dt>Open risks</dt><dd>3</dd></div>
+                <div><dt>Monthly savings</dt><dd>USD 0</dd></div>
+              </dl>
+            </a>
+          </div>
+        </section>
+        <section class="de-evidence-section" aria-labelledby="audit-detail-title">
+          <header class="de-section-head"><div><h2 id="audit-detail-title">Audit and control detail</h2><p>Sample coverage and execution modes, followed by the underlying counts.</p></div></header>
+          <div class="de-audit-summary">
+            <a class="cs-data-link" href="audit.html?from_seq=1&amp;through_seq=30"><span>Audit sample</span><strong>30 events</strong><small>Sequence 1-30 / Bounded sample</small></a>
+            <a class="cs-data-link" href="rules.html"><span>Living rules</span><strong>61 active</strong><small>4 candidates / 1 promoted in example window</small></a>
+            <a class="cs-data-link" href="audit.html?window=30d&amp;mode=shadow"><span>Observation mode</span><strong>80%</strong><small>Shadow: no changes applied</small></a>
+            <a class="cs-data-link" href="audit.html?window=30d&amp;mode=enforce"><span>Changes enabled</span><strong>20%</strong><small>Enforce: mode, not a verified effect</small></a>
+          </div>
+          <div class="de-breakdowns">
+            <section aria-labelledby="action-kind-title">
+              <h3 id="action-kind-title">By action kind</h3>
+              <div class="cs-table-wrap"><table class="cs-table">
+                <caption class="cs-sr-only">Action kinds in the simulated 30-event audit sample</caption>
+                <thead><tr><th scope="col">Action kind</th><th scope="col" class="de-count">Count</th></tr></thead>
+                <tbody>
+                  <tr><td><a href="audit.html?action_kind=observe&amp;from_seq=1&amp;through_seq=30">Observe</a></td><td class="de-count">24</td></tr>
+                  <tr><td><a href="audit.html?action_kind=remediation-pr&amp;from_seq=1&amp;through_seq=30">Remediation PR</a></td><td class="de-count">6</td></tr>
+                </tbody>
+              </table></div>
+              <footer class="de-evidence-note"><strong>Interpretation limit</strong><p>Broker acceptance and an API success do not prove an operational outcome. The mock issues no commands.</p></footer>
+            </section>
+            <section aria-labelledby="audit-outcome-title">
+              <h3 id="audit-outcome-title">By outcome</h3>
+              <div class="cs-table-wrap"><table class="cs-table">
+                <caption class="cs-sr-only">Outcomes in the simulated 30-event audit sample</caption>
+                <thead><tr><th scope="col">Outcome</th><th scope="col" class="de-count">Count</th></tr></thead>
+                <tbody>
+                  <tr><td><a href="audit.html?outcome=auto&amp;from_seq=1&amp;through_seq=30">Auto</a></td><td class="de-count">22</td></tr>
+                  <tr><td><a href="audit.html?outcome=abstain&amp;from_seq=1&amp;through_seq=30">Held</a></td><td class="de-count">5</td></tr>
+                  <tr><td><a href="audit.html?outcome=hil&amp;from_seq=1&amp;through_seq=30">Approval</a></td><td class="de-count">2</td></tr>
+                  <tr><td><a href="audit.html?outcome=deny&amp;from_seq=1&amp;through_seq=30">Denied</a></td><td class="de-count">1</td></tr>
+                </tbody>
+              </table></div>
+            </section>
+          </div>
+        </section>
+      </div>
+    </details>
   </main>
 </body>
 </html>

@@ -12,6 +12,11 @@ badges - calm and professional, with no primary/neon colors and no top/bottom co
 
 ## Pages
 
+The Overview Dashboard uses [dashboard-readability.css](assets/dashboard-readability.css)
+to match the Console's short review summaries, quieter unavailable values, and
+reading space. Secondary evidence can require vertical scrolling. This stylesheet
+is limited to the Dashboard; other static studies keep their existing composition.
+
 Operator console (read-only). Overview / Now / History surfaces:
 
 | File | Purpose |
