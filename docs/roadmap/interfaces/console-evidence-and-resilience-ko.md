@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 66afee370930c6addd0d17f236b6c3899efdf63e
+translation_source_sha: 229f1e283f587a0ec7bb5046a44730f6e9fe1b4e
 translation_revised: 2026-09-12
 ---
 # 콘솔 근거 및 복원력
@@ -157,8 +157,8 @@ Command Deck 스냅샷으로 제공합니다. 영역별 분석은 자동 해결�
 경로는 관찰된, finalized, pending, adverse 및 auto-resolved 개수를 분리해 표시합니다.
 Auto-resolution 비율은 정본 합계 observed-event denominator를 유지하므로 pending 및 기타
 non-auto 이벤트가 비율에서 사라지지 않습니다. 결과 및 감사 시각은 timezone-aware여야
-합니다. 영속 감사 시각보다 5분 넘게 미래인 결과는 malformed 근거이므로 액션을
-finalize하지 않습니다.
+합니다. 영속 감사 시각보다 5분 넘게 미래인 결과는 액션을 finalize하지 않습니다.
+Operator는 완전하고 일관되며 non-synthetic인 `measurement:outcome-assurance:autonomy` 변환 결과만 허용하고 감사 행에서 이를 복구하지 않습니다.
 버티컬 귀속은 먼저 명시적으로 기록된 버티컬을 사용하고, 그다음 강한 복원력 또는
 비용 거버넌스 액션/리소스 힌트만 사용합니다. 추측 없이 귀속할 수 없는 근거는
 `unattributed` 행에 남고 global denominator에 포함되며 표시되는 귀속 커버리지를 낮춥니다.
@@ -392,7 +392,7 @@ Read-source 출처 이력, 온톨로지 browse, 화면 간 operational 및 인�
 근거에서 결정론적으로 렌더링됩니다. 온톨로지 browse는 대상과 browse verb를 요구하고,
 허용 목록에 있는 신원 필드와 256자 이하 프롬프트 값만 전달하며, 중복되거나 malformed인 개수와
 선택을 사용 불가로 표시합니다. 온톨로지 변환 결과와 결정론적 browse 답변은 일반 프롬프트
-assembly와 분리된 자체 프롬프트 모듈에 위치합니다.
+assembly와 분리된 자체 프롬프트 모듈에 위치합니다. Ontology Instances는 활성 세대 프로바이더 유형 커버리지를 Resource 상태 및 관계 커버리지와 분리해 전달하며, 브라우저는 일치하는 개수를 검증하고 원시 개체 식별자나 속성 없이 범위가 제한된 unknown 유형 이름을 표시합니다. Promotion Gates는 서버가 결합한 영속 모드와 catalog-default 또는 registry 출처를 표시하며 브라우저 값은 두 필드를 만들 수 없습니다. 모드 필드가 유효해도 형식이 잘못된 누락 근거 목록은 거부하며, 디코더 회귀 테스트 데이터는 두 검증을 각각 확인해야 합니다.
 Reader-gated `/ontology/graph` 변환 결과는 스키마 버전, 변환 결과 개정, 릴리스 다이제스트,
 선언 기록, 의미 맵 프로필 및 카탈로그 토폴로지를 포함하는 하나의 exact 카탈로그 릴리스를
 제공합니다. 배포 인스턴스 속성은 반환하지 않습니다. 런타임 객체와 상태 사실은 기준 시각,

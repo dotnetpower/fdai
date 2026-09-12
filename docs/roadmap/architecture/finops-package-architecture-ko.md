@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: d52fcff9bbba67fbfe93bd0351c0266981a4317c
+translation_source_sha: 647db5924832554c4dcd08b3ad7e0eb0963e8637
 translation_revised: 2026-09-12
 ---
 
@@ -189,6 +189,8 @@ shadow-first 모드입니다. 실패하면 기존의 변경할 수 없는 런타
 
 패키지를 활성화해도 작업이 promotion되지 않습니다. promotion은 authoritative promotion
 레지스트리를 통해 `ActionType`별로 근거를 기반으로 수행하며 되돌릴 수 있어야 합니다.
+공용 Operator promotion-gate 변환 결과는 표시를 위해 각 카탈로그 행을 해당 레지스트리와
+결합합니다. 영속 행이 없으면 `shadow`로 표시하며 패키지 가용성이나 활성화 상태를 바꾸지 않습니다.
 
 ## 대상 패키지 레이아웃
 

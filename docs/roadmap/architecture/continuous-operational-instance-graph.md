@@ -214,11 +214,8 @@ first provider query or publication, so a failed first attempt reuses the same b
 Snapshot-covered events still append a history-only observation so recent-change evidence remains
 queryable while the newer snapshot remains authoritative for current state. The history-only path
 does not bind resource incarnations, create pending tombstones, or mutate the current overlay.
-A Resource absent from hydration retains the prior cursor and leaves source completeness false so a
-later poll can observe either the Resource or its delete record. A returned Resource type outside
-the reviewed mapping catalog is skipped without blocking later changes; malformed hydration still
-fails the batch. Hydration that exceeds the bounded property payload also fails before publication
-or cursor advancement rather than asserting a truncated full replacement.
+A Resource absent from hydration retains the prior cursor and incomplete source state for a later poll. An unmapped returned type retains exact provider identity as `unclassified-resource`; an explicit runtime filter can still exclude it. Malformed or oversized hydration fails before publication or cursor advancement.
+Complete promotion stores provider-type accounting in active snapshot metadata. Operator validates reconciled mapped, unmapped, materialized, and type counts; Console shows cutoff, capture method, identity completeness, and bounded type names without raw provider objects, catalog authority, or execution authority. The separate promotion-gate view reads durable ActionType mode without changing graph generation.
 After three unresolved hydration retries, the feed advances past the bounded page and records the
 latest missing-change time as a durable coverage gap. Queries whose window intersects that gap
 remain incomplete, while later windows can recover without permanently blocking the feed.

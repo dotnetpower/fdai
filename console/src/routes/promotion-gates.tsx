@@ -36,6 +36,8 @@ import {
 
 interface Row {
   readonly action_type_name: string;
+  readonly mode: "shadow" | "enforce";
+  readonly mode_source: "catalog-default" | "promotion-registry";
   readonly shadow_days_elapsed: number;
   readonly sample_count: number;
   readonly reviewed_count: number;
@@ -188,7 +190,7 @@ export function decodePromotionGates(value: unknown): Response {
   if (windowDays !== null && (typeof windowDays !== "number" || !Number.isFinite(windowDays) || windowDays < 0)) {
     throw new OperatorApiError(502, t("governance.promotion.error.windowDays"));
   }
-  const rows = panelArray(root["rows"], "promotion gates.rows").map((value, index) => {
+  const rows = panelArray(root["rows"], "promotion gates.rows").map<Row>((value, index) => {
       const row = panelRecord(value, `promotion gates.rows[${index}]`);
       const reviewedCount = panelNonNegativeInteger(row, "reviewed_count", "promotion gate row");
       const agreedCount = panelNonNegativeInteger(row, "agreed_count", "promotion gate row");
@@ -198,8 +200,18 @@ export function decodePromotionGates(value: unknown): Response {
           t("governance.promotion.error.agreedCount"),
         );
       }
+      const mode = panelNonEmptyString(row, "mode", "promotion gate row");
+      const modeSource = panelNonEmptyString(row, "mode_source", "promotion gate row");
+      if (mode !== "shadow" && mode !== "enforce") {
+        throw new OperatorApiError(502, t("governance.promotion.error.mode"));
+      }
+      if (modeSource !== "catalog-default" && modeSource !== "promotion-registry") {
+        throw new OperatorApiError(502, t("governance.promotion.error.modeSource"));
+      }
       return {
         action_type_name: panelNonEmptyString(row, "action_type_name", "promotion gate row"),
+        mode,
+        mode_source: modeSource,
         shadow_days_elapsed: panelNonNegativeNumber(row, "shadow_days_elapsed", "promotion gate row"),
         sample_count: panelNonNegativeInteger(row, "sample_count", "promotion gate row"),
         reviewed_count: reviewedCount,
@@ -273,6 +285,8 @@ function PromotionBody({
       records: {
         rows: data.rows.map((r) => ({
           action_type_name: r.action_type_name,
+          mode: r.mode,
+          mode_source: r.mode_source,
           ready: r.ready,
           shadow_days_elapsed: r.shadow_days_elapsed,
           sample_count: r.sample_count,
@@ -297,6 +311,16 @@ function PromotionBody({
         </a>
       ),
       cellClass: "mono",
+    },
+    {
+      key: "mode",
+      header: t("governance.promotion.column.mode"),
+      render: (r) => (
+        <StatusPill
+          kind={r.mode === "enforce" ? "info" : "shadow"}
+          label={displayValue("mode", r.mode)}
+        />
+      ),
     },
     {
       key: "rd",

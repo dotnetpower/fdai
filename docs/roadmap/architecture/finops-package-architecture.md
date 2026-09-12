@@ -192,6 +192,8 @@ Cost Governance uses three independent axes:
 
 Enabling the package cannot promote an action. Promotion remains per-`ActionType`, evidence-based,
 and reversible through the authoritative promotion registry.
+The shared Operator promotion-gate projection joins each catalog row to that registry for display;
+an absent durable row renders `shadow` and does not change package availability or enablement.
 
 ## Target package layout
 

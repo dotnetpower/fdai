@@ -966,7 +966,7 @@ def _build_data_sources(
         ),
         ReadDataSource(
             key="autonomy-measurement",
-            source="service-local-audit" if configured else "not-configured",
+            source="outcome-assurance-measurement" if configured else "not-configured",
             routes=("/kpi/autonomy",),
             availability="unknown" if configured else "unavailable",
             configured=configured,
@@ -977,7 +977,9 @@ def _build_data_sources(
         ),
         ReadDataSource(
             key="promotion-gate-evidence",
-            source="repository-catalog-projection" if configured else "not-configured",
+            source=(
+                "catalog-and-promotion-registry-projection" if configured else "not-configured"
+            ),
             routes=("/kpi/promotion-gates",),
             availability="unknown" if configured else "unavailable",
             configured=configured,

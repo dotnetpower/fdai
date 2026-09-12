@@ -26,12 +26,8 @@ from fdai_operator_service.assurance_twin_posture_projection import (
     assurance_twin_review_detail_projection,
     assurance_twin_review_list_projection,
 )
-from fdai_operator_service.dashboard_aggregation import aggregate_dashboard
-from fdai_operator_service.dashboard_source import (
-    MEASUREMENT_KINDS,
-    MEASUREMENT_ROW_LIMIT,
-    MEASUREMENT_SNAPSHOT_SQL,
-    decode_dashboard_snapshot,
+from fdai_operator_service.autonomy_measurement_projection import (
+    validate_autonomy_measurement,
 )
 from fdai_operator_service.detection_lifecycle_projection import (
     detection_lifecycle_projection,
@@ -53,6 +49,7 @@ from fdai_operator_service.process_transition_projection import (
 _WORKFLOW_CATALOG_KEY = "operator-projection:workflow:workflow.catalog"
 _ASSURANCE_TWIN_REVIEW_PREFIX = "runtime:assurance-twin-review:"
 _ASSURANCE_TWIN_REVIEW_KEY_MAX_CHARS = 256
+_AUTONOMY_MEASUREMENT_KEY = "measurement:outcome-assurance:autonomy"
 
 
 @dataclass(frozen=True, slots=True)
@@ -366,24 +363,19 @@ class RuntimeProjectionReader:
 
     async def _autonomy_measurement(self) -> Mapping[str, object]:
         rows = await self._fetch_all(
-            MEASUREMENT_SNAPSHOT_SQL, (list(MEASUREMENT_KINDS), MEASUREMENT_ROW_LIMIT + 1)
+            "SELECT value FROM state_kv WHERE key = %s",
+            (_AUTONOMY_MEASUREMENT_KEY,),
         )
-        try:
-            snapshot = decode_dashboard_snapshot(rows)
-            result = aggregate_dashboard(
-                events=snapshot.events,
-                outcomes=snapshot.outcomes,
-                metrics=snapshot.metrics,
-                touchpoints=snapshot.touchpoints,
-                window_start=snapshot.window_start,
-                window_end=snapshot.window_end,
-                human_source_complete=snapshot.unattributed_touchpoints == 0,
-            )
-        except (TypeError, ValueError) as exc:
+        if len(rows) != 1:
             raise ProjectionUnavailableError(
-                "canonical measurement evidence is unavailable"
-            ) from exc
-        comparison, comparison_status = await self._dashboard_comparison(snapshot.window_end)
+                "authoritative autonomy measurement projection is unavailable"
+            )
+        result = validate_autonomy_measurement(rows[0].get("value"))
+        source = cast(Mapping[str, object], result["source"])
+        as_of = cast(str, source["as_of"])
+        comparison, comparison_status = await self._dashboard_comparison(
+            datetime.fromisoformat(as_of.replace("Z", "+00:00"))
+        )
         result["comparison"] = comparison
         result["comparison_status"] = comparison_status
         return result

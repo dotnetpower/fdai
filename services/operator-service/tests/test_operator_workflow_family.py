@@ -379,6 +379,41 @@ async def test_postgres_rule_catalog_projects_filters_pagination_and_detail() ->
     assert detail.provenance.revision == "catalog-sha256"
 
 
+async def test_promotion_gate_projection_joins_authoritative_current_modes() -> None:
+    stored = {
+        "_revision": "catalog-sha256",
+        "window_days": None,
+        "ready_count": 0,
+        "blocked_count": 2,
+        "rows": [
+            {"action_type_name": "ops.restart-service", "ready": False},
+            {"action_type_name": "ops.scale-out", "ready": False},
+        ],
+    }
+
+    class PromotionStore:
+        async def read_projection(self, *, family: str, operation: str) -> dict[str, object]:
+            assert (family, operation) == ("workflow", "promotion-gate.list")
+            return stored
+
+        async def read_action_promotion_modes(self) -> dict[str, str]:
+            return {"ops.restart-service": "enforce"}
+
+    result = await PostgresWorkflowAdapters(cast(Any, PromotionStore())).read(
+        WorkflowReadRequest(
+            operation=WorkflowOperation.PROMOTION_GATE_LIST,
+            principal_id="operator-a",
+            query={},
+            path_parameters={},
+        )
+    )
+
+    assert [(row["action_type_name"], row["mode"]) for row in result.payload["rows"]] == [
+        ("ops.restart-service", "enforce"),
+        ("ops.scale-out", "shadow"),
+    ]
+
+
 async def test_postgres_control_catalogs_project_lists_filters_and_details() -> None:
     best_practice = {
         "id": "azure-waf.reliability.re-01",

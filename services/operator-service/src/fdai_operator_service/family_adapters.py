@@ -224,6 +224,7 @@ class PostgresWorkflowAdapters:
 
     async def read(self, request: WorkflowReadRequest) -> WorkflowReadResult:
         """Read a revisioned authoritative workflow projection."""
+        joined_revision: str | None = None
         try:
             if request.operation is WorkflowOperation.CONTEXT_SELECTION_COMPARISON_LIST:
                 return await self._read_context_selection_comparisons(request)
@@ -294,6 +295,24 @@ class PostgresWorkflowAdapters:
                 )
                 projection_key = "operator-projection:workflow:mcsb.list"
                 payload = _mcsb_catalog_payload(stored, request)
+            elif request.operation is WorkflowOperation.PROMOTION_GATE_LIST:
+                stored = await self.store.read_projection(
+                    family="workflow",
+                    operation=request.operation.value,
+                )
+                modes = await self.store.read_action_promotion_modes()
+                projection_key = "operator-projection:workflow:promotion-gate.list"
+                payload = _promotion_gate_payload(stored, modes)
+                joined_revision = hashlib.sha256(
+                    json.dumps(
+                        {
+                            "catalog_revision": stored.get("_revision"),
+                            "modes": modes,
+                        },
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    ).encode()
+                ).hexdigest()
             else:
                 stored = await self.store.read_projection(
                     family="workflow",
@@ -303,7 +322,7 @@ class PostgresWorkflowAdapters:
                 payload = dict(stored)
         except PostgresFamilyStoreUnavailable as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
-        revision = stored.get("_revision", stored.get("revision"))
+        revision = joined_revision or stored.get("_revision", stored.get("revision"))
         if not isinstance(revision, str) or not revision:
             raise HTTPException(
                 status_code=503,
@@ -375,6 +394,43 @@ class PostgresWorkflowAdapters:
             revision=stored.accepted_at,
             duplicate=stored.duplicate,
         )
+
+
+def _promotion_gate_payload(
+    stored: Mapping[str, object],
+    modes: Mapping[str, str],
+) -> dict[str, object]:
+    rows_value = stored.get("rows")
+    if not isinstance(rows_value, list):
+        raise HTTPException(
+            status_code=503,
+            detail="authoritative promotion-gate projection is malformed",
+        )
+    rows: list[dict[str, object]] = []
+    action_types: set[str] = set()
+    for value in rows_value:
+        if not isinstance(value, dict):
+            raise HTTPException(
+                status_code=503,
+                detail="authoritative promotion-gate projection is malformed",
+            )
+        action_type = value.get("action_type_name")
+        if not isinstance(action_type, str) or not action_type or action_type in action_types:
+            raise HTTPException(
+                status_code=503,
+                detail="authoritative promotion-gate projection is malformed",
+            )
+        action_types.add(action_type)
+        rows.append(
+            {
+                **value,
+                "mode": modes.get(action_type, "shadow"),
+                "mode_source": (
+                    "promotion-registry" if action_type in modes else "catalog-default"
+                ),
+            }
+        )
+    return {**stored, "rows": rows}
 
 
 def _rule_catalog_payload(

@@ -17,6 +17,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-12 | implemented | Superseded the earlier unavailable declaration: the projection is materialized, and Operator joins each ActionType with its durable current mode before serving it. | `current change`; Operator workflow-family checks passed 40 cases; focused Console checks passed 6 cases; typecheck and catalog parity passed. | Retain authenticated browser evidence for current-mode presentation. |
 | 2026-08-18 | implemented | Declared `/kpi/promotion-gates` as an explicitly unavailable read source. The workflow family reads the `promotion-gate.list` projection, but nothing writes it, so the route answered `503` on every Overview and Control assurance load and the console kept requesting it. Declaring the absence lets the client short-circuit and lets the panel state a reason about itself. No gate value is synthesized in either direction. | `current change`; operator suite `406 passed, 1 skipped`; Ruff check and format clean. Measured: the local store holds `rule.list`, `workflow.action-type-list`, and `workflow.catalog` under `operator-projection:workflow:` and zero rows matching `promotion-gate`, and no writer for that key exists in the tree. Mutation-verified by emptying the declared routes, which fails both unavailable-source tests. | Remove the declaration if a promotion-gate producer is introduced. |
 | 2026-08-18 | validated | Adopted this focused owner for the Console read boundary and moved its current scope, remaining work, and normative read contract out of the oversized parity document. | `current change`; the six earlier implementation transitions remain unchanged in `dev-and-deploy-parity.md`, and the focused document, translation, route, and size gates pass. | Complete the observable items below without widening the Operator API's authority. |
 
@@ -25,6 +26,5 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [ ] Decide whether the onboarding probe, configuration baseline, and conversation delivery
   capabilities are rebuilt behind the service boundary. The pre-split routes imported Core
   providers directly, which the independent-service boundary no longer permits.
-- [ ] Materialize or retire the `operator-projection:workflow:promotion-gate.list` projection. The
-  workflow family reads it and `/kpi/promotion-gates` answers `503`, but no component in this
-  distribution writes it.
+- [x] Materialize `operator-projection:workflow:promotion-gate.list`, join every ActionType with
+  its durable current mode, and validate the read-only Console projection with focused tests.

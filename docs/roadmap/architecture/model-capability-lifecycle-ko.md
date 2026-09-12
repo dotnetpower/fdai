@@ -1,8 +1,8 @@
 ---
 title: 모델 기능 수명 주기
 translation_of: model-capability-lifecycle.md
-translation_source_sha: dbe0f9576145f2bdceee093806cde0eba960975c
-translation_revised: 2026-09-09
+translation_source_sha: bfd139796d019a2375c8c9dace92eb1fcd9c5a75
+translation_revised: 2026-09-12
 ---
 # 모델 기능 수명 주기
 
@@ -390,9 +390,11 @@ T2는 서로 다른 두 복구 범위를 사용합니다. 호출별 지연 시�
 `fdai.model-lifecycle-reconciliation-receipt.v1` 영수증을 만듭니다. 영수증은 워크플로 실행과
 시도, 원본 커밋, 원본 모델 및 제안 다이제스트, PR 번호, 불변 헤드 SHA, 초안 상태를
 연결합니다. 근거가 정제되었음을 기록하고 활성화, 매핑, 실행, 실제 실행 적격성을 모두
-`false`로 설정합니다. 운영 검증을 주장하려면 보호된 실제 실행에서 이 영수증을 보존하는 것이
-좋습니다. 병합되지 않은 교체가 만료되면 기능을 사람 검토로 낮추고, 승인된 레지스트리 변경도
-Owner 검토와 고정 시나리오 관찰 모드 재현을 통과해야 합니다.
+`false`로 설정합니다. 기계 판독이 가능한 `required_next_gates`에는
+`human_review_and_merge`와 `frozen_scenario_shadow_replay`를 기록하며, 호환 독자를 위해 기존
+단일 게이트도 유지합니다. 운영 검증을 주장하려면 보호된 실제 실행에서 이 영수증을 보존해야
+합니다. 병합되지 않은 교체가 만료되면 기능을 사람 검토로 낮추고, 승인된 레지스트리 변경도
+Owner 검토와 고정 시나리오 shadow 재현을 통과해야 합니다.
 
 ### Mixed-Model 계열 전략
 

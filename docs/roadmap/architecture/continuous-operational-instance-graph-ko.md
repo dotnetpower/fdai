@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 6af9416d6c2845f33e54f4e25100c2925ee4e173
+translation_source_sha: 5fc2c64aa6df2ac0c6867eaea3ecb81a97f46f6b
 translation_revised: 2026-09-12
 ---
 # 지속형 운영 인스턴스 그래프
@@ -211,11 +211,8 @@ Snapshot에 포함된 이벤트도 이력 전용 관측을
 추가하므로 최신 snapshot이 현재 상태의 권위 있는 출처로 유지되는 동안 최근 변경 근거를 조회할 수
 있습니다. 이력 전용 경로는 Resource incarnation을 연결하거나 보류 중인 tombstone을 만들거나
 현재 overlay를 변경하지 않습니다.
-재조회에서 누락된 Resource는 이전 cursor를 유지하고 출처 완전성을 `false`로 남겨 이후 폴링이
-해당 Resource 또는 삭제 기록을 관측하게 합니다. 반환된 Resource 유형이 검토된 mapping
-카탈로그에 없으면 이후 변경을 막지 않고 건너뛰며, 잘못된 재조회 결과는 계속 해당 배치를
-실패시킵니다. 속성 payload 한도를 넘은 재조회도 잘린 전체 교체를 주장하지 않도록 게시하거나
-cursor를 진행하기 전에 실패시킵니다.
+재조회에서 누락된 Resource는 이후 폴링을 위해 이전 cursor와 불완전한 출처 상태를 유지합니다. 매핑되지 않은 반환 유형은 정확한 프로바이더 신원을 `unclassified-resource`로 보존하며 명시적인 런타임 필터는 이를 제외할 수 있습니다. 잘못되거나 너무 큰 재조회 결과는 게시 또는 cursor 진행 전에 실패합니다.
+완전한 승격은 활성 snapshot metadata에 프로바이더 유형 회계를 저장합니다. Operator는 mapped, unmapped, 구체화 및 유형 수의 일치를 검증하고 Console은 원시 프로바이더 개체, 카탈로그 권한 또는 실행 권한 없이 cutoff, 수집 방식, 식별자 완전성 및 범위가 제한된 유형 이름을 표시합니다. 별도 promotion-gate 화면은 그래프 세대를 바꾸지 않고 영속 ActionType 모드를 읽습니다.
 해결되지 않은 재조회를 세 번 재시도한 뒤 feed는 범위가 제한된 페이지를 지나서 진행하고 누락된
 최신 변경 시각을 내구성 있는 coverage gap으로 기록합니다. 해당 gap과 겹치는 조회 기간은
 불완전하게 유지되며, 이후 기간은 feed를 영구적으로 막지 않고 복구할 수 있습니다.

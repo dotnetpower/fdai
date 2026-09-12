@@ -159,6 +159,7 @@
     },
     "column": {
       "actionType": "ActionType",
+      "mode": "Current mode",
       "shadowDays": "Shadow days",
       "samples": "Samples",
       "reviewedAgreed": "Reviewed / agreed",
@@ -200,6 +201,8 @@
     "error": {
       "windowDays": "invalid Operator API response: promotion gates.window_days MUST be a non-negative number or null",
       "agreedCount": "invalid Operator API response: promotion gate row.agreed_count MUST NOT exceed reviewed_count",
+      "mode": "invalid Operator API response: promotion gate row.mode MUST be shadow or enforce",
+      "modeSource": "invalid Operator API response: promotion gate row mode source is invalid",
       "summaryCounts": "invalid Operator API response: promotion gate summary counts MUST match rows"
     }
   },
