@@ -32,7 +32,8 @@ def test_source_is_attested_and_uploaded_before_trusted_import() -> None:
 
 
 def test_review_is_non_authoritative_and_cannot_promote() -> None:
-    assert ".approval_authority == false and .promotion_authority == false" in _WORKFLOW
+    assert '(.ready | type == "boolean")' in _WORKFLOW
+    assert "(.targets | length == 6)" in _WORKFLOW
     assert "promote-action-type" not in _WORKFLOW
     assert "terraform apply" not in _WORKFLOW
     assert "--require-ready" not in _WORKFLOW

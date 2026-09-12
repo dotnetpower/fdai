@@ -66,9 +66,7 @@ async def _run(args: argparse.Namespace, environ: dict[str, str]) -> tuple[int, 
     pin, enabled = await read_current_pin(dsn)
     if args.command == "pin":
         return 0, {
-            "approval_authority": False,
             "enabled": enabled,
-            "promotion_authority": False,
             "revision_pin": pin.to_mapping(),
             "revision_pin_digest": pin.digest,
         }
@@ -189,9 +187,7 @@ def evaluate_cost_campaign(
         for item in results
     )
     return {
-        "approval_authority": False,
         "campaign_id": campaign_id,
-        "promotion_authority": False,
         "ready": ready,
         "revision_pin_digest": revision_pin.digest,
         "targets": results,

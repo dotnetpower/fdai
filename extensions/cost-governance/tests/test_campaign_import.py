@@ -146,7 +146,12 @@ async def test_import_assigns_live_trust_and_is_idempotent(tmp_path: Path) -> No
         store=store,
     )
 
-    assert first.to_mapping()["promotion_authority"] is False
+    assert set(first.to_mapping()) == {
+        "accepted_count",
+        "batch_digest",
+        "campaign_id",
+        "duplicate_count",
+    }
     assert (first.accepted_count, first.duplicate_count) == (1, 0)
     assert (second.accepted_count, second.duplicate_count) == (0, 1)
     assert store.episodes[0].evidence_kind.value == "live-authoritative"

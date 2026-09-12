@@ -116,8 +116,6 @@ class CostCampaignImportReport:
             "batch_digest": self.batch_digest,
             "campaign_id": self.campaign_id,
             "duplicate_count": self.duplicate_count,
-            "approval_authority": False,
-            "promotion_authority": False,
         }
 
 

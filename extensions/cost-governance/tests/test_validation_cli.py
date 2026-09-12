@@ -145,8 +145,12 @@ def test_evaluation_is_separate_and_blocks_missing_target_evidence() -> None:
     )
 
     assert result["ready"] is False
-    assert result["approval_authority"] is False
-    assert result["promotion_authority"] is False
+    assert set(result) == {
+        "campaign_id",
+        "ready",
+        "revision_pin_digest",
+        "targets",
+    }
     records = {item["target_id"]: item for item in result["targets"]}
     assert records["cost-governance"]["decision"] == "ready-for-independent-review"
     assert records[_ACTION]["decision"] == "ready-for-independent-review"

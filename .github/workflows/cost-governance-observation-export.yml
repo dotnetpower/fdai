@@ -155,7 +155,6 @@ jobs:
             python -m fdai_cost_governance.validation_cli pin > "$pin"
           jq -e '
             .enabled == true and
-            .approval_authority == false and .promotion_authority == false and
             (.revision_pin.source_revision | test("^[0-9a-f]{40}$")) and
             (.revision_pin_digest | test("^sha256:[0-9a-f]{64}$"))
           ' "$pin" >/dev/null
@@ -352,9 +351,11 @@ jobs:
                 --source-artifact-name "$SOURCE_ARTIFACT_NAME" \
                 --imported-at "${{ steps.export.outputs.window_end }}" \
                 > "$import_receipt"
-            jq -e \
-              '.approval_authority == false and .promotion_authority == false' \
-              "$import_receipt" >/dev/null
+            jq -e '
+              (.accepted_count | type == "number") and
+              (.duplicate_count | type == "number") and
+              (.batch_digest | test("^sha256:[0-9a-f]{64}$"))
+            ' "$import_receipt" >/dev/null
             echo "import_receipt=$import_receipt" >> "$GITHUB_OUTPUT"
           fi
           review_receipt="$RUNNER_TEMP/cost-governance-review.json"
@@ -363,7 +364,8 @@ jobs:
               --campaign-id "$CAMPAIGN_ID" \
               --catalog-root rule-catalog > "$review_receipt"
           jq -e '
-            .approval_authority == false and .promotion_authority == false and
+            (.ready | type == "boolean") and
+            (.revision_pin_digest | test("^sha256:[0-9a-f]{64}$")) and
             (.targets | length == 6)
           ' "$review_receipt" >/dev/null
           if [[ "$REQUIRE_READY" == "true" ]]; then
