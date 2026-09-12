@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: ac17ae4ec417d18b4260a7e0b4f92dc57bfb3d8d
+translation_source_sha: 7ce22f11a8e658db05924ca52a5bb28de18897dd
 translation_revised: 2026-09-12
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -50,9 +50,9 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 
 [Genesis 기반 계층 루트](../../../infra/genesis-foundation/)는 ARM으로 두 리소스 그룹, 비공개 상태 계정, `tfstate` 및 `deployment-plans` 컨테이너와 블롭 보호를 관리합니다. 계정 키 조회 없이 기존 Bootstrap의 네트워크, 배포 신원, 실행기를 재사용합니다. 선택적 Standard Bastion 서브넷에는 Azure가 요구하는 전체 인바운드 및 아웃바운드 Network Security Group 규칙을 연결하며, 필수 플랫폼 규칙이 하나라도 없으면 터널 생성을 차단합니다.
 새 플랫폼 상태에서는 `foundation_resource_group_context_digest`로 참조 전용 소유권을 선택하고 기반 계층 태그와 지역을 확인합니다. 기존 상태의 소유권 변경에는 여전히 별도 검토된 이전 절차가 필요합니다.
-`fdaictl provision plan --stage foundation`은 비공개 모의 실행을 제공합니다. 로컬 Genesis
-조정기는 Terraform 아카이브와 실행 파일 다이제스트를 각각 인증한 뒤 승인된 이미지 및 기반 계층
-적용, Bastion 등록, 검증된 상태 이전을 추가합니다. 보호된 애플리케이션 배포와 준비 상태는 [Genesis 원장](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)에 미완료로 남아 있습니다.
+`fdaictl provision plan --stage foundation`은 비공개 모의 실행입니다. Genesis는 Terraform 아카이브와 실행 파일 다이제스트를 각각 인증하고
+계획 전에 [호환되는 이미지 VM SKU](subscription-genesis-assurance-ko.md#기반-및-외부-컨트롤-플레인)를 선택합니다.
+이미지 및 기반 계층 적용, Bastion 등록, 검증된 상태 이전에는 정확한 승인이 필요하며, 애플리케이션 배포와 준비 상태는 [Genesis 원장](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)에 미완료로 남아 있습니다.
 
 Azure Policy가 인벤토리 일부를 거부하는 테난트는 계획이 수렴하기 전에 예외 또는 대응하는
 capability-mode 토글이 필요합니다
