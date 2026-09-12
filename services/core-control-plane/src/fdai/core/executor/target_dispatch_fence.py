@@ -382,6 +382,7 @@ def resolve_target_fence_without_dispatch(
     if record.state not in {
         TargetDispatchFenceState.PREPARING,
         TargetDispatchFenceState.PREPARED,
+        TargetDispatchFenceState.IN_FLIGHT,
     }:
         raise ValueError("target dispatch fence cannot resolve as undispatched")
     _validate_digest(
@@ -584,6 +585,7 @@ def _validate_transition(
         },
         TargetDispatchFenceState.IN_FLIGHT: {
             TargetDispatchFenceState.RELEASE_PENDING,
+            TargetDispatchFenceState.RESOLVED,
         },
         TargetDispatchFenceState.RELEASE_PENDING: {
             TargetDispatchFenceState.RESOLVED,
@@ -608,6 +610,7 @@ def _validate_transition_evidence(
         in {
             TargetDispatchFenceState.PREPARING,
             TargetDispatchFenceState.PREPARED,
+            TargetDispatchFenceState.IN_FLIGHT,
         }
         and current.state is TargetDispatchFenceState.RESOLVED
     ):

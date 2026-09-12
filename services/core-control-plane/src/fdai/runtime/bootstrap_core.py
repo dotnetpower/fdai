@@ -375,7 +375,6 @@ async def build_core_runtime(
             audit_store=state_store,
             instance_id=environment.get("HOSTNAME", "fdai-core"),
         )
-        await resources.isolated_executor_client.start()
 
     runtime_settings = RuntimeSettingsService(
         store=state_store,
@@ -495,6 +494,8 @@ async def build_core_runtime(
         mutation_dependency_readiness=mutation_readiness,
         workflow_event_bus=messaging.bus,
     )
+    if resources.isolated_executor_client is not None:
+        await resources.isolated_executor_client.start()
     if control_loop.ontology_instance_store is not None:
         await sync_ontology_catalog(control_loop.ontology_instance_store)
         await incident_runtime.bind_projection(control_loop.ontology_instance_store)

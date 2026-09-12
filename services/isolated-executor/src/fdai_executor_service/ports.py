@@ -22,6 +22,11 @@ class PendingExecutorReceipt:
 class ExecutorReceiptOutbox(Protocol):
     """Durably stage and acknowledge Executor receipt publication."""
 
+    async def read_committed_receipt(
+        self,
+        command_id: str,
+    ) -> Mapping[str, Any] | None: ...
+
     async def commit_receipt(
         self,
         receipt_id: UUID,
@@ -62,6 +67,11 @@ class ExecutorStateStore(Protocol):
         command_id: str,
         command_offset: int | None,
     ) -> None: ...
+
+    async def read_committed_receipt(
+        self,
+        command_id: str,
+    ) -> Mapping[str, Any] | None: ...
 
     async def claim_receipts(self, *, limit: int) -> tuple[PendingExecutorReceipt, ...]: ...
 

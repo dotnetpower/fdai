@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 302862cb5aabf912f32e80e184ca9c2a5fa6ef53
-translation_revised: 2026-09-12
+translation_source_sha: 16f0e4db548cbc2ac895a6eb5f26be5d7bc132dc
+translation_revised: 2026-09-13
 ---
 # 프로젝트 구조
 이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 검증된 5개 서비스 기준선과 독립 패키지 시스템 지식 서비스 후보의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. Post-turn 런타임 스킬 초안은 스킬을 활성화하지 않고 정규화된 검증 근거 참조를 제안 식별자, 영속 저장소 및 감사 메타데이터에 보존합니다. Bootstrap은 후보를 평가하거나 게시하기 전에 Norns 룰 힌트를 현재 discovery-activation 결정 뒤에 결속합니다. 패키지 release 카탈로그는 도달 가능한 소스 개정 번호에만 고정하며 파생 소스 게이트는 커밋 전과 CI에서 기록된 모든 소스 blob을 비교합니다. 소유 설계 원본만 바뀌면 upstream 통합 뒤에 다시 생성하여 카탈로그 레코드는 유지하고 원본 약속값과 집계 다이제스트만 최종 병합 blob 및 도달 가능한 보호 main 개정 번호에 맞춥니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요.
@@ -47,6 +47,7 @@ translation_revised: 2026-09-12
   계약, 프로바이더, 텔레메트리, 구성만 가져옵니다. `delivery/`는 어댑터 경계 뒤에서
   `core/`와 `shared/`를 조립하고 `composition/`이 모든 계층을 연결합니다. `core/`와 `agents/`는
   `delivery/`를 가져오기하지 않으며 provider 동작은 shared Protocol과 composition으로 진입합니다.
+  전송만 담당하는 Core 실행기 클라이언트는 공유 프로바이더 계약인 `ExecutorReceiptJournal`을 주입받고, 런타임은 영속 시도 기록과 종결 기록의 연결을 담당합니다. 전달 증적은 권한이나 독립적인 효과 검증을 제공하지 않습니다.
   집중 sibling 모듈은 canonical identity 투영과 hashing을 소유할 수 있으며 기존 소유 모듈은 해당 공개 표면을 다시 내보냅니다. 멱등성 예약의 안정된 작업 비교도 이 분리를 따르며 직렬화 바이트, 전이 검증, replay 의미는 바뀌지 않습니다. 버전이 있는 최종 측정 계약도 같은 서비스 경계를 따릅니다. Core는 정규화 이벤트의 분류를 감사 기록과 원자적으로 보존하고, Operator는 Core를 가져오거나 분류를 실행 및 효과 권한으로 해석하지 않고 읽습니다. 중복 확인 응답은 일치하는 보존 기록을 요구하며, 충돌 때문에 원래 분류를 조용히 대체하거나 버리지 않습니다. 측정 시각에는 시간대가 명시된 datetime 또는 ISO 8601 문자열을 사용하고 숫자를 암묵적으로 epoch 시각으로 바꾸지 않습니다.
 - **사람 승인 권한은 서비스별로 분리**: Operator는 Teams/Slack 인증, 암호화 검증, 콜백 감사 및
   영속 결정 보낼 편지함을 소유합니다. Core는 형식화된 결정 이벤트만 소비하고 워크플로 슬롯은

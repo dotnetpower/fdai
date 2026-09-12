@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+import asyncio
+from dataclasses import dataclass
 from datetime import datetime
-
-from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.core.executor.direct_api import (
     _build_direct_api_request,
@@ -15,6 +14,10 @@ from fdai.core.executor.safeguard_dispatch_checkpoint import (
     AuthoritativeSinkState,
     DispatchTransportState,
     SafeguardDispatchEvidenceRecord,
+)
+from fdai.core.executor.safeguard_evidence_lifecycle import (
+    DispatchBoundaryGuard,
+    DispatchNotAttemptedError,
 )
 from fdai.core.executor.safeguard_lifecycle_coordinator import (
     SafeguardCoordinationDisposition,
@@ -27,6 +30,9 @@ from fdai.runtime.isolated_executor_client import (
     RemoteDirectApiExecutionResult,
 )
 from fdai.shared.contracts.models import Action, ExecutionPath
+from fdai.shared.contracts.models.executor_transport import SafeguardBoundExecutorCommand
+from fdai.shared.providers.event_bus import EventPublishNotAttemptedError
+from fdai.shared.providers.executor_receipt_journal import BoundExecutorCommandContext
 
 
 class _RemoteDirectApiLifecycleDispatchPort:
@@ -38,19 +44,19 @@ class _RemoteDirectApiLifecycleDispatchPort:
         client: EventBusDirectApiExecutionClient,
         action: Action,
         source_revision: str,
-        attempt: int,
     ) -> None:
         self._client = client
         self._action = action
         self._source_revision = source_revision
-        self._attempt = attempt
-        self.result: RemoteDirectApiExecutionResult | None = None
+        self.command: SafeguardBoundExecutorCommand | None = None
+        self.error: BaseException | None = None
 
     async def dispatch(
         self,
         *,
         evidence_record: SafeguardDispatchEvidenceRecord,
         started_at: datetime,
+        pre_invoke_guard: DispatchBoundaryGuard,
     ) -> tuple[
         DispatchTransportState,
         AuthoritativeSinkState,
@@ -58,64 +64,51 @@ class _RemoteDirectApiLifecycleDispatchPort:
         str | None,
     ]:
         del started_at
-        self.result = await self._client.execute_bound(
-            action=self._action,
-            safeguard_bundle_digest=evidence_record.bundle.bundle_digest,
-            source_revision=self._source_revision,
-            attempt=self._attempt,
-        )
-        result = self.result
-        if result.audit_context.get("transport_failure") is True:
-            return (
-                DispatchTransportState.UNKNOWN,
-                AuthoritativeSinkState.UNKNOWN,
-                None,
-                None,
+        identity = evidence_record.identity
+        attempt = identity.reservation_attempt
+        try:
+            self.command = await self._client.publish_bound(
+                action=self._action,
+                safeguard_bundle_digest=evidence_record.bundle.bundle_digest,
+                source_revision=self._source_revision,
+                attempt=attempt,
+                pre_publish_guard=pre_invoke_guard,
+                correlation_context=BoundExecutorCommandContext(
+                    action_id=identity.action_id,
+                    reservation_attempt=identity.reservation_attempt,
+                    source_revision=identity.source_revision,
+                    execution_path=identity.execution_path,
+                    safeguard_bundle_digest=identity.safeguard_bundle_digest,
+                    reservation_identity_digest=identity.reservation_identity_digest,
+                    evidence_identity_digest=identity.identity_digest,
+                    target_digest=identity.target_digest,
+                    target_fence_generation=identity.target_fence_generation,
+                ),
             )
-        accepted = result.outcome in {
-            RemoteDirectApiExecutionOutcome.DISPATCHED,
-            RemoteDirectApiExecutionOutcome.ALREADY_APPLIED,
-        }
-        not_accepted = result.outcome in {
-            RemoteDirectApiExecutionOutcome.ABSTAINED_BLAST_RADIUS,
-            RemoteDirectApiExecutionOutcome.ABSTAINED_PRECONDITION,
-            RemoteDirectApiExecutionOutcome.AUTHENTICATION_FAILED,
-            RemoteDirectApiExecutionOutcome.PERMISSION_DENIED,
-            RemoteDirectApiExecutionOutcome.POLICY_DENIED,
-            RemoteDirectApiExecutionOutcome.NETWORK_DENIED,
-            RemoteDirectApiExecutionOutcome.REJECTED_MODE,
-            RemoteDirectApiExecutionOutcome.REJECTED_INVARIANT,
-            RemoteDirectApiExecutionOutcome.REJECTED_IDEMPOTENCY_CONFLICT,
-            RemoteDirectApiExecutionOutcome.EXPIRED,
-        }
-        sink_state = (
-            AuthoritativeSinkState.COMMITTED
-            if accepted
-            else AuthoritativeSinkState.NOT_ACCEPTED
-            if not_accepted
-            else AuthoritativeSinkState.NOT_COMMITTED
-        )
+            if (
+                self.command.action_id != self._action.action_id
+                or self.command.execution_path is not ExecutionPath.DIRECT_API
+                or self.command.attempt != attempt
+                or self.command.source_revision != self._source_revision
+                or self.command.safeguard_proof_bundle_digest
+                != evidence_record.bundle.bundle_digest
+            ):
+                raise RuntimeError("isolated Executor command binding mismatched")
+        except EventPublishNotAttemptedError as exc:
+            raise DispatchNotAttemptedError(
+                "isolated Executor command publication was not attempted"
+            ) from exc
+        except asyncio.CancelledError as exc:
+            self.error = exc
+            return _unknown()
+        except (OSError, RuntimeError, ValueError) as exc:
+            self.error = exc
+            return _unknown()
         return (
             DispatchTransportState.ACKNOWLEDGED,
-            sink_state,
-            (
-                content_digest(
-                    {
-                        "domain": "isolated-executor-operation-reference",
-                        "receipt_ref": result.receipt_ref,
-                    }
-                )
-                if accepted
-                else None
-            ),
-            content_digest(
-                {
-                    "domain": "isolated-executor-status",
-                    "outcome": result.outcome.value,
-                    "executor_receipt_ref": result.audit_context.get("executor_receipt_ref"),
-                    "bundle_digest": evidence_record.bundle.bundle_digest,
-                }
-            ),
+            AuthoritativeSinkState.UNOBSERVED,
+            None,
+            None,
         )
 
 
@@ -148,7 +141,6 @@ class SafeguardBoundEventBusDirectApiExecutionClient:
             client=self.client,
             action=action,
             source_revision=self.coordinator.source_revision,
-            attempt=attempt,
         )
         coordinated = await self.coordinator.dispatch(
             action=action,
@@ -157,6 +149,24 @@ class SafeguardBoundEventBusDirectApiExecutionClient:
             correlation_id=str(action.event_id),
             attempt=attempt,
         )
+        if isinstance(port.error, asyncio.CancelledError):
+            raise port.error
+        if port.error is not None:
+            return RemoteDirectApiExecutionResult(
+                action_id=str(action.action_id),
+                outcome=RemoteDirectApiExecutionOutcome.FAILED,
+                mode=action.mode,
+                safeguard_bundle_digest=coordinated.bundle_digest,
+                reason=f"isolated Executor client error: {type(port.error).__name__}",
+            )
+        if coordinated.disposition is SafeguardCoordinationDisposition.QUARANTINED:
+            return RemoteDirectApiExecutionResult(
+                action_id=str(action.action_id),
+                outcome=RemoteDirectApiExecutionOutcome.FAILED,
+                mode=action.mode,
+                safeguard_bundle_digest=coordinated.bundle_digest,
+                reason=coordinated.reason or "dispatch continuity is quarantined",
+            )
         if not coordinated.dispatch_performed:
             return RemoteDirectApiExecutionResult(
                 action_id=str(action.action_id),
@@ -170,29 +180,27 @@ class SafeguardBoundEventBusDirectApiExecutionClient:
                 safeguard_bundle_digest=coordinated.bundle_digest,
                 reason=coordinated.reason,
             )
-        if port.result is None:
-            return RemoteDirectApiExecutionResult(
-                action_id=str(action.action_id),
-                outcome=RemoteDirectApiExecutionOutcome.FAILED,
-                mode=action.mode,
-                safeguard_bundle_digest=coordinated.bundle_digest,
-                reason="isolated Executor returned no lifecycle-bound result",
-            )
-        result = replace(
-            port.result,
+        return RemoteDirectApiExecutionResult(
+            action_id=str(action.action_id),
+            outcome=RemoteDirectApiExecutionOutcome.FAILED,
+            mode=action.mode,
             safeguard_bundle_digest=coordinated.bundle_digest,
-            audit_context={
-                **port.result.audit_context,
-                "safeguard_bundle_digest": coordinated.bundle_digest,
-            },
+            reason="isolated Executor command awaits independent effect evidence",
         )
-        if coordinated.disposition is SafeguardCoordinationDisposition.QUARANTINED:
-            return replace(
-                result,
-                outcome=RemoteDirectApiExecutionOutcome.FAILED,
-                reason=coordinated.reason or "dispatch continuity is quarantined",
-            )
-        return result
+
+
+def _unknown() -> tuple[
+    DispatchTransportState,
+    AuthoritativeSinkState,
+    None,
+    None,
+]:
+    return (
+        DispatchTransportState.UNKNOWN,
+        AuthoritativeSinkState.UNKNOWN,
+        None,
+        None,
+    )
 
 
 __all__ = ["SafeguardBoundEventBusDirectApiExecutionClient"]

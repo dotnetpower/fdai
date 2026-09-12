@@ -28,6 +28,7 @@ from fdai_service_contracts.executor import (
     ResourceLock,
 )
 
+from fdai_executor_service.automation_hold_fence import automation_hold_refusal
 from fdai_executor_service.effect_safety import (
     action_fingerprint,
     blast_radius_refusal,
@@ -132,9 +133,9 @@ class ServiceDirectApiEffectExecutor:
     ) -> DirectApiEffectResult:
         """Validate, audit, dispatch, and durably deduplicate one effect.
 
-        A safeguard-bound command keeps the one target lock in Core while this
-        service performs provider I/O. Legacy commands retain the service-owned
-        target lock and cannot request this mode.
+        The service owns the target lock across its final hold recheck and
+        provider I/O. ``upstream_target_lock_held`` remains only for compatible
+        in-process callers that already hold that exact shared lock.
         """
 
         if action.mode is not Mode.SHADOW and not self._allow_enforce:
@@ -217,6 +218,16 @@ class ServiceDirectApiEffectExecutor:
                 )
             if action.mode is Mode.ENFORCE:
                 await self._write_audit_intent(action)
+            hold_reason = await automation_hold_refusal(
+                action,
+                state_store=self._audit_store,
+            )
+            if hold_reason is not None:
+                return await self._finish(
+                    action,
+                    DirectApiEffectOutcome.REJECTED_INVARIANT,
+                    hold_reason,
+                )
             try:
                 receipt = await self._executor.execute(build_direct_api_request(action))
             except DirectApiError as exc:
@@ -381,7 +392,7 @@ class ServiceDirectApiEffectExecutor:
             },
         )
         await self._write_terminal_audit(action, result)
-        if remember:
+        if remember and outcome in _MUTATION_OUTCOMES:
             self._remember(dedupe_key(action), result)
         if (
             remember

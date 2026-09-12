@@ -255,7 +255,10 @@ from fdai_service_contracts.executor import (
     StateStore,
     StopConditionKind,
     WorkloadIdentity,
+    executor_action_fingerprint,
+    executor_command_id_from_action_payload,
     executor_action_payload_digest,
+    safeguard_bound_executor_command_id,
 )
 from fdai_service_contracts.executor import (
     EventEnvelope as ExecutorEventEnvelope,
@@ -805,7 +808,10 @@ __all__ = [
     "cohort_arm_fact_digest_values",
     "ensure_supported_version",
     "evaluate_cohort_claim",
+    "executor_action_fingerprint",
+    "executor_command_id_from_action_payload",
     "executor_action_payload_digest",
+    "safeguard_bound_executor_command_id",
     "generate_upgrade_receipts",
     "load_json_object",
     "load_manifest_codec",

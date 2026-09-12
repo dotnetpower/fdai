@@ -592,6 +592,7 @@ def _normalize_digest_value(value: object) -> object:
 
 
 from .idempotency_reservation_lifecycle import (  # noqa: E402
+    abandon_reservation_before_dispatch,
     begin_dispatch,
     complete_reservation,
     complete_reservation_from_verifier,
@@ -610,6 +611,7 @@ __all__ = [
     "ReservationEvidenceKind",
     "ReservationMatch",
     "ReservationState",
+    "abandon_reservation_before_dispatch",
     "begin_dispatch",
     "classify_reservation",
     "complete_reservation",

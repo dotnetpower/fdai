@@ -436,18 +436,27 @@ def _build_control_loop(
     process_runtime_store = _build_process_store()
     publisher: Any = None
     renderer: TemplateRenderer | None = None
-    resource_lock: Any = None
+    resource_lock: Any = _build_resource_lock()
     idempotency_store: Any = None
     safeguard_coordinator: Any = None
     if thor_execution_port is None:
         publisher = _build_publisher(http_client)
         renderer = TemplateRenderer(remediation_root=remediation_root)
-        resource_lock = _build_resource_lock()
         idempotency_store = _build_idempotency_store()
         safeguard_coordinator = _build_safeguard_lifecycle_coordinator(
             audit_store=audit_store,
             resource_lock=resource_lock,
             process_store=process_runtime_store,
+            receipt_journal_consumer=(
+                direct_api_execution_port.bind_receipt_journal
+                if isinstance(direct_api_execution_port, EventBusDirectApiExecutionClient)
+                else None
+            ),
+            receipt_journal_capacity=(
+                direct_api_execution_port.max_pending_requests
+                if isinstance(direct_api_execution_port, EventBusDirectApiExecutionClient)
+                else 256
+            ),
         )
     risk_table = load_risk_table(catalog_root / "risk-classification.yaml")
     promotion_registry: ActionPromotionRegistry
@@ -719,7 +728,10 @@ def _build_control_loop(
         topic=container.config.kafka.topic_events,
         workflows_present=bool(workflows),
     )
-    workflow_automation_holds = StateStoreAutomationHoldLedger(audit_store)
+    workflow_automation_holds = StateStoreAutomationHoldLedger(
+        audit_store,
+        resource_lock=resource_lock,
+    )
     return ControlLoop(
         event_ingest=event_ingest,
         trust_router=trust_router,
@@ -764,6 +776,7 @@ def _build_control_loop(
             architecture_evidence_provider=container.architecture_review_evidence_provider,
             decision_evidence_provider=container.decision_evidence_admission_provider,
             action_dispatcher=workflow_action_dispatcher,
+            automation_holds=workflow_automation_holds,
         ),
         process_runtime_store=process_runtime_store,
         governance_assignments=governance_catalog.assignments,

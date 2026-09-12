@@ -24,11 +24,21 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 
 from fdai.core.executor.audit_intent import AuditIntentStore
-from fdai.core.executor.idempotency_reservation import IdempotencyReservationStore
+from fdai.core.executor.idempotency_reservation import (
+    IdempotencyReservationStore,
+    ReservationEvidenceKind,
+    ReservationState,
+)
 from fdai.core.executor.lock_continuity import EffectSinkContinuityPolicy
 from fdai.core.executor.post_release_closure_store import PostReleaseClosureStore
+from fdai.core.executor.safeguard_dispatch_checkpoint import (
+    AuthoritativeSinkState,
+    DispatchTransportState,
+    SafeguardDispatchEvidenceRecord,
+)
 from fdai.core.executor.safeguard_dispatch_store import SafeguardDispatchEvidenceStore
 from fdai.core.executor.safeguard_evidence_lifecycle import (
+    DispatchBoundaryGuard,
     DispatchPort,
     SafeguardEvidenceLifecycleResult,
 )
@@ -41,7 +51,10 @@ from fdai.core.executor.safeguard_lifecycle_models import (
     SafeguardCoordinationError,
     SafeguardLifecycleCoordinatorConfig,
 )
-from fdai.core.executor.safeguard_lifecycle_preparation import SafeguardLifecyclePreparer
+from fdai.core.executor.safeguard_lifecycle_preparation import (
+    SafeguardLifecyclePreparer,
+    SafeguardRecoveryReacquisitionError,
+)
 from fdai.core.executor.safeguard_pre_bundle import (
     SafeguardPreBundleCommitment,
     SafeguardPreBundleCommitmentStore,
@@ -57,11 +70,47 @@ from fdai.shared.providers.resource_lock import (
     EvidenceResourceLock,
     HeldResourceLock,
     ResourceLockAcquisitionRequest,
+    ResourceLockReleaseState,
     require_evidence_resource_lock,
 )
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class _DispatchAttemptPort:
+    """Remember when the provider boundary may already have observed a call."""
+
+    __slots__ = ("_inner", "bundle_digest", "started")
+
+    def __init__(self, inner: DispatchPort) -> None:
+        self._inner = inner
+        self.bundle_digest: str | None = None
+        self.started = False
+
+    async def dispatch(
+        self,
+        *,
+        evidence_record: SafeguardDispatchEvidenceRecord,
+        started_at: datetime,
+        pre_invoke_guard: DispatchBoundaryGuard,
+    ) -> tuple[
+        DispatchTransportState,
+        AuthoritativeSinkState,
+        str | None,
+        str | None,
+    ]:
+        async def tracked_guard() -> datetime:
+            provider_call_at = await pre_invoke_guard()
+            self.started = True
+            self.bundle_digest = evidence_record.bundle.bundle_digest
+            return provider_call_at
+
+        return await self._inner.dispatch(
+            evidence_record=evidence_record,
+            started_at=started_at,
+            pre_invoke_guard=tracked_guard,
+        )
 
 
 class SafeguardLifecycleCoordinator:
@@ -88,6 +137,7 @@ class SafeguardLifecycleCoordinator:
             resource_lock,
             production=config.production,
         )
+        self._reservation_store = reservation_store
         self._config = config
         self._commitment_store = commitment_store
         self._denial = SafeguardDenialJournal(
@@ -100,6 +150,7 @@ class SafeguardLifecycleCoordinator:
             audit_intent_store=audit_intent_store,
             fence_store=fence_store,
             evidence_store=evidence_store,
+            closure_store=closure_store,
             denial_audit_store=denial_audit_store,
             continuity_policy=continuity_policy,
             config=config,
@@ -201,7 +252,7 @@ class SafeguardLifecycleCoordinator:
         correlation_id: str,
         attempt: int = 1,
     ) -> SafeguardCoordinatedDispatchResult:
-        """Run prior phases, the shared lifecycle, release, and atomic closure."""
+        """Run the lifecycle, reacquiring once if durable recovery postdates the lock."""
 
         if type(safeguard_receipt) is not SafeguardReceipt:
             return await self._denial.deny(action, "safeguard receipt is missing or invalid")
@@ -222,10 +273,35 @@ class SafeguardLifecycleCoordinator:
         if attempt < 1:
             return await self._denial.deny(action, "safeguard lifecycle attempt MUST be positive")
 
+        try:
+            prior_reservation = await self._reservation_store.read(action.idempotency_key)
+        except Exception as exc:
+            return await self._denial.deny(
+                action,
+                f"idempotency reservation read failed: {type(exc).__name__}",
+            )
+        effective_attempt = attempt
+        if prior_reservation is not None and (
+            prior_reservation.state
+            in {
+                ReservationState.RESERVED,
+                ReservationState.IN_FLIGHT,
+                ReservationState.ABANDONED,
+            }
+            or (
+                prior_reservation.state is ReservationState.TERMINAL
+                and prior_reservation.evidence_kind
+                is ReservationEvidenceKind.IRREVOCABLE_NON_ACCEPTANCE
+            )
+        ):
+            effective_attempt = max(
+                attempt,
+                prior_reservation.identity.acquisition_receipt.attempt + 1,
+            )
         acquisition_request = ResourceLockAcquisitionRequest.create(
             target_ref=action.target_resource_ref,
             action_digest=safeguard_receipt.action_digest,
-            attempt=attempt,
+            attempt=effective_attempt,
             producer_id=self._config.producer_id,
             producer_version=self._config.producer_version,
             source_revision=self.source_revision,
@@ -233,39 +309,89 @@ class SafeguardLifecycleCoordinator:
         held_lock: HeldResourceLock | None = None
         lifecycle: SafeguardEvidenceLifecycleResult | None = None
         release_error: BaseException | None = None
+        release_cancelled = False
+        tracked_dispatch = _DispatchAttemptPort(dispatch_port)
         try:
-            async with self._resource_lock.acquire_evidenced(acquisition_request) as active_lock:
-                held_lock = active_lock
-                lifecycle_or_result = await self._preparer.dispatch_while_held(
-                    action=action,
-                    safeguard_receipt=safeguard_receipt,
-                    commitment=commitment,
-                    held_lock=active_lock,
-                    dispatch_port=dispatch_port,
-                    correlation_id=correlation_id,
-                )
-                if isinstance(lifecycle_or_result, SafeguardCoordinatedDispatchResult):
-                    return lifecycle_or_result
-                lifecycle = lifecycle_or_result
+            for recovery_pass in range(2):
+                try:
+                    async with self._resource_lock.acquire_evidenced(
+                        acquisition_request
+                    ) as active_lock:
+                        held_lock = active_lock
+                        lifecycle_or_result = await self._preparer.dispatch_while_held(
+                            action=action,
+                            safeguard_receipt=safeguard_receipt,
+                            commitment=commitment,
+                            held_lock=active_lock,
+                            dispatch_port=tracked_dispatch,
+                            correlation_id=correlation_id,
+                        )
+                        if isinstance(lifecycle_or_result, SafeguardCoordinatedDispatchResult):
+                            return lifecycle_or_result
+                        lifecycle = lifecycle_or_result
+                    break
+                except SafeguardRecoveryReacquisitionError:
+                    if recovery_pass:
+                        return await self._denial.deny(
+                            action, "safeguard recovery requires a later evidenced acquisition"
+                        )
+                    release = held_lock.release_receipt if held_lock is not None else None
+                    if (
+                        held_lock is None
+                        or release is None
+                        or release.state is not ResourceLockReleaseState.RELEASED
+                        or release.acquisition_receipt != held_lock.acquisition_receipt
+                    ):
+                        return await self._denial.deny(
+                            action, "safeguard recovery lock release is unproven"
+                        )
+                    held_lock = None
         except asyncio.CancelledError:
-            raise
+            if held_lock is not None and lifecycle is not None:
+                release_error = asyncio.CancelledError()
+                release_cancelled = True
+            else:
+                if tracked_dispatch.started and tracked_dispatch.bundle_digest is not None:
+                    try:
+                        await self._denial.record_quarantine(
+                            action,
+                            reason="safeguard lifecycle cancelled after dispatch started",
+                            bundle_digest=tracked_dispatch.bundle_digest,
+                        )
+                    except Exception:
+                        _LOGGER.exception(
+                            "safeguard_post_dispatch_cancellation_audit_failed",
+                            extra={"action_id": str(action.action_id)},
+                        )
+                raise
         except Exception as exc:
             if lifecycle is None:
+                if tracked_dispatch.started and tracked_dispatch.bundle_digest is not None:
+                    return await self._denial.quarantine(
+                        action,
+                        reason=(
+                            "safeguard lifecycle failed after dispatch started: "
+                            f"{type(exc).__name__}"
+                        ),
+                        bundle_digest=tracked_dispatch.bundle_digest,
+                    )
                 return await self._denial.deny(
                     action,
-                    "safeguard lifecycle failed before terminal evidence: "
-                    f"{type(exc).__name__}: {exc}",
+                    f"safeguard lifecycle failed before terminal evidence: {type(exc).__name__}",
                 )
             release_error = exc
 
         if held_lock is None or lifecycle is None:
             return await self._denial.deny(action, "safeguard lifecycle lost its held-lock result")
-        return await self._closure.finalize(
+        result = await self._closure.finalize(
             action=action,
             held_lock=held_lock,
             lifecycle=lifecycle,
             release_error=release_error,
         )
+        if lifecycle.cancellation_requested or release_cancelled:
+            raise asyncio.CancelledError
+        return result
 
     def _now(self) -> datetime:
         """Return the single aware clock reading the lifecycle is bound to."""

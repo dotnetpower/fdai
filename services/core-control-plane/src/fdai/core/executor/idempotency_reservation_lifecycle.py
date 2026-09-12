@@ -99,6 +99,32 @@ def expire_reservation(
     raise ValueError("idempotency reservation state cannot be expired")
 
 
+def abandon_reservation_before_dispatch(
+    record: IdempotencyReservationRecord,
+    *,
+    at: datetime,
+    dispatch_never_began_digest: str,
+) -> IdempotencyReservationRecord:
+    """Close a reserved attempt from durable proof that provider dispatch never began."""
+
+    abandoned_at = _utc(at, "abandoned_at")
+    if record.state is not ReservationState.RESERVED:
+        raise ValueError("only a reserved idempotency state can be abandoned before dispatch")
+    if abandoned_at < record.state_changed_at:
+        raise ValueError("idempotency abandonment predates reservation")
+    _validate_digest("dispatch_never_began_digest", dispatch_never_began_digest)
+    return _build_record(
+        identity=record.identity,
+        state=ReservationState.ABANDONED,
+        revision=record.revision + 1,
+        reserved_at=record.reserved_at,
+        lease_expires_at=record.lease_expires_at,
+        state_changed_at=abandoned_at,
+        evidence_kind=ReservationEvidenceKind.DISPATCH_NEVER_BEGAN,
+        evidence_digest=dispatch_never_began_digest,
+    )
+
+
 def complete_reservation(
     record: IdempotencyReservationRecord,
     *,
@@ -247,6 +273,7 @@ def reopen_reservation(
 
 
 __all__ = [
+    "abandon_reservation_before_dispatch",
     "begin_dispatch",
     "complete_reservation",
     "complete_reservation_from_verifier",

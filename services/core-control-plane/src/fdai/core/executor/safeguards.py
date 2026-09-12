@@ -31,6 +31,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 
+from fdai_service_contracts.executor_models import executor_action_fingerprint
 from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.shared.contracts.models import Action, ExecutionPath
@@ -172,29 +173,10 @@ def evaluate_pre_dispatch(
 def execution_fingerprint(*, action: Action, execution_path: ExecutionPath) -> str:
     """Return the canonical digest of the safeguard-bearing fields of one action."""
 
-    payload = {
-        "action_id": str(action.action_id),
-        "event_id": str(action.event_id),
-        "action_type": action.action_type,
-        "target_resource_ref": action.target_resource_ref,
-        "operation": action.operation.value,
-        "params": dict(action.params),
-        "stop_condition": action.stop_condition,
-        "rollback": {
-            "kind": action.rollback_ref.kind.value,
-            "reference": action.rollback_ref.reference,
-        },
-        "blast_radius": {
-            "scope": action.blast_radius.scope.value,
-            "count": action.blast_radius.count,
-            "rate_per_minute": action.blast_radius.rate_per_minute,
-        },
-        "mode": action.mode.value,
-        "executor_identity_ref": action.executor_identity_ref,
-        "citing_rules": sorted(action.citing_rules),
-        "execution_path": execution_path.value,
-    }
-    return _sha256(payload)
+    return executor_action_fingerprint(
+        action_payload=action.model_dump(mode="json", exclude_none=False),
+        execution_path=execution_path.value,
+    )
 
 
 def full_action_digest(action: Action) -> str:

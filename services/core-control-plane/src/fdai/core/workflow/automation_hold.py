@@ -23,6 +23,7 @@ from fdai.core.workflow.workflow_runtime import (
     workflow_approval_state_key,
 )
 from fdai.shared.providers.decision_evidence_verifier import assess_decision_evidence_admission
+from fdai.shared.providers.resource_lock import ResourceLock, resource_lock_key
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -154,8 +155,30 @@ class StateStoreAutomationHoldLedger:
 
     store: StateStore
     clock: Callable[[], datetime] = field(default=lambda: datetime.now(tz=UTC))
+    resource_lock: ResourceLock | None = None
 
     async def issue(
+        self,
+        *,
+        target_ref: str,
+        process_id: str,
+        reason: str,
+    ) -> None:
+        if self.resource_lock is not None:
+            async with self.resource_lock.acquire(resource_lock_key(target_ref)):
+                await self._issue_unlocked(
+                    target_ref=target_ref,
+                    process_id=process_id,
+                    reason=reason,
+                )
+            return
+        await self._issue_unlocked(
+            target_ref=target_ref,
+            process_id=process_id,
+            reason=reason,
+        )
+
+    async def _issue_unlocked(
         self,
         *,
         target_ref: str,
@@ -174,7 +197,7 @@ class StateStoreAutomationHoldLedger:
                 "process_id": process_id,
                 "reason": reason,
                 "state": "active",
-                "created_at": datetime.now(tz=UTC).isoformat(),
+                "created_at": self.clock().astimezone(UTC).isoformat(),
                 "revision": revision,
             }
             audit_entry = {
