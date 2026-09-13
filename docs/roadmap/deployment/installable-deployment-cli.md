@@ -87,7 +87,7 @@ lead to a mutation makes the remote execution boundary visible.
 Disconnected installation authenticates the signed kit with a trusted verifier outside that kit,
 copies its wheels into a private digest-checked snapshot, and installs only from that snapshot. The
 same verifier safely extracts and verifies the signed bundle before Terraform reads it. Reusable Console artifacts use the env-isolated offline build and require installation-time bindings, never host deployment defaults. The installed
-`fdaictl` then repeats verification, and every Terraform binary and provider path uses the private
+`fdaictl` repeats verification and passes its installed Python to fixed packaged Genesis launchers; plan generation and reverification use that same CLI interpreter. Every Terraform binary and provider path uses the private
 snapshot rather than the original kit. Artifact metadata and content descriptors open in
 nonblocking, no-follow mode and verify file identity after opening, so a check/open replacement
 cannot stall verification.
