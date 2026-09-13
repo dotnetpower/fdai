@@ -127,10 +127,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   ownership frames typed separately; compatibility facades retain stable imports.
 - **qualification reduction is authority-free**:
   `core/conversation_assurance/quality_qualification.py` accepts only premeasured normalized
-  observations and reduces them against the installed quality contract. It derives hard caps from
-  raw evidence state and cannot call a model, read a provider, promote a policy, approve a request,
-  or execute an action. JSON parsing and artifact writing remain in the repository-owned
-  `scripts/evaluation/chatops-quality-qualification.py` boundary. Completed-turn observation
+  observations and reduces them against the installed contract. It derives hard caps and preserves
+  raw threshold decisions. Schema v1 records `locale_statistical_evidence_missing` and cannot qualify. It cannot call a model, read a provider, promote a policy, approve a request, or execute an action.
+  JSON parsing and artifact writing remain in the repository-owned
+  `scripts/evaluation/chatops-quality-qualification.py` boundary, with duplicate-key rejection and atomic output replacement. Completed-turn observation
   adapters use the shared content-free contracts, hash runtime and evidence references, and keep
   every unsupported dimension unavailable instead of manufacturing a score. Evidence owners add
   measurements through contract-bound contributions; the merge rejects cross-case input,

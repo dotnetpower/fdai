@@ -328,7 +328,7 @@ def evaluate_chatops_qualification(
                 minimum_score=item.minimum_score,
                 run_scores=tuple(run_scores),
                 worst_score=worst_score,
-                passed=worst_score >= item.minimum_score,
+                passed=all(score.passed for score in run_scores),
             )
         )
 
@@ -349,6 +349,8 @@ def evaluate_chatops_qualification(
             f"{batch.corpus.korean_turns}"
             f"<minimum_turns_per_locale={contract.minimum_turns_per_locale}"
         )
+    # The v1 batch shape has locale counts but no per-locale outcome or confidence data.
+    gaps.append("locale_statistical_evidence_missing")
     failed_items = [str(item.item_id) for item in results if not item.passed]
     if failed_items:
         gaps.append(f"items_below_threshold={','.join(failed_items)}")
@@ -357,6 +359,11 @@ def evaluate_chatops_qualification(
     elif evaluated_at is None:
         gaps.append("decision_evidence_evaluation_time_missing")
     else:
+        latest_run_completion = max(
+            _timestamp(run.completed_at, "completed_at") for run in batch.runs
+        )
+        if decision_evidence.verified_at < latest_run_completion:
+            gaps.append("decision_evidence_verification_predates_run_completion")
         reasons = assess_decision_evidence_admission(
             decision_evidence,
             expected_evidence_digest=chatops_qualification_evidence_digest(batch),

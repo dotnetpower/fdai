@@ -141,7 +141,27 @@ def test_qualifies_only_when_every_item_passes_the_worst_of_three_runs() -> None
     assert scorecard.items[0].worst_score == 9.7
     assert scorecard.items[0].passed is False
     assert scorecard.items[1].worst_score == 9.8
-    assert scorecard.gaps == ("items_below_threshold=1",)
+    assert scorecard.gaps == (
+        "locale_statistical_evidence_missing",
+        "items_below_threshold=1",
+    )
+
+
+def test_qualification_does_not_round_a_failing_run_up_to_the_threshold() -> None:
+    weaker = list(_items())
+    weaker[0] = replace(weaker[0], components=_components(0.979999))
+    batch = _batch(runs=(_run(1), _run(2, items=tuple(weaker)), _run(3)))
+
+    scorecard = _evaluate(batch)
+
+    assert scorecard.items[0].run_scores[1].final_score == 9.8
+    assert scorecard.items[0].run_scores[1].passed is False
+    assert scorecard.items[0].worst_score == 9.8
+    assert scorecard.items[0].passed is False
+    assert scorecard.gaps == (
+        "locale_statistical_evidence_missing",
+        "items_below_threshold=1",
+    )
 
 
 def test_derives_all_hard_caps_from_evidence_and_uses_the_lowest_cap() -> None:
@@ -188,7 +208,10 @@ def test_corpus_floor_overrides_an_unsubstantiated_blind_evidence_claim() -> Non
 def test_requires_three_complete_unique_runs() -> None:
     scorecard = _evaluate(_batch(runs=(_run(1), _run(2))))
     assert scorecard.qualified is False
-    assert scorecard.gaps == ("run_count=2<minimum_runs=3",)
+    assert scorecard.gaps == (
+        "run_count=2<minimum_runs=3",
+        "locale_statistical_evidence_missing",
+    )
 
     with pytest.raises(ValueError, match="item ids 1 through 50"):
         _run(1, items=_items()[:-1])
@@ -206,6 +229,13 @@ def test_rejects_contract_or_provenance_mismatch() -> None:
         replace(batch.provenance, deployment_identifiers=("https://example.com",))
 
 
+def test_v1_batch_fails_closed_without_locale_statistical_evidence() -> None:
+    scorecard = _evaluate(_batch())
+
+    assert scorecard.qualified is False
+    assert scorecard.gaps == ("locale_statistical_evidence_missing",)
+
+
 def test_scorecard_serialization_is_stable_content_addressed_and_no_authority() -> None:
     scorecard = _evaluate(_batch())
 
@@ -213,7 +243,8 @@ def test_scorecard_serialization_is_stable_content_addressed_and_no_authority() 
     second = scorecard.to_dict()
 
     assert first == second
-    assert first["qualified"] is True
+    assert first["qualified"] is False
+    assert first["gaps"] == ["locale_statistical_evidence_missing"]
     assert first["qualification_authority"] is False
     assert first["decision_evidence_receipt_digest"] == "sha256:" + "d" * 64
     assert first["decision_evidence_verification_bundle_digest"] == "sha256:" + "e" * 64
@@ -244,7 +275,10 @@ def test_missing_decision_evidence_fails_closed() -> None:
     missing = evaluate_chatops_qualification(batch)
 
     assert missing.qualified is False
-    assert missing.gaps == ("decision_evidence_admission_missing",)
+    assert missing.gaps == (
+        "locale_statistical_evidence_missing",
+        "decision_evidence_admission_missing",
+    )
     assert missing.decision_evidence_receipt_digest is None
     assert missing.decision_evidence_verification_bundle_digest is None
 
@@ -278,7 +312,10 @@ def test_mismatched_or_expired_decision_evidence_fails_closed(
     )
 
     assert scorecard.qualified is False
-    assert scorecard.gaps == (expected_gap,)
+    assert scorecard.gaps == (
+        "locale_statistical_evidence_missing",
+        expected_gap,
+    )
 
 
 def test_admission_without_explicit_evaluation_time_fails_closed() -> None:
@@ -290,4 +327,26 @@ def test_admission_without_explicit_evaluation_time_fails_closed() -> None:
     )
 
     assert scorecard.qualified is False
-    assert scorecard.gaps == ("decision_evidence_evaluation_time_missing",)
+    assert scorecard.gaps == (
+        "locale_statistical_evidence_missing",
+        "decision_evidence_evaluation_time_missing",
+    )
+
+
+def test_admission_verification_must_follow_every_run_completion() -> None:
+    batch = _batch()
+
+    scorecard = evaluate_chatops_qualification(
+        batch,
+        decision_evidence=_admission(
+            batch,
+            verified_at=_EVALUATED_AT - timedelta(minutes=15),
+        ),
+        evaluated_at=_EVALUATED_AT,
+    )
+
+    assert scorecard.qualified is False
+    assert scorecard.gaps == (
+        "locale_statistical_evidence_missing",
+        "decision_evidence_verification_predates_run_completion",
+    )

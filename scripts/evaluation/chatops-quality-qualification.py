@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import tempfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -66,7 +68,10 @@ _COMPONENT_KEYS = frozenset(dimension.value for dimension in QualityDimension)
 def evaluate_file(path: Path) -> dict[str, object]:
     """Load measured observations and return a deterministic qualification scorecard."""
 
-    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw = json.loads(
+        path.read_text(encoding="utf-8"),
+        object_pairs_hook=_unique_object,
+    )
     batch = _batch(_mapping(raw, "root"))
     return evaluate_chatops_qualification(batch).to_dict()
 
@@ -164,6 +169,15 @@ def _mapping(raw: object, field: str) -> Mapping[str, Any]:
     return raw
 
 
+def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    value: dict[str, object] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError("qualification input contains a duplicate object key")
+        value[key] = item
+    return value
+
+
 def _require_exact_keys(raw: Mapping[str, Any], expected: frozenset[str], field: str) -> None:
     actual = frozenset(raw)
     if actual != expected:
@@ -203,6 +217,31 @@ def _boolean(raw: object, field: str) -> bool:
     return raw
 
 
+def _write_scorecard(output: Path, serialized: str) -> None:
+    if output.is_symlink():
+        raise ValueError("output MUST NOT be a symbolic link")
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{output.name}.",
+        suffix=".tmp",
+        dir=output.parent,
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(serialized)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temporary, 0o644)
+        os.replace(temporary, output)
+        directory = os.open(output.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Write a stable scorecard and optionally require complete qualification."""
 
@@ -220,7 +259,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.output is None:
         sys.stdout.write(serialized)
     else:
-        args.output.write_text(serialized, encoding="utf-8")
+        try:
+            _write_scorecard(args.output, serialized)
+        except (OSError, ValueError) as exc:
+            print(
+                f"chatops-quality-qualification: ERROR: {exc}",
+                file=sys.stderr,
+            )
+            return 2
     if args.require_qualified and not scorecard["qualified"]:
         print("chatops-quality-qualification: NOT QUALIFIED", file=sys.stderr)
         return 3
