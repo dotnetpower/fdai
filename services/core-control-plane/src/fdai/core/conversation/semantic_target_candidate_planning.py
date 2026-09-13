@@ -80,7 +80,16 @@ def build_stated_resource_filter_frame(
     )
     if any(target.get("kind") in {"resource", "resource_id"} for target in typed_targets):
         return None
-    filters = stated_value_filters(utterance, descriptors)
+    resource_type_filters = tuple(
+        str(target["value"])
+        for target in typed_targets
+        if target.get("kind") == "resource_type_filter" and isinstance(target.get("value"), str)
+    )
+    filters = stated_value_filters(
+        utterance,
+        descriptors,
+        preferred_terms=resource_type_filters,
+    )
     typed_collection = primary_intent in {
         "query.contextual_resources",
         "query.resource_current_state",
@@ -89,7 +98,12 @@ def build_stated_resource_filter_frame(
         (
             {"resource_collection", "list"} <= set(raw_facets)
             and any(
-                target.get("kind") in {"resource_type_filter", "resource_state_filter"}
+                target.get("kind")
+                in {
+                    "resource_type_filter",
+                    "resource_state_exclusion_filter",
+                    "resource_state_filter",
+                }
                 for target in typed_targets
             )
         )
@@ -138,7 +152,12 @@ def build_stated_resource_filter_frame(
             target["kind"] == "affected_target"
             or (
                 target["kind"].endswith("_filter")
-                and target["kind"] not in {"resource_type_filter", "resource_state_filter"}
+                and target["kind"]
+                not in {
+                    "resource_type_filter",
+                    "resource_state_exclusion_filter",
+                    "resource_state_filter",
+                }
             )
         )
         and isinstance(target.get("value"), str)

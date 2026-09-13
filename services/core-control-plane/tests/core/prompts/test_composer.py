@@ -416,7 +416,7 @@ async def test_conversation_preflight_prompt_stays_compact_and_authority_free() 
     base = registry.get_base("conversation.preflight")
     out = await composer.compose(capability_id="conversation.preflight")
 
-    assert base.version == 8
+    assert base.version == 9
     assert out.system_text.startswith(base.body)
     assert [layer.id for layer in out.layer_manifest] == [
         "conversation-preflight",
@@ -433,6 +433,8 @@ async def test_conversation_preflight_prompt_stays_compact_and_authority_free() 
     assert "source_start is zero-based inclusive" in out.system_text
     assert "conceptual technology comparison" in out.system_text
     assert "resource_type_filter" in out.system_text
+    assert "resource_state_exclusion_filter" in out.system_text
+    assert "state_change_history" in out.system_text
     assert "subscription_scope_identity" in out.system_text
     assert "subscription_service_health" in out.system_text
     assert "Core binds them only through the current catalog" in out.system_text

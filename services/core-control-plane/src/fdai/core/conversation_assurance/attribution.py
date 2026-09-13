@@ -24,6 +24,77 @@ class FailureLayer(StrEnum):
     UNKNOWN = "unknown"
 
 
+class ConversationStage(StrEnum):
+    """Ordered stages used to attribute structural conversation failures."""
+
+    CONTEXT_FRAMING = "context_framing"
+    ROUTING = "routing"
+    EVIDENCE_RETRIEVAL = "evidence_retrieval"
+    TOOL_EXECUTION = "tool_execution"
+    SYNTHESIS = "synthesis"
+    RENDERING = "rendering"
+    TRANSPORT = "transport"
+
+
+class StageOutcome(StrEnum):
+    PASSED = "passed"
+    FAILED = "failed"
+    UNAVAILABLE = "unavailable"
+    NOT_APPLICABLE = "not_applicable"
+
+
+_STAGE_ORDER = tuple(ConversationStage)
+_MAX_STRUCTURAL_EVIDENCE_REFS = 64
+
+
+@dataclass(frozen=True, slots=True)
+class StructuralStageObservation:
+    """Record one content-free stage outcome from a completed turn trace."""
+
+    stage: ConversationStage
+    outcome: StageOutcome
+    reason_code: str
+    evidence_refs: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.reason_code.strip() or len(self.reason_code) > 256:
+            raise ValueError("stage observation reason_code MUST be bounded and non-empty")
+        if len(self.evidence_refs) > _MAX_STRUCTURAL_EVIDENCE_REFS:
+            raise ValueError("stage observation evidence_refs exceeds the bounded cap")
+        if any(not item.strip() or len(item) > 1_024 for item in self.evidence_refs):
+            raise ValueError("stage observation evidence_refs MUST be bounded and non-empty")
+
+
+@dataclass(frozen=True, slots=True)
+class StructuralFailureAttribution:
+    """Bind one failed answer to its earliest failed pipeline stage."""
+
+    attribution_id: str
+    turn_id: str
+    root_stage: ConversationStage | None
+    contributing_stages: tuple[ConversationStage, ...]
+    failed_rubrics: tuple[str, ...]
+    reason_codes: tuple[str, ...]
+    evidence_refs: tuple[str, ...]
+    channel_kind: str | None = None
+    locale: str | None = None
+    route_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class StructuralFailureSummary:
+    """Aggregate content-free root-cause counts for one evaluated batch."""
+
+    total_failures: int
+    root_stage_counts: tuple[tuple[ConversationStage, int], ...]
+    failed_rubric_counts: tuple[tuple[str, int], ...]
+    reason_code_counts: tuple[tuple[str, int], ...]
+    channel_counts: tuple[tuple[str, int], ...]
+    locale_counts: tuple[tuple[str, int], ...]
+    route_counts: tuple[tuple[str, int], ...]
+    UNKNOWN = "unknown"
+
+
 class AdequacyCandidateKind(StrEnum):
     PROVIDER_MAPPING = "provider_mapping"
     PROJECTION_BINDING = "projection_binding"
@@ -172,6 +243,116 @@ def build_ontology_adequacy_review(
     )
 
 
+def attribute_structural_failure(
+    *,
+    turn_id: str,
+    answer_digest: str,
+    observations: tuple[StructuralStageObservation, ...],
+    failed_rubrics: tuple[str, ...] = (),
+    channel_kind: str | None = None,
+    locale: str | None = None,
+    route_id: str | None = None,
+) -> StructuralFailureAttribution:
+    """Select the earliest observed failed stage without inferring from answer prose."""
+
+    if not turn_id.strip() or not answer_digest.strip():
+        raise ValueError("structural attribution identity fields MUST be non-empty")
+    for label, value in (
+        ("channel_kind", channel_kind),
+        ("locale", locale),
+        ("route_id", route_id),
+    ):
+        if value is not None and (not value.strip() or len(value) > 256):
+            raise ValueError(f"structural attribution {label} MUST be bounded and non-empty")
+    by_stage: dict[ConversationStage, StructuralStageObservation] = {}
+    for observation in observations:
+        if observation.stage in by_stage:
+            raise ValueError("structural attribution stages MUST be unique")
+        by_stage[observation.stage] = observation
+    contributing = tuple(
+        stage
+        for stage in _STAGE_ORDER
+        if stage in by_stage
+        and by_stage[stage].outcome in {StageOutcome.FAILED, StageOutcome.UNAVAILABLE}
+    )
+    root_stage = contributing[0] if contributing else None
+    normalized_rubrics = tuple(sorted(set(failed_rubrics)))
+    reason_codes = tuple(by_stage[stage].reason_code for stage in contributing)
+    evidence_refs = tuple(
+        dict.fromkeys(
+            evidence_ref for stage in contributing for evidence_ref in by_stage[stage].evidence_refs
+        )
+    )
+    material = "\0".join(
+        (
+            turn_id,
+            answer_digest,
+            root_stage.value if root_stage is not None else "none",
+            *(stage.value for stage in contributing),
+            *normalized_rubrics,
+            *reason_codes,
+            *evidence_refs,
+            channel_kind or "",
+            locale or "",
+            route_id or "",
+        )
+    )
+    return StructuralFailureAttribution(
+        attribution_id="structural-failure:" + hashlib.sha256(material.encode()).hexdigest(),
+        turn_id=turn_id,
+        root_stage=root_stage,
+        contributing_stages=contributing,
+        failed_rubrics=normalized_rubrics,
+        reason_codes=reason_codes,
+        evidence_refs=evidence_refs,
+        channel_kind=channel_kind,
+        locale=locale,
+        route_id=route_id,
+    )
+
+
+def aggregate_structural_failures(
+    attributions: tuple[StructuralFailureAttribution, ...],
+) -> StructuralFailureSummary:
+    """Count root stages, failed rubrics, and reasons without retaining answer content."""
+
+    stage_counts: dict[ConversationStage, int] = {}
+    rubric_counts: dict[str, int] = {}
+    reason_counts: dict[str, int] = {}
+    channel_counts: dict[str, int] = {}
+    locale_counts: dict[str, int] = {}
+    route_counts: dict[str, int] = {}
+    for attribution in attributions:
+        if attribution.root_stage is not None:
+            stage_counts[attribution.root_stage] = stage_counts.get(attribution.root_stage, 0) + 1
+        for rubric in attribution.failed_rubrics:
+            rubric_counts[rubric] = rubric_counts.get(rubric, 0) + 1
+        for reason in attribution.reason_codes:
+            reason_counts[reason] = reason_counts.get(reason, 0) + 1
+        for value, counts in (
+            (attribution.channel_kind, channel_counts),
+            (attribution.locale, locale_counts),
+            (attribution.route_id, route_counts),
+        ):
+            if value is not None:
+                counts[value] = counts.get(value, 0) + 1
+    return StructuralFailureSummary(
+        total_failures=sum(item.root_stage is not None for item in attributions),
+        root_stage_counts=tuple(
+            (stage, stage_counts[stage]) for stage in _STAGE_ORDER if stage in stage_counts
+        ),
+        failed_rubric_counts=tuple(
+            sorted(rubric_counts.items(), key=lambda item: (-item[1], item[0]))
+        ),
+        reason_code_counts=tuple(
+            sorted(reason_counts.items(), key=lambda item: (-item[1], item[0]))
+        ),
+        channel_counts=tuple(sorted(channel_counts.items(), key=lambda item: (-item[1], item[0]))),
+        locale_counts=tuple(sorted(locale_counts.items(), key=lambda item: (-item[1], item[0]))),
+        route_counts=tuple(sorted(route_counts.items(), key=lambda item: (-item[1], item[0]))),
+    )
+
+
 def _layer_for_reason(reason: str) -> FailureLayer:
     if reason == "verification_reason_unavailable":
         return FailureLayer.UNKNOWN
@@ -241,11 +422,18 @@ __all__ = [
     "AdequacyCandidateKind",
     "AdequacyReviewState",
     "AnswerFailureAttribution",
+    "ConversationStage",
     "FailureLayer",
     "HoldingOntologyAdequacyInvestigator",
     "OntologyAdequacyInvestigator",
     "OntologyAdequacyReview",
     "OntologyAdequacyReviewSink",
+    "StageOutcome",
+    "StructuralFailureAttribution",
+    "StructuralFailureSummary",
+    "StructuralStageObservation",
+    "aggregate_structural_failures",
     "attribute_answer_failure",
+    "attribute_structural_failure",
     "build_ontology_adequacy_review",
 ]

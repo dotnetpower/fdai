@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 6f1dac76ad9c6263cb7ee5017c30d2e3becece57
-translation_revised: 2026-09-10
+translation_source_sha: 81219a4dcf34627eae97d8eb017621d7189acbbd
+translation_revised: 2026-09-13
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -47,6 +47,7 @@ Teams Workflows 웹훅 바인딩은
 | Teams, Slack 및 아웃바운드 알림 어댑터 | 구현됨 | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py), `fdai_operator_service/families/conversation/channel_edge/`, `families/iam/hil_callback*.py`, 집중 에지, 콜백, Kafka, 워크플로 및 카나리 검사 | Teams는 `HilChannel`을 구현합니다. Core와 Operator는 별도로 구성된 그룹 연결 팀과 채널에서 같은 콜백 대상을 파생합니다. Operator는 브로커에 게시하기 전에 각 결정의 보낼 편지함 레코드를 영속화하고 수락된 뒤에만 전달 완료로 표시합니다. Slack A1은 구성된 워크스페이스와 Entra 매핑으로 독립 운영할 수 있습니다. 전용 아웃바운드 Slack `HilChannel`과 배포 증적은 열린 상태입니다. |
 | 영속 아웃바운드 대화 전달 | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | 조정기는 확정적인 거절과 모호한 확인 응답을 구분하고 재시도를 제한하며 중단된 전송을 조정하고 안정적인 전달 신원을 보존합니다. 이 동작은 집중 테스트를 통과했습니다. |
 | 순수 채널 표현 렌더링 | 구현됨 | `fdai_operator_service/families/conversation/channel_edge/{presentation,renderers}.py`, 집중 Operator 렌더러 검사 | 정규화된 묶음 하나가 정본 텍스트, 사실, 제한, 근거, 권한 및 사용 불가 상태를 보존합니다. 순수 Teams 및 Slack 페이로드 builder는 전송 또는 확인 응답 없이 기능 상한을 강제하며 잘못된 산출물은 정본 텍스트로 저하됩니다. |
+| 채널 인식 표현 보증 | 구현됨 | [`channel_assurance.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/channel_assurance.py), [`test_channel_assurance.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_channel_assurance.py) | 공통 내용, 제한, 근거 및 권한 검사는 모든 채널에 적용합니다. 선택적인 진행 상황, 활동, rich 표현, 스레드 및 편집 검사는 주입된 기능 프로필을 따릅니다. Direct Line 및 사용자 지정 프로필은 계약으로 지원하지만 Direct Line 전송은 구현되지 않았습니다. |
 | 명시적 선택 브라우저 알림 | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`notification-sw.js`](../../../console/public/notification-sw.js) 및 집중 브라우저 알림 테스트 | 권한, 기본 설정, 가시성, 전달 및 알림 클릭 시 창 활성화 동작이 집중 Vitest 사례를 통과했습니다. 실제 Windows 알림 또는 푸시 서비스 증적은 기록되지 않았습니다. |
 | 이해관계자 브리핑과 A3 edge 런타임 | 구현됨 | [`briefing.py`](../../../services/core-control-plane/src/fdai/core/notifications/briefing.py), [`test_briefing.py`](../../../services/core-control-plane/tests/notifications/test_briefing.py), [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md) | 결정론적 이해관계자 브리핑은 집중 테스트를 통과했습니다. 독립 Operator distribution ASGI factory, 로컬 실행 및 선택적 Container App이 구현됐으며 통제된 프로바이더 및 보호된 배포 근거는 런타임 소유 문서에서 추적합니다. |
 | 전용 시스템 지식 Teams 멘션 endpoint | 진행 중 | [시스템 지식 서비스](system-knowledge-service-ko.md), `services/system-knowledge-service/`, 집중 서비스 검사 | 읽기 전용 서비스는 별도 distribution, 카탈로그 및 전달 원장을 사용합니다. 배포는 Bot Framework 신원 또는 Team 범위 HMAC 인증 Outgoing Webhook 중 하나를 선택합니다. 운영 Teams 및 롤백 근거는 남아 있으며 A1-A4 준비 상태를 바꾸지 않습니다. |
@@ -56,6 +57,7 @@ Teams Workflows 웹훅 바인딩은
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-13 | 구현됨 | 정본 응답 내용이나 전송 권한을 바꾸지 않고 채널 인식 표현 평가를 추가했습니다. | `current change`, 채널 보증 및 구조 귀속 집중 테스트 14개가 통과했습니다. | 각 배포 채널에 권위 있는 표현 관측을 연결하고 Direct Line 전송을 구현한 뒤 runtime 지원을 주장합니다. |
 | 2026-09-10 | implemented | A1-A4 라우팅을 바꾸지 않고 HMAC 인증 Teams Outgoing Webhook 대안을 추가했습니다. | `current change`, transport별 서비스, Terraform, 보호된 workflow 및 집중 검사입니다. | 실제 `@FDAI-bot`, 5초 응답, 재시작, 비용, 비활성화 및 복원 근거를 보존합니다. |
 | 2026-09-10 | implemented | A1-A4 라우팅을 바꾸지 않고 지식 봇의 전용 Azure Bot, Teams app package, Managed Identity Blob claim 경계 및 보호된 plan/apply workflow를 추가했습니다. | `current change`, 서비스 Terraform, 배포 workflow, package builder 및 집중 검사입니다. | 실제 Teams, 비용, 비활성화 및 15분 이내 롤백 근거를 보존합니다. |
 | 2026-09-09 | 진행 중 | 운영 A3 edge 또는 A1-A4 준비 상태를 바꾸지 않고 mention-only 전용 시스템 지식 Teams 봇을 별도 distribution으로 추가했습니다. | `current change`, 시스템 지식 서비스 설계, 패키지, 계약, 카탈로그, Teams 경계, 원장 및 집중 검사입니다. | 운영 프로바이더, persistent volume, 비활성화 및 15분 이내 롤백 근거를 보존합니다. |
@@ -286,12 +288,10 @@ Adaptive 카드 렌더링과 분리합니다. 이 분리는 wire 페이로드와
 | Slack | Block Kit `section`, `fields`, `context`, `actions` | 범위가 제한된 텍스트 요약, 검토된 결정론적 렌더러가 있을 때만 sparkline | 제한, 근거 참조, 권한, 사용 불가 상태, 최상위 `text` 대체 경로 |
 | 사용자 지정 | 주입형 렌더러와 기능 프로필 | 렌더러가 선언한 범위가 제한된 대체 경로 | 기본 렌더러와 같은 필수 내용 및 상한 |
 
-렌더링은 사실을 골라 버리는 대신 손실 범위를 제한합니다. 읽기 가능한 대체 경로가 같은 정본
-사실을 유지한 뒤에만 선택적인 시각 상세를 생략할 수 있습니다. 사용 불가를 0으로 바꾸거나 승인
-또는 권한 경계를 삭제하거나 원시 산출물 JSON을 기본 답변으로 내보내지 않습니다. 전송 전에
-프로바이더 바이트, 블록 및 필드 상한을 적용합니다. 상한을 넘으면 먼저 선택적 시각 상세를
-제거하고 그다음 완전하며 범위가 제한된 텍스트 대체 경로를 사용합니다. 필수 내용만으로도 맞지
-않으면 프로바이더 호출 전에 실패합니다.
+대화 품질 보증은 독립 기능 프로필을 통해 이 변환 결과를 평가합니다. 정본 내용, 제한 사항, 근거 참조 및 권한 상태는 항상 적용합니다. 답변 준비 상태, 진행 상황, 활동 기록, rich 표현, 스레드 연속성 및 편집 연속성은 주입된 프로필이 지원을 선언할 때만 적용합니다. Direct Line과 사용자 지정 어댑터는 동일한 프로필 연결 지점을 사용합니다. 이 계약은 Direct Line 전송을 구현하거나 Core에 벤더 분기를 추가하지 않습니다.
+
+렌더링은 사실을 골라 버리는 대신 손실 범위를 제한합니다. 읽기 가능한 대체 경로가 같은 정본 사실을 유지한 뒤에만 선택적인 시각 상세를 생략할 수 있습니다. 사용 불가를 0으로 바꾸거나 승인 또는 권한 경계를 삭제하거나 원시 산출물 JSON을 기본 답변으로 내보내지 않습니다.
+전송 전에 프로바이더 바이트, 블록 및 필드 상한을 적용합니다. 상한을 넘으면 먼저 선택적 시각 상세를 제거하고 그다음 완전하며 범위가 제한된 텍스트 대체 경로를 사용합니다. 필수 내용만으로도 맞지 않으면 프로바이더 호출 전에 실패합니다.
 
 순수 페이로드 builder와 가짜 사용자 지정 렌더러는 계속 독립적으로 테스트할 수 있습니다.
 Standalone Operator edge는 Slack 및 Teams builder를 인증된 유입, 고정 HTTP transport, 엄격한
