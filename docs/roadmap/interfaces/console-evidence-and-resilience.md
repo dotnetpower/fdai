@@ -142,9 +142,7 @@ route shows observed, finalized, pending, adverse, and auto-resolved counts sepa
 auto-resolution rate keeps the canonical total observed-event denominator, so pending and other
 non-auto events never disappear from the rate. Outcome and audit timestamps must be timezone-aware;
 an outcome more than five minutes ahead of its durable audit timestamp does not finalize the action.
-Operator builds this read-only projection from the bounded canonical measurement streams at one
-cutoff, then validates the complete, consistent, non-synthetic envelope. It never repairs a
-malformed or partial snapshot from general audit rows or fallback state.
+Operator builds this read-only projection from the bounded canonical measurement streams at one cutoff, then validates the complete, consistent, non-synthetic envelope. It never repairs a malformed or partial snapshot from general audit rows or fallback state.
 Vertical attribution uses an explicit recorded vertical first, then only strong Resilience or Cost
 Governance action/resource hints. Evidence that cannot be attributed without guessing remains in an
 `unattributed` row, contributes to the global denominator, and lowers the displayed attribution
