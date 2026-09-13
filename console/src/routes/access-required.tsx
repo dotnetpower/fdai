@@ -31,6 +31,14 @@ export function isCurrentAccessCheck(
   return generation.current === candidate;
 }
 
+export function signedInAccountLabel(
+  verifiedUsername: string | null,
+  sessionUsername: string | undefined,
+  unavailableLabel: string,
+): string {
+  return verifiedUsername ?? sessionUsername ?? unavailableLabel;
+}
+
 export function AccessRequiredRoute({ auth, client, initialStatus }: Props) {
   const statusGeneration = useRef(0);
   const accessRequestIntent = useRef<MutationIntentIdentity | null>(null);
@@ -40,6 +48,11 @@ export function AccessRequiredRoute({ auth, client, initialStatus }: Props) {
   const [checking, setChecking] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const accountLabel = signedInAccountLabel(
+    initialStatus.principal.username,
+    auth.account?.username,
+    t("settings.unavailable"),
+  );
 
   const checkStatus = async () => {
     const generation = beginAccessCheck(statusGeneration);
@@ -104,7 +117,7 @@ export function AccessRequiredRoute({ auth, client, initialStatus }: Props) {
         <dl class="access-required-identity">
           <div>
             <dt>{t("accessRequired.account")}</dt>
-            <dd>{initialStatus.principal.username ?? initialStatus.principal.subjectId}</dd>
+            <dd>{accountLabel}</dd>
           </div>
           <div>
             <dt>{t("accessRequired.requestedRole")}</dt>

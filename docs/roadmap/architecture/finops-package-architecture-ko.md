@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 7ee34043604f2633e3ad836b3b525ea84ebf1d77
+translation_source_sha: 56d3ab37d4eff02bec39ec468c72a49838fbfe20
 translation_revised: 2026-09-13
 ---
 
@@ -241,6 +241,8 @@ Core는 `fdai_cost_governance`를 가져오지 않습니다. 설치된 배포판
 프로바이더 요구 사항 및 배포 gate를 통해서만 활성화됩니다.
 공유 정적 카탈로그 검사가 다른 라우트 전용 영어 카탈로그를 등록해도 비용 거버넌스 동작을
 추가하거나 선택적 패키지를 활성화하지 않습니다.
+같은 호스트 인증기가 범위가 제한된 검증 사용자명을 IAM 표시 변환 결과에 전달할 수 있습니다.
+이 표시 전용 값은 비용 거버넌스 신원, 활성화, 공개 범위 또는 패키지 권한에 들어가지 않습니다.
 통합 Operator 라우트 조립은 담당 체계 읽기에 담당자 ID 근거를 보강할 수 있습니다. 모든 비용
 거버넌스 작업은 이 데코레이터를 변경 없이 통과합니다.
 담당 체계 전용 카탈로그 레이블과 셸 스크롤 복구는 비용 거버넌스 경로, 활성화, 공개 범위 또는
