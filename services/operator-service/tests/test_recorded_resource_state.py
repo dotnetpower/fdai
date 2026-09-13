@@ -179,11 +179,17 @@ def test_missing_state_separates_source_provider_and_applicability_outcomes() ->
     assert unresolved["operational"]["reason"] == "state_applicability_unknown"
 
 
-def test_missing_availability_preserves_the_reviewed_resource_health_reason() -> None:
+@pytest.mark.parametrize(
+    "reason",
+    ["resource_health_not_modeled", "resource_health_target_limit"],
+)
+def test_missing_availability_preserves_the_reviewed_resource_health_reason(
+    reason: str,
+) -> None:
     states = recorded_resource_states(
         {
             "state_fact_unavailable_reasons": {
-                "availabilityState": "resource_health_not_modeled",
+                "availabilityState": reason,
             }
         },
         resource_type="compute.vm",
@@ -191,7 +197,21 @@ def test_missing_availability_preserves_the_reviewed_resource_health_reason() ->
     )
 
     assert states["availability"]["value"] is None
-    assert states["availability"]["reason"] == "resource_health_not_modeled"
+    assert states["availability"]["reason"] == reason
+
+
+def test_activity_operation_status_does_not_replace_search_operational_state() -> None:
+    states = recorded_resource_states(
+        {
+            "status": "running",
+            "operationStatus": "Succeeded",
+        },
+        resource_type="search-service",
+        now=NOW,
+    )
+
+    assert states["operational"]["value"] == "running"
+    assert states["operational"]["source_path"] == "status"
 
 
 def test_unreviewed_state_unavailability_reason_does_not_cross_the_read_boundary() -> None:

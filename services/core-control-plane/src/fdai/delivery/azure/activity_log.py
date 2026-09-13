@@ -351,7 +351,7 @@ class AzureActivityLogFactory:
         props = _truncate_props(
             {
                 "operation": operation,
-                "status": _nested_value(event, "status"),
+                "operationStatus": _nested_value(event, "status"),
                 "caller": event.get("caller"),
                 "eventTimestamp": event.get("eventTimestamp"),
             },

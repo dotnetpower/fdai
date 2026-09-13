@@ -177,8 +177,10 @@ the exact ResourceTypes whose ARM type is supported:
   exactly one allowlisted per-resource reason such as `resource_health_not_modeled`; provider response text
   never crosses the read boundary. A retained verified value remains authoritative over the newer
   failed read while source-level partial coverage records that failure.
-- Exact reads are bounded to 200 targets with concurrency eight. Prior qualified facts are read in
-  generation-consistent batches and retained when the target bound or provider is unavailable.
+- Exact reads are bounded to the first 200 targets in stable Resource identity order with concurrency
+  eight. Remaining targets retain a prior qualified fact or carry
+  `resource_health_target_limit`; source coverage reports the bounded remainder instead of
+  abandoning the entire generation.
 - One shared service contract, `fdai_service_contracts.recorded_resource_state`, defines the
   reviewed ResourceType path allowlist for both Core ontology projection and Operator reads. Each
   projection applies that allowlist to root and supported nested property owners before inspecting

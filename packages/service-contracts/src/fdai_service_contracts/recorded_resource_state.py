@@ -12,6 +12,7 @@ RECORDED_STATE_UNAVAILABLE_REASONS = frozenset(
         "resource_health_response_invalid",
         "resource_health_response_too_large",
         "resource_health_source_unavailable",
+        "resource_health_target_limit",
         "resource_health_target_unresolved",
         "resource_health_transport_unavailable",
         "resource_health_unauthorized",

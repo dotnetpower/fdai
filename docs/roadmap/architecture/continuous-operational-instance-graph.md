@@ -73,6 +73,9 @@ The collector uses the cheapest authoritative signal that can preserve the requi
 Activity Log recovery records are sparse observations. They merge only their declared property
 mask into the current snapshot and carry no relationship changes; only a complete reconciliation
 can replace the full property set or establish relationship completeness.
+The Activity Log control-plane outcome is retained as `operationStatus` and normalized
+`operation_status` evidence. It is never written to the reserved Resource `status` property and
+therefore cannot replace an operational-state fact.
 Hydrated Resource Changes reuse the full scan's reviewed provider-parent mapping before emitting
 their incomplete relationship set. Nested subnet records retain the observed VNet as `parent_id`;
 an exact child cannot fall back to a Resource Group parent between reconciliations.
