@@ -322,4 +322,9 @@ SOURCE_DATE_EPOCH="$source_epoch" bash "$repo_root/scripts/deployment/release/st
 tar --sort=name --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner \
   -czf "$archive" -C "$stage" kit
 chmod 0600 "$archive"
-printf 'standalone-kit: OK archive=%s sha256=%s\n' "$archive" "$(sha256sum "$archive" | cut -d' ' -f1)"
+archive_digest="$(sha256sum "$archive" | cut -d' ' -f1)"
+[[ "$archive_digest" =~ ^[0-9a-f]{64}$ ]] || {
+  echo "build-standalone-kit: archive checksum is unavailable" >&2
+  exit 3
+}
+printf 'standalone-kit: OK archive=%s sha256=%s\n' "$archive" "$archive_digest"

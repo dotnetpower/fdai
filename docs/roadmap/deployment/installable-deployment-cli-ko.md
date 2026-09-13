@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: fa594dae3b477010af2a9e676611abe2d7665679
+translation_source_sha: 9b8f9ffbdd1b55ec69064875c4daa3f41eb3d439
 translation_revised: 2026-09-13
 ---
 # 설치형 배포 CLI
@@ -100,7 +100,7 @@ OPA는 고정 버전으로 다운로드하고 플랫폼별 공식 SHA-256이 일
 Python은 공식 일반 파일 구성의 Terraform ZIP만 수락하므로 준비 과정에서 주변 환경의
 `unzip`이 필요하지 않습니다. 출력 루트는 안전한 절대 경로여야 하며, 서술자 기반 guard가
 정리 전에 현재 UID 소유권, mode 0700, mode-0600 일반 준비 sentinel을 검증합니다. 다시 준비할
-때는 소유권 sentinel을 유지하면서 생성된 모든 디렉터리와 단일 파일 출력을 제거합니다. 단, 완전한 독립 실행 릴리스 래퍼는 새 출력 루트를 요구하며 이전 아카이브와 부분 빌드를 모두 보존합니다.
+때는 소유권 sentinel을 유지하면서 생성된 모든 디렉터리와 단일 파일 출력을 제거합니다. 단, 완전한 독립 실행 릴리스 래퍼는 새 출력 루트를 요구하고 이전 아카이브를 보존하며 유효한 아카이브 체크섬을 확인한 뒤에만 성공을 보고합니다.
 Sentinel 검증은 서술자 검사 전에 최종 구성 요소를 비차단 모드로 열기 때문에 특수 파일이
 재개를 멈추게 할 수 없습니다.
 생성되는 자식 파일은 상위 디렉터리 서술자를 유지한 배타적 심볼릭 링크 차단 writer를 사용합니다.

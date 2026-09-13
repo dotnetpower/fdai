@@ -86,3 +86,31 @@ def test_existing_release_output_cannot_be_erased(tmp_path, output_kind):
     assert archive.read_bytes() == b"retained signed archive sentinel"
     assert (source / "sentinel").read_text() == "retained source"
     assert "fresh output directory" in result.stderr
+
+
+@pytest.mark.parametrize("checksum", ["exit 74", "exit 0", "echo invalid"])
+def test_archive_digest_failure_cannot_report_success(tmp_path, checksum):
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    executable(tools / "tar", 'printf "archive" >"$TEST_ARCHIVE"\n')
+    executable(tools / "sha256sum", checksum + "\n")
+    source = BUILDER.read_text()
+    marker = 'tar --sort=name --mtime="@$source_epoch"'
+    archive_tail = marker + source.rsplit(marker, 1)[1]
+    result = subprocess.run(  # noqa: S603 - actual shell tail, synthetic archive tools only.
+        ["/bin/bash", "-s"],
+        input='set -euo pipefail\narchive="$TEST_ARCHIVE"\nstage="$TEST_STAGE"\nsource_epoch=1\n'
+        + archive_tail,
+        env={
+            **os.environ,
+            "PATH": f"{tools}:/usr/bin:/bin",
+            "TEST_ARCHIVE": str(tmp_path / "archive.tar.gz"),
+            "TEST_STAGE": str(tmp_path),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode != 0
+    assert "standalone-kit: OK" not in result.stdout

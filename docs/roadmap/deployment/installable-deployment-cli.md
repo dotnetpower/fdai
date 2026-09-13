@@ -99,7 +99,7 @@ Terraform and OPA are downloaded at pinned versions only after their official SH
 The required Python accepts only the official Terraform ZIP member shape, so no ambient `unzip` is needed.
 The output root must be a safe absolute path. A descriptor-based guard verifies current-UID ownership, mode 0700, and a
 mode-0600 regular staging sentinel before cleanup. Restaging removes every generated directory and
-single-file output while preserving the ownership sentinel. The complete standalone release wrapper instead requires a fresh output root and preserves every prior archive and partial build. Sentinel verification opens the final
+single-file output while preserving the ownership sentinel. The complete standalone release wrapper instead requires a fresh output root, preserves prior archives, and reports success only after a valid archive checksum. Sentinel verification opens the final
 component in nonblocking mode before descriptor checks, so a special file cannot stall resume.
 Generated child files use a held-parent, exclusive, no-follow writer. A resumed replacement unlinks
 only the final entry and recreates it with `O_EXCL`, so links and FIFOs cannot redirect a write.
