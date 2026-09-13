@@ -247,7 +247,8 @@ the exact ResourceTypes whose ARM type is supported:
   availability source. These nodes show exact provisioning when present and retain explicit
   evidence-gap labeling only when every recorded axis lacks a useful exact fact.
 - A state-ingestion hardening completion claim records each bounded review round and requires an
-  independent follow-up with no unresolved Critical, High, or Medium finding.
+  independent follow-up across static gates and live-discovered boundary fixes with no unresolved
+  Critical, High, or Medium finding.
 
 ## Rejected alternatives
 
