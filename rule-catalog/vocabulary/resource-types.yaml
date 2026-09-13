@@ -27,7 +27,7 @@
 #
 # All values are English, secret-free, and customer-agnostic.
 schema_version: "1.0.0"
-version: "0.5.0"
+version: "0.5.1"
 category_query_terms:
   database: [database, databases, db, dbs, 데이터베이스, 디비]
 query_groups:
@@ -650,7 +650,7 @@ types:
     azure_arm_type: Microsoft.Communication/EmailServices/Domains
     typical_parents: [email-service]
   - id: search-service
-    category: database
+    category: compute
     description: Managed search index and query service.
     azure_arm_type: Microsoft.Search/searchServices
     typical_parents: [resource-group]

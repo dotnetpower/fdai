@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 74a74640ffe63d2e8ab817b22592fa4b8d819ea3
+translation_source_sha: 9691b64c8079b8d9c32d7c7175d2fa5d7c20ed83
 translation_revised: 2026-09-13
 ---
 # 온톨로지 구조 모델
@@ -71,6 +71,9 @@ LinkType을 만들지 않으며 내용 신원은 Resource UID나 관계 신원�
 `ResourceType` 하나를 가리키는 검토된 `resource_classified_as` 관계를 유지합니다. 매핑되지
 않았거나 아직 적재되지 않은 형식은 명시적인 커버리지 공백으로 남습니다. 이름, 아이덴티티
 접두사, 임베딩, 프로바이더 범주 또는 쿼리 별칭으로 분류를 만들지 않습니다.
+넓은 범주 쿼리 별칭과 `ResourceClass` 멤버 자격은 서로 독립적입니다. 한 유형은 검토된 데이터
+서비스 클래스에 남으면서도 `database` 언어 그룹에서는 제외될 수 있습니다. 따라서
+`search-service`는 일반 데이터베이스 질의가 아니라 정확한 유형 질의에 응답합니다.
 
 ### ResourceClass 분류 체계
 

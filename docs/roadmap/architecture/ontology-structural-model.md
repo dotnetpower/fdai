@@ -72,6 +72,9 @@ Every observed `Resource` keeps exactly one reviewed `resource_classified_as` re
 concrete `ResourceType` when the complete inventory generation and mapping digest support it.
 Unmapped or unseeded types remain explicit coverage gaps. A name, identifier prefix, embedding,
 provider category, or query alias never creates classification.
+Broad category query aliases are independent from `ResourceClass` membership. A type may retain a
+reviewed data-service class while remaining outside the `database` language group; `search-service`
+therefore answers its exact type, not generic database queries.
 
 ### ResourceClass taxonomy
 
