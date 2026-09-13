@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 69b833a179f7b89d0b3ac641d14d17c3d4240838
-translation_revised: 2026-09-12
+translation_source_sha: fa300749cf0af1878b573b148e0837f39f2b0386
+translation_revised: 2026-09-13
 ---
 
 # 배포 빠른 시작
@@ -41,8 +41,13 @@ Console, Operator API, 문서 서비스 및 격리된 Executor는 배포하지 �
 적용, 정리, 상태, 인계는 계속 직렬로 수행합니다.
 기반 계층 이전 이미지 계획은 Shared Key에 의존하는 Azure VM Image Builder 스테이징 경로가
 아니라 FQDN 허용 목록이 있는 Firewall Basic 뒤의 비공개 빌더 및 검증기 VM을 사용합니다.
-계획 전에 요청한 지역에서 호환되는 이미지 VM 크기를 선택하고 합산 할당량을 확인한 뒤,
-봉인된 선택을 승인 전에 표시합니다. 적용 중에는 선택한 크기를 바꾸지 않습니다.
+새 준비 작업은 전체 지역 VM 카탈로그를 읽고 합산 할당량 안에서 호환되는 빌더, 검증기,
+기반 호스트 크기를 선택합니다. 이미지 VM은 관리형 OS 디스크를 사용하며 호스트에는 이미지를
+담을 수 있는 임시 ResourceDisk가 필요합니다. 정확한 선택은 승인 전에 봉인하며 적용 중에는
+바꾸지 않습니다. 호환되는 조합이 없으면 보고된 제한, 하드웨어 요건, 할당량을 검토하세요.
+기존 적용 시작 기록이 있으면 검증만 재개합니다. 이 검사는 선택한 서명 키트에 해당 구현이
+포함된 경우에만 적용됩니다. 체크아웃 변경은 이전 키트를 갱신하지 않으며, 추출한 서명 키트를
+직접 편집하는 방식은 지원되지 않습니다.
 
 하위 수준 Genesis 라우터는 번호가 지정된 15개 단계, 정확한 진행률, 건너뛴 단계 수, 남은 작업을
 표시합니다. `--apply --allow-probe-resources` 플래그는 누락된 Provider 등록과 태그가 지정된 Key Vault 및 Storage 정책

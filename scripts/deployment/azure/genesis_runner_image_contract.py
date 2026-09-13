@@ -153,6 +153,7 @@ class RunnerImageInputs:
     region: str
     profile_digest: str
     sku_selection: dict[str, object] | None = None
+    foundation_vm_size: str = ""
 
 
 def load_runner_image_inputs(
@@ -234,6 +235,7 @@ def load_runner_image_inputs(
         environment=profile.environment,
         region=profile.region,
         profile_digest=canonical_digest(profile.to_mapping()),
+        foundation_vm_size=str(foundation.get("runner_vm_size", "Standard_D4ds_v5")),
     )
 
 
