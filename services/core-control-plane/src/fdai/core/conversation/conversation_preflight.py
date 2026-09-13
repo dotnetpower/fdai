@@ -11,7 +11,7 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Annotated, Any, Literal, Protocol, cast
 
-from fdai_service_contracts.ontology_query import QueryContract, canonical_json, content_digest
+from fdai_service_contracts.ontology_query import QueryContract, content_digest
 from fdai_service_contracts.semantic_judgment import (
     SemanticDirectResponseDraft,
     SemanticJudgmentProposal,
@@ -32,13 +32,25 @@ from .conversation_preflight_targets import (
     operational_target_is_generic,
     operational_time_is_past_hour,
 )
+from .conversation_preflight_validation import (
+    bounded_context as _bounded_context,
+)
+from .conversation_preflight_validation import (
+    bounded_profile as _bounded_profile,
+)
+from .conversation_preflight_validation import (
+    discard_generic_collection_filter_targets,
+)
+from .conversation_preflight_validation import (
+    preflight_input_digest as _preflight_input_digest,
+)
+from .conversation_preflight_validation import (
+    repair_instruction as _repair_instruction,
+)
 from .model_observation import ConversationModelObservation, ConversationModelResponse
 from .semantic_target_identity import runtime_target_spans
 
 _MAX_UTTERANCE_CHARS = 32_000
-_MAX_CONTEXT_ITEMS = 4
-_MAX_CONTEXT_CHARS = 4_000
-_MAX_PROFILE_BYTES = 16_384
 _MAX_SCHEMA_ATTEMPTS = 2
 _ROUTE_PROMOTION_CONFIDENCE = 0.9
 _OPERATIONAL_ROUTE_PROMOTION_CONFIDENCE = 0.75
@@ -240,32 +252,7 @@ class ConversationPreflightProposal(QueryContract):
     @model_validator(mode="before")
     @classmethod
     def _discard_generic_collection_filter_targets(cls, value: object) -> object:
-        if not isinstance(value, Mapping) or value.get("operational_family") not in {
-            OperationalPreflightFamily.RESOURCE_COLLECTION,
-            OperationalPreflightFamily.RESOURCE_COLLECTION.value,
-        }:
-            return value
-        targets = value.get("operational_targets")
-        if not isinstance(targets, Sequence) or isinstance(targets, (str, bytes)):
-            return value
-        filtered = tuple(
-            target
-            for target in targets
-            if not (
-                isinstance(target, Mapping)
-                and target.get("kind")
-                in {
-                    "resource_name_filter",
-                    "resource_state_exclusion_filter",
-                    "resource_state_filter",
-                }
-                and isinstance(target.get("value"), str)
-                and operational_target_is_generic(cast(str, target["value"]))
-            )
-        )
-        return (
-            value if len(filtered) == len(targets) else {**value, "operational_targets": filtered}
-        )
+        return discard_generic_collection_filter_targets(value)
 
     @model_validator(mode="after")
     def _route_is_consistent(self) -> ConversationPreflightProposal:
@@ -1006,61 +993,12 @@ def preflight_selects_general_knowledge(
     )
 
 
-def _preflight_input_digest(utterance: str) -> str:
-    return content_digest({"utterance": utterance})
-
-
 def _reject_operational_promotion(reason: str) -> SemanticJudgmentProposal | None:
     _LOGGER.info(
         "conversation_preflight_operational_promotion_rejected",
         extra={"reason": reason},
     )
     return None
-
-
-def _bounded_context(context: Sequence[str]) -> tuple[str, ...]:
-    selected: list[str] = []
-    total = 0
-    for item in tuple(context)[-_MAX_CONTEXT_ITEMS:]:
-        if not isinstance(item, str):
-            raise TypeError("conversation preflight context MUST contain strings")
-        total += len(item)
-        if total > _MAX_CONTEXT_CHARS:
-            raise ValueError("conversation preflight context exceeds its bound")
-        selected.append(item)
-    return tuple(selected)
-
-
-def _bounded_profile(profile: Mapping[str, Any]) -> dict[str, Any]:
-    selected = dict(profile)
-    if len(canonical_json(selected).encode()) > _MAX_PROFILE_BYTES:
-        raise ValueError("conversation preflight profile exceeds its byte bound")
-    return selected
-
-
-def _repair_instruction(exc: TypeError | ValueError | ValidationError) -> dict[str, str]:
-    reason = str(exc)
-    if "locale" in reason:
-        return {"path": "direct_response.locale", "reason": "copy the supplied locale exactly"}
-    if "profile digest" in reason:
-        return {
-            "path": "direct_response.profile_digest",
-            "reason": "copy direct_response_profile_digest exactly",
-        }
-    if "honorific" in reason:
-        return {
-            "path": "direct_response.answer",
-            "reason": "Korean sentences require polite honorific endings",
-        }
-    if "links or markup" in reason:
-        return {
-            "path": "direct_response.answer",
-            "reason": "return plain text without links or markup",
-        }
-    return {
-        "path": "proposal",
-        "reason": "return every conditionally required field with a schema-valid value",
-    }
 
 
 __all__ = [

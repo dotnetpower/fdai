@@ -184,6 +184,17 @@ def validated_arm_scope(
         raise error from cause
 
 
+def add_neutral_resource_scope(properties: dict[str, Any]) -> None:
+    """Project provider scope fields to CSP-neutral Resource properties."""
+
+    resource_group = properties.get("resourceGroup")
+    if isinstance(resource_group, str) and resource_group.strip():
+        properties["resource_group"] = resource_group.strip()
+    location = properties.get("location")
+    if isinstance(location, str) and location.strip():
+        properties["region"] = location.strip()
+
+
 def _bounded_scope_segment(value: str, label: str, *, maximum: int) -> str:
     candidate = value.strip()
     if not candidate or len(candidate) > maximum:

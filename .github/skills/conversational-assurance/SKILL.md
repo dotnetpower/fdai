@@ -35,9 +35,9 @@ authorize a campaign or a live Azure/model call.
    held, stopped, or incomplete child stops the parent, and a live question is not retried.
 - `.fdai/conversation-assurance/STOP` is the immediate local stop switch.
 - A failed cycle that cannot make progress ends the campaign without busy-looping.
-- A live question receives one measurement attempt. Provider `429`/`503`, timeout, or deadline
-   expiry records a hold. The session MUST NOT relaunch the child, parent series, or same question to
-   obtain a different result.
+- A live question receives one measurement attempt per cycle. Provider `429`/`503`, timeout, or deadline
+   expiry records a hold. The session MUST NOT relaunch the cycle, child, parent series, or same
+   question to obtain a different result.
 
 Before each child, stop without measuring a question when any of these conditions is true:
 

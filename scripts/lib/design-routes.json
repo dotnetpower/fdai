@@ -1765,6 +1765,7 @@
         "services/core-control-plane/src/fdai/core/conversation/epistemic_coverage.py",
         "services/core-control-plane/src/fdai/core/conversation/intent_graph.py",
         "services/core-control-plane/src/fdai/core/conversation/question_*.py",
+        "services/core-control-plane/src/fdai/core/conversation/conversation_preflight*.py",
         "services/core-control-plane/src/fdai/core/conversation/semantic_*.py",
         "services/core-control-plane/src/fdai/core/knowledge/governed_document_reader.py",
         "services/core-control-plane/src/fdai/core/ontology_platform/**",

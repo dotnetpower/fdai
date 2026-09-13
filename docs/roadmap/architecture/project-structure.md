@@ -111,7 +111,7 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   for one exact identifier or a complete read-only Resource and time correlation, and creates one
   bounded clarification for subtype-only exact-target operations. The shadow schema requires supplied
   intent and canonical identity, corrects only a unique span, and preserves `forbidden_actions`.
-  Active v8 pins `1.0.0`; shadow v14 pins `1.1.0`. Neither adds provider I/O, decision, approval, mutation, or execution authority. The composition root resolves one exact prompt profile that pins ordered artifacts, lifecycle, request budget, output reserve, and replay digest; a higher artifact version cannot activate itself, and an oversized complete request holds before provider I/O.
+  Active v8 pins `1.0.0`; shadow v14 pins `1.1.0`. Neither adds provider I/O, decision, approval, mutation, or execution authority. Compact input bounds, generic collection-filter cleanup, and schema-repair guidance live in `core/conversation/conversation_preflight_validation.py`; typed route promotion remains in `conversation_preflight.py`. The composition root resolves one exact prompt profile that pins ordered artifacts, lifecycle, request budget, output reserve, and replay digest; a higher artifact version cannot activate itself, and an oversized complete request holds before provider I/O.
 - **model catalog identity is publisher-qualified when available**: Core accepts an optional
   `(publisher, family)` catalog seam while preserving the family-only adapter contract. Azure
   delivery maps only allowlisted OpenAI and AIServices formats and keeps partner deployment and

@@ -84,6 +84,7 @@ import httpx
 from fdai.delivery.azure.arg_projection import (
     ArmIdentityError,
     ArmScopeError,
+    add_neutral_resource_scope,
     arm_provider_type,
     resource_operational_status,
     reviewed_containment_parent,
@@ -579,7 +580,7 @@ class AzureArgQueryFactory:
         props = _truncate_props(props, max_bytes=self._config.max_props_bytes)
         props["providerType"] = normalized_type
         props.update(scope)
-        _add_neutral_resource_scope(props)
+        add_neutral_resource_scope(props)
         if (parent_id := _parent_neutral_id(arm_id)) is not None:
             props["parent_id"] = parent_id
         return ResourceRecord(
@@ -697,7 +698,7 @@ class AzureArgQueryFactory:
         props = _truncate_props(props, max_bytes=self._config.max_props_bytes)
         props["providerType"] = provider_type
         props.update(scope)
-        _add_neutral_resource_scope(props)
+        add_neutral_resource_scope(props)
         # Lifted after truncation so the containment anchor survives a large
         # vendor payload; `Resource.parent_id` is what scoped questions read.
         if (parent_id := self._containment_parent_id(arm_id, arm_type=arm_type)) is not None:
@@ -719,15 +720,6 @@ class AzureArgQueryFactory:
             catalog=self._relationship_mappings,
         )
         return parent[0] if parent is not None else None
-
-
-def _add_neutral_resource_scope(properties: dict[str, Any]) -> None:
-    resource_group = properties.get("resourceGroup")
-    if isinstance(resource_group, str) and resource_group.strip():
-        properties["resource_group"] = resource_group.strip()
-    location = properties.get("location")
-    if isinstance(location, str) and location.strip():
-        properties["region"] = location.strip()
 
 
 def _resolve_acr_login_server_to_arm_id(login_server: str) -> str | None:

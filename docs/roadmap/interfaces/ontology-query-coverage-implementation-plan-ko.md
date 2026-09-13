@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 36c5174e18d1cf56f50a827c6cdf3187cc020637
+translation_source_sha: 275152c4fc36a318c2b1f27a921fc18777c3106d
 translation_revised: 2026-09-13
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -194,7 +194,7 @@ translation_revised: 2026-09-13
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | Azure 및 인시던트 의미 판단 | validated | `semantic_judgment.py`, `semantic_judgment_grounding.py`, shadow 프롬프트 v9-v14, v41, exact-source 집단 `a5d3627b3` | 16-case v14 shadow 집단은 주 의도, 대상 추출, 범위 유효성, 명확화 정밀도 및 보조 의도 재현율에서 100%를 달성했고 모든 안전 계수는 0이었습니다. 이는 범위가 제한된 판단 집단의 검증이며 enforce 승격 또는 frame-plan 운영 준비 상태를 뜻하지 않습니다. |
-| 출처가 결속된 운영 preflight | implemented | `conversation-preflight.v2.yaml`, `conversation_preflight.py`, `semantic_planning.py`, 집중 테스트 238개, 대상 Ruff, strict mypy 및 Browser Entra 변형 | 정확한 F1-F4 형식은 직렬 전체 의미 판단 호출 하나를 제거할 수 있습니다. 낮은 확신도, 맥락 의존, 오래됨, 잘못된 형식, 지원되지 않음, 신원 불일치 또는 일반 범주 제안은 전체 의미 판단을 유지하거나 frame/provider I/O 전에 Resource 신원 명확화를 반환합니다. |
+| 출처가 결속된 운영 preflight | implemented | `conversation-preflight.v9.yaml`, `conversation_preflight.py`, `conversation_preflight_validation.py`, `semantic_planning.py`, 집중 테스트, Ruff 및 strict mypy | 검토된 운영 형식은 직렬 전체 의미 판단 호출 하나를 제거할 수 있습니다. 낮은 확신도, 맥락 의존, 오래됨, 잘못된 형식, 지원되지 않음, 신원 불일치 또는 일반 범주 제안은 전체 의미 판단을 유지하거나 frame/provider I/O 전에 Resource 신원 명확화를 반환합니다. |
 | 서비스 간 의미 계약 및 Core 처리 | 구현됨 | `semantic_turn.py`, `semantic_turn_consumer.py`, `semantic_turn_processor.py`, 통과한 의미 경로 테스트 88개 | 버전 1.2 요청은 90초로 제한되고 결과는 멱등성을 보장하며 점유를 복구할 수 있습니다. Rule 결과는 실행 권한이 없는 후보 전용으로 유지됩니다. |
 | Operator 영속성과 Rule 변환 결과 | 구현됨 | `semantic_turn.py`, `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, `test_semantic_turn_bridge.py`, 통과한 의미 경로 테스트 및 롤백 전용 PostgreSQL 트랜잭션 검사 | 유효한 호출자 제공 요청 UUID를 의미 묶음과 상관관계 신원 전체에서 보존하면서 멱등성 키는 분리합니다. Kafka partition key는 서버에서 파생한 불투명한 session 참조를 사용하므로 원시 session id를 노출하지 않으면서 같은 session의 turn 순서를 유지하고 다른 session을 독립적으로 예약할 수 있습니다. 요청 UUID를 생략하면 재시도에도 안정적인 결정론적 대체값을 사용합니다. 발신함과 결과 점유를 복구할 수 있고 잘못된 소유권은 안전하게 차단됩니다. 재생 순서는 타임스탬프를 인식하며 exact Rule 읽기는 principal과 조회 다이제스트로 격리됩니다. `SemanticTurnBridge`는 권위 있는 저장소와 의미 전송이 있을 때만 활성화되고, 로컬 서술기가 구성되면 주기적 갱신은 독립적인 Operator 수명 주기 서비스로 유지됩니다. |
 | 증적에 결속된 답변 전달 | 구현됨 | `semantic_turn_runtime.py`, `backend-stream.ts`, `test_semantic_turn_bridge.py`, `backend-stream-fallback.test.ts`, 서비스 간 왕복 검사 | 검증된 의미 답변은 의미 증적 및 근거 참조에 결속된 누적 `confirmed` 구획으로 스트리밍됩니다. 구획별 재생은 확인된 구획 다음부터 다시 시작합니다. Console은 충돌하는 내용을 표시하지 않고 증적, 근거, 텍스트 또는 최종 답변 불일치를 차단합니다. 내보낸 문서와 검증된 증적 계약이 없는 답변은 참고용 토큰 스트림으로 유지됩니다. |
@@ -224,6 +224,7 @@ translation_revised: 2026-09-13
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-13 | implemented | 소스 통합 뒤 PR 게이트 계약을 복구했습니다. 축약 preflight 검증을 분리하고, 검토된 운영 신호를 제거하지 않으면서 v9 분류기를 5,700자 미만으로 유지했으며, 권위 있는 소스에서 CQAS 산출물을 다시 생성했습니다. | `current change`, `conversation_preflight_validation.py`, `conversation-preflight.v9.yaml`, `build_semantic_intent_coverage.py`, 집중 테스트 506개, 강제 모드 파일 LOC, Ruff 및 strict mypy 통과 | 푸시된 SHA의 CI가 최종 근거입니다. 실제 모델, 운영 준비 상태 또는 승격 주장은 추가하지 않습니다. |
 | 2026-09-11 | implemented | 복구 결정 경계와 agent 소유 관측 경로가 권위 있는 소스 집합을 바꾼 뒤 semantic-intent coverage를 갱신했습니다. | `current change`; semantic coverage 및 결정 경계 테스트 15개 통과. | 이 갱신은 query 권한 또는 준비 상태 주장을 바꾸지 않습니다. |
 | 2026-09-11 | implemented | 안전조건 결속 서비스 계약 변환 결과가 바뀐 뒤 질문 400개 검토 bank를 갱신했습니다. 질문 신원과 권한은 바뀌지 않았습니다. | `current change`; 생성된 질문 bank 산출물과 집중 동등성 테스트. | 운영 준비 상태를 주장하기 전에 통제된 무작위 및 서비스 간 보증 근거를 보존합니다. |
 | 2026-09-11 | implemented | 생성된 Console 계약 소스가 바뀐 뒤 질문 400개 검토 bank를 다시 구체화했습니다. 질문 신원, 준비 상태 분류, 소스 수, 실행 권한은 바뀌지 않았습니다. | `current change`; `build_question_bank.py`; 집중 질문 bank 소스 동등성 테스트. | 운영 준비 상태를 주장하기 전에 통제된 무작위 및 서비스 간 보증 근거를 보존합니다. |
