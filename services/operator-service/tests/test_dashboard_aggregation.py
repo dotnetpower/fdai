@@ -180,6 +180,8 @@ def test_cost_needs_every_event_and_includes_unresolved_spend() -> None:
 def test_identity_changes_fail_closed() -> None:
     with pytest.raises(ValueError, match="identity changed"):
         reduce(events=[EVENT, replace(EVENT, event_id="different", seq=3)])
+    with pytest.raises(ValueError, match="duplicated with conflicting content"):
+        reduce(events=[EVENT, replace(EVENT, tier="t1")])
     with pytest.raises(ValueError, match="conflicting idempotency"):
         reduce(events=[EVENT, replace(EVENT, identity="different", seq=3)])
     with pytest.raises(ValueError, match="changed its event"):
