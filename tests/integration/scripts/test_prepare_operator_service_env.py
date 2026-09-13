@@ -31,7 +31,7 @@ def _isolated_environment() -> dict[str, str]:
     return environment
 
 
-def _repo(tmp_path: Path, *, semantic: str, local_azure_cli_auth: str = "0") -> Path:
+def _repo(tmp_path: Path, *, semantic: str, local_azure_cli_auth: str | None = None) -> Path:
     repo = tmp_path / "repo"
     (repo / "scripts/deployment/local").mkdir(parents=True)
     shutil.copy2(_SCRIPT, repo / "scripts/deployment/local/prepare-operator-service-env.sh")
@@ -58,10 +58,14 @@ def _repo(tmp_path: Path, *, semantic: str, local_azure_cli_auth: str = "0") -> 
         encoding="utf-8",
     )
     (repo / "console").mkdir()
+    local_auth_setting = (
+        f"VITE_LOCAL_AZURE_CLI_AUTH={local_azure_cli_auth}\n"
+        if local_azure_cli_auth is not None
+        else ""
+    )
     (repo / "console/.env.local").write_text(
         "VITE_MSAL_TENANT_ID=tenant\n"
-        "VITE_MSAL_API_SCOPE=api://audience/access\n"
-        f"VITE_LOCAL_AZURE_CLI_AUTH={local_azure_cli_auth}\n",
+        "VITE_MSAL_API_SCOPE=api://audience/access\n" + local_auth_setting,
         encoding="utf-8",
     )
     return repo
