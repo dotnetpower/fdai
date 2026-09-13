@@ -134,6 +134,7 @@ def test_public_deployment_is_staged_and_keeps_sensitive_state_private() -> None
     assert "verify_bootstrap_image" not in source
     assert "FDAI_AZD_BOOTSTRAP_CORE_IMAGE" not in source
     assert "FDAI_MATERIALIZE_AUTHORITATIVE_CATALOGS=1" in source
+    assert 'export TF_VAR_deploy_runner_principal_id="$DEPLOYER_OBJECT_ID"' in source
     assert 'terraform -chdir="$CORE_ROOT" plan' in source
     assert 'terraform -chdir="$CORE_ROOT" apply' in source
     deploy_core = source.split("deploy_core() {", maxsplit=1)[1].split(
@@ -193,8 +194,8 @@ def test_public_deployment_pins_azd_to_the_committed_provider_lock() -> None:
     assert 'stream.write("provider_installation {\\n  direct {}\\n}\\n")' in helper
     assert 'export TF_CLI_CONFIG_FILE="$bootstrap_config"' in helper
     assert 'exclude = ["registry.terraform.io/*/*"]' in helper
-    assert "-backend=false -input=false -upgrade" in helper
-    assert helper.count("-upgrade -lockfile=readonly") == 2
+    assert "-upgrade" not in helper
+    assert helper.count("-backend=false -input=false -lockfile=readonly") == 4
     assert 'platform_lock="$platform_root/.terraform.lock.hcl"' in helper
     assert 'core_lock="$core_root/.terraform.lock.hcl"' in helper
     assert 'platform_mirror="$mirror_root/platform"' in helper
@@ -223,6 +224,10 @@ def test_contributor_provider_mirror_is_restart_safe(tmp_path: Path) -> None:
         fake_bin / "terraform",
         """#!/usr/bin/env bash
 set -euo pipefail
+if [[ " $* " == *" -upgrade "* && " $* " == *" -lockfile=readonly "* ]]; then
+    printf '%s\n' 'The -upgrade flag conflicts with -lockfile=readonly.' >&2
+    exit 1
+fi
 mode=direct
 grep -q filesystem_mirror "$TF_CLI_CONFIG_FILE" && mode=mirror
 printf '%s|%s\n' "$mode" "$*" >> "$FAKE_TERRAFORM_CALLS"
@@ -258,6 +263,12 @@ prepare_contributor_terraform "$2" "$3"
 
     assert result.returncode == 0, result.stderr
     invocations = calls.read_text(encoding="ascii").splitlines()
+    initializations = [line for line in invocations if " init " in line]
+    assert len(initializations) == 8
+    assert all("-lockfile=readonly" in line for line in initializations)
+    assert all("-upgrade" not in line for line in initializations)
+    assert (infra / ".terraform.lock.hcl").read_text(encoding="ascii") == "locked\n"
+    assert (core / ".terraform.lock.hcl").read_text(encoding="ascii") == "core-locked\n"
     modes = [line.split("|", maxsplit=1)[0] for line in invocations]
     assert modes == [
         "direct",

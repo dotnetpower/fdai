@@ -697,6 +697,7 @@ export TF_DATA_DIR="$PLATFORM_TF_DATA"
 export ARM_SUBSCRIPTION_ID="$EXPECTED_SUBSCRIPTION"
 export ARM_TENANT_ID="$EXPECTED_TENANT"
 export ARM_USE_CLI=true
+export TF_VAR_deploy_runner_principal_id="$DEPLOYER_OBJECT_ID"
 export TF_VAR_env=dev
 export TF_VAR_region="$REGION"
 export TF_VAR_region_short="$REGION_SHORT"
