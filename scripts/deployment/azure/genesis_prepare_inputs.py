@@ -16,6 +16,7 @@ from fdai_deployment_cli.contracts import canonical_digest
 from genesis_checks import CheckError
 from genesis_vm_sku_preflight import discover_foundation_vm_size
 
+_NETWORK_RESOURCE_API_VERSION = "2024-05-01"
 _AZURE_ROUTE_SERVICE_TAGS = frozenset({"AzureLoadBalancer", "Internet", "None", "VirtualNetwork"})
 
 
@@ -286,7 +287,7 @@ def _subscription_resource_values(
     query: str,
     list_result: bool,
 ) -> list[object]:
-    """Read bounded resource properties across a subscription without requiring RG input."""
+    """Read bounded Network properties with a stable API across all subscription regions."""
 
     raw_ids = json.loads(
         _capture(
@@ -324,6 +325,8 @@ def _subscription_resource_values(
                     "show",
                     "--ids",
                     resource_id,
+                    "--api-version",
+                    _NETWORK_RESOURCE_API_VERSION,
                     "--query",
                     query,
                     "--output",
