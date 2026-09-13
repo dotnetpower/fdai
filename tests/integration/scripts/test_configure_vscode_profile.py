@@ -41,13 +41,23 @@ def test_repository_profile_artifacts_are_consistent() -> None:
 def test_workspace_terminals_disable_interactive_pagers() -> None:
     settings = json.loads((REPO_ROOT / ".vscode/settings.json").read_text(encoding="utf-8"))
 
-    assert settings["terminal.integrated.env.linux"] == {
+    environment = settings["terminal.integrated.env.linux"]
+    expected_pagers = {
         "GH_PAGER": "cat",
         "GIT_PAGER": "cat",
         "PAGER": "cat",
         "PSQL_PAGER": "cat",
         "SYSTEMD_PAGER": "cat",
     }
+    assert {name: environment[name] for name in expected_pagers} == expected_pagers
+
+
+def test_workspace_terminals_prepend_user_tools_and_preserve_inherited_path() -> None:
+    settings = json.loads((REPO_ROOT / ".vscode/settings.json").read_text(encoding="utf-8"))
+
+    assert settings["terminal.integrated.env.linux"]["PATH"] == (
+        "${env:HOME}/.local/bin:${env:PATH}"
+    )
 
 
 def test_read_json_rejects_duplicate_keys(tmp_path: Path) -> None:

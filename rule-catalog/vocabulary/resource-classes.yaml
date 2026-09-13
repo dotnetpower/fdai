@@ -1,15 +1,19 @@
 schema_version: "1.0.0"
-version: "0.2.0"
+version: "0.3.0"
 classes:
   - id: class.resource
     description: Reviewed cloud or runtime resource identity.
   - id: class.compute-resource
     description: Resource that supplies compute, hosting, integration, or runtime capacity.
     members:
+      - ai-project
       - app-service-plan
+      - bot-service
       - communication-service
       - compute.container-app-environment
       - compute.container-app-job
+      - compute.vm-extension
+      - compute.vm-run-command
       - compute.vm-shutdown-schedule
       - email-domain
       - email-service
@@ -34,6 +38,8 @@ classes:
       - llm-endpoint
       - llm-model-deployment
       - static-web-app
+      - web-search-service
+      - workflow.api-connection
       - workflow.logic-app
     specializes: [class.resource]
   - id: class.database-resource
@@ -44,12 +50,14 @@ classes:
       - nosql-database
       - postgresql-server
       - redis-enterprise
+      - search-service
       - sql-database
       - sql-server
     specializes: [class.resource]
   - id: class.governance-resource
     description: Resource that defines provider scope or preserves an unsupported provider identity.
     members:
+      - devops-account
       - resource-group
       - subscription
       - unclassified-resource
@@ -59,6 +67,7 @@ classes:
     members:
       - api-gateway
       - network.application-gateway
+      - network.bastion-host
       - network.dns-resolver
       - network.dns-resolver-inbound-endpoint
       - network.dns-zone
@@ -66,10 +75,12 @@ classes:
       - network.load-balancer
       - network.nat-gateway
       - network.nsg
+      - network.private-access-scope
       - network.private-dns-zone
       - network.private-dns-zone-group
       - network.private-dns-zone-link
       - network.route-table
+      - network.registered-domain
       - network.subnet
       - network.virtual-network-gateway
       - network.vnet
@@ -83,12 +94,22 @@ classes:
     members:
       - action-group
       - alert-rule
+      - anomaly-alert-rule
       - application-insights
       - data-collection-endpoint
       - data-collection-rule
       - diagnostic-settings
       - log-workspace
+      - managed-sre-agent
+      - metric-alert-rule
       - metrics-workspace
+      - observability.dashboard
+      - observability.dashboard-service
+      - observability.network-monitor
+      - observability.query-pack
+      - observability.solution
+      - observability.workbook
+      - prometheus-rule-group
       - service-bus-namespace
     specializes: [class.resource]
   - id: class.security-resource
@@ -96,8 +117,10 @@ classes:
     members:
       - authorization.role-assignment
       - certificate
+      - managed-certificate
       - managed-identity
       - secret-store
+      - ssh-public-key
     specializes: [class.resource]
   - id: class.storage-resource
     description: Resource that retains images, objects, files, disks, or snapshots.

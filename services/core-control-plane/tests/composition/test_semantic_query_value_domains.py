@@ -37,6 +37,7 @@ def test_shipped_vocabulary_exposes_a_bilingual_database_group() -> None:
     domain = _domain()
 
     database = next(group for group in domain.groups if group.id == "database")
+    compute = next(group for group in domain.groups if group.id == "compute")
 
     assert set(database.values) == {
         "cache",
@@ -50,6 +51,7 @@ def test_shipped_vocabulary_exposes_a_bilingual_database_group() -> None:
     assert "database" in database.terms
     assert "db" in database.terms
     assert "데이터베이스" in database.terms
+    assert "search-service" in compute.values
 
 
 def test_shipped_vocabulary_groups_stay_inside_the_declared_value_set() -> None:

@@ -66,8 +66,9 @@ inventory and human review catalog; the generated-artifact test rejects any stal
 When only source digests change, regeneration preserves every logical question identity, review
 state, and denominator. Regeneration runs after upstream integration so derived commitments bind
 the final merged source set.
-Run `uv run python scripts/automation/build_question_bank.py`; editing either generated artifact by
-hand isn't supported.
+Run `uv run python scripts/automation/build_question_bank.py`, then regenerate the dependent CQAS
+inventory with `uv run python scripts/automation/build_semantic_intent_coverage.py`, even for
+display-only source edits. Hand-editing generated artifacts isn't supported.
 
 The registered sources currently materialize 400 logical questions: 35 reviewed Golden
 expectations, 60 bilingual manual pairs, 5 Console starters, and 300 operator candidates. Fifty
@@ -175,6 +176,7 @@ controlled evidence exists.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-13 | implemented | Regenerated question-bank and CQAS provenance after integrating the verified IAM display catalog changes. All 400 question identities, review states, metrics, and denominators remain unchanged. | `current change`; canonical generators; 12 generated-artifact and 46 IAM checks passed. | No remaining work for this digest refresh; live readiness is unchanged. |
 | 2026-09-11 | implemented | Regenerated the federated question bank and CQAS inventory after the approval Console catalog entered the reviewed source set, preserving all 400 question identities and every coverage denominator. | `current change`; official question-bank and semantic-intent generators; 12 focused generated-artifact checks passed. | No remaining work for this catalog-source digest refresh. |
 | 2026-09-11 | implemented | Regenerated the CQAS semantic-intent inventory after the federated question-bank source digest changed. Metric definitions, denominators, and coverage counts remain unchanged. | `current change`; `build_semantic_intent_coverage.py`; generated-artifact equality test. | No remaining work for this dependent source-digest refresh. |
 | 2026-09-11 | implemented | Regenerated the federated question-bank machine inventory and review catalog after the Console locale catalogs changed, preserving all 400 question identities and updating only exact source digests. | `current change`; official question-bank generator and generated-artifact equality test. | No remaining work for this source-digest refresh. |

@@ -393,6 +393,9 @@ def _write_bounded_stream(
 ) -> None:
     budget = deadline or DeploymentDeadline(_DOWNLOAD_SECONDS, clock=time.monotonic)
     budget.remaining()
+    # HTTPResponse.read may fill the whole buffer through many successful socket reads.
+    # read1 returns after available data so a trickle cannot hide the total deadline.
+    read_chunk = getattr(source, "read1", source.read)
     descriptor = os.open(
         destination,
         os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
@@ -401,7 +404,7 @@ def _write_bounded_stream(
     total = 0
     try:
         with os.fdopen(descriptor, "wb") as stream:
-            while chunk := source.read(_BUFFER_BYTES):
+            while chunk := read_chunk(_BUFFER_BYTES):
                 budget.remaining()
                 total += len(chunk)
                 if total > _MAX_ARCHIVE_BYTES:

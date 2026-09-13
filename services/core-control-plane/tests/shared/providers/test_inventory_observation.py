@@ -24,6 +24,7 @@ def _object_observation(
     kind: InventoryObservationKind,
     properties: dict[str, object],
     confirmed: bool = False,
+    resource_type: str = "compute.vm",
 ) -> NormalizedInventoryObservation:
     timestamp = NOW + timedelta(seconds=seconds)
     return NormalizedInventoryObservation.create(
@@ -36,7 +37,7 @@ def _object_observation(
             else InventoryMutationKind.UPSERT
         ),
         subject_ref="resource-1",
-        subject_type="compute.vm",
+        subject_type=resource_type,
         properties=properties,
         property_mask=tuple(properties),
         properties_complete=kind is InventoryObservationKind.FULL,
@@ -144,6 +145,32 @@ def test_partial_property_mask_cannot_change_unmasked_values() -> None:
     assert replay.properties == {
         "tags": {"owner": "example-team"},
         "sku": "stable",
+    }
+
+
+def test_activity_operation_outcome_cannot_overwrite_resource_status() -> None:
+    observation = _object_observation(
+        event_id="activity-write",
+        seconds=1,
+        kind=InventoryObservationKind.PARTIAL,
+        properties={
+            "operation": "Microsoft.Search/searchServices/write",
+            "operationStatus": "Succeeded",
+        },
+        resource_type="search-service",
+    )
+
+    replay = replay_object_observations(
+        (observation,),
+        resource_type="search-service",
+        baseline_properties={"status": "running"},
+        baseline_provider_ref=None,
+    )
+
+    assert replay.properties == {
+        "operation": "Microsoft.Search/searchServices/write",
+        "operationStatus": "Succeeded",
+        "status": "running",
     }
 
 

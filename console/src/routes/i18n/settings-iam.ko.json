@@ -20,7 +20,7 @@
   "providerMutation": "공급자 할당",
   "promotionRequired": "별도의 보호된 워크플로",
   "promotionRequiredHint": "승격된 허용 목록 실행기만 그룹 멤버십을 적용하고 독립적으로 검증할 수 있습니다.",
-  "findUser": "역할 요청 대상 사용자 찾기",
+  "findUser": "이메일 또는 이름으로 사용자 찾기",
   "chooseRole": "요청할 역할 선택",
   "roleRequestWorkflowTitle": "액세스 변경 절차",
   "roleRequestWorkflowRequest": "통제된 역할 요청을 기록합니다",

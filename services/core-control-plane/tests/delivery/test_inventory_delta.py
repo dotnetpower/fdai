@@ -173,6 +173,7 @@ async def test_forward_delta_publishes_event_and_advances_cursor() -> None:
         event_bus=bus,
         topic="events",
         scope="subscription-1",
+        properties_complete=True,
     )
 
     assert published == 1
@@ -195,6 +196,30 @@ async def test_forward_delta_publishes_event_and_advances_cursor() -> None:
 
 
 @pytest.mark.asyncio
+async def test_forward_delta_marks_sparse_recovery_records_partial() -> None:
+    inventory = _Inventory()
+    state = InMemoryStateStore()
+    bus = InMemoryEventBus()
+
+    published = await forward_inventory_delta(
+        inventory=inventory,
+        state_store=state,
+        event_bus=bus,
+        topic="events",
+        scope="subscription-1",
+        properties_complete=False,
+    )
+
+    assert published == 1
+    records = [item async for item in bus.subscribe("events", "reader")]
+    change = records[0].payload["payload"]["inventory_change"]
+    assert change["observation_kind"] == "partial"
+    assert change["properties_complete"] is False
+    assert change["property_mask"] == sorted(change["resource"]["props"])
+    assert change["links"] == []
+
+
+@pytest.mark.asyncio
 async def test_forward_delta_preserves_cursor_without_final_fence() -> None:
     inventory = _Inventory(final=False)
     state = InMemoryStateStore()
@@ -207,6 +232,7 @@ async def test_forward_delta_preserves_cursor_without_final_fence() -> None:
             event_bus=InMemoryEventBus(),
             topic="events",
             scope="subscription-1",
+            properties_complete=True,
         )
 
     cursor = await state.read_state("inventory_delta_cursor:subscription-1")
@@ -226,6 +252,7 @@ async def test_forward_delta_preserves_cursor_when_total_deadline_expires() -> N
             event_bus=InMemoryEventBus(),
             topic="events",
             scope="subscription-1",
+            properties_complete=True,
             deadline_seconds=0.01,
         )
 
@@ -247,6 +274,7 @@ async def test_forward_delta_rejects_link_without_owner_resource() -> None:
             event_bus=InMemoryEventBus(),
             topic="events",
             scope="subscription-1",
+            properties_complete=True,
         )
 
     assert await state.read_state("inventory_delta_cursor:subscription-1") == {
@@ -272,6 +300,7 @@ def test_delta_event_identity_includes_relationship_payload() -> None:
                 to_type="postgresql",
             ),
         ),
+        properties_complete=True,
     )
     second = _resource_event(
         scope="subscription-1",
@@ -285,6 +314,7 @@ def test_delta_event_identity_includes_relationship_payload() -> None:
                 to_type="postgresql",
             ),
         ),
+        properties_complete=True,
     )
 
     assert first.event_id != second.event_id
@@ -294,13 +324,49 @@ def test_delta_event_identity_includes_relationship_payload() -> None:
         scope="subscription-2",
         resource=resource,
         links=(),
+        properties_complete=True,
     )
     first_scope_without_links = _resource_event(
         scope="subscription-1",
         resource=resource,
         links=(),
+        properties_complete=True,
     )
     assert other_scope.idempotency_key != first_scope_without_links.idempotency_key
+
+    partial = _resource_event(
+        scope="subscription-1",
+        resource=resource,
+        links=(),
+        properties_complete=False,
+    )
+    assert partial.idempotency_key != first_scope_without_links.idempotency_key
+    assert partial.event_id != first_scope_without_links.event_id
+
+
+def test_sparse_delta_records_operation_outcome_without_reserved_status() -> None:
+    resource = ResourceRecord(
+        resource_id="resource:example/search",
+        type="search-service",
+        props={
+            "operation": "Microsoft.Search/searchServices/write",
+            "operationStatus": "Succeeded",
+        },
+        last_seen="2026-07-15T00:00:00Z",
+    )
+
+    event = _resource_event(
+        scope="subscription-1",
+        resource=resource,
+        links=(),
+        properties_complete=False,
+    )
+    change = event.payload["inventory_change"]
+
+    assert change["operation"] == "Microsoft.Search/searchServices/write"
+    assert change["operation_status"] == "Succeeded"
+    assert change["property_mask"] == ["operation", "operationStatus"]
+    assert "status" not in change["resource"]["props"]
 
 
 @pytest.mark.parametrize("invalid_props", [{"bad": {"unordered"}}, {"bad": float("nan")}])
@@ -315,7 +381,12 @@ def test_delta_event_rejects_nondeterministic_resource_props(
     )
 
     with pytest.raises(ValueError, match="JSON-compatible"):
-        _resource_event(scope="subscription-1", resource=resource, links=())
+        _resource_event(
+            scope="subscription-1",
+            resource=resource,
+            links=(),
+            properties_complete=True,
+        )
 
 
 def test_delta_event_rejects_nondeterministic_link_props() -> None:
@@ -334,7 +405,12 @@ def test_delta_event_rejects_nondeterministic_link_props() -> None:
     )
 
     with pytest.raises(ValueError, match="JSON-compatible"):
-        _resource_event(scope="subscription-1", resource=resource, links=(link,))
+        _resource_event(
+            scope="subscription-1",
+            resource=resource,
+            links=(link,),
+            properties_complete=True,
+        )
 
 
 @pytest.mark.parametrize("last_seen", [None, "not-a-timestamp"])
@@ -352,6 +428,7 @@ async def test_forward_delta_rejects_missing_or_invalid_ordering_timestamp(
             event_bus=InMemoryEventBus(),
             topic="events",
             scope="subscription-1",
+            properties_complete=True,
         )
 
     assert await state.read_state("inventory_delta_cursor:subscription-1") == {
@@ -372,6 +449,7 @@ async def test_forward_delta_rejects_duplicate_resource_before_publication() -> 
             event_bus=bus,
             topic="events",
             scope="subscription-1",
+            properties_complete=True,
         )
 
     assert [item async for item in bus.subscribe("events", "reader")] == []
@@ -391,6 +469,7 @@ async def test_forward_delta_preserves_payload_on_final_batch() -> None:
         event_bus=bus,
         topic="events",
         scope="subscription-1",
+        properties_complete=True,
     )
 
     assert published == 1
@@ -412,6 +491,7 @@ async def test_forward_delta_persists_newest_relationship_reconciliation_marker(
         event_bus=InMemoryEventBus(),
         topic="events",
         scope="subscription-1",
+        properties_complete=False,
     )
 
     assert await state.read_state(marker_key) == {"observed_at": "2026-07-15T00:30:00+00:00"}
@@ -432,6 +512,7 @@ async def test_forward_delta_rejects_data_after_final_fence() -> None:
             event_bus=InMemoryEventBus(),
             topic="events",
             scope="subscription-1",
+            properties_complete=True,
         )
 
     assert await state.read_state("inventory_delta_cursor:subscription-1") == {
@@ -450,6 +531,7 @@ async def test_forward_delta_cursorless_final_preserves_latest_page_cursor() -> 
         event_bus=InMemoryEventBus(),
         topic="events",
         scope="subscription-1",
+        properties_complete=True,
     )
 
     assert await state.read_state("inventory_delta_cursor:subscription-1") == {
@@ -470,6 +552,7 @@ async def test_forward_delta_validates_entire_batch_before_publication() -> None
             event_bus=bus,
             topic="events",
             scope="subscription-1",
+            properties_complete=True,
         )
 
     assert [item async for item in bus.subscribe("events", "reader")] == []

@@ -57,6 +57,10 @@ existing state-store adapters. Private-safe Activity Log recovery and Resource G
 acceleration remain in a separate composition module with per-scope locks and cursor fencing; they
 cannot replace complete reconciliation or raise readiness. A one-shot scheduled run still fails
 when every inventory source is exhausted so the genesis orchestrator can observe the failure. The
+Activity Log recovery accelerator has one canonical composition entry in
+`inventory_change_acceleration.py`; the CLI imports it rather than duplicating recovery behavior in
+its source-construction helpers. That entry declares sparse property completeness explicitly and
+advances each scope cursor only after its final fence. The
 local long-running profile records that exact failure and retries only after its configured loop
 interval. Neither mode changes source authority or readiness semantics.
 AKS fleet observation accepts at most 32 exact cluster bindings and keeps them mutually exclusive
@@ -471,6 +475,9 @@ promotion. The active snapshot generation is captured before enrichment and comp
 the promotion lock. A concurrent promotion blocks the stale candidate rather than mixing current
 identity with older state. State transitions can advance from a complete Resource observation even
 when an unrelated relationship remains incomplete.
+An enrichment that observes no availability fact may add only the reviewed
+`availabilityState` unavailable-reason token. This preserves complete object inventory without
+inventing provider state or allowing arbitrary enrichment properties.
 If history or ontology projection fails after promotion, the normalized journal retains the active
 generation. The next inventory attempt replays it under the coordinator lock before starting a new
 scan.

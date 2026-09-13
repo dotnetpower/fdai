@@ -138,3 +138,28 @@ def test_trickling_download_cannot_reset_total_transfer_budget(tmp_path, monkeyp
     with pytest.raises(TimeoutError, match="remaining budget"):
         deployment_kit._write_bounded_stream(Trickle(), destination)
     assert not destination.exists()
+
+
+def test_buffered_download_returns_between_underlying_reads(tmp_path, monkeypatch):
+    clock = [0.0]
+    reads = []
+    monkeypatch.setattr(deployment_kit, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+
+    class SlowRaw(io.RawIOBase):
+        def readable(self):
+            return True
+
+        def readinto(self, buffer):
+            clock[0] += 301
+            reads.append(clock[0])
+            if len(reads) > 3:
+                pytest.fail("buffered fill performed another raw read before the deadline check")
+            buffer[0] = ord("x")
+            return 1
+
+    destination = tmp_path / "download"
+    with io.BufferedReader(SlowRaw()) as source:
+        with pytest.raises(TimeoutError, match="remaining budget"):
+            deployment_kit._write_bounded_stream(source, destination)
+    assert reads == [301, 602, 903]
+    assert not destination.exists()
