@@ -239,9 +239,15 @@ def _integer(value: object, *, positive: bool) -> int:
 
 
 def _number(value: object) -> float:
-    if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value):
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
         raise TypeError
-    return float(value)
+    try:
+        number = float(value)
+    except OverflowError as exc:
+        raise ValueError from exc
+    if not math.isfinite(number):
+        raise ValueError
+    return number
 
 
 def _optional_number(value: object) -> float | None:

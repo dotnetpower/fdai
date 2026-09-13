@@ -133,3 +133,15 @@ def test_rejects_invalid_tier_shares_and_bands(
 
     with pytest.raises(ProjectionUnavailableError):
         validate_autonomy_measurement(projection)
+
+
+def test_rejects_numeric_overflow_as_projection_unavailable() -> None:
+    projection = deepcopy(_projection())
+    leading = projection["leading"]
+    assert isinstance(leading, dict)
+    verifier = leading["verifier_failure_rate"]
+    assert isinstance(verifier, dict)
+    verifier["value"] = 10**10_000
+
+    with pytest.raises(ProjectionUnavailableError):
+        validate_autonomy_measurement(projection)
