@@ -1,0 +1,211 @@
+@import url("./operator-workspace.css");
+
+/* Current neutral presentation, scoped to Governance without changing its evidence contracts. */
+body.cs-governance-neutral {
+  --cs-text-soft: #666666;
+  --cs-sage: #15803d;
+  --cs-terracotta: #b45309;
+  --cs-dusty-red: #c62828;
+  --gw-control-border: #858585;
+  background: var(--cs-card);
+}
+.cs-governance-neutral [hidden] { display: none !important; }
+.cs-governance-neutral :is(p, span, strong, h1, h2, h3, h4, li, dt, dd, code) { overflow-wrap: anywhere; }
+.cs-governance-neutral > main.cs-page {
+  width: 100%; max-width: 1280px; margin-inline: auto; padding: 28px 24px 64px;
+}
+.cs-governance-neutral :is(.fg-header, .ge-page-header, .cp-header) {
+  display: flex; align-items: flex-start; flex-wrap: wrap; justify-content: space-between;
+  flex-direction: row;
+  gap: 16px 24px; margin: 0; padding-bottom: 16px; border-bottom: 0;
+}
+.cs-governance-neutral :is(.fg-header, .ge-page-header, .cp-header) > div:first-child { flex: 1 1 380px; min-width: 0; }
+.cs-governance-neutral :is(.fg-header, .ge-page-header, .cp-header) h1 {
+  margin: 0 0 8px; font-size: var(--cs-type-page-title-size);
+  line-height: var(--cs-type-page-title-line-height); letter-spacing: 0;
+}
+.cs-governance-neutral :is(.fg-header, .ge-page-header, .cp-header) p {
+  margin: 0; max-width: 76ch; color: var(--cs-settings-muted);
+  font-size: var(--cs-type-body-size); line-height: var(--cs-type-body-line-height);
+}
+.cs-governance-neutral .cs-page-domain { color: var(--cs-text-soft); }
+.cs-governance-neutral .cs-page-separator { color: var(--cs-text-soft); }
+.cs-governance-neutral :is(.fg-header-meta, .ge-page-meta, .cp-header-meta) {
+  display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 4px 8px;
+  color: var(--cs-text-soft); font-size: var(--cs-type-compact-size);
+}
+.cs-governance-neutral .gw-preview-note {
+  display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 20px;
+  color: var(--cs-text-soft); font-size: var(--cs-type-compact-size);
+}
+.cs-governance-neutral .gw-preview-note strong { color: var(--cs-text); font-weight: 600; }
+.cs-governance-neutral :is(.fg-boundary, .cs-readonly-banner) {
+  display: block; margin: 0 0 20px; padding: 12px 16px; border: 0;
+  border-radius: var(--cs-radius-sm); background: var(--cs-bg);
+  color: var(--cs-settings-muted); font-size: var(--cs-type-compact-size); line-height: 1.6;
+}
+.cs-governance-neutral .fg-boundary strong { margin-right: 8px; }
+.cs-governance-neutral :is(.fg-metrics, .ontology-release-strip) {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0;
+  margin: 0 0 24px; border: 0; border-radius: var(--cs-radius-sm); background: var(--cs-bg);
+}
+.cs-governance-neutral :is(.fg-metric, .ontology-release-strip > div) {
+  display: grid; gap: 6px; min-width: 0; padding: 16px; border: 0;
+}
+.cs-governance-neutral .fg-metric strong {
+  margin: 0; font-size: var(--cs-type-page-title-size);
+  line-height: var(--cs-type-page-title-line-height); font-weight: 600; letter-spacing: 0;
+}
+.cs-governance-neutral .fg-metric strong.op-value-label { font-size: var(--cs-type-panel-title-size); line-height: 1.5; }
+.cs-governance-neutral :is(.fg-metric span, .fg-metric small, .ontology-release-strip span) {
+  margin: 0; font-size: var(--cs-type-compact-size); line-height: 1.5; color: var(--cs-settings-muted);
+}
+.cs-governance-neutral .fg-toolbar {
+  display: flex; flex-wrap: wrap; align-items: end; gap: 12px;
+  margin: 0 0 20px; padding: 0; border: 0; border-radius: 0; background: transparent;
+}
+.cs-governance-neutral .fg-toolbar .fg-field { flex: 1 1 144px; min-width: 0; gap: 6px; }
+.cs-governance-neutral .fg-toolbar .fg-field:has(input[type="search"]) { flex: 2 1 240px; }
+.cs-governance-neutral :is(.fg-field > span, .fg-kicker, .fg-count) {
+  font-size: var(--cs-type-compact-size); font-weight: 500; letter-spacing: 0;
+  line-height: 1.5; text-transform: none; color: var(--cs-text-soft);
+}
+.cs-governance-neutral :is(.fg-button, .fg-field input, .fg-field select, .fg-static-control) {
+  min-height: 36px; padding: 7px 12px; border-radius: var(--cs-radius-sm);
+  font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font);
+  color: var(--cs-text); background: var(--cs-card); border: 1px solid var(--gw-control-border);
+}
+.cs-governance-neutral .fg-static-control { display: block; border: 0; background: var(--cs-bg); overflow-wrap: anywhere; }
+.cs-governance-neutral .fg-button.is-primary { border-color: var(--cs-steel); background: var(--cs-steel); color: #fff; }
+.cs-governance-neutral .cs-control-button { max-width: 100%; height: auto; white-space: normal; overflow-wrap: anywhere; }
+.cs-governance-neutral .cp-card-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
+.cs-governance-neutral .fg-button:disabled { opacity: 1; color: var(--cs-text-soft); background: var(--cs-shade); }
+.cs-governance-neutral :is(.fg-workbench, .ontology-semantic-workbench) {
+  min-height: 0; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm);
+  background: var(--cs-card); box-shadow: none;
+}
+.cs-governance-neutral :is(.fg-rail, .workflow-catalog, .ontology-semantic-inspector) { background: var(--cs-card); }
+.cs-governance-neutral :is(.fg-pane-head, .fg-detail-head, .workflow-canvas-head) { padding: 20px; gap: 12px; }
+.cs-governance-neutral :is(.fg-pane-head, .fg-detail-head, .workflow-canvas-head) h2 {
+  font-size: var(--cs-type-section-title-size); line-height: var(--cs-type-section-title-line-height); letter-spacing: 0;
+}
+.cs-governance-neutral :is(.fg-section, .fg-facts) { padding: 20px; }
+.cs-governance-neutral :is(.fg-section h3, .ontology-semantic-inspector h3) { font-size: var(--cs-type-panel-title-size); }
+.cs-governance-neutral :is(.fg-select, .oversight-agent) {
+  padding: 12px; min-height: 44px; border: 1px solid transparent;
+  border-radius: var(--cs-radius-sm); background: transparent; color: var(--cs-text);
+}
+.cs-governance-neutral :is(.fg-select, .oversight-agent):hover { background: var(--cs-bg); }
+.cs-governance-neutral :is(.fg-select, .oversight-agent, .workflow-node)[aria-pressed="true"] {
+  border-color: var(--cs-steel); background: color-mix(in srgb, var(--cs-steel) 5%, var(--cs-card));
+  box-shadow: none; outline: none;
+}
+.cs-governance-neutral :is(.fg-select, .oversight-agent) strong { font-size: var(--cs-type-body-size); font-weight: 600; }
+.cs-governance-neutral :is(.fg-select, .oversight-agent) small { font-size: var(--cs-type-compact-size); line-height: 1.5; }
+.cs-governance-neutral .oversight-agent { grid-template-columns: max-content minmax(0, 1fr) auto; }
+.cs-governance-neutral .oversight-glyph { width: 2.4em; height: 2.4em; }
+.cs-governance-neutral [aria-pressed="true"]:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: 2px; }
+.cs-governance-neutral :is(.fg-select > span:last-child, .oversight-agent > span:last-child, .oversight-group h3) {
+  font-size: var(--cs-type-compact-size); letter-spacing: 0; text-transform: none;
+}
+.cs-governance-neutral .fg-badge {
+  padding: 2px 6px; border: 0; border-radius: 4px; background: var(--cs-shade);
+  font-size: var(--cs-type-compact-size); line-height: 1.5; color: var(--cs-text-soft);
+}
+.cs-governance-neutral .fg-badge.is-info { color: var(--cs-steel); background: color-mix(in srgb, var(--cs-steel) 6%, white); }
+.cs-governance-neutral .fg-badge.is-success { color: var(--cs-sage); background: var(--cs-success-bg); }
+.cs-governance-neutral .fg-badge.is-warning { color: var(--cs-terracotta); background: var(--cs-attention-bg); }
+.cs-governance-neutral .fg-badge.is-danger { color: var(--cs-dusty-red); background: var(--cs-failure-bg); }
+.cs-governance-neutral :is(.fg-review-list, .fg-facts, .scope-boundary, .context-item, .rule-detail-grid, .contract-axis, .skill-package, .skill-admission, .promotion-criteria, .oversight-readiness, .workflow-node, .impact-node) :is(strong, small, dt, dd) {
+  font-size: var(--cs-type-compact-size); line-height: 1.6; letter-spacing: 0; text-transform: none;
+}
+.cs-governance-neutral :is(.fg-facts, .rule-detail-grid, .contract-axis, .promotion-criteria, .oversight-readiness) small { color: var(--cs-text-soft); }
+.cs-governance-neutral :is(.fg-facts dt, .workflow-node-kind, .scope-axis-name small) { font-size: var(--cs-type-compact-size); text-transform: none; letter-spacing: 0; }
+.cs-governance-neutral :is(.fg-detail-panel p, .context-comparison-head p, .fg-pane-head p) { font-size: var(--cs-type-body-size); line-height: 1.6; }
+.cs-governance-neutral :is(.fg-detail-panel, .fg-rail, .fg-section, .workflow-canvas, .workflow-inspector, .impact-inspector, .promotion-inspector) { min-width: 0; }
+.cs-governance-neutral :is(.workflow-canvas, .impact-graph, .ontology-semantic-canvas, .connected-flow) {
+  background: var(--cs-card); box-shadow: none;
+}
+.cs-governance-neutral .workflow-node { border-radius: var(--cs-radius-sm); background: var(--cs-card); }
+.cs-governance-neutral .workflow-node-kind { color: var(--cs-text-soft); }
+.cs-governance-neutral .gw-table-scroll {
+  width: 100%; min-width: 0; max-width: 100%; overflow: auto;
+  border: 0; border-radius: 0; scrollbar-gutter: stable;
+}
+.cs-governance-neutral .gw-table-scroll:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: -2px; }
+.cs-governance-neutral .gw-table-scroll table {
+  display: table; width: 100%; min-width: 600px; border-collapse: collapse;
+  font-size: var(--cs-type-compact-size); background: var(--cs-card);
+}
+.cs-governance-neutral .gw-table-scroll :is(th, td) {
+  display: table-cell; padding: 12px; border: 0; border-bottom: 1px solid var(--cs-hairline);
+  font-size: var(--cs-type-compact-size); line-height: 1.6; letter-spacing: 0;
+  text-transform: none; text-align: left; overflow-wrap: anywhere; vertical-align: top;
+}
+.cs-governance-neutral .gw-table-scroll th { background: var(--cs-shade); color: var(--cs-settings-muted); font-weight: 500; }
+.cs-governance-neutral .gw-table-scroll tbody { display: table-row-group; }
+.cs-governance-neutral .gw-table-scroll tr { display: table-row; background: transparent; }
+.cs-governance-neutral .gw-table-scroll thead { display: table-header-group; position: static; width: auto; height: auto; clip: auto; clip-path: none; overflow: visible; }
+.cs-governance-neutral .gw-table-scroll td::before { content: none; }
+.cs-governance-neutral .promotion-list { overflow: visible; }
+.cs-governance-neutral .promotion-table button { min-height: 36px; font: inherit; color: var(--cs-steel); text-align: left; }
+.cs-governance-neutral .gw-table-hint { margin: 8px 16px; color: var(--cs-text-soft); font-size: var(--cs-type-compact-size); }
+.cs-governance-neutral :is(.flow-mode-tabs, .ontology-tabs) {
+  display: flex; flex-wrap: wrap; gap: 4px; padding: 0 0 8px; margin: 0 0 24px;
+  border: 0; border-bottom: 1px solid var(--cs-hairline); border-radius: 0; background: transparent;
+}
+.cs-governance-neutral :is(.flow-mode-tabs button, .ontology-tabs a) {
+  min-height: 36px; padding: 8px 12px; border: 1px solid transparent; border-radius: var(--cs-radius-sm);
+  font-size: var(--cs-type-compact-size); line-height: 1.5; color: var(--cs-text-soft); background: transparent;
+  height: auto; white-space: normal; flex: 0 1 auto;
+}
+.cs-governance-neutral :is(.flow-mode-tabs [aria-selected="true"], .ontology-tabs [aria-current="page"]) {
+  color: var(--cs-text); background: var(--cs-bg); border-color: var(--cs-hairline); box-shadow: none;
+}
+.cs-governance-neutral :is(.compact-disclosure, .decision-shelf, .rule-detail-grid article, .contract-axis, .oversight-readiness article, .promotion-criteria article) {
+  border-radius: 0; box-shadow: none; background: transparent;
+}
+.cs-governance-neutral .compact-disclosure { border: 0; border-block: 1px solid var(--cs-hairline); margin: 0 0 24px; }
+.cs-governance-neutral :is(.scope-separation, .scope-boundary, .context-column, .skill-package-card) { box-shadow: none; background: var(--cs-card); }
+.cs-governance-neutral :is(.scope-axis-name strong, .scope-axis-name small, .scope-history small, .scope-conflict small, .context-item > span:last-child, .context-token-row) { font-size: var(--cs-type-compact-size); line-height: 1.5; }
+.cs-governance-neutral :is(.scope-history, .context-columns, .contract-axis-grid, .fg-detail-grid) { min-width: 0; }
+.cs-governance-neutral :is(.context-column, .scope-boundary, .fg-detail-grid > *, .scope-axis-name) { min-width: 0; }
+.cs-governance-neutral :is(.scope-inspector, .context-comparison, .context-comparison-head > div, .result-summary > span, .fg-pane-head > div, .fg-detail-head > div) { min-width: 0; }
+.cs-governance-neutral .context-item strong { white-space: normal; overflow: visible; }
+.cs-governance-neutral .ontology-semantic-map { grid-template-columns: minmax(0, 1fr); }
+.cs-governance-neutral :is(.ontology-semantic-map > *, .ontology-semantic-header > div) { min-width: 0; max-width: 100%; }
+.cs-governance-neutral .ontology-semantic-source code { white-space: normal; overflow: visible; }
+.cs-governance-neutral .ontology-relation-arrow { white-space: normal; overflow-wrap: anywhere; min-width: 0; }
+.cs-governance-neutral.cs-ge-ontology .ontology-relation-flags { font-size: var(--cs-type-compact-size); line-height: 1.5; }
+.cs-governance-neutral.cs-ge-ontology :is(small, dt, dd, .ontology-semantic-state strong, .ontology-semantic-state span, .ontology-semantic-band > header strong) {
+  font-size: var(--cs-type-compact-size); line-height: 1.5; text-transform: none;
+}
+.cs-governance-neutral.cs-ge-ontology p { font-size: var(--cs-type-body-size); line-height: 1.6; }
+.cs-governance-neutral.cs-ge-ontology .ontology-semantic-inspector h4 { font-size: var(--cs-type-panel-title-size); }
+.cs-governance-neutral .ontology-registry-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+.cs-governance-neutral :is(button, a) { overflow-wrap: anywhere; }
+.cs-governance-neutral :is(.impact-gap-note, .empty-preview span, .gap-summary strong, .gap-summary small, .gap-count) {
+  font-size: var(--cs-type-compact-size); line-height: 1.6;
+}
+@media (max-width: 1100px) {
+  .cs-governance-neutral :is(.workflow-workbench, .fg-workbench, .ontology-semantic-workbench) { grid-template-columns: minmax(0, 1fr); }
+  .cs-governance-neutral :is(.workflow-inspector, .fg-rail, .impact-inspector, .promotion-inspector, .scope-inspector) { border-left: 0; border-right: 0; border-top: 1px solid var(--cs-hairline); }
+  .cs-governance-neutral .workflow-inspector .fg-detail-panel { display: block; }
+  .cs-governance-neutral .workflow-inspector .fg-detail-head { border-right: 0; }
+  .cs-governance-neutral .fg-select-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .cs-governance-neutral > main.cs-page { padding: 24px 16px 48px; }
+  .cs-governance-neutral :is(.fg-metrics, .ontology-release-strip) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cs-governance-neutral :is(.context-columns, .fg-detail-grid, .contract-axis-grid, .scope-history, .scope-axis, .fg-facts) { grid-template-columns: minmax(0, 1fr); }
+  .cs-governance-neutral .fg-toolbar > * { flex-basis: 100%; }
+  .cs-governance-neutral .fg-select-list { grid-template-columns: minmax(0, 1fr); }
+  .cs-governance-neutral :is(.fg-button, .cs-btn, .fg-field input, .fg-field select, .ontology-tabs a, .flow-mode-tabs button, .promotion-table button, summary) { min-height: 44px; }
+  .cs-governance-neutral :is(.fg-pane-head, .fg-detail-head, .fg-section, .fg-facts, .workflow-canvas-head) { padding: 16px; }
+  .cs-governance-neutral .scope-conflict { display: flex; flex-wrap: wrap; }
+  .cs-governance-neutral :is(.context-item, .scope-axis) { gap: 8px; }
+}
+@media (forced-colors: active) {
+  .cs-governance-neutral [aria-pressed="true"] { outline: 2px solid Highlight; }
+  .cs-governance-neutral .fg-badge { border: 1px solid CanvasText; }
+}

@@ -64,7 +64,8 @@
       ["blast-radius.html", "Impact scope", "is-terracotta"],
       ["promotion.html", "Promotion gates", "is-teal"],
       ["context-selection-comparisons.html", "Context policy comparisons", "is-steel"],
-      ["scope.html", "Scope", "is-navy"]
+      ["scope.html", "Scope", "is-navy"],
+      ["observation-affinity.html", "Observation affinity", "is-steel"]
     ]],
     ["Knowledge", [
       ["knowledge.html", "Knowledge overview", "is-steel"],
