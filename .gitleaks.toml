@@ -44,4 +44,5 @@ paths = [
   '''security/integrity/manifest\.json\.sig''',
   '''security/integrity/.*\.pub''',
   '''tests/integration/fixtures/cost_governance_w0_outcomes/unverified-effect\.json''',
+  '''services/core-control-plane/tests/core/test_control_loop_measurement\.py''',
 ]
