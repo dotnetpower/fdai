@@ -231,6 +231,9 @@ run "exact_direct_builder_contract" {
       length(azurerm_linux_virtual_machine.verifier.network_interface_ids) == 1 &&
       azurerm_network_interface.verifier.ip_configuration[0].public_ip_address_id == null &&
       strcontains(local.verifier_command, local.toolchain_digest) &&
+      strcontains(local.verifier_command, "export AZURE_CONFIG_DIR=/tmp/fdai-verifier-azure") &&
+      strcontains(local.verifier_command, "rm -rf \"$AZURE_CONFIG_DIR\"") &&
+      strcontains(local.verifier_command, "test ! -e /root/.azure") &&
       azapi_resource_action.verifier_deallocate.action == "deallocate" &&
       output.runner_image.runner_registered == false &&
       output.runner_image.subscription_ready == false

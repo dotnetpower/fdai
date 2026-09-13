@@ -103,6 +103,14 @@ def test_scenario_lab_workflow_is_plan_first_and_approval_gated() -> None:
         "SCENARIO_LAB_RUNNER_PRINCIPAL_ID: ${{ vars.SCENARIO_LAB_RUNNER_PRINCIPAL_ID }}" in workflow
     )
     assert "TF_VAR_resource_group_name" in workflow
+    assert (
+        "TF_VAR_aks_node_vm_size: "
+        "${{ vars.SCENARIO_LAB_AKS_NODE_VM_SIZE || 'Standard_D2s_v5' }}" in workflow
+    )
+    assert (
+        "TF_VAR_stress_vm_size: "
+        "${{ vars.SCENARIO_LAB_STRESS_VM_SIZE || 'Standard_B2s' }}" in workflow
+    )
     assert "DEV_ACCESS_VNET_ID" in workflow
     assert "Grant bounded scenario-lab deployment authority" in workflow
     assert "Revoke bounded scenario-lab deployment authority" in workflow

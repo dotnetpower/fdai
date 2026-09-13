@@ -149,7 +149,8 @@ off on every Storage account, while that managed service still creates a staging
 key-based authentication. The reviewed path instead plans a private builder VM, FQDN-allowlisted
 Firewall Basic egress, an exact toolchain extension, deallocate and generalize actions, managed-image capture, and a
 private verifier VM as explicit Terraform resources. Neither VM has a public IP. The verifier boots
-the captured image, rechecks the exact toolchain and credential absence, and is deallocated before
+the captured image, binds Azure CLI inspection to a dedicated temporary configuration, removes that
+configuration, rechecks the exact toolchain and credential absence, and is deallocated before
 the image receipt is accepted. Builder resources remain until a separately reviewed cleanup plan;
 Genesis never weakens Storage policy or retries a claimed build automatically.
 

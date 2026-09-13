@@ -48,6 +48,7 @@ Configure these repository variables before running the workflow:
 | `OPS_VNET_ID`, `OPS_VNET_NAME`, `OPS_RESOURCE_GROUP_NAME` | Existing runner VNet peering target |
 | `SCENARIO_LAB_SSH_PUBLIC_KEY` | Public key for the private stress VM |
 | `SCENARIO_LAB_VM_IMAGE_VERSION` | Exact region-available Ubuntu image version |
+| `SCENARIO_LAB_AKS_NODE_VM_SIZE`, `SCENARIO_LAB_STRESS_VM_SIZE` | Optional subscription-compatible VM SKU overrides; defaults remain `Standard_D2s_v5` and `Standard_B2s` |
 | `SCENARIO_LAB_BACKEND_IMAGE` | Demo backend image pinned by `sha256` digest |
 | `SCENARIO_LAB_CHAOS_MESH_CHART_VERSION` | Exact Chaos Mesh chart version |
 | `SCENARIO_LAB_AOAI_MODEL_FAMILY`, `SCENARIO_LAB_AOAI_DEPLOYMENT_SKU` | Optional region and quota overrides |
