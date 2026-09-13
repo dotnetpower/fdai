@@ -59,7 +59,9 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert 'cp "$(command -v terraform)"' not in stage
     assert 'cp "$(command -v opa)"' not in stage
     assert "PYTHONPATH=services/core-control-plane/src" in stage
-    assert "for tool in curl git sha256sum timeout uv" in stage
+    assert "for tool in curl git sha256sum uv" in stage
+    assert '"$repo_root/scripts/automation/run-bounded-command.py"' in stage
+    assert "--termination-grace-seconds 1" in stage
     assert "unzip" not in stage
     assert "scripts/deployment/release/extract-terraform-archive.py" in stage
     assert 'chmod 700 "$OUT/toolchain" "$KIT"' in stage

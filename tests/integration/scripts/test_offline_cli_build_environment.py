@@ -4,8 +4,15 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 
 from tests.integration.scripts.test_standalone_kit_release_guards import ROOT, executable
+
+
+def timed_function():
+    source = (ROOT / "scripts/deployment/release/stage-offline-kit.sh").read_text()
+    body = source.split("run_timed() {", 1)[1]
+    return "run_timed() {" + body.split('\nif [[ -n "$RUNTIME_RELEASE"', 1)[0] + "\n"
 
 
 def test_cli_wheel_stage_uses_its_private_environment_for_every_uv_command(tmp_path):
@@ -24,12 +31,13 @@ def test_cli_wheel_stage_uses_its_private_environment_for_every_uv_command(tmp_p
     (caller / "sentinel").write_text("retain unrelated packages")
     result = subprocess.run(  # noqa: S603 - actual stage with a non-networking uv recorder.
         ["/bin/bash", "-s"],
-        input="set -euo pipefail\n" + function + "\nbuild_cli_wheels\n",
+        input="set -euo pipefail\n" + timed_function() + function + "\nbuild_cli_wheels\n",
         env={
             **os.environ,
             "PATH": f"{tools}:/usr/bin:/bin",
             "OUT": str(tmp_path / "stage"),
-            "PYTHON": "/synthetic/python",
+            "PYTHON": sys.executable,
+            "repo_root": str(ROOT),
             "UV_PROJECT_ENVIRONMENT": str(caller),
             "VIRTUAL_ENV": str(caller),
             "TEST_CALLS": str(tmp_path / "calls"),

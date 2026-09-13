@@ -105,16 +105,24 @@ if [[ ( -n "$RUNTIME_RELEASE" || -n "$RUNTIME_DESCRIPTOR" || "$WITH_RUNTIME_WHEE
 fi
 PYTHON="$repo_root/.venv/bin/python"
 [[ -x "$PYTHON" ]] || { echo "stage-offline-kit: BLOCKED - .venv is missing." >&2; exit 2; }
+# The supervisor itself stays in its caller's group and forwards cancellation to its children.
+run_timed() {
+  local limit="$1"
+  shift
+  "$PYTHON" "$repo_root/scripts/automation/run-bounded-command.py" \
+    --label offline-substage --timeout-seconds "$limit" --no-progress-seconds "$limit" \
+    --termination-grace-seconds 1 -- "$@"
+}
 if [[ -n "$RUNTIME_RELEASE" || -n "$RUNTIME_DESCRIPTOR" || "$WITH_RUNTIME_WHEELS" -eq 1 || -n "$SOURCE_COMMIT" || -n "$SOURCE_FINGERPRINT" ]]; then
   SOURCE_COMMIT="${SOURCE_COMMIT:-$(git rev-parse HEAD)}"
   source_args=(--repo-root "$repo_root" --source-commit "$SOURCE_COMMIT")
   [[ -z "$SOURCE_FINGERPRINT" ]] || source_args+=(--source-fingerprint "$SOURCE_FINGERPRINT")
-  SOURCE_FINGERPRINT="$(timeout --signal=TERM --kill-after=5 300 \
+  SOURCE_FINGERPRINT="$(run_timed 300 \
     "$PYTHON" scripts/deployment/release/release_source.py "${source_args[@]}")"
 fi
 source_boundary() {
   [[ -n "$SOURCE_COMMIT" ]] || return 0
-  timeout --signal=TERM --kill-after=5 300 \
+  run_timed 300 \
     "$PYTHON" scripts/deployment/release/release_source.py \
     --repo-root "$repo_root" --source-commit "$SOURCE_COMMIT" \
     --source-fingerprint "$SOURCE_FINGERPRINT" >/dev/null
@@ -142,7 +150,7 @@ else
   fi
 fi
 
-for tool in curl git sha256sum timeout uv; do
+for tool in curl git sha256sum uv; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "stage-offline-kit: BLOCKED - $tool is required to assemble a kit." >&2
     exit 2
@@ -273,7 +281,7 @@ download_terraform() {
     -o "$OUT/toolchain/terraform.zip" \
     "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_${HOST_PLATFORM}.zip"
   echo "$TERRAFORM_SHA256  $OUT/toolchain/terraform.zip" | sha256sum -c -
-  timeout --signal=TERM --kill-after=15 120 \
+  run_timed 120 \
     "$PYTHON" scripts/deployment/release/extract-terraform-archive.py \
     --archive "$OUT/toolchain/terraform.zip" --output "$TERRAFORM_BIN"
   chmod 755 "$TERRAFORM_BIN"
@@ -289,7 +297,7 @@ download_opa() {
 }
 
 build_bundle() {
-  timeout --signal=TERM --kill-after=15 900 env \
+  run_timed 900 env \
     SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1700000000}" \
     PYTHONPATH=services/core-control-plane/src "$PYTHON" \
     scripts/deployment/release/build-deployment-bundle.py \
@@ -302,14 +310,14 @@ build_bundle() {
 build_cli_wheels() {
   export UV_PROJECT_ENVIRONMENT="$OUT/cli-build-env"
   unset VIRTUAL_ENV
-  timeout --signal=TERM --kill-after=15 300 \
+  run_timed 300 \
     uv lock --check --project packages/deployment-cli >/dev/null
-  timeout --signal=TERM --kill-after=15 600 \
+  run_timed 600 \
     uv build --wheel --project packages/deployment-cli --out-dir "$OUT/wheels" >/dev/null
-  timeout --signal=TERM --kill-after=15 300 \
+  run_timed 300 \
     uv export --project packages/deployment-cli --locked --no-dev --no-emit-project \
     --format requirements-txt --output-file "$OUT/cli-requirements.txt" >/dev/null
-  timeout --signal=TERM --kill-after=15 900 \
+  run_timed 900 \
     uv run --project packages/deployment-cli --locked --no-dev --group release \
     --python "$PYTHON" python -m pip download --only-binary=:all: --require-hashes \
     --dest "$OUT/wheels" --requirement "$OUT/cli-requirements.txt" >/dev/null

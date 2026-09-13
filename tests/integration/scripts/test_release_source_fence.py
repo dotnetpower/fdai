@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from tests.integration.scripts.test_offline_cli_build_environment import timed_function
 from tests.integration.scripts.test_standalone_kit_release_guards import (
     BUILDER,
     bounded_environment,
@@ -163,6 +164,9 @@ def test_staging_fences_source_immediately_before_signing(source_module, source_
     target = repo / "scripts/deployment/release/release_source.py"
     target.parent.mkdir(parents=True)
     target.write_bytes((RELEASE / "release_source.py").read_bytes())
+    runner = repo / "scripts/automation/run-bounded-command.py"
+    runner.parent.mkdir(parents=True)
+    runner.write_bytes((ROOT / "scripts/automation/run-bounded-command.py").read_bytes())
     commit = commit_repository(repo)
     fingerprint = source_module.require_source(repo, commit)
     if drift:
@@ -177,7 +181,10 @@ def test_staging_fences_source_immediately_before_signing(source_module, source_
     result = subprocess.run(  # noqa: S603 - actual shell source boundary; signing is a sentinel.
         ["/bin/bash", "-s"],
         cwd=repo,
-        input="set -euo pipefail\n" + boundary + '\nsource_boundary\necho "signing-reached"\n',
+        input="set -euo pipefail\n"
+        + timed_function()
+        + boundary
+        + '\nsource_boundary\necho "signing-reached"\n',
         env={
             **os.environ,
             "PYTHON": sys.executable,

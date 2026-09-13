@@ -126,6 +126,7 @@ An unconfirmed hypothesis is not a defect; a passing local test is not release o
 | H16 | Relative signing keys break after source isolation | Medium: reproduced the relative-path regression introduced by H15. Caller-relative paths now become absolute before directory changes, without copying keys. | Release guard suite: 9 passed | Low: signer ownership and trust-root checks remain separate. |
 | H17 | CLI wheel staging inherits unrelated virtual environment | Medium: actual uv boundary received the caller's environment. Every CLI build command now uses a private staging environment and clears active-venv selection. | Environment and productization suites: 8 passed | Low: dependency locks and wheel hashes remain mandatory. |
 | H18 | Foundation final cleanup escapes the safe error boundary | Medium: reproduced uncaught private paths and premature success. Cleanup is now value-safe, precedes success, and preserves the original failure. | Redaction, Foundation apply, and VM integration: 36 passed | Low: failed cleanup requires private evidence review, not retry authority. |
+| H19 | Nested timeout groups survive release cancellation | Medium: a synthetic builder remained alive after the outer deadline. Nested source, wheel, and mirror commands now use signal-forwarding supervisors with shorter inner termination grace. | Actual nested process cancellation, environment, mirror, and source suites passed | Low: retained partial artifacts never authorize resumption or signing. |
 
 ## Critique resolution register
 

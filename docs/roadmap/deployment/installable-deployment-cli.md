@@ -99,7 +99,7 @@ The output root must be a safe absolute path. A descriptor-based guard verifies 
 mode-0600 regular staging sentinel before cleanup. Restaging removes every generated directory and
 single-file output while preserving the ownership sentinel. The complete standalone release wrapper instead requires a fresh output root, preserves prior archives, and reports success only after a valid archive checksum. Sentinel verification opens the final
 component in nonblocking mode before descriptor checks, so a special file cannot stall resume.
-Complete builds share a three-hour budget, with per-stage and no-progress deadlines; expiry terminates the child process group and blocks later signing or success.
+Complete builds share a three-hour budget with stage and no-progress deadlines. Nested supervisors forward cancellation and use shorter termination grace than their parent, preventing orphaned build groups or later signing and success.
 Complete builds materialize a private detached checkout of one pinned commit, without caller-local ignored inputs or signing keys. Raw tracked bytes, modes, and a stable metadata fingerprint are checked across assembly and immediately before signing; status flags or unchanged locks alone cannot certify source identity.
 Generated child files use a held-parent, exclusive, no-follow writer. A resumed replacement unlinks
 only the final entry and recreates it with `O_EXCL`, so links and FIFOs cannot redirect a write.
