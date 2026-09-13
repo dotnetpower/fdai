@@ -477,14 +477,7 @@ durable link is idempotent and does not merge principal records, roles, sessions
 | Pager (PagerDuty) | send-only | (not planned) | n/a |
 | SMS | send-only | (not planned) | n/a |
 | Web chat | n/a | Authenticated `POST /chat` and `POST /chat/stream` SSE | Console SPA/Operator API config |
-| CLI | n/a | stdin/stdout UI calling the shared Operator API `/chat` | local auth/Operator API config |
-
-The CLI uses the Operator Service's loopback-only `GET /local-auth/me` bootstrap when the explicit
-local Azure CLI authentication profile is active. The opaque session bearer stays in process
-memory and is attached to snapshot, conversation, and SSE reads. The CLI does not accept a token
-through arguments, URLs, or environment variables. A missing bootstrap route can continue only to
-an ordinary read, while `401` or `403` remains a closed authentication outcome. This profile does
-not replace or weaken the standard Browser Entra profile.
+| CLI | n/a | stdin/stdout UI calling the shared Operator API `/chat`; explicit loopback Azure CLI profile with memory-only session bearer, never caller-supplied tokens | [CLI authentication](../../../cli/README.md#authentication); missing bootstrap permits only an ordinary read; `401`/`403` stays closed; Browser Entra is unchanged |
 
 ### 8.1 Separate channel configuration
 

@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 9d9bb9b3b7af2277e4383e2b896aac8489c9f47d
-translation_revised: 2026-09-11
+translation_source_sha: 0632ae9d0a6107910a08e4e8e185d7b47e4d31b9
+translation_revised: 2026-09-13
 ---
 # Operator Console 모듈 지도 and Boundaries
 
@@ -518,15 +518,10 @@ Process 전환, 승인 및 재시도 변환 모듈은 정확한 Process 리비�
     명확화 및 presentation-only grounded-answer 프로토콜을 정의합니다.
   - `session.py`는 disposable 코어/CLI `ConversationSession` 변환 결과를 제공합니다. 운영
     대화 기록은 principal 범위로 한정된 `ConversationHistoryStore`가 소유합니다.
-- [`cli/`](../../../cli)
-  - `src/operator-api-session.ts`는 루프백 전용 로컬 세션 부트스트랩을 소유하고 불투명한
-    bearer를 프로세스 메모리에만 유지합니다. Azure 신원을 해석하거나 호출자가 제공한 토큰을
-    받지 않습니다.
-  - `src/repl.ts`는 shared `POST /chat` 조정기용 IME-safe stdin/stdout 채널입니다.
-  - `src/cockpit.ts`는 self-describing 화면 스냅샷을 같은 조정기에 publish하는 실제 운영 SSE
-    표현입니다.
-  - `src/terminal-capabilities.ts`는 TTY 크기, 색상 및 모션 감소 기능 검사를 소유합니다.
-    비대화형, dumb 또는 크기가 부족한 터미널에는 결정론적 텍스트 렌더러를 제공합니다.
+- [`cli/`](../../../cli): 표현 및 인증 계약은 [CLI 가이드](../../../cli/README.md)를 참조합니다.
+  - `src/operator-api-session.ts`는 루프백 부트스트랩과 메모리 전용 불투명 bearer를 소유하며 Azure 신원을 해석하거나 호출자 토큰을 받지 않습니다.
+  - `src/repl.ts`는 IME-safe `POST /chat`을, `src/cockpit.ts`는 같은 조정기로 보내는 자체 설명형 실시간 SSE 화면 스냅샷을 담당합니다.
+  - `src/terminal-capabilities.ts`는 TTY 크기, 색상, 모션 감소를 검사하며 비대화형, dumb 또는 크기가 부족한 터미널에는 결정론적 일반 텍스트를 제공합니다.
 - [`services/core-control-plane/src/fdai/core/conversation/channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py)는
   발신자를 인증하고 메시지 멱등성 키를 점유하며 조정기를 호출합니다. 영속 전달이
   구성되면 프로바이더 전송 전에 완전한 응답을 저장합니다.

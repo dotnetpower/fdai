@@ -521,14 +521,10 @@ modules consumes the proposal, changes Process state, approves, or executes.
     zero-execution clarification, and presentation-only grounded-answer protocols.
   - `session.py` provides the disposable core/CLI `ConversationSession` projection. The
     principal-scoped `ConversationHistoryStore` owns production transcripts.
-- [`cli/`](../../../cli)
-  - `src/operator-api-session.ts` owns loopback-only local session bootstrap and keeps the opaque
-    bearer in process memory. It neither resolves Azure identity nor accepts caller-supplied tokens.
-  - `src/repl.ts` is the IME-safe stdin/stdout channel for the shared `POST /chat` coordinator.
-  - `src/cockpit.ts` is the live SSE presentation that publishes a self-describing screen snapshot
-    to the same coordinator.
-  - `src/terminal-capabilities.ts` owns TTY geometry, color, and reduced-motion capability checks.
-    Noninteractive, dumb, or undersized terminals receive the deterministic text renderer.
+- [`cli/`](../../../cli): see the [CLI guide](../../../cli/README.md) for presentation and authentication contracts.
+  - `src/operator-api-session.ts` owns loopback bootstrap and memory-only opaque bearers; it neither resolves Azure identity nor accepts caller-supplied tokens.
+  - `src/repl.ts` owns IME-safe `POST /chat`; `src/cockpit.ts` publishes self-describing live SSE screen snapshots to the same coordinator.
+  - `src/terminal-capabilities.ts` checks TTY geometry, color, and reduced motion; noninteractive, dumb, or undersized terminals use deterministic plain text.
 - [`services/core-control-plane/src/fdai/core/conversation/channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py)
   authenticates senders, claims message idempotency keys, calls the coordinator, and persists the
   complete response before provider send when durable delivery is configured.
