@@ -5,16 +5,16 @@ description: "Explicit FDAI conversation-assurance workflow. Operate a campaign 
 
 # FDAI Explicit Conversational Assurance
 
-Use this skill to operate the local FDAI Conversation Assurance Watchdog. The watchdog continuously
-generates unique FDAI questions within one explicit bounded campaign, measures real answers, and
-proposes isolated fixes when objective contracts fail.
+Use this skill to operate the local FDAI Conversation Assurance campaign runner. The runner
+evaluates a fixed census or an explicitly supplied private corpus through bounded child campaigns,
+measures real answers, and records content-free diagnostics.
 
 This skill is the single owner of conversation-assurance trigger semantics, campaign limits,
-status behavior, evaluation rubrics, persistence, hardening, and stop conditions. Do not duplicate
+status behavior, evaluation rubrics, persistence, diagnosis, and stop conditions. Do not duplicate
 these operational rules in the always-on Copilot instructions.
 
 > Scope: This is a local development assurance loop. It does not join the Pantheon, execute an
-> Azure mutation, approve an action, or merge a generated branch into `main`.
+> Azure mutation, approve an action, edit code, or merge a branch into `main`.
 
 ## Explicit campaign contract
 
@@ -27,87 +27,61 @@ authorize a campaign or a live Azure/model call.
 
 - One normal explicit trigger starts one campaign. An explicit request for 100 or more evaluations
    starts one parent series composed of bounded child campaigns.
-- One campaign evaluates at most 20 new questions and starts at most 20 hardening attempts.
+- One child campaign evaluates at most 20 questions. One parent series can contain at most 10,000
+   unique case ids.
 - These limits belong to the campaign id, not a UTC date. A later explicit trigger creates a new
   campaign id with fresh limits.
-- A parent series never raises a child budget. It runs enough sequential child campaigns to reach
-   the requested target, which defaults to 100 and MUST be at least 100. Every child has its own id
-   and ledger records. A failed hardening attempt is terminal for that candidate within the child,
-   but it does not consume or cancel the child's new-question budget. A child stops the parent only
-   when question generation or live measurement cannot make progress.
-- `.improve/STOP` is the immediate local stop switch.
+- A parent series never raises a child budget. Every child has its own id and ledger records. A
+   held, stopped, or incomplete child stops the parent, and a live question is not retried.
+- `.fdai/conversation-assurance/STOP` is the immediate local stop switch.
 - A failed cycle that cannot make progress ends the campaign without busy-looping.
-- Malformed or non-JSON Copilot generation output is retried inside the bounded cycle. Exhausted
-   retries produce a redacted `cycle_hold` ledger record and a successful cycle exit, so one
-   transient generation failure cannot obscure the campaign result.
-- A live question receives one measurement attempt per cycle. A T2 retry is expected only when the
-  effective `conversation.t2_escalation.aggressive_enabled` setting admits the recorded typed
-  trigger. An unconfigured retry, more than one retry for a stage, provider `429`/`503`, timeout, or
-  deadline expiry records `cycle_hold` and ends that cycle. The session MUST NOT relaunch the cycle,
-  the campaign, or the same question to obtain a different result.
+- A live question receives one measurement attempt per cycle. Provider `429`/`503`, timeout, or deadline
+   expiry records a hold. The session MUST NOT relaunch the cycle, child, parent series, or same
+   question to obtain a different result.
 
-Before each cycle, skip without generating a question only when any of these conditions is true:
+Before each child, stop without measuring a question when any of these conditions is true:
 
 - Another improvement runner owns the lock.
-- The campaign question or hardening budget is exhausted.
-- `.improve/STOP` exists.
-
-A dirty primary worktree or active developer session does not block measurement. Hardening starts
-from committed `HEAD` in a separate worktree and must not read, stage, overwrite, or archive the
-primary worktree's uncommitted changes. The explicit operator-triggering Copilot session does not
-block campaign hardening; the runner lock and isolated worktree prevent overlap with another
-candidate. Each campaign resumes the newest unresolved evaluation before generating another
-question.
+- The campaign question budget is exhausted.
+- `.fdai/conversation-assurance/STOP` exists.
 
 The explicit campaign runs with the project's virtual-environment Python and inherited tool
-`PATH`, so candidate verification uses the same Python and Node toolchain as local development.
-The watchdog prepends the active worktree's Core and service-contract source roots before importing
-readiness contracts. It must not resolve those contracts from an older editable install when
-`PYTHONPATH` is absent.
-Every started hardening attempt appends a bounded terminal `hardening_result` record for verified,
-failed, or exceptional completion. Error records contain the exception type, not provider output.
-A bounded hardening exception is a failed candidate result, not a campaign-process exception.
+`PATH`. The wrapper prepends the active worktree's Core and service-contract source roots before
+importing assurance contracts. It must not resolve those contracts from an older editable install.
 
-## Campaign start and focus
+## Campaign start
 
 The trigger phrases are `대화개선`, `채팅개선`, `대화무한개선`, `채팅무한개선`,
 `conversation improvement`, `chat improvement`, and `continuous conversation assurance`.
 When one appears:
 
-1. Use the persisted SRE, ARB, Change Management, DR, Chaos, or Balanced focus.
-2. Select SRE when no focus is stored; update the focus when the operator names one explicitly.
-3. Persist the choice in ignored `.improve/chat-watchdog/config.json` with mode `0600`.
-4. Run `chat_watchdog.py --campaign` for a normal request. For an explicit 100+ request, run
-   `chat_watchdog.py --campaign-series --series-questions <target>` once.
-5. Continue bounded cycles within that campaign until 20 questions, 20 hardening attempts,
-   `.improve/STOP`, or a no-progress hold ends it.
+1. Select `census`, `agent`, `routing`, or `t2`; use `census` when no suite is named.
+2. Use `scripts/automation/conversation-assurance.py start --suite <suite>` for the fixed census.
+3. For a reviewed large corpus, set the matching Core file and digest configuration, then pass the
+   same owner-only file with `--corpus <path>`.
+4. Use `--dry-run` first. It validates the corpus and reports question and child counts without an
+   Operator request or model call.
 
-The logical conversation id is `dev-discuss-<focus>`. Its wire kind remains `web`, so the harness
-uses the same authorization, routing, evidence, verification, history, and terminal response
-contract as the Console without inventing a second answer engine.
+The harness uses the authenticated Operator `/chat/stream` contract and a
+`pantheon-assurance:<campaign-id>` session. It does not invent a second answer engine.
 
 ## Assurance loop
 
-Run one cycle in this order:
+Run an explicit series in this order:
 
-1. **Select a challenge**: choose the least-used contract whose read capability is
-   `evidence_ready` in the current ephemeral runtime receipt, and alternate English and Korean.
-   A declaration or environment flag is never readiness. Keep unavailable challenge definitions
-   as coverage backlog; do not score them as answer failures.
-2. **Generate one question**: use the tool-disabled Copilot CLI wrapper. Reject exact and near
-   duplicates from the local ledger.
-3. **Measure the real answer**: start an ephemeral Azure-backed Operator API with server-owned scope.
-4. **Evaluate every quality dimension**: inspect the terminal `/chat/stream` `done` payload for
-   answer-contract coverage, verification, presentation, observed work, and timing.
-5. **Hold or harden**: a deterministic failure may start one isolated hardening candidate. A
-   provider outage, quota event, timeout, unexpected T2 fallback, or unavailable evidence is not a
-   code defect by itself and ends the cycle as a hold without live retry.
-6. **Verify generalization**: measure the original question and its persisted similar-question
-   cohort after the fix.
-7. **Preserve for review**: retain a verified branch, remove the generated worktree, and never
-   merge to `main` automatically.
-8. **Continue immediately**: the same explicit campaign starts its next bounded cycle after the
-   current cycle ends, subject to the campaign limits.
+1. **Select reviewed cases**: use the fixed 230-case census or an owner-only corpus with explicit
+   locale, route, agent, handoff, and T2 expectations. Never infer those expectations from prose.
+2. **Plan bounded children**: validate unique case ids, bind the corpus digest, and split the series
+   into children of at most 20 questions.
+3. **Measure the real answer**: send each case once through the authenticated Operator stream and
+   require the matching server-registered case.
+4. **Evaluate every quality dimension**: retain the server-owned trace, deterministic observations,
+   independent semantic reviews, and the 30-point diagnostic.
+5. **Hold safely**: provider unavailability, timeout, invalid measurement, or no progress ends the
+   current child and the parent series without retrying the question.
+6. **Diagnose off path**: channel presentation and structural attribution consume typed,
+   content-free observations. Repeated failures can create only review-required candidates with no
+   merge or execution authority.
 
 ## Aggressive T2 recovery tuning
 
@@ -161,6 +135,19 @@ remaining technically unverified and unsuccessful for the question. Existing
 A later passing v2 evaluation resolves the same v2 challenge and normalized question without
 deleting either row.
 
+### GitHub Copilot session review
+
+When the operator explicitly asks GitHub Copilot to review answers, use the local two-step custody
+boundary. Export question, answer, and evidence records with `copilot-export`; review the immutable
+packet in the active Copilot session; then import the structured ten-rubric result with
+`copilot-import`. Do not label an Azure OpenAI reviewer or any unattended runtime model as Copilot.
+
+The packet and result files MUST be owner-only regular files. Import requires exact packet and case
+digests, all ten rubrics in canonical order, `reviewer_kind=github_copilot_session`, and both
+authority flags set to false. Imported records go only to `copilot-reviews.jsonl`; they never become
+qualification evidence, execution authority, or a substitute for the independent model-family
+reviewers used by the Pantheon campaign.
+
 | Rubric | Required evidence |
 |--------|-------------------|
 | Appropriateness | An independent semantic review confirms relevance, directness, and honest uncertainty at confidence >= 0.85. Missing or low-confidence review fails closed and never becomes a passing score. Only a `medium` or `high` failure may enter hardening. |
@@ -179,30 +166,24 @@ Headless presentation validation proves the Console-facing artifact contract. A 
 canary remains responsible for CSS/layout rendering regressions; do not claim pixel parity from
 the headless cycle alone.
 
-## Evaluation and regression ledgers
+## Campaign ledgers
 
-Use three separate ignored, mode-`0600` JSONL files:
+Use three ignored, mode-`0600` JSONL files under `.fdai/conversation-assurance/`:
 
-- `questions.jsonl` records cycle and hardening lifecycle events.
-- `evaluations.jsonl` records every question, redacted answer, answer digest, all ten rubric
-   results, applicable score denominator, mandatory gate, objective oracle result,
-   `technical_verified`, `assurance_passed`, verification, presentation, trajectory counts, total
-   latency, every phase, and bottleneck.
-- `regressions.jsonl` records the original failed question and every generated similar question.
+- `campaigns.jsonl` records parent and child identity, requested and evaluated counts, and terminal
+   state.
+- `turns.jsonl` records content-free server trace receipts.
+- `evaluations.jsonl` records the correlated 30-point diagnostics.
 
-Every evaluated question enters `regressions.jsonl` immediately as a regression baseline. A failed
-question expands into a cohort with its generated paraphrases before hardening. Duplicate rejection
-reads all three ledgers. A generated original or paraphrase must never be used again as a new random
-question, while the persisted regression cohort remains available for later candidate and release
-checks. The original and every cohort question must each set `assurance_passed=true` under the current
-rubric version before the failure is resolved.
+The fixed census can produce qualification evidence only when all 230 trace and diagnostic records
+join by digest. External corpora remain diagnostic inputs and do not replace that qualification set.
 
 ## Status reporting
 
 When the operator asks `대화개선 현황`, `채팅개선 현황`, or `conversation assurance status`, run:
 
 ```bash
-python3 .improve/auto-hardening/chat_watchdog.py --project . --status --top 20
+python3 scripts/automation/conversation-assurance.py report --top 20
 ```
 
 Return the complete summary and latest 20 question-and-answer evaluation rows as a Markdown table.
@@ -210,7 +191,7 @@ This is a read-only report and must not start a cycle, change focus, or acquire 
 
 ## Question contract
 
-Every generated question must be:
+Every reviewed corpus question must be:
 
 - Specific to FDAI roles, safety, ontology, evidence, or configured Azure read operations.
 - Selectable only when every required function is `declared`, `bound`, `reachable`, and
@@ -240,97 +221,51 @@ The challenge set should cover at least:
 - Current resource conditions such as stopped, deallocated, failed, degraded, and unavailable.
 - Resource condition timing and customer-initiated versus platform-initiated cause.
 
-## Similar-question generalization gate
+## Improvement boundary
 
-A fix that answers only the original sentence is incomplete. Before hardening starts, generate and
-persist at least three similar questions in the same language. The cohort must vary:
+Structural diagnosis orders typed observations across context framing, routing, evidence retrieval,
+tool execution, synthesis, rendering, and transport. It aggregates only digests, ids, reason codes,
+rubric names, channel, locale, and route metadata. It does not inspect answer prose to guess an
+owner.
 
-- Wording and synonyms.
-- Word order.
-- Formal, concise, and colloquial phrasing.
-
-Every cohort question must preserve the original read-only intent, scope, and expected authority.
-Reject exact duplicates, prior ledger questions, forbidden identifiers, and disallowed agent names.
-An independent semantic-equivalence review at confidence >= 0.85 must also confirm the same
-language, result shape, scope, and evidence authority. Prompt instructions alone are not proof of
-equivalence.
-
-After a candidate commits, the original question and every similar question must all pass the same
-deterministic rubric and authority check. One failing paraphrase keeps the measurement at `0.0` and
-the candidate cannot be reported as verified. Never special-case one prompt, keyword list, or
-expected sentence.
-
-## Hardening boundaries
-
-One hardening candidate must:
-
-- Reproduce the failed contract before editing.
-- Fix the owning routing, evidence, verification, or rendering abstraction.
-- Add source and regression-test changes.
-- Include affected bilingual design documentation.
-- Stay within 12 changed files and 800 changed lines unless an operator explicitly changes the
-  local cap.
-- Change only Core conversation and conversation-assurance owners,
-  `services/core-control-plane/src/fdai_core_service/`, Operator conversation owners, their
-  adjacent Core or Operator tests, and directly related `docs/roadmap/` owners.
-- Run validation as separate terminal stages: reproduction test, changed-boundary focused tests,
-  Ruff, mypy, original plus paraphrase live cohort, and a baseline-independent final verdict.
-- Apply a hard deadline to every stage. The edit stage has a separate no-progress deadline. A
-  timeout or exception appends a terminal `hardening_result` and never prevents the campaign from
-  moving to a new question.
-- Treat an unchanged whole-repository or unrelated Console failure as `baseline_blocked`, not as a
-  candidate defect. Whole-repository validation is never a default candidate gate and remains a
-  merge or release responsibility.
-- Pass an AST-delta anti-hardcoding gate. A candidate is rejected when it adds a compiled regular
-   expression or compiled-pattern match, a static string collection or mapping, or a question or
-   paraphrase literal to the product conversation source. This structural gate supplements, rather
-   than replaces, semantic generalization measurement.
-
-Use a visible sibling worktree under `fdai-worktrees/auto-hardening`. Hidden `.improve` worktree
-paths can invalidate path-sensitive repository tests. Link local-only `.venv`, model metadata, and
-Node dependencies into the worktree and exclude those links from git status.
-
-Retain the branch only when every candidate stage is verified. Remove failed, timed-out,
-provider-held, evaluation-defect, authorization/configuration, and `baseline_blocked` branches.
-Never merge a retained branch automatically. Do not fix an unrelated baseline failure inside the
-chat candidate.
-
-## Copilot CLI boundary
-
-Question generation and advisory judging use the wrapper with shell, write, read, URL, remote,
-custom-instruction, MCP, auto-update, and ask-user capabilities disabled. Generated text never
-becomes a command or Azure query.
-
-`--force` is evaluation-only. It may generate and measure a question while a developer is active,
-but it must never start hardening.
+Repeated structural signatures can create a `review_required` candidate. The candidate always has
+`merge_authority=false` and `execution_authority=false`. The active campaign CLI does not edit code,
+create a branch, publish a policy, or merge a change. A maintainer must investigate and authorize
+any later implementation through the normal repository workflow.
 
 ## Operations
 
 ```bash
 # Stop the current campaign
-touch .improve/STOP
+python3 scripts/automation/conversation-assurance.py stop
 
-# Allow a later explicit campaign
-rm .improve/STOP
+# Preview a fixed census selection without an Operator or model call
+python3 scripts/automation/conversation-assurance.py start \
+   --suite agent --questions 20 --dry-run
 
-# Preview without Copilot or Azure
-python3 .improve/auto-hardening/chat_watchdog.py --project . --force --dry-run
+# Preview an owner-only external corpus
+python3 scripts/automation/conversation-assurance.py start \
+   --corpus <private-corpus.json> --dry-run
 
-# Start one explicit 20-question / 20-hardening campaign
-python3 .improve/auto-hardening/chat_watchdog.py --project . --campaign --focus sre
+# Start one explicit bounded series
+python3 scripts/automation/conversation-assurance.py start --suite census
 
-# Start one explicit series of five or more bounded campaigns (100+ questions)
-python3 .improve/auto-hardening/chat_watchdog.py --project . \
-   --campaign-series --series-questions 100 --focus balanced
+# Read status
+python3 scripts/automation/conversation-assurance.py status
 
 # Summary and latest 20 evaluations
-python3 .improve/auto-hardening/chat_watchdog.py --project . --status --top 20
+python3 scripts/automation/conversation-assurance.py report --top 20
 
-# Resume the newest unresolved score below 9/10 immediately
-python3 .improve/auto-hardening/chat_watchdog.py --project . --harden-latest --allow-active
+# Export cases for an explicit GitHub Copilot session review
+python3 scripts/automation/conversation-assurance.py copilot-export \
+   --input <private-review-source.json> --output <private-review-packet.json>
+
+# Import the digest-bound result authored in that Copilot session
+python3 scripts/automation/conversation-assurance.py copilot-import \
+   --packet <private-review-packet.json> --result <private-review-result.json>
 ```
 
-The local ledgers under `.improve/chat-watchdog/` may contain environment-derived operational text
+The local ledgers under `.fdai/conversation-assurance/` may contain environment-derived metadata
 and must remain ignored, mode `0600`, and uncommitted.
 
 An unavailable challenge appends `challenge_unavailable` with its highest proved readiness stage,
@@ -343,23 +278,12 @@ mismatch are availability outcomes, not answer-quality failures.
 Run the local safety contract after any watchdog change:
 
 ```bash
-PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/services/operator-service/src:$PWD/packages/service-contracts/src" \
-   .venv/bin/pytest -q --no-cov \
-  services/core-control-plane/tests/runtime/test_conversation_assurance_readiness.py \
+uv run pytest -q --no-cov \
+   services/core-control-plane/tests/core/conversation_assurance/test_attribution.py \
+   services/core-control-plane/tests/core/conversation_assurance/test_channel_assurance.py \
+   services/core-control-plane/tests/core/conversation_assurance/test_learning.py \
+   services/core-control-plane/tests/core/conversation_assurance/test_pantheon_campaign.py \
+   services/core-control-plane/tests/runtime/test_pantheon_conversation_assurance.py \
   tests/integration/scripts/test_conversation_assurance_answer_gate.py \
-  .improve/auto-hardening/test_chat_watchdog.py \
-   .improve/auto-hardening/test_measure.py \
-  .improve/auto-hardening/test_run_if_idle.py
-
-.venv/bin/ruff check \
-  .improve/auto-hardening/chat_watchdog.py \
-  .improve/auto-hardening/measure.py \
-  .improve/auto-hardening/run_if_idle.py \
-  .improve/auto-hardening/test_chat_watchdog.py \
-   .improve/auto-hardening/test_measure.py \
-  .improve/auto-hardening/test_run_if_idle.py
+   tests/integration/scripts/test_conversation_assurance_cli.py
 ```
-
-Also verify that the legacy watchdog and supervisor systemd units do not exist, and that a normal
-invocation without `--campaign` reports `explicit --campaign required` before it can generate a
-question.

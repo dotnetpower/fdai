@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b7584435bb23589bd9e793d67a4aa7d64ed19290
+translation_source_sha: 28a7dc7dd85b65972c374a5fe436498a9ef656f5
 translation_revised: 2026-09-13
 ---
 # 프로젝트 구조
@@ -111,7 +111,7 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   제한된 명확화 하나를 만듭니다. shadow 스키마는 제공된 의도와 정규 신원을 요구하고 유일한 exact
   범위만 보정하며 후보 전용 `forbidden_actions`를 보존합니다. 활성 v8은 `1.0.0`, shadow v14는
   `1.1.0`으로 고정하며 둘 다 프로바이더 입출력, 의사 결정, 승인, 변경 또는 실행 권한을 추가하지
-  않습니다. 조립 루트는 정확한 프롬프트 프로필로 순서, 수명 주기, 예산 및 재실행 다이제스트를 고정하며 더 높은 아티팩트 버전은 스스로 활성화되지 않습니다. 과대 요청은 프로바이더 I/O 전에 보류됩니다.
+  않습니다. 축약 입력 범위, 일반 컬렉션 필터 정리 및 스키마 복구 안내는 `core/conversation/conversation_preflight_validation.py`에 두고, 타입 기반 경로 승격은 `conversation_preflight.py`에 유지합니다. 조립 루트는 정확한 프롬프트 프로필로 순서, 수명 주기, 예산 및 재실행 다이제스트를 고정하며 더 높은 아티팩트 버전은 스스로 활성화되지 않습니다. 과대 요청은 프로바이더 I/O 전에 보류됩니다.
 - **모델 카탈로그 신원은 가능한 경우 발행기로 한정**: Core는 계열 전용 adapter 계약을
   보존하면서 선택적 `(publisher, family)` 카탈로그 경계를 받습니다. Azure delivery는 허용
   목록의 OpenAI 및 AIServices format만 매핑하고 partner 배포 및 endpoint 소유권은 resolver
@@ -148,7 +148,7 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   근거 관측은 최종 근거와 평가 참조를 재사용하며, injection 저항성에는 텍스트 검사가 아니라
   보안 소유자의 명시적 결과가 필요합니다. 두 경로 모두 권한을 부여하지 않습니다.
   인접한 `quality_latency.py` 모듈은 5단계 SLO 계약과 순수 백분위수 축약만 소유합니다. Operator,
-  채널, 검증 및 전달 소유자는 타임스탬프와 측정 권한을 유지합니다.
+  `channel_assurance.py`는 전송을 소유하지 않고 공통 내용, 제한, 근거 및 권한 검사와 기능 선언 기반 진행 상황, rich, thread 및 edit 검사를 적용합니다. `copilot_review.py`는 자격 검증 또는 실행 권한을 부여하지 않는 소유자 전용 digest 결속 검토 packet을 내보내고 가져옵니다. Operator, 채널, 검증 및 전달 소유자는 타임스탬프와 측정 권한을 유지합니다.
   단계 소유자는 타입이 지정된 증적을 통해 monotonic 시작 및 완료 값을 제공합니다. Core는 증적
   환경이 설치된 단계 계약과 일치한 후에만 기간을 파생합니다. 저장소 CLI는 콘텐츠가 없는
   Conversation Assurance는 composition이 PR benchmark 환경과 sink를 모두 주입한 경우에만

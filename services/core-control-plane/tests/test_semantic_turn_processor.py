@@ -258,6 +258,8 @@ def test_resource_state_answer_lists_verified_names_and_observed_states() -> Non
                         "values": {
                             "name": "database-a",
                             "type": "mysql-server",
+                            "resource_group": "group-a",
+                            "region": "region-a",
                             "observed_state": "Stopped",
                             "state_concept": "resource_state.stopped",
                             "source_observed_at": "2026-09-08T00:01:00+00:00",
@@ -289,8 +291,11 @@ def test_resource_state_answer_lists_verified_names_and_observed_states() -> Non
     )
 
     assert answer.startswith("## 관측된 리소스 상태")
-    assert "`database-a`: `Stopped` (`mysql-server`" in answer
+    assert (
+        "`database-a`: `Stopped` (`mysql-server`, 리소스 그룹 `group-a`, 지역 `region-a`" in answer
+    )
     assert "`database-b`: `Paused` (`sql-database`" in answer
+    assert "리소스 그룹 `unavailable`, 지역 `unavailable`" in answer
     assert "근거 완전성: `incomplete`" in answer
     assert "`resource_state_evidence_incomplete`" in answer
     assert "`execution_authority=false`" in answer

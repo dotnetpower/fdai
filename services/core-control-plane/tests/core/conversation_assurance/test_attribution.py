@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import pytest
 from fdai.core.conversation_assurance import (
     AdequacyCandidateKind,
     AdequacyReviewState,
+    ConversationStage,
     FailureLayer,
+    StageOutcome,
+    StructuralStageObservation,
     TurnAssessmentInput,
+    aggregate_structural_failures,
     attribute_answer_failure,
+    attribute_structural_failure,
     build_ontology_adequacy_review,
 )
 
@@ -121,3 +127,116 @@ def test_missing_exact_reason_remains_unknown_instead_of_evidence_failure() -> N
     attribution = attribute_answer_failure(_turn("verification_reason_unavailable"))
 
     assert attribution.layer is FailureLayer.UNKNOWN
+
+
+def test_structural_attribution_selects_earliest_failed_stage() -> None:
+    attribution = attribute_structural_failure(
+        turn_id="turn-1",
+        answer_digest="a" * 64,
+        observations=(
+            StructuralStageObservation(
+                stage=ConversationStage.RENDERING,
+                outcome=StageOutcome.FAILED,
+                reason_code="wrong_resource_shape",
+                evidence_refs=("trace:render",),
+            ),
+            StructuralStageObservation(
+                stage=ConversationStage.ROUTING,
+                outcome=StageOutcome.FAILED,
+                reason_code="wrong_object_type",
+                evidence_refs=("trace:route",),
+            ),
+            StructuralStageObservation(
+                stage=ConversationStage.SYNTHESIS,
+                outcome=StageOutcome.FAILED,
+                reason_code="intent_not_resolved",
+            ),
+        ),
+        failed_rubrics=("appropriateness", "completeness", "appropriateness"),
+    )
+
+    assert attribution.root_stage is ConversationStage.ROUTING
+    assert attribution.contributing_stages == (
+        ConversationStage.ROUTING,
+        ConversationStage.SYNTHESIS,
+        ConversationStage.RENDERING,
+    )
+    assert attribution.failed_rubrics == ("appropriateness", "completeness")
+    assert attribution.evidence_refs == ("trace:route", "trace:render")
+
+
+def test_structural_attribution_does_not_infer_failure_from_answer_text() -> None:
+    attribution = attribute_structural_failure(
+        turn_id="turn-1",
+        answer_digest="a" * 64,
+        observations=(
+            StructuralStageObservation(
+                stage=ConversationStage.SYNTHESIS,
+                outcome=StageOutcome.PASSED,
+                reason_code="synthesis_verified",
+            ),
+        ),
+        failed_rubrics=("clarity",),
+    )
+
+    assert attribution.root_stage is None
+    assert attribution.contributing_stages == ()
+    assert attribution.failed_rubrics == ("clarity",)
+
+
+def test_structural_failure_summary_is_content_free_and_ranked() -> None:
+    first = attribute_structural_failure(
+        turn_id="turn-1",
+        answer_digest="a" * 64,
+        observations=(
+            StructuralStageObservation(
+                stage=ConversationStage.ROUTING,
+                outcome=StageOutcome.FAILED,
+                reason_code="wrong_object_type",
+            ),
+        ),
+        failed_rubrics=("appropriateness",),
+        channel_kind="web",
+        locale="en",
+        route_id="ontology-query",
+    )
+    second = attribute_structural_failure(
+        turn_id="turn-2",
+        answer_digest="b" * 64,
+        observations=(
+            StructuralStageObservation(
+                stage=ConversationStage.ROUTING,
+                outcome=StageOutcome.FAILED,
+                reason_code="wrong_object_type",
+            ),
+        ),
+        failed_rubrics=("appropriateness", "completeness"),
+        channel_kind="teams",
+        locale="ko",
+        route_id="ontology-query",
+    )
+
+    summary = aggregate_structural_failures((first, second))
+
+    assert summary.total_failures == 2
+    assert summary.root_stage_counts == ((ConversationStage.ROUTING, 2),)
+    assert summary.failed_rubric_counts[0] == ("appropriateness", 2)
+    assert summary.reason_code_counts == (("wrong_object_type", 2),)
+    assert summary.channel_counts == (("teams", 1), ("web", 1))
+    assert summary.locale_counts == (("en", 1), ("ko", 1))
+    assert summary.route_counts == (("ontology-query", 2),)
+
+
+def test_structural_attribution_rejects_duplicate_stage_observations() -> None:
+    observation = StructuralStageObservation(
+        stage=ConversationStage.TRANSPORT,
+        outcome=StageOutcome.FAILED,
+        reason_code="delivery_failed",
+    )
+
+    with pytest.raises(ValueError, match="stages MUST be unique"):
+        attribute_structural_failure(
+            turn_id="turn-1",
+            answer_digest="a" * 64,
+            observations=(observation, observation),
+        )

@@ -402,7 +402,7 @@ class EntraHumanIdentityDirectory:
 
 def _user(value: Mapping[str, Any]) -> DirectoryIdentity:
     subject_id = _required(value, "id", "user")
-    username = value.get("userPrincipalName") or value.get("mail")
+    username = value.get("mail") or value.get("userPrincipalName")
     if not isinstance(username, str) or not username:
         raise RuntimeError("Microsoft Graph user has no displayable username")
     display_name = value.get("displayName")

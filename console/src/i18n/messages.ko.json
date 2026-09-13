@@ -2324,7 +2324,7 @@
       "peopleCount": "사람 {count}명",
       "groupsCount": "그룹 {count}개",
       "addByAlias": "별칭으로 사용자 추가",
-      "aliasPlaceholder": "이름, 별칭 또는 사용자 이름 검색",
+      "aliasPlaceholder": "이메일 주소 또는 이름",
       "selectRoleAndAdd": "역할 선택 및 추가",
       "rosterFilter": "명단 유형",
       "rosterFilterValue": {

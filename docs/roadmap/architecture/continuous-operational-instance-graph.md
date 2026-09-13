@@ -179,6 +179,9 @@ available or measured zero. The Operator persistence reader accepts runtime-call
 when its embedded inventory generation equals the exact selected snapshot. Unavailable source
 reasons must be canonical machine tokens and cannot carry principal text, endpoints, or provider
 details.
+The shared Operator authenticator may carry a bounded verified username into the IAM display
+projection. That value remains separate from the stable principal id and cannot enter graph
+evidence, source identity, or authorization decisions.
 The Operator lifecycle can also publish durable Incident intervention requests through the focused outbox lifecycle facade and its retry-safe worker.
 The adapter explicitly allowlists that logical topic and multiplexes it over the configured physical transport.
 It creates no runtime-call witness, graph edge, provider observation, or execution authority.

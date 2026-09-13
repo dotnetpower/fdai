@@ -20,7 +20,7 @@
   "providerMutation": "Provider assignment",
   "promotionRequired": "Separate protected workflow",
   "promotionRequiredHint": "Only the promoted allowlisted executor may apply and independently verify group membership.",
-  "findUser": "Find a user for a role request",
+  "findUser": "Find a user by email or name",
   "chooseRole": "Choose requested role",
   "roleRequestWorkflowTitle": "How access changes",
   "roleRequestWorkflowRequest": "Record a governed role request",

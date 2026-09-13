@@ -411,7 +411,7 @@ def _best_practice_entry(
         if "." in control.id
         else control.category.value
     )
-    requirements = [
+    requirements: list[dict[str, object]] = [
         {
             "kind": requirement.kind.value,
             "ref": requirement.ref,
@@ -1269,7 +1269,12 @@ def _revisioned(payload: dict[str, object]) -> dict[str, object]:
 
 
 def _yaml_mapping(path: Path) -> Mapping[str, Any]:
-    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    """Read the current document with a safe loader and require a mapping root."""
+    source = path.read_text(encoding="utf-8")
+    if hasattr(yaml, "CSafeLoader"):
+        raw = yaml.load(source, Loader=yaml.CSafeLoader)
+    else:
+        raw = yaml.safe_load(source)
     if not isinstance(raw, Mapping):
         raise RuntimeError(f"catalog document MUST be a mapping: {path}")
     return raw

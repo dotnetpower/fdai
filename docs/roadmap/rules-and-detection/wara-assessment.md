@@ -159,6 +159,9 @@ The Operator composition root imports both projection bridges through one assess
 facade to preserve its reviewed fanout ceiling. The facade shares no state or assessment authority.
 The shared Operator composition may register unrelated read projections in `/system/data-sources`;
 those registrations don't add a WARA source, widen WARA scope, or change its shadow-only authority.
+The same shared authenticator may pass a bounded verified username only to the IAM display
+projection. That value does not enter WARA identity, evidence, projections, or assessment
+authority.
 Its outbox lifecycle facade may also supervise the unrelated Incident intervention worker. That
 worker's explicitly allowlisted logical topic, requests, and readiness state cannot enter WARA
 evidence, projections, or assessment authority.

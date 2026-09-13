@@ -22,7 +22,8 @@ async def test_search_and_roster_project_only_bounded_identity_fields() -> None:
                         {
                             "id": "user-1",
                             "displayName": "Example User",
-                            "userPrincipalName": "user@example.com",
+                            "userPrincipalName": "user-login@example.com",
+                            "mail": "user@example.com",
                             "userType": "Member",
                             "accountEnabled": True,
                         }
@@ -55,6 +56,7 @@ async def test_search_and_roster_project_only_bounded_identity_fields() -> None:
         status = await directory.directory_status()
 
     assert users[0].subject_id == "user-1"
+    assert users[0].username == "user@example.com"
     assert users[0].user_type == "member"
     assert [item.principal_type for item in roster] == ["group", "person"]
     assert roster[1].roles == ("Reader",)

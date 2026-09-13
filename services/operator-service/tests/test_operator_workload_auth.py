@@ -128,6 +128,25 @@ def test_delegated_human_without_idtyp_preserves_verified_roles_and_groups(role:
     assert identity.authorized_party == "console-client"
 
 
+async def test_iam_principal_uses_verified_email_without_replacing_oid() -> None:
+    authorizer = OperatorFamilyAuthorizer(
+        _authenticator(
+            {
+                "oid": "operator-a",
+                "scp": "access_as_user",
+                "email": " operator@example.com ",
+                "preferred_username": "operator-login@example.com",
+            }
+        )
+    )
+
+    principal = await authorizer.iam(_request())
+
+    assert principal.oid == "operator-a"
+    assert principal.username == "operator@example.com"
+    assert principal.roles == frozenset()
+
+
 async def test_delegated_reader_without_idtyp_keeps_human_role_gate() -> None:
     authorizer = OperatorFamilyAuthorizer(
         _authenticator({"oid": "operator-a", "scp": "access_as_user", "roles": ["Reader"]})

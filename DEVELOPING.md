@@ -64,6 +64,11 @@ docker info
 See the [Docker setup and troubleshooting steps](docs/user-guide/local-development-quickstart.md#install-the-prerequisites)
 if any check fails.
 
+Install OPA using the version pinned by the Core image and confirm `opa check policies` succeeds.
+OPA must be on the VS Code task's `PATH`, not just an interactive shell's path. The workspace
+includes `~/.local/bin` for user-installed tools. Without OPA, Core readiness blocks consumers
+even when the HTTP APIs are listening. See the [startup verification guidance](docs/user-guide/local-development-quickstart.md#verify-processing-readiness).
+
 ```bash
 uv sync --extra dev      # runtime + dev dependencies (Python 3.13)
 make hooks-install       # tracked git hooks (core.hooksPath=.githooks)
@@ -142,6 +147,16 @@ metering remain unavailable while deterministic paths continue to work. A
 absolute path with `FDAI_LOCAL_RESOLVED_MODELS_PATH`. If an artifact references an account you do
 not own, provision your own with the `azure-selfprovision` skill.
 
+To restore an explicitly selected existing direct account, use
+`scripts/deployment/local/bind-existing-model.py --artifact resolved-models.json --evidence <readback.json> --family <primary-family> --restore-account <account-name>`.
+The readback contains `observed_at`, `account`, and `deployments` from Azure management queries
+and must be less than five minutes old. The tool checks the subscription, account, deployment
+identities, model versions, and capacities; preserves capability membership and review holds;
+and backs up the prior ignored artifact. Reviewed endpoint policies require their owning workflow
+instead. Regenerate local service environments after binding to refresh their model digests.
+This verifies configuration, not network reachability or model inference. Keep
+`FDAI_NARRATOR_AUTO_OPEN_AOAI=0` in the private Console environment when reusing a restricted account.
+
 ## 6. Start the local stack
 
 The canonical topology is the console SPA (`5273`) plus all five independent backend services:
@@ -154,6 +169,14 @@ platform state, and the default `az` profile must select that deployment's subsc
 tenant recorded in `console/.env.local`. The Docker-only path below has no Azure dependency. See
 [Choose a local path](docs/user-guide/local-development-quickstart.md#choose-a-local-path) for the
 boundary, including the isolated state retained by the public contributor deployment.
+
+Without an applied Terraform deployment (a fresh contributor or customer subscription), set
+`FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1` and `FDAI_LOCAL_RESOURCE_GROUP=<existing-read-scope>` for
+the preparation task or script instead. The selected group is verified in the active subscription;
+no placeholder scope or default region is invented. Local stateful services run on Docker
+PostgreSQL and Redpanda. This does not provision FDAI resources or enable managed-resource
+execution. Unconfigured authoritative sources remain unavailable. See
+[Local Development Quickstart § No applied Azure deployment yet](docs/user-guide/local-development-quickstart.md#no-applied-azure-deployment-yet).
 
 - VS Code (recommended): trust the workspace, then run the `console: start full stack` task for
   managed service reuse or the `Console Web: Full Stack` compound when you need debugger-owned

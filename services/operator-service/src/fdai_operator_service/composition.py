@@ -347,6 +347,9 @@ class ProductionOperatorComposition:
             local_principal=(
                 local_cli_identity.principal if local_cli_identity is not None else None
             ),
+            local_username=(
+                local_cli_identity.username if local_cli_identity is not None else None
+            ),
             local_session_token=local_cli_session_token,
         )
         teams_http_client = build_teams_hil_http_client(environment)

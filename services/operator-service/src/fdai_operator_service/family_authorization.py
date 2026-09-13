@@ -58,10 +58,12 @@ class OperatorFamilyAuthorizer:
 
     async def iam(self, request: Request) -> IamPrincipal:
         """Authenticate IAM callers while leaving capability checks to owned routes."""
-        principal = self.authenticator.authenticate(request.headers.get("authorization"))
+        identity = self.authenticator.authenticate_identity(request.headers.get("authorization"))
+        principal = identity.principal
         return IamPrincipal(
             oid=principal.subject_id,
             roles=principal.roles,
+            username=identity.username,
             principal_kind=principal.principal_kind,
         )
 

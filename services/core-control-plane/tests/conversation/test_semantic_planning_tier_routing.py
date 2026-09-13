@@ -3146,6 +3146,61 @@ def test_recent_resource_changes_build_deterministic_collection_frame() -> None:
     assert function_node.arguments["arguments"]["distinct_subjects"] is True
 
 
+def test_recent_resource_changes_preserve_explicit_twenty_four_hour_window() -> None:
+    manifest, _definition = _fixture(
+        include_resource_type=True, function_types=(resource_state_transitions_function_type(),)
+    )
+    utterance = (
+        "최근 24시간 동안 운영 상태가 변경된 Azure 리소스 5개를 최신순으로, "
+        "이전 상태, 현재 상태, 변경 시각과 함께 보여줘."
+    )
+    start = utterance.index("24시간")
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "query.resource_change_activity",
+            "targets": [
+                {
+                    "kind": "time_range",
+                    "value": "24시간",
+                    "canonical_value": "duration.PT24H",
+                    "source_start": start,
+                    "source_end": start + len("24시간"),
+                }
+            ],
+            "requested_facets": ["recently_changed", "resource_count", "limit_5"],
+            "confidence": 0.95,
+            "ambiguous": False,
+            "action_posture": "advise_only",
+            "action_subject": "none",
+        }
+    )
+
+    result = build_recent_resource_state_transition_frame(
+        judgment,
+        utterance=utterance,
+        context=(),
+    )
+
+    assert result is not None
+    proposal, frame = result
+    assert proposal.temporal_scope == {"lookback_seconds": 86_400}
+    assert proposal.evidence_requirements == ("lookback_seconds.86400", "result_limit.5")
+    plan = compile_resource_state_transition_plan(
+        frame=frame,
+        utterance=utterance,
+        manifest=manifest,
+        verifier=OntologyQueryPlanVerifier(
+            available_kinds=(QueryNodeKind.OBJECT_SET, QueryNodeKind.FUNCTION)
+        ),
+        evaluation_time=NOW,
+        purpose="operations-review",
+    )
+    assert plan is not None
+    assert (
+        plan.nodes[1].arguments["arguments"]["start_at"] == (NOW - timedelta(hours=24)).isoformat()
+    )
+
+
 def test_unavailable_transition_reads_both_state_axes() -> None:
     manifest, _definition = _fixture(
         include_resource_type=True,

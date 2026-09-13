@@ -6,10 +6,13 @@ import json
 import logging
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from types import MappingProxyType, SimpleNamespace
 from typing import Any
 
 import pytest
+import yaml
+from fdai.composition.semantic_query_value_domains import resource_type_value_domains
 from fdai.core.conversation.conversation_preflight import (
     ContextDependency,
     ConversationPreflightProposal,
@@ -89,6 +92,7 @@ from fdai.core.ontology_platform.resource_metric_queries import (
 )
 from fdai.core.ontology_platform.resource_state_queries import (
     RESOURCE_STATE_FUNCTION_NAME,
+    RESOURCE_STATE_MEASURE_CONCEPTS,
     RESOURCE_STATE_OBSERVED_CONCEPT,
     resource_state_function_type,
 )
@@ -107,6 +111,7 @@ from fdai.rule_catalog.schema.inventory_query_language import (
     QueryTerms,
     QueryValues,
 )
+from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.shared.contracts.models import (
     CeilingRole,
     OntologyObjectType,
@@ -136,6 +141,7 @@ from pydantic import ValidationError
 
 DIGEST = "sha256:" + ("a" * 64)
 NOW = datetime(2026, 8, 10, tzinfo=UTC)
+REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
 class _ManifestProvider:
@@ -977,6 +983,7 @@ def test_model_cannot_select_server_owned_target_candidates() -> None:
 def _typed_fixture(
     *,
     groups: tuple[PropertyValueGroup, ...],
+    property_values: tuple[PropertyValueDomain, ...] | None = None,
     extra_values: tuple[str, ...] = (),
     include_resource_health: bool = False,
     include_resource_event: bool = False,
@@ -1027,7 +1034,8 @@ def _typed_fixture(
         object_types=(resource,),
         functions=function_types,
         bound_function_names=tuple(function.name for function in function_types),
-        property_values=(
+        property_values=property_values
+        or (
             PropertyValueDomain(
                 object_type="Resource",
                 property_name="type",
@@ -3712,6 +3720,214 @@ def test_typed_subscription_state_prefers_a_concrete_state_filter() -> None:
     assert outcome.plan.nodes[1].arguments["arguments"] == {
         "state_concepts": ["resource_state.deallocated", "resource_state.stopped"]
     }
+
+
+def test_typed_state_exclusion_uses_the_declared_state_complement() -> None:
+    utterance = "현재 구독의 PostgreSQL 서버 중 Ready가 아닌 서버를 보여줘."
+    manifest, _definition = _typed_fixture(
+        groups=(_POSTGRES_GROUP,),
+        include_resource_state=True,
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.resource_state_inventory",
+        targets=(
+            SemanticTarget(
+                kind="resource_type_filter",
+                value="PostgreSQL 서버",
+                source_start=utterance.index("PostgreSQL 서버"),
+                source_end=utterance.index("PostgreSQL 서버") + len("PostgreSQL 서버"),
+            ),
+            SemanticTarget(
+                kind="resource_state_exclusion_filter",
+                value="Ready가 아닌",
+                source_start=utterance.index("Ready가 아닌"),
+                source_end=utterance.index("Ready가 아닌") + len("Ready가 아닌"),
+            ),
+        ),
+        requested_facets=("resource_collection", "list", "current_state"),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(frame=_frame(), plan=None)
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_JudgmentBoundary(judgment),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[1].arguments["arguments"] == {
+        "state_concepts": sorted(set(RESOURCE_STATE_MEASURE_CONCEPTS) - {"resource_state.ready"})
+    }
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
+def test_state_inventory_recovers_subtype_when_output_facet_has_type_vocabulary() -> None:
+    utterance = (
+        "현재 구독의 Azure Database for PostgreSQL 서버 목록을 이름, 리소스 그룹, 지역, "
+        "현재 상태와 함께 보여줘."
+    )
+    manifest, _definition = _typed_fixture(
+        groups=(_POSTGRES_GROUP, _RESOURCE_GROUP_GROUP),
+        include_resource_state=True,
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.resource_state_inventory",
+        targets=(),
+        requested_facets=(
+            "resource_inventory",
+            "subscription",
+            "complete_content",
+            "current_state",
+            "name",
+            "resource_group",
+            "region",
+        ),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(frame=_frame(), plan=None)
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_JudgmentBoundary(judgment),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].arguments["definition"]["predicates"][0] == {
+        "property": "type",
+        "operator": "equals",
+        "equals": "postgresql-server",
+    }
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
+def test_state_inventory_recovers_subtype_from_production_resource_vocabulary() -> None:
+    utterance = (
+        "현재 구독의 Azure Database for PostgreSQL 서버 목록을 이름, 리소스 그룹, 지역, "
+        "현재 상태와 함께 보여줘."
+    )
+    vocabulary = REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
+    registry = load_resource_type_registry_from_mapping(
+        yaml.safe_load(vocabulary.read_text(encoding="utf-8"))
+    )
+    manifest, _definition = _typed_fixture(
+        groups=(),
+        property_values=resource_type_value_domains(registry),
+        include_resource_state=True,
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.resource_state_inventory",
+        targets=(),
+        requested_facets=(
+            "resource_inventory",
+            "subscription",
+            "complete_content",
+            "current_state",
+            "name",
+            "resource_group",
+            "region",
+        ),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(frame=_frame(), plan=None)
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_JudgmentBoundary(judgment),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].arguments["definition"]["predicates"][0] == {
+        "property": "type",
+        "operator": "equals",
+        "equals": "postgresql-server",
+    }
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
+def test_state_exclusion_with_transition_history_holds_before_planning() -> None:
+    utterance = (
+        "현재 구독의 PostgreSQL 서버 중 Ready가 아닌 서버만 이름, 리소스 그룹, 현재 상태, "
+        "마지막 상태 변경 시각과 함께 보여줘."
+    )
+    manifest, _definition = _typed_fixture(
+        groups=(_POSTGRES_GROUP,),
+        include_resource_state=True,
+    )
+    judgment = SemanticJudgmentProposal(
+        primary_intent="query.resource_state_inventory",
+        targets=(),
+        requested_facets=(
+            "current_state",
+            "subscription",
+            "list",
+            "resource_name",
+            "resource_group",
+            "last_state_change_time",
+        ),
+        confidence=0.98,
+        ambiguous=False,
+        action_posture="advise_only",
+        action_subject="none",
+        authority="candidate_only",
+        execution_authority=False,
+    )
+    model = _Model(frame=_frame(), plan=None)
+
+    outcome = _service(
+        model,
+        manifest,
+        semantic_judgment=_JudgmentBoundary(judgment),
+    ).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_resource_state_transition_join_unsupported"
+    assert outcome.plan is None
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
 
 
 @pytest.mark.parametrize(

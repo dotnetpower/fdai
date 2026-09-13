@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 11e4869b6de67034bade2aeb819dc816f6ed45ad
+translation_source_sha: 4aba9ca3f3c5baa0fb402f6b1947b3fa9962d596
 translation_revised: 2026-09-13
 ---
 # 지속형 운영 인스턴스 그래프
@@ -180,6 +180,9 @@ PostgreSQL 데이터베이스 역할 관측은 Resource 또는 Link 형태가 �
 영속성 판독기는 포함된 인벤토리 세대가 선택한 정확한 스냅샷과 일치할 때만 런타임 호출 링크
 메타데이터를 허용합니다. 사용 불가 원본 사유는 정식 기계 토큰이어야 하며 principal 텍스트,
 엔드포인트 또는 프로바이더 세부 정보를 포함할 수 없습니다.
+공유 Operator 인증기는 범위가 제한된 검증 사용자명을 IAM 표시 변환 결과로 전달할 수 있습니다.
+이 값은 안정적인 principal ID와 분리되며 그래프 근거, 원본 신원 또는 권한 부여 결정에 들어갈
+수 없습니다.
 Operator 수명 주기는 전용 보낼 편지함 수명 주기 facade와 재시도 가능한 작업자를 통해 영속 Incident 개입 요청도 게시할 수 있습니다.
 어댑터는 해당 논리 토픽을 명시적으로 허용 목록에 등록하고 설정된 물리 전송 계층을 통해 다중화합니다.
 런타임 호출 증표, 그래프 edge, 프로바이더 관측 또는 실행 권한은 만들지 않습니다.
