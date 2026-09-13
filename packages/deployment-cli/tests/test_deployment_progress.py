@@ -330,6 +330,8 @@ def test_real_coordinator_keeps_approval_and_intermediate_json_off_stdout(
         commands.append(command[1].rsplit("/", 1)[-1])
         if commands[-1] == "genesis_orchestrator.py":
             assert kwargs["stdout"] == subprocess.DEVNULL
+            stage_budget = int(command[command.index("--execution-timeout-seconds") + 1])
+            assert kwargs["timeout"] == stage_budget + 15
             prepared.root.mkdir(mode=0o700, exist_ok=True)
             status_path = prepared.root / "status.json"
             status_path.write_text(json.dumps(next(statuses)))
@@ -342,6 +344,7 @@ def test_real_coordinator_keeps_approval_and_intermediate_json_off_stdout(
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(standalone_deploy.subprocess, "run", run)
+    monkeypatch.setattr(standalone_deploy, "run_foundation_process", run)
 
     def application(**_kwargs):
         for stage in (

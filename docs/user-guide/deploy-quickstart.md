@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to Azure from one local command or a digest-pinned disconnected deployment appliance.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 1f815718187081d84763255d2699c1be88efa3c3 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 2e824888453a6da52ffa87870f0d398a43706626 }]
 ---
 
 # Deploy Quickstart
@@ -151,6 +151,9 @@ choices are sealed before approval and never changed during apply. If no compati
 available, review the reported restrictions, hardware requirements, and quota; existing claims
 still resume verification only. These checks require a signed kit containing the selection support.
 Checkout changes do not update an older kit, and editing extracted signed kit files is unsupported.
+
+Foundation plans first use a private local backend. Only the exact migration archive activates the
+signed remote-backend example for the attested host; migration approval and readback remain mandatory.
 
 ### If kit acquisition fails
 

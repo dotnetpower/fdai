@@ -152,6 +152,33 @@ The public CLI does not register `deploy plan`, `deploy apply`, or `deploy statu
 previously dispatched GitHub workflows and are not part of the standalone deployment contract.
 Live onboarding uses `provision azure`; `onboard guided` is simulation-only.
 
+## Signed artifact and execution safety
+
+The installed CLI passes its own Python interpreter to fixed packaged Genesis launchers, plan
+generation, and reverification. The outer Foundation timeout reserves process-group cleanup;
+nested Genesis termination grace decreases at each of at most eight levels. Optional caller-owned
+stdout and stderr descriptors preserve progress and machine-output separation without changing
+stdin or cancellation. Status, approval, and safe environment filtering remain independent gates.
+
+Reusable Console artifacts use the environment-isolated offline build and require installation-time
+bindings, never host deployment defaults. CLI build tooling uses a stage-private environment rather
+than the caller's selected virtual environment. Complete builds use one private detached checkout
+of a pinned commit, excluding caller-local ignored inputs and signing keys. Raw tracked bytes,
+modes, and a stable metadata fingerprint are checked throughout assembly and immediately before
+signing; unchanged lockfiles or Git status flags alone do not prove source identity.
+
+The complete release wrapper requires a fresh private output root and preserves earlier archives.
+Caller-relative signing-key paths resolve before changing directories, and current-UID, mode-0600,
+regular-file checks remain required. The build shares a three-hour total budget with per-stage and
+no-progress deadlines, including an optional deployment appliance. Nested supervisors forward
+cancellation with shorter cleanup grace than their parent. Success requires a valid archive checksum
+and completion of every requested artifact stage; interruption cannot continue to later signing.
+
+Source hardening covers packaged entry points, stateful verification-only resume, and nested
+cancellation. Focused source tests do not replace signature verification, exact-file and SBOM
+checks, or fresh and resumed complete artifact acceptance in the network-isolated air-gap drill.
+See [Disconnected Deployment](disconnected-deployment.md) for the complete artifact trust boundary.
+
 ## Standalone deployment sequence
 
 The coordinator performs these stages in order:

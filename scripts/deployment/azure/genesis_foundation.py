@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -139,12 +140,9 @@ def prepare_foundation_plan(
     plan_ref = f"foundation-plan-attempt-{attempt}"
     plan_directory = orchestration_work_dir / plan_ref
     command: tuple[str, ...] = (
-        "uv",
-        "run",
-        "--frozen",
-        "--project",
-        str(repository_root / "packages/deployment-cli"),
-        "fdaictl",
+        sys.executable,
+        "-m",
+        "fdai_deployment_cli",
         "provision",
         "plan",
         "--stage",
@@ -228,12 +226,9 @@ def _reverify_current_plan(
                 raise FoundationPlanError("foundation_plan_input_changed_after_claim", 3)
             return None
     command: tuple[str, ...] = (
-        "uv",
-        "run",
-        "--frozen",
-        "--project",
-        str(repository_root / "packages/deployment-cli"),
-        "fdaictl",
+        sys.executable,
+        "-m",
+        "fdai_deployment_cli",
         "provision",
         "verify-foundation-plan",
         "--directory",

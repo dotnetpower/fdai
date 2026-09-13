@@ -20,6 +20,7 @@ from fdai_deployment_cli.deployment_kit import DeploymentKit, acquire_deployment
 from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail, terminal_output
 from fdai_deployment_cli.foundation_failure import foundation_failure_summary
 from fdai_deployment_cli.foundation_output import foundation_output
+from fdai_deployment_cli.foundation_process import run_foundation_process
 from fdai_deployment_cli.private_output import read_private_bytes
 from fdai_deployment_cli.standalone_application import deploy_standalone_application
 from fdai_deployment_cli.standalone_status import current_status, prior_attempt
@@ -116,9 +117,10 @@ def deploy_azure_foundation(
     begin_stage("foundation")
     while True:
         remaining = int(deadline - time.monotonic())
-        if remaining < 1800:
+        if remaining < 1830:
             raise TimeoutError("standalone Foundation deadline has insufficient remaining budget")
         previous_attempt = prior_attempt(status_path)
+        stage_timeout = min(14_400, remaining - 30)
         command = (
             sys.executable,
             str(scripts / "genesis_orchestrator.py"),
@@ -149,13 +151,13 @@ def deploy_azure_foundation(
             str(prepared.ssh_private_key),
             *(("--approval-file", str(approval)) if approval.exists() else ()),
             "--execution-timeout-seconds",
-            str(min(14_400, remaining)),
+            str(stage_timeout),
             "--output",
             "json",
         )
         try:
             with foundation_output() as stderr:
-                completed = subprocess.run(
+                foundation_exit = run_foundation_process(
                     command,
                     cwd=kit.bundle_root,
                     env=_standalone_subprocess_environment(
@@ -168,10 +170,9 @@ def deploy_azure_foundation(
                     ),
                     stdout=subprocess.DEVNULL,
                     stderr=stderr,
-                    check=False,
-                    timeout=min(14_400, remaining),
+                    timeout=stage_timeout + 15,
                 )
-                if completed.returncode not in {0, 2}:
+                if foundation_exit.returncode not in {0, 2}:
                     raise ValueError(
                         foundation_failure_summary(
                             status_path,
@@ -242,7 +243,7 @@ def deploy_azure_foundation(
                 "mutation_performed": True,
                 "subscription_ready": False,
             }
-        if completed.returncode != 2:
+        if foundation_exit.returncode != 2:
             raise ValueError("standalone Foundation orchestration failed")
         approval.unlink(missing_ok=True)
         try:

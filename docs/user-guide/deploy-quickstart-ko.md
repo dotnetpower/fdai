@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 단일 로컬 명령 또는 digest로 고정된 폐쇄망 배포 어플라이언스로 FDAI를 Azure에 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 296d2fc940bba18221fc7187700aa630fadd15ed
+translation_source_sha: 780e649475165b21c6482e27ba4b2d2f35e33a54
 translation_revised: 2026-09-13
 ---
 
@@ -148,6 +148,9 @@ bash scripts/deployment/azure/fdai-up.sh --region koreacentral
 요건, 할당량을 검토하세요. 기존 적용 시작 기록이 있으면 검증만 재개합니다. 이 검사는 해당
 선택 기능이 포함된 서명 키트가 필요합니다. 체크아웃 변경은 이전 키트를 갱신하지 않으며,
 추출한 서명 키트 파일을 직접 편집하는 방식은 지원되지 않습니다.
+
+Foundation 계획은 먼저 비공개 로컬 백엔드를 사용합니다. 정확한 마이그레이션 아카이브만
+증명된 호스트에서 서명된 원격 백엔드 예제를 활성화하며, 마이그레이션 승인과 재확인은 필수입니다.
 
 ### 키트 획득에 실패한 경우
 

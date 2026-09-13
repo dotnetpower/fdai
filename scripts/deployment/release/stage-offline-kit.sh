@@ -39,6 +39,8 @@ RUNTIME_RELEASE=""
 RUNTIME_DESCRIPTOR=""
 RUNTIME_SOURCE_ROOT=""
 WITH_RUNTIME_WHEELS=0
+SOURCE_COMMIT=""
+SOURCE_FINGERPRINT=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -52,6 +54,8 @@ while [[ $# -gt 0 ]]; do
     --runtime-descriptor) RUNTIME_DESCRIPTOR="$2"; shift 2 ;;
     --runtime-source-root) RUNTIME_SOURCE_ROOT="$2"; shift 2 ;;
     --with-runtime-wheels) WITH_RUNTIME_WHEELS=1; shift ;;
+    --source-commit) SOURCE_COMMIT="$2"; shift 2 ;;
+    --source-fingerprint) SOURCE_FINGERPRINT="$2"; shift 2 ;;
     *) echo "stage-offline-kit: unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -101,6 +105,28 @@ if [[ ( -n "$RUNTIME_RELEASE" || -n "$RUNTIME_DESCRIPTOR" || "$WITH_RUNTIME_WHEE
 fi
 PYTHON="$repo_root/.venv/bin/python"
 [[ -x "$PYTHON" ]] || { echo "stage-offline-kit: BLOCKED - .venv is missing." >&2; exit 2; }
+# The supervisor itself stays in its caller's group and forwards cancellation to its children.
+run_timed() {
+  local limit="$1"
+  shift
+  "$PYTHON" "$repo_root/scripts/automation/run-bounded-command.py" \
+    --label offline-substage --timeout-seconds "$limit" --no-progress-seconds "$limit" \
+    --termination-grace-seconds 1 -- "$@"
+}
+if [[ -n "$RUNTIME_RELEASE" || -n "$RUNTIME_DESCRIPTOR" || "$WITH_RUNTIME_WHEELS" -eq 1 || -n "$SOURCE_COMMIT" || -n "$SOURCE_FINGERPRINT" ]]; then
+  SOURCE_COMMIT="${SOURCE_COMMIT:-$(git rev-parse HEAD)}"
+  source_args=(--repo-root "$repo_root" --source-commit "$SOURCE_COMMIT")
+  [[ -z "$SOURCE_FINGERPRINT" ]] || source_args+=(--source-fingerprint "$SOURCE_FINGERPRINT")
+  SOURCE_FINGERPRINT="$(run_timed 300 \
+    "$PYTHON" scripts/deployment/release/release_source.py "${source_args[@]}")"
+fi
+source_boundary() {
+  [[ -n "$SOURCE_COMMIT" ]] || return 0
+  run_timed 300 \
+    "$PYTHON" scripts/deployment/release/release_source.py \
+    --repo-root "$repo_root" --source-commit "$SOURCE_COMMIT" \
+    --source-fingerprint "$SOURCE_FINGERPRINT" >/dev/null
+}
 SAFE_WRITER="scripts/deployment/release/secure_work_file.py"
 STAGE_SENTINEL=".fdai-offline-stage"
 if [[ "$OUT" != /* || "$OUT" == "/" || "$OUT" == "$HOME" || "$OUT" == "$repo_root" ]]; then
@@ -124,7 +150,7 @@ else
   fi
 fi
 
-for tool in curl git sha256sum timeout uv; do
+for tool in curl git sha256sum uv; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "stage-offline-kit: BLOCKED - $tool is required to assemble a kit." >&2
     exit 2
@@ -222,7 +248,7 @@ trap 'stop_background; exit 130' INT
 trap 'stop_background; exit 143' TERM
 
 rm -rf "$KIT" "$OUT/bundle" "$OUT/wheels" "$OUT/mirror" "$OUT/mirror-src" \
-  "$OUT/toolchain" "$OUT/runtime-build" "$OUT/runtime-python"
+  "$OUT/toolchain" "$OUT/runtime-build" "$OUT/runtime-python" "$OUT/cli-build-env"
 rm -f "$OUT/bundle.tar.gz" "$OUT/cli-requirements.txt"
 mkdir -p "$OUT/toolchain" "$KIT"/{python,deployment,terraform,bin,sbom}
 chmod 700 "$OUT/toolchain" "$KIT"
@@ -255,7 +281,7 @@ download_terraform() {
     -o "$OUT/toolchain/terraform.zip" \
     "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_${HOST_PLATFORM}.zip"
   echo "$TERRAFORM_SHA256  $OUT/toolchain/terraform.zip" | sha256sum -c -
-  timeout --signal=TERM --kill-after=15 120 \
+  run_timed 120 \
     "$PYTHON" scripts/deployment/release/extract-terraform-archive.py \
     --archive "$OUT/toolchain/terraform.zip" --output "$TERRAFORM_BIN"
   chmod 755 "$TERRAFORM_BIN"
@@ -271,7 +297,7 @@ download_opa() {
 }
 
 build_bundle() {
-  timeout --signal=TERM --kill-after=15 900 env \
+  run_timed 900 env \
     SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1700000000}" \
     PYTHONPATH=services/core-control-plane/src "$PYTHON" \
     scripts/deployment/release/build-deployment-bundle.py \
@@ -282,14 +308,16 @@ build_bundle() {
 }
 
 build_cli_wheels() {
-  timeout --signal=TERM --kill-after=15 300 \
+  export UV_PROJECT_ENVIRONMENT="$OUT/cli-build-env"
+  unset VIRTUAL_ENV
+  run_timed 300 \
     uv lock --check --project packages/deployment-cli >/dev/null
-  timeout --signal=TERM --kill-after=15 600 \
+  run_timed 600 \
     uv build --wheel --project packages/deployment-cli --out-dir "$OUT/wheels" >/dev/null
-  timeout --signal=TERM --kill-after=15 300 \
+  run_timed 300 \
     uv export --project packages/deployment-cli --locked --no-dev --no-emit-project \
     --format requirements-txt --output-file "$OUT/cli-requirements.txt" >/dev/null
-  timeout --signal=TERM --kill-after=15 900 \
+  run_timed 900 \
     uv run --project packages/deployment-cli --locked --no-dev --group release \
     --python "$PYTHON" python -m pip download --only-binary=:all: --require-hashes \
     --dest "$OUT/wheels" --requirement "$OUT/cli-requirements.txt" >/dev/null
@@ -315,6 +343,7 @@ remember_background "$cli_pid"
 
 wait_or_stop "$terraform_pid"
 wait_or_stop "$bundle_pid"
+source_boundary
 
 if [[ -n "$RUNTIME_DESCRIPTOR" ]]; then
   echo "-- runtime release bound to signed deployment bundle"
@@ -360,13 +389,14 @@ if [[ -n "$RUNTIME_RELEASE" ]]; then
     scripts/deployment/release/stage-runtime-release.py \
     --source "$RUNTIME_RELEASE" --kit "$KIT" \
     --deployment-bundle "$KIT/$BUNDLE_IN_KIT" \
-    --source-commit "$(git rev-parse HEAD)" --platform-tag "$PLATFORM_TAG"
+    --source-commit "$SOURCE_COMMIT" --platform-tag "$PLATFORM_TAG"
 fi
 
 if [[ "$WITH_RUNTIME_WHEELS" -eq 1 ]]; then
   echo "-- locked runtime support wheels"
   "$PYTHON" scripts/deployment/release/stage-runtime-wheelhouse.py \
-    --repo-root "$repo_root" --out-dir "$OUT/runtime-python"
+    --repo-root "$repo_root" --out-dir "$OUT/runtime-python" \
+    --source-commit "$SOURCE_COMMIT" --source-fingerprint "$SOURCE_FINGERPRINT"
   install -d -m 0700 "$KIT/support/python"
   cp -r "$OUT/runtime-python/build" "$OUT/runtime-python/requirements" \
     "$OUT/runtime-python/wheels" "$OUT/runtime-python/inventory.json" "$KIT/support/python/"
@@ -435,6 +465,7 @@ sbom_path.write_text(
 print(f"   {len(components)} components")
 PY
 
+source_boundary
 echo "-- sign kit"
 PYTHONPATH=packages/deployment-cli/src:services/core-control-plane/src "$PYTHON" \
   scripts/deployment/release/build-offline-kit.py \
@@ -445,4 +476,5 @@ PYTHONPATH=packages/deployment-cli/src:services/core-control-plane/src "$PYTHON"
   --terraform-binary terraform/terraform --provider-mirror-prefix terraform/providers \
   --opa-binary bin/opa --sbom-path sbom/offline-kit.cdx.json
 
+source_boundary
 echo "stage-offline-kit: OK - signed kit at $KIT (cli_version=$CLI_VERSION)"

@@ -116,11 +116,12 @@ def _run(
     platform: str = "linux_amd64",
     fail_root: str = "",
     fail_command: str = "",
+    helper: Path = HELPER,
 ) -> subprocess.CompletedProcess[str]:
     terraform = work / "terraform"
     _fake_terraform(terraform)
     return subprocess.run(  # noqa: S603 - fixed repository helper and generated test fixture only
-        ["/bin/bash", str(HELPER), str(work / "bundle"), str(work), str(terraform), platform],
+        ["/bin/bash", str(helper), str(work / "bundle"), str(work), str(terraform), platform],
         cwd=ROOT,
         env={
             **os.environ,
@@ -243,9 +244,12 @@ def test_provider_commands_are_bounded_and_timeout_stops_staging(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, expire: bool
 ) -> None:
     _bundle(tmp_path / "bundle")
-    tools = tmp_path / "tools"
-    tools.mkdir()
-    shim = tools / "timeout"
+    checkout = tmp_path / "checkout"
+    helper = checkout / "scripts/deployment/release/mirror-locked-providers.sh"
+    helper.parent.mkdir(parents=True)
+    helper.write_bytes(HELPER.read_bytes())
+    shim = checkout / ".venv/bin/python"
+    shim.parent.mkdir(parents=True)
     shim.write_text(
         f"#!{sys.executable}\n"
         + r"""
@@ -255,24 +259,27 @@ import sys
 from pathlib import Path
 
 arguments = sys.argv[1:]
-assert arguments[:2] == ["--signal=TERM", "--kill-after=15"]
-limit = int(arguments[2])
-assert 0 < limit <= (300 if arguments[4] == "init" else 600)
+assert arguments[0].endswith("/scripts/automation/run-bounded-command.py")
+assert arguments[1:3] == ["--label", "provider-mirror"]
+limit = int(arguments[arguments.index("--timeout-seconds") + 1])
+assert int(arguments[arguments.index("--no-progress-seconds") + 1]) == limit
+assert arguments[arguments.index("--termination-grace-seconds") + 1] == "1"
+command = arguments[arguments.index("--") + 1:]
+assert 0 < limit <= (300 if command[1] == "init" else 600)
 with Path(os.environ["FAKE_TIMEOUT_LOG"]).open("a", encoding="utf-8") as stream:
     stream.write(json.dumps(arguments) + "\n")
 if os.environ["FAKE_TIMEOUT_EXPIRE"] == "1":
     sys.exit(124)
-os.execv(arguments[3], arguments[3:])
+os.execv(command[0], command)
 """,
         encoding="utf-8",
     )
     shim.chmod(0o755)
     timeout_log = tmp_path / "timeout.jsonl"
-    monkeypatch.setenv("PATH", f"{tools}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setenv("FAKE_TIMEOUT_LOG", str(timeout_log))
     monkeypatch.setenv("FAKE_TIMEOUT_EXPIRE", "1" if expire else "0")
 
-    result = _run(tmp_path)
+    result = _run(tmp_path, helper=helper)
 
     assert result.returncode == (124 if expire else 0), result.stderr
     assert len(timeout_log.read_text().splitlines()) == (4 if expire else 2 * len(ROOTS))
