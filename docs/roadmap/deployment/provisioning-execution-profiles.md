@@ -29,6 +29,7 @@ that applies before Terraform changes infrastructure or role assignments.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-13 | implemented | Bound both application confirmations and actor lookup to the same at-most-ten-minute window, plan expiry, and remaining invocation budget; require a real terminal. | `current change`; reproduced unbounded read, timeout/noninteractive controls, shared-budget and existing exact/destructive approval tests. | An expired or closed input grants no approval and triggers no automatic retry. |
 | 2026-09-13 | implemented | Proved expired image reviews still permit verification of an existing claim, without reselection, reapproval, or repeated apply. | `current change`; manual and automatic-selection claim/resume regressions preserve exact claim bytes and one original apply. | This verifies completed effects only and cannot repair a partial image build. |
 | 2026-09-13 | implemented | Normalize Azure identity and managed-host I/O exceptions before rendering; raw OS or child-process fallback errors no longer print command arguments or private paths. | `current change`; five reproduced synthetic-marker disclosures and focused CLI/transport regressions. | Stable failure categories do not infer whether a claimed remote effect completed. |
 | 2026-09-13 | implemented | Clamp every application SSH/SCP operation to one current deadline without changing command, stdin, identity, or tunnel cleanup. | `current change`; two reproduced transfer-to-substrate budget failures and direct transport regressions. | Expired or failed effects remain verification-only; no retry or approval is added. |
@@ -120,6 +121,8 @@ network/state handoff, Entra binding, provider configuration, or signed kit requ
 prepared context.
 The invocation budget begins before preparation. Approval waits and application handoff use
 current remaining time; an expired budget starts no next stage and cannot produce readiness.
+Application confirmation requires a real terminal and one at-most-ten-minute window shared by
+both prompts and actor lookup, shortened by plan expiry and the remaining invocation budget.
 `DeadlineTransport` clamps each existing Bastion command and file transfer to that same current
 budget and checks expiry after I/O. The underlying tunnel retains its own bounded cleanup.
 Identity and transport failures use fixed diagnostics; raw OS and subprocess exceptions never

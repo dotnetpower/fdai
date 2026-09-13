@@ -7,6 +7,7 @@ import importlib
 import json
 import os
 import re
+import select
 import subprocess
 import sys
 import time
@@ -134,7 +135,7 @@ def deploy_standalone_application(
                 timeout=3600,
             )
             deadline.remaining()
-            substrate_approval = _approve_plan(prepared.root, substrate_plan)
+            substrate_approval = _approve_plan(prepared.root, substrate_plan, deadline=deadline)
             tunnel.copy_to(substrate_approval, remote_approval, timeout=120)
             progress_detail("Applying the approved infrastructure plan and verifying its effects")
             substrate_receipt = _remote_json(
@@ -229,7 +230,7 @@ def deploy_standalone_application(
                 timeout=3600,
             )
             deadline.remaining()
-            application_approval = _approve_plan(prepared.root, application_plan)
+            application_approval = _approve_plan(prepared.root, application_plan, deadline=deadline)
             tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
             tunnel.copy_to(application_approval, remote_approval, timeout=120)
             progress_detail("Applying the approved application plan and verifying its effects")
@@ -385,14 +386,32 @@ def _remote_json(
 
 
 @terminal_output("Review the exact application plan", approval=True)
-def _approve_plan(root: Path, review: dict[str, Any]) -> Path:
+def _approve_plan(
+    root: Path, review: dict[str, Any], *, deadline: DeploymentDeadline | None = None
+) -> Path:
+    """Read two exact confirmations within one bounded window; silence grants nothing."""
+
     stage, destructive = validate_plan_review(review)
+    approval_deadline = DeploymentDeadline(
+        min(600, deadline.remaining() if deadline is not None else 600), clock=time.monotonic
+    )
+
+    def approval_seconds(maximum: int = 600) -> int:
+        validate_plan_review(review)
+        plan_remaining = int(
+            (_parse_moment(str(review["expires_at"])) - datetime.now(UTC)).total_seconds()
+        )
+        remaining = min(plan_remaining, approval_deadline.remaining(maximum))
+        if remaining <= 0:
+            raise TimeoutError("standalone approval deadline expired; no approval was granted")
+        return remaining
+
     expected = f"{stage}-apply"
     print(json.dumps(review, indent=2, sort_keys=True), file=sys.stderr)
     print(
         f"Type the exact stage name to approve ({expected}): ", end="", file=sys.stderr, flush=True
     )
-    supplied = _approval_input()
+    supplied = _approval_input(timeout_seconds=approval_seconds())
     if supplied != expected:
         raise ValueError("standalone application plan approval was denied")
     if destructive:
@@ -403,10 +422,11 @@ def _approve_plan(root: Path, review: dict[str, Any]) -> Path:
             file=sys.stderr,
             flush=True,
         )
-        confirmation = _approval_input()
+        confirmation = _approval_input(timeout_seconds=approval_seconds())
         if confirmation != f"{expected}-destructive":
             raise ValueError("standalone destructive application plan approval was denied")
-    actor = _azure_actor_digest(str(review["target_binding"]))
+    actor = _azure_actor_digest(str(review["target_binding"]), timeout_seconds=approval_seconds(60))
+    approval_deadline.remaining()
     validate_plan_review(review)
     now = datetime.now(UTC).replace(microsecond=0)
     expires = min(_parse_moment(str(review["expires_at"])), now + timedelta(hours=1))
@@ -427,13 +447,29 @@ def _approve_plan(root: Path, review: dict[str, Any]) -> Path:
     return path
 
 
-def _approval_input() -> str:
+def _approval_input(*, timeout_seconds: int = 600) -> str:
     """Treat a closed input stream as denial, never as approval or an implicit retry."""
 
+    _wait_for_approval_input(timeout_seconds)
     try:
         return input("").strip()
     except EOFError as exc:
         raise ValueError("approval input closed; no new approval was granted") from exc
+
+
+def _wait_for_approval_input(timeout_seconds: int) -> None:
+    """Wait only on a real terminal with the plan and invocation's remaining budget."""
+
+    if timeout_seconds <= 0:
+        raise TimeoutError("standalone approval deadline expired; no approval was granted")
+    if not sys.stdin.isatty():
+        raise ValueError("standalone approval requires an interactive terminal")
+    try:
+        readable, _, _ = select.select([sys.stdin], [], [], timeout_seconds)
+    except (OSError, ValueError):
+        raise ValueError("standalone approval input is unavailable") from None
+    if not readable:
+        raise TimeoutError("standalone approval input timed out; no approval was granted")
 
 
 def _license_token(
@@ -487,7 +523,7 @@ def _import_bastion(scripts: Path) -> Any:
         sys.path.remove(str(scripts))
 
 
-def _azure_actor_digest(target_binding: str) -> str:
+def _azure_actor_digest(target_binding: str, *, timeout_seconds: int = 60) -> str:
     result = subprocess.run(
         (
             "az",
@@ -502,7 +538,7 @@ def _azure_actor_digest(target_binding: str) -> str:
         check=False,
         capture_output=True,
         text=True,
-        timeout=60,
+        timeout=timeout_seconds,
     )
     try:
         value = json.loads(result.stdout)
