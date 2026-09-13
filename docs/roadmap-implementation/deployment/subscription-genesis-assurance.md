@@ -112,6 +112,7 @@ An unconfirmed hypothesis is not a defect; a passing local test is not release o
 | H03 | Partial discovery evidence loss | Medium: a catalog/quota error left no diagnostic record and discarded a completed catalog. Completed inputs now persist before dependent reads, with failed-stage and unknown digest fields. | Failure plus VM integration suites: 23 passed | Low: truncated provider responses never become complete evidence. |
 | H04 | Previous signed-release loss on rebuild | Medium: reusing an owned output deleted the signed archive and partial images before new work. Complete builds now require a fresh root; directory and symlink attempts preserve existing bytes. | `test_standalone_kit_release_guards.py`: 2 passed; real ownership guard retained | Low: prior incomplete outputs require deliberate separately scoped retention management. |
 | H05 | Aggregate quota and missing-family semantics | Rejected the proposed zero-quota fallback: missing usage is unknown. Added exhaustive same/different-family demand and ordering regressions; no production defect reproduced. | `test_genesis_vm_quota_properties.py`: 40 passing combinations | Low: metadata cannot reserve allocation capacity. |
+| H06 | Pagination can reset acquisition bounds | Rejected: the existing reader maintains cumulative bytes/deadline and a visited-page set. Added multi-page counterexamples rather than widening the schema or limits. | Catalog suite: 24 passed | Low: incomplete acquisition remains a blocker, not an empty available catalog. |
 
 ## Critique resolution register
 
