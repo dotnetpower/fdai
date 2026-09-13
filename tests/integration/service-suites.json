@@ -73,6 +73,7 @@
           "services/operator-service/tests/test_adaptive_relationship.py",
           "services/operator-service/tests/test_analyzer_lifecycle_projection.py",
           "services/operator-service/tests/test_assurance_twin_posture_projection.py",
+          "services/operator-service/tests/test_autonomy_measurement_projection.py",
           "services/operator-service/tests/test_azure_cli_token.py",
           "services/operator-service/tests/test_background_task_projection.py",
           "services/operator-service/tests/test_browser_evidence_projection.py",

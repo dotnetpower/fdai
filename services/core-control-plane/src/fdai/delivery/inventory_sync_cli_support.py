@@ -22,8 +22,17 @@ from fdai.delivery.azure.arm_inventory import (
     AzureArmInventoryFactoryConfig,
 )
 from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGraphInventory
+from fdai.delivery.azure.resource_health_inventory import (
+    AzureResourceHealthInventoryConfig,
+    AzureResourceHealthInventoryEnricher,
+)
+from fdai.delivery.azure.static_web_app_inventory import (
+    AzureStaticWebAppInventoryConfig,
+    AzureStaticWebAppInventoryEnricher,
+)
 from fdai.delivery.inventory_delta import forward_inventory_delta
 from fdai.delivery.inventory_job_config import InventoryJobConfig, verify_declarative_sha256
+from fdai.delivery.inventory_sync import InventoryPromotionEnricher
 from fdai.delivery.kubernetes_api_inventory import (
     KubernetesApiAuth,
     ServiceAccountTokenAuth,
@@ -32,6 +41,7 @@ from fdai.delivery.kubernetes_api_inventory import (
 from fdai.delivery.kubernetes_cluster_binding import KubernetesClusterBinding
 from fdai.delivery.kubernetes_lifecycle_collection import KubernetesLifecycleCollector
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
+from fdai.delivery.persistence.postgres_inventory_snapshot import PostgresInventorySnapshotStore
 from fdai.delivery.persistence.postgres_kubernetes_lifecycle import (
     PostgresKubernetesLifecycleConfig,
     PostgresKubernetesLifecycleStore,
@@ -190,6 +200,41 @@ def build_sources(
             )
         )
     return tuple(sources)
+
+
+def build_azure_inventory_enrichers(
+    *,
+    config: InventoryJobConfig,
+    identity: WorkloadIdentity,
+    http_client: httpx.AsyncClient,
+    previous_state_reader: PostgresInventorySnapshotStore,
+) -> tuple[InventoryPromotionEnricher, InventoryPromotionEnricher]:
+    """Build the ordered Azure-owned enrichers for one full inventory refresh."""
+
+    return (
+        AzureResourceHealthInventoryEnricher(
+            identity=identity,
+            http_client=http_client,
+            config=AzureResourceHealthInventoryConfig(
+                subscription_ids=config.scopes,
+                endpoint=config.management_endpoint,
+                audience=config.management_audience,
+                freshness_ceiling_seconds=config.reconciliation_interval_seconds,
+            ),
+            previous_state_reader=previous_state_reader,
+        ),
+        AzureStaticWebAppInventoryEnricher(
+            identity=identity,
+            http_client=http_client,
+            config=AzureStaticWebAppInventoryConfig(
+                subscription_ids=config.scopes,
+                endpoint=config.management_endpoint,
+                audience=config.management_audience,
+                freshness_ceiling_seconds=config.reconciliation_interval_seconds,
+            ),
+            previous_state_reader=previous_state_reader,
+        ),
+    )
 
 
 async def forward_recovery_deltas(

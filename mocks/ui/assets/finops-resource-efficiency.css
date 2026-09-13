@@ -357,16 +357,17 @@
   display: grid;
   gap: 2px;
   padding: 9px 11px;
-  border: 1px solid color-mix(in srgb, var(--fr-blue) 22%, var(--cs-hairline));
+  border: 1px solid var(--cs-tooltip-border, var(--cs-hairline));
   border-radius: 6px;
-  background: color-mix(in srgb, var(--cs-card) 97%, transparent);
-  box-shadow: 0 8px 24px rgba(30, 45, 60, .12);
+  background: var(--cs-tooltip-bg, var(--cs-card));
+  color: var(--cs-tooltip-text, var(--cs-text));
+  box-shadow: var(--cs-tooltip-shadow, 0 8px 24px rgba(24,31,38,.14));
   pointer-events: none;
 }
 .fr-chart-tooltip[hidden] { display: none; }
 .fr-chart-tooltip strong { font-size: 10px; }
 .fr-chart-tooltip span { font-size: 12px; font-weight: 650; }
-.fr-chart-tooltip small { color: var(--cs-text-soft); font-size: 9.5px; }
+.fr-chart-tooltip small { color: var(--cs-tooltip-muted, var(--cs-text-soft)); font-size: 9.5px; }
 .fr-chart-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 8px; color: var(--cs-text-soft); font-size: 10.5px; }
 .fr-chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .fr-chart-legend i { width: 14px; height: 3px; border-radius: 2px; background: var(--fr-blue); }

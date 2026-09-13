@@ -1,8 +1,8 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 45e5ce4b4e20d800af930cdbc502609501dd823c
-translation_revised: 2026-09-12
+translation_source_sha: ee3bea7aa2f6de4ed7e09636f0aeee07a029cc66
+translation_revised: 2026-09-13
 ---
 # 기록된 리소스 상태
 
@@ -116,6 +116,12 @@ Dashboard는 제한된 크기의 페이지를 읽고 중복 기록이나 변하�
 지정된 상태 값과 표준 상태 사실 메타데이터만 추가할 수 있습니다. ID, 구성, 토폴로지 또는
 인벤토리 관측 시각을 대체할 수 없습니다.
 
+모든 전체 새로 고침은 범위가 제한된 공급자 속성을 잘라내기 전에 권위 있는 구독 및 Resource Group
+범위를 보존합니다. 이 계약은 ARG 행, 직접 ARM 자식 컬렉션, Resource Changes 보강 및 Activity Log
+변경분에 동일하게 적용됩니다. 로컬 권위 새로 고침과 장기 실행 수집기는 런타임 호출, Resource Health,
+Static Web App 및 Kubernetes 보강을 같은 순서로 조합합니다. 사용할 수 없거나 지원되지 않는 원본은
+제한 사항을 기록하며 프로비저닝 상태에서 정상 여부를 파생하지 않습니다.
+
 승격된 Resource 사실은 하나의 세대 일치 검사 아래에서 현재 `ontology_resource` Resource와
 Operator가 읽을 수 있는 인벤토리 변환 결과에 함께 기록됩니다. Core 대화 함수는 온톨로지
 인스턴스를 읽습니다. Operator 역할에는 Core 테이블 직접 접근 권한이 없으므로 인스턴스 및 일괄
@@ -156,6 +162,10 @@ ResourceType을 선언합니다.
   유지합니다. HTTP 응답 성공이나 상위 리소스 존재 여부로 `Ready`를 추론하지 않습니다.
 - 실패, 권한 부족, 잘못된 형식, 일부 범위 또는 오래된 상태 조회는 정확한 출처 제한을 기록합니다.
   `provisioningState`, 존재 여부 또는 설명이 없는 이전 값으로 대체하지 않습니다.
+- Resource Health 대상에 유지할 이전 사실이 없으면 누락된 가용성 값에
+  `resource_health_not_modeled` 같은 허용 목록 기반 리소스별 사유를 정확히 하나 기록합니다. 공급자 응답
+  원문은 조회 경계를 통과하지 않습니다. 이전에 검증된 값이 있으면 그 값이 더 새로운 실패
+  조회보다 우선하며, 원본 수준의 일부 범위가 해당 실패를 별도로 기록합니다.
 - 정확한 조회는 대상 200개와 동시성 8로 제한합니다. 이전의 설명 가능한 사실은 세대가 일치하는
   batch로 읽고, 대상 상한이나 공급자를 사용할 수 없을 때 유지합니다.
 - 하나의 공통 서비스 계약인 `fdai_service_contracts.recorded_resource_state`가 Core 온톨로지

@@ -4,17 +4,39 @@ import type { ApiError } from "./types";
 
 export class OperatorApiError extends Error {
   readonly status: number;
+  readonly kind: "http" | "projection-unavailable";
 
-  constructor(status: number, message: string) {
+  constructor(
+    status: number,
+    message: string,
+    kind: "http" | "projection-unavailable" = "http",
+  ) {
     super(message);
     this.name = "OperatorApiError";
     this.status = status;
+    this.kind = kind;
   }
 }
 
 export function isOptionalOperatorApiUnavailable(error: unknown): error is OperatorApiError {
   return error instanceof OperatorApiError
-    && (error.status === 404 || error.status === 501 || error.status === 503);
+    && (
+      error.status === 404
+      || error.status === 501
+      || error.kind === "projection-unavailable"
+    );
+}
+
+const PROJECTION_UNAVAILABLE_MESSAGE = "authoritative Operator projection is unavailable";
+
+function responseError(status: number, message: string): OperatorApiError {
+  return new OperatorApiError(
+    status,
+    message,
+    status === 503 && message === PROJECTION_UNAVAILABLE_MESSAGE
+      ? "projection-unavailable"
+      : "http",
+  );
 }
 
 export interface OperatorApiTransportOptions {
@@ -143,7 +165,7 @@ export class OperatorApiTransport {
       } catch {
         /* body was not JSON */
       }
-      throw new OperatorApiError(response.status, message);
+      throw responseError(response.status, message);
     }
     try {
       return (await response.json()) as T;
@@ -203,7 +225,7 @@ export class OperatorApiTransport {
       } catch {
         /* body was not JSON - fall through */
       }
-      const error = new OperatorApiError(response.status, message);
+      const error = responseError(response.status, message);
       throw error;
     }
     return response;

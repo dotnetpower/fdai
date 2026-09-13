@@ -163,6 +163,19 @@ boundary, including the isolated state retained by the public contributor deploy
   `ready` or `failed`; every preparation command and readiness check has a bounded deadline. Use
   `console: wait full stack ready` only for a ten-second diagnostic after a successful start. Use
   `bash scripts/deployment/local/prepare-console-full-stack.sh --force` to refresh every stage.
+- Terminal launchers: run each long-lived server in its own terminal. The Console command prepares
+  and starts the same complete stack as the VS Code task. The design command starts the independent
+  static mock server on `http://127.0.0.1:5373`.
+
+  ```bash
+  ./scripts/deployment/local/start-console-web.sh
+  ./scripts/deployment/local/start-design-mocks.sh
+  ```
+
+  Pass `--force` to `start-console-web.sh` only when every preparation stage must be refreshed.
+  If a standard port is owned outside the managed launcher, the Console script exits before
+  preparation and leaves that process untouched. Stop the matching VS Code debug configuration
+  or other owning process, then retry.
 - Optional Docker data stack for persistence tests and Docker verification. It starts runtime and
   validation PostgreSQL, Redpanda, and ClamAV:
 

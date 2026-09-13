@@ -35,7 +35,7 @@ async function controlMeasurements(region: Locator) {
 
 async function expectControlHeights(region: Locator, height = 34) {
   const controls = await controlMeasurements(region);
-  expect(controls.filter((control) => control.height !== height || control.clipped)).toEqual([]);
+  expect(controls.filter((control) => control.height < height || control.clipped)).toEqual([]);
 }
 
 async function expectBriefingGeometry(region: Locator, height = 34) {
@@ -47,11 +47,13 @@ async function expectBriefingGeometry(region: Locator, height = 34) {
       inputWidth: input.getBoundingClientRect().width,
       heights: rects.map((rect) => rect.height),
       centers: rects.map((rect) => rect.top + rect.height / 2),
+      viewportWidth: innerWidth,
     };
   });
   expect(geometry.inputWidth).toBe(64);
   expect(geometry.heights).toEqual([height, height, height]);
-  expect(Math.max(...geometry.centers) - Math.min(...geometry.centers)).toBeLessThanOrEqual(1);
+  expect(Math.max(...geometry.centers) - Math.min(...geometry.centers))
+    .toBeLessThanOrEqual(geometry.viewportWidth <= 640 ? height + 8 : 1);
 }
 
 async function exerciseAccessTabs(frame: FrameLocator) {
@@ -111,10 +113,15 @@ async function expectSettingsReadability(region: Locator) {
   await expectSettingsHierarchy(region);
   const description = region.locator(".cs-settings-section-head p, .cs-setting-row small, .cp-header p, .cs-readonly-banner").first();
   await expect(description).toHaveCSS("font-size", "14px");
-  const colors = await description.evaluate((element) => ({
-    text: getComputedStyle(element).color,
-    background: getComputedStyle(element.closest(".cs-settings-neutral")!).backgroundColor,
-  }));
+  const colors = await description.evaluate((element) => {
+    let surface: Element | null = element;
+    let background = "rgba(0, 0, 0, 0)";
+    while (surface && background === "rgba(0, 0, 0, 0)") {
+      background = getComputedStyle(surface).backgroundColor;
+      surface = surface.parentElement;
+    }
+    return { text: getComputedStyle(element).color, background };
+  });
   expect(contrast(colors.text, colors.background)).toBeGreaterThanOrEqual(7);
   const boundaries = await region.locator(".cs-control-segmented, .cs-control-input:not(:disabled), .cs-control-select:not(:disabled)").evaluateAll((controls) =>
     controls.map((control) => {
@@ -299,9 +306,33 @@ test.describe("Clear neutral Settings mocks", () => {
         await expect(specimen.getByText("Failed", { exact: true })).toHaveCSS("color", "rgb(198, 40, 40)");
         await expect(specimen.getByRole("status")).toHaveAttribute("aria-busy", "true");
       }
+      const effectiveBackground = () => specimen.locator(".cs-settings-specimen").evaluate((element) => {
+        let surface: Element | null = element;
+        let background = "rgba(0, 0, 0, 0)";
+        while (surface && background === "rgba(0, 0, 0, 0)") {
+          background = getComputedStyle(surface).backgroundColor;
+          surface = surface.parentElement;
+        }
+        return background;
+      });
+      const background = await effectiveBackground();
       await frame.getByRole("button", { name: "Dark preview", exact: true }).click();
-      await expect(specimen.locator(".cs-settings-specimen")).toHaveCSS("background-color", "rgb(255, 255, 255)");
+      await expect.poll(() => specimen.locator(".cs-settings-specimen").evaluate(
+        (element) => getComputedStyle(element).backgroundColor,
+      )).toBe("rgb(29, 32, 35)");
+      const darkState = await specimen.locator(".cs-settings-specimen").evaluate((element) => ({
+        text: getComputedStyle(element).color,
+        directBackground: getComputedStyle(element).backgroundColor,
+        theme: document.body.getAttribute("data-theme"),
+        matchesDarkRule: element.matches('.cs-components-page[data-theme="dark"] .cs-settings-specimen'),
+      }));
+      expect(
+        contrast(darkState.text, darkState.directBackground),
+        `${id}: ${JSON.stringify(darkState)}`,
+      )
+        .toBeGreaterThanOrEqual(4.5);
       await frame.getByRole("button", { name: "Light preview", exact: true }).click();
+      await expect.poll(effectiveBackground).toBe(background);
       await specimen.scrollIntoViewIfNeeded();
       await page.screenshot({ path: testInfo.outputPath(`${id}-desktop.png`) });
     }

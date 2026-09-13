@@ -1,0 +1,371 @@
+/* Final quality layer shared only by the nine Evidence design mocks. */
+[data-evidence-quality] {
+  color: var(--cs-text);
+}
+
+[data-evidence-quality] :is(
+  small,
+  .fg-kicker,
+  .fg-count,
+  .fg-facts dt,
+  .turn-meta,
+  .turn-meta time,
+  .forecast-stage > span,
+  .report-table th,
+  .report-provenance,
+  .cs-vert,
+  .rc-node-kicker,
+  .rc-edge,
+  .rc-confidence > span,
+  .rc-section-head > span,
+  .rc-panel-head span,
+  .rc-citation a,
+  .rc-kind,
+  .rc-plan-fact span,
+  .rc-abstained-fact span
+) {
+  font-size: var(--cs-type-label-size);
+  line-height: var(--cs-type-label-line-height);
+  letter-spacing: 0;
+}
+
+[data-evidence-quality] :is(
+  .fg-detail-head p,
+  .fg-section > p,
+  .forecast-lifecycle > p,
+  .assurance-decision p,
+  .turn p,
+  .search-result span,
+  .cp-section-head p,
+  .cp-workspace-body > p,
+  .rc-hypothesis p,
+  .rc-caveat,
+  .rc-abstained p
+) {
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+
+[data-evidence-quality] :is(
+  .fg-select strong,
+  .search-result strong,
+  .search-gap strong,
+  .custody-timeline strong,
+  .custody-lock strong,
+  .evidence-ref-grid strong,
+  .assurance-check strong,
+  .assurance-lock strong,
+  .report-widget h3,
+  .trace-branch summary,
+  .trace-recovery strong,
+  .append-boundary strong,
+  .lookup-summary strong
+) {
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+
+[data-evidence-quality] :is(
+  .fg-workbench,
+  .fg-toolbar,
+  .fg-detail-panel,
+  .fg-section,
+  .report-widget,
+  .rc-panel,
+  .rc-chain-wrap,
+  .rc-hero,
+  .rc-abstained
+) {
+  box-shadow: none;
+}
+
+[data-evidence-quality] :is(button, input, select, summary) {
+  min-height: 32px;
+}
+
+[data-evidence-quality] .evidence-form-note {
+  grid-column: 1 / -1;
+  margin: 0 0 2px;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+  line-height: var(--cs-type-label-line-height);
+}
+
+[data-evidence-quality] .evidence-search-toolbar {
+  grid-template-columns: minmax(240px, 1fr) minmax(160px, 200px) auto;
+}
+
+[data-evidence-quality] .evidence-empty {
+  margin: 8px;
+  padding: 18px;
+  border: 1px dashed var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+}
+
+[data-evidence-quality] .evidence-empty strong,
+[data-evidence-quality] .evidence-empty span {
+  display: block;
+}
+
+[data-evidence-quality] .evidence-empty span {
+  margin-top: 4px;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+
+[data-evidence-quality] .evidence-empty .fg-button {
+  margin-top: 12px;
+}
+
+[data-evidence-quality] .search-workbench.is-empty {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+}
+
+[data-evidence-quality] .search-workbench.is-empty .fg-rail {
+  border-right: 0;
+}
+
+[data-evidence-quality] .evidence-review-option {
+  width: 100%;
+  min-height: 58px;
+  display: block;
+  padding: 12px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--cs-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+[data-evidence-quality] .cp-workspace-list li {
+  padding: 0;
+}
+
+[data-evidence-quality] .cp-workspace-list li.is-selected {
+  box-shadow: inset 0 0 0 2px var(--cs-steel);
+}
+
+[data-evidence-quality] .evidence-review-option strong,
+[data-evidence-quality] .evidence-review-option small {
+  display: block;
+}
+
+[data-evidence-quality] .evidence-review-option small {
+  margin-top: 4px;
+  color: var(--cs-text-soft);
+}
+
+[data-evidence-quality] .calibration-figure {
+  margin: 0;
+}
+
+[data-evidence-quality] .forecast-calibration {
+  min-height: 164px;
+}
+
+[data-evidence-quality] .forecast-bar {
+  height: 150px;
+}
+
+[data-evidence-quality] .forecast-bar strong {
+  font-size: var(--cs-type-label-size);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-evidence-quality] .calibration-values {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 10px 0 0;
+  border-block: 1px solid var(--cs-hairline);
+}
+
+[data-evidence-quality] .calibration-values > div {
+  min-width: 0;
+  padding: 8px 10px;
+  border-right: 1px solid var(--cs-hairline);
+}
+
+[data-evidence-quality] .calibration-values > div:last-child {
+  border-right: 0;
+}
+
+[data-evidence-quality] .calibration-values dt {
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+}
+
+[data-evidence-quality] .calibration-values dd {
+  margin: 3px 0 0;
+  font-size: var(--cs-type-compact-size);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-evidence-quality] .report-mini-bars {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  align-items: end;
+  gap: 8px;
+  height: 132px;
+  padding-top: 8px;
+}
+
+[data-evidence-quality] .report-mini-bar {
+  min-width: 0;
+  height: 118px;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  justify-items: center;
+  gap: 3px;
+}
+
+[data-evidence-quality] .report-mini-bar i {
+  width: 100%;
+  align-self: end;
+  height: var(--height);
+  border-radius: 3px 3px 0 0;
+  background: var(--cs-steel);
+  opacity: .88;
+}
+
+[data-evidence-quality] .report-mini-bar strong {
+  font-size: var(--cs-type-label-size);
+  font-variant-numeric: tabular-nums;
+}
+
+[data-evidence-quality] .report-mini-bar small {
+  color: var(--cs-text-soft);
+}
+
+[data-evidence-quality] .rc-context .rc-links a {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--cs-type-label-size);
+}
+
+[data-evidence-quality] .rc-confidence-ring {
+  box-shadow: 0 0 0 1px var(--cs-hairline);
+}
+
+[data-evidence-quality] .rc-chain {
+  min-width: 0;
+}
+
+[data-evidence-quality] .rc-node small,
+[data-evidence-quality] .rc-citation-main span,
+[data-evidence-quality] .rc-plan-step span {
+  font-size: var(--cs-type-label-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+
+[data-evidence-quality] .rc-query-help {
+  flex: 1 0 100%;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+}
+
+[data-evidence-quality] .rc-query-status {
+  margin: -8px 0 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-bg);
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-compact-size);
+}
+
+[data-evidence-quality] .rc-query-status:empty {
+  display: none;
+}
+
+@media (max-width: 620px) {
+  [data-evidence-quality] :is(button, input, select, summary, .fg-button, .rc-context .rc-links a) {
+    min-height: 44px;
+  }
+
+  [data-evidence-quality] .calibration-values {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  [data-evidence-quality] .calibration-values > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  [data-evidence-quality] .calibration-values > div:nth-child(-n+2) {
+    border-bottom: 1px solid var(--cs-hairline);
+  }
+
+  [data-evidence-quality] .report-mini-bars {
+    gap: 4px;
+  }
+
+  [data-evidence-quality] .evidence-search-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [data-evidence-quality] .rc-chain-wrap {
+    overflow-x: visible;
+  }
+
+  [data-evidence-quality] .rc-chain {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  [data-evidence-quality] .rc-edge {
+    min-height: 40px;
+  }
+
+  [data-evidence-quality] .rc-edge b {
+    transform: rotate(90deg);
+  }
+
+  [data-evidence-quality] .rc-context .rc-links {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  [data-evidence-quality] .rc-context .rc-links a {
+    justify-content: center;
+  }
+}
+
+@media (forced-colors: active) {
+  [data-evidence-quality] :is(
+    [aria-pressed="true"],
+    .is-selected,
+    :focus-visible
+  ) {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  [data-evidence-quality] :is(
+    .fg-badge,
+    .cp-status,
+    .cs-status,
+    .cs-risk,
+    .cs-tier,
+    .cs-mode
+  ) {
+    border: 1px solid currentColor;
+  }
+
+  [data-evidence-quality] :is(
+    .forecast-bar i,
+    .report-mini-bar i,
+    .assurance-score-track span
+  ) {
+    background: Highlight;
+  }
+
+  [data-evidence-quality] .rc-confidence-ring {
+    background: Canvas;
+    border: 8px solid Highlight;
+  }
+}

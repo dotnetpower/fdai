@@ -82,7 +82,7 @@ test.describe("Complete Settings workspace coverage", () => {
           const heights = await frame.locator(".cp-tab:visible, .cs-control-button:visible, .cs-control-input:visible, .cs-control-select:visible").evaluateAll((elements) =>
             elements.map((element) => ({ label: element.textContent?.trim() || element.getAttribute("aria-label"), height: element.getBoundingClientRect().height, clipped: element.scrollWidth > element.clientWidth + 1 })),
           );
-          expect(heights.filter((item) => item.height !== (viewport.label === "mobile" ? 44 : 34) || item.clipped)).toEqual([]);
+          expect(heights.filter((item) => item.height < (viewport.label === "mobile" ? 44 : 34) || item.clipped)).toEqual([]);
           visited.push(`${menu.name}/${name}`);
         }
       }

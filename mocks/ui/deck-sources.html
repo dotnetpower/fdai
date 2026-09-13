@@ -208,8 +208,9 @@
       .gs-controls > .cs-muted:last-child { flex: 1 1 100%; }
     }
   </style>
+  <link rel="stylesheet" href="assets/chat-current.css?v=11" />
 </head>
-<body>
+<body class="gs-page-body" data-chat-theme="clear-neutral" data-chat-surface="current">
   <main class="cs-container cs-page">
     <div class="cs-page-header cs-mb-16">
       <div class="cs-eyebrow">Command deck &middot; Narrator (Bragi) &middot; Read-only</div>
@@ -228,12 +229,12 @@
     </div>
 
     <div class="gs-controls">
-      <button class="gs-btn" id="gs-replay">&#9654; Replay</button>
+      <button class="gs-btn" id="gs-replay" type="button">&#9654; Replay</button>
       <span class="cs-muted" style="font-size:13px">Speed</span>
       <span class="gs-speed" id="gs-speed">
-        <button data-mult="1.8">0.5x</button>
-        <button data-mult="1">1x</button>
-        <button data-mult="0.5" class="on">2x</button>
+        <button data-mult="1.8" type="button">0.5x</button>
+        <button data-mult="1" type="button">1x</button>
+        <button data-mult="0.5" class="on" type="button">2x</button>
       </span>
       <span class="cs-muted" style="font-size:12.5px; margin-left:auto">Illustrative mock - values are representative, not live.</span>
     </div>
@@ -248,7 +249,7 @@
         </div>
 
         <div class="gs-body">
-          <section class="gs-transcript" id="gs-transcript">
+          <section class="gs-transcript" id="gs-transcript" aria-label="Command deck transcript" aria-live="polite">
             <!-- filled by JS -->
           </section>
 
@@ -277,8 +278,9 @@
         </div>
 
         <div class="gs-inputrow">
-          <div class="gs-input">Ask about tiles, verticals, HIL, audit, promotion...</div>
-          <button class="gs-send">Send</button>
+          <label class="cs-sr-only" for="gs-composer">Ask the Command deck</label>
+          <textarea class="gs-input" id="gs-composer" rows="1" readonly>Ask about tiles, verticals, approvals, audit, or promotion...</textarea>
+          <button class="gs-send" type="button" disabled>Preview only</button>
         </div>
       </div>
     </div>
@@ -377,6 +379,7 @@
 
       // 2. retrieval trace panel
       var trace = el("div", "gs-trace");
+      trace.id = "gs-retrieval-trace";
       var head = el("div", "gs-trace-head");
       head.appendChild(el("span", "gs-spin"));
       head.appendChild(el("span", "gs-trace-title", "Preparing answer"));
@@ -442,7 +445,10 @@
 
       // 4. collapse trace into a grounded pill
       await sleep(180);
-      var pill = el("div", "gs-grounded");
+      var pill = el("button", "gs-grounded");
+      pill.type = "button";
+      pill.setAttribute("aria-expanded", "false");
+      pill.setAttribute("aria-controls", trace.id);
       pill.innerHTML =
         '<span class="gs-check">\u2713</span> Grounded on ' +
         '<span class="gs-pill-stat"><strong>' + SOURCES.length + '</strong> sources</span> &middot; ' +
@@ -455,6 +461,7 @@
         expanded = !expanded;
         trace.style.display = expanded ? "block" : "none";
         pill.querySelector(".gs-more").textContent = expanded ? "hide trace" : "show trace";
+        pill.setAttribute("aria-expanded", String(expanded));
       });
       trace.parentNode.insertBefore(pill, trace);
       trace.classList.add("gs-settled");

@@ -28,9 +28,10 @@ test.describe("Resource Dashboard v2 mock", () => {
     await expect(frame.locator(".dr-summary dd")).toHaveText(["24", "14", "3", "3"]);
     await expect(frame.locator(".dr-summary dt").last()).toHaveText("Provisioning recorded");
     await expect(frame.locator("#operation-coverage")).toHaveText("14 known / 3 unknown / 7 not applicable");
-    await expect(frame.locator(".cs-readonly-banner")).toContainText("make no operational claim");
+    await expect(frame.locator(".db-page-subtitle")).toContainText("Simulated data");
+    await expect(frame.locator(".db-page-subtitle")).toContainText("No Azure reads or actions.");
     await expect(frame.locator("body")).toHaveAttribute("data-chat-theme", "clear-neutral");
-    await expect(frame.locator("body")).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(frame.locator("body")).toHaveCSS("background-color", "rgb(247, 248, 250)");
     await expect(frame.locator("#resource-honeycomb .dr-cluster")).toHaveCount(3);
     await expect(frame.locator("#resource-honeycomb .dr-cell")).toHaveCount(24);
     await expect(frame.locator(".dr-cell").first()).toBeInViewport();
@@ -184,17 +185,21 @@ test.describe("Resource Dashboard v2 mock", () => {
     }
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect(frame.locator("#historical-performance")).toHaveCount(0);
-    const history = frame.locator(".dr-history-panel").filter({ has: frame.getByRole("heading", { name: "State history", exact: true }) });
+    const history = frame.locator(".dr-history-panel[aria-labelledby='changes-title']");
     await expect(history).toContainText("Not connected in this projection");
     await expect(history).toContainText("does not establish a continuous history, transition onset, or recovery duration");
     await expect(frame.locator("#resource-changes")).toBeHidden();
     await expect(frame.locator("#resource-changes button:visible")).toHaveCount(0);
-    await expect(frame.locator(".ov-evidence")).toContainText("Manifest digest: not recorded");
-    await expect(frame.locator(".ov-evidence")).toContainText("Pending changes: unavailable");
-    await expect(frame.getByRole("link", { name: "Open operating outcomes dashboard", exact: true })).toHaveAttribute("href", "dashboard.html");
+    await expect(frame.locator(".rd-source-facts")).toContainText("Manifest digest");
+    await expect(frame.locator(".rd-source-facts")).toContainText("Not recorded");
+    await expect(frame.locator(".rd-source-facts")).toContainText("Pending changes");
+    await expect(frame.locator(".rd-source-facts")).toContainText("Unavailable");
+    await expect(frame.locator("#resource-supplement a[href='dashboard.html']")).toHaveText(
+      "Open operating outcomes dashboard",
+    );
   });
 
-  test("drills independent summary axes and reloads the same fixture without requests", async ({ page }) => {
+  test("keeps independent summary axes and reloads the same fixture without requests", async ({ page }) => {
     const frame = await openDashboard(page);
     const requests: string[] = [];
     page.on("request", (request) => requests.push(request.url()));
@@ -202,20 +207,24 @@ test.describe("Resource Dashboard v2 mock", () => {
     const snapshotId = await frame.locator("#resource-snapshot-id").innerText();
     expect(snapshotId).not.toBe("");
     await frame.locator(".dr-preview-controls > summary").click();
-    const summaries = frame.locator(".dr-summary > div");
-    for (const [index, count, lens] of [[0, 24, "operation"], [1, 14, "operation"], [2, 3, "operation"], [3, 3, "provisioning"]] as const) {
-      await summaries.nth(index).getByRole("button", { name: "Inspect records", exact: true }).click();
-      await expect(frame.locator("#resource-list tbody tr")).toHaveCount(count);
-      await expect(frame.locator(`[data-resource-lens="${lens}"]`)).toHaveAttribute("aria-pressed", "true");
-      await expect(frame.locator(".dr-summary dd")).toHaveText(["24", "14", "3", "3"]);
-      if (index === 1) await expect(frame.locator("#resource-list tbody td:nth-child(3)").filter({ hasText: /Unknown|Not applicable/ })).toHaveCount(0);
-      if (index === 2) await expect(frame.locator("#resource-list tbody td:nth-child(3)")).toHaveText(["? Unknown", "? Unknown", "? Unknown"]);
-    }
-    await expect(frame.locator("#resource-count")).toHaveText("3 resources shown / 3 match filters / 24 received / provisioning evidence filter");
-    await expect(frame.locator("#resource-lens-note")).toContainText("not power, availability, or verified effect");
-    expect(await frame.locator("#resource-list tbody tr").evaluateAll((rows) => rows.map((row) => row.getAttribute("data-resource-id")))).toEqual([
-      "app-web-01", "app-vm-02", "data-db-01",
+    await expect(frame.locator(".dr-summary dt")).toHaveText([
+      "Received resources",
+      "Operating state known",
+      "Operating state unknown",
+      "Provisioning recorded",
     ]);
+    await expect(frame.locator(".dr-summary dd")).toHaveText(["24", "14", "3", "3"]);
+    await frame.getByRole("button", { name: "List", exact: true }).click();
+    await expect(frame.locator("#resource-list tbody tr")).toHaveCount(24);
+    await frame.locator('[data-resource-lens="provisioning"]').click();
+    await expect(frame.locator('[data-resource-lens="provisioning"]')).toHaveAttribute("aria-pressed", "true");
+    expect(await frame.locator("#resource-legend button:not([data-state-key='all'])").evaluateAll(
+      (buttons) => buttons.map((button) => button.getAttribute("data-count")),
+    )).toEqual(["1", "1", "1", "21"]);
+    await expect(frame.locator(".dr-summary dd")).toHaveText(["24", "14", "3", "3"]);
+    if (!await frame.locator(".dr-preview-controls").evaluate((element: HTMLDetailsElement) => element.open)) {
+      await frame.locator(".dr-preview-controls > summary").click();
+    }
     await frame.getByRole("button", { name: "Reload fixture", exact: true }).click();
     await expect(frame.locator("#resource-snapshot-id")).toHaveText(snapshotId);
     await expect(frame.locator("#resource-count")).toHaveText("24 resources shown / 24 match filters / 24 received");

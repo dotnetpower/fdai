@@ -6,9 +6,10 @@
   <title>Conversation response patterns - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=response-patterns-v1" />
   <link rel="stylesheet" href="assets/conversation-response-patterns.css?v=response-patterns-v1" />
+  <link rel="stylesheet" href="assets/chat-current.css?v=11" />
   <script src="assets/calm-slate.js?v=response-patterns-v1" defer></script>
 </head>
-<body class="crp-body">
+<body class="crp-body" data-chat-theme="clear-neutral" data-chat-surface="current">
   <main class="crp-page">
     <header class="crp-page-header">
       <div>
@@ -45,6 +46,7 @@
           <p>FDAI already has prose, lists, tables, charts, code, citations, source details, action drafts, and a run record. This study adds only the response states that were not represented clearly enough.</p>
           <div class="crp-table-wrap">
             <table class="crp-coverage">
+              <caption class="cs-sr-only">Coverage and design disposition for response forms</caption>
               <thead><tr><th scope="col">Observed response form</th><th scope="col">FDAI posture</th><th scope="col">Design decision</th></tr></thead>
               <tbody>
                 <tr><td>Tables, charts, code, citations, and tool records</td><td><span class="crp-state is-positive">Covered</span></td><td>Keep the existing structured reply and run record.</td></tr>
@@ -69,6 +71,7 @@
           </ol>
           <div class="crp-table-wrap">
             <table class="crp-table crp-routing-table">
+              <caption class="cs-sr-only">Typed conditions and their safe response presentation</caption>
               <thead><tr><th scope="col">Typed condition</th><th scope="col">Primary pattern</th><th scope="col">What the operator sees</th><th scope="col">Safe fallback</th></tr></thead>
               <tbody>
                 <tr><td><code>clarification</code> with tied candidates</td><td>Target selection</td><td>Bounded options, distinguishing facts, custom response field</td><td>One direct clarification question</td></tr>
@@ -245,6 +248,7 @@
               </div>
               <div class="crp-table-wrap">
                 <table class="crp-table">
+                  <caption class="cs-sr-only">Cancellation outcome for resumable work</caption>
                   <thead><tr><th scope="col">Work item</th><th scope="col">Before</th><th scope="col">After</th><th scope="col">Stopped scope</th><th scope="col">Audit ref</th></tr></thead>
                   <tbody><tr><td>Weekly drift review</td><td>Paused</td><td>Canceled</td><td>Future resume only. No live process was terminated.</td><td><code>audit:cancel-042</code></td></tr></tbody>
                 </table>

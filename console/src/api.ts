@@ -284,7 +284,9 @@ export class OperatorApiClient {
       throw error;
     }
     const reason = unavailableSourceReason(sources, path);
-    if (reason !== null) throw new OperatorApiError(503, reason);
+    if (reason !== null) {
+      throw new OperatorApiError(503, reason, "projection-unavailable");
+    }
   }
 }
 

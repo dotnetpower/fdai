@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Root cause analysis - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=component-conformance-v1" />
   <link rel="stylesheet" href="assets/governance-evidence-workspace.css?v=9" />
   <link rel="stylesheet" href="assets/focused-governance-workspaces.css?v=1" />
   <link rel="stylesheet" href="assets/focused-final-workspaces.css?v=1" />
@@ -103,25 +103,29 @@
       .rc-plan-summary, .rc-abstained-body { grid-template-columns: 1fr; }
     }
   </style>
+  <link rel="stylesheet" href="assets/evidence-quality.css?v=3" />
+  <script src="assets/evidence-quality.js?v=3" defer></script>
 </head>
-<body class="cs-governance-evidence">
-  <main class="cs-container cs-page rca-page">
+<body class="cs-governance-evidence" data-evidence-quality data-evidence-page="rca" data-chat-theme="clear-neutral">
+  <main class="cs-container cs-page rca-page" aria-labelledby="evidence-page-title">
     <div class="cs-page-header cs-mb-16">
-      <h1><span class="cs-page-domain">Evidence</span><span aria-hidden="true"> / </span>Root cause analysis</h1>
+      <h1 id="evidence-page-title"><span class="cs-page-domain">Evidence</span><span aria-hidden="true"> / </span>Root cause analysis</h1>
       <p class="cs-lead">Review the most likely cause, grounding evidence, propagation path, and linked response plan. Risk and verification still decide whether action is eligible.</p>
     </div>
 
-    <div class="cs-readonly-banner">
+    <div class="cs-readonly-banner" role="note">
       <strong>Read-only hypothesis.</strong> Confidence does not grant execution eligibility. An
       ungrounded result abstains and moves to Approval required instead of presenting a cause.
     </div>
 
-    <div class="lookup-summary"><div><strong>inc-01J2-API-LATENCY</strong><small>Selected correlation / result loaded</small></div><button class="fg-button" type="button" data-rca-query-toggle>Change correlation</button></div>
-    <form class="rc-lookup" id="rca-lookup" hidden>
+    <div class="lookup-summary"><div><strong data-rca-correlation>inc-01J2-API-LATENCY</strong><small>Selected synthetic correlation / result loaded</small></div><button class="fg-button" type="button" data-rca-query-toggle aria-expanded="false" aria-controls="rca-lookup">Change correlation</button></div>
+    <form class="rc-lookup" id="rca-lookup" aria-label="Load a synthetic RCA correlation" hidden>
       <label for="rca-correlation">Correlation id</label>
-      <input id="rca-correlation" name="correlation" value="inc-01J2-API-LATENCY" required />
-      <button type="submit">Load RCA</button>
+      <input id="rca-correlation" name="correlation" value="inc-01J2-API-LATENCY" required maxlength="96" aria-describedby="rca-correlation-help" />
+      <button type="submit">Load sample</button>
+      <small class="rc-query-help" id="rca-correlation-help">Loads a local synthetic state only. No incident or evidence request is sent.</small>
     </form>
+    <p class="rc-query-status" role="status" aria-live="polite" data-rca-query-status></p>
 
     <div class="rc-context">
       <span class="cs-risk critical">critical</span>
@@ -156,7 +160,7 @@
             same propagation path.</p>
         </div>
         <div class="rc-confidence">
-          <div class="rc-confidence-ring"><strong>0.92</strong></div>
+          <div class="rc-confidence-ring" role="img" aria-label="Grounded hypothesis confidence 0.92. Confidence does not grant action authority."><strong aria-hidden="true">0.92</strong></div>
           <span>confidence</span>
         </div>
       </section>
@@ -241,9 +245,21 @@
       var form = document.getElementById("rca-lookup");
       var input = document.getElementById("rca-correlation");
       var queryToggle = document.querySelector("[data-rca-query-toggle]");
+      var correlation = document.querySelector("[data-rca-correlation]");
+      var status = document.querySelector("[data-rca-query-status]");
+      var sampleCorrelation = "inc-01J2-API-LATENCY";
 
       var params = new URLSearchParams(window.location.search);
-      if (params.get("correlation")) input.value = params.get("correlation");
+      if (params.get("correlation")) {
+        input.value = params.get("correlation");
+        if (input.value !== sampleCorrelation) {
+          form.hidden = false;
+          queryToggle.textContent = "Cancel change";
+          queryToggle.setAttribute("aria-expanded", "true");
+          status.textContent = "No local synthetic RCA sample matches " + input.value +
+            ". The current " + sampleCorrelation + " result remains visible.";
+        }
+      }
 
       viewButtons.forEach(function (button) {
         button.addEventListener("click", function () {
@@ -258,18 +274,32 @@
       });
 
       queryToggle.addEventListener("click", function () {
-        form.hidden = !form.hidden;
+        var opening = form.hidden;
+        form.hidden = !opening;
+        queryToggle.setAttribute("aria-expanded", String(opening));
         queryToggle.textContent = form.hidden ? "Change correlation" : "Cancel change";
-        if (!form.hidden) input.focus();
+        if (opening) input.focus();
+        else queryToggle.focus();
       });
 
       form.addEventListener("submit", function (event) {
         event.preventDefault();
+        var value = input.value.trim();
+        if (value !== sampleCorrelation) {
+          status.textContent = "No local synthetic RCA sample matches " + value +
+            ". The current " + sampleCorrelation + " result remains visible.";
+          input.focus();
+          return;
+        }
+        correlation.textContent = value;
+        var nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.set("correlation", value);
+        window.history.replaceState(null, "", nextUrl);
         form.hidden = true;
         queryToggle.textContent = "Change correlation";
-        document.querySelectorAll(".rc-context .cs-tag strong").forEach(function (label) {
-          if (label.closest(".cs-tag").textContent.indexOf("recorded") === -1) label.textContent = input.value;
-        });
+        queryToggle.setAttribute("aria-expanded", "false");
+        status.textContent = "Synthetic RCA sample reloaded for " + value + ". No request was sent.";
+        queryToggle.focus();
       });
     })();
   </script>

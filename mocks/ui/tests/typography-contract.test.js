@@ -11,6 +11,8 @@ const components = readFileSync(join(uiRoot, "components.html"), "utf8");
 const stylesheet = readFileSync(join(uiRoot, "assets", "calm-slate.css"), "utf8");
 const registry = JSON.parse(readFileSync(join(uiRoot, "assets", "component-registry.json"), "utf8"));
 const primitives = readFileSync(join(uiRoot, "..", "..", "ui", "calm-slate-primitives.css"), "utf8");
+const galleryCurrent = readFileSync(join(uiRoot, "assets", "component-gallery-current.css"), "utf8");
+const paletteComparison = readFileSync(join(uiRoot, "assets", "palette-comparison.js"), "utf8");
 const typography = readFileSync(join(uiRoot, "typography.html"), "utf8");
 
 test("typography has direct, kit, and master navigation entries", () => {
@@ -61,7 +63,11 @@ test("typography page renders every shared semantic role", () => {
 });
 
 test("component gallery exposes a quiet category index", () => {
-  assert.match(components, /<body class="cs-components-page">/);
+  assert.match(components, /<body class="cs-components-page" data-chat-theme="clear-neutral">/);
+  assert.match(components, /assets\/component-gallery-current\.css/);
+  assert.match(components, /data-palette-view="dark"[^>]*>Dark<\/button>/);
+  assert.match(components, /data-palette="dark" data-theme="dark"/);
+  assert.doesNotMatch(components, />Candidate</);
   assert.equal((components.match(/class="cs-gallery-index"/g) || []).length, 1);
   ["foundations", "inputs", "actions", "selection", "feedback", "data", "overlays", "patterns"]
     .forEach((id) => assert.match(components, new RegExp(`data-gallery-category="${id}"`)));
@@ -94,7 +100,7 @@ test("component gallery exposes a quiet category index", () => {
 });
 
 test("component gallery keeps the remediated interaction and accessibility contracts", () => {
-  assert.equal((components.match(/<section class="cs-section" id="[^"]+" aria-labelledby="[^"]+">/g) || []).length, registry.components.length);
+  assert.equal((components.match(/<section class="cs-section" id="[^"]+" aria-labelledby="[^"]+"[^>]*>/g) || []).length, registry.components.length);
   assert.doesNotMatch(components, /class="cs-alert-bar/);
   assert.ok((components.match(/<button\b[^>]*>/g) || []).every((button) => /\btype="button"/.test(button)));
   assert.ok((components.match(/<th\b[^>]*>/g) || []).every((heading) => /\bscope="col"/.test(heading)));
@@ -122,6 +128,12 @@ test("component gallery keeps the remediated interaction and accessibility contr
   assert.match(navigation, /lastTrigger = focusReturn \|\| trigger/);
   assert.match(stylesheet, /\.cs-chart-mark-tip \{[^}]*position: fixed/);
   assert.doesNotMatch(navigation, /querySelectorAll\("\.js-chartable"\)/);
+  assert.match(primitives, /\.cs-control-select \{[^}]*appearance: none/);
+  assert.match(primitives, /calc\(100% - 20px\)/);
+  assert.match(galleryCurrent, /--cs-gallery-control-border:/);
+  assert.match(galleryCurrent, /\.cs-rich-select-button \{[^}]*padding-right: 14px/);
+  assert.match(paletteComparison, /const palettes = \{ current: \{\}, dark: \{\} \}/);
+  assert.doesNotMatch(paletteComparison, /candidateStyles|palettes\.fresh/);
 });
 
 test("component registry completely documents every specimen", () => {
@@ -131,7 +143,8 @@ test("component registry completely documents every specimen", () => {
   const registryIds = registry.components.map((component) => component.id).sort();
   assert.deepEqual(registryIds, sectionIds);
   assert.equal(new Set(registryIds).size, registry.components.length);
-  assert.equal(registry.reviewed_at, "2026-09-06");
+  assert.equal(registry.reviewed_at, "2026-09-13");
+  assert.equal(registry.version, 12);
   assert.deepEqual(registry.status_vocabulary, ["Documented", "Review required"]);
   const classTokens = [...components.matchAll(/class="([^"]+)"/g)]
     .flatMap((match) => match[1].split(/\s+/));
@@ -169,7 +182,7 @@ test("component registry completely documents every specimen", () => {
       "routes",
     ].forEach((field) => assert.ok(component[field]?.length, `${component.id}.${field}`));
   });
-  assert.match(components, /fetch\("assets\/component-registry\.json\?v=11"\)/);
+  assert.match(components, /fetch\("assets\/component-registry\.json\?v=17"\)/);
   assert.doesNotMatch(components, /Canonical specimens/);
   assert.doesNotMatch(components, /function statusFor/);
   assert.doesNotMatch(components, /function guidanceFor/);
@@ -220,7 +233,7 @@ test("component gallery exposes a bounded Resource autocomplete specimen", () =>
 
 test("chart specimens retain their precision-first visual contracts", () => {
   const start = components.indexOf('<section class="cs-section" id="data-views"');
-  const end = components.indexOf("</section>", start);
+  const end = components.indexOf('<section class="cs-section" id="code-highlight"', start);
   const charts = components.slice(start, end);
   const catalogMatch = charts.match(/<script type="application\/json" id="tremor-chart-catalog">([\s\S]*?)<\/script>/);
   assert.ok(catalogMatch);

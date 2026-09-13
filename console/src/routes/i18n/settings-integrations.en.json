@@ -5,7 +5,7 @@
   "accountInvalid": "Enter a complete email-style user principal name.",
   "workflowStep": "Create or open the workflow in Power Automate",
   "workflowStepHint": "Power Automate uses the current Microsoft browser session. If it is not the account above, switch or sign out there, or open the link in a private browser window.",
-  "saveBoundary": "A deployment stores the URL in a dedicated Key Vault secret. The local profile stores only encrypted ciphertext in its private Operator database. FDAI verifies the saved version before testing, never returns the URL, and never prefills it. Saving and testing do not activate runtime delivery.",
+  "saveBoundary": "A deployment stores the URL in a dedicated Key Vault secret. The local profile stores only encrypted ciphertext in its private Operator database. FDAI verifies the exact saved version before testing. Authorized reveals are audited without storing the URL in the audit record. Saving and testing do not activate runtime delivery.",
   "a1OnboardingTitle": "Teams approval setup",
   "a1OnboardingDescription": "FDAI prepares repeatable infrastructure through protected deployment. Microsoft tenant consent and the final production change remain explicit human approvals.",
   "a1AutomatedTitle": "Handled by FDAI",

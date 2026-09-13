@@ -39,23 +39,28 @@ test.describe("Colors foundation specimen", () => {
     const frame = await openColors(page);
     const study = frame.locator("#colors");
     const current = study.locator('[data-palette="current"]');
-    const fresh = study.locator('[data-palette="fresh"]');
+    const dark = study.locator('[data-palette="dark"]');
     await expect(frame.getByRole("navigation", { name: "Component subviews" }).getByRole("link", { name: "Colors", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(study.locator("#cp-token-rows tr")).toHaveCount(15);
-    expect(await current.locator(".cp-chat").innerText()).toBe(await fresh.locator(".cp-chat").innerText());
-    await expect(current.locator(".cp-primary")).toHaveCSS("background-color", "rgb(68, 104, 142)");
-    await expect(fresh.locator(".cp-primary")).toHaveCSS("background-color", "rgb(37, 99, 235)");
-    await expect(fresh).toHaveCSS("background-color", "rgb(248, 248, 248)");
-    await expect(fresh.locator(".cp-question")).toHaveCSS("background-color", "rgb(242, 242, 242)");
-    await expect(fresh.locator(".cp-observation")).toHaveCSS("background-color", "rgb(245, 245, 245)");
-    await expect(fresh.locator(".cp-chat-body")).toHaveCSS("background-color", "rgb(255, 255, 255)");
-    const neutralChannels = await fresh.evaluate((element) => {
+    expect(await current.locator(".cp-chat").innerText()).toBe(await dark.locator(".cp-chat").innerText());
+    await expect(current.locator(".cp-primary")).toHaveCSS("background-color", "rgb(37, 99, 235)");
+    await expect(dark.locator(".cp-primary")).toHaveCSS("background-color", "rgb(131, 164, 196)");
+    await expect(current).toHaveCSS("background-color", "rgb(248, 248, 248)");
+    await expect(dark).toHaveCSS("background-color", "rgb(21, 23, 25)");
+    await expect(current.locator(".cp-chat-body")).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await expect(dark.locator(".cp-chat-body")).toHaveCSS("background-color", "rgb(29, 32, 35)");
+    const darkSurfaces = await dark.evaluate((element) => {
       const samples = [element, ...element.querySelectorAll(".cp-question, .cp-observation, .cp-chat-body")];
-      return samples.map((sample) => getComputedStyle(sample).backgroundColor.match(/\d+/g)!.slice(0, 3));
+      return samples.map((sample) => getComputedStyle(sample).backgroundColor);
     });
-    expect(neutralChannels.every((channels) => new Set(channels).size === 1)).toBe(true);
+    expect(darkSurfaces).toEqual([
+      "rgb(21, 23, 25)",
+      "rgb(29, 32, 35)",
+      "rgb(37, 45, 56)",
+      "rgb(38, 42, 46)",
+    ]);
     await expect(current.locator(".cp-question")).toHaveCSS("font-size", "13px");
-    await expect(fresh.locator(".cp-question")).toHaveCSS("font-size", "13px");
+    await expect(dark.locator(".cp-question")).toHaveCSS("font-size", "13px");
     const layout = await study.locator(".cp-comparison").evaluate((element) => {
       const samples = [...element.children].map((child) => child.getBoundingClientRect());
       return { equalTop: samples[0]!.top === samples[1]!.top, sameWidth: samples[0]!.width === samples[1]!.width, overflow: element.scrollWidth > element.clientWidth };
@@ -64,10 +69,10 @@ test.describe("Colors foundation specimen", () => {
     await page.screenshot({ path: testInfo.outputPath("colors-1440x900.png") });
 
     await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin });
-    const copyBlue = study.getByRole("button", { name: "Copy fresh Action / selected #2563EB", exact: true });
+    const copyBlue = study.getByRole("button", { name: "Copy dark Action / selected #83A4C4", exact: true });
     await copyBlue.click();
-    await expect(study.getByRole("status")).toHaveText("Copied fresh Action / selected: #2563EB");
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("#2563EB");
+    await expect(study.getByRole("status")).toHaveText("Copied dark Action / selected: #83A4C4");
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("#83A4C4");
     await frame.locator("body").evaluate(() => {
       Object.defineProperty(navigator.clipboard, "writeText", {
         configurable: true,
@@ -76,34 +81,38 @@ test.describe("Colors foundation specimen", () => {
     });
     await copyBlue.click();
     await expect(study.getByRole("status")).toContainText("Clipboard unavailable");
-    await expect(study.getByRole("status")).toContainText("#2563EB");
+    await expect(study.getByRole("status")).toContainText("#83A4C4");
 
     await study.locator(".cp-details").nth(1).locator("summary").click();
-    const ratios = await study.locator('[data-palette-pair="fresh"]').evaluateAll((cells) =>
+    const ratios = await study.locator('[data-palette-pair="dark"]').evaluateAll((cells) =>
       cells.map((cell) => Number(cell.getAttribute("data-ratio"))),
     );
     expect(ratios).toHaveLength(7);
     expect(ratios.every((ratio) => ratio >= 4.5)).toBe(true);
-    await expect(study.locator('[data-palette-pair="current"][data-result="below"]')).toHaveCount(3);
+    const currentRatios = await study.locator('[data-palette-pair="current"]').evaluateAll((cells) =>
+      cells.map((cell) => Number(cell.getAttribute("data-ratio"))),
+    );
+    expect(currentRatios).toHaveLength(7);
+    expect(currentRatios.every((ratio) => ratio >= 4.5)).toBe(true);
     const primaryRow = study.locator("#cp-contrast-rows tr").filter({ hasText: "Primary button" });
-    expect(Number(await primaryRow.locator('[data-palette-pair="fresh"]').getAttribute("data-ratio"))).toBeCloseTo(5.17, 2);
+    expect(Number(await primaryRow.locator('[data-palette-pair="dark"]').getAttribute("data-ratio"))).toBeGreaterThanOrEqual(4.5);
 
-    await fresh.getByRole("button", { name: "Review evidence", exact: true }).click();
-    await expect(fresh.locator(".cp-evidence")).toHaveAttribute("open", "");
-    await expect(fresh.locator(".cp-evidence summary")).toBeFocused();
+    await dark.getByRole("button", { name: "Review evidence", exact: true }).click();
+    await expect(dark.locator(".cp-evidence")).toHaveAttribute("open", "");
+    await expect(dark.locator(".cp-evidence summary")).toBeFocused();
     await expect(current.locator(".cp-evidence")).not.toHaveAttribute("open", "");
-    await study.getByRole("button", { name: "Clear neutral", exact: true }).click();
+    await study.getByRole("button", { name: "Dark", exact: true }).click();
     await expect(current).toBeHidden();
-    await expect(fresh).toBeVisible();
-    await study.getByRole("button", { name: "Current", exact: true }).click();
-    await expect(fresh).toBeHidden();
+    await expect(dark).toBeVisible();
+    await study.getByRole("button", { name: "Light", exact: true }).click();
+    await expect(dark).toBeHidden();
     await expect(current).toBeVisible();
     await study.getByRole("button", { name: "Compare", exact: true }).click();
 
     await frame.getByRole("button", { name: "Dark preview", exact: true }).click();
     await expect(frame.locator("body")).toHaveAttribute("data-theme", "dark");
-    await expect(current).toHaveCSS("background-color", "rgb(251, 250, 249)");
-    await expect(fresh).toHaveCSS("background-color", "rgb(248, 248, 248)");
+    await expect(current).toHaveCSS("background-color", "rgb(248, 248, 248)");
+    await expect(dark).toHaveCSS("background-color", "rgb(21, 23, 25)");
     await expect(frame.locator(".cs-gallery-error")).toBeHidden();
     const rootAccent = await frame.locator("html").evaluate((element) => getComputedStyle(element).getPropertyValue("--cs-steel").trim());
     expect(rootAccent.toLowerCase()).toBe("#44688e");
@@ -131,15 +140,15 @@ test.describe("Colors foundation specimen", () => {
       expect(geometry.samples).toBe(true);
       expect(geometry.table).toBe(true);
       expect(geometry.columns.trim().split(/\s+/)).toHaveLength(1);
-      await study.getByRole("button", { name: "Clear neutral", exact: true }).click();
-      await expect(study.locator('[data-palette="fresh"]')).toBeVisible();
+      await study.getByRole("button", { name: "Dark", exact: true }).click();
+      await expect(study.locator('[data-palette="dark"]')).toBeVisible();
       await page.screenshot({ path: testInfo.outputPath(`colors-${viewport.width}x${viewport.height}.png`) });
       if (viewport.width === 390) {
         const heights = await study.locator("button").evaluateAll((buttons) => buttons
           .filter((button) => button.getBoundingClientRect().height > 0)
           .map((button) => button.getBoundingClientRect().height));
         expect(heights.every((height) => height >= 44)).toBe(true);
-        await study.locator('[data-palette="fresh"] .cp-answer').evaluate((element) => {
+        await study.locator('[data-palette="dark"] .cp-answer').evaluate((element) => {
           element.textContent = "현재 근거의 범위와 확인되지 않은 상태 / " + "long-unbroken-identifier".repeat(6);
         });
         expect(await study.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);

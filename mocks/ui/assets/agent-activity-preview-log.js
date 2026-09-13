@@ -117,6 +117,7 @@
     rows.querySelectorAll("[data-record-details]").forEach((detail) => detail.open ? openRecords.add(detail.dataset.recordDetails) : openRecords.delete(detail.dataset.recordDetails));
     const loading = P.source() === "loading";
     const isWaterfall = view === "waterfall";
+    find("activityFlowContext").hidden = correlation.value !== "sample-query-connected-resources-01";
     journal.hidden = loading || isWaterfall;
     find("activityWaterfallView").hidden = loading || !isWaterfall;
     find("waterfallFilters").hidden = !isWaterfall;

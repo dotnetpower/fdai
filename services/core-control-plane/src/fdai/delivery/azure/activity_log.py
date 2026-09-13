@@ -66,7 +66,11 @@ from uuid import UUID
 
 import httpx
 
-from fdai.delivery.azure.arg_projection import extract_rg_contains_links
+from fdai.delivery.azure.arg_projection import (
+    ArmScopeError,
+    arm_scope_properties,
+    extract_rg_contains_links,
+)
 from fdai.delivery.azure.arg_query import (
     _build_arm_to_neutral_map,
     _to_neutral_id,
@@ -345,6 +349,13 @@ class AzureActivityLogFactory:
             },
             max_bytes=self._config.max_props_bytes,
         )
+        props["providerType"] = arm_type
+        try:
+            props.update(arm_scope_properties(arm_id))
+        except ArmScopeError as exc:
+            raise ActivityLogError(
+                "Activity Log resource scope conflicts with its provider id"
+            ) from exc
         record = ResourceRecord(
             resource_id=_to_neutral_id(arm_id),
             type=neutral_type,

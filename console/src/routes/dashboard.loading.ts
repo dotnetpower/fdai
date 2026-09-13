@@ -15,6 +15,7 @@ export interface DashboardOverviewData {
   readonly cost: CostGovernanceProjection | null;
   readonly gates: GatesSummary | null;
   readonly autonomy: AutonomyPayload | null;
+  readonly optionalPending?: boolean;
 }
 
 type DashboardOverviewClient = Pick<
@@ -27,7 +28,7 @@ export async function loadDashboardOverview(
   publishBackbone: (data: DashboardOverviewData) => void,
 ): Promise<DashboardOverviewData> {
   const kpi = await withStartupTransportRetry(() => client.dashboardMetrics());
-  publishBackbone({ kpi, cost: null, gates: null, autonomy: null });
+  publishBackbone({ kpi, cost: null, gates: null, autonomy: null, optionalPending: true });
 
   const [cost, gates, autonomy] = await Promise.all([
     optionalOverview(() => client.costGovernance("overview"), [403, 404, 503]),

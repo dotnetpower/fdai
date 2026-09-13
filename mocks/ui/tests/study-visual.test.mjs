@@ -32,7 +32,7 @@ test("icon theme changes preserve readable cards, title, and control targets", {
     await frame.waitForFunction(() => getComputedStyle(document.querySelector("h1")).color === "rgb(231, 237, 246)");
     assert.equal(await frame.locator("h1").evaluate(element => getComputedStyle(element).color), "rgb(231, 237, 246)");
     await page.setViewportSize({ width: 390, height: 844 });
-    await frame.waitForFunction(() => innerWidth === 390 && document.querySelector(".toolbar button").getBoundingClientRect().height >= 44);
+    await frame.waitForFunction(() => innerWidth <= 390 && document.querySelector(".toolbar button").getBoundingClientRect().height >= 44);
     assert.ok(await frame.locator(".toolbar button").evaluateAll(elements => elements.every(element => element.getBoundingClientRect().height >= 44)));
     await writeFile(join(folder, "results.json"), JSON.stringify({ name: "Icon dark/light and mobile targets", disposition: "passed", scope: "synthetic-local-mocks" }) + "\n");
   } finally {

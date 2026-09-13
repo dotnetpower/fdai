@@ -597,6 +597,12 @@
     }
     chartTooltip.style.left = left + "px";
     chartTooltip.style.top = top + "px";
+    var positioned = chartTooltip.getBoundingClientRect();
+    if (positioned.top < 8) {
+      chartTooltip.style.top = (top + 8 - positioned.top) + "px";
+    } else if (positioned.bottom > window.innerHeight - 8) {
+      chartTooltip.style.top = (top - positioned.bottom + window.innerHeight - 8) + "px";
+    }
     anchor.setAttribute("aria-describedby", "live-chart-tooltip");
   }
 

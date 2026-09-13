@@ -37,7 +37,9 @@ test.describe("Teams Workflows static preview", () => {
     await expect(workspace.getByLabel("Teams Workflows HTTP URL")).toHaveValue("");
     await expect(workspace.getByRole("button", { name: "Save and send test" })).toBeDisabled();
     await expect(workspace).toContainText("cannot carry A1 human approvals");
-    await expect(workspace).toContainText("never returns the saved URL");
+    await expect(workspace).toContainText(
+      "reveal the saved URL to Contributor, Approver, and Owner roles through an audited no-store read",
+    );
     await frame.locator("#integrations-teams").evaluate((element) => element.scrollIntoView());
     await page.screenshot({ path: testInfo.outputPath("teams-setup-desktop.png") });
     const guide = workspace.locator(".tw-guide");
@@ -65,7 +67,7 @@ test.describe("Teams Workflows static preview", () => {
     await guide.locator("summary").click();
     await workspace.getByText("Storage and role boundaries", { exact: true }).click();
     await expect(workspace.getByText(guideText.saveBoundary, { exact: true })).toBeVisible();
-    await expect(workspace).toContainText("metadata only");
+    await expect(workspace).toContainText("without storing the URL in the audit record");
     await workspace.locator(".tw-receipt > summary").click();
     await expect(workspace.getByText("Example: saved and test accepted", { exact: true })).toBeVisible();
     await expect(workspace).toContainText("Acceptance is not proof of a message appearing in Teams");

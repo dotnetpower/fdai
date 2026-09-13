@@ -604,7 +604,9 @@ dispatch receipt, the runner stores the protected binary plan in private Blob st
 `deploy status` retrieves a bounded sanitized artifact through the workflow host. Exact apply and
 verification-only resume send the same feature selection and context digest. The GitHub Environment
 approval boundary, immutable claim, and audit receipt remain authoritative. Runner egress preflight
-evidence is bound into immutable plan metadata. General application receipts require Terraform convergence, migration success, and enabled endpoint health. Cost Governance receipts instead require targeted convergence plus the two-Job image readback described above. Runner-side policy, quota, identity, secret, and egress evidence are required inputs to the C4 exact-plan gate.
+evidence is bound into immutable plan metadata, and post-apply checks require Terraform convergence,
+migration success, and enabled endpoint health before the receipt is written. Runner-side policy,
+quota, identity, secret, and egress evidence are required inputs to the C4 exact-plan gate.
 
 ## Private-everything tenants
 

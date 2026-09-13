@@ -311,6 +311,12 @@
 /* Workflow builder */
 .workflow-workbench { grid-template-columns: 222px minmax(420px, 1fr) 286px; }
 .workflow-catalog { border-right: 1px solid var(--cs-hairline); background: var(--cs-bg); }
+.workflow-record { cursor: default; }
+.workflow-record.is-current {
+  border-color: color-mix(in srgb, var(--cs-steel) 32%, var(--cs-hairline));
+  background: color-mix(in srgb, var(--cs-steel) 7%, var(--cs-card));
+  outline: 1px solid color-mix(in srgb, var(--cs-steel) 24%, transparent);
+}
 .workflow-canvas { min-width: 0; padding: 16px; background: var(--cs-bg); }
 .workflow-canvas-head { display: flex; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
 .workflow-canvas-head h2 { margin: 0 0 4px; font-size: 15px; }
@@ -461,7 +467,7 @@
 .promotion-timeline li:not(:last-child)::after { position: absolute; top: 12px; bottom: 1px; left: 3px; width: 1px; background: var(--cs-hairline); content: ""; }
 .promotion-timeline strong { display: block; margin-bottom: 2px; color: var(--cs-text); font-size: 10.5px; }
 
-.fg-page :where(button, a, input, select):focus-visible { outline: 3px solid color-mix(in srgb, var(--cs-steel) 55%, transparent); outline-offset: 2px; }
+.fg-page :where(button, a, input, select):focus-visible { outline: 3px solid var(--cs-steel); outline-offset: 2px; }
 
 @media (max-width: 1080px) {
   .workflow-workbench { grid-template-columns: 210px minmax(0, 1fr); }

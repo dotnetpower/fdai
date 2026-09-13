@@ -51,6 +51,7 @@ Core only after the exact live evidence closes.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-13 | implemented | Registered the autonomy measurement projection test with the Operator unit suite and aligned the retained availability-state regression with the reviewed provider capability classification. | `current change`; `tests/integration/service-suites.json`; focused service-suite and recorded-state checks passed. | No service boundary, writer, or authority changed. |
 | 2026-09-12 | implemented | Registered the new Operator dashboard aggregation and source tests with their owning service suite. | `current change`; service-suite ownership tests passed. | No service-graduation or authority change remains for this test registration. |
 | 2026-09-11 | implemented | Refreshed the derived System Knowledge catalog after recovery decision and semantic coverage records changed. | `current change`; derived-source gate. | No service authority change. |
 | 2026-09-11 | implemented | Refreshed the derived System Knowledge catalog after the final upstream rebase and registered the two new Core runtime modules in the wheel inventory. | `current change`; focused catalog and Core package tests passed 11 cases. | No residual packaging work for the safeguard runtime modules. |

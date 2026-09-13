@@ -5,6 +5,18 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 MAX_RECORDED_STATE_VALUE_CHARS = 256
+STATE_FACT_UNAVAILABLE_REASONS_PROPERTY = "state_fact_unavailable_reasons"
+RECORDED_STATE_UNAVAILABLE_REASONS = frozenset(
+    {
+        "resource_health_not_modeled",
+        "resource_health_response_invalid",
+        "resource_health_response_too_large",
+        "resource_health_source_unavailable",
+        "resource_health_target_unresolved",
+        "resource_health_transport_unavailable",
+        "resource_health_unauthorized",
+    }
+)
 
 OPERATIONAL_STATE_PATHS = (
     "status",
@@ -163,6 +175,68 @@ AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE: Mapping[str, tuple[str, ...]] 
     "sql-database": AVAILABILITY_STATE_PATHS,
 }
 AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES = frozenset({"application-insights"})
+PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES = frozenset(
+    {
+        "action-group",
+        "authorization.role-assignment",
+        "certificate",
+        "communication-service",
+        "compute.container-app",
+        "compute.container-app-environment",
+        "compute.container-app-job",
+        "compute.vm-shutdown-schedule",
+        "container-registry",
+        "data-collection-endpoint",
+        "data-collection-rule",
+        "diagnostic-settings",
+        "disk",
+        "disk-snapshot",
+        "email-domain",
+        "email-service",
+        "event-grid-topic",
+        "file-share",
+        "kubernetes-node-pool",
+        "kubernetes.cron-job",
+        "kubernetes.daemon-set",
+        "kubernetes.deployment",
+        "kubernetes.endpoint-slice",
+        "kubernetes.endpoints",
+        "kubernetes.horizontal-pod-autoscaler",
+        "kubernetes.ingress",
+        "kubernetes.ingress-class",
+        "kubernetes.job",
+        "kubernetes.limit-range",
+        "kubernetes.namespace",
+        "kubernetes.network-policy",
+        "kubernetes.node",
+        "kubernetes.persistent-volume",
+        "kubernetes.persistent-volume-claim",
+        "kubernetes.pod",
+        "kubernetes.pod-disruption-budget",
+        "kubernetes.replica-set",
+        "kubernetes.resource-quota",
+        "kubernetes.service",
+        "kubernetes.stateful-set",
+        "kubernetes.storage-class",
+        "llm-model-deployment",
+        "managed-identity",
+        "network.interface",
+        "network.nsg",
+        "network.private-dns-zone",
+        "network.private-dns-zone-group",
+        "network.private-dns-zone-link",
+        "network.private-endpoint",
+        "network.public-ip",
+        "network.route-table",
+        "network.subnet",
+        "network.vnet",
+        "resource-group",
+        "sql-server",
+        "static-web-app",
+        "subscription",
+        "workflow.logic-app",
+    }
+)
 
 
 def operational_state_paths(resource_type: str | None) -> tuple[str, ...]:
@@ -201,7 +275,10 @@ __all__ = [
     "OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES",
     "OPERATIONAL_STATE_PATHS",
     "OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE",
+    "PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES",
     "PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES",
+    "RECORDED_STATE_UNAVAILABLE_REASONS",
+    "STATE_FACT_UNAVAILABLE_REASONS_PROPERTY",
     "availability_state_paths",
     "is_recorded_state_value_valid",
     "operational_state_paths",

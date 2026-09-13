@@ -155,7 +155,7 @@ describe("assurance twin decoder", () => {
 
   it("classifies an unavailable Operator API as unavailable, not an error", async () => {
     const handler = vi.fn(async () => {
-      throw new OperatorApiError(503, "unavailable");
+      throw new OperatorApiError(503, "unavailable", "projection-unavailable");
     });
     await expect(loadAssuranceTwinState(panelClient(handler))).resolves.toMatchObject({
       status: "unavailable",

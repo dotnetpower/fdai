@@ -324,6 +324,9 @@ reasons even while the workspace is disabled. An Owner can change only `enabled`
 exact-revision database function. The function updates the manager-derived activation row and
 appends a retained lifecycle receipt in one transaction. It cannot install an absent package, make
 an unavailable package available, grant cost-data access, or promote an action.
+The shared Console transport treats only an explicitly classified source-gate failure as an
+unavailable projection. A generic `503` remains an operational error and cannot be used to imply
+that Cost Governance is merely unconfigured.
 
 Install, upgrade, and rollback use a separate protected workflow on the private deployment runner.
 The workflow verifies protected `main`, required CI, the exact release source, the signed image

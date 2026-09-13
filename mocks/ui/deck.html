@@ -4,10 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Command deck - FDAI Console</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <link rel="stylesheet" href="assets/connected-operations-flow.css?v=4" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
   <style>
      /* Command deck: the operator's conversational surface. The production-
@@ -49,7 +47,7 @@
     .dk-sessions li .dk-s-avatar.is-sage  { background: var(--cs-sage); }
 
     /* ---------- Transcript column ---------- */
-    .dk-transcript { position: relative; padding: 0; background: var(--cs-card); display: grid; grid-template-rows: auto auto auto minmax(0, 1fr) auto; min-height: 0; min-width: 0; overflow: hidden; container: dk-transcript / inline-size; }
+    .dk-transcript { position: relative; padding: 0; background: var(--cs-card); display: grid; grid-template-rows: auto auto auto auto minmax(0, 1fr) auto; min-height: 0; min-width: 0; overflow: hidden; container: dk-transcript / inline-size; }
     .dk-transcript > * { min-width: 0; }
     .dk-t-head { min-height: 50px; box-sizing: border-box; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 4px max(20px, calc((100% - 900px) / 2)); border-bottom: 1px solid var(--cs-hairline); min-width: 0; }
     .dk-t-avatar { width: 16px; height: 16px; color: var(--cs-steel); display: inline-flex; align-items: center; justify-content: center; font-size: 0; flex: 0 0 auto; }
@@ -253,11 +251,11 @@
     .dk-chart-legend .sw.is-terracotta { background: var(--cs-terracotta); }
     .dk-chart-legend .sw.is-steel { background: var(--cs-steel); }
     /* --- Shared tooltip (positioned by JS) --- */
-    .dk-tt { position: absolute; z-index: 9; padding: 5px 9px; border-radius: 6px; background: var(--cs-navy); color: #fff; font-size: 11.5px; font-weight: 500; box-shadow: 0 4px 10px rgba(15,23,30,.15); pointer-events: none; opacity: 0; transform: translate(-50%, calc(-100% - 8px)); transition: opacity .1s ease; white-space: nowrap; }
-    .dk-tt::after { content: ""; position: absolute; left: 50%; top: 100%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: var(--cs-navy); }
+    .dk-tt { position: absolute; z-index: 9; padding: 6px 9px; border: 1px solid var(--cs-tooltip-border, var(--cs-hairline)); border-radius: 6px; background: var(--cs-tooltip-bg, var(--cs-card)); color: var(--cs-tooltip-text, var(--cs-text)); font-size: 11.5px; font-weight: 500; box-shadow: var(--cs-tooltip-shadow, 0 8px 24px rgba(24,31,38,.14)); pointer-events: none; opacity: 0; transform: translate(-50%, calc(-100% - 8px)); transition: opacity .1s ease; white-space: nowrap; }
+    .dk-tt::after { content: ""; position: absolute; left: 50%; top: 100%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: var(--cs-tooltip-bg, var(--cs-card)); }
     .dk-tt.is-open { opacity: 1; }
-    .dk-tt strong { color: #fff; font-weight: 700; }
-    .dk-tt .k { color: rgba(255,255,255,.7); margin-right: 4px; }
+    .dk-tt strong { color: var(--cs-tooltip-text, var(--cs-text)); font-weight: 700; }
+    .dk-tt .k { color: var(--cs-tooltip-muted, var(--cs-text-soft)); margin-right: 4px; }
 
     .dk-figure { margin: 8px 0 4px; padding: 10px 12px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); }
     .dk-figure svg { display: block; width: 100%; height: auto; max-height: 220px; }
@@ -614,8 +612,9 @@
     .dk-bubble-attach .dk-af-chip.is-abandoned { opacity: .74; border-style: dashed; }
     .dk-bubble-attach .dk-af-chip.is-abandoned .dk-af-name { text-decoration: line-through; text-decoration-color: var(--cs-text-soft); }
   </style>
+  <link rel="stylesheet" href="assets/chat-current.css?v=11" />
 </head>
-<body>
+<body data-chat-theme="clear-neutral" data-chat-surface="current">
   <main class="cs-container cs-page">
     <div class="cs-page-header cs-mb-16">
       <div class="cs-eyebrow">Conversational port &middot; translator only, never a judge</div>
@@ -712,13 +711,25 @@
           <strong>Evidence sources</strong>
           <div class="dk-source-readiness-list">
             <span class="dk-source-ready is-live">Inventory</span>
-            <span class="dk-source-ready is-live">Incidents</span>
+            <span class="dk-source-ready">Incidents</span>
             <span class="dk-source-ready is-live">Audit</span>
-            <span class="dk-source-ready is-live">Knowledge</span>
-            <span class="dk-source-ready is-live">Automation</span>
+            <span class="dk-source-ready">Knowledge</span>
+            <span class="dk-source-ready">Automation</span>
           </div>
-          <span class="dk-source-summary">5 ready</span>
-          <span class="dk-source-time">Observed 09:43</span>
+          <span class="dk-source-summary">2 available / 3 unknown</span>
+          <span class="dk-source-time">Observed 08:00 UTC</span>
+        </div>
+
+        <div class="flow-context" aria-label="Active synthetic conversation context">
+          <div><span>Selected Resource</span><strong>checkout-api</strong></div>
+          <div><span>Query scope</span><strong>Direct relationships / depth 1</strong></div>
+          <div><span>Evidence cutoff</span><strong>22 Aug 2026, 08:00 UTC</strong></div>
+          <div><span>Correlation</span><strong>sample-query-connected-resources-01</strong></div>
+          <nav aria-label="Related synthetic evidence">
+            <a href="ontology.html?view=instances">2D graph</a>
+            <a href="rule-trace.html?mode=read&amp;correlation=sample-query-connected-resources-01">Trace</a>
+            <a href="agent-activity.html?view=waterfall&amp;correlation=sample-query-connected-resources-01">Activity</a>
+          </nav>
         </div>
 
         <div class="dk-workspace-tools" role="toolbar" aria-label="Command deck workspace tools">
@@ -729,6 +740,76 @@
         </div>
 
         <div class="dk-stream">
+          <section class="flow-featured-query" aria-label="Connected Resource example conversation">
+            <div class="dk-turn is-op">
+              <span class="dk-turn-avatar is-op" aria-hidden="true">Op</span>
+              <div class="dk-turn-body">
+                <span class="dk-turn-meta"><strong>You</strong> &middot; <time>08:00</time><span class="dk-chip intent-read">read only</span></span>
+                <div class="dk-bubble"><p>Show me the Resources connected to this service.</p></div>
+              </div>
+            </div>
+            <div class="dk-turn">
+              <span class="dk-turn-avatar is-plum" aria-hidden="true">Br</span>
+              <div class="dk-turn-body">
+                <span class="dk-turn-meta"><strong>Bragi</strong> &middot; observed plan and query progress</span>
+                <div class="dk-bubble">
+                  <strong>Read plan verified</strong>
+                  <div class="flow-query-plan" aria-label="Read plan stages">
+                    <span>Resolve checkout-api</span><span>Depth 1</span><span>Allowed LinkTypes</span><span>Read graph</span><span>Verify evidence</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="dk-turn">
+              <span class="dk-turn-avatar is-plum" aria-hidden="true">Br</span>
+              <div class="dk-turn-body">
+                <span class="dk-turn-meta"><strong>Bragi</strong> &middot; <time>08:00</time> &middot; total response 7.8 s &middot; 6 evidence references</span>
+                <div class="dk-bubble">
+                  <p><strong>checkout-api</strong> has six direct typed relationships in the selected synthetic generation.</p>
+                  <table class="flow-query-table">
+                    <caption class="cs-sr-only">Direct typed relationships for checkout-api</caption>
+                    <thead><tr><th scope="col">Related Resource</th><th scope="col">Relationship</th><th scope="col">Direction</th><th scope="col">Observed</th></tr></thead>
+                    <tbody>
+                      <tr><td>runtime-environment</td><td><code>contains</code></td><td>Incoming</td><td>02:31 UTC</td></tr>
+                      <tr><td>event-stream</td><td><code>depends_on</code></td><td>Outgoing</td><td>07:11 UTC</td></tr>
+                      <tr><td>state-db</td><td><code>depends_on</code></td><td>Outgoing</td><td>02:39 UTC</td></tr>
+                      <tr><td>secrets</td><td><code>attached_to</code></td><td>Outgoing</td><td>07:33 UTC</td></tr>
+                      <tr><td>registry</td><td><code>depends_on</code></td><td>Outgoing</td><td>07:36 UTC</td></tr>
+                      <tr><td>observability</td><td><code>attached_to</code></td><td>Outgoing</td><td>07:39 UTC</td></tr>
+                    </tbody>
+                  </table>
+                  <div class="flow-evidence-grid">
+                    <section><h4>Verified facts</h4><ul><li>Six direct links are present.</li><li>Stored direction is preserved.</li></ul></section>
+                    <section><h4>Unavailable evidence</h4><ul><li>Provider reachability is not tested by this snapshot.</li></ul></section>
+                    <section><h4>Not claimed</h4><ul><li>A relationship does not prove causation.</li><li>No change was authorized or executed.</li></ul></section>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="dk-turn is-op">
+              <span class="dk-turn-avatar is-op" aria-hidden="true">Op</span>
+              <div class="dk-turn-body">
+                <span class="dk-turn-meta"><strong>You</strong> &middot; <time>08:01</time><span class="dk-chip intent-read">follow-up</span></span>
+                <div class="dk-bubble"><p>What changed recently for this service?</p></div>
+              </div>
+            </div>
+            <div class="dk-turn">
+              <span class="dk-turn-avatar is-plum" aria-hidden="true">Br</span>
+              <div class="dk-turn-body">
+                <span class="dk-turn-meta"><strong>Bragi</strong> &middot; <time>08:01</time> &middot; grounded on retained activity</span>
+                <div class="dk-bubble">
+                  <p>The latest verified transition is the <strong>checkout-api</strong> revision becoming ready at 02:41 UTC. Inventory confirmed the current Running state at 07:42 UTC.</p>
+                  <dl class="dk-exec-times">
+                    <dt>Target</dt><dd>checkout-api</dd>
+                    <dt>Event time</dt><dd>22 Aug 2026, 02:41 UTC</dd>
+                    <dt>Known at</dt><dd>22 Aug 2026, 08:00 UTC</dd>
+                    <dt>Sources</dt><dd>Azure Resource Health / FDAI audit</dd>
+                  </dl>
+                  <p class="muted">The sequence establishes timing, not that the revision caused another observed condition.</p>
+                </div>
+              </div>
+            </div>
+          </section>
           <!-- Bragi welcome + suggestions -->
           <div class="dk-turn">
             <span class="dk-turn-avatar is-plum" aria-hidden="true">Br</span>
@@ -1158,8 +1239,9 @@
                     <span class="dk-mention is-teal">@Heimdall</span>
                   </div>
                   <table class="dk-table">
+                    <caption class="cs-sr-only">Recent agent and policy activity</caption>
                     <thead>
-                      <tr><th>Time (KST)</th><th>Actor</th><th>Action</th><th>Outcome</th><th class="num">Elapsed</th></tr>
+                      <tr><th scope="col">Time (KST)</th><th scope="col">Actor</th><th scope="col">Action</th><th scope="col">Outcome</th><th scope="col" class="num">Elapsed</th></tr>
                     </thead>
                     <tbody>
                       <tr><td>09:37:14</td><td><span class="dk-mention is-sage">@Saga</span></td><td>seal audit</td><td>success</td><td class="num">14 ms</td></tr>

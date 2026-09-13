@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: fc3c96201d0b843b472ea3fbc99876ab7bce4edb
+translation_source_sha: 71d704a9d39296d486e67721cafee436505fda04
 translation_revised: 2026-09-13
 ---
 # 설치형 배포 CLI
@@ -604,7 +604,9 @@ Physical 정리가 아직 블롭을 제거하지 않았더라도 적용은 logic
 status`는 작업 흐름 호스트를 통해 범위가 제한된 정제 산출물을 조회합니다. 정확한 적용과
 검증 전용 재개는 같은 기능 선택과 맥락 다이제스트를 전달합니다. GitHub 환경 승인 경계,
 변경할 수 없는 점유, 감사 증적은 계속 정본입니다. 실행기 egress preflight 근거는 변경할 수
-없는 계획 메타데이터에 고정됩니다. 일반 애플리케이션 증적은 Terraform convergence, 이행 성공, 활성화된 엔드포인트 상태를 요구합니다. Cost Governance 증적은 대신 대상이 제한된 convergence와 위에서 설명한 두 Job image readback을 요구합니다. 실행기 측 정책, 할당량, 신원, 비밀, egress 근거는 C4 exact-plan 게이트의 필수 입력입니다.
+없는 계획 메타데이터에 고정되고 post-apply 검사는 증적 기록 전에 Terraform convergence,
+이행 성공, 활성화된 엔드포인트 상태를 요구합니다. 실행기 측 정책, 할당량, 신원, 비밀,
+egress 근거는 C4 exact-plan 게이트의 필수 입력입니다.
 
 ## Private-everything 테넌트
 

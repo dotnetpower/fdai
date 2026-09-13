@@ -17,6 +17,12 @@ interface AnalyticsDataOptions {
   readonly dataMode?: ConsoleDataMode;
 }
 
+interface AutonomyRequestState {
+  readonly client: OperatorApiClient;
+  readonly dataMode: ConsoleDataMode;
+  readonly state: AsyncState<AutonomyPayload | null>;
+}
+
 async function optional<T>(load: () => Promise<T>): Promise<T | null> {
   try {
     return await load();
@@ -47,6 +53,15 @@ export async function loadAnalyticsDataForMode(
 ): Promise<AnalyticsData> {
   if (mode === "sample") return sampleAnalyticsData(options.includeGates);
   return loadAnalyticsData(client, options);
+}
+
+/** Load only the optional autonomy projection required by vertical outcomes. */
+export async function loadAutonomyDataForMode(
+  mode: ConsoleDataMode,
+  client: OperatorApiClient,
+): Promise<AutonomyPayload | null> {
+  if (mode === "sample") return DASHBOARD_SAMPLE_DATA.autonomy;
+  return optional(() => client.autonomy());
 }
 
 export function sampleAnalyticsData(includeGates = false): AnalyticsData {
@@ -84,4 +99,52 @@ export function useAnalyticsData(
     return () => { cancelled = true; };
   }, [client, options.dataMode, options.includeGates]);
   return state;
+}
+
+/** Track the autonomy projection without coupling the route to unrelated KPI reads. */
+export function useAutonomyData(
+  client: OperatorApiClient,
+  dataMode: ConsoleDataMode,
+): AsyncState<AutonomyPayload | null> {
+  const [request, setRequest] = useState<AutonomyRequestState>({
+    client,
+    dataMode,
+    state: { status: "loading" },
+  });
+  useEffect(() => {
+    let cancelled = false;
+    setRequest({ client, dataMode, state: { status: "loading" } });
+    void (async () => {
+      try {
+        const data = await loadAutonomyDataForMode(dataMode, client);
+        if (!cancelled) {
+          setRequest({ client, dataMode, state: { status: "ready", data } });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setRequest({
+            client,
+            dataMode,
+            state: {
+              status: "error",
+              message: error instanceof Error ? error.message : String(error),
+            },
+          });
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [client, dataMode]);
+  return autonomyStateForRequest(request, client, dataMode);
+}
+
+/** Hide a completed result as soon as the active request identity changes. */
+export function autonomyStateForRequest(
+  request: AutonomyRequestState,
+  client: OperatorApiClient,
+  dataMode: ConsoleDataMode,
+): AsyncState<AutonomyPayload | null> {
+  return request.client === client && request.dataMode === dataMode
+    ? request.state
+    : { status: "loading" };
 }
