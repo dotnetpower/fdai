@@ -36,14 +36,13 @@ domain code and assets. It does not create another control plane or move authori
 > The runner's exact-registry `AcrPush` assignment imports signed shared runtime images only. It is
 > not a Cost Governance package input and cannot install, enable, promote, or grant package data
 > access.
-> Live-authoritative install, enable, and disable receipts now exist, but independent readback
-> found that the enable-triggered collector attempts ended on Azure Cost Management HTTP `429`.
-> The three activation transitions are verified, while successful collection, upgrade, rollback,
-> final enablement, the observation cohort, and independent promotion evidence remain open. The
-> package and its actions remain unvalidated and unpromoted.
-> The first live upgrade attempt failed transactionally before revision advancement or receipt
-> creation because the deployed release guard contained an ambiguous PostgreSQL JSONB operator.
-> A forward migration repairs the guard; deployed repair and a successful retry remain open.
+> Live-authoritative install, enable, disable, upgrade, second enable, and fail-safe disable
+> receipts now exist. The first collector failed on Azure Cost Management HTTP `429`. The upgraded
+> collector recovered past throttling and reached row parsing, where it exposed a source-fact
+> truthiness defect that rejects numeric zero. Independent effect verification still failed and
+> the package returned to disabled revision 6. Successful post-fix collection, rollback, final
+> enablement, the observation cohort, and independent promotion evidence remain open. The package
+> and its actions remain unvalidated and unpromoted.
 > The packaged semantic profile and parity corpus always pin the active ontology release; an
 > additive kernel declaration refreshes their profile, manifest, and fixture identities together.
 > Container publication verifies the protected workflow source before any manual-dispatch
@@ -88,7 +87,7 @@ irreversible effects, unresolved ambiguity, or risk outside standing authorizati
 | Area | Current evidence | Packaging implication |
 |------|------------------|-----------------------|
 | FinOps guardrails | `core/verticals/cost_governance/finops.py` and 11 focused tests | Pure domain logic can move without importing the control loop or agents. |
-| Shared image inputs | Root `uv.lock`, service-owned and benchmark Dockerfiles, and focused service-image and OPA pin parity checks | A Core-only direct dependency or generic evidence asset such as the reviewed provider-schema catalog changes Core image closure but does not add a dependency, activation path, or ownership to `fdai-cost-governance`. Shared lock changes select all affected images for PR packaging checks; candidate publication builds only explicitly selected images. The parity check keeps reviewed OPA transitive-module overrides aligned across image profiles. The reviewed `golang.org/x/crypto` override is `v0.56.0`, and each Docker build asserts that exact module version before publication. Core bootstrap import validation runs only after the runtime image contains its required config and rule-catalog assets. Both supported Core image profiles pin and check the Git client and reviewed bootstrap catalog required by the provider-schema evidence Job. Those runtime prerequisites remain Core-owned and do not become Cost Governance package inputs. |
+| Shared image inputs | Root `uv.lock`, service-owned and benchmark Dockerfiles, and focused service-image and OPA pin parity checks | A generic evidence asset copied by both Core image profiles, including the reviewed provider-schema catalog, selects both profiles for PR packaging checks without adding a dependency, activation path, or ownership to `fdai-cost-governance`. Shared lock changes select all affected images; candidate publication builds only explicitly selected images. The parity check keeps reviewed OPA transitive-module overrides aligned across image profiles. The reviewed `golang.org/x/crypto` override is `v0.56.0`, and each Docker build asserts that exact module version before publication. Core bootstrap import validation runs only after the runtime image contains its required config and rule-catalog assets. Both supported Core image profiles pin and check the Git client and reviewed bootstrap catalog required by the provider-schema evidence Job. Those runtime prerequisites remain Core-owned and do not become Cost Governance package inputs. |
 | Cost estimation | `shared/providers/cost_estimator.py` and the control-loop `_resolve_cost_override` path | The Protocol stays in Core; a package can provide a concrete estimator. |
 | Operator Cost Governance projection | `fdai_operator_service/postgres_cost_governance.py` reads the service-owned JSON scope map with a direct psycopg connection | The Operator host normalizes SQLAlchemy-style psycopg DSNs at the driver boundary and evaluates exact scope membership without moving access authority into the optional package. |
 | Cost anomaly advice | `agents/njord.py` ingests cost samples, detects rolling-baseline anomalies, and publishes `object.cost-anomaly` | Njord's fixed role stays in Core, while replaceable detection logic moves behind a typed binding. |
@@ -151,7 +150,10 @@ The platform root owns the optional collector and analyzer Jobs directly rather 
 inside the shared compute module. Their deployment resolves the existing Container Apps
 environment and inventory identity through read-only data sources. This keeps a package-only
 Terraform target from inheriting unrelated scheduler, network, database, or runtime dependencies.
-The provider-schema Job follows the same root-owned isolation pattern, but remains a Core evidence Job and never enters the Cost Governance target, image profile, or activation state.
+The provider-schema Job follows the same root-owned isolation pattern and remains a Core evidence
+Job outside the Cost Governance target and activation state. Its protected request explicitly
+binds whichever supported image profile the independently deployed Core currently uses, so the Job
+and Core use one attested image without making the shared prerequisites package-owned.
 The independently owned Core service receives the same distribution image through its ordinary
 service plan and apply boundary; neither deployment activates the package.
 
@@ -376,6 +378,7 @@ activation state, provider binding, or promotion authority.
 | Duplicate rule, action, workflow, capability, or vertical id | Activation blocked before publication. |
 | Lifecycle release guard cannot evaluate | The transaction rolls back; the activation revision and current pin stay unchanged, and no success receipt is created. |
 | Azure Cost Management returns `429` | Retry the read once only when the provider supplies a valid retry delay that fits the request deadline; otherwise fail before storing observations. |
+| Cost row contains a numeric zero | Preserve zero as a valid measured fact; only an absent, `null`, or blank required field is missing. |
 | Cost observation stale or incomplete | Detector holds the result or emits explicit unknown evidence. |
 | Estimator timeout or unsupported SKU | Cost remains unknown and cannot raise authority. |
 | Package disabled during work | New candidates stop; accepted work follows the existing idempotent lifecycle to a terminal audit result. |

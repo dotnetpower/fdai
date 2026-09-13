@@ -19,6 +19,9 @@ def test_provider_schema_plan_uses_dedicated_bounded_target() -> None:
     assert "TF_CLI_ARGS_plan=-target=azurerm_container_app_job.provider_schema[0]" in workflow
     assert "startsWith(inputs.request_id, 'plan-provider-')" in workflow
     assert "startsWith(inputs.request_id, 'apply-provider-')" in workflow
+    profile_line = next(line for line in workflow.splitlines() if "RUNTIME_IMAGE_PROFILE:" in line)
+    assert "startsWith(inputs.request_id, 'plan-provider-cost-')" in profile_line
+    assert "startsWith(inputs.request_id, 'apply-provider-cost-')" in profile_line
     assert "mode=provider-schema" in workflow
     resolver = workflow.split("- name: Resolve and seal model capabilities", maxsplit=1)[1].split(
         "      - name:", maxsplit=1

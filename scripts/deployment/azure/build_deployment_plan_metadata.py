@@ -21,6 +21,13 @@ _COST_GOVERNANCE_POST_APPLY_OBSERVATIONS = [
     "terraform-zero-change",
     "cost-governance-job-image-readback",
 ]
+_PROVIDER_SCHEMA_POST_APPLY_OBSERVATIONS = [
+    "terraform-zero-change",
+    "provider-schema-core-baseline",
+    "provider-schema-job-execution",
+    "provider-schema-durable-generation",
+    "provider-schema-agent-review",
+]
 
 
 def build_plan_metadata(
@@ -38,6 +45,16 @@ def build_plan_metadata(
         raise ValueError("runtime image plan evidence is incomplete")
     if runtime_image_profile != "core-control-plane" and not runtime_image_revision:
         raise ValueError("non-default runtime image profile requires exact image evidence")
+    plan_request_id = environ["PLAN_REQUEST_ID"]
+    provider_schema = plan_request_id.startswith("plan-provider-")
+    if provider_schema:
+        expected_profile = (
+            "cost-governance"
+            if plan_request_id.startswith("plan-provider-cost-")
+            else "core-control-plane"
+        )
+        if runtime_image_profile != expected_profile:
+            raise ValueError("provider-schema request and runtime image profile do not match")
     metadata: dict[str, object] = {
         "schema_version": "fdai.deployment-plan.v1",
         "plan_id": environ["PLAN_ID"],
@@ -48,19 +65,21 @@ def build_plan_metadata(
         "azure_preflight_evidence_digest": environ["AZURE_PREFLIGHT_EVIDENCE_DIGEST"],
         "preflight_blocks": False,
         "commit_sha": environ["PLAN_COMMIT_SHA"],
-        "request_id": environ["PLAN_REQUEST_ID"],
-        "request_kind": (
-            "model" if environ["PLAN_REQUEST_ID"].startswith("plan-model-") else "standard"
-        ),
+        "request_id": plan_request_id,
+        "request_kind": ("model" if plan_request_id.startswith("plan-model-") else "standard"),
         "created_at": environ["CREATED_AT"],
         "expires_at": environ["EXPIRES_AT"],
         "status": "ready",
         "workflow_run_id": environ["GITHUB_RUN_ID"],
         "plan_summary": dict(plan_summary),
         "post_apply_observations": list(
-            _COST_GOVERNANCE_POST_APPLY_OBSERVATIONS
-            if runtime_image_profile == "cost-governance"
-            else _CORE_POST_APPLY_OBSERVATIONS
+            _PROVIDER_SCHEMA_POST_APPLY_OBSERVATIONS
+            if provider_schema
+            else (
+                _COST_GOVERNANCE_POST_APPLY_OBSERVATIONS
+                if runtime_image_profile == "cost-governance"
+                else _CORE_POST_APPLY_OBSERVATIONS
+            )
         ),
     }
     if runtime_image_revision:

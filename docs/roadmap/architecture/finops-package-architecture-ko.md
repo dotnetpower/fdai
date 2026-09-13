@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 9e10aab9240571138ff94c25a1534a61eef1390f
-translation_revised: 2026-09-12
+translation_source_sha: ab222280e2d9cce01f94ebeb77f8a3a79952f41c
+translation_revised: 2026-09-13
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -38,14 +38,13 @@ translation_revised: 2026-09-12
 > 실행기의 정확한 registry 범위 `AcrPush` 배정은 서명된 공유 런타임 이미지만 가져옵니다. 이
 > 배정은 Cost Governance 패키지 입력이 아니며 패키지 설치, 활성화, 승격 또는 데이터 접근 권한
 > 부여에 사용할 수 없습니다.
-> Live-authoritative 설치, 활성화 및 비활성화 증적은 현재 존재하지만, 독립 readback에서는
-> 활성화로 시작한 collector 시도가 Azure Cost Management HTTP `429`로 종료된 것을
-> 확인했습니다. 세 활성화 전이는 검증됐지만 성공한 수집, 업그레이드, 롤백, 최종 활성화, 관찰
-> 실측군 및 독립 승격 근거는 아직 완료되지 않았습니다. 패키지와 액션은 운영 검증 또는 승격 완료
-> 상태가 아닙니다.
-> 첫 live 업그레이드 시도는 배포된 release guard의 PostgreSQL JSONB 연산자가 모호해 revision을
-> 높이거나 증적을 만들기 전에 transaction이 롤백됐습니다. Forward migration으로 guard를
-> 수정했지만 배포된 수정과 성공한 재시도는 아직 완료되지 않았습니다.
+> Live-authoritative 설치, 활성화, 비활성화, 업그레이드, 두 번째 활성화 및 안전 비활성화 증적이
+> 현재 존재합니다. 첫 collector는 Azure Cost Management HTTP `429`로 실패했습니다. 업그레이드된
+> collector는 속도 제한을 통과하고 행 parsing에 도달했으며, 이 과정에서 숫자 0을 누락으로
+> 판단하는 원본 사실 truthiness 결함이 드러났습니다. 독립 효과 검증은 다시 실패했고 패키지는
+> 비활성 revision 6으로 돌아갔습니다. 수정 후 성공한 수집, 롤백, 최종 활성화, 관찰 실측군 및
+> 독립 승격 근거는 아직 완료되지 않았습니다. 패키지와 액션은 운영 검증 또는 승격 완료 상태가
+> 아닙니다.
 > 패키지 semantic profile과 parity corpus는 항상 active ontology release를 고정합니다. 가산
 > kernel 선언이 바뀌면 profile, manifest 및 fixture identity를 함께 갱신합니다.
 > 컨테이너 게시는 수동 디스패치 검증 코드를 실행하기 전에 보호된 워크플로 원본을 검증하고,
@@ -87,7 +86,7 @@ FDAI는 비용 거버넌스를 하나의 exact-release vertical 프로필로 패
 | 영역 | 현재 근거 | 패키징 시사점 |
 |------|-----------|---------------|
 | FinOps 가드레일 | `core/verticals/cost_governance/finops.py`와 11개 집중 테스트 | 순수 도메인 로직은 컨트롤 루프나 에이전트를 가져오지 않고 이동할 수 있습니다. |
-| 공유 이미지 입력 | 루트 `uv.lock`, 서비스 소유 및 벤치마크 Dockerfile, 집중 서비스 이미지와 OPA 핀 정합성 검사 | Core 전용 직접 의존성이나 검토된 provider-schema 카탈로그 같은 일반 근거 자산은 Core 이미지 종결만 변경하며 `fdai-cost-governance`에 의존성, 활성화 경로 또는 소유권을 추가하지 않습니다. 공유 lock 변경은 PR 패키징 검사에서 영향받는 모든 이미지를 선택하며, 후보 게시에서는 명시적으로 선택한 이미지만 빌드합니다. 정합성 검사는 검토된 OPA 전이 모듈 재정의를 이미지 프로필 전체에서 동일하게 유지합니다. 검토된 `golang.org/x/crypto` 재정의는 `v0.56.0`이며 각 Docker 빌드는 게시 전에 해당 모듈 버전을 정확히 확인합니다. Core 부트스트랩 가져오기 검증은 런타임 이미지에 필요한 구성과 rule-catalog 자산을 복사한 뒤에만 실행합니다. 지원되는 Core 이미지 프로필 두 개는 모두 provider-schema 근거 Job에 필요한 Git 클라이언트와 검토된 부트스트랩 카탈로그를 고정하고 확인합니다. 이러한 런타임 선행 조건은 Core 소유로 유지되며 Cost Governance 패키지 입력이 되지 않습니다. |
+| 공유 이미지 입력 | 루트 `uv.lock`, 서비스 소유 및 벤치마크 Dockerfile, 집중 서비스 이미지와 OPA 핀 정합성 검사 | 검토된 provider-schema 카탈로그를 포함해 두 Core 이미지 프로필에 모두 복사되는 일반 근거 자산은 `fdai-cost-governance`에 의존성, 활성화 경로 또는 소유권을 추가하지 않으면서 PR 패키징 검사에서 두 프로필을 모두 선택합니다. 공유 lock 변경은 영향받는 모든 이미지를 선택하며, 후보 게시에서는 명시적으로 선택한 이미지만 빌드합니다. 정합성 검사는 검토된 OPA 전이 모듈 재정의를 이미지 프로필 전체에서 동일하게 유지합니다. 검토된 `golang.org/x/crypto` 재정의는 `v0.56.0`이며 각 Docker 빌드는 게시 전에 해당 모듈 버전을 정확히 확인합니다. Core 부트스트랩 가져오기 검증은 런타임 이미지에 필요한 구성과 rule-catalog 자산을 복사한 뒤에만 실행합니다. 지원되는 Core 이미지 프로필 두 개는 모두 provider-schema 근거 Job에 필요한 Git 클라이언트와 검토된 부트스트랩 카탈로그를 고정하고 확인합니다. 이러한 런타임 선행 조건은 Core 소유로 유지되며 Cost Governance 패키지 입력이 되지 않습니다. |
 | 비용 추정 | `shared/providers/cost_estimator.py`와 컨트롤 루프의 `_resolve_cost_override` 경로 | Protocol은 Core에 남고 패키지는 구체 추정기를 제공할 수 있습니다. |
 | 오퍼레이터 비용 거버넌스 변환 결과 | `fdai_operator_service/postgres_cost_governance.py`는 직접 psycopg 연결을 통해 서비스 소유 JSON 범위 맵을 읽습니다. | 오퍼레이터 호스트는 드라이버 경계에서 SQLAlchemy 형식 psycopg DSN을 정규화하고, 접근 권한을 선택적 패키지로 옮기지 않으면서 정확한 범위 포함 여부를 평가합니다. |
 | 비용 이상 조언 | `agents/njord.py`는 비용 샘플을 수집하고 이동 기준선 이상을 감지해 `object.cost-anomaly`를 발행합니다. | Njord의 고정 역할은 Core에 남고 교체 가능한 탐지 로직은 타입이 지정된 연결 뒤로 이동합니다. |
@@ -149,7 +148,10 @@ Platform 루트는 선택적 collector 및 analyzer Job을 공유 compute module
 소유합니다. 이 배포는 기존 Container Apps environment와 inventory identity를 읽기 전용 data
 source로 해석합니다. 따라서 패키지 전용 Terraform target이 관련 없는 scheduler, network,
 database 또는 runtime dependency를 상속하지 않습니다.
-provider-schema Job도 같은 루트 소유 격리 패턴을 따르지만 Core 근거 Job으로 유지되며 Cost Governance 대상, 이미지 프로필 또는 활성화 상태에 포함되지 않습니다.
+provider-schema Job도 같은 루트 소유 격리 패턴을 따르며 Cost Governance 대상과 활성화
+상태 밖의 Core 근거 Job으로 유지됩니다. 보호된 요청은 독립적으로 배포된 Core가 현재 사용하는
+지원 이미지 프로필을 명시적으로 결속합니다. 따라서 Job과 Core는 하나의 증명된 이미지를
+사용하지만 공유 선행 조건이 패키지 소유로 바뀌지는 않습니다.
 독립적으로 소유되는 Core 서비스는
 일반 service plan 및 apply 경계를 통해 같은 배포 이미지를 받으며, 어느 배포도 패키지를
 활성화하지 않습니다.
@@ -365,6 +367,7 @@ Rule 카탈로그 스냅샷 저장소와 초안 검토 전달은 공유 Core pla
 | Rule, Action, Workflow, Capability 또는 vertical id 중복 | 게시 전에 활성화를 차단합니다. |
 | 수명 주기 release guard를 평가할 수 없음 | transaction을 롤백하고 활성화 revision과 현재 pin을 바꾸지 않으며 성공 증적을 만들지 않습니다. |
 | Azure Cost Management가 `429`를 반환함 | 프로바이더가 유효한 재시도 대기 시간을 제공하고 그 시간이 요청 기한 안에 있을 때만 읽기를 한 번 재시도합니다. 그렇지 않으면 관측을 저장하기 전에 실패로 종료합니다. |
+| 비용 행에 숫자 0이 포함됨 | 0을 유효한 측정 사실로 보존합니다. 필수 field가 없거나 `null` 또는 빈 문자열일 때만 누락으로 판단합니다. |
 | 오래되거나 불완전한 비용 관측 | 탐지기는 결과를 보류하거나 알 수 없음 근거를 명시적으로 내보냅니다. |
 | 추정기 시간 초과 또는 지원되지 않는 SKU | 비용을 알 수 없는 상태로 유지하며 권한을 높이지 않습니다. |
 | 작업 중 패키지 비활성화 | 새 후보는 중단하고 수락된 작업은 기존의 safe-to-retry 수명 주기를 따라 최종 감사에 도달합니다. |

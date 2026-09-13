@@ -635,6 +635,82 @@ def test_azure_focus_adapter_uses_injected_read_boundaries() -> None:
     assert page.observations[0].source_uri.startswith("cost-service:")
 
 
+def test_azure_focus_adapter_accepts_zero_cost_as_a_source_fact() -> None:
+    body: dict[str, object] = {
+        "properties": {
+            "columns": [
+                {"name": "Cost", "type": "Number"},
+                {"name": "UsageDate", "type": "Number"},
+                {"name": "ServiceName", "type": "String"},
+                {"name": "Currency", "type": "String"},
+            ],
+            "rows": [[0, 20260830, "service-a", "USD"]],
+        },
+    }
+    adapter = AzureFocusObservationAdapter(
+        transport=Transport(body),
+        credential=Credential(),
+        ontology_release_id=_RELEASE_ID,
+        ontology_release_digest=_RELEASE,
+        clock=lambda: _NOW,
+    )
+
+    page = asyncio.run(
+        adapter.collect_cost_page(
+            CostCollectionRequest(
+                package_id="cost-governance",
+                scope_id=_SCOPE,
+                start_at=_NOW - timedelta(days=1),
+                end_at=_NOW - timedelta(seconds=1),
+                page_size=10,
+                deadline_at=_NOW + timedelta(minutes=1),
+            ),
+            resume_token=None,
+        )
+    )
+
+    assert page.observations[0].amount == Decimal("0")
+
+
+def test_azure_focus_adapter_rejects_only_null_or_blank_required_facts() -> None:
+    body: dict[str, object] = {
+        "properties": {
+            "columns": [
+                {"name": "Cost", "type": "Number"},
+                {"name": "UsageDate", "type": "Number"},
+                {"name": "ServiceName", "type": "String"},
+                {"name": "Currency", "type": "String"},
+            ],
+            "rows": [[None, 20260830, "  ", ""]],
+        },
+    }
+    adapter = AzureFocusObservationAdapter(
+        transport=Transport(body),
+        credential=Credential(),
+        ontology_release_id=_RELEASE_ID,
+        ontology_release_digest=_RELEASE,
+        clock=lambda: _NOW,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="missing required source facts: ServiceName, Cost, Currency",
+    ):
+        asyncio.run(
+            adapter.collect_cost_page(
+                CostCollectionRequest(
+                    package_id="cost-governance",
+                    scope_id=_SCOPE,
+                    start_at=_NOW - timedelta(days=1),
+                    end_at=_NOW - timedelta(seconds=1),
+                    page_size=10,
+                    deadline_at=_NOW + timedelta(minutes=1),
+                ),
+                resume_token=None,
+            )
+        )
+
+
 def test_azure_focus_retries_one_rate_limited_read_within_deadline() -> None:
     body: dict[str, object] = {"properties": {"columns": [], "rows": []}}
     transport = SequenceTransport(

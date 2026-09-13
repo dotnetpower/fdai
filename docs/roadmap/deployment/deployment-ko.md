@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 9aa8994bbd855c694f57a4d08ee251245c6404eb
-translation_revised: 2026-09-13
+translation_source_sha: 35db30397170c08c1cb3d7ed1d62c1ae2e87f7c2
+translation_revised: 2026-09-12
 ---
 
 # 배포(배포)
@@ -50,6 +50,7 @@ translation_revised: 2026-09-13
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-09-13 | implemented | 안전장치 출시에서 요구하는 기본 비활성 legacy-unbound 전환 연결을 표준 격리 실행기 업데이트 한 번으로 구체화할 수 있게 했습니다. 계획 가드는 값이 없는 상태에서 `0`으로 바뀌는 경우만 허용합니다. 권한 확대, 반복 적용 및 관련 없는 런타임 표류는 계속 거부하며 이전 개정 번호를 롤백 경계로 유지합니다. | `current change`, `guard_plan.py`, 집중 서비스 배포 회귀 테스트 | 가드 변경을 게시하고 정확한 Core 및 격리 실행기 이미지를 다시 빌드한 뒤 하나의 고정된 개정 번호에서 보호된 계획과 적용 근거를 보존합니다. |
+| 2026-09-12 | implemented | Provider-schema 전용 plan, apply, resume 및 status를 지원되는 활성 Core 이미지 프로필 중 하나에 결속했습니다. `provider-cost` 요청 하위 유형은 workflow 입력을 추가하지 않고 Cost Governance 배포판을 선택하며, provider 근거는 패키지 전용 관측보다 우선하고 정확한 이미지, 정상 기준선, 영속 세대 및 조건부 에이전트 검토에 계속 결속됩니다. Provider 카탈로그 변경은 이제 패키징 검사에서 Core 이미지 프로필 두 개를 모두 선택합니다. | `current change`, deployment CLI, 요청 검증기, plan/apply 근거 생성기, 보호된 workflow, 이미지 선택기 및 집중 회귀 검사 | 정확한 Cost Governance 후보 하나를 병합하고 게시해 독립 Core 서비스 경로로 배포한 뒤 이슈 #290을 위한 zero-destroy provider 계획, exact apply 및 영속 근거를 보존합니다. |
 | 2026-09-12 | implemented | 패키지 배포 격리 과정에서 platform 루트가 두 패키지 Job만 소유한다는 사실을 확인한 뒤 닫힌 Core 서비스 이미지 계약에 Cost Governance 배포 이미지를 추가했습니다. 서비스 계획, exact apply, 새로 고침 전 표류 검사, 상태 및 롤백은 전체 digest-pinned 이미지 참조에 계속 결속됩니다. | `current change`, 서비스 행렬 및 계약, 표준 이미지, 패키지 프로파일, 잘못된 서비스 및 표류에 대한 집중 회귀 테스트 | 정확한 Cost Governance 후보 하나를 게시하고 삭제가 없는 Core 계획과 exact apply를 보존한 뒤 수명 주기 설치 전에 Core와 두 패키지 Job이 하나의 다이제스트를 사용하는지 검증합니다. |
 | 2026-09-12 | implemented | Broad operations-gateway 대상이 관련 없는 Operator API 역할 교체를 포함한 뒤 전용 protected provider-schema plan/apply 모드를 추가했습니다. 새 모드는 provider-schema Job만 허용하고 정확히 증명된 Core image 하나를 결속하며, 적용 후 Job을 실행하고 durable source/generation 및 해당하는 Heimdall, Forseti, Saga review chain을 검증합니다. | Protected plan `34677766334` 실패, `current change`, 집중 provider runtime, 배포 workflow, CLI, Terraform 및 evidence 검사 | Exact revision을 게시하고 해당 candidate에서 최종 Core baseline을 반복한 뒤 Issue #290의 zero-destroy provider-schema plan, exact apply 및 deployed agent-chain receipt를 보존합니다. |
 | 2026-09-12 | implemented | 모델 전용 Terraform 계획의 대상을 Azure OpenAI 기능 배포 컬렉션으로 제한했습니다. 이제 상위 모듈 전체를 대상으로 지정해 기존 계정 및 역할 할당 리소스가 계획에 포함되는 일이 없습니다. | `current change`; 실패한 보호 계획 `34677766334`; `.github/workflows/deploy-dev.yml`; 모델 수명 주기 및 배포 작업 흐름 집중 테스트 87개; CI 계약 검사. | 수정된 작업 흐름을 게시하고 관련 없는 변경이 없는 모델 연결 계획을 보존한 뒤 이슈 #90의 정확한 Core 이미지 연결 및 런타임 근거를 완료합니다. |
