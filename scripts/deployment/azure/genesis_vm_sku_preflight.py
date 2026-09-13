@@ -93,19 +93,26 @@ def discover_foundation_vm_size(
         "cwd": repository_root,
         "environment": _environment(),
     }
-    rows = read_vm_catalog(**context)
-    usages = read_vm_usage(**context)
     folder: Path | None = None
     if evidence_directory is not None:
         folder = Path(tempfile.mkdtemp(prefix="vm-discovery-", dir=evidence_directory))
-        write_plan_input(folder / "skus.json", {"rows": rows})
-        write_plan_input(folder / "quota.json", {"rows": usages})
+    rows: list[object] | None = None
+    usages: list[object] | None = None
+    stage = "catalog"
     try:
+        rows = read_vm_catalog(**context)
+        if folder is not None:
+            write_plan_input(folder / "skus.json", {"rows": rows})
+        stage = "quota"
+        usages = read_vm_usage(**context)
+        if folder is not None:
+            write_plan_input(folder / "quota.json", {"rows": usages})
+        stage = "selection"
         selected = choose_deployment_vms(policy, region=region, rows=rows, usages=usages)
     except CheckError as exc:
         if folder is not None:
             try:
-                options = catalog_options(policy, region=region, rows=rows)
+                options = catalog_options(policy, region=region, rows=rows) if rows else None
             except CheckError:
                 options = None
             write_plan_input(
@@ -114,7 +121,8 @@ def discover_foundation_vm_size(
                     "schema_version": "fdai.deployment-vm-discovery.v1",
                     "state": "blocked",
                     "reason_code": exc.reason_code,
-                    "catalog_count": len(rows),
+                    "failed_stage": stage,
+                    "catalog_count": len(rows) if rows is not None else None,
                     "restricted_count": options.restricted if options else None,
                     "excluded_count": options.excluded if options else None,
                     "role_candidate_counts": (
@@ -130,8 +138,12 @@ def discover_foundation_vm_size(
                     "target_binding": target_binding,
                     "region": region,
                     "policy_digest": policy.digest,
-                    "sku_evidence_digest": canonical_digest({"rows": rows}),
-                    "quota_evidence_digest": canonical_digest({"rows": usages}),
+                    "sku_evidence_digest": (
+                        canonical_digest({"rows": rows}) if rows is not None else None
+                    ),
+                    "quota_evidence_digest": (
+                        canonical_digest({"rows": usages}) if usages is not None else None
+                    ),
                     "checked_at": datetime.now(
                         timezone.utc  # noqa: UP017 - Python 3.10 entrypoint
                     ).isoformat(),

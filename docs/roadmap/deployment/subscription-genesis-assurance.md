@@ -60,7 +60,7 @@ Catalog reads stay within one exact subscription/region, four pages, 4096 rows, 
 seconds; each request and the separate quota read have 30-second limits. Complete metadata,
 Location/Zone restrictions, and all three VMs' aggregate regional/family quota gate preparation.
 Private replay distinguishes restricted, incompatible, incomplete, and quota outcomes; missing
-hardware leaves candidate counts unknown, never assumed zero.
+hardware leaves candidate counts unknown, never assumed zero. Failed reads retain completed snapshots, their failed stage, and unknown unobserved digests.
 
 Preparation fixes the host; the versioned image review seals the pair and host quota headroom.
 Before planning and unclaimed apply, host checks use actual managed-image or exact gallery-version
