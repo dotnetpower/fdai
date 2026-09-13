@@ -51,6 +51,8 @@ locals {
     "rm -f /tmp/fdai-runner-image.sh",
   ])
   verifier_command = join(" && ", [
+    "export AZURE_CONFIG_DIR=/tmp/fdai-verifier-azure",
+    "install -d -m 0700 \"$AZURE_CONFIG_DIR\"",
     "test \"$(az version --query '\"azure-cli\"' --output tsv)\" = '${var.azure_cli_version}'",
     "test \"$(terraform version -json | jq -r .terraform_version)\" = '${var.terraform_version}'",
     "opa version | grep -F 'Version: ${var.opa_version}' >/dev/null",
@@ -63,6 +65,7 @@ locals {
     "test -x /usr/local/sbin/fdai-attest-runner",
     "test -x /usr/local/sbin/fdai-migrate-foundation-state",
     "test \"$(jq -r .execution_transport /etc/fdai-runner-image.json)\" = '${var.execution_transport}'",
+    "rm -rf \"$AZURE_CONFIG_DIR\"",
     "test ! -e /root/.azure && test ! -e /root/.config/gh && test ! -e /root/.docker && test ! -e /root/.git-credentials",
     "test \"$(cat /var/lib/fdai/image-deprovisioned)\" = 'complete'",
     "test ! -e /etc/systemd/system/fdai-deprovision.service",
