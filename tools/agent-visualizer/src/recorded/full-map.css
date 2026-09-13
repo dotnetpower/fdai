@@ -1,0 +1,44 @@
+.full-map-counts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 14px 0; }
+.full-map-counts > span { display: grid; gap: 4px; }
+.full-map-counts strong { font: 24px var(--cs-font-mono); color: #c8e9df; }
+.full-map-counts small { font-size: 10px; color: #a9bdc6; }
+.full-map-controls {
+  display: none; margin-top: 20px; padding: 4px;
+}
+.ontology-mode .full-map-controls { display: block; }
+.full-map-controls .ontology-settings { display: grid; grid-template-columns: 1fr; }
+.full-map-controls .map-results { flex-wrap: wrap; }
+.full-map-controls .map-results select { flex-basis: 100%; }
+.full-map-controls #recorded-search-form { flex-wrap: wrap; }
+.full-map-controls #recorded-search-form input { flex-basis: 100%; }
+.map-lenses { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+.map-lenses button[aria-pressed="true"] { background: #183d40; outline: 1px solid #97c4bd; color: #d4fff0; }
+.map-results { display: flex; gap: 7px; align-items: center; margin-top: 8px; }
+.map-results select { flex: 1; min-width: 0; }
+.map-results button { border: 1px solid #536c76; min-height: 30px; min-width: 30px; border-radius: 3px; }
+#map-page { font: 10px var(--cs-font-mono); white-space: nowrap; color: #b3c5cf; }
+.history-controls { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+.history-controls .check { margin-left: 0; }
+.history-controls select { font-size: 10px; max-width: 50%; }
+.map-description { color: #b2c4cc; font-size: 12px; line-height: 1.65; margin-top: 16px; overflow-wrap: anywhere; }
+.ontology-mode .instance-name { overflow-wrap: anywhere; }
+.type-instance-count { font-size: 18px; color: #c9ebdf; margin: 18px 0 12px; }
+#expand-type { min-height: 36px; padding: 8px 10px; font-size: 11px; color: #cceade; border: 1px solid #617f88; border-radius: 3px; }
+.ontology-mode .recorded-node-label { font-size: 9px; padding: 4px 5px; max-width: 160px; }
+.ontology-mode .recorded-node-label[data-node-kind="object_type"] { color: #c8eee4; }
+@media (max-width: 1150px) {
+  .full-map-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .ontology-mode .ontology-settings { flex-wrap: wrap; }
+  .ontology-mode .ontology-settings label { min-width: 130px; }
+  .history-controls { flex-wrap: wrap; }
+  .history-controls select { max-width: 100%; }
+}
+@media (max-width: 760px) {
+  .full-map-controls { margin: 18px 20px; padding: 0; }
+  .map-lenses { margin-left: 0; }
+  .map-results button, #expand-type { min-height: 44px; min-width: 44px; }
+  .map-results { flex-wrap: wrap; }
+  .map-results select { flex-basis: 100%; min-height: 44px; }
+  .full-map-counts strong { font-size: 22px; }
+  .history-controls select { min-height: 44px; }
+}
