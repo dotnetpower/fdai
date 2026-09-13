@@ -19,7 +19,7 @@ class ToolCheck:
     version: str | None
 
 
-def inspect_tools(names: tuple[str, ...] = ("az", "terraform", "gh")) -> tuple[ToolCheck, ...]:
+def inspect_tools(names: tuple[str, ...] = ("az",)) -> tuple[ToolCheck, ...]:
     """Inspect required executables without installing or authenticating."""
 
     results: list[ToolCheck] = []

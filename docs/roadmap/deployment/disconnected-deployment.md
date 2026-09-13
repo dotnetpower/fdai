@@ -26,6 +26,7 @@ fully disconnected install.
 | Runtime release staging and local preparation | implemented | `runtime_release.py`, `runtime_stage.py`, `offline_prepare.py`; 251 focused tests; issue #461 | Local archives, source and bundle binding, private snapshots, and a non-ready preparation record pass focused checks. Azure installation remains open. |
 | Complete runtime image validation | implemented | Runtime inventory v2 and bounded OCI validators; 355 focused tests; cold-installed CPython 3.12 review wheel | Staging and preparation validate five service images plus ClamAV. Legacy v1 remains inspectable but cannot qualify for complete preparation. Synthetic signed images prove packaging and content checks, not provenance or Azure readiness. |
 | Complete runtime release assembly | implemented | `runtime_build.py`, `build-runtime-release.py`, and focused assembly tests | A private digest-bound descriptor assembles all six OCI images, Console, and deployment support into runtime v2 without network access or artifact execution. It consumes prebuilt evidence and deliberately reports production eligibility as unverified. |
+| OCI deployment appliance | implemented | `build-deployment-appliance.sh`; `run-deployment-appliance.sh`; focused script tests | One verified complete kit is embedded in a digest-pinned no-network OCI build and its entry point starts manual artifact-offline deployment. A production image build and governed Azure receipt remain open. |
 | Dependency image publication adapter | implemented | `publish_dependency_oci_archive`; 80 focused ACR tests | Shares service publication's validation-before-credentials, deadlines, no-retry transport, and manifest GET readback. Dependency receipts make no FDAI revision claim. Protected caller wiring remains open; tests use a recording transport, not Azure. |
 | Offline VM bootstrap | implemented | `infra/bootstrap/`; 16 mocked Terraform plans | Explicit offline mode selects a prebuilt image without network cloud-init. Image production, attestation, access, and state handoff remain external prerequisites. |
 | Installation-time Console bindings | implemented | `console/src/runtime-config.ts`; `console_config.py`; focused configuration tests and generic build | A generic build accepts public API/Entra bindings without rebuilding and disables authentication bypasses. Publication and authenticated access remain separate checks. |
@@ -39,6 +40,7 @@ fully disconnected install.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-12 | implemented | Replaced the two-artifact operator handoff with one OCI deployment appliance that embeds a verified complete kit and starts manual standalone deployment. | `current change`; appliance builder, entry point, CLI contracts, and focused tests | Build the production appliance and retain one no-public-egress Azure deployment receipt. |
 | 2026-09-10 | implemented | Added the System Knowledge Service Terraform root to locked offline provider mirroring without changing runtime release eligibility. | `current change`; root lock, mirror helper, and focused fake-Terraform checks. | Retain a complete signed offline drill before claiming disconnected deployment support for the service. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Corrected the prior end-to-end support claim after the deployment CLI package was removed. | current change; infrastructure, release-script, package-metadata, and focused workflow evidence listed in the scope table | Restore the dedicated offline verifier and CLI, establish the trust root, and pass the air-gap drill. |
 | 2026-09-06 | implemented | Corrected the obsolete missing-CLI claim and added runtime inventory staging, private offline preparation, and a guard against the public-artifact workflow. | `current change`; 251 focused tests, strict type checks, and an installed-wheel preparation drill with synthetic signed payloads in network and filesystem namespaces; issue #461 | Retain a complete eligible signed release and approved new-subscription Console and inventory receipts. |
@@ -58,6 +60,7 @@ fully disconnected install.
 - [ ] Establish and package the offline trust root through the governed ceremony, then prove inspection distinguishes verified, review, and rejected kits without a network call.
 - [ ] Stage actual runtime archives from a clean eligible release revision and pass `airgap-drill.sh --runtime-release <directory> --require-runtime` with no package cache, route, or DNS.
 - [ ] Prove the manual exact-plan approval and apply path from a private deploy host, including rollback, teardown, and post-provision verification receipts.
+- [ ] Build a deployment appliance from an approved digest-pinned base and retain one image-entry-point Azure deployment receipt with no public artifact access.
 
 ## Design at a glance
 
@@ -164,11 +167,12 @@ manifest. The `fdai.offline-preparation.v2` receipt also binds the six checked i
 `state=prepared` and `subscription_ready=false` mean inputs are prepared, not installed.
 Preparation does not estimate cost or produce an executable approved Terraform plan.
 
-Offline profiles are blocked before authentication or dispatch through the existing `deploy`
-and live `onboard guided` GitHub workflow path because that workflow still uses public artifacts.
-The full installation still needs approved foundation creation, private state handoff, application
+Offline preparation performs no deployment. The public CLI exposes no workflow-dispatch path;
+`fdaictl provision azure --offline-kit` and the deployment appliance own live installation. The
+complete path still needs approved Foundation creation, private state handoff, application
 deployment, database initialization, authenticated Console readback, complete initial resource
-discovery, and independent final readiness. See [Subscription Genesis Provisioning](subscription-genesis-provisioning.md).
+discovery, and independent final readiness. See
+[Subscription Genesis Provisioning](subscription-genesis-provisioning.md).
 
 The packaging host can add `--with-runtime-wheels` to include the locked support interpreter
 inputs under `support/python/`. `fdaictl offline install-support` authenticates those inputs,
@@ -314,33 +318,32 @@ fails closed:
 
 ## Provisioning an image-delivered distribution
 
-A runtime image does not provision Azure infrastructure: it excludes `infra/` and Terraform and
-starts a service, not a provisioner. The separate `fdai-deployment-cli` wheel supplies `fdaictl`.
-The handover below combines implemented commands with explicitly unfinished integration.
+A service runtime image does not provision Azure infrastructure: it excludes `infra/` and
+Terraform and starts one service. A **deployment appliance** is a different image. It embeds the
+complete signed offline kit, installs `fdaictl` only from the kit wheelhouse, and starts the real
+standalone deployment from inside the approved network.
 
-A closed-network handover is therefore **two artifacts**: the runtime image, and the signed offline
-kit that carries the wheel, the deployment bundle with `infra/`, the pinned Terraform binary and
-provider mirror, the policy engine, and the bill of materials.
+The closed-network handover is one digest-pinned OCI appliance archive containing a complete
+signed kit. Internally it contains the deployment bundle, pinned Terraform and OPA binaries, provider mirror, all service and dependency
+OCI archives, Console, migration support, SBOMs, provenance, and trust metadata. Keeping those
+components distinct inside the image preserves independent verification without exposing multiple
+operator handoff steps.
 
 | # | Step | Tool | State |
 |---|------|------|-------|
-| 1 | Inspect the kit | `fdaictl provision inspect` | implemented; the pinned release trust root remains open |
-| 2 | Verify the deployment bundle | `fdaictl bundle verify` | implemented packaged command |
-| 3 | Load the runtime image and push it to the tenant registry | container tooling on the VNet host | operator step; the bounded ACR adapter is not integrated into protected installation |
-| 4 | Stand up the ops hub: state account, VNet, and the deploy host | `infra/genesis-foundation`; existing `infra/bootstrap` | composition implemented; protected execution and private-state handoff remain open ([ledger](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)) |
-| 5 | Plan the app layer from the bundle | `fdaictl provision plan` | implemented local planning; not a full installation |
-| 6 | Analyze the plan before applying it | standalone preflight script today; target `fdaictl deploy preflight --terraform-plan` | core and runner path implemented; CLI facade absent |
-| 7 | Apply | Terraform on the deploy host | operator-driven |
-| 8 | Migrate the state store | a one-off job running the same image | implemented |
-| 9 | Inject and check the license token | secret path plus `fdaictl license inspect` | inspection implemented; token delivery remains a protected secret operation ([capability-licensing.md](../fork-and-sequencing/capability-licensing.md)) |
-| 10 | Start the control plane | the image entry point | implemented |
+| 1 | Verify and load the appliance | OCI-compatible container tooling | implemented builder contract; production image evidence remains open |
+| 2 | Authenticate to Azure | Interactive Azure CLI user or appliance Managed Identity | implemented entry-point selection |
+| 3 | Start the standalone deployment | Appliance entry point | implemented with embedded `--offline-kit` and no public fallback |
+| 4 | Create or verify the Foundation | Local coordinator plus `infra/genesis-foundation` | implemented exact-plan and Bastion path |
+| 5 | Import runtime images and plan the application | Managed host inside the VNet | implemented with digest readback |
+| 6 | Apply, migrate, and start services | Managed-host Terraform and migration support | implemented; governed appliance receipt remains open |
+| 7 | Verify deployment readiness | Service health and second zero-change plan | implemented; broader subscription assurance remains separate |
 
-Step five replaces manual tool and mirror selection with `fdaictl provision plan`.
-It resolves the Terraform binary and the mirror from the *signed manifest*, so a
-tree added beside the kit cannot decide what executes; it generates a CLI configuration whose
-`direct` block excludes every provider, so a missing mirror entry fails the plan rather than
-reaching the public registry; it passes only credential-shaped environment variables through; and
-it emits the binary plan, its SHA-256 digest, and the plan JSON that step six consumes.
+The appliance resolves the Terraform binary and provider mirror from the *signed manifest*, so a
+tree added beside the embedded kit cannot decide what executes. Its CLI configuration excludes
+every direct provider source, so a missing mirror entry fails the plan rather than reaching the
+public registry. Only allowlisted authentication variables reach Terraform, and every apply uses
+the exact reviewed binary plan and its SHA-256 digest.
 
 Executing content from a kit demands stronger evidence than reporting on one. `provision inspect`
 still has no trust-root override and still reports `candidate` for an unverified kit, because an
@@ -348,10 +351,9 @@ operator can weigh that judgement. `provision plan` cannot: it verifies the kit 
 release root and refuses to plan when that fails. Once the root ships pinned in the wheel,
 `--release-root` becomes an override that planning accepts and inspection still does not.
 
-One consequence is worth stating before an operator plans a handover. `fdaictl deploy plan` and
-`deploy apply` submit work to a GitHub workflow, so a tenant without that reachability uses the
-`manual` transport: `provision plan` for step five, and Terraform on the deploy host for step
-seven, whose exact-plan approval binding remains target behavior.
+Tenant deployment accepts only `manual` transport. The public CLI has no GitHub workflow dispatch
+commands. GitHub may build and publish the appliance, but it is not reachable or trusted as a
+deployment executor inside the target environment.
 
 ## Rehearsing the whole path with no network
 

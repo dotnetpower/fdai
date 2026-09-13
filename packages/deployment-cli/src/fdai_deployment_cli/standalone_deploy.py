@@ -10,16 +10,40 @@ import stat
 import subprocess
 import sys
 import time
+from collections.abc import Mapping
+from contextlib import redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from fdai_deployment_cli.deployment_kit import DeploymentKit, acquire_deployment_kit
+from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail, terminal_output
+from fdai_deployment_cli.foundation_failure import foundation_failure_summary
+from fdai_deployment_cli.foundation_output import foundation_output
 from fdai_deployment_cli.private_output import read_private_bytes
 from fdai_deployment_cli.standalone_application import deploy_standalone_application
+from fdai_deployment_cli.standalone_status import current_status, prior_attempt
 
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _DIGEST = re.compile(r"[0-9a-f]{64}")
+_SAFE_ENVIRONMENT_KEYS = frozenset(
+    {
+        "AZURE_CONFIG_DIR",
+        "CURL_CA_BUNDLE",
+        "HOME",
+        "LANG",
+        "LC_ALL",
+        "LC_CTYPE",
+        "LOGNAME",
+        "PATH",
+        "REQUESTS_CA_BUNDLE",
+        "SSL_CERT_FILE",
+        "TERM",
+        "TMPDIR",
+        "TZ",
+        "USER",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,16 +68,21 @@ def deploy_azure_foundation(
 ) -> dict[str, object]:
     """Advance one standalone deployment through verified application convergence."""
 
+    begin_stage("azure")
+    progress_detail("Checking the active Azure CLI human identity")
     target = active_azure_target()
     _create_or_validate_private_directory(work_dir)
     kit_work = work_dir / "kit-work"
     _create_or_validate_private_directory(kit_work)
+    begin_stage("kit")
     kit = acquire_deployment_kit(
         work_dir=kit_work,
         online=online,
         offline_kit=offline_kit,
         online_url=online_url,
     )
+    begin_stage("discovery")
+    progress_detail("Discovering image, storage name, and non-overlapping networks")
     scripts = kit.bundle_root / "scripts/deployment/azure"
     if not scripts.is_dir() or scripts.is_symlink():
         raise ValueError("verified deployment bundle is missing Azure orchestration")
@@ -84,10 +113,12 @@ def deploy_azure_foundation(
     deadline = time.monotonic() + timeout_seconds
     approval = prepared.root / "current-foundation-approval.json"
     status_path = prepared.root / "status.json"
+    begin_stage("foundation")
     while True:
         remaining = int(deadline - time.monotonic())
         if remaining < 1800:
             raise TimeoutError("standalone Foundation deadline has insufficient remaining budget")
+        previous_attempt = prior_attempt(status_path)
         command = (
             sys.executable,
             str(scripts / "genesis_orchestrator.py"),
@@ -123,45 +154,67 @@ def deploy_azure_foundation(
             "json",
         )
         try:
-            completed = subprocess.run(
-                command,
-                cwd=kit.bundle_root,
-                env={
-                    **os.environ,
-                    "PYTHONPATH": os.pathsep.join(
-                        (str(scripts), str(Path(__file__).parent.parent))
+            with foundation_output() as stderr:
+                completed = subprocess.run(
+                    command,
+                    cwd=kit.bundle_root,
+                    env=_standalone_subprocess_environment(
+                        PYTHONPATH=os.pathsep.join(
+                            (str(scripts), str(Path(__file__).parent.parent))
+                        ),
+                        AZURE_SUBSCRIPTION_ID=target.subscription_id,
+                        AZURE_TENANT_ID=target.tenant_id,
+                        FDAI_SIGNED_SOURCE_EVIDENCE=source_evidence,
                     ),
-                    "AZURE_SUBSCRIPTION_ID": target.subscription_id,
-                    "AZURE_TENANT_ID": target.tenant_id,
-                    "FDAI_SIGNED_SOURCE_EVIDENCE": source_evidence,
-                },
-                check=False,
-                timeout=min(14_400, remaining),
-            )
+                    stdout=subprocess.DEVNULL,
+                    stderr=stderr,
+                    check=False,
+                    timeout=min(14_400, remaining),
+                )
+                if completed.returncode not in {0, 2}:
+                    raise ValueError(
+                        foundation_failure_summary(
+                            status_path,
+                            previous=previous_attempt,
+                            source_commit=kit.source_commit,
+                            run_binding=prepared.run_binding,
+                        )
+                    )
         except subprocess.TimeoutExpired as exc:
             raise TimeoutError(
                 "standalone Foundation orchestration timed out; inspect retained status before recovery"
             ) from exc
-        status = _private_json(status_path)
+        status = current_status(
+            status_path,
+            previous=previous_attempt,
+            source_commit=kit.source_commit,
+            run_binding=prepared.run_binding,
+        )
         completed_stages = status.get("completed_stages")
         if (
             status.get("current_stage") == "application-plan"
+            and status.get("route") == "private-runner"
             and isinstance(completed_stages, list)
             and "foundation-state" in completed_stages
         ):
             foundation = _foundation_result(kit, prepared, status)
+            begin_stage("identity")
             sys.path.insert(0, str(scripts))
             try:
                 supervisor = importlib.import_module("genesis_supervisor")
                 entra = importlib.import_module("genesis_entra")
                 approval_prompt = importlib.import_module("genesis_approval_prompt")
                 actor_digest = approval_prompt.current_actor_digest(prepared.run_binding)
-                entra_bindings = supervisor._configure_entra(
-                    prepared=prepared,
-                    status=status,
-                    actor_digest=actor_digest,
-                    plan=entra.plan_entra(),
-                )
+                with (
+                    terminal_output("Identity configuration and any required approval"),
+                    redirect_stdout(sys.stderr),
+                ):
+                    entra_bindings = supervisor._configure_entra(
+                        prepared=prepared,
+                        status=status,
+                        actor_digest=actor_digest,
+                        plan=entra.plan_entra(),
+                    )
                 entra_bindings["CURRENT_OPERATOR_OBJECT_ID"] = _current_operator_object_id()
             finally:
                 sys.path.remove(str(scripts))
@@ -176,14 +229,16 @@ def deploy_azure_foundation(
                 timeout_seconds=remaining,
             )
             return {
-                "schema_version": "fdai.standalone-azure-deployment.v1",
-                "state": "application-converged",
+                "schema_version": "fdai.standalone-azure-deployment.v2",
+                "state": "deployment-ready",
                 "source_commit": kit.source_commit,
                 "kit_manifest_digest": kit.verification.manifest_digest,
                 "runtime_release_digest": kit.runtime.digest,
                 "foundation_state_receipt_digest": foundation["foundation_state_receipt_digest"],
                 "application_receipt_digest": application["receipt_digest"],
                 "application_converged": True,
+                "deployment_ready": True,
+                "license_mode": application["license_mode"],
                 "mutation_performed": True,
                 "subscription_ready": False,
             }
@@ -191,26 +246,27 @@ def deploy_azure_foundation(
             raise ValueError("standalone Foundation orchestration failed")
         approval.unlink(missing_ok=True)
         try:
-            prompt = subprocess.run(
-                (
-                    sys.executable,
-                    str(scripts / "genesis_approval_prompt.py"),
-                    "--status",
-                    str(status_path),
-                    "--output",
-                    str(approval),
-                ),
-                cwd=kit.bundle_root,
-                env={
-                    **os.environ,
-                    "PYTHONPATH": os.pathsep.join(
-                        (str(scripts), str(Path(__file__).parent.parent))
+            with terminal_output("Review the exact Foundation plan", approval=True):
+                prompt = subprocess.run(
+                    (
+                        sys.executable,
+                        str(scripts / "genesis_approval_prompt.py"),
+                        "--status",
+                        str(status_path),
+                        "--output",
+                        str(approval),
                     ),
-                    "FDAI_SIGNED_SOURCE_EVIDENCE": source_evidence,
-                },
-                check=False,
-                timeout=600,
-            )
+                    cwd=kit.bundle_root,
+                    env=_standalone_subprocess_environment(
+                        PYTHONPATH=os.pathsep.join(
+                            (str(scripts), str(Path(__file__).parent.parent))
+                        ),
+                        FDAI_SIGNED_SOURCE_EVIDENCE=source_evidence,
+                    ),
+                    stdout=sys.stderr,
+                    check=False,
+                    timeout=600,
+                )
         except subprocess.TimeoutExpired as exc:
             raise TimeoutError("standalone Foundation approval prompt timed out") from exc
         if prompt.returncode != 0:
@@ -251,6 +307,18 @@ def active_azure_target() -> ActiveAzureTarget:
     ):
         raise ValueError("standalone deployment requires an authenticated Azure human")
     return ActiveAzureTarget(subscription_id=subscription, tenant_id=tenant)
+
+
+def _standalone_subprocess_environment(
+    source: Mapping[str, str] | None = None,
+    **overrides: str,
+) -> dict[str, str]:
+    """Return the minimal non-secret environment used by standalone child processes."""
+
+    inherited = os.environ if source is None else source
+    result = {key: inherited[key] for key in _SAFE_ENVIRONMENT_KEYS if key in inherited}
+    result.update(overrides)
+    return result
 
 
 def _current_operator_object_id() -> str:
@@ -302,7 +370,7 @@ def _foundation_result(
 def _private_json(path: Path) -> dict[str, Any]:
     value = json.loads(read_private_bytes(path, max_bytes=1_048_576))
     if not isinstance(value, dict):
-        raise ValueError("standalone deployment status is invalid")
+        raise ValueError("standalone deployment status is invalid")  # noqa: TRY004 - JSON contract.
     return {str(key): item for key, item in value.items()}
 
 

@@ -842,9 +842,9 @@ def test_cli_version_and_private_profile(
                 "--host",
                 "managed-vm",
                 "--transport",
-                "github-actions",
+                "manual",
                 "--access-method",
-                "github_actions",
+                "bastion",
                 "--output",
                 "json",
             ]
@@ -876,9 +876,9 @@ def test_profile_init_requires_digest_bound_target(
             "--host",
             "managed-vm",
             "--transport",
-            "github-actions",
+            "manual",
             "--access-method",
-            "github_actions",
+            "bastion",
         ]
     )
 
@@ -910,9 +910,9 @@ def test_local_inspection_cannot_claim_execution_host_readiness(
                 "--host",
                 "managed-vm",
                 "--transport",
-                "github-actions",
+                "manual",
                 "--access-method",
-                "github_actions",
+                "bastion",
                 "--output",
                 "json",
             ]
@@ -1160,8 +1160,8 @@ def test_complete_plan_handler_reaches_verification_under_msi(
         target_binding="a" * 64,
         connectivity="online",
         host="managed-vm",
-        transport="github-actions",
-        access_method="github_actions",
+        transport="manual",
+        access_method="bastion",
         shadow_only=True,
         approval_quorum=1,
         monthly_cost_ceiling=500,

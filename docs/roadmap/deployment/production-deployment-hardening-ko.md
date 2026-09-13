@@ -1,8 +1,8 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: e5f5f323ef8b64b9e56043f7b7c77d4efbe565d3
-translation_revised: 2026-09-12
+translation_source_sha: c1753a911d46f45db20091324594272a2eba91d8
+translation_revised: 2026-09-13
 ---
 # 운영 배포 강화
 
@@ -12,6 +12,10 @@ translation_revised: 2026-09-12
 
 > **범위:** 이 값은 범용 환경 매개변수입니다. 배포는 테넌트 데이터를 커밋하지 않고 보호된
 > 구성을 통해 자체 대상과 값을 제공합니다.
+>
+> **실행 전송 계층:** 운영 대상 환경 계획과 적용은 `fdaictl provision azure`와 수동 Managed
+> Host를 사용합니다. GitHub Actions는 소스를 검증하고 release를 게시할 수 있지만 운영 배포
+> 실행기로 사용하지 않습니다.
 
 ## 구현 상태
 
@@ -20,6 +24,7 @@ translation_revised: 2026-09-12
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 운영 계획 gate 및 환경 knob | implemented | `infra/production-gates.tf`, `infra/envs/{staging,prod}.tfvars.example`, Terraform 구성 테스트 | 서명된 이미지, 비공개 네트워크, 내구성, 모니터링 또는 비용 입력이 없으면 운영 계획을 차단합니다. 표준 프로파일은 전역 이름을 사용하는 리소스를 영구 삭제하고 관리 잠금을 비활성화합니다. |
+| 수동 운영 실행 경계 | implemented | 배포 CLI manual 프로필, standalone Managed Host 모듈, 집중 패키지 테스트 | 공개 workflow dispatch를 제거했습니다. 실제 운영 근거는 남아 있습니다. |
 | 자격 증명 없는 인프라 및 drift gate | implemented | `.github/workflows/ci.yml`, `.github/workflows/infra-drift.yml`, 안정적인 배포 신원 도우미, 실행기 상태 스크립트, CI 계약 테스트 | 필수 CI는 자격 증명 없이 모든 Terraform 루트를 검증합니다. 보호된 workflow는 bootstrap이 소유한 UAMI 하나를 선택하고 token `oid`를 검증합니다. 구독 역할 위임은 서비스 주체용 읽기 역할 3개로 제한됩니다. Drift 검사는 모든 상태 root를 다루며 상태 누락, 예상하지 않은 실행기 저장소 또는 로컬이 아닌 배치를 거부합니다. |
 | 기준선 없는 Terraform 보안 검사 | implemented | `.github/workflows/ci.yml`, 인라인 Checkov 및 Trivy 예외, 집중 인프라 테스트 | 경로 범위가 지정된 `terraform-validate` 작업은 Terraform 검증 후 고정 버전 Checkov 및 Trivy를 실행하고 하나의 필수 CI 결과로 집계합니다. 의도적 예외는 하나의 리소스에 연결되고 보완 제어 또는 관리형 서비스 제약을 인용합니다. 새로 발견된 문제는 소스에서 수정하거나 범위가 좁고 검토된 예외를 기록할 때까지 CI를 차단합니다. |
 | 범위가 제한된 split-service 선행 조건 bootstrap | implemented | `deploy-dev.yml`, `enforce_plan_scope.py`, deployment CLI 및 workflow 계약 테스트 | 요청에 결속된 `plan-rca-*` 또는 `apply-rca-*` 모드는 split Core 서비스가 platform 출력을 사용하기 전에 전용 Activity Log RCA reader identity와 Monitoring Reader 역할만 생성할 수 있습니다. |
@@ -33,6 +38,7 @@ translation_revised: 2026-09-12
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | implemented | 운영 대상 환경 실행을 standalone 수동 Managed Host로 제한하고 배포 CLI에서 공개 workflow dispatch를 제거했습니다. | `current change`, 배포 CLI 계약 및 집중 패키지 테스트 | 검증 상태를 높이기 전에 수동 호스트의 운영 계획 및 적용 증적을 보존합니다. |
 | 2026-09-12 | implemented | Platform workflow가 독립 Core 소유 경계를 넘어 후속 검사를 실행하고 재현 가능한 Job readback을 남기지 않던 Cost 전용 적용 계약을 수정했습니다. Cost plan은 이제 대상이 제한된 zero-change와 두 Job image 관찰만 봉인합니다. Apply 증적은 canonical 정제 readback을 요구하고 해당 바이트 다이제스트를 결속합니다. | 실패한 apply `34694583859`, `current change`, `deploy-dev.yml`, Cost readback, plan, 증적, CLI 상태, 수렴 및 workflow 테스트 | 성공한 정확한 platform apply 증적을 보존한 뒤 독립 Core plan을 적용하고 수명 주기 설치 전에 세 런타임이 하나의 다이제스트를 사용하는지 검증합니다. |
 | 2026-09-12 | implemented | Cost Governance 적용 후 검증을 동일한 범위 제한 패키지 표면으로 한정했습니다. 적용 수렴 단계는 정확한 reader, collector 및 analyzer 대상을 다시 계획하고 두 Job 이미지를 독립적으로 검증합니다. 공용 상태 검증은 Core 리비전과 canary 검사를 유지하되 관련 없는 기존 inventory Job은 시작하지 않습니다. | 실패한 적용 `34691578702` 및 `34692383517`, PR #848, PR #849, `current change`, 집중 수렴 및 workflow 계약 테스트 | 성공한 정확 적용 증적을 보존한 뒤 독립 Core 계획을 적용하고 수명 주기 설치 전에 세 런타임이 한 다이제스트를 사용하는지 검증합니다. |
 | 2026-09-12 | implemented | 공유 compute module의 module-level dependency graph가 관련 없는 scheduler, VNet 및 PostgreSQL 변경을 포함한 뒤 두 Cost Governance Job을 해당 module 밖으로 이동했습니다. Root 소유 Job은 이전 state 주소를 보존하고 기존 environment 및 inventory identity 입력만 해석합니다. | `current change`, `infra/cost_governance_jobs.tf`, 집중 Terraform, Job, workflow 및 범위 검사, 실패한 보호 계획 `34687002689`는 아티팩트 보존 또는 apply 전에 중단됨 | Reader 역할 배정과 두 패키지 Job만 포함하는 삭제 없는 Cost Governance 계획을 보존한 뒤 정확한 해당 아티팩트를 적용합니다. |

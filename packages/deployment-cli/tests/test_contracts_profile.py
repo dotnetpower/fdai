@@ -23,8 +23,8 @@ def _profile() -> ProvisionProfile:
         target_binding="a" * 64,
         connectivity="online",
         host="managed-vm",
-        transport="github-actions",
-        access_method="github_actions",
+        transport="manual",
+        access_method="bastion",
         shadow_only=True,
         approval_quorum=1,
         monthly_cost_ceiling=500,
@@ -112,15 +112,20 @@ def test_profile_publish_never_replaces_concurrent_destination(tmp_path: Path) -
     assert temporary.read_text(encoding="utf-8") == "new"
 
 
-def test_profile_rejects_non_shadow_and_transport_mismatch() -> None:
+def test_profile_rejects_non_shadow_and_github_transport() -> None:
     values = _profile().to_mapping()
     values["shadow_only"] = False
     with pytest.raises(ValueError, match="shadow-only"):
         ProvisionProfile.from_mapping(values)
 
     values = _profile().to_mapping()
-    values["access_method"] = "internal_ssh"
-    with pytest.raises(ValueError, match="requires github_actions"):
+    values["transport"] = "github-actions"
+    with pytest.raises(ValueError, match="transport is unsupported"):
+        ProvisionProfile.from_mapping(values)
+
+    values = _profile().to_mapping()
+    values["access_method"] = "github_actions"
+    with pytest.raises(ValueError, match="access_method is unsupported"):
         ProvisionProfile.from_mapping(values)
 
 
