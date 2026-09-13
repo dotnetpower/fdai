@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: ed17100cfa19382395447d5d7b78d59d8720d703
+translation_source_sha: 63596bf63bfaafb9cf1e8f642cea5d41fba11bb0
 translation_revised: 2026-09-13
 ---
 # 기록된 리소스 상태
@@ -173,8 +173,9 @@ ResourceType을 선언합니다.
   `resource_health_not_modeled` 같은 허용 목록 기반 리소스별 사유를 정확히 하나 기록합니다. 공급자 응답
   원문은 조회 경계를 통과하지 않습니다. 이전에 검증된 값이 있으면 그 값이 더 새로운 실패
   조회보다 우선하며, 원본 수준의 일부 범위가 해당 실패를 별도로 기록합니다.
-- 정확한 조회는 대상 200개와 동시성 8로 제한합니다. 이전의 설명 가능한 사실은 세대가 일치하는
-  batch로 읽고, 대상 상한이나 공급자를 사용할 수 없을 때 유지합니다.
+- 정확한 조회는 안정적인 리소스 신원 순서에서 처음 200개 대상과 동시성 8로 제한합니다. 나머지
+  대상은 이전의 설명 가능한 사실을 유지하거나 `resource_health_target_limit`를 기록합니다.
+  원본 범위는 전체 세대를 포기하는 대신 상한으로 제외된 수를 기록합니다.
 - 하나의 공통 서비스 계약인 `fdai_service_contracts.recorded_resource_state`가 Core 온톨로지
   변환과 Operator 조회에 사용할 검토된 ResourceType별 경로 허용 목록을 정의합니다. 각 변환은
   루트와 지원되는 중첩 속성 소유자에 이 허용 목록을 적용한 후 저장 값을 확인하며, 기존 최상위

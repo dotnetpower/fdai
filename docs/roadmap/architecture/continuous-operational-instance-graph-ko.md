@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 9de3b912203cfd81cc53ef87ebb2b8ff4d2c57b8
+translation_source_sha: aba175abcbe710908dd00311044a2885962b5b4e
 translation_revised: 2026-09-13
 ---
 # 지속형 운영 인스턴스 그래프
@@ -78,6 +78,9 @@ translation_revised: 2026-09-13
 Activity Log 복구 레코드는 일부 속성만 담은 관측입니다. 선언한 속성 마스크만 현재 스냅샷에
 병합하고 관계 변경은 전달하지 않습니다. 완전한 reconciliation만 전체 속성 집합을 교체하거나
 관계 완전성을 확정할 수 있습니다.
+Activity Log의 컨트롤 플레인 결과는 `operationStatus`와 정규화된 `operation_status` 근거로
+유지합니다. 예약된 리소스 `status` 속성에는 기록하지 않으므로 운영 상태 사실을 대체할 수
+없습니다.
 보강된 Resource Changes는 불완전한 관계 집합을 내보내기 전에 전체 스캔과 같은 검토된 공급자
 부모 매핑을 사용합니다. 중첩 Subnet 레코드는 관측된 VNet을 `parent_id`로 유지하며, 정확한 자식이
 reconciliation 사이에 Resource Group 부모로 되돌아가지 않습니다.

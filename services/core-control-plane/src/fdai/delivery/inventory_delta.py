@@ -31,7 +31,7 @@ async def forward_inventory_delta(
     event_bus: EventBus,
     topic: str,
     scope: str,
-    properties_complete: bool = True,
+    properties_complete: bool,
     deadline_seconds: float = DEFAULT_DELTA_DEADLINE_SECONDS,
 ) -> int:
     """Publish one delta stream and advance its cursor only at the final fence.
@@ -117,7 +117,7 @@ def _resource_event(
     scope: str,
     resource: ResourceRecord,
     links: Sequence[LinkRecord],
-    properties_complete: bool = True,
+    properties_complete: bool,
 ) -> Event:
     resource_id = resource.resource_id
     resource_type = resource.type
@@ -142,9 +142,16 @@ def _resource_event(
         }
         for link in sorted(links, key=lambda item: (item.from_id, item.link_type, item.to_id))
     ]
+    observation_kind = "full" if properties_complete else "partial"
     try:
         identity_document = json.dumps(
-            {"scope": scope, "resource": resource_payload, "links": link_payloads},
+            {
+                "scope": scope,
+                "resource": resource_payload,
+                "links": link_payloads,
+                "observation_kind": observation_kind,
+                "properties_complete": properties_complete,
+            },
             sort_keys=True,
             separators=(",", ":"),
             ensure_ascii=False,
@@ -167,10 +174,12 @@ def _resource_event(
             "resource": resource_payload,
             "inventory_change": {
                 "kind": "upsert",
-                "observation_kind": "full" if properties_complete else "partial",
+                "observation_kind": observation_kind,
                 "properties_complete": properties_complete,
                 "property_mask": sorted(resource.props),
                 "scope_ref": scope,
+                "operation": _optional_resource_text(resource, "operation"),
+                "operation_status": _optional_resource_text(resource, "operationStatus"),
                 "resource": resource_payload,
                 "links_complete": False,
                 "links": link_payloads,
@@ -181,6 +190,15 @@ def _resource_event(
         incident_correlation=IncidentCorrelation.NONE,
         mode=Mode.SHADOW,
     )
+
+
+def _optional_resource_text(resource: ResourceRecord, key: str) -> str | None:
+    value = resource.props.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"inventory delta resource.props.{key} MUST be non-empty text or null")
+    return value
 
 
 def _links_by_owner(
