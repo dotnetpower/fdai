@@ -326,17 +326,16 @@ class AzureActivityLogFactory:
         arm_type = _nested_value(event, "resourceType") or _arm_type_from_id(arm_id)
         if not arm_type:
             return None
+        neutral_type = self._arm_to_neutral.get(arm_type.lower())
+        if neutral_type is None:
+            # Rows outside the reviewed vocabulary never enter the ontology.
+            return None
         try:
             arm_type = arm_provider_type(arm_id, arm_type)
         except ArmIdentityError as exc:
             raise ActivityLogError(
                 "Activity Log resource type conflicts with its provider id"
             ) from exc
-        neutral_type = self._arm_to_neutral.get(arm_type.lower())
-        if neutral_type is None:
-            # Not a vocabulary type the full-scan tracks - drop it rather
-            # than emit an unknown type into the ontology.
-            return None
 
         at = _parse_ts(event.get("eventTimestamp"))
         if at is None:

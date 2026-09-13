@@ -89,6 +89,9 @@ bounded collection and retains the previous complete generation.
 For an extension-resource identity containing multiple `/providers/` segments, the final provider
 namespace and its following type/name pairs define the observed Resource type; ancestor provider
 segments remain scope and containment context.
+Change-stream rows outside the reviewed ResourceType vocabulary are discarded before provider-ID
+validation because they cannot enter the ontology. A mapped provider type, including a built-in
+subscription or Resource Group type, must still match the exact ARM ID shape.
 Disabled resource-change and recovery accelerators do not require collection-policy entries and
 contribute neither cursor prefixes nor stale-cursor deadlines to reconciliation.
 

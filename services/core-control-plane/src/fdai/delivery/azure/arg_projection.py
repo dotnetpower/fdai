@@ -399,6 +399,17 @@ def build_arm_to_neutral_map(registry: ResourceTypeRegistry) -> dict[str, str]:
 
 def arm_id_to_type(arm_id: str) -> str | None:
     """Extract the ``Microsoft.X/Y[/Z]`` type suffix from an ARM id."""
+    parts = arm_id.strip("/").split("/")
+    if any(not part for part in parts):
+        return None
+    if len(parts) == 2 and parts[0].casefold() == "subscriptions":
+        return "Microsoft.Resources/subscriptions"
+    if (
+        len(parts) == 4
+        and parts[0].casefold() == "subscriptions"
+        and parts[2].casefold() == "resourcegroups"
+    ):
+        return "Microsoft.Resources/resourceGroups"
     marker = "/providers/"
     idx = arm_id.lower().rfind(marker)
     if idx == -1:
