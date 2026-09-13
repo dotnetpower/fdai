@@ -475,6 +475,9 @@ promotion. The active snapshot generation is captured before enrichment and comp
 the promotion lock. A concurrent promotion blocks the stale candidate rather than mixing current
 identity with older state. State transitions can advance from a complete Resource observation even
 when an unrelated relationship remains incomplete.
+An enrichment that observes no availability fact may add only the reviewed
+`availabilityState` unavailable-reason token. This preserves complete object inventory without
+inventing provider state or allowing arbitrary enrichment properties.
 If history or ontology projection fails after promotion, the normalized journal retains the active
 generation. The next inventory attempt replays it under the coordinator lock before starting a new
 scan.

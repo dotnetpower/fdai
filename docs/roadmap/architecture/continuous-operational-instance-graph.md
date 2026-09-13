@@ -86,6 +86,9 @@ Every reachable managed-service connection therefore needs its target type in th
 Each Azure row's supplied provider type and scope must agree case-insensitively with its exact ARM
 identity before the row enters either a full snapshot or a change stream. A contradiction fails the
 bounded collection and retains the previous complete generation.
+For an extension-resource identity containing multiple `/providers/` segments, the final provider
+namespace and its following type/name pairs define the observed Resource type; ancestor provider
+segments remain scope and containment context.
 Disabled resource-change and recovery accelerators do not require collection-policy entries and
 contribute neither cursor prefixes nor stale-cursor deadlines to reconciliation.
 

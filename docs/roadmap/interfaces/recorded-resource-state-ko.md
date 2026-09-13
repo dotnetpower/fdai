@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 81b3a0ba94b0a0c3a16a725330454d7cc79a9a52
+translation_source_sha: a2ae2975b73c02b002b656d77f89a96a22366179
 translation_revised: 2026-09-13
 ---
 # 기록된 리소스 상태
@@ -176,6 +176,8 @@ ResourceType을 선언합니다.
   `resource_health_not_modeled` 같은 허용 목록 기반 리소스별 사유를 정확히 하나 기록합니다. 공급자 응답
   원문은 조회 경계를 통과하지 않습니다. 이전에 검증된 값이 있으면 그 값이 더 새로운 실패
   조회보다 우선하며, 원본 수준의 일부 범위가 해당 실패를 별도로 기록합니다.
+- 사용할 수 없음 사유만 추가하는 보강은 정확한 `availabilityState` 축과 허용 목록 사유를
+  지정할 때만 승격할 수 있습니다. 실제 상태 사실이 있을 때만 공급자 메타데이터를 요구합니다.
 - 정확한 조회는 안정적인 리소스 신원 순서에서 처음 200개 대상과 동시성 8로 제한합니다. 나머지
   대상은 이전의 설명 가능한 사실을 유지하거나 `resource_health_target_limit`를 기록합니다.
   원본 범위는 전체 세대를 포기하는 대신 상한으로 제외된 수를 기록합니다.
