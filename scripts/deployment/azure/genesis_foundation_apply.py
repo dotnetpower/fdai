@@ -787,12 +787,30 @@ def _print(result: Mapping[str, object], output: str) -> None:
         )
 
 
+def _execute_and_cleanup(args: argparse.Namespace) -> Mapping[str, object]:
+    """Clean transient input before success; never replace an original failure with a path."""
+    failed = True
+    try:
+        result = _execute(args)
+        failed = False
+        return result
+    finally:
+        try:
+            transient_input = _absolute(args.plan_directory) / ".foundation-apply-input.json"
+            transient_input.unlink(missing_ok=True)
+        except OSError:
+            reason = "Foundation input cleanup failed; preserve private evidence"
+            if not failed:
+                raise ValueError(reason) from None
+            print(f"genesis-foundation-apply: {reason}", file=sys.stderr)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run exact Foundation apply or verification resume with stable failures."""
 
     args = _parser().parse_args(argv)
     try:
-        result = _execute(args)
+        result = _execute_and_cleanup(args)
         _print(result, args.output)
         return 0
     except (
@@ -810,8 +828,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             reason = str(exc)
         print(f"genesis-foundation-apply: {reason}", file=sys.stderr)
         return exc.exit_code if isinstance(exc, CheckError) else 3
-    finally:
-        (_absolute(args.plan_directory) / ".foundation-apply-input.json").unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

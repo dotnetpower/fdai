@@ -125,6 +125,7 @@ An unconfirmed hypothesis is not a defect; a passing local test is not release o
 | H15 | Source changes during assembly can retain an earlier revision label | Medium: lock-only checks missed changed service bytes. A private detached source checkout and raw-byte/mode/metadata pin now cover image, Console, support, and signing boundaries. | Source-drift, support-wheel, release-guard, and deadline suites: 55 passed | Low: source identity does not substitute for required CI or artifact acceptance. |
 | H16 | Relative signing keys break after source isolation | Medium: reproduced the relative-path regression introduced by H15. Caller-relative paths now become absolute before directory changes, without copying keys. | Release guard suite: 9 passed | Low: signer ownership and trust-root checks remain separate. |
 | H17 | CLI wheel staging inherits unrelated virtual environment | Medium: actual uv boundary received the caller's environment. Every CLI build command now uses a private staging environment and clears active-venv selection. | Environment and productization suites: 8 passed | Low: dependency locks and wheel hashes remain mandatory. |
+| H18 | Foundation final cleanup escapes the safe error boundary | Medium: reproduced uncaught private paths and premature success. Cleanup is now value-safe, precedes success, and preserves the original failure. | Redaction, Foundation apply, and VM integration: 36 passed | Low: failed cleanup requires private evidence review, not retry authority. |
 
 ## Critique resolution register
 

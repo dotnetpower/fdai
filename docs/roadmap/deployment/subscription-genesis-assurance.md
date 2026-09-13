@@ -105,7 +105,7 @@ Every bounded child command runs in a separate process group. A presentation-onl
 stderr every 10 seconds while the command is still running, and timeout cleanup terminates the
 complete group before the router records failure. Captured stdout and diagnostics aren't rewritten
 or copied into portable status. The local sequence stops after verified Foundation state handoff;
-protected application planning and complete readiness remain separate evidence gates. Direct Foundation command failures never format private argv or filesystem paths.
+protected application planning and complete readiness remain separate evidence gates. Direct Foundation command and cleanup failures never format private argv or filesystem paths; cleanup precedes success and preserves an original failure.
 
 Only independent siblings with separate outputs may run concurrently; workers never write portable
 status. The parent joins and deterministically orders results for one transition, waiting for or

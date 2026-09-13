@@ -41,3 +41,25 @@ def test_direct_entrypoint_does_not_format_raw_external_exceptions(
     monkeypatch.setattr(apply, "_execute", failed)
     assert apply.main(_args(tmp_path, "--approve")) == 3
     assert "private-" not in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("failed_execution", [False, True])
+def test_input_cleanup_failure_is_redacted_before_any_success(
+    tmp_path, monkeypatch, capsys, failed_execution
+):
+    def execute(_args):
+        if failed_execution:
+            raise ValueError("original fixed failure")
+        return {"state": "verified"}
+
+    def unlink(*_args, **_kwargs):
+        raise NotADirectoryError("private-cleanup-marker")
+
+    monkeypatch.setattr(apply, "_execute", execute)
+    monkeypatch.setattr(Path, "unlink", unlink)
+    assert apply.main(_args(tmp_path, "--approve")) == 3
+    output = capsys.readouterr()
+    assert "private-" not in output.err
+    assert "cleanup" in output.err
+    assert ("original fixed failure" in output.err) is failed_execution
+    assert not output.out
