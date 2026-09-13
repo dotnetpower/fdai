@@ -1,0 +1,41 @@
+:root { --dock-bottom: 24px; --dock-toolbar-height: 38px; }
+.controls-dock {
+  position: absolute; left: 32px; right: 32px; bottom: var(--dock-bottom);
+  z-index: 4; isolation: isolate;
+}
+.controls-dock .view-toolbar {
+  position: relative; inset: auto; margin: 0; z-index: 1;
+  background: #070d13ed; border-radius: 4px;
+}
+.playback-reveal {
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows .22s ease;
+}
+.playback-clip { min-height: 0; overflow: hidden; }
+.controls-dock .playback {
+  position: relative; inset: auto; margin: 0 0 10px; opacity: 0;
+}
+.controls-dock:hover .playback-reveal,
+.controls-dock:has(:focus-visible) .playback-reveal { grid-template-rows: 1fr; }
+.controls-dock:hover .playback,
+.controls-dock:has(:focus-visible) .playback { opacity: 1; }
+.cinema .controls-dock { left: 15%; right: 15%; bottom: 72px; }
+.cinema .playback-reveal { grid-template-rows: 1fr; }
+.cinema .controls-dock .playback { margin-bottom: 0; }
+@media (min-width: 761px) {
+  #app:not(.cinema) .visual-field {
+    bottom: calc(var(--dock-bottom) + var(--dock-toolbar-height) + 16px);
+  }
+  #app:not(.cinema):has(.controls-dock:hover, .controls-dock :focus-visible) .field-caption { opacity: 0; }
+}
+@media (max-width: 760px) {
+  .controls-dock { position: relative; inset: auto; order: 2; margin: 18px 12px; }
+  .controls-dock .view-toolbar { padding-top: 10px; }
+  .playback-reveal { grid-template-rows: 1fr; }
+  .controls-dock .playback { opacity: 1; margin-bottom: 8px; }
+  .cinema .controls-dock { position: absolute; left: 12px; right: 12px; bottom: 78px; margin: 0; }
+}
+@media (hover: none), (pointer: coarse) {
+  .playback-reveal { grid-template-rows: 1fr; }
+  .controls-dock .playback { opacity: 1; }
+}

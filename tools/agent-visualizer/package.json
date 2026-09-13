@@ -1,0 +1,33 @@
+{
+  "name": "@fdai/agent-visualizer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "An isolated, demo-only cinematic view of FDAI agent activity.",
+  "scripts": {
+    "graph": "python3 scripts/export_graph.py",
+    "snapshot:db": "uv run python scripts/export_database_map.py",
+    "predev": "npm run graph",
+    "prebuild": "npm run graph",
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 5573 --strictPort",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "three": "0.182.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2",
+    "@types/node": "^22.10.0",
+    "@types/three": "0.182.0",
+    "typescript": "~5.9.3",
+    "vite": "^6.3.5",
+    "tsx": "^4.20.5"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
