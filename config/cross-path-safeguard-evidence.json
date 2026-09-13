@@ -223,6 +223,7 @@
     "pinned_revision_not_selected",
     "protected_deployment_not_performed",
     "independent_observation_not_wired_into_the_dispatch_lifecycle",
+    "a3e_effect_evidence_bridge_not_defined",
     "pr_manual_has_no_reachable_runtime_trigger",
     "tool_call_enforce_binding_has_no_terraform_variable",
     "independent_review_not_performed"

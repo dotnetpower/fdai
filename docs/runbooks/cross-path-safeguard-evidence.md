@@ -114,6 +114,11 @@ The contract lists these as residuals, and they stay listed until each one is ge
 - no protected deployment has been performed;
 - independent observation is not yet wired into the dispatch lifecycle, so a campaign cannot yet
   emit observation receipts automatically;
+- no bridge maps an observation outcome onto the A3-E `EffectEvidenceDisposition` used for
+  authority reduction. The two vocabularies are deliberately unconnected today. Whoever builds
+  that bridge must map every unknown outcome - `missing`, `stale`, `conflicting`, `censored`,
+  and `unavailable` - onto a disposition that reduces authority, because mapping one of them
+  onto `pending` would silently turn a hold into a capability that keeps its autonomy;
 - `pr_manual` has no reachable runtime trigger;
 - the `tool_call` enforce binding has no Terraform variable;
 - no independent review has been performed.

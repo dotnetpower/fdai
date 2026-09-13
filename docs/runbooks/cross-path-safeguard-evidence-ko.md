@@ -1,7 +1,7 @@
 ---
 title: 경로 교차 안전장치 근거 Runbook
 translation_of: cross-path-safeguard-evidence.md
-translation_source_sha: 5d6427c5fb706d48fbe7f9d953019e3a69c554cb
+translation_source_sha: adf0884e18fe410eba9191d47ec49a1796b5a284
 translation_revised: 2026-09-13
 ---
 # 경로 교차 안전장치 근거 Runbook
@@ -113,6 +113,10 @@ uv run python scripts/quality/repository/validate-cross-path-safeguard-evidence.
 - 고정 리비전이 아직 선택되지 않았습니다.
 - 보호된 배포가 아직 수행되지 않았습니다.
 - 독립 관측이 아직 디스패치 수명주기에 연결되지 않아, 캠페인이 관측 영수증을 자동으로 낼 수 없습니다.
+- 관측 결과를 권한 축소에 쓰이는 A3-E `EffectEvidenceDisposition`으로 옮기는 다리가 없습니다. 두
+  어휘는 현재 의도적으로 연결되어 있지 않습니다. 이 다리를 만드는 사람은 `missing`, `stale`,
+  `conflicting`, `censored`, `unavailable` 같은 모든 미상 결과를 권한을 낮추는 처분으로 옮겨야
+  합니다. 그중 하나라도 `pending`으로 옮기면 보류가 자율성을 유지한 능력으로 조용히 바뀝니다.
 - `pr_manual`에는 도달 가능한 런타임 트리거가 없습니다.
 - `tool_call` 강제 적용 바인딩에 Terraform 변수가 없습니다.
 - 독립 검토가 아직 수행되지 않았습니다.
