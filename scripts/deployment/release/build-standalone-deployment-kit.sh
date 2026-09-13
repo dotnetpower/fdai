@@ -107,15 +107,31 @@ for environment, public_name in (
 PY
 
 source_commit="$(git -C "$repo_root" rev-parse HEAD)"
-source_epoch="$(git -C "$repo_root" show -s --format=%ct HEAD)"
+source_epoch="$(git -C "$repo_root" show -s --format=%ct "$source_commit")"
+"$python" "$repo_root/scripts/deployment/release/workdir-guard.py" create \
+  --path "$out" --sentinel .fdai-standalone-release --value fdai-standalone-release-v1
+bounded_stage source-checkout 300 120 git -C "$repo_root" worktree add --detach \
+  "$out/source" "$source_commit"
+repo_root="$out/source"
+cd "$repo_root"
+UV_PROJECT_ENVIRONMENT="$repo_root/.venv" \
+  bounded_stage source-environment 900 300 uv sync --offline --frozen --extra dev --python "$python"
+python="$repo_root/.venv/bin/python"
+release_runner="$repo_root/scripts/automation/run-bounded-command.py"
+source_guard="$repo_root/scripts/deployment/release/release_source.py"
+source_fingerprint="$(bounded_stage source-pin 300 300 "$python" "$source_guard" \
+  --repo-root "$repo_root" --source-commit "$source_commit")"
+source_boundary() {
+  bounded_stage "$1" 300 300 "$python" "$source_guard" \
+    --repo-root "$repo_root" --source-commit "$source_commit" \
+    --source-fingerprint "$source_fingerprint" >/dev/null
+}
 cli_version="$(PYTHONPATH="$repo_root/packages/deployment-cli/src" "$python" -c \
   'from fdai_deployment_cli.__about__ import __version__; print(__version__)')"
 [[ "$source_epoch" =~ ^[0-9]+$ && "$cli_version" =~ ^[0-9]+[.][0-9]+[.][0-9]+$ ]] || {
   echo "build-standalone-kit: release version or source epoch is invalid" >&2
   exit 3
 }
-"$python" "$repo_root/scripts/deployment/release/workdir-guard.py" create \
-  --path "$out" --sentinel .fdai-standalone-release --value fdai-standalone-release-v1
 release_input="$out/release-input"
 stage="$out/stage"
 archive="$out/fdai-deployment-kit-${cli_version}-linux-x86_64.tar.gz"
@@ -145,6 +161,7 @@ for service in "${services[@]}"; do
     --label "org.opencontainers.image.revision=$source_commit" \
     --output "type=oci,dest=$release_input/images/$service.oci.tar" \
     "$repo_root"
+  source_boundary "source-after-$service"
 done
 
 cat >"$release_input/metadata/clamav.Dockerfile" <<'EOF'
@@ -166,6 +183,7 @@ bounded_stage console-build 900 300 npm --prefix "$repo_root/console" run build:
 bounded_stage console-archive 120 120 tar --sort=name --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner \
   --transform='s,^offline,dist,' \
   -czf "$release_input/console.tar.gz" -C "$repo_root/console/dist" offline
+source_boundary source-after-console
 printf '{"schema_version":"fdai.deployment-support.v1","source_commit":"%s"}\n' \
   "$source_commit" >"$release_input/metadata/deployment-support.json"
 bounded_stage support-archive 120 120 tar --sort=name --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner \
@@ -330,6 +348,7 @@ PY
 
 SOURCE_DATE_EPOCH="$source_epoch" bounded_stage kit-staging 7200 900 \
   bash "$repo_root/scripts/deployment/release/stage-offline-kit.sh" \
+  --source-commit "$source_commit" --source-fingerprint "$source_fingerprint" \
   --out "$stage" \
   --release-key "$release_key" \
   --bundle-key "$bundle_key" \
@@ -337,6 +356,7 @@ SOURCE_DATE_EPOCH="$source_epoch" bounded_stage kit-staging 7200 900 \
   --runtime-descriptor "$release_input/runtime-release-build.json" \
   --runtime-source-root "$release_input"
 
+source_boundary source-before-archive
 bounded_stage kit-archive 1800 900 tar --sort=name --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner \
   -czf "$archive" -C "$stage" kit
 chmod 0600 "$archive"

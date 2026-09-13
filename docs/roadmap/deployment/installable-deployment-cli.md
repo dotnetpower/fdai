@@ -3,10 +3,8 @@ title: Installable Deployment CLI
 ---
 # Installable Deployment CLI
 
-This document defines the target installation and deployment experience for FDAI. Operators
-install an isolated Python command-line tool, run a read-only deployment preflight, and submit
-an approved Terraform plan to the deployment runner without moving secrets through the local
-machine.
+Operators install an isolated `fdaictl`, run read-only preflight, and submit an approved Terraform
+plan to the deployment runner. Deployment secrets remain on the approved execution host.
 
 > **Execution boundary:** Terraform remains the infrastructure execution engine and source of
 > truth. The planned `fdaictl` distribution is a thin orchestration layer over validation, plan
@@ -102,6 +100,7 @@ mode-0600 regular staging sentinel before cleanup. Restaging removes every gener
 single-file output while preserving the ownership sentinel. The complete standalone release wrapper instead requires a fresh output root, preserves prior archives, and reports success only after a valid archive checksum. Sentinel verification opens the final
 component in nonblocking mode before descriptor checks, so a special file cannot stall resume.
 Complete builds share a three-hour budget, with per-stage and no-progress deadlines; expiry terminates the child process group and blocks later signing or success.
+Complete builds materialize a private detached checkout of one pinned commit, without caller-local ignored inputs or signing keys. Raw tracked bytes, modes, and a stable metadata fingerprint are checked across assembly and immediately before signing; status flags or unchanged locks alone cannot certify source identity.
 Generated child files use a held-parent, exclusive, no-follow writer. A resumed replacement unlinks
 only the final entry and recreates it with `O_EXCL`, so links and FIFOs cannot redirect a write.
 Future protected executors may publish one verified OCI Image Layout archive or reconcile

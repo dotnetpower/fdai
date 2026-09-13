@@ -26,6 +26,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-13 | implemented | Isolated complete builds in a detached pinned-commit worktree and fenced source bytes, modes, and change metadata through support-wheel assembly and immediately before signing. | `current change`; actual Git source-mutation and shell-signing-boundary regressions. | Complete eligible-source build and independent artifact acceptance. |
 | 2026-09-13 | implemented | Bounded complete-kit Docker, Console, staging, archive, and checksum commands by per-stage/no-progress deadlines and a shared three-hour budget with process-group termination. | `current change`; real bounded-runner shell regressions. | Verify the bounded complete release from eligible exact source. |
 | 2026-09-13 | implemented | Selected the existing env-isolated offline Console build for complete kits and retained the installer archive layout without stale ordinary-build files. | `current change`; executable Console packaging guard and existing Vite/configuration tests. | Verify the produced Console artifact in the complete signed kit. |
 | 2026-09-13 | implemented | Prevented archive checksum command failures or malformed output from being reported as successful complete-kit builds. | `current change`; executable checksum-failure regressions. | Complete exact-source CI and artifact verification. |

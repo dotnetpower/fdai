@@ -158,7 +158,7 @@ def test_release_console_uses_generic_offline_build_and_keeps_archive_layout(tmp
         'echo "$VITE_OPERATOR_API_BASE_URL" >"$TEST_ROOT/console/dist/index.html"; fi\n',
     )
     segment = BUILDER.read_text().split('echo "-- build Console artifact"', 1)[1]
-    segment = segment.split("printf ", 1)[0]
+    segment = segment.split("source_boundary ", 1)[0]
     result = subprocess.run(  # noqa: S603 - actual Console stage with a recording npm boundary.
         ["/bin/bash", "-s"],
         input=(

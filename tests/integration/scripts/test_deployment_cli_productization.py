@@ -161,7 +161,9 @@ def test_runtime_release_is_staged_before_sbom_and_signing() -> None:
     assert runtime < stage.index('echo "-- kit SBOM"') < stage.index('echo "-- sign kit"')
     assert "scripts/deployment/release/stage-runtime-release.py" in stage
     assert '--deployment-bundle "$KIT/$BUNDLE_IN_KIT"' in stage
-    assert '--source-commit "$(git rev-parse HEAD)"' in stage
+    assert 'SOURCE_COMMIT="${SOURCE_COMMIT:-$(git rev-parse HEAD)}"' in stage
+    assert '--source-commit "$SOURCE_COMMIT"' in stage
+    assert '--source-fingerprint "$SOURCE_FINGERPRINT"' in stage
     bundle = stage.index('echo "-- signed deployment bundle"')
     build = stage.index('echo "-- runtime release bound to signed deployment bundle"')
     assert bundle < build < runtime
