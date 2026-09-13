@@ -26,6 +26,7 @@ and recoverable.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-13 | implemented | Made complete standalone release output write-once instead of deleting the previous signed archive before a rebuild. | `current change`; executable release-output regressions: 2 passed with the real directory ownership guard. | Complete remaining hardening and exact-source kit validation. |
 | 2026-09-13 | implemented | Preserved completed VM discovery snapshots and explicit unknown counters/digests when a later provider read fails. | `current change`; failure and VM integration suites: 23 passed; Ruff, format, and strict helper typing passed. | Complete remaining hardening and exact-source kit validation. |
 | 2026-09-13 | implemented | Converted unavailable Azure CLI context paths into value-safe pre-provider failures. | `current change`; `test_genesis_vm_environment.py`: 3 passed; Ruff and format passed. | Complete the remaining hardening and signed-kit validation. |
 | 2026-09-13 | implemented | Hardened VM policy file reads against linked, writable, special, oversized, and changing inputs using a held bounded descriptor. | `current change`; policy-reader and VM integration suites: 27 passed; Ruff and format passed. | Complete the remaining explicitly requested signed-kit hardening rounds and exact-source release validation. |
@@ -109,6 +110,7 @@ An unconfirmed hypothesis is not a defect; a passing local test is not release o
 | H01 | Policy check/open and unsafe file identity | Medium: hard-linked and externally writable policy files were accepted. The bounded descriptor reader now rejects them and prevents final-component symlink/FIFO races. | `test_genesis_vm_policy_reader.py` and VM integration: 27 passed | Low: authenticated parent/source authority still belongs to the existing kit verifier. |
 | H02 | Private CLI context failure disclosure | Medium: a missing context raised a raw path-bearing filesystem exception. It now fails with a fixed evidence reason before provider reads. | `test_genesis_vm_environment.py`: 3 passed | Low: context availability remains an operator prerequisite. |
 | H03 | Partial discovery evidence loss | Medium: a catalog/quota error left no diagnostic record and discarded a completed catalog. Completed inputs now persist before dependent reads, with failed-stage and unknown digest fields. | Failure plus VM integration suites: 23 passed | Low: truncated provider responses never become complete evidence. |
+| H04 | Previous signed-release loss on rebuild | Medium: reusing an owned output deleted the signed archive and partial images before new work. Complete builds now require a fresh root; directory and symlink attempts preserve existing bytes. | `test_standalone_kit_release_guards.py`: 2 passed; real ownership guard retained | Low: prior incomplete outputs require deliberate separately scoped retention management. |
 
 ## Critique resolution register
 

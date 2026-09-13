@@ -68,7 +68,7 @@ disk size. Gallery definitions require generalized x64/Gen2 Linux and completed 
 Apply rechecks sealed choices, quota, expiry, and approval. After host and human-identity reads,
 Foundation revalidates the exact plan and expiry before its claim. Existing claims only verify
 effects: no reselection, resize, region switch, or repeat apply. Legacy signed policies retain their
-original contract. No capacity or price is guaranteed; recovery and deployment verification remain
+original contract. Complete standalone kit builds require a fresh output directory and never erase a prior release. No capacity or price is guaranteed; recovery and deployment verification remain
 separate. Checkout changes require a new signed kit before operational use.
 
 ### Image and Foundation execution

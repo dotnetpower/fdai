@@ -21,6 +21,10 @@ done
   echo "build-standalone-kit: --out must be an absolute path" >&2
   exit 64
 }
+[[ ! -e "$out" && ! -L "$out" ]] || {
+  echo "build-standalone-kit: a fresh output directory is required; preserve previous releases" >&2
+  exit 3
+}
 python="$repo_root/.venv/bin/python"
 [[ -x "$python" ]] || {
   echo "build-standalone-kit: repository development environment is required" >&2
@@ -96,19 +100,11 @@ cli_version="$(PYTHONPATH="$repo_root/packages/deployment-cli/src" "$python" -c 
   echo "build-standalone-kit: release version or source epoch is invalid" >&2
   exit 3
 }
-if [[ ! -e "$out" ]]; then
-  "$python" "$repo_root/scripts/deployment/release/workdir-guard.py" create \
-    --path "$out" --sentinel .fdai-standalone-release --value fdai-standalone-release-v1
-elif ! "$python" "$repo_root/scripts/deployment/release/workdir-guard.py" verify \
-  --path "$out" --sentinel .fdai-standalone-release --value fdai-standalone-release-v1; then
-  echo "build-standalone-kit: existing --out is not an owned release directory" >&2
-  exit 3
-fi
+"$python" "$repo_root/scripts/deployment/release/workdir-guard.py" create \
+  --path "$out" --sentinel .fdai-standalone-release --value fdai-standalone-release-v1
 release_input="$out/release-input"
 stage="$out/stage"
 archive="$out/fdai-deployment-kit-${cli_version}-linux-x86_64.tar.gz"
-rm -rf -- "$release_input"
-rm -f -- "$archive"
 install -d -m 0700 "$release_input" "$release_input/images" "$release_input/metadata"
 
 mapfile -t services < <(
