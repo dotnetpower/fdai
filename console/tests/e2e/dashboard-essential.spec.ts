@@ -45,7 +45,9 @@ async function mockApi(page: Page, kpiStatus = 200, zero = false, options: {
       });
     }
     if (path === "/kpi/autonomy" && (zero || options.autonomy)) {
-      return route.fulfill({ json: options.autonomy ?? zeroMeasurement() });
+      return route.fulfill({
+        json: { schema_version: "1.0.0", ...(options.autonomy ?? zeroMeasurement()) },
+      });
     }
     return route.fulfill({ status: 404, json: { detail: "Not configured in dashboard fixture" } });
   };

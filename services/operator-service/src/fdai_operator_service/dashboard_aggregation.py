@@ -104,6 +104,10 @@ def aggregate_dashboard(
             or previous.mode != event.mode
         ):
             raise ValueError("measurement event identity changed across records")
+        if previous == event:
+            continue
+        if previous is not None and previous.seq >= event.seq:
+            raise ValueError("measurement event identity is duplicated with conflicting content")
         latest_events[event.identity] = event
     cohort = {
         event.event_id: event
