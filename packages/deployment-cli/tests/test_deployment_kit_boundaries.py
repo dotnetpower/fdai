@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import io
+import os
+import tarfile
+
 import pytest
 
 from fdai_deployment_cli import deployment_kit
@@ -39,3 +43,26 @@ def test_linux_x86_64_remains_supported(monkeypatch):
     monkeypatch.setattr(deployment_kit.platform, "system", lambda: "Linux")
     monkeypatch.setattr(deployment_kit.platform, "machine", lambda: "x86_64")
     assert deployment_kit.runtime_platform_tag() == "linux-x86_64"
+
+
+def test_open_archive_descriptor_survives_path_replacement(tmp_path, monkeypatch):
+    archive = tmp_path / "kit.tar.gz"
+    with tarfile.open(archive, "w:gz") as stream:
+        member = tarfile.TarInfo("kit/payload")
+        member.size = len(b"original bytes")
+        stream.addfile(member, io.BytesIO(b"original bytes"))
+    original_inode = archive.stat().st_ino
+    extract = deployment_kit._extract_kit_members
+
+    def replace_after_open(raw, temporary):
+        archive.unlink()
+        archive.write_bytes(b"replacement is not an archive")
+        assert os.fstat(raw.fileno()).st_ino == original_inode
+        assert archive.stat().st_ino != original_inode
+        extract(raw, temporary)
+
+    monkeypatch.setattr(deployment_kit, "_extract_kit_members", replace_after_open)
+    destination = tmp_path / "extracted"
+    deployment_kit._extract_kit_archive(archive, destination)
+    assert (destination / "payload").read_bytes() == b"original bytes"
+    assert archive.read_bytes() == b"replacement is not an archive"

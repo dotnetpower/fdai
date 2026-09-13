@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: ddb90740f34e94e7da103581ff4a06446ad2b71d
+translation_source_sha: d7801e876789e9a86f92b848a6a73dea02c6ae6b
 translation_revised: 2026-09-13
 ---
 # 프로비저닝 실행 프로파일
@@ -32,6 +32,7 @@ translation_revised: 2026-09-13
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-13 | implemented | 압축 파일 경로를 교체해도 추출기가 보유한 원본 디스크립터가 다른 파일을 가리키지 않음을 입증했으며 운영 코드는 바꾸지 않았습니다. | `current change`, 열린 inode 교체 회귀 테스트 통과 | 파일 내용 변경은 계속 서명과 스냅샷 검사로 검증합니다. |
 | 2026-09-13 | implemented | 로컬 압축 파일과 디렉터리 재시도에서 보존된 정확한 스냅샷을 다시 검증하고 새 실행 복사본을 만들며 이전 근거를 보존합니다. | `current change`, 재현한 재시도 실패 두 건, 오프라인 재시도 및 변조 검사 네 개, 획득 경계 집중 테스트 | 새 CLI를 전달해야 하며 기존 부분 적용은 별도 승인을 거친 복구가 필요합니다. |
 | 2026-09-13 | implemented | x64 macOS나 FreeBSD를 Linux로 취급하지 않고 두 아티팩트 획득 모드 모두에서 Linux가 아닌 POSIX 호스트를 먼저 차단합니다. | `current change`, 이전에 실패한 네 사례를 포함한 호스트 경계 회귀 테스트 다섯 개 | 수정된 CLI를 게시해야 하며 Azure 수렴 검증은 별도입니다. |
 | 2026-09-12 | implemented | 대상 환경 프로비저닝을 manual 전송 계층으로 제한하고, 공개 CLI에서 workflow dispatch를 제거하고, 토큰 없는 관찰 전용 설치를 허용하고, OCI 배포 어플라이언스 진입점을 추가했습니다. | `current change`, 배포 CLI 계약, standalone 모듈, 어플라이언스 스크립트 및 집중 테스트 | 깨끗한 어플라이언스 하나를 빌드하고 연결 및 아티팩트 오프라인 Azure 배포 증적을 보존합니다. |
