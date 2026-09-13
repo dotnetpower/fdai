@@ -31,7 +31,7 @@ def _isolated_environment() -> dict[str, str]:
     return environment
 
 
-def _repo(tmp_path: Path, *, semantic: str) -> Path:
+def _repo(tmp_path: Path, *, semantic: str, local_azure_cli_auth: str = "0") -> Path:
     repo = tmp_path / "repo"
     (repo / "scripts/deployment/local").mkdir(parents=True)
     shutil.copy2(_SCRIPT, repo / "scripts/deployment/local/prepare-operator-service-env.sh")
@@ -59,7 +59,9 @@ def _repo(tmp_path: Path, *, semantic: str) -> Path:
     )
     (repo / "console").mkdir()
     (repo / "console/.env.local").write_text(
-        "VITE_MSAL_TENANT_ID=tenant\nVITE_MSAL_API_SCOPE=api://audience/access\n",
+        "VITE_MSAL_TENANT_ID=tenant\n"
+        "VITE_MSAL_API_SCOPE=api://audience/access\n"
+        f"VITE_LOCAL_AZURE_CLI_AUTH={local_azure_cli_auth}\n",
         encoding="utf-8",
     )
     return repo
@@ -85,6 +87,7 @@ def test_prepares_semantic_transport_or_local_narrator(tmp_path: Path, semantic:
     assert (
         "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS=http://localhost:5273,http://127.0.0.1:5273"
     ) in rendered
+    assert "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=0\n" in rendered
     if semantic == "complete":
         expected_namespace = "local-" + hashlib.sha256(str(repo).encode()).hexdigest()[:16]
         assert "FDAI_KAFKA_BOOTSTRAP_SERVERS=example.servicebus.windows.net:9093" in rendered
@@ -105,6 +108,22 @@ def test_prepares_semantic_transport_or_local_narrator(tmp_path: Path, semantic:
         assert "FDAI_READ_INVESTIGATION_REQUEST_TOPIC=" not in rendered
         assert "FDAI_HIL_DECISION_TOPIC=" not in rendered
         assert "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR=1" in rendered
+
+
+def test_projects_console_local_azure_cli_opt_in_to_operator(tmp_path: Path) -> None:
+    repo = _repo(tmp_path, semantic="complete", local_azure_cli_auth="1")
+
+    subprocess.run(  # noqa: S603 - test-controlled script and environment
+        [_BASH, str(repo / "scripts/deployment/local/prepare-operator-service-env.sh")],
+        cwd=repo,
+        env=_isolated_environment(),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    rendered = (repo / ".fdai/local-operator-service.env").read_text(encoding="utf-8")
+    assert "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1\n" in rendered
 
 
 def test_rejects_partial_semantic_transport(tmp_path: Path) -> None:
