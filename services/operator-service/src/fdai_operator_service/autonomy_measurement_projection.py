@@ -10,22 +10,20 @@ from typing import cast
 from fdai_operator_service.families.operations import ProjectionUnavailableError
 
 _ERROR = "authoritative autonomy measurement projection is malformed"
-_SUCCESS_METRICS = frozenset(
-    {
-        "auto_resolution_rate",
-        "human_touchpoints_per_100",
-        "mttr_seconds",
-        "change_lead_time_seconds",
-        "cost_per_resolved_event_usd",
-    }
-)
-_LEADING_METRICS = frozenset(
-    {
-        "mixed_model_disagreement_rate",
-        "verifier_failure_rate",
-        "shadow_divergence_rate",
-    }
-)
+_SUCCESS_METRICS = {
+    "auto_resolution_rate": "higher",
+    "human_touchpoints_per_100": "lower",
+    "mttr_seconds": "lower",
+    "change_lead_time_seconds": "lower",
+    "cost_per_resolved_event_usd": "lower",
+}
+_LEADING_METRICS = {
+    "mixed_model_disagreement_rate": "lower",
+    "verifier_failure_rate": "lower",
+    "shadow_divergence_rate": "lower",
+}
+_RATE_METRICS = frozenset({"auto_resolution_rate", *_LEADING_METRICS})
+_TIER_KEYS = frozenset({"t0", "t1", "t2"})
 _VERTICALS = frozenset({"resilience", "change_safety", "cost", "unattributed"})
 
 
@@ -86,14 +84,18 @@ def _validate_identity(projection: Mapping[str, object]) -> None:
         raise ValueError
 
 
-def _validate_metrics(values: Mapping[str, object], required: frozenset[str]) -> None:
-    if not required.issubset(values):
+def _validate_metrics(
+    values: Mapping[str, object],
+    expected_directions: Mapping[str, str],
+) -> None:
+    if not expected_directions.keys() <= values.keys():
         raise ValueError
-    for name in required:
+    for name, expected_direction in expected_directions.items():
         metric = _mapping(values[name])
-        _optional_number(metric.get("value"))
-        _optional_number(metric.get("baseline"))
-        if metric.get("direction") not in {"higher", "lower"}:
+        validator = _optional_ratio if name in _RATE_METRICS else _optional_nonnegative_number
+        validator(metric.get("value"))
+        validator(metric.get("baseline"))
+        if metric.get("direction") != expected_direction:
             raise ValueError
 
 
@@ -182,14 +184,23 @@ def _validate_totals(
 
 
 def _validate_tier(tier: Mapping[str, object]) -> None:
-    _number_record(_mapping(tier.get("mix")))
+    mix = _mapping(tier.get("mix"))
+    if not mix.keys() <= _TIER_KEYS:
+        raise ValueError
+    shares = tuple(_ratio(value) for value in mix.values())
+    if sum(shares) > 1 + 1e-12:
+        raise ValueError
     bands = _mapping(tier.get("bands"))
+    if not bands.keys() <= _TIER_KEYS:
+        raise ValueError
     for value in bands.values():
         bounds = _sequence(value)
         if len(bounds) != 2:
             raise ValueError
-        _number(bounds[0])
-        _number(bounds[1])
+        lower = _ratio(bounds[0])
+        upper = _ratio(bounds[1])
+        if lower > upper:
+            raise ValueError
 
 
 def _validate_counts(values: Mapping[str, object], fields: tuple[str, ...]) -> None:
@@ -201,11 +212,6 @@ def _number_series(values: Mapping[str, object]) -> None:
     for value in values.values():
         for item in _sequence(value):
             _number(item)
-
-
-def _number_record(values: Mapping[str, object]) -> None:
-    for value in values.values():
-        _number(value)
 
 
 def _mapping(value: object) -> Mapping[str, object]:
@@ -242,8 +248,19 @@ def _optional_number(value: object) -> float | None:
     return None if value is None else _number(value)
 
 
-def _optional_ratio(value: object) -> float | None:
+def _optional_nonnegative_number(value: object) -> float | None:
     number = _optional_number(value)
-    if number is not None and not 0 <= number <= 1:
+    if number is not None and number < 0:
         raise ValueError
     return number
+
+
+def _ratio(value: object) -> float:
+    number = _number(value)
+    if not 0 <= number <= 1:
+        raise ValueError
+    return number
+
+
+def _optional_ratio(value: object) -> float | None:
+    return None if value is None else _ratio(value)

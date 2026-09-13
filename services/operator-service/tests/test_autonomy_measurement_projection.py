@@ -81,3 +81,55 @@ def test_rejects_auto_resolution_rate_inconsistent_with_counts(value: float) -> 
 
     with pytest.raises(ProjectionUnavailableError):
         validate_autonomy_measurement(projection)
+
+
+@pytest.mark.parametrize(
+    ("section", "metric", "field", "value"),
+    [
+        ("success", "mttr_seconds", "value", -1.0),
+        ("success", "mttr_seconds", "direction", "higher"),
+        ("leading", "verifier_failure_rate", "value", -0.01),
+        ("leading", "shadow_divergence_rate", "baseline", 1.01),
+        ("leading", "mixed_model_disagreement_rate", "direction", "higher"),
+    ],
+)
+def test_rejects_metric_values_outside_their_semantic_domain(
+    section: str,
+    metric: str,
+    field: str,
+    value: object,
+) -> None:
+    projection = deepcopy(_projection())
+    metrics = projection[section]
+    assert isinstance(metrics, dict)
+    measurement = metrics[metric]
+    assert isinstance(measurement, dict)
+    measurement[field] = value
+
+    with pytest.raises(ProjectionUnavailableError):
+        validate_autonomy_measurement(projection)
+
+
+@pytest.mark.parametrize(
+    ("mix", "bands"),
+    [
+        ({"t0": -0.1}, {}),
+        ({"t0": 0.8, "t1": 0.3}, {}),
+        ({"unknown": 1.0}, {}),
+        ({}, {"t0": [0.8, 0.7]}),
+        ({}, {"t2": [-0.1, 0.1]}),
+        ({}, {"unknown": [0.0, 1.0]}),
+    ],
+)
+def test_rejects_invalid_tier_shares_and_bands(
+    mix: dict[str, float],
+    bands: dict[str, list[float]],
+) -> None:
+    projection = deepcopy(_projection())
+    tier = projection["tier"]
+    assert isinstance(tier, dict)
+    tier["mix"] = mix
+    tier["bands"] = bands
+
+    with pytest.raises(ProjectionUnavailableError):
+        validate_autonomy_measurement(projection)
