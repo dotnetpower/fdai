@@ -36,7 +36,7 @@ This ledger tracks the shared read-only state contract used by Dashboard v2 and 
 | 9 | Full reconciliation and accelerator semantic parity | High | Resolved with sparse Activity Log observations, isolated operation outcomes, explicit completeness, and semantic event identity. |
 | 10 | Generation-transition reads | Medium | Resolved with two typed, deadline-sharing full traversal retries that discard partial pages. |
 | 11 | Malformed and contradictory provider rows | Medium | Resolved by cross-checking scope and provider type against exact ARM identity. |
-| 12 | Independent final cross-cutting critique | High | All reported High and Medium findings are remediated; independent follow-up verification is pending. |
+| 12 | Independent final cross-cutting critique | High | All reported High and Medium findings were remediated and independently reverified; only Low residual findings remain. |
 
 ### Implementation history
 
