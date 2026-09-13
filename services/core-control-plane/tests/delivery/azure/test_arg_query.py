@@ -2125,6 +2125,17 @@ def test_arm_id_to_type_extracts_multi_segment_type() -> None:
     assert _arm_id_to_type(arm_id) == "Microsoft.Network/virtualNetworks/subnets"
 
 
+def test_arm_id_to_type_uses_the_extension_resource_provider() -> None:
+    from fdai.delivery.azure.arg_query import _arm_id_to_type
+
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-a/providers/Microsoft.Compute/virtualMachines/vm-one/"
+        "providers/Microsoft.Authorization/roleAssignments/assignment-one"
+    )
+    assert _arm_id_to_type(arm_id) == "Microsoft.Authorization/roleAssignments"
+
+
 def test_arm_id_to_type_returns_none_without_providers_segment() -> None:
     from fdai.delivery.azure.arg_query import _arm_id_to_type
 

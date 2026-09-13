@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: aba175abcbe710908dd00311044a2885962b5b4e
+translation_source_sha: a44bc9d665365184bee4e2c26273074e332df874
 translation_revised: 2026-09-13
 ---
 # 지속형 운영 인스턴스 그래프
@@ -91,6 +91,9 @@ reconciliation 사이에 Resource Group 부모로 되돌아가지 않습니다.
 각 Azure 행이 제공한 공급자 유형과 범위는 전체 스냅샷이나 변경 스트림에 들어가기 전에 정확한
 ARM ID와 대소문자 구분 없이 일치해야 합니다. 모순이 있으면 범위가 제한된 수집을 실패시키고
 이전의 완전한 세대를 유지합니다.
+여러 `/providers/` 구간을 포함하는 확장 리소스 ID에서는 마지막 공급자 네임스페이스와 그 뒤의
+유형 및 이름 쌍이 관측 리소스 유형을 정의합니다. 앞선 공급자 구간은 범위와 포함 관계 맥락으로
+유지합니다.
 비활성화된 리소스 변경 및 복구 가속기는 수집 정책 항목을 요구하지 않으며 조정에 커서 접두사나
 오래된 커서 기한을 추가하지 않습니다.
 

@@ -813,6 +813,45 @@ def test_state_enrichment_rejects_an_availability_reason_without_state() -> None
         _validate_resource_state_enrichment(original, candidate)
 
 
+def test_state_enrichment_accepts_a_reviewed_availability_unavailable_reason() -> None:
+    original = ResourceRecord(
+        resource_id="vm-1",
+        type="compute.vm",
+        props={"name": "vm"},
+    )
+    candidate = replace(
+        original,
+        props={
+            **original.props,
+            "state_fact_unavailable_reasons": {
+                "availabilityState": "resource_health_not_modeled",
+            },
+        },
+    )
+
+    _validate_resource_state_enrichment(original, candidate)
+
+
+@pytest.mark.parametrize(
+    "reasons",
+    [
+        {"operational": "resource_health_not_modeled"},
+        {"availabilityState": "provider response"},
+    ],
+)
+def test_state_enrichment_rejects_unreviewed_unavailable_reasons(
+    reasons: dict[str, str],
+) -> None:
+    original = ResourceRecord(resource_id="vm-1", type="compute.vm")
+    candidate = replace(
+        original,
+        props={"state_fact_unavailable_reasons": reasons},
+    )
+
+    with pytest.raises(ValueError, match="unsupported unavailable reason"):
+        _validate_resource_state_enrichment(original, candidate)
+
+
 async def test_promotion_enrichment_cannot_add_a_dangling_endpoint() -> None:
     store = _Store()
 

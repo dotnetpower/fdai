@@ -180,6 +180,9 @@ the exact ResourceTypes whose ARM type is supported:
   exactly one allowlisted per-resource reason such as `resource_health_not_modeled`; provider response text
   never crosses the read boundary. A retained verified value remains authoritative over the newer
   failed read while source-level partial coverage records that failure.
+- Promotion accepts an unavailable-only enrichment only when it names the exact
+  `availabilityState` axis with an allowlisted reason. It requires provider metadata only when an
+  actual state fact is present.
 - Exact reads are bounded to the first 200 targets in stable Resource identity order with concurrency
   eight. Remaining targets retain a prior qualified fact or carry
   `resource_health_target_limit`; source coverage reports the bounded remainder instead of

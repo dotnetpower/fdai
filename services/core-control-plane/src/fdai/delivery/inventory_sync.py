@@ -11,6 +11,10 @@ from datetime import UTC, datetime
 from typing import Protocol, cast
 
 import httpx
+from fdai_service_contracts.recorded_resource_state import (
+    RECORDED_STATE_UNAVAILABLE_REASONS,
+    STATE_FACT_UNAVAILABLE_REASONS_PROPERTY,
+)
 
 from fdai.delivery.inventory_relationship_verifier import verify_inventory_relationships
 from fdai.delivery.inventory_sync_models import (
@@ -585,11 +589,23 @@ def _validate_resource_state_enrichment(
             continue
         if enriched_props.get(key) != value:
             raise ValueError("inventory state enrichment MUST preserve provider properties")
-    allowed = {"availabilityState", "availabilityReasonKind", STATE_FACT_METADATA_PROPERTY}
+    allowed = {
+        "availabilityState",
+        "availabilityReasonKind",
+        STATE_FACT_METADATA_PROPERTY,
+        STATE_FACT_UNAVAILABLE_REASONS_PROPERTY,
+    }
     if original.type == "static-web-app":
         allowed.add("staticSiteEnvironmentStatus")
     if set(enriched_props) - set(original_props) - allowed:
         raise ValueError("inventory state enrichment added an unsupported property")
+    unavailable_reasons = enriched_props.get(STATE_FACT_UNAVAILABLE_REASONS_PROPERTY)
+    if unavailable_reasons is not None and (
+        not isinstance(unavailable_reasons, Mapping)
+        or set(unavailable_reasons) != {"availabilityState"}
+        or unavailable_reasons["availabilityState"] not in RECORDED_STATE_UNAVAILABLE_REASONS
+    ):
+        raise ValueError("inventory state enrichment added an unsupported unavailable reason")
     if (
         "availabilityReasonKind" in enriched_props
         and "availabilityReasonKind" not in original_props
@@ -597,7 +613,12 @@ def _validate_resource_state_enrichment(
     ):
         raise ValueError("inventory availability reason requires availability state")
     metadata = enriched_props.get(STATE_FACT_METADATA_PROPERTY)
-    if not isinstance(metadata, Mapping):
+    state_fact_keys = {
+        key for key in ("availabilityState", "staticSiteEnvironmentStatus") if key in enriched_props
+    }
+    if metadata is None and not state_fact_keys:
+        metadata = {}
+    elif not isinstance(metadata, Mapping):
         raise ValueError("inventory state enrichment MUST supply keyed state metadata")
     original_metadata = original_props.get(STATE_FACT_METADATA_PROPERTY)
     if original_metadata is not None:
@@ -608,9 +629,7 @@ def _validate_resource_state_enrichment(
     original_metadata_keys = (
         set(original_metadata) if isinstance(original_metadata, Mapping) else set()
     )
-    allowed_metadata_keys = original_metadata_keys | {
-        key for key in ("availabilityState", "staticSiteEnvironmentStatus") if key in enriched_props
-    }
+    allowed_metadata_keys = original_metadata_keys | state_fact_keys
     if set(metadata) - allowed_metadata_keys:
         raise ValueError("inventory state enrichment added unsupported state metadata")
     if "availabilityState" in enriched_props:
@@ -640,8 +659,13 @@ def _validate_resource_state_enrichment(
             },
         )
     reviewed_state_keys = ("availabilityState", "staticSiteEnvironmentStatus")
-    if not any(key in enriched_props for key in reviewed_state_keys):
-        raise ValueError("inventory state enrichment MUST supply one reviewed state fact")
+    if (
+        not any(key in enriched_props for key in reviewed_state_keys)
+        and unavailable_reasons is None
+    ):
+        raise ValueError(
+            "inventory state enrichment MUST supply one reviewed state fact or unavailable reason"
+        )
 
 
 def _validate_provider_state_fact(

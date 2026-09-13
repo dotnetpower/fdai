@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 69a80205cdd12bd06bf6c9e1f8a00240d2327efb
+translation_source_sha: 570b71fc2e0982026f8f508a8269860264bed885
 translation_revised: 2026-09-13
 ---
 # 구독 초기 프로비저닝
@@ -473,6 +473,9 @@ ancestor, 이미지, 인증 검사는 그대로 유지됩니다.
 보강 전에 활성 스냅샷 세대를 기록하고 승격 잠금 안에서 다시 비교합니다. 동시에 다른 승격이
 발생하면 현재 ID에 이전 상태를 혼합하지 않고 오래된 후보를 차단합니다. 관련 없는 관계가
 불완전하더라도 완전한 Resource 관측에서 상태 전이를 전진시킬 수 있습니다.
+가용성 사실을 관측하지 못한 보강은 검토된 `availabilityState` 사용 불가 사유 토큰만 추가할 수
+있습니다. 따라서 공급자 상태를 만들거나 임의의 보강 속성을 허용하지 않으면서 완전한 객체
+인벤토리를 보존합니다.
 승격 후 이력 또는 온톨로지 변환이 실패하면 정규화 journal이 활성 세대를 보존합니다. 다음
 인벤토리 시도는 새 스캔을 시작하기 전에 coordinator lock 아래에서 해당 세대를 재실행합니다.
 
