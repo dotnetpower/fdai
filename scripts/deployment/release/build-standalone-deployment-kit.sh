@@ -17,6 +17,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Preserve caller-relative key references when assembly moves to its private source tree.
+[[ "$release_key" = /* ]] || release_key="$PWD/$release_key"
+[[ "$bundle_key" = /* ]] || bundle_key="$PWD/$bundle_key"
+
 [[ -n "$out" && "$out" = /* ]] || {
   echo "build-standalone-kit: --out must be an absolute path" >&2
   exit 64

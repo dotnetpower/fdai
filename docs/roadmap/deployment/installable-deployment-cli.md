@@ -131,7 +131,7 @@ package roots rather than the retired monolithic source path, and verifies the i
 signature without a removed delivery adapter. License output is a new private file; issuance never
 truncates or replaces an existing path. Release utilities resolve the service-owned Core trust
 package and read signing keys through one nonblocking, no-follow, 65536-byte regular-file boundary.
-Private keys must be owned by the current UID with mode `0600`.
+Private keys must be owned by the current UID with mode `0600`; caller-relative key paths resolve before the build changes directories and keys stay outside the source snapshot.
 Connected plans expose only a validated Azure CLI path or target-bound Managed Identity variables
 to Terraform; unrelated environment values remain excluded.
 

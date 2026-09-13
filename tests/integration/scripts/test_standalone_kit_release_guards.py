@@ -37,6 +37,34 @@ def bounded_environment():
     return {**os.environ, "TEST_RUNNER_ROOT": str(ROOT), "TEST_PYTHON": sys.executable}
 
 
+@pytest.mark.parametrize("relative", [False, True])
+def test_signing_key_paths_survive_source_checkout_switch(tmp_path, relative):
+    caller = tmp_path / "caller"
+    (caller / "keys").mkdir(parents=True)
+    for name in ("release", "bundle"):
+        (caller / "keys" / name).write_text("synthetic key path sentinel")
+    source = tmp_path / "source"
+    source.mkdir()
+    prefix = BUILDER.read_text().split("while [[ $# -gt 0 ]]; do", 1)[1]
+    prefix = prefix.split('[[ -n "$out"', 1)[0]
+    paths = [Path("keys") / name for name in ("release", "bundle")]
+    if not relative:
+        paths = [caller / path for path in paths]
+    result = subprocess.run(  # noqa: S603 - actual argument/path boundary, no key parsing.
+        ["/bin/bash", "-s", "--", "--release-key", str(paths[0]), "--bundle-key", str(paths[1])],
+        cwd=caller,
+        input="set -euo pipefail\nwhile [[ $# -gt 0 ]]; do"
+        + prefix
+        + 'cd "$TEST_SOURCE"\n[[ -f "$release_key" && -f "$bundle_key" ]]\n',
+        env={**os.environ, "TEST_SOURCE": str(source)},
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+
+
 @pytest.mark.parametrize("output_kind", ["directory", "symlink"])
 def test_existing_release_output_cannot_be_erased(tmp_path, output_kind):
     repo = tmp_path / "repo"
