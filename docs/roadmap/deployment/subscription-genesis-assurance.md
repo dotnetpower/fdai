@@ -58,7 +58,7 @@ Policy reads hold a bounded no-follow descriptor, reject unsafe ownership/links/
 ARM, GPU, confidential, constrained-core, and incompatible storage variants aren't substitutes.
 Catalog reads stay within one exact subscription/region, four pages, 4096 rows, 8 MiB, and 90
 seconds; each request and the separate quota read have 30-second limits. Complete metadata,
-Location/Zone restrictions, and all three VMs' aggregate regional/family quota gate preparation.
+Location/Zone restrictions, and all three VMs' aggregate regional/family quota gate preparation. Missing family usage is unknown, never an assumed zero-quota fallback.
 Private replay distinguishes restricted, incompatible, incomplete, and quota outcomes; missing
 hardware leaves candidate counts unknown, never assumed zero. Failed reads retain completed snapshots, their failed stage, and unknown unobserved digests.
 

@@ -111,6 +111,7 @@ An unconfirmed hypothesis is not a defect; a passing local test is not release o
 | H02 | Private CLI context failure disclosure | Medium: a missing context raised a raw path-bearing filesystem exception. It now fails with a fixed evidence reason before provider reads. | `test_genesis_vm_environment.py`: 3 passed | Low: context availability remains an operator prerequisite. |
 | H03 | Partial discovery evidence loss | Medium: a catalog/quota error left no diagnostic record and discarded a completed catalog. Completed inputs now persist before dependent reads, with failed-stage and unknown digest fields. | Failure plus VM integration suites: 23 passed | Low: truncated provider responses never become complete evidence. |
 | H04 | Previous signed-release loss on rebuild | Medium: reusing an owned output deleted the signed archive and partial images before new work. Complete builds now require a fresh root; directory and symlink attempts preserve existing bytes. | `test_standalone_kit_release_guards.py`: 2 passed; real ownership guard retained | Low: prior incomplete outputs require deliberate separately scoped retention management. |
+| H05 | Aggregate quota and missing-family semantics | Rejected the proposed zero-quota fallback: missing usage is unknown. Added exhaustive same/different-family demand and ordering regressions; no production defect reproduced. | `test_genesis_vm_quota_properties.py`: 40 passing combinations | Low: metadata cannot reserve allocation capacity. |
 
 ## Critique resolution register
 
