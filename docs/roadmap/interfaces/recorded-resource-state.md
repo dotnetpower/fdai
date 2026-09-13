@@ -25,6 +25,8 @@ several same-name sources only when distinct opaque `scope_digest` values qualif
 Provider-native type coverage is another separate active-generation evidence object. It reports
 reconciled mapped and unmapped counts, bounded unknown type names, capture method, and provider
 identity completeness without becoming an operational, provisioning, or availability value.
+Broad language query categories do not alter exact Resource types or state applicability.
+`search-service` remains independently addressable and does not join the generic `database` group.
 Every current instance-detail response includes explicit `runtime_call_graph` and
 `postgres_role_evidence` source states. The Console decoder rejects either missing source instead
 of presenting omission as availability or measured zero. The Operator reader also rejects a
