@@ -7,6 +7,7 @@ import os
 import signal
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -14,6 +15,16 @@ from typing import TextIO
 
 DEFAULT_HEARTBEAT_SECONDS = 10.0
 _TERMINATION_GRACE_SECONDS = 1.0
+_FORWARDED_TERMINATION_GRACE_SECONDS = 0.25
+
+
+class _CallerTermination(BaseException):
+    """Unwind a terminated stage through child cleanup, never a success return."""
+
+
+def _interrupt_for_termination(_signum: int, _frame: object) -> None:
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    raise _CallerTermination
 
 
 def run_with_heartbeat(
@@ -34,6 +45,8 @@ def run_with_heartbeat(
     terminates that complete group before returning or raising. Captured stdout
     and stderr remain byte-for-byte text inputs to the caller; heartbeat dots are
     written only to the separate stderr presentation stream.
+    On the main thread, SIGTERM unwinds through child cleanup with a shorter
+    grace than the parent, so a nested effect cannot outlive stage cancellation.
     """
 
     if not arguments or any(not isinstance(value, str) or not value for value in arguments):
@@ -63,6 +76,9 @@ def run_with_heartbeat(
     deadline = time.monotonic() + timeout
     heartbeat_emitted = False
     pending_input = input_text
+    previous_sigterm = None
+    if threading.current_thread() is threading.main_thread():
+        previous_sigterm = signal.signal(signal.SIGTERM, _interrupt_for_termination)
     try:
         while True:
             remaining = deadline - time.monotonic()
@@ -92,11 +108,16 @@ def run_with_heartbeat(
                 stdout,
                 stderr,
             )
+    except _CallerTermination:
+        _terminate_process_group(process, grace_seconds=_FORWARDED_TERMINATION_GRACE_SECONDS)
+        raise SystemExit(128 + signal.SIGTERM) from None
     except BaseException:
         if process.poll() is None:
             _terminate_process_group(process)
         raise
     finally:
+        if previous_sigterm is not None:
+            signal.signal(signal.SIGTERM, previous_sigterm)
         if heartbeat_emitted:
             stream.write("\n")
             stream.flush()
@@ -104,15 +125,20 @@ def run_with_heartbeat(
 
 def _terminate_process_group(
     process: subprocess.Popen[str],
+    *,
+    grace_seconds: float = _TERMINATION_GRACE_SECONDS,
 ) -> tuple[str | None, str | None]:
     """Terminate the complete child group and drain its captured output."""
 
     _signal_process_group(process.pid, signal.SIGTERM)
     try:
-        return process.communicate(timeout=_TERMINATION_GRACE_SECONDS)
+        result = process.communicate(timeout=grace_seconds)
     except subprocess.TimeoutExpired:
         _signal_process_group(process.pid, signal.SIGKILL)
         return process.communicate()
+    # A terminated leader can leave an output-disconnected descendant in its group.
+    _signal_process_group(process.pid, signal.SIGKILL)
+    return result
 
 
 def _signal_process_group(process_id: int, selected_signal: signal.Signals) -> None:
