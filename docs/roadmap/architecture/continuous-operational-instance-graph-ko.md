@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 046f409040ecb9a9713aea04ae06b52357041c66
-translation_revised: 2026-09-12
+translation_source_sha: 08179302bda3f269f7b8200e464c07a635ae5d29
+translation_revised: 2026-09-13
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -281,6 +281,8 @@ throttling은 동시성을 줄이고 `Retry-After`를 따르며, 지속적인 �
 로컬 장기 실행 루프는 원본, 변환 또는 대기 재생 실패를 형식화해 기록하고 구성된 간격 후 다시
 시도합니다. 일회성 작업은 원본 수집이나 승격된 온톨로지 변환이 실패해도 실패하며, 다음
 tick의 범위가 제한된 복구를 위해 정본 인벤토리 세대는 유지합니다.
+두 경로는 인벤토리 CLI 지원 경계를 통해 런타임 호출, Resource Health, Static Web App,
+Kubernetes 보강을 동일한 순서의 파이프라인으로 구성합니다.
 
 검증된 구성은 배포 값을 제공합니다. 저장소 기본값과 테스트는 안전한 범위를 정의하며, 하나의 간격이
 모든 tenant 또는 공급자 API에 적합하다고 주장하지 않습니다.

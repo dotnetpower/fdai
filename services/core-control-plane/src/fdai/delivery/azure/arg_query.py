@@ -83,8 +83,8 @@ import httpx
 
 from fdai.delivery.azure.arg_projection import (
     ArmScopeError,
-    arm_scope_properties,
     resource_operational_status,
+    validated_arm_scope,
 )
 from fdai.delivery.azure.arg_projection import (
     arm_id_to_type as _arm_id_to_type,  # noqa: F401 - tested compatibility import
@@ -570,12 +570,8 @@ class AzureArgQueryFactory:
         if normalized_type in self._mapped_provider_types:
             raise ArgQueryError("unclassified ARG query returned a mapped provider type")
 
-        try:
-            scope = arm_scope_properties(arm_id, row)
-        except ArmScopeError as exc:
-            raise ArgQueryError(
-                "unclassified ARG row scope conflicts with its provider id"
-            ) from exc
+        scope_error = ArgQueryError("unclassified ARG row has conflicting provider scope")
+        scope = validated_arm_scope(arm_id, row, scope_error)
         props: dict[str, Any] = {"providerType": normalized_type}
         for key in ("name", "location", "kind", "resourceGroup"):
             if key in row and row[key] is not None:
@@ -655,12 +651,8 @@ class AzureArgQueryFactory:
             return None
 
         neutral_id = _to_neutral_id(arm_id)
-        try:
-            scope = arm_scope_properties(arm_id, row)
-        except ArmScopeError as exc:
-            raise ArgQueryError(
-                f"ARG row for {resource_type!r} has conflicting provider scope"
-            ) from exc
+        scope_error = ArgQueryError(f"ARG {resource_type!r} row has conflicting provider scope")
+        scope = validated_arm_scope(arm_id, row, scope_error)
         props: dict[str, Any] = {"providerType": arm_type}
         subscription_id = row.get("subscriptionId")
         if isinstance(subscription_id, str) and subscription_id:

@@ -284,6 +284,8 @@ Change demand or maximum staleness therefore cannot be deferred because a failur
 The local long-running loop records typed source, projection, or pending-replay failure and retries after its
 configured interval. A one-shot job also fails when source collection or the promoted ontology projection
 fails, while retaining the authoritative inventory generation for bounded recovery on the next tick.
+Both paths build the same ordered runtime-call, Resource Health, Static Web App, and Kubernetes
+enrichment pipeline through the inventory CLI support boundary.
 
 Validated configuration supplies deployment values. Repository defaults and tests define safe bounds, not a
 claim that one interval fits every tenant or provider API.

@@ -80,15 +80,14 @@ from uuid import UUID
 import httpx
 
 from fdai.delivery.azure.arg_projection import (
-    ArmScopeError,
     arm_id_to_type,
-    arm_scope_properties,
     build_arm_to_neutral_map,
     extract_rg_contains_links,
     parent_neutral_id,
     resource_operational_status,
     to_neutral_id,
     truncate_props,
+    validated_arm_scope,
 )
 from fdai.delivery.azure.arg_resource_change_support import (
     ArgResourceChangeError,
@@ -551,12 +550,8 @@ class AzureResourceChangeFeed:
             return None
 
         neutral_id = to_neutral_id(arm_id)
-        try:
-            scope = arm_scope_properties(arm_id, row)
-        except ArmScopeError as exc:
-            raise ArgResourceChangeError(
-                "resourcechanges hydration scope conflicts with its provider id"
-            ) from exc
+        scope_error = ArgResourceChangeError("resourcechanges hydration provider scope conflicts")
+        scope = validated_arm_scope(arm_id, row, scope_error)
         props: dict[str, Any] = {"providerType": arm_type}
         subscription_id = row.get("subscriptionId")
         if isinstance(subscription_id, str) and subscription_id:

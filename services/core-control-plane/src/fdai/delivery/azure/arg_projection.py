@@ -118,6 +118,19 @@ def arm_scope_properties(
     return result
 
 
+def validated_arm_scope(
+    arm_id: str,
+    row: Mapping[str, Any],
+    error: RuntimeError,
+) -> dict[str, str]:
+    """Return provider scope or translate validation failure to the caller boundary."""
+
+    try:
+        return arm_scope_properties(arm_id, row)
+    except ArmScopeError as cause:
+        raise error from cause
+
+
 def _bounded_scope_segment(value: str, label: str, *, maximum: int) -> str:
     candidate = value.strip()
     if not candidate or len(candidate) > maximum:

@@ -91,7 +91,7 @@ def test_all_29_previously_dropped_raw_states_are_retained(index: int) -> None:
     }
     assert states["provisioning"]["value"] == "Succeeded"
     assert states["availability"]["value"] is None
-    assert states["availability"]["reason"] == "state_not_recorded"
+    assert states["availability"]["reason"] == "provider_availability_state_not_exposed"
     assert projected["status"] == "Running"
     assert projected["subscription_id"] == "example-subscription"
     assert "private-provider-payload" not in repr(projected)

@@ -29,19 +29,11 @@ from fdai.delivery.azure.log_query import (
     AzureLogAnalyticsQueryConfig,
     AzureLogAnalyticsQueryProvider,
 )
-from fdai.delivery.azure.resource_health_inventory import (
-    AzureResourceHealthInventoryConfig,
-    AzureResourceHealthInventoryEnricher,
-)
 from fdai.delivery.azure.runtime_call_telemetry import (
     AzureContainerAppRevisionVerifier,
     AzureMonitorRuntimeCallAuthenticator,
     AzureMonitorRuntimeCallContextProvider,
     AzureRuntimeCallTelemetrySource,
-)
-from fdai.delivery.azure.static_web_app_inventory import (
-    AzureStaticWebAppInventoryConfig,
-    AzureStaticWebAppInventoryEnricher,
 )
 from fdai.delivery.inventory_change_acceleration import (
     build_job_event_bus as _build_job_event_bus,
@@ -309,26 +301,10 @@ async def build_inventory_promotion_enricher(
             identity=identity,
             http_client=http_client,
         ),
-        AzureResourceHealthInventoryEnricher(
+        *inventory_sync_cli_support.build_azure_inventory_enrichers(
+            config=config,
             identity=identity,
             http_client=http_client,
-            config=AzureResourceHealthInventoryConfig(
-                subscription_ids=config.scopes,
-                endpoint=config.management_endpoint,
-                audience=config.management_audience,
-                freshness_ceiling_seconds=config.reconciliation_interval_seconds,
-            ),
-            previous_state_reader=previous_state_reader,
-        ),
-        AzureStaticWebAppInventoryEnricher(
-            identity=identity,
-            http_client=http_client,
-            config=AzureStaticWebAppInventoryConfig(
-                subscription_ids=config.scopes,
-                endpoint=config.management_endpoint,
-                audience=config.management_audience,
-                freshness_ceiling_seconds=config.reconciliation_interval_seconds,
-            ),
             previous_state_reader=previous_state_reader,
         ),
         kubernetes_enricher,
