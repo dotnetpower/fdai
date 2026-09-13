@@ -49,6 +49,12 @@ def test_core_runtime_digest_includes_prompt_catalog() -> None:
     assert '--core-ready-after "$readiness_started_at"' in script
 
 
+def test_console_launcher_preserves_private_local_auth_opt_in() -> None:
+    script = _RUN_SERVICE_SCRIPT.read_text(encoding="utf-8")
+
+    assert "VITE_LOCAL_AZURE_CLI_AUTH=0" not in script
+
+
 def _operator_restart_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     run_script = repo / "scripts/deployment/local/run-console-service.sh"
