@@ -199,7 +199,9 @@ These customer-agnostic helpers keep both deployment routes repeatable:
   Foundation route. Claims resume verification only and Foundation never implies readiness.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) binds Azure CLI and `azd` entry points to the approved subscription and tenant pair before mutation; Genesis verifies region availability through the exact subscription-bound ARM locations endpoint without changing the active CLI selection, and policy-probe cleanup parses multi-value TSV as ordered lines before proving absence.
 - [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh) remains the direct interactive public
-  `dev` path. It is not a private, shared, staging, or production deployment path.
+  `dev` path. It verifies committed provider locks without requesting an upgrade, supplies the
+  already verified deployer principal to Terraform, and stops before apply when either binding
+  changes. It is not a private, shared, staging, or production deployment path.
 - [`onboard.sh`](../../../infra/bootstrap/onboard.sh) and
   [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh) are legacy
   repository-automation helpers. They are not invoked by public tenant deployment.

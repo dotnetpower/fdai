@@ -112,10 +112,10 @@ PY
 
   TF_CLI_CONFIG_FILE="$PLATFORM_TF_CLI_CONFIG_FILE" \
   TF_DATA_DIR="$platform_verify_data" terraform -chdir="$platform_root" init \
-    -backend=false -input=false -upgrade -lockfile=readonly >/dev/null
+    -backend=false -input=false -lockfile=readonly >/dev/null
   TF_CLI_CONFIG_FILE="$CORE_TF_CLI_CONFIG_FILE" \
   TF_DATA_DIR="$core_verify_data" terraform -chdir="$core_root" init \
-    -backend=false -input=false -upgrade -lockfile=readonly >/dev/null
+    -backend=false -input=false -lockfile=readonly >/dev/null
   [[ "$(sha256sum "$platform_lock" | cut -d' ' -f1)" == "$platform_digest" \
     && "$(sha256sum "$core_lock" | cut -d' ' -f1)" == "$core_digest" ]] || {
     echo "azd-up: ERROR: locked provider verification changed the dependency lock" >&2

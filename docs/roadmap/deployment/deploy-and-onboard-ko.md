@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 2e824888453a6da52ffa87870f0d398a43706626
+translation_source_sha: 03477a0fb4079af6876cacfa27f60e0ba2367c99
 translation_revised: 2026-09-13
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -199,7 +199,9 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
   경로를 유지합니다. 점유가 있으면 검증만 재개하며 기반 계층 완료만으로 준비 상태를 주장하지 않습니다.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에 Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결하며, Genesis는 활성 CLI 선택을 바꾸지 않고 정확한 구독 결합 ARM 위치 엔드포인트로 지역 가용성을 확인하고 정책 프로브 정리는 다중 값 TSV를 순서가 있는 줄로 파싱한 뒤 부재를 증명합니다.
 - [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 직접 사용하는 대화형 공개 `dev`
-  경로입니다. 비공개, 공유, 스테이징 또는 운영 배포 경로로 사용하지 않습니다.
+  경로입니다. 업그레이드를 요청하지 않고 커밋된 provider lock을 검증하며, 이미 검증된 배포자
+  principal을 Terraform에 전달하고, 어느 결합이든 변경되면 적용 전에 중단합니다. 비공개, 공유,
+  스테이징 또는 운영 배포 경로로 사용하지 않습니다.
 - [`onboard.sh`](../../../infra/bootstrap/onboard.sh)와
   [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh)는 기존
   저장소 자동화 도구입니다. 공개 대상 환경 배포에서는 호출하지 않습니다.
