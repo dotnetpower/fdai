@@ -428,6 +428,7 @@ class SemanticPlanningService:
                 descriptors=descriptors,
                 manifest_descriptors=manifest.descriptors,
                 inventory_query_language=self._inventory_query_language,
+                bound_incident=bound_incident is not None,
             )
             if (
                 frame_result is None

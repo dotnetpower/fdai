@@ -614,9 +614,10 @@ only when its rule id, action type, and fixed check reference still match. Idemp
   `correlation_id` are present, so partial identity is rejected instead of becoming an unbound
   semantic turn. The bound incident read path passes canonical `incident_id` and audit
   `correlation_id` as separate `query.incident_evidence` arguments and preserves both in its
-  no-authority result. After typed intent acceptance, the model-facing frame input contains only
-  the `Incident` and `query.incident_evidence` descriptors; the complete principal manifest remains
-  authoritative for final plan verification.
+  no-authority result. An accepted bound incident intent builds its frame and plan deterministically
+  without another model call. Any remaining incident frame-model path receives only the `Incident`
+  and `query.incident_evidence` descriptors; the complete principal manifest remains authoritative
+  for final plan verification.
   Resource discovery similarly separates immutable `DiscoveryIntent`, `DiscoveryQueryPlan`,
   provider observations, execution receipts, command explanations, and coverage receipts. Core
   compares only provider-neutral scope, predicate, output, completeness, and equivalence fields;

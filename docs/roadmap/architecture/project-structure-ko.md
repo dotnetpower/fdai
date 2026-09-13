@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 69931b3430833f8d2439fe9e11bfb92b4db53eb9
+translation_source_sha: f19079c9254b1d29a6fd696f0351666e651c0d95
 translation_revised: 2026-09-14
 ---
 # 프로젝트 구조
@@ -613,10 +613,10 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
   Operator는 `incident_id`와 `correlation_id`가 모두 있는 경우에만 바인딩된 인시던트 맥락을
   수락하므로 일부 신원만 있는 요청이 바인딩되지 않은 의미 전환으로 낮아지지 않고 거부됩니다.
   바인딩된 인시던트 읽기 경로는 canonical `incident_id`와 감사 `correlation_id`를 서로 다른
-  `query.incident_evidence` 인자로 전달하고 두 신원을 권한 없는 결과에 모두 보존합니다. 타입 기반
-  intent를 수락한 뒤 모델에 전달하는 frame 입력에는 `Incident`와 `query.incident_evidence`
-  서술자만 포함하며, 최종 plan 검증에서는 전체 principal 매니페스트를 계속 권위 있는 기준으로
-  사용합니다.
+  `query.incident_evidence` 인자로 전달하고 두 신원을 권한 없는 결과에 모두 보존합니다. 수락된
+  바인딩 인시던트 intent는 추가 모델 호출 없이 frame과 plan을 결정론적으로 구성합니다. 그 밖에
+  인시던트 frame 모델이 필요한 경로에는 `Incident`와 `query.incident_evidence` 서술자만
+  전달하며, 최종 plan 검증에서는 전체 principal 매니페스트를 계속 권위 있는 기준으로 사용합니다.
   리소스 검색도 불변 `DiscoveryIntent`, `DiscoveryQueryPlan`, 프로바이더 관찰, 실행 증적,
   명령 설명 및 커버리지 증적을 분리합니다. Core는 프로바이더 중립 범위, 조건식, 출력,
   완전성 및 동등성 필드만 비교하며 Azure 프로파일 메타데이터와 등록된 명령 렌더링은
