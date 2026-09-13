@@ -45,7 +45,7 @@ This ledger tracks the shared read-only state contract used by Dashboard v2 and 
 | 18 | Complete durable-cursor Activity Log traversal | High | Resolved by requiring both the identity-derived and supplied type to be reviewed, preventing parent labels and operation categories from misclassifying child or scope events. |
 | 19 | End-to-end critique | Medium | Identified collection-shaped ARM IDs that could create phantom Resource instances; resolved by concrete type/name pair validation. |
 | 20 | Collection-identity verification | High | Confirmed concrete ARM identity handling, then found `search-service` incorrectly broadened generic database queries. |
-| 21 | Final semantic classification critique | Pending | Awaiting independent verification of the corrected search-service category. |
+| 21 | Final semantic classification critique | Low | Passed independently with no Critical, High, or Medium finding; the full Core and Operator test tree is green. |
 
 ### Implementation history
 

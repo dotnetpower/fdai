@@ -27,6 +27,8 @@ reconciled mapped and unmapped counts, bounded unknown type names, capture metho
 identity completeness without becoming an operational, provisioning, or availability value.
 Broad language query categories do not alter exact Resource types or state applicability.
 `search-service` remains independently addressable and does not join the generic `database` group.
+Any category change must preserve the exact bilingual group-membership contract and pass an
+independent semantic review.
 Every current instance-detail response includes explicit `runtime_call_graph` and
 `postgres_role_evidence` source states. The Console decoder rejects either missing source instead
 of presenting omission as availability or measured zero. The Operator reader also rejects a
