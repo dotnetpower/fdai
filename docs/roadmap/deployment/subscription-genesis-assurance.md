@@ -64,7 +64,7 @@ hardware leaves candidate counts unknown, never assumed zero. Failed reads retai
 
 Preparation fixes the host; the versioned image review seals the pair and host quota headroom.
 Before planning and unclaimed apply, host checks use actual managed-image or exact gallery-version
-disk size. Gallery definitions require generalized x64/Gen2 Linux and completed regional replication.
+disk size. Gallery definitions require generalized x64/Gen2 Linux and one completed target-region replica; case/space aliases never permit duplicate evidence.
 Apply rechecks sealed choices, quota, expiry, and approval. After host and human-identity reads,
 Foundation revalidates the exact plan and expiry before its claim. Existing claims only verify
 effects: no reselection, resize, region switch, or repeat apply. Legacy signed policies retain their
