@@ -62,9 +62,9 @@ Safety / cost invariants
   enforces page count, response byte, and total byte caps; the caller
   wraps the whole poll in a deadline.
 - **No relationship inference**: the only relationship emitted is the
-  reviewed, ARM-id-derived ``contains`` edge from
-  :func:`~fdai.delivery.azure.arg_projection.extract_rg_contains_links`;
-  ``links_complete`` is always ``False``.
+  reviewed, ARM-id-derived ``contains`` edge. Exact provider-parent mappings
+  take precedence over Resource Group fallback; ``links_complete`` is always
+  ``False``.
 """
 
 from __future__ import annotations
@@ -73,6 +73,7 @@ import asyncio
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any, Final
 from urllib.parse import urlparse
 from uuid import UUID
@@ -82,9 +83,8 @@ import httpx
 from fdai.delivery.azure.arg_projection import (
     arm_id_to_type,
     build_arm_to_neutral_map,
-    extract_rg_contains_links,
-    parent_neutral_id,
     resource_operational_status,
+    reviewed_containment_parent,
     to_neutral_id,
     truncate_props,
     validated_arm_scope,
@@ -133,13 +133,21 @@ from fdai.delivery.azure.arg_transport import (
     ArgThrottleGate,
     fetch_arg_row_pages,
 )
+from fdai.rule_catalog.schema.provider_relationship_mapping import (
+    ProviderRelationshipMappingCatalog,
+    load_provider_relationship_mapping_catalog,
+)
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
     resolve_azure_resource_type,
 )
 from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
 from fdai.shared.providers.event_bus import EventBus
-from fdai.shared.providers.inventory import UNCLASSIFIED_RESOURCE_TYPE, ResourceRecord
+from fdai.shared.providers.inventory import (
+    UNCLASSIFIED_RESOURCE_TYPE,
+    LinkRecord,
+    ResourceRecord,
+)
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -155,6 +163,9 @@ _DEFAULT_MAX_HYDRATION_BATCH: Final[int] = 100
 _MAX_HYDRATION_BATCH_CAP: Final[int] = 100
 _DEFAULT_MAX_RESPONSE_BYTES: Final[int] = 10_000_000
 _DEFAULT_MAX_TOTAL_RESPONSE_BYTES: Final[int] = 64_000_000
+_DEFAULT_RELATIONSHIP_MAPPING_ROOT: Final[Path] = Path(
+    "rule-catalog/vocabulary/provider-relationship-mappings"
+)
 _INITIAL_CURSOR_ID: Final[str] = "__fdai_initial__"
 _CHANGE_KIND_BY_ARG_VALUE: Final[Mapping[str, str]] = {
     "create": "upsert",
@@ -191,6 +202,7 @@ class AzureResourceChangeFeedConfig:
     max_response_bytes: int = _DEFAULT_MAX_RESPONSE_BYTES
     max_total_response_bytes: int = _DEFAULT_MAX_TOTAL_RESPONSE_BYTES
     requests_per_second: float = DEFAULT_ARG_REQUESTS_PER_SECOND
+    relationship_mapping_root: Path = _DEFAULT_RELATIONSHIP_MAPPING_ROOT
 
     def __post_init__(self) -> None:
         try:
@@ -272,6 +284,9 @@ class AzureResourceChangeFeed:
         # ARM type -> CSP-neutral resource_type reverse map for delete
         # tombstones, which carry no `kind` disambiguator.
         self._arm_to_neutral: Final[Mapping[str, str]] = build_arm_to_neutral_map(resource_types)
+        self._relationship_mappings: Final[ProviderRelationshipMappingCatalog] = (
+            load_provider_relationship_mapping_catalog(config.relationship_mapping_root)
+        )
         self._throttle_gate: Final[ArgThrottleGate] = ArgThrottleGate()
         self._rate_limiter: Final[ArgRateLimiter] = ArgRateLimiter(
             requests_per_second=config.requests_per_second
@@ -578,8 +593,19 @@ class AzureResourceChangeFeed:
             )
         props["providerType"] = arm_type
         props.update(scope)
-        if (parent_id := parent_neutral_id(arm_id)) is not None:
-            props["parent_id"] = parent_id
+        try:
+            parent = reviewed_containment_parent(
+                arm_id,
+                arm_type=arm_type,
+                arm_to_neutral=self._arm_to_neutral,
+                catalog=self._relationship_mappings,
+            )
+        except ArmScopeError as exc:
+            raise ArgResourceChangeError(
+                "resourcechanges containment scope conflicts with its provider id"
+            ) from exc
+        if parent is not None:
+            props["parent_id"] = parent[0]
         record = ResourceRecord(
             resource_id=neutral_id,
             type=resolved_type,
@@ -613,6 +639,25 @@ class AzureResourceChangeFeed:
             "provider_ref": resource.provider_ref,
             "last_seen": resource.last_seen,
         }
+        parent = reviewed_containment_parent(
+            resource.provider_ref or "",
+            arm_type=str(resource.props.get("providerType") or ""),
+            arm_to_neutral=self._arm_to_neutral,
+            catalog=self._relationship_mappings,
+        )
+        containment_links = (
+            (
+                LinkRecord(
+                    from_id=parent[0],
+                    from_type=parent[1],
+                    link_type="contains",
+                    to_id=resource.resource_id,
+                    to_type=resource.type,
+                ),
+            )
+            if parent is not None
+            else ()
+        )
         link_payloads = [
             {
                 "change_kind": "upsert",
@@ -623,7 +668,7 @@ class AzureResourceChangeFeed:
                 "to_type": link.to_type,
                 "props": dict(link.link_props),
             }
-            for link in extract_rg_contains_links((resource,))
+            for link in containment_links
         ]
         return Event(
             schema_version="1.0.0",

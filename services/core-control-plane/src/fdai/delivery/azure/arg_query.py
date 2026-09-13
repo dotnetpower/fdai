@@ -84,6 +84,7 @@ import httpx
 from fdai.delivery.azure.arg_projection import (
     ArmScopeError,
     resource_operational_status,
+    reviewed_containment_parent,
     validated_arm_scope,
 )
 from fdai.delivery.azure.arg_projection import (
@@ -110,8 +111,6 @@ from fdai.delivery.azure.arg_projection import (
 from fdai.delivery.azure.arg_relationships import (
     RelationshipProjectionResult,
     project_provider_relationships,
-    provider_parent_id,
-    provider_root_id,
 )
 from fdai.delivery.azure.arg_transport import (
     DEFAULT_ARG_REQUEST_BURST,
@@ -139,7 +138,6 @@ from fdai.delivery.inventory_schedule import (
     project_vm_shutdown_schedule,
 )
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
-    EndpointOrientation,
     ProviderRelationshipMappingCatalog,
     load_provider_relationship_mapping_catalog,
 )
@@ -700,31 +698,13 @@ class AzureArgQueryFactory:
         )
 
     def _containment_parent_id(self, arm_id: str, *, arm_type: str) -> str | None:
-        provider_parent_mapping = any(
-            mapping.provider == "azure"
-            and mapping.source_property_path in {"id.providerParent", "id.providerRoot"}
-            and mapping.link_type == "contains"
-            and mapping.endpoint_orientation is EndpointOrientation.REFERENCED_TO_OWNER
-            and arm_type.casefold() in mapping.source_provider_types
-            for mapping in self._relationship_mappings.mappings
+        parent = reviewed_containment_parent(
+            arm_id,
+            arm_type=arm_type,
+            arm_to_neutral=self._arm_to_neutral,
+            catalog=self._relationship_mappings,
         )
-        if provider_parent_mapping:
-            mapping_path = next(
-                mapping.source_property_path
-                for mapping in self._relationship_mappings.mappings
-                if mapping.provider == "azure"
-                and mapping.source_property_path in {"id.providerParent", "id.providerRoot"}
-                and mapping.link_type == "contains"
-                and mapping.endpoint_orientation is EndpointOrientation.REFERENCED_TO_OWNER
-                and arm_type.casefold() in mapping.source_provider_types
-            )
-            parent = (
-                provider_root_id(arm_id)
-                if mapping_path == "id.providerRoot"
-                else provider_parent_id(arm_id)
-            )
-            return _to_neutral_id(parent) if parent is not None else None
-        return _parent_neutral_id(arm_id)
+        return parent[0] if parent is not None else None
 
 
 def _resolve_acr_login_server_to_arm_id(login_server: str) -> str | None:
