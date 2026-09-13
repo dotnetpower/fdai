@@ -6609,14 +6609,14 @@ pre {
 .vertical-contract-list small { white-space: nowrap; }
 .vertical-comparison { padding: 0; overflow: hidden; }
 .vertical-comparison-head { padding: 22px 22px 16px; }
-.vertical-comparison-table { overflow-x: auto; }
-.vertical-comparison-row {
-  display: grid;
-  grid-template-columns: minmax(160px, 1.2fr) repeat(5, minmax(105px, 0.8fr));
+.vertical-comparison-scroll { overflow-x: auto; }
+.vertical-comparison-table {
+  width: 100%;
   min-width: 760px;
-  color: inherit;
-  text-decoration: none;
+  border-collapse: collapse;
+  table-layout: fixed;
 }
+.vertical-comparison-table th:first-child { width: 20%; }
 .vertical-comparison-row > * {
   padding: 12px 14px;
   border-top: 1px solid var(--overview-border);
@@ -6624,11 +6624,14 @@ pre {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+.vertical-comparison-row a { color: inherit; text-decoration: none; }
+.vertical-comparison-row a:hover,
+.vertical-comparison-row a:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
 .vertical-comparison-row > *:first-child { text-align: left; }
 .vertical-comparison-row.is-header { color: var(--overview-muted); background: var(--overview-shade); }
 .vertical-comparison-row.is-header > * { border-top: 0; font-size: 10.5px; font-weight: 650; }
 .vertical-comparison-row:not(.is-header):hover,
-.vertical-comparison-row:not(.is-header):focus-visible { background: color-mix(in oklab, var(--overview-steel) 5%, var(--overview-card)); }
+.vertical-comparison-row:not(.is-header):focus-within { background: color-mix(in oklab, var(--overview-steel) 5%, var(--overview-card)); }
 .vertical-comparison-row .is-unavailable { color: var(--overview-muted); }
 @media (max-width: 760px) {
   .outcome-intro { align-items: flex-start; flex-direction: column; gap: 8px; }

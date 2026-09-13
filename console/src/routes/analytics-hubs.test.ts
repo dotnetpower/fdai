@@ -25,6 +25,7 @@ import {
 } from "./operating-outcomes";
 import {
   verticalDisplayState,
+  verticalEvidenceKey,
   verticalMonthlySavings,
   verticalOutcomeViews,
   verticalPayloadKey,
@@ -193,6 +194,7 @@ describe("trust-routing measurements", () => {
   it("maps vertical routes and evidence states without inventing health", () => {
     expect(verticalPayloadKey("change-safety")).toBe("change_safety");
     expect(verticalRouteSlug("cost")).toBe("cost-governance");
+    expect(verticalEvidenceKey("cost-governance")).toBe("cost_governance");
     expect(verticalDisplayState(null, false)).toBe("unavailable");
     expect(verticalDisplayState(AUTONOMY.verticals[0]!, false)).toBe("unavailable");
     expect(verticalDisplayState(AUTONOMY.verticals[1]!, false)).toBe("measured");

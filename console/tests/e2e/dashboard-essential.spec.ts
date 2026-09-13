@@ -11,6 +11,12 @@ function kpiFixture(overrides: Partial<DashboardKpi> = {}): DashboardKpi {
     hil_pending: 0,
     by_tier: {},
     by_outcome: {},
+    audit_sample: {
+      from_seq: 1001,
+      through_seq: 1280,
+      row_count: 280,
+      limit: 500,
+    },
     ...overrides,
   };
 }
@@ -92,15 +98,19 @@ for (const locale of ["en", "ko"]) {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(`/overview?data=sample&locale=${locale}`);
     await expect(page.locator(".overview-progress-ring strong")).toHaveText("72%");
-    await expect(page.locator(".overview-ring-value")).toHaveAttribute("stroke-dasharray", "72 28");
+    const ring = (await page.locator(".overview-ring-value").getAttribute("stroke-dasharray"))!
+      .split(" ")
+      .map(Number);
+    expect(ring[0]).toBeCloseTo((922 / 1280) * 100);
+    expect(ring[1]).toBeCloseTo((1 - 922 / 1280) * 100);
     const rotation = await page.locator(".overview-ring-baseline").getAttribute("transform");
     expect(Number(rotation!.match(/rotate\(([\d.]+)/)![1])).toBeCloseTo(0.48 * 360);
     await expect(page.locator(".overview-report > .overview-section")).toHaveCount(4);
     await expect(page.locator(".overview-metric")).toHaveCount(4);
     await expect(page.locator(".overview-section-attention .overview-attention-card")).toHaveCount(3);
     await expect(page.locator(".overview-details")).not.toHaveAttribute("open");
-    await expect(page.locator(".overview-posture-facts a").last()).toHaveAttribute("href", "/audit?from_seq=1001&through_seq=1280");
-    await expect(page.locator(".overview-posture-facts a").last()).toContainText("280");
+    await expect(page.locator(".overview-posture-facts a").last()).toHaveAttribute("href", "/audit?from_seq=1001&through_seq=2280");
+    await expect(page.locator(".overview-posture-facts a").last()).toContainText(/1,?280/);
     await expect(page.locator(".overview-section-routing a[href*='outcome=']")).toHaveCount(8);
     const desktop = await geometry(page);
     expectNoOverflow(desktop);

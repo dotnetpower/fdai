@@ -176,7 +176,7 @@
     "comparison": "공유 운영 비교",
     "comparisonSubtitle": "모든 영역에서 의미와 계산 방식이 같은 지표만 비교합니다.",
     "contractsTitle": "근거 계약",
-    "contractsSubtitle": "각 영역 신호를 뒷받침하는 source와 도메인 지표입니다.",
+    "contractsSubtitle": "각 영역 신호를 뒷받침하는 출처와 도메인 지표입니다.",
     "summaryLabel": "영역 요약",
     "simulatedTitle": "예시 비교입니다.",
     "attributionIncomplete": "관측 이벤트 {count}건에 운영 영역이 귀속되지 않아 영역별 값에서 제외됩니다.",
@@ -189,11 +189,11 @@
     },
     "card": {
       "resilience": {
-        "purpose": "인시던트, 복구 훈련 및 검증된 rollback 경로에서 확인한 복구 신뢰도입니다.",
+        "purpose": "인시던트, 복구 훈련 및 검증된 롤백 경로에서 확인한 복구 신뢰도입니다.",
         "link": "복원력 인시던트 열기"
       },
       "change-safety": {
-        "purpose": "변경 결과, 승격 가드 및 rollback 검증에서 확인한 전달 안전성입니다.",
+        "purpose": "변경 결과, 승격 가드 및 롤백 검증에서 확인한 전달 안전성입니다.",
         "link": "변경 승격 근거 열기"
       },
       "cost-governance": {
@@ -204,8 +204,8 @@
     "fact": {
       "recoveryDrills": "통과한 복구 훈련",
       "medianMttr": "중앙값 MTTR",
-      "rollbackPaths": "검증된 rollback 경로",
-      "rollbackSuccess": "Rollback 성공률",
+      "rollbackPaths": "검증된 롤백 경로",
+      "rollbackSuccess": "롤백 성공률",
       "medianLeadTime": "중앙값 리드 타임",
       "promotionGuards": "통과한 승격 가드",
       "observedCostEvents": "관측된 비용 이벤트",
@@ -213,15 +213,15 @@
     },
     "contract": {
       "resilience": {
-        "source": "공유 projection: {source}; 복구 귀속은 연결되지 않음",
+        "source": "공유 변환 결과: {source}; 복구 귀속은 연결되지 않음",
         "measures": "MTTR, RTO/RPO, 복구 성공률"
       },
       "change-safety": {
-        "source": "공유 projection: {source}; 변경 귀속은 연결되지 않음",
-        "measures": "CFR, 리드 타임, rollback 성공률"
+        "source": "공유 변환 결과: {source}; 변경 귀속은 연결되지 않음",
+        "measures": "CFR, 리드 타임, 롤백 성공률"
       },
       "cost-governance": {
-        "source": "공유 projection: {source}; 표시 절감액의 가격 귀속은 연결됨",
+        "source": "공유 변환 결과: {source}; 표시 절감액의 가격 귀속은 연결됨",
         "measures": "실현 절감액, 예산 편차"
       }
     },

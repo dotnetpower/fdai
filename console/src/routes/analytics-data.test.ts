@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { OperatorApiError } from "../api";
+import { decodeAutonomyPayload, decodeDashboardKpi, OperatorApiError } from "../api";
 import {
+  autonomyStateForRequest,
   loadAnalyticsData,
   loadAutonomyDataForMode,
   sampleAnalyticsData,
@@ -46,6 +47,11 @@ describe("analytics source isolation", () => {
       kind: "synthetic",
     });
     expect(data.gates).not.toBeNull();
+    expect(decodeAutonomyPayload({
+      schema_version: "1.0.0",
+      ...data.autonomy,
+    })).toEqual(data.autonomy);
+    expect(decodeDashboardKpi(data.kpi)).toEqual(data.kpi);
   });
 
   it("loads vertical outcome measurements without depending on dashboard KPI", async () => {
@@ -68,5 +74,24 @@ describe("analytics source isolation", () => {
     await expect(loadAutonomyDataForMode("sample", client as never))
       .resolves.toBe(sampleAnalyticsData().autonomy);
     expect(client.autonomy).not.toHaveBeenCalled();
+  });
+
+  it("hides a completed result when the active request identity changes", () => {
+    const firstClient = {} as never;
+    const nextClient = {} as never;
+    const data = sampleAnalyticsData().autonomy;
+    const request = {
+      client: firstClient,
+      dataMode: "sample" as const,
+      state: { status: "ready" as const, data },
+    };
+
+    expect(autonomyStateForRequest(request, firstClient, "sample")).toBe(request.state);
+    expect(autonomyStateForRequest(request, nextClient, "sample")).toEqual({
+      status: "loading",
+    });
+    expect(autonomyStateForRequest(request, firstClient, "live")).toEqual({
+      status: "loading",
+    });
   });
 });
