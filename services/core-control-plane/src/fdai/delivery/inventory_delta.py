@@ -31,9 +31,14 @@ async def forward_inventory_delta(
     event_bus: EventBus,
     topic: str,
     scope: str,
+    properties_complete: bool = True,
     deadline_seconds: float = DEFAULT_DELTA_DEADLINE_SECONDS,
 ) -> int:
-    """Publish one delta stream and advance its cursor only at the final fence."""
+    """Publish one delta stream and advance its cursor only at the final fence.
+
+    Sparse recovery sources set ``properties_complete`` false so replay merges
+    only their property mask and leaves relationships to full reconciliation.
+    """
     if deadline_seconds <= 0:
         raise ValueError("inventory delta deadline_seconds MUST be > 0")
     cursor_key = f"{_CURSOR_PREFIX}{scope}"
@@ -70,7 +75,12 @@ async def forward_inventory_delta(
                         _resource_event(
                             scope=scope,
                             resource=resource,
-                            links=links_by_owner.get(resource.resource_id, ()),
+                            links=(
+                                links_by_owner.get(resource.resource_id, ())
+                                if properties_complete
+                                else ()
+                            ),
+                            properties_complete=properties_complete,
                         ),
                     )
                     for resource in batch.resources
@@ -102,7 +112,13 @@ async def forward_inventory_delta(
     return published
 
 
-def _resource_event(*, scope: str, resource: ResourceRecord, links: Sequence[LinkRecord]) -> Event:
+def _resource_event(
+    *,
+    scope: str,
+    resource: ResourceRecord,
+    links: Sequence[LinkRecord],
+    properties_complete: bool = True,
+) -> Event:
     resource_id = resource.resource_id
     resource_type = resource.type
     last_seen = resource.last_seen
@@ -151,8 +167,8 @@ def _resource_event(*, scope: str, resource: ResourceRecord, links: Sequence[Lin
             "resource": resource_payload,
             "inventory_change": {
                 "kind": "upsert",
-                "observation_kind": "full",
-                "properties_complete": True,
+                "observation_kind": "full" if properties_complete else "partial",
+                "properties_complete": properties_complete,
                 "property_mask": sorted(resource.props),
                 "scope_ref": scope,
                 "resource": resource_payload,

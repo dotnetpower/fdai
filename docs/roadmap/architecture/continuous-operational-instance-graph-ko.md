@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 08179302bda3f269f7b8200e464c07a635ae5d29
+translation_source_sha: 3d832f2fc181176a78a22fb2d8419fccdb66f727
 translation_revised: 2026-09-13
 ---
 # 지속형 운영 인스턴스 그래프
@@ -74,6 +74,10 @@ translation_revised: 2026-09-13
    delta를 가져옵니다.
 3. 누락 이벤트를 찾고 관계를 복구하며 범위 완전성을 증명하도록 제한된 reconciliation을 실행합니다.
 4. inventory에 근거 유형이 없거나 검증된 쿼리에 더 최신 근거가 필요할 때만 정확한 실시간 조회를 실행합니다.
+
+Activity Log 복구 레코드는 일부 속성만 담은 관측입니다. 선언한 속성 마스크만 현재 스냅샷에
+병합하고 관계 변경은 전달하지 않습니다. 완전한 reconciliation만 전체 속성 집합을 교체하거나
+관계 완전성을 확정할 수 있습니다.
 
 수집된 속성은 검토된 프로바이더 mapping을 거쳐야만 관계가 됩니다. Mapping이 관측된 연결
 대상을 빠뜨리면 없는 그래프 edge가 경로 부재를 입증하지 않습니다. 따라서 도달 가능한 모든
