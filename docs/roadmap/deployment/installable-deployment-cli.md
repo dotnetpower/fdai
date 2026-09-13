@@ -3,10 +3,8 @@ title: Installable Deployment CLI
 ---
 # Installable Deployment CLI
 
-This document defines the target installation and deployment experience for FDAI. Operators
-install an isolated Python command-line tool, run a read-only deployment preflight, and submit
-an approved Terraform plan to the deployment runner without moving secrets through the local
-machine.
+Operators install an isolated `fdaictl`, run read-only preflight, and submit an approved Terraform
+plan to the deployment runner. Deployment secrets remain on the approved execution host.
 
 > **Execution boundary:** Terraform remains the infrastructure execution engine and source of
 > truth. The planned `fdaictl` distribution is a thin orchestration layer over validation, plan
@@ -88,19 +86,21 @@ lead to a mutation makes the remote execution boundary visible.
 
 Disconnected installation authenticates the signed kit with a trusted verifier outside that kit,
 copies its wheels into a private digest-checked snapshot, and installs only from that snapshot. The
-same verifier safely extracts and verifies the signed bundle before Terraform reads it. The installed
-`fdaictl` then repeats verification, and every Terraform binary and provider path uses the private
+same verifier safely extracts and verifies the signed bundle before Terraform reads it. Reusable Console artifacts use the env-isolated offline build and require installation-time bindings, never host deployment defaults. The installed
+`fdaictl` repeats verification and passes its installed Python to fixed packaged Genesis launchers; plan generation and reverification use that same CLI interpreter. Its outer timeout reserves graceful process-group cleanup; nested Genesis grace decreases at each of at most eight levels. Every Terraform binary and provider path uses the private
 snapshot rather than the original kit. Artifact metadata and content descriptors open in
 nonblocking, no-follow mode and verify file identity after opening, so a check/open replacement
 cannot stall verification.
 Connected staging accepts complete runtime v2 only from digest-bound `build-runtime-release.py`,
-then requires the committed CLI lock and exact Hatchling and pip versions before kit signing.
+then requires the committed CLI lock and exact Hatchling and pip versions before kit signing. CLI build tooling uses a stage-private environment, never the caller's selected virtual environment.
 Terraform and OPA are downloaded at pinned versions only after their official SHA-256 values match.
 The required Python accepts only the official Terraform ZIP member shape, so no ambient `unzip` is needed.
 The output root must be a safe absolute path. A descriptor-based guard verifies current-UID ownership, mode 0700, and a
 mode-0600 regular staging sentinel before cleanup. Restaging removes every generated directory and
-single-file output while preserving the ownership sentinel. Sentinel verification opens the final
+single-file output while preserving the ownership sentinel. The complete standalone release wrapper instead requires a fresh output root, preserves prior archives, and reports success only after a valid archive checksum. Sentinel verification opens the final
 component in nonblocking mode before descriptor checks, so a special file cannot stall resume.
+Complete builds share a three-hour budget with stage and no-progress deadlines. Nested supervisors forward cancellation and use shorter termination grace than their parent, preventing orphaned build groups or later signing and success.
+Complete builds materialize a private detached checkout of one pinned commit, without caller-local ignored inputs or signing keys. Raw tracked bytes, modes, and a stable metadata fingerprint are checked across assembly and immediately before signing; status flags or unchanged locks alone cannot certify source identity.
 Generated child files use a held-parent, exclusive, no-follow writer. A resumed replacement unlinks
 only the final entry and recreates it with `O_EXCL`, so links and FIFOs cannot redirect a write.
 Future protected executors may publish one verified OCI Image Layout archive or reconcile
@@ -125,13 +125,13 @@ regular-file readers in both source and installed-wheel verification.
 The shipped-wheel install disables the `uv` cache, so a previously cached wheel with the same
 version and filename cannot replace the authenticated kit artifact during a hardening drill.
 A pre-login hardening campaign closes only after the complete focused gate stack, fresh and resumed
-air-gap drills, and a final severity audit leave no finding above Low.
+air-gap drills, and a final severity audit leave no finding above Low. The source audit explicitly covers packaged entrypoints, stateful verification resume, and nested cancellation; it never substitutes for complete artifact acceptance.
 The connected stage issues its synthetic license through the current Core and service-contract
 package roots rather than the retired monolithic source path, and verifies the issued Ed25519
 signature without a removed delivery adapter. License output is a new private file; issuance never
 truncates or replaces an existing path. Release utilities resolve the service-owned Core trust
 package and read signing keys through one nonblocking, no-follow, 65536-byte regular-file boundary.
-Private keys must be owned by the current UID with mode `0600`.
+Private keys must be owned by the current UID with mode `0600`; caller-relative key paths resolve before the build changes directories and keys stay outside the source snapshot.
 Connected plans expose only a validated Azure CLI path or target-bound Managed Identity variables
 to Terraform; unrelated environment values remain excluded.
 

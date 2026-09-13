@@ -131,3 +131,27 @@ def test_complete_catalog_requires_all_bounds_to_hold(monkeypatch, limit):
         monkeypatch.setattr(catalog, "_SECONDS", 0)
     with pytest.raises(CheckError, match="evidence_incomplete"):
         read(lambda *_a, **_k: json.dumps({"value": [sku()], "nextLink": page_url()}))
+
+
+@pytest.mark.parametrize("fault", ["cumulative_bytes", "repeated_page", "elapsed_deadline"])
+def test_continuation_cannot_reset_bounds_or_reuse_a_page(monkeypatch, fault):
+    pages = [
+        json.dumps({"value": [sku()], "nextLink": page_url()}),
+        json.dumps({"value": [sku("Standard_D2ds_v6")], "nextLink": page_url()}),
+    ]
+    clock = [0.0]
+    monkeypatch.setattr(catalog, "monotonic", lambda: clock[0])
+    if fault == "cumulative_bytes":
+        monkeypatch.setattr(catalog, "_MAX_BYTES", max(map(len, pages)) + 1)
+    calls = []
+
+    def capture(*_args, **_kwargs):
+        calls.append(True)
+        if fault == "elapsed_deadline" and len(calls) == 2:
+            clock[0] = 91.0
+        assert len(calls) <= 2
+        return pages[len(calls) - 1]
+
+    with pytest.raises(CheckError, match="evidence_incomplete"):
+        read(capture)
+    assert len(calls) == 2

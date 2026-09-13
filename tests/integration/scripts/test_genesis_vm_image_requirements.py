@@ -140,3 +140,47 @@ def test_gallery_missing_requirements_remain_blocked(fault):
 def test_unversioned_foreign_or_injected_resource_has_no_read(image):
     with pytest.raises(CheckError, match="evidence_incomplete"):
         verify(image, [])
+
+
+@pytest.mark.parametrize("label", ["eastus", "EAST US", "EastUS"])
+def test_gallery_replication_normalizes_display_and_canonical_region(label):
+    definition, version = gallery()
+    version["replicas"] = [
+        {"region": "West US", "state": "Replicating"},
+        {"region": label, "state": "Completed"},
+    ]
+    result, calls = verify(GALLERY, [definition, version])
+    assert result["diskSizeGB"] == 128
+    assert len(calls) == 2
+
+
+def test_gallery_aliases_do_not_hide_duplicate_target_region():
+    definition, version = gallery()
+    version["replicas"].append({"region": "eastus", "state": "Completed"})
+    with pytest.raises(CheckError, match="evidence_incomplete"):
+        verify(GALLERY, [definition, version])
+
+
+@pytest.mark.parametrize("bad_stage", [0, 1])
+def test_gallery_duplicate_json_fields_stop_at_the_affected_read(bad_stage):
+    responses = list(gallery())
+    calls = []
+
+    def capture(command, **_kwargs):
+        assert command[:4] == ["/usr/bin/az", "rest", "--method", "get"]
+        index = len(calls)
+        calls.append(command)
+        if index == bad_stage:
+            return '{"id":"first","id":"second"}'
+        return json.dumps(responses[index])
+
+    with pytest.raises(CheckError, match="evidence_incomplete"):
+        image_requirements(
+            image=GALLERY,
+            subscription_id=SUB,
+            region="eastus",
+            capture=capture,
+            cwd=ROOT,
+            environment={},
+        )
+    assert len(calls) == bad_stage + 1

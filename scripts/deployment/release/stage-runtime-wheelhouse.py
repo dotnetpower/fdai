@@ -27,8 +27,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO
 
 if TYPE_CHECKING:
+    from scripts.deployment.release.release_source import SourceDriftError, require_source
     from scripts.deployment.release.secure_work_file import open_work_file, write_work_file
 else:
+    from release_source import SourceDriftError, require_source
     from secure_work_file import open_work_file, write_work_file
 
 RUNTIME_PACKAGES = {
@@ -141,6 +143,8 @@ def stage_runtime_wheelhouse(
     *,
     runner: CommandRunner | None = None,
     clock: Callable[[], float] | None = None,
+    source_commit: str | None = None,
+    source_fingerprint: str | None = None,
 ) -> dict[str, object]:
     """Build six runtime roots and their required support wheels using committed locks.
 
@@ -148,6 +152,8 @@ def stage_runtime_wheelhouse(
     Commands have a ten-minute cap within a one-hour total deadline. Outputs are
     exclusive and host-specific. This never signs, publishes, deploys, or grants
     production eligibility. A failed command raises StagingError without retry.
+    Complete releases pass a pinned source commit and fingerprint; both the
+    initial source and the post-build source must match before inventory exists.
     """
     runner = runner or subprocess.run
     clock = clock or time.monotonic
@@ -201,6 +207,21 @@ def stage_runtime_wheelhouse(
         result = run(["git", "rev-parse", "--show-toplevel"], cwd=Path.cwd())
         repo_root = Path(result.stdout.decode().strip())
     repo = repo_root.resolve(strict=True)
+
+    def source_boundary() -> None:
+        nonlocal source_fingerprint
+        if source_commit is None:
+            if source_fingerprint is not None:
+                raise StagingError("a source fingerprint requires its pinned commit")
+            return
+        remaining()
+        try:
+            source_fingerprint = require_source(repo, source_commit, source_fingerprint)
+        except (SourceDriftError, OSError, RuntimeError):
+            raise StagingError("release source changed; no runtime inventory") from None
+        remaining()
+
+    source_boundary()
     locks = {}
     for relative in ("uv.lock", "packages/deployment-cli/uv.lock"):
         committed = run(["git", "show", f"HEAD:{relative}"], cwd=repo).stdout
@@ -379,6 +400,7 @@ def stage_runtime_wheelhouse(
         "files": files,
     }
     remaining()
+    source_boundary()
     write_work_file(
         out_dir / "inventory.json",
         (json.dumps(inventory, indent=2, sort_keys=True) + "\n").encode(),
@@ -393,9 +415,16 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--repo-root", type=Path)
+    parser.add_argument("--source-commit")
+    parser.add_argument("--source-fingerprint")
     args = parser.parse_args(argv)
     try:
-        stage_runtime_wheelhouse(args.out_dir, args.repo_root)
+        stage_runtime_wheelhouse(
+            args.out_dir,
+            args.repo_root,
+            source_commit=args.source_commit,
+            source_fingerprint=args.source_fingerprint,
+        )
     except StagingError as exc:
         print(f"runtime wheelhouse staging incomplete: {exc}", file=sys.stderr)
         return 1

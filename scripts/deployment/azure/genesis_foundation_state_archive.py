@@ -16,6 +16,7 @@ from fdai_deployment_cli.private_output import read_private_bytes
 
 _MAX_FILES = 4096
 _MAX_BYTES = 1024 * 1024 * 1024
+_REMOTE_BACKEND = b'terraform {\n  backend "azurerm" {}\n}\n'
 
 
 def create_foundation_state_archive(
@@ -27,7 +28,12 @@ def create_foundation_state_archive(
     source_commit: str,
     expected_state_digest: str,
 ) -> dict[str, object]:
-    """Create one link-free deterministic archive and return its exact digests."""
+    """Bind exact state and the explicit remote-backend transition in a private archive.
+
+    The local verified root remains unchanged. New local-first roots activate only
+    the fixed signed backend example in the staged migration copy; legacy roots
+    without that example retain their existing backend contract.
+    """
 
     if destination.exists() or destination.is_symlink():
         raise FileExistsError("Foundation state handoff archive already exists")
@@ -35,6 +41,11 @@ def create_foundation_state_archive(
         stage = Path(raw)
         stage.chmod(0o700)
         _copy_tree(terraform_root, stage / "root", exclude_state_backup=True)
+        backend_example = stage / "root/backend.azurerm.tf.example"
+        if backend_example.exists():
+            if backend_example.read_bytes() != _REMOTE_BACKEND:
+                raise ValueError("Foundation remote backend example differs from its contract")
+            _write_bytes(stage / "root/backend.azurerm.tf", _REMOTE_BACKEND, executable=False)
         _copy_tree(provider_mirror, stage / "mirror", exclude_state_backup=False)
         variables = read_private_bytes(variables_file, max_bytes=1_048_576)
         _write_bytes(stage / "variables.auto.tfvars.json", variables, executable=False)

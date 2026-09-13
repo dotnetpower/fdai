@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy an FDAI Core development environment to your Azure subscription, or use the protected workflow for private and shared environments.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 662e78c99fa0c1ef98ce70423fa0b5be53fed8ee }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 569fdd4157cb3e19a3f1f1148b1175afdf4dbeb4 }]
 ---
 
 # Deploy Quickstart
@@ -49,6 +49,7 @@ approval and never changed during apply. If no compatible set is available, revi
 restrictions, hardware requirements, and quota; existing claims still resume verification only.
 These checks apply only when the selected signed kit contains them. Checkout changes do not update
 an older kit, and editing an extracted signed kit is not supported.
+Foundation plans first use a private local backend. Only the exact migration archive activates the signed remote-backend example for the attested host; migration approval and readback remain mandatory.
 
 The lower-level Genesis router displays 15 numbered stages, exact progress, skipped-stage counts,
 and remaining work. Its `--apply --allow-probe-resources` flags authorize only missing-provider

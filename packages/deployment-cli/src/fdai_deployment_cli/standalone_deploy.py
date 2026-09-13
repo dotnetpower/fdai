@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from fdai_deployment_cli.deployment_kit import DeploymentKit, acquire_deployment_kit
+from fdai_deployment_cli.foundation_process import run_foundation_process
 from fdai_deployment_cli.private_output import read_private_bytes
 from fdai_deployment_cli.standalone_application import deploy_standalone_application
 
@@ -86,8 +87,9 @@ def deploy_azure_foundation(
     status_path = prepared.root / "status.json"
     while True:
         remaining = int(deadline - time.monotonic())
-        if remaining < 1800:
+        if remaining < 1830:
             raise TimeoutError("standalone Foundation deadline has insufficient remaining budget")
+        stage_timeout = min(14_400, remaining - 30)
         command = (
             sys.executable,
             str(scripts / "genesis_orchestrator.py"),
@@ -118,12 +120,12 @@ def deploy_azure_foundation(
             str(prepared.ssh_private_key),
             *(("--approval-file", str(approval)) if approval.exists() else ()),
             "--execution-timeout-seconds",
-            str(min(14_400, remaining)),
+            str(stage_timeout),
             "--output",
             "json",
         )
         try:
-            completed = subprocess.run(
+            completed = run_foundation_process(
                 command,
                 cwd=kit.bundle_root,
                 env={
@@ -135,8 +137,7 @@ def deploy_azure_foundation(
                     "AZURE_TENANT_ID": target.tenant_id,
                     "FDAI_SIGNED_SOURCE_EVIDENCE": source_evidence,
                 },
-                check=False,
-                timeout=min(14_400, remaining),
+                timeout=stage_timeout + 15,
             )
         except subprocess.TimeoutExpired as exc:
             raise TimeoutError(
