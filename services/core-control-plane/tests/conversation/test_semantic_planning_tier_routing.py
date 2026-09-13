@@ -6768,7 +6768,14 @@ def _anchored_fixture() -> Any:
 
 
 def _anchored_service(manifest: Any, plan: dict[str, object] | None) -> tuple[Any, Any]:
-    model = _Model(frame=_frame(output_shape="incident_evidence"), plan=plan)
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Incident"],
+            temporal_scope={"kind": "historical"},
+            output_shape="incident_evidence",
+        ),
+        plan=plan,
+    )
     service = SemanticPlanningService(
         model=model,
         manifests=_ManifestProvider(manifest),
@@ -6869,6 +6876,38 @@ def test_accepted_bound_incident_intent_skips_frame_and_plan_models() -> None:
         "correlation_id": "bound-incident",
         "limit": INCIDENT_EVIDENCE_MAX_RECORDS,
     }
+
+
+def test_bound_incident_rejects_a_non_incident_frame() -> None:
+    manifest = _anchored_fixture()
+    model = _Model(
+        frame=_frame(output_shape="incident_evidence"),
+        plan=_incident_evidence_plan(
+            incident_id="00000000-0000-0000-0000-000000000702",
+            correlation_id="bound-incident",
+        ),
+    )
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance="Report what the evidence for this incident establishes.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_incident=BoundIncident(
+            incident_id="00000000-0000-0000-0000-000000000702",
+            correlation_id="bound-incident",
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.reason == "semantic_plan_invalid"
+    assert (model.frame_calls, model.plan_calls) == (1, 1)
 
 
 def test_bound_incident_historical_comparison_holds_without_recurrence_capability() -> None:

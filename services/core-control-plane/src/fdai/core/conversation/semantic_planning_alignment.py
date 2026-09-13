@@ -120,6 +120,7 @@ def verify_frame_plan_alignment(
         )
     _verify_current_relationship_mapping(frame, plan, descriptors=descriptors)
     _verify_manifest_aggregate_source(frame, plan)
+    _verify_incident_evidence_frame(frame)
 
     output_node_ids = set(plan.output_node_ids)
     selected_functions: set[str] = set()
@@ -160,6 +161,15 @@ def verify_frame_plan_alignment(
     ):
         raise ValueError("semantic plan selects a function outside the frame output")
     _verify_ontology_declaration_subject(frame, plan, descriptors=descriptors)
+
+
+def _verify_incident_evidence_frame(frame: SemanticProblemFrame) -> None:
+    if frame.output_shape != "incident_evidence":
+        return
+    if frame.operation is not SemanticOperation.SELECT or frame.subject_constraints != (
+        "Incident",
+    ):
+        raise ValueError("semantic incident evidence requires a select Incident frame")
 
 
 def _function_matches_output_shape(
