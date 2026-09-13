@@ -133,6 +133,8 @@ normalized supplied type is outside the reviewed ResourceType vocabulary. When b
 the supplied type must match the exact provider or built-in scope shape encoded by its ARM ID.
 Omitted rows advance the provider cursor without creating a reconciliation marker; a mapped
 contradiction fails before the final cursor fence.
+Provider collection paths that end at a type without its resource-name segment are not Resource
+identities and cannot contribute a state observation.
 
 The promoted Resource fact is written to both the current `ontology_resource` Resource and the
 Operator-readable inventory projection under one generation fence. Core conversational functions
