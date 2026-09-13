@@ -26,6 +26,7 @@ and recoverable.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-13 | implemented | Hardened VM policy file reads against linked, writable, special, oversized, and changing inputs using a held bounded descriptor. | `current change`; policy-reader and VM integration suites: 27 passed; Ruff and format passed. | Complete the remaining explicitly requested signed-kit hardening rounds and exact-source release validation. |
 | 2026-09-13 | in-progress | Prepared the full-catalog release candidate and shortened duplicate assurance prose to satisfy the unchanged design-context budget. The policy's final newline was normalized before committing its final digest. | Source commit `a0997acf1`; 112 policy/catalog/image/integration/contract tests passed after normalization; normal commit hooks and design-route checks passed. | Publish the exact candidate, require green CI and matching framework integrity, then build and independently verify a new complete signed kit. Existing deployment state remains untouched. |
 | 2026-09-13 | implemented | Replaced preference-only discovery for new v2 inputs with a bounded complete regional catalog and role-based builder, verifier, and Foundation selection. Added combined quota, exact host and actual image disk checks, private replay with explicit unknown counters, and a Foundation expiry fence after host and human-identity reads. Existing claims and v1 policy behavior remain unchanged. | `current change`; new VM catalog, choice, policy, image, preflight, and image-requirements modules; VM choice/catalog/integration/contracts/image-requirements plus existing preparation/Foundation/image/SKU/approval/private-execution tests: 451 passed; Ruff and format: 22 changed Python files; strict source-only mypy: 14 sources. Synthetic compatibility proves selection, not live capacity. | Publish and verify the exact signed kit, obtain current eligible target metadata and new exact approvals, and retain independent image/Foundation effects. Claimed partial-state recovery and complete deployment readiness remain separate. |
 | 2026-09-12 | implemented | Added deterministic pre-plan builder/verifier selection from the signed five-SKU small-VM policy. Restricted B2s or a restricted preferred builder can select a compatible D2-series candidate only with complete same-region capability and aggregate quota evidence. Private snapshots allow replay; chosen sizes and evidence digests bind to the exact review and appear before terminal approval. Apply rechecks the sealed pair and never selects another SKU or repeats a retained claim. | `current change`; image/SKU/approval/private-execution tests: 307 passed; five SKU modules: 99.68% combined statement/branch coverage; Ruff and format: 14 changed Python files; strict mypy: eight changed sources, including the image contract, with imported-module diagnostics separate. | Publish and reverify the feature in an eligible signed kit before using it. Foundation VM selection, price quotation, allocation capacity, existing partial-state recovery, new exact approval, and deployment readiness remain separate. |
@@ -95,6 +96,15 @@ and recoverable.
   preserving the prior work directory and proving the intended kit revision before another Azure run.
 - [ ] Retain one governed empty-subscription run, one supported-upgrade run, one rollback/restore
   run, and one second-run no-change receipt.
+
+## Signed-kit hardening rounds
+
+This bounded campaign reviews VM selection and signed-kit delivery, not the entire repository.
+An unconfirmed hypothesis is not a defect; a passing local test is not release or Azure evidence.
+
+| Round | Critique | Outcome | Evidence | Residual risk |
+|-------|----------|---------|----------|---------------|
+| H01 | Policy check/open and unsafe file identity | Medium: hard-linked and externally writable policy files were accepted. The bounded descriptor reader now rejects them and prevents final-component symlink/FIFO races. | `test_genesis_vm_policy_reader.py` and VM integration: 27 passed | Low: authenticated parent/source authority still belongs to the existing kit verifier. |
 
 ## Critique resolution register
 

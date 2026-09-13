@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import stat
 import subprocess
 import tempfile
 from collections.abc import Callable, Mapping
@@ -36,11 +37,36 @@ class VmReadContext(TypedDict):
 
 
 def load_vm_policy(repository_root: Path) -> VmPolicy:
-    """Read the hardware policy from the caller-authenticated source or signed bundle."""
+    """Read a bounded, stable policy descriptor from caller-authenticated source or bundle.
+
+    No-follow and nonblocking open prevent check/open replacement from following links or
+    waiting on a special file. This checks file integrity, not source-signing authority.
+    """
     path = repository_root / "infra/genesis-runner-image" / POLICY_NAME
-    if path.is_symlink() or not path.is_file() or path.stat().st_size > 16_384:
-        raise CheckError(EVIDENCE_INVALID, 3)
-    return parse_vm_policy(path.read_bytes())
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(descriptor, "rb") as stream:
+            before = os.fstat(stream.fileno())
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_uid != os.geteuid()
+                or before.st_nlink != 1
+                or before.st_mode & 0o022
+                or not 0 < before.st_size <= 16_384
+            ):
+                raise CheckError(EVIDENCE_INVALID, 3)
+            raw = stream.read(16_385)
+            after = os.fstat(stream.fileno())
+            if (
+                len(raw) != before.st_size
+                or after.st_size != before.st_size
+                or after.st_mtime_ns != before.st_mtime_ns
+                or after.st_ctime_ns != before.st_ctime_ns
+            ):
+                raise CheckError(EVIDENCE_INVALID, 3)
+    except OSError:
+        raise CheckError(EVIDENCE_INVALID, 3) from None
+    return parse_vm_policy(raw)
 
 
 def discover_foundation_vm_size(

@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 41233bb31df490fa59edae76ca1d8c0fd4829657
+translation_source_sha: 4cd4a253217555084a3f017829ba0c7e1573e250
 translation_revised: 2026-09-13
 ---
 # 구독 초기 구성 보증
@@ -51,6 +51,7 @@ translation_revised: 2026-09-13
 새 준비 작업은 서명된 [하드웨어 정책](../../../infra/genesis-runner-image/vm-sku-policy.json)으로
 지역 전체 카탈로그를 읽습니다. 선호 목록은 호환되는 x64/Gen2 하드웨어의 순서만 정하며,
 목록 밖의 호환 SKU도 선택할 수 있습니다.
+정책은 크기가 제한된 링크 비추적 파일 서술자로 읽고, 안전하지 않은 소유권·링크·쓰기 권한과 읽는 중 변경을 차단합니다.
 
 | 역할 | CPU와 메모리 | OS 디스크 |
 |------|--------------|-----------|
