@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "id": "ontology-instances-2d-mock",
+    "label": "Ontology instances / synthetic snapshot",
+    "kind": "synthetic-mock",
+    "derivedFrom": "mocks/ui/ontology-instances-2d.html",
+    "derivation": "Authored read projection of the 12 resource records and their group fields. Group instances and member_of relations are synthetic projections of those fields, not observed provider records."
+  },
+  "generation": "mock-20260822-0800-v1",
+  "recordedAt": "2026-08-22T08:00:00Z",
+  "completeness": "complete",
+  "coverage": "Complete only for this 12-resource mock snapshot; no live estate coverage or freshness is claimed.",
+  "instances": [
+    { "id": "mock:ontology-2d:group:example-runtime", "name": "example-runtime", "objectType": "ResourceGroup", "resourceType": "resource-group" },
+    { "id": "mock:ontology-2d:group:example-data", "name": "example-data", "objectType": "ResourceGroup", "resourceType": "resource-group" },
+    { "id": "mock:ontology-2d:group:example-network", "name": "example-network", "objectType": "ResourceGroup", "resourceType": "resource-group" },
+    { "id": "mock:ontology-2d:group:example-observe", "name": "example-observe", "objectType": "ResourceGroup", "resourceType": "resource-group" },
+    { "id": "mock:ontology-2d:example-runtime:checkout-api", "name": "checkout-api", "objectType": "Resource", "resourceType": "compute.container-app" },
+    { "id": "mock:ontology-2d:example-runtime:ingestion-api", "name": "ingestion-api", "objectType": "Resource", "resourceType": "compute.container-app" },
+    { "id": "mock:ontology-2d:example-runtime:worker", "name": "worker", "objectType": "Resource", "resourceType": "compute.container-app" },
+    { "id": "mock:ontology-2d:example-runtime:runtime-environment", "name": "runtime-environment", "objectType": "Resource", "resourceType": "compute.container-app-environment" },
+    { "id": "mock:ontology-2d:example-data:event-stream", "name": "event-stream", "objectType": "Resource", "resourceType": "messaging.event-stream" },
+    { "id": "mock:ontology-2d:example-data:state-db", "name": "state-db", "objectType": "Resource", "resourceType": "data.postgresql" },
+    { "id": "mock:ontology-2d:example-data:object-store", "name": "object-store", "objectType": "Resource", "resourceType": "data.object-storage" },
+    { "id": "mock:ontology-2d:example-network:private-network", "name": "private-network", "objectType": "Resource", "resourceType": "network.virtual-network" },
+    { "id": "mock:ontology-2d:example-network:private-endpoint", "name": "private-endpoint", "objectType": "Resource", "resourceType": "network.private-endpoint" },
+    { "id": "mock:ontology-2d:example-data:secrets", "name": "secrets", "objectType": "Resource", "resourceType": "security.secret-store" },
+    { "id": "mock:ontology-2d:example-data:registry", "name": "registry", "objectType": "Resource", "resourceType": "delivery.container-registry" },
+    { "id": "mock:ontology-2d:example-observe:observability", "name": "observability", "objectType": "Resource", "resourceType": "observability.workspace" }
+  ],
+  "relations": [
+    { "from": "mock:ontology-2d:example-runtime:checkout-api", "to": "mock:ontology-2d:group:example-runtime", "type": "member_of" },
+    { "from": "mock:ontology-2d:example-runtime:ingestion-api", "to": "mock:ontology-2d:group:example-runtime", "type": "member_of" },
+    { "from": "mock:ontology-2d:example-runtime:worker", "to": "mock:ontology-2d:group:example-runtime", "type": "member_of" },
+    { "from": "mock:ontology-2d:example-runtime:runtime-environment", "to": "mock:ontology-2d:group:example-runtime", "type": "member_of" },
+    { "from": "mock:ontology-2d:example-data:event-stream", "to": "mock:ontology-2d:group:example-data", "type": "member_of" },
+    { "from": "mock:ontology-2d:example-data:state-db", "to": "mock:ontology-2d:group:example-data", "type": "member_of" },
+    { "from": "mock:ontology-2d:example-data:object-store", "to": "mock:ontology-2d:group:example-data", "type": "member_of" },
+    { "from": "mock:ontology-2d:example-network:private-network", "to": "mock:ontology-2d:group:example-network", "type": "member_of" },
+    { "from": "mock:ontology-2d:example-network:private-endpoint", "to": "mock:ontology-2d:group:example-network", "type": "member_of" },
+    { "from": "mock:ontology-2d:example-data:secrets", "to": "mock:ontology-2d:group:example-data", "type": "member_of" },
+    { "from": "mock:ontology-2d:example-data:registry", "to": "mock:ontology-2d:group:example-data", "type": "member_of" },
+    { "from": "mock:ontology-2d:example-observe:observability", "to": "mock:ontology-2d:group:example-observe", "type": "member_of" }
+  ]
+}

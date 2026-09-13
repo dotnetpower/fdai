@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Observation affinity - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=semantic-type-v5" />
+  <link rel="stylesheet" href="assets/observation-affinity.css?v=1" />
+  <link rel="stylesheet" href="assets/governance-workspace.css" />
+  <script src="assets/calm-slate.js?v=observation-affinity-v1" defer></script>
+  <script type="module" src="assets/observation-affinity.js?v=2"></script>
+  <script src="assets/governance-workspace.js?v=1" defer></script>
+</head>
+<body class="oa-page cs-operator-neutral cs-governance-neutral" data-chat-theme="clear-neutral">
+  <main class="cs-container cs-page oa-workspace">
+    <header class="oa-header">
+      <div>
+        <h1><span class="cs-page-domain">Governance</span><span aria-hidden="true"> / </span>Observation affinity</h1>
+        <p>Give selected resources more attention, without leaving the rest unwatched.</p>
+      </div>
+      <button class="cs-btn is-primary" id="add-rule" type="button">Add affinity rule</button>
+    </header>
+
+    <p class="oa-preview"><strong>Synthetic preview</strong><span>No live reads or changes. Rules stay in this page and reset on reload.</span></p>
+    <section class="oa-principles" aria-label="Observation boundaries">
+      <div><span>Baseline monitoring</span><strong>Always maintained</strong></div>
+      <div><span>Preference model</span><strong>Soft, never required</strong></div>
+      <div><span>Execution authority</span><strong>Not changed by affinity</strong></div>
+    </section>
+
+    <div class="oa-workbench">
+      <section class="oa-rules" aria-labelledby="rules-title">
+        <header class="oa-section-header"><h2 id="rules-title">Affinity rules</h2><span id="rule-count" aria-live="polite"></span></header>
+        <div class="oa-filters">
+          <label class="oa-search">Find a rule or target<input class="cs-control-input" id="rule-search" type="search" placeholder="Search rules or resources" /></label>
+          <div class="oa-field"><label for="rule-filter">Rule state</label><select class="cs-control-select" id="rule-filter"><option value="all">All rules</option><option value="enabled">Enabled</option><option value="paused">Paused</option></select></div>
+        </div>
+        <div id="rule-list" class="oa-rule-list" aria-label="Observation affinity rules"></div>
+        <div id="empty-rules" class="oa-empty" hidden><h3>No matching rules</h3><p>Try another name or show all rule states.</p><button class="cs-btn" id="clear-filters" type="button">Clear filters</button></div>
+        <p class="oa-list-note">Select a rule to compare its requested preference with observed application.</p>
+      </section>
+
+      <section class="oa-inspector" id="rule-detail" aria-labelledby="detail-title" hidden>
+        <header class="oa-detail-header"><span class="oa-eyebrow">Selected rule</span><h2 id="detail-title" tabindex="-1"></h2><p id="detail-reason"></p></header>
+        <section class="oa-detail-section" aria-labelledby="application-title">
+          <div class="oa-section-header"><h3 id="application-title">Observed application</h3><span class="oa-status" id="detail-status"></span></div>
+          <p id="detail-application"></p>
+          <p id="detail-evidence" class="oa-evidence"></p>
+        </section>
+        <section class="oa-detail-section" aria-labelledby="targets-title">
+          <h3 id="targets-title">Observation targets</h3>
+          <ul id="detail-targets" class="oa-targets"></ul>
+          <p id="target-membership" class="oa-muted"></p>
+        </section>
+        <section class="oa-detail-section" aria-labelledby="preference-title">
+          <div class="oa-section-header"><h3 id="preference-title">Requested preference</h3><strong id="detail-strength"></strong></div>
+          <div class="oa-preference-scale" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+          <p class="oa-muted">Relative preference for additional observation. Not an incident severity or a guaranteed collection rate.</p>
+          <dl class="oa-facts"><div><dt>Observe</dt><dd id="detail-signals"></dd></div><div><dt>Duration</dt><dd id="detail-duration"></dd></div></dl>
+        </section>
+        <footer class="oa-detail-footer"><button class="cs-btn" id="toggle-rule" type="button">Pause in preview</button><span>Baseline monitoring continues.</span></footer>
+      </section>
+      <section id="no-selection" class="oa-inspector oa-empty"><h2>Select an affinity rule</h2><p>Its targets, preference and application evidence appear here.</p></section>
+    </div>
+
+    <details class="oa-explainer">
+      <summary>How observation affinity works</summary>
+      <div class="oa-explainer-grid">
+        <section><h3>Express a preference</h3><p>Match a resource group or specific resources. Strong preference gives the target more consideration for available extra observation capacity, not exclusive monitoring.</p></section>
+        <section><h3>Respect existing limits</h3><p>Baseline checks, serious incidents, access permissions and budget limits take precedence. Affinity cannot grant access, increase the budget or authorize an action.</p></section>
+        <section><h3>Verify the application</h3><p>A saved preference is not proof of extra observation. In this proposal, overlapping rules use the strongest matching preference without stacking. Missing evidence remains unknown.</p></section>
+      </div>
+    </details>
+    <p id="preview-feedback" class="oa-feedback" role="status" aria-live="polite"></p>
+    <noscript><p>This interactive preview requires JavaScript. Enable it to inspect or create synthetic affinity rules.</p></noscript>
+  </main>
+
+  <template id="rule-template">
+    <button type="button" class="oa-rule" aria-pressed="false">
+      <span class="oa-rule-title"></span><span class="oa-status"></span>
+      <span class="oa-rule-target"></span>
+      <span class="oa-rule-meta"><span class="oa-rule-strength"></span><span class="oa-rule-duration"></span></span>
+    </button>
+  </template>
+
+  <dialog id="rule-editor" aria-labelledby="editor-title" aria-describedby="editor-description">
+    <form id="rule-form" novalidate>
+      <header><span class="oa-eyebrow">Preview rule</span><h2 id="editor-title">Add observation affinity</h2><p id="editor-description">Choose where to direct additional attention. Nothing is sent to a service.</p></header>
+      <label>Rule name<input class="cs-control-input" id="rule-name" name="name" required maxlength="80" placeholder="e.g. Post-change observation" autocomplete="off" /></label>
+      <section id="ontology-picker" class="oa-picker" aria-labelledby="picker-title" aria-describedby="target-help">
+        <h3 id="picker-title">Choose ontology instances</h3>
+        <p id="target-help" class="oa-muted">Select recorded Resource groups or Resources from a local synthetic ontology snapshot, not catalog type definitions. No ontology runtime read, Azure Resource Graph query, or provider lookup is performed.</p>
+        <p id="target-source-summary" class="oa-muted"></p>
+        <details class="oa-source-details">
+          <summary>Snapshot provenance and mock scenarios</summary>
+          <dl id="target-provenance" class="oa-source-facts" hidden>
+            <div><dt>Source</dt><dd id="target-source"></dd></div>
+            <div><dt>Generation</dt><dd id="target-generation"></dd></div>
+            <div><dt>Recorded at</dt><dd id="target-recorded"></dd></div>
+            <div><dt>Completeness</dt><dd id="target-completeness"></dd></div>
+            <div><dt>Prototype origin</dt><dd id="target-derivation"></dd></div>
+          </dl>
+          <label>Mock source scenario<select id="target-scenario" class="cs-control-select"><option value="ready">Complete snapshot</option><option value="loading">Loading / bounded 3-second deadline</option><option value="unavailable">Source unavailable</option><option value="error">Read error</option><option value="empty">Empty snapshot</option><option value="partial">Partial snapshot / selection disabled</option></select></label>
+          <button type="button" class="cs-btn" id="reload-targets">Reload mock snapshot</button>
+        </details>
+        <p id="target-change" class="oa-muted" role="status"></p>
+        <div id="target-loading" class="oa-loading" role="status" hidden><span>Loading synthetic ontology instances...</span><div class="oa-skeleton" aria-hidden="true"></div><div class="oa-skeleton" aria-hidden="true"></div><div class="oa-skeleton" aria-hidden="true"></div></div>
+        <p id="target-source-error" class="oa-error" role="alert" hidden></p>
+        <fieldset><legend>Target type</legend><div class="oa-choice-row"><label><input class="cs-control-radio" type="radio" name="targetType" value="ResourceGroup" checked />Resource groups</label><label><input class="cs-control-radio" type="radio" name="targetType" value="Resource" />Resources</label></div></fieldset>
+        <div class="oa-target-filters">
+          <label>Search ontology instances<input class="cs-control-input" id="target-search" type="search" placeholder="Name, exact identity, or resource type" /></label>
+          <label id="target-group-field" hidden>Resource group membership<select class="cs-control-select" id="target-group"><option value="">All resource groups</option></select></label>
+        </div>
+        <p id="target-count" class="oa-muted" role="status"></p>
+        <div id="target-options" class="oa-target-options" role="group" aria-label="Recorded ontology instances" tabindex="-1"></div>
+        <p id="target-no-match" class="oa-muted" hidden></p>
+        <button id="clear-target-filters" type="button" class="cs-btn is-quiet" hidden>Clear target filters</button>
+        <section class="oa-selected-review" aria-labelledby="selected-title">
+          <div class="oa-section-header"><h3 id="selected-title">Selected targets</h3><span id="selected-count" role="status">0 selected</span></div>
+          <p id="selected-empty" class="oa-muted">No targets selected. Switching type or filtering keeps your selections.</p>
+          <ul id="selected-targets" class="oa-selected-targets"></ul>
+          <p class="oa-muted">Only these exact instance identities are saved, bound to the shown source and generation. Group membership is limited to this recorded mock snapshot; no access or execution authority is granted.</p>
+        </section>
+      </section>
+      <div class="oa-form-grid">
+        <div class="oa-field"><label for="rule-strength">Preference strength</label><select class="cs-control-select" id="rule-strength" name="strength"><option value="preferred">Preferred</option><option value="strong">Strong preference</option></select></div>
+        <div class="oa-field"><label for="rule-duration">Duration</label><select class="cs-control-select" id="rule-duration" name="duration"><option value="24h">24 hours</option><option value="7d">7 days</option><option value="ongoing">Ongoing</option></select></div>
+      </div>
+      <fieldset><legend>Observation signals <span class="oa-muted">(at least one)</span></legend><div class="oa-choice-row"><label><input type="checkbox" name="signal" value="Availability" checked />Availability</label><label><input type="checkbox" name="signal" value="Performance" />Performance</label><label><input type="checkbox" name="signal" value="Configuration changes" />Configuration changes</label></div></fieldset>
+      <label>Reason<input class="cs-control-input" id="rule-reason" name="reason" required maxlength="200" placeholder="What should receive additional attention?" /></label>
+      <p class="oa-error" id="form-error" role="alert" hidden></p>
+      <p class="oa-muted">Creating a rule does not confirm its application. New preview rules start as Not evaluated.</p>
+      <footer class="oa-editor-footer"><button class="cs-btn" id="cancel-rule" type="button">Cancel</button><button class="cs-btn is-primary" id="create-rule" type="submit" disabled>Create preview rule</button></footer>
+    </form>
+  </dialog>
+</body>
+</html>
