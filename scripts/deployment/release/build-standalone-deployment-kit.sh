@@ -146,9 +146,10 @@ docker buildx build \
 
 echo "-- build Console artifact"
 npm --prefix "$repo_root/console" ci --ignore-scripts
-npm --prefix "$repo_root/console" run build
+npm --prefix "$repo_root/console" run build:offline
 tar --sort=name --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner \
-  -czf "$release_input/console.tar.gz" -C "$repo_root/console" dist
+  --transform='s,^offline,dist,' \
+  -czf "$release_input/console.tar.gz" -C "$repo_root/console/dist" offline
 printf '{"schema_version":"fdai.deployment-support.v1","source_commit":"%s"}\n' \
   "$source_commit" >"$release_input/metadata/deployment-support.json"
 tar --sort=name --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner \

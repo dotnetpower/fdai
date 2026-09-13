@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -114,3 +115,46 @@ def test_archive_digest_failure_cannot_report_success(tmp_path, checksum):
     )
     assert result.returncode != 0
     assert "standalone-kit: OK" not in result.stdout
+
+
+def test_release_console_uses_generic_offline_build_and_keeps_archive_layout(tmp_path):
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    repo = tmp_path / "repo"
+    (repo / "console/dist").mkdir(parents=True)
+    (repo / "console/dist/stale-deployment.txt").write_text("private-build-marker")
+    output = tmp_path / "output"
+    output.mkdir()
+    executable(
+        tools / "npm",
+        'if [[ "$*" == *"run build:offline" ]]; then '
+        'mkdir -p "$TEST_ROOT/console/dist/offline"; '
+        'echo generic >"$TEST_ROOT/console/dist/offline/index.html"; '
+        'elif [[ "$*" == *"run build" ]]; then '
+        'echo "$VITE_OPERATOR_API_BASE_URL" >"$TEST_ROOT/console/dist/index.html"; fi\n',
+    )
+    segment = BUILDER.read_text().split('echo "-- build Console artifact"', 1)[1]
+    segment = segment.split("printf ", 1)[0]
+    result = subprocess.run(  # noqa: S603 - actual Console stage with a recording npm boundary.
+        ["/bin/bash", "-s"],
+        input=(
+            'set -euo pipefail\nrepo_root="$TEST_ROOT"\n'
+            'release_input="$TEST_OUT"\nsource_epoch=1\n' + segment
+        ),
+        env={
+            **os.environ,
+            "PATH": f"{tools}:/usr/bin:/bin",
+            "TEST_ROOT": str(repo),
+            "TEST_OUT": str(output),
+            "VITE_OPERATOR_API_BASE_URL": "https://private-build-marker.example.com",
+        },
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    with tarfile.open(output / "console.tar.gz") as archive:
+        files = [member.name for member in archive.getmembers() if member.isfile()]
+        assert files == ["dist/index.html"]
+        assert archive.extractfile(files[0]).read().strip() == b"generic"
