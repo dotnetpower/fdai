@@ -1,9 +1,8 @@
-# operator-console CLI (Ink)
+# FDAI Console CLI
 
-The real FDAI (**Forward Deployed Agents for Cloud Ops**) **operator-console** as a
-terminal app, built on
-[Ink](https://github.com/vadimdemedes/ink) (React for the terminal). It is the
-runnable successor to the design mock at [../mocks/ui-cli](../mocks/ui-cli).
+The FDAI Console CLI is the terminal surface for read-only operational activity and
+grounded conversations. It uses Ink for one-shot briefings and an IME-safe ANSI
+cockpit for live Operator Service sessions.
 
 > Node/TypeScript operator package in a Python-first multi-service workspace, like
 > [../console](../console). No build step is required to run it (`tsx` executes
@@ -11,18 +10,18 @@ runnable successor to the design mock at [../mocks/ui-cli](../mocks/ui-cli).
 
 ## Quick start (one command)
 
-To boot the dev Operator API and open the CLI wired to it in a single step, use the
-Python launcher (it starts the API, waits for health, runs the CLI, then tears
-the API down on exit):
+Prepare the local stack once, then use the Python launcher. The launcher starts an
+independent Operator Service with the loopback-only Azure CLI profile, waits for
+health, runs the CLI, and stops only the service process it started.
 
 ```bash
+bash scripts/deployment/local/prepare-console-full-stack.sh
 uv run python -m tools.console          # from the repo root
-# or:  python tools/console.py
 ```
 
-It reuses an already-running Operator API on the port if one is up. See
-[../tools/console.py](../tools/console.py). The rest of this doc covers running
-the pieces directly.
+The launcher reuses an already-running API only when a protected or open read probe
+succeeds. A Browser Entra service on port 8010 remains unchanged; the launcher uses
+another loopback port for its CLI profile. See [../tools/console.py](../tools/console.py).
 
 ## The one idea: one content, many renderers
 
@@ -70,7 +69,7 @@ router, or console-tool implementation. Those policies live in the shared
 backend so the CLI, web console, and future pull-direction channels cannot
 disagree.
 
-## Interactive (briefing + bottom-fixed REPL)
+## Interactive terminal
 
 The `cli` surface draws the briefing once with Ink (colour, cards, bars), then
 runs an interactive REPL ([src/repl.ts](src/repl.ts)) with a **bottom-fixed
@@ -89,15 +88,25 @@ prompt stays pinned to the last two lines.
 - Editing shortcuts: Left/Right move the cursor, Ctrl+A/Ctrl+E jump to start/end,
   Backspace and Ctrl+W (word) and Ctrl+U (line) delete, Up/Down recall history.
 
+The live cockpit follows the interaction hierarchy used by current coding agents:
+a quiet product header, explicit connection and trust state, observed work in the
+main region, a bounded answer region, and one persistent composer. FDAI keeps its
+own product identity and safety vocabulary.
+
 Usage:
 
 - Type a question. The reply from the shared `/chat` coordinator streams into
   the conversation above the input box.
 - `/exit` (or `/quit`, Ctrl+C) leaves.
+- `/help` shows view and editing commands. `/status` explains the visible trust
+  and connection indicators.
 - Read-only: the CLI sends no execution or approval request. Requests for a
   change must re-enter the typed pipeline through the appropriate non-console
   workflow.
-- Without a TTY (piped/CI) it prints the briefing and exits instead of blocking.
+- Without a capable TTY, with `TERM=dumb`, or below 80 by 16 cells, it emits stable
+  plain text and exits instead of drawing a broken interface.
+- `NO_COLOR=1` removes color without removing labels. `FDAI_REDUCED_MOTION=1`
+  disables answer reveal animation and the changing work indicator.
 
 The other surfaces (`text`, `slack`, `teams`) are one-shot: they emit their
 format to stdout from the same block IR.
@@ -114,7 +123,7 @@ format to stdout from the same block IR.
   cockpit** ([src/cockpit.ts](src/cockpit.ts)): a single alternate-screen view
   fed by the Operator API's `/live/stream` (SSE), where each frame is a **real
   StageEvent from an actual `ControlLoop` run** (real rule catalog, T0 engine,
-  Rego). The header reads `Forward Deployed Agents - Cloud Ops - read-only`, followed
+  Rego). The header reads `FDAI Console - read only`, followed
   by a plain-language summary of what has been handled (fixed-rules vs stepped
   back vs auto-applied vs awaiting you) and a standing trust line (read-only,
   every change opens a pull request, shadow-first, fully audited). The feed
@@ -131,8 +140,8 @@ format to stdout from the same block IR.
   upstream frame cannot grow terminal memory without bound. Nothing here mutates
   - read-only.
 
-  **Views (natural-language screen control).** The main panel is a switchable
-  component, driven by plain language (English or Korean):
+  **Views (local slash commands).** The main panel is a switchable component.
+  Slash commands change presentation only and never enter the semantic intent path:
 
   - `stream` - the live scrolling op feed (default).
   - `overview` - a calm dashboard (routing-mix bars, a throughput sparkline,
@@ -140,8 +149,8 @@ format to stdout from the same block IR.
   - `focus <type>` - the feed filtered to one resource type (`focus network`).
   - `pause` / `resume` - freeze or resume the feed (events still count).
 
-  Say things like `overview`, `stream`, `pause`, `focus network`, `clear`. These
-  are parsed locally because they change only terminal presentation. The active
+  Use `/overview`, `/stream`, `/pause`, `/resume`, `/focus network`, and `/clear`.
+  These are parsed locally because they change only terminal presentation. The active
   view is shown as a badge in the header bar. Data lookup, diagnosis, evidence check,
   and any multi-step tool flow remain server-owned.
 
@@ -173,15 +182,29 @@ described in the operator-console design. When the backend is unavailable, the
 CLI reports the HTTP failure; it does not silently switch to a second policy
 implementation.
 
-Start the dev Operator API first:
+### Authentication
+
+The CLI never accepts a bearer token in an argument, URL, or environment variable.
+For a loopback API it first requests `GET /local-auth/me`. When the Operator Service
+is running with `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1`, the server resolves the
+current interactive Azure CLI user, applies its fixed Contributor ceiling, and
+returns an opaque process-local session header. The CLI keeps that value in memory
+and attaches it to snapshot, chat, and SSE requests.
+
+The bootstrap endpoint is unavailable outside loopback and when Browser Entra is
+active. A missing endpoint falls back to an ordinary read request; a `401` or `403`
+stays closed and reports how to start the dedicated CLI profile. This does not
+weaken the standard Browser Entra service or expose Thor's identity.
+
+Start the supported CLI profile from the repository root:
 
 ```bash
-FDAI_OPERATOR_API_DEV_MODE=1 uv run --with uvicorn \
-  uvicorn 'fdai.delivery.operator_api.dev.local:app' --factory --port 8010
-# then, in cli/:
-npm run api          # interactive terminal against live data
-tsx src/cli.tsx --surface=slack --source=api   # live data as Block Kit
+uv run python -m tools.console
 ```
+
+If the independent Operator Service is already running with the CLI profile, use
+`npm run api`. One-shot live Slack, Teams, and text rendering uses the same automatic
+session bootstrap.
 
 ## Run
 
@@ -228,6 +251,8 @@ tsx src/cli.tsx --surface=text --locale=ko
 | [src/view-model/build-from-readmodel.ts](src/view-model/build-from-readmodel.ts) | compile a live Operator API snapshot -> `Block[]` |
 | [src/i18n/](src/i18n/) | L2 message catalogs (`messages.en.json` source + `messages.ko.json`) and the `t()` helper (dot-path lookup, `{name}` params, English fallback) |
 | [src/data/operator-api.ts](src/data/operator-api.ts) | read-only client for `/kpi`, `/hil-queue`, `/audit`, and shared `/chat` |
+| [src/operator-api-session.ts](src/operator-api-session.ts) | loopback-only local session bootstrap; keeps the opaque bearer in memory |
+| [src/terminal-capabilities.ts](src/terminal-capabilities.ts) | TTY geometry, color, and reduced-motion capability resolution |
 | [src/channel-context.ts](src/channel-context.ts) | minimal presentation context passed to the REPL and cockpit |
 | [src/data/sample-briefing.ts](src/data/sample-briefing.ts) | synthetic payload for both modes |
 | [src/renderers/ink/](src/renderers/ink/) | terminal briefing renderer (React/Ink) + tone->hex theme |
@@ -246,6 +271,8 @@ tsx src/cli.tsx --surface=text --locale=ko
 - **Thin channel.** The CLI owns terminal input, screen state, Block IR, and
   rendering. Shared Python modules own data access, conversation policy,
   evidence check, verification, and cloud-provider adapters.
+- **No credential input.** The server owns Azure CLI identity resolution. The CLI
+  accepts only the opaque loopback session and never persists or prints it.
 - **Sample means presentation only.** `sample-briefing.ts` is a renderer fixture,
   not an alternate control plane or narrator.
 - **Same vocabulary** as the architecture (`T0`/`T1`/`T2`, `side_effect_class`,

@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import os
+import secrets
 import stat
 from pathlib import Path
+
+_COPY_BUFFER_BYTES = 1024 * 1024
 
 
 def write_private_output(path: Path, content: str) -> None:
@@ -71,6 +74,84 @@ def read_private_bytes(path: Path, *, max_bytes: int) -> bytes:
             return content
     finally:
         os.close(directory)
+
+
+def copy_private_file(source: Path, destination: Path, *, max_bytes: int) -> int:
+    """Copy one bounded regular file to a new mode-0600 private destination."""
+
+    if max_bytes <= 0:
+        raise ValueError("private copy size bound MUST be positive")
+    source_parent = _open_private_parent(source)
+    destination_parent = _open_private_parent(destination)
+    try:
+        source_descriptor = os.open(
+            source.name,
+            os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW,
+            dir_fd=source_parent,
+        )
+        try:
+            source_details = os.fstat(source_descriptor)
+            if (
+                not stat.S_ISREG(source_details.st_mode)
+                or source_details.st_uid != os.geteuid()
+                or source_details.st_nlink != 1
+                or not 0 < source_details.st_size <= max_bytes
+            ):
+                raise PermissionError("private copy source is not an owned bounded regular file")
+            temporary_name = f".{destination.name}.copy-{os.getpid()}-{secrets.token_hex(8)}"
+            destination_descriptor = os.open(
+                temporary_name,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                0o600,
+                dir_fd=destination_parent,
+            )
+            copied = 0
+            published = False
+            try:
+                with os.fdopen(source_descriptor, "rb", closefd=False) as input_stream:
+                    with os.fdopen(destination_descriptor, "wb") as output_stream:
+                        while chunk := input_stream.read(_COPY_BUFFER_BYTES):
+                            copied += len(chunk)
+                            if copied > max_bytes:
+                                raise ValueError("private copy source exceeds its size limit")
+                            output_stream.write(chunk)
+                        output_stream.flush()
+                        os.fsync(output_stream.fileno())
+                after = os.fstat(source_descriptor)
+                if (
+                    copied != source_details.st_size
+                    or after.st_size != source_details.st_size
+                    or after.st_mtime_ns != source_details.st_mtime_ns
+                    or after.st_ctime_ns != source_details.st_ctime_ns
+                ):
+                    raise ValueError("private copy source changed while being copied")
+                os.link(
+                    temporary_name,
+                    destination.name,
+                    src_dir_fd=destination_parent,
+                    dst_dir_fd=destination_parent,
+                    follow_symlinks=False,
+                )
+                published = True
+                os.unlink(temporary_name, dir_fd=destination_parent)
+                os.fsync(destination_parent)
+            except BaseException:
+                if published:
+                    try:
+                        os.unlink(destination.name, dir_fd=destination_parent)
+                    except FileNotFoundError:
+                        pass
+                try:
+                    os.unlink(temporary_name, dir_fd=destination_parent)
+                except FileNotFoundError:
+                    pass
+                raise
+            return copied
+        finally:
+            os.close(source_descriptor)
+    finally:
+        os.close(source_parent)
+        os.close(destination_parent)
 
 
 def _open_private_parent(path: Path) -> int:

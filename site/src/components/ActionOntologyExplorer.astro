@@ -252,6 +252,10 @@ const rollbacksPresent = [
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    text-align: start;
     font-size: var(--sl-text-xs);
     font-family: var(--sl-font-mono, monospace);
     padding: 0.15rem 0.55rem;
@@ -267,6 +271,7 @@ const rollbacksPresent = [
   .ao-filter-dot {
     width: 0.55rem;
     height: 0.55rem;
+    flex: none;
     border-radius: 999px;
     background: var(--c, var(--sl-color-text-accent));
   }
@@ -338,6 +343,10 @@ const rollbacksPresent = [
   }
   .ao-node-op {
     margin-inline-start: auto;
+    min-width: 0;
+    flex-shrink: 0;
+    max-width: 45%;
+    overflow-wrap: anywhere;
     font-size: var(--sl-text-xs);
     color: var(--sl-color-gray-3);
   }
@@ -397,7 +406,7 @@ const rollbacksPresent = [
   }
   .ao-axes {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
     gap: 0.7rem 1rem;
     margin: 0 0 0.9rem;
   }
@@ -445,6 +454,23 @@ const rollbacksPresent = [
     font-size: var(--sl-text-xs);
     color: var(--sl-color-gray-3);
     font-style: italic;
+  }
+
+  /* Starlight prose spacing must not offset siblings inside this UI grid. */
+  .ao-explorer .ao-filters > *,
+  .ao-explorer .ao-nodes > li,
+  .ao-explorer .ao-node,
+  .ao-explorer .ao-node > *,
+  .ao-explorer .ao-body > .ao-detail,
+  .ao-explorer .ao-axes > div,
+  .ao-explorer .ao-axes dt {
+    margin-block: 0;
+  }
+  .ao-explorer.is-enhanced .ao-detail > .ao-panel {
+    margin-block: 0;
+  }
+  .ao-explorer .ao-axes dd {
+    margin-inline: 0;
   }
 </style>
 

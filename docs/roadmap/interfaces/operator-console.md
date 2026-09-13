@@ -477,7 +477,7 @@ durable link is idempotent and does not merge principal records, roles, sessions
 | Pager (PagerDuty) | send-only | (not planned) | n/a |
 | SMS | send-only | (not planned) | n/a |
 | Web chat | n/a | Authenticated `POST /chat` and `POST /chat/stream` SSE | Console SPA/Operator API config |
-| CLI | n/a | stdin/stdout UI calling the shared Operator API `/chat` | local auth/Operator API config |
+| CLI | n/a | stdin/stdout UI calling the shared Operator API `/chat`; explicit loopback Azure CLI profile with memory-only session bearer, never caller-supplied tokens | [CLI authentication](../../../cli/README.md#authentication); missing bootstrap permits only an ordinary read; `401`/`403` stays closed; Browser Entra is unchanged |
 
 ### 8.1 Separate channel configuration
 

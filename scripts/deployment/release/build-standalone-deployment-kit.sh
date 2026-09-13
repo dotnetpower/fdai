@@ -7,12 +7,14 @@ repo_root="$(git rev-parse --show-toplevel)"
 out=""
 release_key="${FDAI_DEPLOYMENT_RELEASE_SIGNING_KEY:-$repo_root/secrets/deployment-release-signing-key.pem}"
 bundle_key="${FDAI_DEPLOYMENT_BUNDLE_SIGNING_KEY:-$repo_root/secrets/deployment-bundle-signing-key.pem}"
+appliance_base_image=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --out) out="$2"; shift 2 ;;
     --release-key) release_key="$2"; shift 2 ;;
     --bundle-key) bundle_key="$2"; shift 2 ;;
+    --appliance-base-image) appliance_base_image="$2"; shift 2 ;;
     *) echo "build-standalone-kit: unsupported argument" >&2; exit 64 ;;
   esac
 done
@@ -327,3 +329,10 @@ tar --sort=name --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner \
   -czf "$archive" -C "$stage" kit
 chmod 0600 "$archive"
 printf 'standalone-kit: OK archive=%s sha256=%s\n' "$archive" "$(sha256sum "$archive" | cut -d' ' -f1)"
+if [[ -n "$appliance_base_image" ]]; then
+  appliance="$out/fdai-deployment-appliance-${cli_version}-linux-x86_64.oci.tar"
+  bash "$repo_root/scripts/deployment/release/build-deployment-appliance.sh" \
+    --kit "$archive" \
+    --base-image "$appliance_base_image" \
+    --output "$appliance"
+fi

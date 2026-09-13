@@ -11,6 +11,7 @@ import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from fdai_deployment_cli.cli_help import command
 from fdai_deployment_cli.contracts import (
     ProvisionProfile,
     canonical_bytes,
@@ -265,8 +266,17 @@ def register_foundation_plan_command(
 ) -> None:
     """Register local saved-plan verification without Azure access or execution."""
 
-    parser = commands.add_parser("verify-foundation-plan")
-    parser.add_argument("--directory", type=Path, required=True)
+    parser = command(
+        commands,
+        "verify-foundation-plan",
+        "Verify a saved Foundation plan; does not authorize apply",
+    )
+    parser.add_argument(
+        "--directory",
+        type=Path,
+        required=True,
+        help="Private directory of the saved Foundation plan and review",
+    )
     parser.add_argument("--profile", type=Path, required=True)
     parser.add_argument("--expected-review-digest", required=True)
     parser.add_argument("--allow-expired-after-claim", action="store_true", help=argparse.SUPPRESS)

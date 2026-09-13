@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 35db30397170c08c1cb3d7ed1d62c1ae2e87f7c2
-translation_revised: 2026-09-12
+translation_source_sha: 558001017f69f74bb4554b37b9e0aa9a9fc5668b
+translation_revised: 2026-09-13
 ---
 
 # 배포(배포)
@@ -12,6 +12,11 @@ translation_revised: 2026-09-12
 ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md) 참조).
 인프라는 코드이며, 모든 릴리스는 [release and Rollback](#release-and-rollback) 에 정의된
 계층화된 롤백 경로로 되돌릴 수 있습니다.
+
+> **대상 환경 배포 실행:** 연결 및 아티팩트 오프라인 대상 환경 배포는
+> `fdaictl provision azure`와 대상 VNet 내부의 수동 Managed Host를 사용합니다. GitHub
+> Actions는 release 산출물을 검증하고 게시할 수 있지만 대상 환경 계획, 적용, 재개 또는 제거
+> 전송 계층으로 사용하지 않습니다.
 
 코어는 **CSP-중립 설계** 입니다: 클라우드 접근은 프로바이더 어댑터 뒤에 있으므로, 아래 Azure
 매핑이 유일한 구현 대상입니다. **비-Azure 프로바이더는 TBD** 입니다
@@ -28,6 +33,7 @@ translation_revised: 2026-09-12
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 새 clone 공개 개발 Core 경로 | implemented | `azd-up.sh`, 플랫폼 및 Core Terraform 루트, 기여자 배포 테스트, 집중 Terraform 계획 | 확인된 clean-checkout 실행은 공개 `dev` 구독 하나에서 플랫폼, 이미지, 스키마, 카탈로그, Core, Job, canary 및 초기 인벤토리를 단계적으로 배포합니다. 관찰 모드를 유지하며 비공개, 공유, 스테이징 또는 운영 경로가 아닙니다. |
+| Standalone 대상 환경 배포 | implemented | `fdaictl provision azure`, `fdai-up.sh`, standalone Managed Host 모듈, 집중 패키지 및 Genesis 테스트 | 연결 및 아티팩트 오프라인 모드는 GitHub workflow dispatch 없이 하나의 로컬 조정기, 정확한 터미널 승인 및 별도 Managed Host 신원을 공유합니다. 통제된 Azure 증적은 남아 있습니다. |
 | 기능 라이선스 Trial 전달 | implemented | Core 라이선스 및 실행 게이트 테스트, 독립 Core Terraform 검증, 기여자 배포 계약 | 토큰 없는 배포는 관찰 전용으로 유지됩니다. 공개 개발 경로는 소유자 전용 로컬 키가 검증될 때만 최대 30일의 전체 카탈로그 토큰을 발급하고 파일 입력으로 토큰별 다이제스트 이름의 Key Vault 시크릿에 전송하며, 버전 없는 참조와 비밀이 아닌 다이제스트만 Terraform에 전달합니다. 실제 Azure 발급, 갱신 또는 만료 증적은 아직 보존하지 않았습니다. |
 | Terraform 계획/적용 및 공급망 게이트 | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml` 및 집중 workflow 테스트 | 운영 입력, 이미지 증명, 표류 계획 및 post-apply smoke 검사가 제공됩니다. |
 | 명시적 이미지 후보와 PR 패키징 집중 검사 | implemented | `container-supply-chain.yml`, 이미지 선택기, 워크플로 및 Genesis 회귀 검사; 집중 테스트 182개 통과 | 게시에는 보호된 main의 디스패치와 명시적 이미지 선택이 필요합니다. Genesis는 필요한 이미지만 요청하며 성공한 PR이나 일부 후보를 재사용할 수 없습니다. 다이제스트 검증은 독립적으로 유지합니다. |
@@ -51,6 +57,7 @@ translation_revised: 2026-09-12
 |------|------|------|------|-----------|
 | 2026-09-13 | implemented | 안전장치 출시에서 요구하는 기본 비활성 legacy-unbound 전환 연결을 표준 격리 실행기 업데이트 한 번으로 구체화할 수 있게 했습니다. 계획 가드는 값이 없는 상태에서 `0`으로 바뀌는 경우만 허용합니다. 권한 확대, 반복 적용 및 관련 없는 런타임 표류는 계속 거부하며 이전 개정 번호를 롤백 경계로 유지합니다. | `current change`, `guard_plan.py`, 집중 서비스 배포 회귀 테스트 | 가드 변경을 게시하고 정확한 Core 및 격리 실행기 이미지를 다시 빌드한 뒤 하나의 고정된 개정 번호에서 보호된 계획과 적용 근거를 보존합니다. |
 | 2026-09-12 | implemented | Provider-schema 전용 plan, apply, resume 및 status를 지원되는 활성 Core 이미지 프로필 중 하나에 결속했습니다. `provider-cost` 요청 하위 유형은 workflow 입력을 추가하지 않고 Cost Governance 배포판을 선택하며, provider 근거는 패키지 전용 관측보다 우선하고 정확한 이미지, 정상 기준선, 영속 세대 및 조건부 에이전트 검토에 계속 결속됩니다. Provider 카탈로그 변경은 이제 패키징 검사에서 Core 이미지 프로필 두 개를 모두 선택합니다. | `current change`, deployment CLI, 요청 검증기, plan/apply 근거 생성기, 보호된 workflow, 이미지 선택기 및 집중 회귀 검사 | 정확한 Cost Governance 후보 하나를 병합하고 게시해 독립 Core 서비스 경로로 배포한 뒤 이슈 #290을 위한 zero-destroy provider 계획, exact apply 및 영속 근거를 보존합니다. |
+| 2026-09-12 | implemented | 로컬 standalone 조정기와 수동 Managed Host를 대상 환경 배포 전송 계층으로 지정하고, 공개 workflow dispatch 명령을 제거하고, 아티팩트 오프라인 배포 어플라이언스 경로를 추가했습니다. | `current change`, 배포 CLI, 어플라이언스 스크립트, 집중 패키지 및 통합 테스트 | 연결 및 어플라이언스 기반 Azure 배포 증적을 보존합니다. 저장소 workflow는 CI와 release 자동화로만 유지합니다. |
 | 2026-09-12 | implemented | 패키지 배포 격리 과정에서 platform 루트가 두 패키지 Job만 소유한다는 사실을 확인한 뒤 닫힌 Core 서비스 이미지 계약에 Cost Governance 배포 이미지를 추가했습니다. 서비스 계획, exact apply, 새로 고침 전 표류 검사, 상태 및 롤백은 전체 digest-pinned 이미지 참조에 계속 결속됩니다. | `current change`, 서비스 행렬 및 계약, 표준 이미지, 패키지 프로파일, 잘못된 서비스 및 표류에 대한 집중 회귀 테스트 | 정확한 Cost Governance 후보 하나를 게시하고 삭제가 없는 Core 계획과 exact apply를 보존한 뒤 수명 주기 설치 전에 Core와 두 패키지 Job이 하나의 다이제스트를 사용하는지 검증합니다. |
 | 2026-09-12 | implemented | Broad operations-gateway 대상이 관련 없는 Operator API 역할 교체를 포함한 뒤 전용 protected provider-schema plan/apply 모드를 추가했습니다. 새 모드는 provider-schema Job만 허용하고 정확히 증명된 Core image 하나를 결속하며, 적용 후 Job을 실행하고 durable source/generation 및 해당하는 Heimdall, Forseti, Saga review chain을 검증합니다. | Protected plan `34677766334` 실패, `current change`, 집중 provider runtime, 배포 workflow, CLI, Terraform 및 evidence 검사 | Exact revision을 게시하고 해당 candidate에서 최종 Core baseline을 반복한 뒤 Issue #290의 zero-destroy provider-schema plan, exact apply 및 deployed agent-chain receipt를 보존합니다. |
 | 2026-09-12 | implemented | 모델 전용 Terraform 계획의 대상을 Azure OpenAI 기능 배포 컬렉션으로 제한했습니다. 이제 상위 모듈 전체를 대상으로 지정해 기존 계정 및 역할 할당 리소스가 계획에 포함되는 일이 없습니다. | `current change`; 실패한 보호 계획 `34677766334`; `.github/workflows/deploy-dev.yml`; 모델 수명 주기 및 배포 작업 흐름 집중 테스트 87개; CI 계약 검사. | 수정된 작업 흐름을 게시하고 관련 없는 변경이 없는 모델 연결 계획을 보존한 뒤 이슈 #90의 정확한 Core 이미지 연결 및 런타임 근거를 완료합니다. |
@@ -463,7 +470,7 @@ point-in-time 복원이 아닙니다. 각 운영 배포는 명시적 이벤트 �
 - [x] Compute 대상 - **해결: Azure Container Apps + Jobs**. AKS는 custom networking,
   DaemonSet, GPU 같은 측정된 요구가 생길 때만 재검토합니다.
 - [ ] 강제 적용 승격을 위한 canary 스텝 함수와 자동 롤백 임계값.
-- [x] Azure 원격 상태와 신원 - **해결: 비공개 Storage 백엔드 + VNet 자체 호스팅 실행기에
+- [x] Azure 원격 상태와 신원 - **해결: 비공개 Storage 백엔드 + VNet Managed Host에
   연결된 안정적인 배포 UAMI**, 환경별 상태 키. 비-Azure 대상의 per-CSP 신원은 TBD;
       [구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must)
       와 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 참조).

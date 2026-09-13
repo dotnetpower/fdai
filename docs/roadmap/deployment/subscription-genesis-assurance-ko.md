@@ -2,7 +2,7 @@
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
 translation_source_sha: cd098e64b67f3305cf878631662ba4f0e546227a
-translation_revised: 2026-09-12
+translation_revised: 2026-09-13
 ---
 # 구독 초기 구성 보증
 

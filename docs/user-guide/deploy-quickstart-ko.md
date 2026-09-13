@@ -1,418 +1,228 @@
 ---
 title: 배포 빠른 시작
-description: FDAI Core 개발 환경을 자신의 Azure 구독에 배포하거나 비공개 및 공유 환경에서 보호된 작업 흐름을 사용합니다.
+description: 단일 로컬 명령 또는 digest로 고정된 폐쇄망 배포 어플라이언스로 FDAI를 Azure에 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 69b833a179f7b89d0b3ac641d14d17c3d4240838
-translation_revised: 2026-09-12
+translation_source_sha: a3a83aead0d2667826bfeb2a4e1d5abd2b3007f6
+translation_revised: 2026-09-13
 ---
 
 # 배포 빠른 시작
 
-FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Terraform이 실행 엔진이자 단일
-기준입니다. 비공개 `dev` 및 `staging` 환경에는 보호된 `fdaictl` 작업 흐름을 사용하는 것이
-좋습니다. 기여자는 깨끗한 clone에서 보호 장치가 있는 `azd` 래퍼를 사용해 공개 네트워크 개발
-구독에 공유 플랫폼과 독립 Core 서비스 하나를 배포할 수 있습니다. 유효 네트워크 정책 경로를
-알 수 없다면 먼저 비대화형 Genesis 라우터를 사용합니다.
+한 번의 대화형 Azure 로그인으로 FDAI를 Azure 구독에 배포할 수 있습니다. 대상 환경 배포는
+로컬 `fdaictl` 조정기와 대상 Virtual Network 내부의 Managed Host에서 실행됩니다. GitHub
+Actions, 저장소 변수, 저장소 비밀 또는 GitHub runner를 사용하지 않습니다.
+
+Terraform은 인프라 단일 기준으로 유지됩니다. 배포 명령은 서명된 release를 검증하고, 승인할
+정확한 계획을 표시하고, 비공개 데이터 플레인 작업을 Virtual Network 내부로 옮기고, 배포
+준비 상태를 보고하기 전에 애플리케이션 결과를 검증합니다.
 
 ## 배포 경로 선택
 
-| 환경 | 사용할 경로 | 결과 |
-|------|-------------|------|
-| 새로운 비공개 개발 구독 | `az login` 후 정확한 green `main`에서 `scripts/deployment/azure/fdai-up.sh` 실행 | 정확한 대상 및 CI 검사, 정책 경로 선택, 승인된 기반 계층과 Entra 구성, 보호된 애플리케이션 적용 및 두 번째 변경 없음 계획 |
-| 개인 Azure 퍼블릭 클라우드 개발 구독 | `az login` 실행 후 `make azd-up`을 실행하고 표시된 리전을 승인 | 공유 플랫폼, 배포 소유 모델 리소스 및 ACR 이미지, 마이그레이션된 데이터베이스, 권위 있는 카탈로그, Core, canary 및 초기 인벤토리 검증 |
-| 비공개 네트워크, 공유, 스테이징 또는 운영 환경 | 보호된 `fdaictl` 계획 및 exact 적용 | 비공개 상태, VNet runner, 승인 정책, 선택한 모든 독립 서비스 및 보호된 증거 |
-| 기존 사용자 지정 Terraform 자동화 | Terraform 직접 실행 | 배포 소유 상태, 이미지, 마이그레이션 및 검증 오케스트레이션을 사용하는 전문가 통합 |
+| 환경 | 시작 방법 | 산출물 원본 |
+|------|-----------|-------------|
+| 연결된 Azure 환경 | 저장소를 복제하고 `fdaictl`을 설치한 뒤 `az login`, `fdaictl provision azure --online` 순서로 실행 | 버전이 지정된 서명된 release 키트 |
+| 공개 산출물 송신이 없는 환경 | digest로 고정된 FDAI 배포 어플라이언스를 적재하고 이미지 진입점 실행 | 어플라이언스 이미지에 포함된 완전한 서명 키트 |
 
-대화형 로그인 후 비공개 개발 경로는 다음 명령 하나로 시작합니다.
+GitHub Actions는 release를 빌드, 테스트, 서명 및 게시하는 데 사용할 수 있습니다. 대상 환경
+배포 경로에는 포함되지 않습니다.
 
-```bash
-scripts/deployment/azure/fdai-up.sh
-```
+## Clone에서 배포
 
-공개 경로는 개발 부트스트랩이며 운영 우회 경로가 아닙니다. 자율 작업은 관찰 모드로 유지되며
-Console, Operator API, 문서 서비스 및 격리된 Executor는 배포하지 않습니다.
+### 필수 조건
 
-`fdai-up.sh`는 비공개 구독을 위한 감독형 진입점입니다. 활성 대상은 `az login`에서 가져오고,
-필수 CI가 green인 깨끗한 `origin/main` 리비전을 요구하며, 서명된 산출물을 준비한 뒤 각 값 비공개
-계획을 표시하고 정확한 검사점 이름을 입력받습니다. 한 번의 실행으로 runner 이미지, 기반 계층,
-등록, 상태 인계, Entra, 저장소 구성, 보호된 애플리케이션 적용 및 두 번째 변경 없음 계획까지
-계속할 수 있습니다. 응답이 없다고 승인한 것으로 해석하지 않습니다. 독립적인 아티팩트, 검색,
-공급자, 정책 프로브, Entra, 이미지 공급 작업에는 범위가 제한된 병렬 실행을 사용합니다. 승인,
-적용, 정리, 상태, 인계는 계속 직렬로 수행합니다.
-기반 계층 이전 이미지 계획은 Shared Key에 의존하는 Azure VM Image Builder 스테이징 경로가
-아니라 FQDN 허용 목록이 있는 Firewall Basic 뒤의 비공개 빌더 및 검증기 VM을 사용합니다.
-계획 전에 요청한 지역에서 호환되는 이미지 VM 크기를 선택하고 합산 할당량을 확인한 뒤,
-봉인된 선택을 승인 전에 표시합니다. 적용 중에는 선택한 크기를 바꾸지 않습니다.
+시작하기 전에 다음 요구 사항을 확인하세요.
 
-하위 수준 Genesis 라우터는 번호가 지정된 15개 단계, 정확한 진행률, 건너뛴 단계 수, 남은 작업을
-표시합니다. `--apply --allow-probe-resources` 플래그는 누락된 Provider 등록과 태그가 지정된 Key Vault 및 Storage 정책
-프로브 생성 및 검증된 정리만 승인하며, 정확한 삭제 Vault 영구 삭제와 부재 재확인도 포함합니다. 변경 허용
-Genesis는 도구 체인 단계에서 안정적인 Bastion 및 Microsoft Entra SSH 확장을 고정하고 검증하며 검사 모드는
-로컬 CLI 구성을 바꾸지 않습니다. 장시간 명령은 10초마다 stderr에 점을 출력하지만 stdout JSON은 변경하지 않습니다. `public-dev` 결과는 정확히 승인된 계획을 위해 미리 보기 후 대기합니다.
-`private-runner` 결과는 서명된 아티팩트와 비공개 입력 경로가 모두 있으면 정확한 실행기
-이미지를 빌드하고, 기반 계층을 적용하며, Bastion을 통해 실행기를 등록 및 증명하고, 상태를
-비공개 백엔드로 인계할 수 있습니다. 새 효과마다 현재의 정확한 승인이 각각 필요하며 로컬 승인
-파일 방식은 일치하는 수동 단일 승인자 `dev` 프로필로 제한됩니다. 이미 점유한 효과는 검증만
-재개합니다. 입력이 완전하지 않으면 `private_foundation_external_artifacts_required`를 보고합니다.
-하위 수준 로컬 경로는 보호된 애플리케이션 계획 전에 중단합니다. 감독형 명령은 이 경계를 이어서
-실행하지만 완전한 매니페스트, 모델 용량 및 독립적으로 검증된 활성 인벤토리 근거가 갖춰질 때까지
-`subscription_ready=false`를 보고합니다.
+- Bash, `git`, Azure CLI, `uv`가 설치된 Linux x86-64 워크스테이션. Windows에서는 WSL2를
+  사용하고 해당 도구를 Linux 안에 설치합니다.
+- Python 3.13 또는 `uv`가 이를 다운로드할 수 있는 권한. 최초 설치에는 구성된 Python 패키지
+  인덱스와, 필요한 경우 Python 배포 호스트에 접근할 수 있어야 합니다. 이 설치 절차는 연결된
+  환경용이며, 산출물 오프라인 배포에는 어플라이언스 경로를 사용합니다.
+- 선택한 구독에서 Foundation 리소스를 만들고 문서화된 배포 역할을 할당할 수 있는 Azure 신원
+- 선택한 Azure 리전에서 필요한 리소스 형식의 사용 가능한 용량
+- 의도한 구독을 선택한 대화형 Azure 세션
 
-소유자 전용 `secrets/license-signing-key.pem`이 패키지 공개 키와 일치하면 확인된 공개 경로가
-정확한 이미지와 배포에 연결된 최대 30일 토큰을 발급하고 전체 토큰 다이제스트 이름의 Key Vault
-시크릿에 파일로 업로드합니다. 토큰 바이트는 Terraform에 들어가지 않습니다. 키가 없으면 Core는
-관찰 전용 Trial로 시작하고 조치 경로를 차단합니다.
+### 명령을 한 번 설치
 
-## 시작하기 전에
-
-- 리소스를 만들 수 있는 **Azure 구독**과 **Azure CLI**(`az`)가 필요합니다. 보호된 경로에는 GitHub CLI(`gh`)가 필요하며
-  직접 개발 경로에는 **Azure Developer CLI**(`azd`), Terraform, `uv`, `curl`, `tar`가 필요합니다. 변경 허용 Genesis는 안정적인 Bastion 및 Microsoft Entra SSH 확장을 자동으로 준비합니다.
-  로컬 CLI를 미리 준비하거나 복구할 때만 `scripts/deployment/azure/prepare-genesis-access-tools.sh`를 직접 실행합니다.
-- 직접 경로에서는 Azure 퍼블릭 클라우드와 리소스 공급자 등록, 플랫폼 리소스 생성 및 구독
-  범위 역할 할당이 가능한 대화형 신원을 사용하세요. 스크립트는 정확한 역할이 없을 때
-  `Cognitive Services Contributor`를 임시로 부여하고 성공 전에 제거합니다. 또한 스키마 및
-  카탈로그 부트스트랩을 위해 PostgreSQL `/32` 규칙 하나를 임시로 열고 Core가 시작되기 전에
-  제거합니다.
-- [배포 사전 점검](../roadmap/deployment/deployment-preflight-ko.md)을 완료해야 합니다.
-  이 점검은 컨트롤 루프가 시작되기 전에 쿼터, 권한, 연결, 롤백 차단 요소를 수집합니다.
-- 환경별 값을 `*.tfvars` 파일에 입력합니다. 새 PostgreSQL 서버는 보호된 입력으로 관리자 암호를 제공하거나 암호를 제공하지 않고 Terraform 생성을 활성화합니다. 이 파일은 커밋하지 마세요.
-- 대화형 직접 경로에서는 Azure CLI로 대상 구독을 선택합니다. 래퍼는 활성 `az login`
-  세션에서 구독과 테넌트를 읽고 계속하기 전에 두 값을 표시합니다. 부트스트랩, 보호된 경로 및
-  비대화형 헬퍼는 계속 명시적인 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`를 사용하며,
-  대상이 일치하지 않으면 변경 전에 중단합니다.
-- `infra/bootstrap`을 적용해 안정적인 배포 UAMI를 만든 뒤 client ID와 principal ID를
-  `DEPLOY_RUNNER_CLIENT_ID`와 `DEPLOY_RUNNER_PRINCIPAL_ID`로 게시합니다. 보호된 workflow는
-  이 client ID를 선택하고 ARM token `oid`, 테넌트 및 구독이 모두 일치하지 않으면 중단합니다.
-  이행 후 영구 VM에는 이 UAMI만 남습니다.
-  폐쇄망 이미지는 정확한 관리 이미지 또는 숫자형 갤러리 버전 ID와 함께
-  `runner_bootstrap_mode = "offline"`을 설정한 경우에만 사용합니다.
-- 배포자 역할은 배타적인 보호 identity 계획으로 이전합니다. 이 계획은 플랫폼 상태가 이미
-  소유한 역할 주소만 대상으로 삼습니다. 함께 필요한 저장소 선행 조건은 local user를 끄고
-  구성된 blob 및 container 보존 기간을 유지하는 변경만 허용합니다. Console, Entra,
-  데이터베이스, 상태 검사 및 canary 작업은 이 작업에 포함하지 않습니다.
-- 검토된 블루/그린 후보를 승격할 때는 VM과 네트워크 인터페이스를 Bootstrap 상태로 가져오기
-  전에 기존 VM 이름을 `runner_vm_name`에 설정합니다. 예약된 상태 점검은 모델에만 존재하는 OS
-  디스크 ID를 ops 리소스 그룹의 디스크 인벤토리와 비교합니다. 검증기가 바뀌면 점검을 다시 실행하며
-  특수화 VM의 공개 SSH 입력을 보호된 호스트에서 복구한 뒤 구조화된 드리프트 작업이 없는지 검증합니다.
-  구성된 UAMI 1개와 시스템 신원 부재도 요구합니다. 전체 범위 실행은 모든 직접 deploy 역할을
-  Bootstrap 및 플랫폼 Terraform 상태와 비교하고 일회용 시나리오 상태가 없거나 비어 있도록
-  요구합니다. 저장소 및 VM 신원만 제한적으로 검사하려면 수동 `scope=runner`를 사용합니다.
-  범위가 제한된 점검은 수동 `scope=runner`를 사용하며 예약 및 기본 실행은 모든 루트를 검증합니다. Bootstrap은 명시적으로 검토한 교체 전까지 채택한 이미지
-  참조를 보존합니다.
-- **새 오프라인 구독:** 독립 Bootstrap은 기존 상태 계정과 애플리케이션 그룹을 요구합니다.
-  별도 Genesis 루트와 로컬 조정기는 정확한 ARM 전용 이미지 및 기반 계층 계획, 승인된 생성,
-  Bastion 등록 및 증명, 비공개 상태 이전을 제공합니다. 보호된 애플리케이션 배포와 최종 준비도는
-  별도로 유지됩니다. [오프라인 준비 범위](../roadmap/deployment/disconnected-deployment-ko.md)를
-  확인하세요. 준비된 산출물, 저장된 계획, 완료된 기반 계층만으로는 설치 준비가 끝나지 않습니다.
-- `container-supply-chain.yml`이 증명한 FDAI 서비스 이미지가 필요합니다. 보호된 서비스
-  계획은 선택한 source revision에 대한 Core, Operator, Document Ingestion API,
-  Document Processing Worker, Isolated Executor 이미지 증명을 각각 검증합니다. Terraform
-  초기화나 ACR 명령 전에 보호된 플랫폼 계획은 정확한 출처 개정 번호, SLSA v1 조건식,
-  서명자 workflow를 사용해 레지스트리에 저장된 GHCR OCI 묶음에서 Core 이미지를
-  검증합니다. GitHub API 묶음 대체 경로는 없으며 소유자 전용 권한의 임시 Docker 인증은
-  종료할 때 삭제합니다. 연결은 가져오기 전에 ACR 리소스 ID를 검증하고 레지스트리 조회,
-  가져오기 수락, 다이제스트 확인에 대해 내용이 없는 진행 상태를 보고합니다. Exact 적용은
-  검증된 다이제스트를 연결하며 이미지를 승격하거나 재구축하지 않습니다.
-- 예약된 Inventory Job을 보호된 플랫폼 경로에서 유지합니다. 적용 후 작업 흐름은 Job을 다시
-  읽고 인벤토리 컨테이너가 계획에서 선택한 정확한 다이제스트로 고정된 Core 이미지를 사용하지
-  않으면 중단합니다.
-- 배포 호스트에서 모든 비공개 엔드포인트로 연결할 수 있어야 합니다. 프라이빗 전용 환경에서는
-  운영자 워크스테이션 대신 VNet에 연결된 배포 러너에서 Terraform을 실행하세요. 그 환경의
-  Premium 레지스트리도 프라이빗이므로 이미지 빌드와 푸시도 같은 러너에서 하세요.
-- 보호된 원격 계획을 쓰려면 비밀이 아닌 `DEPLOY_PREFLIGHT_INPUT_JSON` 저장소 변수에 필요한
-  라이브 카테고리를 모두 설정하세요. 프로필이 없으면 Azure 로그인 전에 중단하고, 프로브가
-  차단되면 정제된 점검 결과와 발견된 문제만 로그에 남습니다. Terraform 계획 이후 runner-owned
-  `run_live_preflight.py`가 Azure Policy, Compute quota, executor RBAC 및 value-blind Key Vault
-  secret metadata를 검사합니다. 점검이 불완전하면 계획 산출물을 저장하기 전에 중단합니다.
-- Operator API UAMI 이름을 바꾸는 보호 계획은 역할 범위와 이름 외 UAMI 설정이 모두 바뀌지
-  않을 때만 정확한 OpenAI User 역할 교체를 포함해 보존할 수 있습니다. 보존은 검토만 허용하며
-  apply를 승인하지 않습니다. 정확한 계획 적용은 별도 승인 작업으로 유지됩니다.
-- VNet에 연결된 runner에서 검증된 5개 service root를 독립적으로 배포합니다. 배포 gate가
-  적용된 시스템 지식 서비스는 별도 `system-knowledge-deploy.yml` plan/apply workflow, Blob
-  claim state를 사용합니다. Bot Framework는 Azure Bot과 배포 전용 Graph 설치를 추가합니다.
-  Outgoing Webhook 대안은 두 resource 없이 `bootstrap` 후 HMAC이 결속된 `enable` transition을
-  사용합니다. Isolated Executor만 작업별 효과 역할을 받을 수 있습니다.
-- 단독 유지관리자 저장소에서는 `DEV_DEPLOY_REQUIRED_APPROVALS=0` 저장소 변수를 설정해
-  검토자 없이 직접 `dev` 적용을 실행합니다. `dev` 환경에는 검토자 규칙을 두지 않고 관리자
-  우회를 비활성화하세요. 스테이징, 운영 및 봇 소유 적용 경로는 독립 검토자 한 명을 계속
-  요구합니다.
-- 보호된 Console 게시자를 통해 Console 및 Manual Studio 정적 콘텐츠를 게시합니다. 이
-  게시자는 정확한 적용에서 동기화한 Static Web App 결속을 사용하고 Azure 리소스와 호스트
-  이름의 일치를 검증한 뒤 결합된 정적 아티팩트를 독립적으로 업로드합니다. 별도 catalog
-  갱신을 사용해 schema migration을 실행하고 정확히 검증된 Core 이미지에서 구체화한 뒤,
-  리포지토리의 모든 예상 Rule 및 Ontology 프로젝션을 PostgreSQL과 비교합니다. 사전
-  바인딩하거나 사전 실행한 catalog Job은 이미지와 실행 성공을 readback한 뒤에만 허용합니다.
-- Core 및 Operator 서비스가 정상 상태가 되면 정확히 green인 커밋으로 보호된
-  `model-settings-projection` workflow를 실행하세요. 이 workflow는 모델 Settings projection을
-  새로 고치고 런타임 Settings 기준 행이 없을 때만 생성한 뒤, 두 행이 대상 환경과 일치하는지
-  확인합니다. 기존 런타임 projection은 보존합니다.
-- 독립 Slack 또는 Teams channel edge를 활성화하려면 프로바이더 credential과 principal mapping을
-  local-only input 및 Key Vault에 보관하세요. Repository variable에는 versionless secret-id 목록만
-  설정하고, 별도 Operator service `enable` plan보다 platform identity plan을 먼저 검토하고
-  적용하세요. Edge identity에는 executor role을 부여하지 않습니다.
-- A1 승인을 사용하려면 그룹 연결 Teams 팀, 채널, HTTPS Bot activity endpoint 및 전용 Bot
-  관리 ID를 함께 구성하거나 Slack과 Entra 매핑을 함께 구성하세요. 매핑 값과 서명 입력은
-  Key Vault 또는 로컬 전용 배포 입력에 보관합니다. 채널 권한 구성이 없거나 일부뿐이면 승인을
-  사용할 수 없으며 Incoming Webhook으로 대체하지 않습니다.
-- 교차 테넌트 SharePoint 인제스트를 사용하려면 Microsoft 365 테넌트에 애플리케이션을
-  등록하고 federated identity credential로 Azure 인제스트 UAMI를 신뢰하도록 구성하세요.
-  애플리케이션에는 승인된 사이트 권한만 부여한 뒤 기본적으로 비활성화된
-  `sharepoint_connector_*` 값을 로컬 `tfvars` 파일에 설정합니다. 정확한 대상 테넌트,
-  애플리케이션, 사이트, 드라이브, redirect 허용 목록, 컬렉션, 접근 서술자, 대상 그룹,
-  보존 정책 및 용도를 연결합니다. 배포 값을 커밋하지 마세요.
-- 범위가 제한된 OHL scale-out 근거 대상을 프로비저닝하려면 private networking과 개발 운영
-  게이트웨이를 사용하는 `dev` 환경에서만 `enable_ohl_scale_out_evidence_target`을 사용하도록
-  설정하세요. Exact 이미지 버전, 보호된 작업 흐름의 SSH 공개 키 입력, 재시도해도 유지되는
-  캠페인 ID 및 사람 개시자의 주체 ID를 제공해야 합니다. 대상은 용량 `1`로 시작합니다. 수동
-  proposal Job은 정상 수신 경로를 통해 shadow 제안 하나를 게시하며 provider-effect 권한은
-  갖지 않습니다. 보호된 provider staging은 검증된 롤백 전에 용량을 `2`까지만 늘릴 수 있습니다.
-- AKS runtime topology를 포함하려면 `inventory_kubernetes_api_server`,
-  `inventory_kubernetes_cluster_ref`, `inventory_kubernetes_ca_pem`,
-  `inventory_kubernetes_audience`를 함께 제공합니다. Inventory managed identity에는 AKS RBAC
-  Reader만 부여하며 request 시점에 수명이 짧은 token을 취득합니다. Kubernetes bearer token을
-  Terraform 또는 environment 구성에 넣지 마세요.
-- 여러 AKS 클러스터를 관측하려면 기존 값 4개 대신
-  `inventory_kubernetes_cluster_bindings_json`을 제공합니다. 자격 증명이 없는 HTTPS endpoint,
-  CA PEM, workload-identity audience, `auth_mode: workload-identity`를 사용하는 정확한 클러스터
-  ARM ID를 1-32개 구성합니다. 같은 인벤토리 신원은 정확한 각 클러스터 범위에서 Reader를
-  부여받습니다. 배포 값은 소스 제어 밖에 보관하세요.
-- rule-watcher 스냅샷을 보존하고 초안 전용 수집 검토를 열려면
-  `enable_rule_catalog_snapshot_storage`와 기존 운영 책임(`stewardship`) GitOps 연결을 함께
-  활성화하세요.
-  GitHub 자격 증명은 Key Vault 시크릿 참조만 제공합니다. Watcher identity에는 Blob 데이터
-  접근과 초안 검토 권한만 있으며 카탈로그 병합 또는 작업 권한은 없습니다.
-- 운영 이력 lifecycle을 활성화하려면 비밀이 아닌 `ENABLE_OPERATIONAL_HISTORY` repository
-  변수를 `true`로 설정한 뒤 정확히 증명된 Core 이미지 revision을 대상으로 보호된 `history-`
-  계획과 적용을 실행합니다. 예약 Job은 inventory identity를 사용하는 shadow-only 상태를
-  유지합니다. 적용 모드(`enforce`)와 인증 모드(`certify`)는 외부 증적을 요구하며 인증 모드만 database purge gate에
-  도달할 수 있습니다. 정확한 runner 데이터 소유자 역할 할당이 Terraform state 외부에 이미
-  있으면 계획이 범위, principal 및 역할을 확인한 뒤 가져옵니다. 이를 수동으로 삭제하거나 다시
-  만들지 마세요. 이 범위 제한 모드의 적용 후 검사는 관련 없는 Inventory Job 이미지 drift를
-  검사하지 않습니다. 전용 A record는 근거 비공개 endpoint를 runner에 이미 연결된 Blob DNS
-  영역에 게시합니다. 프로바이더가 보존하지 않는 record-set 태그는 사용하지 않습니다.
-- 단계 4 측정을 예약하려면 필요한 기준선, 패턴 성장 또는 운영 승격 작업만 명시적으로
-  활성화하세요. 세 작업은 모두 기본적으로 비활성화되며 이미지 가져오기, 상태 저장소 비밀,
-  선택적 모델 추론 접근 권한만 있는 전용 측정 신원을 공유합니다. 실행기 신원이나 클라우드
-  변경 역할은 받지 않습니다.
-- 단계 3 스케줄러 또는 DB-DR 훈련을 활성화하기 전에 서로 분리된 작업 신원을 검토하세요.
-  스케줄러는 Event Bus 전송, 이미지 가져오기 및 상태 저장소 비밀 접근 권한만 받습니다.
-  DB-DR은 원본 읽기와 격리 대상 그룹 안의 PostgreSQL 복원 및 삭제 권한만 받습니다. 완전한
-  구성 계획을 검토할 때까지 `dr_drill_dry_run=true`를 유지하세요.
-- WARA를 예약하려면 umbrella Workload ID 하나, 해당 ID를 키로 사용하는 검토된 태그 및 서로
-  일치하는 매시간 또는 UTC 자정 일별 실행 slot을 구성하세요. Job은 인벤토리 읽기 신원을
-  사용하며 기존 Pantheon 물리 토픽에만 전송할 수 있습니다. Core T1 RCA는 platform에서 내보내
-  split 서비스 계획에 hydrate하는 별도 Monitoring Reader 신원을 사용합니다. 관리되는 T2 문서
-  근거 확인(`grounding`)에는 별도 읽기 전용 문서 DSN secret과 정확한 컬렉션, 접근 참조, 읽기 그룹 입력도
-  필요합니다.
-
-## 최소 인벤토리 프로비저닝
-
-먼저 미리보기하고, 계획이 예상과 일치할 때만 적용하세요. 보호된 경로는 비공개 계획 데이터를
-VNet 연결 runner에 유지합니다. 특수 exact 적용은 bot-owned 요청이 다시 전달하므로 FDAI 유지관리자가
-별도 GitHub Environment approver로 남습니다. Core 및 Document Ingestion API 서비스 계획에서
-봇은 정확한 계획 산출물을 검증하고 봉인된 배포 모드에서 모델, 데이터베이스 호스트 또는
-SharePoint 전환 입력을 도출합니다.
-
-프라이빗 네트워킹으로 전환하는 보호된 작업에서는 보호된 워크플로가 이미 허용한 검토된
-삭제나 마이그레이션만 받아들입니다. 광범위한 PostgreSQL Azure-services 방화벽 규칙 제거가
-그 예입니다. 계획에 같은 주소의 교체, 검토된 마이그레이션에서 벗어난 내용, 또는 다른 삭제가
-보이면 적용을 중단하세요.
-
-개발 운영 게이트웨이가 보호된 targeted 계획을 사용한다면 AI 계정과 역할 수집이 모두
-포함됐는지 확인하세요. 그래야 네트워크 및 권한 확인 변경이 같은 적용에서 수렴하고
-post-apply 계획이 남지 않습니다. 각 서비스 계획이 소유한 state만 변경하고 다른 네 서비스
-state를 그대로 유지하는지 확인하세요.
-
-<!-- fdai:tabs -->
-
-#### fdaictl (보호된 dev 및 staging)
+저장소를 복제하는 것만으로 셸 명령이 자동 등록되지는 않습니다. 복제한 저장소 루트에서 로컬
+배포 CLI를 사용자 소유의 격리된 `uv` 도구 환경에 설치합니다.
+이미 FDAI를 복제했다면 처음 두 명령을 건너뛰고 저장소 루트에서 시작합니다.
 
 ```bash
-fdaictl deploy plan \
-  --profile .fdai/environments/dev.json \
-  --repository <owner>/<repository> \
-  --commit-sha <git-sha> \
-  --run-id <run-id> \
-  --output json
-
-fdaictl deploy status \
-  --profile .fdai/environments/dev.json \
-  --repository <owner>/<repository> \
-  --request-id <request-id> \
-  --commit-sha <git-sha> \
-  --output json
-
-fdaictl deploy apply \
-  --profile .fdai/environments/dev.json \
-  --repository <owner>/<repository> \
-  --plan-id <plan-id> \
-  --plan-digest <plan-digest> \
-  --plan-expires-at <expires-at> \
-  --commit-sha <git-sha> \
-  --run-id <run-id> \
-  --output json
+git clone https://github.com/dotnetpower/fdai.git
+cd fdai
+set -o pipefail
+uv export --project packages/deployment-cli --locked --no-dev --no-emit-project \
+  --format requirements-txt --no-hashes | \
+  uv tool install --python 3.13 --constraints - ./packages/deployment-cli
+uv tool update-shell
 ```
 
-`--plan-expires-at` 값은 정제된 `deploy status` 계획 메타데이터에서 가져옵니다. 계획이
-만료되지 않았고, 저장소 대상과 지역이 프로필과 일치하며, GitHub 환경이 독립적인 검토자
-한 명을 요구하고 자체 검토와 관리자 우회를 차단해야 적용 명령을 진행할 수 있습니다.
-두 명 이상의 승인이 필요한 프로필과 모든 `prod` 요청은 차단됩니다.
+내보낸 제약 조건은 런타임 의존성 버전을 저장소 잠금 파일과 일치시킵니다. 패키지는 PyPI의
+동명 패키지가 아니라 현재 복제본에서 설치합니다. Azure 로그인, 유지관리자 키, `sudo`, 전체
+애플리케이션 환경, 가상 환경 활성화는 필요하지 않으며 Azure 리소스를 배포하지 않습니다.
+설치가 실패하면 중단하고, 이전 실행 파일로 계속 진행하지 마세요.
 
-#### azd (직접 공개 개발 Core)
+`uv tool update-shell`은 필요한 경우 사용자 명령 디렉터리를 셸 설정에 추가합니다. 새 터미널을
+열거나 현재 Bash 세션에 다음 설정을 적용한 뒤 명령을 확인합니다.
+
+```bash
+export PATH="$(uv tool dir --bin):$PATH"
+command -v fdaictl
+fdaictl
+fdaictl version
+fdaictl provision azure --help
+```
+
+`command -v` 결과는 `uv tool dir --bin`이 표시하는 디렉터리 안의 `fdaictl`이어야 합니다.
+Linux에서는 보통 `~/.local/bin`입니다. 이후에는 복제한 디렉터리 밖에서도 명령을 사용할 수
+있습니다. 인자 없는 `fdaictl`, `version`, `--help`는 로그인이나 배포를 수행하지 않습니다.
+
+| 증상 | 확인 또는 조치 |
+|------|----------------|
+| `uv: command not found` | [공식 설치 가이드](https://docs.astral.sh/uv/getting-started/installation/)에 따라 `uv`를 설치한 뒤 터미널을 다시 엽니다. |
+| `fdaictl: command not found` | `uv tool list`로 설치를 확인하고 `uv tool update-shell`을 실행한 뒤 터미널을 다시 열거나 위 PATH 명령을 적용합니다. |
+| 다른 `fdaictl`이 선택됨 | `type -a fdaictl`과 `uv tool list`를 확인합니다. `--force`로 무조건 덮어쓰지 말고 충돌한 실행 파일을 먼저 확인합니다. |
+| 복제본의 변경이 반영되지 않음 | 일반 설치는 특정 시점의 복사본입니다. 갱신한 저장소 루트에서 위 설치 파이프라인의 `uv tool install`에 `--reinstall`을 추가해 다시 실행합니다. |
+| 인자 없는 `fdaictl`이 여전히 필수 명령 오류를 표시함 | 선택된 설치본에 새 탐색 도움말이 반영되지 않은 상태입니다. `command -v fdaictl`을 확인하고 갱신한 복제본에서 같은 잠금 기반 설치 파이프라인으로 다시 설치합니다. |
+
+로컬 CLI를 개발할 때는 같은 설치 명령에 `--editable`을 추가합니다. 패키지 소스 수정이 즉시
+반영되므로 복제본 위치를 유지해야 하며, 의존성이 바뀌면 다시 설치해야 합니다. 일반 사용자는
+위의 특정 시점 복사본 설치를 사용하는 것이 좋습니다.
+
+### 명령을 안전하게 탐색
+
+| 명령 | 표시 내용 |
+|------|-----------|
+| `fdaictl` 또는 `fdaictl --help` | 명령별 설명과 짧은 시작 예제 |
+| `fdaictl provision` | 배포 및 준비 명령 목록 |
+| `fdaictl provision azure --help` | 필수 산출물 원본 선택, 기본값, 단위, 출력 모드, 고급 입력 |
+| `fdaictl --version` | 설치된 버전. 스크립트에서는 기존 `fdaictl version --output json`도 사용 가능 |
+
+이 탐색 명령은 Azure 접근, 다운로드, 배포 상태 변경, 입력 요청 없이 정적 텍스트를 표시하고
+정상 종료합니다. 개별 명령을 실행하려면 필수 옵션을 제공하세요. 잘못된 명령, 불완전한 인자,
+충돌하는 산출물 원본은 다음 도움말 안내와 함께 사용법 오류 `2`를 반환하며 배포를 시작하지
+않습니다. 긴 옵션은 축약하지 않고 전체 이름을 입력하세요.
+
+### 배포 실행
+
+설치 후에는 어느 디렉터리에서든 다음 명령을 실행하고 Azure 리전을 선택합니다.
 
 ```bash
 az login
-# 로그인으로 둘 이상의 구독에 접근할 수 있을 때 선택 사항입니다.
-az account set --subscription "<subscription-id>"
-# 하나의 명령으로 활성 계정을 읽고 리전을 확인한 뒤 미리보기와 배포를 진행합니다.
-make azd-up
+fdaictl provision azure --online --region koreacentral
 ```
 
-래퍼는 활성 구독과 테넌트를 표시한 뒤 `koreacentral`에 배포할지 묻습니다. 해당 리전을
-사용하려면 `y`를 입력하고, `westeurope` 같은 다른 Azure 리전을 사용하려면 리전 이름을 직접
-입력합니다. Enter 키를 누르거나 `n`을 입력하면 Azure를 변경하지 않고 취소합니다. 다른 리전은
-선택된 구독에서 사용할 수 있는지 확인합니다. Azure Developer CLI 로컬 세션이 없으면 같은
-명령이 테넌트에 연결된 로그인을 시작하므로 별도 명령을 실행할 필요가 없습니다.
-
-래퍼는 필요할 때 `fdai-dev` azd 환경을 만들거나 선택하고 대상 불일치를 차단합니다. 전역 범위
-Azure 이름에는 검증한 구독에서 파생한 안정적인 6자 접미사를 사용하며, 정확한 clean commit을
-배포 소유 ACR에서 클라우드 빌드합니다. 로컬 Terraform 상태와 생성 입력은 비공개 권한으로
-`.fdai/deploy/public-dev-<suffix>/` 아래에 저장합니다. 자동 주소 검색을 사용할 수 없으면
-`FDAI_AZD_CLIENT_IP`에 정규화된 공개 IPv4 주소 하나를 설정하세요.
-첫 platform 단계는 image를 사용하는 모든 Job을 생략하므로 새 구독에 기존 Core image가
-필요하지 않습니다. ACR이 준비되면 래퍼가 배포 소유 image를 빌드하고 변경 불가능한 digest를
-Core와 활성화된 Job에 사용합니다.
-
-미리보기는 Azure를 변경하지 않습니다. 미리보기 전용 모드에서 리소스 공급자가 등록되지 않았다면
-누락된 namespace를 나열하며, 명시적으로 확인한 실행에서만 등록합니다. 대화형 답변은 하나의
-명령에서 리전, 공급자 등록 및 단계별 배포를 확인합니다. Terraform은 각 플랫폼 변경을 적용 전에
-계속 미리 보고, 마이그레이션과 Core 배포가 끝날 때까지 예약 Job을 비활성화하며, 실패 시 임시 접근을
-제거하고 안전한 재실행을 위해 로컬 상태를 보존합니다. 사용할 수 없거나 쿼터가 부족한 모델은
-`hil-only`로 유지하므로 다른 모델을 암묵적으로 선택하지 않고 관련 결정을 사람 검토로 보냅니다.
-
-비대화형 자동화에서는 두 대상 축을 모두 설정하고 모드를 명시적으로 선택합니다.
-`FDAI_AZD_CONFIRM=0`은 미리보기만 수행하고 `FDAI_AZD_CONFIRM=1`은 배포합니다. 자동화에서
-`koreacentral` 기본값을 사용하지 않으면 `FDAI_AZURE_REGION`과 `FDAI_AZURE_REGION_SHORT`를
-설정할 수 있습니다. 비대화형 프로세스는 주변 Azure CLI 상태에서 배포 대상을 추론하지 않습니다.
-
-`azd provision`을 직접 실행하면 여전히 플랫폼 루트만 관리합니다. 실행 가능한 Core가 필요하면
-래퍼를 사용하세요. 로컬 상태, 공개 데이터 서비스 endpoint 또는 단일 사용자 배포 호스트를
-허용할 수 없다면 보호된 `fdaictl` 경로를 사용하세요.
-
-#### terraform (전문가용 직접 경로)
+대화형 터미널에서는 활동 내역이 자동으로 표시됩니다. 줄 단위 로그가 필요하면
+`--progress plain`을 추가합니다. 산출물 원본은 `--online` 또는 `--offline-kit <path>` 중 하나를
+명시합니다. 명령을 영구 설치하지 않으려면 기존 복제본의 래퍼를 사용할 수 있습니다.
 
 ```bash
-az login
-export AZURE_SUBSCRIPTION_ID="<expected-subscription-id>"
-export AZURE_TENANT_ID="<expected-tenant-id>"
-scripts/deployment/azure/verify-azure-context.sh \
-   "$AZURE_SUBSCRIPTION_ID" "$AZURE_TENANT_ID"
-terraform -chdir=infra init
-# 템플릿을 복사해 값을 채웁니다 (tfvars는 커밋하지 않음)
-cp infra/envs/dev.tfvars.example infra/envs/dev.tfvars
-terraform -chdir=infra plan  -var-file=envs/dev.tfvars
-terraform -chdir=infra apply -var-file=envs/dev.tfvars
+bash scripts/deployment/azure/fdai-up.sh --region koreacentral
 ```
 
-<!-- /fdai:tabs -->
+두 명령은 같은 조정기를 사용합니다. CLI를 설치하거나 갱신해도 서명된 배포 키트가 갱신되지는
+않습니다. Genesis 스크립트는 복제본이 아니라 검증된 릴리스에서 가져옵니다. 키트 내부 코드의
+수정에는 수정된 서명 키트가 필요하며, 추출된 파일을 직접 수정하거나 검증을 끄면 안 됩니다.
+명령 등록 성공은 배포 성공의 근거가 아닙니다.
 
-## 프로비저닝 후
+조정기는 재개할 수 있는 단일 프로세스에서 다음 작업을 수행합니다.
 
-<!-- fdai:steps -->
+1. 명령줄 비밀로 값을 받지 않고 Azure CLI에서 활성 tenant와 subscription을 읽습니다.
+2. 버전이 지정된 완전한 배포 키트 하나를 다운로드하고 검증하거나 보존된 키트를 다시 검증합니다.
+3. 정책, 할당량, provider 및 대상을 읽기 전용으로 검사합니다.
+4. 정확한 Foundation 계획을 표시하고 명시적 승인을 기다립니다.
+5. 비공개 상태 경계, Virtual Network, Bastion 액세스, 배포 신원 및 Managed Host를 만듭니다.
+6. 검증된 키트를 해당 호스트로 전달하고 Managed Identity로 비공개 Terraform 작업을 실행합니다.
+7. 서명된 서비스 이미지를 가져오고, 마이그레이션을 적용하고, Entra를 구성하고,
+   애플리케이션을 배포합니다.
+8. 이미지 digest, 마이그레이션과 카탈로그 상태, 서비스 상태 및 두 번째 변경 없음 계획을
+   검증합니다.
 
-1. **인벤토리 검증.** 리소스가 만들어졌는지, 실행기 자격 증명이 지정된 범위에서 최소
-   권한만 갖는지 확인합니다. 그런 다음 아래 항목을 확인합니다.
-   - 구독 Event Grid 전달이 인벤토리 관리 자격 증명으로 운영 Event Hubs 샤드의
-     `fdai.inventory.raw`에 도달합니다.
-   - 기본 샤드가 Standard 엔터티 10개 제한 안에 있고, Huginn이 테스트 리소스 변경을
-     투영합니다.
-   - 인벤토리 작업이 매분 깨어나고, PostgreSQL이 정상 전체 스캔을 6시간으로 유지하며,
-     관측된 리소스 변경은 앞당겨 조정됩니다. 실패하거나 마감을 넘긴 시도는 범위가 제한된
-     백오프 뒤에 재시도됩니다. 이때 코어에는 job-start 역할을 주지 않습니다.
-   - Provider Schema Job이 daily run을 완료하고 PostgreSQL에 durable generation digest를
-     보존하며 material change를 Heimdall의 shadow Drift로 전달합니다. Ontology, rule 또는
-     policy를 자동으로 업데이트하지 않습니다.
-   - Rule 수집 전달을 활성화한 경우 Rule Watcher Job은 내용 기반 주소가 지정된 스냅샷을
-     비공개 Blob 컨테이너에 미러링하고, 변경되지 않은 내용에는 초안 검토를 최대 하나만
-     엽니다. 재검증 시간은 패키지 ID를 바꾸지 않으며 Job은 카탈로그 내용을 병합하거나
-     활성화하지 않습니다.
-   - AKS topology를 구성한 경우 inventory identity에 AKS RBAC Reader만 있고 API endpoint가
-     CA verification을 통과하며, static token secret 없이 완전 세대에 UID 기반 Kubernetes
-     resource가 포함되는지 확인합니다.
-   - 프라이빗 네트워킹을 켰다면 PostgreSQL과 두 Event Hubs 샤드가 런타임 서브넷이나 피어링된
-     러너에서 프라이빗 주소로 확인되고, TLS 점검을 통과하며, Event Hubs 공개 접근이 꺼져
-     있습니다.
-2. **런타임 상태와 자격 증명 검증.** 5개 서비스 revision이 모두 정상인지, 15개 에이전트가
-  Core 상태 스냅샷에 보고되는지, 첫 canary 발행기 작업이 완료됐는지 확인합니다. 이어서
-  아래 경계를 확인합니다.
-   - **Operator API**: 브라우저 Entra 앱 역할이 동작하고, 읽기와 명령 자격 증명이 Thor의 실행기
-     관리 자격 증명과 분리돼 있습니다.
-   - **Operator channel edge**: 활성화한 경우 최신 edge revision이 attested Operator image와 정확히
-     하나의 non-executor identity를 사용하고, HTTPS의 `/health/ready`가 성공하며, primary Operator
-     revision이 정상인지 확인합니다. Disable 또는 첫 enable 실패 시 복구가 완료되기 전에 공개
-     edge resource가 없음을 증명해야 합니다.
-   - **문서 서비스**: Document Ingestion API는 인증된 upload lifecycle 요청을 받고,
-     Document Processing Worker만 영속 inspection, extraction, indexing, claim 및 reconciliation을
-     소유합니다.
-   - **담당자 인수인계 수명 주기**: Core는 현재 및 마지막 성공 운영 책임(`stewardship`) 신원 상태 스냅샷을 기록하고,
-     구성된 주기에 따라 내용이 없는 목표 및 후보 이벤트를 게시하며, IAM 또는 실행기 권한 없이
-     서명된 병합 근거를 소비합니다. Operator는 리비전이 일치하고 만료되지 않은 상태만 표시합니다.
-   - **Isolated Executor**: 내부 `/live`와 `/ready` 프로브가 통과하고 최신 revision이 활성 상태인지
-     확인합니다. 전용 identity에는 image pull, 명령 수신, receipt 또는 DLQ 전송, state-secret
-     읽기와 명시적으로 승인된 작업별 효과 역할만 있습니다. Core와 Operator에는 관리 대상
-     리소스 효과 역할이 없습니다.
-   - **이메일 알림**: incident-open 메시지가 multipart HTML과 plain 텍스트로 도착합니다. Console을
-     활성화한 경우 상세 링크는 Static Web App 출처를 사용하고 Settings > Integrations는 합성
-     자리 표시자로 동일한 렌더러를 표시합니다.
-   - **문서 OCR**: Azure를 삭제하지 않고 로컬 한국어 및 영어 OCR을 사용하려면
-     `use_local_retain`, 비공개 Document Intelligence 계정을 계획하려면
-     `use_azure_provision`, 제거 전에 로컬 OCR을 선택하려면 `deprovision_use_local`을
-     사용합니다. 수집 자격 증명은 구성된 Document Intelligence 리소스에만
-     `Cognitive Services User` 역할을 갖습니다. 기본 동작은 계획이며 적용에는 별도 승인이
-     필요합니다.
-   - **케이스 히스토리**: 전용 관리 자격 증명만 Blob 데이터에 접근하고, 실행기에는
-     케이스 히스토리 Blob 역할이 없으며, 비공개 네트워크 룰은 Defender scanner
-     private-link 접근을 유지하고, `FDAI_CASE_HISTORY_RETENTION_TICK_SECONDS`가 승인된 삭제
-     주기와 일치합니다.
-   - **예측 학습**: 명시적으로 사용하는 작업은 원시 틱만 발행합니다. 각
-     `FDAI_FORECAST_TARGETS_JSON` 항목은 관리되는 `target_kind`를 지정하며 Core는 저장소 정책을
-     완화하는 설정을 거부합니다.
-   - **Analyzer tick**: `FDAI_INVENTORY_DSN`이 설정되면 Job이 명시적 대상과 영속 인벤토리
-     projection에서 지원되는 리소스만 병합하고 구성된 발견 상한을 보고합니다. 지원하지 않는
-     리소스 타입은 제외하며, 완전히 해석된 대상 집합이 비어 있으면 정상 no-op으로 종료합니다.
-    보호된 배포에서는 `TRACE_TOPOLOGIES_JSON` repository variable을 설정합니다. Workflow가 이를
-    Job의 `FDAI_TRACE_TOPOLOGIES_JSON`으로 전달합니다. 같은 Job과 읽기 신원이 범위가 제한된 작업 영역
-    기반 Application Insights 근거를 조회합니다. 완전한 추적은 발견된 문제를 보고하지 않고, 누락되거나
-     분리된 hop은 관찰 모드로 하나를 보고합니다. 빈 값은 연속성 검사만 비활성화합니다.
-   - **OHL scale-out 근거**: 활성화한 경우 수동 proposal Job을 시작하고, 설정된 캠페인과
-     개시자가 포함된 shadow 제안 하나만 정상 수신 경로에 도달하는지 확인합니다. 이 자격
-     증명에는 이미지 pull과 기본 Event Hubs send 권한만 있고 provider-effect 권한은 없습니다.
-3. **개발 운영 게이트웨이 검증.** 이것은 개발 도구입니다. Easy Auth 뒤에서 공개
-   인바운드 엔드포인트를 종단하며, Terraform은 `env=dev`가 아니면 계획 자체를 거부합니다.
-   폐쇄망에서는 꺼둔 채로 두십시오. 이 게이트웨이를 켰다면 아래를 확인합니다.
-   - 보호된 소스 아카이브가 Terraform 적용 뒤에 배포됐고, 현재 원격 빌드 배포가
-     성공했습니다.
-   - 두 함수 트리거가 등록됐고, 호스트와 멱등성 저장소가 읽기 담당 관리 자격 증명을
-     사용하며, 등록된 네트워크 읽기가 성공합니다.
-   - 실행기 주체로 제한된 변경 하나를 계획하고, 반환된 일회용 증적으로 제출한 뒤, 재실행이
-     두 번째 ARM 호출을 만들지 않는지 확인하고, ARM이 `submitted`를 반환하는 동안 멱등성
-     키로 상태를 조회합니다.
-4. **제한된 범위 하나 온보딩.** 리소스 그룹 크기의 범위 하나로 시작하고 소유자를
-   지정합니다.
-5. **관찰 모드로 지켜보기.** FDAI가 아무것도 바꾸지 않고 판단과 감사만 하도록 두고, 실행했을
-   법한 작업을 검토합니다.
-6. **하나의 작업 승격.** 승격 기준을 통과한 작업만 적용 모드로 바꾸고, 나머지는 관찰 모드로
-   둡니다.
+명령은 응답이 없다고 승인한 것으로 해석하지 않습니다. 적용 결과가 불분명하면 같은 명령을 다시
+실행할 때 적용을 반복하지 않고 검증 전용 복구를 수행합니다.
 
-[시작하기](get-started-ko.md) 가이드에서는 이 첫 번째 안전한 롤아웃을 자세히 다룹니다.
-[배포와 온보딩](../roadmap/deployment/deploy-and-onboard-ko.md)은 전체 배포 참고 자료입니다.
+새 이미지 계획 전에 Genesis는 요청한 지역에서 호환되는 비공개 빌더와 검증기 VM 크기를
+선택하고 합산 할당량을 확인한 뒤 봉인된 선택을 승인 전에 표시합니다. 적용 중에는 크기를
+바꾸지 않습니다. 이 선택 기능이 포함된 서명 키트가 필요하며, Foundation VM 선택과 이전에
+일부만 완료된 시도의 복구는 별도로 검토합니다.
 
-## 관련 문서
+### 키트 획득에 실패한 경우
 
-<!-- fdai:cards -->
+온라인 재시도는 보존된 키트 파일을 교체하지 않고 다시 검증합니다. 모든 서명, 정확한 파일
+목록, 다이제스트, 런타임 이미지, 번들 연결을 다시 확인합니다. 다운로드 파일이 있다는
+이유만으로 신뢰할 수 있거나 최신인 릴리스로 간주하지 않습니다. 기존 실행 복사본, 실행 상태,
+SSH 키, 계획, 승인은 보존합니다.
 
-- [사전 점검](../roadmap/deployment/deployment-preflight-ko.md) - 프로비저닝 전에 차단 요소를 해소합니다.
-- [배포와 온보딩](../roadmap/deployment/deploy-and-onboard-ko.md) - 전체 배포 참고 자료와 Azure 인벤토리.
-- [로컬 개발 빠른 시작](local-development-quickstart-ko.md) - Docker와 로컬 Console 스택을 구성합니다.
-- [시작하기](get-started-ko.md) - 오리엔테이션과 첫 번째 안전한 롤아웃.
-- [운영자 콘솔](../roadmap/interfaces/operator-console-ko.md) - FDAI가 실행된 후 상태를 조회하는 방법.
+| 오류 유형 | 확인 또는 조치 |
+|-----------|----------------|
+| `HTTP 404` | 선택한 CLI 버전과 플랫폼에 해당하는 완전한 키트가 게시되어 있는지 확인합니다. Azure 로그인은 GitHub 릴리스를 게시하거나 인증하지 않습니다. |
+| `HTTP 401` 또는 `HTTP 403` | 릴리스 접근 권한과 네트워크 정책을 확인합니다. 토큰을 URL이나 명령줄에 넣지 마세요. |
+| `HTTP 429`, `HTTP 503`, 연결 실패 또는 시간 초과 | 이번 시도를 중단합니다. 다시 명시적으로 시도하기 전에 릴리스 호스트의 DNS, HTTPS, 프록시, TLS 신뢰를 확인하며 인증서 검증을 끄지 않습니다. |
+| 로컬 경로 충돌, 권한 거부 또는 저장 공간 부족 | 배포 작업 디렉터리를 보존합니다. 이전 CLI는 잠금 기반 설치 절차로 갱신하고, 실행 근거를 삭제하지 않은 채 해당 로컬 접근 또는 저장 공간 문제를 해결합니다. |
+| 보존된 원본 불일치, 서명 실패 또는 불완전한 내용 | 중단하고 선택한 원본과 보존된 입력을 검토합니다. CLI는 서명된 파일을 덮어쓰거나 고치지 않으며, 몰래 원본을 바꾸거나 검증을 건너뛰지 않습니다. |
+
+기본 버전별 원본은 요청 원본 기록이 없는 이전 캐시도 다시 검증할 수 있습니다. 다른
+`--online-url`은 이 캐시를 사용할 수 없습니다. 기록이 생기면 해당 작업 디렉터리의 요청
+원본은 고정됩니다. 재검증은 더 새로운 릴리스를 가져오거나 서명된 키트의 스크립트를 바꾸지
+않습니다. 키트 내부 코드의 수정에는 여전히 수정된 서명 릴리스가 필요합니다.
+
+### 기능 모드
+
+배포에 연결된 기능 토큰이 없는 설치는 관찰 전용 모드로 시작합니다. 관리 대상 리소스를 변경할
+권한이 없지만 배포 자체는 완료된 상태입니다. 검증된 토큰을 제공하면 토큰에 선언된 기능만 사용할
+수 있습니다. 런타임 승격, 위험 검사 및 사람 승인은 계속 독립적인 제어입니다.
+
+## 어플라이언스 이미지에서 배포
+
+대상 네트워크에서 GitHub, PyPI, 공개 Terraform 레지스트리 또는 공개 컨테이너 레지스트리에
+연결할 수 없으면 배포 어플라이언스를 사용하세요. release 담당자는 다음 항목을 포함하는 하나의
+서명된 OCI 아카이브를 제공합니다.
+
+- `fdaictl`과 잠긴 Python 의존성
+- 서명된 Terraform 배포 번들
+- Terraform, OPA 및 완전한 provider 미러
+- 필요한 모든 FDAI 서비스 및 의존성 OCI 이미지
+- Console, 마이그레이션 및 배포 지원 산출물
+- SBOM, provenance, 매니페스트 및 서명 레코드
+
+승인된 호스트에서 OCI 호환 컨테이너 도구로 이미지를 적재하세요. 이미지 진입점은 대화형 Azure
+로그인 또는 자체 Managed Identity를 사용하고 포함된 키트로 동일한 standalone 조정기를
+실행합니다. 공개 산출물 대체 경로는 지원되지 않습니다.
+
+새 비공개 구독에서는 최소 Foundation bootstrap이 Bastion으로 연결할 수 있는 호스트를 먼저
+만들 수 있습니다. 완전한 애플리케이션 계획과 적용은 대상 네트워크 내부의 배포 어플라이언스에서
+계속 실행됩니다.
+
+> Azure 관리 플레인 경로가 없는 네트워크에서는 Azure 리소스를 배포할 수 없습니다. 해당
+> 프로필에서 어플라이언스는 산출물을 검증하고 준비할 수 있지만 배포 준비 상태를 보고할 수 없습니다.
+
+## 결과 이해
+
+애플리케이션이 수렴하고 두 번째 Terraform 계획에 변경이 없으면 성공한 명령은
+`deployment_ready=true`를 보고합니다. 전체 모델 용량 및 인벤토리 인증과 같은 더 넓은 보증
+캠페인이 열려 있으면 `subscription_ready=false`가 유지될 수 있습니다. 이는 선택한
+애플리케이션 배포가 실패했다는 의미가 아닙니다.
+
+비공개 작업 디렉터리에는 SSH 키, 대상별 입력, 계획, 복구 상태가 포함될 수 있습니다. 내용을
+업로드하거나 공유하지 말고 민감한 값을 제거한 CLI 진단을 사용하세요. 검증 및 필요한 복구가
+끝날 때까지 이 디렉터리를 유지하세요.
+
+## 내부 및 고급 경로
+
+다음 도구는 공개 대상 환경 배포 진입점이 아닙니다.
+
+- `genesis-up.sh`는 저수준 Foundation 진단 및 복구 도구입니다.
+- `azd-up.sh`는 기여자 전용 공개 개발 bootstrap입니다.
+- `.github/workflows/` 아래 배포 workflow는 저장소 CI, release 및 과거 자동화입니다. 대상 환경
+  설치 프로그램으로 지원되지 않습니다.
+- Terraform 직접 실행은 전문가 통합 경계입니다. 동일한 계획, 승인, 신원, rollback 및 검증
+  계약을 유지해야 합니다.
+
+## 다음 단계
+
+| 알아볼 내용 | 참조 문서 |
+|------------|-----------|
+| 전체 배포 토폴로지 | [배포와 온보딩](../roadmap/deployment/deploy-and-onboard-ko.md) |
+| 연결 및 폐쇄망 실행 프로필 | [프로비저닝 실행 프로필](../roadmap/deployment/provisioning-execution-profiles-ko.md) |
+| 어플라이언스와 오프라인 신뢰 경계 | [연결이 끊긴 배포](../roadmap/deployment/disconnected-deployment-ko.md) |
+| 완료되지 않은 실행 이후 복구 | [배포 복구](../runbooks/deployment-recovery-ko.md) |

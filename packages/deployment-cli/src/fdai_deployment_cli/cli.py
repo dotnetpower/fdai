@@ -21,9 +21,11 @@ from fdai_deployment_cli.bundle import (
     extract_bundle_archive,
     verify_bundle,
 )
+from fdai_deployment_cli.cli_parser import build_parser
 from fdai_deployment_cli.compiler import compile_manifest
 from fdai_deployment_cli.console_config import configure_console
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest
+from fdai_deployment_cli.deployment_progress import DeploymentProgress
 from fdai_deployment_cli.doctor import (
     azure_active_target_binding,
     azure_cli_authenticated,
@@ -34,15 +36,7 @@ from fdai_deployment_cli.foundation_image import verify_foundation_runner_image
 from fdai_deployment_cli.foundation_input import snapshot_foundation_input
 from fdai_deployment_cli.foundation_plan import (
     foundation_plan_context,
-    register_foundation_plan_command,
     save_foundation_plan,
-)
-from fdai_deployment_cli.github_actions import (
-    DeploymentSelection,
-    deployment_context_digest,
-    dispatch_apply,
-    dispatch_plan,
-    workflow_status,
 )
 from fdai_deployment_cli.license import inspect_license
 from fdai_deployment_cli.offline_kit import materialize_verified_artifacts, verify_offline_kit
@@ -53,7 +47,6 @@ from fdai_deployment_cli.profile import load_profile, write_profile
 from fdai_deployment_cli.simulation import rehearse
 from fdai_deployment_cli.standalone_deploy import deploy_azure_foundation
 from fdai_deployment_cli.state import read_journal
-from fdai_deployment_cli.state_handoff import register_state_handoff_command
 from fdai_deployment_cli.status_projection import project_status
 from fdai_deployment_cli.support_install import install_support
 from fdai_deployment_cli.target import compute_target_binding
@@ -69,226 +62,33 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         print(f"fdaictl: {exc}", file=sys.stderr)
         return 3
+    except EOFError:
+        print("fdaictl: approval input closed; no new approval was granted", file=sys.stderr)
+        return 3
+    except KeyboardInterrupt:
+        print("fdaictl: interrupted; inspect retained evidence before resuming", file=sys.stderr)
+        return 130
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="fdaictl")
-    subcommands = parser.add_subparsers(required=True)
-
-    version = subcommands.add_parser("version")
-    version.add_argument("--output", choices=("text", "json"), default="text")
-    version.set_defaults(handler=_version)
-
-    doctor = subcommands.add_parser("doctor")
-    doctor.add_argument("--output", choices=("text", "json"), default="text")
-    doctor.set_defaults(handler=_doctor)
-
-    offline = subcommands.add_parser("offline")
-    offline_commands = offline.add_subparsers(required=True)
-    prepare = offline_commands.add_parser("prepare")
-    prepare.add_argument("--offline-kit", type=Path, required=True)
-    prepare.add_argument("--release-root", type=Path, required=True)
-    prepare.add_argument("--bundle-public-key", type=Path, required=True)
-    prepare.add_argument("--profile", type=Path, required=True)
-    prepare.add_argument("--source-commit", required=True)
-    prepare.add_argument("--work-dir", type=Path, required=True)
-    prepare.add_argument("--output", choices=("text", "json"), default="text")
-    prepare.set_defaults(handler=_offline_prepare)
-    configure = offline_commands.add_parser("configure-console")
-    configure.add_argument("--directory", type=Path, required=True)
-    configure.add_argument("--settings", type=Path, required=True)
-    configure.add_argument("--output", choices=("text", "json"), default="text")
-    configure.set_defaults(handler=_offline_configure_console)
-    install = offline_commands.add_parser("install-support")
-    install.add_argument("--offline-kit", type=Path, required=True)
-    install.add_argument("--release-root", type=Path, required=True)
-    install.add_argument("--work-dir", type=Path, required=True)
-    install.add_argument("--output", choices=("text", "json"), default="text")
-    install.set_defaults(handler=_offline_install_support)
-
-    provision = subcommands.add_parser("provision")
-    provision_commands = provision.add_subparsers(required=True)
-    azure = provision_commands.add_parser("azure")
-    kit_source = azure.add_mutually_exclusive_group(required=True)
-    kit_source.add_argument("--online", action="store_true")
-    kit_source.add_argument("--offline-kit", type=Path)
-    azure.add_argument("--online-url")
-    azure.add_argument("--region", default="koreacentral")
-    azure.add_argument("--monthly-cost-ceiling", type=int, default=1000)
-    azure.add_argument("--work-dir", type=Path, default=Path.home() / ".local/state/fdai/azure")
-    azure.add_argument("--timeout-seconds", type=int, default=14_400)
-    azure.add_argument("--license-signing-key", type=Path)
-    azure.add_argument("--trial-token", type=Path)
-    azure.add_argument("--output", choices=("text", "json"), default="text")
-    azure.set_defaults(handler=_provision_azure)
-    register_state_handoff_command(provision_commands)
-    register_foundation_plan_command(provision_commands)
-    initialize = provision_commands.add_parser("init")
-    initialize.add_argument("--profile", type=Path, required=True)
-    initialize.add_argument("--environment", choices=("dev", "staging", "prod"), required=True)
-    initialize.add_argument("--region", required=True)
-    initialize.add_argument("--target-binding", required=True)
-    initialize.add_argument("--connectivity", choices=("online", "offline"), required=True)
-    initialize.add_argument("--host", choices=("existing-host", "managed-vm"), required=True)
-    initialize.add_argument("--transport", choices=("manual", "github-actions"), required=True)
-    initialize.add_argument(
-        "--access-method",
-        choices=(
-            "internal_ssh",
-            "temporary_public_ssh",
-            "github_actions",
-            "bastion",
-            "run_command",
-        ),
-        required=True,
+    return build_parser(
+        {
+            "version": _version,
+            "doctor": _doctor,
+            "offline_prepare": _offline_prepare,
+            "offline_configure_console": _offline_configure_console,
+            "offline_install_support": _offline_install_support,
+            "provision_azure": _provision_azure,
+            "provision_init": _provision_init,
+            "provision_inspect": _provision_inspect,
+            "provision_plan": _provision_plan,
+            "provision_bootstrap_reconcile": _provision_bootstrap_reconcile,
+            "bundle_verify": _bundle_verify,
+            "license_inspect": _license_inspect,
+            "onboard_guided": _onboard_guided,
+            "onboard_status": _onboard_status,
+        }
     )
-    initialize.add_argument("--approval-quorum", type=int, default=1)
-    initialize.add_argument("--monthly-cost-ceiling", type=int, default=0)
-    initialize.add_argument("--force", action="store_true")
-    initialize.add_argument("--output", choices=("text", "json"), default="text")
-    initialize.set_defaults(handler=_provision_init)
-
-    inspect = provision_commands.add_parser("inspect")
-    inspect.add_argument("--profile", type=Path, required=True)
-    inspect.add_argument("--output", choices=("text", "json"), default="text")
-    inspect.set_defaults(handler=_provision_inspect)
-
-    plan = provision_commands.add_parser("plan")
-    plan.add_argument("--offline-kit", type=Path, required=True)
-    plan.add_argument("--release-root", type=Path, required=True)
-    plan.add_argument("--bundle-public-key", type=Path, required=True)
-    plan.add_argument("--work-dir", type=Path, required=True)
-    plan.add_argument("--variables-file", type=Path, required=True)
-    plan.add_argument("--profile", type=Path, required=True)
-    plan.add_argument("--stage", choices=("platform", "foundation"), default="platform")
-    plan.add_argument(
-        "--save-plan",
-        action="store_true",
-        help="retain a private foundation plan and review digest; does not authorize apply",
-    )
-    plan.add_argument("--output", choices=("text", "json"), default="text")
-    plan.set_defaults(handler=_provision_plan)
-
-    bootstrap_reconcile = provision_commands.add_parser("bootstrap-reconcile")
-    bootstrap_reconcile.add_argument("--profile", type=Path, required=True)
-    bootstrap_reconcile.add_argument("--source-commit", required=True)
-    bootstrap_reconcile.add_argument("--ops-resource-group", required=True)
-    bootstrap_reconcile.add_argument("--app-resource-group", required=True)
-    bootstrap_reconcile.add_argument("--state-storage-account", required=True)
-    bootstrap_reconcile.add_argument("--output-plan", type=Path, required=True)
-    bootstrap_reconcile.add_argument("--ttl-seconds", type=int, default=3600)
-    bootstrap_reconcile.add_argument("--output", choices=("text", "json"), default="text")
-    bootstrap_reconcile.set_defaults(handler=_provision_bootstrap_reconcile)
-
-    bundle = subcommands.add_parser("bundle")
-    bundle_commands = bundle.add_subparsers(required=True)
-    bundle_verify = bundle_commands.add_parser("verify")
-    bundle_verify.add_argument("--bundle", type=Path, required=True)
-    bundle_verify.add_argument("--public-key", type=Path, required=True)
-    bundle_verify.add_argument("--output", choices=("text", "json"), default="text")
-    bundle_verify.set_defaults(handler=_bundle_verify)
-
-    deploy = subcommands.add_parser("deploy")
-    deploy_commands = deploy.add_subparsers(required=True)
-    deploy_plan = deploy_commands.add_parser("plan")
-    _add_deploy_context_arguments(deploy_plan)
-    deploy_plan.add_argument("--run-id", required=True)
-    deploy_plan.set_defaults(handler=_deploy_plan)
-    deploy_apply = deploy_commands.add_parser("apply")
-    _add_deploy_context_arguments(deploy_apply)
-    deploy_apply.add_argument("--run-id", required=True)
-    deploy_apply.add_argument("--plan-id", required=True)
-    deploy_apply.add_argument("--plan-digest", required=True)
-    deploy_apply.add_argument("--plan-expires-at", required=True)
-    deploy_apply.add_argument("--resume-verification", action="store_true")
-    deploy_apply.set_defaults(handler=_deploy_apply)
-    deploy_status = deploy_commands.add_parser("status")
-    _add_deploy_context_arguments(deploy_status)
-    deploy_status.add_argument("--request-id", required=True)
-    deploy_status.add_argument("--plan-id")
-    deploy_status.add_argument("--plan-digest")
-    deploy_status.add_argument("--resume-verification", action="store_true")
-    deploy_status.set_defaults(handler=_deploy_status)
-
-    license_command = subcommands.add_parser("license")
-    license_commands = license_command.add_subparsers(required=True)
-    license_inspect = license_commands.add_parser("inspect")
-    license_inspect.add_argument("--token", type=Path, required=True)
-    license_inspect.add_argument("--public-key", type=Path, required=True)
-    license_inspect.add_argument("--image-digest", default=None)
-    license_inspect.add_argument("--tenant-binding", default=None)
-    license_inspect.add_argument("--output", choices=("text", "json"), default="text")
-    license_inspect.set_defaults(handler=_license_inspect)
-
-    onboard = subcommands.add_parser("onboard")
-    onboard_commands = onboard.add_subparsers(required=True)
-    guided = onboard_commands.add_parser("guided")
-    guided.add_argument("--profile", type=Path, required=True)
-    guided.add_argument("--source-commit", required=True)
-    guided.add_argument("--run-id", required=True)
-    guided.add_argument("--journal", type=Path, required=True)
-    guided.add_argument("--simulate", action="store_true")
-    guided.add_argument("--interrupt-after", default=None)
-    guided.add_argument("--repository")
-    guided.add_argument("--attempt", type=int, default=1)
-    guided.add_argument("--plan-id")
-    guided.add_argument("--plan-digest")
-    guided.add_argument("--plan-expires-at")
-    guided.add_argument("--approve-application", action="store_true")
-    guided.add_argument("--resume-verification", action="store_true")
-    guided.add_argument("--deploy-console", action=argparse.BooleanOptionalAction, default=True)
-    guided.add_argument("--deploy-dev-operations-gateway", action="store_true")
-    guided.add_argument("--deploy-provider-schema", action="store_true")
-    guided.add_argument(
-        "--deploy-operator-api", action=argparse.BooleanOptionalAction, default=True
-    )
-    guided.add_argument("--deploy-operator-channel-edge", action="store_true")
-    guided.add_argument("--deploy-document-ingestion", action="store_true")
-    guided.add_argument("--deploy-identity-migration", action="store_true")
-    guided.add_argument("--deploy-isolated-executor", action="store_true")
-    guided.add_argument("--deploy-monitoring", action="store_true")
-    guided.add_argument("--deploy-operational-history", action="store_true")
-    guided.add_argument("--deploy-rca-reader-identity", action="store_true")
-    guided.add_argument("--runtime-image-revision", default="")
-    guided.add_argument(
-        "--runtime-image-profile",
-        choices=("core-control-plane", "cost-governance"),
-        default="core-control-plane",
-    )
-    guided.add_argument("--output", choices=("text", "json"), default="text")
-    guided.set_defaults(handler=_onboard_guided)
-    status = onboard_commands.add_parser("status")
-    status.add_argument("--journal", type=Path, required=True)
-    status.add_argument("--output", choices=("text", "json"), default="text")
-    status.set_defaults(handler=_onboard_status)
-    return parser
-
-
-def _add_deploy_context_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--profile", type=Path, required=True)
-    parser.add_argument("--repository", required=True)
-    parser.add_argument("--commit-sha", required=True)
-    parser.add_argument("--attempt", type=int, default=1)
-    parser.add_argument("--deploy-console", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument("--deploy-dev-operations-gateway", action="store_true")
-    parser.add_argument("--deploy-provider-schema", action="store_true")
-    parser.add_argument(
-        "--deploy-operator-api", action=argparse.BooleanOptionalAction, default=True
-    )
-    parser.add_argument("--deploy-operator-channel-edge", action="store_true")
-    parser.add_argument("--deploy-document-ingestion", action="store_true")
-    parser.add_argument("--deploy-identity-migration", action="store_true")
-    parser.add_argument("--deploy-isolated-executor", action="store_true")
-    parser.add_argument("--deploy-monitoring", action="store_true")
-    parser.add_argument("--deploy-operational-history", action="store_true")
-    parser.add_argument("--deploy-rca-reader-identity", action="store_true")
-    parser.add_argument("--runtime-image-revision", default="")
-    parser.add_argument(
-        "--runtime-image-profile",
-        choices=("core-control-plane", "cost-governance"),
-        default="core-control-plane",
-    )
-    parser.add_argument("--output", choices=("text", "json"), default="text")
 
 
 def _version(args: argparse.Namespace) -> int:
@@ -345,22 +145,32 @@ def _provision_init(args: argparse.Namespace) -> int:
 def _provision_azure(args: argparse.Namespace) -> int:
     """Run the standalone active-Azure-login deployment path."""
 
-    work_dir = args.work_dir if args.work_dir.is_absolute() else Path.cwd() / args.work_dir
-    result = deploy_azure_foundation(
-        work_dir=work_dir,
-        online=args.online,
-        offline_kit=args.offline_kit,
-        online_url=args.online_url,
-        region=args.region,
-        monthly_cost_ceiling=args.monthly_cost_ceiling,
-        timeout_seconds=args.timeout_seconds,
-        license_signing_key=args.license_signing_key,
-        trial_token=args.trial_token,
-    )
+    selected_dir = args.work_dir
+    if selected_dir is None:
+        selected_dir = Path.home() / ".local/state/fdai/azure"
+    work_dir = selected_dir if selected_dir.is_absolute() else Path.cwd() / selected_dir
+    mode = args.progress if args.output == "text" else "off"
+    with DeploymentProgress(mode=mode) as progress:
+        result = deploy_azure_foundation(
+            work_dir=work_dir,
+            online=args.online,
+            offline_kit=args.offline_kit,
+            online_url=args.online_url,
+            region=args.region,
+            monthly_cost_ceiling=args.monthly_cost_ceiling,
+            timeout_seconds=args.timeout_seconds,
+            license_signing_key=args.license_signing_key,
+            trial_token=args.trial_token,
+        )
+        if result.get("deployment_ready") is not True:
+            raise ValueError("standalone deployment did not return verified deployment readiness")
+        progress.ready()
     _print_mapping(
         result,
         output=args.output,
-        text="standalone Azure application converged; complete readiness evidence remains open",
+        text=(
+            "standalone Azure deployment ready; subscription-wide assurance evidence remains open"
+        ),
     )
     return 0
 
@@ -422,10 +232,7 @@ def _offline_install_support(args: argparse.Namespace) -> int:
 
 def _provision_inspect(args: argparse.Namespace) -> int:
     profile = load_profile(args.profile)
-    required_tools = (
-        ("az", "terraform", "gh") if profile.transport == "github-actions" else ("az", "terraform")
-    )
-    checks = inspect_tools(required_tools)
+    checks = inspect_tools(("az", "terraform"))
     active_target = azure_active_target_binding()
     authenticated = active_target is not None and azure_cli_authenticated()
     target_matches = active_target == profile.target_binding
@@ -917,114 +724,6 @@ def _onboard_status(args: argparse.Namespace) -> int:
     return 0
 
 
-def _deploy_plan(args: argparse.Namespace) -> int:
-    profile = load_profile(args.profile)
-    _require_github_actions_profile(profile)
-    receipt = dispatch_plan(
-        repository=args.repository,
-        environment=profile.environment,
-        commit_sha=args.commit_sha,
-        target_binding=profile.target_binding,
-        region=profile.region,
-        run_id=args.run_id,
-        selection=_deployment_selection(args),
-        attempt=args.attempt,
-    )
-    _print_mapping(receipt.to_mapping(), output=args.output, text=receipt.request_id)
-    return 0
-
-
-def _deploy_apply(args: argparse.Namespace) -> int:
-    profile = load_profile(args.profile)
-    _require_github_actions_profile(profile)
-    receipt = dispatch_apply(
-        repository=args.repository,
-        environment=profile.environment,
-        commit_sha=args.commit_sha,
-        target_binding=profile.target_binding,
-        region=profile.region,
-        approval_quorum=profile.approval_quorum,
-        run_id=args.run_id,
-        plan_id=args.plan_id,
-        plan_digest=args.plan_digest,
-        plan_expires_at=args.plan_expires_at,
-        resume_verification=args.resume_verification,
-        selection=_deployment_selection(args),
-        attempt=args.attempt,
-    )
-    _print_mapping(receipt.to_mapping(), output=args.output, text=receipt.request_id)
-    return 0
-
-
-def _deploy_status(args: argparse.Namespace) -> int:
-    profile = load_profile(args.profile)
-    _require_github_actions_profile(profile)
-    apply_request = args.request_id.startswith("apply-")
-    has_plan_coordinates = args.plan_id is not None or args.plan_digest is not None
-    if apply_request and (args.plan_id is None or args.plan_digest is None):
-        raise ValueError("apply status requires plan id and digest")
-    if not apply_request and has_plan_coordinates:
-        raise ValueError("plan status must not include apply plan coordinates")
-    context_digest = deployment_context_digest(
-        environment=profile.environment,
-        commit_sha=args.commit_sha,
-        selection=_deployment_selection(args),
-    )
-    result = workflow_status(
-        repository=args.repository,
-        request_id_value=args.request_id,
-        expected_commit=args.commit_sha,
-        expected_context_digest=context_digest,
-        target_binding=profile.target_binding,
-        expected_region=profile.region,
-        resume_verification=args.resume_verification,
-        expected_plan_id=args.plan_id,
-        expected_plan_digest=args.plan_digest,
-    )
-    _print_mapping(
-        result,
-        output=args.output,
-        text=f"{result['status']}: {result['conclusion'] or 'pending'}",
-    )
-    return 0
-
-
-def _deployment_selection(args: argparse.Namespace) -> DeploymentSelection:
-    return DeploymentSelection(
-        deploy_console=args.deploy_console,
-        deploy_dev_operations_gateway=args.deploy_dev_operations_gateway,
-        deploy_operator_api=args.deploy_operator_api,
-        deploy_operator_channel_edge=args.deploy_operator_channel_edge,
-        deploy_provider_schema=args.deploy_provider_schema,
-        deploy_document_ingestion=args.deploy_document_ingestion,
-        deploy_identity_migration=args.deploy_identity_migration,
-        deploy_isolated_executor=args.deploy_isolated_executor,
-        deploy_monitoring=args.deploy_monitoring,
-        deploy_operational_history=args.deploy_operational_history,
-        deploy_rca_reader_identity=args.deploy_rca_reader_identity,
-        runtime_image_revision=args.runtime_image_revision,
-        runtime_image_profile=args.runtime_image_profile,
-    )
-
-
-def _require_github_actions_profile(profile: ProvisionProfile) -> None:
-    if profile.connectivity == "offline":
-        raise ValueError(
-            "offline_workflow_unavailable: this workflow requires public artifacts; "
-            "use offline prepare without dispatching Azure deployment"
-        )
-    if profile.transport != "github-actions" or profile.access_method != "github_actions":
-        raise ValueError("protected deploy commands require a github-actions profile")
-    checks = inspect_tools(("az", "gh"))
-    if not all(check.available for check in checks):
-        raise ValueError("protected deploy command prerequisites are unavailable")
-    if not azure_cli_authenticated():
-        raise ValueError("azure_authentication_missing")
-    active_target = azure_active_target_binding()
-    if active_target != profile.target_binding:
-        raise ValueError("active Azure target does not match the provision profile")
-
-
 def _print_mapping(result: Mapping[str, object], *, output: str, text: str) -> None:
     print(json.dumps(result, sort_keys=True, separators=(",", ":")) if output == "json" else text)
 
@@ -1033,78 +732,10 @@ def _onboard_guided(args: argparse.Namespace) -> int:
     profile = load_profile(args.profile)
     manifest = compile_manifest(profile, source_commit=args.source_commit)
     if not args.simulate:
-        _require_github_actions_profile(profile)
-        if not args.repository:
-            raise ValueError("live onboarding requires --repository")
-        selection = _deployment_selection(args)
-        if args.plan_id is None and args.plan_digest is None:
-            if args.approve_application or args.resume_verification:
-                raise ValueError("application approval and resume require an exact plan")
-            receipt = dispatch_plan(
-                repository=args.repository,
-                environment=profile.environment,
-                commit_sha=args.source_commit,
-                target_binding=profile.target_binding,
-                region=profile.region,
-                run_id=args.run_id,
-                selection=selection,
-                attempt=args.attempt,
-            )
-            result = {
-                "schema_version": "fdai.onboard-guided.v1",
-                "run_id": args.run_id,
-                "manifest_digest": manifest.digest,
-                "state": "waiting",
-                "stage": "application-plan",
-                "request_id": receipt.request_id,
-                "context_digest": receipt.context_digest,
-                "next_action": "review-protected-plan",
-                "mutation_performed": True,
-            }
-            _print_mapping(
-                result,
-                output=args.output,
-                text=f"waiting: review protected plan {receipt.request_id}",
-            )
-            return 0
-        if args.plan_id is None or args.plan_digest is None:
-            raise ValueError("plan id and digest MUST be supplied together")
-        if not args.approve_application and not args.resume_verification:
-            raise ValueError("exact apply requires --approve-application")
-        if args.plan_expires_at is None:
-            raise ValueError("--plan-expires-at is required for apply")
-        receipt = dispatch_apply(
-            repository=args.repository,
-            environment=profile.environment,
-            commit_sha=args.source_commit,
-            target_binding=profile.target_binding,
-            region=profile.region,
-            approval_quorum=profile.approval_quorum,
-            run_id=args.run_id,
-            plan_id=args.plan_id,
-            plan_digest=args.plan_digest,
-            plan_expires_at=args.plan_expires_at,
-            resume_verification=args.resume_verification,
-            selection=selection,
-            attempt=args.attempt,
+        raise ValueError(
+            "live onboarding uses 'fdaictl provision azure'; "
+            "GitHub Actions deployment is not supported"
         )
-        result = {
-            "schema_version": "fdai.onboard-guided.v1",
-            "run_id": args.run_id,
-            "manifest_digest": manifest.digest,
-            "state": "verifying" if args.resume_verification else "applying",
-            "stage": "application-apply",
-            "request_id": receipt.request_id,
-            "context_digest": receipt.context_digest,
-            "next_action": "watch-protected-run",
-            "mutation_performed": True,
-        }
-        _print_mapping(
-            result,
-            output=args.output,
-            text=f"{result['state']}: {receipt.request_id}",
-        )
-        return 0
     events = rehearse(
         manifest,
         run_id=args.run_id,

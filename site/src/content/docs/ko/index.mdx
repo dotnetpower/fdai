@@ -48,6 +48,7 @@ import ScrollReveal from "../../../components/ScrollReveal.astro";
       <p class="act-lead">첫 pull request, 첫 리소스부터 조직은 모든 변경을 여러분의 보안 · 비용 · 안정성 규칙에 비추어 검토합니다. <strong>Heimdall</strong>이 드리프트를 관측하고, <strong>Huginn</strong>이 신호를 연관짓고, <strong>Mimir</strong>가 각 변경을 카탈로그와 대조하고, <strong>Njord</strong>가 비용 영향을 계산합니다 - 그리고 <strong>Bragi</strong>가 여러분이 이미 쓰는 채널로 알립니다. 인시던트가 되기 <strong>전에</strong> Teams나 Slack으로 살짝 알려주는 것이지, 사고가 난 뒤 새벽 3시에 호출하는 것이 아닙니다.</p>
     </div>
     <div class="channel-card">
+      <p class="example-note">알림 예시이며 실제 이벤트가 아닙니다.</p>
       <div class="cc-head">
         <span class="cc-agent">Heimdall</span>
         <span class="cc-meta">#cloud-ops에 게시 - Teams / Slack</span>
@@ -69,6 +70,7 @@ import ScrollReveal from "../../../components/ScrollReveal.astro";
       <p class="act-lead">워크로드가 운영팀의 책임으로 넘어갈 준비가 되면, 담당 이관 신호가 <strong>Operational Readiness Review</strong>를 촉발합니다. 조직은 하나의 diff가 아니라 스코프 전체에 누적된 태세를 policy, identity/RBAC, reliability, dependency ordering 축으로 평가합니다. <strong>Forseti</strong>가 결정을 내리고, <strong>Njord</strong> · <strong>Freyr</strong> · <strong>Loki</strong>가 보조하며, <strong>Saga</strong>가 감사와 보고서를 씁니다. 여러분에게 요청되는 것은 단 하나, 승인입니다. 보고서는 자동으로 생성됩니다.</p>
     </div>
     <div class="handoff-card">
+      <p class="example-note">보고서 예시이며 실제 승인 요청이 아닙니다.</p>
       <div class="hc-head">
         <span class="hc-title">Operational Readiness Review</span>
         <span class="verdict verdict--needs">needs_review</span>
@@ -85,7 +87,7 @@ import ScrollReveal from "../../../components/ScrollReveal.astro";
         <span class="agent-chip"><strong>Saga</strong> 감사</span>
       </div>
       <div class="hc-action">
-        <span class="hc-approve">이관 승인</span>
+        <span class="hc-approve">사람 승인 요청</span>
         <span class="hc-note">ReadinessReport 자동 생성 · 첨부</span>
       </div>
     </div>

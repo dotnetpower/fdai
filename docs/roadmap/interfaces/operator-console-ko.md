@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: feb5371cbbad3bc8aa392005c77729ead11bf333
-translation_revised: 2026-09-11
+translation_source_sha: f530e4b3c8c832249c97d0d0084e2c5e214ffff1
+translation_revised: 2026-09-13
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다.
@@ -477,7 +477,7 @@ pending 상한과 승인 transition을 atomic하게 강제합니다. Native 도�
 | Pager (PagerDuty) | send-only | (계획 없음) | n/a |
 | SMS | send-only | (계획 없음) | n/a |
 | Web chat | n/a | 인증된 `POST /chat` 및 `POST /chat/stream` SSE | Console SPA/Operator API 구성 |
-| CLI | n/a | stdin/stdout UI가 shared Operator API `/chat` 호출 | 로컬 auth/Operator API 구성 |
+| CLI | n/a | stdin/stdout UI가 공유 Operator API `/chat` 호출. 명시적인 루프백 Azure CLI 프로필은 세션 bearer를 메모리에만 유지하며 호출자가 제공한 토큰은 받지 않음 | [CLI 인증](../../../cli/README.md#authentication). 부트스트랩이 없으면 일반 읽기만 허용하고 `401`/`403`은 차단 상태 유지. Browser Entra는 변경 없음 |
 
 ### 8.1 분리된 채널 구성
 

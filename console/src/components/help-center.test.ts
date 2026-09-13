@@ -8,7 +8,7 @@ import {
 
 const baseUrl = "https://manuals.example.com/fdai";
 const validCatalog = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   generatedAt: "2026-09-01T05:00:00Z",
   minimumSlidesByLevel: {
     L100: 5,
@@ -37,6 +37,8 @@ const validCatalog = {
     eyebrow: "PLATFORM OVERVIEW",
     description: "Introduction to the operating model.",
     createdAt: "2026-09-01",
+    lastEditedAt: "2026-09-02",
+    reviewedAt: null,
     duration: "8 minutes",
     slideCount: 5,
     coverImage: "assets/platform-overview.jpeg",
@@ -63,7 +65,9 @@ describe("Manual Studio catalog boundary", () => {
     expect(manualAssetUrl(baseUrl, "assets/platform-overview.jpeg"))
       .toBe("https://manuals.example.com/fdai/assets/platform-overview.jpeg");
     expect(manualOpenUrl(baseUrl, "fdai-overview"))
-      .toBe("https://manuals.example.com/fdai/library.html?manual=fdai-overview");
+      .toBe("https://manuals.example.com/fdai/fdai-overview.html");
+    expect(() => manualOpenUrl(baseUrl, "../outside"))
+      .toThrow("lowercase ASCII kebab-case");
   });
 
   test.each([
@@ -103,7 +107,7 @@ describe("Manual Studio catalog boundary", () => {
     expect(() => parseManualCatalog({
       ...validCatalog,
       schemaVersion: 1,
-    }, baseUrl)).toThrow("schemaVersion 2");
+    }, baseUrl)).toThrow("schemaVersion 3");
     expect(() => parseManualCatalog({
       ...validCatalog,
       minimumSlidesByLevel: { ...validCatalog.minimumSlidesByLevel, L100: 6 },

@@ -1,15 +1,18 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: e9f92834a25c726fb93db6c181b4a2f8e09db33c
-translation_revised: 2026-09-12
+translation_source_sha: 167f34b237d6f693ed155e7e4003f6d124909a24
+translation_revised: 2026-09-13
 ---
 # 배포와 온보딩(Deploy and Onboard)
-Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
+Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 정본(source of truth)입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
 Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로바이더는 TBD ([구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must)). 모든 식별자는 [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)에 따라 합성.
 > Day-zero 서비스 계층과 수량은 [최소 Azure 리소스 인벤토리](#azure-리소스-인벤토리-최소-세트)에서 결정되어 있습니다. 배포 소유자는 배포 전에 지역, 할당량, 보존, 복제본 상한, 운영 계층 재정의를 확인합니다.
-> **실행 엔진**은 `infra/`의 `terraform apply`로 결정되어 있습니다. 계획된 운영자 진입점은 설치형 `fdaictl` 파사드입니다. 이 파사드는 Terraform을 정본(source of truth)으로 유지하고 계획 및 적용 작업을 승인된 실행기에 제출합니다.
-> [설치형 배포 CLI](installable-deployment-cli-ko.md)와 [배포 아티팩트](#배포-아티팩트)를 참조하세요.
+> **실행 엔진**은 `infra/`의 `terraform apply`로 결정되어 있습니다. 운영자 진입점은
+> `fdaictl provision azure`입니다. 이 명령은 정확한 계획을 로컬에서 조정하고 비공개 데이터
+> 플레인 적용을 대상 VNet 내부의 Managed Host에서 실행합니다. 대상 환경 배포에는 GitHub
+> Actions를 사용하지 않습니다. [설치형 배포 CLI](installable-deployment-cli-ko.md)와
+> [배포 아티팩트](#배포-아티팩트)를 참조하세요.
 ## 전제조건(Prerequisites)
 
 ### 배포자 아이덴티티 (Azure)
@@ -31,8 +34,8 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
   배포는 Container App 환경도 위임 infra 서브넷에 연결하고 금고를 비공개 접근으로
   잠급니다. Private-only 금고는
   운영자 laptop에서 도달 불가능하므로, `terraform apply`는 엔드포인트에 VNet 시야가
-  확보된 호스트 - VNet 내 CI 러너 또는 점프박스 - 에서 실행해야 합니다(실행기가 거기서
-  DSN 시크릿을 쓰기). `acr_sku = "Premium"`이면 ACR도 같은 방식으로 잠깁니다. 레지스트리는 공개
+  확보된 수동 Managed Host에서 실행해야 합니다. 실행기는 해당 호스트에서 DSN 시크릿을
+  기록합니다. `acr_sku = "Premium"`이면 ACR도 같은 방식으로 잠깁니다. 레지스트리는 공개
   네트워크 접근을 잃고 `privatelink.azurecr.io` 엔드포인트를 받으며, 영역 그룹이 login-server와
   data-endpoint 기록을 등록합니다. 비공개 링크는 Premium 전용이므로 Basic 또는 Standard
   레지스트리는 의도적으로 공개로 남습니다. 비공개 경로 없이 닫으면 모든 이미지 pull이
@@ -87,8 +90,10 @@ Ops 계층은 기본적으로 GitHub와 Azure 관리 및 신원 평면에 연결
 앱 구성은 spoke VNet을 ops 허브에 (양방향) 피어링하고 비공개 DNS 영역을
 `extra_vnet_links` 경계로 ops VNet에 링크해, 러너가 앱 Key Vault를 비공개로 해석하게
 합니다. 러너가 terraform 적용 주체이므로 기존 `kv_officer_self` 부여가 러너를 앱 금고의
-`Key Vault Secrets Officer`로 만듭니다 - 적용 중 DSN 시크릿을 씁니다. 배포는 `[self-hosted, fdai-deploy, fdai-deploy-candidate]`와 일치하는 실행기에서
-[`deploy-dev` 워크플로](../../../.github/workflows/deploy-dev.yml)로 실행합니다(기본 plan-only; `apply` 입력이 강제 적용). 추가 라벨은 검증된 8 vCPU 로컬 SSD 풀을 선택합니다.
+`Key Vault Secrets Officer`로 만듭니다 - 적용 중 DSN 시크릿을 씁니다. 대상 환경 배포는
+standalone 로컬 조정기와 Bastion으로 연결할 수 있는 Managed Host에서 실행합니다. 기존
+`deploy-dev` workflow는 저장소 자동화 근거로 유지하지만 대상 환경 배포 진입점으로 지원하지
+않습니다.
 GitHub 라벨 일치는 AND 조건이므로 해당 풀을 사용할 수 없으면 작업이 느린 관리형 디스크 실행기로 자동 전환되지 않고 큐에서 대기합니다.
 저장소 작업 흐름은 검토된 원격 액션만 허용하고 exact 노드 24-compatible release 참조로
 pin하며 컨테이너 supply-chain 액션은 변경할 수 없는 커밋 SHA를 사용합니다. CI 계약은 알 수 없음
@@ -119,7 +124,7 @@ preflight, 점유, 증적 블롭만 선택합니다. 1001개 미만을 검사하
 인제스트, 선택된 경우 isolated 실행기, operational canary, 인벤토리 조정 작업,
 realtime 인벤토리 발행기 및 해당 의존성 그래프를 대상합니다. 이렇게 하면 관련 없는 런타임 리소스 변경은 계획에서
 제외하면서 작업 이미지와 필수 shared 런타임 구성을 수렴 상태로 유지합니다.
-Provider-schema Job은 루트 Terraform 리소스 `azurerm_container_app_job.provider_schema[0]`에서 소유합니다. 결정적 리소스 ID는 기존 Container Apps 환경과 인벤토리 신원을 연결하고, 읽기 전용 신원 조회는 클라이언트 ID를 제공하며, `moved` 블록은 이전 compute module 주소의 상태를 보존합니다. 따라서 provider 전용 대상은 compute module의 광범위한 플랫폼 의존성 그래프를 상속하지 않습니다. 배포에는 이 넓은 gateway 대상 대신 `fdaictl deploy plan --deploy-provider-schema`를 사용합니다. 표준 Core 프로필은 `plan-provider-*`와 `apply-provider-*`를 사용하고, 활성 Core가 Cost Governance 배포판이면 `plan-provider-cost-*`와 `apply-provider-cost-*`를 사용합니다. 요청 하위 유형은 맥락에 결속된 런타임 이미지 프로필과 일치해야 하므로 workflow는 변경 가능한 입력을 추가하지 않고 정확한 프로필을 파생합니다. 두 형식 모두 provider-schema Job 주소 하나만 허용하고, 증명된 정확한 Core image revision을 결속하며, 다른 대상과의 조합을 차단하고, 적용 후 대상이 제한된 zero-change 계획을 요구합니다. 계획과 적용은 모두 정확히 같은 이미지가 rollback retention이 활성화된 active, healthy, provisioned Core revision인지 확인합니다. 계획은 정제된 baseline을 불변 plan 경로에 저장하고, 적용은 저장된 receipt를 검증한 뒤 변경 전에 live baseline을 다시 관측합니다. 전용 bounded verifier는 Job을 한 번 시작하고 Core baseline, source revision, durable generation, Heimdall handoff, 일치하는 Forseti 결정 및 Saga audit record 증적을 보존합니다. Job 명령은 새 출처 관측을 강제하므로 주기 또는 실패 재시도 간격이 명시적인 적용 검증을 단축할 수 없습니다. 성공적으로 수락한 완전한 스냅샷은 최신성 시각을 갱신하며, 배포 검증기는 오래된 증적을 거부합니다. 검증 전용 재개는 Terraform을 다시 적용하지 않습니다. 정확한 불변 증적이 있으면 재사용하고, 없으면 Job 검증만 다시 실행합니다. 스키마가 변경되지 않은 실행은 결정을 만들지 않고 agent review를 해당 없음으로 기록합니다. `fdaictl deploy status`는 봉인된 이미지 프로필과 다이제스트, 최신의 정상 Core 기준선, 영속 출처와 세대, 완전한 검토 체인 또는 명시적인 해당 없음 결과를 검증합니다. 대상 집합에는
+Provider-schema Job은 루트 Terraform 리소스 `azurerm_container_app_job.provider_schema[0]`에서 소유합니다. 결정적 리소스 ID는 기존 Container Apps 환경과 인벤토리 신원을 연결하고, 읽기 전용 신원 조회는 클라이언트 ID를 제공하며, `moved` 블록은 이전 compute 모듈 주소의 상태를 보존합니다. 따라서 provider 전용 대상은 compute 모듈의 광범위한 플랫폼 의존성 그래프를 상속하지 않습니다. 이전 저장소 자동화의 provider-schema 모드는 공개 배포 CLI에 등록되지 않습니다. 넓은 게이트웨이 대상 대신 표준 Core 프로필에는 `plan-provider-*`와 `apply-provider-*`, Cost Governance Core 프로필에는 `plan-provider-cost-*`와 `apply-provider-cost-*`를 유지합니다. 하위 유형은 변경 가능한 입력을 추가하지 않고 맥락에 결속된 런타임 이미지 프로필과 일치해야 합니다. 두 형식 모두 Job 주소 하나와 증명된 정확한 Core 이미지 개정 번호만 허용하고, 혼합 대상을 거부하며, 적용 후 같은 대상으로 변경 없음 계획을 요구합니다. 계획과 적용은 해당 이미지가 롤백 보존이 활성화된 정상 프로비저닝 상태의 활성 Core 개정 번호인지 확인합니다. 계획은 정제된 불변 기준선을 저장하고, 적용은 이를 검증한 뒤 변경 전에 실제 기준선을 다시 관측합니다. 범위가 제한된 검증기는 Job을 한 번 시작하고 Core 기준선, 소스 개정 번호, 영속 세대, Heimdall 인계, 일치하는 Forseti 결정과 Saga 감사 근거를 보존합니다. Job은 새 관측을 강제하므로 주기 또는 실패 재시도 간격으로 명시적 검증을 건너뛸 수 없습니다. 수락한 완전한 스냅샷은 최신성 시각을 갱신하고 오래된 증적은 거부합니다. 검증 전용 재개는 Terraform을 다시 적용하지 않고 정확한 불변 근거를 재사용하거나 Job 검증만 반복합니다. 변경 없는 스키마는 검토를 해당 없음으로 기록합니다. 보존된 호환성 상태 읽기 기능은 봉인된 이미지 프로필과 다이제스트, 최신 정상 Core 기준선, 영속 출처와 세대, 완전한 검토 체인 또는 명시적인 해당 없음 결과를 검증합니다. 적용 상태에는 정확한 계획 ID와 다이제스트도 필요합니다. 대상 집합에는
 활성 Terraform `moved` 블록의 출처 및 대상 주소가 모두 포함됩니다. 작업 흐름 계약
 테스트는 이 주소를 동기화하여 상태 이행 때문에 protected 계획이 무효화되지 않도록 합니다.
 여기에는 baseline-regression 및 pattern-growth 작업의 인덱스 없는 대상 주소가 포함됩니다.
@@ -188,17 +193,16 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 다음 고객 독립적 도구를 사용해 두 배포 경로를 반복 실행할 수 있습니다.
 
-- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 비공개 `dev` 단일 명령 경로입니다. 정확한 green `main`을 요구하며 독립적인 아티팩트 준비, 읽기 전용 검색, 공급자 요청, 정책 프로브 작업에는 범위가 제한된 병렬 실행을 사용합니다.
-  현재의 각 계획을 승인받고 기반 계층과 테넌트 구성을 완료하며 보호된 runner로 적용한 뒤 변경 없음 계획을 요구합니다. 승인, 적용, 정리, 상태, 인계 경계는 계속 직렬로 수행하며, 기반 계층 이전 이미지 계획은 Shared Key에 의존하는 Azure VM Image Builder 대신 FQDN 허용 목록과 위협 인텔리전스 거부 모드가 있는 Firewall Basic 뒤의 비공개 빌더 및 검증기 VM을 사용하고 두 VM NIC를 인바운드 거부 NSG에 명시적으로 연결합니다.
+- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 비공개 `dev` 단일 명령 경로입니다. 버전이 지정된 서명 키트 하나를 검증하며 독립적인 아티팩트 준비, 읽기 전용 검색, 공급자 요청, 정책 프로브 작업에는 범위가 제한된 병렬 실행을 사용합니다.
+  현재의 각 계획을 승인받고 Foundation과 tenant 구성을 완료하며 수동 Managed Host에서 적용한 뒤 변경 없음 계획을 요구합니다. 승인, 적용, 정리, 상태, 인계 경계는 계속 직렬로 수행합니다. GitHub 저장소 구성과 workflow dispatch는 이 경로에 포함되지 않습니다.
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh)는 하위 수준 15단계 기반 계층
   경로를 유지합니다. 점유가 있으면 검증만 재개하며 기반 계층 완료만으로 준비 상태를 주장하지 않습니다.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에 Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결하며, Genesis는 활성 CLI 선택을 바꾸지 않고 정확한 구독 결합 ARM 위치 엔드포인트로 지역 가용성을 확인하고 정책 프로브 정리는 다중 값 TSV를 순서가 있는 줄로 파싱한 뒤 부재를 증명합니다.
 - [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 직접 사용하는 대화형 공개 `dev`
   경로입니다. 비공개, 공유, 스테이징 또는 운영 배포 경로로 사용하지 않습니다.
-- [`onboard.sh`](../../../infra/bootstrap/onboard.sh)는 create-state-account -> 초기화
-  적용 -> GitHub Actions 설정 출력을 한 번에 수행(멱등적).
-- [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh)는 초기화 출력에서
-  repo Variables + Secrets를 설정(비번은 생성 후 파이프, 절대 출력 안 함).
+- [`onboard.sh`](../../../infra/bootstrap/onboard.sh)와
+  [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh)는 기존
+  저장소 자동화 도구입니다. 공개 대상 환경 배포에서는 호출하지 않습니다.
 - [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh)는 기존 `run-command` 복구
   도구입니다. Genesis는 대신 Bastion을 통한 SSH 표준 입력으로만 등록 자료를 전달합니다.
 - [`check-runner-storage-posture.sh`](../../../infra/bootstrap/check-runner-storage-posture.sh)는 크기와 임시 배치를 확인하고, [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh)는 환경 destroy를 보호합니다.
@@ -228,24 +232,13 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
   모든 환경은 환경별 파라미터와 환경별 격리된 상태로 같은 코드에서 동일하게 프로비저닝합니다.
   Terraform은 기본 Event 허브 이름을 `event_bus_topics`로, 단계, 승인, 인벤토리 유입
   auxiliary 이름을 `event_bus_auxiliary_topics`로 제공해 로컬 런타임 준비가 provision된 토픽만 연결합니다.
-- **엔트리 명령**: `infra/`의 Terraform (HCL) 모듈에 대해 `terraform apply` - 이전 OD
-  (`azd up` vs `terraform apply` vs 래퍼 스크립트) 해결. 환경 값은 **깃에 커밋되지 않는**
-  `*.tfvars` 파일로 공급 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)
-  준수). [`fdaictl`](installable-deployment-cli-ko.md) 래퍼와 실행기는
-  `request 검증 -> init -> plan -> live preflight -> exact remote apply -> post-provision 체크`를
-  순서대로 실행합니다. Protected 계획에 완전한 non-secret preflight 프로파일이 없으면 Azure
-  login 또는 Terraform initialization 전에 중단합니다. 실제 운영 탐색이 차단되면 작업 흐름은
-  중단하기 전에 정제된 검사와 발견 사항만 출력합니다. Terraform은 실행 엔진이자
-  infrastructure 정본으로 유지됩니다. Bicep과 OpenTofu는
-  [tech-stack-ko.md](../architecture/tech-stack-ko.md)에 따른 호환 대안으로 남습니다.
-- 보호된 `fdaictl` 전송 계층은 `dev`와 `staging`을 지원합니다. 요청 식별자는 승인된 테넌트,
-  구독, 지역, 정확한 커밋, 선택한 서비스, 실행, 시도, 계획/적용/재개 모드를 연결하며 일반 CLI
-  요청은 `document_ocr_action=preserve`를 고정합니다. 작업 흐름은 바인딩을 다시 계산합니다.
-  단독 유지관리자 저장소는 직접 `dev` 적용에만 `DEV_DEPLOY_REQUIRED_APPROVALS=0`을 설정할 수
-  있으며, 작업 흐름은 환경에 검토자 규칙이 없는지 확인합니다. 스테이징, 운영 및 봇 소유
-  적용은 자체 검토와 관리자 우회를 차단하는 독립 검토자 한 명을 계속 요구합니다.
-  N명 중 M명 정족수 또는 프로덕션 전용 입력은 작업
-  흐름 소유 권한 계층에서 검증할 때까지 차단합니다.
+- **진입 명령**: `fdaictl provision azure`는 `infra/` HCL 모듈의 Terraform을 조정합니다.
+  환경 값은 source control 밖에 유지합니다. Standalone 조정기는 `서명 키트 검증 -> 대상 검사
+  -> 정확한 Foundation 계획 및 승인 -> Managed Host 적용 -> 정확한 애플리케이션 계획 및 승인
+  -> 배포 후 검사` 순서로 실행합니다. Terraform은 실행 엔진이자 인프라 단일 기준입니다.
+- 대상 환경 배포 전송 계층은 항상 `manual`입니다. 활성 Azure 사용자가 정확한 계획을 승인하고,
+  Managed Host는 별도 workload identity로 계획을 실행합니다. 저장소 변수, 저장소 비밀,
+  GitHub Environment, workflow dispatch 또는 GitHub runner는 참여하지 않습니다.
 - 같은 서명 이미지가 `dev → staging → prod` 승격; 환경별 재빌드 없음
   ([deployment-ko.md](deployment-ko.md)).
 
@@ -622,9 +615,9 @@ Identity로 게시할 수 없다면 승인된 push 전송 계층이 준비될 �
 
 ## 열림 Decisions
 
-- [x] 배포 인터페이스 - **해결: Terraform은 실행 엔진이고 계획된 운영자 인터페이스는
-  `fdaictl`**. 설치형 CLI는 읽기 전용 preflight를 실행하고 Terraform을 대체하지
-  않으면서 exact-plan 작업을 승인된 실행기에 제출합니다.
+- [x] 배포 인터페이스 - **해결: Terraform은 실행 엔진이고 운영자 인터페이스는
+  `fdaictl provision azure`**입니다. 설치형 CLI는 읽기 전용 preflight를 실행하고 Terraform을
+  대체하지 않으면서 exact-plan 작업을 수동 Managed Host에서 조정합니다.
   [설치형 배포 CLI](installable-deployment-cli-ko.md)를 참조하세요.
 - [ ] 최소 세트 내 구체적 티어 값(PostgreSQL 저장소 크기, Log Analytics daily 상한, ACR
       보존 윈도우, Event Hubs 처리량-단위 상한).

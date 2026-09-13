@@ -87,6 +87,33 @@
       }
     },
     {
+      "label": "docs site: serve (4321)",
+      "type": "shell",
+      "command": "npm --prefix site run dev -- --host 127.0.0.1 --port 4321",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "docs-site",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "astro.*ready in",
+          "endsPattern": "Local.*http://127\\.0\\.0\\.1:4321/"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "docs-site",
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      }
+    },
+    {
       "label": "design mocks: serve (5373)",
       "type": "shell",
       "command": "python3 -u -m http.server 5373 --bind 127.0.0.1",

@@ -482,58 +482,32 @@ def test_prepare_cli_uses_only_local_artifacts(
     assert (tmp_path / "cli-work/prepared/preparation.json").exists()
 
 
-@pytest.mark.parametrize("command", ["plan", "apply", "status", "guided", "resume"])
-def test_offline_profile_blocks_workflow_before_any_external_check(
-    tmp_path: Path, monkeypatch, capsys, command: str
+def test_public_cli_has_no_github_workflow_dispatch(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     profile_path = tmp_path / "profile.json"
     tmp_path.chmod(0o700)
-    write_profile(
-        profile_path, replace(PROFILE, transport="github-actions", access_method="github_actions")
-    )
+    write_profile(profile_path, PROFILE)
 
-    def forbidden(*args, **kwargs):
-        pytest.fail("offline profile must block before auth, tool probing, or workflow access")
+    with pytest.raises(SystemExit):
+        main(["deploy", "plan"])
+    assert "invalid choice" in capsys.readouterr().err
 
-    for name in (
-        "inspect_tools",
-        "azure_cli_authenticated",
-        "azure_active_target_binding",
-        "dispatch_plan",
-        "dispatch_apply",
-        "workflow_status",
-    ):
-        monkeypatch.setattr(f"fdai_deployment_cli.cli.{name}", forbidden)
-    common = ["--profile", str(profile_path), "--repository", "example/fdai", "--output", "json"]
-    if command in {"guided", "resume"}:
-        args = [
-            "onboard",
-            "guided",
-            *common,
-            "--source-commit",
-            COMMIT,
-            "--run-id",
-            "run.offline",
-            "--journal",
-            str(tmp_path / "journal.jsonl"),
-        ]
-        if command == "resume":
-            args += ["--resume-verification"]
-    else:
-        args = ["deploy", command, *common, "--commit-sha", COMMIT]
-        args += (
-            ["--request-id", "request.example"]
-            if command == "status"
-            else ["--run-id", "run.offline"]
-        )
-        if command == "apply":
-            args += [
-                "--plan-id",
-                "plan.example",
-                "--plan-digest",
-                "b" * 64,
-                "--plan-expires-at",
-                "2099-12-31T23:59:59Z",
+    assert (
+        main(
+            [
+                "onboard",
+                "guided",
+                "--profile",
+                str(profile_path),
+                "--source-commit",
+                COMMIT,
+                "--run-id",
+                "run.offline",
+                "--journal",
+                str(tmp_path / "journal.jsonl"),
             ]
-    assert main(args) == 3
-    assert "offline_workflow_unavailable" in capsys.readouterr().err
+        )
+        == 3
+    )
+    assert "GitHub Actions deployment is not supported" in capsys.readouterr().err

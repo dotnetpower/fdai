@@ -15,7 +15,12 @@
 import { randomUUID } from "node:crypto";
 
 import { withChannelLocale, type CliChannelContext } from "./channel-context.js";
+import {
+  MAX_CLI_INPUT_CODE_POINTS,
+  MAX_CLI_LOCAL_HISTORY,
+} from "./cockpit-input.js";
 import { askChat, type ChatHistoryTurn } from "./data/operator-api.js";
+import { safeDisplayLine, safeDisplayText } from "./display-text.js";
 
 const TEAL = "\x1b[38;2;99;166;156m";
 const DIM = "\x1b[38;2;124;132;139m";
@@ -56,6 +61,7 @@ export async function startRepl(ctx: CliChannelContext): Promise<void> {
 
   const chatHistory: ChatHistoryTurn[] = [];
   const sessionId = randomUUID();
+  const abort = new AbortController();
   const promptStr = `${TEAL}\u203a ${RESET}`;
   const promptW = 2; // "> " display width
   const hintText = "narrator: shared-api - ask a question or /exit - Up/Down history, Ctrl+W word";
@@ -104,10 +110,11 @@ export async function startRepl(ctx: CliChannelContext): Promise<void> {
     write(`${TEAL}\u203a${RESET} `);
     const chars = [...text];
     const step = Math.max(1, Math.round(chars.length / 60));
-    for (let i = 0; i < chars.length; i += step) {
+    for (let i = 0; !abort.signal.aborted && i < chars.length; i += step) {
       write(chars.slice(i, i + step).join(""));
       await sleep(8);
     }
+    if (abort.signal.aborted) return;
     write("\n");
     write(`${ESC}7`);
     renderInput();
@@ -124,10 +131,14 @@ export async function startRepl(ctx: CliChannelContext): Promise<void> {
   };
 
   let done!: () => void;
+  let finishedOnce = false;
   const finished = new Promise<void>((resolve) => {
     done = resolve;
   });
   const finish = (): void => {
+    if (finishedOnce) return;
+    finishedOnce = true;
+    abort.abort();
     cleanup();
     stdin.removeListener("data", onData);
     out.removeListener("resize", onResize);
@@ -149,6 +160,7 @@ export async function startRepl(ctx: CliChannelContext): Promise<void> {
       return;
     }
     if (history[history.length - 1] !== q) history.push(q);
+    while (history.length > MAX_CLI_LOCAL_HISTORY) history.shift();
     busy = true;
     renderInput();
     const answer = askChat(apiUrl, q, {
@@ -159,18 +171,27 @@ export async function startRepl(ctx: CliChannelContext): Promise<void> {
       }),
       history: chatHistory,
       sessionId,
+      authorization: ctx.apiSession?.authorization,
+      signal: abort.signal,
     }).then((reply) => reply.answer);
     void answer
       .then(async (a) => {
+        if (abort.signal.aborted) return;
         await streamAnswer(a);
+        if (abort.signal.aborted) return;
         chatHistory.push(
           { role: "user", content: q },
           { role: "assistant", content: a },
         );
         while (chatHistory.length > 12) chatHistory.shift();
       })
-      .catch((err: unknown) => appendConv(`(error) ${(err as Error).message}\n`))
+      .catch((err: unknown) => {
+        if (!abort.signal.aborted) {
+          appendConv(`(error) ${safeDisplayLine((err as Error).message, 1024)}\n`);
+        }
+      })
       .finally(() => {
+        if (abort.signal.aborted) return;
         busy = false;
         renderInput();
       });
@@ -262,9 +283,13 @@ export async function startRepl(ctx: CliChannelContext): Promise<void> {
     }
     if (d.startsWith(ESC)) return; // ignore other escape sequences
     const nl = d.search(/[\r\n]/);
-    const printable = (nl >= 0 ? d.slice(0, nl) : d).replace(/[\u0000-\u001f]/g, "");
+    const printable = safeDisplayText(
+      nl >= 0 ? d.slice(0, nl) : d,
+      MAX_CLI_INPUT_CODE_POINTS,
+    );
     if (printable) {
-      const insert = [...printable];
+      const available = Math.max(0, MAX_CLI_INPUT_CODE_POINTS - buf.length);
+      const insert = [...printable].slice(0, available);
       buf.splice(cur, 0, ...insert);
       cur += insert.length;
     }
