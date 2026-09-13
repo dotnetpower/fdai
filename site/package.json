@@ -17,6 +17,8 @@
     "build": "astro build",
     "check:built": "node scripts/check-built-site.mjs",
     "test": "node --test test/*.test.mjs",
+    "test:ui": "playwright test",
+    "typecheck:ui": "tsc -p tsconfig.ui.json",
     "preview": "astro preview",
     "astro": "astro"
   },
@@ -27,7 +29,11 @@
     "sharp": "^0.34.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.11.0",
+    "@playwright/test": "1.58.2",
+    "@types/node": "22.20.0",
     "parse5": "^7.3.0",
+    "playwright-core": "1.58.2",
     "typescript": "^5.9.0"
   }
 }

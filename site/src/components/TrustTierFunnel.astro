@@ -254,7 +254,7 @@ const tiers = TIER_SPLIT.map((split, i) => ({
     grid-area: track;
     height: 0.6rem;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--sl-color-gray-5) 60%, transparent);
+    background: #1a263b;
     overflow: hidden;
   }
   .ttf-fill {
@@ -263,11 +263,7 @@ const tiers = TIER_SPLIT.map((split, i) => ({
        final state. motion-ready collapses it; in-view grows it back. */
     width: var(--pct);
     border-radius: inherit;
-    background: linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--c) 70%, #ffffff 0%),
-      var(--c)
-    );
+    background: var(--c);
   }
 
   .ttf-note {

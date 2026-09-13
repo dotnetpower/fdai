@@ -15,3 +15,11 @@ import Default from "@astrojs/starlight/components/PageFrame.astro";
   <slot name="sidebar" slot="sidebar" />
   <slot />
 </Default>
+
+<script>
+  import { synchronizeMobileNavigation } from "../scripts/mobile-navigation.mjs";
+  import { enhanceScrollableTables } from "../scripts/scrollable-tables.mjs";
+
+  synchronizeMobileNavigation();
+  enhanceScrollableTables();
+</script>
