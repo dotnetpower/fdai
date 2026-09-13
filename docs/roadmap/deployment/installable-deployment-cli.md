@@ -92,7 +92,7 @@ snapshot rather than the original kit. Artifact metadata and content descriptors
 nonblocking, no-follow mode and verify file identity after opening, so a check/open replacement
 cannot stall verification.
 Connected staging accepts complete runtime v2 only from digest-bound `build-runtime-release.py`,
-then requires the committed CLI lock and exact Hatchling and pip versions before kit signing.
+then requires the committed CLI lock and exact Hatchling and pip versions before kit signing. CLI build tooling uses a stage-private environment, never the caller's selected virtual environment.
 Terraform and OPA are downloaded at pinned versions only after their official SHA-256 values match.
 The required Python accepts only the official Terraform ZIP member shape, so no ambient `unzip` is needed.
 The output root must be a safe absolute path. A descriptor-based guard verifies current-UID ownership, mode 0700, and a

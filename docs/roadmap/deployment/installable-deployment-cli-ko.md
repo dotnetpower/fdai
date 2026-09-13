@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: b9a214e9f80916e85d3666471cbecc0c684073f3
+translation_source_sha: 27fe9a18da448cafcac15540f715273ab27576c9
 translation_revised: 2026-09-13
 ---
 # 설치형 배포 CLI
@@ -94,7 +94,7 @@ Installer는 system 도구를 변경하지 않습니다. `fdaictl doctor`가 누
 아티팩트 메타데이터 및 콘텐츠 서술자는 비차단 및 심볼릭 링크 차단 모드로 열고 열린 뒤 파일
 정체성을 검증하므로 검사와 열기 사이의 교체가 검증을 멈추게 할 수 없습니다.
 연결된 준비는 다이제스트가 고정된 `build-runtime-release.py`의 전체 런타임 v2만 수락하고,
-키트 서명 전에 커밋된 CLI lock과 정확한 Hatchling 및 pip 버전을 요구합니다. Terraform과
+키트 서명 전에 커밋된 CLI lock과 정확한 Hatchling 및 pip 버전을 요구합니다. CLI 빌드 도구는 호출자의 가상 환경이 아닌 준비 단계 전용 비공개 환경을 사용합니다. Terraform과
 OPA는 고정 버전으로 다운로드하고 플랫폼별 공식 SHA-256이 일치할 때만 사용합니다. 필수
 Python은 공식 일반 파일 구성의 Terraform ZIP만 수락하므로 준비 과정에서 주변 환경의
 `unzip`이 필요하지 않습니다. 출력 루트는 안전한 절대 경로여야 하며, 서술자 기반 guard가

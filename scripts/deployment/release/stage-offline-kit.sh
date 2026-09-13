@@ -240,7 +240,7 @@ trap 'stop_background; exit 130' INT
 trap 'stop_background; exit 143' TERM
 
 rm -rf "$KIT" "$OUT/bundle" "$OUT/wheels" "$OUT/mirror" "$OUT/mirror-src" \
-  "$OUT/toolchain" "$OUT/runtime-build" "$OUT/runtime-python"
+  "$OUT/toolchain" "$OUT/runtime-build" "$OUT/runtime-python" "$OUT/cli-build-env"
 rm -f "$OUT/bundle.tar.gz" "$OUT/cli-requirements.txt"
 mkdir -p "$OUT/toolchain" "$KIT"/{python,deployment,terraform,bin,sbom}
 chmod 700 "$OUT/toolchain" "$KIT"
@@ -300,6 +300,8 @@ build_bundle() {
 }
 
 build_cli_wheels() {
+  export UV_PROJECT_ENVIRONMENT="$OUT/cli-build-env"
+  unset VIRTUAL_ENV
   timeout --signal=TERM --kill-after=15 300 \
     uv lock --check --project packages/deployment-cli >/dev/null
   timeout --signal=TERM --kill-after=15 600 \
