@@ -6,7 +6,7 @@ import os
 import stat
 from pathlib import Path
 
-from fdai_deployment_cli.private_output import read_private_bytes
+from fdai_deployment_cli.private_output import _open_private_parent, read_private_bytes
 
 _STATE_PATHS = frozenset(
     {
@@ -15,6 +15,35 @@ _STATE_PATHS = frozenset(
     }
 )
 _MAX_FILE_BYTES = 64 * 1024 * 1024
+
+
+def _read_immutable_file(path: Path) -> bytes:
+    """Allow empty authenticated source files without relaxing private-file identity."""
+    parent = _open_private_parent(path)
+    try:
+        descriptor = os.open(path.name, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW, dir_fd=parent)
+        with os.fdopen(descriptor, "rb") as stream:
+            before = os.fstat(stream.fileno())
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or stat.S_IMODE(before.st_mode) != 0o600
+                or before.st_uid != os.geteuid()
+                or before.st_nlink != 1
+                or before.st_size > _MAX_FILE_BYTES
+            ):
+                raise ValueError("Foundation immutable source file identity is invalid")
+            data = stream.read(_MAX_FILE_BYTES + 1)
+            after = os.fstat(stream.fileno())
+            if (
+                len(data) != before.st_size
+                or after.st_size != before.st_size
+                or after.st_mtime_ns != before.st_mtime_ns
+                or after.st_ctime_ns != before.st_ctime_ns
+            ):
+                raise ValueError("Foundation immutable source changed during verification")
+            return data
+    finally:
+        os.close(parent)
 
 
 def verify_execution_copy(root: Path, *, authenticated_source: Path) -> None:
@@ -49,7 +78,11 @@ def verify_execution_copy(root: Path, *, authenticated_source: Path) -> None:
                 relative = path.relative_to(root).as_posix()
                 if relative not in expected and relative not in _STATE_PATHS:
                     raise ValueError("Foundation execution copy has an undeclared source file")
-                data = read_private_bytes(path, max_bytes=_MAX_FILE_BYTES)
+                data = (
+                    _read_immutable_file(path)
+                    if relative in expected
+                    else read_private_bytes(path, max_bytes=_MAX_FILE_BYTES)
+                )
                 total += len(data)
                 if total > 1024 * 1024 * 1024:
                     raise ValueError("Foundation execution copy exceeds its size bound")

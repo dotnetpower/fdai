@@ -31,6 +31,9 @@ def prepared_snapshot(tmp_path, monkeypatch):
     infra.mkdir(parents=True)
     (infra / "main.tf").write_text("terraform {}\n")
     (infra / ".terraform.lock.hcl").write_text("# synthetic lock\n")
+    catalog = source / "rule-catalog/placeholders"
+    catalog.mkdir(parents=True)
+    (catalog / ".gitkeep").write_bytes(b"")
     private = Ed25519PrivateKey.generate()
     public = private.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
     bundle = tmp_path / "signed-bundle"
@@ -40,6 +43,7 @@ def prepared_snapshot(tmp_path, monkeypatch):
         source_paths=(
             "infra/genesis-foundation/main.tf",
             "infra/genesis-foundation/.terraform.lock.hcl",
+            "rule-catalog/placeholders/.gitkeep",
         ),
         bundle_version="0.1.0",
         release_channel="development",
@@ -113,7 +117,9 @@ def test_retained_state_resumes_without_source_replacement(prepared_snapshot):
     snapshot.cleanup()
 
 
-@pytest.mark.parametrize("change", ["source", "extra", "other-state", "state-link"])
+@pytest.mark.parametrize(
+    "change", ["source", "extra", "other-state", "state-link", "empty-state", "empty-source-link"]
+)
 def test_state_exception_never_relaxes_immutable_source_checks(prepared_snapshot, change):
     apply, arguments, execution = prepared_snapshot
     if change == "source":
@@ -121,6 +127,12 @@ def test_state_exception_never_relaxes_immutable_source_checks(prepared_snapshot
     elif change == "state-link":
         (execution / "terraform.tfstate").unlink()
         (execution / "terraform.tfstate").symlink_to("terraform.tfstate.backup")
+    elif change == "empty-state":
+        (execution / "terraform.tfstate").write_bytes(b"")
+    elif change == "empty-source-link":
+        placeholder = execution.parents[1] / "rule-catalog/placeholders/.gitkeep"
+        placeholder.unlink()
+        placeholder.symlink_to(execution / "terraform.tfstate")
     else:
         name = "extra.tf" if change == "extra" else "terraform.tfstate.unreviewed"
         (execution / name).write_text("unexpected\n")
