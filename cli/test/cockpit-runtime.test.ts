@@ -130,6 +130,28 @@ describe("consumeSse", () => {
 });
 
 describe("reduceStageFrame", () => {
+  it("derives activity from machine frames independently of operator question text", () => {
+    const states = ["Show cost", "서비스 상태를 알려줘", ""].map((question) => {
+      const state = createCockpitState();
+      state.lastQ = question;
+      reduceStageFrame(state, {
+        event_id: "event-1", correlation_id: "corr-1", stage: "route", phase: "done",
+        ts: "now", detail: { routed_to: "t1", resource_type: "compute.vm" },
+      }, "en");
+      reduceStageFrame(state, {
+        event_id: "event-1", correlation_id: "corr-1", stage: "audit", phase: "done",
+        ts: "now", detail: { decision: "hil", outcome: "hil-pending" },
+      }, "en");
+      return state;
+    });
+    for (const state of states) {
+      expect(state.activity).toEqual(states[0].activity);
+      expect(state.byTier).toEqual({ t1: 1 });
+      expect(state.awaitingYou).toBe(1);
+      expect(state.autoApplied).toBe(0);
+    }
+  });
+
   it("carries route and verify state into the terminal audit activity", () => {
     const state = createCockpitState();
     reduceStageFrame(

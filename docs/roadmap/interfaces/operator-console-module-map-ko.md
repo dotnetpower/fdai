@@ -1,12 +1,17 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 3912dc32aaa8273bb9974f716aafd8471f3bae1b
+translation_source_sha: 3e64b7b2e906b0974102102c1e849932556926d7
 translation_revised: 2026-09-13
 ---
 # Operator Console 모듈 지도 and Boundaries
 
 이 문서는 Operator Console 대화 모듈, 경로, 채널 및 프로바이더 경계를 매핑합니다. Main 콘솔 계약을 확장하지 않고 출처 소유권을 찾을 수 있게 유지합니다.
+
+CLI의 `cockpit-state.ts`는 구조화된 `StageFrame`의 라우팅 티어와 감사 결과를 표시용으로만
+집계합니다. 운영자의 질문을 읽거나 대화 의도를 선택하거나 권한을 부여하지 않습니다. 의미 검사
+기준선의 명시적 항목은 검토된 기계 레코드 표시 책임으로 한정되며, 검사기는 검토되지 않은
+자연어 판단 경로를 계속 차단합니다.
 
 ## 실행 가능한 기준선
 

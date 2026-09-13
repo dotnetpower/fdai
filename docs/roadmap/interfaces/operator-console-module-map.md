@@ -5,6 +5,11 @@ title: Operator Console Module Map and Boundaries
 
 This document maps Operator Console modules, routes, channels, providers, and source ownership boundaries.
 
+The CLI's `cockpit-state.ts` reduces structured `StageFrame` routing tiers and audit outcomes for
+display only. It does not inspect the operator's question, select conversational intent, or grant
+authority. Its explicit semantic-scan baseline entry is limited to that reviewed machine-record
+presentation responsibility; the scanner still rejects unreviewed natural-language judgment paths.
+
 ## Executable baseline
 
 [`operator-console-module-inventory.json`](operator-console-module-inventory.json) records current Operator API responsibilities, route families, candidate destinations, and import status. It is descriptive rather than a file-count target, and an executable completeness gate requires every module directory and route module to remain classified. Candidate destinations remain package hints. [Service Graduation and Data Ownership](../architecture/service-graduation-and-ownership.md) is the gate for a new process, identity, transport, or data owner.

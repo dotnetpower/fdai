@@ -1,0 +1,354 @@
+name: cost-governance-promotion-review
+run-name: "cost-review-${{ inputs.target_kind }}-${{ inputs.target_id }}-${{ inputs.request_id }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Protected environment that owns the review evidence."
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+        required: true
+      commit_sha:
+        description: "Exact protected-main revision containing review controls."
+        type: string
+        required: true
+      campaign_id:
+        description: "Exact ready Cost Governance campaign identity."
+        type: string
+        required: true
+      source_run_id:
+        description: "Successful final observation workflow run id."
+        type: string
+        required: true
+      source_run_attempt:
+        description: "Exact successful observation workflow run attempt."
+        type: string
+        required: true
+      target_kind:
+        description: "One independently reviewed target kind."
+        type: choice
+        options: [package-activation, action-type, workflow]
+        required: true
+      target_id:
+        description: "One exact package, ActionType, or Workflow id."
+        type: string
+        required: true
+      decision:
+        description: "Review-only decision with no approval or promotion authority."
+        type: choice
+        options: [recommend, hold, deny]
+        required: true
+      rationale:
+        description: "Bounded English rationale retained with the review."
+        type: string
+        required: true
+      request_id:
+        description: "Stable idempotency key for this one-target review."
+        type: string
+        required: true
+
+permissions:
+  actions: read
+  attestations: write
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cost-governance-review-${{ inputs.environment }}-${{ inputs.target_kind }}-${{ inputs.target_id }}
+  cancel-in-progress: false
+
+jobs:
+  review:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, fdai-deploy, fdai-deploy-candidate]
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 30
+    env:
+      TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+      CAMPAIGN_ID: ${{ inputs.campaign_id }}
+      SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+      SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+      REVIEW_TARGET_KIND: ${{ inputs.target_kind }}
+      REVIEW_TARGET_ID: ${{ inputs.target_id }}
+      REVIEW_DECISION: ${{ inputs.decision }}
+      REVIEW_RATIONALE: ${{ inputs.rationale }}
+      REVIEW_REQUEST_ID: ${{ inputs.request_id }}
+    steps:
+      - name: Checkout protected workflow verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: .github/actions/verify-protected-workflow-source
+          path: .fdai-protected-workflow-verifier
+
+      - name: Verify protected workflow source
+        id: protected-source
+        uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
+        with:
+          target-commit-sha: ${{ inputs.commit_sha }}
+          workflow-path: .github/workflows/cost-governance-promotion-review.yml
+          origin-url: ${{ github.server_url }}/${{ github.repository }}.git
+          github-token: ${{ github.token }}
+
+      - name: Checkout exact review controls
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Install pinned uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.32"
+          enable-cache: false
+
+      - name: Install pinned GitHub CLI
+        run: bash scripts/deployment/azure/install-pinned-github-cli.sh
+
+      - name: Verify exact controls, reviewer, and required CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$CAMPAIGN_ID" =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]]
+          [[ "$SOURCE_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$SOURCE_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          [[ "$REVIEW_TARGET_ID" =~ ^[a-z0-9]+([._-][a-z0-9]+)*$ ]]
+          [[ "$REVIEW_REQUEST_ID" =~ ^[a-zA-Z0-9][a-zA-Z0-9._:-]{7,127}$ ]]
+          [[ -n "$REVIEW_RATIONALE" && "${#REVIEW_RATIONALE}" -le 2000 ]]
+          [[ "$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA" ]]
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$TARGET_COMMIT_SHA" origin/main
+          git rev-list --first-parent origin/main | grep -Fx "$TARGET_COMMIT_SHA" >/dev/null
+          checks="$RUNNER_TEMP/required-ci.json"
+          gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_COMMIT_SHA/check-runs?per_page=100" \
+            > "$checks"
+          jq -e \
+            '[.check_runs[] | select(.name == "required" and .conclusion == "success")] |
+             length >= 1' "$checks" >/dev/null
+          [[ "$(gh api "users/$GITHUB_ACTOR" --jq '.type')" == "User" ]] || {
+            echo "Cost Governance review requires an authenticated human GitHub actor" >&2
+            exit 1
+          }
+
+      - name: Verify attested final campaign result
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          source_run="$RUNNER_TEMP/source-run.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/attempts/$SOURCE_RUN_ATTEMPT" \
+            > "$source_run"
+          jq -e --argjson attempt "$SOURCE_RUN_ATTEMPT" '
+            .conclusion == "success" and
+            .run_attempt == $attempt and
+            .head_branch == "main" and
+            .path == ".github/workflows/cost-governance-observation-export.yml"
+          ' "$source_run" >/dev/null
+          source_actor="$(jq -er '.actor.login | ascii_downcase' "$source_run")"
+          source_triggering_actor="$(jq -er '.triggering_actor.login | ascii_downcase' "$source_run")"
+          review_actor="${GITHUB_ACTOR,,}"
+          [[ "$review_actor" != "$source_actor" &&
+             "$review_actor" != "$source_triggering_actor" ]] || {
+            echo "independent reviewer must differ from every campaign run actor" >&2
+            exit 1
+          }
+          current_attempt="$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID" --jq '.run_attempt'
+          )"
+          [[ "$current_attempt" == "$SOURCE_RUN_ATTEMPT" ]] || {
+            echo "source workflow attempt changed before artifact download" >&2
+            exit 1
+          }
+          source_artifact_name="cost-governance-review-${CAMPAIGN_ID}-${SOURCE_RUN_ID}-${SOURCE_RUN_ATTEMPT}"
+          source_dir="$RUNNER_TEMP/cost-governance-review-source"
+          mkdir -p "$source_dir"
+          gh run download "$SOURCE_RUN_ID" \
+            --name "$source_artifact_name" \
+            --dir "$source_dir"
+          [[ "$(
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID" --jq '.run_attempt'
+          )" == "$SOURCE_RUN_ATTEMPT" ]] || {
+            echo "source workflow attempt changed during artifact download" >&2
+            exit 1
+          }
+          mapfile -t readiness_files < <(
+            find "$source_dir" -type f -name cost-governance-review.json -print
+          )
+          [[ "${#readiness_files[@]}" -eq 1 ]]
+          readiness="${readiness_files[0]}"
+          jq -e --arg campaign "$CAMPAIGN_ID" '
+            .campaign_id == $campaign and .ready == true and (.targets | length == 6)
+          ' "$readiness" >/dev/null
+          verification="$RUNNER_TEMP/cost-governance-source-attestation.json"
+          timeout 60s gh attestation verify "$readiness" \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/cost-governance-observation-export.yml" \
+            --format json > "$verification"
+          echo "readiness=$readiness" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=$source_artifact_name" >> "$GITHUB_OUTPUT"
+          echo "verification=$verification" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate and bind private platform state
+        env:
+          ARM_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          DEPLOY_RUNNER_CLIENT_ID: ${{ vars.DEPLOY_RUNNER_CLIENT_ID }}
+          DEPLOY_RUNNER_PRINCIPAL_ID: ${{ vars.DEPLOY_RUNNER_PRINCIPAL_ID }}
+          OPS_RESOURCE_GROUP_NAME: ${{ vars.OPS_RESOURCE_GROUP_NAME }}
+          STATE_STORAGE_ACCOUNT: ${{ vars.STATE_STORAGE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          bash scripts/deployment/azure/login-deploy-identity.sh \
+            "$ARM_SUBSCRIPTION_ID" "$AZURE_TENANT_ID" \
+            "$DEPLOY_RUNNER_CLIENT_ID" "$DEPLOY_RUNNER_PRINCIPAL_ID"
+          cp infra/backend.azurerm.tf.example infra/backend.tf
+          terraform -chdir=infra init -input=false \
+            -backend-config="resource_group_name=$OPS_RESOURCE_GROUP_NAME" \
+            -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=fdai-${{ inputs.environment }}.tfstate"
+
+      - name: Resolve exact active package pin
+        id: pin
+        run: |
+          set -euo pipefail
+          vault_uri="$(terraform -chdir=infra output -raw key_vault_uri)"
+          [[ "$vault_uri" =~ ^https://([a-z0-9-]{3,24})[.]vault[.]azure[.]net/?$ ]]
+          migration_secret_name="$(jq -er \
+            '.services["core-control-plane"].migration_dsn_secret_name' \
+            scripts/deployment/service/service-matrix.json)"
+          migration_dsn="$(timeout 60s az keyvault secret show \
+            --vault-name "${BASH_REMATCH[1]}" --name "$migration_secret_name" \
+            --query value --only-show-errors --output tsv)"
+          [[ -n "$migration_dsn" ]]
+          echo "::add-mask::$migration_dsn"
+          dsn_file="$RUNNER_TEMP/cost-governance-review-dsn"
+          install -m 0600 /dev/null "$dsn_file"
+          printf '%s' "$migration_dsn" > "$dsn_file"
+          export FDAI_STATE_STORE_DSN="$migration_dsn"
+          pin="$RUNNER_TEMP/cost-governance-review-pin-before.json"
+          uv run --frozen --package fdai-cost-governance \
+            python -m fdai_cost_governance.validation_cli pin > "$pin"
+          jq -e '.enabled == true and
+            (.revision_pin.source_revision | test("^[0-9a-f]{40}$")) and
+            (.revision_pin_digest | test("^sha256:[0-9a-f]{64}$"))' "$pin" >/dev/null
+          echo "source_revision=$(jq -er '.revision_pin.source_revision' "$pin")" \
+            >> "$GITHUB_OUTPUT"
+          echo "pin=$pin" >> "$GITHUB_OUTPUT"
+          unset FDAI_STATE_STORE_DSN migration_dsn
+
+      - name: Checkout exact active package release
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.pin.outputs.source_revision }}
+          fetch-depth: 1
+          path: .fdai-release-source
+
+      - name: Recompute exact-release readiness and re-read pin
+        id: readiness
+        run: |
+          set -euo pipefail
+          migration_dsn="$(<"$RUNNER_TEMP/cost-governance-review-dsn")"
+          [[ -n "$migration_dsn" ]]
+          echo "::add-mask::$migration_dsn"
+          export FDAI_STATE_STORE_DSN="$migration_dsn"
+          recomputed="$RUNNER_TEMP/cost-governance-review-recomputed.json"
+          (
+            cd .fdai-release-source
+            uv run --frozen --package fdai-cost-governance \
+              python -m fdai_cost_governance.validation_cli evaluate \
+                --campaign-id "$CAMPAIGN_ID" \
+                --catalog-root rule-catalog \
+                --require-ready > "$recomputed"
+          )
+          cmp --silent "${{ steps.source.outputs.readiness }}" "$recomputed" || {
+            echo "attested campaign result changed before independent review" >&2
+            exit 1
+          }
+          pin_after="$RUNNER_TEMP/cost-governance-review-pin-after.json"
+          uv run --frozen --package fdai-cost-governance \
+            python -m fdai_cost_governance.validation_cli pin > "$pin_after"
+          cmp --silent "${{ steps.pin.outputs.pin }}" "$pin_after" || {
+            echo "active package pin changed during independent review" >&2
+            exit 1
+          }
+          echo "recomputed=$recomputed" >> "$GITHUB_OUTPUT"
+          unset FDAI_STATE_STORE_DSN migration_dsn
+
+      - name: Append one independent review
+        id: record
+        env:
+          FDAI_COST_REVIEWER_IDENTITY: github:${{ github.actor }}
+        run: |
+          set -euo pipefail
+          migration_dsn="$(<"$RUNNER_TEMP/cost-governance-review-dsn")"
+          [[ -n "$migration_dsn" ]]
+          echo "::add-mask::$migration_dsn"
+          export FDAI_STATE_STORE_DSN="$migration_dsn"
+          verification_digest="sha256:$(sha256sum \
+            "${{ steps.source.outputs.verification }}" | cut -d' ' -f1)"
+          receipt="$RUNNER_TEMP/cost-governance-promotion-review.json"
+          uv run --frozen --package fdai-core-control-plane \
+            python scripts/deployment/azure/record_cost_governance_review.py \
+              --readiness "${{ steps.readiness.outputs.recomputed }}" \
+              --policy .fdai-release-source/config/cost-governance-w7-policy.json \
+              --target-kind "$REVIEW_TARGET_KIND" \
+              --target-id "$REVIEW_TARGET_ID" \
+              --decision "$REVIEW_DECISION" \
+              --rationale "$REVIEW_RATIONALE" \
+              --request-id "$REVIEW_REQUEST_ID" \
+              --evidence-ref "workflow:${SOURCE_RUN_ID}:${SOURCE_RUN_ATTEMPT}" \
+              --evidence-ref "artifact:${{ steps.source.outputs.artifact_name }}" \
+              --evidence-ref "attestation:${verification_digest}" > "$receipt"
+          jq -e --arg kind "$REVIEW_TARGET_KIND" --arg target "$REVIEW_TARGET_ID" '
+            .review.target_kind == $kind and
+            .review.target_id == $target and
+            .review.approval_authority == false and
+            .review.execution_authority == false and
+            .review.promotion_authority == false and
+            (.review.campaign_evidence_digest | test("^sha256:[0-9a-f]{64}$")) and
+            (.review.review_id | test("^sha256:[0-9a-f]{64}$"))
+          ' "$receipt" >/dev/null
+          echo "receipt=$receipt" >> "$GITHUB_OUTPUT"
+          unset FDAI_STATE_STORE_DSN migration_dsn
+
+      - name: Attest independent review receipt
+        id: attest
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0, Node 24
+        with:
+          subject-path: ${{ steps.record.outputs.receipt }}
+
+      - name: Upload independent review evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, Node 24
+        with:
+          name: cost-governance-promotion-review-${{ inputs.request_id }}
+          path: |
+            ${{ steps.record.outputs.receipt }}
+            ${{ steps.attest.outputs.bundle-path }}
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Summarize authority boundary
+        run: |
+          {
+            echo "### Cost Governance independent review"
+            echo
+            echo "- Target: \`$REVIEW_TARGET_KIND/$REVIEW_TARGET_ID\`"
+            echo "- Decision: \`$REVIEW_DECISION\`"
+            echo "- Approval authority: \`false\`"
+            echo "- Execution authority: \`false\`"
+            echo "- Promotion authority: \`false\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Clean private state material
+        if: always() && steps.protected-source.outcome == 'success'
+        run: |
+          unset FDAI_STATE_STORE_DSN migration_dsn
+          rm -f infra/backend.tf "$RUNNER_TEMP/cost-governance-review-dsn"
+          rm -rf infra/.terraform

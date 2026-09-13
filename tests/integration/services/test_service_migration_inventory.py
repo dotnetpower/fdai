@@ -120,6 +120,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "cost_governance_episode",
         "cost_governance_evidence",
         "cost_governance_lifecycle_receipt",
+        "cost_governance_promotion_review",
         "cost_governance_recovery",
         "cost_governance_retention",
         "cost_governance_retention_event",
@@ -1612,6 +1613,13 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         MIGRATION_ROOT / "branches/core-control-plane/versions/20260913_core_effect_observation.py"
     )
     effect_observation_migration = inventory_module.load_revision_metadata(effect_observation_path)
+    cost_governance_review_path = (
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260913_core_cost_governance_review.py"
+    )
+    cost_governance_review_migration = inventory_module.load_revision_metadata(
+        cost_governance_review_path
+    )
     resource_change_receipt_path = (
         MIGRATION_ROOT / "branches/core-control-plane/versions/"
         "20260912_core_resource_change_receipts.py"
@@ -1657,6 +1665,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(safeguard_dispatch_evidence_migration.owned_tables)
         | set(post_release_closure_migration.owned_tables)
         | set(effect_observation_migration.owned_tables)
+        | set(cost_governance_review_migration.owned_tables)
         | set(resource_change_receipt_migration.owned_tables)
         | set(certification_support_migration.owned_tables)
     )

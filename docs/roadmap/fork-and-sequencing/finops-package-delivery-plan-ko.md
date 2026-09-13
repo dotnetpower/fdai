@@ -1,8 +1,8 @@
 ---
 title: FinOps 패키지 전달 계획
 translation_of: finops-package-delivery-plan.md
-translation_source_sha: 55e4f1be2e3a7d3fd535716d378dd370daa44a76
-translation_revised: 2026-09-12
+translation_source_sha: 06557a1c1e20e40100c762c93a0cf99244ec78a5
+translation_revised: 2026-09-13
 ---
 
 # FinOps 패키지 전달 계획
@@ -36,12 +36,12 @@ release, 자산 inventory 및 안정적인 식별자 집합으로 수렴한 뒤�
 
 | 영역 | 현재 근거 | 전달 미비점 |
 |------|-----------|-------------|
-| FinOps 패키지 | `extensions/cost-governance/`, 패키지 빌드, 리소스, 이미지 및 수명 주기 테스트 | 로컬 빌드와 수명 주기 메커니즘은 통과했습니다. 기본 전용 프로필은 패키지 자산을 제외하고 호환성 재생은 활성화된 패키지 하나를 명시적으로 구성합니다. 통제된 이미지 및 수명 주기 증적은 W7 근거로 남습니다. |
-| 비용 자문 | 주입된 Njord 자문 프로바이더, 활성화 gate가 적용된 수집 및 분리된 signed 효과 추정 | Live-authoritative 프로바이더 cohort는 아직 기록되지 않았습니다. |
+| FinOps 패키지 | `extensions/cost-governance/`, 패키지 빌드, 리소스, 이미지, 수명 주기 테스트 및 이슈 #902 live dev 증적 | 기본 전용 프로필은 패키지 자산을 제외하며, 새 독립 계획이 보존된 N-1 롤백과 exact casefold 복원을 입증했습니다. 적격 campaign과 검토는 W7 작업으로 남습니다. |
+| 비용 자문 | 주입된 Njord 자문 프로바이더, 활성화 gate가 적용된 수집, 분리된 signed 효과 추정 및 복원 collector 실행 `caj-fdai-dev-cost-collect-kbom2sn` | 하나의 live-authoritative 완결 수집을 보존했습니다. 이는 30일 및 표본 100개의 정산 cohort가 아닙니다. |
 | 온톨로지 | 정확한 의미 프로파일, 추가 선언, F1-F8 긍정과 부정 고정본, 그리고 완전한 Identifiable 인터페이스 커버리지 | 프로파일은 활성 온톨로지 release를 핀으로 고정하며 실제 근거는 같은 release에 연결되어야 합니다. |
 | 에이전트 런타임 | 고정 판테온, 소유 topic, 전체 책임 replay, 복구, 정산 및 학습 테스트 | 출처와 합성 근거는 운영 자율성을 입증하지 않습니다. |
-| 자산 | 안정적인 id를 유지하는 패키지 소유 Rule 12개, Policy 12개, 수정 template 12개 및 Workflow 1개 | 더 이상 사용하지 않는 Core facade는 통제된 롤백 근거가 제거를 허용할 때까지 동등성 검사에만 남습니다. |
-| 확장 수명 주기 | 원자적인 가용성, 활성화, upgrade, 비활성화 및 N-1 롤백 메커니즘 | Live-authoritative 증적과 독립 승격 결정은 열려 있습니다. |
+| 자산 | 안정적인 id를 유지하는 패키지 소유 Rule 12개, Policy 12개, 수정 template 12개 및 Workflow 1개 | Live dev 롤백을 검증했습니다. Production cutover와 W7 검토 gate가 완료될 때까지 더 이상 사용하지 않는 Core facade를 동등성 검사에 유지합니다. |
+| 확장 수명 주기 | 원자적인 가용성, 활성화, upgrade, 비활성화 및 N-1 롤백 메커니즘과 live revision 10-15 | Live dev 롤백 및 복원 sequence를 완료했습니다. 적격 campaign과 독립 promotion 결정은 열려 있습니다. |
 
 ## 전달 규칙
 
@@ -228,6 +228,17 @@ release wheel, 서명된 이미지, 배포된 작업, 런타임 구성 및 완�
 `live-authoritative` 분류를 부여합니다. 검토 결과는 package activation, 패키지 소유
 `ActionType` 각각 및 패키지 소유 `Workflow` 각각을 다루지만 promotion을 적용하지 않습니다.
 이 경로의 로컬 테스트는 실제 cohort 또는 독립 검토 종료 기준을 충족하지 않습니다.
+
+campaign이 `ready=true`를 반환하면 별도의 보호된 검토 경계가 요청마다 정확히 하나의 대상을
+기록합니다. 이 경계는 활성 revision pin을 다시 읽고 해당 대상의 campaign report를 다시 계산한
+다음, campaign과 report digest, 대상 종류와 ID, 인증된 검토자 신원, 결정, 근거 설명, 근거 참조,
+검토 시각을 포함하는 내용 주소 기반 증적을 추가합니다. 결정은 `recommend`, `hold`, `deny` 중
+하나이며, 모든 증적은 승인, 실행, promotion 권한을 `false`로 고정합니다. 일괄 결정은 다른 대상의
+결정을 대신할 수 없으며, recommendation 이후에도 package activation 또는 대상 promotion을
+수행하려면 별도로 승인된 변경이 필요합니다.
+검토자는 대소문자를 구분하지 않고 attested campaign workflow의 최초 행위자 및 재실행 행위자
+모두와 달라야 합니다. 요청 ID 재생은 영속 payload와 모든 정규화 열이 제안된 검토와 계속 일치할
+때만 허용됩니다.
 
 ## 검증 매트릭스
 

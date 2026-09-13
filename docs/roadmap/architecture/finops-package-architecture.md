@@ -36,14 +36,14 @@ domain code and assets. It does not create another control plane or move authori
 > The runner's exact-registry `AcrPush` assignment imports signed shared runtime images only. It is
 > not a Cost Governance package input and cannot install, enable, promote, or grant package data
 > access.
-> Live-authoritative lifecycle receipts now cover installation through the parser release upgrade
-> at revision 7, enable at revision 8, and fail-safe disable at revision 9. That exact release
-> recovered past throttling and preserved numeric zero, but its first enabled collector failed
-> closed because provider `ServiceName` casing was compared byte-for-byte with the deployment-owned
-> lowercase allowlist. Provider service labels are now stripped and case-folded at ingress while
-> unknown values remain rejected. Successful post-fix collection, rollback, final enablement, the
-> observation cohort, and independent promotion evidence remain open. The package and its actions
-> remain unvalidated and unpromoted.
+> Live-authoritative lifecycle receipts now cover the reviewed casefold release at revisions 10
+> and 11, fail-safe disable at revision 12, retained N-1 rollback at revision 13, restoring upgrade
+> at revision 14, and final enable at revision 15. Fresh independently owned Core and Job plans
+> converged all three runtimes on each exact digest. The restored collector independently returned
+> `complete` and advanced the durable cursor to revision 2 with 71 retained observations. The four
+> ActionType promotion rows retained their pre-rollback digest and the package Workflow remains
+> `shadow`. This validates live dev rollback and collection recovery, not the 30-day campaign or
+> independent promotion reviews. The package and its actions remain unpromoted.
 > The packaged semantic profile and parity corpus always pin the active ontology release; an
 > additive kernel declaration refreshes their profile, manifest, and fixture identities together.
 > Container publication verifies the protected workflow source before any manual-dispatch
@@ -342,6 +342,17 @@ successful receipt includes a canonical digest of all request inputs. Reusing a 
 different operation, artifact, source revision, runtime configuration, actor, desired enablement,
 or expected revision is an idempotency conflict. An exact retry returns the original receipt rather
 than relabeling the current activation state.
+
+Independent promotion reviews use a separate Core-owned append-only store and protected workflow.
+The workflow verifies the final attested campaign result, recomputes readiness with the exact
+active package release, and re-reads the active pin before it records one target. Every review
+binds the common campaign artifact digest, the target-specific report digest, authenticated
+reviewer identity, decision, rationale, evidence references, and review time. The record fixes
+approval, execution, and promotion authority to `false`; it cannot change package enablement or an
+`ActionType` or `Workflow` mode.
+The authenticated reviewer must differ, case-insensitively, from both the original and rerun actors
+of the attested campaign workflow. An exact request replay is idempotent only while the stored
+payload and every normalized column remain identical.
 
 ## Autonomous runtime handoff
 

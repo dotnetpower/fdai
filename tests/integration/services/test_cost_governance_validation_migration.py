@@ -4,6 +4,7 @@ import json
 import os
 import runpy
 from collections.abc import Iterator
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -12,6 +13,9 @@ from uuid import uuid4
 
 import psycopg
 import pytest
+from fdai.delivery.persistence.postgres_cost_governance_review import (
+    PostgresCostPromotionReviewStore,
+)
 from fdai.delivery.persistence.postgres_cost_governance_validation import (
     PostgresCostGovernanceValidationStore,
 )
@@ -21,6 +25,11 @@ from fdai.shared.providers.cost_governance_campaign import (
     CostCampaignSettlement,
 )
 from fdai.shared.providers.cost_governance_lifecycle import CostEvidenceKind
+from fdai.shared.providers.cost_governance_review import (
+    CostPromotionReview,
+    CostReviewDecision,
+    CostReviewTargetKind,
+)
 from psycopg import sql
 from psycopg.types.json import Jsonb
 
@@ -50,6 +59,11 @@ _LIFECYCLE_OPERATOR_REPAIR_MIGRATION = (
     / "service-migrations/branches/core-control-plane/versions"
     / "20260912_core_cost_governance_release_guard.py"
 )
+_REVIEW_MIGRATION = (
+    _ROOT
+    / "service-migrations/branches/core-control-plane/versions"
+    / "20260913_core_cost_governance_review.py"
+)
 _STORE = (
     _ROOT
     / "services/core-control-plane/src/fdai/delivery/persistence"
@@ -71,6 +85,26 @@ def _sql(name: str) -> tuple[dict[str, object], str]:
 
 def _digest(character: str) -> str:
     return f"sha256:{character * 64}"
+
+
+def _review() -> CostPromotionReview:
+    reviewed_at = datetime(2026, 9, 13, tzinfo=UTC)
+    return CostPromotionReview(
+        schema_version="1.0.0",
+        request_id="cost-review-right-size-r1",
+        campaign_id="cost-governance-w7-dev",
+        campaign_evidence_digest=_digest("9"),
+        revision_pin_digest=_digest("a"),
+        campaign_report_digest=_digest("b"),
+        target_kind=CostReviewTargetKind.ACTION_TYPE,
+        target_id="remediate.right-size",
+        reviewer_identity="github:reviewer-example",
+        decision=CostReviewDecision.RECOMMEND,
+        rationale="The exact campaign meets every review gate.",
+        reviewed_at=reviewed_at,
+        evidence_refs=("workflow:123:1",),
+        retention_until=reviewed_at + timedelta(days=400),
+    )
 
 
 @pytest.fixture
@@ -149,6 +183,61 @@ def test_validation_retention_is_revisioned_held_and_bounded() -> None:
     assert "FOR UPDATE SKIP LOCKED" in source
     assert "revision = revision + 1" in source
     assert "expected_revision" in source
+
+
+def test_promotion_reviews_are_append_only_and_have_no_authority() -> None:
+    module, migration_sql = _migration_sql(_REVIEW_MIGRATION, "upgrade")
+    ownership = json.loads(
+        (_ROOT / "service-migrations/ownership.json").read_text(encoding="utf-8")
+    )
+
+    assert module["migration_owner"] == "core-control-plane"
+    assert module["owned_tables"] == ("cost_governance_promotion_review",)
+    assert "cost_governance_promotion_review" in ownership["table_migrations"]["core-control-plane"]
+    assert (
+        "cost_governance_promotion_review" in ownership["whole_table_writers"]["core-control-plane"]
+    )
+    normalized = " ".join(migration_sql.split())
+    assert "campaign_evidence_digest TEXT NOT NULL" in normalized
+    assert "decision IN ('recommend', 'hold', 'deny')" in normalized
+    assert normalized.count("BOOLEAN NOT NULL DEFAULT FALSE CHECK (NOT") == 3
+    assert "GRANT SELECT, INSERT ON TABLE cost_governance_promotion_review" in normalized
+    assert "GRANT UPDATE" not in migration_sql
+    assert "GRANT DELETE" not in migration_sql
+
+
+async def test_promotion_review_round_trip_and_request_replay(
+    disposable_database_url: str,
+) -> None:
+    with psycopg.connect(disposable_database_url) as connection:
+        connection.execute(_migration_sql(_REVIEW_MIGRATION, "upgrade")[1])
+    store = PostgresCostPromotionReviewStore(dsn=disposable_database_url)
+    review = _review()
+
+    assert await store.append_cost_promotion_review(review) is True
+    assert await store.append_cost_promotion_review(review) is False
+    assert await store.read_cost_promotion_reviews(
+        campaign_id=review.campaign_id,
+        revision_pin_digest=review.revision_pin_digest,
+        limit=10,
+    ) == (review,)
+
+    with pytest.raises(ValueError, match="request id conflicts"):
+        await store.append_cost_promotion_review(replace(review, decision=CostReviewDecision.DENY))
+
+    with psycopg.connect(disposable_database_url) as connection:
+        connection.execute(
+            "UPDATE cost_governance_promotion_review SET target_id = %s WHERE review_id = %s",
+            ("remediate.tag-add", review.review_id),
+        )
+    with pytest.raises(ValueError, match="request id conflicts"):
+        await store.append_cost_promotion_review(review)
+    with pytest.raises(RuntimeError, match="columns do not match payload"):
+        await store.read_cost_promotion_reviews(
+            campaign_id=review.campaign_id,
+            revision_pin_digest=review.revision_pin_digest,
+            limit=10,
+        )
 
 
 def test_store_verifies_receipt_digest_and_campaign_cas() -> None:
