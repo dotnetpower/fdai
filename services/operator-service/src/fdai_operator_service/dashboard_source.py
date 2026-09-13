@@ -271,6 +271,8 @@ def _metric_observation(
         sample_identity=(fact.source_id, fact.source_record_id)
         if fact.metric_id != "attributed_cost_usd"
         else None,
+        observation_id=fact.observation_id,
+        supersedes_observation_id=fact.supersedes_observation_id,
     )
 
 

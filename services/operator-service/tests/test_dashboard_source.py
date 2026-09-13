@@ -233,8 +233,11 @@ def test_snapshot_sql_bounds_all_streams_in_one_read() -> None:
 
 
 def test_metric_provenance_is_retained_and_incomplete_values_withdraw() -> None:
-    result = decode_dashboard_snapshot(snapshot(row(metric())))
+    entry = metric()
+    result = decode_dashboard_snapshot(snapshot(row(entry)))
     assert result.metrics[0].value == 2.5
+    assert result.metrics[0].observation_id == entry["observation_id"]
+    assert result.metrics[0].supersedes_observation_id is None
     assert result.metrics[0].source_context == (
         "sha256:" + "a" * 64,
         "a" * 40,

@@ -137,9 +137,28 @@ def test_timing_metrics_use_their_own_samples_and_keep_fractional_seconds() -> N
 
 
 def test_metric_correction_replaces_then_can_invalidate_a_value() -> None:
-    original = MetricObservation("incident-a", "mttr_seconds", 5.0, END, 2)
-    corrected = replace(original, value=3.0, seq=3)
-    withdrawn = replace(original, value=None, seq=4)
+    original = MetricObservation(
+        "incident-a",
+        "mttr_seconds",
+        5.0,
+        END,
+        2,
+        observation_id="observation-a",
+    )
+    corrected = replace(
+        original,
+        value=3.0,
+        seq=3,
+        observation_id="observation-b",
+        supersedes_observation_id="observation-a",
+    )
+    withdrawn = replace(
+        original,
+        value=None,
+        seq=4,
+        observation_id="observation-c",
+        supersedes_observation_id="observation-b",
+    )
     assert reduce(metrics=[original, corrected])["success"]["mttr_seconds"]["value"] == 3
     assert (
         reduce(metrics=[withdrawn, original, corrected])["success"]["mttr_seconds"]["value"] is None
@@ -234,9 +253,54 @@ def test_finite_means_do_not_overflow_and_unrepresentable_cost_is_explicit() -> 
 
 def test_one_incident_linked_to_multiple_events_keeps_one_timing_sample() -> None:
     original = MetricObservation(
-        "event-a", "mttr_seconds", 5.0, END, 1, sample_identity=("source", "incident")
+        "event-a",
+        "mttr_seconds",
+        5.0,
+        END,
+        1,
+        sample_identity=("source", "incident"),
+        observation_id="observation-a",
     )
-    correction = replace(original, event_id="event-b", value=3.0, seq=2)
+    correction = replace(
+        original,
+        event_id="event-b",
+        value=3.0,
+        seq=2,
+        observation_id="observation-b",
+        supersedes_observation_id="observation-a",
+    )
     result = reduce(metrics=[original, correction])
     assert result["success"]["mttr_seconds"]["value"] == 3
     assert result["metric_samples"]["mttr_seconds"] == 1
+
+
+def test_metric_overwrite_requires_an_immediate_same_sample_correction() -> None:
+    original = MetricObservation(
+        "event-a",
+        "mttr_seconds",
+        5.0,
+        END,
+        1,
+        sample_identity=("source", "incident"),
+        observation_id="observation-a",
+    )
+    unchained = replace(
+        original,
+        value=3.0,
+        seq=2,
+        observation_id="observation-b",
+    )
+    crossed = replace(
+        original,
+        event_id="event-b",
+        value=3.0,
+        seq=2,
+        sample_identity=("source", "other-incident"),
+        observation_id="observation-b",
+        supersedes_observation_id="observation-a",
+    )
+
+    with pytest.raises(ValueError, match="does not supersede"):
+        reduce(metrics=[original, unchained])
+    with pytest.raises(ValueError, match="crosses sample identity"):
+        reduce(metrics=[original, crossed])

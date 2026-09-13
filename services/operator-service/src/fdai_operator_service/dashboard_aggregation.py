@@ -56,6 +56,8 @@ class MetricObservation:
     seq: int
     source_context: tuple[str, str, str, str] | None = None
     sample_identity: tuple[str, str] | None = None
+    observation_id: str | None = None
+    supersedes_observation_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,8 +174,25 @@ def aggregate_dashboard(
             pending.add(event.event_id)
 
     latest_metrics: dict[tuple[str, object], MetricObservation] = {}
+    metric_keys_by_observation: dict[str, tuple[str, object]] = {}
     for metric in sorted(metrics, key=lambda item: item.seq):
-        latest_metrics[(metric.metric_id, metric.sample_identity or metric.event_id)] = metric
+        metric_key = (metric.metric_id, metric.sample_identity or metric.event_id)
+        previous_metric = latest_metrics.get(metric_key)
+        if previous_metric is not None and (
+            previous_metric.observation_id is None
+            or metric.observation_id is None
+            or metric.supersedes_observation_id != previous_metric.observation_id
+        ):
+            raise ValueError("metric correction does not supersede the current sample")
+        if metric.observation_id is not None:
+            prior_key = metric_keys_by_observation.get(metric.observation_id)
+            if prior_key is not None and prior_key != metric_key:
+                raise ValueError("metric observation identity belongs to another sample")
+            superseded_key = metric_keys_by_observation.get(metric.supersedes_observation_id or "")
+            if superseded_key is not None and superseded_key != metric_key:
+                raise ValueError("metric correction crosses sample identity")
+            metric_keys_by_observation[metric.observation_id] = metric_key
+        latest_metrics[metric_key] = metric
     measured: dict[str, dict[object, float]] = defaultdict(dict)
     contexts: dict[str, set[tuple[str, str, str, str] | None]] = defaultdict(set)
     incomplete: set[str] = set()
@@ -184,9 +203,9 @@ def aggregate_dashboard(
                 incomplete.add(metric.metric_id)
             else:
                 measured[metric.metric_id][metric.sample_identity or metric.event_id] = metric.value
-    mixed = {key for key, values in contexts.items() if len(values) > 1}
-    for key in incomplete | mixed:
-        measured[key] = {}
+    mixed = {metric_id for metric_id, values in contexts.items() if len(values) > 1}
+    for metric_id in incomplete | mixed:
+        measured[metric_id] = {}
 
     total = len(cohort)
     costs = measured["attributed_cost_usd"]
