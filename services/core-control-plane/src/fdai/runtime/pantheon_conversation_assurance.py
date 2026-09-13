@@ -66,6 +66,7 @@ class RuntimePantheonConversationAssurance:
         coordinator: ConversationAssuranceCoordinator,
         source_revision: str,
         source_content_digest: str,
+        additional_cases: tuple[PantheonCensusCase, ...] = (),
     ) -> None:
         if len(source_revision) != 40 or any(
             value not in "0123456789abcdef" for value in source_revision
@@ -79,7 +80,11 @@ class RuntimePantheonConversationAssurance:
         self._coordinator = coordinator
         self._source_revision = source_revision
         self._source_content_digest = source_content_digest
-        self._cases = {case.case_id: case for case in build_pantheon_census(PANTHEON_SPECS).cases}
+        fixed_cases = build_pantheon_census(PANTHEON_SPECS).cases
+        all_cases = (*fixed_cases, *additional_cases)
+        if len({case.case_id for case in all_cases}) != len(all_cases):
+            raise ValueError("conversation assurance runtime case ids MUST be unique")
+        self._cases = {case.case_id: case for case in all_cases}
         self._specs = {spec.name: spec for spec in PANTHEON_SPECS}
 
     async def evaluate(

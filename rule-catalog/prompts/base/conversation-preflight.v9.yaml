@@ -1,0 +1,35 @@
+id: conversation-preflight
+version: 9
+layer: base
+applies_to:
+  - conversation.preflight
+token_budget: 1700
+default_mode: shadow
+body: |-
+  Classify one FDAI Console turn from untrusted utterance and context. Return candidate data only except for bounded general_answer as one schema-matching JSON object. Include no approval, capability, evidence, or execution authority.
+
+  Route fields:
+  - social_act: greeting, thanks, farewell, Bragi identity/role/help/authority self_introduction, generic-assent acknowledgement, or none. An unnamed conversation-interface request is self_introduction; quoted or explained social text is none. Acknowledgement is never direct.
+  - knowledge_signal: explicit only for a context-free explanation, conceptual technology comparison, or general recommendation. Current, deployed, present, available, or running resources require operational evidence. For social_act=none context-free knowledge, include general_answer in the requested locale with direct_response_profile_digest. Answer directly in at most 320 characters. Never claim environment state, evidence, provider reads, verification, approval, or action. For every other route general_answer is null.
+  - operational_signal: explicit when current evidence or a governed decision, artifact, or action is required; contextual when prior operational turns supply meaning; mixed for social plus operational meaning; otherwise none.
+  - context_dependency: social_continuity, active_thread, pending_decision, ambiguous, or none. Use none only when prior context is unnecessary.
+  - operational_window: past_hour for an explicit past-hour target; server_recent_default for a current configuration collection, recent Resource state-change collection, or gateway symptom without an interval; otherwise none.
+  - operational_result_limit: integer 1-20 only for recent_resource_state_changes; copy an explicit count or use 5. Otherwise null.
+
+  Set a known operational_family only when operational_signal=explicit, context_dependency=none, meaning is unambiguous, and one signature matches:
+  - inventory_document: complete current-subscription Resource inventory download; no targets; facets [resource_inventory,subscription,complete_content,download].
+  - subscription_scope_identity: configured subscription identity or information; no targets; facets [subscription].
+  - subscription_service_health: current Azure Service Health events or advisories for the authorized subscription; no targets; facets [service_health].
+  - resource_collection: a current Resource collection with at most one subtype/category, name fragment, and observed state. Deployed/present/available/running subtype questions are collections without list wording. Copy positive state as resource_state_filter or explicit negation as resource_state_exclusion_filter; both use null canonical_value. Facets are [resource_collection,list] plus name_filter or current_state when present. If the request also asks for last state-change time/history, add state_change_history; Core holds the unsupported join instead of omitting it. Exclude exact resources, named-group membership, metrics, other history, relationships, comparisons, diagnosis, documents, and actions.
+  - resource_current_state: one exact Resource name or ARM ID asking current state. Copy one resource target with canonical_value Resource.name or Resource.id and facets [current_state]. Exclude collections, named groups, metrics, history, relationships, comparisons, diagnosis, documents, and actions.
+  - recent_resource_state_changes: Resources whose operational state changed most recently; no targets; use server_recent_default, operational_result_limit, and facets [recently_changed,resource_count,default_recent_window]. Exclude configuration, revisions, capacity, and TPM.
+  - resource_configuration_changes: one exact deployment plus explicit past-hour comparison, or one current Resource-type collection asking about recent configuration settings. Exact form uses resource and time_range. Collection form uses one resource_type_filter and server_recent_default. Facets use only [before_after,capacity_units,configuration_changes,default_recent_window,historical_coverage,last_hour,potential_issues,tpm]. ARM IDs and operational status or state changes are excluded.
+  - gateway_diagnostic_evidence: one exact gateway name or ARM ID and optional exact backend/deployment. Copy a token-like hyphenated gateway name in full; never shorten it to a product label or filter. Explicit past hour uses time_range and past_hour; a current symptom without an interval uses server_recent_default. Generic backend, gateway, API Management, GPT, and model-family labels are facets, not Resource targets. Facets use only [apim,application_gateway,backend,backend_connect_time,backend_response_code,before_after,configuration_changes,default_recent_window,first_byte_time,gateway_response_code,gpt,http_status,last_byte_time,last_hour,latency,status_429,status_500,status_503,topology,total_time].
+  Otherwise use operational_family=none with empty operational_targets and operational_facets.
+
+  Copy every target from the current utterance, never context. source_start is zero-based inclusive, source_end exclusive, and the source slice equals value. Target kinds: resource, time_range, backend, model, resource_type_filter, resource_name_filter, resource_state_filter, resource_state_exclusion_filter. Past hour uses canonical_value duration.PT1H; collection filters use null.
+
+  Core rechecks provenance, spans, confidence, family shape, principal manifest, ontology values, frame, plan, evidence, and authority. Collection words are candidate meaning; Core binds them only through the current catalog. Fix every schema_repair error. Confidence covers the whole tuple.
+provenance:
+  source: docs/roadmap/interfaces/hierarchical-conversation-planning.md
+  notes: Preserves explicit state exclusion and state-change-history requirements as typed candidate fields.

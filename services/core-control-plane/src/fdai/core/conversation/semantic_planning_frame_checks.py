@@ -106,7 +106,10 @@ from .semantic_planning_support import _clarification, _outcome
 from .semantic_recent_resource_change_planning import build_recent_resource_change_frame
 from .semantic_relationship_planning import build_ontology_relationship_frame
 from .semantic_resource_configuration_planning import build_resource_configuration_frame
+from .semantic_resource_state_planning import resolve_state_exclusion_concepts
 from .semantic_state_transition_planning import build_recent_resource_state_transition_frame
+
+_STATE_CHANGE_HISTORY_FACETS = frozenset({"last_state_change_time", "state_change_history"})
 
 
 def deterministic_pre_frame_outcome(
@@ -159,6 +162,35 @@ def deterministic_pre_frame_outcome(
             "semantic_non_direct_discourse",
             manifest_digest=manifest_digest,
         )
+    if (
+        judgment_accepted
+        and judgment is not None
+        and judgment.primary_intent == "query.resource_state_inventory"
+    ):
+        state_exclusions = tuple(
+            target.value
+            for target in judgment.targets
+            if target.kind == "resource_state_exclusion_filter"
+        )
+        if _STATE_CHANGE_HISTORY_FACETS.intersection(judgment.requested_facets):
+            return _outcome(
+                SemanticPlanningDisposition.UNSUPPORTED,
+                "semantic_resource_state_transition_join_unsupported",
+                manifest_digest=manifest_digest,
+            )
+        if (
+            state_exclusions
+            and resolve_state_exclusion_concepts(
+                state_exclusions,
+                descriptors=descriptors,
+            )
+            is None
+        ):
+            return _outcome(
+                SemanticPlanningDisposition.UNSUPPORTED,
+                "semantic_resource_state_exclusion_unsupported",
+                manifest_digest=manifest_digest,
+            )
     if (
         judgment is not None
         and judgment.primary_intent

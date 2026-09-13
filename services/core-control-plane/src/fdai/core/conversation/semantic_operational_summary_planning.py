@@ -27,7 +27,11 @@ from fdai.rule_catalog.schema.inventory_query_language import InventoryQueryLang
 from .conversation_preflight import named_subscription_requested
 from .semantic_planning_frame import build_semantic_frame
 from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
-from .semantic_resource_state_planning import normalize_resource_state_proposal
+from .semantic_planning_value_filters import stated_value_filters
+from .semantic_resource_state_planning import (
+    normalize_resource_state_proposal,
+    resolve_state_exclusion_concepts,
+)
 from .semantic_service_health_planning import normalize_service_health_event_types
 
 
@@ -141,10 +145,26 @@ def build_function_backed_summary_frame(
             judgment,
             output_shape=output_shape,
             evidence_requirements=requirements,
+            resource_type_filters=_resource_type_filters(
+                judgment,
+                utterance=utterance,
+                descriptors=descriptors,
+            ),
         ),
         utterance=utterance,
         descriptors=descriptors,
         inventory_query_language=inventory_query_language,
+        excluded_state_concepts=(
+            resolve_state_exclusion_concepts(
+                tuple(
+                    target.value
+                    for target in judgment.targets
+                    if target.kind == "resource_state_exclusion_filter"
+                ),
+                descriptors=descriptors,
+            )
+            or ()
+        ),
     )
     if not proposal.measure_concepts:
         return None
@@ -156,10 +176,15 @@ def _proposal(
     *,
     output_shape: SemanticOutputShape,
     evidence_requirements: Sequence[str],
+    resource_type_filters: tuple[str, ...] | None = None,
 ) -> SemanticFrameProposal:
+    if resource_type_filters is None:
+        resource_type_filters = tuple(
+            target.value for target in judgment.targets if target.kind == "resource_type_filter"
+        )
     return SemanticFrameProposal(
         operation=SemanticOperation.SELECT,
-        subject_constraints=("Resource",),
+        subject_constraints=("Resource", *resource_type_filters),
         measure_concepts=(),
         temporal_scope={},
         output_shape=output_shape,
@@ -170,6 +195,26 @@ def _proposal(
         investigation=None,
         confidence=judgment.confidence,
     )
+
+
+def _resource_type_filters(
+    judgment: SemanticJudgmentProposal,
+    *,
+    utterance: str,
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[str, ...]:
+    typed = tuple(
+        target.value for target in judgment.targets if target.kind == "resource_type_filter"
+    )
+    if typed:
+        return typed
+    excluded_values = frozenset(facet.replace("_", "-") for facet in judgment.requested_facets)
+    return stated_value_filters(
+        utterance,
+        descriptors,
+        allowed_properties=frozenset({"type"}),
+        excluded_values=excluded_values,
+    ).get(("Resource", "type"), ())
 
 
 __all__ = ["build_function_backed_summary_frame"]

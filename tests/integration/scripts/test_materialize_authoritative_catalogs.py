@@ -8,6 +8,7 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = REPO_ROOT / "scripts/deployment/local/materialize-authoritative-catalogs.py"
@@ -34,6 +35,66 @@ def _generator_module() -> ModuleType:
         return module
     finally:
         sys.path.remove(str(GENERATOR.parent))
+
+
+@pytest.fixture(params=[False, True], ids=["preferred-safe-loader", "python-safe-fallback"])
+def catalog_yaml_module(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> ModuleType:
+    module = _module()
+    if request.param:
+        monkeypatch.delattr(module.yaml, "CSafeLoader", raising=False)
+    return module
+
+
+def test_catalog_yaml_preserves_safe_mapping_values_and_rereads_changes(
+    catalog_yaml_module: ModuleType, tmp_path: Path
+) -> None:
+    path = tmp_path / "catalog.yaml"
+    source = (
+        "defaults: &defaults\n  title: 참조 카탈로그\n  enabled: false\n"
+        "rule:\n  <<: *defaults\n  revision: '1.0'\n"
+    )
+    path.write_text(source, encoding="utf-8")
+
+    assert catalog_yaml_module._yaml_mapping(path) == yaml.safe_load(source)
+
+    path.write_text("revision: 2\n", encoding="utf-8")
+    assert catalog_yaml_module._yaml_mapping(path) == {"revision": 2}
+
+
+@pytest.mark.parametrize(
+    ("source", "expected_error"),
+    [
+        ("", RuntimeError),
+        ("- reference\n", RuntimeError),
+        ("entry: [\n", yaml.YAMLError),
+        ("entry: !!python/object/apply:builtins.sum [[1, 2]]\n", yaml.YAMLError),
+    ],
+)
+def test_catalog_yaml_rejects_invalid_roots_syntax_and_unsafe_tags(
+    catalog_yaml_module: ModuleType,
+    tmp_path: Path,
+    source: str,
+    expected_error: type[Exception],
+) -> None:
+    path = tmp_path / "catalog.yaml"
+    path.write_text(source, encoding="utf-8")
+
+    with pytest.raises(expected_error):
+        catalog_yaml_module._yaml_mapping(path)
+
+
+def test_collected_rules_match_python_safe_loader(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _module()
+    root = REPO_ROOT / "rule-catalog/collected"
+    preferred = module._load_collected_rules(root)
+
+    monkeypatch.delattr(module.yaml, "CSafeLoader", raising=False)
+    reference = module._load_collected_rules(root)
+
+    assert preferred == reference
+    assert len(preferred) == len(list(root.rglob("*.yaml")))
 
 
 def test_inventory_evidence_health_rejects_a_cross_generation_join() -> None:
