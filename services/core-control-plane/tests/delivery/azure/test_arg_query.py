@@ -2101,7 +2101,7 @@ def test_arm_id_to_type_returns_none_without_providers_segment() -> None:
 
 
 def test_materialize_nested_subnets_uses_observed_vnet_payload() -> None:
-    from fdai.delivery.azure.arg_projection import materialize_nested_subnets, to_neutral_id
+    from fdai.delivery.azure.arg_projection import materialize_nested_subnets
 
     vnet_id = (
         "/subscriptions/00000000-0000-0000-0000-000000000001/"
@@ -2127,11 +2127,7 @@ def test_materialize_nested_subnets_uses_observed_vnet_payload() -> None:
 
     records, links = materialize_nested_subnets(vnet)
 
-    # A nested child must join to its resource group like every other resource, or a
-    # scoped question answers 0 of 0 for it.
-    resource_group_id = to_neutral_id(
-        "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example"
-    )
+    # The nested resource's exact parent is the VNet, matching its contains edge.
     assert len(records) == 2
     assert {record.type for record in records} == {"network.subnet"}
     assert records[0].props == {
@@ -2139,14 +2135,14 @@ def test_materialize_nested_subnets_uses_observed_vnet_payload() -> None:
         "resourceGroup": "rg-example",
         "subscriptionId": "00000000-0000-0000-0000-000000000001",
         "providerType": "Microsoft.Network/virtualNetworks/subnets",
-        "parent_id": resource_group_id,
+        "parent_id": vnet.resource_id,
     }
     assert records[1].props == {
         "name": "data",
         "resourceGroup": "rg-example",
         "subscriptionId": "00000000-0000-0000-0000-000000000001",
         "providerType": "microsoft.network/virtualnetworks/subnets",
-        "parent_id": resource_group_id,
+        "parent_id": vnet.resource_id,
     }
     assert len(links) == 2
     assert links[0].from_id == vnet.resource_id

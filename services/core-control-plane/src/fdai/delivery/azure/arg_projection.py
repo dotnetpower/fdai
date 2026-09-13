@@ -9,8 +9,14 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Final
 
-from fdai.delivery.azure.arg_relationships import project_provider_relationships
+from fdai.delivery.azure.arg_relationships import (
+    project_provider_relationships,
+    provider_parent_id,
+    provider_root_id,
+)
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
+    EndpointOrientation,
+    ProviderRelationshipMappingCatalog,
     load_provider_relationship_mapping_catalog,
 )
 from fdai.rule_catalog.schema.resource_type import (
@@ -68,6 +74,48 @@ def parent_neutral_id(arm_id: str) -> str | None:
         # The resource group itself is contained by its subscription scope.
         return _scope_prefix(trimmed)
     return to_neutral_id(trimmed[:next_slash])
+
+
+def reviewed_containment_parent(
+    arm_id: str,
+    *,
+    arm_type: str,
+    arm_to_neutral: Mapping[str, str],
+    catalog: ProviderRelationshipMappingCatalog,
+) -> tuple[str, str] | None:
+    """Resolve only reviewed provider-parent containment before RG fallback."""
+
+    mapping_paths = {
+        mapping.source_property_path
+        for mapping in catalog.mappings
+        if mapping.provider == "azure"
+        and mapping.source_property_path in {"id.providerParent", "id.providerRoot"}
+        and mapping.link_type == "contains"
+        and mapping.endpoint_orientation is EndpointOrientation.REFERENCED_TO_OWNER
+        and arm_type.casefold() in mapping.source_provider_types
+    }
+    if len(mapping_paths) > 1:
+        raise ArmScopeError("ARM type has ambiguous containment mappings")
+    if mapping_paths:
+        mapping_path = next(iter(mapping_paths))
+        parent_provider_id = (
+            provider_root_id(arm_id)
+            if mapping_path == "id.providerRoot"
+            else provider_parent_id(arm_id)
+        )
+        parent_provider_type = (
+            arm_id_to_type(parent_provider_id) if parent_provider_id is not None else None
+        )
+        parent_type = (
+            arm_to_neutral.get(parent_provider_type.casefold())
+            if parent_provider_type is not None
+            else None
+        )
+        if parent_provider_id is None or parent_type is None:
+            raise ArmScopeError("ARM provider parent cannot be resolved")
+        return to_neutral_id(parent_provider_id), parent_type
+    parent_id = parent_neutral_id(arm_id)
+    return (parent_id, _RESOURCE_GROUP_TYPE) if parent_id is not None else None
 
 
 def arm_scope_properties(
@@ -305,10 +353,7 @@ def materialize_nested_subnets(
             props["properties"] = dict(nested_properties)
         props.update(arm_scope_properties(provider_ref, raw_subnet))
         props["providerType"] = provider_type
-        # A nested child is still a resource in the declared containment chain, so it
-        # reports the same parent level every other resource reports.
-        if (parent_id := parent_neutral_id(provider_ref)) is not None:
-            props["parent_id"] = parent_id
+        props["parent_id"] = vnet.resource_id
         records.append(
             ResourceRecord(
                 resource_id=resource_id,

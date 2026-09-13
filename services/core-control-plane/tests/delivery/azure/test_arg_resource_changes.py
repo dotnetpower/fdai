@@ -359,6 +359,56 @@ async def test_unmapped_hydration_retains_provider_identity_without_ontology_aut
 
 
 @pytest.mark.asyncio
+async def test_child_hydration_preserves_reviewed_provider_parent() -> None:
+    arm_type = "Microsoft.Compute/virtualMachines/extensions"
+    vm_id = (
+        f"/subscriptions/{_SCOPE}/resourceGroups/rg-a/providers/"
+        "Microsoft.Compute/virtualMachines/vm-one"
+    )
+    arm_id = f"{vm_id}/extensions/extension-one"
+
+    async def on_changes(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [
+                _change_row(
+                    change_id="c1",
+                    change_time="2026-07-10T06:00:00Z",
+                    change_type="Update",
+                    arm_id=arm_id,
+                    arm_type=arm_type,
+                )
+            ]
+        )
+
+    async def on_hydration(_request: httpx.Request) -> httpx.Response:
+        return _changes_response([_hydration_row(arm_id=arm_id, arm_type=arm_type)])
+
+    feed, client, _ = _factory(
+        _router(on_changes=on_changes, on_hydration=on_hydration),
+    )
+    try:
+        result = await feed.poll("")
+    finally:
+        await client.aclose()
+
+    change = result.events[0].payload["inventory_change"]
+    resource = change["resource"]
+    assert resource["type"] == "compute.vm-extension"
+    assert resource["props"]["parent_id"] == to_neutral_id(vm_id)
+    assert change["links"] == [
+        {
+            "change_kind": "upsert",
+            "from_id": to_neutral_id(vm_id),
+            "from_type": "compute.vm",
+            "link_type": "contains",
+            "to_id": to_neutral_id(arm_id),
+            "to_type": "compute.vm-extension",
+            "props": {},
+        }
+    ]
+
+
+@pytest.mark.asyncio
 async def test_ambiguous_arm_type_is_resolved_from_hydrated_kind() -> None:
     arm_type = "Microsoft.Web/sites"
     arm_id = _arm_id(arm_type, "function-a")
