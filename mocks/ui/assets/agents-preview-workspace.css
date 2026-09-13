@@ -1,9 +1,12 @@
+.agents-preview {
+  --ap-control-border: #7f878e;
+}
 .agents-preview .cs-page { min-width: 0; }
 .agents-preview [hidden] { display: none !important; }
 .agents-preview :where(.cs-page, .ap-dialog) :is(button, input, select, summary, .ap-button) { font: inherit; font-size: var(--cs-type-compact-size); }
 .agents-preview :where(.cs-page, .ap-dialog) :is(button, select, input:not([type="checkbox"]), summary, .ap-button) { min-height: var(--cs-control-height); }
 .agents-preview :where(.cs-page, .ap-dialog) :is(button, select, input, summary, a):focus-visible { outline: 2px solid var(--cs-steel); outline-offset: 3px; }
-.agents-preview :where(.cs-page, .ap-dialog) :is(button, select, input:not([type="checkbox"]), .ap-button) { border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); color: var(--cs-text); padding: 6px 10px; }
+.agents-preview :where(.cs-page, .ap-dialog) :is(button, select, input:not([type="checkbox"]), .ap-button) { border: 1px solid var(--ap-control-border); border-radius: var(--cs-radius-sm); background: var(--cs-card); color: var(--cs-text); padding: 6px 10px; }
 .agents-preview :where(.cs-page, .ap-dialog) :is(button, summary) { cursor: pointer; }
 .agents-preview :where(.cs-page, .ap-dialog) :is(button, .ap-button):hover { background: var(--cs-shade); text-decoration: none; }
 .agents-preview :where(.cs-page, .ap-dialog) :is(button, .ap-button)[aria-pressed="true"] { background: var(--cs-shade); border-color: var(--cs-text-soft); }
@@ -52,8 +55,9 @@
 .ap-state.is-engaged { color: var(--cs-steel); }
 .ap-state.is-watching { color: var(--cs-teal); }
 .ap-state.is-attention { color: var(--cs-terracotta); }
-.fl-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--cs-hairline); border-radius: 8px; overflow: hidden; margin: 12px 0 16px; }
-.agents-preview .fl-summary button { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 4px 8px; border: 0; border-right: 1px solid var(--cs-hairline); border-radius: 0; padding: 8px 12px; text-align: left; }
+.fl-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--ap-control-border); border-radius: 8px; overflow: hidden; margin: 12px 0 16px; }
+.agents-preview .fl-summary button { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 4px 8px; border: 0; border-right: 1px solid var(--ap-control-border); border-radius: 0; padding: 8px 12px; text-align: left; }
+.agents-preview .fl-summary button[aria-pressed="true"] { position: relative; z-index: 1; box-shadow: inset 0 0 0 2px var(--cs-text-soft); }
 .fl-summary button:last-child { border-right: 0; }
 .fl-summary :is(span, strong, small) { display: block; }
 .fl-summary span { color: var(--cs-text-soft); font-size: var(--cs-type-label-size); }
@@ -131,17 +135,22 @@
 }
 @media (max-width: 700px) {
   .agents-preview :where(.cs-page, .ap-dialog) :is(button, select, input:not([type="checkbox"]), summary, .ap-button) { min-height: var(--cs-control-height-touch); }
+  .ap-focus-shortcut { min-height: var(--cs-control-height-touch); }
   .ap-heading, .ap-source { flex-direction: column; gap: 12px; }
   .ap-source label { flex-basis: auto; width: 100%; }
   .ap-source select { flex: 1; width: auto; }
   .fl-grid, .ap-org-evidence { grid-template-columns: 1fr; }
   .fl-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .fl-summary button:nth-child(2) { border-right: 0; }
-  .fl-summary button:nth-child(-n+2) { border-bottom: 1px solid var(--cs-hairline); }
+  .fl-summary button:nth-child(-n+2) { border-bottom: 1px solid var(--ap-control-border); }
   .ap-org-branches { gap: 12px; }
   .agents-preview .ap-node { padding: 8px; flex-wrap: wrap; }
   .ap-node img { display: none; }
   .ap-search { flex-basis: 100%; }
   .ap-filters > :is(fieldset, .ap-field) { width: 100%; }
   .ap-kv { grid-template-columns: 1fr; }
+}
+@media (forced-colors: active) {
+  .agents-preview [aria-pressed="true"] { outline: 2px solid SelectedItem; outline-offset: -2px; }
+  .agents-preview [aria-pressed="true"]:focus-visible { outline-color: Highlight; outline-offset: 3px; }
 }

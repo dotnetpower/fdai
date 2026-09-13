@@ -25,6 +25,9 @@ import {
 } from "./operating-outcomes";
 import {
   verticalDisplayState,
+  verticalEvidenceKey,
+  verticalMonthlySavings,
+  verticalOutcomeViews,
   verticalPayloadKey,
   verticalPrimaryMetric,
   verticalRouteSlug,
@@ -143,6 +146,20 @@ describe("trust-routing measurements", () => {
   it("preserves observed zero and negative monthly savings", () => {
     expect(formatMeasuredSavings(0)).toContain("0");
     expect(formatMeasuredSavings(-25)).toBe("-$25");
+    expect(verticalMonthlySavings({
+      key: "cost",
+      events: 1,
+      auto_resolved: 0,
+      open_risks: 0,
+      monthly_savings: 0,
+    })).toBe(0);
+    expect(verticalMonthlySavings({
+      key: "cost",
+      events: 0,
+      auto_resolved: 0,
+      open_risks: 0,
+      monthly_savings: 0,
+    })).toBeNull();
   });
 
   it("distinguishes an observed zero from a missing tier", () => {
@@ -177,10 +194,34 @@ describe("trust-routing measurements", () => {
   it("maps vertical routes and evidence states without inventing health", () => {
     expect(verticalPayloadKey("change-safety")).toBe("change_safety");
     expect(verticalRouteSlug("cost")).toBe("cost-governance");
+    expect(verticalEvidenceKey("cost-governance")).toBe("cost_governance");
+    expect(verticalDisplayState(null, false)).toBe("unavailable");
     expect(verticalDisplayState(AUTONOMY.verticals[0]!, false)).toBe("unavailable");
     expect(verticalDisplayState(AUTONOMY.verticals[1]!, false)).toBe("measured");
     expect(verticalDisplayState({ ...AUTONOMY.verticals[1]!, open_risks: 2 }, false)).toBe("review");
     expect(verticalDisplayState(AUTONOMY.verticals[1]!, true)).toBe("simulated");
+  });
+
+  it("keeps every canonical vertical visible when attribution is missing", () => {
+    expect(verticalOutcomeViews([
+      {
+        key: "unattributed",
+        events: 34,
+        auto_resolved: 14,
+        open_risks: 0,
+        monthly_savings: 0,
+      },
+    ])).toEqual([
+      { slug: "resilience", vertical: null },
+      { slug: "change-safety", vertical: null },
+      { slug: "cost-governance", vertical: null },
+    ]);
+
+    expect(verticalOutcomeViews(AUTONOMY.verticals)).toEqual([
+      { slug: "resilience", vertical: AUTONOMY.verticals[0] },
+      { slug: "change-safety", vertical: AUTONOMY.verticals[1] },
+      { slug: "cost-governance", vertical: AUTONOMY.verticals[2] },
+    ]);
   });
 
   it("gives each vertical a distinct primary outcome contract", () => {

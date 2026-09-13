@@ -38,10 +38,11 @@
   const stateOf = (agent) => ["unobserved", "loading", "error"].includes(source()) ? "unobserved" : agent.state;
   const retained = () => source() === "disconnected";
   const available = () => ["snapshot", "disconnected"].includes(source());
+  const label = (value) => String(value || "").replace(/^./, (first) => first.toUpperCase());
   const stateLabel = (agent) => {
     const state = stateOf(agent);
-    const label = state === "unobserved" ? state : agent.runtimeState || state;
-    return retained() && state !== "unobserved" ? "Last: " + label : label;
+    const display = label(state === "unobserved" ? state : agent.runtimeState || state);
+    return retained() && state !== "unobserved" ? "Last: " + display : display;
   };
   const taskOf = (agent) => stateOf(agent) === "unobserved" ? "Unavailable without a runtime signal" : retained() ? "Current work unknown. Last sample: " + agent.work : agent.work;
   const fields = (pairs) => '<dl class="ap-kv">' + pairs.map(([key, value]) => "<div><dt>" + escape(key) + "</dt><dd>" + escape(value) + "</dd></div>").join("") + "</dl>";
@@ -99,5 +100,5 @@
     document.getElementById("agentsPreviewDialogContext").textContent = context;
     dialog.showModal();
   }
-  window.AgentsPreview = { agents, incidents, escape, byName, params, source, stateOf, stateLabel, taskOf, retained, available, fields, href, writeParams, setupSource, explainUnavailable };
+  window.AgentsPreview = { agents, incidents, escape, label, byName, params, source, stateOf, stateLabel, taskOf, retained, available, fields, href, writeParams, setupSource, explainUnavailable };
 }());

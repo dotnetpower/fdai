@@ -16,7 +16,10 @@ from fdai_service_contracts.recorded_resource_state import (
     OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES,
     OPERATIONAL_STATE_PATHS,
     OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
+    PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES,
     PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
+    RECORDED_STATE_UNAVAILABLE_REASONS,
+    STATE_FACT_UNAVAILABLE_REASONS_PROPERTY,
     availability_state_paths,
     is_recorded_state_value_valid,
     operational_state_paths,
@@ -164,6 +167,9 @@ def _fact(
                     }
                 )
             return result
+    unavailable_reason = _unavailable_reason(properties, paths)
+    if unavailable_reason is not None:
+        result["reason"] = unavailable_reason
     return result
 
 
@@ -196,7 +202,28 @@ def _missing_reason(resource_type: str | None, paths: tuple[str, ...]) -> str:
             return "state_source_not_recorded"
         if resource_type in AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES:
             return "state_not_applicable"
+        if resource_type in PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES:
+            return "provider_availability_state_not_exposed"
     return "state_not_recorded"
+
+
+def _unavailable_reason(
+    properties: Mapping[str, object],
+    paths: tuple[str, ...],
+) -> str | None:
+    if paths != _AVAILABILITY_PATHS:
+        return None
+    for prefix in ("", "properties.", "properties.properties."):
+        owner = _at(properties, prefix[:-1]) if prefix else properties
+        if not isinstance(owner, Mapping):
+            continue
+        reasons = owner.get(STATE_FACT_UNAVAILABLE_REASONS_PROPERTY)
+        if not isinstance(reasons, Mapping):
+            continue
+        reason = reasons.get("availabilityState")
+        if isinstance(reason, str) and reason in RECORDED_STATE_UNAVAILABLE_REASONS:
+            return reason
+    return None
 
 
 def _snapshot_metadata(

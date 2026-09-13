@@ -7,6 +7,7 @@
 .cp-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .cp-comparison:not([data-palette-layout="compare"]) { grid-template-columns: minmax(0, 1fr); }
 .cp-scheme { min-width: 0; color-scheme: light; color: var(--cp-text); background: var(--cp-bg); border: 1px solid var(--cp-border); border-radius: var(--cs-radius); padding: 18px; }
+.cp-scheme[data-theme="dark"] { color-scheme: dark; }
 .cp-scheme-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .cp-scheme-heading h3 { margin: 4px 0 0; color: var(--cp-text); font-size: var(--cs-type-section-title-size); }
 .cp-scheme-heading span { color: var(--cp-muted); font-size: var(--cs-type-label-size); }

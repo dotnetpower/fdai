@@ -385,6 +385,8 @@ always untrusted and cannot approve or execute an action. See
 
 Event payloads and tool output are **untrusted**; the deterministic verifier and policy
 re-check are the authority, never model or event text.
+Provider observation failures cross service boundaries only as allowlisted machine reasons.
+Raw provider response text is neither persisted as Resource state nor returned to the Console.
 
 | STRIDE | Threat | Mitigation |
 |--------|--------|------------|

@@ -33,7 +33,7 @@
       (current ? '<a href="' + esc(incidentHref) + '">' + current.ticket + "</a>" : state === "unobserved" ? "Unknown" : "None linked") +
       "</dd></div><div><dt>State since (UTC)</dt><dd>" + (state === "unobserved" ? "Not observed" : agent.since) + "</dd></div></dl>" +
       '<details class="fl-details" data-details="' + agent.slug + '"' + (openDetails.has(agent.slug) ? " open" : "") + '><summary>Details</summary><p class="ap-meta">' + esc(agent.summary) + "</p>" + details + "</details>" +
-      '<footer class="ap-actions"><a class="ap-button" href="' + esc(P.href("agents-constellation.html", { agent: agent.name })) + '">Open</a>' +
+      '<footer class="ap-actions"><a class="ap-button" href="' + esc(P.href("agents-constellation.html", { agent: agent.name })) + '">Agent focus</a>' +
       '<a class="ap-button" href="' + esc(P.href("agent-activity.html", { agent: agent.name })) + '">Activity</a><button type="button" data-ask="' + agent.name + '" aria-label="Ask ' + agent.name + ' in preview">Ask</button></footer></article>';
   }
   function render() {
@@ -62,11 +62,12 @@
     }));
     P.writeParams({ layer: filters.layer === "all" ? null : filters.layer, state: filters.state === "all" ? null : filters.state, q: search.value || null, attention: attention.checked ? "true" : null });
   }
-  function clear() {
+  function clear(restoreFocus) {
     filters.layer = filters.state = "all";
     search.value = "";
     attention.checked = false;
     render();
+    if (restoreFocus) search.focus();
   }
   document.querySelectorAll("[data-filter-group]").forEach((group) => group.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-filter]");
@@ -81,10 +82,10 @@
   grid.addEventListener("click", (event) => {
     const ask = event.target.closest("[data-ask]");
     if (ask) P.explainUnavailable("Ask " + ask.dataset.ask + ": a production chat would carry this agent's role and recorded evidence, not confer authority.");
-    if (event.target.closest("[data-clear-fleet]")) clear();
+    if (event.target.closest("[data-clear-fleet]")) clear(true);
   });
   search.addEventListener("input", render);
   attention.addEventListener("change", render);
-  document.getElementById("fleetClear").addEventListener("click", clear);
+  document.getElementById("fleetClear").addEventListener("click", () => clear(false));
   P.setupSource(render);
 }());

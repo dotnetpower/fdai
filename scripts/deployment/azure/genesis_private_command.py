@@ -7,6 +7,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -152,6 +153,7 @@ class PrivateCommandExecutor:
         script = self.context.repository_root / "scripts/deployment/azure" / script_name
         environment = {
             **os.environ,
+            "FDAI_GENESIS_PYTHON": sys.executable,
             "AZURE_SUBSCRIPTION_ID": self.context.subscription_id,
             "AZURE_TENANT_ID": self.context.tenant_id,
         }

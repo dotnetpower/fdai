@@ -2,19 +2,14 @@ import type { AutonomyPayload, DashboardKpi, MetricVsBaseline } from "../types";
 import { getLocale, t } from "../i18n";
 import { routeHref } from "../router";
 import { auditSampleParams, type OverviewHealth } from "./dashboard.model";
+import { tDashboard } from "./i18n/dashboard-essential";
+import { EvidenceLoading, EvidenceSummary } from "./dashboard.evidence";
 
 function fmtDuration(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`;
   const minutes = seconds / 60;
   if (minutes < 60) return `${Math.round(minutes)}m`;
   return `${(minutes / 60).toFixed(1)}h`;
-}
-
-function improvementFactor(metric: MetricVsBaseline): number | null {
-  if (metric.baseline === null || metric.value === null || metric.baseline <= 0 || metric.value <= 0) return null;
-  return metric.direction === "higher"
-    ? metric.value / metric.baseline
-    : metric.baseline / metric.value;
 }
 
 function formatTimestamp(value: string): string {
@@ -213,40 +208,43 @@ function EvidenceLink({
   return <a href={href} aria-label={label}>{children}</a>;
 }
 
-export function SuccessMetrics({
-  success,
-  synthetic,
-  windowDays,
-  sourceName,
-}: {
-  readonly success: AutonomyPayload["success"];
-  readonly synthetic: boolean;
-  readonly windowDays: number;
-  readonly sourceName: string;
+/** Keeps outcome drill-downs available even when the measurement source is absent. */
+export function SuccessMetrics({ success, pending = false }: {
+  readonly success: AutonomyPayload["success"] | null;
+  readonly pending?: boolean;
 }) {
-  const evidence = t(
-    synthetic ? "overview.evidence.simulated" : "overview.evidence.measured",
-  );
+  const missing: MetricVsBaseline = { value: null, baseline: null, direction: "lower" };
   const metrics = [
-    ["autoRes", "auto-resolution", percentageMetric(success.auto_resolution_rate.value), success.auto_resolution_rate, percentageMetric(success.auto_resolution_rate.baseline)],
-    ["touchpoints", "human-touchpoints", decimalMetric(success.human_touchpoints_per_100.value), success.human_touchpoints_per_100, decimalMetric(success.human_touchpoints_per_100.baseline)],
-    ["mttr", "mttr", durationMetric(success.mttr_seconds.value), success.mttr_seconds, durationMetric(success.mttr_seconds.baseline)],
-    ["leadTime", "change-lead-time", durationMetric(success.change_lead_time_seconds.value), success.change_lead_time_seconds, durationMetric(success.change_lead_time_seconds.baseline)],
-    ["cost", "cost-per-resolved-event", currencyMetric(success.cost_per_resolved_event_usd.value), success.cost_per_resolved_event_usd, currencyMetric(success.cost_per_resolved_event_usd.baseline)],
+    ["touchpoints", "human-touchpoints", success?.human_touchpoints_per_100 ?? missing, decimalMetric],
+    ["mttr", "mttr", success?.mttr_seconds ?? missing, durationMetric],
+    ["leadTime", "change-lead-time", success?.change_lead_time_seconds ?? missing, durationMetric],
+    ["cost", "cost-per-resolved-event", success?.cost_per_resolved_event_usd ?? missing, currencyMetric],
   ] as const;
+  if (pending) {
+    return (
+      <section class="overview-metrics is-loading" aria-label={t("overview.metric.groupLabel")}>
+        {metrics.map(([key]) => <EvidenceLoading key={key} label={t(`overview.metric.${key}`)} />)}
+      </section>
+    );
+  }
+  const summary = metrics.every(([, , metric]) => metric.value === null);
   return (
-    <section class="overview-metrics" aria-label={t("overview.metric.groupLabel")}>
-      {metrics.map(([key, slug, value, metric, baseline]) => (
+    <section class={`overview-metrics${summary ? " is-summary" : ""}`} aria-label={t("overview.metric.groupLabel")}>
+      {metrics.map(([key, slug, metric, format]) => summary ? (
+        <EvidenceSummary
+          key={key}
+          href={routeHref("operating-outcomes", { segments: [slug] })}
+          label={t(`overview.metric.${key}`)}
+          description={metric.baseline === null ? undefined : t("overview.metric.vsBaseline", { baseline: format(metric.baseline) })}
+        />
+      ) : (
         <SuccessMetric
           key={key}
           href={routeHref("operating-outcomes", { segments: [slug] })}
           label={t(`overview.metric.${key}`)}
-          value={value}
+          value={format(metric.value)}
           metric={metric}
-          baselineText={baseline}
-          evidence={evidence}
-          windowDays={windowDays}
-          sourceName={sourceName}
+          baselineText={format(metric.baseline)}
         />
       ))}
     </section>
@@ -258,21 +256,14 @@ function SuccessMetric({
   value,
   metric,
   baselineText,
-  evidence,
-  windowDays,
-  sourceName,
   href,
 }: {
   readonly label: string;
   readonly value: string;
   readonly metric: MetricVsBaseline;
   readonly baselineText: string;
-  readonly evidence: string;
-  readonly windowDays: number;
-  readonly sourceName: string;
   readonly href: string;
 }) {
-  const factor = improvementFactor(metric);
   const unavailable = metric.value === null;
   return (
     <a
@@ -281,14 +272,11 @@ function SuccessMetric({
     >
       <span class="overview-metric-label">{label}</span>
       <span class="overview-metric-value">{value}</span>
-      <span class="overview-metric-evidence">
-        {evidence} - {t("overview.evidence.window", { days: windowDays })} - {t("overview.evidence.source", { source: sourceName })}
-      </span>
       <span class="overview-metric-sub muted">
-        {t("overview.metric.vsBaseline", { baseline: baselineText })}
-        {factor !== null ? (
-          <span class="overview-metric-factor"> {factor.toFixed(1)}x</span>
-        ) : null}
+        {metric.baseline === null
+          ? t("overview.evidence.baselineUnavailable")
+          : t("overview.metric.vsBaseline", { baseline: baselineText })}
+        {metric.baseline !== null ? ` / ${tDashboard(metric.direction)}` : null}
       </span>
     </a>
   );
@@ -301,10 +289,6 @@ export function MeasurementUnavailable() {
       <span>{t("overview.evidence.unavailableHint")}</span>
     </div>
   );
-}
-
-function percentageMetric(value: number | null): string {
-  return value === null ? t("overview.evidence.unavailable") : `${Math.round(value * 100)}%`;
 }
 
 function decimalMetric(value: number | null): string {

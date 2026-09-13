@@ -1,0 +1,377 @@
+/* Current Console presentation contract for the Component Gallery only. */
+.cs-components-page {
+  --cs-gallery-control-border: color-mix(in srgb, var(--cs-text) 52%, var(--cs-hairline));
+  --tremor-blue: var(--cs-steel);
+  --tremor-emerald: var(--cs-sage);
+  --tremor-amber: var(--cs-terracotta);
+  --tremor-red: var(--cs-dusty-red);
+  --tremor-violet: var(--cs-plum);
+  --tremor-gray: var(--cs-text-soft);
+  --tremor-cyan: var(--cs-teal);
+  --tremor-pink: var(--cs-dusty-red);
+  --tremor-fuchsia: var(--cs-plum);
+  background: var(--cs-card);
+}
+
+.cs-components-page .cs-page {
+  width: min(100%, 1280px);
+  padding: 28px 32px 80px;
+}
+
+.cs-components-page .cs-page-header {
+  max-width: none;
+  margin-bottom: 12px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--cs-hairline);
+}
+
+.cs-components-page .cs-page-header .cs-lead {
+  max-width: 76ch;
+}
+
+.cs-components-page .cs-gallery-toolbar {
+  top: 0;
+  margin: 0;
+  padding: 10px 0 8px;
+  border-top: 0;
+  background: color-mix(in srgb, var(--cs-card) 96%, transparent);
+  box-shadow: none;
+}
+
+.cs-components-page .cs-gallery-search input {
+  border-color: var(--cs-gallery-control-border);
+  background-color: var(--cs-card);
+}
+
+.cs-components-page .cs-gallery-index a {
+  padding-inline: 11px;
+  border: 1px solid transparent;
+}
+
+.cs-components-page .cs-gallery-index a[aria-current="location"] {
+  border-color: color-mix(in srgb, var(--cs-steel) 24%, var(--cs-hairline));
+  background: color-mix(in srgb, var(--cs-steel) 7%, var(--cs-card));
+  color: var(--cs-text);
+}
+
+.cs-components-page .cs-gallery-scope {
+  margin-top: 0;
+  padding: 14px 0;
+  border-top: 0;
+}
+
+.cs-components-page .cs-gallery-scope ul {
+  font-size: var(--cs-type-label-size);
+}
+
+.cs-components-page .cs-gallery-scope li::before {
+  color: var(--cs-text-soft);
+  content: "/";
+}
+
+.cs-components-page .cs-gallery-synthetic {
+  border-color: transparent;
+  background: var(--cs-shade);
+}
+
+.cs-components-page .cs-gallery-subindex a[aria-current="page"] {
+  border-color: color-mix(in srgb, var(--cs-steel) 24%, var(--cs-hairline));
+  background: color-mix(in srgb, var(--cs-steel) 7%, var(--cs-card));
+}
+
+.cs-components-page .cs-section {
+  margin-block: 28px 44px;
+}
+
+.cs-components-page .cs-section-head {
+  margin-bottom: 16px;
+}
+
+.cs-components-page .cs-card,
+.cs-components-page .cs-chart-card,
+.cs-components-page .cs-chart-family,
+.cs-components-page .cs-chart-composition-card,
+.cs-components-page .cs-grid-item,
+.cs-components-page .cs-state-block,
+.cs-components-page .cs-notice,
+.cs-components-page .cs-overlay-showcase > *,
+.cs-components-page .cs-settings-card,
+.cs-components-page .cs-settings-option-card {
+  border-color: var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+  box-shadow: none;
+}
+
+.cs-components-page .cs-card-hover:hover {
+  border-color: color-mix(in srgb, var(--cs-steel) 28%, var(--cs-hairline));
+  background: color-mix(in srgb, var(--cs-steel) 3%, var(--cs-card));
+  box-shadow: none;
+  transform: none;
+}
+
+.cs-components-page :is(
+  .cs-control-input,
+  .cs-control-select,
+  .cs-control-textarea,
+  .cs-settings-input,
+  .cs-gallery-search input,
+  .cs-preview-mode select
+):not(:disabled) {
+  border-color: var(--cs-gallery-control-border);
+  background-color: var(--cs-card);
+}
+
+.cs-components-page :is(.cs-control-select, .cs-preview-mode select) {
+  appearance: none;
+  padding: 6px 42px 6px 11px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--cs-text-soft) 50%),
+    linear-gradient(135deg, var(--cs-text-soft) 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) calc(50% - 1px),
+    calc(100% - 15px) calc(50% - 1px);
+  background-repeat: no-repeat;
+  background-size: 5px 5px;
+}
+
+.cs-components-page .cs-control-select:disabled {
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--cs-text-soft) 50%),
+    linear-gradient(135deg, var(--cs-text-soft) 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) calc(50% - 1px),
+    calc(100% - 15px) calc(50% - 1px);
+  background-repeat: no-repeat;
+  background-size: 5px 5px;
+}
+
+.cs-components-page .cs-rich-select-button {
+  padding-right: 14px;
+  border-color: var(--cs-gallery-control-border);
+}
+
+.cs-components-page .cs-rich-select-chevron {
+  flex: 0 0 auto;
+  margin-left: 4px;
+}
+
+.cs-components-page :is(button, input, select, textarea):disabled {
+  opacity: 1;
+  border-color: var(--cs-hairline);
+  background-color: var(--cs-shade);
+  color: var(--cs-text-soft);
+}
+
+.cs-components-page .cs-control-button {
+  box-shadow: none;
+}
+
+.cs-components-page .cs-control-button.is-primary {
+  border-color: var(--cs-steel);
+  background: var(--cs-steel);
+  color: #fff;
+}
+
+.cs-components-page .cs-control-button.is-quiet {
+  color: var(--cs-text);
+}
+
+.cs-components-page .cs-alert,
+.cs-components-page .cs-readonly-banner {
+  box-shadow: none;
+}
+
+.cs-components-page .cs-alert-icon,
+.cs-components-page .cs-state-icon,
+.cs-components-page .cs-grid-item-avatar {
+  border: 1px solid var(--cs-hairline);
+  background: var(--cs-shade);
+}
+
+.cs-components-page .cs-setting-row,
+.cs-components-page .cs-feed-item,
+.cs-components-page .cs-control-policy-row {
+  background: transparent;
+}
+
+.cs-components-page .cs-settings-specimen {
+  border-color: var(--cs-hairline);
+  background: transparent;
+}
+
+.cs-components-page[data-theme="dark"] .cs-settings-specimen {
+  background: #1d2023;
+}
+
+.cs-components-page .cs-settings-preview-note {
+  border: 0;
+  background: var(--cs-shade);
+}
+
+.cs-components-page .cs-chart-card {
+  padding: 16px;
+}
+
+.cs-components-page #data-views :is(
+  .cs-chart-distribution-list b,
+  .cs-chart-distribution-list strong,
+  .cs-heatmap-label,
+  .cs-heatmap-scale,
+  .cs-chart-foot > span,
+  .cs-chart-foot button,
+  .cs-chart-family-head p,
+  .cs-chart-family-card > div:first-child span,
+  .cs-chart-family-card footer,
+  .cs-family-radials b,
+  .cs-family-progress strong,
+  .cs-chart-composition-head p,
+  .cs-chart-composition-card > header span,
+  .cs-chart-composition-card > header small,
+  .cs-composition-legend,
+  .cs-composition-summary dt,
+  .cs-composition-allocation li,
+  .cs-chart-catalog-head p,
+  .cs-chart-catalog-card > header span,
+  .cs-catalog-visual.is-progress strong
+) {
+  font-size: var(--cs-type-label-size);
+}
+
+.cs-components-page #data-views .cs-chart-catalog-card h4 {
+  font-size: var(--cs-type-panel-title-size);
+}
+
+.cs-components-page #data-views .cs-family-progress em::after,
+.cs-components-page #data-views .cs-chart-composition-card svg :is(.is-y-axis, .is-x-axis) {
+  font-size: var(--cs-type-label-size);
+}
+
+.cs-components-page #data-views .cs-composition-legend span {
+  color: var(--cs-text-soft);
+}
+
+.cs-components-page #data-views .cs-composition-legend .is-blue i,
+.cs-components-page #data-views .cs-composition-summary .is-blue dt i {
+  background: var(--tremor-blue);
+}
+
+.cs-components-page #data-views .cs-composition-legend .is-cyan i {
+  background: var(--tremor-cyan);
+}
+
+.cs-components-page #data-views .cs-composition-legend .is-fuchsia i {
+  background: var(--tremor-fuchsia);
+}
+
+.cs-components-page #data-views .cs-composition-summary .is-amber dt i {
+  background: var(--tremor-amber);
+}
+
+.cs-components-page #data-views .cs-composition-summary :is(dt, dd) {
+  color: var(--cs-text);
+}
+
+.cs-components-page #data-views .cs-composition-summary dt {
+  color: var(--cs-text-soft);
+}
+
+.cs-components-page #data-views .cs-compare-col h4 {
+  color: var(--cs-text);
+}
+
+.cs-components-page #data-views .cs-compare-col.is-asis {
+  border-color: color-mix(in srgb, var(--cs-dusty-red) 24%, var(--cs-hairline));
+  background: color-mix(in srgb, var(--cs-dusty-red) 7%, var(--cs-card));
+}
+
+.cs-components-page #data-views .cs-compare-col.is-tobe {
+  border-color: color-mix(in srgb, var(--cs-sage) 24%, var(--cs-hairline));
+  background: color-mix(in srgb, var(--cs-sage) 7%, var(--cs-card));
+}
+
+.cs-components-page #data-views .cs-chart-foot button {
+  min-height: var(--cs-control-height);
+}
+
+.cs-components-page #data-views .cs-chart-spot {
+  width: 36px;
+  height: 36px;
+}
+
+.cs-components-page .cs-chart-family > summary,
+.cs-components-page .cs-chart-composition-card > header {
+  background: var(--cs-card);
+}
+
+.cs-components-page .cs-dropdown,
+.cs-components-page .cs-command-palette,
+.cs-components-page .cs-drawer-panel {
+  border-color: var(--cs-hairline);
+  background: var(--cs-card);
+  box-shadow: var(--cs-tooltip-shadow);
+}
+
+.cs-components-page .cs-spec-meta,
+.cs-components-page .cs-spec-guidance,
+.cs-components-page .cs-spec-references {
+  border-color: var(--cs-hairline);
+}
+
+.cs-components-page .cs-footer {
+  border-top: 1px solid var(--cs-hairline);
+  background: var(--cs-card);
+}
+
+@media (max-width: 780px) {
+  .cs-components-page .cs-page {
+    padding: 24px 24px 72px;
+  }
+
+  .cs-components-page .cs-gallery-toolbar {
+    margin-inline: -24px;
+  }
+
+  .cs-components-page .cs-gallery-subindex {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+
+  .cs-components-page .cs-gallery-subindex a {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .cs-components-page .cs-page {
+    padding-inline: 16px;
+  }
+
+  .cs-components-page .cs-gallery-toolbar {
+    margin-inline: -16px;
+    padding-inline: 16px;
+  }
+
+  .cs-components-page :is(.cs-control-select, .cs-preview-mode select) {
+    padding-right: 42px;
+    background-position:
+      calc(100% - 22px) calc(50% - 1px),
+      calc(100% - 17px) calc(50% - 1px);
+  }
+}
+
+@media (forced-colors: active) {
+  .cs-components-page :is(.cs-control-select, .cs-preview-mode select) {
+    appearance: auto;
+    padding-right: var(--cs-control-padding-inline);
+    background-image: none !important;
+  }
+
+  .cs-components-page .cs-gallery-index a[aria-current="location"],
+  .cs-components-page .cs-gallery-subindex a[aria-current="page"] {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}

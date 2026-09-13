@@ -29,10 +29,10 @@ describe("console loading skeleton contract", () => {
 
     expect(dashboard).toContain("loading={<DashboardSkeleton />}");
     expect(skeleton).toContain('class="overview-skeleton"');
-    expect(skeleton).toContain('layout="metrics" blocks={5}');
+    expect(skeleton).toContain('layout="metrics" blocks={4}');
     expect(skeleton).toContain('layout="distributions" blocks={2}');
     expect(skeleton).toContain('layout="attention" blocks={3}');
-    expect(skeleton).toContain('layout="verticals" blocks={3}');
+    expect(skeleton).not.toContain('layout="verticals"');
     expect(skeleton).toContain('role="status"');
     expect(skeleton).toContain('aria-busy="true"');
   });

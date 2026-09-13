@@ -1,8 +1,319 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Documents - FDAI Console</title><link rel="stylesheet" href="assets/calm-slate.css?v=focused-custody-v1" /><link rel="stylesheet" href="assets/governance-evidence-workspace.css?v=9" /><link rel="stylesheet" href="assets/focused-governance-workspaces.css?v=1" /><link rel="stylesheet" href="assets/focused-catalog-custody-workspaces.css?v=1" /><script src="assets/focused-governance-workspaces.js?v=2" defer></script><script src="assets/calm-slate.js?v=focused-custody-v1" defer></script></head>
-<body class="cs-governance-evidence"><main class="cs-container cs-page fg-page"><header class="fg-header"><div><h1><span class="cs-page-domain">Knowledge</span><span aria-hidden="true"> / </span>Documents</h1><p>Admit authorized documents through explicit consent, collection ACL, malware scanning, protection, indexing, and immutable processing receipts.</p></div><div class="fg-header-meta"><span>Ingestion boundary</span><strong>4 authorized collections</strong></div></header><div class="fg-boundary"><strong>Consent before transfer.</strong><span>Failed or malicious payloads are not retained. Collection policy owns access, protection, purpose, and retention.</span></div>
-<section class="fg-metrics"><div class="fg-metric"><span>Ready</span><strong>2</strong><small>protected and indexed</small></div><div class="fg-metric"><span>Processing</span><strong>1</strong><small>scan completed</small></div><div class="fg-metric"><span>Rejected</span><strong>1</strong><small>payload not retained</small></div><div class="fg-metric"><span>Collections</span><strong>4</strong><small>ACL enforced</small></div></section>
-<section class="ingestion-panel" aria-labelledby="ingestion-title"><header class="fg-pane-head" style="padding:0 0 12px;border-bottom:0"><div><h2 id="ingestion-title">Prepare governed ingestion</h2><p>This specimen does not upload or retain a file.</p></div><span class="fg-badge">Read-only preview</span></header><form data-fg-static-form><div class="ingestion-grid"><label class="fg-field"><span>Collection</span><select><option>Operational handovers</option><option>Runbooks</option><option>Review records</option></select></label><label class="fg-field"><span>Purpose</span><select><option>Knowledge grounding</option><option>Ownership handover</option></select></label><label class="fg-field"><span>Storage mode</span><select><option>Protected</option><option>Temporary</option></select></label><label class="ingestion-drop"><input type="file" aria-label="Select document" />Select an authorized document or drop it here</label><label class="ingestion-consent"><input type="checkbox" /><span><strong>I confirm this document is authorized for ingestion.</strong><br />Collection ACL, malware scan, protection, and retention policy apply.</span></label></div><div class="ingestion-actions"><button class="fg-button" type="reset">Clear</button><button class="fg-button is-primary" type="submit">Start governed upload</button></div></form></section>
-<section class="fg-workbench document-workbench"><aside class="fg-rail"><header class="fg-pane-head"><div><h2>Recent ingestion</h2><p>Processing receipts</p></div><span class="fg-count">4</span></header><ul class="fg-select-list"><li><button class="fg-select" data-fg-select="document" data-fg-value="ready" aria-pressed="true"><span><strong>handover-platform.pdf</strong><small>Operational handovers</small></span><span>ready</span></button></li><li><button class="fg-select" data-fg-select="document" data-fg-value="processing" aria-pressed="false"><span><strong>network-review.docx</strong><small>Review records</small></span><span>indexing</span></button></li><li><button class="fg-select" data-fg-select="document" data-fg-value="failed" aria-pressed="false"><span><strong>legacy-runbook.pdf</strong><small>Runbooks</small></span><span>rejected</span></button></li><li><button class="fg-select" data-fg-select="document" data-fg-value="temporary" aria-pressed="false"><span><strong>incident-notes.txt</strong><small>Temporary evidence</small></span><span>expires</span></button></li></ul></aside>
-<div class="fg-detail"><article class="fg-detail-panel" data-fg-panel="document" data-fg-value="ready"><header class="fg-detail-head"><div><span class="fg-kicker">Selected document</span><h2>handover-platform.pdf</h2><p>Authorized for knowledge grounding, scanned clean, protected under collection policy, and indexed.</p></div><span class="fg-badge is-success">Ready</span></header><dl class="fg-facts"><div><dt>Collection</dt><dd>Operational handovers</dd></div><div><dt>Purpose</dt><dd>Knowledge grounding</dd></div><div><dt>Digest</dt><dd><code>doc-3f8a</code></dd></div><div><dt>Retention</dt><dd>Collection policy</dd></div></dl><div class="fg-detail-grid"><section class="fg-section"><h3>Processing gates</h3><div class="scan-gates"><article class="scan-gate"><span>1 / Consent</span><strong>Explicit</strong><small>Uploader attested authorization</small></article><article class="scan-gate"><span>2 / Scan</span><strong>Clean</strong><small>Malware gate passed</small></article><article class="scan-gate"><span>3 / Protect</span><strong>Applied</strong><small>Collection policy bound</small></article><article class="scan-gate"><span>4 / Index</span><strong>Ready</strong><small>Purpose-scoped retrieval</small></article></div></section><aside class="fg-section fg-side"><h3>Custody boundary</h3><div class="custody-lock"><span aria-hidden="true">◇</span><div><strong>Collection ACL enforced</strong><small>Index access remains purpose and role scoped. Ingestion grants no execution authority.</small></div></div></aside></div></article>
-<article class="fg-detail-panel" data-fg-panel="document" data-fg-value="processing" hidden><header class="fg-detail-head"><div><span class="fg-kicker">Processing document</span><h2>network-review.docx</h2><p>Malware scan passed; protection is applied while indexing remains in progress.</p></div><span class="fg-badge is-info">Indexing</span></header></article><article class="fg-detail-panel" data-fg-panel="document" data-fg-value="failed" hidden><header class="fg-detail-head"><div><span class="fg-kicker">Rejected document</span><h2>legacy-runbook.pdf</h2><p>The malware gate rejected the payload. Content was not retained and no index entry exists.</p></div><span class="fg-badge is-danger">Not retained</span></header></article><article class="fg-detail-panel" data-fg-panel="document" data-fg-value="temporary" hidden><header class="fg-detail-head"><div><span class="fg-kicker">Temporary document</span><h2>incident-notes.txt</h2><p>Protected temporary evidence expires with the incident review window.</p></div><span class="fg-badge is-warning">Expires</span></header></article></div></section>
-</main></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Documents - FDAI Console</title>
+  <link rel="stylesheet" href="assets/calm-slate.css?v=component-conformance-v1" />
+  <link rel="stylesheet" href="assets/governance-evidence-workspace.css?v=9" />
+  <link rel="stylesheet" href="assets/focused-governance-workspaces.css?v=1" />
+  <link rel="stylesheet" href="assets/focused-catalog-custody-workspaces.css?v=1" />
+  <link rel="stylesheet" href="assets/knowledge-workspaces.css?v=knowledge-rubric-v1" />
+  <script src="assets/focused-governance-workspaces.js?v=2" defer></script>
+  <script src="assets/knowledge-documents.js?v=knowledge-rubric-v1" defer></script>
+  <script src="assets/calm-slate.js?v=knowledge-rubric-v1" defer></script>
+</head>
+<body class="cs-governance-evidence cs-knowledge-surface" data-console-page="documents" data-preserve-page-title data-chat-theme="clear-neutral">
+  <a class="kw-skip" href="#knowledge-main">Skip to Knowledge content</a>
+  <main class="cs-container cs-page fg-page kw-page" id="knowledge-main" tabindex="-1">
+    <header class="kw-header">
+      <div class="kw-header-copy">
+        <h1>
+          <span class="kw-domain">Knowledge</span>
+          <span class="kw-separator" aria-hidden="true">/</span>
+          <span>Documents</span>
+        </h1>
+        <p>Review governed intake, custody, processing, and retrieval readiness for authorized documents.</p>
+      </div>
+      <dl class="kw-header-meta">
+        <div><dt>Evidence mode</dt><dd>Synthetic specimen</dd></div>
+        <div><dt>Recorded at</dt><dd><time datetime="2026-08-27T10:15:00Z">2026-08-27T10:15:00Z</time></dd></div>
+      </dl>
+    </header>
+
+    <nav class="kw-source-nav" aria-label="Knowledge sources">
+      <a href="knowledge.html">Overview</a>
+      <a href="documents.html" aria-current="page">Documents</a>
+      <a href="github.html">GitHub</a>
+      <a href="gitlab.html">GitLab</a>
+      <a href="azure-devops.html">Azure DevOps</a>
+    </nav>
+
+    <div class="kw-boundary" role="note">
+      <strong>Consent before transfer.</strong>
+      <span>This preview never uploads or retains a file. Collection policy owns access, protection, purpose, and retention.</span>
+    </div>
+
+    <section class="fg-metrics" aria-label="Document ingestion summary">
+      <article class="fg-metric"><span>Ready</span><strong>2</strong><small>protected and indexed</small></article>
+      <article class="fg-metric"><span>Processing</span><strong>1</strong><small>scan completed</small></article>
+      <article class="fg-metric"><span>Rejected</span><strong>1</strong><small>payload not retained</small></article>
+      <article class="fg-metric"><span>Collections</span><strong>4</strong><small>ACL enforced</small></article>
+    </section>
+
+    <section class="ingestion-panel" aria-labelledby="ingestion-title">
+      <header class="fg-pane-head">
+        <div>
+          <span class="kw-kicker">Governed intake</span>
+          <h2 id="ingestion-title">Prepare a document for ingestion</h2>
+          <p id="ingestion-note">Select a collection, purpose, retention class, and authorized file. The preview validates the form without sending data.</p>
+        </div>
+        <span class="fg-badge">Read-only preview</span>
+      </header>
+      <form data-kw-document-form aria-describedby="ingestion-note">
+        <div class="ingestion-grid">
+          <label class="fg-field" for="document-collection">
+            <span>Collection</span>
+            <select id="document-collection" required>
+              <option>Operational handovers</option>
+              <option>Runbooks</option>
+              <option>Review records</option>
+            </select>
+          </label>
+          <label class="fg-field" for="document-purpose">
+            <span>Purpose</span>
+            <select id="document-purpose" required>
+              <option>Knowledge grounding</option>
+              <option>Ownership handover</option>
+            </select>
+          </label>
+          <label class="fg-field" for="document-retention">
+            <span>Retention class</span>
+            <select id="document-retention" required>
+              <option>Governed knowledge</option>
+              <option>Temporary workspace draft</option>
+            </select>
+          </label>
+          <label class="ingestion-drop" for="document-file">
+            <input
+              id="document-file"
+              type="file"
+              accept=".pdf,.docx,.pptx,.xlsx,.txt,.md,.png,.jpg,.jpeg,.tif,.tiff"
+              aria-describedby="document-file-help"
+              required
+            />
+            <span id="document-file-help">Choose an authorized PDF, Office, text, or image file. No bytes leave this preview.</span>
+          </label>
+          <label class="ingestion-consent" for="document-consent">
+            <input id="document-consent" type="checkbox" required />
+            <span>
+              <strong>I confirm this document is authorized for ingestion.</strong><br />
+              Collection ACL, malware scan, protection, and retention policy apply.
+            </span>
+          </label>
+        </div>
+        <div class="ingestion-actions">
+          <button class="fg-button" type="reset">Clear</button>
+          <button
+            class="fg-button is-primary"
+            type="submit"
+            aria-describedby="document-upload-result"
+            data-kw-document-submit
+            disabled
+          >Validate governed upload</button>
+        </div>
+        <p class="fg-form-result" id="document-upload-result" role="status" aria-live="polite" tabindex="-1">
+          Select a document and confirm authorization to validate this preview.
+        </p>
+      </form>
+    </section>
+
+    <section class="kw-section" aria-labelledby="document-library-title">
+      <header class="kw-section-head">
+        <div>
+          <span class="kw-kicker">Durable processing receipts</span>
+          <h2 id="document-library-title">Review recent ingestion</h2>
+          <p>Selection changes only the displayed synthetic receipt. It does not retry, delete, or promote a document.</p>
+        </div>
+        <label class="kw-state-picker" for="document-library-state">
+          <span>Specimen state</span>
+          <select id="document-library-state" data-kw-library-state>
+            <option value="records">Recorded items (default)</option>
+            <option value="loading">Loading</option>
+            <option value="empty">Empty collection</option>
+            <option value="unavailable">Read unavailable</option>
+          </select>
+        </label>
+      </header>
+
+      <div class="kw-library-region" aria-live="polite" data-kw-library-region tabindex="-1">
+        <section class="fg-workbench document-workbench" data-kw-library-panel="records">
+          <aside class="fg-rail">
+            <header class="fg-pane-head">
+              <div><h3>Recent ingestion</h3><p>Four synthetic receipts</p></div>
+              <span class="fg-count">4</span>
+            </header>
+            <ul class="fg-select-list">
+              <li>
+                <button
+                  class="fg-select"
+                  id="document-ready-control"
+                  type="button"
+                  data-fg-select="document"
+                  data-fg-value="ready"
+                  aria-controls="document-ready-panel"
+                  aria-pressed="true"
+                ><span><strong>handover-platform.pdf</strong><small>Operational handovers</small></span><span>ready</span></button>
+              </li>
+              <li>
+                <button
+                  class="fg-select"
+                  id="document-processing-control"
+                  type="button"
+                  data-fg-select="document"
+                  data-fg-value="processing"
+                  aria-controls="document-processing-panel"
+                  aria-pressed="false"
+                ><span><strong>network-review.docx</strong><small>Review records</small></span><span>indexing</span></button>
+              </li>
+              <li>
+                <button
+                  class="fg-select"
+                  id="document-failed-control"
+                  type="button"
+                  data-fg-select="document"
+                  data-fg-value="failed"
+                  aria-controls="document-failed-panel"
+                  aria-pressed="false"
+                ><span><strong>legacy-runbook.pdf</strong><small>Runbooks</small></span><span>rejected</span></button>
+              </li>
+              <li>
+                <button
+                  class="fg-select"
+                  id="document-temporary-control"
+                  type="button"
+                  data-fg-select="document"
+                  data-fg-value="temporary"
+                  aria-controls="document-temporary-panel"
+                  aria-pressed="false"
+                ><span><strong>incident-notes.txt</strong><small>Temporary evidence</small></span><span>expires</span></button>
+              </li>
+            </ul>
+          </aside>
+
+          <div class="fg-detail">
+            <article
+              class="fg-detail-panel"
+              id="document-ready-panel"
+              data-fg-panel="document"
+              data-fg-value="ready"
+              aria-labelledby="document-ready-control"
+            >
+              <header class="fg-detail-head">
+                <div>
+                  <span class="fg-kicker">Selected document</span>
+                  <h3>handover-platform.pdf</h3>
+                  <p>Authorized for knowledge grounding, scanned clean, protected under collection policy, and indexed.</p>
+                </div>
+                <span class="fg-badge is-success">Ready</span>
+              </header>
+              <dl class="fg-facts">
+                <div><dt>Collection</dt><dd>Operational handovers</dd></div>
+                <div><dt>Purpose</dt><dd>Knowledge grounding</dd></div>
+                <div><dt>Digest</dt><dd><code>doc-3f8a</code></dd></div>
+                <div><dt>Retention</dt><dd>Collection policy</dd></div>
+              </dl>
+              <div class="fg-detail-grid">
+                <section class="fg-section">
+                  <h3>Processing gates</h3>
+                  <div class="scan-gates">
+                    <article class="scan-gate"><span>1 / Consent</span><strong>Explicit</strong><small>Uploader attested authorization</small></article>
+                    <article class="scan-gate"><span>2 / Scan</span><strong>Clean</strong><small>Malware gate passed</small></article>
+                    <article class="scan-gate"><span>3 / Protect</span><strong>Applied</strong><small>Collection policy bound</small></article>
+                    <article class="scan-gate"><span>4 / Index</span><strong>Ready</strong><small>Purpose-scoped retrieval</small></article>
+                  </div>
+                </section>
+                <aside class="fg-section fg-side">
+                  <h3>Custody boundary</h3>
+                  <div class="custody-lock">
+                    <span aria-hidden="true">◇</span>
+                    <div><strong>Collection ACL enforced</strong><small>Index access remains purpose and role scoped. Ingestion grants no execution authority.</small></div>
+                  </div>
+                </aside>
+              </div>
+            </article>
+
+            <article
+              class="fg-detail-panel"
+              id="document-processing-panel"
+              data-fg-panel="document"
+              data-fg-value="processing"
+              aria-labelledby="document-processing-control"
+              hidden
+            >
+              <header class="fg-detail-head">
+                <div><span class="fg-kicker">Processing document</span><h3>network-review.docx</h3><p>Malware scan passed; protection is applied while indexing remains in progress.</p></div>
+                <span class="fg-badge is-info">Indexing</span>
+              </header>
+              <dl class="fg-facts">
+                <div><dt>Collection</dt><dd>Review records</dd></div>
+                <div><dt>Completed gates</dt><dd>3 of 4</dd></div>
+                <div><dt>Current gate</dt><dd>Index</dd></div>
+                <div><dt>Retrieval</dt><dd>Unavailable until ready</dd></div>
+              </dl>
+            </article>
+
+            <article
+              class="fg-detail-panel"
+              id="document-failed-panel"
+              data-fg-panel="document"
+              data-fg-value="failed"
+              aria-labelledby="document-failed-control"
+              hidden
+            >
+              <header class="fg-detail-head">
+                <div><span class="fg-kicker">Rejected document</span><h3>legacy-runbook.pdf</h3><p>The malware gate rejected the payload. Content was not retained and no index entry exists.</p></div>
+                <span class="fg-badge is-danger">Not retained</span>
+              </header>
+              <dl class="fg-facts">
+                <div><dt>Failed gate</dt><dd>Malware scan</dd></div>
+                <div><dt>Stored payload</dt><dd>None</dd></div>
+                <div><dt>Index entry</dt><dd>None</dd></div>
+                <div><dt>Recovery</dt><dd>Review the source file before a new upload</dd></div>
+              </dl>
+            </article>
+
+            <article
+              class="fg-detail-panel"
+              id="document-temporary-panel"
+              data-fg-panel="document"
+              data-fg-value="temporary"
+              aria-labelledby="document-temporary-control"
+              hidden
+            >
+              <header class="fg-detail-head">
+                <div><span class="fg-kicker">Temporary document</span><h3>incident-notes.txt</h3><p>Protected temporary evidence expires with the incident review window.</p></div>
+                <span class="fg-badge is-warning">Expires</span>
+              </header>
+              <dl class="fg-facts">
+                <div><dt>Collection</dt><dd>Temporary evidence</dd></div>
+                <div><dt>Retention class</dt><dd>Workspace draft</dd></div>
+                <div><dt>Expires</dt><dd><time datetime="2026-09-03T10:15:00Z">2026-09-03 10:15 UTC</time></dd></div>
+                <div><dt>Promotion</dt><dd>Requires an explicit governed request</dd></div>
+              </dl>
+            </article>
+          </div>
+        </section>
+
+        <section class="kw-library-state" data-kw-library-panel="loading" role="status" hidden>
+          <span class="kw-status is-info">Loading</span>
+          <h3>Loading collection receipts</h3>
+          <p>No prior collection result is presented as current while this bounded read is pending.</p>
+          <div class="kw-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>
+        </section>
+        <section class="kw-library-state" data-kw-library-panel="empty" hidden>
+          <span class="kw-status">Empty collection</span>
+          <h3>No documents are visible</h3>
+          <p>The collection returned no authorized document rows. This is not proof that the source contains no documents.</p>
+        </section>
+        <section class="kw-library-state" data-kw-library-panel="unavailable" hidden>
+          <span class="kw-status is-danger">Read unavailable</span>
+          <h3>Document receipts could not be read</h3>
+          <p>The preview does not substitute stale rows or measured zeroes for the failed read.</p>
+          <button class="kw-button is-primary" type="button" data-kw-library-retry>Retry preview</button>
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,8 +1,8 @@
 ---
 title: FinOps 자율 운영
 translation_of: finops-autonomous-operations.md
-translation_source_sha: 49165afad7be0467d48a22cd5d3ea631483431b9
-translation_revised: 2026-09-12
+translation_source_sha: bf092d156d0426a318150cddd85d6f25bac4aaa8
+translation_revised: 2026-09-13
 ---
 
 # FinOps 자율 운영
@@ -24,9 +24,10 @@ translation_revised: 2026-09-12
 > **현재 상태:** 정확한 FinOps 의미 프로파일, 고정된 15개 책임 trace, 범위가 제한된 복구
 > 조정기, 독립 다중 효과 정산, replay, 보존 및 통제된 학습 입력은 로컬 근거와 함께 구현되어
 > 있습니다. 표준 Core 시작 과정은 활성화된 보존 패키지를 Njord의 결정론적 권고 포트에 연결하고,
-> 재시작 후 범위가 제한된 보존 기준선을 복원하며, 로컬 수집기가 정규 broker 경로로 게시한 완전한
-> 서비스-일자 관찰을 수신합니다. Live-authoritative 정산 cohort와 독립 패키지 및 액션별 승격
-> 검토는 아직 없습니다.
+> 재시작 후 범위가 제한된 보존 기준선을 복원하며, 정규 broker 경로로 완전한 서비스-일자 관찰을
+> 수신합니다. Exact casefold release에는 이제 raw 관찰 71개와 완결된 revision-2 cursor를 보존한
+> live-authoritative 복원 collector pass가 있습니다. 최소 30일과 적격 표본 100개에 걸친 적격
+> 정산 cohort 및 여섯 개의 독립 대상 검토는 아직 없습니다.
 > 비평 12회에서 확인된 모든 Medium 이상 결함을 수정했으며 최종 검토에는 Low 수준의 테스트 구성 개선만 남았습니다. 런타임 권한은 바뀌지 않았습니다.
 
 ## 설계 개요
@@ -198,6 +199,17 @@ Workflow 근거에는 위험 및 실행기 감사의 동일한 Process 계보도
 가져오기만 현재 revision pin 및 범위가 제한된 정책을 확인한 뒤 근거 분류를 부여합니다. 이후
 package activation, 패키지 소유 `ActionType` 각각 및 패키지 소유 `Workflow` 각각을 독립적으로
 평가합니다.
+
+여섯 결과가 모두 검토 준비 상태가 되면 보호된 검토 workflow가 attested 최종 campaign
+artifact를 검증하고 exact 활성 release로 같은 결과를 다시 계산하며, 각 기록을 추가하기 전에
+pin을 다시 읽습니다. 한 요청은 한 대상만 기록합니다. 여섯 기록은 하나의 campaign evidence
+digest를 공유하면서 대상별 report digest, 검토자 신원, 결정, 근거 설명, 근거 참조 및 검토 시각을
+각각 보존합니다. 이 기록은 승인, 실행 또는 promotion 권한을 부여하지 않으며 package 또는 대상의
+수명 주기 상태를 갱신할 수 없습니다.
+인증된 검토자는 대소문자를 구분하지 않고 attested campaign 실행의 최초 행위자 및 모든 재실행
+행위자와 달라야 합니다. 요청 ID 재생은 불변 payload와 정규화된 영속 열이 제안된 검토와 모두
+일치할 때만 성공합니다. 서버가 생성한 검토 및 보존 시각은 요청 신원에서 제외합니다. 보존 기간은
+일치해야 하며 exact 재생은 원래 증적을 반환합니다.
 
 비용 데이터 전달은 데이터를 반환하기 전에 내용이 없는 공개 증적을 추가합니다. 별도 보존 묶음은
 변경할 수 없는 증적을 400일 동안 유지하고 30일 삭제 유예 기간을 적용하며, 개정되는 법적 보존을

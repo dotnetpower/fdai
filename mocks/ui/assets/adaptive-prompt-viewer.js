@@ -24,6 +24,13 @@
   let activeRequest = null;
   let deadline = null;
   let markdown = "";
+  let downloadUrl = null;
+
+  function clearDownloadUrl() {
+    if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+    downloadUrl = null;
+    download.removeAttribute("href");
+  }
 
   function clearRequest() {
     requestVersion += 1;
@@ -35,6 +42,7 @@
 
   function collapsePrompt(restoreFocus = false) {
     clearRequest();
+    clearDownloadUrl();
     panel.hidden = true;
     openButton.setAttribute("aria-expanded", "false");
     markdown = "";
@@ -74,6 +82,7 @@
   async function openPrompt() {
     if (openButton.disabled) return;
     clearRequest();
+    clearDownloadUrl();
     const version = requestVersion;
     const controller = new AbortController();
     activeRequest = controller;
@@ -109,6 +118,8 @@
       metadata.textContent = "Markdown / " + lineCount + " lines / Example v1";
       source.hidden = false;
       copyButton.disabled = false;
+      downloadUrl = URL.createObjectURL(new Blob([markdown], { type: "text/markdown;charset=utf-8" }));
+      download.href = downloadUrl;
       download.hidden = false;
     } catch (error) {
       if (version !== requestVersion || panel.hidden) return;

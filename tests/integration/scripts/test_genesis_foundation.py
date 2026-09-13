@@ -21,6 +21,12 @@ from genesis_foundation import (  # noqa: E402
 from genesis_status import StatusStore  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _isolate_host_provider_preflight(monkeypatch):
+    """This suite owns saved-plan orchestration; VM provider boundaries have dedicated tests."""
+    monkeypatch.setattr("genesis_foundation.recheck_foundation_vm", lambda **_kwargs: None)
+
+
 def _inputs(tmp_path: Path) -> FoundationPlanInputs:
     return FoundationPlanInputs(
         offline_kit=tmp_path / "offline-kit",
@@ -91,15 +97,8 @@ def test_complete_inputs_generate_only_an_exact_saved_plan(tmp_path: Path) -> No
 
     assert len(calls) == 1
     command, reason, options = calls[0]
-    assert command[:6] == (
-        "uv",
-        "run",
-        "--frozen",
-        "--project",
-        str(_ROOT / "packages/deployment-cli"),
-        "fdaictl",
-    )
-    assert command[6:10] == ("provision", "plan", "--stage", "foundation")
+    assert command[:3] == (sys.executable, "-m", "fdai_deployment_cli")
+    assert command[3:7] == ("provision", "plan", "--stage", "foundation")
     assert "--save-plan" in command
     assert "apply" not in command
     assert command[command.index("--work-dir") + 1].endswith("/foundation-plan-attempt-3")
@@ -167,7 +166,13 @@ def test_unexpired_prior_plan_is_reverified_without_replanning(tmp_path: Path) -
 
     assert report == prior
     assert len(calls) == 1
-    assert calls[0][6:8] == ("provision", "verify-foundation-plan")
+    assert calls[0][:5] == (
+        sys.executable,
+        "-m",
+        "fdai_deployment_cli",
+        "provision",
+        "verify-foundation-plan",
+    )
     assert "plan" not in calls[0][6:]
 
 
@@ -201,7 +206,7 @@ def test_expired_prior_plan_creates_a_new_attempt(tmp_path: Path) -> None:
         capture=capture,
     )
 
-    assert calls[0][6:8] == ("provision", "plan")
+    assert calls[0][3:5] == ("provision", "plan")
     assert report["plan_ref"] == "foundation-plan-attempt-2"
 
 

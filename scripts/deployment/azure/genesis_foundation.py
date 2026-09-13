@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -17,6 +18,8 @@ from fdai_deployment_cli.foundation_plan import REVIEW_NAME
 from fdai_deployment_cli.plan_input import read_plan_input
 from fdai_deployment_cli.private_output import read_private_bytes
 from fdai_deployment_cli.profile import load_profile
+from genesis_checks import CheckError
+from genesis_vm_sku_preflight import recheck_foundation_vm
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _REQUIRED_INPUT_COUNT = 5
@@ -112,6 +115,15 @@ def prepare_foundation_plan(
     inputs.validate()
     if attempt < 1:
         raise FoundationPlanError("invalid_foundation_plan_attempt")
+    if not allow_expired_after_claim:
+        try:
+            recheck_foundation_vm(
+                repository_root=repository_root,
+                variables_file=inputs.variables_file,
+                evidence_directory=orchestration_work_dir,
+            )
+        except CheckError as exc:
+            raise FoundationPlanError(exc.reason_code, exc.exit_code) from None
     if prior_report is not None:
         verified = _reverify_current_plan(
             inputs=inputs,
@@ -127,13 +139,10 @@ def prepare_foundation_plan(
 
     plan_ref = f"foundation-plan-attempt-{attempt}"
     plan_directory = orchestration_work_dir / plan_ref
-    command = (
-        "uv",
-        "run",
-        "--frozen",
-        "--project",
-        str(repository_root / "packages/deployment-cli"),
-        "fdaictl",
+    command: tuple[str, ...] = (
+        sys.executable,
+        "-m",
+        "fdai_deployment_cli",
         "provision",
         "plan",
         "--stage",
@@ -216,13 +225,10 @@ def _reverify_current_plan(
             if allow_expired_after_claim:
                 raise FoundationPlanError("foundation_plan_input_changed_after_claim", 3)
             return None
-    command = (
-        "uv",
-        "run",
-        "--frozen",
-        "--project",
-        str(repository_root / "packages/deployment-cli"),
-        "fdaictl",
+    command: tuple[str, ...] = (
+        sys.executable,
+        "-m",
+        "fdai_deployment_cli",
         "provision",
         "verify-foundation-plan",
         "--directory",

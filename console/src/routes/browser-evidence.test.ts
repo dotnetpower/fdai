@@ -93,7 +93,7 @@ describe("browser evidence decoder", () => {
   it("classifies ready, unavailable, and invalid responses", async () => {
     const readyHandler = vi.fn(async () => response());
     const unavailableHandler = vi.fn(async () => {
-      throw new OperatorApiError(503, "unavailable");
+      throw new OperatorApiError(503, "unavailable", "projection-unavailable");
     });
     const invalidHandler = vi.fn(async () => ({ surface: "wrong", count: 0, items: [] }));
 

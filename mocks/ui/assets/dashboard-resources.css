@@ -110,9 +110,9 @@
 .dr-honeycomb.is-dense .dr-cell:is([data-tone="unknown"],[data-tone="na"]) .dr-cell-symbol { color: var(--cs-text); background: var(--cs-card); padding-inline: 1px; }
 .dr-honeycomb.is-dense .dr-cell:is(:hover,:focus-visible,[aria-pressed="true"]) polygon { stroke: var(--cs-text); stroke-width: 6; }
 .dr-honeycomb.is-dense .dr-cell[aria-pressed="true"] .dr-cell-symbol { background: var(--cs-card); color: var(--cs-text); padding-inline: 2px; }
-.dr-hover-preview { position: fixed; z-index: 40; width: 320px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow: auto; padding: 16px; background: var(--cs-card); color: var(--cs-text); border: 1px solid var(--cs-hairline); border-radius: 8px; box-shadow: 0 4px 16px rgb(0 0 0 / .12); font-size: var(--cs-type-compact-size); overflow-wrap: anywhere; }
+.dr-hover-preview { position: fixed; z-index: 40; width: 320px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow: auto; padding: 16px; background: var(--cs-tooltip-bg, var(--cs-card)); color: var(--cs-tooltip-text, var(--cs-text)); border: 1px solid var(--cs-tooltip-border, var(--cs-hairline)); border-radius: 8px; box-shadow: var(--cs-tooltip-shadow, 0 8px 24px rgba(24,31,38,.14)); font-size: var(--cs-type-compact-size); overflow-wrap: anywhere; }
 .dr-hover-name { display: block; font-size: var(--cs-type-body-size); }
-.dr-hover-scope, .dr-hover-time, .dr-hover-help { margin: 6px 0 0; color: var(--cs-text-soft); font-size: var(--cs-type-label-size); }
+.dr-hover-scope, .dr-hover-time, .dr-hover-help { margin: 6px 0 0; color: var(--cs-tooltip-muted, var(--cs-text-soft)); font-size: var(--cs-type-label-size); }
 .dr-hover-facts { margin: 12px 0; }
 .dr-hover-facts > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
 .dr-hover-facts dd { margin: 0; }

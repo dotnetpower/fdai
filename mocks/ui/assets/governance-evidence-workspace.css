@@ -1164,3 +1164,103 @@
     align-items: center;
   }
 }
+
+/* Focused Governance review: keep evidence labels readable and filtering states explicit. */
+.cs-governance-evidence {
+  --fg-control-border: #7d8791;
+}
+
+.cs-governance-evidence :is(.fg-field input, .fg-field select, .fg-button) {
+  border-color: var(--fg-control-border);
+}
+
+.cs-governance-evidence :is(
+  .fg-select[aria-pressed="true"],
+  .oversight-agent[aria-pressed="true"],
+  .workflow-node[aria-pressed="true"],
+  .impact-node[aria-pressed="true"]
+) {
+  border-color: var(--cs-steel);
+  outline-color: var(--cs-steel);
+}
+
+.cs-governance-evidence .promotion-row.is-selected {
+  outline: 2px solid var(--cs-steel);
+  outline-offset: -2px;
+}
+
+.cs-governance-evidence :where(button, a, input, select, textarea, summary):focus-visible {
+  outline: 3px solid var(--cs-steel);
+  outline-offset: 2px;
+}
+
+.cs-governance-evidence :is(
+  .ontology-semantic-source strong,
+  .ontology-semantic-relations > header,
+  .workflow-canvas-head p,
+  .result-summary span,
+  .skill-dependency article strong,
+  .impact-cap-head,
+  .promotion-timeline li,
+  .promotion-timeline strong,
+  .context-comparison-head p,
+  .context-mark,
+  .scope-conflict strong,
+  .scope-conflict small,
+  .scope-history strong
+) {
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+
+.cs-governance-evidence .fg-filter-empty {
+  margin: 8px;
+  padding: 14px;
+  border: 1px dashed var(--cs-hairline);
+  border-radius: 6px;
+  background: var(--cs-card);
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+
+.cs-governance-evidence .fg-static-control {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  padding: 7px 10px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 6px;
+  background: var(--cs-shade);
+  color: var(--cs-text);
+  font-size: var(--cs-type-compact-size);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.cs-governance-evidence .scope-axis-path > span {
+  width: 100%;
+}
+
+.cs-governance-evidence .scope-axis.is-action.is-conditional .scope-axis-path > span {
+  background: repeating-linear-gradient(
+    90deg,
+    var(--cs-terracotta) 0 8px,
+    transparent 8px 13px
+  );
+}
+
+.cs-governance-evidence .scope-axis.is-excluded .scope-axis-path > span {
+  width: 8px;
+  background: var(--cs-dusty-red);
+}
+
+@media (max-width: 620px) {
+  .cs-governance-evidence .fg-static-control {
+    min-height: 44px;
+  }
+
+  .cs-governance-evidence .promotion-table button {
+    min-height: 44px;
+  }
+}

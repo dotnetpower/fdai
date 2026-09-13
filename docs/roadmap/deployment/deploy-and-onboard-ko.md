@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 167f34b237d6f693ed155e7e4003f6d124909a24
+translation_source_sha: 2e824888453a6da52ffa87870f0d398a43706626
 translation_revised: 2026-09-13
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -53,8 +53,8 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 
 [Genesis 기반 계층 루트](../../../infra/genesis-foundation/)는 ARM으로 두 리소스 그룹, 비공개 상태 계정, `tfstate` 및 `deployment-plans` 컨테이너와 블롭 보호를 관리합니다. 계정 키 조회 없이 기존 Bootstrap의 네트워크, 배포 신원, 실행기를 재사용합니다. 선택적 Standard Bastion 서브넷에는 Azure가 요구하는 전체 인바운드 및 아웃바운드 Network Security Group 규칙을 연결하며, 필수 플랫폼 규칙이 하나라도 없으면 터널 생성을 차단합니다.
 새 플랫폼 상태에서는 `foundation_resource_group_context_digest`로 참조 전용 소유권을 선택하고 기반 계층 태그와 지역을 확인합니다. 기존 상태의 소유권 변경에는 여전히 별도 검토된 이전 절차가 필요합니다.
-`fdaictl provision plan --stage foundation`은 비공개 모의 실행입니다. Genesis는 Terraform 아카이브와 실행 파일 다이제스트를 각각 인증하고
-계획 전에 [호환되는 이미지 VM SKU](subscription-genesis-assurance-ko.md#기반-및-외부-컨트롤-플레인)를 선택합니다.
+`fdaictl provision plan --stage foundation`은 로컬 backend를 사용하는 비공개 모의 실행입니다. 정확한 상태 이전 아카이브에서만 서명된 AzureRM backend 예제를 활성화해 검증된 호스트에 전달합니다. Genesis는 Terraform 아카이브와 실행 파일 다이제스트를 각각 인증하고
+계획 전에 전체 지역 카탈로그에서 [호환되는 이미지 및 호스트 VM SKU](subscription-genesis-assurance-ko.md#기반-및-외부-컨트롤-플레인)를 조회하며 이미지의 관리형 디스크와 호스트의 임시 디스크 요건을 구분합니다.
 이미지 및 기반 계층 적용, Bastion 등록, 검증된 상태 이전에는 정확한 승인이 필요하며, 애플리케이션 배포와 준비 상태는 [Genesis 원장](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)에 미완료로 남아 있습니다.
 
 Azure Policy가 인벤토리 일부를 거부하는 테난트는 계획이 수렴하기 전에 예외 또는 대응하는
@@ -429,7 +429,7 @@ Workflow는 OCR desired-state 축약을 집중 script에 위임하여 승인 또
   관리 평면의 사전 이미지 바인딩이나 사전 실행은 digest 고정 이미지와 최신 실행 성공을
   readback으로 입증할 때만 허용합니다. 그런 다음 VNet runner는 성공을 보고하기 전에
   리포지토리의 모든 예상 프로젝션을 PostgreSQL과 비교합니다. 보호된 모델 Settings workflow는 모델 projection을 새로 고치고 런타임 Settings 행이 없을 때만 생성하며, 기존 런타임 근거를 보존하고 읽기 전용 트랜잭션에서 환경에 결속된 두 행을 검증해 새 Console에서 설정 컨트롤을 표시할 수 있게 합니다.
-- **Cost Governance 프로필과 배포 후 검사**: `plan-cost-*`와 `apply-cost-*` 요청 식별자는 패키지 활성화 또는 작업 모드를 바꾸지 않고 정확한 다이제스트 고정 Cost Governance 이미지를 collector 및 analyzer Job에 연결합니다. Platform apply는 대상이 제한된 zero-change plan을 확인하고 두 Job 이미지를 독립적으로 다시 읽어 하나의 content-addressed 증적에 기록합니다. 별도의 보호된 Core service plan이 같은 이미지를 Core에 연결합니다. 패키지 전용 platform 경로는 Core 소유 migration, Core health, 기존 inventory 또는 canary 검사를 실행하지 않습니다.
+- **Cost Governance 프로필과 배포 후 검사**: `plan-cost-*`와 `apply-cost-*` 요청 식별자는 패키지 활성화 또는 작업 모드를 바꾸지 않고 정확한 다이제스트 고정 Cost Governance 이미지를 Core와 두 작업에 연결합니다. 배포 후 smoke 테스트와 합성 카나리는 [operating-and-verification-ko.md](../operations/operating-and-verification-ko.md)에 계속 정의됩니다.
 
 ## 분포 및 배포 책임 매트릭스
 
@@ -574,9 +574,9 @@ Onboarding 콘솔은 모든 Azure 탐색 입력이 있을 때만 `probe_mode=con
 Azure forwarding 방식은 shared 시크릿이 없는 경계를 유지하는 것이 좋습니다. Diagnostic Settings
 내보내기를 위해 Event Hubs 로컬 인증만 다시 활성화하지 않습니다. 선택한 Azure 신호 출처가 Managed
 Identity로 게시할 수 없다면 승인된 push 전송 계층이 준비될 때까지 범위가 제한된 Activity Log 복구
-읽기 담당을 사용합니다. 적응형 인벤토리 Job은 각 조정기 실행 전에 검증된 정책을 읽고 같은 Core 이미지에
-명시적으로 다시 내보낸 불변 동기화 레코드를 유지하며 장애를 독립적으로 보고하고 지연된 조정을
-진행합니다. 모듈 분리는 서비스, 신원 또는 상태 작성자를 추가하지 않습니다.
+읽기 담당을 사용합니다. 적응형 인벤토리 Job은 각 조정기 실행 전에 검증된 정책을 읽고 런타임 호출,
+Resource Health, Static Web App 및 Kubernetes 보강을 하나의 공유 순차 지원 경계에서 구성한 뒤
+지연된 조정을 진행합니다. 모듈 분리는 서비스, 신원 또는 상태 작성자를 추가하지 않습니다.
 
 ## 프로비저닝 후 검증
 

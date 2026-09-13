@@ -485,6 +485,7 @@
       let pendingFocusRestore = false;
       let traversalHash = null;
       let selectedRailTarget = 'overview';
+      let navigationReturnFocus = navToggle;
 
       function parseRouteHash() {
         const parts = location.hash.replace(/^#/, '').split('::');
@@ -728,7 +729,9 @@
       });
 
       navToggle.addEventListener('click', () => {
-        setNavigationOpen(!navigationIsOpen());
+        const open = !navigationIsOpen();
+        if (open) navigationReturnFocus = navToggle;
+        setNavigationOpen(open);
       });
       navCollapse.addEventListener('click', () => {
         setNavigationOpen(false);
@@ -740,6 +743,7 @@
             setNavigationOpen(false);
             return;
           }
+          navigationReturnFocus = button;
           focusNavigationTarget(button.dataset.navTarget);
         });
         button.addEventListener('keydown', (event) => {
@@ -772,7 +776,7 @@
         document.querySelector('.preview-details').open = false;
         if (navigationIsOpen()) {
           setNavigationOpen(false);
-          railButtons.find((button) => button.dataset.navTarget === selectedRailTarget)?.focus();
+          if (navigationReturnFocus?.isConnected) navigationReturnFocus.focus();
         }
         document.querySelectorAll('.rail-button[data-tooltip]').forEach(button => button.setAttribute('data-tooltip-dismissed', ''));
       });

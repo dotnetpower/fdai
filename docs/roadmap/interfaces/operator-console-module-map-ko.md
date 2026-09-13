@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 0632ae9d0a6107910a08e4e8e185d7b47e4d31b9
+translation_source_sha: ba5268519f55caddc734b5852c45f672aaf775c6
 translation_revised: 2026-09-13
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -12,7 +12,7 @@ translation_revised: 2026-09-13
 
 [`operator-console-module-inventory.json`](operator-console-module-inventory.json)은 현재 Operator API 패키지 책임, 경로 계열 분류, 후보 대상 및 가져오기 표면 상태를 기록합니다. 이 인벤토리는 file-count 목표가 아닌 설명 기준이지만, executable 완전성 게이트는 현재 모든 모듈 디렉터리와 경로 모듈을 분류된 상태로 유지하도록 요구합니다. 후보 대상은 패키지 힌트입니다. 새 프로세스, 신원, 전송 계층 또는 데이터 소유자의 게이트는 [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)입니다.
 [`test_operator_api_layout.py`](../../../services/operator-service/tests/)는 현재 모든 패키지와 경로 모듈이 분류된 상태인지 확인하고, exact 기본 메서드, 경로, route-name 집합 및 대표 HTTP 묶음을 고정합니다. 의도적인 기본 경로 추가는 같은 변경에서 검토된 기준선을 갱신합니다.
-저장소 카탈로그는 리비전이 있는 Operator 변환 결과로 구체화합니다. `runtime_projection_reader.py`와 `conversation_assurance_reader.py`는 Operator 역할에 부여된 영속 테이블만 읽습니다. 대화 보증 상세는 principal, conversation, turn 식별자가 모두 일치할 때만 저장된 평가를 의미 요청 및 결과 레코드와 결합합니다. 브라우저 재생은 권위 있는 평가 식별자를 유지하고 식별자가 없는 이전 캐시 답변을 한 번 복원하며 초기 복원과 명시적 재시도에 같은 검사를 사용합니다. 목록 새로고침은 가장 최신 요청만 수락합니다. 유효한 내용 주소 기반 링크는 범위가 제한된 목록 밖의 principal 범위 상세를 읽을 수 있고, 누락된 상세는 사용 불가 상태를 유지하면서 목록과 상세 재시도 세대를 함께 갱신합니다. 다중화된 요청 이외 Kafka 게시는 한 번의 범위 제한 인코딩 전에 logical-topic 표시를 추가하고 스키마로 검증되는 의미 요청은 producer-codec 경계를 유지합니다. 이 읽기 구성요소는 측정된 레코드 또는 명시적인 빈 근거 상태를 반환하며 실행 적격성을 추론하지 않습니다.
+저장소 카탈로그는 리비전이 있는 Operator 변환 결과로 구체화합니다. `runtime_projection_reader.py`와 `conversation_assurance_reader.py`는 Operator 역할에 부여된 영속 테이블만 읽습니다. 대화 보증 상세는 principal, conversation, turn 식별자가 모두 일치할 때만 저장된 평가를 의미 요청 및 결과 레코드와 결합합니다. 브라우저 재생은 권위 있는 평가 식별자를 유지하고 식별자가 없는 이전 캐시 답변을 한 번 복원하며 초기 복원과 명시적 재시도에 같은 검사를 사용합니다. 목록 새로고침은 가장 최신 요청만 수락합니다. 유효한 내용 주소 기반 링크는 범위가 제한된 목록 밖의 principal 범위 상세를 읽을 수 있고, 누락된 상세는 사용 불가 상태를 유지하면서 목록과 상세 재시도 세대를 함께 갱신합니다. 다중화된 요청 이외 Kafka 게시는 한 번의 범위 제한 인코딩 전에 logical-topic 표시를 추가하고 스키마로 검증되는 의미 요청은 producer-codec 경계를 유지합니다. Sample 성과는 Live 근거와의 분리를 접근 가능한 안내로 제공하고 데스크톱과 모바일 콘텐츠 경계 안에 유지합니다. 이 읽기 구성요소는 측정된 레코드 또는 명시적인 빈 근거 상태를 반환하며 실행 적격성을 추론하지 않습니다.
 WARA 워크플로 변환 결과는 정확한 평가기 신원과 구조화된 수동 근거 요구 사항을 읽기 모델에
 유지합니다. Console은 필요한 생성자, 범위, 최신성 상한 및 담당자를 설명할 수 있지만 근거
 작성기 또는 수정 컨트롤을 제공하지 않습니다.
@@ -518,9 +518,8 @@ Process 전환, 승인 및 재시도 변환 모듈은 정확한 Process 리비�
     명확화 및 presentation-only grounded-answer 프로토콜을 정의합니다.
   - `session.py`는 disposable 코어/CLI `ConversationSession` 변환 결과를 제공합니다. 운영
     대화 기록은 principal 범위로 한정된 `ConversationHistoryStore`가 소유합니다.
-- [`cli/`](../../../cli): 표현 및 인증 계약은 [CLI 가이드](../../../cli/README.md)를 참조합니다.
-  - `src/operator-api-session.ts`는 루프백 부트스트랩과 메모리 전용 불투명 bearer를 소유하며 Azure 신원을 해석하거나 호출자 토큰을 받지 않습니다.
-  - `src/repl.ts`는 IME-safe `POST /chat`을, `src/cockpit.ts`는 같은 조정기로 보내는 자체 설명형 실시간 SSE 화면 스냅샷을 담당합니다.
+- [`cli/`](../../../cli): 표현 및 인증 계약은 [CLI 가이드](../../../cli/README.md)를 참조합니다. `src/operator-api-session.ts`는 루프백 부트스트랩과 메모리 전용 불투명 bearer를 소유하며 Azure 신원을 해석하거나 호출자 토큰을 받지 않습니다.
+  - `src/repl.ts`는 IME-safe `POST /chat`을, `src/cockpit.ts`는 같은 조정기로 보내는 자체 설명형 실시간 SSE 화면 스냅샷을 담당합니다. `src/cockpit-state.ts`는 구조화된 `StageFrame` 티어와 감사 결과를 표시용으로만 집계하며 운영자 질문을 읽거나 의도를 선택하거나 권한을 부여하지 않습니다. 정확한 의미 검사 기준선 항목은 검토된 기계 레코드 표시 책임으로 한정하며, 검토되지 않은 자연어 판단 경로는 계속 차단합니다.
   - `src/terminal-capabilities.ts`는 TTY 크기, 색상, 모션 감소를 검사하며 비대화형, dumb 또는 크기가 부족한 터미널에는 결정론적 일반 텍스트를 제공합니다.
 - [`services/core-control-plane/src/fdai/core/conversation/channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py)는
   발신자를 인증하고 메시지 멱등성 키를 점유하며 조정기를 호출합니다. 영속 전달이

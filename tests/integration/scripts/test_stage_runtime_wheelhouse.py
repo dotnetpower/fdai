@@ -11,6 +11,7 @@ import zipfile
 from pathlib import Path
 
 import pytest
+from tests.integration.scripts.test_release_source_fence import commit_repository
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "scripts/deployment/release/stage-runtime-wheelhouse.py"
@@ -313,3 +314,42 @@ def test_cli_reports_incomplete_without_exposing_command_output(
     captured = capsys.readouterr()
     assert not captured.out
     assert "incomplete" in captured.err
+
+
+@pytest.mark.parametrize("when", ["before-support", "during-build", "unchanged"])
+def test_complete_release_binds_service_source_not_only_locks(module, repository, tmp_path, when):
+    source = repository / "services/core-control-plane/service.py"
+    source.write_text("VALUE = 1\n")
+    commit = commit_repository(repository)
+    fingerprint = module.require_source(repository, commit)
+    runner = RecordingRunner(repository)
+
+    def build(args, **kwargs):
+        if when == "during-build" and args[1] == "build":
+            source.write_text("VALUE = 2\n")
+        return runner(args, **kwargs)
+
+    if when == "before-support":
+        source.write_text("VALUE = 2\n")
+    out = tmp_path / "release-wheelhouse"
+    if when == "unchanged":
+        inventory = module.stage_runtime_wheelhouse(
+            out,
+            repository,
+            runner=build,
+            source_commit=commit,
+            source_fingerprint=fingerprint,
+        )
+        assert inventory["status"] == "complete"
+    else:
+        with pytest.raises(module.StagingError, match="source changed"):
+            module.stage_runtime_wheelhouse(
+                out,
+                repository,
+                runner=build,
+                source_commit=commit,
+                source_fingerprint=fingerprint,
+            )
+        assert not (out / "inventory.json").exists()
+    for relative, content in runner.committed.items():
+        assert (repository / relative).read_bytes() == content

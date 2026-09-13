@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: ab222280e2d9cce01f94ebeb77f8a3a79952f41c
+translation_source_sha: 34d789d1c22888e2eee586b8932158cc883d153a
 translation_revised: 2026-09-13
 ---
 
@@ -38,13 +38,14 @@ translation_revised: 2026-09-13
 > 실행기의 정확한 registry 범위 `AcrPush` 배정은 서명된 공유 런타임 이미지만 가져옵니다. 이
 > 배정은 Cost Governance 패키지 입력이 아니며 패키지 설치, 활성화, 승격 또는 데이터 접근 권한
 > 부여에 사용할 수 없습니다.
-> Live-authoritative 설치, 활성화, 비활성화, 업그레이드, 두 번째 활성화 및 안전 비활성화 증적이
-> 현재 존재합니다. 첫 collector는 Azure Cost Management HTTP `429`로 실패했습니다. 업그레이드된
-> collector는 속도 제한을 통과하고 행 parsing에 도달했으며, 이 과정에서 숫자 0을 누락으로
-> 판단하는 원본 사실 truthiness 결함이 드러났습니다. 독립 효과 검증은 다시 실패했고 패키지는
-> 비활성 revision 6으로 돌아갔습니다. 수정 후 성공한 수집, 롤백, 최종 활성화, 관찰 실측군 및
-> 독립 승격 근거는 아직 완료되지 않았습니다. 패키지와 액션은 운영 검증 또는 승격 완료 상태가
-> 아닙니다.
+> Live-authoritative 수명 주기 증적은 검토된 casefold release의 revision 10과 11, revision 12의
+> 안전 비활성화, revision 13의 보존된 N-1 롤백, revision 14의 복원 upgrade 및 revision 15의 최종
+> 활성화를 포함합니다. 새로 만든 독립 소유 Core 및 Job 계획은 세 런타임을 각 exact digest로
+> 수렴시켰습니다. 복원된 collector는 독립적으로 `complete`를 반환했고 영속 cursor를 revision
+> 2로 전진시키면서 관찰 71개를 보존했습니다. 네 ActionType promotion row는 롤백 전 digest를
+> 유지했고 package Workflow는 계속 `shadow`입니다. 이는 live dev 롤백과 수집 복구를 검증하지만
+> 30일 campaign 또는 독립 promotion 검토를 검증하지는 않습니다. 패키지와 액션은 승격되지
+> 않았습니다.
 > 패키지 semantic profile과 parity corpus는 항상 active ontology release를 고정합니다. 가산
 > kernel 선언이 바뀌면 profile, manifest 및 fixture identity를 함께 갱신합니다.
 > 컨테이너 게시는 수동 디스패치 검증 코드를 실행하기 전에 보호된 워크플로 원본을 검증하고,
@@ -60,6 +61,10 @@ translation_revised: 2026-09-13
 > 이미지 집합을 결속하고 Genesis는 동일한 보호 소스 개정의 정확한 성공 후보만 재사용합니다.
 
 ## 설계 개요
+
+루트 개발 전용 Rich와 pyte 의존성은 독립 배포 CLI의 테스트 수집을 지원합니다. Cost
+Governance 배포판에 포함되거나 설치, 활성화, 승격 상태를 바꾸지 않으며, 런타임 이미지는
+계속 서비스 소유 의존성을 사용합니다.
 
 > **조립 격리:** 공유 Operator 경로 조립은 검증된 인수인계 바인딩으로 웹 대화 제안을 데코레이션할
 > 수 있습니다. 이 데코레이터는 Cost Governance 경로를 래핑하거나 패키지 활성화를 변경하거나 비용
@@ -316,6 +321,9 @@ Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 �
 수명 주기 영수증을 하나의 트랜잭션으로 추가합니다. 설치되지 않은 패키지를 설치하거나, 사용할 수
 없는 패키지를 사용할 수 있게 만들거나, 비용 데이터 접근 권한을 부여하거나, 작업을 승격할 수는
 없습니다.
+공유 Console 전송 계층은 명시적으로 분류된 source-gate 실패만 사용할 수 없는 변환 결과로
+처리합니다. 일반 `503`은 운영 오류로 유지하며 비용 거버넌스가 단순히 구성되지 않은 것처럼
+표시하는 데 사용할 수 없습니다.
 
 설치, 업그레이드 및 롤백은 비공개 배포 실행기의 별도 보호 워크플로를 사용합니다. 워크플로는
 수명 주기 함수를 호출하기 전에 보호된 `main`, 필수 CI, 정확한 release 소스, 서명된 이미지
@@ -326,6 +334,17 @@ Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 �
 정규 다이제스트가 포함됩니다. 같은 요청 ID를 다른 작업, 아티팩트, 소스 개정, 런타임 구성,
 행위자, 원하는 활성화 상태 또는 예상 개정에 재사용하면 멱등성 충돌로 처리됩니다. 입력이 정확히
 같은 재시도는 현재 활성화 상태를 다시 표시하지 않고 원래 증적을 반환합니다.
+
+독립 promotion 검토는 별도의 Core 소유 append-only 저장소와 보호된 workflow를 사용합니다.
+workflow는 최종 attested campaign 결과를 검증하고 exact 활성 package release로 준비 상태를 다시
+계산하며, 하나의 대상을 기록하기 전에 활성 pin을 다시 읽습니다. 각 검토는 모든 대상에 공통인
+campaign artifact digest, 대상별 report digest, 인증된 검토자 신원, 결정, 근거 설명, 근거 참조 및
+검토 시각을 연결합니다. 기록은 승인, 실행 및 promotion 권한을 `false`로 고정하며 package
+enablement나 `ActionType` 또는 `Workflow` mode를 변경할 수 없습니다.
+인증된 검토자는 대소문자를 구분하지 않고 attested campaign workflow의 최초 행위자 및 재실행
+행위자 모두와 달라야 합니다. 동일 요청 재생은 저장된 payload와 모든 정규화 열이 같은 동안에만
+멱등성을 인정합니다. 서버가 생성한 검토 및 보존 시각은 요청 입력이 아닙니다. 보존 기간이 같은
+재생은 원래 시각을 담은 증적을 반환합니다.
 
 ## 자율 런타임 인계
 
@@ -368,6 +387,7 @@ Rule 카탈로그 스냅샷 저장소와 초안 검토 전달은 공유 Core pla
 | 수명 주기 release guard를 평가할 수 없음 | transaction을 롤백하고 활성화 revision과 현재 pin을 바꾸지 않으며 성공 증적을 만들지 않습니다. |
 | Azure Cost Management가 `429`를 반환함 | 프로바이더가 유효한 재시도 대기 시간을 제공하고 그 시간이 요청 기한 안에 있을 때만 읽기를 한 번 재시도합니다. 그렇지 않으면 관측을 저장하기 전에 실패로 종료합니다. |
 | 비용 행에 숫자 0이 포함됨 | 0을 유효한 측정 사실로 보존합니다. 필수 field가 없거나 `null` 또는 빈 문자열일 때만 누락으로 판단합니다. |
+| 프로바이더 서비스 레이블의 대소문자가 배포 허용 목록과 다름 | 프로바이더 레이블의 앞뒤 공백을 제거하고 case-fold 처리한 뒤 정규 허용 목록과 비교합니다. 실제로 알 수 없는 서비스는 cursor를 쓰기 전에 계속 실패합니다. |
 | 오래되거나 불완전한 비용 관측 | 탐지기는 결과를 보류하거나 알 수 없음 근거를 명시적으로 내보냅니다. |
 | 추정기 시간 초과 또는 지원되지 않는 SKU | 비용을 알 수 없는 상태로 유지하며 권한을 높이지 않습니다. |
 | 작업 중 패키지 비활성화 | 새 후보는 중단하고 수락된 작업은 기존의 safe-to-retry 수명 주기를 따라 최종 감사에 도달합니다. |

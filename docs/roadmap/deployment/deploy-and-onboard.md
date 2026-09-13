@@ -50,8 +50,8 @@ For a fresh database, supply its administrator password through the protected in
 
 [The genesis foundation root](../../../infra/genesis-foundation/) manages both resource groups, the private state account, and the `tfstate` and `deployment-plans` containers through ARM, including blob protection, and reuses bootstrap's network, deployment identity, and runner without account-key lookup. The optional Standard Bastion subnet uses the complete Azure-required inbound and outbound Network Security Group rule set; a missing platform rule blocks tunnel creation.
 For a new platform state, `foundation_resource_group_context_digest` selects reference-only ownership and verifies the foundation tag and region. Existing state ownership changes still require a separately reviewed handoff.
-`fdaictl provision plan --stage foundation` is a private dry run. Genesis authenticates separate Terraform archive/executable digests and
-selects [compatible image VM SKUs](subscription-genesis-assurance.md#foundation-and-external-control-planes) before planning.
+`fdaictl provision plan --stage foundation` is a private dry run with a local backend; the exact state-migration archive activates the signed AzureRM backend example only for the attested host. Genesis authenticates separate Terraform archive/executable digests and
+discovers [compatible image and host VM SKUs](subscription-genesis-assurance.md#foundation-and-external-control-planes) from the complete regional catalog before planning, retaining the managed-image and ephemeral-host disk distinction.
 Image/Foundation apply, Bastion enrollment, and verified state migration require exact approval; application deployment and readiness remain open in the [Genesis ledger](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md).
 
 A tenant whose Azure Policy denies part of the inventory also needs either an exemption or the
@@ -433,7 +433,7 @@ later stage with a broken earlier one.
   projections. A management-plane prebind or prestart is accepted only when readback proves the
   digest-pinned image and latest successful execution; the VNet runner then compares every expected
   repository projection with PostgreSQL before reporting success. The protected model Settings workflow refreshes the model projection, creates a missing runtime Settings row without replacing existing runtime evidence, and verifies both environment-bound rows in a read-only transaction so a fresh Console can render setup controls.
-- **Cost Governance profile and post-deploy checks**: `plan-cost-*` and `apply-cost-*` request identities bind one exact digest-pinned Cost Governance image to the collector and analyzer Jobs without changing package enablement or action mode. The platform apply proves a targeted zero-change plan and independently reads both Job images into one content-addressed receipt. A separate protected Core service plan binds that same image to Core. The package-only platform path does not run Core-owned migrations, Core health, legacy inventory, or canary checks.
+- **Cost Governance profile and post-deploy checks**: `plan-cost-*` and `apply-cost-*` request identities bind one exact digest-pinned Cost Governance image to Core plus its two Jobs without changing package enablement or action mode. Post-deploy smoke tests and the synthetic canary remain defined in [operating-and-verification.md](../operations/operating-and-verification.md).
 
 ## Distribution and Deployment Responsibility Matrix
 
@@ -578,7 +578,7 @@ The Azure forwarding mechanism must preserve the no-shared-secret boundary. Do n
 local authentication only to satisfy a Diagnostic Settings export. When the selected Azure signal source
 cannot publish with managed identity, use the bounded Activity Log recovery reader until an approved push
 transport is available. The adaptive Inventory Job reads validated policy before each coordinator run,
-keeps explicitly re-exported immutable synchronization records in the same Core image, reports failures independently, and advances overdue reconciliation. The module split adds no service, identity, or state writer.
+builds runtime-call, Resource Health, Static Web App, and Kubernetes enrichment through one shared ordered support boundary, and advances overdue reconciliation. The module split adds no service, identity, or state writer.
 
 ## Verification After Provisioning
 

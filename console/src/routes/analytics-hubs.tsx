@@ -14,7 +14,11 @@ import { t } from "./i18n/analytics";
 import { currentRoute, routeHref } from "../router";
 import type { ConsoleDataMode } from "../console-data-mode";
 import { formatShare } from "./dashboard.model";
-import { useAnalyticsData, type AnalyticsData } from "./analytics-data";
+import {
+  useAnalyticsData,
+  useAutonomyData,
+  type AnalyticsData,
+} from "./analytics-data";
 import { buildOperatingOutcomeViewSnapshot } from "./analytics-hubs.view";
 import { ControlAssuranceBody } from "./control-assurance";
 import { VerticalOutcomesBody } from "./vertical-outcomes";
@@ -165,14 +169,18 @@ export function ControlAssuranceRoute({ client, dataMode }: Props) {
 }
 
 export function VerticalOutcomesRoute({ client, dataMode }: Props) {
-  const state = useAnalyticsData(client, { dataMode });
+  const state = useAutonomyData(client, dataMode);
   return (
     <div class="stack analytics-route">
       <PageHeader title={t("analytics.verticals.title")} subtitle={t("analytics.verticals.subtitle")} />
       <AsyncBoundary state={state} resourceLabel={t("analytics.verticals.title")}>
-        {(data) => data.autonomy ? (
-          <VerticalOutcomesBody autonomy={data.autonomy} context={searchParamsRecord(currentRoute().search)} evidence={<EvidenceStrip autonomy={data.autonomy} />} />
-        ) : <UnavailableState message={t("analytics.autonomyUnavailable")} />}
+        {(autonomy) => (
+          <VerticalOutcomesBody
+            autonomy={autonomy}
+            context={searchParamsRecord(currentRoute().search)}
+            evidence={autonomy ? <EvidenceStrip autonomy={autonomy} /> : null}
+          />
+        )}
       </AsyncBoundary>
     </div>
   );

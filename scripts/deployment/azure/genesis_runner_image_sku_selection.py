@@ -24,6 +24,8 @@ from genesis_runner_image_skus import (
     require_selection_projection,
     selection_sizes,
 )
+from genesis_vm_sku_image import recheck_catalog_image_inputs, select_catalog_image_inputs
+from genesis_vm_sku_preflight import POLICY_NAME
 
 SKU_EVIDENCE_NAME = "runner-image-sku-evidence.json"
 QUOTA_EVIDENCE_NAME = "runner-image-quota-evidence.json"
@@ -54,6 +56,16 @@ def select_image_vm_inputs(
     never touches an existing plan, apply claim, Foundation selection, or provider resource.
     """
 
+    if (terraform_root / POLICY_NAME).exists() or (terraform_root / POLICY_NAME).is_symlink():
+        return select_catalog_image_inputs(
+            inputs,
+            terraform_root=terraform_root,
+            destination=destination,
+            azure_cli=azure_cli,
+            capture=capture,
+            cwd=cwd,
+            environment=environment,
+        )
     policy = parse_sku_policy(
         read_private_bytes(terraform_root / "sku-policy.json", max_bytes=16_384)
     )
@@ -113,6 +125,17 @@ def recheck_image_vm_inputs(
     }
     if selection is None:
         verify_image_vm_skus(projection, **context)
+        return
+    if (
+        isinstance(selection, dict)
+        and selection.get("schema_version") == "fdai.runner-image-sku-selection.v2"
+    ):
+        recheck_catalog_image_inputs(
+            projection,
+            selection=selection,
+            terraform_root=terraform_root,
+            **context,
+        )
         return
     builder, verifier = selection_sizes(selection)
     require_selection_projection(projection, region=region, selection=selection)
