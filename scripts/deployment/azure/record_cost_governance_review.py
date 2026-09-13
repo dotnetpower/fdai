@@ -117,8 +117,7 @@ async def record_cost_promotion_review(
         ),
         retention_until=reviewed_at + timedelta(days=retention_days),
     )
-    inserted = await store.append_cost_promotion_review(review)
-    return review, inserted
+    return await store.append_cost_promotion_review(review)
 
 
 def _parser() -> argparse.ArgumentParser:

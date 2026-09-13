@@ -214,8 +214,13 @@ async def test_promotion_review_round_trip_and_request_replay(
     store = PostgresCostPromotionReviewStore(dsn=disposable_database_url)
     review = _review()
 
-    assert await store.append_cost_promotion_review(review) is True
-    assert await store.append_cost_promotion_review(review) is False
+    assert await store.append_cost_promotion_review(review) == (review, True)
+    replay_candidate = replace(
+        review,
+        reviewed_at=review.reviewed_at + timedelta(hours=1),
+        retention_until=review.retention_until + timedelta(hours=1),
+    )
+    assert await store.append_cost_promotion_review(replay_candidate) == (review, False)
     assert await store.read_cost_promotion_reviews(
         campaign_id=review.campaign_id,
         revision_pin_digest=review.revision_pin_digest,
@@ -230,7 +235,7 @@ async def test_promotion_review_round_trip_and_request_replay(
             "UPDATE cost_governance_promotion_review SET target_id = %s WHERE review_id = %s",
             ("remediate.tag-add", review.review_id),
         )
-    with pytest.raises(ValueError, match="request id conflicts"):
+    with pytest.raises(RuntimeError, match="columns do not match payload"):
         await store.append_cost_promotion_review(review)
     with pytest.raises(RuntimeError, match="columns do not match payload"):
         await store.read_cost_promotion_reviews(

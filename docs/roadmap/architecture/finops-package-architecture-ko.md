@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 0b8d270ee051a2c63fadaf2a4b2fea5067304669
+translation_source_sha: 34d789d1c22888e2eee586b8932158cc883d153a
 translation_revised: 2026-09-13
 ---
 
@@ -343,7 +343,8 @@ campaign artifact digest, 대상별 report digest, 인증된 검토자 신원, �
 enablement나 `ActionType` 또는 `Workflow` mode를 변경할 수 없습니다.
 인증된 검토자는 대소문자를 구분하지 않고 attested campaign workflow의 최초 행위자 및 재실행
 행위자 모두와 달라야 합니다. 동일 요청 재생은 저장된 payload와 모든 정규화 열이 같은 동안에만
-멱등성을 인정합니다.
+멱등성을 인정합니다. 서버가 생성한 검토 및 보존 시각은 요청 입력이 아닙니다. 보존 기간이 같은
+재생은 원래 시각을 담은 증적을 반환합니다.
 
 ## 자율 런타임 인계
 

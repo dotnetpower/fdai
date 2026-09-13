@@ -211,7 +211,9 @@ rationales, evidence references, and review times. These records grant no approv
 promotion authority and cannot update package or target lifecycle state.
 The authenticated reviewer must differ, case-insensitively, from the attested campaign run's
 original actor and any rerun actor. A request-id replay succeeds only when both the immutable
-payload and its normalized persisted columns still match the proposed review.
+payload and its normalized persisted columns still match the proposed review. Server-generated
+review and retention timestamps are excluded from request identity; the retained duration must
+match, and an exact replay returns the original receipt.
 
 Cost delivery adds a content-free disclosure receipt before returning data. Its separate retention
 envelope keeps the immutable receipt for 400 days, adds a 30-day purge grace, supports revisioned

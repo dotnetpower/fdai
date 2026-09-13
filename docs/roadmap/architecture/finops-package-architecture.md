@@ -352,7 +352,9 @@ approval, execution, and promotion authority to `false`; it cannot change packag
 `ActionType` or `Workflow` mode.
 The authenticated reviewer must differ, case-insensitively, from both the original and rerun actors
 of the attested campaign workflow. An exact request replay is idempotent only while the stored
-payload and every normalized column remain identical.
+payload and every normalized column remain identical. Server-generated review and retention
+timestamps are not request inputs; a replay with the same retention duration returns the original
+timestamped receipt.
 
 ## Autonomous runtime handoff
 

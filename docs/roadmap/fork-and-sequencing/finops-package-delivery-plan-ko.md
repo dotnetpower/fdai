@@ -1,7 +1,7 @@
 ---
 title: FinOps 패키지 전달 계획
 translation_of: finops-package-delivery-plan.md
-translation_source_sha: 06557a1c1e20e40100c762c93a0cf99244ec78a5
+translation_source_sha: 3e3305f7719d7d475faea2b8ecc7386e769c62b5
 translation_revised: 2026-09-13
 ---
 
@@ -238,7 +238,8 @@ campaign이 `ready=true`를 반환하면 별도의 보호된 검토 경계가 �
 수행하려면 별도로 승인된 변경이 필요합니다.
 검토자는 대소문자를 구분하지 않고 attested campaign workflow의 최초 행위자 및 재실행 행위자
 모두와 달라야 합니다. 요청 ID 재생은 영속 payload와 모든 정규화 열이 제안된 검토와 계속 일치할
-때만 허용됩니다.
+때만 허용됩니다. 생성된 검토 및 보존 시각은 요청 신원을 바꾸지 않습니다. 보존 기간은 일치해야
+하며 재시도는 원래 증적을 반환합니다.
 
 ## 검증 매트릭스
 

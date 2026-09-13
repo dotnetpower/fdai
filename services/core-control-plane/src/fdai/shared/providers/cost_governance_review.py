@@ -132,7 +132,10 @@ class CostPromotionReview:
 class CostPromotionReviewStore(Protocol):
     """Append and read review-only records without promotion authority."""
 
-    async def append_cost_promotion_review(self, review: CostPromotionReview) -> bool: ...
+    async def append_cost_promotion_review(
+        self,
+        review: CostPromotionReview,
+    ) -> tuple[CostPromotionReview, bool]: ...
 
     async def read_cost_promotion_reviews(
         self,
