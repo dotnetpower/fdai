@@ -77,6 +77,7 @@ Knowledge surfaces (ontology + trace):
 | [skills.html](skills.html) | Runtime skill packages, dependencies, agent eligibility, bundles, and load diagnostics |
 | [context-selection-comparisons.html](context-selection-comparisons.html) | Baseline and candidate context-policy evaluation with token, overlap, pinned-evidence, latency, and failure facts |
 | [scope.html](scope.html) | Effective monitoring and action scope with independent IAM and executor boundaries |
+| [observation-affinity.html](observation-affinity.html) | Soft observation preferences with explicit resource-group and resource selection from a validated synthetic ontology-instance snapshot, exact-identity review, source-gap states, and page-local rule creation and pause. No ARG or runtime provider queries; changes reset on reload. |
 
 Evidence and governed-source surfaces:
 
@@ -139,6 +140,12 @@ Report and kit:
   select and menu behavior, code copy feedback, drawers, notifications, calendar selection, and
   chart detail modals; no privileged calls. Direct page loads render the full navigation.
   Pages embedded by the kit landing suppress their local shell so the navigation is not nested.
+- [assets/governance-workspace.css](assets/governance-workspace.css) and
+  [assets/governance-workspace.js](assets/governance-workspace.js) - the current Clear neutral
+  presentation for all Governance previews, reusing the Operator workspace foundation.
+  These preserve authored evidence and authority boundaries while normalizing headings,
+  controls, selectable records, source notices, and keyboard-accessible table scrolling.
+  A theme attribute alone does not load this presentation layer.
 - [assets/live.js](assets/live.js) - Live cockpit only. Generates synthetic control-plane events,
   routes them through T0 / T1 / T2 with the roadmap's distribution, stops non-executable paths
   before execution and effect observation, and reports omitted synthetic attempts when the preview
@@ -174,6 +181,16 @@ Content containers never use colored top or left edge accents. This includes KPI
 severity rails, inset selection rails, and pseudo-element strips. Put status in text, icons,
 pills, a complete neutral or softly tinted border, or a subtle whole-surface tint. Position-based
 mechanics such as navigation selection, chart edges, progress, and focus outlines remain valid.
+
+Governance preview checks run through the existing Console Playwright harness:
+
+```bash
+npm --prefix console run test:e2e:quick -- tests/e2e/governance-current-mock.spec.ts tests/e2e/observation-affinity-mock.spec.ts
+```
+
+The checks exercise the actual master iframe and current computed theme, not a gallery substitute.
+Desktop checks precede constrained and mobile validation. They use synthetic local assets only,
+without querying Azure or invoking operational APIs.
 
 ## Palette
 
