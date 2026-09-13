@@ -33,6 +33,7 @@ from genesis_foundation_apply_contract import (
     load_apply_receipt,
     require_same_effect,
 )
+from genesis_foundation_workspace import verify_execution_copy
 from genesis_subprocess import run_with_heartbeat
 from genesis_vm_sku_preflight import recheck_foundation_vm
 
@@ -291,14 +292,7 @@ def _prepare_verified_snapshot(
             temporary.cleanup()
             raise ValueError("Foundation apply persistent bundle is invalid")
         persistent_root = candidates[0]
-        persisted = verify_bundle(
-            persistent_root,
-            public_key_pem=bundle_key,
-            cli_version=__version__,
-        )
-        if persisted.manifest_digest != context["deployment_bundle_digest"]:
-            temporary.cleanup()
-            raise ValueError("Foundation apply persistent bundle changed")
+        verify_execution_copy(persistent_root, authenticated_source=extracted)
     else:
         persistent_bundle.mkdir(mode=0o700)
         persistent_root = persistent_bundle / extracted.name
