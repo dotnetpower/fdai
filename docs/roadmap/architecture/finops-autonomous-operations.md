@@ -202,6 +202,9 @@ protected objective. The source batch cannot declare `live-authoritative`, appro
 authority. Only the allowlisted protected importer assigns the evidence class after matching the
 current revision pin and bounded policy. It then evaluates package activation, each package-owned
 `ActionType`, and each package-owned `Workflow` independently.
+Retained campaign replay joins each episode to its retention envelope and orders only by qualified
+episode observation time, identity, and revision. Retention metadata cannot make an otherwise
+valid empty or populated campaign read ambiguous.
 
 After all six results are review-ready, the protected review workflow verifies the attested final
 campaign artifact, recomputes the same result with the exact active release, and re-reads the pin
