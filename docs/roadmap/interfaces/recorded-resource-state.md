@@ -240,6 +240,8 @@ the exact ResourceTypes whose ARM type is supported:
 - Runtime primary-state validation includes configuration Resources with no operational or
   availability source. These nodes show exact provisioning when present and retain explicit
   evidence-gap labeling only when every recorded axis lacks a useful exact fact.
+- A state-ingestion hardening completion claim records each bounded review round and requires an
+  independent follow-up with no unresolved Critical, High, or Medium finding.
 
 ## Rejected alternatives
 
