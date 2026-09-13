@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime, timedelta
 from functools import partial
 from pathlib import Path
@@ -32,6 +32,7 @@ from fdai.core.rule_semantic_generation import (
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.metric_window import ProviderMetricWindowReader
+from fdai.delivery.operational_lineage import EffectReconciliationLineageMaterializer
 from fdai.delivery.persistence.postgres_topology_history import PostgresTopologyHistoryStore
 from fdai.runtime.bootstrap import (
     _RUNTIME_LOGICAL_TOPICS,
@@ -222,7 +223,7 @@ def test_runtime_multiplexes_rule_generation_lifecycle_channels() -> None:
 
 
 class _MetricProvider:
-    async def query(self, _query: MetricQuery):
+    async def query(self, _query: MetricQuery) -> AsyncIterator[MetricPoint]:
         if False:
             yield MetricPoint(
                 metric_name="unused",
@@ -316,6 +317,24 @@ def test_effect_reconciliation_binding_builds_configured_worker() -> None:
     )
 
     assert worker is not None
+    assert worker._lineage_materializer is None
+
+
+def test_effect_reconciliation_binding_includes_complete_lineage_materializer() -> None:
+    worker = build_effect_reconciliation_worker(
+        state_store=InMemoryStateStore(),
+        event_bus=LocalEventBus(),
+        artifact_resolver=object(),  # type: ignore[arg-type]
+        observation_verifier=object(),  # type: ignore[arg-type]
+        ontology_instance_store=object(),  # type: ignore[arg-type]
+        environment={},
+    )
+
+    assert worker is not None
+    assert isinstance(
+        worker._lineage_materializer,
+        EffectReconciliationLineageMaterializer,
+    )
 
 
 def test_reconciliation_request_binding_requires_complete_producer_sources() -> None:

@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 8748098578a4ed4b2a37b3ad9412d60772833ea6
-translation_revised: 2026-08-31
+translation_source_sha: 9733fa4581d775387b1ff58b9afc6a954fb4ac1f
+translation_revised: 2026-09-13
 ---
 # 운영 학습 온톨로지
 
@@ -20,25 +20,6 @@ translation_revised: 2026-08-31
 > 되지 않습니다. 재사용 단위는 민감정보 제거되고 내용 기반 주소를 가진된 증거가 뒷받침하는
 > 범용 실패 방식입니다.
 >
-> **구현 상태(2026-08-01):** O0부터 O7까지 코어 계약과 런타임 주입 경계를 구현했습니다.
-> 변경 불가능한 operational-case
-> 입력은 허용 목록된 감사, 액션, response-outcome, evaluation 증적 사실을 정본 출처로
-> compile하고, 기존 case-history 쓰기 담당이 `ACTION` 및 `INCIDENT` 개정 번호를 봉인합니다. Muninn은
-> sealed 변환 결과를 실패 지문별로 묶고, Norns는 기존 합의 및 비율 한도 경로로
-> balanced inert 후보를 발행합니다. Operational T1 reuse는 현재 근거를 요구하고 causal 및
-> Dynamic grade는 권위 있는 증적을 요구하며 승격은 검증된 변경할 수 없는 O7 증적을 요구합니다.
-> O3는 이제 완전한 배포 구성이 있을 때 결정론적 고정 시나리오 검증기와 비활성 초안 PR
-> 발행기를 연결합니다. O7에는 엄격한 변경 불가능 파일 근거 원본, 매니페스트에 바인딩된 causal
-> 및 측정 단위 검증기, 영속 증적 저장소, 일회성 측정 작업이 있습니다. Heimdall은 typed 최종
-> ActionRun 관측 경로와 Azure Container Apps `ops.scale-out` collector를 갖추었고 배포는
-> signed-context issuer, 완전한 Forseti 소유 lineage 입력, 작업별 live 근거를 계속 제공합니다.
-> Mimir는 owned 룰 토픽으로 검토 결과를 발행하고 Saga는
-> owned 감사 토픽에 이를 봉인합니다.
-> 재현된 의미 수집 실패는 Huginn을 통해 들어와 Heimdall-owned 독립적인 검증
-> 근거가 되고 Saga가 감사하며 Muninn이 context-index 토픽으로 materialize합니다. Norns는 shadow
-> 감사가 포함된 challenger-only StateStore 기록으로 저장한 뒤 일반 합의 및 Mimir 후보
-> 가드를 재사용합니다. Raw 조회 텍스트와 online 순위 변경은 계속 제외됩니다.
-
 ## 한눈에 보는 설계
 
 FDAI는 두 계층으로 학습합니다. **Operational 사례**는 관측, 결정, 시도, 검증, 롤백을
@@ -392,62 +373,11 @@ Terraform은 `operational_promotion_measurement_enabled=true`일 때만 Containe
 `operational_promotion_evidence_root`, 상대 경로인 `operational_promotion_manifest`도 제공합니다.
 작업은 기존 managed identity와 Key Vault 기반 StateStore DSN을 재사용합니다. 측정하고 증적을
 저장할 뿐 카탈로그, 승격 registry 또는 실행기 권한은 갖지 않습니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| O0-O1 사례 계약 및 변환 결과 | implemented | `services/core-control-plane/src/fdai/core/case_history/`; `services/core-control-plane/tests/core/case_history/test_operational_case.py`; `test_service.py` | 불변 입력, 정본 지문, 부정적 결과, 수정본, 영속성을 검증합니다. |
-| O2 코호트 학습 | implemented | `services/core-control-plane/src/fdai/core/operational_learning/patterns.py`; `services/core-control-plane/tests/agents/test_operating_pattern_learning_e2e.py`; `test_norns_operating_pattern.py` | Muninn은 범위가 제한된 코호트를 봉인하고 Norns는 합의를 통해 균형 잡힌 비활성 후보만 발행합니다. |
-| O3 카탈로그 컴파일 | implemented | `services/core-control-plane/src/fdai/core/operational_learning/catalog.py`; `services/core-control-plane/src/fdai/delivery/gitops_pr/catalog_validator.py`; `catalog_review.py`; `services/core-control-plane/src/fdai/runtime/operational_catalog_review.py`; 집중 O3 테스트 | 완전한 구성이 있으면 기존 Rule 스키마 검증, 결정론적 고정 replay, 회귀 및 정책 검사, 내용 기반 주소가 지정된 비활성 초안 PR을 연결합니다. 구성이 없거나 일부만 있으면 사용할 수 없는 상태를 유지하거나 시작을 차단합니다. |
-| O4 현재 근거 T1 재사용 | implemented | `services/core-control-plane/tests/core/tiers/t1_lightweight/test_contextual_reuse.py`; `tests/core/test_control_loop_t1_wire.py` | 현재 근거가 누락되거나 오래됐거나 변경됐거나 안전하지 않으면 변경 없이 검토 대기합니다. |
-| O5-O6 Azure 근거 연결 | validated | [제공 계획](#제공-계획); `services/core-control-plane/src/fdai/delivery/azure/operational_evidence.py`; 집중 전달 테스트 | 저장소에 기록된 비운영 AKS 및 읽기 전용 Azure 훈련이 운영 환경 주장을 하지 않으면서 필요한 운영 근거를 제공합니다. |
-| O7 승격 측정 | implemented | `services/core-control-plane/src/fdai/core/measurement/operational_promotion.py`; `operational_promotion_runner.py`; `services/core-control-plane/src/fdai/delivery/measurement/{operational_promotion_evidence.py,operational_promotion_batch.py}`; `measurement_runner_cli.py`; `infra/modules/measurement-runners/`; 집중 O7 테스트 및 Terraform 검증 | exact-digest consumer, 매니페스트 검증기, 영속 영수증 저장소, opt-in 작업 및 governed batch producer를 구현했습니다. Producer는 변경할 수 없는 frozen-benchmark 레코드를 필수로 받아 live-shadow 레코드와 함께 구성하며 promotion state를 변경하지 않습니다. 작업별 관측 일수, 신뢰도 표본 및 인증된 runtime 증적은 아직 부족합니다. |
-| 통제된 사례-승격 구성 | implemented | `core/operational_learning/{eligible_outcome,patterns,catalog,promotion_review}.py`; `tests/agents/test_governed_learning_loop.py`; 고정된 `v2026.08` 시나리오 | 정확한 출처 및 증적 계보를 불변 사례로 봉인하고 Norns와 Mimir가 전체 부정 행렬을 독립적으로 거부합니다. 후보 게시는 비활성 상태를 유지하며 독립적으로 검토한 재생만 영속 승격 레지스트리에 권한을 부여할 수 있습니다. |
-| Evaluation adapter case 입력 | deferred | [Benchmark adapter 휴면 상태](../interfaces/benchmark-adapters-ko.md#휴면-상태) | 현재 EvaluationHost 또는 adapter runtime이 case 입력을 방출할 수 없습니다. Semantic golden dataset은 case history와 learning 밖에 유지됩니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-08-31 | implemented | 하나의 고정 릴리스에서 적격 결과, 불변 사례, 이벤트 버스 후보 게시, 독립 Norns/Mimir 검토, 검토된 재생 승격을 구성했습니다. 게시는 권한을 부여하지 않으며 재시작, 중복, 롤백 근거, 릴리스 불일치, 강등은 안전하게 닫힙니다. | `current change`; 고정된 `v2026.08` 시나리오를 포함한 Story #370 집중 회귀 검사 119개 통과. | 운영 검증을 주장하기 전에 작업별 live 근거와 통제된 배포 증적을 보존합니다. |
-| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 제공 계획 근거와 구현 범위 표의 집중 소스 및 테스트. | 배포 연결과 O7 작업별 근거 임계값을 완성합니다. |
-| 2026-08-21 | deferred | 현재 트리에 호스트 통합이 없음을 확인한 뒤 evaluation 입력 설명을 정정했습니다. 새로운 semantic golden dataset은 operational-case 및 promotion authority 밖에 유지했습니다. | `current change`, benchmark adapter 휴면 상태 결정, `eval/golden-dataset/`, 집중 dataset contract 검사 | 통제된 호스트와 canonical case-input 증적을 복원할 때만 adapter 입력을 다시 엽니다. |
-| 2026-08-23 | implemented | O3를 기존 Rule loader, shadow evaluator, regression gate, 초안 전용 GitOps adapter에 연결했습니다. 게시된 artifact는 내용 기반 주소를 가지며 초안 Rule 또는 ActionType을 활성화할 수 없습니다. | `current change`; `delivery/gitops_pr/{catalog_validator,catalog_review}.py`; `runtime/operational_catalog_review.py`; 집중 O3 테스트 통과 | 구성된 배포에서 관리되는 초안 PR 증적을 보존합니다. |
-| 2026-08-23 | in-progress | exact-digest O7 근거 consumer, 매니페스트 바인딩 causal 및 측정 단위 검증기, 영속 증적 저장, opt-in `operational-promotion` Container Apps 작업을 추가했습니다. | `current change`; `delivery/measurement/operational_promotion_evidence.py`; `delivery/measurement_runner_cli.py`; `infra/modules/measurement-runners/`; 집중 O7 테스트 및 Terraform 검증 통과 | 관리되는 live-batch producer를 구현한 뒤 작업별 batch를 공급하고 관측 및 재발 구간을 닫습니다. |
-| 2026-08-24 | implemented | 순서가 고정된 완전한 `expected_effect_refs` 집합을 보존하고 효과마다 하나의 독립 ObservedOutcome을 요구해 일대다 `expects` 관계와 런타임 계보를 조정했습니다. 단일 속성만 있는 저장 레코드는 하나의 효과로 읽고, 단일 및 복수 필드가 동시에 있으면 안전하게 차단하며, 새 쓰기는 복수 필드를 사용합니다. | `current change`; `hypothesis_lineage.py`; `ActionOption.yaml`; 집중 계보 및 운영 가설 competency 검사 15개 통과. | Projector를 연결하기 전에 남은 실제 계보 속성과 런타임 생산자를 제공합니다. |
-| 2026-08-27 | implemented | 기존 O7 exact-digest source가 소비할 수 있는 canonical batch와 manifest를 생성하는 governed live-shadow batch producer를 추가했으며 promotion state는 변경하지 않습니다. | `current change`; `delivery/measurement/operational_promotion_batch.py` 및 producer/consumer 집중 검사 통과. | 배포 소유 작업 증적을 공급하고 완전한 live 일수, 재발, 신뢰도 및 인증된 검토 증적을 보존합니다. |
-| 2026-08-27 | implemented | live batch producer가 frozen-benchmark 코호트를 불변으로 구성하면서 live-shadow 분류와 exact-digest consumer 계약을 유지하도록 했습니다. | `current change`; 집중 O7 producer/consumer 검사 통과. | 배포 소유 작업 증적을 공급하고 완전한 live 일수, 재발, 신뢰도 및 인증된 검토 증적을 보존합니다. |
-| 2026-08-27 | implemented | Producer가 benchmark 근거를 요구하고 불변으로 유지하며 live-shadow 근거로 재분류하지 않도록 강화했습니다. | `current change`; 집중 O7 producer/consumer adversarial 검사 통과. | 배포 소유 작업 증적을 공급하고 완전한 live 일수, 재발, 신뢰도 및 인증된 검토 증적을 보존합니다. |
-| 2026-08-28 | implemented | 실제 시각을 사용하는 advancing clock에서의 재시도가 더 이상 충돌하는 게시로 오인되지 않도록 O7 live-batch producer를 강화했습니다. 이제 매번 새로운 시각을 발급하는 대신 이미 sealed된 batch의 `sealed_at`을 재사용하며, 충돌 시 손상된 파일을 남길 수 있던 raw exclusive write 대신 atomic temp-file rename으로 batch와 manifest를 게시하고, 하나의 ActionType에 대한 게시 순서를 exclusive per-stem 잠금으로 직렬화합니다. | `current change`; `delivery/measurement/operational_promotion_batch.py`; 집중 O7 batch 재시도, atomic-게시, 충돌 검사(`4 passed`); Ruff, formatter 및 strict mypy | 배포 소유 작업 증적을 공급하고 완전한 live 일수, 재발, 신뢰도 및 인증된 검토 증적을 보존합니다. |
-
-### 남은 작업
-
-- [x] O3 운영 검증기와 pull request 게시자를 연결했습니다. 집중 컴파일러, Mimir, 게시자,
-   재시도, 감사, 멱등성 검사가 로컬 종단 경로를 증명합니다. 배포 PR 증적은 구현 작업이 아니라
-   운영 검증으로 남습니다.
-- [ ] 배포 소유 signed-context issuer를 연결하고 Forseti 소유 causal lineage projection에 필요한
-   누락 planning 속성을 보존합니다. Exact-plan resolver, Heimdall typed producer, Azure scale-out
-   collector, 검증된 mailbox, O7 근거 원본과 증적 검증기는 구현됐지만 완전한 lineage record를
-   materialize할 runtime producer는 아직 없습니다.
-- [x] Catalog의 일대다 `expects` 관계와 런타임 계보를 조정했습니다. 새로운 계보 쓰기는 순서가
-   고정된 완전한 `expected_effect_refs` 집합과 효과마다 하나의 독립 결과를 요구합니다. 단일
-   속성만 있는 저장 레코드는 하나의 효과로 읽고, 단일 및 복수 필드가 동시에 있으면 안전하게
-   차단합니다. 집중 카탈로그 기반 테스트는 metric 하나를 선택하거나 날조하지 않고 선택된
-   option의 모든 effect를 보존합니다.
-- [ ] 승격 검토에 필요한 O7 작업별 live 일수, 표본 크기, 완전한 재발 구간, Wilson 경계, 위반 0건 근거를 누적합니다.
-- [x] 하나의 고정 릴리스에서 사례-후보-검토된 승격 경로와 재시작, 중복, 롤백,
-  릴리스 불일치, 강등 근거를 완성하여 [이슈 #370](https://github.com/dotnetpower/fdai/issues/370)을
-  완료했습니다.
-- [ ] Evaluation 호스트 통합을 다시 활성화하면 adapter 결과가 canonical operational-case 증적만
-   통과하고 golden-answer 성공을 promotion evidence로 취급할 수 없음을 입증합니다.
-
 ## 관련 문서
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md) |
 | 공유 서비스, 목표, 결정, 효과 의미 | [FDAI 운영 온톨로지](../architecture/operating-ontology-ko.md) |
 | 변경할 수 없는 사례 개정 번호와 통제된 analysis | [Prediction learning and 사례 이력](prediction-learning-and-case-history-ko.md) |
 | 액션 안전성 및 승격 필드 | [액션 온톨로지](../decisioning/action-ontology-ko.md) |
