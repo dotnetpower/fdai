@@ -33,9 +33,15 @@ class _Store:
     def __init__(self) -> None:
         self.reviews: list[CostPromotionReview] = []
 
-    async def append_cost_promotion_review(self, review: CostPromotionReview) -> bool:
+    async def append_cost_promotion_review(
+        self,
+        review: CostPromotionReview,
+    ) -> tuple[CostPromotionReview, bool]:
+        for persisted in self.reviews:
+            if persisted.request_id == review.request_id:
+                return persisted, False
         self.reviews.append(review)
-        return True
+        return review, True
 
     async def read_cost_promotion_reviews(
         self,
@@ -102,6 +108,45 @@ async def test_recorder_appends_one_exact_authority_neutral_target(tmp_path: Pat
     assert review.approval_authority is False
     assert review.execution_authority is False
     assert review.promotion_authority is False
+
+
+async def test_recorder_replays_the_original_review_timestamp(tmp_path: Path) -> None:
+    readiness = tmp_path / "readiness.json"
+    _readiness(readiness)
+    target = load_ready_cost_review_target(
+        readiness,
+        target_kind=CostReviewTargetKind.ACTION_TYPE,
+        target_id="remediate.right-size",
+    )
+    store = _Store()
+    first, first_inserted = await record_cost_promotion_review(
+        ready_target=target,
+        request_id="cost-review-right-size-replay-r1",
+        reviewer_identity="github:reviewer-example",
+        decision=CostReviewDecision.RECOMMEND,
+        rationale="The exact campaign meets every review gate.",
+        reviewed_at=_NOW,
+        retention_days=400,
+        evidence_refs=("workflow:123:1",),
+        store=store,
+    )
+
+    replayed, replay_inserted = await record_cost_promotion_review(
+        ready_target=target,
+        request_id="cost-review-right-size-replay-r1",
+        reviewer_identity="github:reviewer-example",
+        decision=CostReviewDecision.RECOMMEND,
+        rationale="The exact campaign meets every review gate.",
+        reviewed_at=_NOW.replace(hour=1),
+        retention_days=400,
+        evidence_refs=("workflow:123:1",),
+        store=store,
+    )
+
+    assert first_inserted is True
+    assert replay_inserted is False
+    assert replayed == first
+    assert len(store.reviews) == 1
 
 
 def test_recorder_rejects_blocked_or_missing_targets(tmp_path: Path) -> None:

@@ -236,7 +236,9 @@ authority to `false`. A batch decision cannot stand in for another target, and a
 still requires a separately approved change before package activation or target promotion.
 The reviewer must differ, case-insensitively, from both the original and rerun actors of the
 attested campaign workflow. Replaying a request id is allowed only when the persisted payload and
-all normalized columns still match the proposed review.
+all normalized columns still match the proposed review. Generated review and retention timestamps
+do not change request identity; the retention duration must match, and the retry returns the
+original receipt.
 
 ## Validation matrix
 

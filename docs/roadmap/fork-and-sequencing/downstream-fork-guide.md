@@ -246,7 +246,8 @@ syncs them unchanged; they do not add an editable seam or widen the fork boundar
 The protected Cost Governance lifecycle, observation, and independent-review workflows are also
 upstream delivery controls. A fork can supply supported package, provider, policy-data, and
 deployment inputs, but it does not rename those workflows, relabel local evidence as live, replace
-the review receipt definition, or bypass independent review.
+the review receipt definition, alter original-receipt replay semantics, or bypass independent
+review.
 
 **Building a new business-object vertical**: a fork that adds a
 non-Resource ObjectType lifecycle (architecture-review proposal,

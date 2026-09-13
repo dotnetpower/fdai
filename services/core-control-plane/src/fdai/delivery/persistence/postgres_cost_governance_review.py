@@ -32,8 +32,11 @@ class PostgresCostPromotionReviewStore:
         self._statement_timeout_ms = statement_timeout_ms
         self._connect_timeout_s = connect_timeout_s
 
-    async def append_cost_promotion_review(self, review: CostPromotionReview) -> bool:
-        """Append a review, replaying only byte-equivalent request content."""
+    async def append_cost_promotion_review(
+        self,
+        review: CostPromotionReview,
+    ) -> tuple[CostPromotionReview, bool]:
+        """Append a review or return the verified original for an exact request replay."""
 
         async with await self._connect() as connection:
             async with connection.transaction():
@@ -72,7 +75,7 @@ class PostgresCostPromotionReviewStore:
                     ),
                 )
                 if inserted.rowcount == 1:
-                    return True
+                    return review, True
                 existing_cursor = await connection.execute(
                     """
                     SELECT review_id, request_id, campaign_id, campaign_evidence_digest,
@@ -86,13 +89,11 @@ class PostgresCostPromotionReviewStore:
                     (review.request_id,),
                 )
                 existing = await existing_cursor.fetchone()
-                if (
-                    existing is not None
-                    and existing["review_id"] == review.review_id
-                    and existing["payload"] == review.to_mapping()
-                    and _columns_match_review(existing, review)
-                ):
-                    return False
+                if existing is None:
+                    raise RuntimeError("Persisted Cost review replay is unavailable")
+                persisted = _verified_review_from_row(existing)
+                if _request_matches_review(persisted, review):
+                    return persisted, False
                 raise ValueError("Cost review request id conflicts with prior content")
 
     async def read_cost_promotion_reviews(
@@ -124,13 +125,7 @@ class PostgresCostPromotionReviewStore:
                 (campaign_id, revision_pin_digest, limit),
             )
             rows = await cursor.fetchall()
-        reviews = tuple(_review_from_payload(cast(dict[str, Any], row["payload"])) for row in rows)
-        for review, row in zip(reviews, rows, strict=True):
-            if review.review_id != row["review_id"]:
-                raise RuntimeError("Persisted Cost review failed digest verification")
-            if not _columns_match_review(row, review):
-                raise RuntimeError("Persisted Cost review columns do not match payload")
-        return reviews
+        return tuple(_verified_review_from_row(row) for row in rows)
 
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
         return await psycopg.AsyncConnection.connect(
@@ -165,6 +160,41 @@ def _review_from_payload(value: dict[str, Any]) -> CostPromotionReview:
         approval_authority=cast(Any, value["approval_authority"]),
         execution_authority=cast(Any, value["execution_authority"]),
         promotion_authority=cast(Any, value["promotion_authority"]),
+    )
+
+
+def _verified_review_from_row(row: dict[str, Any]) -> CostPromotionReview:
+    """Rebuild one persisted review only after payload and columns verify."""
+
+    payload = row["payload"]
+    if not isinstance(payload, dict):
+        raise RuntimeError("Persisted Cost review payload is invalid")
+    try:
+        review = _review_from_payload(cast(dict[str, Any], payload))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RuntimeError("Persisted Cost review payload is invalid") from exc
+    if review.review_id != row["review_id"]:
+        raise RuntimeError("Persisted Cost review failed digest verification")
+    if not _columns_match_review(row, review):
+        raise RuntimeError("Persisted Cost review columns do not match payload")
+    return review
+
+
+def _request_matches_review(
+    persisted: CostPromotionReview,
+    proposed: CostPromotionReview,
+) -> bool:
+    """Compare request-owned content while preserving the original server timestamps."""
+
+    persisted_request = persisted.to_mapping()
+    proposed_request = proposed.to_mapping()
+    for field in ("reviewed_at", "retention_until"):
+        persisted_request.pop(field)
+        proposed_request.pop(field)
+    return (
+        persisted_request == proposed_request
+        and persisted.retention_until - persisted.reviewed_at
+        == proposed.retention_until - proposed.reviewed_at
     )
 
 
