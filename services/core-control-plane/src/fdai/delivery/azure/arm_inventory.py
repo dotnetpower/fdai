@@ -12,8 +12,10 @@ from urllib.parse import quote, urlparse
 import httpx
 
 from fdai.delivery.azure.arg_projection import (
+    ArmIdentityError,
     ArmScopeError,
     arm_id_to_type,
+    arm_provider_type,
     arm_scope_properties,
     build_arm_to_neutral_map,
     extract_rg_contains_links,
@@ -566,9 +568,13 @@ def _map_arm_row(
     if resource_type == MODEL_DEPLOYMENT_RESOURCE_TYPE:
         raw_props.update(model_deployment_summary(row))
     props = truncate_props(raw_props, max_bytes=max_props_bytes)
-    provider_type = arm_id_to_type(arm_id)
-    if provider_type is not None:
-        props["providerType"] = provider_type
+    try:
+        provider_type = arm_provider_type(arm_id, row.get("type"))
+    except ArmIdentityError as exc:
+        raise ArmInventoryError(
+            f"ARM row for {resource_type!r} has conflicting provider type"
+        ) from exc
+    props["providerType"] = provider_type
     props.update(scope)
     # Lifted after truncation so the containment anchor survives a large
     # vendor payload; `Resource.parent_id` is what scoped questions read.

@@ -37,6 +37,8 @@ evidence admission, replay, or results. Its generation-fenced runtime-call relat
 likewise outside both assessment families and cannot contribute assessment evidence. Its shared
 source-state decoder admits only canonical machine-token reasons and cannot pass principal text or
 provider details into any Operator family.
+The shared authenticator may pass a bounded verified username only to the IAM display projection.
+It does not enter WAF or CAF identity, evidence admission, replay, or results.
 The shared Operator outbox lifecycle facade can also supervise the Incident intervention worker.
 Its explicitly allowlisted logical topic, requests, and readiness state do not enter WAF or CAF
 scope, evidence admission, replay, or results.
@@ -194,6 +196,9 @@ The source watcher creates a deterministic review package containing additions, 
 changes, affected mappings, and stale evidence specifications. A proposed generation remains
 pending until the exact package digest is approved. Validation failure preserves the prior valid
 generation and records the failed revision and reason.
+The shared local catalog materializer keeps framework projections separate from ontology evidence
+health. If the active inventory and ontology projection generations differ, it publishes explicit
+unavailable evidence instead of joining cross-generation timestamps or counts into the catalog set.
 
 ## Validation and live evidence
 

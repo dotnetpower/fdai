@@ -70,9 +70,33 @@ The collector uses the cheapest authoritative signal that can preserve the requi
 3. Run bounded reconciliation to detect missed events, repair relationships, and prove scope completeness.
 4. Run exact live reads only when inventory lacks an evidence family or a verified query needs fresher evidence.
 
+Activity Log recovery records are sparse observations. They merge only their declared property
+mask into the current snapshot and carry no relationship changes; only a complete reconciliation
+can replace the full property set or establish relationship completeness.
+The Activity Log control-plane outcome is retained as `operationStatus` and normalized
+`operation_status` evidence. It is never written to the reserved Resource `status` property and
+therefore cannot replace an operational-state fact.
+Hydrated Resource Changes reuse the full scan's reviewed provider-parent mapping before emitting
+their incomplete relationship set. Nested subnet records retain the observed VNet as `parent_id`;
+an exact child cannot fall back to a Resource Group parent between reconciliations.
+One support boundary owns Resource Changes cursor, retry, ingestion-fence, and publication
+semantics; the provider feed module re-exports that behavior instead of maintaining a second loop.
+
 A collected property becomes a relationship only through a reviewed provider mapping. If that
 mapping omits an observed connection target, an absent graph edge never proves an absent path.
 Every reachable managed-service connection therefore needs its target type in the reviewed catalog.
+Each Azure row's supplied provider type and scope must agree case-insensitively with its exact ARM
+identity before the row enters either a full snapshot or a change stream. A contradiction fails the
+bounded collection and retains the previous complete generation.
+For an extension-resource identity containing multiple `/providers/` segments, the final provider
+namespace and its following type/name pairs define the observed Resource type; ancestor provider
+segments remain scope and containment context.
+A change-stream row is eligible only when both its identity-derived type and its normalized supplied
+type belong to the reviewed ResourceType vocabulary. If either side is unreviewed, the row is
+discarded because it cannot enter the ontology. If both are reviewed, they must match the exact ARM
+ID shape, including built-in subscription and Resource Group types.
+A provider-resource ID must contain a concrete resource name after every type segment. A collection
+path that ends at a type cannot create a Resource instance.
 Disabled resource-change and recovery accelerators do not require collection-policy entries and
 contribute neither cursor prefixes nor stale-cursor deadlines to reconciliation.
 
@@ -155,6 +179,9 @@ available or measured zero. The Operator persistence reader accepts runtime-call
 when its embedded inventory generation equals the exact selected snapshot. Unavailable source
 reasons must be canonical machine tokens and cannot carry principal text, endpoints, or provider
 details.
+The shared Operator authenticator may carry a bounded verified username into the IAM display
+projection. That value remains separate from the stable principal id and cannot enter graph
+evidence, source identity, or authorization decisions.
 The Operator lifecycle can also publish durable Incident intervention requests through the focused outbox lifecycle facade and its retry-safe worker.
 The adapter explicitly allowlists that logical topic and multiplexes it over the configured physical transport.
 It creates no runtime-call witness, graph edge, provider observation, or execution authority.

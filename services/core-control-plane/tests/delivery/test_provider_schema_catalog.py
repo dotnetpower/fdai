@@ -176,10 +176,10 @@ def test_shipped_relationship_review_is_replay_identical_and_authority_free() ->
     assert shipped["target_only_type_count"] == 94
     assert shipped["unique_endpoint_pair_count"] == 908
     assert shipped["endpoint_coverage_counts"] == {
-        "both_modeled": 46,
-        "neither_modeled": 593,
+        "both_modeled": 54,
+        "neither_modeled": 584,
         "source_only_modeled": 56,
-        "target_only_modeled": 213,
+        "target_only_modeled": 214,
     }
     assert shipped["reviewed_mapping_overlap_count"] == 10
     assert shipped["semantic_review_status"] == "review_required"
