@@ -13,7 +13,10 @@ from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 
 
 @pytest.mark.parametrize("elapsed", [90, 101])
-def test_application_does_not_reset_budget_after_transfer(tmp_path, monkeypatch, elapsed):
+@pytest.mark.parametrize("transfer_failure", [False, True])
+def test_application_does_not_reset_budget_after_transfer(
+    tmp_path, monkeypatch, elapsed, transfer_failure
+):
     clock = [0.0]
     observed = []
     closed = []
@@ -31,6 +34,8 @@ def test_application_does_not_reset_budget_after_transfer(tmp_path, monkeypatch,
         def ssh(self, command, *, timeout, input_text=None):
             if command == ("prepare",):
                 clock[0] += elapsed
+                if transfer_failure:
+                    raise subprocess.TimeoutExpired(["ssh", "private-transfer-marker"], elapsed)
                 return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
             observed.append(timeout)
             raise RuntimeError("stop-before-provider")
@@ -67,8 +72,8 @@ def test_application_does_not_reset_budget_after_transfer(tmp_path, monkeypatch,
         source_commit="c" * 40,
         kit_manifest_digest="d" * 64,
     )
-    expected = RuntimeError if elapsed < 100 else TimeoutError
-    with pytest.raises(expected, match="stop-before-provider|remaining budget"):
+    expected = ValueError if transfer_failure else RuntimeError if elapsed < 100 else TimeoutError
+    with pytest.raises(expected, match="stop-before-provider|remaining budget|managed-host"):
         standalone_application.deploy_standalone_application(
             kit=SimpleNamespace(),
             prepared=prepared,
@@ -79,8 +84,9 @@ def test_application_does_not_reset_budget_after_transfer(tmp_path, monkeypatch,
             trial_token=None,
             timeout_seconds=100,
         )
-    assert observed == ([10] if elapsed < 100 else [])
+    assert observed == ([10] if elapsed < 100 and not transfer_failure else [])
     assert closed == [True]
+    assert not (tmp_path / "standalone-application-receipt.json").exists()
 
 
 def test_deadline_transport_preserves_payload_and_clamps_each_operation(tmp_path):
