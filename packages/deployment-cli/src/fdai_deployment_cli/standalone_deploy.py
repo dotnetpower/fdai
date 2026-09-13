@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit, acquire_deployment_kit
 from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail, terminal_output
 from fdai_deployment_cli.foundation_failure import foundation_failure_summary
@@ -69,9 +70,11 @@ def deploy_azure_foundation(
 ) -> dict[str, object]:
     """Advance one standalone deployment through verified application convergence."""
 
+    deadline = DeploymentDeadline(timeout_seconds, clock=time.monotonic)
     begin_stage("azure")
     progress_detail("Checking the active Azure CLI human identity")
     target = active_azure_target()
+    deadline.remaining()
     _create_or_validate_private_directory(work_dir)
     kit_work = work_dir / "kit-work"
     _create_or_validate_private_directory(kit_work)
@@ -82,6 +85,7 @@ def deploy_azure_foundation(
         offline_kit=offline_kit,
         online_url=online_url,
     )
+    deadline.remaining()
     begin_stage("discovery")
     progress_detail("Discovering image, storage name, and non-overlapping networks")
     scripts = kit.bundle_root / "scripts/deployment/azure"
@@ -111,12 +115,11 @@ def deploy_azure_foundation(
         sort_keys=True,
         separators=(",", ":"),
     )
-    deadline = time.monotonic() + timeout_seconds
     approval = prepared.root / "current-foundation-approval.json"
     status_path = prepared.root / "status.json"
     begin_stage("foundation")
     while True:
-        remaining = int(deadline - time.monotonic())
+        remaining = deadline.remaining()
         if remaining < 1830:
             raise TimeoutError("standalone Foundation deadline has insufficient remaining budget")
         previous_attempt = prior_attempt(status_path)
@@ -199,6 +202,7 @@ def deploy_azure_foundation(
             and "foundation-state" in completed_stages
         ):
             foundation = _foundation_result(kit, prepared, status)
+            deadline.remaining()
             begin_stage("identity")
             sys.path.insert(0, str(scripts))
             try:
@@ -227,8 +231,9 @@ def deploy_azure_foundation(
                 scripts=scripts,
                 license_signing_key=license_signing_key,
                 trial_token=trial_token,
-                timeout_seconds=remaining,
+                timeout_seconds=deadline.remaining(),
             )
+            deadline.remaining()
             return {
                 "schema_version": "fdai.standalone-azure-deployment.v2",
                 "state": "deployment-ready",
@@ -266,7 +271,7 @@ def deploy_azure_foundation(
                     ),
                     stdout=sys.stderr,
                     check=False,
-                    timeout=600,
+                    timeout=deadline.remaining(600),
                 )
         except subprocess.TimeoutExpired as exc:
             raise TimeoutError("standalone Foundation approval prompt timed out") from exc
@@ -277,22 +282,27 @@ def deploy_azure_foundation(
 def active_azure_target() -> ActiveAzureTarget:
     """Read the active Azure CLI user target without changing account selection."""
 
-    completed = subprocess.run(
-        (
-            "az",
-            "account",
-            "show",
-            "--query",
-            "{subscription_id:id,tenant_id:tenantId,user_type:user.type}",
-            "--output",
-            "json",
-            "--only-show-errors",
-        ),
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
+    try:
+        completed = subprocess.run(
+            (
+                "az",
+                "account",
+                "show",
+                "--query",
+                "{subscription_id:id,tenant_id:tenantId,user_type:user.type}",
+                "--output",
+                "json",
+                "--only-show-errors",
+            ),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError):
+        raise ValueError(
+            "Azure authentication read failed; inspect the local login context"
+        ) from None
     if completed.returncode != 0:
         raise ValueError("Azure authentication is unavailable; run az login first")
     value = json.loads(completed.stdout)
@@ -323,23 +333,26 @@ def _standalone_subprocess_environment(
 
 
 def _current_operator_object_id() -> str:
-    completed = subprocess.run(
-        (
-            "az",
-            "ad",
-            "signed-in-user",
-            "show",
-            "--query",
-            "id",
-            "--output",
-            "tsv",
-            "--only-show-errors",
-        ),
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
+    try:
+        completed = subprocess.run(
+            (
+                "az",
+                "ad",
+                "signed-in-user",
+                "show",
+                "--query",
+                "id",
+                "--output",
+                "tsv",
+                "--only-show-errors",
+            ),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError):
+        raise ValueError("authenticated Azure operator read failed; no retry performed") from None
     value = completed.stdout.strip()
     if completed.returncode != 0 or _GUID.fullmatch(value) is None:
         raise ValueError("authenticated Azure operator object ID is unavailable")

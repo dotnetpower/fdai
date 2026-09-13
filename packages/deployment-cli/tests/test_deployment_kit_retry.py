@@ -33,7 +33,7 @@ def online_release(release, tmp_path, monkeypatch):
         assert timeout == 30
         return Response(payload.getvalue())
 
-    monkeypatch.setattr(deployment_kit.urllib.request, "urlopen", download)
+    monkeypatch.setattr(deployment_kit, "_open_approved_url", download)
     monkeypatch.setattr(deployment_kit, "deployment_release_root_pem", lambda: public)
     monkeypatch.setattr(deployment_kit, "deployment_bundle_root_pem", lambda: public)
     monkeypatch.setattr(deployment_kit, "runtime_platform_tag", lambda: "linux-x86_64")
@@ -183,7 +183,7 @@ def test_existing_download_destination_is_local_error_before_network(tmp_path, m
     def forbidden(*_args, **_kwargs):
         pytest.fail("a known destination conflict must not open the network")
 
-    monkeypatch.setattr(deployment_kit.urllib.request, "urlopen", forbidden)
+    monkeypatch.setattr(deployment_kit, "_open_approved_url", forbidden)
     with pytest.raises(ValueError, match="destination already exists"):
         deployment_kit._download("https://github.com/example/kit.tar.gz", target)
     assert target.read_bytes() == b"retained"
@@ -204,7 +204,7 @@ def test_http_download_errors_report_status_without_url_or_provider_text(
     def fail(*_args, **_kwargs):
         raise error
 
-    monkeypatch.setattr(deployment_kit.urllib.request, "urlopen", fail)
+    monkeypatch.setattr(deployment_kit, "_open_approved_url", fail)
     with pytest.raises(ValueError, match=f"HTTP {status}") as captured:
         deployment_kit._download(
             "https://github.com/example/kit.tar.gz", tmp_path / "download.tar.gz"
@@ -229,7 +229,7 @@ def test_download_errors_keep_network_and_local_failures_distinct(
     def fail(*_args, **_kwargs):
         raise error
 
-    monkeypatch.setattr(deployment_kit.urllib.request, "urlopen", fail)
+    monkeypatch.setattr(deployment_kit, "_open_approved_url", fail)
     with pytest.raises(ValueError, match=expected) as captured:
         deployment_kit._download(
             "https://github.com/example/kit.tar.gz", tmp_path / "download.tar.gz"
@@ -344,3 +344,90 @@ def test_retry_extraction_never_follows_an_archive_symlink(tmp_path):
     assert original.read_bytes() == b"untrusted"
     assert linked.is_symlink()
     assert not (tmp_path / "kit").exists()
+
+
+@pytest.mark.parametrize("source_kind", ["directory", "archive"])
+def test_offline_retry_reverifies_without_replacing_prior_execution(
+    online_release, release, tmp_path, source_kind
+):
+    work, requests, payload = online_release
+    source = release[0]
+    if source_kind == "archive":
+        source = tmp_path / "local-kit.tar.gz"
+        source.write_bytes(payload)
+        source.chmod(0o600)
+    first = deployment_kit.acquire_deployment_kit(work_dir=work, online=False, offline_kit=source)
+    state = first.bundle_root / "retained-state.json"
+    state.write_bytes(b"keep prior evidence")
+    second = deployment_kit.acquire_deployment_kit(work_dir=work, online=False, offline_kit=source)
+    assert requests == []
+    assert first.verification == second.verification
+    assert first.materialized_root == second.materialized_root
+    assert first.bundle_root != second.bundle_root
+    assert state.read_bytes() == b"keep prior evidence"
+    assert not (second.bundle_root / state.name).exists()
+
+
+@pytest.mark.parametrize("source_kind", ["directory", "archive"])
+def test_offline_retry_rejects_changed_source_without_fallback(
+    online_release, release, tmp_path, source_kind
+):
+    work, requests, payload = online_release
+    source = release[0]
+    if source_kind == "archive":
+        source = tmp_path / "local-kit.tar.gz"
+        source.write_bytes(payload)
+        source.chmod(0o600)
+    first = deployment_kit.acquire_deployment_kit(work_dir=work, online=False, offline_kit=source)
+    original = (first.materialized_root / "bin/opa").read_bytes()
+    if source_kind == "directory":
+        (source / "bin/opa").write_bytes(b"changed local artifact")
+    else:
+        source.write_bytes(b"truncated archive")
+    with pytest.raises(ValueError):
+        deployment_kit.acquire_deployment_kit(work_dir=work, online=False, offline_kit=source)
+    assert requests == []
+    assert (first.materialized_root / "bin/opa").read_bytes() == original
+
+
+def test_offline_directory_execution_uses_authenticated_snapshot(
+    online_release, release, monkeypatch
+):
+    work, requests, _payload = online_release
+    source = release[0]
+    original = next((source / "deployment").glob("*.tar.gz"))
+    expected = original.read_bytes()
+    extract = deployment_kit.extract_bundle_archive
+
+    def change_original_after_snapshot(archive, destination):
+        assert archive.is_relative_to(work / "verified")
+        original.write_bytes(b"untrusted concurrent source replacement")
+        assert archive.read_bytes() == expected
+        return extract(archive, destination)
+
+    monkeypatch.setattr(deployment_kit, "extract_bundle_archive", change_original_after_snapshot)
+    kit = deployment_kit.acquire_deployment_kit(work_dir=work, online=False, offline_kit=source)
+    assert kit.bundle_root.is_dir()
+    assert requests == []
+    assert original.read_bytes() == b"untrusted concurrent source replacement"
+    with pytest.raises(ValueError):
+        deployment_kit.acquire_deployment_kit(work_dir=work, online=False, offline_kit=source)
+
+
+@pytest.mark.parametrize("source_kind", ["directory", "archive"])
+def test_offline_cache_cannot_silently_adopt_an_explicit_online_source(
+    online_release, release, tmp_path, source_kind
+):
+    work, requests, payload = online_release
+    source = release[0]
+    if source_kind == "archive":
+        source = tmp_path / "local-kit.tar.gz"
+        source.write_bytes(payload)
+        source.chmod(0o600)
+    first = deployment_kit.acquire_deployment_kit(work_dir=work, online=False, offline_kit=source)
+    original = (first.materialized_root / "bin/opa").read_bytes()
+    with pytest.raises(ValueError, match="source is unbound"):
+        _acquire(work, online_url="https://github.com/example/another-kit.tar.gz")
+    assert requests == []
+    assert (first.materialized_root / "bin/opa").read_bytes() == original
+    assert not (work / "online-source.json").exists()

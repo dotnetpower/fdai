@@ -1007,9 +1007,23 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
     assert receipt["approver_actor_digest"] == receipt["credential_actor_digest"]
     assert receipt["executor_identity_digest"] != receipt["approver_actor_digest"]
     (work / RECEIPT_NAME).unlink()
+    claim_before = (work / CLAIM_NAME).read_bytes()
+
+    class ExpiredResumeClock(command.datetime):
+        @classmethod
+        def now(cls, tz: object = None) -> command.datetime:
+            return command.datetime.fromisoformat(str(review["expires_at"]))
+
+    monkeypatch.setattr(image_contract, "datetime", ExpiredResumeClock)
+    monkeypatch.setattr(
+        command,
+        "load_genesis_approval",
+        lambda *_a, **_kw: pytest.fail("claimed verification cannot request another approval"),
+    )
     resumed = ["--resume-verification" if item == "--approve" else item for item in args]
     assert command.main(resumed) == 0
     assert command.main(args) == 0
+    assert (work / CLAIM_NAME).read_bytes() == claim_before
     assert len(calls) == 1
     assert len(sku_reads) == 1
     assert len(quota_reads) == (1 if automatic else 0)

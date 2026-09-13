@@ -29,6 +29,21 @@ that applies before Terraform changes infrastructure or role assignments.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-13 | implemented | Completed 13 new critique rounds: eight production corrections and five experimentally rejected hypotheses with regressions. The bounded final review leaves no confirmed Medium-or-higher defect in acquisition, deadline/transport, approval input, and error presentation. | Commits `d8c4fa3a2` through `7e1f7a3f2`; 379 focused owning regressions passed; changed-source Ruff and strict typing; two read-only reviews plus the H13 counterexample. | Retained-copy disk accumulation is Low. Publish the hardened revision; Azure image recovery and convergence remain blocked and are not completed Low findings. |
+| 2026-09-13 | validated | Built and published development kit `deployment-v0.1.0-r2` from integrated `74743842facfd3c986d3e069e2ae8e6714147bae`; cold-installed and verified the same artifact through actual public download and both offline source forms. | Required CI `34741317737`; issue #803 evidence; archive SHA-256 `4be041e244dfbcd3b69ea117f2c8a995ef14f2ae1188f55ad6ca00849c09e223`; 11 isolated acceptance checks: 300 files, 48 installed payload files, six images, seven support packages, and 11 Terraform roots. | This accepted artifact predates the subsequent 13-round CLI hardening. No Azure apply or subscription-readiness receipt was produced. |
+| 2026-09-13 | implemented | Proved transfer exceptions stop the application immediately, preserve tunnel cleanup, and cannot reach a later command or ready receipt, even after expiry. | `current change`; integrated pre/post-expiry transfer-failure regressions passed without production changes. | The original failure is preserved rather than masked by a secondary expiry exception. |
+| 2026-09-13 | implemented | Bound release downloads by one 15-minute monotonic transfer budget in addition to the 30-second socket limit; progress cannot renew it. | `current change`; previously passing slow-trickle stream now rejects and removes only its new partial download; acquisition regressions. | Retained prior archives and deployment state remain untouched; no network retry is added. |
+| 2026-09-13 | implemented | Bound both application confirmations and actor lookup to the same at-most-ten-minute window, plan expiry, and remaining invocation budget; require a real terminal. | `current change`; reproduced unbounded read, timeout/noninteractive controls, shared-budget and existing exact/destructive approval tests. | An expired or closed input grants no approval and triggers no automatic retry. |
+| 2026-09-13 | implemented | Proved expired image reviews still permit verification of an existing claim, without reselection, reapproval, or repeated apply. | `current change`; manual and automatic-selection claim/resume regressions preserve exact claim bytes and one original apply. | This verifies completed effects only and cannot repair a partial image build. |
+| 2026-09-13 | implemented | Normalize Azure identity and managed-host I/O exceptions before rendering; raw OS or child-process fallback errors no longer print command arguments or private paths. | `current change`; five reproduced synthetic-marker disclosures and focused CLI/transport regressions. | Stable failure categories do not infer whether a claimed remote effect completed. |
+| 2026-09-13 | implemented | Clamp every application SSH/SCP operation to one current deadline without changing command, stdin, identity, or tunnel cleanup. | `current change`; two reproduced transfer-to-substrate budget failures and direct transport regressions. | Expired or failed effects remain verification-only; no retry or approval is added. |
+| 2026-09-13 | implemented | Start the coordinator budget before preparation, cap Foundation approval by current remaining time, and recompute the application handoff after Foundation and identity work. | `current change`; three previously failing fake-clock regressions and existing coordinator tests. | Bound each application transport operation by that remaining budget. |
+| 2026-09-13 | implemented | Enforce the release HTTPS host/port allowlist before every redirect request, not only after the final response. | `current change`; three reproduced disallowed-target contacts; real urllib redirect-chain tests with synthetic HTTP transport and an allowed CDN control. | Publish the corrected CLI; no allowlist expansion or live retry is implied. |
+| 2026-09-13 | implemented | Proved an existing offline cache cannot silently adopt an explicit online source without a bound source record. | `current change`; directory and archive cross-mode regressions stop before network I/O and preserve prior bytes. | Default-version legacy adoption still requires complete signature and snapshot verification. |
+| 2026-09-13 | implemented | Proved local-directory acquisition executes the authenticated private snapshot, not later changes to the original bundle; a later retry rejects that changed source. | `current change`; deterministic source-replacement regression passed without production changes. | Preserve signature and complete snapshot checks in both modes. |
+| 2026-09-13 | implemented | Proved that replacing an archive pathname cannot redirect the extractor's held original descriptor; no production change was needed. | `current change`; deterministic open-inode replacement regression passed. | In-place content changes remain subject to signature and snapshot checks. |
+| 2026-09-13 | implemented | Reverify local archive and directory retries against the retained exact snapshot while creating a fresh execution copy and preserving previous evidence. | `current change`; two reproduced retry failures and four offline retry/tamper checks; owning acquisition suite. | Deliver the new CLI; retained partial applies still need separately approved recovery. |
+| 2026-09-13 | implemented | Reject non-Linux POSIX hosts before either artifact acquisition mode, rather than treating x64 macOS or FreeBSD as Linux. | `current change`; five focused host-boundary regressions, including the four previously failing cases. | Publish the corrected CLI; Azure convergence remains separate. |
 | 2026-09-12 | implemented | Restricted tenant provisioning to manual transport, removed workflow dispatch from the public CLI, allowed token-free observation-only installation, and added an OCI deployment appliance entry point. | `current change`; deployment CLI contracts, standalone modules, appliance scripts, and focused tests | Build one clean appliance and retain connected and artifact-offline Azure deployment receipts. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Corrected inspection, profile persistence, and offline verification from implemented to their evidence-backed current states. | current change; package metadata, bootstrap source, release scripts, and focused workflow checks listed in the scope table | Create the CLI package, restore offline verification, complete trust bootstrap, and validate the full lifecycle. |
 | 2026-08-29 | validated | Added target-bound inspection and private profiles, restored signed offline verification, and completed the shipped-wheel network-isolated drill. | Campaign commits from `dd28b64d9`; focused tests and successful `airgap-drill.sh` | Complete managed-host Azure execution and retain protected post-provision receipts. |
@@ -48,7 +63,8 @@ that applies before Terraform changes infrastructure or role assignments.
 - [x] Restore offline-kit verification behind an injected release root and pass signature-before-parse, exact-file-set, no-follow digest, compatibility, and bounds tests.
 - [ ] Implement temporary public-access creation and cleanup so cleanup failure leaves an incomplete audited operation, then pass CIDR, duration, authentication, rollback, and idempotency tests.
 - [ ] Complete the TUF root ceremony and package bootstrap, with signed root and rotation evidence accepted by the offline trust ceremony.
-- [ ] Build and reverify one complete signed kit from a clean snapshot, then cold-install its CLI and acquire the same kit through both online and local artifact paths.
+- [x] Build and reverify one complete signed kit from a clean snapshot, then cold-install its CLI and acquire the same kit through both online and local artifact paths. Evidence: `deployment-v0.1.0-r2` and the 2026-09-13 artifact checkpoint above.
+- [ ] Publish a replacement complete kit containing the subsequent 13-round CLI hardening, then repeat exact installed-artifact acceptance; the earlier r2 artifact does not contain these changes.
 - [ ] Retain target-bound Foundation and application convergence receipts from both active-login modes without claiming whole-subscription readiness.
 - [ ] Build one deployment appliance from an approved digest-pinned base, verify its SBOM and provenance, and retain an artifact-offline Azure deployment receipt from the image entry point.
 
@@ -79,16 +95,20 @@ scripts/deployment/azure/fdai-up.sh
 Both commands derive the tenant and subscription only from the active Azure CLI user context. They
 do not require a source checkout, Git remote, GitHub account, GitHub repository, required CI check,
 repository variable, repository secret, workflow dispatch, or GitHub runner registration. Online
-mode downloads one versioned complete kit over bounded HTTPS. Offline mode reads that same kit
+mode downloads one versioned complete kit over bounded HTTPS, validating each redirect before contact. Offline mode reads that same kit
 format from a local path and blocks every public artifact fallback. Offline means artifact-offline,
 not disconnected from the selected Azure control plane or Bastion endpoint.
+Offline retries reread the supplied source, reverify the retained snapshot, and use a fresh
+execution copy without replacing earlier state. Changed or incomplete bytes stop the retry.
+Online transfer progress cannot renew the 15-minute total download budget. Socket reads retain
+their 30-second bound; expiry removes only the newly created partial download and never retries.
 
 The package pins the release and bundle verification roots independently from the kit. A complete
 kit contains the deployment bundle, Terraform and OPA, the provider mirror, runtime OCI archives,
 Console content, migration support, and their software bills of materials. Signature, exact-file,
 platform, source-revision, and runtime-content verification completes before Azure mutation.
 The current managed-host image and complete-kit builder support Linux x86_64. Other host
-architectures fail before kit acquisition rather than crossing an untested execution boundary.
+operating systems or architectures fail before either acquisition mode; POSIX alone is not Linux.
 
 For a private route, the signed-in human performs only the bounded Foundation control-plane apply.
 The resulting Bastion-reachable VM uses a user-assigned managed identity and a manual-host image
@@ -106,6 +126,14 @@ If an apply outcome is ambiguous, the next invocation runs a zero-change plan an
 readback only. It never repeats the apply from the retained claim. A changed Foundation run,
 network/state handoff, Entra binding, provider configuration, or signed kit requires a distinct
 prepared context.
+The invocation budget begins before preparation. Approval waits and application handoff use
+current remaining time; an expired budget starts no next stage and cannot produce readiness.
+Application confirmation requires a real terminal and one at-most-ten-minute window shared by
+both prompts and actor lookup, shortened by plan expiry and the remaining invocation budget.
+`DeadlineTransport` clamps each existing Bastion command and file transfer to that same current
+budget and checks expiry after I/O. The underlying tunnel retains its own bounded cleanup.
+Identity and transport failures use fixed diagnostics; raw OS and subprocess exceptions never
+render command arguments or paths. Unknown effect outcomes still require retained-state review.
 
 The command discovers an operator-held mode-`0600` license issuer key from an explicit option or the
 documented user configuration path. When the key exists, it issues a deployment- and image-bound

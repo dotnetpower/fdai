@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1477,
+  "file_count": 1478,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "8d7342386ddd62fcee7e20d6baab79bc90bf7674a0128e1661ac6d4485491680",
     ".github/instructions/agent-stewardship.instructions.md": "6d34f24fe8879f3edac388d5e7fd9ab138563ca386a5c401f72d8fc3c1698624",
@@ -1323,7 +1323,7 @@
     "services/core-control-plane/src/fdai/shared/contracts/validation.py": "0c2cfcbf67363a8cd9541c5dd5f6cb81d0d054ec7d79bd298544d29cb1eed56a",
     "services/core-control-plane/src/fdai/shared/contracts/workflow/schema.json": "1710086c1683e79b81d1a0cc8fc20fe6a7e2cf91ec36a0d5c86317c5ce683ce8",
     "services/core-control-plane/src/fdai/shared/providers/README.md": "17e0eab3613f2f8feeef96708d5268dddcc46b71de3ab19b2ea752c102461756",
-    "services/core-control-plane/src/fdai/shared/providers/__init__.py": "3edcbcbb716bb3a3d6775bc5f781bde8b4b3e8f1e7c20a8a73517ad7e00b6170",
+    "services/core-control-plane/src/fdai/shared/providers/__init__.py": "27f67cee49fb9bcd689ffcfe8fb73915ecd531b606c205d2b39c9a4ca87d90eb",
     "services/core-control-plane/src/fdai/shared/providers/audit_hash.py": "fd56fc5ce10e56c3e54b76ea7e2951082699fbda124d4bd0760042c6f7935cec",
     "services/core-control-plane/src/fdai/shared/providers/automation_hold_state.py": "58fe17d1c7431ca1d5457524e971472eda2ac57ee100bcb0b2809e474f5c3080",
     "services/core-control-plane/src/fdai/shared/providers/behavior_knowledge.py": "6c126481c3df5cc5e63c6de579a6dd07d57e0f11bc70aed36c08fe59f77f9bbb",
@@ -1348,6 +1348,7 @@
     "services/core-control-plane/src/fdai/shared/providers/cost_governance_campaign.py": "b170338b2fc46e6ac70dac12c0e5ea75f40850ee3643f7c2b1d5c3ea05ead51f",
     "services/core-control-plane/src/fdai/shared/providers/cost_governance_decision.py": "8e42e4ec376720b942fab8fc22665dedc32eceebd676c21ae1acdbc5dd6bc623",
     "services/core-control-plane/src/fdai/shared/providers/cost_governance_lifecycle.py": "1c0148aebc38db8a2e803eefa9b6456d3e9cfef25a74ea79207a5de8ea663b48",
+    "services/core-control-plane/src/fdai/shared/providers/cost_governance_review.py": "cb6920ce91b4b705746216c0c054aabc11290f3659856aab0a1224bdc88cf28d",
     "services/core-control-plane/src/fdai/shared/providers/db_dr.py": "ce2f1e842eb3f3a12d73fdfa3617ba744071595e69ec8f3b8086a25433e75346",
     "services/core-control-plane/src/fdai/shared/providers/decision_evidence_verifier.py": "a3076f1f28a4cefa7176be2661408a20830fb0e6f1bb282b82cf7bb9a6a7ed1c",
     "services/core-control-plane/src/fdai/shared/providers/declarative_inventory.py": "f447e8867ac05293acd9c815508b3294494a22a574caf4740cef491dda1a0aa4",
@@ -1480,7 +1481,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-09-13T02:54:22Z",
+  "generated_at": "2026-09-13T07:33:59Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

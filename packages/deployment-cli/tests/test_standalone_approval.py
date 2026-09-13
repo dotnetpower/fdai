@@ -2,11 +2,18 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 
 from fdai_deployment_cli import cli, standalone_application, standalone_host, standalone_review
 from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
+
+
+@pytest.fixture
+def ready_terminal(monkeypatch):
+    monkeypatch.setattr(standalone_application, "_wait_for_approval_input", lambda _timeout: None)
 
 
 def _review(**overrides):
@@ -27,7 +34,9 @@ def _review(**overrides):
 
 
 @pytest.mark.parametrize("prompt_number", [1, 2])
-def test_approval_eof_never_grants_authority(tmp_path, monkeypatch, capsys, prompt_number) -> None:
+def test_approval_eof_never_grants_authority(
+    tmp_path, monkeypatch, capsys, prompt_number, ready_terminal
+) -> None:
     calls = []
 
     def read_input(_prompt):
@@ -130,7 +139,9 @@ def test_review_display_has_no_raw_extension_fields(tmp_path, monkeypatch, capsy
     assert output.out == ""
 
 
-def test_review_expiring_during_approval_never_writes_approval(tmp_path, monkeypatch) -> None:
+def test_review_expiring_during_approval_never_writes_approval(
+    tmp_path, monkeypatch, ready_terminal
+) -> None:
     now = datetime.now(UTC)
     clock = [now]
 
@@ -143,7 +154,7 @@ def test_review_expiring_during_approval_never_writes_approval(tmp_path, monkeyp
     answers = iter(("application-apply", "application-apply-destructive"))
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
 
-    def actor(_binding):
+    def actor(_binding, **_kwargs):
         clock[0] = now + timedelta(hours=2)
         return "d" * 64
 
@@ -153,7 +164,9 @@ def test_review_expiring_during_approval_never_writes_approval(tmp_path, monkeyp
     assert not list(tmp_path.iterdir())
 
 
-def test_exact_approval_still_passes_managed_host_validation(tmp_path, monkeypatch) -> None:
+def test_exact_approval_still_passes_managed_host_validation(
+    tmp_path, monkeypatch, ready_terminal
+) -> None:
     review = _review(
         summary={
             "action_counts": {"create": 1, "delete": 1},
@@ -166,8 +179,53 @@ def test_exact_approval_still_passes_managed_host_validation(tmp_path, monkeypat
     )
     answers = iter(("application-apply", "application-apply-destructive"))
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
-    monkeypatch.setattr(standalone_application, "_azure_actor_digest", lambda _binding: "d" * 64)
+    monkeypatch.setattr(
+        standalone_application, "_azure_actor_digest", lambda _binding, **_kwargs: "d" * 64
+    )
     path = standalone_application._approve_plan(tmp_path, review)
     assert path.stat().st_mode & 0o777 == 0o600
     approval = json.loads(path.read_text())
     standalone_host._validate_approval(review, approval, context=review)
+
+
+def test_approval_input_wait_is_bounded_before_reading(monkeypatch):
+    monkeypatch.setattr(standalone_application.sys, "stdin", SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr(
+        standalone_application,
+        "select",
+        SimpleNamespace(select=lambda *_args: ([], [], [])),
+        raising=False,
+    )
+    monkeypatch.setattr("builtins.input", lambda _prompt: pytest.fail("unbounded input reached"))
+    with pytest.raises(TimeoutError, match="approval"):
+        standalone_application._approval_input()
+
+
+def test_application_approval_cannot_use_noninteractive_input(monkeypatch):
+    monkeypatch.setattr(standalone_application.sys, "stdin", SimpleNamespace(isatty=lambda: False))
+    monkeypatch.setattr(
+        "builtins.input", lambda _prompt: pytest.fail("noninteractive input reached")
+    )
+    with pytest.raises(ValueError, match="interactive terminal"):
+        standalone_application._approval_input()
+
+
+def test_destructive_confirmation_shares_remaining_budget(tmp_path, monkeypatch):
+    clock = [0.0]
+    waits = []
+    answers = iter(("application-apply", "application-apply-destructive"))
+    monkeypatch.setattr(standalone_application, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+    monkeypatch.setattr(standalone_application, "_wait_for_approval_input", waits.append)
+
+    def answer(_prompt):
+        clock[0] += 3
+        return next(answers)
+
+    monkeypatch.setattr("builtins.input", answer)
+    monkeypatch.setattr(
+        standalone_application, "_azure_actor_digest", lambda _binding, **_kwargs: "d" * 64
+    )
+    standalone_application._approve_plan(
+        tmp_path, _review(), deadline=DeploymentDeadline(10, clock=lambda: clock[0])
+    )
+    assert waits == [10, 7]
