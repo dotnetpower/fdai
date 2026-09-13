@@ -1,7 +1,7 @@
 ---
 title: FinOps 패키지 전달 계획
 translation_of: finops-package-delivery-plan.md
-translation_source_sha: 3e3305f7719d7d475faea2b8ecc7386e769c62b5
+translation_source_sha: 59ea2b06996980ba2b6b6471f7e237e615caa44a
 translation_revised: 2026-09-13
 ---
 
@@ -228,6 +228,8 @@ release wheel, 서명된 이미지, 배포된 작업, 런타임 구성 및 완�
 `live-authoritative` 분류를 부여합니다. 검토 결과는 package activation, 패키지 소유
 `ActionType` 각각 및 패키지 소유 `Workflow` 각각을 다루지만 promotion을 적용하지 않습니다.
 이 경로의 로컬 테스트는 실제 cohort 또는 독립 검토 종료 기준을 충족하지 않습니다.
+Exact-release 검증은 의미 프로필 검증기와 동등성 테스트 모두에 root lockfile-frozen dev extra를
+요청합니다. 검증 도구가 없으면 export, import 또는 검토 근거를 만들기 전에 실패합니다.
 
 campaign이 `ready=true`를 반환하면 별도의 보호된 검토 경계가 요청마다 정확히 하나의 대상을
 기록합니다. 이 경계는 활성 revision pin을 다시 읽고 해당 대상의 campaign report를 다시 계산한

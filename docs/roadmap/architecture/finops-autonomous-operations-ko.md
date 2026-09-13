@@ -1,7 +1,7 @@
 ---
 title: FinOps 자율 운영
 translation_of: finops-autonomous-operations.md
-translation_source_sha: bf092d156d0426a318150cddd85d6f25bac4aaa8
+translation_source_sha: 3aa2ea9ee53437877dcdda4b3a9c22ab5c573534
 translation_revised: 2026-09-13
 ---
 
@@ -199,6 +199,9 @@ Workflow 근거에는 위험 및 실행기 감사의 동일한 Process 계보도
 가져오기만 현재 revision pin 및 범위가 제한된 정책을 확인한 뒤 근거 분류를 부여합니다. 이후
 package activation, 패키지 소유 `ActionType` 각각 및 패키지 소유 `Workflow` 각각을 독립적으로
 평가합니다.
+보존된 campaign 재생은 각 episode를 보존 묶음에 연결하고 명시적으로 한정한 episode 관찰 시각,
+신원 및 revision으로만 정렬합니다. 보존 메타데이터 때문에 유효한 빈 campaign 또는 데이터가
+있는 campaign 조회가 모호해질 수 없습니다.
 
 여섯 결과가 모두 검토 준비 상태가 되면 보호된 검토 workflow가 attested 최종 campaign
 artifact를 검증하고 exact 활성 release로 같은 결과를 다시 계산하며, 각 기록을 추가하기 전에

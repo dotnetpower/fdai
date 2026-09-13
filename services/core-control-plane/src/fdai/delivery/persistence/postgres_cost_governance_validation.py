@@ -223,7 +223,7 @@ class PostgresCostGovernanceValidationStore:
                  WHERE episode.campaign_id = %s
                    AND episode.revision_pin_digest = %s
                    AND retention.purged_at IS NULL
-                 ORDER BY observed_at, episode_id, revision
+                                 ORDER BY episode.observed_at, episode.episode_id, episode.revision
                  LIMIT %s
                 """,
                 (campaign_id, revision_pin_digest, limit),
