@@ -34,7 +34,6 @@ export function incidentDeckDetail(incident: IncidentAttentionProjection): DeckO
       incidentId: incident.incident_id,
       correlationId: incident.correlation_id,
     },
-    onlyWhenIdle: true,
   };
 }
 
