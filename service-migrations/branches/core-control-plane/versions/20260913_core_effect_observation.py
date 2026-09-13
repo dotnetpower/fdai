@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "core_effect_observation_20260913"
-down_revision: str | Sequence[str] | None = "core_cost_governance_w7_lifecycle_20260912"
+down_revision: str | Sequence[str] | None = "core_cost_governance_release_guard_20260912"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -15,7 +15,7 @@ migration_owner = "core-control-plane"
 owned_tables = ("independent_effect_observation",)
 rollback = {
     "strategy": "drop-independent-effect-observation",
-    "restores": "core_cost_governance_w7_lifecycle_20260912",
+    "restores": "core_cost_governance_release_guard_20260912",
     "requires": "effect-observation-writers-stopped",
 }
 
