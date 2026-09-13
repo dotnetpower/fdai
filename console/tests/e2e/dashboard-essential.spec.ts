@@ -189,6 +189,18 @@ test("live fixture: unavailable, measured zero, loading and error stay distinct"
   await expect(page.locator(".overview-essential [role=alert]")).toHaveCount(0);
 });
 
+test("sample operating outcomes distinguish fixture values from Live evidence", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/operating-outcomes/auto-resolution?data=sample&locale=ko");
+
+  await expect(page.locator(".analytics-evidence")).toContainText("시뮬레이션 근거");
+  await expect(page.locator(".outcome-sample-boundary")).toContainText("샘플 성과");
+  await expect(page.locator(".outcome-sample-boundary"))
+    .toContainText("아래 링크는 Live 근거를 열며 샘플 값을 입증하지 않습니다.");
+  await expect(page.getByRole("link", { name: "감사 근거 보기" }))
+    .toHaveAttribute("href", "/audit?window=30d");
+});
+
 test("partial measurements and explicit empty distributions remain distinct", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await mockApi(page, 200, false, { kpi: { by_tier: { t0: 8, t1: 2 } } });

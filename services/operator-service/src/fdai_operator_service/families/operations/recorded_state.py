@@ -16,6 +16,7 @@ from fdai_service_contracts.recorded_resource_state import (
     OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES,
     OPERATIONAL_STATE_PATHS,
     OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
+    PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES,
     PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
     RECORDED_STATE_UNAVAILABLE_REASONS,
     STATE_FACT_UNAVAILABLE_REASONS_PROPERTY,
@@ -201,6 +202,8 @@ def _missing_reason(resource_type: str | None, paths: tuple[str, ...]) -> str:
             return "state_source_not_recorded"
         if resource_type in AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES:
             return "state_not_applicable"
+        if resource_type in PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES:
+            return "provider_availability_state_not_exposed"
     return "state_not_recorded"
 
 

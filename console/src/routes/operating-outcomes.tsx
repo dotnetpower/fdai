@@ -105,6 +105,12 @@ export function OperatingOutcomeBody({
         </div>
         <span>{t(`analytics.${metric.direction}Better`)}</span>
       </header>
+      {autonomy.synthetic ? (
+        <section class="vertical-boundary-banner outcome-sample-boundary">
+          <strong>{t("analytics.outcomes.simulatedTitle")}</strong>
+          <span>{t("analytics.outcomes.simulatedEvidenceBoundary")}</span>
+        </section>
+      ) : null}
       {active === "cost-per-resolved-event" ? <CostReferenceNotice /> : null}
       <EvidenceStrip autonomy={autonomy} />
       <OutcomeKpis autonomy={autonomy} metric={metric} active={active} contract={contract} />

@@ -15,6 +15,7 @@ from fdai_operator_service.families.operations.recorded_state import (
     AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
     OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES,
     OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
+    PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES,
     PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
     RecordedStateObservation,
     recorded_resource_states,
@@ -174,6 +175,7 @@ def test_missing_state_separates_source_provider_and_applicability_outcomes() ->
     assert log_workspace["operational"]["reason"] == "state_not_applicable"
     assert log_workspace["availability"]["reason"] == "state_source_not_recorded"
     assert not_applicable["operational"]["reason"] == "state_not_applicable"
+    assert not_applicable["availability"]["reason"] == ("provider_availability_state_not_exposed")
     assert unresolved["operational"]["reason"] == "state_applicability_unknown"
 
 
@@ -367,6 +369,19 @@ def test_every_canonical_resource_type_has_a_reviewed_operational_state_outcome(
     assert classified == canonical
     assert set(AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE).isdisjoint(
         AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES
+    )
+    availability_classified = (
+        set(AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE)
+        | AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES
+        | PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES
+        | {"unclassified-resource"}
+    )
+    assert availability_classified == canonical
+    assert set(AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE).isdisjoint(
+        PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES
+    )
+    assert AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES.isdisjoint(
+        PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES
     )
 
 

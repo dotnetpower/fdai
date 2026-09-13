@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: dc406be7b0bc4b1ae41b169bd754b40954deaa0b
-translation_revised: 2026-09-09
+translation_source_sha: 03770457959bb7efaa94724b8a1e61285b985811
+translation_revised: 2026-09-13
 ---
 # Operator Console 모듈 지도 and Boundaries
 
@@ -12,7 +12,7 @@ translation_revised: 2026-09-09
 
 [`operator-console-module-inventory.json`](operator-console-module-inventory.json)은 현재 Operator API 패키지 책임, 경로 계열 분류, 후보 대상 및 가져오기 표면 상태를 기록합니다. 이 인벤토리는 file-count 목표가 아닌 설명 기준이지만, executable 완전성 게이트는 현재 모든 모듈 디렉터리와 경로 모듈을 분류된 상태로 유지하도록 요구합니다. 후보 대상은 패키지 힌트입니다. 새 프로세스, 신원, 전송 계층 또는 데이터 소유자의 게이트는 [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)입니다.
 [`test_operator_api_layout.py`](../../../services/operator-service/tests/)는 현재 모든 패키지와 경로 모듈이 분류된 상태인지 확인하고, exact 기본 메서드, 경로, route-name 집합 및 대표 HTTP 묶음을 고정합니다. 의도적인 기본 경로 추가는 같은 변경에서 검토된 기준선을 갱신합니다.
-저장소 카탈로그는 리비전이 있는 Operator 변환 결과로 구체화합니다. `runtime_projection_reader.py`와 `conversation_assurance_reader.py`는 Operator 역할에 부여된 영속 테이블만 읽습니다. 대화 보증 상세는 principal, conversation, turn 식별자가 모두 일치할 때만 저장된 평가를 의미 요청 및 결과 레코드와 결합합니다. 브라우저 재생은 권위 있는 평가 식별자를 유지하고 식별자가 없는 이전 캐시 답변을 한 번 복원하며 초기 복원과 명시적 재시도에 같은 검사를 사용합니다. 목록 새로고침은 가장 최신 요청만 수락합니다. 유효한 내용 주소 기반 링크는 범위가 제한된 목록 밖의 principal 범위 상세를 읽을 수 있고, 누락된 상세는 사용 불가 상태를 유지하면서 목록과 상세 재시도 세대를 함께 갱신합니다. 다중화된 요청 이외 Kafka 게시는 한 번의 범위 제한 인코딩 전에 logical-topic 표시를 추가하고 스키마로 검증되는 의미 요청은 producer-codec 경계를 유지합니다. 이 읽기 구성요소는 측정된 레코드 또는 명시적인 빈 근거 상태를 반환하며 실행 적격성을 추론하지 않습니다.
+저장소 카탈로그는 리비전이 있는 Operator 변환 결과로 구체화합니다. `runtime_projection_reader.py`와 `conversation_assurance_reader.py`는 Operator 역할에 부여된 영속 테이블만 읽습니다. 대화 보증 상세는 principal, conversation, turn 식별자가 모두 일치할 때만 저장된 평가를 의미 요청 및 결과 레코드와 결합합니다. 브라우저 재생은 권위 있는 평가 식별자를 유지하고 식별자가 없는 이전 캐시 답변을 한 번 복원하며 초기 복원과 명시적 재시도에 같은 검사를 사용합니다. 목록 새로고침은 가장 최신 요청만 수락합니다. 유효한 내용 주소 기반 링크는 범위가 제한된 목록 밖의 principal 범위 상세를 읽을 수 있고, 누락된 상세는 사용 불가 상태를 유지하면서 목록과 상세 재시도 세대를 함께 갱신합니다. 다중화된 요청 이외 Kafka 게시는 한 번의 범위 제한 인코딩 전에 logical-topic 표시를 추가하고 스키마로 검증되는 의미 요청은 producer-codec 경계를 유지합니다. Sample 성과는 Live 근거 링크가 fixture 값을 입증하지 않는 별도 근거 집합임을 표시합니다. 이 읽기 구성요소는 측정된 레코드 또는 명시적인 빈 근거 상태를 반환하며 실행 적격성을 추론하지 않습니다.
 WARA 워크플로 변환 결과는 정확한 평가기 신원과 구조화된 수동 근거 요구 사항을 읽기 모델에
 유지합니다. Console은 필요한 생성자, 범위, 최신성 상한 및 담당자를 설명할 수 있지만 근거
 작성기 또는 수정 컨트롤을 제공하지 않습니다.

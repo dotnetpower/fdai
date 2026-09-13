@@ -75,6 +75,8 @@
     "observedEventCount": "Observed records",
     "guardBoundary": "Quality boundary",
     "guardUnavailable": "Guard evidence is not present in the current measurement projection.",
+    "simulatedTitle": "Sample outcome",
+    "simulatedEvidenceBoundary": "This sample view has no supporting operational record filter. The links below open Live evidence and do not substantiate sample values.",
     "costNoticeLabel": "Cost estimate basis",
     "costNoticeTitle": "Standard-price estimate",
     "costNoticeBody": "Displayed costs use published standard prices. Actual billed amounts may differ because of negotiated discounts, commitments, credits, taxes, exchange rates, and provider billing adjustments. Use these values for reference, not invoice reconciliation.",

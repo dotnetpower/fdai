@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 52070f82880f9abf611a9b7e7b5671e0f32f2bb2
+translation_source_sha: ee3bea7aa2f6de4ed7e09636f0aeee07a029cc66
 translation_revised: 2026-09-13
 ---
 # 기록된 리소스 상태
@@ -163,7 +163,7 @@ ResourceType을 선언합니다.
 - 실패, 권한 부족, 잘못된 형식, 일부 범위 또는 오래된 상태 조회는 정확한 출처 제한을 기록합니다.
   `provisioningState`, 존재 여부 또는 설명이 없는 이전 값으로 대체하지 않습니다.
 - Resource Health 대상에 유지할 이전 사실이 없으면 누락된 가용성 값에
-  `resource_health_not_modeled` 같은 허용 목록 기반 리소스별 사유를 기록합니다. 공급자 응답
+  `resource_health_not_modeled` 같은 허용 목록 기반 리소스별 사유를 정확히 하나 기록합니다. 공급자 응답
   원문은 조회 경계를 통과하지 않습니다. 이전에 검증된 값이 있으면 그 값이 더 새로운 실패
   조회보다 우선하며, 원본 수준의 일부 범위가 해당 실패를 별도로 기록합니다.
 - 정확한 조회는 대상 200개와 동시성 8로 제한합니다. 이전의 설명 가능한 사실은 세대가 일치하는
