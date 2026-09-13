@@ -187,11 +187,14 @@ function decodeIncidentAttentionSnapshotValue(value: unknown): IncidentAttention
 function validIncident(value: unknown): value is IncidentAttentionProjection {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const incident = value as Record<string, unknown>;
-  return BOUNDED_PRINTABLE_TOKEN.test(String(incident.incident_id ?? ""))
-    && BOUNDED_PRINTABLE_TOKEN.test(String(incident.correlation_id ?? ""))
+  return typeof incident.incident_id === "string"
+    && BOUNDED_PRINTABLE_TOKEN.test(incident.incident_id)
+    && typeof incident.correlation_id === "string"
+    && BOUNDED_PRINTABLE_TOKEN.test(incident.correlation_id)
     && safeText(incident.title, 512)
     && safeText(incident.severity, 64)
-    && INCIDENT_STATUSES.has(String(incident.status ?? ""))
+    && typeof incident.status === "string"
+    && INCIDENT_STATUSES.has(incident.status)
     && isCanonicalStreamTimestamp(incident.opened_at)
     && isCanonicalStreamTimestamp(incident.last_updated_at);
 }
