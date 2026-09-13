@@ -9,8 +9,14 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Final
 
-from fdai.delivery.azure.arg_relationships import project_provider_relationships
+from fdai.delivery.azure.arg_relationships import (
+    project_provider_relationships,
+    provider_parent_id,
+    provider_root_id,
+)
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
+    EndpointOrientation,
+    ProviderRelationshipMappingCatalog,
     load_provider_relationship_mapping_catalog,
 )
 from fdai.rule_catalog.schema.resource_type import (
@@ -24,13 +30,18 @@ _SUBNET_TYPE: Final[str] = "network.subnet"
 _SUBNET_ARM_TYPE: Final[str] = "Microsoft.Network/virtualNetworks/subnets"
 _MAX_ARM_SUBSCRIPTION_CHARS: Final[int] = 128
 _MAX_ARM_RESOURCE_GROUP_CHARS: Final[int] = 90
+_MAX_ARM_PROVIDER_TYPE_CHARS: Final[int] = 512
 _RELATIONSHIP_MAPPING_ROOT: Final[Path] = Path(
     "rule-catalog/vocabulary/provider-relationship-mappings"
 )
 _LOGGER = logging.getLogger(__name__)
 
 
-class ArmScopeError(ValueError):
+class ArmIdentityError(ValueError):
+    """An Azure row contradicts its provider identity."""
+
+
+class ArmScopeError(ArmIdentityError):
     """An Azure row contradicts the scope encoded in its provider identity."""
 
 
@@ -68,6 +79,48 @@ def parent_neutral_id(arm_id: str) -> str | None:
         # The resource group itself is contained by its subscription scope.
         return _scope_prefix(trimmed)
     return to_neutral_id(trimmed[:next_slash])
+
+
+def reviewed_containment_parent(
+    arm_id: str,
+    *,
+    arm_type: str,
+    arm_to_neutral: Mapping[str, str],
+    catalog: ProviderRelationshipMappingCatalog,
+) -> tuple[str, str] | None:
+    """Resolve only reviewed provider-parent containment before RG fallback."""
+
+    mapping_paths = {
+        mapping.source_property_path
+        for mapping in catalog.mappings
+        if mapping.provider == "azure"
+        and mapping.source_property_path in {"id.providerParent", "id.providerRoot"}
+        and mapping.link_type == "contains"
+        and mapping.endpoint_orientation is EndpointOrientation.REFERENCED_TO_OWNER
+        and arm_type.casefold() in mapping.source_provider_types
+    }
+    if len(mapping_paths) > 1:
+        raise ArmScopeError("ARM type has ambiguous containment mappings")
+    if mapping_paths:
+        mapping_path = next(iter(mapping_paths))
+        parent_provider_id = (
+            provider_root_id(arm_id)
+            if mapping_path == "id.providerRoot"
+            else provider_parent_id(arm_id)
+        )
+        parent_provider_type = (
+            arm_id_to_type(parent_provider_id) if parent_provider_id is not None else None
+        )
+        parent_type = (
+            arm_to_neutral.get(parent_provider_type.casefold())
+            if parent_provider_type is not None
+            else None
+        )
+        if parent_provider_id is None or parent_type is None:
+            raise ArmScopeError("ARM provider parent cannot be resolved")
+        return to_neutral_id(parent_provider_id), parent_type
+    parent_id = parent_neutral_id(arm_id)
+    return (parent_id, _RESOURCE_GROUP_TYPE) if parent_id is not None else None
 
 
 def arm_scope_properties(
@@ -199,6 +252,10 @@ def resource_operational_status(row: Mapping[str, Any]) -> str | None:
     extended_properties = extended if isinstance(extended, Mapping) else {}
     instance_view = extended_properties.get("instanceView")
     instance_view_properties = instance_view if isinstance(instance_view, Mapping) else {}
+    direct_instance_view = nested.get("instanceView")
+    direct_instance_view_properties = (
+        direct_instance_view if isinstance(direct_instance_view, Mapping) else {}
+    )
     for value in (
         row.get("powerState"),
         row.get("state"),
@@ -214,6 +271,8 @@ def resource_operational_status(row: Mapping[str, Any]) -> str | None:
         nested.get("userVisibleState"),
         nested.get("resourceState"),
         nested.get("virtualNetworkLinkState"),
+        direct_instance_view_properties.get("executionState"),
+        nested.get("registrationStatus"),
     ):
         state = _state_text(value)
         if state is not None:
@@ -299,10 +358,7 @@ def materialize_nested_subnets(
             props["properties"] = dict(nested_properties)
         props.update(arm_scope_properties(provider_ref, raw_subnet))
         props["providerType"] = provider_type
-        # A nested child is still a resource in the declared containment chain, so it
-        # reports the same parent level every other resource reports.
-        if (parent_id := parent_neutral_id(provider_ref)) is not None:
-            props["parent_id"] = parent_id
+        props["parent_id"] = vnet.resource_id
         records.append(
             ResourceRecord(
                 resource_id=resource_id,
@@ -343,18 +399,55 @@ def build_arm_to_neutral_map(registry: ResourceTypeRegistry) -> dict[str, str]:
 
 def arm_id_to_type(arm_id: str) -> str | None:
     """Extract the ``Microsoft.X/Y[/Z]`` type suffix from an ARM id."""
+    parts = arm_id.strip("/").split("/")
+    if any(not part for part in parts):
+        return None
+    if len(parts) == 2 and parts[0].casefold() == "subscriptions":
+        return "Microsoft.Resources/subscriptions"
+    if (
+        len(parts) == 4
+        and parts[0].casefold() == "subscriptions"
+        and parts[2].casefold() == "resourcegroups"
+    ):
+        return "Microsoft.Resources/resourceGroups"
     marker = "/providers/"
-    idx = arm_id.lower().find(marker)
+    idx = arm_id.lower().rfind(marker)
     if idx == -1:
         return None
     parts = arm_id[idx + len(marker) :].split("/")
-    if len(parts) < 2:
+    if len(parts) < 3 or len(parts) % 2 == 0:
         return None
     provider = parts[0]
     type_segments = [parts[index] for index in range(1, len(parts), 2)]
     if not type_segments:
         return None
     return f"{provider}/{'/'.join(type_segments)}"
+
+
+def arm_provider_type(arm_id: str, supplied: object = None) -> str:
+    """Return a bounded provider type that exactly matches the ARM id."""
+
+    derived = arm_id_to_type(arm_id)
+    if (
+        derived is None
+        or len(derived) > _MAX_ARM_PROVIDER_TYPE_CHARS
+        or any(ord(character) < 32 for character in derived)
+    ):
+        raise ArmIdentityError("ARM provider type is malformed")
+    if supplied is None:
+        return derived
+    if not isinstance(supplied, str):
+        raise ArmIdentityError("ARM provider type is malformed")
+    candidate = supplied.strip()
+    if (
+        not candidate
+        or len(candidate) > _MAX_ARM_PROVIDER_TYPE_CHARS
+        or any(ord(character) < 32 for character in candidate)
+    ):
+        raise ArmIdentityError("ARM provider type is malformed")
+    if candidate.casefold() != derived.casefold():
+        raise ArmIdentityError("ARM provider type conflicts with the provider id")
+    return candidate
 
 
 def extract_attached_to_links_from_row(

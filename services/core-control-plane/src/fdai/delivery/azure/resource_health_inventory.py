@@ -158,12 +158,8 @@ class AzureResourceHealthInventoryEnricher:
                 observed_at=self._now(),
                 coverage={"targets": 0},
             )
-        if len(targets) > self._config.max_targets:
-            return self._unavailable(
-                _retain_previous_health(base_observation, previous),
-                reason="resource_health_target_limit",
-                coverage={"targets": len(targets)},
-            )
+        collected_targets = targets[: self._config.max_targets]
+        limited_targets = targets[self._config.max_targets :]
         try:
             token = await self._identity.get_token(self._config.audience)
         except Exception:  # noqa: BLE001 - identity details must not enter generation metadata
@@ -177,7 +173,7 @@ class AzureResourceHealthInventoryEnricher:
             async with semaphore:
                 return resource, await self._read(resource, token=token.token)
 
-        results = await asyncio.gather(*(collect(resource) for resource in targets))
+        results = await asyncio.gather(*(collect(resource) for resource in collected_targets))
         completed_at = self._now()
         observed_facts = tuple(result for _, result in results if isinstance(result, _HealthFact))
         if observed_facts:
@@ -187,8 +183,17 @@ class AzureResourceHealthInventoryEnricher:
                 await asyncio.sleep(skew_seconds)
                 completed_at = self._now()
         coverage: Counter[str] = Counter()
+        if limited_targets:
+            coverage["target_limit"] = len(limited_targets)
         facts: dict[str, _HealthFact] = {}
         retained: dict[str, ResourceRecord] = {}
+        for resource in limited_targets:
+            prior = _prior_health_resource(previous.get(resource.resource_id))
+            retained[resource.resource_id] = (
+                _carry_prior_health(resource, prior)
+                if prior is not None
+                else _with_unavailable_reason(resource, "target_limit")
+            )
         for resource, result in results:
             if isinstance(result, str):
                 coverage[result] += 1
