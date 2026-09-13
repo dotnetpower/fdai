@@ -85,7 +85,6 @@ from fdai.delivery.azure.arg_projection import (
     ArmScopeError,
     arm_id_to_type,
     arm_provider_type,
-    arm_scope_properties,
     build_arm_to_neutral_map,
     resource_operational_status,
     reviewed_containment_parent,
