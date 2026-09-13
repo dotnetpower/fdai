@@ -70,6 +70,10 @@ The collector uses the cheapest authoritative signal that can preserve the requi
 3. Run bounded reconciliation to detect missed events, repair relationships, and prove scope completeness.
 4. Run exact live reads only when inventory lacks an evidence family or a verified query needs fresher evidence.
 
+Activity Log recovery records are sparse observations. They merge only their declared property
+mask into the current snapshot and carry no relationship changes; only a complete reconciliation
+can replace the full property set or establish relationship completeness.
+
 A collected property becomes a relationship only through a reviewed provider mapping. If that
 mapping omits an observed connection target, an absent graph edge never proves an absent path.
 Every reachable managed-service connection therefore needs its target type in the reviewed catalog.

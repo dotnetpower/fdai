@@ -195,6 +195,30 @@ async def test_forward_delta_publishes_event_and_advances_cursor() -> None:
 
 
 @pytest.mark.asyncio
+async def test_forward_delta_marks_sparse_recovery_records_partial() -> None:
+    inventory = _Inventory()
+    state = InMemoryStateStore()
+    bus = InMemoryEventBus()
+
+    published = await forward_inventory_delta(
+        inventory=inventory,
+        state_store=state,
+        event_bus=bus,
+        topic="events",
+        scope="subscription-1",
+        properties_complete=False,
+    )
+
+    assert published == 1
+    records = [item async for item in bus.subscribe("events", "reader")]
+    change = records[0].payload["payload"]["inventory_change"]
+    assert change["observation_kind"] == "partial"
+    assert change["properties_complete"] is False
+    assert change["property_mask"] == sorted(change["resource"]["props"])
+    assert change["links"] == []
+
+
+@pytest.mark.asyncio
 async def test_forward_delta_preserves_cursor_without_final_fence() -> None:
     inventory = _Inventory(final=False)
     state = InMemoryStateStore()

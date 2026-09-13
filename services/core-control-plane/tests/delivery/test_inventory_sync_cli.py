@@ -1557,6 +1557,7 @@ async def test_recovery_delta_forwards_every_scope(monkeypatch: pytest.MonkeyPat
 
     assert published == 5
     assert [call.kwargs["scope"] for call in forward.await_args_list] == list(config.scopes)
+    assert all(call.kwargs["properties_complete"] is False for call in forward.await_args_list)
     assert locked_scopes == [f"inventory-recovery-delta:{scope}" for scope in config.scopes]
 
 
