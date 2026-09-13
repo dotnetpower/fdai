@@ -130,7 +130,8 @@ Kubernetes enrichment pipeline. An unavailable or unsupported source records its
 never derives health from provisioning state.
 An Activity Log row outside the reviewed ResourceType vocabulary is omitted before state
 projection. A mapped row must still prove that its supplied type matches the exact provider or
-built-in scope shape encoded by its ARM ID.
+built-in scope shape encoded by its ARM ID. Omitted rows advance the provider cursor without
+creating a reconciliation marker; a mapped contradiction fails before the final cursor fence.
 
 The promoted Resource fact is written to both the current `ontology_resource` Resource and the
 Operator-readable inventory projection under one generation fence. Core conversational functions
