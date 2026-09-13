@@ -5,6 +5,7 @@ from uuid import UUID
 
 import pytest
 from fdai_operator_service.dashboard_source import (
+    MEASUREMENT_AUDIT_CLOCK_SKEW,
     MEASUREMENT_ROW_LIMIT,
     MEASUREMENT_SNAPSHOT_SQL,
     decode_dashboard_snapshot,
@@ -203,6 +204,27 @@ def test_snapshot_and_payload_bounds_fail_closed() -> None:
         decode_dashboard_snapshot(snapshot(records=[{}] * (MEASUREMENT_ROW_LIMIT + 1)))
 
 
+@pytest.mark.parametrize(
+    "entry",
+    [
+        classification(recorded_at=NOW + MEASUREMENT_AUDIT_CLOCK_SKEW + timedelta(seconds=1)),
+        outcome(recorded_at=NOW + MEASUREMENT_AUDIT_CLOCK_SKEW + timedelta(seconds=1)),
+        metric(
+            recorded_at=NOW + MEASUREMENT_AUDIT_CLOCK_SKEW + timedelta(seconds=1),
+            observed_at=NOW,
+        ),
+    ],
+)
+def test_payload_time_cannot_move_past_its_durable_audit_record(entry) -> None:
+    with pytest.raises(ValueError, match="time|future"):
+        decode_dashboard_snapshot(
+            snapshot(
+                row(entry),
+                window_end=NOW + timedelta(days=1),
+            )
+        )
+
+
 def test_snapshot_sql_bounds_all_streams_in_one_read() -> None:
     assert "CURRENT_TIMESTAMP AS window_end" in MEASUREMENT_SNAPSHOT_SQL
     assert "audit.seq <= boundary.cutoff_seq" in MEASUREMENT_SNAPSHOT_SQL
@@ -211,8 +233,11 @@ def test_snapshot_sql_bounds_all_streams_in_one_read() -> None:
 
 
 def test_metric_provenance_is_retained_and_incomplete_values_withdraw() -> None:
-    result = decode_dashboard_snapshot(snapshot(row(metric())))
+    entry = metric()
+    result = decode_dashboard_snapshot(snapshot(row(entry)))
     assert result.metrics[0].value == 2.5
+    assert result.metrics[0].observation_id == entry["observation_id"]
+    assert result.metrics[0].supersedes_observation_id is None
     assert result.metrics[0].source_context == (
         "sha256:" + "a" * 64,
         "a" * 40,

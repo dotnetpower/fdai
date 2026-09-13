@@ -193,7 +193,7 @@ test("submits a bounded Incident intervention without claiming it was applied", 
   await expect(summary).toContainText("1Pending outcomes");
   await expect(page.locator(".incident-roster-stage").first()).toHaveAttribute(
     "aria-label",
-    "Approval, step 2 of 4",
+    "Respond, step 3 of 4",
   );
   const outcome = page.locator("details.incident-outcome-analytics");
   await expect(outcome).not.toHaveAttribute("open", "");

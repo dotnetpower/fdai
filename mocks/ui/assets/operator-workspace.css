@@ -34,7 +34,7 @@ html:has(.cs-operator-neutral) { scrollbar-gutter: stable; }
 .cs-operator-neutral :is(.cs-lead, .cp-header p, .cs-live-lead) { color: var(--cs-settings-muted); font-size: var(--cs-type-body-size); line-height: var(--cs-type-body-line-height); }
 .cs-operator-neutral :is(p, td, dd, code, small) { overflow-wrap: anywhere; }
 .cs-operator-neutral small { font-size: var(--cs-type-compact-size); line-height: var(--cs-type-compact-line-height); }
-.cs-operator-neutral code { font-size: .95em; }
+.cs-operator-neutral code { font-size: var(--cs-type-label-size); }
 .cs-operator-neutral :is(.cs-page-header, .cp-header, .cs-live-header) { margin-bottom: 24px; }
 .cs-operator-neutral :is(.cs-readonly-banner, .op-boundary) { display: block; padding: 12px 16px; border: 0; border-radius: var(--cs-radius-sm); background: var(--cs-bg); color: var(--cs-settings-muted); font-size: var(--cs-type-compact-size); line-height: var(--cs-type-compact-line-height); }
 .cs-operator-neutral :is(.cp-kpis, .op-summary) { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; padding: 0; border: 0; border-radius: var(--cs-radius-sm); background: var(--cs-bg); }
@@ -134,15 +134,20 @@ html:has(.cs-operator-neutral) { scrollbar-gutter: stable; }
 .cs-operator-neutral :is(.pv-button, .in-filter button, .in-intervention-actions button, .in-intervene-button, .ob-refresh) { min-height: var(--cs-control-height); font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font); border-radius: var(--cs-radius-sm); }
 .cs-operator-neutral :is(.in-command, .in-roster, .in-detail, .ob-kpi, .cs-tile) { box-shadow: none; }
 .cs-operator-neutral .cs-live-kpi-meta { white-space: normal; overflow: visible; text-overflow: clip; }
+.cs-operator-neutral .cs-live-kpi { padding-inline-end: 44px; }
+.cs-operator-neutral .cs-live-kpi-detail { width: 32px; height: 32px; }
 .cs-operator-neutral :is(.cs-live-kpi-meta, .lc-timezone, .lc-date-field, .lc-range-error,
   .lc-tooltip-row, .lc-model-pill, .in-summary-foot, .in-filter-note, .in-incident-age,
   .in-incident-context, .in-stage-name, .in-stage-name b, .in-handoff-agent span,
   .in-handoff-step p, .in-meta span, .in-current-facts dt, .in-section-label,
-  .pv-label, .pv-status, .pv-progress-head, .pv-progress-foot, .ob-count) {
+  .in-view-row em, .in-evidence-scope, .in-history-title > span, .cs-sev,
+  .cs-tile-mode, .cs-tile-scope, .pv-label, .pv-status, .pv-stage-index,
+  .pv-progress-head, .pv-progress-foot, .ob-count, .ob-role-table th) {
   font-size: var(--cs-type-compact-size);
   line-height: var(--cs-type-compact-line-height);
   text-transform: none;
 }
+.cs-operator-neutral .ob-role-table code { font-size: 1em; }
 .cs-operator-neutral :is(.lc-range-option, .cs-live-attention-items button,
   .cs-live-filterbar button, .cs-live-view-toggle button, .in-roster-foot button,
   .in-intervention-summary button) { min-height: var(--cs-control-height); font-size: var(--cs-type-compact-size); }
@@ -156,6 +161,7 @@ html:has(.cs-operator-neutral) { scrollbar-gutter: stable; }
 .cs-operator-neutral .ob-header { align-items: start; }
 .cs-operator-neutral .ob-header .cs-page-header { margin-bottom: 0; }
 .cs-operator-neutral .ob-header .op-toolbar { flex: 0 0 auto; margin: 0; padding: 0; background: transparent; }
+.cs-operator-neutral .ob-grid { grid-template-columns: minmax(min(100%, 240px), .8fr) minmax(0, 1.2fr); }
 .cs-operator-neutral .ob-kpi { min-height: 0; padding: 16px; }
 .cs-operator-neutral .ob-kpi-label { font-size: var(--cs-type-label-size); font-weight: 500; letter-spacing: 0; text-transform: none; }
 .cs-operator-neutral .ob-kpi-value { font-size: var(--cs-type-page-title-size); line-height: 1.2; font-weight: 600; margin-top: 8px; }
@@ -163,8 +169,11 @@ html:has(.cs-operator-neutral) { scrollbar-gutter: stable; }
 .cs-operator-neutral .ob-readiness[data-state="unknown"] { color: var(--cs-text-soft); }
 .cs-operator-neutral .ob-readiness::before { background: currentColor; }
 .cs-operator-neutral :is(.ob-kpi-note, .ob-list small, .ob-role-main small) { font-size: var(--cs-type-compact-size); }
+.cs-operator-neutral .ob-role-table { table-layout: fixed; }
 @media (min-width: 681px) {
   .cs-operator-neutral .ob-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (min-width: 901px) {
   .cs-operator-neutral .cs-live-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (min-width: 641px) {
@@ -197,6 +206,7 @@ html:has(.cs-operator-neutral) { scrollbar-gutter: stable; }
 @media (max-width: 620px) {
   .cs-operator-neutral .dashboard-v2 .dr-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .cs-operator-neutral .ob-header { gap: 16px; }
+  .cs-operator-neutral .ob-grid { grid-template-columns: minmax(0, 1fr); }
   .cs-operator-neutral .in-command .op-toolbar label:has([data-incident-search]) { flex: 1 1 100%; }
   .cs-operator-neutral [data-incident-search] { width: 100%; }
   .cs-operator-neutral .cg-visual .ov-section-head { flex-wrap: wrap; }
@@ -219,5 +229,40 @@ html:has(.cs-operator-neutral) { scrollbar-gutter: stable; }
 @media (pointer: coarse), (max-width: 520px) {
   .cs-operator-neutral { --cs-control-height: 44px; }
   .cs-operator-neutral :is(button, .cs-btn, input:not([type="checkbox"]):not([type="radio"]), select) { min-height: 44px; }
+  .cs-operator-neutral button { min-width: 44px; }
   .cs-operator-neutral label:has(input:is([type="checkbox"], [type="radio"])) { min-height: 44px; }
+  .cs-operator-neutral details > summary { min-height: 44px; }
+  .cs-operator-neutral .cs-live-kpis {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-columns: auto;
+    grid-auto-flow: row;
+    overflow-x: visible;
+    padding-bottom: 0;
+    scroll-snap-type: none;
+  }
+  .cs-operator-neutral .cs-live-kpi { scroll-snap-align: none; }
+  .cs-operator-neutral .cs-live-kpi-detail {
+    width: 44px;
+    height: 44px;
+    top: 0;
+    right: 0;
+  }
+  .cs-operator-neutral :is(#live-fullscreen, #detail-close, .in-modal-close) {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+  }
+}
+@media (forced-colors: active) {
+  .cs-operator-neutral :is(.cp-tab[aria-selected="true"], [aria-pressed="true"], .in-incident.is-selected) {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+  .cs-operator-neutral :is(button, a, summary, input, select, textarea):focus-visible {
+    outline: 3px solid Highlight;
+  }
+  .cs-operator-neutral :is(.cs-status, .cp-status, .cs-sev, .pv-status)::before {
+    background: CanvasText;
+    forced-color-adjust: none;
+  }
 }

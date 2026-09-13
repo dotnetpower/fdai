@@ -4,13 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ontology - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=governance-evidence-v1" />
-  <link rel="stylesheet" href="assets/governance-evidence-workspace.css?v=9" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=component-conformance-v1" />
+  <link rel="stylesheet" href="assets/governance-evidence-workspace.css?v=11" />
   <link rel="stylesheet" href="assets/focused-final-workspaces.css?v=1" />
-  <script src="assets/ontology-semantic-preview.js?v=1" defer></script>
+  <link rel="stylesheet" href="assets/connected-operations-flow.css?v=4" />
+  <script src="assets/ontology-semantic-preview.js?v=3" defer></script>
   <script src="assets/calm-slate.js?v=governance-evidence-v1" defer></script>
 </head>
-<body class="cs-governance-evidence cs-ge-ontology" data-console-page="ontology">
+<body class="cs-governance-evidence cs-ge-ontology" data-console-page="ontology" data-chat-theme="clear-neutral">
   <main class="cs-container cs-page" data-ontology-preview>
     <header class="cs-page-header ge-page-header">
       <div class="ge-page-header-copy">
@@ -108,15 +109,25 @@
     </section>
 
     <section class="ontology-view ontology-registry-panel" data-ontology-view="instances" hidden>
-      <h2>Ontology instances</h2>
-      <p>The production Console explores one exact observed Resource, direct typed relationships, source availability, and durable activity at one inventory cutoff.</p>
-      <div class="cs-empty"><strong>No runtime claim in this specimen</strong>Static catalog examples do not substitute for an authoritative inventory projection.</div>
+      <h2>Ontology instances - 2D operational view</h2>
+      <p>The same graph-first 2D workspace used by the Console is shown with synthetic Resources. Selection, layout, and focus are presentation only.</p>
+      <div class="flow-context" aria-label="Selected synthetic Resource context">
+        <div><span>Selected Resource</span><strong>checkout-api</strong></div>
+        <div><span>Relationship scope</span><strong>Direct / depth 1</strong></div>
+        <div><span>Evidence cutoff</span><strong>22 Aug 2026, 08:00 UTC</strong></div>
+        <div><span>Coverage</span><strong>Complete synthetic generation</strong></div>
+        <nav aria-label="Related synthetic views">
+          <a href="deck.html?target=checkout-api&amp;correlation=sample-query-connected-resources-01">Ask about this Resource</a>
+          <a href="rule-trace.html?mode=read&amp;correlation=sample-query-connected-resources-01">Open read trace</a>
+        </nav>
+      </div>
+      <iframe class="flow-ontology-embed" src="ontology-instances-2d.html?embedded=1&amp;instance=checkout-api&amp;version=3" title="Synthetic 2D ontology instance explorer" loading="lazy"></iframe>
     </section>
 
     <section class="ontology-view ontology-registry-panel" data-ontology-view="topology" hidden>
       <h2>Catalog topology</h2>
       <p>The complete Console topology combines ObjectTypes, InterfaceTypes, FunctionTypes, ResourceTypes, Rules, ActionTypes, Workflows, Agents, SignalTypes, and Properties in one reference graph.</p>
-      <a class="cs-btn" href="ontology-knowledge-graph.html">Open detailed topology specimen</a>
+      <a class="cs-control-button" href="ontology-knowledge-graph.html">Open detailed topology specimen</a>
     </section>
   </main>
 </body>

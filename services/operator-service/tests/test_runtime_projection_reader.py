@@ -9,6 +9,13 @@ from typing import Any
 
 import pytest
 from fdai_operator_service.assurance_twin_posture_projection import GAP_MALFORMED
+from fdai_operator_service.autonomy_measurement_projection import (
+    validate_autonomy_measurement,
+)
+from fdai_operator_service.dashboard_source import (
+    MEASUREMENT_KINDS,
+    MEASUREMENT_ROW_LIMIT,
+)
 from fdai_operator_service.families.operations import (
     ProjectionNotFoundError,
     ProjectionQuery,
@@ -544,66 +551,10 @@ async def test_nonempty_automation_blueprint_projection_is_bounded_and_read_only
     assert statements[0].rstrip().endswith("LIMIT 200")
 
 
-async def test_autonomy_without_canonical_projection_is_unavailable(
+async def test_autonomy_returns_truthful_empty_canonical_projection(
     monkeypatch: Any,
 ) -> None:
-    async def fetch(
-        self: RuntimeProjectionReader,
-        statement: str,
-        parameters: tuple[object, ...] = (),
-    ) -> list[dict[str, object]]:
-        del self, statement, parameters
-        return []
-
-    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
-    reader = RuntimeProjectionReader(
-        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
-        RecordingFallback(),
-    )
-
-    with pytest.raises(
-        ProjectionUnavailableError,
-        match="authoritative autonomy measurement projection is unavailable",
-    ):
-        await reader.read(_query("autonomy"))
-
-
-async def test_autonomy_returns_canonical_measurement_with_comparison_status(
-    monkeypatch: Any,
-) -> None:
-    unavailable_higher = {"value": None, "baseline": None, "direction": "higher"}
-    unavailable_lower = {"value": None, "baseline": None, "direction": "lower"}
-    projection = {
-        "schema_version": "1.0.0",
-        "synthetic": False,
-        "window_days": 30,
-        "sample_size": 0,
-        "confidence": None,
-        "source": {
-            "name": "outcome-assurance-measurement",
-            "kind": "measurement",
-            "as_of": "2026-09-12T00:00:00+00:00",
-        },
-        "rules": {"active": 0, "candidates_30d": 0, "promoted_30d": 0},
-        "success": {
-            "auto_resolution_rate": unavailable_higher,
-            "human_touchpoints_per_100": unavailable_lower,
-            "mttr_seconds": unavailable_lower,
-            "change_lead_time_seconds": unavailable_lower,
-            "cost_per_resolved_event_usd": unavailable_lower,
-        },
-        "leading": {
-            "mixed_model_disagreement_rate": unavailable_lower,
-            "verifier_failure_rate": unavailable_lower,
-            "shadow_divergence_rate": unavailable_lower,
-        },
-        "guards": [],
-        "finalization": {"finalized_events": 0, "pending_events": 0, "adverse_events": 0},
-        "attribution": {"attributed_events": 0, "unattributed_events": 0, "coverage": None},
-        "verticals": [],
-        "tier": {"mix": {}, "bands": {}},
-        "trend": {},
-    }
+    observed_at = datetime(2026, 9, 12, tzinfo=UTC)
 
     async def fetch(
         self: RuntimeProjectionReader,
@@ -611,9 +562,9 @@ async def test_autonomy_returns_canonical_measurement_with_comparison_status(
         parameters: tuple[object, ...] = (),
     ) -> list[dict[str, object]]:
         del self
-        assert "FROM state_kv" in statement
-        if parameters == ("measurement:outcome-assurance:autonomy",):
-            return [{"value": projection}]
+        if "FROM audit_log" in statement:
+            assert parameters == (list(MEASUREMENT_KINDS), MEASUREMENT_ROW_LIMIT + 1)
+            return [{"cutoff_seq": 0, "window_end": observed_at, "records": []}]
         if parameters == ("measurement:dashboard-comparison:v1",):
             return []
         raise AssertionError(parameters)
@@ -626,11 +577,16 @@ async def test_autonomy_returns_canonical_measurement_with_comparison_status(
 
     result = await reader.read(_query("autonomy"))
 
-    assert result == {
-        **projection,
-        "comparison": None,
-        "comparison_status": "not_published",
+    assert result["schema_version"] == "1.0.0"
+    assert result["sample_size"] == 0
+    assert result["source"] == {
+        "name": "postgresql:operational_measurements",
+        "kind": "measurement",
+        "as_of": observed_at.isoformat(),
     }
+    assert all(metric["value"] is None for metric in result["success"].values())
+    assert result["comparison"] is None
+    assert result["comparison_status"] == "not_published"
 
 
 @pytest.mark.parametrize(
@@ -653,29 +609,12 @@ async def test_autonomy_returns_canonical_measurement_with_comparison_status(
         },
     ],
 )
-async def test_autonomy_rejects_noncanonical_projection(
-    monkeypatch: Any,
-    value: object,
-) -> None:
-    async def fetch(
-        self: RuntimeProjectionReader,
-        statement: str,
-        parameters: tuple[object, ...] = (),
-    ) -> list[dict[str, object]]:
-        del self, statement, parameters
-        return [{"value": value}]
-
-    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
-    reader = RuntimeProjectionReader(
-        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
-        RecordingFallback(),
-    )
-
+def test_autonomy_rejects_noncanonical_projection(value: object) -> None:
     with pytest.raises(
         ProjectionUnavailableError,
         match="authoritative autonomy measurement projection is malformed",
     ):
-        await reader.read(_query("autonomy"))
+        validate_autonomy_measurement(value)
 
 
 @pytest.mark.parametrize(
@@ -721,29 +660,12 @@ async def test_autonomy_rejects_noncanonical_projection(
         },
     ],
 )
-async def test_autonomy_rejects_incomplete_or_inconsistent_envelope(
-    monkeypatch: Any,
-    value: object,
-) -> None:
-    async def fetch(
-        self: RuntimeProjectionReader,
-        statement: str,
-        parameters: tuple[object, ...] = (),
-    ) -> list[dict[str, object]]:
-        del self, statement, parameters
-        return [{"value": value}]
-
-    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
-    reader = RuntimeProjectionReader(
-        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
-        RecordingFallback(),
-    )
-
+def test_autonomy_rejects_incomplete_or_inconsistent_envelope(value: object) -> None:
     with pytest.raises(
         ProjectionUnavailableError,
         match="authoritative autonomy measurement projection is malformed",
     ):
-        await reader.read(_query("autonomy"))
+        validate_autonomy_measurement(value)
 
 
 async def test_remaining_console_evidence_projects_durable_tables(

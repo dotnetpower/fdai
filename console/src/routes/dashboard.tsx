@@ -36,6 +36,9 @@ import {
   type DashboardOverviewData,
 } from "./dashboard.loading";
 import type { ConsoleDataMode } from "../console-data-mode";
+import { CurrentPosture } from "./dashboard.posture";
+import { tDashboard } from "./i18n/dashboard-essential";
+import "./dashboard.css";
 
 interface Props {
   readonly client: OperatorApiClient;
@@ -50,9 +53,11 @@ interface Props {
  */
 export function DashboardRoute({ client, dataMode }: Props) {
   const [state, setState] = useState<AsyncState<DashboardOverviewData>>({ status: "loading" });
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    setState({ status: "loading" });
     (async () => {
       try {
         const data = await loadDashboardOverviewForMode(dataMode, client, (backbone) => {
@@ -71,20 +76,33 @@ export function DashboardRoute({ client, dataMode }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [client, dataMode]);
+  }, [client, dataMode, attempt]);
 
   return (
-    <div class="stack overview-page">
-      <PageHeader title={t("route.dashboard")} subtitle={<>{t("overview.subtitle")}</>} />
+    <div class="stack overview-page overview-essential">
+      <PageHeader
+        title={t("route.dashboard")}
+        subtitle={tDashboard("subtitle")}
+        actions={<a class="btn" href={routeHref("dashboard-v2")}>{tDashboard("resources")}</a>}
+      />
       <AsyncBoundary state={state} resourceLabel="overview" loading={<DashboardSkeleton />}>
         {(data) => <OverviewBody data={data} />}
       </AsyncBoundary>
+      {state.status === "error" && (
+        <div class="overview-error-actions">
+          <button class="btn" type="button" onClick={() => {
+            setState({ status: "loading" });
+            setAttempt((value) => value + 1);
+          }}>{tDashboard("retry")}</button>
+          <a href={routeHref("settings-diagnostics")}>{tDashboard("diagnostics")}</a>
+        </div>
+      )}
     </div>
   );
 }
 
 function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
-  const { kpi, cost, gates, autonomy } = data;
+  const { kpi, cost, gates, autonomy, optionalPending = false } = data;
   const comparisonExpired = useCohortExpiry(autonomy?.comparison?.valid_until);
   const sampleParams = auditSampleParams(kpi);
 
@@ -193,9 +211,10 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
         capturedAt: new Date().toISOString(),
         facts: [
           { key: "health", value: health, group: "overview" },
+          { key: "measurements_pending", value: optionalPending, group: "autonomy" },
           {
             key: "section_count",
-            aliases: ["primary sections", "numbered sections", "주요 영역", "번호 섹션"],
+            aliases: ["primary sections", "주요 영역"],
             value: 4,
             group: "page",
           },
@@ -273,27 +292,27 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
           sections: [
             {
               position: 1,
-              label: t("overview.section.outcomes"),
-              detail: t("overview.section.outcomesHint"),
-              evidence_state: autonomy === null ? "unavailable" : "available",
+              label: tDashboard("attention"),
+              detail: tDashboard("attentionHint"),
+              evidence_state: "available",
             },
             {
               position: 2,
+              label: tDashboard("posture"),
+              detail: tDashboard("postureHint"),
+              evidence_state: optionalPending ? "loading" : autonomy === null ? "unavailable" : "available",
+            },
+            {
+              position: 3,
               label: t("overview.section.routing"),
               detail: t("overview.section.routingHint"),
               evidence_state: "available",
             },
             {
-              position: 3,
-              label: t("overview.section.attention"),
-              detail: t("overview.section.attentionHint"),
-              evidence_state: "available",
-            },
-            {
               position: 4,
-              label: t("overview.section.verticals"),
-              detail: t("overview.section.verticalsHint"),
-              evidence_state: autonomy === null ? "unavailable" : "available",
+              label: t("overview.section.outcomes"),
+              detail: t("overview.section.outcomesHint"),
+              evidence_state: optionalPending ? "loading" : autonomy === null ? "unavailable" : "available",
             },
           ],
           controls: [
@@ -329,80 +348,67 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
         },
       };
     },
-    [kpi, cost, gates, autonomy, health, savings, t0Share, comparisonExpired],
+    [kpi, cost, gates, autonomy, health, savings, t0Share, optionalPending, comparisonExpired],
   );
 
   return (
     <div class="stack overview-report">
-      <ExecutiveStatus
-        health={health}
-        kpi={kpi}
-        autonomy={autonomy}
-        attentionCount={attentionCount}
-        policyEscapes={policyEscapes}
-      />
-
       <OverviewSection
-        number="1"
-        title={t("overview.section.outcomes")}
-        description={t("overview.section.outcomesHint")}
+        id="attention"
+        title={tDashboard("attention")}
+        description={tDashboard("attentionHint")}
       >
-        {autonomy ? (
-          <SuccessMetrics
-            success={autonomy.success}
-            synthetic={autonomy.synthetic}
-            windowDays={autonomy.window_days}
-            sourceName={autonomy.source.name}
-          />
-        ) : (
-          <a class="overview-unavailable-link" href={routeHref("operating-outcomes")}>
-            <MeasurementUnavailable />
-          </a>
-        )}
+        <RequiredAttention kpi={kpi} gates={gates} autonomy={autonomy} policyEscapes={policyEscapes} optionalPending={optionalPending} compact />
       </OverviewSection>
 
       <OverviewSection
-        number="2"
+        id="posture"
+        title={tDashboard("posture")}
+        description={tDashboard("postureHint")}
+      >
+        <CurrentPosture kpi={kpi} autonomy={autonomy} policyEscapes={policyEscapes} pending={optionalPending} />
+      </OverviewSection>
+
+      <OverviewSection
+        id="routing"
         title={t("overview.section.routing")}
-        description={t("overview.section.routingHint")}
+        description={tDashboard("routingHint")}
       >
-        <RoutingControl kpi={kpi} />
+        <RoutingControl kpi={kpi} compact />
       </OverviewSection>
 
       <OverviewSection
-        number="3"
-        title={t("overview.section.attention")}
-        description={t("overview.section.attentionHint")}
+        id="outcomes"
+        title={t("overview.section.outcomes")}
+        description={tDashboard("outcomesHint")}
       >
-        <RequiredAttention
-          kpi={kpi}
-          gates={gates}
-          autonomy={autonomy}
-          policyEscapes={policyEscapes}
-        />
-      </OverviewSection>
-
-      <OverviewSection
-        number="4"
-        title={t("overview.section.verticals")}
-        description={t("overview.section.verticalsHint")}
-      >
-        {autonomy ? (
-          <VerticalCards verticals={autonomy.verticals} />
-        ) : (
-          <a class="overview-unavailable-link" href={routeHref("verticals")}>
-            <MeasurementUnavailable />
-          </a>
-        )}
+        <SuccessMetrics success={autonomy?.success ?? null} pending={optionalPending} />
       </OverviewSection>
 
       <details class="advanced-details overview-details">
         <summary>
           <h3 class="section-title">{t("overview.detail")}</h3>
-          <span class="muted">{t("overview.detailHint")}</span>
+          <span class="muted">{tDashboard("evidenceHint")}</span>
         </summary>
         <div class="stack overview-details-body">
           <CohortComparison comparison={autonomy?.comparison} />
+          <ExecutiveStatus
+            health={health}
+            kpi={kpi}
+            autonomy={autonomy}
+            attentionCount={attentionCount}
+            policyEscapes={policyEscapes}
+          />
+          <OverviewSection id="controls" title={t("overview.section.attention")} description={t("overview.section.attentionHint")}>
+            <RequiredAttention kpi={kpi} gates={gates} autonomy={autonomy} policyEscapes={policyEscapes} optionalPending={optionalPending} />
+          </OverviewSection>
+          <OverviewSection id="verticals" title={t("overview.section.verticals")} description={t("overview.section.verticalsHint")}>
+            {autonomy ? (
+              <VerticalCards verticals={autonomy.verticals} />
+            ) : (
+              <a class="overview-unavailable-link" href={routeHref("verticals")}><MeasurementUnavailable /></a>
+            )}
+          </OverviewSection>
           <KpiGrid>
             <KpiCard href={routeHref("audit", { params: sampleParams })} label={t("overview.detailMetric.events")} value={kpi.event_count} hint={t("overview.detailMetric.eventsHint")} />
             <KpiCard href={routeHref("audit", { params: { ...sampleParams, mode: "shadow" } })} label={t("overview.detailMetric.shadow")} value={formatShare(kpi.shadow_share)} hint={t("overview.detailMetric.shadowHint")} tone={kpi.shadow_share > 0.95 ? "positive" : "default"} />
@@ -435,22 +441,21 @@ function OverviewBody({ data }: { readonly data: DashboardOverviewData }) {
 }
 
 function OverviewSection({
-  number,
+  id,
   title,
   description,
   children,
 }: {
-  readonly number: string;
+  readonly id: string;
   readonly title: string;
   readonly description: string;
   readonly children: preact.ComponentChildren;
 }) {
   return (
-    <section class="overview-section" aria-labelledby={`overview-section-${number}`}>
+    <section class={`overview-section overview-section-${id}`} aria-labelledby={`overview-section-${id}`}>
       <header class="overview-section-head">
-        <span class="overview-section-number" aria-hidden="true">{number}</span>
         <div>
-          <h3 id={`overview-section-${number}`}>{title}</h3>
+          <h3 id={`overview-section-${id}`}>{title}</h3>
           <p>{description}</p>
         </div>
       </header>

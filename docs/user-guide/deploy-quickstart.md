@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to Azure from one local command or a digest-pinned disconnected deployment appliance.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 167f34b237d6f693ed155e7e4003f6d124909a24 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 1f815718187081d84763255d2699c1be88efa3c3 }]
 ---
 
 # Deploy Quickstart
@@ -144,10 +144,13 @@ The coordinator performs the following operations in one resumable process:
 The command never interprets silence as approval. If an apply result is ambiguous, rerunning the
 same command performs verification-only recovery rather than repeating the apply.
 
-Before a new image plan, Genesis selects compatible private builder and verifier VM sizes in the
-requested region, checks their combined quota, and displays the sealed choices before approval.
-Apply never changes those sizes. This requires a signed kit containing the selection support;
-Foundation VM selection and recovery of an earlier partial attempt remain separate reviews.
+Before a new image plan, Genesis reads the complete regional VM catalog and chooses compatible
+private builder, verifier, and Foundation host sizes within one combined quota budget. Image VMs
+use managed OS disks; the host needs an ephemeral ResourceDisk that fits the image. The exact
+choices are sealed before approval and never changed during apply. If no compatible set is
+available, review the reported restrictions, hardware requirements, and quota; existing claims
+still resume verification only. These checks require a signed kit containing the selection support.
+Checkout changes do not update an older kit, and editing extracted signed kit files is unsupported.
 
 ### If kit acquisition fails
 

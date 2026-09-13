@@ -120,6 +120,13 @@ Resource discovery establishes identity and configuration. A separate reviewed s
 add only a typed state value and canonical state-fact metadata before the generation is promoted.
 It cannot replace identity, configuration, topology, or inventory observation time.
 
+Every full refresh preserves authoritative subscription and Resource Group scope before bounded
+vendor properties are truncated. This applies equally to ARG rows, direct ARM child collections,
+Resource Changes hydration, and Activity Log deltas. The local authoritative refresh and the
+long-running collector compose the same ordered runtime-call, Resource Health, Static Web App, and
+Kubernetes enrichment pipeline. An unavailable or unsupported source records its limitation and
+never derives health from provisioning state.
+
 The promoted Resource fact is written to both the current `ontology_resource` Resource and the
 Operator-readable inventory projection under one generation fence. Core conversational functions
 read the ontology instance. Operator instance and batch-state reads use the service-approved
@@ -160,6 +167,10 @@ the exact ResourceTypes whose ARM type is supported:
   evidence cutoff. A successful HTTP response or parent-resource existence never implies `Ready`.
 - A failed, unauthorized, malformed, partial, or stale state read records the exact source
   limitation and never substitutes `provisioningState`, existence, or a previous unqualified value.
+- When a Resource Health target has no retained prior fact, its missing availability value carries
+  exactly one allowlisted per-resource reason such as `resource_health_not_modeled`; provider response text
+  never crosses the read boundary. A retained verified value remains authoritative over the newer
+  failed read while source-level partial coverage records that failure.
 - Exact reads are bounded to 200 targets with concurrency eight. Prior qualified facts are read in
   generation-consistent batches and retained when the target bound or provider is unavailable.
 - One shared service contract, `fdai_service_contracts.recorded_resource_state`, defines the

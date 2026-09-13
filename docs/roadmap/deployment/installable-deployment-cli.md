@@ -250,6 +250,10 @@ subscription assurance, model-capacity certification, or complete inventory evid
 These states are separate so a deployed application is not misreported as a fully certified
 subscription.
 
+The retained GitHub transport is compatibility code only, not a registered public deployment
+command. Its post-apply receipt still requires Terraform convergence, migration success, and
+enabled endpoint health; keeping those checks does not restore a workflow-based tenant installer.
+
 All machine output uses stable English keys and excludes credentials, raw state, tenant values,
 and secret content. Private local and managed-host directories use mode `0700`; sensitive files
 use mode `0600`.

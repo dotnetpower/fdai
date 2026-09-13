@@ -108,12 +108,29 @@ TypeScript types, events, and audit values retain their canonical identifiers.
 The technical glossary still explains human approval when an operator asks explicitly or
 inspects a raw decision.
 
-The Overview presents evidence in operating-owner order: current posture and
-evidence metadata, five measured outcome metrics, routing and control
-distributions, required attention, and vertical results. Synthetic measurements
-are labeled as simulated instead of proven. Agent organization remains on its
-owned Agents routes. Audit-level counts and living-rule evidence stay in a
-collapsed section instead of competing with the executive summary.
+The Overview presents pending decisions first, then current posture alongside
+routing and control, followed by four operating outcome metrics. The
+auto-resolution ring shows the measured rate and its baseline marker; missing
+measurements remain unavailable rather than becoming a zero-valued chart.
+Expand **Operational evidence** for source and time-window metadata, the full
+control summary, vertical results, audit counts, and living-rule evidence.
+The audit sample count and sequence links retain the exact audit boundary.
+Synthetic measurements are labeled as simulated instead of proven. The
+route-local composition in [`dashboard.css`](src/routes/dashboard.css) follows
+the essential design mock without changing the shared shell or analytical
+routes. Agent organization remains on its owned Agents routes.
+Essential attention cards use a short count summary instead of repeating their
+instructions. English and Korean share the same spacing and visual hierarchy;
+unavailable values stay explicit but quieter than measured values. Reading space
+takes priority over fitting secondary evidence into the first viewport.
+Layout follows evidence availability, not the Sample/Live switch. Missing routing
+distributions become short linked status rows. When the auto-resolution measurement
+is absent, the other posture facts take its space and the missing metric retains a
+detail link. Four unavailable outcome metrics become a compact list; any measured
+value, including zero, retains the metric-card presentation. An empty audit sample
+or explicitly recorded zero counts are distinct from unavailable classifications.
+Optional reads show skeletons while pending, and a failed dashboard read offers an
+explicit retry and Diagnostics link without inventing a source failure reason.
 
 Every data-bearing Overview item is a drill-down link, including evidence
 metadata, unavailable states, distribution segments and legends, attention

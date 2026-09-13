@@ -2212,8 +2212,7 @@
         "docs/roadmap/deployment/installable-deployment-cli.md",
         "docs/roadmap/deployment/provisioning-execution-profiles.md",
         "docs/roadmap/architecture/security-and-identity.md",
-        "docs/roadmap/architecture/llm-strategy.md",
-        "docs/roadmap/architecture/continuous-operational-instance-graph.md"
+        "docs/roadmap/architecture/llm-strategy.md"
       ],
       "docs_update": [
         "docs/roadmap/deployment/subscription-genesis-provisioning.md",

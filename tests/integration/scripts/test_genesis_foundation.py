@@ -21,6 +21,12 @@ from genesis_foundation import (  # noqa: E402
 from genesis_status import StatusStore  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _isolate_host_provider_preflight(monkeypatch):
+    """This suite owns saved-plan orchestration; VM provider boundaries have dedicated tests."""
+    monkeypatch.setattr("genesis_foundation.recheck_foundation_vm", lambda **_kwargs: None)
+
+
 def _inputs(tmp_path: Path) -> FoundationPlanInputs:
     return FoundationPlanInputs(
         offline_kit=tmp_path / "offline-kit",

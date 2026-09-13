@@ -214,7 +214,8 @@ The console reuses its current information architecture:
 
 No new top-level transformation workspace is added. Every value links to the narrowest owning
 readiness, objective, audit, incident, action, or promotion route. Missing values remain clickable
-and explain which source is absent.
+and explain which source is absent. Sample outcomes expose a named note that linked Live evidence
+does not substantiate fixture values, and that boundary remains within desktop and mobile content.
 
 ## Measurement and decision rules
 

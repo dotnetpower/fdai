@@ -14,11 +14,15 @@
     { seq: 109, time: "2026-09-06T09:45:03Z", agent: "Var", verb: "audit", action: "approval.pending", correlation: "sample-change", summary: "Human approval request recorded as pending; silence grants no authority.", outcome: "pending", tier: "T1", duration: 8,
       conversation: [["Var", "Forseti", "Approval is pending. The human and executor identities remain distinct."]] },
     { seq: 110, time: "2026-09-06T09:47:16Z", agent: "Saga", verb: "audit", action: "audit.recorded", correlation: "sample-change", summary: "Pending-approval outcome recorded. Dispatch and effect verification have not occurred.", outcome: "recorded", tier: "T1", duration: 4 },
+    { seq: 111, time: "2026-09-06T09:55:00Z", agent: "Bragi", verb: "audit", action: "read.target-resolved", correlation: "sample-query-connected-resources-01", target: "checkout-api", mode: "read", summary: "The selected checkout-api Resource and direct relationship scope were recorded.", outcome: "bounded", tier: "T1", duration: 18 },
+    { seq: 112, time: "2026-09-06T09:55:03Z", agent: "Heimdall", verb: "audit", action: "read.graph-queried", correlation: "sample-query-connected-resources-01", target: "checkout-api", mode: "read", summary: "Six direct synthetic relationships were read from one inventory generation.", outcome: "observed", tier: "T1", duration: 4200 },
+    { seq: 113, time: "2026-09-06T09:55:07Z", agent: "Forseti", verb: "audit", action: "read.evidence-verified", correlation: "sample-query-connected-resources-01", target: "checkout-api", mode: "read", summary: "Stored direction, evidence cutoff, and complete synthetic coverage were verified.", outcome: "verified", tier: "T1", duration: 2100 },
+    { seq: 114, time: "2026-09-06T09:55:08Z", agent: "Saga", verb: "audit", action: "read.answer-recorded", correlation: "sample-query-connected-resources-01", target: "checkout-api", mode: "read", summary: "The read-only answer was recorded. No approval, dispatch, or operational effect occurred.", outcome: "recorded", tier: "T1", duration: 600 },
     { seq: 91, time: "2026-09-05T09:10:00Z", agent: "Var", verb: "approve", action: "approval.recorded", correlation: "sample-prior", summary: "Prior synthetic human approval recorded with an independent executor identity.", outcome: "approved", tier: "T0", duration: 8 },
     { seq: 92, time: "2026-09-05T09:10:02Z", agent: "Thor", verb: "execute", action: "action.dispatch.shadow", correlation: "sample-prior", summary: "Shadow dispatch accepted in a fixture; no managed resource changed.", outcome: "shadow", tier: "T0", duration: 21, reason: "Broker acceptance is not an operational success." }
   ].map((item) => ({
     ...item, id: "sample-audit-" + item.seq, route: [item.agent], kind: item.verb, source: "Synthetic audit",
-    lane: null, mode: "shadow", queue: 2, inputs: { evidence: "synthetic fixture", target: "example-resource" },
+    lane: null, mode: item.mode || "shadow", queue: 2, inputs: { evidence: "synthetic fixture", target: item.target || "example-resource" },
     outputs: { outcome: item.outcome, managed_resource_effect: "none" }
   }));
   const operational = [

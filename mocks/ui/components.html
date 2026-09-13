@@ -4,21 +4,24 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Components - Calm Slate</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=component-gallery-v26" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=component-gallery-v29" />
   <link rel="stylesheet" href="assets/console-parity.css?v=settings-route-v5" />
-  <link rel="stylesheet" href="assets/palette-comparison.css?v=neutral-v2" />
+  <link rel="stylesheet" href="assets/palette-comparison.css?v=neutral-v3" />
   <link rel="stylesheet" href="assets/clear-neutral.css?v=chat-v1" />
   <link rel="stylesheet" href="assets/settings-neutral.css?v=4" />
   <link rel="stylesheet" href="assets/settings-teams-workflow.css?v=2" />
   <link rel="stylesheet" href="assets/settings-iam.css?v=workspace-v2" />
   <link rel="stylesheet" href="assets/settings-workspace.css?v=4" />
+  <link rel="stylesheet" href="assets/component-gallery-current.css?v=9" />
+  <link rel="stylesheet" href="assets/component-chart-catalog.css?v=2" />
+  <link rel="stylesheet" href="assets/component-operational-patterns.css?v=5" />
 </head>
-<body class="cs-components-page">
+<body class="cs-components-page" data-chat-theme="clear-neutral">
   <main class="cs-container cs-page">
     <div class="cs-page-header cs-mb-24">
       <div class="cs-eyebrow">Component Gallery</div>
       <h1>Components</h1>
-      <p class="cs-lead">Calm Slate building blocks, organized by operational role and responsive behavior.</p>
+      <p class="cs-lead">Current FDAI Console building blocks, organized by operational role, evidence state, and responsive behavior.</p>
     </div>
 
     <div class="cs-gallery-toolbar">
@@ -42,7 +45,7 @@
         <button class="cs-theme-toggle" type="button" aria-pressed="false" data-cs-theme-toggle>Dark preview</button>
         <label class="cs-preview-mode">
           <span class="cs-sr-only">Accessibility preview</span>
-          <select data-gallery-preview>
+          <select class="cs-control-select" data-gallery-preview>
             <option value="default">Default</option>
             <option value="zoom">200% zoom</option>
             <option value="forced">Forced colors</option>
@@ -60,35 +63,35 @@
       <div class="cs-section-head">
         <div class="cs-section-title">
           <h2 id="colors-title">Colors</h2>
-          <p class="cs-desc">Compare Calm Slate with neutral surfaces and crisp accents. Color belongs on actions and status, not large backgrounds.</p>
+          <p class="cs-desc">Compare the current light and dark Console themes with the same semantic roles and restrained status accents.</p>
         </div>
       </div>
       <div class="cp-toolbar">
         <div role="group" aria-label="Palette comparison view">
           <button class="cs-control-button" type="button" data-palette-view="compare" aria-pressed="true">Compare</button>
-          <button class="cs-control-button" type="button" data-palette-view="current" aria-pressed="false">Current</button>
-          <button class="cs-control-button" type="button" data-palette-view="fresh" aria-pressed="false">Clear neutral</button>
+          <button class="cs-control-button" type="button" data-palette-view="current" aria-pressed="false">Light</button>
+          <button class="cs-control-button" type="button" data-palette-view="dark" aria-pressed="false">Dark</button>
         </div>
-        <span>Light palettes · Preview only</span>
+        <span>Current themes · Preview only</span>
       </div>
-      <p class="cp-scope-note">Only the samples below change. Shared Console tokens, the gallery theme, and runtime state stay unchanged.</p>
+      <p class="cp-scope-note">Only the samples below change. Both themes retain the same hierarchy, status meanings, and no-runtime-action boundary.</p>
       <div class="cp-comparison" data-palette-layout="compare">
-        <section class="cp-scheme" data-palette="current" aria-label="Current Calm Slate palette">
-          <header class="cp-scheme-heading"><div><span>Current</span><h3>Calm Slate</h3></div><span class="cp-version">Shared light tokens</span></header>
-          <div class="cp-accent-strip" aria-label="Current accent colors"></div>
+        <section class="cp-scheme" data-palette="current" data-chat-theme="clear-neutral" aria-label="Current light palette">
+          <header class="cp-scheme-heading"><div><span>Current</span><h3>Clear neutral / Light</h3></div><span class="cp-version">Shared light theme</span></header>
+          <div class="cp-accent-strip" aria-label="Current light accent colors"></div>
           <div class="cp-sample"></div>
         </section>
-        <section class="cp-scheme" data-palette="fresh" data-chat-theme="clear-neutral" aria-label="Clear neutral candidate palette">
-          <header class="cp-scheme-heading"><div><span>Candidate</span><h3>Clear neutral</h3></div><span class="cp-version">Neutral surfaces</span></header>
-          <div class="cp-accent-strip" aria-label="Candidate accent colors"></div>
+        <section class="cp-scheme cs-theme-scope" data-palette="dark" data-theme="dark" aria-label="Current dark palette">
+          <header class="cp-scheme-heading"><div><span>Current</span><h3>Clear neutral / Dark</h3></div><span class="cp-version">Shared dark theme</span></header>
+          <div class="cp-accent-strip" aria-label="Current dark accent colors"></div>
           <div class="cp-sample"></div>
         </section>
       </div>
       <details class="cp-details" open>
         <summary>Palette tokens <span>HEX values · Click to copy</span></summary>
         <table class="cp-token-table">
-          <caption class="cs-sr-only">Current and candidate palette values. Every HEX button copies only that color.</caption>
-          <thead><tr><th scope="col">Role / token</th><th scope="col">Current</th><th scope="col">Clear neutral</th></tr></thead>
+          <caption class="cs-sr-only">Current light and dark palette values. Every HEX button copies only that color.</caption>
+          <thead><tr><th scope="col">Role / token</th><th scope="col">Light</th><th scope="col">Dark</th></tr></thead>
           <tbody id="cp-token-rows"></tbody>
         </table>
       </details>
@@ -97,7 +100,7 @@
         <p class="cp-scope-note">Normal text needs at least 4.5:1. These checks cover the listed pairs, not an accessibility certification. A low ratio stays visible rather than being rounded into a pass.</p>
         <table class="cp-contrast-table">
           <caption class="cs-sr-only">WCAG relative-luminance contrast for the sample text and backgrounds.</caption>
-          <thead><tr><th scope="col">Text / background</th><th scope="col">Current</th><th scope="col">Clear neutral</th></tr></thead>
+          <thead><tr><th scope="col">Text / background</th><th scope="col">Light</th><th scope="col">Dark</th></tr></thead>
           <tbody id="cp-contrast-rows"></tbody>
         </table>
       </details>
@@ -189,23 +192,66 @@
       </div>
     </section>
 
-    <!-- Table -->
+    <!-- Tables -->
     <section class="cs-section" id="table" aria-labelledby="table-title">
       <div class="cs-section-head">
         <span class="cs-badge-num" aria-hidden="true">03</span>
-        <div class="cs-section-title"><h2 id="table-title">Table</h2><p class="cs-desc">Compact rows with explicit column headers and semantic decision labels.</p></div>
+        <div class="cs-section-title"><h2 id="table-title">Tables</h2><p class="cs-desc">Quiet comparison rows with one primary identity, explicit evidence freshness, semantic state, and a bounded detail path.</p></div>
       </div>
-      <div class="cs-table-wrap">
-        <table class="cs-table">
-          <caption class="cs-sr-only">Rule decision samples</caption>
-          <thead><tr><th scope="col">Rule id</th><th scope="col">Category</th><th scope="col">Severity</th><th scope="col">Tier</th><th scope="col">Decision</th></tr></thead>
+      <div class="cg-table-frame">
+        <header class="cg-table-toolbar">
+          <div><h3>Rule decisions</h3><p>Latest synthetic policy evaluations in the selected review window.</p></div>
+          <dl aria-label="Table summary">
+            <div><dt>Rows</dt><dd>4</dd></div>
+            <div><dt>Needs attention</dt><dd>1</dd></div>
+            <div><dt>Stale evidence</dt><dd>0</dd></div>
+          </dl>
+        </header>
+        <div class="cs-table-wrap cg-table-wrap">
+          <table class="cs-table cg-data-table">
+            <caption class="cs-sr-only">Rule decision samples with scope, assurance, decision, evidence freshness, and detail action</caption>
+            <colgroup><col class="is-rule" /><col class="is-scope" /><col class="is-assurance" /><col class="is-decision" /><col class="is-updated" /><col class="is-action" /></colgroup>
+            <thead><tr><th scope="col">Rule</th><th scope="col">Scope</th><th scope="col">Assurance</th><th scope="col">Decision</th><th scope="col" class="cs-num">Evidence</th><th scope="col"><span class="cs-sr-only">Action</span></th></tr></thead>
           <tbody>
-            <tr><td><code>object-storage.public-access.deny</code></td><td>security</td><td><span class="cs-sev high">high</span></td><td><span class="cs-tier t0">T0</span></td><td class="cs-muted">Observation mode - would prepare a correction</td></tr>
-            <tr><td><code>sql-database.encryption.tde-required</code></td><td>security</td><td><span class="cs-sev high">high</span></td><td><span class="cs-tier t0">T0</span></td><td class="cs-muted">compliant</td></tr>
-            <tr><td><code>postgresql-server.dr.pitr-required</code></td><td>reliability</td><td><span class="cs-sev critical">critical</span></td><td><span class="cs-tier t1">T1</span></td><td class="cs-muted">Human approval - awaiting decision</td></tr>
-            <tr><td><code>cost.idle-resource.recommend</code></td><td>cost</td><td><span class="cs-sev low">low</span></td><td><span class="cs-tier t0">T0</span></td><td class="cs-muted">Observation mode - would prepare shutdown</td></tr>
+              <tr>
+                <td data-label="Rule"><span class="cg-table-primary"><strong>Block public blob access</strong><code>object-storage.public-access.deny</code></span></td>
+                <td data-label="Scope"><span class="cg-table-secondary"><strong>Security</strong><small>Web app storage</small></span></td>
+                <td data-label="Assurance"><span class="cg-table-badges"><span class="cs-sev high">High</span><span class="cs-tier t0">T0</span></span></td>
+                <td data-label="Decision"><span class="cg-table-secondary"><strong class="cg-table-state is-observation">Observation</strong><small>Would prepare a correction</small></span></td>
+                <td data-label="Evidence" class="cs-num"><span class="cg-table-secondary"><time datetime="2026-09-13T06:42:56+09:00">14s ago</time><small>Fresh under 60s</small></span></td>
+                <td data-label="Action"><a class="cg-table-action" href="rules.html" aria-label="Inspect Block public blob access rule">Inspect</a></td>
+              </tr>
+              <tr>
+                <td data-label="Rule"><span class="cg-table-primary"><strong>Require database encryption</strong><code>sql-database.encryption.tde-required</code></span></td>
+                <td data-label="Scope"><span class="cg-table-secondary"><strong>Security</strong><small>Billing database</small></span></td>
+                <td data-label="Assurance"><span class="cg-table-badges"><span class="cs-sev high">High</span><span class="cs-tier t0">T0</span></span></td>
+                <td data-label="Decision"><span class="cg-table-secondary"><strong class="cg-table-state is-compliant">Compliant</strong><small>No correction required</small></span></td>
+                <td data-label="Evidence" class="cs-num"><span class="cg-table-secondary"><time datetime="2026-09-13T06:42:47+09:00">23s ago</time><small>Fresh under 60s</small></span></td>
+                <td data-label="Action"><a class="cg-table-action" href="rules.html" aria-label="Inspect Require database encryption rule">Inspect</a></td>
+              </tr>
+              <tr data-attention="true">
+                <td data-label="Rule"><span class="cg-table-primary"><strong>Enable point-in-time restore</strong><code>postgresql-server.dr.pitr-required</code></span></td>
+                <td data-label="Scope"><span class="cg-table-secondary"><strong>Resilience</strong><small>EU database replica</small></span></td>
+                <td data-label="Assurance"><span class="cg-table-badges"><span class="cs-sev critical">Critical</span><span class="cs-tier t1">T1</span></span></td>
+                <td data-label="Decision"><span class="cg-table-secondary"><strong class="cg-table-state is-approval">Approval required</strong><small>Eligible approver not observed</small></span></td>
+                <td data-label="Evidence" class="cs-num"><span class="cg-table-secondary"><time datetime="2026-09-13T06:42:31+09:00">39s ago</time><small>Fresh under 60s</small></span></td>
+                <td data-label="Action"><a class="cg-table-action" href="rules.html" aria-label="Inspect Enable point-in-time restore rule">Inspect</a></td>
+              </tr>
+              <tr>
+                <td data-label="Rule"><span class="cg-table-primary"><strong>Review idle resource</strong><code>cost.idle-resource.recommend</code></span></td>
+                <td data-label="Scope"><span class="cg-table-secondary"><strong>Cost</strong><small>Batch worker pool</small></span></td>
+                <td data-label="Assurance"><span class="cg-table-badges"><span class="cs-sev low">Low</span><span class="cs-tier t0">T0</span></span></td>
+                <td data-label="Decision"><span class="cg-table-secondary"><strong class="cg-table-state is-recommendation">Recommendation</strong><small>Would prepare a rightsizing plan</small></span></td>
+                <td data-label="Evidence" class="cs-num"><span class="cg-table-secondary"><time datetime="2026-09-13T06:42:18+09:00">52s ago</time><small>Fresh under 60s</small></span></td>
+                <td data-label="Action"><a class="cg-table-action" href="rules.html" aria-label="Inspect Review idle resource rule">Inspect</a></td>
+              </tr>
           </tbody>
-        </table>
+          </table>
+        </div>
+        <div class="cg-table-state-grid" aria-label="Table state examples">
+          <section><span>Filtered empty</span><strong>No decisions match this view</strong><p>Keep the active filters visible and offer one clear recovery path.</p></section>
+          <section><span>Source unavailable</span><strong>Decision evidence is unavailable</strong><p>Preserve the last observed timestamp without rendering cached rows as current.</p></section>
+        </div>
       </div>
     </section>
 
@@ -514,11 +560,23 @@
       </div>
     </section>
 
-    <section class="cs-section" id="data-views" aria-labelledby="data-views-title">
+    <section class="cs-section" id="data-views" aria-labelledby="data-views-title" data-gallery-count-label="190 visualization entries">
       <div class="cs-section-head">
         <span class="cs-badge-num" aria-hidden="true">13</span>
-        <div class="cs-section-title"><h2 id="data-views-title">Charts &amp; structured summaries</h2><p class="cs-desc">The complete Tremor chart family, plus FDAI comparison, distribution, density, progress, and scatter views with inspectable source data.</p></div>
+        <div class="cs-section-title"><h2 id="data-views-title">Charts &amp; structured summaries</h2><p class="cs-desc">A complete, searchable catalog of current FDAI chart surfaces, all Datadog visualization references recorded in the repository, and all 33 Tremor variants.</p></div>
       </div>
+      <div class="cg-chart-overview" aria-label="Chart catalog coverage">
+        <div><strong data-chart-specimen-total>190</strong><span>rendered visualization entries</span></div>
+        <div><strong>19</strong><span>FDAI surface families</span></div>
+        <div><strong>121</strong><span>Datadog research entries</span></div>
+        <div><strong>33</strong><span>Tremor reference variants</span></div>
+      </div>
+      <nav class="cg-chart-jump" aria-label="Chart catalog sections">
+        <a href="#chart-fdai-surfaces">FDAI surfaces <span>19</span></a>
+        <a href="#chart-datadog-widgets">Datadog widgets <span>39</span></a>
+        <a href="#chart-datadog-products">Datadog product surfaces <span>61</span></a>
+        <a href="#chart-tremor-variants">Tremor variants <span>33</span></a>
+      </nav>
       <div class="cs-chart-preview-grid" aria-label="Representative chart previews">
         <article>
           <header><div><strong>Incident volume</strong><small>7-day verified trend</small></div><span>29</span></header>
@@ -531,8 +589,8 @@
           <a href="#chart-family">Inspect full comparison specimen</a>
         </article>
       </div>
-      <details class="cs-chart-family" id="chart-family">
-        <summary><span>Open chart family</span><small>4 FDAI operational charts, 10 comparison compositions, and 33 upstream reference variants</small></summary>
+      <details class="cs-chart-family" id="chart-family" open>
+        <summary><span>Complete chart library</span><small>190 entries across FDAI surfaces, Datadog research, and Tremor variants</small></summary>
         <div class="cs-chart-family-body">
       <div class="cs-chart-grid">
         <figure class="cs-chart-card js-chartable" aria-label="Incident volume trend. Select to inspect daily values." data-chart-title="Incident volume" data-chart-sub="Seven-day synthetic trend" data-chart-columns='["Day","Incidents"]' data-chart-rows='[["Mon","18"],["Tue","24"],["Wed","21"],["Thu","31"],["Fri","27"],["Sat","36"],["Sun","29"]]' data-chart-num-cols="[1]" data-chart-source="Synthetic preview - 7-day window">
@@ -593,7 +651,62 @@
           <div class="cs-chart-foot"><span>Synthetic preview · four-week average</span><button type="button" data-cs-chart-inspect>Inspect data</button></div>
         </figure>
       </div>
-      <div class="cs-chart-family-head"><h3>Complete chart family</h3><p>Exact Tremor Raw palette: blue, emerald, violet, amber, gray, cyan, pink, lime, and fuchsia.</p></div>
+      <div class="cg-chart-catalog-shell" data-chart-catalog-root>
+        <div class="cg-chart-catalog-intro">
+          <div><h3>Visualization coverage catalog</h3><p>Search by chart name, operator purpose, product area, or source. Datadog entries are reference specimens, not FDAI runtime commitments.</p></div>
+          <strong><span data-chart-catalog-total>140</span> source-linked entries</strong>
+        </div>
+        <div class="cg-chart-catalog-controls">
+          <label for="chart-catalog-search">Find a visualization
+            <input id="chart-catalog-search" type="search" placeholder="Try waterfall, topology, SLO, cost..." autocomplete="off" data-chart-catalog-search />
+          </label>
+          <label for="chart-catalog-source">Source
+            <select id="chart-catalog-source" class="cs-control-select" data-chart-catalog-source>
+              <option value="all">All sources</option>
+              <option value="fdai">FDAI surfaces</option>
+              <option value="datadog-widgets">Datadog widgets</option>
+              <option value="datadog-products">Datadog product surfaces</option>
+              <option value="datadog-containers">Datadog containers</option>
+              <option value="datadog-interactions">Datadog composition</option>
+              <option value="datadog-delivery">Datadog delivery</option>
+            </select>
+          </label>
+          <button class="cs-control-button" type="button" data-chart-catalog-clear disabled>Clear filters</button>
+        </div>
+        <output class="cg-chart-catalog-status" for="chart-catalog-search chart-catalog-source" aria-live="polite" data-chart-catalog-result>Loading catalog...</output>
+        <div class="cg-chart-catalog-empty" data-chart-catalog-empty hidden><strong>No visualization matches this filter.</strong><span>Clear the filters or search by a broader chart family.</span></div>
+
+        <section class="cg-chart-catalog-section" id="chart-fdai-surfaces" data-chart-catalog-section="fdai" aria-labelledby="chart-fdai-surfaces-title">
+          <header><div><h3 id="chart-fdai-surfaces-title">FDAI chart surfaces</h3><p>Every distinct chart or graph family found in the current Console and static design mocks, with direct links to representative mock screens.</p></div><strong data-chart-catalog-count="fdai">19</strong></header>
+          <div class="cg-chart-catalog-grid" data-chart-catalog="fdai"></div>
+        </section>
+
+        <section class="cg-chart-catalog-section" id="chart-datadog-widgets" data-chart-catalog-section="datadog-widgets" aria-labelledby="chart-datadog-widgets-title">
+          <header><div><h3 id="chart-datadog-widgets-title">Datadog dashboard widgets</h3><p>All first-party widget types in the repository's Datadog visualization survey. Run Workflow remains a non-executable reference specimen.</p></div><strong data-chart-catalog-count="datadog-widgets">39</strong></header>
+          <div class="cg-chart-catalog-grid" data-chart-catalog="datadog-widgets"></div>
+        </section>
+
+        <section class="cg-chart-catalog-section" id="chart-datadog-products" data-chart-catalog-section="datadog-products" aria-labelledby="chart-datadog-products-title">
+          <header><div><h3 id="chart-datadog-products-title">Datadog product-native surfaces</h3><p>All APM, logs, RUM, synthetics, network, infrastructure, database, security, delivery, incident, workflow, and AI visualization surfaces recorded in the survey.</p></div><strong data-chart-catalog-count="datadog-products">61</strong></header>
+          <div class="cg-chart-catalog-grid" data-chart-catalog="datadog-products"></div>
+        </section>
+
+        <section class="cg-chart-catalog-section" id="chart-datadog-containers" data-chart-catalog-section="datadog-containers" aria-labelledby="chart-datadog-containers-title">
+          <header><div><h3 id="chart-datadog-containers-title">Datadog containers</h3><p>Dashboard, notebook, and the historical Timeboard and Screenboard arrangements.</p></div><strong data-chart-catalog-count="datadog-containers">4</strong></header>
+          <div class="cg-chart-catalog-grid" data-chart-catalog="datadog-containers"></div>
+        </section>
+
+        <section class="cg-chart-catalog-section" id="chart-datadog-interactions" data-chart-catalog-section="datadog-interactions" aria-labelledby="chart-datadog-interactions-title">
+          <header><div><h3 id="chart-datadog-interactions-title">Datadog composition and interactivity</h3><p>All recorded filters, overlays, comparisons, formatting, drilldowns, tabs, time controls, and custom visualization seams.</p></div><strong data-chart-catalog-count="datadog-interactions">10</strong></header>
+          <div class="cg-chart-catalog-grid" data-chart-catalog="datadog-interactions"></div>
+        </section>
+
+        <section class="cg-chart-catalog-section" id="chart-datadog-delivery" data-chart-catalog-section="datadog-delivery" aria-labelledby="chart-datadog-delivery-title">
+          <header><div><h3 id="chart-datadog-delivery-title">Datadog delivery and sharing</h3><p>All recorded browser-external visualization delivery surfaces, represented without enabling publication or external sharing.</p></div><strong data-chart-catalog-count="datadog-delivery">7</strong></header>
+          <div class="cg-chart-catalog-grid" data-chart-catalog="datadog-delivery"></div>
+        </section>
+      </div>
+      <div class="cs-chart-family-head"><h3>Shared chart primitives</h3><p>Area, line, bar, radial, spark, progress, tracker, and scatter forms used across FDAI surfaces.</p></div>
       <div class="cs-chart-family-grid">
         <article class="cs-chart-family-card">
           <div><h4>Area &amp; line</h4><span>3-series hover</span></div>
@@ -697,7 +810,7 @@
           <dl class="cs-composition-summary"><div class="is-blue"><dt><i></i>99% uptime</dt><dd>225</dd></div><div class="is-amber"><dt><i></i>1% downtime</dt><dd>20</dd></div></dl>
         </article>
       </div>
-      <div class="cs-chart-catalog-head"><h3>Official /charts catalog</h3><p>All 33 examples currently published by Tremor, in official page order.</p></div>
+      <div class="cs-chart-catalog-head" id="chart-tremor-variants"><h3>Tremor variant catalog</h3><p>All 33 upstream examples retained in published page order.</p></div>
       <script type="application/json" id="tremor-chart-catalog">[
         {"name":"Area Chart","kind":"area","variant":"default"},
         {"name":"Area Chart with stacked categories","kind":"area","variant":"stacked"},
@@ -1010,8 +1123,8 @@
       <div class="cs-section-head">
         <div class="cs-section-title"><h2 id="settings-preferences-title">Settings preferences</h2><p class="cs-desc">Scoped preference rows, explicit save state, and account records in Clear neutral.</p></div>
       </div>
-      <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen" data-chat-theme="clear-neutral">
-        <p class="cs-settings-preview-note">Clear neutral / light specimen. Controls are local samples, not saved account settings.</p>
+      <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen">
+        <p class="cs-settings-preview-note">Current theme specimen. Controls are local samples, not saved account settings.</p>
         <section class="cs-settings-section" aria-labelledby="sample-appearance">
           <header class="cs-settings-section-head"><div><h3 id="sample-appearance">Appearance</h3><span class="cs-settings-scope">This browser</span></div><p>One control family uses aligned widths, readable labels, and a clear selected state.</p></header>
           <div class="cs-settings-list">
@@ -1066,8 +1179,8 @@
       <div class="cs-section-head">
         <div class="cs-section-title"><h2 id="settings-catalog-title">Settings model catalog</h2><p class="cs-desc">Candidate metadata, availability, and a domain allowlist compose existing controls without implying execution authority.</p></div>
       </div>
-      <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen" data-chat-theme="clear-neutral">
-        <p class="cs-settings-preview-note">Clear neutral / light specimen. Synthetic candidates and a read-only allowlist.</p>
+      <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen">
+        <p class="cs-settings-preview-note">Current theme specimen. Synthetic candidates and a read-only allowlist.</p>
         <div class="cs-settings-toolbar cs-settings-filter-bar"><label>Search catalog<input class="cs-settings-input cs-control-input" type="search" placeholder="Family or version" disabled /></label><label>Availability<select class="cs-settings-input cs-control-select" disabled><option>All candidates</option><option>Current</option><option>Preview</option></select></label><button class="cs-control-button" type="button" disabled>Refresh catalog</button></div>
         <div class="cs-settings-card-grid">
           <article class="cs-settings-option-card"><header><div><strong>GPT 5.4</strong><small>Microsoft</small></div><span class="cs-status ok">Current</span></header><dl><div><dt>SKU</dt><dd>Global standard</dd></div><div><dt>Quota</dt><dd>Available</dd></div></dl><button class="cs-control-button" type="button" disabled>Use in draft</button></article>
@@ -1090,7 +1203,7 @@
       <div class="cs-section-head">
         <div class="cs-section-title"><h2 id="settings-policy-title">Settings policy overrides</h2><p class="cs-desc">Environment values, override provenance, effect timing, and revisioned editing remain visibly distinct.</p></div>
       </div>
-      <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen" data-chat-theme="clear-neutral">
+      <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen">
         <div class="cs-readonly-banner"><strong>Read-only specimen.</strong> Preview controls do not save or change runtime behavior.</div>
         <div class="cp-table-wrap"><table class="cp-table"><caption>Runtime policy settings</caption><thead><tr><th scope="col">Setting</th><th scope="col">Environment value</th><th scope="col">Override</th><th scope="col">Status</th><th scope="col">Effect</th></tr></thead><tbody>
           <tr><td data-label="Setting">Evidence freshness</td><td data-label="Environment value">15 min</td><td data-label="Override">10 min</td><td data-label="Status"><span class="cp-status is-info">Overridden</span></td><td data-label="Effect">Next request</td></tr>
@@ -1115,7 +1228,7 @@
       <div class="cs-section-head">
         <div class="cs-section-title"><h2 id="settings-access-title">Settings access workspace</h2><p class="cs-desc">The Console IAM composition: verified Owner authority, directory observations, fixed roles, and independently reviewed access requests.</p></div>
       </div>
-      <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen" data-chat-theme="clear-neutral">
+      <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen">
         <div data-iam-mock>
           <div class="cs-state-block" role="status" aria-busy="true" aria-label="Loading identity and access preview"><div class="cs-state-loading-lines" aria-hidden="true"><span></span><span></span><span></span></div></div>
         </div>
@@ -1126,8 +1239,8 @@
       <div class="cs-section-head">
         <div class="cs-section-title"><h2 id="settings-diagnostics-title">Settings diagnostic evidence</h2><p class="cs-desc">Integration readiness and runtime checks distinguish observations, source gaps, failures, and loading.</p></div>
       </div>
-      <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen" data-chat-theme="clear-neutral">
-        <p class="cs-settings-preview-note">Clear neutral / light specimen. Synthetic evidence states, not live health checks.</p>
+      <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen">
+        <p class="cs-settings-preview-note">Current theme specimen. Synthetic evidence states, not live health checks.</p>
         <section class="cs-settings-section" aria-labelledby="sample-diagnostic-results">
           <header class="cs-settings-section-head"><h3 id="sample-diagnostic-results">Runtime and delivery</h3><p>Color stays on the observed status, never the section edge.</p></header>
           <div class="cs-settings-list cs-settings-facts">
@@ -1153,7 +1266,7 @@
       <div class="cs-section-head">
         <div class="cs-section-title"><h2 id="settings-teams-workflow-title">Teams Workflows setup</h2><p class="cs-desc">Account separation, illustrated setup, write-only binding, and a secret-free test receipt.</p></div>
       </div>
-      <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen" data-chat-theme="clear-neutral">
+      <div class="cs-settings-neutral cs-settings-surface cs-settings-specimen">
         <section class="cs-settings-section" aria-labelledby="sample-teams-workflow">
           <header class="cs-settings-section-head"><h3 id="sample-teams-workflow">Connect and test Teams Workflows</h3><p>Expand the guide and example receipt. This specimen never accepts or sends a real URL.</p></header>
           <div data-teams-workflow-preview><div class="cs-state-block" role="status" aria-busy="true" aria-label="Loading Teams Workflows preview"><div class="cs-state-loading-lines" aria-hidden="true"><span></span><span></span><span></span></div></div></div>
@@ -1246,15 +1359,130 @@
         </div>
       </div>
     </section>
+
+    <section class="cs-section" id="live-operational-cards" aria-labelledby="live-operational-cards-title">
+      <div class="cs-section-head">
+        <span class="cs-badge-num" aria-hidden="true">31</span>
+        <div class="cs-section-title"><h2 id="live-operational-cards-title">Live operational cards</h2><p class="cs-desc">Reusable stream-health, KPI, attention, work-tile, and queue-row patterns from the Live control-loop surface.</p></div>
+      </div>
+      <div class="cg-live-patterns">
+        <section class="cg-live-block" aria-labelledby="live-status-pattern-title">
+          <header><div><h3 id="live-status-pattern-title">Stream health and attention</h3><p>Keep source quality separate from work requiring operator attention.</p></div><a href="live.html">Open Live</a></header>
+          <div class="cs-live-status-rail cg-live-status-rail">
+            <div class="cs-live-health" aria-label="Synthetic stream health specimen">
+              <div><span>Last signal</span><strong>Now</strong></div>
+              <div><span>Frame continuity</span><strong class="is-warn">4 omitted</strong></div>
+              <div><span>Source coverage</span><strong>Partial synthetic</strong></div>
+              <div><span>Projection lag</span><strong>Frozen</strong></div>
+            </div>
+            <div class="cs-live-attention is-active" aria-label="Synthetic attention specimen">
+              <div class="cs-live-attention-items">
+                <strong>Attention</strong>
+                <a href="live.html">Approval <span>2</span></a>
+                <a href="live.html">Deny <span>3</span></a>
+                <a href="live.html">Failed <span>0</span></a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="cg-live-block" aria-labelledby="live-kpi-pattern-title">
+          <header><div><h3 id="live-kpi-pattern-title">Live KPI cards</h3><p>Three distinct cards cover rate, composition, and tier distribution without collapsing them into one generic metric.</p></div><span>Measured examples</span></header>
+          <div class="cs-live-kpis cg-live-kpis" aria-label="Live KPI card specimens">
+            <article class="cs-live-kpi">
+              <span class="cs-live-kpi-label">Events / sec</span>
+              <a class="cs-live-kpi-detail" href="live.html" aria-label="Open event evidence"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3 H13 V11 M13 3 L4 12" /></svg></a>
+              <span class="cs-live-kpi-value">2.1<small>60s average</small></span>
+              <svg class="cg-live-spark" viewBox="0 0 260 42" role="img" aria-label="Events per second remain near two with one recent peak"><path class="is-grid" d="M2 34H258" /><path class="is-t0" d="M2 31L34 29L66 30L98 25L130 28L162 24L194 29L226 18L258 28" /><path class="is-t1" d="M2 35L34 34L66 35L98 33L130 35L162 32L194 34L226 30L258 34" /><path class="is-t2" d="M2 37L34 37L66 36L98 37L130 36L162 37L194 36L226 34L258 36" /></svg>
+              <div class="cs-live-spark-legend" aria-hidden="true"><span class="cs-spark-key t0"><i></i>T0 <b>1.7</b></span><span class="cs-spark-key t1"><i></i>T1 <b>0.3</b></span><span class="cs-spark-key t2"><i></i>T2 <b>0.1</b></span></div>
+              <span class="cs-live-kpi-meta">60s window - 124 events - synthetic sample</span>
+            </article>
+            <article class="cs-live-kpi">
+              <span class="cs-live-kpi-label">Gate mix</span>
+              <a class="cs-live-kpi-detail" href="live.html" aria-label="Open gate evidence"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3 H13 V11 M13 3 L4 12" /></svg></a>
+              <div class="cs-gate-viz">
+                <div class="cs-gate-donut cg-live-gate">
+                  <svg viewBox="0 0 42 42" role="img" aria-label="Gate mix: 84 percent auto, 7 percent approval, 2 percent review, 7 percent deny">
+                    <circle class="cs-gate-track" cx="21" cy="21" r="15.9155" pathLength="100" />
+                    <circle class="cs-gate-segment is-auto cg-gate-auto" cx="21" cy="21" r="15.9155" pathLength="100" />
+                    <circle class="cs-gate-segment is-hil cg-gate-hil" cx="21" cy="21" r="15.9155" pathLength="100" />
+                    <circle class="cs-gate-segment is-abstain cg-gate-review" cx="21" cy="21" r="15.9155" pathLength="100" />
+                    <circle class="cs-gate-segment is-deny cg-gate-deny" cx="21" cy="21" r="15.9155" pathLength="100" />
+                  </svg>
+                  <span class="cs-gate-center"><strong>84%</strong><small>auto</small></span>
+                </div>
+                <div class="cs-live-mix-legend">
+                  <span class="auto"><i></i>Auto <b>102</b></span>
+                  <span class="hil"><i></i>Approval <b>8</b></span>
+                  <span class="abstain"><i></i>Review <b>2</b></span>
+                  <span class="deny"><i></i>Deny <b>9</b></span>
+                </div>
+              </div>
+              <span class="cs-live-kpi-meta">121 finalized decisions - synthetic sample</span>
+            </article>
+            <article class="cs-live-kpi">
+              <span class="cs-live-kpi-label">Tier mix</span>
+              <a class="cs-live-kpi-detail" href="trust-routing.html" aria-label="Open trust routing"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3 H13 V11 M13 3 L4 12" /></svg></a>
+              <div class="cs-tier-plot" role="img" aria-label="Tier mix: T0 81 percent, T1 13 percent, T2 6 percent">
+                <div class="cs-tier-row is-t0"><span class="cs-tier-label"><b>T0</b><small>Deterministic</small></span><span class="cs-tier-track"><span class="cs-tier-stem cg-tier-81"></span></span><strong>81%</strong></div>
+                <div class="cs-tier-row is-t1"><span class="cs-tier-label"><b>T1</b><small>Evidence-backed</small></span><span class="cs-tier-track"><span class="cs-tier-stem cg-tier-13"></span></span><strong>13%</strong></div>
+                <div class="cs-tier-row is-t2"><span class="cs-tier-label"><b>T2</b><small>Adaptive</small></span><span class="cs-tier-track"><span class="cs-tier-stem cg-tier-6"></span></span><strong>6%</strong></div>
+                <div class="cs-tier-axis" aria-hidden="true"><span>0</span><span>50</span><span>100%</span></div>
+              </div>
+              <span class="cs-live-kpi-meta">124 routed events - synthetic sample</span>
+            </article>
+          </div>
+        </section>
+
+        <section class="cg-live-block" aria-labelledby="live-work-card-title">
+          <header><div><h3 id="live-work-card-title">Control-loop work cards</h3><p>State changes alter the explicit outcome and local accent, while the target, reason, owner, and scope remain stable.</p></div><span>Six representative states</span></header>
+          <div class="cs-swarm cg-live-work-grid" aria-label="Live work card state specimens">
+            <a class="cs-tile cg-live-tile" href="live.html" data-empty="false" data-tier="t0" data-state="active" data-outcome="auto" data-failed="false" data-mode="enforce" aria-label="Right-size batch compute. Pending route.">
+              <div class="cs-tile-inner"><div class="cs-tile-top"><span class="cs-tile-tier t0">T0</span><span class="cs-tile-mode">A2 - enforce</span><span class="cs-tile-stage">Route</span></div><div class="cs-tile-title">Right-size batch compute</div><div class="cs-tile-target">Batch worker pool</div><div class="cs-tile-reason">Why: CPU is consistently underused</div><div class="cs-tile-meta"><span class="cs-tile-owner">Huginn - Route</span><span class="cs-tile-scope">rg-batch</span></div></div><div class="cs-tile-bar"><span class="cg-progress-24"></span></div>
+            </a>
+            <a class="cs-tile cg-live-tile" href="live.html" data-empty="false" data-tier="t1" data-state="done" data-outcome="auto" data-failed="false" data-mode="shadow" aria-label="Extend log retention. Shadow recorded.">
+              <div class="cs-tile-inner"><div class="cs-tile-top"><span class="cs-tile-tier t1">T1</span><span class="cs-tile-mode">A0 - shadow</span><span class="cs-tile-stage">Shadow recorded</span></div><div class="cs-tile-title">Extend log retention</div><div class="cs-tile-target">Operations workspace</div><div class="cs-tile-reason">Why: Retention is shorter than evidence policy</div><div class="cs-tile-meta"><span class="cs-tile-owner">Saga - Recorded</span><span class="cs-tile-scope">rg-obs</span></div></div><div class="cs-tile-bar"><span></span></div>
+            </a>
+            <a class="cs-tile cg-live-tile" href="live.html" data-empty="false" data-tier="t0" data-state="done" data-outcome="auto" data-failed="false" data-mode="enforce" aria-label="Disable public blob access. Preview verified.">
+              <div class="cs-tile-inner"><div class="cs-tile-top"><span class="cs-tile-tier t0">T0</span><span class="cs-tile-mode">A2 - enforce</span><span class="cs-tile-stage">Preview verified</span></div><div class="cs-tile-title">Disable public blob access</div><div class="cs-tile-target">Web app storage</div><div class="cs-tile-reason">Why: Public access violates storage policy</div><div class="cs-tile-meta"><span class="cs-tile-owner">Saga - Recorded</span><span class="cs-tile-scope">rg-webapp</span></div></div><div class="cs-tile-bar"><span></span></div>
+            </a>
+            <a class="cs-tile cg-live-tile" href="live.html" data-empty="false" data-tier="t2" data-state="done" data-outcome="hil" data-failed="false" data-mode="gated" aria-label="Raise autoscale minimum. Approval required.">
+              <div class="cs-tile-inner"><div class="cs-tile-top"><span class="cs-tile-tier t2">T2</span><span class="cs-tile-mode">A3-H - gated</span><span class="cs-tile-stage">Approval required</span></div><div class="cs-tile-title">Raise autoscale minimum</div><div class="cs-tile-target">EU web service</div><div class="cs-tile-reason">Why: Capacity is below the reliability floor</div><div class="cs-tile-meta"><span class="cs-tile-owner">Var - Authorize</span><span class="cs-tile-scope">rg-web-eu</span></div></div><div class="cs-tile-bar"><span></span></div>
+            </a>
+            <a class="cs-tile cg-live-tile" href="live.html" data-empty="false" data-tier="t2" data-state="done" data-outcome="deny" data-failed="false" data-mode="gated" aria-label="Fail over lagging replica. Denied.">
+              <div class="cs-tile-inner"><div class="cs-tile-top"><span class="cs-tile-tier t2">T2</span><span class="cs-tile-mode">A4 - gated</span><span class="cs-tile-stage">Denied</span></div><div class="cs-tile-title">Fail over lagging replica</div><div class="cs-tile-target">EU database replica</div><div class="cs-tile-reason">Why: Replication lag threatens recovery time</div><div class="cs-tile-meta"><span class="cs-tile-owner">Saga - Recorded</span><span class="cs-tile-scope">rg-db-eu</span></div></div><div class="cs-tile-bar"><span></span></div>
+            </a>
+            <a class="cs-tile cg-live-tile" href="live.html" data-empty="false" data-tier="t1" data-state="done" data-outcome="auto" data-failed="true" data-mode="enforce" aria-label="Rotate expiring certificate. Execution failed.">
+              <div class="cs-tile-inner"><div class="cs-tile-top"><span class="cs-tile-tier t1">T1</span><span class="cs-tile-mode">A1 - enforce</span><span class="cs-tile-stage">Execution failed</span></div><div class="cs-tile-title">Rotate expiring certificate</div><div class="cs-tile-target">Core identity service</div><div class="cs-tile-reason">Why: Certificate expires within 30 days</div><div class="cs-tile-meta"><span class="cs-tile-owner">Thor - Execute</span><span class="cs-tile-scope">rg-core</span></div></div><div class="cs-tile-bar"><span></span></div>
+            </a>
+          </div>
+        </section>
+
+        <section class="cg-live-block" aria-labelledby="live-queue-pattern-title">
+          <header><div><h3 id="live-queue-pattern-title">Live queue rows</h3><p>The queue keeps the same work identity and authority semantics when density favors rows over cards.</p></div><span>Wide and stacked responsive forms</span></header>
+          <div class="cs-live-queue-wrap cg-live-queue-wrap">
+            <table class="cs-live-queue cg-live-queue">
+              <caption class="cs-sr-only">Synthetic Live control-loop queue row specimens</caption>
+              <thead><tr><th scope="col">Work</th><th scope="col">Tier / mode</th><th scope="col">Why</th><th scope="col">Owner / stage</th><th scope="col">Risk / impact</th><th scope="col">Age / SLA</th><th scope="col">Control state</th></tr></thead>
+              <tbody>
+                <tr data-status="hil"><td><a class="cs-live-queue-action" href="live.html"><strong>Raise autoscale minimum</strong><span>EU web service - rg-web-eu</span></a></td><td data-label="Tier / mode"><span class="cs-live-queue-badges"><span class="cs-tile-tier t2">T2</span><span class="cs-tile-mode cs-live-queue-mode" data-mode="gated">A3-H - gated</span></span></td><td data-label="Why"><span class="cs-live-queue-reason">Capacity is below the reliability floor</span></td><td data-label="Owner / stage"><strong>Var</strong><br /><small>Authorize</small></td><td data-label="Risk / impact"><strong>High</strong><br /><small>One logical target</small></td><td data-label="Age / SLA">18s<br /><small>42s left</small></td><td class="cs-live-queue-state" data-label="Control state"><span class="out hil">Approval required</span><small>Authority pending</small><small>Not dispatched - not verified</small></td></tr>
+                <tr data-status="failed"><td><a class="cs-live-queue-action" href="live.html"><strong>Rotate expiring certificate</strong><span>Core identity service - rg-core</span></a></td><td data-label="Tier / mode"><span class="cs-live-queue-badges"><span class="cs-tile-tier t1">T1</span><span class="cs-tile-mode cs-live-queue-mode" data-mode="enforce">A1 - enforce</span></span></td><td data-label="Why"><span class="cs-live-queue-reason">Certificate expires within 30 days</span></td><td data-label="Owner / stage"><strong>Thor</strong><br /><small>Execute</small></td><td data-label="Risk / impact"><strong>Medium</strong><br /><small>One logical target</small></td><td data-label="Age / SLA">47s<br /><small>13s left</small></td><td class="cs-live-queue-state" data-label="Control state"><span class="out deny">Execution failed</span><small>Authority observed</small><small>Dispatch failed - effect unknown</small></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </section>
   </main>
 
   <footer class="cs-footer">
-    <div class="cs-container"><span>FDAI UI kit - Calm Slate theme.</span></div>
+    <div class="cs-container"><span>FDAI Component Gallery - current Console themes.</span></div>
   </footer>
   <script src="assets/calm-slate.js?v=shared-primitives-v10"></script>
-  <script src="assets/palette-comparison.js?v=neutral-v2"></script>
+  <script src="assets/palette-comparison.js?v=neutral-v4"></script>
   <script src="assets/settings-iam.js?v=workspace-v3" type="module"></script>
   <script src="assets/settings-teams-workflow.js?v=2" type="module"></script>
+  <script src="assets/component-chart-catalog.mjs?v=2" type="module"></script>
   <script>
     (async function () {
       var index = document.querySelector(".cs-gallery-index");
@@ -1418,11 +1646,15 @@
 
       function renderSubindex(category, selectedView) {
         subindex.replaceChildren();
+        var activeLink = null;
         viewsFor(category).forEach(function (spec) {
           var link = document.createElement("a");
           link.href = "#view=" + category + ":" + spec.view;
           link.textContent = spec.view_label;
-          if (spec.view === selectedView) link.setAttribute("aria-current", "page");
+          if (spec.view === selectedView) {
+            link.setAttribute("aria-current", "page");
+            activeLink = link;
+          }
           link.addEventListener("click", function (event) {
             event.preventDefault();
             search.value = "";
@@ -1431,6 +1663,12 @@
           });
           subindex.appendChild(link);
         });
+        if (activeLink) {
+          subindex.scrollLeft = Math.max(
+            0,
+            activeLink.offsetLeft - (subindex.clientWidth - activeLink.offsetWidth) / 2
+          );
+        }
       }
 
       function contrastRatio() {
@@ -1487,7 +1725,10 @@
           : categoryCopy[activeCategory];
         scope.querySelector(":scope > div strong").textContent = copy[0];
         scope.querySelector(":scope > div span").textContent = copy[1];
-        count.value = matches + (matches === 1 ? " component" : " components");
+        var visible = visibleSections();
+        count.value = !query && visible.length === 1 && visible[0].dataset.galleryCountLabel
+          ? visible[0].dataset.galleryCountLabel
+          : matches + (matches === 1 ? " component" : " components");
         document.body.dataset.galleryCategory = query ? "search" : activeCategory;
         subindex.hidden = Boolean(query);
         if (!query) renderSubindex(activeCategory, activeView);
@@ -1578,7 +1819,7 @@
       window.addEventListener("hashchange", syncHashTarget);
       allSections.forEach(function (section) { section.hidden = true; });
       try {
-        var response = await fetch("assets/component-registry.json?v=11");
+        var response = await fetch("assets/component-registry.json?v=17");
         if (!response.ok) throw new Error("Registry request failed with status " + response.status);
         var payload = await response.json();
         if (!payload || !Array.isArray(payload.components)) throw new Error("Registry payload is invalid");

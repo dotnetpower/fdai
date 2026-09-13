@@ -4,6 +4,7 @@ import {
   controlOutcomeGroup,
   dashboardEvidenceGaps,
   distributionRows,
+  distributionEvidence,
   overviewAttentionCount,
   overviewCostEvidence,
   overviewHealth,
@@ -45,6 +46,28 @@ const COMPLETE_EVIDENCE = {
     shadow_divergence_rate: { value: 0.01, baseline: 0.02, direction: "lower" as const },
   },
 };
+
+describe("distribution evidence", () => {
+  test("does not infer zero classifications from an absent dictionary", () => {
+    expect(distributionEvidence({}, 10)).toEqual({ rows: [], state: "unavailable" });
+  });
+
+  test("shows empty for explicit zero counts or an empty audit sample", () => {
+    expect(distributionEvidence({ t0: 0, t1: 0 }, 10)).toEqual({ rows: [], state: "empty" });
+    expect(distributionEvidence({}, 0)).toEqual({ rows: [], state: "empty" });
+  });
+
+  test("keeps a measured distribution when another category is zero", () => {
+    expect(distributionEvidence({ t0: 0, t1: 2 }, 10)).toEqual({
+      rows: [{ key: "t1", count: 2, share: 1 }],
+      state: "available",
+    });
+  });
+
+  test("does not reinterpret contradictory nonzero counts as an empty sample", () => {
+    expect(distributionEvidence({ t0: -1 }, 0)).toEqual({ rows: [], state: "unavailable" });
+  });
+});
 
 describe("overview health", () => {
   test("distinguishes unavailable cost evidence from a complete measured zero", () => {

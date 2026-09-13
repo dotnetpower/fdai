@@ -134,6 +134,8 @@ def test_llm_deployment_projects_as_an_ontology_resource_instance() -> None:
                 props={
                     "name": "gpt-example",
                     "parent_id": endpoint_id,
+                    "subscriptionId": "example",
+                    "resourceGroup": "rg-example",
                     "model_name": "gpt-5.4",
                     "model_version": "2026-09-01",
                     "provisioning_state": "Succeeded",
@@ -164,6 +166,8 @@ def test_llm_deployment_projects_as_an_ontology_resource_instance() -> None:
     assert deployment.properties["name"] == "gpt-example"
     assert deployment.properties["parent_id"] == endpoint_id
     provider = deployment.properties["properties"]
+    assert provider["subscriptionId"] == "example"
+    assert provider["resourceGroup"] == "rg-example"
     assert provider["model_name"] == "gpt-5.4"
     assert provider["model_version"] == "2026-09-01"
     assert provider["provisioning_state"] == "Succeeded"

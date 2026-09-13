@@ -163,6 +163,11 @@ def test_network_layout_avoids_existing_azure_and_local_ranges(monkeypatch) -> N
 
 def test_foundation_input_discovery_runs_independent_queries_concurrently(monkeypatch) -> None:
     barrier = threading.Barrier(3)
+    monkeypatch.setattr(
+        genesis_prepare_inputs,
+        "discover_foundation_vm_size",
+        lambda **_kwargs: "Standard_D4ds_v4",
+    )
 
     def capture(arguments: tuple[str, ...], *, cwd: Path) -> str:
         del arguments, cwd
@@ -208,6 +213,7 @@ def test_foundation_input_discovery_runs_independent_queries_concurrently(monkey
     assert values["state_storage_account_name"] == "stateexample"
     assert values["ops_address_space"] == "172.29.0.0/16"
     assert values["build_address_space"] == "172.30.0.0/16"
+    assert values["runner_vm_size"] == "Standard_D4ds_v4"
 
 
 def test_network_layout_rejects_incomplete_peer_evidence(monkeypatch) -> None:

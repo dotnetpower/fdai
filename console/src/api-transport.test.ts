@@ -3,7 +3,11 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import type { AuthContext } from "./auth";
 import { observeUnauthorizedApiResponses } from "./auth-response";
 import type { ConsoleConfig } from "./config";
-import { OperatorApiError, OperatorApiTransport } from "./api-transport";
+import {
+  isOptionalOperatorApiUnavailable,
+  OperatorApiError,
+  OperatorApiTransport,
+} from "./api-transport";
 
 const config: ConsoleConfig = {
   operatorApiBaseUrl: "http://127.0.0.1:8010",
@@ -141,6 +145,26 @@ describe("Operator API authentication boundary", () => {
     }));
 
     await expect(transport.getJson("/healthz")).resolves.toEqual({ ok: true });
+  });
+
+  test("distinguishes projection unavailability from an operational 503", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json(
+        { error: { status: 503, message: "authoritative Operator projection is unavailable" } },
+        { status: 503 },
+      ))
+      .mockResolvedValueOnce(Response.json(
+        { error: { status: 503, message: "service unavailable" } },
+        { status: 503 },
+      ));
+    vi.stubGlobal("fetch", fetchMock);
+    const transport = new OperatorApiTransport(config, auth());
+
+    const projectionError = await transport.getJson("/optional").catch((error: unknown) => error);
+    const serviceError = await transport.getJson("/optional").catch((error: unknown) => error);
+
+    expect(isOptionalOperatorApiUnavailable(projectionError)).toBe(true);
+    expect(isOptionalOperatorApiUnavailable(serviceError)).toBe(false);
   });
 
   test("reports an HTTP 401 once through the shared fetch boundary", async () => {

@@ -16,7 +16,15 @@ const readiness = {
   target_count: 0,
   counts: { ready: 0, partial: 0, blocked: 0, stale: 0, unauthorized: 0, unknown: 0 },
   targets: [],
-  lifecycle,
+  lifecycle: {
+    source: "postgresql:state_kv:analyzer-finding-receipt",
+    observed_at: "2026-08-31T12:00:00Z",
+    target_count: 0,
+    assessment_count: 0,
+    evidence_counts: { complete: 0, incomplete: 0, conflicting: 0, missed: 0 },
+    targets: [],
+  },
+  pod_lifecycle: lifecycle,
 };
 
 async function installFixture(page: Page): Promise<void> {

@@ -3,10 +3,8 @@ title: Subscription Genesis Assurance
 ---
 # Subscription Genesis Assurance
 
-This document defines the safety, completeness, recovery, and operator-experience controls that
-make a subscription genesis run trustworthy. It complements the lifecycle in
-[Subscription Genesis Provisioning](subscription-genesis-provisioning.md) and turns its broad
-stages into falsifiable gates.
+This document defines falsifiable safety, completeness, recovery, and operator-experience gates
+for the [Subscription Genesis Provisioning](subscription-genesis-provisioning.md) lifecycle.
 
 > **Scope:** These controls apply to empty and partially configured Azure subscriptions. They do
 > not authorize a live deployment, model call, quota request, or resource mutation.
@@ -16,30 +14,23 @@ stages into falsifiable gates.
 
 ## Design at a glance
 
-Every run compiles a finite manifest, acquires one subscription-and-environment lock, executes only
-sealed stage plans, and records independent postcondition evidence. A run that cannot prove one
-required entry ends as `blocked`, `failed`, `cancelled`, or `incomplete`, never `ready`.
+Each finite manifest uses one subscription/environment lock, sealed plans, and independent postconditions.
+Any unproved requirement ends as `blocked`, `failed`, `cancelled`, or `incomplete`, never `ready`.
 
 ## Foundation and external control planes
 
-The first Azure execution host does not exist in an empty subscription. Foundation bootstrap
-therefore uses a narrowly bounded local control-plane exception:
+Foundation uses a bounded local control-plane exception before the first Azure execution host exists:
 
-- **Local boundary:** The signed-in operator can create resource groups, the private state account,
-  network, deployment identity, and execution host. The phase cannot write Key Vault, PostgreSQL,
-  model, or application data planes.
-- **State cache:** Local state uses `umask 077`, a mode-`0700` directory, a mode-`0600` regular file,
-  no symlinks, no secret inputs, and a bounded lifetime. The run records its digest but never
-  uploads the file as evidence.
-- **Stable names:** A run derives globally unique names once, stores only their digests in portable
-  status, and reuses the same names on resume. It never generates a new state account after a
-  partial foundation attempt.
-- **Remote authority:** The runner uses Terraform state migration, not inferred reconstruction, and
-  compares lineage, serial, address set, resource ids, and managed count. A zero-change remote plan
-  and state-versioning readback are required before deleting the local cache.
-- **Data protection:** Blob versioning, soft delete, TLS, key-auth disablement, public-access
-  disablement, private endpoint, private DNS, and the state lease path are required postconditions.
-  Best-effort enablement cannot close the foundation stage.
+- **Local boundary:** The signed-in human creates groups, private state, networking, identity, and
+  host; no Key Vault, PostgreSQL, model, or application data-plane writes.
+- **State cache:** Use `umask 077`, mode-`0700` directories, mode-`0600` regular files, no links or
+  secret inputs, and bounded lifetime. Record the digest; never upload state as evidence.
+- **Stable names:** Derive globally unique names once, publish only digests, and reuse on resume.
+  Never choose another state account after a partial Foundation attempt.
+- **Remote authority:** Migrate Terraform state, matching lineage, serial, addresses, IDs, and
+  managed count; never infer it. Require zero-change remote plan and versioning readback before cache deletion.
+- **Data protection:** Require Blob versioning, soft delete, TLS, key-auth/public-access disablement,
+  private endpoints/DNS, and leases as postconditions; best-effort enablement cannot close Foundation.
 
 External control planes are first-class dependencies:
 
@@ -51,51 +42,63 @@ External control planes are first-class dependencies:
 | Identity directory | App registrations, App Roles, groups, redirect origins, owners, admin consent, and tenant match are planned and read back. |
 | Artifact sources | Online allowlists or the verified offline kit cover every wheel, binary, provider, image, signature, and software bill of materials entry. |
 
-New image plans select builder/verifier SKUs from the signed small-VM policy in the chosen region.
-Both need x64, Gen2, reviewed memory, and 64-GiB managed OS disks. Bounded private SKU and aggregate
-quota snapshots make selection replayable; digests and sizes are sealed and shown before approval.
-Apply rechecks only those sizes, quota, expiry, and approval. Unknown evidence blocks; no reselection,
-region change, or capacity reservation occurs. Existing claims verify effects only. Foundation
-selection and recovery remain separate, and the cost review is not a live price guarantee.
+### VM hardware discovery
 
-Runner enrollment never places a registration token, remove token, database password, or GitHub
-token in Terraform variables, state, process arguments, Azure Run Command payloads, logs, or chat.
-The target implementation uses provider-hosted authorization and a protected input channel. If the
-selected transport cannot meet that condition, the run pauses for an approved existing host rather
-than weakening secret handling.
+New preparation reads the full regional catalog using the signed
+[hardware policy](../../../infra/genesis-runner-image/vm-sku-policy.json). Preferences rank
+compatible x64/Gen2 hardware; unlisted compatible SKUs remain selectable.
 
-The local router can compose signed-kit image planning and apply, Foundation planning and apply,
-Bastion enrollment, host attestation, and private-state handoff only when all artifact, trust,
-profile, variables, and stage-specific access paths are complete and absolute. Every new effect
-requires a mode-`0600` approval record bound to the run, source, stage, exact evidence digests, and
-a UTC window of no more than one hour. This single-human file transport is limited to `dev`;
-staging and production retain their protected quorum transport. Another stage, changed digest,
-expired record, or silence grants no authority.
+| Role | CPU and memory | OS disk |
+|------|----------------|---------|
+| Builder | Sustained 2 vCPU, 8 GiB | 64-GiB managed |
+| Verifier | 2 vCPU, 4-8 GiB | 64-GiB managed |
+| Foundation host | Sustained 4 vCPU, 8-16 GiB | Ephemeral Local ResourceDisk large enough for the image |
 
-Terraform owns the Storage-policy-compatible direct image graph: private builder and verifier
-VMs, extensions, deallocate/generalize actions, managed-image capture, and the complete network
-behind FQDN-allowlisted Firewall Basic with two non-VM public egress IPs. Azure VM Image Builder,
-Storage and image-template resources remain prohibited because hidden staging can need Shared Key.
-Acceptance requires image provenance, successful extensions, both VMs deallocated, and no retry
-of a claimed build. Only policy-appended `FirstPartyUsage=/Unprivileged` is externally owned; it
-must be absent or equal on both exact Firewall IPs, with no unknown tag and a refreshed zero-change
-plan. That policy effect authorizes no replacement, firewall rebinding, or ambiguous-claim reuse.
-Policy-probe cleanup parses multi-value Azure CLI TSV projections as ordered lines, verifies the
-exact tagged group and deleted-vault absence, and never reports completion from command success alone.
+ARM, GPU, confidential, constrained-core, and incompatible storage variants aren't substitutes.
+Catalog reads stay within one exact subscription/region, four pages, 4096 rows, 8 MiB, and 90
+seconds; each request and the separate quota read have 30-second limits. Complete metadata,
+Location/Zone restrictions, and all three VMs' aggregate regional/family quota gate preparation.
+Private replay distinguishes restricted, incompatible, incomplete, and quota outcomes; missing
+hardware leaves candidate counts unknown, never assumed zero.
 
-Each effect writes its immutable claim before mutation. If a claim or terminal receipt already
-exists, a restart selects verification only and never repeats Terraform apply, token enrollment,
-archive transfer, or backend migration. A retained enrollment receipt binds its exact
-human-attributed claim and is accepted only after a fresh Bastion identity, toolchain, service, and
-GitHub runner readback. Runner registration material travels only through SSH standard input over
-the exact Bastion tunnel. It never enters Terraform, process arguments, Azure Run Command, logs,
-status, or receipts. Portable status retains only digests, counts, stage state, and safe booleans;
-resource IDs, SSH paths, local state paths, and raw plans remain private. The state-handoff claim
-binds a target-scoped digest of the authenticated human Azure operator, and both backend authority
-and the terminal receipt bind that exact claim.
-Remote cleanup persists an exact intent, deletes the transfer archive and raw work tree, verifies
-their absence, and only then writes terminal cleanup evidence. A retained terminal marker with any
-raw residue blocks completion.
+Preparation fixes the host; the versioned image review seals the pair and host quota headroom.
+Before planning and unclaimed apply, host checks use actual managed-image or exact gallery-version
+disk size. Gallery definitions require generalized x64/Gen2 Linux and completed regional replication.
+Apply rechecks sealed choices, quota, expiry, and approval. After host and human-identity reads,
+Foundation revalidates the exact plan and expiry before its claim. Existing claims only verify
+effects: no reselection, resize, region switch, or repeat apply. Legacy signed policies retain their
+original contract. No capacity or price is guaranteed; recovery and deployment verification remain
+separate. Checkout changes require a new signed kit before operational use.
+
+### Image and Foundation execution
+
+Enrollment requires provider-hosted authorization and protected input, or pauses for an approved
+existing host. Registration/remove/GitHub tokens and database passwords never enter Terraform input/state,
+process arguments, Azure Run Command payloads, logs, or chat.
+
+The local router requires complete absolute artifact, trust, profile, variable, and access paths
+for signed-kit image/Foundation plan/apply, Bastion enrollment, attestation, and state handoff.
+Each new effect needs mode-`0600` approval bound to run, source, stage, exact evidence digests, and
+at most one UTC hour. Single-human files are `dev`-only; staging/production retain protected quorum.
+Another stage, changed digest, expired record, or silence grants no authority.
+
+Terraform owns private builder/verifier VMs, extensions, deallocate/generalize, image capture,
+and networking behind FQDN-allowlisted Firewall Basic with two non-VM public egress IPs. Hidden
+Shared Key staging prohibits Azure VM Image Builder, Storage, and image-template resources.
+Acceptance requires image provenance, successful extensions, both VMs deallocated, and no claimed-build retry.
+Only `FirstPartyUsage=/Unprivileged` is policy-owned: absent or equal on both exact Firewall IPs,
+no unknown tags, and a refreshed zero-change plan. It permits no replacement, rebinding, or claim reuse.
+Policy cleanup parses multiline CLI TSV in order and verifies exact tagged-group and deleted-vault
+absence; command success alone never proves cleanup.
+
+Every effect writes an immutable claim first. A claim or receipt permits only verification on restart,
+not repeated apply, enrollment, transfer, or migration. Enrollment receipts bind the exact human claim
+and need fresh Bastion identity, toolchain, service, and GitHub runner readback. Registration material
+uses only SSH stdin over the exact Bastion tunnel, never Terraform, arguments, Run Command, or records.
+Portable status carries digests, counts, stage state, and safe booleans; IDs, SSH/state paths, and raw
+plans stay private. State-handoff claims bind the authenticated human's target-scoped digest; backend
+authority and terminal receipts bind that claim. Remote cleanup records exact intent, deletes the
+archive/raw worktree, verifies absence, then writes evidence. Any raw residue blocks completion.
 
 Every bounded child command runs in a separate process group. A presentation-only dot goes to
 stderr every 10 seconds while the command is still running, and timeout cleanup terminates the
@@ -103,18 +106,15 @@ complete group before the router records failure. Captured stdout and diagnostic
 or copied into portable status. The local sequence stops after verified Foundation state handoff;
 protected application planning and complete readiness remain separate evidence gates.
 
-Bounded concurrency is allowed only for siblings with separate outputs and no causal, approval,
-state, or cleanup dependency. Workers never write the portable status record. The owning parent
-waits for all siblings, orders their results deterministically, and emits one transition. On a
-failure it waits for or terminates every bounded sibling before recording the failure. Azure
-provider registrations remain retained mutations, while policy-probe resources still use one
-serial ownership-checked cleanup path. No parallel branch can publish approval, claim success,
-advance a Terraform state, or authorize a dependent stage.
+Only independent siblings with separate outputs may run concurrently; workers never write portable
+status. The parent joins and deterministically orders results for one transition, waiting for or
+terminating every sibling before recording failure. Provider registrations remain retained mutations;
+policy probes keep serial ownership-checked cleanup. Parallel branches cannot approve, claim success,
+advance Terraform state, or authorize dependent stages.
 
-Repository settings are compiled from the manifest and applied idempotently. The operation reports
-the names of missing variables and secret references but never their values. Database credentials
-are generated on the private execution host, stored in the approved secret provider, and consumed
-by reference; rerunning onboarding does not rotate them implicitly.
+Manifest-compiled repository settings apply idempotently and report missing variable/secret-reference
+names, never values. Generate database credentials on the private host, store them in the approved
+secret provider, and consume by reference; resume never implicitly rotates them.
 
 ## Planning, authority, and concurrency
 

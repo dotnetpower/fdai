@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 547aa0d8da6d5584b5f028ecc618f804bd1438c8
+translation_source_sha: 1a2cd489d1aaf06e97d5081b48a01ae5097e7dfe
 translation_revised: 2026-09-13
 ---
 
@@ -251,6 +251,10 @@ provider 미러, 런타임 이미지, Console, 마이그레이션 지원, 서명
 Terraform 계획에 변경이 없음을 의미합니다. 더 넓은 구독 보증, 모델 용량 인증 또는 완전한
 인벤토리 근거가 열려 있으면 `subscription_ready=false`가 유지될 수 있습니다. 배포된
 애플리케이션과 완전히 인증된 구독을 구분하기 위한 상태입니다.
+
+보존된 GitHub 전송 모듈은 호환성 코드일 뿐, 등록된 공개 배포 명령이 아닙니다. 적용 후 증적은
+여전히 Terraform 수렴, 마이그레이션 성공, 활성화된 엔드포인트의 정상 상태를 요구합니다.
+이 검사를 유지한다고 작업 흐름 기반 대상 환경 설치 경로가 복원되는 것은 아닙니다.
 
 모든 기계 출력은 안정적인 영어 key를 사용하고 자격 증명, 원시 상태, tenant 값 및 비밀 내용을
 제외합니다. 비공개 로컬 및 Managed Host 디렉터리는 mode `0700`, 민감한 파일은 mode `0600`을

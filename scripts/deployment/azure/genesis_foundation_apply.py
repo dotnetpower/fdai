@@ -34,6 +34,7 @@ from genesis_foundation_apply_contract import (
     require_same_effect,
 )
 from genesis_subprocess import run_with_heartbeat
+from genesis_vm_sku_preflight import recheck_foundation_vm
 
 CLAIM_NAME = "foundation-apply-claim.json"
 RECEIPT_NAME = "foundation-apply-receipt.json"
@@ -165,7 +166,20 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
             reason="Foundation apply provider initialization failed",
         )
         if existing_receipt is None and not args.resume_verification:
+            recheck_foundation_vm(
+                repository_root=repository_root,
+                variables_file=plan_directory / ".foundation-apply-input.json",
+                evidence_directory=plan_directory,
+            )
             claim = _claim(review=review, target_binding=profile.target_binding)
+            # SKU, image, quota and human-identity reads may outlive the plan. Revalidate
+            # the exact bytes and time window after those reads, before any durable claim.
+            verify_foundation_plan(
+                directory=plan_directory,
+                profile=profile,
+                expected_review_digest=args.expected_review_digest,
+                require_unexpired=True,
+            )
             write_private_output(
                 claim_path,
                 json.dumps(claim, sort_keys=True, separators=(",", ":")) + "\n",
@@ -505,11 +519,12 @@ def _validate_handoff(handoff: object, review: dict[str, object]) -> None:
             raise ValueError("Foundation private handoff component is invalid")
     runner = _object(handoff["runner"], "Foundation runner handoff")
     access = _object(handoff["access"], "Foundation access handoff")
+    parallelism = runner.get("parallelism")
     if (
         not isinstance(runner.get("vm_id"), str)
         or not isinstance(runner.get("admin_username"), str)
-        or type(runner.get("parallelism")) is not int
-        or not 1 <= int(runner["parallelism"]) <= 5
+        or type(parallelism) is not int
+        or not 1 <= parallelism <= 5
         or not isinstance(runner.get("ssh_key_digest"), str)
         or _DIGEST.fullmatch(str(runner["ssh_key_digest"])) is None
         or type(runner.get("public_egress")) is not bool

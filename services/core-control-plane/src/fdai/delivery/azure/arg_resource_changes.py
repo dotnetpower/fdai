@@ -87,6 +87,7 @@ from fdai.delivery.azure.arg_projection import (
     resource_operational_status,
     to_neutral_id,
     truncate_props,
+    validated_arm_scope,
 )
 from fdai.delivery.azure.arg_resource_change_support import (
     ArgResourceChangeError,
@@ -549,6 +550,8 @@ class AzureResourceChangeFeed:
             return None
 
         neutral_id = to_neutral_id(arm_id)
+        scope_error = ArgResourceChangeError("resourcechanges hydration provider scope conflicts")
+        scope = validated_arm_scope(arm_id, row, scope_error)
         props: dict[str, Any] = {"providerType": arm_type}
         subscription_id = row.get("subscriptionId")
         if isinstance(subscription_id, str) and subscription_id:
@@ -573,6 +576,8 @@ class AzureResourceChangeFeed:
             raise ArgResourceChangeError(
                 "resourcechanges hydration properties exceed the configured bound"
             )
+        props["providerType"] = arm_type
+        props.update(scope)
         if (parent_id := parent_neutral_id(arm_id)) is not None:
             props["parent_id"] = parent_id
         record = ResourceRecord(

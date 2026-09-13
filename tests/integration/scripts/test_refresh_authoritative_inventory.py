@@ -23,8 +23,8 @@ def test_refresh_binds_projection_to_loaded_ontology_release() -> None:
 
     assert "ontology_release_digest=ontology.build_release().digest" in source
     assert "resource_type_mappings=resource_type_mapping_digests(resource_types)" in source
-    assert "build_kubernetes_inventory_enricher(" in source
-    assert "promotion_enricher=kubernetes_enricher" in source
+    assert "build_inventory_promotion_enricher(" in source
+    assert "promotion_enricher=effective_enricher" in source
     assert "UnavailableKubernetesInventoryEnricher" not in source
     assert "AsyncAzureCliWorkloadIdentity.from_env()" in source
     assert "class AsyncAzureCliIdentity" not in source
