@@ -9,6 +9,7 @@ test("landing pages and shared components publish all seven safeguards", async (
     [
       "src/content/docs/index.mdx",
       "src/content/docs/ko/index.mdx",
+      "src/data/home-copy.mjs",
       "src/components/ControlLoopSteps.astro",
       "src/components/ActionOntologyExplorer.astro",
     ].map((path) => readFile(new URL(path, siteRoot), "utf8")),

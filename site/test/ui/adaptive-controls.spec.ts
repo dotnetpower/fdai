@@ -10,14 +10,17 @@ for (const locale of ["en", "ko"] as const) {
     await expect(theme).toBeVisible();
     await expect(language).toBeVisible();
     const splitWords = await page.locator("h1").evaluate(heading => {
-      const text = heading.firstChild;
-      if (!text || text.nodeType !== Node.TEXT_NODE) return [];
-      return [...(text.textContent ?? "").matchAll(/\S+/g)].filter(match => {
-        const range = document.createRange();
-        range.setStart(text, match.index!);
-        range.setEnd(text, match.index! + match[0].length);
-        return new Set([...range.getClientRects()].map(rect => Math.round(rect.y))).size > 1;
-      }).map(match => match[0]);
+      const walker = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT);
+      const split = [];
+      for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+        for (const match of (text.textContent ?? "").matchAll(/\S+/g)) {
+          const range = document.createRange();
+          range.setStart(text, match.index!);
+          range.setEnd(text, match.index! + match[0].length);
+          if (new Set([...range.getClientRects()].map(rect => Math.round(rect.y))).size > 1) split.push(match[0]);
+        }
+      }
+      return split;
     });
     expect(splitWords).toEqual([]);
     await theme.selectOption("dark");
@@ -82,12 +85,20 @@ for (const locale of ["en", "ko"] as const) {
     await page.addStyleTag({ content: "html { font-size: 200% !important; } main * { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; } main p { margin-bottom: 2em !important; }" });
     const geometry = await page.evaluate(() => ({
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      escapedControls: [...document.querySelectorAll("header.header :is(a, button, select):not(dialog *), .hero a")].filter(el => {
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && (rect.left < -1 || rect.right > document.documentElement.clientWidth + 1);
+      }).map(el => ({ tag: el.tagName, text: el.textContent?.trim().slice(0, 60) })),
       escaped: [...document.querySelectorAll("main *, header.header *")].filter(el => {
         const rect = el.getBoundingClientRect();
         return rect.width > 0 && rect.right > document.documentElement.clientWidth + 1;
       }).slice(0, 12).map(el => ({ tag: el.tagName, className: String(el.className), text: el.textContent?.trim().slice(0, 60), right: el.getBoundingClientRect().right })),
     }));
     expect(geometry.overflow, JSON.stringify(geometry.escaped)).toBeLessThanOrEqual(1);
+    expect(geometry.escapedControls, "Visible controls must fit even when fixed-position overflow is not counted by the document").toEqual([]);
+    await page.locator(".home-safeguards summary").press("Enter");
+    await expect(page.locator(".home-safeguards")).toHaveAttribute("open", "");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
     const primary = page.locator(".hero .sl-link-button.primary");
     await primary.press("Enter");
     await expect(page).toHaveURL(new RegExp(`/${prefix}get-started/?$`));
@@ -102,6 +113,7 @@ for (const locale of ["en", "ko"] as const) {
     await secondary.focus();
     expect(await secondary.evaluate(el => Number.parseFloat(getComputedStyle(el).outlineWidth))).toBeGreaterThanOrEqual(2);
     await secondary.press("Enter");
-    await expect(page).toHaveURL(new RegExp(`/${prefix}reference/roadmap/?$`));
+    await expect(page).toHaveURL(/#how-it-works$/);
+    await expect(page.locator("#how-it-works")).toBeFocused();
   });
 }
