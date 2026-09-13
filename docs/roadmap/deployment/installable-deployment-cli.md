@@ -504,7 +504,7 @@ Azure and GitHub CLIs, and submits a plan-only workflow. It returns a bounded re
 digest. `deploy status --request-id <id>` recomputes the context, finds one request-bound workflow,
 and downloads only sanitized plan metadata after success. Status strips only the reviewed
 request-mode prefix before checking the embedded target/context binding. The GitHub CLI uses
-provider-hosted authentication, and no credential is copied into a command argument.
+provider-hosted authentication, and no credential is copied into a command argument. Apply status also requires the exact `--plan-id` and `--plan-digest`, while plan status rejects those coordinates, so a successful apply query validates the bound receipt and required post-apply artifacts instead of projecting workflow completion alone.
 
 The dispatch sends `apply=false`, the environment, exact commit, and a SHA-256 deployment-context
 fingerprint. Console, Operator API, document ingestion, isolated Executor, monitoring, the optional

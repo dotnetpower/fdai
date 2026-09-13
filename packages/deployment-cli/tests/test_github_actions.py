@@ -1071,6 +1071,84 @@ def test_cli_dispatches_plan_only_after_target_and_tool_checks(
     assert output["mutation_performed"] is True
 
 
+def test_cli_apply_status_requires_and_forwards_exact_plan_coordinates(
+    tmp_path,
+    monkeypatch,
+    capsys,
+) -> None:
+    target = compute_target_binding(
+        tenant_id="00000000-0000-0000-0000-000000000000",
+        subscription_id="00000000-0000-0000-0000-000000000001",
+    )
+    profile = ProvisionProfile(
+        environment="dev",
+        region="koreacentral",
+        target_binding=target,
+        connectivity="online",
+        host="managed-vm",
+        transport="github-actions",
+        access_method="github_actions",
+        shadow_only=True,
+        approval_quorum=1,
+        monthly_cost_ceiling=100,
+    )
+    profile_path = tmp_path / "private" / "profile.json"
+    profile_path.parent.mkdir(mode=0o700)
+    write_profile(profile_path, profile)
+    monkeypatch.setattr(
+        "fdai_deployment_cli.cli.inspect_tools",
+        lambda names: tuple(ToolCheck(name=name, available=True, version="test") for name in names),
+    )
+    monkeypatch.setattr("fdai_deployment_cli.cli.azure_cli_authenticated", lambda: True)
+    monkeypatch.setattr("fdai_deployment_cli.cli.azure_active_target_binding", lambda: target)
+    calls: list[dict[str, object]] = []
+
+    def fake_status(**kwargs):
+        calls.append(kwargs)
+        return {"status": "completed", "conclusion": "success"}
+
+    monkeypatch.setattr("fdai_deployment_cli.cli.workflow_status", fake_status)
+    common = [
+        "deploy",
+        "status",
+        "--profile",
+        str(profile_path),
+        "--repository",
+        "example/fdai",
+        "--commit-sha",
+        _COMMIT,
+        "--request-id",
+        f"apply-provider-cost-{'a' * 48}",
+        "--no-deploy-console",
+        "--no-deploy-operator-api",
+        "--deploy-provider-schema",
+        "--runtime-image-revision",
+        _COMMIT,
+        "--runtime-image-profile",
+        "cost-governance",
+        "--output",
+        "json",
+    ]
+
+    assert main(common) == 3
+    assert "apply status requires plan id and digest" in capsys.readouterr().err
+    assert calls == []
+    assert (
+        main(
+            [
+                *common,
+                "--plan-id",
+                "plan-123-1",
+                "--plan-digest",
+                "c" * 64,
+            ]
+        )
+        == 0
+    )
+    assert calls[0]["expected_plan_id"] == "plan-123-1"
+    assert calls[0]["expected_plan_digest"] == "c" * 64
+
+
 def test_guided_live_flow_pauses_for_plan_then_requires_explicit_apply(
     tmp_path,
     monkeypatch,

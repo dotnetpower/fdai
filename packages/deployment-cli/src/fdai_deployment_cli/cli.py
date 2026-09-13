@@ -18,7 +18,6 @@ from tempfile import TemporaryDirectory
 from fdai_deployment_cli.__about__ import __version__
 from fdai_deployment_cli.bootstrap_reconcile import reconcile_bootstrap
 from fdai_deployment_cli.bundle import (
-    BundleVerificationError,
     extract_bundle_archive,
     verify_bundle,
 )
@@ -31,8 +30,8 @@ from fdai_deployment_cli.doctor import (
     doctor_json,
     inspect_tools,
 )
-from fdai_deployment_cli.foundation_input import snapshot_foundation_input
 from fdai_deployment_cli.foundation_image import verify_foundation_runner_image
+from fdai_deployment_cli.foundation_input import snapshot_foundation_input
 from fdai_deployment_cli.foundation_plan import (
     foundation_plan_context,
     register_foundation_plan_command,
@@ -45,16 +44,16 @@ from fdai_deployment_cli.github_actions import (
     dispatch_plan,
     workflow_status,
 )
-from fdai_deployment_cli.license import LicenseInspectionError, inspect_license
+from fdai_deployment_cli.license import inspect_license
 from fdai_deployment_cli.offline_kit import materialize_verified_artifacts, verify_offline_kit
 from fdai_deployment_cli.offline_prepare import prepare_offline_release
 from fdai_deployment_cli.plan_input import read_plan_input, snapshot_plan_input
 from fdai_deployment_cli.private_output import write_private_output
 from fdai_deployment_cli.profile import load_profile, write_profile
 from fdai_deployment_cli.simulation import rehearse
+from fdai_deployment_cli.standalone_deploy import deploy_azure_foundation
 from fdai_deployment_cli.state import read_journal
 from fdai_deployment_cli.state_handoff import register_state_handoff_command
-from fdai_deployment_cli.standalone_deploy import deploy_azure_foundation
 from fdai_deployment_cli.status_projection import project_status
 from fdai_deployment_cli.support_install import install_support
 from fdai_deployment_cli.target import compute_target_binding
@@ -206,6 +205,8 @@ def _parser() -> argparse.ArgumentParser:
     deploy_status = deploy_commands.add_parser("status")
     _add_deploy_context_arguments(deploy_status)
     deploy_status.add_argument("--request-id", required=True)
+    deploy_status.add_argument("--plan-id")
+    deploy_status.add_argument("--plan-digest")
     deploy_status.add_argument("--resume-verification", action="store_true")
     deploy_status.set_defaults(handler=_deploy_status)
 
@@ -546,9 +547,13 @@ def _provision_plan(args: argparse.Namespace) -> int:
             azure_cli_path=Path(azure_cli) if (azure_cli := shutil.which("az")) else None,
         )
         variables = read_plan_input(variables_file) if args.save_plan else {}
-        if args.save_plan and foundation and profile.access_method == "bastion":
-            if variables.get("enable_bastion") is not True:
-                raise ValueError("Foundation Bastion profile requires Bastion in the exact plan")
+        if (
+            args.save_plan
+            and foundation
+            and profile.access_method == "bastion"
+            and variables.get("enable_bastion") is not True
+        ):
+            raise ValueError("Foundation Bastion profile requires Bastion in the exact plan")
         runner_image_observation_digest = (
             verify_foundation_runner_image(variables, expected_region=profile.region)
             if args.save_plan and foundation
@@ -852,28 +857,22 @@ def _runtime_platform_tag() -> str:
 
 
 def _bundle_verify(args: argparse.Namespace) -> int:
-    try:
-        result = verify_bundle(
-            args.bundle,
-            public_key_pem=_read_public_key(args.public_key),
-            cli_version=__version__,
-        )
-    except BundleVerificationError:
-        raise
+    result = verify_bundle(
+        args.bundle,
+        public_key_pem=_read_public_key(args.public_key),
+        cli_version=__version__,
+    )
     print(result.to_json() if args.output == "json" else f"verified {result.file_count} files")
     return 0
 
 
 def _license_inspect(args: argparse.Namespace) -> int:
-    try:
-        result = inspect_license(
-            _read_private_license_token(args.token),
-            public_key_pem=_read_public_key(args.public_key),
-            expected_image_digest=args.image_digest,
-            expected_tenant_binding=args.tenant_binding,
-        )
-    except LicenseInspectionError:
-        raise
+    result = inspect_license(
+        _read_private_license_token(args.token),
+        public_key_pem=_read_public_key(args.public_key),
+        expected_image_digest=args.image_digest,
+        expected_tenant_binding=args.tenant_binding,
+    )
     print(result.to_json() if args.output == "json" else "active")
     return 0
 
@@ -960,6 +959,12 @@ def _deploy_apply(args: argparse.Namespace) -> int:
 def _deploy_status(args: argparse.Namespace) -> int:
     profile = load_profile(args.profile)
     _require_github_actions_profile(profile)
+    apply_request = args.request_id.startswith("apply-")
+    has_plan_coordinates = args.plan_id is not None or args.plan_digest is not None
+    if apply_request and (args.plan_id is None or args.plan_digest is None):
+        raise ValueError("apply status requires plan id and digest")
+    if not apply_request and has_plan_coordinates:
+        raise ValueError("plan status must not include apply plan coordinates")
     context_digest = deployment_context_digest(
         environment=profile.environment,
         commit_sha=args.commit_sha,
@@ -973,6 +978,8 @@ def _deploy_status(args: argparse.Namespace) -> int:
         target_binding=profile.target_binding,
         expected_region=profile.region,
         resume_verification=args.resume_verification,
+        expected_plan_id=args.plan_id,
+        expected_plan_digest=args.plan_digest,
     )
     _print_mapping(
         result,

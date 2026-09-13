@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 21cb1dcafdd94ae54164add3cdeb15215559b172
-translation_revised: 2026-09-12
+translation_source_sha: 4cf2c2ac0bbcacd61ffea8912a87bf91332cbbdc
+translation_revised: 2026-09-13
 ---
 # 설치형 배포 CLI
 
@@ -508,7 +508,7 @@ CLI를 확인한 뒤 plan-only 작업 흐름을 제출합니다. 범위가 제�
 다시 계산한 뒤 요청에 연결된 실행 이름으로 정확히 하나의 작업 흐름을 찾고, 성공 후에는
 정제된 계획 메타데이터 산출물만 내려받습니다. Status는 포함된 대상과 맥락 binding을 확인하기
 전에 검토된 요청 모드 prefix만 제거합니다. GitHub CLI는 공급자가 호스팅하는 인증을 사용하며
-자격 증명을 명령 인수로 복사하지 않습니다.
+자격 증명을 명령 인수로 복사하지 않습니다. Apply status에는 정확한 `--plan-id`와 `--plan-digest`도 필요하며 plan status는 이 좌표를 거부하므로, 성공한 apply 조회는 workflow 완료만 투영하지 않고 결속된 증적과 필수 적용 후 산출물을 검증합니다.
 
 전달 본문에는 `apply=false`, 환경, 정확한 커밋 및 SHA-256 배포 맥락 지문을 전달합니다. Console,
 Operator API, 문서 수집, 격리된 Executor, 모니터링, 선택적 권한 없는
