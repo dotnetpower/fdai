@@ -33,6 +33,7 @@ import pytest
 import yaml
 from fdai.delivery.azure import arg_transport
 from fdai.delivery.azure.arg_projection import (
+    ArmScopeError,
     arm_scope_properties,
     resource_operational_status,
     to_neutral_id,
@@ -96,6 +97,45 @@ def _arm_row(*, arm_id: str, arm_type: str, extra: dict[str, Any] | None = None)
     if extra:
         row.update(extra)
     return row
+
+
+def test_arm_scope_preserves_matching_provider_casing_and_fills_missing_values() -> None:
+    arm_id = (
+        "/subscriptions/sub-one/resourceGroups/group-one/providers/"
+        "Microsoft.Example/widgets/example"
+    )
+
+    assert arm_scope_properties(
+        arm_id,
+        {"subscriptionId": "SUB-ONE", "resourceGroup": "GROUP-ONE"},
+    ) == {
+        "subscriptionId": "SUB-ONE",
+        "resourceGroup": "GROUP-ONE",
+    }
+    assert arm_scope_properties(arm_id) == {
+        "subscriptionId": "sub-one",
+        "resourceGroup": "group-one",
+    }
+
+
+@pytest.mark.parametrize(
+    "arm_id",
+    [
+        "/subscriptions//resourceGroups/group-one/providers/Microsoft.Example/widgets/example",
+        "/subscriptions/sub-one/resourceGroups//providers/Microsoft.Example/widgets/example",
+    ],
+)
+def test_arm_scope_rejects_empty_identity_segments(arm_id: str) -> None:
+    with pytest.raises(ArmScopeError, match="malformed"):
+        arm_scope_properties(arm_id)
+
+
+def test_arm_scope_rejects_resource_group_on_a_subscription_level_resource() -> None:
+    with pytest.raises(ArmScopeError, match="conflicts"):
+        arm_scope_properties(
+            "/subscriptions/sub-one/providers/Microsoft.Authorization/roleDefinitions/example",
+            {"resourceGroup": "group-one"},
+        )
 
 
 @pytest.mark.asyncio

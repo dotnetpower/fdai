@@ -22,7 +22,8 @@ _RESOURCE_GROUP_TYPE: Final[str] = "resource-group"
 _VNET_TYPE: Final[str] = "network.vnet"
 _SUBNET_TYPE: Final[str] = "network.subnet"
 _SUBNET_ARM_TYPE: Final[str] = "Microsoft.Network/virtualNetworks/subnets"
-_MAX_ARM_SCOPE_CHARS: Final[int] = 256
+_MAX_ARM_SUBSCRIPTION_CHARS: Final[int] = 128
+_MAX_ARM_RESOURCE_GROUP_CHARS: Final[int] = 90
 _RELATIONSHIP_MAPPING_ROOT: Final[Path] = Path(
     "rule-catalog/vocabulary/provider-relationship-mappings"
 )
@@ -81,10 +82,16 @@ def arm_scope_properties(
     restored after vendor-property truncation.
     """
 
-    parts = [part for part in arm_id.strip("/").split("/") if part]
+    parts = arm_id.strip("/").split("/")
     if len(parts) < 2 or parts[0].casefold() != "subscriptions":
         return {}
-    subscription = _bounded_scope_segment(parts[1], "subscription")
+    if any(not part for part in parts):
+        raise ArmScopeError("ARM provider path is malformed")
+    subscription = _bounded_scope_segment(
+        parts[1],
+        "subscription",
+        maximum=_MAX_ARM_SUBSCRIPTION_CHARS,
+    )
     result = {
         "subscriptionId": _matching_scope_value(
             row,
@@ -92,17 +99,16 @@ def arm_scope_properties(
             derived=subscription,
         )
     }
-    resource_group_index = next(
-        (index for index, part in enumerate(parts) if part.casefold() == "resourcegroups"),
-        None,
-    )
-    if resource_group_index is None:
+    if len(parts) < 3 or parts[2].casefold() != "resourcegroups":
+        if row is not None and row.get("resourceGroup") not in {None, ""}:
+            raise ArmScopeError("ARM resourceGroup scope conflicts with the provider id")
         return result
-    if resource_group_index + 1 >= len(parts):
+    if len(parts) < 4:
         raise ArmScopeError("ARM resource-group scope is malformed")
     resource_group = _bounded_scope_segment(
-        parts[resource_group_index + 1],
+        parts[3],
         "resource group",
+        maximum=_MAX_ARM_RESOURCE_GROUP_CHARS,
     )
     result["resourceGroup"] = _matching_scope_value(
         row,
@@ -112,9 +118,9 @@ def arm_scope_properties(
     return result
 
 
-def _bounded_scope_segment(value: str, label: str) -> str:
+def _bounded_scope_segment(value: str, label: str, *, maximum: int) -> str:
     candidate = value.strip()
-    if not candidate or len(candidate) > _MAX_ARM_SCOPE_CHARS:
+    if not candidate or len(candidate) > maximum:
         raise ArmScopeError(f"ARM {label} scope is malformed")
     return candidate
 
@@ -130,7 +136,15 @@ def _matching_scope_value(
         return derived
     if not isinstance(supplied, str):
         raise ArmScopeError(f"ARM {key} scope is malformed")
-    supplied = _bounded_scope_segment(supplied, key)
+    supplied = _bounded_scope_segment(
+        supplied,
+        key,
+        maximum=(
+            _MAX_ARM_SUBSCRIPTION_CHARS
+            if key == "subscriptionId"
+            else _MAX_ARM_RESOURCE_GROUP_CHARS
+        ),
+    )
     if supplied.casefold() != derived.casefold():
         raise ArmScopeError(f"ARM {key} scope conflicts with the provider id")
     return supplied
