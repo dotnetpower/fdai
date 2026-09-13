@@ -422,6 +422,16 @@ async def test_failed_status_and_unknown_type_dropped() -> None:
                         "status": {"value": "Succeeded"},
                         "eventTimestamp": "2026-07-10T06:00:01Z",
                     },
+                    {
+                        "resourceId": (
+                            "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg"
+                        ),
+                        "resourceType": {
+                            "value": "Microsoft.Resources/subscriptions/resourcegroups"
+                        },
+                        "status": {"value": "Succeeded"},
+                        "eventTimestamp": "2026-07-10T06:00:02Z",
+                    },
                 ]
             },
         )

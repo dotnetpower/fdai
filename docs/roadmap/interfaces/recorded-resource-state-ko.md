@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 79c130528b66b35f2f92e7ffba5286015896d140
+translation_source_sha: 65db6e33e1c1abbcb976361ef4688e0f63f9eba2
 translation_revised: 2026-09-13
 ---
 # 기록된 리소스 상태
@@ -123,6 +123,8 @@ Dashboard는 제한된 크기의 페이지를 읽고 중복 기록이나 변하�
 변경분에 동일하게 적용됩니다. 로컬 권위 새로 고침과 장기 실행 수집기는 런타임 호출, Resource Health,
 Static Web App 및 Kubernetes 보강을 같은 순서로 조합합니다. 사용할 수 없거나 지원되지 않는 원본은
 제한 사항을 기록하며 프로비저닝 상태에서 정상 여부를 파생하지 않습니다.
+검토된 ResourceType 어휘에 없는 Activity Log 행은 상태 변환 전에 제외합니다. 매핑된 행은 제공된
+유형이 ARM ID에 인코딩된 정확한 공급자 또는 기본 제공 범위 형태와 일치함을 계속 입증해야 합니다.
 
 승격된 Resource 사실은 하나의 세대 일치 검사 아래에서 현재 `ontology_resource` Resource와
 Operator가 읽을 수 있는 인벤토리 변환 결과에 함께 기록됩니다. Core 대화 함수는 온톨로지

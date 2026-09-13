@@ -2125,6 +2125,28 @@ def test_arm_id_to_type_extracts_multi_segment_type() -> None:
     assert _arm_id_to_type(arm_id) == "Microsoft.Network/virtualNetworks/subnets"
 
 
+@pytest.mark.parametrize(
+    ("arm_id", "expected"),
+    [
+        (
+            "/subscriptions/00000000-0000-0000-0000-000000000001",
+            "Microsoft.Resources/subscriptions",
+        ),
+        (
+            "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-a",
+            "Microsoft.Resources/resourceGroups",
+        ),
+    ],
+)
+def test_arm_id_to_type_extracts_builtin_scope_types(
+    arm_id: str,
+    expected: str,
+) -> None:
+    from fdai.delivery.azure.arg_query import _arm_id_to_type
+
+    assert _arm_id_to_type(arm_id) == expected
+
+
 def test_arm_id_to_type_uses_the_extension_resource_provider() -> None:
     from fdai.delivery.azure.arg_query import _arm_id_to_type
 
@@ -2136,10 +2158,15 @@ def test_arm_id_to_type_uses_the_extension_resource_provider() -> None:
     assert _arm_id_to_type(arm_id) == "Microsoft.Authorization/roleAssignments"
 
 
-def test_arm_id_to_type_returns_none_without_providers_segment() -> None:
+def test_arm_id_to_type_returns_none_for_unknown_scope_shape() -> None:
     from fdai.delivery.azure.arg_query import _arm_id_to_type
 
-    assert _arm_id_to_type("/subscriptions/00000000-0000-0000-0000-000000000001") is None
+    assert (
+        _arm_id_to_type(
+            "/subscriptions/00000000-0000-0000-0000-000000000001/locations/example-region"
+        )
+        is None
+    )
 
 
 def test_materialize_nested_subnets_uses_observed_vnet_payload() -> None:

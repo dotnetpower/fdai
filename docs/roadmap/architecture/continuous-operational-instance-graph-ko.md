@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: a44bc9d665365184bee4e2c26273074e332df874
+translation_source_sha: 7bd85b4c749be0e388671fc0921ab2f4c4016118
 translation_revised: 2026-09-13
 ---
 # 지속형 운영 인스턴스 그래프
@@ -94,6 +94,9 @@ ARM ID와 대소문자 구분 없이 일치해야 합니다. 모순이 있으면
 여러 `/providers/` 구간을 포함하는 확장 리소스 ID에서는 마지막 공급자 네임스페이스와 그 뒤의
 유형 및 이름 쌍이 관측 리소스 유형을 정의합니다. 앞선 공급자 구간은 범위와 포함 관계 맥락으로
 유지합니다.
+검토된 ResourceType 어휘에 없는 변경 스트림 행은 온톨로지에 들어갈 수 없으므로 공급자 ID 검증
+전에 제외합니다. 구독이나 Resource Group 같은 기본 제공 범위 유형을 포함해 매핑된 공급자
+유형은 계속 정확한 ARM ID 형태와 일치해야 합니다.
 비활성화된 리소스 변경 및 복구 가속기는 수집 정책 항목을 요구하지 않으며 조정에 커서 접두사나
 오래된 커서 기한을 추가하지 않습니다.
 

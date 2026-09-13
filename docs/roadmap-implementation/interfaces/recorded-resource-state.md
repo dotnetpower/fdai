@@ -40,6 +40,8 @@ This ledger tracks the shared read-only state contract used by Dashboard v2 and 
 | 13 | Extension-resource ARM identity | High | Resolved by deriving the Resource type from the final provider namespace; all 89 configured live type queries succeeded. |
 | 14 | Resource Health unavailable-only promotion | High | Resolved by admitting only the exact allowlisted availability reason map; a complete live generation promoted 1,154 Resources and 3,205 links. |
 | 15 | Post-integration independent critique | Low | Passed independently with no Critical, High, or Medium finding; only documented Low residuals remain. |
+| 16 | Live Activity Log scope rows | High | Resolved by dropping unreviewed type aliases before identity validation while retaining exact validation for every mapped type. |
+| 17 | Final accelerator critique | Pending | Awaiting independent verification of the live Activity Log correction. |
 
 ### Implementation history
 
