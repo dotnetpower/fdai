@@ -42,7 +42,11 @@ def validate_autonomy_measurement(value: object) -> dict[str, object]:
             _mapping(projection.get("rules")),
             ("active", "candidates_30d", "promoted_30d"),
         )
-        _validate_metrics(_mapping(projection.get("success")), _SUCCESS_METRICS)
+        success = _mapping(projection.get("success"))
+        _validate_metrics(success, _SUCCESS_METRICS)
+        auto_resolution_rate = _mapping(success["auto_resolution_rate"])
+        auto_resolution_value = _optional_ratio(auto_resolution_rate.get("value"))
+        _optional_ratio(auto_resolution_rate.get("baseline"))
         _validate_metrics(_mapping(projection.get("leading")), _LEADING_METRICS)
         _validate_guards(projection.get("guards"))
         finalization = _mapping(projection.get("finalization"))
@@ -58,6 +62,7 @@ def validate_autonomy_measurement(value: object) -> dict[str, object]:
             attribution=attribution,
             finalization=finalization,
             verticals=verticals,
+            auto_resolution_value=auto_resolution_value,
         )
         _validate_tier(_mapping(projection.get("tier")))
         _number_series(_mapping(projection.get("trend")))
@@ -128,6 +133,7 @@ def _validate_totals(
     attribution: Mapping[str, object],
     finalization: Mapping[str, object],
     verticals: tuple[Mapping[str, object], ...],
+    auto_resolution_value: float | None,
 ) -> None:
     attributed = cast(int, attribution["attributed_events"])
     unattributed = cast(int, attribution["unattributed_events"])
@@ -155,7 +161,23 @@ def _validate_totals(
     pending = cast(int, finalization["pending_events"])
     adverse = cast(int, finalization["adverse_events"])
     auto_resolved = sum(cast(int, row["auto_resolved"]) for row in verticals)
-    if adverse > finalized or finalized + pending > total or auto_resolved != finalized - adverse:
+    expected_auto_resolution = None if total == 0 else auto_resolved / total
+    if (
+        adverse > finalized
+        or finalized + pending > total
+        or auto_resolved != finalized - adverse
+        or (
+            auto_resolution_value is not None
+            and (
+                expected_auto_resolution is None
+                or not math.isclose(
+                    auto_resolution_value,
+                    expected_auto_resolution,
+                    abs_tol=1e-12,
+                )
+            )
+        )
+    ):
         raise ValueError
 
 
