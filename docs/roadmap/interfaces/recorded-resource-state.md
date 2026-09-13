@@ -112,6 +112,8 @@ It accepts bounded `limit`, optional `search`, and a continuation `cursor`.
 Dashboard loads bounded pages, rejects duplicate records and changing totals/cutoffs/releases, and
 caps accumulation at 20,000 records under a total deadline. Reaching that bound is explicit partial
 coverage. A transport or schema failure is not converted into an empty inventory or a graph fallback.
+Only a typed inventory or ontology generation transition restarts the entire bounded traversal,
+discarding every accumulated page; two delayed retries share the original total deadline.
 Display filters and local pages operate on this received set; the server query remains the authority.
 
 ## Unified state ingestion and readers
