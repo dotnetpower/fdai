@@ -1,0 +1,120 @@
+---
+/** Shared, fully server-rendered bilingual homepage reading journey. */
+import { Icon } from "@astrojs/starlight/components";
+import { homeContent } from "../data/home-copy.mjs";
+
+interface Props { locale?: string; }
+const locale = Astro.props.locale?.startsWith("ko") ? "ko" : "en";
+const copy = homeContent(locale);
+const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+const href = (path: string) => `${base}${locale === "ko" ? "ko/" : ""}${path}`;
+---
+
+<div class="home-content not-content">
+  <section id="outcomes" class="home-section" aria-labelledby="home-outcomes-title" tabindex="-1">
+    <div class="home-shell">
+    <div class="home-section-heading home-section-heading--split">
+      <div><p class="home-eyebrow"><span aria-hidden="true">01 / </span>{copy.outcomesLabel}</p>
+      <h2 id="home-outcomes-title">{copy.outcomesTitle}</h2></div>
+      <p class="home-section-intro">{copy.outcomesIntro}</p>
+    </div>
+    <div class="home-outcomes">
+      {copy.outcomes.map(outcome => (
+        <a class="home-outcome" href={href(outcome.link)} data-domain={outcome.id}>
+          <span class="home-outcome-domain">{outcome.domain}<span class="home-outcome-arrow" aria-hidden="true">↗</span></span>
+          <h3>{outcome.title}</h3>
+          <p>{outcome.text}</p>
+          <span class="home-card-link">{outcome.action}<Icon name="right-arrow" aria-hidden="true" /></span>
+        </a>
+      ))}
+    </div>
+    <p class="home-availability">{copy.availability}</p>
+    </div>
+  </section>
+
+  <section id="how-it-works" class="home-section home-method" aria-labelledby="home-method-title" tabindex="-1">
+    <div class="home-shell">
+    <div class="home-section-heading home-section-heading--split">
+      <div><p class="home-eyebrow"><span aria-hidden="true">02 / </span>{copy.methodLabel}</p>
+      <h2 id="home-method-title">{copy.methodTitle}</h2></div>
+      <p class="home-section-intro">{copy.methodIntro}</p>
+    </div>
+    <figure class="home-flow" aria-labelledby="home-flow-title">
+      <figcaption id="home-flow-title" class="home-flow-caption">{copy.flowTitle}</figcaption>
+      <ol class="home-flow-list">
+        {copy.flow.map((item, index) => (
+          <li>
+            <div class="home-flow-track" aria-hidden="true"><span class="home-flow-number">{String(index + 1).padStart(2, "0")}</span></div>
+            <h3>{item.title}</h3><p>{item.text}</p>
+          </li>
+        ))}
+      </ol>
+      <p class="home-flow-note">{copy.flowNote}</p>
+    </figure>
+    <div class="home-method-footer">
+      <p>{copy.authorityNote}</p>
+      <a class="home-text-link" href={href("architecture/")}>{copy.methodLink}<Icon name="right-arrow" aria-hidden="true" /></a>
+    </div>
+    </div>
+  </section>
+
+  <section id="safety" class="home-section home-safety" aria-labelledby="home-safety-title" tabindex="-1">
+    <div class="home-shell home-safety-layout">
+    <div class="home-section-heading">
+      <p class="home-eyebrow"><span aria-hidden="true">03 / </span>{copy.safetyLabel}</p>
+      <h2 id="home-safety-title">{copy.safetyTitle}</h2>
+      <p>{copy.safetyIntro}</p>
+      <div class="home-safety-links">
+        {copy.safetyLinks.map(link => (
+          <a class="home-text-link" href={href(link.path)}>{link.text}<Icon name="right-arrow" aria-hidden="true" /></a>
+        ))}
+      </div>
+    </div>
+    <div class="home-safety-content">
+      <ul class="home-assurances">
+        {copy.safety.map(item => <li><h3>{item.title}</h3><p>{item.text}</p></li>)}
+      </ul>
+      <details class="home-safeguards">
+        <summary>{copy.safeguardsTitle}<span class="home-disclosure-icon" aria-hidden="true"></span></summary>
+        <div class="home-safeguards-content">
+          <p>{copy.safeguardsIntro}</p>
+          <ol>
+            {copy.safeguards.map(item => (
+              <li data-safeguard={item.id}><strong>{item.title}</strong><span>{item.text}</span></li>
+            ))}
+          </ol>
+        </div>
+      </details>
+    </div>
+    </div>
+  </section>
+
+  <section id="next-steps" class="home-section home-next" aria-labelledby="home-next-title" tabindex="-1">
+    <div class="home-shell">
+    <div class="home-section-heading">
+      <p class="home-eyebrow"><span aria-hidden="true">04 / </span>{copy.nextLabel}</p>
+      <h2 id="home-next-title">{copy.nextTitle}</h2>
+      <p>{copy.nextIntro}</p>
+    </div>
+    <div class="home-next-grid">
+      {copy.next.map((item, index) => (
+        <div class="home-next-item">
+          <h3>{item.label}</h3>
+          <p>{item.text}</p>
+          <a class:list={["home-text-link", { "home-button": index === 0 }]} href={href(item.path)}>
+            {item.action}<Icon name="right-arrow" aria-hidden="true" />
+          </a>
+        </div>
+      ))}
+    </div>
+    </div>
+  </section>
+
+  <div class="home-footnote home-shell">
+    <p>{copy.scopeNote}</p>
+    <div>
+      <a href={href("reference/roadmap/")}>{copy.roadmapLabel}</a>
+      <a href="https://github.com/dotnetpower/fdai">{copy.githubLabel}</a>
+    </div>
+  </div>
+</div>

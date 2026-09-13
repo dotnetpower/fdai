@@ -41,10 +41,27 @@ Markdown staying under `docs/roadmap/`.
 
 ## Design source
 
-The visual language mirrors [`examples/option-b-tailwind.html`](../examples/option-b-tailwind.html)
-(Azure palette `#0078D4` / `#50E6FF`, Segoe UI Variable, Fluent depth-4/8/16 shadows).
-Those tokens are ported into Starlight CSS variables in `src/styles/` - see the
-follow-up commits.
+The homepage starts with unboxed typography over the authored
+[nebula](src/components/NebulaBackground.astro). Its shader, colors, intensity,
+speed, and full-opacity canvas remain unchanged. A feathered backdrop behind the
+hero text protects readability without placing the content in a panel or dimming
+the entire artwork. The two hero actions use explicit, contrasting button colors.
+
+Below the hero, full-width paper or slate reading bands follow the reader's
+theme. Typography and thin rules organize three operational priorities, a
+four-step conceptual flow, safety responsibilities, and starting paths. The
+seven safeguards remain in a native disclosure. Reduced-motion users receive a
+still frame; forced colors preserve content and controls without the decoration.
+
+[HomeHero](src/components/HomeHero.astro) renders the first screen and delegates
+non-home splash routes to the existing fallback.
+[HomeHeader](src/components/HomeHeader.astro) reuses Starlight search, theme, and
+language controls in a home-only navigation row. Other routes keep the standard
+header and documentation layout.
+[HomeSections](src/components/HomeSections.astro) shares the four-section reading
+journey between English and Korean through [paired copy](src/data/home-copy.mjs).
+The [homepage review](homepage-review.md) records the content critique, revised
+design, and verification limits.
 
 ## Navigation
 
@@ -99,16 +116,20 @@ pass.
 
 ### Theme and interaction checks
 
-The landing keeps its dark brand background in both site themes. Its content
-uses a complete, scoped palette in [theme-surfaces.css](src/styles/theme-surfaces.css),
-while article pages and search use the reader's theme. Header styles target
-the search opener, not controls inside the search dialog. Both language and
-theme selectors remain available on the mobile landing.
+The home reading bands, article pages, and search respect the reader's theme;
+the cosmic hero and home header use light text in either theme. The home-only
+palette and hero live in [homepage.css](src/styles/homepage.css), navigation in
+[homepage-chrome.css](src/styles/homepage-chrome.css), and reading sections in
+[homepage-sections.css](src/styles/homepage-sections.css).
+[Theme surfaces](src/styles/theme-surfaces.css) retains shared accessibility and
+legacy fallback behavior. Header styles target the search opener, not controls
+inside the search dialog. Language and theme selectors remain available on mobile.
 
 Use [responsive.css](src/styles/responsive.css) for shared reflow and touch
 targets. The page frame synchronizes the mobile menu button's expanded state
-and makes only overflowing tables keyboard-scrollable. Static notification
-and approval illustrations are labeled as examples, not live actions.
+and makes only overflowing tables keyboard-scrollable. The home flow is labeled
+as conceptual, not live activity. The full action catalog and measured-goal
+reference remain behind documentation links rather than dominating the home.
 
 After a production build, run the browser checks in order:
 
@@ -128,8 +149,20 @@ Evidence stays under the repository's ignored `.fdai/site-ui-tests/` directory.
 
 The matrix covers English/Korean, light/dark/automatic theme behavior,
 keyboard and pointer states, search results and empty results, diagram node
-selection, 44px mobile controls, 320px reflow, enlarged text, forced colors,
-reduced motion, and reading without JavaScript. Automated contrast and semantic
+selection, the seven-safeguard disclosure, 44px mobile controls, 320px reflow,
+enlarged text, forced colors, reduced motion, and reading without JavaScript.
+Homepage source checks verify language parity, published destinations, and the
+absence of unsupported percentage claims. The [nebula regression](test/ui/nebula.spec.ts)
+checks actual WebGL drawing, original parameters, and motion preferences so a
+readability change cannot silently remove the artwork again. The
+[composition regression](test/ui/premium-composition.spec.ts) measures unboxed
+geometry, the compact mobile header, and text coverage by the local backdrop,
+including 200% text with user spacing overrides. Contrast calculations composite
+that backdrop over the brightest possible pixel rather than assuming the canvas
+is black. Viewport artwork captures and reading-layout images are separate: a
+full-page screenshot can resize and clear the original reduced-motion canvas.
+
+Homepage images and geometry stay under `.fdai/homepage-premium/`. Automated
 checks supplement browser review; they are not a WCAG certification or a
 screen-reader usability study.
 
