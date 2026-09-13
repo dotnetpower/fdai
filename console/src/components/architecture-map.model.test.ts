@@ -47,6 +47,12 @@ describe("architecture Azure discovery mappings", () => {
     ["container-registry", "data"],
     ["event-hub", "messaging"],
     ["application-insights", "observability"],
+    ["compute.vm-extension", "runtime"],
+    ["workflow.api-connection", "runtime"],
+    ["network.bastion-host", "network"],
+    ["managed-certificate", "security"],
+    ["prometheus-rule-group", "observability"],
+    ["search-service", "data"],
   ] as const)("maps %s to the %s layer", (resourceType, layer) => {
     const resource = { id: resourceType, type: resourceType } as never;
     expect(layerOf(resource)).toBe(layer);
@@ -112,6 +118,9 @@ describe("architecture map model", () => {
     ["certificate", "certificate", "#D15900"],
     ["log-workspace", "log-analytics", "#A997E2"],
     ["metrics-workspace", "azure-monitor", "#155EA1"],
+    ["managed-certificate", "certificate", "#D15900"],
+    ["prometheus-rule-group", "azure-monitor", "#155EA1"],
+    ["search-service", "search", "#0078D4"],
   ] as const)("predefines canonical %s as %s", (type, token, color) => {
     const resource = { id: type, type, name: type, status: "healthy" };
     expect(resourceColorTokenOf(resource)).toBe(token);

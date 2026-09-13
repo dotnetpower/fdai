@@ -69,7 +69,6 @@ Safety / cost invariants
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
@@ -93,18 +92,16 @@ from fdai.delivery.azure.arg_projection import (
     validated_arm_scope,
 )
 from fdai.delivery.azure.arg_resource_change_support import (
+    DEFAULT_RESOURCE_CHANGE_DEADLINE_SECONDS,
     ArgResourceChangeError,
     ResourceChangeFeedResult,
-    ResourceChangeIngestionFence,
+    forward_arg_resource_changes,
 )
 from fdai.delivery.azure.arg_resource_change_support import (
     ChangeRow as _ChangeRow,
 )
 from fdai.delivery.azure.arg_resource_change_support import (
     HydrationResult as _HydrationResult,
-)
-from fdai.delivery.azure.arg_resource_change_support import (
-    coverage_gap_at as _coverage_gap_at,
 )
 from fdai.delivery.azure.arg_resource_change_support import (
     decode_cursor as _decode_cursor,
@@ -116,16 +113,10 @@ from fdai.delivery.azure.arg_resource_change_support import (
     event_uuid as _event_uuid,
 )
 from fdai.delivery.azure.arg_resource_change_support import (
-    hydration_retry_count as _hydration_retry_count,
-)
-from fdai.delivery.azure.arg_resource_change_support import (
     operational_status_change as _operational_status_change,
 )
 from fdai.delivery.azure.arg_resource_change_support import (
     parse_ts as _parse_ts,
-)
-from fdai.delivery.azure.arg_resource_change_support import (
-    pending_event_ids as _pending_event_ids,
 )
 from fdai.delivery.azure.arg_resource_change_support import (
     with_nested_value as _with_nested_value,
@@ -145,13 +136,11 @@ from fdai.rule_catalog.schema.resource_type import (
     resolve_azure_resource_type,
 )
 from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
-from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.inventory import (
     UNCLASSIFIED_RESOURCE_TYPE,
     LinkRecord,
     ResourceRecord,
 )
-from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _DEFAULT_ARG_ENDPOINT: Final[str] = "https://management.azure.com"
@@ -177,8 +166,6 @@ _CHANGE_KIND_BY_ARG_VALUE: Final[Mapping[str, str]] = {
 }
 _SOURCE: Final[str] = "fdai.delivery.azure.arg_resource_changes"
 _SIGNAL_KIND: Final[str] = "azure.resource_graph_change_feed"
-_CURSOR_PREFIX: Final[str] = "arg_resource_change_cursor:"
-DEFAULT_RESOURCE_CHANGE_DEADLINE_SECONDS: Final[float] = 60.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -746,102 +733,6 @@ class AzureResourceChangeFeed:
             incident_correlation=IncidentCorrelation.NONE,
             mode=Mode.SHADOW,
         )
-
-
-async def forward_arg_resource_changes(
-    *,
-    feed: AzureResourceChangeFeed,
-    state_store: StateStore,
-    event_bus: EventBus,
-    topic: str,
-    scope: str,
-    ingestion_fence: ResourceChangeIngestionFence | None = None,
-    deadline_seconds: float = DEFAULT_RESOURCE_CHANGE_DEADLINE_SECONDS,
-    clock: Callable[[], datetime] | None = None,
-) -> int:
-    """Publish one bounded ``resourcechanges`` poll and advance its cursor.
-
-    The cursor is persisted only after every event in the poll result has
-    published successfully - a raised exception (query failure, hydration
-    failure, publish failure, or a deadline timeout) leaves the previous
-    cursor untouched, so the next poll safely re-reads the same window.
-    """
-
-    if deadline_seconds <= 0:
-        raise ValueError("resource change feed deadline_seconds MUST be > 0")
-    cursor_key = f"{_CURSOR_PREFIX}{scope}"
-    saved = await state_store.read_state(cursor_key) or {}
-    pending_event_ids = _pending_event_ids(saved.get("pending_event_ids"))
-    hydration_retry_count = _hydration_retry_count(saved.get("hydration_retry_count"))
-    coverage_gap_at = _coverage_gap_at(saved.get("coverage_gap_at"))
-    if pending_event_ids and (
-        ingestion_fence is None or not await ingestion_fence.contains(pending_event_ids)
-    ):
-        return 0
-    cursor = str(saved.get("cursor") or "")
-    if not cursor:
-        cursor = feed.initial_cursor()
-        await state_store.write_state(
-            cursor_key,
-            {
-                "complete": False,
-                "coverage_gap_at": (
-                    coverage_gap_at.isoformat() if coverage_gap_at is not None else None
-                ),
-                "cursor": cursor,
-                "hydration_retry_count": hydration_retry_count,
-                "last_event_cursor": None,
-                "pending_event_ids": [],
-                "published_event_count": 0,
-            },
-        )
-    result: ResourceChangeFeedResult | None = None
-    try:
-        async with asyncio.timeout(deadline_seconds):
-            result = await feed.poll(cursor)
-            for event in result.events:
-                await event_bus.publish(
-                    topic,
-                    event.resource_ref or scope,
-                    event.model_dump(mode="json"),
-                )
-    except TimeoutError as exc:
-        raise RuntimeError("resource change feed poll exceeded its deadline") from exc
-    if result is None:
-        raise RuntimeError("resource change feed poll produced no result")
-    polled_at = (clock or (lambda: datetime.now(tz=UTC)))()
-    if polled_at.tzinfo is None:
-        raise RuntimeError("resource change feed clock MUST be timezone-aware")
-    next_cursor = result.next_cursor
-    if result.recovery_cursor is not None:
-        hydration_retry_count += 1
-        if hydration_retry_count >= feed.max_hydration_retries:
-            next_cursor = result.recovery_cursor
-            gap_at, _gap_id = _decode_cursor(result.recovery_cursor)
-            if gap_at is None:
-                raise RuntimeError("resource change recovery cursor is malformed")
-            coverage_gap_at = max(
-                (candidate for candidate in (coverage_gap_at, gap_at) if candidate is not None),
-            )
-            hydration_retry_count = 0
-    else:
-        hydration_retry_count = 0
-    await state_store.write_state(
-        cursor_key,
-        {
-            "complete": result.complete,
-            "coverage_gap_at": (
-                coverage_gap_at.astimezone(UTC).isoformat() if coverage_gap_at is not None else None
-            ),
-            "cursor": next_cursor,
-            "hydration_retry_count": hydration_retry_count,
-            "last_event_cursor": result.last_event_cursor,
-            "last_polled_at": polled_at.astimezone(UTC).isoformat(),
-            "pending_event_ids": [str(event.event_id) for event in result.events],
-            "published_event_count": len(result.events),
-        },
-    )
-    return len(result.events)
 
 
 __all__ = [

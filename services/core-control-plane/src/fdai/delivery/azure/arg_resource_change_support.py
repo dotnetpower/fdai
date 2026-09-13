@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import asyncio
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Final, Protocol
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from fdai.shared.contracts.models import Event
+from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.inventory import ResourceRecord
+from fdai.shared.providers.state_store import StateStore
 
 _CURSOR_SEP: Final[str] = "\x1f"
+_CURSOR_PREFIX: Final[str] = "arg_resource_change_cursor:"
+DEFAULT_RESOURCE_CHANGE_DEADLINE_SECONDS: Final[float] = 60.0
 _OPERATIONAL_STATUS_CHANGE_PATHS: Final[Mapping[str, tuple[str, ...]]] = {
     "properties.powerState.code": ("properties", "powerState", "code"),
     "properties.runningStatus": ("properties", "runningStatus"),
@@ -62,6 +67,17 @@ class ResourceChangeFeedResult:
     complete: bool = True
     last_event_cursor: str | None = None
     recovery_cursor: str | None = None
+
+
+class ResourceChangeFeed(Protocol):
+    """Bounded change-feed surface required by the forwarding loop."""
+
+    @property
+    def max_hydration_retries(self) -> int: ...
+
+    def initial_cursor(self) -> str: ...
+
+    async def poll(self, cursor: str) -> ResourceChangeFeedResult: ...
 
 
 def event_uuid(scope: str, change_id: str) -> UUID:
@@ -154,3 +170,85 @@ def with_nested_value(
         cursor = child
     cursor[path[-1]] = replacement
     return updated
+
+
+async def forward_arg_resource_changes(
+    *,
+    feed: ResourceChangeFeed,
+    state_store: StateStore,
+    event_bus: EventBus,
+    topic: str,
+    scope: str,
+    ingestion_fence: ResourceChangeIngestionFence | None = None,
+    deadline_seconds: float = DEFAULT_RESOURCE_CHANGE_DEADLINE_SECONDS,
+    clock: Callable[[], datetime] | None = None,
+) -> int:
+    """Publish one bounded poll and advance its cursor after every event succeeds."""
+
+    if deadline_seconds <= 0:
+        raise ValueError("resource change feed deadline_seconds MUST be > 0")
+    cursor_key = f"{_CURSOR_PREFIX}{scope}"
+    saved = await state_store.read_state(cursor_key) or {}
+    pending_ids = pending_event_ids(saved.get("pending_event_ids"))
+    retry_count = hydration_retry_count(saved.get("hydration_retry_count"))
+    gap_at = coverage_gap_at(saved.get("coverage_gap_at"))
+    if pending_ids and (ingestion_fence is None or not await ingestion_fence.contains(pending_ids)):
+        return 0
+    cursor = str(saved.get("cursor") or "")
+    if not cursor:
+        cursor = feed.initial_cursor()
+        await state_store.write_state(
+            cursor_key,
+            {
+                "complete": False,
+                "coverage_gap_at": gap_at.isoformat() if gap_at is not None else None,
+                "cursor": cursor,
+                "hydration_retry_count": retry_count,
+                "last_event_cursor": None,
+                "pending_event_ids": [],
+                "published_event_count": 0,
+            },
+        )
+    result: ResourceChangeFeedResult | None = None
+    try:
+        async with asyncio.timeout(deadline_seconds):
+            result = await feed.poll(cursor)
+            for event in result.events:
+                await event_bus.publish(
+                    topic,
+                    event.resource_ref or scope,
+                    event.model_dump(mode="json"),
+                )
+    except TimeoutError as exc:
+        raise RuntimeError("resource change feed poll exceeded its deadline") from exc
+    if result is None:
+        raise RuntimeError("resource change feed poll produced no result")
+    polled_at = (clock or (lambda: datetime.now(tz=UTC)))()
+    if polled_at.tzinfo is None:
+        raise RuntimeError("resource change feed clock MUST be timezone-aware")
+    next_cursor = result.next_cursor
+    if result.recovery_cursor is not None:
+        retry_count += 1
+        if retry_count >= feed.max_hydration_retries:
+            next_cursor = result.recovery_cursor
+            recovered_at, _gap_id = decode_cursor(result.recovery_cursor)
+            if recovered_at is None:
+                raise RuntimeError("resource change recovery cursor is malformed")
+            gap_at = max(candidate for candidate in (gap_at, recovered_at) if candidate is not None)
+            retry_count = 0
+    else:
+        retry_count = 0
+    await state_store.write_state(
+        cursor_key,
+        {
+            "complete": result.complete,
+            "coverage_gap_at": gap_at.astimezone(UTC).isoformat() if gap_at is not None else None,
+            "cursor": next_cursor,
+            "hydration_retry_count": retry_count,
+            "last_event_cursor": result.last_event_cursor,
+            "last_polled_at": polled_at.astimezone(UTC).isoformat(),
+            "pending_event_ids": [str(event.event_id) for event in result.events],
+            "published_event_count": len(result.events),
+        },
+    )
+    return len(result.events)

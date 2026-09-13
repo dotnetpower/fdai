@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 1f44880b2462e1ce771e46225d11eecc36259027
+translation_source_sha: 11e4869b6de67034bade2aeb819dc816f6ed45ad
 translation_revised: 2026-09-13
 ---
 # 지속형 운영 인스턴스 그래프
@@ -84,6 +84,8 @@ Activity Log의 컨트롤 플레인 결과는 `operationStatus`와 정규화된 
 보강된 Resource Changes는 불완전한 관계 집합을 내보내기 전에 전체 스캔과 같은 검토된 공급자
 부모 매핑을 사용합니다. 중첩 Subnet 레코드는 관측된 VNet을 `parent_id`로 유지하며, 정확한 자식이
 reconciliation 사이에 Resource Group 부모로 되돌아가지 않습니다.
+Resource Changes의 커서, 재시도, 수집 경계 및 게시 의미는 하나의 지원 경계가 소유합니다. 공급자
+feed 모듈은 두 번째 루프를 유지하지 않고 이 동작을 다시 내보냅니다.
 
 수집된 속성은 검토된 프로바이더 mapping을 거쳐야만 관계가 됩니다. Mapping이 관측된 연결
 대상을 빠뜨리면 없는 그래프 edge가 경로 부재를 입증하지 않습니다. 따라서 도달 가능한 모든
