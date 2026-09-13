@@ -20,12 +20,12 @@ function zeroMeasurement(): AutonomyPayload {
   return {
     ...autonomy,
     synthetic: false,
-    sample_size: 0,
+    sample_size: 1,
     source: { name: "example-measurements", kind: "measurement", as_of: "2026-09-01T09:00:00Z" },
     success: { ...autonomy.success, auto_resolution_rate: { value: 0, baseline: 0, direction: "higher" } },
-    finalization: { finalized_events: 0, pending_events: 0, adverse_events: 0 },
-    attribution: { attributed_events: 0, unattributed_events: 0, coverage: null },
-    verticals: [],
+    finalization: { finalized_events: 1, pending_events: 0, adverse_events: 1 },
+    attribution: { attributed_events: 1, unattributed_events: 0, coverage: 1 },
+    verticals: [{ key: "resilience", events: 1, auto_resolved: 0, open_risks: 1, monthly_savings: 0 }],
   };
 }
 
@@ -194,11 +194,25 @@ test("sample operating outcomes distinguish fixture values from Live evidence", 
   await page.goto("/operating-outcomes/auto-resolution?data=sample&locale=ko");
 
   await expect(page.locator(".analytics-evidence")).toContainText("시뮬레이션 근거");
-  await expect(page.locator(".outcome-sample-boundary")).toContainText("샘플 성과");
-  await expect(page.locator(".outcome-sample-boundary"))
+  const boundary = page.getByRole("note", { name: "샘플 성과" });
+  await expect(boundary).toContainText("샘플 성과");
+  await expect(boundary)
     .toContainText("아래 링크는 Live 근거를 열며 샘플 값을 입증하지 않습니다.");
   await expect(page.getByRole("link", { name: "감사 근거 보기" }))
     .toHaveAttribute("href", "/audit?window=30d");
+  const geometry = await page.evaluate(() => ({
+    document: [
+      document.documentElement.clientWidth,
+      document.documentElement.scrollWidth,
+    ] as const,
+    main: [
+      document.querySelector("main")!.clientWidth,
+      document.querySelector("main")!.scrollWidth,
+    ] as const,
+  }));
+  for (const [client, scroll] of [geometry.document, geometry.main]) {
+    expect(scroll).toBeLessThanOrEqual(client + 1);
+  }
 });
 
 test("partial measurements and explicit empty distributions remain distinct", async ({ page }) => {

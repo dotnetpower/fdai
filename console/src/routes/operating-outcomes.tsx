@@ -106,7 +106,11 @@ export function OperatingOutcomeBody({
         <span>{t(`analytics.${metric.direction}Better`)}</span>
       </header>
       {autonomy.synthetic ? (
-        <section class="vertical-boundary-banner outcome-sample-boundary">
+        <section
+          class="vertical-boundary-banner outcome-sample-boundary"
+          role="note"
+          aria-label={t("analytics.outcomes.simulatedTitle")}
+        >
           <strong>{t("analytics.outcomes.simulatedTitle")}</strong>
           <span>{t("analytics.outcomes.simulatedEvidenceBoundary")}</span>
         </section>

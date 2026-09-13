@@ -1,8 +1,8 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: 473de8e941763b21d528dcb2d24b481cc044f0d7
-translation_revised: 2026-09-09
+translation_source_sha: 02c7bd2429d2f125f1f85e661f032e43f2aec165
+translation_revised: 2026-09-13
 ---
 # 결과 Assurance
 
@@ -216,7 +216,8 @@ Semantic 요청과 결과 변환 결과는 typed logical topic을 통해 하나�
 
 새 top-level transformation workspace는 추가하지 않습니다. 모든 값은 가장 좁은
 준비 상태, 목표, 감사, 인시던트, 액션, 승격 경로로 연결합니다. 누락된 값도
-clickable 상태를 유지하고 어떤 출처가 없는지 설명합니다.
+clickable 상태를 유지하고 어떤 출처가 없는지 설명합니다. Sample 성과는 연결된 Live 근거가
+fixture 값을 입증하지 않는다는 이름 있는 안내를 제공하며, 이 경계는 데스크톱과 모바일 콘텐츠 안에 유지됩니다.
 
 ## 측정 및 결정 규칙
 
