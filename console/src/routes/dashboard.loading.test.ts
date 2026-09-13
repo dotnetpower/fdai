@@ -52,9 +52,15 @@ describe("loadDashboardOverview", () => {
     const publishBackbone = vi.fn();
     const client = {
       dashboardMetrics: vi.fn(async () => KPI),
-      costGovernance: vi.fn(async () => { throw new OperatorApiError(503, "not served here"); }),
-      panel: vi.fn(async () => { throw new OperatorApiError(503, "not served here"); }),
-      autonomy: vi.fn(async () => { throw new OperatorApiError(503, "not served here"); }),
+      costGovernance: vi.fn(async () => {
+        throw new OperatorApiError(503, "not served here", "projection-unavailable");
+      }),
+      panel: vi.fn(async () => {
+        throw new OperatorApiError(503, "not served here", "projection-unavailable");
+      }),
+      autonomy: vi.fn(async () => {
+        throw new OperatorApiError(503, "not served here", "projection-unavailable");
+      }),
     };
 
     await expect(loadDashboardOverview(client, publishBackbone)).resolves.toEqual({
@@ -70,7 +76,9 @@ describe("loadDashboardOverview", () => {
     const client = {
       dashboardMetrics: vi.fn(async () => KPI),
       costGovernance: vi.fn(async () => { throw new OperatorApiError(403, "access required"); }),
-      panel: vi.fn(async () => { throw new OperatorApiError(503, "unavailable"); }),
+      panel: vi.fn(async () => {
+        throw new OperatorApiError(503, "unavailable", "projection-unavailable");
+      }),
       autonomy: vi.fn(async () => { throw new OperatorApiError(404, "not found"); }),
     };
 

@@ -424,9 +424,15 @@ describe("Operator API response decoders", () => {
   });
 
 describe("optional Operator API availability", () => {
-  test("treats only missing and unimplemented routes as unavailable", () => {
+  test("treats only missing, unimplemented, and source-gated routes as unavailable", () => {
     expect(isOptionalOperatorApiUnavailable(new OperatorApiError(404, "missing"))).toBe(true);
     expect(isOptionalOperatorApiUnavailable(new OperatorApiError(501, "disabled"))).toBe(true);
+    expect(isOptionalOperatorApiUnavailable(
+      new OperatorApiError(503, "source unavailable", "projection-unavailable"),
+    )).toBe(true);
+    expect(isOptionalOperatorApiUnavailable(
+      new OperatorApiError(503, "service unavailable"),
+    )).toBe(false);
     expect(isOptionalOperatorApiUnavailable(new OperatorApiError(502, "invalid contract"))).toBe(false);
     expect(isOptionalOperatorApiUnavailable(new Error("network"))).toBe(false);
   });

@@ -15,7 +15,9 @@ function item(expiresAt: string | null): HilQueueItem {
 describe("approval queue source state", () => {
   test("renders optional projection absence as unavailable", async () => {
     const client = {
-      listHilQueue: async () => { throw new OperatorApiError(503, "unavailable"); },
+      listHilQueue: async () => {
+        throw new OperatorApiError(503, "unavailable", "projection-unavailable");
+      },
     };
 
     await expect(loadHilQueueState(client, "")).resolves.toEqual({

@@ -68,7 +68,9 @@ describe("blast-radius route query", () => {
       status: "error",
       message: "invalid target",
     });
-    expect(blastRadiusFailure(new OperatorApiError(503, "inventory unavailable")).status)
+    expect(blastRadiusFailure(
+      new OperatorApiError(503, "inventory unavailable", "projection-unavailable"),
+    ).status)
       .toBe("unavailable");
     expect(blastRadiusFailure(new OperatorApiError(500, "inventory failed"))).toEqual({
       status: "error",

@@ -23,8 +23,12 @@ describe("analytics source isolation", () => {
   it("keeps the KPI backbone when optional assurance projections are unavailable", async () => {
     const client = {
       dashboardMetrics: vi.fn().mockResolvedValue({ events_total: 0 }),
-      autonomy: vi.fn().mockRejectedValue(new OperatorApiError(503, "projection unavailable")),
-      panel: vi.fn().mockRejectedValue(new OperatorApiError(503, "projection unavailable")),
+      autonomy: vi.fn().mockRejectedValue(
+        new OperatorApiError(503, "projection unavailable", "projection-unavailable"),
+      ),
+      panel: vi.fn().mockRejectedValue(
+        new OperatorApiError(503, "projection unavailable", "projection-unavailable"),
+      ),
     };
 
     await expect(loadAnalyticsData(client as never, { includeGates: true })).resolves.toEqual({
