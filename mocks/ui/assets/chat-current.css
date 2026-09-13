@@ -1,0 +1,582 @@
+/* Current shared presentation contract for Command Deck and chat design mocks. */
+body[data-chat-surface="current"] {
+  color: var(--cs-text);
+  background: var(--cs-card);
+}
+
+body[data-chat-surface="current"] :is(
+  .dk-shell,
+  .gs-frame,
+  .ex-workbench,
+  .crp-layout
+) {
+  border-color: var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+  box-shadow: none;
+}
+
+body[data-chat-surface="current"] :is(
+  .dk-t-role,
+  .dk-t-badge,
+  .dk-turn-meta,
+  .dk-turn-meta strong,
+  .dk-turn-meta time,
+  .dk-chip,
+  .dk-s-time,
+  .dk-s-avatar,
+  .gs-frame-route,
+  .gs-turn-role,
+  .gs-digest-title,
+  .gs-digest-group h4,
+  .gs-trace-sub,
+  .gs-trace-timer,
+  .gs-stage,
+  .gs-stage-ico,
+  .gs-stage-side,
+  .gs-cite,
+  .gs-sources-label,
+  .gs-src-badge,
+  .gs-src-title,
+  .gs-src-meta,
+  .gs-grounded,
+  .gs-followup,
+  .ex-windowbar,
+  .ex-backend-status,
+  .ex-window-context,
+  .ex-window-search-count,
+  .ex-window-search kbd,
+  .ex-conversation-filters button,
+  .ex-conversation-group h3,
+  .ic-preview-label,
+  .crp-state,
+  .crp-decision-flow li > span,
+  .crp-decision-flow small,
+  .chat-alert,
+  .chat-quiet,
+  .chat-context,
+  .chat-specimen-label,
+  .variant-toolbar-label,
+  .composer-meta span,
+  .composer-meta strong,
+  kbd
+) {
+  font-size: var(--cs-type-label-size);
+}
+
+body[data-chat-surface="current"] .dk-mention {
+  color: var(--cs-text);
+}
+
+body[data-chat-surface="current"] :is(
+  .dk-exec-times,
+  .dk-tokens b,
+  .dk-delegation-route strong,
+  .dk-delegation-route span,
+  .dk-exec-risk,
+  .dk-exec-state,
+  .dk-exec-title,
+  .dk-exec-command-head strong,
+  .dk-exec-command-head span,
+  .dk-exec-result,
+  .dk-exec-section summary,
+  .dk-exec-meta,
+  .dk-citations-label,
+  .dk-cite-link,
+  .dk-tool-latency,
+  .dk-router,
+  .dk-router b,
+  .dk-router span,
+  .dk-bubble-label,
+  .dk-cc,
+  .dk-mention,
+  .dk-code-lang,
+  .dk-chart-caption,
+  .dk-aggregation,
+  .dk-table th,
+  .dk-table code,
+  .dk-figure figcaption,
+  .dk-chart-legend,
+  .dk-turn-avatar,
+  .dk-turn-actions button,
+  .dk-attach-thumb,
+  .dk-copy,
+  .crp-table th,
+  .crp-activity-copy small,
+  .crp-activity-duration,
+  .crp-choice small,
+  .crp-freshness dt,
+  .crp-citations,
+  .crp-proposal-summary dt,
+  .crp-check-state,
+  .crp-actions p,
+  .crp-memory-preview dt,
+  .crp-brief-kicker,
+  .crp-brief-label,
+  .crp-brief-foot,
+  .crp-button,
+  .ex-md-assembly > *,
+  .domain-heading span
+) {
+  font-size: var(--cs-type-label-size);
+}
+
+body[data-chat-surface="current"] :is(
+  .dk-layout-controls button,
+  .dk-close,
+  .dk-sessions-close,
+  .dk-sessions .dk-new,
+  .dk-suggest button,
+  .dk-t2-escalate,
+  .dk-attach-btn,
+  .gs-btn,
+  .gs-speed button,
+  .gs-send,
+  .ex-search-previous,
+  .ex-search-next,
+  .ex-window-layout button,
+  .ex-close-deck
+) {
+  min-width: var(--cs-control-height);
+  min-height: var(--cs-control-height);
+}
+
+body[data-chat-surface="current"] :is(
+  .dk-turn,
+  .gs-turn,
+  .ex-turn,
+  .ic-question,
+  .ic-answer,
+  .crp-turn
+) {
+  min-width: 0;
+}
+
+body[data-chat-surface="current"] :is(
+  .dk-bubble,
+  .gs-bubble,
+  .ex-user-bubble,
+  .cs-deck-user-bubble
+) {
+  border: 1px solid color-mix(in srgb, var(--cs-steel) 18%, var(--cs-hairline));
+  border-radius: 8px;
+  background: var(--cs-question-bg);
+  color: var(--cs-text);
+  box-shadow: none;
+}
+
+body[data-chat-surface="current"] :is(
+  .dk-answer,
+  .gs-answer,
+  .ex-answer,
+  .cs-deck-answer,
+  .ic-answer
+) {
+  color: var(--cs-text);
+}
+
+body[data-chat-surface="current"] :is(
+  .dk-source-readiness,
+  .dk-run,
+  .gs-trace,
+  .gs-src,
+  .ex-source-readiness,
+  .ex-investigation,
+  .crp-surface,
+  .ic-unavailable
+) {
+  border-color: var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+  box-shadow: none;
+}
+
+body[data-chat-surface="current"] :is(
+  .dk-source-readiness,
+  .ex-source-readiness,
+  .gs-digest,
+  .ex-digest
+) {
+  background: var(--cs-shade);
+}
+
+/* Source-streaming study */
+body[data-chat-surface="current"] .gs-stage-wrap {
+  width: min(100%, 1040px);
+  margin-inline: auto;
+}
+
+body[data-chat-surface="current"] .gs-frame {
+  min-height: 560px;
+  overflow: hidden;
+}
+
+body[data-chat-surface="current"] .gs-frame-topbar {
+  min-height: 48px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--cs-hairline);
+  background: var(--cs-card);
+}
+
+body[data-chat-surface="current"] .gs-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--cs-hairline-strong);
+}
+
+body[data-chat-surface="current"] .gs-body {
+  grid-template-columns: minmax(0, 1fr) 280px;
+  min-height: 450px;
+}
+
+body[data-chat-surface="current"] .gs-transcript {
+  gap: 16px;
+  padding: 24px clamp(20px, 5vw, 56px);
+  border-right-color: var(--cs-hairline);
+}
+
+body[data-chat-surface="current"] .gs-digest {
+  padding: 18px;
+  border-left: 0;
+}
+
+body[data-chat-surface="current"] .gs-digest-title,
+body[data-chat-surface="current"] .gs-digest-group h4 {
+  color: var(--cs-text-soft);
+  letter-spacing: 0;
+}
+
+body[data-chat-surface="current"] .gs-fact {
+  min-height: 30px;
+  align-items: center;
+  padding-block: 5px;
+  border-bottom-style: solid;
+}
+
+body[data-chat-surface="current"] .gs-trace {
+  background: var(--cs-card);
+}
+
+body[data-chat-surface="current"] .gs-grounded {
+  width: fit-content;
+  max-width: 100%;
+  min-height: var(--cs-control-height);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-shade);
+  color: var(--cs-text);
+  box-shadow: none;
+  font-family: var(--cs-font);
+  text-align: left;
+}
+
+body[data-chat-surface="current"] .gs-followup {
+  min-height: var(--cs-control-height);
+  border-radius: var(--cs-radius-sm);
+  color: var(--cs-text);
+}
+
+body[data-chat-surface="current"] .gs-followup:hover {
+  background: var(--cs-shade);
+}
+
+body[data-chat-surface="current"] .gs-inputrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 10px 12px;
+  background: var(--cs-card);
+}
+
+body[data-chat-surface="current"] .gs-input {
+  min-height: var(--cs-control-height);
+  resize: none;
+  font-family: var(--cs-font);
+  line-height: var(--cs-type-compact-line-height);
+}
+
+body[data-chat-surface="current"] .gs-send {
+  min-width: 96px;
+  border: 1px solid var(--cs-hairline);
+  background: var(--cs-shade);
+  color: var(--cs-text-soft);
+}
+
+body[data-chat-surface="current"] .gs-src-badge {
+  width: 28px;
+  height: 28px;
+  color: var(--cs-card);
+}
+
+/* Full and adaptive Command Deck */
+body[data-chat-surface="current"] .dk-shell {
+  width: min(100%, 1180px);
+  margin-inline: auto;
+}
+
+body[data-chat-surface="current"] :is(.dk-t-head, .ex-windowbar) {
+  background: var(--cs-card);
+}
+
+body[data-chat-surface="current"] :is(.dk-transcript, .ex-transcript) {
+  background: var(--cs-card);
+}
+
+body[data-chat-surface="current"] .ex-thread {
+  background: var(--cs-card);
+}
+
+body[data-chat-surface="current"] :is(.dk-input-row, .ex-composer, .ic-composer) {
+  background: var(--cs-card);
+}
+
+body[data-chat-surface="current"] :is(.dk-composer, .ex-composer-inner, .chat-composer) {
+  border-color: var(--cs-hairline);
+  border-radius: 8px;
+  background: var(--cs-card);
+  box-shadow: none;
+}
+
+body[data-chat-surface="current"] :is(.dk-composer textarea, .ex-composer textarea, .ic-composer textarea, .chat-composer textarea) {
+  color: var(--cs-text);
+  background: transparent;
+}
+
+body[data-chat-surface="current"] .ex-workbench {
+  background: var(--cs-card);
+}
+
+body[data-chat-surface="current"] .ex-windowbar {
+  border-bottom-color: var(--cs-hairline);
+}
+
+body[data-chat-surface="current"] :is(.ex-control, .ex-window-search, .ex-conversation-search) {
+  border-color: var(--cs-hairline);
+  background: var(--cs-card);
+  color: var(--cs-text);
+}
+
+body[data-chat-surface="current"] .ex-attach {
+  border-color: var(--cs-hairline);
+  background: var(--cs-card);
+  color: var(--cs-text-soft);
+}
+
+/* Incident and response-pattern studies */
+body[data-chat-surface="current"] .ic-header {
+  background: var(--cs-card);
+}
+
+body[data-chat-surface="current"] .ic-question .cs-deck-user-bubble {
+  max-width: 70ch;
+}
+
+body[data-chat-surface="current"] .crp-page {
+  max-width: 1280px;
+}
+
+body[data-chat-surface="current"] .crp-layout {
+  border-radius: var(--cs-radius-sm);
+}
+
+body[data-chat-surface="current"] .crp-rail {
+  background: var(--cs-shade);
+}
+
+body[data-chat-surface="current"] .crp-decision-flow li,
+body[data-chat-surface="current"] .crp-surface {
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+  box-shadow: none;
+}
+
+body[data-chat-surface="current"] .crp-state {
+  color: var(--cs-text);
+}
+
+/* Chat home variants */
+body[data-chat-surface="current"] {
+  --chat-stage: var(--cs-card);
+  --chat-focus: var(--cs-steel);
+}
+
+body[data-chat-surface="current"] :is(.chat-mock, .chat-main, .variant-toolbar) {
+  background: var(--cs-card);
+}
+
+body[data-chat-surface="current"] .chat-workspace-title {
+  margin: 0;
+  font-size: var(--cs-type-panel-title-size);
+  line-height: var(--cs-type-panel-title-line-height);
+}
+
+body[data-chat-surface="current"] .variant-intro h2 {
+  margin: 0 0 7px;
+  font-size: clamp(25px, 2.6vw, 32px);
+  line-height: 1.3;
+}
+
+body[data-chat-surface="current"] .chat-composer {
+  border-radius: 8px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cs-steel) 8%, transparent);
+}
+
+body[data-chat-surface="current"] :is(.chat-alert, .chat-quiet, .chat-specimen-label) {
+  color: var(--cs-text);
+}
+
+body[data-theme="dark"][data-chat-surface="current"] :is(
+  .gs-turn.op .gs-bubble,
+  .gs-trace,
+  .ex-workbench,
+  .ex-windowbar,
+  .chat-mock,
+  .chat-main,
+  .variant-toolbar
+) {
+  background: var(--cs-card);
+}
+
+body[data-theme="dark"][data-chat-surface="current"] :is(
+  .gs-stage-side,
+  .ex-backend-status,
+  .crp-state,
+  .chat-alert
+) {
+  color: var(--cs-text);
+}
+
+body[data-theme="dark"][data-chat-surface="current"] :is(
+  .dk-send,
+  .ex-send,
+  .composer-send,
+  .gs-speed button.on,
+  .ic-answer-actions .cs-control-button.is-primary
+) {
+  border-color: color-mix(in srgb, var(--cs-steel) 62%, #000);
+  background: color-mix(in srgb, var(--cs-steel) 58%, #000);
+  color: #fff;
+}
+
+@media (max-width: 860px) {
+  body[data-chat-surface="current"] .gs-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body[data-chat-surface="current"] .gs-transcript {
+    border-right: 0;
+  }
+
+  body[data-chat-surface="current"] .gs-digest {
+    border-top: 1px solid var(--cs-hairline);
+  }
+}
+
+@media (max-width: 620px) {
+  body[data-chat-surface="current"] :is(
+    button,
+    textarea,
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    summary
+  ) {
+    min-height: 44px;
+  }
+
+  body[data-chat-surface="current"] :is(
+    .dk-layout-controls button,
+    .dk-close,
+    .dk-sessions-close,
+    .dk-sessions .dk-new,
+    .dk-attach-btn,
+    .gs-btn,
+    .gs-speed button,
+    .gs-send,
+    .ex-search-previous,
+    .ex-search-next,
+    .ex-window-layout button,
+    .ex-close-deck,
+    .chat-rail button,
+    .chat-composer button
+  ) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  body[data-chat-surface="current"] .gs-frame {
+    min-height: calc(100vh - 180px);
+  }
+
+  body[data-chat-surface="current"] .gs-frame-topbar {
+    flex-wrap: wrap;
+  }
+
+  body[data-chat-surface="current"] .dk-transcript > .flow-context {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body[data-chat-surface="current"] .dk-transcript > .flow-context > div:nth-child(2n) {
+    border-right: 0;
+  }
+
+  body[data-chat-surface="current"] .dk-transcript > .flow-context > div {
+    border-bottom: 1px solid var(--cs-hairline);
+  }
+
+  body.gs-page-body .cs-page-header .cs-lead,
+  body.gs-page-body > main > .cs-readonly-banner {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  body.gs-page-body .cs-page-header {
+    margin-bottom: 12px;
+  }
+
+  body.gs-page-body .gs-controls {
+    margin-bottom: 8px;
+  }
+
+  body[data-chat-surface="current"] .gs-body {
+    min-height: 0;
+  }
+
+  body[data-chat-surface="current"] .gs-transcript,
+  body[data-chat-surface="current"] .gs-digest {
+    padding-inline: 16px;
+  }
+
+  body[data-chat-surface="current"] .gs-inputrow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body[data-chat-surface="current"] .gs-send {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-chat-surface="current"] *,
+  body[data-chat-surface="current"] *::before,
+  body[data-chat-surface="current"] *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  body[data-chat-surface="current"] :is(
+    .dk-shell,
+    .gs-frame,
+    .ex-workbench,
+    .crp-layout,
+    .gs-trace,
+    .gs-src,
+    .crp-surface,
+    .chat-composer
+  ) {
+    border-color: CanvasText;
+  }
+}

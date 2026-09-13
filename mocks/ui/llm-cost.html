@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LLM cost - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=overview-quality-v1" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=overview-quality-v2" />
   <link rel="stylesheet" href="assets/llm-cost-workspace.css?v=overview-quality-v2" />
-  <link rel="stylesheet" href="assets/overview-quality.css?v=overview-quality-v3" />
+  <link rel="stylesheet" href="assets/overview-quality.css?v=overview-quality-v4" />
   <script src="assets/calm-slate.js?v=operator-workspaces-v2" defer></script>
   <script src="assets/llm-cost-workspace.js?v=overview-quality-v3" defer></script>
 </head>
@@ -112,6 +112,7 @@
       <p class="lc-ledger-note" id="export-status" role="status"></p>
       <div class="cs-table-wrap" tabindex="0" role="region" aria-labelledby="invocation-ledger-title">
         <table class="cs-table lc-table lc-ledger-table">
+          <caption class="cs-sr-only">Frozen LLM invocation ledger with token counts and correlation evidence</caption>
           <thead><tr><th scope="col">Timestamp (UTC)</th><th scope="col">Workload</th><th scope="col">Model</th><th scope="col">Capability</th><th scope="col">Tier / mode</th><th scope="col" class="num">Input tokens</th><th scope="col" class="num">Output tokens</th><th scope="col" class="num">Total tokens</th><th scope="col">Correlation ID</th></tr></thead>
           <tbody>
             <tr><td><time datetime="2026-08-04T14:32:01Z">Aug 4, 2026, 14:32:01 UTC</time></td><td>Control plane</td><td><code>gpt-4o</code></td><td class="capability">t2.reasoner.primary</td><td>T2 / enforce</td><td class="num">100</td><td class="num">21</td><td class="num">121</td><td class="correlation"><a id="llm-audit-primary" href="audit.html?correlation=run-cross-check-0142">run-cross-check-0142</a></td></tr>
@@ -130,27 +131,27 @@
       <p>Workload, mode, model, and calendar totals use deterministic synthetic allocation, not provider observations. Calendar calls are allocated by token volume. The 24-hour view groups its six example intervals by UTC day.</p>
       <div class="lc-rollup-grid">
         <section aria-labelledby="workload-rollup-title"><h2 id="workload-rollup-title">Usage by workload</h2>
-          <div class="cs-table-wrap" tabindex="0" role="region" aria-labelledby="workload-rollup-title"><table class="cs-table lc-table"><thead><tr><th scope="col">Workload</th><th scope="col" class="num">Calls</th><th scope="col" class="num">Input tokens</th><th scope="col" class="num">Output tokens</th><th scope="col" class="num">Total tokens</th></tr></thead><tbody>
+          <div class="cs-table-wrap" tabindex="0" role="region" aria-labelledby="workload-rollup-title"><table class="cs-table lc-table"><caption class="cs-sr-only">Synthetic usage totals by workload</caption><thead><tr><th scope="col">Workload</th><th scope="col" class="num">Calls</th><th scope="col" class="num">Input tokens</th><th scope="col" class="num">Output tokens</th><th scope="col" class="num">Total tokens</th></tr></thead><tbody>
             <tr class="rollup-workload"><td>Control plane</td><td class="num calls"></td><td class="num input"></td><td class="num output"></td><td class="num total"></td></tr><tr class="rollup-workload"><td>Operator chat</td><td class="num calls"></td><td class="num input"></td><td class="num output"></td><td class="num total"></td></tr>
           </tbody></table></div>
         </section>
         <section aria-labelledby="mode-rollup-title"><h2 id="mode-rollup-title">Shadow vs enforce</h2>
-          <div class="cs-table-wrap" tabindex="0" role="region" aria-labelledby="mode-rollup-title"><table class="cs-table lc-table"><thead><tr><th scope="col">Mode</th><th scope="col" class="num">Calls</th><th scope="col" class="num">Input tokens</th><th scope="col" class="num">Output tokens</th><th scope="col" class="num">Total tokens</th></tr></thead><tbody>
+          <div class="cs-table-wrap" tabindex="0" role="region" aria-labelledby="mode-rollup-title"><table class="cs-table lc-table"><caption class="cs-sr-only">Synthetic usage totals by shadow and enforce mode</caption><thead><tr><th scope="col">Mode</th><th scope="col" class="num">Calls</th><th scope="col" class="num">Input tokens</th><th scope="col" class="num">Output tokens</th><th scope="col" class="num">Total tokens</th></tr></thead><tbody>
             <tr class="rollup-mode"><td>Enforce</td><td class="num calls"></td><td class="num input"></td><td class="num output"></td><td class="num total"></td></tr><tr class="rollup-mode"><td>Shadow</td><td class="num calls"></td><td class="num input"></td><td class="num output"></td><td class="num total"></td></tr>
           </tbody></table></div>
         </section>
         <section aria-labelledby="chat-model-rollup-title"><h2 id="chat-model-rollup-title" tabindex="-1">Chat usage by model</h2>
-          <div class="cs-table-wrap" tabindex="0" role="region" aria-labelledby="chat-model-rollup-title"><table class="cs-table lc-table"><thead><tr><th scope="col">Model</th><th scope="col" class="num">Calls</th><th scope="col" class="num">Input tokens</th><th scope="col" class="num">Output tokens</th><th scope="col" class="num">Total tokens</th></tr></thead><tbody>
+          <div class="cs-table-wrap" tabindex="0" role="region" aria-labelledby="chat-model-rollup-title"><table class="cs-table lc-table"><caption class="cs-sr-only">Synthetic chat usage totals by model</caption><thead><tr><th scope="col">Model</th><th scope="col" class="num">Calls</th><th scope="col" class="num">Input tokens</th><th scope="col" class="num">Output tokens</th><th scope="col" class="num">Total tokens</th></tr></thead><tbody>
             <tr class="rollup-chat"><td><code>gpt-4.1-mini</code></td><td class="num calls"></td><td class="num input"></td><td class="num output"></td><td class="num total"></td></tr><tr class="rollup-chat"><td><code>gpt-4o-mini</code></td><td class="num calls"></td><td class="num input"></td><td class="num output"></td><td class="num total"></td></tr>
           </tbody></table></div>
         </section>
         <section aria-labelledby="conversation-rollup-title"><h2 id="conversation-rollup-title">Usage by conversation</h2><p class="lc-ledger-note" id="conversation-note">2 illustrative conversation rows. A truncated subset, not the workload total.</p>
-          <div class="cs-table-wrap" tabindex="0" role="region" aria-labelledby="conversation-rollup-title"><table class="cs-table lc-table"><thead><tr><th scope="col">Correlation</th><th scope="col" class="num">Calls</th><th scope="col" class="num">Input tokens</th><th scope="col" class="num">Output tokens</th><th scope="col" class="num">Total tokens</th></tr></thead><tbody id="conversation-rollup">
+          <div class="cs-table-wrap" tabindex="0" role="region" aria-labelledby="conversation-rollup-title"><table class="cs-table lc-table"><caption class="cs-sr-only">Illustrative conversation usage rows by correlation id</caption><thead><tr><th scope="col">Correlation</th><th scope="col" class="num">Calls</th><th scope="col" class="num">Input tokens</th><th scope="col" class="num">Output tokens</th><th scope="col" class="num">Total tokens</th></tr></thead><tbody id="conversation-rollup">
             <tr><td><a id="llm-conversation-incident" href="audit.html?correlation=chat-incident-0087">chat-incident-0087</a></td><td class="num">1</td><td class="num">545</td><td class="num">24</td><td class="num">569</td></tr><tr><td><a id="llm-conversation-change" href="audit.html?correlation=chat-change-0062">chat-change-0062</a></td><td class="num">1</td><td class="num">612</td><td class="num">36</td><td class="num">648</td></tr>
           </tbody></table></div>
         </section>
-        <section aria-labelledby="daily-rollup-title"><h2 id="daily-rollup-title" tabindex="-1">Usage by day</h2><div class="cs-table-wrap" tabindex="0" role="region" aria-labelledby="daily-rollup-title"><table class="cs-table lc-table"><thead><tr><th scope="col">Day (UTC)</th><th scope="col" class="num">Calls</th><th scope="col" class="num">Input tokens</th><th scope="col" class="num">Output tokens</th><th scope="col" class="num">Total tokens</th></tr></thead><tbody id="daily-rollup"></tbody></table></div></section>
-        <section aria-labelledby="monthly-rollup-title"><h2 id="monthly-rollup-title">Usage by month</h2><div class="cs-table-wrap" tabindex="0" role="region" aria-labelledby="monthly-rollup-title"><table class="cs-table lc-table"><thead><tr><th scope="col">Month (UTC)</th><th scope="col" class="num">Calls</th><th scope="col" class="num">Input tokens</th><th scope="col" class="num">Output tokens</th><th scope="col" class="num">Total tokens</th></tr></thead><tbody id="monthly-rollup"></tbody></table></div></section>
+        <section aria-labelledby="daily-rollup-title"><h2 id="daily-rollup-title" tabindex="-1">Usage by day</h2><div class="cs-table-wrap" tabindex="0" role="region" aria-labelledby="daily-rollup-title"><table class="cs-table lc-table"><caption class="cs-sr-only">Synthetic LLM usage totals by UTC day</caption><thead><tr><th scope="col">Day (UTC)</th><th scope="col" class="num">Calls</th><th scope="col" class="num">Input tokens</th><th scope="col" class="num">Output tokens</th><th scope="col" class="num">Total tokens</th></tr></thead><tbody id="daily-rollup"></tbody></table></div></section>
+        <section aria-labelledby="monthly-rollup-title"><h2 id="monthly-rollup-title">Usage by month</h2><div class="cs-table-wrap" tabindex="0" role="region" aria-labelledby="monthly-rollup-title"><table class="cs-table lc-table"><caption class="cs-sr-only">Synthetic LLM usage totals by UTC month</caption><thead><tr><th scope="col">Month (UTC)</th><th scope="col" class="num">Calls</th><th scope="col" class="num">Input tokens</th><th scope="col" class="num">Output tokens</th><th scope="col" class="num">Total tokens</th></tr></thead><tbody id="monthly-rollup"></tbody></table></div></section>
       </div>
     </details>
     <details class="oq-details" id="llm-price-reference" data-preview-persist>

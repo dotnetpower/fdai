@@ -214,8 +214,11 @@ first provider query or publication, so a failed first attempt reuses the same b
 Snapshot-covered events still append a history-only observation so recent-change evidence remains
 queryable while the newer snapshot remains authoritative for current state. The history-only path
 does not bind resource incarnations, create pending tombstones, or mutate the current overlay.
-A Resource absent from hydration retains the prior cursor and incomplete source state for a later poll. An unmapped returned type retains exact provider identity as `unclassified-resource`; an explicit runtime filter can still exclude it. Malformed or oversized hydration fails before publication or cursor advancement.
-Complete promotion stores provider-type accounting in active snapshot metadata. Operator validates reconciled mapped, unmapped, materialized, and type counts; Console shows cutoff, capture method, identity completeness, and bounded type names without raw provider objects, catalog authority, or execution authority. The separate promotion-gate view reads durable ActionType mode without changing graph generation.
+A Resource absent from hydration retains the prior cursor and leaves source completeness false so a
+later poll can observe either the Resource or its delete record. A returned Resource type outside
+the reviewed mapping catalog is skipped without blocking later changes; malformed hydration still
+fails the batch. Hydration that exceeds the bounded property payload also fails before publication
+or cursor advancement rather than asserting a truncated full replacement.
 After three unresolved hydration retries, the feed advances past the bounded page and records the
 latest missing-change time as a durable coverage gap. Queries whose window intersects that gap
 remain incomplete, while later windows can recover without permanently blocking the feed.
@@ -298,16 +301,25 @@ Resource and relationship updates are ordered per logical resource. Duplicate de
 and a stale cursor or older event cannot move an instance backward. Tombstones retain their source,
 effective time, generation, and archive lineage.
 
-A complete generation can retain typed non-edges for out-of-generation endpoints, unmodeled types,
-or unobserved references. Newer objects and verified links advance with `relationship_complete=false`
-and classified reasons. This limits relationship claims, not object coverage when no intra-set edge is possible.
-Invalid verification metadata, unclassified drops, partial generations, conflicts, or cardinality violations block replacement.
+A complete provider generation may contain reviewed candidates that cannot become edges because an
+endpoint is outside the active generation, its provider type is not modeled, or its exact reference
+was not observed. These typed non-edges do not freeze newer Resource objects and independently
+verified links. The ontology projection advances the same generation with
+`relationship_complete=false` and preserves every classified reason. Relationship coverage bounds
+relationship claims: it prevents a query from using the graph as complete relationship evidence,
+while a snapshot whose object set admits no intra-set edge states nothing about relationships and
+therefore keeps its own object coverage. An unclassified drop, invalid verification metadata,
+partial source generation, conflict, or cardinality violation remains blocking and preserves the
+previous graph.
 
-Open environment self-identity values (exact ARM IDs or unique endpoint aliases) are not dependencies;
-explicit self-links remain blocked. Reciprocal `depends_on` facts require one candidate per direction,
-source-owned evidence, owner-to-reference mappings, and complete-generation endpoint, schema, observation-time,
-and independent-verifier checks under `inventory-generation-verifier.v2`. Duplicate and unsupported reversed edges still block.
-Regenerate semantic-intent coverage after projection edits; source commitments never change evaluation thresholds.
+Open container environment values that resolve to the owning Resource are identity references,
+not dependency candidates. This applies to exact ARM IDs and uniquely resolved endpoint aliases;
+it does not suppress self-links from explicit relationship fields. Reciprocal `depends_on` edges
+are separate facts only when each direction has one candidate, its own source Resource owns the
+provider evidence, and both mappings declare owner-to-reference direction. Both edges still pass
+the complete-generation endpoint, schema, observation-time, and independent-verifier checks.
+Verifier revision `inventory-generation-verifier.v2` records this distinction. Duplicate edges,
+unsupported reversed orientations, and self-links remain blocking.
 
 An exact reviewed provider parent shadows generic Resource Group containment for the same child.
 Snapshot promotion independently rejects more than one `contains` parent for any child before the

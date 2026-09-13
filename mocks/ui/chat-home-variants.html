@@ -764,8 +764,9 @@
       .scout-card { transition: none; }
     }
   </style>
+  <link rel="stylesheet" href="assets/chat-current.css?v=11" />
 </head>
-<body data-preserve-page-title>
+<body data-preserve-page-title data-chat-theme="clear-neutral" data-chat-surface="current">
   <div class="chat-mock">
     <header class="chat-topbar">
       <span class="chat-brand">
@@ -793,7 +794,7 @@
     </nav>
 
     <header class="chat-workspace-head">
-      <span class="chat-workspace-title">새 대화 <span class="chat-live-dot" aria-label="연결됨"></span></span>
+      <h1 class="chat-workspace-title">새 대화 <span class="chat-live-dot" aria-label="연결됨"></span></h1>
       <span class="chat-context">대시보드</span>
       <span class="chat-specimen-label">합성 시안 · 운영 주장 아님</span>
     </header>
@@ -811,7 +812,7 @@
       <section class="variant-panel minimal-panel" id="variant-a" role="tabpanel" aria-labelledby="variant-a-tab" hidden>
         <div class="variant-intro">
           <span class="variant-kicker">A · SITUATIONAL BRIEF</span>
-          <h1>운영 상황 질문하기</h1>
+          <h2>운영 상황 질문하기</h2>
           <p>현재 주의가 필요한 신호와 최근 조사 맥락에서 바로 시작하세요.</p>
         </div>
         <div class="scout-card-grid" aria-label="현재 운영 상황 질문">
@@ -856,7 +857,7 @@
       <section class="variant-panel" id="variant-b" role="tabpanel" aria-labelledby="variant-b-tab">
         <div class="variant-intro">
           <span class="variant-kicker">B · GUIDED</span>
-          <h1>지금 무엇을 판단해야 할까요?</h1>
+          <h2>지금 무엇을 판단해야 할까요?</h2>
           <p>FDAI의 세 운영 영역에서 질문을 시작하거나 직접 입력하세요.</p>
         </div>
         <form class="chat-composer" data-composer>
@@ -902,7 +903,7 @@
         </div>
         <div class="variant-intro">
           <span class="variant-kicker">C · SITUATIONAL</span>
-          <h1>운영 상황 질문하기</h1>
+          <h2>운영 상황 질문하기</h2>
           <p>우선순위가 높은 신호를 선택하거나 직접 질문하세요.</p>
         </div>
         <form class="chat-composer" data-composer>

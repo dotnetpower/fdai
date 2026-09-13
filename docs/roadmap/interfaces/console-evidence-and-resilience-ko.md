@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 229f1e283f587a0ec7bb5046a44730f6e9fe1b4e
-translation_revised: 2026-09-12
+translation_source_sha: 011055d7629ed859b56cb64c730baf015cdf42ae
+translation_revised: 2026-09-13
 ---
 # 콘솔 근거 및 복원력
 이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
@@ -158,7 +158,9 @@ Command Deck 스냅샷으로 제공합니다. 영역별 분석은 자동 해결�
 Auto-resolution 비율은 정본 합계 observed-event denominator를 유지하므로 pending 및 기타
 non-auto 이벤트가 비율에서 사라지지 않습니다. 결과 및 감사 시각은 timezone-aware여야
 합니다. 영속 감사 시각보다 5분 넘게 미래인 결과는 액션을 finalize하지 않습니다.
-Operator는 완전하고 일관되며 non-synthetic인 `measurement:outcome-assurance:autonomy` 변환 결과만 허용하고 감사 행에서 이를 복구하지 않습니다.
+Operator는 하나의 기준 시점에서 범위가 제한된 정본 측정 스트림으로 이 읽기 전용 변환 결과를
+구성한 다음, 완전하고 일관되며 비합성인 묶음을 검증합니다. 형식이 잘못되었거나 일부만 읽힌
+스냅샷을 일반 감사 행 또는 대체 상태로 복구하지 않습니다.
 버티컬 귀속은 먼저 명시적으로 기록된 버티컬을 사용하고, 그다음 강한 복원력 또는
 비용 거버넌스 액션/리소스 힌트만 사용합니다. 추측 없이 귀속할 수 없는 근거는
 `unattributed` 행에 남고 global denominator에 포함되며 표시되는 귀속 커버리지를 낮춥니다.

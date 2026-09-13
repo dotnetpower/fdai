@@ -14,6 +14,23 @@
     ["Independent effect observation", "Not recorded - no execution or success claimed"]
   ];
   cards.forEach(function (card) {
+    var path = document.createElement("ol");
+    path.className = "flow-state-path";
+    path.style.setProperty("--flow-steps", "4");
+    path.setAttribute("aria-label", "Proposal authority and effect lifecycle");
+    var expired = card.dataset.approvalState === "expired";
+    [
+      ["Proposal", "Recorded", "complete"],
+      ["Approval", expired ? "Expired" : "Pending", "current"],
+      ["Execution", "Not started", "not-started"],
+      ["Observation", "Not started", "not-started"]
+    ].forEach(function (step, index) {
+      var item = document.createElement("li");
+      item.dataset.state = step[2];
+      item.innerHTML = "<span>" + (index + 1) + "</span><strong>" + step[0] + "</strong><small>" + step[1] + "</small>";
+      path.appendChild(item);
+    });
+    card.querySelector(".approval-reason").after(path);
     var facts = card.querySelector("dl");
     missingFacts.forEach(function (fact) {
       var item = document.createElement("div");

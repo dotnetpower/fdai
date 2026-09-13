@@ -138,11 +138,11 @@ test.describe("Dense resource honeycomb", () => {
     const desktopCount = await frame.locator(".dr-cell").count();
     expect(desktopCount).toBe(Number(await frame.locator("#resource-honeycomb").getAttribute("data-columns")) * 14);
     await page.setViewportSize({ width: 993, height: 641 });
-    await expect(frame.locator("#resource-honeycomb")).toHaveClass(/is-dense/);
+    await expect(frame.getByRole("button", { name: "Dense", exact: true })).toBeDisabled();
+    await expect(frame.locator("#resource-honeycomb")).not.toHaveClass(/is-dense/);
     await frame.locator(".dr-resource-panel").evaluate((element) => element.scrollIntoView({ block: "start" }));
     const count = await frame.locator(".dr-cell").count();
-    expect(count).toBeGreaterThanOrEqual(300);
-    expect(count).toBeLessThanOrEqual(476);
+    expect(count).toBe(48);
     await frame.locator(".dr-cell").nth(count - 1).hover();
     expect(await frame.locator("#resource-hover-preview").evaluate((element) => {
       const box = element.getBoundingClientRect();

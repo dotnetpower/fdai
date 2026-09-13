@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: ab222280e2d9cce01f94ebeb77f8a3a79952f41c
+translation_source_sha: 5738ae55fb0f2a71187c66d3666bf219612e05e7
 translation_revised: 2026-09-13
 ---
 

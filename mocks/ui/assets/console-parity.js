@@ -18,78 +18,31 @@
     asOf: "2026-08-27T10:15:00Z"
   };
 
-  function knowledgeSourcePage(title, identityModel) {
+  function knowledgeSourcePage(sourceId, title, identityModel) {
     return {
+      renderer: "knowledge",
+      variant: "connector",
+      sourceId: sourceId,
       group: "Knowledge",
       title: title,
       subtitle: "Read-only source readiness, repository coverage, and bounded synchronization evidence.",
       note: "Source connectivity authorizes observation only. It grants no approval or execution authority.",
-      kpis: [["Repositories", "18", "authorized scope"], ["Ready", "16", "current evidence"], ["Needs review", "2", "stale or unavailable"], ["Identity", identityModel, "server owned"]],
-      sections: [
-        {
-          title: "Repository readiness",
-          description: "Each repository keeps authorization, freshness, and retrieval coverage distinct.",
-          type: "table",
-          columns: ["Repository", "Authorization", "Freshness", "Indexed refs", "Last observation"],
-          rows: [
-            [code("platform/runbooks"), status("Authorized", "success"), status("Fresh", "success"), "42", "4 min ago"],
-            [code("services/catalog"), status("Authorized", "success"), status("Stale", "warning"), "118", "47 min ago"],
-            [code("operations/reviews"), status("Unavailable", "neutral"), status("Unknown", "neutral"), "-", "No successful read"]
-          ]
-        },
-        {
-          title: "Selected source boundary",
-          type: "facts",
-          items: [
-            ["Provider", title],
-            ["Identity model", identityModel],
-            ["Content scope", "Authorized repositories and refs"],
-            ["Mutation authority", "None"],
-            ["Evidence retention", "Digest and retrieval receipt"],
-            ["Audit", link("Source observations", "audit.html?source=" + title.toLowerCase().replace(/\s+/g, "-"))]
-          ]
-        }
-      ]
+      identityModel: identityModel
     };
   }
 
   var pages = {
     "knowledge": {
+      renderer: "knowledge",
+      variant: "overview",
       group: "Knowledge",
       title: "Knowledge overview",
       subtitle: "Governed documents and external sources available for evidence-grounded retrieval.",
-      note: "Availability, authorization, freshness, and completeness remain independent. Missing source evidence is never inferred.",
-      kpis: [["Sources", "4", "configured"], ["Ready", "3", "current evidence"], ["Needs review", "1", "stale observation"], ["Documents", "2", "protected and indexed"]],
-      sections: [
-        {
-          title: "Source readiness",
-          description: "The same source groups exposed by the Console Knowledge Explorer.",
-          type: "table",
-          columns: ["Source", "Connection", "Freshness", "Coverage", "Boundary"],
-          rows: [
-            [link("Documents", "documents.html"), status("Ready", "success"), status("Fresh", "success"), "2 indexed", "Collection ACL"],
-            [link("GitHub", "github.html"), status("Ready", "success"), status("Fresh", "success"), "18 repositories", "App installation"],
-            [link("GitLab", "gitlab.html"), status("Needs review", "warning"), status("Stale", "warning"), "9 projects", "Project token broker"],
-            [link("Azure DevOps", "azure-devops.html"), status("Ready", "success"), status("Fresh", "success"), "12 repositories", "Workload identity"]
-          ]
-        },
-        {
-          title: "Retrieval contract",
-          type: "facts",
-          items: [
-            ["Purpose", "Evidence-grounded operator answers"],
-            ["Authorization", "Source and collection scoped"],
-            ["Freshness", "Reported per observation"],
-            ["Incomplete coverage", "Explicitly unavailable"],
-            ["Execution authority", "None"],
-            ["Provenance", "Source revision and digest retained"]
-          ]
-        }
-      ]
+      note: "Availability, authorization, freshness, and completeness remain independent. Missing source evidence is never inferred."
     },
-    "github": knowledgeSourcePage("GitHub", "App installation"),
-    "gitlab": knowledgeSourcePage("GitLab", "Project token broker"),
-    "azure-devops": knowledgeSourcePage("Azure DevOps", "Workload identity"),
+    "github": knowledgeSourcePage("github", "GitHub", "App installation"),
+    "gitlab": knowledgeSourcePage("gitlab", "GitLab", "Project token broker"),
+    "azure-devops": knowledgeSourcePage("azure-devops", "Azure DevOps", "Workload identity"),
     "assurance-twin": {
       group: "Evidence",
       title: "Assurance Twin",
@@ -361,9 +314,13 @@
       note: "The map renders stored topology only. Layout, icons, and focus controls are presentation, not evidence.",
       kpis: [["Resources", "324", "active generation"], ["Links", "512", "typed"], ["Boundaries", "3", "observed"], ["Unknown paths", "7", "coverage incomplete"]],
       sections: [
-        { title: "Observed network path", description: "Focus, camera, and export controls do not change the underlying topology.", type: "network", items: [["Internet", "External"], ["Front Door", "Edge"], ["Private Link", "Boundary"], ["Operator API", "Service"], ["PostgreSQL", "Data"]] },
-        { title: "Selected relationship", type: "facts", items: [["Source", "Front Door"], ["Link type", "routes_to"], ["Target", "Operator API"], ["Evidence", "Current configuration"]] },
-        { title: "Related view", type: "cards", items: [["Service map", "Interactive topology study", "Open the detailed 2.5D service map for path tracing and inspector behavior."]] }
+        { id: "architecture-runtime-path", title: "Observed network path", description: "Stored direction and typed links are shown explicitly; presentation order does not create additional relationships.", type: "network", items: [["Internet", "External", "routes_to"], ["Front Door", "Edge", "traverses"], ["Private Link", "Boundary", "reaches"], ["Operator API", "Service", "depends_on"], ["PostgreSQL", "Data"]] },
+        { id: "architecture-runtime-relationship", title: "Selected relationship", type: "facts", items: [["Source", "Front Door"], ["Link type", "traverses"], ["Target", "Private Link"], ["Evidence", "Current configuration at 2026-08-27T10:15:00Z"]] },
+        { id: "architecture-runtime-related", title: "Related view", type: "cards", items: [["Service map", "Interactive topology study", "Open the detailed service map for path tracing and inspector behavior.", "service-map.html"], ["Ontology instances", "Operational 2D view", "Inspect one selected Resource and its typed relationships.", "ontology.html?view=instances"]] },
+        { id: "architecture-authority-lanes", title: "Language is not authority", description: "Read questions and managed-resource changes cross different boundaries.", type: "cards", items: [["Read plane", "No mutation authority", "Question -> typed read plan -> bounded query -> evidence-qualified answer.", "rule-trace.html?mode=read"], ["Change plane", "Governed authority", "Proposal -> risk gate -> human approval -> isolated Executor.", "hil.html?status=pending"]] },
+        { id: "architecture-authority-identities", title: "Separated identities", type: "facts", items: [["Operator", "Requests and reviews"], ["Core", "Judges; no effect role"], ["Approver", "Grants bounded human authority"], ["Executor", "Attempts one eligible effect"], ["Observer", "Independently verifies the result"]] },
+        { id: "architecture-effect-path", title: "Independent effect verification", description: "Dispatch success is not operational success.", type: "network", items: [["ExpectedEffect", "Before attempt", "binds"], ["Isolated Executor", "Effect identity", "attempts"], ["Managed target", "External truth", "observed_by"], ["Heimdall", "Independent observer", "produces"], ["ObservedOutcome", "Matched or unresolved"]] },
+        { id: "architecture-effect-states", title: "Terminal evidence states", type: "facts", items: [["Matched", "Expected effect independently observed"], ["Mismatched", "Observed result differs"], ["Timeout", "Fresh observation did not arrive"], ["Unscorable", "Required evidence is incomplete"], ["Audit closure", "Saga records intent, execution, and outcome separately"]] }
       ]
     },
     "capabilities": {
@@ -529,9 +486,10 @@
 
   function renderCards(items) {
     return '<div class="cp-card-grid">' + items.map(function (item, index) {
+      var action = item[3] ? '<a class="cp-card-link" href="' + escapeHtml(item[3]) + '">Open ' + escapeHtml(item[0]) + "</a>" : "";
       return '<article class="cp-card' + (index === 0 ? " is-selected" : "") + '"><div class="cp-card-head"><h3>' +
         escapeHtml(item[0]) + '</h3><span class="cp-status is-' + (index === 0 ? "info" : "neutral") + '">' +
-        escapeHtml(item[1]) + "</span></div><p>" + escapeHtml(item[2]) + "</p></article>";
+        escapeHtml(item[1]) + "</span></div><p>" + escapeHtml(item[2]) + "</p>" + action + "</article>";
     }).join("") + "</div>";
   }
 
@@ -585,10 +543,15 @@
   }
 
   function renderNetwork(items) {
-    return '<div class="cp-network" role="img" aria-label="Illustrative stored topology path">' +
-      items.map(function (item) {
-        return '<span class="cp-node"><strong>' + escapeHtml(item[0]) + "</strong><small>" +
-          escapeHtml(item[1]) + "</small></span>";
+    return '<div class="cp-network" role="list" aria-label="Observed directed topology path">' +
+      items.map(function (item, index) {
+        var relationship = item[2] && index < items.length - 1
+          ? '<span class="cp-network-edge" aria-label="' + escapeHtml(item[0] + " " + item[2] + " " + items[index + 1][0]) +
+            '"><span>' + escapeHtml(item[2]) + "</span></span>"
+          : "";
+        return '<span class="cp-node" role="listitem"><span class="cp-node-order">' +
+          String(index + 1).padStart(2, "0") + '</span><strong>' + escapeHtml(item[0]) + "</strong><small>" +
+          escapeHtml(item[1]) + "</small></span>" + relationship;
       }).join("") + "</div>";
   }
 
@@ -629,6 +592,14 @@
     var page = pages[pageId];
     if (!page) {
       root.innerHTML = '<div class="cs-empty"><strong>Mock unavailable</strong>No Console parity specification exists for this page.</div>';
+      return;
+    }
+    if (page.renderer === "knowledge") {
+      if (!window.FDAI_KNOWLEDGE_RENDERER) {
+        root.innerHTML = '<div role="alert"><strong>Knowledge preview unavailable</strong><p>The local Knowledge renderer did not load.</p></div>';
+        return;
+      }
+      window.FDAI_KNOWLEDGE_RENDERER.mount(root, page, pageId, common);
       return;
     }
     document.title = page.title + " - FDAI Console";

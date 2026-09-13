@@ -42,7 +42,8 @@ domain code and assets. It does not create another control plane or move authori
 > truthiness defect that rejects numeric zero. Independent effect verification still failed and
 > the package returned to disabled revision 6. Successful post-fix collection, rollback, final
 > enablement, the observation cohort, and independent promotion evidence remain open. The package
-> and its actions remain unvalidated and unpromoted.
+> and its actions remain unvalidated and unpromoted. An earlier protected exact-revision attempt
+> verified Azure context but failed model capability quorum before Terraform planning.
 > The packaged semantic profile and parity corpus always pin the active ontology release; an
 > additive kernel declaration refreshes their profile, manifest, and fixture identities together.
 > Container publication verifies the protected workflow source before any manual-dispatch

@@ -4,9 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Live - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=live-semantics-v1" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=live-semantics-v3" />
   <script src="assets/calm-slate.js?v=operator-workspaces-v2" defer></script>
-  <link rel="stylesheet" href="assets/operator-workspace.css?v=2" />
+  <link rel="stylesheet" href="assets/operator-workspace.css?v=4" />
 </head>
 <body class="cs-operator-neutral" data-chat-theme="clear-neutral">
   <main class="cs-page cs-live-page">
@@ -16,7 +16,7 @@
         <p class="cs-live-lead">Current control-loop activity and decisions.</p>
       </div>
       <div class="cs-live-controls">
-        <button class="cs-btn is-sm" id="live-pause" type="button" aria-pressed="false">Freeze view</button>
+        <button class="cs-control-button is-compact" id="live-pause" type="button" aria-pressed="false">Freeze view</button>
         <span class="cs-live-context"><strong>Synthetic preview</strong><span>A0 read-only</span><span>60s</span><span class="cs-live-connection"><i aria-hidden="true"></i>Preview running</span></span>
       </div>
     </header>
@@ -183,12 +183,12 @@
           <li><span>Two-phase audit</span><strong id="detail-audit-state">Intent only</strong><small id="detail-audit-note">Terminal closure not observed.</small></li>
         </ul>
         <p class="cs-muted">Read-only projection. The Console does not execute this action.</p>
-        <div class="cs-live-detail-actions"><a class="cs-btn is-sm" id="detail-trace-link" href="rule-trace.html">Open runtime trace</a><a class="cs-btn is-sm" id="detail-audit-link" href="audit.html">View audit intent</a><a class="cs-btn is-sm" href="service-map.html">Architecture</a></div>
+        <div class="cs-live-detail-actions"><a class="cs-control-button is-compact" id="detail-trace-link" href="rule-trace.html">Open runtime trace</a><a class="cs-control-button is-compact" id="detail-audit-link" href="audit.html">View audit intent</a><a class="cs-control-button is-compact" href="service-map.html">Architecture</a></div>
       </aside>
     </div>
 
   </main>
 
-  <script src="assets/live.js?v=operator-workspaces-v1" defer></script>
+  <script src="assets/live.js?v=operator-workspaces-v2" defer></script>
 </body>
 </html>

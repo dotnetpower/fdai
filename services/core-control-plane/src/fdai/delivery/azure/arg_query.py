@@ -82,6 +82,11 @@ from urllib.parse import urlparse
 import httpx
 
 from fdai.delivery.azure.arg_projection import (
+    ArmScopeError,
+    arm_scope_properties,
+    resource_operational_status,
+)
+from fdai.delivery.azure.arg_projection import (
     arm_id_to_type as _arm_id_to_type,  # noqa: F401 - tested compatibility import
 )
 from fdai.delivery.azure.arg_projection import (
@@ -96,7 +101,6 @@ from fdai.delivery.azure.arg_projection import (
 from fdai.delivery.azure.arg_projection import (
     parent_neutral_id as _parent_neutral_id,
 )
-from fdai.delivery.azure.arg_projection import resource_operational_status
 from fdai.delivery.azure.arg_projection import (
     to_neutral_id as _to_neutral_id,
 )
@@ -320,7 +324,12 @@ class AzureArgQueryFactory:
                 subnet_relationships: list[LinkRecord] = []
                 relationship_drops: list[RelationshipDrop] = list(shard.relationship_drops)
                 for vnet in shard.resources:
-                    nested_records, _legacy_links = _materialize_nested_subnets(vnet)
+                    try:
+                        nested_records, _legacy_links = _materialize_nested_subnets(vnet)
+                    except ArmScopeError as exc:
+                        raise ArgQueryError(
+                            "ARG nested resource scope conflicts with its provider id"
+                        ) from exc
                     subnet_records.extend(nested_records)
                     for record in nested_records:
                         properties = record.props.get("properties")
@@ -561,11 +570,19 @@ class AzureArgQueryFactory:
         if normalized_type in self._mapped_provider_types:
             raise ArgQueryError("unclassified ARG query returned a mapped provider type")
 
+        try:
+            scope = arm_scope_properties(arm_id, row)
+        except ArmScopeError as exc:
+            raise ArgQueryError(
+                "unclassified ARG row scope conflicts with its provider id"
+            ) from exc
         props: dict[str, Any] = {"providerType": normalized_type}
         for key in ("name", "location", "kind", "resourceGroup"):
             if key in row and row[key] is not None:
                 props[key] = row[key]
         props = _truncate_props(props, max_bytes=self._config.max_props_bytes)
+        props["providerType"] = normalized_type
+        props.update(scope)
         if (parent_id := _parent_neutral_id(arm_id)) is not None:
             props["parent_id"] = parent_id
         return ResourceRecord(
@@ -638,6 +655,12 @@ class AzureArgQueryFactory:
             return None
 
         neutral_id = _to_neutral_id(arm_id)
+        try:
+            scope = arm_scope_properties(arm_id, row)
+        except ArmScopeError as exc:
+            raise ArgQueryError(
+                f"ARG row for {resource_type!r} has conflicting provider scope"
+            ) from exc
         props: dict[str, Any] = {"providerType": arm_type}
         subscription_id = row.get("subscriptionId")
         if isinstance(subscription_id, str) and subscription_id:
@@ -669,6 +692,8 @@ class AzureArgQueryFactory:
             props["properties"] = nested_schedule
 
         props = _truncate_props(props, max_bytes=self._config.max_props_bytes)
+        props["providerType"] = arm_type
+        props.update(scope)
         # Lifted after truncation so the containment anchor survives a large
         # vendor payload; `Resource.parent_id` is what scoped questions read.
         if (parent_id := self._containment_parent_id(arm_id, arm_type=arm_type)) is not None:

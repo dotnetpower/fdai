@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { OperatorApiError } from "../api";
-import { loadAnalyticsData, sampleAnalyticsData } from "./analytics-data";
+import {
+  loadAnalyticsData,
+  loadAutonomyDataForMode,
+  sampleAnalyticsData,
+} from "./analytics-data";
 
 describe("analytics source isolation", () => {
   it("does not request promotion gates for hubs that do not consume them", async () => {
@@ -38,5 +42,27 @@ describe("analytics source isolation", () => {
       kind: "synthetic",
     });
     expect(data.gates).not.toBeNull();
+  });
+
+  it("loads vertical outcome measurements without depending on dashboard KPI", async () => {
+    const autonomy = sampleAnalyticsData().autonomy!;
+    const client = {
+      dashboardMetrics: vi.fn().mockRejectedValue(new Error("KPI unavailable")),
+      autonomy: vi.fn().mockResolvedValue(autonomy),
+    };
+
+    await expect(loadAutonomyDataForMode("live", client as never)).resolves.toBe(autonomy);
+    expect(client.dashboardMetrics).not.toHaveBeenCalled();
+    expect(client.autonomy).toHaveBeenCalledOnce();
+  });
+
+  it("does not call the Operator API for Sample vertical outcomes", async () => {
+    const client = {
+      autonomy: vi.fn().mockRejectedValue(new Error("must not be called")),
+    };
+
+    await expect(loadAutonomyDataForMode("sample", client as never))
+      .resolves.toBe(sampleAnalyticsData().autonomy);
+    expect(client.autonomy).not.toHaveBeenCalled();
   });
 });

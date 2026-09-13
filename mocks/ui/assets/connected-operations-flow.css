@@ -1,0 +1,325 @@
+/* Shared context and lifecycle patterns for the connected synthetic product flow. */
+.flow-context {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  gap: 0;
+  margin: 0 0 18px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 8px;
+  background: var(--cs-card);
+}
+
+.flow-context[hidden],
+[data-trace-surface][hidden],
+.cp-section[hidden] {
+  display: none;
+}
+
+.flow-context > div {
+  min-width: 0;
+  padding: 11px 14px;
+  border-right: 1px solid var(--cs-hairline);
+}
+
+.flow-context span,
+.flow-context strong {
+  display: block;
+}
+
+.flow-context span {
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-compact-size, 13px);
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.flow-context strong {
+  margin-top: 3px;
+  font-size: var(--cs-type-compact-size, 13px);
+  overflow-wrap: anywhere;
+}
+
+.flow-context nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+}
+
+.flow-context a,
+.flow-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 5px 9px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 6px;
+  background: var(--cs-card);
+  color: var(--cs-steel);
+  font-size: var(--cs-type-compact-size, 13px);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.flow-context a:hover,
+.flow-link:hover {
+  border-color: var(--cs-steel);
+}
+
+.flow-mode-tabs {
+  display: flex;
+  box-sizing: border-box;
+  gap: 4px;
+  margin: 16px 0;
+  padding: 4px;
+  width: fit-content;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 8px;
+  background: var(--cs-shade);
+}
+
+.flow-mode-tabs button {
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--cs-text-soft);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.flow-mode-tabs button[aria-selected="true"] {
+  border-color: var(--cs-hairline);
+  background: var(--cs-card);
+  color: var(--cs-text);
+}
+
+.flow-state-path {
+  display: grid;
+  grid-template-columns: repeat(var(--flow-steps, 4), minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flow-state-path li {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 7px;
+  background: var(--cs-card);
+}
+
+.flow-state-path span,
+.flow-state-path strong,
+.flow-state-path small {
+  display: block;
+}
+
+.flow-state-path span {
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.flow-state-path strong {
+  margin-top: 3px;
+  font-size: 12px;
+}
+
+.flow-state-path small {
+  margin-top: 3px;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+}
+
+.flow-state-path li[data-state="complete"] {
+  background: color-mix(in srgb, var(--cs-sage) 6%, var(--cs-card));
+}
+
+.flow-state-path li[data-state="current"] {
+  border-color: color-mix(in srgb, var(--cs-terracotta) 45%, var(--cs-hairline));
+  background: color-mix(in srgb, var(--cs-terracotta) 7%, var(--cs-card));
+}
+
+.flow-state-path li[data-state="not-started"] {
+  color: var(--cs-text-soft);
+}
+
+.flow-evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.flow-evidence-grid section {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 7px;
+  background: var(--cs-card);
+}
+
+.flow-evidence-grid h4 {
+  margin: 0 0 7px;
+  font-size: var(--cs-type-label-size);
+}
+
+.flow-evidence-grid ul {
+  margin: 0;
+  padding-left: 17px;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+}
+
+.flow-evidence-grid li + li {
+  margin-top: 5px;
+}
+
+.flow-ontology-embed {
+  width: 100%;
+  min-height: 900px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 8px;
+  background: var(--cs-card);
+}
+
+.cs-ge-ontology.is-instance-view .ontology-release-strip {
+  display: none;
+}
+
+.cs-ge-ontology.is-instance-view [data-ontology-view="instances"] {
+  padding-top: 14px;
+}
+
+.cs-ge-ontology.is-instance-view [data-ontology-view="instances"] > h2,
+.cs-ge-ontology.is-instance-view [data-ontology-view="instances"] > p {
+  display: none;
+}
+
+.cs-ge-ontology.is-instance-view .flow-context {
+  margin-bottom: 10px;
+}
+
+.flow-featured-query {
+  margin: 0 0 22px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--cs-hairline);
+}
+
+.flow-query-plan {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.flow-query-plan span {
+  padding: 4px 7px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 999px;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+}
+
+.flow-query-table {
+  width: 100%;
+  margin-top: 10px;
+  border-collapse: collapse;
+  font-size: var(--cs-type-label-size);
+}
+
+.flow-query-table th,
+.flow-query-table td {
+  padding: 7px 8px;
+  border-top: 1px solid var(--cs-hairline);
+  text-align: left;
+  vertical-align: top;
+}
+
+.flow-query-table th {
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+}
+
+.flow-pattern-library {
+  margin-top: 20px;
+  border-top: 1px solid var(--cs-hairline);
+}
+
+.flow-pattern-library > summary {
+  padding: 16px 0;
+  color: var(--cs-text-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.flow-pattern-library-body {
+  display: contents;
+}
+
+.dk-transcript > .flow-context {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border-inline: 0;
+  border-radius: 0;
+}
+
+.dk-transcript > .flow-context nav {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--cs-hairline);
+}
+
+.flow-architecture-note {
+  margin: 0 0 20px;
+  color: var(--cs-text-soft);
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .flow-context {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .flow-context > div:nth-child(even) {
+    border-right: 0;
+  }
+  .flow-context nav {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--cs-hairline);
+  }
+  .flow-state-path,
+  .flow-evidence-grid {
+    grid-template-columns: 1fr;
+  }
+  .flow-ontology-embed {
+    min-height: 1080px;
+  }
+}
+
+@media (max-width: 560px) {
+  .flow-context {
+    grid-template-columns: 1fr;
+  }
+  .flow-context > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--cs-hairline);
+  }
+  .flow-context nav {
+    flex-wrap: wrap;
+  }
+  .flow-mode-tabs {
+    width: 100%;
+  }
+  .flow-mode-tabs button {
+    flex: 1;
+  }
+}

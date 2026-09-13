@@ -51,6 +51,7 @@ def reduce(*, events=(), outcomes=(), metrics=(), touchpoints=()):
 
 def test_no_measurements_are_unavailable_not_zero() -> None:
     result = reduce()
+    assert result["schema_version"] == "1.0.0"
     assert result["sample_size"] == 0
     assert all(metric["value"] is None for metric in result["success"].values())
     assert result["confidence"] is None

@@ -177,6 +177,9 @@
     "contractsSubtitle": "각 영역 신호를 뒷받침하는 source와 도메인 지표입니다.",
     "summaryLabel": "영역 요약",
     "simulatedTitle": "예시 비교입니다.",
+    "attributionIncomplete": "관측 이벤트 {count}건에 운영 영역이 귀속되지 않아 영역별 값에서 제외됩니다.",
+    "attributionUnavailable": "하나 이상의 운영 영역에 이 기간의 귀속 측정값이 없습니다. 누락된 영역 값은 근거 없음으로 표시됩니다.",
+    "contractUnavailable": "이 기간에 영역별 측정값이 보고되지 않았습니다.",
     "primary": {
       "autoResolution": "자동 해결률",
       "changeFailureRate": "변경 실패율",

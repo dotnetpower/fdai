@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Incidents - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=incident-layout-v5" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=incident-layout-v6" />
   <script src="assets/calm-slate.js?v=operator-workspaces-v2" defer></script>
   <style>
     .in-page-header { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 340px); align-items: end; gap: 16px 32px; margin-bottom: 16px; }
@@ -80,16 +80,6 @@
     .in-intervention-summary[hidden] { display: none; }
     .in-intervention-summary.is-exception { border-color: rgba(188,116,73,.26); background: rgba(188,116,73,.07); }
     .in-intervention-summary button { flex: 0 0 auto; min-height: 30px; padding: 4px 8px; border: 1px solid var(--cs-hairline); border-radius: 5px; background: var(--cs-card); color: var(--cs-text); font: 650 10.5px var(--cs-font); cursor: pointer; }
-    .in-agent-handoff { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 15px 0 0; padding: 0; border-top: 1px solid var(--cs-hairline); border-bottom: 1px solid var(--cs-hairline); list-style: none; }
-    .in-agent-handoff.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .in-handoff-step { position: relative; min-width: 0; padding: 10px 12px; border-right: 1px solid var(--cs-hairline); }
-    .in-handoff-step:last-child { border-right: 0; }
-    .in-handoff-step.is-current { background: rgba(68,104,142,.07); }
-    .in-handoff-agent { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
-    .in-handoff-agent strong { color: var(--cs-text); font-size: 12.5px; }
-    .in-handoff-agent span { color: var(--cs-text-soft); font-size: 9.5px; font-weight: 600; text-transform: uppercase; }
-    .in-handoff-step p { margin: 5px 0 0; color: var(--cs-text-soft); font-size: 10.5px; line-height: 1.4; }
-    .in-handoff-step.is-current p { color: var(--cs-text); }
     .in-detail-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
     .in-meta { padding: 10px 12px; border-radius: var(--cs-radius-sm); background: var(--cs-shade); }
     .in-meta span { display: block; color: var(--cs-text-soft); font-size: 10.5px; text-transform: uppercase; }
@@ -210,9 +200,6 @@
       .in-incident { border-right: 1px solid var(--cs-hairline); }
       .in-incident:nth-child(3n) { border-right: 0; }
       .in-detail-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .in-agent-handoff, .in-agent-handoff.is-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .in-handoff-step:nth-child(2n) { border-right: 0; }
-      .in-handoff-step:nth-child(-n+2) { border-bottom: 1px solid var(--cs-hairline); }
     }
     @media (max-width: 620px) {
       .in-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -227,9 +214,6 @@
       .in-intervene-button { min-height: 44px; }
       .in-intervention-summary { align-items: flex-start; flex-direction: column; }
       .in-intervention-summary button { min-height: 44px; }
-      .in-agent-handoff, .in-agent-handoff.is-two { grid-template-columns: 1fr; }
-      .in-handoff-step { border-right: 0; border-bottom: 1px solid var(--cs-hairline); }
-      .in-handoff-step:last-child { border-bottom: 0; }
       .in-intervention-modal { width: calc(100vw - 16px); max-height: calc(100vh - 16px); }
       .in-intervention { padding: 16px; }
       .in-intervention-head { gap: 8px; }
@@ -246,15 +230,16 @@
       .in-view-row { grid-template-columns: 1fr; gap: 3px; }
     }
   </style>
-  <link rel="stylesheet" href="assets/operator-workspace.css?v=2" />
+  <link rel="stylesheet" href="assets/operator-workspace.css?v=4" />
+  <link rel="stylesheet" href="assets/incidents-command.css?v=6" />
 </head>
-<body class="cs-operator-neutral" data-chat-theme="clear-neutral">
+<body class="cs-operator-neutral" data-chat-theme="clear-neutral" data-incident-command>
   <main class="cs-container cs-page">
     <header class="cs-page-header in-page-header">
       <div>
-        <div class="cs-eyebrow">Current operations &middot; 30-day window</div>
+        <div class="cs-eyebrow">Current operations &middot; source-linked incidents</div>
         <h1>Incidents</h1>
-        <p class="cs-lead">Triage active incidents, inspect the current response, and follow recorded evidence through verification.</p>
+        <p class="cs-lead">Prioritize by Incident ID and urgency, then follow each agent-owned response through independent verification.</p>
       </div>
       <p class="in-scope-note"><strong>Synthetic governed workspace.</strong> Production intervention submits typed, confirmed requests, not managed-resource changes. This preview sends nothing and cannot establish a lifecycle transition.</p>
     </header>
@@ -262,20 +247,20 @@
     <section class="in-command" aria-label="Incident overview and filters">
       <div class="in-summary" aria-label="Incident summary">
         <div class="in-summary-item">
-          <span class="in-summary-top"><strong class="in-summary-value">4</strong><span class="in-summary-label">Loaded</span></span>
-          <span class="in-summary-foot">4 records in this synthetic cohort</span>
+          <span class="in-summary-top"><strong class="in-summary-value">1</strong><span class="in-summary-label">Critical active</span></span>
+          <span class="in-summary-foot">impact requires immediate attention</span>
         </div>
         <div class="in-summary-item">
-          <span class="in-summary-top"><strong class="in-summary-value">1</strong><span class="in-summary-label">Needs approval</span></span>
-          <span class="in-summary-foot">oldest waiting 8m</span>
+          <span class="in-summary-top"><strong class="in-summary-value">1</strong><span class="in-summary-label">Needs operator</span></span>
+          <span class="in-summary-foot">P1 decision due in 12m</span>
         </div>
         <div class="in-summary-item">
-          <span class="in-summary-top"><strong class="in-summary-value">1</strong><span class="in-summary-label">Verified outcome</span></span>
-          <span class="in-summary-foot">Recorded terminal verification</span>
+          <span class="in-summary-top"><strong class="in-summary-value">1</strong><span class="in-summary-label">Responding</span></span>
+          <span class="in-summary-foot">governed action in progress</span>
         </div>
         <div class="in-summary-item">
-          <span class="in-summary-top"><strong class="in-summary-value">3</strong><span class="in-summary-label">Pending outcomes</span></span>
-          <span class="in-summary-foot">No verified terminal result yet</span>
+          <span class="in-summary-top"><strong class="in-summary-value">1</strong><span class="in-summary-label">Verifying effect</span></span>
+          <span class="in-summary-foot">independent observation pending</span>
         </div>
       </div>
 
@@ -285,10 +270,11 @@
           <button type="button" data-incident-filter="resolved" aria-pressed="false">Resolved</button>
           <button type="button" data-incident-filter="all" aria-pressed="false">All</button>
         </div>
-        <span class="in-filter-note" id="incident-count">3 active incidents &middot; severity first</span>
+        <span class="in-filter-note" id="incident-count" role="status" aria-live="polite" aria-atomic="true">3 active incidents &middot; severity first</span>
       </div>
       <div class="op-toolbar" aria-label="Incident scope filters">
-        <label>Search incidents<input class="cs-control-input" type="search" maxlength="200" data-incident-search placeholder="Title, target or evidence" /></label>
+        <label>Search incidents<input class="cs-control-input" type="search" maxlength="200" data-incident-search placeholder="Incident ID, title, target, or evidence" /></label>
+        <label>Priority<select class="cs-control-select" data-incident-priority><option value="">All priorities</option><option value="p1">P1</option><option value="p2">P2</option><option value="p3">P3</option><option value="unavailable">Unavailable</option></select></label>
         <label>Vertical<select class="cs-control-select" data-incident-vertical><option value="">All verticals</option><option value="resilience">Resilience</option><option value="change_safety">Change safety</option><option value="cost_governance">Cost governance</option><option value="unknown">Unknown</option></select></label>
         <label>Severity<select class="cs-control-select" data-incident-severity><option value="">All severities</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option><option value="unknown">Unknown</option></select></label>
         <button class="cs-control-button" type="button" data-clear-incident-scope>Clear scope</button>
@@ -299,104 +285,146 @@
       <section class="in-roster" aria-labelledby="incident-roster-title">
         <div class="in-roster-head">
           <h2 id="incident-roster-title">Incident roster</h2>
-          <span class="cs-muted" style="font-size:11.5px">4 loaded</span>
+          <span class="cs-muted">4 loaded</span>
         </div>
         <div class="in-roster-list">
-          <button class="in-incident is-selected" type="button" data-incident="inc-api-latency" data-status="active" data-vertical="change_safety" data-severity="critical" aria-pressed="true">
-            <span class="in-incident-top"><span class="cs-sev critical">critical</span><span class="in-incident-age">4m</span></span>
+          <button class="in-incident is-selected" type="button" data-incident="inc-api-latency" data-status="active" data-priority="p1" data-vertical="change_safety" data-severity="critical" aria-pressed="true">
+            <span class="in-incident-identity"><span class="in-incident-id">INC-240715-01</span><span class="in-incident-age">4m</span></span>
             <span class="in-incident-title">API latency after configuration rollout</span>
-            <span class="in-incident-context"><span class="in-incident-domain">change safety</span><span>automatic response</span></span>
+            <span class="in-incident-context"><span class="cs-sev critical">critical</span><span class="in-incident-priority">P1 · target 6m</span></span>
+            <span class="in-incident-context"><span class="in-incident-domain">checkout-api / production</span><span>automatic response</span></span>
             <span class="in-stage-row">
-              <span class="in-stage-track is-stage-4" role="img" aria-label="Response lifecycle: detection, decision, and response complete; verification in progress">
-                <span class="in-stage-node is-done" aria-hidden="true"></span><span class="in-stage-node is-done" aria-hidden="true"></span><span class="in-stage-node is-done" aria-hidden="true"></span><span class="in-stage-node is-current" aria-hidden="true"></span>
+              <span class="in-stage-track is-six is-stage-5" role="img" aria-label="Agent-owned response: intake, judgment, dispatch, and recovery complete; independent effect verification in progress; audit closure pending">
+                <span class="in-stage-node is-done" aria-hidden="true"></span><span class="in-stage-node is-done" aria-hidden="true"></span><span class="in-stage-node is-done" aria-hidden="true"></span><span class="in-stage-node is-done" aria-hidden="true"></span><span class="in-stage-node is-current" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span>
               </span>
-              <span class="in-stage-name">Verify <b>4/4</b></span>
+              <span class="in-stage-name"><strong>Heimdall</strong><span>Verify · 5/6</span></span>
             </span>
           </button>
-          <button class="in-incident" type="button" data-incident="inc-pitr-disabled" data-status="active" data-vertical="resilience" data-severity="high" aria-pressed="false">
-            <span class="in-incident-top"><span class="cs-sev high">high</span><span class="in-incident-age">8m</span></span>
+          <button class="in-incident" type="button" data-incident="inc-pitr-disabled" data-status="active" data-priority="p1" data-vertical="resilience" data-severity="high" aria-pressed="false">
+            <span class="in-incident-identity"><span class="in-incident-id">INC-240715-02</span><span class="in-incident-age">8m</span></span>
             <span class="in-incident-title">Point-in-time recovery disabled</span>
-            <span class="in-incident-context"><span class="in-incident-domain">resilience</span><span>human decision</span></span>
+            <span class="in-incident-context"><span class="cs-sev high">high</span><span class="in-incident-priority">P1 · decision 12m</span></span>
+            <span class="in-incident-context"><span class="in-incident-domain">orders-db / production</span><span>human decision</span></span>
             <span class="in-stage-row">
-              <span class="in-stage-track is-stage-2 is-attention" role="img" aria-label="Response lifecycle: detection complete; approval decision required before response">
+              <span class="in-stage-track is-six is-stage-3 is-attention" role="img" aria-label="Agent-owned response: detection and judgment complete; approval decision required before dispatch, verification, and closure">
+                <span class="in-stage-node is-done" aria-hidden="true"></span><span class="in-stage-node is-done" aria-hidden="true"></span><span class="in-stage-node is-current" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span>
+              </span>
+              <span class="in-stage-name is-attention"><strong>Var</strong><span>Approval · 3/6</span></span>
+            </span>
+          </button>
+          <button class="in-incident" type="button" data-incident="inc-cost-spike" data-status="active" data-priority="unavailable" data-vertical="cost_governance" data-severity="medium" aria-pressed="false">
+            <span class="in-incident-identity"><span class="in-incident-id">INC-240715-03</span><span class="in-incident-age">17m</span></span>
+            <span class="in-incident-title">Unexpected compute cost increase</span>
+            <span class="in-incident-context"><span class="cs-sev medium">medium</span><span class="in-incident-priority">urgency unavailable</span></span>
+            <span class="in-incident-context"><span class="in-incident-domain">compute scope / shared</span><span>shadow analysis</span></span>
+            <span class="in-stage-row">
+              <span class="in-stage-track is-stage-2" role="img" aria-label="Agent-owned response: detection complete; cost investigation in progress; judgment and audit closure pending">
                 <span class="in-stage-node is-done" aria-hidden="true"></span><span class="in-stage-node is-current" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span>
               </span>
-              <span class="in-stage-name is-attention">Approval <b>2/4</b></span>
+              <span class="in-stage-name"><strong>Njord</strong><span>Investigate · 2/4</span></span>
             </span>
           </button>
-          <button class="in-incident" type="button" data-incident="inc-cost-spike" data-status="active" data-vertical="cost_governance" data-severity="medium" aria-pressed="false">
-            <span class="in-incident-top"><span class="cs-sev medium">medium</span><span class="in-incident-age">17m</span></span>
-            <span class="in-incident-title">Unexpected compute cost increase</span>
-            <span class="in-incident-context"><span class="in-incident-domain">cost governance</span><span>shadow analysis</span></span>
-            <span class="in-stage-row">
-              <span class="in-stage-track" role="img" aria-label="Response lifecycle: detection and investigation in progress; no decision recorded">
-                <span class="in-stage-node is-current" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span>
-              </span>
-              <span class="in-stage-name">Investigate <b>1/4</b></span>
-            </span>
-          </button>
-          <button class="in-incident" type="button" data-incident="inc-secret-expiry" data-status="resolved" data-vertical="change_safety" data-severity="high" aria-pressed="false" hidden>
-            <span class="in-incident-top"><span class="cs-sev high">high</span><span class="in-incident-age">42m ago</span></span>
+          <button class="in-incident" type="button" data-incident="inc-secret-expiry" data-status="resolved" data-priority="p2" data-vertical="change_safety" data-severity="high" aria-pressed="false" hidden>
+            <span class="in-incident-identity"><span class="in-incident-id">INC-240715-04</span><span class="in-incident-age">42m ago</span></span>
             <span class="in-incident-title">Workload secret nearing expiry</span>
-            <span class="in-incident-context"><span class="in-incident-domain">change safety</span><span>automatic response</span></span>
+            <span class="in-incident-context"><span class="cs-sev high">high</span><span class="in-incident-priority">P2 · target met</span></span>
+            <span class="in-incident-context"><span class="in-incident-domain">identity-api / production</span><span>agent mitigated</span></span>
             <span class="in-stage-row">
-              <span class="in-stage-track is-stage-4 is-complete" role="img" aria-label="Response lifecycle complete and independently verified">
-                <span class="in-stage-node" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span>
+              <span class="in-stage-track is-five is-stage-5 is-complete" role="img" aria-label="Agent-owned response complete: detection, judgment, dispatch, verification, and audit closure">
+                <span class="in-stage-node" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span><span class="in-stage-node" aria-hidden="true"></span>
               </span>
-              <span class="in-stage-name is-complete">Resolved <b>4/4</b></span>
+              <span class="in-stage-name is-complete"><strong>Saga</strong><span>Resolved · 5/5</span></span>
             </span>
           </button>
         </div>
-        <div class="in-roster-foot" id="incident-roster-foot"><button type="button" id="incident-load-more">Load more incidents</button></div>
+        <div class="in-roster-foot" id="incident-roster-foot" role="status" aria-live="polite"><button type="button" id="incident-load-more">Load more incidents</button></div>
       </section>
 
       <section>
         <article class="in-detail" data-incident-detail="inc-api-latency">
           <header class="in-detail-head">
+            <div class="in-detail-identity">
+              <span class="in-detail-id">Incident INC-240715-01</span>
+              <span class="in-detail-ticket">Ticket OPS-1842</span>
+            </div>
             <div class="in-detail-title-row">
               <h2>API latency after configuration rollout</h2>
-              <div class="in-detail-actions"><span class="cs-risk critical">critical</span><span class="cs-status wait">in progress</span><button class="in-intervene-button" type="button" data-open-intervention aria-haspopup="dialog" aria-controls="operator-intervention-dialog">Intervene</button></div>
+              <div class="in-detail-actions"><span class="cs-risk critical">critical impact</span><span class="in-priority is-urgent">P1 · target in 6m</span><span class="cs-status wait">in progress</span><button class="in-intervene-button" type="button" data-open-intervention aria-haspopup="dialog" aria-controls="operator-intervention-dialog">Manage incident</button></div>
             </div>
             <p class="in-detail-lead">Latency breached the service threshold within two minutes of a
               configuration revision. The action is contained; rollback verification is running.</p>
             <div class="in-intervention-summary" data-intervention-summary hidden><strong data-intervention-summary-text></strong><button type="button" data-manage-intervention aria-haspopup="dialog" aria-controls="operator-intervention-dialog">Manage</button></div>
-            <ol class="in-agent-handoff" aria-label="Agent handoff for this incident">
-              <li class="in-handoff-step"><div class="in-handoff-agent"><strong>Huginn</strong><span>Detected</span></div><p>Grouped seven latency alerts and one rollout into a single incident.</p></li>
-              <li class="in-handoff-step"><div class="in-handoff-agent"><strong>Forseti</strong><span>Decided</span></div><p>Confirmed the blast radius was one revision and allowed automatic rollback.</p></li>
-              <li class="in-handoff-step"><div class="in-handoff-agent"><strong>Thor</strong><span>Responded</span></div><p>Reverted the configuration through the approved GitOps delivery path.</p></li>
-              <li class="in-handoff-step is-current"><div class="in-handoff-agent"><strong>Vidar</strong><span>Verifying</span></div><p>Is comparing health probes with the frozen pre-change baseline.</p></li>
-            </ol>
-            <details class="in-additional">
-              <summary>Additional evidence</summary>
-              <dl>
-                <div><dt>Opened</dt><dd>2026-07-15 09:48:12Z</dd></div>
-                <div><dt>Last updated</dt><dd>2026-07-15 09:52:31Z</dd></div>
-                <div><dt>History</dt><dd>6 records</dd></div>
-                <div><dt>Latest mode</dt><dd>Enforce mode - changes permitted</dd></div>
-                <div><dt>Correlation id</dt><dd class="cs-mono">inc-01J2-API-LATENCY</dd></div>
-                <div><dt>Incident id</dt><dd class="cs-mono">INC-240715-01</dd></div>
-                <div><dt>Ticket id</dt><dd class="cs-mono">OPS-1842</dd></div>
-                <div><dt>Current disposition</dt><dd>rollback verifying</dd></div>
-                <div><dt>Current decision</dt><dd>Automatic</dd></div>
-                <div><dt>Vertical</dt><dd>Change Safety</dd></div>
-                <div><dt>Status source</dt><dd class="cs-mono">incident.transition</dd></div>
-                <div><dt>Involved agents</dt><dd>Huginn, Forseti, Thor, Vidar</dd></div>
-              </dl>
-            </details>
+            <dl class="in-command-facts">
+              <div><dt>Impact</dt><dd>p95 latency 1.8s<small>750ms service objective</small></dd></div>
+              <div><dt>Target</dt><dd><span class="cs-mono">service:checkout-api</span><small>production / one rollout revision</small></dd></div>
+              <div><dt>Response plan</dt><dd>Configuration rollback<small><span class="cs-mono">config-rollback@7</span> / automatic</small></dd></div>
+              <div><dt>Current owner</dt><dd>Heimdall<small>independent effect observation</small></dd></div>
+            </dl>
           </header>
           <section class="in-current-state" aria-labelledby="current-state-title" data-current-state>
             <div class="in-section-head">
               <div><span class="in-section-label">Current situation</span><h3 id="current-state-title" data-current-title>Response in progress</h3></div>
               <span class="cs-status wait" data-current-status>in progress</span>
             </div>
-            <p data-current-description>A governed response has started and has not reached a terminal outcome yet.</p>
+            <p data-current-description>The rollback contract completed. Heimdall is comparing current health with the frozen pre-change baseline before Saga can record a terminal outcome.</p>
             <dl class="in-current-facts">
-              <div><dt>Lifecycle</dt><dd data-lifecycle-value>In progress</dd></div>
-              <div><dt>Response decision</dt><dd>Automatic</dd></div>
-              <div><dt>Change authority</dt><dd>Enforce mode - changes permitted</dd></div>
+              <div><dt>Incident status</dt><dd data-lifecycle-value>In progress</dd></div>
+              <div><dt>Agent status</dt><dd>Effect verification · 3/5 min</dd></div>
+              <div><dt>Operator input</dt><dd>Not required</dd></div>
+              <div><dt>Urgency</dt><dd>P1 · mitigation target on track</dd></div>
             </dl>
-            <div class="in-next-step"><strong>Recommended next step</strong><span data-next-step>Monitor the latest activity until verification completes or the response is held for review.</span></div>
+            <div class="in-decision-grid">
+              <div class="in-next-step"><strong>Next state transition</strong><span data-next-step>Heimdall publishes the authoritative recovery observation; Saga may then seal the incident as resolved.</span></div>
+              <div class="in-next-step"><strong>Close condition</strong><span>p95 latency at or below 750ms for five minutes with no new error-budget burn. Otherwise Vidar re-enters recovery.</span></div>
+            </div>
           </section>
+          <section class="in-notification-panel" aria-labelledby="api-notification-title" data-notification-panel>
+            <header><h3 id="api-notification-title">Stakeholder notifications and responses</h3><span class="in-notification-summary">2 recipients · 2 observed delivered · 2 responses</span></header>
+            <p class="in-notification-source"><strong>Latest notice source</strong><span>Heimdall effect-verification event · A2 operational alert</span></p>
+            <ul class="in-notification-list">
+              <li class="in-notification-row" data-recipient="incident.commander@example.com">
+                <div class="in-notification-cell in-notification-recipient"><span>Recipient</span><strong>Incident commander</strong><small>incident.commander@example.com</small></div>
+                <div class="in-notification-cell"><span>Channel / delivery</span><strong>Teams · incident bridge</strong><small>Observed delivered · <time datetime="2026-07-15T09:48:29Z">09:48:29Z</time></small></div>
+                <div class="in-notification-cell in-notification-response"><span>User action</span><strong class="in-response-state is-acknowledged" data-user-response="acknowledged">Acknowledged</strong><small><time datetime="2026-07-15T09:48:51Z">09:48:51Z</time> · took incident command; coordination only, no execution authority</small></div>
+              </li>
+              <li class="in-notification-row" data-recipient="checkout.owner@example.com">
+                <div class="in-notification-cell in-notification-recipient"><span>Recipient</span><strong>Checkout service owner</strong><small>checkout.owner@example.com</small></div>
+                <div class="in-notification-cell"><span>Channel / delivery</span><strong>Email · service owner</strong><small>Observed delivered · <time datetime="2026-07-15T09:48:34Z">09:48:34Z</time></small></div>
+                <div class="in-notification-cell in-notification-response"><span>User action</span><strong class="in-response-state is-acknowledged" data-user-response="guidance">Guidance recorded</strong><small><time datetime="2026-07-15T09:49:20Z">09:49:20Z</time> · confirmed the rollback window; context only, no approval effect</small></div>
+              </li>
+            </ul>
+            <p class="in-notification-exclusion"><strong>Not routed:</strong> change approvers were excluded because the recorded rollback verdict did not require HIL.</p>
+            <p class="in-notification-boundary"><strong>Evidence boundary:</strong> provider publication proves delivery to a channel, not that a user read it. Acknowledgement and guidance are typed user responses, but neither grants execution authority.</p>
+          </section>
+          <section class="in-response-plan" aria-labelledby="api-response-plan-title">
+            <header><div><span class="in-section-label">Action plan</span><h3 id="api-response-plan-title">Agent-owned response plan</h3></div><span class="in-plan-progress">5 of 6 stages reached</span></header>
+            <ol>
+              <li class="in-plan-step"><div class="in-plan-step-head"><strong>1. Detect and correlate</strong><span class="in-plan-state">Complete</span></div><div class="in-plan-agent"><strong>Huginn</strong><span>Event owner</span></div><p>Grouped seven alerts and one rollout under this Incident ID.</p></li>
+              <li class="in-plan-step"><div class="in-plan-step-head"><strong>2. Judge eligibility</strong><span class="in-plan-state">Complete</span></div><div class="in-plan-agent"><strong>Forseti</strong><span>Verdict owner</span></div><p>Recorded a deterministic rollback verdict and bounded blast radius.</p></li>
+              <li class="in-plan-step"><div class="in-plan-step-head"><strong>3. Dispatch response</strong><span class="in-plan-state">Complete</span></div><div class="in-plan-agent"><strong>Thor</strong><span>Action-run owner</span></div><p>Dispatched the approved GitOps rollback without direct Console mutation.</p></li>
+              <li class="in-plan-step"><div class="in-plan-step-head"><strong>4. Apply recovery</strong><span class="in-plan-state">Complete</span></div><div class="in-plan-agent"><strong>Vidar</strong><span>Rollback owner</span></div><p>Applied the tested rollback contract and retained its recovery reference.</p></li>
+              <li class="in-plan-step is-current"><div class="in-plan-step-head"><strong>5. Verify effect</strong><span class="in-plan-state">In progress</span></div><div class="in-plan-agent"><strong>Heimdall</strong><span>Observation owner</span></div><p>Compares five minutes of health evidence with the frozen baseline.</p></li>
+              <li class="in-plan-step is-pending"><div class="in-plan-step-head"><strong>6. Seal outcome</strong><span class="in-plan-state">Pending</span></div><div class="in-plan-agent"><strong>Saga</strong><span>Audit owner</span></div><p>Waits for the independent effect receipt before terminal closure.</p></li>
+            </ol>
+            <p class="in-plan-boundary"><strong>Event boundary:</strong> each agent owns one typed state transition. Agents publish and subscribe through the event bus; they do not call one another directly.</p>
+          </section>
+          <details class="in-additional">
+            <summary>Additional evidence</summary>
+            <dl>
+              <div><dt>Opened</dt><dd>2026-07-15 09:48:12Z</dd></div>
+              <div><dt>Last updated</dt><dd>2026-07-15 09:52:31Z</dd></div>
+              <div><dt>History</dt><dd>7 records</dd></div>
+              <div><dt>Latest mode</dt><dd>Enforce mode - changes permitted</dd></div>
+              <div><dt>Correlation id</dt><dd class="cs-mono">inc-01J2-API-LATENCY</dd></div>
+              <div><dt>Incident id</dt><dd class="cs-mono">INC-240715-01</dd></div>
+              <div><dt>Ticket id</dt><dd class="cs-mono">OPS-1842</dd></div>
+              <div><dt>Current disposition</dt><dd>rollback verifying</dd></div>
+              <div><dt>Current decision</dt><dd>Automatic</dd></div>
+              <div><dt>Vertical</dt><dd>Change Safety</dd></div>
+              <div><dt>Status source</dt><dd class="cs-mono">incident.transition</dd></div>
+              <div><dt>Involved agents</dt><dd>Huginn, Forseti, Thor, Vidar, Heimdall</dd></div>
+            </dl>
+          </details>
           <dialog class="in-intervention-modal" id="operator-intervention-dialog" aria-labelledby="operator-intervention-title" data-intervention-dialog>
           <section class="in-intervention" data-intervention data-target="service:checkout-api">
             <div class="in-intervention-head">
@@ -413,12 +441,12 @@
                 <label class="in-action-choice"><input type="radio" name="intervention-action" value="revoke" /><strong>Revoke development exception</strong><span>Request revocation of a specific exception; the runtime rechecks the target and revision.</span></label>
               </fieldset>
               <div class="in-intervention-fields">
-                <label class="in-intervention-field">Operator comment<textarea name="intervention-comment" maxlength="500" required placeholder="Explain the development context and the direction agents should take."></textarea></label>
+                <label class="in-intervention-field">Operator comment<textarea name="intervention-comment" maxlength="500" required aria-describedby="operator-intervention-guard operator-intervention-error" aria-invalid="false" placeholder="Explain the development context and the direction agents should take."></textarea></label>
                 <label class="in-intervention-field in-duration-field" data-duration-field hidden>Exception duration<select name="intervention-duration"><option value="one-day">1 day</option><option value="one-week">1 week</option><option value="one-month">1 month</option><option value="until-revoked">Until revoked</option></select></label>
-                <label class="in-intervention-field" data-exception-id-field hidden>Exception ID<input class="cs-control-input" name="exception-id" maxlength="36" placeholder="00000000-0000-0000-0000-000000000000" /></label>
+                <label class="in-intervention-field" data-exception-id-field hidden>Exception ID<input class="cs-control-input" name="exception-id" maxlength="36" aria-describedby="operator-intervention-error" aria-invalid="false" placeholder="00000000-0000-0000-0000-000000000000" /></label>
               </div>
-              <p class="in-intervention-guard">Comments never grant execution authority. Closing does not cancel an action already delivered. An exception keeps detection and findings active and only affects future Incident creation for this target.</p>
-              <p class="in-intervention-error" data-intervention-error role="alert" hidden></p>
+              <p class="in-intervention-guard" id="operator-intervention-guard">Comments never grant execution authority. Closing does not cancel an action already delivered. An exception keeps detection and findings active and only affects future Incident creation for this target.</p>
+              <p class="in-intervention-error" id="operator-intervention-error" data-intervention-error role="alert" hidden></p>
               <div class="in-intervention-actions"><button class="is-primary" type="submit">Review request</button></div>
             </form>
             <div class="in-review-panel" data-review-panel hidden>
@@ -434,22 +462,29 @@
             <h3 id="evidence-views-title">Available evidence</h3>
             <p>Only views backed by recorded evidence are enabled. Unavailable analysis is not inferred from generic activity.</p>
             <div class="in-view-list">
-              <a class="in-view-row" href="audit.html"><strong>All audit records</strong><span>Browse all 6 recorded events and their raw evidence fields.</span><em>Open</em></a>
-              <a class="in-view-row" href="rule-trace.html"><strong>Technical activity</strong><span>Inspect 6 ordered events, including correlation and notification routing.</span><em>Open</em></a>
+              <a class="in-view-row" href="audit.html"><strong>All audit records</strong><span>Browse all 7 recorded events and their raw evidence fields.</span><em>Open</em></a>
+              <a class="in-view-row" href="rule-trace.html"><strong>Technical activity</strong><span>Inspect 7 ordered events, including recovery and independent effect observation.</span><em>Open</em></a>
               <a class="in-view-row" href="rca.html?correlation=inc-01J2-API-LATENCY"><strong>Root-cause analysis</strong><span>Review recorded, evidence-backed cause hypotheses and citations.</span><em>Open</em></a>
               <a class="in-view-row" href="rca-report.html?correlation=inc-01J2-API-LATENCY"><strong>RCA dossier</strong><span>Open the full incident and root-cause evidence package.</span><em>Open</em></a>
             </div>
             <span class="in-evidence-scope">Evidence scope: inc-01J2-API-LATENCY</span>
           </section>
           <div class="in-history">
-            <div class="in-history-title"><div><h3>Agent activity</h3><p>What each agent did, why it acted, and what changed as a result.</p></div><span>4 of 6 records &middot; newest first</span></div>
+            <div class="in-history-title"><div><h3>Agent activity</h3><p>What each agent did, why it acted, and what changed as a result.</p></div><span>5 of 7 records &middot; newest first</span></div>
             <div class="in-timeline">
-              <div class="in-event is-audit">
-                <div class="in-event-row"><strong class="in-event-agent">Vidar</strong><span class="in-event-role">Effect verification</span><time class="in-event-time">09:52:31</time></div>
+              <div class="in-event">
+                <div class="in-event-row"><strong class="in-event-agent">Heimdall</strong><span class="in-event-role">Independent effect observation</span><time class="in-event-time">09:52:31</time></div>
                 <div class="in-event-title">Started independent rollback verification.</div>
                 <p class="in-event-note"><strong>Why:</strong> A successful revert is not enough; service health must recover against the frozen pre-change baseline.</p>
                 <p class="in-event-outcome"><strong>Result:</strong> Five-minute probe comparison is running. The incident remains open until it passes.</p>
                 <div class="in-event-facts"><span>mode enforce</span><span>rollback rbk-01J2-773</span><span>audit aud-01J2-941</span></div>
+              </div>
+              <div class="in-event is-auto">
+                <div class="in-event-row"><strong class="in-event-agent">Vidar</strong><span class="in-event-role">Recovery execution</span><time class="in-event-time">09:51:52</time></div>
+                <div class="in-event-title">Applied the tested rollback contract.</div>
+                <p class="in-event-note"><strong>Why:</strong> Thor dispatched the approved rollback after the stop and target safeguards were locked.</p>
+                <p class="in-event-outcome"><strong>Result:</strong> The prior configuration revision was restored and an effect check was requested.</p>
+                <div class="in-event-facts"><span>rollback rbk-01J2-773</span><span>state applied</span></div>
               </div>
               <div class="in-event is-auto">
                 <div class="in-event-row"><strong class="in-event-agent">Thor</strong><span class="in-event-role">Remediation delivery</span><time class="in-event-time">09:51:44</time></div>
@@ -478,22 +513,59 @@
 
         <article class="in-detail" data-incident-detail="inc-pitr-disabled" hidden>
           <header class="in-detail-head">
-            <div class="in-detail-title-row"><h2>Point-in-time recovery disabled</h2><span class="cs-risk high">high</span><span class="cs-status wait">approval required</span></div>
+            <div class="in-detail-identity"><span class="in-detail-id">Incident INC-240715-02</span><span class="in-detail-ticket">Ticket OPS-1843</span></div>
+            <div class="in-detail-title-row"><h2>Point-in-time recovery disabled</h2><div class="in-detail-actions"><span class="cs-risk high">high impact</span><span class="in-priority is-urgent">P1 · decision in 12m</span><span class="cs-status wait">approval required</span><a class="in-detail-primary-link" href="hil.html?correlation=inc-01J2-PITR-OFF">Review approval</a></div></div>
             <p class="in-detail-lead">A resilience rule detected missing recovery protection. The proposed remediation is grounded and waiting for two distinct approvers.</p>
-            <ol class="in-agent-handoff is-two" aria-label="Agent handoff for this incident">
-              <li class="in-handoff-step"><div class="in-handoff-agent"><strong>Huginn</strong><span>Detected</span></div><p>Linked the missing recovery protection to the resilience policy finding.</p></li>
-              <li class="in-handoff-step is-current"><div class="in-handoff-agent"><strong>Var</strong><span>Holding</span></div><p>Requested two independent approvers and prevented delivery from proceeding.</p></li>
-            </ol>
-            <details class="in-additional"><summary>Additional evidence</summary><dl>
-              <div><dt>Opened</dt><dd>2026-07-15 09:44:55Z</dd></div><div><dt>Last updated</dt><dd>2026-07-15 09:51:08Z</dd></div>
-              <div><dt>History</dt><dd>4 records</dd></div><div><dt>Latest mode</dt><dd>Enforce mode - approval required</dd></div>
-              <div><dt>Correlation id</dt><dd class="cs-mono">inc-01J2-PITR-OFF</dd></div><div><dt>Incident id</dt><dd class="cs-mono">INC-240715-02</dd></div>
-              <div><dt>Ticket id</dt><dd class="cs-mono">OPS-1843</dd></div><div><dt>Current disposition</dt><dd>human approval pending</dd></div>
-              <div><dt>Current decision</dt><dd>Human approval</dd></div><div><dt>Vertical</dt><dd>Resilience</dd></div>
-              <div><dt>Status source</dt><dd class="cs-mono">hil.requested</dd></div><div><dt>Involved agents</dt><dd>Huginn, Forseti, Var</dd></div>
-            </dl></details>
+            <dl class="in-command-facts">
+              <div><dt>Impact</dt><dd>Recovery objective exposed<small>point-in-time restore unavailable</small></dd></div>
+              <div><dt>Target</dt><dd><span class="cs-mono">database:orders-primary</span><small>production / one logical target</small></dd></div>
+              <div><dt>Response plan</dt><dd>Enable recovery protection<small><span class="cs-mono">enable-pitr@3</span> / HIL</small></dd></div>
+              <div><dt>Current owner</dt><dd>Var<small>two-person approval coordination</small></dd></div>
+            </dl>
           </header>
-          <section class="in-current-state"><div class="in-section-head"><div><span class="in-section-label">Current situation</span><h3>Approval required</h3></div><span class="cs-status wait">held for review</span></div><p>The response decision requires independent human approval before any change can proceed.</p><dl class="in-current-facts"><div><dt>Lifecycle</dt><dd>Open</dd></div><div><dt>Response decision</dt><dd>Human approval</dd></div><div><dt>Change authority</dt><dd>Enforce mode - approval required</dd></div></dl><div class="in-next-step"><strong>Recommended next step</strong><span>Review the grounded proposal in the authenticated approval channel.</span></div></section>
+          <section class="in-current-state"><div class="in-section-head"><div><span class="in-section-label">Current situation</span><h3>Approval required</h3></div><span class="cs-status wait">held for review</span></div><p>Forseti recorded the bounded proposal, but Var has not received two distinct eligible approvals. Thor has no dispatch authority.</p><dl class="in-current-facts"><div><dt>Incident status</dt><dd>Open</dd></div><div><dt>Agent status</dt><dd>Var · waiting for quorum</dd></div><div><dt>Operator input</dt><dd>Required · 1 of 2 approvals</dd></div><div><dt>Urgency</dt><dd>P1 · decision due in 12m</dd></div></dl><div class="in-decision-grid"><div class="in-next-step"><strong>Next state transition</strong><span>A second distinct operator approves or any eligible operator rejects the exact grounded proposal.</span></div><div class="in-next-step"><strong>Release condition</strong><span>Current quorum, target lock, rollback contract, and dry-run receipt must remain valid when Thor claims the approval.</span></div></div></section>
+          <section class="in-notification-panel" aria-labelledby="pitr-notification-title" data-notification-panel>
+            <header><h3 id="pitr-notification-title">Stakeholder notifications and responses</h3><span class="in-notification-summary">3 recipients · 3 observed delivered · 2 responses · approval 1/2</span></header>
+            <p class="in-notification-source"><strong>Latest notice source</strong><span>Var approval request · A1 approval channel</span></p>
+            <ul class="in-notification-list">
+              <li class="in-notification-row" data-recipient="approver.one@example.com">
+                <div class="in-notification-cell in-notification-recipient"><span>Recipient</span><strong>Change approver 1</strong><small>approver.one@example.com</small></div>
+                <div class="in-notification-cell"><span>Channel / delivery</span><strong>Teams · approval card</strong><small>Observed delivered · <time datetime="2026-07-15T09:51:12Z">09:51:12Z</time></small></div>
+                <div class="in-notification-cell in-notification-response"><span>User action</span><strong class="in-response-state is-authority" data-user-response="approved">Approved 1/2</strong><small><time datetime="2026-07-15T09:53:04Z">09:53:04Z</time> · authenticated decision; quorum remains incomplete</small></div>
+              </li>
+              <li class="in-notification-row" data-recipient="approver.two@example.com">
+                <div class="in-notification-cell in-notification-recipient"><span>Recipient</span><strong>Change approver 2</strong><small>approver.two@example.com</small></div>
+                <div class="in-notification-cell"><span>Channel / delivery</span><strong>Teams · approval card</strong><small>Observed delivered · <time datetime="2026-07-15T09:51:13Z">09:51:13Z</time></small></div>
+                <div class="in-notification-cell in-notification-response"><span>User action</span><strong class="in-response-state is-awaiting" data-user-response="awaiting">Awaiting response</strong><small>No authenticated approval or rejection recorded</small></div>
+              </li>
+              <li class="in-notification-row" data-recipient="orders.owner@example.com">
+                <div class="in-notification-cell in-notification-recipient"><span>Recipient</span><strong>Orders service owner</strong><small>orders.owner@example.com</small></div>
+                <div class="in-notification-cell"><span>Channel / delivery</span><strong>Email · service owner</strong><small>Observed delivered · <time datetime="2026-07-15T09:51:15Z">09:51:15Z</time></small></div>
+                <div class="in-notification-cell in-notification-response"><span>User action</span><strong class="in-response-state is-acknowledged" data-user-response="acknowledged">Acknowledged</strong><small><time datetime="2026-07-15T09:52:02Z">09:52:02Z</time> · awareness only; not an approval</small></div>
+              </li>
+            </ul>
+            <p class="in-notification-boundary"><strong>Authority boundary:</strong> only authenticated approve or reject decisions contribute to Var's quorum. Delivery, read status, acknowledgement, and ordinary message replies grant no authority.</p>
+          </section>
+          <section class="in-response-plan" aria-labelledby="pitr-response-plan-title">
+            <header><div><span class="in-section-label">Action plan</span><h3 id="pitr-response-plan-title">Agent-owned approval path</h3></div><span class="in-plan-progress">3 of 6 stages reached</span></header>
+            <ol>
+              <li class="in-plan-step"><div class="in-plan-step-head"><strong>1. Detect gap</strong><span class="in-plan-state">Complete</span></div><div class="in-plan-agent"><strong>Huginn</strong><span>Event owner</span></div><p>Correlated the recovery-policy finding with the exact database target.</p></li>
+              <li class="in-plan-step"><div class="in-plan-step-head"><strong>2. Judge proposal</strong><span class="in-plan-state">Complete</span></div><div class="in-plan-agent"><strong>Forseti</strong><span>Verdict owner</span></div><p>Grounded the change, safeguards, blast radius, and approval ceiling.</p></li>
+              <li class="in-plan-step is-current is-blocked"><div class="in-plan-step-head"><strong>3. Obtain approval</strong><span class="in-plan-state">Waiting</span></div><div class="in-plan-agent"><strong>Var</strong><span>Approval owner</span></div><p>Requires two distinct eligible human approvals; silence grants nothing.</p></li>
+              <li class="in-plan-step is-pending"><div class="in-plan-step-head"><strong>4. Dispatch change</strong><span class="in-plan-state">Blocked</span></div><div class="in-plan-agent"><strong>Thor</strong><span>Action-run owner</span></div><p>Cannot claim or dispatch the action until the approval event is valid.</p></li>
+              <li class="in-plan-step is-pending"><div class="in-plan-step-head"><strong>5. Verify effect</strong><span class="in-plan-state">Pending</span></div><div class="in-plan-agent"><strong>Heimdall</strong><span>Observation owner</span></div><p>Will independently confirm recovery protection after delivery.</p></li>
+              <li class="in-plan-step is-pending"><div class="in-plan-step-head"><strong>6. Seal outcome</strong><span class="in-plan-state">Pending</span></div><div class="in-plan-agent"><strong>Saga</strong><span>Audit owner</span></div><p>Will record approval identities, dispatch, observation, and closure.</p></li>
+            </ol>
+            <p class="in-plan-boundary"><strong>Event boundary:</strong> Var publishes an approval outcome; Thor never accepts a visual control state as authority.</p>
+          </section>
+          <details class="in-additional"><summary>Additional evidence</summary><dl>
+            <div><dt>Opened</dt><dd>2026-07-15 09:44:55Z</dd></div><div><dt>Last updated</dt><dd>2026-07-15 09:51:08Z</dd></div>
+            <div><dt>History</dt><dd>4 records</dd></div><div><dt>Latest mode</dt><dd>Enforce mode - approval required</dd></div>
+            <div><dt>Correlation id</dt><dd class="cs-mono">inc-01J2-PITR-OFF</dd></div><div><dt>Incident id</dt><dd class="cs-mono">INC-240715-02</dd></div>
+            <div><dt>Ticket id</dt><dd class="cs-mono">OPS-1843</dd></div><div><dt>Current disposition</dt><dd>human approval pending</dd></div>
+            <div><dt>Current decision</dt><dd>Human approval</dd></div><div><dt>Vertical</dt><dd>Resilience</dd></div>
+            <div><dt>Status source</dt><dd class="cs-mono">hil.requested</dd></div><div><dt>Involved agents</dt><dd>Huginn, Forseti, Var</dd></div>
+          </dl></details>
           <section class="in-evidence-views"><h3>Available evidence</h3><p>Only views backed by recorded evidence are enabled. Unavailable analysis is not inferred from generic activity.</p><div class="in-view-list">
             <a class="in-view-row" href="audit.html"><strong>All audit records</strong><span>Browse all 4 recorded events and their raw evidence fields.</span><em>Open</em></a><a class="in-view-row" href="rule-trace.html"><strong>Technical activity</strong><span>Inspect 4 ordered events and the approval route.</span><em>Open</em></a>
             <div class="in-view-row is-unavailable" aria-disabled="true"><strong>Root-cause analysis</strong><span>No evidence-backed cause analysis has been recorded.</span><em>Unavailable</em></div><div class="in-view-row is-unavailable" aria-disabled="true"><strong>RCA dossier</strong><span>A report becomes available after recorded RCA evidence exists.</span><em>Unavailable</em></div>
@@ -505,23 +577,86 @@
         </article>
 
         <article class="in-detail" data-incident-detail="inc-cost-spike" hidden>
-          <header class="in-detail-head"><div class="in-detail-title-row"><h2>Unexpected compute cost increase</h2><span class="cs-risk medium">medium</span><span class="cs-status idle">investigating</span></div><p class="in-detail-lead">Spend increased above the seven-day baseline. Njord is correlating usage and pricing changes in shadow mode.</p><ol class="in-agent-handoff is-two" aria-label="Agent handoff for this incident"><li class="in-handoff-step"><div class="in-handoff-agent"><strong>Huginn</strong><span>Detected</span></div><p>Grouped the spend signal into one cost-governance incident.</p></li><li class="in-handoff-step is-current"><div class="in-handoff-agent"><strong>Njord</strong><span>Investigating</span></div><p>Is comparing usage attribution with pricing evidence in shadow mode.</p></li></ol><details class="in-additional"><summary>Additional evidence</summary><dl>
+          <header class="in-detail-head"><div class="in-detail-identity"><span class="in-detail-id">Incident INC-240715-03</span><span class="in-detail-ticket">No external ticket</span></div><div class="in-detail-title-row"><h2>Unexpected compute cost increase</h2><div class="in-detail-actions"><span class="cs-risk medium">medium impact</span><span class="in-priority is-unavailable">urgency unavailable</span><span class="cs-status idle">investigating</span></div></div><p class="in-detail-lead">Spend increased above the seven-day baseline. Njord is correlating usage and pricing changes in shadow mode; no response decision is available.</p><dl class="in-command-facts"><div><dt>Impact</dt><dd>Cost anomaly under review<small>magnitude not yet attributed</small></dd></div><div><dt>Target</dt><dd><span class="cs-mono">scope:shared-compute</span><small>resource allocation incomplete</small></dd></div><div><dt>Response plan</dt><dd>Cost attribution review<small><span class="cs-mono">cost-anomaly@5</span> / shadow</small></dd></div><div><dt>Current owner</dt><dd>Njord<small>cost evidence investigation</small></dd></div></dl></header>
+          <section class="in-current-state"><div class="in-section-head"><div><span class="in-section-label">Current situation</span><h3>Investigation in progress</h3></div><span class="cs-status idle">no decision</span></div><p>Njord has a cost signal, but attribution and pricing evidence do not yet support a response proposal. Unknown urgency remains explicit.</p><dl class="in-current-facts"><div><dt>Incident status</dt><dd>In progress</dd></div><div><dt>Agent status</dt><dd>Njord · investigating</dd></div><div><dt>Operator input</dt><dd>Not required</dd></div><div><dt>Urgency</dt><dd>Unavailable · evidence gap</dd></div></dl><div class="in-decision-grid"><div class="in-next-step"><strong>Next state transition</strong><span>Njord publishes a grounded cost anomaly or an explicit unavailable result for Forseti to judge.</span></div><div class="in-next-step"><strong>Proposal condition</strong><span>Usage attribution, price revision, scope, and projected monthly delta must agree. Until then, no action is eligible.</span></div></div></section>
+          <section class="in-notification-panel" aria-labelledby="cost-notification-title" data-notification-panel>
+            <header><h3 id="cost-notification-title">Stakeholder notifications and responses</h3><span class="in-notification-summary">2 recipients · 1 observed delivered · 1 response</span></header>
+            <p class="in-notification-source"><strong>Latest notice source</strong><span>Njord investigation update · A2 operational alert</span></p>
+            <ul class="in-notification-list">
+              <li class="in-notification-row" data-recipient="finops.owner@example.com">
+                <div class="in-notification-cell in-notification-recipient"><span>Recipient</span><strong>FinOps owner</strong><small>finops.owner@example.com</small></div>
+                <div class="in-notification-cell"><span>Channel / delivery</span><strong>Teams · cost operations</strong><small>Observed delivered · <time datetime="2026-07-15T09:36:14Z">09:36:14Z</time></small></div>
+                <div class="in-notification-cell in-notification-response"><span>User action</span><strong class="in-response-state is-acknowledged" data-user-response="guidance">Guidance recorded</strong><small><time datetime="2026-07-15T09:49:30Z">09:49:30Z</time> · requested allocation breakdown; context only, no action authority</small></div>
+              </li>
+              <li class="in-notification-row" data-recipient="shared.compute.owner@example.com">
+                <div class="in-notification-cell in-notification-recipient"><span>Recipient</span><strong>Shared compute owner</strong><small>shared.compute.owner@example.com</small></div>
+                <div class="in-notification-cell"><span>Channel / delivery</span><strong>Email · shared compute</strong><small>Broker accepted · provider delivery observation unavailable</small></div>
+                <div class="in-notification-cell in-notification-response"><span>User action</span><strong class="in-response-state is-awaiting" data-user-response="unavailable">No response recorded</strong><small>Delivery and user-read state remain unknown</small></div>
+              </li>
+            </ul>
+            <p class="in-notification-exclusion"><strong>Not routed:</strong> change approvers are excluded while this incident remains a shadow investigation with no eligible proposal.</p>
+            <p class="in-notification-boundary"><strong>Evidence boundary:</strong> broker acceptance is not provider delivery, and a guidance reply cannot make an incomplete cost hypothesis actionable.</p>
+          </section>
+          <section class="in-response-plan" aria-labelledby="cost-response-plan-title">
+            <header><div><span class="in-section-label">Action plan</span><h3 id="cost-response-plan-title">Agent-owned investigation path</h3></div><span class="in-plan-progress">2 of 4 stages reached</span></header>
+            <ol>
+              <li class="in-plan-step"><div class="in-plan-step-head"><strong>1. Correlate signal</strong><span class="in-plan-state">Complete</span></div><div class="in-plan-agent"><strong>Huginn</strong><span>Event owner</span></div><p>Grouped the abnormal spend evidence into one incident correlation.</p></li>
+              <li class="in-plan-step is-current"><div class="in-plan-step-head"><strong>2. Attribute cost</strong><span class="in-plan-state">In progress</span></div><div class="in-plan-agent"><strong>Njord</strong><span>Cost owner</span></div><p>Compares usage, pricing revision, budget, and shared-service allocation.</p></li>
+              <li class="in-plan-step is-pending"><div class="in-plan-step-head"><strong>3. Judge proposal</strong><span class="in-plan-state">Pending</span></div><div class="in-plan-agent"><strong>Forseti</strong><span>Verdict owner</span></div><p>Receives a candidate only after the evidence bundle is complete.</p></li>
+              <li class="in-plan-step is-pending"><div class="in-plan-step-head"><strong>4. Seal finding</strong><span class="in-plan-state">Pending</span></div><div class="in-plan-agent"><strong>Saga</strong><span>Audit owner</span></div><p>Records either the reviewed proposal or a terminal no-op with gaps.</p></li>
+            </ol>
+            <p class="in-plan-boundary"><strong>Authority boundary:</strong> this path is in shadow mode. Analysis can produce evidence, never a managed-resource change.</p>
+          </section>
+          <details class="in-additional"><summary>Additional evidence</summary><dl>
             <div><dt>Opened</dt><dd>2026-07-15 09:35:02Z</dd></div><div><dt>Last updated</dt><dd>2026-07-15 09:50:26Z</dd></div><div><dt>History</dt><dd>3 records</dd></div><div><dt>Latest mode</dt><dd>Shadow mode - no changes applied</dd></div>
             <div><dt>Correlation id</dt><dd class="cs-mono">inc-01J2-COST-SPIKE</dd></div><div><dt>Incident id</dt><dd class="cs-mono">INC-240715-03</dd></div><div><dt>Ticket id</dt><dd>None</dd></div><div><dt>Current disposition</dt><dd>analysis running</dd></div><div><dt>Current decision</dt><dd>Not recorded</dd></div><div><dt>Vertical</dt><dd>Cost Governance</dd></div><div><dt>Status source</dt><dd class="cs-mono">incident.open</dd></div><div><dt>Involved agents</dt><dd>Huginn, Njord</dd></div>
-          </dl></details></header>
-          <section class="in-current-state"><div class="in-section-head"><div><span class="in-section-label">Current situation</span><h3>Correlated activity only</h3></div><span class="cs-status idle">investigating</span></div><p>Technical activity is recorded, but no response decision or root-cause conclusion exists yet.</p><dl class="in-current-facts"><div><dt>Lifecycle</dt><dd>In progress</dd></div><div><dt>Response decision</dt><dd>Not recorded</dd></div><div><dt>Change authority</dt><dd>Shadow mode - no changes applied</dd></div></dl><div class="in-next-step"><strong>Recommended next step</strong><span>Wait for usage attribution and pricing evidence to agree before proposing an action.</span></div></section>
+          </dl></details>
           <section class="in-evidence-views"><h3>Available evidence</h3><p>Only views backed by recorded evidence are enabled. Unavailable analysis is not inferred from generic activity.</p><div class="in-view-list"><a class="in-view-row" href="audit.html"><strong>All audit records</strong><span>Browse all 3 recorded events and their raw evidence fields.</span><em>Open</em></a><a class="in-view-row" href="rule-trace.html"><strong>Technical activity</strong><span>Inspect 3 ordered cost-attribution events.</span><em>Open</em></a><div class="in-view-row is-unavailable" aria-disabled="true"><strong>Root-cause analysis</strong><span>No evidence-backed cause analysis has been recorded.</span><em>Unavailable</em></div><div class="in-view-row is-unavailable" aria-disabled="true"><strong>RCA dossier</strong><span>A report becomes available after recorded RCA evidence exists.</span><em>Unavailable</em></div></div><span class="in-evidence-scope">Evidence scope: inc-01J2-COST-SPIKE</span></section>
           <div class="in-history"><div class="in-history-title"><div><h3>Agent activity</h3><p>What each agent did, why it acted, and what changed as a result.</p></div><span>2 of 3 records &middot; newest first</span></div><div class="in-timeline"><div class="in-event"><div class="in-event-row"><strong class="in-event-agent">Njord</strong><span class="in-event-role">Cost investigation</span><time class="in-event-time">09:50:26</time></div><div class="in-event-title">Started a shadow evaluation of the cost hypothesis.</div><p class="in-event-note"><strong>Why:</strong> Spend is above baseline, but usage attribution and pricing evidence do not yet agree.</p><p class="in-event-outcome"><strong>Result:</strong> Investigation continues without proposing or applying a cost action.</p><div class="in-event-facts"><span>mode shadow</span><span>verdict pending</span></div></div><div class="in-event"><div class="in-event-row"><strong class="in-event-agent">Huginn</strong><span class="in-event-role">Signal correlation</span><time class="in-event-time">09:35:02</time></div><div class="in-event-title">Opened one incident from the abnormal spend signal.</div><p class="in-event-note"><strong>Why:</strong> Compute spend crossed the recorded seven-day baseline.</p><p class="in-event-outcome"><strong>Result:</strong> The signal entered cost-governance analysis with no execution authority.</p></div></div></div>
         </article>
 
         <article class="in-detail" data-incident-detail="inc-secret-expiry" hidden>
-          <header class="in-detail-head"><div class="in-detail-title-row"><h2>Workload secret nearing expiry</h2><span class="cs-risk high">high</span><span class="cs-status ok">resolved</span></div><p class="in-detail-lead">The secret reference was rotated through a remediation pull request and post-change health checks passed.</p><ol class="in-agent-handoff" aria-label="Agent handoff for this incident"><li class="in-handoff-step"><div class="in-handoff-agent"><strong>Huginn</strong><span>Detected</span></div><p>Opened one incident from the recorded expiry signal.</p></li><li class="in-handoff-step"><div class="in-handoff-agent"><strong>Forseti</strong><span>Decided</span></div><p>Allowed the bounded rotation to use its tested rollback path.</p></li><li class="in-handoff-step"><div class="in-handoff-agent"><strong>Thor</strong><span>Responded</span></div><p>Delivered the secret-reference rotation through a remediation pull request.</p></li><li class="in-handoff-step is-current"><div class="in-handoff-agent"><strong>Saga</strong><span>Closed</span></div><p>Confirmed rollout health and recorded the terminal outcome.</p></li></ol><details class="in-additional"><summary>Additional evidence</summary><dl>
+          <header class="in-detail-head"><div class="in-detail-identity"><span class="in-detail-id">Incident INC-240715-04</span><span class="in-detail-ticket">Ticket OPS-1838</span></div><div class="in-detail-title-row"><h2>Workload secret nearing expiry</h2><div class="in-detail-actions"><span class="cs-risk high">high impact</span><span class="in-priority">P2 · target met</span><span class="cs-status ok">resolved</span></div></div><p class="in-detail-lead">The secret reference was rotated through a remediation pull request, independently observed, and sealed as a verified terminal outcome.</p><dl class="in-command-facts"><div><dt>Impact</dt><dd>Credential expiry avoided<small>service availability preserved</small></dd></div><div><dt>Target</dt><dd><span class="cs-mono">service:identity-api</span><small>production / one secret reference</small></dd></div><div><dt>Response plan</dt><dd>Secret rotation<small><span class="cs-mono">secret-rotation@4</span> / automatic</small></dd></div><div><dt>Terminal owner</dt><dd>Saga<small>verified outcome sealed</small></dd></div></dl></header>
+          <section class="in-current-state"><div class="in-section-head"><div><span class="in-section-label">Current situation</span><h3>Verified terminal outcome</h3></div><span class="cs-status ok">resolved</span></div><p>Heimdall confirmed healthy rollout behavior after rotation, and Saga sealed the action, evidence, and effect under the Incident ID.</p><dl class="in-current-facts"><div><dt>Incident status</dt><dd>Resolved</dd></div><div><dt>Agent status</dt><dd>Saga · closure complete</dd></div><div><dt>Operator input</dt><dd>Not required</dd></div><div><dt>Urgency</dt><dd>P2 target met</dd></div></dl><div class="in-decision-grid"><div class="in-next-step"><strong>Next state transition</strong><span>No transition pending. A recurrence creates a new incident and retains this immutable outcome.</span></div><div class="in-next-step"><strong>Close condition met</strong><span>Rotation delivered, five health checks passed, and the independent effect receipt was recorded.</span></div></div></section>
+          <section class="in-notification-panel" aria-labelledby="secret-notification-title" data-notification-panel>
+            <header><h3 id="secret-notification-title">Stakeholder notifications and responses</h3><span class="in-notification-summary">2 recipients · 2 observed delivered · 2 responses</span></header>
+            <p class="in-notification-source"><strong>Latest notice source</strong><span>Saga verified closure event · A2 operational alert</span></p>
+            <ul class="in-notification-list">
+              <li class="in-notification-row" data-recipient="incident.commander@example.com">
+                <div class="in-notification-cell in-notification-recipient"><span>Recipient</span><strong>Incident commander</strong><small>incident.commander@example.com</small></div>
+                <div class="in-notification-cell"><span>Channel / delivery</span><strong>Teams · incident bridge</strong><small>Observed delivered · <time datetime="2026-07-15T09:10:50Z">09:10:50Z</time></small></div>
+                <div class="in-notification-cell in-notification-response"><span>User action</span><strong class="in-response-state is-acknowledged" data-user-response="closure-acknowledged">Closure acknowledged</strong><small><time datetime="2026-07-15T09:11:04Z">09:11:04Z</time> · bridge handoff complete; terminal record unchanged</small></div>
+              </li>
+              <li class="in-notification-row" data-recipient="identity.owner@example.com">
+                <div class="in-notification-cell in-notification-recipient"><span>Recipient</span><strong>Identity service owner</strong><small>identity.owner@example.com</small></div>
+                <div class="in-notification-cell"><span>Channel / delivery</span><strong>Email · identity service</strong><small>Observed delivered · <time datetime="2026-07-15T09:10:52Z">09:10:52Z</time></small></div>
+                <div class="in-notification-cell in-notification-response"><span>User action</span><strong class="in-response-state is-acknowledged" data-user-response="handback-confirmed">Handback confirmed</strong><small><time datetime="2026-07-15T09:12:10Z">09:12:10Z</time> · post-incident context; no authority effect</small></div>
+              </li>
+            </ul>
+            <p class="in-notification-boundary"><strong>Closure boundary:</strong> post-incident acknowledgements confirm coordination only. They do not rewrite Saga's immutable verified outcome.</p>
+          </section>
+          <section class="in-response-plan" aria-labelledby="secret-response-plan-title">
+            <header><div><span class="in-section-label">Action plan</span><h3 id="secret-response-plan-title">Completed agent-owned response</h3></div><span class="in-plan-progress">5 of 5 stages complete</span></header>
+            <ol>
+              <li class="in-plan-step"><div class="in-plan-step-head"><strong>1. Detect expiry</strong><span class="in-plan-state">Complete</span></div><div class="in-plan-agent"><strong>Huginn</strong><span>Event owner</span></div><p>Opened one incident from the retained expiry signal.</p></li>
+              <li class="in-plan-step"><div class="in-plan-step-head"><strong>2. Judge rotation</strong><span class="in-plan-state">Complete</span></div><div class="in-plan-agent"><strong>Forseti</strong><span>Verdict owner</span></div><p>Admitted the bounded rotation with tested rollback safeguards.</p></li>
+              <li class="in-plan-step"><div class="in-plan-step-head"><strong>3. Dispatch rotation</strong><span class="in-plan-state">Complete</span></div><div class="in-plan-agent"><strong>Thor</strong><span>Action-run owner</span></div><p>Delivered the secret-reference change through a remediation PR.</p></li>
+              <li class="in-plan-step"><div class="in-plan-step-head"><strong>4. Verify effect</strong><span class="in-plan-state">Complete</span></div><div class="in-plan-agent"><strong>Heimdall</strong><span>Observation owner</span></div><p>Confirmed healthy rollout behavior with independent observations.</p></li>
+              <li class="in-plan-step is-current"><div class="in-plan-step-head"><strong>5. Seal outcome</strong><span class="in-plan-state">Complete</span></div><div class="in-plan-agent"><strong>Saga</strong><span>Audit owner</span></div><p>Recorded the verified terminal outcome and retained all references.</p></li>
+            </ol>
+            <p class="in-plan-boundary"><strong>Event boundary:</strong> the recorded outcome links every agent-owned transition without shared mutable workflow state.</p>
+          </section>
+          <section class="in-value-panel" aria-labelledby="secret-value-title">
+            <header><h3 id="secret-value-title">Verified incident value</h3><span>Available only after terminal effect verification</span></header>
+            <dl class="in-value-facts"><div><dt>Outcome</dt><dd>Agent mitigated</dd></div><div><dt>Time to mitigate</dt><dd>29m 27s</dd></div><div><dt>Intent Met</dt><dd>4 / 5 · well resolved</dd></div><div><dt>Human time saved</dt><dd>Unavailable<small>no reviewed baseline</small></dd></div></dl>
+            <p class="in-value-note">The outcome, duration, and evaluation are recorded synthetic examples. Missing time-saved evidence is not inferred.</p>
+          </section>
+          <details class="in-additional"><summary>Additional evidence</summary><dl>
             <div><dt>Opened</dt><dd>2026-07-15 08:41:16Z</dd></div><div><dt>Last updated</dt><dd>2026-07-15 09:10:43Z</dd></div><div><dt>History</dt><dd>7 records</dd></div><div><dt>Latest mode</dt><dd>Enforce mode - changes permitted</dd></div>
-            <div><dt>Correlation id</dt><dd class="cs-mono">inc-01J2-SECRET-EXP</dd></div><div><dt>Incident id</dt><dd class="cs-mono">INC-240715-04</dd></div><div><dt>Ticket id</dt><dd class="cs-mono">OPS-1838</dd></div><div><dt>Current disposition</dt><dd>remediated</dd></div><div><dt>Current decision</dt><dd>Automatic</dd></div><div><dt>Vertical</dt><dd>Change Safety</dd></div><div><dt>Status source</dt><dd class="cs-mono">incident.transition</dd></div><div><dt>Involved agents</dt><dd>Huginn, Forseti, Thor, Saga</dd></div>
-          </dl></details></header>
-          <section class="in-current-state"><div class="in-section-head"><div><span class="in-section-label">Current situation</span><h3>Incident resolved</h3></div><span class="cs-status ok">resolved</span></div><p>The recorded response reached a terminal outcome and independent health verification passed.</p><dl class="in-current-facts"><div><dt>Lifecycle</dt><dd>Resolved</dd></div><div><dt>Response decision</dt><dd>Automatic</dd></div><div><dt>Change authority</dt><dd>Enforce mode - changes permitted</dd></div></dl><div class="in-next-step"><strong>Recommended next step</strong><span>Review the final evidence package and monitor for recurrence.</span></div></section>
+            <div><dt>Correlation id</dt><dd class="cs-mono">inc-01J2-SECRET-EXP</dd></div><div><dt>Incident id</dt><dd class="cs-mono">INC-240715-04</dd></div><div><dt>Ticket id</dt><dd class="cs-mono">OPS-1838</dd></div><div><dt>Current disposition</dt><dd>remediated</dd></div><div><dt>Current decision</dt><dd>Automatic</dd></div><div><dt>Vertical</dt><dd>Change Safety</dd></div><div><dt>Status source</dt><dd class="cs-mono">incident.transition</dd></div><div><dt>Involved agents</dt><dd>Huginn, Forseti, Thor, Heimdall, Saga</dd></div>
+          </dl></details>
           <section class="in-evidence-views"><h3>Available evidence</h3><p>Only views backed by recorded evidence are enabled. Unavailable analysis is not inferred from generic activity.</p><div class="in-view-list"><a class="in-view-row" href="audit.html"><strong>All audit records</strong><span>Browse all 7 recorded events and their raw evidence fields.</span><em>Open</em></a><a class="in-view-row" href="rule-trace.html"><strong>Technical activity</strong><span>Inspect 7 ordered events through verification.</span><em>Open</em></a><a class="in-view-row" href="rca.html?correlation=inc-01J2-SECRET-EXP"><strong>Root-cause analysis</strong><span>Review recorded, evidence-backed cause hypotheses and citations.</span><em>Open</em></a><a class="in-view-row" href="rca-report.html?correlation=inc-01J2-SECRET-EXP"><strong>RCA dossier</strong><span>Open the full incident and root-cause evidence package.</span><em>Open</em></a></div><span class="in-evidence-scope">Evidence scope: inc-01J2-SECRET-EXP</span></section>
-          <div class="in-history"><div class="in-history-title"><div><h3>Agent activity</h3><p>What each agent did, why it acted, and what changed as a result.</p></div><span>4 of 7 records &middot; newest first</span></div><div class="in-timeline"><div class="in-event is-auto"><div class="in-event-row"><strong class="in-event-agent">Saga</strong><span class="in-event-role">Outcome closure</span><time class="in-event-time">09:10:43</time></div><div class="in-event-title">Closed the incident after post-change health checks passed.</div><p class="in-event-note"><strong>Why:</strong> Rotation and rollout completed, and the independent health observation found no regression.</p><p class="in-event-outcome"><strong>Result:</strong> The incident reached a verified terminal outcome with no rollback.</p><div class="in-event-facts"><span>verdict auto</span><span>mode enforce</span><span>audit sealed</span></div></div><div class="in-event is-auto"><div class="in-event-row"><strong class="in-event-agent">Thor</strong><span class="in-event-role">Remediation delivery</span></div><div class="in-event-title">Delivered the secret-reference rotation through a remediation pull request.</div><p class="in-event-note"><strong>Why:</strong> The existing reference was approaching its recorded expiry boundary.</p><p class="in-event-outcome"><strong>Result:</strong> The replacement reference entered the governed rollout path.</p></div><div class="in-event is-hil"><div class="in-event-row"><strong class="in-event-agent">Forseti</strong><span class="in-event-role">Risk decision</span></div><div class="in-event-title">Allowed the bounded rotation to proceed automatically.</div><p class="in-event-note"><strong>Why:</strong> The target scope was bounded and a tested rollback contract was available.</p><p class="in-event-outcome"><strong>Result:</strong> Delivery could proceed without human approval while effect verification remained mandatory.</p></div><div class="in-event"><div class="in-event-row"><strong class="in-event-agent">Huginn</strong><span class="in-event-role">Signal correlation</span><time class="in-event-time">08:41:16</time></div><div class="in-event-title">Opened one incident from the workload expiry signal.</div><p class="in-event-note"><strong>Why:</strong> The recorded expiry window crossed the protection threshold.</p><p class="in-event-outcome"><strong>Result:</strong> The finding entered one correlated change-safety response.</p></div></div></div>
+          <div class="in-history"><div class="in-history-title"><div><h3>Agent activity</h3><p>What each agent did, why it acted, and what changed as a result.</p></div><span>5 of 7 records &middot; newest first</span></div><div class="in-timeline"><div class="in-event is-audit"><div class="in-event-row"><strong class="in-event-agent">Saga</strong><span class="in-event-role">Outcome closure</span><time class="in-event-time">09:10:43</time></div><div class="in-event-title">Sealed the incident after effect verification passed.</div><p class="in-event-note"><strong>Why:</strong> Every prior agent-owned transition and the independent health observation were present.</p><p class="in-event-outcome"><strong>Result:</strong> The incident reached a verified terminal outcome with no rollback.</p><div class="in-event-facts"><span>verdict auto</span><span>mode enforce</span><span>audit sealed</span></div></div><div class="in-event"><div class="in-event-row"><strong class="in-event-agent">Heimdall</strong><span class="in-event-role">Independent effect observation</span><time class="in-event-time">09:09:58</time></div><div class="in-event-title">Verified healthy rollout behavior.</div><p class="in-event-note"><strong>Why:</strong> Delivery acceptance alone could not prove the expected operational effect.</p><p class="in-event-outcome"><strong>Result:</strong> Five consecutive health checks passed against the pre-change baseline.</p></div><div class="in-event is-auto"><div class="in-event-row"><strong class="in-event-agent">Thor</strong><span class="in-event-role">Remediation delivery</span></div><div class="in-event-title">Delivered the secret-reference rotation through a remediation pull request.</div><p class="in-event-note"><strong>Why:</strong> The existing reference was approaching its recorded expiry boundary.</p><p class="in-event-outcome"><strong>Result:</strong> The replacement reference entered the governed rollout path.</p></div><div class="in-event is-hil"><div class="in-event-row"><strong class="in-event-agent">Forseti</strong><span class="in-event-role">Risk decision</span></div><div class="in-event-title">Allowed the bounded rotation to proceed automatically.</div><p class="in-event-note"><strong>Why:</strong> The target scope was bounded and a tested rollback contract was available.</p><p class="in-event-outcome"><strong>Result:</strong> Delivery could proceed without human approval while effect verification remained mandatory.</p></div><div class="in-event"><div class="in-event-row"><strong class="in-event-agent">Huginn</strong><span class="in-event-role">Signal correlation</span><time class="in-event-time">08:41:16</time></div><div class="in-event-title">Opened one incident from the workload expiry signal.</div><p class="in-event-note"><strong>Why:</strong> The recorded expiry window crossed the protection threshold.</p><p class="in-event-outcome"><strong>Result:</strong> The finding entered one correlated change-safety response.</p></div></div></div>
         </article>
       </section>
     </div>
@@ -560,6 +695,7 @@
         var visible = incidentButtons.filter(function (button) {
           var detail = detailPanels.find(function (item) { return item.dataset.incidentDetail === button.dataset.incident; });
           var show = (status === "all" || button.dataset.status === status)
+            && (!priorityInput.value || button.dataset.priority === priorityInput.value)
             && (!verticalInput.value || button.dataset.vertical === verticalInput.value)
             && (!severityInput.value || button.dataset.severity === severityInput.value)
             && (!query || (button.textContent + " " + detail.textContent).toLowerCase().includes(query))
@@ -577,7 +713,7 @@
         if (visible.length) selectIncident(visible[0].dataset.incident);
         else detailPanels.forEach(function (detail) { detail.hidden = true; });
         var url = new URL(location.href);
-        [["status", status], ["q", searchInput.value.trim()], ["vertical", verticalInput.value], ["severity", severityInput.value], ["correlation", requestedCorrelation]].forEach(function (entry) {
+        [["status", status], ["q", searchInput.value.trim()], ["priority", priorityInput.value], ["vertical", verticalInput.value], ["severity", severityInput.value], ["correlation", requestedCorrelation]].forEach(function (entry) {
           if (entry[1]) url.searchParams.set(entry[0], entry[1]); else url.searchParams.delete(entry[0]);
         });
         history.replaceState(null, "", url);
@@ -585,12 +721,14 @@
       }
 
       var searchInput = document.querySelector("[data-incident-search]");
+      var priorityInput = document.querySelector("[data-incident-priority]");
       var verticalInput = document.querySelector("[data-incident-vertical]");
       var severityInput = document.querySelector("[data-incident-severity]");
       var params = new URL(location.href).searchParams;
       var requestedCorrelation = params.get("correlation") || "";
       var currentStatus = ["active", "resolved", "all"].includes(params.get("status")) ? params.get("status") : "active";
       searchInput.value = params.get("q") || "";
+      priorityInput.value = params.get("priority") || "";
       verticalInput.value = params.get("vertical") || "";
       severityInput.value = params.get("severity") || "";
       var emptySelection = document.createElement("p");
@@ -598,12 +736,13 @@
       emptySelection.setAttribute("role", "status");
       emptySelection.textContent = "No matching incident in the retained example. Clear the scope to inspect the available sample.";
       detailPanels[0].parentElement.append(emptySelection);
-      [searchInput, verticalInput, severityInput].forEach(function (input) {
+      [searchInput, priorityInput, verticalInput, severityInput].forEach(function (input) {
         input.addEventListener(input === searchInput ? "input" : "change", function () { applyFilter(currentStatus); });
       });
       document.querySelector("[data-clear-incident-scope]").addEventListener("click", function () {
-        searchInput.value = ""; verticalInput.value = ""; severityInput.value = ""; requestedCorrelation = "";
+        searchInput.value = ""; priorityInput.value = ""; verticalInput.value = ""; severityInput.value = ""; requestedCorrelation = "";
         applyFilter(currentStatus);
+        searchInput.focus();
       });
       incidentButtons.forEach(function (button) {
         button.addEventListener("click", function () { selectIncident(button.dataset.incident); });
@@ -635,6 +774,7 @@
         var reviewBack = intervention.querySelector("[data-review-back]");
         var confirmIntervention = intervention.querySelector("[data-confirm-intervention]");
         var pendingRequest = null;
+        var interventionReturnFocus = openIntervention;
         var actionLabels = {
           guidance: "Guide response",
           close: "Close this incident",
@@ -648,7 +788,10 @@
           "until-revoked": "Until revoked"
         };
 
-        function openInterventionDialog() {
+        function openInterventionDialog(event) {
+          interventionReturnFocus = event && event.currentTarget instanceof HTMLElement
+            ? event.currentTarget
+            : document.activeElement;
           if (!interventionDialog.open) interventionDialog.showModal();
         }
 
@@ -668,16 +811,17 @@
         interventionDialog.addEventListener("cancel", function (event) {
           event.preventDefault();
           closeInterventionDialog();
-          openIntervention.focus();
         });
         interventionDialog.addEventListener("keydown", function (event) {
           if (event.key !== "Escape") return;
           event.preventDefault();
           closeInterventionDialog();
-          openIntervention.focus();
         });
         interventionDialog.addEventListener("click", function (event) {
           if (event.target === interventionDialog) closeInterventionDialog();
+        });
+        interventionDialog.addEventListener("close", function () {
+          if (interventionReturnFocus && interventionReturnFocus.isConnected) interventionReturnFocus.focus();
         });
 
         function selectedAction() {
@@ -689,7 +833,17 @@
             durationField.hidden = selectedAction() !== "exception";
             exceptionIdField.hidden = selectedAction() !== "revoke";
             interventionError.hidden = true;
+            commentInput.setAttribute("aria-invalid", "false");
+            exceptionIdInput.setAttribute("aria-invalid", "false");
           });
+        });
+        commentInput.addEventListener("input", function () {
+          if (commentInput.value.trim()) commentInput.setAttribute("aria-invalid", "false");
+        });
+        exceptionIdInput.addEventListener("input", function () {
+          if (/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(exceptionIdInput.value.trim())) {
+            exceptionIdInput.setAttribute("aria-invalid", "false");
+          }
         });
 
         interventionForm.addEventListener("submit", function (event) {
@@ -698,6 +852,7 @@
           if (!comment) {
             interventionError.textContent = "Add an operator comment before reviewing the request.";
             interventionError.hidden = false;
+            commentInput.setAttribute("aria-invalid", "true");
             commentInput.focus();
             return;
           }
@@ -705,6 +860,7 @@
           if (action === "revoke" && !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(exceptionIdInput.value.trim())) {
             interventionError.textContent = "Enter a complete exception ID before reviewing revocation.";
             interventionError.hidden = false;
+            exceptionIdInput.setAttribute("aria-invalid", "true");
             exceptionIdInput.focus();
             return;
           }
@@ -714,6 +870,8 @@
           reviewDuration.textContent = duration ? durationLabels[duration] : "Not applicable";
           reviewComment.textContent = comment;
           interventionError.hidden = true;
+          commentInput.setAttribute("aria-invalid", "false");
+          exceptionIdInput.setAttribute("aria-invalid", "false");
           interventionForm.hidden = true;
           reviewPanel.hidden = false;
           confirmIntervention.focus();
@@ -744,7 +902,6 @@
           reviewComment.textContent = "";
           pendingRequest = null;
           closeInterventionDialog();
-          openIntervention.focus();
         });
 
       }

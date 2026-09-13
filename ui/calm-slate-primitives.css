@@ -221,7 +221,16 @@
 }
 
 .cs-control-select {
-  padding-right: 32px;
+  appearance: none;
+  padding-right: 42px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--cs-text-soft) 50%),
+    linear-gradient(135deg, var(--cs-text-soft) 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) calc(50% - 1px),
+    calc(100% - 15px) calc(50% - 1px);
+  background-repeat: no-repeat;
+  background-size: 5px 5px;
 }
 
 .cs-control-textarea {
@@ -398,6 +407,14 @@
 .cs-control-switch input:focus-visible + .cs-control-switch-track {
   outline: 2px solid color-mix(in srgb, var(--cs-steel) 42%, transparent);
   outline-offset: 2px;
+}
+
+@media (forced-colors: active) {
+  .cs-control-select {
+    appearance: auto;
+    padding-right: var(--cs-control-padding-inline);
+    background-image: none;
+  }
 }
 
 @media (max-width: 520px) {

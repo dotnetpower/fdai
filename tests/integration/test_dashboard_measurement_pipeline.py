@@ -19,7 +19,6 @@ from fdai.shared.contracts.models import (
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_operator_service.dashboard_aggregation import aggregate_dashboard
 from fdai_operator_service.dashboard_source import decode_dashboard_snapshot
-from fdai_operator_service.families.operations import ProjectionUnavailableError
 from fdai_operator_service.runtime_projection_reader import (
     RuntimeProjectionReader,
     RuntimeProjectionReaderConfig,
@@ -117,8 +116,8 @@ async def test_real_recorders_require_canonical_projection_for_operator_authorit
         }
     )
 
-    def aggregate() -> dict[str, object]:
-        records = [
+    def records() -> list[dict[str, object]]:
+        return [
             {
                 "seq": index,
                 "action_kind": row["entry"]["action_kind"],
@@ -127,8 +126,11 @@ async def test_real_recorders_require_canonical_projection_for_operator_authorit
             }
             for index, row in enumerate(store.audit_entries, start=1)
         ]
+
+    def aggregate() -> dict[str, object]:
+        captured = records()
         snapshot = decode_dashboard_snapshot(
-            [{"cutoff_seq": len(records), "window_end": NOW, "records": records}]
+            [{"cutoff_seq": len(captured), "window_end": NOW, "records": captured}]
         )
         return aggregate_dashboard(
             events=snapshot.events,
@@ -141,8 +143,13 @@ async def test_real_recorders_require_canonical_projection_for_operator_authorit
         )
 
     async def fetch(self, statement, parameters=()):
-        del self, statement, parameters
-        return []
+        del self
+        if "FROM audit_log" in statement:
+            captured = records()
+            return [{"cutoff_seq": len(captured), "window_end": NOW, "records": captured}]
+        if parameters == ("measurement:dashboard-comparison:v1",):
+            return []
+        raise AssertionError(parameters)
 
     monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
     reader = RuntimeProjectionReader(
@@ -202,8 +209,9 @@ async def test_real_recorders_require_canonical_projection_for_operator_authorit
     }
     assert result["finalization"]["pending_events"] == 1
 
-    with pytest.raises(
-        ProjectionUnavailableError,
-        match="authoritative autonomy measurement projection is unavailable",
-    ):
-        await reader._autonomy_measurement()
+    projected = await reader._autonomy_measurement()
+    assert projected["schema_version"] == "1.0.0"
+    assert projected["sample_size"] == 2
+    assert {key: metric["value"] for key, metric in projected["success"].items()} == values
+    assert projected["finalization"]["pending_events"] == 1
+    assert projected["comparison_status"] == "not_published"

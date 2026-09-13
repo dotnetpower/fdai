@@ -22,10 +22,15 @@ _RESOURCE_GROUP_TYPE: Final[str] = "resource-group"
 _VNET_TYPE: Final[str] = "network.vnet"
 _SUBNET_TYPE: Final[str] = "network.subnet"
 _SUBNET_ARM_TYPE: Final[str] = "Microsoft.Network/virtualNetworks/subnets"
+_MAX_ARM_SCOPE_CHARS: Final[int] = 256
 _RELATIONSHIP_MAPPING_ROOT: Final[Path] = Path(
     "rule-catalog/vocabulary/provider-relationship-mappings"
 )
 _LOGGER = logging.getLogger(__name__)
+
+
+class ArmScopeError(ValueError):
+    """An Azure row contradicts the scope encoded in its provider identity."""
 
 
 def to_neutral_id(arm_id: str) -> str:
@@ -62,6 +67,73 @@ def parent_neutral_id(arm_id: str) -> str | None:
         # The resource group itself is contained by its subscription scope.
         return _scope_prefix(trimmed)
     return to_neutral_id(trimmed[:next_slash])
+
+
+def arm_scope_properties(
+    arm_id: str,
+    row: Mapping[str, Any] | None = None,
+) -> dict[str, str]:
+    """Return exact subscription and resource-group scope embedded in an ARM id.
+
+    Matching provider columns keep their original casing. Missing columns are
+    filled from the identity, while contradictory values fail the observation.
+    The returned values are bounded FDAI-derived identity fields and may be
+    restored after vendor-property truncation.
+    """
+
+    parts = [part for part in arm_id.strip("/").split("/") if part]
+    if len(parts) < 2 or parts[0].casefold() != "subscriptions":
+        return {}
+    subscription = _bounded_scope_segment(parts[1], "subscription")
+    result = {
+        "subscriptionId": _matching_scope_value(
+            row,
+            key="subscriptionId",
+            derived=subscription,
+        )
+    }
+    resource_group_index = next(
+        (index for index, part in enumerate(parts) if part.casefold() == "resourcegroups"),
+        None,
+    )
+    if resource_group_index is None:
+        return result
+    if resource_group_index + 1 >= len(parts):
+        raise ArmScopeError("ARM resource-group scope is malformed")
+    resource_group = _bounded_scope_segment(
+        parts[resource_group_index + 1],
+        "resource group",
+    )
+    result["resourceGroup"] = _matching_scope_value(
+        row,
+        key="resourceGroup",
+        derived=resource_group,
+    )
+    return result
+
+
+def _bounded_scope_segment(value: str, label: str) -> str:
+    candidate = value.strip()
+    if not candidate or len(candidate) > _MAX_ARM_SCOPE_CHARS:
+        raise ArmScopeError(f"ARM {label} scope is malformed")
+    return candidate
+
+
+def _matching_scope_value(
+    row: Mapping[str, Any] | None,
+    *,
+    key: str,
+    derived: str,
+) -> str:
+    supplied = row.get(key) if row is not None else None
+    if supplied is None or supplied == "":
+        return derived
+    if not isinstance(supplied, str):
+        raise ArmScopeError(f"ARM {key} scope is malformed")
+    supplied = _bounded_scope_segment(supplied, key)
+    if supplied.casefold() != derived.casefold():
+        raise ArmScopeError(f"ARM {key} scope conflicts with the provider id")
+    return supplied
 
 
 def _scope_prefix(arm_id: str) -> str:
@@ -198,9 +270,8 @@ def materialize_nested_subnets(
         nested_properties = raw_subnet.get("properties")
         if isinstance(nested_properties, Mapping):
             props["properties"] = dict(nested_properties)
-        resource_group = vnet.props.get("resourceGroup")
-        if isinstance(resource_group, str) and resource_group:
-            props["resourceGroup"] = resource_group
+        props.update(arm_scope_properties(provider_ref, raw_subnet))
+        props["providerType"] = provider_type
         # A nested child is still a resource in the declared containment chain, so it
         # reports the same parent level every other resource reports.
         if (parent_id := parent_neutral_id(provider_ref)) is not None:

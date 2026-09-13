@@ -68,6 +68,5 @@ resumable work while the roadmap owner remains focused on normative design.
   runtime unchanged on every tested installation and activation failure.
 - [x] Prove local atomic upgrade and previous-version rollback on one exact package and ontology
   release during W6.
-- [ ] Publish and deploy the bounded `429` recovery, retain an independent successful collector
-  readback, then complete changed-release upgrade, previous-version rollback, and final enable
-  receipts during W7 before removing the compatibility facade.
+- [ ] Retain governed live lifecycle, production cutover, and previous-version rollback receipts
+  during W7 before removing the compatibility facade.

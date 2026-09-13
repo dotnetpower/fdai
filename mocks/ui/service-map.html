@@ -98,7 +98,7 @@
     .security-plaintext .sm-edge-transport, .security-plaintext .sm-edge-tls { fill: #913F3F; }
     .security-attention .sm-edge-transport { fill: #95552F; }
 
-    .app-tooltip { --tooltip-enter-y: 0; position: fixed; z-index: 1000; max-width: min(320px, calc(100vw - 32px)); overflow-wrap: anywhere; padding: 6px 12px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); color: var(--cs-text); box-shadow: 0 4px 12px rgba(15,23,30,.12); font: 500 12px/1.4 var(--cs-font); text-align: left; white-space: pre-line; pointer-events: none; }
+    .app-tooltip { --tooltip-enter-y: 0; position: fixed; z-index: 1000; max-width: min(320px, calc(100vw - 32px)); overflow-wrap: anywhere; padding: 6px 12px; border: 1px solid var(--cs-tooltip-border, var(--cs-hairline)); border-radius: 8px; background: var(--cs-tooltip-bg, var(--cs-card)); color: var(--cs-tooltip-text, var(--cs-text)); box-shadow: var(--cs-tooltip-shadow, 0 8px 24px rgba(24,31,38,.14)); font: 500 12px/1.4 var(--cs-font); text-align: left; white-space: pre-line; pointer-events: none; }
     .app-tooltip[data-side="top"] { --tooltip-enter-y: 4px; transform-origin: 50% 100%; }
     .app-tooltip[data-side="bottom"] { --tooltip-enter-y: -4px; transform-origin: 50% 0; }
     .app-tooltip[data-state="delayed-open"], .app-tooltip[data-state="instant-open"] { animation: app-tooltip-in .15s ease-out both; }

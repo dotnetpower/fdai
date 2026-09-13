@@ -1,14 +1,17 @@
 import type { AutonomyPayload, DashboardKpi } from "../types";
 import { t } from "../i18n";
 import { routeHref } from "../router";
+import { tDashboard } from "./i18n/dashboard-essential";
+import { EvidenceLoading, EvidenceSummary } from "./dashboard.evidence";
 import {
   auditSampleParams,
-  routingSampleParams,
   controlGapSummary,
   controlOutcomeGroup,
   dashboardEvidenceGaps,
+  distributionEvidence,
   distributionRows,
   formatShare,
+  routingSampleParams,
   type DistributionRow,
   type GatesSummary,
 } from "./dashboard.model";
@@ -18,22 +21,34 @@ interface Props {
   readonly autonomy: AutonomyPayload | null;
   readonly gates: GatesSummary | null;
   readonly policyEscapes: number | null;
+  readonly compact?: boolean;
+  readonly optionalPending?: boolean;
 }
 
-export function RoutingControl({ kpi }: Pick<Props, "kpi">) {
+export function RoutingControl({ kpi, compact = false }: Pick<Props, "kpi" | "compact">) {
   const sampleParams = routingSampleParams(kpi);
   const modeSampleParams = auditSampleParams(kpi);
-  const tiers = distributionRows(kpi.by_tier);
-  const outcomes = distributionRows(kpi.by_outcome);
+  const routingCount = kpi.routing_sample?.row_count ?? kpi.event_count;
+  const tierEvidence = distributionEvidence(kpi.by_tier, routingCount);
+  const outcomeEvidence = distributionEvidence(kpi.by_outcome, routingCount);
+  const tiers = tierEvidence.rows;
+  const outcomes = outcomeEvidence.rows;
   const shadowCount = Math.round(kpi.event_count * kpi.shadow_share);
   const modes = distributionRows({
     shadow: shadowCount,
     enforce: Math.max(0, kpi.event_count - shadowCount),
   });
   const outcomeTotal = outcomes.reduce((sum, row) => sum + row.count, 0);
+  const summary = compact && tiers.length === 0 && outcomes.length === 0;
   return (
-    <section class="overview-routing-grid" aria-label={t("overview.routing.groupLabel")}>
-      <DistributionPanel
+    <section class={`overview-routing-grid${summary ? " is-summary" : ""}`} aria-label={t("overview.routing.groupLabel")}>
+      {compact && tierEvidence.state !== "available" ? (
+        <EvidenceSummary
+          label={t("overview.routing.tierTitle")}
+          href={routeHref("trust-routing")}
+          state={tierEvidence.state}
+        />
+      ) : <DistributionPanel
         kicker={t("overview.routing.tierKicker")}
         heading={t("overview.routing.tierTitle")}
         rows={tiers}
@@ -42,14 +57,21 @@ export function RoutingControl({ kpi }: Pick<Props, "kpi">) {
         labelFor={(row) => row.key.toUpperCase()}
         toneFor={(row) => row.key}
         unavailableHref={routeHref("trust-routing")}
-      />
-      <article class="overview-distribution-panel">
+        compact={compact}
+      />}
+      {compact && outcomeEvidence.state !== "available" ? (
+        <EvidenceSummary
+          label={tDashboard("controlOutcomes")}
+          href={routeHref("audit", { params: sampleParams })}
+          state={outcomeEvidence.state}
+        />
+      ) : <article class="overview-distribution-panel">
         <a class="overview-distribution-head" href={routeHref("audit", { params: sampleParams })}>
           <span>
-            <span class="overview-panel-kicker">{t("overview.routing.controlKicker")}</span>
-            <strong>{t("overview.routing.controlTitle")}</strong>
+            {!compact && <span class="overview-panel-kicker">{t("overview.routing.controlKicker")}</span>}
+            <strong>{compact ? tDashboard("controlOutcomes") : t("overview.routing.controlTitle")}</strong>
           </span>
-          <small>{t("overview.routing.decisions", { count: outcomeTotal })}</small>
+          {!compact && <small>{t("overview.routing.decisions", { count: outcomeTotal })}</small>}
         </a>
         <DistributionBlock
           heading={t("overview.routing.outcomeTitle")}
@@ -61,7 +83,7 @@ export function RoutingControl({ kpi }: Pick<Props, "kpi">) {
           toneFor={(row) => controlOutcomeGroup(row.key)}
           unavailableHref={routeHref("audit", { params: sampleParams })}
         />
-        <DistributionBlock
+        {!compact && <DistributionBlock
           heading={t("overview.routing.modeTitle")}
           rows={modes}
           hrefFor={(row) => routeHref("audit", {
@@ -70,8 +92,8 @@ export function RoutingControl({ kpi }: Pick<Props, "kpi">) {
           labelFor={(row) => t(`overview.routing.mode.${row.key}`)}
           toneFor={(row) => row.key}
           unavailableHref={routeHref("audit", { params: modeSampleParams })}
-        />
-      </article>
+        />}
+      </article>}
     </section>
   );
 }
@@ -81,14 +103,16 @@ export function RequiredAttention({
   autonomy,
   gates,
   policyEscapes,
+  compact = false,
+  optionalPending = false,
 }: Props) {
-  const measuredGuards = autonomy !== null && !autonomy.synthetic;
-  const failedGuards = measuredGuards ? autonomy.guards.filter((guard) => !guard.ok) : [];
   const evidenceGaps = dashboardEvidenceGaps(autonomy);
   const controlGaps = controlGapSummary(kpi, policyEscapes, gates, autonomy);
   return (
     <section class="overview-attention-cards" aria-label={t("overview.attention.groupLabel")}>
       <AttentionCard
+        compact={compact}
+        summary={tDashboard("pendingCount", { count: kpi.hil_pending })}
         href={routeHref("hil-queue")}
         kicker={t("overview.attention.approvalKicker")}
         heading={t("overview.attention.approvalTitle")}
@@ -101,6 +125,11 @@ export function RequiredAttention({
         ]}
       />
       <AttentionCard
+        compact={compact}
+        loading={optionalPending}
+        summary={controlGaps.measured
+          ? tDashboard("controlGapCount", { count: controlGaps.count })
+          : t("overview.evidence.unavailable")}
         href={routeHref("control-assurance")}
         kicker={t("overview.attention.controlKicker")}
         heading={t("overview.attention.controlTitle")}
@@ -119,6 +148,9 @@ export function RequiredAttention({
         ]}
       />
       <AttentionCard
+        compact={compact}
+        loading={optionalPending}
+        summary={tDashboard("missingCount", { count: evidenceGaps.length })}
         href={routeHref("operating-outcomes")}
         kicker={t("overview.attention.evidenceKicker")}
         heading={t("overview.attention.evidenceTitle")}
@@ -144,6 +176,7 @@ function DistributionPanel({
   labelFor,
   toneFor,
   unavailableHref,
+  compact,
 }: {
   readonly kicker: string;
   readonly heading: string;
@@ -153,15 +186,16 @@ function DistributionPanel({
   readonly labelFor: (row: DistributionRow) => string;
   readonly toneFor: (row: DistributionRow) => string;
   readonly unavailableHref: string;
+  readonly compact: boolean;
 }) {
   return (
     <article class="overview-distribution-panel">
       <a class="overview-distribution-head" href={unavailableHref}>
         <span>
-          <span class="overview-panel-kicker">{kicker}</span>
+          {!compact && <span class="overview-panel-kicker">{kicker}</span>}
           <strong>{heading}</strong>
         </span>
-        <small>{t("overview.routing.classified", { count: total })}</small>
+        {!compact && <small>{t("overview.routing.classified", { count: total })}</small>}
       </a>
       <DistributionBlock
         heading={heading}
@@ -232,6 +266,9 @@ function AttentionCard({
   state,
   value,
   facts,
+  compact,
+  summary,
+  loading = false,
 }: {
   readonly href: string;
   readonly kicker: string;
@@ -239,24 +276,27 @@ function AttentionCard({
   readonly state: "attention" | "clear" | "unknown";
   readonly value: string;
   readonly facts: readonly (readonly [string, string])[];
+  readonly compact: boolean;
+  readonly summary: string;
+  readonly loading?: boolean;
 }) {
   return (
     <a class="overview-attention-card" href={href}>
       <span class="overview-attention-card-head">
         <span>
           <span class="overview-panel-kicker">{kicker}</span>
-          <strong>{heading}</strong>
+          {!compact && <strong>{heading}</strong>}
         </span>
-        <span class={`overview-attention-state ${state}`}>
+        {!loading && <span class={`overview-attention-state ${state}`}>
           {t(`overview.attention.state.${state}`)}
-        </span>
+        </span>}
       </span>
-      <b class="overview-attention-value">{value}</b>
-      <dl>
+      {loading ? <EvidenceLoading label={kicker} /> : <b class="overview-attention-value">{compact ? summary : value}</b>}
+      {!compact && !loading && <dl>
         {facts.map(([label, fact]) => (
           <div key={label}><dt>{label}</dt><dd>{fact}</dd></div>
         ))}
-      </dl>
+      </dl>}
     </a>
   );
 }

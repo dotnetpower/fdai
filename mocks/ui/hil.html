@@ -6,8 +6,9 @@
   <title>Approvals - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=operator-workspaces-v1" />
   <link rel="stylesheet" href="assets/console-parity.css?v=settings-route-v5" />
-  <link rel="stylesheet" href="assets/operator-workspace.css?v=2" />
+  <link rel="stylesheet" href="assets/operator-workspace.css?v=4" />
   <link rel="stylesheet" href="assets/approvals-workspace.css?v=1" />
+  <link rel="stylesheet" href="assets/connected-operations-flow.css?v=4" />
   <script src="assets/calm-slate.js?v=operator-workspaces-v2" defer></script>
   <script src="assets/approvals-preview.js?v=2" defer></script>
 </head>
@@ -27,7 +28,7 @@
       <span class="approval-result" data-approval-count role="status" aria-live="polite" aria-atomic="true">3 of 3 shown</span>
     </div>
     <div class="op-approval-list">
-      <article class="op-approval" data-approval data-approval-state="pending">
+      <article class="op-approval" data-approval data-approval-state="pending" data-approval-target="example-database" data-approval-correlation="example-correlation-1">
         <header><h2><a href="workflow-builder.html?action=database.enable-pitr">Enable point-in-time recovery</a></h2><span class="cs-status wait">Pending review</span><span class="cs-status idle">Observation mode</span></header>
         <div class="approval-meta"><span>Target <a href="architecture.html?resource=example-database">example-database</a></span><span>Expires <time datetime="2026-09-06T05:00:00Z">06 Sep, 05:00 UTC</time></span><span>Impact: one logical database</span></div>
         <p class="approval-reason">The recorded recovery requirement is not satisfied. The proposed recovery policy needs independent human review.</p>
@@ -38,9 +39,9 @@
           <div><dt>Grounded on</dt><dd><a href="rules.html?rule=example-recovery-policy">example-recovery-policy</a></dd></div><div><dt>Requested / expires</dt><dd>06 Sep 2026, 03:00 / 05:00 UTC</dd></div>
           <div><dt>Event / correlation</dt><dd><code>example-event-1</code> / <code>example-correlation-1</code></dd></div>
         </dl></details>
-        <nav class="op-evidence-links" aria-label="Related evidence for recovery proposal"><a href="incidents.html?status=all&amp;correlation=example-correlation-1">Incident</a><a href="rule-trace.html?correlation=example-correlation-1">Trace</a><a href="audit.html?correlation=example-correlation-1">Audit</a><a href="rca.html?correlation=example-correlation-1">RCA</a></nav>
+        <nav class="op-evidence-links" aria-label="Related evidence for recovery proposal"><a href="incidents.html?status=all&amp;correlation=example-correlation-1">Incident</a><a href="rule-trace.html?mode=decision&amp;correlation=example-correlation-1">Trace</a><a href="audit.html?correlation=example-correlation-1">Audit</a><a href="rca.html?correlation=example-correlation-1">RCA</a></nav>
       </article>
-      <article class="op-approval" data-approval data-approval-state="pending">
+      <article class="op-approval" data-approval data-approval-state="pending" data-approval-target="example-workload" data-approval-correlation="example-correlation-2">
         <header><h2><a href="workflow-builder.html?action=compute.adjust-capacity">Adjust workload capacity</a></h2><span class="cs-status wait">Pending review</span><span class="cs-status idle">Observation mode</span></header>
         <div class="approval-meta"><span>Target <a href="architecture.html?resource=example-workload">example-workload</a></span><span>Expires <time datetime="2026-09-06T05:10:00Z">06 Sep, 05:10 UTC</time></span><span>Impact: one workload</span></div>
         <p class="approval-reason">Recorded utilization and risk evidence require a human decision before the protected capacity workflow can proceed.</p>
@@ -51,9 +52,9 @@
           <div><dt>Grounded on</dt><dd><a href="rules.html?rule=example-capacity-policy">example-capacity-policy</a></dd></div><div><dt>Requested / expires</dt><dd>06 Sep 2026, 03:10 / 05:10 UTC</dd></div>
           <div><dt>Event / correlation</dt><dd><code>example-event-2</code> / <code>example-correlation-2</code></dd></div>
         </dl></details>
-        <nav class="op-evidence-links" aria-label="Related evidence for capacity proposal"><a href="incidents.html?status=all&amp;correlation=example-correlation-2">Incident</a><a href="rule-trace.html?correlation=example-correlation-2">Trace</a><a href="audit.html?correlation=example-correlation-2">Audit</a><a href="rca.html?correlation=example-correlation-2">RCA</a></nav>
+        <nav class="op-evidence-links" aria-label="Related evidence for capacity proposal"><a href="incidents.html?status=all&amp;correlation=example-correlation-2">Incident</a><a href="rule-trace.html?mode=decision&amp;correlation=example-correlation-2">Trace</a><a href="audit.html?correlation=example-correlation-2">Audit</a><a href="rca.html?correlation=example-correlation-2">RCA</a></nav>
       </article>
-      <article class="op-approval" data-approval data-approval-state="expired">
+      <article class="op-approval" data-approval data-approval-state="expired" data-approval-target="example-signing-service" data-approval-correlation="example-correlation-3">
         <header><h2><a href="workflow-builder.html?action=identity.rotate-certificate">Rotate a signing certificate</a></h2><span class="cs-status err">Expired approval</span></header>
         <div class="approval-meta"><span>Target <a href="architecture.html?resource=example-signing-service">example-signing-service</a></span><span>Expired <time datetime="2026-09-05T03:00:00Z">05 Sep, 03:00 UTC</time></span><span>Impact: one signing service</span></div>
         <p class="approval-reason">The request expired before the snapshot. A new governed request and fresh review are required; this record grants no authority.</p>

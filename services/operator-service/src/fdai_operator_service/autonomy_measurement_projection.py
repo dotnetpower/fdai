@@ -1,4 +1,4 @@
-"""Validate the stored autonomy measurement projection at the Operator read boundary."""
+"""Validate the autonomy measurement projection at the Operator read boundary."""
 
 from __future__ import annotations
 

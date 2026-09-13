@@ -1,4 +1,6 @@
 .ap-activity-views { margin: 12px 0 8px; }
+.agent-activity-preview .ap-filters > * { min-width: 0; }
+.agent-activity-preview .ap-field select { min-width: 0; max-width: 100%; }
 .ap-selection { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--cs-hairline); font-size: var(--cs-type-compact-size); }
 .ap-journal { min-width: 0; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); }
 .ap-journal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--cs-hairline); }
@@ -47,7 +49,7 @@ body.ap-fullscreen { overflow: hidden; }
 .ap-waterfall-agent { font-size: var(--cs-type-compact-size); }
 .ap-waterfall-track { position: relative; height: 34px; border-radius: 4px; background: var(--cs-shade); }
 .ap-waterfall-bar { position: absolute; top: 10px; bottom: 10px; min-width: 4px; border-radius: 3px; background: var(--cs-text-soft); }
-.agents-preview .ap-waterfall-open { width: 100%; text-align: left; border-color: var(--cs-hairline); font-size: var(--cs-type-label-size); overflow-wrap: anywhere; }
+.agents-preview .ap-waterfall-open { width: 100%; text-align: left; border-color: var(--ap-control-border); font-size: var(--cs-type-label-size); overflow-wrap: anywhere; }
 .ap-waterfall-open small { display: block; }
 .ap-step-detail { border-top: 1px solid var(--cs-hairline); padding-top: 16px; font-size: var(--cs-type-compact-size); }
 .ap-step-detail h2 { font-size: var(--cs-type-panel-title-size); }

@@ -100,7 +100,7 @@ test.describe("Dashboard type autocomplete", () => {
     await page.keyboard.press("ArrowDown");
     await page.keyboard.press("Enter");
     await expect(input).toHaveValue("Virtual machine");
-    await expect(frame.locator("#resource-count")).toContainText("3334 match filters / 10000 received");
+    await expect(frame.locator("#resource-count")).toContainText("3,334 match filters / 10,000 received");
     await input.click();
     await expect(frame.locator("#resource-type-option-vm")).toContainText("3,334 observed");
     await page.keyboard.press("ArrowUp");

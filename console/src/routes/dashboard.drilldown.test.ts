@@ -16,7 +16,25 @@ describe("Dashboard drill-down contract", () => {
     expect(executive).toContain('class="overview-trend-link"');
     expect(executive).toContain('unavailable ? "is-unavailable" : ""');
     expect(executive).toContain("href={href}");
-    expect(dashboard.match(/class="overview-unavailable-link"/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(dashboard.match(/class="overview-unavailable-link"/g)?.length).toBeGreaterThanOrEqual(2);
+    const posture = source("./dashboard.posture.tsx");
+    expect(posture).toContain('segments: ["auto-resolution"]');
+    expect(posture).toContain('mode: "shadow"');
+    expect(posture).toContain('routeHref("promotion-gates")');
+    expect(posture).toContain("sample.row_count");
+    expect(posture).toContain("value === null");
+  });
+
+  test("keeps essential sections decision-first and detailed evidence behind disclosure", () => {
+    const dashboard = source("./dashboard.tsx");
+    const positions = ["attention", "posture", "routing", "outcomes"]
+      .map((id) => dashboard.indexOf(`id="${id}"`));
+    expect(positions.every((position) => position > 0)).toBe(true);
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    expect(dashboard.indexOf('<details class="advanced-details overview-details">'))
+      .toBeLessThan(dashboard.indexOf("<ExecutiveStatus"));
+    expect(dashboard).not.toContain("overview-section-number");
+    expect(source("./dashboard.skeleton.tsx")).toContain('layout="metrics" blocks={4}');
   });
 
   test("links distribution headers, bar segments, legends, and attention cards", () => {

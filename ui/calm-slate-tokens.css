@@ -20,6 +20,11 @@
   --cs-radius-pill: 999px;
   --cs-shadow: 0 4px 16px rgba(46, 54, 64, 0.06);
   --cs-shadow-hover: 0 6px 22px rgba(46, 54, 64, 0.1);
+  --cs-tooltip-bg: #ffffff;
+  --cs-tooltip-text: #2c333a;
+  --cs-tooltip-muted: #6b7178;
+  --cs-tooltip-border: #c9cdd1;
+  --cs-tooltip-shadow: 0 8px 24px rgba(24, 31, 38, 0.14);
   --cs-font: "Segoe UI Variable Text", "Segoe UI", "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
   --cs-font-mono: "Cascadia Code", "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
   --cs-type-page-title-size: 24px;

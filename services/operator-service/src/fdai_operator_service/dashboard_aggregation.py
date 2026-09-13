@@ -213,6 +213,7 @@ def aggregate_dashboard(
     by_tier = Counter(event.tier for event in cohort.values() if event.tier is not None)
     finalized = len(resolved) + len(adverse)
     return {
+        "schema_version": "1.0.0",
         "synthetic": False,
         "window_days": max(1, round((window_end - window_start).total_seconds() / 86_400)),
         "sample_size": total,

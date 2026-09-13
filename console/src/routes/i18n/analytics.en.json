@@ -177,6 +177,9 @@
     "contractsSubtitle": "The source and domain measures behind each vertical signal.",
     "summaryLabel": "Vertical summaries",
     "simulatedTitle": "Illustrative comparison.",
+    "attributionIncomplete": "{count} observed events are not attributed to an operating vertical and are excluded from domain values.",
+    "attributionUnavailable": "One or more operating verticals have no attributed measurement for this window. Missing domain values remain unavailable.",
+    "contractUnavailable": "No vertical-specific measurement was reported for this window.",
     "primary": {
       "autoResolution": "Auto-resolution rate",
       "changeFailureRate": "Change failure rate",

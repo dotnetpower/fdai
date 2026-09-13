@@ -190,8 +190,7 @@ async def test_all_attempted_action_identities_survive_without_upgrading_gate_ro
     results = (
         ExecutionResult(action_id="pr-action", outcome=ExecutorOutcome.PUBLISHED),
         DirectApiExecutionResult(
-            outcome=DirectApiExecutionOutcome.ABSTAINED_PRECONDITION,
-            action_id="api-action",
+            action_id="api-action", outcome=DirectApiExecutionOutcome.ABSTAINED_PRECONDITION
         ),
         ToolCallExecutionResult(
             action_id="tool-action", outcome=ToolCallExecutionOutcome.ABSTAINED_PRECONDITION

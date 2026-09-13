@@ -38,6 +38,7 @@ describe("loadDashboardOverview", () => {
         cost: null,
         gates: null,
         autonomy: null,
+        optionalPending: true,
       });
     });
     expect(client.costGovernance).toHaveBeenCalledWith("overview");
