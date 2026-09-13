@@ -207,7 +207,6 @@ case "$service" in
     service_command=(
       env
       VITE_DEV_MODE=0
-      VITE_LOCAL_AZURE_CLI_AUTH=0
       VITE_OPERATOR_API_BASE_URL=http://127.0.0.1:8010
       VITE_INGESTION_API_BASE_URL=http://127.0.0.1:8011
       VITE_MANUAL_STUDIO_URL=http://127.0.0.1:5474

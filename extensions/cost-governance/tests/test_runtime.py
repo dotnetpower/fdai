@@ -672,6 +672,59 @@ def test_azure_focus_adapter_accepts_zero_cost_as_a_source_fact() -> None:
     assert page.observations[0].amount == Decimal("0")
 
 
+def test_azure_focus_adapter_normalizes_service_name_for_allowlist() -> None:
+    body: dict[str, object] = {
+        "properties": {
+            "columns": [
+                {"name": "Cost", "type": "Number"},
+                {"name": "UsageDate", "type": "Number"},
+                {"name": "ServiceName", "type": "String"},
+                {"name": "Currency", "type": "String"},
+            ],
+            "rows": [["12.5", 20280101, "  Azure Container Apps  ", "USD"]],
+        },
+    }
+    adapter = AzureFocusObservationAdapter(
+        transport=Transport(body),
+        credential=Credential(),
+        ontology_release_id=_RELEASE_ID,
+        ontology_release_digest=_RELEASE,
+        clock=lambda: _NOW,
+    )
+    page = asyncio.run(
+        adapter.collect_cost_page(
+            CostCollectionRequest(
+                package_id="cost-governance",
+                scope_id=_SCOPE,
+                start_at=_NOW - timedelta(days=1),
+                end_at=_NOW - timedelta(seconds=1),
+                page_size=10,
+                deadline_at=_NOW + timedelta(minutes=1),
+            ),
+            resume_token=None,
+        )
+    )
+    store = Store()
+
+    result = asyncio.run(
+        CostCollectorService(
+            config=_config(known_service_ids=frozenset({"azure container apps"})),
+            activation=Activation([_activation()]),
+            provider=Provider(page),
+            store=store,
+            clock=lambda: _NOW,
+        ).collect(
+            scope_id=_SCOPE,
+            start_at=_NOW - timedelta(days=1),
+            end_at=_NOW - timedelta(seconds=1),
+        )
+    )
+
+    assert page.observations[0].service_id == "azure container apps"
+    assert result.status == "complete"
+    assert store.appends == 1
+
+
 def test_azure_focus_adapter_rejects_only_null_or_blank_required_facts() -> None:
     body: dict[str, object] = {
         "properties": {

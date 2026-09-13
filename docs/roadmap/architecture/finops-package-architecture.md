@@ -36,14 +36,14 @@ domain code and assets. It does not create another control plane or move authori
 > The runner's exact-registry `AcrPush` assignment imports signed shared runtime images only. It is
 > not a Cost Governance package input and cannot install, enable, promote, or grant package data
 > access.
-> Live-authoritative install, enable, disable, upgrade, second enable, and fail-safe disable
-> receipts now exist. The first collector failed on Azure Cost Management HTTP `429`. The upgraded
-> collector recovered past throttling and reached row parsing, where it exposed a source-fact
-> truthiness defect that rejects numeric zero. Independent effect verification still failed and
-> the package returned to disabled revision 6. Successful post-fix collection, rollback, final
-> enablement, the observation cohort, and independent promotion evidence remain open. The package
-> and its actions remain unvalidated and unpromoted. An earlier protected exact-revision attempt
-> verified Azure context but failed model capability quorum before Terraform planning.
+> Live-authoritative lifecycle receipts now cover installation through the parser release upgrade
+> at revision 7, enable at revision 8, and fail-safe disable at revision 9. That exact release
+> recovered past throttling and preserved numeric zero, but its first enabled collector failed
+> closed because provider `ServiceName` casing was compared byte-for-byte with the deployment-owned
+> lowercase allowlist. Provider service labels are now stripped and case-folded at ingress while
+> unknown values remain rejected. Successful post-fix collection, rollback, final enablement, the
+> observation cohort, and independent promotion evidence remain open. The package and its actions
+> remain unvalidated and unpromoted.
 > The packaged semantic profile and parity corpus always pin the active ontology release; an
 > additive kernel declaration refreshes their profile, manifest, and fixture identities together.
 > Container publication verifies the protected workflow source before any manual-dispatch
@@ -380,6 +380,7 @@ activation state, provider binding, or promotion authority.
 | Lifecycle release guard cannot evaluate | The transaction rolls back; the activation revision and current pin stay unchanged, and no success receipt is created. |
 | Azure Cost Management returns `429` | Retry the read once only when the provider supplies a valid retry delay that fits the request deadline; otherwise fail before storing observations. |
 | Cost row contains a numeric zero | Preserve zero as a valid measured fact; only an absent, `null`, or blank required field is missing. |
+| Provider service-label casing differs from the deployment allowlist | Strip and case-fold the provider label before matching it to the canonical allowlist; a genuinely unknown service still fails before any cursor write. |
 | Cost observation stale or incomplete | Detector holds the result or emits explicit unknown evidence. |
 | Estimator timeout or unsupported SKU | Cost remains unknown and cannot raise authority. |
 | Package disabled during work | New candidates stop; accepted work follows the existing idempotent lifecycle to a terminal audit result. |

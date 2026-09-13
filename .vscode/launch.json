@@ -140,7 +140,6 @@
       "command": "npm run dev -- --host 127.0.0.1 --port 5273 --strictPort",
       "cwd": "${workspaceFolder}/console",
       "env": {
-        "VITE_LOCAL_AZURE_CLI_AUTH": "0",
         "VITE_DEV_MODE": "0",
         "VITE_LOCAL_LOGIN_PROMPT": "0",
         "VITE_OPERATOR_API_BASE_URL": "http://127.0.0.1:8010",

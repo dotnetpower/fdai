@@ -223,7 +223,7 @@ class AzureFocusObservationAdapter(CostObservationProvider):
             end = start + timedelta(days=1)
         except (InvalidOperation, ValueError) as exc:
             raise ValueError("FOCUS row has invalid amount or time") from exc
-        service_id = str(row["ServiceName"]).strip()
+        service_id = str(row["ServiceName"]).strip().casefold()
         currency = str(row["Currency"]).strip().upper()
         source_digest = hashlib.sha256(f"{request.scope_id}\0{service_id}".encode()).hexdigest()[
             :24

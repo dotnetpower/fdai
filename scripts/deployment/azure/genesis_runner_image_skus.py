@@ -96,6 +96,11 @@ def image_vm_selections(projection: bytes, *, region: str) -> tuple[PlannedVmSku
 def selection_sizes(value: object) -> tuple[str, str]:
     """Validate the optional, review-bound selection record before displaying or using it."""
 
+    version_two = (
+        isinstance(value, dict)
+        and value.get("schema_version") == "fdai.runner-image-sku-selection.v2"
+    )
+    extra_keys = {"foundation_vm_size", "image_disk_gib"} if version_two else set()
     if (
         not isinstance(value, dict)
         or set(value)
@@ -109,7 +114,9 @@ def selection_sizes(value: object) -> tuple[str, str]:
             "checked_at",
             "capacity_reserved",
         }
-        or value["schema_version"] != "fdai.runner-image-sku-selection.v1"
+        | extra_keys
+        or value["schema_version"]
+        not in ("fdai.runner-image-sku-selection.v1", "fdai.runner-image-sku-selection.v2")
         or value["capacity_reserved"] is not False
     ):
         raise CheckError(PLAN_INVALID, 3)
@@ -119,6 +126,13 @@ def selection_sizes(value: object) -> tuple[str, str]:
     for key in ("build_vm_size", "verify_vm_size"):
         if not isinstance(value[key], str) or _SKU.fullmatch(value[key]) is None:
             raise CheckError(PLAN_INVALID, 3)
+    if version_two and (
+        not isinstance(value["foundation_vm_size"], str)
+        or _SKU.fullmatch(value["foundation_vm_size"]) is None
+        or type(value["image_disk_gib"]) is not int
+        or value["image_disk_gib"] != 64
+    ):
+        raise CheckError(PLAN_INVALID, 3)
     stamp = value["checked_at"]
     if not isinstance(stamp, str):
         raise CheckError(PLAN_INVALID, 3)
