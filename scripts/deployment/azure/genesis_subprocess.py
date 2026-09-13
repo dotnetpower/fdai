@@ -14,8 +14,9 @@ from pathlib import Path
 from typing import TextIO
 
 DEFAULT_HEARTBEAT_SECONDS = 10.0
-_TERMINATION_GRACE_SECONDS = 1.0
-_FORWARDED_TERMINATION_GRACE_SECONDS = 0.25
+_TERMINATION_GRACE_SECONDS = 3.0
+_MAX_PROCESS_DEPTH = 8
+_PROCESS_DEPTH_ENV = "FDAI_GENESIS_PROCESS_DEPTH"
 
 
 class _CallerTermination(BaseException):
@@ -60,12 +61,22 @@ def run_with_heartbeat(
     if input_text is not None and (not isinstance(input_text, str) or len(input_text) > 8192):
         raise ValueError("Genesis command input must be text within 8192 characters")
 
+    depth_text = os.environ.get(_PROCESS_DEPTH_ENV, "0")
+    if not depth_text.isascii() or not depth_text.isdecimal():
+        raise ValueError("Genesis process nesting is invalid")
+    depth = int(depth_text)
+    if not 0 <= depth < _MAX_PROCESS_DEPTH:
+        raise ValueError("Genesis process nesting exceeds its bound")
+    child_environment = dict(os.environ if env is None else env)
+    child_environment[_PROCESS_DEPTH_ENV] = str(depth + 1)
+    forwarded_grace = (_MAX_PROCESS_DEPTH - depth) * 0.25
+
     stream = heartbeat_stream if heartbeat_stream is not None else sys.stderr
     command = tuple(arguments)
     process = subprocess.Popen(  # noqa: S603 - callers supply fixed repository/tool commands
         command,
         cwd=cwd,
-        env=env,
+        env=child_environment,
         stdin=subprocess.PIPE if input_text is not None else subprocess.DEVNULL,
         stdout=subprocess.PIPE if capture_output else None,
         stderr=subprocess.PIPE if capture_output else None,
@@ -109,7 +120,7 @@ def run_with_heartbeat(
                 stderr,
             )
     except _CallerTermination:
-        _terminate_process_group(process, grace_seconds=_FORWARDED_TERMINATION_GRACE_SECONDS)
+        _terminate_process_group(process, grace_seconds=forwarded_grace)
         raise SystemExit(128 + signal.SIGTERM) from None
     except BaseException:
         if process.poll() is None:

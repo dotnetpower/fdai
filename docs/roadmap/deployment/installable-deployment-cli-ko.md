@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: ca801f9d7df59921e6836098b317eaa0e509dbd7
+translation_source_sha: fc3c96201d0b843b472ea3fbc99876ab7bce4edb
 translation_revised: 2026-09-13
 ---
 # 설치형 배포 CLI
@@ -90,7 +90,7 @@ Installer는 system 도구를 변경하지 않습니다. `fdaictl doctor`가 누
 폐쇄망 설치는 키트 외부의 신뢰된 검증기로 서명 키트를 인증하고 wheel을 다이제스트 확인
 비공개 스냅샷으로 복사한 뒤 해당 스냅샷에서만 설치합니다. 같은 검증기가 Terraform이 읽기
 전에 서명 번들을 안전하게 풀고 검증합니다. 범용 Console 아티팩트는 환경이 격리된 오프라인 빌드를 사용하며 호스트 기본값이 아닌 설치 시점 구성을 요구합니다. 설치된 `fdaictl`이 검증을 다시 수행합니다.
-`fdaictl`은 설치된 Python을 고정된 Genesis 실행기에 전달하며 계획 생성과 재검증도 같은 CLI 인터프리터를 사용합니다. 최외곽 제한 시간은 조정기만 강제 종료하지 않고 프로세스 그룹의 정상 정리 시간을 확보합니다. 모든 Terraform 바이너리와 공급자 경로는 원본 키트가 아니라 비공개 스냅샷을 사용합니다.
+`fdaictl`은 설치된 Python을 고정된 Genesis 실행기에 전달하며 계획 생성과 재검증도 같은 CLI 인터프리터를 사용합니다. 최외곽 제한 시간은 프로세스 그룹의 정상 정리 시간을 확보하며 최대 8층의 중첩 Genesis 종료 유예는 깊어질수록 줄어듭니다. 모든 Terraform 바이너리와 공급자 경로는 원본 키트가 아니라 비공개 스냅샷을 사용합니다.
 아티팩트 메타데이터 및 콘텐츠 서술자는 비차단 및 심볼릭 링크 차단 모드로 열고 열린 뒤 파일
 정체성을 검증하므로 검사와 열기 사이의 교체가 검증을 멈추게 할 수 없습니다.
 연결된 준비는 다이제스트가 고정된 `build-runtime-release.py`의 전체 런타임 v2만 수락하고,

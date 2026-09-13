@@ -14,19 +14,22 @@ from fdai_deployment_cli.foundation_process import run_foundation_process
 ROOT = Path(__file__).resolve().parents[3]
 
 
-def test_installed_outer_deadline_gracefully_stops_nested_genesis(tmp_path):
+@pytest.mark.parametrize("nested_stages", [1, 2, 3])
+def test_installed_outer_deadline_gracefully_stops_nested_genesis(tmp_path, nested_stages):
     pid_file = tmp_path / "effect-pid"
     effect = (
         "import os, signal; signal.signal(signal.SIGTERM, signal.SIG_IGN); "
         f"open({str(pid_file)!r}, 'w').write(str(os.getpid())); signal.pause()"
     )
-    stage = (
-        "import sys\nfrom pathlib import Path\n"
-        f"sys.path.insert(0, {str(ROOT / 'scripts/deployment/azure')!r})\n"
-        "from genesis_subprocess import run_with_heartbeat\n"
-        f"run_with_heartbeat((sys.executable, '-c', {effect!r}), "
-        "cwd=Path.cwd(), timeout=20, capture_output=True)\n"
-    )
+    stage = effect
+    for _ in range(nested_stages):
+        stage = (
+            "import sys\nfrom pathlib import Path\n"
+            f"sys.path.insert(0, {str(ROOT / 'scripts/deployment/azure')!r})\n"
+            "from genesis_subprocess import run_with_heartbeat\n"
+            f"run_with_heartbeat((sys.executable, '-c', {stage!r}), "
+            "cwd=Path.cwd(), timeout=20, capture_output=True)\n"
+        )
     try:
         with pytest.raises(subprocess.TimeoutExpired):
             run_foundation_process(
