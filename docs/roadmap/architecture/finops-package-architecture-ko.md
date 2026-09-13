@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 51ea135501c5dd85174648f5a3553211fec8c7dc
+translation_source_sha: 25cf0caf47555daf26a522faf4774e9fc7677de7
 translation_revised: 2026-09-13
 ---
 
@@ -38,16 +38,13 @@ translation_revised: 2026-09-13
 > 실행기의 정확한 registry 범위 `AcrPush` 배정은 서명된 공유 런타임 이미지만 가져옵니다. 이
 > 배정은 Cost Governance 패키지 입력이 아니며 패키지 설치, 활성화, 승격 또는 데이터 접근 권한
 > 부여에 사용할 수 없습니다.
-> Live-authoritative 설치, 활성화, 비활성화, 업그레이드, 두 번째 활성화 및 안전 비활성화 증적이
-> 현재 존재합니다. 첫 collector는 Azure Cost Management HTTP `429`로 실패했습니다. 업그레이드된
-> collector는 속도 제한을 통과하고 행 parsing에 도달했으며, 이 과정에서 숫자 0을 누락으로
-> 판단하는 원본 사실 truthiness 결함이 드러났습니다. 독립 효과 검증은 다시 실패했고 패키지는
-> 비활성 revision 6으로 돌아갔습니다. 이후의 정확한 release는 숫자 0을 보존했지만, 처음 활성화한
-> collector는 프로바이더 `ServiceName`의 대소문자를 배포 소유 lowercase 허용 목록과 byte 단위로
-> 비교해 안전하게 실패했습니다. 이제 프로바이더 서비스 레이블을 입력 경계에서 앞뒤 공백 제거와
-> case-fold 처리하며 알 수 없는 값은 계속 거부합니다. 수정 후 성공한 수집, 롤백, 관찰 실측군 및
-> 독립 승격 근거는 아직 완료되지 않았습니다. 패키지와 액션은 운영 검증 또는 승격 완료 상태가
-> 아닙니다.
+> Live-authoritative 수명 주기 증적은 설치부터 parser release 업그레이드 revision 7, 활성화
+> revision 8, 안전 비활성화 revision 9까지 포함합니다. 해당 exact release는 속도 제한을 통과하고
+> 숫자 0을 보존했지만, 처음 활성화한 collector는 프로바이더 `ServiceName`의 대소문자를 배포 소유
+> lowercase 허용 목록과 byte 단위로 비교해 안전하게 실패했습니다. 이제 프로바이더 서비스
+> 레이블을 입력 경계에서 앞뒤 공백 제거와 case-fold 처리하며 알 수 없는 값은 계속 거부합니다.
+> 수정 후 성공한 수집, 롤백, 최종 활성화, 관찰 실측군 및 독립 승격 근거는 아직 완료되지
+> 않았습니다. 패키지와 액션은 운영 검증 또는 승격 완료 상태가 아닙니다.
 > 패키지 semantic profile과 parity corpus는 항상 active ontology release를 고정합니다. 가산
 > kernel 선언이 바뀌면 profile, manifest 및 fixture identity를 함께 갱신합니다.
 > 컨테이너 게시는 수동 디스패치 검증 코드를 실행하기 전에 보호된 워크플로 원본을 검증하고,
