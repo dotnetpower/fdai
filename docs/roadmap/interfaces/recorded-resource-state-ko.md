@@ -1,8 +1,8 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 45e5ce4b4e20d800af930cdbc502609501dd823c
-translation_revised: 2026-09-12
+translation_source_sha: 764eb68098a9c3ce4d0b2f9bca196fbf847652e1
+translation_revised: 2026-09-13
 ---
 # 기록된 리소스 상태
 
@@ -115,6 +115,12 @@ Dashboard는 제한된 크기의 페이지를 읽고 중복 기록이나 변하�
 리소스 검색은 ID와 구성을 확정합니다. 별도로 검토된 상태 보강기는 세대를 승격하기 전에 타입이
 지정된 상태 값과 표준 상태 사실 메타데이터만 추가할 수 있습니다. ID, 구성, 토폴로지 또는
 인벤토리 관측 시각을 대체할 수 없습니다.
+
+모든 전체 새로 고침은 범위가 제한된 공급자 속성을 잘라내기 전에 권위 있는 구독 및 Resource Group
+범위를 보존합니다. 이 계약은 ARG 행, 직접 ARM 자식 컬렉션, Resource Changes 보강 및 Activity Log
+변경분에 동일하게 적용됩니다. 로컬 권위 새로 고침과 장기 실행 수집기는 런타임 호출, Resource Health,
+Static Web App 및 Kubernetes 보강을 같은 순서로 조합합니다. 사용할 수 없거나 지원되지 않는 원본은
+제한 사항을 기록하며 프로비저닝 상태에서 정상 여부를 파생하지 않습니다.
 
 승격된 Resource 사실은 하나의 세대 일치 검사 아래에서 현재 `ontology_resource` Resource와
 Operator가 읽을 수 있는 인벤토리 변환 결과에 함께 기록됩니다. Core 대화 함수는 온톨로지

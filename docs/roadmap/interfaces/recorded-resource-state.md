@@ -120,6 +120,13 @@ Resource discovery establishes identity and configuration. A separate reviewed s
 add only a typed state value and canonical state-fact metadata before the generation is promoted.
 It cannot replace identity, configuration, topology, or inventory observation time.
 
+Every full refresh preserves authoritative subscription and Resource Group scope before bounded
+vendor properties are truncated. This applies equally to ARG rows, direct ARM child collections,
+Resource Changes hydration, and Activity Log deltas. The local authoritative refresh and the
+long-running collector compose the same ordered runtime-call, Resource Health, Static Web App, and
+Kubernetes enrichment pipeline. An unavailable or unsupported source records its limitation and
+never derives health from provisioning state.
+
 The promoted Resource fact is written to both the current `ontology_resource` Resource and the
 Operator-readable inventory projection under one generation fence. Core conversational functions
 read the ontology instance. Operator instance and batch-state reads use the service-approved
