@@ -657,6 +657,11 @@ async def test_campaign_retention_uses_grace_and_legal_hold_before_tombstone(
     store = PostgresCostGovernanceValidationStore(dsn=disposable_database_url)
 
     assert await store.append_cost_campaign_episode(episode, expected_revision=0)
+    assert await store.read_cost_campaign_episodes(
+        episode.campaign_id,
+        episode.revision_pin_digest,
+        limit=10,
+    ) == (episode,)
     assert await store.set_validation_legal_hold(
         evidence_kind="campaign-episode",
         evidence_id=episode.episode_id,
