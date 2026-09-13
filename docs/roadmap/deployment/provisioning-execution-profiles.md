@@ -29,6 +29,7 @@ that applies before Terraform changes infrastructure or role assignments.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-13 | implemented | Start the coordinator budget before preparation, cap Foundation approval by current remaining time, and recompute the application handoff after Foundation and identity work. | `current change`; three previously failing fake-clock regressions and existing coordinator tests. | Bound each application transport operation by that remaining budget. |
 | 2026-09-13 | implemented | Enforce the release HTTPS host/port allowlist before every redirect request, not only after the final response. | `current change`; three reproduced disallowed-target contacts; real urllib redirect-chain tests with synthetic HTTP transport and an allowed CDN control. | Publish the corrected CLI; no allowlist expansion or live retry is implied. |
 | 2026-09-13 | implemented | Proved an existing offline cache cannot silently adopt an explicit online source without a bound source record. | `current change`; directory and archive cross-mode regressions stop before network I/O and preserve prior bytes. | Default-version legacy adoption still requires complete signature and snapshot verification. |
 | 2026-09-13 | implemented | Proved local-directory acquisition executes the authenticated private snapshot, not later changes to the original bundle; a later retry rejects that changed source. | `current change`; deterministic source-replacement regression passed without production changes. | Preserve signature and complete snapshot checks in both modes. |
@@ -114,6 +115,8 @@ If an apply outcome is ambiguous, the next invocation runs a zero-change plan an
 readback only. It never repeats the apply from the retained claim. A changed Foundation run,
 network/state handoff, Entra binding, provider configuration, or signed kit requires a distinct
 prepared context.
+The invocation budget begins before preparation. Approval waits and application handoff use
+current remaining time; an expired budget starts no next stage and cannot produce readiness.
 
 The command discovers an operator-held mode-`0600` license issuer key from an explicit option or the
 documented user configuration path. When the key exists, it issues a deployment- and image-bound
