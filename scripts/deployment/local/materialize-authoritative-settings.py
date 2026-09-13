@@ -336,14 +336,20 @@ async def materialize(
     artifact_value = os.environ.get("LLM_RESOLVED_MODELS_PATH", "").strip()
     if not dsn:
         raise RuntimeError("FDAI_STATE_STORE_DSN MUST be configured")
-    if not artifact_value:
-        raise RuntimeError("LLM_RESOLVED_MODELS_PATH MUST be configured")
-    artifact = Path(artifact_value).expanduser().resolve()
-    raw = json.loads(artifact.read_text(encoding="utf-8"))
-    if not isinstance(raw, Mapping):
-        raise RuntimeError("resolved model artifact MUST be a JSON object")
-    observed_at = datetime.fromtimestamp(artifact.stat().st_mtime, tz=UTC)
-    active_digest = _canonical_json_digest(raw)
+    if artifact_value:
+        artifact = Path(artifact_value).expanduser().resolve()
+        raw = json.loads(artifact.read_text(encoding="utf-8"))
+        if not isinstance(raw, Mapping):
+            raise RuntimeError("resolved model artifact MUST be a JSON object")
+        observed_at = datetime.fromtimestamp(artifact.stat().st_mtime, tz=UTC)
+        active_digest = _canonical_json_digest(raw)
+    else:
+        # No resolved-model artifact is configured (no Azure OpenAI account
+        # resolved yet). Materialize an honest "no models resolved" snapshot
+        # instead of failing preparation; Settings > Models renders unavailable.
+        raw = {}
+        observed_at = datetime.now(UTC)
+        active_digest = None
     domains = tuple(
         value.strip()
         for value in os.environ.get("FDAI_WEB_SEARCH_ALLOWED_DOMAINS", "").split(",")

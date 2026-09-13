@@ -1,7 +1,7 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: cbc6481eff943325aa290ef3b24fc4b78bc29ffc
+translation_source_sha: b036f144e4e478e39acc318b686449249078188a
 translation_revised: 2026-09-13
 ---
 # WAF 및 CAF 근거 기반 평가
@@ -198,6 +198,9 @@ WAF는 기존 Controls 보기에 유지합니다. CAF는 동일하게 차분한 
 공유 로컬 카탈로그 materializer는 프레임워크 변환 결과와 온톨로지 근거 상태를 분리합니다.
 활성 인벤토리와 온톨로지 변환 결과의 세대가 다르면 서로 다른 세대의 시각이나 개수를 카탈로그
 집합에 결합하지 않고 명시적인 사용 불가 근거를 게시합니다.
+저장소의 매핑 문서는 사용 가능한 경우 PyYAML의 컴파일된 안전 로더로 읽으며, 없으면 Python
+안전 로더를 사용합니다. 매번 현재 파일을 읽고 최상위 매핑과 타입이 지정된 카탈로그 검증을
+유지하며 안전하지 않은 YAML 태그를 거부합니다. 파싱 속도 개선은 근거나 권한을 부여하지 않습니다.
 
 ## 검증 및 실제 근거
 
