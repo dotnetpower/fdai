@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 6317f13bebbf8c48ff32351c336c7364273eed24
-translation_revised: 2026-09-11
+translation_source_sha: 2405504a2e9d15512d5f278cc0d1d00ad2788dad
+translation_revised: 2026-09-13
 ---
 # 지속형 질문 공간
 
@@ -66,8 +66,9 @@ Console 시작 질문 카탈로그를 포함해 연결된 원본이 변경되면
 원본 다이제스트만 변경된 경우 다시 생성해도 모든 논리 질문 신원, 검토 상태 및 분모를
 유지합니다. 파생 약속값이 최종 병합 원본 집합을 결속하도록 upstream 통합 뒤에 다시
 생성합니다.
-`uv run python scripts/automation/build_question_bank.py`를 실행해야 하며 생성된 두 산출물을
-직접 편집하는 방식은 지원하지 않습니다.
+표시 문구만 변경해도 `uv run python scripts/automation/build_question_bank.py`를 실행한 뒤
+`uv run python scripts/automation/build_semantic_intent_coverage.py`로 의존하는 CQAS 인벤토리도
+다시 생성해야 합니다. 생성된 산출물을 직접 편집하는 방식은 지원하지 않습니다.
 
 등록된 원본은 현재 논리 질문 400개를 구체화합니다. 검토된 Golden 기대값 35개, 이중 언어
 수동 질문 쌍 60개, Console 시작 질문 5개, 운영자 후보 300개로 구성됩니다. 운영자 후보 중
