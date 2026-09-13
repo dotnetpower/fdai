@@ -66,7 +66,7 @@ Preparation fixes the host; the versioned image review seals the pair and host q
 Before planning and unclaimed apply, host checks use actual managed-image or exact gallery-version
 disk size. Gallery definitions require generalized x64/Gen2 Linux and one completed target-region replica; case/space aliases never permit duplicate evidence.
 Apply rechecks sealed choices, quota, expiry, and approval. After host and human-identity reads,
-Foundation revalidates the exact plan and expiry before its claim. Existing claims only verify
+Foundation revalidates the exact plan and expiry before its claim. Existing claims, including partial effects without receipts, only verify
 effects: no reselection, resize, region switch, or repeat apply. Legacy signed policies retain their
 original contract. Complete standalone kit builds require a fresh output directory and never erase a prior release. No capacity or price is guaranteed; recovery and deployment verification remain
 separate. Checkout changes require a new signed kit before operational use.

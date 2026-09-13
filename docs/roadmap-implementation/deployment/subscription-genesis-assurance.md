@@ -114,6 +114,7 @@ An unconfirmed hypothesis is not a defect; a passing local test is not release o
 | H05 | Aggregate quota and missing-family semantics | Rejected the proposed zero-quota fallback: missing usage is unknown. Added exhaustive same/different-family demand and ordering regressions; no production defect reproduced. | `test_genesis_vm_quota_properties.py`: 40 passing combinations | Low: metadata cannot reserve allocation capacity. |
 | H06 | Pagination can reset acquisition bounds | Rejected: the existing reader maintains cumulative bytes/deadline and a visited-page set. Added multi-page counterexamples rather than widening the schema or limits. | Catalog suite: 24 passed | Low: incomplete acquisition remains a blocker, not an empty available catalog. |
 | H07 | Gallery region normalization and ambiguous replicas | Rejected the reported region-normalization defect: display/canonical names already normalize. Added mixed-region, alias-duplicate, and definition/version duplicate-JSON regressions. | Image requirements suite: 28 passed | Low: a metadata match is not independent image provenance. |
+| H08 | Partial claim may rerank or replay apply | Rejected: a claim without a receipt already selects verification only. Added success/failure readback cases that forbid quota refresh, new claims, and apply while preserving original claim bytes. | Claim/expiry integration slice: 6 passed | Low: failed effect verification remains incomplete and needs a separately approved recovery. |
 
 ## Critique resolution register
 
