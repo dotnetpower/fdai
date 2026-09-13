@@ -17,6 +17,12 @@ interface AnalyticsDataOptions {
   readonly dataMode?: ConsoleDataMode;
 }
 
+interface AutonomyRequestState {
+  readonly client: OperatorApiClient;
+  readonly dataMode: ConsoleDataMode;
+  readonly state: AsyncState<AutonomyPayload | null>;
+}
+
 async function optional<T>(load: () => Promise<T>): Promise<T | null> {
   try {
     return await load();
@@ -100,23 +106,45 @@ export function useAutonomyData(
   client: OperatorApiClient,
   dataMode: ConsoleDataMode,
 ): AsyncState<AutonomyPayload | null> {
-  const [state, setState] = useState<AsyncState<AutonomyPayload | null>>({ status: "loading" });
+  const [request, setRequest] = useState<AutonomyRequestState>({
+    client,
+    dataMode,
+    state: { status: "loading" },
+  });
   useEffect(() => {
     let cancelled = false;
+    setRequest({ client, dataMode, state: { status: "loading" } });
     void (async () => {
       try {
         const data = await loadAutonomyDataForMode(dataMode, client);
-        if (!cancelled) setState({ status: "ready", data });
+        if (!cancelled) {
+          setRequest({ client, dataMode, state: { status: "ready", data } });
+        }
       } catch (error) {
         if (!cancelled) {
-          setState({
-            status: "error",
-            message: error instanceof Error ? error.message : String(error),
+          setRequest({
+            client,
+            dataMode,
+            state: {
+              status: "error",
+              message: error instanceof Error ? error.message : String(error),
+            },
           });
         }
       }
     })();
     return () => { cancelled = true; };
   }, [client, dataMode]);
-  return state;
+  return autonomyStateForRequest(request, client, dataMode);
+}
+
+/** Hide a completed result as soon as the active request identity changes. */
+export function autonomyStateForRequest(
+  request: AutonomyRequestState,
+  client: OperatorApiClient,
+  dataMode: ConsoleDataMode,
+): AsyncState<AutonomyPayload | null> {
+  return request.client === client && request.dataMode === dataMode
+    ? request.state
+    : { status: "loading" };
 }

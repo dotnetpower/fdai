@@ -43,9 +43,45 @@ function unattributedMeasurement(): AutonomyPayload {
   };
 }
 
+function zeroCostMeasurement(): AutonomyPayload {
+  const measurement = unattributedMeasurement();
+  return {
+    ...measurement,
+    attribution: {
+      attributed_events: 12,
+      unattributed_events: 0,
+      coverage: 1,
+    },
+    verticals: [
+      {
+        key: "resilience",
+        events: 12,
+        auto_resolved: 8,
+        open_risks: 4,
+        monthly_savings: 0,
+      },
+      {
+        key: "change_safety",
+        events: 0,
+        auto_resolved: 0,
+        open_risks: 0,
+        monthly_savings: 0,
+      },
+      {
+        key: "cost",
+        events: 0,
+        auto_resolved: 0,
+        open_risks: 0,
+        monthly_savings: 0,
+      },
+    ],
+  };
+}
+
 async function mockApi(
   page: Page,
   autonomy: AutonomyPayload | null = unattributedMeasurement(),
+  waitForAutonomy: Promise<void> = Promise.resolve(),
 ): Promise<void> {
   const auditSample = DASHBOARD_SAMPLE_DATA.kpi.audit_sample;
   if (auditSample === null) {
@@ -63,9 +99,10 @@ async function mockApi(
       return;
     }
     if (path === "/kpi/autonomy") {
+      await waitForAutonomy;
       await route.fulfill(autonomy === null
         ? { status: 404, json: { detail: "Measurement source unavailable" } }
-        : { json: autonomy });
+        : { json: { schema_version: "1.0.0", ...autonomy } });
       return;
     }
     await route.fulfill({
@@ -136,6 +173,32 @@ async function textContrast(page: Page, selectors: readonly string[]) {
   }, selectors);
 }
 
+test("clears stale Sample outcomes while a Live measurement is loading", async ({ page }) => {
+  let releaseAutonomy!: () => void;
+  const waitForAutonomy = new Promise<void>((resolve) => {
+    releaseAutonomy = resolve;
+  });
+  await mockApi(page, unattributedMeasurement(), waitForAutonomy);
+  await page.goto("/verticals?data=sample&locale=ko");
+  await expect(page.locator(".vertical-summary .status-pill")).toHaveText([
+    "시뮬레이션",
+    "시뮬레이션",
+    "시뮬레이션",
+  ]);
+
+  await page.getByRole("button", { name: "Live", exact: true }).click();
+  await expect(page.locator(".loading-skeleton")).toBeVisible();
+  await expect(page.locator(".vertical-summary")).toHaveCount(0);
+
+  releaseAutonomy();
+  await expect(page.locator(".loading-skeleton")).toHaveCount(0);
+  await expect(page.locator(".vertical-summary .status-pill")).toHaveText([
+    "근거 없음",
+    "근거 없음",
+    "근거 없음",
+  ]);
+});
+
 test("keeps the vertical structure visible when the measurement projection is unavailable", async ({
   page,
 }, testInfo) => {
@@ -152,7 +215,10 @@ test("keeps the vertical structure visible when the measurement projection is un
     "근거 없음",
     "근거 없음",
   ]);
-  await expect(page.locator(".vertical-comparison-row:not(.is-header)")).toHaveCount(3);
+  await expect(page.locator(".vertical-comparison-table tbody tr")).toHaveCount(3);
+  await expect(page.locator(".vertical-comparison-table thead th")).toHaveCount(6);
+  await page.locator(".vertical-comparison-table tbody a").first().focus();
+  await expect(page.locator(".vertical-comparison-table tbody a").first()).toBeFocused();
   await expect(page.locator(".vertical-contract-list a")).toHaveCount(3);
   await page.locator(".vertical-summary-link").first().focus();
   await expect(page.locator(".vertical-summary-link").first()).toBeFocused();
@@ -177,10 +243,24 @@ test("keeps the vertical structure visible when the measurement projection is un
   });
   await page.screenshot({ path: testInfo.outputPath("unavailable-desktop-ko.png") });
 
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.locator(".vertical-summary")).toHaveCount(3);
-  expectNoOverflow(await routeGeometry(page));
-  await page.screenshot({ path: testInfo.outputPath("unavailable-mobile-ko.png") });
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect(page.locator(".vertical-summary")).toHaveCount(3);
+    expectNoOverflow(await routeGeometry(page));
+    await page.screenshot({ path: testInfo.outputPath(`unavailable-${width}-ko.png`) });
+  }
+});
+
+test("keeps zero-event savings unavailable in every presentation", async ({ page }) => {
+  await mockApi(page, zeroCostMeasurement());
+  await page.goto("/verticals?locale=en");
+
+  const costCard = page.locator(".vertical-summary").filter({ hasText: "Cost Governance" });
+  await expect(costCard.locator(".vertical-primary-signal > b")).toHaveText("Unavailable");
+
+  const costRow = page.locator(".vertical-comparison-table tbody tr")
+    .filter({ hasText: "Cost Governance" });
+  await expect(costRow.locator("td").last()).toHaveText("Unavailable");
 });
 
 test("keeps all vertical content visible when live measurements are unattributed", async ({
@@ -206,10 +286,10 @@ test("keeps all vertical content visible when live measurements are unattributed
     "근거 없음",
   ]);
 
-  const comparisonRows = page.locator(".vertical-comparison-row:not(.is-header)");
+  const comparisonRows = page.locator(".vertical-comparison-table tbody tr");
   await expect(comparisonRows).toHaveCount(3);
   for (let rowIndex = 0; rowIndex < 3; rowIndex += 1) {
-    const cells = comparisonRows.nth(rowIndex).locator("[role='cell']");
+    const cells = comparisonRows.nth(rowIndex).locator("th, td");
     await expect(cells).toHaveCount(6);
     await expect(cells.nth(1)).toHaveText("근거 없음");
     await expect(cells.nth(2)).toHaveText("근거 없음");
@@ -218,7 +298,10 @@ test("keeps all vertical content visible when live measurements are unattributed
     await expect(cells.nth(5)).toHaveText("근거 없음");
   }
   await expect(page.locator(".vertical-contract-list a")).toHaveCount(3);
-  await expect(page.locator(".vertical-outcomes a[href*='vertical=']")).toHaveCount(0);
+  await expect(page.locator("a[href^='/incidents?'][href*='vertical=resilience']")).toHaveCount(3);
+  await expect(page.locator("a[href^='/promotion-gates?']")).toHaveCount(3);
+  await expect(page.locator("a[href^='/promotion-gates?'][href*='vertical=']")).toHaveCount(0);
+  await expect(page.locator("a[href^='/audit?'][href*='vertical=cost_governance']")).toHaveCount(3);
 
   const geometry = await routeGeometry(page);
   expectNoOverflow(geometry);
@@ -237,4 +320,5 @@ test("keeps all vertical content visible when live measurements are unattributed
     "시뮬레이션",
   ]);
   await expect(page.locator(".state-evidence-not-connected")).toHaveCount(0);
+  await expect(page.locator(".vertical-outcomes a[href*='vertical=']")).toHaveCount(0);
 });

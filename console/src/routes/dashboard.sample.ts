@@ -16,9 +16,9 @@ const SAMPLE_KPI: DashboardKpi = {
     verify: 70,
   },
   by_outcome: {
-    auto_resolved: 918,
+    auto_resolved: 922,
     approval_required: 146,
-    held_for_review: 128,
+    held_for_review: 124,
     denied: 88,
   },
   by_tier: {
@@ -29,9 +29,9 @@ const SAMPLE_KPI: DashboardKpi = {
   last_recorded_at: SAMPLE_AT,
   audit_sample: {
     from_seq: 1001,
-    through_seq: 1280,
-    row_count: 280,
-    limit: 500,
+    through_seq: 2280,
+    row_count: 1280,
+    limit: 1280,
   },
 };
 
@@ -51,7 +51,7 @@ const SAMPLE_AUTONOMY: AutonomyPayload = {
     promoted_30d: 3,
   },
   success: {
-    auto_resolution_rate: { value: 0.72, baseline: 0.48, direction: "higher" },
+    auto_resolution_rate: { value: 922 / 1280, baseline: 0.48, direction: "higher" },
     human_touchpoints_per_100: { value: 11, baseline: 24, direction: "lower" },
     mttr_seconds: { value: 540, baseline: 1320, direction: "lower" },
     change_lead_time_seconds: { value: 960, baseline: 2100, direction: "lower" },
@@ -68,19 +68,20 @@ const SAMPLE_AUTONOMY: AutonomyPayload = {
     { key: "effect_verification", value: 0.992, baseline: 0.95, threshold: 0.98, ok: true },
   ],
   finalization: {
-    finalized_events: 1192,
+    finalized_events: 922,
     pending_events: 88,
     adverse_events: 0,
   },
   attribution: {
     attributed_events: 1244,
     unattributed_events: 36,
-    coverage: 0.972,
+    coverage: 1244 / 1280,
   },
   verticals: [
     { key: "resilience", events: 480, auto_resolved: 358, open_risks: 2, monthly_savings: 18400 },
-    { key: "change-safety", events: 510, auto_resolved: 372, open_risks: 1, monthly_savings: 12600 },
-    { key: "cost-governance", events: 290, auto_resolved: 188, open_risks: 0, monthly_savings: 37200 },
+    { key: "change_safety", events: 510, auto_resolved: 372, open_risks: 1, monthly_savings: 12600 },
+    { key: "cost", events: 254, auto_resolved: 188, open_risks: 0, monthly_savings: 37200 },
+    { key: "unattributed", events: 36, auto_resolved: 4, open_risks: 0, monthly_savings: 0 },
   ],
   tier: {
     mix: { t0: 0.7, t1: 0.25, t2: 0.05 },

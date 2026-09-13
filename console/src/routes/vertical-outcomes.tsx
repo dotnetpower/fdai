@@ -49,6 +49,10 @@ export function verticalPayloadKey(slug: string): string {
   return slug;
 }
 
+export function verticalEvidenceKey(slug: VerticalSlug): string {
+  return slug.replaceAll("-", "_");
+}
+
 export function verticalRouteSlug(payloadKey: string): string {
   if (payloadKey === "change_safety") return "change-safety";
   if (payloadKey === "cost") return "cost-governance";
@@ -171,7 +175,7 @@ function VerticalSignalCard({
   readonly vertical: VerticalSummary | null;
 }) {
   const primaryMetric = verticalPrimaryMetric(slug);
-  const destination = verticalDestination(slug, vertical, synthetic, context);
+  const destination = verticalDestination(slug, synthetic, context);
   return (
     <article class="vertical-summary">
       <span class="vertical-summary-head">
@@ -250,24 +254,36 @@ function CrossVerticalComparison({
   return (
     <section class="vertical-comparison">
       <header class="vertical-comparison-head"><div><h3>{t("analytics.verticals.comparison")}</h3><p>{t("analytics.verticals.comparisonSubtitle")}</p></div></header>
-      <div class="vertical-comparison-table" role="table" aria-label={t("analytics.verticals.comparison")}>
-        <div class="vertical-comparison-row is-header" role="row">
-          <span role="columnheader">{t("analytics.verticalLabel")}</span><span role="columnheader">{t("analytics.events")}</span><span role="columnheader">{t("analytics.autoResolved")}</span><span role="columnheader">{t("analytics.resolutionRate")}</span><span role="columnheader">{t("analytics.openRisks")}</span><span role="columnheader">{t("analytics.monthlySavings")}</span>
-        </div>
-        {views.map(({ slug, vertical }) => {
-          const rate = vertical === null ? null : verticalResolutionRate(vertical);
-          const unavailable = t("analytics.unavailable");
-          return (
-            <a class="vertical-comparison-row" href={verticalDestination(slug, vertical, autonomy?.synthetic ?? false, context)} role="row" key={slug}>
-              <strong role="cell">{t(`analytics.vertical.${slug}`)}</strong>
-              <span role="cell" class={vertical === null ? "is-unavailable" : undefined}>{vertical?.events ?? unavailable}</span>
-              <span role="cell" class={vertical === null ? "is-unavailable" : undefined}>{vertical?.auto_resolved ?? unavailable}</span>
-              <span role="cell" class={rate === null ? "is-unavailable" : undefined}>{rate === null ? unavailable : formatRate(rate)}</span>
-              <span role="cell" class={vertical === null ? "is-unavailable" : undefined}>{vertical?.open_risks ?? unavailable}</span>
-              <span role="cell" class={vertical === null ? "is-unavailable" : undefined}>{vertical === null ? unavailable : formatMeasuredSavings(vertical.monthly_savings)}</span>
-            </a>
-          );
-        })}
+      <div class="vertical-comparison-scroll">
+        <table class="vertical-comparison-table">
+          <caption class="sr-only">{t("analytics.verticals.comparison")}</caption>
+          <thead>
+            <tr class="vertical-comparison-row is-header">
+              <th scope="col">{t("analytics.verticalLabel")}</th><th scope="col">{t("analytics.events")}</th><th scope="col">{t("analytics.autoResolved")}</th><th scope="col">{t("analytics.resolutionRate")}</th><th scope="col">{t("analytics.openRisks")}</th><th scope="col">{t("analytics.monthlySavings")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {views.map(({ slug, vertical }) => {
+              const rate = vertical === null ? null : verticalResolutionRate(vertical);
+              const savings = vertical === null ? null : verticalMonthlySavings(vertical);
+              const unavailable = t("analytics.unavailable");
+              return (
+                <tr class="vertical-comparison-row" key={slug}>
+                  <th scope="row">
+                    <a href={verticalDestination(slug, autonomy?.synthetic ?? false, context)}>
+                      {t(`analytics.vertical.${slug}`)}
+                    </a>
+                  </th>
+                  <td class={vertical === null ? "is-unavailable" : undefined}>{vertical?.events ?? unavailable}</td>
+                  <td class={vertical === null ? "is-unavailable" : undefined}>{vertical?.auto_resolved ?? unavailable}</td>
+                  <td class={rate === null ? "is-unavailable" : undefined}>{rate === null ? unavailable : formatRate(rate)}</td>
+                  <td class={vertical === null ? "is-unavailable" : undefined}>{vertical?.open_risks ?? unavailable}</td>
+                  <td class={savings === null ? "is-unavailable" : undefined}>{savings === null ? unavailable : formatMeasuredSavings(savings)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </section>
   );
@@ -287,7 +303,7 @@ function EvidenceContracts({
       <header class="vertical-section-head"><div><h3>{t("analytics.verticals.contractsTitle")}</h3><p>{t("analytics.verticals.contractsSubtitle")}</p></div></header>
       <div class="vertical-contract-list">
         {views.map(({ slug, vertical }) => (
-          <a href={verticalDestination(slug, vertical, autonomy?.synthetic ?? false, context)} key={slug}>
+          <a href={verticalDestination(slug, autonomy?.synthetic ?? false, context)} key={slug}>
             <strong>{t(`analytics.vertical.${slug}`)}</strong>
             <span>{vertical === null || autonomy === null
               ? t("analytics.verticals.contractUnavailable")
@@ -317,10 +333,12 @@ function VerticalFact({ label, value }: { readonly label: string; readonly value
   return <div><dt>{label}</dt><dd class={value === undefined ? "is-unavailable" : undefined}>{value ?? t("analytics.unavailable")}</dd></div>;
 }
 
-function verticalDestination(slug: VerticalSlug, vertical: VerticalSummary | null, synthetic: boolean, context: Readonly<Record<string, string>>): string {
-  const verticalKey = synthetic ? null : vertical?.key;
+function verticalDestination(slug: VerticalSlug, synthetic: boolean, context: Readonly<Record<string, string>>): string {
+  const verticalKey = synthetic ? null : verticalEvidenceKey(slug);
   if (slug === "resilience") return routeHref("incidents", { params: { ...context, vertical: verticalKey } });
-  if (slug === "change-safety") return routeHref("promotion-gates", { params: { ...context, vertical: verticalKey } });
+  if (slug === "change-safety") {
+    return routeHref("promotion-gates", { params: { ...context, vertical: null } });
+  }
   return routeHref("audit", { params: { ...context, vertical: verticalKey } });
 }
 
