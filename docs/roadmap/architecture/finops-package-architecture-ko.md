@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: ab222280e2d9cce01f94ebeb77f8a3a79952f41c
+translation_source_sha: 51ea135501c5dd85174648f5a3553211fec8c7dc
 translation_revised: 2026-09-13
 ---
 
@@ -42,7 +42,10 @@ translation_revised: 2026-09-13
 > 현재 존재합니다. 첫 collector는 Azure Cost Management HTTP `429`로 실패했습니다. 업그레이드된
 > collector는 속도 제한을 통과하고 행 parsing에 도달했으며, 이 과정에서 숫자 0을 누락으로
 > 판단하는 원본 사실 truthiness 결함이 드러났습니다. 독립 효과 검증은 다시 실패했고 패키지는
-> 비활성 revision 6으로 돌아갔습니다. 수정 후 성공한 수집, 롤백, 최종 활성화, 관찰 실측군 및
+> 비활성 revision 6으로 돌아갔습니다. 이후의 정확한 release는 숫자 0을 보존했지만, 처음 활성화한
+> collector는 프로바이더 `ServiceName`의 대소문자를 배포 소유 lowercase 허용 목록과 byte 단위로
+> 비교해 안전하게 실패했습니다. 이제 프로바이더 서비스 레이블을 입력 경계에서 앞뒤 공백 제거와
+> case-fold 처리하며 알 수 없는 값은 계속 거부합니다. 수정 후 성공한 수집, 롤백, 관찰 실측군 및
 > 독립 승격 근거는 아직 완료되지 않았습니다. 패키지와 액션은 운영 검증 또는 승격 완료 상태가
 > 아닙니다.
 > 패키지 semantic profile과 parity corpus는 항상 active ontology release를 고정합니다. 가산
@@ -368,6 +371,7 @@ Rule 카탈로그 스냅샷 저장소와 초안 검토 전달은 공유 Core pla
 | 수명 주기 release guard를 평가할 수 없음 | transaction을 롤백하고 활성화 revision과 현재 pin을 바꾸지 않으며 성공 증적을 만들지 않습니다. |
 | Azure Cost Management가 `429`를 반환함 | 프로바이더가 유효한 재시도 대기 시간을 제공하고 그 시간이 요청 기한 안에 있을 때만 읽기를 한 번 재시도합니다. 그렇지 않으면 관측을 저장하기 전에 실패로 종료합니다. |
 | 비용 행에 숫자 0이 포함됨 | 0을 유효한 측정 사실로 보존합니다. 필수 field가 없거나 `null` 또는 빈 문자열일 때만 누락으로 판단합니다. |
+| 프로바이더 서비스 레이블의 대소문자가 배포 허용 목록과 다름 | 프로바이더 레이블의 앞뒤 공백을 제거하고 case-fold 처리한 뒤 정규 허용 목록과 비교합니다. 실제로 알 수 없는 서비스는 cursor를 쓰기 전에 계속 실패합니다. |
 | 오래되거나 불완전한 비용 관측 | 탐지기는 결과를 보류하거나 알 수 없음 근거를 명시적으로 내보냅니다. |
 | 추정기 시간 초과 또는 지원되지 않는 SKU | 비용을 알 수 없는 상태로 유지하며 권한을 높이지 않습니다. |
 | 작업 중 패키지 비활성화 | 새 후보는 중단하고 수락된 작업은 기존의 safe-to-retry 수명 주기를 따라 최종 감사에 도달합니다. |
