@@ -1,0 +1,30 @@
+.ontology-mode .roster { display: none; }
+.ontology-mode .view-switch { margin-bottom: 24px; }
+.recorded-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.recorded-actions button, #recorded-search-form button, #explore-selected { padding: 7px 10px; border: 1px solid #577780; border-radius: 3px; color: #c5e7de; min-height: 34px; font-size: 11px; }
+.recorded-actions .check { margin-left: auto; }
+#recorded-search-form { display: flex; gap: 8px; margin: 12px 0; }
+#recorded-search { flex: 1; min-width: 0; border: 1px solid #577780; background: #0b1720; color: #d9e7ec; padding: 8px; border-radius: 3px; font-size: 12px; }
+.recorded-summary { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; color: #c3e6dd; margin-top: 14px; font: 11px var(--cs-font-mono); }
+#recorded-cutoff, #recorded-coverage, #recorded-error { margin-top: 8px; font-size: 10px; color: #b6c4ce; line-height: 1.6; overflow-wrap: anywhere; }
+#recorded-error { color: #e5c8a1; }
+#recorded-status { color: #b6cbd4; font-size: 10px; }
+.recorded-labels { z-index: 1; }
+.recorded-node-label { color: #d4eee5; max-width: 180px; overflow-wrap: anywhere; font-size: 10px; }
+.recorded-node-label[aria-pressed="true"] { outline: 1px solid #c3f1dd; }
+.recorded-node-label.recorded-changed { border-color: #d6ca98; color: #f4e5b8; }
+.recorded-edge-label { position: absolute; left: 0; top: 0; padding: 3px 5px; font: 9px var(--cs-font-mono); color: #a6c5d1; background: #0a1720e8; border-radius: 2px; pointer-events: none; }
+#recorded-details .source-location { color: #9eb4c1; font: 10px/1.6 var(--cs-font-mono); white-space: pre-line; overflow-wrap: anywhere; margin-block: 10px; }
+#recorded-details .coverage-note { white-space: pre-line; }
+#recorded-details h4 { margin-top: 24px; font-size: 12px; font-weight: 500; }
+#recorded-details section > p { margin-top: 10px; font-size: 11px; line-height: 1.7; color: #b0c3cc; white-space: pre-line; overflow-wrap: anywhere; }
+.recorded-relationships button { text-align: left; width: 100%; padding: 10px 4px; color: #b7d7df; font: 10px/1.6 var(--cs-font-mono); border-bottom: 1px solid #31434f; white-space: pre-line; overflow-wrap: anywhere; }
+.recorded-relationships small { display: block; color: #9aaeba; font-size: 9px; margin-top: 4px; }
+.recorded-actions > span { color: #adc6cf; font-size: 11px; }
+#snapshot-replay-time { margin-top: 7px; color: #b6d6d5; font: 10px var(--cs-font-mono); }
+.ontology-mode .timeline-heading { font-size: 10px; }
+@media (max-width: 760px) {
+  .recorded-actions button, #recorded-search-form button, #explore-selected { min-height: 44px; }
+  .recorded-actions .check { margin-left: 0; }
+  .recorded-relationships button { min-height: 44px; font-size: 11px; }
+}
