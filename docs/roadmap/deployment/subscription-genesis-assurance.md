@@ -47,6 +47,7 @@ External control planes are first-class dependencies:
 New preparation reads the full regional catalog using the signed
 [hardware policy](../../../infra/genesis-runner-image/vm-sku-policy.json). Preferences rank
 compatible x64/Gen2 hardware; unlisted compatible SKUs remain selectable.
+Policy reads hold a bounded no-follow descriptor, reject unsafe ownership/links/write modes, and detect in-read changes. Unavailable CLI contexts fail before provider reads without exposing private paths.
 
 | Role | CPU and memory | OS disk |
 |------|----------------|---------|
@@ -56,19 +57,19 @@ compatible x64/Gen2 hardware; unlisted compatible SKUs remain selectable.
 
 ARM, GPU, confidential, constrained-core, and incompatible storage variants aren't substitutes.
 Catalog reads stay within one exact subscription/region, four pages, 4096 rows, 8 MiB, and 90
-seconds; each request and the separate quota read have 30-second limits. Complete metadata,
-Location/Zone restrictions, and all three VMs' aggregate regional/family quota gate preparation.
+seconds; continuation cannot reset those bounds or repeat a page. Each request and the separate quota read have 30-second limits. Complete metadata,
+Location/Zone restrictions, and all three VMs' aggregate regional/family quota gate preparation. Missing family usage is unknown, never an assumed zero-quota fallback.
 Private replay distinguishes restricted, incompatible, incomplete, and quota outcomes; missing
-hardware leaves candidate counts unknown, never assumed zero.
+hardware leaves candidate counts unknown, never assumed zero. Failed reads retain completed snapshots, their failed stage, and unknown unobserved digests.
 
 Preparation fixes the host; the versioned image review seals the pair and host quota headroom.
 Before planning and unclaimed apply, host checks use actual managed-image or exact gallery-version
-disk size. Gallery definitions require generalized x64/Gen2 Linux and completed regional replication.
+disk size. Gallery definitions require generalized x64/Gen2 Linux and one completed target-region replica; case/space aliases never permit duplicate evidence.
 Apply rechecks sealed choices, quota, expiry, and approval. After host and human-identity reads,
-Foundation revalidates the exact plan and expiry before its claim. Existing claims only verify
+Foundation revalidates the exact plan and expiry before its claim. Existing claims, including partial effects without receipts, only verify
 effects: no reselection, resize, region switch, or repeat apply. Legacy signed policies retain their
-original contract. No capacity or price is guaranteed; recovery and deployment verification remain
-separate. Checkout changes require a new signed kit before operational use.
+original contract. Complete standalone kit builds require a fresh output directory and never erase a prior release. No capacity or price is guaranteed; recovery and deployment verification remain
+separate. Checkout changes require a new signed kit before operational use. Interrupted signing leaves no reusable signature; incomplete metadata must fail independent verification.
 
 ### Image and Foundation execution
 
@@ -104,7 +105,7 @@ Every bounded child command runs in a separate process group. A presentation-onl
 stderr every 10 seconds while the command is still running, and timeout cleanup terminates the
 complete group before the router records failure. Captured stdout and diagnostics aren't rewritten
 or copied into portable status. The local sequence stops after verified Foundation state handoff;
-protected application planning and complete readiness remain separate evidence gates.
+protected application planning and complete readiness remain separate evidence gates. Direct Foundation command and cleanup failures never format private argv or filesystem paths; cleanup precedes success and preserves an original failure. Nested main-thread Genesis execution forwards termination and completes child cleanup before its parent's grace expires. Foundation initially uses Terraform's local backend; only the digest-bound migration archive activates the fixed signed AzureRM backend example for the attested host. Verification-only resume compares every immutable execution file, including signed empty placeholders, against a fresh authenticated bundle, allowing only the exact nonempty private state and backup paths as recovery data, never additional source or apply authority.
 
 Only independent siblings with separate outputs may run concurrently; workers never write portable
 status. The parent joins and deterministically orders results for one transition, waiting for or
@@ -164,7 +165,7 @@ from routes; declared VNet, peer, gateway ranges and non-default routes remain c
 Missing/malformed evidence blocks selection. Fewer than two candidates reports only available and
 required counts with a review action. Selection never edits routes/firewalls or proves reachability.
 
-Standalone uses the verified bundle, not the checkout. Fixes need a rebuilt signed kit;
+Standalone uses the verified bundle, not the checkout. Its exact policy/module file set rejects changed, missing, or extra bytes. Fixes need a rebuilt signed kit;
 editing extracted sources or disabling verification is unsupported.
 
 The profile verifies operator-through-VPN and runner-to-service paths; VPN grants no deployment
