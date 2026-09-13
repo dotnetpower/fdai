@@ -424,13 +424,18 @@ async def test_failed_status_and_unknown_type_dropped() -> None:
                     },
                     {
                         "resourceId": (
-                            "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg"
+                            "/subscriptions/x/resourceGroups/rg/providers/"
+                            "Microsoft.App/agents/agent-one/DataConnectors/connector-one"
                         ),
-                        "resourceType": {
-                            "value": "Microsoft.Resources/subscriptions/resourcegroups"
-                        },
+                        "resourceType": {"value": "Microsoft.App/agents"},
                         "status": {"value": "Succeeded"},
                         "eventTimestamp": "2026-07-10T06:00:02Z",
+                    },
+                    {
+                        "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000001",
+                        "resourceType": {"value": "Microsoft.Resources/checkPolicyCompliance"},
+                        "status": {"value": "Succeeded"},
+                        "eventTimestamp": "2026-07-10T06:00:03Z",
                     },
                 ]
             },
@@ -446,6 +451,41 @@ async def test_failed_status_and_unknown_type_dropped() -> None:
     assert page.relationship_reconciliation_after is None
 
     assert page.resources == ()
+
+
+@pytest.mark.asyncio
+async def test_resource_group_event_alias_maps_to_the_canonical_scope_type() -> None:
+    arm_id = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-a"
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "resourceId": arm_id,
+                        "resourceType": {
+                            "value": "Microsoft.Resources/subscriptions/resourcegroups"
+                        },
+                        "operationName": {
+                            "value": "Microsoft.Resources/subscriptions/resourcegroups/write"
+                        },
+                        "status": {"value": "Succeeded"},
+                        "eventTimestamp": "2026-07-10T06:00:00Z",
+                    }
+                ]
+            },
+        )
+
+    factory, client, _ = _factory(handler)
+    try:
+        page = await factory.build_fetch_fn()("")
+    finally:
+        await client.aclose()
+
+    assert len(page.resources) == 1
+    assert page.resources[0].type == "resource-group"
+    assert page.resources[0].props["providerType"] == "Microsoft.Resources/resourceGroups"
 
 
 @pytest.mark.asyncio
