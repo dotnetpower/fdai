@@ -59,8 +59,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return int(args.handler(args))
-    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+    except ValueError as exc:
         print(f"fdaictl: {exc}", file=sys.stderr)
+        return 3
+    except (OSError, subprocess.SubprocessError):
+        print(
+            "fdaictl: local or child operation failed; inspect retained evidence before recovery",
+            file=sys.stderr,
+        )
         return 3
     except EOFError:
         print("fdaictl: approval input closed; no new approval was granted", file=sys.stderr)

@@ -282,22 +282,27 @@ def deploy_azure_foundation(
 def active_azure_target() -> ActiveAzureTarget:
     """Read the active Azure CLI user target without changing account selection."""
 
-    completed = subprocess.run(
-        (
-            "az",
-            "account",
-            "show",
-            "--query",
-            "{subscription_id:id,tenant_id:tenantId,user_type:user.type}",
-            "--output",
-            "json",
-            "--only-show-errors",
-        ),
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
+    try:
+        completed = subprocess.run(
+            (
+                "az",
+                "account",
+                "show",
+                "--query",
+                "{subscription_id:id,tenant_id:tenantId,user_type:user.type}",
+                "--output",
+                "json",
+                "--only-show-errors",
+            ),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError):
+        raise ValueError(
+            "Azure authentication read failed; inspect the local login context"
+        ) from None
     if completed.returncode != 0:
         raise ValueError("Azure authentication is unavailable; run az login first")
     value = json.loads(completed.stdout)
@@ -328,23 +333,26 @@ def _standalone_subprocess_environment(
 
 
 def _current_operator_object_id() -> str:
-    completed = subprocess.run(
-        (
-            "az",
-            "ad",
-            "signed-in-user",
-            "show",
-            "--query",
-            "id",
-            "--output",
-            "tsv",
-            "--only-show-errors",
-        ),
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
+    try:
+        completed = subprocess.run(
+            (
+                "az",
+                "ad",
+                "signed-in-user",
+                "show",
+                "--query",
+                "id",
+                "--output",
+                "tsv",
+                "--only-show-errors",
+            ),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError):
+        raise ValueError("authenticated Azure operator read failed; no retry performed") from None
     value = completed.stdout.strip()
     if completed.returncode != 0 or _GUID.fullmatch(value) is None:
         raise ValueError("authenticated Azure operator object ID is unavailable")

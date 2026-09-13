@@ -40,14 +40,24 @@ class DeadlineTransport:
     ) -> subprocess.CompletedProcess[str]:
         """Preserve command/stdin while enforcing the current deadline before and after I/O."""
 
-        result = self._transport.ssh(
-            remote_arguments, timeout=self._deadline.remaining(timeout), input_text=input_text
-        )
+        remaining = self._deadline.remaining(timeout)
+        try:
+            result = self._transport.ssh(remote_arguments, timeout=remaining, input_text=input_text)
+        except (OSError, subprocess.SubprocessError):
+            raise ValueError(
+                "standalone managed-host command failed; inspect retained evidence before recovery"
+            ) from None
         self._deadline.remaining()
         return result
 
     def copy_to(self, source: Path, destination: str, *, timeout: int) -> None:
         """Preserve transfer paths while enforcing the current deadline before and after I/O."""
 
-        self._transport.copy_to(source, destination, timeout=self._deadline.remaining(timeout))
+        remaining = self._deadline.remaining(timeout)
+        try:
+            self._transport.copy_to(source, destination, timeout=remaining)
+        except (OSError, subprocess.SubprocessError):
+            raise ValueError(
+                "standalone managed-host transfer failed; inspect retained evidence before recovery"
+            ) from None
         self._deadline.remaining()

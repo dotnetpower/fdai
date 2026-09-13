@@ -111,3 +111,19 @@ def test_deadline_transport_preserves_payload_and_clamps_each_operation(tmp_path
     with pytest.raises(TimeoutError, match="remaining budget"):
         transport.copy_to(tmp_path / "never", "never", timeout=300)
     assert len(calls) == 2
+
+
+@pytest.mark.parametrize("operation", ["ssh", "copy_to"])
+def test_transport_timeout_never_exposes_private_command(tmp_path, operation):
+    def failed(*_args, **_kwargs):
+        raise subprocess.TimeoutExpired(["ssh", "/private-key-path-marker", "private-target"], 10)
+
+    transport = DeadlineTransport(
+        SimpleNamespace(ssh=failed, copy_to=failed), DeploymentDeadline(100)
+    )
+    with pytest.raises(ValueError, match="managed-host") as error:
+        if operation == "ssh":
+            transport.ssh(("exact",), timeout=10)
+        else:
+            transport.copy_to(tmp_path / "input", "destination", timeout=10)
+    assert "private-" not in str(error.value)
