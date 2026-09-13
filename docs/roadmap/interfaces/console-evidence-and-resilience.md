@@ -140,8 +140,7 @@ enforce, verified, auto, non-rollback action and the complete event evidence con
 approval, denial, execution failure, or rollback signal. Dispatch-only events remain pending. The
 route shows observed, finalized, pending, adverse, and auto-resolved counts separately; the
 auto-resolution rate keeps the canonical total observed-event denominator, so pending and other
-non-auto events never disappear from the rate. Outcome and audit timestamps must be timezone-aware;
-an outcome more than five minutes ahead of its durable audit timestamp does not finalize the action.
+non-auto events never disappear from the rate. Classification, outcome, and metric payload timestamps more than five minutes ahead of their durable audit timestamp make the projection unavailable rather than becoming measured evidence.
 Operator builds this read-only projection from the bounded canonical measurement streams at one cutoff, then validates the complete, consistent, non-synthetic envelope. It never repairs a malformed or partial snapshot from general audit rows or fallback state.
 Vertical attribution uses an explicit recorded vertical first, then only strong Resilience or Cost
 Governance action/resource hints. Evidence that cannot be attributed without guessing remains in an

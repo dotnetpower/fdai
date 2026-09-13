@@ -21,6 +21,7 @@ from fdai_operator_service.dashboard_aggregation import (
 )
 
 MEASUREMENT_ROW_LIMIT = 20_000
+MEASUREMENT_AUDIT_CLOCK_SKEW = timedelta(minutes=5)
 MEASUREMENT_KINDS = (
     CONTROL_LOOP_MEASUREMENT_ACTION_KIND,
     "measurement.action_outcome.v1",
@@ -103,7 +104,11 @@ def decode_dashboard_snapshot(result: Sequence[Mapping[str, object]]) -> Dashboa
             raise ValueError("measurement row and payload kinds disagree")
         if kind == CONTROL_LOOP_MEASUREMENT_ACTION_KIND:
             fact = ControlLoopMeasurement.from_audit_entry(entry)
-            if fact.recorded_at > end or fact.occurred_at > fact.recorded_at:
+            if (
+                fact.recorded_at > end
+                or fact.recorded_at > recorded + MEASUREMENT_AUDIT_CLOCK_SKEW
+                or fact.occurred_at > fact.recorded_at
+            ):
                 raise ValueError("terminal measurement time is inconsistent")
             if fact.synthetic is not True:
                 retained[str(fact.measurement_id)] = (str(fact.event_id), fact.occurred_at)
@@ -121,9 +126,14 @@ def decode_dashboard_snapshot(result: Sequence[Mapping[str, object]]) -> Dashboa
                 )
             )
         elif kind == "measurement.action_outcome.v1":
-            outcomes.append(_outcome(entry, seq=seq, end=end))
+            outcomes.append(_outcome(entry, seq=seq, end=end, audit_recorded_at=recorded))
         elif kind == "measurement.metric.v1":
-            metric = _metric_observation(entry, seq=seq, end=end)
+            metric = _metric_observation(
+                entry,
+                seq=seq,
+                end=end,
+                audit_recorded_at=recorded,
+            )
             if metric is not None:
                 metrics.append(metric)
         elif kind == "hil.requested":
@@ -163,7 +173,13 @@ def decode_dashboard_snapshot(result: Sequence[Mapping[str, object]]) -> Dashboa
     )
 
 
-def _outcome(entry: Mapping[str, object], *, seq: int, end: datetime) -> ActionObservation:
+def _outcome(
+    entry: Mapping[str, object],
+    *,
+    seq: int,
+    end: datetime,
+    audit_recorded_at: datetime,
+) -> ActionObservation:
     if entry.get("actor") != "fdai.measurement" or entry.get("schema_version") != "1.0.0":
         raise ValueError("action outcome producer or version is not canonical")
     event_id = _uuid(entry.get("event_id"), "outcome event")
@@ -186,7 +202,7 @@ def _outcome(entry: Mapping[str, object], *, seq: int, end: datetime) -> ActionO
     if decision not in {"auto", "hil", "deny", "abstain"}:
         raise ValueError("action outcome decision is invalid")
     recorded = _time(entry.get("recorded_at"), "outcome recorded time")
-    if recorded > end:
+    if recorded > end or recorded > audit_recorded_at + MEASUREMENT_AUDIT_CLOCK_SKEW:
         raise ValueError("action outcome is future-dated")
     observed = None
     if scorable:
@@ -229,11 +245,16 @@ def _metric_observation(
     *,
     seq: int,
     end: datetime,
+    audit_recorded_at: datetime,
 ) -> MetricObservation | None:
     from fdai_service_contracts.metric_observation import MetricObservationV1
 
     fact = MetricObservationV1.from_audit_entry(entry)
-    if fact.recorded_at > end or fact.observed_at > fact.recorded_at:
+    if (
+        fact.recorded_at > end
+        or fact.recorded_at > audit_recorded_at + MEASUREMENT_AUDIT_CLOCK_SKEW
+        or fact.observed_at > fact.recorded_at
+    ):
         raise ValueError("metric observation time is inconsistent")
     return MetricObservation(
         event_id=str(fact.event_id),

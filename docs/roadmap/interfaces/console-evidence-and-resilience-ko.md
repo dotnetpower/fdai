@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 9ba743d4af88be01e6916aa83786e2f9812f4d0b
+translation_source_sha: ecd052f73613546425e9c5eb14c097242c346afb
 translation_revised: 2026-09-13
 ---
 # 콘솔 근거 및 복원력
@@ -156,8 +156,7 @@ Command Deck 스냅샷으로 제공합니다. 영역별 분석은 자동 해결�
 없을 때만 이벤트를 auto-resolved로 계산합니다. Dispatch-only 이벤트는 pending으로 유지됩니다.
 경로는 관찰된, finalized, pending, adverse 및 auto-resolved 개수를 분리해 표시합니다.
 Auto-resolution 비율은 정본 합계 observed-event denominator를 유지하므로 pending 및 기타
-non-auto 이벤트가 비율에서 사라지지 않습니다. 결과 및 감사 시각은 timezone-aware여야
-합니다. 영속 감사 시각보다 5분 넘게 미래인 결과는 액션을 finalize하지 않습니다.
+non-auto 이벤트가 비율에서 사라지지 않습니다. 분류, 결과 및 지표 payload 시각이 영속 감사 시각보다 5분 넘게 미래이면 측정 근거로 사용하지 않고 변환 결과를 사용 불가로 처리합니다.
 Operator는 하나의 기준 시점에서 범위가 제한된 정본 측정 스트림으로 이 읽기 전용 변환 결과를 구성한 다음, 완전하고 일관되며 비합성인 묶음을 검증합니다. 형식이 잘못되었거나 일부만 읽힌 스냅샷을 일반 감사 행 또는 대체 상태로 복구하지 않습니다.
 버티컬 귀속은 먼저 명시적으로 기록된 버티컬을 사용하고, 그다음 강한 복원력 또는
 비용 거버넌스 액션/리소스 힌트만 사용합니다. 추측 없이 귀속할 수 없는 근거는

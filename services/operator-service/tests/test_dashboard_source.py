@@ -5,6 +5,7 @@ from uuid import UUID
 
 import pytest
 from fdai_operator_service.dashboard_source import (
+    MEASUREMENT_AUDIT_CLOCK_SKEW,
     MEASUREMENT_ROW_LIMIT,
     MEASUREMENT_SNAPSHOT_SQL,
     decode_dashboard_snapshot,
@@ -201,6 +202,27 @@ def test_snapshot_and_payload_bounds_fail_closed() -> None:
         decode_dashboard_snapshot(snapshot(row(classification(), action_kind="other")))
     with pytest.raises(ValueError, match="complete read bound"):
         decode_dashboard_snapshot(snapshot(records=[{}] * (MEASUREMENT_ROW_LIMIT + 1)))
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        classification(recorded_at=NOW + MEASUREMENT_AUDIT_CLOCK_SKEW + timedelta(seconds=1)),
+        outcome(recorded_at=NOW + MEASUREMENT_AUDIT_CLOCK_SKEW + timedelta(seconds=1)),
+        metric(
+            recorded_at=NOW + MEASUREMENT_AUDIT_CLOCK_SKEW + timedelta(seconds=1),
+            observed_at=NOW,
+        ),
+    ],
+)
+def test_payload_time_cannot_move_past_its_durable_audit_record(entry) -> None:
+    with pytest.raises(ValueError, match="time|future"):
+        decode_dashboard_snapshot(
+            snapshot(
+                row(entry),
+                window_end=NOW + timedelta(days=1),
+            )
+        )
 
 
 def test_snapshot_sql_bounds_all_streams_in_one_read() -> None:
