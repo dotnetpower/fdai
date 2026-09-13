@@ -42,6 +42,8 @@ This ledger tracks the shared read-only state contract used by Dashboard v2 and 
 | 15 | Post-integration independent critique | Low | Passed independently with no Critical, High, or Medium finding; only documented Low residuals remain. |
 | 16 | Live Activity Log scope rows | High | Resolved by dropping unreviewed type aliases before identity validation while retaining exact validation for every mapped type. |
 | 17 | Final accelerator critique | Low | Passed independently with no Critical, High, or Medium regression; only documented Low residuals remain. |
+| 18 | Complete durable-cursor Activity Log traversal | High | Resolved by requiring both the identity-derived and supplied type to be reviewed, preventing parent labels and operation categories from misclassifying child or scope events. |
+| 19 | Final end-to-end critique | Pending | Awaiting independent verification of the complete cursor-range correction. |
 
 ### Implementation history
 
