@@ -3,6 +3,7 @@
     "terminal.integrated.environmentChangesIndicator": "off",
     "terminal.integrated.showExitAlert": false,
     "terminal.integrated.env.linux": {
+        "PATH": "${env:HOME}/.local/bin:${env:PATH}",
         "GH_PAGER": "cat",
         "GIT_PAGER": "cat",
         "PAGER": "cat",

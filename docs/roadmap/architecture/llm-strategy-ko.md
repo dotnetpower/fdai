@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: abf5f9e6fdf600b75fcace305d0a412d6e8be237
-translation_revised: 2026-09-12
+translation_source_sha: 28430a355e20c21f2cad0cf012d16c9f3013afbc
+translation_revised: 2026-09-13
 ---
 # LLM 전략(LLM Strategy)
 이 설계는 LLM을 **덜 사용**합니다. 모델은 **T2** 대체 경로이며 T0와 T1이 사례를 해결하지 못했을 때만 사용합니다. 결정론적 검증이 승인하기 전에는 모델 출력을 실행에 사용하지 않습니다. 실행 자격은 검증이 부여하며 **모델은 부여하지 않습니다**. 이 문서는 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)의 tier 및 quality-gate 규칙과 [security-and-identity-ko.md](security-and-identity-ko.md)의 위협 모델을 확장합니다.
@@ -218,7 +218,7 @@ capacity: { unit: ptu, value: 30 }
 - **T2 쌍 원자성:** 다이제스트 결속 정책이 reasoner 중 하나를 `hil-only`로 보류하지 않는 한 primary와 secondary는 서로 다른 발행기여야 합니다. 명시적 보류는 모든 T2 결정을 사람 승인으로 보내며, 결정론적 불일치 대체 구현은 시작 모델 후보가 아니고 모델 호출이나 계측 레코드를 만들지 않습니다.
 - **Console 권한 없음:** 초안, 평가 및 계획 요청은 공급자를 변경하지 않습니다. 보호된 모델 계획은 하나의 요청 ID로 정확한 Operator 제안과 정책 다이제스트를 식별합니다. Runner는 PostgreSQL을 변경하지 않고 읽으며 오래되었거나 권한을 포함한 상태를 차단합니다. 보호된 모델 Settings producer는 다이제스트에 결속된 모델 projection을 새로 고치고 런타임 Settings 기준 행이 없을 때만 생성하며, 기존 런타임 근거를 보존하고 성공을 보고하기 전에 두 행의 배포 환경을 확인합니다.
 - **독립 도구:** 검색, RCA, rubric, escalation 및 tool calling은 별도 게이트를 유지합니다.
-
+- **로컬 구성:** Settings 생성에서는 모델 파일 경로가 설정되지 않은 상태를 허용합니다. 모델 기능은 비어 있고 활성 다이제스트는 null이며 프로비저닝은 저하 상태로 남습니다. 경로가 설정된 파일의 형식이 잘못되면 계속 실패합니다. 명시적인 `bind-existing-model.py --restore-account`는 최신 계정 및 배포 근거를 검증하고 기능 목록과 `hil-only` 보류를 유지하며, 기존 엔드포인트 바인딩이나 바인딩 정책이 있으면 거부합니다. 백업과 함께 Git에서 무시되는 로컬 파일만 갱신하며 클라우드 리소스나 보안 제어는 변경하지 않습니다. 구성을 복구했다고 해서 추론 접근이나 독립적인 T2 정족수가 입증되지는 않습니다.
 ### 부트스트랩 Provisioner
 
 `azd up` 또는 동등한 절차에서 resolver는 레지스트리와 승인된 환경 정책을 결합하고 Azure
