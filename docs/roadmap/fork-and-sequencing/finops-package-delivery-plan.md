@@ -33,12 +33,12 @@ one manifest, ontology release, asset inventory, and stable identifier set.
 
 | Area | Evidence today | Delivery gap |
 |------|----------------|--------------|
-| FinOps package | `extensions/cost-governance/`; package build, resource, image, and lifecycle tests | Local build and lifecycle mechanics pass. Base-only profiles omit package assets, while compatibility replay explicitly composes one enabled package; governed image and lifecycle receipts remain W7 evidence. |
-| Cost advice | Injected Njord advisory provider, activation-gated collection, and separate signed effect estimates | A live-authoritative provider cohort remains unrecorded. |
+| FinOps package | `extensions/cost-governance/`; package build, resource, image, lifecycle tests, and issue #902 live dev receipts | Base-only profiles omit package assets, while fresh independent plans proved retained N-1 rollback and exact casefold restore. The qualifying campaign and reviews remain W7 work. |
+| Cost advice | Injected Njord advisory provider, activation-gated collection, separate signed effect estimates, and restored collector execution `caj-fdai-dev-cost-collect-kbom2sn` | One live-authoritative complete collection is retained. It is not the 30-day and 100-sample settled cohort. |
 | Ontology | Exact semantic profile, additive declarations, F1-F8 positive and negative fixtures, and complete Identifiable interface coverage | The profile pins the active ontology release; live evidence still must bind the same release. |
 | Agent runtime | Fixed pantheon, owned topics, all-responsibility replay, recovery, settlement, and learning tests | Source and synthetic evidence do not prove operational autonomy. |
-| Assets | Package-owned 12 rules, 12 policies, 12 fix templates, and one workflow with stable ids | The deprecated Core facade remains only for parity until governed rollback evidence permits removal. |
-| Extension lifecycle | Atomic availability, enablement, upgrade, disable, and N-1 rollback mechanics | Live-authoritative receipts and independent promotion decisions remain open. |
+| Assets | Package-owned 12 rules, 12 policies, 12 fix templates, and one workflow with stable ids | Live dev rollback is verified. Production cutover and the W7 review gate still retain the deprecated Core facade for parity. |
+| Extension lifecycle | Atomic availability, enablement, upgrade, disable, and N-1 rollback mechanics plus live revisions 10-15 | The live dev rollback and restore sequence is complete. The qualifying campaign and independent promotion decisions remain open. |
 
 ## Delivery rules
 
@@ -226,6 +226,17 @@ qualification logs, exports only complete ordered audit lineage, and lets an all
 assign `live-authoritative` after a current-pin check. Review results cover package activation,
 every package-owned `ActionType`, and every package-owned `Workflow`; they never apply promotion.
 Local tests of this path don't satisfy the live cohort or independent-review exit criteria.
+
+After the campaign returns `ready=true`, a separate protected review boundary records exactly one
+target per request. It re-reads the active revision pin, recomputes that target's campaign report,
+and appends a content-addressed receipt with the campaign and report digests, target kind and id,
+authenticated reviewer identity, decision, rationale, evidence references, and review time.
+Decisions are `recommend`, `hold`, or `deny`; all receipts fix approval, execution, and promotion
+authority to `false`. A batch decision cannot stand in for another target, and a recommendation
+still requires a separately approved change before package activation or target promotion.
+The reviewer must differ, case-insensitively, from both the original and rerun actors of the
+attested campaign workflow. Replaying a request id is allowed only when the persisted payload and
+all normalized columns still match the proposed review.
 
 ## Validation matrix
 
