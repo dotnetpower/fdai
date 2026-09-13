@@ -121,6 +121,7 @@ An unconfirmed hypothesis is not a defect; a passing local test is not release o
 | H11 | Direct Foundation timeout leaks private argv | Medium: reproduced six command/helper/terminal cases. Fixed reasons now replace raw subprocess and filesystem exceptions. | Redaction, Foundation apply, and VM integration: 34 passed | Low: private evidence remains local; no retry is granted. |
 | H12 | Failed archive checksum reports success | Medium: checksum exit failure, empty output, and malformed output all produced exit zero. A separately checked digest now gates success. | Release guard suite: 5 passed | Low: downstream signatures and exact file verification remain mandatory. |
 | H13 | Reusable Console embeds local deployment configuration | Medium: ordinary build mode inherited deployment defaults. The release now uses the existing offline mode and packages only that output with the same installer layout. | Release guard suite: 6 passed; Console configuration/Vite suites: 205 passed | Low: installation-time public bindings remain required. |
+| H14 | Complete builds can stall indefinitely before signing | Medium: Docker and npm were unsupervised. Shared total, stage, and no-progress bounds now stop process groups and prevent later signing or success. | Real supervisor and release-stage suites: 21 passed | Low: elapsed build limits do not prove artifact correctness. |
 
 ## Critique resolution register
 

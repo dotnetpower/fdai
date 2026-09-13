@@ -30,6 +30,20 @@ python="$repo_root/.venv/bin/python"
   echo "build-standalone-kit: repository development environment is required" >&2
   exit 3
 }
+release_deadline=$((SECONDS + 10800))
+release_runner="$repo_root/scripts/automation/run-bounded-command.py"
+# Share the remaining release budget without retrying or detaching child processes.
+bounded_stage() {
+  local label="$1" limit="$2" idle="$3" remaining=$((release_deadline - SECONDS))
+  shift 3
+  ((remaining > 0)) || {
+    echo "build-standalone-kit: total build deadline exceeded" >&2
+    return 124
+  }
+  ((limit <= remaining)) || limit="$remaining"
+  "$python" "$release_runner" \
+    --label "$label" --timeout-seconds "$limit" --no-progress-seconds "$idle" -- "$@"
+}
 [[ -f "$release_key" && ! -L "$release_key" && "$(stat -c '%a' "$release_key")" == "600" ]] || {
   echo "build-standalone-kit: release signing key must be a mode-0600 regular file" >&2
   exit 3
@@ -50,7 +64,7 @@ for tool in docker git node npm sha256sum tar; do
 done
 
 RELEASE_KEY="$release_key" BUNDLE_KEY="$bundle_key" REPO_ROOT="$repo_root" \
-  "$repo_root/.venv/bin/python" - <<'PY'
+  bounded_stage signing-prerequisites 30 30 "$python" - <<'PY'
 from __future__ import annotations
 
 import os
@@ -122,7 +136,8 @@ for service in "${services[@]}"; do
     exit 3
   }
   echo "-- build OCI image: $service"
-  docker buildx build \
+  bounded_stage "image-$service" 1800 300 docker buildx build \
+    --progress=plain \
     --platform linux/amd64 \
     --provenance=false \
     --sbom=false \
@@ -136,7 +151,8 @@ cat >"$release_input/metadata/clamav.Dockerfile" <<'EOF'
 FROM clamav/clamav@sha256:0af8760cd96f9ab67d07977af36e155431581a9fe9f0ec8b256c9f855fda183e
 EOF
 echo "-- build OCI image: clamav"
-docker buildx build \
+bounded_stage image-clamav 1800 300 docker buildx build \
+  --progress=plain \
   --platform linux/amd64 \
   --provenance=false \
   --sbom=false \
@@ -145,19 +161,19 @@ docker buildx build \
   "$release_input/metadata"
 
 echo "-- build Console artifact"
-npm --prefix "$repo_root/console" ci --ignore-scripts
-npm --prefix "$repo_root/console" run build:offline
-tar --sort=name --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner \
+bounded_stage console-dependencies 600 180 npm --prefix "$repo_root/console" ci --ignore-scripts
+bounded_stage console-build 900 300 npm --prefix "$repo_root/console" run build:offline
+bounded_stage console-archive 120 120 tar --sort=name --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner \
   --transform='s,^offline,dist,' \
   -czf "$release_input/console.tar.gz" -C "$repo_root/console/dist" offline
 printf '{"schema_version":"fdai.deployment-support.v1","source_commit":"%s"}\n' \
   "$source_commit" >"$release_input/metadata/deployment-support.json"
-tar --sort=name --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner \
+bounded_stage support-archive 120 120 tar --sort=name --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner \
   -czf "$release_input/deployment-support.tar.gz" \
   -C "$release_input/metadata" deployment-support.json
 
 RELEASE_INPUT="$release_input" SOURCE_COMMIT="$source_commit" \
-PYTHONPATH="$repo_root/packages/deployment-cli/src" "$repo_root/.venv/bin/python" - <<'PY'
+PYTHONPATH="$repo_root/packages/deployment-cli/src" bounded_stage runtime-metadata 600 600 "$python" - <<'PY'
 from __future__ import annotations
 
 import hashlib
@@ -312,7 +328,8 @@ payload = {
 )
 PY
 
-SOURCE_DATE_EPOCH="$source_epoch" bash "$repo_root/scripts/deployment/release/stage-offline-kit.sh" \
+SOURCE_DATE_EPOCH="$source_epoch" bounded_stage kit-staging 7200 900 \
+  bash "$repo_root/scripts/deployment/release/stage-offline-kit.sh" \
   --out "$stage" \
   --release-key "$release_key" \
   --bundle-key "$bundle_key" \
@@ -320,10 +337,10 @@ SOURCE_DATE_EPOCH="$source_epoch" bash "$repo_root/scripts/deployment/release/st
   --runtime-descriptor "$release_input/runtime-release-build.json" \
   --runtime-source-root "$release_input"
 
-tar --sort=name --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner \
+bounded_stage kit-archive 1800 900 tar --sort=name --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner \
   -czf "$archive" -C "$stage" kit
 chmod 0600 "$archive"
-archive_digest="$(sha256sum "$archive" | cut -d' ' -f1)"
+archive_digest="$(bounded_stage kit-checksum 600 600 sha256sum "$archive" | cut -d' ' -f1)"
 [[ "$archive_digest" =~ ^[0-9a-f]{64}$ ]] || {
   echo "build-standalone-kit: archive checksum is unavailable" >&2
   exit 3

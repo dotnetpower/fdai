@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 import sys
@@ -18,6 +19,22 @@ def executable(path, content):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("#!/bin/bash\n" + content)
     path.chmod(0o700)
+
+
+def bounded_prelude():
+    """Execute the release wrapper's actual supervisor, not a no-op test substitute."""
+    block = BUILDER.read_text().split("release_deadline=", 1)[1]
+    block = block.split('\n[[ -f "$release_key"', 1)[0]
+    return (
+        'set -euo pipefail\nrepo_root="$TEST_RUNNER_ROOT"\npython="$TEST_PYTHON"\n'
+        + "release_deadline="
+        + block
+        + "\n"
+    )
+
+
+def bounded_environment():
+    return {**os.environ, "TEST_RUNNER_ROOT": str(ROOT), "TEST_PYTHON": sys.executable}
 
 
 @pytest.mark.parametrize("output_kind", ["directory", "symlink"])
@@ -89,21 +106,23 @@ def test_existing_release_output_cannot_be_erased(tmp_path, output_kind):
     assert "fresh output directory" in result.stderr
 
 
-@pytest.mark.parametrize("checksum", ["exit 74", "exit 0", "echo invalid"])
+@pytest.mark.parametrize("checksum", ["exit 74", "exit 0", "echo invalid", None])
 def test_archive_digest_failure_cannot_report_success(tmp_path, checksum):
     tools = tmp_path / "tools"
     tools.mkdir()
     executable(tools / "tar", 'printf "archive" >"$TEST_ARCHIVE"\n')
-    executable(tools / "sha256sum", checksum + "\n")
+    if checksum is not None:
+        executable(tools / "sha256sum", checksum + "\n")
     source = BUILDER.read_text()
-    marker = 'tar --sort=name --mtime="@$source_epoch"'
+    marker = "bounded_stage kit-archive "
     archive_tail = marker + source.rsplit(marker, 1)[1]
     result = subprocess.run(  # noqa: S603 - actual shell tail, synthetic archive tools only.
         ["/bin/bash", "-s"],
-        input='set -euo pipefail\narchive="$TEST_ARCHIVE"\nstage="$TEST_STAGE"\nsource_epoch=1\n'
+        input=bounded_prelude()
+        + 'archive="$TEST_ARCHIVE"\nstage="$TEST_STAGE"\nsource_epoch=1\n'
         + archive_tail,
         env={
-            **os.environ,
+            **bounded_environment(),
             "PATH": f"{tools}:/usr/bin:/bin",
             "TEST_ARCHIVE": str(tmp_path / "archive.tar.gz"),
             "TEST_STAGE": str(tmp_path),
@@ -113,8 +132,13 @@ def test_archive_digest_failure_cannot_report_success(tmp_path, checksum):
         check=False,
         timeout=10,
     )
-    assert result.returncode != 0
-    assert "standalone-kit: OK" not in result.stdout
+    if checksum is None:
+        assert result.returncode == 0, result.stderr
+        assert "standalone-kit: OK" in result.stdout
+        assert f"sha256={hashlib.sha256(b'archive').hexdigest()}" in result.stdout
+    else:
+        assert result.returncode != 0
+        assert "standalone-kit: OK" not in result.stdout
 
 
 def test_release_console_uses_generic_offline_build_and_keeps_archive_layout(tmp_path):
@@ -138,11 +162,11 @@ def test_release_console_uses_generic_offline_build_and_keeps_archive_layout(tmp
     result = subprocess.run(  # noqa: S603 - actual Console stage with a recording npm boundary.
         ["/bin/bash", "-s"],
         input=(
-            'set -euo pipefail\nrepo_root="$TEST_ROOT"\n'
+            bounded_prelude() + 'repo_root="$TEST_ROOT"\n'
             'release_input="$TEST_OUT"\nsource_epoch=1\n' + segment
         ),
         env={
-            **os.environ,
+            **bounded_environment(),
             "PATH": f"{tools}:/usr/bin:/bin",
             "TEST_ROOT": str(repo),
             "TEST_OUT": str(output),
