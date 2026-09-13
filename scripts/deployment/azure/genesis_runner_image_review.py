@@ -40,4 +40,10 @@ def show_image_vm_selection(
         f"  Builder: {builder}\n  Verifier: {verifier}\n"
         "  Eligibility and quota checked; allocation capacity is not reserved.\n"
     )
+    selected = summary["vm_skus"]
+    if (
+        isinstance(selected, dict)
+        and selected.get("schema_version") == "fdai.runner-image-sku-selection.v2"
+    ):
+        output.write(f"  Foundation host included in quota: {selected['foundation_vm_size']}\n")
     output.flush()

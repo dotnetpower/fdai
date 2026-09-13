@@ -118,6 +118,7 @@ def _mock_execution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Pa
     )
     monkeypatch.setattr(apply, "_prepare_verified_snapshot", lambda **_: snapshot)
     monkeypatch.setattr(apply, "_terraform_environment", lambda **_: {})
+    monkeypatch.setattr(apply, "recheck_foundation_vm", lambda **_: None)
     calls: list[str] = []
 
     def required(command: list[str], **_: object) -> None:

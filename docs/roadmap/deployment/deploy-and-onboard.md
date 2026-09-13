@@ -47,7 +47,7 @@ For a fresh database, supply its administrator password through the protected in
 [The genesis foundation root](../../../infra/genesis-foundation/) manages both resource groups, the private state account, and the `tfstate` and `deployment-plans` containers through ARM, including blob protection, and reuses bootstrap's network, deployment identity, and runner without account-key lookup. The optional Standard Bastion subnet uses the complete Azure-required inbound and outbound Network Security Group rule set; a missing platform rule blocks tunnel creation.
 For a new platform state, `foundation_resource_group_context_digest` selects reference-only ownership and verifies the foundation tag and region. Existing state ownership changes still require a separately reviewed handoff.
 `fdaictl provision plan --stage foundation` is a private dry run. Genesis authenticates separate Terraform archive/executable digests and
-selects [compatible image VM SKUs](subscription-genesis-assurance.md#foundation-and-external-control-planes) before planning.
+discovers [compatible image and host VM SKUs](subscription-genesis-assurance.md#foundation-and-external-control-planes) from the complete regional catalog before planning, retaining the managed-image and ephemeral-host disk distinction.
 Image/Foundation apply, Bastion enrollment, and verified state migration require exact approval; application deployment and readiness remain open in the [Genesis ledger](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md).
 
 A tenant whose Azure Policy denies part of the inventory also needs either an exemption or the
