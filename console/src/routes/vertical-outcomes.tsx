@@ -28,6 +28,11 @@ export function verticalResolutionRate(vertical: VerticalSummary): number | null
   return vertical.events > 0 ? vertical.auto_resolved / vertical.events : null;
 }
 
+/** Preserve zero savings only when at least one cost event was observed. */
+export function verticalMonthlySavings(vertical: VerticalSummary): number | null {
+  return vertical.events > 0 ? vertical.monthly_savings : null;
+}
+
 export function verticalDisplayState(
   vertical: VerticalSummary | null,
   synthetic: boolean,
@@ -199,7 +204,16 @@ function PrimarySignal({
     );
   }
   if (metric === "monthly-savings") {
-    return <span class="vertical-primary-signal"><b>{formatMeasuredSavings(vertical.monthly_savings)}</b><small>{t("analytics.verticals.primary.monthlySavings")}</small></span>;
+    const savings = verticalMonthlySavings(vertical);
+    return (
+      <span
+        class={`vertical-primary-signal${savings === null ? " is-unavailable" : ""}`}
+        data-evidence-state={savings === null ? "insufficient-sample" : "measured"}
+      >
+        <b>{savings === null ? t("analytics.unavailable") : formatMeasuredSavings(savings)}</b>
+        <small>{t("analytics.verticals.primary.monthlySavings")}</small>
+      </span>
+    );
   }
   if (metric === "change-failure-rate") {
     return <span class="vertical-primary-signal is-unavailable" data-evidence-state="not-connected"><b>{t("analytics.unavailable")}</b><small>{t("analytics.verticals.primary.changeFailureRate")}</small></span>;

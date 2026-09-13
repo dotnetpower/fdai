@@ -25,6 +25,7 @@ import {
 } from "./operating-outcomes";
 import {
   verticalDisplayState,
+  verticalMonthlySavings,
   verticalOutcomeViews,
   verticalPayloadKey,
   verticalPrimaryMetric,
@@ -144,6 +145,20 @@ describe("trust-routing measurements", () => {
   it("preserves observed zero and negative monthly savings", () => {
     expect(formatMeasuredSavings(0)).toContain("0");
     expect(formatMeasuredSavings(-25)).toBe("-$25");
+    expect(verticalMonthlySavings({
+      key: "cost",
+      events: 1,
+      auto_resolved: 0,
+      open_risks: 0,
+      monthly_savings: 0,
+    })).toBe(0);
+    expect(verticalMonthlySavings({
+      key: "cost",
+      events: 0,
+      auto_resolved: 0,
+      open_risks: 0,
+      monthly_savings: 0,
+    })).toBeNull();
   });
 
   it("distinguishes an observed zero from a missing tier", () => {

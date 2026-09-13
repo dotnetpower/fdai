@@ -82,6 +82,9 @@ function decodeAuditSample(value: unknown, eventCount: number): DashboardKpi["au
 
 export function decodeAutonomyPayload(value: unknown): AutonomyPayload {
   const root = apiRecord(value, "autonomy measurement");
+  if (root["schema_version"] !== "1.0.0") {
+    throw contractError("autonomy measurement.schema_version MUST be 1.0.0");
+  }
   const sampleSize = apiNonNegativeInteger(root, "sample_size", "autonomy measurement");
   const source = apiRecord(root["source"], "autonomy measurement.source");
   const sourceKind = apiString(source, "kind", "autonomy measurement.source");
@@ -101,6 +104,46 @@ export function decodeAutonomyPayload(value: unknown): AutonomyPayload {
   if (!Array.isArray(root["verticals"])) {
     throw contractError("autonomy measurement.verticals MUST be an array");
   }
+  const autoResolution = decodeMetric(
+    success["auto_resolution_rate"],
+    "success.auto_resolution_rate",
+    "higher",
+    true,
+  );
+  const humanTouchpoints = decodeMetric(
+    success["human_touchpoints_per_100"],
+    "success.human_touchpoints_per_100",
+    "lower",
+  );
+  const mttr = decodeMetric(success["mttr_seconds"], "success.mttr_seconds", "lower");
+  const changeLeadTime = decodeMetric(
+    success["change_lead_time_seconds"],
+    "success.change_lead_time_seconds",
+    "lower",
+  );
+  const costPerResolved = decodeMetric(
+    success["cost_per_resolved_event_usd"],
+    "success.cost_per_resolved_event_usd",
+    "lower",
+  );
+  const disagreement = decodeMetric(
+    leading["mixed_model_disagreement_rate"],
+    "leading.mixed_model_disagreement_rate",
+    "lower",
+    true,
+  );
+  const verifierFailure = decodeMetric(
+    leading["verifier_failure_rate"],
+    "leading.verifier_failure_rate",
+    "lower",
+    true,
+  );
+  const shadowDivergence = decodeMetric(
+    leading["shadow_divergence_rate"],
+    "leading.shadow_divergence_rate",
+    "lower",
+    true,
+  );
   const verticals = root["verticals"].map((raw, index) => {
     const item = apiRecord(raw, `autonomy measurement.verticals[${index}]`);
     return {
@@ -174,6 +217,40 @@ export function decodeAutonomyPayload(value: unknown): AutonomyPayload {
   if (autoResolvedEvents !== finalizedEvents - adverseEvents) {
     throw contractError("autonomy measurement finalized outcomes are inconsistent");
   }
+  const expectedAutoResolution = sampleSize === 0 ? null : autoResolvedEvents / sampleSize;
+  if (
+    autoResolution.value !== null &&
+    (expectedAutoResolution === null ||
+      Math.abs(autoResolution.value - expectedAutoResolution) > 1e-12)
+  ) {
+    throw contractError("autonomy measurement auto-resolution rate is inconsistent");
+  }
+  const tierMix = decodeFiniteNumberRecord(tier["mix"], "autonomy measurement.tier.mix");
+  const tierKeys = new Set(["t0", "t1", "t2"]);
+  if (
+    Object.entries(tierMix).some(([key, share]) =>
+      !tierKeys.has(key) || share < 0 || share > 1
+    ) ||
+    Object.values(tierMix).reduce((sum, share) => sum + share, 0) > 1 + 1e-12
+  ) {
+    throw contractError("autonomy measurement.tier.mix is inconsistent");
+  }
+  const tierBands = Object.fromEntries(
+    Object.entries(bands).map(([key, raw]) => {
+      if (
+        !tierKeys.has(key) ||
+        !Array.isArray(raw) ||
+        raw.length !== 2 ||
+        raw.some((item) => typeof item !== "number" || !Number.isFinite(item)) ||
+        raw[0] < 0 ||
+        raw[1] > 1 ||
+        raw[0] > raw[1]
+      ) {
+        throw contractError(`autonomy measurement.tier.bands.${key} is invalid`);
+      }
+      return [key, [raw[0], raw[1]] as const];
+    }),
+  );
   const rulesEvidence = root["rules_evidence"];
   if (rulesEvidence !== undefined && rulesEvidence !== "measured" && rulesEvidence !== "unavailable") {
     throw contractError("autonomy rule evidence state is invalid");
@@ -200,16 +277,16 @@ export function decodeAutonomyPayload(value: unknown): AutonomyPayload {
       promoted_30d: apiNonNegativeInteger(rules, "promoted_30d", "autonomy measurement.rules"),
     },
     success: {
-      auto_resolution_rate: decodeMetric(success["auto_resolution_rate"], "success.auto_resolution_rate"),
-      human_touchpoints_per_100: decodeMetric(success["human_touchpoints_per_100"], "success.human_touchpoints_per_100"),
-      mttr_seconds: decodeMetric(success["mttr_seconds"], "success.mttr_seconds"),
-      change_lead_time_seconds: decodeMetric(success["change_lead_time_seconds"], "success.change_lead_time_seconds"),
-      cost_per_resolved_event_usd: decodeMetric(success["cost_per_resolved_event_usd"], "success.cost_per_resolved_event_usd"),
+      auto_resolution_rate: autoResolution,
+      human_touchpoints_per_100: humanTouchpoints,
+      mttr_seconds: mttr,
+      change_lead_time_seconds: changeLeadTime,
+      cost_per_resolved_event_usd: costPerResolved,
     },
     leading: {
-      mixed_model_disagreement_rate: decodeMetric(leading["mixed_model_disagreement_rate"], "leading.mixed_model_disagreement_rate"),
-      verifier_failure_rate: decodeMetric(leading["verifier_failure_rate"], "leading.verifier_failure_rate"),
-      shadow_divergence_rate: decodeMetric(leading["shadow_divergence_rate"], "leading.shadow_divergence_rate"),
+      mixed_model_disagreement_rate: disagreement,
+      verifier_failure_rate: verifierFailure,
+      shadow_divergence_rate: shadowDivergence,
     },
     guards: root["guards"].map((raw, index) => {
       const item = apiRecord(raw, `autonomy measurement.guards[${index}]`);
@@ -233,15 +310,8 @@ export function decodeAutonomyPayload(value: unknown): AutonomyPayload {
     },
     verticals,
     tier: {
-      mix: decodeFiniteNumberRecord(tier["mix"], "autonomy measurement.tier.mix"),
-      bands: Object.fromEntries(
-        Object.entries(bands).map(([key, raw]) => {
-          if (!Array.isArray(raw) || raw.length !== 2 || raw.some((item) => typeof item !== "number" || !Number.isFinite(item))) {
-            throw contractError(`autonomy measurement.tier.bands.${key} MUST be two finite numbers`);
-          }
-          return [key, [raw[0], raw[1]] as const];
-        }),
-      ),
+      mix: tierMix,
+      bands: tierBands,
     },
     trend: Object.fromEntries(
       Object.entries(apiRecord(root["trend"], "autonomy measurement.trend")).map(([key, raw]) => {
@@ -254,19 +324,34 @@ export function decodeAutonomyPayload(value: unknown): AutonomyPayload {
   };
 }
 
-function decodeMetric(value: unknown, label: string): AutonomyPayload["success"]["auto_resolution_rate"] {
+function decodeMetric(
+  value: unknown,
+  label: string,
+  expectedDirection: "higher" | "lower",
+  ratio = false,
+): AutonomyPayload["success"]["auto_resolution_rate"] {
   const item = apiRecord(value, `autonomy measurement.${label}`);
   const direction = apiString(item, "direction", `autonomy measurement.${label}`);
-  if (direction !== "higher" && direction !== "lower") {
-    throw contractError(`autonomy measurement.${label}.direction MUST be higher or lower`);
+  if (direction !== expectedDirection) {
+    throw contractError(
+      `autonomy measurement.${label}.direction MUST be ${expectedDirection}`,
+    );
+  }
+  const current = item["value"] === null
+    ? null
+    : apiNumber(item, "value", `autonomy measurement.${label}`);
+  const baseline = item["baseline"] === null
+    ? null
+    : apiNumber(item, "baseline", `autonomy measurement.${label}`);
+  if (
+    current !== null && (current < 0 || (ratio && current > 1)) ||
+    baseline !== null && (baseline < 0 || (ratio && baseline > 1))
+  ) {
+    throw contractError(`autonomy measurement.${label} is outside its valid range`);
   }
   return {
-    value: item["value"] === null
-      ? null
-      : apiNumber(item, "value", `autonomy measurement.${label}`),
-    baseline: item["baseline"] === null
-      ? null
-      : apiNumber(item, "baseline", `autonomy measurement.${label}`),
+    value: current,
+    baseline,
     direction,
   };
 }
