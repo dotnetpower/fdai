@@ -1,7 +1,7 @@
 ---
 title: FinOps 자율 운영
 translation_of: finops-autonomous-operations.md
-translation_source_sha: e602ad72157cad607501bcc639bd4f0676d26ff4
+translation_source_sha: bf092d156d0426a318150cddd85d6f25bac4aaa8
 translation_revised: 2026-09-13
 ---
 
@@ -208,7 +208,8 @@ digest를 공유하면서 대상별 report digest, 검토자 신원, 결정, 근
 수명 주기 상태를 갱신할 수 없습니다.
 인증된 검토자는 대소문자를 구분하지 않고 attested campaign 실행의 최초 행위자 및 모든 재실행
 행위자와 달라야 합니다. 요청 ID 재생은 불변 payload와 정규화된 영속 열이 제안된 검토와 모두
-일치할 때만 성공합니다.
+일치할 때만 성공합니다. 서버가 생성한 검토 및 보존 시각은 요청 신원에서 제외합니다. 보존 기간은
+일치해야 하며 exact 재생은 원래 증적을 반환합니다.
 
 비용 데이터 전달은 데이터를 반환하기 전에 내용이 없는 공개 증적을 추가합니다. 별도 보존 묶음은
 변경할 수 없는 증적을 400일 동안 유지하고 30일 삭제 유예 기간을 적용하며, 개정되는 법적 보존을
