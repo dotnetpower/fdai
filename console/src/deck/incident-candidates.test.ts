@@ -30,11 +30,11 @@ describe("incident candidate selection", () => {
         incidentId: "INC-1",
         correlationId: "corr-1",
       },
-      onlyWhenIdle: true,
       newConversation: true,
       prompt: "이 인시던트의 근거로 확인되는 사실, 빠진 근거, 다음 안전한 읽기 전용 조치를 보고해줘.",
       submitPrompt: true,
     });
+    expect(incidentCandidateDeckDetail(candidates[0]!)).not.toHaveProperty("onlyWhenIdle");
   });
 
   test("shows one lead sentence instead of repeating candidate bullets", () => {

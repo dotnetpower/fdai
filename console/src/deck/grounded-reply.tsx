@@ -599,7 +599,6 @@ export function incidentCandidateDeckDetail(candidate: IncidentCandidate): DeckO
       incidentId: candidate.incidentId,
       correlationId: candidate.correlationId,
     },
-    onlyWhenIdle: true,
   };
 }
 
