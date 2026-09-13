@@ -5,11 +5,6 @@ title: Operator Console Module Map and Boundaries
 
 This document maps Operator Console modules, routes, channels, providers, and source ownership boundaries.
 
-The CLI's `cockpit-state.ts` reduces structured `StageFrame` routing tiers and audit outcomes for
-display only. It does not inspect the operator's question, select conversational intent, or grant
-authority. Its explicit semantic-scan baseline entry is limited to that reviewed machine-record
-presentation responsibility; the scanner still rejects unreviewed natural-language judgment paths.
-
 ## Executable baseline
 
 [`operator-console-module-inventory.json`](operator-console-module-inventory.json) records current Operator API responsibilities, route families, candidate destinations, and import status. It is descriptive rather than a file-count target, and an executable completeness gate requires every module directory and route module to remain classified. Candidate destinations remain package hints. [Service Graduation and Data Ownership](../architecture/service-graduation-and-ownership.md) is the gate for a new process, identity, transport, or data owner.
@@ -526,9 +521,8 @@ modules consumes the proposal, changes Process state, approves, or executes.
     zero-execution clarification, and presentation-only grounded-answer protocols.
   - `session.py` provides the disposable core/CLI `ConversationSession` projection. The
     principal-scoped `ConversationHistoryStore` owns production transcripts.
-- [`cli/`](../../../cli): see the [CLI guide](../../../cli/README.md) for presentation and authentication contracts.
-  - `src/operator-api-session.ts` owns loopback bootstrap and memory-only opaque bearers; it neither resolves Azure identity nor accepts caller-supplied tokens.
-  - `src/repl.ts` owns IME-safe `POST /chat`; `src/cockpit.ts` publishes self-describing live SSE screen snapshots to the same coordinator.
+- [`cli/`](../../../cli): see the [CLI guide](../../../cli/README.md) for presentation and authentication contracts. `src/operator-api-session.ts` owns loopback bootstrap and memory-only opaque bearers; it neither resolves Azure identity nor accepts caller-supplied tokens.
+  - `src/repl.ts` owns IME-safe `POST /chat`; `src/cockpit.ts` publishes self-describing live SSE screen snapshots to the same coordinator. `src/cockpit-state.ts` reduces structured `StageFrame` tiers and audit outcomes for display only, without reading operator questions, selecting intent, or granting authority. Its exact semantic-scan baseline entry covers that reviewed machine-record responsibility; unreviewed natural-language judgment paths remain blocked.
   - `src/terminal-capabilities.ts` checks TTY geometry, color, and reduced motion; noninteractive, dumb, or undersized terminals use deterministic plain text.
 - [`services/core-control-plane/src/fdai/core/conversation/channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py)
   authenticates senders, claims message idempotency keys, calls the coordinator, and persists the
