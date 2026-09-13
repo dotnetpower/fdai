@@ -226,6 +226,9 @@ qualification logs, exports only complete ordered audit lineage, and lets an all
 assign `live-authoritative` after a current-pin check. Review results cover package activation,
 every package-owned `ActionType`, and every package-owned `Workflow`; they never apply promotion.
 Local tests of this path don't satisfy the live cohort or independent-review exit criteria.
+Exact-release qualification requests the root lockfile-frozen dev extra for both the semantic
+profile checker and parity test. Missing qualification tooling fails before export, import, or
+review evidence is created.
 
 After the campaign returns `ready=true`, a separate protected review boundary records exactly one
 target per request. It re-reads the active revision pin, recomputes that target's campaign report,
