@@ -214,6 +214,7 @@ def test_destructive_plan_requires_a_second_exact_confirmation(
     )
     answers = iter(("application-apply", "denied"))
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+    monkeypatch.setattr(standalone_application, "_wait_for_approval_input", lambda _timeout: None)
     monkeypatch.setattr(standalone_application, "_azure_actor_digest", lambda _binding: "d" * 64)
 
     with pytest.raises(ValueError, match="destructive"):

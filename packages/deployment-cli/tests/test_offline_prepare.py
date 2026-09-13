@@ -275,8 +275,8 @@ def test_online_download_accepts_official_release_asset_redirect(
             return "https://release-assets.githubusercontent.com/github-production-release-asset"
 
     monkeypatch.setattr(
-        deployment_kit.urllib.request,
-        "urlopen",
+        deployment_kit,
+        "_open_approved_url",
         lambda _request, timeout: Response(b"signed release archive"),
     )
     destination = tmp_path / "download.tar.gz"

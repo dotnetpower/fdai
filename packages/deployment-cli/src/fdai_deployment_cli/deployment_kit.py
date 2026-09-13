@@ -14,15 +14,17 @@ import shutil
 import stat
 import tarfile
 import tempfile
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import BinaryIO, Final, IO
+from typing import Any, BinaryIO, Final, IO, cast
 
 from fdai_deployment_cli.__about__ import __version__
 from fdai_deployment_cli.bundle import extract_bundle_archive, verify_bundle
+from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit_cache import (
     acquisition_lock,
     bind_online_source,
@@ -50,6 +52,7 @@ _MAX_ARCHIVE_BYTES: Final = 8 * 1024 * 1024 * 1024
 _MAX_ARCHIVE_FILES: Final = 20_000
 _MAX_MEMBER_BYTES: Final = 512 * 1024 * 1024
 _BUFFER_BYTES: Final = 1024 * 1024
+_DOWNLOAD_SECONDS: Final = 900
 _COMMIT = re.compile(r"[0-9a-f]{40}")
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _SAFE_ONLINE_HOSTS = frozenset(
@@ -96,12 +99,14 @@ def acquire_deployment_kit(
 
     Online mode downloads once, then fully revalidates retained inputs from the same source
     request on retry. Artifact-offline mode accepts only the supplied local directory or archive
-    and performs no network fallback. Release and bundle roots always come from the package.
+    and rereads that source on retry without replacing earlier execution copies or falling back
+    to the network. Release and bundle roots always come from the package.
     Cached bytes never bypass verification, authorize an effect, or replace prior run evidence.
     """
 
     if online == (offline_kit is not None):
         raise ValueError("select exactly one of online mode or an offline kit")
+    runtime_platform_tag()
     _require_private_directory(work_dir)
     with acquisition_lock(work_dir):
         return _acquire_deployment_kit(
@@ -144,6 +149,8 @@ def _acquire_deployment_kit(
         if stat.S_ISDIR(details.st_mode):
             kit_root = source
         elif stat.S_ISREG(details.st_mode):
+            if path_present(kit_root):
+                kit_root = Path(tempfile.mkdtemp(prefix="offline-source-", dir=work_dir)) / "kit"
             _extract_kit_archive(source, kit_root)
         else:
             raise ValueError("offline kit must be a regular archive or directory")
@@ -166,7 +173,7 @@ def _acquire_deployment_kit(
     ):
         raise ValueError("complete deployment kit requires runtime migration support wheels")
     materialized = work_dir / "verified"
-    if online and path_present(materialized):
+    if path_present(materialized):
         progress_detail("Rechecking every retained verified artifact")
         artifacts = verify_retained_artifacts(materialized, verification)
     else:
@@ -192,7 +199,7 @@ def _acquire_deployment_kit(
     validate_runtime_images(materialized, runtime)
     bundle_root = extract_bundle_archive(
         artifacts.deployment_bundle,
-        execution_bundle_destination(work_dir) if online else work_dir / "bundle",
+        execution_bundle_destination(work_dir),
     )
     bundle = verify_bundle(
         bundle_root,
@@ -221,7 +228,7 @@ def runtime_platform_tag() -> str:
         "x86_64": "x86_64",
         "amd64": "x86_64",
     }.get(platform.machine().casefold())
-    if os.name != "posix" or architecture is None:
+    if os.name != "posix" or platform.system() != "Linux" or architecture is None:
         raise ValueError("standalone deployment currently supports Linux x86_64")
     return f"linux-{architecture}"
 
@@ -299,12 +306,13 @@ def _download(url: str, destination: Path) -> None:
             "deployment kit download destination already exists; retained artifact was not replaced"
         )
     request = urllib.request.Request(url, headers={"User-Agent": f"fdaictl/{__version__}"})
+    deadline = DeploymentDeadline(_DOWNLOAD_SECONDS, clock=time.monotonic)
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with _open_approved_url(request, timeout=deadline.remaining(30)) as response:
             final = urllib.parse.urlparse(response.geturl())
             if not _approved_online_url(final):
                 raise ValueError("online deployment kit redirect is not approved")
-            _write_bounded_stream(response, destination)
+            _write_bounded_stream(response, destination, deadline=deadline)
     except urllib.error.HTTPError as exc:
         raise ValueError(
             f"online deployment kit download failed (HTTP {exc.code}); "
@@ -352,7 +360,39 @@ def _approved_online_url(value: urllib.parse.ParseResult) -> bool:
     )
 
 
-def _write_bounded_stream(source: BinaryIO, destination: Path) -> None:
+class _ReleaseRedirects(urllib.request.HTTPRedirectHandler):
+    """Validate each redirect before urllib can contact its destination."""
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        if not _approved_online_url(urllib.parse.urlparse(newurl)):
+            raise ValueError("online deployment kit redirect is not approved")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _open_approved_url(
+    request: urllib.request.Request, *, timeout: int
+) -> http.client.HTTPResponse:
+    """Open one allowlisted release request without mutating urllib's global opener."""
+
+    return cast(
+        http.client.HTTPResponse,
+        urllib.request.build_opener(_ReleaseRedirects()).open(request, timeout=timeout),
+    )
+
+
+def _write_bounded_stream(
+    source: BinaryIO, destination: Path, *, deadline: DeploymentDeadline | None = None
+) -> None:
+    budget = deadline or DeploymentDeadline(_DOWNLOAD_SECONDS, clock=time.monotonic)
+    budget.remaining()
     descriptor = os.open(
         destination,
         os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
@@ -362,11 +402,13 @@ def _write_bounded_stream(source: BinaryIO, destination: Path) -> None:
     try:
         with os.fdopen(descriptor, "wb") as stream:
             while chunk := source.read(_BUFFER_BYTES):
+                budget.remaining()
                 total += len(chunk)
                 if total > _MAX_ARCHIVE_BYTES:
                     raise ValueError("deployment kit archive exceeds its byte limit")
                 stream.write(chunk)
                 downloaded_bytes(total)
+            budget.remaining()
             stream.flush()
             os.fsync(stream.fileno())
     except BaseException:
