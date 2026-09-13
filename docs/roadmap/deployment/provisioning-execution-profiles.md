@@ -29,6 +29,7 @@ that applies before Terraform changes infrastructure or role assignments.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-13 | implemented | Bound release downloads by one 15-minute monotonic transfer budget in addition to the 30-second socket limit; progress cannot renew it. | `current change`; previously passing slow-trickle stream now rejects and removes only its new partial download; acquisition regressions. | Retained prior archives and deployment state remain untouched; no network retry is added. |
 | 2026-09-13 | implemented | Bound both application confirmations and actor lookup to the same at-most-ten-minute window, plan expiry, and remaining invocation budget; require a real terminal. | `current change`; reproduced unbounded read, timeout/noninteractive controls, shared-budget and existing exact/destructive approval tests. | An expired or closed input grants no approval and triggers no automatic retry. |
 | 2026-09-13 | implemented | Proved expired image reviews still permit verification of an existing claim, without reselection, reapproval, or repeated apply. | `current change`; manual and automatic-selection claim/resume regressions preserve exact claim bytes and one original apply. | This verifies completed effects only and cannot repair a partial image build. |
 | 2026-09-13 | implemented | Normalize Azure identity and managed-host I/O exceptions before rendering; raw OS or child-process fallback errors no longer print command arguments or private paths. | `current change`; five reproduced synthetic-marker disclosures and focused CLI/transport regressions. | Stable failure categories do not infer whether a claimed remote effect completed. |
@@ -95,6 +96,8 @@ format from a local path and blocks every public artifact fallback. Offline mean
 not disconnected from the selected Azure control plane or Bastion endpoint.
 Offline retries reread the supplied source, reverify the retained snapshot, and use a fresh
 execution copy without replacing earlier state. Changed or incomplete bytes stop the retry.
+Online transfer progress cannot renew the 15-minute total download budget. Socket reads retain
+their 30-second bound; expiry removes only the newly created partial download and never retries.
 
 The package pins the release and bundle verification roots independently from the kit. A complete
 kit contains the deployment bundle, Terraform and OPA, the provider mirror, runtime OCI archives,

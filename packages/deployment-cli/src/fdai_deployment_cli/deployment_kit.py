@@ -14,6 +14,7 @@ import shutil
 import stat
 import tarfile
 import tempfile
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -23,6 +24,7 @@ from typing import Any, BinaryIO, Final, IO, cast
 
 from fdai_deployment_cli.__about__ import __version__
 from fdai_deployment_cli.bundle import extract_bundle_archive, verify_bundle
+from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit_cache import (
     acquisition_lock,
     bind_online_source,
@@ -50,6 +52,7 @@ _MAX_ARCHIVE_BYTES: Final = 8 * 1024 * 1024 * 1024
 _MAX_ARCHIVE_FILES: Final = 20_000
 _MAX_MEMBER_BYTES: Final = 512 * 1024 * 1024
 _BUFFER_BYTES: Final = 1024 * 1024
+_DOWNLOAD_SECONDS: Final = 900
 _COMMIT = re.compile(r"[0-9a-f]{40}")
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _SAFE_ONLINE_HOSTS = frozenset(
@@ -303,12 +306,13 @@ def _download(url: str, destination: Path) -> None:
             "deployment kit download destination already exists; retained artifact was not replaced"
         )
     request = urllib.request.Request(url, headers={"User-Agent": f"fdaictl/{__version__}"})
+    deadline = DeploymentDeadline(_DOWNLOAD_SECONDS, clock=time.monotonic)
     try:
-        with _open_approved_url(request, timeout=30) as response:
+        with _open_approved_url(request, timeout=deadline.remaining(30)) as response:
             final = urllib.parse.urlparse(response.geturl())
             if not _approved_online_url(final):
                 raise ValueError("online deployment kit redirect is not approved")
-            _write_bounded_stream(response, destination)
+            _write_bounded_stream(response, destination, deadline=deadline)
     except urllib.error.HTTPError as exc:
         raise ValueError(
             f"online deployment kit download failed (HTTP {exc.code}); "
@@ -384,7 +388,11 @@ def _open_approved_url(
     )
 
 
-def _write_bounded_stream(source: BinaryIO, destination: Path) -> None:
+def _write_bounded_stream(
+    source: BinaryIO, destination: Path, *, deadline: DeploymentDeadline | None = None
+) -> None:
+    budget = deadline or DeploymentDeadline(_DOWNLOAD_SECONDS, clock=time.monotonic)
+    budget.remaining()
     descriptor = os.open(
         destination,
         os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
@@ -394,11 +402,13 @@ def _write_bounded_stream(source: BinaryIO, destination: Path) -> None:
     try:
         with os.fdopen(descriptor, "wb") as stream:
             while chunk := source.read(_BUFFER_BYTES):
+                budget.remaining()
                 total += len(chunk)
                 if total > _MAX_ARCHIVE_BYTES:
                     raise ValueError("deployment kit archive exceeds its byte limit")
                 stream.write(chunk)
                 downloaded_bytes(total)
+            budget.remaining()
             stream.flush()
             os.fsync(stream.fileno())
     except BaseException:

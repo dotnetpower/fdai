@@ -8,6 +8,7 @@ import tarfile
 import urllib.request
 import urllib.response
 from email.message import Message
+from types import SimpleNamespace
 
 import pytest
 
@@ -120,3 +121,20 @@ def test_download_rejects_redirect_before_contacting_disallowed_target(
             deployment_kit._download("https://github.com/example/kit", tmp_path / "archive.tar.gz")
         assert requested == ["https://github.com/example/kit"]
         assert list(tmp_path.iterdir()) == []
+
+
+def test_trickling_download_cannot_reset_total_transfer_budget(tmp_path, monkeypatch):
+    clock = [0.0]
+    monkeypatch.setattr(
+        deployment_kit, "time", SimpleNamespace(monotonic=lambda: clock[0]), raising=False
+    )
+
+    class Trickle:
+        def read(self, _size):
+            clock[0] += 301
+            return b"x" if clock[0] < 1500 else b""
+
+    destination = tmp_path / "partial-download"
+    with pytest.raises(TimeoutError, match="remaining budget"):
+        deployment_kit._write_bounded_stream(Trickle(), destination)
+    assert not destination.exists()
