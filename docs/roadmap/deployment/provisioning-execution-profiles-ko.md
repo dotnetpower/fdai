@@ -1,8 +1,8 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 4804b3457c3f6c73b667de135c9aea20c56bcfee
-translation_revised: 2026-09-12
+translation_source_sha: e36e0ce642fa922a9f11b773f4c02fd3d3262d27
+translation_revised: 2026-09-13
 ---
 # 프로비저닝 실행 프로파일
 
@@ -32,6 +32,7 @@ translation_revised: 2026-09-12
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-13 | implemented | x64 macOS나 FreeBSD를 Linux로 취급하지 않고 두 아티팩트 획득 모드 모두에서 Linux가 아닌 POSIX 호스트를 먼저 차단합니다. | `current change`, 이전에 실패한 네 사례를 포함한 호스트 경계 회귀 테스트 다섯 개 | 수정된 CLI를 게시해야 하며 Azure 수렴 검증은 별도입니다. |
 | 2026-09-12 | implemented | 대상 환경 프로비저닝을 manual 전송 계층으로 제한하고, 공개 CLI에서 workflow dispatch를 제거하고, 토큰 없는 관찰 전용 설치를 허용하고, OCI 배포 어플라이언스 진입점을 추가했습니다. | `current change`, 배포 CLI 계약, standalone 모듈, 어플라이언스 스크립트 및 집중 테스트 | 깨끗한 어플라이언스 하나를 빌드하고 연결 및 아티팩트 오프라인 Azure 배포 증적을 보존합니다. |
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 점검, 프로파일 영속성 및 offline 검증을 근거에 맞는 현재 상태로 바로잡았습니다. | 현재 변경과 구현 범위 표에 기재한 패키지 메타데이터, bootstrap 소스, release 스크립트 및 집중 작업 흐름 검사 | CLI 패키지를 만들고 offline 검증을 복원하며 trust 초기화를 완료한 뒤 전체 수명 주기를 검증해야 합니다. |
 | 2026-08-29 | validated | 대상 연결 점검과 비공개 프로필을 추가하고 서명 offline 검증을 복원하며 제공 wheel 네트워크 격리 훈련을 완료했습니다. | `dd28b64d9` 이후 캠페인 커밋, 집중 검사, 성공한 `airgap-drill.sh` | 관리 호스트 Azure 실행을 완료하고 보호된 프로비저닝 후 증적을 보존해야 합니다. |
@@ -92,7 +93,7 @@ bundle, Terraform과 OPA, provider mirror, runtime OCI archive, Console 콘텐�
 및 각 SBOM이 포함됩니다. Azure 변경 전에 서명, 정확한 파일 집합, 플랫폼, 소스 revision,
 runtime 콘텐츠 검증을 완료합니다.
 현재 관리 호스트 이미지와 완전한 키트 builder는 Linux x86_64를 지원합니다. 다른 호스트
-architecture는 검증되지 않은 실행 경계를 넘지 않고 키트 획득 전에 실패합니다.
+운영체제나 아키텍처는 두 획득 모드 모두 시작 전에 차단하며 POSIX라는 사실만으로 Linux로 판단하지 않습니다.
 
 비공개 경로에서 로그인한 사용자는 범위가 제한된 Foundation control-plane 적용만 수행합니다.
 생성된 Bastion 접근 가능 VM은 사용자 할당 관리 ID와 GitHub runner 소프트웨어가 없는 manual

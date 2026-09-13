@@ -29,6 +29,7 @@ that applies before Terraform changes infrastructure or role assignments.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-13 | implemented | Reject non-Linux POSIX hosts before either artifact acquisition mode, rather than treating x64 macOS or FreeBSD as Linux. | `current change`; five focused host-boundary regressions, including the four previously failing cases. | Publish the corrected CLI; Azure convergence remains separate. |
 | 2026-09-12 | implemented | Restricted tenant provisioning to manual transport, removed workflow dispatch from the public CLI, allowed token-free observation-only installation, and added an OCI deployment appliance entry point. | `current change`; deployment CLI contracts, standalone modules, appliance scripts, and focused tests | Build one clean appliance and retain connected and artifact-offline Azure deployment receipts. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Corrected inspection, profile persistence, and offline verification from implemented to their evidence-backed current states. | current change; package metadata, bootstrap source, release scripts, and focused workflow checks listed in the scope table | Create the CLI package, restore offline verification, complete trust bootstrap, and validate the full lifecycle. |
 | 2026-08-29 | validated | Added target-bound inspection and private profiles, restored signed offline verification, and completed the shipped-wheel network-isolated drill. | Campaign commits from `dd28b64d9`; focused tests and successful `airgap-drill.sh` | Complete managed-host Azure execution and retain protected post-provision receipts. |
@@ -88,7 +89,7 @@ kit contains the deployment bundle, Terraform and OPA, the provider mirror, runt
 Console content, migration support, and their software bills of materials. Signature, exact-file,
 platform, source-revision, and runtime-content verification completes before Azure mutation.
 The current managed-host image and complete-kit builder support Linux x86_64. Other host
-architectures fail before kit acquisition rather than crossing an untested execution boundary.
+operating systems or architectures fail before either acquisition mode; POSIX alone is not Linux.
 
 For a private route, the signed-in human performs only the bounded Foundation control-plane apply.
 The resulting Bastion-reachable VM uses a user-assigned managed identity and a manual-host image

@@ -102,6 +102,7 @@ def acquire_deployment_kit(
 
     if online == (offline_kit is not None):
         raise ValueError("select exactly one of online mode or an offline kit")
+    runtime_platform_tag()
     _require_private_directory(work_dir)
     with acquisition_lock(work_dir):
         return _acquire_deployment_kit(
@@ -221,7 +222,7 @@ def runtime_platform_tag() -> str:
         "x86_64": "x86_64",
         "amd64": "x86_64",
     }.get(platform.machine().casefold())
-    if os.name != "posix" or architecture is None:
+    if os.name != "posix" or platform.system() != "Linux" or architecture is None:
         raise ValueError("standalone deployment currently supports Linux x86_64")
     return f"linux-{architecture}"
 
