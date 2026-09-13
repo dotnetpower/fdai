@@ -412,3 +412,22 @@ def test_offline_directory_execution_uses_authenticated_snapshot(
     assert original.read_bytes() == b"untrusted concurrent source replacement"
     with pytest.raises(ValueError):
         deployment_kit.acquire_deployment_kit(work_dir=work, online=False, offline_kit=source)
+
+
+@pytest.mark.parametrize("source_kind", ["directory", "archive"])
+def test_offline_cache_cannot_silently_adopt_an_explicit_online_source(
+    online_release, release, tmp_path, source_kind
+):
+    work, requests, payload = online_release
+    source = release[0]
+    if source_kind == "archive":
+        source = tmp_path / "local-kit.tar.gz"
+        source.write_bytes(payload)
+        source.chmod(0o600)
+    first = deployment_kit.acquire_deployment_kit(work_dir=work, online=False, offline_kit=source)
+    original = (first.materialized_root / "bin/opa").read_bytes()
+    with pytest.raises(ValueError, match="source is unbound"):
+        _acquire(work, online_url="https://github.com/example/another-kit.tar.gz")
+    assert requests == []
+    assert (first.materialized_root / "bin/opa").read_bytes() == original
+    assert not (work / "online-source.json").exists()
