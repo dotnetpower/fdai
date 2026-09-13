@@ -84,7 +84,7 @@ describe("resolveDeckOpenSession", () => {
     expect(resolved).toEqual({
       key: "user:scope:agent:Heimdall:incident:corr-1",
       label: "Heimdall / INC-1",
-      contextAgent: "Bragi",
+      contextAgent: "Heimdall",
       kind: "agent",
       hydrateDurable: true,
     });
@@ -108,7 +108,7 @@ describe("resolveDeckOpenSession", () => {
     expect(first).toEqual({
       key: "user:scope:conversation:first",
       label: "Pod restart",
-      contextAgent: "Bragi",
+      contextAgent: null,
       kind: "screen-thread",
       hydrateDurable: false,
     });

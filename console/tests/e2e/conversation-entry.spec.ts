@@ -10,17 +10,41 @@ interface ChatRequest {
   readonly prompt: string;
   readonly view_context: Record<string, unknown>;
   readonly history: readonly { readonly content: string }[];
+  readonly target_agent?: string;
+  readonly conversation_context?: {
+    readonly kind: string;
+    readonly incident_id: string;
+    readonly correlation_id: string;
+  };
 }
 
 async function openConsole(
   page: Page,
   locale = "en",
   terminal?: (request: ChatRequest) => Record<string, unknown>,
+  includeIncident = false,
 ) {
   const requests: ChatRequest[] = [];
   await page.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
-    if (path.endsWith("/chat/stream")) {
+    if (includeIncident && path.endsWith("/incidents/stream")) {
+      await route.fulfill({
+        contentType: "text/event-stream",
+        body: `data: ${JSON.stringify({
+          event: "incident_attention.snapshot",
+          ts: "2026-09-14T00:00:00Z",
+          incidents: [{
+            incident_id: "INC-1",
+            correlation_id: "corr-1",
+            title: "Pod restart detected",
+            severity: "high",
+            status: "open",
+            opened_at: "2026-09-14T00:00:00Z",
+            last_updated_at: "2026-09-14T00:01:00Z",
+          }],
+        })}\n\n`,
+      });
+    } else if (path.endsWith("/chat/stream")) {
       const request: ChatRequest = route.request().postDataJSON();
       requests.push(request);
       await route.fulfill({
@@ -40,6 +64,38 @@ async function openConsole(
   await expect(page.locator(".deck-invoke")).toBeVisible();
   return requests;
 }
+
+test("opens incident attention over a preserved screen draft and submits its binding", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const requests = await openConsole(page, "en", undefined, true);
+
+  await page.locator(".deck-invoke").click();
+  await page.locator(".deck-input").fill("Preserve this screen draft");
+  await page.locator(".deck-close").click();
+
+  await page.getByRole("button", {
+    name: "Open 1 active incident conversation(s)",
+    exact: true,
+  }).click();
+
+  await expect.poll(() => requests.length).toBe(1);
+  expect(requests[0]?.conversation_context).toEqual({
+    kind: "incident",
+    incident_id: "INC-1",
+    correlation_id: "corr-1",
+  });
+  expect(requests[0]?.view_context).not.toHaveProperty("routeId");
+  expect(requests[0]?.target_agent).toBeUndefined();
+  await expect(page.locator(".deck-header-conversation-title")).toHaveText("Incident INC-1");
+  await expect(page.getByText("Synthetic test answer.", { exact: true })).toBeVisible();
+
+  await page.locator(".deck-close").click();
+  await page.locator(".deck-invoke").click();
+  await expect(page.locator(".deck-input")).toHaveValue("Preserve this screen draft");
+});
 
 test("isolates general and screen drafts, history, context and layout", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
