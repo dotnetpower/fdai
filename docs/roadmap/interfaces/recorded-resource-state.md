@@ -133,6 +133,9 @@ The promoted Resource fact is written to both the current `ontology_resource` Re
 Operator-readable inventory projection under one generation fence. Core conversational functions
 read the ontology instance. Operator instance and batch-state reads use the service-approved
 projection of the same fact because the Operator role has no direct Core-table access.
+Catalog evidence health joins inventory completion time, projection status, and projection manifest
+only when both projection records name the active inventory generation. A mismatch is explicit
+unavailable evidence; it never combines timestamps or counts from different generations.
 
 State transition recording is independent of relationship completeness. A complete object
 observation can advance operational or availability state history even when an unrelated topology
