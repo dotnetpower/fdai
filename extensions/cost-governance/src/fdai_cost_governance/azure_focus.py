@@ -208,8 +208,13 @@ class AzureFocusObservationAdapter(CostObservationProvider):
         collected_at: datetime,
     ) -> CostObservation:
         required = ("ServiceName", "Cost", "UsageDate", "Currency")
-        if any(not row.get(key) for key in required):
-            raise ValueError("FOCUS row is missing a required source fact")
+        missing = tuple(
+            key
+            for key in required
+            if (value := row.get(key)) is None or (isinstance(value, str) and not value.strip())
+        )
+        if missing:
+            raise ValueError(f"FOCUS row is missing required source facts: {', '.join(missing)}")
         try:
             amount = Decimal(str(row["Cost"]))
             start = datetime.strptime(str(row["UsageDate"]), "%Y%m%d").replace(
