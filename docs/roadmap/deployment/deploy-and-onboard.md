@@ -5,7 +5,11 @@ title: Deploy and Onboard
 How to provision and onboard FDAI in Azure so it is ready to observe. This file owns **the concrete deployment inventory, bootstrap sequence, and distribution/deployment responsibility split**; the deployment lifecycle (CI/CD, progressive delivery, rollback, DR) remains in [deployment.md](deployment.md).
 Azure focus: this document targets an Azure subscription. Non-Azure providers are TBD (see [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)). All identifiers are synthetic per [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md).
 > The day-zero service tiers and counts are decided in [minimum Azure resource inventory](#azure-resource-inventory-minimum-set). A deployment owner confirms the region, quota, retention, replica caps, and production tier overrides before deployment.
-> The **execution engine is decided**: `terraform apply` against `infra/` (Terraform HCL). The planned operator entry point is the installable `fdaictl` facade, which keeps Terraform as the source of truth and submits plan and apply work to the approved runner. See [Installable Deployment CLI](installable-deployment-cli.md) and [Deployment Artifacts](#deployment-artifacts).
+> The **execution engine is decided**: `terraform apply` against `infra/` (Terraform HCL). The
+> operator entry point is `fdaictl provision azure`, which coordinates exact plans locally and
+> runs private data-plane apply on the managed host inside the target VNet. Tenant deployment does
+> not use GitHub Actions. See [Installable Deployment CLI](installable-deployment-cli.md) and
+> [Deployment Artifacts](#deployment-artifacts).
 ## Prerequisites
 
 ### Deployer Identity (Azure)
@@ -26,8 +30,8 @@ The production deployer permission boundary is owned by
   existing server; `enable_private_postgres = true` remains the separate delegated-subnet mode.
   The deploy also binds the Container App Environment to a delegated infrastructure subnet and
   locks Key Vault to private access. Because a private-only vault is unreachable from an operator laptop,
-  `terraform apply` MUST then run from a host with VNet line-of-sight to the endpoint - a
-  CI runner or a jumpbox inside the VNet (the executor writes the DSN secrets from there).
+  `terraform apply` MUST then run from the manual managed deployment host with VNet line-of-sight
+  to the endpoint (the executor writes the DSN secrets from there).
   ACR is locked the same way when `acr_sku = "Premium"`: the registry loses public network
   access and receives a `privatelink.azurecr.io` endpoint whose zone group registers the
   login-server and data-endpoint records. Private link is Premium-only, so a Basic or Standard
@@ -85,7 +89,9 @@ The app config peers its spoke VNet to the ops hub (both directions) and links i
 DNS zones to the ops VNet via the `extra_vnet_links` seam, so the runner resolves the app's
 Key Vault privately. The runner is the terraform apply principal, so the existing
 `kv_officer_self` grant makes it `Key Vault Secrets Officer` on the app vault - it writes the
-DSN secrets during apply. Deploys run through the [`deploy-dev` workflow](../../../.github/workflows/deploy-dev.yml) on runners matching `[self-hosted, fdai-deploy, fdai-deploy-candidate]` (plan-only by default; the `apply` input enforces).
+DSN secrets during apply. Tenant deploys run through the standalone local coordinator and the
+Bastion-reachable managed host. The historical `deploy-dev` workflow remains repository automation
+evidence and is not a supported tenant deployment entry point.
 The additional label selects the validated 8-vCPU local-SSD pool; conjunctive GitHub label matching queues jobs when that pool is unavailable instead of silently falling back to the slower managed-disk runner.
 Repository workflows allow only reviewed remote actions pinned to exact Node 24-compatible release
 refs; container supply-chain actions use immutable commit SHAs. The CI contract rejects unknown
@@ -118,7 +124,7 @@ ingestion, the isolated Executor when selected, operational canary, inventory re
 realtime inventory publishers, and their dependency graphs. This keeps the Job's image and required
 shared runtime configuration converged while unrelated runtime-resource changes stay outside the plan.
 Terraform owns the provider-schema Job at the root address `azurerm_container_app_job.provider_schema[0]`. Deterministic resource IDs bind the existing Container Apps environment and inventory identity, a read-only identity lookup supplies its client ID, and a `moved` block preserves state from the former compute-module address. The provider-only target therefore does not inherit the compute module's broad platform dependency graph.
-Provider-schema deployment uses `fdaictl deploy plan --deploy-provider-schema` instead of that broad gateway target. The standard Core profile uses `plan-provider-*` and `apply-provider-*`; an active Cost Governance Core distribution uses `plan-provider-cost-*` and `apply-provider-cost-*`. The request subtype must match the context-bound runtime image profile, so the workflow derives the exact profile without another mutable input. Both forms admit only the provider-schema Job address, bind the exact attested Core image revision, reject every mixed target, and require a targeted zero-change plan after apply. Plan and apply both require that exact image to be the active, healthy, provisioned Core revision with rollback retention enabled. Plan stores that sanitized baseline under its immutable plan path; apply verifies the stored receipt and observes the live baseline again before mutation. A dedicated bounded verifier starts the Job once and retains Core-baseline, source-revision, durable-generation, Heimdall-handoff, and matching Forseti-decision and Saga-audit evidence. The Job command forces a fresh source observation, so periodic or failure-retry cadence cannot short-circuit explicit apply verification. A successfully accepted complete snapshot refreshes its freshness timestamp, and the deployment verifier rejects a stale receipt. A verification-only resume never reapplies Terraform: it reuses exact immutable evidence when present and otherwise reruns only the Job verification. An unchanged schema records agent review as not applicable instead of fabricating a decision. `fdaictl deploy status` validates the sealed image profile and digest, the fresh healthy Core baseline, the durable source and generation, and either the complete review chain or the explicit not-applicable result.
+The legacy repository-automation provider-schema mode is not registered by the public deployment CLI. It retains `plan-provider-*` and `apply-provider-*` requests for the standard Core profile and `plan-provider-cost-*` and `apply-provider-cost-*` for the Cost Governance Core profile instead of the broad gateway target. The subtype must match the context-bound runtime image profile without another mutable input. Both forms admit only the provider-schema Job address, bind the exact attested Core image revision, reject mixed targets, and require a targeted zero-change plan after apply. Plan and apply require that image to be the active, healthy, provisioned Core revision with rollback retention enabled. Plan stores a sanitized immutable baseline; apply verifies it and observes the live baseline again before mutation. A bounded verifier starts the Job once and retains Core-baseline, source-revision, durable-generation, Heimdall-handoff, and matching Forseti-decision and Saga-audit evidence. The Job forces a fresh observation so periodic or failure-retry cadence cannot skip explicit verification. An accepted complete snapshot refreshes its freshness timestamp, and stale receipts are rejected. Verification-only resume never reapplies Terraform: it reuses exact immutable evidence or reruns only Job verification. An unchanged schema records review as not applicable. The retained compatibility status reader validates the sealed image profile and digest, fresh healthy Core baseline, durable source and generation, and complete review chain or explicit not-applicable result; apply status also requires the exact plan id and digest.
 The target set includes both source and destination addresses from active Terraform `moved` blocks, and the workflow contract test keeps
 those addresses synchronized so state migrations cannot invalidate a protected plan. This includes
 the unindexed destination addresses for the baseline-regression and pattern-growth jobs. A `for_each`
@@ -187,17 +193,16 @@ The preflight, source precedence, coverage, and stale-retention contract is owne
 
 These customer-agnostic helpers keep both deployment routes repeatable:
 
-- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh) is the one-command private `dev` path after `az login`. It requires exact green `main` and uses bounded concurrency for independent artifact preparation, read-only discovery, provider requests, and policy-probe siblings.
-  It prompts for each current exact plan, configures Foundation and tenant bindings, applies through the protected runner, and requires zero-change. Approval, apply, cleanup, state, and handoff boundaries remain serial; its pre-Foundation image plan uses private builder and verifier VMs behind an FQDN-allowlisted Firewall Basic in threat-intelligence deny mode rather than the Shared-Key-dependent Azure VM Image Builder staging path, and both VM NICs explicitly bind the inbound-deny NSG.
+- [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh) is the one-command private `dev` path after `az login`. It verifies one versioned signed kit and uses bounded concurrency for independent artifact preparation, read-only discovery, provider requests, and policy-probe siblings.
+  It prompts for each current exact plan, configures Foundation and tenant bindings, and applies through the manual managed host before requiring a zero-change plan. Approval, apply, cleanup, state, and handoff boundaries remain serial. GitHub repository configuration and workflow dispatch are not part of this path.
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh) retains the lower-level 15-stage
   Foundation route. Claims resume verification only and Foundation never implies readiness.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) binds Azure CLI and `azd` entry points to the approved subscription and tenant pair before mutation; Genesis verifies region availability through the exact subscription-bound ARM locations endpoint without changing the active CLI selection, and policy-probe cleanup parses multi-value TSV as ordered lines before proving absence.
 - [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh) remains the direct interactive public
   `dev` path. It is not a private, shared, staging, or production deployment path.
-- [`onboard.sh`](../../../infra/bootstrap/onboard.sh) runs create-state-account -> bootstrap
-  apply -> prints the GitHub Actions config (idempotent).
-- [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh) sets the repo
-  Variables + Secrets from the bootstrap outputs (password generated + piped, never printed).
+- [`onboard.sh`](../../../infra/bootstrap/onboard.sh) and
+  [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh) are legacy
+  repository-automation helpers. They are not invoked by public tenant deployment.
 - [`register-runner.sh`](../../../infra/bootstrap/register-runner.sh) is legacy `run-command`
   recovery. Genesis instead sends registration material through SSH standard input over Bastion.
 - [`check-runner-storage-posture.sh`](../../../infra/bootstrap/check-runner-storage-posture.sh) verifies the size and ephemeral placement; [`teardown-env.sh`](../../../scripts/deployment/azure/teardown-env.sh) guards environment destroy.
@@ -227,24 +232,14 @@ Environment-specific ceilings are owned by [Production deployment hardening](pro
   and per-environment isolated state. Terraform exposes primary Event Hub names through
   `event_bus_topics` and auxiliary stage, approval, and inventory-ingress names through
   `event_bus_auxiliary_topics` so local runtime preparation binds only provisioned topics.
-- **Entry command**: `terraform apply` against the `infra/` Terraform (HCL) modules - resolves
-  the previous OD (`azd up` vs `terraform apply` vs a wrapper). Environment values are supplied
-  via `*.tfvars` files that are **never committed** (per
-  [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md));
-  the [`fdaictl`](installable-deployment-cli.md) wrapper and runner orchestrate
-  `validate request -> init -> plan -> live preflight -> exact remote apply -> post-provision
-  checks`. A protected plan without the complete non-secret preflight profile stops before Azure
-  login or Terraform initialization. A blocked live probe emits only its sanitized checks and
-  findings before the workflow stops. Terraform remains the execution engine and infrastructure
-  source of truth. Bicep and OpenTofu remain compatible fallbacks per
-  [tech-stack.md](../architecture/tech-stack.md).
-- The protected `fdaictl` transport supports `dev` and `staging`. Its request identity binds the
-  approved tenant, subscription, region, exact commit, selected services, run, attempt, and
-  plan/apply/resume mode, and general CLI requests bind `document_ocr_action=preserve`. The workflow
-  recomputes those bindings. A single-maintainer repository can set
-  `DEV_DEPLOY_REQUIRED_APPROVALS=0` for direct `dev` applies only; the workflow then verifies that
-  the Environment has no reviewer rule. Staging, production, and bot-owned applies retain one independent
-  reviewer with self-review and administrator bypass disabled. N-of-M and production-only profiles remain blocked.
+- **Entry command**: `fdaictl provision azure` coordinates Terraform against the `infra/` HCL
+  modules. Environment values stay outside source control. The standalone coordinator runs
+  `verify signed kit -> inspect target -> exact Foundation plan and approval -> managed-host apply
+  -> exact application plan and approval -> post-provision checks`. Terraform remains the execution
+  engine and infrastructure source of truth.
+- Tenant deployment transport is always `manual`. The active Azure user approves exact plans, and
+  the managed host executes them with a distinct workload identity. No repository variable,
+  repository secret, GitHub Environment, workflow dispatch, or GitHub runner participates.
 - Same signed image is promoted `dev → staging → prod`; nothing is rebuilt per environment
   ([deployment.md](deployment.md)).
 
@@ -624,9 +619,9 @@ results from these principles is in [cost-model.md](../interfaces/cost-model.md)
 
 ## Open Decisions
 
-- [x] Deployment interface - **resolved: Terraform is the execution engine; the planned
-  operator interface is `fdaictl`**. The installable CLI runs read-only preflight and
-  submits exact-plan work to the approved runner without replacing Terraform. See
+- [x] Deployment interface - **resolved: Terraform is the execution engine and the operator
+  interface is `fdaictl provision azure`**. The installable CLI runs read-only preflight and
+  coordinates exact-plan work on the manual managed host without replacing Terraform. See
   [Installable Deployment CLI](installable-deployment-cli.md).
 - [ ] Concrete tier values within the minimum set (PostgreSQL storage size, Log Analytics
       daily cap, ACR retention window, Event Hubs throughput-unit ceiling).

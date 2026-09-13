@@ -92,6 +92,8 @@ export default defineConfig({
       customCss: [
         "./src/styles/custom.css",
         "./src/styles/get-started.css",
+        "./src/styles/theme-surfaces.css",
+        "./src/styles/responsive.css",
       ],
       // Override Starlight's Banner slot so Korean pages whose
       // translation_source_sha is out of date get an automatic notice.

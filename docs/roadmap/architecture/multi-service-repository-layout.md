@@ -21,6 +21,10 @@ distribution, and no service imports another service's implementation.
 | Repository root | Root `pyproject.toml` and `uv.lock` coordinate development tooling and cross-service integration. The root pytest path enumerates every service `src` root, including the deployment-gated System Knowledge Service candidate, plus the independently installable deployment CLI. Tests import the current checkout without adding the CLI to the uv workspace, and the root does not publish an FDAI runtime distribution. `pytest-timeout` defaults to a 120 s per-test wall-clock ceiling so a single hanging test cannot block an xdist shard indefinitely; the two-pass full-catalog determinism proof declares a bounded 240 s exception. |
 | Service communication | Services exchange versioned contracts over PostgreSQL-owned projections and the event bus. One service never imports another service's implementation package. |
 
+Root test collection also imports the standalone CLI's Rich renderer and pyte terminal tests.
+The root development extra declares both with the CLI's supported version ranges and pins them
+in the root lock; the CLI keeps its own lock and neither dependency becomes a service runtime input.
+
 ## Multi-Service Repository Layout
 
 ```text

@@ -15,12 +15,15 @@ from typing import Any
 
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.deployment_kit import DeploymentKit, archive_verified_kit
+from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail, terminal_output
 from fdai_deployment_cli.license import inspect_license
 from fdai_deployment_cli.license_issue import (
     discover_license_signing_key,
     issue_deployment_license,
 )
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
+from fdai_deployment_cli.standalone_review import validate_plan_review
+from fdai_deployment_cli.target import compute_target_binding
 from fdai_deployment_cli.trust_roots import license_public_key_pem
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
@@ -40,6 +43,8 @@ def deploy_standalone_application(
 ) -> dict[str, object]:
     """Deploy and independently replan the application without a workflow host."""
 
+    begin_stage("transfer")
+    progress_detail("Verifying the handoff and preparing the signed kit for Bastion transfer")
     report = _mapping(foundation_status.get("foundation_report"), "Foundation report")
     plan = _mapping(report.get("foundation_plan"), "Foundation plan")
     plan_directory = prepared.root / str(plan["plan_ref"])
@@ -104,6 +109,8 @@ def deploy_standalone_application(
             app_work=app_work,
             timeout_seconds=timeout_seconds,
         )
+        begin_stage("substrate")
+        progress_detail("Recovering by verification, or planning private infrastructure")
         substrate_recovery = _remote_json(
             tunnel,
             remote_root,
@@ -123,6 +130,7 @@ def deploy_standalone_application(
             )
             substrate_approval = _approve_plan(prepared.root, substrate_plan)
             tunnel.copy_to(substrate_approval, remote_approval, timeout=120)
+            progress_detail("Applying the approved infrastructure plan and verifying its effects")
             substrate_receipt = _remote_json(
                 tunnel,
                 remote_root,
@@ -133,6 +141,8 @@ def deploy_standalone_application(
             substrate_approval.unlink(missing_ok=True)
             tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
         _require_receipt(substrate_receipt, "substrate")
+        begin_stage("images")
+        progress_detail("Importing runtime images and reading back their digests")
         image_receipt = _remote_json(
             tunnel,
             remote_root,
@@ -146,6 +156,7 @@ def deploy_standalone_application(
         deployment_binding = hashlib.sha256(
             (f"{handoff['tenant_id']}\0{handoff['subscription_id']}\0{app_name}").encode()
         ).hexdigest()
+        begin_stage("capability")
         token = _license_token(
             key=license_signing_key,
             trial_token=trial_token,
@@ -153,26 +164,33 @@ def deploy_standalone_application(
             deployment_binding=deployment_binding,
             work_ref=work_ref,
         )
-        license_receipt = _remote_json(
-            tunnel,
-            remote_root,
-            app_work,
-            (
-                "install-license",
-                "--image-digest",
-                core_digest,
-                "--deployment-binding",
-                deployment_binding,
-            ),
-            timeout=300,
-            input_text=token,
-        )
-        token = ""
-        if (
-            license_receipt.get("secret_metadata_verified") is not True
-            or license_receipt.get("secret_content_verified") is not True
-        ):
-            raise ValueError("standalone license installation was not verified")
+        license_mode = "observation-only"
+        if token is not None:
+            license_receipt = _remote_json(
+                tunnel,
+                remote_root,
+                app_work,
+                (
+                    "install-license",
+                    "--image-digest",
+                    core_digest,
+                    "--deployment-binding",
+                    deployment_binding,
+                ),
+                timeout=300,
+                input_text=token,
+            )
+            token = ""
+            if (
+                license_receipt.get("secret_metadata_verified") is not True
+                or license_receipt.get("secret_content_verified") is not True
+            ):
+                raise ValueError("standalone license installation was not verified")
+            license_mode = "licensed"
+        else:
+            progress_detail("Observation-only mode; no license secret is installed")
+        begin_stage("migration")
+        progress_detail("Running database migrations and materializing catalogs")
         migration_receipt = _remote_json(
             tunnel,
             remote_root,
@@ -185,6 +203,8 @@ def deploy_standalone_application(
             or migration_receipt.get("catalogs_materialized") is not True
         ):
             raise ValueError("standalone database and catalog bootstrap is incomplete")
+        begin_stage("application")
+        progress_detail("Recovering by verification, or planning the application")
         application_recovery = _remote_json(
             tunnel,
             remote_root,
@@ -205,6 +225,7 @@ def deploy_standalone_application(
             application_approval = _approve_plan(prepared.root, application_plan)
             tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
             tunnel.copy_to(application_approval, remote_approval, timeout=120)
+            progress_detail("Applying the approved application plan and verifying its effects")
             application_receipt = _remote_json(
                 tunnel,
                 remote_root,
@@ -215,6 +236,8 @@ def deploy_standalone_application(
             application_approval.unlink(missing_ok=True)
             tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
         _require_receipt(application_receipt, "application")
+        begin_stage("verification")
+        progress_detail("Checking service health and a second zero-change Terraform plan")
         verification = _remote_json(
             tunnel,
             remote_root,
@@ -227,13 +250,15 @@ def deploy_standalone_application(
             or verification.get("runtime_health_verified") is not True
         ):
             raise ValueError("standalone application convergence is incomplete")
+        begin_stage("cleanup")
+        progress_detail("Removing transient transfers and verifying their absence")
         cleanup = tunnel.ssh(("rm", "-f", "--", remote_archive, remote_approval), timeout=300)
         archive_absent = tunnel.ssh(("test", "!", "-e", remote_archive), timeout=60)
         approval_absent = tunnel.ssh(("test", "!", "-e", remote_approval), timeout=60)
         if any(result.returncode != 0 for result in (cleanup, archive_absent, approval_absent)):
             raise ValueError("standalone remote transient cleanup is incomplete")
     receipt: dict[str, object] = {
-        "schema_version": "fdai.standalone-application-terminal-receipt.v1",
+        "schema_version": "fdai.standalone-application-terminal-receipt.v2",
         "state": "application-converged",
         "source_commit": prepared.source_commit,
         "target_binding": prepared.target_binding,
@@ -244,6 +269,8 @@ def deploy_standalone_application(
         "verification_receipt_digest": verification["receipt_digest"],
         "remote_transient_cleanup_verified": True,
         "application_converged": True,
+        "deployment_ready": True,
+        "license_mode": license_mode,
         "mutation_performed": True,
         "subscription_ready": False,
     }
@@ -349,24 +376,30 @@ def _remote_json(
     return _mapping(value, "standalone managed-host result")
 
 
+@terminal_output("Review the exact application plan", approval=True)
 def _approve_plan(root: Path, review: dict[str, Any]) -> Path:
-    stage = str(review.get("stage", ""))
+    stage, destructive = validate_plan_review(review)
     expected = f"{stage}-apply"
     print(json.dumps(review, indent=2, sort_keys=True), file=sys.stderr)
-    supplied = input(f"Type the exact stage name to approve ({expected}): ").strip()
+    print(
+        f"Type the exact stage name to approve ({expected}): ", end="", file=sys.stderr, flush=True
+    )
+    supplied = _approval_input()
     if supplied != expected:
         raise ValueError("standalone application plan approval was denied")
-    summary = _mapping(review.get("summary"), "standalone plan summary")
-    counts = _mapping(summary.get("action_counts"), "standalone plan action counts")
-    destructive = int(counts.get("delete", 0)) + int(counts.get("replace", 0))
     if destructive:
-        confirmation = input(
+        print(
             f"Plan contains {destructive} delete or replacement action(s); type "
-            f"{expected}-destructive to approve: "
-        ).strip()
+            f"{expected}-destructive to approve: ",
+            end="",
+            file=sys.stderr,
+            flush=True,
+        )
+        confirmation = _approval_input()
         if confirmation != f"{expected}-destructive":
             raise ValueError("standalone destructive application plan approval was denied")
     actor = _azure_actor_digest(str(review["target_binding"]))
+    validate_plan_review(review)
     now = datetime.now(UTC).replace(microsecond=0)
     expires = min(_parse_moment(str(review["expires_at"])), now + timedelta(hours=1))
     approval = {
@@ -386,6 +419,15 @@ def _approve_plan(root: Path, review: dict[str, Any]) -> Path:
     return path
 
 
+def _approval_input() -> str:
+    """Treat a closed input stream as denial, never as approval or an implicit retry."""
+
+    try:
+        return input("").strip()
+    except EOFError as exc:
+        raise ValueError("approval input closed; no new approval was granted") from exc
+
+
 def _license_token(
     *,
     key: Path | None,
@@ -393,7 +435,9 @@ def _license_token(
     image_digest: str,
     deployment_binding: str,
     work_ref: str,
-) -> str:
+) -> str | None:
+    """Return a verified license token or keep an unlicensed deployment observation-only."""
+
     issuer = discover_license_signing_key(key)
     if issuer is not None:
         return issue_deployment_license(
@@ -404,10 +448,7 @@ def _license_token(
         )
     token_path = trial_token
     if token_path is None:
-        supplied = input("Path to a pre-issued mode-0600 Trial token: ").strip()
-        if not supplied:
-            raise ValueError("a license issuer key or Trial token is required")
-        token_path = Path(supplied)
+        return None
     path = token_path if token_path.is_absolute() else Path.cwd() / token_path
     token = read_private_bytes(path, max_bytes=8192).decode("ascii")
     inspect_license(
@@ -445,9 +486,9 @@ def _azure_actor_digest(target_binding: str) -> str:
             "account",
             "show",
             "--query",
-            "user.name",
+            "{subscription_id:id,tenant_id:tenantId,user_name:user.name,user_type:user.type}",
             "--output",
-            "tsv",
+            "json",
             "--only-show-errors",
         ),
         check=False,
@@ -455,9 +496,23 @@ def _azure_actor_digest(target_binding: str) -> str:
         text=True,
         timeout=60,
     )
-    login = result.stdout.strip()
-    if result.returncode != 0 or not login:
+    try:
+        value = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError("authenticated Azure approval actor is unavailable") from exc
+    if not isinstance(value, dict) or result.returncode != 0 or value.get("user_type") != "user":
         raise ValueError("authenticated Azure approval actor is unavailable")
+    subscription = value.get("subscription_id")
+    tenant = value.get("tenant_id")
+    login = value.get("user_name")
+    if (
+        not isinstance(subscription, str)
+        or not isinstance(tenant, str)
+        or not isinstance(login, str)
+        or not login.strip()
+        or compute_target_binding(tenant_id=tenant, subscription_id=subscription) != target_binding
+    ):
+        raise ValueError("active Azure target does not match the approved plan")
     return hashlib.sha256(f"{target_binding}:{login.casefold()}".encode()).hexdigest()
 
 

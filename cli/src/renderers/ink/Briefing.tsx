@@ -15,7 +15,13 @@ import { toneHex } from "./theme.js";
 const CARD_WIDTH = 78;
 
 function riskTone(risk: RiskLevel): Tone {
-  return risk === "LOW" ? "low" : risk === "MEDIUM" ? "medium" : "high";
+  return risk === "LOW"
+    ? "low"
+    : risk === "MEDIUM"
+      ? "medium"
+      : risk === "HIGH"
+        ? "high"
+        : "neutral";
 }
 
 function Header({ title, version, context }: { title: string; version: string; context: string }) {
@@ -161,7 +167,7 @@ function DecisionCard({ block }: { block: Extract<Block, { type: "decisionCard" 
           <Text bold>{`${block.index}/${block.total} \u00b7 ${block.title}`}</Text>
         </Box>
         <Text color={toneHex(tone)} bold>
-          {`${block.risk} risk`}
+          {block.riskLabel}
         </Text>
       </Box>
       <Text color={dim}>{block.actionType}</Text>

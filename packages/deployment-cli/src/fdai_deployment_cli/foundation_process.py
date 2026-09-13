@@ -16,15 +16,23 @@ def _interrupted(signum: int, _frame: object) -> None:
 
 
 def run_foundation_process(
-    command: Sequence[str], *, cwd: Path, env: Mapping[str, str], timeout: float
+    command: Sequence[str],
+    *,
+    cwd: Path,
+    env: Mapping[str, str],
+    timeout: float,
+    stdout: int | None = None,
+    stderr: int | None = None,
 ) -> subprocess.CompletedProcess[bytes]:
     """Preserve terminal I/O and allow nested SIGTERM cleanup before forced termination.
 
     Return the actual child exit code. Timeout or caller interruption stops the
     process group with a five-second cleanup reserve; neither path grants retry.
+    Optional caller-owned output descriptors preserve presentation without changing
+    stdin, descriptor ownership, or the process-group termination contract.
     """
     process = subprocess.Popen(  # noqa: S603 - fixed signed Foundation entrypoint.
-        command, cwd=cwd, env=env, start_new_session=True
+        command, cwd=cwd, env=env, stdout=stdout, stderr=stderr, start_new_session=True
     )
     previous = None
     if threading.current_thread() is threading.main_thread():

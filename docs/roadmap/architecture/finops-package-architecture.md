@@ -62,6 +62,10 @@ domain code and assets. It does not create another control plane or move authori
 
 ## Design at a glance
 
+Root development-only Rich and pyte dependencies support standalone deployment CLI test collection.
+They do not enter the Cost Governance distribution or change its installation, activation, or
+promotion state; runtime images continue to resolve their service-owned dependencies.
+
 > **Composition isolation:** The shared Operator route assembly may decorate web conversation
 > proposals with a verified handover binding. That decorator does not wrap Cost Governance routes,
 > change package activation, or grant access to cost data.

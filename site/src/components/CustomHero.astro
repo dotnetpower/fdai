@@ -178,7 +178,7 @@ const is404 =
     justify-content: center;
     gap: 1.25rem;
     padding-block: 4rem 3rem;
-    padding-inline: 1.5rem;
+    padding-inline: clamp(0.5rem, 2.5vw, 1.5rem);
     margin-block-end: 1rem;
   }
   /* Centre Starlight's hero: override its grid with a centred flex
@@ -201,6 +201,16 @@ const is404 =
     text-align: center;
   }
   .landing-hero :global(.hero .actions) {
+    justify-content: center;
+  }
+  .landing-hero :global(:is(.hero, .stack, .copy, .actions)) {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .landing-hero :global(.sl-link-button) {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
     justify-content: center;
   }
   /*
@@ -258,7 +268,7 @@ const is404 =
     color: transparent;
     font-weight: 700;
     letter-spacing: -0.015em;
-    font-size: clamp(2.6rem, 6vw, 4.8rem);
+    font-size: clamp(2rem, 6vw, 4.8rem);
     line-height: 1.05;
   }
 
@@ -373,4 +383,3 @@ const is404 =
     }
   }
 </style>
-

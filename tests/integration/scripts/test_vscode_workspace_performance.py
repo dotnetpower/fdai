@@ -74,7 +74,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
     assert isinstance(tasks, dict)
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
-    assert len(tasks_by_label) == 23
+    assert len(tasks_by_label) == len(tasks["tasks"]) == 24
     allowed_instance_policies = {
         "terminateNewest",
         "terminateOldest",
@@ -166,6 +166,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert visible_tasks == {
         "git: pull now (rebase, autostash)",
         "console: Playwright quick (desktop)",
+        "docs site: serve (4321)",
         "design mocks: serve (5373)",
         "console: prepare full stack",
         "console: start core runtime",
@@ -182,6 +183,18 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "conversation assurance: status",
         "conversation assurance: stop",
         "conversation assurance: open latest report",
+    }
+
+    docs_preview = tasks_by_label["docs site: serve (4321)"]
+    assert docs_preview["command"] == "npm --prefix site run dev -- --host 127.0.0.1 --port 4321"
+    assert docs_preview["options"] == {"cwd": "${workspaceFolder}"}
+    assert docs_preview["isBackground"] is True
+    assert docs_preview["runOptions"] == {"instanceLimit": 1}
+    assert "dependsOn" not in docs_preview
+    assert docs_preview["problemMatcher"]["background"] == {
+        "activeOnStart": True,
+        "beginsPattern": "astro.*ready in",
+        "endsPattern": r"Local.*http://127\.0\.0\.1:4321/",
     }
 
     core_runtime = tasks_by_label["console: start core runtime"]

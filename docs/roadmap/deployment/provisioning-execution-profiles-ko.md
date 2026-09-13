@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 721f748ac6b4c250dc9293ec29f9569367c43120
+translation_source_sha: 4804b3457c3f6c73b667de135c9aea20c56bcfee
 translation_revised: 2026-09-12
 ---
 # 프로비저닝 실행 프로파일
@@ -20,8 +20,9 @@ translation_revised: 2026-09-12
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 읽기 전용 점검 및 프로파일 초기화 명령 | implemented | `packages/deployment-cli`, 집중 프로필, 대상, 도구, 제품화 검사 | 전용 배포판이 `fdaictl`을 등록하고 비공개 대상 연결 프로필을 쓰며 실행 호스트 근거가 있을 때까지 검토 상태를 반환합니다. |
-| 관리 VM, 비공개 백엔드 및 보호된 실행기 | implemented | `infra/bootstrap/`, `.github/workflows/deploy-dev.yml` 및 집중 bootstrap/작업 흐름 테스트 | 영속 VNet 호스트, 워크로드 신원, 비공개 상태, 보호된 계획 및 정확한 애플리케이션 적용 동작이 구현되어 있습니다. |
-| 신규 구독 로컬 조정기 | implemented | `fdaictl provision azure`, `fdai-up.sh`, 서명 키트, 기반 계층, Bastion, 관리 호스트, 승인, 라이선스, 마이그레이션 및 수렴 모듈과 라우팅된 수명 주기 테스트 | 하나의 `dev` 프로세스가 활성 Azure CLI 사용자에서 대상을 결정하고 독립적인 준비, 읽기 또는 요청 작업에만 범위가 제한된 병렬 실행을 사용하며 상태 변경 전이는 직렬로 유지합니다. GitHub Actions는 선택적 전송 계층으로 남습니다. 통제된 Azure 증적과 완전한 준비 근거는 남아 있습니다. |
+| 관리 VM, 비공개 백엔드 및 수동 배포 호스트 | implemented | `infra/bootstrap/`, standalone 배포 모듈 및 집중 bootstrap 테스트 | 영속 VNet 호스트, workload identity, 비공개 상태, 정확한 계획 및 애플리케이션 적용이 GitHub Actions 없이 실행됩니다. |
+| 신규 구독 로컬 조정기 | implemented | `fdaictl provision azure`, `fdai-up.sh`, 서명 키트, 기반 계층, Bastion, 관리 호스트, 승인, 라이선스, 마이그레이션 및 수렴 모듈과 라우팅된 수명 주기 테스트 | 하나의 `dev` 프로세스가 활성 Azure CLI 사용자에서 대상을 결정하고 상태 변경 전이를 직렬로 유지합니다. 대상 환경 배포에는 GitHub 전송 계층이 없습니다. 통제된 Azure 증적과 완전한 구독 보증 근거는 남아 있습니다. |
+| OCI 배포 어플라이언스 | implemented | `build-deployment-appliance.sh`, `run-deployment-appliance.sh`, 집중 스크립트 및 CLI 테스트 | release 담당자는 검증된 완전한 키트 하나를 digest로 고정되고 네트워크를 사용하지 않는 OCI 빌드로 감쌀 수 있습니다. 이미지는 공개 산출물 대체 경로 없이 수동 standalone 조정기를 시작합니다. 깨끗한 운영 이미지 빌드와 Azure 증적은 남아 있습니다. |
 | Offline-kit 생성 및 검증 | validated | `fdai_deployment_cli.offline_kit`, 잠긴 릴리스 스크립트, 성공한 네트워크 격리 air-gap 훈련 | 서명 우선 검증, 정확한 파일, SBOM 커버리지, ABI/libc 연결, 비공개 스냅샷, 제공 wheel 설치가 통과합니다. |
 | Temporary 공개 접근 정리 | not-started | 이 문서의 접근 선호 설정 계약 | 범위가 제한된 생성, 자동 정리, 정리 실패 시 불완전 상태 및 감사 종결을 입증하는 조립 명령이 없습니다. |
 | Pinned TUF 루트 및 교대 | not-started | `docs/runbooks/offline-trust-ceremony.md` | 첫 루트 의식, 패키지 리소스, 클라이언트 초기화 및 교대 근거가 남아 있습니다. |
@@ -31,6 +32,7 @@ translation_revised: 2026-09-12
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-12 | implemented | 대상 환경 프로비저닝을 manual 전송 계층으로 제한하고, 공개 CLI에서 workflow dispatch를 제거하고, 토큰 없는 관찰 전용 설치를 허용하고, OCI 배포 어플라이언스 진입점을 추가했습니다. | `current change`, 배포 CLI 계약, standalone 모듈, 어플라이언스 스크립트 및 집중 테스트 | 깨끗한 어플라이언스 하나를 빌드하고 연결 및 아티팩트 오프라인 Azure 배포 증적을 보존합니다. |
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 점검, 프로파일 영속성 및 offline 검증을 근거에 맞는 현재 상태로 바로잡았습니다. | 현재 변경과 구현 범위 표에 기재한 패키지 메타데이터, bootstrap 소스, release 스크립트 및 집중 작업 흐름 검사 | CLI 패키지를 만들고 offline 검증을 복원하며 trust 초기화를 완료한 뒤 전체 수명 주기를 검증해야 합니다. |
 | 2026-08-29 | validated | 대상 연결 점검과 비공개 프로필을 추가하고 서명 offline 검증을 복원하며 제공 wheel 네트워크 격리 훈련을 완료했습니다. | `dd28b64d9` 이후 캠페인 커밋, 집중 검사, 성공한 `airgap-drill.sh` | 관리 호스트 Azure 실행을 완료하고 보호된 프로비저닝 후 증적을 보존해야 합니다. |
 | 2026-09-05 | implemented | exclusive RCA reader identity apply와 검증 재개를 허용 목록 기반 bot 소유 요청으로 라우팅했습니다. downstream apply는 보호된 GitHub Environment에 계속 binding하며 변경 전에 보호된 `main`의 validator로 reviewer 정책을 검사합니다. | `current change`, 집중 deployment CLI, workflow 및 Environment 정책 검사 | 독립 승인 exact apply와 효과 증적을 하나 보존합니다. |
@@ -51,6 +53,7 @@ translation_revised: 2026-09-12
 - [ ] TUF 루트 의식과 패키지 초기화를 완료하고 offline trust ceremony가 수락한 서명 루트 및 교대 근거를 남깁니다.
 - [ ] 깨끗한 스냅샷에서 완전한 서명 키트 하나를 빌드하고 다시 검증한 뒤 새 환경에 CLI를 설치하고 online 및 로컬 아티팩트 경로에서 같은 키트를 획득합니다.
 - [ ] 전체 구독 준비 상태를 주장하지 않고 두 활성 로그인 모드의 대상 연결 기반 Foundation 및 애플리케이션 수렴 증적을 보존합니다.
+- [ ] 승인되고 digest로 고정된 기본 이미지에서 배포 어플라이언스를 빌드하고 SBOM과 provenance를 검증한 뒤 이미지 진입점의 아티팩트 오프라인 Azure 배포 증적을 보존합니다.
 
 ## 한눈에 보는 설계
 
@@ -62,7 +65,7 @@ translation_revised: 2026-09-12
 |----|---------|-----------|
 | Connectivity | `online`, `offline` | 제한된 TLS 검사를 통과한 후에만 online 출처를 사용하고, 그렇지 않으면 signed offline 키트를 요구합니다. |
 | 실행 호스트 | `existing-host`, `managed-vm` | 적합한 private-network 호스트를 재사용하고, 적합한 호스트가 없으면 managed VM을 생성합니다. |
-| 전송 계층 | `manual`, `github-actions` | 설치 패키지의 기본 흐름에는 `manual`을 사용합니다. GitHub Actions는 선택적인 저장소 소유 CI/CD 전송 계층이며 구독 배포 필수 조건이 아닙니다. |
+| 전송 계층 | `manual` | 대상 환경 배포는 항상 로컬 조정기와 Managed Host를 사용합니다. GitHub Actions는 release를 빌드하고 게시할 수 있지만 대상 환경을 계획하거나 적용할 수 없습니다. |
 | 소유권 | `fdai-managed` | 승인 후 Terraform이 선언된 리소스와 역할 배정을 관리합니다. |
 
 ### 활성 로그인 기반 독립 실행형 배포
@@ -109,9 +112,10 @@ provider 구성 또는 서명 키트가 바뀌면 별도의 준비 context가 �
 
 명령은 명시적 옵션 또는 문서화된 사용자 구성 경로에서 운영자 소유 mode-`0600` license issuer
 key를 찾습니다. 키가 있으면 키를 복사하지 않고 배포 및 이미지에 연결된 token을 발급합니다.
-키가 없으면 터미널에서 미리 발급된 mode-`0600` Trial token 파일을 요구합니다. Token은 Bastion
-표준 입력으로 전달되고 관리 ID가 Key Vault에 기록합니다. 인자, Terraform state, portable status
-또는 로그에는 포함되지 않습니다.
+미리 발급된 Trial token을 제공하면 같은 검증 및 전달 경로를 사용합니다. 둘 다 없으면 license
+secret을 만들지 않고 관찰 전용 모드로 배포를 완료합니다. Token은 Bastion 표준 입력으로
+전달되고 Managed Identity가 Key Vault에 기록합니다. 인자, Terraform 상태, portable 상태 또는
+로그에는 포함되지 않습니다.
 
 ## 읽기 전용 검사
 
@@ -121,7 +125,7 @@ key를 찾습니다. 키가 있으면 키를 복사하지 않고 배포 및 이�
 fdaictl provision inspect --output json
 ```
 
-점검은 로컬 Azure CLI, Terraform, GitHub CLI, 제한된 online 산출물 접근,
+점검은 로컬 Azure CLI, Terraform, 제한된 online 산출물 접근,
 offline-kit 후보, Azure 워크로드 신원 엔드포인트를 검사합니다. `mutation_performed=false`,
 필수 승인 정책과 정족수, 선택된 프로파일이 포함된 안정적인 JSON 계약을 반환합니다. 도구를
 설치하거나 구성을 기록하거나 리소스를 생성하거나 실행기를 등록하거나 Terraform을
@@ -158,8 +162,7 @@ fdaictl provision init \
 명령은 모든 `auto` 값을 거부하고 `.fdai/provisioning/profile.json`을 mode-`0700` 디렉터리
 안에 파일 모드 `0600`으로 기록합니다. Offline 프로파일에는 `--artifact-source`가 필요합니다.
 Temporary 공개 SSH에는 전체 주소 space보다 좁은 정본 출처 CIDR과 5-60분 접근
-구간이 필요합니다. GitHub Actions 전송 계층에는 일치하는 `github_actions` 접근 메서드가
-필요합니다.
+구간이 필요합니다. 대상 환경 배포 프로필은 `manual` 전송 계층만 허용합니다.
 
 기존 대상은 `--force`를 명시하지 않으면 initialization을 차단합니다. Force는 symbolic
 링크를 따라가거나 non-file 대상을 교체하지 않습니다. 프로파일 initialization은 Azure
@@ -196,9 +199,8 @@ Managed-host 접근 순서는 다음과 같이 고정합니다.
 
 1. 승인된 내부 SSH.
 2. Azure Policy와 배포 프로파일이 허용하는 경우 temporary public-IP SSH.
-3. 자체 호스팅 실행기의 GitHub Actions.
-4. Azure Bastion.
-5. 감사되는 비상 경로인 Azure Run Command.
+3. Azure Bastion.
+4. 감사되는 비상 경로인 Azure Run Command.
 
 신규 구독 Genesis는 이 목록을 차례로 대체 시도하지 않습니다. `access_method=bastion`인
 프로파일은 기반 계층이 만든 정확한 Standard Bastion 네이티브 터널을 선택합니다. 등록 자료는

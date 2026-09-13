@@ -17,8 +17,9 @@ that applies before Terraform changes infrastructure or role assignments.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Read-only inspection and profile initialization commands | implemented | `packages/deployment-cli`; focused profile, target, tool, and productization tests | The dedicated distribution registers `fdaictl`, writes private target-bound profiles, and returns review until execution-host evidence exists. |
-| Managed VM, private backend, and protected runner | implemented | `infra/bootstrap/`, `.github/workflows/deploy-dev.yml`, and focused bootstrap and workflow tests | The durable VNet host, workload identity, private state, protected plan, and exact application-apply mechanics exist. |
-| Fresh-subscription local coordinator | implemented | `fdaictl provision azure`; `fdai-up.sh`; signed-kit, Foundation, Bastion, managed-host, approval, license, migration, and convergence modules; routed lifecycle tests | One `dev` process derives the target from the active Azure CLI user, uses bounded concurrency only for independent preparation and read or request siblings, and keeps stateful transitions serial. GitHub Actions remains an optional transport. A governed Azure receipt and complete readiness evidence remain open. |
+| Managed VM, private backend, and manual deployment host | implemented | `infra/bootstrap/`, standalone deployment modules, and focused bootstrap tests | The durable VNet host, workload identity, private state, exact plans, and application apply run without GitHub Actions. |
+| Fresh-subscription local coordinator | implemented | `fdaictl provision azure`; `fdai-up.sh`; signed-kit, Foundation, Bastion, managed-host, approval, license, migration, and convergence modules; routed lifecycle tests | One `dev` process derives the target from the active Azure CLI user and keeps stateful transitions serial. Tenant deployment has no GitHub transport. A governed Azure receipt and complete subscription-assurance evidence remain open. |
+| OCI deployment appliance | implemented | `build-deployment-appliance.sh`; `run-deployment-appliance.sh`; focused script and CLI tests | A release owner can wrap one verified complete kit in a digest-pinned, no-network OCI build. The image starts the manual standalone coordinator with no public artifact fallback. A clean production image build and Azure receipt remain open. |
 | Offline-kit construction and verification | validated | `fdai_deployment_cli.offline_kit`; locked release scripts; successful network-isolated air-gap drill | Signature-first verification, exact files, SBOM coverage, ABI/libc binding, private snapshots, and shipped-wheel installation pass. |
 | Temporary public-access cleanup | not-started | The access preference contract in this document | No composed command proves bounded creation, automatic cleanup, incomplete-on-cleanup-failure behavior, and audit closure. |
 | Pinned TUF root and rotation | not-started | `docs/runbooks/offline-trust-ceremony.md` | The first root ceremony, package resource, client bootstrap, and rotation evidence remain open. |
@@ -28,6 +29,7 @@ that applies before Terraform changes infrastructure or role assignments.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-12 | implemented | Restricted tenant provisioning to manual transport, removed workflow dispatch from the public CLI, allowed token-free observation-only installation, and added an OCI deployment appliance entry point. | `current change`; deployment CLI contracts, standalone modules, appliance scripts, and focused tests | Build one clean appliance and retain connected and artifact-offline Azure deployment receipts. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Corrected inspection, profile persistence, and offline verification from implemented to their evidence-backed current states. | current change; package metadata, bootstrap source, release scripts, and focused workflow checks listed in the scope table | Create the CLI package, restore offline verification, complete trust bootstrap, and validate the full lifecycle. |
 | 2026-08-29 | validated | Added target-bound inspection and private profiles, restored signed offline verification, and completed the shipped-wheel network-isolated drill. | Campaign commits from `dd28b64d9`; focused tests and successful `airgap-drill.sh` | Complete managed-host Azure execution and retain protected post-provision receipts. |
 | 2026-09-05 | implemented | Routed exclusive RCA reader identity apply and verification resume through an allowlisted bot-owned request. The downstream apply remains bound to a protected GitHub Environment and validates its reviewer policy from protected `main` before mutation. | `current change`; focused deployment CLI, workflow, and Environment policy tests | Retain one independently approved exact apply and effect receipt. |
@@ -48,6 +50,7 @@ that applies before Terraform changes infrastructure or role assignments.
 - [ ] Complete the TUF root ceremony and package bootstrap, with signed root and rotation evidence accepted by the offline trust ceremony.
 - [ ] Build and reverify one complete signed kit from a clean snapshot, then cold-install its CLI and acquire the same kit through both online and local artifact paths.
 - [ ] Retain target-bound Foundation and application convergence receipts from both active-login modes without claiming whole-subscription readiness.
+- [ ] Build one deployment appliance from an approved digest-pinned base, verify its SBOM and provenance, and retain an artifact-offline Azure deployment receipt from the image entry point.
 
 ## Design at a glance
 
@@ -59,7 +62,7 @@ operator installed the wheel.
 |------|------------------|----------------|
 | Connectivity | `online`, `offline` | Use online sources only after bounded TLS checks pass; otherwise require a signed offline kit |
 | Execution host | `existing-host`, `managed-vm` | Reuse a suitable private-network host; create a managed VM when no suitable host is available |
-| Transport | `manual`, `github-actions` | Use `manual` for the default installed-package flow. GitHub Actions is an optional repository-owned CI/CD transport, not a subscription deployment prerequisite. |
+| Transport | `manual` | Tenant deployment always uses the local coordinator and the managed deployment host. GitHub Actions may build and publish releases but cannot plan or apply a tenant. |
 | Ownership | `fdai-managed` | Terraform manages declared resources and role assignments after approval |
 
 ### Standalone active-login deployment
@@ -106,9 +109,11 @@ prepared context.
 
 The command discovers an operator-held mode-`0600` license issuer key from an explicit option or the
 documented user configuration path. When the key exists, it issues a deployment- and image-bound
-token without copying the key. Otherwise it requires a pre-issued mode-`0600` Trial token file from
-the terminal. The token crosses Bastion through standard input and is written to Key Vault by the
-managed identity; it never appears in arguments, Terraform state, portable status, or logs.
+token without copying the key. A supplied pre-issued Trial token follows the same verification and
+transfer path. When neither is present, deployment completes in observation-only mode without
+creating a license secret. A token crosses Bastion through standard input and is written to Key
+Vault by the managed identity; it never appears in arguments, Terraform state, portable status, or
+logs.
 
 ## Read-only inspection
 
@@ -118,7 +123,7 @@ The target command runs inspection before creating a bootstrap plan:
 fdaictl provision inspect --output json
 ```
 
-Inspection checks the local Azure CLI, Terraform, GitHub CLI, bounded online artifact access,
+Inspection checks the local Azure CLI, Terraform, bounded online artifact access,
 an offline-kit candidate, and the Azure workload identity endpoint. It returns a stable JSON
 contract with `mutation_performed=false`, the required approval policy and quorum, and the selected profile.
 It never installs a tool, writes configuration, creates a resource, registers a runner, or applies
@@ -155,7 +160,7 @@ The target binding is a deployment-local digest of the intended tenant and subsc
 either raw identifier. The command rejects every `auto` value and writes `.fdai/provisioning/profile.json` with file mode
 `0600` in a mode-`0700` directory. Offline profiles require `--artifact-source`. Temporary public
 SSH requires a canonical source CIDR narrower than the entire address space and an access window
-of 5-60 minutes. GitHub Actions transport requires the matching `github_actions` access method.
+of 5-60 minutes. Tenant deployment profiles accept only `manual` transport.
 
 An existing destination blocks initialization unless `--force` is explicit. Force never follows
 a symbolic link or replaces a non-file destination. Profile initialization changes no Azure
@@ -192,9 +197,8 @@ The managed-host access order is fixed:
 
 1. Approved internal SSH.
 2. Temporary public-IP SSH when Azure Policy and the deployment profile allow it.
-3. GitHub Actions on a self-hosted runner.
-4. Azure Bastion.
-5. Azure Run Command as an audited emergency path.
+3. Azure Bastion.
+4. Azure Run Command as an audited emergency path.
 
 Fresh-subscription Genesis doesn't fall through this list. A profile with `access_method=bastion`
 selects the exact Standard Bastion native tunnel created by Foundation. Enrollment material then

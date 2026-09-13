@@ -4,11 +4,12 @@ version = "0.1.0"
 description = "Installable FDAI deployment and subscription genesis CLI"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["cryptography>=45,<51"]
+dependencies = ["cryptography>=45,<51", "rich>=14,<15"]
 
 [dependency-groups]
 dev = [
     "mypy>=1.13,<2",
+    "pyte>=0.8,<0.9",
     "pytest>=9.0.3,<10",
     "pytest-cov>=5,<7",
     "ruff>=0.7,<1",

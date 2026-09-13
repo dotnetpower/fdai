@@ -147,7 +147,7 @@ def test_archive_digest_failure_cannot_report_success(tmp_path, checksum):
     result = subprocess.run(  # noqa: S603 - actual shell tail, synthetic archive tools only.
         ["/bin/bash", "-s"],
         input=bounded_prelude()
-        + 'archive="$TEST_ARCHIVE"\nstage="$TEST_STAGE"\nsource_epoch=1\n'
+        + 'archive="$TEST_ARCHIVE"\nstage="$TEST_STAGE"\nsource_epoch=1\nappliance_base_image=""\n'
         + archive_tail,
         env={
             **bounded_environment(),
@@ -167,6 +167,41 @@ def test_archive_digest_failure_cannot_report_success(tmp_path, checksum):
     else:
         assert result.returncode != 0
         assert "standalone-kit: OK" not in result.stdout
+
+
+@pytest.mark.parametrize("exit_code", [0, 73])
+def test_requested_appliance_must_finish_before_release_success(tmp_path, exit_code):
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    executable(tools / "tar", 'printf "archive" >"$TEST_ARCHIVE"\n')
+    repo = tmp_path / "source"
+    executable(
+        repo / "scripts/deployment/release/build-deployment-appliance.sh",
+        f"exit {exit_code}\n",
+    )
+    marker = "bounded_stage kit-archive "
+    archive_tail = marker + BUILDER.read_text().rsplit(marker, 1)[1]
+    result = subprocess.run(  # noqa: S603 - real release tail with synthetic artifact tools.
+        ["/bin/bash", "-s"],
+        input=bounded_prelude()
+        + 'archive="$TEST_ARCHIVE"\nstage="$TEST_STAGE"\nsource_epoch=1\n'
+        + 'out="$TEST_STAGE"\nrepo_root="$TEST_SOURCE"\ncli_version=0.1.0\n'
+        + 'appliance_base_image="example:fixed"\n'
+        + archive_tail,
+        env={
+            **bounded_environment(),
+            "PATH": f"{tools}:/usr/bin:/bin",
+            "TEST_ARCHIVE": str(tmp_path / "archive.tar.gz"),
+            "TEST_STAGE": str(tmp_path),
+            "TEST_SOURCE": str(repo),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == exit_code, result.stderr
+    assert ("standalone-kit: OK" in result.stdout) is (exit_code == 0)
 
 
 def test_release_console_uses_generic_offline_build_and_keeps_archive_layout(tmp_path):

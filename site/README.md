@@ -97,12 +97,51 @@ from the matching locale home, each documentation page has one H1, and no
 Mermaid runtime container remains. Artifact upload runs only after these checks
 pass.
 
+### Theme and interaction checks
+
+The landing keeps its dark brand background in both site themes. Its content
+uses a complete, scoped palette in [theme-surfaces.css](src/styles/theme-surfaces.css),
+while article pages and search use the reader's theme. Header styles target
+the search opener, not controls inside the search dialog. Both language and
+theme selectors remain available on the mobile landing.
+
+Use [responsive.css](src/styles/responsive.css) for shared reflow and touch
+targets. The page frame synchronizes the mobile menu button's expanded state
+and makes only overflowing tables keyboard-scrollable. Static notification
+and approval illustrations are labeled as examples, not live actions.
+
+After a production build, run the browser checks in order:
+
+```bash
+npm run typecheck:ui
+npm run test:ui -- --project=desktop
+npm run test:ui -- --project=constrained
+npm run test:ui -- --project=mobile
+npm run test:ui -- --project=reflow
+```
+
+The tests start a loopback preview on port `4322` under `/fdai/`; a production
+build is required for Pagefind search. To reuse an existing production preview,
+set `FDAI_SITE_TEST_BASE_URL` to its loopback URL including the base path.
+Install the Playwright Chromium runtime before the first browser check.
+Evidence stays under the repository's ignored `.fdai/site-ui-tests/` directory.
+
+The matrix covers English/Korean, light/dark/automatic theme behavior,
+keyboard and pointer states, search results and empty results, diagram node
+selection, 44px mobile controls, 320px reflow, enlarged text, forced colors,
+reduced motion, and reading without JavaScript. Automated contrast and semantic
+checks supplement browser review; they are not a WCAG certification or a
+screen-reader usability study.
+
+See the [2026-09-13 UI/UX review](ui-ux-review.md) for the scoped findings,
+completed fixes, and evidence limits.
+
 ## Local development
 
 ```bash
 cd site
 npm install
-npm run dev -- --host 127.0.0.1 --port 5274
+npm run dev -- --host 127.0.0.1 --port 4321
 npm test
 npm run build     # dist/
 npm run preview

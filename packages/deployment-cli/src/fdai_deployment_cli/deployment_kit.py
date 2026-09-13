@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import errno
+import gzip
+import hashlib
+import http.client
 import json
 import os
 import platform
@@ -9,8 +13,7 @@ import re
 import shutil
 import stat
 import tarfile
-import gzip
-import hashlib
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -20,6 +23,16 @@ from typing import BinaryIO, Final, IO
 
 from fdai_deployment_cli.__about__ import __version__
 from fdai_deployment_cli.bundle import extract_bundle_archive, verify_bundle
+from fdai_deployment_cli.deployment_kit_cache import (
+    acquisition_lock,
+    bind_online_source,
+    execution_bundle_destination,
+    path_present,
+    validate_cached_tree,
+    validate_retained_archive,
+    verify_retained_artifacts,
+)
+from fdai_deployment_cli.deployment_progress import downloaded_bytes, progress_detail
 from fdai_deployment_cli.offline_kit import (
     OfflineKitVerification,
     materialize_verified_artifacts,
@@ -81,20 +94,50 @@ def acquire_deployment_kit(
 ) -> DeploymentKit:
     """Acquire exactly one source and verify all executable content before use.
 
-    Online mode downloads one archive from the configured HTTPS release location. Artifact-offline
-    mode accepts only the supplied local directory or archive and performs no network fallback.
-    The release and bundle public roots always come from the installed package.
+    Online mode downloads once, then fully revalidates retained inputs from the same source
+    request on retry. Artifact-offline mode accepts only the supplied local directory or archive
+    and performs no network fallback. Release and bundle roots always come from the package.
+    Cached bytes never bypass verification, authorize an effect, or replace prior run evidence.
     """
 
     if online == (offline_kit is not None):
         raise ValueError("select exactly one of online mode or an offline kit")
     _require_private_directory(work_dir)
+    with acquisition_lock(work_dir):
+        return _acquire_deployment_kit(
+            work_dir=work_dir, online=online, offline_kit=offline_kit, online_url=online_url
+        )
+
+
+def _acquire_deployment_kit(
+    *, work_dir: Path, online: bool, offline_kit: Path | None, online_url: str | None
+) -> DeploymentKit:
+    """Acquire under the work-directory lock and authenticate before returning any paths."""
+
     kit_root = work_dir / "kit"
+    legacy_cache = False
     if online:
+        default_url = default_online_kit_url()
+        url = online_url or default_url
+        if not _approved_online_url(urllib.parse.urlparse(url)):
+            raise ValueError("online deployment kit URL is not an approved HTTPS release host")
+        legacy_cache = bind_online_source(work_dir, url=url, default_url=default_url)
         archive = work_dir / "downloaded-kit.tar.gz"
-        _download(online_url or default_online_kit_url(), archive)
-        _extract_kit_archive(archive, kit_root)
+        if path_present(archive):
+            validate_retained_archive(archive, max_bytes=_MAX_ARCHIVE_BYTES)
+        if path_present(kit_root):
+            progress_detail("Revalidating the retained signed deployment kit; no download")
+        else:
+            if not path_present(archive):
+                progress_detail("Downloading the signed release kit")
+                _download(url, archive)
+            else:
+                progress_detail("Reading the retained deployment archive; verification pending")
+            progress_detail("Extracting the deployment kit")
+            _extract_kit_archive(archive, kit_root)
+        validate_cached_tree(kit_root)
     else:
+        progress_detail("Reading the local deployment kit; no artifact network fallback")
         assert offline_kit is not None
         source = offline_kit if offline_kit.is_absolute() else Path.cwd() / offline_kit
         details = source.lstat()
@@ -104,12 +147,17 @@ def acquire_deployment_kit(
             _extract_kit_archive(source, kit_root)
         else:
             raise ValueError("offline kit must be a regular archive or directory")
+    progress_detail("Verifying kit signature, compatibility, and file digests")
     verification = verify_offline_kit(
         kit_root,
         release_root_pem=deployment_release_root_pem(),
         cli_version=__version__,
         platform_tag=runtime_platform_tag(),
     )
+    if legacy_cache and (
+        verification.kit_version != __version__ or verification.bundle_version != __version__
+    ):
+        raise ValueError("retained legacy deployment kit version differs; preserve it for review")
     files = dict(verification.file_digests)
     if "runtime/release.json" not in files:
         raise ValueError("complete deployment kit requires a runtime v2 release")
@@ -118,12 +166,17 @@ def acquire_deployment_kit(
     ):
         raise ValueError("complete deployment kit requires runtime migration support wheels")
     materialized = work_dir / "verified"
-    artifacts = materialize_verified_artifacts(
-        kit_root,
-        verification,
-        materialized,
-        include_all=True,
-    )
+    if online and path_present(materialized):
+        progress_detail("Rechecking every retained verified artifact")
+        artifacts = verify_retained_artifacts(materialized, verification)
+    else:
+        progress_detail("Materializing verified artifacts")
+        artifacts = materialize_verified_artifacts(
+            kit_root,
+            verification,
+            materialized,
+            include_all=True,
+        )
     runtime_source = _runtime_source_commit(materialized)
     runtime = load_runtime_release(
         materialized,
@@ -135,10 +188,11 @@ def acquire_deployment_kit(
         or _COMMIT.fullmatch(runtime.source_commit) is None
     ):
         raise ValueError("complete deployment kit runtime source is invalid")
+    progress_detail("Verifying runtime images and the signed deployment bundle")
     validate_runtime_images(materialized, runtime)
     bundle_root = extract_bundle_archive(
         artifacts.deployment_bundle,
-        work_dir / "bundle",
+        execution_bundle_destination(work_dir) if online else work_dir / "bundle",
     )
     bundle = verify_bundle(
         bundle_root,
@@ -235,9 +289,15 @@ def archive_verified_kit(kit: DeploymentKit, destination: Path) -> str:
 
 
 def _download(url: str, destination: Path) -> None:
+    """Download once to an exclusive file and expose only value-safe failure categories."""
+
     parsed = urllib.parse.urlparse(url)
     if not _approved_online_url(parsed):
         raise ValueError("online deployment kit URL is not an approved HTTPS release host")
+    if path_present(destination):
+        raise ValueError(
+            "deployment kit download destination already exists; retained artifact was not replaced"
+        )
     request = urllib.request.Request(url, headers={"User-Agent": f"fdaictl/{__version__}"})
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
@@ -245,8 +305,37 @@ def _download(url: str, destination: Path) -> None:
             if not _approved_online_url(final):
                 raise ValueError("online deployment kit redirect is not approved")
             _write_bounded_stream(response, destination)
-    except (OSError, urllib.error.URLError) as exc:
-        raise ValueError("online deployment kit download failed") from exc
+    except urllib.error.HTTPError as exc:
+        raise ValueError(
+            f"online deployment kit download failed (HTTP {exc.code}); "
+            "check release availability and access; no automatic retry"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise ValueError(
+            "online deployment kit connection failed; check DNS, HTTPS, proxy, and TLS trust"
+        ) from exc
+    except TimeoutError as exc:
+        raise ValueError("online deployment kit download timed out; no automatic retry") from exc
+    except FileExistsError as exc:
+        raise ValueError(
+            "deployment kit download destination already exists; retained artifact was not replaced"
+        ) from exc
+    except PermissionError as exc:
+        raise ValueError(
+            "deployment kit download permission denied; check local cache access"
+        ) from exc
+    except OSError as exc:
+        if exc.errno in {errno.ENOSPC, errno.EDQUOT}:
+            raise ValueError(
+                "deployment kit local storage is full; preserve deployment state and free storage"
+            ) from exc
+        raise ValueError(
+            "deployment kit transfer I/O failed; check connection and local storage"
+        ) from exc
+    except http.client.HTTPException as exc:
+        raise ValueError(
+            "online deployment kit transfer was incomplete; no automatic retry"
+        ) from exc
 
 
 def _approved_online_url(value: urllib.parse.ParseResult) -> bool:
@@ -277,6 +366,7 @@ def _write_bounded_stream(source: BinaryIO, destination: Path) -> None:
                 if total > _MAX_ARCHIVE_BYTES:
                     raise ValueError("deployment kit archive exceeds its byte limit")
                 stream.write(chunk)
+                downloaded_bytes(total)
             stream.flush()
             os.fsync(stream.fileno())
     except BaseException:
@@ -290,51 +380,64 @@ def _write_bounded_stream(source: BinaryIO, destination: Path) -> None:
 def _extract_kit_archive(archive: Path, destination: Path) -> None:
     if destination.exists() or destination.is_symlink():
         raise ValueError("deployment kit destination already exists")
-    temporary = destination.parent / f".{destination.name}.extract-{os.getpid()}"
-    if temporary.exists() or temporary.is_symlink():
-        raise ValueError("deployment kit temporary destination already exists")
-    temporary.mkdir(mode=0o700)
-    total = 0
-    count = 0
+    temporary = Path(
+        tempfile.mkdtemp(prefix=f".{destination.name}.extract-", dir=destination.parent)
+    )
     try:
-        with tarfile.open(archive, mode="r:gz") as stream:
-            for member in stream:
-                count += 1
-                path = PurePosixPath(member.name)
-                if (
-                    count > _MAX_ARCHIVE_FILES
-                    or path.is_absolute()
-                    or not path.parts
-                    or path.parts[0] != "kit"
-                    or any(part in {"", ".", ".."} for part in path.parts)
-                    or member.issym()
-                    or member.islnk()
-                    or member.isdev()
-                    or member.isfifo()
-                    or not (member.isdir() or member.isfile())
-                ):
-                    raise ValueError("deployment kit archive member is invalid")
-                if member.size < 0 or member.size > _MAX_MEMBER_BYTES:
-                    raise ValueError("deployment kit archive member exceeds its byte limit")
-                total += member.size
-                if total > _MAX_ARCHIVE_BYTES:
-                    raise ValueError("deployment kit archive exceeds its expanded byte limit")
-                relative = Path(*path.parts[1:])
-                target = temporary / relative
-                if member.isdir():
-                    target.mkdir(mode=0o700, parents=True, exist_ok=True)
-                    continue
-                target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-                extracted = stream.extractfile(member)
-                if extracted is None:
-                    raise ValueError("deployment kit archive file is unreadable")
-                _write_bounded_member(extracted, target, member.size)
-        if count == 0:
-            raise ValueError("deployment kit archive is empty")
+        descriptor = os.open(archive, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(descriptor, "rb") as raw:
+            details = os.fstat(raw.fileno())
+            if not stat.S_ISREG(details.st_mode) or not 0 < details.st_size <= _MAX_ARCHIVE_BYTES:
+                raise ValueError("deployment kit archive is unsafe or exceeds its byte limit")
+            _extract_kit_members(raw, temporary)
         temporary.rename(destination)
+    except (tarfile.TarError, EOFError) as exc:
+        shutil.rmtree(temporary, ignore_errors=True)
+        raise ValueError(
+            "deployment kit archive is incomplete or invalid; retained input was not replaced"
+        ) from exc
     except BaseException:
         shutil.rmtree(temporary, ignore_errors=True)
         raise
+
+
+def _extract_kit_members(raw: BinaryIO, temporary: Path) -> None:
+    total = 0
+    count = 0
+    with tarfile.open(fileobj=raw, mode="r:gz") as stream:
+        for member in stream:
+            count += 1
+            path = PurePosixPath(member.name)
+            if (
+                count > _MAX_ARCHIVE_FILES
+                or path.is_absolute()
+                or not path.parts
+                or path.parts[0] != "kit"
+                or any(part in {"", ".", ".."} for part in path.parts)
+                or member.issym()
+                or member.islnk()
+                or member.isdev()
+                or member.isfifo()
+                or not (member.isdir() or member.isfile())
+            ):
+                raise ValueError("deployment kit archive member is invalid")
+            if member.size < 0 or member.size > _MAX_MEMBER_BYTES:
+                raise ValueError("deployment kit archive member exceeds its byte limit")
+            total += member.size
+            if total > _MAX_ARCHIVE_BYTES:
+                raise ValueError("deployment kit archive exceeds its expanded byte limit")
+            relative = Path(*path.parts[1:])
+            target = temporary / relative
+            if member.isdir():
+                target.mkdir(mode=0o700, parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            extracted = stream.extractfile(member)
+            if extracted is None:
+                raise ValueError("deployment kit archive file is unreadable")
+            _write_bounded_member(extracted, target, member.size)
+        if count == 0:
+            raise ValueError("deployment kit archive is empty")
 
 
 def _write_bounded_member(source: IO[bytes], destination: Path, expected_size: int) -> None:

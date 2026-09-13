@@ -121,6 +121,19 @@ def test_standalone_apply_rejects_expired_approval() -> None:
         standalone_host._validate_approval(review, approval, context=_context(review))
 
 
+def test_standalone_checkpoint_lock_allows_only_one_writer(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    first = standalone_host._acquire_checkpoint_lock(tmp_path)
+    try:
+        with pytest.raises(ValueError, match="already running"):
+            standalone_host._acquire_checkpoint_lock(tmp_path)
+    finally:
+        os.close(first)
+
+    second = standalone_host._acquire_checkpoint_lock(tmp_path)
+    os.close(second)
+
+
 def test_standalone_apply_rejects_tampered_review_and_context() -> None:
     review = _review()
     approval = {

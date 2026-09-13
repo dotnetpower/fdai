@@ -97,6 +97,7 @@ def test_foundation_input_preserves_explicit_provider_context(tmp_path: Path) ->
         ("runner_source_image_id", "/subscriptions/example/images/latest"),
         ("runner_admin_username", "Invalid User"),
         ("runner_parallelism", 0),
+        ("execution_transport", "github-actions"),
         ("postgres_admin_password", "not-accepted"),
         ("github_runner_token", "not-accepted"),
         ("env", "prod"),
