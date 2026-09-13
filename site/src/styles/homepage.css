@@ -1,0 +1,222 @@
+/* The authored nebula is the composition, not a texture behind a card. */
+html:has(.home-hero) {
+  --home-page: #f5f5f3;
+  --home-surface: #ffffff;
+  --home-tint: #eaedf0;
+  --home-text: #172333;
+  --home-muted: #4c5a6e;
+  --home-accent: #17558d;
+  --home-border: #cbd1d8;
+  --home-control-border: #778699;
+  --home-button-bg: #172b44;
+  --home-button-text: #ffffff;
+  --home-button-hover: #24486c;
+  --home-hover: #e8ecf1;
+  --home-inverse: #f0f4fc;
+  --home-inverse-muted: #d8e1f0;
+  --home-hero-scrim: rgb(6 11 22 / 0.7);
+  --home-gutter: clamp(1.5rem, 6vw, 6rem);
+  --sl-nav-height: 5rem;
+  --sl-content-width: 76rem;
+  background: #05070f;
+}
+
+html[data-theme="dark"]:has(.home-hero) {
+  --home-page: #1b2839;
+  --home-surface: #233347;
+  --home-tint: #223247;
+  --home-text: #eef2fa;
+  --home-muted: #b9c7da;
+  --home-accent: #b2d4f5;
+  --home-border: #3e4d63;
+  --home-control-border: #8c9eb8;
+  --home-button-bg: #e7eefb;
+  --home-button-text: #122139;
+  --home-button-hover: #cbdff5;
+  --home-hover: #25364d;
+}
+
+html:has(.home-hero) main {
+  --sl-color-white: var(--home-text);
+  --sl-color-gray-1: var(--home-text);
+  --sl-color-gray-2: var(--home-muted);
+  --sl-color-gray-3: var(--home-muted);
+  --sl-color-black: var(--home-surface);
+  --sl-color-text: var(--home-muted);
+  --sl-color-text-accent: var(--home-accent);
+  --sl-color-bg: var(--home-page);
+  --sl-color-bg-nav: var(--home-surface);
+  --sl-color-hairline: var(--home-border);
+  color: var(--home-text);
+  color-scheme: light;
+}
+
+html[data-theme="dark"]:has(.home-hero) main { color-scheme: dark; }
+html:has(.home-hero) body { background: transparent; }
+html:has(.home-hero) .nebula-bg { opacity: 1; }
+
+/* Remove Starlight's article frame only for the homepage. */
+html:has(.home-hero) main > .content-panel { padding: 0; border: 0; }
+html:has(.home-hero) main > .content-panel > .sl-container { max-width: none; margin: 0; }
+html:has(.home-hero) .sl-markdown-content {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--home-text);
+  text-shadow: none;
+}
+html:has(.home-hero) main footer {
+  margin: 0;
+  padding: 1.5rem var(--home-gutter);
+  background: var(--home-page);
+  border-top: 1px solid var(--home-border);
+}
+
+.home-shell {
+  width: min(100% - 2 * var(--home-gutter), 76rem);
+  margin-inline: auto;
+}
+
+.home-hero {
+  position: relative;
+  overflow: clip;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: max(42rem, calc(100svh - var(--sl-nav-height)));
+  padding: 6.5rem var(--home-gutter) 8rem;
+  color: var(--home-inverse);
+}
+
+.home-hero-copy {
+  position: relative;
+  isolation: isolate;
+  width: min(100%, 56rem);
+  margin-inline: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
+}
+
+/* The solid center covers the text; the elliptical outer falloff has no panel
+ * edges. The original sky remains unobstructed outside this local text scrim. */
+.home-hero-copy::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: min(-12rem, -50%) -12rem;
+  background: radial-gradient(ellipse closest-side, var(--home-hero-scrim) 72%, transparent 100%);
+  pointer-events: none;
+}
+
+.home-eyebrow {
+  margin: 0 0 1.5rem;
+  color: var(--home-accent);
+  font-size: var(--sl-text-xs);
+  font-weight: 600;
+  line-height: 1.7;
+  letter-spacing: 0.12em;
+}
+
+.home-hero-copy > .home-eyebrow {
+  color: var(--home-inverse-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.25em;
+  margin-bottom: 2rem;
+}
+
+.home-hero .hero { display: block; padding: 0; }
+.home-hero .hero :is(.stack, .copy) {
+  align-items: center;
+  min-width: 0;
+  text-align: center;
+  gap: 1.75rem;
+}
+
+html:has(.home-hero) .hero h1 {
+  color: var(--home-inverse);
+  font-size: clamp(2.25rem, 5.6vw, 5rem);
+  font-weight: 500;
+  line-height: 1.13;
+  letter-spacing: -0.05em;
+  max-width: 100%;
+  text-shadow: 0 2px 24px rgb(0 0 0 / 0.15);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.home-hero .tagline {
+  max-width: 52ch;
+  color: var(--home-inverse-muted);
+  font-size: clamp(1rem, 1.3vw, 1.125rem);
+  line-height: 1.9;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.home-hero .actions { justify-content: center; gap: 1rem; padding-top: 0.5rem; }
+html:has(.home-hero) :is(.hero .sl-link-button.primary, .hero .sl-link-button.secondary, .home-button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  min-height: 3.125rem;
+  max-width: 100%;
+  padding: 0.85rem 1.5rem;
+  border: 1px solid var(--home-control-border);
+  border-radius: 6px;
+  font-size: var(--sl-text-sm);
+  font-weight: 600;
+  line-height: 1.6;
+  text-shadow: none;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition: none;
+}
+
+html:has(.home-hero) .hero .sl-link-button.primary { color: #14243b; background: #edf3fd; border-color: #edf3fd; }
+html:has(.home-hero) .hero .sl-link-button.primary:hover { color: #14243b; background: #d5e6fb; border-color: #d5e6fb; }
+html:has(.home-hero) .hero .sl-link-button.secondary { color: #eef4ff; background: #142137; border-color: #9aacc7; }
+html:has(.home-hero) .hero .sl-link-button.secondary:hover { color: #ffffff; background: #263a56; border-color: #b7c9e2; }
+html:has(.home-hero) .hero .sl-link-button:focus-visible { outline-color: #bfdcff; outline-offset: 4px; }
+html:has(.home-hero) .home-button { color: var(--home-button-text); background: var(--home-button-bg); border-color: var(--home-button-bg); }
+html:has(.home-hero) .home-button:hover { color: var(--home-button-text); background: var(--home-button-hover); border-color: var(--home-button-hover); }
+
+.home-hero-footer {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding-block: 0.75rem;
+  border-top: 1px solid rgb(224 233 252 / 0.3);
+  background: rgb(6 11 22 / 0.72);
+  box-shadow: 0 0 28px 18px rgb(6 11 22 / 0.72);
+  font-size: var(--sl-text-xs);
+  color: var(--home-inverse-muted);
+}
+
+.home-hero-note { margin: 0; line-height: 1.8; }
+.home-explore { display: inline-flex; gap: 2rem; align-items: center; min-height: 2.75rem; color: var(--home-inverse); text-underline-offset: 0.3em; white-space: nowrap; }
+.home-explore span { font-size: 1.25rem; }
+.home-explore:focus-visible { outline-color: #bfdcff; }
+
+@media (max-width: 49.999rem) {
+  .home-hero { padding-block: 6rem 4rem; gap: 4.5rem; min-height: calc(100svh - var(--sl-nav-height)); }
+  .home-hero-footer { position: relative; inset: auto; width: 100%; flex-wrap: wrap; gap: 0.5rem; }
+}
+
+@media (forced-colors: active) {
+  html:has(.home-hero) { --home-page: Canvas; --home-surface: Canvas; --home-tint: Canvas; --home-text: CanvasText; --home-muted: CanvasText; --home-accent: LinkText; --home-border: ButtonText; --home-control-border: ButtonText; --home-button-bg: ButtonFace; --home-button-text: ButtonText; --home-button-hover: ButtonFace; --home-inverse: CanvasText; --home-inverse-muted: CanvasText; --home-hero-scrim: transparent; background: Canvas; }
+  .home-hero-copy::before { display: none; }
+  .home-hero-footer { background: Canvas; box-shadow: none; border-color: ButtonText; }
+  html:has(.home-hero) .hero .sl-link-button { color: LinkText; background: Canvas; border-color: ButtonText; }
+  html:has(.home-hero) :is(.hero .sl-link-button, .home-explore):focus-visible { outline-color: Highlight; }
+}

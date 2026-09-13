@@ -1,7 +1,7 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: fe906883b4c44cd1501453b41cf3c9581f06a2c6
+translation_source_sha: cbc6481eff943325aa290ef3b24fc4b78bc29ffc
 translation_revised: 2026-09-13
 ---
 # WAF 및 CAF 근거 기반 평가
@@ -195,6 +195,9 @@ WAF는 기존 Controls 보기에 유지합니다. CAF는 동일하게 차분한 
 원본 감시기는 추가, 제거, 의미 변경, 영향받는 매핑, 오래된 근거 명세를 포함하는 결정론적 검토
 패키지를 만듭니다. 제안 세대는 정확한 패키지 다이제스트가 승인될 때까지 대기합니다. 검증이
 실패하면 이전의 유효한 세대를 유지하고 실패한 개정과 사유를 기록합니다.
+공유 로컬 카탈로그 materializer는 프레임워크 변환 결과와 온톨로지 근거 상태를 분리합니다.
+활성 인벤토리와 온톨로지 변환 결과의 세대가 다르면 서로 다른 세대의 시각이나 개수를 카탈로그
+집합에 결합하지 않고 명시적인 사용 불가 근거를 게시합니다.
 
 ## 검증 및 실제 근거
 

@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 304456b0d8e3767d6023e73a9a82ec3939cd6cff
-translation_revised: 2026-09-10
+translation_source_sha: 518883f32248be4c26572e62e71441c69170777d
+translation_revised: 2026-09-13
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -53,8 +53,11 @@ principal 범위 매니페스트에서 오고 계획 검증은 정확한 release
 
 Core 런타임 시작은 이제 Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,
 Property 및 ActionType 인스턴스를 catalog-owned 하위 그래프 하나에 변환합니다. 분류 체계는
-중립 ResourceType 77개 전체에 대해 클래스 11개, 멤버 자격 77개, 범위가 제한된 특수화 링크
+중립 ResourceType 112개 전체에 대해 클래스 11개, 멤버 자격 112개, 범위가 제한된 특수화 링크
 11개를 보존합니다. 순수 빌더는 의미 또는 아이덴티티 결함을 차단하며 동일 재생은 no-op입니다.
+범주 기반 언어 그룹은 ResourceClass 멤버 자격이 아니라 별도의 조회 보조 수단입니다.
+`search-service`는 검토된 데이터 서비스 클래스 멤버로 유지하면서도 넓은 `database` 또는
+`데이터베이스` 질의어에는 응답하지 않을 수 있습니다.
 
 정본 release는 `ControlObjective`, `RuleObjectiveBinding`,
 `EquivalenceValidationReceipt`와 `objective_bound_by`, `binding_targets_rule`,

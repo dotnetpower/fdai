@@ -179,11 +179,17 @@ def test_missing_state_separates_source_provider_and_applicability_outcomes() ->
     assert unresolved["operational"]["reason"] == "state_applicability_unknown"
 
 
-def test_missing_availability_preserves_the_reviewed_resource_health_reason() -> None:
+@pytest.mark.parametrize(
+    "reason",
+    ["resource_health_not_modeled", "resource_health_target_limit"],
+)
+def test_missing_availability_preserves_the_reviewed_resource_health_reason(
+    reason: str,
+) -> None:
     states = recorded_resource_states(
         {
             "state_fact_unavailable_reasons": {
-                "availabilityState": "resource_health_not_modeled",
+                "availabilityState": reason,
             }
         },
         resource_type="compute.vm",
@@ -191,7 +197,21 @@ def test_missing_availability_preserves_the_reviewed_resource_health_reason() ->
     )
 
     assert states["availability"]["value"] is None
-    assert states["availability"]["reason"] == "resource_health_not_modeled"
+    assert states["availability"]["reason"] == reason
+
+
+def test_activity_operation_status_does_not_replace_search_operational_state() -> None:
+    states = recorded_resource_states(
+        {
+            "status": "running",
+            "operationStatus": "Succeeded",
+        },
+        resource_type="search-service",
+        now=NOW,
+    )
+
+    assert states["operational"]["value"] == "running"
+    assert states["operational"]["source_path"] == "status"
 
 
 def test_unreviewed_state_unavailability_reason_does_not_cross_the_read_boundary() -> None:
@@ -390,7 +410,9 @@ def test_every_canonical_resource_type_has_a_reviewed_operational_state_outcome(
     [
         ("disk", "diskState", "Reserved"),
         ("disk-snapshot", "snapshotAccessState", "Available"),
+        ("network.registered-domain", "registrationStatus", "Active"),
         ("network.private-dns-zone-link", "virtualNetworkLinkState", "Completed"),
+        ("search-service", "status", "running"),
     ],
 )
 def test_resource_specific_state_paths_are_retained(
@@ -410,6 +432,24 @@ def test_resource_specific_state_paths_are_retained(
     )["operational"]
     assert fact["value"] == value
     assert fact["source_path"] == f"properties.{path}"
+    assert fact["freshness"] == "fresh"
+    assert fact["completeness"] == 1.0
+
+
+def test_vm_run_command_execution_state_is_retained() -> None:
+    fact = recorded_resource_states(
+        {"properties": {"instanceView": {"executionState": "Succeeded"}}},
+        resource_type="compute.vm-run-command",
+        observation=RecordedStateObservation(
+            generation="generation-1",
+            observed_at=datetime(2026, 9, 5, 0, 0, tzinfo=UTC),
+            recorded_at=datetime(2026, 9, 5, 0, 1, tzinfo=UTC),
+        ),
+        now=NOW,
+    )["operational"]
+
+    assert fact["value"] == "Succeeded"
+    assert fact["source_path"] == "properties.instanceView.executionState"
     assert fact["freshness"] == "fresh"
     assert fact["completeness"] == 1.0
 

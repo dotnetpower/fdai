@@ -237,6 +237,20 @@ straight, while longer cross-region paths gain Mermaid-like visual flow without
 cutting through nodes. Region boundaries use distinct header bands for
 operational signals, the FDAI control plane, and human or delivery surfaces.
 
+## Viewer accessibility
+
+The downloaded SVG remains an accessible image. The enhanced viewer changes
+only its in-memory SVG to a labeled group so node buttons remain exposed to
+assistive technology. Arrow keys move the single node tab stop; Enter or Space
+opens details, and closing details returns focus to the selected node. Node
+labels remain readable when another node is selected. The connected edges and
+active outline convey selection without fading still-interactive text.
+
+Viewer toolbar controls use 44px targets on narrow screens. The docs site's
+`test:ui` checks cover these controls, node semantics, and both site themes;
+compiler type and security checks remain in this package. Regenerate the viewer
+through `render` after changing its source.
+
 ## Azure icons and fonts
 
 Only use an official Azure icon for an actual Azure service. Keep the product

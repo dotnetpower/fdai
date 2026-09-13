@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
 
@@ -33,6 +34,40 @@ def _generator_module() -> ModuleType:
         return module
     finally:
         sys.path.remove(str(GENERATOR.parent))
+
+
+def test_inventory_evidence_health_rejects_a_cross_generation_join() -> None:
+    module = _module()
+    recorded_at = datetime(2026, 9, 13, 5, 37, tzinfo=UTC)
+    completed_at = datetime(2026, 9, 13, 5, 40, tzinfo=UTC)
+
+    source, reason = module._inventory_ontology_evidence_source(
+        status_row={
+            "value": {
+                "status": "available",
+                "generation": "projected-generation",
+                "ontology_release_digest": "sha256:release",
+            },
+            "updated_at": recorded_at,
+        },
+        manifest_row={
+            "value": {
+                "generation": "projected-generation",
+                "complete": True,
+                "dropped_reasons": [],
+            }
+        },
+        inventory_row={
+            "id": "active-generation",
+            "observation_kind": "observed",
+            "completed_at": completed_at,
+        },
+        count_row={"object_count": 1, "link_count": 0},
+        release_digest="sha256:release",
+    )
+
+    assert source is None
+    assert reason == "inventory_ontology_generation_mismatch"
 
 
 @pytest.mark.timeout(240)

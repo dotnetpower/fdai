@@ -2,8 +2,8 @@
  * Unit tests for the CLI i18n helper (L2 product-surface localization).
  *
  * Proves the Product i18n contract in language.instructions.md: English is the
- * source of truth, a locale catalog may lag with a mandatory English fallback,
- * and locale resolution follows preference -> FDAI_LOCALE -> en.
+ * source of truth, Korean is complete for the shipped CLI, unknown keys remain
+ * visible, and locale resolution follows preference -> FDAI_LOCALE -> en.
  */
 
 import { afterEach, describe, expect, it } from "vitest";
@@ -22,10 +22,9 @@ describe("i18n.t", () => {
     expect(localized.length).toBeGreaterThan(0);
   });
 
-  it("falls back to English when the ko catalog lags a key (mandatory fallback)", () => {
-    // The ko catalog does not translate `tier.abstain`; the helper MUST render
-    // the English source, never a blank.
-    expect(t("tier.abstain", "ko")).toBe("Abstained");
+  it("localizes the complete operational vocabulary", () => {
+    expect(t("tier.abstain", "ko")).not.toBe("Abstained");
+    expect(t("console.context", "ko", { env: "dev" })).not.toContain("read-only");
   });
 
   it("returns the key itself when even English is missing (visible typo)", () => {
@@ -38,7 +37,7 @@ describe("i18n.t", () => {
     // recorded, {pending} awaiting your decision."
     const rendered = t("console.connected", "en", { events: 12, pending: 3 });
     expect(rendered).toContain("12 events recorded");
-    expect(rendered).toContain("3 awaiting your decision");
+    expect(rendered).toContain("3 pending human approval");
     expect(rendered).not.toContain("{events}");
     expect(rendered).not.toContain("{pending}");
   });
@@ -49,11 +48,9 @@ describe("i18n.t", () => {
     expect(rendered).toContain("{pending}"); // no param supplied -> left as-is
   });
 
-  it("interpolates params over the English fallback for a lagging locale key", () => {
-    // ko lags `console.context`; the helper falls back to English AND still
-    // substitutes the param.
+  it("interpolates params in the Korean catalog", () => {
     expect(t("console.context", "ko", { env: "dev" })).toBe(
-      "dev - read-only - live Operator API",
+      "dev - 읽기 전용 - 실시간 Operator API",
     );
   });
 });

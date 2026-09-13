@@ -196,6 +196,9 @@ The source watcher creates a deterministic review package containing additions, 
 changes, affected mappings, and stale evidence specifications. A proposed generation remains
 pending until the exact package digest is approved. Validation failure preserves the prior valid
 generation and records the failed revision and reason.
+The shared local catalog materializer keeps framework projections separate from ontology evidence
+health. If the active inventory and ontology projection generations differ, it publishes explicit
+unavailable evidence instead of joining cross-generation timestamps or counts into the catalog set.
 
 ## Validation and live evidence
 

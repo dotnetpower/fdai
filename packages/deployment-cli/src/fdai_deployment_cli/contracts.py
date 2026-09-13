@@ -14,10 +14,8 @@ _ID = re.compile(r"^[a-z][a-z0-9._-]{0,127}$")
 _ENVIRONMENTS = frozenset({"dev", "staging", "prod"})
 _CONNECTIVITY = frozenset({"online", "offline"})
 _HOSTS = frozenset({"existing-host", "managed-vm"})
-_TRANSPORTS = frozenset({"manual", "github-actions"})
-_ACCESS_METHODS = frozenset(
-    {"internal_ssh", "temporary_public_ssh", "github_actions", "bastion", "run_command"}
-)
+_TRANSPORTS = frozenset({"manual"})
+_ACCESS_METHODS = frozenset({"internal_ssh", "temporary_public_ssh", "bastion", "run_command"})
 
 
 class ApprovalClass(StrEnum):
@@ -57,10 +55,6 @@ class ProvisionProfile:
             raise ValueError("transport is unsupported")
         if self.access_method not in _ACCESS_METHODS:
             raise ValueError("access_method is unsupported")
-        if self.transport == "github-actions" and self.access_method != "github_actions":
-            raise ValueError("github-actions transport requires github_actions access")
-        if self.transport == "manual" and self.access_method == "github_actions":
-            raise ValueError("manual transport cannot use github_actions access")
         if not self.shadow_only:
             raise ValueError("subscription genesis MUST start shadow-only")
         if self.approval_quorum < 1:

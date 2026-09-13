@@ -1,0 +1,68 @@
+/* Home navigation floats over the authored sky; article chrome is unchanged. */
+html:has(.home-hero) header.header {
+  position: sticky;
+  padding: 0;
+  height: auto;
+  min-height: var(--sl-nav-height);
+  background: rgb(9 16 29 / 0.92);
+  border-bottom: 1px solid rgb(202 219 245 / 0.15);
+  box-shadow: none;
+  backdrop-filter: blur(16px);
+  color: #d8e1f0;
+}
+html:has(.home-hero) header.header::after { display: none; }
+html:has(.home-hero) .main-frame { padding-top: 0; }
+.home-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 2rem; min-height: var(--sl-nav-height); }
+.home-brand { flex: none; }
+.home-brand .fda-brand { gap: 0.25rem; }
+.home-brand .fda-abbr { font-size: 1.5rem; letter-spacing: 0.08em; }
+.home-brand .fda-full { display: none; }
+
+.home-nav { display: flex; align-items: center; gap: 1.75rem; margin-inline: auto; }
+html:has(.home-hero) header.header a:not(dialog *) { color: #d8e1f0; }
+.home-nav a, .home-docs-link { display: inline-flex; align-items: center; min-height: 2.75rem; font-size: var(--sl-text-sm); text-decoration: none; }
+.home-nav a:hover, .home-docs-link:hover { text-decoration: underline; text-underline-offset: 0.4em; }
+.home-header-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 1rem; max-width: 100%; margin-inline-start: auto; }
+.home-docs-link { gap: 0.75rem; }
+.home-search { display: flex; }
+
+html:has(.home-hero) header.header site-search button[data-open-modal] {
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 0;
+  justify-content: center;
+  background: transparent;
+  color: #d8e1f0;
+}
+html:has(.home-hero) header.header site-search button[data-open-modal] > :is(span, kbd) { display: none; }
+html:has(.home-hero) header.header :is(starlight-theme-select label, starlight-lang-select label) { color: #d8e1f0; }
+html:has(.home-hero) header.header :is(starlight-theme-select label, starlight-lang-select label):hover { color: #ffffff; }
+html:has(.home-hero) header.header :is(starlight-theme-select, starlight-lang-select) select { margin-inline: 0; }
+html:has(.home-hero) header.header :is(a, button, select):not(dialog *):focus-visible { outline-color: #bfdcff; }
+
+/* Room for translated values without turning controls into a second navbar. */
+html:has(.home-hero) header.header starlight-lang-select select { width: 8.5em; }
+@media (min-width: 50rem) {
+  html:lang(ko):has(.home-hero) header.header starlight-theme-select select { width: 10em; }
+}
+
+@media (max-width: 75rem) {
+  .home-header { gap: 1rem; }
+  .home-nav { gap: 1rem; }
+  .home-header-tools { gap: 0.5rem; }
+  .home-docs-link { display: none; }
+}
+@media (max-width: 62rem) { .home-nav { display: none; } }
+@media (max-width: 49.999rem) {
+  html:has(.home-hero) { --sl-nav-height: 4.5rem; }
+  .home-header { width: calc(100% - 2rem); column-gap: 0.5rem; padding-block: 0.5rem; }
+  .home-header-tools { flex-wrap: wrap; justify-content: flex-end; gap: 0.25rem; margin-inline-start: auto; max-width: 100%; }
+  .home-search { margin-inline-start: 0; }
+  .home-brand .fda-abbr { font-size: 1.125rem; }
+}
+@media (forced-colors: active) {
+  html:has(.home-hero) header.header { background: Canvas; border-color: ButtonText; backdrop-filter: none; }
+  html:has(.home-hero) header.header :is(a, label, button[data-open-modal]) { color: LinkText; }
+  html:has(.home-hero) header.header :is(a, button, select):not(dialog *):focus-visible { outline-color: Highlight; }
+}

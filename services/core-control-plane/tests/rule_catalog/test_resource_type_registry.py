@@ -99,6 +99,43 @@ def test_shipped_vocabulary_covers_common_azure_inventory_types() -> None:
         assert registry.get(type_id).query_terms
 
 
+def test_shipped_vocabulary_classifies_reviewed_provider_native_types() -> None:
+    registry = _shipped()
+    expected = {
+        "Microsoft.AlertsManagement/prometheusRuleGroups": "prometheus-rule-group",
+        "Microsoft.AlertsManagement/smartDetectorAlertRules": "anomaly-alert-rule",
+        "Microsoft.App/agents": "managed-sre-agent",
+        "Microsoft.App/managedEnvironments/managedCertificates": "managed-certificate",
+        "Microsoft.Bing/accounts": "web-search-service",
+        "Microsoft.BotService/botServices": "bot-service",
+        "Microsoft.CognitiveServices/accounts/projects": "ai-project",
+        "Microsoft.Compute/sshPublicKeys": "ssh-public-key",
+        "Microsoft.Compute/virtualMachines/extensions": "compute.vm-extension",
+        "Microsoft.Compute/virtualMachines/runCommands": "compute.vm-run-command",
+        "Microsoft.Dashboard/grafana": "observability.dashboard-service",
+        "Microsoft.DomainRegistration/domains": "network.registered-domain",
+        "Microsoft.Insights/metricAlerts": "metric-alert-rule",
+        "Microsoft.Insights/privateLinkScopes": "network.private-access-scope",
+        "Microsoft.Insights/workbooks": "observability.workbook",
+        "Microsoft.Network/bastionHosts": "network.bastion-host",
+        "Microsoft.Network/networkWatchers": "observability.network-monitor",
+        "Microsoft.OperationalInsights/queryPacks": "observability.query-pack",
+        "Microsoft.OperationsManagement/solutions": "observability.solution",
+        "Microsoft.Portal/dashboards": "observability.dashboard",
+        "Microsoft.Search/searchServices": "search-service",
+        "Microsoft.VisualStudio/account": "devops-account",
+        "Microsoft.Web/connections": "workflow.api-connection",
+    }
+
+    assert {
+        provider_type: resolve_azure_resource_type(
+            registry,
+            arm_type=provider_type,
+        )
+        for provider_type in expected
+    } == expected
+
+
 def test_shared_web_arm_type_resolves_by_kind() -> None:
     registry = _shipped()
 

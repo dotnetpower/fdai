@@ -281,12 +281,27 @@ operational results. Remove a metric if the deck cannot explain why it changes a
 
 - Every book belongs to one journey stage and meets the catalog's minimum slide count for its level.
 - A book has one coherent audience and decision. Split unrelated audiences into separate books.
+- Every manual records `createdAt`, `lastEditedAt`, and `reviewedAt` in `catalog.json`. Update
+  `lastEditedAt` to the actual content-edit date whenever its copy, visual, source, or presentation
+  behavior changes. Do not replace the original `createdAt` value.
+- Only explicit human confirmation after the latest edit may set `reviewedAt`. Clear `reviewedAt`
+  when a reviewed manual changes unless the human reconfirms the resulting revision. Automated
+  tests, rendering checks, hardening rounds, and agent inspection never count as human review.
+- A manual whose `reviewedAt` is missing, null, or older than `lastEditedAt` must display a diagonal
+  `DRAFT` mark on its catalog artwork and first slide only. Do not show the mark on later slides or
+  on a revision explicitly confirmed after its latest edit.
 - Album art must be unique across the catalog and relevant to the title.
 - Use repository-owned, authorized, or generated assets only.
 - Record every published asset in `assets/provenance.json`.
 - Use an empty `alt` only for decorative artwork. Meaningful diagrams need a concise accessible name.
 - A substantial book should have a dedicated module and stylesheet rather than expanding shared
   files indefinitely.
+- Every catalog manual must have a stable `<manual-id>.html` share page with server-rendered Open
+  Graph title, description, canonical URL, and absolute cover-image URL. Teams and other link
+  crawlers do not execute the viewer JavaScript, so client-only metadata is insufficient.
+- Generate share pages from `catalog.json` and `library.html`; do not hand-maintain per-manual HTML.
+  The deployment builder receives the public base URL at publish time, and repository files must
+  not contain a deployment hostname. A shared page must still open its selected manual at slide 1.
 - Add new runtime-loaded JS and CSS files to the Azure Manual Studio artifact allowlist and its
   integration test.
 

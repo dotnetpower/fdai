@@ -44,6 +44,7 @@ from fdai_operator_service.postgres import (
     PostgresOperatorReadModelConfig,
     _decode_incident_cursor,
     _encode_incident_cursor,
+    _escape_like,
     _group_incident_rows,
     _psycopg_dsn,
 )
@@ -1937,6 +1938,12 @@ def test_hil_queue_excludes_approvals_with_a_durable_decision_receipt() -> None:
     for statement in (HIL_COUNT_SQL, HIL_PAGE_SQL):
         assert "NOT EXISTS" in statement
         assert "'operator-hil-decision:' || (state_kv.value->>'approval_id')" in statement
+        assert "LIKE %(key_pattern)s ESCAPE E'\\\\'" in statement
+
+
+def test_hil_queue_search_escapes_like_metacharacters() -> None:
+    assert "ILIKE %(search_pattern)s::text ESCAPE E'\\\\'" in HIL_PAGE_SQL
+    assert _escape_like("approval%_\\") == r"approval\%\_\\"
 
 
 @pytest.mark.asyncio

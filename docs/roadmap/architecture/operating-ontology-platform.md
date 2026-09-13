@@ -49,8 +49,11 @@ Resource vocabulary changes. A stale artifact remains a CI failure, not runtime 
 
 Core runtime startup now projects Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,
 Property, and ActionType instances into one catalog-owned subgraph. Its taxonomy slice retains 11
-classes, 77 memberships, and 11 bounded specialization links over all 77 neutral ResourceTypes.
+classes, 112 memberships, and 11 bounded specialization links over all 112 neutral ResourceTypes.
 The pure builder rejects semantic or identity defects; atomic identical replay remains a no-op.
+Category-backed language groups are a separate query aid, not ResourceClass membership. The
+`search-service` type can remain a reviewed data-service class member without answering the broad
+`database` or `데이터베이스` query terms.
 
 The canonical release also declares `ControlObjective`, `RuleObjectiveBinding`, and
 `EquivalenceValidationReceipt`, with `objective_bound_by`, `binding_targets_rule`, and

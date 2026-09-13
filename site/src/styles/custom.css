@@ -536,7 +536,7 @@ header.header::after {
   pointer-events: none;
 }
 /* Keep the header's controls legible on the black bar in both themes. */
-header.header :is(a, button, .social-icons a) {
+header.header :is(a, button, .social-icons a):not(dialog *) {
   color: #e6e9f0;
 }
 
@@ -554,7 +554,7 @@ html[data-theme="light"]
   color: #ffffff;
 }
 @media (min-width: 50rem) {
-  html[data-theme="light"] header.header site-search button {
+  html[data-theme="light"] header.header site-search button[data-open-modal] {
     color: var(--sl-color-gray-2);
   }
 }
@@ -578,7 +578,7 @@ header.header .sl-flex:has(> site-search) {
   max-width: 640px;
 }
 header.header site-search,
-header.header site-search button {
+header.header site-search button[data-open-modal] {
   width: 100%;
   max-width: none;
 }
@@ -606,8 +606,14 @@ header.header site-search button {
 .act {
   display: grid;
   gap: 1.1rem;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
+}
+.act-copy,
+.channel-card,
+.handoff-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 @media (min-width: 50rem) {
   .act {
@@ -792,6 +798,7 @@ header.header site-search button {
 }
 .hc-dims .dim {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
@@ -847,8 +854,14 @@ header.header site-search button {
   color: #ffffff;
   padding: 0.5rem 1.05rem;
   border-radius: 0.55rem;
-  background: linear-gradient(120deg, #0078d4, #35b4e3);
-  box-shadow: 0 6px 16px rgba(0, 120, 212, 0.35);
+  background: #243754;
+  border: 1px solid #91aaca;
+}
+.example-note {
+  margin: 0 0 0.75rem;
+  color: #c6d4ee;
+  font-size: var(--sl-text-sm);
+  line-height: 1.5;
 }
 .hc-note {
   font-size: 0.8rem;
@@ -905,21 +918,21 @@ header.header site-search button {
   content: "\2192"; /* right arrow */
   margin-inline-start: auto;
   color: var(--sl-color-text-accent);
-  opacity: 0;
-  transform: translateX(-0.25rem);
+  opacity: 0.8;
+  transform: none;
   transition:
     opacity 0.18s ease,
     transform 0.18s ease;
 }
 
-.fdai-card:hover .fdai-card-title::after {
+.fdai-card:is(:hover, :focus-visible) .fdai-card-title::after {
   opacity: 1;
   transform: translateX(0);
 }
 
 .fdai-card-desc {
   font-size: var(--sl-text-sm);
-  color: var(--sl-color-gray-3);
+  color: var(--sl-color-text);
 }
 
 /*

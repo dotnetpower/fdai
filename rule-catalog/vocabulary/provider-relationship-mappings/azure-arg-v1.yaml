@@ -19,6 +19,58 @@ mappings:
       require_source_endpoint: true
       require_target_endpoint: true
 
+  - mapping_id: azure.container-environment-contains-managed-certificate
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.App/managedEnvironments/managedCertificates]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.App/managedEnvironments]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.cognitive-account-contains-project
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.CognitiveServices/accounts/projects]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.CognitiveServices/accounts]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.vm-contains-extension
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Compute/virtualMachines/extensions]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.Compute/virtualMachines]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.vm-contains-run-command
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Compute/virtualMachines/runCommands]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.Compute/virtualMachines]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
   - mapping_id: azure.resource-attached-to-managed-identity
     provider: azure
     source_identity: azure-resource-graph
@@ -1537,6 +1589,6 @@ mappings:
 
 review:
   reviewer_identity: fdai-provider-relationship-review
-  reviewed_at: 2026-09-06T00:00:00Z
+  reviewed_at: 2026-09-13T00:00:00Z
   immutable_receipt_ref: catalog-receipt:provider-relationships:azure-arg-v1
-  content_hash: sha256:70bee7b32b32e42cea66161a19bf3728ed7bfd7a19b8a73bc4dc275da2970aa5
+  content_hash: sha256:c944097ac33171f5c6341da6a031031ea1ce348a3803d671f706d4c2fe15fef3

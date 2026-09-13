@@ -149,6 +149,7 @@ jobs:
           OPERATION: ${{ inputs.operation }}
           TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          DEV_DEPLOY_REQUIRED_APPROVALS: ${{ vars.DEV_DEPLOY_REQUIRED_APPROVALS || '1' }}
           APPLY_REQUEST_ID: ${{ inputs.request_id }}
           APPLY_CONTEXT_DIGEST: ${{ inputs.context_digest }}
           APPLY_PLAN_ID: ${{ inputs.plan_id }}
@@ -169,7 +170,9 @@ jobs:
               > "$RUNNER_TEMP/environment.json"
             python3 \
               .fdai-protected-environment-verifier/scripts/deployment/azure/verify-github-environment.py \
-              "$RUNNER_TEMP/environment.json" --required-approvals 1
+              "$RUNNER_TEMP/environment.json" \
+              --environment "$TARGET_ENVIRONMENT" \
+              --dev-required-approvals "$DEV_DEPLOY_REQUIRED_APPROVALS"
           }
           case "$OPERATION" in
             console-publish)

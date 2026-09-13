@@ -82,8 +82,11 @@ from urllib.parse import urlparse
 import httpx
 
 from fdai.delivery.azure.arg_projection import (
+    ArmIdentityError,
     ArmScopeError,
+    arm_provider_type,
     resource_operational_status,
+    reviewed_containment_parent,
     validated_arm_scope,
 )
 from fdai.delivery.azure.arg_projection import (
@@ -110,8 +113,6 @@ from fdai.delivery.azure.arg_projection import (
 from fdai.delivery.azure.arg_relationships import (
     RelationshipProjectionResult,
     project_provider_relationships,
-    provider_parent_id,
-    provider_root_id,
 )
 from fdai.delivery.azure.arg_transport import (
     DEFAULT_ARG_REQUEST_BURST,
@@ -139,7 +140,6 @@ from fdai.delivery.inventory_schedule import (
     project_vm_shutdown_schedule,
 )
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
-    EndpointOrientation,
     ProviderRelationshipMappingCatalog,
     load_provider_relationship_mapping_catalog,
 )
@@ -631,9 +631,19 @@ class AzureArgQueryFactory:
         arm_type = self._resource_types.get(resource_type).azure_arm_type
         if arm_type is None:
             return None
+        provider_type = arm_type
+        if resource_type not in {"resource-group", "subscription"}:
+            try:
+                provider_type = arm_provider_type(arm_id, row.get("type"))
+            except ArmIdentityError as exc:
+                raise ArgQueryError(
+                    f"ARG row for {resource_type!r} has conflicting provider type"
+                ) from exc
+            if provider_type.casefold() != arm_type.casefold():
+                raise ArgQueryError(f"ARG row for {resource_type!r} has conflicting provider type")
         resolved_type = resolve_azure_resource_type(
             self._resource_types,
-            arm_type=arm_type,
+            arm_type=provider_type,
             kind=row.get("kind"),
         )
         if (
@@ -653,7 +663,7 @@ class AzureArgQueryFactory:
         neutral_id = _to_neutral_id(arm_id)
         scope_error = ArgQueryError(f"ARG {resource_type!r} row has conflicting provider scope")
         scope = validated_arm_scope(arm_id, row, scope_error)
-        props: dict[str, Any] = {"providerType": arm_type}
+        props: dict[str, Any] = {"providerType": provider_type}
         subscription_id = row.get("subscriptionId")
         if isinstance(subscription_id, str) and subscription_id:
             props["subscriptionId"] = subscription_id
@@ -684,7 +694,7 @@ class AzureArgQueryFactory:
             props["properties"] = nested_schedule
 
         props = _truncate_props(props, max_bytes=self._config.max_props_bytes)
-        props["providerType"] = arm_type
+        props["providerType"] = provider_type
         props.update(scope)
         # Lifted after truncation so the containment anchor survives a large
         # vendor payload; `Resource.parent_id` is what scoped questions read.
@@ -700,31 +710,13 @@ class AzureArgQueryFactory:
         )
 
     def _containment_parent_id(self, arm_id: str, *, arm_type: str) -> str | None:
-        provider_parent_mapping = any(
-            mapping.provider == "azure"
-            and mapping.source_property_path in {"id.providerParent", "id.providerRoot"}
-            and mapping.link_type == "contains"
-            and mapping.endpoint_orientation is EndpointOrientation.REFERENCED_TO_OWNER
-            and arm_type.casefold() in mapping.source_provider_types
-            for mapping in self._relationship_mappings.mappings
+        parent = reviewed_containment_parent(
+            arm_id,
+            arm_type=arm_type,
+            arm_to_neutral=self._arm_to_neutral,
+            catalog=self._relationship_mappings,
         )
-        if provider_parent_mapping:
-            mapping_path = next(
-                mapping.source_property_path
-                for mapping in self._relationship_mappings.mappings
-                if mapping.provider == "azure"
-                and mapping.source_property_path in {"id.providerParent", "id.providerRoot"}
-                and mapping.link_type == "contains"
-                and mapping.endpoint_orientation is EndpointOrientation.REFERENCED_TO_OWNER
-                and arm_type.casefold() in mapping.source_provider_types
-            )
-            parent = (
-                provider_root_id(arm_id)
-                if mapping_path == "id.providerRoot"
-                else provider_parent_id(arm_id)
-            )
-            return _to_neutral_id(parent) if parent is not None else None
-        return _parent_neutral_id(arm_id)
+        return parent[0] if parent is not None else None
 
 
 def _resolve_acr_login_server_to_arm_id(login_server: str) -> str | None:

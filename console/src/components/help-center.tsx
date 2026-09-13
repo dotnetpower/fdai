@@ -13,6 +13,8 @@ export interface ManualCatalogEntry {
   readonly eyebrow: string;
   readonly description: string;
   readonly createdAt: string;
+  readonly lastEditedAt: string;
+  readonly reviewedAt: string | null;
   readonly duration: string;
   readonly slideCount: number;
   readonly coverImage: string;
@@ -32,7 +34,7 @@ export interface ManualJourneyStage {
 }
 
 export interface ManualCatalog {
-  readonly schemaVersion: 2;
+  readonly schemaVersion: 3;
   readonly generatedAt: string;
   readonly minimumSlidesByLevel: Readonly<Record<ManualLevel, number>>;
   readonly journey: {
@@ -106,9 +108,13 @@ export function manualAssetUrl(baseUrl: string, assetPath: string): string | nul
 }
 
 export function manualOpenUrl(baseUrl: string, manualId?: string): string {
-  const url = new URL("library.html", `${baseUrl.replace(/\/+$/, "")}/`);
-  if (manualId !== undefined) url.searchParams.set("manual", manualId);
-  return url.toString();
+  if (manualId !== undefined && !/^[a-z0-9-]+$/.test(manualId)) {
+    throw new Error("Manual id must use lowercase ASCII kebab-case.");
+  }
+  return new URL(
+    manualId === undefined ? "library.html" : `${manualId}.html`,
+    `${baseUrl.replace(/\/+$/, "")}/`,
+  ).toString();
 }
 
 export function resolveManualStudioUrl(
@@ -139,13 +145,13 @@ export function parseManualCatalog(value: unknown, baseUrl: string): ManualCatal
   const journey = record === null ? null : asRecord(record.journey);
   if (
     record === null ||
-    record.schemaVersion !== 2 ||
+    record.schemaVersion !== 3 ||
     !Array.isArray(record.manuals) ||
     journey === null ||
     !Array.isArray(journey.stages)
   ) {
     throw new Error(
-      "Manual catalog must use schemaVersion 2 and contain journey stages and manuals.",
+      "Manual catalog must use schemaVersion 3 and contain journey stages and manuals.",
     );
   }
   const generatedAt = requiredString(record, "generatedAt");
@@ -186,6 +192,8 @@ export function parseManualCatalog(value: unknown, baseUrl: string): ManualCatal
     const level = manual.level ?? "L100";
     const status = requiredString(manual, "status");
     const createdAt = requiredString(manual, "createdAt");
+    const lastEditedAt = requiredString(manual, "lastEditedAt");
+    const reviewedAt = manual.reviewedAt;
     const coverImage = requiredString(manual, "coverImage");
     if (!/^[a-z0-9-]+$/.test(id)) {
       throw new Error(`Manual catalog entry ${index} has an invalid id.`);
@@ -201,6 +209,13 @@ export function parseManualCatalog(value: unknown, baseUrl: string): ManualCatal
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(createdAt)) {
       throw new Error(`Manual catalog entry ${id} has an invalid createdAt date.`);
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(lastEditedAt) || lastEditedAt < createdAt) {
+      throw new Error(`Manual catalog entry ${id} has an invalid lastEditedAt date.`);
+    }
+    if (reviewedAt !== null &&
+        (typeof reviewedAt !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(reviewedAt))) {
+      throw new Error(`Manual catalog entry ${id} has an invalid reviewedAt date.`);
     }
     if (!Number.isSafeInteger(manual.slideCount) || Number(manual.slideCount) <= 0) {
       throw new Error(`Manual catalog entry ${id} has an invalid slideCount.`);
@@ -224,6 +239,8 @@ export function parseManualCatalog(value: unknown, baseUrl: string): ManualCatal
       eyebrow: requiredString(manual, "eyebrow"),
       description: requiredString(manual, "description"),
       createdAt,
+      lastEditedAt,
+      reviewedAt,
       duration: requiredString(manual, "duration"),
       slideCount: Number(manual.slideCount),
       coverImage,
@@ -233,7 +250,7 @@ export function parseManualCatalog(value: unknown, baseUrl: string): ManualCatal
   });
 
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     generatedAt,
     minimumSlidesByLevel,
     journey: {

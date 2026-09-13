@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 5d10cb75eef26dcc55c6bb5396edd180074930de
+translation_source_sha: b7584435bb23589bd9e793d67a4aa7d64ed19290
 translation_revised: 2026-09-13
 ---
 # 프로젝트 구조
@@ -15,7 +15,7 @@ translation_revised: 2026-09-13
 게이트에서 실패합니다. 따라서 다이제스트를 제거해도 변조된 payload를 승인할 수 없습니다. 품질 게이트는 중복된 교차 검사 모델을 거부합니다. 따라서 한 모델이 자기 자신과 동의해 혼합 모델 정족수를 충족할 수 없습니다. 사용할 수 없는 경계를 가진 유효한 freeze 또는 quiet ChangeWindow는 건너뛰지 않고 유지 보수 권한을 거부합니다. 구성된 시계 오차 허용치보다 더 앞선 시각이 기록된 변경 이벤트는 settling 윈도우로 억제하지 않고 out-of-band로 보고합니다. 허용 범위 안의 음수 age도 구성된 settling 윈도우가 0이면 억제 구간을 만들지 않습니다. 사전 권한 Change Safety 근거는 작업 생성, dispatch, 감사와 동일하게 주입된 control-loop clock을 사용하므로 고정 replay가 host wall time 때문에 stale 상태가 되지 않습니다. 놓친 임계 위반은 완전한 telemetry에서만 채점합니다. 따라서 false-negative 결과는 관측이 주장하지 않은 완전성 주장을 게시하지
 않습니다. 예측 종료 처리는 청구한 모든 episode를 시도한 뒤 첫 실패를 다시 발생시킵니다. 따라서 실패한 episode 하나가 due 대기열 전체를 막을 수 없습니다. T1 맥락 재사용은 trust router와 동일한 정규 형태로 이벤트
 리소스 유형을 읽습니다. 따라서 이미 허용된 이벤트를 리소스 유형 변경으로 보고하지 않습니다.
-기록된 Resource 상태 정규화와 허용 목록 기반 정식 사용 불가 사유는 공유 계약, Core 및 Azure delivery에 유지하고 Operator는 읽기 전용 변환을 소유하며 Console은 그 결과 이유만 지역화합니다. 구성 표류 전달도 `delivery/azure/`와 보호된 Core 서비스 구성에 유지합니다. 검토된 스냅샷은 콘텐츠 주소 기반 private Blob을 통해서만 전달하고, 런타임은 Managed Identity로 읽으며, 적용 후에는 정확한 서버 소유 바인딩을 독립적으로 검증합니다. 독립 서비스 계획 가드는 명령과 환경 변경을 롤백 경계의 일부로 취급합니다. 격리 실행기는 이전에 없던 기본 비활성 legacy-unbound 전환 연결을 정확히 한 번만 도입할 수 있습니다. 이를 활성화하거나 반복 적용하거나 관련 없는 런타임 표류와 결합하는 작업은 허용하지 않습니다.
+기록된 Resource 상태 정규화, 유형별 적용성 및 허용 목록 기반 정식 사용 불가 사유는 공유 계약, Core 및 Azure delivery에 유지하고 Operator는 읽기 전용 변환을 소유하며 Console은 그 결과 이유만 지역화합니다. 구성 표류 전달도 `delivery/azure/`와 보호된 Core 서비스 구성에 유지합니다. 검토된 스냅샷은 콘텐츠 주소 기반 private Blob을 통해서만 전달하고, 런타임은 Managed Identity로 읽으며, 적용 후에는 정확한 서버 소유 바인딩을 독립적으로 검증합니다. 독립 서비스 계획 가드는 명령과 환경 변경을 롤백 경계의 일부로 취급합니다. 격리 실행기는 이전에 없던 기본 비활성 legacy-unbound 전환 연결을 정확히 한 번만 도입할 수 있습니다. 이를 활성화하거나 반복 적용하거나 관련 없는 런타임 표류와 결합하는 작업은 허용하지 않습니다.
 
 ## Core 도메인 탐색 결정
 
@@ -424,6 +424,8 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   `GitOpsCatalogReviewPublisher`는 내용 기반 주소가 지정된 비활성 검토 package만 게시합니다.
   `operational-promotion` 작업은 상태 변경 없이 exact-digest 근거를 저장하고, `cohort_observation_import`는 산출물이 선언한 군, 리비전, 프로토콜, 승인 또는 권한을 받지 않습니다.
   보호된 workflow가 묶음당 관측값을 1,000개로 제한하고 중복 JSON 키를 차단하며 각 관측 다이제스트를 묶음과 exporter workflow에 연결한 뒤 멱등 재생을 검증합니다. 신뢰할 수 있는 제품 중립 출처 레지스트리는 군의 각 필수 측정값을 저장소 내부의 일반 exporter workflow 하나와 고정 출처 식별자에 배정합니다. 반입기는 해당 식별자를 주입하고 인벤토리는 일치하는 출처 계보만 다시 계수합니다. 제품 어댑터는 배정된 workflow 뒤에 유지되며, 연결이 없거나 불완전하거나 중복되거나 두 군이 공유하면 경로를 차단합니다.
+  `CostPromotionReviewStore`는 하나의 exact Cost Governance 대상 검토를 위한 권한 중립 경계입니다. 업스트림 PostgreSQL 어댑터와 Core 서비스 migration이 append-only 저장을 소유하며, 보호된 workflow는 각 기록 전에 하나의 attested campaign과 활성 pin을 검증합니다. 이 저장소는 package activation, ActionType 또는 Workflow mode, promotion 레지스트리를 갱신할 수 없습니다.
+  안정적인 요청 재생은 원래 payload와 정규화 열을 검증하고 요청 소유 내용 및 보존 기간만 비교한 뒤 원래 시각을 담은 검토를 반환합니다.
 - **Governed action 및 probe 전달**: `GovernedGovernancePrPublisher`는 retire 및 exemption
   순수 writer를 기존 write-once PR adapter에 연결하고 replay 가능한 open-to-merge 또는
   종단 증적을 저장합니다. Retirement loader는 병합된 retirement artifact를 active rule
@@ -594,7 +596,7 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
   불변 매니페스트, 수명 주기, 프로바이더 및 권한 없는 계약을 소유하고, 검토된 이미지
   composition이 패키지 코드와 리소스를 제공합니다. Core는 선택적 패키지를 import하지 않으며
   패키지 활성화는 사용자 접근 및 액션 승격과 독립적으로 유지됩니다. 보호된 W7 워크플로는 판단, 승인, 실행 또는 승격 권한을 패키지나 Operator 조립으로 옮기지 않고 정확한 release, Process, 공개 및 보존 근거를 유지합니다.
-- 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있으며, `execution_safeguards.py`는 Core, 작업 흐름, Isolated 실행기의 생성기와 검증기가 공유하는 공급자 중립 무권한 7개 증명 묶음을 소유합니다.
+- 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있으며, `execution_safeguards.py`는 Core, 작업 흐름, Isolated 실행기의 생성기와 검증기가 공유하는 공급자 중립 무권한 7개 증명 묶음을 소유합니다. `recorded_resource_state.py`는 Core 변환 결과와 Operator 조회가 공유하는 공급자 중립 상태 경로 적용성 집합과 범위가 제한된 사용 불가 사유 토큰을 소유합니다. 공급자 어댑터는 검토된 토큰만 선택할 수 있으며, 공급자 응답 원문과 프로비저닝 기반 추론은 계약 밖에 둡니다.
   `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
   새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. 저장소가 소유하고
   체크섬으로 고정한 생성기는 호환성 매니페스트의 모든 N/N-1 스키마를 백엔드 서비스 5개용

@@ -45,6 +45,7 @@ RESOURCE_HEALTH_PROVIDER_TYPES = {
     "metrics-workspace": "Microsoft.Monitor/accounts",
     "mysql-server": "Microsoft.DBforMySQL/flexibleServers",
     "network.application-gateway": "Microsoft.Network/applicationGateways",
+    "network.bastion-host": "Microsoft.Network/bastionHosts",
     "network.dns-resolver": "Microsoft.Network/dnsResolvers",
     "network.dns-resolver-inbound-endpoint": "Microsoft.Network/dnsResolvers/inboundEndpoints",
     "network.dns-zone": "Microsoft.Network/dnsZones",
@@ -54,11 +55,14 @@ RESOURCE_HEALTH_PROVIDER_TYPES = {
     "network.virtual-network-gateway": "Microsoft.Network/virtualNetworkGateways",
     "nosql-database": "Microsoft.DocumentDB/databaseAccounts",
     "object-storage": "Microsoft.Storage/storageAccounts",
+    "observability.dashboard-service": "Microsoft.Dashboard/grafana",
     "postgresql-server": "Microsoft.DBforPostgreSQL/flexibleServers",
     "redis-enterprise": "Microsoft.Cache/redisEnterprise",
     "secret-store": "Microsoft.KeyVault/vaults",
     "service-bus-namespace": "Microsoft.ServiceBus/namespaces",
+    "search-service": "Microsoft.Search/searchServices",
     "sql-database": "Microsoft.Sql/servers/databases",
+    "prometheus-rule-group": "Microsoft.AlertsManagement/prometheusRuleGroups",
 }
 
 
@@ -89,8 +93,11 @@ def _resource_with_health(
     *,
     observed_at: datetime,
     resource_type: str = "log-workspace",
+    resource_id: str | None = None,
 ) -> ResourceRecord:
     resource = _resource(resource_type)
+    if resource_id is not None:
+        resource = replace(resource, resource_id=resource_id)
     material = f"{resource.resource_id}|{state}|status_only|{observed_at.isoformat()}"
     evidence_ref = f"azure-resource-health:sha256:{hashlib.sha256(material.encode()).hexdigest()}"
     metadata = StateFactMetadata(
@@ -262,26 +269,49 @@ async def test_enricher_covers_every_reviewed_resource_health_type() -> None:
     }
 
 
-async def test_enricher_rejects_target_slice_above_the_configured_bound() -> None:
-    async def handler(_request: httpx.Request) -> httpx.Response:
-        raise AssertionError("an over-limit Resource Health slice MUST NOT call the provider")
+async def test_enricher_collects_deterministic_prefix_and_marks_limited_targets() -> None:
+    requested: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(request.url.path)
+        return httpx.Response(
+            200,
+            json={
+                "properties": {
+                    "availabilityState": "Available",
+                    "reasonType": "Unplanned",
+                    "reportedTime": OBSERVED.isoformat(),
+                }
+            },
+        )
 
     resource = _resource("object-storage")
+    assert resource.provider_ref is not None
+    provider_prefix = resource.provider_ref.rsplit("/", 1)[0]
     resources = (
-        resource,
         replace(
             resource,
-            resource_id="scope-example/resource-group/example/providers/object-storage/two",
+            resource_id="scope-example/resource-group/example/providers/object-storage/c",
+            provider_ref=f"{provider_prefix}/c",
         ),
         replace(
             resource,
-            resource_id="scope-example/resource-group/example/providers/object-storage/three",
+            resource_id="scope-example/resource-group/example/providers/object-storage/b",
+            provider_ref=f"{provider_prefix}/b",
+        ),
+        replace(
+            resource,
+            resource_id="scope-example/resource-group/example/providers/object-storage/a",
+            provider_ref=f"{provider_prefix}/a",
         ),
     )
-    previous = _resource_with_health(
-        "Available",
-        observed_at=OBSERVED,
-        resource_type="object-storage",
+    previous = replace(
+        _resource_with_health(
+            "Available",
+            observed_at=OBSERVED,
+            resource_type="object-storage",
+        ),
+        resource_id=resources[2].resource_id,
     )
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         enriched = await AzureResourceHealthInventoryEnricher(
@@ -306,11 +336,82 @@ async def test_enricher_rejects_target_slice_above_the_configured_bound() -> Non
             )
         )
 
-    assert enriched.resources[0].props["availabilityState"] == "Available"
-    assert enriched.resources[1:] == resources[1:]
+    assert requested == [
+        f"{provider_prefix}/a/providers/Microsoft.ResourceHealth/availabilityStatuses/current",
+        f"{provider_prefix}/b/providers/Microsoft.ResourceHealth/availabilityStatuses/current",
+    ]
+    assert "availabilityState" not in enriched.resources[0].props
+    assert enriched.resources[0].props[STATE_FACT_UNAVAILABLE_REASONS_PROPERTY] == {
+        "availabilityState": "resource_health_target_limit"
+    }
+    assert enriched.resources[1].props["availabilityState"] == "Available"
+    assert enriched.resources[2].props["availabilityState"] == "Available"
     assert enriched.source_states[0].status is InventoryProjectionSourceStatus.UNAVAILABLE
-    assert enriched.source_states[0].reason == "resource_health_target_limit"
-    assert enriched.source_states[0].coverage == {"targets": 3}
+    assert enriched.source_states[0].reason == "resource_health_partial"
+    assert enriched.source_states[0].coverage == {
+        "observed": 2,
+        "target_limit": 1,
+        "targets": 3,
+    }
+
+
+async def test_enricher_retains_prior_health_for_a_limited_target() -> None:
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "properties": {
+                    "availabilityState": "Available",
+                    "reportedTime": OBSERVED.isoformat(),
+                }
+            },
+        )
+
+    resource = _resource("object-storage")
+    resources = tuple(
+        replace(
+            resource,
+            resource_id=f"scope-example/resource-group/example/providers/object-storage/{name}",
+        )
+        for name in ("a", "b", "c")
+    )
+    previous = _resource_with_health(
+        "Degraded",
+        observed_at=OBSERVED,
+        resource_type="object-storage",
+        resource_id=resources[2].resource_id,
+    )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        enriched = await AzureResourceHealthInventoryEnricher(
+            identity=StaticWorkloadIdentity(
+                audience="https://management.azure.com/.default",
+                token="test-token",  # noqa: S106 - deterministic test value
+            ),
+            http_client=client,
+            config=AzureResourceHealthInventoryConfig(
+                subscription_ids=(SUBSCRIPTION,),
+                max_targets=2,
+            ),
+            previous_state_reader=_PreviousStateReader(previous),
+            clock=lambda: COMPLETED,
+        ).enrich(
+            PromotedInventoryObservation(
+                generation="generation-1",
+                resources=resources,
+                links=(),
+                complete=True,
+                recorded_at=OBSERVED,
+            )
+        )
+
+    assert enriched.resources[2].props["availabilityState"] == "Degraded"
+    assert STATE_FACT_UNAVAILABLE_REASONS_PROPERTY not in enriched.resources[2].props
+    assert enriched.source_states[0].coverage == {
+        "observed": 2,
+        "target_limit": 1,
+        "targets": 3,
+    }
 
 
 async def test_enricher_does_not_copy_workspace_health_to_application_insights() -> None:

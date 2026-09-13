@@ -108,7 +108,7 @@ def test_shipped_catalog_declares_kubernetes_telemetry_relationship_direction() 
 
 def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
     loaded = load_provider_relationship_mapping_catalog(CATALOG_ROOT)
-    assert len(loaded.mappings) == 108
+    assert len(loaded.mappings) == 112
 
     special_link_types = {
         "azure.vnet-peered-with-vnet": "peered_with",
@@ -144,7 +144,9 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
         "azure.aks-contains-agent-pool",
         "azure.arm-cognitive-account-contains-model-deployment",
         "azure.cognitive-account-contains-model-deployment",
+        "azure.cognitive-account-contains-project",
         "azure.communication-email-service-contains-domain",
+        "azure.container-environment-contains-managed-certificate",
         "azure.dns-resolver-contains-inbound-endpoint",
         "azure.private-endpoint-contains-dns-zone-group",
         "azure.private-dns-zone-contains-vnet-link",
@@ -155,6 +157,8 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
         "azure.vm-nic-attached-to-vm",
         "azure.vm-os-disk-attached-to-vm",
         "azure.vm-scale-set-contains-vm",
+        "azure.vm-contains-extension",
+        "azure.vm-contains-run-command",
         "kubernetes.agent-pool-contains-node",
         "kubernetes.cluster-contains-ingress-class",
         "kubernetes.cluster-contains-diagnostic-resource",

@@ -33,6 +33,7 @@ from genesis_foundation_apply_contract import (
     load_apply_receipt,
     require_same_effect,
 )
+from genesis_foundation_workspace import verify_execution_copy
 from genesis_subprocess import run_with_heartbeat
 from genesis_vm_sku_preflight import recheck_foundation_vm
 
@@ -291,14 +292,7 @@ def _prepare_verified_snapshot(
             temporary.cleanup()
             raise ValueError("Foundation apply persistent bundle is invalid")
         persistent_root = candidates[0]
-        persisted = verify_bundle(
-            persistent_root,
-            public_key_pem=bundle_key,
-            cli_version=__version__,
-        )
-        if persisted.manifest_digest != context["deployment_bundle_digest"]:
-            temporary.cleanup()
-            raise ValueError("Foundation apply persistent bundle changed")
+        verify_execution_copy(persistent_root, authenticated_source=extracted)
     else:
         persistent_bundle.mkdir(mode=0o700)
         persistent_root = persistent_bundle / extracted.name
@@ -738,16 +732,7 @@ def _required(
     reason: str,
     env: Mapping[str, str] | None = None,
 ) -> None:
-    completed = run_with_heartbeat(
-        command,
-        cwd=cwd,
-        timeout=timeout,
-        env=env,
-        capture_output=True,
-        umask=0o077,
-    )
-    if completed.returncode != 0:
-        raise ValueError(reason)
+    _capture(command, cwd=cwd, timeout=timeout, reason=reason, env=env)
 
 
 def _capture(
@@ -758,14 +743,17 @@ def _capture(
     reason: str,
     env: Mapping[str, str] | None = None,
 ) -> str:
-    completed = run_with_heartbeat(
-        command,
-        cwd=cwd,
-        timeout=timeout,
-        env=env,
-        capture_output=True,
-        umask=0o077,
-    )
+    try:
+        completed = run_with_heartbeat(
+            command,
+            cwd=cwd,
+            timeout=timeout,
+            env=env,
+            capture_output=True,
+            umask=0o077,
+        )
+    except (OSError, subprocess.SubprocessError):
+        raise ValueError(reason) from None
     if completed.returncode != 0:
         raise ValueError(reason)
     return completed.stdout
@@ -793,12 +781,30 @@ def _print(result: Mapping[str, object], output: str) -> None:
         )
 
 
+def _execute_and_cleanup(args: argparse.Namespace) -> Mapping[str, object]:
+    """Clean transient input before success; never replace an original failure with a path."""
+    failed = True
+    try:
+        result = _execute(args)
+        failed = False
+        return result
+    finally:
+        try:
+            transient_input = _absolute(args.plan_directory) / ".foundation-apply-input.json"
+            transient_input.unlink(missing_ok=True)
+        except OSError:
+            reason = "Foundation input cleanup failed; preserve private evidence"
+            if not failed:
+                raise ValueError(reason) from None
+            print(f"genesis-foundation-apply: {reason}", file=sys.stderr)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run exact Foundation apply or verification resume with stable failures."""
 
     args = _parser().parse_args(argv)
     try:
-        result = _execute(args)
+        result = _execute_and_cleanup(args)
         _print(result, args.output)
         return 0
     except (
@@ -808,11 +814,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         json.JSONDecodeError,
         subprocess.SubprocessError,
     ) as exc:
-        reason = exc.reason_code if isinstance(exc, CheckError) else str(exc)
+        if isinstance(exc, CheckError):
+            reason = exc.reason_code
+        elif isinstance(exc, (OSError, subprocess.SubprocessError)):
+            reason = "Foundation command or artifact access failed; preserve private evidence"
+        else:
+            reason = str(exc)
         print(f"genesis-foundation-apply: {reason}", file=sys.stderr)
         return exc.exit_code if isinstance(exc, CheckError) else 3
-    finally:
-        (_absolute(args.plan_directory) / ".foundation-apply-input.json").unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,168 @@
+/*
+ * The landing is an intentionally dark brand surface in either site theme.
+ * Give its complete content tree a coherent palette instead of overriding
+ * individual headings while letting light-theme tokens leak into controls.
+ * Article pages and the header-owned search dialog keep the reader's theme.
+ */
+html[data-has-hero] main {
+  color-scheme: dark;
+  --sl-color-white: #f3f7ff;
+  --sl-color-gray-1: #e6edfb;
+  --sl-color-gray-2: #c6d4ee;
+  --sl-color-gray-3: #afc0dc;
+  --sl-color-gray-4: #8195b5;
+  --sl-color-gray-5: #526583;
+  --sl-color-gray-6: #1a263b;
+  --sl-color-gray-7: #121d30;
+  --sl-color-black: #0b1220;
+  --sl-color-accent-low: #192d51;
+  --sl-color-accent: #3652d9;
+  --sl-color-accent-high: #a9cfff;
+  --sl-color-blue-low: #192d51;
+  --sl-color-blue: #83baff;
+  --sl-color-blue-high: #c1dcff;
+  --sl-color-orange-low: #392b19;
+  --sl-color-orange-high: #ffdcaa;
+  --sl-color-green-low: #1d3227;
+  --sl-color-green-high: #b7f0c8;
+  --sl-color-purple-low: #302344;
+  --sl-color-purple-high: #e4caff;
+  --sl-color-red-low: #3d2130;
+  --sl-color-red-high: #ffccdd;
+  --sl-color-text: var(--sl-color-gray-2);
+  --sl-color-text-accent: var(--sl-color-accent-high);
+  --sl-color-text-invert: var(--sl-color-black);
+  --sl-color-bg: var(--sl-color-black);
+  --sl-color-bg-nav: var(--sl-color-gray-6);
+  --sl-color-bg-inline-code: var(--sl-color-gray-6);
+  --sl-color-bg-accent: var(--sl-color-accent-high);
+  --sl-color-hairline: var(--sl-color-gray-5);
+  --sl-color-hairline-light: var(--sl-color-gray-5);
+  --sl-color-hairline-shade: var(--sl-color-gray-6);
+}
+
+/* Bound the brightest possible decorative pixel, not only one shader frame. */
+html[data-has-hero] .nebula-bg {
+  opacity: 0.3;
+}
+
+html[data-has-hero] :is(.hero .sl-link-button, .cta-btn) {
+  min-height: 2.75rem;
+  text-shadow: none;
+  font-weight: 600;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+html[data-has-hero] :is(.hero .sl-link-button.primary, .cta-btn--primary) {
+  color: #ffffff;
+  background: #3652d9;
+  border-color: #3652d9;
+}
+
+html[data-has-hero] :is(.hero .sl-link-button.primary, .cta-btn--primary):hover {
+  color: #ffffff;
+  background: #2941b8;
+  border-color: #2941b8;
+}
+
+html[data-has-hero] :is(.hero .sl-link-button.secondary, .cta-btn:not(.cta-btn--primary)) {
+  color: #f3f7ff;
+  background: #142039;
+  border-color: #91aaca;
+}
+
+html[data-has-hero] :is(.hero .sl-link-button.secondary, .cta-btn:not(.cta-btn--primary)):hover {
+  color: #ffffff;
+  background: #243754;
+  border-color: #c1dcff;
+}
+
+html[data-has-hero] .hero .sl-link-button.minimal {
+  color: #d5e7ff;
+  padding-inline: 0.75rem;
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+
+html[data-has-hero] .hero .sl-link-button.minimal:hover {
+  color: #ffffff;
+  background: #142039;
+}
+
+/* A visible focus ring is independent of hover and of a link's text color. */
+:where(a, button, select, input, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--sl-color-text-accent);
+  outline-offset: 3px;
+}
+
+header.header :is(a, button, select):not(dialog *):focus-visible {
+  outline-color: #a9cfff;
+}
+
+#starlight__search .pagefind-ui__search-input::placeholder {
+  color: var(--sl-color-text);
+  opacity: 1;
+}
+
+@media (min-width: 50rem) {
+  :lang(ko) starlight-theme-select select {
+    width: 10em;
+  }
+}
+
+/* Layered backgrounds can vary; category words need readable text, not ink
+ * borrowed from a decorative chart fill or a rollback-color swatch. */
+html[data-has-hero] :is(.ttf-tier-key, .ttf-pct, .ao-rb) {
+  color: var(--sl-color-white);
+}
+
+html[data-has-hero] :is(.ao-node-irr, .ao-badge--irr) {
+  color: var(--sl-color-red-high);
+}
+
+html[data-has-hero] .ttf-pct-sign {
+  opacity: 1;
+}
+
+html[data-has-hero] :is(.ao-filter, .ao-node) {
+  min-height: 2.75rem;
+}
+
+html[data-has-hero] .ao-filter {
+  padding: 0.4rem 0.75rem;
+}
+
+html[data-has-hero] :is(.ao-node.is-active, .ao-filter[aria-pressed="true"]) {
+  border-color: var(--sl-color-text-accent);
+  box-shadow: inset 0 0 0 1px var(--sl-color-text-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.cta-btn, .fdai-card, .fdai-card-title::after, .card, .trust-bar li) {
+    transition: none;
+    transform: none;
+  }
+}
+
+@media (forced-colors: active) {
+  html[data-has-hero],
+  html[data-has-hero] body,
+  header.header {
+    background: Canvas;
+  }
+
+  html[data-has-hero] .nebula-bg,
+  header.header::after {
+    display: none;
+  }
+
+  html[data-has-hero] :is(.hero .sl-link-button, .cta-btn) {
+    color: LinkText;
+    background: Canvas;
+    border-color: ButtonText;
+  }
+
+  :where(a, button, select, input, summary, [tabindex]):focus-visible {
+    outline-color: Highlight;
+  }
+}

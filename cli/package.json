@@ -3,7 +3,7 @@
   "version": "0.1.303",
   "type": "module",
   "private": true,
-  "description": "FDAI operator-console CLI (Ink). One presentation-neutral briefing view-model, many renderers (CLI / Slack / Teams / text). See app-shape.instructions.md - Operator console.",
+  "description": "FDAI Console CLI. One presentation-neutral briefing model with Ink, live cockpit, Slack, Teams, and text renderers.",
   "scripts": {
     "start": "tsx src/cli.tsx",
     "cli": "tsx src/cli.tsx --surface=cli",

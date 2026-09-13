@@ -1,0 +1,122 @@
+/* Shared controls must remain available on the splash page, which has no
+ * sidebar and therefore no mobile-menu footer for theme/language selection. */
+@media (max-width: 49.999rem) {
+  :root {
+    --sl-nav-height: 4rem;
+    --sl-nav-pad-y: 0.5rem;
+    --sl-menu-button-size: 2.75rem;
+  }
+
+  header.header .sl-flex:has(> site-search) {
+    width: auto;
+    margin-inline-start: auto;
+  }
+
+  header.header site-search button[data-open-modal] {
+    width: 2.75rem;
+    height: 2.75rem;
+    justify-content: center;
+    padding: 0;
+  }
+
+  html[data-has-hero] header.header .right-group {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 100%;
+    margin-inline-start: auto;
+    gap: 0.5rem;
+  }
+
+  /* Let enlarged text add a real header row instead of shrinking the brand
+   * or pushing language selection beyond the viewport. Sticky stays in flow. */
+  html[data-has-hero] header.header {
+    position: sticky;
+    height: auto;
+    min-height: var(--sl-nav-height);
+  }
+
+  html[data-has-hero] header.header .header {
+    flex-wrap: wrap;
+    height: auto;
+  }
+
+  html[data-has-hero] header.header .title-wrapper {
+    flex-shrink: 0;
+  }
+
+  html[data-has-hero] .main-frame {
+    padding-top: 0;
+  }
+
+  html[data-has-hero] header.header .right-group .social-icons {
+    display: none;
+  }
+
+  /* The named native theme picker keeps its full option labels when opened;
+   * the persistent icon provides a compact 44px target, never a hidden input. */
+  html[data-has-hero] header.header starlight-theme-select select {
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    margin: 0;
+    color: transparent;
+  }
+
+  html[data-has-hero] header.header starlight-theme-select .label-icon {
+    inset-inline-start: 0.9375rem;
+  }
+
+  html[data-has-hero] header.header starlight-theme-select .caret {
+    display: none;
+  }
+
+  html[data-has-hero] header.header starlight-lang-select select {
+    width: 8.5em;
+    min-height: 2.75rem;
+    margin: 0;
+    font-size: var(--sl-text-sm);
+  }
+
+  #starlight__sidebar :is(a, summary, select),
+  mobile-starlight-toc summary {
+    min-height: 2.75rem;
+  }
+
+  #starlight__sidebar :is(a, summary) {
+    align-content: center;
+  }
+}
+
+.landing-hero :is(h1, .tagline) {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.landing-hero h1 {
+  text-wrap: balance;
+}
+
+.fdai-cards {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15.5rem), 1fr));
+}
+
+.fdai-card {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.fdai-card-title::after {
+  flex-shrink: 0;
+}
+
+.ao-explorer :is(.ao-detail, .ao-panel, .ao-panel-name, .ao-axes, .ao-node-name) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sl-markdown-content table[data-fdai-scrollable]:focus-visible {
+  outline: 3px solid var(--sl-color-text-accent);
+  outline-offset: 3px;
+}

@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 56d3ab37d4eff02bec39ec468c72a49838fbfe20
+translation_source_sha: 9cc4296efd3e4ec9dbf34a5b7ef1539e5ef16e4c
 translation_revised: 2026-09-13
 ---
 
@@ -38,13 +38,14 @@ translation_revised: 2026-09-13
 > 실행기의 정확한 registry 범위 `AcrPush` 배정은 서명된 공유 런타임 이미지만 가져옵니다. 이
 > 배정은 Cost Governance 패키지 입력이 아니며 패키지 설치, 활성화, 승격 또는 데이터 접근 권한
 > 부여에 사용할 수 없습니다.
-> Live-authoritative 수명 주기 증적은 설치부터 parser release 업그레이드 revision 7, 활성화
-> revision 8, 안전 비활성화 revision 9까지 포함합니다. 해당 exact release는 속도 제한을 통과하고
-> 숫자 0을 보존했지만, 처음 활성화한 collector는 프로바이더 `ServiceName`의 대소문자를 배포 소유
-> lowercase 허용 목록과 byte 단위로 비교해 안전하게 실패했습니다. 이제 프로바이더 서비스
-> 레이블을 입력 경계에서 앞뒤 공백 제거와 case-fold 처리하며 알 수 없는 값은 계속 거부합니다.
-> 수정 후 성공한 수집, 롤백, 최종 활성화, 관찰 실측군 및 독립 승격 근거는 아직 완료되지
-> 않았습니다. 패키지와 액션은 운영 검증 또는 승격 완료 상태가 아닙니다.
+> Live-authoritative 수명 주기 증적은 검토된 casefold release의 revision 10과 11, revision 12의
+> 안전 비활성화, revision 13의 보존된 N-1 롤백, revision 14의 복원 upgrade 및 revision 15의 최종
+> 활성화를 포함합니다. 새로 만든 독립 소유 Core 및 Job 계획은 세 런타임을 각 exact digest로
+> 수렴시켰습니다. 복원된 collector는 독립적으로 `complete`를 반환했고 영속 cursor를 revision
+> 2로 전진시키면서 관찰 71개를 보존했습니다. 네 ActionType promotion row는 롤백 전 digest를
+> 유지했고 package Workflow는 계속 `shadow`입니다. 이는 live dev 롤백과 수집 복구를 검증하지만
+> 30일 campaign 또는 독립 promotion 검토를 검증하지는 않습니다. 패키지와 액션은 승격되지
+> 않았습니다.
 > 패키지 semantic profile과 parity corpus는 항상 active ontology release를 고정합니다. 가산
 > kernel 선언이 바뀌면 profile, manifest 및 fixture identity를 함께 갱신합니다.
 > 컨테이너 게시는 수동 디스패치 검증 코드를 실행하기 전에 보호된 워크플로 원본을 검증하고,
@@ -60,6 +61,10 @@ translation_revised: 2026-09-13
 > 이미지 집합을 결속하고 Genesis는 동일한 보호 소스 개정의 정확한 성공 후보만 재사용합니다.
 
 ## 설계 개요
+
+루트 개발 전용 Rich와 pyte 의존성은 독립 배포 CLI의 테스트 수집을 지원합니다. Cost
+Governance 배포판에 포함되거나 설치, 활성화, 승격 상태를 바꾸지 않으며, 런타임 이미지는
+계속 서비스 소유 의존성을 사용합니다.
 
 > **조립 격리:** 공유 Operator 경로 조립은 검증된 인수인계 바인딩으로 웹 대화 제안을 데코레이션할
 > 수 있습니다. 이 데코레이터는 Cost Governance 경로를 래핑하거나 패키지 활성화를 변경하거나 비용
@@ -331,6 +336,17 @@ Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 �
 정규 다이제스트가 포함됩니다. 같은 요청 ID를 다른 작업, 아티팩트, 소스 개정, 런타임 구성,
 행위자, 원하는 활성화 상태 또는 예상 개정에 재사용하면 멱등성 충돌로 처리됩니다. 입력이 정확히
 같은 재시도는 현재 활성화 상태를 다시 표시하지 않고 원래 증적을 반환합니다.
+
+독립 promotion 검토는 별도의 Core 소유 append-only 저장소와 보호된 workflow를 사용합니다.
+workflow는 최종 attested campaign 결과를 검증하고 exact 활성 package release로 준비 상태를 다시
+계산하며, 하나의 대상을 기록하기 전에 활성 pin을 다시 읽습니다. 각 검토는 모든 대상에 공통인
+campaign artifact digest, 대상별 report digest, 인증된 검토자 신원, 결정, 근거 설명, 근거 참조 및
+검토 시각을 연결합니다. 기록은 승인, 실행 및 promotion 권한을 `false`로 고정하며 package
+enablement나 `ActionType` 또는 `Workflow` mode를 변경할 수 없습니다.
+인증된 검토자는 대소문자를 구분하지 않고 attested campaign workflow의 최초 행위자 및 재실행
+행위자 모두와 달라야 합니다. 동일 요청 재생은 저장된 payload와 모든 정규화 열이 같은 동안에만
+멱등성을 인정합니다. 서버가 생성한 검토 및 보존 시각은 요청 입력이 아닙니다. 보존 기간이 같은
+재생은 원래 시각을 담은 증적을 반환합니다.
 
 ## 자율 런타임 인계
 

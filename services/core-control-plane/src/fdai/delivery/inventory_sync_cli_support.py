@@ -10,7 +10,6 @@ from uuid import uuid4
 
 import httpx
 
-from fdai.delivery.azure.activity_log import AzureActivityLogFactory, AzureActivityLogFactoryConfig
 from fdai.delivery.azure.arg_query import AzureArgQueryFactory, AzureArgQueryFactoryConfig
 from fdai.delivery.azure.arg_resource_changes import (
     AzureResourceChangeFeed,
@@ -30,7 +29,6 @@ from fdai.delivery.azure.static_web_app_inventory import (
     AzureStaticWebAppInventoryConfig,
     AzureStaticWebAppInventoryEnricher,
 )
-from fdai.delivery.inventory_delta import forward_inventory_delta
 from fdai.delivery.inventory_job_config import InventoryJobConfig, verify_declarative_sha256
 from fdai.delivery.inventory_sync import InventoryPromotionEnricher
 from fdai.delivery.kubernetes_api_inventory import (
@@ -52,7 +50,7 @@ from fdai.shared.providers.declarative_inventory import (
     DeclarativeInventoryConfig,
 )
 from fdai.shared.providers.event_bus import EventBus
-from fdai.shared.providers.inventory import Inventory, LinkRecord, ResourceRecord
+from fdai.shared.providers.inventory import Inventory
 from fdai.shared.providers.inventory_snapshot import (
     InventoryCoverageManifest,
     InventoryObservationKind,
@@ -61,7 +59,6 @@ from fdai.shared.providers.inventory_snapshot import (
 from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
-_InventoryDeltaForwarder = Callable[..., Awaitable[int]]
 _ResourceChangeForwarder = Callable[..., Awaitable[int]]
 _WorkloadIdentityFactory = Callable[..., WorkloadIdentity]
 
@@ -235,54 +232,6 @@ def build_azure_inventory_enrichers(
             previous_state_reader=previous_state_reader,
         ),
     )
-
-
-async def forward_recovery_deltas(
-    *,
-    config: InventoryJobConfig,
-    identity: WorkloadIdentity,
-    vocabulary: ResourceTypeRegistry,
-    http_client: httpx.AsyncClient,
-    event_bus: EventBus,
-    topic: str,
-    scope_lock: ResourceLock,
-    forward_inventory_delta_fn: _InventoryDeltaForwarder = forward_inventory_delta,
-) -> int:
-    """Forward every configured Activity Log cursor without cross-scope coupling."""
-
-    state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
-    published = 0
-    for scope in config.scopes:
-        async with scope_lock.acquire(f"inventory-recovery-delta:{scope}"):
-            activity_fetch = AzureActivityLogFactory(
-                identity=identity,
-                resource_types=vocabulary,
-                http_client=http_client,
-                config=AzureActivityLogFactoryConfig(
-                    subscription_scope=scope,
-                    arg_endpoint=config.management_endpoint,
-                    audience=config.management_audience,
-                ),
-            ).build_fetch_fn()
-
-            async def _noop_query(
-                _resource_type: str,
-            ) -> tuple[tuple[ResourceRecord, ...], tuple[LinkRecord, ...]]:
-                return (), ()
-
-            delta_inventory = AzureResourceGraphInventory(
-                config=AzureInventoryConfig(resource_types=()),
-                query=_noop_query,
-                delta_fetch=activity_fetch,
-            )
-            published += await forward_inventory_delta_fn(
-                inventory=delta_inventory,
-                state_store=state_store,
-                event_bus=event_bus,
-                topic=topic,
-                scope=scope,
-            )
-    return published
 
 
 async def forward_resource_changes(

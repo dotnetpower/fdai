@@ -210,8 +210,11 @@ async def test_inventory_promotes_nested_service_state_to_status() -> None:
 @pytest.mark.parametrize(
     ("properties", "expected"),
     [
+        ({"instanceView": {"executionState": "Succeeded"}}, "Succeeded"),
         ({"diskState": "Reserved"}, "Reserved"),
+        ({"registrationStatus": "Active"}, "Active"),
         ({"snapshotAccessState": "Available"}, "Available"),
+        ({"status": "running"}, "running"),
         ({"virtualNetworkLinkState": "Completed"}, "Completed"),
     ],
 )
@@ -1648,6 +1651,37 @@ async def test_inventory_rejects_scope_that_conflicts_with_the_arm_id() -> None:
             await factory.build_query_fn()("object-storage")
 
 
+@pytest.mark.asyncio
+async def test_inventory_rejects_provider_type_that_conflicts_with_the_arm_id() -> None:
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.Storage/storageAccounts/example"
+    )
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    _arm_row(
+                        arm_id=arm_id,
+                        arm_type="Microsoft.Compute/virtualMachines",
+                    )
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        with pytest.raises(ArgQueryError, match="conflicting provider type"):
+            await factory.build_query_fn()("object-storage")
+
+
 # ---------------------------------------------------------------------------
 # Empty ARM type (legitimate no-op)
 # ---------------------------------------------------------------------------
@@ -2091,14 +2125,71 @@ def test_arm_id_to_type_extracts_multi_segment_type() -> None:
     assert _arm_id_to_type(arm_id) == "Microsoft.Network/virtualNetworks/subnets"
 
 
-def test_arm_id_to_type_returns_none_without_providers_segment() -> None:
+@pytest.mark.parametrize(
+    ("arm_id", "expected"),
+    [
+        (
+            "/subscriptions/00000000-0000-0000-0000-000000000001",
+            "Microsoft.Resources/subscriptions",
+        ),
+        (
+            "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-a",
+            "Microsoft.Resources/resourceGroups",
+        ),
+    ],
+)
+def test_arm_id_to_type_extracts_builtin_scope_types(
+    arm_id: str,
+    expected: str,
+) -> None:
     from fdai.delivery.azure.arg_query import _arm_id_to_type
 
-    assert _arm_id_to_type("/subscriptions/00000000-0000-0000-0000-000000000001") is None
+    assert _arm_id_to_type(arm_id) == expected
+
+
+def test_arm_id_to_type_uses_the_extension_resource_provider() -> None:
+    from fdai.delivery.azure.arg_query import _arm_id_to_type
+
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-a/providers/Microsoft.Compute/virtualMachines/vm-one/"
+        "providers/Microsoft.Authorization/roleAssignments/assignment-one"
+    )
+    assert _arm_id_to_type(arm_id) == "Microsoft.Authorization/roleAssignments"
+
+
+def test_arm_id_to_type_returns_none_for_unknown_scope_shape() -> None:
+    from fdai.delivery.azure.arg_query import _arm_id_to_type
+
+    assert (
+        _arm_id_to_type(
+            "/subscriptions/00000000-0000-0000-0000-000000000001/locations/example-region"
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "arm_id",
+    [
+        (
+            "/subscriptions/00000000-0000-0000-0000-000000000001/"
+            "resourceGroups/rg-a/providers/Microsoft.Compute/virtualMachines"
+        ),
+        (
+            "/subscriptions/00000000-0000-0000-0000-000000000001/"
+            "resourceGroups/rg-a/providers/Microsoft.Compute/virtualMachines/vm-one/extensions"
+        ),
+    ],
+)
+def test_arm_id_to_type_rejects_collection_paths(arm_id: str) -> None:
+    from fdai.delivery.azure.arg_query import _arm_id_to_type
+
+    assert _arm_id_to_type(arm_id) is None
 
 
 def test_materialize_nested_subnets_uses_observed_vnet_payload() -> None:
-    from fdai.delivery.azure.arg_projection import materialize_nested_subnets, to_neutral_id
+    from fdai.delivery.azure.arg_projection import materialize_nested_subnets
 
     vnet_id = (
         "/subscriptions/00000000-0000-0000-0000-000000000001/"
@@ -2124,11 +2215,7 @@ def test_materialize_nested_subnets_uses_observed_vnet_payload() -> None:
 
     records, links = materialize_nested_subnets(vnet)
 
-    # A nested child must join to its resource group like every other resource, or a
-    # scoped question answers 0 of 0 for it.
-    resource_group_id = to_neutral_id(
-        "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-example"
-    )
+    # The nested resource's exact parent is the VNet, matching its contains edge.
     assert len(records) == 2
     assert {record.type for record in records} == {"network.subnet"}
     assert records[0].props == {
@@ -2136,14 +2223,14 @@ def test_materialize_nested_subnets_uses_observed_vnet_payload() -> None:
         "resourceGroup": "rg-example",
         "subscriptionId": "00000000-0000-0000-0000-000000000001",
         "providerType": "Microsoft.Network/virtualNetworks/subnets",
-        "parent_id": resource_group_id,
+        "parent_id": vnet.resource_id,
     }
     assert records[1].props == {
         "name": "data",
         "resourceGroup": "rg-example",
         "subscriptionId": "00000000-0000-0000-0000-000000000001",
         "providerType": "microsoft.network/virtualnetworks/subnets",
-        "parent_id": resource_group_id,
+        "parent_id": vnet.resource_id,
     }
     assert len(links) == 2
     assert links[0].from_id == vnet.resource_id

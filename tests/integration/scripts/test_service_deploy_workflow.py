@@ -548,6 +548,15 @@ def test_core_service_apply_request_preserves_independent_human_approval() -> No
     environment_policy = (
         ".fdai-protected-environment-verifier/scripts/deployment/azure/verify-github-environment.py"
     )
+    assert (
+        "DEV_DEPLOY_REQUIRED_APPROVALS: ${{ vars.DEV_DEPLOY_REQUIRED_APPROVALS || '1' }}"
+        in _CONSOLE_REQUEST_WORKFLOW
+    )
+    assert '--environment "$TARGET_ENVIRONMENT"' in _CONSOLE_REQUEST_WORKFLOW
+    assert '--dev-required-approvals "$DEV_DEPLOY_REQUIRED_APPROVALS"' in (
+        _CONSOLE_REQUEST_WORKFLOW
+    )
+    assert "--required-approvals 1" not in _CONSOLE_REQUEST_WORKFLOW
     assert _CONSOLE_REQUEST_WORKFLOW.index(environment_policy) < (
         _CONSOLE_REQUEST_WORKFLOW.index("actions/workflows/service-deploy.yml/dispatches")
     )

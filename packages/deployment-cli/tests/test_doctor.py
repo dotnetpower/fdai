@@ -46,11 +46,7 @@ def test_azure_authentication_fails_closed_without_login(monkeypatch: object) ->
 
 
 def test_doctor_readiness_requires_azure_authentication() -> None:
-    checks = (
-        doctor.ToolCheck(name="az", available=True, version="test"),
-        doctor.ToolCheck(name="terraform", available=True, version="test"),
-        doctor.ToolCheck(name="gh", available=True, version="test"),
-    )
+    checks = (doctor.ToolCheck(name="az", available=True, version="test"),)
 
     unavailable = doctor.doctor_json(checks, azure_authenticated=False)
     available = doctor.doctor_json(checks, azure_authenticated=True)
@@ -58,6 +54,26 @@ def test_doctor_readiness_requires_azure_authentication() -> None:
     assert '"ready":false' in unavailable
     assert "azure_authentication_missing" in unavailable
     assert '"ready":true' in available
+
+
+def test_default_doctor_inspects_only_azure_cli(monkeypatch: object) -> None:
+    inspected: list[str] = []
+
+    def which(name: str) -> str:
+        inspected.append(name)
+        return "/usr/bin/az"
+
+    monkeypatch.setattr(doctor.shutil, "which", which)  # type: ignore[attr-defined]
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        doctor.subprocess,
+        "run",
+        lambda command, **_kwargs: subprocess.CompletedProcess(command, 0, stdout="azure-cli"),
+    )
+
+    checks = doctor.inspect_tools()
+
+    assert [check.name for check in checks] == ["az"]
+    assert inspected == ["az"]
 
 
 def test_active_target_binding_is_stable_and_identifier_free(monkeypatch: object) -> None:

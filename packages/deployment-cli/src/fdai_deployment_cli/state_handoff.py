@@ -6,6 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
+from fdai_deployment_cli.cli_help import command
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.plan_input import read_plan_input
 from fdai_deployment_cli.private_output import write_private_output
@@ -171,7 +172,11 @@ def register_state_handoff_command(
 ) -> None:
     """Register a file-only comparison command; no Azure or Terraform execution."""
 
-    parser = commands.add_parser("verify-state-handoff")
+    parser = command(
+        commands,
+        "verify-state-handoff",
+        "Compare local state copies and a zero-change plan; no migration",
+    )
     parser.add_argument("--local-state", type=Path, required=True)
     parser.add_argument("--remote-state", type=Path, required=True)
     parser.add_argument("--plan-json", type=Path, required=True)

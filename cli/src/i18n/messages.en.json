@@ -7,22 +7,27 @@
   },
   "console": {
     "context": "{env} - read-only - live Operator API",
-    "connected": "Connected to the Operator API. {events} events recorded, {pending} awaiting your decision.",
+    "connected": "Connected to the Operator API. {events} events recorded, {pending} pending human approval.",
     "summaryEvents": "events",
     "summaryShadow": "shadow",
     "summaryEnforce": "enforce",
-    "summaryAwaiting": "awaiting you",
+    "summaryAwaiting": "pending approval",
     "summaryLast": "last",
     "mostlyNoAi": "Most of it was handled without AI reasoning:",
     "trustTiers": "Trust tiers:",
     "outcomes": "Outcomes so far:",
     "recentActivity": "Most recent activity:",
+    "kpiUnavailable": "Operational totals are unavailable. No event or routing counts are shown.",
+    "auditUnavailable": "Recent audit evidence is unavailable.",
+    "approvalsUnavailable": "Pending approval details are unavailable. This is not an empty-queue result.",
+    "approvalsCountOnly": "{count} items are pending human approval. This session can see the count but not approval details.",
     "hilPendingOne": "{count} item needs your decision - escalated to a human by the risk gate.",
     "hilPendingMany": "{count} items need your decision - escalated to a human by the risk gate.",
-    "nothingPending": "Nothing is awaiting your sign-off right now."
+    "nothingPending": "No items are pending human approval right now."
   },
   "card": {
     "chip": "needs your decision",
+    "riskLabel": "{risk} risk",
     "fieldWhat": "What",
     "fieldWhy": "Why",
     "fieldRequested": "Requested",
@@ -38,6 +43,8 @@
     "actionExplain": "explain"
   },
   "briefing": {
+    "context": "{env} - read-only - {clock}",
+    "windowPast24Hours": "the past 24 hours",
     "greeting": "Good morning, {operator}. Everything's running normally. Here's what happened over {window}.",
     "busyTitle": "How busy things were - events handled every 5 minutes:",
     "busyUnit": "events / 5 min",
@@ -79,7 +86,9 @@
       "streaming": "Streaming the live op feed.",
       "cleared": "Cleared filters - showing everything, live.",
       "focusing": "Focusing on {focus} resources.",
-      "whichResource": "Which resource type? e.g. 'focus network'."
+      "whichResource": "Which resource type? For example: /focus network.",
+      "help": "Commands: /overview, /stream, /pause, /resume, /focus <type>, /clear, /status, /help, /exit. Editing: arrow keys, Ctrl+A/E, Ctrl+W, Ctrl+U.",
+      "status": "Connection, authentication, read-only scope, active view, model, and response time are shown in the cockpit."
     },
     "feed": {
       "autoApplied": "auto-applied as a shadow pull request",
@@ -91,8 +100,14 @@
     },
     "header": {
       "summary": "Watching Azure - {handled} handled: {t0} fixed-rules, {abstain} stepped back, {auto} auto-applied as shadow PRs, {awaiting} awaiting you.",
-      "trust": "read-only console \u00b7 every change opens a pull request \u00b7 shadow-first \u00b7 fully audited",
-      "commands": "say: overview \u00b7 stream \u00b7 pause \u00b7 focus network \u00b7 clear"
+      "trust": "server-owned evidence \u00b7 no action execution \u00b7 shadow-first",
+      "commands": "/overview  /stream  /pause  /focus <type>  /help",
+      "readOnly": "read only",
+      "statusLive": "live",
+      "statusConnecting": "connecting",
+      "statusDegraded": "degraded",
+      "azureCli": "Azure CLI session \u00b7 Contributor ceiling \u00b7",
+      "apiSession": "Operator API session \u00b7"
     },
     "overview": {
       "routingMix": "Routing mix",
@@ -111,9 +126,15 @@
     },
     "qa": {
       "you": "you",
-      "thinking": "thinking..."
+      "thinking": "thinking...",
+      "assistant": "FDAI",
+      "working": "Working",
+      "waiting": "Waiting for verified server output.",
+      "local": "local command",
+      "failed": "request failed"
     },
     "hintNarratorAi": "AI",
-    "hint": "{kind} narrator \u00b7 ask anything or say a view (overview / stream / pause / focus <type>) \u00b7 /exit"
+    "hint": "Ask about observed activity \u00b7 /help for commands \u00b7 /exit to close",
+    "terminalTooSmall": "Terminal too small. Resize to at least {columns} x {rows}, or press Ctrl+C."
   }
 }

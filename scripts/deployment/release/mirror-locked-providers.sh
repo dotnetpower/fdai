@@ -12,6 +12,8 @@ bundle="$1"
 out="$2"
 terraform_bin="$3"
 platform="$4"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+python="$repo_root/.venv/bin/python"
 scratch="$out/mirror-src"
 mirror="$out/mirror"
 deadline=$((SECONDS + 3600))
@@ -44,7 +46,9 @@ run_terraform() {
   if (( remaining < budget )); then
     budget="$remaining"
   fi
-  timeout --signal=TERM --kill-after=15 "$budget" "$terraform_bin" "$@"
+  "$python" "$repo_root/scripts/automation/run-bounded-command.py" \
+    --label provider-mirror --timeout-seconds "$budget" --no-progress-seconds "$budget" \
+    --termination-grace-seconds 1 -- "$terraform_bin" "$@" >&2
 }
 
 # Child modules use their caller's lock, not their standalone test locks.

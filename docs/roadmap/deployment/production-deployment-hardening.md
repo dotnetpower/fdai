@@ -9,6 +9,10 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 
 > **Scope:** These values are generic environment parameters. A deployment supplies its own
 > destinations and values through protected configuration rather than committing tenant data.
+>
+> **Execution transport:** Production tenant plans and applies run through `fdaictl provision
+> azure` and the manual managed host. GitHub Actions may validate source and publish releases, but
+> it is not a production deployment executor.
 
 ## Implementation status
 
@@ -17,6 +21,7 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Production plan gates and environment knobs | implemented | `infra/production-gates.tf`; `infra/envs/{staging,prod}.tfvars.example`; Terraform configuration tests | Missing signed image, private network, durability, monitoring, or cost inputs block a production plan. Standard profiles permanently delete globally named resources and leave management locks disabled. |
+| Manual production execution boundary | implemented | deployment CLI manual profile; standalone managed-host modules; focused package tests | Public workflow dispatch is removed. Operational production evidence remains open. |
 | Credential-free infrastructure and drift guards | implemented | `.github/workflows/ci.yml`; `.github/workflows/infra-drift.yml`; stable deploy identity helper; runner posture script; CI contract tests | Required CI validates every Terraform root without credentials. Protected workflows select one bootstrap-owned UAMI and verify its token `oid`. Subscription role delegation is conditioned to three read roles for service principals. Drift checks cover every state root and reject missing state, unexpected runner storage, or non-local placement. |
 | Baseline-free Terraform security scanning | implemented | `.github/workflows/ci.yml`; inline Checkov and Trivy exceptions; focused infrastructure tests | The path-scoped `terraform-validate` job runs pinned Checkov and Trivy after Terraform validation under the single required CI result. Every intentional exception is attached to one resource and cites its compensating control or managed-service constraint. A new detected issue blocks CI until the source fixes it or records a narrow reviewed exception. |
 | Bounded split-service prerequisite bootstrap | implemented | `deploy-dev.yml`; `enforce_plan_scope.py`; deployment CLI and workflow contract tests | A request-bound `plan-rca-*` or `apply-rca-*` mode can create only the dedicated Activity Log RCA reader identity and its Monitoring Reader role before the split Core service consumes the platform output. |
@@ -30,6 +35,7 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-12 | implemented | Restricted production tenant execution to the standalone manual managed host and removed public workflow dispatch from the deployment CLI. | `current change`; deployment CLI contracts and focused package tests | Retain a production plan and apply receipt from the manual host before advancing validation state. |
 | 2026-09-12 | implemented | Corrected the Cost-only post-apply contract after the platform workflow crossed the independent Core ownership boundary and retained no replayable Job readback. Cost plans now seal only targeted zero-change and two-Job image observations; apply receipts require the canonical sanitized readback and bind its byte digest. | Failed apply `34694583859`; `current change`; `deploy-dev.yml`; Cost readback, plan, receipt, CLI status, convergence, and workflow tests. | Retain a successful exact platform apply receipt, then apply the independent Core plan and verify one digest across all three runtimes before lifecycle installation. |
 | 2026-09-12 | implemented | Scoped Cost Governance post-apply verification to the same bounded package surface. Apply convergence replans the exact reader, collector, and analyzer targets and independently verifies both Job images. Shared health keeps Core revision and canary checks but does not start the unrelated legacy inventory Job. | Failed applies `34691578702` and `34692383517`; PR #848; PR #849; `current change`; focused convergence and workflow contract tests. | Retain a successful exact apply receipt, then apply the independent Core plan and verify that all three runtimes use one digest before lifecycle installation. |
 | 2026-09-12 | implemented | Moved the two Cost Governance Jobs out of the shared compute module after its module-level dependency graph admitted unrelated scheduler, VNet, and PostgreSQL changes. Root-owned Jobs preserve prior state addresses and resolve only existing environment and inventory identity inputs. | `current change`; `infra/cost_governance_jobs.tf`; focused Terraform, Job, workflow, and scope checks; failed protected plan `34687002689` stopped before artifact retention or apply. | Retain a zero-destroy Cost Governance plan containing only the reader assignment and two package Jobs, then apply that exact artifact. |

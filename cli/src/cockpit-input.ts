@@ -1,7 +1,10 @@
 import type { CockpitRenderer } from "./cockpit-renderer.js";
 import type { CockpitState } from "./cockpit-state.js";
+import { safeDisplayText } from "./display-text.js";
 
 const ESC = "\x1b";
+export const MAX_CLI_INPUT_CODE_POINTS = 4096;
+export const MAX_CLI_LOCAL_HISTORY = 100;
 
 export function createInputController(
   state: CockpitState,
@@ -87,12 +90,13 @@ export function createInputController(
     }
     if (data.startsWith(ESC)) return;
     const newline = data.search(/[\r\n]/);
-    const printable = (newline >= 0 ? data.slice(0, newline) : data).replace(
-      /[\u0000-\u001f]/g,
-      "",
+    const printable = safeDisplayText(
+      newline >= 0 ? data.slice(0, newline) : data,
+      MAX_CLI_INPUT_CODE_POINTS,
     );
     if (printable) {
-      const inserted = [...printable];
+      const available = Math.max(0, MAX_CLI_INPUT_CODE_POINTS - state.input.length);
+      const inserted = [...printable].slice(0, available);
       state.input.splice(state.cursor, 0, ...inserted);
       state.cursor += inserted.length;
     }

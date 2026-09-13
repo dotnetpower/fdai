@@ -1,8 +1,8 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 721f748ac6b4c250dc9293ec29f9569367c43120
-translation_revised: 2026-09-12
+translation_source_sha: 5ce986a18075a4edab59fded49e923d8ecd3dc5b
+translation_revised: 2026-09-13
 ---
 # 프로비저닝 실행 프로파일
 
@@ -20,8 +20,9 @@ translation_revised: 2026-09-12
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 읽기 전용 점검 및 프로파일 초기화 명령 | implemented | `packages/deployment-cli`, 집중 프로필, 대상, 도구, 제품화 검사 | 전용 배포판이 `fdaictl`을 등록하고 비공개 대상 연결 프로필을 쓰며 실행 호스트 근거가 있을 때까지 검토 상태를 반환합니다. |
-| 관리 VM, 비공개 백엔드 및 보호된 실행기 | implemented | `infra/bootstrap/`, `.github/workflows/deploy-dev.yml` 및 집중 bootstrap/작업 흐름 테스트 | 영속 VNet 호스트, 워크로드 신원, 비공개 상태, 보호된 계획 및 정확한 애플리케이션 적용 동작이 구현되어 있습니다. |
-| 신규 구독 로컬 조정기 | implemented | `fdaictl provision azure`, `fdai-up.sh`, 서명 키트, 기반 계층, Bastion, 관리 호스트, 승인, 라이선스, 마이그레이션 및 수렴 모듈과 라우팅된 수명 주기 테스트 | 하나의 `dev` 프로세스가 활성 Azure CLI 사용자에서 대상을 결정하고 독립적인 준비, 읽기 또는 요청 작업에만 범위가 제한된 병렬 실행을 사용하며 상태 변경 전이는 직렬로 유지합니다. GitHub Actions는 선택적 전송 계층으로 남습니다. 통제된 Azure 증적과 완전한 준비 근거는 남아 있습니다. |
+| 관리 VM, 비공개 백엔드 및 수동 배포 호스트 | implemented | `infra/bootstrap/`, standalone 배포 모듈 및 집중 bootstrap 테스트 | 영속 VNet 호스트, workload identity, 비공개 상태, 정확한 계획 및 애플리케이션 적용이 GitHub Actions 없이 실행됩니다. |
+| 신규 구독 로컬 조정기 | implemented | `fdaictl provision azure`, `fdai-up.sh`, 서명 키트, 기반 계층, Bastion, 관리 호스트, 승인, 라이선스, 마이그레이션 및 수렴 모듈과 라우팅된 수명 주기 테스트 | 하나의 `dev` 프로세스가 활성 Azure CLI 사용자에서 대상을 결정하고 상태 변경 전이를 직렬로 유지합니다. 대상 환경 배포에는 GitHub 전송 계층이 없습니다. 통제된 Azure 증적과 완전한 구독 보증 근거는 남아 있습니다. |
+| OCI 배포 어플라이언스 | implemented | `build-deployment-appliance.sh`, `run-deployment-appliance.sh`, 집중 스크립트 및 CLI 테스트 | release 담당자는 검증된 완전한 키트 하나를 digest로 고정되고 네트워크를 사용하지 않는 OCI 빌드로 감쌀 수 있습니다. 이미지는 공개 산출물 대체 경로 없이 수동 standalone 조정기를 시작합니다. 깨끗한 운영 이미지 빌드와 Azure 증적은 남아 있습니다. |
 | Offline-kit 생성 및 검증 | validated | `fdai_deployment_cli.offline_kit`, 잠긴 릴리스 스크립트, 성공한 네트워크 격리 air-gap 훈련 | 서명 우선 검증, 정확한 파일, SBOM 커버리지, ABI/libc 연결, 비공개 스냅샷, 제공 wheel 설치가 통과합니다. |
 | Temporary 공개 접근 정리 | not-started | 이 문서의 접근 선호 설정 계약 | 범위가 제한된 생성, 자동 정리, 정리 실패 시 불완전 상태 및 감사 종결을 입증하는 조립 명령이 없습니다. |
 | Pinned TUF 루트 및 교대 | not-started | `docs/runbooks/offline-trust-ceremony.md` | 첫 루트 의식, 패키지 리소스, 클라이언트 초기화 및 교대 근거가 남아 있습니다. |
@@ -31,6 +32,25 @@ translation_revised: 2026-09-12
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-13 | implemented | Azure CLI가 기존 리소스의 지역에서 지원하지 않는 Network API를 선택해 실패하던 Foundation 검색을 수정했습니다. 라우팅 테이블과 로컬 게이트웨이 상세 조회를 `2024-05-01`로 고정하고 목록 범위, 실패 처리, 승인 경계는 유지합니다. | `current change`, `test_genesis_network_api.py`, `test_genesis_network_layout.py`, `test_genesis_prepare.py` 32개 통과, Ruff, 형식, 엄격한 타입 검사 및 범위를 제한한 읽기 전용 공급자 검사 통과 | 대체 서명 키트의 게시와 검증이 남아 있으며 r3 원본 바이트는 유지합니다. 적용이나 복구는 수행하지 않았고 배포 수렴도 완료되지 않았습니다. |
+| 2026-09-13 | validated | 추가 14회 라운드 전체를 포함한 `deployment-v0.1.0-r3`를 게시하고 설치했습니다. 운영 수정 아홉 건과 반증 후 회귀 테스트를 추가한 가설 다섯 건입니다. 보호된 PR 두 개가 병합됐고 정확한 소스의 main CI도 성공했습니다. | PR #918 및 #920, 소스 `3b4c088ea20d1d77770912394141847bf9940886`, CI `34746227767`, 압축 파일 SHA-256 `7b454ff37833d7f5c665fddb1f7954c99f8ebeda363c3a3d807f9707e4c6f82b`, 파일 304개/설치 내용 59개/이미지 여섯 개/지원 패키지 일곱 개/Terraform 루트 11개에 대한 무네트워크 검사 11개, 실제 공개 다운로드 및 네트워크를 차단한 온라인/오프라인 재개 검사 | 검토 범위에 확인된 Medium 이상 결함은 없으며 보존 복사본 누적은 Low입니다. Azure SKU 자격과 별도 승인을 거친 부분 이미지 복구/수렴은 막혀 있습니다. 프리릴리스는 명시적으로 선택해야 합니다. |
+| 2026-09-13 | implemented | H14에서 이전 다운로드 기한의 버퍼 읽기 빈틈을 보완했습니다. 사용 가능한 데이터만 읽어 느린 스트림이 다음 전체 예산 검사 전에 여러 소켓 읽기로 큰 버퍼를 채우지 않게 합니다. | `current change`, 실제 `BufferedReader`와 가짜 원시 스트림으로 실패 재현, 지원되는 경우 `read1`을 사용한 뒤 집중 획득 테스트 통과 | 전체 기한을 넘는 시간은 진행 중인 소켓 읽기 한 번의 제한 이내이며 release 및 Azure 증적은 별도입니다. |
+| 2026-09-13 | implemented | 새 비평 13회를 완료했습니다. 운영 수정 여덟 건과 실험으로 반증하고 회귀 테스트를 추가한 가설 다섯 건입니다. 범위를 한정한 최종 검토에서 획득, 시간 제한/전송, 승인 입력, 오류 표시에 확인된 Medium 이상 결함은 없습니다. | 커밋 `d8c4fa3a2`부터 `7e1f7a3f2`, 해당 변경 소유 회귀 테스트 379개 통과, 변경 소스 Ruff와 엄격한 타입 검사, 읽기 전용 검토 두 건 및 H13 반증 | 보존 복사본의 디스크 누적은 Low입니다. 하드닝한 버전의 게시와 Azure 이미지 복구/수렴은 남아 있으며 막힌 작업을 완료된 Low 문제로 취급하지 않습니다. |
+| 2026-09-13 | validated | 통합 커밋 `74743842facfd3c986d3e069e2ae8e6714147bae`에서 개발 키트 `deployment-v0.1.0-r2`를 제작·게시하고 새 환경 설치, 실제 공개 다운로드, 두 오프라인 출처 형태에서 같은 아티팩트를 검증했습니다. | required CI `34741317737`, 이슈 #803 근거, 압축 파일 SHA-256 `4be041e244dfbcd3b69ea117f2c8a995ef14f2ae1188f55ad6ca00849c09e223`, 격리 검증 11개: 파일 300개, 설치 내용 48개, 이미지 여섯 개, 지원 패키지 일곱 개, Terraform 루트 11개 | 이 아티팩트는 후속 CLI 하드닝 13회 이전 버전입니다. Azure 적용이나 구독 준비 완료 증적은 만들지 않았습니다. |
+| 2026-09-13 | implemented | 전송 예외는 만료 후에도 애플리케이션을 즉시 중단하고 터널 정리를 유지하며 후속 명령이나 준비 완료 증적에 도달하지 않음을 입증했습니다. | `current change`, 운영 코드 변경 없이 만료 전후 전송 실패 통합 회귀 테스트 통과 | 두 번째 만료 예외로 덮어쓰지 않고 원래 실패를 보존합니다. |
+| 2026-09-13 | implemented | 소켓 제한 30초와 별도로 release 다운로드에 단조 시계 기반 15분 예산 하나를 적용하며 진행 상황으로 연장하지 않습니다. | `current change`, 이전에 통과하던 느린 소량 스트림이 거부되고 새 부분 다운로드만 삭제되는 테스트 및 획득 회귀 테스트 | 기존 압축 파일과 배포 상태는 보존하며 네트워크 재시도는 추가하지 않습니다. |
+| 2026-09-13 | implemented | 실제 터미널을 요구하고 애플리케이션 확인 두 번과 사용자 조회를 최대 10분, 계획 만료, 호출 잔여 예산 중 가장 짧은 하나의 구간으로 제한합니다. | `current change`, 무제한 읽기 재현, 시간 초과/비대화형 입력 대조군, 공유 예산 및 기존 정확한 파괴적 승인 테스트 | 만료되거나 닫힌 입력은 승인을 부여하지 않고 자동 재시도도 하지 않습니다. |
+| 2026-09-13 | implemented | 이미지 검토가 만료되어도 기존 실행 주장에 대한 검증만 허용하며 재선택, 재승인, 재적용은 하지 않음을 입증했습니다. | `current change`, 수동 및 자동 선택의 실행 주장/재개 회귀 테스트가 정확한 주장 바이트와 원래 적용 한 번을 보존함 | 완료된 효과의 검증일 뿐이며 부분 이미지 생성을 복구하지는 않습니다. |
+| 2026-09-13 | implemented | Azure 신원 및 관리 호스트 입출력 예외를 출력 전에 정규화하고 원시 OS나 자식 프로세스 예외의 명령 인자와 비공개 경로 출력을 차단합니다. | `current change`, 합성 표식 노출 다섯 건 재현 및 집중 CLI/전송 회귀 테스트 | 안정적인 실패 분류만으로 이미 주장된 원격 효과의 완료 여부를 추론하지 않습니다. |
+| 2026-09-13 | implemented | 명령, 표준 입력, 신원, 터널 정리를 바꾸지 않고 모든 애플리케이션 SSH/SCP 작업을 하나의 현재 기한으로 제한합니다. | `current change`, 전송 후 기반 리소스 단계의 시간 예산 오류 두 건 재현 및 직접 전송 회귀 테스트 | 만료되거나 실패한 적용은 검증으로만 재개하며 재시도나 승인을 추가하지 않습니다. |
+| 2026-09-13 | implemented | 준비 전에 조정기의 시간 예산을 시작하고 Foundation 승인 대기를 현재 남은 시간으로 제한하며 Foundation 및 신원 작업 후 애플리케이션에 넘길 예산을 다시 계산합니다. | `current change`, 이전에 실패한 가짜 시계 회귀 테스트 세 개와 기존 조정기 테스트 | 각 애플리케이션 전송 작업도 남은 예산으로 제한해야 합니다. |
+| 2026-09-13 | implemented | 최종 응답 후뿐 아니라 모든 리다이렉트 요청 전에 release HTTPS 호스트와 포트 허용 목록을 검사합니다. | `current change`, 금지된 대상 접촉 세 건 재현, 가짜 HTTP 전송과 허용된 CDN 대조군을 사용한 실제 urllib 리다이렉트 테스트 | 수정된 CLI를 게시해야 하며 허용 목록 확대나 실제 요청 재시도를 뜻하지 않습니다. |
+| 2026-09-13 | implemented | 기존 오프라인 캐시가 출처 연결 기록 없이 명시적인 온라인 출처를 묵시적으로 수락하지 않음을 입증했습니다. | `current change`, 디렉터리 및 압축 파일의 모드 전환 회귀 테스트가 네트워크 요청 전에 중단되고 이전 바이트를 보존함 | 기본 버전의 이전 캐시 수락에도 전체 서명과 스냅샷 검증이 필요합니다. |
+| 2026-09-13 | implemented | 로컬 디렉터리 획득은 이후 바뀐 원본 번들이 아니라 인증된 비공개 스냅샷을 실행하고 다음 재시도는 변경된 출처를 거부함을 입증했습니다. | `current change`, 운영 코드 변경 없이 출처 교체 회귀 테스트 통과 | 두 모드 모두에서 서명과 전체 스냅샷 검사를 유지합니다. |
+| 2026-09-13 | implemented | 압축 파일 경로를 교체해도 추출기가 보유한 원본 디스크립터가 다른 파일을 가리키지 않음을 입증했으며 운영 코드는 바꾸지 않았습니다. | `current change`, 열린 inode 교체 회귀 테스트 통과 | 파일 내용 변경은 계속 서명과 스냅샷 검사로 검증합니다. |
+| 2026-09-13 | implemented | 로컬 압축 파일과 디렉터리 재시도에서 보존된 정확한 스냅샷을 다시 검증하고 새 실행 복사본을 만들며 이전 근거를 보존합니다. | `current change`, 재현한 재시도 실패 두 건, 오프라인 재시도 및 변조 검사 네 개, 획득 경계 집중 테스트 | 새 CLI를 전달해야 하며 기존 부분 적용은 별도 승인을 거친 복구가 필요합니다. |
+| 2026-09-13 | implemented | x64 macOS나 FreeBSD를 Linux로 취급하지 않고 두 아티팩트 획득 모드 모두에서 Linux가 아닌 POSIX 호스트를 먼저 차단합니다. | `current change`, 이전에 실패한 네 사례를 포함한 호스트 경계 회귀 테스트 다섯 개 | 수정된 CLI를 게시해야 하며 Azure 수렴 검증은 별도입니다. |
+| 2026-09-12 | implemented | 대상 환경 프로비저닝을 manual 전송 계층으로 제한하고, 공개 CLI에서 workflow dispatch를 제거하고, 토큰 없는 관찰 전용 설치를 허용하고, OCI 배포 어플라이언스 진입점을 추가했습니다. | `current change`, 배포 CLI 계약, standalone 모듈, 어플라이언스 스크립트 및 집중 테스트 | 깨끗한 어플라이언스 하나를 빌드하고 연결 및 아티팩트 오프라인 Azure 배포 증적을 보존합니다. |
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 점검, 프로파일 영속성 및 offline 검증을 근거에 맞는 현재 상태로 바로잡았습니다. | 현재 변경과 구현 범위 표에 기재한 패키지 메타데이터, bootstrap 소스, release 스크립트 및 집중 작업 흐름 검사 | CLI 패키지를 만들고 offline 검증을 복원하며 trust 초기화를 완료한 뒤 전체 수명 주기를 검증해야 합니다. |
 | 2026-08-29 | validated | 대상 연결 점검과 비공개 프로필을 추가하고 서명 offline 검증을 복원하며 제공 wheel 네트워크 격리 훈련을 완료했습니다. | `dd28b64d9` 이후 캠페인 커밋, 집중 검사, 성공한 `airgap-drill.sh` | 관리 호스트 Azure 실행을 완료하고 보호된 프로비저닝 후 증적을 보존해야 합니다. |
 | 2026-09-05 | implemented | exclusive RCA reader identity apply와 검증 재개를 허용 목록 기반 bot 소유 요청으로 라우팅했습니다. downstream apply는 보호된 GitHub Environment에 계속 binding하며 변경 전에 보호된 `main`의 validator로 reviewer 정책을 검사합니다. | `current change`, 집중 deployment CLI, workflow 및 Environment 정책 검사 | 독립 승인 exact apply와 효과 증적을 하나 보존합니다. |
@@ -49,8 +69,11 @@ translation_revised: 2026-09-12
 - [x] 주입된 release 루트 뒤에 offline-kit 검증을 복원하고 서명 우선 확인, exact 파일 집합, no-follow 다이제스트, 호환성 및 한계 테스트를 통과합니다.
 - [ ] Temporary 공개 접근 생성과 정리를 구현하여 정리 실패가 감사된 불완전 작업으로 남게 하고 CIDR, 기간, 인증, 롤백 및 멱등성 테스트를 통과합니다.
 - [ ] TUF 루트 의식과 패키지 초기화를 완료하고 offline trust ceremony가 수락한 서명 루트 및 교대 근거를 남깁니다.
-- [ ] 깨끗한 스냅샷에서 완전한 서명 키트 하나를 빌드하고 다시 검증한 뒤 새 환경에 CLI를 설치하고 online 및 로컬 아티팩트 경로에서 같은 키트를 획득합니다.
+- [x] 깨끗한 스냅샷에서 완전한 서명 키트 하나를 빌드하고 다시 검증한 뒤 새 환경에 CLI를 설치하고 online 및 로컬 아티팩트 경로에서 같은 키트를 획득합니다. 근거: `deployment-v0.1.0-r2`와 위의 2026-09-13 아티팩트 기록입니다.
+- [x] 후속 CLI 하드닝을 포함한 완전한 대체 키트를 게시하고 정확한 설치 아티팩트 검증을 반복합니다. 근거: `deployment-v0.1.0-r3`에 H01-H14가 포함되고 기본 설치 파일 59개가 모두 서명된 휠과 일치하며 이전 설치는 백업했습니다.
+- [ ] 안정 Network API 수정을 포함한 대체 서명 키트를 게시하고 검증한 뒤 해당 아티팩트에서 Foundation 검색을 확인합니다. 검색 성공을 배포 준비 완료로 취급하지 않습니다.
 - [ ] 전체 구독 준비 상태를 주장하지 않고 두 활성 로그인 모드의 대상 연결 기반 Foundation 및 애플리케이션 수렴 증적을 보존합니다.
+- [ ] 승인되고 digest로 고정된 기본 이미지에서 배포 어플라이언스를 빌드하고 SBOM과 provenance를 검증한 뒤 이미지 진입점의 아티팩트 오프라인 Azure 배포 증적을 보존합니다.
 
 ## 한눈에 보는 설계
 
@@ -62,7 +85,7 @@ translation_revised: 2026-09-12
 |----|---------|-----------|
 | Connectivity | `online`, `offline` | 제한된 TLS 검사를 통과한 후에만 online 출처를 사용하고, 그렇지 않으면 signed offline 키트를 요구합니다. |
 | 실행 호스트 | `existing-host`, `managed-vm` | 적합한 private-network 호스트를 재사용하고, 적합한 호스트가 없으면 managed VM을 생성합니다. |
-| 전송 계층 | `manual`, `github-actions` | 설치 패키지의 기본 흐름에는 `manual`을 사용합니다. GitHub Actions는 선택적인 저장소 소유 CI/CD 전송 계층이며 구독 배포 필수 조건이 아닙니다. |
+| 전송 계층 | `manual` | 대상 환경 배포는 항상 로컬 조정기와 Managed Host를 사용합니다. GitHub Actions는 release를 빌드하고 게시할 수 있지만 대상 환경을 계획하거나 적용할 수 없습니다. |
 | 소유권 | `fdai-managed` | 승인 후 Terraform이 선언된 리소스와 역할 배정을 관리합니다. |
 
 ### 활성 로그인 기반 독립 실행형 배포
@@ -78,18 +101,29 @@ scripts/deployment/azure/fdai-up.sh
 
 두 명령은 활성 Azure CLI 사용자 컨텍스트에서만 테넌트와 구독을 결정합니다. 소스 checkout,
 Git remote, GitHub 계정, GitHub 저장소, required CI 검사, 저장소 변수, 저장소 비밀, 작업 흐름
-dispatch 또는 GitHub runner 등록이 필요하지 않습니다. Online 모드는 범위가 제한된 HTTPS로
+dispatch 또는 GitHub runner 등록이 필요하지 않습니다. Online 모드는 각 리다이렉트에 접촉하기 전에 검증하는 제한된 HTTPS로
 버전이 지정된 완전한 키트 하나를 다운로드합니다. Offline 모드는 같은 키트 형식을 로컬
 경로에서 읽고 모든 공개 아티팩트 대체 경로를 차단합니다. 여기서 offline은 아티팩트가
 오프라인이라는 뜻이며 선택한 Azure control plane 또는 Bastion 엔드포인트와 단절된다는 뜻은
 아닙니다.
+
+오프라인 재시도는 지정한 출처를 다시 읽고 보존된 스냅샷을 재검증하며 이전 상태를 교체하지 않고
+새 실행 복사본을 사용합니다. 바이트가 바뀌거나 불완전하면 재시도를 중단합니다.
+온라인 전송 진행 상황으로 전체 다운로드 예산 15분을 연장하지 않습니다. 소켓 읽기는 30초
+제한을 유지하며 각 원시 읽기 사이에 사용 가능한 데이터를 반환합니다. 만료 시 새로 만든
+부분 다운로드만 삭제하고 재시도하지 않습니다. 진행 중인 소켓 읽기로 전체 기한을 넘는 시간은 해당 읽기 한 번의 제한 이내입니다.
 
 패키지는 키트와 별도로 release 및 bundle 검증 루트를 고정합니다. 완전한 키트에는 배포
 bundle, Terraform과 OPA, provider mirror, runtime OCI archive, Console 콘텐츠, migration 지원
 및 각 SBOM이 포함됩니다. Azure 변경 전에 서명, 정확한 파일 집합, 플랫폼, 소스 revision,
 runtime 콘텐츠 검증을 완료합니다.
 현재 관리 호스트 이미지와 완전한 키트 builder는 Linux x86_64를 지원합니다. 다른 호스트
-architecture는 검증되지 않은 실행 경계를 넘지 않고 키트 획득 전에 실패합니다.
+운영체제나 아키텍처는 두 획득 모드 모두 시작 전에 차단하며 POSIX라는 사실만으로 Linux로 판단하지 않습니다.
+
+Foundation 네트워크 검색은 안정 버전 Network API `2024-05-01`로 선택한 구독 전체의 기존
+라우팅 테이블과 로컬 네트워크 게이트웨이를 읽습니다. 기존 리소스의 지역에서 지원하지 않을 수
+있는 최신 버전을 Azure CLI가 자동 선택하게 두지 않습니다. 조회가 실패하면 검색을 중단하며
+예약된 주소 범위를 누락하거나 공급자를 등록하거나 다른 버전으로 재시도하지 않습니다.
 
 비공개 경로에서 로그인한 사용자는 범위가 제한된 Foundation control-plane 적용만 수행합니다.
 생성된 Bastion 접근 가능 VM은 사용자 할당 관리 ID와 GitHub runner 소프트웨어가 없는 manual
@@ -106,12 +140,21 @@ data-plane 작업은 운영자 workstation으로 대체되지 않습니다.
 Apply 결과가 모호하면 다음 호출은 변경 없음 plan과 권위 있는 재확인만 실행합니다. 보존된
 claim으로 apply를 반복하지 않습니다. Foundation run, network/state handoff, Entra binding,
 provider 구성 또는 서명 키트가 바뀌면 별도의 준비 context가 필요합니다.
+호출 시간 예산은 준비 전에 시작합니다. 승인 대기와 애플리케이션 인계에는 현재 남은 시간을
+사용하며 예산이 만료되면 다음 단계를 시작하거나 준비 완료 결과를 만들지 않습니다.
+애플리케이션 확인에는 실제 터미널이 필요하며 두 확인 입력과 사용자 조회가 최대 10분의
+한 구간을 공유합니다. 계획 만료나 호출 잔여 예산이 더 짧으면 그 시간으로 제한합니다.
+`DeadlineTransport`는 기존 Bastion 명령과 파일 전송 각각을 같은 현재 예산으로 제한하고
+입출력 후에도 만료를 검사합니다. 원래 터널은 자체적인 제한 시간 내 정리를 유지합니다.
+신원 및 전송 실패에는 고정된 진단 메시지를 사용하며 원시 OS 및 자식 프로세스 예외의 명령
+인자나 경로를 출력하지 않습니다. 효과 결과가 불명확하면 여전히 보존된 상태를 검토해야 합니다.
 
 명령은 명시적 옵션 또는 문서화된 사용자 구성 경로에서 운영자 소유 mode-`0600` license issuer
 key를 찾습니다. 키가 있으면 키를 복사하지 않고 배포 및 이미지에 연결된 token을 발급합니다.
-키가 없으면 터미널에서 미리 발급된 mode-`0600` Trial token 파일을 요구합니다. Token은 Bastion
-표준 입력으로 전달되고 관리 ID가 Key Vault에 기록합니다. 인자, Terraform state, portable status
-또는 로그에는 포함되지 않습니다.
+미리 발급된 Trial token을 제공하면 같은 검증 및 전달 경로를 사용합니다. 둘 다 없으면 license
+secret을 만들지 않고 관찰 전용 모드로 배포를 완료합니다. Token은 Bastion 표준 입력으로
+전달되고 Managed Identity가 Key Vault에 기록합니다. 인자, Terraform 상태, portable 상태 또는
+로그에는 포함되지 않습니다.
 
 ## 읽기 전용 검사
 
@@ -121,7 +164,7 @@ key를 찾습니다. 키가 있으면 키를 복사하지 않고 배포 및 이�
 fdaictl provision inspect --output json
 ```
 
-점검은 로컬 Azure CLI, Terraform, GitHub CLI, 제한된 online 산출물 접근,
+점검은 로컬 Azure CLI, Terraform, 제한된 online 산출물 접근,
 offline-kit 후보, Azure 워크로드 신원 엔드포인트를 검사합니다. `mutation_performed=false`,
 필수 승인 정책과 정족수, 선택된 프로파일이 포함된 안정적인 JSON 계약을 반환합니다. 도구를
 설치하거나 구성을 기록하거나 리소스를 생성하거나 실행기를 등록하거나 Terraform을
@@ -158,8 +201,7 @@ fdaictl provision init \
 명령은 모든 `auto` 값을 거부하고 `.fdai/provisioning/profile.json`을 mode-`0700` 디렉터리
 안에 파일 모드 `0600`으로 기록합니다. Offline 프로파일에는 `--artifact-source`가 필요합니다.
 Temporary 공개 SSH에는 전체 주소 space보다 좁은 정본 출처 CIDR과 5-60분 접근
-구간이 필요합니다. GitHub Actions 전송 계층에는 일치하는 `github_actions` 접근 메서드가
-필요합니다.
+구간이 필요합니다. 대상 환경 배포 프로필은 `manual` 전송 계층만 허용합니다.
 
 기존 대상은 `--force`를 명시하지 않으면 initialization을 차단합니다. Force는 symbolic
 링크를 따라가거나 non-file 대상을 교체하지 않습니다. 프로파일 initialization은 Azure
@@ -196,9 +238,8 @@ Managed-host 접근 순서는 다음과 같이 고정합니다.
 
 1. 승인된 내부 SSH.
 2. Azure Policy와 배포 프로파일이 허용하는 경우 temporary public-IP SSH.
-3. 자체 호스팅 실행기의 GitHub Actions.
-4. Azure Bastion.
-5. 감사되는 비상 경로인 Azure Run Command.
+3. Azure Bastion.
+4. 감사되는 비상 경로인 Azure Run Command.
 
 신규 구독 Genesis는 이 목록을 차례로 대체 시도하지 않습니다. `access_method=bastion`인
 프로파일은 기반 계층이 만든 정확한 Standard Bastion 네이티브 터널을 선택합니다. 등록 자료는
