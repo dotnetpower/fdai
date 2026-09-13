@@ -102,7 +102,7 @@ export function renderSlack(blocks: readonly Block[]): SlackMessage {
         out.push(divider());
         out.push(
           section(
-            `${toneEmoji(riskTone(b.risk))} *${b.index}/${b.total} \u00b7 ${b.title}*  \`${b.actionType}\`\n${b.risk} risk - ${b.chip}`,
+            `${toneEmoji(riskTone(b.risk))} *${b.index}/${b.total} \u00b7 ${b.title}*  \`${b.actionType}\`\n${b.riskLabel} - ${b.chip}`,
           ),
         );
         out.push({
@@ -144,6 +144,12 @@ export function renderSlack(blocks: readonly Block[]): SlackMessage {
   return { blocks: out };
 }
 
-function riskTone(risk: "LOW" | "MEDIUM" | "HIGH"): Tone {
-  return risk === "LOW" ? "low" : risk === "MEDIUM" ? "medium" : "high";
+function riskTone(risk: "LOW" | "MEDIUM" | "HIGH" | "UNKNOWN"): Tone {
+  return risk === "LOW"
+    ? "low"
+    : risk === "MEDIUM"
+      ? "medium"
+      : risk === "HIGH"
+        ? "high"
+        : "neutral";
 }

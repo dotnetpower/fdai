@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: feb5371cbbad3bc8aa392005c77729ead11bf333
+translation_source_sha: 1bd2630d0bd0f50cc8e0178734b2ea4ccc91668b
 translation_revised: 2026-09-11
 ---
 # FDAI Console 대화
@@ -478,6 +478,13 @@ pending 상한과 승인 transition을 atomic하게 강제합니다. Native 도�
 | SMS | send-only | (계획 없음) | n/a |
 | Web chat | n/a | 인증된 `POST /chat` 및 `POST /chat/stream` SSE | Console SPA/Operator API 구성 |
 | CLI | n/a | stdin/stdout UI가 shared Operator API `/chat` 호출 | 로컬 auth/Operator API 구성 |
+
+CLI는 명시적인 로컬 Azure CLI 인증 프로필이 활성화된 경우 Operator Service의 루프백 전용
+`GET /local-auth/me` 부트스트랩을 사용합니다. 불투명한 세션 bearer는 프로세스 메모리에만
+유지되며 스냅샷, 대화 및 SSE 읽기에 연결됩니다. CLI는 인자, URL 또는 환경 변수를 통해
+토큰을 받지 않습니다. 부트스트랩 경로가 없으면 일반 읽기만 계속 시도할 수 있으며 `401`
+또는 `403`은 인증이 차단된 결과로 유지됩니다. 이 프로필은 표준 Browser Entra 프로필을
+대체하거나 약화하지 않습니다.
 
 ### 8.1 분리된 채널 구성
 

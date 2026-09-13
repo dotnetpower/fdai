@@ -69,6 +69,12 @@ export function parseScreenCommand(
       reply: t("cockpit.cmd.cleared", locale),
     };
   }
+  if (command === "/help" && argument === undefined) {
+    return { patch: {}, reply: t("cockpit.cmd.help", locale) };
+  }
+  if (command === "/status" && argument === undefined) {
+    return { patch: {}, reply: t("cockpit.cmd.status", locale) };
+  }
   if (command === "/focus") {
     if (argument !== undefined && RESOURCE_TYPES.has(argument)) {
       return {

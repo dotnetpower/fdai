@@ -30,6 +30,8 @@ Options:
   -h, --help                         Show this help
 
 Interactive questions require --source=api and are delegated to POST /chat.
+Loopback Azure CLI authentication is discovered automatically and kept in memory.
+Set NO_COLOR=1 or FDAI_REDUCED_MOTION=1 for terminal accessibility preferences.
 `;
 
 export function isHelpRequest(argv: readonly string[]): boolean {

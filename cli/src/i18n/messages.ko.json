@@ -2,25 +2,32 @@
   "tier": {
     "t0": "고정 규칙으로 처리",
     "t1": "과거 사례와 일치",
-    "t2": "AI 추론 필요"
+    "t2": "AI 추론 필요",
+    "abstain": "판단 보류"
   },
   "console": {
-    "connected": "Operator API에 연결됨. 이벤트 {events}건 기록, {pending}건 결정 대기 중.",
+    "context": "{env} - 읽기 전용 - 실시간 Operator API",
+    "connected": "Operator API에 연결됨. 이벤트 {events}건 기록, 사람 승인 {pending}건 대기 중.",
     "summaryEvents": "이벤트",
     "summaryShadow": "섀도우",
     "summaryEnforce": "적용",
-    "summaryAwaiting": "대기 중",
+    "summaryAwaiting": "승인 대기",
     "summaryLast": "최근",
     "mostlyNoAi": "대부분 AI 추론 없이 처리되었습니다:",
     "trustTiers": "신뢰 계층:",
     "outcomes": "지금까지의 결과:",
     "recentActivity": "최근 활동:",
+    "kpiUnavailable": "운영 합계를 사용할 수 없습니다. 이벤트 또는 라우팅 개수를 표시하지 않습니다.",
+    "auditUnavailable": "최근 감사 근거를 사용할 수 없습니다.",
+    "approvalsUnavailable": "승인 대기 세부 정보를 사용할 수 없습니다. 대기열이 비어 있다는 결과가 아닙니다.",
+    "approvalsCountOnly": "사람 승인 {count}건이 대기 중입니다. 이 세션에서는 개수만 볼 수 있고 승인 세부 정보는 볼 수 없습니다.",
     "hilPendingOne": "{count}건이 결정을 기다립니다 - 리스크 게이트가 사람에게 에스컬레이션했습니다.",
     "hilPendingMany": "{count}건이 결정을 기다립니다 - 리스크 게이트가 사람에게 에스컬레이션했습니다.",
-    "nothingPending": "지금 승인을 기다리는 항목이 없습니다."
+    "nothingPending": "현재 사람 승인을 기다리는 항목이 없습니다."
   },
   "card": {
     "chip": "결정 필요",
+    "riskLabel": "리스크 {risk}",
     "fieldWhat": "무엇",
     "fieldWhy": "이유",
     "fieldRequested": "요청 시각",
@@ -30,28 +37,46 @@
     "fieldHow": "방법",
     "fieldApproval": "승인",
     "fieldChecked": "검증",
-    "cantUndo": "{value} (되돌릴 수 없음)"
+    "cantUndo": "{value} (되돌릴 수 없음)",
+    "actionApprove": "승인(풀 리퀘스트 열기)",
+    "actionDecline": "거절(변경 없이 기록)",
+    "actionExplain": "설명"
   },
   "briefing": {
+    "context": "{env} - 읽기 전용 - {clock}",
+    "windowPast24Hours": "지난 24시간",
     "greeting": "좋은 아침입니다, {operator}. 모든 것이 정상 작동 중입니다. {window} 동안 있었던 일입니다.",
     "busyTitle": "얼마나 바빴는지 - 5분마다 처리한 이벤트:",
+    "busyUnit": "이벤트 / 5분",
+    "busyCaption": "{peak} 무렵 가장 많음 - 최대 약 {count}개 이벤트 / 5분",
     "tiersTitle": "대부분 고정 규칙으로 처리됨 - AI 불필요:",
     "autoNarration": "{events}건 중 {auto}건을 스스로 처리했습니다. 되돌릴 일은 없었습니다. 새 규칙 {shadow}개를 안전하게 시험 중입니다 - 관찰만, 아직 실행 안 함.",
+    "sumEvents": "이벤트",
+    "sumAutoResolved": "자동 해결",
+    "sumRolledBack": "롤백",
+    "sumPausedRules": "일시 중지 규칙",
+    "sumAudit": "감사",
+    "auditComplete": "완료",
     "hilOne": "한 가지 항목이 결정을 기다립니다 - 제가 스스로 처리하는 리스크 수준을 넘습니다.",
     "hilMany": "{count}개 항목이 결정을 기다립니다 - 제가 스스로 처리하는 리스크 수준을 넘습니다.",
+    "openCard": "카드 열기(1-{max}) 또는 질문 입력",
+    "promptHintMock": "키는 예시이며 디자인 목업입니다",
     "nothingSignoff": "지금 승인이 필요한 항목이 없습니다. 모두 처리되었고, 모든 변경은 되돌릴 수 있습니다.",
     "lookInto": "살펴보고 싶은 것이 있나요? 예를 들면:",
-    "typeQuestion": "질문을 입력하세요"
+    "typeQuestion": "질문을 입력하세요",
+    "typeQuestionHint": "변경을 요청하기 전에는 조회만 수행하며 변경 전에는 확인을 요청합니다"
   },
   "cockpit": {
     "tier": {
       "t0": "고정 규칙",
       "t1": "과거 사례",
-      "t2": "추론"
+      "t2": "추론",
+      "unrouted": "라우팅 안 됨"
     },
     "badge": {
       "paused": "일시정지",
       "overview": "개요",
+      "focus": "{focus} 집중",
       "stream": "스트림"
     },
     "cmd": {
@@ -61,19 +86,28 @@
       "streaming": "실시간 작업 피드를 스트리밍합니다.",
       "cleared": "필터 해제 - 전체를 실시간으로 표시합니다.",
       "focusing": "{focus} 리소스에 집중합니다.",
-      "whichResource": "어떤 리소스 유형인가요? 예: 'focus network'."
+      "whichResource": "어떤 리소스 유형인가요? 예: /focus network.",
+      "help": "명령: /overview, /stream, /pause, /resume, /focus <type>, /clear, /status, /help, /exit. 편집: 방향키, Ctrl+A/E, Ctrl+W, Ctrl+U.",
+      "status": "연결, 인증, 읽기 전용 범위, 활성 보기, 모델, 응답 시간이 조종석에 표시됩니다."
     },
     "feed": {
       "autoApplied": "섀도우 풀 리퀘스트로 자동 적용됨",
       "awaiting": "승인 대기로 올림",
       "steppedBack": "보류됨 - {why}",
       "whyRouting": "라우팅 신호 부족",
-      "whyNoRule": "아직 일치하는 규칙 없음"
+      "whyNoRule": "아직 일치하는 규칙 없음",
+      "handled": "처리됨"
     },
     "header": {
       "summary": "Azure 관찰 중 - {handled}건 처리: 고정 규칙 {t0}, 보류 {abstain}, 섀도우 PR 자동 적용 {auto}, 대기 {awaiting}.",
-      "trust": "읽기 전용 콘솔 \u00b7 모든 변경은 풀 리퀘스트를 엽니다 \u00b7 섀도우 우선 \u00b7 완전 감사",
-      "commands": "말하기: overview \u00b7 stream \u00b7 pause \u00b7 focus network \u00b7 clear"
+      "trust": "서버 소유 근거 \u00b7 작업 실행 없음 \u00b7 shadow 우선",
+      "commands": "/overview  /stream  /pause  /focus <type>  /help",
+      "readOnly": "읽기 전용",
+      "statusLive": "연결됨",
+      "statusConnecting": "연결 중",
+      "statusDegraded": "성능 저하",
+      "azureCli": "Azure CLI 세션 \u00b7 Contributor 상한 \u00b7",
+      "apiSession": "Operator API 세션 \u00b7"
     },
     "overview": {
       "routingMix": "라우팅 구성",
@@ -82,6 +116,7 @@
       "tierT2": "T2 추론",
       "tierAbstain": "보류",
       "throughput": "처리량",
+      "eventsPerSec": "이벤트/초",
       "outcomes": "결과",
       "autoApplied": "자동 적용",
       "awaitingYou": "대기 중",
@@ -91,8 +126,15 @@
     },
     "qa": {
       "you": "나",
-      "thinking": "생각 중..."
+      "thinking": "생각 중...",
+      "assistant": "FDAI",
+      "working": "처리 중",
+      "waiting": "검증된 서버 출력을 기다리는 중입니다.",
+      "local": "로컬 명령",
+      "failed": "요청 실패"
     },
-    "hint": "{kind} 내레이터 \u00b7 무엇이든 묻거나 뷰를 말하세요 (overview / stream / pause / focus <type>) \u00b7 /exit"
+    "hintNarratorAi": "AI",
+    "hint": "관찰된 활동에 대해 질문하세요 \u00b7 명령은 /help \u00b7 종료는 /exit",
+    "terminalTooSmall": "터미널이 너무 작습니다. 최소 {columns} x {rows}로 늘리거나 Ctrl+C를 누르세요."
   }
 }
