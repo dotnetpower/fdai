@@ -29,6 +29,7 @@ that applies before Terraform changes infrastructure or role assignments.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-13 | implemented | Clamp every application SSH/SCP operation to one current deadline without changing command, stdin, identity, or tunnel cleanup. | `current change`; two reproduced transfer-to-substrate budget failures and direct transport regressions. | Expired or failed effects remain verification-only; no retry or approval is added. |
 | 2026-09-13 | implemented | Start the coordinator budget before preparation, cap Foundation approval by current remaining time, and recompute the application handoff after Foundation and identity work. | `current change`; three previously failing fake-clock regressions and existing coordinator tests. | Bound each application transport operation by that remaining budget. |
 | 2026-09-13 | implemented | Enforce the release HTTPS host/port allowlist before every redirect request, not only after the final response. | `current change`; three reproduced disallowed-target contacts; real urllib redirect-chain tests with synthetic HTTP transport and an allowed CDN control. | Publish the corrected CLI; no allowlist expansion or live retry is implied. |
 | 2026-09-13 | implemented | Proved an existing offline cache cannot silently adopt an explicit online source without a bound source record. | `current change`; directory and archive cross-mode regressions stop before network I/O and preserve prior bytes. | Default-version legacy adoption still requires complete signature and snapshot verification. |
@@ -117,6 +118,8 @@ network/state handoff, Entra binding, provider configuration, or signed kit requ
 prepared context.
 The invocation budget begins before preparation. Approval waits and application handoff use
 current remaining time; an expired budget starts no next stage and cannot produce readiness.
+`DeadlineTransport` clamps each existing Bastion command and file transfer to that same current
+budget and checks expiry after I/O. The underlying tunnel retains its own bounded cleanup.
 
 The command discovers an operator-held mode-`0600` license issuer key from an explicit option or the
 documented user configuration path. When the key exists, it issues a deployment- and image-bound

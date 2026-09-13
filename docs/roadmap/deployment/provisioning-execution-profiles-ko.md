@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 3a6bbe4093008549d97fc71ffa7f4b9baffa700b
+translation_source_sha: be4e58c8faaa9ab659ff7d3deb248f4d1ab1d24b
 translation_revised: 2026-09-13
 ---
 # 프로비저닝 실행 프로파일
@@ -32,6 +32,7 @@ translation_revised: 2026-09-13
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-13 | implemented | 명령, 표준 입력, 신원, 터널 정리를 바꾸지 않고 모든 애플리케이션 SSH/SCP 작업을 하나의 현재 기한으로 제한합니다. | `current change`, 전송 후 기반 리소스 단계의 시간 예산 오류 두 건 재현 및 직접 전송 회귀 테스트 | 만료되거나 실패한 적용은 검증으로만 재개하며 재시도나 승인을 추가하지 않습니다. |
 | 2026-09-13 | implemented | 준비 전에 조정기의 시간 예산을 시작하고 Foundation 승인 대기를 현재 남은 시간으로 제한하며 Foundation 및 신원 작업 후 애플리케이션에 넘길 예산을 다시 계산합니다. | `current change`, 이전에 실패한 가짜 시계 회귀 테스트 세 개와 기존 조정기 테스트 | 각 애플리케이션 전송 작업도 남은 예산으로 제한해야 합니다. |
 | 2026-09-13 | implemented | 최종 응답 후뿐 아니라 모든 리다이렉트 요청 전에 release HTTPS 호스트와 포트 허용 목록을 검사합니다. | `current change`, 금지된 대상 접촉 세 건 재현, 가짜 HTTP 전송과 허용된 CDN 대조군을 사용한 실제 urllib 리다이렉트 테스트 | 수정된 CLI를 게시해야 하며 허용 목록 확대나 실제 요청 재시도를 뜻하지 않습니다. |
 | 2026-09-13 | implemented | 기존 오프라인 캐시가 출처 연결 기록 없이 명시적인 온라인 출처를 묵시적으로 수락하지 않음을 입증했습니다. | `current change`, 디렉터리 및 압축 파일의 모드 전환 회귀 테스트가 네트워크 요청 전에 중단되고 이전 바이트를 보존함 | 기본 버전의 이전 캐시 수락에도 전체 서명과 스냅샷 검증이 필요합니다. |
@@ -121,6 +122,8 @@ claim으로 apply를 반복하지 않습니다. Foundation run, network/state ha
 provider 구성 또는 서명 키트가 바뀌면 별도의 준비 context가 필요합니다.
 호출 시간 예산은 준비 전에 시작합니다. 승인 대기와 애플리케이션 인계에는 현재 남은 시간을
 사용하며 예산이 만료되면 다음 단계를 시작하거나 준비 완료 결과를 만들지 않습니다.
+`DeadlineTransport`는 기존 Bastion 명령과 파일 전송 각각을 같은 현재 예산으로 제한하고
+입출력 후에도 만료를 검사합니다. 원래 터널은 자체적인 제한 시간 내 정리를 유지합니다.
 
 명령은 명시적 옵션 또는 문서화된 사용자 구성 경로에서 운영자 소유 mode-`0600` license issuer
 key를 찾습니다. 키가 있으면 키를 복사하지 않고 배포 및 이미지에 연결된 token을 발급합니다.

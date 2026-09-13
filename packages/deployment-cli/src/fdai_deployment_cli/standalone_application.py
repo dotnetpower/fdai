@@ -9,11 +9,14 @@ import os
 import re
 import subprocess
 import sys
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.deadline_transport import DeadlineTransport
+from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit, archive_verified_kit
 from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail, terminal_output
 from fdai_deployment_cli.license import inspect_license
@@ -43,6 +46,7 @@ def deploy_standalone_application(
 ) -> dict[str, object]:
     """Deploy and independently replan the application without a workflow host."""
 
+    deadline = DeploymentDeadline(timeout_seconds, clock=time.monotonic)
     begin_stage("transfer")
     progress_detail("Verifying the handoff and preparing the signed kit for Bastion transfer")
     report = _mapping(foundation_status.get("foundation_report"), "Foundation report")
@@ -93,9 +97,10 @@ def deploy_standalone_application(
         known_hosts=known_hosts,
         host_key_alias=host_alias,
         cwd=plan_directory,
-        timeout=timeout_seconds,
+        timeout=deadline.remaining(),
         trust_new_host_key=False,
-    ) as tunnel:
+    ) as underlying_tunnel:
+        tunnel = DeadlineTransport(underlying_tunnel, deadline)
         _prepare_remote(
             tunnel,
             remote_root=remote_root,
@@ -107,7 +112,7 @@ def deploy_standalone_application(
             entra_path=entra_path,
             remote_entra=remote_entra,
             app_work=app_work,
-            timeout_seconds=timeout_seconds,
+            timeout_seconds=deadline.remaining(),
         )
         begin_stage("substrate")
         progress_detail("Recovering by verification, or planning private infrastructure")
@@ -128,6 +133,7 @@ def deploy_standalone_application(
                 ("plan", "--stage", "substrate"),
                 timeout=3600,
             )
+            deadline.remaining()
             substrate_approval = _approve_plan(prepared.root, substrate_plan)
             tunnel.copy_to(substrate_approval, remote_approval, timeout=120)
             progress_detail("Applying the approved infrastructure plan and verifying its effects")
@@ -222,6 +228,7 @@ def deploy_standalone_application(
                 ("plan", "--stage", "application"),
                 timeout=3600,
             )
+            deadline.remaining()
             application_approval = _approve_plan(prepared.root, application_plan)
             tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
             tunnel.copy_to(application_approval, remote_approval, timeout=120)
@@ -275,6 +282,7 @@ def deploy_standalone_application(
         "subscription_ready": False,
     }
     receipt["receipt_digest"] = canonical_digest(receipt)
+    deadline.remaining()
     _replace_private_json(prepared.root / "standalone-application-receipt.json", receipt)
     return receipt
 
