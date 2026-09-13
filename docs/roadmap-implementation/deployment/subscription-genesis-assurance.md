@@ -26,6 +26,7 @@ and recoverable.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-13 | implemented | Removed raw subprocess/filesystem values from direct Foundation command errors while preserving fixed operation reasons and no-retry behavior. | `current change`; focused redaction and Foundation apply regressions. | Complete release hardening and exact-source artifact verification. |
 | 2026-09-13 | implemented | Made complete standalone release output write-once instead of deleting the previous signed archive before a rebuild. | `current change`; executable release-output regressions: 2 passed with the real directory ownership guard. | Complete remaining hardening and exact-source kit validation. |
 | 2026-09-13 | implemented | Preserved completed VM discovery snapshots and explicit unknown counters/digests when a later provider read fails. | `current change`; failure and VM integration suites: 23 passed; Ruff, format, and strict helper typing passed. | Complete remaining hardening and exact-source kit validation. |
 | 2026-09-13 | implemented | Converted unavailable Azure CLI context paths into value-safe pre-provider failures. | `current change`; `test_genesis_vm_environment.py`: 3 passed; Ruff and format passed. | Complete the remaining hardening and signed-kit validation. |
@@ -117,6 +118,7 @@ An unconfirmed hypothesis is not a defect; a passing local test is not release o
 | H08 | Partial claim may rerank or replay apply | Rejected: a claim without a receipt already selects verification only. Added success/failure readback cases that forbid quota refresh, new claims, and apply while preserving original claim bytes. | Claim/expiry integration slice: 6 passed | Low: failed effect verification remains incomplete and needs a separately approved recovery. |
 | H09 | Interrupted manifest/signature writes look shippable | Rejected: the signer removes the previous signature before writing either record, and independent verification rejects both interrupted states. Added executable fault injection using synthetic keys. | Signature interruption suite: 2 passed | Low: an interrupted private stage may retain an unsigned manifest, never an accepted kit. |
 | H10 | VM discovery files escape authenticated delivery | Rejected: tracked source discovery includes all seven new VM artifacts and the bundle verifier rejects policy byte changes, source deletion, and unsigned additions. Added actual builder/verifier tests with synthetic keys. | `test_vm_policy_signed_bundle.py`: 4 passed | Low: the real complete release still needs exact-source CI and independent artifact validation. |
+| H11 | Direct Foundation timeout leaks private argv | Medium: reproduced six command/helper/terminal cases. Fixed reasons now replace raw subprocess and filesystem exceptions. | Redaction, Foundation apply, and VM integration: 34 passed | Low: private evidence remains local; no retry is granted. |
 
 ## Critique resolution register
 

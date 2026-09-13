@@ -738,16 +738,7 @@ def _required(
     reason: str,
     env: Mapping[str, str] | None = None,
 ) -> None:
-    completed = run_with_heartbeat(
-        command,
-        cwd=cwd,
-        timeout=timeout,
-        env=env,
-        capture_output=True,
-        umask=0o077,
-    )
-    if completed.returncode != 0:
-        raise ValueError(reason)
+    _capture(command, cwd=cwd, timeout=timeout, reason=reason, env=env)
 
 
 def _capture(
@@ -758,14 +749,17 @@ def _capture(
     reason: str,
     env: Mapping[str, str] | None = None,
 ) -> str:
-    completed = run_with_heartbeat(
-        command,
-        cwd=cwd,
-        timeout=timeout,
-        env=env,
-        capture_output=True,
-        umask=0o077,
-    )
+    try:
+        completed = run_with_heartbeat(
+            command,
+            cwd=cwd,
+            timeout=timeout,
+            env=env,
+            capture_output=True,
+            umask=0o077,
+        )
+    except (OSError, subprocess.SubprocessError):
+        raise ValueError(reason) from None
     if completed.returncode != 0:
         raise ValueError(reason)
     return completed.stdout
@@ -808,7 +802,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         json.JSONDecodeError,
         subprocess.SubprocessError,
     ) as exc:
-        reason = exc.reason_code if isinstance(exc, CheckError) else str(exc)
+        if isinstance(exc, CheckError):
+            reason = exc.reason_code
+        elif isinstance(exc, (OSError, subprocess.SubprocessError)):
+            reason = "Foundation command or artifact access failed; preserve private evidence"
+        else:
+            reason = str(exc)
         print(f"genesis-foundation-apply: {reason}", file=sys.stderr)
         return exc.exit_code if isinstance(exc, CheckError) else 3
     finally:
