@@ -75,6 +75,8 @@ jobs:
         ${{ inputs.enable_vpn_operator_access && format('{{"principal_id":"{0}","vnet_id":"{1}","vnet_name":"{2}","vnet_resource_group_name":"{3}"}}', vars.SCENARIO_LAB_OPERATOR_PRINCIPAL_ID, vars.DEV_ACCESS_VNET_ID, vars.DEV_ACCESS_VNET_NAME, vars.DEV_ACCESS_RESOURCE_GROUP_NAME) || 'null' }}
       TF_VAR_admin_ssh_public_key: ${{ vars.SCENARIO_LAB_SSH_PUBLIC_KEY }}
       TF_VAR_vm_image_version: ${{ vars.SCENARIO_LAB_VM_IMAGE_VERSION }}
+      TF_VAR_aks_node_vm_size: ${{ vars.SCENARIO_LAB_AKS_NODE_VM_SIZE || 'Standard_D2s_v5' }}
+      TF_VAR_stress_vm_size: ${{ vars.SCENARIO_LAB_STRESS_VM_SIZE || 'Standard_B2s' }}
       TF_VAR_azure_openai_model_family: ${{ vars.SCENARIO_LAB_AOAI_MODEL_FAMILY || 'gpt-4.1-nano' }}
       TF_VAR_azure_openai_deployment_sku: ${{ vars.SCENARIO_LAB_AOAI_DEPLOYMENT_SKU || 'GlobalStandard' }}
       TF_VAR_azure_openai_private_dns_zone: >-
