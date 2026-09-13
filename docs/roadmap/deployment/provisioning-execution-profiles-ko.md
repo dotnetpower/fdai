@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: ec2263c3e43ca9b5d8b7c137118b593d1198f49e
+translation_source_sha: ce3a5e69dda9986a506e47118433cdc5d7f78b03
 translation_revised: 2026-09-13
 ---
 # 프로비저닝 실행 프로파일
@@ -32,6 +32,7 @@ translation_revised: 2026-09-13
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-13 | implemented | 최종 응답 후뿐 아니라 모든 리다이렉트 요청 전에 release HTTPS 호스트와 포트 허용 목록을 검사합니다. | `current change`, 금지된 대상 접촉 세 건 재현, 가짜 HTTP 전송과 허용된 CDN 대조군을 사용한 실제 urllib 리다이렉트 테스트 | 수정된 CLI를 게시해야 하며 허용 목록 확대나 실제 요청 재시도를 뜻하지 않습니다. |
 | 2026-09-13 | implemented | 기존 오프라인 캐시가 출처 연결 기록 없이 명시적인 온라인 출처를 묵시적으로 수락하지 않음을 입증했습니다. | `current change`, 디렉터리 및 압축 파일의 모드 전환 회귀 테스트가 네트워크 요청 전에 중단되고 이전 바이트를 보존함 | 기본 버전의 이전 캐시 수락에도 전체 서명과 스냅샷 검증이 필요합니다. |
 | 2026-09-13 | implemented | 로컬 디렉터리 획득은 이후 바뀐 원본 번들이 아니라 인증된 비공개 스냅샷을 실행하고 다음 재시도는 변경된 출처를 거부함을 입증했습니다. | `current change`, 운영 코드 변경 없이 출처 교체 회귀 테스트 통과 | 두 모드 모두에서 서명과 전체 스냅샷 검사를 유지합니다. |
 | 2026-09-13 | implemented | 압축 파일 경로를 교체해도 추출기가 보유한 원본 디스크립터가 다른 파일을 가리키지 않음을 입증했으며 운영 코드는 바꾸지 않았습니다. | `current change`, 열린 inode 교체 회귀 테스트 통과 | 파일 내용 변경은 계속 서명과 스냅샷 검사로 검증합니다. |
@@ -86,7 +87,7 @@ scripts/deployment/azure/fdai-up.sh
 
 두 명령은 활성 Azure CLI 사용자 컨텍스트에서만 테넌트와 구독을 결정합니다. 소스 checkout,
 Git remote, GitHub 계정, GitHub 저장소, required CI 검사, 저장소 변수, 저장소 비밀, 작업 흐름
-dispatch 또는 GitHub runner 등록이 필요하지 않습니다. Online 모드는 범위가 제한된 HTTPS로
+dispatch 또는 GitHub runner 등록이 필요하지 않습니다. Online 모드는 각 리다이렉트에 접촉하기 전에 검증하는 제한된 HTTPS로
 버전이 지정된 완전한 키트 하나를 다운로드합니다. Offline 모드는 같은 키트 형식을 로컬
 경로에서 읽고 모든 공개 아티팩트 대체 경로를 차단합니다. 여기서 offline은 아티팩트가
 오프라인이라는 뜻이며 선택한 Azure control plane 또는 Bastion 엔드포인트와 단절된다는 뜻은

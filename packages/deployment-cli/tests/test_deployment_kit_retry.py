@@ -33,7 +33,7 @@ def online_release(release, tmp_path, monkeypatch):
         assert timeout == 30
         return Response(payload.getvalue())
 
-    monkeypatch.setattr(deployment_kit.urllib.request, "urlopen", download)
+    monkeypatch.setattr(deployment_kit, "_open_approved_url", download)
     monkeypatch.setattr(deployment_kit, "deployment_release_root_pem", lambda: public)
     monkeypatch.setattr(deployment_kit, "deployment_bundle_root_pem", lambda: public)
     monkeypatch.setattr(deployment_kit, "runtime_platform_tag", lambda: "linux-x86_64")
@@ -183,7 +183,7 @@ def test_existing_download_destination_is_local_error_before_network(tmp_path, m
     def forbidden(*_args, **_kwargs):
         pytest.fail("a known destination conflict must not open the network")
 
-    monkeypatch.setattr(deployment_kit.urllib.request, "urlopen", forbidden)
+    monkeypatch.setattr(deployment_kit, "_open_approved_url", forbidden)
     with pytest.raises(ValueError, match="destination already exists"):
         deployment_kit._download("https://github.com/example/kit.tar.gz", target)
     assert target.read_bytes() == b"retained"
@@ -204,7 +204,7 @@ def test_http_download_errors_report_status_without_url_or_provider_text(
     def fail(*_args, **_kwargs):
         raise error
 
-    monkeypatch.setattr(deployment_kit.urllib.request, "urlopen", fail)
+    monkeypatch.setattr(deployment_kit, "_open_approved_url", fail)
     with pytest.raises(ValueError, match=f"HTTP {status}") as captured:
         deployment_kit._download(
             "https://github.com/example/kit.tar.gz", tmp_path / "download.tar.gz"
@@ -229,7 +229,7 @@ def test_download_errors_keep_network_and_local_failures_distinct(
     def fail(*_args, **_kwargs):
         raise error
 
-    monkeypatch.setattr(deployment_kit.urllib.request, "urlopen", fail)
+    monkeypatch.setattr(deployment_kit, "_open_approved_url", fail)
     with pytest.raises(ValueError, match=expected) as captured:
         deployment_kit._download(
             "https://github.com/example/kit.tar.gz", tmp_path / "download.tar.gz"

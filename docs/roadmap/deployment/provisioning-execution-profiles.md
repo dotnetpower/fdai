@@ -29,6 +29,7 @@ that applies before Terraform changes infrastructure or role assignments.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-13 | implemented | Enforce the release HTTPS host/port allowlist before every redirect request, not only after the final response. | `current change`; three reproduced disallowed-target contacts; real urllib redirect-chain tests with synthetic HTTP transport and an allowed CDN control. | Publish the corrected CLI; no allowlist expansion or live retry is implied. |
 | 2026-09-13 | implemented | Proved an existing offline cache cannot silently adopt an explicit online source without a bound source record. | `current change`; directory and archive cross-mode regressions stop before network I/O and preserve prior bytes. | Default-version legacy adoption still requires complete signature and snapshot verification. |
 | 2026-09-13 | implemented | Proved local-directory acquisition executes the authenticated private snapshot, not later changes to the original bundle; a later retry rejects that changed source. | `current change`; deterministic source-replacement regression passed without production changes. | Preserve signature and complete snapshot checks in both modes. |
 | 2026-09-13 | implemented | Proved that replacing an archive pathname cannot redirect the extractor's held original descriptor; no production change was needed. | `current change`; deterministic open-inode replacement regression passed. | In-place content changes remain subject to signature and snapshot checks. |
@@ -84,7 +85,7 @@ scripts/deployment/azure/fdai-up.sh
 Both commands derive the tenant and subscription only from the active Azure CLI user context. They
 do not require a source checkout, Git remote, GitHub account, GitHub repository, required CI check,
 repository variable, repository secret, workflow dispatch, or GitHub runner registration. Online
-mode downloads one versioned complete kit over bounded HTTPS. Offline mode reads that same kit
+mode downloads one versioned complete kit over bounded HTTPS, validating each redirect before contact. Offline mode reads that same kit
 format from a local path and blocks every public artifact fallback. Offline means artifact-offline,
 not disconnected from the selected Azure control plane or Bastion endpoint.
 Offline retries reread the supplied source, reverify the retained snapshot, and use a fresh

@@ -19,7 +19,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import BinaryIO, Final, IO
+from typing import Any, BinaryIO, Final, IO, cast
 
 from fdai_deployment_cli.__about__ import __version__
 from fdai_deployment_cli.bundle import extract_bundle_archive, verify_bundle
@@ -304,7 +304,7 @@ def _download(url: str, destination: Path) -> None:
         )
     request = urllib.request.Request(url, headers={"User-Agent": f"fdaictl/{__version__}"})
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with _open_approved_url(request, timeout=30) as response:
             final = urllib.parse.urlparse(response.geturl())
             if not _approved_online_url(final):
                 raise ValueError("online deployment kit redirect is not approved")
@@ -353,6 +353,34 @@ def _approved_online_url(value: urllib.parse.ParseResult) -> bool:
         and port in {None, 443}
         and value.username is None
         and value.password is None
+    )
+
+
+class _ReleaseRedirects(urllib.request.HTTPRedirectHandler):
+    """Validate each redirect before urllib can contact its destination."""
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        if not _approved_online_url(urllib.parse.urlparse(newurl)):
+            raise ValueError("online deployment kit redirect is not approved")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _open_approved_url(
+    request: urllib.request.Request, *, timeout: int
+) -> http.client.HTTPResponse:
+    """Open one allowlisted release request without mutating urllib's global opener."""
+
+    return cast(
+        http.client.HTTPResponse,
+        urllib.request.build_opener(_ReleaseRedirects()).open(request, timeout=timeout),
     )
 
 

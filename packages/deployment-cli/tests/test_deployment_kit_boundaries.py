@@ -5,6 +5,9 @@ from __future__ import annotations
 import io
 import os
 import tarfile
+import urllib.request
+import urllib.response
+from email.message import Message
 
 import pytest
 
@@ -66,3 +69,54 @@ def test_open_archive_descriptor_survives_path_replacement(tmp_path, monkeypatch
     deployment_kit._extract_kit_archive(archive, destination)
     assert (destination / "payload").read_bytes() == b"original bytes"
     assert archive.read_bytes() == b"replacement is not an archive"
+
+
+@pytest.mark.parametrize(
+    ("redirect", "allowed"),
+    [
+        ("https://example.com/kit", False),
+        ("http://github.com/kit", False),
+        ("https://github.com:444/kit", False),
+        ("https://release-assets.githubusercontent.com/example/kit", True),
+    ],
+)
+def test_download_rejects_redirect_before_contacting_disallowed_target(
+    tmp_path, monkeypatch, redirect, allowed
+):
+    requested = []
+    original = urllib.request.build_opener
+
+    class SyntheticTransport(urllib.request.HTTPHandler, urllib.request.HTTPSHandler):
+        def http_open(self, request):
+            requested.append(request.full_url)
+            headers = Message()
+            code = 200
+            if len(requested) == 1:
+                headers["Location"] = redirect
+                code = 302
+            response = urllib.response.addinfourl(
+                io.BytesIO(b"test"), headers, request.full_url, code
+            )
+            response.msg = "synthetic response"
+            return response
+
+        https_open = http_open
+
+    def opener(*handlers):
+        return original(SyntheticTransport(), *handlers)
+
+    monkeypatch.setattr(urllib.request, "build_opener", opener)
+    monkeypatch.setattr(
+        urllib.request,
+        "urlopen",
+        lambda request, *, timeout: opener().open(request, timeout=timeout),
+    )
+    if allowed:
+        deployment_kit._download("https://github.com/example/kit", tmp_path / "archive.tar.gz")
+        assert requested == ["https://github.com/example/kit", redirect]
+        assert (tmp_path / "archive.tar.gz").read_bytes() == b"test"
+    else:
+        with pytest.raises(ValueError, match="redirect"):
+            deployment_kit._download("https://github.com/example/kit", tmp_path / "archive.tar.gz")
+        assert requested == ["https://github.com/example/kit"]
+        assert list(tmp_path.iterdir()) == []
