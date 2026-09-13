@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 99d22ab1db2beff70a2a9b15cd4f85cba6dcc359
+translation_source_sha: 8d4643e4858f433e23ab01bea267de6c9438ca16
 translation_revised: 2026-09-13
 ---
 # 기록된 리소스 상태
@@ -244,6 +244,9 @@ ResourceType을 선언합니다.
 - 확장된 Resource Health 검증은 ResourceType별 대상, 값 및 메타데이터 수를 비교합니다. 공급자가
   모델링하지 않은 대상은 명시적으로 유지하며, 간단한 노드에 운영 상태를 표시하려면 독립적인 운영
   사실이 필요합니다.
+- 로컬 데이터 경로 검증에는 안정적인 활성 세대 하나, 완전한 공급자 유형 집계, 누락된
+  인벤토리-온톨로지 Resource 또는 상태 값 0개, 명시적인 사용 불가 사유가 필요합니다. 인증된
+  브라우저 검증은 별도의 표시 계층 검사로 유지합니다.
 - 런타임 대표 상태 검증에는 운영 또는 가용성 출처가 없는 구성형 Resource도 포함합니다. 이러한
   노드는 정확한 프로비저닝 값이 있으면 해당 축을 표시하고, 모든 기록 축에 유용한 정확한 사실이
   없을 때만 명시적인 근거 누락 레이블을 유지합니다.
