@@ -1,10 +1,12 @@
 import { decodeRecordedResourceStates, stateRecord, stateText, stateTime } from "../recorded-resource-state";
 import { isOperationalResourceType } from "../resource-presentation";
+import { OperatorApiError } from "../api-transport";
 import type { DashboardResource, DashboardSnapshot } from "./dashboard-v2.model";
 
 const LIMIT = 500;
 const MAX_RECORDS = 20000;
 const MAX_READ_MS = 30000;
+const GENERATION_RETRY_DELAYS_MS = [250, 500] as const;
 interface RecordedStateClient {
   readonly panel: (path: string, params?: Record<string, string>) => Promise<unknown>;
 }
@@ -25,12 +27,21 @@ async function readWithinDeadline(read: () => Promise<unknown>, remaining: numbe
   } finally { clearTimeout(timer); }
 }
 
-/** Load bounded pages of one generation; no graph-status fallback, per-resource reads or retry. */
-export async function loadDashboardRecordedStates(
+function isGenerationTransition(error: unknown): boolean {
+  return error instanceof OperatorApiError
+    && error.status === 409
+    && ["inventory_generation_changed", "ontology_generation_changed"].includes(error.message);
+}
+
+function wait(delayMs: number): Promise<void> {
+  return new Promise((resolve) => globalThis.setTimeout(resolve, delayMs));
+}
+
+async function loadDashboardRecordedStateGeneration(
   client: RecordedStateClient,
-  cancelled: () => boolean = () => false,
+  cancelled: () => boolean,
+  started: number,
 ): Promise<DashboardSnapshot | null> {
-  const started = Date.now();
   let generation: string | null = null;
   let ontologyGeneration: string | null = null;
   let ontologyManifestDigest: string | null = null;
@@ -121,4 +132,28 @@ export async function loadDashboardRecordedStates(
     excludedContainers: 0, excludedAuthorization: 0, pendingChanges: null,
     recordedStates: true, totalCount: total,
   };
+}
+
+/** Load bounded pages of one generation; retry only a typed generation transition. */
+export async function loadDashboardRecordedStates(
+  client: RecordedStateClient,
+  cancelled: () => boolean = () => false,
+  waitForRetry: (delayMs: number) => Promise<void> = wait,
+): Promise<DashboardSnapshot | null> {
+  const started = Date.now();
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await loadDashboardRecordedStateGeneration(client, cancelled, started);
+    } catch (error) {
+      if (
+        !isGenerationTransition(error)
+        || attempt >= GENERATION_RETRY_DELAYS_MS.length
+      ) throw error;
+      if (cancelled()) return null;
+      const delay = GENERATION_RETRY_DELAYS_MS[attempt]!;
+      const remaining = MAX_READ_MS - (Date.now() - started);
+      if (remaining <= delay) throw error;
+      await readWithinDeadline(() => waitForRetry(delay), remaining);
+    }
+  }
 }

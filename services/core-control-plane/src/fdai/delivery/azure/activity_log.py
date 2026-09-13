@@ -67,7 +67,10 @@ from uuid import UUID
 import httpx
 
 from fdai.delivery.azure.arg_projection import (
+    ArmIdentityError,
     ArmScopeError,
+    arm_id_to_type,
+    arm_provider_type,
     arm_scope_properties,
     extract_rg_contains_links,
 )
@@ -89,6 +92,9 @@ _DEFAULT_MAX_PROPS_BYTES: Final[int] = 16 * 1024
 _DEFAULT_INITIAL_LOOKBACK_SECONDS: Final[int] = 3600
 _DEFAULT_MAX_EVENTS_PER_PAGE: Final[int] = 1000
 _CURSOR_SEP: Final[str] = "\x1f"  # ASCII unit separator - never in a URL or RFC 3339 ts
+_PROVIDER_TYPE_ALIASES: Final = {
+    "microsoft.resources/subscriptions/resourcegroups": "Microsoft.Resources/resourceGroups",
+}
 
 
 class ActivityLogError(RuntimeError):
@@ -321,14 +327,29 @@ class AzureActivityLogFactory:
         if not isinstance(arm_id, str) or not arm_id:
             return None
 
-        arm_type = _nested_value(event, "resourceType") or _arm_type_from_id(arm_id)
-        if not arm_type:
+        derived_arm_type = arm_id_to_type(arm_id)
+        if not derived_arm_type:
             return None
-        neutral_type = self._arm_to_neutral.get(arm_type.lower())
+        neutral_type = self._arm_to_neutral.get(derived_arm_type.casefold())
         if neutral_type is None:
-            # Not a vocabulary type the full-scan tracks - drop it rather
-            # than emit an unknown type into the ontology.
+            # Identity-derived types outside the reviewed vocabulary never
+            # enter the ontology, even if the event labels them as a parent.
             return None
+        supplied_arm_type = _nested_value(event, "resourceType")
+        arm_type = (
+            derived_arm_type
+            if supplied_arm_type is None
+            else _PROVIDER_TYPE_ALIASES.get(supplied_arm_type.casefold(), supplied_arm_type)
+        )
+        if self._arm_to_neutral.get(arm_type.casefold()) is None:
+            # Activity Log also reports operation categories in resourceType.
+            return None
+        try:
+            arm_type = arm_provider_type(arm_id, arm_type)
+        except ArmIdentityError as exc:
+            raise ActivityLogError(
+                "Activity Log resource type conflicts with its provider id"
+            ) from exc
 
         at = _parse_ts(event.get("eventTimestamp"))
         if at is None:
@@ -343,7 +364,7 @@ class AzureActivityLogFactory:
         props = _truncate_props(
             {
                 "operation": operation,
-                "status": _nested_value(event, "status"),
+                "operationStatus": _nested_value(event, "status"),
                 "caller": event.get("caller"),
                 "eventTimestamp": event.get("eventTimestamp"),
             },
@@ -442,22 +463,6 @@ def _nested_value(event: Mapping[str, Any], key: str) -> str | None:
     if isinstance(raw, str) and raw:
         return raw
     return None
-
-
-def _arm_type_from_id(arm_id: str) -> str | None:
-    """Best-effort provider/type extraction from an ARM id when the event
-    omits ``resourceType`` (rare). Returns e.g.
-    ``Microsoft.Compute/virtualMachines`` from
-    ``/subscriptions/.../providers/Microsoft.Compute/virtualMachines/vm-a``.
-    """
-    marker = "/providers/"
-    idx = arm_id.lower().rfind(marker.lower())
-    if idx == -1:
-        return None
-    tail = arm_id[idx + len(marker) :].split("/")
-    if len(tail) < 2:
-        return None
-    return f"{tail[0]}/{tail[1]}"
 
 
 __all__ = [

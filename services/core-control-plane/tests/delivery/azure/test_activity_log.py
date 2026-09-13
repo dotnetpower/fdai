@@ -128,6 +128,8 @@ async def test_resume_cursor_builds_filter_and_maps_event() -> None:
     assert rec.props["providerType"] == arm_type
     assert rec.props["subscriptionId"] == "00000000-0000-0000-0000-000000000001"
     assert rec.props["resourceGroup"] == "rg-a"
+    assert rec.props["operationStatus"] == "Succeeded"
+    assert "status" not in rec.props
     assert len(page.links) == 1
     assert page.links[0].link_type == "contains"
     assert page.links[0].to_id == rec.resource_id
@@ -139,6 +141,44 @@ async def test_resume_cursor_builds_filter_and_maps_event() -> None:
     # last-page resume cursor is the newest event timestamp (no separator)
     assert "\x1f" not in (page.cursor or "")
     assert page.cursor.startswith("2026-07-10T06:00:00")
+
+
+@pytest.mark.asyncio
+async def test_activity_log_rejects_type_that_conflicts_with_the_arm_id() -> None:
+    arm_type = "Microsoft.Storage/storageAccounts"
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-a/providers/Microsoft.Compute/virtualMachines/vm-one"
+    )
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "resourceId": arm_id,
+                        "resourceType": {"value": arm_type},
+                        "operationName": {"value": f"{arm_type}/write"},
+                        "status": {"value": "Succeeded"},
+                        "eventTimestamp": "2026-07-10T06:00:00Z",
+                    }
+                ]
+            },
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    factory = AzureActivityLogFactory(
+        identity=_identity(),
+        resource_types=_vocab(),
+        http_client=client,
+        config=_config(),
+    )
+    try:
+        with pytest.raises(ActivityLogError, match="conflicts"):
+            await factory.build_fetch_fn()("")
+    finally:
+        await client.aclose()
 
 
 @pytest.mark.asyncio
@@ -382,6 +422,30 @@ async def test_failed_status_and_unknown_type_dropped() -> None:
                         "status": {"value": "Succeeded"},
                         "eventTimestamp": "2026-07-10T06:00:01Z",
                     },
+                    {
+                        "resourceId": (
+                            "/subscriptions/x/resourceGroups/rg/providers/"
+                            "Microsoft.App/agents/agent-one/DataConnectors/connector-one"
+                        ),
+                        "resourceType": {"value": "Microsoft.App/agents"},
+                        "status": {"value": "Succeeded"},
+                        "eventTimestamp": "2026-07-10T06:00:02Z",
+                    },
+                    {
+                        "resourceId": "/subscriptions/00000000-0000-0000-0000-000000000001",
+                        "resourceType": {"value": "Microsoft.Resources/checkPolicyCompliance"},
+                        "status": {"value": "Succeeded"},
+                        "eventTimestamp": "2026-07-10T06:00:03Z",
+                    },
+                    {
+                        "resourceId": (
+                            "/subscriptions/x/resourceGroups/rg/providers/"
+                            "Microsoft.Compute/virtualMachines"
+                        ),
+                        "resourceType": {"value": "Microsoft.Compute/virtualMachines"},
+                        "status": {"value": "Succeeded"},
+                        "eventTimestamp": "2026-07-10T06:00:04Z",
+                    },
                 ]
             },
         )
@@ -396,6 +460,41 @@ async def test_failed_status_and_unknown_type_dropped() -> None:
     assert page.relationship_reconciliation_after is None
 
     assert page.resources == ()
+
+
+@pytest.mark.asyncio
+async def test_resource_group_event_alias_maps_to_the_canonical_scope_type() -> None:
+    arm_id = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-a"
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "resourceId": arm_id,
+                        "resourceType": {
+                            "value": "Microsoft.Resources/subscriptions/resourcegroups"
+                        },
+                        "operationName": {
+                            "value": "Microsoft.Resources/subscriptions/resourcegroups/write"
+                        },
+                        "status": {"value": "Succeeded"},
+                        "eventTimestamp": "2026-07-10T06:00:00Z",
+                    }
+                ]
+            },
+        )
+
+    factory, client, _ = _factory(handler)
+    try:
+        page = await factory.build_fetch_fn()("")
+    finally:
+        await client.aclose()
+
+    assert len(page.resources) == 1
+    assert page.resources[0].type == "resource-group"
+    assert page.resources[0].props["providerType"] == "Microsoft.Resources/resourceGroups"
 
 
 @pytest.mark.asyncio

@@ -141,6 +141,7 @@ async def forward_recovery_deltas(
                 event_bus=event_bus,
                 topic=topic,
                 scope=scope,
+                properties_complete=False,
             )
     return published
 

@@ -25,6 +25,10 @@ several same-name sources only when distinct opaque `scope_digest` values qualif
 Provider-native type coverage is another separate active-generation evidence object. It reports
 reconciled mapped and unmapped counts, bounded unknown type names, capture method, and provider
 identity completeness without becoming an operational, provisioning, or availability value.
+Broad language query categories do not alter exact Resource types or state applicability.
+`search-service` remains independently addressable and does not join the generic `database` group.
+Any category change must preserve the exact bilingual group-membership contract and pass an
+independent semantic review.
 Every current instance-detail response includes explicit `runtime_call_graph` and
 `postgres_role_evidence` source states. The Console decoder rejects either missing source instead
 of presenting omission as availability or measured zero. The Operator reader also rejects a
@@ -112,6 +116,8 @@ It accepts bounded `limit`, optional `search`, and a continuation `cursor`.
 Dashboard loads bounded pages, rejects duplicate records and changing totals/cutoffs/releases, and
 caps accumulation at 20,000 records under a total deadline. Reaching that bound is explicit partial
 coverage. A transport or schema failure is not converted into an empty inventory or a graph fallback.
+Only a typed inventory or ontology generation transition restarts the entire bounded traversal,
+discarding every accumulated page; two delayed retries share the original total deadline.
 Display filters and local pages operate on this received set; the server query remains the authority.
 
 ## Unified state ingestion and readers
@@ -126,11 +132,21 @@ Resource Changes hydration, and Activity Log deltas. The local authoritative ref
 long-running collector compose the same ordered runtime-call, Resource Health, Static Web App, and
 Kubernetes enrichment pipeline. An unavailable or unsupported source records its limitation and
 never derives health from provisioning state.
+An Activity Log row is omitted before state projection when either its identity-derived type or its
+normalized supplied type is outside the reviewed ResourceType vocabulary. When both are reviewed,
+the supplied type must match the exact provider or built-in scope shape encoded by its ARM ID.
+Omitted rows advance the provider cursor without creating a reconciliation marker; a mapped
+contradiction fails before the final cursor fence.
+Provider collection paths that end at a type without its resource-name segment are not Resource
+identities and cannot contribute a state observation.
 
 The promoted Resource fact is written to both the current `ontology_resource` Resource and the
 Operator-readable inventory projection under one generation fence. Core conversational functions
 read the ontology instance. Operator instance and batch-state reads use the service-approved
 projection of the same fact because the Operator role has no direct Core-table access.
+Catalog evidence health joins inventory completion time, projection status, and projection manifest
+only when both projection records name the active inventory generation. A mismatch is explicit
+unavailable evidence; it never combines timestamps or counts from different generations.
 
 State transition recording is independent of relationship completeness. A complete object
 observation can advance operational or availability state history even when an unrelated topology
@@ -148,9 +164,10 @@ the exact ResourceTypes whose ARM type is supported:
   machines, VM scale sets, Web Apps, and AKS clusters.
 - Data and platform coverage includes alert rules, API Management, Event Hubs, Azure AI service
   accounts, Log Analytics and metrics workspaces, MySQL, PostgreSQL, Azure SQL, Cosmos DB, Redis
-  Enterprise, Key Vault, Service Bus, and Storage accounts.
+  Enterprise, Key Vault, Service Bus, Storage accounts, managed Grafana, Prometheus rule groups,
+  and managed search services.
 - Network coverage includes Application Gateway, DNS Resolver and inbound endpoints, DNS zones,
-  Azure Firewall, Load Balancer, NAT Gateway, and Virtual Network Gateway.
+  Azure Firewall, Bastion hosts, Load Balancer, NAT Gateway, and Virtual Network Gateway.
 - `log-workspace` and several platform types have no single operational running state. Their
   operational axis remains not applicable or not exposed, while availability uses the exact ARM
   Resource Health status.
@@ -167,12 +184,20 @@ the exact ResourceTypes whose ARM type is supported:
   evidence cutoff. A successful HTTP response or parent-resource existence never implies `Ready`.
 - A failed, unauthorized, malformed, partial, or stale state read records the exact source
   limitation and never substitutes `provisioningState`, existence, or a previous unqualified value.
+- Every canonical ResourceType has a reviewed availability outcome: an exact Resource Health
+  source, not applicable, or no availability fact exposed by the current provider contract.
+  Downstream custom types remain explicitly unreviewed.
 - When a Resource Health target has no retained prior fact, its missing availability value carries
   exactly one allowlisted per-resource reason such as `resource_health_not_modeled`; provider response text
   never crosses the read boundary. A retained verified value remains authoritative over the newer
   failed read while source-level partial coverage records that failure.
-- Exact reads are bounded to 200 targets with concurrency eight. Prior qualified facts are read in
-  generation-consistent batches and retained when the target bound or provider is unavailable.
+- Promotion accepts an unavailable-only enrichment only when it names the exact
+  `availabilityState` axis with an allowlisted reason. It requires provider metadata only when an
+  actual state fact is present.
+- Exact reads are bounded to the first 200 targets in stable Resource identity order with concurrency
+  eight. Remaining targets retain a prior qualified fact or carry
+  `resource_health_target_limit`; source coverage reports the bounded remainder instead of
+  abandoning the entire generation.
 - One shared service contract, `fdai_service_contracts.recorded_resource_state`, defines the
   reviewed ResourceType path allowlist for both Core ontology projection and Operator reads. Each
   projection applies that allowlist to root and supported nested property owners before inspecting
@@ -229,9 +254,15 @@ the exact ResourceTypes whose ARM type is supported:
 - Expanded Resource Health validation compares target, value, and metadata counts by ResourceType.
   Provider-unmodeled targets stay explicit and require an independent operational fact before a
   compact node can show operation.
+- Local data-path validation requires one stable active generation, complete provider-type
+  accounting, zero missing inventory-to-ontology Resources or state values, and explicit
+  unavailable reasons. Authenticated browser validation remains a separate presentation check.
 - Runtime primary-state validation includes configuration Resources with no operational or
   availability source. These nodes show exact provisioning when present and retain explicit
   evidence-gap labeling only when every recorded axis lacks a useful exact fact.
+- A state-ingestion hardening completion claim records each bounded review round and requires an
+  independent follow-up across static gates and live-discovered boundary fixes with no unresolved
+  Critical, High, or Medium finding.
 
 ## Rejected alternatives
 

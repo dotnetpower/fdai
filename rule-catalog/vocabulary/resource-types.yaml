@@ -27,7 +27,7 @@
 #
 # All values are English, secret-free, and customer-agnostic.
 schema_version: "1.0.0"
-version: "0.4.0"
+version: "0.5.1"
 category_query_terms:
   database: [database, databases, db, dbs, 데이터베이스, 디비]
 query_groups:
@@ -45,6 +45,16 @@ types:
     azure_arm_type: Microsoft.Compute/virtualMachines
     query_terms: [virtual machine, virtual machines, vm, vms, 가상 머신, 가상머신, 가상 머신들, 가상머신들]
     typical_parents: [resource-group]
+  - id: compute.vm-extension
+    category: compute
+    description: Extension installed on one virtual machine.
+    azure_arm_type: Microsoft.Compute/virtualMachines/extensions
+    typical_parents: [compute.vm]
+  - id: compute.vm-run-command
+    category: compute
+    description: Provider-managed command execution resource attached to one virtual machine.
+    azure_arm_type: Microsoft.Compute/virtualMachines/runCommands
+    typical_parents: [compute.vm]
   - id: compute.vm-shutdown-schedule
     category: compute
     description: Recurring provider schedule that shuts down one virtual machine.
@@ -236,6 +246,26 @@ types:
     azure_arm_type: Microsoft.Logic/workflows
     query_terms: [logic app, logic apps, 로직 앱, 로직앱]
     typical_parents: [resource-group]
+  - id: workflow.api-connection
+    category: compute
+    description: Managed API connection used by a workflow application.
+    azure_arm_type: Microsoft.Web/connections
+    typical_parents: [resource-group]
+  - id: bot-service
+    category: compute
+    description: Managed conversational bot endpoint and channel configuration.
+    azure_arm_type: Microsoft.BotService/botServices
+    typical_parents: [resource-group]
+  - id: ai-project
+    category: compute
+    description: Managed AI project boundary beneath one AI service account.
+    azure_arm_type: Microsoft.CognitiveServices/accounts/projects
+    typical_parents: [llm-endpoint]
+  - id: web-search-service
+    category: compute
+    description: Legacy managed web search API account retained for inventory visibility.
+    azure_arm_type: Microsoft.Bing/accounts
+    typical_parents: [resource-group]
 
   # ── networking ────────────────────────────────────────────────────────
   - id: network.vnet
@@ -338,6 +368,21 @@ types:
     description: VPN or ExpressRoute gateway attached to a virtual network.
     azure_arm_type: Microsoft.Network/virtualNetworkGateways
     typical_parents: [resource-group]
+  - id: network.bastion-host
+    category: network
+    description: Managed secure remote-access gateway for virtual machines.
+    azure_arm_type: Microsoft.Network/bastionHosts
+    typical_parents: [resource-group]
+  - id: network.private-access-scope
+    category: network
+    description: Private access scope for monitoring resources and private endpoints.
+    azure_arm_type: Microsoft.Insights/privateLinkScopes
+    typical_parents: [resource-group]
+  - id: network.registered-domain
+    category: network
+    description: Registered internet domain managed as a provider resource.
+    azure_arm_type: Microsoft.DomainRegistration/domains
+    typical_parents: [resource-group]
   - id: diagnostic-settings
     category: observability
     description: Binding routing platform logs / metrics of a target to a log-workspace.
@@ -439,6 +484,16 @@ types:
     description: TLS or code-signing certificate managed by a secret-store.
     azure_arm_type: Microsoft.KeyVault/vaults/certificates
     typical_parents: [secret-store]
+  - id: managed-certificate
+    category: security
+    description: Provider-managed certificate attached to a container app environment.
+    azure_arm_type: Microsoft.App/managedEnvironments/managedCertificates
+    typical_parents: [compute.container-app-environment]
+  - id: ssh-public-key
+    category: security
+    description: Public SSH credential material managed as a cloud resource.
+    azure_arm_type: Microsoft.Compute/sshPublicKeys
+    typical_parents: [resource-group]
 
   # ── observability ────────────────────────────────────────────────────
   - id: log-workspace
@@ -479,6 +534,56 @@ types:
     description: Notification and automation fan-out target an alert rule invokes.
     azure_arm_type: Microsoft.Insights/actionGroups
     query_terms: [action group, action groups, 작업 그룹, 액션 그룹]
+    typical_parents: [resource-group]
+  - id: prometheus-rule-group
+    category: observability
+    description: Managed Prometheus recording and alert rule group.
+    azure_arm_type: Microsoft.AlertsManagement/prometheusRuleGroups
+    typical_parents: [resource-group]
+  - id: anomaly-alert-rule
+    category: observability
+    description: Smart detector alert rule driven by anomaly detection.
+    azure_arm_type: Microsoft.AlertsManagement/smartDetectorAlertRules
+    typical_parents: [resource-group]
+  - id: metric-alert-rule
+    category: observability
+    description: Metric condition and action definition for provider alerts.
+    azure_arm_type: Microsoft.Insights/metricAlerts
+    typical_parents: [resource-group]
+  - id: managed-sre-agent
+    category: observability
+    description: Managed site-reliability agent and its operating configuration.
+    azure_arm_type: Microsoft.App/agents
+    typical_parents: [resource-group]
+  - id: observability.dashboard-service
+    category: observability
+    description: Managed dashboard and visualization service.
+    azure_arm_type: Microsoft.Dashboard/grafana
+    typical_parents: [resource-group]
+  - id: observability.network-monitor
+    category: observability
+    description: Provider network monitoring resource for regional diagnostics.
+    azure_arm_type: Microsoft.Network/networkWatchers
+    typical_parents: [resource-group]
+  - id: observability.query-pack
+    category: observability
+    description: Managed collection of reusable log queries.
+    azure_arm_type: Microsoft.OperationalInsights/queryPacks
+    typical_parents: [resource-group]
+  - id: observability.solution
+    category: observability
+    description: Legacy monitoring solution registration retained for inventory visibility.
+    azure_arm_type: Microsoft.OperationsManagement/solutions
+    typical_parents: [resource-group]
+  - id: observability.dashboard
+    category: observability
+    description: Shared portal dashboard definition.
+    azure_arm_type: Microsoft.Portal/dashboards
+    typical_parents: [resource-group]
+  - id: observability.workbook
+    category: observability
+    description: Reusable monitoring workbook and visualization definition.
+    azure_arm_type: Microsoft.Insights/workbooks
     typical_parents: [resource-group]
   - id: llm-endpoint
     category: compute
@@ -544,8 +649,18 @@ types:
     description: Sender domain attached to a managed email service.
     azure_arm_type: Microsoft.Communication/EmailServices/Domains
     typical_parents: [email-service]
+  - id: search-service
+    category: compute
+    description: Managed search index and query service.
+    azure_arm_type: Microsoft.Search/searchServices
+    typical_parents: [resource-group]
 
   # ── governance / scope ───────────────────────────────────────────────
+  - id: devops-account
+    category: governance
+    description: Legacy development-operations account link retained for inventory visibility.
+    azure_arm_type: Microsoft.VisualStudio/account
+    typical_parents: [resource-group]
   - id: resource-group
     category: governance
     description: Logical grouping of resources under one lifecycle. Root of the `contains` chain from `subscription`.
