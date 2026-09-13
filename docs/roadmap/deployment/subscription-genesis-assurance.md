@@ -165,7 +165,7 @@ from routes; declared VNet, peer, gateway ranges and non-default routes remain c
 Missing/malformed evidence blocks selection. Fewer than two candidates reports only available and
 required counts with a review action. Selection never edits routes/firewalls or proves reachability.
 
-Standalone uses the verified bundle, not the checkout. Fixes need a rebuilt signed kit;
+Standalone uses the verified bundle, not the checkout. Its exact policy/module file set rejects changed, missing, or extra bytes. Fixes need a rebuilt signed kit;
 editing extracted sources or disabling verification is unsupported.
 
 The profile verifies operator-through-VPN and runner-to-service paths; VPN grants no deployment
