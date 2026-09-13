@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import type { OperatorApiClient } from "../api";
+import { OperatorApiError } from "../api-transport";
 import { decodeRecordedResourceStates } from "../recorded-resource-state";
 import { loadDashboardRecordedStates } from "./dashboard-v2.loading";
 import { dashboardResourceState } from "./dashboard-v2.model";
@@ -120,6 +121,61 @@ describe("shared recorded state consumption", () => {
       operational: { ...fact("Running", "properties.runningStatus"), freshness: "stale", conflicts: ["conflicting_source"], reason: "conflict" },
     });
     expect(states.operational).toMatchObject({ value: "Running", freshness: "stale", conflicts: ["conflicting_source"] });
+  });
+
+  test.each(["inventory_generation_changed", "ontology_generation_changed"])(
+    "restarts the whole snapshot after a typed %s transition",
+    async (message) => {
+      const panel = vi.fn<OperatorApiClient["panel"]>()
+        .mockRejectedValueOnce(new OperatorApiError(409, message))
+        .mockResolvedValueOnce(page(["one"]));
+      const waitForRetry = vi.fn(async () => undefined);
+
+      const snapshot = await loadDashboardRecordedStates(
+        { panel },
+        () => false,
+        waitForRetry,
+      );
+
+      expect(snapshot?.resources.map((item) => item.id)).toEqual(["one"]);
+      expect(panel).toHaveBeenCalledTimes(2);
+      expect(waitForRetry).toHaveBeenCalledWith(250);
+    },
+  );
+
+  test("discards partial pages before retrying a generation transition", async () => {
+    const panel = vi.fn<OperatorApiClient["panel"]>()
+      .mockResolvedValueOnce(page(["old"], "old-next", 2))
+      .mockRejectedValueOnce(new OperatorApiError(409, "inventory_generation_changed"))
+      .mockResolvedValueOnce(page(["new"]));
+
+    const snapshot = await loadDashboardRecordedStates(
+      { panel },
+      () => false,
+      async () => undefined,
+    );
+
+    expect(snapshot?.resources.map((item) => item.id)).toEqual(["new"]);
+    expect(panel.mock.calls).toEqual([
+      ["/ontology/instances/states", { limit: "500" }],
+      ["/ontology/instances/states", { limit: "500", cursor: "old-next" }],
+      ["/ontology/instances/states", { limit: "500" }],
+    ]);
+  });
+
+  test("keeps a persistent generation transition visible after bounded retries", async () => {
+    const error = new OperatorApiError(409, "ontology_generation_changed");
+    const panel = vi.fn<OperatorApiClient["panel"]>().mockRejectedValue(error);
+    const waitForRetry = vi.fn(async () => undefined);
+
+    await expect(loadDashboardRecordedStates(
+      { panel },
+      () => false,
+      waitForRetry,
+    )).rejects.toBe(error);
+
+    expect(panel).toHaveBeenCalledTimes(3);
+    expect(waitForRetry.mock.calls).toEqual([[250], [500]]);
   });
 
   test("rejects invalid state-fact fields instead of synthesizing metadata", () => {
