@@ -29,6 +29,7 @@ that applies before Terraform changes infrastructure or role assignments.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-13 | implemented | Reverify local archive and directory retries against the retained exact snapshot while creating a fresh execution copy and preserving previous evidence. | `current change`; two reproduced retry failures and four offline retry/tamper checks; owning acquisition suite. | Deliver the new CLI; retained partial applies still need separately approved recovery. |
 | 2026-09-13 | implemented | Reject non-Linux POSIX hosts before either artifact acquisition mode, rather than treating x64 macOS or FreeBSD as Linux. | `current change`; five focused host-boundary regressions, including the four previously failing cases. | Publish the corrected CLI; Azure convergence remains separate. |
 | 2026-09-12 | implemented | Restricted tenant provisioning to manual transport, removed workflow dispatch from the public CLI, allowed token-free observation-only installation, and added an OCI deployment appliance entry point. | `current change`; deployment CLI contracts, standalone modules, appliance scripts, and focused tests | Build one clean appliance and retain connected and artifact-offline Azure deployment receipts. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Corrected inspection, profile persistence, and offline verification from implemented to their evidence-backed current states. | current change; package metadata, bootstrap source, release scripts, and focused workflow checks listed in the scope table | Create the CLI package, restore offline verification, complete trust bootstrap, and validate the full lifecycle. |
@@ -83,6 +84,8 @@ repository variable, repository secret, workflow dispatch, or GitHub runner regi
 mode downloads one versioned complete kit over bounded HTTPS. Offline mode reads that same kit
 format from a local path and blocks every public artifact fallback. Offline means artifact-offline,
 not disconnected from the selected Azure control plane or Bastion endpoint.
+Offline retries reread the supplied source, reverify the retained snapshot, and use a fresh
+execution copy without replacing earlier state. Changed or incomplete bytes stop the retry.
 
 The package pins the release and bundle verification roots independently from the kit. A complete
 kit contains the deployment bundle, Terraform and OPA, the provider mirror, runtime OCI archives,

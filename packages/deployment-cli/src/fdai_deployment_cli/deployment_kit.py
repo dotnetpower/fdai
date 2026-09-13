@@ -96,7 +96,8 @@ def acquire_deployment_kit(
 
     Online mode downloads once, then fully revalidates retained inputs from the same source
     request on retry. Artifact-offline mode accepts only the supplied local directory or archive
-    and performs no network fallback. Release and bundle roots always come from the package.
+    and rereads that source on retry without replacing earlier execution copies or falling back
+    to the network. Release and bundle roots always come from the package.
     Cached bytes never bypass verification, authorize an effect, or replace prior run evidence.
     """
 
@@ -145,6 +146,8 @@ def _acquire_deployment_kit(
         if stat.S_ISDIR(details.st_mode):
             kit_root = source
         elif stat.S_ISREG(details.st_mode):
+            if path_present(kit_root):
+                kit_root = Path(tempfile.mkdtemp(prefix="offline-source-", dir=work_dir)) / "kit"
             _extract_kit_archive(source, kit_root)
         else:
             raise ValueError("offline kit must be a regular archive or directory")
@@ -167,7 +170,7 @@ def _acquire_deployment_kit(
     ):
         raise ValueError("complete deployment kit requires runtime migration support wheels")
     materialized = work_dir / "verified"
-    if online and path_present(materialized):
+    if path_present(materialized):
         progress_detail("Rechecking every retained verified artifact")
         artifacts = verify_retained_artifacts(materialized, verification)
     else:
@@ -193,7 +196,7 @@ def _acquire_deployment_kit(
     validate_runtime_images(materialized, runtime)
     bundle_root = extract_bundle_archive(
         artifacts.deployment_bundle,
-        execution_bundle_destination(work_dir) if online else work_dir / "bundle",
+        execution_bundle_destination(work_dir),
     )
     bundle = verify_bundle(
         bundle_root,

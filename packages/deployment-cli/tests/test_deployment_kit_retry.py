@@ -344,3 +344,47 @@ def test_retry_extraction_never_follows_an_archive_symlink(tmp_path):
     assert original.read_bytes() == b"untrusted"
     assert linked.is_symlink()
     assert not (tmp_path / "kit").exists()
+
+
+@pytest.mark.parametrize("source_kind", ["directory", "archive"])
+def test_offline_retry_reverifies_without_replacing_prior_execution(
+    online_release, release, tmp_path, source_kind
+):
+    work, requests, payload = online_release
+    source = release[0]
+    if source_kind == "archive":
+        source = tmp_path / "local-kit.tar.gz"
+        source.write_bytes(payload)
+        source.chmod(0o600)
+    first = deployment_kit.acquire_deployment_kit(work_dir=work, online=False, offline_kit=source)
+    state = first.bundle_root / "retained-state.json"
+    state.write_bytes(b"keep prior evidence")
+    second = deployment_kit.acquire_deployment_kit(work_dir=work, online=False, offline_kit=source)
+    assert requests == []
+    assert first.verification == second.verification
+    assert first.materialized_root == second.materialized_root
+    assert first.bundle_root != second.bundle_root
+    assert state.read_bytes() == b"keep prior evidence"
+    assert not (second.bundle_root / state.name).exists()
+
+
+@pytest.mark.parametrize("source_kind", ["directory", "archive"])
+def test_offline_retry_rejects_changed_source_without_fallback(
+    online_release, release, tmp_path, source_kind
+):
+    work, requests, payload = online_release
+    source = release[0]
+    if source_kind == "archive":
+        source = tmp_path / "local-kit.tar.gz"
+        source.write_bytes(payload)
+        source.chmod(0o600)
+    first = deployment_kit.acquire_deployment_kit(work_dir=work, online=False, offline_kit=source)
+    original = (first.materialized_root / "bin/opa").read_bytes()
+    if source_kind == "directory":
+        (source / "bin/opa").write_bytes(b"changed local artifact")
+    else:
+        source.write_bytes(b"truncated archive")
+    with pytest.raises(ValueError):
+        deployment_kit.acquire_deployment_kit(work_dir=work, online=False, offline_kit=source)
+    assert requests == []
+    assert (first.materialized_root / "bin/opa").read_bytes() == original

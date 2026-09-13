@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: e36e0ce642fa922a9f11b773f4c02fd3d3262d27
+translation_source_sha: ddb90740f34e94e7da103581ff4a06446ad2b71d
 translation_revised: 2026-09-13
 ---
 # 프로비저닝 실행 프로파일
@@ -32,6 +32,7 @@ translation_revised: 2026-09-13
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-13 | implemented | 로컬 압축 파일과 디렉터리 재시도에서 보존된 정확한 스냅샷을 다시 검증하고 새 실행 복사본을 만들며 이전 근거를 보존합니다. | `current change`, 재현한 재시도 실패 두 건, 오프라인 재시도 및 변조 검사 네 개, 획득 경계 집중 테스트 | 새 CLI를 전달해야 하며 기존 부분 적용은 별도 승인을 거친 복구가 필요합니다. |
 | 2026-09-13 | implemented | x64 macOS나 FreeBSD를 Linux로 취급하지 않고 두 아티팩트 획득 모드 모두에서 Linux가 아닌 POSIX 호스트를 먼저 차단합니다. | `current change`, 이전에 실패한 네 사례를 포함한 호스트 경계 회귀 테스트 다섯 개 | 수정된 CLI를 게시해야 하며 Azure 수렴 검증은 별도입니다. |
 | 2026-09-12 | implemented | 대상 환경 프로비저닝을 manual 전송 계층으로 제한하고, 공개 CLI에서 workflow dispatch를 제거하고, 토큰 없는 관찰 전용 설치를 허용하고, OCI 배포 어플라이언스 진입점을 추가했습니다. | `current change`, 배포 CLI 계약, standalone 모듈, 어플라이언스 스크립트 및 집중 테스트 | 깨끗한 어플라이언스 하나를 빌드하고 연결 및 아티팩트 오프라인 Azure 배포 증적을 보존합니다. |
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 점검, 프로파일 영속성 및 offline 검증을 근거에 맞는 현재 상태로 바로잡았습니다. | 현재 변경과 구현 범위 표에 기재한 패키지 메타데이터, bootstrap 소스, release 스크립트 및 집중 작업 흐름 검사 | CLI 패키지를 만들고 offline 검증을 복원하며 trust 초기화를 완료한 뒤 전체 수명 주기를 검증해야 합니다. |
@@ -87,6 +88,9 @@ dispatch 또는 GitHub runner 등록이 필요하지 않습니다. Online 모드
 경로에서 읽고 모든 공개 아티팩트 대체 경로를 차단합니다. 여기서 offline은 아티팩트가
 오프라인이라는 뜻이며 선택한 Azure control plane 또는 Bastion 엔드포인트와 단절된다는 뜻은
 아닙니다.
+
+오프라인 재시도는 지정한 출처를 다시 읽고 보존된 스냅샷을 재검증하며 이전 상태를 교체하지 않고
+새 실행 복사본을 사용합니다. 바이트가 바뀌거나 불완전하면 재시도를 중단합니다.
 
 패키지는 키트와 별도로 release 및 bundle 검증 루트를 고정합니다. 완전한 키트에는 배포
 bundle, Terraform과 OPA, provider mirror, runtime OCI archive, Console 콘텐츠, migration 지원
