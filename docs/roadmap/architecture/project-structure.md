@@ -617,8 +617,7 @@ only when its rule id, action type, and fixed check reference still match. Idemp
   no-authority result. An accepted bound incident intent builds its frame and plan deterministically
   without another model call. Any remaining incident frame-model path receives only the `Incident`
   and `query.incident_evidence` descriptors; the complete principal manifest remains authoritative
-  for final plan verification. Both the server plan builder and final alignment check require a
-  `select` frame with `Incident` as its only subject before the specialized read can run.
+  for final plan verification.
   Resource discovery similarly separates immutable `DiscoveryIntent`, `DiscoveryQueryPlan`,
   provider observations, execution receipts, command explanations, and coverage receipts. Core
   compares only provider-neutral scope, predicate, output, completeness, and equivalence fields;

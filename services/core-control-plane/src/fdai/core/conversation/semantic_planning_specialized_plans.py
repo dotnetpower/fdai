@@ -101,12 +101,7 @@ def build_anchored_incident_plan(
 ) -> OntologyQueryPlan | None:
     """Build the anchored incident read from the binding, never from a proposal."""
 
-    if (
-        bound_incident is None
-        or frame.operation is not SemanticOperation.SELECT
-        or frame.subject_constraints != ("Incident",)
-        or frame.output_shape != SemanticOutputShape.INCIDENT_EVIDENCE
-    ):
+    if bound_incident is None or frame.output_shape != SemanticOutputShape.INCIDENT_EVIDENCE:
         return None
     if not any(
         item.get("kind") == "function" and item.get("name") == INCIDENT_EVIDENCE_FUNCTION_NAME
