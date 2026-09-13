@@ -5,6 +5,13 @@
   const esc = P.escape;
   const collapsed = new Set();
   const clock = (time) => time.slice(11, 19);
+  const stageLabels = {
+    "read.target-resolved": "Target and scope resolved",
+    "read.graph-queried": "Relationships queried",
+    "read.evidence-verified": "Evidence verified",
+    "read.answer-recorded": "Answer recorded"
+  };
+  const stageLabel = (action) => stageLabels[action] || action;
   function groupsFor(items, agent) {
     const buckets = new Map();
     items.forEach((item) => {
@@ -38,7 +45,7 @@
           const width = Math.min(Math.max((next - offset) / denominator * 100, 2.5), 100 - left);
           return '<div class="ap-waterfall-row' + (selectedAgent && row.agent !== selectedAgent ? " is-context" : "") + '"><span class="ap-waterfall-agent">' + row.agent +
             '</span><div class="ap-waterfall-track" aria-hidden="true"><span class="ap-waterfall-bar" style="left:' + left + "%;width:" + width + '%"></span></div>' +
-            '<button type="button" class="ap-waterfall-open" data-step="' + row.seq + '" aria-pressed="' + String(step === row.seq) + '"><span>' + esc(row.action) + "</span><small>" + clock(row.time) + " UTC / +" + (offset / 1000).toFixed(1) + "s" + (row.conversation ? " / conversation" : "") + "</small></button></div>";
+            '<button type="button" class="ap-waterfall-open" data-step="' + row.seq + '" aria-pressed="' + String(step === row.seq) + '"><span>' + esc(stageLabel(row.action)) + "</span><small><code>" + esc(row.action) + "</code> / " + clock(row.time) + " UTC / +" + (offset / 1000).toFixed(1) + "s" + (row.conversation ? " / conversation" : "") + "</small></button></div>";
         }).join("") + "</details>";
     }).join("") : '<div class="ap-empty"><strong>No audit records in this selection.</strong><p>' + (P.available() ? "Try another window or clear the filters. Operational-only correlations cannot be reconstructed as audit traces." : "Audit evidence is unavailable in this source scenario, not confirmed empty.") + "</p></div>";
     const selected = groups.flatMap((group) => group.rows).find((row) => row.seq === step);
@@ -53,7 +60,7 @@
       return;
     }
     panel.innerHTML = '<header class="ap-section-head"><h2 tabindex="-1">' + item.agent + " / audit step " + item.seq + '</h2><button type="button" data-close-step aria-label="Close audit step">Close</button></header>' +
-      '<p><strong>' + esc(item.action) + "</strong></p><p>" + esc(item.summary) + "</p>" +
+      '<p><strong>' + esc(stageLabel(item.action)) + "</strong> <code>" + esc(item.action) + "</code></p><p>" + esc(item.summary) + "</p>" +
       P.fields([["Evidence", "Synthetic audit; fixture only"], ["Mode", item.mode], ["Tier", item.tier || "Not supplied"], ["Outcome", item.outcome], ["Reason", item.reason || "See the recorded fixture summary"], ["Correlation", item.correlation || "Uncorrelated"]]) +
       '<h3>Lifecycle</h3><ol class="ap-lifecycle"><li><strong>Received</strong><small>Not supplied</small></li><li><strong>Started</strong><small>Not supplied</small></li><li><strong>Recorded</strong><small>' + esc(item.time) + "</small></li></ol>" +
       '<p class="ap-meta">Fixture work: ' + item.duration + "ms / queue: " + item.queue + "ms. Handoff bar width is not work duration.</p>" +

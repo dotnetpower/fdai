@@ -1,4 +1,4 @@
-// Candidate colors are isolated to this specimen; shared light tokens are read, never overwritten.
+// Current light and dark colors are isolated to this specimen; shared tokens are read, never overwritten.
 (function () {
   "use strict";
 
@@ -34,8 +34,8 @@
 
   window.FdaiPalette = Object.freeze({ contrastRatio });
   const study = document.getElementById("colors");
-  const rootStyles = getComputedStyle(document.documentElement);
-  const candidateStyles = getComputedStyle(study.querySelector('[data-palette="fresh"]'));
+  const rootStyles = getComputedStyle(document.body);
+  const darkStyles = getComputedStyle(study.querySelector('[data-palette="dark"]'));
   const roles = [
     { key: "bg", label: "Page background", token: "--cs-bg" },
     { key: "card", label: "Answer surface", token: "--cs-card" },
@@ -48,18 +48,20 @@
     { key: "amber", label: "Attention", token: "--cs-terracotta" },
     { key: "red", label: "Failure", token: "--cs-dusty-red" },
     { key: "purple", label: "Model / category", token: "--cs-plum" },
-    { key: "question", label: "Question background", derived: "blue", candidateToken: "--cs-question-bg" },
-    { key: "green-wash", label: "Success background", derived: "green", candidateToken: "--cs-success-bg" },
-    { key: "amber-wash", label: "Attention background", derived: "amber", candidateToken: "--cs-attention-bg" },
-    { key: "red-wash", label: "Failure background", derived: "red", candidateToken: "--cs-failure-bg" },
+    { key: "question", label: "Question background", derived: "blue", themeToken: "--cs-question-bg" },
+    { key: "green-wash", label: "Success background", derived: "green", themeToken: "--cs-success-bg" },
+    { key: "amber-wash", label: "Attention background", derived: "amber", themeToken: "--cs-attention-bg" },
+    { key: "red-wash", label: "Failure background", derived: "red", themeToken: "--cs-failure-bg" },
   ];
-  const palettes = { current: {}, fresh: {} };
+  const palettes = { current: {}, dark: {} };
   for (const role of roles) {
-    const value = role.token
-      ? rootStyles.getPropertyValue(role.token).trim()
-      : `color-mix(in srgb, ${palettes.current[role.derived]} 10%, ${palettes.current.card})`;
-    palettes.current[role.key] = hex(value);
-    palettes.fresh[role.key] = hex(candidateStyles.getPropertyValue(role.token || role.candidateToken).trim());
+    for (const [name, styles] of [["current", rootStyles], ["dark", darkStyles]]) {
+      const themeValue = role.themeToken ? styles.getPropertyValue(role.themeToken).trim() : "";
+      const value = role.token
+        ? styles.getPropertyValue(role.token).trim()
+        : themeValue || `color-mix(in srgb, ${palettes[name][role.derived]} 10%, ${palettes[name].card})`;
+      palettes[name][role.key] = hex(value);
+    }
   }
 
   function element(tag, className, text) {
@@ -114,9 +116,9 @@
     title.scope = "row";
     title.appendChild(element("code", "", role.token || `${role.derived} tint (sample)`));
     row.appendChild(title);
-    ["current", "fresh"].forEach((name) => {
+    ["current", "dark"].forEach((name) => {
       const cell = element("td");
-      cell.dataset.label = name === "current" ? "Current" : "Clear neutral";
+      cell.dataset.label = name === "current" ? "Light" : "Dark";
       const swatch = element("span", "cp-token-swatch");
       swatch.style.setProperty("--cp-swatch", palettes[name][role.key]);
       swatch.setAttribute("aria-hidden", "true");
@@ -141,13 +143,13 @@
     const title = element("th", "", pair.label);
     title.scope = "row";
     row.appendChild(title);
-    ["current", "fresh"].forEach((name) => {
+    ["current", "dark"].forEach((name) => {
       const palette = palettes[name];
       const ratio = contrastRatio(palette[pair.text], palette[pair.bg]);
       const cell = element("td");
       cell.dataset.ratio = String(ratio);
       cell.dataset.palettePair = name;
-      cell.dataset.label = name === "current" ? "Current" : "Clear neutral";
+      cell.dataset.label = name === "current" ? "Light" : "Dark";
       cell.appendChild(element("strong", "", `${ratio.toFixed(2)}:1`));
       cell.appendChild(element("span", "", ratio >= 4.5 ? "Meets 4.5:1" : "Below 4.5:1"));
       cell.dataset.result = ratio >= 4.5 ? "pass" : "below";

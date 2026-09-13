@@ -4574,7 +4574,7 @@ pre {
 
 /* Rule detail drawer -------------------------------------------------- */
 .drawer-overlay {
-  position: fixed; inset: 0; z-index: 50;
+  position: fixed; inset: 0; z-index: 120;
   background: color-mix(in oklab, #000 32%, transparent);
   display: flex; justify-content: flex-end;
 }

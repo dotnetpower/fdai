@@ -21,7 +21,7 @@
       (involved ? '<span class="ap-participation">In selected incident</span>' : "") + "</span></button>";
   }
   function incidentButton(incident) {
-    return '<button type="button" class="ap-incident" data-incident="' + incident.id + '" aria-pressed="' + String(incident.id === selectedId) + '"><span>' + incident.status + "</span><small>" + incident.ticket + "</small><strong>" + incident.title + "</strong><small>" + incident.severity + " severity</small><small>" + incident.updated + " UTC</small></button>";
+    return '<button type="button" class="ap-incident" data-incident="' + incident.id + '" aria-pressed="' + String(incident.id === selectedId) + '"><span>' + P.label(incident.status) + "</span><small>" + incident.ticket + "</small><strong>" + incident.title + "</strong><small>" + P.label(incident.severity) + " severity</small><small>" + incident.updated + " UTC</small></button>";
   }
   function renderFocus() {
     if (!selectedAgent) {
@@ -43,9 +43,9 @@
       return;
     }
     const completed = incident.status === "resolved" ? 3 : incident.status === "investigating" ? 2 : 1;
-    workflow.innerHTML = '<header class="ap-section-head"><h2>' + incident.ticket + '</h2><span class="ap-badge">' + incident.status + "</span></header><p><strong>" + incident.title + "</strong></p>" +
-      '<p class="ap-meta">' + incident.severity + " severity - " + (P.retained() ? "retained" : "synthetic") + " evidence - " + incident.updated + " UTC</p>" +
-      '<ol class="ap-steps" aria-label="Incident progress">' + ["Detect", "Ticket", "RCA", "Resolve"].map((label, index) => '<li' + (index === completed ? ' aria-current="step"' : "") + "><strong>" + label + "</strong><small>" + (index < completed || incident.status === "resolved" ? "complete" : index === completed ? "current" : "pending") + "</small></li>").join("") + "</ol>" +
+    workflow.innerHTML = '<header class="ap-section-head"><h2>' + incident.ticket + '</h2><span class="ap-badge">' + P.label(incident.status) + "</span></header><p><strong>" + incident.title + "</strong></p>" +
+      '<p class="ap-meta">' + P.label(incident.severity) + " severity - " + (P.retained() ? "retained" : "synthetic") + " evidence - " + incident.updated + " UTC</p>" +
+      '<ol class="ap-steps" aria-label="Incident progress">' + ["Detect", "Ticket", "RCA", "Resolve"].map((label, index) => '<li' + (index === completed ? ' aria-current="step"' : "") + "><strong>" + label + "</strong><small>" + P.label(index < completed || incident.status === "resolved" ? "complete" : index === completed ? "current" : "pending") + "</small></li>").join("") + "</ol>" +
       '<h3>Root cause</h3><p>' + (incident.rca || "Not established. Pending evidence or review; correlation alone does not establish causation.") + "</p>" +
       '<div class="ap-actions"><a class="ap-button" href="' + esc(P.href("agent-activity.html", { correlation: incident.id })) + '">Related activity</a><a class="ap-button" href="' + esc(P.href("agent-activity.html", { view: "waterfall", correlation: incident.id })) + '">Audit waterfall</a><button type="button" data-ask>Ask about incident</button></div>' +
       '<details open><summary>Agent collaboration (' + incident.turns.length + ')</summary><p class="ap-meta">Synthetic event-bus messages, not direct agent calls.</p><ol class="ap-conversation">' +

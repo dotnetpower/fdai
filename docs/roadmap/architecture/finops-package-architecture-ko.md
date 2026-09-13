@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 25cf0caf47555daf26a522faf4774e9fc7677de7
+translation_source_sha: 7ee34043604f2633e3ad836b3b525ea84ebf1d77
 translation_revised: 2026-09-13
 ---
 
@@ -316,6 +316,9 @@ Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 �
 수명 주기 영수증을 하나의 트랜잭션으로 추가합니다. 설치되지 않은 패키지를 설치하거나, 사용할 수
 없는 패키지를 사용할 수 있게 만들거나, 비용 데이터 접근 권한을 부여하거나, 작업을 승격할 수는
 없습니다.
+공유 Console 전송 계층은 명시적으로 분류된 source-gate 실패만 사용할 수 없는 변환 결과로
+처리합니다. 일반 `503`은 운영 오류로 유지하며 비용 거버넌스가 단순히 구성되지 않은 것처럼
+표시하는 데 사용할 수 없습니다.
 
 설치, 업그레이드 및 롤백은 비공개 배포 실행기의 별도 보호 워크플로를 사용합니다. 워크플로는
 수명 주기 함수를 호출하기 전에 보호된 `main`, 필수 CI, 정확한 release 소스, 서명된 이미지

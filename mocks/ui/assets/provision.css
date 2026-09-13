@@ -53,25 +53,25 @@
   align-items: center;
   padding: 3px 9px;
   border-radius: var(--cs-radius-pill);
-  color: var(--cs-steel);
+  color: var(--cs-text);
   background: color-mix(in srgb, var(--cs-steel) 12%, transparent);
-  font-size: var(--cs-type-caption-size);
+  font-size: var(--cs-type-label-size);
   font-weight: 700;
   text-transform: uppercase;
 }
 
 .pv-status.is-paused {
-  color: var(--cs-terracotta);
+  color: var(--cs-text);
   background: color-mix(in srgb, var(--cs-terracotta) 12%, transparent);
 }
 
 .pv-status.is-done {
-  color: var(--cs-sage);
+  color: var(--cs-text);
   background: color-mix(in srgb, var(--cs-sage) 12%, transparent);
 }
 
 .pv-status.is-attention {
-  color: var(--cs-terracotta);
+  color: var(--cs-text);
   background: color-mix(in srgb, var(--cs-terracotta) 12%, transparent);
 }
 
@@ -245,7 +245,7 @@
 .pv-stage-index {
   color: var(--cs-text-soft);
   font-family: var(--cs-font-mono);
-  font-size: var(--cs-type-caption-size);
+  font-size: var(--cs-type-label-size);
 }
 
 .pv-stage strong,

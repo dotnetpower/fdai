@@ -14,8 +14,8 @@
     .oi-source strong,.oi-source span { display:block; }
     .oi-source span { margin-top:3px; color:var(--cs-text-soft); font-size:11.5px; }
     .oi-tabs { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:2px; margin-bottom:12px; padding:3px; border:1px solid var(--cs-hairline); border-radius:8px; background:var(--cs-shade); }
-    .oi-tabs button { min-width:0; min-height:36px; padding:6px 8px; overflow:hidden; border:0; border-radius:6px; background:transparent; color:var(--cs-text-soft); font:700 11.5px var(--cs-font); text-overflow:ellipsis; white-space:nowrap; }
-    .oi-tabs button.is-active { background:var(--cs-card); color:var(--cs-text); outline:1px solid var(--cs-hairline); }
+    .oi-tabs a { display:flex; align-items:center; justify-content:center; min-width:0; min-height:36px; padding:6px 8px; overflow:hidden; border:0; border-radius:6px; background:transparent; color:var(--cs-text-soft); font:700 11.5px var(--cs-font); text-decoration:none; text-overflow:ellipsis; white-space:nowrap; }
+    .oi-tabs a.is-active { background:var(--cs-card); color:var(--cs-text); outline:1px solid var(--cs-hairline); }
     .oi-toolbar { display:grid; grid-template-columns:minmax(220px,.7fr) minmax(300px,1fr) auto; align-items:end; gap:12px; padding:11px 12px; border:1px solid var(--cs-hairline); border-bottom:0; border-radius:8px 8px 0 0; background:var(--cs-shade); }
     .oi-field { display:grid; min-width:0; gap:5px; color:var(--cs-text-soft); font-size:10.5px; font-weight:700; }
     .oi-field input,.oi-field select { width:100%; min-height:38px; padding:7px 10px; border:1px solid var(--cs-hairline); border-radius:6px; background:var(--cs-card); color:var(--cs-text); font:12px var(--cs-font); }
@@ -115,6 +115,9 @@
     .oi-events time,.oi-events span { color:var(--cs-text-soft); font-size:9.5px; }
     .oi-events strong { font-size:11px; }
     .oi-foot { display:flex; justify-content:space-between; gap:16px; padding:9px 12px; border:1px solid var(--cs-hairline); border-top:0; border-radius:0 0 8px 8px; color:var(--cs-text-soft); font-size:10.5px; }
+    body.is-embedded .cs-page { width:100%; padding:0; }
+    body.is-embedded .oi-head,body.is-embedded .oi-tabs { display:none; }
+    body.is-embedded .oi-toolbar { border-radius:8px 8px 0 0; }
     @media (max-width:1080px) {
       .oi-workbench { grid-template-columns:190px minmax(0,1fr); }
       .oi-inspector { grid-column:1 / -1; max-height:none; border-top:1px solid var(--cs-hairline); }
@@ -123,8 +126,8 @@
       .oi-head { align-items:flex-start; flex-direction:column; }
       .oi-source { flex-basis:auto; padding:10px 0 0; border-top:1px solid var(--cs-hairline); border-left:0; }
       .oi-tabs { grid-template-columns:repeat(3,minmax(0,1fr)); }
-      .oi-tabs button { padding-inline:4px; font-size:10.5px; }
-      .oi-tabs button,.oi-toolbar input,.oi-toolbar select,.oi-tool,.oi-inspector-nav button { min-height:44px; }
+      .oi-tabs a { padding-inline:4px; font-size:10.5px; }
+      .oi-tabs a,.oi-toolbar input,.oi-toolbar select,.oi-tool,.oi-inspector-nav button { min-height:44px; }
       .oi-toolbar { grid-template-columns:1fr; }
       .oi-status { padding:0; text-align:left; }
       .oi-workbench { display:block; }
@@ -153,9 +156,9 @@
     </header>
 
     <nav class="oi-tabs" aria-label="Ontology views">
-      <button type="button">Semantic model</button><button type="button">Object types</button>
-      <button type="button">Relationships</button><button type="button">Actions</button>
-      <button type="button" class="is-active" aria-current="page">Instances</button><button type="button">Catalog topology</button>
+      <a href="ontology.html">Semantic model</a><a href="ontology.html?view=objects">Object types</a>
+      <a href="ontology.html?view=links">Relationships</a><a href="ontology.html?view=actions">Actions</a>
+      <a href="ontology.html?view=instances" class="is-active" aria-current="page">Instances</a><a href="ontology.html?view=topology">Catalog topology</a>
     </nav>
 
     <div class="oi-toolbar">
@@ -168,13 +171,13 @@
       <aside class="oi-directory"><h2>Resource directory</h2><ul class="oi-list" id="oi-directory"></ul></aside>
       <section class="oi-stage" aria-labelledby="oi-stage-title">
         <header class="oi-stage-head">
-          <div><h2 id="oi-stage-title">Neighborhood of <code>core-runtime</code></h2><p id="oi-stage-copy">Direct incoming and outgoing relationships.</p></div>
+          <div><h2 id="oi-stage-title">Neighborhood of <code>checkout-api</code></h2><p id="oi-stage-copy">Direct incoming and outgoing relationships.</p></div>
           <div class="oi-tools" role="group" aria-label="Graph controls"><button class="oi-tool" id="oi-show-all" type="button">Show all</button><button class="oi-tool" id="oi-focus" type="button">Focus</button></div>
         </header>
         <div class="oi-canvas-scroll"><svg class="oi-canvas" id="oi-canvas" viewBox="0 0 1090 600" role="img" aria-labelledby="oi-svg-title oi-svg-desc"><title id="oi-svg-title">Operational ontology instance graph</title><desc id="oi-svg-desc">Two-dimensional graph of synthetic Azure Resources and direct relationships.</desc></svg></div>
         <div class="oi-legend"><span><i></i>contains</span><span class="is-depends"><i></i>depends on</span><span class="is-attached"><i></i>attached to</span><span class="is-network"><i></i>network path</span></div>
         <section class="oi-timeline" aria-labelledby="oi-timeline-title">
-          <header class="oi-timeline-head"><div><span>State and event history</span><h3 id="oi-timeline-title">core-runtime</h3></div><div class="oi-timeline-meta"><span>Last 6 hours</span><span>Observed gaps stay explicit</span></div></header>
+          <header class="oi-timeline-head"><div><span>State and event history</span><h3 id="oi-timeline-title">checkout-api</h3></div><div class="oi-timeline-meta"><span>Last 6 hours</span><span>Observed gaps stay explicit</span></div></header>
           <div class="oi-timeline-scroll"><div class="oi-timeline-chart" id="oi-timeline"></div><div class="oi-timeline-detail" id="oi-timeline-detail" aria-live="polite"></div></div>
         </section>
       </section>
@@ -194,7 +197,7 @@
       var azureIconRoot = "../../tools/architecture-diagrams/assets/azure/";
       var nodeWidth = 176, nodeHeight = 68, cutoff = Date.parse("2026-08-22T08:00:00Z"), windowStart = cutoff - 21600000;
       var resources = [
-        {id:"core-runtime",type:"compute.container-app",icon:"container-apps.svg",state:"Running",location:"Korea Central",group:"example-runtime",x:390,y:245},
+        {id:"checkout-api",type:"compute.container-app",icon:"container-apps.svg",state:"Running",location:"Korea Central",group:"example-runtime",x:390,y:245},
         {id:"ingestion-api",type:"compute.container-app",icon:"container-apps.svg",state:"Running",location:"Korea Central",group:"example-runtime",x:390,y:55},
         {id:"worker",type:"compute.container-app",icon:"container-apps.svg",state:"Running",location:"Korea Central",group:"example-runtime",x:390,y:435},
         {id:"runtime-environment",type:"compute.container-app-environment",icon:"container-apps.svg",state:"Succeeded",location:"Korea Central",group:"example-runtime",x:55,y:245},
@@ -208,13 +211,13 @@
         {id:"observability",type:"observability.workspace",icon:"monitor.svg",state:"Collecting",location:"Korea Central",group:"example-observe",x:895,y:35}
       ];
       var links = [
-        ["runtime-environment","core-runtime","contains"],["runtime-environment","ingestion-api","contains"],["runtime-environment","worker","contains"],
-        ["core-runtime","event-stream","depends_on"],["core-runtime","state-db","depends_on"],["core-runtime","secrets","attached_to"],["core-runtime","registry","depends_on"],["core-runtime","observability","attached_to"],
+        ["runtime-environment","checkout-api","contains"],["runtime-environment","ingestion-api","contains"],["runtime-environment","worker","contains"],
+        ["checkout-api","event-stream","depends_on"],["checkout-api","state-db","depends_on"],["checkout-api","secrets","attached_to"],["checkout-api","registry","depends_on"],["checkout-api","observability","attached_to"],
         ["ingestion-api","event-stream","depends_on"],["ingestion-api","object-store","depends_on"],["worker","event-stream","depends_on"],["worker","object-store","depends_on"],
         ["private-network","private-endpoint","network_path"],["private-endpoint","state-db","network_path"]
       ];
       var eventHistory = {
-        "core-runtime":[{at:"2026-08-22T02:18:00Z",state:"Provisioning",event:"Revision deployment started",source:"Azure Activity Log"},{at:"2026-08-22T02:34:00Z",state:"Degraded",event:"Startup probe missed",source:"Azure Monitor"},{at:"2026-08-22T02:41:00Z",state:"Running",event:"Revision became ready",source:"Azure Resource Health"},{at:"2026-08-22T07:42:00Z",state:"Running",event:"Inventory state confirmed",source:"FDAI audit"}],
+        "checkout-api":[{at:"2026-08-22T02:18:00Z",state:"Provisioning",event:"Revision deployment started",source:"Azure Activity Log"},{at:"2026-08-22T02:34:00Z",state:"Degraded",event:"Startup probe missed",source:"Azure Monitor"},{at:"2026-08-22T02:41:00Z",state:"Running",event:"Revision became ready",source:"Azure Resource Health"},{at:"2026-08-22T07:42:00Z",state:"Running",event:"Inventory state confirmed",source:"FDAI audit"}],
         "ingestion-api":[{at:"2026-08-22T02:22:00Z",state:"Provisioning",event:"Revision deployment started",source:"Azure Activity Log"},{at:"2026-08-22T02:46:00Z",state:"Running",event:"Ingress endpoint became ready",source:"Azure Resource Health"}],
         "worker":[{at:"2026-08-22T02:28:00Z",state:"Provisioning",event:"Revision deployment started",source:"Azure Activity Log"},{at:"2026-08-22T02:51:00Z",state:"Running",event:"Worker replica became ready",source:"Azure Resource Health"}],
         "runtime-environment":[{at:"2026-08-22T02:08:00Z",state:"Provisioning",event:"Environment update accepted",source:"Azure Activity Log"},{at:"2026-08-22T02:31:00Z",state:"Succeeded",event:"Environment update completed",source:"Azure Resource Health"}],
@@ -228,7 +231,10 @@
         "observability":[{at:"2026-08-22T02:57:00Z",state:"Collecting",event:"Workspace ingestion observed",source:"Azure Monitor"},{at:"2026-08-22T07:39:00Z",state:"Collecting",event:"Collection state confirmed",source:"FDAI audit"}]
       };
       var byId = new Map(resources.map(function (item) { return [item.id,item]; }));
-      var state = {selected:"core-runtime",query:"",focused:true,panel:"overview"};
+      var params = new URLSearchParams(window.location.search);
+      if (params.get("embedded") === "1") document.body.classList.add("is-embedded");
+      var requestedResource = params.get("instance");
+      var state = {selected:byId.has(requestedResource) ? requestedResource : "checkout-api",query:"",focused:true,panel:"overview"};
       var directory = document.getElementById("oi-directory"), select = document.getElementById("oi-select"), search = document.getElementById("oi-search"), canvas = document.getElementById("oi-canvas"), inspector = document.getElementById("oi-inspector"), timeline = document.getElementById("oi-timeline"), timelineDetail = document.getElementById("oi-timeline-detail"), timelineTitle = document.getElementById("oi-timeline-title"), title = document.getElementById("oi-stage-title"), copy = document.getElementById("oi-stage-copy"), count = document.getElementById("oi-result-count");
       function esc(value) { return String(value).replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c];}); }
       function svg(name,attrs,text){var element=document.createElementNS("http://www.w3.org/2000/svg",name);Object.keys(attrs||{}).forEach(function(key){element.setAttribute(key,attrs[key]);});if(text!=null)element.textContent=text;return element;}

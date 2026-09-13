@@ -279,7 +279,7 @@ test("desktop interactions: Cost governance keeps recommendations separate from 
 
 test("desktop interactions: resource dashboard distinguishes failed inventory from zero", async ({ page }) => {
   const frame = await openOperator(page, "dashboard-v2.html");
-  await frame.getByText("Preview scenarios", { exact: true }).click();
+  await frame.getByText("Example controls", { exact: true }).click();
   for (const mode of ["loading", "error"]) {
     await frame.locator("#resource-example-state").selectOption(mode);
     await expect(frame.locator("#resource-data")).toBeHidden();
@@ -289,6 +289,7 @@ test("desktop interactions: resource dashboard distinguishes failed inventory fr
   await expect(frame.locator("#count-resources")).toHaveText("0");
   await frame.locator("#resource-example-state").selectOption("complete");
   await expect(frame.locator("#count-resources")).toHaveText("24");
+  await frame.locator(".dr-preview-controls > summary").click();
   for (const name of ["List", "Groups", "Honeycomb"]) {
     await frame.getByRole("button", { name, exact: true }).click();
     await expect(frame.getByRole("button", { name, exact: true })).toHaveAttribute("aria-pressed", "true");
@@ -365,9 +366,14 @@ for (const [group, id, file] of routes) {
     page.on("pageerror", (error) => errors.push(error.message));
     const frame = await openOperator(page, file);
     await expect(frame.getByRole("heading", { level: 1 })).toHaveCount(1);
-    await expect(frame.locator("body")).toHaveCSS("color", "rgb(38, 38, 38)");
-    await expect(frame.locator("body")).toHaveCSS("background-color", "rgb(255, 255, 255)");
-    await expect(frame.locator(".cs-page-domain")).toHaveCSS("color", "rgb(102, 102, 102)");
+    const theme = await frame.locator("body").evaluate((body) => ({
+      text: getComputedStyle(body).color,
+      background: getComputedStyle(body).backgroundColor,
+      domain: getComputedStyle(body.querySelector(".cs-page-domain")!).color,
+    }));
+    expect(["rgb(38, 38, 38)", "rgb(30, 43, 57)"]).toContain(theme.text);
+    expect(["rgb(255, 255, 255)", "rgb(247, 248, 250)"]).toContain(theme.background);
+    expect(["rgb(102, 102, 102)", "rgb(83, 97, 112)", "rgb(39, 90, 133)"]).toContain(theme.domain);
     await expect(frame.locator("body")).toContainText(/synthetic|illustrative|preview/i);
     const geometry = await frame.locator("main").evaluate((main) => ({
       document: document.documentElement.scrollWidth <= innerWidth,

@@ -14,6 +14,7 @@ import { decodeHilDecisionReceipt } from "./api-hil-decision";
 describe("Operator API response decoders", () => {
   const metric = { value: 0.1, baseline: 0.2, direction: "lower" } as const;
   const autonomy = {
+    schema_version: "1.0.0",
     synthetic: false,
     window_days: 30,
     sample_size: 1,
@@ -21,7 +22,7 @@ describe("Operator API response decoders", () => {
     source: { name: "measurement-pipeline", kind: "measurement", as_of: null },
     rules: { active: 10, candidates_30d: 2, promoted_30d: 1 },
     success: {
-      auto_resolution_rate: { ...metric, direction: "higher" },
+      auto_resolution_rate: { value: 1, baseline: 0.2, direction: "higher" },
       human_touchpoints_per_100: metric,
       mttr_seconds: metric,
       change_lead_time_seconds: metric,
@@ -58,6 +59,28 @@ describe("Operator API response decoders", () => {
     expect(() => decodeAutonomyPayload({
       ...autonomy,
       finalization: { finalized_events: 1, pending_events: 0, adverse_events: 1 },
+    })).toThrow(OperatorApiError);
+    expect(() => decodeAutonomyPayload({
+      ...autonomy,
+      schema_version: "2.0.0",
+    })).toThrow(OperatorApiError);
+    expect(() => decodeAutonomyPayload({
+      ...autonomy,
+      success: {
+        ...autonomy.success,
+        auto_resolution_rate: { value: 0.5, baseline: 0.2, direction: "higher" },
+      },
+    })).toThrow(OperatorApiError);
+    expect(() => decodeAutonomyPayload({
+      ...autonomy,
+      leading: {
+        ...autonomy.leading,
+        verifier_failure_rate: { value: 1.1, baseline: 0.2, direction: "lower" },
+      },
+    })).toThrow(OperatorApiError);
+    expect(() => decodeAutonomyPayload({
+      ...autonomy,
+      tier: { mix: { t0: 0.8, t1: 0.3 }, bands: autonomy.tier.bands },
     })).toThrow(OperatorApiError);
   });
 
@@ -424,9 +447,15 @@ describe("Operator API response decoders", () => {
   });
 
 describe("optional Operator API availability", () => {
-  test("treats only missing and unimplemented routes as unavailable", () => {
+  test("treats only missing, unimplemented, and source-gated routes as unavailable", () => {
     expect(isOptionalOperatorApiUnavailable(new OperatorApiError(404, "missing"))).toBe(true);
     expect(isOptionalOperatorApiUnavailable(new OperatorApiError(501, "disabled"))).toBe(true);
+    expect(isOptionalOperatorApiUnavailable(
+      new OperatorApiError(503, "source unavailable", "projection-unavailable"),
+    )).toBe(true);
+    expect(isOptionalOperatorApiUnavailable(
+      new OperatorApiError(503, "service unavailable"),
+    )).toBe(false);
     expect(isOptionalOperatorApiUnavailable(new OperatorApiError(502, "invalid contract"))).toBe(false);
     expect(isOptionalOperatorApiUnavailable(new Error("network"))).toBe(false);
   });

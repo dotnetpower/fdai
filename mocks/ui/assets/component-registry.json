@@ -1,6 +1,6 @@
 {
-  "version": 9,
-  "reviewed_at": "2026-09-06",
+  "version": 12,
+  "reviewed_at": "2026-09-13",
   "status_vocabulary": ["Documented", "Review required"],
   "deprecated_aliases": ["cs-btn", "cs-input", "cs-select", "cs-segmented", "cs-switch"],
   "interaction_roles": {
@@ -25,15 +25,15 @@
       "view_label": "Colors",
       "level": "foundation",
       "owner": "Console design system",
-      "api": "cp-scheme / --cp-* (mock only)",
-      "source": "mocks/ui/assets/palette-comparison.css",
+      "api": "cp-scheme / --cs-*",
+      "source": "ui/calm-slate-tokens.css",
       "routes": [{"label": "Adaptive chat mock", "href": "deck-sources-v2.html"}],
-      "states": ["current light palette", "candidate light palette", "copy success", "clipboard unavailable", "contrast pass", "contrast below target"],
+      "states": ["current light theme", "current dark theme", "copy success", "clipboard unavailable", "measured contrast"],
       "interaction_roles": ["standard_action"],
-      "use_when": "Compare the same chat, buttons, and status labels in current and candidate colors before changing shared tokens.",
-      "do_not": "Do not infer runtime status from specimen colors or apply this candidate to production implicitly.",
+      "use_when": "Compare the same chat, buttons, and status labels across the current light and dark themes before changing shared tokens.",
+      "do_not": "Do not introduce a second palette or infer runtime status from specimen colors.",
       "responsive": "Stack the two palettes when the container is narrow; preserve visible HEX values and copy targets.",
-      "a11y": "Label swatches, expose computed contrast and failures as text, and keep both sample palettes light when the surrounding gallery theme changes."
+      "a11y": "Label swatches, expose computed contrast as text, and preserve each sample's explicit light or dark color scheme when the surrounding gallery theme changes."
     },
     {
       "id": "display",
@@ -256,14 +256,15 @@
       "view_label": "Tables",
       "level": "primitive",
       "owner": "Console design system",
-      "api": "cs-table",
-      "source": "mocks/ui/assets/calm-slate.css",
-      "routes": [{"label": "Rules mock", "href": "rules.html"}],
-      "states": ["default", "hover", "empty", "responsive labels"],
-      "use_when": "Compare repeated records across stable columns.",
-      "do_not": "Do not force a table when each row needs a different structure.",
-      "responsive": "Use row labels or bounded horizontal scrolling based on comparison needs.",
-      "a11y": "Retain caption, column headers, scope, and meaningful row order."
+      "api": "cs-table / cg-data-table",
+      "source": "mocks/ui/assets/component-operational-patterns.css",
+      "routes": [{"label": "Rules mock", "href": "rules.html"}, {"label": "Live queue", "href": "live.html"}],
+      "states": ["default", "hover", "needs attention", "empty", "unavailable", "responsive row labels"],
+      "interaction_roles": ["compact_action"],
+      "use_when": "Compare repeated records across stable columns while keeping identity, decision, evidence freshness, and the narrow detail path visible.",
+      "do_not": "Do not force a table when records need different structures, hide stale evidence, or make the entire row interactive around an independent action.",
+      "responsive": "Use stable desktop columns, then convert each row to explicit label-value groups when comparison width is unavailable.",
+      "a11y": "Retain caption, scoped column headers, row order, complete action names, and text alternatives for every semantic state."
     },
     {
       "id": "data-views",
@@ -272,15 +273,20 @@
       "view_label": "Charts",
       "level": "composite",
       "owner": "Console design system",
-      "api": "cs-chart-*",
-      "source": "mocks/ui/assets/calm-slate.css",
-      "routes": [{"label": "Analytics mock", "href": "llm-cost.html"}],
-      "states": ["preview", "inspect data", "tooltip", "reduced motion"],
+      "api": "cs-chart-* / cg-chart-*",
+      "source": "mocks/ui/assets/component-chart-catalog.mjs",
+      "routes": [
+        {"label": "Live mock", "href": "live.html"},
+        {"label": "Analytics mock", "href": "llm-cost.html"},
+        {"label": "Resource efficiency mock", "href": "finops-resource-efficiency.html"},
+        {"label": "Ontology graph mock", "href": "ontology-knowledge-graph.html"}
+      ],
+      "states": ["preview", "complete catalog", "source filter", "search results", "no results", "inspect data", "tooltip", "dark", "reduced motion", "forced colors"],
       "interaction_roles": ["plot_mark"],
-      "use_when": "Visualize verified numeric relationships with an inspectable data table.",
-      "do_not": "Do not select a chart from prose or display an unverified denominator.",
-      "responsive": "Keep two representative previews visible and move the full catalog to a subview.",
-      "a11y": "Provide chart description, exact data inspection, keyboard marks, and text fallback."
+      "use_when": "Choose a chart from the complete FDAI, Datadog-reference, and Tremor catalogs after identifying the operator question and available evidence.",
+      "do_not": "Do not treat an external reference as an FDAI runtime commitment, select a chart from prose, or display an unverified denominator.",
+      "responsive": "Keep two representative previews first, then reflow the searchable catalog from three columns to one without hiding entries.",
+      "a11y": "Provide a chart description, exact data inspection, keyboard marks for interactive charts, text alternatives for catalog miniatures, and non-color state labels."
     },
     {
       "id": "code-highlight",
@@ -396,6 +402,23 @@
       "do_not": "Do not use tags for editable records or hide the value source.",
       "responsive": "Move the value below its label while keeping actions aligned.",
       "a11y": "Preserve row grouping, labels, and complete action names."
+    },
+    {
+      "id": "live-operational-cards",
+      "category": "patterns",
+      "view": "live-cards",
+      "view_label": "Live cards",
+      "level": "pattern",
+      "owner": "Console design system",
+      "api": "cs-live-status-rail / cs-live-kpi / cs-tile / cs-live-queue",
+      "source": "mocks/ui/assets/component-operational-patterns.css",
+      "routes": [{"label": "Live mock", "href": "live.html"}],
+      "states": ["healthy stream", "partial stream", "attention", "rate KPI", "gate composition", "tier distribution", "pending", "shadow recorded", "preview verified", "approval required", "denied", "execution failed", "queue row"],
+      "interaction_roles": ["whole_card", "standard_action"],
+      "use_when": "Represent current control-loop observations while preserving work identity, evidence quality, authority, execution, and effect state.",
+      "do_not": "Do not turn a Live card into an execution command, equate dispatch with verified effect, or hide partial and synthetic evidence.",
+      "responsive": "Reduce KPI and work-card columns before text clips; stack queue cells with explicit row labels when comparison width is unavailable.",
+      "a11y": "Use complete card link names, text status labels, chart alternatives, scoped table headers, and a stable reading order."
     },
     {
       "id": "settings-preferences",

@@ -192,7 +192,7 @@ test("Cost desktop: selection, all source states, exact plot coordinates and bou
 test("Overview cache identities, rendering budget and long-content fixtures remain bounded", { timeout: 45000 }, async t => {
   const { open, context } = await setup(t);
   const changed = new Map([
-    ["overview-quality.css", "overview-quality-v3"], ["overview-workspace.js", "overview-quality-v2"],
+    ["overview-quality.css", "overview-quality-v4"], ["overview-workspace.js", "overview-quality-v2"],
     ["settings-workspace-tabs.js", "overview-quality-v2"], ["cost-governance-preview.css", "overview-quality-v2"],
     ["cost-governance-preview.js", "overview-quality-v2"], ["llm-cost-workspace.css", "overview-quality-v2"],
     ["llm-cost-workspace.js", "overview-quality-v3"],

@@ -74,6 +74,9 @@ async def test_arm_fallback_pages_and_emits_contains_link() -> None:
     assert links[0].from_id.endswith("/resource-group/rg-1")
     assert links[0].to_id == resources[0].resource_id
     assert resources[0].props["parent_id"] == links[0].from_id
+    assert resources[0].props["subscriptionId"] == "sub-1"
+    assert resources[0].props["resourceGroup"] == "rg-1"
+    assert resources[0].props["providerType"] == "Microsoft.Compute/virtualMachines"
 
 
 async def test_arm_fallback_preserves_readable_model_deployment_facts() -> None:
@@ -145,6 +148,9 @@ async def test_arm_fallback_preserves_readable_model_deployment_facts() -> None:
     assert deployment.props["capacity_transitioning"] is True
     assert deployment.props["capacity_tpm"] == 50_000
     assert deployment.props["capacity_tpm_source"] == "properties.rateLimits"
+    assert deployment.props["subscriptionId"] == "sub-1"
+    assert deployment.props["resourceGroup"] == "rg-1"
+    assert deployment.props["providerType"] == "Microsoft.CognitiveServices/accounts/deployments"
     assert deployment.props["parent_id"].endswith("microsoft.cognitiveservices/accounts/ai-example")
     contains = next(link for link in links if link.link_type == "contains")
     assert contains.from_id == to_neutral_id(account_id)
@@ -255,6 +261,8 @@ async def test_arm_fallback_lists_private_dns_zone_group_children() -> None:
         ),
     ]
     assert resources[0].type == "network.private-dns-zone-group"
+    assert resources[0].props["subscriptionId"] == "sub-1"
+    assert resources[0].props["resourceGroup"] == "rg-1"
     by_mapping = {
         link.mapping_evidence.mapping_id: link
         for link in links
@@ -322,6 +330,8 @@ async def test_arm_fallback_lists_aks_agent_pool_children() -> None:
         ),
     ]
     assert resources[0].type == "kubernetes-node-pool"
+    assert resources[0].props["subscriptionId"] == "sub-1"
+    assert resources[0].props["resourceGroup"] == "rg-1"
     assert (
         resources[0]
         .props["parent_id"]
@@ -422,6 +432,11 @@ async def test_arm_overlay_lists_vm_scale_set_vm_and_nic_children() -> None:
         "compute.vm",
         "network.interface",
     ]
+    for resource in result.resources:
+        if resource.type == "compute.vm-scale-set":
+            continue
+        assert resource.props["subscriptionId"] == "sub-1"
+        assert resource.props["resourceGroup"] == "rg-1"
     by_mapping = {
         link.mapping_evidence.mapping_id: link
         for link in result.links

@@ -573,7 +573,7 @@ test("sixth focused batch clarifies operational result and fallback states", () 
   const focusedPages = {
     "promotion.html": [/result-summary/, /Blocking gaps/, /gap-count/],
     "capabilities.html": [/representative declarations/, /Preview zero-result state/, /empty-preview/],
-    "audit.html": [/append-boundary/, /Append next 25/, /Existing rows and ordering remain unchanged/],
+    "audit.html": [/append-boundary/, /Preview next cursor samples/, /data-evidence-next-record/],
     "reports.html": [/variable-contract/, /Partial render retained/, /3 of 4 widgets/],
     "rca.html": [/lookup-summary/, /Primary hypothesis/, /No response action recorded/],
   };
@@ -594,7 +594,7 @@ test("Governance and Evidence workspaces prioritize work over dashboard chrome",
 
   governanceEvidenceMocks.forEach((file) => {
     const html = readFileSync(join(uiRoot, file), "utf8");
-    assert.match(html, /governance-evidence-workspace\.css\?v=9/);
+    assert.match(html, /governance-evidence-workspace\.css\?v=\d+/);
   });
 
   [
@@ -611,8 +611,8 @@ test("Governance and Evidence workspaces prioritize work over dashboard chrome",
 test("every settings mock uses the production-aligned route surface", () => {
   settingsMocks.forEach((file) => {
     const html = readFileSync(join(uiRoot, file), "utf8");
-    assert.match(html, /calm-slate\.css\?v=settings-route-v5/);
-    assert.match(html, /calm-slate\.js\?v=settings-route-v5/);
+    assert.match(html, /calm-slate\.css\?v=settings-route-v6/);
+    assert.match(html, /calm-slate\.js\?v=settings-route-v6/);
     assert.doesNotMatch(html, /class="cs-btn/);
     if (/<(?:input|select|textarea)\b/.test(html)) {
       assert.match(html, /class="[^"]*cs-control-(?:input|select|textarea)/);

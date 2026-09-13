@@ -23,6 +23,7 @@ from fdai.shared.providers.state_evidence import (
 from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
 from fdai_service_contracts.recorded_resource_state import (
     AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
+    STATE_FACT_UNAVAILABLE_REASONS_PROPERTY,
 )
 
 SUBSCRIPTION = "00000000-0000-0000-0000-000000000001"
@@ -412,7 +413,9 @@ async def test_enricher_rejects_control_characters_in_provider_ref(
             )
         )
 
-    assert enriched.resources == (resource,)
+    assert enriched.resources[0].props[STATE_FACT_UNAVAILABLE_REASONS_PROPERTY] == {
+        "availabilityState": "resource_health_target_unresolved"
+    }
     assert enriched.source_states[0].coverage == {"target_unresolved": 1, "targets": 1}
 
 
@@ -451,6 +454,37 @@ async def test_enricher_preserves_partial_failure_without_inventing_state() -> N
     assert enriched.source_states[0].coverage == {"not_modeled": 1, "targets": 1}
     assert enriched.state_base_generation == "generation-0"
     assert enriched.state_base_generation_checked is True
+
+
+async def test_enricher_records_exact_missing_fact_reason_when_no_prior_state_exists() -> None:
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(422, json={"error": {"code": "UnsupportedResourceType"}})
+
+    resource = _resource()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        enriched = await AzureResourceHealthInventoryEnricher(
+            identity=StaticWorkloadIdentity(
+                audience="https://management.azure.com/.default",
+                token="test-token",  # noqa: S106 - deterministic test value
+            ),
+            http_client=client,
+            config=AzureResourceHealthInventoryConfig(subscription_ids=(SUBSCRIPTION,)),
+            clock=lambda: COMPLETED,
+        ).enrich(
+            PromotedInventoryObservation(
+                generation="generation-1",
+                resources=(resource,),
+                links=(),
+                complete=True,
+                recorded_at=OBSERVED,
+            )
+        )
+
+    assert enriched.resources[0].props[STATE_FACT_UNAVAILABLE_REASONS_PROPERTY] == {
+        "availabilityState": "resource_health_not_modeled"
+    }
+    assert enriched.source_states[0].reason == "resource_health_partial"
+    assert enriched.source_states[0].coverage == {"not_modeled": 1, "targets": 1}
 
 
 async def test_enricher_retains_prior_health_during_identity_outage() -> None:

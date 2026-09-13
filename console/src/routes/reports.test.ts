@@ -17,7 +17,9 @@ import type { ReportSummary } from "./reporting.model";
 
 describe("reports source availability", () => {
   test("distinguishes optional projection absence from reporting failures", () => {
-    expect(reportsLoadFailure(new OperatorApiError(503, "projection unavailable"))).toEqual({
+    expect(reportsLoadFailure(
+      new OperatorApiError(503, "projection unavailable", "projection-unavailable"),
+    )).toEqual({
       status: "unavailable",
       message: "projection unavailable",
     });

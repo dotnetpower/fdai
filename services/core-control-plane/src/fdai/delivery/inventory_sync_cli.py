@@ -29,19 +29,11 @@ from fdai.delivery.azure.log_query import (
     AzureLogAnalyticsQueryConfig,
     AzureLogAnalyticsQueryProvider,
 )
-from fdai.delivery.azure.resource_health_inventory import (
-    AzureResourceHealthInventoryConfig,
-    AzureResourceHealthInventoryEnricher,
-)
 from fdai.delivery.azure.runtime_call_telemetry import (
     AzureContainerAppRevisionVerifier,
     AzureMonitorRuntimeCallAuthenticator,
     AzureMonitorRuntimeCallContextProvider,
     AzureRuntimeCallTelemetrySource,
-)
-from fdai.delivery.azure.static_web_app_inventory import (
-    AzureStaticWebAppInventoryConfig,
-    AzureStaticWebAppInventoryEnricher,
 )
 from fdai.delivery.inventory_change_acceleration import (
     build_job_event_bus as _build_job_event_bus,
@@ -284,6 +276,41 @@ async def _build_kubernetes_enricher(
     return enrichers[0] if len(enrichers) == 1 else SequentialInventoryPromotionEnricher(*enrichers)
 
 
+async def build_inventory_promotion_enricher(
+    *,
+    config: InventoryJobConfig,
+    identity: WorkloadIdentity,
+    http_client: httpx.AsyncClient,
+    stack: AsyncExitStack,
+    relationship_catalog: ProviderRelationshipMappingCatalog,
+    previous_state_reader: PostgresInventorySnapshotStore,
+    runtime_call_enricher: InventoryPromotionEnricher | None = None,
+) -> InventoryPromotionEnricher:
+    """Build the shared ordered enrichment pipeline for every full inventory refresh."""
+
+    kubernetes_enricher = await _build_kubernetes_enricher(
+        config=config,
+        relationship_catalog=relationship_catalog,
+        stack=stack,
+        identity=identity,
+    )
+    return SequentialInventoryPromotionEnricher(
+        runtime_call_enricher
+        or _build_runtime_call_enricher(
+            config=config,
+            identity=identity,
+            http_client=http_client,
+        ),
+        *inventory_sync_cli_support.build_azure_inventory_enrichers(
+            config=config,
+            identity=identity,
+            http_client=http_client,
+            previous_state_reader=previous_state_reader,
+        ),
+        kubernetes_enricher,
+    )
+
+
 _resolve_resource_types = inventory_sync_cli_support.resolve_resource_types
 _build_sources = inventory_sync_cli_support.build_sources
 
@@ -455,44 +482,14 @@ async def run(
     async with AsyncExitStack() as stack:
         client = await stack.enter_async_context(httpx.AsyncClient())
         identity = _workload_identity(http_client=client)
-        kubernetes_enricher = await _build_kubernetes_enricher(
+        effective_enricher = await build_inventory_promotion_enricher(
             config=config,
-            relationship_catalog=relationship_catalog,
+            identity=identity,
+            http_client=client,
             stack=stack,
-            identity=identity,
-        )
-        resource_health_enricher = AzureResourceHealthInventoryEnricher(
-            identity=identity,
-            http_client=client,
-            config=AzureResourceHealthInventoryConfig(
-                subscription_ids=config.scopes,
-                endpoint=config.management_endpoint,
-                audience=config.management_audience,
-                freshness_ceiling_seconds=config.reconciliation_interval_seconds,
-            ),
+            relationship_catalog=relationship_catalog,
             previous_state_reader=durable_store,
-        )
-        static_web_app_enricher = AzureStaticWebAppInventoryEnricher(
-            identity=identity,
-            http_client=client,
-            config=AzureStaticWebAppInventoryConfig(
-                subscription_ids=config.scopes,
-                endpoint=config.management_endpoint,
-                audience=config.management_audience,
-                freshness_ceiling_seconds=config.reconciliation_interval_seconds,
-            ),
-            previous_state_reader=durable_store,
-        )
-        runtime_call_enricher = promotion_enricher or _build_runtime_call_enricher(
-            config=config,
-            identity=identity,
-            http_client=client,
-        )
-        effective_enricher = SequentialInventoryPromotionEnricher(
-            runtime_call_enricher,
-            resource_health_enricher,
-            static_web_app_enricher,
-            kubernetes_enricher,
+            runtime_call_enricher=promotion_enricher,
         )
         event_bus, event_topic = _build_job_event_bus(identity)
         activity_publisher = EventBusOperationalActivityPublisher(event_bus=event_bus)

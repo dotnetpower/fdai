@@ -11,7 +11,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 |------|-------|----------|-------|
 | Risk table and never-raising authority ceiling | implemented | [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py), [`test_ceiling.py`](../../../services/core-control-plane/tests/core/risk_gate/test_ceiling.py) | The baseline, six contextual axes, degradation, and kill switch combine without raising authority. |
 | Promotion, HIL resume, and executor selection | implemented | [`test_gate.py`](../../../services/core-control-plane/tests/core/risk_gate/test_gate.py), [`test_coordinator.py`](../../../services/core-control-plane/tests/core/hil_resume/test_coordinator.py) | Shadow-first promotion, approval resume, and typed path selection have focused coverage. |
-| Seven safeguards across every execution path | implemented | [`safeguard_lifecycle_coordinator.py`](../../../services/core-control-plane/src/fdai/core/executor/safeguard_lifecycle_coordinator.py), [`test_safeguard_lifecycle_coordinator.py`](../../../services/core-control-plane/tests/core/executor/test_safeguard_lifecycle_coordinator.py), [`test_safeguard_evidence_lifecycle.py`](../../../services/core-control-plane/tests/core/executor/test_safeguard_evidence_lifecycle.py), [Seven safeguards](../../roadmap/decisioning/execution-model.md#6-seven-safeguards-and-one-replay-extension) | PR-native, PR-manual, direct-API, and tool-call paths share one lifecycle that retains one evidenced target lock through dispatch, persists no-authority evidence, and quarantines uncertain outcomes. Governed cross-path runtime evidence remains separate from implementation completion. |
+| Seven safeguards across every execution path | in-progress | [`constitution-traceability.json`](../../../config/constitution-traceability.json), [Seven safeguards](../../roadmap/decisioning/execution-model.md#6-seven-safeguards-and-one-replay-extension) | Individual mechanics exist, but one shared contract does not yet prove equivalent guarantees across every path. |
 | Live blast-probe Azure runtime binding | implemented | [`blast_probe.py`](../../../services/core-control-plane/src/fdai/delivery/azure/blast_probe.py), [`wire_azure_observability.py`](../../../services/core-control-plane/src/fdai/composition/wire_azure_observability.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py) | Azure composition compiles reviewed probe manifests, measures the target before authority evaluation, and records the exact bounded reading. No governed production shadow receipt is cited here. |
 
 ### Implementation history
@@ -30,7 +30,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 ### Remaining work
 
-- [x] Represent the seven safeguards and independent effect closure in one shared contract across
+- [ ] Represent the seven safeguards and independent effect closure in one shared contract across
   PR-native, direct API, PR-manual, and tool-call execution, then retain path-parity tests.
 - [x] Bind `AzureMonitorBlastProbe` through Azure composition and prove quiet, active, overloaded,
   unavailable, and failed outcomes in focused tests.

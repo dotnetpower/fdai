@@ -40,7 +40,7 @@ export function formatShare(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
-/** Preserve the canonical decision sample instead of linking to unrelated audit noise. */
+/** Preserve canonical classification bounds independently of the general audit sample. */
 export function routingSampleParams(kpi: DashboardKpi): Readonly<Record<string, string | number>> {
   const sample = kpi.routing_sample;
   if (sample === undefined) return auditSampleParams(kpi);
@@ -94,6 +94,19 @@ export function distributionRows(values: Readonly<Record<string, number>>): read
     .filter(([, count]) => count > 0)
     .sort(([, left], [, right]) => right - left)
     .map(([key, count]) => ({ key, count, share: count / total }));
+}
+
+/** Empty source dictionaries are not measured zero unless the audit sample is empty. */
+export function distributionEvidence(values: Readonly<Record<string, number>>, eventCount: number): {
+  readonly rows: readonly DistributionRow[];
+  readonly state: "available" | "empty" | "unavailable";
+} {
+  const rows = distributionRows(values);
+  if (rows.length > 0) return { rows, state: "available" };
+  const counts = Object.values(values);
+  const recordedZero = counts.length > 0 && counts.every((count) => count === 0);
+  const emptySample = eventCount === 0 && counts.length === 0;
+  return { rows, state: recordedZero || emptySample ? "empty" : "unavailable" };
 }
 
 export function dashboardEvidenceGaps(

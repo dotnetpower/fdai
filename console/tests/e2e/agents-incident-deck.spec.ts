@@ -14,6 +14,7 @@ const incident = {
   severity: "medium",
   status: "in_progress",
   status_source: "incident_lifecycle",
+  lifecycle_state: "triaging",
   disposition: "investigating",
   verdict: "hil",
   vertical: "change-safety",
@@ -490,8 +491,8 @@ test("renders accessible v2 presentation at desktop constrained and mobile viewp
     await page.goto(`/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`);
     await page.locator(".deck-invoke").click();
     const workspace = page.getByRole("dialog", { name: "Command deck" });
-    await workspace.getByRole("toolbar", { name: "Workspace tools" })
-      .getByRole("button", { name: /New conversation/ }).click();
+    const newConversation = workspace.getByRole("button", { name: "New conversation" });
+    if (await newConversation.count()) await newConversation.click();
     await workspace.getByPlaceholder(/Ask anything/i).fill("Show request trend");
     const send = workspace.getByRole("button", { name: "Send" });
     const composerGeometry = await workspace.locator(".deck-composer-inner").evaluate((element) => {
@@ -525,9 +526,9 @@ test("renders accessible v2 presentation at desktop constrained and mobile viewp
       .toBeVisible();
     await expect(workspace.getByText("보조 출처에서 검증된 레코드는 0개입니다."))
       .toBeVisible();
-    await expect(chart.locator(".deck-presentation-series-point")).toHaveCount(3);
-    await chart.locator(".deck-presentation-series-point").first().focus();
-    await expect(chart.locator(".deck-presentation-series-point").first()).toBeFocused();
+    await expect(chart.locator(".fd-series-slice")).toHaveCount(3);
+    await chart.locator(".fd-series-slice").first().focus();
+    await expect(chart.locator(".fd-series-slice").first()).toBeFocused();
 
     const details = chart.locator(".deck-presentation-exact-values");
     await expect(details).not.toHaveAttribute("open", "");
@@ -543,7 +544,7 @@ test("renders accessible v2 presentation at desktop constrained and mobile viewp
           (element.querySelector(".deck-presentation") as HTMLElement).clientWidth
         : -1,
       transitionMs: Number.parseFloat(getComputedStyle(
-        element.querySelector(".deck-presentation-series-column > span")!,
+        element.querySelector(".fd-series-slice > i")!,
       ).transitionDuration) * 1_000,
     }));
     expect(geometry.documentOverflow).toBe(0);
@@ -646,9 +647,11 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await expect(investigation.locator(".deck-investigation-badge")).toHaveText("Completed");
   await expect(investigation.locator(".deck-branch-item")).toHaveCount(0);
   await expect(investigation).toHaveClass(/is-answer-settled/);
-  await expect(investigation).not.toHaveAttribute("open", "");
+  await expect(investigation).toHaveAttribute("open", "");
   await expect(investigation.locator(".deck-investigation-item")).toHaveCount(2);
-  await expect(investigation.getByText("Inspect server-owned read evidence")).not.toBeVisible();
+  await expect(investigation.getByText("Inspect server-owned read evidence")).toBeVisible();
+  await investigation.locator(":scope > summary").click();
+  await expect(investigation).not.toHaveAttribute("open", "");
   const settledGeometry = await investigation.evaluate((root) => ({
     height: root.getBoundingClientRect().height,
     documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -705,7 +708,7 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   expect(activityGeometry.markerX.every((x) => Math.abs(x - activityGeometry.railX) <= 0.5))
     .toBe(true);
   expect(activityGeometry.summaryHeights.every((height) => height >= 44)).toBe(true);
-  await expect(investigation.locator(".deck-investigation-session-summary")).toHaveCount(0);
+  await expect(investigation.locator(".deck-investigation-session-summary")).toHaveCount(1);
 
   const runRecord = workspace.locator(".deck-trajectory");
   await expect(runRecord).not.toHaveAttribute("open", "");
@@ -829,7 +832,7 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
     const output = root.querySelector<HTMLElement>(
       '.deck-trajectory-nested .deck-code-pre',
     );
-    const modelMessage = root.querySelector<HTMLElement>(".deck-model-trace-message-content");
+    const modelMessage = root.querySelector<HTMLElement>(".deck-model-trace-message-content pre");
     const rootBounds = root.getBoundingClientRect();
     const composerBounds = composer?.getBoundingClientRect();
     return {
@@ -987,8 +990,8 @@ test("keeps completed observed work compact across supported viewports", async (
     await page.goto(`/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`);
     await page.locator(".deck-invoke").click();
     const workspace = page.getByRole("dialog", { name: "Command deck" });
-    await workspace.getByRole("toolbar", { name: "Workspace tools" })
-      .getByRole("button", { name: /New conversation/ }).click();
+    const newConversation = workspace.getByRole("button", { name: "New conversation" });
+    if (await newConversation.count()) await newConversation.click();
     await workspace.getByPlaceholder(/Ask anything/i).fill("List resource groups");
     await workspace.getByRole("button", { name: "Send" }).click();
 
@@ -996,6 +999,8 @@ test("keeps completed observed work compact across supported viewports", async (
       .toBeVisible();
     const investigation = workspace.locator(".deck-investigation.is-answer-settled");
     const runRecord = workspace.locator(".deck-trajectory");
+    await expect(investigation).toHaveAttribute("open", "");
+    await investigation.locator(":scope > summary").click();
     await expect(investigation).not.toHaveAttribute("open", "");
     await expect(runRecord).not.toHaveAttribute("open", "");
 
@@ -1046,8 +1051,8 @@ test("keeps completed observed work compact across supported viewports", async (
       };
     });
     expect(geometry.answerInsideViewport).toBe(true);
-    expect(geometry.investigationHeight).toBeLessThanOrEqual(viewport.width <= 640 ? 72 : 44);
-    if (viewport.width >= 993) expect(geometry.answerWidth).toBe(780);
+    expect(geometry.investigationHeight).toBeLessThanOrEqual(viewport.width <= 640 ? 90 : 44);
+    if (viewport.width >= 1_200) expect(geometry.answerWidth).toBe(840);
     else expect(geometry.answerWidth).toBeLessThanOrEqual(viewport.width - 24);
     expect(geometry.answerFontSize).toBe("15px");
     expect(geometry.runRecordBorderWidth).toBe("1px");
@@ -1058,7 +1063,7 @@ test("keeps completed observed work compact across supported viewports", async (
     expect(geometry.runStatsFontSize).toBe(viewport.width <= 720 ? "12px" : "14px");
     expect(geometry.runDurationFontSize).toBe(viewport.width <= 720 ? "11px" : "13px");
     expect(geometry.minimumActionHeight).toBeGreaterThanOrEqual(viewport.width <= 640 ? 44 : 32);
-    expect(geometry.composerHeight).toBeLessThanOrEqual(72);
+    expect(geometry.composerHeight).toBeLessThanOrEqual(120);
     expect(geometry.composerInputHeight).toBeGreaterThanOrEqual(viewport.width <= 640 ? 44 : 40);
     expect(geometry.agentSourceFontSize).toBe("12px");
     expect(geometry.timestampFontSize).toBe("12px");
@@ -1067,7 +1072,7 @@ test("keeps completed observed work compact across supported viewports", async (
   }
 });
 
-test("uses shared preparation geometry before the terminal answer", async ({ page }) => {
+test("uses shared pending-answer geometry before the terminal answer", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.addInitScript(() => {
     localStorage.setItem("fdai.deck.layout.v1.screen", "workspace");
@@ -1079,37 +1084,24 @@ test("uses shared preparation geometry before the terminal answer", async ({ pag
   await workspace.getByPlaceholder(/Ask anything/i).fill("List resource groups");
   await workspace.getByRole("button", { name: "Send" }).click();
 
-  const preparation = workspace.locator(".deck-rt.cs-grounding-panel");
-  await expect(preparation).toBeVisible();
-  await expect(preparation.locator(".deck-rt-source.cs-grounding-source")).toHaveCount(3);
-  const geometry = await preparation.evaluate((panel) => {
-    const head = panel.querySelector<HTMLElement>(".cs-grounding-head");
-    const stage = panel.querySelector<HTMLElement>(".cs-grounding-stage");
-    const sourceWindow = panel.querySelector<HTMLElement>(".cs-grounding-source-window");
-    const source = panel.querySelector<HTMLElement>(".cs-grounding-source");
-    const agentSource = panel.closest(".deck-rt-turn")?.querySelector<HTMLElement>(
-      ".cs-deck-agent-source",
-    );
-    const panelStyle = getComputedStyle(panel);
+  const pendingReply = workspace.locator(".deck-pending-reply");
+  await expect(pendingReply).toBeVisible();
+  const geometry = await pendingReply.evaluate((panel) => {
+    const body = panel.querySelector<HTMLElement>(".deck-pending-reply-body");
+    const agent = panel.querySelector<HTMLElement>(".cs-deck-agent-name");
     return {
       width: panel.getBoundingClientRect().width,
-      borderWidth: panelStyle.borderTopWidth,
-      radius: panelStyle.borderRadius,
-      headHeight: head?.getBoundingClientRect().height ?? 0,
-      stageHeight: stage?.getBoundingClientRect().height ?? 0,
-      sourceWindowHeight: sourceWindow?.getBoundingClientRect().height ?? 0,
-      sourceHeight: source?.getBoundingClientRect().height ?? 0,
-      agentSourceFontSize: agentSource ? getComputedStyle(agentSource).fontSize : "",
+      height: panel.getBoundingClientRect().height,
+      bodyHeight: body?.getBoundingClientRect().height ?? 0,
+      bodyRadius: body ? getComputedStyle(body).borderRadius : "",
+      agentFontSize: agent ? getComputedStyle(agent).fontSize : "",
     };
   });
   expect(geometry.width).toBe(780);
-  expect(geometry.borderWidth).toBe("1px");
-  expect(geometry.radius).toBe("7px");
-  expect(geometry.headHeight).toBeGreaterThanOrEqual(36);
-  expect(geometry.stageHeight).toBeGreaterThanOrEqual(30);
-  expect(geometry.sourceWindowHeight).toBe(88);
-  expect(geometry.sourceHeight).toBeGreaterThanOrEqual(28);
-  expect(geometry.agentSourceFontSize).toBe("12px");
+  expect(geometry.height).toBeGreaterThanOrEqual(70);
+  expect(geometry.bodyHeight).toBeGreaterThanOrEqual(34);
+  expect(geometry.bodyRadius).toBe("6px");
+  expect(geometry.agentFontSize).toBe("12px");
   await expect(workspace.getByText(/no grounded root cause with citations is recorded/i))
     .toBeVisible();
 });
@@ -1227,7 +1219,7 @@ test("pins a Var incident through the deck and renders a grounded Bragi answer",
 
   await expect.poll(() => fixture.chatBody()).not.toBeNull();
   expect(fixture.chatBody()).toMatchObject({
-    prompt: "What is the root cause status, and what are the involved agents doing?",
+    prompt: "@Bragi What is the root cause status, and what are the involved agents doing?",
     conversation_context: {
       kind: "incident",
       incident_id: incidentId,

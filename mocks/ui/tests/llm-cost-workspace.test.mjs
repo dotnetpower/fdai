@@ -26,7 +26,7 @@ test("source: LLM cost uses shared hierarchy, versioned assets and explicit evid
   assert.match(html, /class="oq-skip-link" href="#llm-cost-main"/);
   assert.doesNotMatch(html, /<style>|<script>|overview-workspace\.css|operator-workspace\.css|class="lc-card"/);
   const styles = [...html.matchAll(/href="([^"]+\.css[^"]*)"/g)].map(match => match[1]);
-  assert.deepEqual(styles, ["assets/calm-slate.css?v=overview-quality-v1", "assets/llm-cost-workspace.css?v=overview-quality-v2", "assets/overview-quality.css?v=overview-quality-v3"]);
+  assert.deepEqual(styles, ["assets/calm-slate.css?v=overview-quality-v2", "assets/llm-cost-workspace.css?v=overview-quality-v2", "assets/overview-quality.css?v=overview-quality-v4"]);
   assert.match(html, /llm-cost-workspace\.js\?v=overview-quality-v3/);
   assert.match(html, /Synthetic usage preview; no live actions/);
   assert.match(html, /reference cost is unavailable/);

@@ -49,6 +49,15 @@ export async function loadAnalyticsDataForMode(
   return loadAnalyticsData(client, options);
 }
 
+/** Load only the optional autonomy projection required by vertical outcomes. */
+export async function loadAutonomyDataForMode(
+  mode: ConsoleDataMode,
+  client: OperatorApiClient,
+): Promise<AutonomyPayload | null> {
+  if (mode === "sample") return DASHBOARD_SAMPLE_DATA.autonomy;
+  return optional(() => client.autonomy());
+}
+
 export function sampleAnalyticsData(includeGates = false): AnalyticsData {
   return {
     kpi: DASHBOARD_SAMPLE_DATA.kpi,
@@ -83,5 +92,31 @@ export function useAnalyticsData(
     })();
     return () => { cancelled = true; };
   }, [client, options.dataMode, options.includeGates]);
+  return state;
+}
+
+/** Track the autonomy projection without coupling the route to unrelated KPI reads. */
+export function useAutonomyData(
+  client: OperatorApiClient,
+  dataMode: ConsoleDataMode,
+): AsyncState<AutonomyPayload | null> {
+  const [state, setState] = useState<AsyncState<AutonomyPayload | null>>({ status: "loading" });
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = await loadAutonomyDataForMode(dataMode, client);
+        if (!cancelled) setState({ status: "ready", data });
+      } catch (error) {
+        if (!cancelled) {
+          setState({
+            status: "error",
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [client, dataMode]);
   return state;
 }

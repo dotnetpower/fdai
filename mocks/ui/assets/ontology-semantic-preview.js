@@ -172,6 +172,7 @@
   }
 
   function switchView(view) {
+    document.body.classList.toggle("is-instance-view", view === "instances");
     document.querySelectorAll("[data-ontology-view]").forEach(function (panel) {
       panel.hidden = panel.getAttribute("data-ontology-view") !== view;
     });
@@ -207,6 +208,7 @@
         var view = tab.getAttribute("data-ontology-tab");
         switchView(view);
         history.replaceState(null, "", view === "map" ? "ontology.html" : "ontology.html?view=" + encodeURIComponent(view));
+        if (window.fdaiPublishMockRoute) window.fdaiPublishMockRoute();
       }
     });
 

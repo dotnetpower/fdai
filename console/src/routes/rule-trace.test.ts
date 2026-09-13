@@ -34,7 +34,9 @@ describe("trace response contract", () => {
       status: "unavailable",
       message: "No audit steps for this correlation id.",
     });
-    expect(traceLoadFailure(new OperatorApiError(503, "audit source unavailable"))).toEqual({
+    expect(traceLoadFailure(
+      new OperatorApiError(503, "audit source unavailable", "projection-unavailable"),
+    )).toEqual({
       status: "unavailable",
       message: "Trace could not be loaded: audit source unavailable",
     });

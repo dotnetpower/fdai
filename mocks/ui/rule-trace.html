@@ -4,25 +4,86 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rule trace - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=focused-governance-v1" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=component-conformance-v1" />
   <link rel="stylesheet" href="assets/governance-evidence-workspace.css?v=9" />
   <link rel="stylesheet" href="assets/focused-governance-workspaces.css?v=1" />
   <link rel="stylesheet" href="assets/focused-decision-polish.css?v=1" />
-  <script src="assets/focused-governance-workspaces.js?v=1" defer></script>
+  <link rel="stylesheet" href="assets/evidence-quality.css?v=3" />
+  <link rel="stylesheet" href="assets/connected-operations-flow.css?v=4" />
+  <script src="assets/focused-governance-workspaces.js?v=3" defer></script>
   <script src="assets/calm-slate.js?v=focused-governance-v1" defer></script>
+  <script src="assets/evidence-quality.js?v=3" defer></script>
+  <script src="assets/trace-preview.js?v=2" defer></script>
 </head>
-<body class="cs-governance-evidence">
-  <main class="cs-container cs-page fg-page">
+<body class="cs-governance-evidence" data-evidence-quality data-evidence-page="rule-trace" data-chat-theme="clear-neutral">
+  <main class="cs-container cs-page fg-page" aria-labelledby="evidence-page-title">
     <header class="fg-header">
       <div>
-        <h1><span class="cs-page-domain">Evidence</span><span aria-hidden="true"> / </span>Rule trace</h1>
-        <p>Reconstruct one correlation from admitted signal through deterministic routing, verification, risk, human review, and immutable audit closure.</p>
+        <h1 id="evidence-page-title"><span class="cs-page-domain">Evidence</span><span aria-hidden="true"> / </span>Trace</h1>
+        <p>Inspect either a bounded read investigation or a governed decision path without replaying either record.</p>
       </div>
-      <div class="fg-header-meta"><span>Selected correlation</span><strong>7 stages / 3.2 seconds</strong></div>
+      <div class="fg-header-meta"><span>Selected correlation</span><strong data-trace-meta>6 observed stages / total 7.8 seconds</strong></div>
     </header>
 
     <div class="fg-boundary" role="note"><strong>Read-only reconstruction.</strong><span>Stage selection changes presentation only. It does not replay, reroute, approve, or execute the recorded decision.</span></div>
 
+    <div class="flow-mode-tabs" role="tablist" aria-label="Trace type">
+      <button id="trace-tab-read" type="button" role="tab" data-trace-mode="read" aria-controls="trace-surface-read" aria-selected="true">Read investigation</button>
+      <button id="trace-tab-decision" type="button" role="tab" data-trace-mode="decision" aria-controls="trace-surface-decision" aria-selected="false">Decision / action</button>
+    </div>
+
+    <div id="trace-surface-read" role="tabpanel" aria-labelledby="trace-tab-read" data-trace-surface="read">
+      <section class="flow-context" aria-label="Read investigation context">
+        <div><span>Selected Resource</span><strong>checkout-api</strong></div>
+        <div><span>Scope</span><strong>Direct relationships / depth 1</strong></div>
+        <div><span>Evidence cutoff</span><strong>22 Aug 2026, 08:00 UTC</strong></div>
+        <div><span>Correlation</span><strong>sample-query-connected-resources-01</strong></div>
+        <nav aria-label="Related read evidence">
+          <a href="ontology.html?view=instances">2D graph</a>
+          <a href="agent-activity.html?view=waterfall&amp;correlation=sample-query-connected-resources-01">Activity</a>
+        </nav>
+      </section>
+      <section class="fg-metrics" aria-label="Read trace summary">
+        <div class="fg-metric"><span>Request class</span><strong>Read only</strong><small>no mutation capability</small></div>
+        <div class="fg-metric"><span>Result scope</span><strong>6 links</strong><small>1 selected Resource</small></div>
+        <div class="fg-metric"><span>Verification</span><strong>Complete</strong><small>6 evidence references</small></div>
+        <div class="fg-metric"><span>Operational effect</span><strong>None</strong><small>query and presentation only</small></div>
+      </section>
+      <form class="fg-toolbar" data-fg-static-form data-fg-static-message="The synthetic read trace is unchanged. No query was sent." aria-label="Inspect a synthetic read correlation">
+        <label class="fg-field"><span>Correlation id</span><input id="read-trace-correlation" value="sample-query-connected-resources-01" /></label>
+        <label class="fg-field"><span>View</span><select><option>Observed stages</option><option>Evidence only</option><option>Timing</option></select></label>
+        <label class="fg-field"><span>Time display</span><select><option>Total elapsed</option><option>Recorded UTC</option></select></label>
+        <button class="fg-button" type="button" data-fg-copy="#read-trace-correlation">Copy id</button>
+      </form>
+      <section class="fg-workbench trace-workbench" aria-label="Read investigation stage review">
+        <aside class="fg-rail">
+          <header class="fg-pane-head"><div><h2>Read stages</h2><p>Observed order</p></div><span class="fg-count">6 stages</span></header>
+          <ol class="fg-select-list">
+            <li><button class="fg-select" type="button" data-fg-select="read-trace" data-fg-value="target" aria-pressed="false"><span class="trace-stage-index">1</span><span><strong>Target resolved</strong><small>Bragi / +0.4 s</small></span><span>exact</span></button></li>
+            <li><button class="fg-select" type="button" data-fg-select="read-trace" data-fg-value="scope" aria-pressed="false"><span class="trace-stage-index">2</span><span><strong>Scope bounded</strong><small>Forseti / +0.8 s</small></span><span>depth 1</span></button></li>
+            <li><button class="fg-select" type="button" data-fg-select="read-trace" data-fg-value="relations" aria-pressed="false"><span class="trace-stage-index">3</span><span><strong>LinkTypes checked</strong><small>Forseti / +1.1 s</small></span><span>allowed</span></button></li>
+            <li><button class="fg-select" type="button" data-fg-select="read-trace" data-fg-value="query" aria-pressed="true"><span class="trace-stage-index">4</span><span><strong>Graph queried</strong><small>Heimdall / +4.9 s</small></span><span>6 links</span></button></li>
+            <li><button class="fg-select" type="button" data-fg-select="read-trace" data-fg-value="verify" aria-pressed="false"><span class="trace-stage-index">5</span><span><strong>Evidence verified</strong><small>Forseti / +7.2 s</small></span><span>complete</span></button></li>
+            <li><button class="fg-select" type="button" data-fg-select="read-trace" data-fg-value="answer" aria-pressed="false"><span class="trace-stage-index">6</span><span><strong>Answer recorded</strong><small>Saga / +7.8 s</small></span><span>closed</span></button></li>
+          </ol>
+        </aside>
+        <div class="fg-detail">
+          <article class="fg-detail-panel" data-fg-panel="read-trace" data-fg-value="query">
+            <header class="fg-detail-head"><div><span class="fg-kicker">Stage 4 / Graph read</span><h2>Six direct relationships returned</h2><p>The query used the selected Resource, depth one, and the reviewed relationship vocabulary. It did not widen scope or call a managed-resource write API.</p></div><span class="fg-badge is-success">Read complete</span></header>
+            <dl class="fg-facts"><div><dt>Root</dt><dd><code>checkout-api</code></dd></div><div><dt>Depth</dt><dd>1</dd></div><div><dt>Known at</dt><dd>08:00 UTC</dd></div><div><dt>Completeness</dt><dd>Complete synthetic generation</dd></div></dl>
+            <div class="trace-evidence"><article><span>Incoming contains</span><strong>runtime-environment</strong></article><article><span>Outgoing depends_on</span><strong>event-stream, state-db, registry</strong></article><article><span>Outgoing attached_to</span><strong>secrets, observability</strong></article><article><span>Evidence source</span><strong>Inventory graph snapshot</strong></article><article><span>Execution authority</span><strong>None</strong></article></div>
+          </article>
+          <article class="fg-detail-panel" data-fg-panel="read-trace" data-fg-value="target" hidden><header class="fg-detail-head"><div><span class="fg-kicker">Stage 1 / Target</span><h2>One exact Resource matched</h2><p>The selected screen context resolved checkout-api without guessing from an ambiguous name.</p></div><span class="fg-badge is-success">Exact</span></header></article>
+          <article class="fg-detail-panel" data-fg-panel="read-trace" data-fg-value="scope" hidden><header class="fg-detail-head"><div><span class="fg-kicker">Stage 2 / Scope</span><h2>Traversal stayed at depth one</h2><p>The request preserved the selected Resource and returned only direct incoming and outgoing relationships.</p></div><span class="fg-badge is-info">Bounded</span></header></article>
+          <article class="fg-detail-panel" data-fg-panel="read-trace" data-fg-value="relations" hidden><header class="fg-detail-head"><div><span class="fg-kicker">Stage 3 / Vocabulary</span><h2>Stored LinkTypes were accepted</h2><p>Only reviewed contains, depends_on, attached_to, and network_path records were eligible.</p></div><span class="fg-badge is-success">Allowed</span></header></article>
+          <article class="fg-detail-panel" data-fg-panel="read-trace" data-fg-value="verify" hidden><header class="fg-detail-head"><div><span class="fg-kicker">Stage 5 / Evidence</span><h2>Direction and cutoff were verified</h2><p>Six unique evidence references support the returned links. Reachability and causation remain outside this answer.</p></div><span class="fg-badge is-success">Verified</span></header></article>
+          <article class="fg-detail-panel" data-fg-panel="read-trace" data-fg-value="answer" hidden><header class="fg-detail-head"><div><span class="fg-kicker">Stage 6 / Presentation</span><h2>Answer recorded with no operational effect</h2><p>The response retained the selected target, relationship direction, evidence cutoff, and limitations.</p></div><span class="fg-badge">No effect</span></header></article>
+          <div class="trace-path" aria-label="Complete read path"><span>target</span><span>scope</span><span>LinkTypes</span><span class="is-current">graph query</span><span>verification</span><span>answer</span></div>
+        </div>
+      </section>
+    </div>
+
+    <div id="trace-surface-decision" role="tabpanel" aria-labelledby="trace-tab-decision" data-trace-surface="decision" hidden>
     <section class="fg-metrics" aria-label="Trace summary">
       <div class="fg-metric"><span>Verdict</span><strong>HIL</strong><small>2 distinct approvers required</small></div>
       <div class="fg-metric"><span>Resolved tier</span><strong>T1</strong><small>similarity 0.93</small></div>
@@ -30,7 +91,7 @@
       <div class="fg-metric"><span>Operational effect</span><strong>Pending</strong><small>nothing executed yet</small></div>
     </section>
 
-    <form class="fg-toolbar" data-fg-static-form>
+    <form class="fg-toolbar" data-fg-static-form data-fg-static-message="The synthetic trace selection is unchanged. No correlation request was sent." aria-label="Inspect a synthetic correlation">
       <label class="fg-field"><span>Correlation id</span><input id="trace-correlation" value="evt-sample-database-pitr" /></label>
       <label class="fg-field"><span>View</span><select><option>Decision stages</option><option>Evidence only</option><option>Authority transitions</option></select></label>
       <label class="fg-field"><span>Time display</span><select><option>Relative to ingest</option><option>Recorded UTC</option></select></label>
@@ -77,6 +138,7 @@
         <div class="trace-recovery"><span aria-hidden="true">!</span><div><strong>Source recovery branch</strong><small>If a required source becomes unavailable, the current attempt ends. A fresh evaluation needs a new evidence receipt.</small></div><span class="fg-badge is-warning">Abstain</span></div>
       </div>
     </section>
+    </div>
   </main>
 </body>
 </html>

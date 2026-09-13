@@ -125,6 +125,9 @@ async def test_resume_cursor_builds_filter_and_maps_event() -> None:
     rec = page.resources[0]
     assert rec.type == neutral_id
     assert rec.provider_ref == arm_id
+    assert rec.props["providerType"] == arm_type
+    assert rec.props["subscriptionId"] == "00000000-0000-0000-0000-000000000001"
+    assert rec.props["resourceGroup"] == "rg-a"
     assert len(page.links) == 1
     assert page.links[0].link_type == "contains"
     assert page.links[0].to_id == rec.resource_id

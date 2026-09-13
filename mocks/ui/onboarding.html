@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Onboarding readiness - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v4" />
   <script src="assets/calm-slate.js?v=operator-workspaces-v2" defer></script>
   <style>
     .ob-header { display: flex; align-items: end; justify-content: space-between; gap: 24px; }
@@ -98,7 +98,7 @@
       .ob-role-main { min-width: 0; }
     }
   </style>
-  <link rel="stylesheet" href="assets/operator-workspace.css?v=2" />
+  <link rel="stylesheet" href="assets/operator-workspace.css?v=4" />
   <script src="assets/onboarding-preview.js?v=1" defer></script>
 </head>
 <body class="cs-operator-neutral" data-chat-theme="clear-neutral">
@@ -109,7 +109,7 @@
         <h1>Onboarding readiness</h1>
         <p class="cs-lead">Inspect resource and role readiness from a configured authoritative probe.</p>
       </div>
-      <div class="op-toolbar"><label>Preview state<select class="cs-control-select" id="onboarding-preview-state"><option value="blocked">Blocked</option><option value="ready">Ready</option><option value="unconfigured">Not configured</option><option value="failed">Probe failed</option></select></label><button class="cs-btn ob-refresh" type="button" id="refresh-button">Reset preview</button></div>
+      <div class="op-toolbar"><label>Preview state<select class="cs-control-select" id="onboarding-preview-state"><option value="blocked">Blocked</option><option value="ready">Ready</option><option value="unconfigured">Not configured</option><option value="failed">Probe failed</option></select></label><button class="cs-control-button ob-refresh" type="button" id="refresh-button">Reset preview</button></div>
     </div>
 
     <div class="cs-readonly-banner" role="status" id="onboarding-preview-note">
@@ -141,9 +141,9 @@
 
     <nav class="ob-actions" aria-label="Onboarding drill-downs">
       <strong>Resolve in the owning surface</strong>
-      <a class="cs-btn" href="provision.html">Open provisioning</a>
-      <a class="cs-btn" href="settings-iam.html#requests">Review access</a>
-      <a class="cs-btn" href="architecture.html">Inspect architecture</a>
+      <a class="cs-control-button" href="provision.html">Open provisioning</a>
+      <a class="cs-control-button" href="settings-iam.html#requests">Review access</a>
+      <a class="cs-control-button" href="architecture.html">Inspect architecture</a>
     </nav>
 
     <div class="ob-grid">
@@ -175,8 +175,9 @@
           <span class="ob-count" id="onboarding-role-gaps">2</span>
         </header>
         <table class="ob-role-table" id="onboarding-role-list">
+          <caption class="cs-sr-only">Role assignments missing from the synthetic readiness snapshot</caption>
           <thead>
-            <tr><th>Principal</th><th>Role</th><th>Target</th><th>Status</th></tr>
+            <tr><th scope="col">Principal</th><th scope="col">Role</th><th scope="col">Target</th><th scope="col">Status</th></tr>
           </thead>
           <tbody>
             <tr>

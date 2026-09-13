@@ -32,7 +32,12 @@ import httpx
 import pytest
 import yaml
 from fdai.delivery.azure import arg_transport
-from fdai.delivery.azure.arg_projection import resource_operational_status, to_neutral_id
+from fdai.delivery.azure.arg_projection import (
+    ArmScopeError,
+    arm_scope_properties,
+    resource_operational_status,
+    to_neutral_id,
+)
 from fdai.delivery.azure.arg_query import (
     ArgQueryError,
     AzureArgQueryFactory,
@@ -87,12 +92,50 @@ def _arm_row(*, arm_id: str, arm_type: str, extra: dict[str, Any] | None = None)
         "location": "koreacentral",
         "tags": {"owner": "team-a"},
         "properties": {"public_access": "enabled"},
-        "resourceGroup": "rg-example",
-        "subscriptionId": "00000000-0000-0000-0000-000000000001",
+        **arm_scope_properties(arm_id),
     }
     if extra:
         row.update(extra)
     return row
+
+
+def test_arm_scope_preserves_matching_provider_casing_and_fills_missing_values() -> None:
+    arm_id = (
+        "/subscriptions/sub-one/resourceGroups/group-one/providers/"
+        "Microsoft.Example/widgets/example"
+    )
+
+    assert arm_scope_properties(
+        arm_id,
+        {"subscriptionId": "SUB-ONE", "resourceGroup": "GROUP-ONE"},
+    ) == {
+        "subscriptionId": "SUB-ONE",
+        "resourceGroup": "GROUP-ONE",
+    }
+    assert arm_scope_properties(arm_id) == {
+        "subscriptionId": "sub-one",
+        "resourceGroup": "group-one",
+    }
+
+
+@pytest.mark.parametrize(
+    "arm_id",
+    [
+        "/subscriptions//resourceGroups/group-one/providers/Microsoft.Example/widgets/example",
+        "/subscriptions/sub-one/resourceGroups//providers/Microsoft.Example/widgets/example",
+    ],
+)
+def test_arm_scope_rejects_empty_identity_segments(arm_id: str) -> None:
+    with pytest.raises(ArmScopeError, match="malformed"):
+        arm_scope_properties(arm_id)
+
+
+def test_arm_scope_rejects_resource_group_on_a_subscription_level_resource() -> None:
+    with pytest.raises(ArmScopeError, match="conflicts"):
+        arm_scope_properties(
+            "/subscriptions/sub-one/providers/Microsoft.Authorization/roleDefinitions/example",
+            {"resourceGroup": "group-one"},
+        )
 
 
 @pytest.mark.asyncio
@@ -551,6 +594,7 @@ async def test_unmapped_resource_query_preserves_identity_without_semantic_suppo
         "name": "watcher-one",
         "location": "koreacentral",
         "resourceGroup": "rg-example",
+        "subscriptionId": "00000000-0000-0000-0000-000000000001",
         "parent_id": to_neutral_id(arm_id.rsplit("/providers/", 1)[0]),
     }
     assert len(result.links) == 1
@@ -1567,6 +1611,41 @@ async def test_oversize_properties_are_truncated() -> None:
     # After truncation the record still exists and is auditable via provider_ref.
     assert record.provider_ref is not None
     assert record.props.get("_truncated") is True
+    assert record.props["providerType"] == "Microsoft.Storage/storageAccounts"
+    assert record.props["subscriptionId"] == "00000000-0000-0000-0000-000000000001"
+    assert record.props["resourceGroup"] == "rg-a"
+
+
+@pytest.mark.asyncio
+async def test_inventory_rejects_scope_that_conflicts_with_the_arm_id() -> None:
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.Storage/storageAccounts/example"
+    )
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    _arm_row(
+                        arm_id=arm_id,
+                        arm_type="Microsoft.Storage/storageAccounts",
+                        extra={"resourceGroup": "different-group"},
+                    )
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        with pytest.raises(ArgQueryError, match="conflicting provider scope"):
+            await factory.build_query_fn()("object-storage")
 
 
 # ---------------------------------------------------------------------------
@@ -2055,11 +2134,15 @@ def test_materialize_nested_subnets_uses_observed_vnet_payload() -> None:
     assert records[0].props == {
         "name": "app",
         "resourceGroup": "rg-example",
+        "subscriptionId": "00000000-0000-0000-0000-000000000001",
+        "providerType": "Microsoft.Network/virtualNetworks/subnets",
         "parent_id": resource_group_id,
     }
     assert records[1].props == {
         "name": "data",
         "resourceGroup": "rg-example",
+        "subscriptionId": "00000000-0000-0000-0000-000000000001",
+        "providerType": "microsoft.network/virtualnetworks/subnets",
         "parent_id": resource_group_id,
     }
     assert len(links) == 2

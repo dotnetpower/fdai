@@ -15,6 +15,7 @@ from fdai_operator_service.families.operations.recorded_state import (
     AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
     OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES,
     OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
+    PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES,
     PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
     RecordedStateObservation,
     recorded_resource_states,
@@ -90,7 +91,7 @@ def test_all_29_previously_dropped_raw_states_are_retained(index: int) -> None:
     }
     assert states["provisioning"]["value"] == "Succeeded"
     assert states["availability"]["value"] is None
-    assert states["availability"]["reason"] == "state_not_recorded"
+    assert states["availability"]["reason"] == "provider_availability_state_not_exposed"
     assert projected["status"] == "Running"
     assert projected["subscription_id"] == "example-subscription"
     assert "private-provider-payload" not in repr(projected)
@@ -174,7 +175,37 @@ def test_missing_state_separates_source_provider_and_applicability_outcomes() ->
     assert log_workspace["operational"]["reason"] == "state_not_applicable"
     assert log_workspace["availability"]["reason"] == "state_source_not_recorded"
     assert not_applicable["operational"]["reason"] == "state_not_applicable"
+    assert not_applicable["availability"]["reason"] == ("provider_availability_state_not_exposed")
     assert unresolved["operational"]["reason"] == "state_applicability_unknown"
+
+
+def test_missing_availability_preserves_the_reviewed_resource_health_reason() -> None:
+    states = recorded_resource_states(
+        {
+            "state_fact_unavailable_reasons": {
+                "availabilityState": "resource_health_not_modeled",
+            }
+        },
+        resource_type="compute.vm",
+        now=NOW,
+    )
+
+    assert states["availability"]["value"] is None
+    assert states["availability"]["reason"] == "resource_health_not_modeled"
+
+
+def test_unreviewed_state_unavailability_reason_does_not_cross_the_read_boundary() -> None:
+    states = recorded_resource_states(
+        {
+            "state_fact_unavailable_reasons": {
+                "availabilityState": "provider supplied detail",
+            }
+        },
+        resource_type="compute.vm",
+        now=NOW,
+    )
+
+    assert states["availability"]["reason"] == "state_source_not_recorded"
 
 
 def test_resource_type_applicability_rejects_unreviewed_supplied_state() -> None:
@@ -338,6 +369,19 @@ def test_every_canonical_resource_type_has_a_reviewed_operational_state_outcome(
     assert classified == canonical
     assert set(AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE).isdisjoint(
         AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES
+    )
+    availability_classified = (
+        set(AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE)
+        | AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES
+        | PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES
+        | {"unclassified-resource"}
+    )
+    assert availability_classified == canonical
+    assert set(AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE).isdisjoint(
+        PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES
+    )
+    assert AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES.isdisjoint(
+        PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES
     )
 
 

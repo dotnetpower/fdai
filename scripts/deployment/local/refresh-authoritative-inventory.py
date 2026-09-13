@@ -27,7 +27,7 @@ from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGra
 from fdai.delivery.inventory_job_config import InventoryJobConfig
 from fdai.delivery.inventory_sync import InventorySyncCoordinator, PromotedInventoryObservation
 from fdai.delivery.inventory_sync_cli import (
-    _build_kubernetes_enricher as build_kubernetes_inventory_enricher,
+    build_inventory_promotion_enricher,
 )
 from fdai.delivery.operational_activity import (
     EventBusOperationalActivityPublisher,
@@ -179,11 +179,13 @@ async def refresh() -> InventoryOntologyProjectionResult:
         async with AsyncExitStack() as stack:
             client = await stack.enter_async_context(httpx.AsyncClient())
             identity = AsyncAzureCliWorkloadIdentity.from_env()
-            kubernetes_enricher = await build_kubernetes_inventory_enricher(
+            effective_enricher = await build_inventory_promotion_enricher(
                 config=inventory_config,
-                relationship_catalog=relationship_catalog,
-                stack=stack,
                 identity=identity,
+                http_client=client,
+                stack=stack,
+                relationship_catalog=relationship_catalog,
+                previous_state_reader=snapshot_store,
             )
             query_factory = AzureArgQueryFactory(
                 identity=identity,
@@ -235,7 +237,7 @@ async def refresh() -> InventoryOntologyProjectionResult:
             result = await InventorySyncCoordinator(
                 store=observed_store,
                 promotion_observer=project,
-                promotion_enricher=kubernetes_enricher,
+                promotion_enricher=effective_enricher,
                 relationship_mapping_catalog=relationship_catalog,
             ).run((source,))
             active_snapshot_id = await snapshot_store.active_snapshot_id()

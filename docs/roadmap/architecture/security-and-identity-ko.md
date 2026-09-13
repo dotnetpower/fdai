@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 9cc5df03e0c5f9ad8a6d1daa23db6eab25f704a4
-translation_revised: 2026-09-12
+translation_source_sha: 954591d25a4e98f41a87e1d67fa5e373541e1a84
+translation_revised: 2026-09-13
 ---
 
 # 보안과 아이덴티티
@@ -377,6 +377,8 @@ GET/헤드 interception, visual 및 텍스트 민감정보 제거, 시크릿 can
 
 이벤트 페이로드와 도구 출력은 **신뢰할 수 없는** ; 결정론적 검증기와 정책 재검사가 권위이며,
 모델이나 이벤트 텍스트가 아님.
+공급자 관측 실패는 허용 목록에 있는 기계 사유로만 서비스 경계를 통과합니다. 공급자 응답 원문은
+Resource 상태로 저장하거나 Console에 반환하지 않습니다.
 
 | STRIDE | 위협 | 완화 |
 |--------|------|------|

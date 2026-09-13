@@ -353,6 +353,8 @@ async def test_unmapped_hydration_retains_provider_identity_without_ontology_aut
     assert resource["type"] == UNCLASSIFIED_RESOURCE_TYPE
     assert resource["provider_ref"] == arm_id
     assert resource["props"]["providerType"] == arm_type
+    assert resource["props"]["subscriptionId"] == _SCOPE
+    assert resource["props"]["resourceGroup"] == "rg-a"
     assert result.next_cursor == "2026-07-10T06:00:00+00:00\x1fc1"
 
 

@@ -14,6 +14,19 @@ body.cs-overview-quality[data-chat-theme="clear-neutral"] {
   background: var(--cs-bg);
 }
 
+body.cs-overview-quality[data-chat-theme="clear-neutral"][data-theme="dark"] {
+  --cs-bg: #151719;
+  --cs-card: #1d2023;
+  --cs-shade: #262a2e;
+  --cs-hairline: #34383d;
+  --cs-text: #e5e3df;
+  --cs-text-soft: #aaaeb3;
+  --cs-steel: #83a4c4;
+  --cs-sage: #8eac88;
+  --cs-terracotta: #d39b77;
+  --cs-dusty-red: #d58a8a;
+}
+
 .cs-overview-quality > main.oq-page {
   width: min(100%, 1280px);
   max-width: 1280px;

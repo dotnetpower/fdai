@@ -49,7 +49,9 @@ describe("process view route model", () => {
       message: "Process projections are not wired on this deployment.",
     });
     expect(processListFailure(new OperatorApiError(501, "Not Implemented")).status).toBe("unavailable");
-    expect(processListFailure(new OperatorApiError(503, "projection unavailable")).status).toBe("unavailable");
+    expect(processListFailure(
+      new OperatorApiError(503, "projection unavailable", "projection-unavailable"),
+    ).status).toBe("unavailable");
   });
 
   it("keeps operational process API failures visible as errors", () => {

@@ -12,14 +12,11 @@ shared container becomes a second root. Case-history review requires both failur
 inert learning candidate. A Workflow approval step cannot lower the no-self-approval invariant; the contract rejects a disabled value at
 catalog load. The `verticals.resilience` package exposes deterministic recovery-plan compilation without adding execution authority. DR objective evidence reports a nearest-rank p90, so a small cohort keeps its slowest measured run instead of reporting an
 objective as met. A parked HIL record without a recorded action digest fails the integrity gate instead of resuming, so removing the digest
-cannot authorize a tampered payload. The quality gate refuses duplicate cross-check models, so one model cannot agree with itself and
-satisfy the mixed-model quorum. An effective freeze or quiet ChangeWindow with unusable bounds denies maintenance authority instead of being
-skipped. A change event stamped further ahead than the configured clock-skew tolerance reports out-of-band instead of being suppressed by
-the settling window. Tolerated negative age never creates suppression when the configured settling window is zero. Pre-authority Change Safety evidence uses the same injected control-loop clock as action creation, dispatch, and audit, so frozen replay cannot become stale from host wall time. A missed breach is scored
+cannot authorize a tampered payload. The quality gate refuses duplicate cross-check models, so one model cannot agree with itself and satisfy the mixed-model quorum. An effective freeze or quiet ChangeWindow with unusable bounds denies maintenance authority instead of being skipped. A change event stamped further ahead than the configured clock-skew tolerance reports out-of-band instead of being suppressed by the settling window. Tolerated negative age never creates suppression when the configured settling window is zero. Pre-authority Change Safety evidence uses the same injected control-loop clock as action creation, dispatch, and audit, so frozen replay cannot become stale from host wall time. A missed breach is scored
 only from complete telemetry, so a false-negative outcome never publishes a completeness claim its observation did not make. Forecast
 closure attempts every claimed episode before re-raising the first failure, so one failing episode cannot hold the whole due queue open. T1
 contextual reuse reads the event resource type through the same canonical shapes as the trust router, so an accepted event is not reported
-as a changed resource type. Recorded Resource state normalization remains in Core and Azure delivery, the Operator owns the read-only conversion, and the Console only localizes the resulting reason. Configuration-drift delivery likewise stays in `delivery/azure/` and protected Core service composition: reviewed snapshots move only through a content-addressed private Blob, runtime reads use Managed Identity, and the exact server-owned binding is verified independently after apply. Independent-service plan guards treat command and environment changes as part of the rollback boundary. The isolated Executor may adopt the previously absent default-off legacy-unbound transition binding exactly once; enabling or replaying it, or combining it with unrelated runtime drift, remains ineligible.
+as a changed resource type. Recorded Resource state normalization and allowlisted canonical unavailable reasons remain in the shared contract, Core, and Azure delivery; the Operator owns the read-only conversion, and the Console only localizes the resulting reason. Configuration-drift delivery likewise stays in `delivery/azure/` and protected Core service composition: reviewed snapshots move only through a content-addressed private Blob, runtime reads use Managed Identity, and the exact server-owned binding is verified independently after apply. Independent-service plan guards treat command and environment changes as part of the rollback boundary. The isolated Executor may adopt the previously absent default-off legacy-unbound transition binding exactly once; enabling or replaying it, or combining it with unrelated runtime drift, remains ineligible.
 
 ## Core domain navigation decision
 
@@ -50,7 +47,6 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   `shared/` contracts, providers, telemetry, and config; `delivery/` may compose `core/` and
   `shared/` behind adapter boundaries; `composition/` binds all layers. `core/` and `agents/`
   never import `delivery/`; provider behavior enters through shared Protocols and composition.
-  The transport-only Core Executor client injects the shared-provider `ExecutorReceiptJournal`; runtime owns durable attempt/closure joins. Dispatch receipts grant no authorization or independent effect verification. Dry-run artifacts retain their stable historical identity; full-Action fingerprints independently bind current execution proofs.
   Focused sibling modules may own canonical identity projection and hashing while the established owner module re-exports that public surface. Idempotency reservation stable-operation comparison follows this split; serialized bytes, transition validation, and replay semantics remain unchanged. Versioned terminal measurement contracts follow the same service boundary: Core retains normalized event classifications atomically with audit, and Operator reads them without importing Core or treating a classification as execution or effect authority. A duplicate acknowledgement requires matching retained facts; a collision cannot silently replace or discard the original classification. Measurement timestamps require explicit timezone-bearing datetime or ISO 8601 text, never implicit numeric epoch coercion.
 - **human approval stays split by service authority**: Operator owns Teams/Slack authentication,
   cryptographic verification, callback audit, and the durable decision outbox. Core consumes only
@@ -127,7 +123,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   semantic planning plus post-turn review resolve their capability bindings through it. The
   staging ChatOps validation mode seals that result into plan metadata and revalidates it before
   both plan and apply. SKU-qualified quota lookup prevents another deployment tier from satisfying
-  the reviewed secondary profile. Composition accepts a reasoner-level `hil-only` fallback only from a digest-bound policy artifact, forces deterministic disagreement, and excludes that sentinel from startup model probes and metering; unexpected `auto` or `pinned` loss still blocks startup. Semantic pre-frame selection keeps summaries, traces, and ownership frames typed separately; compatibility facades retain stable imports.
+  the reviewed secondary profile. Semantic pre-frame selection keeps summaries, traces, and
+  ownership frames typed separately; compatibility facades retain stable imports.
 - **qualification reduction is authority-free**:
   `core/conversation_assurance/quality_qualification.py` accepts only premeasured normalized
   observations and reduces them against the installed quality contract. It derives hard caps from
@@ -247,15 +244,15 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   values; unsupported objects and `NaN` are rejected before identity calculation, publication, or
   PostgreSQL connection. Realtime projectors and immutable snapshot staging store only prevalidated
   canonical JSON documents; snapshot coverage metadata follows the same rule before begin or
-  promotion. Azure relationship paths, allowed provider types, direction, source-schema digests,
-  and evidence policy come from the reviewed `provider-relationship-mappings` catalog. Its verifier
-  activates a candidate only with endpoints observed in the same complete generation, distinct provider/verifier
-  identities, and an immutable receipt binding the edge and mapping revision. Missing endpoints,
-  ambiguous direction, stale mappings, duplicate/conflicting observations, and partial generations
-  produce stable dropped reasons and no active edge. Open environment values pointing to their
-  owner are identity references, not dependencies. Independently owned and verified reciprocal
-  `depends_on` observations retain both directions. Verified links preserve immutable state-fact
-  and link-observation metadata; stale or conflicting evidence can only lower operational-context autonomy.
+  promotion. Azure relationship property paths, allowed provider types, semantic direction,
+  source-schema digest, and evidence policy come from the reviewed
+  `provider-relationship-mappings` catalog. A complete-generation verifier activates a candidate
+  only when the same generation observes both endpoints, provider and verifier identities differ,
+  and an immutable verification receipt binds the edge and mapping revision. Missing endpoints,
+  ambiguous orientation, stale schema mappings, duplicate or conflicting observations, and partial
+  generations produce stable dropped reasons and no active graph edge. Verified links carry
+  immutable state-fact and link-observation metadata. Stale or conflicting evidence can only lower
+  operational-context autonomy.
   Versioned provider-schema candidate materialization remains a delivery concern:
   `provider_schema_relationship_generation.py` binds the exact provider-schema and REST evidence
   digests, mapping revision, projection manifest, direction, cardinality, and link metadata.
@@ -407,7 +404,7 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   **not** re-exported from public sub-packages; they must be imported directly from their
   submodule, and only by a composition root, so `core/` cannot depend on a concrete by accident.
 - **Config-driven binding**: configuration selects each implementation.
-  `composition/wire_distiller.py` atomically binds the review-only `Distiller` from three exact-version endpoints and one replay-identical prompt. Zero council records, or three digest-policy-held `hil-only` records with no endpoints, preserve abstention without validating unused endpoint values. Partial, unsigned, or endpoint-bearing held records fail startup without changing execution T2.
+  `composition/wire_distiller.py` atomically binds the review-only `Distiller` from three exact-version endpoints and one replay-identical prompt. Zero council records preserve abstention without validating unused endpoint values. Partial records fail startup without changing execution T2.
   The generic drop-directory `ManualSource` retains oversize paths as metadata-only held candidates, so its read bound cannot create a false deletion signal.
 - **Default implementations upstream**: the main repo provides working generic defaults for
   every seam so it runs standalone; a fork replaces only the seams it needs.
