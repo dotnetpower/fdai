@@ -85,7 +85,6 @@ from fdai.delivery.azure.arg_projection import (
     ArmIdentityError,
     ArmScopeError,
     arm_provider_type,
-    arm_scope_properties,
     resource_operational_status,
     reviewed_containment_parent,
     validated_arm_scope,
@@ -662,19 +661,9 @@ class AzureArgQueryFactory:
             return None
 
         neutral_id = _to_neutral_id(arm_id)
-<<<<<<< HEAD
         scope_error = ArgQueryError(f"ARG {resource_type!r} row has conflicting provider scope")
         scope = validated_arm_scope(arm_id, row, scope_error)
-        props: dict[str, Any] = {"providerType": arm_type}
-=======
-        try:
-            scope = arm_scope_properties(arm_id, row)
-        except ArmScopeError as exc:
-            raise ArgQueryError(
-                f"ARG row for {resource_type!r} has conflicting provider scope"
-            ) from exc
         props: dict[str, Any] = {"providerType": provider_type}
->>>>>>> 2f0cd7034 (harden(inventory): reject contradictory ARM identities)
         subscription_id = row.get("subscriptionId")
         if isinstance(subscription_id, str) and subscription_id:
             props["subscriptionId"] = subscription_id
