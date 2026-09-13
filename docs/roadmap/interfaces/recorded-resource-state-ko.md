@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: a2ae2975b73c02b002b656d77f89a96a22366179
+translation_source_sha: 79c130528b66b35f2f92e7ffba5286015896d140
 translation_revised: 2026-09-13
 ---
 # 기록된 리소스 상태
@@ -238,8 +238,9 @@ ResourceType을 선언합니다.
 - 런타임 대표 상태 검증에는 운영 또는 가용성 출처가 없는 구성형 Resource도 포함합니다. 이러한
   노드는 정확한 프로비저닝 값이 있으면 해당 축을 표시하고, 모든 기록 축에 유용한 정확한 사실이
   없을 때만 명시적인 근거 누락 레이블을 유지합니다.
-- 상태 수집 하드닝 완료를 주장하려면 범위가 제한된 각 검토 라운드를 기록하고, 해결되지 않은
-  Critical, High 또는 Medium 지적이 없다는 독립 후속 검증을 받아야 합니다.
+- 상태 수집 하드닝 완료를 주장하려면 범위가 제한된 각 검토 라운드를 기록하고, 정적 게이트와
+  실제 수집에서 발견된 경계 수정 모두에 해결되지 않은 Critical, High 또는 Medium 지적이 없다는
+  독립 후속 검증을 받아야 합니다.
 
 ## 채택하지 않은 대안
 
