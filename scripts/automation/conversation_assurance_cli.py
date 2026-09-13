@@ -11,6 +11,7 @@ import sys
 import urllib.error
 import urllib.request
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -22,6 +23,7 @@ for _source in ("services/core-control-plane/src", "packages/service-contracts/s
 
 from fdai.agents import PANTHEON_SPECS  # noqa: E402
 from fdai.core.conversation_assurance import (  # noqa: E402
+    COPILOT_RUBRIC_NAMES,
     CampaignHoldError,
     ConversationTurnTraceReceipt,
     PantheonCampaignController,
@@ -32,14 +34,20 @@ from fdai.core.conversation_assurance import (  # noqa: E402
     PantheonSemanticReview,
     PantheonTurnDiagnostic,
     PrivateJsonlLedger,
+    build_copilot_review_packet,
     build_pantheon_census,
     evaluate_pantheon_turn,
+    import_copilot_review,
     open_private_lock,
+    parse_pantheon_corpus,
+    plan_campaign_series,
     private_marker_exists,
     read_private_text,
     remove_private_marker,
     required_observed_rubrics,
     touch_private_marker,
+    validate_copilot_review_packet,
+    write_copilot_review_packet,
 )
 from fdai.core.conversation_assurance.local_supervisor import (  # noqa: E402
     request as request_supervisor,
@@ -54,6 +62,8 @@ from scripts.automation.conversation_assurance_qualification import (  # noqa: E
 
 _MAX_RESPONSE_BYTES = 512 * 1024
 _MAX_TOKEN_BYTES = 16 * 1024
+_MAX_CORPUS_BYTES = 16 * 1024 * 1024
+_MAX_COPILOT_REVIEW_BYTES = 4 * 1024 * 1024
 _STATE_ROOT = Path(".fdai/conversation-assurance")
 _ASSESSMENT_REASON = re.compile(r"^[a-z][A-Za-z0-9_.:-]{0,127}$")
 
@@ -255,8 +265,9 @@ def _selected_cases(
     suite: str,
     agent: str | None,
     questions: int | None,
+    census: PantheonCensus | None = None,
 ) -> tuple[PantheonCensusCase, ...]:
-    cases = build_pantheon_census(PANTHEON_SPECS).cases
+    cases = (census or build_pantheon_census(PANTHEON_SPECS)).cases
     selected = tuple(
         case
         for case in cases
@@ -270,20 +281,39 @@ def _selected_cases(
     return selected
 
 
+def _load_private_corpus(path: Path) -> PantheonCensus:
+    try:
+        raw = read_private_text(path.expanduser(), max_bytes=_MAX_CORPUS_BYTES)
+        return parse_pantheon_corpus(raw, PANTHEON_SPECS)
+    except FileNotFoundError as error:
+        raise CampaignHoldError("conversation_corpus_unavailable") from error
+    except (OSError, UnicodeError, ValueError, json.JSONDecodeError) as error:
+        raise CampaignHoldError("conversation_corpus_invalid") from error
+
+
 async def _start(project: Path, request: Mapping[str, object]) -> dict[str, object]:
     suite = str(request.get("suite", "census"))
     agent = request.get("agent")
     questions = request.get("questions")
+    corpus_path = request.get("corpus")
+    census = (
+        _load_private_corpus(Path(corpus_path))
+        if isinstance(corpus_path, str) and corpus_path.strip()
+        else build_pantheon_census(PANTHEON_SPECS)
+    )
     selected = _selected_cases(
         suite=suite,
         agent=str(agent) if isinstance(agent, str) else None,
         questions=int(questions) if isinstance(questions, int) else None,
+        census=census,
     )
+    plan = plan_campaign_series(selected)
     if bool(request.get("dry_run", False)):
         return {
             "state": "preview",
-            "questions": len(selected),
-            "census_digest": build_pantheon_census(PANTHEON_SPECS).content_digest,
+            "questions": plan.question_count,
+            "campaigns": plan.child_count,
+            "census_digest": census.content_digest,
         }
     base_url = os.environ.get("FDAI_CONVERSATION_ASSURANCE_OPERATOR_URL", "").strip()
     if not base_url:
@@ -470,6 +500,9 @@ def _append_qualification_hold(
 def _status(project: Path) -> dict[str, object]:
     campaigns = PrivateJsonlLedger(_state_root(project) / "campaigns.jsonl").read(limit=10_000)
     evaluations = PrivateJsonlLedger(_state_root(project) / "evaluations.jsonl").read(limit=10_000)
+    copilot_reviews = PrivateJsonlLedger(_state_root(project) / "copilot-reviews.jsonl").read(
+        limit=10_000
+    )
     completed = [item for item in campaigns if item.get("event") == "campaign_completed"]
     qualifications = [
         item
@@ -480,6 +513,8 @@ def _status(project: Path) -> dict[str, object]:
         "state": "idle",
         "campaigns": len(completed),
         "evaluations": len(evaluations),
+        "copilot_reviews": len(copilot_reviews),
+        "latest_copilot_review": copilot_reviews[-1] if copilot_reviews else None,
         "latest_campaign": completed[-1] if completed else None,
         "latest_qualification": qualifications[-1] if qualifications else None,
         "stop_requested": private_marker_exists(_state_root(project) / "STOP"),
@@ -555,6 +590,66 @@ def _serve(project: Path) -> int:
     )
 
 
+def _private_json(path: Path) -> dict[str, object]:
+    try:
+        raw = json.loads(read_private_text(path, max_bytes=_MAX_COPILOT_REVIEW_BYTES))
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        raise CampaignHoldError("copilot_review_file_invalid") from error
+    if not isinstance(raw, Mapping):
+        raise CampaignHoldError("copilot_review_file_invalid")
+    return {str(key): value for key, value in raw.items()}
+
+
+def _copilot_export(project: Path, *, source: Path, output: Path) -> dict[str, object]:
+    raw = _private_json(source)
+    cases = raw.get("cases")
+    if not isinstance(cases, list):
+        raise CampaignHoldError("copilot_review_cases_invalid")
+    try:
+        packet = build_copilot_review_packet(
+            cases,
+            created_at=datetime.now(UTC).isoformat(),
+        )
+        write_copilot_review_packet(output, packet)
+    except (OSError, ValueError) as error:
+        raise CampaignHoldError("copilot_review_export_failed") from error
+    return {
+        "state": "exported",
+        "packet_id": packet["packet_id"],
+        "packet_digest": packet["packet_digest"],
+        "cases": len(cases),
+        "rubric_count": len(COPILOT_RUBRIC_NAMES),
+        "output": str(output),
+        "reviewer_kind": packet["reviewer_kind"],
+        "qualification_authority": False,
+        "execution_authority": False,
+    }
+
+
+def _copilot_import(project: Path, *, packet_path: Path, result_path: Path) -> dict[str, object]:
+    try:
+        packet = validate_copilot_review_packet(_private_json(packet_path))
+        result = import_copilot_review(
+            packet=packet,
+            result=_private_json(result_path),
+            ledger=PrivateJsonlLedger(_state_root(project) / "copilot-reviews.jsonl"),
+        )
+    except (OSError, ValueError) as error:
+        raise CampaignHoldError("copilot_review_import_failed") from error
+    reviews = result.get("reviews")
+    if not isinstance(reviews, list):
+        raise CampaignHoldError("copilot_review_import_failed")
+    return {
+        "state": "duplicate" if result["duplicate"] else "imported",
+        "review_id": result["review_id"],
+        "packet_digest": result["packet_digest"],
+        "reviews": len(reviews),
+        "reviewer_kind": result["reviewer_kind"],
+        "qualification_authority": False,
+        "execution_authority": False,
+    }
+
+
 def _dispatch(project: Path, request: Mapping[str, object]) -> Mapping[str, object]:
     operation = request.get("operation")
     if operation == "start":
@@ -583,11 +678,18 @@ def _parser() -> argparse.ArgumentParser:
     start.add_argument("--suite", choices=("census", "agent", "routing", "t2"), default="census")
     start.add_argument("--agent", choices=tuple(spec.name for spec in PANTHEON_SPECS))
     start.add_argument("--questions", type=int)
+    start.add_argument("--corpus", type=Path)
     start.add_argument("--dry-run", action="store_true")
     subparsers.add_parser("status")
     report = subparsers.add_parser("report")
     report.add_argument("--top", type=int, default=20)
     subparsers.add_parser("stop")
+    copilot_export = subparsers.add_parser("copilot-export")
+    copilot_export.add_argument("--input", type=Path, required=True)
+    copilot_export.add_argument("--output", type=Path, required=True)
+    copilot_import = subparsers.add_parser("copilot-import")
+    copilot_import.add_argument("--packet", type=Path, required=True)
+    copilot_import.add_argument("--result", type=Path, required=True)
     return parser
 
 
@@ -596,17 +698,42 @@ def main(argv: Sequence[str] | None = None) -> int:
     project = arguments.project.resolve()
     if arguments.operation == "supervisor":
         return _serve(project)
+    if arguments.operation in {"copilot-export", "copilot-import"}:
+        try:
+            copilot_response = (
+                _copilot_export(
+                    project,
+                    source=arguments.input.resolve(),
+                    output=arguments.output.resolve(),
+                )
+                if arguments.operation == "copilot-export"
+                else _copilot_import(
+                    project,
+                    packet_path=arguments.packet.resolve(),
+                    result_path=arguments.result.resolve(),
+                )
+            )
+        except CampaignHoldError as error:
+            copilot_response = {"state": "held", "reason": str(error)}
+        print(json.dumps(copilot_response, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0
     request = {
         "operation": arguments.operation,
         "suite": getattr(arguments, "suite", None),
         "agent": getattr(arguments, "agent", None),
         "questions": getattr(arguments, "questions", None),
+        "corpus": (
+            str(arguments.corpus.resolve())
+            if getattr(arguments, "corpus", None) is not None
+            else None
+        ),
         "dry_run": getattr(arguments, "dry_run", False),
         "top": getattr(arguments, "top", None),
     }
     if arguments.operation == "stop":
         stop = _state_root(project) / "STOP"
         touch_private_marker(stop)
+    response: Mapping[str, object] | None
     try:
         response = request_supervisor(
             socket_path=_state_root(project) / "control.sock",

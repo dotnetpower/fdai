@@ -33,11 +33,11 @@ _MAX_CELL_CHARS = 512
 _MAX_REFS = 8
 _RESOURCE_STATE_COLUMNS = (
     "name",
-    "type",
+    "resource_group",
+    "region",
     "observed_state",
-    "state_concept",
+    "type",
     "source_observed_at",
-    "inventory_read_at",
 )
 _RESOURCE_HEALTH_COLUMNS = (
     "name",

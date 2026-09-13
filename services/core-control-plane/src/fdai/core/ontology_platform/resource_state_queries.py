@@ -86,7 +86,7 @@ def resource_state_function_type() -> OntologyFunctionType:
 
     return OntologyFunctionType(
         name=RESOURCE_STATE_FUNCTION_NAME,
-        version="1.1.1",
+        version="1.2.0",
         kind=OntologyFunctionKind.QUERY,
         artifact_digest=f"sha256:{hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}",
         publisher="fdai",
@@ -207,6 +207,9 @@ def verified_resource_state_values(
     return {
         "name": _text(target.properties.get("name")),
         "type": _text(target.properties.get("type")),
+        "resource_group": _text(provider.get("resource_group"))
+        or _text(provider.get("resourceGroup")),
+        "region": _text(provider.get("region")) or _text(provider.get("location")),
         "observed_state": raw_state,
         "state_concept": state_concept,
         "source_observed_at": metadata.effective_at.isoformat(),

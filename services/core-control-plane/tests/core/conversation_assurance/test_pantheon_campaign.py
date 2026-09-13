@@ -15,6 +15,7 @@ from fdai.core.conversation_assurance import (
     PantheonTurnDiagnostic,
     PrivateJsonlLedger,
     T2Expectation,
+    plan_campaign_series,
     touch_private_marker,
 )
 
@@ -106,6 +107,29 @@ async def test_series_stops_after_first_held_child(tmp_path: Path) -> None:
     assert results[1].state is CampaignState.HELD
     assert results[1].evaluated == 1
     assert evaluator.calls == 22
+    series_rows = tuple(
+        row
+        for row in PrivateJsonlLedger(tmp_path / "campaigns.jsonl").read()
+        if row["event"] in {"series_started", "series_completed"}
+    )
+    assert [row["event"] for row in series_rows] == ["series_started", "series_completed"]
+    assert series_rows[0]["corpus_digest"] == series_rows[1]["corpus_digest"]
+    assert series_rows[1]["state"] == "held"
+    assert series_rows[1]["evaluated"] == 21
+
+
+def test_thousand_question_series_plans_fifty_bounded_children() -> None:
+    plan = plan_campaign_series(tuple(_case(index) for index in range(1_000)))
+
+    assert plan.question_count == 1_000
+    assert plan.child_count == 50
+    assert plan.child_sizes == (20,) * 50
+    assert len(plan.corpus_digest) == 64
+
+
+def test_series_plan_rejects_duplicate_case_ids() -> None:
+    with pytest.raises(ValueError, match="unique case ids"):
+        plan_campaign_series((_case(1), _case(1)))
 
 
 async def test_stop_file_prevents_measurement(tmp_path: Path) -> None:

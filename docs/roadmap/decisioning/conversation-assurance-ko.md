@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 3238c696dafda6e83eae339670190dbfc9d3c9dc
-translation_revised: 2026-09-10
+translation_source_sha: 1d1c29f27abb07a65c962be5974d43ac495ff051
+translation_revised: 2026-09-13
 ---
 # 대화 품질 보증
 
@@ -64,9 +64,28 @@ Supervisor와 직접 CLI는 하나의 소유자 전용 실행기 잠금을 공�
 생성할 수 없습니다. T1 결론이 손실되거나 하드 제로 안전성 이탈이 발생하면 자동 하드닝을
 중지하고 사람 검토를 요구합니다.
 
+더 큰 진단 series에는 `start --corpus <path>`로 소유자 전용 JSON 말뭉치를 사용할 수
+있습니다. 각 사례에는 사례 id, 로케일, 예상 에이전트, 라우팅 방법, 인계 결과 및 T2 결과를
+명시합니다. parser는 최대 10,000개의 고유 사례를 허용하며 질문 텍스트에서 기대값을 추론하지
+않습니다. planner는 말뭉치 다이제스트를 연결하고 series를 질문 최대 20개인 순차 하위
+캠페인으로 나눕니다. 예를 들어 질문 1,000개는 하위 캠페인 50개가 됩니다. Core runtime은
+`FDAI_CONVERSATION_ASSURANCE_CORPUS_FILE`과
+`FDAI_CONVERSATION_ASSURANCE_CORPUS_DIGEST`가 동일한 비공개 파일과 정확한 다이제스트를
+가리킬 때만 해당 사례를 허용합니다. `--dry-run`을 사용하면 Operator 또는 모델을 호출하지
+않고 질문 수와 하위 캠페인 수를 확인할 수 있습니다. 외부 말뭉치는 진단 근거를 생성하지만
+고정된 230개 사례 qualification census를 대체하지 않습니다.
+
 VS Code는 동일한 명시적 시작, 상태, 중지 및 보고서 명령을 제공합니다. Console 변환
 결과는 읽기 전용이며 에이전트별 점수, 라우팅 정확도, T2 오류 비율 및 하드 제로 수를
 표시합니다. 어느 표면도 실행기 신원이나 정책 변경 권한을 받지 않습니다.
+
+운영자는 명시적인 2단계 로컬 절차를 통해 GitHub Copilot 세션 검토를 요청할 수도 있습니다.
+`copilot-export`는 선택한 질문, 답변 및 근거가 포함된 소유자 전용 묶음을 작성합니다.
+Copilot이 10개 루브릭 판정을 모두 작성한 뒤 `copilot-import`는 묶음과 사례 다이제스트를
+검증하고 결과를 별도의 소유자 전용 `copilot-reviews.jsonl` 원장에 추가합니다. 가져오기
+도구는 `reviewer_kind=github_copilot_session`과 qualification 및 execution 권한을 모두
+false로 고정합니다. 이 절차는 Copilot을 무인 런타임 API로 나타내지 않으며 캠페인
+qualification에 사용하는 독립 모델 계열 검토를 대체하지 않습니다.
 
 ## 구독마다 학습 결과가 다른 이유
 
@@ -163,6 +182,24 @@ $$
 고정된 blind 시나리오는 평가자에게 제한된 trusted 참조 사실을 제공합니다. 이 사실은
 transient trial 입력이며 평가 원장에 복사되지 않습니다. 일반 운영자 턴에는 벤치마크
 참조 사실이 없습니다.
+
+### 채널 표현 루브릭
+
+정본 답변 품질과 채널 표현 품질은 별도 결정입니다. 모든 채널은 정본 내용, 제한 사항, 근거
+참조 및 권한 없음 상태를 보존합니다. 선택 기준은 답변 준비 상태, 진행 상황 업데이트, 활동
+기록, rich 표현, 스레드 연속성 및 편집 연속성을 다룹니다. 배포는 Web, Teams, Slack,
+Direct Line 또는 사용자 지정 어댑터의 기능 프로필을 주입합니다. 지원되지 않는 선택 기준은
+`not_applicable`로 기록하고, 선언된 기능의 측정값이 없으면 표현 평가가 실패합니다. 채널
+점수는 정본 답변 gate 실패를 숨길 수 없고, 정본 답변 점수도 필수 채널 변환 실패를 숨길 수
+없습니다.
+
+### 구조적 실패 귀속
+
+완료된 턴 관측은 컨텍스트 구성, 라우팅, 근거 검색, 도구 실행, 종합, 렌더링 및 전송 중 가장
+먼저 실패한 단계를 식별합니다. 레코드는 해당 root 단계, 뒤따른 기여 단계, 루브릭 id, 타입이
+지정된 사유 코드, 근거 참조, 채널, 로케일 및 경로를 보존합니다. 집계에는 개수만 포함하며 질문
+또는 답변 본문은 보존하지 않습니다. 반복되는 서명은 `review_required` 개선 후보를 만들 수
+있습니다. 이 후보는 병합 및 실행 권한을 항상 false로 유지하고 정책 승격과 분리됩니다.
 
 ### 50개 항목 qualification 점수표
 

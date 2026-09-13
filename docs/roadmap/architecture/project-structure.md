@@ -149,7 +149,7 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   observations reuse terminal evidence and assessment references; injection resistance requires an
   explicit security-owner result rather than text inspection. Both paths remain authority-free. The sibling
   `quality_latency.py` module owns only the five-stage SLO contract and pure percentile reduction;
-  Operator, channel, verification, and delivery owners retain timestamp and measurement authority.
+  `channel_assurance.py` applies common content, limitation, evidence, and authority checks plus capability-declared progress, rich, thread, and edit checks without owning transport. `copilot_review.py` exports and imports owner-only digest-bound review packets whose results grant neither qualification nor execution authority. Operator, channel, verification, and delivery owners retain timestamp and measurement authority.
   Stage owners provide monotonic start and completion values through a typed receipt; Core derives
   duration only after the receipt environment matches the installed stage contract.
   Conversation Assurance emits the deterministic-verification receipt only when composition injects

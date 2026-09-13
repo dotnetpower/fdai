@@ -61,9 +61,27 @@ clean revision. Incomplete, duplicate, or mixed-revision evidence cannot produce
 evidence. A lost T1 conclusion or any hard-zero safety escape stops automatic hardening and
 requires human review.
 
+For larger diagnostic series, `start --corpus <path>` accepts an owner-only JSON corpus with
+explicit case ids, locales, expected agents, routing methods, handoff outcomes, and T2 outcomes.
+The parser accepts at most 10,000 unique cases and never derives expectations from question text.
+The planner binds the corpus digest and splits the series into sequential children of at most 20
+questions. For example, 1,000 questions produce 50 children. The Core runtime accepts those cases
+only when `FDAI_CONVERSATION_ASSURANCE_CORPUS_FILE` and
+`FDAI_CONVERSATION_ASSURANCE_CORPUS_DIGEST` identify the same private file and exact digest.
+Use `--dry-run` to inspect question and child counts without an Operator or model call. External
+corpora produce diagnostic evidence; they do not replace the fixed 230-case qualification census.
+
 VS Code exposes the same explicit start, status, stop, and report commands. The Console projection
 is read-only and displays per-agent scores, routing accuracy, T2 error rates, and hard-zero counts.
 Neither surface receives executor identity or policy-mutation authority.
+
+An operator can also request a GitHub Copilot session review through an explicit two-step local
+workflow. `copilot-export` writes an owner-only packet containing the selected questions, answers,
+and evidence. After Copilot authors all ten rubric decisions, `copilot-import` verifies the packet
+and case digests and appends the result to a separate owner-only `copilot-reviews.jsonl` ledger.
+The importer fixes `reviewer_kind=github_copilot_session` and both qualification and execution
+authority to false. This workflow does not represent Copilot as an unattended runtime API and does
+not replace the independent model-family review used for campaign qualification.
 
 ## Why subscriptions learn differently
 
@@ -161,6 +179,26 @@ hide a hard failure.
 Frozen blind scenarios supply bounded trusted reference facts to the evaluators. Those facts are
 transient trial input and are not copied into the assessment ledger. Ordinary operator turns carry
 no benchmark reference facts.
+
+### Channel presentation rubric
+
+Canonical answer quality and channel presentation quality are separate decisions. Every channel
+must preserve canonical content, limitations, evidence references, and the no-authority posture.
+Optional criteria cover preparing status, progress updates, activity records, rich presentation,
+thread continuity, and edit continuity. A deployment injects the capability profile for Web,
+Teams, Slack, Direct Line, or a custom adapter. Unsupported optional criteria receive
+`not_applicable`; missing measurements for declared capabilities fail the presentation assessment.
+A channel score cannot hide a failed canonical answer gate, and a canonical answer score cannot
+hide a failed mandatory channel projection.
+
+### Structural failure attribution
+
+Completed-turn observations identify the earliest failed stage among context framing, routing,
+evidence retrieval, tool execution, synthesis, rendering, and transport. The record keeps that root
+stage, later contributing stages, rubric ids, typed reason codes, evidence references, channel,
+locale, and route. Aggregates contain counts only and do not retain question or answer bodies.
+Repeated signatures can create `review_required` improvement candidates. Those candidates always
+set merge and execution authority to false and remain separate from policy promotion.
 
 ### 50-item qualification scorecard
 

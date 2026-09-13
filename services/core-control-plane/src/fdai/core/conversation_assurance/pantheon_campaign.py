@@ -12,7 +12,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Protocol
 
-from fdai.core.conversation_assurance.pantheon_census import PantheonCensusCase
+from fdai.core.conversation_assurance.pantheon_census import PantheonCensus, PantheonCensusCase
 from fdai.core.conversation_assurance.pantheon_ledger import (
     PrivateJsonlLedger,
     private_marker_exists,
@@ -20,6 +20,7 @@ from fdai.core.conversation_assurance.pantheon_ledger import (
 from fdai.core.conversation_assurance.pantheon_scorecard import PantheonTurnDiagnostic
 
 _MAX_CHILD_QUESTIONS = 20
+_MAX_SERIES_QUESTIONS = 10_000
 
 
 class CampaignState(StrEnum):
@@ -49,6 +50,42 @@ class CampaignRunResult:
     evaluated: int
     requested: int
     reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class CampaignSeriesPlan:
+    """Immutable bounded execution plan for one large assurance series."""
+
+    question_count: int
+    child_count: int
+    child_sizes: tuple[int, ...]
+    corpus_digest: str
+    children: tuple[tuple[PantheonCensusCase, ...], ...]
+
+
+def plan_campaign_series(
+    cases: Sequence[PantheonCensusCase],
+) -> CampaignSeriesPlan:
+    """Validate and split at most 10,000 unique cases into 20-case children."""
+
+    if not 1 <= len(cases) <= _MAX_SERIES_QUESTIONS:
+        raise ValueError("a campaign series MUST contain between 1 and 10000 questions")
+    case_ids = tuple(case.case_id for case in cases)
+    if len(set(case_ids)) != len(case_ids):
+        raise ValueError("a campaign series MUST contain unique case ids")
+    children = tuple(
+        tuple(cases[start : start + _MAX_CHILD_QUESTIONS])
+        for start in range(0, len(cases), _MAX_CHILD_QUESTIONS)
+    )
+    return CampaignSeriesPlan(
+        question_count=len(cases),
+        child_count=len(children),
+        child_sizes=tuple(len(child) for child in children),
+        corpus_digest=PantheonCensus(
+            version="campaign-series-plan-v1", cases=tuple(cases)
+        ).content_digest,
+        children=children,
+    )
 
 
 class PantheonCampaignController:
@@ -165,18 +202,43 @@ class PantheonCampaignController:
     ) -> tuple[CampaignRunResult, ...]:
         """Run sequential bounded children and stop after an incomplete child."""
 
-        if not cases:
-            raise ValueError("a campaign series requires at least one case")
+        plan = plan_campaign_series(cases)
         series_id = _identity("series")
+        self._campaigns.append(
+            {
+                "schema_version": "1.0.0",
+                "event": "series_started",
+                "parent_series_id": series_id,
+                "question_count": plan.question_count,
+                "child_count": plan.child_count,
+                "child_sizes": list(plan.child_sizes),
+                "corpus_digest": plan.corpus_digest,
+                "recorded_at": self._now().isoformat(),
+            }
+        )
         results: list[CampaignRunResult] = []
-        for start in range(0, len(cases), _MAX_CHILD_QUESTIONS):
+        for child in plan.children:
             result = await self.run_child(
-                cases[start : start + _MAX_CHILD_QUESTIONS],
+                child,
                 parent_series_id=series_id,
             )
             results.append(result)
             if result.state is not CampaignState.COMPLETED or result.evaluated != result.requested:
                 break
+        self._campaigns.append(
+            {
+                "schema_version": "1.0.0",
+                "event": "series_completed",
+                "parent_series_id": series_id,
+                "state": results[-1].state.value,
+                "evaluated": sum(result.evaluated for result in results),
+                "requested": plan.question_count,
+                "completed_children": len(results),
+                "planned_children": plan.child_count,
+                "corpus_digest": plan.corpus_digest,
+                "recorded_at": self._now().isoformat(),
+            }
+        )
         return tuple(results)
 
     def stop_requested(self) -> bool:
@@ -190,7 +252,9 @@ def _identity(prefix: str) -> str:
 __all__ = [
     "CampaignHoldError",
     "CampaignRunResult",
+    "CampaignSeriesPlan",
     "CampaignState",
     "PantheonCampaignController",
     "PantheonCaseEvaluator",
+    "plan_campaign_series",
 ]

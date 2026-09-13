@@ -58,7 +58,7 @@ _READ_ONLY_OPERATIONS = frozenset(
     }
 )
 _LOOKBACK = re.compile(
-    r"(?:\b(?:last|past)\s+|지난\s*)"
+    r"(?:\b(?:last|past)\s+|(?:지난|최근)\s*)"
     r"(?P<count>\d{1,4}|one|a)?\s*"
     r"(?:(?P<unit_en>minutes?|mins?|hours?|days?|weeks?)\b|"
     r"(?P<unit_ko>주일|시간|분|일|주)(?=$|[\s.,!?은는이가의에을를도만와과로]))"
@@ -91,7 +91,7 @@ def normalize_activity_proposal(
         or not _has_activity_function(descriptors)
     ):
         return proposal
-    lookback_seconds = _activity_lookback_seconds(utterance)
+    lookback_seconds = activity_lookback_seconds(utterance)
     target = exact_target_from_constraints(
         proposal.subject_constraints,
         utterance=utterance,
@@ -121,7 +121,7 @@ def compile_target_activity_plan(
 
     if frame.output_shape != SemanticOutputShape.TARGET_ACTIVITY:
         return None
-    lookback_seconds = _activity_lookback_seconds(utterance)
+    lookback_seconds = activity_lookback_seconds(utterance)
     target_name = exact_target_from_constraints(
         frame.subject_constraints,
         utterance=utterance,
@@ -196,7 +196,7 @@ def compile_target_activity_plan(
     return verifier.verify(plan, manifest=manifest)
 
 
-def _activity_lookback_seconds(utterance: str) -> int | None:
+def activity_lookback_seconds(utterance: str) -> int | None:
     matches = tuple(_LOOKBACK.finditer(utterance.casefold()))
     if len(matches) != 1:
         return None

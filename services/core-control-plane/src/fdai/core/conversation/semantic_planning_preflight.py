@@ -62,7 +62,8 @@ def preflight_descriptor_intent(result: ConversationPreflightResult | None) -> s
         return (
             "query.resource_state_inventory"
             if any(
-                target.kind == "resource_state_filter" for target in proposal.operational_targets
+                target.kind in {"resource_state_exclusion_filter", "resource_state_filter"}
+                for target in proposal.operational_targets
             )
             else "query.contextual_resources"
         )

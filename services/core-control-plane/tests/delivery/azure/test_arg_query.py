@@ -596,7 +596,9 @@ async def test_unmapped_resource_query_preserves_identity_without_semantic_suppo
         "providerType": "microsoft.example/watchers",
         "name": "watcher-one",
         "location": "koreacentral",
+        "region": "koreacentral",
         "resourceGroup": "rg-example",
+        "resource_group": "rg-example",
         "subscriptionId": "00000000-0000-0000-0000-000000000001",
         "parent_id": to_neutral_id(arm_id.rsplit("/providers/", 1)[0]),
     }
@@ -1617,6 +1619,8 @@ async def test_oversize_properties_are_truncated() -> None:
     assert record.props["providerType"] == "Microsoft.Storage/storageAccounts"
     assert record.props["subscriptionId"] == "00000000-0000-0000-0000-000000000001"
     assert record.props["resourceGroup"] == "rg-a"
+    assert record.props["resource_group"] == "rg-a"
+    assert record.props["region"] == "koreacentral"
 
 
 @pytest.mark.asyncio

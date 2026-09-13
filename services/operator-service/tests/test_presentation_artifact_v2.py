@@ -648,6 +648,8 @@ def test_v2_resource_state_rows_render_as_a_korean_verified_table() -> None:
             {
                 "name": "database-a",
                 "type": "postgresql-server",
+                "resource_group": "group-a",
+                "region": "region-a",
                 "observed_state": "Stopped",
                 "state_concept": "resource_state.stopped",
                 "source_observed_at": "2026-08-21T11:00:00+00:00",
@@ -674,9 +676,9 @@ def test_v2_resource_state_rows_render_as_a_korean_verified_table() -> None:
     data = cast(dict[str, object], block["data"])
     assert data["columns"][:4] == [
         {"key": "c0", "label": "name"},
-        {"key": "c1", "label": "type"},
-        {"key": "c2", "label": "observed_state"},
-        {"key": "c3", "label": "state_concept"},
+        {"key": "c1", "label": "resource_group"},
+        {"key": "c2", "label": "region"},
+        {"key": "c3", "label": "observed_state"},
     ]
 
 

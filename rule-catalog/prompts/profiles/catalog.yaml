@@ -188,10 +188,10 @@ profiles:
     promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
   - id: active.conversation-preflight
-    version: 2
+    version: 3
     capability_id: conversation.preflight
     mode: active
-    root: {id: conversation-preflight, version: 8, layer: base}
+    root: {id: conversation-preflight, version: 9, layer: base}
     packs:
       - {id: conversation-preflight-resource-changes, version: 1, layer: pack}
     system_token_budget: 8192

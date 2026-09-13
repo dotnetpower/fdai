@@ -7,12 +7,15 @@ from pathlib import Path
 
 import httpx
 
-from fdai.agents import PantheonRuntime
+from fdai.agents import PANTHEON_SPECS, PantheonRuntime
 from fdai.core.conversation_assurance import (
     ConversationAssuranceCoordinator,
     ConversationAssuranceEvaluator,
     ConversationAssuranceLedger,
     MixedFamilyAssuranceReviewer,
+    PantheonCensus,
+    parse_pantheon_corpus,
+    read_private_text,
 )
 from fdai.core.metering import MeteringEmitter, MeteringSink
 from fdai.core.metering.budget import (
@@ -43,6 +46,9 @@ _SECONDARY = "t2.reasoner.secondary"
 _TIE_BREAKER = "t2.reasoner.escalated"
 _ASSESSMENT_CALL_BUDGET = 3
 _ASSESSMENT_COST_BUDGET_MICROUSD = 150_000
+_CORPUS_FILE_ENV = "FDAI_CONVERSATION_ASSURANCE_CORPUS_FILE"
+_CORPUS_DIGEST_ENV = "FDAI_CONVERSATION_ASSURANCE_CORPUS_DIGEST"
+_MAX_CORPUS_BYTES = 16 * 1024 * 1024
 
 
 def build_conversation_assurance_coordinator(
@@ -172,6 +178,7 @@ def build_runtime_pantheon_conversation_assurance(
     """Bind the live diagnostic only when its durable and revision inputs exist."""
 
     source_identity = runtime_source_identity(repo_root, environment)
+    corpus = runtime_assurance_corpus(environment)
     if pantheon is None or not dsn or source_identity is None:
         return None
     evaluators: tuple[ConversationAssuranceEvaluator, ...] = ()
@@ -210,7 +217,33 @@ def build_runtime_pantheon_conversation_assurance(
         coordinator=coordinator,
         source_revision=source_revision,
         source_content_digest=source_content_digest,
+        additional_cases=corpus.cases if corpus is not None else (),
     )
+
+
+def runtime_assurance_corpus(environment: dict[str, str]) -> PantheonCensus | None:
+    """Load one owner-only corpus only when its exact digest is configured."""
+
+    path_value = environment.get(_CORPUS_FILE_ENV, "").strip()
+    expected_digest = environment.get(_CORPUS_DIGEST_ENV, "").strip()
+    if not path_value and not expected_digest:
+        return None
+    if not path_value or not expected_digest:
+        raise RuntimeError(
+            "conversation assurance corpus file and digest MUST be configured together"
+        )
+    if len(expected_digest) != 64 or any(
+        character not in "0123456789abcdef" for character in expected_digest
+    ):
+        raise RuntimeError("conversation assurance corpus digest MUST be SHA-256")
+    try:
+        raw = read_private_text(Path(path_value).expanduser(), max_bytes=_MAX_CORPUS_BYTES)
+        corpus = parse_pantheon_corpus(raw, PANTHEON_SPECS)
+    except (OSError, UnicodeError, ValueError, json.JSONDecodeError) as error:
+        raise RuntimeError("conversation assurance corpus is invalid") from error
+    if corpus.content_digest != expected_digest:
+        raise RuntimeError("conversation assurance corpus digest mismatch")
+    return corpus
 
 
 def _load_resolved_models(path_or_json: str) -> ResolvedModels:
@@ -224,4 +257,5 @@ __all__ = [
     "build_conversation_assurance_coordinator",
     "build_conversation_assurance_reviewer",
     "build_runtime_pantheon_conversation_assurance",
+    "runtime_assurance_corpus",
 ]

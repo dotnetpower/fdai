@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import fdai.runtime.rule_generation_documents as rule_generation_documents
 import pytest
 import yaml
 from fdai.agents import PantheonRuntime
@@ -24,6 +25,10 @@ from fdai.rule_catalog.schema.rule_semantic_generation_events import (
     RuleGenerationBuildRequestEvent,
 )
 from fdai.rule_catalog.schema.rule_semantic_retrieval import RuleCorpus
+from fdai.rule_catalog.schema.rule_semantic_surface_catalog import (
+    SemanticSurfaceCatalogError,
+    SemanticSurfaceCatalogIssue,
+)
 from fdai.runtime.bootstrap_lifecycle import publish_rule_generation_reconciliation
 from fdai.runtime.rule_generation_documents import (
     RuleGenerationDocumentsUnavailableError,
@@ -228,3 +233,34 @@ def test_resolver_rejects_embedder_without_governed_identity_before_catalog_io()
             ontology_release=ontology.build_release(),
             embedder=embedder,
         )
+
+
+def test_resolver_reports_invalid_surface_catalog_as_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ontology, rules = _catalogs()
+
+    def fail_surface_load(*_args: object, **_kwargs: object) -> None:
+        raise SemanticSurfaceCatalogError(
+            [SemanticSurfaceCatalogIssue("surface.yaml", "manifest mismatch")]
+        )
+
+    monkeypatch.setattr(
+        rule_generation_documents,
+        "load_promoted_semantic_surfaces",
+        fail_surface_load,
+    )
+
+    with pytest.raises(
+        RuleGenerationDocumentsUnavailableError,
+        match="rule semantic validation catalog is unavailable",
+    ) as raised:
+        build_rule_generation_document_resolver(
+            catalog_root=CATALOG_ROOT,
+            rules=rules,
+            action_types=ontology.action_types,
+            ontology_release=ontology.build_release(),
+            embedder=_Embedding(),
+        )
+
+    assert isinstance(raised.value.__cause__, SemanticSurfaceCatalogError)

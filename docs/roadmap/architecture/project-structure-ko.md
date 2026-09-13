@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b7584435bb23589bd9e793d67a4aa7d64ed19290
+translation_source_sha: 3c9e9b99176c38890f5aef66fd2975ad4d46a107
 translation_revised: 2026-09-13
 ---
 # 프로젝트 구조
@@ -148,7 +148,7 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   근거 관측은 최종 근거와 평가 참조를 재사용하며, injection 저항성에는 텍스트 검사가 아니라
   보안 소유자의 명시적 결과가 필요합니다. 두 경로 모두 권한을 부여하지 않습니다.
   인접한 `quality_latency.py` 모듈은 5단계 SLO 계약과 순수 백분위수 축약만 소유합니다. Operator,
-  채널, 검증 및 전달 소유자는 타임스탬프와 측정 권한을 유지합니다.
+  `channel_assurance.py`는 전송을 소유하지 않고 공통 내용, 제한, 근거 및 권한 검사와 기능 선언 기반 진행 상황, rich, thread 및 edit 검사를 적용합니다. `copilot_review.py`는 자격 검증 또는 실행 권한을 부여하지 않는 소유자 전용 digest 결속 검토 packet을 내보내고 가져옵니다. Operator, 채널, 검증 및 전달 소유자는 타임스탬프와 측정 권한을 유지합니다.
   단계 소유자는 타입이 지정된 증적을 통해 monotonic 시작 및 완료 값을 제공합니다. Core는 증적
   환경이 설치된 단계 계약과 일치한 후에만 기간을 파생합니다. 저장소 CLI는 콘텐츠가 없는
   Conversation Assurance는 composition이 PR benchmark 환경과 sink를 모두 주입한 경우에만

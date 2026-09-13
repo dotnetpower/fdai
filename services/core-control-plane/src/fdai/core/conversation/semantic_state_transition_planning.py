@@ -29,6 +29,7 @@ from fdai.core.ontology_platform.state_transitions import (
     RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME,
 )
 
+from .semantic_activity_planning import activity_lookback_seconds
 from .semantic_planning_frame_core import build_semantic_frame
 from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
 from .semantic_resource_state_planning import resource_collection_definition
@@ -52,13 +53,20 @@ def build_recent_resource_state_transition_frame(
     limit = recent_resource_state_change_limit(judgment)
     if limit is None or judgment is None:
         return None
+    explicit_lookback = activity_lookback_seconds(utterance)
+    lookback_seconds = explicit_lookback or _DEFAULT_RECENT_LOOKBACK_SECONDS
+    evidence_requirements = (
+        (f"lookback_seconds.{lookback_seconds}", f"result_limit.{limit}")
+        if explicit_lookback is not None
+        else ("server_recent_default", f"result_limit.{limit}")
+    )
     proposal = SemanticFrameProposal(
         operation=SemanticOperation.SELECT,
         subject_constraints=("Resource",),
         measure_concepts=(RESOURCE_STATE_OBSERVED_CONCEPT,),
-        temporal_scope={"lookback_seconds": _DEFAULT_RECENT_LOOKBACK_SECONDS},
+        temporal_scope={"lookback_seconds": lookback_seconds},
         output_shape=SemanticOutputShape.RESOURCE_STATE_TRANSITIONS,
-        evidence_requirements=("server_recent_default", f"result_limit.{limit}"),
+        evidence_requirements=evidence_requirements,
         unresolved_terms=(),
         clarification_requirements=(),
         clarification=None,
@@ -79,7 +87,8 @@ def recent_resource_state_change_limit(
         or judgment.action_posture != "advise_only"
         or judgment.action_subject != "none"
         or judgment.secondary_intents
-        or judgment.targets
+        or any(target.kind != "time_range" for target in judgment.targets)
+        or len(judgment.targets) > 1
         or judgment.ambiguous
         or judgment.unresolved_terms
     ):

@@ -326,7 +326,12 @@ def _has_unsupported_collection_target(judgment: SemanticJudgmentProposal) -> bo
     """Return whether collection output would discard an exact or foreign-scope target."""
 
     return any(
-        target.kind not in {"resource_state_filter", "resource_type_filter"}
+        target.kind
+        not in {
+            "resource_state_exclusion_filter",
+            "resource_state_filter",
+            "resource_type_filter",
+        }
         for target in judgment.targets
     )
 

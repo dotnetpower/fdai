@@ -173,6 +173,49 @@ def read_private_text(path: Path, *, max_bytes: int) -> str:
         os.close(directory_descriptor)
 
 
+def write_private_text_exclusive(path: Path, content: str, *, max_bytes: int) -> None:
+    """Create one bounded owner-only regular file without following symlinks."""
+
+    payload = content.encode()
+    if max_bytes < 1 or len(payload) > max_bytes:
+        raise ValueError("private file exceeds the byte limit")
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    directory_descriptor = _open_directory_chain(path.parent)
+    os.fchmod(directory_descriptor, stat.S_IRWXU)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(
+            path.name,
+            flags,
+            stat.S_IRUSR | stat.S_IWUSR,
+            dir_fd=directory_descriptor,
+        )
+        os.fchmod(descriptor, stat.S_IRUSR | stat.S_IWUSR)
+        remaining = memoryview(payload)
+        while remaining:
+            written = os.write(descriptor, remaining)
+            if written <= 0:
+                raise OSError("private file write made no progress")
+            remaining = remaining[written:]
+        os.fsync(descriptor)
+    except BaseException:
+        if descriptor is not None:
+            os.close(descriptor)
+            descriptor = None
+            try:
+                os.unlink(path.name, dir_fd=directory_descriptor)
+            except FileNotFoundError:
+                pass
+        raise
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        os.close(directory_descriptor)
+
+
 def private_marker_exists(path: Path) -> bool:
     """Check one marker without following parent or leaf symlinks."""
 
@@ -240,4 +283,5 @@ __all__ = [
     "read_private_text",
     "remove_private_marker",
     "touch_private_marker",
+    "write_private_text_exclusive",
 ]

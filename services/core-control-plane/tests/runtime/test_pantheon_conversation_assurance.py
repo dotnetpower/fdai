@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 from types import SimpleNamespace
 
 import pytest
@@ -15,7 +17,9 @@ from fdai.core.conversation_assurance import (
     MixedFamilyAssuranceReviewer,
     TurnAssessmentInput,
     build_pantheon_census,
+    parse_pantheon_corpus,
 )
+from fdai.runtime.conversation_assurance import runtime_assurance_corpus
 from fdai.runtime.pantheon_conversation_assurance import (
     RuntimePantheonConversationAssurance,
     runtime_source_identity,
@@ -327,4 +331,45 @@ def test_configured_source_identity_is_complete_and_pinned(tmp_path) -> None:
         runtime_source_identity(
             tmp_path,
             {"FDAI_CONVERSATION_ASSURANCE_SOURCE_REVISION": "a" * 40},
+        )
+
+
+def test_runtime_corpus_requires_exact_digest_and_private_file(tmp_path) -> None:
+    payload = {
+        "schema_version": "1.0.0",
+        "cases": [
+            {
+                "case_id": "external-one",
+                "suite": "external",
+                "locale": "en",
+                "question": "Explain the verified external scenario.",
+                "expected_primary_agent": "Odin",
+                "expected_routing_method": "explicit",
+                "allowed_contributors": [],
+                "expected_handoff": False,
+                "expected_handoff_owner": None,
+                "t2_expectation": "forbidden",
+            }
+        ],
+    }
+    raw = json.dumps(payload)
+    corpus = parse_pantheon_corpus(raw, PANTHEON_SPECS)
+    path = tmp_path / "corpus.json"
+    path.write_text(raw, encoding="utf-8")
+    os.chmod(path, 0o600)
+    environment = {
+        "FDAI_CONVERSATION_ASSURANCE_CORPUS_FILE": str(path),
+        "FDAI_CONVERSATION_ASSURANCE_CORPUS_DIGEST": corpus.content_digest,
+    }
+
+    loaded = runtime_assurance_corpus(environment)
+
+    assert loaded is not None
+    assert loaded.content_digest == corpus.content_digest
+    with pytest.raises(RuntimeError, match="digest mismatch"):
+        runtime_assurance_corpus(
+            {
+                **environment,
+                "FDAI_CONVERSATION_ASSURANCE_CORPUS_DIGEST": "0" * 64,
+            }
         )

@@ -4659,10 +4659,18 @@ def _render_resource_state_list_answer(
         resource_type = row["type"]
         state = row["observed_state"]
         observed_at = row["source_observed_at"]
+        resource_group = row.get("resource_group") or "unavailable"
+        region = row.get("region") or "unavailable"
         lines.append(
-            f"- `{name}`: `{state}` (`{resource_type}`, 관측 {observed_at})"
+            (
+                f"- `{name}`: `{state}` (`{resource_type}`, "
+                f"리소스 그룹 `{resource_group}`, 지역 `{region}`, 관측 {observed_at})"
+            )
             if korean
-            else f"- `{name}`: `{state}` (`{resource_type}`, observed {observed_at})"
+            else (
+                f"- `{name}`: `{state}` (`{resource_type}`, "
+                f"resource group `{resource_group}`, region `{region}`, observed {observed_at})"
+            )
         )
     lines.append(
         f"- 근거 완전성: `{'complete' if complete else 'incomplete'}`"

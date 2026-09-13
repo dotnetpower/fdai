@@ -27,6 +27,8 @@ def stated_value_filters(
     descriptors: Sequence[Mapping[str, Any]],
     *,
     allowed_properties: frozenset[str] | None = None,
+    preferred_terms: Sequence[str] = (),
+    excluded_values: frozenset[str] = frozenset(),
 ) -> dict[tuple[str, str], tuple[str, ...]]:
     """Return declared values whose own request terms the operator actually typed.
 
@@ -52,7 +54,7 @@ def stated_value_filters(
             groups = declaration.get("value_groups")
             if not isinstance(groups, list):
                 continue
-            selected: list[tuple[str, ...]] = []
+            selected: list[tuple[tuple[str, ...], tuple[str, ...]]] = []
             for group in groups:
                 if not isinstance(group, Mapping):
                     continue
@@ -60,19 +62,38 @@ def stated_value_filters(
                 values = group.get("values")
                 if not isinstance(terms, list) or not isinstance(values, list):
                     continue
-                if any(isinstance(term, str) and _term_stated(term, lowered) for term in terms):
-                    selected.append(tuple(str(value) for value in values))
+                bounded_terms = tuple(term for term in terms if isinstance(term, str))
+                bounded_values = tuple(str(value) for value in values)
+                if set(bounded_values) <= excluded_values:
+                    continue
+                if any(_term_stated(term, lowered) for term in bounded_terms):
+                    selected.append((bounded_values, bounded_terms))
             selected = list(dict.fromkeys(selected))
+            preferred = [
+                candidate
+                for candidate in selected
+                if any(
+                    _term_stated(term, preferred_term.casefold())
+                    for preferred_term in preferred_terms
+                    for term in candidate[1]
+                )
+            ]
+            if preferred:
+                selected = preferred
             if len(selected) > 1:
                 most_specific = tuple(
                     candidate
                     for candidate in selected
-                    if all(set(candidate) < set(other) for other in selected if other != candidate)
+                    if all(
+                        set(candidate[0]) < set(other[0])
+                        for other in selected
+                        if other != candidate
+                    )
                 )
                 selected = list(most_specific) if len(most_specific) == 1 else selected
-            if len(selected) != 1 or not 1 <= len(selected[0]) <= MAX_GROUNDED_FILTER_VALUES:
+            if len(selected) != 1 or not 1 <= len(selected[0][0]) <= MAX_GROUNDED_FILTER_VALUES:
                 continue
-            matched[(object_type, property_name)] = tuple(sorted(set(selected[0])))
+            matched[(object_type, property_name)] = tuple(sorted(set(selected[0][0])))
     return matched
 
 
@@ -88,12 +109,14 @@ def _term_stated(term: str, lowered_utterance: str) -> bool:
         return False
     start = lowered_utterance.find(needle)
     while start != -1:
-        if not needle.isascii():
-            return True
         before = lowered_utterance[start - 1] if start else " "
         after_index = start + len(needle)
         after = lowered_utterance[after_index] if after_index < len(lowered_utterance) else " "
-        if not _ascii_alphanumeric(before) and not _ascii_alphanumeric(after):
+        needs_left_boundary = _ascii_alphanumeric(needle[0])
+        needs_right_boundary = _ascii_alphanumeric(needle[-1])
+        if (not needs_left_boundary or not _ascii_alphanumeric(before)) and (
+            not needs_right_boundary or not _ascii_alphanumeric(after)
+        ):
             return True
         start = lowered_utterance.find(needle, start + 1)
     return False

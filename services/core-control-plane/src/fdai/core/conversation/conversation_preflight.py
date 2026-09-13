@@ -45,7 +45,15 @@ _OPERATIONAL_ROUTE_PROMOTION_CONFIDENCE = 0.75
 _INVENTORY_FACETS = frozenset(
     {"resource_inventory", "subscription", "complete_content", "download"}
 )
-_RESOURCE_COLLECTION_FACETS = frozenset({"current_state", "list", "resource_collection"})
+_RESOURCE_COLLECTION_FACETS = frozenset(
+    {
+        "current_state",
+        "list",
+        "resource_collection",
+        "state_change_history",
+        "subscription",
+    }
+)
 _SUBSCRIPTION_SCOPE_FACETS = frozenset({"subscription"})
 _SUBSCRIPTION_SERVICE_HEALTH_FACETS = frozenset({"service_health"})
 _RECENT_RESOURCE_STATE_CHANGE_FACETS = frozenset(
@@ -228,6 +236,36 @@ class ConversationPreflightProposal(QueryContract):
     confidence: Annotated[float, Field(ge=0.0, le=1.0)]
     authority: Literal["candidate_only"] = "candidate_only"
     execution_authority: Literal[False] = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _discard_generic_collection_filter_targets(cls, value: object) -> object:
+        if not isinstance(value, Mapping) or value.get("operational_family") not in {
+            OperationalPreflightFamily.RESOURCE_COLLECTION,
+            OperationalPreflightFamily.RESOURCE_COLLECTION.value,
+        }:
+            return value
+        targets = value.get("operational_targets")
+        if not isinstance(targets, Sequence) or isinstance(targets, (str, bytes)):
+            return value
+        filtered = tuple(
+            target
+            for target in targets
+            if not (
+                isinstance(target, Mapping)
+                and target.get("kind")
+                in {
+                    "resource_name_filter",
+                    "resource_state_exclusion_filter",
+                    "resource_state_filter",
+                }
+                and isinstance(target.get("value"), str)
+                and operational_target_is_generic(cast(str, target["value"]))
+            )
+        )
+        return (
+            value if len(filtered) == len(targets) else {**value, "operational_targets": filtered}
+        )
 
     @model_validator(mode="after")
     def _route_is_consistent(self) -> ConversationPreflightProposal:
@@ -600,6 +638,7 @@ def preflight_operational_judgment(
             OperationalPreflightFamily.RESOURCE_CONFIGURATION_CHANGES,
         } and target.kind in {
             "resource_type_filter",
+            "resource_state_exclusion_filter",
             "resource_state_filter",
             "resource_name_filter",
         }
@@ -609,6 +648,7 @@ def preflight_operational_judgment(
             "backend",
             "model",
             "resource_type_filter",
+            "resource_state_exclusion_filter",
             "resource_state_filter",
             "resource_name_filter",
         }:
@@ -622,7 +662,7 @@ def preflight_operational_judgment(
             return _reject_operational_promotion("collection_filter_overlaps_exact_resource")
         if (
             collection_filter
-            and target.kind != "resource_state_filter"
+            and target.kind not in {"resource_state_exclusion_filter", "resource_state_filter"}
             and (
                 target.value.casefold().startswith("/subscriptions/")
                 or (
@@ -710,30 +750,45 @@ def preflight_operational_judgment(
             "download",
         )
     elif proposal.operational_family is OperationalPreflightFamily.RESOURCE_COLLECTION:
-        has_state_filter = target_kinds.count("resource_state_filter") == 1
+        state_filter_count = target_kinds.count("resource_state_filter") + target_kinds.count(
+            "resource_state_exclusion_filter"
+        )
+        has_state_filter = state_filter_count == 1
         has_name_filter = target_kinds.count("resource_name_filter") == 1
-        expected_facets = {"resource_collection", "list"}
-        if has_state_filter:
-            expected_facets.add("current_state")
-        if has_name_filter:
-            expected_facets.add("name_filter")
+        has_current_state = has_state_filter or "current_state" in facets
+        expected_facets = {*_RESOURCE_COLLECTION_FACETS, "name_filter"}
         family_valid = (
             set(target_kinds)
-            <= {"resource_type_filter", "resource_state_filter", "resource_name_filter"}
+            <= {
+                "resource_type_filter",
+                "resource_state_exclusion_filter",
+                "resource_state_filter",
+                "resource_name_filter",
+            }
             and target_kinds.count("resource_type_filter") <= 1
-            and target_kinds.count("resource_state_filter") <= 1
+            and state_filter_count <= 1
             and target_kinds.count("resource_name_filter") <= 1
             and len(target_kinds) == len(set(target_kinds))
             and bool(target_kinds)
-            and {"resource_collection", "list"} <= facets <= expected_facets
+            and "list" in facets
+            and facets <= expected_facets
         )
         normalized_operational_facets = tuple(
             facet
-            for facet in ("resource_collection", "list", "name_filter", "current_state")
-            if facet in expected_facets
+            for facet in (
+                "resource_collection",
+                "list",
+                "name_filter",
+                "current_state",
+                "state_change_history",
+            )
+            if facet in {"resource_collection", "list"}
+            or (facet == "name_filter" and has_name_filter)
+            or (facet == "current_state" and has_current_state)
+            or (facet == "state_change_history" and facet in facets)
         )
         primary_intent = (
-            "query.resource_state_inventory" if has_state_filter else "query.contextual_resources"
+            "query.resource_state_inventory" if has_current_state else "query.contextual_resources"
         )
     elif proposal.operational_family is OperationalPreflightFamily.RESOURCE_CURRENT_STATE:
         family_valid = target_kinds == ("resource",) and facets == {"current_state"}

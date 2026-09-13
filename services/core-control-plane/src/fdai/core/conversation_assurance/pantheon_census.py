@@ -6,7 +6,7 @@ import hashlib
 import json
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 from fdai.core.conversation_assurance.pantheon_scorecard import T2Expectation
 
@@ -111,6 +111,22 @@ _T2_CASES = (
     ),
 )
 
+_CORPUS_CASE_KEYS = frozenset(
+    {
+        "case_id",
+        "suite",
+        "locale",
+        "question",
+        "expected_primary_agent",
+        "expected_routing_method",
+        "allowed_contributors",
+        "expected_handoff",
+        "expected_handoff_owner",
+        "t2_expectation",
+    }
+)
+_MAX_CORPUS_CASES = 10_000
+
 
 def build_pantheon_census(specs: Sequence[ConversationSpec]) -> PantheonCensus:
     """Build the exact 230-case census from the fixed 15-member roster."""
@@ -192,8 +208,101 @@ def build_pantheon_census(specs: Sequence[ConversationSpec]) -> PantheonCensus:
     return PantheonCensus(version="pantheon-census-v1", cases=tuple(cases))
 
 
+def parse_pantheon_corpus(raw: str, specs: Sequence[ConversationSpec]) -> PantheonCensus:
+    """Parse a bounded reviewed corpus without inferring expectations from question text."""
+
+    decoded: Any = json.loads(raw)
+    if not isinstance(decoded, dict) or set(decoded) != {"schema_version", "cases"}:
+        raise ValueError("conversation assurance corpus MUST contain schema_version and cases")
+    if decoded["schema_version"] != "1.0.0":
+        raise ValueError("unsupported conversation assurance corpus schema_version")
+    raw_cases = decoded["cases"]
+    if not isinstance(raw_cases, list) or not 1 <= len(raw_cases) <= _MAX_CORPUS_CASES:
+        raise ValueError("conversation assurance corpus MUST contain 1 to 10000 cases")
+    known_agents = {spec.name for spec in specs}
+    cases = tuple(_parse_corpus_case(item, known_agents) for item in raw_cases)
+    if len({case.case_id for case in cases}) != len(cases):
+        raise ValueError("conversation assurance corpus case ids MUST be unique")
+    if len({(case.locale, case.question) for case in cases}) != len(cases):
+        raise ValueError("conversation assurance corpus questions MUST be unique per locale")
+    return PantheonCensus(version="conversation-assurance-corpus-v1", cases=cases)
+
+
+def _parse_corpus_case(raw: object, known_agents: set[str]) -> PantheonCensusCase:
+    if not isinstance(raw, dict) or set(raw) != _CORPUS_CASE_KEYS:
+        raise ValueError("conversation assurance corpus case shape is invalid")
+    case_id = _bounded_ascii(raw["case_id"], "case_id", 128)
+    suite = _bounded_ascii(raw["suite"], "suite", 32)
+    if suite not in {"agent", "routing", "t2", "external"}:
+        raise ValueError("conversation assurance corpus suite is unsupported")
+    locale = _bounded_ascii(raw["locale"], "locale", 16)
+    if locale not in {"en", "ko"}:
+        raise ValueError("conversation assurance corpus locale is unsupported")
+    question = raw["question"]
+    if not isinstance(question, str) or not question.strip() or len(question) > 16_000:
+        raise ValueError("conversation assurance corpus question MUST be bounded and non-empty")
+    expected_primary_agent = _bounded_ascii(
+        raw["expected_primary_agent"], "expected_primary_agent", 64
+    )
+    if expected_primary_agent not in known_agents:
+        raise ValueError("conversation assurance corpus primary agent is unknown")
+    expected_routing_method = _bounded_ascii(
+        raw["expected_routing_method"], "expected_routing_method", 64
+    )
+    contributors_raw = raw["allowed_contributors"]
+    if not isinstance(contributors_raw, list) or len(contributors_raw) > 2:
+        raise ValueError("conversation assurance corpus contributors are invalid")
+    contributors = tuple(
+        _bounded_ascii(item, "allowed_contributor", 64) for item in contributors_raw
+    )
+    if len(set(contributors)) != len(contributors) or any(
+        item not in known_agents for item in contributors
+    ):
+        raise ValueError("conversation assurance corpus contributors are invalid")
+    expected_handoff = raw["expected_handoff"]
+    if type(expected_handoff) is not bool:
+        raise ValueError("conversation assurance corpus expected_handoff MUST be boolean")
+    owner_raw = raw["expected_handoff_owner"]
+    if owner_raw is None:
+        expected_handoff_owner = None
+    else:
+        expected_handoff_owner = _bounded_ascii(owner_raw, "expected_handoff_owner", 64)
+        if expected_handoff_owner not in known_agents:
+            raise ValueError("conversation assurance corpus handoff owner is unknown")
+    if expected_handoff != (expected_handoff_owner is not None):
+        raise ValueError("conversation assurance corpus handoff expectation is inconsistent")
+    try:
+        t2_expectation = T2Expectation(raw["t2_expectation"])
+    except (TypeError, ValueError) as error:
+        raise ValueError("conversation assurance corpus T2 expectation is invalid") from error
+    return PantheonCensusCase(
+        case_id=case_id,
+        suite=suite,
+        locale=locale,
+        question=question,
+        expected_primary_agent=expected_primary_agent,
+        expected_routing_method=expected_routing_method,
+        allowed_contributors=contributors,
+        expected_handoff=expected_handoff,
+        expected_handoff_owner=expected_handoff_owner,
+        t2_expectation=t2_expectation,
+    )
+
+
+def _bounded_ascii(value: object, label: str, maximum: int) -> str:
+    if (
+        not isinstance(value, str)
+        or not value.strip()
+        or len(value) > maximum
+        or not value.isascii()
+    ):
+        raise ValueError(f"conversation assurance corpus {label} MUST be bounded ASCII")
+    return value
+
+
 __all__ = [
     "PantheonCensus",
     "PantheonCensusCase",
     "build_pantheon_census",
+    "parse_pantheon_corpus",
 ]

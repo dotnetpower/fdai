@@ -63,6 +63,7 @@ def normalize_resource_state_proposal(
     utterance: str,
     descriptors: tuple[dict[str, Any], ...],
     inventory_query_language: InventoryQueryLanguageRegistry | None = None,
+    excluded_state_concepts: tuple[str, ...] = (),
 ) -> SemanticFrameProposal:
     """Select the collection-state family only from capability-declared measures."""
 
@@ -82,7 +83,11 @@ def normalize_resource_state_proposal(
         value_groups=value_groups,
         registry=inventory_query_language,
     )
-    source_state_measures = catalog_state_measures | stated_measures
+    source_state_measures = (
+        frozenset(_STATE_MEASURES.difference(excluded_state_concepts))
+        if excluded_state_concepts
+        else catalog_state_measures | stated_measures
+    )
     if (
         proposal.operation is SemanticOperation.SELECT
         and proposal.output_shape
@@ -141,6 +146,25 @@ def normalize_resource_state_proposal(
             "output_shape": SemanticOutputShape.RESOURCE_STATE_LIST,
         }
     )
+
+
+def resolve_state_exclusion_concepts(
+    values: tuple[str, ...],
+    *,
+    descriptors: tuple[dict[str, Any], ...],
+) -> tuple[str, ...] | None:
+    """Ground typed exclusion targets to exactly one declared state concept each."""
+
+    if not values:
+        return ()
+    _declared, value_groups = _state_descriptor_metadata(descriptors)
+    resolved: list[str] = []
+    for value in values:
+        concepts = _stated_state_measures(value, value_groups=value_groups)
+        if len(concepts) != 1:
+            return None
+        resolved.extend(concepts)
+    return tuple(sorted(set(resolved)))
 
 
 def _catalog_state_measures(
@@ -238,6 +262,7 @@ def compile_resource_state_plan(
         descriptors=manifest.descriptors,
         evaluation_time=evaluation_time,
         purpose=purpose,
+        preferred_terms=frame.subject_constraints,
         require_operational_state_metadata=True,
     )
     nodes = (
@@ -337,6 +362,7 @@ def resource_collection_definition(
     descriptors: tuple[dict[str, Any], ...],
     evaluation_time: datetime,
     purpose: str,
+    preferred_terms: tuple[str, ...] = (),
     require_operational_state_metadata: bool = False,
     require_state_metadata: bool = False,
 ) -> ObjectSetDefinition:
@@ -344,7 +370,11 @@ def resource_collection_definition(
 
     if require_operational_state_metadata and require_state_metadata:
         raise ValueError("resource collection state metadata modes are mutually exclusive")
-    filters = stated_value_filters(utterance, descriptors)
+    filters = stated_value_filters(
+        utterance,
+        descriptors,
+        preferred_terms=preferred_terms,
+    )
     type_values = filters.get(("Resource", "type"), ())
     operational_type_values = (
         _operational_type_values(descriptors) if require_operational_state_metadata else ()
@@ -492,6 +522,7 @@ def _has_state_function(descriptors: tuple[dict[str, Any], ...]) -> bool:
 __all__ = [
     "compile_resource_state_plan",
     "normalize_resource_state_proposal",
+    "resolve_state_exclusion_concepts",
     "resource_collection_definition",
     "resource_condition_intents_grounded",
 ]

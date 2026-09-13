@@ -34,9 +34,11 @@ from fdai.rule_catalog.schema.rule_semantic_retrieval import (
     RuleSemanticSurface,
 )
 from fdai.rule_catalog.schema.rule_semantic_surface_catalog import (
+    SemanticSurfaceCatalogError,
     load_promoted_semantic_surfaces,
 )
 from fdai.rule_catalog.schema.rule_semantic_validation_receipt_catalog import (
+    SemanticValidationReceiptCatalogError,
     load_semantic_validation_receipts,
 )
 from fdai.shared.contracts.models import OntologyActionType, OntologyRelease, Rule
@@ -98,14 +100,20 @@ def build_rule_generation_document_resolver(
     policy = load_retrieval_evaluation_policy_from_json(
         (repo_root / "config/rule-semantic-evaluation.json").read_text(encoding="utf-8")
     )
-    surfaces = load_promoted_semantic_surfaces(
-        catalog_root / "surfaces",
-        manifests=manifests,
-        validation_receipts=load_semantic_validation_receipts(
+    try:
+        validation_receipts = load_semantic_validation_receipts(
             catalog_root / "surface-validation-receipts"
-        ),
-        evaluation_policy_digest=policy.digest,
-    )
+        )
+        surfaces = load_promoted_semantic_surfaces(
+            catalog_root / "surfaces",
+            manifests=manifests,
+            validation_receipts=validation_receipts,
+            evaluation_policy_digest=policy.digest,
+        )
+    except (SemanticSurfaceCatalogError, SemanticValidationReceiptCatalogError) as exc:
+        raise RuleGenerationDocumentsUnavailableError(
+            "rule semantic validation catalog is unavailable"
+        ) from exc
     surfaces_by_rule = _surfaces_by_rule(surfaces, manifests=manifests)
     documents = build_catalog_search_documents(
         rules=rules,
