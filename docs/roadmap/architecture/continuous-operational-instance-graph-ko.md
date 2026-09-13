@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 3c8a5d51752180bd48c10c898147e03af0e5ac4a
+translation_source_sha: 9de3b912203cfd81cc53ef87ebb2b8ff4d2c57b8
 translation_revised: 2026-09-13
 ---
 # 지속형 운영 인스턴스 그래프
@@ -85,6 +85,9 @@ reconciliation 사이에 Resource Group 부모로 되돌아가지 않습니다.
 수집된 속성은 검토된 프로바이더 mapping을 거쳐야만 관계가 됩니다. Mapping이 관측된 연결
 대상을 빠뜨리면 없는 그래프 edge가 경로 부재를 입증하지 않습니다. 따라서 도달 가능한 모든
 관리형 서비스 연결의 대상 유형을 검토된 카탈로그에 선언하는 것이 좋습니다.
+각 Azure 행이 제공한 공급자 유형과 범위는 전체 스냅샷이나 변경 스트림에 들어가기 전에 정확한
+ARM ID와 대소문자 구분 없이 일치해야 합니다. 모순이 있으면 범위가 제한된 수집을 실패시키고
+이전의 완전한 세대를 유지합니다.
 비활성화된 리소스 변경 및 복구 가속기는 수집 정책 항목을 요구하지 않으며 조정에 커서 접두사나
 오래된 커서 기한을 추가하지 않습니다.
 

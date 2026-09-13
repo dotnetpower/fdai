@@ -142,6 +142,44 @@ async def test_resume_cursor_builds_filter_and_maps_event() -> None:
 
 
 @pytest.mark.asyncio
+async def test_activity_log_rejects_type_that_conflicts_with_the_arm_id() -> None:
+    arm_type = "Microsoft.Storage/storageAccounts"
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-a/providers/Microsoft.Compute/virtualMachines/vm-one"
+    )
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "resourceId": arm_id,
+                        "resourceType": {"value": arm_type},
+                        "operationName": {"value": f"{arm_type}/write"},
+                        "status": {"value": "Succeeded"},
+                        "eventTimestamp": "2026-07-10T06:00:00Z",
+                    }
+                ]
+            },
+        )
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    factory = AzureActivityLogFactory(
+        identity=_identity(),
+        resource_types=_vocab(),
+        http_client=client,
+        config=_config(),
+    )
+    try:
+        with pytest.raises(ActivityLogError, match="conflicts"):
+            await factory.build_fetch_fn()("")
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_delete_event_is_not_upserted_and_still_advances_cursor() -> None:
     vocab = _vocab()
     _, arm_type = _arm_type_for(vocab)
