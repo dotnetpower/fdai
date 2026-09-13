@@ -199,6 +199,9 @@ generation and records the failed revision and reason.
 The shared local catalog materializer keeps framework projections separate from ontology evidence
 health. If the active inventory and ontology projection generations differ, it publishes explicit
 unavailable evidence instead of joining cross-generation timestamps or counts into the catalog set.
+Repository mapping documents use PyYAML's compiled safe loader when available, with the Python safe
+loader as the fallback. Each call reads the current file and retains mapping-root and typed catalog
+validation; unsafe YAML tags remain rejected. Parser acceleration never grants evidence or authority.
 
 ## Validation and live evidence
 

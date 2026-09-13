@@ -368,14 +368,29 @@ def normalize_and_gate_frame(
                 )
             ),
         )
-    proposal, frame = resolve_resource_target_candidates(
-        proposal,
-        frame,
-        utterance=utterance,
-        context=context,
-        descriptors=descriptors,
-        inventory_query_language=inventory_query_language,
+    typed_resource_state_collection = (
+        judgment_accepted
+        and judgment is not None
+        and judgment.primary_intent == "query.resource_state_inventory"
+        and all(
+            target.kind
+            in {
+                "resource_state_exclusion_filter",
+                "resource_state_filter",
+                "resource_type_filter",
+            }
+            for target in judgment.targets
+        )
     )
+    if not typed_resource_state_collection:
+        proposal, frame = resolve_resource_target_candidates(
+            proposal,
+            frame,
+            utterance=utterance,
+            context=context,
+            descriptors=descriptors,
+            inventory_query_language=inventory_query_language,
+        )
     proposal, frame = apply_document_evidence_requirement(
         proposal,
         frame,

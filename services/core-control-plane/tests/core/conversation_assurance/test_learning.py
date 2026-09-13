@@ -12,14 +12,20 @@ from fdai.core.conversation_assurance import (
     AssuranceVerdict,
     ChatPolicyCandidate,
     ChatPolicyTarget,
+    ConversationStage,
     DisputeReason,
     DisputeRecord,
+    ImprovementReviewState,
     InMemoryConversationAssuranceLedger,
     InMemoryConversationPolicyCandidateStore,
     PolicyStage,
     PolicyTransition,
     PolicyTrialMetrics,
     PromotionConfig,
+    StageOutcome,
+    StructuralStageObservation,
+    attribute_structural_failure,
+    build_structural_improvement_candidates,
     cluster_failures,
     evaluate_policy_transition,
 )
@@ -110,6 +116,36 @@ def test_failure_clusters_do_not_combine_principal_scopes() -> None:
     )
 
     assert cluster_failures((first, second), min_samples=2) == ()
+
+
+def test_repeated_structural_failure_creates_review_only_candidate() -> None:
+    attributions = tuple(
+        attribute_structural_failure(
+            turn_id=f"turn-{index}",
+            answer_digest=str(index).zfill(64),
+            observations=(
+                StructuralStageObservation(
+                    stage=ConversationStage.ROUTING,
+                    outcome=StageOutcome.FAILED,
+                    reason_code="wrong_object_type",
+                ),
+            ),
+            failed_rubrics=("appropriateness",),
+            channel_kind="web",
+            locale="ko",
+            route_id="ontology-query",
+        )
+        for index in range(3)
+    )
+
+    candidates = build_structural_improvement_candidates(attributions)
+
+    assert len(candidates) == 1
+    assert candidates[0].root_stage is ConversationStage.ROUTING
+    assert candidates[0].sample_count == 3
+    assert candidates[0].review_state is ImprovementReviewState.REVIEW_REQUIRED
+    assert candidates[0].merge_authority is False
+    assert candidates[0].execution_authority is False
 
 
 def _candidate(stage: PolicyStage = PolicyStage.SHADOW) -> ChatPolicyCandidate:

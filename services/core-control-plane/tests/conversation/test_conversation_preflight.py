@@ -714,6 +714,148 @@ def test_resource_collection_derives_name_filter_facet_from_typed_target() -> No
     assert judgment.requested_facets == ("resource_collection", "list", "name_filter")
 
 
+def test_resource_collection_derives_collection_facet_from_typed_family() -> None:
+    utterance = "Ready가 아닌 PostgreSQL 서버 목록"
+    targets = tuple(
+        SemanticTarget(
+            kind=kind,
+            value=value,
+            source_start=utterance.index(value),
+            source_end=utterance.index(value) + len(value),
+        )
+        for kind, value in (
+            ("resource_type_filter", "PostgreSQL 서버"),
+            ("resource_state_filter", "Ready가 아닌"),
+        )
+    )
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=targets,
+        operational_facets=("current_state", "list"),
+        confidence=0.98,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.primary_intent == "query.resource_state_inventory"
+    assert judgment.targets == targets
+    assert judgment.requested_facets == ("resource_collection", "list", "current_state")
+
+
+def test_resource_collection_preserves_state_exclusion_and_history_requirement() -> None:
+    utterance = (
+        "현재 구독의 PostgreSQL 서버 중 Ready가 아닌 서버만 이름, 리소스 그룹, 현재 상태, "
+        "마지막 상태 변경 시각과 함께 보여줘."
+    )
+    targets = tuple(
+        SemanticTarget(
+            kind=kind,
+            value=value,
+            source_start=utterance.index(value),
+            source_end=utterance.index(value) + len(value),
+        )
+        for kind, value in (
+            ("resource_type_filter", "PostgreSQL 서버"),
+            ("resource_state_exclusion_filter", "Ready가 아닌"),
+        )
+    )
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=targets,
+        operational_facets=("list", "current_state", "state_change_history"),
+        confidence=0.98,
+    )
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.primary_intent == "query.resource_state_inventory"
+    assert judgment.targets == targets
+    assert judgment.requested_facets == (
+        "resource_collection",
+        "list",
+        "current_state",
+        "state_change_history",
+    )
+
+
+def test_resource_collection_preserves_type_for_subscription_state_output() -> None:
+    utterance = (
+        "현재 구독의 Azure Database for PostgreSQL 서버 목록을 이름, 리소스 그룹, 지역, "
+        "현재 상태와 함께 보여줘."
+    )
+    value = "Azure Database for PostgreSQL 서버"
+    target_values = (
+        ("resource_type_filter", value),
+        ("resource_name_filter", "이름"),
+        ("resource_name_filter", "리소스 그룹"),
+        ("resource_name_filter", "지역"),
+        ("resource_state_filter", "현재 상태"),
+    )
+    proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        context_dependency=ContextDependency.NONE,
+        operational_family=OperationalPreflightFamily.RESOURCE_COLLECTION,
+        operational_targets=tuple(
+            {
+                "kind": kind,
+                "value": target_value,
+                "source_start": utterance.index(target_value),
+                "source_end": utterance.index(target_value) + len(target_value),
+            }
+            for kind, target_value in target_values
+        ),
+        operational_facets=("resource_collection", "list", "name_filter", "current_state"),
+        confidence=0.96,
+    )
+    target = SemanticTarget(
+        kind="resource_type_filter",
+        value=value,
+        source_start=utterance.index(value),
+        source_end=utterance.index(value) + len(value),
+    )
+    assert proposal.operational_targets == (target,)
+    result = ConversationPreflightResult(
+        proposal=proposal,
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    judgment = preflight_operational_judgment(result, utterance=utterance)
+
+    assert judgment is not None
+    assert judgment.primary_intent == "query.resource_state_inventory"
+    assert judgment.targets == (target,)
+    assert judgment.requested_facets == ("resource_collection", "list", "current_state")
+
+
 @pytest.mark.parametrize(
     ("utterance", "kind", "value", "alias", "canonical"),
     (

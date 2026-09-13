@@ -64,6 +64,9 @@ def _resource(
     *,
     observed_at: datetime | None = None,
     legacy_flat_metadata: bool = False,
+    resource_group: str | None = None,
+    region: str | None = None,
+    legacy_scope_keys: bool = False,
 ) -> OntologyObjectRecord:
     provider: dict[str, object] = {}
     if state is not None:
@@ -73,6 +76,10 @@ def _resource(
         provider[STATE_FACT_METADATA_PROPERTY] = (
             state_fact if legacy_flat_metadata else {"state": state_fact}
         )
+    if resource_group is not None:
+        provider["resourceGroup" if legacy_scope_keys else "resource_group"] = resource_group
+    if region is not None:
+        provider["location" if legacy_scope_keys else "region"] = region
     return OntologyObjectRecord(
         id=f"resource-{name}",
         object_type="Resource",
@@ -164,7 +171,7 @@ async def _invoke(
 def test_state_function_declares_canonical_measure_concepts() -> None:
     declaration = resource_state_function_type()
 
-    assert declaration.version == "1.1.1"
+    assert declaration.version == "1.2.0"
     assert declaration.output_schema["x-fdai-measure-concepts"] == list(
         RESOURCE_STATE_QUERY_CONCEPTS
     )
@@ -179,7 +186,13 @@ async def test_state_function_returns_only_requested_verified_states() -> None:
     result = await _invoke(
         _query_result(
             (
-                _resource("database-a", "PowerState/stopped", observed_at=observed_at),
+                _resource(
+                    "database-a",
+                    "PowerState/stopped",
+                    observed_at=observed_at,
+                    resource_group="group-a",
+                    region="region-a",
+                ),
                 _resource("database-b", "Running", observed_at=observed_at),
                 _resource("database-c", "Paused", observed_at=observed_at),
             )
@@ -194,9 +207,46 @@ async def test_state_function_returns_only_requested_verified_states() -> None:
     assert len(rows) == 1
     values = rows[0]["values"]
     assert values["name"] == "database-a"
+    assert values["resource_group"] == "group-a"
+    assert values["region"] == "region-a"
     assert values["state_concept"] == "resource_state.stopped"
     assert values["source_observed_at"] == observed_at.isoformat()
     assert values["execution_authority"] is False
+
+
+async def test_state_function_marks_unavailable_scope_fields_explicitly() -> None:
+    observed_at = NOW - timedelta(minutes=5)
+    result = await _invoke(
+        _query_result((_resource("database-a", "Ready", observed_at=observed_at),)),
+        concepts=(RESOURCE_STATE_OBSERVED_CONCEPT,),
+    )
+
+    values = result["rows"][0]["values"]
+    assert values["resource_group"] is None
+    assert values["region"] is None
+
+
+async def test_state_function_normalizes_legacy_provider_scope_fields() -> None:
+    observed_at = NOW - timedelta(minutes=5)
+    result = await _invoke(
+        _query_result(
+            (
+                _resource(
+                    "database-a",
+                    "Ready",
+                    observed_at=observed_at,
+                    resource_group="group-a",
+                    region="region-a",
+                    legacy_scope_keys=True,
+                ),
+            )
+        ),
+        concepts=(RESOURCE_STATE_OBSERVED_CONCEPT,),
+    )
+
+    values = result["rows"][0]["values"]
+    assert values["resource_group"] == "group-a"
+    assert values["region"] == "region-a"
 
 
 async def test_state_function_returns_every_recognized_observed_state() -> None:
