@@ -5,6 +5,18 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 MAX_RECORDED_STATE_VALUE_CHARS = 256
+STATE_FACT_UNAVAILABLE_REASONS_PROPERTY = "state_fact_unavailable_reasons"
+RECORDED_STATE_UNAVAILABLE_REASONS = frozenset(
+    {
+        "resource_health_not_modeled",
+        "resource_health_response_invalid",
+        "resource_health_response_too_large",
+        "resource_health_source_unavailable",
+        "resource_health_target_unresolved",
+        "resource_health_transport_unavailable",
+        "resource_health_unauthorized",
+    }
+)
 
 OPERATIONAL_STATE_PATHS = (
     "status",
@@ -202,6 +214,8 @@ __all__ = [
     "OPERATIONAL_STATE_PATHS",
     "OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE",
     "PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES",
+    "RECORDED_STATE_UNAVAILABLE_REASONS",
+    "STATE_FACT_UNAVAILABLE_REASONS_PROPERTY",
     "availability_state_paths",
     "is_recorded_state_value_valid",
     "operational_state_paths",

@@ -16,6 +16,8 @@ from urllib.parse import unquote, urlparse
 import httpx
 from fdai_service_contracts.recorded_resource_state import (
     AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
+    RECORDED_STATE_UNAVAILABLE_REASONS,
+    STATE_FACT_UNAVAILABLE_REASONS_PROPERTY,
 )
 
 from fdai.delivery.inventory_sync import (
@@ -193,11 +195,21 @@ class AzureResourceHealthInventoryEnricher:
                 prior = _prior_health_resource(previous.get(resource.resource_id))
                 if prior is not None:
                     retained[resource.resource_id] = _carry_prior_health(resource, prior)
+                else:
+                    retained[resource.resource_id] = _with_unavailable_reason(
+                        resource,
+                        result,
+                    )
             elif result.effective_at > completed_at:
                 coverage["response_invalid"] += 1
                 prior = _prior_health_resource(previous.get(resource.resource_id))
                 if prior is not None:
                     retained[resource.resource_id] = _carry_prior_health(resource, prior)
+                else:
+                    retained[resource.resource_id] = _with_unavailable_reason(
+                        resource,
+                        "response_invalid",
+                    )
             else:
                 prior = _prior_health_resource(previous.get(resource.resource_id))
                 if prior is not None and result.effective_at < prior[1].effective_at:
@@ -555,6 +567,18 @@ def _carry_prior_health(
     if "availabilityReasonKind" in prior_resource.props:
         props["availabilityReasonKind"] = prior_resource.props["availabilityReasonKind"]
     props[STATE_FACT_METADATA_PROPERTY] = metadata
+    return replace(resource, props=props)
+
+
+def _with_unavailable_reason(resource: ResourceRecord, reason: str) -> ResourceRecord:
+    canonical = f"resource_health_{reason}"
+    if canonical not in RECORDED_STATE_UNAVAILABLE_REASONS:
+        canonical = "resource_health_response_invalid"
+    props = dict(resource.props)
+    raw_reasons = props.get(STATE_FACT_UNAVAILABLE_REASONS_PROPERTY)
+    reasons = dict(raw_reasons) if isinstance(raw_reasons, Mapping) else {}
+    reasons["availabilityState"] = canonical
+    props[STATE_FACT_UNAVAILABLE_REASONS_PROPERTY] = reasons
     return replace(resource, props=props)
 
 

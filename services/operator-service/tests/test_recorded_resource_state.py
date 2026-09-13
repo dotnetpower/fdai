@@ -177,6 +177,35 @@ def test_missing_state_separates_source_provider_and_applicability_outcomes() ->
     assert unresolved["operational"]["reason"] == "state_applicability_unknown"
 
 
+def test_missing_availability_preserves_the_reviewed_resource_health_reason() -> None:
+    states = recorded_resource_states(
+        {
+            "state_fact_unavailable_reasons": {
+                "availabilityState": "resource_health_not_modeled",
+            }
+        },
+        resource_type="compute.vm",
+        now=NOW,
+    )
+
+    assert states["availability"]["value"] is None
+    assert states["availability"]["reason"] == "resource_health_not_modeled"
+
+
+def test_unreviewed_state_unavailability_reason_does_not_cross_the_read_boundary() -> None:
+    states = recorded_resource_states(
+        {
+            "state_fact_unavailable_reasons": {
+                "availabilityState": "provider supplied detail",
+            }
+        },
+        resource_type="compute.vm",
+        now=NOW,
+    )
+
+    assert states["availability"]["reason"] == "state_source_not_recorded"
+
+
 def test_resource_type_applicability_rejects_unreviewed_supplied_state() -> None:
     resource_group = recorded_resource_states(
         {"status": "Succeeded"},
