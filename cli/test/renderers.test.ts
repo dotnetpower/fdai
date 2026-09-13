@@ -20,7 +20,7 @@ const blocks = buildBriefing(sampleBriefing("needs-me"));
 describe("renderText", () => {
   it("produces a plain string with the header and cards", () => {
     const out = renderText(blocks);
-    expect(out).toContain("fdai operator-console");
+    expect(out).toContain("FDAI Console");
     expect(out).toContain("[1/3]");
     expect(out).toContain("MEDIUM risk");
   });

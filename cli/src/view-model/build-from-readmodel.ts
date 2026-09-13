@@ -7,7 +7,7 @@
  * (KPI counts, the HIL queue, the audit tail); nothing is fabricated.
  */
 
-import type { Block, RiskLevel, Tone } from "./blocks.js";
+import type { Block, Tone } from "./blocks.js";
 import type { ReadModelSnapshot } from "../data/operator-api.js";
 import { t, type Locale } from "../i18n/index.js";
 
@@ -35,16 +35,8 @@ function pct(part: number, whole: number): number {
   return Math.round((part / whole) * 100);
 }
 
-/** HIL items are human-escalated; infer a conservative risk for display. */
-function inferRisk(actionKind: string): RiskLevel {
-  const k = actionKind.toLowerCase();
-  if (/(key|rotate|delete|destroy|network|break|prod|secret)/.test(k)) return "HIGH";
-  if (/(scale|restart|restrict|disable|quota)/.test(k)) return "MEDIUM";
-  return "LOW";
-}
-
 function decisionCard(
-  h: ReadModelSnapshot["hil"][number],
+  h: NonNullable<ReadModelSnapshot["hil"]>["items"][number],
   index: number,
   total: number,
   locale: Locale,
@@ -55,7 +47,8 @@ function decisionCard(
     total,
     title: humanize(h.action_kind),
     actionType: h.action_kind,
-    risk: inferRisk(h.action_kind),
+    risk: "UNKNOWN",
+    riskLabel: t("card.riskLabel", locale, { risk: "UNKNOWN" }),
     chip: t("card.chip", locale),
     chipSideEffect: "approve",
     fields: [
@@ -84,31 +77,35 @@ export function buildFromReadModel(
 
   blocks.push({
     type: "header",
-    title: "fdai operator-console",
-    version: "v0.0.1",
+    title: "FDAI Console",
+    version: "CLI",
     context: t("console.context", locale, { env }),
   });
 
-  blocks.push({
-    type: "narration",
-    text: t("console.connected", locale, {
-      events: kpi.event_count,
-      pending: kpi.hil_pending,
-    }),
-  });
+  if (kpi) {
+    blocks.push({
+      type: "narration",
+      text: t("console.connected", locale, {
+        events: kpi.event_count,
+        pending: kpi.hil_pending,
+      }),
+    });
 
-  blocks.push({
-    type: "summary",
-    items: [
-      { label: t("console.summaryEvents", locale), value: String(kpi.event_count) },
-      { label: t("console.summaryShadow", locale), value: `${pct(kpi.shadow_share, 1)}%`, tone: "t0" },
-      { label: t("console.summaryEnforce", locale), value: `${pct(kpi.enforce_share, 1)}%`, tone: "warn" },
-      { label: t("console.summaryAwaiting", locale), value: String(kpi.hil_pending) },
-      { label: t("console.summaryLast", locale), value: kpi.last_recorded_at ?? "-" },
-    ],
-  });
+    blocks.push({
+      type: "summary",
+      items: [
+        { label: t("console.summaryEvents", locale), value: String(kpi.event_count) },
+        { label: t("console.summaryShadow", locale), value: `${pct(kpi.shadow_share, 1)}%`, tone: "t0" },
+        { label: t("console.summaryEnforce", locale), value: `${pct(kpi.enforce_share, 1)}%`, tone: "warn" },
+        { label: t("console.summaryAwaiting", locale), value: String(kpi.hil_pending) },
+        { label: t("console.summaryLast", locale), value: kpi.last_recorded_at ?? "-" },
+      ],
+    });
+  } else {
+    blocks.push({ type: "narration", text: t("console.kpiUnavailable", locale), tone: "warn" });
+  }
 
-  const tiers = Object.entries(kpi.by_tier);
+  const tiers = Object.entries(kpi?.by_tier ?? {});
   if (tiers.length > 0) {
     const metaByTier = tierMeta(locale);
     blocks.push({
@@ -128,7 +125,7 @@ export function buildFromReadModel(
           return {
             label: meta.label,
             sub: `${tier.toUpperCase()} - ${count}`,
-            pct: pct(count, kpi.event_count),
+            pct: pct(count, kpi?.event_count ?? 0),
             tone: meta.tone,
             order: meta.order,
           };
@@ -138,7 +135,7 @@ export function buildFromReadModel(
     });
   }
 
-  const outcomes = Object.entries(kpi.by_outcome);
+  const outcomes = Object.entries(kpi?.by_outcome ?? {});
   if (outcomes.length > 0) {
     blocks.push({
       type: "statBars",
@@ -146,13 +143,15 @@ export function buildFromReadModel(
       rows: outcomes.map(([name, count]) => ({
         label: humanize(name),
         sub: String(count),
-        pct: pct(count, kpi.event_count),
+        pct: pct(count, kpi?.event_count ?? 0),
         tone: "t0",
       })),
     });
   }
 
-  if (audit.length > 0) {
+  if (audit === null) {
+    blocks.push({ type: "narration", text: t("console.auditUnavailable", locale), tone: "warn" });
+  } else if (audit.length > 0) {
     blocks.push({ type: "narration", text: t("console.recentActivity", locale), tone: "dim" });
     blocks.push({
       type: "list",
@@ -163,16 +162,26 @@ export function buildFromReadModel(
     });
   }
 
-  if (hil.length > 0) {
+  if (hil === null) {
+    blocks.push({ type: "narration", text: t("console.approvalsUnavailable", locale), tone: "warn" });
+  } else if (hil.items.length > 0) {
     blocks.push({
       type: "narration",
       text: t(
-        hil.length === 1 ? "console.hilPendingOne" : "console.hilPendingMany",
+        hil.items.length === 1 ? "console.hilPendingOne" : "console.hilPendingMany",
         locale,
-        { count: hil.length },
+        { count: hil.items.length },
       ),
     });
-    hil.forEach((h, i) => blocks.push(decisionCard(h, i + 1, hil.length, locale)));
+    hil.items.forEach((h, i) =>
+      blocks.push(decisionCard(h, i + 1, hil.items.length, locale)),
+    );
+  } else if (hil.total > 0) {
+    blocks.push({
+      type: "narration",
+      text: t("console.approvalsCountOnly", locale, { count: hil.total }),
+      tone: "warn",
+    });
   } else {
     blocks.push({
       type: "narration",

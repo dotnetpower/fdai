@@ -1,31 +1,90 @@
 # FDAI Deployment CLI
 
 This package provides the installable `fdaictl` deployment surface. It validates local
-configuration, verifies signed deployment artifacts, and prepares resumable subscription-genesis
-work without granting runtime execution authority.
+configuration, verifies signed deployment artifacts, and runs resumable Azure provisioning from
+an active Azure CLI user or a managed deployment host. Tenant deployment never dispatches a
+GitHub workflow or depends on repository variables, repository secrets, or a GitHub runner.
+
+## Install from a clone
+
+Cloning does not register `fdaictl` on PATH. Follow the
+[clone-to-command installation guide](../../docs/user-guide/deploy-quickstart.md#install-the-command-once)
+or its [Korean translation](../../docs/user-guide/deploy-quickstart-ko.md#명령을-한-번-설치)
+for locked `uv tool install`, shell PATH setup, verification, updates, and optional editable mode.
+No maintainer-specific paths, signing keys, or full application environment are required.
 
 ## Commands
 
-Run `fdaictl --help` for the current command tree. Commands default to read-only behavior, produce
-stable JSON with `--output json`, and keep secrets out of command arguments and output.
+Run `fdaictl` or `fdaictl --help` for command descriptions and a short getting-started example.
+A bare group such as `fdaictl provision` shows its own help. Add `--help` to a leaf command for
+required inputs, defaults, units, and examples. These discovery paths exit `0` without Azure
+access, downloads, deployment-state changes, or prompts. Invalid executable invocations still
+fail with usage error `2` and a next-help hint; long options must use their full names.
+`--version` is a shortcut for `version`; `version --output json` keeps its stable schema.
+An older snapshot installation needs the locked reinstall described in the guide above.
 
-Use `fdaictl onboard guided --simulate` to rehearse the complete stage graph without Azure
-authentication or mutation. The rehearsal writes a private hash-chained journal and resumes
-completed stages without duplicating them.
+After `az login`, use `fdaictl provision azure --online` for the connected path. Use
+`fdaictl provision azure --offline-kit <path>` for an artifact-offline path. Both modes run the
+same local coordinator, move private data-plane work to the Bastion-reachable managed host, and
+pause for exact-plan approval without using GitHub Actions.
+
+Interactive text mode shows a live phase dashboard with elapsed time and observed download bytes.
+Use `--progress plain` for line-oriented logs or `--progress off` to hide the dashboard. Redirected
+output, `NO_COLOR`, and `TERM=dumb` use plain messages automatically. `--output json` disables the
+dashboard and keeps intermediate Foundation results and approval prompts off stdout.
+Phase counts are not time estimates or readiness evidence; exact approvals and verified results
+remain authoritative. Redraw pauses while existing detailed output or approval input owns the terminal.
+Small terminals use a compact current-phase view. Resuming the live view preserves the approval
+text, EOF denies new approval, and failed or stale Foundation status never advances the run.
+
+Use `fdaictl onboard guided --simulate` only to rehearse the finite stage graph without Azure
+authentication or mutation. Live onboarding uses `fdaictl provision azure`; the rehearsal does
+not expose a workflow dispatch path.
 
 Use `fdaictl provision bootstrap-reconcile` before the first foundation approval. It performs only
 target-pinned Azure management-plane reads and writes a private expiring plan whose intent and
 observations have separate digests. It never creates a resource, registers a provider, writes
 Terraform state, or dispatches a workflow.
 
-After the approved foundation and runner are available, use `fdaictl deploy plan` to dispatch the
-protected plan-only workflow. Read its request-bound status and sanitized plan id/digest with
-`fdaictl deploy status`, then use `fdaictl deploy apply` with the plan id, digest, and
-`--plan-expires-at` value from the sanitized `deploy status` plan metadata for the exact reviewed
-plan.
-`fdaictl onboard guided` composes the same plan/apply transport and requires
-`--approve-application` before it can dispatch apply. Verification-only resume never reruns
-Terraform apply.
+The standalone coordinator prepares the foundation plan, obtains explicit terminal approval,
+creates the private deployment host, transfers the verified kit through Azure Bastion, and runs
+the application plan and exact apply under the host's managed identity. Verification-only resume
+never repeats an ambiguous Terraform apply.
+
+Online kit acquisition can resume in the same work directory. It rechecks package-pinned signatures,
+exact payloads, runtime images, and bundle binding, and extracts a fresh execution copy without
+deleting earlier state. The local source-request digest prevents an implicit URL change; it is not
+trust evidence. Corrupt or partial retained content blocks reuse. HTTP, network, destination,
+permission, and storage errors are distinct. See the
+[kit-acquisition troubleshooting guide](../../docs/user-guide/deploy-quickstart.md#if-kit-acquisition-fails).
+Keep the private work directory, which can contain SSH keys and sensitive recovery inputs.
+
+New installations without a deployment-bound capability token can start observation-only.
+Omitting a token on a resumed installation does not revoke one previously installed. A new adopter
+does not need a maintainer signing key. A verified token can enable only the capabilities it declares
+and does not bypass runtime promotion or approval policy.
+
+## Deployment appliance
+
+For a network that cannot download public artifacts, the release owner can wrap one complete
+signed kit in an OCI deployment appliance:
+
+```bash
+bash scripts/deployment/release/build-deployment-appliance.sh \
+  --kit /private/fdai-deployment-kit.tar.gz \
+  --base-image <approved-deployer-base>@sha256:<digest> \
+  --output /private/fdai-deployment-appliance.oci.tar
+```
+
+The base image must already contain Python 3 with pip, Azure CLI, OpenSSH, and `tar`. The build runs with no
+network access, installs `fdaictl` only from the verified kit wheelhouse, and embeds the complete
+Terraform, provider, runtime-image, Console, migration, SBOM, and provenance payload. The image
+entry point authenticates with an interactive Azure user or its managed identity and invokes
+`fdaictl provision azure --offline-kit` directly. It never contacts GitHub, PyPI, the public
+Terraform registry, or a public container registry while deploying.
+
+The complete release builder accepts the same base as `--appliance-base-image` and emits the kit
+and appliance in one clean-checkout release run.
 
 ## Offline release preparation
 

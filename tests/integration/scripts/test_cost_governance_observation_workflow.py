@@ -35,6 +35,11 @@ def test_source_is_attested_and_uploaded_before_trusted_import() -> None:
     assert "cost-governance-parity-qualification.txt" in _WORKFLOW
 
 
+def test_exact_release_qualification_installs_the_root_dev_extra() -> None:
+    assert "uv run --frozen --extra dev python" in _WORKFLOW
+    assert "uv run --frozen --extra dev pytest" in _WORKFLOW
+
+
 def test_review_is_non_authoritative_and_cannot_promote() -> None:
     assert '(.ready | type == "boolean")' in _WORKFLOW
     assert "(.targets | length == 6)" in _WORKFLOW

@@ -2324,7 +2324,7 @@
       "peopleCount": "{count} people",
       "groupsCount": "{count} groups",
       "addByAlias": "Add a user by alias",
-      "aliasPlaceholder": "Search name, alias, or username",
+      "aliasPlaceholder": "Email address or name",
       "selectRoleAndAdd": "Select role and add",
       "rosterFilter": "Roster type",
       "rosterFilterValue": {

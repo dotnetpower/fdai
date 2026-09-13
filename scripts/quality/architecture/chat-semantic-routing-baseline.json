@@ -2,6 +2,13 @@
   "version": 1,
   "candidates": [
     {
+      "path": "cli/src/cockpit-state.ts",
+      "disposition": "retain",
+      "owner": "cli-presentation",
+      "reason": "Retains display-only reduction of structured StageFrame routing tiers and audit outcome tokens. It does not inspect operator question text, choose semantic intent, or grant authority.",
+      "issue": 252
+    },
+    {
       "path": "console/src/bootstrap-retry.ts",
       "disposition": "retain",
       "owner": "console-runtime",

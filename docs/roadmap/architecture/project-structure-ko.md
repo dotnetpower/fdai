@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 9cd81ea08f013fee278d68c0f4c5916727c3c6c3
+translation_source_sha: b7584435bb23589bd9e793d67a4aa7d64ed19290
 translation_revised: 2026-09-13
 ---
 # 프로젝트 구조
@@ -424,6 +424,8 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   `GitOpsCatalogReviewPublisher`는 내용 기반 주소가 지정된 비활성 검토 package만 게시합니다.
   `operational-promotion` 작업은 상태 변경 없이 exact-digest 근거를 저장하고, `cohort_observation_import`는 산출물이 선언한 군, 리비전, 프로토콜, 승인 또는 권한을 받지 않습니다.
   보호된 workflow가 묶음당 관측값을 1,000개로 제한하고 중복 JSON 키를 차단하며 각 관측 다이제스트를 묶음과 exporter workflow에 연결한 뒤 멱등 재생을 검증합니다. 신뢰할 수 있는 제품 중립 출처 레지스트리는 군의 각 필수 측정값을 저장소 내부의 일반 exporter workflow 하나와 고정 출처 식별자에 배정합니다. 반입기는 해당 식별자를 주입하고 인벤토리는 일치하는 출처 계보만 다시 계수합니다. 제품 어댑터는 배정된 workflow 뒤에 유지되며, 연결이 없거나 불완전하거나 중복되거나 두 군이 공유하면 경로를 차단합니다.
+  `CostPromotionReviewStore`는 하나의 exact Cost Governance 대상 검토를 위한 권한 중립 경계입니다. 업스트림 PostgreSQL 어댑터와 Core 서비스 migration이 append-only 저장을 소유하며, 보호된 workflow는 각 기록 전에 하나의 attested campaign과 활성 pin을 검증합니다. 이 저장소는 package activation, ActionType 또는 Workflow mode, promotion 레지스트리를 갱신할 수 없습니다.
+  안정적인 요청 재생은 원래 payload와 정규화 열을 검증하고 요청 소유 내용 및 보존 기간만 비교한 뒤 원래 시각을 담은 검토를 반환합니다.
 - **Governed action 및 probe 전달**: `GovernedGovernancePrPublisher`는 retire 및 exemption
   순수 writer를 기존 write-once PR adapter에 연결하고 replay 가능한 open-to-merge 또는
   종단 증적을 저장합니다. Retirement loader는 병합된 retirement artifact를 active rule
@@ -594,10 +596,7 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
   불변 매니페스트, 수명 주기, 프로바이더 및 권한 없는 계약을 소유하고, 검토된 이미지
   composition이 패키지 코드와 리소스를 제공합니다. Core는 선택적 패키지를 import하지 않으며
   패키지 활성화는 사용자 접근 및 액션 승격과 독립적으로 유지됩니다. 보호된 W7 워크플로는 판단, 승인, 실행 또는 승격 권한을 패키지나 Operator 조립으로 옮기지 않고 정확한 release, Process, 공개 및 보존 근거를 유지합니다.
-- 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있으며, `execution_safeguards.py`는 Core, 작업 흐름, Isolated 실행기의 생성기와 검증기가 공유하는 공급자 중립 무권한 7개 증명 묶음을 소유합니다.
-  `recorded_resource_state.py`는 Core 변환 결과와 Operator 조회가 공유하는 공급자 중립 상태 경로
-  적용성 집합과 범위가 제한된 사용 불가 사유 토큰을 소유합니다. 공급자 어댑터는 검토된 토큰만
-  선택할 수 있으며, 공급자 응답 원문과 프로비저닝 기반 추론은 계약 밖에 둡니다.
+- 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있으며, `execution_safeguards.py`는 Core, 작업 흐름, Isolated 실행기의 생성기와 검증기가 공유하는 공급자 중립 무권한 7개 증명 묶음을 소유합니다. `recorded_resource_state.py`는 Core 변환 결과와 Operator 조회가 공유하는 공급자 중립 상태 경로 적용성 집합과 범위가 제한된 사용 불가 사유 토큰을 소유합니다. 공급자 어댑터는 검토된 토큰만 선택할 수 있으며, 공급자 응답 원문과 프로비저닝 기반 추론은 계약 밖에 둡니다.
   `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
   새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. 저장소가 소유하고
   체크섬으로 고정한 생성기는 호환성 매니페스트의 모든 N/N-1 스키마를 백엔드 서비스 5개용

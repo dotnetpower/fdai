@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import stat
 import subprocess
 import tempfile
 from collections.abc import Callable, Mapping
@@ -36,11 +37,36 @@ class VmReadContext(TypedDict):
 
 
 def load_vm_policy(repository_root: Path) -> VmPolicy:
-    """Read the hardware policy from the caller-authenticated source or signed bundle."""
+    """Read a bounded, stable policy descriptor from caller-authenticated source or bundle.
+
+    No-follow and nonblocking open prevent check/open replacement from following links or
+    waiting on a special file. This checks file integrity, not source-signing authority.
+    """
     path = repository_root / "infra/genesis-runner-image" / POLICY_NAME
-    if path.is_symlink() or not path.is_file() or path.stat().st_size > 16_384:
-        raise CheckError(EVIDENCE_INVALID, 3)
-    return parse_vm_policy(path.read_bytes())
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(descriptor, "rb") as stream:
+            before = os.fstat(stream.fileno())
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_uid != os.geteuid()
+                or before.st_nlink != 1
+                or before.st_mode & 0o022
+                or not 0 < before.st_size <= 16_384
+            ):
+                raise CheckError(EVIDENCE_INVALID, 3)
+            raw = stream.read(16_385)
+            after = os.fstat(stream.fileno())
+            if (
+                len(raw) != before.st_size
+                or after.st_size != before.st_size
+                or after.st_mtime_ns != before.st_mtime_ns
+                or after.st_ctime_ns != before.st_ctime_ns
+            ):
+                raise CheckError(EVIDENCE_INVALID, 3)
+    except OSError:
+        raise CheckError(EVIDENCE_INVALID, 3) from None
+    return parse_vm_policy(raw)
 
 
 def discover_foundation_vm_size(
@@ -67,19 +93,26 @@ def discover_foundation_vm_size(
         "cwd": repository_root,
         "environment": _environment(),
     }
-    rows = read_vm_catalog(**context)
-    usages = read_vm_usage(**context)
     folder: Path | None = None
     if evidence_directory is not None:
         folder = Path(tempfile.mkdtemp(prefix="vm-discovery-", dir=evidence_directory))
-        write_plan_input(folder / "skus.json", {"rows": rows})
-        write_plan_input(folder / "quota.json", {"rows": usages})
+    rows: list[object] | None = None
+    usages: list[object] | None = None
+    stage = "catalog"
     try:
+        rows = read_vm_catalog(**context)
+        if folder is not None:
+            write_plan_input(folder / "skus.json", {"rows": rows})
+        stage = "quota"
+        usages = read_vm_usage(**context)
+        if folder is not None:
+            write_plan_input(folder / "quota.json", {"rows": usages})
+        stage = "selection"
         selected = choose_deployment_vms(policy, region=region, rows=rows, usages=usages)
     except CheckError as exc:
         if folder is not None:
             try:
-                options = catalog_options(policy, region=region, rows=rows)
+                options = catalog_options(policy, region=region, rows=rows) if rows else None
             except CheckError:
                 options = None
             write_plan_input(
@@ -88,7 +121,8 @@ def discover_foundation_vm_size(
                     "schema_version": "fdai.deployment-vm-discovery.v1",
                     "state": "blocked",
                     "reason_code": exc.reason_code,
-                    "catalog_count": len(rows),
+                    "failed_stage": stage,
+                    "catalog_count": len(rows) if rows is not None else None,
                     "restricted_count": options.restricted if options else None,
                     "excluded_count": options.excluded if options else None,
                     "role_candidate_counts": (
@@ -104,8 +138,12 @@ def discover_foundation_vm_size(
                     "target_binding": target_binding,
                     "region": region,
                     "policy_digest": policy.digest,
-                    "sku_evidence_digest": canonical_digest({"rows": rows}),
-                    "quota_evidence_digest": canonical_digest({"rows": usages}),
+                    "sku_evidence_digest": (
+                        canonical_digest({"rows": rows}) if rows is not None else None
+                    ),
+                    "quota_evidence_digest": (
+                        canonical_digest({"rows": usages}) if usages is not None else None
+                    ),
                     "checked_at": datetime.now(
                         timezone.utc  # noqa: UP017 - Python 3.10 entrypoint
                     ).isoformat(),
@@ -218,11 +256,15 @@ def capture_vm_metadata(
 
 
 def _environment() -> dict[str, str]:
-    azure = Path(os.environ.get("AZURE_CONFIG_DIR", str(Path.home() / ".azure"))).resolve(
-        strict=True
-    )
-    if not azure.is_dir() or azure.stat().st_mode & 0o022:
-        raise CheckError(EVIDENCE_INVALID, 3)
+    """Resolve the selected CLI context without exposing private paths on read failure."""
+    try:
+        azure = Path(os.environ.get("AZURE_CONFIG_DIR", str(Path.home() / ".azure"))).resolve(
+            strict=True
+        )
+        if not azure.is_dir() or azure.stat().st_mode & 0o022:
+            raise CheckError(EVIDENCE_INVALID, 3)
+    except OSError:
+        raise CheckError(EVIDENCE_INVALID, 3) from None
     return {
         "AZURE_CONFIG_DIR": str(azure),
         "HOME": str(azure.parent),

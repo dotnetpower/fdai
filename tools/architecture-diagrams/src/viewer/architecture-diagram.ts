@@ -267,6 +267,9 @@ class ArchitectureDiagramElement extends HTMLElement {
     svg.removeAttribute("width");
     svg.removeAttribute("height");
     svg.setAttribute("data-embedded", "");
+    // The standalone asset is an image. Once enhanced, its node buttons must
+    // remain exposed to assistive technology rather than nested in an image.
+    svg.setAttribute("role", "group");
 
     const contentBounds = contentViewBox(parseViewBox(svg));
     const compact = window.matchMedia("(max-width: 44rem)").matches;
@@ -329,7 +332,7 @@ class ArchitectureDiagramElement extends HTMLElement {
       .shell:fullscreen .stage { height: 100vh; }
       .shell:fullscreen .details.open { position: absolute; inset-inline: 1rem; inset-block-end: 1rem; width: auto; max-height: 13rem; overflow: auto; border: 1px solid var(--sl-color-hairline, #d6e0ec); border-radius: 8px; box-shadow: 0 8px 28px rgb(15 23 42 / 0.24); }
       ${embeddedThemeCss()}
-      @media (max-width: 44rem) { .toolbar { inset-block-start: 0.3rem; inset-inline-end: 0.3rem; } .stage { height: min(72vh, 30rem); min-height: 24rem; } .details { grid-template-columns: 1fr; } }
+      @media (max-width: 44rem) { .toolbar { inset-block-start: 0.3rem; inset-inline-end: 0.3rem; max-width: calc(100% - 0.6rem); flex-wrap: wrap; gap: 0; padding: 0.125rem; } button { width: 2.75rem; height: 2.75rem; } .stage { height: min(72vh, 30rem); min-height: 24rem; } .details { grid-template-columns: minmax(0, 1fr); overflow-wrap: anywhere; } }
       @media (hover: none) { .toolbar { opacity: 1; transform: none; pointer-events: auto; } }
       @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } .toolbar { transition: none; } }
     `;
@@ -520,22 +523,13 @@ class ArchitectureDiagramElement extends HTMLElement {
     const connected = manifest.edges
       .filter((edge) => edge.from === nodeId || edge.to === nodeId)
       .sort((left, right) => Number(left.to === nodeId) - Number(right.to === nodeId));
-    const connectedNodeIds = new Set<string>([nodeId ?? ""]);
-    for (const edge of connected) {
-      connectedNodeIds.add(edge.from);
-      connectedNodeIds.add(edge.to);
-    }
     for (const node of svg.querySelectorAll<SVGGElement>("[data-node-id]")) {
       const active = nodeId === node.dataset.nodeId;
       node.classList.toggle("is-active", active);
       node.setAttribute("aria-pressed", String(active));
-      node.style.opacity = !nodeId
-        ? "1"
-        : active
-          ? "1"
-          : connectedNodeIds.has(node.dataset.nodeId ?? "")
-            ? "0.82"
-            : "0.2";
+      // Unselected nodes remain actionable. Keep their labels readable;
+      // the active outline and connected edges communicate selection.
+      node.style.opacity = "1";
     }
     for (const edge of svg.querySelectorAll<SVGGElement>("[data-edge-id]")) {
       const active = edge.dataset.edgeFrom === nodeId || edge.dataset.edgeTo === nodeId;

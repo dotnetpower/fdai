@@ -428,6 +428,8 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   `GitOpsCatalogReviewPublisher` publishes only a content-addressed inert review package. The
   `operational-promotion` job stores exact-digest evidence without changing promotion state; `cohort_observation_import` accepts no artifact-declared arm, revision, protocol, admission, or authority.
   Its protected workflow caps a batch at 1,000 observations, rejects duplicate JSON keys, binds every observation digest to its batch and exporter workflow, and verifies idempotent replay. The trusted product-neutral source registry assigns every required measure in an arm to exactly one regular in-repository exporter workflow and stable source id. The importer injects that identity, and the inventory recounts only matching provenance. Product adapters remain behind their assigned workflows; missing, partial, duplicate, or cross-arm bindings keep the path unavailable.
+  `CostPromotionReviewStore` is the authority-neutral seam for one exact Cost Governance target review. The upstream PostgreSQL adapter and Core service migration own append-only storage, while the protected workflow verifies one attested campaign and active pin before each write. The store cannot update package activation, ActionType or Workflow mode, or the promotion registry.
+  A stable request replay verifies the original payload and normalized columns, compares only request-owned content and retention duration, and returns the original timestamped review.
 - **Governed action and probe delivery**: `GovernedGovernancePrPublisher` binds the pure
   retirement and exemption writers to the existing write-once PR adapter and persists a
   replayable open-to-merge or terminal receipt. The retirement loader projects merged
@@ -594,11 +596,7 @@ only when its rule id, action type, and fixed check reference still match. Idemp
   owns their immutable manifest, lifecycle, provider, and authority-neutral contracts, while the
   reviewed image composition supplies package code and resources. Core never imports an optional
   package, and package activation remains independent from user access and action promotion. Protected W7 workflows preserve exact release, Process, disclosure, and retention evidence without moving judgment, approval, execution, or promotion authority into package or Operator composition.
-- Service wire contracts live in `packages/service-contracts/src/fdai_service_contracts/`; `execution_safeguards.py` owns the provider-neutral, authority-free seven-proof bundle shared by Core, workflow, and isolated-Executor producers and validators.
-  `recorded_resource_state.py` owns the provider-neutral state-path applicability sets and bounded
-  unavailable-reason tokens shared by Core projection and Operator reads. Provider adapters may
-  select only a reviewed token; provider response text and provisioning inference stay outside the
-  contract.
+- Service wire contracts live in `packages/service-contracts/src/fdai_service_contracts/`; `execution_safeguards.py` owns the provider-neutral, authority-free seven-proof bundle shared by Core, workflow, and isolated-Executor producers and validators. `recorded_resource_state.py` owns the provider-neutral state-path applicability sets and bounded unavailable-reason tokens shared by Core projection and Operator reads. Provider adapters may select only a reviewed token; provider response text and provisioning inference stay outside the contract.
   Each versioned JSON Schema under `schemas/<contract-id>/<version>.json` is immutable, so a new
   field ships as a new additive version that older consumers keep ignoring. A repository-owned,
   checksum-pinned generator projects every compatibility-manifest N/N-1 schema into Python types

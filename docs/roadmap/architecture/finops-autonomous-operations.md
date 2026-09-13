@@ -23,9 +23,10 @@ bounded evidence. Agents remain the active control plane and own every state tra
 > recovery coordinator, independent multi-effect settlement, replay, retention, and governed
 > learning inputs are implemented with local evidence. Standard Core bootstrap now binds an enabled
 > persisted package to Njord's deterministic advisory port, restores a bounded retained baseline
-> after restart, and receives complete service-day observations from the local collector through the
-> canonical broker path. A live-authoritative settled cohort and independent package and per-action
-> promotion reviews do not yet exist.
+> after restart, and receives complete service-day observations through the canonical broker path.
+> The exact casefold release now has a live-authoritative restored collector pass with 71 retained
+> raw observations and a complete revision-2 cursor. A qualifying settled cohort spanning at least
+> 30 days and 100 eligible samples, and the six independent target reviews, do not yet exist.
 > Twelve critique rounds fixed every identified Medium-or-higher defect; the final review found only Low test-organization opportunities. No runtime authority changed.
 
 ## Design at a glance
@@ -201,6 +202,21 @@ protected objective. The source batch cannot declare `live-authoritative`, appro
 authority. Only the allowlisted protected importer assigns the evidence class after matching the
 current revision pin and bounded policy. It then evaluates package activation, each package-owned
 `ActionType`, and each package-owned `Workflow` independently.
+Retained campaign replay joins each episode to its retention envelope and orders only by qualified
+episode observation time, identity, and revision. Retention metadata cannot make an otherwise
+valid empty or populated campaign read ambiguous.
+
+After all six results are review-ready, the protected review workflow verifies the attested final
+campaign artifact, recomputes the same result with the exact active release, and re-reads the pin
+before each append. One request records one target. The six records share one campaign evidence
+digest while retaining their target-specific report digests, reviewer identities, decisions,
+rationales, evidence references, and review times. These records grant no approval, execution, or
+promotion authority and cannot update package or target lifecycle state.
+The authenticated reviewer must differ, case-insensitively, from the attested campaign run's
+original actor and any rerun actor. A request-id replay succeeds only when both the immutable
+payload and its normalized persisted columns still match the proposed review. Server-generated
+review and retention timestamps are excluded from request identity; the retained duration must
+match, and an exact replay returns the original receipt.
 
 Cost delivery adds a content-free disclosure receipt before returning data. Its separate retention
 envelope keeps the immutable receipt for 400 days, adds a 30-day purge grace, supports revisioned

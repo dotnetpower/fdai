@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import fcntl
 import hashlib
 import json
 import os
@@ -95,12 +96,18 @@ def main(argv: list[str] | None = None) -> int:
     verify.set_defaults(handler=_verify)
 
     args = parser.parse_args(argv)
+    lock_descriptor: int | None = None
     try:
         work_dir = _absolute(args.work_dir)
+        _private_directory(work_dir)
+        lock_descriptor = _acquire_checkpoint_lock(work_dir)
         result = args.handler(args, work_dir)
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         print(f"standalone-host: {exc}", file=sys.stderr)
         return 3
+    finally:
+        if lock_descriptor is not None:
+            os.close(lock_descriptor)
     print(json.dumps(result, sort_keys=True, separators=(",", ":")))
     return 0
 
@@ -357,8 +364,6 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     receipt_path = work_dir / f"{stage}-receipt.json"
     if receipt_path.exists():
         return _private_json(receipt_path, "standalone apply receipt")
-    if claim_path.exists():
-        raise ValueError("standalone apply claim already exists; automatic retry is blocked")
     claim = {
         "schema_version": "fdai.standalone-application-claim.v1",
         "stage": stage,
@@ -370,7 +375,15 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "claimed_at": _moment(datetime.now(UTC)),
         "mutation_performed": False,
     }
-    _replace_private_json(claim_path, claim)
+    try:
+        write_private_output(
+            claim_path,
+            json.dumps(claim, sort_keys=True, separators=(",", ":")) + "\n",
+        )
+    except FileExistsError as exc:
+        raise ValueError(
+            "standalone apply claim already exists; automatic retry is blocked"
+        ) from exc
     _run(
         ("terraform", "apply", "-input=false", "-no-color", str(plan_path)),
         cwd=Path(str(context["infra"])),
@@ -1357,6 +1370,36 @@ def _private_directory(path: Path) -> None:
         or details.st_uid != os.geteuid()
     ):
         raise PermissionError("standalone host work directory must be current-UID mode 0700")
+
+
+def _acquire_checkpoint_lock(work_dir: Path) -> int:
+    """Acquire one nonblocking lock for all stateful managed-host checkpoints."""
+
+    directory = os.open(work_dir, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        descriptor = os.open(
+            ".checkpoint.lock",
+            os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW,
+            0o600,
+            dir_fd=directory,
+        )
+    finally:
+        os.close(directory)
+    details = os.fstat(descriptor)
+    if (
+        not stat.S_ISREG(details.st_mode)
+        or stat.S_IMODE(details.st_mode) != 0o600
+        or details.st_uid != os.geteuid()
+        or details.st_nlink != 1
+    ):
+        os.close(descriptor)
+        raise PermissionError("standalone checkpoint lock is not a private regular file")
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as exc:
+        os.close(descriptor)
+        raise ValueError("another standalone checkpoint is already running") from exc
+    return descriptor
 
 
 def _absolute(path: Path) -> Path:

@@ -96,8 +96,10 @@ def _state_inputs() -> tuple[dict[str, object], dict[str, object]]:
     return state, plan
 
 
+@pytest.mark.parametrize("local_first", [False, True])
 def test_private_archive_preserves_exact_state_and_executable_provider(
     tmp_path: Path,
+    local_first: bool,
 ) -> None:
     tmp_path.chmod(0o700)
     root = tmp_path / "root"
@@ -108,8 +110,15 @@ def test_private_archive_preserves_exact_state_and_executable_provider(
     state, _ = _state_inputs()
     state_path = root / "terraform.tfstate"
     _private_json(state_path, state)
-    (root / "main.tf").write_text('terraform { backend "azurerm" {} }\n', encoding="utf-8")
+    (root / "main.tf").write_text(
+        "terraform {}\n" if local_first else 'terraform { backend "azurerm" {} }\n',
+        encoding="utf-8",
+    )
     (root / "main.tf").chmod(0o600)
+    if local_first:
+        template = ROOT / "infra/genesis-foundation/backend.azurerm.tf.example"
+        (root / template.name).write_bytes(template.read_bytes())
+        (root / template.name).chmod(0o600)
     provider = provider_dir / "terraform-provider-azurerm_v4.81.0_x5"
     provider.write_text("provider", encoding="utf-8")
     provider.chmod(0o700)
@@ -137,6 +146,11 @@ def test_private_archive_preserves_exact_state_and_executable_provider(
     copied_archive.chmod(0o600)
     assert remote._extract_archive(copied_archive, extracted) == result["archive_digest"]
     remote._verify_tree(extracted, migrated=False)
+    if local_first:
+        assert (extracted / "root/backend.azurerm.tf").read_bytes() == template.read_bytes()
+        assert not (root / "backend.azurerm.tf").exists()
+        manifest = json.loads((extracted / "manifest.json").read_text())
+        assert "root/backend.azurerm.tf" in manifest["files"]
     assert (extracted / "root/terraform.tfstate").read_bytes() == state_path.read_bytes()
     assert (extracted / provider.relative_to(tmp_path)).stat().st_mode & 0o777 == 0o700
 

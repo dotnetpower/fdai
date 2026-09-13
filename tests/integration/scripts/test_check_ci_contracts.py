@@ -1520,6 +1520,7 @@ def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
         "container-supply-chain.yml",
         "cost-governance-lifecycle.yml",
         "cost-governance-observation-export.yml",
+        "cost-governance-promotion-review.yml",
         "deploy-dev.yml",
         "deploy-channel-edge-secrets.yml",
         "decision-evidence-admission.yml",
