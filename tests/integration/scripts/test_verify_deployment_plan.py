@@ -34,6 +34,13 @@ _COST_GOVERNANCE_POST_APPLY_OBSERVATIONS = [
     "terraform-zero-change",
     "cost-governance-job-image-readback",
 ]
+_PROVIDER_SCHEMA_POST_APPLY_OBSERVATIONS = [
+    "terraform-zero-change",
+    "provider-schema-core-baseline",
+    "provider-schema-job-execution",
+    "provider-schema-durable-generation",
+    "provider-schema-agent-review",
+]
 
 
 def _plan_summary(*, create: int = 1, delete: int = 0, replace: int = 0) -> dict[str, object]:
@@ -115,9 +122,14 @@ def _write_artifacts(
         metadata_payload["post_apply_observations"] = list(
             post_apply_observations
             or (
-                _COST_GOVERNANCE_POST_APPLY_OBSERVATIONS
-                if runtime_image is not None and runtime_image.get("profile") == "cost-governance"
-                else _POST_APPLY_OBSERVATIONS
+                _PROVIDER_SCHEMA_POST_APPLY_OBSERVATIONS
+                if request_id.startswith("plan-provider-")
+                else (
+                    _COST_GOVERNANCE_POST_APPLY_OBSERVATIONS
+                    if runtime_image is not None
+                    and runtime_image.get("profile") == "cost-governance"
+                    else _POST_APPLY_OBSERVATIONS
+                )
             )
         )
     if runtime_image is not None:
@@ -334,6 +346,7 @@ def test_matching_runtime_image_evidence_passes(
             "digest": f"sha256:{'c' * 64}",
             "profile": "cost-governance",
         },
+        request_id=f"plan-cost-{'a' * 48}",
     )
 
     _verify(
@@ -359,6 +372,7 @@ def test_cost_runtime_image_rejects_core_post_apply_observations(
             "digest": f"sha256:{'c' * 64}",
             "profile": "cost-governance",
         },
+        request_id=f"plan-cost-{'a' * 48}",
         post_apply_observations=_POST_APPLY_OBSERVATIONS,
     )
 
@@ -372,6 +386,41 @@ def test_cost_runtime_image_rejects_core_post_apply_observations(
             azure_preflight,
             digest,
         )
+
+
+@pytest.mark.parametrize(
+    ("profile", "request_prefix"),
+    (
+        ("core-control-plane", "plan-provider-"),
+        ("cost-governance", "plan-provider-cost-"),
+    ),
+)
+def test_provider_schema_plan_requires_matching_profile_and_observations(
+    verify_module: ModuleType,
+    tmp_path: Path,
+    profile: str,
+    request_prefix: str,
+) -> None:
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
+        tmp_path,
+        expires_at=_NOW + timedelta(minutes=30),
+        runtime_image={
+            "source_revision": "a" * 40,
+            "digest": f"sha256:{'c' * 64}",
+            "profile": profile,
+        },
+        request_id=request_prefix + "a" * 48,
+    )
+
+    _verify(
+        verify_module,
+        plan,
+        source_artifact,
+        metadata,
+        preflight,
+        azure_preflight,
+        digest,
+    )
 
 
 def test_matching_model_resolution_evidence_passes(

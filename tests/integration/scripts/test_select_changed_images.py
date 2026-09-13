@@ -38,7 +38,10 @@ def test_shared_inputs_and_service_metadata_select_all_images() -> None:
 
 
 def test_runtime_assets_select_only_their_consumers() -> None:
-    assert _targets(["provider-schema-catalog/azure/resources.json"]) == ["core-control-plane"]
+    assert _targets(["provider-schema-catalog/azure/resources.json"]) == [
+        "core-control-plane",
+        "cost-governance",
+    ]
     assert _targets(["policies/risk.rego"]) == [
         "core-control-plane",
         "cost-governance",
@@ -148,7 +151,10 @@ def test_pr_packaging_skips_ordinary_source_tests_and_docs(path: str) -> None:
             "scripts/deployment/local/materialize-authoritative-catalogs.py",
             ["core-control-plane", "cost-governance"],
         ),
-        ("provider-schema-catalog/azure/resources.json", ["core-control-plane"]),
+        (
+            "provider-schema-catalog/azure/resources.json",
+            ["core-control-plane", "cost-governance"],
+        ),
     ),
 )
 def test_pr_packaging_keeps_build_inputs_and_runtime_assets(path: str, expected: list[str]) -> None:
