@@ -281,3 +281,40 @@ def test_materialize_rejects_conflicting_runtime_modes() -> None:
         match="model_only and seed_runtime_if_missing are mutually exclusive",
     ):
         asyncio.run(module.materialize(model_only=True, seed_runtime_if_missing=True))
+
+
+def test_materialize_writes_no_models_resolved_snapshot_without_an_artifact(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No LLM_RESOLVED_MODELS_PATH (for example, no Azure OpenAI account resolved yet)
+    MUST still materialize Settings instead of failing preparation."""
+    module = _module()
+    writes: dict[str, object] = {}
+
+    class Store:
+        def __init__(self, *, config: object) -> None:
+            del config
+
+        async def write_state(self, key: str, value: object) -> None:
+            writes[key] = value
+
+    monkeypatch.setattr(module, "PostgresStateStore", Store)
+    monkeypatch.setenv("FDAI_STATE_STORE_DSN", "postgresql://example.invalid/fdai")
+    monkeypatch.delenv("LLM_RESOLVED_MODELS_PATH", raising=False)
+    monkeypatch.setenv("RUNTIME_ENV", "dev")
+
+    asyncio.run(module.materialize(model_only=True))
+
+    model_settings = writes["operator-projection:iam:model-settings"]
+    assert isinstance(model_settings, dict)
+    assert model_settings["capabilities"] == []
+    assert model_settings["resolved_metadata"]["digest"] is None
+    assert model_settings["narrator"]["effective"] == "unavailable"
+
+
+def test_materialize_requires_state_store_dsn(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _module()
+    monkeypatch.delenv("FDAI_STATE_STORE_DSN", raising=False)
+
+    with pytest.raises(RuntimeError, match="FDAI_STATE_STORE_DSN MUST be configured"):
+        asyncio.run(module.materialize(model_only=True))

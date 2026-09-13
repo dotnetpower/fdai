@@ -29,6 +29,10 @@ if ! command -v npm >/dev/null 2>&1; then
   echo "missing npm: install Node.js and npm before starting the Console" >&2
   exit 1
 fi
+if ! command -v opa >/dev/null 2>&1; then
+  echo "missing OPA: install the Core image's OPA version on PATH before starting the Console" >&2
+  exit 1
+fi
 
 legacy_preparation_marker="$repo_root/.fdai/console-full-stack-preparation.sha256"
 stage_marker_dir="$repo_root/.fdai/console-preparation"
@@ -222,7 +226,7 @@ terraform_bin="${FDAI_TERRAFORM_BIN:-terraform}"
 az_bin="${FDAI_AZ_BIN:-az}"
 
 require_cloud_tools() {
-  if ! command -v "$terraform_bin" >/dev/null 2>&1; then
+  if [[ "${FDAI_LOCAL_NO_AZURE_DEPLOYMENT:-0}" != "1" ]] && ! command -v "$terraform_bin" >/dev/null 2>&1; then
     echo "missing Terraform CLI: $terraform_bin" >&2
     return 1
   fi
@@ -418,7 +422,9 @@ run_stage \
   "$(configuration_digest \
     "$(path_digest "${runtime_environment_inputs[@]}")" \
     "kubernetes=${FDAI_LOCAL_KUBERNETES_LIFECYCLE:-0}" \
-    "teams-notifications=${FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION:-0}")" \
+    "teams-notifications=${FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION:-0}" \
+    "no-azure-deployment=${FDAI_LOCAL_NO_AZURE_DEPLOYMENT:-0}" \
+    "local-resource-group=${FDAI_LOCAL_RESOURCE_GROUP:-}")" \
   prepare_runtime_environment \
   "$repo_root/.fdai/local-runtime.env"
 run_stage \

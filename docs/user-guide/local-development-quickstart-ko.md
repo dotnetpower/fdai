@@ -2,8 +2,8 @@
 title: 로컬 개발 빠른 시작
 description: Linux 또는 WSL 워크스테이션에서 Docker, 로컬 상태, 인증 및 전체 FDAI Console 스택을 구성합니다.
 translation_of: local-development-quickstart.md
-translation_source_sha: f20acc6502dfd220f28f02ee579be79616b1dc9e
-translation_revised: 2026-09-09
+translation_source_sha: 0c2378cdb3336083b9b40b1bb980533f3601a79b
+translation_revised: 2026-09-13
 ---
 
 # 로컬 개발 빠른 시작
@@ -17,7 +17,7 @@ Azure 및 Microsoft Entra 연결이 포함된 전체 Console 스택을 준비할
 | 경로 | 용도 | Azure 요구 사항 |
 |------|------|-----------------|
 | Docker 데이터 스택 | 영속성 테스트, 마이그레이션, Kafka 호환 이벤트 개발 및 문서 검사 | 없음 |
-| 전체 Console 스택 | Console, 백엔드 서비스 5개, 인벤토리와 관찰 루프, 문서 처리 및 Manual Studio | 활성 Azure CLI 세션, 일치하는 Entra 앱 등록 및 읽을 수 있는 적용된 `infra/` Terraform 상태 |
+| 전체 Console 스택 | Console, 백엔드 서비스 5개, 인벤토리와 관찰 루프, 문서 처리 및 Manual Studio | 활성 Azure CLI 세션, 일치하는 Entra 앱 등록, 그리고 적용된 `infra/` 상태 또는 명시적으로 선택한 기존 조회 범위 리소스 그룹 |
 
 전체 스택은 오프라인 데모가 아닙니다. 데이터베이스와 이벤트 전송은 로컬에서 실행되지만,
 Azure 읽기와 환경 메타데이터는 선택한 배포에 근거합니다. 읽을 수 있는 배포 상태가 아직
@@ -54,8 +54,12 @@ docker info
 다음 도구도 설치합니다.
 
 - 워크스페이스 환경을 위한 Python 3.13과 `uv`.
-- Console과 Manual Studio를 위한 Node.js 및 `npm`.
+- Console과 Manual Studio를 위한 Node.js 22 이상 및 `npm`.
 - 배포 환경 메타데이터를 위한 Terraform 1.9 이상과 Azure CLI.
+- [Core 이미지](../../services/core-control-plane/docker/Dockerfile)의 `OPA_VERSION`과 같은 버전의 OPA.
+  리포지토리 루트에서 `opa version`과 `opa check policies`를 실행하세요. VS Code 작업의
+  `PATH`에서 OPA를 찾을 수 있어야 합니다. 워크스페이스는 사용자 설치 도구를 위해
+  `~/.local/bin`을 포함합니다.
 - `git`, `bash`, `make`, `curl` 및 표준 Linux 명령줄 도구.
 - 영어와 한국어 언어 데이터가 포함된 Tesseract. Document Processing Worker는 호스트에서
   실행되고 ClamAV는 Docker에서 실행됩니다.
@@ -77,7 +81,22 @@ npm --prefix console ci --no-audit --no-fund
 ```
 
 [VS Code 프로필 설정](../../DEVELOPING.md#1-vs-code-profile-recommended)을 권장하지만 이 프로필은
-Docker, Python, Node.js, Terraform 또는 Azure CLI를 설치하지 않습니다.
+Docker, Python, Node.js, OPA, Terraform 또는 Azure CLI를 설치하지 않습니다.
+
+### 처리 준비 상태 확인
+
+관리형 `console: start full stack` 작업을 사용하세요. 프런트엔드의 HTTP `200`, API 생존 확인
+응답, `pantheon_ready` 로그만으로 Core 소비자가 실행 중이라고 판단할 수는 없습니다. OPA가
+없으면 Core 처리가 차단되므로 준비 스크립트는 의존 서비스를 시작하기 전에 OPA를 확인합니다.
+현재 준비 상태 보고서와 최신 Pantheon heartbeat를 확인한 뒤 `http://localhost:5273`의
+Console에서 대화를 검증하세요.
+
+`resolved-models.json` 생성은 선택된 모델 배포의 존재나 접근 가능성을 보장하지 않습니다.
+모델 구성을 완료로 판단하기 전에 배포 이름, 엔드포인트 바인딩, 신원 접근 권한, 시스템
+프롬프트와 출력 토큰을 포함한 전체 요청에 필요한 용량을 확인하세요. 시작 검사를 우회하려고
+생성된 모델 기록을 직접 편집하거나 필수 기능을 제거하지 마세요. `429`, 타임아웃 또는 플래너
+사용 불가는 대화 검증 실패이며 구성 성공이 아닙니다. 실제 호출 재시도를 중단하고 보고된
+전제 조건을 해결하세요. 네트워크 제한과 RBAC는 유지합니다.
 
 ## 인증 및 로컬 파일 구성
 
@@ -97,6 +116,20 @@ Terraform 명령은 같은 구독의 리소스 그룹을 반환해야 합니다.
 없거나 구독이 일치하지 않으면 전체 스택 준비가 차단됩니다. Docker 전용 경로에는 이 확인이
 필요하지 않습니다. 선택한 배포에서 비공개 엔드포인트만 제공한다면 해당 Azure 기반 읽기를
 사용하기 전에 선택 사항인 [개발 VPN](../../tools/dev-access/README.md)을 구성하세요.
+
+#### 아직 적용된 Azure 배포가 없는 경우
+
+FDAI Terraform 상태가 적용되지 않은 기여자나 고객 구독에서는 준비 작업 또는 스크립트에
+`FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1`과 `FDAI_LOCAL_RESOURCE_GROUP=<existing-read-scope>`를
+설정해 로컬 Console 스택을 준비할 수 있습니다. 스크립트는 활성 구독에서 해당 그룹의 존재를
+확인하고 리전을 읽습니다. 범위가 없거나 잘못되면 준비를 중단하며, 리소스 그룹을 만들어 내거나
+구독 전체를 암묵적으로 선택하지 않습니다.
+
+PostgreSQL, Redpanda 및 ClamAV는 계속 로컬에서 실행됩니다. 이 옵션은 Terraform 배포 검색만
+생략하며 인증이나 권위 있는 소스 검사는 유지하고 Azure 리소스를 생성하지 않습니다. 기존 읽기
+기능은 선택한 범위를 사용하며, 구성되지 않은 소스는 사용 불가로 남습니다. 실행 게이트웨이가
+없으면 관리 리소스 실행은 사용 불가 상태를 유지하고 이 옵션이 가짜 실행기를 선택하지 않습니다.
+로그인은 기존 Entra 앱 등록 또는 명시적으로 선택한 Azure CLI principal 모드를 사용합니다.
 
 ### Console 환경 생성
 

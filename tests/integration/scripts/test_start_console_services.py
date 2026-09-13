@@ -55,6 +55,32 @@ def test_console_launcher_preserves_private_local_auth_opt_in() -> None:
     assert "VITE_LOCAL_AZURE_CLI_AUTH=0" not in script
 
 
+def test_preparation_rejects_missing_opa_before_starting_dependencies(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    script = repo / "scripts/deployment/local/prepare-console-full-stack.sh"
+    script.parent.mkdir(parents=True)
+    shutil.copy2(_PREPARE_SCRIPT, script)
+    _write_executable(repo / ".venv/bin/python", "#!/bin/bash\nexit 99\n")
+    (repo / "console").mkdir()
+    (repo / "console/.env.local").write_text("", encoding="utf-8")
+    binaries = tmp_path / "bin"
+    _write_executable(binaries / "npm", "#!/bin/bash\nexit 99\n")
+    (binaries / "dirname").symlink_to(shutil.which("dirname") or "/usr/bin/dirname")
+
+    result = subprocess.run(  # noqa: S603 - isolated local prerequisite check
+        [_BASH, str(script)],
+        env={"PATH": str(binaries)},
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=5,
+    )
+
+    assert result.returncode == 1
+    assert "missing OPA" in result.stderr
+    assert not (repo / ".fdai").exists()
+
+
 def _operator_restart_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     run_script = repo / "scripts/deployment/local/run-console-service.sh"
@@ -284,6 +310,7 @@ def test_preparation_reuses_an_unchanged_healthy_stack(tmp_path: Path) -> None:
     (repo / "console/package-lock.json").write_text("{}\n", encoding="utf-8")
     _write_executable(repo / "console/node_modules/.bin/vite", "#!/usr/bin/env bash\nexit 0\n")
     _write_ready_dependency_script(repo)
+    _write_executable(repo / "console/node_modules/.bin/opa", "#!/usr/bin/env bash\nexit 0\n")
     (repo / ".fdai/console-full-stack-preparation.sha256").write_text(
         f"{digest}\n",
         encoding="utf-8",
@@ -305,6 +332,7 @@ esac
     result = subprocess.run(  # noqa: S603 - fixed test script and executable.
         [_BASH, str(prepare_script)],
         cwd=repo,
+        env={**os.environ, "PATH": f"{repo / 'console/node_modules/.bin'}:{os.environ['PATH']}"},
         capture_output=True,
         text=True,
         check=False,
@@ -364,7 +392,7 @@ def _staged_preparation_repo(
             stage_digest = digest
             if stage == "runtime-environment":
                 stage_digest = hashlib.sha256(
-                    f"{digest}\nkubernetes=0\nteams-notifications=0\n".encode()
+                    f"{digest}\nkubernetes=0\nteams-notifications=0\nno-azure-deployment=0\nlocal-resource-group=\n".encode()
                 ).hexdigest()
             (marker_dir / f"{stage}.sha256").write_text(
                 f"{stage_digest}\n",
@@ -400,6 +428,7 @@ exit 99
     _write_executable(bin_dir / "terraform", "#!/usr/bin/env bash\nexit 0\n")
     _write_executable(bin_dir / "az", "#!/usr/bin/env bash\nexit 0\n")
     _write_executable(bin_dir / "npm", "#!/usr/bin/env bash\nexit 0\n")
+    _write_executable(bin_dir / "opa", "#!/usr/bin/env bash\nexit 0\n")
     return repo, {"PATH": f"{bin_dir}:/usr/bin:/bin"}
 
 

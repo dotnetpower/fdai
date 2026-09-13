@@ -110,12 +110,96 @@ def bind_existing_model(
     return result
 
 
+def restore_existing_account(
+    original: dict[str, Any],
+    evidence: dict[str, Any],
+    *,
+    account_name: str,
+    family: str,
+    now: datetime,
+) -> dict[str, Any]:
+    """Restore a direct account from readback while preserving capability membership and holds."""
+    ResolvedModels.from_json(json.dumps(original))
+    account = evidence["account"]
+    if account["name"] != account_name or account.get("kind") != "OpenAI":
+        raise ValueError("restoration requires the explicitly selected Azure OpenAI account")
+    account_id = account["id"]
+    parts = account_id.split("/")
+    if (
+        len(parts) != 9
+        or parts[1].casefold() != "subscriptions"
+        or parts[2].casefold() != original["subscription_id"].casefold()
+        or parts[5:7] != ["providers", "Microsoft.CognitiveServices"]
+        or parts[7] != "accounts"
+        or parts[8] != account_name
+        or account["properties"].get("provisioningState") != "Succeeded"
+    ):
+        raise ValueError("restoration account identity or provisioning state is invalid")
+    endpoint = account["properties"]["endpoint"].rstrip("/")
+    if endpoint != f"https://{account_name}.openai.azure.com":
+        raise ValueError("restoration requires the account's direct HTTPS origin")
+    if original.get("endpoint_bindings") or original.get("binding_policy"):
+        raise ValueError("restore reviewed endpoint bindings through their owning policy")
+    deployments = {item["name"]: item for item in evidence["deployments"]}
+    if len(deployments) != len(evidence["deployments"]):
+        raise ValueError("deployment readback contains duplicate names")
+    result = copy.deepcopy(original)
+    result["narrator"]["endpoint"] = endpoint
+    result["region"] = account["location"]
+    primary_evidence = {**evidence, "deployments": [deployments["t2.reasoner.primary"]]}
+    result = bind_existing_model(result, primary_evidence, family=family, now=now)
+    for capability in result["capabilities"]:
+        if capability["status"] == "hil-only" or capability["name"] == "t2.reasoner.primary":
+            continue
+        deployment = deployments.get(capability["name"])
+        if deployment is None:
+            raise ValueError("configured capability deployment is absent from the selected account")
+        model = deployment["properties"]["model"]
+        capacity = deployment["sku"]["capacity"]
+        if (
+            deployment["id"].casefold()
+            != f"{account_id}/deployments/{capability['name']}".casefold()
+            or deployment["properties"].get("provisioningState") != "Succeeded"
+            or model["format"] != "OpenAI"
+            or capability["publisher"] != "OpenAI"
+            or model["name"] != capability["family"]
+            or deployment["sku"]["name"] not in {"Standard", "GlobalStandard", "DataZoneStandard"}
+            or type(capacity) is not int
+            or capacity <= 0
+        ):
+            raise ValueError("configured capability does not match the selected account readback")
+        capability.update(
+            version=model["version"],
+            sku=deployment["sku"]["name"],
+            capacity_tpm=capacity * 1000,
+            selection_mode="pinned",
+            reasons=["existing_deployment_observed"],
+        )
+        capability["capacity"] = {"unit": "tpm", "value": capacity * 1000}
+    for key in ("narrator_candidates", "vision_candidates", "web_search_candidates"):
+        for candidate in result.get(key, []):
+            candidate["endpoint"] = endpoint
+    candidates = [result["narrator"]] + [
+        candidate
+        for key in ("narrator_candidates", "vision_candidates", "web_search_candidates")
+        for candidate in result.get(key, [])
+    ]
+    verified_names = {
+        item["name"] for item in result["capabilities"] if item["status"] != "hil-only"
+    }
+    if any(candidate["deployment"] not in verified_names for candidate in candidates):
+        raise ValueError("candidate deployment lacks a verified capability in the selected account")
+    ResolvedModels.from_json(json.dumps(result))
+    return result
+
+
 def main() -> int:
     """Write only an ignored local artifact, retaining the exact prior content."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--artifact", type=Path, required=True)
     parser.add_argument("--evidence", type=Path, required=True)
     parser.add_argument("--family", required=True)
+    parser.add_argument("--restore-account", help="Explicitly restore an observed direct account")
     parser.add_argument("--backup-dir", type=Path, default=Path(".fdai/model-binding-backups"))
     args = parser.parse_args()
     if (
@@ -128,11 +212,14 @@ def main() -> int:
     ):
         raise ValueError("existing model binding requires an ignored, non-symlink artifact")
     original = args.artifact.read_bytes()
-    result = bind_existing_model(
+    binder = restore_existing_account if args.restore_account else bind_existing_model
+    options = {"account_name": args.restore_account} if args.restore_account else {}
+    result = binder(
         json.loads(original),
         json.loads(args.evidence.read_text()),
         family=args.family,
         now=datetime.now(UTC),
+        **options,
     )
     args.backup_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     if (
@@ -162,7 +249,7 @@ def main() -> int:
         os.replace(temporary, args.artifact)
     finally:
         Path(temporary).unlink(missing_ok=True)
-    print("Existing T2 primary deployment bound; T1 and independent review policy preserved")
+    print("Existing model binding updated; independent review policy preserved")
     return 0
 
 

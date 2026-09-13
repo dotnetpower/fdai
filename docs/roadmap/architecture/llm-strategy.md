@@ -225,7 +225,7 @@ capacity: { unit: ptu, value: 30 }
   sentinel is not a startup model candidate and emits no model invocation or metering record.
 - **No Console authority:** Draft, assessment, and plan requests perform no provider mutation. A protected model plan identifies the exact Operator proposal and policy digest in one request id; the runner reads PostgreSQL without writes and rejects stale or authority-bearing state. The protected model Settings producer refreshes the digest-bound model projection, creates the runtime Settings baseline only when missing, preserves existing runtime evidence, and verifies both rows against the deployment environment before reporting success.
 - **Independent tools:** Search, RCA, rubric, escalation, and tool calling retain separate gates.
-
+- **Local configuration:** Settings materialization permits an unset model-artifact path: model capabilities stay empty, the active digest is null, and provisioning is degraded; a configured malformed artifact still fails. Explicit `bind-existing-model.py --restore-account` validates fresh account and deployment evidence, preserves capability membership and `hil-only` holds, and refuses existing endpoint bindings or binding policies. It updates only an ignored local artifact with a backup, never cloud resources or security controls. Restored configuration does not prove inference access or an independent T2 quorum.
 ### Bootstrap Provisioner
 
 At `azd up` (or equivalent), the resolver combines the registry and approved environment policy,

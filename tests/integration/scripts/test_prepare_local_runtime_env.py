@@ -342,6 +342,8 @@ def test_full_stack_cache_binds_local_activation_inputs() -> None:
     assert "configuration_digest" in runtime_stage
     assert "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION" in runtime_stage
     assert "FDAI_LOCAL_KUBERNETES_LIFECYCLE" in runtime_stage
+    assert "FDAI_LOCAL_NO_AZURE_DEPLOYMENT" in runtime_stage
+    assert "FDAI_LOCAL_RESOURCE_GROUP" in runtime_stage
 
 
 def test_rejects_invalid_local_teams_notification_activation_before_provider_access(
@@ -775,3 +777,122 @@ def test_detects_gateway_via_azure_cli_when_terraform_state_omits_it(tmp_path: P
     assert "FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE=api://gateway-app-id" in rendered
     assert "FDAI_DIRECT_API_FAKE=" not in rendered
     assert "detected via Azure CLI" in completed.stderr
+
+
+def test_no_azure_deployment_mode_skips_terraform_and_verifies_explicit_scope(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / "console").mkdir(parents=True)
+    (repo / "infra").mkdir()
+    (repo / ".venv/bin").mkdir(parents=True)
+    (repo / ".venv/bin/python").symlink_to(Path(os.sys.executable))
+    (repo / "console/.env.local").write_text(
+        "VITE_MSAL_CLIENT_ID=client\nFDAI_DIRECT_API_FAKE=1\n", encoding="utf-8"
+    )
+    az = tmp_path / "az"
+    az.write_text(
+        "#!/usr/bin/env bash\n"
+        'if [[ "$*" == *"account show --query id"* ]]; then\n'
+        "  printf '00000000-0000-0000-0000-000000000001'\n"
+        'elif [[ "$*" == *"account show --query tenantId"* ]]; then\n'
+        "  printf '00000000-0000-0000-0000-000000000002'\n"
+        'elif [[ "$*" == *"group show --subscription '
+        '00000000-0000-0000-0000-000000000001 --name rg-example --query location"* ]]; then\n'
+        "  printf 'example-region'\n"
+        "else\n"
+        "  exit 2\n"
+        "fi\n",
+        encoding="utf-8",
+    )
+    az.chmod(0o755)
+    output = repo / ".fdai/local-runtime.env"
+
+    completed = subprocess.run(  # noqa: S603 - test-controlled binaries
+        [_BASH, str(_SCRIPT), str(output)],
+        check=True,
+        cwd=_REPO_ROOT,
+        env={
+            **os.environ,
+            "FDAI_REPO_ROOT": str(repo),
+            "FDAI_TERRAFORM_BIN": "/provider-access-must-not-run",
+            "FDAI_AZ_BIN": str(az),
+            "FDAI_LOCAL_CONSUMER_INSTANCE": "no-deploy",
+            "FDAI_LOCAL_NO_AZURE_DEPLOYMENT": "1",
+            "FDAI_LOCAL_RESOURCE_GROUP": "rg-example",
+        },
+        capture_output=True,
+        text=True,
+    )
+
+    rendered = output.read_text(encoding="utf-8")
+    assert "provider-access-must-not-run" not in completed.stderr
+    assert "AZURE_TENANT_ID=00000000-0000-0000-0000-000000000002" in rendered
+    assert "AZURE_SUBSCRIPTION_ID=00000000-0000-0000-0000-000000000001" in rendered
+    assert "AZURE_RESOURCE_GROUP=rg-example" in rendered
+    assert "AZURE_REGION=example-region" in rendered
+    assert "KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:19092" in rendered
+    assert "FDAI_KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:19092" in rendered
+    assert "FDAI_DIRECT_API_FAKE=" not in rendered
+    assert "FDAI_DEV_OPERATIONS_GATEWAY_URL=" not in rendered
+    assert "LLM_RESOLVED_MODELS_PATH=" not in rendered
+    # A local Redpanda broker joins in milliseconds; the Event Hubs-tuned slow-join
+    # timeouts would otherwise make every readiness probe wait up to 90-180s.
+    assert "FDAI_STARTUP_KAFKA_SETTLE_SECONDS=" not in rendered
+    assert "FDAI_STARTUP_PROBE_TIMEOUT_SECONDS=" not in rendered
+    assert "FDAI_STARTUP_PHASE_TIMEOUT_SECONDS=" not in rendered
+    assert stat.S_IMODE(output.stat().st_mode) == 0o600
+
+
+def test_rejects_invalid_no_azure_deployment_flag_before_provider_access(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / "console").mkdir(parents=True)
+    (repo / "console/.env.local").write_text("VITE_MSAL_CLIENT_ID=client\n", encoding="utf-8")
+
+    completed = subprocess.run(  # noqa: S603 - test-controlled environment
+        [_BASH, str(_SCRIPT), str(repo / ".fdai/local-runtime.env")],
+        env={
+            **os.environ,
+            "FDAI_REPO_ROOT": str(repo),
+            "FDAI_TERRAFORM_BIN": "/provider-access-must-not-run",
+            "FDAI_AZ_BIN": "/provider-access-must-not-run",
+            "FDAI_LOCAL_NO_AZURE_DEPLOYMENT": "invalid",
+        },
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "FDAI_LOCAL_NO_AZURE_DEPLOYMENT MUST be 0 or 1" in completed.stderr
+    assert "provider-access-must-not-run" not in completed.stderr
+
+
+@pytest.mark.parametrize("scope", ["", "invalid;scope", "../scope"])
+def test_no_deployment_requires_explicit_valid_scope_before_provider_access(
+    tmp_path: Path,
+    scope: str,
+) -> None:
+    repo = tmp_path / "repo"
+    (repo / "console").mkdir(parents=True)
+    (repo / "console/.env.local").write_text("VITE_MSAL_CLIENT_ID=client\n", encoding="utf-8")
+    output = repo / ".fdai/local-runtime.env"
+    completed = subprocess.run(  # noqa: S603 - isolated provider-free validation
+        [_BASH, str(_SCRIPT), str(output)],
+        env={
+            **os.environ,
+            "FDAI_REPO_ROOT": str(repo),
+            "FDAI_AZ_BIN": "/provider-access-must-not-run",
+            "FDAI_LOCAL_NO_AZURE_DEPLOYMENT": "1",
+            "FDAI_LOCAL_RESOURCE_GROUP": scope,
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=5,
+    )
+    assert completed.returncode != 0
+    assert "FDAI_LOCAL_RESOURCE_GROUP MUST" in completed.stderr
+    assert "provider-access-must-not-run" not in completed.stderr
+    assert not output.exists()

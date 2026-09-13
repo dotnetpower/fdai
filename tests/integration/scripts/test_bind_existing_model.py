@@ -155,3 +155,74 @@ def test_refuses_unverified_deployments(failure):
         evidence["deployments"][0]["sku"]["capacity"] = 0
     with pytest.raises(ValueError):
         _MODULE.bind_existing_model(_original(), evidence, family="large-example", now=_NOW)
+
+
+def _restoration():
+    original = _original()
+    original["subscription_id"] = "00000000-0000-0000-0000-000000000001"
+    evidence = _evidence()
+    evidence["account"].update(kind="OpenAI", location="example-region")
+    evidence["account"]["properties"].update(
+        endpoint="https://example.openai.azure.com/", provisioningState="Succeeded"
+    )
+    primary = evidence["deployments"][0]
+    primary.update(name="t2.reasoner.primary", id=_ID + "/deployments/t2.reasoner.primary")
+    judge = copy.deepcopy(primary)
+    judge.update(name="t1.judge", id=_ID + "/deployments/t1.judge")
+    judge["properties"]["model"]["name"] = "small"
+    evidence["deployments"].append(judge)
+    original["narrator"]["deployment"] = "t1.judge"
+    original["narrator_candidates"] = [copy.deepcopy(original["narrator"])]
+    return original, evidence
+
+
+def test_restores_selected_account_from_readback_without_promoting_holds():
+    original, evidence = _restoration()
+    before = copy.deepcopy(original)
+    result = _MODULE.restore_existing_account(
+        original,
+        evidence,
+        account_name="example",
+        family="large-example",
+        now=_NOW,
+    )
+    assert original == before
+    assert result["capabilities"][2] == before["capabilities"][2]
+    assert result["mixed_model_mode"] == "hil-only"
+    assert result["capabilities"][0]["capacity_tpm"] == 50000
+    assert result["capabilities"][1]["family"] == "large-example"
+    assert result["narrator"]["endpoint"] == "https://example.openai.azure.com"
+    assert result["narrator_candidates"][0] == result["narrator"]
+    assert result["endpoint_bindings"][0]["features"]["tool_calling"] is False
+
+
+@pytest.mark.parametrize(
+    "failure",
+    ["account", "subscription", "endpoint", "missing", "family", "candidate", "duplicate", "stale"],
+)
+def test_account_restoration_fails_closed(failure):
+    original, evidence = _restoration()
+    if failure == "account":
+        evidence["account"]["name"] = "other"
+    elif failure == "subscription":
+        original["subscription_id"] = "different"
+    elif failure == "endpoint":
+        evidence["account"]["properties"]["endpoint"] = "https://wrong.example.com"
+    elif failure == "missing":
+        evidence["deployments"].pop()
+    elif failure == "family":
+        evidence["deployments"][1]["properties"]["model"]["name"] = "different"
+    elif failure == "candidate":
+        original["narrator"]["deployment"] = "unobserved"
+    elif failure == "duplicate":
+        evidence["deployments"].append(evidence["deployments"][0])
+    else:
+        evidence["observed_at"] = (_NOW - timedelta(minutes=6)).isoformat()
+    with pytest.raises(ValueError):
+        _MODULE.restore_existing_account(
+            original,
+            evidence,
+            account_name="example",
+            family="large-example",
+            now=_NOW,
+        )

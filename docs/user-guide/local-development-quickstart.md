@@ -14,7 +14,7 @@ the complete Console stack with its Azure and Microsoft Entra bindings.
 | Path | Use it for | Azure requirement |
 |------|------------|-------------------|
 | Docker data stack | Persistence tests, migrations, Kafka-compatible event development, and document scanning | None |
-| Complete Console stack | Console, all five backend services, inventory and observation loops, document processing, and Manual Studio | An active Azure CLI session, matching Entra app registrations, and readable applied `infra/` Terraform state |
+| Complete Console stack | Console, all five backend services, inventory and observation loops, document processing, and Manual Studio | An active Azure CLI session, matching Entra app registrations, and either applied `infra/` state or an explicitly selected existing read-scope resource group |
 
 The complete stack is not an offline demo. Its databases and event transport are local, but its
 Azure readers and environment metadata are grounded in the selected deployment. If you don't yet
@@ -51,8 +51,11 @@ Docker CLI, the `docker compose` v2 plugin, and a reachable daemon.
 Install these additional tools:
 
 - Python 3.13 and `uv` for the workspace environment.
-- Node.js with `npm` for Console and Manual Studio.
+- Node.js 22 or later with `npm` for Console and Manual Studio.
 - Terraform 1.9 or later and Azure CLI for deployed environment metadata.
+- OPA matching `OPA_VERSION` in the [Core image](../../services/core-control-plane/docker/Dockerfile).
+  Run `opa version` and `opa check policies` from the repository root. OPA must be on the VS Code
+  task's `PATH`; the workspace includes `~/.local/bin` for user-installed tools.
 - `git`, `bash`, `make`, `curl`, and standard Linux command-line tools.
 - Tesseract with English and Korean language data. The Document Processing Worker runs on the host,
   while ClamAV runs in Docker.
@@ -74,7 +77,22 @@ npm --prefix console ci --no-audit --no-fund
 ```
 
 The [VS Code profile setup](../../DEVELOPING.md#1-vs-code-profile-recommended) is recommended but
-doesn't install Docker, Python, Node.js, Terraform, or Azure CLI.
+doesn't install Docker, Python, Node.js, OPA, Terraform, or Azure CLI.
+
+### Verify processing readiness
+
+Use the managed `console: start full stack` task. A frontend HTTP `200`, API liveness response,
+or `pantheon_ready` log entry alone does not prove that Core consumers are running. Missing OPA
+blocks Core processing; the preparation script checks for it before starting dependencies.
+Check the current readiness report and a fresh Pantheon heartbeat, then verify a conversation
+through the Console at `http://localhost:5273`.
+
+Generating `resolved-models.json` does not prove that its selected deployments exist or are
+reachable. Before treating model setup as complete, verify deployment names, endpoint bindings,
+identity access, and capacity for the full request including system prompts and output tokens.
+Do not hand-edit generated model records or remove required capabilities to bypass startup checks.
+A `429`, timeout, or unavailable planner is a failed conversation check, not a successful setup.
+Stop live retries and resolve the reported prerequisite; preserve network restrictions and RBAC.
 
 ## Configure authentication and local files
 
@@ -95,6 +113,20 @@ output, unreadable backend, or subscription mismatch blocks complete-stack prepa
 Docker-only path does not need this check. If the selected deployment exposes only private
 endpoints, configure the optional [development VPN](../../tools/dev-access/README.md) before using
 those Azure-backed readers.
+
+#### No applied Azure deployment yet
+
+A contributor or customer subscription with no applied FDAI Terraform state can prepare the local
+Console stack with `FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1` and
+`FDAI_LOCAL_RESOURCE_GROUP=<existing-read-scope>` on the preparation task or script. The script
+verifies that group in the active subscription and reads its region. Missing or invalid scope
+stops preparation; it never invents a resource group or silently selects the entire subscription.
+
+PostgreSQL, Redpanda, and ClamAV remain local. This option skips Terraform deployment discovery,
+not authentication or authoritative-source checks, and creates no Azure resources. Existing
+readers use the selected scope; unconfigured sources remain unavailable. Without an execution
+gateway, managed-resource execution stays unavailable and no fake executor is selected by this
+option. Sign-in still uses an existing Entra registration or the explicit Azure CLI principal mode.
 
 ### Create the Console environment
 
