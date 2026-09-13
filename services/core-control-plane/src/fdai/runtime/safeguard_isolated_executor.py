@@ -10,6 +10,7 @@ from fdai.core.executor.direct_api import (
     _build_direct_api_request,
     _direct_api_plan_digest,
 )
+from fdai.core.executor.execution_provenance import SafeguardExecutionVenue
 from fdai.core.executor.safeguard_dispatch_checkpoint import (
     AuthoritativeSinkState,
     DispatchTransportState,
@@ -151,6 +152,7 @@ class SafeguardBoundEventBusDirectApiExecutionClient:
             dispatch_port=port,
             correlation_id=str(action.event_id),
             attempt=attempt,
+            execution_venue=SafeguardExecutionVenue.ISOLATED_EXECUTOR,
         )
         if isinstance(port.error, asyncio.CancelledError):
             raise port.error

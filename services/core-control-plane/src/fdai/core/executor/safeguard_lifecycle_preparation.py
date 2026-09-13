@@ -18,6 +18,7 @@ from fdai.core.executor.audit_intent import (
     AuditIntentStore,
     PreEffectAuditIntent,
 )
+from fdai.core.executor.execution_provenance import SafeguardExecutionVenue
 from fdai.core.executor.idempotency_reservation import (
     IdempotencyReservationIdentity,
     IdempotencyReservationRecord,
@@ -156,6 +157,7 @@ class SafeguardLifecyclePreparer:
         held_lock: HeldResourceLock,
         dispatch_port: DispatchPort,
         correlation_id: str,
+        execution_venue: SafeguardExecutionVenue,
     ) -> SafeguardEvidenceLifecycleResult | SafeguardCoordinatedDispatchResult:
         acquisition = held_lock.acquisition_receipt
         reserved_at = max(self._denial.now(), acquisition.acquired_at)
@@ -418,6 +420,7 @@ class SafeguardLifecyclePreparer:
                 lock_proof=lock_proof,
                 idempotency_proof=idempotency_proof,
                 audit_intent_proof=audit_proof,
+                execution_venue=execution_venue,
             )
             bundle_record = SafeguardDispatchEvidenceRecord.create_bundle_persisted(
                 preparing_fence=preparing_fence,

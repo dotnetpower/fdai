@@ -1,0 +1,153 @@
+name: cross-path-safeguard-evidence
+run-name: cross-path-safeguard-evidence-${{ inputs.lane }}-${{ inputs.commit_sha }}
+
+# Plan-only skeleton for the FDAI-CONST-007 cross-path safeguard evidence
+# campaign (#633).
+#
+# This workflow deliberately cannot produce an effect. It validates the
+# predeclared matrix contract against an exact protected-main revision and
+# retains that validation as evidence. Executing the campaign lanes is a
+# separate, separately reviewed change: the `apply` input exists so the
+# approval shape is reviewable now, and every guard below refuses it until
+# the execution steps are implemented and re-reviewed.
+on:
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: "Matrix lane to validate. Venue lanes are separate protected applies of the same revision."
+        type: choice
+        options: [contract, core-venue, isolated-venue]
+        default: contract
+        required: true
+      environment:
+        description: "Deployed environment the lane targets."
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+        required: true
+      commit_sha:
+        description: "Exact required-CI-green protected-main revision every matrix cell shares."
+        type: string
+        required: true
+      apply:
+        description: "Reserved. Effect execution is not implemented; any value other than false is refused."
+        type: boolean
+        default: false
+      approval_ref:
+        description: "Current human approval reference. Required before any future apply."
+        type: string
+        required: false
+      campaign_id:
+        description: "Campaign identifier retained on every receipt."
+        type: string
+        required: false
+      plan_digest:
+        description: "Protected plan SHA-256. Required before any future apply."
+        type: string
+        required: false
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+
+concurrency:
+  group: cross-path-safeguard-evidence-${{ inputs.environment }}-${{ inputs.lane }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/main'
+    environment: plan-only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      TARGET_COMMIT_SHA: ${{ inputs.commit_sha }}
+      TARGET_ENVIRONMENT: ${{ inputs.environment }}
+      CAMPAIGN_LANE: ${{ inputs.lane }}
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - name: Refuse an unimplemented effect request
+        env:
+          REQUESTED_APPLY: ${{ inputs.apply }}
+          APPROVAL_REF: ${{ inputs.approval_ref }}
+          PLAN_DIGEST: ${{ inputs.plan_digest }}
+        run: |
+          set -euo pipefail
+          if [ "$REQUESTED_APPLY" != "false" ]; then
+            echo "cross-path safeguard evidence execution is not implemented." >&2
+            echo "This workflow is plan-only; it cannot dispatch a governed effect." >&2
+            exit 1
+          fi
+          # Recorded, not enforced: a future apply lane must require both.
+          echo "approval_ref_present=$([ -n "$APPROVAL_REF" ] && echo true || echo false)"
+          echo "plan_digest_present=$([ -n "$PLAN_DIGEST" ] && echo true || echo false)"
+
+      - name: Checkout exact campaign revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit_sha }}
+          fetch-depth: 0
+
+      - name: Install pinned uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          version: "0.11.32"
+          enable-cache: false
+
+      - name: Install pinned GitHub CLI
+        run: bash scripts/deployment/azure/install-pinned-github-cli.sh
+
+      - name: Verify required CI for the exact revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$TARGET_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA" ]]
+          git fetch --no-tags origin refs/heads/main:refs/remotes/origin/main
+          git merge-base --is-ancestor "$TARGET_COMMIT_SHA" refs/remotes/origin/main
+          conclusion="$(
+            gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_COMMIT_SHA/check-runs?per_page=100" \
+              --jq '[.check_runs[] | select(.name == "required")] | sort_by(.completed_at) | last | .conclusion // ""'
+          )"
+          [[ "$conclusion" == "success" ]] || {
+            echo "the exact commit does not have a successful required CI check" >&2
+            exit 1
+          }
+
+      - name: Validate the predeclared cross-path matrix
+        run: |
+          set -euo pipefail
+          uv run python scripts/quality/repository/validate-cross-path-safeguard-evidence.py
+
+      - name: Retain the contract validation receipt
+        run: |
+          set -euo pipefail
+          install -d -m 0755 "$RUNNER_TEMP/cross-path-safeguard"
+          contract_digest="$(sha256sum config/cross-path-safeguard-evidence.json | cut -d' ' -f1)"
+          cat >"$RUNNER_TEMP/cross-path-safeguard/contract-validation.json" <<JSON
+          {
+            "kind": "revision_pin",
+            "cell_id": "campaign:contract:validation",
+            "base_revision": "$TARGET_COMMIT_SHA",
+            "recorded_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "synthetic": false,
+            "authority_class": "no_authority",
+            "content": {
+              "lane": "$CAMPAIGN_LANE",
+              "environment": "$TARGET_ENVIRONMENT",
+              "contract_digest": "$contract_digest",
+              "evidence_level": "contract_only",
+              "effect_performed": false
+            }
+          }
+          JSON
+
+      - name: Upload the retained contract validation
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cross-path-safeguard-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cross-path-safeguard
+          retention-days: 90
+          if-no-files-found: error

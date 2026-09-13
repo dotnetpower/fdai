@@ -8,6 +8,11 @@ from typing import Literal, Self
 
 from fdai_service_contracts.execution_safeguards import SafeguardProofBundle
 
+from fdai.core.executor.execution_provenance import (
+    SafeguardExecutionOrigin,
+    SafeguardExecutionVenue,
+    resolve_execution_origin,
+)
 from fdai.core.executor.safeguard_bundle_context import (
     SafeguardBundlePersistenceContext,
 )
@@ -22,12 +27,23 @@ from fdai.core.executor.target_dispatch_fence import (
     TargetDispatchFenceState,
 )
 
+#: Identity schema revisions this process can decode.  ``1.0.0`` predates
+#: the provenance axes and is still readable so records written before the
+#: upgrade keep verifying; ``1.1.0`` is what :meth:`create` now writes.
+IdentitySchemaVersion = Literal["1.0.0", "1.1.0"]
+
+#: Fields introduced by ``1.1.0``.  A ``1.0.0`` record hashed a payload
+#: that did not contain these keys at all, so they are dropped from the
+#: digest body for that revision rather than hashed as ``null``.  Adding a
+#: future axis appends here and bumps the revision the same way.
+PROVENANCE_FIELDS: frozenset[str] = frozenset({"execution_origin", "execution_venue"})
+
 
 @dataclass(frozen=True, slots=True)
 class SafeguardDispatchEvidenceIdentity:
     """Exact fence, reservation attempt, bundle, audit, policy, and sink identity."""
 
-    schema_version: Literal["1.0.0"]
+    schema_version: IdentitySchemaVersion
     action_id: str
     target_digest: str
     target_fence_identity_digest: str
@@ -59,11 +75,16 @@ class SafeguardDispatchEvidenceIdentity:
     client_correlation_id: str
     sink_idempotency_key: str
     identity_digest: str
+    execution_origin: str | None = None
+    execution_venue: str | None = None
     execution_authority: Literal[False] = False
     effect_verification_authority: Literal[False] = False
 
     def __post_init__(self) -> None:
-        if type(self.schema_version) is not str or self.schema_version != "1.0.0":
+        if type(self.schema_version) is not str or self.schema_version not in {
+            "1.0.0",
+            "1.1.0",
+        }:
             raise ValueError("unsupported safeguard dispatch evidence identity schema")
         if self.execution_authority is not False or self.effect_verification_authority is not False:
             raise ValueError("safeguard dispatch evidence identity MUST NOT grant authority")
@@ -114,13 +135,46 @@ class SafeguardDispatchEvidenceIdentity:
                 raise ValueError(f"safeguard dispatch evidence {integer_name} MUST be positive")
         validate_text("client_correlation_id", self.client_correlation_id)
         validate_text("sink_idempotency_key", self.sink_idempotency_key)
+        self._validate_provenance()
         expected_digest = payload_digest(
-            asdict(self),
+            _digest_body(asdict(self), self.schema_version),
             "safeguard-dispatch-evidence-identity",
             digest_field="identity_digest",
         )
         if self.identity_digest != expected_digest:
             raise ValueError("safeguard dispatch evidence identity digest mismatched")
+
+    def _validate_provenance(self) -> None:
+        """Require both provenance axes from ``1.1.0`` and neither before it.
+
+        A ``1.0.0`` record carrying a provenance value would hash a body
+        this revision never produced, so the pair is rejected rather than
+        silently ignored.
+        """
+
+        if self.schema_version == "1.0.0":
+            if self.execution_origin is not None or self.execution_venue is not None:
+                raise ValueError(
+                    "safeguard dispatch evidence identity 1.0.0 predates execution provenance"
+                )
+            return
+        if self.execution_origin is None or self.execution_venue is None:
+            raise ValueError(
+                "safeguard dispatch evidence identity MUST bind execution origin and venue"
+            )
+        try:
+            SafeguardExecutionOrigin(self.execution_origin)
+            SafeguardExecutionVenue(self.execution_venue)
+        except ValueError as exc:
+            raise ValueError(
+                "safeguard dispatch evidence identity execution provenance is invalid"
+            ) from exc
+
+    @property
+    def binds_execution_provenance(self) -> bool:
+        """Whether this identity attributes one exact matrix cell."""
+
+        return self.execution_origin is not None and self.execution_venue is not None
 
     @classmethod
     def create(
@@ -160,7 +214,7 @@ class SafeguardDispatchEvidenceIdentity:
         ):
             raise ValueError("safeguard dispatch bundle changed execution context")
         values: dict[str, object] = {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "action_id": str(persistence_context.action.action_id),
             "target_digest": fence_identity.target_digest,
             "target_fence_identity_digest": fence_identity.identity_digest,
@@ -195,6 +249,8 @@ class SafeguardDispatchEvidenceIdentity:
             "source_revision": reservation_identity.source_revision,
             "client_correlation_id": fence_identity.client_correlation_id,
             "sink_idempotency_key": fence_identity.sink_idempotency_key,
+            "execution_origin": resolve_execution_origin(persistence_context.action).value,
+            "execution_venue": persistence_context.execution_venue.value,
             "execution_authority": False,
             "effect_verification_authority": False,
         }
@@ -206,4 +262,15 @@ class SafeguardDispatchEvidenceIdentity:
         return cls(**values)  # type: ignore[arg-type]
 
 
-__all__ = ["SafeguardDispatchEvidenceIdentity"]
+def _digest_body(
+    values: dict[str, object],
+    schema_version: str,
+) -> dict[str, object]:
+    """Return the digest payload this identity revision actually hashed."""
+
+    if schema_version != "1.0.0":
+        return values
+    return {key: value for key, value in values.items() if key not in PROVENANCE_FIELDS}
+
+
+__all__ = ["PROVENANCE_FIELDS", "IdentitySchemaVersion", "SafeguardDispatchEvidenceIdentity"]

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, Literal, Self
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 from fdai_service_contracts.execution_safeguards import SafeguardProofBundle
 
@@ -16,6 +16,7 @@ from fdai.core.executor.safeguard_bundle_context import (
     SafeguardBundlePersistenceContext,
 )
 from fdai.core.executor.safeguard_dispatch_identity import (
+    PROVENANCE_FIELDS,
     SafeguardDispatchEvidenceIdentity,
 )
 from fdai.core.executor.safeguard_dispatch_start import (
@@ -313,7 +314,9 @@ class PreReleaseOwnershipCheckpoint:
         ):
             raise ValueError("pre-release continuity reason is invalid")
         _validate_utc("observed_at", self.observed_at)
-        _validate_checkpoint_shape(self)
+        from fdai.core.executor.safeguard_dispatch_validation import validate_checkpoint_shape
+
+        validate_checkpoint_shape(self)
         _validate_digest("checkpoint_digest", self.checkpoint_digest)
         if self.checkpoint_digest != _content_digest(
             self,
@@ -496,7 +499,9 @@ class SafeguardDispatchEvidenceRecord:
         ):
             raise ValueError("independent effect verification MUST start pending")
         _validate_utc("state_changed_at", self.state_changed_at)
-        _validate_record_shape(self)
+        from fdai.core.executor.safeguard_dispatch_validation import validate_record_shape
+
+        validate_record_shape(self)
         _validate_digest("record_digest", self.record_digest)
         if self.record_digest != _content_digest(
             self,
@@ -698,65 +703,6 @@ def _build_record(
     return SafeguardDispatchEvidenceRecord(**values)  # type: ignore[arg-type]
 
 
-def _validate_checkpoint_shape(checkpoint: PreReleaseOwnershipCheckpoint) -> None:
-    assessment_fields = (
-        checkpoint.assessment_digest,
-        checkpoint.verifier_id,
-        checkpoint.verifier_version,
-        checkpoint.trust_anchor_id,
-        checkpoint.evaluated_at,
-        checkpoint.valid_until,
-    )
-    if checkpoint.continuity_state is PreReleaseContinuityState.CURRENT:
-        if (
-            any(value is None for value in assessment_fields)
-            or checkpoint.rejection_reasons
-            or checkpoint.unproven_reason is not None
-            or checkpoint.evaluated_at is None
-            or checkpoint.valid_until is None
-            or not (checkpoint.evaluated_at <= checkpoint.observed_at < checkpoint.valid_until)
-        ):
-            raise ValueError("current pre-release checkpoint shape is invalid")
-    elif checkpoint.unproven_reason is None:
-        raise ValueError("continuity-unproven checkpoint requires a reason")
-
-
-def _validate_record_shape(record: SafeguardDispatchEvidenceRecord) -> None:
-    if record.state is SafeguardDispatchEvidenceState.BUNDLE_PERSISTED:
-        if (
-            record.revision != 1
-            or record.dispatch_start_checkpoint is not None
-            or record.dispatch_observation is not None
-            or record.pre_release_checkpoint is not None
-        ):
-            raise ValueError("bundle-persisted dispatch evidence shape is invalid")
-    elif record.state is SafeguardDispatchEvidenceState.DISPATCH_STARTED:
-        if (
-            record.dispatch_start_checkpoint is None
-            or record.dispatch_observation is not None
-            or record.pre_release_checkpoint is not None
-            or record.dispatch_start_checkpoint.evidence_identity_digest
-            != record.identity.identity_digest
-        ):
-            raise ValueError("dispatch-started evidence shape is invalid")
-    elif record.state is SafeguardDispatchEvidenceState.DISPATCH_OBSERVED:
-        if (
-            record.dispatch_start_checkpoint is None
-            or record.dispatch_observation is None
-            or record.pre_release_checkpoint is not None
-            or record.dispatch_observation.evidence_identity_digest
-            != record.identity.identity_digest
-        ):
-            raise ValueError("dispatch-observed evidence shape is invalid")
-    elif (
-        record.dispatch_start_checkpoint is None
-        or record.dispatch_observation is None
-        or record.pre_release_checkpoint is None
-        or record.pre_release_checkpoint.evidence_identity_digest != record.identity.identity_digest
-    ):
-        raise ValueError("pre-release dispatch evidence shape is invalid")
-
-
 def _content_digest(
     value: (
         SafeguardDispatchEvidenceIdentity
@@ -772,7 +718,35 @@ def _content_digest(
         PreReleaseOwnershipCheckpoint: "checkpoint_digest",
         SafeguardDispatchEvidenceRecord: "record_digest",
     }[type(value)]
-    return _payload_digest(asdict(value), domain, digest_field=digest_field)
+    return _payload_digest(
+        _revision_safe_body(value, asdict(value)),
+        domain,
+        digest_field=digest_field,
+    )
+
+
+def _revision_safe_body(
+    value: object,
+    body: dict[str, Any],
+) -> dict[str, Any]:
+    """Reproduce the digest body the nested identity revision actually hashed.
+
+    A record written before execution provenance existed hashed an identity
+    with no provenance keys.  ``asdict`` now materializes those keys as
+    ``None``, so hashing it unchanged would invalidate every historical
+    record.  Dropping them for a ``1.0.0`` identity keeps those records
+    verifiable without weakening the digest for current ones.
+    """
+
+    if type(value) is not SafeguardDispatchEvidenceRecord:
+        return body
+    identity = body.get("identity")
+    if not isinstance(identity, dict) or identity.get("schema_version") != "1.0.0":
+        return body
+    return {
+        **body,
+        "identity": {key: item for key, item in identity.items() if key not in PROVENANCE_FIELDS},
+    }
 
 
 __all__ = [

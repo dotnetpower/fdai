@@ -24,6 +24,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 
 from fdai.core.executor.audit_intent import AuditIntentStore
+from fdai.core.executor.execution_provenance import SafeguardExecutionVenue
 from fdai.core.executor.idempotency_reservation import (
     IdempotencyReservationStore,
     ReservationEvidenceKind,
@@ -251,8 +252,15 @@ class SafeguardLifecycleCoordinator:
         dispatch_port: DispatchPort,
         correlation_id: str,
         attempt: int = 1,
+        execution_venue: SafeguardExecutionVenue = SafeguardExecutionVenue.CORE,
     ) -> SafeguardCoordinatedDispatchResult:
-        """Run the lifecycle, reacquiring once if durable recovery postdates the lock."""
+        """Run the lifecycle, reacquiring once if durable recovery postdates the lock.
+
+        ``execution_venue`` records which service performs the provider
+        dispatch for this call.  The caller that owns the transport is the
+        only honest source, so it is a per-dispatch argument rather than
+        process configuration: one coordinator serves every path.
+        """
 
         if type(safeguard_receipt) is not SafeguardReceipt:
             return await self._denial.deny(action, "safeguard receipt is missing or invalid")
@@ -325,6 +333,7 @@ class SafeguardLifecycleCoordinator:
                             held_lock=active_lock,
                             dispatch_port=tracked_dispatch,
                             correlation_id=correlation_id,
+                            execution_venue=execution_venue,
                         )
                         if isinstance(lifecycle_or_result, SafeguardCoordinatedDispatchResult):
                             return lifecycle_or_result

@@ -1,0 +1,231 @@
+{
+  "schema_version": "1.0.0",
+  "campaign": "cross-path-safeguard-evidence",
+  "status": "prepared",
+  "evidence_level": "contract_only",
+  "base_revision": "0000000000000000000000000000000000000000",
+  "execution": {
+    "protected_runner_required": true,
+    "plan_only_by_default": true,
+    "requires_current_human_approval": true,
+    "approver_must_differ_from_initiator": true,
+    "max_affected_resources": 1,
+    "dispatch_is_not_success": true,
+    "forward_dispatch_must_stop_on_unknown": true
+  },
+  "observation": {
+    "observer_identity_must_differ": true,
+    "unknown_is_hold": true,
+    "allow_synthetic_evidence": false,
+    "max_source_age_seconds": 900,
+    "max_evidence_window_seconds": 86400,
+    "unknown_outcomes": [
+      "missing",
+      "stale",
+      "conflicting",
+      "censored",
+      "unavailable"
+    ]
+  },
+  "matrix": [
+    {
+      "cell_id": "pr_native:core:core",
+      "execution_path": "pr_native",
+      "execution_origin": "core",
+      "execution_venue": "core",
+      "eligibility": "eligible",
+      "action_type_ref": "ops.publish-change-summary@1.0.0",
+      "observation_source": "github_pull_request"
+    },
+    {
+      "cell_id": "pr_native:core:isolated_executor",
+      "execution_path": "pr_native",
+      "execution_origin": "core",
+      "execution_venue": "isolated_executor",
+      "eligibility": "structurally_denied",
+      "denial_reason": "venue_supports_direct_api_effect_authority_only",
+      "denial_evidence": "services/isolated-executor/src/fdai_executor_service/service.py rejects any command whose execution_path is not direct_api with REJECTED_INVARIANT 'isolated effect authority supports direct_api commands only'."
+    },
+    {
+      "cell_id": "pr_native:workflow:core",
+      "execution_path": "pr_native",
+      "execution_origin": "workflow",
+      "execution_venue": "core",
+      "eligibility": "eligible",
+      "action_type_ref": "ops.publish-change-summary@1.0.0",
+      "observation_source": "github_pull_request"
+    },
+    {
+      "cell_id": "pr_native:workflow:isolated_executor",
+      "execution_path": "pr_native",
+      "execution_origin": "workflow",
+      "execution_venue": "isolated_executor",
+      "eligibility": "structurally_denied",
+      "denial_reason": "venue_supports_direct_api_effect_authority_only",
+      "denial_evidence": "services/isolated-executor/src/fdai_executor_service/service.py rejects any command whose execution_path is not direct_api with REJECTED_INVARIANT 'isolated effect authority supports direct_api commands only'."
+    },
+    {
+      "cell_id": "pr_manual:core:core",
+      "execution_path": "pr_manual",
+      "execution_origin": "core",
+      "execution_venue": "core",
+      "eligibility": "structurally_denied",
+      "denial_reason": "path_unreachable_no_action_type_declares_it",
+      "denial_evidence": "No shipped ActionType declares execution_path pr_manual, and core/risk_gate/ceiling.py resolves final_path from the ActionType alone, so strictest_execution_path has no production caller to narrow a path onto it."
+    },
+    {
+      "cell_id": "pr_manual:core:isolated_executor",
+      "execution_path": "pr_manual",
+      "execution_origin": "core",
+      "execution_venue": "isolated_executor",
+      "eligibility": "structurally_denied",
+      "denial_reason": "path_unreachable_no_action_type_declares_it",
+      "denial_evidence": "No shipped ActionType declares execution_path pr_manual, and core/risk_gate/ceiling.py resolves final_path from the ActionType alone, so strictest_execution_path has no production caller to narrow a path onto it."
+    },
+    {
+      "cell_id": "pr_manual:workflow:core",
+      "execution_path": "pr_manual",
+      "execution_origin": "workflow",
+      "execution_venue": "core",
+      "eligibility": "structurally_denied",
+      "denial_reason": "path_unreachable_no_action_type_declares_it",
+      "denial_evidence": "No shipped ActionType declares execution_path pr_manual, and core/risk_gate/ceiling.py resolves final_path from the ActionType alone, so strictest_execution_path has no production caller to narrow a path onto it."
+    },
+    {
+      "cell_id": "pr_manual:workflow:isolated_executor",
+      "execution_path": "pr_manual",
+      "execution_origin": "workflow",
+      "execution_venue": "isolated_executor",
+      "eligibility": "structurally_denied",
+      "denial_reason": "path_unreachable_no_action_type_declares_it",
+      "denial_evidence": "No shipped ActionType declares execution_path pr_manual, and core/risk_gate/ceiling.py resolves final_path from the ActionType alone, so strictest_execution_path has no production caller to narrow a path onto it."
+    },
+    {
+      "cell_id": "direct_api:core:core",
+      "execution_path": "direct_api",
+      "execution_origin": "core",
+      "execution_venue": "core",
+      "eligibility": "eligible",
+      "action_type_ref": "ops.start-vm@1.0.0",
+      "observation_source": "azure_vm_power_state",
+      "notes": "Core and isolated venues are mutually exclusive per deployment: enable_isolated_executor_authority_cutover moves gateway caller authority, so both cells need separate protected applies of the same base_revision."
+    },
+    {
+      "cell_id": "direct_api:core:isolated_executor",
+      "execution_path": "direct_api",
+      "execution_origin": "core",
+      "execution_venue": "isolated_executor",
+      "eligibility": "eligible",
+      "action_type_ref": "ops.start-vm@1.0.0",
+      "observation_source": "azure_vm_power_state",
+      "notes": "Core and isolated venues are mutually exclusive per deployment: enable_isolated_executor_authority_cutover moves gateway caller authority, so both cells need separate protected applies of the same base_revision."
+    },
+    {
+      "cell_id": "direct_api:workflow:core",
+      "execution_path": "direct_api",
+      "execution_origin": "workflow",
+      "execution_venue": "core",
+      "eligibility": "eligible",
+      "action_type_ref": "ops.start-vm@1.0.0",
+      "observation_source": "azure_vm_power_state",
+      "notes": "Core and isolated venues are mutually exclusive per deployment: enable_isolated_executor_authority_cutover moves gateway caller authority, so both cells need separate protected applies of the same base_revision."
+    },
+    {
+      "cell_id": "direct_api:workflow:isolated_executor",
+      "execution_path": "direct_api",
+      "execution_origin": "workflow",
+      "execution_venue": "isolated_executor",
+      "eligibility": "eligible",
+      "action_type_ref": "ops.start-vm@1.0.0",
+      "observation_source": "azure_vm_power_state",
+      "notes": "Core and isolated venues are mutually exclusive per deployment: enable_isolated_executor_authority_cutover moves gateway caller authority, so both cells need separate protected applies of the same base_revision."
+    },
+    {
+      "cell_id": "tool_call:core:core",
+      "execution_path": "tool_call",
+      "execution_origin": "core",
+      "execution_venue": "core",
+      "eligibility": "eligible",
+      "action_type_ref": "tool.open-incident-ticket@1.0.0",
+      "observation_source": "github_issue"
+    },
+    {
+      "cell_id": "tool_call:core:isolated_executor",
+      "execution_path": "tool_call",
+      "execution_origin": "core",
+      "execution_venue": "isolated_executor",
+      "eligibility": "structurally_denied",
+      "denial_reason": "venue_supports_direct_api_effect_authority_only",
+      "denial_evidence": "services/isolated-executor/src/fdai_executor_service/service.py rejects any command whose execution_path is not direct_api with REJECTED_INVARIANT 'isolated effect authority supports direct_api commands only'."
+    },
+    {
+      "cell_id": "tool_call:workflow:core",
+      "execution_path": "tool_call",
+      "execution_origin": "workflow",
+      "execution_venue": "core",
+      "eligibility": "eligible",
+      "action_type_ref": "tool.open-incident-ticket@1.0.0",
+      "observation_source": "github_issue"
+    },
+    {
+      "cell_id": "tool_call:workflow:isolated_executor",
+      "execution_path": "tool_call",
+      "execution_origin": "workflow",
+      "execution_venue": "isolated_executor",
+      "eligibility": "structurally_denied",
+      "denial_reason": "venue_supports_direct_api_effect_authority_only",
+      "denial_evidence": "services/isolated-executor/src/fdai_executor_service/service.py rejects any command whose execution_path is not direct_api with REJECTED_INVARIANT 'isolated effect authority supports direct_api commands only'."
+    }
+  ],
+  "denial_classes": {
+    "core_pre_dispatch": [
+      "stop_condition",
+      "rollback",
+      "blast_radius",
+      "dry_run_receipt",
+      "target_lock",
+      "idempotency_key",
+      "audit_intent",
+      "evidence_citation"
+    ],
+    "isolated_bundle_revalidation": [
+      "malformed",
+      "missing",
+      "mismatched",
+      "substituted",
+      "wrong-path",
+      "wrong-target",
+      "stale"
+    ],
+    "observation_hold": [
+      "missing",
+      "stale",
+      "conflicting",
+      "censored",
+      "unavailable"
+    ]
+  },
+  "acceptance": {
+    "every_eligible_cell_requires_observation": true,
+    "every_denial_class_must_be_exercised": true,
+    "require_same_base_revision": true,
+    "require_independent_review": true,
+    "max_unresolved_medium_findings": 0
+  },
+  "evidence": {
+    "receipt_dir": ".fdai/evidence/cross-path-safeguard/",
+    "output_path": ".fdai/evidence/cross-path-safeguard-live.json",
+    "retention_days": 90
+  },
+  "runbook_ref": "docs/runbooks/cross-path-safeguard-evidence.md",
+  "verifier_ref": "scripts/quality/repository/validate-cross-path-safeguard-evidence.py",
+  "residuals": [
+    "pinned_revision_not_selected",
+    "protected_deployment_not_performed",
+    "independent_observation_not_wired_into_the_dispatch_lifecycle",
+    "a3e_effect_evidence_bridge_not_defined",
+    "pr_manual_has_no_reachable_runtime_trigger",
+    "tool_call_enforce_binding_has_no_terraform_variable",
+    "independent_review_not_performed"
+  ]
+}
