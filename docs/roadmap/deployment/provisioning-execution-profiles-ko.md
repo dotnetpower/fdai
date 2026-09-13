@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 5ce986a18075a4edab59fded49e923d8ecd3dc5b
+translation_source_sha: f632e65b68ad031d8c0c2afc8c0a701918b292d4
 translation_revised: 2026-09-13
 ---
 # 프로비저닝 실행 프로파일
@@ -24,6 +24,7 @@ translation_revised: 2026-09-13
 | 신규 구독 로컬 조정기 | implemented | `fdaictl provision azure`, `fdai-up.sh`, 서명 키트, 기반 계층, Bastion, 관리 호스트, 승인, 라이선스, 마이그레이션 및 수렴 모듈과 라우팅된 수명 주기 테스트 | 하나의 `dev` 프로세스가 활성 Azure CLI 사용자에서 대상을 결정하고 상태 변경 전이를 직렬로 유지합니다. 대상 환경 배포에는 GitHub 전송 계층이 없습니다. 통제된 Azure 증적과 완전한 구독 보증 근거는 남아 있습니다. |
 | OCI 배포 어플라이언스 | implemented | `build-deployment-appliance.sh`, `run-deployment-appliance.sh`, 집중 스크립트 및 CLI 테스트 | release 담당자는 검증된 완전한 키트 하나를 digest로 고정되고 네트워크를 사용하지 않는 OCI 빌드로 감쌀 수 있습니다. 이미지는 공개 산출물 대체 경로 없이 수동 standalone 조정기를 시작합니다. 깨끗한 운영 이미지 빌드와 Azure 증적은 남아 있습니다. |
 | Offline-kit 생성 및 검증 | validated | `fdai_deployment_cli.offline_kit`, 잠긴 릴리스 스크립트, 성공한 네트워크 격리 air-gap 훈련 | 서명 우선 검증, 정확한 파일, SBOM 커버리지, ABI/libc 연결, 비공개 스냅샷, 제공 wheel 설치가 통과합니다. |
+| 안정 Network API 기반 Foundation 검색 | validated | PR #926, `deployment-v0.1.0-r4`, [이슈 #803 근거](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906) | 게시된 서명 번들로 West US 2의 모든 Foundation 입력 조회를 통과했습니다. 계획, 적용, 복구 또는 배포 준비 완료 주장은 만들지 않았습니다. |
 | Temporary 공개 접근 정리 | not-started | 이 문서의 접근 선호 설정 계약 | 범위가 제한된 생성, 자동 정리, 정리 실패 시 불완전 상태 및 감사 종결을 입증하는 조립 명령이 없습니다. |
 | Pinned TUF 루트 및 교대 | not-started | `docs/runbooks/offline-trust-ceremony.md` | 첫 루트 의식, 패키지 리소스, 클라이언트 초기화 및 교대 근거가 남아 있습니다. |
 | 배포 후 검증 | in-progress | 관리 호스트 exact-plan 적용 증적, ACR 다이제스트 재확인, 마이그레이션, 상태 재확인, 두 번째 변경 없음 계획 및 라우팅된 수명 주기 테스트 | 구현은 존재하지만 완전한 CLI 기반 Azure 수명 주기와 아티팩트 오프라인 운영 증적은 아직 없습니다. |
@@ -32,6 +33,7 @@ translation_revised: 2026-09-13
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-13 | validated | 안정 Network API 수정을 포함한 `deployment-v0.1.0-r4`를 게시하고 실제 초안/공개 다운로드와 설치 바이트를 검증했으며, Azure 변경 없이 서명 번들의 West US 2 Foundation 검색을 통과했습니다. | PR #926, 소스 `c137aa104682a59b979f5f3554a06bf87c555b8e`, 전체 파일 트리가 같은 보호된 병합 `d312225c795ce9bb90022f37ebb7fd6f83a4d343`, CI `34755232779` 및 `34755464071` 성공, 압축 파일 SHA-256 `c7e8b3e99fd77534ad7e2b2321d2e677fb3fe316a946e4c58ef797d5682bbab5`, 격리 아티팩트 검사 11개, 서명 파일 304개, 일치하는 설치 파일 59개, 읽기 전용 호출 12건과 네트워크 접두사 일곱 개, [이슈 #803 근거](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906) | 기존 r1/r3 상태와 실행 주장은 변경하지 않았습니다. 명시적인 r4 출처 선택과 별도의 준비 컨텍스트가 필요하며, 정확한 계획 승인, 부분 이미지 복구, 온라인/오프라인 배포 수렴은 남아 있습니다. |
 | 2026-09-13 | implemented | Azure CLI가 기존 리소스의 지역에서 지원하지 않는 Network API를 선택해 실패하던 Foundation 검색을 수정했습니다. 라우팅 테이블과 로컬 게이트웨이 상세 조회를 `2024-05-01`로 고정하고 목록 범위, 실패 처리, 승인 경계는 유지합니다. | `current change`, `test_genesis_network_api.py`, `test_genesis_network_layout.py`, `test_genesis_prepare.py` 32개 통과, Ruff, 형식, 엄격한 타입 검사 및 범위를 제한한 읽기 전용 공급자 검사 통과 | 대체 서명 키트의 게시와 검증이 남아 있으며 r3 원본 바이트는 유지합니다. 적용이나 복구는 수행하지 않았고 배포 수렴도 완료되지 않았습니다. |
 | 2026-09-13 | validated | 추가 14회 라운드 전체를 포함한 `deployment-v0.1.0-r3`를 게시하고 설치했습니다. 운영 수정 아홉 건과 반증 후 회귀 테스트를 추가한 가설 다섯 건입니다. 보호된 PR 두 개가 병합됐고 정확한 소스의 main CI도 성공했습니다. | PR #918 및 #920, 소스 `3b4c088ea20d1d77770912394141847bf9940886`, CI `34746227767`, 압축 파일 SHA-256 `7b454ff37833d7f5c665fddb1f7954c99f8ebeda363c3a3d807f9707e4c6f82b`, 파일 304개/설치 내용 59개/이미지 여섯 개/지원 패키지 일곱 개/Terraform 루트 11개에 대한 무네트워크 검사 11개, 실제 공개 다운로드 및 네트워크를 차단한 온라인/오프라인 재개 검사 | 검토 범위에 확인된 Medium 이상 결함은 없으며 보존 복사본 누적은 Low입니다. Azure SKU 자격과 별도 승인을 거친 부분 이미지 복구/수렴은 막혀 있습니다. 프리릴리스는 명시적으로 선택해야 합니다. |
 | 2026-09-13 | implemented | H14에서 이전 다운로드 기한의 버퍼 읽기 빈틈을 보완했습니다. 사용 가능한 데이터만 읽어 느린 스트림이 다음 전체 예산 검사 전에 여러 소켓 읽기로 큰 버퍼를 채우지 않게 합니다. | `current change`, 실제 `BufferedReader`와 가짜 원시 스트림으로 실패 재현, 지원되는 경우 `read1`을 사용한 뒤 집중 획득 테스트 통과 | 전체 기한을 넘는 시간은 진행 중인 소켓 읽기 한 번의 제한 이내이며 release 및 Azure 증적은 별도입니다. |
@@ -71,7 +73,7 @@ translation_revised: 2026-09-13
 - [ ] TUF 루트 의식과 패키지 초기화를 완료하고 offline trust ceremony가 수락한 서명 루트 및 교대 근거를 남깁니다.
 - [x] 깨끗한 스냅샷에서 완전한 서명 키트 하나를 빌드하고 다시 검증한 뒤 새 환경에 CLI를 설치하고 online 및 로컬 아티팩트 경로에서 같은 키트를 획득합니다. 근거: `deployment-v0.1.0-r2`와 위의 2026-09-13 아티팩트 기록입니다.
 - [x] 후속 CLI 하드닝을 포함한 완전한 대체 키트를 게시하고 정확한 설치 아티팩트 검증을 반복합니다. 근거: `deployment-v0.1.0-r3`에 H01-H14가 포함되고 기본 설치 파일 59개가 모두 서명된 휠과 일치하며 이전 설치는 백업했습니다.
-- [ ] 안정 Network API 수정을 포함한 대체 서명 키트를 게시하고 검증한 뒤 해당 아티팩트에서 Foundation 검색을 확인합니다. 검색 성공을 배포 준비 완료로 취급하지 않습니다.
+- [x] 안정 Network API 수정을 포함한 대체 서명 키트를 게시하고 검증한 뒤 해당 아티팩트에서 Foundation 검색을 확인합니다. 검색 성공을 배포 준비 완료로 취급하지 않습니다. 근거: `deployment-v0.1.0-r4`와 연결된 이슈 #803의 읽기 전용 검증 기록입니다. 기존 CLI 설치 파일 59개가 이미 서명된 휠과 일치하므로 교체하지 않았습니다.
 - [ ] 전체 구독 준비 상태를 주장하지 않고 두 활성 로그인 모드의 대상 연결 기반 Foundation 및 애플리케이션 수렴 증적을 보존합니다.
 - [ ] 승인되고 digest로 고정된 기본 이미지에서 배포 어플라이언스를 빌드하고 SBOM과 provenance를 검증한 뒤 이미지 진입점의 아티팩트 오프라인 Azure 배포 증적을 보존합니다.
 
