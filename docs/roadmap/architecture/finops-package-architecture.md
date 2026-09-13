@@ -36,16 +36,14 @@ domain code and assets. It does not create another control plane or move authori
 > The runner's exact-registry `AcrPush` assignment imports signed shared runtime images only. It is
 > not a Cost Governance package input and cannot install, enable, promote, or grant package data
 > access.
-> Live-authoritative install, enable, disable, upgrade, second enable, and fail-safe disable
-> receipts now exist. The first collector failed on Azure Cost Management HTTP `429`. The upgraded
-> collector recovered past throttling and reached row parsing, where it exposed a source-fact
-> truthiness defect that rejects numeric zero. Independent effect verification still failed and
-> the package returned to disabled revision 6. A later exact release preserved numeric zero, but
-> its first enabled collector failed closed because provider `ServiceName` casing was compared
-> byte-for-byte with the deployment-owned lowercase allowlist. Provider service labels are now
-> stripped and case-folded at ingress while unknown values remain rejected. Successful post-fix
-> collection, rollback, the observation cohort, and independent promotion evidence remain open.
-> The package and its actions remain unvalidated and unpromoted.
+> Live-authoritative lifecycle receipts now cover installation through the parser release upgrade
+> at revision 7, enable at revision 8, and fail-safe disable at revision 9. That exact release
+> recovered past throttling and preserved numeric zero, but its first enabled collector failed
+> closed because provider `ServiceName` casing was compared byte-for-byte with the deployment-owned
+> lowercase allowlist. Provider service labels are now stripped and case-folded at ingress while
+> unknown values remain rejected. Successful post-fix collection, rollback, final enablement, the
+> observation cohort, and independent promotion evidence remain open. The package and its actions
+> remain unvalidated and unpromoted.
 > The packaged semantic profile and parity corpus always pin the active ontology release; an
 > additive kernel declaration refreshes their profile, manifest, and fixture identities together.
 > Container publication verifies the protected workflow source before any manual-dispatch
