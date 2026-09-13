@@ -55,7 +55,7 @@ export function renderText(blocks: readonly Block[]): string {
         break;
       case "decisionCard": {
         out.push(
-          `[${b.index}/${b.total}] ${b.title}  (${b.actionType})   ${b.risk} risk`,
+          `[${b.index}/${b.total}] ${b.title}  (${b.actionType})   ${b.riskLabel}`,
         );
         out.push(`  ${b.chip}`);
         for (const f of b.fields) out.push(`  ${f.label.padEnd(11)} ${f.value}`);

@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import io
+import os
+import signal
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -149,3 +152,55 @@ def test_private_stdin_reaches_child_without_joining_output() -> None:
     assert result.returncode == 0
     assert result.stdout.strip() == str(len(private_input))
     assert private_input not in result.stdout + result.stderr
+
+
+def test_nested_genesis_cancellation_stops_inner_effect_process(tmp_path: Path) -> None:
+    pid_file = tmp_path / "synthetic-effect-pid"
+    child = (
+        "import os, signal; "
+        "signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+        f"open({str(pid_file)!r}, 'w').write(str(os.getpid())); signal.pause()"
+    )
+    stage = (
+        "import sys\nfrom pathlib import Path\n"
+        f"sys.path.insert(0, {str(_SCRIPT_DIR)!r})\n"
+        "from genesis_subprocess import run_with_heartbeat\n"
+        f"run_with_heartbeat((sys.executable, '-c', {child!r}), "
+        "cwd=Path.cwd(), timeout=20, capture_output=True)\n"
+    )
+    try:
+        with pytest.raises(subprocess.TimeoutExpired):
+            run_with_heartbeat(
+                (sys.executable, "-c", stage),
+                cwd=tmp_path,
+                timeout=1,
+                capture_output=True,
+                heartbeat_stream=io.StringIO(),
+            )
+        pid = int(pid_file.read_text())
+        state = Path(f"/proc/{pid}/stat")
+        assert not state.exists() or state.read_text().split()[2] == "Z"
+    finally:
+        if pid_file.exists():
+            try:
+                group = os.getpgid(int(pid_file.read_text()))
+                if group != os.getpgrp():
+                    os.killpg(group, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+
+def test_signal_handler_is_restored_and_worker_thread_reads_still_run() -> None:
+    previous = signal.getsignal(signal.SIGTERM)
+    run_with_heartbeat((sys.executable, "-c", "pass"), cwd=_ROOT, timeout=2)
+    assert signal.getsignal(signal.SIGTERM) == previous
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        result = pool.submit(
+            run_with_heartbeat,
+            (sys.executable, "-c", "print('read-only')"),
+            cwd=_ROOT,
+            timeout=2,
+            capture_output=True,
+        ).result(timeout=3)
+    assert result.stdout == "read-only\n"
+    assert signal.getsignal(signal.SIGTERM) == previous

@@ -354,6 +354,39 @@ def test_existing_foundation_claim_never_reruns_sku_selection(tmp_path, monkeypa
     assert (plan / foundation_apply.CLAIM_NAME).is_file()
 
 
+@pytest.mark.parametrize("effect_verified", [True, False])
+def test_partial_foundation_claim_is_verification_only_without_current_quota(
+    tmp_path, monkeypatch, effect_verified
+):
+    plan, calls = _mock_execution(tmp_path, monkeypatch)
+    args = foundation_apply._parser().parse_args(_args(tmp_path, "--approve"))
+    foundation_apply._execute(args)
+    (plan / foundation_apply.RECEIPT_NAME).unlink()
+    before = (plan / foundation_apply.CLAIM_NAME).read_bytes()
+    calls.clear()
+
+    def forbidden(**_kwargs):
+        pytest.fail("A partial claim must not refresh quota, reselect, or create another claim")
+
+    monkeypatch.setattr(foundation_apply, "recheck_foundation_vm", forbidden)
+    monkeypatch.setattr(foundation_apply, "_claim", forbidden)
+    if not effect_verified:
+
+        def incomplete(**_kwargs):
+            raise ValueError("independent effect readback incomplete")
+
+        monkeypatch.setattr(foundation_apply, "_verify_foundation_effect", incomplete)
+    resume = foundation_apply._parser().parse_args(_args(tmp_path, "--resume-verification"))
+    if effect_verified:
+        foundation_apply._execute(resume)
+    else:
+        with pytest.raises(ValueError, match="effect readback incomplete"):
+            foundation_apply._execute(resume)
+    assert calls == ["init"]
+    assert (plan / foundation_apply.CLAIM_NAME).read_bytes() == before
+    assert (plan / foundation_apply.RECEIPT_NAME).exists() is effect_verified
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [

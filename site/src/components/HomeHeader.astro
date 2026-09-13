@@ -1,0 +1,30 @@
+---
+/** Compact home navigation; other documentation routes keep the stock header. */
+import DefaultHeader from "@astrojs/starlight/components/Header.astro";
+import SiteTitle from "virtual:starlight/components/SiteTitle";
+import Search from "virtual:starlight/components/Search";
+import ThemeSelect from "virtual:starlight/components/ThemeSelect";
+import LanguageSelect from "virtual:starlight/components/LanguageSelect";
+import { homeContent } from "../data/home-copy.mjs";
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+const locale = Astro.locals.starlightRoute.locale === "ko" ? "ko" : "en";
+const home = `${base}${locale === "ko" ? "ko/" : ""}`;
+const isHome = Astro.url.pathname.replace(/\/?$/, "/") === home;
+const copy = homeContent(locale);
+---
+
+{isHome ? (
+  <div class="home-header home-shell">
+    <div class="home-brand"><SiteTitle /></div>
+    <nav class="home-nav" aria-label={copy.navLabel}>
+      {copy.navigation.map(item => <a href={item.href}>{item.text}</a>)}
+    </nav>
+    <div class="home-header-tools">
+      <a class="home-docs-link" href={`${home}get-started/`}>{copy.docsLabel}<span aria-hidden="true">↗</span></a>
+      <div class="home-search"><Search /></div>
+      <ThemeSelect />
+      <LanguageSelect />
+    </div>
+  </div>
+) : <DefaultHeader {...Astro.props} />}

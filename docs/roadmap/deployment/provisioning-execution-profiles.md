@@ -17,8 +17,9 @@ that applies before Terraform changes infrastructure or role assignments.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Read-only inspection and profile initialization commands | implemented | `packages/deployment-cli`; focused profile, target, tool, and productization tests | The dedicated distribution registers `fdaictl`, writes private target-bound profiles, and returns review until execution-host evidence exists. |
-| Managed VM, private backend, and protected runner | implemented | `infra/bootstrap/`, `.github/workflows/deploy-dev.yml`, and focused bootstrap and workflow tests | The durable VNet host, workload identity, private state, protected plan, and exact application-apply mechanics exist. |
-| Fresh-subscription local coordinator | implemented | `fdaictl provision azure`; `fdai-up.sh`; signed-kit, Foundation, Bastion, managed-host, approval, license, migration, and convergence modules; routed lifecycle tests | One `dev` process derives the target from the active Azure CLI user, uses bounded concurrency only for independent preparation and read or request siblings, and keeps stateful transitions serial. GitHub Actions remains an optional transport. A governed Azure receipt and complete readiness evidence remain open. |
+| Managed VM, private backend, and manual deployment host | implemented | `infra/bootstrap/`, standalone deployment modules, and focused bootstrap tests | The durable VNet host, workload identity, private state, exact plans, and application apply run without GitHub Actions. |
+| Fresh-subscription local coordinator | implemented | `fdaictl provision azure`; `fdai-up.sh`; signed-kit, Foundation, Bastion, managed-host, approval, license, migration, and convergence modules; routed lifecycle tests | One `dev` process derives the target from the active Azure CLI user and keeps stateful transitions serial. Tenant deployment has no GitHub transport. A governed Azure receipt and complete subscription-assurance evidence remain open. |
+| OCI deployment appliance | implemented | `build-deployment-appliance.sh`; `run-deployment-appliance.sh`; focused script and CLI tests | A release owner can wrap one verified complete kit in a digest-pinned, no-network OCI build. The image starts the manual standalone coordinator with no public artifact fallback. A clean production image build and Azure receipt remain open. |
 | Offline-kit construction and verification | validated | `fdai_deployment_cli.offline_kit`; locked release scripts; successful network-isolated air-gap drill | Signature-first verification, exact files, SBOM coverage, ABI/libc binding, private snapshots, and shipped-wheel installation pass. |
 | Temporary public-access cleanup | not-started | The access preference contract in this document | No composed command proves bounded creation, automatic cleanup, incomplete-on-cleanup-failure behavior, and audit closure. |
 | Pinned TUF root and rotation | not-started | `docs/runbooks/offline-trust-ceremony.md` | The first root ceremony, package resource, client bootstrap, and rotation evidence remain open. |
@@ -28,6 +29,24 @@ that applies before Terraform changes infrastructure or role assignments.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-13 | validated | Published and installed `deployment-v0.1.0-r3`, including all 14 additional rounds (nine production corrections and five rejected hypotheses with regressions). Both protected PRs merged and exact-source main CI completed successfully. | PR #918 and #920; source `3b4c088ea20d1d77770912394141847bf9940886`; CI `34746227767`; archive SHA-256 `7b454ff37833d7f5c665fddb1f7954c99f8ebeda363c3a3d807f9707e4c6f82b`; 11 no-network acceptance checks for 304 files, 59 installed payload files, six images, seven support packages, and 11 Terraform roots; actual public download and network-denied online/offline retry checks. | The bounded reviewed slice has no confirmed Medium-or-higher defect; retained-copy accumulation is Low. Azure SKU eligibility and separately approved partial-image recovery/convergence remain blocked. The prerelease requires explicit artifact selection. |
+| 2026-09-13 | implemented | H14 closes the buffered-read gap in the prior download deadline: use available-data reads so a slow stream cannot fill a large buffer through many socket reads before the next total-budget check. | `current change`; real `BufferedReader`/synthetic raw-stream failure reproduced; the focused acquisition suite passes after using `read1` where supported. | The total deadline can overshoot by at most one bounded socket read; release and Azure receipts remain separate. |
+| 2026-09-13 | implemented | Completed 13 new critique rounds: eight production corrections and five experimentally rejected hypotheses with regressions. The bounded final review leaves no confirmed Medium-or-higher defect in acquisition, deadline/transport, approval input, and error presentation. | Commits `d8c4fa3a2` through `7e1f7a3f2`; 379 focused owning regressions passed; changed-source Ruff and strict typing; two read-only reviews plus the H13 counterexample. | Retained-copy disk accumulation is Low. Publish the hardened revision; Azure image recovery and convergence remain blocked and are not completed Low findings. |
+| 2026-09-13 | validated | Built and published development kit `deployment-v0.1.0-r2` from integrated `74743842facfd3c986d3e069e2ae8e6714147bae`; cold-installed and verified the same artifact through actual public download and both offline source forms. | Required CI `34741317737`; issue #803 evidence; archive SHA-256 `4be041e244dfbcd3b69ea117f2c8a995ef14f2ae1188f55ad6ca00849c09e223`; 11 isolated acceptance checks: 300 files, 48 installed payload files, six images, seven support packages, and 11 Terraform roots. | This accepted artifact predates the subsequent 13-round CLI hardening. No Azure apply or subscription-readiness receipt was produced. |
+| 2026-09-13 | implemented | Proved transfer exceptions stop the application immediately, preserve tunnel cleanup, and cannot reach a later command or ready receipt, even after expiry. | `current change`; integrated pre/post-expiry transfer-failure regressions passed without production changes. | The original failure is preserved rather than masked by a secondary expiry exception. |
+| 2026-09-13 | implemented | Bound release downloads by one 15-minute monotonic transfer budget in addition to the 30-second socket limit; progress cannot renew it. | `current change`; previously passing slow-trickle stream now rejects and removes only its new partial download; acquisition regressions. | Retained prior archives and deployment state remain untouched; no network retry is added. |
+| 2026-09-13 | implemented | Bound both application confirmations and actor lookup to the same at-most-ten-minute window, plan expiry, and remaining invocation budget; require a real terminal. | `current change`; reproduced unbounded read, timeout/noninteractive controls, shared-budget and existing exact/destructive approval tests. | An expired or closed input grants no approval and triggers no automatic retry. |
+| 2026-09-13 | implemented | Proved expired image reviews still permit verification of an existing claim, without reselection, reapproval, or repeated apply. | `current change`; manual and automatic-selection claim/resume regressions preserve exact claim bytes and one original apply. | This verifies completed effects only and cannot repair a partial image build. |
+| 2026-09-13 | implemented | Normalize Azure identity and managed-host I/O exceptions before rendering; raw OS or child-process fallback errors no longer print command arguments or private paths. | `current change`; five reproduced synthetic-marker disclosures and focused CLI/transport regressions. | Stable failure categories do not infer whether a claimed remote effect completed. |
+| 2026-09-13 | implemented | Clamp every application SSH/SCP operation to one current deadline without changing command, stdin, identity, or tunnel cleanup. | `current change`; two reproduced transfer-to-substrate budget failures and direct transport regressions. | Expired or failed effects remain verification-only; no retry or approval is added. |
+| 2026-09-13 | implemented | Start the coordinator budget before preparation, cap Foundation approval by current remaining time, and recompute the application handoff after Foundation and identity work. | `current change`; three previously failing fake-clock regressions and existing coordinator tests. | Bound each application transport operation by that remaining budget. |
+| 2026-09-13 | implemented | Enforce the release HTTPS host/port allowlist before every redirect request, not only after the final response. | `current change`; three reproduced disallowed-target contacts; real urllib redirect-chain tests with synthetic HTTP transport and an allowed CDN control. | Publish the corrected CLI; no allowlist expansion or live retry is implied. |
+| 2026-09-13 | implemented | Proved an existing offline cache cannot silently adopt an explicit online source without a bound source record. | `current change`; directory and archive cross-mode regressions stop before network I/O and preserve prior bytes. | Default-version legacy adoption still requires complete signature and snapshot verification. |
+| 2026-09-13 | implemented | Proved local-directory acquisition executes the authenticated private snapshot, not later changes to the original bundle; a later retry rejects that changed source. | `current change`; deterministic source-replacement regression passed without production changes. | Preserve signature and complete snapshot checks in both modes. |
+| 2026-09-13 | implemented | Proved that replacing an archive pathname cannot redirect the extractor's held original descriptor; no production change was needed. | `current change`; deterministic open-inode replacement regression passed. | In-place content changes remain subject to signature and snapshot checks. |
+| 2026-09-13 | implemented | Reverify local archive and directory retries against the retained exact snapshot while creating a fresh execution copy and preserving previous evidence. | `current change`; two reproduced retry failures and four offline retry/tamper checks; owning acquisition suite. | Deliver the new CLI; retained partial applies still need separately approved recovery. |
+| 2026-09-13 | implemented | Reject non-Linux POSIX hosts before either artifact acquisition mode, rather than treating x64 macOS or FreeBSD as Linux. | `current change`; five focused host-boundary regressions, including the four previously failing cases. | Publish the corrected CLI; Azure convergence remains separate. |
+| 2026-09-12 | implemented | Restricted tenant provisioning to manual transport, removed workflow dispatch from the public CLI, allowed token-free observation-only installation, and added an OCI deployment appliance entry point. | `current change`; deployment CLI contracts, standalone modules, appliance scripts, and focused tests | Build one clean appliance and retain connected and artifact-offline Azure deployment receipts. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Corrected inspection, profile persistence, and offline verification from implemented to their evidence-backed current states. | current change; package metadata, bootstrap source, release scripts, and focused workflow checks listed in the scope table | Create the CLI package, restore offline verification, complete trust bootstrap, and validate the full lifecycle. |
 | 2026-08-29 | validated | Added target-bound inspection and private profiles, restored signed offline verification, and completed the shipped-wheel network-isolated drill. | Campaign commits from `dd28b64d9`; focused tests and successful `airgap-drill.sh` | Complete managed-host Azure execution and retain protected post-provision receipts. |
 | 2026-09-05 | implemented | Routed exclusive RCA reader identity apply and verification resume through an allowlisted bot-owned request. The downstream apply remains bound to a protected GitHub Environment and validates its reviewer policy from protected `main` before mutation. | `current change`; focused deployment CLI, workflow, and Environment policy tests | Retain one independently approved exact apply and effect receipt. |
@@ -46,8 +65,10 @@ that applies before Terraform changes infrastructure or role assignments.
 - [x] Restore offline-kit verification behind an injected release root and pass signature-before-parse, exact-file-set, no-follow digest, compatibility, and bounds tests.
 - [ ] Implement temporary public-access creation and cleanup so cleanup failure leaves an incomplete audited operation, then pass CIDR, duration, authentication, rollback, and idempotency tests.
 - [ ] Complete the TUF root ceremony and package bootstrap, with signed root and rotation evidence accepted by the offline trust ceremony.
-- [ ] Build and reverify one complete signed kit from a clean snapshot, then cold-install its CLI and acquire the same kit through both online and local artifact paths.
+- [x] Build and reverify one complete signed kit from a clean snapshot, then cold-install its CLI and acquire the same kit through both online and local artifact paths. Evidence: `deployment-v0.1.0-r2` and the 2026-09-13 artifact checkpoint above.
+- [x] Publish a replacement complete kit containing the subsequent CLI hardening and repeat exact installed-artifact acceptance. Evidence: `deployment-v0.1.0-r3` includes H01-H14, all 59 default-installed payload files match its signed wheel, and the prior installation was backed up.
 - [ ] Retain target-bound Foundation and application convergence receipts from both active-login modes without claiming whole-subscription readiness.
+- [ ] Build one deployment appliance from an approved digest-pinned base, verify its SBOM and provenance, and retain an artifact-offline Azure deployment receipt from the image entry point.
 
 ## Design at a glance
 
@@ -59,7 +80,7 @@ operator installed the wheel.
 |------|------------------|----------------|
 | Connectivity | `online`, `offline` | Use online sources only after bounded TLS checks pass; otherwise require a signed offline kit |
 | Execution host | `existing-host`, `managed-vm` | Reuse a suitable private-network host; create a managed VM when no suitable host is available |
-| Transport | `manual`, `github-actions` | Use `manual` for the default installed-package flow. GitHub Actions is an optional repository-owned CI/CD transport, not a subscription deployment prerequisite. |
+| Transport | `manual` | Tenant deployment always uses the local coordinator and the managed deployment host. GitHub Actions may build and publish releases but cannot plan or apply a tenant. |
 | Ownership | `fdai-managed` | Terraform manages declared resources and role assignments after approval |
 
 ### Standalone active-login deployment
@@ -76,16 +97,21 @@ scripts/deployment/azure/fdai-up.sh
 Both commands derive the tenant and subscription only from the active Azure CLI user context. They
 do not require a source checkout, Git remote, GitHub account, GitHub repository, required CI check,
 repository variable, repository secret, workflow dispatch, or GitHub runner registration. Online
-mode downloads one versioned complete kit over bounded HTTPS. Offline mode reads that same kit
+mode downloads one versioned complete kit over bounded HTTPS, validating each redirect before contact. Offline mode reads that same kit
 format from a local path and blocks every public artifact fallback. Offline means artifact-offline,
 not disconnected from the selected Azure control plane or Bastion endpoint.
+Offline retries reread the supplied source, reverify the retained snapshot, and use a fresh
+execution copy without replacing earlier state. Changed or incomplete bytes stop the retry.
+Online transfer progress cannot renew the 15-minute total download budget. Socket reads retain
+their 30-second bound; available-data reads return between underlying reads, and expiry removes
+only the newly created partial download without retrying. One in-flight socket read can outlast the total boundary by at most its own bound.
 
 The package pins the release and bundle verification roots independently from the kit. A complete
 kit contains the deployment bundle, Terraform and OPA, the provider mirror, runtime OCI archives,
 Console content, migration support, and their software bills of materials. Signature, exact-file,
 platform, source-revision, and runtime-content verification completes before Azure mutation.
 The current managed-host image and complete-kit builder support Linux x86_64. Other host
-architectures fail before kit acquisition rather than crossing an untested execution boundary.
+operating systems or architectures fail before either acquisition mode; POSIX alone is not Linux.
 
 For a private route, the signed-in human performs only the bounded Foundation control-plane apply.
 The resulting Bastion-reachable VM uses a user-assigned managed identity and a manual-host image
@@ -103,12 +129,22 @@ If an apply outcome is ambiguous, the next invocation runs a zero-change plan an
 readback only. It never repeats the apply from the retained claim. A changed Foundation run,
 network/state handoff, Entra binding, provider configuration, or signed kit requires a distinct
 prepared context.
+The invocation budget begins before preparation. Approval waits and application handoff use
+current remaining time; an expired budget starts no next stage and cannot produce readiness.
+Application confirmation requires a real terminal and one at-most-ten-minute window shared by
+both prompts and actor lookup, shortened by plan expiry and the remaining invocation budget.
+`DeadlineTransport` clamps each existing Bastion command and file transfer to that same current
+budget and checks expiry after I/O. The underlying tunnel retains its own bounded cleanup.
+Identity and transport failures use fixed diagnostics; raw OS and subprocess exceptions never
+render command arguments or paths. Unknown effect outcomes still require retained-state review.
 
 The command discovers an operator-held mode-`0600` license issuer key from an explicit option or the
 documented user configuration path. When the key exists, it issues a deployment- and image-bound
-token without copying the key. Otherwise it requires a pre-issued mode-`0600` Trial token file from
-the terminal. The token crosses Bastion through standard input and is written to Key Vault by the
-managed identity; it never appears in arguments, Terraform state, portable status, or logs.
+token without copying the key. A supplied pre-issued Trial token follows the same verification and
+transfer path. When neither is present, deployment completes in observation-only mode without
+creating a license secret. A token crosses Bastion through standard input and is written to Key
+Vault by the managed identity; it never appears in arguments, Terraform state, portable status, or
+logs.
 
 ## Read-only inspection
 
@@ -118,7 +154,7 @@ The target command runs inspection before creating a bootstrap plan:
 fdaictl provision inspect --output json
 ```
 
-Inspection checks the local Azure CLI, Terraform, GitHub CLI, bounded online artifact access,
+Inspection checks the local Azure CLI, Terraform, bounded online artifact access,
 an offline-kit candidate, and the Azure workload identity endpoint. It returns a stable JSON
 contract with `mutation_performed=false`, the required approval policy and quorum, and the selected profile.
 It never installs a tool, writes configuration, creates a resource, registers a runner, or applies
@@ -155,7 +191,7 @@ The target binding is a deployment-local digest of the intended tenant and subsc
 either raw identifier. The command rejects every `auto` value and writes `.fdai/provisioning/profile.json` with file mode
 `0600` in a mode-`0700` directory. Offline profiles require `--artifact-source`. Temporary public
 SSH requires a canonical source CIDR narrower than the entire address space and an access window
-of 5-60 minutes. GitHub Actions transport requires the matching `github_actions` access method.
+of 5-60 minutes. Tenant deployment profiles accept only `manual` transport.
 
 An existing destination blocks initialization unless `--force` is explicit. Force never follows
 a symbolic link or replaces a non-file destination. Profile initialization changes no Azure
@@ -192,9 +228,8 @@ The managed-host access order is fixed:
 
 1. Approved internal SSH.
 2. Temporary public-IP SSH when Azure Policy and the deployment profile allow it.
-3. GitHub Actions on a self-hosted runner.
-4. Azure Bastion.
-5. Azure Run Command as an audited emergency path.
+3. Azure Bastion.
+4. Azure Run Command as an audited emergency path.
 
 Fresh-subscription Genesis doesn't fall through this list. A profile with `access_method=bastion`
 selects the exact Standard Bastion native tunnel created by Foundation. Enrollment material then

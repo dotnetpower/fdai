@@ -134,6 +134,12 @@ from .cost_governance_lifecycle import (
     CostLifecycleReceiptStore,
     CostRevisionPin,
 )
+from .cost_governance_review import (
+    CostPromotionReview,
+    CostPromotionReviewStore,
+    CostReviewDecision,
+    CostReviewTargetKind,
+)
 from .direct_api import (
     DirectApiAuthenticationError,
     DirectApiError,
@@ -431,6 +437,10 @@ __all__ = [
     "CostLifecycleReceipt",
     "CostLifecycleReceiptStore",
     "CostRevisionPin",
+    "CostPromotionReview",
+    "CostPromotionReviewStore",
+    "CostReviewDecision",
+    "CostReviewTargetKind",
     "CodePatchKind",
     "CodePatchOperation",
     "CodePatchSet",

@@ -66,16 +66,20 @@ const SNAPSHOT: ReadModelSnapshot = {
     by_tier: { t0: 6, t1: 2, t2: 1 },
     last_recorded_at: "2026-07-06T10:55:00+00:00",
   },
-  hil: [
-    {
-      idempotency_key: "hil-dev-0001",
-      event_id: "00000000-0000-0000-0000-000000000010",
-      action_kind: "restrict-network-access",
-      reason: "blast-radius exceeds executor cap",
-      requested_at: "2026-07-06T10:10:00+00:00",
-      correlation_id: "corr-dev-0001",
-    },
-  ],
+  hil: {
+    total: 1,
+    detail_level: "full",
+    items: [
+      {
+        idempotency_key: "hil-dev-0001",
+        event_id: "00000000-0000-0000-0000-000000000010",
+        action_kind: "restrict-network-access",
+        reason: "blast-radius exceeds executor cap",
+        requested_at: "2026-07-06T10:10:00+00:00",
+        correlation_id: "corr-dev-0001",
+      },
+    ],
+  },
   audit: [
     {
       seq: 9,
@@ -101,24 +105,54 @@ describe("buildFromReadModel (live source)", () => {
     }
   });
 
-  it("maps a HIL item into a decision card with inferred risk", () => {
+  it("maps a HIL item without inventing a risk classification", () => {
     const blocks = buildFromReadModel(SNAPSHOT, "live");
     const card = blocks.find((b) => b.type === "decisionCard");
     expect(card).toBeDefined();
     if (card && card.type === "decisionCard") {
       expect(card.actionType).toBe("restrict-network-access");
-      expect(card.risk).toBe("HIGH"); // "network" -> HIGH heuristic
+      expect(card.risk).toBe("UNKNOWN");
       expect(card.reference).toBe("hil-dev-0001");
     }
   });
 
   it("shows all-clear text when the HIL queue is empty", () => {
-    const empty: ReadModelSnapshot = { ...SNAPSHOT, hil: [] };
+    const empty: ReadModelSnapshot = {
+      ...SNAPSHOT,
+      hil: { items: [], total: 0, detail_level: "count_only" },
+    };
     const blocks = buildFromReadModel(empty, "live");
     expect(blocks.some((b) => b.type === "decisionCard")).toBe(false);
     const narr = blocks.filter((b) => b.type === "narration");
-    expect(narr.some((b) => b.type === "narration" && /Nothing/.test(b.text))).toBe(
+    expect(narr.some((b) => b.type === "narration" && /No items/.test(b.text))).toBe(
       true,
     );
+  });
+
+  it("does not present a count-only approval response as an empty queue", () => {
+    const blocks = buildFromReadModel(
+      {
+        ...SNAPSHOT,
+        hil: { items: [], total: 62, detail_level: "count_only" },
+      },
+      "live",
+    );
+    const text = blocks
+      .filter((block) => block.type === "narration")
+      .map((block) => block.text)
+      .join("\n");
+    expect(text).toContain("62 items are pending human approval");
+    expect(text).not.toContain("No items are pending");
+  });
+
+  it("shows unavailable projections without presenting zeros or an empty queue", () => {
+    const blocks = buildFromReadModel({ kpi: null, hil: null, audit: null }, "live");
+    const text = blocks
+      .filter((block) => block.type === "narration")
+      .map((block) => block.text)
+      .join("\n");
+    expect(text).toContain("Operational totals are unavailable");
+    expect(text).toContain("not an empty-queue result");
+    expect(blocks.some((block) => block.type === "summary")).toBe(false);
   });
 });

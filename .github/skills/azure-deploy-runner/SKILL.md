@@ -1,206 +1,169 @@
 ---
 name: azure-deploy-runner
 description: |
-  FDAI deploy workflow on the private-everything Azure tenant profile
-  (Key Vault + Storage with public network access disabled, key-auth
-  off). Deploys run from a VNet-integrated self-hosted runner, not
-  the laptop, because a laptop cannot complete the Terraform storage
-  data-plane readiness poll from outside the VNet. Load this skill
-  before a deploy, when planning `azd up` or `terraform apply`, when
-  troubleshooting a KV secret 403 from a laptop, when adding a new
-  data service that a policy might force private, or when onboarding
-  a new deploy target.
-version: 1.0.0
+  FDAI deployment workflow for connected and artifact-offline Azure environments. Tenant
+  deployment runs from `az login` through the local standalone coordinator and a VNet-integrated
+  manual managed host, never GitHub Actions. Load before planning or running `fdaictl provision
+  azure`, `fdai-up.sh`, Terraform apply, deployment appliance work, private endpoint recovery, or
+  onboarding a new Azure target.
+version: 2.0.0
 scope: repository
 ---
 
-# Azure Deploy on the Private-Everything Tenant
+# Azure Deployment on a Private Tenant
 
-The runnable target is the maintainer's private tenant, where policy
-forces every data service private and turns key-auth off. This skill
-captures the shape that actually deploys under those constraints. It
-is generic: no tenant / subscription / resource names are recorded here
-(those belong in the maintainer's `/memories/` per the
-[customer-agnostic scope rule](../../instructions/generic-scope.instructions.md)).
+FDAI supports one tenant-deployment engine with two artifact sources:
 
-## Tenant Constraints
+- Connected: clone the repository, run `az login`, then run `fdai-up.sh`.
+- Artifact-offline: load a digest-pinned deployment appliance or provide the same complete signed kit
+  through `--offline-kit`.
 
-Under a private-everything policy the laptop CANNOT:
+Both paths use `fdaictl provision azure` and the same exact-plan, approval, Managed Identity,
+recovery, and verification contracts. GitHub Actions may test source and publish release artifacts.
+It MUST NOT plan, apply, resume, or tear down a tenant deployment.
 
-- (a) write Key Vault secrets: KV `publicNetworkAccess=Disabled` and
-  it reverts back to Disabled if you flip it via `az`.
-- (b) reach a Terraform remote-state backend when the state Storage
-  account is private.
-- (c) complete Terraform's storage data-plane readiness poll when
-  `allowSharedKeyAccess=false`.
+## Private-Endpoint Constraint
 
-Consequence: **all deploy data-plane work runs from inside the VNet**,
-on a self-hosted runner attached to the workspace.
+A tenant policy can disable public access and key authentication for Key Vault and Storage. An
+operator workstation outside the virtual network then cannot:
 
-## Canonical Solution Shape
+- write Key Vault secrets;
+- reach the private Terraform state backend;
+- complete private storage data-plane operations;
+- import images into a private registry.
 
-Two Terraform layers plus a runner VM.
+The local workstation remains the human control surface. Private data-plane work runs on a
+Bastion-reachable managed host inside the target VNet under a dedicated user-assigned Managed
+Identity. This internal execution location is an implementation detail of the one-command flow, not
+an extra operator procedure.
 
-### `infra/bootstrap/` (ops layer, local state)
+## Required Public Experience
 
-- ops resource group + VNet with `snet-runner` + `snet-pe` subnets
-- state Storage account (private) + blob private endpoint +
-  `privatelink.blob.core.windows.net` private DNS zone
-- runner VM (Ubuntu, sustained `Standard_D4ds_v5`, stable deploy UAMI,
-  **no public IP**) with a local `ResourceDisk` ephemeral OS disk;
-  cloud-init installs Terraform + Azure CLI + GitHub Actions runner
-- Runner MI role assignments:
-  - **Contributor** + **User Access Administrator** on the app RG
-    (UAA is required to create role assignments during the app
-    apply; Contributor alone lacks `Microsoft.Authorization/*`).
-  - **Network Contributor** on the ops RG (VNet peering + DNS zone
-    links).
-  - **Storage Blob Data Contributor** on the state storage account.
-  - **EventGrid Contributor** + **Cognitive Services Contributor** + **Reader** on the subscription.
-  - Conditional **Role Based Access Control Administrator** on the subscription, limited to
-    `Reader`, `Monitoring Reader`, and `Cost Management Reader` assignments for service principals.
-- The state Storage account is created **out of band** by
-  `az storage account create ...` (a private + key-auth-off account
-  cannot finish Terraform's blob poll from a laptop). Terraform
-  data-sources it instead of managing it. The state container is
-  created from the runner.
+### Connected deployment
 
-### `infra/` (app layer, remote state on the state Storage account)
+```bash
+az login
+scripts/deployment/azure/fdai-up.sh --region <azure-region>
+```
 
-- Postgres + Key Vault + Event Hubs namespace + ACR + Log Analytics
-  + Container Apps env + Container App (VNet-integrated) +
-  Container Apps Jobs (out-of-band watchers).
-- App config carries `enable_private_networking=true` plus the ops
-  VNet identifiers so the app spoke peers with the ops hub and the
-  KV private DNS zone gets an `extra_vnet_links` entry to the ops
-  VNet. Key Vault secrets `depends_on` the peering to avoid the
-  private-link / DNS race.
+The command:
 
-### GitHub Actions workflow
+1. Reads the active Azure tenant and subscription from the signed-in human.
+2. Downloads and verifies one versioned complete deployment kit.
+3. Runs bounded read-only target, policy, provider, quota, and region checks.
+4. Shows each exact Terraform plan and waits for explicit terminal approval.
+5. Creates the Foundation, including private state, hub VNet, Bastion, deploy identity, and managed
+   host.
+6. Transfers the verified kit through Bastion.
+7. Runs substrate and application Terraform under the managed identity.
+8. Imports and reads back the exact runtime image digests.
+9. Runs migrations, catalog materialization, Entra configuration, and service activation.
+10. Requires service health and a second zero-change plan before reporting
+    `deployment_ready=true`.
 
-- Protected workflows use the registered label set `self-hosted, fdai-deploy,
-  fdai-deploy-candidate`.
-- **Plan-only by default**; an `apply=true` input is required to run
-  `terraform apply`.
-- Non-secret Azure identifiers (subscription id / region / ops
-  VNet id / state SA name) live in repo **Variables**.
-- Console deploys also set `ENTRA_CONSOLE_SPA_CLIENT_ID`. The runner MI is an
-  owner of that tenant's SPA app registration and has the Microsoft Graph
-  `Application.ReadWrite.OwnedBy` application permission with admin consent.
-- Postgres admin credentials live in repo **Secrets**.
-- The runner's identity does `az login --identity` at job start;
-  no service principal secret is stored anywhere.
+### Artifact-offline deployment
 
-## Runner Lifecycle
+The release owner provides one digest-pinned OCI deployment appliance that embeds a signed kit:
 
-- Inspect `storageProfile.osDisk.diffDiskSettings.option` before changing power state.
-  The reviewed `Local` ephemeral runner **must remain allocated** because deallocation,
-  redeploy, host movement, or auto-shutdown resets its OS and GitHub registration.
-- An allocated ephemeral runner can be powered off when every registered slot is idle.
-  This preserves the local disk but does not stop compute billing:
-  ```
-  az vm stop -g <ops-rg> -n <runner-vm-name>
-  ```
-- A managed-OS runner may be deallocated only after the storage-posture check confirms
-  that it is not the reviewed ephemeral profile.
-- Start a powered-off runner before a CI run:
-  ```
-  az vm start -g <ops-rg> -n <runner-vm-name>
-  ```
-- The VM registers one to five independent systemd runner slots labeled
-  `self-hosted,fdai-deploy,fdai-deploy-candidate`. Slots use separate work directories and the same
-  stable deploy UAMI.
-  Service plans and read-only checks can run in parallel. Service apply and state-migration runs
-  serialize per environment so peer-isolation evidence always has one writer.
+- the deployment CLI wheel and locked dependencies;
+- the signed Terraform bundle;
+- Terraform, OPA, and the provider mirror;
+- every required service and dependency OCI archive;
+- Console and migration support;
+- manifests, SBOMs, provenance, and signatures.
 
-## Standard Deploy Flow
+The appliance entry point signs in interactively or uses an explicitly selected user-assigned
+Managed Identity, then invokes `fdaictl provision azure --offline-kit /opt/fdai/kit.tar.gz`. The
+Managed Identity path requires the exact client ID. It MUST NOT fall back to GitHub, PyPI, the
+public Terraform registry, or a public container registry.
 
-1. **Validated revision gate**: finish implementation and focused tests, commit and push the slice,
-  then confirm the required CI checks passed for the exact deploy revision. Local validation-queue
-  receipts are optional diagnostics and do not authorize deployment. Confirm the workflow branch
-  resolves to the tested revision. If container inputs changed, build and smoke-test the image from
-  a clean checkout or isolated worktree at that commit before dispatching Azure deployment.
-2. **Preflight (from the laptop)**: run `scripts/deployment/local/dev-status.sh` and
-  set explicit `AZURE_SUBSCRIPTION_ID` and `AZURE_TENANT_ID`, then confirm the
-  exact `az account show` subscription. Every mutating bootstrap helper calls
-  `scripts/deployment/azure/verify-azure-context.sh` and refuses an inaccessible
-  or mismatched pair. When two
-   profiles are present (default + a customer profile under
-   `$HOME/.azure-customer`), check the customer one with
-   `AZURE_CONFIG_DIR=$HOME/.azure-customer az account show`.
-3. **Start the runner** if powered off.
-4. **Plan-only run**:
-   ```
-   gh workflow run deploy-dev.yml
-   ```
-   Watch the summary; a plan of `0 add / N change / 0 destroy` where
-   `N` matches a known no-op set (e.g. rotating the KV-hosted DB
-   password to the GH-secret value) is safe to promote to apply.
-5. **Apply run** (still from the workflow, still on the runner):
-   ```
-   gh workflow run deploy-dev.yml -f apply=true
-   ```
-6. **Console identity sync**: when `deploy_console=true`, the workflow reads
-  the Terraform Static Web App hostname, verifies the active tenant, preserves
-  existing SPA redirect URIs, and adds the deployed HTTPS origin. A missing
-  variable, tenant mismatch, or Graph authorization failure blocks the run.
-7. **Post-apply audit**: read the runner's audit log (via
-   `az vm run-command` + `journalctl`) and confirm no secrets landed
-   in logs. When all slots are idle, power off the reviewed ephemeral
-   runner without deallocation. Deallocate only a verified managed-OS profile.
+A network with no Azure management-plane route can verify and prepare artifacts but cannot deploy
+Azure resources or report deployment readiness.
 
-## Secret Hygiene
+## Identity and Approval
 
-- Passwords are born **on the runner** each apply (`openssl rand`)
-  and are never transmitted from the laptop or committed. The live
-  password lives only in KV and the remote state file.
-- Runner apply logs are shredded at end of run. The local Terraform
-  state file (if any) is removed from the runner.
-- Never `az keyvault secret set` from a laptop against a private KV.
-  The RBAC role assignment might exist, but the data-plane call still
-  fails with a 403 because public access is Disabled.
+- The signed-in Azure human selects the target and approves exact plans.
+- The managed-host UAMI executes Terraform and private data-plane operations.
+- Human and executor identities remain distinct.
+- Approval is bound to the exact binary-plan digest and expiry.
+- A changed plan requires new approval.
+- Destructive plans require a second exact confirmation.
+- Silence never grants authority.
+- Environment names do not grant authority.
 
-## Common Failure Modes
+The deploy identity uses the minimum roles needed for the selected plan. Typical Foundation roles
+include Contributor and User Access Administrator on the application resource group, Network
+Contributor on the operations group, Storage Blob Data Contributor on private state, and only the
+reviewed subscription-scoped reader or service roles.
 
-- **KV secret 403 from the laptop**: expected. Run from the runner.
-- **Storage stuck `provisioningState=Creating`** after a killed
-  `terraform apply`: delete + recreate the SA via `az` (`az` waits
-  for `Succeeded`), then re-run.
-- **Terraform state carries stale renamed resource IDs** (typical
-  after a project rename): `terraform state rm` the stale ids and
-  let apply recreate under the new names.
-- **Postgres in `Stopped` state**: `az postgres flexible-server start
-  --resource-group <rg> --name <server>` before `terraform apply`.
-- **Runner Contributor cannot manage role assignments**: add User
-  Access Administrator on the app RG.
-- **Transient 403 on the Nth KV secret** during apply: private-link /
-  DNS race. Re-apply resolves it.
+## Recovery
 
-## Guardrails (do NOT deploy)
+Every mutation writes an immutable pre-effect claim. If Terraform or the transport ends with an
+ambiguous result, the next invocation performs authoritative readback and a zero-change plan. It
+MUST NOT repeat the apply from the retained claim.
 
-- Do not deploy, provision, build an image, or start sustained GitHub Actions troubleshooting until
-  the exact revision has passed focused checks, is committed and pushed, and its required CI checks
-  are green. Read-only tenant/context preflight does not waive this gate.
-- **FDAI dev deploy on the maintainer's private tenant requires
-  explicit maintainer approval per session.** The `moonchoi` cost
-  policy has been lifted, but the "no `terraform apply` before P1
-  completion" rule is still in force unless the maintainer overrides
-  it in the current session.
-- Never run a destructive `terraform apply` against another tenant
-  from a session that is authenticated to a wrong profile. Confirm
-  the `az account show` output first (see `scripts/deployment/local/dev-status.sh`).
-- Do not add customer / tenant / subscription / resource identifiers
-  to this skill, to the repo, or to any docs. They live only in the
-  maintainer's `/memories/`. See
-  [.github/instructions/generic-scope.instructions.md](../../instructions/generic-scope.instructions.md).
+A changed target, signed kit, Foundation state, network handoff, Entra binding, provider context,
+or plan digest requires a new prepared context. Cleanup failure leaves the run incomplete and
+preserves its audit evidence.
+
+## Capability Mode
+
+A maintainer signing key is not an adopter prerequisite. If no verified deployment-bound token is
+available, the installation completes in observation-only mode and creates no license secret. The
+Core can observe and report but cannot execute managed-resource actions.
+
+A valid token does not bypass runtime promotion, risk policy, human approval, executor identity,
+rollback, or effect verification.
+
+## Release and Appliance Construction
+
+A release is built only from a clean exact revision after focused checks. The complete release
+builder may emit both the signed kit and appliance:
+
+```bash
+bash scripts/deployment/release/build-standalone-deployment-kit.sh \
+  --out /private/fdai-release \
+  --appliance-base-image <approved-base>@sha256:<digest>
+```
+
+The appliance base MUST be Linux x86-64, digest-pinned, independently approved, and already contain
+Python 3 with pip, Azure CLI, OpenSSH, and `tar`. Appliance construction verifies the complete kit,
+installs only from its wheelhouse, disables build network and base pulls, and emits OCI SBOM and
+provenance records.
+
+Never place signing keys, tenant identifiers, credentials, endpoints, or customer values in the
+image, repository, documentation, or logs.
+
+## Validation Gates
+
+Before reporting implementation completion, run the focused package, integration, shell, roadmap,
+and translation checks. Before reporting operational validation, retain both of these receipts:
+
+1. A connected active-login deployment from the exact signed release.
+2. An appliance-entry-point deployment with no public artifact access.
+
+Each receipt must prove target binding, exact plans and approvals, Foundation handoff, managed-host
+identity, image digest import and readback, migrations, service health, cleanup, and second-plan
+zero change. Broader model-capacity and inventory certification may keep
+`subscription_ready=false`; that state is independent from application deployment readiness.
+
+## Guardrails
+
+- Do not run Azure mutation or build a release artifact before the exact revision passes focused
+  checks and release preflight.
+- Confirm `az account show` identifies the intended subscription before mutation.
+- Do not use GitHub workflow dispatch as a tenant deployment transport.
+- Do not run private data-plane operations from an external workstation.
+- Do not use a system-assigned identity implicitly when a user-assigned deployment identity is
+  required.
+- Do not retry an ambiguous apply.
+- Do not weaken signature, exact-plan, approval, rollback, or readback controls to simplify the
+  one-command experience.
 
 ## Related
 
-- Deploy topology:
-  [docs/roadmap/deployment/deploy-and-onboard.md](../../../docs/roadmap/deployment/deploy-and-onboard.md).
-- CSP-neutrality and provider seams:
-  [docs/roadmap/architecture/csp-neutrality.md](../../../docs/roadmap/architecture/csp-neutrality.md).
-- App shape:
-  [.github/instructions/app-shape.instructions.md](../../instructions/app-shape.instructions.md).
-- Session snapshot:
-  [scripts/deployment/local/dev-status.sh](../../../scripts/deployment/local/dev-status.sh).
+- `docs/user-guide/deploy-quickstart.md`
+- `docs/roadmap/deployment/installable-deployment-cli.md`
+- `docs/roadmap/deployment/provisioning-execution-profiles.md`
+- `docs/roadmap/deployment/disconnected-deployment.md`
+- `docs/roadmap/deployment/deploy-and-onboard.md`

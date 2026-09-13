@@ -48,7 +48,13 @@ function toneColor(tone?: Tone): AdaptiveColor {
 }
 
 function riskStyle(risk: RiskLevel): ContainerStyle {
-  return risk === "LOW" ? "good" : risk === "MEDIUM" ? "warning" : "attention";
+  return risk === "LOW"
+    ? "good"
+    : risk === "MEDIUM"
+      ? "warning"
+      : risk === "HIGH"
+        ? "attention"
+        : "default";
 }
 
 function text(
@@ -110,7 +116,7 @@ export function renderTeams(blocks: readonly Block[]): AdaptiveCard {
             text(`${b.index}/${b.total} \u00b7 ${b.title}`, {
               weight: "Bolder",
             }),
-            text(`${b.actionType}  \u00b7  ${b.risk} risk - ${b.chip}`, {
+            text(`${b.actionType}  \u00b7  ${b.riskLabel} - ${b.chip}`, {
               isSubtle: true,
               spacing: "None",
             }),

@@ -121,6 +121,19 @@ def test_standalone_apply_rejects_expired_approval() -> None:
         standalone_host._validate_approval(review, approval, context=_context(review))
 
 
+def test_standalone_checkpoint_lock_allows_only_one_writer(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    first = standalone_host._acquire_checkpoint_lock(tmp_path)
+    try:
+        with pytest.raises(ValueError, match="already running"):
+            standalone_host._acquire_checkpoint_lock(tmp_path)
+    finally:
+        os.close(first)
+
+    second = standalone_host._acquire_checkpoint_lock(tmp_path)
+    os.close(second)
+
+
 def test_standalone_apply_rejects_tampered_review_and_context() -> None:
     review = _review()
     approval = {
@@ -201,6 +214,7 @@ def test_destructive_plan_requires_a_second_exact_confirmation(
     )
     answers = iter(("application-apply", "denied"))
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+    monkeypatch.setattr(standalone_application, "_wait_for_approval_input", lambda _timeout: None)
     monkeypatch.setattr(standalone_application, "_azure_actor_digest", lambda _binding: "d" * 64)
 
     with pytest.raises(ValueError, match="destructive"):
