@@ -49,7 +49,7 @@ Resource vocabulary changes. A stale artifact remains a CI failure, not runtime 
 
 Core runtime startup now projects Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,
 Property, and ActionType instances into one catalog-owned subgraph. Its taxonomy slice retains 11
-classes, 77 memberships, and 11 bounded specialization links over all 77 neutral ResourceTypes.
+classes, 112 memberships, and 11 bounded specialization links over all 112 neutral ResourceTypes.
 The pure builder rejects semantic or identity defects; atomic identical replay remains a no-op.
 
 The canonical release also declares `ControlObjective`, `RuleObjectiveBinding`, and

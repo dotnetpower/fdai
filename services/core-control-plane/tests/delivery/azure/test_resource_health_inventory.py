@@ -45,6 +45,7 @@ RESOURCE_HEALTH_PROVIDER_TYPES = {
     "metrics-workspace": "Microsoft.Monitor/accounts",
     "mysql-server": "Microsoft.DBforMySQL/flexibleServers",
     "network.application-gateway": "Microsoft.Network/applicationGateways",
+    "network.bastion-host": "Microsoft.Network/bastionHosts",
     "network.dns-resolver": "Microsoft.Network/dnsResolvers",
     "network.dns-resolver-inbound-endpoint": "Microsoft.Network/dnsResolvers/inboundEndpoints",
     "network.dns-zone": "Microsoft.Network/dnsZones",
@@ -54,11 +55,14 @@ RESOURCE_HEALTH_PROVIDER_TYPES = {
     "network.virtual-network-gateway": "Microsoft.Network/virtualNetworkGateways",
     "nosql-database": "Microsoft.DocumentDB/databaseAccounts",
     "object-storage": "Microsoft.Storage/storageAccounts",
+    "observability.dashboard-service": "Microsoft.Dashboard/grafana",
     "postgresql-server": "Microsoft.DBforPostgreSQL/flexibleServers",
     "redis-enterprise": "Microsoft.Cache/redisEnterprise",
     "secret-store": "Microsoft.KeyVault/vaults",
     "service-bus-namespace": "Microsoft.ServiceBus/namespaces",
+    "search-service": "Microsoft.Search/searchServices",
     "sql-database": "Microsoft.Sql/servers/databases",
+    "prometheus-rule-group": "Microsoft.AlertsManagement/prometheusRuleGroups",
 }
 
 

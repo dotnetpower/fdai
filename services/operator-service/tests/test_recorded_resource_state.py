@@ -390,7 +390,9 @@ def test_every_canonical_resource_type_has_a_reviewed_operational_state_outcome(
     [
         ("disk", "diskState", "Reserved"),
         ("disk-snapshot", "snapshotAccessState", "Available"),
+        ("network.registered-domain", "registrationStatus", "Active"),
         ("network.private-dns-zone-link", "virtualNetworkLinkState", "Completed"),
+        ("search-service", "status", "running"),
     ],
 )
 def test_resource_specific_state_paths_are_retained(
@@ -410,6 +412,24 @@ def test_resource_specific_state_paths_are_retained(
     )["operational"]
     assert fact["value"] == value
     assert fact["source_path"] == f"properties.{path}"
+    assert fact["freshness"] == "fresh"
+    assert fact["completeness"] == 1.0
+
+
+def test_vm_run_command_execution_state_is_retained() -> None:
+    fact = recorded_resource_states(
+        {"properties": {"instanceView": {"executionState": "Succeeded"}}},
+        resource_type="compute.vm-run-command",
+        observation=RecordedStateObservation(
+            generation="generation-1",
+            observed_at=datetime(2026, 9, 5, 0, 0, tzinfo=UTC),
+            recorded_at=datetime(2026, 9, 5, 0, 1, tzinfo=UTC),
+        ),
+        now=NOW,
+    )["operational"]
+
+    assert fact["value"] == "Succeeded"
+    assert fact["source_path"] == "properties.instanceView.executionState"
     assert fact["freshness"] == "fresh"
     assert fact["completeness"] == 1.0
 

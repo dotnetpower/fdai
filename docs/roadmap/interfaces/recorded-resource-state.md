@@ -148,9 +148,10 @@ the exact ResourceTypes whose ARM type is supported:
   machines, VM scale sets, Web Apps, and AKS clusters.
 - Data and platform coverage includes alert rules, API Management, Event Hubs, Azure AI service
   accounts, Log Analytics and metrics workspaces, MySQL, PostgreSQL, Azure SQL, Cosmos DB, Redis
-  Enterprise, Key Vault, Service Bus, and Storage accounts.
+  Enterprise, Key Vault, Service Bus, Storage accounts, managed Grafana, Prometheus rule groups,
+  and managed search services.
 - Network coverage includes Application Gateway, DNS Resolver and inbound endpoints, DNS zones,
-  Azure Firewall, Load Balancer, NAT Gateway, and Virtual Network Gateway.
+  Azure Firewall, Bastion hosts, Load Balancer, NAT Gateway, and Virtual Network Gateway.
 - `log-workspace` and several platform types have no single operational running state. Their
   operational axis remains not applicable or not exposed, while availability uses the exact ARM
   Resource Health status.
@@ -167,6 +168,9 @@ the exact ResourceTypes whose ARM type is supported:
   evidence cutoff. A successful HTTP response or parent-resource existence never implies `Ready`.
 - A failed, unauthorized, malformed, partial, or stale state read records the exact source
   limitation and never substitutes `provisioningState`, existence, or a previous unqualified value.
+- Every canonical ResourceType has a reviewed availability outcome: an exact Resource Health
+  source, not applicable, or no availability fact exposed by the current provider contract.
+  Downstream custom types remain explicitly unreviewed.
 - When a Resource Health target has no retained prior fact, its missing availability value carries
   exactly one allowlisted per-resource reason such as `resource_health_not_modeled`; provider response text
   never crosses the read boundary. A retained verified value remains authoritative over the newer
