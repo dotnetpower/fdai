@@ -47,7 +47,7 @@ External control planes are first-class dependencies:
 New preparation reads the full regional catalog using the signed
 [hardware policy](../../../infra/genesis-runner-image/vm-sku-policy.json). Preferences rank
 compatible x64/Gen2 hardware; unlisted compatible SKUs remain selectable.
-Policy reads hold a bounded no-follow descriptor, reject unsafe ownership/links/write modes, and detect in-read changes.
+Policy reads hold a bounded no-follow descriptor, reject unsafe ownership/links/write modes, and detect in-read changes. Unavailable CLI contexts fail before provider reads without exposing private paths.
 
 | Role | CPU and memory | OS disk |
 |------|----------------|---------|

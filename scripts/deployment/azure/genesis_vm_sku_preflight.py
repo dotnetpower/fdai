@@ -244,11 +244,15 @@ def capture_vm_metadata(
 
 
 def _environment() -> dict[str, str]:
-    azure = Path(os.environ.get("AZURE_CONFIG_DIR", str(Path.home() / ".azure"))).resolve(
-        strict=True
-    )
-    if not azure.is_dir() or azure.stat().st_mode & 0o022:
-        raise CheckError(EVIDENCE_INVALID, 3)
+    """Resolve the selected CLI context without exposing private paths on read failure."""
+    try:
+        azure = Path(os.environ.get("AZURE_CONFIG_DIR", str(Path.home() / ".azure"))).resolve(
+            strict=True
+        )
+        if not azure.is_dir() or azure.stat().st_mode & 0o022:
+            raise CheckError(EVIDENCE_INVALID, 3)
+    except OSError:
+        raise CheckError(EVIDENCE_INVALID, 3) from None
     return {
         "AZURE_CONFIG_DIR": str(azure),
         "HOME": str(azure.parent),
