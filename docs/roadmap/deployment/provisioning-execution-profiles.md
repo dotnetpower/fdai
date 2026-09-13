@@ -29,6 +29,7 @@ that applies before Terraform changes infrastructure or role assignments.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-13 | implemented | H14 closes the buffered-read gap in the prior download deadline: use available-data reads so a slow stream cannot fill a large buffer through many socket reads before the next total-budget check. | `current change`; real `BufferedReader`/synthetic raw-stream failure reproduced; the focused acquisition suite passes after using `read1` where supported. | The total deadline can overshoot by at most one bounded socket read; release and Azure receipts remain separate. |
 | 2026-09-13 | implemented | Completed 13 new critique rounds: eight production corrections and five experimentally rejected hypotheses with regressions. The bounded final review leaves no confirmed Medium-or-higher defect in acquisition, deadline/transport, approval input, and error presentation. | Commits `d8c4fa3a2` through `7e1f7a3f2`; 379 focused owning regressions passed; changed-source Ruff and strict typing; two read-only reviews plus the H13 counterexample. | Retained-copy disk accumulation is Low. Publish the hardened revision; Azure image recovery and convergence remain blocked and are not completed Low findings. |
 | 2026-09-13 | validated | Built and published development kit `deployment-v0.1.0-r2` from integrated `74743842facfd3c986d3e069e2ae8e6714147bae`; cold-installed and verified the same artifact through actual public download and both offline source forms. | Required CI `34741317737`; issue #803 evidence; archive SHA-256 `4be041e244dfbcd3b69ea117f2c8a995ef14f2ae1188f55ad6ca00849c09e223`; 11 isolated acceptance checks: 300 files, 48 installed payload files, six images, seven support packages, and 11 Terraform roots. | This accepted artifact predates the subsequent 13-round CLI hardening. No Azure apply or subscription-readiness receipt was produced. |
 | 2026-09-13 | implemented | Proved transfer exceptions stop the application immediately, preserve tunnel cleanup, and cannot reach a later command or ready receipt, even after expiry. | `current change`; integrated pre/post-expiry transfer-failure regressions passed without production changes. | The original failure is preserved rather than masked by a secondary expiry exception. |
@@ -101,7 +102,8 @@ not disconnected from the selected Azure control plane or Bastion endpoint.
 Offline retries reread the supplied source, reverify the retained snapshot, and use a fresh
 execution copy without replacing earlier state. Changed or incomplete bytes stop the retry.
 Online transfer progress cannot renew the 15-minute total download budget. Socket reads retain
-their 30-second bound; expiry removes only the newly created partial download and never retries.
+their 30-second bound; available-data reads return between underlying reads, and expiry removes
+only the newly created partial download without retrying. One in-flight socket read can outlast the total boundary by at most its own bound.
 
 The package pins the release and bundle verification roots independently from the kit. A complete
 kit contains the deployment bundle, Terraform and OPA, the provider mirror, runtime OCI archives,
