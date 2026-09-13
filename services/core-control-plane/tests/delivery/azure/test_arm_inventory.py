@@ -507,6 +507,34 @@ async def test_arm_fallback_rejects_cross_host_next_link() -> None:
             await query("compute.vm")
 
 
+async def test_arm_fallback_rejects_provider_type_that_conflicts_with_the_arm_id() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "id": (
+                            "/subscriptions/sub-1/resourceGroups/rg-1/providers/"
+                            "Microsoft.Compute/virtualMachines/vm-1"
+                        ),
+                        "type": "Microsoft.Storage/storageAccounts",
+                    }
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        query = AzureArmInventoryFactory(
+            identity=_identity(),
+            resource_types=_vocabulary(),
+            http_client=client,
+            config=AzureArmInventoryFactoryConfig(subscription_scopes=("sub-1",)),
+        ).build_query_fn()
+        with pytest.raises(ArmInventoryError, match="conflicting provider type"):
+            await query("compute.vm")
+
+
 @pytest.mark.parametrize(
     "payload",
     [

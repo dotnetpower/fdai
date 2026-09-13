@@ -30,13 +30,18 @@ _SUBNET_TYPE: Final[str] = "network.subnet"
 _SUBNET_ARM_TYPE: Final[str] = "Microsoft.Network/virtualNetworks/subnets"
 _MAX_ARM_SUBSCRIPTION_CHARS: Final[int] = 128
 _MAX_ARM_RESOURCE_GROUP_CHARS: Final[int] = 90
+_MAX_ARM_PROVIDER_TYPE_CHARS: Final[int] = 512
 _RELATIONSHIP_MAPPING_ROOT: Final[Path] = Path(
     "rule-catalog/vocabulary/provider-relationship-mappings"
 )
 _LOGGER = logging.getLogger(__name__)
 
 
-class ArmScopeError(ValueError):
+class ArmIdentityError(ValueError):
+    """An Azure row contradicts its provider identity."""
+
+
+class ArmScopeError(ArmIdentityError):
     """An Azure row contradicts the scope encoded in its provider identity."""
 
 
@@ -406,6 +411,32 @@ def arm_id_to_type(arm_id: str) -> str | None:
     if not type_segments:
         return None
     return f"{provider}/{'/'.join(type_segments)}"
+
+
+def arm_provider_type(arm_id: str, supplied: object = None) -> str:
+    """Return a bounded provider type that exactly matches the ARM id."""
+
+    derived = arm_id_to_type(arm_id)
+    if (
+        derived is None
+        or len(derived) > _MAX_ARM_PROVIDER_TYPE_CHARS
+        or any(ord(character) < 32 for character in derived)
+    ):
+        raise ArmIdentityError("ARM provider type is malformed")
+    if supplied is None:
+        return derived
+    if not isinstance(supplied, str):
+        raise ArmIdentityError("ARM provider type is malformed")
+    candidate = supplied.strip()
+    if (
+        not candidate
+        or len(candidate) > _MAX_ARM_PROVIDER_TYPE_CHARS
+        or any(ord(character) < 32 for character in candidate)
+    ):
+        raise ArmIdentityError("ARM provider type is malformed")
+    if candidate.casefold() != derived.casefold():
+        raise ArmIdentityError("ARM provider type conflicts with the provider id")
+    return candidate
 
 
 def extract_attached_to_links_from_row(

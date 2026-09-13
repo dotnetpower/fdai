@@ -82,7 +82,10 @@ from urllib.parse import urlparse
 import httpx
 
 from fdai.delivery.azure.arg_projection import (
+    ArmIdentityError,
     ArmScopeError,
+    arm_provider_type,
+    arm_scope_properties,
     resource_operational_status,
     reviewed_containment_parent,
     validated_arm_scope,
@@ -629,9 +632,19 @@ class AzureArgQueryFactory:
         arm_type = self._resource_types.get(resource_type).azure_arm_type
         if arm_type is None:
             return None
+        provider_type = arm_type
+        if resource_type not in {"resource-group", "subscription"}:
+            try:
+                provider_type = arm_provider_type(arm_id, row.get("type"))
+            except ArmIdentityError as exc:
+                raise ArgQueryError(
+                    f"ARG row for {resource_type!r} has conflicting provider type"
+                ) from exc
+            if provider_type.casefold() != arm_type.casefold():
+                raise ArgQueryError(f"ARG row for {resource_type!r} has conflicting provider type")
         resolved_type = resolve_azure_resource_type(
             self._resource_types,
-            arm_type=arm_type,
+            arm_type=provider_type,
             kind=row.get("kind"),
         )
         if (
@@ -649,9 +662,19 @@ class AzureArgQueryFactory:
             return None
 
         neutral_id = _to_neutral_id(arm_id)
+<<<<<<< HEAD
         scope_error = ArgQueryError(f"ARG {resource_type!r} row has conflicting provider scope")
         scope = validated_arm_scope(arm_id, row, scope_error)
         props: dict[str, Any] = {"providerType": arm_type}
+=======
+        try:
+            scope = arm_scope_properties(arm_id, row)
+        except ArmScopeError as exc:
+            raise ArgQueryError(
+                f"ARG row for {resource_type!r} has conflicting provider scope"
+            ) from exc
+        props: dict[str, Any] = {"providerType": provider_type}
+>>>>>>> 2f0cd7034 (harden(inventory): reject contradictory ARM identities)
         subscription_id = row.get("subscriptionId")
         if isinstance(subscription_id, str) and subscription_id:
             props["subscriptionId"] = subscription_id
@@ -682,7 +705,7 @@ class AzureArgQueryFactory:
             props["properties"] = nested_schedule
 
         props = _truncate_props(props, max_bytes=self._config.max_props_bytes)
-        props["providerType"] = arm_type
+        props["providerType"] = provider_type
         props.update(scope)
         # Lifted after truncation so the containment anchor survives a large
         # vendor payload; `Resource.parent_id` is what scoped questions read.

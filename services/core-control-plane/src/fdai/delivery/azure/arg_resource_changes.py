@@ -81,7 +81,11 @@ from uuid import UUID
 import httpx
 
 from fdai.delivery.azure.arg_projection import (
+    ArmIdentityError,
+    ArmScopeError,
     arm_id_to_type,
+    arm_provider_type,
+    arm_scope_properties,
     build_arm_to_neutral_map,
     resource_operational_status,
     reviewed_containment_parent,
@@ -553,6 +557,12 @@ class AzureResourceChangeFeed:
         arm_type = row.get("type")
         if not isinstance(arm_type, str) or not arm_type.strip():
             raise ArgResourceChangeError("resourcechanges hydration row lacks a provider type")
+        try:
+            arm_type = arm_provider_type(arm_id, arm_type)
+        except ArmIdentityError as exc:
+            raise ArgResourceChangeError(
+                "resourcechanges hydration type conflicts with its provider id"
+            ) from exc
         resolved_type = resolve_azure_resource_type(
             self._resource_types, arm_type=arm_type, kind=row.get("kind")
         )

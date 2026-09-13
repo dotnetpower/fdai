@@ -1651,6 +1651,37 @@ async def test_inventory_rejects_scope_that_conflicts_with_the_arm_id() -> None:
             await factory.build_query_fn()("object-storage")
 
 
+@pytest.mark.asyncio
+async def test_inventory_rejects_provider_type_that_conflicts_with_the_arm_id() -> None:
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.Storage/storageAccounts/example"
+    )
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    _arm_row(
+                        arm_id=arm_id,
+                        arm_type="Microsoft.Compute/virtualMachines",
+                    )
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        )
+        with pytest.raises(ArgQueryError, match="conflicting provider type"):
+            await factory.build_query_fn()("object-storage")
+
+
 # ---------------------------------------------------------------------------
 # Empty ARM type (legitimate no-op)
 # ---------------------------------------------------------------------------

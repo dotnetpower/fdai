@@ -67,7 +67,9 @@ from uuid import UUID
 import httpx
 
 from fdai.delivery.azure.arg_projection import (
+    ArmIdentityError,
     ArmScopeError,
+    arm_provider_type,
     arm_scope_properties,
     extract_rg_contains_links,
 )
@@ -324,6 +326,12 @@ class AzureActivityLogFactory:
         arm_type = _nested_value(event, "resourceType") or _arm_type_from_id(arm_id)
         if not arm_type:
             return None
+        try:
+            arm_type = arm_provider_type(arm_id, arm_type)
+        except ArmIdentityError as exc:
+            raise ActivityLogError(
+                "Activity Log resource type conflicts with its provider id"
+            ) from exc
         neutral_type = self._arm_to_neutral.get(arm_type.lower())
         if neutral_type is None:
             # Not a vocabulary type the full-scan tracks - drop it rather

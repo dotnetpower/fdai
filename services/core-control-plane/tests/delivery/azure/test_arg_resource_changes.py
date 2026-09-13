@@ -409,6 +409,43 @@ async def test_child_hydration_preserves_reviewed_provider_parent() -> None:
 
 
 @pytest.mark.asyncio
+async def test_hydration_rejects_type_that_conflicts_with_the_arm_id() -> None:
+    arm_id = _arm_id("Microsoft.Compute/virtualMachines", "vm-one")
+
+    async def on_changes(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [
+                _change_row(
+                    change_id="c1",
+                    change_time="2026-07-10T06:00:00Z",
+                    change_type="Update",
+                    arm_id=arm_id,
+                    arm_type="Microsoft.Compute/virtualMachines",
+                )
+            ]
+        )
+
+    async def on_hydration(_request: httpx.Request) -> httpx.Response:
+        return _changes_response(
+            [
+                _hydration_row(
+                    arm_id=arm_id,
+                    arm_type="Microsoft.Storage/storageAccounts",
+                )
+            ]
+        )
+
+    feed, client, _ = _factory(
+        _router(on_changes=on_changes, on_hydration=on_hydration),
+    )
+    try:
+        with pytest.raises(ArgResourceChangeError, match="conflicts"):
+            await feed.poll("")
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_ambiguous_arm_type_is_resolved_from_hydrated_kind() -> None:
     arm_type = "Microsoft.Web/sites"
     arm_id = _arm_id(arm_type, "function-a")
