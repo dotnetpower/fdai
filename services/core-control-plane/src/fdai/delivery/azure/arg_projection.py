@@ -199,6 +199,10 @@ def resource_operational_status(row: Mapping[str, Any]) -> str | None:
     extended_properties = extended if isinstance(extended, Mapping) else {}
     instance_view = extended_properties.get("instanceView")
     instance_view_properties = instance_view if isinstance(instance_view, Mapping) else {}
+    direct_instance_view = nested.get("instanceView")
+    direct_instance_view_properties = (
+        direct_instance_view if isinstance(direct_instance_view, Mapping) else {}
+    )
     for value in (
         row.get("powerState"),
         row.get("state"),
@@ -214,6 +218,8 @@ def resource_operational_status(row: Mapping[str, Any]) -> str | None:
         nested.get("userVisibleState"),
         nested.get("resourceState"),
         nested.get("virtualNetworkLinkState"),
+        direct_instance_view_properties.get("executionState"),
+        nested.get("registrationStatus"),
     ):
         state = _state_text(value)
         if state is not None:

@@ -210,8 +210,11 @@ async def test_inventory_promotes_nested_service_state_to_status() -> None:
 @pytest.mark.parametrize(
     ("properties", "expected"),
     [
+        ({"instanceView": {"executionState": "Succeeded"}}, "Succeeded"),
         ({"diskState": "Reserved"}, "Reserved"),
+        ({"registrationStatus": "Active"}, "Active"),
         ({"snapshotAccessState": "Available"}, "Available"),
+        ({"status": "running"}, "running"),
         ({"virtualNetworkLinkState": "Completed"}, "Completed"),
     ],
 )

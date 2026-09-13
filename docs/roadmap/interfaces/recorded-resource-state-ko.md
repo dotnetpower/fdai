@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: ee3bea7aa2f6de4ed7e09636f0aeee07a029cc66
+translation_source_sha: b12c994392db7a6ff7de702c55cdc39862577ad7
 translation_revised: 2026-09-13
 ---
 # 기록된 리소스 상태
@@ -143,9 +143,11 @@ ResourceType을 선언합니다.
   VM scale set, Web Apps 및 AKS 클러스터가 포함됩니다.
 - 데이터 및 플랫폼 범위에는 경고 규칙, API Management, Event Hubs, Azure AI 서비스 계정,
   Log Analytics 및 메트릭 작업 영역, MySQL, PostgreSQL, Azure SQL, Cosmos DB, Redis Enterprise,
-  Key Vault, Service Bus 및 Storage 계정이 포함됩니다.
+  Key Vault, Service Bus, Storage 계정, Managed Grafana, Prometheus 규칙 그룹 및 관리형 검색
+  서비스가 포함됩니다.
 - 네트워크 범위에는 Application Gateway, DNS Resolver 및 인바운드 엔드포인트, DNS 영역,
-  Azure Firewall, Load Balancer, NAT Gateway 및 Virtual Network Gateway가 포함됩니다.
+  Azure Firewall, Bastion 호스트, Load Balancer, NAT Gateway 및 Virtual Network Gateway가
+  포함됩니다.
 - `log-workspace`와 일부 플랫폼 유형에는 하나의 운영 실행 상태가 없습니다. 운영 축은 적용 대상이
   아니거나 공급자가 제공하지 않은 상태를 유지하고, 가용성 축은 정확한 ARM Resource Health
   상태를 사용합니다.
@@ -162,6 +164,9 @@ ResourceType을 선언합니다.
   유지합니다. HTTP 응답 성공이나 상위 리소스 존재 여부로 `Ready`를 추론하지 않습니다.
 - 실패, 권한 부족, 잘못된 형식, 일부 범위 또는 오래된 상태 조회는 정확한 출처 제한을 기록합니다.
   `provisioningState`, 존재 여부 또는 설명이 없는 이전 값으로 대체하지 않습니다.
+- 모든 표준 ResourceType에는 정확한 Resource Health 출처, 적용 대상 아님 또는 현재 공급자
+  계약에서 가용성 사실 미제공 중 하나로 검토된 가용성 결과가 있습니다. 하위 포크의 사용자 지정
+  유형은 명시적으로 미검토 상태를 유지합니다.
 - Resource Health 대상에 유지할 이전 사실이 없으면 누락된 가용성 값에
   `resource_health_not_modeled` 같은 허용 목록 기반 리소스별 사유를 정확히 하나 기록합니다. 공급자 응답
   원문은 조회 경계를 통과하지 않습니다. 이전에 검증된 값이 있으면 그 값이 더 새로운 실패
