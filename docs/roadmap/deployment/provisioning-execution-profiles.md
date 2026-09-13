@@ -29,6 +29,7 @@ that applies before Terraform changes infrastructure or role assignments.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-13 | implemented | Proved local-directory acquisition executes the authenticated private snapshot, not later changes to the original bundle; a later retry rejects that changed source. | `current change`; deterministic source-replacement regression passed without production changes. | Preserve signature and complete snapshot checks in both modes. |
 | 2026-09-13 | implemented | Proved that replacing an archive pathname cannot redirect the extractor's held original descriptor; no production change was needed. | `current change`; deterministic open-inode replacement regression passed. | In-place content changes remain subject to signature and snapshot checks. |
 | 2026-09-13 | implemented | Reverify local archive and directory retries against the retained exact snapshot while creating a fresh execution copy and preserving previous evidence. | `current change`; two reproduced retry failures and four offline retry/tamper checks; owning acquisition suite. | Deliver the new CLI; retained partial applies still need separately approved recovery. |
 | 2026-09-13 | implemented | Reject non-Linux POSIX hosts before either artifact acquisition mode, rather than treating x64 macOS or FreeBSD as Linux. | `current change`; five focused host-boundary regressions, including the four previously failing cases. | Publish the corrected CLI; Azure convergence remains separate. |

@@ -388,3 +388,27 @@ def test_offline_retry_rejects_changed_source_without_fallback(
         deployment_kit.acquire_deployment_kit(work_dir=work, online=False, offline_kit=source)
     assert requests == []
     assert (first.materialized_root / "bin/opa").read_bytes() == original
+
+
+def test_offline_directory_execution_uses_authenticated_snapshot(
+    online_release, release, monkeypatch
+):
+    work, requests, _payload = online_release
+    source = release[0]
+    original = next((source / "deployment").glob("*.tar.gz"))
+    expected = original.read_bytes()
+    extract = deployment_kit.extract_bundle_archive
+
+    def change_original_after_snapshot(archive, destination):
+        assert archive.is_relative_to(work / "verified")
+        original.write_bytes(b"untrusted concurrent source replacement")
+        assert archive.read_bytes() == expected
+        return extract(archive, destination)
+
+    monkeypatch.setattr(deployment_kit, "extract_bundle_archive", change_original_after_snapshot)
+    kit = deployment_kit.acquire_deployment_kit(work_dir=work, online=False, offline_kit=source)
+    assert kit.bundle_root.is_dir()
+    assert requests == []
+    assert original.read_bytes() == b"untrusted concurrent source replacement"
+    with pytest.raises(ValueError):
+        deployment_kit.acquire_deployment_kit(work_dir=work, online=False, offline_kit=source)
