@@ -29,6 +29,7 @@ that applies before Terraform changes infrastructure or role assignments.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-13 | implemented | Corrected Foundation discovery after Azure CLI selected a Network API unavailable in an existing resource's region. Route-table and local-gateway detail reads now pin `2024-05-01` without changing inventory scope, failure handling, or approval. | `current change`; `test_genesis_network_api.py`, `test_genesis_network_layout.py`, and `test_genesis_prepare.py`: 32 passed; Ruff, format, strict typing, and a bounded read-only provider check passed. | Publish and verify a replacement signed kit; r3 retains its original bytes. No apply or recovery was performed, and deployment convergence remains open. |
 | 2026-09-13 | validated | Published and installed `deployment-v0.1.0-r3`, including all 14 additional rounds (nine production corrections and five rejected hypotheses with regressions). Both protected PRs merged and exact-source main CI completed successfully. | PR #918 and #920; source `3b4c088ea20d1d77770912394141847bf9940886`; CI `34746227767`; archive SHA-256 `7b454ff37833d7f5c665fddb1f7954c99f8ebeda363c3a3d807f9707e4c6f82b`; 11 no-network acceptance checks for 304 files, 59 installed payload files, six images, seven support packages, and 11 Terraform roots; actual public download and network-denied online/offline retry checks. | The bounded reviewed slice has no confirmed Medium-or-higher defect; retained-copy accumulation is Low. Azure SKU eligibility and separately approved partial-image recovery/convergence remain blocked. The prerelease requires explicit artifact selection. |
 | 2026-09-13 | implemented | H14 closes the buffered-read gap in the prior download deadline: use available-data reads so a slow stream cannot fill a large buffer through many socket reads before the next total-budget check. | `current change`; real `BufferedReader`/synthetic raw-stream failure reproduced; the focused acquisition suite passes after using `read1` where supported. | The total deadline can overshoot by at most one bounded socket read; release and Azure receipts remain separate. |
 | 2026-09-13 | implemented | Completed 13 new critique rounds: eight production corrections and five experimentally rejected hypotheses with regressions. The bounded final review leaves no confirmed Medium-or-higher defect in acquisition, deadline/transport, approval input, and error presentation. | Commits `d8c4fa3a2` through `7e1f7a3f2`; 379 focused owning regressions passed; changed-source Ruff and strict typing; two read-only reviews plus the H13 counterexample. | Retained-copy disk accumulation is Low. Publish the hardened revision; Azure image recovery and convergence remain blocked and are not completed Low findings. |
@@ -67,6 +68,7 @@ that applies before Terraform changes infrastructure or role assignments.
 - [ ] Complete the TUF root ceremony and package bootstrap, with signed root and rotation evidence accepted by the offline trust ceremony.
 - [x] Build and reverify one complete signed kit from a clean snapshot, then cold-install its CLI and acquire the same kit through both online and local artifact paths. Evidence: `deployment-v0.1.0-r2` and the 2026-09-13 artifact checkpoint above.
 - [x] Publish a replacement complete kit containing the subsequent CLI hardening and repeat exact installed-artifact acceptance. Evidence: `deployment-v0.1.0-r3` includes H01-H14, all 59 default-installed payload files match its signed wheel, and the prior installation was backed up.
+- [ ] Publish and verify a replacement signed kit containing the stable Network API correction, then confirm Foundation discovery from that exact artifact without treating discovery as deployment readiness.
 - [ ] Retain target-bound Foundation and application convergence receipts from both active-login modes without claiming whole-subscription readiness.
 - [ ] Build one deployment appliance from an approved digest-pinned base, verify its SBOM and provenance, and retain an artifact-offline Azure deployment receipt from the image entry point.
 
@@ -112,6 +114,11 @@ Console content, migration support, and their software bills of materials. Signa
 platform, source-revision, and runtime-content verification completes before Azure mutation.
 The current managed-host image and complete-kit builder support Linux x86_64. Other host
 operating systems or architectures fail before either acquisition mode; POSIX alone is not Linux.
+
+Foundation network discovery reads existing route tables and local network gateways across the
+selected subscription using the stable Network API `2024-05-01`. It does not let Azure CLI select
+a newer version that may be unavailable in an existing resource's region. A failed read still
+blocks discovery; it never drops a reservation, registers a provider, or retries another version.
 
 For a private route, the signed-in human performs only the bounded Foundation control-plane apply.
 The resulting Bastion-reachable VM uses a user-assigned managed identity and a manual-host image
