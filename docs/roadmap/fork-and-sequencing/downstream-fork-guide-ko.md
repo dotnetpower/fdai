@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 573d55b5736aa46acf5316933522a8ac1629c7bd
+translation_source_sha: e67275b60a5f0ee514de05332b863332cf3d27e2
 translation_revised: 2026-09-13
 ---
 
@@ -244,7 +244,8 @@ focused owner 문서를 사용하세요.
 보호된 Cost Governance 수명 주기, 관찰 및 독립 검토 workflow도 업스트림 전달 제어입니다.
 포크는 지원되는 패키지, 프로바이더, 정책 데이터 및 배포 입력을 제공할 수 있지만 해당 workflow의
 이름을 바꾸거나 로컬 근거를 실제 근거로 다시 표시하거나 검토 증적 정의를 교체하거나 원본 증적
-재생 의미를 바꾸거나 독립 검토를 우회할 수 없습니다.
+재생 의미를 바꾸거나 독립 검토를 우회할 수 없습니다. 또한 관찰 workflow의 root
+lockfile-frozen 검증 toolchain을 교체할 수 없습니다.
 
 **새 비즈니스-오브젝트 버티컬 구축**: non-Resource ObjectType
 수명 주기 (아키텍처-리뷰 제안, compliance-attestation 레코드,

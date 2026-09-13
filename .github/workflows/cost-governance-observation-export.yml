@@ -197,10 +197,10 @@ jobs:
           set -euo pipefail
           ontology_log="$RUNNER_TEMP/cost-governance-ontology-qualification.txt"
           parity_log="$RUNNER_TEMP/cost-governance-parity-qualification.txt"
-          uv run --frozen python \
+          uv run --frozen --extra dev python \
             scripts/quality/architecture/check-cost-governance-semantic-profile.py \
             | tee "$ontology_log"
-          uv run --frozen pytest -q --no-cov \
+          uv run --frozen --extra dev pytest -q --no-cov \
             extensions/cost-governance/tests/test_parity.py \
             | tee "$parity_log"
           qualification="$RUNNER_TEMP/cost-governance-release-qualification.json"
