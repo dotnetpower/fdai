@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 275152c4fc36a318c2b1f27a921fc18777c3106d
-translation_revised: 2026-09-13
+translation_source_sha: 076e52d6962e861e6ddd541e654deefde465c995
+translation_revised: 2026-09-14
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -196,7 +196,7 @@ translation_revised: 2026-09-13
 | Azure 및 인시던트 의미 판단 | validated | `semantic_judgment.py`, `semantic_judgment_grounding.py`, shadow 프롬프트 v9-v14, v41, exact-source 집단 `a5d3627b3` | 16-case v14 shadow 집단은 주 의도, 대상 추출, 범위 유효성, 명확화 정밀도 및 보조 의도 재현율에서 100%를 달성했고 모든 안전 계수는 0이었습니다. 이는 범위가 제한된 판단 집단의 검증이며 enforce 승격 또는 frame-plan 운영 준비 상태를 뜻하지 않습니다. |
 | 출처가 결속된 운영 preflight | implemented | `conversation-preflight.v9.yaml`, `conversation_preflight.py`, `conversation_preflight_validation.py`, `semantic_planning.py`, 집중 테스트, Ruff 및 strict mypy | 검토된 운영 형식은 직렬 전체 의미 판단 호출 하나를 제거할 수 있습니다. 낮은 확신도, 맥락 의존, 오래됨, 잘못된 형식, 지원되지 않음, 신원 불일치 또는 일반 범주 제안은 전체 의미 판단을 유지하거나 frame/provider I/O 전에 Resource 신원 명확화를 반환합니다. |
 | 서비스 간 의미 계약 및 Core 처리 | 구현됨 | `semantic_turn.py`, `semantic_turn_consumer.py`, `semantic_turn_processor.py`, 통과한 의미 경로 테스트 88개 | 버전 1.2 요청은 90초로 제한되고 결과는 멱등성을 보장하며 점유를 복구할 수 있습니다. Rule 결과는 실행 권한이 없는 후보 전용으로 유지됩니다. |
-| Operator 영속성과 Rule 변환 결과 | 구현됨 | `semantic_turn.py`, `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, `test_semantic_turn_bridge.py`, 통과한 의미 경로 테스트 및 롤백 전용 PostgreSQL 트랜잭션 검사 | 유효한 호출자 제공 요청 UUID를 의미 묶음과 상관관계 신원 전체에서 보존하면서 멱등성 키는 분리합니다. Kafka partition key는 서버에서 파생한 불투명한 session 참조를 사용하므로 원시 session id를 노출하지 않으면서 같은 session의 turn 순서를 유지하고 다른 session을 독립적으로 예약할 수 있습니다. 요청 UUID를 생략하면 재시도에도 안정적인 결정론적 대체값을 사용합니다. 발신함과 결과 점유를 복구할 수 있고 잘못된 소유권은 안전하게 차단됩니다. 재생 순서는 타임스탬프를 인식하며 exact Rule 읽기는 principal과 조회 다이제스트로 격리됩니다. `SemanticTurnBridge`는 권위 있는 저장소와 의미 전송이 있을 때만 활성화되고, 로컬 서술기가 구성되면 주기적 갱신은 독립적인 Operator 수명 주기 서비스로 유지됩니다. |
+| Operator 영속성과 Rule 변환 결과 | 구현됨 | `semantic_turn.py`, `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, `test_semantic_turn_bridge.py`, 통과한 의미 경로 테스트 및 롤백 전용 PostgreSQL 트랜잭션 검사 | 유효한 호출자 제공 요청 UUID를 의미 묶음과 상관관계 신원 전체에서 보존하면서 멱등성 키는 분리합니다. Kafka partition key는 서버에서 파생한 불투명한 session 참조를 사용하므로 원시 session id를 노출하지 않으면서 같은 session의 turn 순서를 유지하고 다른 session을 독립적으로 예약할 수 있습니다. 요청 UUID를 생략하면 재시도에도 안정적인 결정론적 대체값을 사용합니다. 명시적 인시던트 맥락은 `incident_id`와 `correlation_id`를 모두 포함할 때만 수락하며, 일부 신원만 있는 요청은 바인딩되지 않은 전환으로 낮추지 않고 거부합니다. 발신함과 결과 점유를 복구할 수 있고 잘못된 소유권은 안전하게 차단됩니다. 재생 순서는 타임스탬프를 인식하며 exact Rule 읽기는 principal과 조회 다이제스트로 격리됩니다. `SemanticTurnBridge`는 권위 있는 저장소와 의미 전송이 있을 때만 활성화되고, 로컬 서술기가 구성되면 주기적 갱신은 독립적인 Operator 수명 주기 서비스로 유지됩니다. |
 | 증적에 결속된 답변 전달 | 구현됨 | `semantic_turn_runtime.py`, `backend-stream.ts`, `test_semantic_turn_bridge.py`, `backend-stream-fallback.test.ts`, 서비스 간 왕복 검사 | 검증된 의미 답변은 의미 증적 및 근거 참조에 결속된 누적 `confirmed` 구획으로 스트리밍됩니다. 구획별 재생은 확인된 구획 다음부터 다시 시작합니다. Console은 충돌하는 내용을 표시하지 않고 증적, 근거, 텍스트 또는 최종 답변 불일치를 차단합니다. 내보낸 문서와 검증된 증적 계약이 없는 답변은 참고용 토큰 스트림으로 유지됩니다. |
 | 과거 토폴로지 영속성과 발행 | 구현됨 | `inventory_topology_history.py`, `postgres_topology_history.py`, `inventory_sync_cli.py`, 통과한 범위가 제한된 인벤토리/토폴로지 테스트 31개 | 완전한 승격 관측은 bitemporal 개정 번호를 하나의 트랜잭션으로 추가합니다. 과거/현재 파생 쓰기는 서로 독립적으로 시도하며 불완전한 관측은 완전한 과거 기준선을 만들 수 없습니다. |
 | Temporal, metric 및 근거 프로바이더 조립 | 구현됨 | `wire_semantic_query.py`, `bootstrap.py`, `bootstrap_bindings.py`, `test_wire_semantic_query.py`, `test_bootstrap_config.py`, 통과한 focused 조립 및 프로바이더 선택 테스트 16개 | 하나의 핸들러 맵이 검증기 가용성과 실행을 함께 제어합니다. 운영 환경은 상태 저장소 DSN에서 PostgreSQL 이력을 연결하고 검토된 레지스트리와 no-op이 아닌 프로바이더가 모두 있을 때만 metric/evidence 핸들러를 연결합니다. |

@@ -610,8 +610,11 @@ only when its rule id, action type, and fixed check reference still match. Idemp
   `core-operator-projection` 1.4 adds the typed `direct_response` terminal disposition for a closed
   social intent. Its bounded text comes from the schema-validated semantic judgment model and
   carries no query digests, evidence references, verification claims, or authority.
-  The bound incident read path passes canonical `incident_id` and audit `correlation_id` as
-  separate `query.incident_evidence` arguments and preserves both in its no-authority result.
+  The Operator accepts a bound Incident context only when both `incident_id` and
+  `correlation_id` are present, so partial identity is rejected instead of becoming an unbound
+  semantic turn. The bound incident read path passes canonical `incident_id` and audit
+  `correlation_id` as separate `query.incident_evidence` arguments and preserves both in its
+  no-authority result.
   Resource discovery similarly separates immutable `DiscoveryIntent`, `DiscoveryQueryPlan`,
   provider observations, execution receipts, command explanations, and coverage receipts. Core
   compares only provider-neutral scope, predicate, output, completeness, and equivalence fields;
