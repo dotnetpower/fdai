@@ -122,6 +122,14 @@ export function shouldDeferDeckOpen(
   return detail?.onlyWhenIdle === true && (inFlight || draft.trim().length > 0);
 }
 
+/** Distinguish an absent binding from an explicitly malformed incident binding. */
+export function resolveDeckOpenIncidentBinding(
+  detail: DeckOpenDetail | undefined,
+): IncidentConversationBinding | null | undefined {
+  if (detail?.binding === undefined) return undefined;
+  return normalizeIncidentBinding(detail.binding);
+}
+
 export function useCommandDeckEvents(options: EventsOptions) {
   const {
     open,
@@ -276,7 +284,12 @@ export function useCommandDeckEvents(options: EventsOptions) {
       const briefing = typeof detail?.openingBriefing === "string"
         ? detail.openingBriefing.trim()
         : "";
-      const incidentBinding = normalizeIncidentBinding(detail?.binding) ?? undefined;
+      const resolvedIncidentBinding = resolveDeckOpenIncidentBinding(detail);
+      if (resolvedIncidentBinding === null) {
+        event.preventDefault();
+        return;
+      }
+      const incidentBinding = resolvedIncidentBinding ?? undefined;
       const requestedMode = detail?.contextMode === "general" ||
         incidentBinding !== undefined || detail?.targetAgent ? "general" : "screen";
       const { key, label, contextAgent, kind, hydrateDurable } = resolveDeckOpenSession(

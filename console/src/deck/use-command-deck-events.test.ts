@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { resolveDeckOpenSession, shouldDeferDeckOpen } from "./use-command-deck-events";
+import {
+  resolveDeckOpenIncidentBinding,
+  resolveDeckOpenSession,
+  shouldDeferDeckOpen,
+} from "./use-command-deck-events";
 import {
   resolveConversationSummary,
   synchronizeConversationSummary,
@@ -206,5 +210,34 @@ describe("shouldDeferDeckOpen", () => {
   it("removes transient investigation activity from a direct response", () => {
     expect(submitSource).toContain("isSemanticDirectResponseSource(reply.source)");
     expect(submitSource).toContain("current.filter((turn) => !activityTurnIds.has(turn.id))");
+  });
+});
+
+describe("resolveDeckOpenIncidentBinding", () => {
+  it("distinguishes an absent binding from a malformed binding", () => {
+    expect(resolveDeckOpenIncidentBinding({ prompt: "status" })).toBeUndefined();
+    expect(resolveDeckOpenIncidentBinding({
+      binding: {
+        kind: "incident",
+        incidentId: "",
+        correlationId: "corr-1",
+      },
+    })).toBeNull();
+    expect(resolveDeckOpenIncidentBinding({
+      binding: {
+        kind: "incident",
+        incidentId: "INC-1",
+        correlationId: "corr-1",
+      },
+    })).toEqual({
+      kind: "incident",
+      incidentId: "INC-1",
+      correlationId: "corr-1",
+    });
+  });
+
+  it("rejects a malformed explicit binding before automatic submission", () => {
+    expect(source).toContain("if (resolvedIncidentBinding === null)");
+    expect(source).toContain("event.preventDefault();");
   });
 });
