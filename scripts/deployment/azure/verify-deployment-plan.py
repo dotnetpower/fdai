@@ -69,6 +69,13 @@ _COST_GOVERNANCE_POST_APPLY_OBSERVATIONS = [
     "terraform-zero-change",
     "cost-governance-job-image-readback",
 ]
+_PROVIDER_SCHEMA_POST_APPLY_OBSERVATIONS = [
+    "terraform-zero-change",
+    "provider-schema-core-baseline",
+    "provider-schema-job-execution",
+    "provider-schema-durable-generation",
+    "provider-schema-agent-review",
+]
 _MODEL_BINDING_FIELDS = frozenset(
     {
         "binding_policy_environment",
@@ -134,8 +141,9 @@ def verify_plan(
     runtime_image_profile = (
         runtime_image.get("profile") if isinstance(runtime_image, dict) else "core-control-plane"
     )
+    request_id = metadata.get("request_id")
+    provider_schema = isinstance(request_id, str) and request_id.startswith("plan-provider-")
     if has_plan_summary:
-        request_id = metadata.get("request_id")
         _verify_plan_summary(
             metadata["plan_summary"],
             allow_state_only_replace=(
@@ -144,9 +152,13 @@ def verify_plan(
             ),
         )
         expected_observations = (
-            _COST_GOVERNANCE_POST_APPLY_OBSERVATIONS
-            if runtime_image_profile == "cost-governance"
-            else _CORE_POST_APPLY_OBSERVATIONS
+            _PROVIDER_SCHEMA_POST_APPLY_OBSERVATIONS
+            if provider_schema
+            else (
+                _COST_GOVERNANCE_POST_APPLY_OBSERVATIONS
+                if runtime_image_profile == "cost-governance"
+                else _CORE_POST_APPLY_OBSERVATIONS
+            )
         )
         if metadata["post_apply_observations"] != expected_observations:
             raise PlanVerificationError("plan metadata post-apply observations are invalid")
@@ -192,6 +204,16 @@ def verify_plan(
             raise PlanVerificationError("plan metadata runtime image digest is invalid")
         if not isinstance(image_profile, str) or image_profile not in _RUNTIME_IMAGE_PROFILES:
             raise PlanVerificationError("plan metadata runtime image profile is invalid")
+    if provider_schema:
+        expected_profile = (
+            "cost-governance"
+            if isinstance(request_id, str) and request_id.startswith("plan-provider-cost-")
+            else "core-control-plane"
+        )
+        if runtime_image is None or runtime_image_profile != expected_profile:
+            raise PlanVerificationError(
+                "provider-schema request and runtime image profile do not match"
+            )
     model_resolution = metadata.get("model_resolution")
     if model_resolution is not None:
         fields = set(model_resolution) if isinstance(model_resolution, dict) else set()

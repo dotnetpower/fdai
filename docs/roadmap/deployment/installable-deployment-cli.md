@@ -504,13 +504,13 @@ Azure and GitHub CLIs, and submits a plan-only workflow. It returns a bounded re
 digest. `deploy status --request-id <id>` recomputes the context, finds one request-bound workflow,
 and downloads only sanitized plan metadata after success. Status strips only the reviewed
 request-mode prefix before checking the embedded target/context binding. The GitHub CLI uses
-provider-hosted authentication, and no credential is copied into a command argument.
+provider-hosted authentication, and no credential is copied into a command argument. Apply status also requires the exact `--plan-id` and `--plan-digest`, while plan status rejects those coordinates, so a successful apply query validates the bound receipt and required post-apply artifacts instead of projecting workflow completion alone.
 
 The dispatch sends `apply=false`, the environment, exact commit, and a SHA-256 deployment-context
 fingerprint. Console, Operator API, document ingestion, isolated Executor, monitoring, the optional
 authority-free `--deploy-operator-channel-edge` identity plan, and the exclusive RCA reader are sealed
 identically into plan and apply. The RCA mode permits only its dedicated identity and Monitoring Reader
-role. An optional runtime revision is also sealed; any changed input invalidates the plan before Terraform. `--deploy-identity-migration` is a development-only exclusive operation that targets the stable-principal fence and state-backed deployer roles, rejects application selections, reuses the exact target set for convergence, and binds stable-role plus zero-superseded-role readback into the apply receipt. Normal CLI contexts seal `runtime_call_evidence_transition=false` for server digest parity but omit that removed key from workflow dispatch fields.
+role. An optional runtime revision is also sealed; any changed input invalidates the plan before Terraform. An exclusive provider-schema selection uses `provider` request ids for the standard Core profile and `provider-cost` request ids for the Cost Governance Core profile. The subtype and context digest bind the selected profile without adding a workflow input or treating the provider Job as a package target. `--deploy-identity-migration` is a development-only exclusive operation that targets the stable-principal fence and state-backed deployer roles, rejects application selections, reuses the exact target set for convergence, and binds stable-role plus zero-superseded-role readback into the apply receipt. Normal CLI contexts seal `runtime_call_evidence_transition=false` for server digest parity but omit that removed key from workflow dispatch fields.
 
 Apply dispatch carries no GitHub Environment approval gate. The client does not inspect required
 reviewers, self-review, or administrator bypass, and the protected workflows bind no deployment
@@ -576,7 +576,7 @@ the same command with `--resume-verification`. Resume requires the exact plan to
 convergence, and reruns the post-apply checks before writing the receipt. A changed context,
 missing claim, or existing receipt blocks resume. Targeted plans may leave the console hostname
 output empty; Entra sync then resolves the exact Static Web App id from Terraform state and reads
-its hostname through the Azure management plane. Post-apply observations follow the sealed runtime profile. A Cost Governance plan requires only a targeted zero-change result and independent image readback for its collector and analyzer Jobs. `deploy status` downloads the sanitized Job readback with the apply receipt, verifies both fixed container bindings and their shared digest, and recomputes the readback and receipt digests. It does not substitute Core migration, health, inventory, or canary evidence for that package scope.
+its hostname through the Azure management plane. Post-apply observations follow the sealed request mode before the runtime profile. A provider-schema plan requires targeted zero-change, an exact healthy Core baseline, one successful Job execution, a fresh durable source generation, and either a complete Heimdall/Forseti/Saga review chain or an explicit not-applicable review result. `deploy status` recomputes the baseline and provider-evidence artifact digests and validates their source, image, generation, and review fields. A Cost Governance package plan instead requires targeted zero-change and independent image readback for its collector and analyzer Jobs. Status verifies both fixed container bindings and their shared digest. Neither targeted scope substitutes unrelated Core migration, inventory, health, or canary evidence.
 
 Post-apply migration permits immutable built-in workflow definitions for the same workflow document
 to coexist when they pin different action-catalog digests. The unique database identity includes

@@ -21,9 +21,11 @@ _REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$")
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _OCI_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+_PROVIDER_SOURCE_REVISION = re.compile(r"^[0-9a-f]{40,64}$")
 _PLAN_ID = re.compile(r"^plan-[1-9][0-9]*-[1-9][0-9]*$")
 _REQUEST_ID = re.compile(
-    r"^(?:plan|apply)-(?:cost-|history-|identity-|provider-|rca-)?[0-9a-f]{48}$"
+    r"^(?:plan|apply)-(?:cost-|history-|identity-|provider-cost-|provider-|rca-)?"
+    r"[0-9a-f]{48}$"
 )
 _ENVIRONMENTS = frozenset({"dev", "staging", "prod"})
 _RUNTIME_IMAGE_PROFILES = frozenset({"core-control-plane", "cost-governance"})
@@ -52,6 +54,13 @@ _CORE_POST_APPLY_OBSERVATIONS = [
 _COST_GOVERNANCE_POST_APPLY_OBSERVATIONS = [
     "terraform-zero-change",
     "cost-governance-job-image-readback",
+]
+_PROVIDER_SCHEMA_POST_APPLY_OBSERVATIONS = [
+    "terraform-zero-change",
+    "provider-schema-core-baseline",
+    "provider-schema-job-execution",
+    "provider-schema-durable-generation",
+    "provider-schema-agent-review",
 ]
 
 
@@ -98,9 +107,8 @@ class DeploymentSelection:
         )
         if self.deploy_monitoring and not any(application_targets) and self.runtime_image_revision:
             raise ValueError("monitoring deployment cannot be combined with application targets")
-        if self.runtime_image_revision:
-            if _COMMIT.fullmatch(self.runtime_image_revision) is None:
-                raise ValueError("runtime_image_revision MUST be a lowercase 40-character git SHA")
+        if self.runtime_image_revision and _COMMIT.fullmatch(self.runtime_image_revision) is None:
+            raise ValueError("runtime_image_revision MUST be a lowercase 40-character git SHA")
         if self.runtime_image_profile not in _RUNTIME_IMAGE_PROFILES:
             raise ValueError("runtime_image_profile is unsupported")
         if self.runtime_image_profile != "core-control-plane" and not self.runtime_image_revision:
@@ -114,10 +122,6 @@ class DeploymentSelection:
                 "non-default runtime_image_profile cannot be combined with a bounded operation"
             )
         if self.deploy_provider_schema:
-            if self.runtime_image_profile != "core-control-plane":
-                raise ValueError(
-                    "deploy_provider_schema requires the core-control-plane runtime image profile"
-                )
             provider_schema_mixed = (
                 self.deploy_console,
                 self.deploy_dev_operations_gateway,
@@ -304,7 +308,12 @@ def dispatch_plan(
     if selection.deploy_rca_reader_identity:
         bounded_request_id = bounded_request_id.replace("plan-", "plan-rca-", 1)
     elif selection.deploy_provider_schema:
-        bounded_request_id = bounded_request_id.replace("plan-", "plan-provider-", 1)
+        request_prefix = (
+            "plan-provider-cost-"
+            if selection.runtime_image_profile == "cost-governance"
+            else "plan-provider-"
+        )
+        bounded_request_id = bounded_request_id.replace("plan-", request_prefix, 1)
     elif selection.deploy_identity_migration:
         bounded_request_id = bounded_request_id.replace("plan-", "plan-identity-", 1)
     elif selection.deploy_operational_history:
@@ -380,7 +389,12 @@ def dispatch_apply(
     if selection.deploy_rca_reader_identity:
         bounded_request_id = bounded_request_id.replace("apply-", "apply-rca-", 1)
     elif selection.deploy_provider_schema:
-        bounded_request_id = bounded_request_id.replace("apply-", "apply-provider-", 1)
+        request_prefix = (
+            "apply-provider-cost-"
+            if selection.runtime_image_profile == "cost-governance"
+            else "apply-provider-"
+        )
+        bounded_request_id = bounded_request_id.replace("apply-", request_prefix, 1)
     elif selection.deploy_identity_migration:
         bounded_request_id = bounded_request_id.replace("apply-", "apply-identity-", 1)
     elif selection.deploy_operational_history:
@@ -539,6 +553,8 @@ def _request_binding_from_id(request_id_value: str) -> str:
         "apply-history-",
         "plan-identity-",
         "apply-identity-",
+        "plan-provider-cost-",
+        "apply-provider-cost-",
         "plan-provider-",
         "apply-provider-",
         "plan-rca-",
@@ -762,26 +778,36 @@ def _download_plan_metadata(
         raise ValueError("github_plan_metadata_invalid")
     summary = _plan_summary(payload.get("plan_summary"))
     observations = payload.get("post_apply_observations")
+    provider_schema = request_id_value.startswith("plan-provider-")
     cost_governance = request_id_value.startswith("plan-cost-")
     expected_observations = (
-        _COST_GOVERNANCE_POST_APPLY_OBSERVATIONS
-        if cost_governance
-        else _CORE_POST_APPLY_OBSERVATIONS
+        _PROVIDER_SCHEMA_POST_APPLY_OBSERVATIONS
+        if provider_schema
+        else (
+            _COST_GOVERNANCE_POST_APPLY_OBSERVATIONS
+            if cost_governance
+            else _CORE_POST_APPLY_OBSERVATIONS
+        )
     )
     if observations != expected_observations:
         raise ValueError("github_plan_metadata_observations_invalid")
     runtime_image = payload.get("runtime_image")
-    if cost_governance and (
+    expected_profile = (
+        "cost-governance"
+        if cost_governance or request_id_value.startswith("plan-provider-cost-")
+        else "core-control-plane"
+    )
+    if (cost_governance or provider_schema) and (
         not isinstance(runtime_image, dict)
         or set(runtime_image) != {"source_revision", "digest", "profile"}
         or not isinstance(runtime_image.get("source_revision"), str)
         or _COMMIT.fullmatch(runtime_image["source_revision"]) is None
         or not isinstance(runtime_image.get("digest"), str)
         or _OCI_DIGEST.fullmatch(runtime_image["digest"]) is None
-        or runtime_image.get("profile") != "cost-governance"
+        or runtime_image.get("profile") != expected_profile
     ):
         raise ValueError("github_plan_metadata_runtime_image_invalid")
-    return {
+    projected: dict[str, object] = {
         "plan_id": plan_id,
         "plan_digest": plan_digest,
         "context_digest": context_digest,
@@ -790,6 +816,9 @@ def _download_plan_metadata(
         "plan_summary": summary,
         "post_apply_observations": observations,
     }
+    if provider_schema and isinstance(runtime_image, dict):
+        projected["runtime_image"] = dict(runtime_image)
+    return projected
 
 
 def _plan_summary(value: object) -> dict[str, object]:
@@ -877,19 +906,44 @@ def _download_apply_receipt(
         if result.returncode != 0:
             raise ValueError("github_apply_receipt_unavailable")
         receipt = _private_artifact_json(directory / "apply-receipt.json", "apply receipt")
+        provider_schema = request_id_value.startswith("apply-provider-")
         cost_governance = request_id_value.startswith("apply-cost-")
-        observation_path = directory / (
-            "cost-governance-job-image-readback.json"
-            if cost_governance
-            else "initial-inventory-receipt.json"
-        )
-        observation_label = (
-            "Cost Governance Job image readback"
-            if cost_governance
-            else "initial inventory execution receipt"
-        )
-        observation_bytes = _private_artifact_bytes(observation_path, observation_label)
-        observation = dict(_json_object(observation_bytes.decode("utf-8"), observation_label))
+        if provider_schema:
+            provider_evidence_bytes = _private_artifact_bytes(
+                directory / "provider-schema-deployment-evidence.json",
+                "provider-schema deployment evidence",
+            )
+            provider_evidence = dict(
+                _json_object(
+                    provider_evidence_bytes.decode("utf-8"),
+                    "provider-schema deployment evidence",
+                )
+            )
+            provider_baseline_bytes = _private_artifact_bytes(
+                directory / "provider-schema-core-baseline.json",
+                "provider-schema Core baseline",
+            )
+            provider_baseline = dict(
+                _json_object(
+                    provider_baseline_bytes.decode("utf-8"),
+                    "provider-schema Core baseline",
+                )
+            )
+            observation_bytes = b""
+            observation: dict[str, object] = {}
+        else:
+            observation_path = directory / (
+                "cost-governance-job-image-readback.json"
+                if cost_governance
+                else "initial-inventory-receipt.json"
+            )
+            observation_label = (
+                "Cost Governance Job image readback"
+                if cost_governance
+                else "initial inventory execution receipt"
+            )
+            observation_bytes = _private_artifact_bytes(observation_path, observation_label)
+            observation = dict(_json_object(observation_bytes.decode("utf-8"), observation_label))
     expected = {
         "schema_version": "fdai.deployment-apply-receipt.v1",
         "plan_id": expected_plan_id,
@@ -901,7 +955,18 @@ def _download_apply_receipt(
         "terraform_zero_change_verified": True,
         "subscription_ready": False,
     }
-    if cost_governance:
+    if provider_schema:
+        expected.update(
+            {
+                "terraform_zero_change_verified": True,
+                "provider_schema_runtime_image_profile": (
+                    "cost-governance"
+                    if request_id_value.startswith("apply-provider-cost-")
+                    else "core-control-plane"
+                ),
+            }
+        )
+    elif cost_governance:
         expected["cost_governance_job_images_verified"] = True
     else:
         expected.update(
@@ -921,6 +986,43 @@ def _download_apply_receipt(
         or canonical_digest(receipt_body) != receipt_digest
     ):
         raise ValueError("github_apply_receipt_digest_invalid")
+    if provider_schema:
+        runtime_revision = receipt.get("provider_schema_runtime_image_revision")
+        runtime_digest = receipt.get("provider_schema_runtime_image_digest")
+        if (
+            not isinstance(runtime_revision, str)
+            or _COMMIT.fullmatch(runtime_revision) is None
+            or not isinstance(runtime_digest, str)
+            or _OCI_DIGEST.fullmatch(runtime_digest) is None
+            or receipt.get("provider_schema_core_baseline_digest")
+            != hashlib.sha256(provider_baseline_bytes).hexdigest()
+            or receipt.get("provider_schema_deployment_evidence_digest")
+            != hashlib.sha256(provider_evidence_bytes).hexdigest()
+        ):
+            raise ValueError("github_provider_schema_receipt_invalid")
+        _validate_provider_schema_core_baseline(
+            provider_baseline,
+            expected_source_revision=runtime_revision,
+            expected_image_digest=runtime_digest,
+        )
+        provider_summary = _validate_provider_schema_evidence(
+            provider_evidence,
+            expected_application_source=expected_commit,
+            expected_runtime_revision=runtime_revision,
+            expected_plan_id=expected_plan_id,
+        )
+        return {
+            **expected,
+            "provider_schema_runtime_image_revision": runtime_revision,
+            "provider_schema_runtime_image_digest": runtime_digest,
+            "provider_schema_core_baseline_digest": hashlib.sha256(
+                provider_baseline_bytes
+            ).hexdigest(),
+            "provider_schema_deployment_evidence_digest": hashlib.sha256(
+                provider_evidence_bytes
+            ).hexdigest(),
+            "provider_schema": provider_summary,
+        }
     observation_digest = hashlib.sha256(observation_bytes).hexdigest()
     if cost_governance:
         image_digest = receipt.get("cost_governance_image_digest")
@@ -1000,6 +1102,165 @@ def _validate_cost_governance_readback(
             raise ValueError("github_cost_governance_readback_invalid")
 
 
+def _validate_provider_schema_core_baseline(
+    value: Mapping[str, object],
+    *,
+    expected_source_revision: str,
+    expected_image_digest: str,
+) -> None:
+    """Reject a provider baseline that does not prove the exact healthy Core image."""
+
+    max_inactive_revisions = value.get("max_inactive_revisions")
+    if (
+        set(value)
+        != {
+            "schema_version",
+            "source_revision",
+            "image_digest",
+            "core_app_ref_digest",
+            "active_revision_ref_digest",
+            "max_inactive_revisions",
+            "health_state",
+            "provisioning_state",
+            "observed_at",
+            "grants_authority",
+        }
+        or value.get("schema_version") != "fdai.provider-schema-core-baseline.v1"
+        or value.get("source_revision") != expected_source_revision
+        or value.get("image_digest") != expected_image_digest
+        or value.get("health_state") != "Healthy"
+        or value.get("provisioning_state") != "Provisioned"
+        or value.get("grants_authority") is not False
+        or not isinstance(max_inactive_revisions, int)
+        or isinstance(max_inactive_revisions, bool)
+        or max_inactive_revisions < 1
+        or not isinstance(value.get("observed_at"), str)
+    ):
+        raise ValueError("github_provider_schema_core_baseline_invalid")
+    for field in ("core_app_ref_digest", "active_revision_ref_digest"):
+        digest = value.get(field)
+        if not isinstance(digest, str) or _DIGEST.fullmatch(digest) is None:
+            raise ValueError("github_provider_schema_core_baseline_invalid")
+
+
+def _validate_provider_schema_evidence(
+    value: Mapping[str, object],
+    *,
+    expected_application_source: str,
+    expected_runtime_revision: str,
+    expected_plan_id: str,
+) -> dict[str, object]:
+    """Validate durable provider generation and conditional agent-review evidence."""
+
+    expected_fields = {
+        "schema_version",
+        "application_source_commit",
+        "runtime_image_revision",
+        "plan_id",
+        "job_execution_ref_digest",
+        "job_execution_status",
+        "checked_at",
+        "provider_source_revision",
+        "baseline_digest",
+        "observed_digest",
+        "drift_digest",
+        "disposition",
+        "durable_generation_digest",
+        "durable_generation_revision",
+        "run_receipt_digest",
+        "review_package_digest",
+        "heimdall_review_dispatched",
+        "review_evidence_status",
+        "correlation_id",
+        "forseti_risk_verdict",
+        "forseti_reason",
+        "saga_audit_entry_hash",
+        "grants_authority",
+    }
+    generation_revision = value.get("durable_generation_revision")
+    if (
+        set(value) != expected_fields
+        or value.get("schema_version") != "fdai.provider-schema-deployment-evidence.v1"
+        or value.get("application_source_commit") != expected_application_source
+        or value.get("runtime_image_revision") != expected_runtime_revision
+        or value.get("plan_id") != expected_plan_id
+        or value.get("job_execution_status") != "Succeeded"
+        or value.get("grants_authority") is not False
+        or not isinstance(value.get("checked_at"), str)
+        or value.get("disposition") not in {"unchanged", "compatible", "breaking"}
+        or not isinstance(generation_revision, int)
+        or isinstance(generation_revision, bool)
+        or generation_revision < 1
+    ):
+        raise ValueError("github_provider_schema_evidence_invalid")
+    job_execution_digest = value.get("job_execution_ref_digest")
+    if not isinstance(job_execution_digest, str) or _DIGEST.fullmatch(job_execution_digest) is None:
+        raise ValueError("github_provider_schema_evidence_invalid")
+    drift_digest = value.get("drift_digest")
+    if drift_digest is not None and (
+        not isinstance(drift_digest, str) or _DIGEST.fullmatch(drift_digest) is None
+    ):
+        raise ValueError("github_provider_schema_evidence_invalid")
+    provider_revision = value.get("provider_source_revision")
+    if (
+        not isinstance(provider_revision, str)
+        or _PROVIDER_SOURCE_REVISION.fullmatch(provider_revision) is None
+    ):
+        raise ValueError("github_provider_schema_evidence_invalid")
+    for field in (
+        "baseline_digest",
+        "observed_digest",
+        "durable_generation_digest",
+        "run_receipt_digest",
+    ):
+        digest = value.get(field)
+        if not isinstance(digest, str) or _OCI_DIGEST.fullmatch(digest) is None:
+            raise ValueError("github_provider_schema_evidence_invalid")
+    review_status = value.get("review_evidence_status")
+    if review_status == "verified":
+        if (
+            value.get("disposition") != "breaking"
+            or value.get("heimdall_review_dispatched") is not True
+            or not isinstance(drift_digest, str)
+            or _DIGEST.fullmatch(drift_digest) is None
+            or value.get("correlation_id") != f"provider-schema:azure:{drift_digest}"
+            or value.get("forseti_risk_verdict") != "hil"
+            or value.get("forseti_reason") != "no_rule_match"
+            or not isinstance(value.get("review_package_digest"), str)
+            or _OCI_DIGEST.fullmatch(str(value["review_package_digest"])) is None
+            or not isinstance(value.get("saga_audit_entry_hash"), str)
+        ):
+            raise ValueError("github_provider_schema_evidence_invalid")
+    elif review_status == "not_applicable":
+        if (
+            value.get("disposition") == "breaking"
+            or value.get("heimdall_review_dispatched") is not False
+            or any(
+                value.get(field) is not None
+                for field in (
+                    "review_package_digest",
+                    "correlation_id",
+                    "forseti_risk_verdict",
+                    "forseti_reason",
+                    "saga_audit_entry_hash",
+                )
+            )
+        ):
+            raise ValueError("github_provider_schema_evidence_invalid")
+    else:
+        raise ValueError("github_provider_schema_evidence_invalid")
+    return {
+        "provider_source_revision": provider_revision,
+        "durable_generation_digest": value["durable_generation_digest"],
+        "durable_generation_revision": value["durable_generation_revision"],
+        "disposition": value["disposition"],
+        "review_evidence_status": review_status,
+        "heimdall_review_dispatched": value["heimdall_review_dispatched"],
+        "forseti_risk_verdict": value["forseti_risk_verdict"],
+        "saga_audit_entry_hash": value["saga_audit_entry_hash"],
+    }
+
+
 def _private_artifact_json(path: Path, label: str) -> dict[str, object]:
     return dict(_json_object(_private_artifact_bytes(path, label).decode("utf-8"), label))
 
@@ -1035,7 +1296,7 @@ def _json_object(raw: str, label: str) -> Mapping[str, object]:
     except json.JSONDecodeError as exc:
         raise ValueError(f"{label} response is invalid") from exc
     if not isinstance(payload, dict):
-        raise ValueError(f"{label} response MUST be an object")
+        raise ValueError(f"{label} response MUST be an object")  # noqa: TRY004
     return payload
 
 
