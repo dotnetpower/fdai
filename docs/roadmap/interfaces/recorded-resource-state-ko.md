@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 729a7e5a3435a316bb37ed53432b1387d6cfe9bf
+translation_source_sha: 0f2581af591292be5d3e0bd8dfdd72a204a803ed
 translation_revised: 2026-09-13
 ---
 # 기록된 리소스 상태
@@ -127,6 +127,8 @@ Activity Log 행은 ID에서 파생한 유형이나 정규화한 공급자 제�
 ResourceType 어휘에 없으면 상태 변환 전에 제외합니다. 양쪽이 모두 검토됐으면 제공된 유형이 ARM
 ID에 인코딩된 정확한 공급자 또는 기본 제공 범위 형태와 일치해야 합니다. 제외한 행은 조정 표식을
 만들지 않고 공급자 커서를 전진시키며, 매핑된 행의 모순은 마지막 커서 경계 전에 실패합니다.
+리소스 이름 구간 없이 유형에서 끝나는 공급자 컬렉션 경로는 Resource 신원이 아니며 상태 관측에
+기여할 수 없습니다.
 
 승격된 Resource 사실은 하나의 세대 일치 검사 아래에서 현재 `ontology_resource` Resource와
 Operator가 읽을 수 있는 인벤토리 변환 결과에 함께 기록됩니다. Core 대화 함수는 온톨로지

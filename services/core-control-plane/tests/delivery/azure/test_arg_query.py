@@ -2169,6 +2169,25 @@ def test_arm_id_to_type_returns_none_for_unknown_scope_shape() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "arm_id",
+    [
+        (
+            "/subscriptions/00000000-0000-0000-0000-000000000001/"
+            "resourceGroups/rg-a/providers/Microsoft.Compute/virtualMachines"
+        ),
+        (
+            "/subscriptions/00000000-0000-0000-0000-000000000001/"
+            "resourceGroups/rg-a/providers/Microsoft.Compute/virtualMachines/vm-one/extensions"
+        ),
+    ],
+)
+def test_arm_id_to_type_rejects_collection_paths(arm_id: str) -> None:
+    from fdai.delivery.azure.arg_query import _arm_id_to_type
+
+    assert _arm_id_to_type(arm_id) is None
+
+
 def test_materialize_nested_subnets_uses_observed_vnet_payload() -> None:
     from fdai.delivery.azure.arg_projection import materialize_nested_subnets
 

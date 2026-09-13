@@ -415,7 +415,7 @@ def arm_id_to_type(arm_id: str) -> str | None:
     if idx == -1:
         return None
     parts = arm_id[idx + len(marker) :].split("/")
-    if len(parts) < 2:
+    if len(parts) < 3 or len(parts) % 2 == 0:
         return None
     provider = parts[0]
     type_segments = [parts[index] for index in range(1, len(parts), 2)]

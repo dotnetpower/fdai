@@ -93,6 +93,8 @@ A change-stream row is eligible only when both its identity-derived type and its
 type belong to the reviewed ResourceType vocabulary. If either side is unreviewed, the row is
 discarded because it cannot enter the ontology. If both are reviewed, they must match the exact ARM
 ID shape, including built-in subscription and Resource Group types.
+A provider-resource ID must contain a concrete resource name after every type segment. A collection
+path that ends at a type cannot create a Resource instance.
 Disabled resource-change and recovery accelerators do not require collection-policy entries and
 contribute neither cursor prefixes nor stale-cursor deadlines to reconciliation.
 

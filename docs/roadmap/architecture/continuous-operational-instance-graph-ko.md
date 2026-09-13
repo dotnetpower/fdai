@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: ab618bfac4f819da9ace02fc39debccd32ca44e9
+translation_source_sha: 1f44880b2462e1ce771e46225d11eecc36259027
 translation_revised: 2026-09-13
 ---
 # 지속형 운영 인스턴스 그래프
@@ -98,6 +98,8 @@ ARM ID와 대소문자 구분 없이 일치해야 합니다. 모순이 있으면
 어휘에 속할 때만 적격입니다. 어느 한쪽이라도 미검토 유형이면 온톨로지에 들어갈 수 없으므로
 제외합니다. 양쪽이 모두 검토된 유형이면 구독이나 Resource Group 같은 기본 제공 범위 유형을
 포함해 정확한 ARM ID 형태와 일치해야 합니다.
+공급자 리소스 ID는 모든 유형 구간 뒤에 구체적인 리소스 이름을 포함해야 합니다. 유형에서 끝나는
+컬렉션 경로는 Resource 인스턴스를 만들 수 없습니다.
 비활성화된 리소스 변경 및 복구 가속기는 수집 정책 항목을 요구하지 않으며 조정에 커서 접두사나
 오래된 커서 기한을 추가하지 않습니다.
 
