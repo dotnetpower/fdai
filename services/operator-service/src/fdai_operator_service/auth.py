@@ -75,9 +75,10 @@ class EntraJwtVerifier:
 
 @dataclass(frozen=True, slots=True)
 class VerifiedOperatorIdentity:
-    """Retain one verified principal and its token's authorized client."""
+    """Retain verified authority, display identity, and authorized client binding."""
 
     principal: OperatorPrincipal
+    username: str | None
     authorized_party: str | None
 
 
@@ -88,6 +89,7 @@ class OperatorAuthenticator:
     verifier: OperatorTokenVerifier
     group_ids: Mapping[OperatorRole, str]
     local_principal: OperatorPrincipal | None = None
+    local_username: str | None = None
     local_session_token: str | None = None
 
     def authenticate(self, authorization_header: str | None) -> OperatorPrincipal:
@@ -111,6 +113,7 @@ class OperatorAuthenticator:
             ):
                 return VerifiedOperatorIdentity(
                     principal=self.local_principal,
+                    username=self.local_username,
                     authorized_party=None,
                 )
             raise AuthenticationError("local Azure CLI session token is missing or invalid")
@@ -146,6 +149,7 @@ class OperatorAuthenticator:
                     roles=claimed_roles,
                     principal_kind=principal_kind,
                 ),
+                username=None,
                 authorized_party=_authorized_party(claims),
             )
         if not claimed_roles:
@@ -159,6 +163,7 @@ class OperatorAuthenticator:
                 principal_kind=principal_kind,
                 groups=groups,
             ),
+            username=_display_username(claims),
             authorized_party=_authorized_party(claims),
         )
 
@@ -187,6 +192,17 @@ def _extract_bearer(header: str | None) -> str:
     if not token:
         raise AuthenticationError("Bearer token is empty")
     return token
+
+
+def _display_username(claims: Mapping[str, object]) -> str | None:
+    """Return bounded display data without using it as authorization identity."""
+    for claim in ("email", "preferred_username", "upn"):
+        value = claims.get(claim)
+        if isinstance(value, str):
+            normalized = value.strip()
+            if normalized and len(normalized) <= 320 and "\x00" not in normalized:
+                return normalized
+    return None
 
 
 def _parse_roles(raw: object) -> frozenset[OperatorRole]:

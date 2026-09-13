@@ -249,6 +249,9 @@ background-task projection does not register Cost Governance behavior. Cost Gove
 its reviewed package manifest, exact bundle, provider requirements, and deployment gate.
 The shared static catalog guard can register another route-local English catalog without adding
 Cost Governance behavior or activating the optional package.
+The same host authenticator may pass a bounded verified username to the IAM display projection.
+That display-only value does not enter Cost Governance identity, activation, disclosure, or
+package authority.
 The aggregate Operator route assembly may decorate the stewardship read with ownership identity
 evidence. Every Cost Governance operation passes through that decorator unchanged.
 Ownership-only catalog labels and shell scroll recovery do not change Cost Governance routes,
