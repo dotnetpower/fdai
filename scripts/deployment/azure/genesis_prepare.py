@@ -149,6 +149,7 @@ def prepare_genesis(
         else:
             values = foundation_values(
                 repository_root=repository_root,
+                evidence_directory=root,
                 source_commit=source_commit,
                 tenant_id=tenant_id,
                 subscription_id=subscription_id,
@@ -249,6 +250,7 @@ def prepare_standalone_genesis(
     else:
         values = foundation_values(
             repository_root=deployment_kit.bundle_root,
+            evidence_directory=root,
             source_commit=source_commit,
             tenant_id=tenant_id,
             subscription_id=subscription_id,

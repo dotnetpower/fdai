@@ -51,12 +51,35 @@ External control planes are first-class dependencies:
 | Identity directory | App registrations, App Roles, groups, redirect origins, owners, admin consent, and tenant match are planned and read back. |
 | Artifact sources | Online allowlists or the verified offline kit cover every wheel, binary, provider, image, signature, and software bill of materials entry. |
 
-New image plans select builder/verifier SKUs from the signed small-VM policy in the chosen region.
-Both need x64, Gen2, reviewed memory, and 64-GiB managed OS disks. Bounded private SKU and aggregate
-quota snapshots make selection replayable; digests and sizes are sealed and shown before approval.
-Apply rechecks only those sizes, quota, expiry, and approval. Unknown evidence blocks; no reselection,
-region change, or capacity reservation occurs. Existing claims verify effects only. Foundation
-selection and recovery remain separate, and the cost review is not a live price guarantee.
+### VM hardware discovery
+
+New preparation discovers the complete regional VM catalog, not only preferred SKU names. The
+signed [hardware policy](../../../infra/genesis-runner-image/vm-sku-policy.json) requires x64/Gen2:
+a sustained 2-vCPU, 8-GiB builder; a 2-vCPU, 4-8-GiB
+verifier; and a sustained 4-vCPU, 8-16-GiB Foundation host. Image VMs use 64-GiB managed OS disks;
+only the host requires ephemeral Local ResourceDisk support and space for the generated image.
+ARM, GPU, confidential, constrained-core, and incompatible storage variants are not substitutes.
+Preferences order eligible hardware; an equally compatible unlisted SKU remains selectable.
+
+Catalog acquisition stays within one exact subscription and region, four pages, 4096 rows, 8 MiB,
+and 90 seconds, with at most 30 seconds per request. A separate quota read has a 30-second limit.
+Complete metadata, applicable Location/Zone restrictions, and aggregate regional/family quota for
+all three VMs gate preparation before network creation. Unknown evidence blocks rather than
+implying absence. Counts distinguish all-restricted, incompatible, incomplete, and quota outcomes;
+incomplete hardware leaves candidate counts unknown. Private snapshots make the selection replayable.
+
+Preparation seals the host size; a new image plan seals its chosen pair and that host's quota
+headroom in a versioned review. Apply rechecks only sealed choices, quota, expiry, and approval.
+Foundation checks its host before planning and before a new apply, including the actual managed-image
+or exact gallery-version OS disk size. Gallery images also require an x64/Gen2 generalized Linux
+definition and completed replication in the selected region. After host and human-identity reads,
+the exact Foundation plan and its expiry are checked again before writing a new claim.
+Existing claims still verify effects only: no SKU reselection, resize, region switch, or repeated
+apply occurs. Legacy signed policies keep their original bounded selection contract. This preflight
+neither reserves capacity nor quotes a live price; partial-state recovery and independently verified
+deployment remain separate. Checkout changes require a new signed kit before operational use.
+
+### Image and Foundation execution
 
 Runner enrollment never places a registration token, remove token, database password, or GitHub
 token in Terraform variables, state, process arguments, Azure Run Command payloads, logs, or chat.

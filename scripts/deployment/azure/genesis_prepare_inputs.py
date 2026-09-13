@@ -13,6 +13,8 @@ import subprocess
 from pathlib import Path
 
 from fdai_deployment_cli.contracts import canonical_digest
+from genesis_checks import CheckError
+from genesis_vm_sku_preflight import discover_foundation_vm_size
 
 _AZURE_ROUTE_SERVICE_TAGS = frozenset({"AzureLoadBalancer", "Internet", "None", "VirtualNetwork"})
 
@@ -28,8 +30,25 @@ def foundation_values(
     run_binding: str,
     ssh_public_key: str,
     execution_transport: str = "github-actions",
+    evidence_directory: Path | None = None,
 ) -> dict[str, object]:
-    """Resolve independent exact image, unique name, and network inputs concurrently."""
+    """Require a compatible VM triplet before resolving independent image/name/network inputs."""
+
+    try:
+        runner_vm_size = discover_foundation_vm_size(
+            repository_root=repository_root,
+            subscription_id=subscription_id,
+            region=region,
+            evidence_directory=evidence_directory,
+            source_commit=source_commit,
+            target_binding=target_binding,
+        )
+    except CheckError as exc:
+        raise ValueError(
+            f"{exc.reason_code}; no compatible deployment configuration was selected. "
+            "Review SKU restrictions, hardware requirements and aggregate quota; "
+            "preserve existing state and claims."
+        ) from None
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
         version_future = executor.submit(
@@ -121,7 +140,7 @@ def foundation_values(
             "providers/Microsoft.Compute/images/fdai-runner-pending"
         ),
         "runner_image_toolchain_digest": toolchain_digest,
-        "runner_vm_size": "Standard_D4ds_v5",
+        "runner_vm_size": runner_vm_size,
         "source_commit": source_commit,
         "run_digest": run_binding,
         "execution_transport": execution_transport,
