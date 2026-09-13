@@ -1415,49 +1415,13 @@ async def _ontology_evidence_health(
         ontology_snapshot["object_types"],
         field="ontology object_types",
     )
-    resource_source: OntologyEvidenceSourceStatus | None = None
-    resource_unavailable_reason = "inventory_ontology_projection_not_bound"
-    if status_row and manifest_row and inventory_row and count_row:
-        status = _runtime_mapping(status_row["value"], field="inventory ontology status")
-        manifest = _runtime_mapping(
-            manifest_row["value"],
-            field="inventory ontology manifest",
-        )
-        dropped = _runtime_string_sequence(
-            manifest.get("dropped_reasons", ()),
-            field="inventory ontology dropped_reasons",
-        )
-        if status.get("ontology_release_digest") != release_digest:
-            resource_unavailable_reason = "stale_ontology_projection_release"
-        elif status.get("status") != "available":
-            resource_unavailable_reason = "inventory_ontology_projection_unavailable"
-        elif inventory_row["completed_at"] is None:
-            resource_unavailable_reason = "inventory_observation_cutoff_unavailable"
-        else:
-            generation = str(status.get("generation") or "")
-            if not generation:
-                resource_unavailable_reason = "inventory_generation_unavailable"
-            else:
-                resource_source = OntologyEvidenceSourceStatus(
-                    source_kind="provider_observation",
-                    source_identity_alias="inventory-projection",
-                    generation=generation,
-                    ontology_release_digest=release_digest,
-                    observed_at=inventory_row["completed_at"],
-                    recorded_at=status_row["updated_at"],
-                    freshness_ceiling_seconds=None,
-                    complete=manifest.get("complete") is True and not dropped,
-                    truncated=any("truncat" in reason for reason in dropped),
-                    synthetic=inventory_row["observation_kind"] != "observed",
-                    conflicts=tuple(reason for reason in dropped if "conflict" in reason),
-                    drop_reasons=dropped,
-                    visible_instance_count=int(count_row["object_count"]),
-                    visible_link_count=int(count_row["link_count"]),
-                    evidence_refs=(
-                        f"inventory-ontology:manifest@{generation}",
-                        f"inventory-snapshot:{inventory_row['id']}",
-                    ),
-                )
+    resource_source, resource_unavailable_reason = _inventory_ontology_evidence_source(
+        status_row=status_row,
+        manifest_row=manifest_row,
+        inventory_row=inventory_row,
+        count_row=count_row,
+        release_digest=release_digest,
+    )
     now = datetime.now(UTC)
     health = {
         name: build_object_type_evidence_health_projection(
@@ -1480,6 +1444,62 @@ async def _ontology_evidence_health(
             "mutation_authority": False,
             "evidence_health": health,
         }
+    )
+
+
+def _inventory_ontology_evidence_source(
+    *,
+    status_row: Mapping[str, Any] | None,
+    manifest_row: Mapping[str, Any] | None,
+    inventory_row: Mapping[str, Any] | None,
+    count_row: Mapping[str, Any] | None,
+    release_digest: str,
+) -> tuple[OntologyEvidenceSourceStatus | None, str]:
+    unavailable_reason = "inventory_ontology_projection_not_bound"
+    if not status_row or not manifest_row or not inventory_row or not count_row:
+        return None, unavailable_reason
+    status = _runtime_mapping(status_row["value"], field="inventory ontology status")
+    manifest = _runtime_mapping(
+        manifest_row["value"],
+        field="inventory ontology manifest",
+    )
+    dropped = _runtime_string_sequence(
+        manifest.get("dropped_reasons", ()),
+        field="inventory ontology dropped_reasons",
+    )
+    if status.get("ontology_release_digest") != release_digest:
+        return None, "stale_ontology_projection_release"
+    if status.get("status") != "available":
+        return None, "inventory_ontology_projection_unavailable"
+    if inventory_row["completed_at"] is None:
+        return None, "inventory_observation_cutoff_unavailable"
+    generation = str(status.get("generation") or "")
+    if not generation:
+        return None, "inventory_generation_unavailable"
+    if generation != str(inventory_row["id"]) or manifest.get("generation") != generation:
+        return None, "inventory_ontology_generation_mismatch"
+    return (
+        OntologyEvidenceSourceStatus(
+            source_kind="provider_observation",
+            source_identity_alias="inventory-projection",
+            generation=generation,
+            ontology_release_digest=release_digest,
+            observed_at=inventory_row["completed_at"],
+            recorded_at=status_row["updated_at"],
+            freshness_ceiling_seconds=None,
+            complete=manifest.get("complete") is True and not dropped,
+            truncated=any("truncat" in reason for reason in dropped),
+            synthetic=inventory_row["observation_kind"] != "observed",
+            conflicts=tuple(reason for reason in dropped if "conflict" in reason),
+            drop_reasons=dropped,
+            visible_instance_count=int(count_row["object_count"]),
+            visible_link_count=int(count_row["link_count"]),
+            evidence_refs=(
+                f"inventory-ontology:manifest@{generation}",
+                f"inventory-snapshot:{inventory_row['id']}",
+            ),
+        ),
+        unavailable_reason,
     )
 
 
