@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 3de547c643570ec2626965c511af0ee4208e4385
+translation_source_sha: 54694ad5253f212d68c469621994166f79006cf7
 translation_revised: 2026-09-14
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -658,6 +658,8 @@ fail-closed 처리합니다. 이 로컬 증적은 Core 전달 상태를 갱신�
 `undefined`를 할당하지 않고 실제 wire shape처럼 필드를 생략합니다.
 지연 로딩 fallback은 로드된 컨트롤과 같은 비활성 버튼, 벨 glyph, 라벨 및 live-status 구조를
 사용하므로 모듈 로딩 중 의미나 시각적 영역이 바뀌지 않습니다.
+좁은 화면에서 확인 상태는 같은 의미의 간결한 `열림` 라벨을 사용하며, 버튼의 접근 가능한
+이름에는 전체 작업과 `전송 및 확인됨` 상태가 유지됩니다.
 새 전달 claim마다 예측 불가능한 128-bit 확인 토큰을 갖습니다. 서비스 워커 메시지와 일시적
 탐색 값은 안전한 태그와 이 토큰이 모두 일치해야 principal 범위 원장에 확인을 기록할 수
 있습니다. 토큰이 없는 레거시 행은 중복 억제에만 사용합니다.

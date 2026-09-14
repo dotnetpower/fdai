@@ -11,6 +11,7 @@
   "stateOn": "대기",
   "stateDelivered": "전송됨",
   "stateAcknowledged": "전송 및 확인됨",
+  "stateAcknowledgedCompact": "열림",
   "stateBlocked": "차단됨",
   "stateUnsupported": "사용 불가",
   "stateError": "다시 시도",
