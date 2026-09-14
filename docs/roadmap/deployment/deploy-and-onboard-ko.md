@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 03477a0fb4079af6876cacfa27f60e0ba2367c99
-translation_revised: 2026-09-13
+translation_source_sha: 477706483ee84579d85a6e2aeace147399a1de9b
+translation_revised: 2026-09-14
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 정본(source of truth)입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -200,8 +200,10 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에 Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결하며, Genesis는 활성 CLI 선택을 바꾸지 않고 정확한 구독 결합 ARM 위치 엔드포인트로 지역 가용성을 확인하고 정책 프로브 정리는 다중 값 TSV를 순서가 있는 줄로 파싱한 뒤 부재를 증명합니다.
 - [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 직접 사용하는 대화형 공개 `dev`
   경로입니다. 업그레이드를 요청하지 않고 커밋된 provider lock을 검증하며, 이미 검증된 배포자
-  principal을 Terraform에 전달하고, 어느 결합이든 변경되면 적용 전에 중단합니다. 비공개, 공유,
-  스테이징 또는 운영 배포 경로로 사용하지 않습니다.
+  principal을 Terraform에 전달하고, 소유자 전용 platform 및 Core 계획을 저장합니다. 각 적용은
+  대화형 터미널에 정확한 SHA-256 입력, 생성 후 20분 이내 계획, 변경되지 않은 소스 및 행위자
+  결합, 해결되지 않은 이전 시도 없음이 필요합니다. 비공개, 공유, 스테이징 또는 운영 배포
+  경로로 사용하지 않습니다.
 - [`onboard.sh`](../../../infra/bootstrap/onboard.sh)와
   [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh)는 기존
   저장소 자동화 도구입니다. 공개 대상 환경 배포에서는 호출하지 않습니다.

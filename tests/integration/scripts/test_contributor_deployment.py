@@ -2,15 +2,21 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
+import pty
 import re
 import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 _ROOT = Path(__file__).resolve().parents[3]
 _AZD_UP = _ROOT / "scripts/deployment/azure/azd-up.sh"
 _GENESIS_UP = _ROOT / "scripts/deployment/azure/genesis-up.sh"
+_CONTRIBUTOR_PLAN = _ROOT / "scripts/deployment/azure/contributor-plan.sh"
 _CONTRIBUTOR_TERRAFORM = _ROOT / "scripts/deployment/azure/contributor-terraform.sh"
 _REPO_CONFIG = _ROOT / "scripts/deployment/azure/set-gh-actions-config.sh"
 _PRIVATE_ONBOARD = _ROOT / "infra/bootstrap/onboard.sh"
@@ -136,7 +142,9 @@ def test_public_deployment_is_staged_and_keeps_sensitive_state_private() -> None
     assert "FDAI_MATERIALIZE_AUTHORITATIVE_CATALOGS=1" in source
     assert 'export TF_VAR_deploy_runner_principal_id="$DEPLOYER_OBJECT_ID"' in source
     assert 'terraform -chdir="$CORE_ROOT" plan' in source
-    assert 'terraform -chdir="$CORE_ROOT" apply' in source
+    assert 'TF_DATA_DIR="$CORE_TF_DATA" apply_contributor_plan' in source
+    assert 'apply_contributor_plan "$PLATFORM_ROOT" "$PLATFORM_PLAN"' in source
+    assert "azd provision" not in source
     deploy_core = source.split("deploy_core() {", maxsplit=1)[1].split(
         "\n}\n\nwait_for_core", maxsplit=1
     )[0]
@@ -152,6 +160,7 @@ def test_public_deployment_is_staged_and_keeps_sensitive_state_private() -> None
     assert "azd up" not in main
     assert 'source "$HERE/contributor-target.sh"' in source
     assert 'source "$HERE/contributor-terraform.sh"' in source
+    assert 'source "$HERE/contributor-plan.sh"' in source
     assert 'prepare_contributor_terraform "$REPO_ROOT" "$WORK_DIR"' in source
     assert 'PLATFORM_STATE="$REPO_ROOT/.azure/$AZD_ENVIRONMENT/infra/terraform.tfstate"' in source
     assert 'ensure_contributor_azd_login "$TARGET_HAS_TERMINAL" "$EXPECTED_TENANT"' in source
@@ -292,6 +301,117 @@ prepare_contributor_terraform "$2" "$3"
     core_config = core_configs[0].read_text(encoding="utf-8")
     assert '/platform"' in platform_config and '/core"' not in platform_config
     assert '/core"' in core_config and '/platform"' not in core_config
+
+
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "approved",
+        "cancelled",
+        "changed",
+        "failed",
+        "expired",
+        "prior",
+        "wrong-actor",
+        "dirty-source",
+    ],
+)
+def test_saved_contributor_plan_requires_exact_approval_and_records_attempt(
+    tmp_path: Path, mode: str
+) -> None:
+    plan = tmp_path / "saved.tfplan"
+    plan.write_bytes(b"saved plan")
+    plan.chmod(0o600)
+    digest = hashlib.sha256(plan.read_bytes()).hexdigest()
+    state = tmp_path / "terraform.tfstate"
+    state.write_text("{}\n", encoding="ascii")
+    state.chmod(0o600)
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "terraform-calls"
+    _write_executable(fake_bin / "az", "#!/bin/bash\nprintf 'actor\\n'\n")
+    _write_executable(
+        fake_bin / "git",
+        """#!/bin/bash
+if [[ " $* " == *' rev-parse '* ]]; then printf '%040d\n' 0; fi
+if [[ " $* " == *' status '* && "$TEST_MODE" == dirty-source ]]; then printf ' M changed\n'; fi
+""",
+    )
+    _write_executable(
+        fake_bin / "terraform",
+        """#!/bin/bash
+printf '%s\n' "$*" >> "$TEST_TERRAFORM_CALLS"
+if [[ "$TEST_MODE" == failed && " $* " == *" apply "* ]]; then exit 7; fi
+""",
+    )
+    _write_executable(tmp_path / "verify-azure-context.sh", "#!/bin/bash\nexit 0\n")
+    if mode == "changed":
+        plan.write_bytes(b"changed plan")
+    if mode == "expired":
+        os.utime(plan, (1, 1))
+    if mode == "prior":
+        Path(f"{plan}.pending.json").write_text("{}", encoding="ascii")
+    master, slave = pty.openpty()
+    command = """
+set -euo pipefail
+target_log() { printf '%s\n' "$*" >&2; }
+source "$1"
+apply_contributor_plan "$2" "$3" "$4" "$5"
+"""
+    process = subprocess.Popen(  # noqa: S603 - isolated helper and fake cloud/tool commands
+        [
+            _BASH,
+            "-c",
+            command,
+            "bash",
+            str(_CONTRIBUTOR_PLAN),
+            str(tmp_path),
+            str(plan),
+            str(state),
+            digest,
+        ],
+        env={
+            **os.environ,
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            "HERE": str(tmp_path),
+            "REPO_ROOT": str(tmp_path),
+            "SOURCE_COMMIT": "0" * 40,
+            "EXPECTED_SUBSCRIPTION": "test",
+            "EXPECTED_TENANT": "test",
+            "DEPLOYER_OBJECT_ID": "other-actor" if mode == "wrong-actor" else "actor",
+            "TEST_MODE": mode,
+            "TEST_TERRAFORM_CALLS": str(calls),
+        },
+        stdin=slave,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    os.close(slave)
+    try:
+        os.write(master, ("\n" if mode == "cancelled" else f"{digest}\n").encode())
+        _stdout, stderr = process.communicate(timeout=10)
+    finally:
+        os.close(master)
+    pending = Path(f"{plan}.pending.json")
+    receipt = Path(f"{plan}.result.{digest}.json")
+    if mode in {"cancelled", "changed", "expired", "prior", "wrong-actor", "dirty-source"}:
+        assert process.returncode == 1, stderr
+        assert not calls.exists()
+        assert pending.exists() == (mode == "prior")
+        assert not receipt.exists()
+        return
+    assert process.returncode == (7 if mode == "failed" else 0), stderr
+    invocations = calls.read_text(encoding="ascii")
+    assert f"apply -input=false -lock-timeout=5m {plan}" in invocations
+    assert " plan " not in invocations
+    evidence = json.loads(receipt.read_text(encoding="ascii"))
+    assert evidence["plan_sha256"] == digest
+    assert evidence["operational_verification"] == "pending"
+    assert pending.exists() == (mode == "failed")
+    assert evidence["state"] == (
+        "verification-required" if mode == "failed" else "terraform-applied"
+    )
 
 
 def test_post_deploy_jobs_track_only_the_new_execution() -> None:
