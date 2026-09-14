@@ -48,10 +48,11 @@ describe("browser notification boundary", () => {
   });
 
   test("accepts only runtime-observed events with safe identifiers", () => {
+    const { source: _source, ...missingSource } = event();
     expect(browserAlertForLiveEvent(event({ source: "replay" }))).toBeNull();
     expect(browserAlertForLiveEvent(event({ source: "synthetic-dev" }))).toBeNull();
     expect(browserAlertForLiveEvent(event({ source: "unknown" }))).toBeNull();
-    expect(browserAlertForLiveEvent(event({ source: undefined }))).toBeNull();
+    expect(browserAlertForLiveEvent(missingSource)).toBeNull();
     expect(browserAlertForLiveEvent(event({ event_id: "event id" }))).toBeNull();
     expect(browserAlertForLiveEvent(event({ correlation_id: "line\nbreak" }))).toBeNull();
     const alert = browserAlertForLiveEvent(event({ error: "credential=value" }));
