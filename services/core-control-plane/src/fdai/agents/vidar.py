@@ -410,11 +410,10 @@ def _rollback_state_key(correlation_id: str, suffix: str) -> str:
 def _rollback_request_digest(action_run: Mapping[str, Any], *, contract: str) -> str:
     encoded = json.dumps(
         {
-            "correlation_id": str(action_run.get("correlation_id") or ""),
-            "action_type": str(action_run.get("action_type") or ""),
-            "resource_id": _resource_id(action_run),
-            "contract": contract,
+            "action_run": dict(action_run),
+            "resolved_rollback_contract": contract,
         },
+        allow_nan=False,
         separators=(",", ":"),
         sort_keys=True,
     ).encode("utf-8")

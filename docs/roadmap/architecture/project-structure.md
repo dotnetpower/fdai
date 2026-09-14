@@ -563,7 +563,9 @@ relationship. A T2 proposal also cannot bypass grounding authority when a provid
 and executor idempotency keys are claimed atomically. Var preserves the source ActionRun idempotency key, serializes finalization, and writes one final approval plus publication receipt to the runtime StateStore before removing the ticket.
 Each normalized Var decision is first joined into an audited CAS aggregate, so restart and concurrent replicas derive quorum from the same
 immutable principal set before finalization. Per-resource locking serializes competing applies before any delivery adapter can mutate state.
-Vidar also claims the correlation and request digest with an owner token and bounded lease before provider recovery.
+Vidar also claims the correlation and a canonical digest of the complete failed ActionRun with an owner token and bounded lease before
+provider recovery. Every field available to the rollback executor participates, so params, action identity, workflow lineage, or rollback
+data substitution collides instead of replaying a prior receipt.
 A colliding replica leaves a live lease untouched and fails the handler so EventBusBridge retry or DLQ retains the delivery. Only
 verified expiry on redrive permits `execution_unknown`, and revision CAS fences late owner
 completion. Terminal or publication replay never repeats the rollback. Runtime composition also injects that `StateStore` into

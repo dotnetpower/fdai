@@ -1325,6 +1325,54 @@ def test_vidar_replays_durable_terminal_result_after_restart() -> None:
     assert len(bus.messages_on("object.rollback")) == 1
 
 
+def test_vidar_rejects_changed_rollback_command_inputs() -> None:
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    calls: list[str] = []
+
+    async def rollback_executor(action_run):
+        restore_point = action_run["params"]["restore_point"]
+        calls.append(restore_point)
+        return f"restore:{restore_point}"
+
+    store = InMemoryStateStore()
+    original = {
+        "correlation_id": "c-command-identity",
+        "action_type": "ops.restore-database",
+        "action_id": "action-1",
+        "resource_id": "db-1",
+        "state": "failed",
+        "rollback_contract": "pitr",
+        "params": {"restore_point": "A"},
+        "workflow_action": {
+            "workflow_id": "recovery",
+            "workflow_version": "1.0.0",
+            "step_id": "restore",
+            "attempt": 1,
+        },
+    }
+    first = Vidar(executors={"pitr": rollback_executor}, state_store=store)
+    completed = asyncio.run(first.rollback(dict(original)))
+    assert completed is not None
+    assert completed.rollback_ref == "restore:A"
+
+    restarted = Vidar(executors={"pitr": rollback_executor}, state_store=store)
+    with pytest.raises(
+        ValueError,
+        match="rollback correlation collides with different action identity",
+    ):
+        asyncio.run(
+            restarted.rollback(
+                {
+                    **original,
+                    "params": {"restore_point": "B"},
+                }
+            )
+        )
+
+    assert calls == ["A"]
+
+
 def test_vidar_marks_interrupted_durable_claim_execution_unknown() -> None:
     from fdai.shared.providers.testing.state_store import InMemoryStateStore
 

@@ -63,8 +63,10 @@ from that same immutable decision set before storing the final payload. A failed
 Saga persists gated and terminal audit. Cloud-reference packages also require this independent Var approval, even with a valid signature; see [Cloud resource knowledge](../interfaces/cloud-resource-knowledge-lifecycle.md). Workflow requests preserve bounded `workflow_action` lineage, including the positive attempt number, through Huginn, Forseti, and Thor.
 Thor preserves an action identifier only when the verdict supplies one and never invents one from the correlation id; bounded ActionRun lineage validation remains an authority-free `_framework` helper. A delivery-owned producer stores an optional argument-bound kinetic proposal for one complete operational plan; Forseti resolves it through an injected source and keeps it on the same Verdict-to-ActionRun path after strict validation. Both are attribution and evidence only;
 neither changes quorum, mode, judgment, approval, or execution authority.
-Vidar atomically claims a correlation and action digest with an owner token and bounded lease in the runtime StateStore before provider
-rollback. Only the claimant executes; another replica leaves a live lease untouched and raises a retryable handler error so the event-bus
+Vidar atomically claims a correlation and the canonical complete failed-ActionRun digest with an owner token and bounded lease in the
+runtime StateStore before provider rollback. The digest includes every field delivered to the rollback executor, including params, action
+identity, workflow lineage, and rollback data, so a substituted command cannot reuse a terminal receipt. Only the claimant executes;
+another replica leaves a live lease untouched and raises a retryable handler error so the event-bus
 retry or DLQ retains the failed ActionRun. After verified lease expiry, redrive closes the
 ambiguous claim as explicit `execution_unknown` instead of repeating recovery, and the revision CAS fences any late owner completion.
 Terminal and publication receipts replay without another provider call.
