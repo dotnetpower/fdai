@@ -87,19 +87,22 @@ async function installOperatorApiFixture(
   } = {},
 ): Promise<{
   readonly chatBody: () => Record<string, unknown> | null;
+  readonly requestedPaths: () => readonly string[];
 }> {
   let capturedChatBody: Record<string, unknown> | null = null;
+  const requestedPaths: string[] = [];
   const handleApi = async (route: Route): Promise<void> => {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname.replace(/^\/api(?=\/)/, "");
+    requestedPaths.push(path);
     if (path === "/system/data-sources") {
       await json(route, {
         surface: "read-data-sources",
         sources: [{
           key: "browser-test-read-model",
           source: "deterministic browser fixture",
-          routes: ["/incidents", "/agents"],
+          routes: ["/incidents", "/agents", "/audit", "/agents/activity"],
           availability: "available",
           configured: true,
           reachable: true,
@@ -114,6 +117,18 @@ async function installOperatorApiFixture(
     }
     if (path === "/incidents") {
       await json(route, { items: [incident], next_cursor: null, metrics: incidentMetrics });
+      return;
+    }
+    if (path === "/audit") {
+      await json(route, { items: [], next_cursor: null });
+      return;
+    }
+    if (path === "/agents/activity") {
+      await json(route, {
+        items: [],
+        snapshot_at: "2026-07-22T00:01:00Z",
+        source: "durable-operational-projection",
+      });
       return;
     }
     if (path === "/agents/stream") {
@@ -304,7 +319,13 @@ async function installOperatorApiFixture(
   await page.route("**/api/**", handleApi);
   await page.route("**/system/data-sources*", handleApi);
   await page.route("**/incidents*", handleApi);
-  return { chatBody: () => capturedChatBody };
+  await page.route("**/audit*", handleApi);
+  await page.route("**/agents/activity*", handleApi);
+  await page.route("**/agents/stream*", handleApi);
+  return {
+    chatBody: () => capturedChatBody,
+    requestedPaths: () => [...requestedPaths],
+  };
 }
 
 const presentationRef = `incident:${correlationId}`;
@@ -1181,52 +1202,172 @@ test("keeps responsive table labels visual-only at 320px", async ({ page }) => {
   expect(metrics.cellDisplay).toBe("grid");
 });
 
-test("pins a Var incident through the deck and renders a grounded Bragi answer", async ({
+test("keeps the Pantheon fallback focused on role ownership", async ({
   page,
 }) => {
   const fixture = await installOperatorApiFixture(page);
-  await page.goto(
-    `/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`,
-  );
+  await page.goto("/pantheon?agent=Var");
 
   const varRegion = page.getByRole("region", { name: "Var" });
   await expect(varRegion).toBeVisible();
-  await expect(varRegion.getByRole("button", {
-    name: /investigating Environment tag required/,
-  })).toBeVisible();
-  await varRegion.getByRole("button", { name: "Ask the deck about this incident" }).click();
-
-  const deck = page.getByRole("complementary", { name: "Command deck" });
-  await expect(deck).toBeVisible();
-  await expect(deck.getByText(
-    `Selected incident ${incidentId} (${correlationId}) from Var's Events view.`,
-    { exact: true },
-  )).toBeVisible();
-  await expect(deck.getByLabel("Conversation").getByText("Bragi", { exact: true })).toBeVisible();
-
-  const prompt = deck.getByPlaceholder(/Ask anything/i);
-  await expect(prompt).toHaveValue(
-    "What is the root cause status, and what are the involved agents doing?",
+  await expect(varRegion).toContainText("Approval");
+  await expect(varRegion).toContainText("Human-in-the-loop approval");
+  await expect(varRegion).not.toContainText("Current work");
+  await expect(varRegion.getByRole("button", { name: /incident/i })).toHaveCount(0);
+  await expect(varRegion.getByRole("link", { name: "Activity" })).toHaveAttribute(
+    "href",
+    "/agent-activity?view=waterfall&agent=Var",
   );
-  await deck.getByRole("button", { name: "Send" }).click();
+  expect(fixture.requestedPaths()).not.toContain("/incidents");
 
-  await expect(deck.getByText("Bragi", { exact: true }).last()).toBeVisible();
-  await expect(deck.getByText(/no grounded root cause with citations is recorded/i)).toBeVisible();
-  await expect(deck.getByText(/Var: hil\.requested/)).toBeVisible();
-  await expect(deck.getByText(/Forseti: risk_gate\.decided/)).toBeVisible();
-  await expect(deck.getByRole("status").filter({ hasText: /^Corrected$/ })).toBeVisible();
-  await expect(deck.getByText(/Choose one to verify/i)).toHaveCount(0);
+  await page.goto("/agents");
+  await expect.poll(() => fixture.requestedPaths()).toContain("/incidents");
+});
 
-  await expect.poll(() => fixture.chatBody()).not.toBeNull();
-  expect(fixture.chatBody()).toMatchObject({
-    prompt: "@Bragi What is the root cause status, and what are the involved agents doing?",
-    conversation_context: {
-      kind: "incident",
-      incident_id: incidentId,
-      correlation_id: correlationId,
-      selected_agent: "Var",
-    },
+test("opens and closes route-backed roles from Agent Activity", async ({ page }, testInfo) => {
+  await installOperatorApiFixture(page);
+  await page.goto("/overview");
+  await page.goto(
+    "/agent-activity?view=waterfall&window=1h&layer=pipeline&verb=audit&q=approval",
+  );
+  const activityRoot = page.locator("main > .stack").filter({
+    has: page.locator(".agent-workspace-nav"),
   });
+  const activityRootHandle = await activityRoot.elementHandle();
+  if (!activityRootHandle) throw new Error("Agent Activity root was not attached");
+
+  const trigger = page.getByRole("link", { name: "Roles and ownership" });
+  const activityUrl = page.url();
+  const [rolesPage] = await Promise.all([
+    page.context().waitForEvent("page"),
+    trigger.click({ modifiers: ["Control"] }),
+  ]);
+  await expect(rolesPage).toHaveURL(/\/agent-activity\?.*roles=1/);
+  expect(page.url()).toBe(activityUrl);
+  await rolesPage.close();
+
+  await trigger.click();
+  expect(await page.evaluate(() => Object.fromEntries(new URL(location.href).searchParams))).toEqual({
+    view: "waterfall",
+    window: "1h",
+    layer: "pipeline",
+    verb: "audit",
+    q: "approval",
+    roles: "1",
+  });
+
+  const dialog = page.getByRole("dialog", { name: "Roles and ownership" });
+  await expect(dialog).toBeVisible();
+  expect(await activityRootHandle.evaluate((element) => element.isConnected)).toBe(true);
+  await expect(dialog.locator(".agent-node")).toHaveCount(15);
+  await expect(dialog.locator(".agents-org-lines line")).toHaveCount(14);
+  await expect(dialog.locator(".agent-role-tooltip > small")).toHaveCount(0);
+  const closeButton = dialog.getByRole("button", { name: "Close roles and ownership" });
+  await expect(closeButton).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(dialog.locator(".agent-node").last()).toBeFocused();
+  const geometry = await dialog.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    return {
+      left: bounds.left,
+      top: bounds.top,
+      right: bounds.right,
+      bottom: bounds.bottom,
+      width: bounds.width,
+      height: bounds.height,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      bodyOverflow: getComputedStyle(document.body).overflow,
+    };
+  });
+  expect(geometry.left).toBeGreaterThanOrEqual(0);
+  expect(geometry.top).toBeGreaterThanOrEqual(0);
+  expect(geometry.right).toBeLessThanOrEqual(geometry.viewportWidth);
+  expect(geometry.bottom).toBeLessThanOrEqual(geometry.viewportHeight);
+  expect(geometry.documentOverflow).toBeLessThanOrEqual(0);
+  expect(geometry.bodyOverflow).toBe("hidden");
+  if (testInfo.project.name === "mobile-chromium") {
+    expect(Math.abs(geometry.width - geometry.viewportWidth)).toBeLessThanOrEqual(1);
+    expect(Math.abs(geometry.height - geometry.viewportHeight)).toBeLessThanOrEqual(1);
+  }
+  await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+  const preferenceStyles = await dialog.evaluate((element) => {
+    const edge = element.querySelector(".org-edge");
+    const tooltip = element.querySelector(".agent-role-tooltip");
+    return {
+      forcedColors: matchMedia("(forced-colors: active)").matches,
+      edgeStroke: edge ? getComputedStyle(edge).stroke : "",
+      tooltipTransition: tooltip ? getComputedStyle(tooltip).transitionDuration : "",
+    };
+  });
+  expect(preferenceStyles.forcedColors).toBe(true);
+  expect(preferenceStyles.edgeStroke).not.toBe("");
+  expect(preferenceStyles.edgeStroke).not.toBe("none");
+  expect(preferenceStyles.tooltipTransition).toMatch(/^(0s|1e-05s)$/);
+  await page.emulateMedia({ forcedColors: "none", reducedMotion: "no-preference" });
+  await dialog.getByRole("button", { name: /Open Var/ }).click();
+  await expect(page).toHaveURL(/roleAgent=Var/);
+  await expect(dialog.getByRole("region", { name: "Var" })).toBeVisible();
+  await expect(dialog.getByRole("link", { name: "Activity" })).toHaveAttribute(
+    "href",
+    "/agent-activity?view=waterfall&agent=Var",
+  );
+  const activityLink = dialog.getByRole("link", { name: "Activity" });
+  await activityLink.focus();
+  await page.keyboard.press("Tab");
+  await expect(dialog.getByRole("button", { name: "Close roles and ownership" })).toBeFocused();
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(page).not.toHaveURL(/roles=1/);
+  await expect(trigger).toBeFocused();
+  expect(await page.evaluate(() => Object.fromEntries(new URL(location.href).searchParams))).toEqual({
+    view: "waterfall",
+    window: "1h",
+    layer: "pipeline",
+    verb: "audit",
+    q: "approval",
+  });
+  expect(await activityRootHandle.evaluate((element) => element.isConnected)).toBe(true);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/overview$/);
+
+  await page.goto("/agents");
+  const fleetRoles = page.getByRole("link", { name: "Roles and ownership" });
+  await fleetRoles.click();
+  await expect(page.getByRole("dialog", { name: "Roles and ownership" })).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/agents$/);
+  await expect(page.getByRole("link", { name: "Roles and ownership" })).toBeFocused();
+
+  await page.goto("/overview");
+  await page.goto("/agent-activity?view=waterfall");
+  await page.getByRole("link", { name: "Roles and ownership" }).click();
+  await expect(page.getByRole("dialog", { name: "Roles and ownership" })).toBeVisible();
+  await page.evaluate(() => {
+    const button = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Close roles and ownership"]',
+    );
+    button?.click();
+    button?.click();
+  });
+  await expect(page).toHaveURL("/agent-activity?view=waterfall");
+
+  await page.goto("/agent-activity?view=waterfall&roles=1&agent=Var");
+  const deepLinkedDialog = page.getByRole("dialog", { name: "Roles and ownership" });
+  await expect(deepLinkedDialog).toBeVisible();
+  const selectedVar = deepLinkedDialog.getByRole("button", { name: /Open Var/ });
+  await expect(selectedVar).toHaveAttribute("aria-pressed", "true");
+  await selectedVar.click();
+  await expect(selectedVar).toHaveAttribute("aria-pressed", "false");
+  expect(await page.evaluate(() => ({
+    hasRoleAgent: new URL(location.href).searchParams.has("roleAgent"),
+    roleAgent: new URL(location.href).searchParams.get("roleAgent"),
+  }))).toEqual({ hasRoleAgent: true, roleAgent: "" });
+  await expect(deepLinkedDialog.getByRole("region", { name: "Var" })).toHaveCount(0);
+  await page.goBack();
+  await expect(page.getByRole("dialog", { name: "Roles and ownership" })).toBeHidden();
 });
 
 test("renders a sent image inside the operator turn without caching its bytes", async ({

@@ -1,43 +1,73 @@
 import type { PillKind } from "../components/ui";
 import type { AuditItem } from "../types";
 
-const AGENT_LAYER: Readonly<Record<string, string>> = {
-  Odin: "planning",
-  Thor: "execution",
-  Forseti: "judgment",
-  Huginn: "sensing",
-  Heimdall: "sensing",
-  Var: "approval",
-  Vidar: "recovery",
-  Bragi: "conversational",
-  Saga: "audit",
-  Mimir: "governance",
-  Norns: "governance",
-  Muninn: "governance",
-  Njord: "domain",
-  Freyr: "domain",
-  Loki: "domain",
-};
+const AGENT_LAYER = new Map<string, string>([
+  ["Odin", "planning"],
+  ["Thor", "execution"],
+  ["Forseti", "judgment"],
+  ["Huginn", "sensing"],
+  ["Heimdall", "sensing"],
+  ["Var", "approval"],
+  ["Vidar", "recovery"],
+  ["Bragi", "conversational"],
+  ["Saga", "audit"],
+  ["Mimir", "governance"],
+  ["Norns", "governance"],
+  ["Muninn", "governance"],
+  ["Njord", "domain"],
+  ["Freyr", "domain"],
+  ["Loki", "domain"],
+]);
+
+const LEGACY_OBSERVATION_OWNER_BY_SOURCE = new Map<string, string>([
+  ["inventory", "Huginn"],
+  ["activity-log", "Huginn"],
+  ["resource-health", "Heimdall"],
+  ["service-health", "Heimdall"],
+  ["metrics", "Heimdall"],
+  ["logs", "Heimdall"],
+  ["guest-logs", "Heimdall"],
+  ["network-config", "Heimdall"],
+  ["cost", "Njord"],
+  ["recovery", "Vidar"],
+]);
 
 export function agentOf(item: AuditItem): string {
-  const principal = item.entry["producer_principal"];
-  if (typeof principal === "string" && principal.trim()) {
-    return principal in AGENT_LAYER ? principal : principal.trim();
-  }
-  if (item.actor in AGENT_LAYER) return item.actor;
+  const principal = entryAgent(item, "producer_principal");
+  if (principal !== null) return principal;
+  const owner = entryAgent(item, "owner_agent");
+  if (owner !== null) return owner;
+  if (AGENT_LAYER.has(item.actor)) return item.actor;
   const semanticOwner = semanticAgentOwner(item);
   if (semanticOwner !== null) return semanticOwner;
+  const mechanicalPrincipal = item.entry["producer_principal"];
+  if (typeof mechanicalPrincipal === "string" && mechanicalPrincipal.trim()) {
+    return mechanicalPrincipal.trim();
+  }
   if (item.actor === "fdai") return "System";
+  if (item.actor === "fdai.system") return "System";
   if (item.actor && item.actor.trim()) return humanizeActor(item.actor);
   return "System";
 }
 
 function semanticAgentOwner(item: AuditItem): string | null {
-  if (!item.actor.startsWith("fdai.")) return null;
+  const rawPrincipal = item.entry["producer_principal"];
+  const mechanicalSource = item.actor.startsWith("fdai.") ||
+    item.actor.startsWith("runtime.") ||
+    rawPrincipal === "control-loop";
+  if (!mechanicalSource) return null;
   const actionKind = item.action_kind.toLowerCase();
   const stage = typeof item.entry["stage"] === "string"
     ? item.entry["stage"].toLowerCase()
     : "";
+  if (actionKind === "observation-campaign.source-transition") {
+    const sourceId = item.entry["source_id"];
+    return typeof sourceId === "string"
+      ? LEGACY_OBSERVATION_OWNER_BY_SOURCE.get(sourceId) ?? null
+      : null;
+  }
+  if (isSagaAuditMirror(item) || actionKind === "startup_readiness.audit_probe") return "Saga";
+  if (actionKind.startsWith("measurement.control_loop.")) return "Heimdall";
   if (actionKind.startsWith("hil.") || item.actor === "fdai.core.hil_resume") return "Var";
   if (actionKind.startsWith("risk_gate.")) return "Forseti";
   if (actionKind.startsWith("rca.") || item.actor === "fdai.core.rca") return "Forseti";
@@ -47,6 +77,24 @@ function semanticAgentOwner(item: AuditItem): string | null {
     return stage === "trust_router" ? "Heimdall" : "Forseti";
   }
   return null;
+}
+
+function entryAgent(item: AuditItem, key: "producer_principal" | "owner_agent"): string | null {
+  const value = item.entry[key];
+  if (typeof value !== "string") return null;
+  const candidate = value.trim();
+  return AGENT_LAYER.has(candidate) ? candidate : null;
+}
+
+export function isSagaAuditMirror(item: AuditItem): boolean {
+  if (item.action_kind !== "audit.record") return false;
+  if (item.actor === "Saga") return true;
+  return typeof item.entry["principal"] === "string" &&
+    typeof item.entry["topic"] === "string" &&
+    typeof item.entry["payload_digest"] === "string" &&
+    typeof item.entry["payload"] === "object" &&
+    item.entry["payload"] !== null &&
+    !Array.isArray(item.entry["payload"]);
 }
 
 function humanizeActor(actor: string): string {
@@ -59,7 +107,7 @@ export function isAgentActivitySelectionValid(
   selected: string | null,
   observedAgents: readonly string[],
 ): boolean {
-  return selected === null || selected in AGENT_LAYER || observedAgents.includes(selected);
+  return selected === null || AGENT_LAYER.has(selected) || observedAgents.includes(selected);
 }
 
 export interface ActivityPresentationState {
@@ -93,11 +141,11 @@ export function activityPresentationState({
 }
 
 export function agentActivityRank(label: string): number {
-  return label === "System" ? 2 : label in AGENT_LAYER ? 0 : 1;
+  return label === "System" ? 2 : AGENT_LAYER.has(label) ? 0 : 1;
 }
 
 export function layerOf(agent: string): string {
-  return AGENT_LAYER[agent] ?? "system";
+  return AGENT_LAYER.get(agent) ?? "system";
 }
 
 export function outcomeOf(item: AuditItem): string | null {

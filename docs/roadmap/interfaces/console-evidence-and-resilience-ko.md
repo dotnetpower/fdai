@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 544f084ce904027a6f22b91126015d64a49ef880
-translation_revised: 2026-09-13
+translation_source_sha: fbf75dc094f5eb436d6ae0bbbfd94d43ca914447
+translation_revised: 2026-09-14
 ---
 # 콘솔 근거 및 복원력
 이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
@@ -584,7 +584,7 @@ malformed, 미래 또는 권한을 가진 프레임은 선언된 연결을 관�
 API 복제본은 instance-scoped 소비자 그룹을 사용하므로 모든 Console이 완전한 하트비트 집합을
 수신합니다. Give up 또는 halt된 소비자는 형제를 유지한 채 health-derived 하트비트에서 빠지고 Saga
 또는 Vidar 실패는 sticky shadow를 계속 강제합니다. 이 기록은 액션 감사 근거의 복사본이 아닌 운영
-활동입니다.
+활동입니다. 활동 저널은 Saga 감사 체인 복사본, 시작 감사 점검 및 원시 관측 전이 행을 제외합니다. Waterfall은 이 감사 근거를 유지하며 명시된 Pantheon principal, `owner_agent`, 알려진 actor 또는 고정된 레거시 작업 소유자만 사용해 책임 에이전트를 표시합니다. 알 수 없는 기계 생산자를 추측으로 배정하지 않습니다. 에이전트 활동은 에이전트별 감사와 인계 순서를 보여주는 시간 기반 작업 공간을 소유합니다. URL로 복원할 수 있는 역할 및 소유권 대화 상자는 고정 보고 트리, 역할 소유권, 권한 경계 및 보조 현재 상태만 포함하고 닫힐 때 기존 필터를 유지하며, `/pantheon`과 같은 역할 전용 컴포넌트를 사용합니다. 두 화면 모두 인시던트 시간 순서나 대화 근거를 중복 표시하지 않습니다.
 
 Command Deck은 완전한 또는 pending SSE 프레임이 256 KiB를 넘으면 `data:` 줄 누적이나 JSON parse
 전에 거부하고 결정론적 interrupted-stream 대체 경로를 사용합니다. Correlation-filtered 액션

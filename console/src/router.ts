@@ -1,6 +1,7 @@
 import { resolvePanels } from "./panels";
 
 const ROUTE_EVENT = "fdai:route-changed";
+export const ROUTE_STATE_EVENT = "fdai:route-state-changed";
 let transientRoute: ConsoleRoute | null = null;
 
 export const PANEL_PATHS: Readonly<Record<string, string>> = {
@@ -235,7 +236,7 @@ export function resetConsoleScroll(root: ConsoleScrollRoot): void {
   root.querySelector(".shell-body > main")?.scrollTo({ top: 0, left: 0, behavior: "auto" });
 }
 
-export function navigate(href: string, replace = false): void {
+export function navigate(href: string, replace = false, state: unknown = null): void {
   if (typeof window === "undefined") return;
   const url = new URL(href, window.location.origin);
   const nextRoute = parseConsoleRoute(url.pathname, url.search);
@@ -248,7 +249,7 @@ export function navigate(href: string, replace = false): void {
   transientRoute = null;
   const resetScroll = shouldResetScroll(window.location.pathname, url.pathname);
   const method = replace ? "replaceState" : "pushState";
-  window.history[method](null, "", `${url.pathname}${url.search}`);
+  window.history[method](state, "", `${url.pathname}${url.search}`);
   window.dispatchEvent(new Event(ROUTE_EVENT));
   if (resetScroll) {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -258,12 +259,20 @@ export function navigate(href: string, replace = false): void {
 
 /** Replace the current clean URL without notifying the route boundary.
  * Use this for free-text controls whose component already owns the next
- * state; dispatching ROUTE_EVENT on every keystroke would remount the panel
- * and drop input focus. */
+ * state. The lightweight state event refreshes URL-derived controls without
+ * remounting the panel or dropping input focus. */
 export function replaceRouteState(href: string): void {
   if (typeof window === "undefined") return;
   const url = new URL(href, window.location.origin);
   window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}`);
+  window.dispatchEvent(new Event(ROUTE_STATE_EVENT));
+}
+
+export function pushRouteState(href: string, state: unknown = null): void {
+  if (typeof window === "undefined") return;
+  const url = new URL(href, window.location.origin);
+  window.history.pushState(state, "", `${url.pathname}${url.search}`);
+  window.dispatchEvent(new Event(ROUTE_STATE_EVENT));
 }
 
 export function installNavigationListener(onRoute: () => void): () => void {

@@ -17,6 +17,30 @@ from fdai_service_contracts import (
 
 MAX_ACTIVITY_DURATION_MS = 86_400_000
 ObservationOwner = Literal["Huginn", "Heimdall", "Njord", "Freyr", "Vidar"]
+_OBSERVATION_OWNERS: Mapping[ObservationDomain, frozenset[ObservationOwner]] = {
+    ObservationDomain.INVENTORY: frozenset({"Huginn"}),
+    ObservationDomain.ACTIVITY_LOG: frozenset({"Huginn"}),
+    ObservationDomain.RESOURCE_HEALTH: frozenset({"Heimdall"}),
+    ObservationDomain.SERVICE_HEALTH: frozenset({"Heimdall"}),
+    ObservationDomain.METRICS: frozenset({"Heimdall", "Freyr"}),
+    ObservationDomain.LOGS: frozenset({"Heimdall"}),
+    ObservationDomain.GUEST_LOGS: frozenset({"Heimdall"}),
+    ObservationDomain.NETWORK_CONFIG: frozenset({"Heimdall"}),
+    ObservationDomain.COST: frozenset({"Njord"}),
+    ObservationDomain.RECOVERY: frozenset({"Vidar"}),
+}
+_LEGACY_OBSERVATION_OWNER_BY_SOURCE: Mapping[str, ObservationOwner] = {
+    "inventory": "Huginn",
+    "activity-log": "Huginn",
+    "resource-health": "Heimdall",
+    "service-health": "Heimdall",
+    "metrics": "Heimdall",
+    "logs": "Heimdall",
+    "guest-logs": "Heimdall",
+    "network-config": "Heimdall",
+    "cost": "Njord",
+    "recovery": "Vidar",
+}
 
 
 def durable_activity_projection(
@@ -28,11 +52,16 @@ def durable_activity_projection(
     limit: int,
 ) -> dict[str, object]:
     """Validate and merge bounded durable activities newest first."""
+    observation_activities: list[AgentOperationalActivity] = []
+    for row in observation_rows:
+        activity = _observation_activity(row)
+        if activity is not None:
+            observation_activities.append(activity)
     activities = [
         *(_inventory_activity(row) for row in inventory_rows),
         *(_ontology_activity(row) for row in ontology_rows),
         *(_read_activity(row) for row in read_rows),
-        *(_observation_activity(row) for row in observation_rows),
+        *observation_activities,
     ]
     by_id: dict[str, AgentOperationalActivity] = {}
     for activity in activities:
@@ -172,7 +201,7 @@ def _read_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
     )
 
 
-def _observation_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
+def _observation_activity(row: Mapping[str, Any]) -> AgentOperationalActivity | None:
     value = _mapping(row.get("value"), "observation activity value")
     source_id = _text(value.get("source_id"), "observation source id", maximum=96)
     campaign_id = _text(value.get("campaign_id"), "observation campaign id", maximum=96)
@@ -180,18 +209,16 @@ def _observation_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
         domain = ObservationDomain(_text(value.get("domain"), "observation domain", maximum=64))
     except ValueError as exc:
         raise ValueError("observation domain is unsupported") from exc
-    owners: Mapping[ObservationDomain, ObservationOwner] = {
-        ObservationDomain.INVENTORY: "Huginn",
-        ObservationDomain.ACTIVITY_LOG: "Huginn",
-        ObservationDomain.RESOURCE_HEALTH: "Heimdall",
-        ObservationDomain.SERVICE_HEALTH: "Heimdall",
-        ObservationDomain.METRICS: "Heimdall",
-        ObservationDomain.LOGS: "Heimdall",
-        ObservationDomain.GUEST_LOGS: "Heimdall",
-        ObservationDomain.NETWORK_CONFIG: "Heimdall",
-        ObservationDomain.COST: "Njord",
-        ObservationDomain.RECOVERY: "Vidar",
-    }
+    owner_value = value.get("owner_agent")
+    if owner_value is None:
+        owner = _LEGACY_OBSERVATION_OWNER_BY_SOURCE.get(source_id)
+        if owner is None:
+            return None
+    else:
+        owner_text = _text(owner_value, "observation owner agent", maximum=32)
+        if owner_text not in _OBSERVATION_OWNERS[domain]:
+            raise ValueError("observation owner agent is incompatible with its domain")
+        owner = owner_text
     status_value = _text(value.get("status"), "observation status", maximum=32)
     statuses = {
         "started": OperationalActivityStatus.STARTED,
@@ -219,7 +246,7 @@ def _observation_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
         idempotency_key=f"observation:{source_id}:{campaign_id}:{status.value}",
         kind=OperationalActivityKind.OBSERVATION,
         status=status,
-        owner_agent=owners[domain],
+        owner_agent=owner,
         producer="observation-campaign-job",
         observation_domain=domain,
         observed_at=(

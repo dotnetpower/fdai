@@ -8,6 +8,7 @@ import {
   activityProvenanceCounts,
   auditProvenanceOf,
   entryConversation,
+  isSagaAuditMirror,
 } from "./agent-activity-semantics";
 
 export type ActivityWindow = "15m" | "1h" | "24h" | "7d";
@@ -135,7 +136,11 @@ export function filterAgentActivityLog(
 ): readonly AuditItem[] {
   const normalizedQuery = normalizeSearch(query);
   return items.filter((item) => {
-    if (item.action_kind === "startup_readiness.audit_probe") return false;
+    if (
+      item.action_kind === "startup_readiness.audit_probe" ||
+      isSagaAuditMirror(item) ||
+      item.action_kind === "observation-campaign.source-transition"
+    ) return false;
     const agent = agentOf(item);
     const conversation = entryConversation(item) ?? [];
     const participants = new Set([

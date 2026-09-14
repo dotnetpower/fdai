@@ -8,6 +8,7 @@ from uuid import UUID
 from fdai_service_contracts.control_loop_measurement import (
     CONTROL_LOOP_MEASUREMENT_ACTION_KIND,
     CONTROL_LOOP_MEASUREMENT_ACTOR,
+    CONTROL_LOOP_MEASUREMENT_OWNER_AGENT,
     ControlLoopMeasurement,
     control_loop_measurement_id,
 )
@@ -59,6 +60,7 @@ def control_loop_measurement_audit_entry(
     """Flatten the versioned measurement into its canonical audit envelope."""
     return {
         "actor": CONTROL_LOOP_MEASUREMENT_ACTOR,
+        "owner_agent": CONTROL_LOOP_MEASUREMENT_OWNER_AGENT,
         "action_kind": CONTROL_LOOP_MEASUREMENT_ACTION_KIND,
         **measurement.model_dump(mode="json"),
     }
@@ -113,6 +115,7 @@ class TerminalMeasurementRecorder:
                 {
                     **rejected,
                     "actor": CONTROL_LOOP_MEASUREMENT_ACTOR,
+                    "owner_agent": CONTROL_LOOP_MEASUREMENT_OWNER_AGENT,
                     "action_kind": "measurement.control_loop.rejected.v1",
                     "mode": fields["mode"],
                     "occurred_at": _audit_time(fields["occurred_at"]),
