@@ -366,14 +366,8 @@ class ShadowWorkflowStepExecutor:
             bundle_digest = resolution.safeguard_bundle_digest
             if bundle_digest:
                 self._bundle_digests[step.id] = bundle_digest
-            if outcome == "not_attempted":
-                return step_result(
-                    step,
-                    RunbookStepOutcome.FAILURE,
-                    "action_not_attempted",
-                )
-            if outcome == "failed":
-                return step_result(step, RunbookStepOutcome.FAILURE, "action_failed")
+            if outcome in {"failed", "not_attempted"}:
+                return step_result(step, RunbookStepOutcome.FAILURE, f"action_{outcome}")
             if outcome == "succeeded":
                 if bundle_digest is None:
                     return step_result(

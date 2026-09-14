@@ -6,11 +6,15 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import Any, cast
 
+from fdai.core.control_loop._execution_outcomes import (
+    is_execution_no_effect as _is_execution_no_effect,
+)
+from fdai.core.control_loop._execution_outcomes import (
+    is_execution_pending as _is_execution_pending,
+)
 from fdai.core.control_loop._helpers import (
     _extract_resource_id,
     _extract_resource_props,
-    _is_execution_no_effect,
-    _is_execution_pending,
     _is_execution_success,
     _synthetic_action_build_failure,
     apply_governance_override_to_rule,
@@ -582,7 +586,12 @@ def _aggregate_outcome(
         return ControlLoopOutcome.HIL
     if any(_is_execution_success(result) for result in execution_results):
         return ControlLoopOutcome.EXECUTED
-    if execution_results and all(_is_execution_no_effect(result) for result in execution_results):
+    attempted = [
+        result
+        for result in execution_results
+        if result.audit_context.get("action_build_failed") is not True
+    ]
+    if attempted and all(_is_execution_no_effect(result) for result in attempted):
         return ControlLoopOutcome.EXECUTION_NOT_ATTEMPTED
     if "governance_observe" in routed:
         return ControlLoopOutcome.GOVERNANCE_OBSERVED

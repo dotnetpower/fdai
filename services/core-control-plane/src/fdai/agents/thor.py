@@ -25,6 +25,7 @@ from weakref import WeakValueDictionary
 
 from pydantic import ValidationError
 
+from fdai.agents._framework import action_run_lineage
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import (
@@ -134,16 +135,7 @@ class ActionRun:
     history: list[ActionRunState] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        if self.action_id is not None and (
-            not self.action_id.strip()
-            or self.action_id != self.action_id.strip()
-            or len(self.action_id) > 512
-        ):
-            raise ValueError("ActionRun action_id MUST be canonical and bounded")
-        if self.workflow_action is not None and (
-            _bounded_workflow_action(self.workflow_action) != self.workflow_action
-        ):
-            raise ValueError("ActionRun workflow_action MUST be canonical and bounded")
+        action_run_lineage.validate_action_run_lineage(self.action_id, self.workflow_action)
         if not self.idempotency_key:
             self.idempotency_key = self.correlation_id
 
@@ -199,7 +191,7 @@ class ActionRun:
             resource_id=data.get("resource_id"),
             state=ActionRunState(data["state"]),
             verdict=str(data["verdict"]),
-            action_id=_optional_bounded_text(
+            action_id=action_run_lineage.optional_bounded_text(
                 data.get("action_id"),
                 field_name="action_id",
             ),
@@ -214,10 +206,10 @@ class ActionRun:
             rollback_ref=data.get("rollback_ref"),
             decision_case=_bounded_decision_case(data.get("decision_case")),
             operational_context=operational_context,
-            workflow_action=_bounded_workflow_action(data.get("workflow_action")),
+            workflow_action=action_run_lineage.bounded_workflow_action(data.get("workflow_action")),
             kinetic_proposal=_durable_kinetic_proposal(data.get("kinetic_proposal")),
             prospective_lineage=_durable_prospective_lineage(data.get("prospective_lineage")),
-            execution_audit_receipt=_optional_bounded_text(
+            execution_audit_receipt=action_run_lineage.optional_bounded_text(
                 data.get("execution_audit_receipt"),
                 field_name="execution_audit_receipt",
             ),
@@ -653,7 +645,7 @@ class Thor(Agent):
             resource_id=resource_id,
             state=ActionRunState.VERDICTED,
             verdict=risk_verdict,
-            action_id=_optional_bounded_text(
+            action_id=action_run_lineage.optional_bounded_text(
                 verdict.get("action_id"),
                 field_name="action_id",
             ),
@@ -666,7 +658,9 @@ class Thor(Agent):
             rollback_contract=str(verdict.get("rollback_contract", "state_forward_only")),
             decision_case=decision_case,
             operational_context=operational_context,
-            workflow_action=_bounded_workflow_action(verdict.get("workflow_action")),
+            workflow_action=action_run_lineage.bounded_workflow_action(
+                verdict.get("workflow_action")
+            ),
             kinetic_proposal=(
                 kinetic_proposal.model_dump(mode="json") if kinetic_proposal is not None else None
             ),
@@ -1363,14 +1357,6 @@ def _resolved_autonomy_ceiling(verdict: Mapping[str, Any]) -> Autonomy:
     return min(values, key=rank.__getitem__)
 
 
-def _optional_bounded_text(value: object, *, field_name: str) -> str | None:
-    if value is None:
-        return None
-    if not isinstance(value, str) or not value.strip() or len(value) > 512:
-        raise ValueError(f"durable ActionRun {field_name} MUST be bounded text")
-    return value
-
-
 def _optional_datetime(value: object, *, field_name: str) -> datetime | None:
     if value is None:
         return None
@@ -1383,23 +1369,6 @@ def _optional_datetime(value: object, *, field_name: str) -> datetime | None:
     if parsed.tzinfo is None:
         raise ValueError(f"durable ActionRun {field_name} MUST be timezone-aware")
     return parsed.astimezone(UTC)
-
-
-def _bounded_workflow_action(raw: object) -> dict[str, Any] | None:
-    if not isinstance(raw, Mapping):
-        return None
-    required = {"process_id", "step_id", "proposal_ref"}
-    if not required.issubset(raw) or not set(raw).issubset(required | {"attempt"}):
-        return None
-    bounded: dict[str, Any] = {key: str(raw[key]).strip() for key in required}
-    if any(not item or len(item) > 512 for item in bounded.values()):
-        return None
-    if "attempt" in raw:
-        attempt = raw["attempt"]
-        if isinstance(attempt, bool) or not isinstance(attempt, int) or attempt < 1:
-            return None
-        bounded["attempt"] = attempt
-    return bounded
 
 
 def _kinetic_proposal(raw: object) -> KineticActionProposal | None:

@@ -26,13 +26,17 @@ without touching ``__init__.py`` or ``_helpers.py``.
 
 from __future__ import annotations
 
+from fdai.core.control_loop._execution_outcomes import (
+    is_execution_no_effect as _is_execution_no_effect,
+)
+from fdai.core.control_loop._execution_outcomes import (
+    is_execution_pending as _is_execution_pending,
+)
 from fdai.core.control_loop._helpers import (
     _compute_authority,
     _extract_environment,
     _extract_resource_id,
     _extract_resource_props,
-    _is_execution_no_effect,
-    _is_execution_pending,
     _is_execution_success,
     _synthetic_action_build_failure,
     _unified_audit_dict,

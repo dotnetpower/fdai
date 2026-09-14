@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import datetime
 
-from fdai.core.executor.outcome_semantics import execution_outcome_may_have_effect
 from fdai.core.ontology_platform.action_plans import validate_action_plan_semantics
 from fdai.core.ontology_platform.functions import ontology_function_digest
 from fdai.core.ontology_platform.reconciliation_contracts import EffectReconciliationRequest
@@ -20,6 +19,7 @@ from fdai.core.ontology_platform.reconciliation_request_outbox import (
     ReconciliationRequestOutbox,
     ReconciliationRequestOutboxState,
 )
+from fdai.shared.contracts.execution_outcomes import execution_outcome_may_have_effect
 from fdai.shared.contracts.models import Action
 
 from .reconciliation_request_publication import EffectReconciliationRequestPublisher

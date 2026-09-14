@@ -24,18 +24,20 @@ from fdai_service_contracts.executor_models import (
 )
 from pydantic import ValidationError
 
-from fdai.core.executor.direct_api import (
-    DirectApiExecutionOutcome,
-    DirectApiExecutionResult,
-)
-from fdai.core.executor.outcome_semantics import (
-    execution_outcome_is_pending,
-    execution_outcome_may_have_effect,
-)
 from fdai.shared.contracts import (
     ExecutorCommand,
     ExecutorEffectReceipt,
     ExecutorShadowReceipt,
+)
+from fdai.shared.contracts.execution_outcomes import (
+    DirectApiExecutionOutcome as RemoteDirectApiExecutionOutcome,
+)
+from fdai.shared.contracts.execution_outcomes import (
+    DirectApiExecutionResult as RemoteDirectApiExecutionResult,
+)
+from fdai.shared.contracts.execution_outcomes import (
+    execution_outcome_is_pending,
+    execution_outcome_may_have_effect,
 )
 from fdai.shared.contracts.models import (
     Action,
@@ -66,10 +68,6 @@ _EXECUTOR_RECEIPT_CONSUMER = cast(
 )
 type ExecutorReceipt = ExecutorShadowReceipt | ExecutorEffectReceipt
 type PrePublishGuard = Callable[[], Awaitable[datetime]]
-
-
-RemoteDirectApiExecutionOutcome = DirectApiExecutionOutcome
-RemoteDirectApiExecutionResult = DirectApiExecutionResult
 
 
 @dataclass(frozen=True, slots=True)

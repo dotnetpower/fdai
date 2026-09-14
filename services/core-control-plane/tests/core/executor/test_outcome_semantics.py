@@ -5,14 +5,14 @@ from __future__ import annotations
 import pytest
 from fdai.core.executor.direct_api import DirectApiExecutionOutcome
 from fdai.core.executor.executor import ExecutorOutcome
-from fdai.core.executor.outcome_semantics import (
+from fdai.core.executor.tool_call import ToolCallExecutionOutcome
+from fdai.shared.contracts.execution_outcomes import (
     ExecutionLifecycleDisposition,
     execution_lifecycle_disposition,
     execution_outcome_is_no_effect,
     execution_outcome_is_pending,
     execution_outcome_may_have_effect,
 )
-from fdai.core.executor.tool_call import ToolCallExecutionOutcome
 
 
 @pytest.mark.parametrize(

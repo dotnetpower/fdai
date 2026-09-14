@@ -667,12 +667,17 @@ function traceStepMatchesLifecycle(
   const kind = step.action_kind.toLowerCase();
   const namedStage = step.stage?.toLowerCase() ?? "";
   if (stage === "proposal") {
-    return kind.includes("proposal") || namedStage === "plan" || namedStage === "propose";
+    return kind.startsWith("action.proposal.")
+      || kind === "action.proposal"
+      || kind.endsWith(".proposal")
+      || namedStage === "plan"
+      || namedStage === "propose";
   }
   if (stage === "decision") {
-    return kind.includes("verdict")
-      || kind.includes("risk_gate")
-      || kind.includes("policy.")
+    return kind.startsWith("verdict.")
+      || kind.endsWith(".verdict")
+      || kind.startsWith("risk_gate.")
+      || kind.startsWith("policy.")
       || (
         step.decision !== null
         && ["decision", "gate", "risk-gate"].includes(namedStage)
@@ -685,9 +690,13 @@ function traceStepMatchesLifecycle(
   if (stage === "observation") {
     return kind.startsWith("effect_observation.")
       || kind.startsWith("measurement.action_outcome")
-      || kind.includes("effect.observation");
+      || kind === "effect.observation"
+      || kind.startsWith("effect.observation.");
   }
-  return kind.includes("rollback") || kind.includes("rolled_back") || kind.includes("recovery");
+  return kind.startsWith("rollback.")
+    || kind.endsWith(".rolled_back")
+    || kind.startsWith("recovery.")
+    || kind.endsWith(".recovery");
 }
 
 function traceLifecycleState(
@@ -703,17 +712,17 @@ function traceLifecycleState(
       : "recorded";
   }
   if (
-    kind.includes("execution_pending")
-    || kind.includes("awaiting_effect_evidence")
-    || kind.includes("receipt_timeout")
-    || kind.includes("execution_unknown")
+    kind.endsWith(".execution_pending")
+    || kind.endsWith(".awaiting_effect_evidence")
+    || kind.endsWith(".receipt_timeout")
+    || kind.endsWith(".execution_unknown")
     || ["hold", "pending", "unknown", "unavailable"].includes(decision)
   ) {
     return "pending";
   }
   if (
-    kind.includes("failed")
-    || kind.includes("mismatch")
+    kind.endsWith(".failed")
+    || kind.endsWith(".mismatch")
     || ["failed", "error"].includes(decision)
   ) {
     return "failed";

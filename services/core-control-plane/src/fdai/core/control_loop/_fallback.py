@@ -7,9 +7,13 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai.core.control_loop._dynamic_simulation import DynamicSimulationAuditMixin
+from fdai.core.control_loop._execution_outcomes import (
+    is_execution_no_effect as _is_execution_no_effect,
+)
+from fdai.core.control_loop._execution_outcomes import (
+    is_execution_pending as _is_execution_pending,
+)
 from fdai.core.control_loop._helpers import (
-    _is_execution_no_effect,
-    _is_execution_pending,
     _is_execution_success,
 )
 from fdai.core.control_loop.models import ControlLoopOutcome, ControlLoopResult

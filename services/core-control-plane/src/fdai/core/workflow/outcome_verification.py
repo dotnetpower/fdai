@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 
 from fdai_service_contracts.ontology_query import content_digest
 
-from fdai.core.executor.outcome_semantics import (
+from fdai.shared.contracts.execution_outcomes import (
     execution_outcome_is_no_effect,
     execution_outcome_is_pending,
 )

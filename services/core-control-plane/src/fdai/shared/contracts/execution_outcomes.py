@@ -1,8 +1,50 @@
-"""Shared execution-outcome classifications for orchestration consumers."""
+"""Provider-neutral execution result and lifecycle classifications."""
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
+
+from fdai.shared.contracts.models import Mode
+
+
+class DirectApiExecutionOutcome(StrEnum):
+    """Lifecycle outcome for one direct-API execution attempt."""
+
+    DISPATCHED = "dispatched"
+    ALREADY_APPLIED = "already_applied"
+    ABSTAINED_BLAST_RADIUS = "abstained_blast_radius"
+    ABSTAINED_PRECONDITION = "abstained_precondition"
+    STOPPED = "stopped"
+    FAILED = "failed"
+    DISPATCH_NOT_ATTEMPTED = "dispatch_not_attempted"
+    AWAITING_EFFECT_EVIDENCE = "awaiting_effect_evidence"
+    RECEIPT_TIMEOUT = "receipt_timeout"
+    EXECUTION_UNKNOWN = "execution_unknown"
+    AUTHENTICATION_FAILED = "authentication_failed"
+    PERMISSION_DENIED = "permission_denied"
+    POLICY_DENIED = "policy_denied"
+    NETWORK_DENIED = "network_denied"
+    REJECTED_MODE = "rejected_mode"
+    REJECTED_INVARIANT = "rejected_invariant"
+    REJECTED_CAPABILITY_UNAVAILABLE = "rejected_capability_unavailable"
+    REJECTED_IDEMPOTENCY_CONFLICT = "rejected_idempotency_conflict"
+    EXPIRED = "expired"
+
+
+@dataclass(frozen=True, slots=True)
+class DirectApiExecutionResult:
+    """Provider-neutral result returned by direct and isolated execution ports."""
+
+    action_id: str
+    outcome: DirectApiExecutionOutcome
+    mode: Mode = Mode.SHADOW
+    receipt_ref: str | None = None
+    safeguard_bundle_digest: str | None = None
+    rollback_succeeded: bool | None = None
+    reason: str | None = None
+    audit_context: dict[str, Any] = field(default_factory=dict)
 
 
 class ExecutionLifecycleDisposition(StrEnum):
@@ -89,6 +131,8 @@ def execution_outcome_may_have_effect(outcome: object) -> bool:
 
 
 __all__ = [
+    "DirectApiExecutionOutcome",
+    "DirectApiExecutionResult",
     "ExecutionLifecycleDisposition",
     "execution_lifecycle_disposition",
     "execution_outcome_is_no_effect",

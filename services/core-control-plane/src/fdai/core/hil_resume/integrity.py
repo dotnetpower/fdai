@@ -9,11 +9,11 @@ from typing import Any
 
 from fdai.core.executor import ExecutionResult, ExecutorOutcome
 from fdai.core.executor.direct_api import DirectApiExecutionOutcome, DirectApiExecutionResult
-from fdai.core.executor.outcome_semantics import (
+from fdai.core.executor.tool_call import ToolCallExecutionOutcome, ToolCallExecutionResult
+from fdai.shared.contracts.execution_outcomes import (
     execution_outcome_is_no_effect,
     execution_outcome_is_pending,
 )
-from fdai.core.executor.tool_call import ToolCallExecutionOutcome, ToolCallExecutionResult
 from fdai.shared.contracts.models import Action, Rule
 
 
