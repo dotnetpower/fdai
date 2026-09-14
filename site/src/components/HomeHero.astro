@@ -2,7 +2,7 @@
 /** Reader-first home hero; preserve Starlight's existing fallback hero elsewhere. */
 import DefaultHero from "@astrojs/starlight/components/Hero.astro";
 import FallbackHero from "./CustomHero.astro";
-import NebulaBackground from "./NebulaBackground.astro";
+import HomeBackground from "./HomeBackground.astro";
 import { homeContent } from "../data/home-copy.mjs";
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
@@ -11,6 +11,7 @@ const home = `${base}${locale === "ko" ? "ko/" : ""}`;
 const isHome = Astro.url.pathname.replace(/\/?$/, "/") === home;
 const copy = homeContent(locale);
 const hero = Astro.locals.starlightRoute.entry.data.hero;
+const neuralView = `${base}neural-view/${locale === "ko" ? "?lang=ko" : ""}`;
 
 if (isHome && hero?.actions) {
   hero.actions = hero.actions.map(action => ({
@@ -24,14 +25,14 @@ if (isHome && hero?.actions) {
 
 {isHome ? (
   <div class="home-hero">
-    <NebulaBackground intensity={1.0} speed={1.0} attachToBody />
+    <HomeBackground base={base} locale={locale} />
     <div class="home-hero-copy">
       <p class="home-eyebrow">{copy.kicker}</p>
       <DefaultHero {...Astro.props} />
     </div>
     <div class="home-hero-footer home-shell">
       <p class="home-hero-note">{copy.heroNote}</p>
-      <a class="home-explore" href="#outcomes">{copy.exploreLabel}<span aria-hidden="true">↓</span></a>
+      <a class="home-explore" href={neuralView}>{copy.neuralViewLabel}<span aria-hidden="true">↗</span></a>
     </div>
   </div>
 ) : <FallbackHero {...Astro.props}><slot /></FallbackHero>}

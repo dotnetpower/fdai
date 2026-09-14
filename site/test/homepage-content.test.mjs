@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
 import { homeContent, homeCopy } from "../src/data/home-copy.mjs";
 
@@ -34,17 +34,24 @@ test("home journeys use published locale-consistent document routes", async () =
   }
 });
 
-test("home preserves the authored nebula and exposes safety as native disclosure", async () => {
+test("home offers video and nebula backgrounds and exposes safety as native disclosure", async () => {
   const sections = await read("src/components/HomeSections.astro");
   const hero = await read("src/components/HomeHero.astro");
-  assert.match(hero, /import NebulaBackground from "\.\/NebulaBackground\.astro"/);
-  assert.match(hero, /<NebulaBackground intensity=\{1\.0\} speed=\{1\.0\} attachToBody\s*\/>/);
+  const background = await read("src/components/HomeBackground.astro");
+  assert.match(hero, /import HomeBackground from "\.\/HomeBackground\.astro"/);
+  assert.match(hero, /<HomeBackground base=\{base\} locale=\{locale\}\s*\/>/);
+  assert.match(background, /<NebulaBackground intensity=\{1\.0\} speed=\{1\.0\} attachToBody\s*\/>/);
+  assert.match(background, /fdai:home-background/);
+  assert.match(background, /prefers-reduced-motion: reduce/);
+  assert.match(background, /saveData/);
+  assert.ok((await stat(new URL("../public/media/neural-view-hero.mp4", import.meta.url))).size < 1024 * 1024);
+  assert.ok((await stat(new URL("../public/media/neural-view-hero-poster.webp", import.meta.url))).size < 128 * 1024);
   for (const page of ["src/content/docs/index.mdx", "src/content/docs/ko/index.mdx"]) {
     const source = await read(page);
     assert.match(source, /<HomeSections locale="(?:en|ko)"/);
     assert.doesNotMatch(source, /ScrollReveal|TrustTierFunnel|ActionOntologyExplorer|CardGrid|phase-timeline/);
     assert.match(source, /link: "#how-it-works"/);
-    assert.match(source, /link: \/neural-view\/(?:\?lang=ko)?/);
+    assert.doesNotMatch(source, /link: \/neural-view\//);
   }
   assert.match(sections, /<details class="home-safeguards">/);
   assert.match(sections, /data-safeguard=\{item.id\}/);
