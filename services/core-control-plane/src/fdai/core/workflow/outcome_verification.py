@@ -105,6 +105,7 @@ class StateStoreWorkflowOutcomeLedger:
             key,
             record,
             {
+                "event_id": str(action.event_id),
                 "actor": "fdai.core.workflow.outcome_verification",
                 "action_kind": "workflow.action_outcome.recorded",
                 **record,

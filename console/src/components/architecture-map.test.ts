@@ -13,32 +13,30 @@ import {
   ARCHITECTURE_RESOURCE_ABBREVIATIONS,
   architectureResourceAbbreviation,
 } from "./architecture-resource-abbreviations";
-import { geometryOf } from "./architecture-map.model";
+import { geometryOf, RESOURCE_COLOR_TOKENS } from "./architecture-map.model";
 import {
   architectureCanvasHeight,
-  DEFAULT_ISOMETRIC_CAMERA,
+  DEFAULT_ORTHOGRAPHIC_CAMERA,
   architectureLegendReserveWidth,
   architectureZoomScale,
-  applyCameraView,
   architectureWorldSize,
   fitCamera,
-  orbitArchitectureCamera,
   pickResource,
   project,
   zoomCameraAtPoint,
   type Camera,
 } from "./architecture-map.geometry";
 import {
-  ARCHITECTURE_REFLECTION_NODE_LIMIT,
   architectureLinkIsDrawable,
   architectureLinkElevation,
   architectureNodeLabelIsVisible,
   architectureOverlayOrder,
-  architectureReflectionNodes,
   architectureFloorLegendEntries,
   architectureFloorLegendFontSize,
   architectureGlyphFontSize,
+  architectureLegendTextColor,
   architectureLabelFontSize,
+  DEFAULT_ARCHITECTURE_MAP_PALETTE,
   fitArchitectureLabel,
 } from "./architecture-map-renderer";
 import {
@@ -55,6 +53,23 @@ const overviewPanelSource = readFileSync(
   "utf8",
 );
 
+function relativeLuminance(hex: string): number {
+  const weights = [.2126, .7152, .0722] as const;
+  return [1, 3, 5]
+    .map((index) => Number.parseInt(hex.slice(index, index + 2), 16) / 255)
+    .map((channel) => channel <= .04045
+      ? channel / 12.92
+      : ((channel + .055) / 1.055) ** 2.4)
+    .reduce((total, channel, index) => total + channel * weights[index]!, 0);
+}
+
+function contrastRatio(first: string, second: string): number {
+  const firstLuminance = relativeLuminance(first);
+  const secondLuminance = relativeLuminance(second);
+  return (Math.max(firstLuminance, secondLuminance) + .05)
+    / (Math.min(firstLuminance, secondLuminance) + .05);
+}
+
 afterEach(() => setLocale("en"));
 
 describe("architecture resource navigator", () => {
@@ -67,7 +82,7 @@ describe("architecture resource navigator", () => {
   });
 
   it("provides a minimum pointer target and selects the narrowest boundary", () => {
-    const camera: Camera = { yaw: 0, pitch: 1.5, scale: 22, panX: 0, panY: 0 };
+    const camera: Camera = { ...DEFAULT_ORTHOGRAPHIC_CAMERA, scale: 22 };
     const node = { id: "app", name: "App", type: "app-service", status: "healthy", x: 4, y: 4 };
     const outer = { id: "sub", name: "Sub", type: "subscription", status: "healthy", x: 0, y: 0, w: 10, h: 10 };
     const inner = { id: "rg", name: "RG", type: "resource-group", status: "healthy", x: 2, y: 2, w: 4, h: 4 };
@@ -83,7 +98,7 @@ describe("architecture map labels", () => {
     setLocale("ko");
 
     expect(architectureMapLayerLabel("scope")).toBe("범위 및 경계");
-    expect(architectureMapAriaLabel(3)).toBe("리소스 3개의 아키텍처 지도");
+    expect(architectureMapAriaLabel(3)).toBe("리소스 3개의 2D 아키텍처 지도");
     expect(architectureMapSelectLabel()).toBe("아키텍처 리소스 선택");
     expect(architectureMapSelectOptionLabel()).toBe("리소스 선택");
   });
@@ -136,7 +151,8 @@ describe("architecture map labels", () => {
     expect(architectureNetworkPlaneLabelIsVisible(vnet, null, 6)).toBe(true);
     expect(architectureNetworkPlaneLabelIsVisible(subnet, null, 6)).toBe(false);
     expect(architectureNetworkPlaneLabelIsVisible(subnet, "subnet", 6)).toBe(true);
-    expect(architectureNetworkPlaneLabelIsVisible(subnet, null, 12)).toBe(true);
+    expect(architectureNetworkPlaneLabelIsVisible(subnet, null, 12)).toBe(false);
+    expect(architectureNetworkPlaneLabelIsVisible(subnet, null, 18)).toBe(true);
   });
 
   it("paints the selected label after every other node overlay", () => {
@@ -206,6 +222,15 @@ describe("architecture resource legend", () => {
     expect(architectureFloorLegendFontSize(42)).toBeCloseTo(18.28);
     expect(architectureFloorLegendFontSize(132)).toBe(22);
   });
+
+  it("keeps every colored legend label at AA text contrast", () => {
+    for (const token of Object.values(RESOURCE_COLOR_TOKENS)) {
+      expect(contrastRatio(
+        architectureLegendTextColor(token.color),
+        DEFAULT_ARCHITECTURE_MAP_PALETTE.background,
+      ), token.label).toBeGreaterThanOrEqual(4.5);
+    }
+  });
 });
 
 describe("architecture map zoom", () => {
@@ -213,14 +238,13 @@ describe("architecture map zoom", () => {
     const initial = 42;
     expect(architectureZoomScale(architectureZoomScale(initial, "in"), "out"))
       .toBeCloseTo(initial, 10);
+    expect(architectureZoomScale(14, "out")).toBe(14);
   });
 
   it("supports deep inspection and keeps pointer position anchored", () => {
     expect(architectureZoomScale(500, "in")).toBe(512);
     const camera: Camera = {
-      yaw: Math.PI / 4,
-      pitch: .58,
-      perspective: .24,
+      ...DEFAULT_ORTHOGRAPHIC_CAMERA,
       scale: 40,
       panX: -20,
       panY: 12,
@@ -239,78 +263,45 @@ describe("architecture map zoom", () => {
   });
 });
 
-describe("architecture perspective", () => {
-  it("renders near resources larger while top view stays orthographic", () => {
+describe("architecture orthographic projection", () => {
+  it("keeps world scale uniform and ignores resource height", () => {
     const camera: Camera = {
-      yaw: 0,
-      pitch: .58,
-      perspective: .24,
+      ...DEFAULT_ORTHOGRAPHIC_CAMERA,
       scale: 40,
-      panX: 0,
-      panY: 0,
       worldWidth: 18,
       worldHeight: 12,
     };
     const centerX = 500;
     const near = project(camera, 1000, 700, 12, 1, .2);
     const far = project(camera, 1000, 700, 12, 11, .2);
-    expect(Math.abs(near.x - centerX)).toBeGreaterThan(Math.abs(far.x - centerX));
-
-    applyCameraView(camera, "top");
-    const topNear = project(camera, 1000, 700, 12, 1, .2);
-    const topFar = project(camera, 1000, 700, 12, 11, .2);
-    expect(Math.abs(topNear.x - centerX)).toBeCloseTo(Math.abs(topFar.x - centerX));
+    const elevated = project(camera, 1000, 700, 12, 1, 1.2);
+    expect(Math.abs(near.x - centerX)).toBeCloseTo(Math.abs(far.x - centerX));
+    expect(elevated).toMatchObject({ x: near.x, y: near.y });
+    expect(project(camera, 1000, 700, 13, 1).x - near.x).toBeCloseTo(40);
   });
 });
 
-describe("architecture camera orbit", () => {
-  it("rotates horizontally and normalizes repeated turns", () => {
-    const camera: Camera = {
-      ...DEFAULT_ISOMETRIC_CAMERA,
-      scale: 42,
-      panX: 0,
-      panY: 0,
-    };
-    const initialYaw = camera.yaw;
-
-    orbitArchitectureCamera(camera, 100);
-    expect(camera.yaw).toBeCloseTo(initialYaw + .5);
-
-    orbitArchitectureCamera(camera, 10_000);
-    expect(camera.yaw).toBeGreaterThanOrEqual(-Math.PI);
-    expect(camera.yaw).toBeLessThan(Math.PI);
-  });
-
-  it("maps left drag to pan and middle drag to orbit", () => {
+describe("architecture map pan", () => {
+  it("maps left and middle drag to the same 2D pan interaction", () => {
     expect(architecturePointerDragMode(0)).toBe("pan");
-    expect(architecturePointerDragMode(1)).toBe("orbit");
+    expect(architecturePointerDragMode(1)).toBe("pan");
     expect(architecturePointerDragMode(2)).toBeNull();
     expect(architecturePointerButtonsDragMode(1)).toBe("pan");
-    expect(architecturePointerButtonsDragMode(4)).toBe("orbit");
+    expect(architecturePointerButtonsDragMode(4)).toBe("pan");
     expect(architecturePointerButtonsDragMode(0)).toBeNull();
   });
 });
 
 describe("architecture floor legend space", () => {
-  it("reserves a bounded right-side floor area at desktop and mobile widths", () => {
+  it("reserves a bounded desktop legend area and gives narrow maps the full canvas", () => {
     expect(architectureLegendReserveWidth(1200)).toBe(288);
     expect(architectureLegendReserveWidth(700)).toBe(220);
-    expect(architectureLegendReserveWidth(390)).toBeCloseTo(132.6);
-    expect(architectureLegendReserveWidth(200)).toBe(96);
+    expect(architectureLegendReserveWidth(619)).toBe(0);
+    expect(architectureLegendReserveWidth(390)).toBe(0);
   });
 });
 
-describe("architecture selection camera", () => {
-  it("uses a low oblique composition for the default isometric view", () => {
-    const camera: Camera = { yaw: 0, pitch: 0, perspective: 0, scale: 42, panX: 0, panY: 0 };
-
-    applyCameraView(camera, "iso");
-
-    expect(camera).toMatchObject(DEFAULT_ISOMETRIC_CAMERA);
-    expect(camera.yaw).toBeLessThan(Math.PI / 4);
-    expect(camera.pitch).toBeLessThan(.58);
-  });
-
+describe("architecture selection frame", () => {
   it("keeps the camera frame when selection reveals resources inside the same regions", () => {
     const region = {
       id: "rg", type: "resource-group", name: "rg", status: "healthy",
@@ -343,46 +334,19 @@ describe("architecture selection camera", () => {
 });
 
 describe("architecture drag rendering", () => {
-  it("keeps blocks, connections, and reflections while deferring labels", () => {
+  it("keeps 2D resources and connections while deferring labels", () => {
     const options = {
       showConnections: true,
-      showReflections: true,
       showLabels: true,
       showGrid: true,
     };
 
     expect(architectureInteractionOptions(options, true)).toEqual({
       showConnections: true,
-      showReflections: true,
       showLabels: false,
       showGrid: true,
     });
     expect(architectureInteractionOptions(options, false)).toBe(options);
-  });
-});
-
-describe("architecture reflection rendering", () => {
-  it("preserves every reflection node for ordinary maps", () => {
-    const nodes = [{ id: "node-1", name: "Node 1", type: "compute.vm", status: "healthy" }];
-
-    expect(architectureReflectionNodes(nodes, null)).toBe(nodes);
-  });
-
-  it("bounds dense reflection work while prioritizing selected and highlighted nodes", () => {
-    const nodes = Array.from({ length: ARCHITECTURE_REFLECTION_NODE_LIMIT + 5 }, (_, index) => ({
-      id: `node-${index}`,
-      name: `Node ${index}`,
-      type: "compute.vm",
-      status: "healthy",
-    }));
-    const selectedId = nodes.at(-1)!.id;
-    const highlightedId = nodes.at(-2)!.id;
-
-    const reflected = architectureReflectionNodes(nodes, selectedId, new Set([highlightedId]));
-
-    expect(reflected).toHaveLength(ARCHITECTURE_REFLECTION_NODE_LIMIT);
-    expect(reflected[0]?.id).toBe(selectedId);
-    expect(reflected[1]?.id).toBe(highlightedId);
   });
 });
 
@@ -393,7 +357,7 @@ describe("architecture world sizing", () => {
         { id: "sub", type: "subscription", x: 0, y: 0, w: 24, h: 30 },
       ],
     } as never;
-    const camera: Camera = { yaw: Math.PI / 4, pitch: .58, scale: 42, panX: 0, panY: 0 };
+    const camera: Camera = { ...DEFAULT_ORTHOGRAPHIC_CAMERA };
 
     expect(architectureWorldSize(graph)).toEqual({ width: 24, height: 30 });
     expect(architectureCanvasHeight(graph)).toBe(1080);
@@ -413,10 +377,7 @@ describe("architecture world sizing", () => {
       ],
     } as never;
     const camera: Camera = {
-      ...DEFAULT_ISOMETRIC_CAMERA,
-      scale: 42,
-      panX: 0,
-      panY: 0,
+      ...DEFAULT_ORTHOGRAPHIC_CAMERA,
     };
     const canvasHeight = architectureCanvasHeight(graph);
 
@@ -428,7 +389,21 @@ describe("architecture world sizing", () => {
       project(camera, 1000, canvasHeight, 0, 100, z),
     ]);
 
-    expect(Math.min(...corners.map((point) => point.y))).toBeCloseTo(120, 5);
+    expect(Math.min(...corners.map((point) => point.y))).toBeCloseTo(60, 5);
+  });
+
+  it("centers a narrow 2D world below the mobile map controls", () => {
+    const graph = {
+      resources: [
+        { id: "sub", type: "subscription", x: 0, y: 0, w: 18, h: 12 },
+      ],
+    } as never;
+    const camera: Camera = { ...DEFAULT_ORTHOGRAPHIC_CAMERA };
+
+    fitCamera(camera, 290, 520, graph);
+
+    expect(project(camera, 290, 520, 0, 0).y).toBeGreaterThanOrEqual(112);
+    expect(project(camera, 290, 520, 18, 12).y).toBeLessThanOrEqual(440);
   });
 
   it("fits a focused resource-group view to its compact content world", () => {
@@ -442,12 +417,9 @@ describe("architecture world sizing", () => {
     } as never;
 
     expect(architectureWorldSize(graph)).toEqual({ width: 11.25, height: 6.75 });
-    expect(architectureCanvasHeight(graph)).toBe(680);
+    expect(architectureCanvasHeight(graph)).toBe(560);
     const camera: Camera = {
-      ...DEFAULT_ISOMETRIC_CAMERA,
-      scale: 42,
-      panX: 0,
-      panY: 0,
+      ...DEFAULT_ORTHOGRAPHIC_CAMERA,
     };
     fitCamera(camera, 1200, 680, graph);
     const world = architectureWorldSize(graph);

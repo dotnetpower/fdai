@@ -137,6 +137,7 @@ def validate() -> list[str]:
 
     tracked = _tracked_paths()
     route_ids: set[str] = set()
+    docs_update_route_refs: list[tuple[str, str]] = []
     referenced_instructions: set[Path] = set()
     instruction_budget = int(manifest.get("instruction_line_budget", 0))
     skill_budget = int(manifest.get("skill_line_budget", 0))
@@ -191,6 +192,33 @@ def validate() -> list[str]:
                     errors.append(update_error)
                 if not (REPO_ROOT / str(relative)).is_file():
                     errors.append(f"{route_id}: {field} file does not exist: {relative}")
+
+        docs_update_routes = route.get("docs_update_routes", [])
+        if not isinstance(docs_update_routes, list):
+            errors.append(f"{route_id}: docs_update_routes must be a list")
+        elif any(
+            not isinstance(owner_route_id, str) or not owner_route_id
+            for owner_route_id in docs_update_routes
+        ):
+            errors.append(f"{route_id}: invalid empty docs_update_routes route id")
+        elif len(docs_update_routes) != len(set(docs_update_routes)):
+            errors.append(f"{route_id}: docs_update_routes must be unique")
+        else:
+            docs_update_route_refs.extend(
+                (route_id, owner_route_id) for owner_route_id in docs_update_routes
+            )
+
+    routes_by_id = {str(route.get("id", "")): route for route in routes}
+    for route_id, owner_route_id in docs_update_route_refs:
+        owner_route = routes_by_id.get(owner_route_id)
+        if owner_route is None:
+            errors.append(f"{route_id}: unknown docs_update_routes route: {owner_route_id}")
+        elif owner_route_id == route_id:
+            errors.append(f"{route_id}: docs_update_routes cannot reference itself")
+        elif not owner_route.get("docs_update"):
+            errors.append(
+                f"{route_id}: docs_update_routes owner has no docs_update: {owner_route_id}"
+            )
 
     actual_instructions = set(INSTRUCTIONS_ROOT.glob("*.instructions.md"))
     for path in sorted(actual_instructions):

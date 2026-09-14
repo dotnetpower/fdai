@@ -28,10 +28,12 @@ The file source changes by channel. Safety, storage, purpose, citations, retenti
 | Vendor-neutral attachment metadata | implemented | [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | `ChannelAttachment` and `InboundTurn` enforce bounded opaque metadata. No vendor adapter is implied by these contracts. |
 | Explicit attachment purpose | implemented | [`attachment_directive.py`](../../../services/core-control-plane/src/fdai/core/conversation/attachment_directive.py), [`test_attachment_directive.py`](../../../services/core-control-plane/tests/core/conversation/test_attachment_directive.py) | Exact leading directives select handover intent; prose and filenames do not. |
 | Channel ingestion gateway seam | implemented | [`channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | The gateway accepts an injected ingestor and fails closed when one is absent. It is not a concrete protected-ingestion implementation. |
-| Slack metadata and private download | not-started | This document's Slack contracts | No signed Slack inbound adapter, private-file fetcher, production binding, or focused fetch security test is present. |
-| Teams metadata and private download | not-started | This document's Teams contracts | No authenticated Teams inbound adapter, endpoint resolver, private-file fetcher, production binding, or focused fetch security test is present. |
-| Protected channel ingestion composition | not-started | This document's protected-ingestion contract | No concrete ingestor currently connects channel bytes to scanning, extraction, indexing, and citations. |
-| Web chat document references | in-progress | [`document_refs.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/document_refs.py), [`test_conversation_document_refs.py`](../../../services/operator-service/tests/test_conversation_document_refs.py) | Bounded parsing, the eight-reference cap, uniqueness, canonical hyphenated UUID syntax, principal-scoped resolution, uniform denial, missing-resolver 501, contained resolver failure, and order/canonical-form integrity checks are implemented and focused-tested. The versioned semantic envelope and production resolver composition do not yet carry resolved citations. |
+| Slack attachment handoff | implemented | Operator `channel_edge/{slack_ingress,attachment_handoff}.py`; focused handoff, environment, and pipeline checks | The signed adapter retains bounded opaque metadata, discards payload URLs, resolves `files.info` through fixed HTTPS hosts, and streams private bytes into an unnamed bounded spool. |
+| Teams attachment handoff | implemented | Operator `channel_edge/{teams_ingress,attachment_handoff}.py`; focused handoff, environment, and pipeline checks | The authenticated adapter retains bounded opaque metadata, discards payload URLs, and accepts only a configured HTTPS resolver, host allowlist, and token audience allowlist. |
+| Protected channel ingestion composition | implemented | `fdai_ingestion_api_service/channel_attachment*.py`; Operator `channel_edge/{composition,pipeline}.py`; 28 intake and 236 Operator focused tests | A separate internal ingestion workload owns admission, canonical upload, durable replay, terminal observation, and citation return. Provider bytes never enter Kafka. |
+| Channel handoff compatibility promotion | in-progress | `compatibility-manifest.json`; transition certification scope; focused and independent-service compatibility checks | All nine current contracts pass focused compatibility. The retained transition evidence certifies the seven previously deployed edges only; the two attachment HTTP edges remain outside transition certification until new protected N/N-1 evidence exists. |
+| Exact Core document retrieval | implemented | `governed_document_reader.py`; `postgres_governed_document_read.py`; `semantic_turn_processor.py`; 377 focused Core and ownership tests | Core reauthorizes every request-bound version, searches only the exact identity set, and requires the terminal result to echo the document-context digest and actual returned citation set. |
+| Web chat document references | implemented | Operator `document_refs.py`, `postgres_document_refs.py`, and `factory.py`; Operator migration `20260914_operator_conversation_document_refs.py`; focused Operator and migration checks | The Operator replaces raw refs with a server-owned `web_reference` context before durable semantic publication. A bounded security-definer function preserves document-table ownership and authorizes uploader or reader-group access without granting raw table reads. |
 | Web chat inline vision path | in-progress | [`composer-attachments.view.tsx`](../../../console/src/deck/composer-attachments.view.tsx), [`backend-context.ts`](../../../console/src/deck/backend-context.ts), [`conversation_images.py`](../../../services/core-control-plane/src/fdai/delivery/conversation_images.py), [`postgres_conversation_images.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_conversation_images.py) | Console capture, request serialization, bounded image repositories, migrations, and historical rendering exist. The Operator semantic envelope and local narrator currently discard image attachments, and production does not bind the image repository to chat routes. |
 | Document image OCR | implemented | [`processing.py`](../../../services/document-processing-worker/src/fdai_document_worker_service/adapters/processing.py), [`production.py`](../../../services/document-processing-worker/src/fdai_document_worker_service/production.py), [`test_ingestion_adapter_readiness.py`](../../../services/document-processing-worker/tests/test_ingestion_adapter_readiness.py) | The document worker binds bounded Document Intelligence `prebuilt-read` when an OCR endpoint is configured and otherwise fails closed. This does not complete channel or inline-chat ingestion. |
 
@@ -39,24 +41,34 @@ The file source changes by channel. Safety, storage, purpose, citations, retenti
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Completed CI ownership and structure reconciliation for the attachment handoff: refreshed the source-derived semantic-intent digest, registered the focused Core invocation-context module, and moved PostgreSQL document-resolver construction behind the PostgreSQL family-adapter facade so the Operator composition root remains below its reviewed fan-out limit. | `current change`; semantic-intent coverage tests, composition package split tests, Operator document-reference tests, and the Operator boundary plus file-LOC gates. | Retain the same boundaries when adding protected deployment evidence; no runtime validation is inferred from this structural repair. |
+| 2026-09-14 | implemented | Separated the current nine-contract focused matrix from the retained seven-edge transition certification instead of relabeling historical local and live evidence. | `current change`; compatibility manifest and validators; focused compatibility and independent-service checks; certification-scope negative tests. | Add the two attachment HTTP edges to transition certification only after a protected N/N-1 deployment records exact schema, identity, health, offset, source, image, and topology observations. |
+| 2026-09-14 | implemented | Added the private Slack and Teams fetch path, internal channel-intake workload, durable admission and commit replay, hash-bound terminal receipts, exact Web and Core authorization, local and Terraform topology, protected transition guards, and authenticated workload-readiness probing. | `current change`; 93 contract, 28 intake, 236 Operator, 377 Core and ownership, 40 Entra, 2 exact migration, and 345 deployment, workflow, and local-startup focused tests; four ownership-scoped strict mypy checks; changed-file Ruff and generated-artifact checks. | Record protected deployed-runtime evidence after the tenant administrator completes the application-role prerequisite. Complete the separate inline-vision path. |
+| 2026-09-14 | implemented | Reconciled the post-decomposition Operator edge with this owner: disabled provider attachments now fail before queue admission, direct queue injection fails before semantic publication, and unsupported enablement fails startup. | `current change`; focused Operator environment, composition, Slack, Teams, and pipeline checks. | Define a versioned handoff to agent-owned document ingestion and bind private vendor fetchers, terminal citation return, and governed runtime evidence. |
 | 2026-08-13 | in-progress | Reconciled the design with current contracts, adapters, composition, Console code, and tests without reconstructing earlier provenance. | Current source and focused checks listed in the scope table. | Vendor adapters, protected ingestion, web document resolution, the server inline-image path, and governed runtime receipts remain open. |
 | 2026-08-16 | in-progress | Added the bounded `document_refs` request contract and its principal-scoped, fail-closed resolution boundary ahead of semantic processing. | `pytest services/operator-service/tests/test_conversation_document_refs.py` passed 12 focused tests covering syntax and non-canonical UUID rejection, the eight-reference cap, uniqueness, uniform denial, missing-resolver 501, contained resolver failure, and reordered or substituted citation refusal. | Carry resolved citations into the versioned semantic envelope and bind a production resolver over PostgreSQL document metadata. |
 
 ### Remaining work
 
-- [ ] Implement and bind signed Slack and authenticated Teams inbound adapters that retain only
-  bounded opaque attachment metadata.
-- [ ] Implement private vendor fetchers with server-owned endpoint resolution, credential scoping,
+- [x] Implement signed Slack and authenticated Teams inbound adapters that retain only bounded
+  opaque attachment metadata and reject it before queue admission while protected ingestion is off.
+- [x] Implement private vendor fetchers with server-owned endpoint resolution, credential scoping,
   redirect refusal, host allowlists, and streamed byte limits.
-- [ ] Compose a concrete channel ingestor through malware, protection, extraction, indexing,
+- [x] Compose a concrete channel ingestor through malware, protection, extraction, indexing,
   authorization, citation, and handover paths.
 - [x] Add the bounded `document_refs` request contract to the Operator conversation family and
   resolve it through principal-scoped document authorization before semantic processing.
-- [ ] Carry resolved `document_refs` citations into the versioned semantic envelope, bind a
+- [x] Carry resolved `document_refs` citations into the versioned semantic envelope, bind a
   production resolver over authoritative PostgreSQL document metadata, and add route-level tests.
 - [ ] Complete the server inline-image parser, byte and media validation, repository binding,
   semantic transport, vision narrator input, history metadata, and authenticated retrieval path.
-- [ ] Capture governed runtime receipts before marking any end-to-end attachment path validated.
+- [ ] Record a protected deployment in which the intake is enabled first, the edge service
+  principal receives exactly `Document.ChannelAttachment.Submit`, the authenticated readiness
+  probe passes, and one Slack or Teams attachment reaches a query-visible citation.
+- [ ] Promote `channel-attachment-admission` and `channel-attachment-receipt` into the transition
+  certification scope only after the protected N/N-1 run retains exact seven-kind observations.
+- [ ] Record an authenticated Web `document_refs` turn whose exact citations and
+  `document_context_digest` are preserved through the Core terminal result.
 
 ## Purpose and authorization
 
@@ -84,6 +96,101 @@ created the grounded draft and, when enabled, the governance pull request.
 
 The uploader does not become the owner by uploading. Existing ownership remains intact because the
 candidate is additive. A person reviews and merges the Git change before the deployment loads it.
+
+## Versioned service handoff
+
+### Initial design
+
+The initial cross-service option reused the public create, content, complete, and status routes.
+The Operator edge would call those routes with its workload token and attach the mapped human
+principal in request headers.
+
+### Design critique
+
+That option is not accepted. The public authenticator treats the bearer-token subject as the
+upload actor, so it cannot keep the edge workload and attributed human separate. Caller-provided
+roles, groups, collection, access, or retention would also make the ingestion API a confused
+deputy. Slack and Teams metadata do not provide a trusted SHA-256 before download, while the
+canonical upload session requires one. Finally, a response-selected upload URL would introduce an
+unnecessary network-destination decision at the edge.
+
+### Revised design
+
+The accepted handoff uses an internal-only workload from the existing Document Ingestion API
+distribution. It is another independently scalable process of the same service owner, not another
+service distribution or document writer. The public drop-zone routes remain unchanged.
+
+The intake authenticates four identities independently:
+
+1. Slack signature or Teams service token establishes the provider request.
+2. The channel principal mapping identifies the attributed FDAI human.
+3. The dedicated Operator edge managed identity authenticates the HTTPS caller.
+4. The internal intake uses a document-ingestion identity for PostgreSQL, object storage, and
+  lifecycle publication. No identity in this path is Thor's executor identity.
+
+The workload token requires the exact ingestion audience, issuer, application identity, and one
+attachment-submit App Role. Delegated scopes, group claims, another application, or a human token
+do not satisfy this boundary. The request carries the human principal id and principal-manifest
+digest only as attribution. Ingestion loads the same versioned manifest independently, resolves
+the current roles itself, and requires document Contributor access before admission. The request
+cannot supply roles, groups, collection, access descriptor, retention, URL, token audience, or
+endpoint.
+
+Ordinary conversation evidence uses `session_ephemeral`, conversation scope, and the deployment's
+server-owned attachment policy. A handover directive selects only the requested purpose; ingestion
+maps it to a server-owned handover policy and repeats the Contributor check. Collection, reader
+groups, storage mode, access descriptor, and retention always come from that policy.
+
+The service contract uses these immutable authority-free records:
+
+| Record | Responsibility |
+|--------|----------------|
+| `ChannelAttachmentAdmissionRequest` `1.0.0` | Bind the deterministic handoff id, origin digest, attachment ordinal, attributed principal, manifest digest, requested purpose, safe name, media hint, declared size, deadline, and request digest. |
+| `ChannelAttachmentAdmissionReceipt` `1.0.0` | Return the accepted policy digest, server limits, expiry, and receipt digest without a URL or storage credential. |
+| `ChannelAttachmentCommitReceipt` `1.0.0` | Bind the independently observed size and SHA-256 to the canonical upload, document, and version ids after durable `received` state. |
+| `ChannelAttachmentTerminalReceipt` `1.0.0` | Bind the durable commit receipt digest, observed size, SHA-256, lifecycle and index state, and observation time. Return exactly one citation only for an active, available, live-retention version with an active index. |
+
+Each record rejects unknown fields, is immutable, carries `execution_authority=false`, and uses a
+canonical content digest. The HTTP major version remains in the fixed internal path. Additive
+minor versions retain N and N-1 readers; unsupported versions fail before reservation or content
+I/O.
+
+Admission runs before the vendor download. After admission, the edge streams the vendor response
+into an unnamed, quota-bound ephemeral spool while computing size and SHA-256. The spool prevents
+whole-file memory buffering and satisfies the canonical upload session's required predeclared hash.
+The edge then streams the same bytes to the fixed internal HTTPS origin with the admission digest,
+content length, and hash. It never follows an intake-provided URL. Missing encrypted scratch or a
+cleanup failure keeps the capability unavailable.
+
+The intake derives one stable upload identity per handoff, invokes the existing create and
+streaming-content boundaries, and calls the existing completion boundary only after object-store
+size and hash agree. Only the ingestion API publishes `document.received`. Network ambiguity is
+resolved by reading the handoff status before any retry; the edge never blindly repeats a content
+PUT. A replay with the same handoff id and request digest returns the retained state. Reusing the id
+with different content or metadata returns a conflict and publishes no new document event.
+
+The status route returns the last durable phase. It replays admission until commit persistence is
+complete, then replays the commit until metadata is observable, and returns a terminal receipt only
+after both exist. Every terminal observation retains the same commit digest, canonical ids, size,
+SHA-256, and purpose. A changed progression fails before a citation is accepted.
+
+If canonical upload completion succeeds before reservation commit persistence, status replay
+reconstructs the commit from canonical upload state. It does not require another vendor download or
+another content upload.
+
+The edge waits through the intake status surface, not through document-table access. A knowledge
+attachment succeeds only when document and index state satisfy the retrieval predicate. A handover
+attachment also requires the existing grounded draft projection and, when enabled, its governance
+delivery receipt. Timeout, hold, failure, deletion, expiry, or index failure returns no citation and
+never starts an inline worker.
+
+Attachment-only turns return the ordered citations in a deterministic acknowledgement. A text turn
+uses additive `operator-core-request` `1.8.0` with an ordered `document_context`. Core reauthorizes
+every exact version and restricts the governed-document query to that set. One unavailable or
+unauthorized reference holds the document lane; it never widens to collection search. The terminal
+semantic result binds the document-context digest and can cite only references admitted by that
+context. Function evidence derives citations from the source refs actually returned by exact search,
+never from the requested set; a missing, substituted, or malformed citation holds the answer.
 
 ## Slack download contract
 
@@ -128,7 +235,7 @@ letting untrusted payloads select a network destination.
 ## Web chat contract
 
 The Operator API does not accept multipart files, raw bytes, storage URLs, or channel attachment ids.
-The future SPA flow is:
+The SPA flow is:
 
 1. Create an authenticated ingestion upload session.
 2. Upload and complete the file through the ingestion gateway.
@@ -147,11 +254,11 @@ The future SPA flow is:
 }
 ```
 
-JSON and SSE routes enforce a maximum of eight unique references. Production re-reads PostgreSQL
-metadata and currently allows only versions uploaded by the authenticated principal. This baseline
-is intentionally narrower than collection sharing because the chat authorize seam exposes a stable
-principal id but not full collection group claims. A future resolver may add collection readers
-without changing the wire contract, provided it reuses document access policy.
+JSON and SSE routes enforce a maximum of eight unique references. Production passes the verified
+principal and current groups to one bounded PostgreSQL security-definer function. The function
+returns only active, available, unexpired `governed_knowledge` versions with an active index, live
+retention, collection scope, and `knowledge_base` purpose when the principal is the uploader or a
+configured reader-group member. The Operator role retains no raw `document_version` table access.
 
 The resolver must return each requested citation in the same order and exact canonical form,
 `doc:<document_id>:<version_id>`. A substituted, reordered, duplicate, or malformed provider result
@@ -208,23 +315,44 @@ that resource only. An empty endpoint keeps metadata-only behavior and provision
 
 ## Production composition
 
-`ProductionAttachmentConfig` owns channel evidence collection, access descriptor, reader groups,
-retention policy, vendor host allowlists, and timeout. It is enabled only by
-`FDAI_CHANNEL_ATTACHMENTS_ENABLED=1`; an invalid boolean, partial configuration, or an enabled
-runtime without an injected production attachment ingestor fails startup.
+The standalone Operator edge owns the strict `FDAI_CHANNEL_ATTACHMENTS_ENABLED` switch. Unset or
+`0` keeps the capability unavailable and attachment turns return `422 attachments_unavailable`
+before queue admission. `1` requires a complete fixed intake origin and audience, dedicated
+attachment credential, encrypted absolute scratch path, byte ceiling, principal-manifest digest,
+and every enabled provider's endpoint and host policy. Any missing, partial, or mixed local and
+deployed identity configuration fails startup before a channel consumer begins.
 
-Fetch timeouts must be positive finite numbers no greater than 300 seconds. Terminal processing
-waits must be no greater than 600 seconds and use a polling interval from 0.1 through 10 seconds;
-`FDAI_CHANNEL_ATTACHMENT_PROCESSING_MAX_POLLS` adds an independent ceiling from 1 through 1000
-(default 480). `NaN`, infinity, and values outside those bounds fail startup. Vendor attachment
-names must be leaf names without path separators, dot-only names, or control and formatting
-characters.
+The configured edge byte ceiling is independent of the intake admission limit. Each vendor stream
+uses the lower bound, so an intake policy increase cannot silently widen edge download authority.
 
-`build_production_attachment_ingestor()` builds only fetchers for enabled channels. Teams requires
-identity, resolver, host allowlist, and token audience allowlist. `ProductionChannelRuntime` binds
-the resulting ingestor to an attachment-aware `ConversationChannelGateway` before starting Slack or
-Teams consumers. A runtime configured with attachments and a gateway that cannot bind them fails
-startup.
+The Document Ingestion API distribution ships `fdai-document-channel-intake` as a separate
+internal-only Container App and local process. It uses the ingestion database role, canonical
+document object store, lifecycle publisher, and durable `state_kv` reservation record. Its live and
+ready probes are separate, and readiness closes when an adapter is unavailable or a supervised
+outbox task stops. The Operator edge uses separate HTTP pools for provider downloads and intake
+traffic, an unnamed temporary file under the configured scratch directory, and one dedicated
+audience credential. Vendor attachment names remain leaf names without path separators, dot-only
+names, or control and formatting characters. Operator transport and spool mechanics remain in
+`attachment_handoff.py`; replay, terminal observation, and semantic context orchestration remain in
+`attachment_ingestion.py`.
+
+The intake exposes an authenticated no-op probe at the same audience and App Role boundary as
+admission and content. The edge calls this probe before it reports ready. Use this protected rollout
+order:
+
+1. Enable the internal intake while channel attachments remain disabled at the edge.
+2. On the Entra application that exposes `FDAI_CHANNEL_ATTACHMENT_API_AUDIENCE`, define the
+  `Document.ChannelAttachment.Submit` App Role for `Application` members and assign only that role
+  to the dedicated edge service principal. This tenant-directory operation requires an authorized
+  administrator and is not inferred from Terraform plan approval.
+3. Enable attachments on the Operator edge. Startup obtains a token for the exact audience and
+  requires the authenticated probe to return `204`. A missing definition, assignment, audience,
+  or client binding keeps readiness closed and causes a protected newly-enabled edge rollback.
+
+Enable and disable transitions for the intake and edge are independently guarded, plan-sealed, and
+health-verified. The intake should be enabled before the edge. Disable the edge before removing the
+intake. Local parity uses an explicit client credential for the same audience and exact App Role;
+deployed mode accepts only the configured managed identity and rejects local secret settings.
 
 After protected ingestion completes, the gateway can project actual redacted coordinator
 activities into typed channel progress snapshots. This changes presentation only. Attachment bytes,
@@ -243,27 +371,25 @@ data, and Slack metrics likewise retain no answer text or length.
 The channel publisher keeps transport and acknowledgement handling separate from pure rendering;
 this structural split does not change protected ingestion or the redaction boundary.
 
-The repository currently ships these composition components as a library boundary. It does not yet
-ship a standalone channel ASGI factory or Terraform channel workload that instantiates
-`ProductionChannelRuntime`; the Operator API and headless core do not mount channel ingress routes.
-Deployment remains pending until that separate process supplies the gateway, persistence, Teams
-resolver, identities, attachment ingestor, and lifecycle callbacks. Do not set the attachment or
-Slack/Teams channel enable flags in a deployed workload that lacks that complete composition.
+The channel intake completes each canonical upload and publishes `document.received`; it never calls
+the processing worker directly. The edge waits through the authenticated status route for the
+terminal version produced by the existing event pipeline. The wait has a fixed positive deadline
+and bounded polling interval. A timeout returns no citation and does not run an inline worker
+fallback.
 
-The channel bridge seals each upload and publishes `document.received`; it never calls
-`DocumentIngestionWorker.process()` directly. `MetadataDocumentTerminalResolver` waits only for the
-terminal version produced by the agent-owned event pipeline. Configure its positive finite bound
-with `FDAI_CHANNEL_ATTACHMENT_PROCESSING_TIMEOUT_SECONDS` and its bounded observation interval with
-`FDAI_CHANNEL_ATTACHMENT_PROCESSING_POLL_SECONDS`. A timeout returns no citation and does not run an
-inline worker fallback.
+For a deployed handover, the intake validates the typed draft's upload, document, version, drafted
+outcome, and nonempty mappings. It derives the same content-addressed governance key as Core and
+requires a matching published receipt with a PR reference before setting
+`handover_draft_ready=true`. A missing receipt remains pending; a substituted or malformed receipt
+fails closed.
 
 A message with multiple attachments creates one governed `UploadSession` per file. The files keep
 independent lifecycle, retention, and audit records; the channel message is not a storage
 transaction. If one file is held or fails, the turn returns no citations, while any sibling already
 accepted by the pipeline remains visible through document-ingestion operations rather than being
-silently deleted. After all files are sealed, terminal metadata waits run concurrently within the
-eight-file message cap and preserve input order in the returned citations. A typed waiter failure
-cancels and awaits its sibling waiters before the turn returns, so no background poll survives.
+silently deleted. Admission, fetch, commit, and terminal observation run in stable ordinal order
+within the eight-file message cap, so returned citations preserve input order and no detached
+background poll survives a failed turn.
 
 ## Failure behavior
 
@@ -277,8 +403,11 @@ cancels and awaits its sibling waiters before the turn returns, so no background
 | Byte cap exceeded | Abort stream and reject. |
 | Malware or protected-content hold | Return no citation and do not call the narrator. |
 | Agent pipeline misses the terminal wait bound | Reject the turn; never run a worker inline. |
+| Intake terminal changes commit digest, ids, size, hash, or purpose | Reject the receipt; return no citation. |
+| Workload App Role or audience is missing | Keep the edge unready and block the enable transition. |
 | Unexpected failure before attachment completion | Release the message claim, emit a sanitized processing transition, and continue the next queued turn. |
 | Session/tool failure after attachment completion | Keep the message claim, return one generic error, and never ingest the same vendor message twice. |
+| Cancellation before durable channel delivery | Propagate cancellation and release the message claim; a retry reuses durable attachment status. |
 | OCR configured but unavailable or malformed | Fail extraction; no searchable evidence. |
 | Web reference malformed | Return 400. |
 | Web resolver absent | Return 501. |
@@ -295,23 +424,22 @@ receive loop.
 Focused verification covers:
 
 ```bash
-uv run pytest -q --no-cov \
-  services/core-control-plane/tests/core/conversation/test_attachment_directive.py \
-  services/core-control-plane/tests/conversation/test_channel_gateway.py \
-  services/core-control-plane/tests/delivery/test_conversation_images.py \
-  services/operator-service/tests/test_local_narrator.py
-uv run pytest -q --no-cov \
-  services/document-processing-worker/tests/test_ingestion_adapter_readiness.py -k ocr
-npm --prefix console test -- --run \
-  src/deck/composer-attachment-store.test.ts \
-  src/deck/composer-attachments.test.ts \
-  src/deck/turn-attachments.test.ts
+python -m pytest -q --no-cov \
+  packages/service-contracts/tests/test_channel_attachment.py \
+  packages/service-contracts/tests/test_semantic_turn.py \
+  services/document-ingestion-api/tests/test_channel_attachment_http.py \
+  services/document-ingestion-api/tests/test_channel_attachment_intake.py \
+  services/operator-service/tests/test_channel_attachment_handoff.py \
+  services/operator-service/tests/test_channel_edge_pipeline.py \
+  services/core-control-plane/tests/core/knowledge/test_governed_document_reader.py \
+  services/core-control-plane/tests/test_semantic_turn_processor.py
 ```
 
-Current regressions cover bounded channel metadata, missing-ingestor failure, explicit-purpose
-parsing, bounded principal-scoped image storage, Console image staging and serialization, and OCR
-operation-location and output limits. Vendor download, protected-ingestion composition, web document
-resolution, and end-to-end inline vision tests remain part of the open implementation work.
+Current regressions cover request and receipt digests, durable restart replay, content and terminal
+hash binding, Slack and Teams destination controls, authenticated workload readiness, cancellation,
+handover draft readiness, exact reference budgets, Web resolver denial, Core no-widening retrieval,
+terminal citation equality, migration ownership, local parity, and protected deployment rollback.
+Deployed provider evidence and end-to-end inline vision tests remain open.
 
 ## Related docs
 

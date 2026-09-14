@@ -20,6 +20,10 @@ ownership (`stewardship`). It complements the handover-map schema and ownership 
 > which image formats ingestion advertises. It doesn't change an ownership handover, RBAC role, or
 > accountable owner.
 
+Cloud-reference collection and signed intake share this ingestion host, not its ownership authority.
+They never create a handover draft or change a steward; [their lifecycle](cloud-resource-knowledge-lifecycle.md)
+uses separate source/trust policy and the existing independent document approval gates.
+
 ## Design at a glance
 
 The lifecycle has four independent safety boundaries:

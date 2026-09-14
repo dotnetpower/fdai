@@ -61,6 +61,11 @@ case "$service" in
     source_root="services/operator-service/src"
     project_file="services/operator-service/pyproject.toml"
     ;;
+  document-channel-intake)
+    env_file=".fdai/local-document-channel-intake.env"
+    source_root="services/document-ingestion-api/src"
+    project_file="services/document-ingestion-api/pyproject.toml"
+    ;;
   document-ingestion-api)
     env_file=".fdai/local-document-ingestion-api.env"
     source_root="services/document-ingestion-api/src"
@@ -92,7 +97,7 @@ case "$service" in
     ;;
 esac
 
-if [[ "$service" == "operator-channel-edge" ]]; then
+if [[ "$service" == "operator-channel-edge" || "$service" == "document-channel-intake" ]]; then
   bash "$repo_root/scripts/deployment/local/prepare-channel-edge-env.sh"
 fi
 
@@ -181,6 +186,13 @@ case "$service" in
       env -u AZURE_CONFIG_DIR
       PYTHONPATH="$service_pythonpath"
       "$repo_root/.venv/bin/fdai-operator-channel-edge"
+    )
+    ;;
+  document-channel-intake)
+    service_command=(
+      env -u AZURE_CONFIG_DIR
+      PYTHONPATH="$service_pythonpath"
+      "$repo_root/.venv/bin/fdai-document-channel-intake"
     )
     ;;
   inventory-reconciliation)

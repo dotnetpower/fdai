@@ -34,6 +34,10 @@ class SchemaNotFoundError(LookupError):
 
 _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("action", "1.0.0"): "schemas/action/1.0.0.json",
+    ("channel-attachment-admission", "0.0.0"): "schemas/channel-attachment-admission/0.0.0.json",
+    ("channel-attachment-admission", "1.0.0"): "schemas/channel-attachment-admission/1.0.0.json",
+    ("channel-attachment-receipt", "0.0.0"): "schemas/channel-attachment-receipt/0.0.0.json",
+    ("channel-attachment-receipt", "1.0.0"): "schemas/channel-attachment-receipt/1.0.0.json",
     ("agent-operational-activity", "1.0.0"): "schemas/agent-operational-activity/1.0.0.json",
     ("agent-operational-activity", "1.1.0"): "schemas/agent-operational-activity/1.1.0.json",
     ("agent-operational-activity", "1.2.0"): "schemas/agent-operational-activity/1.2.0.json",
@@ -48,6 +52,7 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("core-operator-projection", "1.3.0"): "schemas/core-operator-projection/1.3.0.json",
     ("core-operator-projection", "1.4.0"): "schemas/core-operator-projection/1.4.0.json",
     ("core-operator-projection", "1.6.0"): "schemas/core-operator-projection/1.6.0.json",
+    ("core-operator-projection", "1.7.0"): "schemas/core-operator-projection/1.7.0.json",
     ("cost-governance-access-grant", "1.0.0"): "schemas/cost-governance-access-grant/1.0.0.json",
     ("cost-governance-availability", "1.0.0"): "schemas/cost-governance-availability/1.0.0.json",
     (
@@ -92,6 +97,7 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("operator-core-request", "1.5.0"): "schemas/operator-core-request/1.5.0.json",
     ("operator-core-request", "1.6.0"): "schemas/operator-core-request/1.6.0.json",
     ("operator-core-request", "1.7.0"): "schemas/operator-core-request/1.7.0.json",
+    ("operator-core-request", "1.8.0"): "schemas/operator-core-request/1.8.0.json",
     ("semantic-query-progress", "1.0.0"): "schemas/semantic-query-progress/1.0.0.json",
     ("service-upgrade-receipt", "1.0.0"): "schemas/service-upgrade-receipt/1.0.0.json",
 }
@@ -188,7 +194,10 @@ class JsonSchemaContractValidator:
         errors = sorted(validator.iter_errors(dict(instance)), key=lambda error: list(error.path))
         if errors:
             raise ContractValidationError(schema_name, [_issue(error) for error in errors])
-        if schema_name == "core-operator-projection" and instance.get("schema_version") == "1.6.0":
+        if schema_name == "core-operator-projection" and instance.get("schema_version") in {
+            "1.6.0",
+            "1.7.0",
+        }:
             from fdai_service_contracts.semantic_turn import SemanticTurnResult
 
             semantic = instance.get("semantic_result")

@@ -283,8 +283,8 @@ ships enabled upstream unless its `OperatorApiConfig` input is set.
 
 The Governance routes share the Calm Slate information hierarchy from
 [`mocks/ui/`](../mocks/ui/) while keeping their existing read contracts.
-Architecture is intentionally unchanged because it has no matching governance
-mock and already owns a specialized inventory canvas.
+Architecture keeps its specialized inventory canvas but now uses the same
+quiet hierarchy through a fixed orthographic 2D resource map.
 
 - **Ontology** presents the structured catalog and operational instance projections as
   URL-addressable views. Objects uses a deterministic 2D one-hop neighborhood,
@@ -313,12 +313,12 @@ mock and already owns a specialized inventory canvas.
   scope, and the hard executor boundary. Its builder still emits a policy-as-
   code preview for a PR and never changes scope from the browser.
 
-### Architecture panel (Knowledge)
+### Architecture panel (Governance)
 
-The **Knowledge > Architecture** panel renders the deployed inventory instance graph from
+The **Governance > Architecture** panel renders the deployed inventory instance graph from
 `GET /inventory/graph`. It shows subscription and resource-group containment, VNet and
 subnet boundaries, resource status, and `attached_to` / `depends_on` links in one read-only
-canvas. Pan, zoom, filtering, selection, and deep links are local view operations only.
+2D canvas. Pan, zoom, filtering, selection, and deep links are local view operations only.
 The console cannot add, move, resize, or delete resources.
 Before a resource is selected, the map canvas shows only a centered selection prompt, resource
 selector, scope selector, and presentation-mode control. Resources, relationships, map controls,
@@ -336,9 +336,9 @@ default view rather than exposed as a duplicate service. Named service views use
 `fdai:service`, `service`, `application`, `app`, `workload`, or `azd-service-name` inventory
 tags. Missing or conflicting service values fall back to a resource-group view instead of being
 guessed into an application. Every view uses the same boundary-normalization pass before
-rendering, so a resource cannot appear outside its declared parent scope. The right-side Map
-controls provide Iso / Top / Front camera presets, layer and display toggles, and the canvas
-includes Zoom in / out / Fit controls.
+rendering, so a resource cannot appear outside its declared parent scope. The Map display
+disclosure provides relationship, label, and grid toggles, and the canvas includes Zoom in / out /
+Fit controls. The resource map has no perspective, reflection, orbit, or alternate camera mode.
 
 The `Network` presentation mode keeps the same authoritative response and switches to a bounded 2D
 focus over the selected VNet or the observed VNet with the most subnet containment. It rebuilds
@@ -361,10 +361,9 @@ report that retains snapshot time, freshness, completeness, resource-type labels
 `Read-only observed topology`. The browser never exports raw provider ids, resource names,
 credentials, endpoints, or subscription ids.
 
-The canvas renders floor reflections first, then opaque resource bodies, connection paths,
-and finally resource abbreviations and labels. This keeps dependency lines visible above the
-blocks without obscuring their text, while each lifted resource retains a color-matched mirrored
-reflection on the floor plane.
+The canvas renders nested flat boundaries first, then resource footprints, connection paths,
+resource abbreviations, and labels. Dependency lines remain visually distinct without changing
+resource scale by depth or adding reflected surfaces.
 
 The map limits its visual grammar to four geometric primitives. Semantic variants change the
 proportions or stacking of those primitives without introducing a new silhouette for every
@@ -372,38 +371,37 @@ Azure resource type:
 
 | Semantic role | Example resource types | Shape |
 |---------------|------------------------|-------|
-| Database | PostgreSQL, SQL Database | Solid-top cylinder |
-| Application runtime | App Service, Container Apps, Functions, AKS | Rectangular block |
-| Gateway and L4 | Front Door, Application Gateway, Load Balancer | Low, wide block |
-| Storage | Storage Account, object storage | Two-level slab |
-| Queue and event bus | Event Hubs, Service Bus, queues, Kafka | Hexagonal prism |
-| Secret and security | Key Vault, Firewall, NSG | Chamfered compact block |
+| Database | PostgreSQL, SQL Database | Circle |
+| Application runtime | App Service, Container Apps, Functions, AKS | Rectangle |
+| Gateway and L4 | Front Door, Application Gateway, Load Balancer | Wide rectangle |
+| Storage | Storage Account, object storage | Compact rectangle |
+| Queue and event bus | Event Hubs, Service Bus, queues, Kafka | Hexagon |
+| Secret and security | Key Vault, Firewall, NSG | Chamfered rectangle |
 
-Resource color and layer filtering are separate contracts:
+Resource color and layer classification are separate contracts:
 
 - **Resource color**: every supported Azure resource type and alias maps to an explicit solid
   token. The palette is derived from the dominant fills in the current
   [Azure Architecture Icons](https://learn.microsoft.com/azure/architecture/icons/) and adjusted
   only when a darker solid is required for Canvas contrast. It is described as Azure-aligned,
   not as a replacement for or modification of the official SVG icons.
-- **Layer filter**: `Scope`, `Network`, `Security`, `Runtime`, `Data`, `Messaging`, and
-  `Observability` filter the operational role of resources. Filter controls use neutral selection
-  marks and counts so they do not imply a second color taxonomy. Empty layers stay visible but
-  disabled, preserving a stable control order across architecture views.
+- **Layer classification**: `Scope`, `Network`, `Security`, `Runtime`, `Data`, `Messaging`, and
+  `Observability` classify the operational role of resources without adding a second color
+  taxonomy.
 - **Visual redundancy**: color is paired with a shape and abbreviation. On wider canvases it is
   also paired with a service label, while pointer selection exposes inspector metadata. The map
   does not rely on color alone to distinguish resource types.
 
-The right-side `Resource colors` legend lists only the service tokens present in the selected
-architecture view. Event Hubs, databases, and Storage therefore retain distinct green, blue,
-and teal identities even though all three participate in data movement.
+On wider canvases, the in-canvas resource-color legend lists only the service tokens present in
+the selected architecture view. Event Hubs, databases, and Storage therefore retain distinct
+green, blue, and teal identities even though all three participate in data movement. Narrow
+canvases omit this secondary legend and use the resource picker, labels, and Inspector instead.
 
 The local FDAI view includes an Event Hubs node in the `web-api -> event-hub -> event-worker`
-flow so every primitive is visible during development. Resource lift stays deliberately small
-so each mirrored floor reflection remains visually attached to its node. Bodies use line-free
-surfaces with face shading for depth; an outline appears only on the selected resource as an
-interaction cue. On narrow canvases, the map keeps resource abbreviations but suppresses long
-labels to prevent overlap; selecting a resource still exposes its full name in the inspector.
+flow so every primitive is visible during development. Flat bodies use a quiet outline, and the
+selected resource uses a stronger complete outline as an interaction cue. On narrow canvases,
+the map keeps resource abbreviations but suppresses long labels to prevent overlap; selecting a
+resource still exposes its full name in the Inspector.
 
 The same canvas is reused by **Safety > Impact scope** in a context mode that highlights
 the target and reached resources while dimming the rest. Live activity scopes and rule

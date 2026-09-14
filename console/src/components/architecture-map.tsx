@@ -7,7 +7,6 @@ import {
   RESOURCE_COLOR_TOKENS,
   layerOf,
   resourceColorTokenOf,
-  type ArchitectureCameraView,
   type ArchitectureDisplayOptions,
   type ArchitectureLayer,
   type InventoryGraphResponse,
@@ -30,7 +29,6 @@ interface Props {
 }
 
 export interface ArchitectureMapHandle {
-  readonly setView: (view: ArchitectureCameraView) => void;
   readonly zoomIn: () => void;
   readonly zoomOut: () => void;
   readonly fit: () => void;

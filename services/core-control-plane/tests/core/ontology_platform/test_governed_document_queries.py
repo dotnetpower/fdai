@@ -223,6 +223,27 @@ def test_governed_document_function_declares_bounded_read_contract() -> None:
     assert declaration.credentials_allowed is False
 
 
+def test_function_invocation_context_rejects_ninth_exact_document_ref() -> None:
+    refs = tuple(
+        f"doc:00000000-0000-0000-0000-{index:012d}:10000000-0000-0000-0000-{index:012d}"
+        for index in range(1, 10)
+    )
+
+    with pytest.raises(ValueError, match="at most eight"):
+        FunctionInvocationContext(
+            caller_agent="Bragi",
+            caller_role=CeilingRole.READER,
+            purposes=("operations-review",),
+            principal_ref="operator-a",
+            principal_scope_digest="sha256:" + "6" * 64,
+            document_refs=refs,
+            document_context_source="channel_attachment",
+            document_conversation_ref="conversation-a",
+            document_authorization_digest="sha256:" + "7" * 64,
+            document_context_digest="sha256:" + "8" * 64,
+        )
+
+
 async def test_governed_document_function_projects_exact_citation_fields() -> None:
     reader = _Reader(_collection(excerpts=(_excerpt(),)))
 

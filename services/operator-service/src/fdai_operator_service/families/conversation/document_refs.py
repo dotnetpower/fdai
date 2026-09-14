@@ -14,6 +14,7 @@ rejected before it can reach view context or terminal verification.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
@@ -24,9 +25,15 @@ from fdai_operator_service.families.conversation.contracts import (
     JsonValue,
     PrincipalScope,
 )
+from fdai_service_contracts import (
+    SemanticDocumentContext,
+    SemanticDocumentContextSource,
+    semantic_document_context_digest,
+)
 
 MAX_DOCUMENT_REFS = 8
 ACCESS_DENIED_MESSAGE = "requested document version is not available to this principal"
+_DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 
 
 class DocumentRefSyntaxError(ConversationBoundaryError):
@@ -85,6 +92,34 @@ class DocumentRefResolver(Protocol):
         principal_id: str,
         refs: Sequence[DocumentRef],
     ) -> Sequence[str]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedDocumentAuthorization:
+    """Bind ordered citations to one current server-owned authorization read."""
+
+    citations: tuple[str, ...]
+    authorization_digest: str
+
+    def __post_init__(self) -> None:
+        if not self.citations or len(self.citations) > MAX_DOCUMENT_REFS:
+            raise ValueError("resolved document citations are outside the bounded count")
+        if len(self.citations) != len(set(self.citations)):
+            raise ValueError("resolved document citations MUST be unique")
+        if _DIGEST.fullmatch(self.authorization_digest) is None:
+            raise ValueError("resolved document authorization digest is invalid")
+
+
+class DocumentContextResolver(Protocol):
+    """Reauthorize exact Web references and attest the current metadata read."""
+
+    async def resolve_context(
+        self,
+        *,
+        principal_id: str,
+        principal_groups: frozenset[str],
+        refs: Sequence[DocumentRef],
+    ) -> ResolvedDocumentAuthorization: ...
 
 
 def parse_document_refs(value: JsonValue | None) -> tuple[DocumentRef, ...]:
@@ -150,6 +185,66 @@ async def resolve_document_refs(
     return citations
 
 
+async def resolve_web_document_context(
+    *,
+    scope: PrincipalScope,
+    refs: Sequence[DocumentRef],
+    conversation_ref: str,
+    resolver: DocumentContextResolver | None,
+) -> SemanticDocumentContext | None:
+    """Reauthorize Web refs and bind them to the authenticated conversation."""
+
+    if not refs:
+        return None
+    if not conversation_ref.strip() or len(conversation_ref) > 256:
+        raise DocumentRefSyntaxError(
+            "session_id MUST be a bounded non-empty string when document_refs are present"
+        )
+    if resolver is None:
+        raise DocumentRefResolverUnavailableError("no document context resolver is bound")
+    try:
+        resolved = await resolver.resolve_context(
+            principal_id=scope.subject_id,
+            principal_groups=scope.groups,
+            refs=tuple(refs),
+        )
+    except DocumentRefAccessDeniedError:
+        raise
+    except ConversationBoundaryError as exc:
+        raise DocumentRefAccessDeniedError() from exc
+    except Exception as exc:  # noqa: BLE001 - never disclose provider internals
+        raise DocumentRefResolutionFailedError() from exc
+    expected = tuple(ref.citation for ref in refs)
+    if resolved.citations != expected:
+        raise DocumentRefIntegrityError(
+            "resolver returned substituted, reordered, or malformed citations"
+        )
+    material: dict[str, object] = {
+        "schema_version": "1.0.0",
+        "source": SemanticDocumentContextSource.WEB_REFERENCE,
+        "principal_ref": scope.subject_id,
+        "conversation_ref": conversation_ref,
+        "citations": resolved.citations,
+        "authorization_digest": resolved.authorization_digest,
+        "receipt_digests": (),
+        "execution_authority": False,
+    }
+    provisional = SemanticDocumentContext.model_construct(
+        schema_version="1.0.0",
+        source=SemanticDocumentContextSource.WEB_REFERENCE,
+        principal_ref=scope.subject_id,
+        conversation_ref=conversation_ref,
+        citations=resolved.citations,
+        authorization_digest=resolved.authorization_digest,
+        receipt_digests=(),
+        context_digest="sha256:" + "0" * 64,
+        execution_authority=False,
+    )
+    return SemanticDocumentContext.model_validate(
+        {**material, "context_digest": semantic_document_context_digest(provisional)}
+    )
+
+
 def _uuid(name: str, value: JsonValue) -> UUID:
     if not isinstance(value, str):
         raise DocumentRefSyntaxError(f"{name} MUST be a UUID string")
@@ -172,6 +267,9 @@ __all__ = [
     "DocumentRefResolutionFailedError",
     "DocumentRefResolverUnavailableError",
     "DocumentRefSyntaxError",
+    "DocumentContextResolver",
+    "ResolvedDocumentAuthorization",
     "parse_document_refs",
     "resolve_document_refs",
+    "resolve_web_document_context",
 ]

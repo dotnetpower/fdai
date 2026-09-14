@@ -22,6 +22,10 @@ from fdai_operator_service.families.conversation import (
     StreamEvent,
     build_conversation_routes,
 )
+from fdai_operator_service.families.conversation.document_refs import (
+    DocumentRef,
+    ResolvedDocumentAuthorization,
+)
 from fdai_operator_service.family_adapters import PostgresConversationAdapters
 from fdai_operator_service.postgres_family_store import PostgresFamilyStore
 from httpx import ASGITransport, AsyncClient
@@ -207,11 +211,30 @@ class _Streams:
         return self.last_iterator
 
 
+class _DocumentContexts:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, frozenset[str], tuple[DocumentRef, ...]]] = []
+
+    async def resolve_context(
+        self,
+        *,
+        principal_id: str,
+        principal_groups: frozenset[str],
+        refs: tuple[DocumentRef, ...],
+    ) -> ResolvedDocumentAuthorization:
+        self.calls.append((principal_id, principal_groups, refs))
+        return ResolvedDocumentAuthorization(
+            citations=tuple(ref.citation for ref in refs),
+            authorization_digest="sha256:" + "a" * 64,
+        )
+
+
 def _app(
     *,
     reader: ConversationProjectionReader | None = None,
     outbox: _Outbox | None = None,
     streams: _Streams | None = None,
+    document_contexts: _DocumentContexts | None = None,
 ) -> Starlette:
     return Starlette(
         routes=list(
@@ -221,6 +244,7 @@ def _app(
                     projections=reader,
                     outbox=outbox,
                     streams=streams,
+                    document_context_resolver=document_contexts,
                 )
             )
         )
@@ -510,6 +534,70 @@ async def test_post_stream_appends_proposal_before_observation() -> None:
     assert [item.operation for item in outbox.proposals] == ["chat.stream"]
     assert streams.requests[0].proposal_id == "proposal-1"
     assert streams.requests[0].idempotency_key == "chat-stream-one"
+
+
+async def test_post_stream_replaces_web_document_refs_with_exact_context() -> None:
+    outbox = _Outbox()
+    streams = _Streams()
+    document_contexts = _DocumentContexts()
+    document_id = "00000000-0000-0000-0000-000000000001"
+    version_id = "00000000-0000-0000-0000-000000000002"
+    async with AsyncClient(
+        transport=ASGITransport(
+            app=_app(
+                outbox=outbox,
+                streams=streams,
+                document_contexts=document_contexts,
+            )
+        ),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/chat/stream",
+            json={
+                "prompt": "Summarize the selected evidence.",
+                "session_id": "session-example",
+                "idempotency_key": "chat-stream-documents",
+                "document_refs": [{"document_id": document_id, "version_id": version_id}],
+            },
+        )
+
+    assert response.status_code == 200
+    proposal = outbox.proposals[0]
+    assert "document_refs" not in proposal.body
+    context = proposal.body["document_context"]
+    assert isinstance(context, dict)
+    assert context["source"] == "web_reference"
+    assert context["principal_ref"] == "principal-a"
+    assert context["conversation_ref"] == "session-example"
+    assert context["citations"] == [f"doc:{document_id}:{version_id}"]
+    assert len(document_contexts.calls) == 1
+
+
+async def test_post_stream_document_refs_fail_before_outbox_without_resolver() -> None:
+    outbox = _Outbox()
+    streams = _Streams()
+    async with AsyncClient(
+        transport=ASGITransport(app=_app(outbox=outbox, streams=streams)),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/chat/stream",
+            json={
+                "prompt": "Summarize evidence.",
+                "session_id": "session-example",
+                "document_refs": [
+                    {
+                        "document_id": "00000000-0000-0000-0000-000000000001",
+                        "version_id": "00000000-0000-0000-0000-000000000002",
+                    }
+                ],
+            },
+        )
+
+    assert response.status_code == 501
+    assert outbox.proposals == []
+    assert streams.requests == []
 
 
 def test_manifest_is_complete_without_legacy_route_sources() -> None:

@@ -40,20 +40,32 @@ variable "notification_receipt_secret_id" {
 variable "scaling" { type = object({ min_replicas = number, max_replicas = number, cpu = number, memory = string }) }
 variable "channel_edge" {
   type = object({
-    enabled                       = bool
-    name                          = string
-    slack_enabled                 = bool
-    teams_enabled                 = bool
-    principal_scopes_secret_id    = string
-    slack_signing_secret_id       = string
-    slack_bot_token_secret_id     = string
-    slack_team_id                 = string
-    slack_principal_map_secret_id = string
-    teams_application_id          = string
-    teams_tenant_id               = string
-    teams_principal_map_secret_id = string
-    teams_allowed_service_urls    = string
-    teams_jwks_url                = string
+    enabled                         = bool
+    name                            = string
+    slack_enabled                   = bool
+    teams_enabled                   = bool
+    principal_scopes_secret_id      = string
+    slack_signing_secret_id         = string
+    slack_bot_token_secret_id       = string
+    slack_team_id                   = string
+    slack_principal_map_secret_id   = string
+    teams_application_id            = string
+    teams_tenant_id                 = string
+    teams_principal_map_secret_id   = string
+    teams_allowed_service_urls      = string
+    teams_jwks_url                  = string
+    attachments_enabled             = optional(bool, false)
+    attachment_intake_origin        = optional(string, "")
+    attachment_intake_audience      = optional(string, "")
+    attachment_scratch_dir          = optional(string, "/tmp")
+    attachment_max_content_bytes    = optional(number, 26214400)
+    slack_files_info_url            = optional(string, "https://slack.com/api/files.info")
+    slack_metadata_hosts_json       = optional(string, "[\"slack.com\"]")
+    slack_download_hosts_json       = optional(string, "[\"files.slack.com\"]")
+    teams_attachment_url_template   = optional(string, "")
+    teams_attachment_audience       = optional(string, "")
+    teams_attachment_hosts_json     = optional(string, "[]")
+    teams_attachment_audiences_json = optional(string, "[]")
     health = object({
       port = number, liveness_path = string, readiness_path = string, startup_path = optional(string), interval_seconds = optional(number, 30), timeout_seconds = optional(number, 3), failure_count_threshold = optional(number, 3), startup_failure_count = optional(number, 30)
     })

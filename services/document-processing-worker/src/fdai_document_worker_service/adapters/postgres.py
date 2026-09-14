@@ -28,6 +28,7 @@ from fdai_service_contracts import (
 )
 from psycopg.rows import dict_row
 
+from fdai_document_worker_service.adapters.cloud_index_verification import observed_index_digest
 from fdai_document_worker_service.effects import (
     WorkerEffect,
     WorkerEffectKind,
@@ -225,6 +226,56 @@ class PostgresDocumentMetadataStore:
             if await upload_cursor.fetchone() is None:
                 raise DocumentLifecycleConflictError("upload lifecycle CAS conflict")
             if version.active:
+                if version.cloud_knowledge is not None:
+                    await connection.execute(
+                        "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                        (f"cloud-activation:{version.document_id}",),
+                    )
+                    active_row = await (
+                        await connection.execute(
+                            "SELECT version_id FROM document_version WHERE document_id = %s "
+                            "AND active FOR UPDATE",
+                            (version.document_id,),
+                        )
+                    ).fetchone()
+                    active_id = active_row["version_id"] if active_row else None
+                    finalizing = expected_version_state in {"ready", "ready_with_warnings"}
+                    expected_active_id = (
+                        version.version_id if finalizing else session.supersedes_version_id
+                    )
+                    if active_id != expected_active_id:
+                        raise DocumentLifecycleConflictError("knowledge active generation changed")
+                    if version.available:
+                        record = event.payload.get("record")
+                        receipt = (
+                            record.get("cloud_index_digest") if isinstance(record, dict) else None
+                        )
+                        if (
+                            not finalizing
+                            or not isinstance(receipt, str)
+                            or receipt
+                            != await observed_index_digest(
+                                connection, f"governed:{version.document_id}:{version.version_id}"
+                            )
+                        ):
+                            raise DocumentLifecycleConflictError(
+                                "knowledge index verification changed"
+                            )
+                    index_rows = await (
+                        await connection.execute(
+                            "UPDATE knowledge_chunk SET metadata = jsonb_set("
+                            "metadata, '{retention_state}', to_jsonb(%s::text)) "
+                            "WHERE doc_id = %s AND metadata->>'cloud_manifest_digest' = %s "
+                            "RETURNING chunk_id",
+                            (
+                                "live" if version.available else "verifying",
+                                f"governed:{version.document_id}:{version.version_id}",
+                                version.cloud_knowledge.manifest_digest,
+                            ),
+                        )
+                    ).fetchall()
+                    if not index_rows:
+                        raise DocumentLifecycleConflictError("knowledge index readback is empty")
                 await connection.execute(
                     "UPDATE document_version SET active = FALSE, revision = revision + 1, "
                     "payload = jsonb_set(jsonb_set(payload, '{active}', 'false'::jsonb), "

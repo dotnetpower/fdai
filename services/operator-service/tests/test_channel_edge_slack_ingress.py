@@ -20,12 +20,13 @@ _NOW = datetime(2026, 8, 19, 18, 0, tzinfo=UTC)
 _SECRET = "slack-signing-secret-example"
 
 
-def _verifier() -> SlackIngressVerifier:
+def _verifier(*, attachments_enabled: bool = False) -> SlackIngressVerifier:
     return SlackIngressVerifier(
         SlackIngressConfig(
             signing_secret=_SECRET,
             team_id="team-example",
             principal_by_sender_id={"user-example": "principal-example"},
+            attachments_enabled=attachments_enabled,
         )
     )
 
@@ -69,7 +70,11 @@ def test_slack_ingress_maps_principal_and_strips_payload_urls() -> None:
         ],
     )
 
-    result = _verifier().parse(body=body, headers=_headers(body), received_at=_NOW)
+    result = _verifier(attachments_enabled=True).parse(
+        body=body,
+        headers=_headers(body),
+        received_at=_NOW,
+    )
 
     assert result.action is SlackIngressAction.ACCEPTED
     assert result.principal_id == "principal-example"
@@ -78,6 +83,75 @@ def test_slack_ingress_maps_principal_and_strips_payload_urls() -> None:
     assert "url" not in repr(result.turn.attachments[0]).lower()
     assert result.verification_ref is not None
     assert "user-example" not in result.verification_ref
+
+
+def test_slack_attachment_fails_closed_when_protected_ingestion_is_disabled() -> None:
+    body = _body(
+        subtype="file_share",
+        files=[
+            {
+                "id": "file-example",
+                "name": "evidence.txt",
+                "size": 12,
+                "mimetype": "text/plain",
+            }
+        ],
+    )
+
+    with pytest.raises(SlackIngressError) as raised:
+        _verifier().parse(body=body, headers=_headers(body), received_at=_NOW)
+
+    assert raised.value.code == "attachments_unavailable"
+    assert raised.value.http_status == 422
+
+
+def test_slack_attachment_availability_is_not_disclosed_before_authentication() -> None:
+    body = _body(
+        subtype="file_share",
+        files=[
+            {
+                "id": "file-example",
+                "name": "evidence.txt",
+                "size": 12,
+                "mimetype": "text/plain",
+            }
+        ],
+    )
+    headers = _headers(body)
+    headers["X-Slack-Signature"] = "v0=invalid"
+
+    with pytest.raises(SlackIngressError) as raised:
+        _verifier().parse(body=body, headers=headers, received_at=_NOW)
+
+    assert raised.value.code == "invalid_signature"
+    assert raised.value.http_status == 401
+
+
+@pytest.mark.parametrize(
+    "name", (".", "..", "../evidence.txt", "folder\\evidence.txt", "bad\nname")
+)
+def test_slack_attachment_name_must_be_a_safe_leaf(name: str) -> None:
+    body = _body(
+        subtype="file_share",
+        files=[
+            {
+                "id": "file-example",
+                "name": name,
+                "size": 12,
+                "mimetype": "text/plain",
+            }
+        ],
+    )
+
+    with pytest.raises(SlackIngressError) as raised:
+        _verifier(attachments_enabled=True).parse(
+            body=body,
+            headers=_headers(body),
+            received_at=_NOW,
+        )
+
+    assert raised.value.code == "invalid_payload"
+    assert raised.value.http_status == 400
 
 
 def test_ingress_rejects_out_of_range_timestamp_without_server_error() -> None:

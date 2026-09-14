@@ -8,21 +8,25 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
+
 from fdai_service_contracts import (
     GoalTaskReceipt,
+    OperatorRole,
     RuleSearchProjection,
     RuleSearchReceipt,
     SemanticAssuranceObservation,
     SemanticConversationModelTier,
+    SemanticDocumentContext,
+    SemanticDocumentContextSource,
     SemanticInvestigationContinuation,
     SemanticTurnPrincipal,
     SemanticTurnRequest,
     SemanticTurnResult,
-    OperatorRole,
     query_content_digest,
     rule_search_query_digest,
+    semantic_document_context_digest,
 )
-from pydantic import ValidationError
 
 
 def test_empty_principal_groups_are_omitted_for_legacy_serialization() -> None:
@@ -44,6 +48,81 @@ def test_empty_principal_groups_are_omitted_for_legacy_serialization() -> None:
     principal = request.model_dump(mode="json")["principal"]
     assert isinstance(principal, dict)
     assert "groups" not in principal
+
+
+def _document_context(**updates: object) -> SemanticDocumentContext:
+    material: dict[str, object] = {
+        "schema_version": "1.0.0",
+        "source": SemanticDocumentContextSource.CHANNEL_ATTACHMENT,
+        "principal_ref": "operator-a",
+        "conversation_ref": "session-a",
+        "citations": (
+            "doc:00000000-0000-0000-0000-000000000001:00000000-0000-0000-0000-000000000002",
+        ),
+        "authorization_digest": f"sha256:{'a' * 64}",
+        "receipt_digests": (f"sha256:{'b' * 64}",),
+        "execution_authority": False,
+    }
+    material.update(updates)
+    provisional = SemanticDocumentContext.model_construct(
+        **material,
+        context_digest=f"sha256:{'0' * 64}",
+    )
+    return SemanticDocumentContext.model_validate(
+        {**material, "context_digest": semantic_document_context_digest(provisional)}
+    )
+
+
+def test_semantic_document_context_is_bound_to_principal_session_and_receipts() -> None:
+    now = datetime(2026, 9, 14, tzinfo=UTC)
+    context = _document_context()
+    request = SemanticTurnRequest(
+        utterance="Summarize the attached evidence.",
+        principal=SemanticTurnPrincipal(
+            subject_id="operator-a",
+            roles=(OperatorRole.READER,),
+        ),
+        session_id="session-a",
+        turn_id="turn-a",
+        turn_sequence=0,
+        locale="en",
+        purpose="operations-review",
+        deadline_at=now + timedelta(seconds=30),
+        document_context=context,
+    )
+
+    assert request.document_context == context
+    with pytest.raises(ValidationError, match="match request principal and session"):
+        SemanticTurnRequest.model_validate(
+            {**request.model_dump(mode="json"), "session_id": "other-session"}
+        )
+    with pytest.raises(ValidationError, match="one receipt per citation"):
+        _document_context(receipt_digests=())
+
+
+def test_web_document_context_rejects_channel_receipts_and_duplicate_refs() -> None:
+    with pytest.raises(ValidationError, match="MUST NOT carry channel receipt"):
+        _document_context(source=SemanticDocumentContextSource.WEB_REFERENCE)
+    citation = "doc:00000000-0000-0000-0000-000000000001:00000000-0000-0000-0000-000000000002"
+    with pytest.raises(ValidationError, match="citations MUST be unique"):
+        _document_context(
+            citations=(citation, citation),
+            receipt_digests=(f"sha256:{'b' * 64}", f"sha256:{'c' * 64}"),
+        )
+
+
+def test_semantic_document_context_accepts_eight_refs_and_rejects_nine() -> None:
+    citations = tuple(
+        f"doc:00000000-0000-0000-0000-{index:012d}:10000000-0000-0000-0000-{index:012d}"
+        for index in range(1, 10)
+    )
+    receipts = tuple(f"sha256:{index:064x}" for index in range(1, 10))
+
+    assert (
+        len(_document_context(citations=citations[:8], receipt_digests=receipts[:8]).citations) == 8
+    )
+    with pytest.raises(ValidationError, match="at most 8 items"):
+        _document_context(citations=citations, receipt_digests=receipts)
 
 
 def test_conversation_model_tier_is_closed_and_has_no_authority() -> None:

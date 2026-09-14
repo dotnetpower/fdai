@@ -31,7 +31,14 @@ from fdai_core_service.semantic_turn_processor import (
     _project_runtime_result,
     _projected_answer_evidence_is_complete,
 )
-from fdai_service_contracts import OperatorRole, SemanticTurnPrincipal, SemanticTurnRequest
+from fdai_service_contracts import (
+    OperatorRole,
+    SemanticDocumentContext,
+    SemanticDocumentContextSource,
+    SemanticTurnPrincipal,
+    SemanticTurnRequest,
+    semantic_document_context_digest,
+)
 from fdai_service_contracts.ontology_query import QueryNodeKind
 
 NOW = datetime(2026, 9, 6, 5, 0, tzinfo=UTC)
@@ -60,6 +67,7 @@ class _Model:
 class _Reader:
     def __init__(self, result: GovernedDocumentCollection) -> None:
         self.result = result
+        self.exact_calls: list[tuple[tuple[str, ...], str | None, str | None]] = []
 
     async def search(
         self,
@@ -70,6 +78,10 @@ class _Reader:
         principal_groups: frozenset[str],
         purpose: str,
         limit: int,
+        exact_refs: tuple[str, ...] = (),
+        context_source: str | None = None,
+        conversation_ref: str | None = None,
+        document_context_digest: str | None = None,
     ) -> GovernedDocumentCollection:
         assert query == "What does the recovery runbook require?"
         assert principal_ref == "operator-a"
@@ -77,6 +89,7 @@ class _Reader:
         assert principal_groups == frozenset({"group:responders"})
         assert purpose == "operations-review"
         assert limit == 8
+        self.exact_calls.append((exact_refs, conversation_ref, document_context_digest))
         return self.result
 
 
@@ -106,6 +119,13 @@ class _MixedModel:
 
     def propose_plan(self, **_kwargs: Any) -> None:
         return None
+
+
+class _NoDocumentMixedModel(_MixedModel):
+    def propose_frame(self, **_kwargs: Any) -> dict[str, object]:
+        frame = super().propose_frame(**_kwargs)
+        frame["evidence_requirements"] = ["authoritative_service_health"]
+        return frame
 
 
 class _ServiceHealthReader:
@@ -183,12 +203,15 @@ def test_contextual_completeness_ignores_optional_document_output() -> None:
     assert _query_output_incomplete(planning, execution) is False
 
 
-def _excerpt() -> GovernedDocumentExcerpt:
+def _excerpt(
+    *,
+    source_ref: str = "document://recovery-runbook#restart",
+) -> GovernedDocumentExcerpt:
     return GovernedDocumentExcerpt(
         evidence_ref="document:sha256:" + ("c" * 64),
         document_revision="version:00000000-0000-0000-0000-000000000001:sha256:" + ("d" * 64),
         source_name="recovery-runbook.md",
-        source_ref="document://recovery-runbook#restart",
+        source_ref=source_ref,
         locator="section:restart",
         chunk_id="chunk-1",
         text="Verify the health probe before restarting.",
@@ -250,6 +273,78 @@ def _mixed_runtime(
         adaptive_service=adaptive_service,
         now=lambda: NOW,
     )
+
+
+def _exact_context() -> SemanticDocumentContext:
+    material: dict[str, object] = {
+        "schema_version": "1.0.0",
+        "source": SemanticDocumentContextSource.CHANNEL_ATTACHMENT,
+        "principal_ref": "operator-a",
+        "conversation_ref": "conversation-example",
+        "citations": (
+            "doc:00000000-0000-0000-0000-000000000001:00000000-0000-0000-0000-000000000002",
+        ),
+        "authorization_digest": "sha256:" + "d" * 64,
+        "receipt_digests": ("sha256:" + "e" * 64,),
+        "execution_authority": False,
+    }
+    provisional = SemanticDocumentContext.model_construct(
+        **material,
+        context_digest="sha256:" + "0" * 64,
+    )
+    return SemanticDocumentContext.model_validate(
+        {**material, "context_digest": semantic_document_context_digest(provisional)}
+    )
+
+
+async def test_request_document_context_forces_exact_required_document_lane() -> None:
+    reader = _Reader(
+        _collection(
+            excerpts=(
+                _excerpt(
+                    source_ref=(
+                        "document://00000000-0000-0000-0000-000000000001/versions/"
+                        "00000000-0000-0000-0000-000000000002#section:restart"
+                    )
+                ),
+            )
+        )
+    )
+    function_types = operational_function_types(())
+    runtime = build_semantic_query_runtime(
+        model=_NoDocumentMixedModel(),
+        ontology_release=build_ontology_release(function_types=function_types),
+        ontology_catalog=OntologyCatalog(
+            object_types=(),
+            interface_types=(),
+            interface_implementations=(),
+            link_types=(),
+            action_types=(),
+            function_types=(),
+            property_semantics=empty_property_semantic_registry(),
+        ),
+        ontology_store=InMemoryOntologyInstanceStore(object_types=(), link_types=()),
+        governed_document_reader=reader,
+        service_health_reader=_ServiceHealthReader(),
+        now=lambda: NOW,
+    )
+    context = _exact_context()
+
+    result = await runtime.handle(
+        utterance="What does the recovery runbook require?",
+        prior_turns=(),
+        principal=Principal(
+            id="operator-a",
+            role=Role.READER,
+            groups=frozenset({"group:responders"}),
+        ),
+        document_context=context,
+    )
+
+    assert result.disposition == "answered"
+    assert reader.exact_calls == [
+        (context.citations, context.conversation_ref, context.context_digest)
+    ]
 
 
 async def test_runtime_returns_document_grounded_answer_evidence() -> None:

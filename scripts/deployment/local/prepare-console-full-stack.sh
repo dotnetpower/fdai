@@ -30,6 +30,10 @@ if [[ "$auth_mode" != "browser-entra" && "$auth_mode" != "azure-cli" ]]; then
   echo "Usage: $0 [--force] [--auth-mode browser-entra|azure-cli]" >&2
   exit 2
 fi
+legacy_preparation_marker="$repo_root/.fdai/console-full-stack-preparation.sha256"
+if [[ "$force_preparation" == "1" ]]; then
+  rm -f "$legacy_preparation_marker"
+fi
 
 if [[ ! -x "$repo_root/.venv/bin/python" ]]; then
   echo "missing local Python environment: run uv sync --extra dev" >&2
@@ -48,7 +52,6 @@ if ! command -v opa >/dev/null 2>&1; then
   exit 1
 fi
 
-legacy_preparation_marker="$repo_root/.fdai/console-full-stack-preparation.sha256"
 stage_marker_dir="$repo_root/.fdai/console-preparation"
 auth_mode_file="$repo_root/.fdai/local-console-auth-mode"
 operator_env="$repo_root/.fdai/local-operator-service.env"
@@ -73,6 +76,7 @@ legacy_preparation_inputs=(
 required_outputs=(
   console/node_modules/.bin/vite
   .venv/bin/fdai-document-processing-worker
+  .venv/bin/fdai-document-channel-intake
   .venv/bin/fdai-isolated-executor-service
   .fdai/local-runtime.env
   .fdai/local-operator-service.env

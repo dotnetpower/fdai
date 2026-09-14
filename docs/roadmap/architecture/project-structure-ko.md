@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 3140247ce9f5549a9be25d74948af922b05c269b
+translation_source_sha: 3d14489e4fe9d5bec8cd8da58f862a16c5c71f7d
 translation_revised: 2026-09-14
 ---
 # 프로젝트 구조
@@ -37,6 +37,7 @@ translation_revised: 2026-09-14
 ## 모듈 경계(모듈 Boundaries)
 
 의존 방향은 엄격하게 단방향이며, 위반은 리뷰 블로커입니다.
+클라우드 참조 수집은 수집 API, 파싱/색인 활성화는 작업자, 날짜를 명시한 근거는 Core가 담당합니다. [수명 주기 설계](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)는 공유 계약과 실행 권한이 없는 경계를 정의합니다. Core는 적용 조건을 제한된 단일 값 선택자로 노출하며 근거 객체는 의존 조회 결과로만 받습니다. 정확한 문서 맥락은 순위 계산 전에 이 선택 조건과 함께 적용하며 더 넓은 컬렉션 조회로 대체할 수 없습니다. 새 수집 테스트마다 서비스 테스트 소유자가 하나이며, 이미 선언된 API의 `aiohttp` 의존성은 간접이 아닌 직접 사용으로 분류합니다.
 
 - **코어는 이식 가능**: 어떤 클라우드 SDK도 직접 가져오기 하지 **않습니다**. 클라우드 특이성은
   `shared/providers/` 의 CSP-중립 인터페이스로만 진입하며, 구현은 `delivery/` 와 `infra/` 에 있고
@@ -551,7 +552,7 @@ privileged I/O 전에 확인하는 실제 상한을 제공합니다. 어느 계�
 grounding 권한을 우회할 수 없습니다. HIL 승인 id와 실행기 멱등성 키는 원자적으로
 점유되고, 리소스별 잠금은 전달 어댑터가 상태를 변경하기 전에 경합하는 적용을 직렬화합니다.
 HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서버 검증 운영자 요청 규칙은 규칙 ID,
-작업 유형 및 고정 검사 참조가 계속 정확히 일치할 때만 허용됩니다. 멱등성 예약 신원 및 전이 계약은 하나의 Core 모듈에 유지하고, codec, 수명 주기, 상태 형태 검증, HIL 결과 레코드, 조정 제출은 권한 없이 인접한 단일 책임 모듈로 분리하며 facade는 중복 wrapper 없이 수명 주기 동작을 다시 내보냅니다. 실행기 결과는 `accepted`, `pending`, `no_effect`, `failed`로 Core를 통과합니다. 수락은 전달만 입증하며, HIL, 작업 흐름, 조정은 원래 상관관계와 제공된 액션 시도 신원을 보존하고 효과가 발생했을 수 있는 결과를 종료 주장 전에 독립 조정으로 보냅니다.
+작업 유형 및 고정 검사 참조가 계속 정확히 일치할 때만 허용됩니다. 멱등성 예약 신원 및 전이 계약은 하나의 Core 모듈에 유지하고, codec, 수명 주기, 상태 형태 검증, HIL 결과 레코드, 실행 효과 완료 처리는 권한 없이 인접한 단일 책임 모듈로 분리하며 facade는 중복 wrapper 없이 수명 주기 동작을 다시 내보냅니다. 실행기 결과는 `accepted`, `pending`, `no_effect`, `failed`로 Core를 통과합니다. 수락은 전달만 입증하며, HIL, 작업 흐름, 조정은 원래 상관관계와 제공된 액션 시도 신원을 보존하고 효과가 발생했을 수 있는 결과를 종료 주장 전에 독립 조정으로 보냅니다.
 ![컨트롤 루프 배선. 주요 단계는 events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops입니다.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.ko.svg)
 
 ## 구성 모델
