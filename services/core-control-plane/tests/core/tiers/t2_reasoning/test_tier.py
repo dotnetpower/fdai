@@ -8,6 +8,7 @@ under asyncio_mode="auto".
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import cast
 
 import pytest
@@ -32,7 +33,7 @@ from fdai.core.quality_gate.testing import (
     StaticVerifier,
 )
 from fdai.core.tiers.t2_reasoning import T2Outcome, T2ProposalContext, T2Tier
-from fdai.shared.contracts.models import Event, Mode
+from fdai.shared.contracts.models import Event, Mode, Rule
 
 
 def _event() -> Event:
@@ -58,6 +59,31 @@ def _candidate(*, confidence: dict[str, float] | None = None) -> QualityCandidat
     )
 
 
+def _rule() -> Rule:
+    return Rule.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "id": "r1",
+            "version": "1.0.0",
+            "source": "custom",
+            "severity": "low",
+            "category": "config_drift",
+            "resource_type": "compute.vm",
+            "check_logic": {"kind": "rego", "reference": "policies/example.rego"},
+            "remediation": {"template_ref": "remediations/example"},
+            "remediates": "remediate.tag-add",
+            "provenance": {
+                "source_url": "https://example.com/rules/r1",
+                "resolved_ref": "0000000000000000000000000000000000000000",
+                "content_hash": "sha256:example",
+                "license": "MIT",
+                "redistribution": "embeddable",
+                "retrieved_at": "2026-07-05T00:00:00Z",
+            },
+        }
+    )
+
+
 class _Proposer:
     def __init__(self, candidate: QualityCandidate | None) -> None:
         self._candidate = candidate
@@ -74,15 +100,17 @@ def _context() -> T2ProposalContext:
         event=_event(),
         target_resource_ref="resource:example/rg/x",
         target_resource_type="compute.vm",
-        allowed_rules=(),
+        allowed_rules=(_rule(),),
     )
 
 
 class _FakeGate:
     def __init__(self, outcome: QualityOutcome) -> None:
         self._outcome = outcome
+        self.calls = 0
 
     async def evaluate(self, candidate: QualityCandidate) -> QualityDecision:
+        self.calls += 1
         return QualityDecision(outcome=self._outcome, candidate=candidate)
 
 
@@ -130,6 +158,53 @@ async def test_proposer_abstain_yields_tier_abstain() -> None:
     assert decision.quality_decision is None
     assert decision.reason == "t2_proposer_abstained"
     assert decision.eligible_for_risk_gate is False
+
+
+@pytest.mark.parametrize(
+    ("candidate", "reason"),
+    [
+        (
+            replace(_candidate(), target_resource_ref="resource:example/rg/other"),
+            "target_resource_ref",
+        ),
+        (
+            replace(_candidate(), target_resource_type="storage.account"),
+            "target_resource_type",
+        ),
+        (
+            replace(_candidate(), cited_rule_ids=("unrouted-rule",)),
+            "cited_rule_not_allowed",
+        ),
+        (
+            replace(_candidate(), action_type="ops.scale-out"),
+            "action_type_not_allowed",
+        ),
+    ],
+)
+async def test_candidate_must_match_trusted_context(
+    candidate: QualityCandidate,
+    reason: str,
+) -> None:
+    gate = _FakeGate(QualityOutcome.ELIGIBLE)
+    tier = T2Tier(proposer=_Proposer(candidate), quality_gate=gate)
+
+    decision = await tier.evaluate(context=_context())
+
+    assert decision.outcome is T2Outcome.DENIED
+    assert decision.reason == f"t2_candidate_context_mismatch:{reason}"
+    assert decision.quality_decision is None
+    assert gate.calls == 0
+
+
+async def test_missing_candidate_resource_type_is_bound_from_trusted_context() -> None:
+    gate = _FakeGate(QualityOutcome.ELIGIBLE)
+    tier = T2Tier(proposer=_Proposer(_candidate()), quality_gate=gate)
+
+    decision = await tier.evaluate(context=_context())
+
+    assert decision.outcome is T2Outcome.PROPOSED
+    assert decision.candidate is not None
+    assert decision.candidate.target_resource_type == "compute.vm"
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +374,7 @@ async def test_every_event_of_one_incident_still_reaches_the_proposer() -> None:
             event=event,
             target_resource_ref="resource:example/rg/x",
             target_resource_type="compute.vm",
-            allowed_rules=(),
+            allowed_rules=(_rule(),),
         )
         outcomes.append((await tier.evaluate(context=context)).outcome)
 
@@ -334,7 +409,7 @@ async def test_the_tier_never_carries_a_money_limb_it_cannot_observe() -> None:
             event=event,
             target_resource_ref="resource:example/rg/x",
             target_resource_type="compute.vm",
-            allowed_rules=(),
+            allowed_rules=(_rule(),),
         )
         assert (await tier.evaluate(context=context)).reason != "t2_budget_exhausted"
 

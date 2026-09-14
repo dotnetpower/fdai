@@ -549,7 +549,8 @@ it can never erase an authoritative record or an audit entry.
 Every terminal path-including reject, HIL timeout, abstain, and deny-writes an audit entry. T2 output reaches the risk-gate only after
 clearing the quality-gate. The authority ceiling evaluates each action with its actual originating T0, T1, or T2 tier; fallback actions
 cannot inherit T0 authority. Boundary hardening keeps that sequence fail-closed: ingest and routing normalize blank resource references before
-comparison, T1 rejects malformed reuse evidence, and a T2 proposal cannot bypass grounding authority when a provider fails. HIL approval ids
+comparison, T1 rejects malformed reuse evidence, and T2 rejects any proposed target, resource type, citation, or ActionType that differs
+from its trusted routing context before quality evaluation. A T2 proposal also cannot bypass grounding authority when a provider fails. HIL approval ids
 and executor idempotency keys are claimed atomically, while per-resource locking serializes competing applies before any delivery adapter
 can mutate state. HIL resume resolves catalog rules from the current catalog and accepts a parked server-validated operator-request rule
 only when its rule id, action type, and fixed check reference still match. Idempotency reservation identity and transition contracts remain in one Core module, while codec, lifecycle, state-shape validation, HIL result records, and execution-effect completion live in adjacent single-purpose modules with no authority; the facade re-exports lifecycle behavior without wrapper duplication. Executor results cross Core as `accepted`, `pending`, `no_effect`, or `failed`; acceptance proves delivery only, while HIL, workflow, and reconciliation preserve original correlation plus supplied action-attempt identity and send any potentially effective outcome to independent reconciliation before claiming closure.
