@@ -1,7 +1,7 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: 26fa688944a0cf9011a8c66784ace5b0d368ab94
+translation_source_sha: 61b5d6709dbe451523d6e71cd04b184bc731799d
 translation_revised: 2026-09-14
 ---
 # Console 읽기 경계
@@ -30,6 +30,7 @@ translation_revised: 2026-09-14
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 요청된 운영자 인증 모드를 기존 전체 스택 준비 캐시 식별자에 추가했습니다. Browser Entra와 Azure CLI 디버그 사이를 전환할 때 다른 모드의 전체 준비 결과를 재사용할 수 없습니다. | `current change`; `prepare-console-full-stack.sh`; 두 모드의 집중 기존 캐시 테스트. | 활성 단계별 서비스 환경 캐시도 같은 모드에 연결합니다. |
 | 2026-09-14 | implemented | 독립 실행형 전체 스택 웹 실행기에 범위가 제한된 `--auth-mode` 선택기를 추가하고 준비 단계에 전달했습니다. 인자를 생략하면 Browser Entra를 선택하며, Azure CLI 디버깅은 호출 시 모드를 명시해야 합니다. | `current change`; `start-console-web.sh`; 집중 실행기 인자 테스트. | 두 준비 캐시를 선택된 모드에 연결합니다. |
 | 2026-09-14 | implemented | 표준 VS Code 준비 명령에 `browser-entra`를 명시하고 `Contributor` 상한을 이름에 표시한 별도 Azure CLI 디버그 작업을 추가했습니다. 준비 진입점도 같은 범위가 제한된 모드를 검증하고 전달하므로 운영자가 디버그 경로를 선택하기 위해 숨겨진 Vite 재정의를 영속할 필요가 없습니다. | `current change`; `.vscode/tasks.json`; `prepare-console-full-stack.sh`; 집중 작업 영역 작업 및 준비 인자 테스트. | 독립 실행형 웹 실행기에도 같은 명시적 모드 선택기를 추가합니다. |
 | 2026-09-14 | implemented | 표준 VS Code 프런트엔드 디버그 구성을 Browser Entra에 고정하고 두 CLI principal 값을 비활성화했습니다. 이제 복합 실행이 오래된 비공개 Vite 신원 재정의를 상속하지 않습니다. | `current change`; `.vscode/launch.json`; 집중 작업 영역 실행 계약 테스트. | 표준 작업을 재사용하지 않고 명확한 이름의 CLI 디버그 준비 작업을 추가합니다. |

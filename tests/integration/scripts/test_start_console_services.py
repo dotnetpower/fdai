@@ -375,7 +375,11 @@ def test_inventory_stage_reuse_requires_current_checkpoint() -> None:
     assert "--only inventory-coverage" in source
 
 
-def test_preparation_reuses_an_unchanged_healthy_stack(tmp_path: Path) -> None:
+@pytest.mark.parametrize("auth_mode", ["browser-entra", "azure-cli"])
+def test_preparation_reuses_an_unchanged_healthy_stack(
+    tmp_path: Path,
+    auth_mode: str,
+) -> None:
     repo = tmp_path / "repo"
     prepare_script = repo / "scripts/deployment/local/prepare-console-full-stack.sh"
     prepare_script.parent.mkdir(parents=True)
@@ -401,8 +405,9 @@ def test_preparation_reuses_an_unchanged_healthy_stack(tmp_path: Path) -> None:
     _write_executable(repo / "console/node_modules/.bin/vite", "#!/usr/bin/env bash\nexit 0\n")
     _write_ready_dependency_script(repo)
     _write_executable(repo / "console/node_modules/.bin/opa", "#!/usr/bin/env bash\nexit 0\n")
+    mode_digest = hashlib.sha256(f"{digest}\nauth-mode={auth_mode}\n".encode()).hexdigest()
     (repo / ".fdai/console-full-stack-preparation.sha256").write_text(
-        f"{digest}\n",
+        f"{mode_digest}\n",
         encoding="utf-8",
     )
     _write_executable(
@@ -420,7 +425,7 @@ esac
     )
 
     result = subprocess.run(  # noqa: S603 - fixed test script and executable.
-        [_BASH, str(prepare_script)],
+        [_BASH, str(prepare_script), "--auth-mode", auth_mode],
         cwd=repo,
         env={**os.environ, "PATH": f"{repo / 'console/node_modules/.bin'}:{os.environ['PATH']}"},
         capture_output=True,

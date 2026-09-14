@@ -334,7 +334,11 @@ run_bounded local-dependencies \
   bash "$repo_root/scripts/deployment/local/dev-up.sh"
 
 if [[ "$force_preparation" == "0" && -f "$legacy_preparation_marker" ]]; then
-  current_legacy_digest="$(legacy_digest "${legacy_preparation_inputs[@]}")"
+  current_legacy_digest="$(
+    configuration_digest \
+      "$(legacy_digest "${legacy_preparation_inputs[@]}")" \
+      "auth-mode=$auth_mode"
+  )"
   if can_reuse_legacy_preparation "$current_legacy_digest"; then
     printf '%s service=console-preparation event=reused\n' \
       "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
