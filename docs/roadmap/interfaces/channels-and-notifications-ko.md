@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: ef4c511bcf98c4c6bb4cba9274c1d8773af87dc0
+translation_source_sha: 5a6fe7492dd33e3a112969bc271d28eee1decea4
 translation_revised: 2026-09-14
 ---
 
@@ -379,6 +379,13 @@ Console은 브라우저 알림 경계를 명시적인 클라이언트 로컬 `co
 이 채널은 보안 컨텍스트에서 Notifications, Service Worker 및 Web Locks API를 모두 사용할 수
 있을 때만 지원됩니다. Web Locks는 principal 범위 스트림 리더 하나를 선출합니다. 이 보장을
 제공하지 않는 브라우저는 수신자 없이 준비 상태를 주장하지 않고 채널을 사용 불가로 표시합니다.
+
+Settings > Integrations는 개인 알림 채널의 정식 선택 화면입니다. `콘솔 웹` 행은 인증된
+principal과 현재 브라우저 프로필 범위이며, 헤더 컨트롤은 같은 기본 설정을 공유하는 바로가기입니다.
+기존 Teams, Slack, 이메일, 웹훅, paging 및 SMS A2/A4 바인딩은 조직에서 관리하는
+channel-as-audience 경로이므로 개인 opt-in으로 표시하지 않습니다. Operator가 검증된 활성 개인
+endpoint를 변환하고 해당 전달 경로가 같은 principal 범위 선택을 사용할 때만 다른 개인 채널을
+선택 항목으로 추가할 수 있습니다. 라우트 소속이나 이전 대화만으로는 충분한 근거가 아닙니다.
 
 브라우저 알림은 정보 제공 전용입니다. 현지화된 일반 텍스트, 불투명하고 범위가 제한된 이벤트
 태그 및 서버가 만든 동일 출처의 읽기 전용 인시던트 화면 링크만 포함합니다. 원본 오류, 리소스

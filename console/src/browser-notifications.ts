@@ -12,6 +12,8 @@ const DELIVERY_RATE_WINDOW_MS = 60_000;
 const DELIVERY_RATE_LIMIT = 5;
 const DELIVERY_LEDGER_LIMIT = 32;
 export const BROWSER_NOTIFICATION_WORKER_TIMEOUT_MS = 10_000;
+export const BROWSER_NOTIFICATION_PREFERENCE_CHANGED_EVENT =
+  "fdai:console-web-notification-preference-changed";
 export const CONSOLE_WEB_NOTIFICATION_CHANNEL_ID = "console-web";
 export const BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE =
   "fdai.console-web-notification.acknowledged";
@@ -84,6 +86,13 @@ export function isBrowserNotificationPreferenceStorageKey(
   return key === null || key === browserNotificationPreferenceKey(principalId);
 }
 
+export function isBrowserNotificationPreferenceChange(
+  detail: unknown,
+  principalId?: string | null,
+): boolean {
+  return detail === browserNotificationPreferenceKey(principalId);
+}
+
 export function browserNotificationDeliveryKey(principalId: string | null | undefined): string {
   return `${DELIVERY_PREFIX}:${principalId?.trim() || "local"}`;
 }
@@ -110,6 +119,7 @@ export function writeBrowserNotificationPreference(
     const key = browserNotificationPreferenceKey(principalId);
     if (enabled) storage.setItem(key, "enabled");
     else storage.removeItem(key);
+    publishBrowserNotificationPreferenceChange(key);
     return true;
   } catch {
     return false;
@@ -596,4 +606,12 @@ function browserStorage(): Storage | null {
   } catch {
     return null;
   }
+}
+
+function publishBrowserNotificationPreferenceChange(key: string): void {
+  if (typeof window === "undefined" || typeof CustomEvent === "undefined") return;
+  window.dispatchEvent(new CustomEvent(
+    BROWSER_NOTIFICATION_PREFERENCE_CHANGED_EVENT,
+    { detail: key },
+  ));
 }

@@ -6,10 +6,12 @@ import {
   browserAlertDeliveryStatusForStorageKey,
   browserAlertNotificationData,
   browserAlertForLiveEvent,
+  BROWSER_NOTIFICATION_PREFERENCE_CHANGED_EVENT,
   CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
   decodeBrowserAlertAcknowledgement,
   decodeBrowserAlertAcknowledgementFragment,
   isBrowserNotificationPreferenceStorageKey,
+  isBrowserNotificationPreferenceChange,
   browserNotificationPreferenceKey,
   browserNotificationsSupported,
   browserNotificationTargetPath,
@@ -137,6 +139,15 @@ describe("browser notification boundary", () => {
       "principal-a",
     )).toBe(false);
     expect(isBrowserNotificationPreferenceStorageKey(null, "principal-a")).toBe(true);
+    expect(isBrowserNotificationPreferenceChange(
+      browserNotificationPreferenceKey("principal-a"),
+      "principal-a",
+    )).toBe(true);
+    expect(isBrowserNotificationPreferenceChange(
+      browserNotificationPreferenceKey("principal-b"),
+      "principal-a",
+    )).toBe(false);
+    expect(BROWSER_NOTIFICATION_PREFERENCE_CHANGED_EVENT).toContain("preference-changed");
   });
 
   test("fails explicit preference changes when browser storage is unavailable", () => {

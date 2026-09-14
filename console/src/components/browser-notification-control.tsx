@@ -2,11 +2,13 @@ import { useEffect, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import {
   acknowledgeBrowserAlertDelivery,
+  BROWSER_NOTIFICATION_PREFERENCE_CHANGED_EVENT,
   browserAlertNotificationData,
   browserAlertDeliveryStatusForStorageKey,
   browserAlertForLiveEvent,
   decodeBrowserAlertAcknowledgementFragment,
   isBrowserNotificationPreferenceStorageKey,
+  isBrowserNotificationPreferenceChange,
   browserNotificationsSupported,
   browserNotificationWorkerPaths,
   claimBrowserAlertDelivery,
@@ -33,6 +35,7 @@ import { NotificationBellIcon } from "./notification-bell-icon";
 interface Props {
   readonly client: OperatorApiClient;
   readonly principalId?: string | null;
+  readonly presentation?: "header" | "settings";
 }
 
 type ControlState = "off" | "enabling" | "on" | "blocked" | "unsupported" | "error";
@@ -74,7 +77,11 @@ const ALERT_BODY_KEYS: Readonly<Record<BrowserAlertKind, BrowserNotificationText
   failed: "failedBody",
 };
 
-export function BrowserNotificationControl({ client, principalId }: Props) {
+export function BrowserNotificationControl({
+  client,
+  principalId,
+  presentation = "header",
+}: Props) {
   const supported = browserNotificationsSupported();
   const [state, setState] = useState<ControlState>(() => initialState(supported, principalId));
   const [deliveryState, setDeliveryState] = useState<BrowserAlertDeliveryStatus>(
@@ -111,7 +118,24 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
       if (nextDeliveryState !== null) setDeliveryState(nextDeliveryState);
     };
     window.addEventListener("storage", syncStoredState);
-    return () => window.removeEventListener("storage", syncStoredState);
+    const syncCurrentDocument = (event: Event) => {
+      const detail = event instanceof CustomEvent ? event.detail : null;
+      if (!isBrowserNotificationPreferenceChange(detail, principalId)) return;
+      const nextControlState = initialState(supported, principalId);
+      if (nextControlState !== "on") setWorkerReady(false);
+      setState(nextControlState);
+    };
+    window.addEventListener(
+      BROWSER_NOTIFICATION_PREFERENCE_CHANGED_EVENT,
+      syncCurrentDocument,
+    );
+    return () => {
+      window.removeEventListener("storage", syncStoredState);
+      window.removeEventListener(
+        BROWSER_NOTIFICATION_PREFERENCE_CHANGED_EVENT,
+        syncCurrentDocument,
+      );
+    };
   }, [principalId, supported]);
 
   useEffect(() => {
@@ -319,6 +343,21 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
     && deliveryState === "acknowledged"
     ? t("stateAcknowledgedCompact")
     : stateLabel;
+  if (presentation === "settings") {
+    return (
+      <label class="settings-toggle-control">
+        <input
+          type="checkbox"
+          checked={state === "on"}
+          aria-label={`${label}: ${stateLabel}`}
+          disabled={disabled}
+          onChange={() => { void toggle(); }}
+        />
+        <span aria-hidden="true" />
+        <strong role="status" aria-live="polite">{stateLabel}</strong>
+      </label>
+    );
+  }
   return (
     <button
       type="button"

@@ -677,6 +677,11 @@ Acknowledgement-token generation is contained inside the claim boundary; an entr
 returns the explicit unavailable result instead of escaping through the live-stream callback.
 Service-worker registration and readiness each have a ten-second deadline; expiry clears the
 cached promise and moves the control from `Selecting` to its retry state.
+Settings > Integrations renders the canonical personal-channel selection row, scoped to the
+authenticated principal and current browser profile. The header control subscribes to the same
+same-document and cross-tab preference events, so both surfaces remain consistent. Organization
+A2/A4 bindings remain read-only integration evidence and cannot be selected as though they were
+verified personal endpoints.
 Visible-heading components use `title` only for rendered heading content. Native HTML `title` bubbles remain limited to accessibility-compatible elements, and all other contextual help uses the shared Tooltip component.
 The static component gallery reads contracts from `mocks/ui/assets/component-registry.json` and presents each specimen before its owner, source, states, usage guidance, responsive behavior, accessibility contract, and product references. A missing or invalid registry blocks documented status instead of inferring canonical status. The gallery remains synthetic presentation evidence and grants no Console, Operator API, or executor authority.
 

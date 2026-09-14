@@ -379,6 +379,15 @@ The channel is available only in a secure context with the Notifications, Servic
 Locks APIs. Web Locks elects one principal-scoped stream leader; a browser without that guarantee
 reports the channel unavailable instead of claiming readiness without a receiver.
 
+Settings > Integrations is the canonical selection surface for personal notification channels.
+Its `Console web` row is scoped to the authenticated principal and the current browser profile;
+the header control is a synchronized shortcut to the same preference. Existing Teams, Slack,
+email, webhook, paging, and SMS A2/A4 bindings remain organization-managed channel-as-audience
+routes and are not presented as personal opt-ins. Another personal channel becomes selectable only
+after Operator can project a verified active principal endpoint and its delivery path consumes the
+same principal-scoped selection. Route membership or a prior conversation alone is not sufficient
+evidence.
+
 Browser notifications are informational. They contain localized generic text, an opaque bounded
 event tag, and a server-derived same-origin link to the read-only Incident view. They never include
 raw errors, resource identifiers, approval controls, or execution links. Repeated frames replace the

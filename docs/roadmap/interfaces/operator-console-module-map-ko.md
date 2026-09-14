@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: aecd754f3ca28d760e0f363dfbcdf3f087c1eec6
+translation_source_sha: 28f9d5d51ea54cbf07bbda139d02e0dce270cae2
 translation_revised: 2026-09-14
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -678,6 +678,10 @@ referrer에 포함되지 않으며, 일반 Console 탐색을 계속하기 전에
 밖으로 전파되지 않고 명시적인 사용 불가 결과를 반환합니다.
 서비스 워커 등록과 준비 대기에는 각각 10초 제한이 있습니다. 제한을 넘으면 캐시된 promise를
 지우고 컨트롤을 `선택 중`에서 다시 시도 상태로 이동합니다.
+Settings > Integrations는 인증된 principal과 현재 브라우저 프로필 범위의 정식 개인 채널 선택
+행을 표시합니다. 헤더 컨트롤은 같은 문서와 탭 간 기본 설정 이벤트를 공유하므로 두 화면의 상태가
+일치합니다. 조직 A2/A4 바인딩은 읽기 전용 통합 근거로 유지하며 검증된 개인 endpoint인 것처럼
+선택할 수 없습니다.
 화면에 보이는 제목 컴포넌트는 렌더링되는 제목 내용에만 `title`을 사용합니다. 기본 HTML `title` 말풍선은 접근성과 호환되는 요소로 제한하며, 그 밖의 맥락 도움말은 공통 Tooltip 컴포넌트를 사용합니다.
 정적 컴포넌트 갤러리는 `mocks/ui/assets/component-registry.json`의 계약을 읽고 각 시안을 소유자, 원본, 상태, 사용 지침, 반응형 동작, 접근성 계약 및 제품 참조보다 먼저 표시합니다. 레지스트리가 없거나 잘못되면 정규 상태를 추론하지 않고 문서화를 차단합니다. 갤러리는 합성 표현 근거이며 Console, Operator API 또는 실행기 권한을 부여하지 않습니다.
 
