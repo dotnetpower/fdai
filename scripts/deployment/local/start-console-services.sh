@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ $# -ne 2 || "$1" != "--auth-mode" ]]; then
+  echo "Usage: $0 --auth-mode browser-entra|azure-cli" >&2
+  exit 2
+fi
+auth_mode="$2"
+if [[ "$auth_mode" != "browser-entra" && "$auth_mode" != "azure-cli" ]]; then
+  echo "Usage: $0 --auth-mode browser-entra|azure-cli" >&2
+  exit 2
+fi
+
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$repo_root"
 
@@ -25,6 +35,15 @@ if [[ ! "$readiness_seconds" =~ ^[1-9][0-9]*$ ]]; then
   exit 2
 fi
 readiness_budget_seconds=$((readiness_seconds + 5))
+auth_mode_file="$repo_root/.fdai/local-console-auth-mode"
+if [[ ! -f "$auth_mode_file" ]]; then
+  echo "missing prepared Console auth mode: $auth_mode_file" >&2
+  exit 1
+fi
+if [[ "$(<"$auth_mode_file")" != "$auth_mode" ]]; then
+  echo "prepared Console auth mode does not match requested mode: $auth_mode" >&2
+  exit 1
+fi
 
 emit_failed() {
   local stage="$1"
@@ -92,7 +111,8 @@ trap handle_signal INT TERM
 
 printf '%s service=console-stack event=starting\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
 for service in "${services[@]}"; do
-  bash "$repo_root/scripts/deployment/local/run-console-service.sh" "$service" &
+  FDAI_CONSOLE_EXPECTED_AUTH_MODE="$auth_mode" \
+    bash "$repo_root/scripts/deployment/local/run-console-service.sh" "$service" &
   child_pids+=("$!")
 done
 printf '%s service=console-stack event=started\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"

@@ -21,12 +21,29 @@ if [[ $# -eq 2 ]]; then
 fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$repo_root"
+local_azure_cli_auth=0
 readiness_seconds="${FDAI_CONSOLE_START_READINESS_SECONDS:-60}"
 if [[ ! "$readiness_seconds" =~ ^[1-9][0-9]*$ ]]; then
   echo "FDAI_CONSOLE_START_READINESS_SECONDS must be a positive integer" >&2
   exit 2
 fi
 readiness_budget_seconds=$((readiness_seconds + 5))
+
+if [[ "$service" == "operator-api" || "$service" == "console-frontend" ]]; then
+  expected_auth_mode="${FDAI_CONSOLE_EXPECTED_AUTH_MODE:-}"
+  case "$expected_auth_mode" in
+    browser-entra)
+      local_azure_cli_auth=0
+      ;;
+    azure-cli)
+      local_azure_cli_auth=1
+      ;;
+    *)
+      echo "FDAI_CONSOLE_EXPECTED_AUTH_MODE must be browser-entra or azure-cli" >&2
+      exit 1
+      ;;
+  esac
+fi
 
 case "$service" in
   core-runtime|inventory-reconciliation|observation-campaign)
@@ -127,6 +144,13 @@ if [[ -n "$env_file" ]]; then
   set +a
 fi
 
+if [[ "$service" == "operator-api" ]] \
+  && { [[ "${FDAI_OPERATOR_API_LOCAL_AZURE_CLI:-0}" != "$local_azure_cli_auth" ]] \
+    || [[ "${FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM:-0}" != "$local_azure_cli_auth" ]]; }; then
+  echo "prepared Console and Operator API auth modes do not match" >&2
+  exit 1
+fi
+
 export FDAI_LOCAL_SERVICE_INPUT_DIGEST="$input_digest"
 export FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain
 export FDAI_LOCAL_SERVICE_RESTART_STALE=1
@@ -207,6 +231,8 @@ case "$service" in
     service_command=(
       env
       VITE_DEV_MODE=0
+      VITE_LOCAL_AZURE_CLI_AUTH="$local_azure_cli_auth"
+      VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM="$local_azure_cli_auth"
       VITE_OPERATOR_API_BASE_URL=http://127.0.0.1:8010
       VITE_INGESTION_API_BASE_URL=http://127.0.0.1:8011
       VITE_MANUAL_STUDIO_URL=http://127.0.0.1:5474

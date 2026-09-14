@@ -906,9 +906,7 @@ already-reachable account is left untouched. Disable the hook with
 
 ```sh
 # Auto-open runs by default; set the flag to 0 to opt out.
-FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1 \
-  uv run uvicorn 'fdai.delivery.operator_api.dev.local:app' \
-    --factory --host 127.0.0.1 --port 8010
+./scripts/deployment/local/start-console-web.sh --auth-mode azure-cli
 ```
 
 The hook is **local-dev only and fail-safe**: it shells out to `az`
@@ -933,38 +931,30 @@ commit the MSAL cache values.
 
 ## Local Azure CLI sign-in
 
-Use this mode when you want the local console to reuse the interactive account
-already selected by `az login`, without opening the MSAL sign-in page. Confirm
-the active account first, especially when you use more than one Azure CLI
-profile:
+Use this mode only for a bounded authentication diagnostic when you want the
+local console to reuse the interactive account already selected by `az login`.
+The standard full-stack task always uses Browser Entra. Confirm the active
+account before starting the explicit debug mode:
 
 ```sh
 az login --use-device-code
 az account show --query '{subscription:name,user:user.name,tenant:tenantId}' --output table
 ```
 
-The Operator API inherits `AZURE_CONFIG_DIR` from its process. If you use a named
-Azure CLI profile, set the same `AZURE_CONFIG_DIR` when starting the API. The
-API checks `az account show`, obtains a short-lived ARM token, and keeps that
-token inside the API process. It exposes only the stable object id, username,
-display name, and local role projection to the SPA.
+The managed launcher checks `az account show`, obtains a short-lived ARM token,
+and keeps that token inside the API process. It exposes only the stable object
+id, username, display name, and local role projection to the SPA.
 
 ```sh
-# Terminal 1: Azure-backed API projected as the current Azure CLI user.
-FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1 \
-  uv run uvicorn 'fdai.delivery.operator_api.dev.local:app' \
-  --factory --host 127.0.0.1 --port 8010
-
-# Terminal 2: SPA with MSAL bypassed in favor of the local CLI profile.
-cd console
-VITE_LOCAL_AZURE_CLI_AUTH=1 \
-  VITE_OPERATOR_API_BASE_URL=http://127.0.0.1:8010 \
-    npm run dev
+./scripts/deployment/local/start-console-web.sh --auth-mode azure-cli
 ```
 
-The local principal has a fixed `Contributor` development ceiling. It doesn't import production App Roles or
-grant Azure resource permissions to the browser. The API refuses this mode
-when `RUNTIME_ENV` is `staging` or `prod`, and it can't be combined with
+The local principal has a fixed `Contributor` development ceiling. It cannot
+open approval details that require `Approver` or `Owner`, import production App
+Roles, or grant Azure resource permissions to the browser. Don't persist the
+underlying Vite or API flags in `console/.env.local`; the launcher sets paired
+enablement and confirmation values for this invocation. The API refuses this
+mode when `RUNTIME_ENV` is `staging` or `prod`, and it can't be combined with
 `FDAI_OPERATOR_API_DEV_MODE=1` or `FDAI_OPERATOR_API_LOCAL_ENTRA=1`.
 
 ## Test-only authentication fixtures
@@ -1003,7 +993,8 @@ CI env):
 | `VITE_MSAL_API_SCOPE` | API audience scope (e.g. `api://<api-guid>/access`). |
 | `VITE_DEV_MODE` | Test-only authorization bypass paired with Operator API fixtures. The interactive full-stack profile never sets it. |
 | `VITE_LOCAL_LOGIN_PROMPT` | Test-only chooser toggle used with `VITE_DEV_MODE`; not an interactive Azure data mode. |
-| `VITE_LOCAL_AZURE_CLI_AUTH` | `1` to project the current local `az login` user through the local Operator API. Explicit alternative to browser Entra sign-in; never set in production or together with `VITE_DEV_MODE`. |
+| `VITE_LOCAL_AZURE_CLI_AUTH` | Launcher-owned CLI-debug enablement. Don't persist it in `.env.local`; use `--auth-mode azure-cli`. |
+| `VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM` | Launcher-owned confirmation paired exactly with `VITE_LOCAL_AZURE_CLI_AUTH`. A mismatch stops Console startup. |
 | `VITE_CONSOLE_BASE_PATH` | Optional subpath if not served at origin root. |
 | `VITE_MANUAL_STUDIO_URL` | Optional HTTPS origin or path for the published manual catalog. Local development defaults to `http://127.0.0.1:5474`; the protected Azure publisher uses the Console's same-origin `/manuals` path. |
 | `VITE_WORKFLOW_CATALOG_REPO` | Optional `owner/repo` of the catalog repo. When set, a validated workflow draft shows a one-click "Open a PR on GitHub" (new-file link); the console still never commits. |

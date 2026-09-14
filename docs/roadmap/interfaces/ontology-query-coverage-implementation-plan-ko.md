@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 275152c4fc36a318c2b1f27a921fc18777c3106d
-translation_revised: 2026-09-13
+translation_source_sha: 0e849689ed27bff20500fb83cd83770ebbcd85a7
+translation_revised: 2026-09-14
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -224,6 +224,7 @@ translation_revised: 2026-09-13
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 실행 범위 자식 명령에서 API와 Vite 인증 플래그 쌍을 모두 해제하여 Browser Entra 온톨로지 보증 서비스가 주변 Azure CLI principal 준비와 격리되도록 했습니다. | `current change`; `run_ontology_assurance.py`; 집중 보증 프로세스 사양 회귀 테스트. | 조회 권한 또는 보증 결과는 변경되지 않았습니다. |
 | 2026-09-13 | implemented | 소스 통합 뒤 PR 게이트 계약을 복구했습니다. 축약 preflight 검증을 분리하고, 검토된 운영 신호를 제거하지 않으면서 v9 분류기를 5,700자 미만으로 유지했으며, 권위 있는 소스에서 CQAS 산출물을 다시 생성했습니다. | `current change`, `conversation_preflight_validation.py`, `conversation-preflight.v9.yaml`, `build_semantic_intent_coverage.py`, 집중 테스트 506개, 강제 모드 파일 LOC, Ruff 및 strict mypy 통과 | 푸시된 SHA의 CI가 최종 근거입니다. 실제 모델, 운영 준비 상태 또는 승격 주장은 추가하지 않습니다. |
 | 2026-09-11 | implemented | 복구 결정 경계와 agent 소유 관측 경로가 권위 있는 소스 집합을 바꾼 뒤 semantic-intent coverage를 갱신했습니다. | `current change`; semantic coverage 및 결정 경계 테스트 15개 통과. | 이 갱신은 query 권한 또는 준비 상태 주장을 바꾸지 않습니다. |
 | 2026-09-11 | implemented | 안전조건 결속 서비스 계약 변환 결과가 바뀐 뒤 질문 400개 검토 bank를 갱신했습니다. 질문 신원과 권한은 바뀌지 않았습니다. | `current change`; 생성된 질문 bank 산출물과 집중 동등성 테스트. | 운영 준비 상태를 주장하기 전에 통제된 무작위 및 서비스 간 보증 근거를 보존합니다. |

@@ -137,7 +137,7 @@ keys are:
 | `VITE_MSAL_CLIENT_ID` / `VITE_MSAL_TENANT_ID` | Entra SPA app registration for browser sign-in. |
 | `VITE_MSAL_API_SCOPE` | Delegated Operator API scope in `api://<audience>/<scope>` form. |
 | `VITE_OPERATOR_API_BASE_URL` | Operator API origin (local default `http://127.0.0.1:8010`). |
-| `VITE_LOCAL_AZURE_CLI_AUTH` | `1` projects your `az login` user through the API instead of browser Entra. Never set in production. |
+| `VITE_LOCAL_AZURE_CLI_AUTH` / `VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM` | Launcher-owned CLI-debug pair. Don't persist either value in `console/.env.local`; use the explicit CLI-debug task or `--auth-mode azure-cli`. |
 | `FDAI_DATABASE_URL` | Postgres DSN; gates the `services/core-control-plane/tests/persistence/` tests and the local core runtime. |
 | `AZURE_CONFIG_DIR` | Named Azure CLI profile (see section 2). Export the same value for the API. |
 
@@ -186,16 +186,22 @@ execution. Unconfigured authoritative sources remain unavailable. See
   `ready` or `failed`; every preparation command and readiness check has a bounded deadline. Use
   `console: wait full stack ready` only for a ten-second diagnostic after a successful start. Use
   `bash scripts/deployment/local/prepare-console-full-stack.sh --force` to refresh every stage.
+  These standard paths always use Browser Entra. For a bounded authentication diagnostic only,
+  run `console: start full stack (Azure CLI debug, Contributor)`. That mode cannot open approval
+  details that require `Approver` or `Owner`.
 - Terminal launchers: run each long-lived server in its own terminal. The Console command prepares
   and starts the same complete stack as the VS Code task. The design command starts the independent
   static mock server on `http://127.0.0.1:5373`.
 
   ```bash
   ./scripts/deployment/local/start-console-web.sh
+  ./scripts/deployment/local/start-console-web.sh --auth-mode azure-cli  # CLI debug only
   ./scripts/deployment/local/start-design-mocks.sh
   ```
 
   Pass `--force` to `start-console-web.sh` only when every preparation stage must be refreshed.
+  Omitting `--auth-mode` always selects Browser Entra. The Azure CLI alternative has a fixed
+  `Contributor` ceiling and is not a way to test approval authority.
   If a standard port is owned outside the managed launcher, the Console script exits before
   preparation and leaves that process untouched. Stop the matching VS Code debug configuration
   or other owning process, then retry.

@@ -22,6 +22,7 @@ title: Workflow Control-Loop Integration
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Aligned the local workflow example with the paired Azure CLI authentication confirmation required by the Operator boundary. | `current change`; `tools.console`; focused launcher environment tests. | No workflow authority changed. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Complete policy binding and production concurrency evidence. |
 | 2026-08-14 | implemented | Recorded the validated FDAI-CONST-009 control-loop boundary: incomplete compensation issues a durable hold, ordinary dispatch is denied, and matching recovery remains Human approval-gated until verified release. | `228f0779e`; focused hold, compensation, control-loop, and risk-gate checks passed 10 tests; centralized validation passed. | Complete the unrelated guard binding, distributed dispatch evidence, and governed task work below. |
 | 2026-08-14 | implemented | Made bound guard evaluation fail closed: a stale evaluation clock, a raising or unavailable evaluator, and a non-boolean result each block the step and record a bounded `guard_error` in the `workflow.step` audit row. | `current change`; `workflow_step_executor.py` and `test_guard_fail_closed.py`; focused workflow checks passed 101 cases; task-scoped Ruff and strict mypy passed. | Complete the multi-replica dispatch evidence and governed Python-task executor work below. |
@@ -188,8 +189,7 @@ The local dev composition wires the command and the Processes read routes to
 the same `ProcessRuntimeStore`. Use the CLI wrapper to exercise it:
 
 ```bash
-FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1 uv run uvicorn \
-  'fdai.delivery.operator_api.dev.local:app' --factory --port 8000
+uv run python -m tools.console
 
 uv run python scripts/automation/run-workflow.py architecture-review \
   --target fdai-control-plane
