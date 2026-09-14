@@ -95,7 +95,13 @@ class StubCoordinator(InvestigationCoordinator):
         return replace(
             report,
             findings=self._findings,
-            analyzer_errors=self._analyzer_errors or report.analyzer_errors,
+            analyzer_errors=(
+                self._analyzer_errors
+                if self._analyzer_errors
+                else ()
+                if self._findings
+                else report.analyzer_errors
+            ),
         )
 
 
@@ -699,7 +705,7 @@ async def test_unsupported_kinds_are_separated_from_analyzer_errors() -> None:
 
     assert report.unsupported_targets == ("res-1",)
     assert report.analyzer_errors == (("res-2", "timeout"),)
-    assert not report.failed
+    assert report.failed
 
 
 @pytest.mark.asyncio

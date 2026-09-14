@@ -353,7 +353,12 @@ class AnalyzerTickReport:
     @property
     def failed(self) -> bool:
         """True when the tick must report a non-zero result to its caller."""
-        return bool(self.publish_errors or self.receipt_errors)
+        return bool(
+            self.unsupported_targets
+            or self.analyzer_errors
+            or self.publish_errors
+            or self.receipt_errors
+        )
 
     def to_dict(self) -> dict[str, object]:
         return {

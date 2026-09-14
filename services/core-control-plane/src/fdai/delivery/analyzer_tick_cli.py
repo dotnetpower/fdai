@@ -7,9 +7,10 @@ when `FDAI_INVENTORY_DSN` is bound, binds the reference analyzers to whichever
 finding to the analyzer ingest topic.
 
 Exit codes: `0` on a clean pass, including a pass with no resolved target;
-`1` when any finding failed to publish, so the Job retries the tick. An
-unreadable inventory projection raises instead of degrading to the configured
-list alone, so the Job retries rather than silently narrowing its coverage.
+`1` when a target has no analyzer, analysis fails, or any finding or receipt
+fails to persist, so the Job retries the tick. An unreadable inventory
+projection raises instead of degrading to the configured list alone, so the
+Job retries rather than silently narrowing its coverage.
 """
 
 from __future__ import annotations
@@ -160,11 +161,7 @@ class AnalyzerJobReport:
         )
         metric_access = (
             "unavailable"
-            if self.analyzer.analyzer_errors
-            or (
-                self.analyzer.targets > 0
-                and len(self.analyzer.unsupported_targets) == self.analyzer.targets
-            )
+            if self.analyzer.analyzer_errors or self.analyzer.unsupported_targets
             else "unverified"
             if self.analyzer.targets == 0
             else "available"

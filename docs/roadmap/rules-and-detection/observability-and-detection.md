@@ -578,7 +578,9 @@ store-side filter, then reads a bounded window of up to 1,000 supported Resource
 the configured analyzable-target cap. Unrelated inventory records cannot consume the query window
 or target slots. A supported-resource window that is itself truncated remains explicit. These
 jobs don't execute changes; findings and due tasks re-enter the shared trust router and safety
-check. Publish failure keeps a scheduled item retryable and returns a non-zero job result.
+check. A missing analyzer, provider analysis error, publish failure, or receipt failure keeps a
+scheduled item retryable and returns a non-zero job result; partial target coverage is never
+reported as a clean pass.
 When tracked state and a retry-stable explicit or Container Apps Job execution identity are
 configured, every completed pass also retains one content-digested
 `runtime:analyzer-tick-receipt:` record with target-resolution counts, finding publication,

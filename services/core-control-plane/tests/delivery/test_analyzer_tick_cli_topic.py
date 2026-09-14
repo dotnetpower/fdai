@@ -126,12 +126,19 @@ def test_trace_lookback_cannot_shrink_below_detection_window() -> None:
         )
 
 
-def _job_report(*, publish_failed: bool = False) -> AnalyzerJobReport:
+def _job_report(
+    *,
+    publish_failed: bool = False,
+    analyzer_failed: bool = False,
+    unsupported: bool = False,
+) -> AnalyzerJobReport:
     return AnalyzerJobReport(
         analyzer=AnalyzerTickReport(
             targets=1,
             findings=1,
             published=0 if publish_failed else 1,
+            unsupported_targets=("resource-a",) if unsupported else (),
+            analyzer_errors=(("resource-a", "provider_error"),) if analyzer_failed else (),
             publish_errors=(("key", "RuntimeError:failed"),) if publish_failed else (),
         ),
         trace_continuity=TraceContinuityTickReport(
@@ -220,6 +227,20 @@ def test_suppressed_duplicate_retains_verified_publication_readiness() -> None:
     )
 
     assert report.readiness(scheduling="local_loop")["event_publication"] == "verified"
+
+
+@pytest.mark.parametrize(
+    "report",
+    (
+        _job_report(analyzer_failed=True),
+        _job_report(unsupported=True),
+    ),
+)
+def test_analyzer_coverage_failure_is_not_a_successful_job(
+    report: AnalyzerJobReport,
+) -> None:
+    assert report.failed
+    assert report.readiness(scheduling="local_loop")["metric_access"] == "unavailable"
 
 
 def test_scheduling_mode_and_metric_delays_are_explicit() -> None:

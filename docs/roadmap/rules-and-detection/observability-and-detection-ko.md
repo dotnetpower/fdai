@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 135ace1d02ea3961bd2bfae52f9ab9282e557f75
+translation_source_sha: 61b30ce1fc99c29e531464dcb4838e6a5d55f07c
 translation_revised: 2026-09-14
 ---
 
@@ -548,7 +548,9 @@ Resource를 최대 1,000개 읽습니다. 관련 없는 인벤토리 레코드�
 차지할 수 없습니다. 지원 Resource 구간 자체가 잘린 상태는 명시적으로 유지합니다. 이 작업들은
 변경을 실행하지 않으며, 발견된 문제와 예정 작업은
 공유 trust router 및 안전성 검토에 다시 진입합니다.
-게시 실패 시 예약 항목은 재시도 가능 상태로 유지되고 작업 결과는 0이 아닌 값입니다.
+분석기 누락, 공급자 분석 오류, 게시 실패 또는 증적 저장 실패가 발생하면 예약 항목은 재시도
+가능 상태로 유지되고 작업 결과는 0이 아닌 값입니다. 일부 대상만 처리된 결과를 정상 실행으로
+보고하지 않습니다.
 추적 상태와 재시도에도 유지되는 명시적 실행 신원 또는 Container Apps 작업 실행 신원이 구성된
 경우 완료된 각 실행은 대상 해석 수, 발견된 문제의 발행, 추적 연속성 결과, 준비 상태를 포함한
 내용 다이제스트 기반 `runtime:analyzer-tick-receipt:` 레코드 하나도 보존합니다. 같은 내용의
