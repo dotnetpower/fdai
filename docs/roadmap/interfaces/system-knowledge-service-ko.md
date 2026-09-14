@@ -1,7 +1,7 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: 00cd8ba2b4033e46ddef2bd169a361f4c1c19615
+translation_source_sha: 2cd860a19ca74fde726ee6b16ab5c0813d71d839
 translation_revised: 2026-09-14
 ---
 # 시스템 지식 서비스
@@ -93,8 +93,8 @@ Muninn은 release context index의 최종 책임을 유지합니다. Bragi는 �
 - **Release 고정 카탈로그:** build 명령은 추적되는 파일에서 구조화 레코드와 소스 인용을
   컴파일합니다. 런타임 이미지에는 카탈로그만 포함하며 저장소 소스나 Git 자격 증명을 넣지
   않습니다.
-- **설명 전용 경계:** 다시 빌드한 카탈로그는 중복 Event 처리, 검증된 Event 시각 구간, 범위가
-  제한된 재발 신원처럼 개정된 에이전트 보장을 제공할 수 있지만, 해당 보장을 집행하거나 Event
+- **설명 전용 경계:** 다시 빌드한 카탈로그는 중복 Event 처리, 검증된 Event 시각 구간, 재시작에
+  안전한 재발 신원처럼 개정된 에이전트 보장을 제공할 수 있지만, 해당 보장을 집행하거나 Event
   처리에 참여할 수 없습니다.
 - **결정적 검색:** 정확한 alias를 먼저 정렬합니다. 정규화한 영어 token과 한국어 두 음절 token을
   사용해 범위가 제한된 lexical fallback을 제공합니다. 점수가 낮으면 명시적인 사용 불가 답변을

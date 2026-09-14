@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: b0ea9ce593d2d951c53a0f9c3846f07d8339617d
+translation_source_sha: 84c0b88862dd331e40980950ef71aed694b2ac1b
 translation_revised: 2026-09-14
 ---
 
@@ -57,8 +57,9 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
   값 중 가장 심각한 값입니다. 임계값을 충족한 모든 Event의 고정된 근거 키는 후보와
   결과 인시던트 구성원 집합에 포함됩니다. 수락된 에피소드에 같은 Event가 계속 들어오면 후보를
   다시 만들지 않지만 더 심각한 관측은 같은 에피소드를 갱신할 수 있습니다. 반복 구간보다 긴
-  침묵 뒤의 새 burst에는 새 불투명 에피소드 ID를 부여하므로 종료된 이전 Incident가 재발을
-  흡수할 수 없습니다. 인벤토리 및 발견 변경을 포함해
+  침묵 뒤의 새 burst에는 새 불투명 에피소드 ID를 부여하므로 해결되거나 종료된 이전 Incident가
+  재발을 흡수할 수 없습니다. 활성 Incident 도중 Heimdall이 다시 시작되면 레지스트리는 에피소드
+  키를 제외한 상관관계 키를 비교해 중복 Incident를 열지 않고 기존 활성 레코드를 재사용합니다. 인벤토리 및 발견 변경을 포함해
   `incident_correlation=none`인 Event는 인시던트를 열지 않습니다. 자동 생성 최소 기본값은
   `high`이며 분류되지 않은 burst는 `medium` anomaly로 남습니다. Anomaly publish 또는 수명 주기
   인계가 실패하면 Heimdall은 범위가 제한된 에피소드 구간을 유지하고 다음 matching Event가 도착할 때만

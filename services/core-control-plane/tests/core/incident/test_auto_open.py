@@ -213,3 +213,31 @@ async def test_new_episode_after_closure_creates_a_new_incident() -> None:
     assert second is not None and second.created is True
     assert second.incident.incident_id != first.incident.incident_id
     assert len(registry.snapshot()) == 2
+
+
+async def test_new_episode_reuses_an_active_incident_after_observer_restart() -> None:
+    registry = IncidentRegistry(state_store=InMemoryStateStore())
+    workflow = IncidentLifecycleWorkflow(
+        registry=registry,
+        allowed_agent_principals={"Heimdall"},
+    )
+
+    first = await open_detected_incident_candidate(
+        workflow=workflow,
+        candidate=_candidate(incident_episode_id="episode-before-restart"),
+        policy=IncidentAutoOpenPolicy(),
+    )
+    second = await open_detected_incident_candidate(
+        workflow=workflow,
+        candidate=_candidate(
+            incident_episode_id="episode-after-restart",
+            evidence_key="evidence-2",
+        ),
+        policy=IncidentAutoOpenPolicy(),
+    )
+
+    assert first is not None and second is not None
+    assert second.created is False
+    assert second.incident.incident_id == first.incident.incident_id
+    assert len(second.incident.member_event_ids) == 2
+    assert len(registry.snapshot()) == 1

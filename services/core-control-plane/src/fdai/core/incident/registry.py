@@ -49,6 +49,7 @@ from .state_machine import IncidentStateMachine, IncidentTransition
 from .workflow_support import canonical_incident_correlation_keys
 
 _SCHEMA_VERSION = "1.1.0"
+_EPISODE_KEY_PREFIX = "episode:"
 _SEVERITY_RANK = {
     IncidentSeverity.SEV1: 1,
     IncidentSeverity.SEV2: 2,
@@ -191,11 +192,15 @@ class IncidentRegistry:
         assignee_oid: str | None = None,
     ) -> IncidentOpenResult:
         """Open an incident and decide ``created`` inside the write lock."""
-        keys = tuple(correlation_keys)
+        keys = canonical_incident_correlation_keys(correlation_keys)
         members = tuple(member_event_ids)
         incident_id = incident_id_for(keys)
         async with self._write_lock:
             existing = self._incidents.get(incident_id)
+            if existing is None:
+                existing = self._active_incident_for_episode(keys)
+                if existing is not None:
+                    incident_id = existing.incident_id
             if existing is not None:
                 (
                     existing,
@@ -283,6 +288,31 @@ class IncidentRegistry:
             self._incidents[incident_id] = incident
             await self._project(incident, updated_at=opened)
             return IncidentOpenResult(incident=incident, created=True)
+
+    def _active_incident_for_episode(
+        self,
+        correlation_keys: tuple[str, ...],
+    ) -> Incident | None:
+        """Reuse one active correlation family across detector restarts."""
+
+        if not any(key.startswith(_EPISODE_KEY_PREFIX) for key in correlation_keys):
+            return None
+        base_keys = {key for key in correlation_keys if not key.startswith(_EPISODE_KEY_PREFIX)}
+        matches = [
+            incident
+            for incident in self._incidents.values()
+            if incident.state
+            not in {
+                IncidentState.RESOLVED,
+                IncidentState.CLOSED,
+            }
+            and base_keys.issubset(incident.correlation_keys)
+        ]
+        if len(matches) > 1:
+            raise IncidentWriteConflictError(
+                "multiple active incidents match one detector correlation family"
+            )
+        return matches[0] if matches else None
 
     async def _escalate_severity_if_needed(
         self,
