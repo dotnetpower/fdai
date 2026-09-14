@@ -1243,6 +1243,52 @@ def test_vidar_rollback_is_idempotent_per_correlation() -> None:
     assert len(bus.messages_on("object.rollback")) == 1
 
 
+def test_vidar_retries_publication_without_repeating_rollback() -> None:
+    class _FlakyRollbackBus:
+        def __init__(self) -> None:
+            self.publish_calls = 0
+            self.payloads: list[dict[str, object]] = []
+
+        def subscribe(self, topic, agent_name, handler):  # noqa: ANN001, ANN201
+            del topic, agent_name, handler
+
+        async def publish(self, principal, topic, payload):  # noqa: ANN001, ANN201
+            self.publish_calls += 1
+            if self.publish_calls == 1:
+                raise RuntimeError("broker unavailable")
+            assert principal == "Vidar"
+            assert topic == "object.rollback"
+            self.payloads.append(dict(payload))
+
+    rollback_calls: list[str] = []
+
+    async def rollback_executor(action_run):
+        rollback_calls.append(action_run["correlation_id"])
+        return "rollback:c-publish-retry"
+
+    bus = _FlakyRollbackBus()
+    vidar = Vidar(bus=bus, executors={"state_forward_only": rollback_executor})
+    failed = {
+        "correlation_id": "c-publish-retry",
+        "action_type": "ops.restart-service",
+        "resource_id": "vm-3",
+        "state": "failed",
+    }
+
+    with pytest.raises(RuntimeError, match="broker unavailable"):
+        asyncio.run(vidar.rollback(dict(failed)))
+
+    retried = asyncio.run(vidar.rollback(dict(failed)))
+    duplicate = asyncio.run(vidar.rollback(dict(failed)))
+
+    assert rollback_calls == ["c-publish-retry"]
+    assert len(vidar.records) == 1
+    assert retried is vidar.records[0]
+    assert duplicate is None
+    assert bus.publish_calls == 2
+    assert bus.payloads[0]["rollback_ref"] == "rollback:c-publish-retry"
+
+
 def test_thor_per_resource_mutex_prevents_concurrent_runs() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)

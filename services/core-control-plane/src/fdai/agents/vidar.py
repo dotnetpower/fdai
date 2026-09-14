@@ -12,13 +12,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from fdai.agents._framework.base import Agent
-from fdai.agents._framework.bounded import BoundedLruSet
+from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import IntrospectionResult, capability_facts
 from fdai.agents._framework.pantheon import _VIDAR
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class RollbackRecord:
     correlation_id: str
     action_type: str
@@ -57,8 +57,12 @@ class Vidar(Agent):
         # ActionRun can arrive twice. Rolling a resource back twice is not a
         # no-op for a real rollback contract (double PITR restore, double
         # revert), so a correlation is rolled back at most once. Bounded so
-        # the guard cannot leak on a long-lived recovery principal.
-        self._rolled_back: BoundedLruSet[str] = BoundedLruSet(self._MAX_RECORDS)
+        # the guard cannot leak on a long-lived recovery principal. Publication
+        # completion is tracked separately so a broker failure can replay safely.
+        self._rollback_results: BoundedLruDict[str, RollbackRecord] = BoundedLruDict(
+            self._MAX_RECORDS
+        )
+        self._published_rollbacks: BoundedLruSet[str] = BoundedLruSet(self._MAX_RECORDS)
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -73,11 +77,14 @@ class Vidar(Agent):
 
     async def rollback(self, action_run: dict[str, Any]) -> RollbackRecord | None:
         correlation_id = str(action_run.get("correlation_id", ""))
-        # Skip a duplicate rollback for a correlation already handled. An
-        # empty correlation cannot be deduped, so it falls through (a rollback
-        # is safer than silently skipping recovery).
-        if correlation_id and correlation_id in self._rolled_back:
-            return None
+        if correlation_id:
+            existing = self._rollback_results.get(correlation_id)
+            if existing is not None:
+                if correlation_id in self._published_rollbacks or self.bus is None:
+                    return None
+                await self._publish_rollback(existing)
+                self._published_rollbacks.add(correlation_id)
+                return existing
         contract = str(action_run.get("rollback_contract", "state_forward_only"))
         executor = self._executors.get(contract)
         state = "failed"
@@ -106,28 +113,35 @@ class Vidar(Agent):
             rollback_ref=rollback_ref,
         )
         if correlation_id:
-            self._rolled_back.add(correlation_id)
+            self._rollback_results.set(correlation_id, rec)
         self.records.append(rec)
         # FIFO cap - drop the oldest 25% in one shot to amortise the cost.
         if len(self.records) > self._MAX_RECORDS:
             keep_from = len(self.records) - (self._MAX_RECORDS * 3 // 4)
             del self.records[:keep_from]
-        if self.bus is not None:
-            await self.bus.publish(
-                "Vidar",
-                "object.rollback",
-                {
-                    "producer_principal": "Vidar",
-                    "correlation_id": rec.correlation_id,
-                    "idempotency_key": (f"{rec.correlation_id}:rollback:{rec.state}"),
-                    "action_type": rec.action_type,
-                    "resource_id": rec.resource_id,
-                    "contract": rec.contract,
-                    "state": rec.state,
-                    "rollback_ref": rec.rollback_ref,
-                },
-            )
+        published = await self._publish_rollback(rec)
+        if published and correlation_id:
+            self._published_rollbacks.add(correlation_id)
         return rec
+
+    async def _publish_rollback(self, rec: RollbackRecord) -> bool:
+        if self.bus is None:
+            return False
+        await self.bus.publish(
+            "Vidar",
+            "object.rollback",
+            {
+                "producer_principal": "Vidar",
+                "correlation_id": rec.correlation_id,
+                "idempotency_key": (f"{rec.correlation_id}:rollback:{rec.state}"),
+                "action_type": rec.action_type,
+                "resource_id": rec.resource_id,
+                "contract": rec.contract,
+                "state": rec.state,
+                "rollback_ref": rec.rollback_ref,
+            },
+        )
+        return True
 
     # ---- conversational port -------------------------------------------
 
