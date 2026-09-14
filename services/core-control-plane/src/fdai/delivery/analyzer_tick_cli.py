@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import sys
+import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -687,8 +688,9 @@ async def run_loop(
     tick_timeout_seconds: float = _DEFAULT_TICK_BUDGET_SECONDS,
     tick: Callable[[], Awaitable[AnalyzerJobReport]] = run_once,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    monotonic: Callable[[], float] = time.monotonic,
 ) -> int:
-    """Run identical one-shot ticks serially and stop on the first failed publication."""
+    """Run fixed-rate serial ticks and stop on the first failed tick."""
 
     if not 1 <= interval_seconds <= 86_400:
         raise ValueError("analyzer loop interval_seconds MUST be in [1, 86400]")
@@ -698,6 +700,7 @@ async def run_loop(
         raise ValueError("analyzer loop tick_timeout_seconds is out of bounds")
     completed = 0
     while max_ticks is None or completed < max_ticks:
+        tick_started = monotonic()
         try:
             report = await asyncio.wait_for(tick(), timeout=tick_timeout_seconds)
         except TimeoutError:
@@ -717,7 +720,8 @@ async def run_loop(
             print("service=local-analyzer event=ready", flush=True)
         if max_ticks is not None and completed >= max_ticks:
             return 0
-        await sleep(float(interval_seconds))
+        elapsed = monotonic() - tick_started
+        await sleep(max(0.0, float(interval_seconds) - elapsed))
     return 0
 
 

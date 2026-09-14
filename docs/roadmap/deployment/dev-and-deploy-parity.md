@@ -265,8 +265,9 @@ metrics, events, shadow posture, typed Pod lifecycle evidence binding, and durab
 ledger. For inventory-backed targets, both venues read the exact provider reference from the active
 service-owned inventory snapshot only for metric-query scope. Analyzer output, finding Events,
 receipts, and Incidents retain the logical ontology `Resource.id`, and a missing or mismatched
-provider reference stops the tick. Both venues separate the five-minute analysis window from the
-one-minute observation publication key. They claim that same retry-stable key before publication
+provider reference stops the tick. Both venues keep a one-minute start-to-start cadence; the local
+serial loop subtracts tick execution time from the next delay rather than drifting behind the
+deployed cron. Both venues separate the five-minute analysis window from the one-minute observation publication key. They claim that same retry-stable key before publication
 and suppress a repeat only after a broker acknowledgement is recorded. They release a claim only when the bus
 attests that the record was provably not sent and otherwise hold it uncertain for reconciliation, so neither venue republishes an ambiguous
 send. They preserve their existing local developer identity versus deployed workload identity and transport security. Readiness separates

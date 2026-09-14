@@ -296,6 +296,7 @@ async def test_local_loop_runs_serial_ticks_and_stops_after_the_bound(
 ) -> None:
     calls = 0
     sleeps: list[float] = []
+    monotonic = iter((10.0, 12.0, 15.0))
 
     async def tick() -> AnalyzerJobReport:
         nonlocal calls
@@ -310,12 +311,39 @@ async def test_local_loop_runs_serial_ticks_and_stops_after_the_bound(
         max_ticks=2,
         tick=tick,
         sleep=sleep,
+        monotonic=lambda: next(monotonic),
     )
 
     assert result == 0
     assert calls == 2
-    assert sleeps == [5.0]
+    assert sleeps == [3.0]
     assert "service=local-analyzer event=ready" in capsys.readouterr().out
+
+
+async def test_local_loop_does_not_add_delay_after_a_slow_tick() -> None:
+    calls = 0
+    sleeps: list[float] = []
+    monotonic = iter((10.0, 17.0, 17.0))
+
+    async def tick() -> AnalyzerJobReport:
+        nonlocal calls
+        calls += 1
+        return _job_report()
+
+    async def sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    result = await run_loop(
+        interval_seconds=5,
+        max_ticks=2,
+        tick=tick,
+        sleep=sleep,
+        monotonic=lambda: next(monotonic),
+    )
+
+    assert result == 0
+    assert calls == 2
+    assert sleeps == [0.0]
 
 
 async def test_local_loop_stops_on_publish_failure_without_sleeping(

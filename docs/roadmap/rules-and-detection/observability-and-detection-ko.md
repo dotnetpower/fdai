@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 798d47a71f8047b33ceaa6692f6ca4fe4f89b1af
+translation_source_sha: 1b94157def06c6e398dffb45e116ee996207ed83
 translation_revised: 2026-09-14
 ---
 
@@ -64,9 +64,11 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
   Direct 후보 텍스트와 근거 키는 512자로 제한되고 후보 하나는 근거 키를 최대 100개
   포함하며 oversized 입력은 수명 주기 또는 감사 쓰기 전에 보류됩니다.
 - Analyzer finding은 원시 인벤토리 변경이 아니라 이미 범위가 제한된 detector 출력입니다.
-  배포된 1분 Job과 관리되는 로컬 analyzer loop는 리소스, 신호, 1분 출처 관측 버킷마다 Event를
-  최대 하나만 게시합니다. 키는 스케줄러 시각이 아니라 Finding의 `occurred_at`을 사용하므로
-  변경되지 않은 샘플 하나를 반복 조회해도 Event 하나로 유지됩니다. 타입이 지정된 리소스,
+  배포된 1분 Job과 관리되는 로컬 analyzer loop는 같은 시작 간격으로 평가합니다. 로컬 loop는
+  실행 시간을 다음 대기 시간에 더하지 않고 틱 처리 시간을 차감합니다. 두 경로 모두 리소스,
+  신호, 1분 출처 관측 버킷마다 Event를 최대 하나만 게시합니다. 키는 스케줄러 시각이 아니라
+  Finding의 `occurred_at`을 사용하므로 변경되지 않은 샘플 하나를 반복 조회해도 Event 하나로
+  유지됩니다. 타입이 지정된 리소스,
   신호 및 버킷 튜플의 UUID5를 사용해 멱등성 키를 일정한 길이로 제한하고 구분자 모호성을
   방지합니다. 이 Event는 리소스와 신호에서 만든 불투명한 상관관계 신원을 공유하고
   `incident_correlation=correlate`를 선언합니다. 5분 분석 구간은 게시 멱등성과 분리되므로 서로 다른 관측 5건이 기존
