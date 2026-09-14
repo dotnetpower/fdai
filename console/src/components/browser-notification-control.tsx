@@ -6,6 +6,7 @@ import {
   browserAlertDeliveryStatusForStorageKey,
   browserAlertForLiveEvent,
   decodeBrowserAlertAcknowledgementFragment,
+  isBrowserNotificationPreferenceStorageKey,
   browserNotificationsSupported,
   browserNotificationWorkerPaths,
   claimBrowserAlertDelivery,
@@ -86,13 +87,21 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
   }, [supported, principalId]);
 
   useEffect(() => {
-    const syncDeliveryState = (event: StorageEvent) => {
-      const next = browserAlertDeliveryStatusForStorageKey(event.key, principalId);
-      if (next !== null) setDeliveryState(next);
+    const syncStoredState = (event: StorageEvent) => {
+      if (isBrowserNotificationPreferenceStorageKey(event.key, principalId)) {
+        const nextControlState = initialState(supported, principalId);
+        if (nextControlState !== "on") setWorkerReady(false);
+        setState(nextControlState);
+      }
+      const nextDeliveryState = browserAlertDeliveryStatusForStorageKey(
+        event.key,
+        principalId,
+      );
+      if (nextDeliveryState !== null) setDeliveryState(nextDeliveryState);
     };
-    window.addEventListener("storage", syncDeliveryState);
-    return () => window.removeEventListener("storage", syncDeliveryState);
-  }, [principalId]);
+    window.addEventListener("storage", syncStoredState);
+    return () => window.removeEventListener("storage", syncStoredState);
+  }, [principalId, supported]);
 
   useEffect(() => {
     if (state !== "on") {

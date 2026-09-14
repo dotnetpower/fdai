@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 33ab772117040d386d6516df1ac590aae931a240
+translation_source_sha: 983e93fc22d5d096678a25eb9480331d01346706
 translation_revised: 2026-09-14
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -648,6 +648,8 @@ fail-closed 처리합니다. 이 로컬 증적은 Core 전달 상태를 갱신�
 알림이 확인된 것으로 표시되지 않습니다.
 탭은 현재 principal의 전달 원장 저장소 키만 수신하므로, 한 탭의 전송이나 확인이 principal
 경계를 넘지 않고 다른 탭의 표시 상태를 갱신합니다.
+현재 principal의 기본 설정 키와 저장소 전체 삭제 이벤트도 관찰하므로, 한 탭에서 채널 선택을
+해제하면 해당 브라우저 principal의 모든 탭에서 수신 자격이 중단됩니다.
 명시적인 채널 선택 또는 선택 해제는 principal 범위 기본 설정 쓰기가 성공한 뒤에만 표시상 최종
 상태에 도달합니다. 브라우저 저장소를 사용할 수 없으면 다시 시도 상태를 표시합니다.
 정확한 Console 창을 활성화한 뒤 확인 메시지 전달이 실패하면, 중복 창을 열지 않고 해당 창에서
