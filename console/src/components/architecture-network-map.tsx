@@ -113,7 +113,12 @@ export function ArchitectureNetworkMap({
           {graph.links.map((link) => {
             const source = byId.get(link.source);
             const target = byId.get(link.target);
-            if (!source || !target || link.type === "contains") return null;
+            if (
+              !source
+              || !target
+              || link.type === "contains"
+              || link.type === "runtime_calls"
+            ) return null;
             const route = architectureNetworkLinkRoute(source, target, graph.resources, link.type);
             const path = route.path;
             const pathActive = active(source.id) && active(target.id);

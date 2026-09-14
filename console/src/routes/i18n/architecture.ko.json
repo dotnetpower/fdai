@@ -66,6 +66,9 @@
     "dependsOnArrow": "종속 대상 ->",
     "peersWith": "피어 연결됨",
     "peersWithArrow": "피어 연결 <->",
+    "calls": "호출",
+    "callsArrow": "호출 ->",
+    "calledBy": "다음에서 호출됨",
     "requiredBy": "다음에 필요함",
     "boundary": "경계"
   },
@@ -107,7 +110,7 @@
   "unavailable": "사용할 수 없음",
   "relationships": "관계",
   "noRelationships": "보고된 관계가 없습니다.",
-  "mapAriaLabel": "리소스 {count}개의 아키텍처 지도",
+  "mapAriaLabel": "리소스 {count}개의 2D 아키텍처 지도",
   "selectArchitectureResource": "아키텍처 리소스 선택",
   "selectResourceOption": "리소스 선택"
   ,"network": {

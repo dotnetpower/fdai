@@ -5,4 +5,8 @@ describe("architecture relationship index labels", () => {
   it("labels inventory peering relationships", () => {
     expect(architectureRelationshipIndexLabel("peered_with")).toBe("Peers with <->");
   });
+
+  it("labels runtime calls in stored direction", () => {
+    expect(architectureRelationshipIndexLabel("runtime_calls")).toBe("Calls ->");
+  });
 });

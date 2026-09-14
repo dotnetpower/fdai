@@ -105,6 +105,17 @@ describe("Ontology Instances view controls", () => {
     );
   });
 
+  it("renders retained unavailable relationship provenance with localized recovery", () => {
+    expect(inspectorSource).toContain('evidence.status === "unavailable" && evidence.evidence_kind === null');
+    expect(inspectorSource).toContain("ontology.instances.evidenceMethod");
+    expect(inspectorSource).toContain("ontology.instances.evidenceReason.");
+    expect(styles).toContain(".ontology-instance-aks-lanes li.is-unverified_source");
+    expect(styles).toContain(".ontology-instance-network-path.is-unverified_source");
+    expect(globalStyles).toMatch(
+      /\.blast-impact-lines line:is\([\s\S]*\.is-source-incomplete,[\s\S]*\.is-coverage-unavailable/s,
+    );
+  });
+
   it("keeps all registry views in one compact scrollable tab row", () => {
     expect(globalStyles).toMatch(/\.ontology-tabs\s*\{[^}]*display:\s*flex[^}]*min-height:\s*34px[^}]*overflow-x:\s*auto/s);
     expect(globalStyles).toMatch(/\.ontology-tabs a\.is-active::after\s*\{[^}]*height:\s*2px/s);

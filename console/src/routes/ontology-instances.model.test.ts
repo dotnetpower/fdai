@@ -675,6 +675,126 @@ describe("decodeOntologyInstanceExploration", () => {
     )).toBe(true);
   });
 
+  it("does not label a source-qualified AKS relationship as observed", () => {
+    const value = payload();
+    const resources = value.resources as Record<string, unknown>[];
+    resources[0] = { ...resources[0], resource_type: "kubernetes-cluster" };
+    value.link_types = ["attached_to"];
+    const links = value.links as Record<string, unknown>[];
+    links[0] = {
+      source: "root",
+      target: "environment",
+      link_type: "attached_to",
+      evidence: {
+        ...relationshipEvidence(),
+        mapping_id: "azure.aks-attached-to-node-resource-group",
+        status: "unavailable",
+        complete: false,
+        reason: "relationship_source_coverage_unavailable",
+      },
+    };
+
+    const lanes = ontologyInstanceAksLanes(decodeOntologyInstanceExploration(value));
+
+    expect(lanes?.find((lane) => lane.id === "infrastructure")?.steps[0]).toEqual({
+      id: "managedGroup",
+      status: "unverified_source",
+    });
+    expect(lanes?.find((lane) => lane.id === "infrastructure")?.steps.slice(1)).toEqual([
+      { id: "vmss", status: "unknown" },
+      { id: "vm", status: "unknown" },
+      { id: "nic", status: "unknown" },
+    ]);
+  });
+
+  it("does not infer absent AKS descendants from healthy parent links", () => {
+    const value = payload();
+    const resources = value.resources as Record<string, unknown>[];
+    resources[0] = { ...resources[0], resource_type: "kubernetes-cluster" };
+    resources.push({
+      ...resources[1],
+      id: "agent-pool",
+      resource_type: "kubernetes.agent-pool",
+      name: "system",
+    });
+    value.link_types = ["attached_to", "contains"];
+    value.links = [
+      {
+        source: "root",
+        target: "environment",
+        link_type: "attached_to",
+        evidence: {
+          ...relationshipEvidence(),
+          mapping_id: "azure.aks-attached-to-node-resource-group",
+        },
+      },
+      {
+        source: "root",
+        target: "agent-pool",
+        link_type: "contains",
+        evidence: {
+          ...relationshipEvidence(),
+          mapping_id: "azure.aks-contains-agent-pool",
+        },
+      },
+    ];
+
+    const lanes = ontologyInstanceAksLanes(decodeOntologyInstanceExploration(value));
+
+    expect(lanes?.find((lane) => lane.id === "infrastructure")?.steps).toEqual([
+      { id: "managedGroup", status: "observed" },
+      { id: "vmss", status: "unknown" },
+      { id: "vm", status: "unknown" },
+      { id: "nic", status: "unknown" },
+    ]);
+    expect(lanes?.find((lane) => lane.id === "runtime")?.steps).toEqual([
+      { id: "agentPool", status: "observed" },
+      { id: "node", status: "unavailable" },
+      { id: "pod", status: "unavailable" },
+    ]);
+  });
+
+  it("propagates an unverified AKS parent only when a child edge exists", () => {
+    const value = payload();
+    const resources = value.resources as Record<string, unknown>[];
+    resources[0] = { ...resources[0], resource_type: "kubernetes-cluster" };
+    resources.push({
+      ...resources[1],
+      id: "vmss",
+      resource_type: "compute.vm-scale-set",
+      name: "node-pool",
+    });
+    value.link_types = ["attached_to", "contains"];
+    value.links = [
+      {
+        source: "root",
+        target: "environment",
+        link_type: "attached_to",
+        evidence: {
+          ...relationshipEvidence(),
+          mapping_id: "azure.aks-attached-to-node-resource-group",
+          status: "unavailable",
+          complete: false,
+          reason: "relationship_source_coverage_unavailable",
+        },
+      },
+      {
+        source: "environment",
+        target: "vmss",
+        link_type: "contains",
+        evidence: relationshipEvidence(),
+      },
+    ];
+
+    const lanes = ontologyInstanceAksLanes(decodeOntologyInstanceExploration(value));
+
+    expect(lanes?.find((lane) => lane.id === "infrastructure")?.steps.slice(0, 3)).toEqual([
+      { id: "managedGroup", status: "unverified_source" },
+      { id: "vmss", status: "unverified_source" },
+      { id: "vm", status: "unknown" },
+    ]);
+  });
+
   it("accepts bounded mapping-specific relationship coverage", () => {
     const value = payload();
     value.complete = false;
@@ -770,6 +890,32 @@ describe("decodeOntologyInstanceExploration", () => {
       reason: "relationship_evidence_stale",
     });
   });
+
+  it.each([
+    "relationship_source_incomplete",
+    "relationship_source_coverage_unavailable",
+  ])("preserves configuration provenance for unavailable source qualification: %s", (reason) => {
+    const value = payload();
+    const links = value.links as Record<string, unknown>[];
+    links[0]!.evidence = {
+      ...relationshipEvidence(),
+      status: "unavailable",
+      complete: false,
+      reason,
+    };
+
+    const decoded = decodeOntologyInstanceExploration(value);
+
+    expect(decoded.links[0]?.evidence).toMatchObject({
+      status: "unavailable",
+      evidence_kind: "configuration",
+      verification_status: "configuration_observed",
+      source: "azure-resource-graph",
+      mapping_id: "azure.container-app-depends-on-managed-environment",
+      complete: false,
+      reason,
+    });
+  });
 });
 
 describe("partitionOntologyInstanceLinks", () => {
@@ -854,6 +1000,19 @@ describe("partitionOntologyInstanceLinks", () => {
 });
 
 describe("ontologyInstanceNetworkPaths", () => {
+  it("distinguishes unavailable coverage accounting from incomplete coverage", () => {
+    const paths = ontologyInstanceNetworkPaths(
+      decodeOntologyInstanceExploration(vmNetworkPayload()),
+    );
+
+    expect(paths?.ingress).toEqual({
+      status: "unknown",
+      kind: null,
+      links: [],
+      reason: "coverage_accounting_unavailable",
+    });
+  });
+
   it("orders one current VM NAT egress path and keeps absent ingress unknown", () => {
     const data = vmNetworkPayload();
     data.complete = false;
@@ -893,6 +1052,24 @@ describe("ontologyInstanceNetworkPaths", () => {
 
     expect(ontologyInstanceNetworkPaths(decodeOntologyInstanceExploration(data))?.egress.status)
       .toBe("stale");
+  });
+
+  it.each([
+    "relationship_source_incomplete",
+    "relationship_source_coverage_unavailable",
+  ])("does not label source-qualified path evidence as stale: %s", (reason) => {
+    const data = vmNetworkPayload();
+    const links = data.links as Record<string, unknown>[];
+    links[2]!.evidence = {
+      ...relationshipEvidence(),
+      mapping_id: "azure.subnet-attached-to-nat-gateway",
+      status: "unavailable",
+      complete: false,
+      reason,
+    };
+
+    expect(ontologyInstanceNetworkPaths(decodeOntologyInstanceExploration(data))?.egress.status)
+      .toBe("unverified_source");
   });
 });
 

@@ -8,8 +8,11 @@ import {
   tryOpenCrossTabSnapshotChannel,
   type CrossTabSnapshotChannel,
 } from "./cross-tab-stream";
-import { liveReconnectDelay, liveStreamHeaders } from "./use-live-stream";
-import { readSseChunk } from "./sse-reader";
+import {
+  consumeSseFrames,
+  isTransientSseStatus,
+  useAuthenticatedSse,
+} from "./sse-client";
 
 const BOUNDED_PRINTABLE_TOKEN = /^[\x21-\x7E]{1,256}$/;
 const CONTROL_CHAR = /[\u0000-\u001F\u007F]/;
@@ -55,36 +58,10 @@ export async function consumeIncidentAttentionSse(
   response: Response,
   onSnapshot: (snapshot: IncidentAttentionSnapshot) => void,
 ): Promise<void> {
-  if (!response.ok) throw new Error(`incident attention stream returned HTTP ${response.status}`);
-  if (!response.headers.get("content-type")?.toLowerCase().includes("text/event-stream")) {
-    throw new Error("incident attention stream returned an invalid content type");
-  }
-  if (!response.body) throw new Error("incident attention stream response has no body");
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  const consumeBlock = (block: string): void => {
-    const data = block.split("\n")
-      .filter((line) => line.startsWith("data:"))
-      .map((line) => line.slice(5).trimStart())
-      .join("\n");
-    const snapshot = data ? decodeIncidentAttentionSnapshot(data) : null;
+  await consumeSseFrames(response, (frame) => {
+    const snapshot = decodeIncidentAttentionSnapshot(frame.data);
     if (snapshot) onSnapshot(snapshot);
-  };
-  while (true) {
-    const { value: chunk, done } = await readSseChunk(reader);
-    buffer = (buffer + decoder.decode(chunk, { stream: !done })).replace(/\r\n/g, "\n");
-    let boundary = buffer.indexOf("\n\n");
-    while (boundary >= 0) {
-      consumeBlock(buffer.slice(0, boundary));
-      buffer = buffer.slice(boundary + 2);
-      boundary = buffer.indexOf("\n\n");
-    }
-    if (done) {
-      if (buffer.trim()) consumeBlock(buffer);
-      return;
-    }
-  }
+  });
 }
 
 export function useIncidentAttentionStream(options: {
@@ -127,53 +104,30 @@ export function useIncidentAttentionStream(options: {
     };
   }, [options.principalId, sharingSupported]);
 
-  useEffect(() => {
-    if (!streamEnabled) return undefined;
-    let cancelled = false;
-    let controller: AbortController | null = null;
-    let timer: number | null = null;
-    let attempt = 0;
-    const connect = async (): Promise<void> => {
-      if (cancelled || controller) return;
-      const active = new AbortController();
-      controller = active;
-      try {
-        const authorization = await options.getAuthorizationHeader();
-        const response = await fetch(options.url, {
-          headers: liveStreamHeaders(authorization),
-          credentials: "omit",
-          signal: active.signal,
-        });
-        await consumeIncidentAttentionSse(response, (snapshot) => {
-          if (!cancelled && controller === active) {
-            attempt = 0;
-            if (!shouldAcceptCrossTabSnapshot(latestSnapshotAtRef.current, snapshot.ts)) return;
-            latestSnapshotAtRef.current = snapshot.ts;
-            setIncidents(snapshot.incidents);
-            channelRef.current?.publish(snapshot);
-          }
-        });
-      } catch {
-        // Durable active incidents are replayed after reconnect.
-      } finally {
-        if (controller === active) controller = null;
-        if (!cancelled) {
-          timer = window.setTimeout(() => {
-            timer = null;
-            attempt += 1;
-            void connect();
-          }, liveReconnectDelay(attempt));
-        }
-      }
-    };
-    void connect();
-    return () => {
-      cancelled = true;
-      if (timer !== null) window.clearTimeout(timer);
-      controller?.abort();
-    };
-  }, [options.getAuthorizationHeader, options.url, streamEnabled]);
+  useAuthenticatedSse({
+    url: options.url,
+    enabled: streamEnabled,
+    pauseWhenHidden: false,
+    resumeFromLastEventId: false,
+    getAuthorizationHeader: options.getAuthorizationHeader,
+    shouldRetryStatus: retryAttentionStatus,
+    onFrame: (frame) => {
+      const snapshot = decodeIncidentAttentionSnapshot(frame.data);
+      if (
+        !snapshot ||
+        !shouldAcceptCrossTabSnapshot(latestSnapshotAtRef.current, snapshot.ts)
+      ) return false;
+      latestSnapshotAtRef.current = snapshot.ts;
+      setIncidents(snapshot.incidents);
+      channelRef.current?.publish(snapshot);
+      return true;
+    },
+  });
   return incidents;
+}
+
+function retryAttentionStatus(status: number): boolean {
+  return status === 401 || isTransientSseStatus(status);
 }
 
 function decodeIncidentAttentionSnapshotValue(value: unknown): IncidentAttentionSnapshot | null {

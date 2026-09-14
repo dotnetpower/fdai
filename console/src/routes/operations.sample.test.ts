@@ -37,7 +37,28 @@ describe("Operations Sample registry", () => {
     expect(decodeIncidentPage(response("/incidents")).items).toHaveLength(1);
     expect(decodeHilQueuePage(response("/hil-queue")).items).toHaveLength(1);
     expect(decodeOnboarding(response("/onboarding")).blocked).toBe(true);
-    expect(decodeDetectionReadiness(response("/detection-readiness")).targets).toHaveLength(2);
+    const detection = decodeDetectionReadiness(response("/detection-coverage"));
+    expect(detection.targets).toHaveLength(1);
+    expect(detection.analyzer_run).toMatchObject({
+      targets: 5,
+      candidate_count: 7,
+      held_count: 2,
+      source_complete: true,
+    });
+    expect(detection.analyzer_coverage).toMatchObject({
+      status: "available",
+      candidate_count: 7,
+      evaluated_count: 4,
+      held_count: 2,
+      finding_count: 1,
+    });
+    expect(
+      detection.analyzer_coverage.status === "available"
+        ? detection.analyzer_coverage.resources
+        : [],
+    ).toHaveLength(5);
+    expect(detection.lifecycle.targets).toHaveLength(2);
+    expect(detection.pod_lifecycle.targets).toHaveLength(2);
     expect(decodeConfigurationBaselines(response("/configuration-baselines")).baseline.version)
       .toBe("sample-v3");
     expect(decodeProcessList(response("/views/process")).items).toHaveLength(1);
@@ -102,6 +123,8 @@ describe("Operations Sample registry", () => {
   });
 
   test("returns no fallback for unregistered paths", () => {
+    expect(operationsSampleResponse("/detection-readiness", new URLSearchParams()))
+      .toEqual(operationsSampleResponse("/detection-coverage", new URLSearchParams()));
     expect(operationsSampleResponse("/unknown", new URLSearchParams())).toBeUndefined();
   });
 });

@@ -35,7 +35,6 @@ import {
   agentActivityTimestamp,
   agentStreamDescriptor,
   useAgentStream,
-  type AgentActivityMessage,
   type AgentStreamStatus,
 } from "../hooks/use-agent-stream";
 import { observationSourceLabel, type ObservationSource } from "../hooks/observation-source";
@@ -101,6 +100,7 @@ interface Props {
 }
 /** Number of audit rows pulled to build the timeline (newest first). */
 const TIMELINE_LIMIT = 200;
+export const OPERATIONAL_ACTIVITY_LIMIT = 500;
 
 interface Data {
   readonly items: readonly AuditItem[];
@@ -154,17 +154,10 @@ function activityFiltersFromRoute(): ActivityFilters {
   return activityFiltersFromSearch(currentRoute().search);
 }
 
-export function shouldRefreshAuditForAgentMessage(message: AgentActivityMessage): boolean {
-  return !(
-    message.type === "agent.state" &&
-    (message.state === "idle" || message.state === "watching") &&
-    message.correlation_id === null &&
-    message.detail === "Runtime agent initialized"
-  );
-}
-
-export function shouldRefreshAuditForStreamStatus(status: AgentStreamStatus): boolean {
-  return status === "open";
+export function shouldRefreshAgentActivity(
+  trigger: "initial" | "operator" | "stream-frame" | "stream-open" | "gap",
+): boolean {
+  return trigger === "initial" || trigger === "operator" || trigger === "gap";
 }
 
 export function AgentActivityRoute({ client }: Props) {
@@ -173,7 +166,6 @@ export function AgentActivityRoute({ client }: Props) {
   const [lastEventAt, setLastEventAt] = useState<string | null>(null);
   const [runtime, dispatch] = useReducer(reducer, undefined, makeInitialState);
   const requestGeneration = useRef(0);
-  const lastStreamRefresh = useRef(0);
   const stream = useMemo(agentStreamDescriptor, []);
 
   async function loadAudit(showLoading: boolean): Promise<void> {
@@ -184,7 +176,7 @@ export function AgentActivityRoute({ client }: Props) {
     try {
       const [page, operational] = await Promise.all([
         client.listAudit({ limit: TIMELINE_LIMIT }),
-        client.listAgentActivity(TIMELINE_LIMIT),
+        client.listAgentActivity(OPERATIONAL_ACTIVITY_LIMIT),
       ]);
       if (requestGeneration.current === generation) {
         dispatch({ kind: "hydrate-activity", activities: operational.items });
@@ -220,17 +212,11 @@ export function AgentActivityRoute({ client }: Props) {
     onEvent: (message) => {
       dispatch({ kind: "message", msg: message });
       setLastEventAt(agentActivityTimestamp(message));
-      if (!shouldRefreshAuditForAgentMessage(message)) return;
-      const now = Date.now();
-      if (now - lastStreamRefresh.current < 1500) return;
-      lastStreamRefresh.current = now;
+    },
+    onGap: () => {
       void loadAudit(false);
     },
   });
-
-  useEffect(() => {
-    if (shouldRefreshAuditForStreamStatus(streamStatus)) void loadAudit(false);
-  }, [streamStatus]);
 
   return (
     <div class="stack">
@@ -238,6 +224,21 @@ export function AgentActivityRoute({ client }: Props) {
       <PageHeader
         title={t("route.agentActivity")}
         subtitle={t("nav.panelSub.agentActivity")}
+        actions={(
+          <button
+            type="button"
+            class="cs-control-button"
+            disabled={refreshing}
+            aria-busy={refreshing}
+            onClick={() => { void loadAudit(false); }}
+          >
+            {t(
+              refreshing
+                ? "agentActivity.toolbar.refreshing"
+                : "agentActivity.main.refresh",
+            )}
+          </button>
+        )}
       />
       <AsyncBoundary state={state} resourceLabel={t("route.agentActivity")}>
         {(data) => (

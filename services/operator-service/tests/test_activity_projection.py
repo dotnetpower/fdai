@@ -92,11 +92,15 @@ def test_projects_durable_observation_campaign_activity() -> None:
     )
 
     item = payload["items"][0]
-    assert item["schema_version"] == "1.1.0"
+    assert item["schema_version"] == "1.3.0"
     assert item["kind"] == "observation"
     assert item["observation_domain"] == "resource-health"
     assert item["owner_agent"] == "Heimdall"
     assert item["activity_id"] == "observation:resource-health:campaign-1:completed"
+    assert item["activity_instance_id"] == "observation:resource-health:campaign-1"
+    assert item["result_state"] == "measured"
+    assert item["result_count"] == 2
+    assert item["result_unit"] == "records"
 
 
 def test_projects_in_progress_observation_without_terminal_fields() -> None:

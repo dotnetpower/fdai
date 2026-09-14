@@ -60,9 +60,16 @@ def project_analyzer_lifecycle(rows: Sequence[Mapping[str, object]]) -> dict[str
         (str(receipt["recorded_at"]) for receipt in receipts),
         default=None,
     )
+    retained_from = min(
+        (str(receipt["recorded_at"]) for receipt in receipts),
+        default=None,
+    )
     return {
         "source": "postgresql:state_kv:analyzer-finding-receipt",
         "observed_at": observed_at,
+        "retained_from": retained_from,
+        "receipt_count": len(receipts),
+        "receipt_limit": _MAX_RECEIPTS,
         "target_count": len(targets),
         "assessment_count": len(assessments),
         "evidence_counts": {

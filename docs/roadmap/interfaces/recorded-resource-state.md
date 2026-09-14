@@ -152,6 +152,11 @@ State transition recording is independent of relationship completeness. A comple
 observation can advance operational or availability state history even when an unrelated topology
 edge remains unresolved. Relationship history still requires complete relationship evidence.
 
+Impact Scope and Ontology Instances reuse the relationship-evidence envelope from the same active
+inventory generation. Each edge keeps evidence availability separate from its verification class,
+and `runtime_calls` preserves the stored caller-to-target direction. Missing, stale, incomplete, or
+legacy evidence remains visibly unverified and never changes a recorded Resource state.
+
 The observer appends the promoted generation to the normalized journal before publishing history.
 If history publication fails, ontology projection does not advance. The next reconciliation replays
 that pending active generation under the same coordinator lock before collecting or promoting a new

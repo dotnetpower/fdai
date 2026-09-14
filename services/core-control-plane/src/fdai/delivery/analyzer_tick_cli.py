@@ -25,6 +25,7 @@ import logging
 import os
 import sys
 import time
+from collections import Counter, defaultdict
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -49,6 +50,7 @@ from fdai.delivery.analyzer_run_receipt import (
 from fdai.delivery.analyzer_targets import (
     DEFAULT_MAX_DISCOVERED,
     MAX_DISCOVERED_CEILING,
+    AnalyzerResourceTypeResolution,
     AnalyzerTargetResolution,
     AnalyzerTargetResolutionError,
     resolve_analyzer_targets,
@@ -56,6 +58,7 @@ from fdai.delivery.analyzer_targets import (
 from fdai.delivery.analyzer_tick import (
     DEFAULT_PUBLICATION_WINDOW_SECONDS,
     DEFAULT_WINDOW_SECONDS,
+    AnalyzerPublicationStatus,
     AnalyzerTarget,
     AnalyzerTickReport,
     AnalyzerTickRunner,
@@ -122,6 +125,7 @@ BUDGET_ENV = "FDAI_ANALYZER_BUDGET_SECONDS"
 _DEFAULT_LOOP_INTERVAL_SECONDS = 60
 _DEFAULT_TICK_BUDGET_SECONDS = 300
 _SCHEDULING_MODES = frozenset({"one_shot", "local_loop", "container_apps_job"})
+_PUBLICATION_STATES = tuple(item.value for item in AnalyzerPublicationStatus)
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,6 +152,7 @@ class AnalyzerJobReport:
     ) -> dict[str, object]:
         return {
             **self.analyzer.to_dict(),
+            "coverage": self.coverage(),
             "trace_continuity": self.trace_continuity.to_dict(),
             "target_resolution": self.target_resolution.to_dict(),
             "readiness": self.readiness(
@@ -155,6 +160,143 @@ class AnalyzerJobReport:
                 metric_delays=metric_delays or {},
             ),
         }
+
+    def coverage(self) -> dict[str, object]:
+        """Return strictly reconciled cross-resource evaluation coverage."""
+
+        targets = {target.resource_ref: target for target in self.target_resolution.targets}
+        if len(targets) != len(self.target_resolution.targets):
+            return _unavailable_coverage("selected_resource_identity_duplicate")
+        unavailable_reason = self.target_resolution.coverage_unavailable_reason
+        if (
+            unavailable_reason is None
+            and self.target_resolution.targets
+            and not self.target_resolution.resource_types
+        ):
+            unavailable_reason = "resource_type_evidence_absent"
+        if unavailable_reason is not None:
+            return _unavailable_coverage(unavailable_reason)
+
+        if any(target.resource_type is None for target in targets.values()):
+            return _unavailable_coverage("resource_type_evidence_absent")
+
+        findings_by_resource = Counter(finding.resource_ref for finding in self.analyzer.receipts)
+        if sum(findings_by_resource.values()) != self.analyzer.findings:
+            return _unavailable_coverage("finding_receipts_absent")
+        receipt_by_key = {receipt.idempotency_key: receipt for receipt in self.analyzer.receipts}
+        if len(receipt_by_key) != len(self.analyzer.receipts):
+            return _unavailable_coverage("finding_receipt_identity_duplicate")
+        if set(findings_by_resource) - set(targets):
+            return _unavailable_coverage("finding_target_unselected")
+
+        unsupported = Counter(self.analyzer.unsupported_targets)
+        evaluation_errors = Counter(
+            resource_ref for resource_ref, _error in self.analyzer.analyzer_errors
+        )
+        error_codes_by_resource: dict[str, set[str]] = defaultdict(set)
+        for resource_ref, error in self.analyzer.analyzer_errors:
+            error_codes_by_resource[resource_ref].add(
+                "analyzer_timeout" if error == "timeout" else "analyzer_failure"
+            )
+        if (set(unsupported) | set(evaluation_errors)) - set(targets):
+            return _unavailable_coverage("evaluation_target_unselected")
+
+        delivery_errors: Counter[str] = Counter()
+        unattributed_error_count = 0
+        unattributed_error_codes: set[str] = set()
+        for errors, code in (
+            (self.analyzer.publish_errors, "publication_failure"),
+            (self.analyzer.receipt_errors, "receipt_persistence_failure"),
+        ):
+            for key, _error in errors:
+                receipt = receipt_by_key.get(key)
+                if receipt is None:
+                    unattributed_error_count += 1
+                    unattributed_error_codes.add(code)
+                else:
+                    delivery_errors[receipt.resource_ref] += 1
+                    error_codes_by_resource[receipt.resource_ref].add(code)
+
+        publication_by_resource: dict[str, Counter[str]] = defaultdict(Counter)
+        for receipt in self.analyzer.receipts:
+            publication_by_resource[receipt.resource_ref][receipt.publication.value] += 1
+
+        resources: list[dict[str, object]] = []
+        for target in sorted(
+            targets.values(),
+            key=lambda item: (str(item.resource_type), item.resource_ref),
+        ):
+            resource_ref = target.resource_ref
+            finding_count = findings_by_resource[resource_ref]
+            evaluation_error_count = evaluation_errors[resource_ref]
+            unsupported_count = unsupported[resource_ref]
+            evaluation_state = (
+                "unsupported"
+                if unsupported_count
+                else "evaluation_error"
+                if evaluation_error_count
+                else "finding"
+                if finding_count
+                else "evaluated_no_finding"
+            )
+            resources.append(
+                {
+                    "resource_ref": resource_ref,
+                    "resource_type": str(target.resource_type),
+                    "resource_kind": target.resource_kind,
+                    "evaluation_state": evaluation_state,
+                    "finding_count": finding_count,
+                    "unsupported_count": unsupported_count,
+                    "error_count": evaluation_error_count + delivery_errors[resource_ref],
+                    "error_codes": sorted(error_codes_by_resource[resource_ref]),
+                    "publication_counts": _publication_counts(
+                        publication_by_resource[resource_ref]
+                    ),
+                }
+            )
+
+        try:
+            by_resource_type = _coverage_by_resource_type(
+                self.target_resolution.resource_types,
+                resources,
+            )
+        except ValueError:
+            return _unavailable_coverage("resource_type_totals_unreconciled")
+        publication_counts = _publication_counts(
+            Counter(receipt.publication.value for receipt in self.analyzer.receipts)
+        )
+        evaluated_count = sum(
+            1
+            for resource in resources
+            if resource["evaluation_state"] in {"evaluated_no_finding", "finding"}
+        )
+        error_count = (
+            len(self.analyzer.analyzer_errors)
+            + len(self.analyzer.publish_errors)
+            + len(self.analyzer.receipt_errors)
+        )
+        coverage: dict[str, object] = {
+            "schema_version": "1.1.0",
+            "status": "available",
+            "unavailable_reason": None,
+            "candidate_count": sum(
+                item.candidate_count for item in self.target_resolution.resource_types
+            ),
+            "selected_count": len(resources),
+            "evaluated_count": evaluated_count,
+            "held_count": sum(item.held_count for item in self.target_resolution.resource_types),
+            "finding_count": sum(findings_by_resource.values()),
+            "unsupported_count": sum(unsupported.values()),
+            "error_count": error_count,
+            "unattributed_error_count": unattributed_error_count,
+            "unattributed_error_codes": sorted(unattributed_error_codes),
+            "publication_counts": publication_counts,
+            "resource_types": by_resource_type,
+            "resources": resources,
+            "cause_claim_supported": False,
+            "execution_authority": False,
+        }
+        return coverage
 
     def readiness(
         self,
@@ -197,6 +339,98 @@ class AnalyzerJobReport:
             "event_publication": event_publication,
             "metric_source_delays": dict(sorted((metric_delays or {}).items())),
         }
+
+
+def _unavailable_coverage(reason: str) -> dict[str, object]:
+    return {
+        "schema_version": "1.1.0",
+        "status": "unavailable",
+        "unavailable_reason": reason,
+        "cause_claim_supported": False,
+        "execution_authority": False,
+    }
+
+
+def _publication_counts(counts: Mapping[str, int]) -> dict[str, int]:
+    return {state: counts.get(state, 0) for state in _PUBLICATION_STATES}
+
+
+def _coverage_by_resource_type(
+    resolutions: tuple[AnalyzerResourceTypeResolution, ...],
+    resources: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    rows: dict[str, dict[str, object]] = {
+        resolution.resource_type: {
+            "resource_type": resolution.resource_type,
+            "candidate_count": resolution.candidate_count,
+            "selected_count": resolution.selected_count,
+            "evaluated_count": 0,
+            "held_count": resolution.held_count,
+            "held_reason_counts": dict(resolution.held_reason_counts),
+            "finding_count": 0,
+            "unsupported_count": 0,
+            "error_count": 0,
+            "error_codes": [],
+            "publication_counts": _publication_counts({}),
+        }
+        for resolution in resolutions
+    }
+    observed_selected: Counter[str] = Counter()
+    for resource in resources:
+        resource_type = resource.get("resource_type")
+        evaluation_state = resource.get("evaluation_state")
+        finding_count = resource.get("finding_count")
+        unsupported_count = resource.get("unsupported_count")
+        error_count = resource.get("error_count")
+        error_codes = resource.get("error_codes")
+        publication_counts = resource.get("publication_counts")
+        if (
+            not isinstance(resource_type, str)
+            or resource_type not in rows
+            or not isinstance(evaluation_state, str)
+            or not isinstance(finding_count, int)
+            or not isinstance(unsupported_count, int)
+            or not isinstance(error_count, int)
+            or not isinstance(error_codes, list)
+            or any(not isinstance(code, str) for code in error_codes)
+            or not isinstance(publication_counts, Mapping)
+        ):
+            raise ValueError("analyzer coverage resource row is malformed")
+        row = rows[resource_type]
+        observed_selected[resource_type] += 1
+        if evaluation_state in {"evaluated_no_finding", "finding"}:
+            _increment_coverage_count(row, "evaluated_count", 1)
+        _increment_coverage_count(row, "finding_count", finding_count)
+        _increment_coverage_count(row, "unsupported_count", unsupported_count)
+        _increment_coverage_count(row, "error_count", error_count)
+        row_error_codes = row["error_codes"]
+        if not isinstance(row_error_codes, list):
+            raise ValueError("analyzer coverage error codes are malformed")
+        row["error_codes"] = sorted(set(row_error_codes) | set(error_codes))
+        row_publications = row["publication_counts"]
+        if not isinstance(row_publications, dict):
+            raise ValueError("analyzer coverage publication counts are malformed")
+        for state in _PUBLICATION_STATES:
+            value = publication_counts.get(state)
+            current = row_publications.get(state)
+            if not isinstance(value, int) or not isinstance(current, int):
+                raise ValueError("analyzer coverage publication count is malformed")
+            row_publications[state] = current + value
+    for resolution in resolutions:
+        if observed_selected[resolution.resource_type] != resolution.selected_count:
+            raise ValueError("analyzer coverage selected totals MUST reconcile")
+    return [rows[resource_type] for resource_type in sorted(rows)]
+
+
+def _increment_coverage_count(
+    row: dict[str, object],
+    key: str,
+    increment: int,
+) -> None:
+    current = row.get(key)
+    if not isinstance(current, int):
+        raise ValueError("analyzer coverage count is malformed")
+    row[key] = current + increment
 
 
 def resolve_finding_topic(environ: Mapping[str, str]) -> str:

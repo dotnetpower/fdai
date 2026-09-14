@@ -16,6 +16,7 @@ const RELATIONSHIP_LABELS = {
   attached_to: "relationship.attachedTo",
   depends_on: "relationship.dependsOnArrow",
   peered_with: "relationship.peersWithArrow",
+  runtime_calls: "relationship.callsArrow",
 } as const;
 
 export function architectureRelationshipIndexLabel(type: InventoryGraphResponse["links"][number]["type"]): string {

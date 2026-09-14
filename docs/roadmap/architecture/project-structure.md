@@ -48,6 +48,11 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   `shared/` behind adapter boundaries; `composition/` binds all layers. `core/` and `agents/`
   never import `delivery/`; provider behavior enters through shared Protocols and composition.
   Focused sibling modules may own canonical identity projection and hashing while the established owner module re-exports that public surface. Idempotency reservation stable-operation comparison follows this split; serialized bytes, transition validation, and replay semantics remain unchanged. Versioned terminal measurement contracts follow the same service boundary: Core retains normalized event classifications atomically with audit, and Operator reads them without importing Core or treating a classification as execution or effect authority. A duplicate acknowledgement requires matching retained facts; a collision cannot silently replace or discard the original classification. Measurement timestamps require explicit timezone-bearing datetime or ISO 8601 text, never implicit numeric epoch coercion.
+- **operational activity remains contract-bound**: The shared service-contract SDK owns the
+  authority-free `1.3.0` activity shape and runtime-call mapping identity. Core delivery produces
+  normalized evidence, Operator seeds a bounded durable snapshot and relays cursor-bearing SSE
+  deltas, and Console only decodes and localizes them. System Knowledge and other services gain no
+  implementation import, writer role, or execution authority from this host composition.
 - **human approval stays split by service authority**: Operator owns Teams/Slack authentication,
   cryptographic verification, callback audit, and the durable decision outbox. Core consumes only
   the typed decision event, routes workflow slots to the registry, and sends action parks to the

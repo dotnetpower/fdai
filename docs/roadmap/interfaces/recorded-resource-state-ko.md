@@ -1,8 +1,8 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 8d4643e4858f433e23ab01bea267de6c9438ca16
-translation_revised: 2026-09-13
+translation_source_sha: c19e20f0f8b8741d998beb3359720fbd7ac1641c
+translation_revised: 2026-09-14
 ---
 # 기록된 리소스 상태
 
@@ -144,6 +144,11 @@ Operator가 읽을 수 있는 인벤토리 변환 결과에 함께 기록됩니�
 상태 전이 기록은 관계 완전성과 독립적입니다. 관련 없는 토폴로지 edge가 해결되지 않았어도 완전한
 객체 관측은 운영 또는 가용성 상태 이력을 전진시킬 수 있습니다. 관계 이력에는 계속 완전한 관계
 근거가 필요합니다.
+
+영향 범위와 온톨로지 인스턴스는 같은 활성 인벤토리 세대의 관계 근거 묶음을 재사용합니다. 각
+edge는 근거 가용성과 검증 등급을 별도로 유지하고, `runtime_calls`는 저장된 호출자에서 대상으로의
+방향을 보존합니다. 누락되거나 오래되거나 불완전하거나 기존 형식인 근거는 명시적으로 검증되지
+않은 상태를 유지하며 기록된 Resource 상태를 변경하지 않습니다.
 
 observer는 이력을 게시하기 전에 승격된 세대를 정규화 journal에 추가합니다. 이력 게시가 실패하면
 온톨로지 변환은 전진하지 않습니다. 다음 재조정은 같은 coordinator lock 아래에서 보류 중인 활성

@@ -3,7 +3,6 @@ import {
   geometryOf,
   isRegion,
   shapeOf,
-  type ArchitectureCameraView,
   type ArchitectureNodeGeometry,
   type ArchitectureNodeShape,
   type InventoryGraphResponse,
@@ -11,9 +10,6 @@ import {
 } from "./architecture-map.model";
 
 export interface Camera {
-  yaw: number;
-  pitch: number;
-  perspective?: number;
   scale: number;
   panX: number;
   panY: number;
@@ -32,15 +28,14 @@ export type Quad = readonly [Point, Point, Point, Point];
 export const WORLD = { width: 18, height: 12 };
 const FOCUSED_WORLD = { width: 8, height: 6 };
 export const LIFT = .10;
-export const DEFAULT_ISOMETRIC_CAMERA = {
-  yaw: .28,
-  pitch: .44,
-  perspective: .34,
+export const DEFAULT_ORTHOGRAPHIC_CAMERA = {
+  scale: 42,
+  panX: 0,
+  panY: 0,
 } as const;
 const ZOOM_STEP = 1.2;
-const MIN_ZOOM = 6;
+const MIN_ZOOM = 14;
 const MAX_ZOOM = 512;
-const ORBIT_RADIANS_PER_PIXEL = .005;
 const FIT_HORIZONTAL_PADDING = 112;
 const FIT_VERTICAL_PADDING = 120;
 
@@ -69,23 +64,11 @@ export function zoomCameraAtPoint(
   camera.panY = screenY - height / 2 - relativeY * ratio;
 }
 
-export function orbitArchitectureCamera(camera: Camera, deltaX: number): void {
-  const fullTurn = Math.PI * 2;
-  camera.yaw = ((camera.yaw + deltaX * ORBIT_RADIANS_PER_PIXEL + Math.PI) % fullTurn
-    + fullTurn) % fullTurn - Math.PI;
-}
-
 export function architectureResourceFromValue(
   resources: readonly InventoryResource[],
   value: string,
 ): InventoryResource | null {
   return resources.find((resource) => resource.id === value) ?? null;
-}
-
-export function applyCameraView(camera: Camera, view: ArchitectureCameraView): void {
-  if (view === "top") { camera.yaw = 0; camera.pitch = 1.5; camera.perspective = 0; }
-  else if (view === "front") { camera.yaw = 0; camera.pitch = .23; camera.perspective = .12; }
-  else Object.assign(camera, DEFAULT_ISOMETRIC_CAMERA);
 }
 
 export function architectureWorldSize(
@@ -104,7 +87,7 @@ export function architectureWorldSize(
 export function architectureCanvasHeight(
   graph: Pick<InventoryGraphResponse, "resources" | "active_view" | "views">,
 ): number {
-  const minimumHeight = architectureViewIsFocused(graph) ? 680 : 780;
+  const minimumHeight = architectureViewIsFocused(graph) ? 560 : 640;
   return Math.max(minimumHeight, Math.round(architectureWorldSize(graph).height * 36));
 }
 
@@ -116,6 +99,7 @@ export function cameraWorldSize(camera: Camera): { width: number; height: number
 }
 
 export function architectureLegendReserveWidth(canvasWidth: number): number {
+  if (canvasWidth < 620) return 0;
   if (canvasWidth >= 700) return clamp(canvasWidth * .24, 220, 340);
   return clamp(canvasWidth * .34, 96, 180);
 }
@@ -135,12 +119,12 @@ export function fitCamera(
   camera.scale = 1;
   camera.panX = 0;
   camera.panY = 0;
-  const corners = [0, 1.2].flatMap((z) => [
-    project(camera, width, height, 0, 0, z),
-    project(camera, width, height, world.width, 0, z),
-    project(camera, width, height, world.width, world.height, z),
-    project(camera, width, height, 0, world.height, z),
-  ]);
+  const corners = [
+    project(camera, width, height, 0, 0),
+    project(camera, width, height, world.width, 0),
+    project(camera, width, height, world.width, world.height),
+    project(camera, width, height, 0, world.height),
+  ];
   const minimumX = Math.min(...corners.map((point) => point.x));
   const maximumX = Math.max(...corners.map((point) => point.x));
   const minimumY = Math.min(...corners.map((point) => point.y));
@@ -156,10 +140,12 @@ export function fitCamera(
   ), MIN_ZOOM, 96);
   camera.panX = -legendReserve / 2 - horizontalCenterOffset * camera.scale;
   const projectedVerticalSpan = verticalSpan * camera.scale;
-  const anchorTallWorldAtTop = height - projectedVerticalSpan > FIT_VERTICAL_PADDING * 2;
+  const anchorTallWorldAtTop =
+    width >= 620 && height - projectedVerticalSpan > FIT_VERTICAL_PADDING * 2;
   camera.panY = anchorTallWorldAtTop
-    ? FIT_VERTICAL_PADDING - height / 2 - (minimumY - height / 2) * camera.scale
-    : height * .04 - verticalCenterOffset * camera.scale;
+    ? FIT_VERTICAL_PADDING / 2
+      - (height / 2 + (minimumY - height / 2) * camera.scale)
+    : -verticalCenterOffset * camera.scale;
   if (!Number.isFinite(camera.scale)) {
     camera.scale = previousScale;
     camera.panX = previousPanX;
@@ -167,31 +153,27 @@ export function fitCamera(
   }
 }
 
+/**
+ * Projects inventory geometry onto one axis-aligned 2D plane.
+ *
+ * Height remains in the signature because resource renderers share geometry helpers, but it never
+ * changes screen position or scale.
+ */
 export function project(
   camera: Camera,
   width: number,
   height: number,
   x: number,
   y: number,
-  z = 0,
+  _z = 0,
 ): Point {
   const world = cameraWorldSize(camera);
   const offsetX = x - world.width / 2;
   const offsetY = y - world.height / 2;
-  const rotatedX = offsetX * Math.cos(camera.yaw) - offsetY * Math.sin(camera.yaw);
-  const rotatedY = offsetX * Math.sin(camera.yaw) + offsetY * Math.cos(camera.yaw);
-  const depthRatio = rotatedY / Math.max(1, world.height / 2);
-  const perspectiveScale = clamp(
-    1 - depthRatio * (camera.perspective ?? DEFAULT_ISOMETRIC_CAMERA.perspective),
-    .68,
-    1.32,
-  );
   return {
-    x: width / 2 + camera.panX + rotatedX * camera.scale * perspectiveScale,
-    y: height / 2 + camera.panY -
-      (rotatedY * Math.sin(camera.pitch) + z * Math.cos(camera.pitch)) *
-      camera.scale * perspectiveScale,
-    depth: rotatedY * Math.cos(camera.pitch) - z * Math.sin(camera.pitch),
+    x: width / 2 + camera.panX + offsetX * camera.scale,
+    y: height / 2 + camera.panY + offsetY * camera.scale,
+    depth: offsetY,
   };
 }
 

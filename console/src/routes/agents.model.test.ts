@@ -138,10 +138,11 @@ describe("agents.model", () => {
       kind: "hydrate-activity",
       activities: [activity],
     });
+    expect(state.liveActivity[0]?.source).toBe("replay");
     state = reducer(state, { kind: "message", msg: activity });
 
     expect(state.liveActivity).toHaveLength(1);
-    expect(state.liveActivity[0]?.source).toBe("replay");
+    expect(state.liveActivity[0]?.source).toBe("runtime-observed");
     expect(state.agents.Heimdall?.state).toBe("watching");
   });
 

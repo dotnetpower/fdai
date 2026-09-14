@@ -980,7 +980,7 @@ def test_database_url_binds_service_owned_postgres_projection() -> None:
         "/assurance-twin/reviews",
         "/assurance-twin/review",
     } <= set(source.routes)
-    assert runtime.lifecycle is None
+    assert isinstance(runtime.lifecycle, operator_composition._LiveActivitySnapshotLoader)
 
 
 def test_unserved_measurement_routes_declare_an_explicit_unavailable_source() -> None:
@@ -1042,14 +1042,14 @@ def test_durable_console_evidence_routes_declare_authoritative_sources() -> None
     expected = {
         "configuration-baseline": "/configuration-baselines",
         "conversation-delivery": "/conversation-delivery",
-        "detection-readiness": "/detection-readiness",
+        "detection-readiness": ("/detection-coverage", "/detection-readiness"),
         "runtime-skill": "/skills",
         "forecast-learning": "/forecast-learning",
         "operator-memory": "/operator-memory",
     }
     for key, route in expected.items():
         source = next(item for item in runtime.data_sources if item.key == key)
-        assert source.routes == (route,)
+        assert source.routes == (route if isinstance(route, tuple) else (route,))
         assert source.availability == "unknown"
         assert source.configured is True
         assert source.authoritative is True

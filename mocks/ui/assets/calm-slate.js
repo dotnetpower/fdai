@@ -38,7 +38,7 @@
       ["hil.html", "Approvals", "is-terracotta"],
       ["provision.html", "Provisioning", ""],
       ["onboarding.html", "Onboarding", "is-dusty-red"],
-      ["detection-readiness.html", "Detection readiness", "is-teal"],
+      ["detection-coverage.html", "Detection coverage", "is-teal"],
       ["configuration-baselines.html", "Configuration baselines", "is-steel"],
       ["processes.html", "Processes", ""],
       ["workflow-apps.html", "Workflow apps", "is-plum"],

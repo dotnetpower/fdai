@@ -258,8 +258,7 @@ startup-bound. The headless runtime loads durable effective values. An embedded 
 the same validated environment, defaults, and accepted-versus-held handoff outcome instead of a
 separate fixed severity or window.
 
-Detection readiness uses the same boundary. Deployment reads Muninn StateSnapshots from PostgreSQL, while interactive local registers
-`/detection-readiness` only with local PostgreSQL. The managed full-stack supervisor starts the
+Detection coverage uses the same boundary. Deployment and interactive local read analyzer-run receipts, retained findings, and optional Kubernetes projections from PostgreSQL; local registers `/detection-coverage` and its `/detection-readiness` compatibility alias only with local PostgreSQL. The managed full-stack supervisor starts the
 standard local analyzer loop, which serially reuses the deployed one-shot CLI, inventory targets,
 metrics, events, shadow posture, typed Pod lifecycle evidence binding, and durable publication
 ledger. For inventory-backed targets, both venues read the exact provider reference from the active

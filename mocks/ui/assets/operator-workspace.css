@@ -119,6 +119,49 @@ html:has(.cs-operator-neutral) { scrollbar-gutter: stable; }
 .cs-operator-neutral .op-tabs .cp-tab { font-weight: 500; }
 .cs-operator-neutral .op-tabs .cp-tab { border: 1px solid transparent; background: transparent; color: var(--cs-settings-muted); cursor: pointer; }
 .cs-operator-neutral .op-tabs .cp-tab[aria-selected="true"] { border-color: var(--cs-hairline); background: var(--cs-shade); color: var(--cs-text); }
+.cs-operator-neutral[data-console-page="detection-readiness"] .op-workspace-tools {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  padding-block: 8px;
+  background: var(--cs-card);
+}
+.cs-operator-neutral[data-console-page="detection-readiness"] [data-op-panel="coverage"] > .cp-kpis {
+  margin-block: 0 24px;
+}
+.cs-operator-neutral[data-console-page="detection-readiness"] :is(#detection-resource-filters, #detection-finding-filters) .cp-section-head {
+  margin-bottom: 8px;
+}
+.cs-operator-neutral[data-console-page="detection-readiness"] :is(#detection-resource-filters, #detection-finding-filters) .cp-form-note {
+  display: none;
+}
+.cs-operator-neutral[data-console-page="detection-readiness"] .cp-form.has-inline-action {
+  align-items: end;
+}
+.cs-operator-neutral[data-console-page="detection-readiness"] .cp-form.has-inline-action .cp-form-actions {
+  grid-column: span var(--cp-action-span, 2);
+  align-self: end;
+  padding: 0;
+}
+.cs-operator-neutral[data-console-page="detection-readiness"] .cp-form.has-inline-action .cp-form-actions button {
+  width: 100%;
+  border-color: var(--cs-hairline);
+  background: var(--cs-card);
+  color: var(--cs-text);
+}
+.cs-operator-neutral .op-technical-disclosure {
+  margin-block: 16px 32px;
+}
+.cs-operator-neutral .op-technical-disclosure > details {
+  border-bottom: 1px solid var(--cs-hairline);
+}
+.cs-operator-neutral .op-technical-disclosure > details > p {
+  color: var(--cs-settings-muted);
+  font-size: var(--cs-type-compact-size);
+}
+.cs-operator-neutral .op-technical-disclosure .cp-facts {
+  padding-bottom: 12px;
+}
 .cs-operator-neutral .op-approval { padding: 24px 0; border-bottom: 1px solid var(--cs-hairline); }
 .cs-operator-neutral .op-approval header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 16px; }
 .cs-operator-neutral .op-approval h2 { flex: 1 1 320px; margin: 0; font-size: var(--cs-type-panel-title-size); }
@@ -202,6 +245,15 @@ html:has(.cs-operator-neutral) { scrollbar-gutter: stable; }
 @media (max-width: 680px) {
   .cs-operator-neutral > main { padding: 24px 16px 48px; }
   .cs-operator-neutral .cp-field { grid-column: 1 / -1; }
+  .cs-operator-neutral[data-console-page="detection-readiness"] :is(#detection-resource-filters, #detection-finding-filters) .cp-field {
+    grid-column: span 6;
+  }
+  .cs-operator-neutral[data-console-page="detection-readiness"] :is(#detection-resource-filters, #detection-finding-filters) .cp-field:first-of-type {
+    grid-column: 1 / -1;
+  }
+  .cs-operator-neutral[data-console-page="detection-readiness"] .cp-form.has-inline-action .cp-form-actions {
+    grid-column: span 6;
+  }
 }
 @media (max-width: 620px) {
   .cs-operator-neutral .dashboard-v2 .dr-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -239,6 +291,12 @@ html:has(.cs-operator-neutral) { scrollbar-gutter: stable; }
     overflow-x: visible;
     padding-bottom: 0;
     scroll-snap-type: none;
+  }
+  @media (max-width: 360px) {
+    .cs-operator-neutral[data-console-page="detection-readiness"] :is(#detection-resource-filters, #detection-finding-filters) .cp-field,
+    .cs-operator-neutral[data-console-page="detection-readiness"] .cp-form.has-inline-action .cp-form-actions {
+      grid-column: 1 / -1;
+    }
   }
   .cs-operator-neutral .cs-live-kpi { scroll-snap-align: none; }
   .cs-operator-neutral .cs-live-kpi-detail {

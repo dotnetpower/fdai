@@ -66,6 +66,9 @@
     "dependsOnArrow": "Depends on ->",
     "peersWith": "Peers with",
     "peersWithArrow": "Peers with <->",
+    "calls": "Calls",
+    "callsArrow": "Calls ->",
+    "calledBy": "Called by",
     "requiredBy": "Required by",
     "boundary": "Boundary"
   },
@@ -107,7 +110,7 @@
   "unavailable": "Unavailable",
   "relationships": "Relationships",
   "noRelationships": "No relationships were reported.",
-  "mapAriaLabel": "Resource architecture map with {count} resources",
+  "mapAriaLabel": "2D architecture map with {count} resources",
   "selectArchitectureResource": "Select architecture resource",
   "selectResourceOption": "Select resource"
   ,"network": {

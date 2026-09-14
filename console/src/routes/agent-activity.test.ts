@@ -1,5 +1,4 @@
 import { describe, expect, test } from "vitest";
-import type { AgentActivityMessage } from "../hooks/use-agent-stream";
 import type { AuditItem } from "../types";
 import {
   activityPresentationState,
@@ -14,8 +13,8 @@ import {
   matchingLiveIncident,
   otherEntryFields,
   selectedAgentAuditEmptyBody,
-  shouldRefreshAuditForAgentMessage,
-  shouldRefreshAuditForStreamStatus,
+  shouldRefreshAgentActivity,
+  OPERATIONAL_ACTIVITY_LIMIT,
 } from "./agent-activity";
 import type { AgentNode, Incident } from "./agents.model";
 
@@ -82,43 +81,19 @@ describe("agent activity deep-link selection", () => {
 });
 
 describe("agent activity durable refresh", () => {
-  const stateMessage = (
-    state: "idle" | "watching" | "collecting",
-    detail: string,
-    correlationId: string | null = null,
-  ): AgentActivityMessage => ({
-    type: "agent.state",
-    agent: "Huginn",
-    state,
-    ts: "2026-07-28T03:30:00Z",
-    correlation_id: correlationId,
-    detail,
-    source: "runtime-observed",
+  test("requests the full bounded operational activity page", () => {
+    expect(OPERATIONAL_ACTIVITY_LIMIT).toBe(500);
   });
 
-  test("does not reload durable audit for periodic health snapshots", () => {
-    expect(shouldRefreshAuditForAgentMessage(
-      stateMessage("watching", "Runtime agent initialized"),
-    )).toBe(false);
-    expect(shouldRefreshAuditForAgentMessage(
-      stateMessage("idle", "Runtime agent initialized"),
-    )).toBe(false);
+  test("does not reload durable projections for stream frames or opens", () => {
+    expect(shouldRefreshAgentActivity("stream-frame")).toBe(false);
+    expect(shouldRefreshAgentActivity("stream-open")).toBe(false);
   });
 
-  test("reloads durable audit for work and completed handler transitions", () => {
-    expect(shouldRefreshAuditForAgentMessage(
-      stateMessage("collecting", "Processing fdai.change.events", "corr-1"),
-    )).toBe(true);
-    expect(shouldRefreshAuditForAgentMessage(
-      stateMessage("watching", "Processed fdai.change.events"),
-    )).toBe(true);
-  });
-
-  test("reloads durable audit only when the live stream opens", () => {
-    expect(shouldRefreshAuditForStreamStatus("open")).toBe(true);
-    expect(shouldRefreshAuditForStreamStatus("connecting")).toBe(false);
-    expect(shouldRefreshAuditForStreamStatus("idle")).toBe(false);
-    expect(shouldRefreshAuditForStreamStatus("closed")).toBe(false);
+  test("reloads only for initial, operator, and gap recovery reads", () => {
+    expect(shouldRefreshAgentActivity("initial")).toBe(true);
+    expect(shouldRefreshAgentActivity("operator")).toBe(true);
+    expect(shouldRefreshAgentActivity("gap")).toBe(true);
   });
 });
 

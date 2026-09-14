@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 1197386a657dfd73c6b4988055daebae2416e5a2
+translation_source_sha: cf64cc2895f1724c10b0e7f457bf3fac42b3e5db
 translation_revised: 2026-09-14
 ---
 # 프로젝트 구조
@@ -46,6 +46,11 @@ translation_revised: 2026-09-14
   `core/`와 `shared/`를 조립하고 `composition/`이 모든 계층을 연결합니다. `core/`와 `agents/`는
   `delivery/`를 가져오기하지 않으며 provider 동작은 shared Protocol과 composition으로 진입합니다.
   집중 sibling 모듈은 canonical identity 투영과 hashing을 소유할 수 있으며 기존 소유 모듈은 해당 공개 표면을 다시 내보냅니다. 멱등성 예약의 안정된 작업 비교도 이 분리를 따르며 직렬화 바이트, 전이 검증, replay 의미는 바뀌지 않습니다. 버전이 있는 최종 측정 계약도 같은 서비스 경계를 따릅니다. Core는 정규화 이벤트의 분류를 감사 기록과 원자적으로 보존하고, Operator는 Core를 가져오거나 분류를 실행 및 효과 권한으로 해석하지 않고 읽습니다. 중복 확인 응답은 일치하는 보존 기록을 요구하며, 충돌 때문에 원래 분류를 조용히 대체하거나 버리지 않습니다. 측정 시각에는 시간대가 명시된 datetime 또는 ISO 8601 문자열을 사용하고 숫자를 암묵적으로 epoch 시각으로 바꾸지 않습니다.
+- **운영 활동은 계약에 연결된 상태를 유지**: 공유 서비스 계약 SDK는 권한이 없는 `1.3.0`
+  활동 형식과 런타임 호출 대응 신원을 소유합니다. Core 전달 계층은 정규화된 근거를 생산하고,
+  Operator는 범위가 제한된 영속 스냅샷을 초기화한 뒤 커서가 있는 SSE 변경분을 중계하며,
+  Console은 이를 해석하고 지역화만 합니다. 이 호스트 조립으로 System Knowledge 또는 다른
+  서비스가 구현을 가져오거나 쓰기 역할 또는 실행 권한을 얻지 않습니다.
 - **사람 승인 권한은 서비스별로 분리**: Operator는 Teams/Slack 인증, 암호화 검증, 콜백 감사 및
   영속 결정 보낼 편지함을 소유합니다. Core는 형식화된 결정 이벤트만 소비하고 워크플로 슬롯은
   레지스트리로, 액션 park는 HIL 코디네이터로 라우팅합니다. Operator 패키지는 로컬 JWT/JWK

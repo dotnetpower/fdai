@@ -6,7 +6,7 @@
  * behavior while decoding only the supported agent frames.
  */
 
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
 import { loadConfig } from "../config";
 import {
   mergeObservationSource,
@@ -14,7 +14,13 @@ import {
   type FrameSource,
   type ObservationSource,
 } from "./observation-source";
-import { readSseChunk } from "./sse-reader";
+import {
+  authenticatedSseHeaders,
+  consumeSseFrames,
+  isTransientSseStatus,
+  sseReconnectDelay,
+  useAuthenticatedSse,
+} from "./sse-client";
 import {
   decodeAgentOperationalActivity,
   type AgentOperationalActivityMessage,
@@ -101,6 +107,7 @@ export type AgentStreamStatus =
 export interface UseAgentStreamOptions {
   readonly url: string;
   readonly onEvent: (event: AgentActivityMessage) => void;
+  readonly onGap?: (droppedBefore: number) => void;
   readonly onStatus?: (status: AgentStreamStatus) => void;
   readonly getAuthorizationHeader?: () => Promise<string | null>;
   readonly enabled?: boolean;
@@ -162,13 +169,11 @@ export function decodeAgentActivityMessage(data: string): AgentActivityMessage |
 }
 
 export function agentStreamHeaders(authorization: string | null): Headers {
-  const headers = new Headers({ accept: "text/event-stream" });
-  if (authorization) headers.set("authorization", authorization);
-  return headers;
+  return authenticatedSseHeaders(authorization);
 }
 
 export function agentReconnectDelay(attempt: number): number {
-  return Math.min(30000, 1000 * (2 ** Math.min(attempt, 5)));
+  return sseReconnectDelay(attempt);
 }
 
 export function isPermanentAgentStreamFailure(status: number): boolean {
@@ -183,147 +188,47 @@ export async function consumeAgentActivitySse(
   response: Response,
   onEvent: (event: AgentActivityMessage) => void,
 ): Promise<void> {
-  if (!response.ok) throw new Error(`agent stream returned HTTP ${response.status}`);
-  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
-  if (!contentType.includes("text/event-stream")) {
-    throw new Error("agent stream returned an invalid content type");
-  }
-  if (!response.body) throw new Error("agent stream response has no body");
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  const consumeBlock = (block: string): void => {
-    const data = block.split("\n")
-      .filter((line) => line.startsWith("data:"))
-      .map((line) => line.slice(5).trimStart())
-      .join("\n");
-    if (!data) return;
-    const event = decodeAgentActivityMessage(data);
+  await consumeSseFrames(response, (frame) => {
+    const event = decodeAgentActivityMessage(frame.data);
     if (event) onEvent(event);
-  };
-
-  while (true) {
-    const { value, done } = await readSseChunk(reader);
-    buffer = (buffer + decoder.decode(value, { stream: !done })).replace(/\r\n/g, "\n");
-    let boundary = buffer.indexOf("\n\n");
-    while (boundary >= 0) {
-      consumeBlock(buffer.slice(0, boundary));
-      buffer = buffer.slice(boundary + 2);
-      boundary = buffer.indexOf("\n\n");
-    }
-    if (done) {
-      if (buffer.trim()) consumeBlock(buffer);
-      return;
-    }
-  }
+  }, { strictEventId: false });
 }
 
 export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamResult {
-  const [status, setStatus] = useState<AgentStreamStatus>(
-    typeof fetch === "undefined" ? "unsupported" : "idle",
-  );
-  const [lastError, setLastError] = useState<string | null>(null);
   const [source, setSource] = useState<ObservationSource>("unknown");
-  const onEventRef = useRef(options.onEvent);
-  const onStatusRef = useRef(options.onStatus);
-  onEventRef.current = options.onEvent;
-  onStatusRef.current = options.onStatus;
   const { url, getAuthorizationHeader, enabled = true } = options;
+  const connection = useAuthenticatedSse({
+    url,
+    getAuthorizationHeader: getAuthorizationHeader ?? noAuthorization,
+    enabled,
+    pauseWhenHidden: true,
+    resumeFromLastEventId: false,
+    strictEventId: false,
+    shouldRetryStatus: isTransientSseStatus,
+    onStatus: (next) => options.onStatus?.(next),
+    onFrame: (frame) => {
+      if (frame.droppedBefore > 0) options.onGap?.(frame.droppedBefore);
+      const event = decodeAgentActivityMessage(frame.data);
+      if (!event) return false;
+      setSource((current) => mergeObservationSource(
+        current,
+        event.type === "agent.operational-activity"
+          ? "runtime-observed"
+          : normalizeObservationSource(event.source),
+      ));
+      options.onEvent(event);
+      return true;
+    },
+  });
+  return {
+    status: connection.status,
+    lastError: connection.lastError,
+    source,
+  };
+}
 
-  useEffect(() => {
-    if (typeof fetch === "undefined" || !enabled) return undefined;
-    let cancelled = false;
-    let controller: AbortController | null = null;
-    let reconnectTimer: number | null = null;
-    let reconnectAttempt = 0;
-    let permanentFailure = false;
-    const publishStatus = (next: AgentStreamStatus): void => {
-      setStatus(next);
-      onStatusRef.current?.(next);
-    };
-    const isHidden = (): boolean => typeof document !== "undefined" && document.hidden;
-    const scheduleReconnect = (): void => {
-      if (cancelled || permanentFailure || isHidden()) return;
-      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
-      const delay = agentReconnectDelay(reconnectAttempt);
-      reconnectAttempt += 1;
-      reconnectTimer = window.setTimeout(() => {
-        reconnectTimer = null;
-        void connect();
-      }, delay);
-    };
-    const connect = async (): Promise<void> => {
-      if (cancelled || controller) return;
-      publishStatus("connecting");
-      const active = new AbortController();
-      controller = active;
-      try {
-        const authorization = await getAuthorizationHeader?.() ?? null;
-        if (cancelled || controller !== active) return;
-        const response = await fetch(url, {
-          method: "GET",
-          headers: agentStreamHeaders(authorization),
-          credentials: "omit",
-          signal: active.signal,
-        });
-        if (!response.ok) {
-          permanentFailure = isPermanentAgentStreamFailure(response.status);
-          throw new Error(`agent stream returned HTTP ${response.status}`);
-        }
-        publishStatus("open");
-        setLastError(null);
-        await consumeAgentActivitySse(response, (event) => {
-          if (!cancelled && controller === active) {
-            reconnectAttempt = 0;
-            setSource((current) => mergeObservationSource(
-              current,
-              event.type === "agent.operational-activity"
-                ? "runtime-observed"
-                : normalizeObservationSource(event.source),
-            ));
-            onEventRef.current(event);
-          }
-        });
-        if (!cancelled && controller === active) {
-          setLastError("connection to agent stream closed");
-          publishStatus("closed");
-        }
-      } catch (error) {
-        if (!cancelled && !active.signal.aborted) {
-          setLastError(error instanceof Error ? error.message : String(error));
-          publishStatus("closed");
-        }
-      } finally {
-        if (controller === active) controller = null;
-        scheduleReconnect();
-      }
-    };
-    const disconnect = (next: AgentStreamStatus): void => {
-      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
-      reconnectTimer = null;
-      controller?.abort();
-      controller = null;
-      publishStatus(next);
-    };
-    const handleVisibility = (): void => {
-      if (cancelled) return;
-      const hidden = isHidden();
-      if (hidden) disconnect("idle");
-      else if (shouldResumeAgentStream(permanentFailure, hidden)) void connect();
-    };
-    if (isHidden()) publishStatus("idle");
-    else void connect();
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => {
-      cancelled = true;
-      document.removeEventListener("visibilitychange", handleVisibility);
-      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
-      controller?.abort();
-    };
-  }, [url, getAuthorizationHeader, enabled]);
-
-  return { status, lastError, source };
+async function noAuthorization(): Promise<null> {
+  return null;
 }
 
 export function agentActivityTimestamp(message: AgentActivityMessage): string {

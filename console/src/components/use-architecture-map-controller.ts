@@ -1,13 +1,11 @@
 import type { Ref } from "preact";
 import { useEffect, useImperativeHandle, useRef } from "preact/hooks";
 import {
-  applyCameraView,
   architectureWorldSize,
   architectureZoomScale,
   clamp,
-  DEFAULT_ISOMETRIC_CAMERA,
+  DEFAULT_ORTHOGRAPHIC_CAMERA,
   fitCamera,
-  orbitArchitectureCamera,
   pickResource,
   zoomCameraAtPoint,
   type Camera,
@@ -46,16 +44,14 @@ export function useArchitectureMapController({
 }: ControllerOptions) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cameraRef = useRef<Camera>({
-    ...DEFAULT_ISOMETRIC_CAMERA,
-    scale: 42,
-    panX: 0,
-    panY: 0,
+    ...DEFAULT_ORTHOGRAPHIC_CAMERA,
   });
   const fitScaleRef = useRef(42);
   const layoutFrameRef = useRef("");
   const animationFrameRef = useRef<number | null>(null);
   const dragRef = useRef<{
-    mode: "pan" | "orbit";
+    mode: "pan";
+    button: 0 | 1;
     startX: number;
     startY: number;
     lastX: number;
@@ -82,18 +78,6 @@ export function useArchitectureMapController({
   );
 
   useImperativeHandle(forwardedRef, () => ({
-    setView(view) {
-      applyCameraView(cameraRef.current, view);
-      fitCamera(
-        cameraRef.current,
-        canvasRef.current?.clientWidth ?? 1,
-        canvasRef.current?.clientHeight ?? 1,
-        stateRef.current.graph,
-      );
-      fitScaleRef.current = cameraRef.current.scale;
-      drawRef.current?.();
-      notifyZoom();
-    },
     zoomIn() {
       cameraRef.current.scale = architectureZoomScale(cameraRef.current.scale, "in");
       drawRef.current?.();
@@ -170,11 +154,12 @@ export function useArchitectureMapController({
     const pointerDown = (event: PointerEvent) => {
       const mode = architecturePointerDragMode(event.button);
       if (mode === null) return;
-      if (mode === "orbit") event.preventDefault();
+      if (event.button === 1) event.preventDefault();
       canvas.setPointerCapture(event.pointerId);
       const point = localPoint(event);
       dragRef.current = {
         mode,
+        button: event.button === 1 ? 1 : 0,
         startX: point.x,
         startY: point.y,
         lastX: point.x,
@@ -189,6 +174,7 @@ export function useArchitectureMapController({
         if (mode === null) return;
         dragRef.current = {
           mode,
+          button: (event.buttons & 1) !== 0 ? 0 : 1,
           startX: current.x,
           startY: current.y,
           lastX: current.x,
@@ -201,12 +187,8 @@ export function useArchitectureMapController({
         scheduleDraw();
         return;
       }
-      if (previous.mode === "orbit") {
-        orbitArchitectureCamera(cameraRef.current, current.x - previous.lastX);
-      } else {
-        cameraRef.current.panX += current.x - previous.lastX;
-        cameraRef.current.panY += current.y - previous.lastY;
-      }
+      cameraRef.current.panX += current.x - previous.lastX;
+      cameraRef.current.panY += current.y - previous.lastY;
       dragRef.current = { ...previous, lastX: current.x, lastY: current.y };
       scheduleDraw();
     };
@@ -217,7 +199,7 @@ export function useArchitectureMapController({
       const point = localPoint(event);
       if (
         !previous
-        || previous.mode !== "pan"
+        || previous.button !== 0
         || Math.hypot(point.x - previous.startX, point.y - previous.startY) > 6
       ) {
         return;
@@ -302,15 +284,13 @@ export function architectureInteractionOptions(
   return { ...options, showLabels: false };
 }
 
-export function architecturePointerDragMode(button: number): "pan" | "orbit" | null {
-  if (button === 0) return "pan";
-  if (button === 1) return "orbit";
+export function architecturePointerDragMode(button: number): "pan" | null {
+  if (button === 0 || button === 1) return "pan";
   return null;
 }
 
-export function architecturePointerButtonsDragMode(buttons: number): "pan" | "orbit" | null {
-  if ((buttons & 4) !== 0) return "orbit";
-  if ((buttons & 1) !== 0) return "pan";
+export function architecturePointerButtonsDragMode(buttons: number): "pan" | null {
+  if ((buttons & 5) !== 0) return "pan";
   return null;
 }
 

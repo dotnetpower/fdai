@@ -62,7 +62,7 @@ export function architectureNetworkPlaneLabelIsVisible(
   cameraScale: number,
 ): boolean {
   const subnet = plane.type === "network.subnet" || plane.type === "subnet";
-  return !subnet || plane.id === selectedId || cameraScale >= 12;
+  return !subnet || plane.id === selectedId || cameraScale >= 18;
 }
 
 export function drawArchitectureNetworkMemberships(

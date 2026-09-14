@@ -9,13 +9,14 @@
  * markup live away from the SSE / lifecycle code.
  */
 
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
 import { architectureHref } from "../components/architecture-map.model";
 import { Tooltip } from "../components/tooltip";
 import type { LiveStageName } from "../hooks/use-live-stream";
 import { useContentUpdatePulse } from "../hooks/use-content-update-pulse";
 import { routeHref } from "../router";
 import { t } from "./i18n/live";
+import { LiveDetailShell } from "./live.detail-shell";
 import {
   STAGE_ORDER,
   formatAge,
@@ -566,70 +567,16 @@ export function DetailPanel({
   readonly now: number;
   readonly onClose: () => void;
 }) {
-  const panelRef = useRef<HTMLElement | null>(null);
-  const closeRef = useRef<HTMLButtonElement | null>(null);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-
-  useEffect(() => {
-    const previousFocus = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
-    document.body.classList.add("scroll-locked");
-    closeRef.current?.focus();
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        onCloseRef.current();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const focusable = [...(panelRef.current?.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      ) ?? [])];
-      if (focusable.length === 0) {
-        event.preventDefault();
-        return;
-      }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last?.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first?.focus();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown, true);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown, true);
-      document.body.classList.remove("scroll-locked");
-      if (previousFocus?.isConnected) previousFocus.focus();
-    };
-  }, []);
-
   const heading = actionHeading(tile);
 
   return (
-    <div class="live-detail-backdrop" onClick={onClose}>
-      <aside
-        ref={panelRef}
-        class="live-detail-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="live-detail-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header>
-          <h3 id="live-detail-title">{heading}</h3>
-          <button ref={closeRef} type="button" class="live-detail-close" onClick={onClose} aria-label={t("live.detail.close")}>
-            ×
-          </button>
-        </header>
+    <LiveDetailShell
+      panelId="live-detail-panel"
+      titleId="live-detail-title"
+      title={heading}
+      closeLabel={t("live.detail.close")}
+      onClose={onClose}
+    >
         <ol class="live-detail-trace" aria-label={t("live.detail.traceLabel")}>
           {STAGE_ORDER.map((stage) => {
             const complete = tile.stages_completed.has(stage);
@@ -717,7 +664,6 @@ export function DetailPanel({
             {t("live.detail.architecture")}
           </a>
         </div>
-      </aside>
-    </div>
+    </LiveDetailShell>
   );
 }

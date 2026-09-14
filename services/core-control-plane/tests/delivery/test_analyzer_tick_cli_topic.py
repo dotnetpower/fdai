@@ -13,10 +13,16 @@ from fdai.delivery.analyzer_run_receipt import (
     resolve_analyzer_run_id,
 )
 from fdai.delivery.analyzer_targets import (
+    AnalyzerResourceTypeResolution,
     AnalyzerTargetResolution,
     AnalyzerTargetResolutionError,
 )
-from fdai.delivery.analyzer_tick import AnalyzerTarget, AnalyzerTickReport
+from fdai.delivery.analyzer_tick import (
+    AnalyzerFindingReceipt,
+    AnalyzerPublicationStatus,
+    AnalyzerTarget,
+    AnalyzerTickReport,
+)
 from fdai.delivery.analyzer_tick_cli import (
     BUDGET_ENV,
     INGRESS_TOPIC_ENV,
@@ -190,6 +196,280 @@ def _job_report(
             inventory_consulted=True,
         ),
     )
+
+
+def test_job_report_builds_strict_cross_resource_coverage() -> None:
+    report = AnalyzerJobReport(
+        analyzer=AnalyzerTickReport(targets=2, findings=0, published=0),
+        trace_continuity=TraceContinuityTickReport(
+            targets=0,
+            scenarios=0,
+            continuous=0,
+            unknown=0,
+            findings=0,
+            published=0,
+        ),
+        target_resolution=AnalyzerTargetResolution(
+            targets=(
+                AnalyzerTarget(
+                    resource_ref="resource-api",
+                    resource_kind="api_management",
+                    resource_type="api-gateway",
+                ),
+                AnalyzerTarget(
+                    resource_ref="resource-db",
+                    resource_kind="mysql_flexible_server",
+                    resource_type="mysql-server",
+                ),
+            ),
+            configured=0,
+            discovered=2,
+            inventory_consulted=True,
+            candidate_count=3,
+            resource_types=(
+                AnalyzerResourceTypeResolution(
+                    resource_type="api-gateway",
+                    candidate_count=2,
+                    selected_count=1,
+                    held_count=1,
+                    held_reason_counts=(("unverified_state_fact", 1),),
+                ),
+                AnalyzerResourceTypeResolution(
+                    resource_type="mysql-server",
+                    candidate_count=1,
+                    selected_count=1,
+                    held_count=0,
+                ),
+            ),
+        ),
+    )
+
+    coverage = report.coverage()
+
+    assert coverage["status"] == "available"
+    assert coverage["candidate_count"] == 3
+    assert coverage["selected_count"] == 2
+    assert coverage["evaluated_count"] == 2
+    assert coverage["held_count"] == 1
+    assert [row["resource_type"] for row in coverage["resource_types"]] == [  # type: ignore[index]
+        "api-gateway",
+        "mysql-server",
+    ]
+    assert {
+        row["evaluation_state"]
+        for row in coverage["resources"]  # type: ignore[index]
+    } == {"evaluated_no_finding"}
+
+
+def test_job_report_degrades_duplicate_target_identity_without_crashing() -> None:
+    report = AnalyzerJobReport(
+        analyzer=AnalyzerTickReport(targets=2, findings=0, published=0),
+        trace_continuity=TraceContinuityTickReport(
+            targets=0,
+            scenarios=0,
+            continuous=0,
+            unknown=0,
+            findings=0,
+            published=0,
+        ),
+        target_resolution=AnalyzerTargetResolution(
+            targets=(
+                AnalyzerTarget(
+                    resource_ref="resource-duplicate",
+                    resource_kind="aks_cluster",
+                    resource_type="kubernetes-cluster",
+                ),
+                AnalyzerTarget(
+                    resource_ref="resource-duplicate",
+                    resource_kind="mysql_flexible_server",
+                    resource_type="mysql-server",
+                ),
+            ),
+            configured=0,
+            discovered=2,
+            inventory_consulted=True,
+        ),
+    )
+
+    assert report.coverage() == {
+        "schema_version": "1.1.0",
+        "status": "unavailable",
+        "unavailable_reason": "selected_resource_identity_duplicate",
+        "cause_claim_supported": False,
+        "execution_authority": False,
+    }
+
+
+def test_job_report_preserves_exact_finding_publication_state() -> None:
+    receipt = AnalyzerFindingReceipt(
+        idempotency_key="analyzer:resource-aks:cpu",
+        signal="cpu_pressure",
+        detection_latency_seconds=4.0,
+        evidence_complete=True,
+        publication=AnalyzerPublicationStatus.DUPLICATE_SUPPRESSED,
+        recovery_closed=None,
+        evidence_refs=("node_cpu_usage_percentage",),
+        resource_ref="resource-aks",
+        resource_kind="aks_cluster",
+        occurred_at=datetime(2026, 9, 14, 3, 29, 56, tzinfo=UTC),
+    )
+    report = AnalyzerJobReport(
+        analyzer=AnalyzerTickReport(
+            targets=1,
+            findings=1,
+            published=0,
+            duplicates_suppressed=1,
+            receipts=(receipt,),
+        ),
+        trace_continuity=TraceContinuityTickReport(
+            targets=0,
+            scenarios=0,
+            continuous=0,
+            unknown=0,
+            findings=0,
+            published=0,
+        ),
+        target_resolution=AnalyzerTargetResolution(
+            targets=(
+                AnalyzerTarget(
+                    resource_ref="resource-aks",
+                    resource_kind="aks_cluster",
+                    resource_type="kubernetes-cluster",
+                ),
+            ),
+            configured=0,
+            discovered=1,
+            inventory_consulted=True,
+            candidate_count=1,
+            resource_types=(
+                AnalyzerResourceTypeResolution(
+                    resource_type="kubernetes-cluster",
+                    candidate_count=1,
+                    selected_count=1,
+                    held_count=0,
+                ),
+            ),
+        ),
+    )
+
+    coverage = report.coverage()
+
+    assert coverage["finding_count"] == 1
+    assert coverage["publication_counts"]["duplicate_suppressed"] == 1  # type: ignore[index]
+    assert coverage["resources"][0]["evaluation_state"] == "finding"  # type: ignore[index]
+
+
+@pytest.mark.parametrize(
+    ("analyzer_error", "expected_code"),
+    (
+        ("timeout", "analyzer_timeout"),
+        ("provider_error", "analyzer_failure"),
+    ),
+)
+def test_job_report_exposes_bounded_analyzer_error_codes(
+    analyzer_error: str,
+    expected_code: str,
+) -> None:
+    report = AnalyzerJobReport(
+        analyzer=AnalyzerTickReport(
+            targets=1,
+            findings=0,
+            published=0,
+            analyzer_errors=(("resource-aks", analyzer_error),),
+        ),
+        trace_continuity=TraceContinuityTickReport(
+            targets=0,
+            scenarios=0,
+            continuous=0,
+            unknown=0,
+            findings=0,
+            published=0,
+        ),
+        target_resolution=AnalyzerTargetResolution(
+            targets=(
+                AnalyzerTarget(
+                    resource_ref="resource-aks",
+                    resource_kind="aks_cluster",
+                    resource_type="kubernetes-cluster",
+                ),
+            ),
+            configured=0,
+            discovered=1,
+            inventory_consulted=True,
+            resource_types=(
+                AnalyzerResourceTypeResolution(
+                    resource_type="kubernetes-cluster",
+                    candidate_count=1,
+                    selected_count=1,
+                    held_count=0,
+                ),
+            ),
+        ),
+    )
+
+    coverage = report.coverage()
+
+    assert coverage["error_count"] == 1
+    assert coverage["resources"][0]["error_codes"] == [expected_code]  # type: ignore[index]
+    assert coverage["resource_types"][0]["error_codes"] == [expected_code]  # type: ignore[index]
+
+
+def test_job_report_attributes_publication_failure_to_finding_resource() -> None:
+    receipt = AnalyzerFindingReceipt(
+        idempotency_key="analyzer:resource-aks:cpu",
+        signal="cpu_pressure",
+        detection_latency_seconds=4.0,
+        evidence_complete=True,
+        publication=AnalyzerPublicationStatus.FAILED,
+        recovery_closed=None,
+        evidence_refs=("node_cpu_usage_percentage",),
+        resource_ref="resource-aks",
+        resource_kind="aks_cluster",
+        occurred_at=datetime(2026, 9, 14, 3, 29, 56, tzinfo=UTC),
+    )
+    report = AnalyzerJobReport(
+        analyzer=AnalyzerTickReport(
+            targets=1,
+            findings=1,
+            published=0,
+            publish_errors=((receipt.idempotency_key, "RuntimeError:failed"),),
+            receipts=(receipt,),
+        ),
+        trace_continuity=TraceContinuityTickReport(
+            targets=0,
+            scenarios=0,
+            continuous=0,
+            unknown=0,
+            findings=0,
+            published=0,
+        ),
+        target_resolution=AnalyzerTargetResolution(
+            targets=(
+                AnalyzerTarget(
+                    resource_ref="resource-aks",
+                    resource_kind="aks_cluster",
+                    resource_type="kubernetes-cluster",
+                ),
+            ),
+            configured=0,
+            discovered=1,
+            inventory_consulted=True,
+            resource_types=(
+                AnalyzerResourceTypeResolution(
+                    resource_type="kubernetes-cluster",
+                    candidate_count=1,
+                    selected_count=1,
+                    held_count=0,
+                ),
+            ),
+        ),
+    )
+
+    coverage = report.coverage()
+
+    assert coverage["error_count"] == 1
+    assert coverage["unattributed_error_count"] == 0
+    assert coverage["resources"][0]["error_codes"] == ["publication_failure"]  # type: ignore[index]
 
 
 def test_loop_interval_uses_one_bounded_contract() -> None:

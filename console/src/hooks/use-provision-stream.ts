@@ -17,8 +17,14 @@
  * Operator console).
  */
 
-import { useEffect, useRef, useState } from "preact/hooks";
-import { readSseChunk, SSE_INACTIVITY_TIMEOUT_MS } from "./sse-reader";
+import {
+  authenticatedSseHeaders,
+  consumeSseFrames,
+  isTransientSseStatus,
+  sseReconnectDelay,
+  useAuthenticatedSse,
+} from "./sse-client";
+import { SSE_INACTIVITY_TIMEOUT_MS } from "./sse-reader";
 
 /** Provisioning phase carried by the durable status projection. */
 export type ProvisionPhase =
@@ -414,14 +420,14 @@ export function provisionStreamHeaders(
   authorization: string | null,
   lastEventId: number | null = null,
 ): Headers {
-  const headers = new Headers({ accept: "text/event-stream" });
-  if (authorization) headers.set("authorization", authorization);
-  if (lastEventId !== null) headers.set("last-event-id", String(lastEventId));
-  return headers;
+  return authenticatedSseHeaders(
+    authorization,
+    lastEventId === null ? null : String(lastEventId),
+  );
 }
 
 export function provisionReconnectDelay(attempt: number): number {
-  return Math.min(30000, 1000 * (2 ** Math.min(attempt, 5)));
+  return sseReconnectDelay(attempt);
 }
 
 export function isPermanentProvisionFailure(status: number): boolean {
@@ -435,55 +441,19 @@ export async function consumeProvisionSse(
   inactivityTimeoutMs = SSE_INACTIVITY_TIMEOUT_MS,
   onCursor?: (sequence: number) => void,
 ): Promise<void> {
-  if (!response.ok) throw new Error(`provisioning stream returned HTTP ${response.status}`);
-  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
-  if (!contentType.includes("text/event-stream")) {
-    throw new Error("provisioning stream returned an invalid content type");
-  }
-  if (!response.body) throw new Error("provisioning stream response has no body");
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  const consumeBlock = (block: string) => {
-    const lines = block.split("\n");
-    const idLine = lines.find((line) => line.startsWith("id:"));
-    const rawId = idLine?.slice(3).trim();
-    const streamId = rawId && /^[0-9]+$/.test(rawId) ? Number(rawId) : null;
+  await consumeSseFrames(response, (frame) => {
+    const streamId = frame.id && /^[0-9]+$/.test(frame.id)
+      ? Number(frame.id)
+      : null;
     if (streamId !== null && Number.isSafeInteger(streamId)) onCursor?.(streamId);
-    const data = lines
-      .filter((line) => line.startsWith("data:"))
-      .map((line) => line.slice(5).trimStart())
-      .join("\n");
-    if (!data) return;
-    const event = decodeProvisionEvent(data);
+    const event = decodeProvisionEvent(frame.data);
     if (!event) return;
     onEvent(
       streamId !== null && Number.isSafeInteger(streamId)
         ? { ...event, stream_id: streamId }
         : event,
     );
-  };
-
-  try {
-    while (true) {
-      const { value, done } = await readSseChunk(reader, inactivityTimeoutMs);
-      buffer = (buffer + decoder.decode(value, { stream: !done })).replace(/\r\n/g, "\n");
-      let boundary = buffer.indexOf("\n\n");
-      while (boundary >= 0) {
-        consumeBlock(buffer.slice(0, boundary));
-        buffer = buffer.slice(boundary + 2);
-        boundary = buffer.indexOf("\n\n");
-      }
-      if (done) {
-        if (buffer.trim()) consumeBlock(buffer);
-        return;
-      }
-    }
-  } catch (error) {
-    await reader.cancel(error).catch(() => undefined);
-    throw error;
-  }
+  }, { inactivityTimeoutMs });
 }
 
 /**
@@ -493,138 +463,36 @@ export async function consumeProvisionSse(
 export function useProvisionStream(
   options: UseProvisionStreamOptions,
 ): UseProvisionStreamResult {
-  const [status, setStatus] = useState<ProvisionConnectionStatus>(
-    typeof fetch === "undefined" ? "unsupported" : "idle",
-  );
-  const [lastError, setLastError] = useState<string | null>(null);
-
-  const onEventRef = useRef(options.onEvent);
-  const onStatusRef = useRef(options.onStatus);
-  onEventRef.current = options.onEvent;
-  onStatusRef.current = options.onStatus;
-
   const url = options.url;
   const enabled = options.enabled ?? true;
-  const getAuthorizationHeader = options.getAuthorizationHeader;
+  const connection = useAuthenticatedSse({
+    url,
+    enabled,
+    getAuthorizationHeader: options.getAuthorizationHeader ?? noAuthorization,
+    pauseWhenHidden: true,
+    resumeFromLastEventId: true,
+    shouldRetryStatus: isTransientSseStatus,
+    onStatus: (next) => options.onStatus?.(next),
+    onFrame: (frame) => {
+      const event = decodeProvisionEvent(frame.data);
+      if (!event) return false;
+      const streamId = frame.id && /^[0-9]+$/.test(frame.id)
+        ? Number(frame.id)
+        : null;
+      options.onEvent(
+        streamId !== null && Number.isSafeInteger(streamId)
+          ? { ...event, stream_id: streamId }
+          : event,
+      );
+      return true;
+    },
+  });
+  return {
+    status: connection.status,
+    lastError: connection.lastError,
+  };
+}
 
-  useEffect(() => {
-    if (!enabled || typeof fetch === "undefined") {
-      setStatus(enabled ? "unsupported" : "idle");
-      setLastError(null);
-      return undefined;
-    }
-
-    let cancelled = false;
-    let controller: AbortController | null = null;
-    let reconnectTimer: number | null = null;
-    let reconnectAttempt = 0;
-    let permanentFailure = false;
-    let lastEventId: number | null = null;
-
-    const publishStatus = (next: ProvisionConnectionStatus) => {
-      setStatus(next);
-      onStatusRef.current?.(next);
-    };
-
-    const scheduleReconnect = () => {
-      if (cancelled || permanentFailure || (typeof document !== "undefined" && document.hidden)) return;
-      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
-      const delay = provisionReconnectDelay(reconnectAttempt);
-      reconnectAttempt += 1;
-      reconnectTimer = window.setTimeout(() => {
-        reconnectTimer = null;
-        void connect();
-      }, delay);
-    };
-
-    const connect = async () => {
-      if (cancelled || controller) return;
-      setStatus("connecting");
-      onStatusRef.current?.("connecting");
-      const active = new AbortController();
-      controller = active;
-      try {
-        const authorization = await getAuthorizationHeader?.() ?? null;
-        if (cancelled || controller !== active) return;
-        const response = await fetch(url, {
-          method: "GET",
-          headers: provisionStreamHeaders(authorization, lastEventId),
-          credentials: "omit",
-          signal: active.signal,
-        });
-        if (!response.ok) {
-          permanentFailure = isPermanentProvisionFailure(response.status);
-          throw new Error(`provisioning stream returned HTTP ${response.status}`);
-        }
-        publishStatus("open");
-        setLastError(null);
-        await consumeProvisionSse(
-          response,
-          (event) => {
-            if (!cancelled && controller === active) {
-              reconnectAttempt = 0;
-              onEventRef.current(event);
-            }
-          },
-          SSE_INACTIVITY_TIMEOUT_MS,
-          (sequence) => {
-            if (lastEventId === null || sequence > lastEventId) lastEventId = sequence;
-          },
-        );
-        if (!cancelled && controller === active) {
-          setLastError("connection to provisioning stream closed");
-          publishStatus("closed");
-        }
-      } catch (error) {
-        if (!cancelled && !active.signal.aborted) {
-          setLastError(error instanceof Error ? error.message : String(error));
-          publishStatus("closed");
-        }
-      } finally {
-        if (controller === active) controller = null;
-        scheduleReconnect();
-      }
-    };
-
-    const disconnect = (nextStatus: ProvisionConnectionStatus) => {
-      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
-      reconnectTimer = null;
-      controller?.abort();
-      controller = null;
-      publishStatus(nextStatus);
-    };
-
-    const isHidden = () => typeof document !== "undefined" && document.hidden;
-
-    const handleVisibility = () => {
-      if (cancelled) return;
-      if (isHidden()) {
-        disconnect("idle");
-      } else {
-        void connect();
-      }
-    };
-
-    if (isHidden()) {
-      setStatus("idle");
-      onStatusRef.current?.("idle");
-    } else {
-      void connect();
-    }
-
-    if (typeof document !== "undefined") {
-      document.addEventListener("visibilitychange", handleVisibility);
-    }
-
-    return () => {
-      cancelled = true;
-      if (typeof document !== "undefined") {
-        document.removeEventListener("visibilitychange", handleVisibility);
-      }
-      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
-      controller?.abort();
-    };
-  }, [enabled, url, getAuthorizationHeader]);
-
-  return { status, lastError };
+async function noAuthorization(): Promise<null> {
+  return null;
 }

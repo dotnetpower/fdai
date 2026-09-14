@@ -114,12 +114,12 @@ describe("architecture view selection", () => {
     await expect(loadArchitectureGraph({ panel }, "production")).resolves.toBe(graph);
     expect(panel).toHaveBeenNthCalledWith(1, "/inventory/graph", {
       depth: "4",
-      include: "contains,attached_to,depends_on,peered_with",
+      include: "contains,attached_to,depends_on,peered_with,runtime_calls",
       scope: "production",
     });
     expect(panel).toHaveBeenNthCalledWith(2, "/inventory/graph", {
       depth: "4",
-      include: "contains,attached_to,depends_on,peered_with",
+      include: "contains,attached_to,depends_on,peered_with,runtime_calls",
     });
   });
 });

@@ -319,11 +319,14 @@ class AnalyzerTarget:
 
     ``provider_query_ref`` is delivery-only routing material. An analyzer
     continues to receive ``resource_ref`` so findings, receipts, and Events
-    never expose the provider-native identity.
+    never expose the provider-native identity. ``resource_type`` is the
+    canonical ontology type retained for read-only coverage projection; it
+    never selects an analyzer or grants authority.
     """
 
     resource_ref: str
     resource_kind: str
+    resource_type: str | None = None
     provider_query_ref: str | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -331,6 +334,10 @@ class AnalyzerTarget:
             raise ValueError("AnalyzerTarget.resource_ref MUST be non-empty")
         if not self.resource_kind.strip():
             raise ValueError("AnalyzerTarget.resource_kind MUST be non-empty")
+        if self.resource_type is not None and (
+            not self.resource_type.strip() or len(self.resource_type) > 128
+        ):
+            raise ValueError("AnalyzerTarget.resource_type MUST be bounded text when supplied")
         if self.provider_query_ref is not None and not self.provider_query_ref.strip():
             raise ValueError("AnalyzerTarget.provider_query_ref MUST be non-empty when supplied")
 

@@ -26,7 +26,12 @@ export interface InventoryResource {
 export interface InventoryLink {
   readonly source: string;
   readonly target: string;
-  readonly type: "contains" | "attached_to" | "depends_on" | "peered_with";
+  readonly type:
+    | "contains"
+    | "attached_to"
+    | "depends_on"
+    | "peered_with"
+    | "runtime_calls";
   readonly connection_kind?: NetworkConnectionKind;
   readonly direction?: NetworkDirection;
   readonly traffic_class?: NetworkTrafficClass;
@@ -45,19 +50,15 @@ export interface ArchitectureView {
   readonly root_resource_id: string;
 }
 
-export type ArchitectureCameraView = "iso" | "top" | "front";
-export const DEFAULT_ARCHITECTURE_CAMERA_VIEW: ArchitectureCameraView = "iso";
-
+/** Presentation toggles for the fixed two-dimensional architecture map. */
 export interface ArchitectureDisplayOptions {
   readonly showConnections: boolean;
-  readonly showReflections: boolean;
   readonly showLabels: boolean;
   readonly showGrid: boolean;
 }
 
 export const DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS: ArchitectureDisplayOptions = {
   showConnections: true,
-  showReflections: true,
   showLabels: true,
   showGrid: false,
 };

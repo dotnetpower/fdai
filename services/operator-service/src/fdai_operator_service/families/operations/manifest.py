@@ -102,6 +102,7 @@ OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
         "process_events",
         "process.events",
     ),
+    OperationRoute("/detection-coverage", "GET", "handler", "detection.readiness"),
     OperationRoute("/detection-readiness", "GET", "handler", "detection.readiness"),
     OperationRoute(
         "/automation-blueprints",

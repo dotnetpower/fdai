@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: fdcc6b8d984149e6bb722e77bc086dd394190a68
+translation_source_sha: b9554f05a28acefbbed054c08b8db89998ed9355
 translation_revised: 2026-09-14
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -260,8 +260,7 @@ API에 실행기 신원을 부여하거나 ActionType 및 작업 흐름 승격 �
 Headless 런타임은 영속 effective 값을 로드합니다. Embedded 로컬 Pantheon은 별도의 fixed 심각도나
 구간 대신 동일하게 검증된 환경, 기본값 및 accepted-versus-held 인계 결과를 사용합니다.
 
-감지 준비 상태도 같은 경계를 사용합니다. 배포는 PostgreSQL의 Muninn StateSnapshot을 읽고,
-대화형 로컬은 로컬 PostgreSQL이 있을 때만 `/detection-readiness`를 등록합니다. 관리되는
+감지 커버리지도 같은 경계를 사용합니다. 배포와 대화형 로컬은 PostgreSQL의 분석기 실행 증적, 보존된 발견 사항 및 선택형 Kubernetes 프로젝션을 읽고, 로컬은 로컬 PostgreSQL이 있을 때만 `/detection-coverage`와 `/detection-readiness` 호환 별칭을 등록합니다. 관리되는
 full-stack supervisor는 표준 로컬 analyzer loop를 시작하며, 이 loop는 배포 one-shot CLI,
 인벤토리 대상, 메트릭, 이벤트, `shadow` 상태, 타입 지정 Pod 수명 주기 근거 바인딩 및 영속
 게시 원장을 직렬로 재사용합니다. 인벤토리 기반 대상의 경우 두 실행 환경 모두 서비스 소유의

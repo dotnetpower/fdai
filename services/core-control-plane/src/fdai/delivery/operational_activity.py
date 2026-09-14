@@ -9,7 +9,11 @@ from datetime import UTC, datetime
 from fdai_service_contracts import (
     AgentOperationalActivity,
     OperationalActivityKind,
+    OperationalActivityResultState,
+    OperationalActivityResultUnit,
+    OperationalActivityScopeClass,
     OperationalActivityStatus,
+    OperationalActivitySummaryKey,
     OperationalFreshness,
 )
 
@@ -140,20 +144,43 @@ def _inventory_activity(
     duration_ms: int | None = None,
     reason_codes: tuple[str, ...] = (),
 ) -> AgentOperationalActivity:
+    observed_at = datetime.now(tz=UTC)
+    if status is OperationalActivityStatus.STARTED:
+        result_state = OperationalActivityResultState.NOT_RECORDED
+    elif status is OperationalActivityStatus.FAILED:
+        result_state = OperationalActivityResultState.UNAVAILABLE
+    else:
+        result_state = OperationalActivityResultState.MEASURED
     return AgentOperationalActivity(
+        schema_version="1.3.0",
         activity_id=f"inventory.scan:{attempt_id}:{status.value}",
+        activity_instance_id=f"inventory.scan:{attempt_id}",
         idempotency_key=f"inventory.scan:{attempt_id}:{status.value}",
         kind=OperationalActivityKind.INVENTORY_SCAN,
         status=status,
         owner_agent="Huginn",
         producer="inventory-sync-job",
-        observed_at=datetime.now(tz=UTC),
+        observed_at=observed_at,
         source=source,
         freshness=freshness,
         evidence_count=evidence_count,
         duration_ms=duration_ms,
         correlation_id=attempt_id,
         reason_codes=reason_codes,
+        summary_key=OperationalActivitySummaryKey.INVENTORY_COLLECTION,
+        scope_class=OperationalActivityScopeClass.CONFIGURED_ESTATE,
+        result_state=result_state,
+        result_count=(
+            evidence_count if result_state is OperationalActivityResultState.MEASURED else None
+        ),
+        result_unit=(
+            OperationalActivityResultUnit.EVIDENCE_ITEMS
+            if result_state is OperationalActivityResultState.MEASURED
+            else None
+        ),
+        source_cutoff=(observed_at if status is not OperationalActivityStatus.STARTED else None),
+        started_at=observed_at if status is OperationalActivityStatus.STARTED else None,
+        completed_at=(observed_at if status is not OperationalActivityStatus.STARTED else None),
     )
 
 
@@ -167,20 +194,46 @@ def current_state_activity(
     reason_codes: tuple[str, ...] = (),
 ) -> AgentOperationalActivity:
     """Build one privacy-bounded Heimdall read activity without target identity."""
+    observed_at = datetime.now(tz=UTC)
+    if status is OperationalActivityStatus.STARTED:
+        result_state = OperationalActivityResultState.NOT_RECORDED
+    elif status in {
+        OperationalActivityStatus.COMPLETED,
+        OperationalActivityStatus.SUPERSEDED,
+    } or (status is OperationalActivityStatus.DEGRADED and evidence_count > 0):
+        result_state = OperationalActivityResultState.MEASURED
+    else:
+        result_state = OperationalActivityResultState.UNAVAILABLE
     return AgentOperationalActivity(
+        schema_version="1.3.0",
         activity_id=f"current-state.read:{correlation_id}:{status.value}",
+        activity_instance_id=f"current-state.read:{correlation_id}",
         idempotency_key=f"current-state.read:{correlation_id}:{status.value}",
         kind=OperationalActivityKind.CURRENT_STATE_READ,
         status=status,
         owner_agent="Heimdall",
         producer="core-control-plane",
-        observed_at=datetime.now(tz=UTC),
+        observed_at=observed_at,
         source="read-investigation",
         freshness=freshness,
         evidence_count=evidence_count,
         duration_ms=duration_ms,
         correlation_id=correlation_id,
         reason_codes=reason_codes,
+        summary_key=OperationalActivitySummaryKey.CURRENT_STATE_OBSERVATION,
+        scope_class=OperationalActivityScopeClass.INVESTIGATION,
+        result_state=result_state,
+        result_count=(
+            evidence_count if result_state is OperationalActivityResultState.MEASURED else None
+        ),
+        result_unit=(
+            OperationalActivityResultUnit.EVIDENCE_ITEMS
+            if result_state is OperationalActivityResultState.MEASURED
+            else None
+        ),
+        source_cutoff=(observed_at if status is not OperationalActivityStatus.STARTED else None),
+        started_at=observed_at if status is OperationalActivityStatus.STARTED else None,
+        completed_at=(observed_at if status is not OperationalActivityStatus.STARTED else None),
     )
 
 
@@ -193,19 +246,42 @@ def ontology_projection_activity(
     reason_codes: tuple[str, ...],
 ) -> AgentOperationalActivity:
     """Build one Heimdall-owned derived projection fact for a promoted generation."""
+    observed_at = datetime.now(tz=UTC)
+    result_state = (
+        OperationalActivityResultState.MEASURED
+        if status is OperationalActivityStatus.COMPLETED
+        or status is OperationalActivityStatus.DEGRADED
+        and evidence_count > 0
+        else OperationalActivityResultState.UNAVAILABLE
+    )
     return AgentOperationalActivity(
+        schema_version="1.3.0",
         activity_id=f"inventory.ontology-projection:{generation}:{status.value}",
+        activity_instance_id=f"inventory.ontology-projection:{generation}",
         idempotency_key=f"inventory.ontology-projection:{generation}:{status.value}",
         kind=OperationalActivityKind.INVENTORY_ONTOLOGY_PROJECTION,
         status=status,
         owner_agent="Heimdall",
         producer="inventory-sync-job",
-        observed_at=datetime.now(tz=UTC),
+        observed_at=observed_at,
         source="inventory-ontology",
         freshness=freshness,
         evidence_count=evidence_count,
         correlation_id=generation,
         reason_codes=reason_codes,
+        summary_key=OperationalActivitySummaryKey.ONTOLOGY_PROJECTION,
+        scope_class=OperationalActivityScopeClass.CONFIGURED_ESTATE,
+        result_state=result_state,
+        result_count=(
+            evidence_count if result_state is OperationalActivityResultState.MEASURED else None
+        ),
+        result_unit=(
+            OperationalActivityResultUnit.EVIDENCE_ITEMS
+            if result_state is OperationalActivityResultState.MEASURED
+            else None
+        ),
+        source_cutoff=observed_at,
+        completed_at=observed_at,
     )
 
 

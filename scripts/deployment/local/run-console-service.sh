@@ -183,9 +183,11 @@ case "$service" in
     )
     ;;
   local-analyzer)
+    local_analyzer_run_id="${FDAI_ANALYZER_RUN_ID:-local-analyzer-$(date -u +%s)-$$}"
     service_command=(
       env -u AZURE_CONFIG_DIR
       FDAI_EXECUTION_VENUE=local
+      FDAI_ANALYZER_RUN_ID="$local_analyzer_run_id"
       FDAI_INVENTORY_DSN="${FDAI_INVENTORY_DSN:-$FDAI_STATE_STORE_DSN}"
       PYTHONPATH="$service_pythonpath"
       "$repo_root/.venv/bin/python" -m fdai.delivery.analyzer_tick_cli --loop

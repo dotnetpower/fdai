@@ -60,12 +60,32 @@ Integrations also renders the incident-open email through a sandboxed iframe. Th
 preview endpoint calls the same production renderer used by Azure Communication Services Email and
 supplies only synthetic placeholders. The preview exposes no runtime incident, endpoint, recipient,
 or identity value and provides no send, approval, or execution control.
-Operations includes a Detection readiness route backed only by Muninn's durable StateSnapshots.
-It shows Heimdall's decision, the six evidence dimensions, gaps, authority ceiling, source, and
-observation time. The browser does not probe AKS or derive a replacement decision. Each target
-links to its Architecture resource, and promotion-related counts link to Promotion gates. A
-successful HTTP response for this route or Capabilities that fails strict decoding renders an error
-instead of remaining in the loading skeleton or treating an unknown autonomy mode as enforcement.
+Operations exposes `Detection coverage` at `/detection-coverage`;
+`/detection-readiness` remains a browser and API compatibility alias. The route combines the newest
+versioned analyzer-run receipt, retained cross-run finding history, and optional Kubernetes evidence.
+
+Coverage starts with a compact candidate-to-evaluation funnel, keeps held and error counts separate,
+and compares the newest attempt with the latest successful analyzer run without merging their
+timestamps. Exact resource-type counts remain available in a desktop table and in mobile cards
+with a collapsed table disclosure. Technical source identifiers and absolute timestamps stay in a
+provenance disclosure. `evaluated_no_finding` means only that analysis completed without a finding,
+never healthy or ready.
+
+Resources covers API gateway, Kubernetes cluster, LLM endpoint, MySQL server, and Application
+Gateway. Search, resource-type and evaluation filters, attention-first sorting, and selected
+resource identity are URL-backed and survive reload, back, and forward navigation. Held reasons
+and bounded error codes use operator-facing labels while canonical values remain in technical
+details. Kubernetes six-axis readiness appears only for an exact resource match. Pod lifecycle is
+a separately collapsed current-scope disclosure and never implies an exact selected-cluster
+association.
+
+Findings shows its retained receipt count, limit, oldest receipt, and inclusive date window
+separately from the latest attempt. Search, evidence-state, delivery-state, and date filters do not
+change the retained evidence. Recovery terminology appears only for Kubernetes Pod findings. The
+browser never probes resources, reverse-maps analyzer kinds, attributes cross-run history to the
+newest run, or derives a decision. Resource rows link to Architecture and readiness-promotion
+counts link to Promotion gates. A successful HTTP response that fails strict decoding renders an
+error rather than treating unknown state as measured or enforced.
 With a server-pinned drift context, the GET-only Configuration baselines route fresh-reads identity, lifecycle, drift, Knowledge citation, topology, latency, scheduled-review, and four safety counters.
 It reports absent binding or campaign as unavailable or `not-configured`, never invents progress, strictly rejects malformed data, and compares immutable in-scope versions with failed-attempt counts. The SPA exposes no activation, resume, schedule creation, approval, mitigation, or resource mutation; evidence-run, resume, blueprint review, and materialization use separate authenticated routes.
 Production exposes the panel only after its mounted JSON/DOCX pair, read-only Managed Identity, and exact resource-group allowlist validate at startup. The Operator API never receives executor identity.
@@ -502,10 +522,14 @@ owned by [Operator Console Progressive Conversations](operator-console-progressi
 
 ## Stream recovery and authentication
 
-Authenticated live, agent, and provisioning SSE readers cancel after 45 seconds without bytes,
-including keepalive comments, then use bounded reconnect. Provisioning also cancels its reader when
-event delivery fails. Agent-stream `401` waits for full-screen login recovery; `403` reconnects so a
-new App Role can take effect without a page reload.
+All authenticated GET-SSE consumers use one bounded browser transport for parsing, inactivity,
+reconnect, visibility, and opaque endpoint-issued cursors. The parser limits a pending frame to
+256 KiB by default, accepts multiline data and all SSE newline forms, and advances a resumable
+cursor only after the owning decoder accepts the frame. A cursor-bearing `4xx` clears the cursor and
+retries once; a cursorless non-retryable `4xx` is terminal. Live, agent, provisioning, ontology
+invalidation, incident attention, and access-grant attention retain their own visibility,
+authentication, cursor, buffer, and cross-tab policies. POST/request-scoped conversation streams
+remain separate.
 
 Command Deck investigation activity can include optional observed execution evidence. The server removes credentials and sensitive identifiers before emission and sets `redacted=true`; the browser
 drops input evidence without that attestation. `input_kind=command` requires a recorded process
@@ -568,7 +592,17 @@ detail to 4 KiB, and milestone agent identities to 64 characters.
 The Web composer sends selected, dropped, and clipboard-pasted raster images through the same bounded attachment tray and validation path. Before staging, the browser fits each raster within a 2048 px longest edge without upscaling and re-encodes it below the 4 MiB per-image ceiling. Clipboard text and HTML retain native textarea paste behavior and never become attachments.
 When a turn carries validated inline image attachments, the streaming route also emits read-only `vision_analyzing` before the narrator composes and `vision_grounded` before the answer, each with image source previews (name, media type, size) but never the base64 payload. The turn escalates to a vision-capable narrator, and the preparing-answer trace renders these stages the same way it renders web-search grounding.
 
-The interactive Live route pauses its SSE reader while the tab is hidden. The shell's incident,
+Live stage, source-readiness, and authority-free operational-activity frames share one physical
+`/live/stream` connection per authenticated browser context. Unsequenced current snapshots never
+advance delta continuity. Only deltas carry the Operator-issued `epoch:sequence` cursor, and queue
+or replay-window loss is stamped on the next surviving delta. A bounded in-tab cache replays
+validated current frames to a late-joining Live route and preserves the accepted cursor during
+leader handoff. Rule catalog, ARG recorded-resource total, analyzer run, and rule-findings summary
+remain independent GET projections; the Console never derives evaluation coverage from catalog
+size. Agent state remains on `/agents/stream`, and retained operational history is fetched only by
+an explicit Agent Activity read.
+
+The interactive Live subscriber reports idle while the tab is hidden. The shell's incident,
 access-grant, and operator-enabled browser notification consumers instead use Web Locks to elect one
 principal-scoped reader per channel across same-origin tabs. Incident and access-grant leaders send
 validated snapshots to follower tabs through `BroadcastChannel`, so every shell keeps its attention
