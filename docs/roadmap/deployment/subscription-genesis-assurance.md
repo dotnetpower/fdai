@@ -102,6 +102,9 @@ uses only SSH stdin over the exact Bastion tunnel, never Terraform, arguments, R
 A newer signed release may repair verification of an existing runner-image claim without changing or
 repeating its apply source. The terminal receipt binds both the original `source_commit` and the
 `verified_source_commit`; a fresh apply still requires them to match.
+Another signed Foundation run may reuse that receipt without another image apply. Its reviewed input
+keeps the current Foundation source and run while separately binding the image source, verifier
+source, image run, and receipt digest through the private handoff.
 Portable status carries digests, counts, stage state, and safe booleans; IDs, SSH/state paths, and raw
 plans stay private. State-handoff claims bind the authenticated human's target-scoped digest; backend
 authority and terminal receipts bind that claim. Remote cleanup records exact intent, deletes the

@@ -24,9 +24,13 @@ bounded evidence. Agents remain the active control plane and own every state tra
 > learning inputs are implemented with local evidence. Standard Core bootstrap now binds an enabled
 > persisted package to Njord's deterministic advisory port, restores a bounded retained baseline
 > after restart, and receives complete service-day observations through the canonical broker path.
-> The exact casefold release now has a live-authoritative restored collector pass with 71 retained
-> raw observations and a complete revision-2 cursor. A qualifying settled cohort spanning at least
-> 30 days and 100 eligible samples, and the six independent target reviews, do not yet exist.
+> The corrected source is enabled at revision 21 while Core and both package Jobs use one exact
+> image digest. Its enable-triggered collector returned `complete`, advanced the durable cursor to
+> revision 6, and retained 136 raw observations. The first corrected 90-day review-only campaign
+> completed against that pin, but all six targets remain blocked with sample count 0 and explicit
+> `insufficient-cohort` and `missing-live-authoritative-evidence` reasons. It created no campaign
+> episode or promotion review and changed no runtime authority. A qualifying cohort spanning at
+> least 30 days and 100 eligible samples, and the six independent target reviews, do not yet exist.
 > Twelve critique rounds fixed every identified Medium-or-higher defect; the final review found only Low test-organization opportunities. No runtime authority changed.
 
 ## Design at a glance

@@ -1270,7 +1270,10 @@ def test_verified_image_receipt_materializes_new_private_foundation_input(
     receipt_path = tmp_path / "image-receipt.json"
     destination = tmp_path / "foundation-with-image.json"
     profile_digest = canonical_digest(_profile(profile).to_mapping())
-    _private_json(source, _foundation_values())
+    verified_source = "9" * 40
+    foundation_values = _foundation_values(verified_source)
+    foundation_values["run_digest"] = "c" * 64
+    _private_json(source, foundation_values)
     image_id = (
         f"/subscriptions/{SUBSCRIPTION}/resourceGroups/example/"
         "providers/Microsoft.Compute/images/verified-runner"
@@ -1282,6 +1285,7 @@ def test_verified_image_receipt_materializes_new_private_foundation_input(
         "plan_digest": "f" * 64,
         "target_binding": BINDING,
         "source_commit": SOURCE,
+        "verified_source_commit": verified_source,
         "run_digest": "b" * 64,
         "environment": "dev",
         "region": "koreacentral",
@@ -1315,8 +1319,15 @@ def test_verified_image_receipt_materializes_new_private_foundation_input(
     )
 
     values = json.loads(destination.read_text(encoding="utf-8"))
+    assert values["source_commit"] == verified_source
+    assert values["run_digest"] == "c" * 64
     assert values["runner_source_image_id"] == image_id
     assert values["runner_image_toolchain_digest"] == "1" * 64
+    assert values["runner_image_source_commit"] == SOURCE
+    assert values["runner_image_verified_source_commit"] == verified_source
+    assert values["runner_image_run_digest"] == "b" * 64
+    assert values["runner_image_receipt_digest"] == receipt["receipt_digest"]
+    assert result["source_commit"] == verified_source
     assert result["state"] == "prepared"
     assert result["mutation_performed"] is False
     assert destination.stat().st_mode & 0o777 == 0o600
