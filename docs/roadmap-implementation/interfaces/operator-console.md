@@ -47,6 +47,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Preserved each joined Trace step's source event id and source correlation id so event-correlated executor rows do not appear to have been recorded directly under the requested correlation. | `current change`; focused Operator projection, Console decoder, context, and browser tests. | Continue the bounded Trace hardening campaign. |
 | 2026-09-14 | implemented | Rejected whitespace-only stage, decision, reason, and terminal-stage values so empty strings cannot become recorded summaries or unlabeled statuses. | `current change`; focused Console Trace decoder tests and Console typecheck. | Continue the bounded Trace hardening campaign. |
 | 2026-09-14 | implemented | Rejected non-positive action attempts and conflicting top-level versus workflow action attempt identities instead of hiding one value through fallback precedence. | `current change`; focused Operator Trace projection tests. | Continue the bounded Trace hardening campaign. |
 | 2026-09-14 | implemented | Rejected audit entries whose `pipeline_stage` and `stage` fields conflict, and surfaced the malformed authoritative projection as unavailable. | `current change`; focused Operator Trace projection tests. | Continue the bounded Trace hardening campaign. |

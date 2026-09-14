@@ -12,6 +12,8 @@ import { traceOffset } from "./rule-trace-supporting-evidence";
 
 const step = (seq: number) => ({
   seq,
+  event_id: `event-${seq}`,
+  source_correlation_id: "corr-1",
   recorded_at: `2026-07-17T09:00:0${seq}Z`,
   stage: "risk-gate",
   decision: "hil",
@@ -150,6 +152,8 @@ describe("trace view context", () => {
     const snapshot = buildTraceViewSnapshot("corr-activity", { status: "ready", data });
 
     expect(snapshot?.records?.["steps"]?.[0]).toEqual(expect.objectContaining({
+      event_id: "event-1",
+      source_correlation_id: "corr-1",
       stage: null,
       reason: "no delivery channel is available",
       entry_hash: "hash-activity",

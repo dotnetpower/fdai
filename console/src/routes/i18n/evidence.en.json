@@ -249,6 +249,8 @@
     "actionId": "Action id",
     "executionPath": "Execution path",
     "outcome": "Outcome",
+    "eventId": "Event id",
+    "sourceCorrelationId": "Source correlation id",
     "entryHash": "Entry hash",
     "completePath": "Complete recorded path",
     "timelineDetails": "Complete audit timeline",

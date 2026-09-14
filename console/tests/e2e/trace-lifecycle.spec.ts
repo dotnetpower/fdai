@@ -15,6 +15,8 @@ const trace = {
     {
       ...actionIdentity,
       seq: 192441,
+      event_id: "event-1",
+      source_correlation_id: correlationId,
       recorded_at: "2026-09-14T02:00:01Z",
       stage: "plan",
       decision: null,
@@ -27,6 +29,8 @@ const trace = {
     {
       ...actionIdentity,
       seq: 192442,
+      event_id: "event-2",
+      source_correlation_id: correlationId,
       recorded_at: "2026-09-14T02:00:02Z",
       stage: "risk-gate",
       decision: "hil",
@@ -39,6 +43,8 @@ const trace = {
     {
       ...actionIdentity,
       seq: 192443,
+      event_id: "event-3",
+      source_correlation_id: correlationId,
       recorded_at: "2026-09-14T02:00:03Z",
       stage: null,
       decision: null,
@@ -51,6 +57,8 @@ const trace = {
     {
       ...actionIdentity,
       seq: 192444,
+      event_id: "event-4",
+      source_correlation_id: correlationId,
       recorded_at: "2026-09-14T02:00:04Z",
       stage: "execute",
       decision: "pending",
@@ -63,6 +71,8 @@ const trace = {
     {
       ...actionIdentity,
       seq: 192445,
+      event_id: "event-5",
+      source_correlation_id: correlationId,
       recorded_at: "2026-09-14T02:00:05Z",
       stage: "verify",
       decision: "done",
@@ -75,6 +85,8 @@ const trace = {
     {
       ...actionIdentity,
       seq: 192446,
+      event_id: "event-6",
+      source_correlation_id: "executor-correlation-006",
       recorded_at: "2026-09-14T02:00:06Z",
       stage: "audit",
       decision: "done",
@@ -292,6 +304,8 @@ async function assertTraceWorkbench(page: Page): Promise<void> {
   })).toBeVisible();
   await expect(detail).toContainText("executor.remote.awaiting_effect_evidence");
   await expect(detail).toContainText("independent effect evidence pending");
+  await expect(detail).toContainText("event-4");
+  await expect(detail).toContainText(correlationId);
   const displayedTimestamp = detail.locator(".trace-step-facts time");
   await expect(displayedTimestamp).toHaveAttribute("datetime", "2026-09-14T02:00:04Z");
   expect(await displayedTimestamp.textContent()).not.toContain("T02:00:04Z");
@@ -503,6 +517,8 @@ test("keeps the newest stage visible in a bounded long trace rail", async ({
     execution_path: null,
     outcome: null,
     seq: 193000 + index,
+    event_id: `event-${index + 1}`,
+    source_correlation_id: correlationId,
     recorded_at: `2026-09-14T02:00:${String(index).padStart(2, "0")}Z`,
     stage: index === 23 ? "audit" : `stage-${index + 1}`,
     decision: null,

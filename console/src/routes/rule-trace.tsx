@@ -34,6 +34,8 @@ import "./rule-trace-lifecycle.css";
 
 export interface TraceStep {
   readonly seq: number;
+  readonly event_id: string;
+  readonly source_correlation_id: string | null;
   readonly recorded_at: string;
   readonly stage: string | null;
   readonly decision: string | null;
@@ -312,6 +314,12 @@ export function decodeTraceResponse(
     }
     return {
       seq: sequence,
+      event_id: panelNonEmptyString(row, "event_id", "trace step"),
+      source_correlation_id: nullableNonEmptyString(
+        row,
+        "source_correlation_id",
+        "trace step",
+      ),
       recorded_at: recordedAt,
       stage,
       decision: nullableNonEmptyString(row, "decision", "trace step"),
@@ -429,6 +437,8 @@ export function buildTraceViewSnapshot(
         // recorded rationale for this stage).
         steps: data.steps.map((s) => ({
           seq: s.seq,
+          event_id: s.event_id,
+          source_correlation_id: s.source_correlation_id,
           recorded_at: s.recorded_at,
           stage: s.stage,
           decision: s.decision,

@@ -272,6 +272,14 @@ function TraceStepDetail({
           <h4>{t("evidence.trace.integrityEvidence")}</h4>
           <dl class="trace-integrity-list">
             <TraceEvidenceDatum
+              label={t("evidence.trace.eventId")}
+              value={step.event_id}
+            />
+            <TraceEvidenceDatum
+              label={t("evidence.trace.sourceCorrelationId")}
+              value={step.source_correlation_id}
+            />
+            <TraceEvidenceDatum
               label={t("evidence.trace.entryHash")}
               value={step.entry_hash}
             />

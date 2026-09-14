@@ -22,6 +22,8 @@ def test_trace_preserves_action_attempt_and_execution_outcome() -> None:
         [
             {
                 "seq": 1,
+                "event_id": "event-1",
+                "correlation_id": "source-correlation-1",
                 "recorded_at": "2026-09-14T03:00:00Z",
                 "action_kind": "executor.remote.awaiting_effect_evidence",
                 "mode": "enforce",
@@ -41,6 +43,8 @@ def test_trace_preserves_action_attempt_and_execution_outcome() -> None:
     assert trace["steps"] == [
         {
             "seq": 1,
+            "event_id": "event-1",
+            "source_correlation_id": "source-correlation-1",
             "recorded_at": "2026-09-14T03:00:00Z",
             "stage": "execute",
             "decision": None,
@@ -62,6 +66,8 @@ def test_trace_does_not_invent_missing_action_identity() -> None:
         [
             {
                 "seq": 1,
+                "event_id": "event-1",
+                "correlation_id": None,
                 "recorded_at": "2026-09-14T03:00:00Z",
                 "action_kind": "notification.route",
                 "mode": "shadow",
@@ -72,6 +78,8 @@ def test_trace_does_not_invent_missing_action_identity() -> None:
     )
 
     assert trace is not None
+    assert trace["steps"][0]["event_id"] == "event-1"
+    assert trace["steps"][0]["source_correlation_id"] is None
     assert trace["steps"][0]["action_id"] is None
     assert trace["steps"][0]["attempt"] is None
     assert trace["steps"][0]["execution_path"] is None
@@ -84,6 +92,8 @@ def test_trace_rejects_conflicting_stage_fields() -> None:
             [
                 {
                     "seq": 1,
+                    "event_id": "event-1",
+                    "correlation_id": "correlation-1",
                     "recorded_at": "2026-09-14T03:00:00Z",
                     "action_kind": "risk_gate.unified",
                     "mode": "shadow",
@@ -116,6 +126,8 @@ def test_trace_rejects_invalid_or_conflicting_attempt_identity(
             [
                 {
                     "seq": 1,
+                    "event_id": "event-1",
+                    "correlation_id": "correlation-1",
                     "recorded_at": "2026-09-14T03:00:00Z",
                     "action_kind": "executor.remote.dispatched",
                     "mode": "enforce",

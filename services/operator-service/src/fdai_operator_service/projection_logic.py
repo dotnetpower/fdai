@@ -316,6 +316,8 @@ def rule_fire_trace(correlation_id: str, items: Sequence[JsonObject]) -> JsonObj
         steps.append(
             {
                 "seq": _as_int(item["seq"]),
+                "event_id": str(item["event_id"]),
+                "source_correlation_id": _nonempty(item.get("correlation_id")),
                 "recorded_at": str(item["recorded_at"]),
                 "stage": stage,
                 "decision": _nonempty(entry.get("decision")),

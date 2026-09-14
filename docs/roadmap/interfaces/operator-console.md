@@ -36,6 +36,8 @@ Trace hardening preserves these evidence invariants:
   present. Invalid or conflicting attempt identity makes the projection unavailable.
 - Nullable stage, decision, reason, and terminal stage fields are either `null` or non-empty.
   Whitespace-only values cannot create a recorded summary or an empty status label.
+- Every joined step preserves its source event id and source correlation id. The requested
+  correlation remains the trace scope and does not overwrite a joined row's recorded provenance.
 
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final
