@@ -594,8 +594,14 @@ def test_console_tasks_make_operator_identity_mode_explicit() -> None:
     assert by_label[debug_label]["dependsOn"] == [
         "console: require primary worktree",
         debug_prepare_label,
-        "console: start local services",
+        "console: start local services (Azure CLI debug)",
     ]
+    assert by_label["console: start local services"]["command"].endswith(
+        "--auth-mode browser-entra"
+    )
+    assert by_label["console: start local services (Azure CLI debug)"]["command"].endswith(
+        "--auth-mode azure-cli"
+    )
 
 
 def test_core_readiness_requires_a_fresh_pantheon_heartbeat(tmp_path: Path) -> None:

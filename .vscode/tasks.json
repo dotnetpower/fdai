@@ -238,6 +238,11 @@
       "label": "console: restart operator api",
       "type": "shell",
       "command": "bash scripts/deployment/local/run-console-service.sh operator-api --wait-ready",
+      "options": {
+        "env": {
+          "FDAI_CONSOLE_EXPECTED_AUTH_MODE": "browser-entra"
+        }
+      },
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-operator-api-restart",
@@ -264,7 +269,7 @@
       "label": "console: start local services",
       "hide": true,
       "type": "shell",
-      "command": "bash scripts/deployment/local/start-console-services.sh",
+      "command": "bash scripts/deployment/local/start-console-services.sh --auth-mode browser-entra",
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-local-services",
@@ -285,6 +290,34 @@
       },
       "runOptions": {
         "instanceLimit": 2,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "console: start local services (Azure CLI debug)",
+      "hide": true,
+      "type": "shell",
+      "command": "bash scripts/deployment/local/start-console-services.sh --auth-mode azure-cli",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "console-local-services-cli-debug",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "service=console-stack event=starting$",
+          "endsPattern": "service=console-stack event=(ready|failed)(?: |$)"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "clear": true,
+        "close": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
         "instancePolicy": "silent"
       }
     },
@@ -333,7 +366,7 @@
       "dependsOn": [
         "console: require primary worktree",
         "console: prepare full stack (Azure CLI debug, Contributor)",
-        "console: start local services"
+        "console: start local services (Azure CLI debug)"
       ],
       "problemMatcher": [],
       "runOptions": {

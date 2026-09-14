@@ -53,8 +53,10 @@ while true; do
     fi
     printf '%s service=console-watchdog event=recover status=unavailable\n' \
       "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
-    if bash "$repo_root/scripts/deployment/local/prepare-console-full-stack.sh"; then
-      bash "$repo_root/scripts/deployment/local/start-console-services.sh" &
+    if bash "$repo_root/scripts/deployment/local/prepare-console-full-stack.sh" \
+      --auth-mode browser-entra; then
+      bash "$repo_root/scripts/deployment/local/start-console-services.sh" \
+        --auth-mode browser-entra &
       supervisor_pid="$!"
     else
       printf '%s service=console-watchdog event=recovery-failed stage=prepare\n' \

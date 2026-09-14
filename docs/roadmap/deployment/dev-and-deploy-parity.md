@@ -156,8 +156,8 @@ Requests carry salted SHA-256 user and session references rather than raw identi
 The explicit local Azure CLI principal alternative bootstraps through `GET /local-auth/me`. Standard full-stack preparation always selects Browser Entra, regardless of a stale private Vite
 value. CLI-principal debugging requires an explicit `--auth-mode azure-cli` preparation request
 and paired enablement plus confirmation values at both the browser and Operator API boundaries.
-The standard VS Code compound sets both browser values to `0` and does not provide a CLI-principal
-shortcut. The standard preparation task passes `--auth-mode browser-entra`; the separately named
+The standard VS Code compound sets both browser values to `0`; its supervisor passes one immutable
+expected mode to every child. The standard preparation task passes `--auth-mode browser-entra`; the separately named
 `console: start full stack (Azure CLI debug, Contributor)` task is the only VS Code task that
 passes `--auth-mode azure-cli`.
 Developer guidance points to those launch surfaces and warns that the fixed `Contributor` mode cannot validate `Approver` or `Owner` approval access.

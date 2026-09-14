@@ -53,10 +53,10 @@ def test_core_runtime_digest_includes_prompt_catalog() -> None:
 def test_console_launcher_uses_prepared_local_auth_mode() -> None:
     script = _RUN_SERVICE_SCRIPT.read_text(encoding="utf-8")
 
-    assert 'auth_mode_file="$repo_root/.fdai/local-console-auth-mode"' in script
+    assert 'expected_auth_mode="${FDAI_CONSOLE_EXPECTED_AUTH_MODE:-}"' in script
     assert 'VITE_LOCAL_AZURE_CLI_AUTH="$local_azure_cli_auth"' in script
     assert 'VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM="$local_azure_cli_auth"' in script
-    assert '"$auth_mode_file"' in script
+    assert "local-console-auth-mode" not in script
 
 
 def test_preparation_rejects_missing_opa_before_starting_dependencies(tmp_path: Path) -> None:
@@ -180,6 +180,7 @@ def _run_operator_restart(
         cwd=repo,
         env={
             **os.environ,
+            "FDAI_CONSOLE_EXPECTED_AUTH_MODE": "browser-entra",
             "FDAI_TEST_LAUNCH_DELAY": str(launch_delay),
             "FDAI_TEST_LAUNCH_EVENT": launch_event,
             "FDAI_TEST_ORDER_FILE": str(order_file),
@@ -284,7 +285,7 @@ set -euo pipefail
 
     started = time.monotonic()
     result = subprocess.run(  # noqa: S603 - fixed test script and executable.
-        [_BASH, str(start_script)],
+        [_BASH, str(start_script), "--auth-mode", "browser-entra"],
         cwd=repo,
         capture_output=True,
         text=True,
@@ -313,7 +314,7 @@ def test_supervisor_propagates_an_immediate_readiness_failure(tmp_path: Path) ->
     _write_executable(repo / ".venv/bin/python", "#!/usr/bin/env bash\nexit 7\n")
 
     result = subprocess.run(  # noqa: S603 - fixed test script and executable.
-        [_BASH, str(start_script)],
+        [_BASH, str(start_script), "--auth-mode", "browser-entra"],
         cwd=repo,
         capture_output=True,
         text=True,
@@ -328,7 +329,7 @@ def test_supervisor_propagates_an_immediate_readiness_failure(tmp_path: Path) ->
     assert "stage=readiness exit_code=7" in result.stderr
 
 
-@pytest.mark.parametrize("prepared_mode", [None, "unexpected"])
+@pytest.mark.parametrize("prepared_mode", [None, "unexpected", "azure-cli"])
 def test_supervisor_rejects_unprepared_auth_mode(
     tmp_path: Path,
     prepared_mode: str | None,
@@ -349,7 +350,7 @@ def test_supervisor_rejects_unprepared_auth_mode(
     )
 
     result = subprocess.run(  # noqa: S603 - fixed test script and executable.
-        [_BASH, str(start_script)],
+        [_BASH, str(start_script), "--auth-mode", "browser-entra"],
         cwd=repo,
         capture_output=True,
         text=True,

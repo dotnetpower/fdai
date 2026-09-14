@@ -21,7 +21,6 @@ if [[ $# -eq 2 ]]; then
 fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$repo_root"
-auth_mode_file="$repo_root/.fdai/local-console-auth-mode"
 local_azure_cli_auth=0
 readiness_seconds="${FDAI_CONSOLE_START_READINESS_SECONDS:-60}"
 if [[ ! "$readiness_seconds" =~ ^[1-9][0-9]*$ ]]; then
@@ -31,12 +30,8 @@ fi
 readiness_budget_seconds=$((readiness_seconds + 5))
 
 if [[ "$service" == "operator-api" || "$service" == "console-frontend" ]]; then
-  if [[ ! -f "$auth_mode_file" ]]; then
-    echo "missing prepared Console auth mode: $auth_mode_file" >&2
-    exit 1
-  fi
-  auth_mode="$(<"$auth_mode_file")"
-  case "$auth_mode" in
+  expected_auth_mode="${FDAI_CONSOLE_EXPECTED_AUTH_MODE:-}"
+  case "$expected_auth_mode" in
     browser-entra)
       local_azure_cli_auth=0
       ;;
@@ -44,7 +39,7 @@ if [[ "$service" == "operator-api" || "$service" == "console-frontend" ]]; then
       local_azure_cli_auth=1
       ;;
     *)
-      echo "invalid prepared Console auth mode: $auth_mode" >&2
+      echo "FDAI_CONSOLE_EXPECTED_AUTH_MODE must be browser-entra or azure-cli" >&2
       exit 1
       ;;
   esac
@@ -110,7 +105,6 @@ if [[ "$service" == "console-frontend" ]]; then
   digest_inputs=(
     "$source_root"
     "$project_file"
-    "$auth_mode_file"
     console/.env.local
     console/package-lock.json
     console/vite.config.ts

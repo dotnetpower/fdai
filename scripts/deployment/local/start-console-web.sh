@@ -122,4 +122,5 @@ fi
 FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION=1 \
   bash "$repo_root/scripts/deployment/local/prepare-console-full-stack.sh" \
   "${prepare_arguments[@]}"
-exec bash "$repo_root/scripts/deployment/local/start-console-services.sh"
+exec bash "$repo_root/scripts/deployment/local/start-console-services.sh" \
+  --auth-mode "$auth_mode"
