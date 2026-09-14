@@ -665,7 +665,9 @@ operation or rebuilds an undelivered candidate, while accepted-then-timeout repl
 operation/fingerprint collision fails closed.
 Before consumers start, PantheonRuntime queries exact `pending` operation and candidate fields, restores counts and candidates one bounded
 item at a time, and runs the same flush path used by typed handlers and public batch ticks. Terminal history cannot displace pending work
-from recovery, and exceeding the recovery bound fails explicitly. Every successful publish or deterministic hold advances durable delivery.
+from recovery, and exceeding the recovery bound fails explicitly. If a gate, bus, or rate limit keeps the current candidate queued,
+recovery pauses; the next flush publishes or holds that head and then continues with the next durable pending candidate. Every successful
+publish or deterministic hold advances durable delivery.
 
 ### 7.7 Conversational port MUST-NOT-Bypass rule
 

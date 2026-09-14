@@ -499,26 +499,21 @@ class Norns(Agent):
         self._candidate_publication_gate = gate
 
     async def _flush_candidates_unlocked(self) -> int:
-        """Publish newly-accumulated inert RuleCandidates onto the bus.
+        published = 0
+        for index in range(self._max_pending_candidates + 1):
+            if index == self._max_pending_candidates:
+                raise RuntimeError("Norns candidate recovery capacity exceeded")
+            published += await self._flush_candidate_batch_unlocked()
+            if not await self._issue_deduplicator.recover(self):
+                return published
+        raise RuntimeError("Norns candidate recovery loop ended unexpectedly")
 
-        Norns is the single writer of ``object.rule-candidate`` (it owns the
-        ``RuleCandidate`` object type), so it publishes each candidate its
-        learners produced for Mimir's ``CandidateGuard`` + the quality gate to
-        inspect. Publishing does NOT promote anything - candidates stay inert
-        data until the quality gate acts (architecture discovery loop). This
-        is off-path batch work: ``on_typed_message`` flushes after each
-        learner pass, and a batch tick / the sync learners' caller MAY call it
-        directly to drain override / coverage candidates.
+    async def _flush_candidate_batch_unlocked(self) -> int:
+        """Publish one queued batch and complete its durable delivery state.
 
-        Before publication, the internal Urd, Verdandi, and Skuld perspectives
-        must agree. A disagreement is removed from ``pending_candidates`` and
-        retained as a bounded aggregate hold record. A published candidate is
-        also removed once sent, so the buffer holds only proposals awaiting a
-        decision or bus capacity. Publication is rate-limited per the agent's
-        declared ``rate_limits`` (agent-pantheon.md 7.9): when the budget is
-        exhausted the flush stops and leaves the not-yet-sent candidates
-        queued, so a burst is throttled, never dropped. Returns the number of
-        candidates published on this call.
+        Consensus holds and successful publication consume candidates. A
+        disabled gate, missing bus, or rate limit leaves the current candidate
+        queued so the outer recovery loop stops until a later flush.
         """
         if self._candidate_publication_gate is not None and not self._candidate_publication_gate():
             self.record_behavior("rule_candidate_publication_disabled")

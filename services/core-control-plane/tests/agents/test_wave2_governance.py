@@ -1317,6 +1317,36 @@ def test_norns_public_flush_completes_durable_candidate_delivery() -> None:
     assert restarted.pending_candidates == []
 
 
+def test_norns_public_flush_recovers_candidates_behind_blocked_head() -> None:
+    store = InMemoryStateStore()
+    seed = Norns(promotion_threshold=1, issue_state_store=store)
+    for cohort in range(2):
+        asyncio.run(
+            seed.on_typed_message(
+                "object.issue",
+                {
+                    "fingerprint": f"blocked-fingerprint-{cohort}",
+                    "idempotency_key": f"handoff:blocked-{cohort}",
+                },
+            )
+        )
+    assert len(seed.pending_candidates) == 2
+
+    bus = InMemoryBus(registry=load_pantheon())
+    enabled = [False]
+    restarted = Norns(promotion_threshold=1, issue_state_store=store)
+    restarted.bind_bus(bus)
+    restarted.bind_candidate_publication_gate(lambda: enabled[0])
+    assert asyncio.run(restarted.recover_issue_learning()) == 1
+    assert asyncio.run(restarted.flush_candidates()) == 0
+    assert len(restarted.pending_candidates) == 1
+
+    enabled[0] = True
+    assert asyncio.run(restarted.flush_candidates()) == 2
+    assert restarted.pending_candidates == []
+    assert len(bus.messages_on("object.rule-candidate")) == 2
+
+
 def test_norns_durable_issue_operation_rejects_fingerprint_collision() -> None:
     store = InMemoryStateStore()
     norns = Norns(issue_state_store=store)
