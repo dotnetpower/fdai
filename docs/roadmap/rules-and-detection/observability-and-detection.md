@@ -41,72 +41,8 @@ are synthetic.
   within-threshold sample records observation evidence only. An Incident can open only after
   a detector emits a bounded, grounded finding and `IncidentLifecycleWorkflow` rechecks the
   allowed agent principal, correlation keys, reason, and member-event evidence.
-- A repeated-event burst is an anomaly, not automatic Incident authority. Heimdall always records
-  the bounded anomaly, but it can hand off an Incident candidate only when the normalized Event
-  declares `incident_correlation=correlate`, carries a non-empty correlation id and evidence key,
-  and meets the configured minimum severity. Huginn stamps ingestion time from its trusted UTC
-  clock and preserves a valid source event time only when it is no later than that boundary;
-  producer-supplied ingestion time cannot widen it. Heimdall evaluates source time instead of
-  delivery speed; delayed historical replay cannot appear as a current burst, and a future-dated
-  event cannot evict valid history. Legacy Events without source time use arrival time in a separate episode.
-  Every event in one repeated-event burst belongs to the same non-empty correlation episode; events
-  from independent episodes never satisfy one another's threshold or interrupt their independent accumulation. The burst severity is the most severe
-  recorded value in that bounded window, not the
-  value on whichever Event arrived last. Every Event that satisfies the threshold contributes its
-  stable evidence key to the candidate and the resulting Incident member set. An accepted episode
-  emits no duplicate candidate while matching events continue, although a more severe observation
-  can update the same episode. After a quiet interval longer than the repeat window, the next burst
-  receives a new opaque episode id, so a resolved or closed earlier Incident cannot absorb the
-  recurrence. If Heimdall restarts during an active Incident, the registry requires the exact
-  non-episode correlation-key set and reuses that active record rather than opening a duplicate.
-  A broader manual correlation cannot capture the detector episode.
-  Events marked
-  `incident_correlation=none`, including
-  inventory and discovery changes, never open an Incident. The default automatic-open minimum is
-  `high`; an unclassified burst remains `medium` and stays an anomaly. If anomaly publication or
-  the lifecycle handoff fails, Heimdall retains that bounded episode window and retries only when
-  the next matching Event arrives; it does not create an unbounded background retry loop. The
-  handoff reports `accepted` or `held`, and Heimdall records those outcomes separately so a policy
-  hold is never counted as a successful Incident candidate. A more severe recurrence for an open
-  Incident raises its severity through an append-only `incident.severity` row; a recurrence never
-  lowers severity, replay reconstructs the same monotonic result, and the committed escalation
-  emits a deduplicated A2 lifecycle notice. Direct candidate text and
-  evidence keys are capped at 512 characters, and one candidate carries at most 100 evidence keys;
-  oversized input is held before lifecycle or audit writes.
-- Analyzer findings are already bounded detector outputs, not raw inventory changes. The deployed
-  one-minute Job and the managed local analyzer loop evaluate on the same start-to-start cadence.
-  The local loop subtracts tick duration from its next delay instead of adding execution time to the
-  schedule. Both publish at most one Event per resource, signal, and one-minute source-observation
-  bucket. The key uses the Finding's `occurred_at`, not scheduler time, so repeated polling of one
-  unchanged sample remains one Event. A UUID5 over the typed resource, signal, and bucket tuple
-  keeps this idempotency key bounded and prevents delimiter ambiguity. Those Events share an opaque resource-and-signal correlation identity and declare
-  `incident_correlation=correlate`.
-  The five-minute analysis window remains separate from publication idempotency, so five distinct
-  observations can meet the existing `5 events / 300 seconds` repeat gate. Exact retries keep the
-  same key, and Heimdall counts each non-empty evidence key at most once in an episode. A duplicate
-  delivery can retry a threshold whose anomaly publication or lifecycle handoff did not complete,
-  but it cannot increase the count. The resulting `object.anomaly` uses one bounded idempotency key
-  per episode and severity, so a handoff retry does not duplicate downstream judgment. The existing
-  minimum-severity policy still holds medium and lower findings by default. A Finding with a future
-  or timezone-naive observation time is rejected before Event publication, so receipt validation
-  cannot fail after an unaccounted broker side effect. The same pre-publication check covers
-  bounded, unique evidence references and typed assessment metadata. An inventory-backed
-  target keeps its ontology `Resource.id` as the analyzer and Event identity. At the delivery
-  boundary, the tick reads the exact `provider_ref` from the active inventory snapshot and rewrites
-  only the metric query's `resource_id` label. A missing, mismatched, or ambiguous provider
-  reference fails the tick. A configured target carries the logical `resource_id` separately from
-  the optional exact `provider_resource_id`. A legacy Azure ID in `resource_id` is reverse-resolved
-  in the same active inventory generation and collapsed with its discovered logical Resource.
-  Missing, ambiguous, kind-conflicting, or cross-generation reconciliation fails the tick.
-  Metric-backed explicit-only operation without inventory requires both identities. Evidence-backed
-  non-metric targets retain only their logical identity. Provider failures retain the metric name
-  but redact the provider reference, which never enters a Finding, receipt, Incident, or serialized
-  analyzer error. The
-  default analyzer does not treat Azure Managed Prometheus's cluster-name alias as this exact
-  identity; it remains on Azure Monitor Logs unless composition supplies PromQL that preserves an
-  exact `resource_id` label. A Prometheus response missing a requested identity label fails instead
-  of becoming an empty healthy series. Azure composition compares the exact ARM `resource_id`
-  case-insensitively while every other Prometheus label remains exact and case-sensitive.
+- A repeated-event burst is an anomaly, not automatic Incident authority. Candidate handoff requires `incident_correlation=correlate`, non-empty correlation and evidence keys, and the configured minimum severity; `none` never opens an Incident. Huginn stamps trusted UTC ingestion and accepts only source time no later than that boundary, so replay or future time cannot manipulate Heimdall's bounded episode. Distinct evidence keys count once, burst severity is monotonic, and one accepted episode suppresses duplicate candidates while allowing a more-severe update. A quiet interval creates a new opaque episode; restart reuses only an active Incident with the exact non-episode correlation keys. Failed publication or handoff retries only on a matching Event, with `accepted` and `held` kept distinct. Candidate text, evidence count, and lifecycle notices remain bounded and append-only.
+- Analyzer findings are bounded detector outputs. Deployed and local loops use the same fixed-rate cadence and publish one retry-stable Event per logical Resource, signal, and one-minute `occurred_at` bucket; the five-minute analysis window remains independent. UUID5 keys, distinct evidence, and one anomaly key per episode and severity prevent polling, replay, and handoff retries from multiplying judgment. Future or timezone-naive findings, malformed evidence, partial target coverage, and publication or receipt failures fail before a clean result. Inventory-backed analysis preserves ontology `Resource.id`; an exact active-snapshot provider reference scopes only the metric query and never enters Finding, receipt, Incident, or serialized error evidence. Configured and legacy provider identities reconcile within one inventory generation or fail closed, and inventory-free metric targets require both identities. Prometheus is eligible only when composed queries and responses preserve the exact requested identity; otherwise Azure Monitor Logs remains the path.
 - Heimdall bounds retained repeated-event episodes globally and per resource. A correlation flood
   from one resource evicts only that resource's oldest episode before it can displace another
   resource's partially accumulated evidence.

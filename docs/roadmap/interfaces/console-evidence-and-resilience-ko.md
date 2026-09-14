@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: a4a0d62ab5882b4d1c7fb57ae33908568abeffb0
+translation_source_sha: c68a1d0defef57cc8ffb733566f43f08f6a29ab2
 translation_revised: 2026-09-14
 ---
 # 콘솔 근거 및 복원력
@@ -76,30 +76,7 @@ Integrations는 sandboxed iframe으로 incident-open 이메일도 렌더링합�
 엔드포인트는 Azure Communication Services 이메일이 사용하는 동일한 운영 렌더러를 호출하고
 합성 자리 표시자만 제공합니다. 미리 보기는 런타임 인시던트, 엔드포인트, recipient 또는 신원 값을
 노출하지 않으며 전송, 승인 또는 실행 컨트롤을 제공하지 않습니다.
-Operations는 `/detection-coverage`에서 `감지 커버리지`를 제공하고
-`/detection-readiness`를 브라우저 및 API 호환 별칭으로 유지합니다. 이 경로는 최신 버전의
-분석기 실행 증적, 여러 실행에 걸쳐 보존된 발견 사항 이력 및 선택형 Kubernetes 근거를 결합합니다.
-
-커버리지 화면은 후보에서 평가까지 이어지는 간결한 흐름을 먼저 보여 주고 보류 수와 오류 수를
-별도로 유지합니다. 최신 시도와 최근 성공한 분석기 실행의 시각을 합치지 않고 비교합니다. 정확한
-리소스 유형별 수치는 데스크톱 표와 모바일 카드에서 확인할 수 있으며 모바일에서는 전체 표를 접힌
-상세 정보로 제공합니다. 기술 출처 ID와 절대 시각은 출처 상세 정보에 둡니다.
-`evaluated_no_finding`은 발견 사항 없이 분석을 마쳤다는 뜻일 뿐 정상 또는 준비 완료가 아닙니다.
-
-리소스 화면은 API gateway, Kubernetes cluster, LLM endpoint, MySQL server 및 Application
-Gateway를 다룹니다. 검색, 리소스 유형 및 평가 상태 필터, 주의 필요 항목 우선 정렬, 선택한 리소스
-ID를 URL에 보존하므로 새로 고침과 뒤로 및 앞으로 이동 후에도 상태가 유지됩니다. 보류 이유와 범위가
-제한된 오류 코드는 운영자가 이해할 수 있는 이름으로 표시하고 정규 값은 기술 상세 정보에
-유지합니다. Kubernetes 6축 준비도는 정확히 일치하는 리소스에만 표시합니다. Pod 수명 주기는 현재
-범위의 별도 접힌 상세 정보이며 선택한 클러스터와 정확히 연결된 것으로 나타내지 않습니다.
-
-발견 사항 화면은 최신 시도와 별도로 보존된 증적 수, 보존 상한, 가장 오래된 증적 및 시작일과
-종료일을 포함하는 날짜 구간을 보여 줍니다. 검색, 근거 상태, 전달 상태 및 날짜 필터는 보존된 근거를
-변경하지 않습니다. 복구 용어는 Kubernetes Pod 발견 사항에만 표시합니다. 브라우저는 리소스를 직접
-탐색하거나 분석기 종류를 역추정하거나 여러 실행의 이력을 최신 실행에 귀속하거나 판정을 만들지
-않습니다. 리소스 행은 아키텍처로, 준비도 승격 수치는 승격 gate로 연결됩니다. 성공한 HTTP 응답이
-엄격한 디코딩을 통과하지 못하면 알 수 없는 상태를 측정되거나 적용된 상태로 취급하지 않고 오류를
-표시합니다.
+Operations는 `/detection-coverage`에서 감지 커버리지를 제공하고 `/detection-readiness`를 호환 별칭으로 유지합니다. 이 경로는 최신 시도, 최근 성공한 실행, 보존된 발견 사항 및 정확한 리소스의 선택형 Kubernetes 근거를 분리합니다. 필터와 선택은 URL에 유지하고 정규 사유는 기술 상세에 보존합니다. 브라우저는 성공 응답에서 리소스 상태, 준비도, 커버리지 또는 권한을 추론하지 않습니다.
 Server-pinned drift 맥락이 있으면 GET-only 구성 기준선 경로가 신원, 수명 주기, drift, Knowledge 인용, topology, 지연 시간, 예약 검토, 네 안전성 counter를 fresh 읽기로 표시합니다.
 연결 또는 campaign 부재는 사용 불가이나 `not-configured`로 보고하며 진행 상황을 만들지 않고 malformed 데이터를 strict하게 거부하며 in-scope 변경할 수 없는 버전 비교와 failed-attempt 개수를 읽습니다. SPA는 activation, 재개, 예약 생성, 승인, 완화, 리소스 변경을 노출하지 않고 evidence-run, 재개, 청사진 검토, 구체화는 별도 인증된 경로를 사용합니다.
 운영은 mounted JSON/DOCX 쌍, 읽기 전용 Managed Identity, exact resource-group 허용 목록을 시작에서 검증한 뒤 패널을 노출합니다. Operator API는 실행기 신원을 받지 않습니다.
@@ -522,17 +499,7 @@ Cross-origin direct-upload 대상에는 내용 헤더를 보내지만 Operator A
 
 ## 스트림 복구 및 authentication
 
-인증된 모든 GET-SSE 소비자는 parsing, 비활성 timeout, reconnect, visibility 및 엔드포인트가
-발급한 불투명 커서를 처리하는 하나의 범위가 제한된 브라우저 transport를 사용합니다. Parser는
-기본적으로 대기 중인 프레임을 256 KiB로 제한하고 여러 `data` 줄과 모든 SSE 줄바꿈 형식을
-수락하며 소유 decoder가 프레임을 수락한 뒤에만 resumable 커서를 진행합니다. 커서에 한정된
-`400` 또는 `416`만 커서를 지우고 한 번 다시 시도하며, 인증 및 요청 제한 응답은 커서를
-보존합니다. 거부된 프레임은 재연결 backoff를 초기화하지 않습니다. 로컬 공유 버퍼에서 제거된
-프레임은 wire 손실로 보고하지 않으며, 서버가 보고한 누락은 재개할 수 없는 에이전트 스트림에서도
-계속 표시합니다.
-Live, agent, provisioning, ontology invalidation, incident attention 및 access-grant attention은
-각자의 visibility, authentication, cursor, buffer 및 cross-tab 정책을 유지합니다.
-POST/request 범위 대화 스트림은 분리된 상태를 유지합니다.
+인증된 GET-SSE 소비자는 범위가 제한된 parsing, 비활성 timeout, 재연결 및 커서 처리를 공유합니다. Decoder가 프레임을 수락한 뒤에만 커서를 진행하며 커서 전용 `400` 또는 `416`만 커서를 지웁니다. 인증, 요청 제한 및 거부된 프레임은 커서와 backoff를 보존합니다. 서버의 누락 안내는 표시하지만 로컬 cache 제거는 wire 손실이 아닙니다. 소비자별 visibility와 탭 정책은 분리하고 요청 범위 대화 스트림은 별도 경로를 유지합니다.
 
 Command Deck 조사 활동에는 선택적인 관찰된 실행 근거가 포함될 수 있습니다. 서버는 발행 전에 자격 증명과 민감한 식별자를 제거하고 `redacted=true`를 설정하며, 브라우저는 이 확인이
 없는 입력 근거를 폐기합니다. `input_kind=command`는 기록된 프로세스 호출이 필요하며 exit
@@ -591,25 +558,9 @@ Web 작성기는 선택, 폐기 및 clipboard paste raster를 동일한 범위�
 Turn이 검증된 inline 이미지 첨부를 carry하면 스트리밍 경로는 서술기가 작성하기 전에 읽기 전용 `vision_analyzing`을, 답변 전에 `vision_grounded`를 발행하며, 각 프레임은 이미지 출처 미리 보기(이름, media 타입, 크기)를 포함하되 base64 페이로드는 절대 포함하지 않습니다.
 해당 턴은 vision 지원 서술기로 escalate되고, 답변 준비 trace는 이 단계를 웹 검색 grounding과 동일하게 렌더링합니다.
 
-Live 단계, 소스 준비 상태 및 권한이 없는 operational activity 프레임은 인증된 브라우저
-컨텍스트마다 하나의 물리 `/live/stream` 연결을 공유합니다. 커서가 없는 현재 스냅샷은 delta
-연속성을 진행하지 않습니다. Delta만 Operator가 발급한 `epoch:sequence` 커서를 전달하며 queue
-또는 replay window 손실은 다음 생존 delta에 표시됩니다. 범위가 제한된 in-tab cache는 늦게
-참여한 Live 경로에 검증된 현재 프레임을 재생하고 leader 인계 중 수락된 커서를 유지합니다.
-Rule catalog, ARG 기록 리소스 합계, analyzer 실행 및 rule finding 요약은 독립 GET projection으로
-유지되며 Console은 catalog 크기로 평가 범위를 추론하지 않습니다. 에이전트 상태는
-`/agents/stream`에 남고 보존된 operational 이력은 명시적인 Agent Activity 읽기에서만 가져옵니다.
+Live 단계, 준비 상태 및 권한이 없는 활동은 인증된 `/live/stream` 하나를 공유합니다. 스냅샷은 Operator 발급 delta 커서를 진행하지 않으며, 범위가 제한된 cache는 독립 GET 변환 결과를 대체하지 않고 늦은 로컬 구독자에게 현재 프레임을 제공합니다. 에이전트 상태와 보존 이력은 별도 경로와 권한을 유지합니다.
 
-Interactive Live 구독자는 tab이 hidden 상태일 때 유휴 상태를 보고합니다. Shell의 인시던트,
-액세스 권한 및 Operator가 활성화한 브라우저 notification 소비자는 Web Locks를 사용해 same-origin 탭의
-각 채널에서 principal 범위로 한정된 읽기 담당 하나를 선출합니다. 인시던트 및 액세스 권한 leader는
-검증된 스냅샷을 `BroadcastChannel`을 통해 follower 탭으로 보내므로 각 shell은 중복 SSE 연결을 열지
-않고 attention 상태를 유지합니다. Notification leader는 background에서 인증된 실제 운영 읽기 담당을
-유지합니다. 이 고정 연결 예산은 HTTP/1.1에서 일반 Operator API 요청에 필요한 용량을 남깁니다.
-Notification leader는 기존 capped 재시도 대기로 authentication 실패를 재시도하며, notification 권한
-또는 principal 범위로 한정된 명시적 선택이 제거되면 즉시 중지합니다. 재생이 아닌 프레임의 사람 승인,
-거부, 실패 결과만 발행합니다. Shared 브라우저 원장은 여러 tab에서 같은 이벤트 tag를 5분 동안 억제하고
-system notification 전달을 분당 5건으로 제한하지만 감사 또는 인시던트 근거는 제거하지 않습니다.
+Interactive Live 구독자는 tab이 hidden 상태일 때 유휴 상태를 보고합니다. Shell의 인시던트, 액세스 권한 및 Operator가 활성화한 브라우저 notification 소비자는 Web Locks를 사용해 same-origin 탭의 각 채널에서 principal 범위로 한정된 읽기 담당 하나를 선출합니다. 인시던트 및 액세스 권한 leader는 검증된 스냅샷을 `BroadcastChannel`을 통해 follower 탭으로 보내므로 각 shell은 중복 SSE 연결을 열지 않고 attention 상태를 유지합니다. Notification leader는 background에서 인증된 실제 운영 읽기 담당을 유지합니다. 이 고정 연결 예산은 HTTP/1.1에서 일반 Operator API 요청에 필요한 용량을 남깁니다. Notification leader는 기존 capped 재시도 대기로 authentication 실패를 재시도하며, notification 권한 또는 principal 범위로 한정된 명시적 선택이 제거되면 즉시 중지합니다. 재생이 아닌 프레임의 사람 승인, 거부, 실패 결과만 발행합니다. Shared 브라우저 원장은 여러 tab에서 같은 이벤트 tag를 5분 동안 억제하고 system notification 전달을 분당 5건으로 제한하지만 감사 또는 인시던트 근거는 제거하지 않습니다.
 
 에이전트 활동 경로는 shared 에이전트 스트림을 열기 전에 범위가 제한된 영속 인벤토리 검사,
 온톨로지 변환 및 현재 상태 읽기 기록을 불러옵니다. 정확한 activity id로 재생과 실제 운영 전달을

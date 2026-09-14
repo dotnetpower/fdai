@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: cf64cc2895f1724c10b0e7f457bf3fac42b3e5db
+translation_source_sha: 28a7dc7dd85b65972c374a5fe436498a9ef656f5
 translation_revised: 2026-09-14
 ---
 # 프로젝트 구조
@@ -46,11 +46,6 @@ translation_revised: 2026-09-14
   `core/`와 `shared/`를 조립하고 `composition/`이 모든 계층을 연결합니다. `core/`와 `agents/`는
   `delivery/`를 가져오기하지 않으며 provider 동작은 shared Protocol과 composition으로 진입합니다.
   집중 sibling 모듈은 canonical identity 투영과 hashing을 소유할 수 있으며 기존 소유 모듈은 해당 공개 표면을 다시 내보냅니다. 멱등성 예약의 안정된 작업 비교도 이 분리를 따르며 직렬화 바이트, 전이 검증, replay 의미는 바뀌지 않습니다. 버전이 있는 최종 측정 계약도 같은 서비스 경계를 따릅니다. Core는 정규화 이벤트의 분류를 감사 기록과 원자적으로 보존하고, Operator는 Core를 가져오거나 분류를 실행 및 효과 권한으로 해석하지 않고 읽습니다. 중복 확인 응답은 일치하는 보존 기록을 요구하며, 충돌 때문에 원래 분류를 조용히 대체하거나 버리지 않습니다. 측정 시각에는 시간대가 명시된 datetime 또는 ISO 8601 문자열을 사용하고 숫자를 암묵적으로 epoch 시각으로 바꾸지 않습니다.
-- **운영 활동은 계약에 연결된 상태를 유지**: 공유 서비스 계약 SDK는 권한이 없는 `1.3.0`
-  활동 형식과 런타임 호출 대응 신원을 소유합니다. Core 전달 계층은 정규화된 근거를 생산하고,
-  Operator는 범위가 제한된 영속 스냅샷을 초기화한 뒤 커서가 있는 SSE 변경분을 중계하며,
-  Console은 이를 해석하고 지역화만 합니다. 이 호스트 조립으로 System Knowledge 또는 다른
-  서비스가 구현을 가져오거나 쓰기 역할 또는 실행 권한을 얻지 않습니다.
 - **사람 승인 권한은 서비스별로 분리**: Operator는 Teams/Slack 인증, 암호화 검증, 콜백 감사 및
   영속 결정 보낼 편지함을 소유합니다. Core는 형식화된 결정 이벤트만 소비하고 워크플로 슬롯은
   레지스트리로, 액션 park는 HIL 코디네이터로 라우팅합니다. Operator 패키지는 로컬 JWT/JWK
@@ -523,10 +518,6 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
 | **LLM 계량(metering)** | `MeteringSink` / `MeteringReader` (`core/metering/sink.py`); `MeteringEmitter`가 명시적인 `control_plane` 또는 `operator_chat` 범위와 함께 프로바이더가 측정한 `usage`를 기록 | - | 단일 프로세스 dev 실행 장치는 하나의 `InMemoryMeteringSink`를 공유합니다. T1, T2, 서술기 어댑터가 측정된 토큰을 발행합니다. 독립적인 Operator 서비스는 `GET /kpi/llm-cost`를 유지하고 SELECT-only 역할로 영속 `llm_invocation` 행을 읽으며 상세를 제한하되 token-only 집계는 정확하게 유지합니다. Interactive 로컬은 준비된 권위 있는 입력에서 정제된 인벤토리와 Settings 변환 결과를 별도로 materialize합니다. | 설정된 가격은 내부 예산 컨트롤에 남고 프로바이더 지출로 변환 결과되지 않으며, 누락된 프로바이더는 synthetic 대신 사용 불가 상태를 유지합니다. |
 | **Infra 모듈** | `infra/modules/<seam>/` (Terraform 서브-모듈, `var.<seam>_kind` 로 선택) | - | Container Apps + PostgreSQL Flex + Event Hubs Kafka + Key Vault + Log Analytics | [csp-neutrality-ko.md § 승인된 대안 Azure 구현](csp-neutrality-ko.md#승인된-대안-azure-구현approved-alternative-azure-implementations) 에 따라 다른 서브-모듈 선택; 모듈의 출력 계약은 고정 유지 |
 
-Azure Prometheus composition은 정확한 ARM `resource_id` 레이블만 대소문자 구분 없이
-비교합니다. 다른 메트릭 레이블은 모두 대소문자를 구분하며, 요청한 신원 레이블이 없으면 빈
-정상 시계열을 만들지 않고 실패합니다.
-
 모든 경계가 주입되는 인터페이스이므로 고객 추가나 두 번째 클라우드는 구현 등록 문제입니다 -
 위의 엄격한 단방향 의존 방향이 보존됩니다.
 
@@ -619,17 +610,8 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
   `core-operator-projection` 1.4는 닫힌 사회적 의도를 전달하는 타입 지정 `direct_response`
   최종 처리 결과를 추가합니다. 범위가 제한된 텍스트는 스키마로 검증된 의미 판단 모델에서 오며
   조회 digest, 근거 참조, 검증 주장 또는 권한을 포함하지 않습니다.
-  Operator는 `incident_id`와 `correlation_id`가 모두 있는 경우에만 바인딩된 인시던트 맥락을
-  수락하므로 일부 신원만 있는 요청이 바인딩되지 않은 의미 전환으로 낮아지지 않고 거부됩니다.
   바인딩된 인시던트 읽기 경로는 canonical `incident_id`와 감사 `correlation_id`를 서로 다른
-  `query.incident_evidence` 인자로 전달하고 두 신원을 권한 없는 결과에 모두 보존합니다. 수락된
-  바인딩 인시던트 intent는 추가 모델 호출 없이 frame과 plan을 결정론적으로 구성합니다. 그 밖에
-  인시던트 frame 모델이 필요한 경로에는 `Incident`와 `query.incident_evidence` 서술자만
-  전달하며, 최종 plan 검증에서는 전체 principal 매니페스트를 계속 권위 있는 기준으로 사용합니다.
-  감지기가 생성한 Incident는 출처 상관관계와 범위가 제한된 에피소드 신원을 분리합니다.
-  레지스트리는 에피소드 외 키 집합이 정확히 일치할 때만 관측기 재시작 중 활성 상관관계 계열
-  하나를 재사용합니다. 더 넓은 수동 상관관계는 이를 흡수할 수 없고, 침묵 구간 뒤의 재발은
-  해결되거나 종료된 Incident에 흡수되지 않습니다.
+  `query.incident_evidence` 인자로 전달하고 두 신원을 권한 없는 결과에 모두 보존합니다.
   리소스 검색도 불변 `DiscoveryIntent`, `DiscoveryQueryPlan`, 프로바이더 관찰, 실행 증적,
   명령 설명 및 커버리지 증적을 분리합니다. Core는 프로바이더 중립 범위, 조건식, 출력,
   완전성 및 동등성 필드만 비교하며 Azure 프로파일 메타데이터와 등록된 명령 렌더링은

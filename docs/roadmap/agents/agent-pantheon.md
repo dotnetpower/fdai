@@ -27,9 +27,7 @@ in [architecture.instructions.md](../../../.github/instructions/architecture.ins
 - **Agent-driven, ontology-constrained.** Agents own every state transition. The ontology validates
   target identity, relationships, evidence freshness, allowed actions, and expected effects, but a
   graph result never judges, approves, executes, or raises authority.
-- **Closed-loop operation.** Every accepted signal follows accountable ownership through observe,
-  understand, decide, plan, authorize, execute, verify, recover, and learn. Broker acceptance or an
-  API success is not an operational outcome; independent observation closes the loop.
+- **Closed-loop operation.** Every accepted signal follows accountable ownership through observe, understand, decide, plan, authorize, execute, verify, recover, and learn. Broker acceptance or an API success is not an operational outcome; independent observation closes the loop.
 - **Autonomy before escalation.** Missing evidence triggers bounded reacquisition, alternate-source
   checks, deterministic reevaluation, smaller safe plans, no-op, or rollback before human review.
   Var requests a person only for residual ambiguity, policy-mandated approval, or risk outside
@@ -333,8 +331,6 @@ ownership](../architecture/operating-ontology.md#agent-ownership) for the curren
 
 The pantheon uses the existing `EventBus` wire: Kafka on Event Hubs `:9093`, or the in-process local adapter. Heimdall emits Drift only after one readiness pass has all six dimensions; Muninn accepts only a strictly newer snapshot.
 Huginn stamps ingestion time from its own timezone-aware UTC clock and never trusts a producer timestamp for that boundary. A repeated-event episode counts each non-empty Event `idempotency_key` at most once and uses a validated source event time no later than trusted ingestion when present, so at-least-once delivery, delayed replay, or a future timestamp cannot manipulate Heimdall's threshold. A duplicate may retry a threshold whose publication or lifecycle handoff has not completed, without adding another count. Each anomaly publication has one bounded key per episode and severity, so that retry remains idempotent downstream. One accepted episode emits no same-severity candidate until a quiet repeat window resets it; the next episode receives a distinct opaque identity so a closed Incident does not absorb a recurrence.
-If Heimdall restarts while that Incident remains active, the Incident registry reuses the one
-matching non-episode correlation family instead of opening a duplicate.
 A best-effort `AgentHandlerObserver` reports handler lifecycle without changing delivery, judgment, or execution. Local composition publishes to SSE; deployed composition publishes `started`, `completed`, and `failed` onto the shared stage topic for Operator API relay. Observation covers only the 15 registered agents; internal framework principals that subscribe through the same bridge project no agent activity and their delivery is unaffected. One such principal is `recovery-effect-observer`, a dedicated consumer group that carries the versioned `workflow.recovery.effect_observed.v1` observation to the workflow recovery intake. It owns no object type and publishes nothing. An external observation is not self-delivering: Huginn normalizes the raw signal onto `object.event`, and Heimdall - the terminal effect observer - proves Huginn produced it, relays the bounded declared fields onto the `object.recovery-effect-observation` topic it owns, and lets this consumer group read only that topic. The relay keeps the evidence on an observer-owned path the sole privileged executor can never publish to, and the intake re-authenticates the `producer_principal` the bus stamped before persisting anything. Heimdall's relay proves provenance and shape only; it verifies no effect and grants no authority.
 ### 6.1 Typed port
 

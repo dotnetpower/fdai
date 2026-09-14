@@ -258,35 +258,7 @@ startup-bound. The headless runtime loads durable effective values. An embedded 
 the same validated environment, defaults, and accepted-versus-held handoff outcome instead of a
 separate fixed severity or window.
 
-Detection coverage uses the same boundary. Deployment and interactive local read analyzer-run receipts, retained findings, and optional Kubernetes projections from PostgreSQL; local registers `/detection-coverage` and its `/detection-readiness` compatibility alias only with local PostgreSQL. The managed full-stack supervisor starts the
-standard local analyzer loop, which serially reuses the deployed one-shot CLI, inventory targets,
-metrics, events, shadow posture, typed Pod lifecycle evidence binding, and durable publication
-ledger. For inventory-backed targets, both venues read the exact provider reference from the active
-service-owned inventory snapshot only for metric-query scope. Analyzer output, finding Events,
-receipts, and Incidents retain the logical ontology `Resource.id`, and a missing or mismatched
-provider reference stops the tick. Explicit targets encode that logical `resource_id` separately
-from the optional exact `provider_resource_id`. A legacy Azure resource ID supplied as
-`resource_id` is reconciled to the active logical resource in one inventory generation and
-collapsed with the same discovered resource. Missing, ambiguous, kind-conflicting, or
-cross-generation reconciliation fails closed. A metric-backed explicit target without inventory
-must provide separate logical and provider identities and cannot publish an Azure resource ID as
-the Event target. Evidence-backed non-metric targets retain their logical identity without
-inventing a provider identity. Both venues keep a one-minute start-to-start cadence; the local
-serial loop subtracts tick execution time from the next delay rather than drifting behind the
-deployed cron. Neither venue treats Azure Managed Prometheus's cluster-name alias as an exact
-inventory identity. Analyzer Prometheus routing requires an explicitly composed query catalog that
-preserves the exact `resource_id`; otherwise Azure Monitor Logs remains the analyzer path. Both venues separate the five-minute analysis window from the one-minute observation publication key. They claim that same retry-stable key before publication
-and suppress a repeat only after a broker acknowledgement is recorded. They release a claim only when the bus
-attests that the record was provably not sent and otherwise hold it uncertain for reconciliation, so neither venue republishes an ambiguous
-send. They preserve their existing local developer identity versus deployed workload identity and transport security. Readiness separates
-scheduling, discovery, metric, publication, and source-delay state, and full-stack readiness now
-requires the analyzer loop process and a clean first tick from its latest managed start alongside
-inventory reconciliation and observation campaign. A stale ready marker from an earlier process
-cannot satisfy this gate. A failed local tick clears readiness and retries on the next fixed-rate
-interval instead of terminating the long-running loop. Target-resolution and provider-snapshot
-outages, tick deadlines, and run-receipt persistence outages follow the same unready retry path;
-configuration and programming errors still terminate visibly. A bounded loop run still returns its
-final tick's failure status.
+Detection coverage uses the same boundary. Both venues read analyzer runs, retained findings, and optional Kubernetes evidence from PostgreSQL; local exposes the same coverage route and readiness alias only when that store is bound. The managed local loop reuses the deployed one-shot CLI, logical Resource identities, fixed-rate cadence, publication ledger, and shadow posture. Provider identity is metric-query scope only, and missing or conflicting identity stops the tick. Both venues separate the five-minute analysis window from one-minute publication identity and suppress retries only after broker acknowledgement. Readiness requires the current loop and its first clean tick; transient source failures retry unready, while configuration and programming errors terminate.
 
 The standard full-stack launch keeps narrator endpoint reconciliation enabled. Its independent
 Operator Service binds a local-only narrator adapter only for `RUNTIME_ENV=dev`, reads

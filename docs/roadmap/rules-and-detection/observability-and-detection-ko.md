@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 598452a5d58f7c3bb3bbb06f96abb33b1f1a31e3
+translation_source_sha: bdd1bdef354f107a5eca1395d815efb05bb184e0
 translation_revised: 2026-09-14
 ---
 
@@ -44,67 +44,8 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
   within-threshold 샘플은 관측 근거만 기록합니다. Detector가 범위를 제한하고
   근거에 기반한된 발견 사항을 발행하고 `IncidentLifecycleWorkflow`가 allowed 에이전트 principal,
   상관관계 키, 사유, member-event 근거를 다시 확인한 뒤에만 인시던트가 열립니다.
-- Repeated-event burst는 anomaly이며 자동 인시던트 권한이 아닙니다. Heimdall은 범위가 제한된
-  anomaly를 항상 기록하지만 정규화된 Event가 `incident_correlation=correlate`를 선언하고,
-  비어 있지 않은 상관관계 ID와 근거 키를 가지며, 설정된 최소 심각도를 만족할 때만
-  인시던트 후보를 전달할 수 있습니다. Huginn은 신뢰하는 UTC 시계로 수집 시각을 기록하고 해당
-  경계보다 늦지 않은 유효한 출처 Event 시각만 보존합니다. 생산자가 제공한 수집 시각은 이
-  경계를 넓힐 수 없습니다. Heimdall은 전달 속도가 아니라 이 시각으로 구간을 평가하므로 지연된
-  과거 재생이 현재 burst처럼 보이지 않고, 미래 시각 Event가 유효한 이력을 조기에 축출할 수
-  없습니다. 출처 시각이 없는 이전 Event는 별도 에피소드에서 도착 시각을 사용합니다. 하나의
-  repeated-event burst에 속한 모든 Event는 동일한 비어 있지 않은 상관관계 에피소드에 속해야 하며
-  독립 에피소드의 Event는 서로의 임계값을 충족하거나 독립적인 누적을 방해하지 않습니다. Burst 심각도는 마지막에 도착한 Event 값이 아니라
-  범위가 제한된 구간에 기록된
-  값 중 가장 심각한 값입니다. 임계값을 충족한 모든 Event의 고정된 근거 키는 후보와
-  결과 인시던트 구성원 집합에 포함됩니다. 수락된 에피소드에 같은 Event가 계속 들어오면 후보를
-  다시 만들지 않지만 더 심각한 관측은 같은 에피소드를 갱신할 수 있습니다. 반복 구간보다 긴
-  침묵 뒤의 새 burst에는 새 불투명 에피소드 ID를 부여하므로 해결되거나 종료된 이전 Incident가
-  재발을 흡수할 수 없습니다. 활성 Incident 도중 Heimdall이 다시 시작되면 레지스트리는 에피소드
-  키를 제외한 상관관계 키 집합이 정확히 일치할 때만 기존 활성 레코드를 재사용합니다. 더 넓은
-  수동 상관관계는 감지기 에피소드를 흡수할 수 없습니다. 인벤토리 및 발견 변경을 포함해
-  `incident_correlation=none`인 Event는 인시던트를 열지 않습니다. 자동 생성 최소 기본값은
-  `high`이며 분류되지 않은 burst는 `medium` anomaly로 남습니다. Anomaly publish 또는 수명 주기
-  인계가 실패하면 Heimdall은 범위가 제한된 에피소드 구간을 유지하고 다음 matching Event가 도착할 때만
-  재시도하며 unbounded background 재시도 루프를 만들지 않습니다. 인계는 `accepted` 또는 `held`를
-  반환하며 Heimdall은 정책 보류를 성공한 인시던트 후보로 계산하지 않습니다.
-  열림 인시던트에 더 심각한 recurrence가 들어오면 추가 전용 `incident.severity` 행으로 심각도를
-  상향합니다. Recurrence는 심각도를 낮추지 않고 재생도 동일한 단조 증가 결과를 복원하며 커밋된
-  에스컬레이션은 deduplicated A2 수명 주기 notice를 발행합니다.
-  Direct 후보 텍스트와 근거 키는 512자로 제한되고 후보 하나는 근거 키를 최대 100개
-  포함하며 oversized 입력은 수명 주기 또는 감사 쓰기 전에 보류됩니다.
-- Analyzer finding은 원시 인벤토리 변경이 아니라 이미 범위가 제한된 detector 출력입니다.
-  배포된 1분 Job과 관리되는 로컬 analyzer loop는 같은 시작 간격으로 평가합니다. 로컬 loop는
-  실행 시간을 다음 대기 시간에 더하지 않고 틱 처리 시간을 차감합니다. 두 경로 모두 리소스,
-  신호, 1분 출처 관측 버킷마다 Event를 최대 하나만 게시합니다. 키는 스케줄러 시각이 아니라
-  Finding의 `occurred_at`을 사용하므로 변경되지 않은 샘플 하나를 반복 조회해도 Event 하나로
-  유지됩니다. 타입이 지정된 리소스,
-  신호 및 버킷 튜플의 UUID5를 사용해 멱등성 키를 일정한 길이로 제한하고 구분자 모호성을
-  방지합니다. 이 Event는 리소스와 신호에서 만든 불투명한 상관관계 신원을 공유하고
-  `incident_correlation=correlate`를 선언합니다. 5분 분석 구간은 게시 멱등성과 분리되므로 서로 다른 관측 5건이 기존
-  `300초 동안 Event 5건` 반복 게이트를 충족할 수 있습니다. 정확한 재시도는 같은 키를 유지하며
-  Heimdall은 에피소드 안에서 비어 있지 않은 각 근거 키를 한 번만 계산합니다. 중복 전달은
-  완료되지 않은 anomaly 게시나 수명 주기 인계를 다시 시도할 수 있지만 횟수를 늘리지는 않습니다.
-  결과 `object.anomaly`는 에피소드와 심각도별로 범위가 제한된 멱등성 키 하나를 사용하므로 인계
-  재시도가 downstream 판단을 중복시키지 않습니다. 기존 최소 심각도 정책은 기본적으로 `medium`
-  이하 발견된 문제를 계속 보류합니다. 미래 시각이거나 표준 시간대가
-  없는 Finding은 Event 게시 전에 차단하므로, 증적 검증이 설명되지 않은 브로커 부작용 뒤에
-  실패할 수 없습니다. 같은 게시 전 검사는 범위가 제한된 고유 근거 참조와 타입이 지정된 평가
-  메타데이터도 확인합니다. 인벤토리 기반 대상은 온톨로지 `Resource.id`를
-  분석기와 Event 신원으로 유지합니다. 전달 경계에서 틱은 활성 인벤토리 스냅샷의 정확한
-  `provider_ref`를 읽고 메트릭 조회의 `resource_id` 레이블만 바꿉니다. 공급자 참조가 없거나
-  일치하지 않거나 모호하면 틱이 실패합니다. 구성된 대상은 논리 `resource_id`와 선택적인 정확한
-  `provider_resource_id`를 분리해서 전달합니다. 기존 Azure ID가 `resource_id`에 있으면 같은 활성
-  인벤토리 세대에서 역으로 해석하고 검색된 논리 Resource와 하나로 합칩니다. 조정 결과가 없거나,
-  모호하거나, 종류가 충돌하거나, 세대가 다르면 틱이 실패합니다. 인벤토리가 없는 명시적 전용
-  실행에서 메트릭 기반 대상에는 두 신원이 모두 필요합니다. 근거에 기반한 비메트릭 대상은 논리
-  신원만 유지합니다. 공급자 오류에는 메트릭 이름을 유지하되 공급자
-  참조를 제거합니다. 공급자 참조는 발견된 문제(Finding), 증적, Incident 또는 직렬화된 분석기
-  오류에 포함되지 않습니다. 기본 analyzer는 Azure Managed Prometheus의 cluster 이름 alias를
-  이 정확한 신원으로 취급하지 않습니다. 따라서 composition이 정확한 `resource_id` 레이블을
-  보존하는 PromQL을 제공하지 않으면 Azure Monitor Logs 경로를 유지합니다. 요청한 신원 레이블이
-  Prometheus 응답에 없으면 비어 있는 정상 series로 처리하지 않고 실패합니다. Azure composition은
-  정확한 ARM `resource_id`를 대소문자 구분 없이 비교하고 다른 Prometheus 레이블은 모두 정확한
-  대소문자 구분 비교를 유지합니다.
+- Repeated-event burst는 anomaly이며 자동 인시던트 권한이 아닙니다. 후보 인계에는 `incident_correlation=correlate`, 비어 있지 않은 상관관계 및 근거 키, 설정된 최소 심각도가 필요하며 `none`은 인시던트를 열지 않습니다. Huginn은 신뢰하는 UTC 수집 시각을 기록하고 그보다 늦지 않은 출처 시각만 수락하므로 재생이나 미래 시각이 Heimdall의 범위가 제한된 에피소드를 조작할 수 없습니다. 서로 다른 근거 키는 한 번씩만 계산하고 burst 심각도는 단조 증가하며, 수락된 에피소드는 중복 후보를 억제하되 더 심각한 갱신을 허용합니다. 조용한 구간 뒤에는 새 불투명 에피소드를 만들고, 재시작 뒤에는 에피소드 외 상관관계 키가 정확히 일치하는 활성 Incident만 재사용합니다. 게시 또는 인계 실패는 matching Event에서만 재시도하며 `accepted`와 `held`를 구분합니다. 후보 텍스트, 근거 수 및 수명 주기 notice는 범위가 제한되고 추가 전용입니다.
+- Analyzer finding은 범위가 제한된 detector 출력입니다. 배포와 로컬 loop는 같은 고정 간격을 사용하고 논리 Resource, 신호 및 1분 `occurred_at` 버킷마다 재시도에 안정적인 Event 하나를 게시하며, 5분 분석 구간은 이 신원과 분리합니다. UUID5 키, 서로 다른 근거 및 에피소드와 심각도별 anomaly 키는 polling, 재생 및 인계 재시도가 판단을 중복시키지 못하게 합니다. 미래 또는 표준 시간대 없는 finding, 잘못된 근거, 일부 대상 coverage, 게시 및 증적 실패는 정상 결과 전에 fail-closed 합니다. 인벤토리 기반 분석은 온톨로지 `Resource.id`를 보존하고, 활성 스냅샷의 정확한 공급자 참조는 메트릭 조회에만 사용하며 Finding, 증적, Incident 또는 직렬화된 오류에 포함하지 않습니다. 구성된 공급자 신원과 기존 공급자 신원은 한 인벤토리 세대 안에서 조정되지 않으면 실패하고, 인벤토리 없는 메트릭 대상은 두 신원이 모두 필요합니다. Prometheus는 조립된 조회와 응답이 요청한 정확한 신원을 보존할 때만 사용하며 그렇지 않으면 Azure Monitor Logs 경로를 유지합니다.
 - Heimdall은 retained repeated-event 에피소드를 global 및 리소스별로 제한합니다. 한 리소스의
   상관관계 flood는 다른 리소스의 partially accumulated 근거보다 해당 리소스의 가장 오래된
   에피소드를 먼저 축출합니다.

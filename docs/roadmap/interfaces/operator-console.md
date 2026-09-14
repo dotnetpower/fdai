@@ -13,91 +13,10 @@ Vertical and Operating Outcomes keep domain rows visible when attribution is mis
 A schema read that identifies one canonical declaration type and a count facet converges adjacent
 manifest, declaration, and relationship intents on the server-owned principal-manifest count plan.
 This path does not make a second model request or grant execution authority.
-The resulting semantic operation remains `aggregate`; the presentation compiler preserves its
-canonical operation and value fields so an independent oracle can verify the displayed count.
+The resulting semantic operation remains `aggregate`; the presentation compiler preserves its canonical operation and value fields so an independent oracle can verify the displayed count.
 Catalog topology preserves its deterministic exact-release coordinates while using one bounded 900 ms spring-settle on initial entry. Interaction ends the effect and reduced-motion preference skips it. Workflow Builder separately summarizes only principal-scoped durable Process history, labels the result as workflow-state-only, and never presents structural validation as a substrate mutation preview.
-Agent Activity links a correlation to Trace only when the row is backed by durable audit evidence.
-Inventory scan, ontology projection, and current-state read correlations remain visible identifiers without an audit-trace link. A manual lookup with no matching audit steps renders a neutral unavailable state instead of an operational failure.
-Trace keeps the summary, correlation lookup, ordered stage rail, selected evidence detail, action-attempt
-lifecycle, and complete audit timeline in one bounded workspace across idle, loading, ready, empty,
-unavailable, and error states. Selecting a stage changes presentation only. Localized stage, action,
-status, and time labels retain the canonical raw values and exact timestamp for evidence review.
-Trace hardening preserves these evidence invariants:
-
-- The response correlation id exactly matches the requested correlation before any record is shown.
-- Every audit sequence is a positive integer before it can become an ordered stage or evidence link.
-- Approval stages use only explicit request, decision, approved, rejected, timeout, or resolution
-  records. Delivery, reminder, and notification events cannot imply that approval was recorded.
-- The server joins executor records through the correlated event id and probes one record beyond the
-  500-record limit. An over-limit trace is unavailable rather than silently truncated.
-- When both `pipeline_stage` and `stage` are recorded, they must identify the same stage. Conflicting
-  producer fields make the projection unavailable instead of selecting one value.
-- Top-level and workflow action attempt numbers must be positive and must agree when both are
-  present. Invalid or conflicting attempt identity makes the projection unavailable.
-- Nullable stage, decision, reason, and terminal stage fields are either `null` or non-empty.
-  Whitespace-only values cannot create a recorded summary or an empty status label.
-- Every joined step preserves its source event id and source correlation id. The requested
-  correlation remains the trace scope and does not overwrite a joined row's recorded provenance.
-- Every step preserves its entry hash and previous entry hash as raw audit provenance. The Trace
-  screen displays these references but does not claim to verify the full ledger chain.
-- Event id, entry hash, and previous entry hash remain required because the audit ledger schema
-  stores them as non-null provenance. A malformed projection cannot downgrade them to not recorded.
-- Optional stage, decision, reason, action, execution, outcome, workflow, and attempt fields are
-  validated when present. Invalid types or blank values cannot be erased into not recorded.
-- The PostgreSQL Trace boundary requires each audit `entry` to remain a JSON object. An array or
-  scalar entry makes the trace unavailable instead of becoming an empty record.
-- Every step preserves the recorded actor. The stage rail presents the actor and relative time,
-  while the evidence detail retains the canonical action kind.
-- The browser checks trace kind, action-attempt count, effect-observation count, and RCA evidence
-  against the ordered steps before using those values in decision summaries.
-- Server metadata identifies `operator-audit-log` as the selected Trace source authority. Unknown
-  source tokens cannot appear as verified provenance.
-
-### Trace discovery and decision summary
-
-The Console reuses `GET /audit?limit=500` as its recent discovery sample. It groups and orders only
-the already-authoritative rows for presentation and retains `next_cursor` as the explicit signal
-that older audit records exist. The resulting list is labeled as recent and never presented as
-complete history. This presentation grouping grants no new authority and does not create another
-read-model contract.
-
-Each discovery row preserves the correlation id, latest sequence and time, latest actor and action
-kind, latest recorded decision and mode, exact target when unambiguous, and whether Incident or
-root-cause evidence appears in the sampled audit records. These evidence flags describe sampled
-rows only. They do not guarantee that a destination projection is available.
-
-The selected Trace response remains the authoritative detail. In addition to ordered steps, the
-server provides trace kind, source authority, completeness, first and last recorded time, latest
-activity, terminal named stage, unique target scope, action-attempt count, and independent
-effect-observation count. Completeness is true only after the server proves that the trace does not
-exceed its 500-record bound.
-
-The Console opens recent discovery while no correlation is selected and keeps it available as a
-compact disclosure after selection. The first summary answers decision, operational effect,
-completeness, and terminal-versus-latest state. It distinguishes not applicable, not recorded,
-pending, failed, and independently observed states. Stage rows use a localized action title for
-stage-less activity, a localized actor display with canonical actor in detail, and separately
-labeled decision, outcome, and mode values. Copy actions provide bounded feedback without changing
-the audit record.
-
-For traces without action identity, the action lifecycle becomes one compact no-action statement.
-The complete timeline disclosure names its record count. At narrow widths the summary uses compact
-rows, and the stage rail starts within the second
-screen while preserving 44 px controls, text spacing, and exact identifiers. Related destinations
-reflow into a bounded two-column grid instead of an additional overlay.
-At wide widths, correlation input, copy, related evidence, and refresh remain in one toolbar row.
-At narrow widths, the four decision summaries use a 2 by 2 grid and detailed context starts collapsed.
-Filtering recent discovery to zero matches renders an explicit filter-empty state.
-The source context uses a localized display label while retaining the canonical source token in
-the response and published view context.
-On mobile, the exact audit timeline retains table semantics and reflows each record into a labeled
-vertical row without horizontal scrolling.
-Long canonical action kinds and the compact stage path wrap within a 320 pixel read-only Trace
-instead of widening the workbench.
-At the same width, copy and refresh controls each retain a full readable row, while related
-evidence links remain in a compact two-column grid.
-The read-only boundary stacks its short explanation below the title at 320 pixels so the sentence
-keeps a readable measure.
+Agent Activity links a correlation to Trace only when the row is backed by durable audit evidence. Inventory scan, ontology projection, and current-state read correlations remain visible identifiers without an audit-trace link. A manual lookup with no matching audit steps renders a neutral unavailable state instead of an operational failure.
+Trace presents recent discovery, correlation lookup, ordered stages, selected evidence, action attempts, and the complete audit timeline as read-only views of `operator-audit-log`. The response correlation must match the request, sequence and optional fields must decode strictly, and joined steps preserve actor, source event and correlation, entry hashes, and canonical action values. Approval requires explicit approval records; delivery and notification never imply approval. Completeness is true only when the server proves the trace fits within its 500-record bound, and sampled discovery is always labeled recent rather than complete. Decision, action-attempt, RCA, and independent effect summaries must reconcile with ordered steps or the projection is unavailable. Localization and responsive presentation may change labels and layout only; canonical values, timestamps, provenance, authority, and the distinction between latest and terminal state remain.
 
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final

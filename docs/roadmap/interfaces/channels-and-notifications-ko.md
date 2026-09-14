@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: ef4c511bcf98c4c6bb4cba9274c1d8773af87dc0
+translation_source_sha: 258b4ded1840b248d3bd26e3ff771aceddea8822
 translation_revised: 2026-09-14
 ---
 
@@ -35,68 +35,6 @@ Teams Workflows 웹훅 바인딩은
 > 고객-비종속: 아래 모든 채널 id, 그룹 이름, 엔드포인트는 **자리 표시자** ; 포크가 구성으로
 > 자체 테넌트, workspace, 엔드포인트 값 공급
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
-
-## 구현 상태
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 프로바이더 계약과 구성 기반 라우팅 | implemented | [`base.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/base.py), [`hil_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py), [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_matrix.py`](../../../services/core-control-plane/tests/notifications/test_matrix.py), [`test_fanout_delivery.py`](../../../services/core-control-plane/tests/notifications/test_fanout_delivery.py) | A1, A2/A4 및 A3 계약이 분리되어 있습니다. A1/A3는 신뢰 수준을 보존하는 대체 경로를 유지하고, A2/A4는 이름이 있는 바인딩 활성화, 채널별 영속 상태, 범위가 제한된 재시도 및 집계 결과를 갖춘 명시적 fan-out을 사용합니다. |
-| A2/A4 capability-state, presentation, shadow-delivery 계약 | implemented | [`capability.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/capability.py), [`presentation.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/presentation.py), [`shadow.py`](../../../services/core-control-plane/src/fdai/core/notifications/shadow.py), [`test_channel_foundation.py`](../../../services/core-control-plane/tests/notifications/test_channel_foundation.py) | [다중 채널 알림 전달 § 8](multi-channel-notification-delivery-ko.md#8-capability-state-presentation-shadow-delivery-계약)이 상세히 소유합니다. 읽기 전용 가용성/활성화/권한 계약, pre-render fail-closed redaction 및 범위 경계, 그리고 shadow mode에 있는 바인딩에 대해 네트워크 호출 없이 렌더링하고 영속 기록하는 `NotificationChannel`을 추가합니다. |
-| 페어링과 교차 채널 신원 연결 | implemented | [`channel_access.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_access.py), [`postgres_channel_pairing.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_pairing.py), [`postgres_channel_identity_link.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_identity_link.py), [`test_channel_access.py`](../../../services/core-control-plane/tests/conversation/test_channel_access.py), [`test_identity_links.py`](../../../services/core-control-plane/tests/conversation/test_identity_links.py), [`test_postgres_channel_pairing.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_pairing.py), [`test_postgres_channel_identity_link.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_identity_link.py) | 서비스 수준 페어링, challenge digest 처리, 명시적 신원 연결 및 재시작 후 영속성이 집중 테스트를 통과했습니다. PostgreSQL 통합 테스트 파일 두 개는 지원되는 일회용 데이터베이스에서 네 건을 건너뛰기 없이 통과했습니다. |
-| Teams, Slack 및 아웃바운드 알림 어댑터 | 구현됨 | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py), `fdai_operator_service/families/conversation/channel_edge/`, `families/iam/hil_callback*.py`, 집중 에지, 콜백, Kafka, 워크플로 및 카나리 검사 | Teams는 `HilChannel`을 구현합니다. Core와 Operator는 별도로 구성된 그룹 연결 팀과 채널에서 같은 콜백 대상을 파생합니다. Operator는 브로커에 게시하기 전에 각 결정의 보낼 편지함 레코드를 영속화하고 수락된 뒤에만 전달 완료로 표시합니다. Slack A1은 구성된 워크스페이스와 Entra 매핑으로 독립 운영할 수 있습니다. 전용 아웃바운드 Slack `HilChannel`과 배포 증적은 열린 상태입니다. |
-| 영속 아웃바운드 대화 전달 | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | 조정기는 확정적인 거절과 모호한 확인 응답을 구분하고 재시도를 제한하며 중단된 전송을 조정하고 안정적인 전달 신원을 보존합니다. 이 동작은 집중 테스트를 통과했습니다. |
-| 순수 채널 표현 렌더링 | 구현됨 | `fdai_operator_service/families/conversation/channel_edge/{presentation,renderers}.py`, 집중 Operator 렌더러 검사 | 정규화된 묶음 하나가 정본 텍스트, 사실, 제한, 근거, 권한 및 사용 불가 상태를 보존합니다. 순수 Teams 및 Slack 페이로드 builder는 전송 또는 확인 응답 없이 기능 상한을 강제하며 잘못된 산출물은 정본 텍스트로 저하됩니다. |
-| 채널 인식 표현 보증 | 구현됨 | [`channel_assurance.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/channel_assurance.py), [`test_channel_assurance.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_channel_assurance.py) | 공통 내용, 제한, 근거 및 권한 검사는 모든 채널에 적용합니다. 선택적인 진행 상황, 활동, rich 표현, 스레드 및 편집 검사는 주입된 기능 프로필을 따릅니다. Direct Line 및 사용자 지정 프로필은 계약으로 지원하지만 Direct Line 전송은 구현되지 않았습니다. |
-| 명시적 콘솔 웹 알림 | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`notification-sw.js`](../../../console/public/notification-sw.js) 및 집중 브라우저 알림 테스트 | 이름이 지정된 `console-web` 컨트롤, principal 범위 기본 설정, 브라우저 표시 증적 및 알림 클릭 확인이 집중 Vitest 사례를 통과했습니다. 이 증적은 브라우저 로컬 근거이며 Core 전달 증적, 승인 또는 실제 Windows 검증이 아닙니다. |
-| 이해관계자 브리핑과 A3 edge 런타임 | 구현됨 | [`briefing.py`](../../../services/core-control-plane/src/fdai/core/notifications/briefing.py), [`test_briefing.py`](../../../services/core-control-plane/tests/notifications/test_briefing.py), [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md) | 결정론적 이해관계자 브리핑은 집중 테스트를 통과했습니다. 독립 Operator distribution ASGI factory, 로컬 실행 및 선택적 Container App이 구현됐으며 통제된 프로바이더 및 보호된 배포 근거는 런타임 소유 문서에서 추적합니다. |
-| 전용 시스템 지식 Teams 멘션 endpoint | 진행 중 | [시스템 지식 서비스](system-knowledge-service-ko.md), `services/system-knowledge-service/`, 집중 서비스 검사 | 읽기 전용 서비스는 별도 distribution, 카탈로그 및 전달 원장을 사용합니다. 배포는 Bot Framework 신원 또는 Team 범위 HMAC 인증 Outgoing Webhook 중 하나를 선택합니다. 운영 Teams 및 롤백 근거는 남아 있으며 A1-A4 준비 상태를 바꾸지 않습니다. |
-| 선택적 비용 거버넌스 알림 | implemented | `fdai_cost_governance/notifications.py`, 패키지 알림 테스트, `config/notifications-matrix.yaml` | 패키지는 알림을 만들기 전에 활성화를 확인하고 API 변환 결과와 같은 공개 정책을 적용합니다. 비활성 패키지는 아무것도 전송하지 않으며 전역 인시던트, 승인, KPI 및 LLM 비용 경로는 독립적으로 유지됩니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-14 | implemented | 콘솔 웹을 명시적인 클라이언트 로컬 알림 채널로 지정하고 principal 범위 원장과 표시 상태에서 브라우저 표시와 알림 클릭 확인을 분리했습니다. | `current change`, 집중 브라우저 알림 및 서비스 워커 테스트와 Console 형식 검사가 통과했습니다. | 실제 데스크톱 검증을 주장하기 전에 사용자가 확인한 Windows 알림 클릭 증적을 보존합니다. 인증된 Web Push와 서버 측 증적은 별도로 설계된 서비스를 통해서만 추가합니다. |
-| 2026-09-13 | 구현됨 | 정본 응답 내용이나 전송 권한을 바꾸지 않고 채널 인식 표현 평가를 추가했습니다. | `current change`, 채널 보증 및 구조 귀속 집중 테스트 14개가 통과했습니다. | 각 배포 채널에 권위 있는 표현 관측을 연결하고 Direct Line 전송을 구현한 뒤 runtime 지원을 주장합니다. |
-| 2026-09-10 | implemented | A1-A4 라우팅을 바꾸지 않고 HMAC 인증 Teams Outgoing Webhook 대안을 추가했습니다. | `current change`, transport별 서비스, Terraform, 보호된 workflow 및 집중 검사입니다. | 실제 `@FDAI-bot`, 5초 응답, 재시작, 비용, 비활성화 및 복원 근거를 보존합니다. |
-| 2026-09-10 | implemented | A1-A4 라우팅을 바꾸지 않고 지식 봇의 전용 Azure Bot, Teams app package, Managed Identity Blob claim 경계 및 보호된 plan/apply workflow를 추가했습니다. | `current change`, 서비스 Terraform, 배포 workflow, package builder 및 집중 검사입니다. | 실제 Teams, 비용, 비활성화 및 15분 이내 롤백 근거를 보존합니다. |
-| 2026-09-09 | 진행 중 | 운영 A3 edge 또는 A1-A4 준비 상태를 바꾸지 않고 mention-only 전용 시스템 지식 Teams 봇을 별도 distribution으로 추가했습니다. | `current change`, 시스템 지식 서비스 설계, 패키지, 계약, 카탈로그, Teams 경계, 원장 및 집중 검사입니다. | 운영 프로바이더, persistent volume, 비활성화 및 15분 이내 롤백 근거를 보존합니다. |
-| 2026-08-31 | implemented | 브라우저 알림을 클릭하면 동일 출처 인시던트 화면으로 이동할 때 반환된 창을 활성화하고, 정확한 창의 활성화 또는 화면 이동이 실패하면 대상을 새 창으로 열도록 수정했습니다. | `current change`; 집중 서비스 워커 및 브라우저 알림 테스트, Console 타입 검사와 빌드. | 실제 데스크톱 검증을 주장하기 전에 사람이 확인한 Windows 알림 클릭 증적을 보존합니다. |
-| 2026-08-29 | implemented | 공유 라우팅 권한을 바꾸지 않고 활성화 및 공개 정책으로 제한되는 비용 거버넌스 알림 생성을 추가했습니다. | `current change`; 패키지 알림, 공개 정책 및 비활성 전송 테스트. | 실제 비용 거버넌스 검증 중에 통제된 전달 증적을 보존합니다. |
-| 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했으며 근거가 없는 Slack A1 및 독립 런타임 구현 주장을 바로잡았습니다. | 현재 변경에서 Python 집중 테스트 170개가 통과했고, `FDAI_DATABASE_URL`이 설정되지 않아 PostgreSQL 통합 테스트 두 개가 건너뛰어졌으며, 브라우저 알림 집중 테스트 일곱 개가 통과했습니다. 테스트 경로는 구현 범위 표에 나열했습니다. | 데이터베이스 기반 검사를 실행하고 Slack A1과 운영 대화 어댑터를 구현하며 독립 런타임을 조립하고 통제된 runtime 증적을 수집해야 합니다. |
-| 2026-08-14 | implemented | PostgreSQL에서 재시작 후 영속성을 증명한 뒤 페어링과 교차 채널 신원 연결을 승격했습니다. | 현재 변경에서 `test_postgres_channel_pairing.py`와 `test_postgres_channel_identity_link.py`가 지원되는 일회용 데이터베이스에서 네 건을 건너뛰기 없이 통과했습니다. | Slack A1과 운영 대화 어댑터를 구현하고 독립 런타임을 조립하며 통제된 runtime 증적을 수집해야 합니다. |
-| 2026-08-19 | 진행 중 | 정본 사실 보존과 벤더 페이로드 구성을 분리하고 순수 렌더링을 구현되지 않은 A3 전송에서 분리한 뒤 기능 렌더링 설계를 승인했습니다. | `current change`, 이 소유 문서 쌍 | 운영 어댑터 상태를 바꾸지 않고 범위가 제한된 순수 렌더러와 가짜 사용자 지정 확장 테스트를 구현합니다. |
-| 2026-08-19 | 구현됨 | 프로바이더 중립 렌더러 Protocol과 기능 프로필, 엄격한 일회성 산출물 정규화, 필수 읽기 가능 대체 텍스트, 순수 Adaptive Card 및 Block Kit builder, 가짜 사용자 지정 렌더러를 추가했습니다. 큰 페이로드는 텍스트 대체 경로 전에 선택적 시각 상세를 제거하며 필수 제한, 근거, 권한 및 사용 불가 상태는 사라지지 않습니다. | `current change`, [이슈 #234](https://github.com/dotnetpower/fdai/issues/234), 집중 렌더러 및 영속 응답 검사 40개와 Ruff, formatting, strict mypy 통과 | 운영 Slack 및 Teams A3 전송, 신원, 확인 응답, 시작 및 런타임 증적은 열린 상태입니다. |
-| 2026-08-19 | 구현됨 | 닫힌 principal mapping, URL 없는 파일 metadata, 고정 프로바이더 destination 및 명시적 확인 응답 모호성을 갖춘 인증된 범위 제한 Slack/Teams A3 전송 adapter를 추가했습니다. 전송은 런타임에 binding되지 않았습니다. | `current change`, [이슈 #235](https://github.com/dotnetpower/fdai/issues/235), 집중 channel 및 gateway 검사 92개와 Ruff, formatting, strict mypy 통과 | 가용성을 주장하기 전에 PostgreSQL store와 fail-closed 시작 조립을 추가합니다. |
-| 2026-08-19 | 진행 중 | 운영 A3 package와 writer 소유권을 Core에서 Operator distribution의 별도 edge workload로 교정했습니다. 검증된 Core-local transport는 동등한 Operator 구현이 검사를 통과할 때까지 prototype으로 유지합니다. | `current change`, [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md), service-migration 검사 47개 및 design-route 검사 122개 통과 | Operator-local transport, store, lifecycle, workload 및 통제된 runtime 근거를 구현합니다. |
-| 2026-08-20 | 구현됨 | 임시 Core-local A3 prototype을 Operator 소유 전송, 렌더러, 영속 파이프라인, 감독되는 런타임, 로컬 실행 및 선택적 Container App으로 교체했습니다. Core에는 구현이 없는 rich channel 계약만 유지합니다. | `current change`, 집중 shared 및 Operator channel 검사 110개, edge package 검사 74개, Ruff 및 strict mypy 통과, 플랫폼 및 Operator service Terraform root 검증 통과 | 검증됨을 주장하기 전에 통제된 로컬 프로바이더 및 보호된 배포 증적을 보존합니다. |
-| 2026-08-20 | 구현됨 | 독립 유입, 신원, persistence, publisher, lifecycle, 배포 및 replay 검토 10개로 standalone A3 edge를 hardening했습니다. Known Teams key는 범위가 제한된 TTL 뒤 갱신하고, 기한이 된 전송은 활성 binding 권한을 다시 검증하며, 로컬 secret 준비는 상속된 tracing을 끄고, 소유 resource는 한 번만 닫습니다. | `current change`, 집중 edge 검사 81개, Ruff 및 strict mypy 통과, [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md) | 검증됨을 주장하기 전에 통제된 로컬 프로바이더 및 보호된 배포 증적을 보존합니다. |
-| 2026-08-27 | 구현됨 | A1 또는 A3 권한 경계를 바꾸지 않고 A2/A4의 이름이 있는 fan-out 바인딩, 채널별 영속 dispatch, Teams Workflows 전송 및 독립 게시 접수 검증을 추가했습니다. | `current change`, [다중 채널 알림 전달 구현 원장](../../roadmap-implementation/interfaces/multi-channel-notification-delivery.md), 알림, 인시던트 체크포인트 및 런타임 설정 집중 검사 162개와 작업 소유 범위 Ruff 및 strict mypy 통과 | 검증됨을 주장하기 전에 통제된 Teams 및 PostgreSQL 런타임 증적을 수집합니다. |
-| 2026-09-09 | 구현됨 | `NotificationChannel`, `NotificationRouter`, fan-out 전달, 단일 감사 항목 불변식을 바꾸지 않고 [다중 채널 알림 전달 § 8](multi-channel-notification-delivery-ko.md#8-capability-state-presentation-shadow-delivery-계약)이 상세히 소유하는 A2/A4 capability-state, presentation, shadow-delivery 계약을 추가했습니다. 같은 날 진행한 비평 단계에서 대소문자를 구분하지 않는 interactive 키 매칭, 값뿐 아니라 key도 범위를 제한하고 스캔하는 metadata 검사, executable 링크를 거부하는 https 전용 링크 scheme, `channel_id + correlation_id + audit_id + category`에서 결정론적으로 유도한 멱등 shadow `record_id`("어댑터는 멱등 send를 구현해야 함" 기존 계약을 충족), timezone-aware shadow clock 검사, `ChannelCapabilityState`의 비어 있지 않은 `channel_id` 검사, 그리고 불변(`MappingProxyType`) presentation envelope metadata mapping을 추가로 강화했습니다. | `current change`, [`test_channel_foundation.py`](../../../services/core-control-plane/tests/notifications/test_channel_foundation.py) 31건, 전체 `services/core-control-plane/tests/notifications` 스위트 178건 통과, 작업 소유 Ruff format/lint 통과, 변경된 알림 소스 파일 5개에 대한 strict mypy 통과 | 이 기반 범위에는 남은 작업이 없습니다. 구체적인 vendor 어댑터의 shadow-to-enforce 승격은 해당 어댑터 자체 행에서 추적합니다. |
-| 2026-09-09 | 구현됨 | 보호된 FDAI Teams A1 준비와 프로바이더가 호스팅하는 테넌트 동의, 앱 설치 및 최종 배포 승인을 구분하는 이중 언어 Settings 안내를 추가했습니다. Console은 client secret을 수집하지 않습니다. | `current change`, 집중 Console 테스트, typecheck, build, catalog parity 및 3개 viewport 시각 검사 | 보호된 프로비저닝 workflow가 읽기 전용 상태 계약을 제공한 후 안내를 실제 온보딩 진행 상태에 연결합니다. |
-| 2026-09-09 | 구현됨 | Teams A1 안내를 Owner 전용 revisioned protected-plan 요청에 연결했습니다. Console이 준비 요청 상태를 표시하기 전에 Operator가 제안과 권한 없는 상태를 영속화합니다. | `current change`, 집중 Operator 영속화 및 route 검사, Console decoder 테스트, typecheck, build 및 strict mypy | 제안을 보호된 프로비저닝 workflow에 연결하고 프로바이더 및 배포 증적을 보존합니다. |
-| 2026-09-09 | 구현됨 | Teams A1 Bot 전달을 Core 실행 신원과 분리하고 Bot activity endpoint만으로도 공유 HTTP client를 준비하도록 수정했습니다. 서비스 Terraform은 선언된 Bot 관리 ID를 연결하며, 최초 담당 체계 도입 guard는 완전한 Teams 목적지를 요구합니다. | `current change`, 집중 bootstrap, HIL 배선, 서비스 plan guard, Terraform 계약, Ruff, mypy 및 Core 서비스 Terraform 검증 | 검증됨을 주장하기 전에 보호된 배포와 인증된 Teams 승인 왕복 1건을 보존합니다. |
-
-### 남은 작업
-
-- [x] PostgreSQL을 사용해 `test_postgres_channel_pairing.py`와
-  `test_postgres_channel_identity_link.py`를 건너뛰기 없이 실행하고 통과 결과를 보존한 후
-  영속 페어링 및 신원 연결을 `implemented`로 올립니다.
-- [ ] 통제된 실제 Teams 콜백과 브로커 증적을 보존하고 전용 아웃바운드 Slack
-  `HilChannel`을 추가합니다. 로컬 콜백, 재생, 정족수 및 네트워크 없는 카나리 동작은 통과했습니다.
-- [x] 인증된 Slack 및 Teams A3 유입과 범위가 제한된 rich-response 발행기를 추가하고
-  signature, service identity, principal 해석 및 확인 응답 집중 테스트를 통과합니다.
-- [x] `ProductionChannelRuntime`, 운영 ASGI factory, 서비스 entry point 및 Terraform workload를
-  구현하고 집중 시작 및 종료 테스트로 fail-closed 조립을 증명합니다.
-- [ ] 어떤 행이든 `validated`로 올리기 전에 활성화된 전달, 대체 경로, 브라우저 동작 및 배포된
-  독립 채널 프로세스에 대한 통제된 runtime 증적을 기록합니다.
-- [x] 정본 사실, 제한, 근거 참조, 권한 및 읽을 수 있는 대체 텍스트를 보존하는 순수 Teams,
-  Slack 및 주입형 사용자 지정 표현 렌더러를 구현하고 동등성 테스트를 통과합니다.
-- [x] 공유 A2/A4 capability-state, presentation, shadow-delivery 계약을 추가 및 문서화하고
-  `test_channel_foundation.py`로 증명하는 unavailable/shadowed/rejected/fallback 결과와
-  라우터 idempotency에 대한 집중 테스트를 확보합니다.
-
 ## 1. 설계 원칙
 
 1. **세 개의 좁은 추상화, 여러 어댑터.** `NotificationChannel`은 A2/A4 push,
@@ -662,3 +600,9 @@ Teams에는 소유자가 다른 네 가지 계약이 있습니다. A1 계약은 
 - **로케일은 채널 속성.** 알림은 동시 확산이므로 로케일은 오퍼레이터별이 아니라
   `config/notifications-matrix.yaml`의 `matrix.channels`에서 채널별로 설정한다
   (`<channel-id>: { locale: ko }`). 항목이 없는 채널은 영어로 렌더링된다.
+
+## 관련 문서
+
+| 알아볼 내용 | 읽을 문서 |
+|-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/interfaces/channels-and-notifications.md) |

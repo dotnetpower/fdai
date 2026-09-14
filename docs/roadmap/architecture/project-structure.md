@@ -48,11 +48,6 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   `shared/` behind adapter boundaries; `composition/` binds all layers. `core/` and `agents/`
   never import `delivery/`; provider behavior enters through shared Protocols and composition.
   Focused sibling modules may own canonical identity projection and hashing while the established owner module re-exports that public surface. Idempotency reservation stable-operation comparison follows this split; serialized bytes, transition validation, and replay semantics remain unchanged. Versioned terminal measurement contracts follow the same service boundary: Core retains normalized event classifications atomically with audit, and Operator reads them without importing Core or treating a classification as execution or effect authority. A duplicate acknowledgement requires matching retained facts; a collision cannot silently replace or discard the original classification. Measurement timestamps require explicit timezone-bearing datetime or ISO 8601 text, never implicit numeric epoch coercion.
-- **operational activity remains contract-bound**: The shared service-contract SDK owns the
-  authority-free `1.3.0` activity shape and runtime-call mapping identity. Core delivery produces
-  normalized evidence, Operator seeds a bounded durable snapshot and relays cursor-bearing SSE
-  deltas, and Console only decodes and localizes them. System Knowledge and other services gain no
-  implementation import, writer role, or execution authority from this host composition.
 - **human approval stays split by service authority**: Operator owns Teams/Slack authentication,
   cryptographic verification, callback audit, and the durable decision outbox. Core consumes only
   the typed decision event, routes workflow slots to the registry, and sends action parks to the
@@ -527,10 +522,6 @@ non-Azure phase registers a new implementation at the composition root without e
 | **LLM metering** | `MeteringSink` / `MeteringReader` (in `core/metering/sink.py`); `MeteringEmitter` records measured provider `usage` with an explicit `control_plane` or `operator_chat` scope | - | one shared `InMemoryMeteringSink` in the single-process dev harness. T1, T2, and narrator adapters emit measured tokens; the independent Operator Service retains `GET /kpi/llm-cost`, reads durable `llm_invocation` rows through a SELECT-only role, and caps detail while keeping token-only aggregates exact. Interactive local separately materializes sanitized inventory and Settings projections from prepared authoritative inputs. | configured pricing remains internal to budget controls and isn't projected as provider spend; missing providers remain unavailable rather than synthetic |
 | **Infra module** | `infra/modules/<seam>/` (Terraform sub-module selected by `var.<seam>_kind`) | - | Container Apps + PostgreSQL Flex + Event Hubs Kafka + Key Vault + Log Analytics | pick a different sub-module per [csp-neutrality.md § Approved Alternative Azure Implementations](csp-neutrality.md#approved-alternative-azure-implementations); the module's output contract stays fixed |
 
-Azure Prometheus composition treats only the exact ARM `resource_id` label as case-insensitive.
-Every other metric label remains case-sensitive, and a missing requested identity label fails
-closed instead of producing an empty healthy series.
-
 Because every seam is an injected interface, adding a customer or a second cloud is a matter of
 registering an implementation - the strict one-way dependency direction above is preserved.
 
@@ -619,17 +610,8 @@ only when its rule id, action type, and fixed check reference still match. Idemp
   `core-operator-projection` 1.4 adds the typed `direct_response` terminal disposition for a closed
   social intent. Its bounded text comes from the schema-validated semantic judgment model and
   carries no query digests, evidence references, verification claims, or authority.
-  The Operator accepts a bound Incident context only when both `incident_id` and
-  `correlation_id` are present, so partial identity is rejected instead of becoming an unbound
-  semantic turn. The bound incident read path passes canonical `incident_id` and audit
-  `correlation_id` as separate `query.incident_evidence` arguments and preserves both in its
-  no-authority result. An accepted bound incident intent builds its frame and plan deterministically
-  without another model call. Any remaining incident frame-model path receives only the `Incident`
-  and `query.incident_evidence` descriptors; the complete principal manifest remains authoritative
-  for final plan verification. Detector-created Incidents retain source correlation separately from
-  a bounded episode identity. The registry reuses one active correlation family with an exact
-  non-episode key match across observer restarts; a broader manual correlation cannot capture it,
-  while a recurrence after a quiet window cannot be absorbed into a resolved or closed Incident.
+  The bound incident read path passes canonical `incident_id` and audit `correlation_id` as
+  separate `query.incident_evidence` arguments and preserves both in its no-authority result.
   Resource discovery similarly separates immutable `DiscoveryIntent`, `DiscoveryQueryPlan`,
   provider observations, execution receipts, command explanations, and coverage receipts. Core
   compares only provider-neutral scope, predicate, output, completeness, and equivalence fields;
