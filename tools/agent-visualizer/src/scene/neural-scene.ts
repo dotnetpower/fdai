@@ -7,7 +7,7 @@ import { agents, agentColor } from "../agents";
 import { CameraDirector } from "../camera/director";
 import { activityEnergy, projectTimeline } from "../playback/timeline";
 import type { AgentId, Scenario } from "../model";
-import { createPointMaterial, makeNeuralGeometry, BUS_POSITION } from "./geometry";
+import { createPointMaterial, createPointOcclusionMaterial, makeNeuralGeometry, BUS_POSITION } from "./geometry";
 import { EventField, ARG_ENTRY, AZURE_SERVICE_POSITION } from "./event-field";
 import { FunctionSelection } from "./function-selection";
 import { eventFlowAt } from "../playback/event-flow";
@@ -100,7 +100,10 @@ export class NeuralScene {
     this.pointGeometry.setAttribute("size", new THREE.Float32BufferAttribute(this.neural.points.map((point) => point.size), 1));
     this.pointGeometry.setAttribute("energy", new THREE.Float32BufferAttribute(new Float32Array(this.nodeCount), 1));
     this.nodePoints = new THREE.Points(this.pointGeometry, this.pointMaterial);
-    this.activity.add(this.nodePoints);
+    const nodeOccluder = new THREE.Points(this.pointGeometry, createPointOcclusionMaterial(ratio));
+    nodeOccluder.name = "node-star-occlusion";
+    nodeOccluder.renderOrder = 90;
+    this.activity.add(this.nodePoints, nodeOccluder);
     this.activity.add(new THREE.LineSegments(this.neural.lines,
       new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.42, blending: THREE.AdditiveBlending })));
 
@@ -126,7 +129,7 @@ export class NeuralScene {
     }
     for (const [text, position, handler] of [
       ["EVENT BUS", BUS_POSITION, onBus],
-      ["AZURE ARG", AZURE_SERVICE_POSITION, () => onFunction(ARG_ENTRY)],
+      ["AZURE RESOURCE GRAPH", AZURE_SERVICE_POSITION, () => onFunction(ARG_ENTRY)],
     ] as const) {
       const label = document.createElement("button");
       label.type = "button";
@@ -256,7 +259,7 @@ export class NeuralScene {
     attribute.needsUpdate = true;
     this.events.update(time, transportTime, scenario, this.camera, reduced);
     this.functionSelection.update(highlightedFunction);
-    const priorities = new Map<string, number>([["function", 300], ["EVENT BUS", 180], ["AZURE ARG", 180]]);
+    const priorities = new Map<string, number>([["function", 300], ["EVENT BUS", 180], ["AZURE RESOURCE GRAPH", 180]]);
     for (const work of flow.independent) priorities.set(`python:${work.functionId}`, -80);
     if (selected) {
       for (const fn of codeGraph.functions) if (fn.direct_owners.includes(selected)) priorities.set(`python:${fn.id}`, -60);

@@ -44,6 +44,7 @@ test("home preserves the authored nebula and exposes safety as native disclosure
     assert.match(source, /<HomeSections locale="(?:en|ko)"/);
     assert.doesNotMatch(source, /ScrollReveal|TrustTierFunnel|ActionOntologyExplorer|CardGrid|phase-timeline/);
     assert.match(source, /link: "#how-it-works"/);
+    assert.match(source, /link: \/neural-view\/(?:\?lang=ko)?/);
   }
   assert.match(sections, /<details class="home-safeguards">/);
   assert.match(sections, /data-safeguard=\{item.id\}/);

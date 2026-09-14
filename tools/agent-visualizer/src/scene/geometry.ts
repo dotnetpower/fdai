@@ -128,3 +128,31 @@ export function createPointMaterial(pixelRatio: number) {
     depthWrite: false,
   });
 }
+
+/** Write node silhouettes after additive graph rendering so backdrop stars remain behind them. */
+export function createPointOcclusionMaterial(pixelRatio: number) {
+  return new THREE.ShaderMaterial({
+    uniforms: { pixelRatio: { value: pixelRatio } },
+    vertexShader: `
+      attribute float size;
+      attribute float energy;
+      uniform float pixelRatio;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = clamp(size * (1.0 + energy * 0.85) * pixelRatio * 240.0 / -mv.z, 1.0, 96.0);
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: `
+      void main() {
+        if (length(gl_PointCoord - vec2(0.5)) * 2.0 > 1.0) discard;
+        gl_FragColor = vec4(0.0);
+      }
+    `,
+    colorWrite: false,
+    depthTest: true,
+    depthWrite: true,
+    transparent: true,
+    toneMapped: false,
+  });
+}
