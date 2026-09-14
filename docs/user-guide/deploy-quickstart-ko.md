@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 단일 로컬 명령 또는 digest로 고정된 폐쇄망 배포 어플라이언스로 FDAI를 Azure에 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 2cac16efd4cf7856cc6ef504cfe0f5b2771d58a4
+translation_source_sha: 0ec8b9728efab78d786bf7d28aca13f883fc8d09
 translation_revised: 2026-09-14
 ---
 
@@ -151,6 +151,43 @@ bash scripts/deployment/azure/fdai-up.sh --region koreacentral
 
 Foundation 계획은 먼저 비공개 로컬 백엔드를 사용합니다. 정확한 마이그레이션 아카이브만
 증명된 호스트에서 서명된 원격 백엔드 예제를 활성화하며, 마이그레이션 승인과 재확인은 필수입니다.
+
+### 검증된 공개 개발 배포 복구
+
+기여자 배포가 실패한 적용 이후 검증된 `fdai.contributor-recovery.v1` 증적을 생성한 경우에만
+애플리케이션 상태 채택을 사용하세요. 채택 지원이 포함된 정확한 서명 키트 개정 번호에서 다음
+명령을 실행합니다.
+
+```bash
+fdaictl provision azure \
+  --online \
+  --region <azure-region> \
+  --adopt-runner-image-receipt <verified-runner-image-receipt> \
+  --adopt-application-state <private-terraform-state> \
+  --adopt-application-recovery <private-recovery-receipt> \
+  --adopt-resolved-models <private-resolved-models>
+```
+
+runner 증적과 mode-0600 애플리케이션 파일 세 개를 모두 함께 제공하세요. 조정기는 다이제스트,
+대상, 리소스 수, 리소스
+접미사 및 모델 기능 계약을 검증합니다. 애플리케이션 리소스 그룹의 소유권 레코드 두 개만 제거한
+비공개 단계 상태 복사본을 만듭니다. 원래 로컬 상태는 변경하지 않습니다.
+
+runner 증적은 이미 독립 검증된 관리 이미지를 image apply 없이 재사용합니다. 새 Foundation
+실행은 현재 서명 출처를 유지하고 이미지의 원래 출처, 서명 검증기 출처, 이미지 실행 및 정확한
+증적 다이제스트를 별도 출처 정보로 기록합니다.
+
+Managed Host는 Foundation이 소유한 원격 애플리케이션 백엔드에 상태 Blob이 없을 때만 단계
+상태를 허용합니다. 강제하지 않는 상태 push 한 번 전에 변경 불가능한 claim을 기록하고, 이후
+상태를 다시 읽어 lineage, serial, 내용 및 관리 리소스 수를 검증합니다. claim 이후 프로세스가
+중단되면 같은 작업 디렉터리와 입력으로 같은 명령을 실행하세요. 호스트는 기존 원격 상태를
+검증하고 push를 반복하지 않습니다. 입력, 대상, Foundation 연결이 다르거나 백엔드가 비어 있지
+않거나 lineage가 바뀌면 운영자 검토를 위해 복구를 중단합니다.
+복구 상태 경로는 이후 계획 중 하나에 삭제 또는 교체 작업이 포함되어 있어도 승인 전에
+중단합니다.
+
+채택 오류를 해결하기 위해 기존 Azure 리소스나 원래 로컬 상태를 삭제하지 마세요. 작업
+디렉터리를 보존하고 유지된 claim 또는 receipt로 실패한 경계를 확인하세요.
 
 ### 키트 획득에 실패한 경우
 

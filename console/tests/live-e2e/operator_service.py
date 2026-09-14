@@ -14,6 +14,7 @@ from fdai_operator_service.contracts import AsgiApplication
 from fdai_operator_service.environment import (
     DEV_MODE_ENV,
     LIVE_STAGE_CONSUMER_GROUP_ENV,
+    LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV,
     LOCAL_AZURE_CLI_AUTH_ENV,
     LOCAL_ENTRA_AUTH_ENV,
 )
@@ -45,6 +46,7 @@ def build_app() -> AsgiApplication:
     environment = dict(os.environ)
     environment[DEV_MODE_ENV] = "0"
     environment[LOCAL_AZURE_CLI_AUTH_ENV] = "0"
+    environment[LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV] = "0"
     environment[LOCAL_ENTRA_AUTH_ENV] = "0"
     environment[LIVE_STAGE_CONSUMER_GROUP_ENV] = f"{LIVE_E2E_CONSUMER_GROUP_PREFIX}{uuid4()}"
     return create_app(environment, composition=composition)

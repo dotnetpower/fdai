@@ -638,13 +638,41 @@ class FunctionNodeHandler:
             "query.resource_health_inventory": (EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
             "query.resource_state_transitions": (EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
         }.get(function_name, ())
+        exact_document_refs = _exact_document_evidence(
+            function_name=function_name,
+            value=value,
+            expected=invocation_context.document_refs,
+        )
         return QueryNodeResult(
             value=value,
             evidence_refs=_evidence_refs(dependencies)
-            + (f"ontology-function:{receipt.invocation_id}",),
+            + (f"ontology-function:{receipt.invocation_id}",)
+            + exact_document_refs,
             authority=receipt.authority,
             authority_inputs=scoped_authority_inputs,
         )
+
+
+def _exact_document_evidence(
+    *,
+    function_name: str,
+    value: object,
+    expected: tuple[str, ...],
+) -> tuple[str, ...]:
+    if function_name != "query.governed_documents" or not expected:
+        return ()
+    if not isinstance(value, QueryTable):
+        raise RuntimeError("exact governed document function returned an invalid table")
+    citations: list[str] = []
+    for row in value.rows:
+        citation = row.values.get("document_citation")
+        if citation is None:
+            continue
+        if not isinstance(citation, str) or citation not in expected:
+            raise RuntimeError("exact governed document function widened its citation set")
+        if citation not in citations:
+            citations.append(citation)
+    return tuple(citations)
 
 
 def _argument_name(value: object) -> str:

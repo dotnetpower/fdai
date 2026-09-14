@@ -498,6 +498,11 @@ class ToolCallShadowExecutor:
             "executor_identity_ref": action.executor_identity_ref,
             "rollback_kind": action.rollback_ref.kind.value,
             "rollback_reference": action.rollback_ref.reference,
+            "workflow_action": (
+                action.workflow_action.model_dump(mode="json")
+                if action.workflow_action is not None
+                else None
+            ),
             "stop_condition": action.stop_condition,
             "stop_conditions": [
                 condition.model_dump(mode="json") for condition in action.stop_conditions
@@ -533,6 +538,11 @@ class ToolCallShadowExecutor:
                 "executor_identity_ref": action.executor_identity_ref,
                 "rollback_kind": action.rollback_ref.kind.value,
                 "rollback_reference": action.rollback_ref.reference,
+                "workflow_action": (
+                    action.workflow_action.model_dump(mode="json")
+                    if action.workflow_action is not None
+                    else None
+                ),
                 "stop_condition": action.stop_condition,
                 "stop_conditions": [
                     condition.model_dump(mode="json") for condition in action.stop_conditions

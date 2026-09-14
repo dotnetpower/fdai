@@ -30,6 +30,7 @@ DATABASE_CONNECT_TIMEOUT_ENV = "FDAI_OPERATOR_DATABASE_CONNECT_TIMEOUT_S"
 EXPECTED_DATABASE_ROLE = "fdai_operator"
 LOCAL_AZURE_NARRATOR_ENV = "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR"
 LOCAL_AZURE_CLI_AUTH_ENV = "FDAI_OPERATOR_API_LOCAL_AZURE_CLI"
+LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV = "FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM"
 LOCAL_ENTRA_AUTH_ENV = "FDAI_OPERATOR_API_LOCAL_ENTRA"
 DEV_MODE_ENV = "FDAI_OPERATOR_API_DEV_MODE"
 NARRATOR_PROBE_INTERVAL_ENV = "FDAI_NARRATOR_PROBE_INTERVAL_SECONDS"
@@ -185,8 +186,18 @@ class OperatorEnvironment:
         )
         local_azure_narrator = _boolean(values, LOCAL_AZURE_NARRATOR_ENV, default=False)
         local_azure_cli_auth = _boolean(values, LOCAL_AZURE_CLI_AUTH_ENV, default=False)
+        local_azure_cli_auth_confirmed = _boolean(
+            values,
+            LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV,
+            default=False,
+        )
         local_entra_auth = _boolean(values, LOCAL_ENTRA_AUTH_ENV, default=False)
         dev_mode = _boolean(values, DEV_MODE_ENV, default=False)
+        if local_azure_cli_auth != local_azure_cli_auth_confirmed:
+            raise OperatorServiceConfigurationError(
+                f"{LOCAL_AZURE_CLI_AUTH_ENV} and "
+                f"{LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV} MUST be enabled together"
+            )
         if local_azure_cli_auth:
             if values.get("RUNTIME_ENV", "").strip().lower() != "dev":
                 raise OperatorServiceConfigurationError(
@@ -494,6 +505,7 @@ __all__ = [
     "STAGE_TOPIC_ENV",
     "LOCAL_AZURE_NARRATOR_ENV",
     "LOCAL_AZURE_CLI_AUTH_ENV",
+    "LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV",
     "LOCAL_ENTRA_AUTH_ENV",
     "MAX_NARRATOR_PROBE_INTERVAL_SECONDS",
     "MANAGED_IDENTITY_CLIENT_ID_ENV",

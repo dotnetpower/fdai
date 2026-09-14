@@ -1,8 +1,8 @@
 ---
 title: 네트워크 토폴로지 시각화
 translation_of: network-topology-visualization.md
-translation_source_sha: a459c6f55d54b0f64f4c305e6a94d139f269e5f1
-translation_revised: 2026-09-10
+translation_source_sha: 4aee25423b3f90ea3be49996fa3c7f7408e94a6f
+translation_revised: 2026-09-14
 ---
 # 네트워크 토폴로지 시각화
 
@@ -35,7 +35,7 @@ Console은 인벤토리 리소스와 타입이 지정된 관계만으로 범위�
 |------|------|------|------|
 | 공유 네트워크 어휘 및 작성 계약 | implemented | `packages/network-topology-contracts`, 네트워크 스키마 및 검증, 포커스 패키지 및 컴파일러 테스트 | 의존성이 없는 어휘를 공유하면서 작성된 `expected` 상태와 관측 근거 규칙은 분리합니다. |
 | 네트워크 참조 배치 및 Azure 아이콘 범위 | implemented | `layout/elk.ts`, 검토된 아이콘 매핑과 digest로 고정한 공식 Azure SVG 14개, 정본 이중 언어 fixture | 네트워크 프로필은 기존 배포 다이어그램의 배치 동작을 바꾸지 않고 압축 복합 배치를 추가합니다. 알 수 없는 리소스 타입은 매핑하지 않습니다. |
-| Console 2D 포커스, 경로 추적 및 내보내기 | implemented | `architecture-network-{focus,map,tools,icons}.ts*`, 경로 통합, 집중 Console 및 세 viewport 검사 | 이 모드는 기존의 권위 있는 인벤토리 응답을 사용하고 매핑된 경우 검토된 공식 아이콘을 사용하며 타입이 지정된 관계만 추적하고 식별자가 없는 하나의 SVG 소스를 SVG 또는 PNG로 내보냅니다. |
+| Console 2D 리소스 지도, 네트워크 포커스, 경로 추적 및 내보내기 | implemented | `architecture-map*.ts*`, `architecture-network-{focus,map,tools,icons}.ts*`, 경로 통합, 포커스 Console 및 세 화면 크기 검사 | 두 모드 모두 기존의 권위 있는 인벤토리 응답을 사용합니다. 리소스 지도는 고정 직교 변환 결과를 사용하고 Network는 매핑된 경우 검토된 공식 아이콘을 사용하며 타입이 지정된 관계만 추적하고 식별자가 없는 하나의 SVG 소스를 SVG 또는 PNG로 내보냅니다. |
 | Console 온톨로지 인스턴스 네트워크 컨텍스트 | implemented | `ontology-instance-graph.{model.ts,tsx}`, `ontology-instance-resource-icons.ts`, 포커스 테스트, Console 타입 검사와 운영 빌드, 인증된 세 화면 크기 검사 | 선택한 분기는 피어 VNet의 분기를 확장하지 않고 VNet, Subnet, Private Endpoint 및 NIC 계층을 표현합니다. 상호 피어링은 저장된 두 레코드를 유지하면서 하나의 항목을 공유합니다. 관측된 `runtime_calls` 관계는 Inspector의 일급 런타임 그룹이며 기본 밀집 범례에도 표시됩니다. 마우스 휠 확대 및 축소, 기본 전체 화면, 빈 캔버스 이동 및 접을 수 있는 상세 패널이 그래프 작업 영역을 보존합니다. |
 | 무결성, 접근성 및 시각 회귀 | implemented | 정적 컴파일러 테스트 107개 통과, 정확한 `1600x900` 산출물 검사, 세 viewport 순차 Playwright 1개 통과 | 합성 브라우저 근거는 표현 동작만 입증합니다. 관리되는 런타임 검증을 주장하지 않습니다. |
 
@@ -43,6 +43,7 @@ Console은 인벤토리 리소스와 타입이 지정된 관계만으로 범위�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 리소스 지도의 등각 깊이, 반사, 회전 및 카메라 사전 설정을 하나의 고정 직교 2D 변환 결과로 바꿨습니다. 지도는 타입이 지정된 관계, 도형, 색상, 약어, 선택, 이동, 확대 및 축소, 맞춤, 딥 링크를 유지합니다. 좁은 캔버스에서는 노드 배율을 유지하고 보조 색상 범례를 숨기며 이동을 사용합니다. | `current change`; 아키텍처 지도 모델, 형상, 렌더러, 컨트롤러, 상세 패널, 경로, 지역화 및 반응형 Playwright 경로, 포커스 Console 검사 163개 통과, 타입 검사 및 운영 빌드, 합성 `1440x900`, `993x641`, `390x844` 순차 검사. | Console 범위를 `validated`로 바꾸기 전에 정확한 출처에 연결된 관리되는 데스크톱 및 모바일 Console 근거를 보존합니다. |
 | 2026-09-10 | implemented | PVC, PV, StorageClass, HPA, PDB, NetworkPolicy, ResourceQuota 및 LimitRange에 명시적인 계층, 색상 및 약어 매핑을 추가했습니다. | `current change`, 전체 정본 ResourceType 시각 매핑 테스트 및 전체 Console 테스트 표면입니다. | Console 범위를 `validated`로 높이기 전에 정확한 출처에 연결된 관리되는 시각 근거를 보존합니다. |
 | 2026-09-04 | implemented | 관측된 `runtime_calls` 관계를 일반 직접 에지에서 온톨로지 인스턴스 Inspector와 기본 밀집 범례의 일급 런타임 그룹으로 승격했습니다. 화면 맥락 변환 결과도 관계 방향이나 권한을 바꾸지 않고 근거 기반 후속 작업에 필요한 검증된 관계를 보존합니다. | `current change`; 집중 온톨로지 인스턴스 모델 및 화면 검사, Console 타입 검사, 운영 빌드입니다. | 런타임 검증을 주장하기 전에 정확한 출처에 연결된 관리되는 runtime-call 및 반응형 Console 근거를 보존합니다. |
 | 2026-08-22 | not-started | 런타임 동작을 변경하지 않고 네트워크 토폴로지 시각화를 위한 집중 소유 경계를 채택했습니다. | `current change`; 이 소유 문서입니다. | 각 범위 행을 구현하고 포커스 테스트를 통과한 뒤 상태를 높입니다. |
@@ -164,10 +165,9 @@ Application Gateway, VPN Gateway, ExpressRoute gateway 및 circuit, Private Endp
 route table, NSG, load balancer, network interface 및 virtual machine을 포함합니다.
 
 정적 컴파일러는 알려진 프로바이더 리소스 타입을 해당 아이콘 id에 매핑합니다. 알 수 없는 타입은
-텍스트 카드 또는 고정된 abbreviation으로 남고 비슷한 Azure 제품 아이콘을 빌려 쓰지 않습니다.
-Console은 2D 모드에서 같은 검토된 아이콘 파일을 사용하고 매핑되지 않은 타입에만 고정된
-abbreviation을 사용합니다. 기존 isometric 모드는 형태, 색상 및 abbreviation 중복 표현을
-유지합니다.
+텍스트 카드 또는 고정된 약어로 남고 비슷한 Azure 제품 아이콘을 빌려 쓰지 않습니다. Console은
+Network 모드에서 같은 검토된 아이콘 파일을 사용하고 매핑되지 않은 타입에만 고정된 약어를
+사용합니다. 직교 리소스 지도는 깊이 또는 반사 없이 도형, 색상 및 약어의 중복 표현을 유지합니다.
 
 ## 배치 및 무결성
 

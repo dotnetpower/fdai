@@ -51,7 +51,7 @@ export function drawArchitectureNetworkPlanes(
     );
     context.restore();
     if (architectureNetworkPlaneLabelIsVisible(plane, selectedId, camera.scale)) {
-      drawWorldLabel(context, width, height, camera, plane, color);
+      drawWorldLabel(context, width, height, camera, plane, palette.labelText);
     }
   }
 }

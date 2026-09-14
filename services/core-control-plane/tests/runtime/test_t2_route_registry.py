@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from types import SimpleNamespace
 
 import pytest
+from fdai.agents.thor import ActionRun, ActionRunState
 from fdai.runtime.t2_route_registry import (
     T2RouteRegistry,
     bind_t2_route_selector,
@@ -21,16 +21,25 @@ def _run(
     action_type: str = "ops.switch-t2-proposer-route",
     prior_route: str = "primary",
     target_route: str = "secondary",
-) -> object:
-    return SimpleNamespace(
+) -> ActionRun:
+    return ActionRun(
+        action_id=f"action:{correlation_id}",
         action_type=action_type,
         correlation_id=correlation_id,
         resource_id="control-plane:t2-proposer",
+        state=ActionRunState.VERDICTED,
+        verdict="auto",
         params={
             "target_resource_ref": "control-plane:t2-proposer",
             "target_route_ref": target_route,
             "prior_route_ref": prior_route,
             "reason_code": "t2_proposer_candidates_exhausted",
+        },
+        workflow_action={
+            "process_id": "process-t2-route",
+            "step_id": "switch-route",
+            "proposal_ref": f"proposal:{correlation_id}",
+            "attempt": 2,
         },
     )
 
@@ -71,8 +80,15 @@ async def test_vidar_restores_only_the_failed_change() -> None:
 
     receipt = await registry.rollback(
         {
+            "action_id": "action:corr-1",
             "action_type": "ops.switch-t2-proposer-route",
             "correlation_id": "corr-1",
+            "workflow_action": {
+                "process_id": "process-t2-route",
+                "step_id": "switch-route",
+                "proposal_ref": "proposal:corr-1",
+                "attempt": 2,
+            },
         }
     )
 
@@ -81,7 +97,10 @@ async def test_vidar_restores_only_the_failed_change() -> None:
     assert state is not None
     assert state["active_route"] == "primary"
     assert state["revision"] == 2
-    assert tuple(store.audit_entries)[-1]["entry"]["actor"] == "Vidar"
+    audit = tuple(store.audit_entries)[-1]["entry"]
+    assert audit["actor"] == "Vidar"
+    assert audit["action_id"] == "action:corr-1"
+    assert audit["workflow_action"]["attempt"] == 2
 
 
 async def test_stale_rollback_cannot_revert_a_newer_route_change() -> None:

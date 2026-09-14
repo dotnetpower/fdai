@@ -10,12 +10,13 @@ from importlib import resources
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from fdai_service_contracts.codec import ConsumerCodec, ProducerCodec
 from fdai_service_contracts.compatibility import (
     CompatibilityError,
     SemVer,
     assert_additive_schema,
+    transition_certified_matrix,
 )
-from fdai_service_contracts.codec import ConsumerCodec, ProducerCodec
 
 _SERVICE_IDS = frozenset(
     {
@@ -122,6 +123,7 @@ def validate_manifest(
     services = _validate_services(manifest.get("services"))
     contracts = _validate_contracts(manifest.get("contracts"), services)
     edge_count = _validate_matrix(manifest.get("producer_consumer_matrix"), contracts)
+    transition_certified_matrix(manifest)
     _validate_receipt_contract(manifest.get("upgrade_receipt"))
     return CompatibilitySummary(len(services), len(contracts), edge_count)
 

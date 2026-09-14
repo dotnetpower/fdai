@@ -222,6 +222,15 @@ class StateStore(Protocol):
         """Return ordered lifecycle rows for replay and canonical reload."""
         ...
 
+    async def list_incident_evidence(
+        self,
+        *,
+        correlation_id: str,
+        limit: int,
+    ) -> tuple[tuple[Mapping[str, object], ...], bool]:
+        """Return bounded chronological audit evidence for one exact correlation."""
+        ...
+
 
 def classify_incident_append(
     history: tuple[Mapping[str, Any], ...],

@@ -5,16 +5,34 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$repo_root"
 
 force_preparation=0
-if [[ $# -gt 1 ]]; then
-  echo "Usage: $0 [--force]" >&2
+auth_mode="browser-entra"
+while (( $# > 0 )); do
+  case "$1" in
+    --force)
+      force_preparation=1
+      shift
+      ;;
+    --auth-mode)
+      if [[ $# -lt 2 ]]; then
+        echo "Usage: $0 [--force] [--auth-mode browser-entra|azure-cli]" >&2
+        exit 2
+      fi
+      auth_mode="$2"
+      shift 2
+      ;;
+    *)
+      echo "Usage: $0 [--force] [--auth-mode browser-entra|azure-cli]" >&2
+      exit 2
+      ;;
+  esac
+done
+if [[ "$auth_mode" != "browser-entra" && "$auth_mode" != "azure-cli" ]]; then
+  echo "Usage: $0 [--force] [--auth-mode browser-entra|azure-cli]" >&2
   exit 2
 fi
-if [[ $# -eq 1 ]]; then
-  if [[ "$1" != "--force" ]]; then
-    echo "Usage: $0 [--force]" >&2
-    exit 2
-  fi
-  force_preparation=1
+legacy_preparation_marker="$repo_root/.fdai/console-full-stack-preparation.sha256"
+if [[ "$force_preparation" == "1" ]]; then
+  rm -f "$legacy_preparation_marker"
 fi
 
 if [[ ! -x "$repo_root/.venv/bin/python" ]]; then
@@ -34,8 +52,9 @@ if ! command -v opa >/dev/null 2>&1; then
   exit 1
 fi
 
-legacy_preparation_marker="$repo_root/.fdai/console-full-stack-preparation.sha256"
 stage_marker_dir="$repo_root/.fdai/console-preparation"
+auth_mode_file="$repo_root/.fdai/local-console-auth-mode"
+operator_env="$repo_root/.fdai/local-operator-service.env"
 bounded_runner="$repo_root/scripts/automation/run-bounded-command.py"
 stage_timeout_seconds="${FDAI_CONSOLE_PREPARATION_STAGE_TIMEOUT_SECONDS:-300}"
 stage_no_progress_seconds="${FDAI_CONSOLE_PREPARATION_NO_PROGRESS_SECONDS:-120}"
@@ -57,6 +76,7 @@ legacy_preparation_inputs=(
 required_outputs=(
   console/node_modules/.bin/vite
   .venv/bin/fdai-document-processing-worker
+  .venv/bin/fdai-document-channel-intake
   .venv/bin/fdai-isolated-executor-service
   .fdai/local-runtime.env
   .fdai/local-operator-service.env
@@ -126,6 +146,26 @@ legacy_digest() {
     "$@"
 }
 
+auth_mode_outputs_match() {
+  local expected_flag
+  if [[ "$auth_mode" == "azure-cli" ]]; then
+    expected_flag=1
+  else
+    expected_flag=0
+  fi
+  [[ -f "$auth_mode_file" ]] || return 1
+  [[ "$(<"$auth_mode_file")" == "$auth_mode" ]] || return 1
+  [[ -f "$operator_env" ]] || return 1
+  [[ "$(grep -Ec '^FDAI_OPERATOR_API_LOCAL_AZURE_CLI=' "$operator_env" || true)" == "1" ]] \
+    || return 1
+  [[ "$(grep -Fxc "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=$expected_flag" "$operator_env" || true)" == "1" ]] \
+    || return 1
+  [[ "$(grep -Ec '^FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=' "$operator_env" || true)" == "1" ]] \
+    || return 1
+  [[ "$(grep -Fxc "FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=$expected_flag" "$operator_env" || true)" == "1" ]] \
+    || return 1
+}
+
 can_reuse_legacy_preparation() {
   local current_digest="$1"
   local output
@@ -134,6 +174,7 @@ can_reuse_legacy_preparation() {
   for output in "${required_outputs[@]}"; do
     [[ -s "$repo_root/$output" ]] || return 1
   done
+  auth_mode_outputs_match || return 1
   "$repo_root/.venv/bin/python" \
     "$repo_root/scripts/automation/developer-workflow.py" \
     local-services \
@@ -160,6 +201,9 @@ stage_reusable() {
   [[ "$force_preparation" == "0" ]] || return 1
   [[ -f "$marker" ]] || return 1
   [[ "$(<"$marker")" == "$digest" ]] || return 1
+  if [[ "$name" == "service-environments" ]] && ! auth_mode_outputs_match; then
+    return 1
+  fi
   if [[ "$name" == "authoritative-inventory" ]] && ! \
     "$repo_root/.venv/bin/python" \
       "$repo_root/scripts/automation/developer-workflow.py" \
@@ -299,7 +343,8 @@ materialize_catalogs() {
 
 prepare_service_environments() {
   run_bounded operator-service-environment \
-    bash "$repo_root/scripts/deployment/local/prepare-operator-service-env.sh"
+    bash "$repo_root/scripts/deployment/local/prepare-operator-service-env.sh" \
+    --auth-mode "$auth_mode"
   run_bounded independent-service-environments \
     bash "$repo_root/scripts/deployment/local/prepare-independent-service-envs.sh"
 }
@@ -319,7 +364,11 @@ run_bounded local-dependencies \
   bash "$repo_root/scripts/deployment/local/dev-up.sh"
 
 if [[ "$force_preparation" == "0" && -f "$legacy_preparation_marker" ]]; then
-  current_legacy_digest="$(legacy_digest "${legacy_preparation_inputs[@]}")"
+  current_legacy_digest="$(
+    configuration_digest \
+      "$(legacy_digest "${legacy_preparation_inputs[@]}")" \
+      "auth-mode=$auth_mode"
+  )"
   if can_reuse_legacy_preparation "$current_legacy_digest"; then
     printf '%s service=console-preparation event=reused\n' \
       "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
@@ -441,7 +490,9 @@ run_stage \
   materialize_catalogs
 run_stage \
   service-environments \
-  "$(path_digest "${service_environment_inputs[@]}")" \
+  "$(configuration_digest \
+    "$(path_digest "${service_environment_inputs[@]}")" \
+    "auth-mode=$auth_mode")" \
   prepare_service_environments \
   "$repo_root/.fdai/local-operator-service.env" \
   "$repo_root/.fdai/local-document-ingestion-api.env" \

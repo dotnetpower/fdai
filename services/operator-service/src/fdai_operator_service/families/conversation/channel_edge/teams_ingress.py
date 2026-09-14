@@ -31,6 +31,7 @@ class TeamsIngressConfig:
     allowed_service_urls: frozenset[str]
     principal_by_aad_object_id: Mapping[str, str]
     max_body_bytes: int = _DEFAULT_MAX_BODY_BYTES
+    attachments_enabled: bool = False
 
     def __post_init__(self) -> None:
         if not self.tenant_id or len(self.tenant_id) > 200:
@@ -51,6 +52,8 @@ class TeamsIngressConfig:
             raise ValueError("Teams principal mapping MUST contain distinct bounded identities")
         if self.max_body_bytes < 1:
             raise ValueError("Teams max_body_bytes MUST be positive")
+        if type(self.attachments_enabled) is not bool:
+            raise ValueError("Teams attachments_enabled MUST be boolean")
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,6 +150,13 @@ class TeamsIngressVerifier:
             raise TeamsIngressError(
                 "Teams sender is not authorized", code="unknown_sender", http_status=403
             )
+        attachments = _attachments(payload.get("attachments", ()))
+        if attachments and not self._config.attachments_enabled:
+            raise TeamsIngressError(
+                "Teams attachment ingestion is unavailable",
+                code="attachments_unavailable",
+                http_status=422,
+            )
         try:
             turn = InboundChannelTurn(
                 channel_kind=ChannelKind.TEAMS,
@@ -155,7 +165,7 @@ class TeamsIngressVerifier:
                 sender_id=aad_object_id,
                 text=_optional_text(payload, "text", 16_000),
                 thread_id=_text(conversation, "id", 200),
-                attachments=_attachments(payload.get("attachments", ())),
+                attachments=attachments,
             )
         except ValueError as exc:
             raise TeamsIngressError(

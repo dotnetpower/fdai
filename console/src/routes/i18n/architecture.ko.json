@@ -48,7 +48,7 @@
     "observability": "관찰 가능성"
   },
   "filterSummary": "리소스 {totalResources}개 중 {visibleResources}개와 관계 {totalLinks}개 중 {visibleLinks}개 표시",
-  "mapDescription": "표시된 리소스 {resources}개와 보고된 관계 {links}개를 나타내는 읽기 전용 지도입니다. 키보드로 이동하려면 리소스 선택기 또는 리소스 및 관계 인덱스를 사용하세요.",
+  "mapDescription": "표시된 리소스 {resources}개와 보고된 관계 {links}개를 나타내는 읽기 전용 2D 지도입니다. 키보드로 이동하려면 리소스 선택기 또는 리소스 및 관계 인덱스를 사용하세요.",
   "zoomControls": "지도 확대/축소 컨트롤",
   "zoomIn": "확대",
   "zoomLevel": "확대/축소 수준",
@@ -86,19 +86,11 @@
   "copyResourceId": "리소스 ID 복사",
   "selectResource": "리소스 선택",
   "selectionHint": "리소스 상태, 경계, 직접 관계가 여기에 표시됩니다.",
-  "mapDisplay": "지도 표시",
-  "view": "보기",
-  "cameraView": "카메라 보기",
-  "camera": {
-    "top": "상단",
-    "iso": "등각",
-    "front": "정면"
-  },
+  "mapDisplay": "2D 지도 표시",
   "display": "표시",
   "displayOption": {
     "relationships": "관계",
     "labels": "레이블",
-    "reflections": "반사",
     "gridPoints": "그리드 점"
   },
   "resourceLegend": "리소스 범례",
@@ -115,7 +107,7 @@
   "selectResourceOption": "리소스 선택"
   ,"network": {
     "mode": "아키텍처 표현 모드",
-    "mapMode": "지도",
+    "mapMode": "리소스 지도",
     "networkMode": "네트워크",
     "mapAriaLabel": "리소스 {count}개의 관측된 네트워크 토폴로지",
     "title": "관측된 네트워크 경로",

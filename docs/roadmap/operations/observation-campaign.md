@@ -232,6 +232,13 @@ completion times. `result_state` distinguishes a measured zero from a result tha
 or could not be obtained. An empty reason-code list remains the correct successful state and is not
 rendered as missing evidence. Raw log lines, cloud identifiers, query text, identities, and
 provider errors remain outside the shared activity stream.
+The durable source state and transition audit keep
+`actor: fdai.delivery.observation_campaign` as mechanical provenance and copy the source catalog's
+accountable Pantheon member into `owner_agent`. This ownership metadata grants no publishing,
+approval, or execution authority.
+An ownerless legacy state is reusable only when its original built-in source id has one fixed
+owner. A custom or reassigned source is collected again before reuse; a removed ambiguous row is
+withheld from Agent Activity instead of being assigned by domain.
 
 Failed terminal and started projections set `evidence_count` to zero and leave `result_count`
 absent even when source rows contain partial counts. Pre-terminal or pre-failure work is not

@@ -198,7 +198,7 @@
       "agentActivity": "Agent activity",
       "architecture": "Architecture",
       "ontology": "Ontology",
-      "pantheon": "Org",
+      "pantheon": "Roles and ownership",
       "handover": "Agent oversight & handover",
       "blastRadius": "Impact scope",
       "promotionGates": "Promotion gates",
@@ -254,7 +254,7 @@
       "agentActivity": "Per-agent timeline: which agent did what, when, and how",
       "architecture": "Deployed resources, boundaries, and dependencies",
       "ontology": "Resource + link graph (classDiagram)",
-      "pantheon": "Reporting lines and live state for the fixed 15-agent fleet",
+      "pantheon": "Fixed accountability, reporting lines, owned object types, and supporting runtime state",
       "handover": "Current owners, governed ownership proposals, and user work handover",
       "blastRadius": "Simulate reachable subgraph before a change",
       "promotionGates": "Per-ActionType readiness to move from observation to enforcement (shadow → enforce)",
@@ -662,7 +662,6 @@
     "workspace": {
       "label": "Agent workspace",
       "fleet": "Fleet",
-      "org": "Org",
       "activity": "Activity",
       "handover": "Handover"
     },
@@ -685,10 +684,15 @@
     },
     "org": {
       "eyebrow": "Read-only organization",
-      "title": "Org",
-      "description": "Reporting lines for the fixed 15-agent fleet, enriched with current runtime state and retained incident participation.",
+      "title": "Roles and ownership",
+      "description": "Accountability, reporting lines, and owned object types for the fixed 15-agent fleet. Runtime state is supporting context only.",
       "chartLabel": "Agent organization chart",
-      "contextPurpose": "Reporting lines and current runtime state for the fixed 15-agent fleet. This read-only view opens selected agent and incident evidence without executing actions."
+      "contextPurpose": "Accountability, reporting lines, owned object types, and supporting runtime state for the fixed 15-agent fleet. Temporal activity stays in Agent Activity.",
+      "contextHeadline": "{agents} fixed agent roles with separated authority"
+    },
+    "organization": {
+      "close": "Close roles and ownership",
+      "boundary": "This view describes accountability. It grants no judgment, approval, execution, or recovery authority."
     },
     "layout": {
       "label": "Layout mode",
@@ -904,9 +908,9 @@
       "empty": "No incidents - autonomy holding."
     },
     "context": {
-      "purpose": "Live state and fixed ownership for the 15-agent fleet. This read-only view explains selected work and opens governed proposals without executing them here.",
+      "purpose": "Current observed state and fixed ownership for the 15-agent fleet. Chronological evidence stays in Agent Activity.",
       "selectedHeadline": "{title} ({status}) - {agents} agent(s), {turns} turn(s)",
-      "headline": "{incidents} incident(s) - {agents} agent(s) engaged"
+      "headline": "{agents} agent(s) currently engaged"
     },
     "error": {
       "historyUnavailable": "Durable incident history is unavailable: {error}",

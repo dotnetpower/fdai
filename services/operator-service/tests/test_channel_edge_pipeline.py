@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime
+from uuid import UUID, uuid5
 
+import pytest
 from fdai_operator_service.families.conversation.channel_delivery_models import (
     ChannelAdapterBreaker,
     ChannelBindingState,
@@ -15,8 +18,12 @@ from fdai_operator_service.families.conversation.channel_delivery_models import 
     ChannelKind,
     PrincipalChannelBinding,
 )
+from fdai_operator_service.families.conversation.channel_edge.attachment_ingestion import (
+    ChannelAttachmentIngestionResult,
+)
 from fdai_operator_service.families.conversation.channel_edge.models import (
     AuthenticatedInboundTurn,
+    ChannelAttachment,
     ChannelDeliveryError,
     ChannelDeliveryReceipt,
     InboundChannelTurn,
@@ -31,6 +38,16 @@ from fdai_operator_service.families.conversation.contracts import (
     OutboxReceipt,
     PrincipalScope,
     StreamEvent,
+)
+from fdai_service_contracts import (
+    ChannelAttachmentOutcome,
+    ChannelAttachmentTerminalReceipt,
+    DocumentIndexState,
+    DocumentPurpose,
+    DocumentRetentionState,
+    DocumentState,
+    SemanticDocumentContext,
+    SemanticDocumentContextSource,
 )
 
 _NOW = datetime(2026, 8, 19, 20, 0, tzinfo=UTC)
@@ -140,6 +157,28 @@ class _BlockingStreams(_Streams):
         raise AssertionError("blocking stream unexpectedly resumed")
 
 
+class _FailingStreams(_Streams):
+    async def open(self, request: ConversationStreamRequest) -> _Stream:
+        self.requests.append(request)
+        raise RuntimeError("semantic service unavailable")
+
+
+class _Attachments:
+    def __init__(self, result: ChannelAttachmentIngestionResult) -> None:
+        self.result = result
+        self.calls: list[tuple[AuthenticatedInboundTurn, str, DocumentPurpose]] = []
+
+    async def ingest(
+        self,
+        authenticated: AuthenticatedInboundTurn,
+        *,
+        conversation_ref: str,
+        purpose: DocumentPurpose,
+    ) -> ChannelAttachmentIngestionResult:
+        self.calls.append((authenticated, conversation_ref, purpose))
+        return self.result
+
+
 class _Deliveries:
     def __init__(self) -> None:
         self.values: dict[str, ChannelDeliveryRecord] = {}
@@ -245,6 +284,97 @@ def _turn() -> AuthenticatedInboundTurn:
     )
 
 
+def _attachment_turn(*, text: str = "Summarize the evidence.") -> AuthenticatedInboundTurn:
+    turn = _turn()
+    return replace(
+        turn,
+        turn=replace(
+            turn.turn,
+            text=text,
+            attachments=(
+                ChannelAttachment(
+                    source_ref="slack-file:file-example",
+                    name="evidence.txt",
+                    size_bytes=8,
+                    media_type_hint="text/plain",
+                ),
+            ),
+        ),
+    )
+
+
+def _attachment_result(
+    purpose: DocumentPurpose = DocumentPurpose.KNOWLEDGE_BASE,
+) -> ChannelAttachmentIngestionResult:
+    citation = "doc:00000000-0000-0000-0000-000000000001:00000000-0000-0000-0000-000000000002"
+    receipt = ChannelAttachmentTerminalReceipt.model_construct(
+        handoff_id="channel-attachment-" + "1" * 64,
+        request_digest="sha256:" + "2" * 64,
+        upload_id=UUID(int=3),
+        document_id=UUID(int=1),
+        version_id=UUID(int=2),
+        commit_receipt_digest="sha256:" + "4" * 64,
+        observed_size=8,
+        observed_sha256="5" * 64,
+        requested_purpose=purpose,
+        outcome=ChannelAttachmentOutcome.READY,
+        document_state=DocumentState.READY,
+        index_state=DocumentIndexState.ACTIVE,
+        retention_state=DocumentRetentionState.LIVE,
+        active=True,
+        available=True,
+        handover_draft_ready=purpose is DocumentPurpose.HANDOVER_BOOTSTRAP,
+        citation=citation,
+        reason_code=None,
+        observed_at=_NOW,
+        execution_authority=False,
+        receipt_digest="sha256:" + "b" * 64,
+    )
+    identity = "\0".join(
+        (
+            "principal-example",
+            "scope://operator/example",
+            "slack",
+            "channel-example",
+            "vendor-user-example",
+            "thread-example",
+        )
+    )
+    context = SemanticDocumentContext.model_construct(
+        schema_version="1.0.0",
+        source=SemanticDocumentContextSource.CHANNEL_ATTACHMENT,
+        principal_ref="principal-example",
+        conversation_ref=str(uuid5(UUID(int=0), f"channel-conversation\0{identity}")),
+        citations=(citation,),
+        authorization_digest="sha256:" + "a" * 64,
+        receipt_digests=("sha256:" + "b" * 64,),
+        context_digest="sha256:" + "c" * 64,
+        execution_authority=False,
+    )
+    return ChannelAttachmentIngestionResult(
+        purpose=purpose,
+        receipts=(receipt,),
+        document_context=context,
+    )
+
+
+def test_attachment_result_rejects_handover_without_ready_draft_receipt() -> None:
+    ready = _attachment_result()
+    receipt = ready.receipts[0].model_copy(
+        update={
+            "requested_purpose": DocumentPurpose.HANDOVER_BOOTSTRAP,
+            "handover_draft_ready": False,
+        }
+    )
+
+    with pytest.raises(ValueError, match="matching ready receipts"):
+        ChannelAttachmentIngestionResult(
+            purpose=DocumentPurpose.HANDOVER_BOOTSTRAP,
+            receipts=(receipt,),
+            document_context=ready.document_context,
+        )
+
+
 def _pipeline(
     *,
     messages: _Messages,
@@ -252,6 +382,7 @@ def _pipeline(
     deliveries: _Deliveries,
     publisher: _Publisher,
     bindings: _Bindings | None = None,
+    attachments: _Attachments | None = None,
 ) -> tuple[ChannelDeliveryPipeline, _Outbox]:
     outbox = _Outbox()
     return (
@@ -263,6 +394,7 @@ def _pipeline(
             semantic_outbox=outbox,  # type: ignore[arg-type]
             semantic_streams=streams,
             publishers={ChannelKind.SLACK: publisher},
+            attachment_ingestor=attachments,  # type: ignore[arg-type]
             clock=lambda: _NOW,
         ),
         outbox,
@@ -290,6 +422,156 @@ async def test_pipeline_completes_inbound_only_after_durable_delivery_and_sends(
     assert len(deliveries.values) == 1
     assert publisher.messages[0].channel_id == "channel-example"
     assert streams.last_stream is not None and streams.last_stream.closed is True
+
+
+async def test_pipeline_rejects_uningested_attachments_before_claim_or_semantic_work() -> None:
+    messages = _Messages()
+    pipeline, outbox = _pipeline(
+        messages=messages,
+        streams=_Streams(_terminal()),
+        deliveries=_Deliveries(),
+        publisher=_Publisher(),
+    )
+    turn = _turn()
+    attachment_turn = replace(
+        turn,
+        turn=replace(
+            turn.turn,
+            attachments=(
+                ChannelAttachment(
+                    source_ref="slack-file:file-example",
+                    name="evidence.txt",
+                    size_bytes=12,
+                    media_type_hint="text/plain",
+                ),
+            ),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="protected ingestion"):
+        await pipeline.process(attachment_turn)
+
+    assert not messages.keys
+    assert not outbox.proposals
+
+
+async def test_pipeline_carries_ingested_attachment_context_to_semantic_proposal() -> None:
+    attachments = _Attachments(_attachment_result())
+    pipeline, outbox = _pipeline(
+        messages=_Messages(),
+        streams=_Streams(_terminal()),
+        deliveries=_Deliveries(),
+        publisher=_Publisher(),
+        attachments=attachments,
+    )
+
+    result = await pipeline.process(_attachment_turn())
+
+    assert result.state is ChannelDeliveryState.DELIVERED
+    assert len(attachments.calls) == 1
+    context = outbox.proposals[0].body["document_context"]
+    assert isinstance(context, dict)
+    assert context["context_digest"] == "sha256:" + "c" * 64
+
+
+@pytest.mark.parametrize(
+    "result",
+    (
+        lambda: replace(
+            _attachment_result(),
+            document_context=_attachment_result().document_context.model_copy(
+                update={"principal_ref": "other-principal"}
+            ),
+        ),
+        lambda: replace(
+            _attachment_result(),
+            document_context=_attachment_result().document_context.model_copy(
+                update={"conversation_ref": "other-conversation"}
+            ),
+        ),
+        lambda: _attachment_result(DocumentPurpose.HANDOVER_BOOTSTRAP),
+    ),
+    ids=("principal", "conversation", "purpose"),
+)
+async def test_pipeline_rejects_attachment_result_for_another_turn(
+    result: Callable[[], ChannelAttachmentIngestionResult],
+) -> None:
+    messages = _Messages()
+    deliveries = _Deliveries()
+    resolved = result()
+    pipeline, outbox = _pipeline(
+        messages=messages,
+        streams=_Streams(_terminal()),
+        deliveries=deliveries,
+        publisher=_Publisher(),
+        attachments=_Attachments(resolved),
+    )
+
+    with pytest.raises(ValueError, match="authenticated turn"):
+        await pipeline.process(_attachment_turn())
+
+    assert messages.released
+    assert not outbox.proposals
+    assert not deliveries.values
+
+
+async def test_pipeline_attachment_only_turn_uses_deterministic_acknowledgement() -> None:
+    streams = _Streams(None)
+    deliveries = _Deliveries()
+    pipeline, outbox = _pipeline(
+        messages=_Messages(),
+        streams=streams,
+        deliveries=deliveries,
+        publisher=_Publisher(),
+        attachments=_Attachments(_attachment_result()),
+    )
+
+    result = await pipeline.process(_attachment_turn(text=""))
+
+    assert result.state is ChannelDeliveryState.DELIVERED
+    assert not outbox.proposals
+    assert not streams.requests
+    assert deliveries.values[result.delivery_id].response["status"] == "direct_response"
+
+
+async def test_pipeline_handover_acknowledges_only_ready_draft_receipt() -> None:
+    deliveries = _Deliveries()
+    pipeline, outbox = _pipeline(
+        messages=_Messages(),
+        streams=_Streams(None),
+        deliveries=deliveries,
+        publisher=_Publisher(),
+        attachments=_Attachments(_attachment_result(DocumentPurpose.HANDOVER_BOOTSTRAP)),
+    )
+
+    result = await pipeline.process(_attachment_turn(text="/handover"))
+
+    assert result.state is ChannelDeliveryState.DELIVERED
+    assert not outbox.proposals
+    response = deliveries.values[result.delivery_id].response
+    assert response["status"] == "direct_response"
+    assert response["document_context_digest"] == "sha256:" + "c" * 64
+
+
+async def test_pipeline_retains_claim_after_ingestion_when_semantic_service_fails() -> None:
+    messages = _Messages()
+    deliveries = _Deliveries()
+    pipeline, _outbox = _pipeline(
+        messages=messages,
+        streams=_FailingStreams(None),
+        deliveries=deliveries,
+        publisher=_Publisher(),
+        attachments=_Attachments(_attachment_result()),
+    )
+
+    result = await pipeline.process(_attachment_turn())
+
+    assert result.state is ChannelDeliveryState.DELIVERED
+    assert messages.completed
+    assert not messages.released
+    response = deliveries.values[result.delivery_id].response
+    assert response["status"] == "direct_response"
+    assert response["document_context_digest"] == "sha256:" + "c" * 64
 
 
 async def test_pipeline_duplicate_reuses_durable_delivery_without_semantic_work() -> None:
@@ -425,6 +707,31 @@ async def test_pipeline_cancellation_releases_pre_delivery_inbound_claim() -> No
         raise AssertionError("pipeline cancellation did not propagate")
     assert len(messages.released) == 1
     assert not messages.completed
+
+
+async def test_pipeline_cancellation_after_attachment_ingestion_remains_retryable() -> None:
+    messages = _Messages()
+    deliveries = _Deliveries()
+    attachments = _Attachments(_attachment_result())
+    pipeline, outbox = _pipeline(
+        messages=messages,
+        streams=_BlockingStreams(None),
+        deliveries=deliveries,
+        publisher=_Publisher(),
+        attachments=attachments,
+    )
+
+    task = asyncio.create_task(pipeline.process(_attachment_turn()))
+    await asyncio.sleep(0)
+    assert len(attachments.calls) == 1
+    assert len(outbox.proposals) == 1
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert len(messages.released) == 1
+    assert not messages.completed
+    assert not deliveries.values
 
 
 async def test_due_delivery_abandons_a_revoked_binding_without_provider_io() -> None:

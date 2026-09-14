@@ -167,6 +167,63 @@ def test_projects_in_progress_observation_without_terminal_fields() -> None:
     assert item["activity_id"] == "observation:activity-log:campaign-active:started"
 
 
+def test_projects_explicit_freyr_metrics_owner_without_reclassification() -> None:
+    payload = durable_activity_projection(
+        inventory_rows=(),
+        ontology_rows=(),
+        read_rows=(),
+        observation_rows=(
+            {
+                "key": "observation-campaign:source:capacity-metrics",
+                "value": {
+                    "source_id": "capacity-metrics",
+                    "domain": "metrics",
+                    "owner_agent": "Freyr",
+                    "campaign_id": "campaign-capacity",
+                    "status": "completed",
+                    "freshness": "fresh",
+                    "evidence_count": 1,
+                    "duration_ms": 50,
+                    "reason_codes": [],
+                    "completed_at": "2026-08-14T00:00:00+00:00",
+                },
+                "updated_at": "2026-08-14T00:00:00+00:00",
+            },
+        ),
+        limit=10,
+    )
+
+    assert payload["items"][0]["owner_agent"] == "Freyr"
+
+
+def test_omits_ambiguous_legacy_metrics_owner() -> None:
+    payload = durable_activity_projection(
+        inventory_rows=(),
+        ontology_rows=(),
+        read_rows=(),
+        observation_rows=(
+            {
+                "key": "observation-campaign:source:capacity-metrics",
+                "value": {
+                    "source_id": "capacity-metrics",
+                    "domain": "metrics",
+                    "campaign_id": "campaign-capacity",
+                    "status": "completed",
+                    "freshness": "fresh",
+                    "evidence_count": 1,
+                    "duration_ms": 50,
+                    "reason_codes": [],
+                    "completed_at": "2026-08-14T00:00:00+00:00",
+                },
+                "updated_at": "2026-08-14T00:00:00+00:00",
+            },
+        ),
+        limit=10,
+    )
+
+    assert payload["items"] == []
+
+
 def test_projection_rejects_failed_inventory_without_reason() -> None:
     with pytest.raises(ValueError, match="failure code"):
         durable_activity_projection(

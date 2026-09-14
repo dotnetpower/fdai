@@ -124,11 +124,13 @@ flag. Rebuilding the same records at a different time therefore creates a distin
 artifact. Any change to a cited source, including formatting-only compaction or Markdown structure
 repair, requires a catalog rebuild in the same change before packaging so its blob pins and digest
 match the release tree.
-This mechanical refresh carries the revised source identity and does not add operational,
-approval, or execution authority. Deployment-guard source revisions follow the same rebuild rule.
+This mechanical refresh carries the revised source identity, including Pantheon attribution
+guidance and its CI-verified corrections, and adds no operational, approval, or execution authority. Deployment-guard source revisions follow the same rebuild rule.
 Completion-handoff and behavior-knowledge ledger refreshes follow this rule: they change source
 blob pins and the catalog digest only, without changing retrieval authority or message-delivery
 behavior.
+Attachment-boundary documentation follows the same source-driven refresh rule: its catalog update
+does not claim that protected channel ingestion is enabled or runtime-validated.
 Post-turn migration citations follow the shared Operator rollback contract: evidence inherited
 from legacy `20260912_0090` survives the service downgrade. Refreshing these citations records
 the reviewed design, not a deployed rollback or duplicate-delivery receipt.

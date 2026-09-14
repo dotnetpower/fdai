@@ -55,12 +55,12 @@ _ROLE_BINDINGS = (
     RoleBinding(
         'module.llm_foundry_partner[0].azurerm_role_assignment.project_user["deployer"]',
         "module.llm_foundry_partner[0].azurerm_cognitive_account_project.partner",
-        "Azure AI User",
+        "Azure AI Developer",
     ),
     RoleBinding(
         'module.foundry_web_search[0].azurerm_role_assignment.project_user["deployer"]',
         "module.foundry_web_search[0].azurerm_cognitive_account_project.search",
-        "Azure AI User",
+        "Azure AI Developer",
     ),
     RoleBinding(
         "module.operational_history_storage[0].azurerm_role_assignment.deployer_data_owner",

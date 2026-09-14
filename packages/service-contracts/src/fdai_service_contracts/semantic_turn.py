@@ -35,6 +35,11 @@ SEMANTIC_PROGRESS_TOPIC = "core.semantic-turn.progress"
 SEMANTIC_PHYSICAL_TOPIC = "fdai.pantheon.objects"
 MAX_SEMANTIC_EVIDENCE_REFS = 12
 """Turn-level evidence references a projected semantic result may carry."""
+MAX_SEMANTIC_DOCUMENT_REFS = 8
+_DOCUMENT_CITATION_PATTERN = (
+    r"^doc:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:"
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+)
 LOGICAL_TOPIC_FIELD = "_fdai_logical_topic"
 _RULE_COMPONENT_PATTERN = r"^[a-z][a-z0-9_.-]{0,79}$"
 _MAX_RULE_CANDIDATES = 50
@@ -250,6 +255,53 @@ class SemanticPriorTurn(QueryContract):
     content: Annotated[str, Field(min_length=1, max_length=8_000)]
 
 
+class SemanticDocumentContextSource(StrEnum):
+    """Identify the server-owned authorization path for exact document refs."""
+
+    CHANNEL_ATTACHMENT = "channel_attachment"
+    WEB_REFERENCE = "web_reference"
+
+
+class SemanticDocumentContext(QueryContract):
+    """Bind exact authorized document versions to one principal and conversation."""
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    source: SemanticDocumentContextSource
+    principal_ref: BoundedId
+    conversation_ref: BoundedId
+    citations: Annotated[
+        tuple[Annotated[str, Field(pattern=_DOCUMENT_CITATION_PATTERN)], ...],
+        Field(min_length=1, max_length=MAX_SEMANTIC_DOCUMENT_REFS),
+    ]
+    authorization_digest: Digest
+    receipt_digests: Annotated[
+        tuple[Digest, ...], Field(max_length=MAX_SEMANTIC_DOCUMENT_REFS)
+    ] = ()
+    context_digest: Digest
+    execution_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def _context_is_exact(self) -> SemanticDocumentContext:
+        if len(self.citations) != len(set(self.citations)):
+            raise ValueError("semantic document citations MUST be unique")
+        if self.source is SemanticDocumentContextSource.CHANNEL_ATTACHMENT:
+            if len(self.receipt_digests) != len(self.citations):
+                raise ValueError("channel document context requires one receipt per citation")
+        elif self.receipt_digests:
+            raise ValueError("web document context MUST NOT carry channel receipt digests")
+        if len(self.receipt_digests) != len(set(self.receipt_digests)):
+            raise ValueError("semantic document receipt digests MUST be unique")
+        if self.context_digest != semantic_document_context_digest(self):
+            raise ValueError("semantic document context digest does not match its content")
+        return self
+
+
+def semantic_document_context_digest(context: SemanticDocumentContext) -> str:
+    """Return the canonical document-context digest without the digest field."""
+
+    return content_digest(context.model_dump(mode="json", exclude={"context_digest"}))
+
+
 class SemanticBoundContext(QueryContract):
     """Server-resolved conversation binding that anchors an ordinary-language turn."""
 
@@ -422,6 +474,7 @@ class SemanticTurnRequest(QueryContract):
     view_context_digest: Digest | None = None
     bound_context: SemanticBoundContext | None = None
     investigation_continuation: SemanticInvestigationContinuation | None = None
+    document_context: SemanticDocumentContext | None = None
     prior_turns: Annotated[tuple[SemanticPriorTurn, ...], Field(max_length=12)] = ()
     planning_profile: SemanticPlanningProfile = SemanticPlanningProfile.INTERACTIVE
     conversation_model_tier: SemanticConversationModelTier | None = None
@@ -441,6 +494,11 @@ class SemanticTurnRequest(QueryContract):
             and self.conversation_model_tier is SemanticConversationModelTier.T2
         ):
             raise ValueError("golden campaign planning profile MUST NOT select T2")
+        if self.document_context is not None and (
+            self.document_context.principal_ref != self.principal.subject_id
+            or self.document_context.conversation_ref != self.session_id
+        ):
+            raise ValueError("semantic document context MUST match request principal and session")
         return self
 
 
@@ -613,6 +671,7 @@ class SemanticTurnResult(QueryContract):
     evidence_refs: Annotated[
         tuple[BoundedId, ...], Field(max_length=MAX_SEMANTIC_EVIDENCE_REFS)
     ] = ()
+    document_context_digest: Digest | None = None
     checks_completed: Annotated[int, Field(ge=0, le=64)] = 0
     checks_total: Annotated[int, Field(ge=0, le=64)] = 0
     answer: Annotated[str, Field(min_length=1, max_length=64_000)] | None = None
@@ -904,9 +963,9 @@ __all__ = [
     "SemanticAssuranceObservation",
     "SemanticAssurancePath",
     "SemanticAssurancePathStep",
+    "SemanticConversationModelTier",
     "SemanticDirectResponseIntent",
     "SemanticInvestigationContinuation",
-    "SemanticConversationModelTier",
     "SemanticPlanningProfile",
     "SemanticPriorTurn",
     "SemanticTurnDisposition",

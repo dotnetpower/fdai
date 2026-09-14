@@ -22,6 +22,7 @@ class WorkerEffectKind(StrEnum):
     SOURCE_PROMOTION = "source_promotion"
     EPHEMERAL_SOURCE_CLEANUP = "ephemeral_source_cleanup"
     DELETION_CLEANUP = "deletion_cleanup"
+    KNOWLEDGE_ACTIVATION = "knowledge_activation"
 
 
 class WorkerEffectStatus(StrEnum):

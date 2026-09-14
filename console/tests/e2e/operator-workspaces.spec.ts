@@ -310,15 +310,81 @@ test("desktop interactions: Fleet distinguishes unobserved agents from healthy i
   }
 });
 
-test("desktop interactions: Org preserves fixed reporting and keyboard focus", async ({ page }) => {
+test("desktop interactions: role fallback preserves reporting and keyboard focus", async ({ page }) => {
   const frame = await openOperator(page, "agents-constellation.html");
   await expect(frame.locator("#orgTree [data-agent]")).toHaveCount(15);
+  await expect(frame.locator("#orgTree .ap-org-edge")).toHaveCount(14);
+  await expect(frame.locator("#incidentList")).toHaveCount(0);
+  const rootY = await frame.locator('#orgTree [data-agent="odin"]').evaluate((node) =>
+    node.getBoundingClientRect().top
+  );
+  const managerY = await frame.locator('#orgTree [data-agent="thor"]').evaluate((node) =>
+    node.getBoundingClientRect().top
+  );
+  const reportY = await frame.locator('#orgTree [data-agent="vidar"]').evaluate((node) =>
+    node.getBoundingClientRect().top
+  );
+  expect(rootY).toBeLessThan(managerY);
+  expect(managerY).toBeLessThan(reportY);
   await frame.locator('#orgTree [data-agent="thor"]').click();
   await expect(frame.locator("#agentFocus")).toContainText("Thor");
   await expect(page).toHaveURL(/agent=Thor/);
   await frame.locator('#orgTree [data-agent="odin"]').focus();
   await frame.locator('#orgTree [data-agent="odin"]').press("ArrowDown");
   await expect(frame.locator('#orgTree [data-agent="thor"]')).toBeFocused();
+});
+
+test("desktop interactions: Activity opens the route-backed role dialog", async ({ page }) => {
+  const frame = await openOperator(
+    page,
+    "agent-activity.html?view=waterfall&agent=Var&sampleState=disconnected",
+  );
+  await frame.locator("#activityRolesOpen").click();
+  await expect(page).toHaveURL(/view=waterfall.*agent=Var.*sampleState=disconnected.*roles=1/);
+  const dialog = frame.getByRole("dialog", { name: "Roles and ownership" });
+  await expect(dialog).toBeVisible();
+  const organization = dialog.frameLocator('iframe[title="Roles and ownership"]');
+  await expect(organization.locator("#orgTree [data-agent]")).toHaveCount(15);
+  await expect(organization.locator("#orgTree .ap-org-edge")).toHaveCount(14);
+  await expect(organization.locator('#orgTree [data-agent="var"]')).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await organization.locator('#orgTree [data-agent="var"]').click();
+  await expect(organization.locator('#orgTree [data-agent="var"]')).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  expect(await frame.locator("body").evaluate(() => {
+    const search = new URL(location.href).searchParams;
+    return {
+      hasRoleAgent: search.has("roleAgent"),
+      roleAgent: search.get("roleAgent"),
+    };
+  })).toEqual({ hasRoleAgent: true, roleAgent: "" });
+  await expect(organization.locator("#previewSourceLabel")).toContainText("Disconnected");
+  await organization.locator('#orgTree [data-agent="thor"]').click();
+  await expect(organization.locator("#agentFocus")).toContainText("Thor");
+  await expect(organization.locator("#agentFocus")).not.toContainText("Current work");
+  await expect(organization.locator(".ap-node-task")).toHaveCount(0);
+  await expect(page).toHaveURL(/agent=Var.*roleAgent=Thor|roleAgent=Thor.*agent=Var/);
+  await organization.locator("[data-close-focus]").focus();
+  await organization.locator("[data-close-focus]").press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(page).not.toHaveURL(/roles=1/);
+  await expect(frame.locator("#activityRolesOpen")).toBeFocused();
+  await frame.locator("#activityRolesOpen").click();
+  await expect(organization.locator('#orgTree [data-agent="var"]')).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await page.goBack();
+  await expect(dialog).toBeHidden();
+  await expect(page).not.toHaveURL(/roles=1/);
+  await expect(frame.locator("#activityRolesOpen")).toBeFocused();
+  await frame.locator("#activityRolesOpen").click();
+  await frame.locator("#activityRolesClose").click();
+  await expect(dialog).toBeHidden();
 });
 
 test("desktop interactions: activity operational lanes never invent audit traces", async ({ page }) => {

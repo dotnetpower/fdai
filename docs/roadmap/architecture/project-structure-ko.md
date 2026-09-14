@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 28a7dc7dd85b65972c374a5fe436498a9ef656f5
+translation_source_sha: 3d14489e4fe9d5bec8cd8da58f862a16c5c71f7d
 translation_revised: 2026-09-14
 ---
 # 프로젝트 구조
@@ -37,6 +37,7 @@ translation_revised: 2026-09-14
 ## 모듈 경계(모듈 Boundaries)
 
 의존 방향은 엄격하게 단방향이며, 위반은 리뷰 블로커입니다.
+클라우드 참조 수집은 수집 API, 파싱/색인 활성화는 작업자, 날짜를 명시한 근거는 Core가 담당합니다. [수명 주기 설계](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)는 공유 계약과 실행 권한이 없는 경계를 정의합니다. Core는 적용 조건을 제한된 단일 값 선택자로 노출하며 근거 객체는 의존 조회 결과로만 받습니다. 정확한 문서 맥락은 순위 계산 전에 이 선택 조건과 함께 적용하며 더 넓은 컬렉션 조회로 대체할 수 없습니다. 새 수집 테스트마다 서비스 테스트 소유자가 하나이며, 이미 선언된 API의 `aiohttp` 의존성은 간접이 아닌 직접 사용으로 분류합니다.
 
 - **코어는 이식 가능**: 어떤 클라우드 SDK도 직접 가져오기 하지 **않습니다**. 클라우드 특이성은
   `shared/providers/` 의 CSP-중립 인터페이스로만 진입하며, 구현은 `delivery/` 와 `infra/` 에 있고
@@ -126,9 +127,9 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   호환성 facade는 안정적인 import를 유지합니다.
 - **자격 검증 축약에는 권한이 없음**:
   `core/conversation_assurance/quality_qualification.py`는 미리 측정하고 정규화한 관측값만
-  받아 설치된 품질 계약에 따라 축약합니다. 원시 근거 상태에서 하드 상한을 계산하며 모델 호출,
-  프로바이더 읽기, 정책 승격, 요청 승인 또는 작업 실행을 할 수 없습니다. JSON 구문 분석과
-  산출물 쓰기는 리포지토리가 소유하는
+  받아 설치된 계약에 따라 축약합니다. 원시 근거 상태에서 하드 상한을 계산하고 반올림 전 임계값 판정을 보존합니다.
+  v1은 `locale_statistical_evidence_missing`을 기록하며 자격을 충족할 수 없습니다. 모델 호출, 프로바이더 읽기, 정책 승격, 요청 승인 또는 작업 실행도 할 수 없습니다.
+  중복 키 차단을 포함한 JSON 구문 분석과 원자적 산출물 교체는 리포지토리가 소유하는
   `scripts/evaluation/chatops-quality-qualification.py` 경계에 남습니다. 완료된 턴 관측 adapter는
   콘텐츠가 없는 공용 계약을 사용하고 런타임 및 근거 참조를 해시하며, 지원하지 않는 모든 차원을
   점수를 만들지 않고 `unavailable`로 유지합니다. 근거 소유자는 계약에 연결된 기여를 통해
@@ -160,9 +161,9 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   과거 `context_locale_scorecard.py`는 호환 전용으로 다시 내보냅니다.
   표본을 구문 분석하며 추적 약속값을 완전한 추적 주장으로 변환하지 않습니다. 인접한
   `quality_trace.py` 축약기는 레코드 약속값만 받고 순서가 정확한 세션부터 감사까지의 연결에서
-  완전성을 증명합니다. 프로바이더를 읽지 않으며 qualification 권한을 부여하지 않습니다.
-  `quality_timing.py`는 두 qualification timing 필드를 파생하기 전에 일치하는 출처 리비전,
-  추적 수, 추적 집합 약속값 및 설치된 latency 계약만 결합합니다.
+  완전성을 증명하며 권한을 부여하지 않습니다. `quality_timing.py`는 설치된 계약, 출처 리비전,
+  추적 수와 집합 및 산출물 다이제스트 쌍을 결합한 뒤 timing 필드를 파생합니다. 이전 입력에는
+  상한을 유지하며 런타임 소유자가 타임스탬프와 생산자 권한을 계속 소유합니다.
 - **authorization은 instance에 binding됩니다**: Context provider는
   `ExecutionAuthorizationRequest.target_resource_ref`의 exact Resource ID를 반환해야 합니다.
   불일치는 policy, identity 또는 effective-access 평가 전에 보류되며 권한 없는 audit context에
@@ -551,8 +552,7 @@ privileged I/O 전에 확인하는 실제 상한을 제공합니다. 어느 계�
 grounding 권한을 우회할 수 없습니다. HIL 승인 id와 실행기 멱등성 키는 원자적으로
 점유되고, 리소스별 잠금은 전달 어댑터가 상태를 변경하기 전에 경합하는 적용을 직렬화합니다.
 HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서버 검증 운영자 요청 규칙은 규칙 ID,
-작업 유형 및 고정 검사 참조가 계속 정확히 일치할 때만 허용됩니다. 멱등성 예약 신원 및 전이 계약은 하나의 Core 모듈에 유지하고, codec, 수명 주기 및 상태 형태 검증은 권한 없이 인접한 단일 책임 모듈로 분리하며 facade는 중복 wrapper 없이 수명 주기 동작을 다시 내보냅니다.
-
+작업 유형 및 고정 검사 참조가 계속 정확히 일치할 때만 허용됩니다. 멱등성 예약 신원 및 전이 계약은 하나의 Core 모듈에 유지하고, codec, 수명 주기, 상태 형태 검증, HIL 결과 레코드, 실행 효과 완료 처리는 권한 없이 인접한 단일 책임 모듈로 분리하며 facade는 중복 wrapper 없이 수명 주기 동작을 다시 내보냅니다. 실행기 결과는 `accepted`, `pending`, `no_effect`, `failed`로 Core를 통과합니다. 수락은 전달만 입증하며, HIL, 작업 흐름, 조정은 원래 상관관계와 제공된 액션 시도 신원을 보존하고 효과가 발생했을 수 있는 결과를 종료 주장 전에 독립 조정으로 보냅니다.
 ![컨트롤 루프 배선. 주요 단계는 events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops입니다.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.ko.svg)
 
 ## 구성 모델

@@ -375,6 +375,11 @@ compares the intended effect with fresh evidence and emits a `ReconciliationRece
 `matched`, `mismatched`, `timed_out`, or `unscorable`. Only the authoritative projection updates
 observed state.
 
+An effect-reconciliation request retains the original control-loop correlation. The lineage reader
+first resolves the Action recorded under that correlation, then uses the Action's actual identifier
+for execution receipts and `ActionRun` records. A correlation identifier is never substituted for
+an action identifier, and repeated projection does not create a second audit record.
+
 The reconciliation coordinator binds the exact release, ActionType, immutable plan, authenticated
 observer context, and independently observed records before closing an attempt. A terminal outcome
 and its proposal-only next-step event commit atomically; neither the receipt nor its outbox entry

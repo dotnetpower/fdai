@@ -143,11 +143,11 @@ EXPECTED_OPTIONAL_DEPENDENCIES = {
 
 INDIRECT_RUNTIME_DEPENDENCIES = {
     "operator-service": {"aiohttp"},
-    "document-ingestion-api": {"aiohttp"},
     "document-processing-worker": {"aiohttp"},
 }
 
 IMPORT_DISTRIBUTIONS = {
+    "aiohttp": "aiohttp",
     "aiokafka": "aiokafka",
     "anyio": "anyio",
     "azure.core": "azure-core",
@@ -370,4 +370,4 @@ def test_installed_contract_wheel_validates_its_bundled_manifest(tmp_path: Path)
     )
 
     assert completed.returncode == 0, completed.stderr
-    assert completed.stdout.strip() == "5 7 7"
+    assert completed.stdout.strip() == "5 9 9"

@@ -92,6 +92,7 @@ def hil_item(row: Mapping[str, Any]) -> JsonObject | None:
             "reason": reasons[0] if reasons else "Approval required by the risk gate.",
             "requested_at": parked_at,
             "correlation_id": correlation_id,
+            "incident_available": row.get("incident_available") is True,
             "approval_id": approval_id,
             "action_id": _nonempty(action.get("action_id")) or "",
             "target_resource_ref": _nonempty(action.get("target_resource_ref")) or "",

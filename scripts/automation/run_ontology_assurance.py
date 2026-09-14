@@ -665,6 +665,9 @@ cd "$1"
 set -a
 source "$2/.fdai/local-operator-service.env"
 set +a
+export FDAI_OPERATOR_API_LOCAL_AZURE_CLI=0
+export FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=0
+export FDAI_OPERATOR_API_LOCAL_ENTRA=1
 export FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS=http://localhost:5275
 export FDAI_LIVE_STAGE_CONSUMER_GROUP_ID="$3-live-stage"
 export FDAI_SEMANTIC_TURN_CONSUMER_GROUP_ID="$3-semantic-operator"
@@ -694,6 +697,7 @@ cd "$1/console"
 export VITE_CACHE_DIR="$2"
 export VITE_DEV_MODE=0
 export VITE_LOCAL_AZURE_CLI_AUTH=0
+export VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM=0
 export VITE_OPERATOR_API_BASE_URL=http://127.0.0.1:8014
 export VITE_INGESTION_API_BASE_URL=http://127.0.0.1:8011
 exec node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5275 --strictPort

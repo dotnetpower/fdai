@@ -125,10 +125,20 @@ authorized AS MATERIALIZED (
        )
        AND chunk.metadata->>'collection_id' = %s
        AND chunk.metadata->>'access_descriptor_ref' = ANY(%s)
+    AND EXISTS (
+        SELECT 1 FROM document_version AS version
+         WHERE version.document_id::text = chunk.metadata->>'document_id'
+        AND version.version_id::text = chunk.metadata->>'version_id'
+        AND version.active AND version.payload->>'available' = 'true'
+        AND version.state IN ('ready', 'ready_with_warnings')
+    )
+    AND (chunk.metadata->>'cloud_admission_expires_at' IS NULL
+         OR (chunk.metadata->>'cloud_admission_expires_at')::timestamptz > NOW())
 ),
 semantic_bounded AS (
     SELECT *
       FROM authorized
+     WHERE semantic_score IS NOT NULL
      ORDER BY semantic_score DESC, chunk_id ASC
      LIMIT %s
 ),
@@ -646,12 +656,14 @@ class PostgresDocumentSearch:
         self,
         *,
         config: PostgresApiConfig,
-        embedder: EmbeddingProvider,
+        embedder: EmbeddingProvider | None,
         dimension: int,
+        lexical_collections: frozenset[str] = frozenset(),
     ) -> None:
         self._config = config
         self._embedder = embedder
         self._dimension = dimension
+        self._lexical_collections = lexical_collections
 
     async def search(
         self,
@@ -663,7 +675,11 @@ class PostgresDocumentSearch:
     ) -> Sequence[KnowledgeChunk]:
         if not query or not allowed_access_refs or k < 1 or k > 20:
             return ()
-        vector = _vector(await self._embedder.embed(query), self._dimension)
+        vector = (
+            None
+            if collection_id in self._lexical_collections or self._embedder is None
+            else _vector(await self._embedder.embed(query), self._dimension)
+        )
         candidate_limit = min(
             _DOCUMENT_SEARCH_MAX_CANDIDATES,
             max(

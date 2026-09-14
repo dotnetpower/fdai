@@ -147,16 +147,13 @@ different principals, the service rejects the request before any write. The dete
 makes retries idempotent, and the PostgreSQL record survives restart without modifying either
 sender mapping or either principal's role.
 
-Channel attachments are evidence inputs, never instructions. Slack and Teams adapters normalize
+Channel attachments are evidence inputs, never instructions. Slack and Teams adapters can normalize
 only bounded file metadata and an opaque vendor id; payload-supplied download URLs are discarded.
-A server-owned, app-credential fetcher resolves that id, and `ProtectedChannelAttachmentIngestor`
-verifies the fetched byte count and SHA-256 before sending the source through the existing malware,
-protection, extraction, indexing, access, and retention pipeline. The conversation gateway dispatches
-the operator's original text unchanged and appends only READY `doc:` refs to response citations.
-Held, infected, unknown-protection, oversized, or malformed attachments block tool dispatch. Common
-bitmap signatures produce metadata-only envelopes with no text units, so image bytes cannot become
-prompt instructions. Deployments bind vendor credential fetchers as part of the P0-15 channel
-composition; arbitrary attachment URLs are not a supported seam.
+The current production A3 composition does not bind a private fetcher or protected ingestor. It keeps
+attachment support off and returns `422 attachments_unavailable` before queue admission. Setting
+`FDAI_CHANNEL_ATTACHMENTS_ENABLED=1` fails startup until the versioned document-ingestion handoff is bound. A direct queue injection also fails before claim or semantic publication. Future
+fetch and ingestion must preserve the original text, admit only READY `doc:` citations, and retain
+the malware, protection, indexing, access, retention, and agent-ownership gates.
 
 Teams ingress separates two identities. `TeamsServiceTokenVerifier` verifies the Bot Framework
 service token against cached JWKS with RS256 signature, app audience, Bot Framework issuer,
@@ -178,7 +175,8 @@ process. It isn't mounted into the Operator API process and never receives the e
 The production ASGI factory and Terraform workload register only enabled bounded ingress routes and
 start one Operator semantic-turn consumer per adapter. Missing credentials, Teams identity,
 endpoint policy, JWT configuration, principal scopes, or persistence fail startup before a route
-accepts traffic. Shutdown closes queues, consumers, provider clients, and credentials exactly once.
+accepts traffic. Attachment enablement without a production ingestor fails at the same boundary.
+Shutdown closes queues, consumers, provider clients, and credentials exactly once.
 
 Channel enablement uses `FDAI_CHANNEL_EDGE_ENABLED_CHANNELS`; queue and request bounds remain
 server-owned. Container Apps native Key Vault references populate the Slack and Teams secret
@@ -308,53 +306,12 @@ enters event-ingest, trust routing, risk gating, and audit; the webhook never ex
 
 ### 4.4 Browser system notifications
 
-The Console exposes its browser notification boundary as the explicit client-local `console-web`
-channel. The operator selects or deselects that named channel from the Console control; FDAI never
-requests permission during page load. The authenticated `GET /live/stream` feed stays connected
-while a selected tab is in the background and emits notifications only for human approval, denial,
-or failure outcomes. Only `runtime-observed` frames are eligible; replay, synthetic-development,
-unknown-source, and routine successful stages remain silent.
-The channel is available only in a secure context with the Notifications, Service Worker, and Web
-Locks APIs. Web Locks elects one principal-scoped stream leader; a browser without that guarantee
-reports the channel unavailable instead of claiming readiness without a receiver.
-
-Browser notifications are informational. They contain localized generic text, an opaque bounded
-event tag, and a server-derived same-origin link to the read-only Incident view. They never include
-raw errors, resource identifiers, approval controls, or execution links. Repeated frames replace the
-same event notification, and the opt-in preference is scoped to the signed-in browser principal.
-A principal-scoped browser ledger suppresses duplicate event tags for five minutes across tabs and
-limits delivery to five system notifications per minute; suppressed events remain in the audit and
-Incident views. Deduplication expiry does not erase acknowledgement evidence: the bounded local
-ledger retains up to 32 receipts for seven days so a delayed notification click can still converge.
-
-After `showNotification()` resolves, the same ledger records the `console-web` delivery as sent.
-Clicking that notification records a separate acknowledgement only when its bounded tag already has
-a sent record with the same unpredictable per-claim token for the browser principal. An exact open
-Console window receives both values in a service-worker message. A navigated or newly opened Console
-window receives them through a transient `#fdai-notification-ack` fragment, which never reaches the
-HTTP request or referrer and which the Console removes after closed-shape validation. Legacy
-tokenless records remain valid for deduplication but cannot mint a new acknowledgement. The control reports
-`Ready`, `Sent`, or `Sent + opened` so it never collapses selection, delivery, and user
-acknowledgement into one state.
-If a valid click reaches the page before the `showNotification()` completion callback records
-display, the token-bound acknowledgement atomically records both timestamps. The later display
-callback is idempotent and cannot erase the earlier click.
-
-These are browser-local receipts. They do not update Core's durable notification delivery ledger,
-satisfy `notification.delivery.observed`, prove that the user read the Incident evidence, or grant
-approval or execution authority.
-
-The service worker keeps notification rendering and click handling available while the page is
-backgrounded, but the current Console does not register a Push API subscription or a server-side
-subscription store. A fully closed browser therefore receives no notification. Closed-browser Web
-Push requires a separately authenticated write service, encrypted subscription storage, revocation,
-CSRF protection, and delivery audit before it can be enabled; it does not belong in the Operator API.
-
-Clicking a notification focuses an exact Console window when one exists. Otherwise, the service
-worker navigates a same-origin Console window to the read-only Incident target and focuses the
-window returned by that navigation. If browser focus or navigation fails, it opens the same
-validated target in a new window. This activation acknowledges the local notification only. It
-does not approve or execute an action.
+The explicit client-local `console-web` channel is owned by
+[Console Web Notifications](console-web-notifications.md). Settings is its canonical
+principal-and-browser selection surface, the header is a synchronized shortcut, and only
+`runtime-observed` approval, denial, and failure frames are eligible. Its bounded local display and
+click receipts never satisfy Core delivery, approval, or execution evidence. Organization-managed
+A2/A4 routes remain separate channel-as-audience bindings.
 
 ## 5. Channel Interfaces (contracts)
 

@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: 136622b1fe55466af0149cd528de0a7847b0e534
-translation_revised: 2026-09-06
+translation_source_sha: 208609f0f8ba3c06020d6f1d889c529f85744baa
+translation_revised: 2026-09-14
 title: 에이전트 운영 책임 수명 주기
 ---
 # 에이전트 운영 책임 수명 주기
@@ -22,6 +22,10 @@ Handover-map 스키마와 소유권 개념은
 > 문서 형식 기능 용어 체계를 재사용하며, 이 변경은 담당 수명 주기나 권한 경계를 바꾸지
 > 않습니다. 로컬 또는 Azure OCR 준비 상태는 수집에서 알리는 이미지 형식만 변경하며 담당자
 > 인수인계, RBAC 역할 또는 최종 책임자를 변경하지 않습니다.
+
+클라우드 참조 수집과 서명 반입은 같은 수집 호스트를 사용하지만 담당자 변경 권한을
+공유하지 않습니다. 인수인계 초안을 만들거나 담당자를 바꾸지 않으며, [별도 수명 주기](cloud-resource-knowledge-lifecycle-ko.md)의
+출처/신뢰 정책과 기존 독립 문서 승인 절차를 따릅니다.
 
 ## 설계 개요
 

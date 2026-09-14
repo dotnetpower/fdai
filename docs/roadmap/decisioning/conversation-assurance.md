@@ -223,21 +223,27 @@ regression leaves `latency_slo_met=false`. The artifact always records
 exact ordered session-to-audit chain with one correlation digest, valid predecessor links,
 authoritative timestamps inside the trace window, and provenance commitments for every stage.
 The timing binder then requires at least 500 unique complete traces and an exact match with the
-latency artifact's source revision, trace count, trace-set digest, and installed contract. Only that
-binding derives the two `QualificationEvidence` timing fields.
+latency artifact's source revision, trace count, trace-set digest, and installed contract. Reduced
+latency, trace, and cohort objects revalidate their stage, pass, gap, timestamp-authority, and
+contract invariants. Timing booleans clear the hard cap only when both artifact content digests are
+present, match across every run and item, and enter the admitted qualification digest.
 
 The contract and scorer contain no measured results, corpus labels, deployment identifiers, or
 promotion state. They do not establish a baseline or qualification by themselves. A separate
 version-pinned corpus runner and scorecard artifact must supply those records without changing the
 contract or holdout labels in the same promotion change.
 
-The repository runner, `scripts/evaluation/chatops-quality-qualification.py`, accepts complete
-50-item observations for each run and derives hard caps from raw evidence state. It records the
-source revision, contract and corpus digests, evaluator and runtime identifiers, run configuration,
-and run time windows in a content-addressed scorecard. The `--require-qualified` option returns a
-nonzero result unless the corpus floors, three-run floor, and worst-run 9.8 threshold all pass.
-Every generated artifact sets `qualification_authority: false`; a scorecard records evidence but
-cannot promote a policy or grant execution authority.
+The repository runner, `scripts/evaluation/chatops-quality-qualification.py`, accepts complete 50-item
+observations for each run, derives hard caps from raw evidence state, and preserves the
+unrounded threshold decision when a displayed score rounds to `9.8`. Admission verification must
+not predate the latest run completion. Input `1.0.0` carries no timing artifact commitments, so its
+timing claims remain capped. Input `1.1.0` adds paired latency and trace-cohort content digests, and
+scorecard `1.1.0` exposes that binding for replay. Neither input version carries per-locale raw
+outcomes or confidence reduction, so both record `locale_statistical_evidence_missing`. A successor
+contract must define the sample unit, raw counts, and exact
+`predeclared-binomial-v1` calculation. The CLI rejects duplicate keys and symbolic-link output,
+atomically replaces scorecards, keeps `--require-qualified` nonzero while any gap remains, and sets
+`qualification_authority: false` on every artifact.
 
 Run the reducer from the repository root after a measurement harness has produced the input batch:
 

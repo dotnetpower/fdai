@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: fa7c79cb8bac893b1cfcfcda1877d385a76aca87
+translation_source_sha: 90876afb11085f55d8708b0d98b706bcd48fe997
 translation_revised: 2026-09-14
 ---
 # AKS 진단 근거 플레인
@@ -58,6 +58,9 @@ Azure 관측은 정확한 대상을 검증한 뒤에만 결합됩니다. 결정�
 하나로 변환되며 fleet 연결 레코드와 함께 사용할 수 없습니다.
 배포는 각 managed cluster의 정확한 ARM ID 범위에서만 `Azure Kubernetes Service RBAC Reader`를
 할당합니다. 구독, 리소스 그룹 및 managed cluster 하위 리소스 범위는 허용되지 않습니다.
+격리된 공개 개발 Terraform 호출자는 검증된 Azure CLI 사람일 수 있지만, 이 관리 신원은 AKS
+근거 reader 또는 runtime executor가 되지 않습니다. 보호된 배포는 안정 deploy UAMI를 계속
+사용하며 cluster별 읽기 역할은 전용 runtime 신원에 결합됩니다.
 
 수집 실패는 클러스터별로 격리합니다. 사용할 수 없는 클러스터 하나가 다른 클러스터에서 검증된
 양성 근거를 지우지는 않지만, 필요한 모든 연결이 최신이고 완전하기 전까지 fleet 완전성은

@@ -57,6 +57,10 @@ credential-bearing endpoint fails configuration before network I/O. Legacy singl
 variables adapt to one binding and cannot be combined with the fleet binding record.
 Deployment assigns `Azure Kubernetes Service RBAC Reader` only at each exact managed-cluster ARM
 id. Subscription, resource-group, and managed-cluster child scopes are not accepted.
+The isolated public-development Terraform caller may be the verified Azure CLI human, but that
+management identity never becomes an AKS evidence reader or runtime executor. Protected deployment
+continues to use its stable deploy UAMI, and per-cluster read roles remain bound to the dedicated
+runtime identity.
 
 Collection isolates failures by cluster. One unavailable cluster does not erase verified positive
 evidence from another cluster, but fleet completeness remains false until every required binding

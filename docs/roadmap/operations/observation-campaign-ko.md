@@ -1,7 +1,7 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: 4ad675bcc631fb6e72725e25421339b5aef73bfa
+translation_source_sha: edfe6d304805fa8c2a845801e269612d8bdc8bf4
 translation_revised: 2026-09-14
 ---
 
@@ -232,6 +232,15 @@ scheduler, 실행기, 어댑터, 영속 저장소 및 Operator 변환 결과는 
 없는 결과와 구분합니다. 빈 사유 코드 목록은 올바른 성공 상태이며 누락된 근거로 표시하지
 않습니다. 원시 로그 줄, 클라우드 식별자, 조회 텍스트, 신원 및 프로바이더 오류는 공유 활동
 스트림 밖에 둡니다.
+Agent Activity는 도메인, 소유자, 출처 레이블, 종료 상태, 최신성, 근거 개수, 기간 및 사유
+코드를 표시합니다. 원시 로그 줄, 클라우드 식별자, 조회 텍스트, 신원 및 프로바이더 오류는 공유
+활동 스트림 밖에 둡니다.
+영속 출처 상태와 전이 감사에는 기계 실행 출처인
+`actor: fdai.delivery.observation_campaign`을 유지하고 출처 카탈로그의 책임 Pantheon 구성원을
+`owner_agent`에 기록합니다. 이 책임 메타데이터는 발행, 승인 또는 실행 권한을 부여하지 않습니다.
+소유자가 없는 레거시 상태는 원래 기본 제공 출처 id의 소유자가 하나로 고정된 경우에만 재사용합니다.
+사용자 정의 또는 재배정된 출처는 재사용 전에 다시 수집하며, 제거된 모호한 행은 도메인만으로
+소유자를 추정하지 않고 Agent Activity에서 제외합니다.
 
 실패한 종료 및 시작 변환 결과는 출처 행에 일부 개수가 있더라도 `evidence_count`를 0으로
 설정하고 `result_count`를 비워 둡니다. 종료 전 또는 실패 전 작업은 완료된 근거가 아닙니다.

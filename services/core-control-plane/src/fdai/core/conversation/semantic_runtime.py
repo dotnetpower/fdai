@@ -22,7 +22,10 @@ from fdai_service_contracts.ontology_query import (
     project_intent_graph_evidence,
 )
 from fdai_service_contracts.semantic_judgment import SemanticDocumentEvidenceMode
-from fdai_service_contracts.semantic_turn import SemanticConversationModelTier
+from fdai_service_contracts.semantic_turn import (
+    SemanticConversationModelTier,
+    SemanticDocumentContext,
+)
 
 from fdai.core.ontology_platform import OntologyQueryPlanExecutor, QueryPlanExecution
 from fdai.core.ontology_platform.query_execution import QueryProgressObserver
@@ -133,6 +136,10 @@ class SemanticConversationRuntime:
         planner: SemanticPlanningService | None = None,
         executor: OntologyQueryPlanExecutor | None = None,
         executor_factory: Callable[[Principal], OntologyQueryPlanExecutor] | None = None,
+        contextual_executor_factory: Callable[
+            [Principal, SemanticDocumentContext | None], OntologyQueryPlanExecutor
+        ]
+        | None = None,
         purpose: str = "operations-review",
         function_bindings: Mapping[str, EvidenceAuthority] | None = None,
         adaptive_service: AdaptiveConversationService | None = None,
@@ -148,26 +155,33 @@ class SemanticConversationRuntime:
             and adaptive_service is not None
             and verified_unavailable_reason is not None
         )
-        if not advisory_only and (executor is None) == (executor_factory is None):
+        executor_bindings = sum(
+            item is not None for item in (executor, executor_factory, contextual_executor_factory)
+        )
+        if not advisory_only and executor_bindings != 1:
             raise ValueError("semantic runtime requires exactly one executor binding")
         if planner is None and not advisory_only:
             raise ValueError(
                 "semantic runtime requires a planner or explicit advisory-only binding"
             )
-        if advisory_only and (executor is not None or executor_factory is not None):
+        if advisory_only and executor_bindings:
             raise ValueError("advisory-only runtime cannot carry an executor")
         self._planner = planner
         self._verified_unavailable_reason = verified_unavailable_reason
-        self._executor_factory: Callable[[Principal], OntologyQueryPlanExecutor] | None
+        self._executor_factory: (
+            Callable[[Principal, SemanticDocumentContext | None], OntologyQueryPlanExecutor] | None
+        )
         if advisory_only:
             self._executor_factory = None
+        elif contextual_executor_factory is not None:
+            self._executor_factory = contextual_executor_factory
         elif executor_factory is not None:
-            self._executor_factory = executor_factory
+            self._executor_factory = lambda principal, _context: executor_factory(principal)
         else:
             if executor is None:  # pragma: no cover - constructor invariant
                 raise RuntimeError("semantic executor binding is unavailable")
             bound_executor = executor
-            self._executor_factory = lambda _principal: bound_executor
+            self._executor_factory = lambda _principal, _context: bound_executor
         self._purpose = purpose
         self._function_bindings = MappingProxyType(dict(function_bindings or {}))
         self._adaptive = adaptive_service
@@ -191,6 +205,7 @@ class SemanticConversationRuntime:
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
         conversation_model_tier: SemanticConversationModelTier | None = None,
+        document_context: SemanticDocumentContext | None = None,
         progress_observer: QueryProgressObserver | None = None,
         target_agent: str = "Bragi",
         relationship: Mapping[str, object] | None = None,
@@ -231,11 +246,15 @@ class SemanticConversationRuntime:
                 bound_investigation_continuation=bound_investigation_continuation,
                 escalation_policy=escalation_policy,
                 conversation_model_tier=conversation_model_tier,
+                document_context=document_context,
                 progress_observer=progress_observer,
                 conversation_profile=conversation_profile,
                 preflight_result=preflight_result,
                 target_agent=target_agent,
             )
+
+        if document_context is not None:
+            return await verified(utterance)
 
         if (
             preflight_result is not None
@@ -492,6 +511,7 @@ class SemanticConversationRuntime:
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
         conversation_model_tier: SemanticConversationModelTier | None = None,
+        document_context: SemanticDocumentContext | None = None,
         progress_observer: QueryProgressObserver | None = None,
         conversation_profile: Mapping[str, str] | None = None,
         preflight_result: ConversationPreflightResult | None = None,
@@ -523,6 +543,7 @@ class SemanticConversationRuntime:
                 conversation_model_tier=conversation_model_tier,
                 conversation_profile=conversation_profile,
                 preflight_result=preflight_result,
+                required_document_evidence=document_context is not None,
             ),
             cancelled=cancelled,
         )
@@ -565,7 +586,11 @@ class SemanticConversationRuntime:
             return _terminal("held", planning.reason, planning)
         if planning.plan is None or planning.intent_graph is None:
             raise RuntimeError("verified semantic planning result is incomplete")
-        executor = self._executor_factory(principal) if self._executor_factory is not None else None
+        executor = (
+            self._executor_factory(principal, document_context)
+            if self._executor_factory is not None
+            else None
+        )
         if executor is None:  # pragma: no cover - constructor invariant
             raise RuntimeError("semantic executor binding is unavailable")
         execution = await executor.execute(

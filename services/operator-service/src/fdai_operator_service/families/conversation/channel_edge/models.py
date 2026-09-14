@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from unicodedata import category
 
 from fdai_operator_service.families.conversation.channel_delivery_models import ChannelKind
 from fdai_operator_service.families.conversation.contracts import JsonObject
@@ -25,6 +26,11 @@ class ChannelAttachment:
         _bounded("attachment source_ref", self.source_ref, 512)
         _bounded("attachment name", self.name, 512)
         _bounded("attachment media_type_hint", self.media_type_hint, 256)
+        if self.name in {".", ".."} or any(
+            character in {"/", "\\"} or category(character).startswith("C")
+            for character in self.name
+        ):
+            raise ValueError("attachment name MUST be a safe leaf name")
         if isinstance(self.size_bytes, bool) or self.size_bytes < 1:
             raise ValueError("attachment size_bytes MUST be positive")
 

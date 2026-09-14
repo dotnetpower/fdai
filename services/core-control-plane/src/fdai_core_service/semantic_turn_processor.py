@@ -55,6 +55,7 @@ from fdai_service_contracts import (
     RuleSearchRequest,
     SemanticAssuranceObservation,
     SemanticDirectResponseIntent,
+    SemanticDocumentContext,
     SemanticInvestigationContinuation,
     SemanticPlanningProfile,
     SemanticRoute,
@@ -80,7 +81,8 @@ from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V13,
     OPERATOR_PROJECTION_PRODUCER_V14,
     OPERATOR_PROJECTION_PRODUCER_V16,
-    OPERATOR_REQUEST_CONSUMER_V17,
+    OPERATOR_PROJECTION_PRODUCER_V17,
+    OPERATOR_REQUEST_CONSUMER_V18,
 )
 from .semantic_assurance_projection import project_semantic_assurance
 from .semantic_presentation_semantics import project_presentation_semantics
@@ -185,6 +187,7 @@ class SemanticTurnRuntime(Protocol):
         bound_resource_context: BoundResourceContext | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
+        document_context: SemanticDocumentContext | None = None,
     ) -> RuntimeSemanticTurnResult: ...
 
 
@@ -744,6 +747,8 @@ class SemanticTurnProcessor:
             runtime_kwargs["escalation_policy"] = escalation_policy
         if request.conversation_model_tier is not None:
             runtime_kwargs["conversation_model_tier"] = request.conversation_model_tier
+        if request.document_context is not None:
+            runtime_kwargs["document_context"] = request.document_context
         return await runtime.handle(
             utterance=request.utterance,
             prior_turns=_prior_turns(request, requested_at=requested_at),
@@ -855,6 +860,15 @@ class SemanticTurnProcessor:
         extensions: _SemanticProjectionExtensions | None,
         request_digest: str,
     ) -> bytes:
+        expected_context_digest = (
+            request.document_context.context_digest
+            if request.document_context is not None
+            else None
+        )
+        if result.document_context_digest not in {None, expected_context_digest}:
+            raise ValueError("semantic result document context digest does not match request")
+        if result.document_context_digest != expected_context_digest:
+            result = result.model_copy(update={"document_context_digest": expected_context_digest})
         semantic_result = result.model_dump(mode="json", exclude_none=True)
         evidence_digest = content_digest(semantic_result)
         projection_time = _aware_utc(self._now(), field="semantic processor clock")
@@ -895,7 +909,13 @@ class SemanticTurnProcessor:
                     mode="json"
                 )
         projection = {
-            "schema_version": ("1.6.0" if result.adaptive_answer is not None else "1.4.0"),
+            "schema_version": (
+                "1.7.0"
+                if request.document_context is not None
+                else "1.6.0"
+                if result.adaptive_answer is not None
+                else "1.4.0"
+            ),
             "request_id": envelope["request_id"],
             "correlation_id": envelope["correlation_id"],
             "idempotency_key": envelope["idempotency_key"],
@@ -923,7 +943,9 @@ class SemanticTurnProcessor:
             if encoded_size > MAX_WIRE_BYTES:
                 raise _OperationalEvidenceWireBudgetExceededError
         codec = (
-            OPERATOR_PROJECTION_PRODUCER_V16
+            OPERATOR_PROJECTION_PRODUCER_V17
+            if projection["schema_version"] == "1.7.0"
+            else OPERATOR_PROJECTION_PRODUCER_V16
             if projection["schema_version"] == "1.6.0"
             else OPERATOR_PROJECTION_PRODUCER_V14
         )
@@ -1039,7 +1061,7 @@ def _decode_request(
     payload: Mapping[str, Any],
 ) -> tuple[dict[str, Any], SemanticTurnRequest, datetime]:
     try:
-        envelope = OPERATOR_REQUEST_CONSUMER_V17.decode_mapping(payload)
+        envelope = OPERATOR_REQUEST_CONSUMER_V18.decode_mapping(payload)
         if envelope.get("request_kind") != "semantic_query":
             raise SemanticTurnRejectedError("semantic_request_kind_required")
         semantic_turn = envelope.get("semantic_turn")
@@ -1361,6 +1383,20 @@ def _project_runtime_result(
         return _evidence_incomplete(
             request,
             "too_many_evidence_refs",
+            result=result,
+        ), model_extensions
+    document_citations = frozenset(
+        evidence_ref for evidence_ref in evidence_refs if evidence_ref.startswith("doc:")
+    )
+    expected_document_citations = (
+        frozenset(request.document_context.citations)
+        if request.document_context is not None
+        else frozenset()
+    )
+    if document_citations != expected_document_citations:
+        return _evidence_incomplete(
+            request,
+            "document_context_evidence_mismatch",
             result=result,
         ), model_extensions
     execution_receipt_digest = _execution_receipt_digest(execution)
@@ -2928,6 +2964,18 @@ def _answer_row_values(values: Mapping[str, object]) -> dict[str, object]:
         for field, value in values.items()
         if isinstance(field, str) and field and not isinstance(value, Mapping | list)
     }
+    if values.get("record_kind") == "excerpt" and values.get("cloud_source") is not None:
+        from fdai_service_contracts.cloud_knowledge import CloudSourceEvidence
+
+        source = CloudSourceEvidence.model_validate(values["cloud_source"])
+        projected.update(
+            {
+                "cloud_collected_at": source.collected_at.isoformat(),
+                "cloud_checked_at": source.check.checked_at.isoformat(),
+                "cloud_source_id": source.source_id,
+                "cloud_status": values.get("cloud_status", "unknown"),
+            }
+        )
     if values.get("record_kind") == "excerpt" and isinstance(values.get("text"), str):
         original_text = values["text"]
         displayed_text = _redact_answer_scalar("text", original_text)
@@ -3906,6 +3954,22 @@ def _render_governed_document_answer(
             ]
         )
     if not excerpts:
+        cloud_hold = summary.get("guidance_outcome")
+        if cloud_hold in {
+            "cloud_source_observation_required",
+            "cloud_applicability_required",
+            "cloud_source_refresh_required",
+        }:
+            lines.append(
+                "현재 안내에는 정확한 리소스 적용 조건과 승인된 최신 원본 확인 근거가 필요합니다. "
+                "답변 중 외부 수집을 수행하지 않았으며 갱신이나 조건 확인이 필요합니다."
+                if korean
+                else (
+                    "Current guidance requires exact resource applicability and an approved "
+                    "source observation. No external collection ran during this answer; "
+                    "refresh or clarify the target."
+                )
+            )
         lines.append(
             (
                 "접근 가능한 범위에서 관련 발췌문을 찾지 못했습니다. "
@@ -3942,10 +4006,34 @@ def _render_governed_document_answer(
         ):
             return None
         rendered_text, display_truncated = _bounded_document_text(text, maximum=1_200)
+        source_date_lines: list[str] = []
+        if excerpt.get("cloud_collected_at") is not None:
+            from fdai.core.knowledge.cloud_reference import citation_times
+
+            source_date_lines.append(
+                "- "
+                + citation_times(
+                    datetime.fromisoformat(str(excerpt["cloud_collected_at"])),
+                    datetime.fromisoformat(str(excerpt["cloud_checked_at"])),
+                    status=str(excerpt.get("cloud_status", "unknown")),
+                    korean=korean,
+                )
+            )
+            if excerpt.get("current_guidance_eligible") is not True:
+                source_date_lines.append(
+                    "- 날짜를 명시한 참조 자료입니다. "
+                    "대상 리소스의 현재 적용 가능성을 확인한 결과가 아닙니다."
+                    if korean
+                    else (
+                        "- Dated reference only; current applicability to the target resource "
+                        "is not verified."
+                    )
+                )
         lines.extend(
             [
                 f"### {_escape_document_text(source_name, maximum=512)}",
                 "",
+                *source_date_lines,
                 (
                     f"- 위치: `{_inline_code(locator)}`"
                     if korean
@@ -6145,6 +6233,8 @@ def _canonical_projection(encoded: bytes, *, request_digest: str) -> bytes:
         return OPERATOR_PROJECTION_PRODUCER_V13.encode(loaded)
     if loaded.get("schema_version") == "1.6.0":
         return OPERATOR_PROJECTION_PRODUCER_V16.encode(loaded)
+    if loaded.get("schema_version") == "1.7.0":
+        return OPERATOR_PROJECTION_PRODUCER_V17.encode(loaded)
     return OPERATOR_PROJECTION_PRODUCER_V14.encode(loaded)
 
 

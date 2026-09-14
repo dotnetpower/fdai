@@ -16,7 +16,6 @@ interface WindowClientStub {
   readonly url: string;
   readonly focus: () => Promise<unknown>;
   readonly navigate: (url: string) => Promise<WindowClientStub | null>;
-  readonly postMessage?: (value: unknown) => void;
 }
 
 interface WorkerClients {
@@ -128,15 +127,45 @@ describe("notification service worker boundary", () => {
     expect(openWindow).not.toHaveBeenCalled();
   });
 
-  test("opens the target when focusing an exact client fails", async () => {
+  test("never navigates an uncontrolled same-origin window outside the Console scope", async () => {
+    const target = "https://console.example.com/fdai/incidents?status=all";
+    const acknowledgedTarget = `${target}${ACKNOWLEDGEMENT_SUFFIX}`;
+    const unrelatedNavigate = vi.fn(async () => null);
+    const unrelated: WindowClientStub = {
+      url: "https://console.example.com/other-app",
+      focus: vi.fn(async () => undefined),
+      navigate: unrelatedNavigate,
+    };
+    const navigated: WindowClientStub = {
+      url: acknowledgedTarget,
+      focus: vi.fn(async () => undefined),
+      navigate: async () => null,
+    };
+    const scopedNavigate = vi.fn(async () => navigated);
+    const scoped: WindowClientStub = {
+      url: "https://console.example.com/fdai/overview",
+      focus: vi.fn(async () => undefined),
+      navigate: scopedNavigate,
+    };
+    const context = loadWorker("https://console.example.com/fdai/", {
+      matchAll: async () => [unrelated, scoped],
+      openWindow: async () => null,
+    });
+
+    await clickNotification(context, "/fdai/incidents?status=all");
+
+    expect(unrelatedNavigate).not.toHaveBeenCalled();
+    expect(scopedNavigate).toHaveBeenCalledWith(acknowledgedTarget);
+  });
+
+  test("opens the target when exact-client navigation returns no client", async () => {
     const target = "https://console.example.com/incidents?status=all";
     const acknowledgedTarget = `${target}${ACKNOWLEDGEMENT_SUFFIX}`;
+    const navigate = vi.fn(async () => null);
     const exact: WindowClientStub = {
       url: target,
-      focus: vi.fn(async () => {
-        throw new Error("focus unavailable");
-      }),
-      navigate: async () => null,
+      focus: vi.fn(async () => undefined),
+      navigate,
     };
     const openWindow = vi.fn(async () => null);
     const context = loadWorker("https://console.example.com/", {
@@ -146,18 +175,24 @@ describe("notification service worker boundary", () => {
 
     await clickNotification(context, "/incidents?status=all");
 
-    expect(exact.focus).toHaveBeenCalledOnce();
+    expect(navigate).toHaveBeenCalledWith(acknowledgedTarget);
+    expect(exact.focus).not.toHaveBeenCalled();
     expect(openWindow).toHaveBeenCalledWith(acknowledgedTarget);
   });
 
-  test("reports acknowledgement to an already open exact Console target", async () => {
+  test("navigates an exact Console target through the acknowledgement fragment", async () => {
     const target = "https://console.example.com/incidents?status=all";
-    const postMessage = vi.fn();
+    const acknowledgedTarget = `${target}${ACKNOWLEDGEMENT_SUFFIX}`;
+    const navigated: WindowClientStub = {
+      url: acknowledgedTarget,
+      focus: vi.fn(async () => undefined),
+      navigate: async () => null,
+    };
+    const navigate = vi.fn(async () => navigated);
     const exact: WindowClientStub = {
       url: target,
       focus: vi.fn(async () => undefined),
-      navigate: async () => null,
-      postMessage,
+      navigate,
     };
     const context = loadWorker("https://console.example.com/", {
       matchAll: async () => [exact],
@@ -166,24 +201,22 @@ describe("notification service worker boundary", () => {
 
     await clickNotification(context, "/incidents?status=all");
 
-    expect(postMessage).toHaveBeenCalledOnce();
-    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
-      type: "fdai.console-web-notification.acknowledged",
-      channel_id: "console-web",
-      tag: "fdai:event-1",
-      acknowledgement_token: ACKNOWLEDGEMENT_TOKEN,
-    }));
-    expect(postMessage.mock.calls[0]?.[0]).not.toHaveProperty("acknowledged_at");
+    expect(navigate).toHaveBeenCalledWith(acknowledgedTarget);
+    expect(navigated.focus).toHaveBeenCalledOnce();
   });
 
-  test("does not record an acknowledgement for an invalid notification tag", async () => {
+  test("does not add acknowledgement data for an invalid notification tag", async () => {
     const target = "https://console.example.com/incidents?status=all";
-    const postMessage = vi.fn();
-    const exact: WindowClientStub = {
+    const navigated: WindowClientStub = {
       url: target,
       focus: vi.fn(async () => undefined),
       navigate: async () => null,
-      postMessage,
+    };
+    const navigate = vi.fn(async () => navigated);
+    const exact: WindowClientStub = {
+      url: target,
+      focus: vi.fn(async () => undefined),
+      navigate,
     };
     const context = loadWorker("https://console.example.com/", {
       matchAll: async () => [exact],
@@ -192,17 +225,21 @@ describe("notification service worker boundary", () => {
 
     await clickNotification(context, "/incidents?status=all", "unsafe tag");
 
-    expect(postMessage).not.toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith(target);
   });
 
-  test("does not record an acknowledgement for another notification channel", async () => {
+  test("does not add acknowledgement data for another notification channel", async () => {
     const target = "https://console.example.com/incidents?status=all";
-    const postMessage = vi.fn();
-    const exact: WindowClientStub = {
+    const navigated: WindowClientStub = {
       url: target,
       focus: vi.fn(async () => undefined),
       navigate: async () => null,
-      postMessage,
+    };
+    const navigate = vi.fn(async () => navigated);
+    const exact: WindowClientStub = {
+      url: target,
+      focus: vi.fn(async () => undefined),
+      navigate,
     };
     const context = loadWorker("https://console.example.com/", {
       matchAll: async () => [exact],
@@ -211,17 +248,21 @@ describe("notification service worker boundary", () => {
 
     await clickNotification(context, "/incidents?status=all", "fdai:event-1", "teams");
 
-    expect(postMessage).not.toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith(target);
   });
 
-  test("does not record an acknowledgement with an invalid claim token", async () => {
+  test("does not add acknowledgement data with an invalid claim token", async () => {
     const target = "https://console.example.com/incidents?status=all";
-    const postMessage = vi.fn();
-    const exact: WindowClientStub = {
+    const navigated: WindowClientStub = {
       url: target,
       focus: vi.fn(async () => undefined),
       navigate: async () => null,
-      postMessage,
+    };
+    const navigate = vi.fn(async () => navigated);
+    const exact: WindowClientStub = {
+      url: target,
+      focus: vi.fn(async () => undefined),
+      navigate,
     };
     const context = loadWorker("https://console.example.com/", {
       matchAll: async () => [exact],
@@ -236,23 +277,19 @@ describe("notification service worker boundary", () => {
       "predictable",
     );
 
-    expect(postMessage).not.toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith(target);
   });
 
-  test("reuses the focused exact window when acknowledgement messaging fails", async () => {
+  test("opens the acknowledgement target when exact-client navigation fails", async () => {
     const target = "https://console.example.com/incidents?status=all";
     const acknowledgedTarget = `${target}${ACKNOWLEDGEMENT_SUFFIX}`;
-    const navigated: WindowClientStub = {
-      url: acknowledgedTarget,
-      focus: vi.fn(async () => undefined),
-      navigate: async () => null,
-    };
-    const navigate = vi.fn(async () => navigated);
+    const navigate = vi.fn(async () => {
+      throw new Error("detached client");
+    });
     const exact: WindowClientStub = {
       url: target,
       focus: vi.fn(async () => undefined),
       navigate,
-      postMessage: () => { throw new Error("detached client"); },
     };
     const openWindow = vi.fn(async () => null);
     const context = loadWorker("https://console.example.com/", {
@@ -261,9 +298,8 @@ describe("notification service worker boundary", () => {
     });
 
     await clickNotification(context, "/incidents?status=all");
-
     expect(navigate).toHaveBeenCalledWith(acknowledgedTarget);
-    expect(navigated.focus).toHaveBeenCalledOnce();
-    expect(openWindow).not.toHaveBeenCalled();
+    expect(navigate).toHaveBeenCalledWith(acknowledgedTarget);
+    expect(openWindow).toHaveBeenCalledWith(acknowledgedTarget);
   });
 });

@@ -28,6 +28,24 @@ class CorrelationTraceCohortEvidence:
     complete_trace: bool
     gaps: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        if len(self.source_revision) != 40 or any(
+            character not in "0123456789abcdef" for character in self.source_revision
+        ):
+            raise ValueError("trace cohort source_revision MUST be a full git object id")
+        if type(self.minimum_traces) is not int or self.minimum_traces < 1:
+            raise ValueError("trace cohort minimum_traces MUST be a positive integer")
+        if type(self.trace_count) is not int or self.trace_count < 0:
+            raise ValueError("trace cohort trace_count MUST be a non-negative integer")
+        if len(self.trace_set_digest) != 64 or any(
+            character not in "0123456789abcdef" for character in self.trace_set_digest
+        ):
+            raise ValueError("trace cohort trace_set_digest MUST be a lowercase SHA-256 digest")
+        if type(self.complete_trace) is not bool or self.complete_trace is not (not self.gaps):
+            raise ValueError("trace cohort completeness does not match gaps")
+        if self.complete_trace and self.trace_count < self.minimum_traces:
+            raise ValueError("complete trace cohort MUST meet minimum_traces")
+
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {
             "schema_version": "1.0.0",
@@ -112,6 +130,8 @@ def bind_qualification_timing_evidence(
         latency_slo=latency.latency_slo_met,
         complete_trace=trace_cohort.complete_trace,
         critical_safety_escape=critical_safety_escape,
+        latency_evidence_content_digest=_content_digest(latency.to_dict()),
+        trace_cohort_evidence_content_digest=_content_digest(trace_cohort.to_dict()),
     )
 
 
@@ -124,6 +144,13 @@ def _digest(value: object) -> str:
             sort_keys=True,
         ).encode()
     ).hexdigest()
+
+
+def _content_digest(payload: dict[str, object]) -> str:
+    value = payload.get("content_digest")
+    if not isinstance(value, str):
+        raise ValueError("timing evidence artifact is missing its content digest")
+    return value
 
 
 __all__ = [

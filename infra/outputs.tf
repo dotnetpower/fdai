@@ -200,7 +200,7 @@ output "contributor_core_service_tfvars" {
     }
     runtime_env = var.env
     llm = {
-      endpoint                   = module.llm_azure_openai[0].endpoint
+      endpoint                   = local.primary_llm_endpoint
       model_endpoints            = local.llm_model_endpoints
       web_search_enabled         = false
       web_search_allowed_domains = []
@@ -377,14 +377,14 @@ output "identity_finops_principal_id" {
 }
 
 # ---------------------------------------------------------------------------
-# LLM (Azure OpenAI) - present only when `enable_llm = true`.
+# LLM (Azure OpenAI) - present only when a resolved OpenAI capability exists.
 # One-of null-coalesce lets composition roots read the values without a
 # conditional in every call site: an empty deployments map means "no LLM
 # provisioned in this env".
 # ---------------------------------------------------------------------------
 
 output "llm_endpoint" {
-  description = "AOAI account endpoint (custom-subdomain URL). Empty string when enable_llm=false."
+  description = "AOAI account endpoint (custom-subdomain URL). Empty when no OpenAI capability resolved."
   value       = length(module.llm_azure_openai) > 0 ? module.llm_azure_openai[0].endpoint : ""
 }
 
@@ -394,12 +394,12 @@ output "llm_model_endpoints" {
 }
 
 output "llm_resource_id" {
-  description = "Cognitive Services account ARM id. Empty string when enable_llm=false."
+  description = "Azure OpenAI account ARM id. Empty when no OpenAI capability resolved."
   value       = length(module.llm_azure_openai) > 0 ? module.llm_azure_openai[0].resource_id : ""
 }
 
 output "llm_deployments" {
-  description = "Map of capability name -> deployment name. Empty map when enable_llm=false."
+  description = "Map of OpenAI capability name -> deployment name. Empty when none resolved."
   value       = length(module.llm_azure_openai) > 0 ? module.llm_azure_openai[0].deployments : {}
 }
 
@@ -639,11 +639,13 @@ locals {
         role_name = azurerm_role_assignment.ingestion_document_data[0].role_definition_name
         scope     = azurerm_role_assignment.ingestion_document_data[0].scope
       },
+    ],
+    local.openai_enabled ? [
       {
         role_name = "Cognitive Services OpenAI User"
         scope     = module.llm_azure_openai[0].resource_id
       },
-    ],
+    ] : [],
     var.ingestion_cohost_worker ? [
       {
         role_name = azurerm_role_assignment.ingestion_eventhubs_receiver[0].role_definition_name
@@ -688,11 +690,13 @@ locals {
         role_name = azurerm_role_assignment.ingestion_worker_document_data[0].role_definition_name
         scope     = azurerm_role_assignment.ingestion_worker_document_data[0].scope
       },
+    ],
+    local.openai_enabled ? [
       {
         role_name = "Cognitive Services OpenAI User"
         scope     = module.llm_azure_openai[0].resource_id
       },
-    ],
+    ] : [],
     local.document_ocr_binding_enabled ? [
       {
         role_name = azurerm_role_assignment.ingestion_ocr_user[0].role_definition_name

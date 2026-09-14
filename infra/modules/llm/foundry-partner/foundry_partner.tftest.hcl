@@ -42,8 +42,8 @@ run "plans_private_partner_model" {
   }
 
   assert {
-    condition     = azurerm_role_assignment.project_user["executor"].role_definition_name == "Azure AI User"
-    error_message = "Runtime principals must receive only the project user role."
+    condition     = azurerm_role_assignment.project_user["executor"].role_definition_name == "Azure AI Developer"
+    error_message = "Runtime principals must receive the current Foundry project developer role."
   }
 }
 

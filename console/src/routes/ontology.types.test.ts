@@ -118,9 +118,9 @@ function graphResponse(): Record<string, unknown> {
 }
 
 describe("ontology view model", () => {
-  it("normalizes unsupported views to the Semantic model", () => {
-    expect(ontologyView(null)).toBe("map");
-    expect(ontologyView("unknown")).toBe("map");
+  it("normalizes missing and unsupported views to Ontology Instances", () => {
+    expect(ontologyView(null)).toBe("instances");
+    expect(ontologyView("unknown")).toBe("instances");
     expect(ontologyView("links")).toBe("links");
     expect(ontologyView("actions")).toBe("actions");
     expect(ontologyView("instances")).toBe("instances");

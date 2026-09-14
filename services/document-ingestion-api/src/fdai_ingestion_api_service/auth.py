@@ -28,6 +28,10 @@ class RoleRequiredError(Exception):
     """The verified principal lacks every required role."""
 
 
+class WorkloadAuthorizationError(Exception):
+    """A verified token is not the dedicated channel attachment workload."""
+
+
 @dataclass(frozen=True, slots=True)
 class Principal:
     oid: str
@@ -117,6 +121,54 @@ class Authenticator:
         if principal.roles.isdisjoint(required):
             raise RoleRequiredError("principal lacks a required ingestion role")
         return principal
+
+
+@dataclass(frozen=True, slots=True)
+class ChannelAttachmentWorkloadAuthenticator:
+    """Require one exact app-only identity and attachment-submit App Role."""
+
+    verifier: ClaimsVerifier
+    allowed_client_id: str
+    required_role: str = "Document.ChannelAttachment.Submit"
+
+    def __post_init__(self) -> None:
+        if not self.allowed_client_id.strip() or len(self.allowed_client_id) > 200:
+            raise ValueError("channel attachment client id MUST be bounded and non-empty")
+        if not self.required_role.strip() or len(self.required_role) > 128:
+            raise ValueError("channel attachment App Role MUST be bounded and non-empty")
+
+    def authenticate(self, authorization_header: str | None) -> str:
+        """Return the verified workload oid after every app-only claim check passes."""
+
+        if not authorization_header or not authorization_header.startswith("Bearer "):
+            raise AuthenticationError("Authorization header MUST use the Bearer scheme")
+        token = authorization_header.removeprefix("Bearer ").strip()
+        if not token:
+            raise AuthenticationError("Bearer token is empty")
+        try:
+            claims = self.verifier(token)
+        except AuthenticationError:
+            raise
+        except Exception as exc:
+            raise AuthenticationError(f"token verification failed: {type(exc).__name__}") from exc
+        if claims.get("idtyp") != "app":
+            raise WorkloadAuthorizationError("channel attachment token MUST be app-only")
+        oid = claims.get("oid")
+        if not isinstance(oid, str) or not oid.strip() or len(oid) > 256:
+            raise AuthenticationError("verified workload claims MUST carry a bounded oid")
+        authorized_party = claims.get("azp", claims.get("appid"))
+        if authorized_party != self.allowed_client_id:
+            raise WorkloadAuthorizationError("channel attachment workload identity is not allowed")
+        if claims.get("scp") is not None or _claim_strings(claims.get("groups")):
+            raise WorkloadAuthorizationError(
+                "channel attachment workload MUST NOT carry delegated scope or groups"
+            )
+        roles = _claim_strings(claims.get("roles"))
+        if roles != {self.required_role}:
+            raise WorkloadAuthorizationError(
+                "channel attachment workload requires the exact submit App Role"
+            )
+        return oid
 
 
 @dataclass(frozen=True, slots=True)

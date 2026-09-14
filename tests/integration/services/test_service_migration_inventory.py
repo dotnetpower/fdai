@@ -95,6 +95,9 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
     future_tables = set(manifest.table_migrators) - tables
     assert tables <= set(manifest.table_migrators)
     assert future_tables == {
+        "document_knowledge_source",
+        "document_knowledge_check",
+        "document_knowledge_release",
         "document_api_outbox",
         "document_connector_batch",
         "document_connector_cancellation",

@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to Azure from one local command or a digest-pinned disconnected deployment appliance.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 2e824888453a6da52ffa87870f0d398a43706626 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 0cdab6f39adbe068065f69ae8e50469722d46e74 }]
 ---
 
 # Deploy Quickstart
@@ -154,6 +154,44 @@ Checkout changes do not update an older kit, and editing extracted signed kit fi
 
 Foundation plans first use a private local backend. Only the exact migration archive activates the
 signed remote-backend example for the attested host; migration approval and readback remain mandatory.
+
+### Recover a verified public development deployment
+
+Use application-state adoption only when the contributor deployment has already produced a verified
+`fdai.contributor-recovery.v1` receipt after a failed apply. Run the command from the exact signed kit
+revision that contains the adoption support:
+
+```bash
+fdaictl provision azure \
+  --online \
+  --region <azure-region> \
+  --adopt-runner-image-receipt <verified-runner-image-receipt> \
+  --adopt-application-state <private-terraform-state> \
+  --adopt-application-recovery <private-recovery-receipt> \
+  --adopt-resolved-models <private-resolved-models>
+```
+
+Supply the runner receipt and all three application mode-0600 files together. The coordinator
+verifies their digests, target, resource
+count, resource suffix, and model-capability contract. It creates a private staged copy that removes
+only the application resource group's two ownership records. The original local state remains
+unchanged.
+
+The runner receipt reuses an independently verified managed image without another image apply. A
+new Foundation run keeps its current signed source and records the image's original source, signed
+verifier source, image run, and exact receipt digest as separate provenance.
+
+The managed host accepts the staged state only when the Foundation-owned remote application backend
+doesn't contain a state blob. It writes an immutable claim before the single non-forced state push,
+then reads the state back and verifies its lineage, serial, content, and managed-resource count. If
+the process stops after the claim, run the same command with the same work directory and inputs. The
+host verifies the existing remote state and doesn't repeat the push. A different input, target,
+Foundation binding, nonempty backend, or changed lineage stops recovery for operator review.
+The recovered-state path also stops before approval if either subsequent plan contains a delete or
+replacement action.
+
+Don't delete the existing Azure resources or the original local state to resolve an adoption error.
+Keep the work directory and use the retained claim or receipt to determine the failed boundary.
 
 ### If kit acquisition fails
 

@@ -21,6 +21,8 @@ expected_image="$(jq -er '.target.image_ref' "$context_path")"
 fqdn="$(jq -r '.fqdn // ""' "$work_dir/service.json")"
 edge_resource_id="$(jq -r '.operator_channel_edge.service_resource_id // ""' "$context_path")"
 edge_state="$(jq -r '.operator_channel_edge.state // "enabled"' "$context_path")"
+intake_resource_id="$(jq -r '.document_channel_intake.service_resource_id // ""' "$context_path")"
+intake_state="$(jq -r '.document_channel_intake.state // "enabled"' "$context_path")"
 if [[ -n "$edge_resource_id" && "$edge_state" == "disabled" ]]; then
   if timeout 60s az containerapp show \
       --ids "$edge_resource_id" \
@@ -30,6 +32,16 @@ if [[ -n "$edge_resource_id" && "$edge_state" == "disabled" ]]; then
     exit 1
   fi
   echo "disabled channel edge route removal verified."
+fi
+if [[ -n "$intake_resource_id" && "$intake_state" == "disabled" ]]; then
+  if timeout 60s az containerapp show \
+      --ids "$intake_resource_id" \
+      --only-show-errors \
+      --output none 2>/dev/null; then
+    echo "disabled document channel intake still exists after protected apply." >&2
+    exit 1
+  fi
+  echo "disabled document channel intake removal verified."
 fi
 health_deadline=$((SECONDS + 1200))
 activation_attempted=false
@@ -170,4 +182,69 @@ if [[ -n "$edge_resource_id" && "$edge_state" != "disabled" ]]; then
   timeout 60s curl --fail --silent --show-error --retry 5 --retry-delay 2 \
     --retry-max-time 40 --connect-timeout 5 --max-time 15 \
     "https://${edge_fqdn}${edge_readiness_path}" >/dev/null
+fi
+
+if [[ -n "$intake_resource_id" && "$intake_state" != "disabled" ]]; then
+  terraform output -json channel_intake >"$work_dir/intake-service.json"
+  jq -e 'type == "object" and .id != null and .fqdn != null' \
+    "$work_dir/intake-service.json" >/dev/null || {
+    echo "Terraform document channel intake output is missing after protected apply." >&2
+    exit 1
+  }
+  jq '.target = .document_channel_intake | del(.document_channel_intake)' \
+    "$context_path" >"$work_dir/intake-context.json"
+  intake_resource_group="$(jq -er '.target.resource_group' "$work_dir/intake-context.json")"
+  intake_service_name="$(jq -er '.target.service_name' "$work_dir/intake-context.json")"
+  intake_expected_image="$(jq -er '.target.image_ref' "$work_dir/intake-context.json")"
+  previous_intake_revision="${PREVIOUS_CHANNEL_INTAKE_REVISION:-absent}"
+  intake_health_converged=false
+  intake_health_deadline=$((SECONDS + 1200))
+  while ((SECONDS < intake_health_deadline)); do
+    timeout 60s az containerapp show \
+      --ids "$intake_resource_id" \
+      --only-show-errors \
+      --output json >"$work_dir/intake-app.json"
+    intake_revision_name="$(jq -er '.properties.latestRevisionName' \
+      "$work_dir/intake-app.json")"
+    timeout 60s az containerapp revision show \
+      --resource-group "$intake_resource_group" \
+      --name "$intake_service_name" \
+      --revision "$intake_revision_name" \
+      --only-show-errors \
+      --output json >"$work_dir/intake-revision.json"
+    intake_observed_image="$(jq -er '.properties.template.containers[0].image' \
+      "$work_dir/intake-revision.json")"
+    [[ "$intake_revision_name" != "$previous_intake_revision" \
+      && "$intake_observed_image" == "$intake_expected_image" ]] || {
+      echo "document channel intake revision does not match the protected image." >&2
+      exit 1
+    }
+    if jq -e '
+      .properties.provisioningState == "Provisioned"
+      and .properties.active == true
+      and .properties.healthState == "Healthy"
+    ' "$work_dir/intake-revision.json" >/dev/null; then
+      intake_health_converged=true
+      break
+    fi
+    echo "intake health poll: revision=$intake_revision_name remaining=$((intake_health_deadline - SECONDS))s" >&2
+    sleep 5
+  done
+  if [[ "$intake_health_converged" != true ]]; then
+    echo "document channel intake did not reach healthy state within its deadline." >&2
+    exit 1
+  fi
+  timeout 120s python3 "$control_root/deployment_recovery.py" verify \
+    --context "$work_dir/intake-context.json" \
+    --service-output "$work_dir/intake-service.json" \
+    --account "$work_dir/account.json" \
+    --app "$work_dir/intake-app.json" \
+    --revision "$work_dir/intake-revision.json" \
+    --previous-revision "$previous_intake_revision"
+  intake_fqdn="$(jq -er '.fqdn' "$work_dir/intake-service.json")"
+  intake_readiness_path="$(terraform output -json channel_intake_health_contract \
+    | jq -er '.readiness_path')"
+  timeout 60s curl --fail --silent --show-error --retry 5 --retry-delay 2 \
+    --retry-max-time 40 --connect-timeout 5 --max-time 15 \
+    "https://${intake_fqdn}${intake_readiness_path}" >/dev/null
 fi

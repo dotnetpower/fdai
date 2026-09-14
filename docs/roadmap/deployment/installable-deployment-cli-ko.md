@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 4c0e20d9d5a51fb6457360575ab24d60da3201ea
-translation_revised: 2026-09-13
+translation_source_sha: fabf54a3a65bd71e78f6c95f78edbd88b12956a4
+translation_revised: 2026-09-14
 ---
 
 # 설치형 배포 CLI
@@ -195,10 +195,12 @@ Git 상태가 깨끗하다는 사실만으로 소스 신원을 입증하지 않�
 6. 상태 인계와 Managed Host 이미지를 검증합니다.
 7. 동일한 검증 키트를 Bastion을 통해 전달합니다.
 8. Managed Identity로 substrate 및 애플리케이션 계획을 실행하고 적용합니다.
-9. 모든 런타임 이미지 digest를 가져오고 재확인합니다.
-10. 데이터베이스 마이그레이션을 실행하고 권위 있는 카탈로그를 구체화합니다.
-11. 서비스를 배포하고 런타임 상태를 검증합니다.
-12. 배포 준비 상태를 보고하기 전에 두 번째 Terraform 계획에 변경이 없는지 확인합니다.
+9. Terraform이 선택한 Core 애플리케이션 이름을 읽고 Python에서 Azure 리소스 이름을 다시
+  계산하지 않은 채 배포에 결속된 기능 신원을 도출합니다.
+10. 모든 런타임 이미지 digest를 가져오고 재확인합니다.
+11. 데이터베이스 마이그레이션을 실행하고 권위 있는 카탈로그를 구체화합니다.
+12. 서비스를 배포하고 런타임 상태를 검증합니다.
+13. 배포 준비 상태를 보고하기 전에 두 번째 Terraform 계획에 변경이 없는지 확인합니다.
 
 독립적인 준비와 읽기 전용 probe는 병렬로 실행할 수 있습니다. 승인, 적용, 정리, 상태 전환,
 인계, 마이그레이션 및 애플리케이션 활성화는 직렬로 유지됩니다.

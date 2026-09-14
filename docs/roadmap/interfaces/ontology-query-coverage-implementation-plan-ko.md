@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 63492c1eca93422e6dc793c82d6fed346534f5eb
+translation_source_sha: 51c0a7836e3f75c451350c235bbccb1e12eb0fde
 translation_revised: 2026-09-14
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -8,6 +8,13 @@ translation_revised: 2026-09-14
 이 계획은 FDAI의 범위가 제한된 대화/온톨로지 기반과 운영자 질문을 위한 목표 non-keyword
 경로 사이의 구현 공백을 닫습니다. 100% structural 조회 커버리지에 필요한 검증된 현재 기준선,
 서비스/에이전트 소유권, 의존성 순서 작업 패키지, 전환 게이트 및 롤백 단위를 기록합니다.
+
+관리되는 클라우드 참조 조회는 원본 날짜를 보존하며, 타입이 지정된 판단에서 정확한 원문
+구간에 결속된 공급자, 세대, SKU 및 기타 적용 조건을 받습니다. 특정 확인 시점의 안내에는
+최신이며 조건이 맞는 근거가 필요하고, 실시간 최신 요청은 답변 중 수집 없이 종료합니다.
+[클라우드 지식 설계](cloud-resource-knowledge-lifecycle-ko.md)는 이 제한된 구현을 기록합니다.
+적용 조건은 직접 전달한 근거 객체가 아닌 단일 값 선택자를 사용합니다. 계약 변경 후
+의미 커버리지 목록을 다시 생성하면 출처 다이제스트만 갱신하며 측정된 커버리지는 바꾸지 않습니다.
 
 > **커버리지 경계:** 100%는 하나의 활성 온톨로지 release에서 읽을 수 있는 모든 선언이
 > principal 범위로 한정된 조회 서술자 또는 타입이 지정된 사용 불가 사유를 갖는다는 뜻입니다. 신원,
@@ -224,6 +231,7 @@ translation_revised: 2026-09-14
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 실행 범위 자식 명령에서 API와 Vite 인증 플래그 쌍을 모두 해제하여 Browser Entra 온톨로지 보증 서비스가 주변 Azure CLI principal 준비와 격리되도록 했습니다. | `current change`; `run_ontology_assurance.py`; 집중 보증 프로세스 사양 회귀 테스트. | 조회 권한 또는 보증 결과는 변경되지 않았습니다. |
 | 2026-09-13 | implemented | 소스 통합 뒤 PR 게이트 계약을 복구했습니다. 축약 preflight 검증을 분리하고, 검토된 운영 신호를 제거하지 않으면서 v9 분류기를 5,700자 미만으로 유지했으며, 권위 있는 소스에서 CQAS 산출물을 다시 생성했습니다. | `current change`, `conversation_preflight_validation.py`, `conversation-preflight.v9.yaml`, `build_semantic_intent_coverage.py`, 집중 테스트 506개, 강제 모드 파일 LOC, Ruff 및 strict mypy 통과 | 푸시된 SHA의 CI가 최종 근거입니다. 실제 모델, 운영 준비 상태 또는 승격 주장은 추가하지 않습니다. |
 | 2026-09-11 | implemented | 복구 결정 경계와 agent 소유 관측 경로가 권위 있는 소스 집합을 바꾼 뒤 semantic-intent coverage를 갱신했습니다. | `current change`; semantic coverage 및 결정 경계 테스트 15개 통과. | 이 갱신은 query 권한 또는 준비 상태 주장을 바꾸지 않습니다. |
 | 2026-09-11 | implemented | 안전조건 결속 서비스 계약 변환 결과가 바뀐 뒤 질문 400개 검토 bank를 갱신했습니다. 질문 신원과 권한은 바뀌지 않았습니다. | `current change`; 생성된 질문 bank 산출물과 집중 동등성 테스트. | 운영 준비 상태를 주장하기 전에 통제된 무작위 및 서비스 간 보증 근거를 보존합니다. |

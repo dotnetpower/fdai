@@ -20,6 +20,7 @@ from fdai_service_contracts.measurement_time import measurement_timestamp_input
 
 CONTROL_LOOP_MEASUREMENT_ACTION_KIND = "measurement.control_loop.v1"
 CONTROL_LOOP_MEASUREMENT_ACTOR = "fdai.measurement"
+CONTROL_LOOP_MEASUREMENT_OWNER_AGENT = "Heimdall"
 
 SourceText = Annotated[str, Field(min_length=1, max_length=4096, strict=True)]
 SourceKey = Annotated[str, Field(min_length=1, max_length=512, strict=True)]
@@ -82,8 +83,8 @@ class ControlLoopMeasurement(ContractBase):
         """Parse the canonical audit JSON entry with exact producer discriminators.
 
         Pass the audit row's ``entry`` object, not its database/hash-chain
-        wrapper. Only ``actor`` and ``action_kind`` are stripped; unknown
-        fields, wrong versions, and malformed measurements raise ValueError.
+        wrapper. Only the validated audit attribution fields are stripped;
+        unknown fields, wrong versions, and malformed measurements raise ValueError.
         Sequence and hash validation remain the read adapter's responsibility.
         Discriminator validation alone does not authenticate the writer.
         """
@@ -93,10 +94,16 @@ class ControlLoopMeasurement(ContractBase):
             raise ValueError("control-loop measurement actor is not canonical")
         if entry.get("action_kind") != CONTROL_LOOP_MEASUREMENT_ACTION_KIND:
             raise ValueError("control-loop measurement action kind is not canonical")
+        if "owner_agent" in entry and entry["owner_agent"] != CONTROL_LOOP_MEASUREMENT_OWNER_AGENT:
+            raise ValueError("control-loop measurement owner agent is not canonical")
         if entry.get("schema_version") != "1.0.0":
             raise ValueError("control-loop measurement schema version is not supported")
         return cls.model_validate(
-            {key: value for key, value in entry.items() if key not in {"actor", "action_kind"}}
+            {
+                key: value
+                for key, value in entry.items()
+                if key not in {"actor", "action_kind", "owner_agent"}
+            }
         )
 
     @model_validator(mode="after")

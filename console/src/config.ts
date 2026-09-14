@@ -29,8 +29,8 @@ export interface ConsoleConfig {
   /** When true, MSAL is bypassed and the Operator API is called anonymously
    *  (matches `FDAI_OPERATOR_API_DEV_MODE=1` on the API). */
   readonly devMode: boolean;
-  /** When true, MSAL is bypassed and the local Operator API projects the
-   *  current `az login` user (matches `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1`). */
+  /** When true with the paired confirmation, MSAL is bypassed and the local
+   *  Operator API projects the current `az login` user. */
   readonly localAzureCliAuth: boolean;
   /** Show a local auth chooser before entering a dev-mode console. Defaults
    *  to true when VITE_DEV_MODE=1; set VITE_LOCAL_LOGIN_PROMPT=0 to retain
@@ -59,6 +59,19 @@ function positiveIntegerEnv(key: string, fallback: string): number {
   return value;
 }
 
+function localAzureCliAuth(runtimeConfigured: boolean): boolean {
+  if (runtimeConfigured) return false;
+  const enabled = envVar("VITE_LOCAL_AZURE_CLI_AUTH", "0") === "1";
+  const confirmed = envVar("VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM", "0") === "1";
+  if (enabled !== confirmed) {
+    throw new Error(
+      "VITE_LOCAL_AZURE_CLI_AUTH and VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM " +
+        "must be enabled together.",
+    );
+  }
+  return enabled;
+}
+
 /** Load build defaults or a validated installer overlay; malformed overlays fail closed. */
 export function loadConfig(): ConsoleConfig {
   const runtime = parseConsoleRuntimeConfig(globalThis.__FDAI_CONSOLE_CONFIG__);
@@ -75,7 +88,7 @@ export function loadConfig(): ConsoleConfig {
     authTokenTimeoutMs: positiveIntegerEnv("VITE_AUTH_TOKEN_TIMEOUT_MS", "10000"),
     operatorApiRequestTimeoutMs: positiveIntegerEnv("VITE_OPERATOR_API_REQUEST_TIMEOUT_MS", "30000"),
     devMode,
-    localAzureCliAuth: runtime === null && envVar("VITE_LOCAL_AZURE_CLI_AUTH", "0") === "1",
+    localAzureCliAuth: localAzureCliAuth(runtime !== null),
     localLoginPrompt: runtime === null && envVar("VITE_LOCAL_LOGIN_PROMPT", devMode ? "1" : "0") === "1",
     workflowCatalogRepo: envVar("VITE_WORKFLOW_CATALOG_REPO"),
     workflowCatalogBranch: envVar("VITE_WORKFLOW_CATALOG_BRANCH", "main"),

@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 258b4ded1840b248d3bd26e3ff771aceddea8822
+translation_source_sha: 789b6e6c19c7a9c114311533b48170888a6c3817
 translation_revised: 2026-09-14
 ---
 
@@ -148,15 +148,13 @@ principal을 가리키면 서비스는 쓰기 전에 요청을 거부합니다. 
 재시작 후에도 유지됩니다.
 
 채널 첨부는 instruction이 아니라 근거 입력입니다. Slack 및 Teams 어댑터는 범위가 제한된
-파일 메타데이터와 opaque 벤더 id만 normalize하고 페이로드가 제공한 download URL은 버립니다.
-서버가 소유한 app-credential 가져오기 도구가 해당 id를 해석하고 `ProtectedChannelAttachmentIngestor`는
-가져온 바이트 개수 및 SHA-256을 검증한 뒤 기존 malware, protection, 추출, 인덱싱, 접근,
-보존 파이프라인에 출처를 전달합니다. 대화 게이트웨이는 운영자의 원래 텍스트를 변경하지
-않고 준비된 `doc:` 참조만 응답 인용에 추가합니다. Held, infected, unknown-protection,
-oversized, malformed 첨부는 도구 전달을 차단합니다. 일반 bitmap 서명은 텍스트 단위가
-없는 metadata-only 묶음을 만들므로 이미지 바이트가 프롬프트 instruction이 될 수 없습니다.
-배포는 P0-15 채널 조립에서 벤더 자격 증명 가져오기 도구를 연결하며 arbitrary
-첨부 URL은 지원 경계가 아닙니다.
+파일 메타데이터와 불투명 벤더 id만 정규화하고 payload가 제공한 download URL은 버릴 수 있습니다.
+현재 운영 A3 조립은 비공개 가져오기 도구나 보호 인제스트기를 연결하지 않습니다. 첨부 지원을
+끄고 queue 유입 전에 `422 attachments_unavailable`을 반환합니다.
+`FDAI_CHANNEL_ATTACHMENTS_ENABLED=1`을 설정하면 버전이 지정된 문서 인제스트 전달이 연결될 때까지
+시작에 실패합니다. 직접 queue 주입도 점유 또는 의미 게시 전에 실패합니다. 향후 가져오기와
+인제스트는 원래 텍스트를 유지하고 준비된 `doc:` 인용만 허용하며 malware, protection, 인덱싱,
+접근, 보존 및 에이전트 소유권 gate를 유지해야 합니다.
 
 Teams 유입은 두 신원을 분리합니다. `TeamsServiceTokenVerifier`는 cached JWKS를
 사용해 Bot Framework 서비스 토큰의 RS256 서명, 앱 대상, Bot Framework 발급자,
@@ -178,7 +176,8 @@ runtime입니다. Operator API process에 mount되지 않고 실행기 신원을
 factory와 Terraform workload는 활성화된 범위 제한 유입 경로만 등록하고 adapter마다 Operator
 semantic-turn consumer 하나를 시작합니다. 자격 증명, Teams 신원, endpoint policy, JWT 구성,
 principal scope 또는 persistence가 누락되면 경로가 트래픽을 받기 전에 시작이 실패합니다.
-종료는 queue, consumer, provider client 및 credential을 정확히 한 번 닫습니다.
+운영 인제스트기 없이 첨부를 활성화해도 같은 경계에서 실패합니다. 종료는 queue, consumer,
+provider client 및 credential을 정확히 한 번 닫습니다.
 
 채널 활성화에는 `FDAI_CHANNEL_EDGE_ENABLED_CHANNELS`를 사용하며 queue와 request 상한은 서버가
 소유합니다. Container Apps native Key Vault reference는 secret 값을 source 또는 Terraform
@@ -308,50 +307,12 @@ event-ingest, trust 라우팅, risk gating, 감사에 진입하며 웹훅은 액
 
 ### 4.4 브라우저 system 알림
 
-Console은 브라우저 알림 경계를 명시적인 클라이언트 로컬 `console-web` 채널로 표시합니다.
-운영자는 Console 컨트롤에서 이름이 지정된 이 채널을 선택하거나 선택 해제할 수 있으며, FDAI는
-페이지를 불러올 때 권한을 요청하지 않습니다. 선택된 탭이 백그라운드 상태여도 인증된
-`GET /live/stream` 피드를 유지하고 사람 승인, 차단 또는 실패 결과에만 알림을 표시합니다.
-`runtime-observed` 프레임만 알림 대상입니다. 재생, 합성 개발, 출처 미확인 프레임과 정상 성공
-단계는 알림을 만들지 않습니다.
-이 채널은 보안 컨텍스트에서 Notifications, Service Worker 및 Web Locks API를 모두 사용할 수
-있을 때만 지원됩니다. Web Locks는 principal 범위 스트림 리더 하나를 선출합니다. 이 보장을
-제공하지 않는 브라우저는 수신자 없이 준비 상태를 주장하지 않고 채널을 사용 불가로 표시합니다.
-
-브라우저 알림은 정보 제공 전용입니다. 현지화된 일반 텍스트, 불투명하고 범위가 제한된 이벤트
-태그 및 서버가 만든 동일 출처의 읽기 전용 인시던트 화면 링크만 포함합니다. 원본 오류, 리소스
-식별자, 승인 컨트롤 또는 실행 링크는 포함하지 않습니다. 반복 프레임은 같은 이벤트 알림을
-교체하며 명시적 선택 기본 설정은 로그인한 브라우저 principal 범위로 저장합니다. principal 범위
-브라우저 원장은 여러 탭에서 같은 이벤트 태그를 5분 동안 억제하고 시스템 알림을 분당 5건으로
-제한합니다. 억제된 이벤트도 감사 및 인시던트 화면에는 그대로 남습니다. 중복 억제 만료가 확인
-증적을 지우지는 않습니다. 범위가 제한된 로컬 원장은 최대 32개 증적을 7일 동안 유지하여 늦은
-알림 클릭도 수렴할 수 있게 합니다.
-
-`showNotification()`이 완료되면 같은 원장이 `console-web` 전달을 전송됨으로 기록합니다. 사용자가
-알림을 클릭하면 같은 브라우저 principal의 전송 기록에 범위가 제한된 태그와 예측 불가능한
-claim별 토큰이 모두 일치할 때만 별도 확인을 기록합니다. 정확히 일치하는 Console 창에는 두 값을
-서비스 워커 메시지로 보냅니다. 이동하거나 새로 연 Console 창에는 일시적인
-`#fdai-notification-ack` fragment로 전달합니다. 이 값은 HTTP 요청이나 referrer에 포함되지
-않으며 Console은 닫힌 형식을 검증한 뒤 제거합니다. 토큰이 없는 레거시 레코드는 중복 억제에는
-유효하지만 새로운 확인을 만들 수 없습니다. 컨트롤은 `대기`, `전송됨`, `전송 및 확인됨`을
-구분해 선택, 전달 및 사용자 확인을 하나의 상태로 합치지 않습니다.
-유효한 클릭이 `showNotification()` 완료 callback의 표시 기록보다 먼저 페이지에 도착하면,
-토큰에 결속된 확인이 두 타임스탬프를 원자적으로 기록합니다. 이후 표시 callback은 멱등하게
-처리되어 앞선 클릭을 지울 수 없습니다.
-
-이 증적은 브라우저 로컬 기록입니다. Core의 영속 알림 전달 원장을 갱신하거나
-`notification.delivery.observed`를 충족하지 않으며, 사용자가 인시던트 근거를 읽었다는 점을
-입증하지도 않습니다. 승인 또는 실행 권한도 부여하지 않습니다.
-
-서비스 워커는 페이지가 백그라운드 상태일 때 알림 표시와 클릭 처리를 유지하지만, 현재 Console은
-Push API 구독이나 서버 측 구독 저장소를 등록하지 않습니다. 따라서 브라우저가 완전히 종료되면
-알림을 받지 않습니다. 닫힌 브라우저에 Web Push를 제공하려면 별도로 인증된 쓰기 서비스, 암호화된
-구독 저장소, 철회, CSRF 보호 및 전달 감사가 필요하며 Operator API에는 이 기능을 두지 않습니다.
-
-알림을 클릭하면 정확히 일치하는 Console 창이 있을 때 해당 창을 활성화합니다. 그렇지 않으면
-서비스 워커가 동일 출처의 Console 창을 읽기 전용 인시던트 대상으로 이동하고, 그 이동에서 반환된
-창을 활성화합니다. 브라우저 창 활성화 또는 화면 이동이 실패하면 검증된 동일 대상을 새 창으로
-엽니다. 이 활성화는 로컬 알림만 확인합니다. 작업을 승인하거나 실행하지 않습니다.
+명시적인 클라이언트 로컬 `console-web` 채널은
+[Console Web 알림](console-web-notifications-ko.md)이 소유합니다. Settings가 principal 및
+브라우저 범위의 정식 선택 화면이고 헤더는 동기화된 바로가기입니다. `runtime-observed` 승인,
+거부 및 실패 프레임만 알림 대상입니다. 범위가 제한된 로컬 표시·클릭 증적은 Core 전달, 승인
+또는 실행 근거를 충족하지 않습니다. 조직에서 관리하는 A2/A4 경로는 별도의
+channel-as-audience 바인딩으로 유지합니다.
 
 ## 5. 채널 인터페이스 (계약)
 

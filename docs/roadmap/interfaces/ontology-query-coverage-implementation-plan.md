@@ -5,6 +5,13 @@ title: Ontology Query Coverage Implementation Plan
 
 This plan closes the implementation gap between FDAI's bounded conversation and ontology foundations and the target non-keyword path for operator questions. It records the verified current baseline, service and agent ownership, dependency-ordered work packages, cutover gates, and rollback units for 100% structural query coverage.
 
+Governed cloud-reference queries preserve original source dates and accept exact source-spanned
+provider, generation, SKU, and other applicability conditions from typed judgment. As-of guidance
+requires fresh matching evidence; live-current requests terminate without fetching during an answer.
+The [cloud knowledge owner](cloud-resource-knowledge-lifecycle.md) records this bounded implementation.
+Applicability uses scalar selectors rather than evidence-object literals. Regenerating the semantic
+coverage inventory after this contract change refreshes source digests, not measured coverage.
+
 > **Coverage boundary:** 100% means every readable declaration in one active ontology release has a principal-scoped query descriptor or a typed unavailable reason. It does not promise a complete or correct answer when identity, provider data, history, or evidence is missing.
 >
 > **Authority boundary:** Natural-language and embedding output remains candidate-only. Read plans have no execution authority. A schema-validated `quoted` or `hypothetical` discourse mode terminates before frame selection, so only a `direct` judgment can enter operational query or draft planning. An explicit change request can create only a typed draft that re-enters the existing judgment, safety, human approval, execution, recovery, and audit path.
@@ -217,6 +224,7 @@ This plan closes the implementation gap between FDAI's bounded conversation and 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Isolated the Browser Entra ontology-assurance services from ambient Azure CLI-principal preparation by clearing both API and Vite authentication flag pairs in the run-scoped child commands. | `current change`; `run_ontology_assurance.py`; focused assurance process-spec regression. | No query authority or assurance result changed. |
 | 2026-09-13 | implemented | Restored the PR gate contract after source integration by isolating compact preflight validation, keeping the v9 classifier below 5,700 characters without dropping reviewed operational signals, and regenerating the CQAS artifact from authoritative sources. | `current change`; `conversation_preflight_validation.py`; `conversation-preflight.v9.yaml`; `build_semantic_intent_coverage.py`; 506 focused tests; enforce-mode file-LOC, Ruff, and strict mypy passed. | Pushed-SHA CI remains authoritative; no live-model, production-readiness, or promotion claim is added. |
 | 2026-09-11 | implemented | Refreshed semantic-intent coverage after the recovery decision boundary and agent-owned observation route changed the authoritative source set. | `current change`; semantic coverage and decision-boundary tests passed 15 cases. | No query authority or readiness claim changes in this refresh. |
 | 2026-09-11 | implemented | Refreshed the 400-question review bank after the safeguard-bound service-contract projection changed. Question identity and authority remain unchanged. | `current change`; generated question-bank artifacts and focused parity tests. | Retain governed randomized and cross-service assurance evidence before a production-readiness claim. |
