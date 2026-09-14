@@ -200,4 +200,33 @@ describe("notification service worker boundary", () => {
 
     expect(postMessage).not.toHaveBeenCalled();
   });
+
+  test("reuses the focused exact window when acknowledgement messaging fails", async () => {
+    const target = "https://console.example.com/incidents?status=all";
+    const acknowledgedTarget =
+      "https://console.example.com/incidents?status=all&fdai_notification_ack=fdai%3Aevent-1";
+    const navigated: WindowClientStub = {
+      url: acknowledgedTarget,
+      focus: vi.fn(async () => undefined),
+      navigate: async () => null,
+    };
+    const navigate = vi.fn(async () => navigated);
+    const exact: WindowClientStub = {
+      url: target,
+      focus: vi.fn(async () => undefined),
+      navigate,
+      postMessage: () => { throw new Error("detached client"); },
+    };
+    const openWindow = vi.fn(async () => null);
+    const context = loadWorker("https://console.example.com/", {
+      matchAll: async () => [exact],
+      openWindow,
+    });
+
+    await clickNotification(context, "/incidents?status=all");
+
+    expect(navigate).toHaveBeenCalledWith(acknowledgedTarget);
+    expect(navigated.focus).toHaveBeenCalledOnce();
+    expect(openWindow).not.toHaveBeenCalled();
+  });
 });

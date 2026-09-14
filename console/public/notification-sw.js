@@ -28,9 +28,17 @@ self.addEventListener("notificationclick", (event) => {
     if (exact !== undefined) {
       try {
         await exact.focus();
-        acknowledgeClient(exact, tag);
       } catch {
         await self.clients.openWindow(acknowledgementTarget(target, tag).href);
+        return;
+      }
+      if (!acknowledgeClient(exact, tag)) {
+        try {
+          const navigated = await exact.navigate(acknowledgementTarget(target, tag).href);
+          await navigated?.focus();
+        } catch {
+          console.warn("Console web notification acknowledgement delivery failed.");
+        }
       }
       return;
     }
@@ -63,12 +71,17 @@ function acknowledgementTarget(target, tag) {
 }
 
 function acknowledgeClient(client, tag) {
-  if (tag === null || typeof client.postMessage !== "function") return;
-  client.postMessage({
-    type: ACKNOWLEDGEMENT_TYPE,
-    channel_id: CONSOLE_WEB_CHANNEL_ID,
-    tag,
-  });
+  if (tag === null || typeof client.postMessage !== "function") return false;
+  try {
+    client.postMessage({
+      type: ACKNOWLEDGEMENT_TYPE,
+      channel_id: CONSOLE_WEB_CHANNEL_ID,
+      tag,
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function safeTarget(path) {
