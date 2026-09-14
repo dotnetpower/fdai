@@ -153,14 +153,7 @@ A startup probe confirms response and action workers before traffic is accepted.
 mode so a missing unrelated projection cannot be reported as an unreachable model. Semantic and local narrator fallback streams use the same authoritative `ConversationAssuranceReader`.
 Production replicas share the server consumer group so one replica answers each request. The singleton local core uses a process-scoped server group so a restart begins at the current physical-topic offset instead of replaying unrelated Pantheon traffic from a previous process.
 Requests carry salted SHA-256 user and session references rather than raw identities; timeouts or invalid responses become an explicit agent-to-Bragi handoff instead of a fabricated specialist answer. The same latency profile selects the same direct, streamed, or detached mode; only measured provider latency and configured evidence availability can change it.
-The explicit local Azure CLI principal alternative bootstraps through `GET /local-auth/me`. Standard full-stack preparation always selects Browser Entra, regardless of a stale private Vite
-value. CLI-principal debugging requires an explicit `--auth-mode azure-cli` preparation request
-and paired enablement plus confirmation values at both the browser and Operator API boundaries.
-The standard VS Code compound pins the browser and debugger-owned API to local Entra; its task
-supervisor passes one immutable expected mode to every child. The standard preparation task passes `--auth-mode browser-entra`; the separately named
-`console: start full stack (Azure CLI debug, Contributor)` task is the only VS Code task that
-passes `--auth-mode azure-cli`; `tools.console` sets the same paired API confirmation.
-Developer guidance points to supported launch surfaces, live E2E clears both API and Vite CLI flag pairs, and the fixed `Contributor` mode cannot validate `Approver` or `Owner` approval access.
+The explicit local Azure CLI principal alternative bootstraps through `GET /local-auth/me`. Standard full-stack preparation always selects Browser Entra despite stale private Vite values. CLI-principal debugging requires `--auth-mode azure-cli` plus paired browser and API confirmation. The standard VS Code compound pins its browser and debugger-owned API to local Entra, while task launchers pass one immutable expected mode to every child. Only the separately named `console: start full stack (Azure CLI debug, Contributor)` task passes Azure CLI mode; `tools.console` sets the same paired API confirmation. Live E2E clears both flag pairs, and the fixed `Contributor` mode cannot validate `Approver` or `Owner` approval access.
 The Operator Service resolves the active interactive CLI user at startup, applies a fixed
 Contributor ceiling, and returns a browser-safe profile plus a process-local session nonce. It
 accepts that nonce only from loopback clients, and browser requests also need an exact configured

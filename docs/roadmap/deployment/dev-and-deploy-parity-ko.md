@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 339ae3af88654a42085f53a123ced5a1836c70db
+translation_source_sha: 346999eacbdcfae5abf8ff5ad97cff1d3c82591e
 translation_revised: 2026-09-14
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -160,14 +160,7 @@ Core 런타임만 Pantheon을 소유하며 로컬 및 deployed interactive 읽�
 없는 모델로 잘못 표시하지 않도록 `starting` 또는 `event-bridge` mode와 함께 HTTP 200을 반환합니다. Semantic 및 local narrator fallback stream은 동일한 authoritative `ConversationAssuranceReader`를 사용합니다.
 운영 복제본은 서버 소비자 그룹을 공유하므로 요청마다 복제본 하나만 응답합니다. Singleton 로컬 코어는 process-scoped 서버 그룹을 사용하므로 재시작할 때 이전 프로세스의 관련 없는 Pantheon 트래픽을 재생하지 않고 physical 토픽의 현재 오프셋에서 시작합니다.
 요청은 raw 신원 대신 salted SHA-256 user/세션 참조를 전달하며, 시간 초과 또는 잘못된 응답은 전문가 답변을 꾸미지 않고 명시적인 agent-to-Bragi 인계로 표시합니다. 같은 지연 시간 프로파일은 같은 direct, streamed 또는 detached 모드를 선택하며 측정된 프로바이더 지연 시간과 구성된 근거 가용성만 모드를 바꿀 수 있습니다.
-명시적 로컬 Azure CLI principal 대안은 `GET /local-auth/me`를 통해 초기화합니다. 표준 전체 스택 준비는 오래된 비공개 Vite 값과 관계없이 항상 Browser Entra를 선택합니다. CLI principal
-디버깅에는 명시적인 `--auth-mode azure-cli` 준비 요청과 브라우저 및 Operator API 경계의
-활성화 값과 확인 값 쌍이 필요합니다. 표준 VS Code 복합 실행은 브라우저와 디버거 소유 API를
-로컬 Entra에 고정하고 작업 감독기가 모든 자식에 하나의 변경 불가능한 기대 모드를 전달합니다. 표준 준비 작업은
-`--auth-mode browser-entra`를 전달하며, 별도로 이름을 붙인
-`console: start full stack (Azure CLI debug, Contributor)` 작업만
-`--auth-mode azure-cli`를 전달하며 `tools.console`도 같은 API 확인 값 쌍을 설정합니다.
-개발자 안내는 지원되는 실행 경로를 설명하고, 라이브 E2E는 API와 Vite의 CLI 플래그 쌍을 모두 해제하며, 고정된 `Contributor` 모드로는 `Approver` 또는 `Owner` 승인 접근을 검증할 수 없다고 경고합니다.
+명시적 로컬 Azure CLI principal 대안은 `GET /local-auth/me`를 통해 초기화합니다. 표준 전체 스택 준비는 오래된 비공개 Vite 값과 관계없이 Browser Entra를 선택합니다. CLI principal 디버깅에는 `--auth-mode azure-cli`와 브라우저 및 API 확인 값 쌍이 필요합니다. 표준 VS Code 복합 실행은 브라우저와 디버거 소유 API를 로컬 Entra에 고정하며 작업 실행기는 모든 자식에 하나의 변경 불가능한 기대 모드를 전달합니다. 별도로 이름을 붙인 `console: start full stack (Azure CLI debug, Contributor)` 작업만 Azure CLI 모드를 전달하며 `tools.console`도 같은 API 확인 값 쌍을 설정합니다. 라이브 E2E는 두 플래그 쌍을 모두 해제하며 고정된 `Contributor` 모드로는 `Approver` 또는 `Owner` 승인 접근을 검증할 수 없습니다.
 Operator 서비스는 시작할 때 활성 대화형 CLI 사용자를 확인하고 고정된 Contributor 상한을
 적용하며, 브라우저에 안전한 프로파일과 프로세스별 세션 일회값을 반환합니다. 이 일회값은
 loopback 클라이언트에서만 수락하고 브라우저 요청에는 정확히 구성된 origin도 요구합니다.
