@@ -373,7 +373,8 @@ The Console exposes its browser notification boundary as the explicit client-loc
 channel. The operator selects or deselects that named channel from the Console control; FDAI never
 requests permission during page load. The authenticated `GET /live/stream` feed stays connected
 while a selected tab is in the background and emits notifications only for human approval, denial,
-or failure outcomes. Replay frames and routine successful stages remain silent.
+or failure outcomes. Only `runtime-observed` frames are eligible; replay, synthetic-development,
+unknown-source, and routine successful stages remain silent.
 
 Browser notifications are informational. They contain localized generic text, an opaque bounded
 event tag, and a server-derived same-origin link to the read-only Incident view. They never include

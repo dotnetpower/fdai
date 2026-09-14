@@ -249,7 +249,7 @@ export function browserNotificationTargetPath(path: string, baseUrl: string): st
 }
 
 export function browserAlertForLiveEvent(event: LiveStageEvent): BrowserAlert | null {
-  if (event.source === "replay") return null;
+  if (event.source !== "runtime-observed") return null;
   if (!SAFE_EVENT_ID.test(event.event_id) || !SAFE_CORRELATION_ID.test(event.correlation_id)) {
     return null;
   }

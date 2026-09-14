@@ -635,7 +635,8 @@ The Console settings routes and static design mocks share Calm Slate control tok
 `console/src/components/browser-notification-control.tsx` owns the explicit client-local
 `console-web` channel selection. Its principal-scoped browser ledger separates notification display
 from notification-click acknowledgement, while `notification-sw.js` admits only the bounded
-same-origin Incident target. These local receipts do not update Core delivery state, prove that
+same-origin Incident target. Only `runtime-observed` stage frames are eligible for display;
+replay, synthetic-development, and unknown-source frames fail closed. These local receipts do not update Core delivery state, prove that
 Incident evidence was read, or grant approval or execution authority.
 Visible-heading components use `title` only for rendered heading content. Native HTML `title` bubbles remain limited to accessibility-compatible elements, and all other contextual help uses the shared Tooltip component.
 The static component gallery reads contracts from `mocks/ui/assets/component-registry.json` and presents each specimen before its owner, source, states, usage guidance, responsive behavior, accessibility contract, and product references. A missing or invalid registry blocks documented status instead of inferring canonical status. The gallery remains synthetic presentation evidence and grants no Console, Operator API, or executor authority.

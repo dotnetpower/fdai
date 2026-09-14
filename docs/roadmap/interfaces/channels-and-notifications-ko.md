@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: cb84c7640b883d60a205d0d47282990a8f2b970f
+translation_source_sha: b2c172cea1b7ca7b4ee1e405197d16f91ff1dfa4
 translation_revised: 2026-09-14
 ---
 
@@ -374,7 +374,8 @@ Console은 브라우저 알림 경계를 명시적인 클라이언트 로컬 `co
 운영자는 Console 컨트롤에서 이름이 지정된 이 채널을 선택하거나 선택 해제할 수 있으며, FDAI는
 페이지를 불러올 때 권한을 요청하지 않습니다. 선택된 탭이 백그라운드 상태여도 인증된
 `GET /live/stream` 피드를 유지하고 사람 승인, 차단 또는 실패 결과에만 알림을 표시합니다.
-재생 프레임과 정상 성공 단계는 알림을 만들지 않습니다.
+`runtime-observed` 프레임만 알림 대상입니다. 재생, 합성 개발, 출처 미확인 프레임과 정상 성공
+단계는 알림을 만들지 않습니다.
 
 브라우저 알림은 정보 제공 전용입니다. 현지화된 일반 텍스트, 불투명하고 범위가 제한된 이벤트
 태그 및 서버가 만든 동일 출처의 읽기 전용 인시던트 화면 링크만 포함합니다. 원본 오류, 리소스
