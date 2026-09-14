@@ -17,8 +17,7 @@ Consumers of this document:
   overrides) and which are locked (no new agents, no rename).
 ## 1. Design principles
 
-The pantheon is a thin re-framing of the existing FDAI control loop into named organizational roles. It does not change the safety envelope
-in [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md); it makes the roles legible and auditable.
+The pantheon is a thin re-framing of the existing FDAI control loop into named organizational roles. It does not change the safety envelope in [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md); it makes the roles legible and auditable.
 
 - **Deterministic-first, LLM-capable.** Every agent CAN call an LLM through
   its own bindings, but the runtime hot-path routes almost everything at T0
