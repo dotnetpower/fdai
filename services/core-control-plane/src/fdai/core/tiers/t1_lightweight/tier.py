@@ -207,6 +207,18 @@ class T1Tier:
                 reasons=("no_neighbour_found",),
             )
 
+        if any(
+            not isinstance(match.score, (int, float)) or isinstance(match.score, bool)
+            for match in matches
+        ):
+            return T1Decision(
+                outcome=T1Outcome.ABSTAIN,
+                event_id=str(event.event_id),
+                threshold=self._config.similarity_threshold,
+                best_match=None,
+                reason="invalid_similarity_score",
+                reasons=("invalid_similarity_score",),
+            )
         if any(not isfinite(match.score) for match in matches):
             return T1Decision(
                 outcome=T1Outcome.ABSTAIN,
@@ -238,14 +250,16 @@ class T1Tier:
                 f"similarity={best.score:.4f}<threshold={self._config.similarity_threshold:.4f}"
             )
 
-        if not isfinite(best.action.success_rate):
+        success_rate = best.action.success_rate
+        if not isinstance(success_rate, (int, float)) or isinstance(success_rate, bool):
+            reasons.append("invalid_success_rate")
+        elif not isfinite(success_rate):
             reasons.append("non_finite_success_rate")
-        elif not 0.0 <= best.action.success_rate <= 1.0:
+        elif not 0.0 <= success_rate <= 1.0:
             reasons.append("success_rate_out_of_range")
-        elif best.action.success_rate < self._config.min_success_rate:
+        elif success_rate < self._config.min_success_rate:
             reasons.append(
-                f"success_rate={best.action.success_rate:.4f}<"
-                f"floor={self._config.min_success_rate:.4f}"
+                f"success_rate={success_rate:.4f}<floor={self._config.min_success_rate:.4f}"
             )
 
         if reasons:
@@ -316,9 +330,15 @@ def _learned_action_reasons(action: LearnedAction) -> list[str]:
             reasons.append(f"invalid_learned_action_{field_name}")
     if not isinstance(action.params, Mapping):
         reasons.append("invalid_learned_action_params")
-    if action.rule_id.startswith("learned.operational.") and action.operational_case is None:
+    if (
+        isinstance(action.rule_id, str)
+        and action.rule_id.startswith("learned.operational.")
+        and action.operational_case is None
+    ):
         reasons.append("operational_case_context_missing")
-    if action.reuse_count < 0:
+    if not isinstance(action.reuse_count, int) or isinstance(action.reuse_count, bool):
+        reasons.append("invalid_learned_action_reuse_count")
+    elif action.reuse_count < 0:
         reasons.append("negative_reuse_count")
     return reasons
 
