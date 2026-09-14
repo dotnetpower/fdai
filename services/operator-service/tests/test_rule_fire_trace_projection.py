@@ -77,6 +77,26 @@ def test_trace_does_not_invent_missing_action_identity() -> None:
     assert trace["steps"][0]["execution_path"] is None
 
 
+def test_trace_rejects_conflicting_stage_fields() -> None:
+    with pytest.raises(ValueError, match="stage fields conflict"):
+        rule_fire_trace(
+            "correlation-1",
+            [
+                {
+                    "seq": 1,
+                    "recorded_at": "2026-09-14T03:00:00Z",
+                    "action_kind": "risk_gate.unified",
+                    "mode": "shadow",
+                    "entry_hash": "hash-1",
+                    "entry": {
+                        "pipeline_stage": "gate",
+                        "stage": "execute",
+                    },
+                }
+            ],
+        )
+
+
 class _TraceRowsModel(PostgresOperatorReadModel):
     def __init__(self, rows: list[dict[str, Any]]) -> None:
         super().__init__(PostgresOperatorReadModelConfig(dsn="postgresql://example.invalid/db"))
@@ -104,6 +124,29 @@ async def test_trace_rejects_more_records_than_the_projection_limit() -> None:
         "correlation_id": "correlation-1",
         "fetch": TRACE_RECORD_LIMIT + 1,
     }
+
+
+@pytest.mark.asyncio
+async def test_trace_reader_reports_conflicting_stage_fields_as_unavailable() -> None:
+    model = _TraceRowsModel(
+        [
+            {
+                "seq": 1,
+                "event_id": "event-1",
+                "correlation_id": "correlation-1",
+                "actor": "Forseti",
+                "action_kind": "risk_gate.unified",
+                "mode": "shadow",
+                "entry": {"pipeline_stage": "gate", "stage": "execute"},
+                "previous_hash": "hash-0",
+                "entry_hash": "hash-1",
+                "created_at": "2026-09-14T03:00:00Z",
+            }
+        ]
+    )
+
+    with pytest.raises(ProjectionUnavailableError, match="audit trace is malformed"):
+        await model.get_rule_fire_trace("correlation-1")
 
 
 def test_trace_query_joins_executor_rows_through_correlated_event_ids() -> None:

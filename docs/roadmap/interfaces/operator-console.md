@@ -30,6 +30,8 @@ Trace hardening preserves these evidence invariants:
   records. Delivery, reminder, and notification events cannot imply that approval was recorded.
 - The server joins executor records through the correlated event id and probes one record beyond the
   500-record limit. An over-limit trace is unavailable rather than silently truncated.
+- When both `pipeline_stage` and `stage` are recorded, they must identify the same stage. Conflicting
+  producer fields make the projection unavailable instead of selecting one value.
 
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final

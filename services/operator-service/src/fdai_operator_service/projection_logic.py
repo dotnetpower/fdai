@@ -293,7 +293,11 @@ def rule_fire_trace(correlation_id: str, items: Sequence[JsonObject]) -> JsonObj
     for item in ordered:
         entry = _mapping(item.get("entry"))
         workflow_action = _mapping(entry.get("workflow_action"))
-        stage = _nonempty(entry.get("pipeline_stage")) or _nonempty(entry.get("stage"))
+        pipeline_stage = _nonempty(entry.get("pipeline_stage"))
+        entry_stage = _nonempty(entry.get("stage"))
+        if pipeline_stage is not None and entry_stage is not None and pipeline_stage != entry_stage:
+            raise ValueError("audit trace stage fields conflict")
+        stage = pipeline_stage or entry_stage
         if stage:
             terminal_stage = stage
         steps.append(
