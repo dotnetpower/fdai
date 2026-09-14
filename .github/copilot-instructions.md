@@ -74,9 +74,12 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    `make validation-all` requires an explicit local whole-suite request. The
    central fast validator MAY defer gates duplicated by its mandatory structural stage, but both
    stages and the exact structural input digest remain in the same snapshot receipt.
-5. Do not commit by default. Commit only when explicitly requested or required by an invoked
-   workflow or external operation. After authorization, every agent-authored commit MUST originate
-   in the local checkout. After focused validation and diff review, commit only task-owned
+5. The repository maintainer's standing delivery preference is to carry every completed,
+   validated task through the `pr-delivery` skill: create a task-owned local commit, push a topic
+   branch without force, create or update its pull request, satisfy protected checks and reviews,
+   merge when permitted, and clean up the merged local topic branch. An explicit request to stop
+   before any stage overrides this default. Every agent-authored commit MUST originate in the
+   local checkout. After focused validation and diff review, commit only task-owned
    paths from the active checkout with `git commit -m "<message>" -- <task-owned paths>`; stage new
    task-owned files first when needed. Preserve unrelated index and worktree changes, never bypass
    hooks, and do not rerun successful checks unless relevant inputs changed. The commit hook is the
@@ -84,13 +87,18 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    only after a hook failure or when one task-owned path mixes unrelated edits. Git, hook, signing,
    or push failures MUST NOT interrupt unfinished implementation. Never create a remote-only commit.
    GitHub content APIs such as `create_or_update_file` and `push_files`, and cloud coding agents,
-   MUST NOT substitute for the local commit. Push only when requested and only after the local
-   commit exists, then verify the remote ref resolves to the expected local commit.
+   MUST NOT substitute for the local commit. Push only under this standing authorization or an
+   explicit request, and only after the local commit exists; then verify the remote ref resolves to
+   the expected local commit.
 6. Treat GitHub Actions, Azure operations, container publication, and other slow network work as a
    post-validation phase. Local checks are preflight, not complete GitHub Actions parity; CI-only
    jobs and the exact pushed-SHA environment remain authoritative. Deployment and release target a
    pushed SHA with required CI and protected preflight; local validation receipts never grant
-   authority. Use a task branch or isolated worktree for each active outcome. Only superseded PR
+   authority. The standing completion preference also authorizes entering the applicable
+   repository deployment workflow after protected merge. It never selects a tenant, subscription,
+   environment, or exact Terraform plan, never supplies a secret, and never replaces a required
+   human plan approval or destructive-action confirmation. Use a task branch or isolated worktree
+   for each active outcome. Only superseded PR
    runs may be cancelled; every integrated `main` revision must reach a terminal CI result before
    another change enters `main`. A session waiting on external evidence is blocked or idle, not
    active WIP. Report local implementation, publication, and deployment completion separately.
