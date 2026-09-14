@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 12a952e97d9f47a289175d99509f159c3e3d178c
+translation_source_sha: d72408d5b2e34f7bdaef72b4ededaa0b419d7b86
 translation_revised: 2026-09-14
 ---
 
@@ -390,10 +390,10 @@ Console은 브라우저 알림 경계를 명시적인 클라이언트 로컬 `co
 알림을 클릭하면 같은 브라우저 principal의 전송 기록에 범위가 제한된 태그와 예측 불가능한
 claim별 토큰이 모두 일치할 때만 별도 확인을 기록합니다. 정확히 일치하는 Console 창에는 두 값을
 서비스 워커 메시지로 보냅니다. 이동하거나 새로 연 Console 창에는 일시적인
-`fdai_notification_ack` 및 `fdai_notification_token` 쿼리 필드로 전달하며, Console은 검증 후
-두 필드를 제거합니다. 토큰이 없는 레거시 레코드는 중복 억제에는 유효하지만 새로운 확인을 만들
-수 없습니다. 컨트롤은 `대기`, `전송됨`, `전송 및 확인됨`을 구분해 선택, 전달 및 사용자 확인을
-하나의 상태로 합치지 않습니다.
+`#fdai-notification-ack` fragment로 전달합니다. 이 값은 HTTP 요청이나 referrer에 포함되지
+않으며 Console은 닫힌 형식을 검증한 뒤 제거합니다. 토큰이 없는 레거시 레코드는 중복 억제에는
+유효하지만 새로운 확인을 만들 수 없습니다. 컨트롤은 `대기`, `전송됨`, `전송 및 확인됨`을
+구분해 선택, 전달 및 사용자 확인을 하나의 상태로 합치지 않습니다.
 유효한 클릭이 `showNotification()` 완료 callback의 표시 기록보다 먼저 페이지에 도착하면,
 토큰에 결속된 확인이 두 타임스탬프를 원자적으로 기록합니다. 이후 표시 callback은 멱등하게
 처리되어 앞선 클릭을 지울 수 없습니다.
