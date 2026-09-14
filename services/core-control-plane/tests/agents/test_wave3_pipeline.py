@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -1371,6 +1372,60 @@ def test_vidar_rejects_changed_rollback_command_inputs() -> None:
         )
 
     assert calls == ["A"]
+
+
+@pytest.mark.parametrize("corruption", ["missing_schema", "missing_success_receipt"])
+def test_vidar_rejects_noncanonical_durable_terminal_state(
+    corruption: str,
+) -> None:
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    calls: list[str] = []
+
+    async def rollback_executor(action_run):
+        calls.append(action_run["correlation_id"])
+        return "rollback:c-malformed-terminal"
+
+    store = InMemoryStateStore()
+    failed = {
+        "correlation_id": "c-malformed-terminal",
+        "action_type": "ops.restart-service",
+        "resource_id": "vm-3",
+        "state": "failed",
+    }
+    first = Vidar(
+        executors={"state_forward_only": rollback_executor},
+        state_store=store,
+    )
+    completed = asyncio.run(first.rollback(dict(failed)))
+    assert completed is not None
+
+    digest = hashlib.sha256(b"c-malformed-terminal").hexdigest()
+    state_key = f"pantheon/vidar/rollback/{digest}/state"
+    terminal = asyncio.run(store.read_state(state_key))
+    assert terminal is not None
+    corrupted = dict(terminal)
+    if corruption == "missing_schema":
+        for field in (
+            "schema_version",
+            "revision",
+            "claim_owner_token",
+            "lease_expires_at",
+            "completed_by_owner_token",
+        ):
+            corrupted.pop(field)
+    else:
+        corrupted["rollback_ref"] = None
+    asyncio.run(store.write_state(state_key, corrupted))
+
+    restarted = Vidar(
+        executors={"state_forward_only": rollback_executor},
+        state_store=store,
+    )
+    with pytest.raises(RuntimeError, match="terminal record is malformed"):
+        asyncio.run(restarted.rollback(dict(failed)))
+
+    assert calls == ["c-malformed-terminal"]
 
 
 def test_vidar_marks_interrupted_durable_claim_execution_unknown() -> None:

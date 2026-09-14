@@ -69,7 +69,9 @@ identity, workflow lineage, and rollback data, so a substituted command cannot r
 another replica leaves a live lease untouched and raises a retryable handler error so the event-bus
 retry or DLQ retains the failed ActionRun. After verified lease expiry, redrive closes the
 ambiguous claim as explicit `execution_unknown` instead of repeating recovery, and the revision CAS fences any late owner completion.
-Terminal and publication receipts replay without another provider call.
+Terminal replay requires the exact schema, revision, command digest, claim and completion owner tokens, lease, bounded identities, state,
+notes, and receipt invariants. A `succeeded` rollback requires a non-empty bounded `rollback_ref`; malformed state fails closed before Thor
+can release its resource claim. Valid terminal and publication receipts replay without another provider call.
 Norns proposes to Mimir, and Odin arbitrates conflicts before judgment.
 
 ![3. Runtime relationship diagram. The main stages are Huginn, Heimdall, Forseti, Mimir, Muninn, Njord, Freyr, Loki, Thor, Vidar, Var, Saga.](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-02.en.svg)

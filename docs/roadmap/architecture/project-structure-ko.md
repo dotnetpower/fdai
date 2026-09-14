@@ -571,8 +571,10 @@ T1은 잘못된 reuse 식별자, 카운터, 신뢰도 및 유사도 근거를 �
 참여하므로 `params`, Action 신원, Workflow 계보 또는 rollback 데이터 대체는 이전 증적을 재생하지
 않고 충돌합니다. 충돌한 복제본은 유효한 점유를 변경하지 않고 처리를 실패시켜
 EventBusBridge 재시도 또는 DLQ가 전달을 보존하게 합니다. 재처리 시 검증된 만료 뒤에만
-`execution_unknown`을 허용하고 개정 번호 CAS가 늦은 소유자의 완료를 차단합니다. 종결 또는
-게시 재생은 rollback을 반복하지 않습니다. 런타임 조립은 같은 `StateStore`를 Saga의 인계 저널에도 주입합니다. Saga는 에스컬레이션마다
+`execution_unknown`을 허용하고 개정 번호 CAS가 늦은 소유자의 완료를 차단합니다. 종결 재생은
+완전한 schema와 차단 신원을 검증하며, Thor가 리소스 점유를 해제하려면 `succeeded`에 비어 있지
+않고 범위가 제한된 `rollback_ref`가 필요합니다. 유효한 종결 또는 게시 재생은 rollback을 반복하지
+않습니다. 런타임 조립은 같은 `StateStore`를 Saga의 인계 저널에도 주입합니다. Saga는 에스컬레이션마다
 점유, 변경 checkpoint, 완료 증적 하나를 검증하고 외부 변경 전에 작업 ID에 결속된 이슈
 어댑터를 요구합니다. 런타임 조립은 같은 저장소를 Norns에도 주입합니다. Norns는 지문 학습 전에
 각 `object.issue` 멱등성 키를 점유하고 CAS로 영속 지문 횟수에 적용하며 게시 또는 보류까지

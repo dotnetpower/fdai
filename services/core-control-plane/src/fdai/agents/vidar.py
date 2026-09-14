@@ -277,6 +277,7 @@ class Vidar(Agent):
                     state = "succeeded"
                     notes = "rollback executor completed"
                 else:
+                    rollback_ref = None
                     notes = "rollback executor returned no receipt"
         rec = RollbackRecord(
             correlation_id=correlation_id,
@@ -428,6 +429,34 @@ def _rollback_record_state(
     lease_expires_at: datetime,
     completed_by_owner_token: str,
 ) -> dict[str, Any]:
+    if not _is_sha256_digest(request_digest):
+        raise ValueError("rollback request_digest MUST be a sha256 digest")
+    if not _is_owner_token(claim_owner_token) or not _is_owner_token(completed_by_owner_token):
+        raise ValueError("rollback terminal owner token is malformed")
+    if lease_expires_at.tzinfo is None or lease_expires_at.utcoffset() is None:
+        raise ValueError("rollback terminal lease expiry MUST include timezone")
+    if (
+        not rec.correlation_id
+        or len(rec.correlation_id) > 512
+        or not rec.action_type
+        or len(rec.action_type) > 256
+        or not rec.contract
+        or len(rec.contract) > 128
+        or rec.resource_id is not None
+        and (not rec.resource_id or len(rec.resource_id) > 2_048)
+        or rec.state not in {"succeeded", "failed", "execution_unknown"}
+        or len(rec.notes) > 1_024
+        or (
+            rec.state == "succeeded"
+            and (
+                not isinstance(rec.rollback_ref, str)
+                or not rec.rollback_ref
+                or len(rec.rollback_ref) > 2_048
+            )
+        )
+        or (rec.state != "succeeded" and rec.rollback_ref is not None)
+    ):
+        raise ValueError("rollback terminal record fields are malformed")
     return {
         "schema_version": "1.0.0",
         "revision": 2,
@@ -470,13 +499,7 @@ def _rollback_claim_lease(stored: Mapping[str, Any]) -> tuple[str, datetime]:
         or not isinstance(lease_expires_at, str)
     ):
         raise RuntimeError("stored rollback claim is malformed")
-    try:
-        parsed_expiry = datetime.fromisoformat(lease_expires_at)
-    except ValueError as exc:
-        raise RuntimeError("stored rollback claim has invalid lease expiry") from exc
-    if parsed_expiry.tzinfo is None or parsed_expiry.utcoffset() is None:
-        raise RuntimeError("stored rollback claim lease expiry MUST include timezone")
-    return str(owner_token), parsed_expiry.astimezone(UTC)
+    return str(owner_token), _parse_lease_expiry(lease_expires_at)
 
 
 def _clock_now(clock: Callable[[], datetime]) -> datetime:
@@ -494,26 +517,72 @@ def _is_owner_token(value: object) -> bool:
     )
 
 
+def _is_sha256_digest(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and value.startswith("sha256:")
+        and len(value) == 71
+        and all(character in "0123456789abcdef" for character in value[7:])
+    )
+
+
+def _parse_lease_expiry(value: str) -> datetime:
+    try:
+        parsed_expiry = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise RuntimeError("stored rollback state has invalid lease expiry") from exc
+    if parsed_expiry.tzinfo is None or parsed_expiry.utcoffset() is None:
+        raise RuntimeError("stored rollback state lease expiry MUST include timezone")
+    return parsed_expiry.astimezone(UTC)
+
+
 def _rollback_record_from_state(stored: Mapping[str, Any]) -> RollbackRecord:
+    correlation_id = stored.get("correlation_id")
+    action_type = stored.get("action_type")
+    contract = stored.get("contract")
+    notes = stored.get("notes")
+    request_digest = stored.get("request_digest")
+    claim_owner_token = stored.get("claim_owner_token")
+    completed_by_owner_token = stored.get("completed_by_owner_token")
+    lease_expires_at = stored.get("lease_expires_at")
     if (
-        stored.get("status") != "terminal"
-        or stored.get("state") not in {"succeeded", "failed", "execution_unknown"}
-        or not isinstance(stored.get("correlation_id"), str)
-        or not isinstance(stored.get("action_type"), str)
-        or not isinstance(stored.get("contract"), str)
+        stored.get("schema_version") != "1.0.0"
+        or stored.get("revision") != 2
+        or stored.get("status") != "terminal"
+        or not isinstance(correlation_id, str)
+        or not isinstance(action_type, str)
+        or not isinstance(contract, str)
+        or not isinstance(notes, str)
+        or not _is_sha256_digest(request_digest)
+        or not _is_owner_token(claim_owner_token)
+        or not _is_owner_token(completed_by_owner_token)
+        or not isinstance(lease_expires_at, str)
     ):
         raise RuntimeError("stored rollback terminal record is malformed")
     resource_id = stored.get("resource_id")
     rollback_ref = stored.get("rollback_ref")
-    return RollbackRecord(
-        correlation_id=str(stored["correlation_id"]),
-        action_type=str(stored["action_type"]),
+    rec = RollbackRecord(
+        correlation_id=correlation_id,
+        action_type=action_type,
         resource_id=resource_id if isinstance(resource_id, str) else None,
-        contract=str(stored["contract"]),
+        contract=contract,
         state=str(stored["state"]),
-        notes=str(stored.get("notes") or ""),
+        notes=notes,
         rollback_ref=rollback_ref if isinstance(rollback_ref, str) else None,
     )
+    try:
+        canonical = _rollback_record_state(
+            rec,
+            request_digest=str(request_digest),
+            claim_owner_token=str(claim_owner_token),
+            lease_expires_at=_parse_lease_expiry(lease_expires_at),
+            completed_by_owner_token=str(completed_by_owner_token),
+        )
+    except (RuntimeError, ValueError) as exc:
+        raise RuntimeError("stored rollback terminal record is malformed") from exc
+    if dict(stored) != canonical:
+        raise RuntimeError("stored rollback terminal record is malformed")
+    return rec
 
 
 __all__ = [

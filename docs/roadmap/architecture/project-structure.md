@@ -568,7 +568,8 @@ provider recovery. Every field available to the rollback executor participates, 
 data substitution collides instead of replaying a prior receipt.
 A colliding replica leaves a live lease untouched and fails the handler so EventBusBridge retry or DLQ retains the delivery. Only
 verified expiry on redrive permits `execution_unknown`, and revision CAS fences late owner
-completion. Terminal or publication replay never repeats the rollback. Runtime composition also injects that `StateStore` into
+completion. Terminal replay validates the complete schema and fencing identity, and `succeeded` requires a bounded non-empty
+`rollback_ref` before Thor can release its resource claim. Valid terminal or publication replay never repeats the rollback. Runtime composition also injects that `StateStore` into
 Saga's handoff journal. Saga validates one claim, mutation checkpoint, and completion receipt per escalation and requires an
 operation-bound issue adapter before external mutation. Runtime composition injects the same store into Norns; Norns claims each
 `object.issue` idempotency key, CAS-applies it to a durable fingerprint count, and retains a pending candidate until publish or hold.
