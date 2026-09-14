@@ -26,6 +26,8 @@ Trace hardening preserves these evidence invariants:
 
 - The response correlation id exactly matches the requested correlation before any record is shown.
 - Every audit sequence is a positive integer before it can become an ordered stage or evidence link.
+- Approval stages use only explicit request, decision, approved, rejected, timeout, or resolution
+  records. Delivery, reminder, and notification events cannot imply that approval was recorded.
 
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final

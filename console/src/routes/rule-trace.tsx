@@ -554,7 +554,14 @@ function traceStepMatchesLifecycle(
         && ["decision", "gate", "risk-gate"].includes(namedStage)
       );
   }
-  if (stage === "approval") return kind.startsWith("hil.");
+  if (stage === "approval") {
+    return kind === "hil.requested"
+      || kind === "hil.rejected"
+      || kind === "hil.timeout"
+      || kind === "hil.decision.recorded"
+      || kind.startsWith("hil.approved.")
+      || kind.startsWith("hil.resolve.");
+  }
   if (stage === "dispatch") {
     return dispatchLifecycleState(step) !== null;
   }
@@ -574,9 +581,16 @@ function traceLifecycleState(
   const decision = evidence.decision?.toLowerCase() ?? "";
   if (stage === "dispatch") return dispatchLifecycleState(evidence) ?? "not_recorded";
   if (stage === "approval") {
-    return kind === "hil.requested" || kind === "hil.approved.claimed"
-      ? "pending"
-      : "recorded";
+    if (kind === "hil.requested") return "pending";
+    if (
+      kind === "hil.rejected"
+      || kind === "hil.timeout"
+      || kind.includes("failed")
+      || kind.includes("refused")
+    ) {
+      return "failed";
+    }
+    return "recorded";
   }
   if (
     kind.includes("execution_pending")

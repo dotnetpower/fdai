@@ -301,6 +301,41 @@ describe("trace operational summary", () => {
 
       expect(traceActionLifecycles(data)[0]!.stages.find((item) => item.id === "dispatch")?.state)
         .toBe("not_recorded");
+      expect(traceActionLifecycles(data)[0]!.stages.find((item) => item.id === "approval")?.state)
+        .toBe("not_recorded");
+    });
+
+    it("marks explicit approval rejection as failed without treating other HIL traffic as approval", () => {
+      const data = decodeTraceResponse({
+        correlation_id: "corr-approval-rejected",
+        step_count: 2,
+        steps: [
+          {
+            ...step(1),
+            action_id: "action-approval",
+            attempt: 1,
+            action_kind: "hil.delivery.observed",
+            decision: null,
+          },
+          {
+            ...step(2),
+            action_id: "action-approval",
+            attempt: 1,
+            action_kind: "hil.rejected",
+            decision: "deny",
+          },
+        ],
+        terminal_stage: "risk-gate",
+      });
+
+      const approval = traceActionLifecycles(data)[0]!.stages.find(
+        (item) => item.id === "approval",
+      );
+
+      expect(approval).toEqual(expect.objectContaining({
+        state: "failed",
+        evidence: expect.objectContaining({ action_kind: "hil.rejected" }),
+      }));
     });
 
     it("never combines two action attempts in one lifecycle", () => {
