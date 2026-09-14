@@ -19,6 +19,7 @@ from fdai.core.ontology_platform.reconciliation_request_outbox import (
     ReconciliationRequestOutbox,
     ReconciliationRequestOutboxState,
 )
+from fdai.shared.contracts.execution_outcomes import execution_outcome_may_have_effect
 from fdai.shared.contracts.models import Action
 
 from .reconciliation_request_publication import EffectReconciliationRequestPublisher
@@ -47,17 +48,11 @@ class EffectReconciliationRequestProducer:
         action: Action,
         execution_outcome: str,
         execution_receipt_ref: str | None,
+        *,
+        correlation_id: str | None = None,
     ) -> ReconciliationRequestProduction:
         """Publish after broker acknowledgement or return an explicit non-published state."""
-        if execution_outcome not in {
-            "published",
-            "already_existed",
-            "publish_outcome_unknown",
-            "dispatched",
-            "already_applied",
-            "stopped",
-            "failed",
-        }:
+        if not execution_outcome_may_have_effect(execution_outcome):
             return ReconciliationRequestProduction(
                 ReconciliationRequestProductionStatus.NOT_APPLICABLE,
                 "execution_outcome_has_no_possible_effect",
@@ -84,7 +79,7 @@ class EffectReconciliationRequestProducer:
             or plan.arguments_digest != ontology_function_digest(action.params)
         ):
             raise ValueError("semantic V2 plan does not match the executed Action")
-        correlation_id = str(action.action_id)
+        correlation_id = correlation_id or str(action.action_id)
         observation = await self._observation_source.observe(
             action=action,
             artifacts=artifacts,

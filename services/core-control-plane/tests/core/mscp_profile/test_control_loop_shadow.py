@@ -19,7 +19,15 @@ from fdai.core.ontology_platform import (
     ReconciliationRequestProduction,
     ReconciliationRequestProductionStatus,
 )
-from fdai.shared.contracts.models import Action, Event, ExecutionPath, Mode, Rule
+from fdai.core.workflow import StateStoreWorkflowOutcomeLedger
+from fdai.shared.contracts.models import (
+    Action,
+    Event,
+    ExecutionPath,
+    Mode,
+    Rule,
+    WorkflowActionRef,
+)
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 7, 21, tzinfo=UTC)
@@ -267,6 +275,52 @@ async def test_unbound_profile_is_a_complete_dispatch_noop() -> None:
     assert "effect_verified" not in result.audit_context
     assert _is_execution_success(result) is False
     assert _audit_payloads(audit) == ()
+
+
+async def test_pre_executor_no_effect_records_terminal_workflow_outcome() -> None:
+    executor = MagicMock()
+    executor.execute = AsyncMock(return_value=_result())
+    predictor = AsyncMock(return_value=_expected())
+    observer = AsyncMock()
+    store = InMemoryStateStore()
+    recorder = StateStoreWorkflowOutcomeLedger(store)
+    loop = _loop(
+        executor=executor,
+        audit_store=store,
+        expected_effect_provider=predictor,
+        effect_observer=observer,
+        workflow_outcome_recorder=recorder,
+    )
+    action = _action().model_copy(
+        update={
+            "mode": Mode.ENFORCE,
+            "workflow_action": WorkflowActionRef(
+                process_id="process-1",
+                step_id="step-1",
+                proposal_ref="proposal-1",
+                attempt=1,
+            ),
+        }
+    )
+
+    result = await loop._dispatch_action(action=action, rule=_rule())
+
+    assert result.outcome is ExecutorOutcome.REJECTED_INVARIANT
+    executor.execute.assert_not_awaited()
+    predictor.assert_not_awaited()
+    observer.assert_not_awaited()
+    records = await store.read_states("workflow:outcome:", limit=10)
+    assert len(records) == 1
+    assert records[0]["action_id"] == str(action.action_id)
+    assert records[0]["outcome"] == "not_attempted"
+    assert records[0]["execution_outcome"] == "rejected_invariant"
+    assert records[0]["safeguard_bundle_digest"] is None
+    recorded = next(
+        entry["entry"]
+        for entry in store.audit_entries
+        if entry["entry"].get("action_kind") == "workflow.action_outcome.recorded"
+    )
+    assert recorded["event_id"] == str(action.event_id)
 
 
 @pytest.mark.parametrize(

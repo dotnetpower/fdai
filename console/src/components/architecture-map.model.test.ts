@@ -7,7 +7,6 @@ import {
   DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   architecturePresentationGraph,
   architectureHref,
-  DEFAULT_ARCHITECTURE_CAMERA_VIEW,
   architectureViewKindLabel,
   architectureViewFromHash,
   constrainGraph,
@@ -27,9 +26,15 @@ import {
 import { hasArchitectureResourceAbbreviation } from "./architecture-resource-abbreviations";
 
 describe("architecture display defaults", () => {
-  test("shows resource reflections and connections by default", () => {
-    expect(DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS.showReflections).toBe(true);
+  test("keeps only meaningful 2D presentation controls", () => {
+    expect(Object.keys(DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS).sort()).toEqual([
+      "showConnections",
+      "showGrid",
+      "showLabels",
+    ]);
     expect(DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS.showConnections).toBe(true);
+    expect(DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS.showLabels).toBe(true);
+    expect(DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS.showGrid).toBe(false);
   });
 });
 
@@ -79,10 +84,6 @@ const GRAPH: InventoryGraphResponse = {
 };
 
 describe("architecture map model", () => {
-  test("uses the isometric camera by default", () => {
-    expect(DEFAULT_ARCHITECTURE_CAMERA_VIEW).toBe("iso");
-  });
-
   test("maps resource types to visual layers", () => {
     expect(layerOf(GRAPH.resources[1]!)).toBe("runtime");
     expect(layerOf(GRAPH.resources[2]!)).toBe("data");

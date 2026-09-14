@@ -132,7 +132,7 @@ async def test_terminal_delivery_retained_after_core_release_without_authority_e
     action = _action(mode=Mode.ENFORCE)
     try:
         result = await wrapper.execute(action=action)
-        assert result.outcome.value == "failed"
+        assert result.outcome.value == "awaiting_effect_evidence"
         assert not any(lock.snapshot().values())
         assert client._pending == {}
         command = await _command(bus)
@@ -422,7 +422,7 @@ async def test_capacity_failure_prevents_publication_and_leaves_claim_fail_close
         result = await SafeguardBoundEventBusDirectApiExecutionClient(client, coordinator).execute(
             action=_action(mode=Mode.ENFORCE)
         )
-        assert result.outcome.value == "failed"
+        assert result.outcome.value == "dispatch_not_attempted"
         assert [item async for item in bus.subscribe(EXECUTOR_COMMAND_TOPIC, "test-empty")] == []
     finally:
         await client.stop()
@@ -449,7 +449,7 @@ async def test_bound_publication_without_injected_journal_fails_closed() -> None
     result = await SafeguardBoundEventBusDirectApiExecutionClient(client, coordinator).execute(
         action=_action(mode=Mode.ENFORCE)
     )
-    assert result.outcome.value == "failed"
+    assert result.outcome.value == "dispatch_not_attempted"
     assert client._consumer_task is None
     assert await store.read_states(f"{_PREFIX}command:", limit=1) == ()
     assert [item async for item in bus.subscribe(EXECUTOR_COMMAND_TOPIC, "test-empty")] == []

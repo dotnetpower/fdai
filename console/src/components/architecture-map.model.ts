@@ -45,19 +45,15 @@ export interface ArchitectureView {
   readonly root_resource_id: string;
 }
 
-export type ArchitectureCameraView = "iso" | "top" | "front";
-export const DEFAULT_ARCHITECTURE_CAMERA_VIEW: ArchitectureCameraView = "iso";
-
+/** Presentation toggles for the fixed two-dimensional architecture map. */
 export interface ArchitectureDisplayOptions {
   readonly showConnections: boolean;
-  readonly showReflections: boolean;
   readonly showLabels: boolean;
   readonly showGrid: boolean;
 }
 
 export const DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS: ArchitectureDisplayOptions = {
   showConnections: true,
-  showReflections: true,
   showLabels: true,
   showGrid: false,
 };

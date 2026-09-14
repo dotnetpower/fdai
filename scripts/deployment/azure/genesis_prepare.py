@@ -198,6 +198,7 @@ def prepare_standalone_genesis(
     monthly_cost_ceiling: int,
     connectivity: str,
     root: Path,
+    create_runner_image: bool = True,
 ) -> PreparedGenesis:
     """Create target-bound inputs from an independently verified complete kit."""
 
@@ -207,6 +208,7 @@ def prepare_standalone_genesis(
         or not re.fullmatch(r"[a-z][a-z0-9]+", region)
         or type(monthly_cost_ceiling) is not int
         or monthly_cost_ceiling <= 0
+        or type(create_runner_image) is not bool
     ):
         raise ValueError("standalone Genesis preparation input is invalid")
     _private_directory(root)
@@ -218,12 +220,12 @@ def prepare_standalone_genesis(
         tenant_id=tenant_id,
         subscription_id=subscription_id,
     )
-    run_binding = hashlib.sha256(
-        (
-            f"{tenant_id.lower()}:{subscription_id.lower()}:{region}:dev:"
-            "signed-kit:runner-image=true"
-        ).encode()
-    ).hexdigest()
+    run_binding = _standalone_run_binding(
+        tenant_id=tenant_id,
+        subscription_id=subscription_id,
+        region=region,
+        create_runner_image=create_runner_image,
+    )
     profile_path = root / "profile.json"
     desired_profile = ProvisionProfile(
         environment="dev",
@@ -295,6 +297,15 @@ def prepare_standalone_genesis(
         bundle_public_key=bundle_root,
         terraform=terraform,
     )
+
+
+def _standalone_run_binding(
+    *, tenant_id: str, subscription_id: str, region: str, create_runner_image: bool
+) -> str:
+    run_context = f"{tenant_id.lower()}:{subscription_id.lower()}:{region}:dev:signed-kit"
+    if create_runner_image:
+        run_context += ":runner-image=true"
+    return hashlib.sha256(run_context.encode()).hexdigest()
 
 
 def _ensure_kit(

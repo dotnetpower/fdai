@@ -27,9 +27,9 @@ in [architecture.instructions.md](../../../.github/instructions/architecture.ins
 - **Agent-driven, ontology-constrained.** Agents own every state transition. The ontology validates
   target identity, relationships, evidence freshness, allowed actions, and expected effects, but a
   graph result never judges, approves, executes, or raises authority.
-- **Closed-loop operation.** Every accepted signal follows accountable ownership through observe,
-  understand, decide, plan, authorize, execute, verify, recover, and learn. Broker acceptance or an
-  API success is not an operational outcome; independent observation closes the loop.
+- **Closed-loop operation.** Every accepted signal follows accountable ownership through observe, understand, decide, plan, authorize, execute, verify, recover, and learn. Broker acceptance or an API success is not an operational outcome; independent observation closes the loop.
+  Operational attribution grants no execution authority: audit and activity records preserve the mechanical `actor`, name the accountable Pantheon role in `owner_agent`, and use `producer_principal` only for an authenticated event-bus publisher.
+  A projection can expose those identities but cannot infer ownership, authorship, or authority from a service name, and attribution changes do not alter ActionRun identity or idempotency.
 - **Autonomy before escalation.** Missing evidence triggers bounded reacquisition, alternate-source
   checks, deterministic reevaluation, smaller safe plans, no-op, or rollback before human review.
   Var requests a person only for residual ambiguity, policy-mandated approval, or risk outside
@@ -60,8 +60,8 @@ that data flows into judgment, not directly into execution.
 
 The org chart is reporting lines; the relationship diagram is data flow. Sensing and specialists feed Forseti. Action verdicts feed Thor for dispatch to Vidar, Var, or execution; Thor ignores
 document-ingestion and observation-only architecture-review verdicts. Odin excludes those ARB observations from action-portfolio counts, while Saga retains them as audit evidence. Var and Saga preserve stable idempotency through document HIL, while
-Saga persists gated and terminal audit. Workflow requests preserve bounded `workflow_action`
-lineage through Huginn, Forseti, and Thor. A delivery-owned producer stores an optional argument-bound kinetic proposal for one complete operational plan; Forseti resolves it through an injected source and keeps it on the same Verdict-to-ActionRun path after strict validation. Both are attribution and evidence only;
+Saga persists gated and terminal audit. Workflow requests preserve bounded `workflow_action` lineage, including the positive attempt number, through Huginn, Forseti, and Thor.
+Thor preserves an action identifier only when the verdict supplies one and never invents one from the correlation id; bounded ActionRun lineage validation remains an authority-free `_framework` helper. A delivery-owned producer stores an optional argument-bound kinetic proposal for one complete operational plan; Forseti resolves it through an injected source and keeps it on the same Verdict-to-ActionRun path after strict validation. Both are attribution and evidence only;
 neither changes quorum, mode, judgment, approval, or execution authority.
 Norns proposes to Mimir, and Odin arbitrates conflicts before judgment.
 

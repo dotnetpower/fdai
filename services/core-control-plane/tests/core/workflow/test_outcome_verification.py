@@ -159,7 +159,43 @@ async def test_unverified_execution_success_does_not_create_success_receipt() ->
     assert receipt_ref is None
 
 
-async def test_pre_dispatch_rejection_records_failure_without_bundle() -> None:
+@pytest.mark.parametrize(
+    "execution_outcome",
+    [
+        "awaiting_effect_evidence",
+        "receipt_timeout",
+        "execution_unknown",
+    ],
+)
+async def test_pending_execution_does_not_create_terminal_workflow_receipt(
+    execution_outcome: str,
+) -> None:
+    ledger = _ledger()
+    action = _action()
+    response = _response(action, verified=False).model_copy(
+        update={"execution_outcome": execution_outcome},
+    )
+
+    receipt_ref = await ledger.record(
+        action=action,
+        execution_outcome=execution_outcome,
+        execution_receipt_ref=None,
+        safeguard_bundle_digest=_BUNDLE_DIGEST,
+        response_outcome=response,
+    )
+
+    assert receipt_ref is None
+    assert (
+        await ledger.resolve(
+            process_id="process-1",
+            step_id="restart",
+            proposal_ref="process-1:step:restart:attempt:1",
+        )
+        is None
+    )
+
+
+async def test_pre_dispatch_rejection_records_no_effect_without_bundle() -> None:
     ledger = _ledger()
     action = _action()
     response = _response(action, verified=False).model_copy(
@@ -181,7 +217,7 @@ async def test_pre_dispatch_rejection_records_failure_without_bundle() -> None:
         proposal_ref="process-1:step:restart:attempt:1",
     )
     assert resolved is not None
-    assert resolved.outcome == "failed"
+    assert resolved.outcome == "not_attempted"
     assert resolved.safeguard_bundle_digest is None
 
 

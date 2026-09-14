@@ -48,7 +48,7 @@
     "observability": "Observability"
   },
   "filterSummary": "Showing {visibleResources} of {totalResources} resources and {visibleLinks} of {totalLinks} relationships",
-  "mapDescription": "Read-only map of {resources} visible resources and {links} reported relationships. Use the resource selector or the resource and relationship index for keyboard navigation.",
+  "mapDescription": "Read-only 2D map of {resources} visible resources and {links} reported relationships. Use the resource selector or the resource and relationship index for keyboard navigation.",
   "zoomControls": "Map zoom controls",
   "zoomIn": "Zoom in",
   "zoomLevel": "Zoom level",
@@ -83,19 +83,11 @@
   "copyResourceId": "Copy resource ID",
   "selectResource": "Select a resource",
   "selectionHint": "Resource status, boundary, and direct relationships appear here.",
-  "mapDisplay": "Map display",
-  "view": "View",
-  "cameraView": "Camera view",
-  "camera": {
-    "top": "Top",
-    "iso": "Iso",
-    "front": "Front"
-  },
+  "mapDisplay": "2D map display",
   "display": "Display",
   "displayOption": {
     "relationships": "Relationships",
     "labels": "Labels",
-    "reflections": "Reflections",
     "gridPoints": "Grid points"
   },
   "resourceLegend": "Resource legend",
@@ -107,12 +99,12 @@
   "unavailable": "Unavailable",
   "relationships": "Relationships",
   "noRelationships": "No relationships were reported.",
-  "mapAriaLabel": "Resource architecture map with {count} resources",
+  "mapAriaLabel": "2D resource architecture map with {count} resources",
   "selectArchitectureResource": "Select architecture resource",
   "selectResourceOption": "Select resource"
   ,"network": {
     "mode": "Architecture presentation mode",
-    "mapMode": "Map",
+    "mapMode": "Resource map",
     "networkMode": "Network",
     "mapAriaLabel": "Observed network topology with {count} resources",
     "title": "Observed network path",

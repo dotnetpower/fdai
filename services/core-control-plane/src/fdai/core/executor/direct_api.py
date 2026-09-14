@@ -33,9 +33,7 @@ import json
 import logging
 from collections.abc import Mapping
 from contextlib import AsyncExitStack
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import StrEnum
 from typing import Any
 
 from fdai.core.executor.blast_radius import blast_radius_refusal
@@ -53,6 +51,10 @@ from fdai.core.executor.safeguards import (
     missing_safety_invariant,
     plan_digest_for_mapping,
     resource_lock_key,
+)
+from fdai.shared.contracts.execution_outcomes import (
+    DirectApiExecutionOutcome,
+    DirectApiExecutionResult,
 )
 from fdai.shared.contracts.models import Action, ExecutionPath, Mode
 from fdai.shared.providers.direct_api import (
@@ -74,80 +76,6 @@ from fdai.shared.providers.resource_lock import EvidenceResourceLock, ResourceLo
 from fdai.shared.providers.state_store import StateStore
 
 _LOG = logging.getLogger(__name__)
-
-
-class DirectApiExecutionOutcome(StrEnum):
-    """Terminal outcome for one :meth:`DirectApiShadowExecutor.execute` call.
-
-    Deliberately distinct from
-    :class:`~fdai.core.executor.executor.ExecutorOutcome` so a PR-
-    path audit consumer that filters on those values does not
-    accidentally match a direct-API record; the two paths share only the
-    ``ExecutionResult``-shaped audit context.
-    """
-
-    DISPATCHED = "dispatched"
-    """The substrate call succeeded (adapter returned
-    :attr:`DirectApiOutcome.SUCCEEDED`)."""
-
-    ALREADY_APPLIED = "already_applied"
-    """Duplicate delivery: the adapter's idempotency ledger (or the
-    executor's in-process dedupe) returned a prior receipt."""
-
-    ABSTAINED_BLAST_RADIUS = "abstained_blast_radius"
-    """Blast-radius count / rate exceeded the executor cap; escalate to
-    HIL rather than partial-apply."""
-
-    ABSTAINED_PRECONDITION = "abstained_precondition"
-    """An ActionType ``precondition`` did not hold at dispatch time
-    (adapter raised :class:`DirectApiPreconditionError`). No mutation
-    attempted."""
-
-    STOPPED = "stopped"
-    """A ``stop_condition`` fired mid-flight (adapter returned
-    :attr:`DirectApiOutcome.STOPPED`). The adapter attempted a rollback;
-    :attr:`DirectApiExecutionResult.rollback_succeeded` records the
-    outcome."""
-
-    FAILED = "failed"
-    """The substrate call raised or the adapter returned
-    :attr:`DirectApiOutcome.FAILED`. Rollback (if any) is recorded on
-    :attr:`DirectApiExecutionResult.rollback_succeeded`."""
-
-    AUTHENTICATION_FAILED = "authentication_failed"
-    PERMISSION_DENIED = "permission_denied"
-    POLICY_DENIED = "policy_denied"
-    NETWORK_DENIED = "network_denied"
-
-    REJECTED_MODE = "rejected_mode"
-    """Action carried :attr:`Mode.ENFORCE` but the P1 executor is
-    shadow-only OR the adapter refused an enforce dispatch that lacked
-    the promotion label."""
-
-    REJECTED_INVARIANT = "rejected_invariant"
-    """Action was missing a required action-level safeguard (empty
-    ``stop_condition``, missing ``rollback_ref.kind``, missing
-    ``blast_radius``, missing ``citing_rules``)."""
-
-    REJECTED_CAPABILITY_UNAVAILABLE = "rejected_capability_unavailable"
-    """The current license does not make acting capabilities available."""
-
-    REJECTED_IDEMPOTENCY_CONFLICT = "rejected_idempotency_conflict"
-    """The idempotency key was already bound to a different action."""
-
-
-@dataclass(frozen=True, slots=True)
-class DirectApiExecutionResult:
-    """Outcome of one :meth:`DirectApiShadowExecutor.execute` call."""
-
-    action_id: str
-    outcome: DirectApiExecutionOutcome
-    mode: Mode = Mode.SHADOW
-    receipt_ref: str | None = None
-    safeguard_bundle_digest: str | None = None
-    rollback_succeeded: bool | None = None
-    reason: str | None = None
-    audit_context: dict[str, Any] = field(default_factory=dict)
 
 
 # Outcomes that hit the substrate (a mutation, or a prior receipt for
@@ -584,6 +512,11 @@ class DirectApiShadowExecutor:
             "operation": action.operation.value,
             "rollback_kind": action.rollback_ref.kind.value,
             "rollback_reference": action.rollback_ref.reference,
+            "workflow_action": (
+                action.workflow_action.model_dump(mode="json")
+                if action.workflow_action is not None
+                else None
+            ),
             "stop_condition": action.stop_condition,
             "stop_conditions": [
                 condition.model_dump(mode="json") for condition in action.stop_conditions
@@ -619,6 +552,11 @@ class DirectApiShadowExecutor:
                 "executor_identity_ref": action.executor_identity_ref,
                 "rollback_kind": action.rollback_ref.kind.value,
                 "rollback_reference": action.rollback_ref.reference,
+                "workflow_action": (
+                    action.workflow_action.model_dump(mode="json")
+                    if action.workflow_action is not None
+                    else None
+                ),
                 "stop_condition": action.stop_condition,
                 "stop_conditions": [
                     condition.model_dump(mode="json") for condition in action.stop_conditions

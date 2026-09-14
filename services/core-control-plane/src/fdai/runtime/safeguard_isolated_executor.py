@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from fdai.core.executor.direct_api import (
+    DirectApiExecutionOutcome,
+    DirectApiExecutionResult,
     _build_direct_api_request,
     _direct_api_plan_digest,
 )
@@ -27,8 +29,6 @@ from fdai.core.executor.safeguard_lifecycle_coordinator import (
 from fdai.core.executor.safeguards import SafeguardReceipt, evaluate_pre_dispatch
 from fdai.runtime.isolated_executor_client import (
     EventBusDirectApiExecutionClient,
-    RemoteDirectApiExecutionOutcome,
-    RemoteDirectApiExecutionResult,
 )
 from fdai.shared.contracts.models import (
     Action,
@@ -105,7 +105,7 @@ class _RemoteDirectApiLifecycleDispatchPort:
         except asyncio.CancelledError as exc:
             self.error = exc
             return _unknown()
-        except (OSError, RuntimeError, ValueError) as exc:
+        except Exception as exc:  # noqa: BLE001 - post-guard publication is ambiguous
             self.error = exc
             return _unknown()
         return (
@@ -123,7 +123,7 @@ class SafeguardBoundEventBusDirectApiExecutionClient:
     client: EventBusDirectApiExecutionClient
     coordinator: SafeguardLifecycleCoordinator
 
-    async def execute(self, *, action: Action) -> RemoteDirectApiExecutionResult:
+    async def execute(self, *, action: Action) -> DirectApiExecutionResult:
         """Return only a result retaining the exact finalized bundle digest."""
 
         request = _build_direct_api_request(action)
@@ -134,9 +134,9 @@ class SafeguardBoundEventBusDirectApiExecutionClient:
             plan_kind="isolated_executor_command",
         )
         if not isinstance(safeguards, SafeguardReceipt):
-            return RemoteDirectApiExecutionResult(
+            return DirectApiExecutionResult(
                 action_id=str(action.action_id),
-                outcome=RemoteDirectApiExecutionOutcome.REJECTED_INVARIANT,
+                outcome=DirectApiExecutionOutcome.REJECTED_INVARIANT,
                 mode=action.mode,
                 reason=safeguards.reason,
             )
@@ -157,41 +157,54 @@ class SafeguardBoundEventBusDirectApiExecutionClient:
         if isinstance(port.error, asyncio.CancelledError):
             raise port.error
         if port.error is not None:
-            return RemoteDirectApiExecutionResult(
+            effect_possible = coordinated.dispatch_performed
+            return DirectApiExecutionResult(
                 action_id=str(action.action_id),
-                outcome=RemoteDirectApiExecutionOutcome.FAILED,
+                outcome=(
+                    DirectApiExecutionOutcome.EXECUTION_UNKNOWN
+                    if effect_possible
+                    else DirectApiExecutionOutcome.DISPATCH_NOT_ATTEMPTED
+                ),
                 mode=action.mode,
                 safeguard_bundle_digest=coordinated.bundle_digest,
                 reason=f"isolated Executor client error: {type(port.error).__name__}",
+                audit_context={
+                    "effect_possible": effect_possible,
+                    "reconciliation_required": effect_possible,
+                    "continuity_quarantined": effect_possible,
+                },
             )
-        if coordinated.disposition is SafeguardCoordinationDisposition.QUARANTINED:
-            return RemoteDirectApiExecutionResult(
+        if coordinated.dispatch_performed:
+            return DirectApiExecutionResult(
                 action_id=str(action.action_id),
-                outcome=RemoteDirectApiExecutionOutcome.FAILED,
+                outcome=DirectApiExecutionOutcome.AWAITING_EFFECT_EVIDENCE,
                 mode=action.mode,
                 safeguard_bundle_digest=coordinated.bundle_digest,
-                reason=coordinated.reason or "dispatch continuity is quarantined",
+                reason="isolated Executor command awaits independent effect evidence",
+                audit_context={
+                    "effect_possible": True,
+                    "reconciliation_required": True,
+                    "continuity_quarantined": (
+                        coordinated.disposition is SafeguardCoordinationDisposition.QUARANTINED
+                    ),
+                },
             )
         if not coordinated.dispatch_performed:
-            return RemoteDirectApiExecutionResult(
+            return DirectApiExecutionResult(
                 action_id=str(action.action_id),
                 outcome=(
-                    RemoteDirectApiExecutionOutcome.ALREADY_APPLIED
+                    DirectApiExecutionOutcome.ALREADY_APPLIED
                     if coordinated.disposition is SafeguardCoordinationDisposition.DUPLICATE
                     and coordinated.bundle_digest is not None
-                    else RemoteDirectApiExecutionOutcome.REJECTED_INVARIANT
+                    else DirectApiExecutionOutcome.EXECUTION_UNKNOWN
+                    if coordinated.disposition is SafeguardCoordinationDisposition.QUARANTINED
+                    else DirectApiExecutionOutcome.DISPATCH_NOT_ATTEMPTED
                 ),
                 mode=action.mode,
                 safeguard_bundle_digest=coordinated.bundle_digest,
                 reason=coordinated.reason,
             )
-        return RemoteDirectApiExecutionResult(
-            action_id=str(action.action_id),
-            outcome=RemoteDirectApiExecutionOutcome.FAILED,
-            mode=action.mode,
-            safeguard_bundle_digest=coordinated.bundle_digest,
-            reason="isolated Executor command awaits independent effect evidence",
-        )
+        raise AssertionError("safeguard dispatch result was not classified")
 
 
 def _unknown() -> tuple[

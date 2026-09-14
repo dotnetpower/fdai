@@ -247,16 +247,23 @@ async def test_legacy_action_without_exact_plan_is_not_applicable() -> None:
 async def test_missing_independent_observation_holds_without_publish() -> None:
     artifacts, action, _ = _inputs()
     bus = _Bus()
+    observations = _ObservationSource(None)
     producer, _, _, _ = _producer(
         bus=bus,
         artifacts=artifacts,
-        observation_source=_ObservationSource(None),
+        observation_source=observations,
     )
 
-    result = await producer(action, "dispatched", None)
+    result = await producer(
+        action,
+        "dispatched",
+        None,
+        correlation_id="original-correlation",
+    )
 
     assert result.status is ReconciliationRequestProductionStatus.HELD
     assert result.reason_code == "independent_observation_unavailable"
+    assert observations.calls[0]["correlation_id"] == "original-correlation"
     assert bus.published == []
 
 
@@ -352,6 +359,32 @@ async def test_no_effect_outcome_skips_artifact_and_observation_sources() -> Non
     assert artifact_source.calls == 0
     assert observation_source.calls == []
     assert bus.published == []
+
+
+@pytest.mark.parametrize(
+    "execution_outcome",
+    [
+        "awaiting_effect_evidence",
+        "receipt_timeout",
+        "execution_unknown",
+    ],
+)
+async def test_pending_outcome_requests_independent_reconciliation(
+    execution_outcome: str,
+) -> None:
+    artifacts, action, observation = _inputs()
+    bus = _Bus()
+    observations = _ObservationSource(observation)
+    producer, _, _, _ = _producer(
+        bus=bus,
+        artifacts=artifacts,
+        observation_source=observations,
+    )
+
+    result = await producer(action, execution_outcome, None)
+
+    assert result.status is ReconciliationRequestProductionStatus.PUBLISHED
+    assert observations.calls[0]["execution_outcome"] == execution_outcome
 
 
 async def test_in_flight_request_is_held_until_broker_acknowledgement() -> None:

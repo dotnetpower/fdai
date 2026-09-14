@@ -632,11 +632,11 @@ coordinator, not a second policy implementation.
 
 The Console settings routes and static design mocks share Calm Slate control tokens and presentation primitives. Desktop forms use a compact 34 px standard height and 28 px action height, touch layouts use 44 px targets, and Settings keeps browser-local preferences, account preferences, deployment policy, evidence, and authority visually distinct without changing persistence or authorization.
 `console/src/components/account-menu.tsx` owns signed-in account presentation, displays the MSAL name and username, reads FDAI roles only from the server-verified `GET /iam/self` projection, and links to IAM. `console/src/auth.ts` opens the Entra account picker without a login hint for same-tenant selection, then returns through normal token acquisition and IAM authorization. The component does not switch directories, grant capabilities, or receive provider credentials.
+`console/src/browser-notifications.ts`, `console/src/components/browser-notification-control.tsx`, and the scope-fenced `console/public/notification-sw.js` own the client-local notification module; [Console Web Notifications](console-web-notifications.md) defines its complete selection, capability, delivery, acknowledgement, recovery, and authority contract. Every delivery-ledger mutation uses one origin-wide short-lived Web Lock, and a re-enabled control derives its visible delivery state from the retained ledger.
 Visible-heading components use `title` only for rendered heading content. Native HTML `title` bubbles remain limited to accessibility-compatible elements, and all other contextual help uses the shared Tooltip component.
 The static component gallery reads contracts from `mocks/ui/assets/component-registry.json` and presents each specimen before its owner, source, states, usage guidance, responsive behavior, accessibility contract, and product references. A missing or invalid registry blocks documented status instead of inferring canonical status. The gallery remains synthetic presentation evidence and grants no Console, Operator API, or executor authority.
 
 ## Boundary invariant
-
 `core/conversation/` imports protocols only. Azure SDK, HTTP, Bot Framework, and provider calls live
 under `delivery/`. Conversation presentation never becomes execution authority.
 

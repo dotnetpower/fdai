@@ -1,93 +1,120 @@
-/* Fixed reporting tree and independent agent/incident focus for the Org preview. */
+/* Fixed reporting tree and role focus for the read-only Org preview. */
 (function () {
   "use strict";
   const P = window.AgentsPreview;
   const esc = P.escape;
   const requested = P.params();
+  const overlay = requested.get("overlay") === "1";
+  if (overlay) document.body.classList.add("ap-role-overlay");
   let selectedAgent = P.byName(requested.get("agent"));
-  let selectedId = requested.get("correlation") || P.incidents[0].id;
-  let following = !requested.has("correlation");
   const tree = document.getElementById("orgTree");
   const focus = document.getElementById("agentFocus");
-  const list = document.getElementById("incidentList");
-  const workflow = document.getElementById("incidentWorkflow");
-  const status = document.getElementById("incidentStatus");
+  const reportingEdges = [
+    ["Thor", "Odin", false],
+    ["Forseti", "Odin", false],
+    ["Vidar", "Thor", false],
+    ["Bragi", "Thor", false],
+    ["Var", "Thor", false],
+    ["Huginn", "Forseti", false],
+    ["Heimdall", "Forseti", false],
+    ["Njord", "Forseti", false],
+    ["Freyr", "Forseti", false],
+    ["Loki", "Forseti", false],
+    ["Mimir", "Odin", true],
+    ["Muninn", "Odin", true],
+    ["Saga", "Odin", true],
+    ["Norns", "Odin", true]
+  ];
   function node(name) {
     const agent = P.byName(name);
-    const incident = P.available() ? P.incidents.find((item) => item.id === selectedId) : null;
-    const involved = incident && incident.involved.includes(name);
-    return '<button type="button" class="ap-node" data-agent="' + agent.slug + '" aria-pressed="' + String(selectedAgent === agent) + '">' +
-      '<img src="../../console/public/agent-icons/' + agent.slug + '.svg" alt="" /><span class="ap-node-copy"><strong>' + name + "</strong><small>" + agent.role + '</small><span class="ap-state is-' + P.stateOf(agent) + '">' + P.stateLabel(agent) + "</span>" +
-      (involved ? '<span class="ap-participation">In selected incident</span>' : "") + "</span></button>";
+    const state = P.stateOf(agent);
+    const selected = selectedAgent === agent;
+    const classes = [
+      "ap-node",
+      "layer-" + agent.visualLayer,
+      "state-" + state,
+      state === "engaged" ? "is-engaged" : "",
+      selected ? "is-selected" : ""
+    ].filter(Boolean).join(" ");
+    const icon = "../../console/public/agent-icons/" + agent.slug + ".svg";
+    return '<button type="button" class="' + classes + '" data-agent="' + agent.slug + '" aria-pressed="' + String(selected) + '" aria-label="' + esc(agent.name + ", " + agent.role + ", " + P.stateLabel(agent)) + '">' +
+      '<span class="ap-node-ring" aria-hidden="true"><span class="ap-node-icon" style="-webkit-mask-image:url(' + icon + ');mask-image:url(' + icon + ')"></span></span>' +
+      '<span class="ap-node-name">' + esc(agent.name) + '</span><span class="ap-node-role">' + esc(agent.role) + '</span>' +
+      '<span class="ap-node-tooltip" role="tooltip"><span class="ap-node-tooltip-head"><strong>' + esc(agent.name) + '</strong><span class="ap-state is-' + state + '">' + esc(P.stateLabel(agent)) + "</span></span></span></button>";
   }
-  function incidentButton(incident) {
-    return '<button type="button" class="ap-incident" data-incident="' + incident.id + '" aria-pressed="' + String(incident.id === selectedId) + '"><span>' + P.label(incident.status) + "</span><small>" + incident.ticket + "</small><strong>" + incident.title + "</strong><small>" + P.label(incident.severity) + " severity</small><small>" + incident.updated + " UTC</small></button>";
+  function drawReportingLines() {
+    const svg = tree.querySelector(".ap-org-lines");
+    if (!svg || tree.clientWidth === 0 || tree.clientHeight === 0) return;
+    const origin = tree.getBoundingClientRect();
+    tree.querySelectorAll(".ap-node").forEach((agentNode) => {
+      agentNode.classList.remove("tooltip-align-left", "tooltip-align-right");
+      const nodeBox = agentNode.getBoundingClientRect();
+      const tooltip = agentNode.querySelector(".ap-node-tooltip");
+      const tooltipWidth = tooltip.getBoundingClientRect().width;
+      const center = nodeBox.left + nodeBox.width / 2;
+      if (center - tooltipWidth / 2 < origin.left + 8) {
+        agentNode.classList.add("tooltip-align-left");
+      } else if (center + tooltipWidth / 2 > origin.right - 8) {
+        agentNode.classList.add("tooltip-align-right");
+      }
+    });
+    svg.setAttribute("width", String(origin.width));
+    svg.setAttribute("height", String(origin.height));
+    svg.setAttribute("viewBox", "0 0 " + origin.width + " " + origin.height);
+    svg.replaceChildren();
+    reportingEdges.forEach(([fromName, toName, staff]) => {
+      const from = tree.querySelector('[data-agent="' + P.byName(fromName).slug + '"]');
+      const to = tree.querySelector('[data-agent="' + P.byName(toName).slug + '"]');
+      if (!from || !to) return;
+      const fromBox = from.getBoundingClientRect();
+      const toBox = to.getBoundingClientRect();
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("class", "ap-org-edge" + (staff ? " is-staff" : ""));
+      line.setAttribute("x1", String(fromBox.left + fromBox.width / 2 - origin.left));
+      line.setAttribute("y1", String(fromBox.top + fromBox.height / 2 - origin.top));
+      line.setAttribute("x2", String(toBox.left + toBox.width / 2 - origin.left));
+      line.setAttribute("y2", String(toBox.top + toBox.height / 2 - origin.top));
+      svg.appendChild(line);
+    });
   }
   function renderFocus() {
     if (!selectedAgent) {
-      focus.innerHTML = '<h2>Agent focus</h2><p class="ap-meta">Select an agent to inspect its role, reporting line, runtime evidence, and incident participation.</p>';
+      focus.innerHTML = '<span class="ap-focus-kicker">Selected role</span><h2>Select an agent</h2><p class="ap-meta">Inspect its responsibility, reporting line, owned object types, and observed runtime state.</p><p class="ap-role-boundary">This view describes accountability. It grants no judgment, approval, execution, or recovery authority.</p>';
       return;
     }
     const agent = selectedAgent;
-    const relevant = P.available() ? P.incidents.filter((item) => item.involved.includes(agent.name)) : [];
-    focus.innerHTML = '<header class="ap-section-head"><h2>' + agent.name + " / " + agent.role + '</h2><button type="button" data-close-focus aria-label="Close agent focus">Close</button></header><p>' + agent.summary + "</p>" +
-      P.fields([["Reports to", (agent.manager || "Root") + (agent.staff ? " (staff)" : "")], ["State", P.stateLabel(agent)], ["Binding", agent.binding], ["Owns", agent.owns]]) +
-      "<p>" + esc(P.taskOf(agent)) + '</p><div class="ap-actions"><a class="ap-button" href="' + esc(P.href("agent-activity.html", { agent: agent.name })) + '">Activity</a><button type="button" data-ask>Chat with ' + agent.name + "</button></div>" +
-      '<details open><summary>Related incidents (' + (P.available() ? relevant.length : "unknown") + ")</summary>" +
-      (relevant.length ? relevant.map(incidentButton).join("") : '<p class="ap-meta">' + (P.available() ? "No participation in the retained synthetic incidents. This does not imply the agent is idle." : "Incident evidence unavailable in this scenario.") + "</p>") + "</details>";
-  }
-  function renderWorkflow() {
-    const incident = P.available() ? P.incidents.find((item) => item.id === selectedId) : null;
-    if (!incident) {
-      workflow.innerHTML = '<h2>Incident detail</h2><p class="ap-meta">' + (P.available() ? "No retained incident matches the selected correlation. Choose an incident above." : "No incident evidence is available. Catalog declarations cannot reconstruct an incident.") + "</p>";
-      return;
-    }
-    const completed = incident.status === "resolved" ? 3 : incident.status === "investigating" ? 2 : 1;
-    workflow.innerHTML = '<header class="ap-section-head"><h2>' + incident.ticket + '</h2><span class="ap-badge">' + P.label(incident.status) + "</span></header><p><strong>" + incident.title + "</strong></p>" +
-      '<p class="ap-meta">' + P.label(incident.severity) + " severity - " + (P.retained() ? "retained" : "synthetic") + " evidence - " + incident.updated + " UTC</p>" +
-      '<ol class="ap-steps" aria-label="Incident progress">' + ["Detect", "Ticket", "RCA", "Resolve"].map((label, index) => '<li' + (index === completed ? ' aria-current="step"' : "") + "><strong>" + label + "</strong><small>" + P.label(index < completed || incident.status === "resolved" ? "complete" : index === completed ? "current" : "pending") + "</small></li>").join("") + "</ol>" +
-      '<h3>Root cause</h3><p>' + (incident.rca || "Not established. Pending evidence or review; correlation alone does not establish causation.") + "</p>" +
-      '<div class="ap-actions"><a class="ap-button" href="' + esc(P.href("agent-activity.html", { correlation: incident.id })) + '">Related activity</a><a class="ap-button" href="' + esc(P.href("agent-activity.html", { view: "waterfall", correlation: incident.id })) + '">Audit waterfall</a><button type="button" data-ask>Ask about incident</button></div>' +
-      '<details open><summary>Agent collaboration (' + incident.turns.length + ')</summary><p class="ap-meta">Synthetic event-bus messages, not direct agent calls.</p><ol class="ap-conversation">' +
-      incident.turns.map(([from, to, text]) => "<li><strong>" + from + " -&gt; " + to + "</strong><p>" + esc(text) + "</p></li>").join("") + "</ol></details>" +
-      '<details><summary>Evidence boundary</summary><p class="ap-meta">All incident IDs and observations are synthetic. Local activity preserves this correlation. External RCA, approval, and trace services are not connected.</p><code>' + incident.id + "</code></details>";
+    focus.innerHTML = '<header class="ap-section-head"><div><span class="ap-focus-kicker">Selected role</span><h2>' + esc(agent.name) + " / " + esc(agent.role) + '</h2></div><button type="button" data-close-focus aria-label="Close agent focus">Close</button></header><p>' + esc(agent.summary) + "</p>" +
+      P.fields([["Reports to", (agent.manager || "Organization root") + (agent.staff ? " (staff)" : "")], ["Observed state", P.stateLabel(agent)], ["Runtime binding", agent.binding], ["Owns", agent.owns]]) +
+      '<p class="ap-role-boundary">This view describes accountability. It grants no judgment, approval, execution, or recovery authority.</p><div class="ap-actions"><a class="ap-button" href="' + esc(P.href("agent-activity.html", { view: "waterfall", agent: agent.name })) + '"' + (overlay ? ' target="_top"' : "") + '>Open ' + esc(agent.name) + ' activity</a></div>';
   }
   function render() {
-    tree.innerHTML = '<div class="ap-org-root">' + node("Odin") + '</div><div class="ap-org-branches">' +
+    tree.innerHTML = '<svg class="ap-org-lines" aria-hidden="true"></svg><div class="ap-org-structure"><div class="ap-org-tier ap-org-root">' + node("Odin") + '</div><div class="ap-org-tier ap-org-branches">' +
       [{ manager: "Thor", reports: ["Vidar", "Bragi", "Var"] }, { manager: "Forseti", reports: ["Huginn", "Heimdall", "Njord", "Freyr", "Loki"] }].map((branch) =>
-        '<section class="ap-org-branch"><h3>Reports to Odin</h3>' + node(branch.manager) + '<ul aria-label="Reports to ' + branch.manager + '">' + branch.reports.map((name) => "<li>" + node(name) + "</li>").join("") + "</ul></section>").join("") +
-      '</div><section class="ap-org-staff"><h3>Staff to Odin - governance</h3><ul>' + ["Mimir", "Muninn", "Saga", "Norns"].map((name) => "<li>" + node(name) + "</li>").join("") + "</ul></section>";
+        '<section class="ap-org-branch"><div class="ap-org-manager">' + node(branch.manager) + '</div><div class="ap-org-reports" aria-label="Reports to ' + branch.manager + '">' + branch.reports.map(node).join("") + "</div></section>").join("") +
+      '<section class="ap-org-branch ap-org-staff"><h3>Staff to Odin</h3><div class="ap-org-reports">' + ["Mimir", "Muninn", "Saga", "Norns"].map(node).join("") + "</div></section></div></div>";
     document.getElementById("orgWorkspace").hidden = P.source() === "loading";
-    const visible = P.available() ? P.incidents.filter((item) => status.value === "all" || item.status === status.value) : [];
-    list.innerHTML = visible.length ? visible.map(incidentButton).join("") : '<p class="ap-empty">' + (P.available() ? "No incidents match this status." : "Incident source unavailable, not an observed empty result.") + "</p>";
     renderFocus();
-    renderWorkflow();
-    const follow = document.getElementById("incidentFollow");
-    follow.setAttribute("aria-pressed", String(following));
-    follow.textContent = following ? "Following latest" : "Follow latest";
-    follow.title = "Follow the newest retained synthetic incident; no live subscription.";
-    P.writeParams({ agent: selectedAgent ? selectedAgent.name : null, correlation: following ? null : selectedId });
+    P.writeParams({ agent: selectedAgent ? selectedAgent.name : null });
+    if (overlay) {
+      window.parent.postMessage({
+        type: "fdai:role-agent",
+        agent: selectedAgent ? selectedAgent.name : null
+      }, location.origin);
+    }
+    drawReportingLines();
   }
   document.getElementById("orgWorkspace").addEventListener("click", (event) => {
     const agent = event.target.closest("[data-agent]");
-    const incident = event.target.closest("[data-incident]");
     if (agent) {
-      selectedAgent = P.byName(agent.dataset.agent);
+      const nextAgent = P.byName(agent.dataset.agent);
+      selectedAgent = selectedAgent === nextAgent ? null : nextAgent;
       render();
-      tree.querySelector('[data-agent="' + selectedAgent.slug + '"]').focus();
-    } else if (incident) {
-      selectedId = incident.dataset.incident;
-      following = false;
-      const container = focus.contains(incident) ? focus : list;
-      render();
-      container.querySelector('[data-incident="' + selectedId + '"]')?.focus();
+      tree.querySelector('[data-agent="' + nextAgent.slug + '"]').focus();
     } else if (event.target.closest("[data-close-focus]")) {
       const slug = selectedAgent.slug;
       selectedAgent = null;
       render();
       tree.querySelector('[data-agent="' + slug + '"]').focus();
-    } else if (event.target.closest("[data-ask]")) {
-      P.explainUnavailable("Agent or incident chat is unavailable. The selection remains local to this synthetic preview.");
     }
   });
   tree.addEventListener("keydown", (event) => {
@@ -99,11 +126,20 @@
     const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (index + (["ArrowUp", "ArrowLeft"].includes(event.key) ? -1 : 1) + buttons.length) % buttons.length;
     buttons[next].focus();
   });
-  status.addEventListener("change", render);
-  document.getElementById("incidentFollow").addEventListener("click", () => {
-    following = !following;
-    if (following) selectedId = P.incidents[0].id;
-    render();
+  document.addEventListener("keydown", (event) => {
+    if (!overlay || event.key !== "Escape") return;
+    event.preventDefault();
+    window.parent.postMessage({ type: "fdai:role-dialog-close" }, location.origin);
   });
+  window.addEventListener("resize", drawReportingLines);
+  if ("ResizeObserver" in window) {
+    let observedSize = `${tree.clientWidth}x${tree.clientHeight}`;
+    new ResizeObserver(() => {
+      const nextSize = `${tree.clientWidth}x${tree.clientHeight}`;
+      if (nextSize === observedSize) return;
+      observedSize = nextSize;
+      drawReportingLines();
+    }).observe(tree);
+  }
   P.setupSource(render);
 }());

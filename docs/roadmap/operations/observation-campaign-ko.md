@@ -1,8 +1,8 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: c81ff119404b53e979fd8901a26f7571bbfaf822
-translation_revised: 2026-09-12
+translation_source_sha: 5cd651929faa6abe465ef4f6683ca29919a53d3e
+translation_revised: 2026-09-14
 ---
 
 # 권한 인식 관측 캠페인
@@ -227,6 +227,12 @@ scheduler, 실행기, 어댑터, 영속 저장소 및 Operator 변환 결과는 
 Agent Activity는 도메인, 소유자, 출처 레이블, 종료 상태, 최신성, 근거 개수, 기간 및 사유
 코드를 표시합니다. 원시 로그 줄, 클라우드 식별자, 조회 텍스트, 신원 및 프로바이더 오류는 공유
 활동 스트림 밖에 둡니다.
+영속 출처 상태와 전이 감사에는 기계 실행 출처인
+`actor: fdai.delivery.observation_campaign`을 유지하고 출처 카탈로그의 책임 Pantheon 구성원을
+`owner_agent`에 기록합니다. 이 책임 메타데이터는 발행, 승인 또는 실행 권한을 부여하지 않습니다.
+소유자가 없는 레거시 상태는 원래 기본 제공 출처 id의 소유자가 하나로 고정된 경우에만 재사용합니다.
+사용자 정의 또는 재배정된 출처는 재사용 전에 다시 수집하며, 제거된 모호한 행은 도메인만으로
+소유자를 추정하지 않고 Agent Activity에서 제외합니다.
 
 영속 Operator 변환 결과는 실제 스트림보다 먼저 각 출처의 현재 상태를 불러옵니다. 영속 전달과
 실제 전달은 하나의 activity id를 공유하므로 다시 연결하거나 새로 고쳐도 행을 중복 생성하지

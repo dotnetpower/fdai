@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 단일 로컬 명령 또는 digest로 고정된 폐쇄망 배포 어플라이언스로 FDAI를 Azure에 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 72fb6b0d801535f465131e91e9bd0da4799843ca
+translation_source_sha: ed08d36c127e24143daeedb20dbef073246f268c
 translation_revised: 2026-09-14
 ---
 
@@ -162,14 +162,20 @@ Foundation 계획은 먼저 비공개 로컬 백엔드를 사용합니다. 정�
 fdaictl provision azure \
   --online \
   --region <azure-region> \
+  --adopt-runner-image-receipt <verified-runner-image-receipt> \
   --adopt-application-state <private-terraform-state> \
   --adopt-application-recovery <private-recovery-receipt> \
   --adopt-resolved-models <private-resolved-models>
 ```
 
-mode-0600 파일 세 개를 모두 함께 제공하세요. 조정기는 다이제스트, 대상, 리소스 수, 리소스
+runner 증적과 mode-0600 애플리케이션 파일 세 개를 모두 함께 제공하세요. 조정기는 다이제스트,
+대상, 리소스 수, 리소스
 접미사 및 모델 기능 계약을 검증합니다. 애플리케이션 리소스 그룹의 소유권 레코드 두 개만 제거한
 비공개 단계 상태 복사본을 만듭니다. 원래 로컬 상태는 변경하지 않습니다.
+
+runner 증적은 이미 독립 검증된 관리 이미지를 image apply 없이 재사용합니다. 새 Foundation
+실행은 현재 서명 출처를 유지하고 이미지의 원래 출처, 서명 검증기 출처, 이미지 실행 및 정확한
+증적 다이제스트를 별도 출처 정보로 기록합니다.
 
 Managed Host는 Foundation이 소유한 원격 애플리케이션 백엔드에 상태 Blob이 없을 때만 단계
 상태를 허용합니다. 강제하지 않는 상태 push 한 번 전에 변경 불가능한 claim을 기록하고, 이후

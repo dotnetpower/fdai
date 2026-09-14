@@ -106,6 +106,17 @@ class StateStoreExecutedActionObservationStore:
                 "mode": "shadow",
                 "action_id": str(action.action_id),
                 "correlation_id": correlation_id,
+                "execution_path": (
+                    artifacts.action_type.execution_path.value
+                    if artifacts.action_type.execution_path is not None
+                    else None
+                ),
+                "outcome": "observation_recorded",
+                "workflow_action": (
+                    action.workflow_action.model_dump(mode="json")
+                    if action.workflow_action is not None
+                    else None
+                ),
                 "idempotency_key": key,
                 "observation_id": observation.evidence.observation_id,
                 "observation_digest": observation.evidence.content_digest(),

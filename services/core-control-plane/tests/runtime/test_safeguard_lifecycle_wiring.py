@@ -164,8 +164,9 @@ async def test_isolated_client_wrapper_sends_finalized_bundle() -> None:
 
     result = await wrapper.execute(action=_direct_action())
 
-    assert result.outcome is RemoteDirectApiExecutionOutcome.FAILED
-    assert result.reason == "dispatch continuity is quarantined"
+    assert result.outcome is RemoteDirectApiExecutionOutcome.AWAITING_EFFECT_EVIDENCE
+    assert result.reason == "isolated Executor command awaits independent effect evidence"
+    assert result.audit_context["continuity_quarantined"] is True
     assert result.safeguard_bundle_digest is not None
     assert client.calls[0]["safeguard_bundle_digest"] == result.safeguard_bundle_digest
     assert client.calls[0]["source_revision"] == coordinator.source_revision
@@ -226,7 +227,7 @@ async def test_isolated_client_wrapper_quarantines_a_substituted_bundle() -> Non
 
     result = await wrapper.execute(action=_direct_action())
 
-    assert result.outcome is RemoteDirectApiExecutionOutcome.FAILED
+    assert result.outcome is RemoteDirectApiExecutionOutcome.EXECUTION_UNKNOWN
     assert result.reason == "isolated Executor client error: RuntimeError"
     assert result.safeguard_bundle_digest is not None
 
@@ -264,12 +265,12 @@ async def test_isolated_client_no_publish_result_is_not_reported_as_dispatched()
         )
     )
 
-    assert result.outcome is RemoteDirectApiExecutionOutcome.REJECTED_INVARIANT
+    assert result.outcome is RemoteDirectApiExecutionOutcome.DISPATCH_NOT_ATTEMPTED
     assert result.reason == "dispatch blocked before provider invocation"
     assert result.safeguard_bundle_digest is not None
-    assert replay.outcome is RemoteDirectApiExecutionOutcome.REJECTED_INVARIANT
+    assert replay.outcome is RemoteDirectApiExecutionOutcome.DISPATCH_NOT_ATTEMPTED
     assert "without a committed effect" in (replay.reason or "")
-    assert next_action.outcome is RemoteDirectApiExecutionOutcome.FAILED
+    assert next_action.outcome is RemoteDirectApiExecutionOutcome.AWAITING_EFFECT_EVIDENCE
     assert client.calls == 1
 
 
@@ -294,8 +295,8 @@ async def test_isolated_non_applied_replay_is_not_reported_as_applied() -> None:
     first = await wrapper.execute(action=_direct_action())
     replay = await wrapper.execute(action=_direct_action())
 
-    assert first.outcome is RemoteDirectApiExecutionOutcome.FAILED
-    assert replay.outcome is RemoteDirectApiExecutionOutcome.FAILED
+    assert first.outcome is RemoteDirectApiExecutionOutcome.AWAITING_EFFECT_EVIDENCE
+    assert replay.outcome is RemoteDirectApiExecutionOutcome.EXECUTION_UNKNOWN
     assert replay.reason == "prior dispatch outcome remains quarantined"
     assert client.calls == 1
 
@@ -315,7 +316,7 @@ async def test_isolated_client_error_is_sanitized_after_guarded_invocation() -> 
 
     result = await wrapper.execute(action=_direct_action())
 
-    assert result.outcome is RemoteDirectApiExecutionOutcome.FAILED
+    assert result.outcome is RemoteDirectApiExecutionOutcome.EXECUTION_UNKNOWN
     assert result.reason == "isolated Executor client error: RuntimeError"
     assert "secret-bearing-transport-detail" not in result.reason
 
