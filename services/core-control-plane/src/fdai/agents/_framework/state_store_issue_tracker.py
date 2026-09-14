@@ -207,14 +207,12 @@ class StateStoreIssueTrackerAdapter:
                 issue_number=int(current["issue_number"]),
                 title=str(current["title"]),
                 body=str(current["body"]),
-                comments=(
-                    *_comments(current),
-                    f"Closed by promotion PR {closed_by_pr}.",
-                ),
+                comments=_comments(current),
                 open_=False,
                 closed_by_pr=closed_by_pr,
                 operations=_operations(current),
             )
+            _validate_issue_state(value, fingerprint=fingerprint)
             advanced = await self._store.compare_and_set_state_with_audit(
                 state_key,
                 value,

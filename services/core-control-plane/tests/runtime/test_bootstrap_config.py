@@ -967,6 +967,36 @@ async def test_state_store_issue_projection_is_bounded_live_and_after_restart() 
     assert tuple(restarted.issues) == tuple(adapter.issues)
 
 
+async def test_state_store_issue_close_remains_valid_at_operation_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "fdai.agents._framework.state_store_issue_tracker._MAX_OPERATIONS_PER_ISSUE",
+        3,
+    )
+    store = InMemoryStateStore()
+    adapter = StateStoreIssueTrackerAdapter(store)
+    for index in range(3):
+        await adapter.create_or_comment_once(
+            operation_id=f"handoff:close-cap-{index}",
+            fingerprint="close-cap-fingerprint",
+            title="[no_route] close cap",
+            body=f"Correlation id: close-cap-{index}",
+        )
+
+    await adapter.close(
+        "close-cap-fingerprint",
+        closed_by_pr="https://example.invalid/pr/34",
+    )
+
+    restarted = StateStoreIssueTrackerAdapter(store)
+    assert await restarted.rehydrate() == 1
+    issue = restarted.issues["close-cap-fingerprint"]
+    assert issue.open is False
+    assert issue.closed_by_pr == "https://example.invalid/pr/34"
+    assert len(issue.comments) == 2
+
+
 async def test_required_runtime_task_failure_is_not_swallowed() -> None:
     async def fail() -> None:
         raise RuntimeError("retention publisher unavailable")
