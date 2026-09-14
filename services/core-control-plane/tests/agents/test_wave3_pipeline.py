@@ -15,7 +15,7 @@ from fdai.agents.huginn import Huginn
 from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionRunState, Thor
 from fdai.agents.var import Var
-from fdai.agents.vidar import Vidar
+from fdai.agents.vidar import RollbackClaimInProgressError, Vidar
 from fdai.shared.contracts.models import IncidentSeverity
 
 # ---------------------------------------------------------------------------
@@ -1370,10 +1370,10 @@ def test_vidar_marks_interrupted_durable_claim_execution_unknown() -> None:
     assert published[0].payload["state"] == "execution_unknown"
 
 
-def test_vidar_does_not_expire_another_live_replica_claim() -> None:
+def test_vidar_keeps_another_live_replica_claim_retryable() -> None:
     from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
-    async def _run() -> tuple[object, object, list[str]]:
+    async def _run() -> tuple[object, list[str]]:
         entered = asyncio.Event()
         release = asyncio.Event()
         calls: list[str] = []
@@ -1406,16 +1406,19 @@ def test_vidar_does_not_expire_another_live_replica_claim() -> None:
         }
         owner_task = asyncio.create_task(first.rollback(dict(failed)))
         await entered.wait()
-        colliding_result = await second.rollback(dict(failed))
+        with pytest.raises(
+            RollbackClaimInProgressError,
+            match="rollback claim remains active until",
+        ):
+            await second.rollback(dict(failed))
         release.set()
         owner_result = await owner_task
-        return owner_result, colliding_result, calls
+        return owner_result, calls
 
-    owner_result, colliding_result, calls = asyncio.run(_run())
+    owner_result, calls = asyncio.run(_run())
 
     assert owner_result is not None
     assert owner_result.state == "succeeded"
-    assert colliding_result is None
     assert calls == ["c-live-claim"]
 
 

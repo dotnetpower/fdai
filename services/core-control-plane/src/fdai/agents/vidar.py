@@ -42,6 +42,10 @@ class RollbackRecord:
 RollbackExecutor = Callable[[dict[str, Any]], Awaitable[str | None]]
 
 
+class RollbackClaimInProgressError(RuntimeError):
+    """Raised so transport retry or DLQ retains a still-leased rollback."""
+
+
 class Vidar(Agent):
     """Wave-3 Vidar: rollback executor. Hard dependency for Thor."""
 
@@ -180,7 +184,9 @@ class Vidar(Agent):
         elif stored.get("status") == "in_progress":
             claim_owner_token, lease_expires_at = _rollback_claim_lease(stored)
             if _clock_now(self._clock) < lease_expires_at:
-                return None
+                raise RollbackClaimInProgressError(
+                    f"rollback claim remains active until {lease_expires_at.isoformat()}"
+                )
             rec = RollbackRecord(
                 correlation_id=correlation_id,
                 action_type=str(stored.get("action_type") or ""),
@@ -511,4 +517,9 @@ def _rollback_record_from_state(stored: Mapping[str, Any]) -> RollbackRecord:
     )
 
 
-__all__ = ["Vidar", "RollbackExecutor", "RollbackRecord"]
+__all__ = [
+    "RollbackClaimInProgressError",
+    "RollbackExecutor",
+    "RollbackRecord",
+    "Vidar",
+]

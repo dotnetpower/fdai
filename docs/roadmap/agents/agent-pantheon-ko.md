@@ -84,7 +84,8 @@ Odin 에 두 라인이 보고한다: Thor (operations) 와 Forseti (judgment). 4
 judgment, approval 또는 execution authority를 바꾸지 않습니다.
 Vidar는 provider rollback 전에 상관관계와 action 다이제스트를 소유자 토큰 및 범위가 제한된
 점유 유효 기간과 함께 런타임 StateStore에 원자적으로 점유합니다. 점유한 실행만 복구를 수행하며,
-다른 복제본은 유효한 점유를 변경하지 않습니다. 검증된 유효 기간 만료 뒤에만 모호한 점유를 복구 반복
+다른 복제본은 유효한 점유를 변경하지 않고 재시도 가능한 처리기 오류를 발생시켜 이벤트 버스
+재시도 또는 DLQ가 실패한 ActionRun을 보존하게 합니다. 검증된 유효 기간 만료 뒤의 재처리만 모호한 점유를 복구 반복
 없이 명시적인 `execution_unknown`으로 닫고, 개정 번호 CAS가 늦게 도착한 소유자의 완료를
 차단합니다. 종결 및 게시 증적은 provider를 다시 호출하지 않고 재생됩니다.
 Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.

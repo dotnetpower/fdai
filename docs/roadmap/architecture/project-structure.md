@@ -564,7 +564,8 @@ and executor idempotency keys are claimed atomically. Var preserves the source A
 Each normalized Var decision is first joined into an audited CAS aggregate, so restart and concurrent replicas derive quorum from the same
 immutable principal set before finalization. Per-resource locking serializes competing applies before any delivery adapter can mutate state.
 Vidar also claims the correlation and request digest with an owner token and bounded lease before provider recovery.
-A colliding replica leaves a live lease untouched; only verified expiry permits `execution_unknown`, and revision CAS fences late owner
+A colliding replica leaves a live lease untouched and fails the handler so EventBusBridge retry or DLQ retains the delivery. Only
+verified expiry on redrive permits `execution_unknown`, and revision CAS fences late owner
 completion. Terminal or publication replay never repeats the rollback. Runtime composition also injects that `StateStore` into
 Saga's handoff journal. Saga validates one claim, mutation checkpoint, and completion receipt per escalation and requires an
 operation-bound issue adapter before external mutation. Runtime composition injects the same store into Norns; Norns claims each
