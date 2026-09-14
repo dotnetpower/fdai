@@ -19,12 +19,10 @@ import { architectureCanvasHeight } from "../components/architecture-map.geometr
 import { layoutArchitecturePresentation } from "../components/architecture-map-layout";
 import { ArchitectureRelationIndex } from "../components/architecture-relation-index";
 import {
-  DEFAULT_ARCHITECTURE_CAMERA_VIEW,
   DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   architectureHref,
   architectureViewFromHash,
   selectedResourceIdFromHash,
-  type ArchitectureCameraView,
   type ArchitectureDisplayOptions,
   type InventoryGraphResponse,
   type InventoryResource,
@@ -129,9 +127,6 @@ export function ArchitectureRoute({ client }: Props) {
   const [state, setState] = useState<AsyncState<InventoryGraphResponse>>({ status: "loading" });
   const [selectedId, setSelectedId] = useState<string | null>(() => selectedResourceIdFromHash(window.location.search));
   const [viewScope, setViewScope] = useState<string | null>(() => architectureViewFromHash(window.location.search));
-  const [cameraView, setCameraView] = useState<ArchitectureCameraView>(
-    DEFAULT_ARCHITECTURE_CAMERA_VIEW,
-  );
   const [zoomPercent, setZoomPercent] = useState(100);
   const [displayOptions, setDisplayOptions] = useState<ArchitectureDisplayOptions>({
     ...DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
@@ -204,11 +199,6 @@ export function ArchitectureRoute({ client }: Props) {
     replaceRouteState(architectureHref(resource?.id, viewScope));
   }
 
-  function changeView(view: ArchitectureCameraView): void {
-    setCameraView(view);
-    mapRef.current?.setView(view);
-  }
-
   function toggleDisplay(key: keyof ArchitectureDisplayOptions): void {
     setDisplayOptions((previous) => ({ ...previous, [key]: !previous[key] }));
   }
@@ -222,9 +212,6 @@ export function ArchitectureRoute({ client }: Props) {
         replaceRouteState(architectureHref(defaultFocusId, viewScope));
       }
     }
-    const view = mode === "network" ? "top" : DEFAULT_ARCHITECTURE_CAMERA_VIEW;
-    setCameraView(view);
-    mapRef.current?.setView(view);
   }
 
   return (
@@ -241,15 +228,11 @@ export function ArchitectureRoute({ client }: Props) {
             selectedId={selectedId}
             onSelect={selectResource}
             onViewScopeChange={(scope) => {
-              mapRef.current?.setView(DEFAULT_ARCHITECTURE_CAMERA_VIEW);
-              setCameraView(DEFAULT_ARCHITECTURE_CAMERA_VIEW);
               setSelectedId(null);
               setViewScope(scope);
               navigate(architectureHref(undefined, scope));
             }}
             mapRef={mapRef}
-            cameraView={cameraView}
-            onCameraViewChange={changeView}
             zoomPercent={zoomPercent}
             onZoomChange={setZoomPercent}
             displayOptions={displayOptions}
@@ -270,8 +253,6 @@ function ArchitectureBody({
   onSelect,
   onViewScopeChange,
   mapRef,
-  cameraView,
-  onCameraViewChange,
   zoomPercent,
   onZoomChange,
   displayOptions,
@@ -285,8 +266,6 @@ function ArchitectureBody({
   readonly onSelect: (resource: InventoryResource | null) => void;
   readonly onViewScopeChange: (scope: string) => void;
   readonly mapRef: { current: ArchitectureMapHandle | null };
-  readonly cameraView: ArchitectureCameraView;
-  readonly onCameraViewChange: (view: ArchitectureCameraView) => void;
   readonly zoomPercent: number;
   readonly onZoomChange: (percent: number) => void;
   readonly displayOptions: ArchitectureDisplayOptions;
@@ -321,9 +300,6 @@ function ArchitectureBody({
   const highlightedIds = networkPath?.status === "found"
     ? new Set(networkPath.resourceIds)
     : undefined;
-  const effectiveDisplayOptions = mapMode === "network"
-    ? { ...displayOptions, showReflections: false, showGrid: false }
-    : displayOptions;
   const visibleSelectedId = architectureResourceExists(presentedGraph.resources, selectedId)
     ? selectedId
     : null;
@@ -414,7 +390,7 @@ function ArchitectureBody({
               selectedId={visibleSelectedId}
               showResources={showMapResources}
               onSelect={onSelect}
-              options={effectiveDisplayOptions}
+              options={displayOptions}
               onZoomChange={onZoomChange}
               descriptionId="architecture-map-description"
             />
@@ -475,11 +451,9 @@ function ArchitectureBody({
           graph={graph}
           selected={selected}
           onSelect={onSelect}
-          cameraView={cameraView}
-          onCameraViewChange={onCameraViewChange}
           displayOptions={displayOptions}
           onToggleDisplay={onToggleDisplay}
-          cameraLocked={mapMode === "network"}
+          showMapSettings={mapMode === "map"}
         />
       </div>
       {mapMode === "network" || showMapResources ? (

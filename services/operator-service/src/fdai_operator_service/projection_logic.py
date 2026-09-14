@@ -76,6 +76,7 @@ def hil_item(row: Mapping[str, Any]) -> JsonObject | None:
             "reason": reasons[0] if reasons else "Approval required by the risk gate.",
             "requested_at": parked_at,
             "correlation_id": correlation_id,
+            "incident_available": row.get("incident_available") is True,
             "approval_id": approval_id,
             "action_id": _nonempty(action.get("action_id")) or "",
             "target_resource_ref": _nonempty(action.get("target_resource_ref")) or "",
@@ -292,6 +293,7 @@ def rule_fire_trace(correlation_id: str, items: Sequence[JsonObject]) -> JsonObj
     terminal_stage: str | None = None
     for item in ordered:
         entry = _mapping(item.get("entry"))
+        workflow_action = _mapping(entry.get("workflow_action"))
         stage = _nonempty(entry.get("pipeline_stage")) or _nonempty(entry.get("stage"))
         if stage:
             terminal_stage = stage
@@ -304,6 +306,11 @@ def rule_fire_trace(correlation_id: str, items: Sequence[JsonObject]) -> JsonObj
                 "reason": _nonempty(entry.get("reason")) or _nonempty(entry.get("deny_reason")),
                 "action_kind": str(item["action_kind"]),
                 "mode": str(item["mode"]),
+                "action_id": _nonempty(entry.get("action_id")),
+                "attempt": _integer(entry.get("attempt"))
+                or _integer(workflow_action.get("attempt")),
+                "execution_path": _nonempty(entry.get("execution_path")),
+                "outcome": _nonempty(entry.get("outcome")),
                 "entry_hash": str(item["entry_hash"]),
             }
         )

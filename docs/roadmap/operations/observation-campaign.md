@@ -226,6 +226,13 @@ Every source attempt publishes a bounded `agent.operational-activity` summary af
 transition. Agent Activity shows domain, owner, source label, terminal status, freshness, evidence
 count, duration, and reason codes. Raw log lines, cloud identifiers, query text, identities, and
 provider errors remain outside the shared activity stream.
+The durable source state and transition audit keep
+`actor: fdai.delivery.observation_campaign` as mechanical provenance and copy the source catalog's
+accountable Pantheon member into `owner_agent`. This ownership metadata grants no publishing,
+approval, or execution authority.
+An ownerless legacy state is reusable only when its original built-in source id has one fixed
+owner. A custom or reassigned source is collected again before reuse; a removed ambiguous row is
+withheld from Agent Activity instead of being assigned by domain.
 
 The durable Operator projection loads the current state for every source before the live stream.
 Durable and live delivery share one activity id, so reconnect and refresh cannot duplicate a row.

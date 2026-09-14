@@ -1008,6 +1008,14 @@ def test_state_store_audit_chain_writes_hash_linked_records() -> None:
     chain.verify()
     assert len(chain.entries) == 2
     assert chain.entries[1].prev_hash == chain.entries[0].entry_hash
+    stored = [row["entry"] for row in store.audit_entries]
+    assert [row["actor"] for row in stored] == ["Saga", "Saga"]
+    assert [row["action_kind"] for row in stored] == ["audit.record", "audit.record"]
+    assert [row["principal"] for row in stored] == ["Forseti", "Thor"]
+    assert [row["payload"] for row in stored] == [
+        {"risk_verdict": "auto"},
+        {"state": "succeeded"},
+    ]
 
 
 def test_state_store_audit_chain_replay_by_correlation() -> None:
@@ -1033,6 +1041,24 @@ def test_state_store_audit_chain_replay_by_correlation() -> None:
     slice_ = chain.entries_for_correlation("keep")
     assert len(slice_) == 3
     assert all(e.correlation_id == "keep" for e in slice_)
+
+
+def test_state_store_audit_chain_keeps_unknown_source_distinct_from_saga_actor() -> None:
+    store = InMemoryStateStore()
+    chain = StateStoreAuditChainAdapter(store=store)
+
+    asyncio.run(
+        chain.append(
+            principal="unknown",
+            topic="object.verdict",
+            correlation_id="c",
+            payload={"risk_verdict": "deny"},
+        )
+    )
+
+    stored = next(iter(store.audit_entries))["entry"]
+    assert stored["actor"] == "Saga"
+    assert stored["principal"] == "unknown"
 
 
 # ---------------------------------------------------------------------------

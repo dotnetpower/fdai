@@ -1,0 +1,361 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.example/schemas/action-type-runtime-support.schema.json",
+  "title": "FDAI ActionType runtime support manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "description",
+    "catalog_root",
+    "bindings",
+    "support_profiles",
+    "actions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "catalog_root": {
+      "$ref": "#/$defs/repositoryPath"
+    },
+    "bindings": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "$ref": "#/$defs/kebabId"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/binding"
+      }
+    },
+    "support_profiles": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "$ref": "#/$defs/kebabId"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/supportProfile"
+      }
+    },
+    "actions": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9.-]+@[0-9]+\\.[0-9]+\\.[0-9]+$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/action"
+      }
+    }
+  },
+  "$defs": {
+    "kebabId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "repositoryPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._/-]+$",
+      "not": {
+        "pattern": "(^/|(^|/)\\.\\.(/|$))"
+      }
+    },
+    "sourceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/repositoryPath"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}(?:[0-9a-f]{24})?$"
+        },
+        "symbol": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "attestation_path": {
+          "$ref": "#/$defs/repositoryPath"
+        },
+        "signer_workflow": {
+          "type": "string",
+          "pattern": "^dotnetpower/fdai/\\.github/workflows/[A-Za-z0-9._-]+\\.ya?ml$"
+        }
+      }
+    },
+    "sourceAssertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "path"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "catalog_execution_path",
+            "constant_value",
+            "mapping_keys",
+            "set_values",
+            "subscript_key"
+          ]
+        },
+        "path": {
+          "$ref": "#/$defs/repositoryPath"
+        },
+        "symbol": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "catalog_execution_path"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "value"
+            ]
+          },
+          "else": {
+            "required": [
+              "symbol"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "subscript_key"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "required": [
+              "value"
+            ]
+          }
+        }
+      ]
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runtime_surface",
+        "route_status",
+        "mode_support",
+        "activation_conditions",
+        "source_assertion"
+      ],
+      "properties": {
+        "runtime_surface": {
+          "enum": [
+            "core",
+            "isolated_executor",
+            "pantheon"
+          ]
+        },
+        "route_status": {
+          "enum": [
+            "wired",
+            "conditional"
+          ]
+        },
+        "mode_support": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "shadow",
+            "enforce"
+          ],
+          "properties": {
+            "shadow": {
+              "enum": [
+                "wired",
+                "conditional",
+                "unsupported"
+              ]
+            },
+            "enforce": {
+              "enum": [
+                "wired",
+                "conditional",
+                "unsupported"
+              ]
+            }
+          }
+        },
+        "activation_conditions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "source_assertion": {
+          "$ref": "#/$defs/sourceAssertion"
+        }
+      }
+    },
+    "supportState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "refs"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "wired",
+            "conditional",
+            "source_only",
+            "declared_only",
+            "missing",
+            "not_applicable"
+          ]
+        },
+        "refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceReference"
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "refs"
+      ],
+      "properties": {
+        "level": {
+          "enum": [
+            "source_only",
+            "focused_tests",
+            "historical_receipt",
+            "current_revision_receipt"
+          ]
+        },
+        "refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceReference"
+          }
+        }
+      }
+    },
+    "supportProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "delivery_status",
+        "effect_observation",
+        "recovery",
+        "evidence"
+      ],
+      "properties": {
+        "delivery_status": {
+          "enum": [
+            "executable",
+            "shadow_only",
+            "blocked"
+          ]
+        },
+        "effect_observation": {
+          "$ref": "#/$defs/supportState"
+        },
+        "recovery": {
+          "$ref": "#/$defs/supportState"
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidence"
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bindings",
+        "note"
+      ],
+      "properties": {
+        "bindings": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/kebabId"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/kebabId"
+          }
+        },
+        "unsupported_reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "bindings": {
+                "maxProperties": 0
+              }
+            },
+            "required": [
+              "bindings"
+            ]
+          },
+          "then": {
+            "required": [
+              "unsupported_reason"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "unsupported_reason"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

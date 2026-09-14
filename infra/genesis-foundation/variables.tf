@@ -212,6 +212,54 @@ variable "runner_image_toolchain_digest" {
   }
 }
 
+variable "runner_image_source_commit" {
+  description = "Original source revision recorded on the verified runner image. Empty uses the current Foundation source for same-source deployments."
+  type        = string
+  default     = ""
+  nullable    = false
+
+  validation {
+    condition     = var.runner_image_source_commit == "" || can(regex("^[0-9a-f]{40}$", var.runner_image_source_commit))
+    error_message = "runner_image_source_commit must be empty or a lowercase 40-character commit."
+  }
+}
+
+variable "runner_image_verified_source_commit" {
+  description = "Signed verifier revision that produced the accepted runner-image receipt. Empty uses the original image source for same-source deployments."
+  type        = string
+  default     = ""
+  nullable    = false
+
+  validation {
+    condition     = var.runner_image_verified_source_commit == "" || can(regex("^[0-9a-f]{40}$", var.runner_image_verified_source_commit))
+    error_message = "runner_image_verified_source_commit must be empty or a lowercase 40-character commit."
+  }
+}
+
+variable "runner_image_run_digest" {
+  description = "Original runner-image run digest for a separately verified image receipt. Empty preserves same-run compatibility."
+  type        = string
+  default     = ""
+  nullable    = false
+
+  validation {
+    condition     = var.runner_image_run_digest == "" || can(regex("^[0-9a-f]{64}$", var.runner_image_run_digest))
+    error_message = "runner_image_run_digest must be empty or a lowercase SHA-256 digest."
+  }
+}
+
+variable "runner_image_receipt_digest" {
+  description = "Exact verification receipt digest for a runner image produced by another signed run. Empty preserves same-run compatibility."
+  type        = string
+  default     = ""
+  nullable    = false
+
+  validation {
+    condition     = var.runner_image_receipt_digest == "" || can(regex("^[0-9a-f]{64}$", var.runner_image_receipt_digest))
+    error_message = "runner_image_receipt_digest must be empty or a lowercase SHA-256 digest."
+  }
+}
+
 variable "runner_vm_size" {
   description = "Reviewed runner size with quota and enough local ResourceDisk capacity for the pinned image."
   type        = string

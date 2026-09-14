@@ -86,6 +86,8 @@ class EffectReconciliationRequestSink(Protocol):
         action: Action,
         execution_outcome: str,
         execution_receipt_ref: str | None,
+        *,
+        correlation_id: str | None = None,
     ) -> ReconciliationRequestProduction: ...
 
 

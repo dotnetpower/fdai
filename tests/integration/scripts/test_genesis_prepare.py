@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import ipaddress
 import json
 import subprocess
@@ -28,6 +29,29 @@ SOURCE = subprocess.run(
 ).stdout.strip()
 TENANT = "00000000-0000-0000-0000-000000000001"
 SUBSCRIPTION = "00000000-0000-0000-0000-000000000002"
+
+
+def test_standalone_run_binding_matches_runner_image_mode() -> None:
+    shared = f"{TENANT}:{SUBSCRIPTION}:koreacentral:dev:signed-kit"
+
+    assert (
+        genesis_prepare._standalone_run_binding(
+            tenant_id=TENANT,
+            subscription_id=SUBSCRIPTION,
+            region="koreacentral",
+            create_runner_image=False,
+        )
+        == hashlib.sha256(shared.encode()).hexdigest()
+    )
+    assert (
+        genesis_prepare._standalone_run_binding(
+            tenant_id=TENANT,
+            subscription_id=SUBSCRIPTION,
+            region="koreacentral",
+            create_runner_image=True,
+        )
+        == hashlib.sha256(f"{shared}:runner-image=true".encode()).hexdigest()
+    )
 
 
 def _values(**kwargs: object) -> dict[str, object]:

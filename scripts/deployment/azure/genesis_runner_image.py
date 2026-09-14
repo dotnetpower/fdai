@@ -44,6 +44,7 @@ from genesis_runner_image_skus import selection_sizes
 from genesis_subprocess import run_with_heartbeat
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
+_SOURCE_COMMIT = re.compile(r"[0-9a-f]{40}")
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -299,21 +300,19 @@ def _apply(args: argparse.Namespace) -> int:
         tenant_id=os.environ.get("AZURE_TENANT_ID", ""),
         region=_reviewed_region(work_dir),
     )
-    checks.verify_source(
-        source_commit=str(review["source_commit"]), repository=args.repository, apply=True
+    verification_source = _verification_source_commit(
+        checks, review=review, effect_started=effect_started
     )
-    current_source = (
-        str(review["source_commit"])
-        if checks.source_evidence is not None
-        else _capture(
+    checks.verify_source(source_commit=verification_source, repository=args.repository, apply=True)
+    if checks.source_evidence is None:
+        current_source = _capture(
             ["/usr/bin/git", "rev-parse", "HEAD"],
             cwd=root,
             timeout=30,
             reason="runner image source revision is unavailable",
         ).strip()
-    )
-    if current_source != review["source_commit"]:
-        raise ValueError("runner image review source does not match the active checkout")
+        if current_source != review["source_commit"]:
+            raise ValueError("runner image review source does not match the active checkout")
     claim = _load_apply_claim(claim_path, review=review)
     if receipt_path.exists():
         if claim is None:
@@ -324,6 +323,7 @@ def _apply(args: argparse.Namespace) -> int:
             terraform=terraform,
             review=review,
             claim=claim,
+            verification_source=verification_source,
             timeout=min(args.timeout_seconds, 600),
         )
         _require_same_effect(receipt, observed)
@@ -411,6 +411,7 @@ def _apply(args: argparse.Namespace) -> int:
         terraform=terraform,
         review=review,
         claim=claim,
+        verification_source=verification_source,
         timeout=min(args.timeout_seconds, 600),
     )
     write_private_output(
@@ -418,6 +419,19 @@ def _apply(args: argparse.Namespace) -> int:
     )
     _print(receipt, args.output, "runner image apply and independent readback completed")
     return 0
+
+
+def _verification_source_commit(
+    checks: GenesisChecks, *, review: Mapping[str, object], effect_started: bool
+) -> str:
+    source = (
+        checks.source_evidence.source_commit
+        if checks.source_evidence is not None
+        else str(review["source_commit"])
+    )
+    if not effect_started and source != review["source_commit"]:
+        raise ValueError("runner image apply source does not match the signed verifier")
+    return source
 
 
 def _foundation_input(args: argparse.Namespace) -> int:
@@ -438,6 +452,7 @@ def _verify_effect(
     terraform: Path,
     review: Mapping[str, object],
     claim: Mapping[str, object],
+    verification_source: str,
     timeout: int,
 ) -> dict[str, object]:
     environment = _terraform_environment(
@@ -487,6 +502,7 @@ def _verify_effect(
         "plan_digest": review["plan_digest"],
         "target_binding": review["target_binding"],
         "source_commit": review["source_commit"],
+        "verified_source_commit": verification_source,
         "run_digest": review["run_digest"],
         "environment": review["environment"],
         "region": review["region"],
@@ -689,6 +705,8 @@ def _load_apply_receipt(
         or receipt.get("plan_digest") != review["plan_digest"]
         or receipt.get("target_binding") != review["target_binding"]
         or receipt.get("source_commit") != review["source_commit"]
+        or not isinstance(receipt.get("verified_source_commit"), str)
+        or _SOURCE_COMMIT.fullmatch(str(receipt["verified_source_commit"])) is None
         or receipt.get("run_digest") != review["run_digest"]
         or receipt.get("environment") != review["environment"]
         or receipt.get("region") != review["region"]

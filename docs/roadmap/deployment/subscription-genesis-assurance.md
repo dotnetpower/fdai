@@ -86,7 +86,10 @@ Another stage, changed digest, expired record, or silence grants no authority.
 Terraform owns private builder/verifier VMs, extensions, deallocate/generalize, image capture,
 and networking behind FQDN-allowlisted Firewall Basic with two non-VM public egress IPs. Hidden
 Shared Key staging prohibits Azure VM Image Builder, Storage, and image-template resources.
-Acceptance requires image provenance, successful extensions, both VMs deallocated, and no claimed-build retry.
+Acceptance requires image provenance, successful extension resource provisioning, both VMs
+deallocated, and no claimed-build retry. Azure can omit extension instance-view statuses after VM
+deallocation; when statuses are present they must include `ProvisioningState/succeeded`, while an
+absent status list never overrides a non-successful extension resource state.
 Only `FirstPartyUsage=/Unprivileged` is policy-owned: absent or equal on both exact Firewall IPs,
 no unknown tags, and a refreshed zero-change plan. It permits no replacement, rebinding, or claim reuse.
 Policy cleanup parses multiline CLI TSV in order and verifies exact tagged-group and deleted-vault
@@ -96,6 +99,13 @@ Every effect writes an immutable claim first. A claim or receipt permits only ve
 not repeated apply, enrollment, transfer, or migration. Enrollment receipts bind the exact human claim
 and need fresh Bastion identity, toolchain, service, and GitHub runner readback. Registration material
 uses only SSH stdin over the exact Bastion tunnel, never Terraform, arguments, Run Command, or records.
+A newer signed release may repair verification of an existing runner-image claim without changing or
+repeating its apply source. The terminal receipt binds both the original `source_commit` and the
+`verified_source_commit`; a fresh apply still requires them to match.
+Another signed Foundation run may reuse that receipt without another image apply. Its reviewed input
+keeps the current Foundation source and run while separately binding the image source, verifier
+source, image run, and receipt digest through the private handoff. The current run binding excludes
+the image-creation axis and must match the no-image orchestration status before approval.
 Portable status carries digests, counts, stage state, and safe booleans; IDs, SSH/state paths, and raw
 plans stay private. State-handoff claims bind the authenticated human's target-scoped digest; backend
 authority and terminal receipts bind that claim. Remote cleanup records exact intent, deletes the

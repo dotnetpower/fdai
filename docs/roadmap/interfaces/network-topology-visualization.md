@@ -34,7 +34,7 @@ fallback.
 |------|-------|----------|-------|
 | Shared network vocabulary and authored schema | implemented | `packages/network-topology-contracts`; network schema and validation; focused package and compiler tests | The dependency-free vocabulary is shared, while authored `expected` posture and observed evidence rules remain separate. |
 | Network reference layout and Azure icon coverage | implemented | `layout/elk.ts`; reviewed icon mapping and 14 digest-locked official Azure SVGs; canonical bilingual fixture | The network profile adds compact compound layout without changing existing deployment layout behavior. Unknown resource types remain unmapped. |
-| Console 2D focus, path tracing, and export | implemented | `architecture-network-{focus,map,tools,icons}.ts*`; route integration; focused Console and three-viewport checks | The mode consumes the existing authoritative inventory response, uses reviewed official icons when mapped, traces only typed relationships, and exports one identifier-free SVG source as SVG or PNG. |
+| Console 2D resource map, network focus, path tracing, and export | implemented | `architecture-map*.ts*`; `architecture-network-{focus,map,tools,icons}.ts*`; route integration; focused Console and three-viewport checks | Both modes consume the existing authoritative inventory response. The resource map uses a fixed orthographic projection, and Network uses reviewed official icons when mapped, traces only typed relationships, and exports one identifier-free SVG source as SVG or PNG. |
 | Console Ontology Instances network context | implemented | `ontology-instance-graph.{model.ts,tsx}`; `ontology-instance-resource-icons.ts`; focused tests; Console typecheck and production build; authenticated three-viewport checks | The selected branch presents VNet, Subnet, Private Endpoint, and NIC hierarchy without expanding a peer VNet branch. Reciprocal peering shares one occurrence while retaining both stored records. Observed `runtime_calls` links are a first-class Inspector group and remain visible in the default dense legend. Wheel zoom, native full screen, empty-canvas pan, and a collapsible Inspector preserve the graph workspace. |
 | Integrity, accessibility, and visual regression | implemented | static compiler tests (`107 passed`); exact `1600x900` artifact check; sequential three-viewport Playwright (`1 passed`) | Synthetic browser evidence proves presentation mechanics only. No governed runtime validation is claimed. |
 
@@ -42,6 +42,7 @@ fallback.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Replaced the resource map's isometric depth, reflections, orbit, and camera presets with one fixed orthographic 2D projection. The map keeps typed relationships, shape, color, abbreviation, selection, pan, zoom, fit, and deep links; narrow canvases preserve node scale, hide the secondary color legend, and use panning. | `current change`; Architecture map model, geometry, renderer, controller, Inspector, route, localization, and responsive Playwright paths; focused Console tests (`163 passed`), typecheck, and production build; synthetic sequential `1440x900`, `993x641`, and `390x844` checks. | Retain governed exact-source desktop and mobile Console evidence before changing the Console scope to `validated`. |
 | 2026-09-10 | implemented | Added explicit layer, color, and abbreviation mappings for PVC, PV, StorageClass, HPA, PDB, NetworkPolicy, ResourceQuota, and LimitRange. | `current change`; complete canonical ResourceType visual-mapping test and full Console test surface. | Preserve governed exact-source visual evidence before raising the Console scope to `validated`. |
 | 2026-09-04 | implemented | Promoted observed `runtime_calls` relationships from a generic direct edge to a first-class runtime group in the Ontology Instances Inspector and default dense legend. The screen-context projection also preserves these verified links for grounded follow-up without changing relationship direction or authority. | `current change`; focused ontology instance model and view checks, Console typecheck, and production build. | Retain governed exact-source runtime-call and responsive Console evidence before claiming runtime validation. |
 | 2026-08-22 | not-started | Accepted a focused owner boundary for network-topology visualization without changing runtime behavior. | `current change`; this owner document. | Implement and focused-test every scope row before raising its state. |
@@ -167,8 +168,9 @@ endpoint, public IP, route table, NSG, load balancer, network interface, and vir
 
 The static compiler maps known provider resource types to those icon ids. An unknown type stays a
 text card or stable abbreviation and never borrows a similar Azure product icon. The Console uses
-the same reviewed icon files in 2D mode and falls back to its stable abbreviation only for an
-unmapped type; its existing isometric mode keeps shape, color, and abbreviation redundancy.
+the same reviewed icon files in Network mode and falls back to its stable abbreviation only for an
+unmapped type. Its orthographic resource map keeps shape, color, and abbreviation redundancy
+without depth or reflections.
 
 ## Layout and integrity
 

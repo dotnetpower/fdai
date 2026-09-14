@@ -110,6 +110,7 @@ function currentPanelId(): string {
 }
 
 function routeKeyFor(route: ReturnType<typeof currentRoute>): string {
+  if (route.panelId === "agent-activity") return route.canonicalPathname;
   const query = route.search.toString();
   return query ? `${route.canonicalPathname}?${query}` : route.canonicalPathname;
 }

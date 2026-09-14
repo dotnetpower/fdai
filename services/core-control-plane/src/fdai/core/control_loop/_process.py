@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import Any, cast
 
+from fdai.core.control_loop._execution_outcomes import (
+    is_execution_no_effect as _is_execution_no_effect,
+)
+from fdai.core.control_loop._execution_outcomes import (
+    is_execution_pending as _is_execution_pending,
+)
 from fdai.core.control_loop._helpers import (
     _extract_resource_id,
     _extract_resource_props,
@@ -488,6 +494,7 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
         )
         exec_results.append(result)
         exec_success = _is_execution_success(result)
+        exec_pending = _is_execution_pending(result)
         exec_stage_detail: dict[str, Any] = {
             "rule_id": finding.rule_id,
             "action_type": action.action_type,
@@ -501,6 +508,17 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
                 phase=StagePhase.DONE,
                 detail=exec_stage_detail,
             )
+        elif exec_pending:
+            await host._emit_stage(
+                event_id=event_id,
+                correlation_id=correlation_id,
+                stage=StageName.EXECUTE,
+                phase=StagePhase.PROGRESS,
+                detail={
+                    **exec_stage_detail,
+                    "outcome": result.outcome.value,
+                },
+            )
         else:
             await host._emit_stage(
                 event_id=event_id,
@@ -511,20 +529,13 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
                 error=getattr(result, "reason", None) or "execution_failed",
             )
 
-    if "deny" in routed:
-        overall = ControlLoopOutcome.DENIED
-    elif "hil" in routed:
-        overall = ControlLoopOutcome.HIL
-    elif any(_is_execution_success(result) for result in exec_results):
-        overall = ControlLoopOutcome.EXECUTED
-    elif "governance_observe" in routed:
-        overall = ControlLoopOutcome.GOVERNANCE_OBSERVED
-    else:
-        overall = ControlLoopOutcome.ABSTAINED_ACTION_BUILD
+    overall = _aggregate_outcome(routed, exec_results)
     decision_word = {
         ControlLoopOutcome.DENIED: "deny",
         ControlLoopOutcome.HIL: "hil",
         ControlLoopOutcome.EXECUTED: "auto",
+        ControlLoopOutcome.EXECUTION_PENDING: "hold",
+        ControlLoopOutcome.EXECUTION_NOT_ATTEMPTED: "no-op",
     }.get(overall, "abstain")
     await host._emit_stage(
         event_id=event_id,
@@ -557,6 +568,34 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
         change_safety_decision=cs_decision,
         change_safety_evidence=tuple(pre_authority_evidence),
     )
+
+
+def _aggregate_outcome(
+    routed: Sequence[str],
+    execution_results: Sequence[
+        ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult
+    ],
+) -> ControlLoopOutcome:
+    """Preserve unresolved effects ahead of every terminal aggregate."""
+
+    if any(_is_execution_pending(result) for result in execution_results):
+        return ControlLoopOutcome.EXECUTION_PENDING
+    if "deny" in routed:
+        return ControlLoopOutcome.DENIED
+    if "hil" in routed:
+        return ControlLoopOutcome.HIL
+    if any(_is_execution_success(result) for result in execution_results):
+        return ControlLoopOutcome.EXECUTED
+    attempted = [
+        result
+        for result in execution_results
+        if result.audit_context.get("action_build_failed") is not True
+    ]
+    if attempted and all(_is_execution_no_effect(result) for result in attempted):
+        return ControlLoopOutcome.EXECUTION_NOT_ATTEMPTED
+    if "governance_observe" in routed:
+        return ControlLoopOutcome.GOVERNANCE_OBSERVED
+    return ControlLoopOutcome.ABSTAINED_ACTION_BUILD
 
 
 __all__ = ["process_event"]

@@ -18,6 +18,7 @@ import { currentRoute, navigate, routeHref } from "../router";
 import { isRfc3339Timestamp } from "../time-format";
 import { presentationLabel, t } from "./i18n/evidence";
 import "./incident-clarity.css";
+import "./rule-trace-lifecycle.css";
 import {
   panelArray,
   panelNonEmptyString,
@@ -33,7 +34,7 @@ import {
  * hand-grepping the audit log.
  */
 
-interface TraceStep {
+export interface TraceStep {
   readonly seq: number;
   readonly recorded_at: string;
   readonly stage: string | null;
@@ -41,14 +42,37 @@ interface TraceStep {
   readonly reason: string | null;
   readonly action_kind: string;
   readonly mode: string;
+  readonly action_id: string | null;
+  readonly attempt: number | null;
+  readonly execution_path: string | null;
+  readonly outcome: string | null;
   readonly entry_hash: string;
 }
 
-interface TraceResponse {
+export interface TraceResponse {
   readonly correlation_id: string;
   readonly step_count: number;
   readonly steps: readonly TraceStep[];
   readonly terminal_stage: string | null;
+}
+
+export type TraceLifecycleState =
+  | "recorded"
+  | "pending"
+  | "failed"
+  | "not_attempted"
+  | "not_recorded";
+
+export interface TraceLifecycleStage {
+  readonly id: "proposal" | "decision" | "approval" | "dispatch" | "observation" | "recovery";
+  readonly state: TraceLifecycleState;
+  readonly evidence: TraceStep | null;
+}
+
+export interface TraceActionLifecycle {
+  readonly actionId: string;
+  readonly attempt: number | null;
+  readonly stages: readonly TraceLifecycleStage[];
 }
 
 export interface TraceOperationalSummary {
@@ -139,8 +163,8 @@ export function RuleTraceRoute({ client }: Props) {
         <h3 class="section-title">{t("evidence.trace.lookupTitle")}</h3>
         <form
           class="form-grid inline"
-          onSubmit={(e) => {
-            e.preventDefault();
+          onSubmit={(event) => {
+            event.preventDefault();
             navigate(traceCorrelationHref(correlationId));
           }}
         >
@@ -149,9 +173,9 @@ export function RuleTraceRoute({ client }: Props) {
             <input
               type="text"
               value={correlationId}
-              onInput={(e) => {
+              onInput={(event) => {
                 requestGeneration.current += 1;
-                setCorrelationId((e.target as HTMLInputElement).value);
+                setCorrelationId((event.target as HTMLInputElement).value);
                 setState({ status: "idle" });
               }}
               required
@@ -228,6 +252,10 @@ export function decodeTraceResponse(value: unknown): TraceResponse {
       reason: panelNullableString(row, "reason", "trace step"),
       action_kind: panelNonEmptyString(row, "action_kind", "trace step"),
       mode: panelNonEmptyString(row, "mode", "trace step"),
+      action_id: optionalNonEmptyString(row, "action_id", "trace step"),
+      attempt: optionalPositiveInteger(row, "attempt", "trace step"),
+      execution_path: optionalNonEmptyString(row, "execution_path", "trace step"),
+      outcome: optionalNonEmptyString(row, "outcome", "trace step"),
       entry_hash: panelNonEmptyString(row, "entry_hash", "trace step"),
     };
   });
@@ -258,16 +286,36 @@ export function decodeTraceResponse(value: unknown): TraceResponse {
   };
 }
 
+function optionalNonEmptyString(
+  value: Readonly<Record<string, unknown>>,
+  key: string,
+  label: string,
+): string | null {
+  if (value[key] === undefined || value[key] === null) return null;
+  return panelNonEmptyString(value, key, label);
+}
+
+function optionalPositiveInteger(
+  value: Readonly<Record<string, unknown>>,
+  key: string,
+  label: string,
+): number | null {
+  if (value[key] === undefined || value[key] === null) return null;
+  const parsed = panelNonNegativeInteger(value, key, label);
+  if (parsed < 1) {
+    throw new Error(`invalid Operator API response: ${label}.${key} MUST be positive`);
+  }
+  return parsed;
+}
+
 function decisionPill(decision: string | null): PillKind {
   if (decision === null) return "neutral";
-  const v = decision.toLowerCase();
-  if (v === "auto") return "auto";
-  if (v === "hil") return "hil";
-  if (v === "deny") return "danger";
-  if (v === "abstain") return "neutral";
-  if (v === "done" || v === "ok") return "success";
-  if (v === "failed") return "danger";
-  return "info";
+  const value = decision.toLowerCase();
+  if (value === "auto") return "auto";
+  if (value === "hil") return "hil";
+  if (value === "deny" || value === "failed") return "danger";
+  if (value === "done" || value === "ok") return "success";
+  return value === "abstain" ? "neutral" : "info";
 }
 
 function modePill(mode: string): PillKind {
@@ -326,6 +374,10 @@ export function buildTraceViewSnapshot(
           reason: s.reason,
           action_kind: s.action_kind,
           mode: s.mode,
+          action_id: s.action_id,
+          attempt: s.attempt,
+          execution_path: s.execution_path,
+          outcome: s.outcome,
           entry_hash: s.entry_hash,
           correlation_id: data.correlation_id,
         })),
@@ -366,35 +418,69 @@ function TraceEvidenceLinks({ correlationId }: { readonly correlationId: string 
 
 function TraceView({ data }: { readonly data: TraceResponse }) {
   const summary = traceOperationalSummary(data);
+  const lifecycles = traceActionLifecycles(data);
 
   const columns: readonly Column<TraceStep>[] = [
     {
       key: "n",
       header: "#",
-      render: (s) => (
-        <a href={routeHref("audit", { params: { correlation: data.correlation_id, entry: s.seq } })}>
-          {s.seq}
+      render: (step) => (
+        <a href={routeHref("audit", {
+          params: { correlation: data.correlation_id, entry: step.seq },
+        })}
+        >
+          {step.seq}
         </a>
       ),
       cellClass: "num",
       headerClass: "num",
     },
-    { key: "at", header: t("evidence.trace.column.recordedAt"), render: (s) => s.recorded_at, cellClass: "mono" },
-    { key: "stage", header: t("evidence.trace.column.stage"), render: (s) => s.stage ?? <span class="muted">{t("evidence.trace.unnamed")}</span>, cellClass: "mono" },
-    { key: "kind", header: t("evidence.trace.column.actionKind"), render: (s) => s.action_kind, cellClass: "mono" },
+    {
+      key: "at",
+      header: t("evidence.trace.column.recordedAt"),
+      render: (step) => step.recorded_at,
+      cellClass: "mono",
+    },
+    {
+      key: "stage",
+      header: t("evidence.trace.column.stage"),
+      render: (step) =>
+        step.stage ?? <span class="muted">{t("evidence.trace.unnamed")}</span>,
+      cellClass: "mono",
+    },
+    {
+      key: "kind",
+      header: t("evidence.trace.column.actionKind"),
+      render: (step) => step.action_kind,
+      cellClass: "mono",
+    },
     {
       key: "dec",
       header: t("evidence.trace.column.decision"),
-      render: (s) =>
-        s.decision === null
+      render: (step) =>
+        step.decision === null
           ? <span class="muted">-</span>
-              : <StatusPill kind={decisionPill(s.decision)} label={presentationLabel("status", s.decision)} />,
+          : (
+              <StatusPill
+                kind={decisionPill(step.decision)}
+                label={presentationLabel("status", step.decision)}
+              />
+            ),
     },
-            { key: "reason", header: t("evidence.trace.column.reason"), render: (s) => s.reason ?? <span class="muted">-</span> },
+    {
+      key: "reason",
+      header: t("evidence.trace.column.reason"),
+      render: (step) => step.reason ?? <span class="muted">-</span>,
+    },
     {
       key: "mode",
       header: t("evidence.trace.column.mode"),
-      render: (s) => <StatusPill kind={modePill(s.mode)} label={presentationLabel("status", s.mode)} />,
+      render: (step) => (
+        <StatusPill
+          kind={modePill(step.mode)}
+          label={presentationLabel("status", step.mode)}
+        />
+      ),
     },
   ];
 
@@ -413,11 +499,15 @@ function TraceView({ data }: { readonly data: TraceResponse }) {
         <dl class="trace-summary-facts">
           <div>
             <dt>{t("evidence.trace.summary.decision")}</dt>
-            <dd>{summary.decisionRecorded ? t("evidence.trace.summary.recorded") : t("evidence.trace.summary.notRecorded")}</dd>
+            <dd>{summary.decisionRecorded
+              ? t("evidence.trace.summary.recorded")
+              : t("evidence.trace.summary.notRecorded")}</dd>
           </div>
           <div>
             <dt>{t("evidence.trace.summary.rootCause")}</dt>
-            <dd>{summary.rcaRecorded ? t("evidence.trace.summary.recorded") : t("evidence.trace.summary.notRecorded")}</dd>
+            <dd>{summary.rcaRecorded
+              ? t("evidence.trace.summary.recorded")
+              : t("evidence.trace.summary.notRecorded")}</dd>
           </div>
           <div>
             <dt>{t("evidence.trace.summary.pipelineStages")}</dt>
@@ -439,23 +529,253 @@ function TraceView({ data }: { readonly data: TraceResponse }) {
           value={<span class="mono">{data.terminal_stage ?? "-"}</span>}
         />
         <KpiCard
-          href={routeHref("incidents", { params: { status: "all", correlation: data.correlation_id } })}
+          href={routeHref("incidents", {
+            params: { status: "all", correlation: data.correlation_id },
+          })}
           label={t("evidence.trace.correlationId")}
           value={<span class="mono small">{data.correlation_id}</span>}
         />
       </KpiGrid>
       <TraceEvidenceLinks correlationId={data.correlation_id} />
+      <TraceActionLifecycleSection lifecycles={lifecycles} />
       <section class="stack-section">
         <h3 class="section-title">{t("evidence.trace.timeline")}</h3>
         <DataTable
           columns={columns}
           rows={data.steps}
-          keyOf={(s) => s.seq}
+          keyOf={(step) => step.seq}
           empty={t("evidence.trace.empty")}
         />
       </section>
     </div>
   );
+}
+
+function TraceActionLifecycleSection({
+  lifecycles,
+}: {
+  readonly lifecycles: readonly TraceActionLifecycle[];
+}) {
+  return (
+    <section class="trace-lifecycle-section" aria-labelledby="trace-action-lifecycle-title">
+      <span class="trace-section-label">{t("evidence.trace.readOnlyHint")}</span>
+      <h3 id="trace-action-lifecycle-title">{t("evidence.trace.lifecycle.title")}</h3>
+      <p>{t("evidence.trace.lifecycle.body")}</p>
+      {lifecycles.length === 0 ? (
+        <p class="state-block">{t("evidence.trace.lifecycle.noActionIdentity")}</p>
+      ) : lifecycles.map((lifecycle) => (
+        <article
+          class="trace-action-lifecycle-group"
+          key={`${lifecycle.actionId}:${lifecycle.attempt ?? "unknown"}`}
+        >
+          <h4>
+            <code>{lifecycle.actionId}</code>
+            <span>{lifecycle.attempt === null
+              ? t("evidence.trace.lifecycle.attemptUnknown")
+              : t("evidence.trace.lifecycle.attempt", { attempt: lifecycle.attempt })}</span>
+          </h4>
+          <ol class="trace-action-lifecycle">
+            {lifecycle.stages.map((item, index) => (
+              <li
+                key={item.id}
+                data-state={item.state === "recorded"
+                  ? "complete"
+                  : item.state === "not_attempted"
+                    ? "not-started"
+                    : item.state}
+                aria-current={item.state === "pending" ? "step" : undefined}
+              >
+                <span aria-hidden="true">{index + 1}</span>
+                <strong>{t(`evidence.trace.lifecycle.${item.id}`)}</strong>
+                <small>
+                  {item.evidence === null
+                    ? t("evidence.trace.lifecycle.notRecorded")
+                    : t("evidence.trace.lifecycle.evidence", {
+                      sequence: item.evidence.seq,
+                      kind: item.evidence.action_kind,
+                      state: t(`evidence.trace.lifecycle.state.${item.state}`),
+                    })}
+                </small>
+              </li>
+            ))}
+          </ol>
+        </article>
+      ))}
+    </section>
+  );
+}
+
+/** Derive separate presentation-only lifecycles for exact action attempts. */
+export function traceActionLifecycles(data: TraceResponse): readonly TraceActionLifecycle[] {
+  const byAction = new Map<string, TraceStep[]>();
+  for (const step of data.steps) {
+    if (step.action_id === null) continue;
+    const steps = byAction.get(step.action_id) ?? [];
+    steps.push(step);
+    byAction.set(step.action_id, steps);
+  }
+  const groups: { actionId: string; attempt: number | null; steps: TraceStep[] }[] = [];
+  for (const [actionId, steps] of byAction) {
+    const attempts = [...new Set(
+      steps.flatMap((step) => step.attempt === null ? [] : [step.attempt]),
+    )];
+    const soleAttempt = attempts.length === 1 ? attempts[0]! : null;
+    const byAttempt = new Map<number | null, TraceStep[]>();
+    for (const step of steps) {
+      const attempt = step.attempt ?? soleAttempt;
+      const attemptSteps = byAttempt.get(attempt) ?? [];
+      attemptSteps.push(step);
+      byAttempt.set(attempt, attemptSteps);
+    }
+    for (const [attempt, attemptSteps] of byAttempt) {
+      groups.push({ actionId, attempt, steps: attemptSteps });
+    }
+  }
+  return groups
+    .sort((left, right) => left.steps[0]!.seq - right.steps[0]!.seq)
+    .map((group) => ({
+      actionId: group.actionId,
+      attempt: group.attempt,
+      stages: lifecycleStages(group.steps),
+    }));
+}
+
+function lifecycleStages(steps: readonly TraceStep[]): readonly TraceLifecycleStage[] {
+  const stages: TraceLifecycleStage["id"][] = [
+    "proposal",
+    "decision",
+    "approval",
+    "dispatch",
+    "observation",
+    "recovery",
+  ];
+  return stages.map((id) => {
+    const matches = steps.filter((step) => traceStepMatchesLifecycle(step, id));
+    const evidence = matches.at(-1) ?? null;
+    return {
+      id,
+      state: evidence === null ? "not_recorded" : traceLifecycleState(id, evidence),
+      evidence,
+    };
+  });
+}
+
+function traceStepMatchesLifecycle(
+  step: TraceStep,
+  stage: TraceLifecycleStage["id"],
+): boolean {
+  const kind = step.action_kind.toLowerCase();
+  const namedStage = step.stage?.toLowerCase() ?? "";
+  if (stage === "proposal") {
+    return kind.startsWith("action.proposal.")
+      || kind === "action.proposal"
+      || kind.endsWith(".proposal")
+      || namedStage === "plan"
+      || namedStage === "propose";
+  }
+  if (stage === "decision") {
+    return kind.startsWith("verdict.")
+      || kind.endsWith(".verdict")
+      || kind.startsWith("risk_gate.")
+      || kind.startsWith("policy.")
+      || (
+        step.decision !== null
+        && ["decision", "gate", "risk-gate"].includes(namedStage)
+      );
+  }
+  if (stage === "approval") return kind.startsWith("hil.");
+  if (stage === "dispatch") {
+    return dispatchLifecycleState(step) !== null;
+  }
+  if (stage === "observation") {
+    return kind.startsWith("effect_observation.")
+      || kind.startsWith("measurement.action_outcome")
+      || kind === "effect.observation"
+      || kind.startsWith("effect.observation.");
+  }
+  return kind.startsWith("rollback.")
+    || kind.endsWith(".rolled_back")
+    || kind.startsWith("recovery.")
+    || kind.endsWith(".recovery");
+}
+
+function traceLifecycleState(
+  stage: TraceLifecycleStage["id"],
+  evidence: TraceStep,
+): TraceLifecycleState {
+  const kind = evidence.action_kind.toLowerCase();
+  const decision = evidence.decision?.toLowerCase() ?? "";
+  if (stage === "dispatch") return dispatchLifecycleState(evidence) ?? "not_recorded";
+  if (stage === "approval") {
+    return kind === "hil.requested" || kind === "hil.approved.claimed"
+      ? "pending"
+      : "recorded";
+  }
+  if (
+    kind.endsWith(".execution_pending")
+    || kind.endsWith(".awaiting_effect_evidence")
+    || kind.endsWith(".receipt_timeout")
+    || kind.endsWith(".execution_unknown")
+    || ["hold", "pending", "unknown", "unavailable"].includes(decision)
+  ) {
+    return "pending";
+  }
+  if (
+    kind.endsWith(".failed")
+    || kind.endsWith(".mismatch")
+    || ["failed", "error"].includes(decision)
+  ) {
+    return "failed";
+  }
+  return "recorded";
+}
+
+const DISPATCH_RECORDED_OUTCOMES = new Set([
+  "published",
+  "already_existed",
+  "dispatched",
+  "already_applied",
+]);
+const DISPATCH_PENDING_OUTCOMES = new Set([
+  "publish_outcome_unknown",
+  "awaiting_effect_evidence",
+  "receipt_timeout",
+  "execution_unknown",
+]);
+const DISPATCH_NOT_ATTEMPTED_OUTCOMES = new Set([
+  "dispatch_not_attempted",
+  "abstained_blast_radius",
+  "abstained_precondition",
+  "abstained_render_error",
+  "authentication_failed",
+  "permission_denied",
+  "policy_denied",
+  "network_denied",
+  "rejected_mode",
+  "rejected_invariant",
+  "rejected_capability_unavailable",
+  "rejected_idempotency_conflict",
+  "expired",
+]);
+const DISPATCH_FAILED_OUTCOMES = new Set(["failed", "stopped"]);
+
+function dispatchLifecycleState(step: TraceStep): TraceLifecycleState | null {
+  const kind = step.action_kind.toLowerCase();
+  const hilState: Record<string, TraceLifecycleState> = {
+    "hil.approved.executed": "recorded",
+    "hil.approved.execution_pending": "pending",
+    "hil.approved.execution_not_attempted": "not_attempted",
+    "hil.approved.execute_failed": "failed",
+  };
+  if (kind in hilState) return hilState[kind] ?? null;
+  if (step.execution_path === null && !kind.startsWith("executor.")) return null;
+  const outcome = step.outcome?.toLowerCase()
+    ?? (kind.startsWith("executor.") ? kind.split(".").at(-1) ?? "" : "");
+  if (DISPATCH_NOT_ATTEMPTED_OUTCOMES.has(outcome)) return "not_attempted";
+  if (DISPATCH_PENDING_OUTCOMES.has(outcome)) return "pending";
+  if (DISPATCH_FAILED_OUTCOMES.has(outcome)) return "failed";
+  if (DISPATCH_RECORDED_OUTCOMES.has(outcome)) return "recorded";
+  return null;
 }
 
 export function traceOperationalSummary(data: TraceResponse): TraceOperationalSummary {
