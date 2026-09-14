@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 9691b64c8079b8d9c32d7c7175d2fa5d7c20ed83
-translation_revised: 2026-09-13
+translation_source_sha: b00c2859a76af9ac53d6ff18cb1b964ee8b2b922
+translation_revised: 2026-09-14
 ---
 # 온톨로지 구조 모델
 
@@ -283,6 +283,12 @@ Operator와 Console은 이 근거를 검증하고 표시하지만, unknown 유�
 Console은 응답, 표현 대상, 집중 그래프, Inspector 전용, 목적별 위임, 가림, 생략 개수를 서로
 겹치지 않는 처리 버킷으로 보고합니다. 레이아웃 선택은 권위 있는 응답 개수를 바꾸지 않습니다.
 
+Console은 `/ontology`를 관측된 Resource 인스턴스 작업 영역으로 엽니다. 선언, ActionType 계약,
+의미 모델 및 카탈로그 토폴로지 보기는 이름이 명확한 하나의 펼침 메뉴에서 계속 사용할 수 있으며
+기존 상세 링크도 유지합니다. 선언 그래프는 운영자가 이러한 참조 보기 중 하나로 이동한 뒤에만
+불러오므로, 선언 그래프의 지연이나 사용 불가 상태가 인스턴스 디렉터리를 막지 않습니다. 이 탐색
+및 불러오기 경계는 근거, 그래프, 쿼리 또는 실행 권한을 바꾸지 않습니다.
+
 선택한 인스턴스 화면은 내구성 있는 인증 인벤토리 무효화 SSE 스트림을 사용하고 커밋된 watermark를
 받을 때마다 범위가 제한된 응답을 다시 검증합니다. SSE를 사용할 수 없으면 단조 증가 15초
 카운트다운으로 fallback 폴링을 실행합니다. 창이 포커스를 얻거나 온라인 또는 표시 상태로 돌아오면
@@ -426,6 +432,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 | 링크 역할과 의미 특성 | implemented | 공유 LinkType 계약 및 스키마, 쿼리 매니페스트, 검토된 런타임 선언 7개와 분류 선언 2개, 카탈로그 테스트 | 선택적인 빈 필드는 기존 provenance를 보존합니다. 검토된 필드는 역방향 edge나 표현 레이아웃을 만들지 않습니다. |
 | 수명 주기 없는 선언과 권한 전달 객체 | implemented | `object-type-lifecycle-classification.yaml`, `CapacityGraduationRecommendation`, `EvidenceConflict`, `ProspectiveLineage`, 엄격한 카탈로그 및 일치 검사 | 수명 주기가 없는 모든 ObjectType에는 검토 가능한 분류가 하나씩 있습니다. 추가된 전달 객체 3개는 고정된 에이전트 소유권을 보존하고 실행 권한을 부여하지 않습니다. |
 | 완전성과 표현 분리 | implemented | 권위 있는 온톨로지 그래프 materializer, 통합 테스트, Console 디코더, LinkType 검사기, 그래프 우선 인스턴스 작업 영역, 이중 언어 제품 카탈로그, 타입 검사, 프로덕션 빌드 | 선언 그래프는 독립적인 제한 계열 4개를 전달하고 범위 내 모든 LinkType의 역할과 특성을 노출합니다. 인스턴스 작업 영역은 그래프 권한을 바꾸지 않고 선택, 범례, Inspector 상태를 표현 계층에 유지합니다. |
+| 인스턴스 우선 Console 진입 | implemented | `ontology.tsx`, `ontology-navigation.tsx`, 온톨로지 경로, 보기 및 지역화 검사, Console 타입 검사와 프로덕션 빌드 | `/ontology`는 선언 그래프를 기다리지 않고 관측된 Resource 인스턴스를 표시합니다. 정의와 토폴로지는 이름이 명확한 네이티브 펼침 메뉴와 기존 상세 링크에서 계속 사용할 수 있습니다. |
 | 범위가 제한된 ObjectSet 후보 스캔 | validated | `OntologyInstanceStore.scan_objects`, PostgreSQL 및 메모리 어댑터, `object_sets.py`, 집중 검사 및 인증된 최근 전이 재실행 | 저장소에서 직접 평가할 수 없는 객체 전용 조건식은 객체 1,000개 probe와 최대 한 번의 객체 50,000개 단일 연결 후보 스냅샷을 사용합니다. 관계 조회는 일반 제한을 유지하며 잘림은 완전한 결과로 바뀌지 않습니다. |
 | 실제 운영 인스턴스 표시 | validated | `ontology-instance-refresh.ts`, Operator 용량 및 운영 상태 허용 목록, 온톨로지 인스턴스 경로, 그래프, Inspector, 스타일, 이중 언어 카탈로그, 집중 검사, 실제 ARG 수집 및 인증된 브라우저 검사 | 표시 중인 선택 인스턴스 화면은 15초마다 그리고 브라우저가 다시 활성화될 때 재검증합니다. 의미가 있는 텍스트 배지는 정확한 프로바이더 상태를 유지하고 사용 불가, 적용 대상 아님, 기록되지 않은 값을 구분합니다. NodePool 및 VMSS 카드는 검토된 프로바이더 용량만 표시합니다. 새로 고침 실패 시 마지막 검증 응답과 명시적인 경고를 유지합니다. |
 | 내구성 있는 인스턴스 무효화 전달 | validated | Operator 인벤토리 관측 재현, `/ontology/instances/stream`, Console SSE 소비자, 단조 증가 폴링 카운트다운, 인증된 AKS 전환 근거 | AKS 시작 중 SSE가 연결 상태를 유지했고 VM 및 NIC 토폴로지가 추가되고 클러스터가 `Stopped`에서 `Running`으로 전환됐습니다. 커밋된 watermark마다 권위 있는 데이터를 다시 읽었습니다. |
@@ -438,6 +445,7 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 관측된 Resource 인스턴스 작업 영역을 기본 `/ontology` 진입 화면으로 정하고, 선언 및 토폴로지 보기를 하나의 네이티브 펼침 메뉴로 옮겼으며, 선언 그래프 요청이 인스턴스 탐색을 막지 않게 했습니다. | `current change`, `console/src/routes/ontology.tsx`, `console/src/routes/ontology-navigation.tsx`, 집중 경로, 보기 및 지역화 검사, Console 타입 검사와 프로덕션 빌드 | 기본 상태와 펼친 메뉴 상태를 인증된 표준 포트 브라우저에서 검증한 근거를 보존합니다. 그래프 또는 실행 권한은 바뀌지 않았습니다. |
 | 2026-09-13 | implemented | 미분류 ID로만 보존하던 공급자 정본 Azure 유형 23개를 분류하고, 추가한 모든 ResourceType을 중립 분류 체계에 배정했으며, 정확한 자식 포함 매핑 4개와 문서로 확인한 운영 및 Resource Health 경로만 추가했습니다. | `current change`, 공식 Microsoft 리소스 및 Resource Health 문서, 집중 리소스 레지스트리, 관계 카탈로그, ARG, Resource Health, 기록 상태 및 카탈로그 변환 검사 | 이 전환을 `validated`로 올리기 전에 검토된 공급자 유형, 관계 및 상태 사실을 입증하는 완전한 로컬 새 세대를 보존합니다. |
 | 2026-09-10 | in-progress | 내용이 안전한 backend 상태 사실과 정확한 EndpointSlice-to-Pod UID route mapping 하나를 추가했습니다. | `current change`, 집중 EndpointSlice 사실, 출처 스키마, 관계 및 카탈로그 검사 | Issue #578에서 확장된 release의 완전한 실제 운영 세대를 보존합니다. |
 | 2026-09-10 | in-progress | 진단용 Kubernetes ResourceType 8개와 검토된 스토리지, 정책, 종류로 한정된 자동 확장 및 포함 mapping 10개를 추가했습니다. | `current change`, 집중 리소스 레지스트리, 클래스 클로저, 출처 스키마, 수집 및 관계 검사 | Issue #578에서 확장된 release의 완전한 실제 운영 세대를 보존합니다. |

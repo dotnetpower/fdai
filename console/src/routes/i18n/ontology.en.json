@@ -1,8 +1,13 @@
 {
   "route": {
-    "subtitle": "Browse registered ObjectTypes, LinkTypes, ActionType safety contracts, and observed Resource instances.",
+    "instancesSubtitle": "Start with an observed Resource instance, then inspect its bounded relationships, recorded state, and evidence.",
+    "referenceSubtitle": "Inspect read-only ontology definitions, ActionType safety contracts, and catalog topology when needed.",
     "loadingLabel": "ontology graph",
     "unavailable": "The ontology explorer route is not wired on this deployment, so no object type or link type is claimed here."
+  },
+  "navigation": {
+    "label": "Ontology views",
+    "reference": "Definitions and topology"
   },
   "context": {
     "ontologyLabel": "Ontology",

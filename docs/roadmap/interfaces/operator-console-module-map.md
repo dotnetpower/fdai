@@ -14,6 +14,14 @@ The WARA workflow projection keeps exact evaluator identity and structured manua
 requirements in the read model. The Console can explain which producer, scope, freshness ceiling,
 and owner are required, but it exposes no evidence writer or remediation control.
 The Ontology Instances projection keeps observed `runtime_calls` separate from generic direct relationships in the Inspector, dense legend, and current-screen evidence context. It preserves the stored source-to-target direction and cannot infer a call when the runtime source is unavailable. Grounded source controls include primary and secondary evidence-posture labels in accessible names. Bounded transcript storage finds the longest retained suffix with logarithmic full-array encodes. The Console panel registry keeps every route module behind a lazy import. Named route exports use one typed adapter, routes that share a module reuse one loader, and the production entry-bundle check verifies the required lazy boundaries and enforces both raw and gzip limits.
+The `/ontology` route keeps its instance-first shell in `ontology.tsx` and its reference navigation
+in `ontology-navigation.tsx`. A missing or unsupported view opens the observed Resource instance
+workspace, which mounts without requesting the declaration graph. Semantic model, ObjectType,
+LinkType, ActionType, and Catalog topology views remain behind one labeled native disclosure and
+retain their existing query and declaration-detail links. Entering one of those reference views
+starts the catalog request; its loading or unavailable state never removes the path back to
+instances. This separation is presentation-only and adds no evidence, graph, query, or execution
+authority.
 
 The `assurance_twin.posture`, `assurance_twin.reviews`, and `assurance_twin.review_detail` operations extend `runtime_projection_reader.py` the same way: they read the existing `state_kv` rows an Assurance Twin recorder already wrote and render the stored verdict, severity, and freshness verbatim through the existing operations family manifest, never recomputing them. They also fail closed: a row is rendered as a result only when its recorded evidence digest verifies, it carries no durable conflict marker, and its freshness is `fresh`. Stale, unavailable, unknown, malformed, digest-mismatched, and conflict-tombstoned rows become explicit gap entries, so an empty result never reads as a clear estate. Safety-relevant flags are read strictly: a missing or non-boolean `blocks_action` is malformed evidence, never a default.
 The posture and review lists also select each durable `state_kv` key and require its suffix to match the body's opaque `scope` or `review_key` byte for byte. Duplicate claimed identities are withheld even when their evidence digests match. The Console renders every usable posture scope and uses distinct
