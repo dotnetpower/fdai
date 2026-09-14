@@ -568,6 +568,20 @@ test("compresses a read-only technical trace without inventing an action path", 
   expect(toolbarControls.every(({ clientWidth, scrollWidth }) =>
     clientWidth >= 180 && scrollWidth <= clientWidth
   )).toBe(true);
+  const boundaryRows = await page.locator(
+    ".trace-readonly-boundary > summary",
+  ).evaluate((summary) => {
+    const title = summary.querySelector("strong")?.getBoundingClientRect();
+    const detail = summary.querySelector("span")?.getBoundingClientRect();
+    if (!title || !detail) throw new Error("Trace boundary summary is incomplete");
+    return {
+      titleBottom: title.bottom,
+      detailTop: detail.top,
+      detailWidth: detail.width,
+    };
+  });
+  expect(boundaryRows.detailTop).toBeGreaterThanOrEqual(boundaryRows.titleBottom - 1);
+  expect(boundaryRows.detailWidth).toBeGreaterThanOrEqual(180);
 });
 
 test("preserves the two-column trace workbench at constrained desktop width", async ({

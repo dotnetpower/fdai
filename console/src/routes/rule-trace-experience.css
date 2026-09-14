@@ -516,6 +516,16 @@
     min-height: 44px;
   }
 
+  .trace-readonly-boundary > summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .trace-readonly-boundary > summary span {
+    width: 100%;
+  }
+
   .trace-context-strip > div,
   .trace-context-strip > div:nth-child(2n),
   .trace-context-strip > div:nth-child(3n) {

@@ -48,6 +48,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Stacked the read-only boundary explanation below its title at 320 px after final visual review exposed a narrow vertical sentence fragment. | `current change`; 320 px boundary-coordinate regression and repeated real-data screenshot review. | Repeat the final residual-severity review. |
 | 2026-09-14 | implemented | Restored the base one-column toolbar cascade at 320 px so copy and refresh controls no longer collapse beside the two-column related-evidence grid. | `current change`; 320 px read-only Trace control-width regression and repeated real-data browser evidence. | Complete the final residual-severity review. |
 | 2026-09-14 | implemented | Wrapped long canonical action kinds and compact stage paths at 320 px after a real audit-backed read Trace exposed 17 px of internal workbench overflow that the action fixture did not reproduce. | `current change`; focused read-only Trace browser regression and isolated real-data browser validation. | Repeat the final real-data pass and residual-severity review. |
 | 2026-09-14 | implemented | Reflowed the exact audit timeline into labeled vertical rows on mobile while retaining semantic table markup. | `current change`; 390 px and 320 px Trace browser assertions. | Complete authenticated-data and residual-severity validation. |

@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: d57f207b305c9c9da7b5a461a1a2d71d0650868f
+translation_source_sha: 362cc55f50b9a23cba3eb958f03782d453ad77c4
 translation_revised: 2026-09-14
 ---
 # FDAI Console 대화
@@ -95,6 +95,8 @@ true로 표시합니다.
 작업대가 넓어지지 않게 합니다.
 같은 너비에서 복사와 새로 고침 컨트롤은 각각 읽을 수 있는 전체 행을 유지하고 관련 근거 링크는
 축약된 2열 그리드로 유지합니다.
+읽기 전용 경계의 짧은 설명은 320픽셀에서 제목 아래에 배치해 문장을 읽기 좋은 너비로
+유지합니다.
 
 인증된 `/provisioning` 경로는 하나의 영속 구독 초기 구성 실행을 보여주는 읽기 전용 변환
 결과입니다. 완료된 구성 단계를 재생하고 리소스 검색과 최종 검증을 실시간으로 표시하지만
