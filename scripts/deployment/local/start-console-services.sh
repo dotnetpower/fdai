@@ -93,7 +93,11 @@ trap handle_signal INT TERM
 
 printf '%s service=console-stack event=starting\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
 for service in "${services[@]}"; do
-  bash "$repo_root/scripts/deployment/local/run-console-service.sh" "$service" &
+  service_args=("$service")
+  if [[ "$service" == "local-analyzer" ]]; then
+    service_args+=(--wait-ready)
+  fi
+  bash "$repo_root/scripts/deployment/local/run-console-service.sh" "${service_args[@]}" &
   child_pids+=("$!")
 done
 printf '%s service=console-stack event=started\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"

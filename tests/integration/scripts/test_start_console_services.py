@@ -279,6 +279,13 @@ def test_supervisor_allows_bounded_inventory_recovery() -> None:
     assert "FDAI_CONSOLE_START_READINESS_SECONDS:-180" in source
 
 
+def test_supervisor_waits_for_the_analyzer_first_clean_tick() -> None:
+    source = _START_SCRIPT.read_text(encoding="utf-8")
+
+    assert 'if [[ "$service" == "local-analyzer" ]]' in source
+    assert "service_args+=(--wait-ready)" in source
+
+
 def test_inventory_stage_reuse_requires_current_checkpoint() -> None:
     source = _PREPARE_SCRIPT.read_text(encoding="utf-8")
 

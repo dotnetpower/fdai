@@ -271,7 +271,9 @@ and suppress a repeat only after a broker acknowledgement is recorded. They rele
 attests that the record was provably not sent and otherwise hold it uncertain for reconciliation, so neither venue republishes an ambiguous
 send. They preserve their existing local developer identity versus deployed workload identity and transport security. Readiness separates
 scheduling, discovery, metric, publication, and source-delay state, and full-stack readiness now
-requires the analyzer loop process alongside inventory reconciliation and observation campaign.
+requires the analyzer loop process and a clean first tick from its latest managed start alongside
+inventory reconciliation and observation campaign. A stale ready marker from an earlier process
+cannot satisfy this gate.
 
 The standard full-stack launch keeps narrator endpoint reconciliation enabled. Its independent
 Operator Service binds a local-only narrator adapter only for `RUNTIME_ENV=dev`, reads

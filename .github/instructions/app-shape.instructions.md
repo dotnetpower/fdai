@@ -63,7 +63,9 @@ The layers communicate through the event bus and git, not direct in-process call
 - The same managed full-stack supervisor MUST also keep the local analyzer, inventory
   reconciliation, and observation campaign loops alive. These loops add no browser port or service
   distribution; they provide local parity for the deployed scheduled jobs and MUST participate in
-  readiness so a projection-only stack cannot be reported as detection-ready.
+  readiness so a projection-only stack cannot be reported as detection-ready. Analyzer readiness
+  requires a clean first tick after the latest managed start; process presence or an older ready
+  marker is insufficient.
 - An inventory-backed analyzer MUST retain the ontology `Resource.id` in findings, Events, receipts,
   and Incidents. It MAY use the exact provider reference from the active service-owned inventory
   snapshot only to scope the provider metric query. Missing, mismatched, or ambiguous provider

@@ -235,8 +235,8 @@ def _core_runtime_ready_after(
     )
 
 
-def _core_log_lines(root: Path) -> tuple[str, ...]:
-    log_file = root / ".fdai" / "logs" / "core-runtime.log"
+def _service_log_lines(root: Path, service: str) -> tuple[str, ...]:
+    log_file = root / ".fdai" / "logs" / f"{service}.log"
     chunks: list[bytes] = []
     for candidate in (log_file.with_name(f"{log_file.name}.1"), log_file):
         try:
@@ -247,6 +247,27 @@ def _core_log_lines(root: Path) -> tuple[str, ...]:
             continue
     tail = b"".join(chunks)[-CORE_LOG_TAIL_BYTES:].decode("utf-8", errors="replace")
     return tuple(tail.splitlines())
+
+
+def _core_log_lines(root: Path) -> tuple[str, ...]:
+    return _service_log_lines(root, "core-runtime")
+
+
+def _analyzer_tick_ready(root: Path) -> bool:
+    """Require one clean analyzer tick after the latest managed start."""
+
+    ready = False
+    for line in _service_log_lines(root, "local-analyzer"):
+        if "service=local-analyzer event=starting" in line:
+            ready = False
+        elif "service=local-analyzer event=ready" in line:
+            ready = True
+        elif (
+            "service=local-analyzer event=failed" in line
+            or "service=local-analyzer event=stopped" in line
+        ):
+            ready = False
+    return ready
 
 
 def _log_timestamp(line: str) -> datetime | None:
@@ -262,6 +283,7 @@ def local_services_diagnostic(
     *,
     probe: Callable[[str], bool] = _http_ready,
     core_probe: Callable[[Path], bool] = _core_heartbeat_ready,
+    analyzer_probe: Callable[[Path], bool] = _analyzer_tick_ready,
     inventory_probe: Callable[[Path], bool] = _inventory_coverage_ready,
     process_records: list[tuple[Path, list[str]]] | None = None,
     resolved: RepositoryLocation | None = None,
@@ -285,13 +307,11 @@ def local_services_diagnostic(
     core_owners = _core_runtime_owners(records)
     core_ready = repo_root in core_owners and core_probe(repo_root)
     services.insert(0, {"name": "core-runtime", "ready": core_ready})
-    services.extend(
-        {
-            "name": name,
-            "ready": repo_root in _module_owners(records, module),
-        }
-        for name, module in LOCAL_LOOP_SERVICES
-    )
+    for name, module in LOCAL_LOOP_SERVICES:
+        ready = repo_root in _module_owners(records, module)
+        if name == "local-analyzer":
+            ready = ready and analyzer_probe(repo_root)
+        services.append({"name": name, "ready": ready})
     services.append({"name": "inventory-coverage", "ready": inventory_probe(repo_root)})
     unavailable = [str(service["name"]) for service in services if not service["ready"]]
     return {
