@@ -1799,7 +1799,7 @@ def test_heimdall_retries_candidate_after_transient_hook_failure() -> None:
         return True
 
     heimdall = Heimdall(rate_threshold=2, incident_candidate_hook=fail_once)
-    for index in range(3):
+    for index in (0, 1, 1):
         asyncio.run(
             heimdall.on_typed_message(
                 "object.event",
@@ -1815,8 +1815,10 @@ def test_heimdall_retries_candidate_after_transient_hook_failure() -> None:
         )
 
     assert len(candidates) == 2
+    assert candidates[0]["evidence_keys"] == candidates[1]["evidence_keys"]
     assert heimdall.behavior_snapshot()["incident_candidate_failed"] == 1
     assert heimdall.behavior_snapshot()["incident_candidate"] == 1
+    assert heimdall.behavior_snapshot()["repeated_event_duplicate"] == 1
 
 
 def test_heimdall_records_policy_held_candidate_separately() -> None:

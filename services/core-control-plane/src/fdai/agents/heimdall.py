@@ -603,19 +603,21 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
         evidence_key = str(event.get("idempotency_key") or event.get("event_id") or "").strip()
         if evidence_key and any(item[2] == evidence_key for item in history):
             self.record_behavior("repeated_event_duplicate")
-            return
-        history.append(
-            (
-                observed_at,
-                _event_severity(event),
-                evidence_key,
+            if len(history) < self._rate_threshold:
+                return
+        else:
+            history.append(
+                (
+                    observed_at,
+                    _event_severity(event),
+                    evidence_key,
+                )
             )
-        )
-        history = deque(
-            sorted(history, key=lambda item: (item[0], item[2])),
-            maxlen=self._rate_threshold * 2,
-        )
-        self._recent_events[episode_key] = history
+            history = deque(
+                sorted(history, key=lambda item: (item[0], item[2])),
+                maxlen=self._rate_threshold * 2,
+            )
+            self._recent_events[episode_key] = history
         if len(history) < self._rate_threshold:
             return
         window_tail = list(history)[-self._rate_threshold :]

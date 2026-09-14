@@ -81,7 +81,7 @@
     "services/core-control-plane/src/fdai/agents/bragi.py": "1223350441d0bf39f29dd414a7fb21f3dd80fbf860cc45e880d7c02e9d8720c0",
     "services/core-control-plane/src/fdai/agents/forseti.py": "a750b10fa34372444682b99cd7397d1688ed7bdc493613d0aa5a6f1270f388a7",
     "services/core-control-plane/src/fdai/agents/freyr.py": "1156beae1e7c92c8c0c632c59be6c215872cf5d805b5d9dd1bef39fa5052e756",
-    "services/core-control-plane/src/fdai/agents/heimdall.py": "de898b8c8c20adbf0e9c182fd76042c788a00e1720df254ec0f8f4fc776917c8",
+    "services/core-control-plane/src/fdai/agents/heimdall.py": "f6c3fa9349796cfcb663083cac18805cbd7ab1114399a6254c5d0898e6a334be",
     "services/core-control-plane/src/fdai/agents/huginn.py": "f24375d69a0b3e98ed274e35a29a30d2af1cc7d37c2462c1b597c3df3f50f12f",
     "services/core-control-plane/src/fdai/agents/loki.py": "258277ece8fe20e2e3c945c0fa8e961dafb7630e38273278e46af77ca5e0a1a3",
     "services/core-control-plane/src/fdai/agents/mimir.py": "3f0d2c3d196ce820f14083950e82c288c9ec5ead18e014d70bbabff628114f2e",

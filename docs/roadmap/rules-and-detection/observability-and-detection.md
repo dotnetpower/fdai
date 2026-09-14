@@ -82,8 +82,10 @@ are synthetic.
   `incident_correlation=correlate`.
   The five-minute analysis window remains separate from publication idempotency, so five distinct
   observations can meet the existing `5 events / 300 seconds` repeat gate. Exact retries keep the
-  same key, and Heimdall counts each non-empty evidence key at most once in an episode. The existing
-  minimum-severity policy still holds medium and lower findings by default. A Finding with a future
+  same key, and Heimdall counts each non-empty evidence key at most once in an episode. A duplicate
+  delivery can retry a threshold whose anomaly publication or lifecycle handoff did not complete,
+  but it cannot increase the count. The existing minimum-severity policy still holds medium and
+  lower findings by default. A Finding with a future
   or timezone-naive observation time is rejected before Event publication, so receipt validation
   cannot fail after an unaccounted broker side effect. The same pre-publication check covers
   bounded, unique evidence references and typed assessment metadata. An inventory-backed

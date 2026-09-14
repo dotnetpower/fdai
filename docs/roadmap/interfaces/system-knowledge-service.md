@@ -92,8 +92,8 @@ The revised design creates `fdai-system-knowledge-service` as a separate distrib
 - **Release-bound catalog:** A build command compiles structured records and source citations from
   tracked files. The runtime image contains the catalog, not repository source or Git credentials.
 - **Descriptive boundary:** A rebuilt catalog can expose a revised agent guarantee such as
-  duplicate-event handling, validated event-time windows, and restart-safe recurrence identity, but
-  it cannot enforce that guarantee or participate in event processing.
+  duplicate-event handling and retry, validated event-time windows, and restart-safe recurrence
+  identity, but it cannot enforce that guarantee or participate in event processing.
 - **Deterministic retrieval:** Exact aliases rank first. Normalized English tokens and Korean
   two-syllable tokens provide bounded lexical fallback. Low-score searches return an explicit
   unavailable answer.
