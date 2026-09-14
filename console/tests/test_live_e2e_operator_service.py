@@ -17,6 +17,7 @@ from fdai_operator_service.environment import (
 )
 
 SCRIPT = Path(__file__).parent / "live-e2e" / "operator_service.py"
+PLAYWRIGHT_CONFIG = Path(__file__).parents[1] / "playwright.live.config.ts"
 
 
 def _load_launcher() -> object:
@@ -71,3 +72,10 @@ def test_live_e2e_operator_clears_prepared_cli_auth_pair(monkeypatch) -> None:
     assert captured_environment[LOCAL_AZURE_CLI_AUTH_ENV] == "0"  # noqa: S101
     assert captured_environment[LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV] == "0"  # noqa: S101
     assert parsed.local_azure_cli_auth is False  # noqa: S101
+
+
+def test_live_e2e_frontend_clears_prepared_cli_auth_pair() -> None:
+    source = PLAYWRIGHT_CONFIG.read_text(encoding="utf-8")
+
+    assert "VITE_LOCAL_AZURE_CLI_AUTH=0" in source  # noqa: S101
+    assert "VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM=0" in source  # noqa: S101

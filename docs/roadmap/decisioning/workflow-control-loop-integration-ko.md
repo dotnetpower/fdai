@@ -1,7 +1,7 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: aab04491fa229d5ce40307955b2cd667d4447c99
+translation_source_sha: 89ed69d51a17eed67f20d169387bd53cad1f316e
 translation_revised: 2026-09-14
 ---
 
@@ -190,9 +190,7 @@ parameter-substitution 맥락 및 `mode`를 받습니다. 기여자는 shadow를
 `ProcessRuntimeStore` 에 연결합니다. 다음 CLI 래퍼 로 실행해 볼 수 있습니다.
 
 ```bash
-FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1 \
-FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=1 uv run uvicorn \
-  'fdai.delivery.operator_api.dev.local:app' --factory --port 8000
+uv run python -m tools.console
 
 uv run python scripts/automation/run-workflow.py architecture-review \
   --target fdai-control-plane

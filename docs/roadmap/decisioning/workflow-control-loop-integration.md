@@ -189,9 +189,7 @@ The local dev composition wires the command and the Processes read routes to
 the same `ProcessRuntimeStore`. Use the CLI wrapper to exercise it:
 
 ```bash
-FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1 \
-FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=1 uv run uvicorn \
-  'fdai.delivery.operator_api.dev.local:app' --factory --port 8000
+uv run python -m tools.console
 
 uv run python scripts/automation/run-workflow.py architecture-review \
   --target fdai-control-plane

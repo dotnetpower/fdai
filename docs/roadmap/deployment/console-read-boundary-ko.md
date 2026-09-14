@@ -1,7 +1,7 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: 109348da048c880e5e11c6663888c533cf9e7f40
+translation_source_sha: 4a3307bfa87f4aed1c7f42d12a896849eb5e73bd
 translation_revised: 2026-09-14
 ---
 # Console 읽기 경계
@@ -30,6 +30,7 @@ translation_revised: 2026-09-14
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 라이브 E2E 프런트엔드도 API 실행기와 동일하게 Vite CLI principal 값 두 개를 모두 해제하도록 하고, 제거된 기존 모듈 예시를 지원되는 실행기로 교체했습니다. | `current change`; `playwright.live.config.ts`; 집중 라이브 E2E 구성 테스트; 문서 검사. | 독립 통합 비평을 반복합니다. |
 | 2026-09-14 | implemented | 인증된 라이브 E2E Operator 실행기가 Browser Entra 테스트 애플리케이션을 만들기 전에 CLI principal 값 두 개를 모두 해제하도록 했습니다. 이제 Azure CLI로 준비된 로컬 환경의 남은 확인 값 때문에 라이브 E2E 시작이 실패하지 않습니다. | `current change`; `console/tests/live-e2e/operator_service.py`; 집중 실행기 파싱 회귀 테스트. | 독립 통합 비평을 반복합니다. |
 | 2026-09-14 | implemented | 지원되는 `tools.console` 실행기, 브라우저 복구 오류, CLI 안내 및 실행 가능한 워크플로 예시를 API 확인 값 쌍에 맞췄습니다. 집중 테스트는 이제 실행기 환경을 실제 Operator 파서로 검증합니다. | `current change`; `tools/console.py`; 집중 실행기 및 Operator 환경 테스트; 문서 검사. | 독립 통합 비평을 반복합니다. |
 | 2026-09-14 | implemented | 27개 작업 토폴로지, 명시적 Browser Entra 명령, 변경 불가능한 API 기대값 및 별도 Azure CLI 디버그 체인에 맞춰 정확한 VS Code 작업 영역 계약을 갱신했습니다. 필수 통합 게이트가 이제 강화된 실행 형태를 검사합니다. | `current change`; `test_vscode_workspace_performance.py`; 집중 작업 영역 계약 테스트 모음. | 독립 통합 비평을 반복합니다. |
