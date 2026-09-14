@@ -25,6 +25,16 @@ if [[ ! "$readiness_seconds" =~ ^[1-9][0-9]*$ ]]; then
   exit 2
 fi
 readiness_budget_seconds=$((readiness_seconds + 5))
+auth_mode_file="$repo_root/.fdai/local-console-auth-mode"
+if [[ ! -f "$auth_mode_file" ]]; then
+  echo "missing prepared Console auth mode: $auth_mode_file" >&2
+  exit 1
+fi
+auth_mode="$(<"$auth_mode_file")"
+if [[ "$auth_mode" != "browser-entra" && "$auth_mode" != "azure-cli" ]]; then
+  echo "invalid prepared Console auth mode: $auth_mode" >&2
+  exit 1
+fi
 
 emit_failed() {
   local stage="$1"

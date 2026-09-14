@@ -9,6 +9,7 @@ import sys
 import time
 from pathlib import Path
 
+import pytest
 import yaml
 
 _BASH = "/usr/bin/bash"
@@ -230,6 +231,7 @@ def test_supervisor_reports_a_service_that_exits_before_readiness(tmp_path: Path
     start_script.parent.mkdir(parents=True)
     shutil.copy2(_START_SCRIPT, start_script)
     (repo / ".fdai/logs").mkdir(parents=True)
+    (repo / ".fdai/local-console-auth-mode").write_text("browser-entra\n", encoding="utf-8")
 
     _write_executable(
         repo / "scripts/deployment/local/run-console-service.sh",
@@ -272,6 +274,7 @@ def test_supervisor_propagates_an_immediate_readiness_failure(tmp_path: Path) ->
     start_script.parent.mkdir(parents=True)
     shutil.copy2(_START_SCRIPT, start_script)
     (repo / ".fdai/logs").mkdir(parents=True)
+    (repo / ".fdai/local-console-auth-mode").write_text("browser-entra\n", encoding="utf-8")
     _write_executable(
         repo / "scripts/deployment/local/run-console-service.sh",
         "#!/usr/bin/env bash\nexec sleep 10\n",
@@ -292,6 +295,41 @@ def test_supervisor_propagates_an_immediate_readiness_failure(tmp_path: Path) ->
     assert "service=console-stack event=ready" not in result.stdout
     assert "service=console-stack event=failed" in result.stderr
     assert "stage=readiness exit_code=7" in result.stderr
+
+
+@pytest.mark.parametrize("prepared_mode", [None, "unexpected"])
+def test_supervisor_rejects_unprepared_auth_mode(
+    tmp_path: Path,
+    prepared_mode: str | None,
+) -> None:
+    repo = tmp_path / "repo"
+    start_script = repo / "scripts/deployment/local/start-console-services.sh"
+    start_script.parent.mkdir(parents=True)
+    shutil.copy2(_START_SCRIPT, start_script)
+    (repo / ".fdai/logs").mkdir(parents=True)
+    if prepared_mode is not None:
+        (repo / ".fdai/local-console-auth-mode").write_text(
+            f"{prepared_mode}\n",
+            encoding="utf-8",
+        )
+    _write_executable(
+        repo / "scripts/deployment/local/run-console-service.sh",
+        "#!/usr/bin/env bash\nprintf 'started\\n' > started.txt\n",
+    )
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(start_script)],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 1
+    assert "prepared Console auth mode" in result.stderr
+    assert "service=console-stack event=starting" not in result.stdout
+    assert not (repo / "started.txt").exists()
 
 
 def test_supervisor_allows_bounded_inventory_recovery() -> None:
