@@ -81,7 +81,7 @@ Do not add a generic `WorkItem`, `OperationRequest`, duplicate `Approval`, unive
 table, or new approval topic. Each source keeps its own schema, revision, lifecycle, and owner.
 
 The Ontology instance workspace is the default `/ontology` read-only operational view. It mounts without the declaration graph request; semantic-model, declaration, ActionType, and Catalog topology references stay behind one labeled native disclosure with existing deep links.
-Reference loading or failure never removes the path back to instances. Its graph-first layout, selected resource and legend overlays, and Inspector-owned collapse state are presentation controls only;
+Reference loading or failure never removes the path back to instances. Direction backgrounds fill the complete graph viewport independently from shorter SVG geometry. Its graph-first layout, selected resource and legend overlays, and Inspector-owned collapse state are presentation controls only;
 none of these controls create links, change query scope, or grant mutation authority.
 For an `llm-model-deployment`, the card, tooltip, Inspector, and screen context use the same bounded
 model name, version, deployment SKU, and normalized TPM object. Missing values remain Not reported,
