@@ -68,6 +68,7 @@ from fdai_operator_service.postgres_sql import (
     AGENT_ONTOLOGY_ACTIVITY_SQL,
     AGENT_READ_ACTIVITY_SQL,
     AUDIT_PAGE_SQL,
+    AUDIT_TRACE_SQL,
     HIL_COUNT_SQL,
     HIL_PAGE_SQL,
     INCIDENT_CURRENT_PAGE_SQL,
@@ -1780,7 +1781,7 @@ class StubPostgresReadModel(PostgresOperatorReadModel):
         parameters: Mapping[str, object],
     ) -> list[dict[str, Any]]:
         self.calls.append((statement, parameters))
-        if statement == AUDIT_PAGE_SQL:
+        if statement in {AUDIT_PAGE_SQL, AUDIT_TRACE_SQL}:
             return self.audit_rows
         if statement == KPI_SAMPLE_SQL:
             return self.audit_rows
@@ -2596,6 +2597,7 @@ async def test_trace_and_rca_preserve_frozen_envelopes() -> None:
 
 def test_statement_identity_names_a_registered_statement_without_its_text() -> None:
     assert statement_identity(AUDIT_PAGE_SQL) == "AUDIT_PAGE_SQL"
+    assert statement_identity(AUDIT_TRACE_SQL) == "AUDIT_TRACE_SQL"
     assert statement_identity(INCIDENT_PAGE_SQL) == "INCIDENT_PAGE_SQL"
     assert statement_identity("SELECT 1") == "unregistered_statement"
 
