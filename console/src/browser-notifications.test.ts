@@ -3,6 +3,7 @@ import type { LiveStageEvent } from "./hooks/use-live-stream";
 import {
   acknowledgeBrowserAlertDelivery,
   BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
+  browserAlertDeliveryStatusForStorageKey,
   browserAlertNotificationData,
   browserAlertForLiveEvent,
   CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
@@ -312,5 +313,32 @@ describe("browser notification boundary", () => {
 
     acknowledgeBrowserAlertDelivery("fdai:event-new", "principal-a", now + 5, storage);
     expect(readBrowserAlertDeliveryStatus("principal-a", now + 5, storage)).toBe("acknowledged");
+  });
+
+  test("synchronizes only the current principal delivery ledger key", () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value); },
+      removeItem: (key: string) => { values.delete(key); },
+    };
+    const now = 1_800_000_000_000;
+    claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage);
+    recordBrowserAlertDelivered("fdai:event-1", "principal-a", now + 1, storage);
+
+    expect(browserAlertDeliveryStatusForStorageKey(
+      "fdai:console:browser-notification-delivery:v1:principal-a",
+      "principal-a",
+      now + 2,
+      storage,
+    )).toBe("delivered");
+    expect(browserAlertDeliveryStatusForStorageKey(
+      "fdai:console:browser-notification-delivery:v1:principal-b",
+      "principal-a",
+      now + 2,
+      storage,
+    )).toBeNull();
+    expect(browserAlertDeliveryStatusForStorageKey(null, "principal-a", now + 2, storage))
+      .toBeNull();
   });
 });

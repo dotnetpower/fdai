@@ -30,6 +30,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Synchronized Console web receipt status across tabs while filtering storage events to the current principal's ledger key. | `current change`; focused principal-key storage-event tests. | No residual cross-tab status synchronization work for this local ledger. |
 | 2026-09-14 | implemented | Derived the header status from the latest retained Console web delivery rather than the receipt that most recently changed. | `current change`; focused multiple-delivery ordering test. | No residual stale-acknowledgement status overwrite remains. |
 | 2026-09-14 | implemented | Required trusted browser message events for Console web acknowledgement and moved acknowledgement time ownership to the receiving page. | `current change`; focused acknowledgement decoder and service-worker tests. | No residual message-timestamp trust remains in this client-local receipt path. |
 | 2026-09-14 | implemented | Preserved the legacy browser-ledger timestamp alias on every new receipt write so old and new Console tabs deduplicate during rolling updates. | `current change`; focused browser notification compatibility test. | Remove the alias only after a separately versioned browser-storage migration proves no supported old tab depends on it. |
