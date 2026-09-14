@@ -2,8 +2,7 @@
 
 const CONSOLE_WEB_CHANNEL_ID = "console-web";
 const ACKNOWLEDGEMENT_TYPE = "fdai.console-web-notification.acknowledged";
-const ACKNOWLEDGEMENT_QUERY = "fdai_notification_ack";
-const ACKNOWLEDGEMENT_TOKEN_QUERY = "fdai_notification_token";
+const ACKNOWLEDGEMENT_FRAGMENT = "fdai-notification-ack";
 const SAFE_NOTIFICATION_TAG = /^fdai:[A-Za-z0-9._:-]{1,128}$/;
 const SAFE_ACKNOWLEDGEMENT_TOKEN = /^[a-f0-9]{32}$/;
 
@@ -86,8 +85,10 @@ function safeAcknowledgementToken(value) {
 function acknowledgementTarget(target, tag, acknowledgementToken) {
   const acknowledged = new URL(target.href);
   if (tag !== null && acknowledgementToken !== null) {
-    acknowledged.searchParams.set(ACKNOWLEDGEMENT_QUERY, tag);
-    acknowledged.searchParams.set(ACKNOWLEDGEMENT_TOKEN_QUERY, acknowledgementToken);
+    acknowledged.hash = `${ACKNOWLEDGEMENT_FRAGMENT}?${new URLSearchParams({
+      tag,
+      token: acknowledgementToken,
+    })}`;
   }
   return acknowledged;
 }

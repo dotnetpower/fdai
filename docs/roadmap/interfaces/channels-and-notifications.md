@@ -389,8 +389,8 @@ After `showNotification()` resolves, the same ledger records the `console-web` d
 Clicking that notification records a separate acknowledgement only when its bounded tag already has
 a sent record with the same unpredictable per-claim token for the browser principal. An exact open
 Console window receives both values in a service-worker message. A navigated or newly opened Console
-window receives them through the transient `fdai_notification_ack` and
-`fdai_notification_token` query fields, which the Console removes after validation. Legacy
+window receives them through a transient `#fdai-notification-ack` fragment, which never reaches the
+HTTP request or referrer and which the Console removes after closed-shape validation. Legacy
 tokenless records remain valid for deduplication but cannot mint a new acknowledgement. The control reports
 `Ready`, `Sent`, or `Sent + opened` so it never collapses selection, delivery, and user
 acknowledgement into one state.

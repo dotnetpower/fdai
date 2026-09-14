@@ -2,14 +2,10 @@ import { useEffect, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import {
   acknowledgeBrowserAlertDelivery,
-  BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_QUERY,
-  BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TOKEN_QUERY,
-  BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
   browserAlertNotificationData,
   browserAlertDeliveryStatusForStorageKey,
   browserAlertForLiveEvent,
-  CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
-  decodeBrowserAlertAcknowledgement,
+  decodeBrowserAlertAcknowledgementFragment,
   browserNotificationsSupported,
   browserNotificationWorkerPaths,
   claimBrowserAlertDelivery,
@@ -173,31 +169,18 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
     serviceWorker?.addEventListener("message", onWorkerMessage);
 
     const location = new URL(window.location.href);
-    const tag = location.searchParams.get(BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_QUERY);
-    const acknowledgementToken = location.searchParams.get(
-      BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TOKEN_QUERY,
-    );
-    if (tag !== null || acknowledgementToken !== null) {
-      location.searchParams.delete(BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_QUERY);
-      location.searchParams.delete(BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TOKEN_QUERY);
+    const acknowledgement = decodeBrowserAlertAcknowledgementFragment(location.hash);
+    if (acknowledgement !== null) {
       window.history.replaceState(
         window.history.state,
         "",
-        `${location.pathname}${location.search}${location.hash}`,
+        `${location.pathname}${location.search}`,
       );
-      const acknowledgement = decodeBrowserAlertAcknowledgement({
-        type: BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
-        channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
-        tag,
-        acknowledgement_token: acknowledgementToken,
-      });
-      if (acknowledgement !== null) {
-        acknowledge(
-          acknowledgement.tag,
-          acknowledgement.acknowledgementToken,
-          Date.now(),
-        );
-      }
+      acknowledge(
+        acknowledgement.tag,
+        acknowledgement.acknowledgementToken,
+        Date.now(),
+      );
     }
 
     return () => serviceWorker?.removeEventListener("message", onWorkerMessage);

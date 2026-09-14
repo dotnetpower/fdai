@@ -4,7 +4,7 @@ import { describe, expect, test, vi } from "vitest";
 
 const ACKNOWLEDGEMENT_TOKEN = "a".repeat(32);
 const ACKNOWLEDGEMENT_SUFFIX =
-  `&fdai_notification_ack=fdai%3Aevent-1&fdai_notification_token=${ACKNOWLEDGEMENT_TOKEN}`;
+  `#fdai-notification-ack?tag=fdai%3Aevent-1&token=${ACKNOWLEDGEMENT_TOKEN}`;
 
 interface WorkerContext {
   readonly handlers: Map<string, (event: unknown) => void>;
@@ -36,6 +36,7 @@ function loadWorker(
     handlers,
     clients,
     URL,
+    URLSearchParams,
     self: {
       location: { origin: "https://console.example.com" },
       registration: { scope },

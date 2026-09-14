@@ -8,6 +8,7 @@ import {
   browserAlertForLiveEvent,
   CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
   decodeBrowserAlertAcknowledgement,
+  decodeBrowserAlertAcknowledgementFragment,
   browserNotificationPreferenceKey,
   browserNotificationsSupported,
   browserNotificationTargetPath,
@@ -279,6 +280,25 @@ describe("browser notification boundary", () => {
       acknowledgementToken: ACKNOWLEDGEMENT_TOKEN,
       acknowledgedAt: 1_800_000_000_000,
     });
+  });
+
+  test("accepts only the closed acknowledgement fragment shape", () => {
+    const encodedTag = encodeURIComponent("fdai:event-1");
+    expect(decodeBrowserAlertAcknowledgementFragment(
+      `#fdai-notification-ack?tag=${encodedTag}&token=${ACKNOWLEDGEMENT_TOKEN}`,
+    )).toEqual({
+      tag: "fdai:event-1",
+      acknowledgementToken: ACKNOWLEDGEMENT_TOKEN,
+    });
+    expect(decodeBrowserAlertAcknowledgementFragment(
+      `#other?tag=${encodedTag}&token=${ACKNOWLEDGEMENT_TOKEN}`,
+    )).toBeNull();
+    expect(decodeBrowserAlertAcknowledgementFragment(
+      `#fdai-notification-ack?tag=${encodedTag}&token=${ACKNOWLEDGEMENT_TOKEN}&extra=1`,
+    )).toBeNull();
+    expect(decodeBrowserAlertAcknowledgementFragment(
+      `#fdai-notification-ack?tag=${encodedTag}&tag=${encodedTag}&token=${ACKNOWLEDGEMENT_TOKEN}`,
+    )).toBeNull();
   });
 
   test("keeps legacy claims deduplicated without upgrading them to delivery evidence", () => {

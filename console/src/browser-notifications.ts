@@ -14,8 +14,7 @@ const DELIVERY_LEDGER_LIMIT = 32;
 export const CONSOLE_WEB_NOTIFICATION_CHANNEL_ID = "console-web";
 export const BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE =
   "fdai.console-web-notification.acknowledged";
-export const BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_QUERY = "fdai_notification_ack";
-export const BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TOKEN_QUERY = "fdai_notification_token";
+const BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_FRAGMENT = "fdai-notification-ack";
 const FAILURE_OUTCOMES: ReadonlySet<string> = new Set([
   "failed",
   "failure",
@@ -296,6 +295,27 @@ export function trustedBrowserAlertAcknowledgement(
   if (!isTrusted || !isSafeTimestamp(now)) return null;
   const message = decodeBrowserAlertAcknowledgement(value);
   return message === null ? null : { ...message, acknowledgedAt: now };
+}
+
+export function decodeBrowserAlertAcknowledgementFragment(
+  hash: string,
+): BrowserAlertAcknowledgementMessage | null {
+  const prefix = `#${BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_FRAGMENT}?`;
+  if (!hash.startsWith(prefix)) return null;
+  const params = new URLSearchParams(hash.slice(prefix.length));
+  if (
+    [...params.keys()].some((key) => key !== "tag" && key !== "token")
+    || params.getAll("tag").length !== 1
+    || params.getAll("token").length !== 1
+  ) {
+    return null;
+  }
+  return decodeBrowserAlertAcknowledgement({
+    type: BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
+    channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
+    tag: params.get("tag"),
+    acknowledgement_token: params.get("token"),
+  });
 }
 
 export function browserAlertNotificationData(
