@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 7713db252dd73a198fcbf63a8eaa16d7d37b2f5e
-translation_revised: 2026-09-14
+translation_source_sha: 6c4595463b3cda0cf19e5ef426453fe93f39255e
+translation_revised: 2026-09-15
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -53,6 +53,7 @@ translation_revised: 2026-09-14
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | implemented | 서명된 알림 결과의 선확정과 재생 테스트를 Operator 통합 테스트 그룹에 등록했습니다. 최종 수신함과 범위별 조회 결과의 작성자는 Operator 하나로 유지합니다. | `current change`; [브리지 테스트](../../../services/operator-service/tests/test_alert_quality_bridge.py) 3개 통과. | 데이터베이스 동시성과 운영 증적은 알림 조정 원장의 남은 작업이며 서비스나 권한은 변경하지 않았습니다. |
 | 2026-09-14 | implemented | 검토된 신원 안내를 최신 보호 출처 리비전에 rebase한 뒤 System Knowledge 카탈로그를 다시 생성했습니다. | `current change`, 생성된 카탈로그, 번역 동등성 및 파생 출처 게이트. | 서비스 경계, 쓰기 담당 또는 권한은 변경되지 않았습니다. |
 | 2026-09-14 | implemented | 검토된 사람 신원 안내가 변경되어 파생된 System Knowledge 카탈로그를 새로 고쳤습니다. | `current change`, 생성된 카탈로그와 파생 출처 게이트. | 서비스 경계, 쓰기 담당 또는 권한은 변경되지 않았습니다. |
 | 2026-09-13 | implemented | 자율성 측정 변환 결과 테스트를 Operator 단위 테스트 모음에 등록하고, 보존된 가용성 상태 회귀 검사를 검토된 공급자 기능 분류와 일치시켰습니다. | `current change`, `tests/integration/service-suites.json`, 집중 서비스 모음 및 기록 상태 검사 통과 | 서비스 경계, 쓰기 담당 또는 권한은 변경되지 않았습니다. |

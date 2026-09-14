@@ -51,6 +51,7 @@ Core only after the exact live evidence closes.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Registered signed alert-result reservation and replay tests with the Operator integration group. Operator retains the only writer for its terminal inbox and scoped projections. | `current change`; [bridge tests](../../../services/operator-service/tests/test_alert_quality_bridge.py): 3 passed. | Database-backed concurrency and operational receipts remain in the alert-noise ledger; no service or authority change. |
 | 2026-09-14 | implemented | Regenerated the System Knowledge catalog after rebasing the reviewed identity guidance onto the latest protected source revisions. | `current change`; generated catalog, translation parity, and derived-source gate. | No service boundary, writer, or authority changed. |
 | 2026-09-14 | implemented | Refreshed the derived System Knowledge catalog after the reviewed human-identity guidance changed. | `current change`; generated catalog and derived-source gate. | No service boundary, writer, or authority changed. |
 | 2026-09-13 | implemented | Registered the autonomy measurement projection test with the Operator unit suite and aligned the retained availability-state regression with the reviewed provider capability classification. | `current change`; `tests/integration/service-suites.json`; focused service-suite and recorded-state checks passed. | No service boundary, writer, or authority changed. |

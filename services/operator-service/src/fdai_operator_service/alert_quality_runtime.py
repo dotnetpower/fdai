@@ -161,7 +161,11 @@ class AlertQualityBridge:
         return await self.store.mark_proposal_published(key=key, claim_id=claim_id)
 
     async def accept_result(self, raw: Mapping[str, object]) -> None:
-        """Authenticate result, match original acceptance, then materialize scoped evidence."""
+        """Reserve the exact authenticated result before projecting any evidence.
+
+        A conflicting terminal cannot win during projection I/O. Interrupted projection
+        is completed by replaying only the retained result; reservation is not completion.
+        """
         if "readiness" in raw:
             signed_ready = SignedAlertReadiness.model_validate(raw)
             verify_alert_record(signed_ready.readiness, signed_ready.signature, self.key)
@@ -184,8 +188,9 @@ class AlertQualityBridge:
         if record is None or command_from_record(record) != result.command:
             raise ValueError("alert result has no matching Operator acceptance")
         result_key = "operator-alert-quality-result:" + result.command.request_ref
-        existing = await self.store.read_state(result_key)
-        if existing is not None and existing != signed.model_dump(mode="json"):
+        result_value = signed.model_dump(mode="json")
+        created = await self.store.create_state(result_key, result_value)
+        if not created and await self.store.read_state(result_key) != result_value:
             raise ValueError("alert result conflicts with an already recorded terminal result")
         subject = str(record["principal_id"])
         if result.assessment is not None:
@@ -203,11 +208,6 @@ class AlertQualityBridge:
                 # Retained original request closure remains factual;
                 # no newer projection is overwritten.
                 pass
-        created = await self.store.create_state(result_key, signed.model_dump(mode="json"))
-        if not created and await self.store.read_state(result_key) != signed.model_dump(
-            mode="json"
-        ):
-            raise ValueError("alert result identity conflict")
 
     async def _drain(self) -> None:
         while True:

@@ -247,6 +247,10 @@ reconciliation to canonical dispatch, closure, and outcome stores. Independent e
 separate Workflow outcome admission remain required; factory construction produces neither.
 See the [operator runbook](../../runbooks/alert-noise-governance.md) for configuration and prerequisites.
 
+Operator reserves the authenticated terminal result with insert-if-absent before updating any
+report or plan projection. A conflicting result cannot change a projection. After an interruption,
+only replay of that exact retained result may finish its idempotent projection writes.
+
 ## 7. Bounded rollout and recovery
 
 The [constitutional seven safeguards](../architecture/fdai-constitution.md#article-7-autonomous-action-safeguards)

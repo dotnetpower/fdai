@@ -2,7 +2,7 @@
 title: 알림 과다 수신 관리
 description: 조직 전체의 과도한 알림을 진단하고 탐지 품질을 유지하면서 승인 기반 알림 변경을 제안합니다.
 translation_of: alert-noise-governance.md
-translation_source_sha: 56e12d1f9aae607c892097db4c5b1121ca540b4d
+translation_source_sha: 660025fccb6b55a8a9134bac69be363891cf2799
 translation_revised: 2026-09-15
 ---
 # 알림 과다 수신 관리
@@ -249,6 +249,10 @@ Core는 결정 기록, Operator는 인증된 요청 발신함과 권한이 적�
 정본 전달, 종결, 결과 저장소에 연결합니다. 독립 효과 수락과 별도의 Workflow 결과 수락이
 여전히 필요하며 팩터리 구성으로 이 증적을 생성하지 않습니다.
 구성 키와 선행 조건은 [운영자 런북](../../runbooks/alert-noise-governance-ko.md)을 참조하세요.
+
+Operator는 보고서나 계획 조회 결과를 갱신하기 전에 인증된 최종 결과를 한 번만 삽입하여
+확정합니다. 충돌하는 결과는 조회 결과를 바꿀 수 없습니다. 중단 후에는 정확히 같은 보존
+결과를 재생해야만 멱등적인 조회 결과 저장을 마칠 수 있습니다.
 
 ## 7. 제한적 적용과 복구
 
