@@ -74,6 +74,23 @@ def test_huginn_rejects_a_malformed_source_event_time() -> None:
         )
 
 
+def test_huginn_rejects_a_source_time_after_ingestion() -> None:
+    huginn = Huginn()
+
+    with pytest.raises(ValueError, match="MUST NOT be after ingested_at"):
+        asyncio.run(
+            huginn.ingest(
+                {
+                    "id": "evt-time-1",
+                    "resource_id": "vm-1",
+                    "event_type": "cpu_spike",
+                    "detected_at": "2026-09-14T02:00:01Z",
+                    "ingested_at": "2026-09-14T02:00:00Z",
+                }
+            )
+        )
+
+
 def test_huginn_bounds_pathological_attributes() -> None:
     # attributes is attacker-controlled free-form metadata; the ingress
     # boundary must cap the key count and truncate oversized string values so

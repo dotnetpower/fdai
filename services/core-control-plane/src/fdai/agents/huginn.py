@@ -92,23 +92,44 @@ def _bound_json(value: Any, *, depth: int = 0) -> Any:
 def _event_occurred_at(raw: Mapping[str, Any]) -> str | None:
     """Return one validated source-event timestamp when the producer supplied it."""
 
+    observed_at: datetime | None = None
+    observed_field = ""
     for field in ("occurred_at", "detected_at", "created_at"):
         value = raw.get(field)
         if value is None or value == "":
             continue
         if isinstance(value, datetime):
-            parsed = value
+            observed_at = value
         elif isinstance(value, str):
             try:
-                parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                observed_at = datetime.fromisoformat(value.replace("Z", "+00:00"))
             except ValueError as exc:
                 raise ValueError(f"event {field} MUST be RFC 3339") from exc
         else:
             raise ValueError(f"event {field} MUST be RFC 3339")
-        if parsed.tzinfo is None or parsed.utcoffset() is None:
-            raise ValueError(f"event {field} MUST be timezone-aware")
-        return parsed.isoformat()
-    return None
+        observed_field = field
+        break
+    if observed_at is None:
+        return None
+    if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+        raise ValueError(f"event {observed_field} MUST be timezone-aware")
+
+    ingested_value = raw.get("ingested_at")
+    if ingested_value is not None:
+        if isinstance(ingested_value, datetime):
+            ingested_at = ingested_value
+        elif isinstance(ingested_value, str):
+            try:
+                ingested_at = datetime.fromisoformat(ingested_value.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise ValueError("event ingested_at MUST be RFC 3339") from exc
+        else:
+            raise ValueError("event ingested_at MUST be RFC 3339")
+        if ingested_at.tzinfo is None or ingested_at.utcoffset() is None:
+            raise ValueError("event ingested_at MUST be timezone-aware")
+        if observed_at > ingested_at:
+            raise ValueError(f"event {observed_field} MUST NOT be after ingested_at")
+    return observed_at.isoformat()
 
 
 def _change_projection(

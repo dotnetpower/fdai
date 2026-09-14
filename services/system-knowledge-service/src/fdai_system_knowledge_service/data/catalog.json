@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:8a2c8bea474597f0f14155f8dc838d51ddb10018b7d2908b52e12cef280212d8",
+  "catalog_digest": "sha256:5e10e42ea5acbdb03c97b8f3c411cf029c4db80de9bb003ecbbf4467ac4d5023",
   "execution_authority": false,
-  "generated_at": "2026-09-14T03:58:19.047622Z",
+  "generated_at": "2026-09-14T04:01:22.963184Z",
   "records": [
     {
       "designed_behavior": [
@@ -106,11 +106,11 @@
         "What is Bragi responsible for?",
         "Bragi는 무엇을 담당하나요?"
       ],
-      "record_digest": "sha256:8fc0a0a13a1dc9e6895858ed8cebc94394b3e9ed07c92f84ceb71d8cb6d1b165",
+      "record_digest": "sha256:5d2a5581576691dc27d21ba69a795af4af76a158bc72e91178fd28b1d1af3e08",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "0f6284089ea5b349632e9ec6150553d9f33e0d1e",
+          "blob_sha": "a986158fe0977aae3927c4d8e23ff3f94b98835c",
           "line_end": 37,
           "line_start": 37,
           "path": "docs/roadmap/agents/agent-pantheon.md",
@@ -336,11 +336,11 @@
         "How are FDAI agents organized?",
         "FDAI agent 조직은 어떻게 구성되나요?"
       ],
-      "record_digest": "sha256:506d9333a4fa42580fce0c071ce511378d5ea240d8b33aae0e921eb6d07103e3",
+      "record_digest": "sha256:feb1baba11983c19313044c2f94a8224d0b0dc4ee5ce3ea70e7d61200e96fcc6",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "0f6284089ea5b349632e9ec6150553d9f33e0d1e",
+          "blob_sha": "a986158fe0977aae3927c4d8e23ff3f94b98835c",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/agents/agent-pantheon.md",
@@ -448,8 +448,17 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:9eb0cce301e1bd8b4d89ae02079de851bad54e30163d4b6b91e5b707a1a60fb7",
+      "record_digest": "sha256:5b0f77597e53aedae1cf025544b814f8568183f485c2bea88e6b355d4e7bef2f",
       "sources": [
+        {
+          "authority_role": "design",
+          "blob_sha": "00cd8ba2b4033e46ddef2bd169a361f4c1c19615",
+          "line_end": 79,
+          "line_start": 79,
+          "path": "docs/roadmap/interfaces/system-knowledge-service.md",
+          "source_kind": "doc",
+          "symbol": "Revised design"
+        },
         {
           "authority_role": "design",
           "blob_sha": "63cff6a63a0fd2551af3d484e3750e7b3b3ce0ba",
@@ -458,15 +467,6 @@
           "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
           "source_kind": "doc",
           "symbol": "Graduation scorecard"
-        },
-        {
-          "authority_role": "design",
-          "blob_sha": "a4283e00f856d934f38d97bcbd109136e7ee91ff",
-          "line_end": 79,
-          "line_start": 79,
-          "path": "docs/roadmap/interfaces/system-knowledge-service.md",
-          "source_kind": "doc",
-          "symbol": "Revised design"
         }
       ],
       "status": "in_progress",
@@ -491,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:16c9d6b5a6ba14e6a63f80c51befefc141c630993efab4d907ff54cd9d862c6b",
+      "record_digest": "sha256:33cca1c4be79a2e73f15f8567923da4a4cecfbe99d34d03ae3e19f97b6f14821",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "a4283e00f856d934f38d97bcbd109136e7ee91ff",
+          "blob_sha": "00cd8ba2b4033e46ddef2bd169a361f4c1c19615",
           "line_end": 79,
           "line_start": 79,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
