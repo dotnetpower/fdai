@@ -41,12 +41,12 @@ The current change is a baseline checkpoint, not final completion or operational
 
 ### Remaining work
 
-- [ ] **Coverage:** Raise measured `fdai.core.detection.alert_noise` coverage to >=90% with focused
-  negative-path and boundary regressions, including the threshold comparator, and retain the exact
-  selected-input coverage receipt. The baseline above does not satisfy this exit.
-- [ ] **Hardening:** Complete at least ten distinct critique, correction, and verification rounds
-  with attributable defects or honest no-change findings and focused results. Test counts or named
-  test groups do not constitute ten verified rounds.
+- [x] **Coverage gate:** The 243 focused Core checks passed with branch-enabled combined coverage
+  of 91.24% using `--cov=fdai.core.detection.alert_noise --cov-branch --cov-fail-under=90`.
+  The threshold comparator measured 100%. This does not replace exact-head integration CI.
+- [x] **Ten hardening batches:** Rounds 1-10 below each have focused verification and their own
+  local commit. Rounds 7-9 corrected reproduced Medium defects; other rounds honestly record
+  coverage hardening. This count does not close the remaining integration or operational gaps.
 - [ ] **ANG-1 evidence:** Supply independently admitted directory, current ownership/incident,
   complete reverse-dependency, historical revision, and delivery evidence bound to the exact native
   snapshot. Retain denial, partial, stale, conflicting, and privacy outcomes without fabricated
@@ -103,6 +103,7 @@ checks do not prove deployed Azure behavior or authorize promotion.
 | 7 | Competing terminal results might update projections before detecting an identity conflict. | Medium: reproduced two failures, including identity loss after interrupted projection. | [Bridge tests](../../../services/operator-service/tests/test_alert_quality_bridge.py): 3 passed after insert-if-absent result reservation moved before projections; exact replay completes interrupted writes. Ruff and strict runtime mypy passed. | No known residual for this race; database-backed concurrency remains separately tracked. |
 | 8 | Organization-scale admitted evidence might exceed a digest or record budget before assessment. | Medium: the complete 10000-event fixture failed at the unrelated query codec's 65536-byte ceiling. | [Scale admission](../../../services/core-control-plane/tests/delivery/test_alert_noise_scale.py) and [codec bounds](../../../packages/service-contracts/tests/test_alert_noise_content.py): 55 focused checks plus 114 authority/fence/effect regressions passed. A separate finite alert codec preserves existing small-record digests; 500 principals, 20 teams, overlapping role/group/direct paths and skew are retained without truncation. | No known residual for this size defect; independently produced operational receipts are still required. |
 | 9 | An incomplete effective route might still produce a complete report. | Medium: four missing-group, missing-audience, partial-membership and historical-processing cases incorrectly returned complete. | [Assessment hardening](../../../services/core-control-plane/tests/core/detection/alert_noise/test_assessment_hardening.py) and existing assessment/measurement checks: 17 passed after propagating routing gaps to report coverage; Ruff and strict mypy passed. | No known residual for this completeness defect; unknown counts remain unknown. |
+| 10 | A changed catalog, target, requester or terminal replay might replace an exact Process binding. | No new defect; coverage hardening. The shadow Process correctly waits rather than inventing completion. | [Workflow hardening](../../../services/core-control-plane/tests/core/detection/alert_noise/test_workflow_hardening.py): 14 passed, Ruff passed. The complete 243-test Core slice reached 91.24% branch-enabled combined coverage (>=90 gate). | Database, browser and operational proof gaps remain; this is not an all-Low or rollout claim. |
 
 Document, translation, link, and route checks establish documentation consistency only. The reported
 focused baseline proves bounded implementation mechanics, not live delivery or safety in a tenant.
