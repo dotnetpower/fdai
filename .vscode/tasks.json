@@ -267,7 +267,7 @@
     },
     {
       "label": "console: start local services",
-      "hide": true,
+      "hide": false,
       "type": "shell",
       "command": "bash scripts/deployment/local/start-console-services.sh --auth-mode browser-entra",
       "isBackground": true,

@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:ba8e056e51a1edbcca56564108cbf3a75e9f367698fdbe2f7b2061779183bf72",
+  "catalog_digest": "sha256:827aca959a655cffdbcf131745897ab9af7c920a45ac1ad80cdf7050d78c7f12",
   "execution_authority": false,
-  "generated_at": "2026-09-14T16:20:17.361676Z",
+  "generated_at": "2026-09-14T16:27:31.835592Z",
   "records": [
     {
       "designed_behavior": [
@@ -448,17 +448,8 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:3118f8e57eab7138369da73e1865a5c2dbb4fbda73b4aed48e60a8d70430504f",
+      "record_digest": "sha256:5590cf0cf93c1674f1911a9444b49c52edd6ac392332dbb420c98023f8fc11ba",
       "sources": [
-        {
-          "authority_role": "design",
-          "blob_sha": "5caeb97d22321e9d8831a6c1eb0c8d086e878163",
-          "line_end": 79,
-          "line_start": 79,
-          "path": "docs/roadmap/interfaces/system-knowledge-service.md",
-          "source_kind": "doc",
-          "symbol": "Revised design"
-        },
         {
           "authority_role": "design",
           "blob_sha": "7713db252dd73a198fcbf63a8eaa16d7d37b2f5e",
@@ -467,6 +458,15 @@
           "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
           "source_kind": "doc",
           "symbol": "Graduation scorecard"
+        },
+        {
+          "authority_role": "design",
+          "blob_sha": "e1e8274f45d2fdac40261dfb2f69a08d5a10e262",
+          "line_end": 81,
+          "line_start": 81,
+          "path": "docs/roadmap/interfaces/system-knowledge-service.md",
+          "source_kind": "doc",
+          "symbol": "Revised design"
         }
       ],
       "status": "in_progress",
@@ -491,13 +491,13 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:7b09f7b60dac243ee58bb88193e89b460c90fbb662fe3131f1e243fa4e1ff441",
+      "record_digest": "sha256:30f08a85e0457f7f2319b31708dfb77f002252d8fa6b1a9ed810d8bf5e9b7973",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "5caeb97d22321e9d8831a6c1eb0c8d086e878163",
-          "line_end": 79,
-          "line_start": 79,
+          "blob_sha": "e1e8274f45d2fdac40261dfb2f69a08d5a10e262",
+          "line_end": 81,
+          "line_start": 81,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
           "source_kind": "doc",
           "symbol": "Revised design"
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "68d608b695c7f4af84b2232da40537648691e515"
+  "source_revision": "e0a354653fe81ac089a56208ecbe249918d42ba6"
 }

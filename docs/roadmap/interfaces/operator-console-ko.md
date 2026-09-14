@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: e36da2340e1531f5a75514673d43ef961ad92c65
-translation_revised: 2026-09-14
+translation_source_sha: 30844e07e80fa35f1b4eda925af5357291cdf811
+translation_revised: 2026-09-15
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다.
@@ -33,7 +33,7 @@ Console shell은 헤더에 간결한 FDAI 브랜드 락업을 유지하고, 외�
 인증된 active-incident 스트림은 idle Command Deck을 인시던트 선택자와 함께 열 수 있습니다. 이 선택자는 표현 힌트일 뿐이며 서버는 답변 전에 영속 인시던트와 근거를 다시 해석합니다.
 Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관찰할 때 localized 읽기 전용 조사 턴을 한 번 제출합니다. Browser-local 인시던트 원장은 reload 뒤 재생을 억제하며, 인시던트 배지를 누르면 명시적으로 다시 조사할 수 있습니다. 인시던트 질문이 여러 기록과 같은 정도로 일치하면 최종 답변은 plain-text 안내 대신 범위가 제한된 후보 버튼을 포함합니다. 버튼은 해당 후보의 exact 인시던트 대화를 열고 localized 읽기 전용 조사 턴을 즉시 제출합니다. 버튼 click은 운영자의 명시적인 요청입니다. 자동 active-incident 스트림 열림은 managed-resource 액션을 제출하지 않습니다.
 
-이 문서는 **pull 방향**, 즉 오퍼레이터가 묻고 시뮬레이션하고 승인하는 경로를 다룹니다. Push와 pull은 같은 채널 자격 증명과 감사 계약을 공유하지만 서로 다른 통합 표면입니다.
+이 문서는 **pull 방향**, 즉 오퍼레이터가 묻고 시뮬레이션하고 승인하는 경로를 다룹니다. Push와 pull은 같은 채널 자격 증명과 감사 계약을 공유하지만 서로 다른 통합 표면입니다. 로컬 준비에서 비공개 `console/.env.local`에는 브라우저 연결과 서버가 소유하는 `FDAI_LOCAL_NO_AZURE_DEPLOYMENT`, `FDAI_LOCAL_RESOURCE_GROUP` 선택자만 추가할 수 있습니다. 명시적 프로세스 값이 우선하고 중복 키는 안전하게 차단하며 어느 선택자도 실행 권한을 부여하지 않습니다.
 > 고객-무관: 아래의 모든 채널 id, LLM 배포 이름, 리소스 id, 그룹 이름은 자리 표시자. 포크는 구성으로 실제 값을 공급합니다 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 ## 1. Framing - 무엇인가 (그리고 무엇이 아닌가)
 

@@ -1,7 +1,7 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: 5caeb97d22321e9d8831a6c1eb0c8d086e878163
+translation_source_sha: e1e8274f45d2fdac40261dfb2f69a08d5a10e262
 translation_revised: 2026-09-15
 ---
 # 시스템 지식 서비스
@@ -69,7 +69,8 @@ Muninn은 release context index의 최종 책임을 유지합니다. Bragi는 �
 - **신원 범위:** 제품 지식 봇에는 운영 principal 범위, 프로바이더 읽기 자격 증명 또는 작업 기능이
   필요하지 않습니다.
 - **배포 주기:** FDAI 설계와 구현 지식은 운영 컨트롤 플레인을 다시 배포하지 않고 갱신할 수
-  있습니다.
+  있습니다. 컴파일러는 각 레코드를 최종 보호 main 원본 개정에 고정하므로, 검토된 검색 내용이
+  바뀌지 않은 병합 시점 갱신은 원본 커밋과 전체 다이제스트만 변경합니다.
 - **채널 의도:** 전용 봇에서는 수락한 모든 멘션이 시스템 지식 조회입니다. 키워드 라우팅이
   필요하지 않고 일반 A3 봇은 운영 요청 해석을 계속 담당합니다.
 - **롤백:** 지식 봇을 비활성화해도 Core, Operator Service 또는 기존 채널 전달을 롤백하면 안

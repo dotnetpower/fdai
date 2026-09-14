@@ -96,15 +96,37 @@ require_version() {
   printf 'ok %-20s %s\n' "$label" "$actual"
 }
 
-docker_info() {
+run_with_docker_access() {
+  local command
+
   if docker info >/dev/null 2>&1; then
-    return 0
+    "$@"
+    return
   fi
   if getent group docker | awk -F: '{print $4}' | tr ',' '\n' | grep -Fxq "$USER"; then
-    sg docker -c 'docker info >/dev/null'
+    printf -v command '%q ' "$@"
+    sg docker -c "$command"
     return
   fi
   return 1
+}
+
+docker_info() {
+  run_with_docker_access docker info >/dev/null
+}
+
+local_data_stack_healthy() {
+  local container
+  local health
+
+  for container in fdai-postgres fdai-postgres-validation fdai-redpanda fdai-clamav; do
+    health="$(
+      run_with_docker_access docker inspect \
+        --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' \
+        "$container" 2>/dev/null
+    )" || return 1
+    [[ "$health" == "healthy" ]] || return 1
+  done
 }
 
 opa_version_from_core_image() {
@@ -115,7 +137,7 @@ opa_version_from_core_image() {
 install_system_packages() {
   sudo apt-get update
   sudo apt-get install -y \
-    build-essential ca-certificates curl git gnupg \
+    build-essential ca-certificates curl git gnupg ripgrep \
     tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor \
     docker.io docker-compose-v2
   sudo systemctl enable --now docker
@@ -217,6 +239,10 @@ install_project_dependencies() {
   npm --prefix console exec playwright install chromium
 }
 
+start_local_data_stack() {
+  run_with_docker_access bash "$REPO_ROOT/scripts/deployment/local/dev-up.sh"
+}
+
 configure_vscode() {
   local extension
 
@@ -255,11 +281,13 @@ run_checks() {
   }
 
   check "build tools" bash -c 'command -v make >/dev/null && command -v gcc >/dev/null && command -v g++ >/dev/null'
+  check "ripgrep" rg --version
   check "Tesseract English" bash -c 'tesseract --list-langs 2>/dev/null | grep -Fxq eng'
   check "Tesseract Korean" bash -c 'tesseract --list-langs 2>/dev/null | grep -Fxq kor'
   check "Docker CLI" docker --version
   check "Docker Compose v2" docker compose version
   check "Docker daemon" docker_info
+  check "Local data stack" local_data_stack_healthy
   check "uv ${UV_VERSION}" bash -c "[[ \$(uv --version) == 'uv ${UV_VERSION} '* ]]"
   check "Python 3.13" uv python find 3.13
   check "Node ${NODE_VERSION}" bash -c "[[ \$(node --version) == 'v${NODE_VERSION}' ]]"
@@ -308,6 +336,7 @@ install_terraform
 install_github_cli
 install_azd
 install_project_dependencies
+start_local_data_stack
 if (( ! SKIP_VSCODE )); then
   configure_vscode
 fi
