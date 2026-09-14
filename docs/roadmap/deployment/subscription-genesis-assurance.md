@@ -99,6 +99,9 @@ Every effect writes an immutable claim first. A claim or receipt permits only ve
 not repeated apply, enrollment, transfer, or migration. Enrollment receipts bind the exact human claim
 and need fresh Bastion identity, toolchain, service, and GitHub runner readback. Registration material
 uses only SSH stdin over the exact Bastion tunnel, never Terraform, arguments, Run Command, or records.
+A newer signed release may repair verification of an existing runner-image claim without changing or
+repeating its apply source. The terminal receipt binds both the original `source_commit` and the
+`verified_source_commit`; a fresh apply still requires them to match.
 Portable status carries digests, counts, stage state, and safe booleans; IDs, SSH/state paths, and raw
 plans stay private. State-handoff claims bind the authenticated human's target-scoped digest; backend
 authority and terminal receipts bind that claim. Remote cleanup records exact intent, deletes the

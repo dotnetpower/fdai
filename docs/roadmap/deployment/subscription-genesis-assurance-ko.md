@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 40a418222e2b98c823ef01a13d6298a56ab32906
+translation_source_sha: 23c253c60fc64d2dee61fc0ce60d758926fdbb3b
 translation_revised: 2026-09-14
 ---
 # 구독 초기 구성 보증
@@ -103,7 +103,11 @@ Vault의 부재를 확인합니다. 명령 성공만으로 정리를 증명하�
 검증만 허용하며 적용, 등록, 전송, 이전을 반복하지 않습니다. 등록 증적은 정확한 사람의 시작
 기록에 연결하고 Bastion 신원, 도구 체인, 서비스, GitHub 실행기를 새로 읽어 확인합니다.
 등록 자료는 정확한 Bastion 터널의 SSH 표준 입력만 사용하며 Terraform, 인자, Run Command,
-기록에 넣지 않습니다. 이식 가능한 상태에는 다이제스트, 개수, 단계 상태, 안전한 부울 값만
+기록에 넣지 않습니다. 더 새로운 서명 release는 기존 runner-image 시작 기록의 적용 출처를
+변경하거나 적용을 반복하지 않고 검증만 수정할 수 있습니다. 최종 증적은 원래
+`source_commit`과 `verified_source_commit`을 모두 연결하며, 새 적용에서는 두 값이 계속
+일치해야 합니다.
+이식 가능한 상태에는 다이제스트, 개수, 단계 상태, 안전한 부울 값만
 포함하며 ID, SSH·상태 경로, 원시 계획은 비공개입니다. 상태 인계 시작 기록은 인증된 사람의
 대상 범위 다이제스트에 연결하고 백엔드 권위와 종결 증적은 그 기록에 연결합니다. 원격 정리는
 정확한 의도 기록, 아카이브·원시 작업 트리 삭제, 부재 확인 후 증적을 씁니다. 잔여물이 있으면

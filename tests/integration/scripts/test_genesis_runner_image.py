@@ -88,6 +88,26 @@ def test_extension_readback_rejects_explicit_failed_instance_view(tmp_path: Path
         observation._verify_extension(resource_id, capture=capture, cwd=tmp_path, timeout=30)
 
 
+def test_fresh_runner_apply_rejects_a_different_signed_verifier() -> None:
+    checks = SimpleNamespace(source_evidence=SimpleNamespace(source_commit="b" * 40))
+
+    with pytest.raises(ValueError, match="does not match"):
+        command._verification_source_commit(
+            checks, review={"source_commit": "a" * 40}, effect_started=False
+        )
+
+
+def test_claimed_runner_recovery_accepts_a_new_signed_verifier() -> None:
+    checks = SimpleNamespace(source_evidence=SimpleNamespace(source_commit="b" * 40))
+
+    assert (
+        command._verification_source_commit(
+            checks, review={"source_commit": "a" * 40}, effect_started=True
+        )
+        == "b" * 40
+    )
+
+
 TENANT = "00000000-0000-0000-0000-000000000000"
 SUBSCRIPTION = "00000000-0000-0000-0000-000000000001"
 BINDING = compute_target_binding(tenant_id=TENANT, subscription_id=SUBSCRIPTION)
@@ -1042,6 +1062,8 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
     assert (work / CLAIM_NAME).is_file()
     receipt = json.loads((work / RECEIPT_NAME).read_text(encoding="utf-8"))
     assert receipt["runner_image_id"] == image_id
+    assert receipt["source_commit"] == source_commit
+    assert receipt["verified_source_commit"] == source_commit
     assert receipt["effect_verified"] is True
     assert receipt["public_ip_policy_effect_verified"] is True
     assert receipt["terraform_zero_change_verified"] is True
@@ -1063,8 +1085,23 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
         "load_genesis_approval",
         lambda *_a, **_kw: pytest.fail("claimed verification cannot request another approval"),
     )
+    repair_source = "f" * 40
+    monkeypatch.setenv(
+        "FDAI_SIGNED_SOURCE_EVIDENCE",
+        json.dumps(
+            {
+                "source_commit": repair_source,
+                "kit_manifest_digest": "4" * 64,
+                "bundle_manifest_digest": "5" * 64,
+                "runtime_release_digest": "6" * 64,
+            }
+        ),
+    )
     resumed = ["--resume-verification" if item == "--approve" else item for item in args]
     assert command.main(resumed) == 0
+    repaired = json.loads((work / RECEIPT_NAME).read_text(encoding="utf-8"))
+    assert repaired["source_commit"] == source_commit
+    assert repaired["verified_source_commit"] == repair_source
     assert command.main(args) == 0
     assert (work / CLAIM_NAME).read_bytes() == claim_before
     assert len(calls) == 1
