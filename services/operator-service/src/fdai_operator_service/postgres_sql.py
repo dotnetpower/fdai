@@ -24,6 +24,27 @@ SELECT seq, event_id, correlation_id, actor, action_kind, mode,
  LIMIT %(fetch)s
 """
 
+AUDIT_TRACE_SQL: Final = """
+WITH correlated_events AS (
+    SELECT DISTINCT event_id
+      FROM audit_log
+     WHERE correlation_id = %(correlation_id)s::text
+       AND event_id IS NOT NULL
+),
+bounded AS (
+    SELECT seq, event_id, correlation_id, actor, action_kind, mode,
+           entry, previous_hash, entry_hash, created_at
+      FROM audit_log
+     WHERE correlation_id = %(correlation_id)s::text
+        OR event_id IN (SELECT event_id FROM correlated_events)
+     ORDER BY seq DESC
+     LIMIT %(fetch)s
+)
+SELECT *
+  FROM bounded
+ ORDER BY seq ASC
+"""
+
 BROWSER_EVIDENCE_PAGE_SQL: Final = """
 SELECT artifact_id, policy_id, policy_version,
        canonical_source_url, canonical_final_url,
@@ -181,7 +202,36 @@ SELECT occurred_at, correlation_id, capability_id, model_key, tier, mode,
  LIMIT %(fetch)s
 """
 
-HIL_COUNT_SQL: Final = """
+_HIL_DECISIONABLE_SQL: Final = """
+   AND jsonb_typeof(value->'submitter_oid') = 'string'
+   AND TRIM(value->>'submitter_oid') <> ''
+   AND jsonb_typeof(value->'request_fingerprint') = 'string'
+   AND TRIM(value->>'request_fingerprint') <> ''
+   AND jsonb_typeof(value#>'{approval_context,expires_at}') = 'string'
+   AND CASE
+       WHEN value#>>'{approval_context,expires_at}' ~
+         '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}'
+       THEN (value#>>'{approval_context,expires_at}')::timestamptz
+         > CURRENT_TIMESTAMP
+       ELSE FALSE
+   END
+   AND (
+       NOT (value ? 'metadata')
+       OR (
+           jsonb_typeof(value->'metadata') = 'object'
+           AND value#>>'{metadata,decision_route}' IN ('action', 'workflow')
+           AND (
+               value#>>'{metadata,decision_route}' <> 'workflow'
+               OR (
+                   jsonb_typeof(value#>'{metadata,required_role}') = 'string'
+                   AND TRIM(value#>>'{metadata,required_role}') <> ''
+               )
+           )
+       )
+   )
+"""
+
+_HIL_COUNT_SQL_PREFIX: Final = """
 SELECT COUNT(*) AS total_count,
        COUNT(*) FILTER (WHERE NOT (
             jsonb_typeof(value->'approval_id') = 'string'
@@ -205,18 +255,20 @@ SELECT COUNT(*) AS total_count,
          FROM state_kv AS decision
         WHERE decision.key = 'operator-hil-decision:' || (state_kv.value->>'approval_id')
    )
-   AND (value#>>'{approval_context,expires_at}' IS NULL
-       OR CASE
-        WHEN value#>>'{approval_context,expires_at}' ~
-          '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}'
-        THEN (value#>>'{approval_context,expires_at}')::timestamptz
-          > CURRENT_TIMESTAMP
-        ELSE FALSE
-       END)
 """
 
-HIL_PAGE_SQL: Final = """
-SELECT value, updated_at, COUNT(*) OVER() AS total_count
+_HIL_PAGE_SQL_PREFIX: Final = """
+SELECT value, updated_at,
+       EXISTS (
+           SELECT 1
+             FROM operator_incident_projection AS incident
+            WHERE incident.valid_to_seq IS NULL
+              AND incident.has_incident_activity
+              AND incident.has_canonical_incident
+              AND incident.correlation_id =
+                  NULLIF(BTRIM(state_kv.value->>'correlation_id'), '')
+       ) AS incident_available,
+       COUNT(*) OVER() AS total_count
   FROM state_kv
  WHERE key LIKE %(key_pattern)s ESCAPE E'\\\\'
    AND value->>'status' = 'pending'
@@ -225,14 +277,8 @@ SELECT value, updated_at, COUNT(*) OVER() AS total_count
          FROM state_kv AS decision
         WHERE decision.key = 'operator-hil-decision:' || (state_kv.value->>'approval_id')
    )
-   AND (value#>>'{approval_context,expires_at}' IS NULL
-       OR CASE
-        WHEN value#>>'{approval_context,expires_at}' ~
-          '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}'
-        THEN (value#>>'{approval_context,expires_at}')::timestamptz
-          > CURRENT_TIMESTAMP
-        ELSE FALSE
-       END)
+"""
+_HIL_PAGE_SQL_SUFFIX: Final = """
   AND (%(search)s::text IS NULL OR CONCAT_WS(
        ' ', value->>'approval_id', value->>'correlation_id',
        value->>'idempotency_key', value->>'action_type', value->>'rule_id',
@@ -249,6 +295,12 @@ SELECT value, updated_at, COUNT(*) OVER() AS total_count
  END DESC
  LIMIT %(limit)s
 """
+
+# These statements compose only static module literals; runtime values remain bound parameters.
+HIL_COUNT_SQL: Final = _HIL_COUNT_SQL_PREFIX + _HIL_DECISIONABLE_SQL  # noqa: S608
+HIL_PAGE_SQL: Final = (  # noqa: S608
+    _HIL_PAGE_SQL_PREFIX + _HIL_DECISIONABLE_SQL + _HIL_PAGE_SQL_SUFFIX
+)
 
 INCIDENT_PAGE_SQL: Final = """
 WITH snapshot AS (
@@ -351,6 +403,7 @@ __all__ = [
     "AGENT_ONTOLOGY_ACTIVITY_SQL",
     "AGENT_READ_ACTIVITY_SQL",
     "AUDIT_PAGE_SQL",
+    "AUDIT_TRACE_SQL",
     "HIL_COUNT_SQL",
     "HIL_PAGE_SQL",
     "INCIDENT_CURRENT_PAGE_SQL",

@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 1de3451d8a651b1ca0eca92ba44cf21546de3345
-translation_revised: 2026-09-13
+translation_source_sha: 6f02d9efa9c0f4c78c362572e67cda76bef579f7
+translation_revised: 2026-09-14
 ---
 # 프로세스 자동화(프로세스 자동화)
 
@@ -215,6 +215,11 @@ catalog-root, 어댑터 라우팅, 저널, 명령 및 샌드박스 실행 세부
 보상 증적을 독립적으로 검증해야 forward 단계가 완료되거나 프로세스가 `compensated`가
 됩니다. 근거가 없거나 거부되거나 malformed이면 waiting 상태를 유지하거나
 `recovery_incomplete`로 끝나며 성공이 되지 않습니다.
+
+작업 흐름 검증은 `not_attempted`와 `failed`를 구분합니다. 효과 없음이 입증된 결과는
+프로바이더 실패를 주장하지 않고 단계 또는 보상 경로를 중단하며, 대기 중인 근거는 최종 상태가
+아닙니다. 동일한 액션 식별자와 양의 작업 흐름 시도 번호는 재시도, 보상, HIL 재개, 최종
+근거까지 이어집니다.
 
 Core는 전달과 동일한 논리 대상 잠금으로 자동화 보류 발행을 직렬화하고, 증적 인코딩과 상태 전이를 분리합니다.
 격리 실행기는 프로바이더 입출력 직전에 자신의 대상 잠금 안에서 현재 보류와 정확한 워크플로 권한 부여를

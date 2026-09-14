@@ -1,4 +1,4 @@
-"""Typed terminal results returned by the control-loop orchestrator."""
+"""Typed turn results returned by the control-loop orchestrator."""
 
 from __future__ import annotations
 
@@ -23,6 +23,8 @@ class ControlLoopOutcome(StrEnum):
     ABSTAINED_T0 = "abstained_t0"
     COMPLIANT = "compliant"
     EXECUTED = "executed"
+    EXECUTION_PENDING = "execution_pending"
+    EXECUTION_NOT_ATTEMPTED = "execution_not_attempted"
     ABSTAINED_ACTION_BUILD = "abstained_action_build"
     GOVERNANCE_OBSERVED = "governance_observed"
     HIL = "hil"

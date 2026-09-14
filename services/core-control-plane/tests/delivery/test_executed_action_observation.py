@@ -8,6 +8,7 @@ from fdai.delivery.executed_action_observation import (
 )
 from fdai.delivery.reconciliation_artifacts import StateStoreExecutedActionArtifactStore
 from fdai.delivery.reconciliation_observations import StateStoreExecutedActionObservationStore
+from fdai.shared.contracts.models import WorkflowActionRef
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 from tests.delivery.test_reconciliation_observations import _Verifier
@@ -39,6 +40,16 @@ def _payload(action, correlation_id: str, *, state: str = "succeeded") -> dict[s
 
 async def _handler():
     artifacts, action, observation = _inputs()
+    action = action.model_copy(
+        update={
+            "workflow_action": WorkflowActionRef(
+                process_id="process-observation-001",
+                step_id="verify",
+                proposal_ref="proposal:observation:001",
+                attempt=3,
+            )
+        }
+    )
     correlation_id = str(action.action_id)
     store = InMemoryStateStore()
     artifact_store = StateStoreExecutedActionArtifactStore(store=store)
@@ -59,11 +70,11 @@ async def _handler():
         collector=collector,
         observations=observation_store,
     )
-    return handler, collector, observation_store, artifacts, action, correlation_id
+    return handler, collector, observation_store, artifacts, action, correlation_id, store
 
 
 async def test_terminal_action_run_collects_and_seals_exact_observation() -> None:
-    handler, collector, observations, artifacts, action, correlation_id = await _handler()
+    handler, collector, observations, artifacts, action, correlation_id, store = await _handler()
 
     assert await handler.handle(_payload(action, correlation_id)) is True
     loaded = await observations.observe(
@@ -76,17 +87,20 @@ async def test_terminal_action_run_collects_and_seals_exact_observation() -> Non
 
     assert loaded is not None
     assert len(collector.calls) == 1
+    audit = tuple(store.audit_entries)[-1]["entry"]
+    assert audit["correlation_id"] == correlation_id
+    assert audit["workflow_action"]["attempt"] == 3
 
 
 async def test_nonterminal_action_run_does_not_call_collector() -> None:
-    handler, collector, _, _, action, correlation_id = await _handler()
+    handler, collector, _, _, action, correlation_id, _ = await _handler()
 
     assert await handler.handle(_payload(action, correlation_id, state="executing")) is False
     assert collector.calls == []
 
 
 async def test_forged_action_run_producer_is_rejected() -> None:
-    handler, collector, _, _, action, correlation_id = await _handler()
+    handler, collector, _, _, action, correlation_id, _ = await _handler()
     payload = _payload(action, correlation_id)
     payload["producer_principal"] = "NotThor"
 
@@ -96,7 +110,7 @@ async def test_forged_action_run_producer_is_rejected() -> None:
 
 
 async def test_substituted_action_run_target_is_rejected() -> None:
-    handler, collector, _, _, action, correlation_id = await _handler()
+    handler, collector, _, _, action, correlation_id, _ = await _handler()
     payload = _payload(action, correlation_id)
     payload["resource_id"] = "substituted-target"
 
@@ -106,7 +120,7 @@ async def test_substituted_action_run_target_is_rejected() -> None:
 
 
 async def test_collector_evidence_for_another_correlation_is_rejected() -> None:
-    handler, collector, _, _, action, correlation_id = await _handler()
+    handler, collector, _, _, action, correlation_id, _ = await _handler()
     collector.observation = collector.observation.__class__(
         evidence=collector.observation.evidence.model_copy(
             update={"correlation_id": "another-correlation"}

@@ -468,10 +468,31 @@ Best for: configuration changes, IaC patches, catalog updates, governance change
   transition. Enforce mutation receipts remain authoritative and still reject payload collisions.
 - **Upstream Azure gateway binding** - when the development operations gateway URL and Easy Auth
   audience are both configured, the headless runtime binds an enforce-capable
-  `AzureGatewayDirectApiExecutor`. It supports only `ops.start-vm`, `ops.deallocate-vm`,
-  `ops.upsert-network-rule`, and `ops.delete-network-rule`. Each ActionType remains shadow-first
-  and its shipped T0 ceiling requires human approval. Shadow performs the server plan and no
-  mutation; enforce submits only after the one-time receipt is returned.
+  `AzureGatewayDirectApiExecutor`. The Core in-process binding supports `ops.start-vm`,
+  `ops.deallocate-vm`, `ops.scale-out`, `ops.upsert-network-rule`, and
+  `ops.delete-network-rule`. The isolated Executor target registry supports the same set except
+  `ops.scale-out`. Each ActionType remains shadow-first and its shipped T0 ceiling requires human
+  approval. Shadow performs the server plan and no mutation; enforce submits only after the
+  one-time receipt is returned. The machine-checked support manifest at
+  `config/action-type-runtime-support.json` records this surface-specific difference.
+- **Outcome semantics** - `dispatch_not_attempted` proves that the current attempt reached no
+  provider effect boundary and projects as a distinct no-effect result. `receipt_timeout` and
+  `execution_unknown` mean an effect may have occurred, and `awaiting_effect_evidence` means
+  dispatch completed while independent observation is still pending. Any pending effect dominates
+  a mixed aggregate, remains outside terminal shadow-divergence comparison, and stays held for
+  reconciliation. The control loop, HIL, workflow ledger, and operator projections MUST NOT
+  relabel these outcomes as execution failure, retry another path, or claim success.
+- **Workflow lineage** - every PR-native, direct-API, tool-call, and remote transport audit intent
+  and result keeps the Action id and the complete `workflow_action`, including its attempt when
+  present. HIL, observation, and recovery records preserve the same lineage and the originating
+  control-loop correlation. Terminal materialization resolves through that correlation, then uses
+  the restored Action id for exact receipt and `ActionRun` identity. Correlation Trace builds a
+  separate lifecycle per Action id and attempt. It never joins unrelated actions merely because
+  they share a correlation id, and a missing attempt remains explicitly unknown.
+- **Approved-effect reconciliation** - HIL resume submits every potentially effective result to
+  the same reconciliation producer as the ordinary control-loop path, retaining the original
+  correlation id. Missing or failed request production is an explicit hold and never turns an
+  approved dispatch into success.
 - **Long-running operation lock** - an ARM `202` keeps the target's Blob lease in the private
   operation record. Executor status polling renews the lease, then records terminal status with
   ETag compare-and-swap before releasing it. Unknown status URL query fields are rejected.

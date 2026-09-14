@@ -18,6 +18,10 @@ from fdai.core.executor.direct_api import (
     DirectApiExecutionOutcome,
     DirectApiExecutionResult,
 )
+from fdai.core.executor.outcome_semantics import (
+    execution_outcome_is_no_effect,
+    execution_outcome_is_pending,
+)
 from fdai.core.executor.tool_call import (
     ToolCallExecutionOutcome,
     ToolCallExecutionResult,
@@ -332,6 +336,22 @@ def _is_execution_success(
     return result.audit_context.get("effect_verified") is True
 
 
+def _is_execution_pending(
+    result: ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult | Any,
+) -> bool:
+    """Return whether an attempted effect still needs authoritative closure."""
+
+    return hasattr(result, "outcome") and execution_outcome_is_pending(result.outcome)
+
+
+def _is_execution_no_effect(
+    result: ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult | Any,
+) -> bool:
+    """Return whether the current attempt provably reached no effect boundary."""
+
+    return hasattr(result, "outcome") and execution_outcome_is_no_effect(result.outcome)
+
+
 def _synthetic_action_build_failure(*, event: Event, finding: Any, reason: str) -> ExecutionResult:
     """Return a synthetic :class:`ExecutionResult` for the caller.
 
@@ -389,6 +409,8 @@ __all__ = [
     "_extract_environment",
     "_extract_resource_id",
     "_extract_resource_props",
+    "_is_execution_no_effect",
+    "_is_execution_pending",
     "_is_execution_success",
     "_synthetic_action_build_failure",
     "_unified_audit_dict",

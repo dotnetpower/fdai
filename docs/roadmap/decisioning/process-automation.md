@@ -220,6 +220,11 @@ same Process after a crash. A proposal reference proves dispatch only. `Workflow
 must independently validate each action and compensation receipt before a forward step completes or the Process becomes `compensated`. Missing, rejected, or malformed evidence remains waiting or
 closes as `recovery_incomplete`; it never becomes success.
 
+Workflow verification distinguishes `not_attempted` from `failed`. A proven no-effect result stops
+the step or compensation path without claiming provider failure, while pending evidence remains
+non-terminal. The same action identifier and positive workflow attempt continue through retry,
+compensation, HIL resume, and terminal evidence.
+
 Core serializes automation-hold issuance on the same logical-target lock as dispatch; receipt encoding
 stays separate from state transitions. The isolated Executor rechecks the current hold and exact workflow authorization inside its own target lock
 immediately before provider I/O. Malformed or superseded authorization stops dispatch; a rejected

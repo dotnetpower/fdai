@@ -10,6 +10,10 @@ from datetime import UTC, datetime
 
 from fdai_service_contracts.ontology_query import content_digest
 
+from fdai.core.executor.outcome_semantics import (
+    execution_outcome_is_no_effect,
+    execution_outcome_is_pending,
+)
 from fdai.shared.contracts.models import Action, Mode, ResponseOutcome, ResponseOutcomeLabel
 from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceAdmission,
@@ -22,7 +26,11 @@ from .workflow_runtime import WorkflowVerifiedOutcome
 
 WORKFLOW_OUTCOME_EVIDENCE_PURPOSE = "workflow-outcome"
 _SUCCESS_OUTCOMES = frozenset({"dispatched", "already_applied", "published", "already_existed"})
-_UNKNOWN_OUTCOMES = frozenset({"publish_outcome_unknown"})
+_OUTCOME_EVIDENCE_STATUS = {
+    "succeeded": "effect_verified",
+    "not_attempted": "no_effect",
+    "failed": "terminal_failure",
+}
 _KEY_PREFIX = "workflow:outcome:"
 
 
@@ -77,7 +85,7 @@ class StateStoreWorkflowOutcomeLedger:
             not safeguard_bundle_digest.startswith("sha256:") or len(safeguard_bundle_digest) != 71
         ):
             raise ValueError("workflow outcome safeguard bundle digest is malformed")
-        evidence_status = "effect_verified" if outcome == "succeeded" else "terminal_failure"
+        evidence_status = _OUTCOME_EVIDENCE_STATUS[outcome]
         receipt_payload: dict[str, object] = {
             "process_id": lineage.process_id,
             "step_id": lineage.step_id,
@@ -117,7 +125,7 @@ class StateStoreWorkflowOutcomeLedger:
         outcome: str,
         receipt_ref: str,
     ) -> bool:
-        if outcome not in {"succeeded", "failed"}:
+        if outcome not in _OUTCOME_EVIDENCE_STATUS:
             return False
         record = await self.store.read_state(_state_key(proposal_ref))
         if record is None:
@@ -130,8 +138,7 @@ class StateStoreWorkflowOutcomeLedger:
             "receipt_ref": receipt_ref,
         }
         matched = all(record.get(name) == value for name, value in expected.items()) and (
-            record.get("evidence_status")
-            == ("effect_verified" if outcome == "succeeded" else "terminal_failure")
+            record.get("evidence_status") == _OUTCOME_EVIDENCE_STATUS[outcome]
         )
         if not matched:
             return False
@@ -244,8 +251,10 @@ def _classify_outcome(*, execution_outcome: str, response_outcome: ResponseOutco
         if response_outcome.label is ResponseOutcomeLabel.VERIFIED:
             return "succeeded"
         return None
-    if execution_outcome in _UNKNOWN_OUTCOMES:
+    if execution_outcome_is_pending(execution_outcome):
         return None
+    if execution_outcome_is_no_effect(execution_outcome):
+        return "not_attempted"
     return "failed"
 
 

@@ -112,6 +112,7 @@ class ActionRun:
     resource_id: str | None
     state: ActionRunState
     verdict: str  # auto | hil | deny
+    action_id: str | None = None
     idempotency_key: str = ""
     params: dict[str, Any] = field(default_factory=dict)
     shadow_mode: bool = False
@@ -123,7 +124,7 @@ class ActionRun:
     rollback_ref: str | None = None
     decision_case: dict[str, Any] | None = None
     operational_context: dict[str, Any] | None = None
-    workflow_action: dict[str, str] | None = None
+    workflow_action: dict[str, Any] | None = None
     kinetic_proposal: dict[str, Any] | None = None
     prospective_lineage: dict[str, Any] | None = None
     execution_audit_receipt: str | None = None
@@ -133,6 +134,16 @@ class ActionRun:
     history: list[ActionRunState] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        if self.action_id is not None and (
+            not self.action_id.strip()
+            or self.action_id != self.action_id.strip()
+            or len(self.action_id) > 512
+        ):
+            raise ValueError("ActionRun action_id MUST be canonical and bounded")
+        if self.workflow_action is not None and (
+            _bounded_workflow_action(self.workflow_action) != self.workflow_action
+        ):
+            raise ValueError("ActionRun workflow_action MUST be canonical and bounded")
         if not self.idempotency_key:
             self.idempotency_key = self.correlation_id
 
@@ -148,6 +159,7 @@ class ActionRun:
             "resource_id": self.resource_id,
             "state": self.state.value,
             "verdict": self.verdict,
+            "action_id": self.action_id,
             "idempotency_key": self.idempotency_key,
             "params": deepcopy(self.params),
             "shadow_mode": self.shadow_mode,
@@ -187,6 +199,10 @@ class ActionRun:
             resource_id=data.get("resource_id"),
             state=ActionRunState(data["state"]),
             verdict=str(data["verdict"]),
+            action_id=_optional_bounded_text(
+                data.get("action_id"),
+                field_name="action_id",
+            ),
             idempotency_key=str(data.get("idempotency_key") or data["correlation_id"]),
             params=deepcopy(dict(data.get("params") or {})),
             shadow_mode=bool(data.get("shadow_mode", False)),
@@ -637,6 +653,10 @@ class Thor(Agent):
             resource_id=resource_id,
             state=ActionRunState.VERDICTED,
             verdict=risk_verdict,
+            action_id=_optional_bounded_text(
+                verdict.get("action_id"),
+                field_name="action_id",
+            ),
             idempotency_key=str(verdict.get("idempotency_key") or correlation),
             params=params,
             shadow_mode=shadow_mode,
@@ -1135,6 +1155,8 @@ class Thor(Agent):
                 run.approval_expires_at.isoformat() if run.approval_expires_at is not None else None
             ),
         }
+        if run.action_id is not None:
+            payload["action_id"] = run.action_id
         if run.state in _TERMINAL_STATES:
             payload["terminal_at"] = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
         await self.bus.publish("Thor", "object.action-run", payload)
@@ -1363,15 +1385,20 @@ def _optional_datetime(value: object, *, field_name: str) -> datetime | None:
     return parsed.astimezone(UTC)
 
 
-def _bounded_workflow_action(raw: object) -> dict[str, str] | None:
+def _bounded_workflow_action(raw: object) -> dict[str, Any] | None:
     if not isinstance(raw, Mapping):
         return None
     required = {"process_id", "step_id", "proposal_ref"}
-    if set(raw) != required:
+    if not required.issubset(raw) or not set(raw).issubset(required | {"attempt"}):
         return None
-    bounded = {key: str(raw[key]).strip() for key in required}
+    bounded: dict[str, Any] = {key: str(raw[key]).strip() for key in required}
     if any(not item or len(item) > 512 for item in bounded.values()):
         return None
+    if "attempt" in raw:
+        attempt = raw["attempt"]
+        if isinstance(attempt, bool) or not isinstance(attempt, int) or attempt < 1:
+            return None
+        bounded["attempt"] = attempt
     return bounded
 
 

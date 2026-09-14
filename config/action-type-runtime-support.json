@@ -1,0 +1,845 @@
+{
+  "schema_version": "1.0.0",
+  "description": "Source-grounded ActionType runtime support by binding surface. Catalog presence and source wiring do not claim deployed or live operational evidence.",
+  "catalog_root": "rule-catalog/action-types",
+  "bindings": {
+    "core-pr-native": {
+      "runtime_surface": "core",
+      "route_status": "wired",
+      "mode_support": {
+        "shadow": "conditional",
+        "enforce": "unsupported"
+      },
+      "activation_conditions": [
+        "A real Git provider requires configured credentials; the default recording publisher is test-only evidence."
+      ],
+      "source_assertion": {
+        "kind": "catalog_execution_path",
+        "path": "rule-catalog/action-types",
+        "value": "pr_native"
+      }
+    },
+    "core-azure-gateway": {
+      "runtime_surface": "core",
+      "route_status": "conditional",
+      "mode_support": {
+        "shadow": "conditional",
+        "enforce": "conditional"
+      },
+      "activation_conditions": [
+        "The operations gateway URL, audience, HTTP client, workload identity, promotion, and authorization must all be available."
+      ],
+      "source_assertion": {
+        "kind": "mapping_keys",
+        "path": "services/core-control-plane/src/fdai/delivery/azure/gateway_direct_api.py",
+        "symbol": "_ACTION_OPERATIONS"
+      }
+    },
+    "isolated-azure-gateway": {
+      "runtime_surface": "isolated_executor",
+      "route_status": "conditional",
+      "mode_support": {
+        "shadow": "conditional",
+        "enforce": "conditional"
+      },
+      "activation_conditions": [
+        "The isolated Executor, command and receipt transport, PostgreSQL state, managed identity, gateway, promotion, and authorization must all be available."
+      ],
+      "source_assertion": {
+        "kind": "mapping_keys",
+        "path": "packages/service-contracts/src/fdai_service_contracts/executor_targets.py",
+        "symbol": "_ACTION_OPERATIONS"
+      }
+    },
+    "core-action-promotion": {
+      "runtime_surface": "core",
+      "route_status": "conditional",
+      "mode_support": {
+        "shadow": "conditional",
+        "enforce": "conditional"
+      },
+      "activation_conditions": [
+        "A StateStore action-promotion registry and independently admitted promotion evidence must be bound."
+      ],
+      "source_assertion": {
+        "kind": "constant_value",
+        "path": "services/core-control-plane/src/fdai/delivery/promotion.py",
+        "symbol": "PROMOTION_ACTION_TYPE"
+      }
+    },
+    "core-effect-model-promotion": {
+      "runtime_surface": "core",
+      "route_status": "conditional",
+      "mode_support": {
+        "shadow": "conditional",
+        "enforce": "conditional"
+      },
+      "activation_conditions": [
+        "A graph-model promotion registry and independently admitted promotion evidence must be bound."
+      ],
+      "source_assertion": {
+        "kind": "constant_value",
+        "path": "services/core-control-plane/src/fdai/delivery/graph_model_promotion.py",
+        "symbol": "PROMOTE_EFFECT_MODEL_ACTION_TYPE"
+      }
+    },
+    "core-human-access": {
+      "runtime_surface": "core",
+      "route_status": "conditional",
+      "mode_support": {
+        "shadow": "conditional",
+        "enforce": "unsupported"
+      },
+      "activation_conditions": [
+        "Role-group configuration, a dedicated managed identity, HTTP access, and the human-access feature must be available."
+      ],
+      "source_assertion": {
+        "kind": "set_values",
+        "path": "services/core-control-plane/src/fdai/delivery/identity/direct_api.py",
+        "symbol": "HUMAN_ACCESS_ACTIONS"
+      }
+    },
+    "pantheon-t2-route": {
+      "runtime_surface": "pantheon",
+      "route_status": "conditional",
+      "mode_support": {
+        "shadow": "unsupported",
+        "enforce": "conditional"
+      },
+      "activation_conditions": [
+        "Pantheon enforce mode, the T2 route selector, durable Saga audit, resource locking, and Vidar recovery must all be bound."
+      ],
+      "source_assertion": {
+        "kind": "constant_value",
+        "path": "services/core-control-plane/src/fdai/runtime/t2_route_registry.py",
+        "symbol": "_ROUTE_ACTION"
+      }
+    },
+    "core-github-workflow-tools": {
+      "runtime_surface": "core",
+      "route_status": "conditional",
+      "mode_support": {
+        "shadow": "conditional",
+        "enforce": "conditional"
+      },
+      "activation_conditions": [
+        "GitHub credentials, owner, repository, and HTTP access are required; enforce additionally requires the workflow-tools enforce ceiling."
+      ],
+      "source_assertion": {
+        "kind": "set_values",
+        "path": "services/core-control-plane/src/fdai/runtime/delivery.py",
+        "symbol": "github_workflow_actions"
+      }
+    },
+    "core-chaos-tool": {
+      "runtime_surface": "core",
+      "route_status": "wired",
+      "mode_support": {
+        "shadow": "wired",
+        "enforce": "conditional"
+      },
+      "activation_conditions": [
+        "Enforce requires promoted scenarios, a bounded chaos context, and a governed execution provider."
+      ],
+      "source_assertion": {
+        "kind": "subscript_key",
+        "path": "services/core-control-plane/src/fdai/runtime/delivery.py",
+        "symbol": "routes",
+        "value": "tool.run-chaos-experiment"
+      }
+    },
+    "core-investigation-tool": {
+      "runtime_surface": "core",
+      "route_status": "conditional",
+      "mode_support": {
+        "shadow": "conditional",
+        "enforce": "conditional"
+      },
+      "activation_conditions": [
+        "A metric provider must be bound."
+      ],
+      "source_assertion": {
+        "kind": "subscript_key",
+        "path": "services/core-control-plane/src/fdai/runtime/delivery.py",
+        "symbol": "routes",
+        "value": "tool.run-investigation"
+      }
+    },
+    "core-vm-task-tool": {
+      "runtime_surface": "core",
+      "route_status": "conditional",
+      "mode_support": {
+        "shadow": "conditional",
+        "enforce": "conditional"
+      },
+      "activation_conditions": [
+        "VM task execution, PostgreSQL state, HTTP access, a managed identity, and the mode-specific authority ceiling must be configured."
+      ],
+      "source_assertion": {
+        "kind": "subscript_key",
+        "path": "services/core-control-plane/src/fdai/runtime/delivery.py",
+        "symbol": "routes",
+        "value": "tool.run-python-on-vm"
+      }
+    }
+  },
+  "support_profiles": {
+    "pr-native-shadow": {
+      "delivery_status": "shadow_only",
+      "effect_observation": {
+        "status": "source_only",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/github/effect_state_source.py"
+          }
+        ]
+      },
+      "recovery": {
+        "status": "declared_only",
+        "refs": [
+          {
+            "path": "docs/roadmap/decisioning/execution-model.md"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/core-control-plane/tests/core/executor/test_executor.py"
+          }
+        ]
+      }
+    },
+    "core-gateway": {
+      "delivery_status": "executable",
+      "effect_observation": {
+        "status": "missing",
+        "refs": []
+      },
+      "recovery": {
+        "status": "declared_only",
+        "refs": [
+          {
+            "path": "docs/roadmap/decisioning/execution-model.md"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/core-control-plane/tests/delivery/azure/test_gateway_direct_api.py"
+          }
+        ]
+      }
+    },
+    "core-start-vm": {
+      "delivery_status": "executable",
+      "effect_observation": {
+        "status": "source_only",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/azure/vm_power_state_effect_source.py"
+          },
+          {
+            "path": "services/core-control-plane/tests/delivery/azure/test_vm_power_state_observation.py"
+          }
+        ]
+      },
+      "recovery": {
+        "status": "source_only",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/core/standing_authority/effect_shadow_reversion.py"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/core-control-plane/tests/delivery/azure/test_gateway_direct_api.py"
+          }
+        ]
+      }
+    },
+    "core-scale-out": {
+      "delivery_status": "executable",
+      "effect_observation": {
+        "status": "conditional",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/composition/wire_azure_operational_evidence.py"
+          },
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/azure/executed_action_observation.py"
+          }
+        ]
+      },
+      "recovery": {
+        "status": "declared_only",
+        "refs": [
+          {
+            "path": "docs/roadmap/decisioning/execution-model.md"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/core-control-plane/tests/delivery/azure/test_executed_action_observation.py"
+          },
+          {
+            "path": "services/core-control-plane/tests/delivery/azure/test_gateway_direct_api.py"
+          }
+        ]
+      }
+    },
+    "isolated-gateway": {
+      "delivery_status": "executable",
+      "effect_observation": {
+        "status": "missing",
+        "refs": []
+      },
+      "recovery": {
+        "status": "declared_only",
+        "refs": [
+          {
+            "path": "docs/roadmap/decisioning/execution-model.md"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "packages/service-contracts/tests/test_executor_contract_sdk.py"
+          },
+          {
+            "path": "services/isolated-executor/tests/test_effect_safety.py"
+          }
+        ]
+      }
+    },
+    "isolated-start-vm": {
+      "delivery_status": "executable",
+      "effect_observation": {
+        "status": "source_only",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/azure/vm_power_state_effect_source.py"
+          }
+        ]
+      },
+      "recovery": {
+        "status": "source_only",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/core/standing_authority/effect_shadow_reversion.py"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/core-control-plane/tests/runtime/test_isolated_executor_client_safeguard.py"
+          },
+          {
+            "path": "services/isolated-executor/tests/test_safeguard_bundle_revalidation.py"
+          }
+        ]
+      }
+    },
+    "promotion-direct": {
+      "delivery_status": "executable",
+      "effect_observation": {
+        "status": "missing",
+        "refs": []
+      },
+      "recovery": {
+        "status": "declared_only",
+        "refs": [
+          {
+            "path": "docs/roadmap/decisioning/execution-model.md"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/core-control-plane/tests/delivery/test_promotion_executor.py"
+          },
+          {
+            "path": "services/core-control-plane/tests/delivery/test_graph_model_promotion.py"
+          }
+        ]
+      }
+    },
+    "human-access-apply-shadow": {
+      "delivery_status": "shadow_only",
+      "effect_observation": {
+        "status": "missing",
+        "refs": []
+      },
+      "recovery": {
+        "status": "source_only",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/identity/direct_api.py"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/core-control-plane/tests/delivery/identity/test_human_access_direct_api.py"
+          }
+        ]
+      }
+    },
+    "human-access-revoke-blocked": {
+      "delivery_status": "blocked",
+      "effect_observation": {
+        "status": "missing",
+        "refs": []
+      },
+      "recovery": {
+        "status": "missing",
+        "refs": []
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/core-control-plane/tests/delivery/identity/test_human_access_direct_api.py"
+          }
+        ]
+      }
+    },
+    "pantheon-t2-route": {
+      "delivery_status": "executable",
+      "effect_observation": {
+        "status": "conditional",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/runtime/bootstrap_pantheon.py"
+          },
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/executed_action_observation.py"
+          }
+        ]
+      },
+      "recovery": {
+        "status": "wired",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/runtime/t2_route_registry.py",
+            "symbol": "_ROUTE_ACTION"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/core-control-plane/tests/runtime/test_t2_route_registry.py"
+          }
+        ]
+      }
+    },
+    "github-workflow-tool": {
+      "delivery_status": "executable",
+      "effect_observation": {
+        "status": "source_only",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/github/effect_state_source.py"
+          }
+        ]
+      },
+      "recovery": {
+        "status": "declared_only",
+        "refs": [
+          {
+            "path": "docs/roadmap/decisioning/execution-model.md"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/core-control-plane/tests/delivery/github/test_tool.py"
+          }
+        ]
+      }
+    },
+    "chaos-tool": {
+      "delivery_status": "executable",
+      "effect_observation": {
+        "status": "missing",
+        "refs": []
+      },
+      "recovery": {
+        "status": "declared_only",
+        "refs": [
+          {
+            "path": "docs/roadmap/decisioning/execution-model.md"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/core-control-plane/tests/delivery/chaos/test_tool.py"
+          }
+        ]
+      }
+    },
+    "investigation-tool": {
+      "delivery_status": "executable",
+      "effect_observation": {
+        "status": "missing",
+        "refs": []
+      },
+      "recovery": {
+        "status": "declared_only",
+        "refs": [
+          {
+            "path": "docs/roadmap/decisioning/execution-model.md"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/core-control-plane/tests/delivery/investigation/test_tool.py"
+          }
+        ]
+      }
+    },
+    "vm-task-tool": {
+      "delivery_status": "executable",
+      "effect_observation": {
+        "status": "missing",
+        "refs": []
+      },
+      "recovery": {
+        "status": "declared_only",
+        "refs": [
+          {
+            "path": "docs/roadmap/decisioning/execution-model.md"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/core-control-plane/tests/delivery/vm_task/test_tool_executor.py"
+          }
+        ]
+      }
+    }
+  },
+  "actions": {
+    "governance.grant-exemption@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Catalogued PR-native governance proposal; no current-revision deployment receipt is registered."
+    },
+    "governance.override-ceiling@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Catalogued PR-native governance proposal; no current-revision deployment receipt is registered."
+    },
+    "governance.promote-action-type@1.0.0": {
+      "bindings": {
+        "core-action-promotion": "promotion-direct"
+      },
+      "note": "Direct promotion is conditional on a durable registry and independently admitted approval evidence."
+    },
+    "governance.promote-effect-model@1.0.0": {
+      "bindings": {
+        "core-effect-model-promotion": "promotion-direct"
+      },
+      "note": "Direct effect-model promotion is conditional on a durable registry and independently admitted evidence."
+    },
+    "governance.reapply-rule-assignment@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Catalogued PR-native governance proposal; no current-revision deployment receipt is registered."
+    },
+    "governance.retire-rule@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Catalogued PR-native governance proposal; no current-revision deployment receipt is registered."
+    },
+    "ops.apply-human-access@1.0.0": {
+      "bindings": {
+        "core-human-access": "human-access-apply-shadow"
+      },
+      "note": "The built-in adapter validates a shadow plan; enforce requires a separately reviewed promotion."
+    },
+    "ops.deallocate-vm@1.0.0": {
+      "bindings": {
+        "core-azure-gateway": "core-gateway",
+        "isolated-azure-gateway": "isolated-gateway"
+      },
+      "note": "Both runtime surfaces recognize the action, but no independent deallocated-state source is wired into lifecycle closure."
+    },
+    "ops.delete-network-rule@1.0.0": {
+      "bindings": {
+        "core-azure-gateway": "core-gateway",
+        "isolated-azure-gateway": "isolated-gateway"
+      },
+      "note": "Both runtime surfaces recognize the action; independent NSG effect observation remains missing."
+    },
+    "ops.drain-connection@1.0.0": {
+      "bindings": {},
+      "unsupported_reason": "No built-in Core, isolated Executor, or Pantheon runtime binding was found.",
+      "note": "Catalog presence does not imply executable support."
+    },
+    "ops.failover-primary@1.0.0": {
+      "bindings": {},
+      "unsupported_reason": "No built-in Core, isolated Executor, or Pantheon runtime binding was found.",
+      "note": "Catalog presence does not imply executable support."
+    },
+    "ops.flush-cache@1.0.0": {
+      "bindings": {},
+      "unsupported_reason": "No built-in Core, isolated Executor, or Pantheon runtime binding was found.",
+      "note": "Catalog presence does not imply executable support."
+    },
+    "ops.publish-change-summary@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Catalogued PR-native action; real publication depends on Git provider configuration."
+    },
+    "ops.restart-service@1.0.0": {
+      "bindings": {},
+      "unsupported_reason": "No built-in Core, isolated Executor, or Pantheon runtime binding was found.",
+      "note": "Catalog presence does not imply executable support."
+    },
+    "ops.revoke-human-access@1.0.0": {
+      "bindings": {
+        "core-human-access": "human-access-revoke-blocked"
+      },
+      "note": "The route exists, but the adapter rejects revocation until replacement coverage is reviewed."
+    },
+    "ops.rotate-cert@1.0.0": {
+      "bindings": {},
+      "unsupported_reason": "No built-in Core, isolated Executor, or Pantheon runtime binding was found.",
+      "note": "Catalog presence does not imply executable support."
+    },
+    "ops.scale-in@1.0.0": {
+      "bindings": {},
+      "unsupported_reason": "No built-in Core, isolated Executor, or Pantheon runtime binding was found.",
+      "note": "Catalog presence does not imply executable support."
+    },
+    "ops.scale-out@1.0.0": {
+      "bindings": {
+        "core-azure-gateway": "core-scale-out"
+      },
+      "note": "The in-process Core gateway and conditional observer support scale-out; the isolated Executor target registry and recovery adapter do not."
+    },
+    "ops.start-vm@1.0.0": {
+      "bindings": {
+        "core-azure-gateway": "core-start-vm",
+        "isolated-azure-gateway": "isolated-start-vm"
+      },
+      "note": "The strongest demo candidate, but independent observation is source-only and no current-revision end-to-end receipt exists."
+    },
+    "ops.switch-t2-proposer-route@1.0.0": {
+      "bindings": {
+        "pantheon-t2-route": "pantheon-t2-route"
+      },
+      "note": "Thor and Vidar are wired conditionally for this control-plane route change; do not present it as an Azure resource recovery."
+    },
+    "ops.upsert-network-rule@1.0.0": {
+      "bindings": {
+        "core-azure-gateway": "core-gateway",
+        "isolated-azure-gateway": "isolated-gateway"
+      },
+      "note": "Both runtime surfaces recognize the action; independent NSG effect observation remains missing."
+    },
+    "remediate.apply-preflight-toggle@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only."
+    },
+    "remediate.assign-identity@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only."
+    },
+    "remediate.azure-policy-managed@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only."
+    },
+    "remediate.disable-public-access@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only."
+    },
+    "remediate.enable-backup-protection@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only."
+    },
+    "remediate.enable-diagnostic-settings@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only."
+    },
+    "remediate.enable-encryption@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only."
+    },
+    "remediate.enable-purge-protection@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only; the catalog marks this action irreversible."
+    },
+    "remediate.enable-rbac@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only."
+    },
+    "remediate.enable-tde@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only."
+    },
+    "remediate.enable-zone-redundancy@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only."
+    },
+    "remediate.remove-orphan-resource@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only."
+    },
+    "remediate.restrict-network-access@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only."
+    },
+    "remediate.right-size-role@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only."
+    },
+    "remediate.right-size@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only."
+    },
+    "remediate.rotate-secret@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only."
+    },
+    "remediate.set-retention-policy@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only."
+    },
+    "remediate.set-tls-policy@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only."
+    },
+    "remediate.tag-add@1.0.0": {
+      "bindings": {
+        "core-pr-native": "pr-native-shadow"
+      },
+      "note": "Generic PR-native shadow path only."
+    },
+    "tool.file-irp-followup@1.0.0": {
+      "bindings": {
+        "core-github-workflow-tools": "github-workflow-tool"
+      },
+      "note": "GitHub-backed execution is configuration-dependent; a dynamic Jira mapping is not counted as built-in support."
+    },
+    "tool.file-security-followup@1.0.0": {
+      "bindings": {
+        "core-github-workflow-tools": "github-workflow-tool"
+      },
+      "note": "GitHub-backed execution is configuration-dependent; a dynamic Jira mapping is not counted as built-in support."
+    },
+    "tool.generate-pdf@1.0.0": {
+      "bindings": {},
+      "unsupported_reason": "No built-in static tool route is registered; a downstream or deployment adapter is required.",
+      "note": "The ActionType and workflow reference exist, but catalog validity is not runtime support."
+    },
+    "tool.open-fix-pr@1.0.0": {
+      "bindings": {
+        "core-github-workflow-tools": "github-workflow-tool"
+      },
+      "note": "GitHub-backed execution is configuration-dependent."
+    },
+    "tool.open-incident-ticket@1.0.0": {
+      "bindings": {
+        "core-github-workflow-tools": "github-workflow-tool"
+      },
+      "note": "GitHub-backed execution is configuration-dependent; a dynamic Jira mapping is not counted as built-in support."
+    },
+    "tool.request-release@1.0.0": {
+      "bindings": {
+        "core-github-workflow-tools": "github-workflow-tool"
+      },
+      "note": "GitHub-backed execution is configuration-dependent."
+    },
+    "tool.run-chaos-experiment@1.0.0": {
+      "bindings": {
+        "core-chaos-tool": "chaos-tool"
+      },
+      "note": "The route is composed, while enforce mode still requires promoted scenarios and a governed execution provider."
+    },
+    "tool.run-investigation@1.0.0": {
+      "bindings": {
+        "core-investigation-tool": "investigation-tool"
+      },
+      "note": "The route is available only when a metric provider is bound."
+    },
+    "tool.run-python-on-vm@1.0.0": {
+      "bindings": {
+        "core-vm-task-tool": "vm-task-tool"
+      },
+      "note": "The route is available only with the VM-task service dependencies and explicit enablement."
+    }
+  }
+}

@@ -6,6 +6,7 @@ export type IncidentOperationalPhase =
   | "notification_failed"
   | "approval_delivery_unavailable"
   | "approval_required"
+  | "response_not_attempted"
   | "response_failed"
   | "response_in_progress"
   | "monitoring";
@@ -22,6 +23,14 @@ export interface IncidentNotificationEvidence {
   readonly excludedChannels: readonly { readonly channelId: string; readonly reason: string }[];
   readonly deliveries: readonly IncidentChannelDelivery[];
   readonly observedDeliveredChannelIds: readonly string[];
+  readonly retryableFailureAuditId: string | null;
+}
+
+export interface IncidentNotificationRow {
+  readonly channelId: string;
+  readonly routeState: string | null;
+  readonly observedDelivered: boolean;
+  readonly exclusionReason: string | null;
 }
 
 export interface IncidentOperationalOverview {
@@ -64,6 +73,8 @@ const APPROVAL_DELIVERY_RECOVERIES = new Set([
   "hil.escalation.delivered",
   "hil.approved.claimed",
   "hil.approved.executed",
+  "hil.approved.execution_pending",
+  "hil.approved.execution_not_attempted",
   "hil.approved.execute_failed",
   "hil.rejected",
   "hil.timeout",
@@ -74,6 +85,8 @@ const APPROVAL_DELIVERY_RECOVERIES = new Set([
 const APPROVAL_TERMINAL_EVENTS = new Set([
   "hil.approved.claimed",
   "hil.approved.executed",
+  "hil.approved.execution_pending",
+  "hil.approved.execution_not_attempted",
   "hil.approved.execute_failed",
   "hil.rejected",
   "hil.timeout",
@@ -95,6 +108,7 @@ export function incidentAgentStatus(
   if (
     phase === "notification_failed"
     || phase === "approval_delivery_unavailable"
+    || phase === "response_not_attempted"
     || phase === "response_failed"
   ) return "blocked";
   if (phase === "approval_required") return "pending_user_input";
@@ -121,7 +135,6 @@ export function incidentOperationalOverview(
     .sort((left, right) => right.seq - left.seq);
   const latestNotification = notificationHistory[0];
   const latestNotificationKind = latestNotification?.action_kind.toLowerCase() ?? "";
-  const latestNotificationOutcome = stringEntry(latestNotification, "outcome");
   const latestRoute = notificationHistory.find(
     (item) => item.action_kind.toLowerCase() === "notification.route",
   );
@@ -142,9 +155,25 @@ export function incidentOperationalOverview(
     && failedChannelIds.every((channelId) => observedDeliveredChannelIds.includes(channelId));
   const notificationFailed = (
     latestNotificationKind === "notification.escalation"
-    || (latestNotificationKind === "notification.route"
-      && ["route_unresolved", "unresolved", "failed"].includes(latestNotificationOutcome))
+    || (
+      latestNotificationKind === "notification.route"
+      && failedNotificationRoute(latestNotification)
+    )
   ) && !recoveredByObservation;
+  const claimedRetrySources = new Set(
+    history
+      .filter((item) =>
+        item.action_kind.toLowerCase() === "incident.notification-retry-prepared"
+      )
+      .map((item) => exactStringEntry(item, "source_notification_audit_id"))
+      .filter(Boolean),
+  );
+  const retryableFailureAuditId = notificationFailed
+    && latestRouteAuditId
+    && retryableNotificationRoute(latestRoute)
+    && !claimedRetrySources.has(latestRouteAuditId)
+      ? latestRouteAuditId
+      : null;
   const latestApprovalDelivery = [...history]
     .filter((item) => {
       const kind = item.action_kind.toLowerCase();
@@ -168,15 +197,19 @@ export function incidentOperationalOverview(
   );
   const responseFailed = incident.disposition === "failed"
     || latestApprovalKind === "hil.approved.execute_failed";
+  const responseNotAttempted = latestApprovalKind === "hil.approved.execution_not_attempted";
   const rcaAvailable = actionKinds.some((kind) => kind.startsWith("rca."));
-  const responseInProgress = incident.status === "in_progress"
+  const responseInProgress = incident.lifecycle_state === "mitigated"
     || incident.disposition === "action_delivered"
     || latestApprovalKind === "hil.approved.claimed"
-    || latestApprovalKind === "hil.approved.executed";
+    || latestApprovalKind === "hil.approved.executed"
+    || latestApprovalKind === "hil.approved.execution_pending";
 
   const phase: IncidentOperationalPhase = incident.status === "resolved"
     ? "resolved"
-    : responseFailed
+    : responseNotAttempted
+      ? "response_not_attempted"
+      : responseFailed
       ? "response_failed"
       : notificationFailed
         ? "notification_failed"
@@ -196,6 +229,7 @@ export function incidentOperationalOverview(
       excludedChannels: excludedChannels(latestRoute),
       deliveries,
       observedDeliveredChannelIds,
+      retryableFailureAuditId,
     },
     approvalDeliveryUnavailable,
     userInputRequired: approvalRequired || approvalDeliveryUnavailable,
@@ -207,6 +241,26 @@ export function incidentOperationalOverview(
     activityCount: history.length,
     blockingReason: blockingReason(history),
   };
+}
+
+/** Preserve route acceptance, independent delivery observation, and exclusion as separate facts. */
+export function incidentNotificationRows(
+  evidence: IncidentNotificationEvidence,
+): readonly IncidentNotificationRow[] {
+  const channelIds = new Set([
+    ...evidence.targetChannelIds,
+    ...evidence.deliveries.map((item) => item.channelId),
+    ...evidence.observedDeliveredChannelIds,
+    ...evidence.excludedChannels.map((item) => item.channelId),
+  ]);
+  return [...channelIds].map((channelId) => ({
+    channelId,
+    routeState:
+      evidence.deliveries.find((item) => item.channelId === channelId)?.state ?? null,
+    observedDelivered: evidence.observedDeliveredChannelIds.includes(channelId),
+    exclusionReason:
+      evidence.excludedChannels.find((item) => item.channelId === channelId)?.reason ?? null,
+  }));
 }
 
 const TERMINAL_DELIVERED_STATES = new Set(["delivered"]);
@@ -296,4 +350,29 @@ function stringEntry(item: AuditItem | undefined, key: string): string {
 function exactStringEntry(item: AuditItem | undefined, key: string): string {
   const value = item?.entry[key];
   return typeof value === "string" ? value.trim() : "";
+}
+
+function retryableNotificationRoute(item: AuditItem | undefined): boolean {
+  const outcome = stringEntry(item, "outcome");
+  const deliveryMode = stringEntry(item, "delivery_mode");
+  const terminal = item?.entry["terminal"];
+  if (deliveryMode === "fanout") {
+    return (
+      (outcome === "failed_all" || outcome === "no_eligible_channels")
+      && terminal === true
+    );
+  }
+  return deliveryMode === ""
+    && (terminal === undefined || terminal === null || terminal === true)
+    && ["failed", "route_unresolved", "unresolved"].includes(outcome);
+}
+
+function failedNotificationRoute(item: AuditItem | undefined): boolean {
+  const outcome = stringEntry(item, "outcome");
+  const deliveryMode = stringEntry(item, "delivery_mode");
+  if (deliveryMode === "fanout") {
+    return outcome === "failed_all" || outcome === "no_eligible_channels";
+  }
+  return deliveryMode === ""
+    && ["failed", "route_unresolved", "unresolved"].includes(outcome);
 }

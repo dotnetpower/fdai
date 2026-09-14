@@ -77,7 +77,7 @@ _LOG = logging.getLogger(__name__)
 
 
 class DirectApiExecutionOutcome(StrEnum):
-    """Terminal outcome for one :meth:`DirectApiShadowExecutor.execute` call.
+    """Lifecycle outcome for one :meth:`DirectApiShadowExecutor.execute` call.
 
     Deliberately distinct from
     :class:`~fdai.core.executor.executor.ExecutorOutcome` so a PR-
@@ -114,6 +114,18 @@ class DirectApiExecutionOutcome(StrEnum):
     :attr:`DirectApiOutcome.FAILED`. Rollback (if any) is recorded on
     :attr:`DirectApiExecutionResult.rollback_succeeded`."""
 
+    DISPATCH_NOT_ATTEMPTED = "dispatch_not_attempted"
+    """The transport proved no command was published and no effect was attempted."""
+
+    AWAITING_EFFECT_EVIDENCE = "awaiting_effect_evidence"
+    """The command was durably dispatched but independent effect evidence is pending."""
+
+    RECEIPT_TIMEOUT = "receipt_timeout"
+    """The caller's receipt deadline elapsed; an effect may still have occurred."""
+
+    EXECUTION_UNKNOWN = "execution_unknown"
+    """Transport or continuity evidence cannot determine whether an effect occurred."""
+
     AUTHENTICATION_FAILED = "authentication_failed"
     PERMISSION_DENIED = "permission_denied"
     POLICY_DENIED = "policy_denied"
@@ -134,6 +146,9 @@ class DirectApiExecutionOutcome(StrEnum):
 
     REJECTED_IDEMPOTENCY_CONFLICT = "rejected_idempotency_conflict"
     """The idempotency key was already bound to a different action."""
+
+    EXPIRED = "expired"
+    """The command deadline elapsed before the isolated Executor accepted it."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -584,6 +599,11 @@ class DirectApiShadowExecutor:
             "operation": action.operation.value,
             "rollback_kind": action.rollback_ref.kind.value,
             "rollback_reference": action.rollback_ref.reference,
+            "workflow_action": (
+                action.workflow_action.model_dump(mode="json")
+                if action.workflow_action is not None
+                else None
+            ),
             "stop_condition": action.stop_condition,
             "stop_conditions": [
                 condition.model_dump(mode="json") for condition in action.stop_conditions
@@ -619,6 +639,11 @@ class DirectApiShadowExecutor:
                 "executor_identity_ref": action.executor_identity_ref,
                 "rollback_kind": action.rollback_ref.kind.value,
                 "rollback_reference": action.rollback_ref.reference,
+                "workflow_action": (
+                    action.workflow_action.model_dump(mode="json")
+                    if action.workflow_action is not None
+                    else None
+                ),
                 "stop_condition": action.stop_condition,
                 "stop_conditions": [
                     condition.model_dump(mode="json") for condition in action.stop_conditions

@@ -387,6 +387,13 @@ rendered deterministically from typed evidence. Ontology browse requires a targe
 forwards only allowlisted identity fields with prompt values up to 256 characters, and renders
 duplicate or malformed counts and selections unavailable. Ontology projection and its deterministic
 browse answer stay in their own prompt module, separate from general prompt assembly. Ontology Instances carries active-generation provider type coverage separately from Resource state and relationship coverage; the browser validates reconciled counts and shows bounded unknown type names without raw object identities or properties. Promotion Gates displays server-joined durable mode and its catalog-default or registry source; browser values cannot author either field. Valid mode fields do not bypass malformed missing-evidence list rejection; decoder regression fixtures must exercise both checks independently. Dashboard v2 restarts its complete bounded page traversal only for typed inventory or ontology generation transitions, discards partial pages, shares the original deadline across two delayed retries, and keeps persistent mismatch visible instead of mixing generations or returning an empty inventory. The Architecture map assigns every canonical ResourceType an explicit layer, color token, and abbreviation; only unknown future types use its generic fallback.
+
+The correlation Trace preserves server-projected action id, positive attempt, execution path, and
+outcome. It renders proposal, decision, approval, dispatch, observation, and recovery separately
+for each exact action attempt. Missing evidence is `not recorded`; a proven no-effect dispatch is
+`not attempted`; pending or unknown execution remains pending. The browser does not merge attempts
+or infer success from an absent stage.
+
 The Reader-gated `/ontology/graph` projection contains one exact catalog release with a schema
 version, projection revision, release digest, declaration records, semantic-map profile, and
 catalog topology. It never returns deployment instance properties. Runtime objects and state facts

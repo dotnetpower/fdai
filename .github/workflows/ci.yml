@@ -339,6 +339,8 @@ jobs:
             python3 scripts/quality/architecture/check-report-format-boundary.py
           run_check "Agent import boundary" \
             bash scripts/quality/architecture/check-agents-imports.sh
+          run_check "ActionType runtime support" \
+            python3 scripts/quality/architecture/check-action-type-runtime-support.py
           run_check "Evaluation package boundaries" \
             python3 scripts/quality/architecture/check-evaluation-boundaries.py
           run_check "Operator API boundary" \

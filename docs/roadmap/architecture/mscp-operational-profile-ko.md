@@ -1,8 +1,8 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: f046c61b600c4ec2c6a6697f812afab125c8cd46
-translation_revised: 2026-09-09
+translation_source_sha: bb96aaeea04895ada55077b7b51ab0f60980fe52
+translation_revised: 2026-09-14
 ---
 # MSCP Operational 프로파일
 
@@ -35,6 +35,7 @@ MSCP 레벨을 구현하거나 전체 MSCP conformance를 충족한다고 주장
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| HIL 효과 조정 조립 경계 | implemented | `runtime/control_loop.py`; `core/hil_resume/coordinator.py`; 집중 HIL 조정 검사 | 런타임은 일반 조정 싱크를 선택적 MSCP 관측기 쌍과 독립적으로 HIL 재개에 제공합니다. 수락 또는 대기 중인 전달은 권위 있는 관측이 닫기 전까지 검증되지 않은 상태로 남습니다. |
 | 프로파일 신원과 결정론적 정책 기본 요소 | implemented | `core/mscp_profile/profile.py`; `cycle_guard.py`; `runtime_integrity.py`; `tests/core/mscp_profile/` 아래의 집중 테스트 | 출처 이력, 비준수 선언, 범위가 제한된 순환 검사 및 런타임 매니페스트 비교를 순수 정책으로 구현했습니다. |
 | 선택적 효과 관측과 `ResponseOutcome` 변환 결과 | implemented | `core/mscp_profile/effect_verification.py`; `response_outcome.py`; `test_control_loop_shadow.py`; `test_response_outcome.py` | 쌍으로만 구성되는 조립은 실행기 결과를 유지하고 권한을 추가하지 않는 shadow 근거를 기록합니다. |
 | 권한을 높이지 않는 상한 | implemented | `core/mscp_profile/authority_ceiling.py`; `test_authority_ceiling.py` | 유한 도메인 전체를 검사하는 테스트는 프로파일이 기존 FDAI 결정을 유지하거나 낮출 수만 있음을 입증합니다. 이 상한은 강제 적용 경로에 연결되지 않았습니다. |
@@ -46,6 +47,7 @@ MSCP 레벨을 구현하거나 전체 MSCP conformance를 충족한다고 주장
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | MSCP를 활성화하거나 권한 상한을 바꾸지 않고 기존 효과 조정 요청 싱크를 HIL 재개에 연결했습니다. | `current change`; 이슈 #962; 집중 HIL 조정 및 런타임 배선 검사입니다. | HIL 승인 액션 하나의 배포된 독립 관측 근거를 보존합니다. |
 | 2026-08-31 | implemented | 아직 기록되지 않은 관측을 버리기만 하지 않고 보류하도록 만들고, 액션 수명 주기를 주입 가능한 시계 위에 올렸습니다. 이전 변환 결과는 계약이 표현할 수 없는 관측을 버리면서도 판정을 `verified`로 남겨 두었기 때문에, 실제 `verify_effect` 결과의 관측 시각이 `recorded_at`보다 뒤일 때 여전히 발송 내부에서 계약 검증 오류가 발생했습니다. 이제 허용성 판단이 결정, shadow 감사 항목, 변환 결과보다 먼저 실행되어 그런 근거를 `observation_not_yet_recorded` 사유의 `hold`로 낮추며, 이미 보류된 판정은 사유를 유지합니다. shadow 효과 항목은 액션 생성과 전달 구간을 추가로 기록하고, `ControlLoop`와 `ActionBuilder`는 하나의 공유 시계를 받아 고정 재생이 생성, 예측, 전달, 관측, 기록을 벽시계가 아닌 시나리오 시간선 위에서 정렬합니다. | `current change`; `core/mscp_profile/effect_verification.py`; `core/mscp_profile/response_outcome.py`; `core/mscp_profile/shadow_effect.py`; `core/control_loop/_execution.py`; `core/executor/action_builder.py`; `tests/scenarios/test_v2026_07_replay.py::test_sre_full_loop_fails_closed_on_deficient_effect_evidence`의 `not_yet_recorded` 사례는 보류를 되돌리면 계약 검증 오류로 실패합니다; `uv run pytest -q --no-cov services/core-control-plane/tests/scenarios services/core-control-plane/tests/core/mscp_profile services/core-control-plane/tests/core/executor services/core-control-plane/tests/pipeline`가 통과했습니다. | 근거는 여전히 shadow에서 실행한 프로세스 내 고정 재생이므로, 배포 환경에 고정된 shadow 근거 관측 구간은 열려 있습니다. |
 | 2026-08-31 | implemented | 계약이 표현할 수 없는 관측에 대해 `ResponseOutcome` 변환 결과가 실패 시 차단하도록 만들었습니다. 효과 창을 벗어났거나 아직 기록되지 않은 관측은 이전에는 발송 내부에서 계약 검증 오류를 일으켜, 부족한 효과 근거가 shadow `hold` 근거가 아니라 발송 시점 오류가 되었습니다. 이제 변환 결과는 그런 관측을 버리고 `unscorable`로 기록하며, shadow 효과 감사 항목이 원본 값을 보존하고 계약 불변 조건 자체는 그대로입니다. | `current change`; `core/mscp_profile/response_outcome.py`; `tests/core/mscp_profile/test_response_outcome.py`; `tests/scenarios/test_v2026_07_replay.py::test_sre_full_loop_fails_closed_on_deficient_effect_evidence`의 기한 초과 사례는 변환 결과 수정을 되돌리면 계약 검증 오류로 실패합니다; `uv run pytest -q --no-cov services/core-control-plane/tests/scenarios services/core-control-plane/tests/core/mscp_profile services/core-control-plane/tests/contracts/test_response_outcome.py`가 통과했습니다. | 근거는 shadow에서 실행한 프로세스 내 고정 재생에서 나오므로, 배포 환경에 고정된 shadow 근거 관측 구간은 여전히 열려 있습니다. |
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 구현된 shadow 관측과 구현되지 않은 게이팅을 분리했습니다. | `current change`; 구현 범위 표의 프로파일 소스와 집중 테스트입니다. | 측정된 준비 상태 구간을 보존하고 아래의 범위가 제한된 결정 맥락 및 게이팅 작업을 구현합니다. |
@@ -126,6 +128,10 @@ tool-call 전달에서 다음 순서를 유지합니다.
 ```text
 expected-effect provider -> existing executor -> independent observer -> shadow audit
 ```
+
+조립은 일반 효과 조정 요청 싱크도 HIL 재개에 제공합니다. 이 싱크는 선택적 MSCP 쌍과
+독립적입니다. 프로파일을 활성화하거나 자율성을 높이지 않으며, 수락 또는 대기 중인 전달을
+검증된 효과 근거로 바꾸지 않습니다.
 
 Observer는 실행기 증적이 아니라 액션과 ExpectedEffect를 받습니다. 따라서 실행 컴포넌트의
 자체 성공 주장을 독립 근거로 취급하지 않습니다. 각 배포는 PR 증적 변환 결과,

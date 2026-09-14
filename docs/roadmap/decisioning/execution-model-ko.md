@@ -1,8 +1,8 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 9cff5c4f7b0e337ce32cdcda9324e0e0834b35f6
-translation_revised: 2026-08-30
+translation_source_sha: 531cf74bb77ccf369fd115798ca2c9407b05babc
+translation_revised: 2026-09-14
 ---
 
 # 실행 모델
@@ -459,10 +459,31 @@ Best for: 구성 변경, IaC patch, 카탈로그 업데이트, 거버넌스 변�
   무시되며 강제 적용 변경 증적은 계속 권위 있는하여 페이로드 충돌을 거부합니다.
 - **업스트림 Azure 게이트웨이 연결** - 개발 operations 게이트웨이 URL과 Easy Auth 대상이
   모두 구성되면 headless 런타임은 enforce-capable `AzureGatewayDirectApiExecutor`를 연결합니다.
-  이 어댑터는 `ops.start-vm`, `ops.deallocate-vm`, `ops.upsert-network-rule`,
-  `ops.delete-network-rule`만 지원합니다. 각 ActionType은 shadow-first를 유지하며 shipped T0
-  상한은 사람 승인을 요구합니다. Shadow는 서버 계획만 수행하고 변경하지 않으며 강제 적용은
-  일회용 증적이 반환된 후에만 제출합니다.
+  Core 프로세스 내부 연결은 `ops.start-vm`, `ops.deallocate-vm`, `ops.scale-out`,
+  `ops.upsert-network-rule`, `ops.delete-network-rule`을 지원합니다. 격리 실행기의 대상
+  레지스트리는 이 중 `ops.scale-out`을 제외한 네 가지를 지원합니다. 각 ActionType은
+  shadow-first를 유지하며 기본 제공 T0 상한은 사람 승인을 요구합니다. shadow에서는 서버
+  계획만 수행하고 변경하지 않으며, enforce에서는 일회용 증적을 받은 뒤에만 요청을
+  제출합니다. `config/action-type-runtime-support.json`의 기계 검증 지원 매니페스트가 이
+  실행 표면별 차이를 기록합니다.
+- **결과 의미** - `dispatch_not_attempted`는 현재 시도가 공급자 효과 경계에 도달하지
+  않았음을 증명하며 별도의 무효과 결과로 표시됩니다. `receipt_timeout`과
+  `execution_unknown`은 효과가 발생했을 가능성이 있음을 뜻하고,
+  `awaiting_effect_evidence`는 전달을 마쳤지만 독립 관측이 아직 진행 중임을 뜻합니다.
+  하나라도 효과 확인 대기 상태가 있으면 혼합 집계에서도 이 상태를 우선하고, 최종 결과가
+  나오기 전에는 shadow 차이 비교에서 제외하며, 조정이 끝날 때까지 보류합니다. 컨트롤
+  루프, HIL, 워크플로 원장, 운영자 화면은 이를 실행 실패로 바꾸거나 다른 경로로
+  재시도하거나 성공으로 단정해서는 안 됩니다.
+- **워크플로 계보** - 모든 PR-native, direct-API, tool-call, 원격 전송 감사 의도와 결과는
+  Action ID 및 시도 번호를 포함한 전체 `workflow_action`을 가능한 경우 유지합니다.
+  HIL, 관측, 복구 기록도 같은 계보와 최초 컨트롤 루프 상관관계를 유지합니다. 종단
+  구체화는 해당 상관관계로 액션을 복원한 뒤 실제 Action ID를 정확한 증적 및
+  `ActionRun` 식별에 사용합니다. 상관관계 Trace는 Action ID와 시도 번호별로 수명 주기를
+  분리합니다. 같은 상관관계 ID를 공유한다는 이유만으로 관련 없는 액션을 합치지 않으며,
+  시도 번호가 없으면 명시적으로 알 수 없음으로 남깁니다.
+- **승인된 효과 조정** - HIL 재개 경로는 효과가 발생했을 가능성이 있는 모든 결과를 일반
+  컨트롤 루프 경로와 같은 조정 생성기에 제출하고 최초 상관관계 ID를 유지합니다. 요청
+  생성기가 없거나 실패하면 명시적으로 보류하며, 승인된 전달을 성공으로 바꾸지 않습니다.
 - **Long-running 연산 잠금** - ARM `202`는 대상 Blob 임차 기간을 비공개 연산 기록에
   유지합니다. 실행기 상태 polling이 임차 기간을 renew하고 최종 상태를 ETag
   compare-and-swap으로 기록한 후 release합니다. 알 수 없는 상태 URL 조회 필드는 차단합니다.

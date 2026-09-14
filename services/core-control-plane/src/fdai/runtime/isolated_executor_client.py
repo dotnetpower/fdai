@@ -7,7 +7,6 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from enum import StrEnum
 from typing import Any, cast
 from uuid import UUID, uuid4
 
@@ -25,6 +24,14 @@ from fdai_service_contracts.executor_models import (
 )
 from pydantic import ValidationError
 
+from fdai.core.executor.direct_api import (
+    DirectApiExecutionOutcome,
+    DirectApiExecutionResult,
+)
+from fdai.core.executor.outcome_semantics import (
+    execution_outcome_is_pending,
+    execution_outcome_may_have_effect,
+)
 from fdai.shared.contracts import (
     ExecutorCommand,
     ExecutorEffectReceipt,
@@ -34,7 +41,6 @@ from fdai.shared.contracts.models import (
     Action,
     AnyExecutorCommand,
     ExecutionPath,
-    Mode,
     SafeguardBoundExecutorCommand,
 )
 from fdai.shared.providers.event_bus import EventBus, EventPublishNotAttemptedError, subscription
@@ -62,37 +68,8 @@ type ExecutorReceipt = ExecutorShadowReceipt | ExecutorEffectReceipt
 type PrePublishGuard = Callable[[], Awaitable[datetime]]
 
 
-class RemoteDirectApiExecutionOutcome(StrEnum):
-    """Terminal outcomes returned through the remote Executor port."""
-
-    DISPATCHED = "dispatched"
-    ALREADY_APPLIED = "already_applied"
-    ABSTAINED_BLAST_RADIUS = "abstained_blast_radius"
-    ABSTAINED_PRECONDITION = "abstained_precondition"
-    STOPPED = "stopped"
-    FAILED = "failed"
-    AUTHENTICATION_FAILED = "authentication_failed"
-    PERMISSION_DENIED = "permission_denied"
-    POLICY_DENIED = "policy_denied"
-    NETWORK_DENIED = "network_denied"
-    REJECTED_MODE = "rejected_mode"
-    REJECTED_INVARIANT = "rejected_invariant"
-    REJECTED_IDEMPOTENCY_CONFLICT = "rejected_idempotency_conflict"
-    EXPIRED = "expired"
-
-
-@dataclass(frozen=True, slots=True)
-class RemoteDirectApiExecutionResult:
-    """Core-facing structural result without importing a service implementation."""
-
-    action_id: str
-    outcome: RemoteDirectApiExecutionOutcome
-    mode: Mode = Mode.SHADOW
-    receipt_ref: str | None = None
-    safeguard_bundle_digest: str | None = None
-    rollback_succeeded: bool | None = None
-    reason: str | None = None
-    audit_context: dict[str, Any] = field(default_factory=dict)
+RemoteDirectApiExecutionOutcome = DirectApiExecutionOutcome
+RemoteDirectApiExecutionResult = DirectApiExecutionResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -355,8 +332,9 @@ class EventBusDirectApiExecutionClient:
         if existing is None:
             owner = True
             if len(self._pending) >= self.max_pending_requests:
-                return await self._transport_failure(
+                return await self._transport_result(
                     action,
+                    RemoteDirectApiExecutionOutcome.DISPATCH_NOT_ATTEMPTED,
                     "executor command capacity exceeded",
                 )
             pending = _PendingExecutorRequest(
@@ -381,10 +359,18 @@ class EventBusDirectApiExecutionClient:
                 if not pending.future.done():
                     pending.future.cancel()
                 raise
+            except EventPublishNotAttemptedError:
+                self._pending.pop(key, None)
+                return await self._transport_result(
+                    action,
+                    RemoteDirectApiExecutionOutcome.DISPATCH_NOT_ATTEMPTED,
+                    "executor command publication was not attempted",
+                )
             except Exception:
                 self._pending.pop(key, None)
-                return await self._transport_failure(
+                return await self._transport_result(
                     action,
+                    RemoteDirectApiExecutionOutcome.EXECUTION_UNKNOWN,
                     "executor command publication failed",
                 )
         else:
@@ -398,41 +384,62 @@ class EventBusDirectApiExecutionClient:
         except asyncio.CancelledError:
             raise
         except TimeoutError:
-            return await self._transport_failure(action, "executor receipt deadline expired")
+            return await self._transport_result(
+                action,
+                RemoteDirectApiExecutionOutcome.RECEIPT_TIMEOUT,
+                "executor receipt deadline expired",
+            )
         finally:
             if owner:
                 self._pending.pop(key, None)
         return _result_from_receipt(action, receipt)
 
-    async def _transport_failure(
+    async def _transport_result(
         self,
         action: Action,
+        outcome: RemoteDirectApiExecutionOutcome,
         reason: str,
     ) -> RemoteDirectApiExecutionResult:
+        pending = execution_outcome_is_pending(outcome)
+        effect_possible = execution_outcome_may_have_effect(outcome)
         await self.audit_store.append_audit_entry(
             {
                 "event_id": str(action.event_id),
                 "action_id": str(action.action_id),
                 "idempotency_key": action.idempotency_key,
                 "actor": "fdai.runtime.isolated_executor_client",
-                "action_kind": "executor.remote.failed",
-                "audit_phase": "terminal",
+                "action_kind": f"executor.remote.{outcome.value}",
+                "audit_phase": "post_release" if effect_possible else "terminal",
                 "mode": action.mode.value,
                 "execution_path": "direct_api",
-                "outcome": "failed",
+                "outcome": outcome.value,
                 "reason": reason,
                 "resource_ref": action.target_resource_ref,
+                "workflow_action": (
+                    action.workflow_action.model_dump(mode="json")
+                    if action.workflow_action is not None
+                    else None
+                ),
+                "effect_possible": effect_possible,
+                "reconciliation_required": pending,
                 "recorded_at": datetime.now(UTC).isoformat(),
             }
         )
         return RemoteDirectApiExecutionResult(
             action_id=str(action.action_id),
-            outcome=RemoteDirectApiExecutionOutcome.FAILED,
+            outcome=outcome,
             mode=action.mode,
             reason=reason,
             audit_context={
                 "resource_ref": action.target_resource_ref,
-                "transport_failure": True,
+                "transport_failure": (
+                    outcome is not RemoteDirectApiExecutionOutcome.DISPATCH_NOT_ATTEMPTED
+                ),
+                "dispatch_not_attempted": (
+                    outcome is RemoteDirectApiExecutionOutcome.DISPATCH_NOT_ATTEMPTED
+                ),
+                "effect_possible": effect_possible,
+                "reconciliation_required": pending,
             },
         )
 

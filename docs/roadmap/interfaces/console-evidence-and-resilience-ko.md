@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 544f084ce904027a6f22b91126015d64a49ef880
-translation_revised: 2026-09-13
+translation_source_sha: 3274dc387fb0e0fd8dde7f0425a15d6e2bfc7a53
+translation_revised: 2026-09-14
 ---
 # 콘솔 근거 및 복원력
 이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
@@ -392,6 +392,13 @@ Read-source 출처 이력, 온톨로지 browse, 화면 간 operational 및 인�
 허용 목록에 있는 신원 필드와 256자 이하 프롬프트 값만 전달하며, 중복되거나 malformed인 개수와
 선택을 사용 불가로 표시합니다. 온톨로지 변환 결과와 결정론적 browse 답변은 일반 프롬프트
 assembly와 분리된 자체 프롬프트 모듈에 위치합니다. Ontology Instances는 활성 세대 프로바이더 유형 커버리지를 Resource 상태 및 관계 커버리지와 분리해 전달하며, 브라우저는 일치하는 개수를 검증하고 원시 개체 식별자나 속성 없이 범위가 제한된 unknown 유형 이름을 표시합니다. Promotion Gates는 서버가 결합한 영속 모드와 catalog-default 또는 registry 출처를 표시하며 브라우저 값은 두 필드를 만들 수 없습니다. 모드 필드가 유효해도 형식이 잘못된 누락 근거 목록은 거부하며, 디코더 회귀 테스트 데이터는 두 검증을 각각 확인해야 합니다. Dashboard v2는 타입이 지정된 인벤토리 또는 온톨로지 세대 전환에만 제한된 전체 페이지 탐색을 다시 시작하고, 일부 페이지를 버리며, 처음 시작한 제한 시간을 지연된 재시도 2회와 공유합니다. 지속되는 불일치는 세대를 섞거나 빈 인벤토리를 반환하지 않고 계속 표시합니다. Architecture map은 모든 정식 ResourceType에 명시적인 계층, 색상 토큰 및 약어를 할당하며 알 수 없는 미래 유형만 일반 fallback을 사용합니다.
+
+상관관계 Trace는 서버가 변환한 액션 ID, 양의 시도 번호, 실행 경로, 결과를 보존합니다.
+각 정확한 액션 시도별로 제안, 판단, 승인, 전달, 관측, 복구를 구분해 표시합니다. 근거가
+없으면 `기록 없음`, 효과가 없었음이 입증된 전달은 `시도 안 함`, 대기 중이거나 알 수 없는
+실행은 `대기 중`으로 남습니다. 브라우저는 여러 시도를 합치거나 누락된 단계에서 성공을
+추론하지 않습니다.
+
 Reader-gated `/ontology/graph` 변환 결과는 스키마 버전, 변환 결과 개정, 릴리스 다이제스트,
 선언 기록, 의미 맵 프로필 및 카탈로그 토폴로지를 포함하는 하나의 exact 카탈로그 릴리스를
 제공합니다. 배포 인스턴스 속성은 반환하지 않습니다. 런타임 객체와 상태 사실은 기준 시각,

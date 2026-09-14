@@ -7,7 +7,11 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai.core.control_loop._dynamic_simulation import DynamicSimulationAuditMixin
-from fdai.core.control_loop._helpers import _is_execution_success
+from fdai.core.control_loop._helpers import (
+    _is_execution_no_effect,
+    _is_execution_pending,
+    _is_execution_success,
+)
 from fdai.core.control_loop.models import ControlLoopOutcome, ControlLoopResult
 from fdai.core.executor.action_builder import ActionBuilder, ActionBuildError
 from fdai.core.hil_resume import HilResumeCoordinator
@@ -409,26 +413,53 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
             correlation_id=correlation_id,
         )
         succeeded = _is_execution_success(execution)
+        pending = _is_execution_pending(execution)
+        no_effect = _is_execution_no_effect(execution)
         await self._emit_stage(
             event_id=event_id,
             correlation_id=correlation_id,
             stage=StageName.EXECUTE,
-            phase=StagePhase.DONE if succeeded else StagePhase.FAILED,
-            detail={"tier": "t1", "action_type": action.action_type, "mode": action.mode.value},
-            error=None if succeeded else getattr(execution, "reason", None),
+            phase=(
+                StagePhase.DONE
+                if succeeded
+                else StagePhase.PROGRESS
+                if pending
+                else StagePhase.FAILED
+            ),
+            detail={
+                "tier": "t1",
+                "action_type": action.action_type,
+                "mode": action.mode.value,
+                "outcome": execution.outcome.value,
+            },
+            error=None if succeeded or pending else getattr(execution, "reason", None),
         )
         return ControlLoopResult(
             outcome=(
                 ControlLoopOutcome.EXECUTED
                 if succeeded
+                else ControlLoopOutcome.EXECUTION_PENDING
+                if pending
+                else ControlLoopOutcome.EXECUTION_NOT_ATTEMPTED
+                if no_effect
                 else ControlLoopOutcome.ABSTAINED_ACTION_BUILD
             ),
             tier="t1",
-            decision="auto" if succeeded else "abstain",
+            decision=(
+                "auto" if succeeded else "hold" if pending else "no-op" if no_effect else "abstain"
+            ),
             resource_type=decision.resource_type,
             citing_rule_ids=(learned.rule_id,),
             execution_results=(execution,),
-            reason=None if succeeded else "t1_reuse_execution_failed",
+            reason=(
+                None
+                if succeeded
+                else "t1_reuse_execution_pending"
+                if pending
+                else "t1_reuse_execution_not_attempted"
+                if no_effect
+                else "t1_reuse_execution_failed"
+            ),
             event_id=event_id,
             change_safety_decision=cs_decision,
             t1_decision=t1,

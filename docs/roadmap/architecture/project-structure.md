@@ -552,6 +552,13 @@ and executor idempotency keys are claimed atomically, while per-resource locking
 can mutate state. HIL resume resolves catalog rules from the current catalog and accepts a parked server-validated operator-request rule
 only when its rule id, action type, and fixed check reference still match. Idempotency reservation identity and transition contracts remain in one Core module, while codec, lifecycle, and state-shape validation live in adjacent single-purpose modules with no authority; the facade re-exports lifecycle behavior without wrapper duplication.
 
+Executor results cross Core through one shared operational classification: `accepted`, `pending`,
+`no_effect`, or `failed`. Acceptance records delivery only and never proves an operational effect.
+HIL resume, workflow verification, and reconciliation preserve the original correlation, supplied
+action identifier, and positive workflow attempt. They do not synthesize action identity from a
+correlation. Any outcome that may have changed provider state enters the independently observed
+reconciliation path before the lifecycle can claim closure.
+
 ![Control-Loop Wiring. The main stages are events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.en.svg)
 
 ## Configuration Model
