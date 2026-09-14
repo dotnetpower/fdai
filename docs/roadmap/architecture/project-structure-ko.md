@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 5a1f71cf5aff213345e706a10b5c9534270aae30
+translation_source_sha: 6a4064b344967d5d023cba6021d54b9b03573a01
 translation_revised: 2026-09-14
 ---
 # 프로젝트 구조
@@ -36,7 +36,7 @@ translation_revised: 2026-09-14
 
 ## 모듈 경계(모듈 Boundaries)
 
-의존 방향은 엄격하게 단방향이며, 위반은 리뷰 블로커입니다. [AKS 토큰 교환](../deployment/runtime-deployment-profiles-ko.md#신원-및-secret)과 SDK/비동기 전송 의존성은 서비스가 소유하며 Core 도메인이나 공유 계약에 넣지 않습니다. `core/licensing/trial.py`의 비활성 Trial 기록은 기능을 허용하지 않습니다. 배포/영속 계층이 원자적 활성화를 소유하고 런타임은 보존 상태의 출처를 인증해야 합니다. 소스 출처는 CLI가 소유하며 사용 권한이나 release 서명이 아닙니다.
+의존 방향은 엄격하게 단방향이며, 위반은 리뷰 블로커입니다. [AKS 토큰 교환](../deployment/runtime-deployment-profiles-ko.md#신원-및-secret)과 SDK/비동기 전송 의존성은 서비스가 소유하며 Core 도메인이나 공유 계약에 넣지 않습니다. Operator는 기존 adapters 공개 모듈에서 자격 증명 생성 함수를 가져와 검토된 조립 의존 경로 수를 유지합니다. `core/licensing/trial.py`의 비활성 Trial 기록은 기능을 허용하지 않습니다. 배포/영속 계층이 원자적 활성화를 소유하고 런타임은 보존 상태의 출처를 인증해야 합니다. 소스 출처는 CLI가 소유하며 사용 권한이나 release 서명이 아닙니다.
 클라우드 참조 수집은 수집 API, 파싱/색인 활성화는 작업자, 날짜를 명시한 근거는 Core가 담당합니다. [수명 주기 설계](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)는 공유 계약과 실행 권한이 없는 경계를 정의합니다. Core는 적용 조건을 제한된 단일 값 선택자로 노출하며 근거 객체는 의존 조회 결과로만 받습니다. 정확한 문서 맥락은 순위 계산 전에 이 선택 조건과 함께 적용하며 더 넓은 컬렉션 조회로 대체할 수 없습니다. 새 수집 테스트마다 서비스 테스트 소유자가 하나이며, 이미 선언된 API의 `aiohttp` 의존성은 간접이 아닌 직접 사용으로 분류합니다.
 
 - **코어는 이식 가능**: 어떤 클라우드 SDK도 직접 가져오기 하지 **않습니다**. 클라우드 특이성은

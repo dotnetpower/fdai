@@ -23,6 +23,7 @@ assessment without duplicating the normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Re-exported workload credential construction through the existing Operator adapters facade to preserve composition fanout. | Current change; boundary gate returned to 39 imports; 101 credential/composition tests passed with one optional PDF skip. | No WARA scope, evidence, topic or authority behavior changed. |
 | 2026-09-14 | implemented | Enabled explicit Operator AKS workload credentials in the shared transport without changing WARA scope, topic, evaluation, satisfaction or authority. | Current change; credential selection, semantic Kafka and Operator composition tests passed. | Retain live AKS transport evidence separately; prior WARA receipts are not new deployment evidence. |
 | 2026-09-12 | implemented | Kept the shared promotion-registry join limited to promotion-gate rows while reusing the Operator workflow adapters. | `current change`; focused Operator suites passed 119 tests with one optional PDF skip. | No WARA scope, evidence, satisfaction, publication, replay, or authority behavior changed. |
 | 2026-09-12 | implemented | Kept active-inventory provider type coverage outside WARA scope and evidence admission while extending the shared Operator PostgreSQL store. | `current change`; focused Operator inventory/workflow suites passed 83 tests. | No WARA evaluation, satisfaction, publication, replay, or authority behavior changed. |

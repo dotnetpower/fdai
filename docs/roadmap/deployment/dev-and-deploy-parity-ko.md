@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: f7f6fd3c4222ed35208d655c68c3b63a563b158b
+translation_source_sha: 171394c49e6264a97976f8b101dd9cce4dcd443e
 translation_revised: 2026-09-14
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -12,7 +12,7 @@ translation_revised: 2026-09-14
 모든 프로파일은 **하나의 컨트롤 경로**를 공유하며 composition-root 어댑터와 자격 증명만 다릅니다([project-structure.md § Customization via 의존성 주입](../architecture/project-structure-ko.md#customization-via-dependency-injection)). 검토된 docstring은 기존 경계를 기록하며 별도 런타임을 만들거나 상태 소유권을 변경하거나 고정본을 허용하지 않습니다. 공유 인증기는 브라우저 Entra 및 로컬 Azure CLI 신원의 범위가 제한된 검증 사용자명을 IAM 표시 변환 결과로 전달합니다. 권한 부여는 계속 안정적인 `oid`와 검증된 App 역할만 사용합니다. 실제 Azure 클라이언트 추가는 fork-side 주입이며 `core/`를 편집하지 않습니다. Teams Workflows 엔드포인트 구성도 같은 동등성 규칙을 따릅니다. 로컬 Operator Service는 URL을 도메인이 분리된 키 자료로 암호화하고 루프백 데이터베이스에는 암호문만 저장하며, 배포 환경은 단일 시크릿으로 범위가 제한된 전용 Managed Identity를 통해 버전이 지정된 Key Vault 시크릿을 씁니다. 두 모드 모두 테스트 전에 저장된 버전을 확인하고 시크릿이 없는 메타데이터만 반환합니다. 저장은 로컬 또는 배포 A2/A4의 명시적 활성화와 분리됩니다. 표준 `console: prepare full stack` 작업은 `FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION=1`을 통해 로컬 프로필의 활성화 결정을 명시적으로 설정하며, 스크립트를 직접 실행하면 기본적으로 비활성 상태를 유지합니다. 런타임 환경 캐시는 이 값과 선택적 Kubernetes 수명 주기 플래그를 다이제스트에 결속하므로 두 입력 중 하나를 변경하면 항상 환경을 다시 생성합니다.
 인벤토리 무효화는 두 프로필에서 같은 읽기 경로를 사용합니다. Core가 정규화된 관측을 커밋한 뒤 Operator 역할이 SELECT 전용 watermark를 읽습니다. 인증된 SSE에는 Resource 또는 프로바이더 payload가 없으며 Console은 같은 범위가 제한된 인스턴스 변환 결과를 다시 읽습니다. 로컬과 배포 프로필은 구성된 Azure 아이덴티티와 네트워크 경로만 다릅니다. 교차 출처 스트림 재현은 허용된 출처, 메서드 또는 자격 증명 범위를 넓히지 않고 인증된 `Authorization`과 범위가 제한된 `Last-Event-ID` 헤더를 허용합니다.
 공유 Operator 데이터 출처 매니페스트도 두 프로필에서 Assurance Twin 읽기 경로 3개를 같은 서비스 로컬 변환 결과에 할당합니다. 이 소유권은 PostgreSQL이 구성되지 않았을 때 명시적인 사용 불가 이유를 보고하며 WARA, 비용 거버넌스 또는 다른 경로의 권한을 바꾸지 않습니다. 두 프로필 모두 전용 보낼 편지함 수명 주기 facade를 사용하며 PostgreSQL과 이벤트 버스가 구성된 경우에만 재시도 가능한 Incident 개입 작업자를 시작합니다. 같은 준비 상태 검사는 해당 작업자가 중지되면 서비스 준비를 차단하며 Console 또는 Operator API에 실행 권한을 부여하지 않습니다. 신뢰된 복구 observer 신원은 조건 없는 Core 서비스 binding이며 선택적 Teams 승인 구성에 의존하지 않습니다.
-WAF 및 CAF 평가 소비자도 같은 동등성 규칙을 따릅니다. 로컬과 배포 Operator 프로필은 같은 논리 토픽을 사용하고 같은 변경 불가능한 스냅샷을 검증하며 같은 PostgreSQL 변환 결과를 씁니다. 배포 러너에는 평가 전송자 역할이 없으므로 보호된 실제 검증 워크플로는 의도적으로 감사 전용입니다. 해당 결과물은 Operator 변환 결과를 대신하지 않습니다.
+WAF 및 CAF 평가 소비자도 같은 동등성 규칙을 따릅니다. 로컬과 배포 Operator 프로필은 같은 논리 토픽을 사용하고 같은 변경 불가능한 스냅샷을 검증하며 같은 PostgreSQL 변환 결과를 씁니다. 배포 러너에는 평가 전송자 역할이 없으므로 보호된 실제 검증 워크플로는 의도적으로 감사 전용입니다. 해당 결과물은 Operator 변환 결과를 대신하지 않습니다. 두 프로필은 실행 위치 선택을 바꾸지 않고 자격 증명 생성에 기존 adapters 공개 모듈을 사용합니다.
 AKS fleet 인벤토리는 두 프로필에서 같은 정확한 managed cluster ARM 신원과 Core 소유 수명 주기 범위 마이그레이션을 사용하며, 배포는 해당 managed cluster 리소스에만 읽기 신원 권한을 부여합니다. 검토 목록은 각 영속 키를 본문의 정확하고 불투명한 검토 신원과 대조합니다. 통제된 코호트 반입도 같은 동등성 규칙을 따릅니다. 테스트는 정규화한 합성 고정본을 사용하고 배포 환경은 묶음당 관측값을 1,000개로 제한하며 각 관측 다이제스트를 묶음과 exporter workflow에 연결한 뒤 private PostgreSQL에서 멱등 재생을 검증합니다. 산출물은 군, 리비전, 프로토콜, 출처, 승인 또는 권한을 선택할 수 없고, 빈 군별 allowlist는 exporter workflow와 정책 항목이 함께 추가될 때까지 어떤 출처도 신뢰하지 않습니다.
 Cost Governance 공개 전달도 같은 동등성 규칙을 따릅니다. 두 프로필은 비용 데이터를 반환하기 전에 내용이 없는 승인 증적을 하나 영속화하고 감사 영속화가 실패하면 응답을 차단하며, 변경할 수 없는 증적에 같은 400일 보존, 30일 삭제 유예, 법적 보존 및 tombstone 계약을 적용합니다. 로컬 고정본은 실제 W7 근거가 되지 않습니다.
 ## 전수조사 - 로컬 동작 vs Azure 필요

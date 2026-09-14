@@ -22,8 +22,8 @@ from fdai_operator_service.adapters import (
     OperatorSemanticKafkaBus,
     OperatorSemanticKafkaConfig,
     StartupOwnedLocalAzureNarratorAdapters,
+    create_workload_credential,
 )
-from fdai_operator_service.adapters.azure_identity import create_workload_credential
 from fdai_operator_service.adapters.narrator_periodic_scheduler import (
     PeriodicNarratorRefreshScheduler,
 )

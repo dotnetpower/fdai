@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: b202140071f7ef437031b6bc941b2d3ee8c813ab
+translation_source_sha: a390f4079a9855b479f0b292fc4d0bcfc0efcfb7
 translation_revised: 2026-09-14
 ---
 # 지속형 운영 인스턴스 그래프
@@ -27,7 +27,7 @@ translation_revised: 2026-09-14
 
 AKS에서 Operator의 그래프 질의와 실시간 단계 전송은 Operator 신원에 연결된 투영 워크로드
 자격 증명을 사용합니다. 자격 증명이 바뀌어도 질의 수용, 토픽 소유권, 관측 출처 또는 변환
-작성자는 바뀌지 않습니다. 연합 설정이 불완전하면 사용 불가로 처리하며 노드 신원이나 로컬
+작성자는 바뀌지 않습니다. 생성 함수는 기존 adapters 공개 모듈에서 제공합니다. 연합 설정이 불완전하면 사용 불가로 처리하며 노드 신원이나 로컬
 Azure CLI로 대체하지 않습니다. 로컬 자격 증명 정책은 그대로 유지합니다.
 
 - **관측된 사실:** 인증된 공급자 관측만 `observed` 상태 lane에 들어갈 수 있습니다. 질문,

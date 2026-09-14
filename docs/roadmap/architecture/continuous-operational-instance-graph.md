@@ -22,7 +22,7 @@ unbounded tight polling loop.
 
 On AKS, Operator graph-query and live-stage transport use the projected workload credential bound
 to the Operator identity. The credential change does not alter query admission, topic ownership,
-observation provenance or projection writers. Incomplete federation remains unavailable and never
+observation provenance or projection writers. The existing adapters facade owns factory exposure. Incomplete federation remains unavailable and never
 substitutes the node identity or local Azure CLI; local credential policy stays unchanged.
 
 - **Observed truth:** Only authenticated provider observations can enter the `observed` state lane.
