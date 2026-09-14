@@ -10,6 +10,7 @@ from typing import Any
 from uuid import UUID
 
 import psycopg
+from fdai_service_contracts.cloud_knowledge import Applicability
 from fdai_service_contracts.document import (
     DocumentDisposition,
     DocumentIndexState,
@@ -46,6 +47,15 @@ authorized AS MATERIALIZED (
        AND chunk.metadata->>'collection_id' = %s
        AND chunk.metadata->>'access_descriptor_ref' = ANY(%s)
        AND chunk.metadata->>'retention_state' = 'live'
+      AND EXISTS (
+         SELECT 1 FROM document_version AS version
+          WHERE version.document_id::text = chunk.metadata->>'document_id'
+            AND version.version_id::text = chunk.metadata->>'version_id'
+            AND version.active AND version.payload->>'available' = 'true'
+            AND version.state IN ('ready', 'ready_with_warnings')
+      )
+      AND (chunk.metadata->>'cloud_admission_expires_at' IS NULL
+          OR (chunk.metadata->>'cloud_admission_expires_at')::timestamptz > NOW())
        AND to_tsvector('simple', chunk.text) @@ inputs.query
 )
 SELECT doc_id, chunk_id, text, source_ref, metadata, score
@@ -128,6 +138,31 @@ class PostgresGovernedDocumentReadStore:
             limitation="index_completeness_unverified",
         )
 
+    async def search_applicable_governed(
+        self,
+        query: str,
+        *,
+        collection_id: str,
+        allowed_access_refs: frozenset[str],
+        target: Applicability,
+        k: int = 5,
+    ) -> GovernedDocumentSearchResult:
+        """Restrict cloud target identity and conditions in the authorized relation before rank."""
+        hits, snapshot = await self._search_snapshot(
+            query,
+            collection_id=collection_id,
+            allowed_access_refs=allowed_access_refs,
+            k=k,
+            target=target,
+        )
+        return GovernedDocumentSearchResult(
+            hits=hits,
+            index_generation="postgres-document-index:sha256:"
+            + hashlib.sha256(snapshot.encode()).hexdigest(),
+            complete=False,
+            limitation="index_completeness_unverified",
+        )
+
     async def _search_snapshot(
         self,
         query: str,
@@ -135,6 +170,7 @@ class PostgresGovernedDocumentReadStore:
         collection_id: str,
         allowed_access_refs: frozenset[str],
         k: int,
+        target: Applicability | None = None,
     ) -> tuple[tuple[KnowledgeChunk, ...], str]:
         if (
             not query.strip()
@@ -155,10 +191,29 @@ class PostgresGovernedDocumentReadStore:
             ).fetchone()
             if snapshot_row is None or not isinstance(snapshot_row.get("snapshot"), str):
                 raise RuntimeError("governed document index snapshot is unavailable")
-            cursor = await connection.execute(
-                _SEARCH_SQL,
-                (query, collection_id, sorted(allowed_access_refs), k),
-            )
+            sql = _SEARCH_SQL
+            parameters: tuple[object, ...] = (query, collection_id, sorted(allowed_access_refs), k)
+            if target is not None:
+                applicability_sql = "(chunk.metadata->>'cloud_source')::jsonb->'applicability'"
+                unknown_constraints = "".join(
+                    f"AND {applicability_sql}->'{field}' = '[]'::jsonb "
+                    for field in ("skus", "api_versions", "regions", "deployment_modes")
+                    if not getattr(target, field)
+                )
+                sql = sql.replace(
+                    "AND to_tsvector('simple', chunk.text) @@ inputs.query",
+                    f"AND {applicability_sql} @> %s::jsonb "
+                    + unknown_constraints
+                    + "AND to_tsvector('simple', chunk.text) @@ inputs.query",
+                )
+                parameters = (
+                    query,
+                    collection_id,
+                    sorted(allowed_access_refs),
+                    target.model_dump_json(),
+                    k,
+                )
+            cursor = await connection.execute(sql, parameters)
             rows = await cursor.fetchall()
         hits = tuple(
             KnowledgeChunk(

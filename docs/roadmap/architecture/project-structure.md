@@ -38,6 +38,7 @@ would need a separate, domain-bounded design that explicitly preserves coverage 
 ## Module Boundaries
 
 Dependency direction is strict and one-way; a violation is a review blocker.
+Cloud-reference collection belongs to ingestion API, parsing/index activation to the worker, and dated evidence to Core; [the lifecycle owner](../interfaces/cloud-resource-knowledge-lifecycle.md) defines the shared contracts and no-authority boundary.
 
 - **core is portable**: it MUST NOT import any cloud SDK directly. Cloud specifics enter
   only through the CSP-neutral interfaces in `shared/providers/`, whose implementations live

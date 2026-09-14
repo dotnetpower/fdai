@@ -131,9 +131,14 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
     """Build the complete service-owned production ASGI application."""
     env = dict(environ)
     execution_venue = _execution_venue(env)
+    retrieval_mode = env.get("FDAI_DOCUMENT_RETRIEVAL_MODE", "hybrid")
+    if retrieval_mode not in {"hybrid", "lexical"}:
+        raise ProductionConfigurationError("FDAI_DOCUMENT_RETRIEVAL_MODE is invalid")
     required = _COMMON_REQUIRED_ENV + (
         _DEPLOYED_REQUIRED_ENV if execution_venue is ExecutionVenue.DEPLOYED else ()
     )
+    if retrieval_mode == "lexical":
+        required = tuple(key for key in required if not key.startswith("FDAI_EMBEDDING_"))
     missing = [key for key in required if not env.get(key, "").strip()]
     if missing:
         raise ProductionConfigurationError(
@@ -274,7 +279,9 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
     )
     dimension = _positive_int(env, "FDAI_EMBEDDING_DIM", 384)
     embedding = (
-        DeterministicLocalEmbeddingModel(dimension=dimension)
+        None
+        if retrieval_mode == "lexical"
+        else DeterministicLocalEmbeddingModel(dimension=dimension)
         if uses_local_document_providers(execution_venue)
         else AzureEmbeddingModel(
             config=AzureEmbeddingConfig(
@@ -292,7 +299,7 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
             metadata.probe_readiness(),
             storage.probe_readiness(),
             publisher.probe_readiness(),
-            embedding.probe_readiness(),
+            *((embedding.probe_readiness(),) if embedding is not None else ()),
         )
         failures = tuple(
             f"{result.adapter}:{result.reason or 'unavailable'}"
@@ -473,6 +480,18 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
             client=http_client,
             timeout_seconds=float(env.get("FDAI_PROTECTION_TIMEOUT_SECONDS", "15")),
         )
+    from fdai_ingestion_api_service.cloud_knowledge.composition import (
+        bind_cloud_knowledge,
+        scheduled_cloud_checks,
+    )
+
+    cloud_knowledge = bind_cloud_knowledge(env, ingestion=service, dsn=dsn)
+    if cloud_knowledge is not None:
+
+        async def cloud_checks() -> None:
+            await scheduled_cloud_checks(cloud_knowledge)
+
+        connector_drainers.append(cloud_checks)
     return build_app(
         authenticator=authenticator,
         service=service,
@@ -490,10 +509,16 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
             config=database,
             embedder=embedding,
             dimension=dimension,
+            lexical_collections=frozenset(
+                source.collection_id for source in cloud_knowledge.registry.sources
+            )
+            if cloud_knowledge is not None
+            else frozenset(),
         ),
         handover_drafts=PostgresHandoverDraftReader(dsn=dsn),
         stewardship_webhook=stewardship_webhook,
         repository_handover_intake=repository_handover_intake,
+        cloud_knowledge=cloud_knowledge,
         config=IngestionGatewayConfig(
             proxy_upload=True,
             startup_checks=(verify_database_role, verify_adapters),

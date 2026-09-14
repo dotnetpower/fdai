@@ -7,6 +7,7 @@ from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
 
+from fdai_service_contracts.cloud_knowledge_release import KnowledgeReleaseBinding
 from pydantic import Field, model_validator
 
 from ._base import SemVer, _Base
@@ -57,6 +58,7 @@ class DocumentPurpose(StrEnum):
     MANUAL_DISTILLATION = "manual_distillation"
     HANDOVER_BOOTSTRAP = "handover_bootstrap"
     HANDOVER_EVIDENCE = "handover_evidence"
+    CLOUD_REFERENCE = "cloud_reference"
 
 
 class DocumentWorkerStage(StrEnum):
@@ -182,6 +184,7 @@ class DocumentVersion(_Base):
     supersedes_version_id: UUID | None = None
     failure_code: str | None = None
     warnings: tuple[str, ...] = ()
+    cloud_knowledge: KnowledgeReleaseBinding | None = None
 
 
 class StructuralUnit(_Base):

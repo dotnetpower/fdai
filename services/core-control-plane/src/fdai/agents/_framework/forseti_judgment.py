@@ -84,7 +84,7 @@ class ForsetiJudgmentMixin:
         clear = complete and signal.get("safety_status") == "clear"
         purposes = {str(value) for value in signal.get("purposes") or []}
         requires_approval = bool(signal.get("sensitivity_label")) or bool(
-            purposes & {"handover_bootstrap", "manual_distillation"}
+            purposes & {"handover_bootstrap", "manual_distillation", "cloud_reference"}
         )
         decision = "hil" if clear and requires_approval else ("admit" if clear else "hold")
         reason = (

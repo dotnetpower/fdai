@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import logging
 from collections.abc import Awaitable, Callable, Iterable
 from datetime import UTC, datetime
@@ -36,12 +35,20 @@ from fdai_service_contracts import (
 )
 
 from fdai_document_worker_service.artifact_manifest import attach_artifact_manifest
+from fdai_document_worker_service.cloud_activation import (
+    CloudIndexVerifier,
+    verify_cloud_activation,
+)
 from fdai_document_worker_service.deletion_lifecycle import DocumentDeletionLifecycle
 from fdai_document_worker_service.effects import (
     WorkerEffect,
     WorkerEffectKind,
     WorkerEffectStatus,
     WorkerMetadataStore,
+)
+from fdai_document_worker_service.lifecycle_events import (
+    document_lifecycle_event,
+    document_lifecycle_payload,
 )
 from fdai_document_worker_service.purge import DocumentPurgeVerifier
 from fdai_document_worker_service.state_machine import transition
@@ -63,8 +70,15 @@ class ActivatableDocumentIndex(Protocol):
     async def activate(self, document_id: UUID, version_id: UUID) -> None: ...
 
 
+@runtime_checkable
+class FreshMalwareScanner(Protocol):
+    async def verify_database_freshness(self, now: datetime) -> None: ...
+
+
 class DocumentIngestionWorker:
     """Run mechanical document stages while preserving agent-owned gates."""
+
+    _payload = staticmethod(document_lifecycle_payload)
 
     def __init__(
         self,
@@ -80,6 +94,8 @@ class DocumentIngestionWorker:
         consumers: Iterable[DocumentReadyConsumer] = (),
         clock: Callable[[], datetime] | None = None,
         indexing_stage_timeout_seconds: float = 90.0,
+        cloud_reference_guard: Callable[[DocumentVersion, datetime], None] | None = None,
+        cloud_index_verifier: CloudIndexVerifier | None = None,
     ) -> None:
         if indexing_stage_timeout_seconds <= 0:
             raise ValueError("indexing_stage_timeout_seconds MUST be positive")
@@ -101,6 +117,8 @@ class DocumentIngestionWorker:
             clock=self._clock,
         )
         self._indexing_stage_timeout_seconds = indexing_stage_timeout_seconds
+        self._cloud_reference_guard = cloud_reference_guard
+        self._cloud_index_verifier = cloud_index_verifier
 
     async def process(self, upload_id: UUID, claim: _ClaimReader) -> DocumentVersion:
         version = await self.inspect(upload_id, claim)
@@ -134,6 +152,8 @@ class DocumentIngestionWorker:
         if version.state is not DocumentState.SCANNING:
             return version
         try:
+            if version.cloud_knowledge is not None:
+                await self._check_cloud_scanner()
             malware_verdict = await self._malware.scan(self._objects.read(session.object_key))
         except Exception:  # noqa: BLE001 - mandatory scanner failure holds content
             malware_verdict = MalwareVerdict.UNAVAILABLE
@@ -175,6 +195,16 @@ class DocumentIngestionWorker:
     async def index(self, upload_id: UUID, claim: _ClaimReader) -> DocumentVersion:
         session = await self._metadata.get_upload(upload_id)
         version = await self._metadata.get_version(session.document_id, session.version_id)
+        if version.cloud_knowledge is not None and version.state in _TERMINAL_STATES:
+            if version.active and not version.available:
+                return await self._finish_cloud_activation(session, version, claim)
+            effect = await self._metadata.get_worker_effect(
+                upload_id, WorkerEffectKind.KNOWLEDGE_ACTIVATION
+            )
+            if effect is not None:
+                await self._metadata.complete_worker_effect(effect.effect_id)
+            return version
+        self._check_cloud_reference(version)
         if version.state in _TERMINAL_STATES:
             if (
                 version.state in {DocumentState.READY, DocumentState.READY_WITH_WARNINGS}
@@ -305,7 +335,18 @@ class DocumentIngestionWorker:
         warnings = envelope.warnings + consumer_warnings
         target = DocumentState.READY_WITH_WARNINGS if warnings else DocumentState.READY
         session_updates["index_state"] = DocumentIndexState.ACTIVE
+        if version.cloud_knowledge is not None:
+            await self._metadata.prepare_worker_effect(
+                claim=claim(),
+                kind=WorkerEffectKind.KNOWLEDGE_ACTIVATION,
+                document_id=version.document_id,
+                version_id=version.version_id,
+                object_key=version.cloud_knowledge.manifest_digest,
+            )
         try:
+            self._check_cloud_reference(version)
+            if version.cloud_knowledge is not None:
+                await self._check_cloud_scanner()
             session, version = await self._advance(
                 session,
                 version,
@@ -314,11 +355,13 @@ class DocumentIngestionWorker:
                 session_updates=session_updates,
                 version_updates={
                     "active": True,
-                    "available": True,
+                    "available": version.cloud_knowledge is None,
                     "index_state": DocumentIndexState.ACTIVE,
                     "warnings": warnings,
                 },
-                action="document.ready",
+                action="document.activation_pending"
+                if version.cloud_knowledge
+                else "document.ready",
             )
         except DocumentWorkerClaimConflictError:
             raise
@@ -326,7 +369,9 @@ class DocumentIngestionWorker:
             await self._index.delete(version.document_id, version.version_id)
             await self._artifacts.delete(version.document_id, version.version_id)
             raise
-        if isinstance(self._index, ActivatableDocumentIndex):
+        if version.cloud_knowledge is not None:
+            version = await self._finish_cloud_activation(session, version, claim)
+        elif isinstance(self._index, ActivatableDocumentIndex):
             await self._assert_active_claim(upload_id, claim)
             await self._index.activate(version.document_id, version.version_id)
         if promotion_effect is not None:
@@ -336,6 +381,56 @@ class DocumentIngestionWorker:
             await self._objects.delete(cleanup_effect.object_key)
             await self._metadata.complete_worker_effect(cleanup_effect.effect_id)
         return version
+
+    async def _finish_cloud_activation(
+        self, session: UploadSession, version: DocumentVersion, claim: _ClaimReader
+    ) -> DocumentVersion:
+        """Replay the sealed-source readback before visibility, or contain the generation."""
+        effect = await self._metadata.get_worker_effect(
+            session.upload_id, WorkerEffectKind.KNOWLEDGE_ACTIVATION
+        )
+
+        async def observe() -> str:
+            await self._assert_active_claim(session.upload_id, claim)
+            self._check_cloud_reference(version)
+            await self._check_cloud_scanner()
+            if self._cloud_index_verifier is None or effect is None:
+                raise ValueError("cloud activation verification is unavailable")
+            envelope = await self._extractor.extract(
+                version=version, chunks=self._objects.read(session.object_key)
+            )
+            digest = await self._cloud_index_verifier.verify(version, envelope)
+            self._check_cloud_reference(version)
+            await self._check_cloud_scanner()
+            return digest
+
+        result = await verify_cloud_activation(
+            metadata=self._metadata,
+            session=session,
+            version=version,
+            claim=claim,
+            observe=lambda: self._run_stage(
+                "cloud_index_verification", session.upload_id, observe()
+            ),
+            clock=self._clock,
+            event_factory=lambda current_session, current_version, action, extra: self._event(
+                current_session, current_version, action, extra=extra
+            ),
+        )
+        if effect is not None:
+            await self._metadata.complete_worker_effect(effect.effect_id)
+        return result
+
+    def _check_cloud_reference(self, version: DocumentVersion) -> None:
+        if version.cloud_knowledge is not None:
+            if self._cloud_reference_guard is None:
+                raise ValueError("cloud reference policy guard is unavailable")
+            self._cloud_reference_guard(version, self._clock())
+
+    async def _check_cloud_scanner(self) -> None:
+        if not isinstance(self._malware, FreshMalwareScanner):
+            raise ValueError("cloud reference scanner freshness check is unavailable")
+        await self._malware.verify_database_freshness(self._clock())
 
     async def reconcile_effect(self, effect: WorkerEffect) -> None:
         """Converge one pending idempotent effect from authoritative lifecycle state."""
@@ -679,60 +774,9 @@ class DocumentIngestionWorker:
         actor_id: str = "ingestion-worker",
         extra: dict[str, object] | None = None,
     ) -> DocumentLifecycleEvent:
-        record = self._payload(session, version, action, actor_id, extra)
-        identity = f"{action}:{version.version_id}:{version.revision}"
-        return DocumentLifecycleEvent(
-            event_id=UUID(bytes=hashlib.sha256(identity.encode()).digest()[:16]),
-            idempotency_key=identity,
-            topic="object.event",
-            key=str(version.document_id),
-            payload={
-                "producer_principal": "Huginn",
-                "kind": "document_ingestion",
-                "action": action,
-                "event_type": action,
-                "correlation_id": str(session.upload_id),
-                "idempotency_key": identity,
-                "resource_id": str(version.document_id),
-                "resource_type": "document",
-                "document_id": str(version.document_id),
-                "record": record,
-            },
-            created_at=self._clock(),
+        return document_lifecycle_event(
+            session, version, action, actor_id=actor_id, observed_at=self._clock(), extra=extra
         )
-
-    @staticmethod
-    def _payload(
-        session: UploadSession,
-        version: DocumentVersion,
-        action: str,
-        actor_id: str,
-        extra: dict[str, object] | None = None,
-    ) -> dict[str, object]:
-        record: dict[str, object] = {
-            "action": action,
-            "actor_id": actor_id,
-            "collection_id": session.collection_id,
-            "document_id": str(version.document_id),
-            "version_id": str(version.version_id),
-            "upload_id": str(session.upload_id),
-            "source_sha256": version.source_sha256,
-            "state": version.state.value,
-            "index_state": version.index_state.value,
-            "retention_state": version.retention_state.value,
-            "protection_state": version.protection_state.value,
-            "sensitivity_label": version.sensitivity_label or "",
-            "purposes": [purpose.value for purpose in version.purposes],
-            "uploader_id": version.uploader_id,
-            "failure_code": version.failure_code or "",
-            "policy_version": version.retention.policy_version,
-            "access_descriptor_ref": version.access.reference,
-            "upload_revision": session.revision,
-            "version_revision": version.revision,
-        }
-        if extra:
-            record.update(extra)
-        return record
 
 
 _TERMINAL_STATES = frozenset(

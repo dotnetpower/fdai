@@ -29,8 +29,10 @@ class _QueryEmbedder:
         return (1.0,) + (0.0,) * (_DIMENSION - 1)
 
 
+@pytest.mark.parametrize("lexical", [False, True])
 async def test_search_uses_one_acl_filtered_relation_for_both_rankers(
     monkeypatch: pytest.MonkeyPatch,
+    lexical: bool,
 ) -> None:
     statements: list[tuple[str, object]] = []
     rows = [
@@ -77,7 +79,7 @@ async def test_search_uses_one_acl_filtered_relation_for_both_rankers(
             dsn="postgresql://placeholder",
             statement_timeout_ms=3210,
         ),
-        embedder=_QueryEmbedder(),
+        embedder=None if lexical else _QueryEmbedder(),
         dimension=_DIMENSION,
     )
 
@@ -101,7 +103,7 @@ async def test_search_uses_one_acl_filtered_relation_for_both_rankers(
     assert "ORDER BY lexical_score DESC, chunk_id ASC" in query
     assert "ORDER BY score DESC, fused.chunk_id ASC" in query
     assert parameters == (
-        _vector((1.0,) + (0.0,) * (_DIMENSION - 1), _DIMENSION),
+        None if lexical else _vector((1.0,) + (0.0,) * (_DIMENSION - 1), _DIMENSION),
         "disk saturation",
         60.0,
         "shared",

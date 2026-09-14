@@ -5,6 +5,11 @@ title: Ontology Query Coverage Implementation Plan
 
 This plan closes the implementation gap between FDAI's bounded conversation and ontology foundations and the target non-keyword path for operator questions. It records the verified current baseline, service and agent ownership, dependency-ordered work packages, cutover gates, and rollback units for 100% structural query coverage.
 
+Governed cloud-reference queries preserve original source dates and accept exact source-spanned
+provider, generation, SKU, and other applicability conditions from typed judgment. As-of guidance
+requires fresh matching evidence; live-current requests terminate without fetching during an answer.
+The [cloud knowledge owner](cloud-resource-knowledge-lifecycle.md) records this bounded implementation.
+
 > **Coverage boundary:** 100% means every readable declaration in one active ontology release has a principal-scoped query descriptor or a typed unavailable reason. It does not promise a complete or correct answer when identity, provider data, history, or evidence is missing.
 >
 > **Authority boundary:** Natural-language and embedding output remains candidate-only. Read plans have no execution authority. A schema-validated `quoted` or `hypothetical` discourse mode terminates before frame selection, so only a `direct` judgment can enter operational query or draft planning. An explicit change request can create only a typed draft that re-enters the existing judgment, safety, human approval, execution, recovery, and audit path.
