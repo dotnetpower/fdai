@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: a66cbc4784a7a8af550e404bcff1e32573d17986
+translation_source_sha: 072e24622b1caaa3b1799f39e2c75cff65734e3a
 translation_revised: 2026-09-14
 ---
 
@@ -23,7 +23,8 @@ translation_revised: 2026-09-14
 > **현재 상태:** FDAI에는 이제 독립적인 `fdai-cost-governance` wheel, source distribution,
 > 이미지 프로파일, 정확한 온톨로지 프로파일, 원자적인 disabled-first 패키지 수명 주기,
 > 패키지 소유 카탈로그 자산, gate가 적용된 Operator 및 Console 변환 결과와 로컬 W0-W7 검증
-> 메커니즘이 있습니다. Shared Operator 조립은 관련 없는 이벤트 버스 worker를 감독할 수 있지만
+> 메커니즘이 있습니다. 공용 Console 카탈로그 source 검사기는 저장소 검증만 담당하며 Cost Governance
+> 패키지, 활성화 상태 또는 권한에 포함되지 않습니다. Shared Operator 조립은 관련 없는 이벤트 버스 worker를 감독할 수 있지만
 > Cost Governance 자산을 활성화, 구성, 게시하거나 대화 fallback stream을 통해 바꿀 수 없습니다.
 > 보낼 편지함 수명 주기 facade는 관련 없는 Incident 개입 작업자도 제공합니다. 해당 수명
 > 주기와 준비 상태는 Cost Governance 패키지를 활성화하거나 Njord 소유 레코드를 게시할 수

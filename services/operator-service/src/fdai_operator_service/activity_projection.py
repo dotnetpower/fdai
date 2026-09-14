@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 from fdai_service_contracts import (
     AgentOperationalActivity,
@@ -218,7 +218,7 @@ def _observation_activity(row: Mapping[str, Any]) -> AgentOperationalActivity | 
         owner_text = _text(owner_value, "observation owner agent", maximum=32)
         if owner_text not in _OBSERVATION_OWNERS[domain]:
             raise ValueError("observation owner agent is incompatible with its domain")
-        owner = cast(ObservationOwner, owner_text)
+        owner = owner_text
     status_value = _text(value.get("status"), "observation status", maximum=32)
     statuses = {
         "started": OperationalActivityStatus.STARTED,

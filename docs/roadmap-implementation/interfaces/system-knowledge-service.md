@@ -21,6 +21,7 @@ owner remains focused on its normative design and safety boundary.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Regenerated the release catalog after the final CI correction to the cited Pantheon attribution guidance. | `current change`; generated catalog, source blob pins, and derived-source gate. | No retrieval, message-delivery, or execution authority changed. |
 | 2026-09-14 | implemented | Regenerated the release catalog after the authoritative Pantheon design clarified operational actor, accountable owner, and authenticated publisher identities. | `current change`; generated catalog, source blob pins, and derived-source gate. | No retrieval, message-delivery, or execution authority changed. |
 | 2026-09-12 | implemented | Rebuilt the release catalog after repairing cited Markdown table structure so every source blob pin still identifies the packaged release tree. | `current change`; packaged catalog; `check-derived-sources` passed with 16 pinned System Knowledge sources. | No retrieval or authority behavior changed; production graduation evidence remains open. |
 | 2026-09-12 | implemented | Regenerated the release-bound catalog from the final checkout after rebasing the local history onto the current protected main revision. | `current change`; packaged catalog; `check-derived-sources` passed with 16 pinned System Knowledge sources. | No catalog authority or retrieval behavior changed; production graduation evidence remains open. |

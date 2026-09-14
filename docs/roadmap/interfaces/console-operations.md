@@ -552,7 +552,7 @@ limits, and rollback behavior.
 Catalog each current console write route, source schema, owner, capability, revision, idempotency
 rule, receipt, and identity dependency. Classify it as query, simulation, approval, operational
 request, execution, or break-glass. From the first shipped route, browser-Entra local and deployed
-use the same schema, authorization, and source binding; fixture principals remain pytest-only.
+use the same schema, authorization, and source binding; fixture principals remain pytest-only. The static localization source inventory follows the current component set when a route is replaced and changes no runtime behavior or authority.
 
 Exit criteria: every shipped request has one domain schema, owner, capability, idempotency rule,
 and audit path. A machine-readable route inventory records method and path, classification, schema,

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: e47094ad7fbfbd5631ca2b3a478787c799d3cdf9
+translation_source_sha: ab4b196cc8895e5b3799786de0bc4671b36ad620
 translation_revised: 2026-09-14
 ---
 # 에이전트 판테온
@@ -32,7 +32,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
   결과는 판단, 승인, 실행 또는 권한 상승을 수행하지 않습니다.
 - **Closed-loop 연산.** 수락된 신호는 observe, understand, decide, 계획, authorize, execute, verify, recover, learn 전 과정에서 accountable 소유자를 가집니다. 브로커 acceptance나 API 성공은 운영 결과가 아니며 독립적인 관측이 루프를 종료합니다.
   운영 귀속은 실행 권한을 부여하지 않습니다. 감사 및 활동 레코드는 기계적인 `actor`를 보존하고, 책임지는 Pantheon 역할을 `owner_agent`에 기록하며, 인증된 이벤트 버스 게시자에만 `producer_principal`을 사용합니다.
-  투영 계층은 이 신원을 표시할 수 있지만 서비스 이름에서 소유권, 작성 주체 또는 권한을 추론할 수 없습니다.
+  투영 계층은 이 신원을 표시할 수 있지만 서비스 이름에서 소유권, 작성 주체 또는 권한을 추론할 수 없으며, 귀속 변경은 ActionRun 식별자나 멱등성을 바꾸지 않습니다.
 - **자율성 before 에스컬레이션.** 근거가 부족하면 사람에게 넘기기 전에 범위가 제한된 reacquisition,
   alternate-source 검사, 결정론적 reevaluation, 더 작은 safe 계획, no-op 또는 롤백을
   수행합니다. Var는 잔여 모호함, policy-mandated 승인 또는 standing 권한 밖의

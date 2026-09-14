@@ -78,8 +78,8 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    validated task through the `pr-delivery` skill: create a task-owned local commit, push a topic
    branch without force, create or update its pull request, satisfy protected checks and reviews,
    merge when permitted, and clean up the merged local topic branch. An explicit request to stop
-   before any stage overrides this default. Every agent-authored commit MUST originate in the
-   local checkout. After focused validation and diff review, commit only task-owned
+   before any stage overrides this default. After authorization, every agent-authored commit MUST
+   originate in the local checkout. After focused validation and diff review, commit only task-owned
    paths from the active checkout with `git commit -m "<message>" -- <task-owned paths>`; stage new
    task-owned files first when needed. Preserve unrelated index and worktree changes, never bypass
    hooks, and do not rerun successful checks unless relevant inputs changed. The commit hook is the
@@ -96,8 +96,8 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    pushed SHA with required CI and protected preflight; local validation receipts never grant
    authority. The standing completion preference also authorizes entering the applicable
    repository deployment workflow after protected merge. It never selects a tenant, subscription,
-   environment, or exact Terraform plan, never supplies a secret, and never replaces a required
-   human plan approval or destructive-action confirmation. Use a task branch or isolated worktree
+   environment, or exact Terraform plan, never supplies a secret, and never replaces a required human plan approval
+   or destructive-action confirmation. Use a task branch or isolated worktree
    for each active outcome. Only superseded PR
    runs may be cancelled; every integrated `main` revision must reach a terminal CI result before
    another change enters `main`. A session waiting on external evidence is blocked or idle, not

@@ -121,7 +121,7 @@ artifact. Any change to a cited source, including formatting-only compaction or 
 repair, requires a catalog rebuild in the same change before packaging so its blob pins and digest
 match the release tree.
 This mechanical refresh carries the revised source identity, including Pantheon attribution
-guidance, and adds no operational, approval, or execution authority. Deployment-guard source revisions follow the same rebuild rule.
+guidance and its CI-verified corrections, and adds no operational, approval, or execution authority. Deployment-guard source revisions follow the same rebuild rule.
 Completion-handoff and behavior-knowledge ledger refreshes follow this rule: they change source
 blob pins and the catalog digest only, without changing retrieval authority or message-delivery
 behavior.

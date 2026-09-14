@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 7a62f29a82411dd3a4a1ada7023102fd0161572a
+translation_source_sha: d1e351b2c35548f8e285864d697749ab27f15000
 translation_revised: 2026-09-14
 ---
 
@@ -36,6 +36,7 @@ translation_revised: 2026-09-14
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 활동 귀속 변경에서 관련 없는 ActionRun fingerprint 필드를 제거해 영속 및 복구 식별자를 그대로 유지했습니다. | `current change`; 전체 mypy와 집중 Thor 내구성 및 복구 회귀 테스트. | 정확히 병합된 개정 번호의 배포 감사 및 활동 근거를 보존합니다. |
 | 2026-09-14 | implemented | 운영 활동 귀속을 기계 행위자, 책임 `owner_agent`, 인증된 `producer_principal`로 분리했습니다. 컨트롤 루프 측정은 Heimdall, RCA는 Forseti, 시작 감사는 Saga, 관측 캠페인은 선언된 소유자에 귀속하며 Saga 감사 미러는 감사 대상 주체를 바꾸지 않고 Saga를 기록합니다. | `current change`; 서비스 계약, 컨트롤 루프, provider adapter, 관측 캠페인, 시작 probe, 파이프라인 및 Operator 투영 테스트. | 정확히 병합된 개정 번호의 배포 감사 및 활동 근거를 보존합니다. 역할, topic 또는 실행 권한은 바뀌지 않았습니다. |
 | 2026-08-13 | in-progress | W0-W8 전체 완료 주장을 독립적으로 근거를 확인할 수 있는 구현 영역으로 교체했습니다. | 현재 변경 | 검증 완료 또는 enforce 운영을 주장하기 전에 실제 근거를 수집하고 별도 검토를 거친 승격을 완료합니다. |
 | 2026-08-14 | implemented | 선택적 대화 T2 종합을 범위가 제한된 T1 답변 신호의 결정론적 충돌 평가 결과에만 실행하도록 했습니다. | `current change`, 집중 숙의 테스트 36개 및 framework layout 검사 | 에스컬레이션하지 않는 분기와 충돌로 에스컬레이션하는 분기의 통제된 런타임 근거를 보존합니다. |

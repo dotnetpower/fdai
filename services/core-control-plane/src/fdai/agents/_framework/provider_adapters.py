@@ -747,7 +747,6 @@ class StateStoreActionRunStore:
 
 def _action_fingerprint(run: ActionRun) -> str:
     payload = {
-        "action_id": run.action_id,
         "action_type": run.action_type,
         "resource_id": run.resource_id,
         "idempotency_key": run.idempotency_key,
