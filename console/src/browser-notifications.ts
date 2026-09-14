@@ -76,6 +76,13 @@ export function browserNotificationPreferenceKey(principalId: string | null | un
   return `${STORAGE_PREFIX}:${principalId?.trim() || "local"}`;
 }
 
+export function isBrowserNotificationPreferenceStorageKey(
+  key: string | null,
+  principalId?: string | null,
+): boolean {
+  return key === null || key === browserNotificationPreferenceKey(principalId);
+}
+
 export function browserNotificationDeliveryKey(principalId: string | null | undefined): string {
   return `${DELIVERY_PREFIX}:${principalId?.trim() || "local"}`;
 }

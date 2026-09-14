@@ -648,6 +648,8 @@ The visible delivery status is always derived from the newest retained delivery,
 older notification cannot make a newer unacknowledged notification appear acknowledged.
 Tabs listen only for the current principal's delivery-ledger storage key, so a send or
 acknowledgement in one tab refreshes the visible state in the others without crossing principals.
+They also observe the current principal's preference key and storage-clear events, so deselecting
+the channel in one tab stops receiver eligibility in every tab for that browser principal.
 An explicit channel selection or deselection reaches its visible terminal state only after the
 principal-scoped preference write succeeds; unavailable browser storage produces the retry state.
 After an exact Console window is focused, acknowledgement-message failure reuses that window with
