@@ -162,8 +162,8 @@ Core 런타임만 Pantheon을 소유하며 로컬 및 deployed interactive 읽�
 요청은 raw 신원 대신 salted SHA-256 user/세션 참조를 전달하며, 시간 초과 또는 잘못된 응답은 전문가 답변을 꾸미지 않고 명시적인 agent-to-Bragi 인계로 표시합니다. 같은 지연 시간 프로파일은 같은 direct, streamed 또는 detached 모드를 선택하며 측정된 프로바이더 지연 시간과 구성된 근거 가용성만 모드를 바꿀 수 있습니다.
 명시적 로컬 Azure CLI principal 대안은 `GET /local-auth/me`를 통해 초기화합니다. 표준 전체 스택 준비는 오래된 비공개 Vite 값과 관계없이 항상 Browser Entra를 선택합니다. CLI principal
 디버깅에는 명시적인 `--auth-mode azure-cli` 준비 요청과 브라우저 및 Operator API 경계의
-활성화 값과 확인 값 쌍이 필요합니다. 표준 VS Code 복합 실행은 두 브라우저 값을 `0`으로
-설정하고 감독기가 모든 자식에 하나의 변경 불가능한 기대 모드를 전달합니다. 표준 준비 작업은
+활성화 값과 확인 값 쌍이 필요합니다. 표준 VS Code 복합 실행은 브라우저와 디버거 소유 API를
+로컬 Entra에 고정하고 작업 감독기가 모든 자식에 하나의 변경 불가능한 기대 모드를 전달합니다. 표준 준비 작업은
 `--auth-mode browser-entra`를 전달하며, 별도로 이름을 붙인
 `console: start full stack (Azure CLI debug, Contributor)` 작업만
 `--auth-mode azure-cli`를 전달합니다.

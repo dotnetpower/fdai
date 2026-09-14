@@ -560,6 +560,12 @@ def test_console_launch_and_readiness_use_canonical_localhost_origin() -> None:
     assert frontend["env"]["VITE_MANUAL_STUDIO_URL"] == "http://127.0.0.1:5474"
     assert frontend["env"]["VITE_LOCAL_AZURE_CLI_AUTH"] == "0"
     assert frontend["env"]["VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM"] == "0"
+    operator_api = next(
+        item for item in launch["configurations"] if item["name"] == "Console Web: Operator API"
+    )
+    assert operator_api["env"]["FDAI_OPERATOR_API_LOCAL_AZURE_CLI"] == "0"
+    assert operator_api["env"]["FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM"] == "0"
+    assert operator_api["env"]["FDAI_OPERATOR_API_LOCAL_ENTRA"] == "1"
     assert developer_workflow_runtime.LOCAL_SERVICE_ENDPOINTS[0] == (
         "console-frontend",
         "http://localhost:5273/",
