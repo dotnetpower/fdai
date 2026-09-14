@@ -39,6 +39,9 @@ from fdai_operator_service.families.conversation.conversation_history import (
 from fdai_operator_service.families.conversation.conversation_search import (
     materialize_conversation_search,
 )
+from fdai_operator_service.families.conversation.postgres_document_refs import (
+    build_postgres_document_context_resolver,
+)
 from fdai_operator_service.families.conversation.user_context import (
     materialize_user_context,
 )
@@ -1104,4 +1107,5 @@ __all__ = [
     "UnavailableConversationAdapters",
     "UnavailableOperationsAdapters",
     "UnavailableWorkflowAdapters",
+    "build_postgres_document_context_resolver",
 ]

@@ -147,7 +147,25 @@ class PostgresDocumentContextResolver:
         )
 
 
+def build_postgres_document_context_resolver(
+    *,
+    dsn: str,
+    statement_timeout_ms: int,
+    connect_timeout_s: int,
+) -> PostgresDocumentContextResolver:
+    """Build the family-owned exact document authorization resolver."""
+
+    return PostgresDocumentContextResolver(
+        PostgresDocumentContextResolverConfig(
+            dsn=dsn,
+            statement_timeout_ms=statement_timeout_ms,
+            connect_timeout_s=connect_timeout_s,
+        )
+    )
+
+
 __all__ = [
     "PostgresDocumentContextResolver",
     "PostgresDocumentContextResolverConfig",
+    "build_postgres_document_context_resolver",
 ]

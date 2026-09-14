@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: 30e966553b8d7c05d48f4184799c48618224b9f6
+translation_source_sha: b9d14059aefcccc29622cb0910f88132aab97a19
 translation_revised: 2026-09-14
 title: 대화 첨부파일
 ---
@@ -45,6 +45,7 @@ title: 대화 첨부파일
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 첨부 전달의 CI 소유권과 구조를 정합화했습니다. 출처에서 파생되는 의미 의도 다이제스트를 갱신하고, 범위가 제한된 Core 호출 맥락 모듈을 등록했으며, PostgreSQL 문서 해석기 조립을 PostgreSQL family adapter facade 뒤로 옮겨 Operator 조립 root가 검토된 fan-out 상한 아래에 머물게 했습니다. | `current change`, 의미 의도 범위 테스트, 조립 패키지 분리 테스트, Operator 문서 참조 테스트, Operator 경계 및 파일 LOC 검사 | 보호된 배포 근거를 추가할 때 같은 경계를 유지합니다. 이 구조 보완만으로 실제 운영 검증을 추론하지 않습니다. |
 | 2026-09-14 | implemented | 과거 로컬 및 실제 운영 근거에 새 이름을 붙이지 않고 현재 9개 계약 집중 검사 행렬과 보존된 7개 edge 전이 인증을 분리했습니다. | `current change`, 호환성 manifest와 검증기, 집중 호환성 및 독립 서비스 검사, 인증 범위 부정 테스트 | 보호된 N/N-1 배포가 정확한 스키마, 신원, 상태, offset, 출처, 이미지 및 토폴로지 관측을 기록한 뒤에만 첨부 HTTP edge 2개를 전이 인증에 추가합니다. |
 | 2026-09-14 | implemented | 비공개 Slack 및 Teams 가져오기 경로, 내부 채널 인제스트 워크로드, 영속 허용 및 커밋 재생, 해시에 결속된 최종 증적, 정확한 Web 및 Core 권한 확인, 로컬 및 Terraform 토폴로지, 보호된 전환 검증과 인증된 워크로드 준비 상태 확인을 추가했습니다. | `current change`, 계약 93개, 인제스트 28개, Operator 236개, Core 및 담당 체계 377개, Entra 40개, 정확 참조 이행 2개, 배포, 워크플로 및 로컬 시작 집중 테스트 345개, 소유 영역별 strict mypy 검사 4개, 변경 파일 Ruff 및 생성 산출물 검사 | 테넌트 관리자가 애플리케이션 역할 선행 조건을 완료한 뒤 보호된 운영 배포 근거를 기록합니다. 별도 inline vision 경로를 완성합니다. |
 | 2026-09-14 | implemented | 서비스 분해 이후의 Operator edge를 이 owner와 정합화했습니다. 비활성화된 프로바이더 첨부는 queue 유입 전에 실패하고, 직접 queue 주입은 의미 게시 전에 실패하며, 지원되지 않는 활성화는 시작에 실패합니다. | `current change`, 집중 Operator 환경, 조립, Slack, Teams 및 파이프라인 검사 | 에이전트 소유 문서 인제스트로 전달하는 버전이 지정된 계약을 정의하고 비공개 벤더 가져오기 도구, 최종 인용 반환 및 통제된 런타임 근거를 연결합니다. |

@@ -1562,6 +1562,7 @@
         "services/document-ingestion-api/pyproject.toml",
         "services/document-ingestion-api/src/fdai_ingestion_api_service/**",
         "services/operator-service/src/fdai_operator_service/families/conversation/**",
+        "services/operator-service/src/fdai_operator_service/family_adapters.py",
         "services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py",
         "services/operator-service/src/fdai_operator_service/contract_codecs.py",
         "services/operator-service/src/fdai_operator_service/composition.py",
@@ -1586,6 +1587,7 @@
         "docs/runbooks/entra-app-registration*.md",
         "packages/service-contracts/tests/test_channel_attachment.py",
         "packages/service-contracts/tests/test_semantic_turn.py",
+        "eval/golden-dataset/semantic-intent-coverage.json",
         "tests/integration/service-suites.json",
         "services/document-ingestion-api/tests/**",
         "services/operator-service/tests/test_semantic_turn_bridge.py",
@@ -1830,6 +1832,9 @@
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
         "docs/roadmap/rules-and-detection/rule-semantic-retrieval.md",
         "docs/roadmap/rules-and-detection/causal-incident-graph.md"
+      ],
+      "docs_update_routes": [
+        "conversation-attachments"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/hierarchical-conversation-planning.md",

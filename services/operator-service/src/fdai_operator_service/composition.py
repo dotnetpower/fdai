@@ -50,13 +50,11 @@ from fdai_operator_service.conversation_assurance_reader import (
 from fdai_operator_service.environment import (
     OperatorEnvironment,
 )
-from fdai_operator_service.families.conversation import ConversationFamilyDependencies
+from fdai_operator_service.families.conversation import (
+    ConversationFamilyDependencies,
+)
 from fdai_operator_service.families.conversation.document_export import (
     ConversationDocumentExporter,
-)
-from fdai_operator_service.families.conversation.postgres_document_refs import (
-    PostgresDocumentContextResolver,
-    PostgresDocumentContextResolverConfig,
 )
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
@@ -81,6 +79,7 @@ from fdai_operator_service.family_adapters import (
     UnavailableConversationAdapters,
     UnavailableOperationsAdapters,
     UnavailableWorkflowAdapters,
+    build_postgres_document_context_resolver,
 )
 from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
 from fdai_operator_service.iam_composition import (
@@ -598,12 +597,10 @@ def _build_route_families(
             projections=semantic_adapters or conversation,
             outbox=semantic_adapters or postgres_conversation,
             streams=semantic_adapters or conversation,
-            document_context_resolver=PostgresDocumentContextResolver(
-                PostgresDocumentContextResolverConfig(
-                    dsn=database_url,
-                    statement_timeout_ms=environment.database_statement_timeout_ms,
-                    connect_timeout_s=environment.database_connect_timeout_s,
-                )
+            document_context_resolver=build_postgres_document_context_resolver(
+                dsn=database_url,
+                statement_timeout_ms=environment.database_statement_timeout_ms,
+                connect_timeout_s=environment.database_connect_timeout_s,
             ),
         ),
         iam=build_postgres_iam_bindings(
