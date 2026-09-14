@@ -560,8 +560,10 @@ through either `remediates` or `alternatives`. Exactly one cited rule must provi
 HIL, and execution rendering so citation order cannot substitute unrelated rule metadata. An exact catalog-declared `alternatives`
 relationship is deterministic grounding evidence before semantic similarity, so the grounding leg cannot contradict the trusted Rule
 relationship. A T2 proposal also cannot bypass grounding authority when a provider fails. HIL approval ids
-and executor idempotency keys are claimed atomically. Var preserves the source ActionRun idempotency key, serializes finalization, and writes one final approval plus publication receipt to the runtime StateStore before removing the ticket. Per-resource locking serializes competing applies before any delivery adapter
-can mutate state. Vidar also claims the correlation and request digest with an owner token and bounded lease before provider recovery.
+and executor idempotency keys are claimed atomically. Var preserves the source ActionRun idempotency key, serializes finalization, and writes one final approval plus publication receipt to the runtime StateStore before removing the ticket.
+Each normalized Var decision is first joined into an audited CAS aggregate, so restart and concurrent replicas derive quorum from the same
+immutable principal set before finalization. Per-resource locking serializes competing applies before any delivery adapter can mutate state.
+Vidar also claims the correlation and request digest with an owner token and bounded lease before provider recovery.
 A colliding replica leaves a live lease untouched; only verified expiry permits `execution_unknown`, and revision CAS fences late owner
 completion. Terminal or publication replay never repeats the rollback. Runtime composition also injects that `StateStore` into
 Saga's handoff journal. Saga validates one claim, mutation checkpoint, and completion receipt per escalation and requires an

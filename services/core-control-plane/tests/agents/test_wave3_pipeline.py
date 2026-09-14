@@ -1537,9 +1537,10 @@ def _var_with_pending(
     quorum: int = 1,
     initiator: str | None = None,
     idempotency_key: str = "action-run:hil-pending",
+    state_store=None,  # noqa: ANN001
 ) -> Var:
     reg = load_pantheon()
-    var = Var(bus=InMemoryBus(registry=reg))
+    var = Var(bus=InMemoryBus(registry=reg), state_store=state_store)
     payload: dict[str, object] = {
         "correlation_id": correlation,
         "action_type": "remediate.delete-storage",
@@ -1638,8 +1639,8 @@ def test_var_replays_final_approval_after_restart() -> None:
     first = _var_with_pending(
         "c-approval-restart",
         idempotency_key="c-approval-restart:hil_pending",
+        state_store=store,
     )
-    first._state_store = store  # noqa: SLF001 - restart checkpoint seam
     first.bus = None
     finalized = asyncio.run(
         first.decide(
@@ -1662,6 +1663,125 @@ def test_var_replays_final_approval_after_restart() -> None:
 
     assert replayed == finalized
     assert len(bus.messages_on("object.approval")) == 1
+
+
+def test_var_combines_pre_final_quorum_across_restart() -> None:
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    store = InMemoryStateStore()
+    first = _var_with_pending(
+        "c-quorum-restart",
+        quorum=2,
+        idempotency_key="c-quorum-restart:hil_pending",
+        state_store=store,
+    )
+    first.bus = None
+
+    first_vote = asyncio.run(
+        first.decide(
+            "c-quorum-restart",
+            approver="alice@example.com",
+            decision="approve",
+        )
+    )
+    assert first_vote is None
+
+    restarted = _var_with_pending(
+        "c-quorum-restart",
+        quorum=2,
+        idempotency_key="c-quorum-restart:hil_pending",
+        state_store=store,
+    )
+    restarted.bus = None
+    final = asyncio.run(
+        restarted.decide(
+            "c-quorum-restart",
+            approver="bob@example.com",
+            decision="approve",
+        )
+    )
+
+    assert final is not None
+    assert final["state"] == "approved"
+    assert final["approvers"] == ["alice@example.com", "bob@example.com"]
+
+
+def test_var_combines_quorum_across_replicas() -> None:
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    async def _decide() -> tuple[dict[str, object] | None, dict[str, object] | None]:
+        store = InMemoryStateStore()
+        first = Var(state_store=store)
+        second = Var(state_store=store)
+        ticket = {
+            "correlation_id": "c-quorum-replicas",
+            "action_type": "remediate.delete-storage",
+            "state": "hil_pending",
+            "quorum_required": 2,
+            "idempotency_key": "action-run:hil-pending",
+        }
+        await asyncio.gather(
+            first.on_typed_message("object.action-run", dict(ticket)),
+            second.on_typed_message("object.action-run", dict(ticket)),
+        )
+        first.bus = None
+        second.bus = None
+        return await asyncio.gather(
+            first.decide(
+                "c-quorum-replicas",
+                approver="alice@example.com",
+                decision="approve",
+            ),
+            second.decide(
+                "c-quorum-replicas",
+                approver="bob@example.com",
+                decision="approve",
+            ),
+        )
+
+    first_result, second_result = asyncio.run(_decide())
+
+    final = first_result or second_result
+    assert final is not None
+    assert final["state"] == "approved"
+    assert final["approvers"] == ["alice@example.com", "bob@example.com"]
+
+
+def test_var_rejects_durable_principal_decision_replacement() -> None:
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    store = InMemoryStateStore()
+    first = _var_with_pending(
+        "c-vote-collision",
+        quorum=2,
+        state_store=store,
+    )
+    first.bus = None
+    assert (
+        asyncio.run(
+            first.decide(
+                "c-vote-collision",
+                approver="alice@example.com",
+                decision="approve",
+            )
+        )
+        is None
+    )
+    restarted = _var_with_pending(
+        "c-vote-collision",
+        quorum=2,
+        state_store=store,
+    )
+    restarted.bus = None
+
+    with pytest.raises(ValueError, match="cannot replace an existing decision"):
+        asyncio.run(
+            restarted.decide(
+                "c-vote-collision",
+                approver="alice@example.com",
+                decision="reject",
+            )
+        )
 
 
 def test_var_serializes_concurrent_final_approvals() -> None:

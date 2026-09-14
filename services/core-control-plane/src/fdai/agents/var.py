@@ -31,6 +31,7 @@ from fdai.agents._framework.introspection import (
     mentioned,
 )
 from fdai.agents._framework.pantheon import _VAR
+from fdai.agents._framework.var_decisions import VarDecisionJournal
 from fdai.shared.providers.state_store import StateStore
 
 ApproverAuthorizer = Callable[[str, str], bool | Awaitable[bool]]
@@ -104,6 +105,9 @@ class Var(Agent):
         self.admin_channel = admin_channel or InMemoryAdminChannel()
         self._approver_authorizer = approver_authorizer
         self._state_store = state_store
+        self._decision_journal = (
+            VarDecisionJournal(state_store) if state_store is not None else None
+        )
         self._decision_lock = asyncio.Lock()
         self._pending: dict[str, PendingHilTicket] = {}
         self._pending_shadow_reviews: dict[str, PendingShadowReview] = {}
@@ -300,9 +304,9 @@ class Var(Agent):
                     f"principal {approver_norm!r} is not authorized to decide "
                     f"{ticket.action_type!r}"
                 )
-        if decision == "reject":
-            ticket.rejected = True
-        elif decision == "approve":
+        if decision not in {"approve", "reject"}:
+            raise ValueError(f"unknown decision {decision!r}")
+        if decision == "approve":
             # No self-approval: the operator who initiated the action can never
             # approve it (approval and initiation are distinct principals - a
             # pantheon safety invariant, agent-pantheon.md). Enforced here even
@@ -319,9 +323,24 @@ class Var(Agent):
                 raise ValueError(
                     f"principal {approver_norm!r} cannot self-approve twice on {correlation_id!r}"
                 )
-            ticket.approvers.append(approver_norm)
+
+        if self._decision_journal is not None:
+            durable_decision = await self._decision_journal.record(
+                state_key=_approval_state_key(correlation_id, "decisions"),
+                correlation_id=correlation_id,
+                action_type=ticket.action_type,
+                quorum_required=ticket.quorum_required,
+                ticket_identity=_ticket_identity(ticket),
+                principal=approver_norm,
+                decision="approved" if decision == "approve" else "rejected",
+            )
+            ticket.approvers = list(durable_decision.approved_principals)
+            ticket.rejected = durable_decision.rejected
         else:
-            raise ValueError(f"unknown decision {decision!r}")
+            if decision == "reject":
+                ticket.rejected = True
+            else:
+                ticket.approvers.append(approver_norm)
 
         if ticket.rejected or len(ticket.approvers) >= ticket.quorum_required:
             final = "rejected" if ticket.rejected else "approved"
@@ -379,7 +398,10 @@ class Var(Agent):
                 stored = await self._state_store.read_state(key)
                 if stored is None:
                     raise RuntimeError("approval final record disappeared after collision")
-                approval = self._validate_final_approval(stored, correlation_id)
+                stored_approval = self._validate_final_approval(stored, correlation_id)
+                if stored_approval != approval:
+                    raise RuntimeError("approval finalization collided with a different payload")
+                approval = stored_approval
         self._final_approvals.set(correlation_id, deepcopy(approval))
         return deepcopy(approval)
 
@@ -576,6 +598,23 @@ class Var(Agent):
         else:
             answer = f"{len(pending)} HIL approval(s) pending: {', '.join(sorted(pending))}."
         return IntrospectionResult(answer=answer, facts=facts)
+
+
+def _ticket_identity(ticket: PendingHilTicket) -> dict[str, Any]:
+    return {
+        "correlation_id": ticket.correlation_id,
+        "action_type": ticket.action_type,
+        "resource_id": ticket.resource_id,
+        "quorum_required": ticket.quorum_required,
+        "initiator_principal": ticket.initiator_principal,
+        "kind": ticket.kind,
+        "document_id": ticket.document_id,
+        "upload_id": ticket.upload_id,
+        "stage": ticket.stage,
+        "idempotency_key": ticket.idempotency_key,
+        "params": ticket.params,
+        "decision_case": ticket.decision_case,
+    }
 
 
 __all__ = ["PendingHilTicket", "PendingShadowReview", "Var"]
