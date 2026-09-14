@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: ba4918798e152d11ea3b74c806558f3d94a495cc
-translation_revised: 2026-08-20
+translation_source_sha: 74966686adc28bfcf7e24940d6a5b0aba2759515
+translation_revised: 2026-09-14
 title: 대화 첨부파일
 ---
 # 대화 첨부파일
@@ -32,8 +32,8 @@ title: 대화 첨부파일
 | 벤더 중립 첨부 메타데이터 | implemented | [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | `ChannelAttachment`와 `InboundTurn`은 범위가 제한된 opaque 메타데이터를 강제합니다. 이 계약이 벤더 어댑터 구현을 의미하지는 않습니다. |
 | 명시적 첨부 용도 | implemented | [`attachment_directive.py`](../../../services/core-control-plane/src/fdai/core/conversation/attachment_directive.py), [`test_attachment_directive.py`](../../../services/core-control-plane/tests/core/conversation/test_attachment_directive.py) | 정확한 선행 directive만 인계 의도를 선택하며 일반 문장과 파일 이름은 선택하지 않습니다. |
 | 채널 인제스트 gateway seam | implemented | [`channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | Gateway는 주입된 ingestor를 받고 없으면 실패 시 차단합니다. 구체적인 protected-ingestion 구현은 아닙니다. |
-| Slack 메타데이터와 비공개 download | not-started | 이 문서의 Slack 계약 | Signed Slack inbound 어댑터, private-file fetcher, 운영 연결 및 집중 fetch 보안 테스트가 없습니다. |
-| Teams 메타데이터와 비공개 download | not-started | 이 문서의 Teams 계약 | 인증된 Teams inbound 어댑터, endpoint resolver, private-file fetcher, 운영 연결 및 집중 fetch 보안 테스트가 없습니다. |
+| Slack 첨부 메타데이터 | implemented | Operator `channel_edge/slack_ingress.py`, 집중 유입 검사 | 서명된 어댑터는 범위가 제한된 불투명 메타데이터만 유지하고 payload URL을 버립니다. 운영 환경은 첨부 지원을 끄고 queue 유입 전에 첨부 턴을 차단합니다. 비공개 파일 가져오기 도구는 없습니다. |
+| Teams 첨부 메타데이터 | implemented | Operator `channel_edge/teams_ingress.py`, 집중 유입 검사 | 인증된 어댑터는 범위가 제한된 불투명 메타데이터만 유지하고 payload URL을 버립니다. 운영 환경은 첨부 지원을 끄고 queue 유입 전에 첨부 턴을 차단합니다. endpoint 해석기와 비공개 파일 가져오기 도구는 없습니다. |
 | Protected 채널 인제스트 조립 | not-started | 이 문서의 protected-ingestion 계약 | 채널 바이트를 검사, 추출, 인덱싱 및 인용에 연결하는 구체적인 ingestor가 현재 없습니다. |
 | Web 채팅 문서 참조 | in-progress | [`document_refs.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/document_refs.py), [`test_conversation_document_refs.py`](../../../services/operator-service/tests/test_conversation_document_refs.py) | 범위가 제한된 구문 분석, 참조 8개 상한, 고유성, 정규 하이픈 UUID 구문, principal 범위 해석, 동일한 거부 응답, resolver 부재 501, 격리된 resolver 실패, 순서 및 정규 형식 무결성 검사가 구현되고 집중 테스트를 통과했습니다. 버전이 지정된 semantic envelope과 운영 resolver 조립은 아직 해석된 인용을 전달하지 않습니다. |
 | Web 채팅 inline vision 경로 | in-progress | [`composer-attachments.view.tsx`](../../../console/src/deck/composer-attachments.view.tsx), [`backend-context.ts`](../../../console/src/deck/backend-context.ts), [`conversation_images.py`](../../../services/core-control-plane/src/fdai/delivery/conversation_images.py), [`postgres_conversation_images.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_conversation_images.py) | Console 캡처와 요청 직렬화, 범위가 제한된 이미지 저장소, migration 및 과거 이미지 렌더링은 존재합니다. Operator semantic envelope와 local narrator는 현재 이미지 첨부를 버리며 운영은 이미지 저장소를 채팅 route에 연결하지 않습니다. |
@@ -43,13 +43,14 @@ title: 대화 첨부파일
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 서비스 분해 이후의 Operator edge를 이 owner와 정합화했습니다. 비활성화된 프로바이더 첨부는 queue 유입 전에 실패하고, 직접 queue 주입은 의미 게시 전에 실패하며, 지원되지 않는 활성화는 시작에 실패합니다. | `current change`, 집중 Operator 환경, 조립, Slack, Teams 및 파이프라인 검사 | 에이전트 소유 문서 인제스트로 전달하는 버전이 지정된 계약을 정의하고 비공개 벤더 가져오기 도구, 최종 인용 반환 및 통제된 런타임 근거를 연결합니다. |
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 현재 계약, 어댑터, 조립, Console 코드 및 테스트와 설계를 대조했습니다. | 구현 범위 표에 나열한 현재 소스와 집중 검사입니다. | 벤더 어댑터, protected 인제스트, web 문서 해석, 서버 inline 이미지 경로 및 통제된 runtime 증적이 남아 있습니다. |
 | 2026-08-16 | in-progress | 범위가 제한된 `document_refs` 요청 계약과 semantic 처리 전에 동작하는 principal 범위의 닫힘 실패 해석 경계를 추가했습니다. | `pytest services/operator-service/tests/test_conversation_document_refs.py`가 구문 및 비정규 UUID 거부, 참조 8개 상한, 고유성, 동일한 거부 응답, resolver 부재 501, 격리된 resolver 실패, 순서 변경 및 대체 인용 거부를 다루는 집중 테스트 12개를 통과했습니다. | 해석된 인용을 버전이 지정된 semantic envelope로 전달하고 PostgreSQL 문서 메타데이터 기반 운영 resolver를 연결해야 합니다. |
 
 ### 남은 작업
 
-- [ ] 범위가 제한된 opaque 첨부 메타데이터만 유지하는 signed Slack 및 인증된 Teams
-  inbound 어댑터를 구현하고 연결합니다.
+- [x] 범위가 제한된 불투명 첨부 메타데이터만 유지하는 서명된 Slack 및 인증된 Teams
+  유입 어댑터를 구현하고 보호된 인제스트가 꺼진 동안 queue 유입 전에 차단합니다.
 - [ ] 서버 소유 endpoint 해석, credential 범위 제한, redirect 거절, host allowlist 및 streamed
   byte 상한을 적용하는 비공개 벤더 fetcher를 구현합니다.
 - [ ] Malware, protection, 추출, 인덱싱, 권한 확인, 인용 및 인계 경로를 통과하는 구체적인
@@ -217,10 +218,12 @@ Services User`만 부여합니다. 빈 엔드포인트는 metadata-only 행동�
 
 ## 운영 조립
 
-`ProductionAttachmentConfig`는 채널 근거 수집, 접근 서술자, 읽기 담당 그룹,
-보존 정책, 벤더 호스트 허용 목록 및 시간 초과를 소유합니다.
-`FDAI_CHANNEL_ATTACHMENTS_ENABLED=1`일 때만 활성화됩니다. 잘못된 boolean, 부분 구성
-또는 운영 첨부 인제스트기가 주입되지 않은 활성화된 런타임은 시작을 실패시킵니다.
+독립 Operator edge는 엄격한 `FDAI_CHANNEL_ATTACHMENTS_ENABLED` 스위치를 소유합니다. 설정하지
+않거나 `0`이면 기능을 사용할 수 없으며 첨부 턴은 queue 유입 전에
+`422 attachments_unavailable`을 반환합니다. `1`은 활성화 의도를 기록하지만 현재 운영 조립에는
+보호 인제스트기가 없으므로 client를 할당하기 전에 시작이 실패합니다. 다른 값은 스키마 구문
+분석에서 실패합니다. 향후 `ProductionAttachmentConfig`는 채널 근거 수집, 접근 서술자, 읽기
+담당 그룹, 보존 정책, 벤더 호스트 허용 목록 및 시간 초과를 소유해야 합니다.
 
 Fetch 시간 초과는 300초 이하의 긍정 finite number여야 합니다. 최종 처리 wait는 600초
 이하여야 하며 polling 간격은 0.1초 이상 10초 이하여야 합니다. `NaN`, infinity 및 범위 밖의
@@ -228,11 +231,11 @@ Fetch 시간 초과는 300초 이하의 긍정 finite number여야 합니다. �
 독립적인 상한을 추가하며 기본값은 480입니다. 벤더 첨부 이름은 경로 구분자,
 dot-only 이름 또는 컨트롤/formatting character가 없는 leaf 이름이어야 합니다.
 
-`build_production_attachment_ingestor()`는 활성화된 채널의 가져오기 도구만 만듭니다. Teams에는 신원,
-해석기, 호스트 허용 목록 및 토큰 대상 허용 목록이 필요합니다. `ProductionChannelRuntime`은 Slack
-또는 Teams 소비자를 시작하기 전에 생성된 인제스트기를 attachment-aware
-`ConversationChannelGateway`에 연결합니다. 첨부가 설정됐지만 게이트웨이가 이를 연결할 수
-없으면 시작이 실패합니다.
+`build_production_attachment_ingestor()`는 아직 source로 제공되지 않은 설계 목표입니다. 활성화된
+채널의 가져오기 도구만 만들어야 합니다. Teams에는 신원, 해석기, 호스트 허용 목록 및 토큰 대상
+허용 목록이 필요합니다. Operator 런타임은 Slack 또는 Teams consumer를 시작하기 전에 버전이
+지정된 서비스 전달을 통해 인제스트기를 연결해야 합니다. 현재 첨부가 있는 직접 queue 레코드는
+메시지 점유 또는 의미 게시 전에 실패합니다.
 
 Protected 인제스트 완료 후 게이트웨이는 실제 민감정보가 제거된 조정기 활동을 타입이 지정된 채널 진행 상황
 스냅샷으로 변환 결과할 수 있습니다. 이는 표현만 변경합니다. 첨부 바이트, 용도,
@@ -251,12 +254,10 @@ canonical-answer clipping 메트릭도 답변 텍스트 또는 length를 보관�
 채널 발행기는 전송 계층 및 확인 응답 처리를 pure 렌더링과 분리합니다. 이 구조적
 분리는 protected 인제스트 또는 민감정보 제거 경계를 변경하지 않습니다.
 
-저장소는 현재 이 조립 컴포넌트를 library 경계로 제공합니다. 아직
-`ProductionChannelRuntime`을 instantiate하는 standalone 채널 ASGI factory 또는 Terraform
-채널 워크로드는 제공하지 않으며 Operator API와 headless 코어는 채널 유입 경로를 mount하지
-않습니다. 별도 프로세스가 게이트웨이, 영속성, Teams 해석기, 신원, 첨부 인제스트기 및
-수명 주기 콜백을 모두 제공할 때까지 배포는 대기 상태입니다. 완전한 조립이
-없는 deployed 워크로드에서는 첨부 또는 Slack/Teams 채널 활성화 플래그를 설정하지 않습니다.
+저장소는 독립 Operator A3 ASGI workload와 Slack/Teams 텍스트 전달 경로를 제공합니다. 비공개
+첨부 가져오기 도구, 구체적인 보호 인제스트기, 에이전트 소유 문서 파이프라인에서 순서가 보존된
+`doc:` 인용을 반환하는 버전이 지정된 전달은 제공하지 않습니다. 이 조립이 완성되기 전에는 어떤
+workload에서도 첨부 활성화 플래그를 설정하지 않습니다.
 
 채널 브리지는 각 업로드를 봉인하고 `document.received`를 publish하며
 `DocumentIngestionWorker.process()`를 직접 호출하지 않습니다.
@@ -316,10 +317,11 @@ npm --prefix console test -- --run \
   src/deck/turn-attachments.test.ts
 ```
 
-현재 회귀 테스트는 범위가 제한된 채널 메타데이터, ingestor 누락 시 실패, 명시적 용도
-파싱, 범위가 제한된 principal-scoped 이미지 저장, Console 이미지 staging과 직렬화 및 OCR
-operation-location과 출력 상한을 다룹니다. 벤더 download, protected-ingestion 조립, web 문서
-해석 및 end-to-end inline vision 테스트는 남은 구현 작업에 포함됩니다.
+현재 회귀 테스트는 범위가 제한된 채널 메타데이터, 비활성 유입 차단, 지원되지 않는 시작 활성화,
+직접 queue 주입 차단, Core 게이트웨이 ingestor 누락 시 실패, 명시적 용도 파싱, 범위가 제한된
+principal-scoped 이미지 저장, Console 이미지 staging과 직렬화 및 OCR operation-location과 출력
+상한을 다룹니다. 벤더 download, protected-ingestion 조립, web 문서 해석 및 end-to-end inline
+vision 테스트는 열린 상태입니다.
 
 ## 관련 문서
 

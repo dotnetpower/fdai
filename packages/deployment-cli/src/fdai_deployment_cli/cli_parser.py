@@ -171,6 +171,12 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     )
     adoption = azure.add_argument_group("Recovered public deployment (advanced)")
     adoption.add_argument(
+        "--adopt-runner-image-receipt",
+        type=Path,
+        metavar="PATH",
+        help="Verified runner-image receipt to reuse without another image apply",
+    )
+    adoption.add_argument(
         "--adopt-application-state",
         type=Path,
         metavar="PATH",

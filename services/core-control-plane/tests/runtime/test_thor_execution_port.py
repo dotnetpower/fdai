@@ -91,12 +91,14 @@ def test_core_and_hil_share_port_instances_and_readiness(app_config: AppConfig) 
         saga_audit_durable=True,
         vidar_recovery_contracts=frozenset({"state_forward_only"}),
     )
+    effect_reconciliation_request_sink = MagicMock()
 
     loop = _build_control_loop(
         default_container(app_config),
         http_client=None,
         thor_execution_port=port,
         mutation_dependency_readiness=readiness,
+        effect_reconciliation_request_sink=effect_reconciliation_request_sink,
     )
     coordinator = loop._hil_resume_coordinator
 
@@ -110,6 +112,11 @@ def test_core_and_hil_share_port_instances_and_readiness(app_config: AppConfig) 
     assert loop._executor is coordinator._executor is pr_native
     assert loop._direct_api_executor is coordinator._direct_api_executor is direct_api
     assert loop._tool_executor is coordinator._tool_executor is tool_call
+    assert (
+        loop._effect_reconciliation_request_sink
+        is coordinator._effect_reconciliation_request_sink
+        is effect_reconciliation_request_sink
+    )
     writer = loop._pre_dispatch_kinetic_safety_writer
     assert isinstance(writer, ExistingProposalKineticSafetyWriter)
     assert coordinator._pre_dispatch_kinetic_safety_writer is writer

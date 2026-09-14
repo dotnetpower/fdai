@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AuditItem, IncidentSummary } from "../types";
 import {
   incidentAgentStatus,
+  incidentNotificationRows,
   incidentOperationalOverview,
 } from "./incidents.overview";
 
@@ -52,6 +53,38 @@ function audit(
 }
 
 describe("incident operational overview", () => {
+  it("keeps route state, independent observation, and exclusion separate by channel", () => {
+    expect(incidentNotificationRows({
+      targetChannelIds: ["teams-ops", "email-owner"],
+      deliveries: [
+        { channelId: "teams-ops", state: "accepted" },
+        { channelId: "email-owner", state: "delivered" },
+      ],
+      observedDeliveredChannelIds: ["teams-ops"],
+      excludedChannels: [{ channelId: "approval-channel", reason: "not_required" }],
+      retryableFailureAuditId: null,
+    })).toEqual([
+      {
+        channelId: "teams-ops",
+        routeState: "accepted",
+        observedDelivered: true,
+        exclusionReason: null,
+      },
+      {
+        channelId: "email-owner",
+        routeState: "delivered",
+        observedDelivered: false,
+        exclusionReason: null,
+      },
+      {
+        channelId: "approval-channel",
+        routeState: null,
+        observedDelivered: false,
+        exclusionReason: "not_required",
+      },
+    ]);
+  });
+
   it("keeps alert lifecycle separate from agent work state", () => {
     expect(incidentAgentStatus("resolved")).toBe("completed");
     expect(incidentAgentStatus("notification_failed")).toBe("blocked");
@@ -73,6 +106,19 @@ describe("incident operational overview", () => {
     expect(monitoring.userInputRequired).toBe(false);
   });
 
+  it("does not call a triaging incident a response in progress without response evidence", () => {
+    const overview = incidentOperationalOverview(
+      incident({
+        status: "in_progress",
+        lifecycle_state: "triaging",
+        disposition: "pending",
+      }),
+      [audit("incident.open")],
+    );
+
+    expect(overview.phase).toBe("monitoring");
+  });
+
   it("surfaces notification failure and hides unrecorded RCA views", () => {
     const overview = incidentOperationalOverview(incident(), [
       audit("incident.open"),
@@ -89,6 +135,7 @@ describe("incident operational overview", () => {
         excludedChannels: [],
         deliveries: [],
         observedDeliveredChannelIds: [],
+        retryableFailureAuditId: null,
       },
       approvalDeliveryUnavailable: false,
       userInputRequired: false,
@@ -124,7 +171,70 @@ describe("incident operational overview", () => {
         { channelId: "email-oncall", state: "delivered" },
       ],
       observedDeliveredChannelIds: [],
+      retryableFailureAuditId: null,
     });
+  });
+
+  it("exposes only an exact terminal A2 failure as a retry source", () => {
+    const legacy = incidentOperationalOverview(incident(), [
+      audit("notification.route", 1, {
+        audit_id: "incident-alert-legacy",
+        outcome: "route_unresolved",
+        trust_tier: "a2_operational_alert",
+      }),
+    ]);
+    const pending = incidentOperationalOverview(incident(), [
+      audit("notification.route", 2, {
+        audit_id: "incident-alert-pending",
+        delivery_mode: "fanout",
+        outcome: "failed_all",
+        terminal: false,
+        trust_tier: "a2_operational_alert",
+      }),
+    ]);
+    const terminal = incidentOperationalOverview(incident(), [
+      audit("notification.route", 3, {
+        audit_id: "incident-alert-terminal",
+        delivery_mode: "fanout",
+        outcome: "no_eligible_channels",
+        terminal: true,
+        trust_tier: "a2_operational_alert",
+      }),
+    ]);
+    const inconsistentLegacy = incidentOperationalOverview(incident(), [
+      audit("notification.route", 4, {
+        audit_id: "incident-alert-inconsistent",
+        outcome: "route_unresolved",
+        terminal: false,
+        trust_tier: "a2_operational_alert",
+      }),
+    ]);
+
+    expect(legacy.notificationEvidence.retryableFailureAuditId).toBe(
+      "incident-alert-legacy",
+    );
+    expect(pending.notificationDeliveryFailed).toBe(true);
+    expect(pending.notificationEvidence.retryableFailureAuditId).toBeNull();
+    expect(terminal.notificationEvidence.retryableFailureAuditId).toBe(
+      "incident-alert-terminal",
+    );
+    expect(inconsistentLegacy.notificationEvidence.retryableFailureAuditId).toBeNull();
+  });
+
+  it("hides a failed route after Core has claimed its retry request", () => {
+    const overview = incidentOperationalOverview(incident(), [
+      audit("notification.route", 1, {
+        audit_id: "incident-alert-terminal",
+        outcome: "route_unresolved",
+        trust_tier: "a2_operational_alert",
+      }),
+      audit("incident.notification-retry-prepared", 2, {
+        source_notification_audit_id: "incident-alert-terminal",
+      }),
+    ]);
+
+    expect(overview.notificationDeliveryFailed).toBe(true);
+    expect(overview.notificationEvidence.retryableFailureAuditId).toBeNull();
   });
 
   it("ignores an A4 digest route failure when deciding incident attention", () => {
@@ -366,6 +476,25 @@ describe("incident operational overview", () => {
     );
 
     expect(overview.phase).toBe("response_failed");
+  });
+
+  it("keeps an approved execution pending until effect reconciliation closes", () => {
+    const overview = incidentOperationalOverview(
+      incident({ status: "in_progress", disposition: "action_delivered" }),
+      [audit("hil.requested", 1), audit("hil.approved.execution_pending", 2)],
+    );
+    expect(overview.phase).toBe("response_in_progress");
+    expect(overview.userInputRequired).toBe(false);
+  });
+
+  it("distinguishes proven no-publication from execution failure", () => {
+    const overview = incidentOperationalOverview(
+      incident({ status: "in_progress", disposition: "action_delivered" }),
+      [audit("hil.requested", 1), audit("hil.approved.execution_not_attempted", 2)],
+    );
+
+    expect(overview.phase).toBe("response_not_attempted");
+    expect(incidentAgentStatus(overview.phase)).toBe("blocked");
     expect(overview.userInputRequired).toBe(false);
   });
 

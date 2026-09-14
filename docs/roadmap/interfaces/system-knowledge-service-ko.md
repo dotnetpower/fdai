@@ -1,8 +1,8 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: 8e6f4d75ff3b5a315bdc6f9a516c64727b2eef8b
-translation_revised: 2026-09-12
+translation_source_sha: ec18bcfb7dc06069d2ffcc51e3a88645094d9d3c
+translation_revised: 2026-09-14
 ---
 # 시스템 지식 서비스
 
@@ -120,11 +120,13 @@ Muninn은 release context index의 최종 책임을 유지합니다. Bragi는 �
 `catalog_digest`는 스키마 버전, 소스 개정, 빌드 시각, 레코드 및 권한 플래그를 포함합니다. 따라서
 같은 레코드를 다른 시각에 다시 빌드하면 별개의 패키지 산출물이 생성됩니다. 서식만 압축하거나
 Markdown 구조를 수정한 경우를 포함해 인용한 소스가 바뀌면 같은 변경 집합에서 패키징 전에
-카탈로그를 다시 빌드해야 blob 고정값과 다이제스트가 release 트리와 일치합니다. 이 기계적 갱신은 수정된 원본 식별자를
+카탈로그를 다시 빌드해야 blob 고정값과 다이제스트가 release 트리와 일치합니다. 이 기계적 갱신은 Pantheon 귀속 지침과 CI에서 검증한 보정을 포함한 수정 원본 식별자를
 전달할 뿐 운영, 승인 또는 실행 권한을 추가하지 않습니다. 배포 guard 원본 개정에도 같은
 다시 빌드 규칙을 적용합니다.
 완료 handoff 및 behavior-knowledge ledger 갱신도 이 규칙을 따릅니다. Source blob pin과
 catalog digest만 바꾸며 검색 권한이나 메시지 전달 동작은 변경하지 않습니다.
+첨부 경계 문서도 같은 원본 기반 갱신 규칙을 따릅니다. 해당 catalog 갱신은 보호된 채널 수집이
+활성화되었거나 runtime 검증을 마쳤다는 주장이 아닙니다.
 턴 종료 후 마이그레이션의 인용 근거는 공유 Operator 롤백 계약을 따릅니다. 서비스 버전을
 내려도 legacy `20260912_0090`에서 상속한 근거는 보존됩니다. 이 인용 근거의 갱신은 검토된
 설계를 기록할 뿐, 배포 환경의 롤백이나 중복 전달 증적을 제공하지 않습니다.

@@ -45,9 +45,11 @@ class StateStoreAuditChainAdapter:
     version: ``seq``, ``prev_hash``, and ``entry_hash`` are computed
     the same way and the record is a plain dict handed to the Protocol.
 
-    ``entries`` is a local snapshot cache used to compute the next
-    ``prev_hash`` without a round-trip; a fork can override this class
-    if the backing store already computes hash chains server-side.
+    The durable mirror records Saga as the audit actor and retains the
+    authenticated source publisher in ``principal``. ``entries`` is a local
+    snapshot cache used to compute the next ``prev_hash`` without a round-trip;
+    a fork can override this class if the backing store already computes hash
+    chains server-side.
     """
 
     store: StateStore
@@ -93,6 +95,8 @@ class StateStoreAuditChainAdapter:
         # cares about the mapping shape.
         await self.store.append_audit_entry(
             {
+                "actor": "Saga",
+                "action_kind": "audit.record",
                 "seq": seq,
                 "prev_hash": prev_hash,
                 "entry_hash": entry_hash,

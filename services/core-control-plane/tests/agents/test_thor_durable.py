@@ -72,6 +72,7 @@ def test_action_run_dict_round_trip() -> None:
         resource_id=proposal.target_resource_ref,
         state=ActionRunState.EXECUTING,
         verdict="auto",
+        action_id="action-run-1",
         idempotency_key="action-1",
         params=proposal.arguments(),
         shadow_mode=True,
@@ -91,6 +92,7 @@ def test_action_run_dict_round_trip() -> None:
             "process_id": "process-1",
             "step_id": "restart",
             "proposal_ref": "proposal-1",
+            "attempt": 2,
         },
         kinetic_proposal=proposal.model_dump(mode="json"),
     )
@@ -102,7 +104,9 @@ def test_action_run_dict_round_trip() -> None:
     assert back.shadow_mode is True
     assert back.outcome == "x"
     assert back.idempotency_key == "action-1"
+    assert back.action_id == "action-run-1"
     assert back.workflow_action == run.workflow_action
+    assert back.workflow_action["attempt"] == 2
     assert back.operational_context == run.operational_context
     assert back.kinetic_proposal == run.kinetic_proposal
 

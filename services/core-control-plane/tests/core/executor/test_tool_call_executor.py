@@ -38,6 +38,7 @@ from fdai.shared.contracts.models import (
     RollbackKind,
     RollbackRef,
     StopConditionKind,
+    WorkflowActionRef,
 )
 from fdai.shared.providers.testing import (
     InMemoryStateStore,
@@ -124,6 +125,26 @@ def _terminal(audit: Any) -> dict[str, Any]:
     terminal = [entry for entry in _entries(audit) if entry.get("audit_phase") != "intent"]
     assert terminal, "no terminal audit entry was written"
     return terminal[-1]
+
+
+async def test_workflow_attempt_is_identical_in_tool_intent_and_terminal_audit() -> None:
+    executor, _adapter, audit = _executor()
+    action = _action().model_copy(
+        update={
+            "workflow_action": WorkflowActionRef(
+                process_id="process-tool-001",
+                step_id="generate",
+                proposal_ref="proposal:tool:001",
+                attempt=3,
+            )
+        }
+    )
+
+    await executor.execute(action=action)
+
+    intent, terminal = _entries(audit)
+    assert intent["workflow_action"] == terminal["workflow_action"]
+    assert intent["workflow_action"]["attempt"] == 3
 
 
 def _intents(audit: Any) -> list[dict[str, Any]]:

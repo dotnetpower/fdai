@@ -1,7 +1,7 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 3a9e20bf8dbc85db9cb0dc015d92ab622593ff4c
-translation_revised: 2026-09-12
+translation_source_sha: 093e0c81580c01f470a0d95895f642fe3494de4d
+translation_revised: 2026-09-14
 ---
 # 영구 대화 전송
 
@@ -75,8 +75,8 @@ writer를 부여하지 않습니다.
 | 교차 채널 읽기 쉬운 의미 행 | 구현됨 | Operator `presentation_rows.py`, v1/v2 artifact compiler, focused Operator 표현 검사(`94 passed`) | Web, Slack, Teams 및 replay가 읽기 쉬운 리소스 필드를 앞세우고 중첩 provider bag을 표시 block에서 제외하는 범위 제한 projection 하나를 받습니다. Immutable response는 exact 기술 근거를 계속 보존하고 delivery는 retry 중 projection을 다시 만들지 않습니다. |
 | 의미 요청 및 최종 변환 결과 신뢰성 | implemented | `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, 집중 Operator 의미 bridge 검사 | Operator는 게시 전에 영속화하고 불투명한 session 참조로 요청을 partition하며 첫 최종 결과를 고정하고 뒤늦게 도착한 경쟁 변환 결과를 차단합니다. 실제 대체 시각에 시간 초과 보류를 기록하고 영속 순서로 재생하며 저장된 검증 최종 결과에서만 증적에 결속된 확정 구간을 내보냅니다. 전송이 없으면 권한 없는 타입 기반 보류를 유지합니다. |
 | PostgreSQL schema 및 운영 영속성 | 구현됨 | [`20260720_0047_conversation_delivery.py`](../../../alembic/versions/20260720_0047_conversation_delivery.py), `operator_a3_channel_delivery_20260819`, Operator store module, live PostgreSQL 검사 9개 건너뛰기 없이 통과 | Legacy revision 0047은 동결된 상태를 유지합니다. Operator branch가 새 processing/completed inbound claim과 정확한 role grant를 소유합니다. Concrete Operator store는 immutable response JSON, claim/attempt 및 finish/ack transaction 경계, process-loss ambiguity, breaker CAS 및 terminal retention cleanup을 보존합니다. |
-| Operator A3 의미 전달 및 복구 worker | 구현됨 | `channel_edge/{pipeline,pipeline_contracts,worker}.py`, 집중 edge 검사 81개 통과, live PostgreSQL 연결 검사 1개 건너뛰기 없이 통과 | 결정적 프로바이더 메시지 identity는 재시도를 하나의 의미 제안, binding 및 delivery로 수렴시킵니다. Inbound 완료는 영속 소유권 뒤에 수행되고, 프로바이더 전송은 영속 차단기가 닫혀 있고 활성 exact-scope binding이 있어야 하며, 모호한 확인 응답은 불변 중복 위험이 되고, 시작 조정은 worker 준비보다 먼저 수행됩니다. |
-| Operator A3 운영 조립 | 구현됨 | `channel_edge/{composition,runtime,application,entry}.py`, private 로컬 실행, Operator-service Terraform root, 집중 edge 검사 74개 통과 | 독립 lifespan은 Operator role과 모든 소유 table을 probe하고, consumer보다 먼저 의미 전송과 replay를 시작하며, 준비 상태 전에 만료된 전송을 조정하고, queue 및 delivery task를 감독하며, HTTP client와 credential을 끝까지 닫습니다. 통제된 restart 및 외부 프로바이더 증적은 열린 상태입니다. |
+| Operator A3 의미 전달 및 복구 worker | 구현됨 | `channel_edge/{pipeline,pipeline_contracts,worker}.py`, 집중 edge 검사, live PostgreSQL 연결 검사 1개 건너뛰기 없이 통과 | 결정적 프로바이더 메시지 identity는 텍스트 전달 재시도를 하나의 의미 제안, binding 및 delivery로 수렴시킵니다. 첨부가 있는 레코드는 메시지 점유 또는 의미 게시 전에 실패하므로 메타데이터가 텍스트 전용 응답에서 사라질 수 없습니다. |
+| Operator A3 운영 조립 | 구현됨 | `channel_edge/{composition,runtime,application,entry}.py`, private 로컬 실행, Operator-service Terraform root, 집중 edge 검사 | 독립 lifespan은 Operator role과 모든 소유 table을 probe하고, consumer보다 먼저 의미 전송과 replay를 시작하며, 준비 상태 전에 만료된 전송을 조정합니다. 첨부 지원은 기본적으로 꺼져 있고 지원되지 않는 활성화는 의존성을 할당하기 전에 실패합니다. |
 | 어댑터 상태 정책 | 구현됨 | [`adapter_health.py`](../../../services/core-control-plane/src/fdai/core/conversation/adapter_health.py), [`test_adapter_health.py`](../../../services/core-control-plane/tests/conversation/test_adapter_health.py) | 제한된 실패 구간, 실패 시 닫히는 차단기 모드, 권한이 확인된 일시 중지 및 재개, 권한이 확인된 A2 대체 경로 동작이 메모리 내 집중 테스트를 통과합니다. 별도로 인증된 명령 앱은 구현되지 않았습니다. |
 | 예약 전달 및 어댑터 명령 표면 | 진행 중 | [`scheduled_continuation.py`](../../../services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py), [`continuation.py`](../../../services/core-control-plane/src/fdai/core/scheduler/continuation.py), [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py) | 예약 앵커와 전달 및 스냅샷 계약은 있습니다. `ScheduledContinuationDeliveryCoordinator`, 어댑터 명령 경로 및 운영 시작 조립은 현재 트리에 없습니다. |
 | 읽기 전용 전달 운영 패널 | 구현됨 | [`delivery_panel.py`](../../../services/core-control-plane/src/fdai/core/conversation/delivery_panel.py), [`test_delivery_panel.py`](../../../services/core-control-plane/tests/conversation/test_delivery_panel.py) | `ConversationDeliveryPanel`은 지연 시간 개수/평균/p95, 상태 개수, 중복 위험, 재시도, 포기, 시도 및 확인 응답 개수, 차단기 상태 개수, 선택적 progressive 계수기를 투영합니다. 페이로드는 `read_only=true` 및 `mutations_available=false`를 선언하고 식별자나 답변 본문을 노출하지 않으며 스냅샷 읽기 능력만 도달합니다. 아직 Console 경로나 운영 저장소가 이 투영을 연결하지 않았습니다. |
@@ -89,6 +89,7 @@ writer를 부여하지 않습니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | 구현됨 | 지원되지 않는 A3 첨부를 유입 queue 전에 중단하고 영속 점유 또는 의미 게시 전 파이프라인 차단을 추가했습니다. 운영 인제스트기가 없는 동안 엄격한 활성화는 시작에 실패합니다. | `current change`, 집중 Operator 환경, 조립, Slack, Teams 및 파이프라인 검사 | 버전이 지정된 에이전트 소유 인제스트 전달을 연결하고 첨부 재시작, 시간 초과 및 인용 근거를 보존합니다. |
 | 2026-09-11 | 구현됨 | 독립 Operator API와 채널 경계에 서로 다른 고정 semantic outbox namespace를 할당해 각 런타임이 자체 내구성 요청만 claim하도록 했습니다. | `infra/services/operator-service/modules/operator-service/main.tf`, 집중 Terraform semantic transport 검사, 공유 빈 namespace에서 관측한 live target-only 증표 | 독립 Operator 서비스 전환을 적용하고 새로 짝지어진 런타임 호출 증표를 보존합니다. |
 | 2026-09-09 | implemented | 의미 Kafka partitioning을 불투명한 session 참조에 결속하고 로컬 physical topic을 배포 환경과 같은 최소 두 partition으로 조정했습니다. | `current change`, 집중 Operator bridge 및 로컬 시작 검사 | 이슈 #151에 필요한 통제된 인증 구독 증적을 보존합니다. |
 | 2026-09-08 | implemented | 스트리밍 변경 뒤 의미 요청 점유, 지연된 변환 결과 대기, 첫 최종 결과 고정, 뒤늦은 변환 결과 차단, 시간 초과 보류, 재생 cursor, 잘못된 레코드 격리 및 증적에 결속된 확정 전달을 다시 검증했습니다. | `current change`, 집중 Operator 의미 bridge 테스트 151개 통과 | 통제된 재시작 및 외부 broker 근거는 별도 검증 작업으로 유지합니다. |
@@ -118,6 +119,8 @@ writer를 부여하지 않습니다.
 - [x] 세 PostgreSQL store를 운영 조립에 binding합니다.
 - [x] 소비자보다 먼저 시작 조정을 호출하고 필수 첨부 또는 채널 종속성을 사용할 수 없을 때
      실패 시 닫히는 운영 채널 런타임을 조립합니다.
+- [ ] 버전이 지정된 서비스 전달을 통해 운영 첨부 인제스트기를 연결합니다. 그전까지 queue
+     유입 전에 첨부를 차단하고 영속 전달 경로를 사용할 수 없는 상태로 유지합니다.
 - [ ] 권한 확인, 감사 및 일시 중지, 재개, 상태 집중 테스트를 갖춘 별도 인증
      `/commands/adapters/*` 애플리케이션을 추가합니다.
 - [ ] 안정적인 앵커 출처와 저장된 결과 재생 테스트를 갖춘 Slack 및 Teams용
@@ -218,8 +221,8 @@ PostgreSQL store와 standalone 운영 조립은 Operator distribution에 있으�
 운영 채널 시작은 소비자를 시작하기 전에 원장을 조정합니다. Standalone edge는 readiness 전에
 이 작업을 호출합니다.
 
-- 채널 첨부를 사용하면 시작은 fully built 운영 첨부 ingestor도
- 요구합니다. Enabled-but-unbound 런타임은 경로 또는 소비자 시작 전에 실패합니다.
+- 현재 조립에는 운영 인제스트기가 없으므로 첨부 활성화는 의존성을 할당하기 전에 실패합니다.
+     비활성화된 첨부 턴은 전달 원장에 들어가지 않습니다.
 
 1. 만료된 `sending` 임차 기간을 `duplicate_risk=true` 및 `process_loss`가 있는 `ambiguous`로 바꿉니다.
 2. Due `pending` 및 `failed` 행을 시도, 최신성, 배치 상한 안에서 점유하고 전송합니다.
@@ -250,11 +253,12 @@ Console Operator API에 탑재해서는 안 됩니다.
 
 ## 대화 및 scheduled integration
 
-`ConversationChannelGateway`는 shared 대화 게이트웨이의 inbound deduplication, protected
-첨부 근거 및 스레드 의미 규칙을 유지합니다. 첨부 바이트는 응답 영속성 전에
-통제된 인제스트를 완료하며 변경할 수 없는 응답에는 인용만 들어갑니다.
-[conversation-attachments-ko.md](conversation-attachments-ko.md)를 참조하세요. 중복 webhook
-또는 완료는 인제스트, 조정기, 전달을 다시 실행하지 않습니다.
+`ConversationChannelGateway`는 Core 쪽 보호 인제스트 계약을 유지하지만 독립 Operator A3 edge는
+그 구현 경로를 연결하지 않습니다. 현재 edge는 비활성화된 첨부를 queue 유입 전에 차단하고,
+첨부가 있는 직접 queue 레코드를 영속 점유 또는 의미 게시 전에 차단합니다.
+[conversation-attachments-ko.md](conversation-attachments-ko.md)를 참조하세요. 향후 버전이 지정된
+서비스 전달은 응답 영속화 전에 통제된 인제스트를 완료하고 변경할 수 없는 응답에 순서가 보존된
+인용만 넣어야 합니다.
 
 통제된 첨부 인제스트 후 downstream 세션 또는 도구가 실패하면 게이트웨이는 inbound 점유를
 유지하고 범용 오류 응답을 반환합니다. 따라서 재전달이 동일 벤더 message에 대해 다른

@@ -56,6 +56,18 @@ def test_exact_runner_image_observation_returns_only_a_digest() -> None:
     assert IMAGE_ID not in digest
 
 
+def test_runner_image_observation_uses_original_image_source() -> None:
+    variables = _variables()
+    variables["source_commit"] = "c" * 40
+    variables["runner_image_source_commit"] = "b" * 40
+
+    digest = verify_foundation_runner_image(
+        variables, expected_region="koreacentral", run=_run(_observation())
+    )
+
+    assert len(digest) == 64
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [

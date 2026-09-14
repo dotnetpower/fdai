@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 9d39c6fbd408af185b2ffb53614c45d832e32ba8
+translation_source_sha: ea936dd24ab5d9244567cd8a90ae956578e27700
 translation_revised: 2026-09-14
 ---
 
@@ -44,7 +44,7 @@ Teams Workflows 웹훅 바인딩은
 | 프로바이더 계약과 구성 기반 라우팅 | implemented | [`base.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/base.py), [`hil_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py), [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_matrix.py`](../../../services/core-control-plane/tests/notifications/test_matrix.py), [`test_fanout_delivery.py`](../../../services/core-control-plane/tests/notifications/test_fanout_delivery.py) | A1, A2/A4 및 A3 계약이 분리되어 있습니다. A1/A3는 신뢰 수준을 보존하는 대체 경로를 유지하고, A2/A4는 이름이 있는 바인딩 활성화, 채널별 영속 상태, 범위가 제한된 재시도 및 집계 결과를 갖춘 명시적 fan-out을 사용합니다. |
 | A2/A4 capability-state, presentation, shadow-delivery 계약 | implemented | [`capability.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/capability.py), [`presentation.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/presentation.py), [`shadow.py`](../../../services/core-control-plane/src/fdai/core/notifications/shadow.py), [`test_channel_foundation.py`](../../../services/core-control-plane/tests/notifications/test_channel_foundation.py) | [다중 채널 알림 전달 § 8](multi-channel-notification-delivery-ko.md#8-capability-state-presentation-shadow-delivery-계약)이 상세히 소유합니다. 읽기 전용 가용성/활성화/권한 계약, pre-render fail-closed redaction 및 범위 경계, 그리고 shadow mode에 있는 바인딩에 대해 네트워크 호출 없이 렌더링하고 영속 기록하는 `NotificationChannel`을 추가합니다. |
 | 페어링과 교차 채널 신원 연결 | implemented | [`channel_access.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_access.py), [`postgres_channel_pairing.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_pairing.py), [`postgres_channel_identity_link.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_identity_link.py), [`test_channel_access.py`](../../../services/core-control-plane/tests/conversation/test_channel_access.py), [`test_identity_links.py`](../../../services/core-control-plane/tests/conversation/test_identity_links.py), [`test_postgres_channel_pairing.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_pairing.py), [`test_postgres_channel_identity_link.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_identity_link.py) | 서비스 수준 페어링, challenge digest 처리, 명시적 신원 연결 및 재시작 후 영속성이 집중 테스트를 통과했습니다. PostgreSQL 통합 테스트 파일 두 개는 지원되는 일회용 데이터베이스에서 네 건을 건너뛰기 없이 통과했습니다. |
-| Teams, Slack 및 아웃바운드 알림 어댑터 | 구현됨 | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py), `fdai_operator_service/families/conversation/channel_edge/`, `families/iam/hil_callback*.py`, 집중 에지, 콜백, Kafka, 워크플로 및 카나리 검사 | Teams는 `HilChannel`을 구현합니다. Core와 Operator는 별도로 구성된 그룹 연결 팀과 채널에서 같은 콜백 대상을 파생합니다. Operator는 브로커에 게시하기 전에 각 결정의 보낼 편지함 레코드를 영속화하고 수락된 뒤에만 전달 완료로 표시합니다. Slack A1은 구성된 워크스페이스와 Entra 매핑으로 독립 운영할 수 있습니다. 전용 아웃바운드 Slack `HilChannel`과 배포 증적은 열린 상태입니다. |
+| Teams, Slack 및 아웃바운드 알림 어댑터 | 구현됨 | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py), `fdai_operator_service/families/conversation/channel_edge/`, `families/iam/hil_callback*.py`, 집중 에지, 콜백, Kafka, 워크플로 및 카나리 검사 | Teams는 `HilChannel`을 구현합니다. Core와 Operator는 별도로 구성된 그룹 연결 팀과 채널에서 같은 콜백 대상을 파생합니다. A3 텍스트 전달은 계속 구현된 상태입니다. A3 첨부 메타데이터는 범위가 제한되고 URL이 없지만 보호된 인제스트를 사용할 수 없는 동안 운영 환경에서 차단됩니다. |
 | 영속 아웃바운드 대화 전달 | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | 조정기는 확정적인 거절과 모호한 확인 응답을 구분하고 재시도를 제한하며 중단된 전송을 조정하고 안정적인 전달 신원을 보존합니다. 이 동작은 집중 테스트를 통과했습니다. |
 | 순수 채널 표현 렌더링 | 구현됨 | `fdai_operator_service/families/conversation/channel_edge/{presentation,renderers}.py`, 집중 Operator 렌더러 검사 | 정규화된 묶음 하나가 정본 텍스트, 사실, 제한, 근거, 권한 및 사용 불가 상태를 보존합니다. 순수 Teams 및 Slack 페이로드 builder는 전송 또는 확인 응답 없이 기능 상한을 강제하며 잘못된 산출물은 정본 텍스트로 저하됩니다. |
 | 채널 인식 표현 보증 | 구현됨 | [`channel_assurance.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/channel_assurance.py), [`test_channel_assurance.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_channel_assurance.py) | 공통 내용, 제한, 근거 및 권한 검사는 모든 채널에 적용합니다. 선택적인 진행 상황, 활동, rich 표현, 스레드 및 편집 검사는 주입된 기능 프로필을 따릅니다. Direct Line 및 사용자 지정 프로필은 계약으로 지원하지만 Direct Line 전송은 구현되지 않았습니다. |
@@ -57,6 +57,7 @@ Teams Workflows 웹훅 바인딩은
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | 구현됨 | 서비스 분해 이후 A3 첨부 가용성을 명시했습니다. 비활성 첨부는 queue 유입 전에 중단되고, 직접 queue 주입은 의미 작업을 게시할 수 없으며, 지원되지 않는 활성화는 시작에 실패합니다. | `current change`, 집중 Operator 환경, 조립, Slack, Teams 및 파이프라인 검사 | 첨부를 활성화하기 전에 버전이 지정된 서비스 전달을 통해 비공개 벤더 가져오기와 에이전트 소유 문서 인제스트를 연결합니다. |
 | 2026-09-14 | implemented | 콘솔 웹을 명시적인 클라이언트 로컬 알림 채널로 지정하고 principal 범위 원장과 표시 상태에서 브라우저 표시와 알림 클릭 확인을 분리했습니다. | `current change`, 집중 브라우저 알림 및 서비스 워커 테스트와 Console 형식 검사가 통과했습니다. | 실제 데스크톱 검증을 주장하기 전에 사용자가 확인한 Windows 알림 클릭 증적을 보존합니다. 인증된 Web Push와 서버 측 증적은 별도로 설계된 서비스를 통해서만 추가합니다. |
 | 2026-09-13 | 구현됨 | 정본 응답 내용이나 전송 권한을 바꾸지 않고 채널 인식 표현 평가를 추가했습니다. | `current change`, 채널 보증 및 구조 귀속 집중 테스트 14개가 통과했습니다. | 각 배포 채널에 권위 있는 표현 관측을 연결하고 Direct Line 전송을 구현한 뒤 runtime 지원을 주장합니다. |
 | 2026-09-10 | implemented | A1-A4 라우팅을 바꾸지 않고 HMAC 인증 Teams Outgoing Webhook 대안을 추가했습니다. | `current change`, transport별 서비스, Terraform, 보호된 workflow 및 집중 검사입니다. | 실제 `@FDAI-bot`, 5초 응답, 재시작, 비용, 비활성화 및 복원 근거를 보존합니다. |
@@ -89,6 +90,8 @@ Teams Workflows 웹훅 바인딩은
   signature, service identity, principal 해석 및 확인 응답 집중 테스트를 통과합니다.
 - [x] `ProductionChannelRuntime`, 운영 ASGI factory, 서비스 entry point 및 Terraform workload를
   구현하고 집중 시작 및 종료 테스트로 fail-closed 조립을 증명합니다.
+- [ ] A3 첨부 메타데이터를 비공개 벤더 가져오기 도구 및 에이전트 소유 문서 파이프라인에
+  연결합니다. 그전까지 `FDAI_CHANNEL_ATTACHMENTS_ENABLED=0`을 유지하고 첨부 턴을 명시적으로 차단합니다.
 - [ ] 어떤 행이든 `validated`로 올리기 전에 활성화된 전달, 대체 경로, 브라우저 동작 및 배포된
   독립 채널 프로세스에 대한 통제된 runtime 증적을 기록합니다.
 - [x] 정본 사실, 제한, 근거 참조, 권한 및 읽을 수 있는 대체 텍스트를 보존하는 순수 Teams,
@@ -210,15 +213,13 @@ principal을 가리키면 서비스는 쓰기 전에 요청을 거부합니다. 
 재시작 후에도 유지됩니다.
 
 채널 첨부는 instruction이 아니라 근거 입력입니다. Slack 및 Teams 어댑터는 범위가 제한된
-파일 메타데이터와 opaque 벤더 id만 normalize하고 페이로드가 제공한 download URL은 버립니다.
-서버가 소유한 app-credential 가져오기 도구가 해당 id를 해석하고 `ProtectedChannelAttachmentIngestor`는
-가져온 바이트 개수 및 SHA-256을 검증한 뒤 기존 malware, protection, 추출, 인덱싱, 접근,
-보존 파이프라인에 출처를 전달합니다. 대화 게이트웨이는 운영자의 원래 텍스트를 변경하지
-않고 준비된 `doc:` 참조만 응답 인용에 추가합니다. Held, infected, unknown-protection,
-oversized, malformed 첨부는 도구 전달을 차단합니다. 일반 bitmap 서명은 텍스트 단위가
-없는 metadata-only 묶음을 만들므로 이미지 바이트가 프롬프트 instruction이 될 수 없습니다.
-배포는 P0-15 채널 조립에서 벤더 자격 증명 가져오기 도구를 연결하며 arbitrary
-첨부 URL은 지원 경계가 아닙니다.
+파일 메타데이터와 불투명 벤더 id만 정규화하고 payload가 제공한 download URL은 버릴 수 있습니다.
+현재 운영 A3 조립은 비공개 가져오기 도구나 보호 인제스트기를 연결하지 않습니다. 첨부 지원을
+끄고 queue 유입 전에 `422 attachments_unavailable`을 반환합니다.
+`FDAI_CHANNEL_ATTACHMENTS_ENABLED=1`을 설정하면 버전이 지정된 문서 인제스트 전달이 연결될 때까지
+시작에 실패합니다. 직접 queue 주입도 점유 또는 의미 게시 전에 실패합니다. 향후 가져오기와
+인제스트는 원래 텍스트를 유지하고 준비된 `doc:` 인용만 허용하며 malware, protection, 인덱싱,
+접근, 보존 및 에이전트 소유권 gate를 유지해야 합니다.
 
 Teams 유입은 두 신원을 분리합니다. `TeamsServiceTokenVerifier`는 cached JWKS를
 사용해 Bot Framework 서비스 토큰의 RS256 서명, 앱 대상, Bot Framework 발급자,
@@ -240,7 +241,8 @@ runtime입니다. Operator API process에 mount되지 않고 실행기 신원을
 factory와 Terraform workload는 활성화된 범위 제한 유입 경로만 등록하고 adapter마다 Operator
 semantic-turn consumer 하나를 시작합니다. 자격 증명, Teams 신원, endpoint policy, JWT 구성,
 principal scope 또는 persistence가 누락되면 경로가 트래픽을 받기 전에 시작이 실패합니다.
-종료는 queue, consumer, provider client 및 credential을 정확히 한 번 닫습니다.
+운영 인제스트기 없이 첨부를 활성화해도 같은 경계에서 실패합니다. 종료는 queue, consumer,
+provider client 및 credential을 정확히 한 번 닫습니다.
 
 채널 활성화에는 `FDAI_CHANNEL_EDGE_ENABLED_CHANNELS`를 사용하며 queue와 request 상한은 서버가
 소유합니다. Container Apps native Key Vault reference는 secret 값을 source 또는 Terraform

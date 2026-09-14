@@ -84,6 +84,10 @@ class ChannelDeliveryPipeline:
 
     async def process(self, authenticated: AuthenticatedInboundTurn) -> ChannelPipelineResult:
         """Own one inbound turn through durable delivery and optional immediate send."""
+        if authenticated.turn.attachments:
+            raise ValueError(
+                "channel attachments require protected ingestion before semantic submission"
+            )
         now = _aware(self._clock())
         inbound_key = _inbound_key(authenticated)
         delivery_id = _delivery_id(inbound_key)

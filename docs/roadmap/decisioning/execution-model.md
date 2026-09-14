@@ -467,11 +467,9 @@ Best for: configuration changes, IaC patches, catalog updates, governance change
   action in enforce mode; legacy shadow ledger rows are ignored only for that shadow-to-enforce
   transition. Enforce mutation receipts remain authoritative and still reject payload collisions.
 - **Upstream Azure gateway binding** - when the development operations gateway URL and Easy Auth
-  audience are both configured, the headless runtime binds an enforce-capable
-  `AzureGatewayDirectApiExecutor`. It supports only `ops.start-vm`, `ops.deallocate-vm`,
-  `ops.upsert-network-rule`, and `ops.delete-network-rule`. Each ActionType remains shadow-first
-  and its shipped T0 ceiling requires human approval. Shadow performs the server plan and no
-  mutation; enforce submits only after the one-time receipt is returned.
+  audience are both configured, the headless runtime binds an enforce-capable `AzureGatewayDirectApiExecutor`; Core supports `ops.start-vm`, `ops.deallocate-vm`, `ops.scale-out`, `ops.upsert-network-rule`, and `ops.delete-network-rule`, while the isolated Executor excludes `ops.scale-out`.
+  Every ActionType remains shadow-first with a human-approved T0 ceiling, and `config/action-type-runtime-support.json` records the surface-specific support. `dispatch_not_attempted` remains no-effect, while `receipt_timeout`, `execution_unknown`, and `awaiting_effect_evidence` remain pending rather than failure or success. Current-revision receipts bind the exact versioned `action_type_ref`, not a bare action name.
+  PR, direct-API, tool, remote, workflow, and HIL paths retain original correlation plus supplied Action id and attempt; Trace separates each action attempt, potentially effective HIL outcomes enter independent reconciliation before closure, and pre-executor no-effect exits still write the workflow's durable `not_attempted` result without invoking a provider.
 - **Long-running operation lock** - an ARM `202` keeps the target's Blob lease in the private
   operation record. Executor status polling renews the lease, then records terminal status with
   ETag compare-and-swap before releasing it. Unknown status URL query fields are rejected.

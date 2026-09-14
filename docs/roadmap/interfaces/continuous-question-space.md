@@ -61,7 +61,7 @@ operator candidates into one generated review inventory. Each owning source rema
 The inventory preserves stable ids, bilingual wording, source digests, explicit duplicate
 relationships, and independent content-review, semantic-contract, runtime-binding, evidence-source,
 and validation states.
-Any change to a joined source, including a Console starter catalog, regenerates both the machine
+Any change to a joined source, including a non-question Console label in a starter catalog, regenerates both the machine
 inventory and human review catalog; the generated-artifact test rejects any stale source digest.
 When only source digests change, regeneration preserves every logical question identity, review
 state, and denominator. Regeneration runs after upstream integration so derived commitments bind
@@ -85,7 +85,7 @@ recommendations, rollback, scaling, or automation remain advisory or draft-only 
 ## Conversation quality assurance scorecard
 
 Run `uv run python scripts/automation/build_semantic_intent_coverage.py` to generate
-`eval/golden-dataset/semantic-intent-coverage.json`; its contract test rejects stale question-bank source digests. The generated FDAI Conversation Quality
+`eval/golden-dataset/semantic-intent-coverage.json`; its contract test rejects stale source digests, so any authoritative source change requires deterministic regeneration rather than a manual digest edit. The generated FDAI Conversation Quality
 Assurance Scorecard (CQAS) keeps these source-derived topic layers separate:
 
 - **Operating model:** SRE operations, resilience engineering, change and architecture governance,
@@ -176,6 +176,7 @@ controlled evidence exists.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Regenerated the federated question bank after the reviewed Roles and ownership label changed its Console catalog source digest. All 400 question identities, review states, metrics, and denominators remain unchanged. | `current change`; official question-bank generator and focused generated-artifact equality test. | No semantic, runtime-binding, evidence, or authority behavior changed. |
 | 2026-09-13 | implemented | Regenerated question-bank and CQAS provenance after integrating the verified IAM display catalog changes. All 400 question identities, review states, metrics, and denominators remain unchanged. | `current change`; canonical generators; 12 generated-artifact and 46 IAM checks passed. | No remaining work for this digest refresh; live readiness is unchanged. |
 | 2026-09-11 | implemented | Regenerated the federated question bank and CQAS inventory after the approval Console catalog entered the reviewed source set, preserving all 400 question identities and every coverage denominator. | `current change`; official question-bank and semantic-intent generators; 12 focused generated-artifact checks passed. | No remaining work for this catalog-source digest refresh. |
 | 2026-09-11 | implemented | Regenerated the CQAS semantic-intent inventory after the federated question-bank source digest changed. Metric definitions, denominators, and coverage counts remain unchanged. | `current change`; `build_semantic_intent_coverage.py`; generated-artifact equality test. | No remaining work for this dependent source-digest refresh. |

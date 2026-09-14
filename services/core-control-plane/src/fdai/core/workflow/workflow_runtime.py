@@ -118,8 +118,8 @@ class WorkflowVerifiedOutcome:
     safeguard_bundle_digest: str | None
 
     def __post_init__(self) -> None:
-        if self.outcome not in {"succeeded", "failed"}:
-            raise ValueError("workflow outcome MUST be succeeded or failed")
+        if self.outcome not in {"succeeded", "failed", "not_attempted"}:
+            raise ValueError("workflow outcome MUST be succeeded, failed, or not_attempted")
         if not self.receipt_ref:
             raise ValueError("workflow outcome receipt_ref MUST be non-empty")
         if self.outcome == "succeeded" and self.safeguard_bundle_digest is None:

@@ -93,17 +93,62 @@ async function assertNoHorizontalOverflow(page: Page): Promise<void> {
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
 }
 
+async function settleArchitectureMap(page: Page): Promise<void> {
+  await page.locator(".architecture-map").evaluate(
+    () => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }),
+  );
+}
+
 async function captureNetworkViewport(
   page: Page,
   testInfo: TestInfo,
-  name: "map-unselected" | "network-desktop" | "network-constrained" | "network-mobile",
+  name:
+    | "map-unselected"
+    | "map-selected"
+    | "map-constrained"
+    | "map-mobile"
+    | "map-minimum"
+    | "network-desktop"
+    | "network-constrained"
+    | "network-mobile",
 ): Promise<void> {
   const screenshot = await page.screenshot({ fullPage: true });
+  const metrics = await page.evaluate(() => {
+    const bounds = (selector: string) => {
+      const element = document.querySelector(selector);
+      if (!element) return null;
+      const rect = element.getBoundingClientRect();
+      return { width: rect.width, height: rect.height };
+    };
+    const html = document.documentElement;
+    return {
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+      document: { clientWidth: html.clientWidth, scrollWidth: html.scrollWidth },
+      canvas: bounds(".architecture-canvas-shell"),
+      resourcePicker: bounds(".architecture-resource-picker select"),
+      modeTargets: [...document.querySelectorAll(".architecture-mode-switch button")].map(
+        (element) => {
+          const rect = element.getBoundingClientRect();
+          return { width: rect.width, height: rect.height };
+        },
+      ),
+      overviewPanelCount: document.querySelectorAll(".architecture-overview-panel").length,
+      cameraControlCount: document.querySelectorAll(".architecture-camera-control").length,
+    };
+  });
+  const metricsJson = JSON.stringify(metrics, null, 2);
   await testInfo.attach(name, { body: screenshot, contentType: "image/png" });
+  await testInfo.attach(`${name}-metrics`, {
+    body: Buffer.from(metricsJson),
+    contentType: "application/json",
+  });
   const captureRoot = process.env.FDAI_NETWORK_VISUAL_CAPTURE_ROOT;
   if (!captureRoot) return;
   await mkdir(captureRoot, { recursive: true });
   await writeFile(`${captureRoot}/${name}.png`, screenshot);
+  await writeFile(`${captureRoot}/${name}.json`, metricsJson);
 }
 
 test("keeps architecture resources hidden until one is selected", async ({ page }, testInfo) => {
@@ -117,6 +162,7 @@ test("keeps architecture resources hidden until one is selected", async ({ page 
   await expect(resourcePicker).toHaveValue("");
   await expect(page.locator(".architecture-selection-prompt")).toBeVisible();
   await expect(page.locator(".architecture-map")).toBeHidden();
+  await expect(page.locator(".architecture-overview-panel")).toHaveCount(0);
   await expect(page.locator(".architecture-zoom-controls")).toHaveCount(0);
   await expect(page.locator(".architecture-edge-legend")).toHaveCount(0);
   await expect(page.locator(".architecture-relation-index")).toHaveCount(0);
@@ -129,7 +175,40 @@ test("keeps architecture resources hidden until one is selected", async ({ page 
   await expect(page.locator(".architecture-zoom-controls")).toBeVisible();
   await expect(page.locator(".architecture-edge-legend")).toBeVisible();
   await expect(page.locator(".architecture-relation-index")).toBeVisible();
+  await expect(page.locator(".architecture-camera-control")).toHaveCount(0);
+  await expect(page.locator(".architecture-canvas-shell")).toHaveCSS("min-height", "640px");
+  for (const button of await page.locator(".architecture-mode-switch button").all()) {
+    expect((await button.boundingBox())?.height).toBeGreaterThanOrEqual(32);
+  }
   await assertNoHorizontalOverflow(page);
+  await captureNetworkViewport(page, testInfo, "map-selected");
+
+  await page.locator(".architecture-map-settings > summary").click();
+  await expect(page.locator(".architecture-display-options input")).toHaveCount(3);
+  await expect(page.getByText("Reflections", { exact: true })).toHaveCount(0);
+  await page.locator(".architecture-map-settings > summary").click();
+  await resourcePicker.scrollIntoViewIfNeeded();
+
+  await page.setViewportSize({ width: 993, height: 641 });
+  await settleArchitectureMap(page);
+  await assertNoHorizontalOverflow(page);
+  await captureNetworkViewport(page, testInfo, "map-constrained");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settleArchitectureMap(page);
+  await assertNoHorizontalOverflow(page);
+  const mobileMapHeight = await page.locator(".architecture-canvas-shell").evaluate(
+    (element) => element.getBoundingClientRect().height,
+  );
+  expect(mobileMapHeight).toBeLessThanOrEqual(520);
+  await expect(resourcePicker).toHaveCSS("min-height", "44px");
+  await captureNetworkViewport(page, testInfo, "map-mobile");
+
+  await page.setViewportSize({ width: 320, height: 844 });
+  await settleArchitectureMap(page);
+  await assertNoHorizontalOverflow(page);
+  await expect(resourcePicker).toHaveCSS("min-height", "44px");
+  await captureNetworkViewport(page, testInfo, "map-minimum");
 });
 
 test("keeps observed Network mode readable and exportable across viewports", async ({ page }, testInfo) => {
@@ -140,6 +219,8 @@ test("keeps observed Network mode readable and exportable across viewports", asy
   await page.goto("/architecture");
   await page.getByRole("button", { name: "Network", exact: true }).click();
   await expect(page.locator(".architecture-network-map-svg")).toBeVisible();
+  await expect(page.locator(".architecture-map-settings")).toHaveCount(0);
+  await expect(page.locator(".architecture-inspector")).toHaveClass(/is-details-only/);
   await expect(page.locator(".architecture-network-region")).toHaveCount(8);
   await expect(page.locator(".architecture-network-node")).toHaveCount(5);
   await expect(page.locator(".architecture-network-node-icon")).toHaveCount(5);

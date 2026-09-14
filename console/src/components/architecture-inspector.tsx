@@ -5,7 +5,6 @@ import {
   RESOURCE_COLOR_TOKENS,
   layerOf,
   resourceColorTokenOf,
-  type ArchitectureCameraView,
   type ArchitectureDisplayOptions,
   type InventoryGraphResponse,
   type InventoryLink,
@@ -16,18 +15,10 @@ interface Props {
   readonly graph: InventoryGraphResponse;
   readonly selected: InventoryResource | null;
   readonly onSelect: (resource: InventoryResource | null) => void;
-  readonly cameraView: ArchitectureCameraView;
-  readonly onCameraViewChange: (view: ArchitectureCameraView) => void;
   readonly displayOptions: ArchitectureDisplayOptions;
   readonly onToggleDisplay: (key: keyof ArchitectureDisplayOptions) => void;
-  readonly cameraLocked?: boolean;
+  readonly showMapSettings?: boolean;
 }
-
-const CAMERA_LABELS: Readonly<Record<ArchitectureCameraView, string>> = {
-  top: "camera.top",
-  iso: "camera.iso",
-  front: "camera.front",
-};
 
 const LAYER_LABELS = {
   scope: "layer.scope",
@@ -58,11 +49,9 @@ export function ArchitectureInspector({
   graph,
   selected,
   onSelect,
-  cameraView,
-  onCameraViewChange,
   displayOptions,
   onToggleDisplay,
-  cameraLocked = false,
+  showMapSettings = true,
 }: Props) {
   const byId = new Map(graph.resources.map((resource) => [resource.id, resource]));
   const parent = selected?.parent_id ? byId.get(selected.parent_id) ?? null : null;
@@ -71,7 +60,10 @@ export function ArchitectureInspector({
     : [];
 
   return (
-    <aside class="architecture-inspector" aria-label={t("details")}>
+    <aside
+      class={`architecture-inspector${showMapSettings ? "" : " is-details-only"}`}
+      aria-label={t("details")}
+    >
       <section class="architecture-selection-section" aria-live="polite">
         {selected ? (
           <>
@@ -138,34 +130,19 @@ export function ArchitectureInspector({
           </div>
         )}
       </section>
-      <details class="architecture-map-settings">
+      {showMapSettings ? <details class="architecture-map-settings">
         <summary>{t("mapDisplay")}</summary>
-        {!cameraLocked ? <><h4>{t("view")}</h4>
-        <div class="architecture-camera-control" role="group" aria-label={t("cameraView")}>
-          {(["top", "iso", "front"] as const).map((view) => (
-            <button
-              type="button"
-              class={cameraView === view ? "is-active" : ""}
-              aria-pressed={cameraView === view}
-              disabled={cameraLocked}
-              onClick={() => onCameraViewChange(view)}
-            >
-              {t(CAMERA_LABELS[view])}
-            </button>
-          ))}
-        </div></> : null}
         <h4>{t("display")}</h4>
         <div class="architecture-display-options">
           {([
             ["showConnections", "displayOption.relationships"],
             ["showLabels", "displayOption.labels"],
-            ["showReflections", "displayOption.reflections"],
             ["showGrid", "displayOption.gridPoints"],
           ] as const).map(([key, label]) => (
             <label><input type="checkbox" checked={displayOptions[key]} onChange={() => onToggleDisplay(key)} />{t(label)}</label>
           ))}
         </div>
-      </details>
+      </details> : null}
     </aside>
   );
 }

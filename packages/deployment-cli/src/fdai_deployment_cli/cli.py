@@ -185,6 +185,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
             timeout_seconds=args.timeout_seconds,
             license_signing_key=args.license_signing_key,
             trial_token=args.trial_token,
+            adopt_runner_image_receipt=adoption_path(args.adopt_runner_image_receipt),
             adopt_application_state=adoption_path(args.adopt_application_state),
             adopt_application_recovery=adoption_path(args.adopt_application_recovery),
             adopt_resolved_models=adoption_path(args.adopt_resolved_models),
