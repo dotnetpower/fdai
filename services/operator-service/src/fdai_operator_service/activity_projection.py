@@ -266,8 +266,18 @@ def _observation_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
             )
         except ValueError as exc:
             raise ValueError("observation freshness is unsupported") from exc
-    reasons = _string_tuple(value.get("reason_codes"), "observation reason codes")
-    evidence_count = _count(value, "evidence_count")
+    if status is OperationalActivityStatus.STARTED:
+        reasons = _string_tuple(
+            value.get("reason_codes", []),
+            "observation reason codes",
+        )
+        evidence_count = _count(value, "evidence_count") if "evidence_count" in value else 0
+    else:
+        reasons = _string_tuple(
+            value.get("reason_codes"),
+            "observation reason codes",
+        )
+        evidence_count = _count(value, "evidence_count")
     started_at = (
         _timestamp(value.get("started_at"), "observation started_at")
         if value.get("started_at") is not None

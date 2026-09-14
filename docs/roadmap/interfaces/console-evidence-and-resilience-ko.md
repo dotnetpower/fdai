@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: fd9d0956a59d573677d9bfdc9d730a934d3d4ba4
+translation_source_sha: a4a0d62ab5882b4d1c7fb57ae33908568abeffb0
 translation_revised: 2026-09-14
 ---
 # 콘솔 근거 및 복원력
@@ -525,8 +525,11 @@ Cross-origin direct-upload 대상에는 내용 헤더를 보내지만 Operator A
 인증된 모든 GET-SSE 소비자는 parsing, 비활성 timeout, reconnect, visibility 및 엔드포인트가
 발급한 불투명 커서를 처리하는 하나의 범위가 제한된 브라우저 transport를 사용합니다. Parser는
 기본적으로 대기 중인 프레임을 256 KiB로 제한하고 여러 `data` 줄과 모든 SSE 줄바꿈 형식을
-수락하며 소유 decoder가 프레임을 수락한 뒤에만 resumable 커서를 진행합니다. 커서가 있는
-`4xx`는 커서를 지우고 한 번만 다시 시도하며, 커서가 없는 재시도 불가 `4xx`는 종료 상태입니다.
+수락하며 소유 decoder가 프레임을 수락한 뒤에만 resumable 커서를 진행합니다. 커서에 한정된
+`400` 또는 `416`만 커서를 지우고 한 번 다시 시도하며, 인증 및 요청 제한 응답은 커서를
+보존합니다. 거부된 프레임은 재연결 backoff를 초기화하지 않습니다. 로컬 공유 버퍼에서 제거된
+프레임은 wire 손실로 보고하지 않으며, 서버가 보고한 누락은 재개할 수 없는 에이전트 스트림에서도
+계속 표시합니다.
 Live, agent, provisioning, ontology invalidation, incident attention 및 access-grant attention은
 각자의 visibility, authentication, cursor, buffer 및 cross-tab 정책을 유지합니다.
 POST/request 범위 대화 스트림은 분리된 상태를 유지합니다.

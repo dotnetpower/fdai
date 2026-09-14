@@ -78,7 +78,9 @@ export function shouldResetRejectedSseCursor(
   cursorAttached: boolean,
   resetAttempted: boolean,
 ): boolean {
-  return cursorAttached && !resetAttempted && status >= 400 && status < 500;
+  return cursorAttached &&
+    !resetAttempted &&
+    (status === 400 || status === 416);
 }
 
 export function shouldAdvanceSseCursor(
@@ -272,9 +274,9 @@ export function useAuthenticatedSse(
         await consumeSseFrames(
           response,
           (frame) => {
-            reconnectAttempt = 0;
             if (frame.retryMs !== null) serverRetryRef.current = frame.retryMs;
             const accepted = onFrameRef.current(frame);
+            if (accepted !== false) reconnectAttempt = 0;
             if (
               resumeFromLastEventId &&
               shouldAdvanceSseCursor(frame, accepted)
@@ -363,7 +365,6 @@ interface SharedSseEntry {
   status: SseConnectionStatus;
   lastError: string | null;
   lastEventId: string | null;
-  evictedFrames: number;
 }
 
 const SHARED_SSE = new Map<string, SharedSseEntry>();
@@ -426,17 +427,8 @@ export function useSharedAuthenticatedSse(
     entry.subscribers.set(subscriber.token, subscriber);
     electSharedSseLeader(entry);
     publishSharedSseStateToSubscriber(entry, subscriber);
-    let replayIndex = 0;
     entry.latestFrames.forEach((frame) => {
-      const replay =
-        replayIndex === 0 && entry.evictedFrames > 0
-          ? {
-              ...frame,
-              droppedBefore: frame.droppedBefore + entry.evictedFrames,
-            }
-          : frame;
-      replayIndex += 1;
-      subscriber.onFrameRef.current(replay);
+      subscriber.onFrameRef.current(frame);
     });
     const onVisibility = (): void => {
       publishSharedSseStateToSubscriber(entry, subscriber);
@@ -516,7 +508,6 @@ function sharedSseEntry(key: string): SharedSseEntry {
     status: "idle",
     lastError: null,
     lastEventId: null,
-    evictedFrames: 0,
   };
   SHARED_SSE.set(key, created);
   return created;
@@ -567,7 +558,6 @@ function rememberSharedSseFrame(
     const oldest = entry.latestFrames.keys().next().value;
     if (typeof oldest !== "string") break;
     entry.latestFrames.delete(oldest);
-    entry.evictedFrames += 1;
   }
 }
 

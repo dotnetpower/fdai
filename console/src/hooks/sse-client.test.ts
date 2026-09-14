@@ -63,6 +63,8 @@ describe("central SSE client", () => {
     expect(headers.get("last-event-id")).toBe("epoch-1:7");
     expect(shouldResetRejectedSseCursor(400, true, false)).toBe(true);
     expect(shouldResetRejectedSseCursor(400, true, true)).toBe(false);
+    expect(shouldResetRejectedSseCursor(401, true, false)).toBe(false);
+    expect(shouldResetRejectedSseCursor(429, true, false)).toBe(false);
     const frame = {
       event: "stage",
       data: "{}",

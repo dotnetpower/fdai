@@ -1,7 +1,7 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: b99b0987bc468bb663b2912bdfd1a945b91308c7
+translation_source_sha: 7876386765a8ebbe1217f36f06d0abef93f60d7f
 translation_revised: 2026-09-14
 ---
 
@@ -231,6 +231,11 @@ scheduler, 실행기, 어댑터, 영속 저장소 및 Operator 변환 결과는 
 없는 결과와 구분합니다. 빈 사유 코드 목록은 올바른 성공 상태이며 누락된 근거로 표시하지
 않습니다. 원시 로그 줄, 클라우드 식별자, 조회 텍스트, 신원 및 프로바이더 오류는 공유 활동
 스트림 밖에 둡니다.
+
+실패한 종료 변환 결과는 내부 작업이 실패 전에 행을 관측했더라도 `evidence_count`를 0으로
+설정하고 `result_count`를 비워 둡니다. 실패 전 작업은 완료된 근거가 아닙니다. `started` 변환
+결과는 종료 전용 개수와 사유 필드를 생략할 수 있으며, Operator는 종료 검증을 완화하지 않고
+이러한 생략을 정규화합니다.
 
 Operator는 영속 현재 상태를 커서가 없는 Live SSE 스냅샷으로 불러옵니다. 이후 operational
 activity는 같은 물리 Live 스트림의 커서가 있는 delta를 사용하며 에이전트 상태는

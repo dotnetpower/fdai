@@ -346,7 +346,7 @@ async def _live_chunks(
             yield (
                 _encode_delivery(hub.stream_epoch, delivery)
                 if resumable
-                else _encode_event(delivery.event)
+                else _encode_legacy_delivery(delivery)
             )
             next_delivery = asyncio.create_task(
                 anext(subscription),
@@ -440,6 +440,17 @@ def _encode_event(event: LiveStreamEvent) -> bytes:
         f"id: {_field(event.event_id)}\nevent: {_field(event.event_type)}\n"
         f"data: {_json(event.payload)}\n\n"
     ).encode()
+
+
+def _encode_legacy_delivery(delivery: LiveStreamDelivery) -> bytes:
+    lines = [
+        f"id: {_field(delivery.event.event_id)}",
+        f"event: {_field(delivery.event.event_type)}",
+    ]
+    if delivery.dropped_before > 0:
+        lines.append(f"dropped: {delivery.dropped_before}")
+    lines.append(f"data: {_json(delivery.event.payload)}")
+    return ("\n".join(lines) + "\n\n").encode()
 
 
 def _encode_frame(kind: str, payload: Mapping[str, object]) -> bytes:

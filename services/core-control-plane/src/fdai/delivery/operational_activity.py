@@ -254,6 +254,9 @@ def ontology_projection_activity(
         and evidence_count > 0
         else OperationalActivityResultState.UNAVAILABLE
     )
+    recorded_evidence_count = (
+        evidence_count if result_state is OperationalActivityResultState.MEASURED else 0
+    )
     return AgentOperationalActivity(
         schema_version="1.3.0",
         activity_id=f"inventory.ontology-projection:{generation}:{status.value}",
@@ -266,14 +269,16 @@ def ontology_projection_activity(
         observed_at=observed_at,
         source="inventory-ontology",
         freshness=freshness,
-        evidence_count=evidence_count,
+        evidence_count=recorded_evidence_count,
         correlation_id=generation,
         reason_codes=reason_codes,
         summary_key=OperationalActivitySummaryKey.ONTOLOGY_PROJECTION,
         scope_class=OperationalActivityScopeClass.CONFIGURED_ESTATE,
         result_state=result_state,
         result_count=(
-            evidence_count if result_state is OperationalActivityResultState.MEASURED else None
+            recorded_evidence_count
+            if result_state is OperationalActivityResultState.MEASURED
+            else None
         ),
         result_unit=(
             OperationalActivityResultUnit.EVIDENCE_ITEMS

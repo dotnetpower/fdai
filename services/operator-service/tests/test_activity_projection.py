@@ -116,8 +116,6 @@ def test_projects_in_progress_observation_without_terminal_fields() -> None:
                     "domain": "activity-log",
                     "campaign_id": "campaign-active",
                     "status": "started",
-                    "evidence_count": 0,
-                    "reason_codes": [],
                     "started_at": "2026-08-14T00:00:00+00:00",
                 },
                 "updated_at": "2026-08-14T00:00:00+00:00",

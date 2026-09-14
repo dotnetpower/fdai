@@ -7,8 +7,10 @@ import asyncio
 import pytest
 from fdai_operator_service.composition import _live_activity_key
 from fdai_operator_service.streaming.live_stream import (
+    LiveStreamDelivery,
     LiveStreamEvent,
     LiveStreamHub,
+    _encode_legacy_delivery,
     _live_chunks,
     make_live_stream_route,
 )
@@ -226,3 +228,20 @@ async def test_nonresumable_agent_stream_keeps_domain_event_id() -> None:
 
     assert encoded.startswith(b"id: Huginn:2026-09-14T00:00:00+00:00\nevent: message\n")
     await chunks.aclose()
+
+
+def test_nonresumable_agent_delivery_keeps_gap_advisory() -> None:
+    encoded = _encode_legacy_delivery(
+        LiveStreamDelivery(
+            event=LiveStreamEvent(
+                event_id="agent-event-1",
+                event_type="message",
+                payload={"type": "agent.state"},
+            ),
+            sequence=4,
+            dropped_before=3,
+        )
+    )
+
+    assert b"id: agent-event-1\n" in encoded
+    assert b"dropped: 3\n" in encoded

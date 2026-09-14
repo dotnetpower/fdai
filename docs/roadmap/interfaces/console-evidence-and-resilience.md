@@ -525,8 +525,10 @@ owned by [Operator Console Progressive Conversations](operator-console-progressi
 All authenticated GET-SSE consumers use one bounded browser transport for parsing, inactivity,
 reconnect, visibility, and opaque endpoint-issued cursors. The parser limits a pending frame to
 256 KiB by default, accepts multiline data and all SSE newline forms, and advances a resumable
-cursor only after the owning decoder accepts the frame. A cursor-bearing `4xx` clears the cursor and
-retries once; a cursorless non-retryable `4xx` is terminal. Live, agent, provisioning, ontology
+cursor only after the owning decoder accepts the frame. Only a cursor-specific `400` or `416`
+clears the cursor and retries once; authentication and rate-limit responses preserve it. A rejected
+frame does not reset reconnect backoff. Local shared-buffer eviction is not reported as wire loss,
+while server-reported drops remain visible, including on the non-resumable agent stream. Live, agent, provisioning, ontology
 invalidation, incident attention, and access-grant attention retain their own visibility,
 authentication, cursor, buffer, and cross-tab policies. POST/request-scoped conversation streams
 remain separate.

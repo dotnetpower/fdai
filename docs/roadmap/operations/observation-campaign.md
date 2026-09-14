@@ -232,6 +232,11 @@ or could not be obtained. An empty reason-code list remains the correct successf
 rendered as missing evidence. Raw log lines, cloud identifiers, query text, identities, and
 provider errors remain outside the shared activity stream.
 
+A failed terminal projection sets `evidence_count` to zero and leaves `result_count` absent even
+when internal work observed rows before the failure. Pre-failure work is not completed evidence.
+A `started` projection may omit terminal-only count and reason fields; the Operator normalizes those
+omissions without relaxing terminal validation.
+
 The Operator loads the durable current state into unsequenced Live SSE snapshots. Subsequent
 operational activity uses cursor-bearing deltas on the same physical Live stream, while agent state
 remains on `/agents/stream`. Snapshot and delta delivery share `activity_instance_id`, so lifecycle

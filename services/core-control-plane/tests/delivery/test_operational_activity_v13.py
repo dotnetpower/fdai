@@ -42,6 +42,20 @@ def test_degraded_partial_results_remain_measured() -> None:
     assert ontology.result_count == 3
 
 
+def test_failed_ontology_projection_does_not_claim_pre_failure_count() -> None:
+    activity = ontology_projection_activity(
+        generation="generation-1",
+        status=OperationalActivityStatus.FAILED,
+        freshness=OperationalFreshness.UNAVAILABLE,
+        evidence_count=3,
+        reason_codes=("projection_failed",),
+    )
+
+    assert activity.result_state is OperationalActivityResultState.UNAVAILABLE
+    assert activity.evidence_count == 0
+    assert activity.result_count is None
+
+
 def test_superseded_observation_does_not_fabricate_measured_zero() -> None:
     spec = ObservationSourceSpec(
         source_id="activity-log",
