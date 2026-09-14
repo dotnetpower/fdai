@@ -35,6 +35,8 @@ fail() { log "ERROR: $*"; exit 1; }
 source "$HERE/contributor-target.sh"
 # shellcheck source=scripts/deployment/azure/contributor-terraform.sh
 source "$HERE/contributor-terraform.sh"
+# shellcheck source=scripts/deployment/azure/contributor-plan.sh
+source "$HERE/contributor-plan.sh"
 TARGET_HAS_TERMINAL=0
 if [[ -t 0 && -t 2 ]]; then
   TARGET_HAS_TERMINAL=1
@@ -67,6 +69,7 @@ LOCK_ROOT="$REPO_ROOT/.fdai/deploy"
 PLATFORM_OVERRIDE="$PLATFORM_ROOT/contributor_override.tf.json"
 CORE_OVERRIDE="$CORE_ROOT/contributor_override.tf.json"
 PLATFORM_STATE="$REPO_ROOT/.azure/$AZD_ENVIRONMENT/infra/terraform.tfstate"
+PLATFORM_PLAN="$WORK_DIR/platform.tfplan"
 CORE_STATE="$WORK_DIR/core-control-plane.tfstate"
 PLATFORM_TF_DATA="$REPO_ROOT/.azure/$AZD_ENVIRONMENT/infra/.terraform"
 CORE_TF_DATA="$WORK_DIR/core-terraform-data"
@@ -295,11 +298,14 @@ PY
 
 platform_preview() {
   log "previewing the public development platform; no Azure resource change is allowed"
-  azd provision \
-    --environment "$AZD_ENVIRONMENT" \
-    --subscription "$EXPECTED_SUBSCRIPTION" \
-    --location "$REGION" \
-    --preview --no-prompt
+  install -d -m 0700 "$(dirname "$PLATFORM_STATE")"
+  timeout 300s terraform -chdir="$PLATFORM_ROOT" init \
+    -reconfigure -input=false -lockfile=readonly
+  timeout 120s terraform -chdir="$PLATFORM_ROOT" validate
+  timeout 900s terraform -chdir="$PLATFORM_ROOT" plan \
+    -input=false -lock-timeout=5m -out="$PLATFORM_PLAN"
+  chmod 0600 "$PLATFORM_PLAN"
+  PLATFORM_PLAN_DIGEST="$(sha256sum "$PLATFORM_PLAN" | cut -d' ' -f1)"
 }
 
 verify_private_state_file() {
@@ -315,11 +321,7 @@ verify_private_state_file() {
 
 platform_apply() {
   log "applying the reviewed public development platform"
-  azd provision \
-    --environment "$AZD_ENVIRONMENT" \
-    --subscription "$EXPECTED_SUBSCRIPTION" \
-    --location "$REGION" \
-    --no-prompt
+  apply_contributor_plan "$PLATFORM_ROOT" "$PLATFORM_PLAN" "$PLATFORM_STATE" "$PLATFORM_PLAN_DIGEST"
   verify_private_state_file "$PLATFORM_STATE" "platform apply"
   terraform -chdir="$PLATFORM_ROOT" state list >/dev/null || {
     fail "platform Terraform state is unreadable"
@@ -517,8 +519,8 @@ PY
     -input=false -lock-timeout=5m -out="$CORE_PLAN" -var-file="$CORE_TFVARS"
   log "applying the exact Core service plan"
   TF_CLI_CONFIG_FILE="$CORE_TF_CLI_CONFIG_FILE" \
-  TF_DATA_DIR="$CORE_TF_DATA" terraform -chdir="$CORE_ROOT" apply \
-    -input=false -lock-timeout=5m "$CORE_PLAN"
+  TF_DATA_DIR="$CORE_TF_DATA" apply_contributor_plan \
+    "$CORE_ROOT" "$CORE_PLAN" "$CORE_STATE" "$(sha256sum "$CORE_PLAN" | cut -d' ' -f1)"
   verify_private_state_file "$CORE_STATE" "Core apply"
 }
 

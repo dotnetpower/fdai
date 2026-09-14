@@ -450,7 +450,19 @@ fi
 
 def _fake_terraform(tmp_path: Path) -> None:
     binary = tmp_path / "terraform"
-    binary.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="ascii")
+    binary.write_text(
+        """#!/usr/bin/env bash
+set -euo pipefail
+for argument in "$@"; do
+    if [[ "$argument" == -out=* ]]; then
+        plan="${argument#-out=}"
+        printf '%s\n' 'saved plan' > "$plan"
+        chmod 0600 "$plan"
+    fi
+done
+""",
+        encoding="ascii",
+    )
     binary.chmod(0o755)
 
 
@@ -522,8 +534,10 @@ def test_azd_wrapper_previews_after_exact_context_verification(tmp_path: Path) -
     assert "role assignment create" not in azure_calls
     assert "acr build" not in azure_calls
     assert "postgres flexible-server firewall-rule create" not in azure_calls
-    assert "provision --environment fdai-dev" in deployment_calls
-    assert "--preview" in deployment_calls
+    assert "provision --environment" not in deployment_calls
+    saved_plan = tmp_path / "work/platform.tfplan"
+    assert saved_plan.read_text(encoding="ascii") == "saved plan\n"
+    assert saved_plan.stat().st_mode & 0o777 == 0o600
 
 
 def test_azd_wrapper_reports_provider_registration_without_mutating(
