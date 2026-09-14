@@ -1,0 +1,23 @@
+{
+  "label": "콘솔 웹",
+  "off": "콘솔 웹을 알림 채널로 선택",
+  "enabling": "콘솔 웹 선택 중...",
+  "on": "콘솔 웹 알림 채널 선택 해제",
+  "blocked": "콘솔 웹 알림이 차단됨",
+  "unsupported": "콘솔 웹 알림을 사용할 수 없음",
+  "error": "콘솔 웹 알림 채널 다시 시도",
+  "stateOff": "선택 안 됨",
+  "stateEnabling": "...",
+  "stateOn": "대기",
+  "stateDelivered": "전송됨",
+  "stateAcknowledged": "전송 및 확인됨",
+  "stateBlocked": "차단됨",
+  "stateUnsupported": "사용 불가",
+  "stateError": "다시 시도",
+  "approvalTitle": "FDAI 사람 승인 필요",
+  "approvalBody": "콘솔에서 인시던트 근거를 검토하세요.",
+  "deniedTitle": "FDAI 작업 거부됨",
+  "deniedBody": "콘솔에서 안전성 결정을 검토하세요.",
+  "failedTitle": "FDAI 운영 실패",
+  "failedBody": "콘솔에서 실패 근거를 검토하세요."
+}

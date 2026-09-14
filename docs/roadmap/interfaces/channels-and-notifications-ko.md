@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 81219a4dcf34627eae97d8eb017621d7189acbbd
-translation_revised: 2026-09-13
+translation_source_sha: cb84c7640b883d60a205d0d47282990a8f2b970f
+translation_revised: 2026-09-14
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -48,7 +48,7 @@ Teams Workflows 웹훅 바인딩은
 | 영속 아웃바운드 대화 전달 | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | 조정기는 확정적인 거절과 모호한 확인 응답을 구분하고 재시도를 제한하며 중단된 전송을 조정하고 안정적인 전달 신원을 보존합니다. 이 동작은 집중 테스트를 통과했습니다. |
 | 순수 채널 표현 렌더링 | 구현됨 | `fdai_operator_service/families/conversation/channel_edge/{presentation,renderers}.py`, 집중 Operator 렌더러 검사 | 정규화된 묶음 하나가 정본 텍스트, 사실, 제한, 근거, 권한 및 사용 불가 상태를 보존합니다. 순수 Teams 및 Slack 페이로드 builder는 전송 또는 확인 응답 없이 기능 상한을 강제하며 잘못된 산출물은 정본 텍스트로 저하됩니다. |
 | 채널 인식 표현 보증 | 구현됨 | [`channel_assurance.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/channel_assurance.py), [`test_channel_assurance.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_channel_assurance.py) | 공통 내용, 제한, 근거 및 권한 검사는 모든 채널에 적용합니다. 선택적인 진행 상황, 활동, rich 표현, 스레드 및 편집 검사는 주입된 기능 프로필을 따릅니다. Direct Line 및 사용자 지정 프로필은 계약으로 지원하지만 Direct Line 전송은 구현되지 않았습니다. |
-| 명시적 선택 브라우저 알림 | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`notification-sw.js`](../../../console/public/notification-sw.js) 및 집중 브라우저 알림 테스트 | 권한, 기본 설정, 가시성, 전달 및 알림 클릭 시 창 활성화 동작이 집중 Vitest 사례를 통과했습니다. 실제 Windows 알림 또는 푸시 서비스 증적은 기록되지 않았습니다. |
+| 명시적 콘솔 웹 알림 | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`notification-sw.js`](../../../console/public/notification-sw.js) 및 집중 브라우저 알림 테스트 | 이름이 지정된 `console-web` 컨트롤, principal 범위 기본 설정, 브라우저 표시 증적 및 알림 클릭 확인이 집중 Vitest 사례를 통과했습니다. 이 증적은 브라우저 로컬 근거이며 Core 전달 증적, 승인 또는 실제 Windows 검증이 아닙니다. |
 | 이해관계자 브리핑과 A3 edge 런타임 | 구현됨 | [`briefing.py`](../../../services/core-control-plane/src/fdai/core/notifications/briefing.py), [`test_briefing.py`](../../../services/core-control-plane/tests/notifications/test_briefing.py), [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md) | 결정론적 이해관계자 브리핑은 집중 테스트를 통과했습니다. 독립 Operator distribution ASGI factory, 로컬 실행 및 선택적 Container App이 구현됐으며 통제된 프로바이더 및 보호된 배포 근거는 런타임 소유 문서에서 추적합니다. |
 | 전용 시스템 지식 Teams 멘션 endpoint | 진행 중 | [시스템 지식 서비스](system-knowledge-service-ko.md), `services/system-knowledge-service/`, 집중 서비스 검사 | 읽기 전용 서비스는 별도 distribution, 카탈로그 및 전달 원장을 사용합니다. 배포는 Bot Framework 신원 또는 Team 범위 HMAC 인증 Outgoing Webhook 중 하나를 선택합니다. 운영 Teams 및 롤백 근거는 남아 있으며 A1-A4 준비 상태를 바꾸지 않습니다. |
 | 선택적 비용 거버넌스 알림 | implemented | `fdai_cost_governance/notifications.py`, 패키지 알림 테스트, `config/notifications-matrix.yaml` | 패키지는 알림을 만들기 전에 활성화를 확인하고 API 변환 결과와 같은 공개 정책을 적용합니다. 비활성 패키지는 아무것도 전송하지 않으며 전역 인시던트, 승인, KPI 및 LLM 비용 경로는 독립적으로 유지됩니다. |
@@ -57,6 +57,7 @@ Teams Workflows 웹훅 바인딩은
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 콘솔 웹을 명시적인 클라이언트 로컬 알림 채널로 지정하고 principal 범위 원장과 표시 상태에서 브라우저 표시와 알림 클릭 확인을 분리했습니다. | `current change`, 집중 브라우저 알림 및 서비스 워커 테스트와 Console 형식 검사가 통과했습니다. | 실제 데스크톱 검증을 주장하기 전에 사용자가 확인한 Windows 알림 클릭 증적을 보존합니다. 인증된 Web Push와 서버 측 증적은 별도로 설계된 서비스를 통해서만 추가합니다. |
 | 2026-09-13 | 구현됨 | 정본 응답 내용이나 전송 권한을 바꾸지 않고 채널 인식 표현 평가를 추가했습니다. | `current change`, 채널 보증 및 구조 귀속 집중 테스트 14개가 통과했습니다. | 각 배포 채널에 권위 있는 표현 관측을 연결하고 Direct Line 전송을 구현한 뒤 runtime 지원을 주장합니다. |
 | 2026-09-10 | implemented | A1-A4 라우팅을 바꾸지 않고 HMAC 인증 Teams Outgoing Webhook 대안을 추가했습니다. | `current change`, transport별 서비스, Terraform, 보호된 workflow 및 집중 검사입니다. | 실제 `@FDAI-bot`, 5초 응답, 재시작, 비용, 비활성화 및 복원 근거를 보존합니다. |
 | 2026-09-10 | implemented | A1-A4 라우팅을 바꾸지 않고 지식 봇의 전용 Azure Bot, Teams app package, Managed Identity Blob claim 경계 및 보호된 plan/apply workflow를 추가했습니다. | `current change`, 서비스 Terraform, 배포 workflow, package builder 및 집중 검사입니다. | 실제 Teams, 비용, 비활성화 및 15분 이내 롤백 근거를 보존합니다. |
@@ -369,29 +370,39 @@ event-ingest, trust 라우팅, risk gating, 감사에 진입하며 웹훅은 액
 
 ### 4.4 브라우저 system 알림
 
-Console은 브라우저 Notifications API와 origin-scoped 서비스 워커를 통해 명시적 선택 A2 상태 알림을
-전달할 수 있습니다. Operator가 명시적인 Console 컨트롤에서 기능을 활성화하며 FDAI는 페이지
-부하 중 권한을 요청하지 않습니다. 활성화된 탭이 background 상태여도 인증된
-`GET /live/stream` 피드를 유지하고, 사람 승인, 거부, 실패 결과에만 알림을 발행합니다.
+Console은 브라우저 알림 경계를 명시적인 클라이언트 로컬 `console-web` 채널로 표시합니다.
+운영자는 Console 컨트롤에서 이름이 지정된 이 채널을 선택하거나 선택 해제할 수 있으며, FDAI는
+페이지를 불러올 때 권한을 요청하지 않습니다. 선택된 탭이 백그라운드 상태여도 인증된
+`GET /live/stream` 피드를 유지하고 사람 승인, 차단 또는 실패 결과에만 알림을 표시합니다.
 재생 프레임과 정상 성공 단계는 알림을 만들지 않습니다.
 
-브라우저 알림은 정보 제공 전용입니다. Localized 범용 텍스트, opaque 범위가 제한된 이벤트 tag,
-server-derived same-origin 읽기 전용 인시던트 화면 링크만 포함합니다. Raw 오류, 리소스 식별자,
-승인 컨트롤, 실행 링크는 포함하지 않습니다. 반복 프레임은 동일 이벤트 알림을
-교체하며 명시적 선택 선호 설정은 로그인한 브라우저 principal 범위로 저장합니다. principal 범위로 한정된
-브라우저 원장은 여러 탭에서 같은 이벤트 tag를 5분 동안 억제하고 system 알림을 분당
-5건으로 제한합니다. 억제된 이벤트도 감사 및 인시던트 화면에는 그대로 남습니다.
+브라우저 알림은 정보 제공 전용입니다. 현지화된 일반 텍스트, 불투명하고 범위가 제한된 이벤트
+태그 및 서버가 만든 동일 출처의 읽기 전용 인시던트 화면 링크만 포함합니다. 원본 오류, 리소스
+식별자, 승인 컨트롤 또는 실행 링크는 포함하지 않습니다. 반복 프레임은 같은 이벤트 알림을
+교체하며 명시적 선택 기본 설정은 로그인한 브라우저 principal 범위로 저장합니다. principal 범위
+브라우저 원장은 여러 탭에서 같은 이벤트 태그를 5분 동안 억제하고 시스템 알림을 분당 5건으로
+제한합니다. 억제된 이벤트도 감사 및 인시던트 화면에는 그대로 남습니다.
 
-서비스 워커는 페이지가 background 상태일 때 알림 렌더링과 click 처리를 유지하지만,
-현재 Console은 Push API 구독이나 서버 측 구독 저장소를 등록하지 않습니다.
-따라서 브라우저가 완전히 종료되면 알림을 받지 않습니다. Closed-browser Web Push를
-활성화하려면 별도로 인증된 쓰기 서비스, 암호화된 구독 저장소, 철회, CSRF
-protection, 전달 감사가 필요하며 Operator API에 속하지 않습니다.
+`showNotification()`이 완료되면 같은 원장이 `console-web` 전달을 전송됨으로 기록합니다. 사용자가
+알림을 클릭하면 같은 브라우저 principal의 전송 기록에 범위가 제한된 태그가 이미 있을 때만 별도
+확인을 기록합니다. 정확히 일치하는 Console 창에는 서비스 워커 메시지를 보냅니다. 이동하거나
+새로 연 Console 창에는 일시적인 `fdai_notification_ack` 쿼리 필드로 같은 태그를 전달하며,
+Console은 검증 후 이 필드를 제거합니다. 컨트롤은 `대기`, `전송됨`, `전송 및 확인됨`을 구분해
+선택, 전달 및 사용자 확인을 하나의 상태로 합치지 않습니다.
+
+이 증적은 브라우저 로컬 기록입니다. Core의 영속 알림 전달 원장을 갱신하거나
+`notification.delivery.observed`를 충족하지 않으며, 사용자가 인시던트 근거를 읽었다는 점을
+입증하지도 않습니다. 승인 또는 실행 권한도 부여하지 않습니다.
+
+서비스 워커는 페이지가 백그라운드 상태일 때 알림 표시와 클릭 처리를 유지하지만, 현재 Console은
+Push API 구독이나 서버 측 구독 저장소를 등록하지 않습니다. 따라서 브라우저가 완전히 종료되면
+알림을 받지 않습니다. 닫힌 브라우저에 Web Push를 제공하려면 별도로 인증된 쓰기 서비스, 암호화된
+구독 저장소, 철회, CSRF 보호 및 전달 감사가 필요하며 Operator API에는 이 기능을 두지 않습니다.
 
 알림을 클릭하면 정확히 일치하는 Console 창이 있을 때 해당 창을 활성화합니다. 그렇지 않으면
-서비스 워커가 동일 출처의 Console 창을 읽기 전용 인시던트 대상으로 이동하고, 그 이동에서
-반환된 창을 활성화합니다. 브라우저 창 활성화 또는 화면 이동이 실패하면 검증된 동일 대상을
-새 창으로 엽니다. 이 활성화 동작은 작업을 승인하거나 실행하지 않습니다.
+서비스 워커가 동일 출처의 Console 창을 읽기 전용 인시던트 대상으로 이동하고, 그 이동에서 반환된
+창을 활성화합니다. 브라우저 창 활성화 또는 화면 이동이 실패하면 검증된 동일 대상을 새 창으로
+엽니다. 이 활성화는 로컬 알림만 확인합니다. 작업을 승인하거나 실행하지 않습니다.
 
 ## 5. 채널 인터페이스 (계약)
 

@@ -1,19 +1,29 @@
 import { useEffect, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import {
+  acknowledgeBrowserAlertDelivery,
+  BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_QUERY,
+  BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
+  browserAlertNotificationData,
   browserAlertForLiveEvent,
+  CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
+  decodeBrowserAlertAcknowledgement,
   browserNotificationsSupported,
-  browserNotificationTargetPath,
   browserNotificationWorkerPaths,
   claimBrowserAlertDelivery,
+  readLatestBrowserAlertReceipt,
   readBrowserNotificationPreference,
+  recordBrowserAlertDelivered,
   releaseBrowserAlertDelivery,
   writeBrowserNotificationPreference,
   type BrowserAlertKind,
 } from "../browser-notifications";
 import { useExclusiveBrowserStreamLeader } from "../hooks/browser-stream-leader";
 import { useLiveStream } from "../hooks/use-live-stream";
-import { t } from "../i18n";
+import {
+  browserNotificationText as t,
+  type BrowserNotificationTextKey,
+} from "./i18n/browser-notifications";
 
 interface Props {
   readonly client: OperatorApiClient;
@@ -21,45 +31,56 @@ interface Props {
 }
 
 type ControlState = "off" | "enabling" | "on" | "blocked" | "unsupported" | "error";
+type DeliveryState = "ready" | "delivered" | "acknowledged";
 
-const CONTROL_LABEL_KEYS: Readonly<Record<ControlState, string>> = {
-  off: "browserNotifications.off",
-  enabling: "browserNotifications.enabling",
-  on: "browserNotifications.on",
-  blocked: "browserNotifications.blocked",
-  unsupported: "browserNotifications.unsupported",
-  error: "browserNotifications.error",
+const CONTROL_LABEL_KEYS: Readonly<Record<ControlState, BrowserNotificationTextKey>> = {
+  off: "off",
+  enabling: "enabling",
+  on: "on",
+  blocked: "blocked",
+  unsupported: "unsupported",
+  error: "error",
 };
 
-const CONTROL_STATE_KEYS: Readonly<Record<ControlState, string>> = {
-  off: "browserNotifications.stateOff",
-  enabling: "browserNotifications.stateEnabling",
-  on: "browserNotifications.stateOn",
-  blocked: "browserNotifications.stateBlocked",
-  unsupported: "browserNotifications.stateUnsupported",
-  error: "browserNotifications.stateError",
+const CONTROL_STATE_KEYS: Readonly<Record<ControlState, BrowserNotificationTextKey>> = {
+  off: "stateOff",
+  enabling: "stateEnabling",
+  on: "stateOn",
+  blocked: "stateBlocked",
+  unsupported: "stateUnsupported",
+  error: "stateError",
 };
 
-const ALERT_TITLE_KEYS: Readonly<Record<BrowserAlertKind, string>> = {
-  approval: "browserNotifications.approvalTitle",
-  denied: "browserNotifications.deniedTitle",
-  failed: "browserNotifications.failedTitle",
+const DELIVERY_STATE_KEYS: Readonly<Record<DeliveryState, BrowserNotificationTextKey>> = {
+  ready: "stateOn",
+  delivered: "stateDelivered",
+  acknowledged: "stateAcknowledged",
 };
 
-const ALERT_BODY_KEYS: Readonly<Record<BrowserAlertKind, string>> = {
-  approval: "browserNotifications.approvalBody",
-  denied: "browserNotifications.deniedBody",
-  failed: "browserNotifications.failedBody",
+const ALERT_TITLE_KEYS: Readonly<Record<BrowserAlertKind, BrowserNotificationTextKey>> = {
+  approval: "approvalTitle",
+  denied: "deniedTitle",
+  failed: "failedTitle",
+};
+
+const ALERT_BODY_KEYS: Readonly<Record<BrowserAlertKind, BrowserNotificationTextKey>> = {
+  approval: "approvalBody",
+  denied: "deniedBody",
+  failed: "failedBody",
 };
 
 export function BrowserNotificationControl({ client, principalId }: Props) {
   const supported = browserNotificationsSupported();
   const [state, setState] = useState<ControlState>(() => initialState(supported, principalId));
+  const [deliveryState, setDeliveryState] = useState<DeliveryState>(
+    () => initialDeliveryState(principalId),
+  );
   const [workerReady, setWorkerReady] = useState(false);
 
   useEffect(() => {
     setWorkerReady(false);
     setState(initialState(supported, principalId));
+    setDeliveryState(initialDeliveryState(principalId));
   }, [supported, principalId]);
 
   useEffect(() => {
@@ -106,6 +127,47 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
     };
   }, [supported, principalId]);
 
+  useEffect(() => {
+    const acknowledge = (tag: string, acknowledgedAt: number) => {
+      const receipt = acknowledgeBrowserAlertDelivery(
+        tag,
+        principalId,
+        acknowledgedAt,
+      );
+      if (receipt !== null) setDeliveryState("acknowledged");
+    };
+    const onWorkerMessage = (event: MessageEvent<unknown>) => {
+      const acknowledgement = decodeBrowserAlertAcknowledgement(event.data);
+      if (acknowledgement !== null) {
+        acknowledge(acknowledgement.tag, acknowledgement.acknowledgedAt);
+      }
+    };
+    const serviceWorker = "serviceWorker" in navigator ? navigator.serviceWorker : null;
+    serviceWorker?.addEventListener("message", onWorkerMessage);
+
+    const location = new URL(window.location.href);
+    const tag = location.searchParams.get(BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_QUERY);
+    if (tag !== null) {
+      location.searchParams.delete(BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_QUERY);
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${location.pathname}${location.search}${location.hash}`,
+      );
+      const acknowledgement = decodeBrowserAlertAcknowledgement({
+        type: BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
+        channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
+        tag,
+        acknowledged_at: Date.now(),
+      });
+      if (acknowledgement !== null) {
+        acknowledge(acknowledgement.tag, acknowledgement.acknowledgedAt);
+      }
+    }
+
+    return () => serviceWorker?.removeEventListener("message", onWorkerMessage);
+  }, [principalId]);
+
   const streamEnabled = state === "on" && workerReady;
   const streamLeader = useExclusiveBrowserStreamLeader(
     streamEnabled,
@@ -141,11 +203,18 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
           {
             body: t(ALERT_BODY_KEYS[alert.kind]),
             tag: alert.tag,
-            data: {
-              path: browserNotificationTargetPath(alert.path, import.meta.env.BASE_URL),
-            },
+            data: browserAlertNotificationData(alert, import.meta.env.BASE_URL),
           },
         ))
+        .then(() => {
+          const receipt = recordBrowserAlertDelivered(alert.tag, principalId);
+          if (receipt === null) {
+            releaseBrowserAlertDelivery(alert.tag, principalId);
+            setState("error");
+            return;
+          }
+          setDeliveryState(receipt.acknowledgedAt === null ? "delivered" : "acknowledged");
+        })
         .catch(() => {
           releaseBrowserAlertDelivery(alert.tag, principalId);
           setState("error");
@@ -173,6 +242,7 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
       await ensureNotificationWorker();
       writeBrowserNotificationPreference(true, principalId);
       setWorkerReady(true);
+      setDeliveryState("ready");
       setState("on");
     } catch {
       writeBrowserNotificationPreference(false, principalId);
@@ -182,7 +252,9 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
 
   const disabled = state === "unsupported" || state === "blocked" || state === "enabling";
   const label = t(CONTROL_LABEL_KEYS[state]);
-  const stateLabel = t(CONTROL_STATE_KEYS[state]);
+  const stateLabel = t(
+    state === "on" ? DELIVERY_STATE_KEYS[deliveryState] : CONTROL_STATE_KEYS[state],
+  );
   return (
     <button
       type="button"
@@ -197,10 +269,18 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
         <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
         <path d="M10 21h4" />
       </svg>
-      <span class="topbar-control-label">{t("browserNotifications.label")}</span>
-      <span class="browser-notification-state">{stateLabel}</span>
+      <span class="topbar-control-label">{t("label")}</span>
+      <span class="browser-notification-state" role="status" aria-live="polite">
+        {stateLabel}
+      </span>
     </button>
   );
+}
+
+function initialDeliveryState(principalId?: string | null): DeliveryState {
+  const receipt = readLatestBrowserAlertReceipt(principalId);
+  if (receipt !== null && receipt.acknowledgedAt !== null) return "acknowledged";
+  return receipt === null ? "ready" : "delivered";
 }
 
 function initialState(supported: boolean, principalId?: string | null): ControlState {

@@ -14,9 +14,9 @@ import {
   type ConsolePreferences,
 } from "../preferences";
 import { panelPath } from "../router";
-import { BrowserNotificationControl } from "./browser-notification-control";
 import { AccessGrantAttention } from "./access-grant-attention";
 import { IncidentAttention } from "./incident-attention";
+import { browserNotificationText } from "./i18n/browser-notifications";
 import { NavigationShell } from "./navigation-shell";
 import { NavigationTitleProvider } from "./navigation-title";
 import type { ConsoleDataMode } from "../console-data-mode";
@@ -26,6 +26,11 @@ import { DataModeControl } from "./data-mode-control";
 const AccountMenu = lazy(async () => {
   const module = await import("./account-menu");
   return { default: module.AccountMenu };
+});
+
+const BrowserNotificationControl = lazy(async () => {
+  const module = await import("./browser-notification-control");
+  return { default: module.BrowserNotificationControl };
 });
 
 interface ShellProps {
@@ -108,10 +113,25 @@ export function Shell({
             client={client}
             principalId={auth.account?.homeAccountId ?? null}
           />
-          <BrowserNotificationControl
-            client={client}
-            principalId={auth.account?.homeAccountId ?? null}
-          />
+          <Suspense fallback={(
+            <button
+              type="button"
+              class="topbar-control browser-notification-control"
+              aria-label={browserNotificationText("enabling")}
+              disabled
+            >
+              <span class="browser-notification-indicator" aria-hidden="true" />
+              <span class="topbar-control-label">{browserNotificationText("label")}</span>
+              <span class="browser-notification-state" role="status" aria-live="polite">
+                {browserNotificationText("stateEnabling")}
+              </span>
+            </button>
+          )}>
+            <BrowserNotificationControl
+              client={client}
+              principalId={auth.account?.homeAccountId ?? null}
+            />
+          </Suspense>
           {auth.account ? (
             <Suspense fallback={(
               <span class="account-menu-loading" role="status" aria-live="polite">
