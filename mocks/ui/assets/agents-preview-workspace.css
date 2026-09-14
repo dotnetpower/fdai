@@ -138,7 +138,7 @@
 .ap-focus { scroll-margin-top: 16px; }
 .ap-focus .ap-field, .ap-incidents .ap-field { margin-bottom: 12px; }
 .ap-focus-kicker { color: var(--cs-steel); font-size: var(--cs-type-label-size); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
-.ap-role-boundary { margin: 16px 0 0; padding: 12px; border-left: 2px solid var(--cs-steel); background: color-mix(in srgb, var(--cs-steel) 5%, transparent); color: var(--cs-text-soft); }
+.ap-role-boundary { margin: 16px 0 0; padding: 12px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: color-mix(in srgb, var(--cs-steel) 5%, transparent); color: var(--cs-text-soft); }
 .agents-preview .ap-incident { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; width: 100%; text-align: left; padding: 12px; margin-top: 8px; }
 .ap-incident strong { font-weight: 500; grid-column: 1 / -1; }
 .ap-incident small { color: var(--cs-text-soft); }

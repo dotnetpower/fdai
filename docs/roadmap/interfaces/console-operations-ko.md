@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: f128025328e7fb98ed1b6c4537d317eb58aca5f8
+translation_source_sha: 2d70c1edec07af38b619f8c900524ee6bb78282d
 translation_revised: 2026-09-14
 ---
 
@@ -549,7 +549,7 @@ Bulk 요청은 도메인 작업 흐름이 atomicity 또는 범위가 제한된 �
 현재 콘솔 쓰기 경로별 출처 스키마, 소유자, 기능, 개정 번호, 멱등성 룰, 증적, 신원
 의존성을 카탈로그합니다. 조회, 시뮬레이션, 승인, operational 요청, 실행, break-glass로
 분류합니다. 첫 shipped 경로부터 browser-Entra 로컬과 deployed는 같은 스키마, 권한 확인, 출처
-연결을 사용하고 고정본 principal은 pytest 전용으로 유지합니다. 정적 지역화 source 인벤토리는 경로를 교체할 때 현재 컴포넌트 집합을 따르며 런타임 동작이나 권한을 바꾸지 않습니다.
+연결을 사용하고 고정본 principal은 pytest 전용으로 유지합니다. 정적 지역화 source 인벤토리는 경로를 교체할 때 현재 컴포넌트 집합과 정식 패널 레이블을 따르고, 시각 경계 검사는 장식적인 가장자리 강조를 거부하며 런타임 동작이나 권한을 바꾸지 않습니다.
 
 Exit criteria: 제공되는 모든 요청에 도메인 스키마, 소유자, 기능, 멱등성 룰, 감사 경로가 하나씩
 있습니다. 기계가 읽는 경로 인벤토리는 메서드와 경로, 분류, 스키마, 출처 소유자,

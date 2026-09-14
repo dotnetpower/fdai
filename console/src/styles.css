@@ -17128,7 +17128,8 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
 .agent-role-boundary {
   margin-top: 1rem !important;
   padding: 0.75rem;
-  border-left: 2px solid var(--agent-color);
+  border: 1px solid var(--border);
+  border-radius: 6px;
   background: color-mix(in srgb, var(--agent-color) 5%, transparent);
 }
 
