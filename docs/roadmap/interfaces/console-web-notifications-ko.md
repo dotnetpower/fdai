@@ -1,7 +1,7 @@
 ---
 title: Console Web 알림
 translation_of: console-web-notifications.md
-translation_source_sha: fd3a4daddd13aa143acebd0013e4af20d0f0df44
+translation_source_sha: 839d7c8962b6053ebe9a5ef2680fb85426fd76f8
 translation_revised: 2026-09-14
 ---
 
@@ -79,8 +79,10 @@ callback보다 먼저 도착하면 두 타임스탬프를 원자적으로 기록
 활성 principal에 잘못 귀속하지 않고 원래 원장으로 수렴합니다. 일치 항목이 여러 개면 fail-closed
 처리합니다.
 
-서비스 워커는 이동 결과로 반환된 창을 활성화합니다. 이동이 창을 반환하지 못하면 같은 검증된
-대상을 엽니다. 응답 없는 `postMessage()` 호출을 확인 전달로 간주하지 않습니다.
+서비스 워커는 등록 scope 안의 제어된 창 client만 대상으로 봅니다. 하위 경로 배포에서 같은
+origin의 관련 없는 창을 이동하지 않습니다. 이동 결과로 반환된 창을 활성화하고, 이동이 창을
+반환하지 못하면 같은 검증된 대상을 엽니다. 응답 없는 `postMessage()` 호출을 확인 전달로
+간주하지 않습니다.
 
 ## 실패와 복구
 

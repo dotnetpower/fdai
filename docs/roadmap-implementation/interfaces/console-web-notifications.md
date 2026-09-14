@@ -18,6 +18,7 @@ This ledger tracks delivery of
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Restricted notification-click navigation to controlled clients inside the registered Console scope. | `current change`; focused unrelated-same-origin window regression test. | No known out-of-scope same-origin navigation remains. |
 | 2026-09-14 | implemented | Added explicit `console-web` selection, local delivery and click receipts, bounded recovery, cross-tab synchronization, token fencing, and responsive bilingual presentation. | `current change`; focused tests, build, bundle gate, localization checks, browser measurements, and code review. | Retain human-confirmed operating-system notification evidence before claiming live desktop validation. |
 | 2026-09-14 | implemented | Added Settings > Integrations as the canonical personal selection surface and resolved final review findings around listener timing, account changes, same-document state, and selection-versus-health semantics. | `current change`; focused regression tests and final independent review. | Add another personal channel only after a verified principal endpoint and matching delivery path exist. |
 

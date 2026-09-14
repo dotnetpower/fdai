@@ -27,20 +27,30 @@ self.addEventListener("notificationclick", (event) => {
   const destination = acknowledgementTarget(target, tag, acknowledgementToken);
 
   event.waitUntil((async () => {
-    const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    const windows = await self.clients.matchAll({ type: "window" });
     const exact = windows.find((client) => client.url === target.href);
     if (exact !== undefined) {
       await navigateAndFocus(exact, destination);
       return;
     }
-    const sameOrigin = windows.find((client) => new URL(client.url).origin === target.origin);
-    if (sameOrigin !== undefined) {
-      await navigateAndFocus(sameOrigin, destination);
+    const scoped = windows.find((client) => isScopedClient(client.url));
+    if (scoped !== undefined) {
+      await navigateAndFocus(scoped, destination);
       return;
     }
     await self.clients.openWindow(destination.href);
   })());
 });
+
+function isScopedClient(url) {
+  try {
+    const candidate = new URL(url);
+    const scope = new URL(self.registration.scope);
+    return candidate.origin === scope.origin && candidate.pathname.startsWith(scope.pathname);
+  } catch {
+    return false;
+  }
+}
 
 function safeNotificationTag(value) {
   return typeof value === "string" && SAFE_NOTIFICATION_TAG.test(value) ? value : null;

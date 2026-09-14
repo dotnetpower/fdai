@@ -127,6 +127,37 @@ describe("notification service worker boundary", () => {
     expect(openWindow).not.toHaveBeenCalled();
   });
 
+  test("never navigates an uncontrolled same-origin window outside the Console scope", async () => {
+    const target = "https://console.example.com/fdai/incidents?status=all";
+    const acknowledgedTarget = `${target}${ACKNOWLEDGEMENT_SUFFIX}`;
+    const unrelatedNavigate = vi.fn(async () => null);
+    const unrelated: WindowClientStub = {
+      url: "https://console.example.com/other-app",
+      focus: vi.fn(async () => undefined),
+      navigate: unrelatedNavigate,
+    };
+    const navigated: WindowClientStub = {
+      url: acknowledgedTarget,
+      focus: vi.fn(async () => undefined),
+      navigate: async () => null,
+    };
+    const scopedNavigate = vi.fn(async () => navigated);
+    const scoped: WindowClientStub = {
+      url: "https://console.example.com/fdai/overview",
+      focus: vi.fn(async () => undefined),
+      navigate: scopedNavigate,
+    };
+    const context = loadWorker("https://console.example.com/fdai/", {
+      matchAll: async () => [unrelated, scoped],
+      openWindow: async () => null,
+    });
+
+    await clickNotification(context, "/fdai/incidents?status=all");
+
+    expect(unrelatedNavigate).not.toHaveBeenCalled();
+    expect(scopedNavigate).toHaveBeenCalledWith(acknowledgedTarget);
+  });
+
   test("opens the target when exact-client navigation returns no client", async () => {
     const target = "https://console.example.com/incidents?status=all";
     const acknowledgedTarget = `${target}${ACKNOWLEDGEMENT_SUFFIX}`;

@@ -78,9 +78,10 @@ principal ledger by tag and token. This lets a notification created for one acco
 the browser switches accounts without attributing it to the active principal. Ambiguous matches
 fail closed.
 
-The service worker focuses the window returned by navigation. If navigation cannot produce a
-window, it opens the same validated target. It never treats a fire-and-forget `postMessage()` call
-as acknowledgement delivery.
+The service worker considers controlled window clients inside its registered scope only. It never
+navigates an unrelated same-origin window outside a subpath deployment. It focuses the window
+returned by navigation; if navigation cannot produce a window, it opens the same validated target.
+It never treats a fire-and-forget `postMessage()` call as acknowledgement delivery.
 
 ## Failure and recovery
 
