@@ -51,22 +51,22 @@ Trace hardening preserves these evidence invariants:
 
 ### Trace discovery and decision summary
 
-`GET /audit/traces?limit=25` provides a server-owned discovery index over the newest 500 audit
-records. The limit is bounded from 1 through 50. The response identifies the sample bound and
-whether older audit records exist, so the Console labels it as a recent index and never presents it
-as complete history.
+The Console reuses `GET /audit?limit=500` as its recent discovery sample. It groups and orders only
+the already-authoritative rows for presentation and retains `next_cursor` as the explicit signal
+that older audit records exist. The resulting list is labeled as recent and never presented as
+complete history. This presentation grouping grants no new authority and does not create another
+read-model contract.
 
 Each discovery row preserves the correlation id, latest sequence and time, latest actor and action
-kind, trace kind, latest recorded decision and mode, unique target count and exact target when
-unambiguous, and whether Incident or root-cause evidence appears in the sampled audit records.
-These evidence flags describe recorded rows only. They do not guarantee that a destination
-projection is available.
+kind, latest recorded decision and mode, exact target when unambiguous, and whether Incident or
+root-cause evidence appears in the sampled audit records. These evidence flags describe sampled
+rows only. They do not guarantee that a destination projection is available.
 
-The selected Trace response remains the authoritative detail. In addition to ordered steps, it
-provides trace kind, source authority, completeness, first and last recorded time, latest activity,
-terminal named stage, unique target scope, action-attempt count, and independent effect-observation
-count. Completeness is true only after the server proves that the trace does not exceed its
-500-record bound.
+The selected Trace response remains the authoritative detail. In addition to ordered steps, the
+server provides trace kind, source authority, completeness, first and last recorded time, latest
+activity, terminal named stage, unique target scope, action-attempt count, and independent
+effect-observation count. Completeness is true only after the server proves that the trace does not
+exceed its 500-record bound.
 
 The Console opens recent discovery while no correlation is selected and keeps it available as a
 compact disclosure after selection. The first summary answers decision, operational effect,
