@@ -1,6 +1,6 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: d235c7fc1eb34e149de5c2332c927cff71f43dab
+translation_source_sha: 7713db252dd73a198fcbf63a8eaa16d7d37b2f5e
 translation_revised: 2026-09-14
 ---
 # 서비스 승격과 데이터 소유권
@@ -53,6 +53,7 @@ translation_revised: 2026-09-14
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 검토된 신원 안내를 최신 보호 출처 리비전에 rebase한 뒤 System Knowledge 카탈로그를 다시 생성했습니다. | `current change`, 생성된 카탈로그, 번역 동등성 및 파생 출처 게이트. | 서비스 경계, 쓰기 담당 또는 권한은 변경되지 않았습니다. |
 | 2026-09-14 | implemented | 검토된 사람 신원 안내가 변경되어 파생된 System Knowledge 카탈로그를 새로 고쳤습니다. | `current change`, 생성된 카탈로그와 파생 출처 게이트. | 서비스 경계, 쓰기 담당 또는 권한은 변경되지 않았습니다. |
 | 2026-09-13 | implemented | 자율성 측정 변환 결과 테스트를 Operator 단위 테스트 모음에 등록하고, 보존된 가용성 상태 회귀 검사를 검토된 공급자 기능 분류와 일치시켰습니다. | `current change`, `tests/integration/service-suites.json`, 집중 서비스 모음 및 기록 상태 검사 통과 | 서비스 경계, 쓰기 담당 또는 권한은 변경되지 않았습니다. |
 | 2026-09-12 | implemented | 새 Operator Dashboard 집계 및 출처 테스트를 소유 서비스 스위트에 등록했습니다. | `current change`, 서비스 스위트 소유권 테스트 통과. | 이 테스트 등록에는 서비스 승격 또는 권한 변경 잔여 작업이 없습니다. |
