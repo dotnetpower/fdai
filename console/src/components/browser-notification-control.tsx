@@ -17,6 +17,7 @@ import {
   releaseBrowserAlertDelivery,
   requireBrowserNotificationPreferenceWrite,
   trustedBrowserAlertAcknowledgement,
+  withBrowserNotificationDeadline,
   writeBrowserNotificationPreference,
   type BrowserAlertKind,
   type BrowserAlertDeliveryStatus,
@@ -355,9 +356,10 @@ function initialState(supported: boolean, principalId?: string | null): ControlS
 async function ensureNotificationWorker(): Promise<ServiceWorkerRegistration> {
   if (workerRegistrationPromise !== null) return workerRegistrationPromise;
   const { scriptUrl, scope } = browserNotificationWorkerPaths(import.meta.env.BASE_URL);
-  workerRegistrationPromise = navigator.serviceWorker
-    .register(scriptUrl, { scope, updateViaCache: "none" })
-    .then(() => navigator.serviceWorker.ready)
+  workerRegistrationPromise = withBrowserNotificationDeadline(
+    navigator.serviceWorker.register(scriptUrl, { scope, updateViaCache: "none" }),
+  )
+    .then(() => withBrowserNotificationDeadline(navigator.serviceWorker.ready))
     .catch((error: unknown) => {
       workerRegistrationPromise = null;
       throw error;

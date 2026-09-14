@@ -11,6 +11,7 @@ const DELIVERY_RECEIPT_RETENTION_MS = 7 * 24 * 60 * 60_000;
 const DELIVERY_RATE_WINDOW_MS = 60_000;
 const DELIVERY_RATE_LIMIT = 5;
 const DELIVERY_LEDGER_LIMIT = 32;
+export const BROWSER_NOTIFICATION_WORKER_TIMEOUT_MS = 10_000;
 export const CONSOLE_WEB_NOTIFICATION_CHANNEL_ID = "console-web";
 export const BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE =
   "fdai.console-web-notification.acknowledged";
@@ -378,6 +379,31 @@ export function browserNotificationWorkerPaths(baseUrl: string): {
   }
   const scope = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
   return { scriptUrl: `${scope}notification-sw.js`, scope };
+}
+
+export function withBrowserNotificationDeadline<T>(
+  operation: Promise<T>,
+  timeoutMs = BROWSER_NOTIFICATION_WORKER_TIMEOUT_MS,
+): Promise<T> {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1) {
+    return Promise.reject(new Error("Browser notification timeout MUST be positive."));
+  }
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new Error("Browser notification service worker timed out.")),
+      timeoutMs,
+    );
+    operation.then(
+      (value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
 }
 
 export function browserNotificationTargetPath(path: string, baseUrl: string): string {
