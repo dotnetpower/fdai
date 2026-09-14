@@ -15,6 +15,7 @@ from fdai.agents._framework.adapters import (
     AdminNotificationAdapter,
     AuditEntry,
     GitHubIssue,
+    IdempotentIssueTrackerAdapter,
     InMemoryAuditChain,
     IssueTrackerAdapter,
 )
@@ -149,6 +150,7 @@ __all__ = [
     "Heimdall",
     "Huginn",
     "GitHubIssue",
+    "IdempotentIssueTrackerAdapter",
     "IssueTrackerAdapter",
     "Layer",
     "Norns",

@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import cast
 from unittest.mock import AsyncMock
 
 import pytest
-from fdai.agents._framework.adapters import AuditChainError, InMemoryAuditChain
+from fdai.agents._framework.adapters import (
+    AuditChainError,
+    InMemoryAuditChain,
+    InMemoryGithubIssueAdapter,
+)
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.mimir import Mimir
@@ -196,6 +201,39 @@ def test_saga_issue_dedup_creates_once_and_appends_comment_on_repeat() -> None:
     assert idx["occurrence_count"] == 2
 
 
+def test_saga_direct_issue_operation_replay_is_idempotent() -> None:
+    saga = Saga()
+    fp = compute_fingerprint(
+        intent_category="cost_query_failed",
+        resource_type="storage_account",
+        normalized_selector="public_network_field",
+        primary_agent="Heimdall",
+        failure_reason_code="no_owned_data",
+    )
+
+    first = asyncio.run(
+        saga.escalate_to_github_issue(
+            fingerprint=fp,
+            emitting_agent="Heimdall",
+            intent_category="cost_query_failed",
+            failure_reason_code="no_owned_data",
+            correlation_id="same-correlation",
+        )
+    )
+    replay = asyncio.run(
+        saga.escalate_to_github_issue(
+            fingerprint=fp,
+            emitting_agent="Heimdall",
+            intent_category="cost_query_failed",
+            failure_reason_code="no_owned_data",
+            correlation_id="same-correlation",
+        )
+    )
+
+    assert replay == first
+    assert saga.github.issues[fp].comments == []
+
+
 def test_saga_handoff_redelivery_is_idempotent() -> None:
     saga = Saga()
     payload = {
@@ -218,6 +256,189 @@ def test_saga_handoff_redelivery_is_idempotent() -> None:
     assert saga.behavior_snapshot()["handoff:duplicate"] == 1
 
 
+def test_saga_handoff_requires_idempotent_issue_adapter() -> None:
+    class _LegacyIssueTracker:
+        def __init__(self) -> None:
+            self.issues = {}
+
+        def create_or_comment(self, *, fingerprint, title, body):  # noqa: ANN001, ANN201
+            raise AssertionError("non-idempotent issue mutation MUST NOT run")
+
+        def close(self, fingerprint, *, closed_by_pr):  # noqa: ANN001, ANN201
+            del fingerprint, closed_by_pr
+
+    saga = Saga(github=_LegacyIssueTracker())
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-legacy-adapter",
+        "escalation_id": "handoff-legacy-adapter",
+        "correlation_id": "corr-legacy-adapter",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+
+    with pytest.raises(RuntimeError, match="requires an idempotent issue-tracker adapter"):
+        asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+
+
+def test_saga_completed_handoff_rejects_conflicting_redelivery() -> None:
+    store = InMemoryStateStore()
+    saga = Saga(durable_state_store=store)
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-conflict",
+        "escalation_id": "handoff-conflict",
+        "correlation_id": "corr-conflict",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+
+    asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+
+    with pytest.raises(ValueError, match="conflicts with its durable claim"):
+        asyncio.run(
+            saga.on_typed_message(
+                "object.handoff-escalation",
+                {**payload, "failure_reason_code": "different_reason"},
+            )
+        )
+
+
+def test_saga_rejects_malformed_completion_receipt() -> None:
+    store = InMemoryStateStore()
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-malformed-receipt",
+        "escalation_id": "handoff-malformed-receipt",
+        "correlation_id": "corr-malformed-receipt",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+    first = Saga(durable_state_store=store)
+    asyncio.run(first.on_typed_message("object.handoff-escalation", payload))
+    digest = hashlib.sha256(b"handoff-malformed-receipt").hexdigest()
+    receipt_key = f"pantheon/saga/handoff/{digest}/receipt"
+    asyncio.run(store.write_state(receipt_key, {"schema_version": "invalid"}))
+
+    with pytest.raises(ValueError, match="completion receipt is malformed"):
+        asyncio.run(
+            Saga(durable_state_store=store).on_typed_message(
+                "object.handoff-escalation",
+                payload,
+            )
+        )
+
+
+def test_saga_rejects_malformed_mutation_checkpoint() -> None:
+    class _FailIssueAudit(InMemoryAuditChain):
+        def append(self, *, principal, topic, correlation_id, payload):  # noqa: ANN001, ANN201
+            if topic == "object.issue":
+                raise RuntimeError("stop after mutation checkpoint")
+            return super().append(
+                principal=principal,
+                topic=topic,
+                correlation_id=correlation_id,
+                payload=payload,
+            )
+
+    store = InMemoryStateStore()
+    github = InMemoryGithubIssueAdapter()
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-malformed-checkpoint",
+        "escalation_id": "handoff-malformed-checkpoint",
+        "correlation_id": "corr-malformed-checkpoint",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+    with pytest.raises(RuntimeError, match="stop after mutation checkpoint"):
+        asyncio.run(
+            Saga(
+                audit_chain=_FailIssueAudit(),
+                durable_state_store=store,
+                github=github,
+            ).on_typed_message("object.handoff-escalation", payload)
+        )
+    digest = hashlib.sha256(b"handoff-malformed-checkpoint").hexdigest()
+    checkpoint_key = f"pantheon/saga/handoff/{digest}/checkpoint"
+    asyncio.run(store.write_state(checkpoint_key, {"schema_version": "invalid"}))
+
+    with pytest.raises(ValueError, match="handoff checkpoint is malformed"):
+        asyncio.run(
+            Saga(durable_state_store=store, github=github).on_typed_message(
+                "object.handoff-escalation",
+                payload,
+            )
+        )
+    assert github.operation_results.keys() == {"handoff:handoff-malformed-checkpoint"}
+    assert next(iter(github.issues.values())).comments == []
+
+
+def test_saga_cross_instance_handoff_uses_one_external_operation() -> None:
+    class _ConcurrentIssueTracker(InMemoryGithubIssueAdapter):
+        def __init__(self) -> None:
+            super().__init__()
+            self.arrivals = 0
+            self.ready = asyncio.Event()
+
+        async def create_or_comment_once(
+            self,
+            *,
+            operation_id,
+            fingerprint,
+            title,
+            body,
+        ):  # noqa: ANN001, ANN201
+            self.arrivals += 1
+            if self.arrivals == 2:
+                self.ready.set()
+            await self.ready.wait()
+            return super().create_or_comment_once(
+                operation_id=operation_id,
+                fingerprint=fingerprint,
+                title=title,
+                body=body,
+            )
+
+    async def _run() -> tuple[Saga, Saga, _ConcurrentIssueTracker]:
+        store = InMemoryStateStore()
+        github = _ConcurrentIssueTracker()
+        first = Saga(durable_state_store=store, github=github)
+        second = Saga(durable_state_store=store, github=github)
+        payload = {
+            "producer_principal": "Bragi",
+            "id": "handoff-concurrent-replicas",
+            "escalation_id": "handoff-concurrent-replicas",
+            "correlation_id": "corr-concurrent-replicas",
+            "emitting_agent": "Bragi",
+            "intent_category": "no_route",
+            "normalized_selector": "sha256:selector",
+            "failure_reason_code": "no_route",
+        }
+        await asyncio.gather(
+            first.on_typed_message("object.handoff-escalation", payload),
+            second.on_typed_message("object.handoff-escalation", payload),
+        )
+        return first, second, github
+
+    first, second, github = asyncio.run(_run())
+
+    assert github.arrivals == 2
+    assert github.operation_results.keys() == {"handoff:handoff-concurrent-replicas"}
+    assert len(github.issues) == 1
+    assert next(iter(github.issues.values())).comments == []
+    assert first.behavior_snapshot()["handoff:materialized"] == 1
+    assert second.behavior_snapshot()["handoff:materialized"] == 1
+
+
 def test_saga_handoff_audit_retry_does_not_duplicate_github_mutation() -> None:
     class _FailOnceIssueAudit(InMemoryAuditChain):
         def __init__(self) -> None:
@@ -236,7 +457,13 @@ def test_saga_handoff_audit_retry_does_not_duplicate_github_mutation() -> None:
             )
 
     chain = _FailOnceIssueAudit()
-    saga = Saga(audit_chain=chain)
+    store = InMemoryStateStore()
+    github = InMemoryGithubIssueAdapter()
+    saga = Saga(
+        audit_chain=chain,
+        durable_state_store=store,
+        github=github,
+    )
     payload = {
         "producer_principal": "Bragi",
         "id": "handoff-audit-retry",
@@ -250,12 +477,54 @@ def test_saga_handoff_audit_retry_does_not_duplicate_github_mutation() -> None:
 
     with pytest.raises(RuntimeError, match="audit unavailable"):
         asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
-    asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+    restarted = Saga(
+        audit_chain=chain,
+        durable_state_store=store,
+        github=github,
+    )
+    asyncio.run(restarted.on_typed_message("object.handoff-escalation", payload))
 
-    issue = next(iter(saga.github.issues.values()))
+    issue = next(iter(github.issues.values()))
     assert issue.comments == []
     assert len([entry for entry in chain.entries if entry.topic == "object.issue"]) == 1
-    assert saga.behavior_snapshot()["handoff:materialized"] == 1
+    assert restarted.behavior_snapshot()["handoff:materialized"] == 1
+
+
+def test_saga_external_operation_id_closes_precheckpoint_crash_window() -> None:
+    class _FailOnceCheckpointStore(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.failed = False
+
+        async def write_state(self, key, value):  # noqa: ANN001, ANN201
+            if key.endswith("/checkpoint") and not self.failed:
+                self.failed = True
+                raise RuntimeError("checkpoint unavailable")
+            await super().write_state(key, value)
+
+    store = _FailOnceCheckpointStore()
+    github = InMemoryGithubIssueAdapter()
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-checkpoint-retry",
+        "escalation_id": "handoff-checkpoint-retry",
+        "correlation_id": "corr-checkpoint-retry",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+    first = Saga(durable_state_store=store, github=github)
+
+    with pytest.raises(RuntimeError, match="checkpoint unavailable"):
+        asyncio.run(first.on_typed_message("object.handoff-escalation", payload))
+
+    restarted = Saga(durable_state_store=store, github=github)
+    asyncio.run(restarted.on_typed_message("object.handoff-escalation", payload))
+
+    issue = next(iter(github.issues.values()))
+    assert issue.comments == []
+    assert restarted.behavior_snapshot()["handoff:materialized"] == 1
 
 
 def test_saga_handoff_publication_retry_does_not_repeat_audit_or_github() -> None:

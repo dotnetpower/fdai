@@ -862,6 +862,7 @@ async def test_runtime_saga_uses_durable_state_store_audit() -> None:
     state_store = InMemoryStateStore()
     saga = _build_runtime_saga(state_store)
     assert saga.durable_audit is True
+    assert saga._durable_state_store is state_store  # noqa: SLF001 - composition assertion
 
     await saga.on_typed_message(
         "object.forecast-outcome",

@@ -633,9 +633,12 @@ distinct approvers, no self-approval. Forseti attaches `quorum_required:
 
 Handoff escalation is not a `governance.*` ActionType. That category is reserved for reviewed catalog-as-code changes using `pr_native`.
 Bragi, the single writer of `object.handoff-escalation`, publishes the bounded request; Saga consumes it, applies fingerprint deduplication,
-materializes `object.issue`, and appends the audit evidence. Saga checkpoints a successful external issue mutation before audit and event
-publication; a retry resumes only incomplete stages and never adds a second GitHub comment for the same escalation. A live issue tracker remains an injected delivery adapter, so the typed
-ownership and audit boundary stay the same in local and deployed runtimes.
+materializes `object.issue`, and appends the audit evidence. Before external mutation, Saga atomically claims the escalation identity in the
+runtime `StateStore`. Typed handoff materialization requires the additive `IdempotentIssueTrackerAdapter`, which binds one stable operation
+id to the exact issue content; a legacy `IssueTrackerAdapter` remains compatible with direct escalation but cannot execute typed handoffs.
+Saga then stores validated mutation checkpoints and completion receipts. A retry or process restart resumes only incomplete stages and
+never adds a second GitHub comment for the same escalation; malformed or conflicting durable records fail closed. A live issue tracker
+remains an injected delivery adapter, so the typed ownership and audit boundary stay the same in local and deployed runtimes.
 
 ### 7.7 Conversational port MUST-NOT-Bypass rule
 

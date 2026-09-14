@@ -631,10 +631,15 @@ Per-resource 순서는 파티션 키 로 보존; cross-resource 순서는 함의
 `pr_native`를 사용하는 검토된 catalog-as-code 변경에만 사용합니다. Bragi는
 `object.handoff-escalation`의 single 쓰기 담당로서 범위가 제한된 요청을 publish합니다.
 Saga는 이를 consume하고 지문 deduplication을 적용한 뒤 `object.issue`를
-materialize하고 감사 근거를 덧붙입니다. Saga는 외부 issue 변경 성공을 감사와 이벤트
-게시 전에 checkpoint로 기록합니다. 재시도는 완료되지 않은 단계만 재개하며 같은 에스컬레이션에 GitHub 댓글을 다시 추가하지 않습니다. 실제 운영 issue tracker는 injected 전달
-어댑터로 유지되므로 로컬과 deployed 런타임이 동일한 타입이 지정된 소유권과 감사
-경계를 지킵니다.
+materialize하고 감사 근거를 덧붙입니다. Saga는 외부 변경 전에 에스컬레이션 신원을
+런타임 `StateStore`에서 원자적으로 점유합니다. 타입이 지정된 인계를 materialize하려면
+추가형 `IdempotentIssueTrackerAdapter`가 필요하며, 이 어댑터는 안정적인 작업 ID 하나를
+정확한 이슈 내용에 결속합니다. 기존 `IssueTrackerAdapter`는 직접 에스컬레이션과 호환되지만
+타입이 지정된 인계를 실행할 수 없습니다. 이후 Saga는 검증된 변경 checkpoint와 완료 증적을
+저장합니다. 재시도나 프로세스 재시작은 완료되지 않은 단계만 재개하며 같은 에스컬레이션에
+GitHub 댓글을 다시 추가하지 않습니다. 잘못되거나 충돌하는 영속 기록은 실패 시 차단됩니다.
+실제 운영 이슈 추적기는 주입된 전달 어댑터로 유지되므로 로컬과 배포 런타임이 동일한 타입이
+지정된 소유권과 감사 경계를 지킵니다.
 
 ### 7.7 Conversational 포트 MUST-NOT-Bypass 규칙
 

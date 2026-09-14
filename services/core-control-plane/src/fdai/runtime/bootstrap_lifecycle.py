@@ -315,7 +315,10 @@ def semantic_router_config_from_env() -> SemanticRouterConfig:
 
 
 def build_runtime_saga(state_store: StateStore) -> Saga:
-    return Saga(audit_chain=StateStoreAuditChainAdapter(store=state_store))
+    return Saga(
+        audit_chain=StateStoreAuditChainAdapter(store=state_store),
+        durable_state_store=state_store,
+    )
 
 
 def build_mutation_dependency_readiness(

@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import inspect
 from collections.abc import Awaitable
-from dataclasses import dataclass, replace
 from typing import Any, Protocol
 
 from fdai.agents._framework.action_semantics import RESULT_VALUES, outcome_result
 from fdai.agents._framework.adapters import (
     AuditEntry,
+    IdempotentIssueTrackerAdapter,
     InMemoryAuditChain,
     InMemoryGithubIssueAdapter,
     InMemoryStateStore,
@@ -23,28 +24,13 @@ from fdai.agents._framework.introspection import (
     mentioned,
 )
 from fdai.agents._framework.pantheon import _SAGA
+from fdai.agents._framework.saga_handoff import (
+    HandoffIssueCheckpoint,
+    SagaHandoffJournal,
+)
+from fdai.shared.providers.state_store import StateStore
 
 _FINGERPRINT_BUCKET = "issue_fingerprint_index"
-_HANDOFF_RECEIPT_BUCKET = "handoff_escalation_receipts"
-_HANDOFF_MUTATION_BUCKET = "handoff_escalation_mutations"
-
-
-@dataclass(frozen=True, slots=True)
-class _HandoffIssueCheckpoint:
-    fingerprint: str
-    correlation_id: str
-    issue_number: int
-    created: bool
-    occurrence_count: int
-    audit_recorded: bool = False
-    published: bool = False
-
-    def result(self) -> dict[str, Any]:
-        return {
-            "issue_number": self.issue_number,
-            "created": self.created,
-            "occurrence_count": self.occurrence_count,
-        }
 
 
 class SagaAuditChain(Protocol):
@@ -71,11 +57,18 @@ class Saga(Agent):
         *,
         audit_chain: SagaAuditChain | None = None,
         state_store: InMemoryStateStore | None = None,
+        durable_state_store: StateStore | None = None,
         github: IssueTrackerAdapter | None = None,
     ) -> None:
         super().__init__(spec=_SAGA)
         self.audit_chain: SagaAuditChain = audit_chain or InMemoryAuditChain()
         self.state_store = state_store or InMemoryStateStore()
+        self._durable_state_store = durable_state_store
+        self._handoff_journal = SagaHandoffJournal(
+            local_store=self.state_store,
+            durable_store=durable_state_store,
+        )
+        self._handoff_lock = asyncio.Lock()
         self.github = github or InMemoryGithubIssueAdapter()
 
     @property
@@ -224,6 +217,14 @@ class Saga(Agent):
         payload: dict[str, Any],
         correlation_id: str,
     ) -> None:
+        async with self._handoff_lock:
+            await self._materialize_handoff_locked(payload, correlation_id)
+
+    async def _materialize_handoff_locked(
+        self,
+        payload: dict[str, Any],
+        correlation_id: str,
+    ) -> None:
         escalation_id = str(payload.get("escalation_id") or payload.get("id") or "")
         emitting_agent = str(payload.get("emitting_agent") or "")
         intent_category = str(payload.get("intent_category") or "")
@@ -234,9 +235,6 @@ class Saga(Agent):
         ):
             self.record_behavior("handoff:invalid")
             return
-        if self.state_store.get(_HANDOFF_RECEIPT_BUCKET, escalation_id) is not None:
-            self.record_behavior("handoff:duplicate")
-            return
         fingerprint = compute_fingerprint(
             intent_category=intent_category,
             resource_type=str(payload.get("resource_type") or ""),
@@ -244,31 +242,42 @@ class Saga(Agent):
             primary_agent=emitting_agent,
             failure_reason_code=failure_reason,
         )
-        stored = self.state_store.get(_HANDOFF_MUTATION_BUCKET, escalation_id)
-        if stored is None:
+        operation_id = f"handoff:{escalation_id}"
+        await self._handoff_journal.claim(
+            escalation_id=escalation_id,
+            fingerprint=fingerprint,
+            correlation_id=correlation_id,
+            operation_id=operation_id,
+        )
+        if await self._handoff_journal.is_complete(
+            escalation_id=escalation_id,
+            fingerprint=fingerprint,
+            correlation_id=correlation_id,
+        ):
+            self.record_behavior("handoff:duplicate")
+            return
+        checkpoint = await self._handoff_journal.read_checkpoint(escalation_id)
+        if checkpoint is None:
             issue_number, created, occurrence_count = await self._mutate_github_issue(
+                operation_id=operation_id,
                 fingerprint=fingerprint,
                 emitting_agent=emitting_agent,
                 intent_category=intent_category,
                 failure_reason_code=failure_reason,
                 correlation_id=correlation_id,
+                require_idempotent=True,
             )
-            checkpoint = _HandoffIssueCheckpoint(
+            checkpoint = HandoffIssueCheckpoint(
                 fingerprint=fingerprint,
                 correlation_id=correlation_id,
                 issue_number=issue_number,
                 created=created,
                 occurrence_count=occurrence_count,
             )
-            self.state_store.put(_HANDOFF_MUTATION_BUCKET, escalation_id, checkpoint)
-        elif not isinstance(stored, _HandoffIssueCheckpoint):
-            raise ValueError("handoff mutation checkpoint is malformed")
-        elif stored.fingerprint != fingerprint or stored.correlation_id != correlation_id:
+            await self._handoff_journal.write_checkpoint(escalation_id, checkpoint)
+        elif checkpoint.fingerprint != fingerprint or checkpoint.correlation_id != correlation_id:
             raise ValueError("handoff escalation id conflicts with its mutation checkpoint")
-        else:
-            checkpoint = stored
 
-        operation_id = f"handoff:{escalation_id}"
         if not checkpoint.audit_recorded:
             await self._append_issue_audit(
                 fingerprint=fingerprint,
@@ -277,8 +286,8 @@ class Saga(Agent):
                 correlation_id=correlation_id,
                 operation_id=operation_id,
             )
-            checkpoint = replace(checkpoint, audit_recorded=True)
-            self.state_store.put(_HANDOFF_MUTATION_BUCKET, escalation_id, checkpoint)
+            checkpoint = checkpoint.with_audit_recorded()
+            await self._handoff_journal.write_checkpoint(escalation_id, checkpoint)
         if self.bus is not None and not checkpoint.published:
             await self._publish_issue(
                 fingerprint=fingerprint,
@@ -287,10 +296,9 @@ class Saga(Agent):
                 correlation_id=correlation_id,
                 operation_id=operation_id,
             )
-            checkpoint = replace(checkpoint, published=True)
-            self.state_store.put(_HANDOFF_MUTATION_BUCKET, escalation_id, checkpoint)
-        result = checkpoint.result()
-        self.state_store.put(_HANDOFF_RECEIPT_BUCKET, escalation_id, result)
+            checkpoint = checkpoint.with_published()
+            await self._handoff_journal.write_checkpoint(escalation_id, checkpoint)
+        await self._handoff_journal.complete(escalation_id, checkpoint)
         self.record_behavior("handoff:materialized")
 
     async def _republish_forecast_outcome(
@@ -450,7 +458,9 @@ class Saga(Agent):
         correlation_id: str,
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        operation_id = f"handoff:{fingerprint}:{correlation_id}"
         issue_number, created, occurrence_count = await self._mutate_github_issue(
+            operation_id=operation_id,
             fingerprint=fingerprint,
             emitting_agent=emitting_agent,
             intent_category=intent_category,
@@ -458,7 +468,6 @@ class Saga(Agent):
             correlation_id=correlation_id,
             context=context,
         )
-        operation_id = f"handoff:{fingerprint}:{correlation_id}"
         await self._append_issue_audit(
             fingerprint=fingerprint,
             issue_number=issue_number,
@@ -483,12 +492,14 @@ class Saga(Agent):
     async def _mutate_github_issue(
         self,
         *,
+        operation_id: str,
         fingerprint: str,
         emitting_agent: str,
         intent_category: str,
         failure_reason_code: str,
         correlation_id: str,
         context: dict[str, Any] | None = None,
+        require_idempotent: bool = False,
     ) -> tuple[int, bool, int]:
         title = f"[{intent_category}] {emitting_agent} handoff"
         body_lines = [
@@ -502,11 +513,21 @@ class Saga(Agent):
                 body_lines.append(f"- {k}: {v}")
         body = "\n".join(body_lines)
 
-        issue_result = self.github.create_or_comment(
-            fingerprint=fingerprint,
-            title=title,
-            body=body,
-        )
+        if isinstance(self.github, IdempotentIssueTrackerAdapter):
+            issue_result = self.github.create_or_comment_once(
+                operation_id=operation_id,
+                fingerprint=fingerprint,
+                title=title,
+                body=body,
+            )
+        elif require_idempotent:
+            raise RuntimeError("Saga handoff requires an idempotent issue-tracker adapter")
+        else:
+            issue_result = self.github.create_or_comment(
+                fingerprint=fingerprint,
+                title=title,
+                body=body,
+            )
         issue, created = await issue_result if inspect.isawaitable(issue_result) else issue_result
         occurrence_count = 1 + len(issue.comments)
         self.state_store.put(

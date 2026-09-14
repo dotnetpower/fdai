@@ -12,7 +12,8 @@ translation_revised: 2026-09-15
 규칙을 소유합니다. 비공개 composition 타입 모듈은 강제 크기 상한 아래로 유지합니다. 따라서 새 바인딩은 검토 가능한 상태를 유지하고, 공유 컨테이너가 두 번째 루트가 되기 전에 목적별 wire 모듈로 이동합니다. 사례 이력 검토는 비활성
 학습 후보를 제안하기 전에 실패 근거와 일치하는 컨트롤 근거를 모두 요구합니다. Workflow 승인 단계는 no-self-approval invariant를 낮출 수 없습니다. 컨트랙트가 카탈로그 로드 시점에 비활성화된 값을 거부합니다.
 에이전트 동작 강화는 다시 생성된 원본 약속값을 통해서만 System Knowledge에 유입되며, 카탈로그 변환 결과는 판단, 복구, 게시 또는 실행 권한을 얻지 않습니다.
-Saga는 issue 변경 성공을 감사와 게시 전에 checkpoint로 기록하므로 재시도는 외부 댓글을 중복 생성하지 않고 완료되지 않은 근거 단계만 재개합니다.
+Saga는 변경 전에 각 인계를 런타임 `StateStore`에서 점유하고 작업 인식 이슈 어댑터를 요구하므로,
+재시도나 재시작은 외부 댓글을 중복 생성하지 않고 검증된 checkpoint부터 재개합니다.
 `verticals.resilience` 패키지는 실행 권한을 추가하지 않고 결정론적 복구 계획 컴파일을 노출합니다. DR 목표 근거는 nearest-rank p90을 보고합니다. 따라서 표본이 적은 cohort도 가장 느린 측정 실행을 유지하며 목표 달성으로 잘못 보고하지 않습니다. 기록된 action 다이제스트가 없는 park된 HIL 레코드는 재개하지 않고 무결성
 게이트에서 실패합니다. 따라서 다이제스트를 제거해도 변조된 payload를 승인할 수 없습니다. 품질 게이트는 모든 교차 검사 모델에 범위가 제한된 정규 식별자를 요구하고 중복 식별자를 거부합니다. 따라서 서로 다른 wrapper로 감싼 하나의 모델이 자기 자신과 동의해 혼합 모델 정족수를 충족할 수 없습니다. 사용할 수 없는 경계를 가진 유효한 freeze 또는 quiet ChangeWindow는 건너뛰지 않고 유지 보수 권한을 거부합니다. 구성된 시계 오차 허용치보다 더 앞선 시각이 기록된 변경 이벤트는 settling 윈도우로 억제하지 않고 out-of-band로 보고합니다. 허용 범위 안의 음수 age도 구성된 settling 윈도우가 0이면 억제 구간을 만들지 않습니다. 사전 권한 Change Safety 근거는 작업 생성, dispatch, 감사와 동일하게 주입된 control-loop clock을 사용하므로 고정 replay가 host wall time 때문에 stale 상태가 되지 않습니다. 놓친 임계 위반은 완전한 telemetry에서만 채점합니다. 따라서 false-negative 결과는 관측이 주장하지 않은 완전성 주장을 게시하지
 않습니다. 예측 종료 처리는 청구한 모든 episode를 시도한 뒤 첫 실패를 다시 발생시킵니다. 따라서 실패한 episode 하나가 due 대기열 전체를 막을 수 없습니다. T1 맥락 재사용은 trust router와 동일한 정규 형태로 이벤트
@@ -485,6 +486,7 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
 | 로그 인제스트 | `LogQueryProvider` | **CSP-중립성 계약** - [로그](csp-neutrality-ko.md#7-log-query-계약---structured-log-records) | `NoopLogQueryProvider`; 설정 시 Azure 어댑터가 KQL 연결 | Loki, Elasticsearch, CloudWatch Logs 또는 다른 구조화된 로그 어댑터 |
 | 추적 인제스트 | `TraceQueryProvider` | **CSP-중립성 계약** - [추적](csp-neutrality-ko.md#8-trace-query-계약---distributed-trace-spans) | `NoopTraceQueryProvider`; 설정 시 Azure 어댑터가 Application Insights를 연결합니다. Core는 항목과 참조가 제한되고 표준화되며 정확한 토폴로지, 시나리오, 구간, 관측 시각 및 최대 24시간의 양수 근거 유효 기간에 결속된 독립 인용 계측, 수집기 또는 헤더 전파 신호 하나가 일치할 때만 추적 연속성 원인을 구분할 수 있습니다. 잘못된 신뢰도 구성은 근거 평가 전에 실패하며 결합 인용이 100개를 넘으면 판단을 보류합니다. 홉 순서 발견은 감지기가 문제가 있는 홉을 식별할 때까지 판단을 보류하며, 소유권 근거가 없는 경계는 원인 영역을 `unknown`으로 유지하고, 근거 신뢰도는 T1 상한을 적용한 후 기본 `0.5` 하한을 통과해야 합니다. | Tempo, Jaeger, Honeycomb 또는 다른 구간 어댑터 |
 | Cloud 프로바이더 | 프로바이더 클라이언트 | (위 여덟 경계를 사용) | 참조/범용 Azure 어댑터 | 특정 CSP 어댑터 |
+| **Saga 이슈 인계** | `fdai.agents` facade의 `IssueTrackerAdapter`와 추가형 `IdempotentIssueTrackerAdapter`, 런타임 `StateStore` 저널 | - | `InMemoryGithubIssueAdapter`는 직접 변경과 작업 ID에 결속된 변경을 모두 지원하며, 런타임 조립은 Saga 감사에 사용하는 영속 저장소를 함께 주입합니다. | 프로바이더 측에서 작업 ID와 내용을 원자적으로 결속하는 `create_or_comment_once`를 구현합니다. 기존 어댑터는 직접 에스컬레이션에 계속 사용할 수 있지만 추가형 경계가 없으면 타입이 지정된 인계는 실패 시 차단됩니다. |
 | **스키마 출처** | `SchemaRegistry` (원시 JSON 스키마 로더) | - | `PackageResourceSchemaRegistry` (패키지 내장 스키마) | 원격 schema-registry 어댑터; 내용 해시 로 핀된 스냅샷 |
 | **경계 검증** | `ContractValidator` / `EventValidator` (실패 시 차단 입력 검사) | - | `JsonSchemaContractValidator` + `JsonSchemaEventValidator` (draft-2020-12) | 포크가 `core/` 편집 없이 도메인 특이 체크(예: 소스 허용 목록) 추가 가능 |
 | **액션 precondition 근거** | `core/risk_gate/preconditions.py`의 `PreconditionEvaluator`; RiskGate가 consume하는 indexed `PreconditionEvaluation` 기록 | - | `GovernedPreconditionEvaluator`가 정본 이벤트 근거를 결합하고, `StateStoreOpenActionEvidenceProvider`가 Thor의 영속 active-run 인덱스를 읽으며, `OntologyChangeWindowEvidenceProvider`가 범위가 제한된 구간 조회를 수행합니다. 활성 행이 없거나 malformed이면 충돌로 처리하고, 프로바이더가 없으면 조건은 해결되지 않은 상태로 남기며, 잘리거나 malformed인 구간은 inactive 상태로 유지합니다. | 모든 조건 인덱스와 근거가 권한을 유지하거나 낮추기만 한다는 규칙을 보존하면서 읽기 전용 상태 변환 결과를 교체합니다. |
@@ -557,7 +559,9 @@ T1은 잘못된 reuse 식별자, 카운터, 신뢰도 및 유사도 근거를 �
 컨텍스트와 다른 제안 대상, 리소스 유형, 인용 또는 ActionType을 거부합니다. 모든 인용은 라우팅된 규칙이어야 하며, 그중 하나가 `remediates` 또는 `alternatives`로 ActionType을 허용할 수 있습니다. 프로바이더가
 실패해도 T2 제안은 grounding 권한을 우회할 수 없습니다. HIL 승인 id와 실행기 멱등성 키는 원자적으로
 점유됩니다. Var는 원본 ActionRun 멱등성 키를 보존하고 최종 처리를 직렬화하며, ticket을 제거하기 전에 최종 승인과 게시 증적을 런타임 StateStore에 기록합니다. 리소스별 잠금은 전달 어댑터가 상태를 변경하기 전에 경합하는 적용을 직렬화합니다.
-Vidar도 provider 복구 전에 상관관계와 요청 다이제스트를 영속적으로 점유합니다. 완료되지 않은 점유는 `execution_unknown`이 되며, 종결 또는 게시 재생은 rollback을 반복하지 않습니다. HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서버 검증 운영자 요청 규칙은 규칙 ID,
+Vidar도 provider 복구 전에 상관관계와 요청 다이제스트를 영속적으로 점유합니다. 완료되지 않은 점유는 `execution_unknown`이 되며, 종결 또는 게시 재생은 rollback을 반복하지 않습니다. 런타임 조립은 같은 `StateStore`를 Saga의 인계 저널에도 주입합니다. Saga는 에스컬레이션마다
+점유, 변경 checkpoint, 완료 증적 하나를 검증하고 외부 변경 전에 작업 ID에 결속된 이슈
+어댑터를 요구합니다. HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서버 검증 운영자 요청 규칙은 규칙 ID,
 작업 유형 및 고정 검사 참조가 계속 정확히 일치할 때만 허용됩니다. 멱등성 예약 신원 및 전이 계약은 하나의 Core 모듈에 유지하고, codec, 수명 주기, 상태 형태 검증, HIL 결과 레코드, 실행 효과 완료 처리는 권한 없이 인접한 단일 책임 모듈로 분리하며 facade는 중복 wrapper 없이 수명 주기 동작을 다시 내보냅니다. 실행기 결과는 `accepted`, `pending`, `no_effect`, `failed`로 Core를 통과합니다. 수락은 전달만 입증하며, HIL, 작업 흐름, 조정은 원래 상관관계와 제공된 액션 시도 신원을 보존하고 효과가 발생했을 수 있는 결과를 종료 주장 전에 독립 조정으로 보냅니다.
 ![컨트롤 루프 배선. 주요 단계는 events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops입니다.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.ko.svg)
 
