@@ -57,6 +57,18 @@ test("desktop controls: Cinema border glows without animating text and respects 
   expect(appearance.duration).toBe("3.8s");
   expect(appearance.shadow).not.toBe("none");
   expect(appearance.textAnimation).toBe("none");
+  const pulse = await page.locator("#cinema").evaluate((button) => {
+    const animation = button.getAnimations({ subtree: true }).find((candidate) => candidate.animationName === "cinema-border-glow");
+    if (!animation) return null;
+    animation.pause();
+    animation.currentTime = 0;
+    const resting = getComputedStyle(button, "::after").boxShadow;
+    animation.currentTime = 1900;
+    const glowing = getComputedStyle(button, "::after").boxShadow;
+    return { resting, glowing };
+  });
+  expect(pulse).not.toBeNull();
+  expect(pulse!.glowing).not.toBe(pulse!.resting);
   await page.screenshot({ path: testInfo.outputPath("activity-controls.png") });
   await page.locator("#motion").check();
   expect(await page.locator("#cinema").evaluate((button) => getComputedStyle(button, "::after").animationName)).toBe("none");
