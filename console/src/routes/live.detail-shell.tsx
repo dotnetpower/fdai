@@ -1,17 +1,18 @@
 import type { ComponentChildren } from "preact";
+import { createPortal } from "preact/compat";
 import { useEffect, useRef } from "preact/hooks";
 
 export function LiveDetailShell({
   panelId,
   titleId,
-  title,
+  heading,
   closeLabel,
   onClose,
   children,
 }: {
   readonly panelId: string;
   readonly titleId: string;
-  readonly title: string;
+  readonly heading: string;
   readonly closeLabel: string;
   readonly onClose: () => void;
   readonly children: ComponentChildren;
@@ -54,7 +55,7 @@ export function LiveDetailShell({
     };
   }, [onClose]);
 
-  return (
+  const dialog = (
     <div
       class="live-detail-backdrop"
       onPointerDown={(event) => {
@@ -70,7 +71,7 @@ export function LiveDetailShell({
         aria-labelledby={titleId}
       >
         <header>
-          <h2 id={titleId}>{title}</h2>
+          <h2 id={titleId}>{heading}</h2>
           <button
             type="button"
             class="live-detail-close"
@@ -84,4 +85,7 @@ export function LiveDetailShell({
       </aside>
     </div>
   );
+  return typeof document === "undefined"
+    ? null
+    : createPortal(dialog, document.body);
 }

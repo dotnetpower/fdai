@@ -14,8 +14,16 @@ const panels = readFileSync(
   fileURLToPath(new URL("./live.panels.tsx", import.meta.url)),
   "utf8",
 );
+const route = readFileSync(
+  fileURLToPath(new URL("./live.tsx", import.meta.url)),
+  "utf8",
+);
 const observations = readFileSync(
   fileURLToPath(new URL("./live.observations.tsx", import.meta.url)),
+  "utf8",
+);
+const detailShell = readFileSync(
+  fileURLToPath(new URL("./live.detail-shell.tsx", import.meta.url)),
   "utf8",
 );
 const mockAlignedStyles = styles.slice(styles.indexOf("/* Mock-aligned Live cockpit"));
@@ -33,6 +41,12 @@ function routeRuleBody(selector: string): string {
 }
 
 describe("Live responsive header", () => {
+  it("loads the route-owned visual contract", () => {
+    expect(route).toContain('import "./live.css"');
+    expect(detailShell).toContain("createPortal(dialog, document.body)");
+    expect(ruleBody(".live-detail-backdrop")).toContain("z-index: 120");
+  });
+
   it("wraps controls against the available content width", () => {
     expect(ruleBody(".live .page-header")).toContain("flex-wrap: wrap");
     expect(ruleBody(".live .page-header-text")).toContain("flex: 1 1 280px");

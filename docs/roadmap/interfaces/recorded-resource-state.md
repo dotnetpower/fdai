@@ -118,7 +118,7 @@ caps accumulation at 20,000 records under a total deadline. Reaching that bound 
 coverage. A transport or schema failure is not converted into an empty inventory or a graph fallback.
 Only a typed inventory or ontology generation transition restarts the entire bounded traversal,
 discarding every accumulated page; two delayed retries share the original total deadline.
-Display filters and local pages operate on this received set; the server query remains the authority.
+Display filters and local pages operate on this received set; the server query remains the authority. The shared Console decoder recognizes only an `OperatorApiError` with status `409` and the exact `inventory_generation_changed` or `ontology_generation_changed` code as a generation transition; every other failure remains terminal for that load.
 
 ## Unified state ingestion and readers
 

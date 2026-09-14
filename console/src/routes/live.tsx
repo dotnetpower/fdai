@@ -34,6 +34,7 @@ import {
   sampleLiveEvents,
 } from "./operations.sample";
 import { useLiveCoverage } from "./live.coverage";
+import "./live.css";
 
 export { liveTraceHref } from "./live.ticker";
 

@@ -614,7 +614,6 @@ async def run_loop(
     if not 0 < tick_timeout_seconds <= DEFAULT_TICK_BUDGET_SECONDS:
         raise ValueError("analyzer loop tick_timeout_seconds is out of bounds")
     completed = 0
-    ready = False
     while max_ticks is None or completed < max_ticks:
         tick_started = monotonic()
         failure_reason: str | None = None
@@ -633,7 +632,6 @@ async def run_loop(
             failure_reason = "run_receipt_unavailable"
         completed += 1
         if failure_reason is not None:
-            ready = False
             if max_ticks is not None and completed >= max_ticks:
                 print(
                     f"service=local-analyzer event=failed reason={failure_reason}",
@@ -647,14 +645,12 @@ async def run_loop(
         else:
             _emit_report(report, scheduling="local_loop")
             if report.failed:
-                ready = False
                 if max_ticks is not None and completed >= max_ticks:
                     print("service=local-analyzer event=failed", flush=True)
                     return 1
                 print("service=local-analyzer event=waiting reason=tick_failed", flush=True)
-            elif not ready:
+            else:
                 print("service=local-analyzer event=ready", flush=True)
-                ready = True
             if max_ticks is not None and completed >= max_ticks:
                 return 0
         elapsed = monotonic() - tick_started

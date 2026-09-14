@@ -15,7 +15,6 @@ const VISIBLE_TITLE_COMPONENTS = new Set([
   "EvidenceSection",
   "IntegrationGroup",
   "KnowledgeRelationshipList",
-  "LiveDetailShell",
   "NetworkPathDirection",
   "OverviewSection",
   "PageHeader",

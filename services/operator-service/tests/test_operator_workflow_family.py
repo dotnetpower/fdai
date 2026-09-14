@@ -379,6 +379,62 @@ async def test_postgres_rule_catalog_projects_filters_pagination_and_detail() ->
     assert detail.provenance.revision == "catalog-sha256"
 
 
+async def test_missing_rule_findings_projection_is_explicitly_not_evaluated() -> None:
+    class MissingSummaryStore:
+        async def read_state(self, key: str) -> dict[str, object] | None:
+            assert key == "operator-projection:workflow:rule.findings-summary"
+            return None
+
+        async def read_projection(
+            self,
+            *,
+            family: str,
+            operation: str,
+        ) -> dict[str, object]:
+            assert (family, operation) == ("workflow", "rule.list")
+            return {
+                "_revision": "catalog-sha256",
+                "rules": [],
+                "details": {},
+            }
+
+    result = await PostgresWorkflowAdapters(cast(Any, MissingSummaryStore())).read(
+        WorkflowReadRequest(
+            operation=WorkflowOperation.RULE_FINDINGS_SUMMARY,
+            principal_id="operator-a",
+            query={},
+            path_parameters={},
+        )
+    )
+
+    assert result.payload == {"evaluated": False, "counts": {}}
+    assert result.provenance.revision == "catalog-sha256"
+    assert result.provenance.source_ref == ("state_kv:operator-projection:workflow:rule.list")
+
+
+async def test_malformed_rule_findings_projection_remains_unavailable() -> None:
+    class MalformedSummaryStore:
+        async def read_state(self, key: str) -> dict[str, object] | None:
+            assert key == "operator-projection:workflow:rule.findings-summary"
+            return {
+                "_revision": "summary-1",
+                "evaluated": True,
+                "counts": {"rule-1": -1},
+            }
+
+    with pytest.raises(HTTPException, match="findings summary is malformed") as exc_info:
+        await PostgresWorkflowAdapters(cast(Any, MalformedSummaryStore())).read(
+            WorkflowReadRequest(
+                operation=WorkflowOperation.RULE_FINDINGS_SUMMARY,
+                principal_id="operator-a",
+                query={},
+                path_parameters={},
+            )
+        )
+
+    assert exc_info.value.status_code == 503
+
+
 async def test_promotion_gate_projection_joins_authoritative_current_modes() -> None:
     stored = {
         "_revision": "catalog-sha256",

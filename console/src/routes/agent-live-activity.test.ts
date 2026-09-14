@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 import type { AuditItem } from "../types";
 import type { LiveAgentActivityEvent } from "./agents.model";
 import {
-  AGENT_LOG_LIMIT,
+  AGENT_AUDIT_LOG_LIMIT,
+  AGENT_AUDIT_CONVERSATION_LIMIT,
+  AGENT_AUDIT_PARENT_LIMIT,
   agentLogFullscreenAction,
   buildAgentLogRows,
   DEFAULT_AGENT_LOG_COLUMNS,
@@ -84,18 +86,23 @@ describe("agent live log projection", () => {
   });
 
   it("retains only the newest bounded rows", () => {
-    const audit = Array.from({ length: AGENT_LOG_LIMIT + 10 }, (_, index) =>
+    const audit = Array.from(
+      { length: AGENT_AUDIT_PARENT_LIMIT + 10 },
+      (_, index) =>
       auditItem(
         index,
         { summary: `row ${index}` },
         new Date(Date.UTC(2026, 6, 24, 10, 0, index)).toISOString(),
-      ));
+      ),
+    );
 
     const rows = buildAgentLogRows([], audit);
 
-    expect(rows).toHaveLength(AGENT_LOG_LIMIT);
+    expect(rows).toHaveLength(AGENT_AUDIT_PARENT_LIMIT);
     expect(rows[0]?.eventId).toBe("event-10");
-    expect(rows.at(-1)?.eventId).toBe(`event-${AGENT_LOG_LIMIT + 9}`);
+    expect(rows.at(-1)?.eventId).toBe(
+      `event-${AGENT_AUDIT_PARENT_LIMIT + 9}`,
+    );
   });
 
   it("filters conversations by either participant and normalized keyword", () => {
@@ -189,10 +196,77 @@ describe("agent live log projection", () => {
     const rows = buildAgentLogRows([], [
       auditItem(1, { summary: "base", conversation: turns }),
     ]);
+    const conversationRows = rows.filter((row) => row.kind === "handoff");
 
-    expect(rows).toHaveLength(AGENT_LOG_LIMIT);
-    expect(rows[0]?.detail).toBe(`turn-${turns.length - AGENT_LOG_LIMIT}`);
-    expect(rows.at(-1)?.detail).toBe("turn-999");
+    expect(rows).toHaveLength(1 + AGENT_AUDIT_CONVERSATION_LIMIT);
+    expect(conversationRows[0]?.detail).toBe(
+      `turn-${1000 - AGENT_AUDIT_CONVERSATION_LIMIT}`,
+    );
+    expect(rows.some((row) => row.detail === "base")).toBe(true);
+    expect(conversationRows.at(-1)?.detail).toBe("turn-999");
+  });
+
+  it("never lets expanded audit conversations evict 500 retained activities", () => {
+    const activities = Array.from(
+      { length: 500 },
+      (_, index): LiveAgentActivityEvent => ({
+        sequence: index + 1,
+        kind: "agent.operational-activity",
+        agent: "Huginn",
+        agents: ["Huginn"],
+        state: "watching",
+        summary: "inventory.scan - completed",
+        detail: "inventory-sync-job - measured",
+        correlationId: `attempt-${index}`,
+        ts: "2026-07-24T10:01:00Z",
+        source: "replay",
+        activityId: `inventory.scan:attempt-${index}:completed`,
+        operationalKind: "inventory.scan",
+        observationDomain: null,
+        retained: true,
+      }),
+    );
+    const turns = Array.from({ length: 1000 }, (_, index) => ({
+      from: "Odin",
+      to: "Forseti",
+      text: `turn-${index}`,
+    }));
+
+    const rows = buildAgentLogRows(activities, [
+      auditItem(1, { summary: "base", conversation: turns }),
+    ]);
+
+    expect(rows).toHaveLength(
+      500 + 1 + AGENT_AUDIT_CONVERSATION_LIMIT,
+    );
+    expect(
+      rows.filter((row) => row.operationalKind !== null),
+    ).toHaveLength(500);
+  });
+
+  it("retains every fetched audit parent independently from conversations", () => {
+    const audit = Array.from(
+      { length: AGENT_AUDIT_PARENT_LIMIT },
+      (_, index) =>
+        auditItem(index, {
+          summary: `parent-${index}`,
+          conversation: [{
+            from: "Odin",
+            to: "Forseti",
+            text: `turn-${index}`,
+          }],
+        }),
+    );
+
+    const rows = buildAgentLogRows([], audit);
+    const parents = rows.filter(
+      (row) => !row.id.includes(":conversation:"),
+    );
+    const conversations = rows.filter((row) => row.kind === "handoff");
+
+    expect(parents).toHaveLength(AGENT_AUDIT_PARENT_LIMIT);
+    expect(conversations).toHaveLength(AGENT_AUDIT_CONVERSATION_LIMIT);
+    expect(rows).toHaveLength(AGENT_AUDIT_LOG_LIMIT);
   });
 });
 

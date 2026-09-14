@@ -306,7 +306,7 @@ export function LiveObservationDetailPanel({
     <LiveDetailShell
       panelId="live-observation-detail-panel"
       titleId="live-observation-detail-title"
-      title={activityLabel(item)}
+      heading={activityLabel(item)}
       closeLabel={t("live.detail.close")}
       onClose={onClose}
     >

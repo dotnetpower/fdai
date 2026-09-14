@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 920d4e65b61c26e8a446ff34f5b5067d17139e82
+translation_source_sha: 5c673e44791693f3c9970a3a041b39eed5d16154
 translation_revised: 2026-09-15
 ---
 # 온톨로지 구조 모델
@@ -48,7 +48,7 @@ translation_revised: 2026-09-15
 AKS 진단 증적은 선택한 Resource 조회 응답에 연결된 형식화된 근거입니다. 별도 ObjectType이나
 LinkType을 만들지 않으며 내용 신원은 Resource UID나 관계 신원을 대체할 수 없습니다.
 모든 정본 ResourceType에는 명시적인 기록 상태 처리 결과가 하나씩 있습니다. 누락된 상태를 일반
-정상 값으로 바꾸지 않습니다.
+정상 값으로 바꾸지 않습니다. 공유 Operator 워크플로 어댑터는 서버에 기록된 개수 또는 명시적인 `evaluated: false`를 포함하는 선택적 `rule.findings-summary` 변환 결과를 노출할 수 있습니다. 이 운영 요약은 온톨로지 선언, 관계, 근거 승인 또는 권한 출처가 아닙니다.
 
 저장소에서 실행할 수 없는 조건식이 있는 ObjectSet은 먼저 관계를 제외한 객체 1,000개 후보 구간을
 평가합니다. 이 구간이 잘렸고 요청한 결과 제한을 증명하지 못하면 저장소는 객체 50,000개로 제한된

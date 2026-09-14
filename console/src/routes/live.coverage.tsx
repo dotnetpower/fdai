@@ -5,6 +5,7 @@ import {
   type OperatorApiClient,
 } from "../api";
 import type { ConsoleDataMode } from "../console-data-mode";
+import { isRecordedStateGenerationTransition } from "../recorded-resource-state";
 import { routeHref } from "../router";
 import {
   decodeAnalyzerRun,
@@ -23,6 +24,23 @@ interface RuleEvaluationCoverage {
   readonly evaluated: boolean;
   readonly evaluatedRules: number;
 }
+
+interface ResourceTotalClient {
+  readonly panel: (
+    path: string,
+    params?: Record<string, string>,
+  ) => Promise<unknown>;
+}
+
+const RESOURCE_GENERATION_RETRY_DELAYS_MS = [
+  250,
+  500,
+  1_000,
+  2_000,
+  4_000,
+  8_000,
+  8_000,
+] as const;
 
 type Load<T> =
   | { readonly status: "loading" }
@@ -88,45 +106,70 @@ export function useLiveCoverage(
         );
       }
     };
-    void load("catalog", async () => ({
-      status: "ready",
-      data: decodeCatalogCoverage(
-        await client.panel<unknown>("/rules", {
-          offset: "0",
-          limit: "1",
-        }),
-      ),
-    }));
-    void load("resources", async () => ({
-      status: "ready",
-      data: decodeResourceTotal(
-        await client.panel<unknown>("/ontology/instances/states", {
-          limit: "1",
-        }),
-      ),
-    }));
-    void load("analyzer", async () => {
-      const raw = record(
-        await client.panel<unknown>("/detection-coverage"),
-        "detection coverage",
-      );
-      return {
+    void Promise.all([
+      load("catalog", async () => ({
         status: "ready",
-        data: decodeAnalyzerRun(raw.analyzer_run),
-      };
-    });
-    void load("ruleEvaluation", async () => ({
-      status: "ready",
-      data: decodeRuleEvaluation(
-        await client.panel<unknown>("/rules/findings-summary"),
-      ),
-    }));
+        data: decodeCatalogCoverage(
+          await client.panel<unknown>("/rules", {
+            offset: "0",
+            limit: "1",
+          }),
+        ),
+      })),
+      load("resources", async () => ({
+        status: "ready",
+        data: await loadLiveResourceTotal(client, () => cancelled),
+      })),
+      load("analyzer", async () => {
+        const raw = record(
+          await client.panel<unknown>("/detection-coverage"),
+          "detection coverage",
+        );
+        return {
+          status: "ready",
+          data: decodeAnalyzerRun(raw.analyzer_run),
+        };
+      }),
+      load("ruleEvaluation", async () => ({
+        status: "ready",
+        data: decodeRuleEvaluation(
+          await client.panel<unknown>("/rules/findings-summary"),
+        ),
+      })),
+    ]);
     return () => {
       cancelled = true;
     };
   }, [client, dataMode]);
 
   return state;
+}
+
+export async function loadLiveResourceTotal(
+  client: ResourceTotalClient,
+  cancelled: () => boolean = () => false,
+  waitForRetry: (delayMs: number) => Promise<void> = wait,
+): Promise<number> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return decodeResourceTotal(
+        await client.panel("/ontology/instances/states", { limit: "1" }),
+      );
+    } catch (error) {
+      if (
+        !isRecordedStateGenerationTransition(error)
+        || attempt >= RESOURCE_GENERATION_RETRY_DELAYS_MS.length
+        || cancelled()
+      ) {
+        throw error;
+      }
+      await waitForRetry(RESOURCE_GENERATION_RETRY_DELAYS_MS[attempt]!);
+    }
+  }
+}
+
+function wait(delayMs: number): Promise<void> {
+  return new Promise((resolve) => globalThis.setTimeout(resolve, delayMs));
 }
 
 export function LiveCoverage({
@@ -241,11 +284,18 @@ function CoverageCard<T>({
   readonly hint: (data: T) => string;
 }) {
   if (load.status === "loading") {
-    return <a class="live-coverage-card skeleton-shimmer" href={href} aria-label={label} />;
+    return (
+      <a
+        class="live-coverage-card skeleton-shimmer"
+        href={href}
+        aria-label={label}
+        aria-busy="true"
+      />
+    );
   }
   if (load.status !== "ready") {
     return (
-      <a class="live-coverage-card" href={href} data-state={load.status}>
+      <a class="live-coverage-card" data-state={load.status} href={href}>
         <span>{label}</span>
         <strong>
           {t(
@@ -284,7 +334,16 @@ export function decodeCatalogCoverage(value: unknown): CatalogCoverage {
 }
 
 export function decodeResourceTotal(value: unknown): number {
-  return count(record(value, "resource page").total, "resource total");
+  const root = record(value, "resource page");
+  if (
+    root.schema_version !== "1.0.0" ||
+    root.execution_authority !== false ||
+    root.mutation_authority !== false ||
+    root.source_kind !== "inventory_snapshot_resource"
+  ) {
+    throw new Error("resource page authority is malformed");
+  }
+  return count(root.total_count, "resource total");
 }
 
 export function decodeRuleEvaluation(value: unknown): RuleEvaluationCoverage {
