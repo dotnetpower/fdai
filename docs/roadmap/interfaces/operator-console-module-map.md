@@ -654,6 +654,8 @@ After an exact Console window is focused, acknowledgement-message failure reuses
 the transient acknowledgement target instead of opening a duplicate window.
 An omitted frame source is treated as unknown and rejected; tests model omission as a missing wire
 field rather than assigning JavaScript `undefined` to the optional property.
+The lazy control fallback uses the same disabled button, bell glyph, label, and live-status
+structure as the loaded control so module loading does not change its semantic or visual footprint.
 Visible-heading components use `title` only for rendered heading content. Native HTML `title` bubbles remain limited to accessibility-compatible elements, and all other contextual help uses the shared Tooltip component.
 The static component gallery reads contracts from `mocks/ui/assets/component-registry.json` and presents each specimen before its owner, source, states, usage guidance, responsive behavior, accessibility contract, and product references. A missing or invalid registry blocks documented status instead of inferring canonical status. The gallery remains synthetic presentation evidence and grants no Console, Operator API, or executor authority.
 
