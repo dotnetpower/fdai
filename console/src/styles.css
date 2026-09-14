@@ -69,7 +69,7 @@
   width: min(220px, calc(100% - 352px));
   border: 1px solid color-mix(in oklab, var(--border) 82%, var(--fg-muted)); border-radius: 7px;
   background: color-mix(in oklab, var(--bg-elevated) 96%, transparent);
-  box-shadow: 0 8px 24px rgba(29,42,56,.13); backdrop-filter: blur(8px);
+  box-shadow: 0 4px 14px rgba(29,42,56,.1); backdrop-filter: blur(8px);
 }
 .architecture-view-picker { display: grid; grid-template-columns: minmax(0, 1fr); gap: 5px; min-width: 0; padding: 10px; }
 .architecture-view-picker > span { color: var(--fg-muted); font-size: 11px; font-weight: 750; text-transform: uppercase; }
@@ -127,16 +127,15 @@
 .architecture-selection-prompt strong { display: block; font-size: var(--cs-type-panel-title-size); line-height: var(--cs-type-panel-title-line-height); }
 .architecture-selection-prompt p { margin: 5px 0 0; color: var(--fg-muted); font-size: var(--cs-type-compact-size); line-height: var(--cs-type-compact-line-height); }
 .architecture-mode-switch { position: absolute; top: 12px; left: 324px; z-index: 5; box-shadow: 0 3px 10px rgba(29,42,56,.08); }
+.architecture-mode-switch button { min-height: 32px; }
 .architecture-inspector {
   display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, .6fr); gap: 32px;
   padding: 20px; background: var(--bg-elevated); border-top: 1px solid var(--border);
   overflow: visible;
 }
-.architecture-camera-control { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 3px; border: 1px solid var(--border); background: var(--bg-subtle); border-radius: 6px; }
-.architecture-camera-control button { min-height: 32px; border: 0; border-radius: 4px; background: transparent; padding: 6px 3px; color: var(--fg-muted); font-size: 11px; }
-.architecture-camera-control button.is-active { background: var(--bg-elevated); color: var(--fg); font-weight: 700; box-shadow: 0 1px 4px rgba(29,42,56,.1); }
-.architecture-display-options { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
-.architecture-display-options label { display: flex; align-items: center; gap: 6px; min-height: 30px; color: var(--fg-muted); font-size: 11px; }
+.architecture-inspector.is-details-only { grid-template-columns: minmax(0, 1fr); }
+.architecture-display-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.architecture-display-options label { display: flex; align-items: center; gap: 6px; min-height: 36px; color: var(--fg-muted); font-size: var(--cs-type-compact-size); }
 .architecture-display-options input { margin: 0; accent-color: #146c77; }
 .architecture-display-options input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .architecture-selection-section { min-height: 0; }
@@ -153,7 +152,6 @@
 .architecture-zoom-controls button { min-height: 44px; }
 .architecture-zoom-controls output { min-height: 24px; color: var(--fg-muted); font-size: 10px; white-space: nowrap; }
 .architecture-resource-picker select:focus-visible,
-.architecture-camera-control button:focus-visible,
 .architecture-zoom-controls button:focus-visible,
 .architecture-relation-index > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .architecture-inspector .eyebrow { color: var(--fg-muted); font-size: 10px; text-transform: uppercase; font-weight: 750; }
@@ -351,6 +349,8 @@
   .architecture-resource-picker select { min-height: 44px; }
   .architecture-mode-switch { top: 54px; left: 8px; }
   .architecture-mode-switch button { min-height: 44px; }
+  .architecture-display-options { grid-template-columns: minmax(0, 1fr); }
+  .architecture-display-options label { min-height: 44px; }
   .architecture-edge-legend { right: 58px; max-width: none; }
   .architecture-edge-legend span:nth-child(4) { display: none; }
   .architecture-inspector { padding: 18px 14px; }
