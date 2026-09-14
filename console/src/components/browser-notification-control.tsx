@@ -15,6 +15,7 @@ import {
   readBrowserNotificationPreference,
   recordBrowserAlertDelivered,
   releaseBrowserAlertDelivery,
+  trustedBrowserAlertAcknowledgement,
   writeBrowserNotificationPreference,
   type BrowserAlertKind,
 } from "../browser-notifications";
@@ -137,7 +138,10 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
       if (receipt !== null) setDeliveryState("acknowledged");
     };
     const onWorkerMessage = (event: MessageEvent<unknown>) => {
-      const acknowledgement = decodeBrowserAlertAcknowledgement(event.data);
+      const acknowledgement = trustedBrowserAlertAcknowledgement(
+        event.data,
+        event.isTrusted,
+      );
       if (acknowledgement !== null) {
         acknowledge(acknowledgement.tag, acknowledgement.acknowledgedAt);
       }
@@ -158,10 +162,9 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
         type: BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
         channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
         tag,
-        acknowledged_at: Date.now(),
       });
       if (acknowledgement !== null) {
-        acknowledge(acknowledgement.tag, acknowledgement.acknowledgedAt);
+        acknowledge(acknowledgement.tag, Date.now());
       }
     }
 

@@ -160,6 +160,7 @@ describe("notification service worker boundary", () => {
       channel_id: "console-web",
       tag: "fdai:event-1",
     }));
+    expect(postMessage.mock.calls[0]?.[0]).not.toHaveProperty("acknowledged_at");
   });
 
   test("does not record an acknowledgement for an invalid notification tag", async () => {
