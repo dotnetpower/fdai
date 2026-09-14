@@ -66,6 +66,11 @@ output "key_vault_uri" {
   value       = module.key_vault.uri
 }
 
+output "key_vault_id" {
+  description = "Key Vault resource id for separately stateful runtime components."
+  value       = module.key_vault.id
+}
+
 output "resolved_models_sha256" {
   description = "Resolved-model artifact digest applied to the current runtime revision."
   value       = var.resolved_models_sha256
@@ -128,6 +133,57 @@ output "postgres_fqdn" {
 output "postgres_database" {
   description = "Postgres database name (pgvector-enabled)."
   value       = module.state_store.database_name
+}
+
+output "application_vnet_id" {
+  description = "Application VNet id for a separately stateful AKS runtime."
+  value       = var.enable_private_networking ? module.network[0].vnet_id : null
+}
+
+output "aks_subnet_id" {
+  description = "AKS node subnet id, or null unless the private AKS runtime is selected."
+  value       = var.enable_private_networking && var.compute_kind == "aks" ? module.network[0].aks_subnet_id : null
+}
+
+output "container_registry_id" {
+  description = "Container Registry resource id for runtime-specific pull authorization."
+  value       = module.container_registry.id
+}
+
+output "runtime_identity_bindings" {
+  description = "Workload identities consumed by a separately stateful runtime renderer."
+  value = {
+    core = {
+      resource_id  = module.identity.resource_id
+      client_id    = module.identity.client_id
+      principal_id = module.identity.principal_id
+    }
+    operator = var.enable_operator_api ? {
+      resource_id  = module.operator_api_identity[0].resource_id
+      client_id    = module.operator_api_identity[0].client_id
+      principal_id = module.operator_api_identity[0].principal_id
+    } : null
+    command = var.enable_operator_api ? {
+      resource_id  = module.command_api_identity[0].resource_id
+      client_id    = module.command_api_identity[0].client_id
+      principal_id = module.command_api_identity[0].principal_id
+    } : null
+    executor = var.enable_isolated_executor ? {
+      resource_id  = module.isolated_executor_identity[0].resource_id
+      client_id    = module.isolated_executor_identity[0].client_id
+      principal_id = module.isolated_executor_identity[0].principal_id
+    } : null
+    inventory = {
+      resource_id  = module.inventory_identity.resource_id
+      client_id    = module.inventory_identity.client_id
+      principal_id = module.inventory_identity.principal_id
+    }
+    canary = {
+      resource_id  = module.canary_identity.resource_id
+      client_id    = module.canary_identity.client_id
+      principal_id = module.canary_identity.principal_id
+    }
+  }
 }
 
 output "container_app_environment_id" {

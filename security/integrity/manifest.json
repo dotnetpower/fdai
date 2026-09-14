@@ -127,7 +127,7 @@
     "services/core-control-plane/src/fdai/composition/wire_llm.py": "f6863b0039637b01977cf26cc223811b3cda250618d465971f4b2db630a25b38",
     "services/core-control-plane/src/fdai/composition/wire_metric_provider.py": "4b55374416ce77e2e75c34b9c7dbd978b2878be2412f593c605f66d5bd0013a8",
     "services/core-control-plane/src/fdai/composition/wire_observation_providers.py": "0457b1e8f4d2d2ae2d8d4a309c54cb3c4884a0ad6ec7373ba39139265e1391d6",
-    "services/core-control-plane/src/fdai/composition/wire_read_investigation.py": "14d601c824c0de7cf7c7a7e29d9c9deea77460817de178645b3deab2017a2175",
+    "services/core-control-plane/src/fdai/composition/wire_read_investigation.py": "86f75e058147d308edc9a2573f4ae02795803a5f094d160a549fb6dd33a84506",
     "services/core-control-plane/src/fdai/composition/wire_semantic_judgment.py": "3e2fa33a0b22e813e6368d9038c60550fea57358a0866b10da3194a1d75a1453",
     "services/core-control-plane/src/fdai/composition/wire_semantic_query.py": "0407ecd484e9b9a8c6202d3fc38a300e706e37e70f83a4353e29bc3a3810f844",
     "services/core-control-plane/src/fdai/composition/wire_t1_routing.py": "db8ad8591136078805f7f2c641685a23331af799b39edbdb6562a45b70cc7ef4",
@@ -1494,7 +1494,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-09-14T15:01:35Z",
+  "generated_at": "2026-09-14T16:46:50Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

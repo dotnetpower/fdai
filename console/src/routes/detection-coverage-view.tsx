@@ -1,6 +1,7 @@
 import type { ComponentChildren, JSX } from "preact";
 
 import { architectureHref } from "../components/architecture-map.model";
+import { Tooltip } from "../components/tooltip";
 import {
   DataTable,
   EmptyState,
@@ -9,7 +10,6 @@ import {
   type Column,
   type PillKind,
 } from "../components/ui";
-import { Tooltip } from "../components/tooltip";
 import { formatConsoleTimestamp } from "../time-format";
 import {
   filterCoverageResources,

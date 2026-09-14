@@ -43,6 +43,7 @@ from fdai_deployment_cli.offline_kit import materialize_verified_artifacts, veri
 from fdai_deployment_cli.offline_prepare import prepare_offline_release
 from fdai_deployment_cli.plan_input import read_plan_input, snapshot_plan_input
 from fdai_deployment_cli.private_output import write_private_output
+from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.profile import load_profile, write_profile
 from fdai_deployment_cli.simulation import rehearse
 from fdai_deployment_cli.standalone_deploy import deploy_azure_foundation
@@ -151,6 +152,15 @@ def _provision_init(args: argparse.Namespace) -> int:
 def _provision_azure(args: argparse.Namespace) -> int:
     """Run the standalone active-Azure-login deployment path."""
 
+    runtime_profile = RuntimeDeploymentProfile.create(
+        runtime_platform=args.runtime,
+        database_placement=args.database,
+        system_node_count=args.system_nodes,
+        system_node_sku=args.system_node_sku,
+        user_node_min_count=args.user_nodes,
+        user_node_max_count=args.max_user_nodes,
+        user_node_sku=args.user_node_sku,
+    )
     selected_dir = args.work_dir
     if selected_dir is None:
         selected_dir = Path.home() / ".local/state/fdai/azure"
@@ -181,6 +191,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
             offline_kit=args.offline_kit,
             online_url=args.online_url,
             region=args.region,
+            runtime_profile=runtime_profile,
             monthly_cost_ceiling=args.monthly_cost_ceiling,
             timeout_seconds=args.timeout_seconds,
             license_signing_key=args.license_signing_key,

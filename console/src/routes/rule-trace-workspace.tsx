@@ -1,7 +1,7 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { StatusPill } from "../components/ui";
 import { Tooltip } from "../components/tooltip";
+import { StatusPill } from "../components/ui";
 import { routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { presentationLabel, t } from "./i18n/evidence";

@@ -298,7 +298,8 @@ def test_idempotency_key_is_stable_inside_one_window() -> None:
 
     assert first == later
     assert first != next_window
-    assert len(first) == len("analyzer:") + 36
+    assert len(first) == len("analyzer:") + 32
+    assert len(analyzer_correlation_id(finding)) == len("analyzer:") + 32
 
 
 def test_idempotency_key_is_unambiguous_and_bounded_for_long_identifiers() -> None:

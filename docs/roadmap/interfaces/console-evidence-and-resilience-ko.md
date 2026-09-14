@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: d20f280246d326db5dca21201459c6589f3fd9ed
+translation_source_sha: e1a4aa491d6a54730a7f3c2373ea3ab5adf82c46
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -632,7 +632,7 @@ subnet에 배치합니다. 구성원이 없거나 모호하면 resource-group의
 동안 라벨만 생략합니다. 포인터를 놓으면 라벨을 복원합니다.
 로컬 변환 결과는 선택된 엔드포인트 id와 리소스 타입이 일치하는 등록된 관계 타입만
 표시합니다. Malformed 또는 over-limit 벤더 관계는 폐기하고 스냅샷을 잘린으로 표시하며,
-신뢰할 수 없는 간선을 렌더링하지 않고 마지막 완전한 리소스 그래프를 유지합니다.
+신뢰할 수 없는 간선을 렌더링하지 않고 마지막 완전한 리소스 그래프를 유지합니다. 간결한 근거 세부 정보, 추적 신원, 원시 타임스탬프 및 상태 정보에는 브라우저 기본 `title` 말풍선 대신 포인터와 키보드로 접근할 수 있는 공유 Tooltip을 사용합니다. 구성 요소의 `title` 속성은 표시되는 제목을 렌더링하는 API로 제한하며, 이중 언어 관계 레이블은 저장된 간선을 바꾸지 않고 `calls` 및 `calledBy` 방향을 모두 포함합니다.
 
 Subscription-scoped cached 스냅샷은 즉시 렌더링됩니다. 만료된 또는 change-invalidated 스냅샷은
 background refresh 동안 stale로 표시됩니다. 브라우저는 Operator API가 완료된 refresh를 원자적으로

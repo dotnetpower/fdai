@@ -208,27 +208,26 @@ variable "cost_vertical" {
 # Seam-kind selectors (approved alternates per csp-neutrality.md)
 # -----------------------------------------------------------------------
 
-# The selector is a fail-fast public contract until a second implementation lands.
-# tflint-ignore: terraform_unused_declarations
 variable "compute_kind" {
-  description = "Runtime seam implementation. Only 'container_apps' is scaffolded today; alternate sub-modules land when a measured need arises."
+  description = "Runtime seam implementation selected for a new installation."
   type        = string
   default     = "container_apps"
   validation {
-    condition     = contains(["container_apps"], var.compute_kind)
-    error_message = "compute_kind must be one of: 'container_apps'."
+    condition     = contains(["container_apps", "aks"], var.compute_kind)
+    error_message = "compute_kind must be one of: 'container_apps', 'aks'."
   }
 }
 
-# The selector is a fail-fast public contract until a second implementation lands.
-# tflint-ignore: terraform_unused_declarations
 variable "state_store_kind" {
-  description = "State-store seam. 'postgres_flex' today; 'cosmos' lands under modules/state-store/cosmos/ when a measured need arises."
+  description = "State-store seam selected for a new installation."
   type        = string
   default     = "postgres_flex"
   validation {
-    condition     = contains(["postgres_flex"], var.state_store_kind)
-    error_message = "state_store_kind must be one of: 'postgres_flex'."
+    condition = (
+      contains(["postgres_flex", "postgres_aks"], var.state_store_kind) &&
+      (var.compute_kind == "aks" || var.state_store_kind == "postgres_flex")
+    )
+    error_message = "state_store_kind must be 'postgres_flex', or 'postgres_aks' with compute_kind='aks'."
   }
 }
 

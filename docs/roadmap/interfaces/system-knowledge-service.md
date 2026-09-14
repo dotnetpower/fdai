@@ -72,7 +72,8 @@ The initial option mixes two lifecycles that should remain independent:
   reviewed retrieval content is unchanged. A cited owner-document correction updates its record
   digest without changing retrieval or authority. Private framework and delivery helper splits are
   recorded the same way when their cited owner text changes, as are presentation-only corrections
-  to cited Console evidence.
+  to cited Console evidence. The packaged `source_revision` always advances to the reachable
+  protected-main commit used for that compilation.
 - **Channel intent:** A dedicated bot makes every accepted mention a system-knowledge query. It
   avoids keyword routing while the general A3 bot continues to interpret operational requests.
 - **Rollback:** Disabling the knowledge bot should not roll back Core, Operator Service, or existing

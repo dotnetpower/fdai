@@ -658,7 +658,7 @@ animation frame and omits labels only while the pointer is moving; pointer relea
 labels. The local projection shows only registered relationship types
 whose selected endpoint ids and resource types agree. It drops malformed or over-limit vendor
 relationships, marks the snapshot truncated, and keeps the last complete resource graph rather
-than rendering an untrusted edge.
+than rendering an untrusted edge. Compact evidence details, trace identities, raw timestamps, and status facts use the shared pointer- and keyboard-accessible Tooltip instead of browser-native `title` bubbles. Component `title` props remain limited to APIs that render a visible heading, and bilingual relationship labels include both `calls` and `calledBy` directions without changing the stored edge.
 
 A subscription-scoped cached snapshot renders immediately. Expired or change-invalidated snapshots
 are marked stale while a background refresh runs. The browser polls only until the Operator API
