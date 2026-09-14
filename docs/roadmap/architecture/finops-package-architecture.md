@@ -265,6 +265,9 @@ The Operator semantic stream fallback also remains a host seam: it preserves
 availability, enablement, or package ownership.
 The shared ontology invalidation stream similarly admits `Last-Event-ID` only for authenticated
 read replay. It registers no Cost Governance route and widens no package data access.
+The service-owned incident email preview remains another shared Operator host seam. It reads
+packaged synthetic notification HTML only; it registers no Cost Governance route, does not enable
+the optional package, and exposes no package data or authority.
 Initial PostgreSQL credential bootstrap is also platform-owned; the package cannot generate,
 read, expose, or rotate that credential.
 Core Pantheon bootstrap reads the persisted package activation through the package-neutral store.
