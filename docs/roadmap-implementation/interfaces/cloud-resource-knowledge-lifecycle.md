@@ -6,9 +6,12 @@ periodic refresh, offline security review, admitted generations, and dated answe
 [operator runbook](../../runbooks/cloud-resource-knowledge.md) separates software operation from
 production prerequisites.
 
-> **Snapshot:** Local implementation `6e3b6c4b2` and main integration `91fb575f2` are published in
-> [PR #976](https://github.com/dotnetpower/fdai/pull/976). Its first CI attempt found integration
-> gaps; the repair is `current change`. Protected merge and deployment are not yet claimed.
+> **Snapshot:** [Issue #975](https://github.com/dotnetpower/fdai/issues/975) is complete for its
+> software scope. [PR #976](https://github.com/dotnetpower/fdai/pull/976) merged reviewed head
+> `109190429696d83790e3acafbf38fc38ff9600d4` as `c8b34034e4953c2ace27a7ace1c4baf6de417484` after
+> [exact-head CI](https://github.com/dotnetpower/fdai/actions/runs/34846556314) succeeded.
+> [Issue #995](https://github.com/dotnetpower/fdai/issues/995) tracks the blocked operational
+> qualification. Source integration is complete; production and deployment are not.
 > An `implemented` row describes only its bounded software slice and supplied focused evidence.
 > No row claims production trust, live source enrollment, automatic prior-version restoration, or
 > a successful operating-system-enforced air-gap rollout. Local containment and readback are not
@@ -91,12 +94,14 @@ software slices introduce no new agent or managed-resource executor authority.
 | 2026-09-14 | implemented | Completed bounded K4 verified activation/containment and rollback controls, K5 exact typed planning/filtering and dated surfaces, and K6 composed local control flow. Complete-section extraction holds oversized context instead of slicing it. This supersedes the prior pending software evidence, not its history or external gaps. | `current change` (uncommitted); task-owned source/test paths above. Final 29-file pytest batch: 560 passed, 1 pre-existing search-database skip in 5.50s, including six real loopback PostgreSQL cases and the synthetic composed flow; prior 95 semantic passes are a subset. Ruff lint/format: all 63 Python files; strict mypy: all 45 source files. Frontend after extraction: 38 Vitest tests and both TypeScript configurations passed. Current rollback-inclusive Playwright: 2 passed in 4.6s. Existing migration inventory: 63 passed, 4 deselected, reused with unchanged inputs. The only later source edit is a non-semantic f-string wrap; evidence reuse applies. | Production rights/enrollment, trust/revocation, reviewers/scanner/policy mounting, release evidence, and authorized connected/OS-air-gap drills remain open. Synthetic control flow and separate database mechanics are not one deployed receipt. Automatic prior-version restoration and optional expansion remain deferred; no full Vidar restoration or live-model claim. |
 | 2026-09-14 | implemented | Repaired PR #976 attempt-1 integration failures without relaxing evidence or secret controls: scalar applicability selectors replace a literal object input; service tests and the existing direct aiohttp import are registered; the search fixture now creates active lifecycle rows and excludes high-ranked inactive/unavailable/non-ready content; semantic coverage was regenerated. The exact public Python type-name scanner false positive has a value-only exception, with no path exemption. | `current change`; CI run `34839970865`, attempt 1, head `91fb575f2`; 114 focused repair tests passed in 56.96s, including the formerly skipped real PostgreSQL search and generated-source parity. Three-source strict mypy, seven-file Ruff, 33 focused frontend cases, and pinned gitleaks commit-range/control checks passed. | Publish the corrected local commit and retain its exact protected CI/merge result. Production prerequisites and deferred scope remain unchanged. |
 | 2026-09-14 | implemented | Integrated attachment handoff `42dd0da64` without widening exact document context. The reader preserves upstream current-version and conversation authorization, intersects exact versions with cloud applicability before ranking, and holds if the combined capability is absent. | `current change`; 168 focused merged-path checks passed in 19.69s, including real PostgreSQL exact-version/generation rejection, source dates, original CI regressions, and generated-source parity. Five-source strict mypy, six-file Ruff, and both TypeScript configurations passed. | Publish this reviewed local integration and require exact-head protected CI/merge. No attachment or cloud execution authority changed. |
+| 2026-09-14 | implemented | Reconciled final protected source delivery and linked operational follow-up without rewriting pre-merge history. The first failed CI attempt was repaired locally; the final head passed required checks and merged. | [Issue #975 final receipt](https://github.com/dotnetpower/fdai/issues/975#issuecomment-5664458094); [PR #976](https://github.com/dotnetpower/fdai/pull/976); head `109190429696d83790e3acafbf38fc38ff9600d4`, merge `c8b34034e4953c2ace27a7ace1c4baf6de417484`, CI `34846556314` attempt 1 success. Remote-main ancestry and identical reviewed/merged trees were verified. | [Issue #995](https://github.com/dotnetpower/fdai/issues/995) owns approved source/trust prerequisites and connected/restricted-network evidence. [Issue #994](https://github.com/dotnetpower/fdai/issues/994) separately tracks unfinished inline vision under #303; neither is closed by this delivery. |
 
 ### Remaining work
 
-- [ ] **PR #976 repair evidence:** Retain the corrected exact-head CI result after registering all
-  service tests, classifying the already-declared direct `aiohttp` import, regenerating semantic
-  source coverage, keeping applicability inputs scalar, and correcting the real-DB search fixture.
+- [x] **PR #976 repair evidence:** [CI `34846556314`](https://github.com/dotnetpower/fdai/actions/runs/34846556314)
+  passed for final head `109190429696d83790e3acafbf38fc38ff9600d4`, and the protected merge is
+  recorded above. Service ownership, direct `aiohttp` classification, semantic source coverage,
+  scalar applicability and real-DB fixture corrections are included.
   The secret-scan exception matches only the public `Ed25519PrivateKey` identifier, with no file
   exemption; the pinned scanner still detects a synthetic secret-shaped control.
 - [x] **Current local evidence:** Recorded the final owning Python, static, frontend, browser, and
@@ -121,25 +126,27 @@ software slices introduce no new agent or managed-resource executor authority.
 - [ ] **K1/K3 production prerequisites:** Retain approved source storage/transfer rights, registry
   and purpose-bound signing-root/revocation evidence, actual independent reviewers, current scanner
   signature data, and read-only service-owned policy mounts with protected parent directories per
-  the [runbook](../../runbooks/cloud-resource-knowledge.md#prerequisites). Missing/expired inputs hold
-  use; test keys, fabricated approvals, and package-supplied trust are not substitutes.
+  the [runbook](../../runbooks/cloud-resource-knowledge.md#prerequisites) and [Issue #995](https://github.com/dotnetpower/fdai/issues/995).
+  Missing/expired inputs hold use; test keys, fabricated approvals, and package-supplied trust are not substitutes.
 - [ ] **K2 enrollment:** Approve the bounded APIM/VNet/NSG/DNS inventory before enabling sources.
   Retain authorized [collection outcomes](../../roadmap/interfaces/cloud-resource-knowledge-lifecycle.md#connected-collection)
   for its declared coverage denominator, including due/restart behavior, changed/unchanged bodies,
-  partial failures, and withdrawal candidates without inferred deletion.
+  partial failures, and withdrawal candidates without inferred deletion; tracked by [Issue #995](https://github.com/dotnetpower/fdai/issues/995).
 - [ ] **Deferred K4 restoration:** Before expanding beyond containment, approve separate
   [Vidar-owned restoration authority](../../roadmap/interfaces/cloud-resource-knowledge-lifecycle.md#internal-review-and-activation)
   and retain tested higher-sequence recovery, current trust/access/approval gates, no revoked-content
   resurrection, restart/duplicate convergence, two-phase audit, and independent restored-effect evidence.
 - [ ] **K6 authorized operational drills:** Retain one connected-source campaign and one internally
-  reviewed OS-egress-denied package-to-answer drill against the [acceptance matrix](../../roadmap/interfaces/cloud-resource-knowledge-lifecycle.md#acceptance-matrix).
+  reviewed OS-egress-denied package-to-answer drill against the [acceptance matrix](../../roadmap/interfaces/cloud-resource-knowledge-lifecycle.md#acceptance-matrix) under [Issue #995](https://github.com/dotnetpower/fdai/issues/995).
   Use actual approved trust, rights, reviewers, scanner data, service identities/roles, broker, and
   mounted policies. Record bounded coverage/quality and failures, zero external DNS/HTTP/model calls
   for the restricted drill, stored-citation access, revocation/rollback cases, and independent effects.
   Neither the memory composition nor its separate PostgreSQL evidence closes this item.
-- [ ] **Release evidence:** Retain an eligible committed revision and required protected CI/release
-  evidence before calling this software shipped. Deployment needs a separately authorized target
-  and current operational receipts; `current change` and local test counts are not release evidence.
+- [ ] **Runtime release and deployment evidence:** Source integration and exact-head CI are complete
+  above. Select an eligible immutable runtime release containing this implementation, then retain
+  separately authorized deployment and operational receipts under [Issue #995](https://github.com/dotnetpower/fdai/issues/995).
+  The r4 application-kit evidence reconciled in [PR #992](https://github.com/dotnetpower/fdai/pull/992)
+  predates this implementation and cannot certify cloud-reference support.
 - [ ] **Deferred expansion:** Keep non-Azure adapters, deltas, mirror-specific upstream proof,
   embeddings, broader applicability aliases, and automatic content activation outside the
   [accepted v1 claim](../../roadmap/interfaces/cloud-resource-knowledge-lifecycle.md#implemented-v1-boundary)
