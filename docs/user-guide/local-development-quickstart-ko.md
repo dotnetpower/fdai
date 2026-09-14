@@ -2,8 +2,8 @@
 title: 로컬 개발 빠른 시작
 description: Linux 또는 WSL 워크스테이션에서 Docker, 로컬 상태, 인증 및 전체 FDAI Console 스택을 구성합니다.
 translation_of: local-development-quickstart.md
-translation_source_sha: 0c2378cdb3336083b9b40b1bb980533f3601a79b
-translation_revised: 2026-09-13
+translation_source_sha: 3bc16e826acb8d247a9bbbead383a6823a3f5d10
+translation_revised: 2026-09-14
 ---
 
 # 로컬 개발 빠른 시작
@@ -28,6 +28,31 @@ Azure 읽기와 환경 메타데이터는 선택한 배포에 근거합니다. �
 > 자동으로 채택하지 않습니다. 이 경계를 우회하기 위해 상태 파일을 복사하거나 이동하지 마세요.
 
 ## 필수 구성 요소 설치
+
+### 한 번에 워크스테이션 구성
+
+x86_64 Ubuntu 또는 WSL에서는 리포지토리 루트에서 다음 설치 스크립트를 실행하세요.
+
+```bash
+bash scripts/automation/setup-local-development.sh
+```
+
+이 스크립트는 시스템 패키지와 리포지토리에 고정된 명령줄 도구를 설치하고, Docker 접근을
+구성하며, 잠금 파일에 정의된 Python 및 Console 의존성을 설치합니다. 또한 Playwright Chromium을
+다운로드하고, 추적되는 Git 후크를 활성화하며, 공유 VS Code 설정과 확장을 적용합니다. 필요한
+경우 터미널에서 `sudo` 입력을 요청합니다. Azure 또는 GitHub에 로그인하거나 테넌트별 구성을
+만들지는 않습니다.
+
+처음 실행한 후 기존 터미널에 Docker 그룹 멤버십을 반영하려면 WSL 창을 다시 여세요. 프로필
+가져오기는 사용자가 확인해야 하는 VS Code 작업이므로 `Profiles: Import Profile`에서
+`.vscode/fdai.code-profile`을 가져오세요. 다음 명령으로 워크스테이션을 변경하지 않고 검증할 수
+있습니다.
+
+```bash
+bash scripts/automation/setup-local-development.sh --check
+```
+
+필수 구성 요소를 수동으로 설치하거나 실패한 검사를 진단해야 할 때는 다음 섹션을 사용하세요.
 
 ### Docker 데이터 스택
 
@@ -72,7 +97,7 @@ sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor
 tesseract --list-langs
 ```
 
-리포지토리 의존성과 후크를 설치합니다.
+한 번에 설치하는 스크립트를 사용하지 않는 경우 리포지토리 의존성과 후크를 설치합니다.
 
 ```bash
 uv sync --extra dev
