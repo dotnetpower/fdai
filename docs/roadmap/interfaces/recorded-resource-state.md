@@ -220,7 +220,8 @@ the exact ResourceTypes whose ARM type is supported:
   preserves existing reference and declaration deep links without changing recorded-state or graph
   authority.
 - The Ontology Instances graph reserves its reviewed viewport height even when a result contains
-  only a few nodes, so recorded-state details do not collapse the inspection surface.
+  only a few nodes, so recorded-state details do not collapse the inspection surface. Direction
+  backgrounds cover that complete surface even when the bounded SVG layout is shorter.
 - An `llm-model-deployment` record may also expose one additive `model_deployment` object. The
   Operator projection allows only model name, model version, deployment SKU, and normalized TPM;
   raw provider properties, tags, rate-limit evidence paths, and credentials stay server-side.
