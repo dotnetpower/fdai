@@ -22,8 +22,8 @@ the evidence needed for a later governed change. The implementation is shadow-fi
 adoption remains gated. This procedure does not authorize a provider notification test, Azure
 mutation, PR publication, capability promotion, or deployment.
 
-> **Checkpoint, not completion:** Focused implementation results and open coverage, hardening,
-> PostgreSQL, browser, and CI work are recorded only in the
+> **Checkpoint, not completion:** Focused implementation, coverage, hardening and local validation
+> results, plus remaining source, operational and CI work, are recorded only in the
 > [implementation ledger](../roadmap-implementation/operations/alert-noise-governance.md).
 
 ## What this runbook covers
@@ -105,10 +105,10 @@ A successful save returns the retained next revision and a quoted-revision ETag.
 explicitly and make a new deliberate choice; do not overwrite or retry an unknown outcome.
 
 With a bound readable preference store, an unsaved default is enabled at revision zero with no
-fabricated timestamp. A missing or failed store is explicitly unavailable. At this checkpoint,
-Operator composition does not yet pass `StateKvAlertQualityPreferenceStore` into the dependency
-factory, so mounted Settings routes do not prove a usable persisted switch. The adapter, API, and
-Console mechanics exist; production binding and PostgreSQL evidence remain open. A disabled or
+fabricated timestamp. A missing or failed store is explicitly unavailable. Operator composition
+passes `StateKvAlertQualityPreferenceStore` into the existing dependency factory. Local PostgreSQL
+checks prove competing revision writes and new-connection replay; they do not qualify a deployment.
+A disabled or
 unreadable bound preference vetoes new requests, never accepted work or separately approved recovery.
 
 ## Procedure

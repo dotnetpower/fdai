@@ -2,7 +2,7 @@
 title: 알림 과다 수신 관리 런북
 description: shadow 우선 알림 평가와 정확한 계획에 따른 수동 PR 변경 및 복구 선행 조건을 검토합니다.
 translation_of: alert-noise-governance.md
-translation_source_sha: 3e92db5fcb56e9c8433c4c929e173cf619741e4c
+translation_source_sha: 4d628f877c4bd4241450ec03f771c610d911531d
 translation_revised: 2026-09-15
 fdai_runbook:
   schema_version: 1.0.0
@@ -24,8 +24,8 @@ fdai_runbook:
 근거를 검토할 때 사용합니다. 구현은 shadow 우선이며 운영 도입에는 아직 충족해야 할 조건이
 있습니다. 이 절차는 공급자 알림 테스트, Azure 변경, PR 게시, 기능 승격 또는 배포를 승인하지 않습니다.
 
-> **완료가 아닌 기준점:** 집중 구현 검사 결과와 남은 커버리지, 강화, PostgreSQL, 브라우저,
-> CI 작업은 [구현 원장](../roadmap-implementation/operations/alert-noise-governance.md)에만 기록합니다.
+> **완료가 아닌 기준점:** 집중 구현, 커버리지, 하드닝 및 로컬 검증 결과와 남은 소스·운영·CI
+> 작업은 [구현 원장](../roadmap-implementation/operations/alert-noise-governance.md)에만 기록합니다.
 
 ## 이 런북에서 다루는 내용
 
@@ -105,10 +105,10 @@ PUT은 본문의 정수 `expected_revision` 또는 강한 ETag/일반 숫자 형
 충돌 시 명시적으로 새로 고치고 다시 선택합니다. 결과를 모르는 상태에서 덮어쓰거나 재시도하지 않습니다.
 
 읽을 수 있는 선호 저장소가 연결되면 미저장 기본값은 개정 번호 0의 활성 상태이며 시각을 만들어
-내지 않습니다. 저장소가 없거나 실패하면 사용 불가로 명시합니다. 현재 기준점에서는 Operator
-조립이 의존성 팩터리에 `StateKvAlertQualityPreferenceStore`를 아직 전달하지 않으므로 Settings
-경로가 등록되어 있어도 저장 가능한 스위치가 입증되지는 않습니다. 어댑터, API, Console 처리
-구조는 존재하지만 운영 연결과 PostgreSQL 근거는 남아 있습니다. 연결된 선호 설정이 꺼졌거나
+내지 않습니다. 저장소가 없거나 실패하면 사용 불가로 명시합니다. Operator 구성은 기존
+의존성 팩터리에 `StateKvAlertQualityPreferenceStore`를 전달합니다. 로컬 PostgreSQL 검사는
+개정 번호 기반 쓰기 경합과 새 연결에서의 재생을 입증하며 배포 적격성을 입증하지는 않습니다.
+연결된 선호 설정이 꺼졌거나
 읽을 수 없으면 새 요청만 막으며 이미 접수한 작업이나 별도로 승인된 복구는 취소하지 않습니다.
 
 ## 절차

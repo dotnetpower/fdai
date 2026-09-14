@@ -6,11 +6,12 @@ title: Alert Noise Governance Implementation Ledger
 This ledger tracks delivery of [Alert Noise Governance](../../roadmap/operations/alert-noise-governance.md).
 The owner and its Korean translation describe the shadow-first implementation and its intended
 operational boundaries. This English engineering ledger is the only implementation status source.
-The current change is a baseline checkpoint, not final completion or operational adoption.
+The current source is a locally verified shadow-first checkpoint, not full design completion,
+an all-Low review claim, or operational adoption.
 
-> **Evidence boundary:** The coordinating session supplied the focused-check results recorded below.
-> This documentation-only handoff inspected source and test paths but ran no tests or checkers.
-> Framework bindings and passing synthetic checks do not prove independently produced operational
+> **Evidence boundary:** The parent coding session ran the focused checks recorded below, including
+> disposable loopback PostgreSQL and a test-only browser. Passing these checks does not prove
+> independently produced operational
 > receipts, provider notification tests, Azure mutations, promotion, publication, or deployment.
 
 ## Implementation status
@@ -28,9 +29,10 @@ The current change is a baseline checkpoint, not final completion or operational
 | ANG-3/4: independent effect and recovery framework | implemented | [Effect factory](../../../services/core-control-plane/src/fdai/runtime/alert_noise_effects.py), [runtime tests](../../../services/core-control-plane/tests/runtime/test_alert_noise_effects_runtime.py), [effect tests](../../../services/core-control-plane/tests/delivery/test_alert_noise_effects.py), [outcome tests](../../../services/core-control-plane/tests/core/detection/alert_noise/test_outcomes.py) | Opt-in callbacks and bounded reconciliation use canonical dispatch, closure, outcome, Process, and automation-hold stores. Effect admission and separate Workflow outcome admission remain distinct. Factory construction creates neither receipt nor recovery authority. |
 | ANG-3/4: operational routing, effect closure, and recovery | in-progress | [Execution composition](../../../services/core-control-plane/src/fdai/runtime/alert_noise_execution.py), [effect reader](../../../services/core-control-plane/src/fdai/delivery/alert_noise_effect_reader.py), [operator runbook](../../runbooks/alert-noise-governance.md) | Independent authority, recipient, exclusion, effect, and recovery producers and their current admissions must be present in the selected environment. PostgreSQL/restart and live evidence remain open. |
 | ANG-4: finite suppression planning and artifact mechanics | implemented | [Planner](../../../services/core-control-plane/src/fdai/core/detection/alert_noise/planning.py), [planning tests](../../../services/core-control-plane/tests/core/detection/alert_noise/test_planning.py), [JSON renderer](../../../services/core-control-plane/src/fdai/delivery/alert_noise_iac.py), [execution tests](../../../services/core-control-plane/tests/core/detection/alert_noise/test_execution.py) | One existing inert rule, exact target, bounded UTC interval, propagation budget, protected/automation exclusion, and independent collection checks. Provider activation, expiry, and post-expiry delivery are not established by synthetic checks. |
-| ANG-5: threshold comparison and admitted evaluation | in-progress | [Same-bucket comparator](../../../services/core-control-plane/src/fdai/core/detection/alert_noise/evaluation.py), [evaluation reader](../../../services/core-control-plane/src/fdai/delivery/alert_noise_evidence.py), [evidence tests](../../../services/core-control-plane/tests/delivery/test_alert_noise_evidence.py) | Comparator and receipt-gated planning exist; JSON delivery supports one simple metric threshold only. Independent scenario labels, native conformance, recall/latency evidence, and remaining coverage are still required. This is not an implemented ANG-5 package. |
+| ANG-5: threshold comparison and admitted evaluation | implemented | [Same-bucket comparator](../../../services/core-control-plane/src/fdai/core/detection/alert_noise/evaluation.py), [evaluation hardening](../../../services/core-control-plane/tests/core/detection/alert_noise/test_evaluation_hardening.py), [evidence tests](../../../services/core-control-plane/tests/delivery/test_alert_noise_evidence.py) | Comparator has 100% measured coverage and receipt-gated planning passes. JSON delivery supports one simple metric threshold only. Independent operational labels, native conformance and recall/latency evidence remain required; this is not the complete ANG-5 package. |
 | ANG-5: evaluation-window/frequency changes and promotion | not-started | [Measurement and exit conditions](../../roadmap/operations/alert-noise-governance.md#9-delivery-sequence-and-exit-evidence) | Window/frequency changes remain guidance/held, not implemented. No provider notification test, timed pilot, or ActionType/Workflow promotion is claimed. |
-| Baseline hardening and integration closure | in-progress | Focused baseline in the history row below; [alert core](../../../services/core-control-plane/src/fdai/core/detection/alert_noise/), [owning tests](../../../services/core-control-plane/tests/core/detection/alert_noise/) | Coverage is below the required floor. Ten verified hardening rounds, PostgreSQL integration, authenticated browser evidence, and exact-head CI remain open. |
+| Local hardening and focused integration | implemented | Rounds 1-16 below; [Core tests](../../../services/core-control-plane/tests/core/detection/alert_noise/), [PostgreSQL tests](../../../services/operator-service/tests/test_alert_quality_postgres.py), [browser tests](../../../console/tests/e2e/alert-quality.spec.ts) | 1248 Python checks, 246 Console unit checks, 10 browser scenarios and 47 packaging/ownership/layout checks passed. Safety Core: 96.43% lines / 90.20% branches. No full repository or operational validation is claimed. |
+| Full source and operational acceptance | in-progress | [Remaining work](#remaining-work), [UI review](../../../console/alert-quality-hardening-review.md) | Broader evaluation semantics, missing detailed projections, authoritative producers, full persistence lifecycle, standard authenticated browser and protected CI remain open. Shadow defaults do not reclassify these gaps as Low. |
 
 ### Implementation history
 
@@ -39,28 +41,33 @@ The current change is a baseline checkpoint, not final completion or operational
 | 2026-09-14 | not-started | Established the design-only organization-scale alert-noise scope, authority boundaries, Azure semantic constraints, critique decisions, and five delivery packages. | `current change`; [design owner](../../roadmap/operations/alert-noise-governance.md), [Korean translation](../../roadmap/operations/alert-noise-governance-ko.md), and [design review decisions](../../roadmap/operations/alert-noise-governance.md#10-design-review-decisions). | Implement and verify ANG-1 through ANG-5; no source implementation, live Azure/model validation, publication, or deployment is claimed. |
 | 2026-09-15 | in-progress | `current change`: recorded the shadow-first implementation baseline for private evidence, typed requests, four registered manual-PR actions, exact retained Workflow/Process binding, independent-proof readers, effect reconciliation, and Settings mechanics. Operational adoption remains gated. | Coordinating-session results: 1136 owning Python tests passed; strict mypy passed 69 source files; 246 Console tests and typecheck passed. Owning paths include [Core alert tests](../../../services/core-control-plane/tests/core/detection/alert_noise/), [runtime effect tests](../../../services/core-control-plane/tests/runtime/test_alert_noise_effects_runtime.py), [Operator Settings tests](../../../services/operator-service/tests/test_alert_quality_settings.py), and [Console request tests](../../../console/src/routes/alert-quality.requests.test.ts). Measured `fdai.core.detection.alert_noise` coverage: 82.08%, below the >=90% floor. | Finish coverage and ten evidence-backed hardening rounds; bind and verify Settings persistence, real PostgreSQL/restart behavior, independent operational receipts, authenticated browser behavior, and exact-head CI. No provider notification test, Azure mutation, promotion, publication, or deployment is claimed. |
 
+| 2026-09-15 | in-progress | Continued the baseline through 16 individually committed hardening batches. Corrected terminal-result races, scale bounds, report completeness, actual PostgreSQL query failure, stale request handoffs and runtime package inventory. Corrected the earlier Settings-unbound statement: the factory already binds its durable store. | Baseline commit `30fa16d1c`; rounds through `281b2f1ef`; 1248 focused Python checks (zero skips), 246 Console unit checks, 10 test-only browser scenarios, 47 ownership/package/layout checks, production build, schema parity, 136-file Ruff and 71-source strict mypy. Core coverage lines 96.43% / branches 90.20% / combined 94.80%. | Full design remains in-progress: window/frequency evaluation, detailed projections, full persistence lifecycle, authoritative operational sources and standard authenticated UI evidence remain open. No all-Low, push, PR, provider, promotion or deployment completion is claimed. |
+
 ### Remaining work
 
-- [x] **Coverage gate:** The 243 focused Core checks passed with branch-enabled combined coverage
-  of 91.24% using `--cov=fdai.core.detection.alert_noise --cov-branch --cov-fail-under=90`.
-  The threshold comparator measured 100%. This does not replace exact-head integration CI.
-- [x] **Ten hardening batches:** Rounds 1-10 below each have focused verification and their own
-  local commit. Rounds 7-9 corrected reproduced Medium defects; other rounds honestly record
-  coverage hardening. This count does not close the remaining integration or operational gaps.
+- [x] **Coverage gate:** The 1248-test owned Python slice reached lines 96.43%, branches 90.20%
+  and combined 94.80% using `--cov=fdai.core.detection.alert_noise --cov-branch`.
+  Both line and branch floors were checked independently; comparison alone measured 100%.
+- [x] **Hardening batches:** Rounds 1-16 below each have focused verification and a local commit.
+  Six reproduced source or delivery defects were fixed. Other rounds record coverage/verification
+  work without inventing findings. Remaining source and operational gaps are not closed by counting rounds.
 - [ ] **ANG-1 evidence:** Supply independently admitted directory, current ownership/incident,
   complete reverse-dependency, historical revision, and delivery evidence bound to the exact native
   snapshot. Retain denial, partial, stale, conflicting, and privacy outcomes without fabricated
   recipients or inventory truth; resolve any required ontology declaration separately.
-- [ ] **ANG-2 scale and projection:** Retain the complete design-scale evidence for at least 500
-  synthetic principals, 20 teams, and 10000 events, including skew and bounded expansion. Add the
-  missing team/audience-kind/period filters, baseline/guard metrics, approval/outcome detail, and
-  benefit projections only when their authoritative source fields exist.
-- [ ] **Settings composition:** Pass the Operator-owned `StateKvAlertQualityPreferenceStore` through
-  the existing dependency factory, then prove human Owner CAS, audit, conflict, restart, unavailable
-  behavior, and no promotion. Disabling new requests must not cancel accepted work or approved recovery.
-- [ ] **PostgreSQL:** Retain service-owned database evidence for outbox claim isolation, preference
-  concurrency, retained Process resume, actual dispatch generations, effect reconciliation, and
-  automation holds across restart. Lazy constructors and in-memory doubles do not close this item.
+- [x] **ANG-2 scale:** Round 8 retained 500 synthetic principals, 20 teams and 10000 events with
+  skew, overlapping direct/group/role audiences, exact admission and tamper detection.
+- [ ] **ANG-2 projections:** Add team/audience-kind/period selectors and exact baseline/guard,
+  approval/outcome and terminal-held request detail from authoritative fields. Do not replace
+  absent sources with browser inference or treat acceptance as completion.
+- [x] **Settings composition:** The existing factory passes `StateKvAlertQualityPreferenceStore`.
+  Owner authorization, CAS/audit, conflict, unavailable and shadow-independence tests pass; round 11
+  proves CAS and new-connection replay against actual loopback PostgreSQL.
+- [x] **Operator PostgreSQL primitives:** Round 11 proves exclusive claims, stale-worker fencing,
+  expired-lease restart, Settings concurrency and terminal-result consistency with zero skips.
+- [ ] **Full persistence lifecycle:** Verify canonical Process resume, actual dispatch generations,
+  effect reconciliation and automation holds across restart with the complete service migrations.
+  The local four-test minimal `state_kv` fixture does not close this separate exit.
 - [ ] **ANG-3 authority and source fencing:** Demonstrate current Var service-owner plus distinct
   Owner quorum, revocation, target/dependency/source revalidation, tested rollback and dry-run, real
   replacement-recipient reachability, and independently admitted exclusive-writer protection through
@@ -77,12 +84,30 @@ The current change is a baseline checkpoint, not final completion or operational
   negative, and missed-incident cases with pinned telemetry and recall/latency guards. Keep window
   and frequency changes held until their native semantics and exact-file delivery are implemented.
   Record any later pilot and promotion only with separately authorized independent evidence.
-- [ ] **Browser:** Retain authenticated English/Korean standard Console evidence for scope selection,
+- [x] **Isolated browser mechanics:** Round 12 passed ten actual-route scenarios, including all three
+  forms, Settings, adverse states, reduced-motion loading and EN/KO responsive layout. This used
+  explicitly intercepted API/identity fixtures and contacted no real provider.
+- [ ] **Standard browser and accessibility:** Retain authenticated English/Korean standard Console evidence for scope selection,
   three forms, Settings Owner/conflict/unavailable states, stale authentication, unknown outcomes,
   responsive layout, and keyboard use. Passing Console unit tests and types are not browser proof.
-- [ ] **Delivery gates:** The parent refreshes only reviewed Korean pairs and runs applicable
-  documentation, route, runbook, and structural checks. Record exact-head required CI separately
-  before any later publication claim; this handoff runs no checker, commit, or remote operation.
+- [x] **Focused local gates:** Task-owned Ruff lint/format, 71-source strict typing, schema parity,
+  Core wheel membership, fixed pantheon layout, test ownership, route count and Console build pass.
+  Changed-doc size, history, impact and normal commit hooks pass without bypasses.
+- [ ] **Publication:** Before push/PR, retain a tracking issue with observable exit criteria and an
+  explicit disposition for the open scope above. Required exact-head CI, protected merge and any
+  separately authorized operational validation remain distinct from local test evidence.
+
+### Current unresolved scope
+
+| Priority | Unclosed outcome | Next falsifying evidence |
+|----------|------------------|--------------------------|
+| High | End-to-end approved provider effect and recovery cannot be qualified from reader factories or synthetic receipts. | Select an authorized environment, bind real directory/ownership/delivery/exclusion/observer sources and retain independently admitted exact-plan observations. No secrets or tenant values belong in this ledger. |
+| Medium | ANG-5 window/frequency semantics and corresponding exact-file renderer are not implemented. | Raw time-bucket/exposure scenarios, native-kind conformance, false-negative/latency guards and regression-tested patches before exposing them as supported. |
+| Medium | Detailed baseline, pending/held request, approval/outcome and team/period projections remain incomplete. | A scoped typed projection of retained authoritative records plus API/browser replay, revocation, unavailable and pagination tests. |
+| Medium | Full PostgreSQL lifecycle and standard authenticated accessibility matrix remain unverified. | Complete service-migration replay and the remaining UI rubric gates; minimal state primitives and intercepted browser data are insufficient. |
+
+These open items mean the complete user-requested design is not yet implemented or at an all-Low
+exit. Their priority must not be lowered merely because the shipped actions remain shadow.
 
 ## Evidence boundary
 
