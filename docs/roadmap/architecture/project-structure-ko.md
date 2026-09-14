@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 6d6bd93cdfcb6a7ea7ef4cdac112ebf951e7a49a
+translation_source_sha: 20256de8fa7b8199d417c851d63d69d1fd453d21
 translation_revised: 2026-09-15
 ---
 # 프로젝트 구조
@@ -385,7 +385,7 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
 
 업스트림은 범용 인터페이스와 동작하는 기본 구현을 제공합니다. 포크는 `core/`를 편집하거나
 복사하지 않고 자체 조립 루트에서 의존성을 주입해 구성을 변경합니다.
-[포크 모델](../../../.github/instructions/generic-scope.instructions.md)을 참조하세요. [알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)는 이 경계로 제한적 조회기, 독립적으로 수락된 근거, 기존 Workflow/Process 조정, GitOps 전달, 원본 작성자 통제 및 효과 중계를 연결합니다. 명시적으로 연결하는 팩터리는 처리 구조만 제공하며 독립 권한이나 수신자/효과 증적을 만들지 않습니다. 운영 도입에는 아직 충족해야 할 조건이 있습니다.
+[포크 모델](../../../.github/instructions/generic-scope.instructions.md)을 참조하세요. [알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)는 제한적 조회기, 독립 근거, 기존 Workflow/Process 조정, GitOps 전달, 원본 작성자 통제 및 효과 중계를 연결합니다. 서비스 구현에 의존하지 않는 공유 알림 코덱은 온톨로지 쿼리 한도를 늘리지 않고 비공개 근거의 크기 한도를 관리합니다. 팩터리는 처리 구조만 제공하며 독립 권한이나 수신자/효과 증적을 만들지 않습니다. 운영 도입에는 아직 충족해야 할 조건이 있습니다.
 
 > **포크 유지관리자**: 절차적 walkthrough는
 > [downstream-fork-guide-ko.md](../fork-and-sequencing/downstream-fork-guide-ko.md)에서 시작. 이 섹션은

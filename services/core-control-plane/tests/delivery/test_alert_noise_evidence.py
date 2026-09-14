@@ -32,6 +32,7 @@ from fdai.delivery.persistence.state_store_decision_evidence import (
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.testing import InMemoryStateStore
 from fdai_service_contracts.alert_noise import AlertDelivery, AlertEvidence, digest_record
+from fdai_service_contracts.alert_noise_content import digest_alert_payload
 from fdai_service_contracts.alert_noise_evaluation import EvaluationReceipt
 from fdai_service_contracts.alert_noise_plan import AlertTreatment
 from fdai_service_contracts.decision_evidence_verification import (
@@ -63,7 +64,7 @@ async def _install_record(ledger, *, key, payload, purpose, receipt_changes=None
     """Install clearly test-only positive wire shapes into an isolated in-memory ledger."""
     at = ledger.clock[0]
     values = dict(
-        evidence_digest=content_digest(payload),
+        evidence_digest=digest_alert_payload(payload),
         scope_digest=SCOPE,
         purpose_id=purpose,
         source_revision=SOURCE,

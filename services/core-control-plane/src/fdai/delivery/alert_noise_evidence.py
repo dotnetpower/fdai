@@ -13,6 +13,7 @@ from collections.abc import Callable
 from datetime import datetime
 
 from fdai_service_contracts.alert_noise import AlertEvidence, digest_record
+from fdai_service_contracts.alert_noise_content import digest_alert_payload
 from fdai_service_contracts.alert_noise_evaluation import EvaluationReceipt
 from fdai_service_contracts.alert_noise_plan import AlertTreatment
 from fdai_service_contracts.ontology_query import content_digest
@@ -47,7 +48,7 @@ def alert_evidence_binding_digest(*, base_digest: str, evidence: AlertEvidence) 
         raise AlertExecutionHeld("alert_evidence_base_invalid")
     body = evidence.model_dump(mode="json")
     body["stamp"].pop("revision")
-    return content_digest({"base_digest": base_digest, "evidence": body})
+    return digest_alert_payload({"base_digest": base_digest, "evidence": body})
 
 
 class AdmittedAlertEvidenceSource:

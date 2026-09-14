@@ -2,7 +2,7 @@
 title: 알림 과다 수신 관리
 description: 조직 전체의 과도한 알림을 진단하고 탐지 품질을 유지하면서 승인 기반 알림 변경을 제안합니다.
 translation_of: alert-noise-governance.md
-translation_source_sha: 660025fccb6b55a8a9134bac69be363891cf2799
+translation_source_sha: 5b08eea1d338e1de7aab282084e3a533a55ba36d
 translation_revised: 2026-09-15
 ---
 # 알림 과다 수신 관리
@@ -110,6 +110,11 @@ translation_revised: 2026-09-15
 `AdmittedAlertEvidenceSource`는 독립적인 수락 검사를 거친 최신 범위/출처 결속 기록으로만
 정확한 Azure 스냅샷을 보강합니다. 실패한 Azure 조회를 대체하거나 확인된 구성을 바꾸지 않습니다.
 팩터리는 조회기를 제공할 뿐, 독립적으로 생성해야 할 증적을 만들어 내지 않습니다.
+
+비공개 알림 기록은 최대 8 MiB, JSON 항목 250000개, 깊이 32단계의 전용 정규 인코더를
+사용합니다. 모든 바이트를 해시에 포함하고 기존 작은 기록의 해시값을 유지하며, 온톨로지
+쿼리의 64 KiB 한도는 늘리지 않습니다. 보고서와 버스 결과에는 기존의 더 작은 전송 한도를
+계속 적용합니다.
 
 ## 3. 결정론적 진단과 권고
 

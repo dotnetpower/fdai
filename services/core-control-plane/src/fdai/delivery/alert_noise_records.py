@@ -10,6 +10,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any
 
+from fdai_service_contracts.alert_noise_content import canonical_alert_json, digest_alert_payload
 from fdai_service_contracts.decision_evidence import (
     DecisionCriticalEvidenceReceipt,
     EvidenceConflictStatus,
@@ -32,27 +33,10 @@ _SOURCE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.:/@-]{0,511}")
 
 def _json(value: object) -> str:
     """Detach bounded JSON without coercing keys, scalar types, or non-JSON objects."""
-    pending = [(value, 0)]
-    count = 0
-    while pending:
-        item, depth = pending.pop()
-        count += 1
-        if depth > 32 or count > 100_000:
-            raise AlertExecutionHeld("alert_record_bound_exceeded")
-        if type(item) is dict:
-            if any(type(key) is not str for key in item):
-                raise AlertExecutionHeld("alert_record_invalid")
-            pending.extend((child, depth + 1) for child in item.values())
-        elif type(item) is list:
-            pending.extend((child, depth + 1) for child in item)
-        elif item is not None and type(item) not in {str, bool, int, float}:
-            raise AlertExecutionHeld("alert_record_invalid")
-    encoded = json.dumps(
-        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
-    )
-    if len(encoded) > 2_000_000:
-        raise AlertExecutionHeld("alert_record_bound_exceeded")
-    return encoded
+    try:
+        return canonical_alert_json(value)
+    except (ValueError, TypeError):
+        raise AlertExecutionHeld("alert_record_invalid") from None
 
 
 def exact_alert_model[Model: BaseModel](model: type[Model], value: object) -> Model:
@@ -138,8 +122,8 @@ async def read_admitted_alert_record(
     """Read exact ``{payload, receipt}`` JSON and independently admit its complete content.
 
     Absence of the record or admission returns None. Malformation, conflict, replacement,
-    synthetic evidence and I/O failure raise a content-free hold. The shared content_digest
-    also imposes its existing 64-KiB payload ceiling inside the 2-MB outer-record limit.
+    synthetic evidence and I/O failure raise a content-free hold. The private alert codec
+    caps complete records at 8 MiB, 250000 JSON nodes and 32 levels without truncation.
     Callers must recheck require_current with their trusted clock after subsequent awaits.
     """
     try:
@@ -170,7 +154,7 @@ async def read_admitted_alert_record(
             ):
                 raise AlertExecutionHeld("alert_record_receipt_invalid")
             receipt = exact_alert_model(DecisionCriticalEvidenceReceipt, receipt_raw)
-            digest = content_digest(detached["payload"])
+            digest = digest_alert_payload(detached["payload"])
             if (
                 receipt.evidence_digest != digest
                 or receipt.scope_digest != scope_digest

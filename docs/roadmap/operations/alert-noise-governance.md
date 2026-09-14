@@ -109,6 +109,10 @@ dependencies, and historical rule revisions. Today's rule revision cannot label 
 admitted, current, scope- and source-bound records; it cannot replace a failed native read or change
 known configuration. The factory supplies readers, not those independently produced receipts.
 
+Private alert records use a dedicated canonical codec capped at 8 MiB, 250000 JSON nodes and
+32 levels. It hashes every byte, preserves prior small-record digests, and does not widen the
+ontology query's 64 KiB ceiling. Reports and bus results retain their smaller transport limits.
+
 ## 3. Deterministic diagnosis and recommendation
 
 Use T0 (deterministic rules) over the frozen evidence before T1 (lightweight similarity reuse).
