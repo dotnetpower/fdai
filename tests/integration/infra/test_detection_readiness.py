@@ -62,8 +62,15 @@ def test_startup_probe_uses_dedicated_operational_topic_and_identity() -> None:
     assert operational_topics is not None
     assert "local.canary_topic" in operational_topics.group(1)
     assert "local.startup_probe_topic" in operational_topics.group(1)
-    assert 'resource "azurerm_role_assignment" "runtime_startup_probe_eventhubs_owner"' in source
-    assert "module.event_bus_auxiliary.topic_ids[local.startup_probe_topic]" in source
+    assert "from = azurerm_role_assignment.runtime_startup_probe_eventhubs_owner" in source
+    assert (
+        'to   = azurerm_role_assignment.executor_eventhubs_data_owner["runtime.startup.probe"]'
+        in source
+    )
+    assert (
+        'resource "azurerm_role_assignment" "runtime_startup_probe_eventhubs_owner"' not in source
+    )
+    assert "module.event_bus_auxiliary.all_topic_ids" in source
     assert 'role_definition_name = "Azure Event Hubs Data Owner"' in source
     for name in (
         "startup_kafka_settle_seconds",

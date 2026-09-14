@@ -66,7 +66,7 @@ resource "azurerm_role_assignment" "project_user" {
   for_each = var.user_principal_ids
 
   scope                            = azurerm_cognitive_account_project.partner.id
-  role_definition_name             = "Azure AI User"
+  role_definition_name             = "Azure AI Developer"
   principal_id                     = each.value
   skip_service_principal_aad_check = true
 }

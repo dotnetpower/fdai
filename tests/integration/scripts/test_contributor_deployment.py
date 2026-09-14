@@ -414,6 +414,175 @@ apply_contributor_plan "$2" "$3" "$4" "$5"
     )
 
 
+@pytest.mark.parametrize("mode", ["observed", "refresh-failed"])
+def test_failed_contributor_apply_recovers_by_refresh_only(tmp_path: Path, mode: str) -> None:
+    plan = tmp_path / "saved.tfplan"
+    plan.write_bytes(b"failed plan")
+    plan.chmod(0o600)
+    digest = hashlib.sha256(plan.read_bytes()).hexdigest()
+    state = tmp_path / "terraform.tfstate"
+    state.write_text("{}\n", encoding="ascii")
+    state.chmod(0o600)
+    prior_source = "0" * 40
+    current_source = "1" * 40
+    actor = "00000000-0000-0000-0000-000000000001"
+    pending = Path(f"{plan}.pending.json")
+    result_path = Path(f"{plan}.result.{digest}.json")
+    attempt = {
+        "schema_version": "fdai.contributor-apply.v1",
+        "plan_sha256": digest,
+        "source_commit": prior_source,
+        "approved_by": actor,
+        "state": "applying",
+        "recorded_at": "2026-09-14T00:00:00+00:00",
+    }
+    pending.write_text(json.dumps(attempt), encoding="ascii")
+    pending.chmod(0o600)
+    result_path.write_text(
+        json.dumps(
+            {
+                **attempt,
+                "state": "verification-required",
+                "exit_code": 7,
+                "operational_verification": "pending",
+            }
+        ),
+        encoding="ascii",
+    )
+    result_path.chmod(0o600)
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "terraform-calls"
+    _write_executable(fake_bin / "az", f"#!/bin/bash\nprintf '{actor}\\n'\n")
+    _write_executable(
+        fake_bin / "git",
+        f"""#!/bin/bash
+if [[ " $* " == *' rev-parse '* ]]; then printf '{current_source}\\n'; fi
+if [[ " $* " == *' merge-base '* ]]; then exit 0; fi
+""",
+    )
+    _write_executable(
+        fake_bin / "terraform",
+        """#!/bin/bash
+set -euo pipefail
+printf '%s\n' "$*" >> "$TEST_TERRAFORM_CALLS"
+if [[ " $* " == *" plan "* ]]; then
+    [[ "$TEST_MODE" != refresh-failed ]] || exit 1
+    for argument in "$@"; do
+        [[ "$argument" == -out=* ]] && printf refresh > "${argument#-out=}"
+    done
+fi
+if [[ " $* " == *" state list"* ]]; then printf 'azurerm_resource.example\n'; fi
+""",
+    )
+    _write_executable(tmp_path / "verify-azure-context.sh", "#!/bin/bash\nexit 0\n")
+    command = """
+set -euo pipefail
+target_log() { printf '%s\n' "$*" >&2; }
+source "$1"
+recover_contributor_plan_attempt "$2" "$3" "$4"
+"""
+
+    completed = subprocess.run(  # noqa: S603 - isolated helper and fake cloud/tool commands
+        [
+            _BASH,
+            "-c",
+            command,
+            "bash",
+            str(_CONTRIBUTOR_PLAN),
+            str(tmp_path),
+            str(plan),
+            str(state),
+        ],
+        env={
+            **os.environ,
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            "HERE": str(tmp_path),
+            "REPO_ROOT": str(tmp_path),
+            "SOURCE_COMMIT": current_source,
+            "EXPECTED_SUBSCRIPTION": "test",
+            "EXPECTED_TENANT": "test",
+            "DEPLOYER_OBJECT_ID": actor,
+            "TEST_MODE": mode,
+            "TEST_TERRAFORM_CALLS": str(calls),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    recovery = Path(f"{plan}.recovery.{digest}.json")
+    invocations = calls.read_text(encoding="ascii")
+    assert "init -reconfigure -input=false -lockfile=readonly" in invocations
+    assert "plan -refresh-only -input=false" in invocations
+    assert " apply " not in invocations
+    if mode == "refresh-failed":
+        assert completed.returncode == 1
+        assert pending.exists()
+        assert not recovery.exists()
+        return
+    assert completed.returncode == 0, completed.stderr
+    assert not pending.exists()
+    evidence = json.loads(recovery.read_text(encoding="ascii"))
+    assert evidence["state"] == "failed-apply-observed"
+    assert evidence["operational_verification"] == "observed"
+    assert evidence["tracked_resource_count"] == 1
+    assert evidence["source_commit"] == prior_source
+    assert evidence["verified_source_commit"] == current_source
+    assert not Path(f"{plan}.recovery.{digest}.tfplan").exists()
+
+
+def test_existing_private_key_vault_routes_to_managed_host(tmp_path: Path) -> None:
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    calls = tmp_path / "calls"
+    vault_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example/"
+        "providers/Microsoft.KeyVault/vaults/example"
+    )
+    _write_executable(
+        fake_bin / "terraform",
+        f"""#!/bin/bash
+printf '%s\n' "$*" >> "$TEST_CALLS"
+if [[ " $* " == *" state list"* ]]; then
+    printf 'module.key_vault.azurerm_key_vault.primary\n'
+elif [[ " $* " == *" state show "* ]]; then
+    printf 'id = "{vault_id}"\n'
+fi
+""",
+    )
+    _write_executable(
+        fake_bin / "az",
+        """#!/bin/bash
+printf '%s\n' "$*" >> "$TEST_CALLS"
+printf 'Disabled\n'
+""",
+    )
+    command = """
+set -euo pipefail
+target_log() { printf '%s\n' "$*" >&2; }
+source "$1"
+require_public_contributor_key_vault_path "$2"
+"""
+
+    completed = subprocess.run(  # noqa: S603 - isolated helper and fake cloud/tool commands
+        [_BASH, "-c", command, "bash", str(_CONTRIBUTOR_PLAN), str(tmp_path)],
+        env={
+            **os.environ,
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            "TEST_CALLS": str(calls),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 1
+    assert "requires a private data-plane path" in completed.stderr
+    assert "fdai-up.sh" in completed.stderr
+    assert "resource show" in calls.read_text(encoding="ascii")
+
+
 def test_post_deploy_jobs_track_only_the_new_execution() -> None:
     source = _AZD_UP.read_text(encoding="utf-8")
     run_job = source.split("run_job() {", maxsplit=1)[1].split(

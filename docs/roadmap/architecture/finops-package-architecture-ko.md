@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 3ae701a67c3b9c8a1e98f065d78a89fc6609ddab
+translation_source_sha: a66cbc4784a7a8af550e404bcff1e32573d17986
 translation_revised: 2026-09-14
 ---
 
@@ -32,7 +32,8 @@ translation_revised: 2026-09-14
 > 또는 작업 권한을 바꾸지 않습니다.
 > 전역 Terraform 루트는 관련 없는 AKS 관측 연결을 전달할 수 있습니다. 해당 값과 Reader 역할
 > 할당은 Cost Governance 패키지 입력이 아니며 패키지 런타임을 활성화할 수 없습니다. 같은
-> 경계는 독립 런타임 호출 근거 원본 플래그도 FinOps 패키지 입력에서 제외합니다.
+> 경계는 독립 런타임 호출 근거 원본 플래그, 공유 공급자 엔드포인트 가용성 및 시작 프로브 RBAC
+> 상태 주소도 FinOps 패키지 입력과 권한에서 제외합니다.
 > 보호된 Terraform deployer 역할은 구성된 안정 실행기 UAMI principal을 사용하며 인증된
 > principal이 다르면 계획을 중단합니다. 격리된 공개 개발 경로는 검증된 Azure CLI 사람을
 > Terraform 관리 principal로만 사용할 수 있습니다. 어느 신원도 패키지 입력 또는 runtime

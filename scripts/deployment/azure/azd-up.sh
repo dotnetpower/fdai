@@ -720,6 +720,8 @@ if [[ "$CONFIRM" == "1" ]]; then
   ensure_model_deployer_role
 fi
 resolve_models
+recover_contributor_plan_attempt "$PLATFORM_ROOT" "$PLATFORM_PLAN" "$PLATFORM_STATE"
+require_public_contributor_key_vault_path "$PLATFORM_ROOT"
 platform_preview
 
 if [[ "$CONFIRM" != "1" ]]; then

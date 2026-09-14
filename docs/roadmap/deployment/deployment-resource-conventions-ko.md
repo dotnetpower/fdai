@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: ae801cce4909b48abc227fb38364437a130b2afa
-translation_revised: 2026-09-09
+translation_source_sha: 4838f698baebc7dec9fba1ac8c3c5b55e3e8cc75
+translation_revised: 2026-09-14
 ---
 # 배포 리소스 규약
 
@@ -73,7 +73,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 | Core 파생 Job의 제한된 명명 | implemented | `infra/modules/compute/container-apps/`; `test_container_app_job_names.py`; Terraform 검증 | 유효한 기존 이름은 바꾸지 않습니다. 32자를 넘는 이름은 환경별 resource group 안에서 `caj-<workload>-<env>`를 사용합니다. |
 | Event Bus 소비자 지연 경고 | validated | `event_bus.py`; `infra/modules/observability/monitoring/`; 보호된 적용 실행 `32383519737`; 실제 발생 및 해제 경고 관측; 집중 소비자, 인프라 및 workflow 검사 | 범위가 제한된 commit이 정제된 파티션 진행률과 지연을 내보냅니다. Broker 기반 heartbeat도 downstream 처리가 멈춘 동안 할당된 파티션을 보고하며, 유휴 partial batch는 wall-clock commit deadline에 flush됩니다. 보호된 monitoring-only 적용은 scheduled-query rule만 변경했으며 정제된 합성 지연 행으로 stateful 경고가 발생하고 자동 해제되었습니다. |
 | 보호된 모델 해석 및 endpoint 산출물 | implemented | `.github/workflows/deploy-dev.yml`; model binding sealer; 정확한 기능 gate; `llm_model_endpoints` Terraform 출력; 보호된 서비스 구체화; 집중 검사 | 보호된 `plan-chatops-*` 및 `apply-chatops-*` 요청 ID는 추가 dispatch 입력 없이 검증을 선택합니다. 계획 metadata는 모드를 봉인하며 적용은 검토된 Mistral 프로필과 정확한 배포 소유 Foundry 참조를 다시 검증합니다. |
-| Partner Foundry 모듈 | implemented | `infra/modules/llm/foundry-partner/`; root, 모듈 및 Checkov 검사 | 재사용 모듈은 `aif-`/`proj-` 명명 규칙을 따르고 public access를 기본적으로 끄며 명시적인 공개 기여자 profile을 지원합니다. Local 인증은 계속 비활성화하고 partner format/버전/용량 및 project user 역할을 고정하며 partner 기능에 조건부로 조립됩니다. |
+| Partner Foundry 모듈 | implemented | `infra/modules/llm/foundry-partner/`; root, 모듈 및 Checkov 검사 | 재사용 모듈은 `aif-`/`proj-` 명명 규칙을 따르고 public access를 기본적으로 끄며 명시적인 공개 기여자 profile을 지원합니다. Local 인증은 계속 비활성화하고 partner format/버전/용량 및 현재 `Azure AI Developer` project 역할을 고정하며 partner 기능에 조건부로 조립됩니다. |
 
 ### 구현 이력
 

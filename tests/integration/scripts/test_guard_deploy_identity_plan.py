@@ -123,6 +123,9 @@ def test_target_arguments_cover_only_reviewed_addresses_owned_by_state() -> None
 
 
 def test_target_arguments_require_active_foundry_owner_configuration() -> None:
+    assert guard._ROLE_TARGETS[guard._PARTNER_ROLE] == "Azure AI Developer"  # noqa: SLF001
+    assert guard._ROLE_TARGETS[guard._WEB_SEARCH_ROLE] == "Azure AI Developer"  # noqa: SLF001
+
     with pytest.raises(ValueError, match="Foundry deploy role configuration is inactive"):
         guard.target_cli_args(  # noqa: SLF001
             [guard._PARTNER_ROLE],
@@ -138,6 +141,20 @@ def test_target_arguments_require_active_foundry_owner_configuration() -> None:
     )
 
     assert guard._PARTNER_ROLE in arguments  # noqa: SLF001
+
+
+@pytest.mark.parametrize("capabilities", ["not-json", "{}", "[]"])
+def test_target_arguments_reject_invalid_or_inactive_foundry_capabilities(
+    capabilities: str,
+) -> None:
+    with pytest.raises(ValueError, match="Foundry deploy role configuration is inactive"):
+        guard.target_cli_args(  # noqa: SLF001
+            [guard._PARTNER_ROLE],
+            environment={
+                "TF_VAR_enable_llm": "true",
+                "TF_VAR_resolved_capabilities": capabilities,
+            },
+        )
 
 
 def test_state_features_preserve_only_present_role_owners() -> None:
