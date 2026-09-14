@@ -772,7 +772,11 @@ def test_resolving_one_duplicate_unknown_run_keeps_shared_resource_locked() -> N
     asyncio.run(
         thor.on_typed_message(
             "object.rollback",
-            {"correlation_id": first.correlation_id, "state": "succeeded"},
+            {
+                "correlation_id": first.correlation_id,
+                "state": "succeeded",
+                "rollback_ref": "rollback:first",
+            },
         )
     )
 

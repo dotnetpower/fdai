@@ -1022,12 +1022,10 @@ class Thor(Agent):
         correlation: str,
     ) -> None:
         run = self.action_runs.get(correlation)
-        if (
-            run is not None
-            and run.state is ActionRunState.ROLLBACK_FAILED
-            and rollback.get("state") == "succeeded"
-        ):
-            run.rollback_ref = str(rollback.get("rollback_ref") or "") or None
+        rollback_ref = _bounded_rollback_ref(rollback.get("rollback_ref"))
+        succeeded = rollback.get("state") == "succeeded" and rollback_ref is not None
+        if run is not None and run.state is ActionRunState.ROLLBACK_FAILED and succeeded:
+            run.rollback_ref = rollback_ref
             run.outcome = "rollback_succeeded"
             run.transition(ActionRunState.ROLLED_BACK)
             await self._emit_action_run(run)
@@ -1046,8 +1044,7 @@ class Thor(Agent):
             ActionRunState.EXECUTION_UNKNOWN,
         }:
             return
-        succeeded = rollback.get("state") == "succeeded"
-        run.rollback_ref = str(rollback.get("rollback_ref") or "") or None
+        run.rollback_ref = rollback_ref if succeeded else None
         run.outcome = "rollback_succeeded" if succeeded else "rollback_failed"
         run.transition(ActionRunState.ROLLED_BACK if succeeded else ActionRunState.ROLLBACK_FAILED)
         await self._emit_action_run(run)
@@ -1258,6 +1255,13 @@ __all__ = [
     "ActionRunStore",
     "ExecutionAuditRecorder",
 ]
+
+
+def _bounded_rollback_ref(raw: object) -> str | None:
+    if not isinstance(raw, str):
+        return None
+    normalized = raw.strip()
+    return normalized if normalized and len(normalized) <= 2_048 else None
 
 
 def _bounded_decision_case(raw: object) -> dict[str, Any] | None:

@@ -31,6 +31,7 @@ from fdai.shared.providers.state_store import StateStore
 _ROLLBACK_STATE_PREFIX = "pantheon/vidar/rollback"
 _DEFAULT_CLAIM_LEASE = timedelta(minutes=5)
 _MAX_CLAIM_LEASE = timedelta(hours=1)
+_MAX_ROLLBACK_REF_LENGTH = 2_048
 _ROLLBACK_COMMAND_FIELDS = (
     "correlation_id",
     "idempotency_key",
@@ -317,15 +318,15 @@ class Vidar(Agent):
             notes = "rollback refused because correlation_id is empty"
         elif executor is not None:
             try:
-                rollback_ref = await executor(_rollback_command(action_run, contract=contract))
+                returned_ref = await executor(_rollback_command(action_run, contract=contract))
             except Exception as exc:  # noqa: BLE001 - provider boundary; fail closed
                 notes = f"rollback executor raised {type(exc).__name__}"
             else:
-                if rollback_ref:
+                rollback_ref = _normalize_rollback_ref(returned_ref)
+                if rollback_ref is not None:
                     state = "succeeded"
                     notes = "rollback executor completed"
                 else:
-                    rollback_ref = None
                     notes = "rollback executor returned no receipt"
         rec = RollbackRecord(
             correlation_id=correlation_id,
@@ -546,9 +547,8 @@ def _rollback_record_state(
         or (
             rec.state == "succeeded"
             and (
-                not isinstance(rec.rollback_ref, str)
-                or not rec.rollback_ref
-                or len(rec.rollback_ref) > 2_048
+                rec.rollback_ref is None
+                or _normalize_rollback_ref(rec.rollback_ref) != rec.rollback_ref
             )
         )
         or (rec.state != "succeeded" and rec.rollback_ref is not None)
@@ -621,6 +621,15 @@ def _is_sha256_digest(value: object) -> bool:
         and len(value) == 71
         and all(character in "0123456789abcdef" for character in value[7:])
     )
+
+
+def _normalize_rollback_ref(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    if not normalized or len(normalized) > _MAX_ROLLBACK_REF_LENGTH:
+        return None
+    return normalized
 
 
 def _parse_lease_expiry(value: str) -> datetime:

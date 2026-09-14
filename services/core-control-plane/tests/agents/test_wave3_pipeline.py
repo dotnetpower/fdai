@@ -1224,6 +1224,80 @@ def test_vidar_missing_executor_fails_closed_and_retains_thor_lock() -> None:
     assert rollback["contract"] == "scripted"
 
 
+def test_vidar_blank_receipt_fails_closed_and_retains_thor_lock() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+
+    async def failing(_ctx):
+        return False
+
+    async def blank_rollback_receipt(_action_run):
+        return "   "
+
+    thor = Thor(bus=bus, executor=failing)
+    vidar = Vidar(
+        bus=bus,
+        executors={"state_forward_only": blank_rollback_receipt},
+    )
+    bus.subscribe("object.action-run", "Vidar", vidar.on_typed_message)
+    bus.subscribe("object.rollback", "Thor", thor.on_typed_message)
+
+    run = asyncio.run(
+        thor.dispatch_verdict(
+            {
+                "correlation_id": "c-blank-rollback",
+                "action_type": "ops.restart-service",
+                "risk_verdict": "auto",
+                "resolved_autonomy_ceiling": "enforce_auto",
+                "resource_id": "vm-blank-rollback",
+            }
+        )
+    )
+
+    assert run.state == ActionRunState.ROLLBACK_FAILED
+    assert run.rollback_ref is None
+    assert "vm-blank-rollback" in thor._resource_locks
+    rollback = bus.messages_on("object.rollback")[0].payload
+    assert rollback["state"] == "failed"
+    assert rollback["rollback_ref"] is None
+
+
+def test_thor_rejects_blank_succeeded_rollback_receipt() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+
+    async def failing(_ctx):
+        return False
+
+    thor = Thor(bus=bus, executor=failing)
+    run = asyncio.run(
+        thor.dispatch_verdict(
+            {
+                "correlation_id": "c-forged-blank-rollback",
+                "action_type": "ops.restart-service",
+                "risk_verdict": "auto",
+                "resolved_autonomy_ceiling": "enforce_auto",
+                "resource_id": "vm-forged-blank-rollback",
+            }
+        )
+    )
+    assert run.state == ActionRunState.FAILED
+
+    asyncio.run(
+        thor.on_typed_message(
+            "object.rollback",
+            {
+                "correlation_id": "c-forged-blank-rollback",
+                "state": "succeeded",
+                "rollback_ref": "   ",
+            },
+        )
+    )
+
+    assert run.state == ActionRunState.ROLLBACK_FAILED
+    assert run.outcome == "rollback_failed"
+    assert run.rollback_ref is None
+    assert "vm-forged-blank-rollback" in thor._resource_locks
+
+
 def test_vidar_rollback_is_idempotent_per_correlation() -> None:
     # At-least-once delivery can redeliver the same failed ActionRun. A real
     # rollback contract (PITR restore, revert) is not a no-op if applied
@@ -1428,7 +1502,10 @@ def test_vidar_ignores_regenerated_terminal_delivery_metadata() -> None:
     assert calls[0]["params"] == {"reason": "healthcheck"}
 
 
-@pytest.mark.parametrize("corruption", ["missing_schema", "missing_success_receipt"])
+@pytest.mark.parametrize(
+    "corruption",
+    ["missing_schema", "missing_success_receipt", "blank_success_receipt"],
+)
 def test_vidar_rejects_noncanonical_durable_terminal_state(
     corruption: str,
 ) -> None:
@@ -1468,8 +1545,10 @@ def test_vidar_rejects_noncanonical_durable_terminal_state(
             "completed_by_owner_token",
         ):
             corrupted.pop(field)
-    else:
+    elif corruption == "missing_success_receipt":
         corrupted["rollback_ref"] = None
+    else:
+        corrupted["rollback_ref"] = "   "
     asyncio.run(store.write_state(state_key, corrupted))
 
     restarted = Vidar(
