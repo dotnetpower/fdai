@@ -32,7 +32,7 @@ if (( $# > 0 )); then
   files=()
   for file in "$@"; do
     case "$file" in
-      *.png|*.jpg|*.jpeg|*.gif|*.webp|*.svg|*.pdf|*.ico|*.woff|*.woff2|*.ttf|*.otf|*.gz|uv.lock|*.jsonl) ;;
+      *.png|*.jpg|*.jpeg|*.gif|*.webp|*.svg|*.mp4|*.pdf|*.ico|*.woff|*.woff2|*.ttf|*.otf|*.gz|uv.lock|*.jsonl) ;;
       *) [[ -f "$file" ]] && files+=("$file") ;;
     esac
   done
@@ -45,6 +45,7 @@ else
       ':(exclude)*.gif' \
       ':(exclude)*.webp' \
       ':(exclude)*.svg' \
+      ':(exclude)*.mp4' \
       ':(exclude)*.pdf' \
       ':(exclude)*.ico' \
       ':(exclude)*.woff' \

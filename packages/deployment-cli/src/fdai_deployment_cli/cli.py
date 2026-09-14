@@ -155,6 +155,24 @@ def _provision_azure(args: argparse.Namespace) -> int:
     if selected_dir is None:
         selected_dir = Path.home() / ".local/state/fdai/azure"
     work_dir = selected_dir if selected_dir.is_absolute() else Path.cwd() / selected_dir
+    adoption_paths = tuple(
+        getattr(args, name)
+        for name in (
+            "adopt_application_state",
+            "adopt_application_recovery",
+            "adopt_resolved_models",
+        )
+    )
+    if any(path is not None for path in adoption_paths) and not all(
+        path is not None for path in adoption_paths
+    ):
+        raise ValueError("recovered public deployment requires all three adoption inputs")
+
+    def adoption_path(value: Path | None) -> Path | None:
+        if value is None or value.is_absolute():
+            return value
+        return Path.cwd() / value
+
     mode = args.progress if args.output == "text" else "off"
     with DeploymentProgress(mode=mode) as progress:
         result = deploy_azure_foundation(
@@ -167,6 +185,9 @@ def _provision_azure(args: argparse.Namespace) -> int:
             timeout_seconds=args.timeout_seconds,
             license_signing_key=args.license_signing_key,
             trial_token=args.trial_token,
+            adopt_application_state=adoption_path(args.adopt_application_state),
+            adopt_application_recovery=adoption_path(args.adopt_application_recovery),
+            adopt_resolved_models=adoption_path(args.adopt_resolved_models),
         )
         if result.get("deployment_ready") is not True:
             raise ValueError("standalone deployment did not return verified deployment readiness")

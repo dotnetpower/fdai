@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -10,6 +12,7 @@ from types import SimpleNamespace
 import pytest
 
 from fdai_deployment_cli import standalone_application, standalone_host
+from fdai_deployment_cli.application_state_adoption import ApplicationStateAdoption
 from fdai_deployment_cli.contracts import canonical_digest
 
 
@@ -200,6 +203,326 @@ def test_remote_preparation_uses_only_fixed_argument_commands(tmp_path: Path) ->
     assert all(command[0] not in {"bash", "sh"} for command in tunnel.commands)
     assert any(command[:3] == ("python3", "-m", "venv") for command in tunnel.commands)
     assert tunnel.commands[-1][1:3] == ("-m", "fdai_deployment_cli.standalone_host")
+
+
+def test_remote_preparation_transfers_exact_adoption_inputs(tmp_path: Path) -> None:
+    class Tunnel:
+        def __init__(self) -> None:
+            self.commands: list[tuple[str, ...]] = []
+            self.copies: list[tuple[Path, str]] = []
+
+        def ssh(self, command: tuple[str, ...], *, timeout: int):
+            del timeout
+            self.commands.append(command)
+            stdout = "a" * 64 + "  kit.tar.gz\n" if command[0] == "sha256sum" else ""
+            return SimpleNamespace(returncode=0, stdout=stdout)
+
+        def copy_to(self, source: Path, destination: str, *, timeout: int) -> None:
+            del timeout
+            self.copies.append((source, destination))
+
+    paths = [
+        tmp_path / name for name in ("archive", "handoff", "entra", "state", "models", "adoption")
+    ]
+    for path in paths:
+        path.write_text(path.name, encoding="utf-8")
+    adoption = ApplicationStateAdoption(
+        state=paths[3],
+        resolved_models=paths[4],
+        descriptor=paths[5],
+        resource_name_suffix="abcdef",
+        managed_resource_count=3,
+    )
+    tunnel = Tunnel()
+
+    standalone_application._prepare_remote(
+        tunnel,
+        remote_root="/home/fdai/.fdai-transfer-abc",
+        remote_archive="/home/fdai/.fdai-transfer-abc/kit.tar.gz",
+        archive=paths[0],
+        archive_digest="a" * 64,
+        handoff_path=paths[1],
+        remote_handoff="/home/fdai/.fdai-transfer-abc/handoff.json",
+        entra_path=paths[2],
+        remote_entra="/home/fdai/.fdai-transfer-abc/entra.json",
+        app_work="/home/fdai/.fdai-transfer-abc/application",
+        application_state_adoption=adoption,
+        remote_adoption_state="/home/fdai/.fdai-transfer-abc/application-state.json",
+        remote_adoption_models="/home/fdai/.fdai-transfer-abc/resolved-models.json",
+        remote_adoption_descriptor="/home/fdai/.fdai-transfer-abc/adoption.json",
+        timeout_seconds=1800,
+    )
+
+    assert tunnel.copies[-3:] == [
+        (paths[3], "/home/fdai/.fdai-transfer-abc/application-state.json"),
+        (paths[4], "/home/fdai/.fdai-transfer-abc/resolved-models.json"),
+        (paths[5], "/home/fdai/.fdai-transfer-abc/adoption.json"),
+    ]
+    prepare = tunnel.commands[-1]
+    assert prepare[prepare.index("--adoption-state") + 1].endswith("application-state.json")
+    assert prepare[prepare.index("--adoption-models") + 1].endswith("resolved-models.json")
+    assert prepare[prepare.index("--adoption-descriptor") + 1].endswith("adoption.json")
+
+
+def _adoption_inputs(tmp_path: Path) -> tuple[dict[str, object], Path, Path, Path]:
+    tmp_path.chmod(0o700)
+    state = tmp_path / "application-state.json"
+    models = tmp_path / "resolved-models.json"
+    descriptor_path = tmp_path / "adoption.json"
+    payload = {
+        "version": 4,
+        "serial": 2,
+        "lineage": "lineage",
+        "resources": [
+            {
+                "mode": "managed",
+                "type": "terraform_data",
+                "name": "example",
+                "instances": [{"attributes": {"id": "opaque"}}],
+            }
+        ],
+    }
+    state.write_text(json.dumps(payload), encoding="utf-8")
+    models.write_text("{}", encoding="utf-8")
+    descriptor_path.write_text("{}", encoding="utf-8")
+    for path in (state, models, descriptor_path):
+        path.chmod(0o600)
+    descriptor: dict[str, object] = {
+        "staged_state_sha256": standalone_host._file_digest(state),
+        "managed_resource_count": 1,
+    }
+    return descriptor, state, models, descriptor_path
+
+
+@pytest.mark.parametrize("change", ["count", "owner"])
+def test_staged_application_state_is_rejected_before_push(tmp_path: Path, change: str) -> None:
+    descriptor, state, _models, _descriptor_path = _adoption_inputs(tmp_path)
+    if change == "count":
+        descriptor["managed_resource_count"] = 2
+    else:
+        payload = json.loads(state.read_text(encoding="utf-8"))
+        payload["resources"].append(
+            {
+                "module": "module.resource_group",
+                "mode": "managed",
+                "type": "terraform_data",
+                "name": "ownership",
+                "instances": [{"attributes": {"input": "managed"}}],
+            }
+        )
+        state.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="count differs|retains a resource-group owner"):
+        standalone_host._validate_staged_application_state(state, descriptor)
+
+
+def test_deployment_binding_uses_terraform_core_app_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "substrate-receipt.json").write_text("{}", encoding="utf-8")
+    context = {
+        "infra": str(tmp_path / "infra"),
+        "tenant_id": "00000000-0000-0000-0000-000000000001",
+        "subscription_id": "00000000-0000-0000-0000-000000000002",
+    }
+    context_path = tmp_path / "context.json"
+    context_path.write_text(json.dumps(context), encoding="utf-8")
+    context_path.chmod(0o600)
+    observed: list[tuple[Path, str]] = []
+
+    def terraform_output(infra: Path, name: str) -> str:
+        observed.append((infra, name))
+        return "ca-fdai-dev-wus2-core"
+
+    monkeypatch.setattr(standalone_host, "_terraform_output", terraform_output)
+    result = standalone_host._deployment_binding(SimpleNamespace(), tmp_path)
+
+    expected = hashlib.sha256(
+        (f"{context['tenant_id']}\0{context['subscription_id']}\0ca-fdai-dev-wus2-core").encode()
+    ).hexdigest()
+    assert result["deployment_binding"] == expected
+    assert result["terraform_name_verified"] is True
+    assert observed == [(tmp_path / "infra", "core_app_name")]
+
+
+def test_application_state_adoption_pushes_once_and_verifies(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    descriptor, state, models, descriptor_path = _adoption_inputs(tmp_path)
+    expected = state.read_text(encoding="utf-8")
+    calls: list[tuple[str, ...]] = []
+
+    def capture(command: tuple[str, ...], **_kwargs: object) -> str:
+        calls.append(command)
+        if command[:4] == ("az", "storage", "blob", "exists"):
+            return "false\n"
+        payload = json.loads(expected)
+        payload["serial"] += 1
+        return json.dumps(payload)
+
+    monkeypatch.setattr(standalone_host, "_capture", capture)
+    monkeypatch.setattr(
+        standalone_host,
+        "_run",
+        lambda command, **_kwargs: calls.append(tuple(command)),
+    )
+    context = {
+        "infra": str(tmp_path),
+        "target_binding": "a" * 64,
+        "foundation_binding_digest": "b" * 64,
+        "state_account": "stateaccount",
+        "state_container": "tfstate",
+        "state_key": "fdai-dev.tfstate",
+    }
+
+    standalone_host._adopt_application_state(
+        tmp_path, context, descriptor, state, models, descriptor_path
+    )
+
+    assert sum(command[:3] == ("terraform", "state", "push") for command in calls) == 1
+    assert not state.exists() and not models.exists() and not descriptor_path.exists()
+    receipt = json.loads(
+        (tmp_path / "application-state-adoption-receipt.json").read_text(encoding="utf-8")
+    )
+    assert receipt["remote_backend_authority_verified"] is True
+    assert receipt["remote_state_lineage"] == "lineage"
+    assert receipt["remote_state_serial"] == 3
+    assert receipt["azure_resource_mutation_performed"] is False
+    assert receipt["original_state_retained"] is True
+
+
+def test_application_state_adoption_claim_resumes_verification_without_push(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    descriptor, state, models, descriptor_path = _adoption_inputs(tmp_path)
+    context = {
+        "infra": str(tmp_path),
+        "target_binding": "a" * 64,
+        "foundation_binding_digest": "b" * 64,
+        "state_account": "stateaccount",
+        "state_container": "tfstate",
+        "state_key": "fdai-dev.tfstate",
+    }
+    claim = {
+        "schema_version": "fdai.application-state-adoption-claim.v1",
+        "target_binding": context["target_binding"],
+        "foundation_binding_digest": context["foundation_binding_digest"],
+        "adoption_descriptor_digest": canonical_digest(descriptor),
+        "staged_state_sha256": descriptor["staged_state_sha256"],
+        "managed_resource_count": 1,
+        "mutation_performed": False,
+    }
+    (tmp_path / "application-state-adoption-claim.json").write_text(
+        json.dumps(claim), encoding="utf-8"
+    )
+    (tmp_path / "application-state-adoption-claim.json").chmod(0o600)
+
+    def pull_state(_command: tuple[str, ...], **_kwargs: object) -> str:
+        payload = json.loads(state.read_text())
+        payload["serial"] += 1
+        return json.dumps(payload)
+
+    monkeypatch.setattr(standalone_host, "_capture", pull_state)
+    monkeypatch.setattr(
+        standalone_host,
+        "_run",
+        lambda *_args, **_kwargs: pytest.fail("verification resume must not push state"),
+    )
+
+    standalone_host._adopt_application_state(
+        tmp_path, context, descriptor, state, models, descriptor_path
+    )
+
+    assert (tmp_path / "application-state-adoption-receipt.json").is_file()
+
+
+def test_application_state_adoption_rejects_occupied_or_mismatched_remote(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    descriptor, state, models, descriptor_path = _adoption_inputs(tmp_path)
+    context = {
+        "infra": str(tmp_path),
+        "target_binding": "a" * 64,
+        "foundation_binding_digest": "b" * 64,
+        "state_account": "stateaccount",
+        "state_container": "tfstate",
+        "state_key": "fdai-dev.tfstate",
+    }
+    monkeypatch.setattr(standalone_host, "_capture", lambda *_args, **_kwargs: "occupied\n")
+    with pytest.raises(ValueError, match="existence is invalid"):
+        standalone_host._adopt_application_state(
+            tmp_path, context, descriptor, state, models, descriptor_path
+        )
+    assert not (tmp_path / "application-state-adoption-claim.json").exists()
+
+    monkeypatch.setattr(
+        standalone_host,
+        "_capture",
+        lambda command, **_kwargs: (
+            "false\n" if command[:4] == ("az", "storage", "blob", "exists") else "{}"
+        ),
+    )
+    monkeypatch.setattr(standalone_host, "_run", lambda *_args, **_kwargs: None)
+    with pytest.raises(ValueError, match="differs"):
+        standalone_host._adopt_application_state(
+            tmp_path, context, descriptor, state, models, descriptor_path
+        )
+    assert (tmp_path / "application-state-adoption-claim.json").is_file()
+    assert not (tmp_path / "application-state-adoption-receipt.json").exists()
+
+
+def test_application_state_adoption_receipt_accepts_advanced_same_lineage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    descriptor, state, models, descriptor_path = _adoption_inputs(tmp_path)
+    context = {
+        "infra": str(tmp_path),
+        "target_binding": "a" * 64,
+        "foundation_binding_digest": "b" * 64,
+        "state_account": "stateaccount",
+        "state_container": "tfstate",
+        "state_key": "fdai-dev.tfstate",
+    }
+    claim = {
+        "schema_version": "fdai.application-state-adoption-claim.v1",
+        "target_binding": context["target_binding"],
+        "foundation_binding_digest": context["foundation_binding_digest"],
+        "adoption_descriptor_digest": canonical_digest(descriptor),
+        "staged_state_sha256": descriptor["staged_state_sha256"],
+        "managed_resource_count": 1,
+        "mutation_performed": False,
+    }
+    receipt = {
+        "schema_version": "fdai.application-state-adoption-receipt.v1",
+        "state": "adopted",
+        "claim_digest": canonical_digest(claim),
+        "remote_state_sha256": "c" * 64,
+        "remote_state_lineage": "lineage",
+        "remote_state_serial": 3,
+        "managed_resource_count": 1,
+        "remote_backend_authority_verified": True,
+        "original_state_retained": True,
+        "azure_resource_mutation_performed": False,
+        "mutation_performed": True,
+        "subscription_ready": False,
+    }
+    (tmp_path / "application-state-adoption-receipt.json").write_text(
+        json.dumps(receipt), encoding="utf-8"
+    )
+    (tmp_path / "application-state-adoption-receipt.json").chmod(0o600)
+    monkeypatch.setattr(
+        standalone_host,
+        "_capture",
+        lambda *_args, **_kwargs: json.dumps(
+            {"version": 4, "serial": 9, "lineage": "lineage", "resources": []}
+        ),
+    )
+
+    standalone_host._adopt_application_state(
+        tmp_path, context, descriptor, state, models, descriptor_path
+    )
+
+    assert not state.exists() and not models.exists() and not descriptor_path.exists()
 
 
 def test_destructive_plan_requires_a_second_exact_confirmation(

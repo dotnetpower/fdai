@@ -26,7 +26,7 @@ export class FlowPanel {
         <div id="broadcast-detail"></div>
       </details>
       <div class="arg-budget"><span>Huginn / <span data-copy="inventoryWorker"></span></span>
-        <strong>ARG ${ARG_VISUAL_HZ} req/s</strong></div>
+        <strong>Azure Resource Graph ${ARG_VISUAL_HZ} req/s</strong></div>
       <div class="arg-workflows"></div>
       <p class="rate-note" data-copy="argRateNote"></p>`;
     this.parallelCount = root.querySelector("#parallel-count")!;
@@ -88,7 +88,7 @@ export class FlowPanel {
     for (const workflow of ARG_WORKFLOWS) {
       const button = this.root.querySelector<HTMLButtonElement>(`[data-arg-workflow="${workflow.id}"]`)!;
       button.textContent = localized(workflow.purpose, locale);
-      button.title = `${workflow.entry}() -> ${workflow.query}() -> Azure ARG`;
+      button.title = `${workflow.entry}() -> ${workflow.query}() -> Azure Resource Graph`;
     }
   }
 }

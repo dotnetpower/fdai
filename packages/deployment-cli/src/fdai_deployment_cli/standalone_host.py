@@ -26,6 +26,7 @@ from fdai_deployment_cli.trust_roots import license_public_key_pem
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
+_SOURCE_COMMIT = re.compile(r"[0-9a-f]{40}")
 _STAGES: Final = ("substrate", "application")
 _SUBSTRATE_TARGETS: Final = (
     "module.resource_group",
@@ -66,6 +67,9 @@ def main(argv: list[str] | None = None) -> int:
     prepare.add_argument("--kit", type=Path, required=True)
     prepare.add_argument("--handoff", type=Path, required=True)
     prepare.add_argument("--entra", type=Path, required=True)
+    prepare.add_argument("--adoption-state", type=Path)
+    prepare.add_argument("--adoption-models", type=Path)
+    prepare.add_argument("--adoption-descriptor", type=Path)
     prepare.set_defaults(handler=_prepare)
 
     plan = subcommands.add_parser("plan")
@@ -83,6 +87,9 @@ def main(argv: list[str] | None = None) -> int:
 
     images = subcommands.add_parser("import-images")
     images.set_defaults(handler=_import_images)
+
+    binding = subcommands.add_parser("deployment-binding")
+    binding.set_defaults(handler=_deployment_binding)
 
     migrate = subcommands.add_parser("migrate")
     migrate.set_defaults(handler=_migrate)
@@ -132,6 +139,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         app=app,
     )
     entra_binding_digest = canonical_digest(entra)
+    adoption = _application_state_adoption(args)
+    adoption_digest = canonical_digest(adoption[0]) if adoption is not None else ""
     _managed_identity_login(subscription, tenant, client_id, principal_id, work_dir)
     retained_context = work_dir / "context.json"
     retained_variables = work_dir / "application.auto.tfvars.json"
@@ -147,9 +156,12 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             or retained.get("principal_id") != principal_id
             or retained.get("foundation_binding_digest") != foundation_binding_digest
             or retained.get("entra_binding_digest") != entra_binding_digest
+            or retained.get("application_state_adoption_digest", "") != adoption_digest
         ):
             raise ValueError("standalone host retained context differs")
         _terraform_init(work_dir, retained)
+        if adoption is not None:
+            _adopt_application_state(work_dir, retained, *adoption)
         return {
             "schema_version": "fdai.standalone-host-prepare.v1",
             "state": "prepared",
@@ -186,9 +198,13 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     if not backend.exists():
         shutil.copyfile(backend_example, backend)
         backend.chmod(0o600)
-    suffix = hashlib.sha256(str(handoff["run_digest"]).encode()).hexdigest()[:6]
+    suffix = (
+        str(adoption[0]["resource_name_suffix"])
+        if adoption is not None
+        else hashlib.sha256(str(handoff["run_digest"]).encode()).hexdigest()[:6]
+    )
     region = str(handoff["region"])
-    region_short = region[:3]
+    region_short = str(handoff["region_short"])
     registry = f"crfdaidev{region_short}{suffix}"
     login_server = f"{registry}.azurecr.io"
     runtime = kit.runtime.to_mapping()
@@ -248,7 +264,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "enable_operator_api": True,
         "enable_isolated_executor": True,
         "enable_document_ingestion": False,
-        "enable_llm": False,
+        "enable_llm": adoption is not None,
         "operator_api_audience": str(entra["OPERATOR_API_AUDIENCE"]),
         "rbac_readers_group_id": str(entra["RBAC_READERS_GROUP_ID"]),
         "rbac_contributors_group_id": str(entra["RBAC_CONTRIBUTORS_GROUP_ID"]),
@@ -258,6 +274,14 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "stewardship_maintainers": operator_id,
         "stewardship_agent_bindings": {name: f"user:{operator_id}" for name in steward_names},
     }
+    if adoption is not None:
+        values.update(
+            resolved_capabilities=adoption[0]["resolved_capabilities"],
+            resolved_models_json=read_private_bytes(adoption[2], max_bytes=8 * 1024 * 1024).decode(
+                "utf-8"
+            ),
+            resolved_models_sha256=adoption[0]["resolved_models_sha256"],
+        )
     context: dict[str, object] = {
         "source_commit": kit.source_commit,
         "target_binding": compute_target_binding(
@@ -270,6 +294,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "principal_id": principal_id,
         "foundation_binding_digest": foundation_binding_digest,
         "entra_binding_digest": entra_binding_digest,
+        "application_state_adoption_digest": adoption_digest,
         "state_resource_group": str(ops["resource_group_name"]),
         "state_account": str(state["account_name"]),
         "state_container": str(state["container_name"]),
@@ -288,12 +313,15 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     _replace_private_json(work_dir / "application.auto.tfvars.json", values)
     _replace_private_json(work_dir / "context.json", context)
     _terraform_init(work_dir, context)
+    if adoption is not None:
+        _adopt_application_state(work_dir, context, *adoption)
     return {
         "schema_version": "fdai.standalone-host-prepare.v1",
         "state": "prepared",
         "source_commit": kit.source_commit,
         "kit_manifest_digest": kit.verification.manifest_digest,
         "runtime_release_digest": kit.runtime.digest,
+        "application_state_adopted": adoption is not None,
         "mutation_performed": False,
         "subscription_ready": False,
     }
@@ -885,6 +913,267 @@ def _terraform_init(work_dir: Path, context: dict[str, object]) -> None:
     )
 
 
+def _application_state_adoption(
+    args: argparse.Namespace,
+) -> tuple[dict[str, Any], Path, Path, Path] | None:
+    paths = tuple(
+        getattr(args, name) for name in ("adoption_state", "adoption_models", "adoption_descriptor")
+    )
+    if not any(path is not None for path in paths):
+        return None
+    if not all(isinstance(path, Path) for path in paths):
+        raise ValueError("standalone application state adoption inputs are incomplete")
+    state_path, models_path, descriptor_path = (_absolute(path) for path in paths)
+    descriptor = _private_json(descriptor_path, "application state adoption descriptor")
+    expected_fields = {
+        "schema_version",
+        "state",
+        "source_state_sha256",
+        "staged_state_sha256",
+        "resolved_models_sha256",
+        "recovery_receipt_sha256",
+        "source_commit",
+        "verified_source_commit",
+        "resource_name_suffix",
+        "managed_resource_count",
+        "removed_addresses",
+        "resolved_capabilities",
+        "original_state_retained",
+        "remote_backend_authority_verified",
+        "mutation_performed",
+        "subscription_ready",
+    }
+    if (
+        set(descriptor) != expected_fields
+        or descriptor.get("schema_version") != "fdai.application-state-adoption.v1"
+        or descriptor.get("state") != "staged"
+        or descriptor.get("staged_state_sha256") != _file_digest(state_path)
+        or descriptor.get("resolved_models_sha256") != _file_digest(models_path)
+        or _DIGEST.fullmatch(str(descriptor.get("source_state_sha256", ""))) is None
+        or _DIGEST.fullmatch(str(descriptor.get("recovery_receipt_sha256", ""))) is None
+        or _SOURCE_COMMIT.fullmatch(str(descriptor.get("source_commit", ""))) is None
+        or _SOURCE_COMMIT.fullmatch(str(descriptor.get("verified_source_commit", ""))) is None
+        or re.fullmatch(r"[a-z0-9]{6}", str(descriptor.get("resource_name_suffix", ""))) is None
+        or type(descriptor.get("managed_resource_count")) is not int
+        or descriptor["managed_resource_count"] <= 0
+        or descriptor.get("removed_addresses")
+        != [
+            "module.resource_group.terraform_data.ownership",
+            "module.resource_group.azurerm_resource_group.primary[0]",
+        ]
+        or not isinstance(descriptor.get("resolved_capabilities"), list)
+        or not descriptor["resolved_capabilities"]
+        or descriptor.get("original_state_retained") is not True
+        or descriptor.get("remote_backend_authority_verified") is not False
+        or descriptor.get("mutation_performed") is not False
+        or descriptor.get("subscription_ready") is not False
+    ):
+        raise ValueError("standalone application state adoption descriptor is invalid")
+    _validate_staged_application_state(state_path, descriptor)
+    return descriptor, state_path, models_path, descriptor_path
+
+
+def _validate_staged_application_state(state_path: Path, descriptor: dict[str, Any]) -> None:
+    state = json.loads(read_private_bytes(state_path, max_bytes=64 * 1024 * 1024))
+    if (
+        not isinstance(state, dict)
+        or state.get("version") != 4
+        or type(state.get("serial")) is not int
+        or not isinstance(state.get("lineage"), str)
+        or not state["lineage"]
+        or not isinstance(state.get("resources"), list)
+    ):
+        raise ValueError("standalone application staged state is invalid")
+    managed_count = 0
+    owner_addresses = {
+        ("module.resource_group", "terraform_data", "ownership"),
+        ("module.resource_group", "azurerm_resource_group", "primary"),
+    }
+    for value in state["resources"]:
+        if not isinstance(value, dict) or not isinstance(value.get("instances"), list):
+            raise ValueError(  # noqa: TRY004 - normalize state JSON into a stable CLI error
+                "standalone application staged state resource is invalid"
+            )
+        instances = value["instances"]
+        if (
+            instances
+            and (
+                value.get("module"),
+                value.get("type"),
+                value.get("name"),
+            )
+            in owner_addresses
+        ):
+            raise ValueError("standalone application staged state retains a resource-group owner")
+        if value.get("mode") == "managed":
+            managed_count += len(instances)
+    if managed_count != descriptor["managed_resource_count"]:
+        raise ValueError("standalone application staged state count differs")
+
+
+def _adopt_application_state(
+    work_dir: Path,
+    context: dict[str, object],
+    descriptor: dict[str, Any],
+    state_path: Path,
+    models_path: Path,
+    descriptor_path: Path,
+) -> None:
+    infra = Path(str(context["infra"]))
+    claim_path = work_dir / "application-state-adoption-claim.json"
+    receipt_path = work_dir / "application-state-adoption-receipt.json"
+    claim: dict[str, object] = {
+        "schema_version": "fdai.application-state-adoption-claim.v1",
+        "target_binding": context["target_binding"],
+        "foundation_binding_digest": context["foundation_binding_digest"],
+        "adoption_descriptor_digest": canonical_digest(descriptor),
+        "staged_state_sha256": descriptor["staged_state_sha256"],
+        "managed_resource_count": descriptor["managed_resource_count"],
+        "mutation_performed": False,
+    }
+    if receipt_path.exists():
+        retained_receipt = _private_json(receipt_path, "application state adoption receipt")
+        if (
+            retained_receipt.get("schema_version") != "fdai.application-state-adoption-receipt.v1"
+            or retained_receipt.get("claim_digest") != canonical_digest(claim)
+            or retained_receipt.get("state") != "adopted"
+            or retained_receipt.get("remote_backend_authority_verified") is not True
+            or retained_receipt.get("original_state_retained") is not True
+        ):
+            raise ValueError("retained application state adoption receipt differs")
+        _verify_remote_application_state_continuity(infra, retained_receipt)
+        _remove_adoption_inputs(state_path, models_path, descriptor_path)
+        return
+    if claim_path.exists():
+        retained_claim = _private_json(claim_path, "application state adoption claim")
+        if retained_claim != claim:
+            raise ValueError("retained application state adoption claim differs")
+    else:
+        exists = _capture(
+            (
+                "az",
+                "storage",
+                "blob",
+                "exists",
+                "--auth-mode",
+                "login",
+                "--account-name",
+                str(context["state_account"]),
+                "--container-name",
+                str(context["state_container"]),
+                "--name",
+                str(context["state_key"]),
+                "--query",
+                "exists",
+                "--output",
+                "tsv",
+                "--only-show-errors",
+            ),
+            cwd=infra,
+            timeout=120,
+            reason="standalone application remote state existence read failed",
+        ).strip()
+        if exists not in {"true", "false"}:
+            raise ValueError("standalone application remote state existence is invalid")
+        if exists == "true":
+            raise ValueError("standalone application remote state is not empty")
+        write_private_output(
+            claim_path,
+            json.dumps(claim, sort_keys=True, separators=(",", ":")) + "\n",
+        )
+        _run(
+            ("terraform", "state", "push", str(state_path)),
+            cwd=infra,
+            timeout=600,
+            reason="standalone application state push failed; verification-only recovery is required",
+        )
+    remote_digest, remote_lineage, remote_serial = _verify_remote_application_state(
+        infra, state_path, descriptor
+    )
+    adoption_receipt: dict[str, object] = {
+        "schema_version": "fdai.application-state-adoption-receipt.v1",
+        "state": "adopted",
+        "claim_digest": canonical_digest(claim),
+        "remote_state_sha256": remote_digest,
+        "remote_state_lineage": remote_lineage,
+        "remote_state_serial": remote_serial,
+        "managed_resource_count": descriptor["managed_resource_count"],
+        "remote_backend_authority_verified": True,
+        "original_state_retained": True,
+        "azure_resource_mutation_performed": False,
+        "mutation_performed": True,
+        "subscription_ready": False,
+    }
+    write_private_output(
+        receipt_path,
+        json.dumps(adoption_receipt, sort_keys=True, separators=(",", ":")) + "\n",
+    )
+    _remove_adoption_inputs(state_path, models_path, descriptor_path)
+
+
+def _verify_remote_application_state(
+    infra: Path, state_path: Path, descriptor: dict[str, Any]
+) -> tuple[str, str, int]:
+    expected = json.loads(read_private_bytes(state_path, max_bytes=64 * 1024 * 1024))
+    remote = json.loads(
+        _capture(
+            ("terraform", "state", "pull"),
+            cwd=infra,
+            timeout=300,
+            reason="standalone application remote state readback failed",
+        )
+    )
+    if not isinstance(expected, dict) or not isinstance(remote, dict):
+        raise ValueError(  # noqa: TRY004 - normalize untrusted state into a stable CLI error
+            "standalone application state readback is invalid"
+        )
+    expected_serial = expected.get("serial")
+    if type(expected_serial) is not int or remote.get("serial") != expected_serial + 1:
+        raise ValueError("standalone application remote state serial differs after adoption")
+    remote_serial = remote["serial"]
+    remote_lineage = remote.get("lineage")
+    if not isinstance(remote_lineage, str) or remote_lineage != expected.get("lineage"):
+        raise ValueError("standalone application remote state lineage differs after adoption")
+    expected.pop("serial", None)
+    remote.pop("serial", None)
+    expected.pop("check_results", None)
+    remote.pop("check_results", None)
+    if canonical_digest(expected) != canonical_digest(remote):
+        raise ValueError("standalone application remote state differs after adoption")
+    count = sum(
+        len(resource.get("instances", []))
+        for resource in remote.get("resources", [])
+        if isinstance(resource, dict) and resource.get("mode") == "managed"
+    )
+    if count != descriptor["managed_resource_count"]:
+        raise ValueError("standalone application remote state count differs")
+    return canonical_digest(remote), remote_lineage, remote_serial
+
+
+def _verify_remote_application_state_continuity(infra: Path, receipt: dict[str, Any]) -> None:
+    remote = json.loads(
+        _capture(
+            ("terraform", "state", "pull"),
+            cwd=infra,
+            timeout=300,
+            reason="standalone application remote state continuity readback failed",
+        )
+    )
+    if (
+        not isinstance(remote, dict)
+        or remote.get("lineage") != receipt.get("remote_state_lineage")
+        or type(remote.get("serial")) is not int
+        or type(receipt.get("remote_state_serial")) is not int
+        or remote["serial"] < receipt["remote_state_serial"]
+    ):
+        raise ValueError("standalone application remote state continuity differs")
+
+
+def _remove_adoption_inputs(*paths: Path) -> None:
+    for path in paths:
+        path.unlink(missing_ok=True)
+
+
 def _install_runtime_support(work_dir: Path) -> None:
     environment = work_dir / "runtime-venv"
     if (environment / "bin/python").exists():
@@ -910,6 +1199,27 @@ def _install_runtime_support(work_dir: Path) -> None:
         timeout=900,
         reason="runtime migration support installation failed",
     )
+
+
+def _deployment_binding(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
+    if not (work_dir / "substrate-receipt.json").is_file():
+        raise ValueError("deployment binding requires verified substrate")
+    context = _private_json(work_dir / "context.json", "standalone host context")
+    infra = Path(str(context["infra"]))
+    core_app_name = _terraform_output(infra, "core_app_name")
+    if re.fullmatch(r"[a-z][a-z0-9-]{1,31}", core_app_name) is None:
+        raise ValueError("Terraform core application name is invalid")
+    deployment_binding = hashlib.sha256(
+        (f"{context['tenant_id']}\0{context['subscription_id']}\0{core_app_name}").encode()
+    ).hexdigest()
+    return {
+        "schema_version": "fdai.standalone-deployment-binding.v1",
+        "state": "verified",
+        "deployment_binding": deployment_binding,
+        "terraform_name_verified": True,
+        "mutation_performed": False,
+        "subscription_ready": False,
+    }
 
 
 def _managed_identity_login_from_context(context: dict[str, object], work_dir: Path) -> None:
@@ -1240,6 +1550,7 @@ def _foundation_binding_digest(
             "source_commit": handoff.get("source_commit"),
             "run_digest": handoff.get("run_digest"),
             "region": handoff.get("region"),
+            "region_short": handoff.get("region_short"),
             "runner": runner,
             "state": state,
             "ops": ops,
@@ -1328,7 +1639,9 @@ def _private_json(path: Path, label: str) -> dict[str, Any]:
     except json.JSONDecodeError as exc:
         raise ValueError(f"{label} is invalid") from exc
     if not isinstance(value, dict):
-        raise ValueError(f"{label} is invalid")
+        raise ValueError(  # noqa: TRY004 - normalize untrusted JSON into a stable CLI error
+            f"{label} is invalid"
+        )
     return {str(key): item for key, item in value.items()}
 
 
