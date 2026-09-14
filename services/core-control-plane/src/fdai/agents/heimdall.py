@@ -97,10 +97,25 @@ _ALERT_WINDOW_SECONDS = 3600.0
 _MAX_TRACKED_KEYS = 10_000
 _MAX_EPISODES_PER_RESOURCE = 100
 _INCIDENT_CORRELATION_DISABLED = frozenset({"none", "disabled"})
+_EPISODE_ID_PREFIX = "episode:"
 _SEVERITY_RANK = {
     severity: rank for rank, severity in enumerate(("critical", "high", "medium", "low", "info"))
 }
 _DETECTION_READINESS_EVENT = "detection.readiness.observed"
+
+
+def _incident_episode_id(
+    episode_key: tuple[str, str, str, str],
+    first_evidence_key: str,
+) -> str:
+    """Derive one stable, opaque identity for a bounded repeat episode."""
+
+    canonical = json.dumps(
+        (*episode_key, first_evidence_key),
+        ensure_ascii=True,
+        separators=(",", ":"),
+    )
+    return f"{_EPISODE_ID_PREFIX}{hashlib.sha256(canonical.encode()).hexdigest()}"
 
 
 class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
@@ -139,6 +154,8 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
         self._rate_window = rate_window
         self._recent_events: dict[tuple[str, str, str, str], deque[tuple[float, str, str]]] = {}
         self._recent_episode_keys: dict[str, dict[tuple[str, str, str, str], None]] = {}
+        self._incident_episode_ids: dict[tuple[str, str, str, str], str] = {}
+        self._incident_episode_severities: dict[tuple[str, str, str, str], str] = {}
         self._security_recent: deque[dict[str, Any]] = deque(maxlen=security_window_events)
         self._security_high_threshold = security_high_threshold
         self._alert_counters: Counter[tuple[str, str]] = Counter()
@@ -549,6 +566,9 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
         now = self._clock()
         while history and now - history[0][0] > self._rate_window:
             history.popleft()
+        if not history:
+            self._incident_episode_ids.pop(episode_key, None)
+            self._incident_episode_severities.pop(episode_key, None)
         evidence_key = str(event.get("idempotency_key") or event.get("event_id") or "").strip()
         if evidence_key and any(item[2] == evidence_key for item in history):
             self.record_behavior("repeated_event_duplicate")
@@ -564,6 +584,16 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
             return
         window_tail = list(history)[-self._rate_threshold :]
         if len(window_tail) == self._rate_threshold:
+            severity = min(
+                (event_severity for _, event_severity, _ in window_tail),
+                key=_SEVERITY_RANK.__getitem__,
+            )
+            emitted_severity = self._incident_episode_severities.get(episode_key)
+            if (
+                emitted_severity is not None
+                and _SEVERITY_RANK[severity] >= _SEVERITY_RANK[emitted_severity]
+            ):
+                return
             anomaly = {
                 "producer_principal": "Heimdall",
                 "correlation_id": correlation_id,
@@ -571,10 +601,7 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
                 "target_type": str(event.get("resource_type") or "unknown"),
                 "event_type": event_type,
                 "count_in_window": self._rate_threshold,
-                "severity": min(
-                    (severity for _, severity, _ in window_tail),
-                    key=_SEVERITY_RANK.__getitem__,
-                ),
+                "severity": severity,
                 "incident_correlation": incident_correlation,
             }
             operational_evidence = await self._collect_operational_evidence(event)
@@ -601,6 +628,10 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
                 self._drop_episode(episode_key)
                 return
             evidence_keys = tuple(dict.fromkeys(evidence_key for _, _, evidence_key in window_tail))
+            incident_episode_id = self._incident_episode_ids.setdefault(
+                episode_key,
+                _incident_episode_id(episode_key, evidence_keys[0]),
+            )
             reason_code = "repeated_event_threshold"
             trace_reason = trace_continuity.get("reason_code")
             if isinstance(trace_reason, str) and trace_reason in _TRACE_CONTINUITY_REASONS:
@@ -610,6 +641,7 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
                 "reason_code": reason_code,
                 "evidence_key": evidence_keys[-1],
                 "evidence_keys": evidence_keys,
+                "incident_episode_id": incident_episode_id,
             }
             try:
                 accepted = await self._incident_candidate_hook(candidate)
@@ -620,7 +652,10 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
                     extra={"correlation_id": anomaly["correlation_id"]},
                 )
                 return
-            self._drop_episode(episode_key)
+            if accepted:
+                self._incident_episode_severities[episode_key] = severity
+            else:
+                self._drop_episode(episode_key)
             self.record_behavior("incident_candidate" if accepted else "incident_candidate_held")
 
     async def _collect_operational_evidence(
@@ -664,6 +699,8 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
 
     def _drop_episode(self, episode_key: tuple[str, str, str, str]) -> None:
         self._recent_events.pop(episode_key, None)
+        self._incident_episode_ids.pop(episode_key, None)
+        self._incident_episode_severities.pop(episode_key, None)
         resource_id = episode_key[0]
         resource_episodes = self._recent_episode_keys.get(resource_id)
         if resource_episodes is None:

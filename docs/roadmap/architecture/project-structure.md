@@ -617,7 +617,9 @@ only when its rule id, action type, and fixed check reference still match. Idemp
   no-authority result. An accepted bound incident intent builds its frame and plan deterministically
   without another model call. Any remaining incident frame-model path receives only the `Incident`
   and `query.incident_evidence` descriptors; the complete principal manifest remains authoritative
-  for final plan verification.
+  for final plan verification. Detector-created Incidents retain source correlation separately from
+  a bounded episode identity, so duplicate delivery is idempotent while a recurrence after a quiet
+  window cannot be absorbed into a closed Incident.
   Resource discovery similarly separates immutable `DiscoveryIntent`, `DiscoveryQueryPlan`,
   provider observations, execution receipts, command explanations, and coverage receipts. Core
   compares only provider-neutral scope, predicate, output, completeness, and equivalence fields;

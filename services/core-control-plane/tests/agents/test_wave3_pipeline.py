@@ -1572,6 +1572,91 @@ def test_heimdall_does_not_count_duplicate_event_evidence_toward_threshold() -> 
     assert candidates[0]["evidence_keys"] == ("failure-1", "failure-2")
 
 
+def test_heimdall_uses_one_candidate_per_bounded_episode() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    candidates: list[dict[str, object]] = []
+    clock = {"now": 0.0}
+
+    async def capture(candidate: dict[str, object]) -> bool:
+        candidates.append(candidate)
+        return True
+
+    heimdall = Heimdall(
+        bus=bus,
+        rate_threshold=2,
+        rate_window=60,
+        incident_candidate_hook=capture,
+        clock=lambda: clock["now"],
+    )
+
+    def send(index: int, *, severity: str = "high") -> None:
+        asyncio.run(
+            heimdall.on_typed_message(
+                "object.event",
+                {
+                    "resource_id": "api-example",
+                    "event_type": "availability.probe_failed",
+                    "incident_correlation": "correlate",
+                    "correlation_id": "stable-signal",
+                    "idempotency_key": f"failure-{index}",
+                    "severity": severity,
+                },
+            )
+        )
+
+    send(0)
+    clock["now"] = 1.0
+    send(1)
+    clock["now"] = 2.0
+    send(2)
+
+    assert len(candidates) == 1
+
+    clock["now"] = 63.0
+    send(3)
+    clock["now"] = 64.0
+    send(4)
+
+    assert len(candidates) == 2
+    assert candidates[0]["correlation_id"] == candidates[1]["correlation_id"]
+    assert candidates[0]["incident_episode_id"] != candidates[1]["incident_episode_id"]
+
+
+def test_heimdall_reuses_episode_identity_for_more_severe_evidence() -> None:
+    candidates: list[dict[str, object]] = []
+    clock = {"now": 0.0}
+
+    async def capture(candidate: dict[str, object]) -> bool:
+        candidates.append(candidate)
+        return True
+
+    heimdall = Heimdall(
+        rate_threshold=2,
+        rate_window=60,
+        incident_candidate_hook=capture,
+        clock=lambda: clock["now"],
+    )
+    for index, severity in enumerate(("medium", "medium", "critical")):
+        clock["now"] = float(index)
+        asyncio.run(
+            heimdall.on_typed_message(
+                "object.event",
+                {
+                    "resource_id": "api-example",
+                    "event_type": "availability.probe_failed",
+                    "incident_correlation": "correlate",
+                    "correlation_id": "stable-signal",
+                    "idempotency_key": f"failure-{index}",
+                    "severity": severity,
+                },
+            )
+        )
+
+    assert [candidate["severity"] for candidate in candidates] == ["medium", "critical"]
+    assert candidates[0]["incident_episode_id"] == candidates[1]["incident_episode_id"]
+
+
 def test_heimdall_accumulates_interleaved_episodes_independently() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)

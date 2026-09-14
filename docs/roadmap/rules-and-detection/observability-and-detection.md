@@ -49,7 +49,11 @@ are synthetic.
   threshold or interrupt their independent accumulation. The burst severity is the most severe
   recorded value in that bounded window, not the
   value on whichever Event arrived last. Every Event that satisfies the threshold contributes its
-  stable evidence key to the candidate and the resulting Incident member set. Events marked
+  stable evidence key to the candidate and the resulting Incident member set. An accepted episode
+  emits no duplicate candidate while matching events continue, although a more severe observation
+  can update the same episode. After a quiet interval longer than the repeat window, the next burst
+  receives a new opaque episode id, so a closed earlier Incident cannot absorb the recurrence.
+  Events marked
   `incident_correlation=none`, including
   inventory and discovery changes, never open an Incident. The default automatic-open minimum is
   `high`; an unclassified burst remains `medium` and stays an anomaly. If anomaly publication or

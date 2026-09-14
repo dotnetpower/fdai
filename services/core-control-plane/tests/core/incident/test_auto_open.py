@@ -8,7 +8,7 @@ from fdai.core.incident import (
     evaluate_incident_auto_open,
     open_detected_incident_candidate,
 )
-from fdai.shared.contracts.models import IncidentSeverity
+from fdai.shared.contracts.models import IncidentSeverity, IncidentState
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
@@ -63,6 +63,7 @@ def test_policy_rejects_candidates_without_authority_or_evidence(
         ({"correlation_id": "x" * 513}, "correlation_missing"),
         ({"resource_id": "x" * 513}, "resource_missing"),
         ({"event_type": "x" * 513}, "event_type_missing"),
+        ({"incident_episode_id": "x" * 513}, "incident_episode_invalid"),
         ({"evidence_key": "x" * 513}, "evidence_missing"),
         ({"evidence_keys": tuple(f"evidence-{i}" for i in range(101))}, "evidence_missing"),
     ],
@@ -174,3 +175,41 @@ async def test_shared_helper_preserves_all_burst_members() -> None:
 
     assert result is not None
     assert len(result.incident.member_event_ids) == 2
+
+
+async def test_new_episode_after_closure_creates_a_new_incident() -> None:
+    registry = IncidentRegistry(state_store=InMemoryStateStore())
+    workflow = IncidentLifecycleWorkflow(
+        registry=registry,
+        allowed_agent_principals={"Heimdall"},
+    )
+
+    first = await open_detected_incident_candidate(
+        workflow=workflow,
+        candidate=_candidate(incident_episode_id="episode-a"),
+        policy=IncidentAutoOpenPolicy(),
+    )
+    assert first is not None
+    for state in (
+        IncidentState.TRIAGING,
+        IncidentState.RESOLVED,
+        IncidentState.CLOSED,
+    ):
+        await registry.transition(
+            incident_id=first.incident.incident_id,
+            to_state=state,
+            actor_oid="operator-example",
+        )
+
+    second = await open_detected_incident_candidate(
+        workflow=workflow,
+        candidate=_candidate(
+            incident_episode_id="episode-b",
+            evidence_key="evidence-2",
+        ),
+        policy=IncidentAutoOpenPolicy(),
+    )
+
+    assert second is not None and second.created is True
+    assert second.incident.incident_id != first.incident.incident_id
+    assert len(registry.snapshot()) == 2
