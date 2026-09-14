@@ -43,8 +43,11 @@ describe("browser notification boundary", () => {
     expect(browserAlertForLiveEvent(event({ stage: "audit", detail: { outcome: "succeeded" } }))).toBeNull();
   });
 
-  test("rejects replay and malformed identifiers without exposing raw detail", () => {
+  test("accepts only runtime-observed events with safe identifiers", () => {
     expect(browserAlertForLiveEvent(event({ source: "replay" }))).toBeNull();
+    expect(browserAlertForLiveEvent(event({ source: "synthetic-dev" }))).toBeNull();
+    expect(browserAlertForLiveEvent(event({ source: "unknown" }))).toBeNull();
+    expect(browserAlertForLiveEvent(event({ source: undefined }))).toBeNull();
     expect(browserAlertForLiveEvent(event({ event_id: "event id" }))).toBeNull();
     expect(browserAlertForLiveEvent(event({ correlation_id: "line\nbreak" }))).toBeNull();
     const alert = browserAlertForLiveEvent(event({ error: "credential=value" }));
