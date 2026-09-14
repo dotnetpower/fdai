@@ -218,7 +218,7 @@ def parse_targets(raw: str) -> tuple[AnalyzerTarget, ...]:
     if not isinstance(loaded, list):
         raise ValueError(f"{TARGETS_ENV} MUST be a JSON array")
     targets: list[AnalyzerTarget] = []
-    seen: set[tuple[str, str]] = set()
+    kinds_by_resource: dict[str, str] = {}
     for index, item in enumerate(loaded):
         if not isinstance(item, dict):
             raise ValueError(f"{TARGETS_ENV}[{index}] MUST be an object")
@@ -229,10 +229,14 @@ def parse_targets(raw: str) -> tuple[AnalyzerTarget, ...]:
         target = AnalyzerTarget(
             resource_ref=resource_ref.strip(), resource_kind=resource_kind.strip()
         )
-        identity = (target.resource_ref, target.resource_kind)
-        if identity in seen:
+        previous_kind = kinds_by_resource.get(target.resource_ref)
+        if previous_kind is not None:
+            if previous_kind != target.resource_kind:
+                raise ValueError(
+                    f"{TARGETS_ENV}[{index}] conflicts with an earlier kind for resource_id"
+                )
             continue
-        seen.add(identity)
+        kinds_by_resource[target.resource_ref] = target.resource_kind
         targets.append(target)
     return tuple(targets)
 

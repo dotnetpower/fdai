@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 2e824888453a6da52ffa87870f0d398a43706626
-translation_revised: 2026-09-13
+translation_source_sha: 595615f06355c30ab327b8e655546f7cac9434b1
+translation_revised: 2026-09-14
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 정본(source of truth)입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -178,11 +178,13 @@ Public-network 프로파일에서 운영자가 realtime-inventory Event Grid 구
 Analyzer 작업은 기본 1분 shadow 예약으로 `fdai.delivery.analyzer_tick_cli`를 실행하며, 발견 건마다
 리소스, 신호, tick 창에서 파생된 키를 가진 정본 Event 하나를 게시합니다. `FDAI_INVENTORY_DSN`이
 설정되면 `FDAI_ANALYZER_TARGETS`와 영속 인벤토리 projection의 지원 리소스를 병합하고, 병합된 집합의
-중복을 제거한 뒤 프로바이더 I/O 전에 `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS`를 적용합니다. 지원하지
-않는 리소스 타입은 추측하지 않고 제외합니다. Projection을 읽을 수 없으면 coverage를 조용히 줄이지
-않고 tick을 실패시켜 Job이 재시도됩니다. 인벤토리 DSN이 없으면 명시적 대상 전용 경로를 유지하고,
-두 출처 모두 대상이 없으면 tick은 `0`으로 종료하는 정상 no-op입니다. Analyzer cron을 명시적으로
-빈 문자열로 설정하면 작업이 비활성화됩니다.
+중복을 제거한 뒤 프로바이더 I/O 전에 `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS`를 적용합니다. 같은
+명시적 리소스와 종류를 반복하는 것은 허용하지만, 하나의 리소스에 서로 다른 두 종류를 지정하면
+목록 순서로 하나를 선택하지 않고 구성 오류로 처리합니다. 지원하지 않는 리소스 타입은 추측하지
+않고 제외합니다. Projection을 읽을 수 없으면 coverage를 조용히 줄이지 않고 tick을 실패시켜 Job이
+재시도됩니다. 인벤토리 DSN이 없으면 명시적 대상 전용 경로를 유지하고, 두 출처 모두 대상이 없으면
+tick은 `0`으로 종료하는 정상 no-op입니다. Analyzer cron을 명시적으로 빈 문자열로 설정하면 작업이
+비활성화됩니다.
 
 #### 제한된 egress 환경의 인벤토리 디스커버리
 

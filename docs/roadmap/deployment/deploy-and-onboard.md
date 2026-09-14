@@ -178,11 +178,13 @@ The analyzer job defaults to a one-minute shadow schedule and runs
 `fdai.delivery.analyzer_tick_cli`, which publishes one canonical Event per finding keyed by
 resource, signal, and tick window. It merges `FDAI_ANALYZER_TARGETS` with supported resources from
 the durable inventory projection when `FDAI_INVENTORY_DSN` is configured, deduplicates the merged
-set, and applies `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS` before provider I/O. An unsupported resource
-type is omitted rather than guessed. An unreadable projection fails the tick so the Job retries
-instead of silently reducing coverage. Without an inventory DSN, the explicit-only path remains
-available; when both sources resolve no target, the tick is a clean no-op that exits `0`. Set the
-analyzer cron to an explicit empty string to disable the job.
+set, and applies `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS` before provider I/O. Repeating the same
+explicit resource and kind is harmless, while assigning two different kinds to one resource fails
+configuration instead of selecting by list order. An unsupported resource type is omitted rather
+than guessed. An unreadable projection fails the tick so the Job retries instead of silently
+reducing coverage. Without an inventory DSN, the explicit-only path remains available; when both
+sources resolve no target, the tick is a clean no-op that exits `0`. Set the analyzer cron to an
+explicit empty string to disable the job.
 
 #### Inventory discovery with restricted egress
 
