@@ -5,6 +5,7 @@ import {
   BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_QUERY,
   BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
   browserAlertNotificationData,
+  browserAlertDeliveryStatusForStorageKey,
   browserAlertForLiveEvent,
   CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
   decodeBrowserAlertAcknowledgement,
@@ -83,6 +84,15 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
     setState(initialState(supported, principalId));
     setDeliveryState(readBrowserAlertDeliveryStatus(principalId));
   }, [supported, principalId]);
+
+  useEffect(() => {
+    const syncDeliveryState = (event: StorageEvent) => {
+      const next = browserAlertDeliveryStatusForStorageKey(event.key, principalId);
+      if (next !== null) setDeliveryState(next);
+    };
+    window.addEventListener("storage", syncDeliveryState);
+    return () => window.removeEventListener("storage", syncDeliveryState);
+  }, [principalId]);
 
   useEffect(() => {
     if (state !== "on") {

@@ -212,6 +212,16 @@ export function readBrowserAlertDeliveryStatus(
   return receipt.acknowledgedAt === null ? "delivered" : "acknowledged";
 }
 
+export function browserAlertDeliveryStatusForStorageKey(
+  key: string | null,
+  principalId?: string | null,
+  now = Date.now(),
+  storage: StorageReader | null = browserStorage(),
+): BrowserAlertDeliveryStatus | null {
+  if (key !== browserNotificationDeliveryKey(principalId)) return null;
+  return readBrowserAlertDeliveryStatus(principalId, now, storage);
+}
+
 export function decodeBrowserAlertAcknowledgement(
   value: unknown,
 ): BrowserAlertAcknowledgementMessage | null {
