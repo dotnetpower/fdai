@@ -160,7 +160,7 @@ The standard VS Code compound pins the browser and debugger-owned API to local E
 supervisor passes one immutable expected mode to every child. The standard preparation task passes `--auth-mode browser-entra`; the separately named
 `console: start full stack (Azure CLI debug, Contributor)` task is the only VS Code task that
 passes `--auth-mode azure-cli`; `tools.console` sets the same paired API confirmation.
-Developer guidance points to those launch surfaces and warns that the fixed `Contributor` mode cannot validate `Approver` or `Owner` approval access.
+Developer guidance points to those launch surfaces, live E2E clears both CLI flags, and the fixed `Contributor` mode cannot validate `Approver` or `Owner` approval access.
 The Operator Service resolves the active interactive CLI user at startup, applies a fixed
 Contributor ceiling, and returns a browser-safe profile plus a process-local session nonce. It
 accepts that nonce only from loopback clients, and browser requests also need an exact configured

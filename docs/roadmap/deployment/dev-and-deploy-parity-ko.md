@@ -167,7 +167,7 @@ Core 런타임만 Pantheon을 소유하며 로컬 및 deployed interactive 읽�
 `--auth-mode browser-entra`를 전달하며, 별도로 이름을 붙인
 `console: start full stack (Azure CLI debug, Contributor)` 작업만
 `--auth-mode azure-cli`를 전달하며 `tools.console`도 같은 API 확인 값 쌍을 설정합니다.
-개발자 안내는 이 실행 경로를 사용하도록 설명하고, 고정된 `Contributor` 모드로는 `Approver` 또는 `Owner` 승인 접근을 검증할 수 없다고 경고합니다.
+개발자 안내는 이 실행 경로를 사용하도록 설명하고, 라이브 E2E는 CLI 플래그 두 개를 모두 해제하며, 고정된 `Contributor` 모드로는 `Approver` 또는 `Owner` 승인 접근을 검증할 수 없다고 경고합니다.
 Operator 서비스는 시작할 때 활성 대화형 CLI 사용자를 확인하고 고정된 Contributor 상한을
 적용하며, 브라우저에 안전한 프로파일과 프로세스별 세션 일회값을 반환합니다. 이 일회값은
 loopback 클라이언트에서만 수락하고 브라우저 요청에는 정확히 구성된 origin도 요구합니다.
