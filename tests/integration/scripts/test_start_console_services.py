@@ -90,7 +90,11 @@ def _operator_restart_repo(tmp_path: Path) -> Path:
     run_script.parent.mkdir(parents=True)
     shutil.copy2(_RUN_SERVICE_SCRIPT, run_script)
     (repo / ".fdai").mkdir()
-    (repo / ".fdai/local-operator-service.env").write_text("", encoding="utf-8")
+    (repo / ".fdai/local-console-auth-mode").write_text("browser-entra\n", encoding="utf-8")
+    (repo / ".fdai/local-operator-service.env").write_text(
+        "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=0\nFDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=0\n",
+        encoding="utf-8",
+    )
     _write_executable(
         repo / "scripts/automation/run-local-service.sh",
         """#!/usr/bin/env bash
@@ -204,6 +208,20 @@ def test_operator_restart_rejects_started_service_early_zero_exit(tmp_path: Path
     assert result.returncode == 1
     assert "service=operator-api event=ready" not in result.stdout
     assert "service=operator-api event=failed stage=runner exit_code=1" in result.stderr
+
+
+def test_operator_restart_rejects_prepared_auth_mode_mismatch(tmp_path: Path) -> None:
+    repo = _operator_restart_repo(tmp_path)
+    (repo / ".fdai/local-operator-service.env").write_text(
+        "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1\nFDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=1\n",
+        encoding="utf-8",
+    )
+
+    result = _run_operator_restart(repo)
+
+    assert result.returncode == 1
+    assert "prepared Console and Operator API auth modes do not match" in result.stderr
+    assert not (repo / "order.txt").exists()
 
 
 def test_supervisor_reports_a_service_that_exits_before_readiness(tmp_path: Path) -> None:

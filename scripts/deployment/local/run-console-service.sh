@@ -30,6 +30,26 @@ if [[ ! "$readiness_seconds" =~ ^[1-9][0-9]*$ ]]; then
 fi
 readiness_budget_seconds=$((readiness_seconds + 5))
 
+if [[ "$service" == "operator-api" || "$service" == "console-frontend" ]]; then
+  if [[ ! -f "$auth_mode_file" ]]; then
+    echo "missing prepared Console auth mode: $auth_mode_file" >&2
+    exit 1
+  fi
+  auth_mode="$(<"$auth_mode_file")"
+  case "$auth_mode" in
+    browser-entra)
+      local_azure_cli_auth=0
+      ;;
+    azure-cli)
+      local_azure_cli_auth=1
+      ;;
+    *)
+      echo "invalid prepared Console auth mode: $auth_mode" >&2
+      exit 1
+      ;;
+  esac
+fi
+
 case "$service" in
   core-runtime|inventory-reconciliation|observation-campaign)
     env_file=".fdai/local-runtime.env"
@@ -87,23 +107,6 @@ if [[ "$service" == "core-runtime" ]]; then
 fi
 
 if [[ "$service" == "console-frontend" ]]; then
-  if [[ ! -f "$auth_mode_file" ]]; then
-    echo "missing prepared Console auth mode: $auth_mode_file" >&2
-    exit 1
-  fi
-  auth_mode="$(<"$auth_mode_file")"
-  case "$auth_mode" in
-    browser-entra)
-      local_azure_cli_auth=0
-      ;;
-    azure-cli)
-      local_azure_cli_auth=1
-      ;;
-    *)
-      echo "invalid prepared Console auth mode: $auth_mode" >&2
-      exit 1
-      ;;
-  esac
   digest_inputs=(
     "$source_root"
     "$project_file"
@@ -145,6 +148,13 @@ if [[ -n "$env_file" ]]; then
   # shellcheck source=/dev/null
   source "$repo_root/$env_file"
   set +a
+fi
+
+if [[ "$service" == "operator-api" ]] \
+  && { [[ "${FDAI_OPERATOR_API_LOCAL_AZURE_CLI:-0}" != "$local_azure_cli_auth" ]] \
+    || [[ "${FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM:-0}" != "$local_azure_cli_auth" ]]; }; then
+  echo "prepared Console and Operator API auth modes do not match" >&2
+  exit 1
 fi
 
 export FDAI_LOCAL_SERVICE_INPUT_DIGEST="$input_digest"
