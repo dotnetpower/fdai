@@ -12,8 +12,9 @@ import hashlib
 import json
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
+from uuid import uuid4
 
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
@@ -23,6 +24,8 @@ from fdai.agents._framework.pantheon import _VIDAR
 from fdai.shared.providers.state_store import StateStore
 
 _ROLLBACK_STATE_PREFIX = "pantheon/vidar/rollback"
+_DEFAULT_CLAIM_LEASE = timedelta(minutes=5)
+_MAX_CLAIM_LEASE = timedelta(hours=1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,11 +59,18 @@ class Vidar(Agent):
         bus: PantheonBus | None = None,
         executors: Mapping[str, RollbackExecutor] | None = None,
         state_store: StateStore | None = None,
+        clock: Callable[[], datetime] | None = None,
+        claim_lease: timedelta = _DEFAULT_CLAIM_LEASE,
     ) -> None:
+        if claim_lease <= timedelta(0) or claim_lease > _MAX_CLAIM_LEASE:
+            raise ValueError("claim_lease MUST be greater than zero and at most one hour")
         super().__init__(spec=_VIDAR)
         self.bus = bus
         self._executors = dict(executors or {})
         self._state_store = state_store
+        self._clock = clock or (lambda: datetime.now(tz=UTC))
+        self._claim_lease = claim_lease
+        self._owner_token = uuid4().hex
         self._rollback_lock = asyncio.Lock()
         self.records: list[RollbackRecord] = []
         # Idempotency guard: at-least-once delivery means the same failed
@@ -108,7 +118,7 @@ class Vidar(Agent):
         self,
         action_run: dict[str, Any],
         correlation_id: str,
-    ) -> RollbackRecord:
+    ) -> RollbackRecord | None:
         store = self._state_store
         if store is None:
             raise RuntimeError("durable rollback requires a StateStore")
@@ -117,12 +127,17 @@ class Vidar(Agent):
         state_key = _rollback_state_key(correlation_id, "state")
         stored = await store.read_state(state_key)
         if stored is None:
+            claimed_at = _clock_now(self._clock)
+            lease_expires_at = claimed_at + self._claim_lease
             claim = {
                 "schema_version": "1.0.0",
                 "revision": 1,
                 "status": "in_progress",
                 "correlation_id": correlation_id,
                 "request_digest": request_digest,
+                "owner_token": self._owner_token,
+                "claimed_at": claimed_at.isoformat(),
+                "lease_expires_at": lease_expires_at.isoformat(),
                 "action_type": str(action_run.get("action_type", "")),
                 "resource_id": _resource_id(action_run),
                 "contract": contract,
@@ -135,7 +150,8 @@ class Vidar(Agent):
                     "action_kind": "rollback.claimed",
                     "correlation_id": correlation_id,
                     "request_digest": request_digest,
-                    "recorded_at": datetime.now(tz=UTC).isoformat(),
+                    "lease_expires_at": lease_expires_at.isoformat(),
+                    "recorded_at": claimed_at.isoformat(),
                 },
             )
             if claimed:
@@ -144,6 +160,8 @@ class Vidar(Agent):
                     state_key=state_key,
                     request_digest=request_digest,
                     rec=rec,
+                    claim_owner_token=self._owner_token,
+                    lease_expires_at=lease_expires_at,
                 )
                 self._remember_rollback(rec)
                 await self._publish_rollback_once(rec)
@@ -160,6 +178,9 @@ class Vidar(Agent):
         if stored.get("status") == "terminal":
             rec = _rollback_record_from_state(stored)
         elif stored.get("status") == "in_progress":
+            claim_owner_token, lease_expires_at = _rollback_claim_lease(stored)
+            if _clock_now(self._clock) < lease_expires_at:
+                return None
             rec = RollbackRecord(
                 correlation_id=correlation_id,
                 action_type=str(stored.get("action_type") or ""),
@@ -174,6 +195,8 @@ class Vidar(Agent):
                 state_key=state_key,
                 request_digest=request_digest,
                 rec=rec,
+                claim_owner_token=claim_owner_token,
+                lease_expires_at=lease_expires_at,
             )
         else:
             raise RuntimeError("stored rollback state has an unsupported status")
@@ -187,11 +210,19 @@ class Vidar(Agent):
         state_key: str,
         request_digest: str,
         rec: RollbackRecord,
+        claim_owner_token: str,
+        lease_expires_at: datetime,
     ) -> RollbackRecord:
         store = self._state_store
         if store is None:
             raise RuntimeError("durable rollback completion requires a StateStore")
-        terminal = _rollback_record_state(rec, request_digest=request_digest)
+        terminal = _rollback_record_state(
+            rec,
+            request_digest=request_digest,
+            claim_owner_token=claim_owner_token,
+            lease_expires_at=lease_expires_at,
+            completed_by_owner_token=self._owner_token,
+        )
         completed = await store.compare_and_set_state_with_audit(
             state_key,
             terminal,
@@ -203,7 +234,7 @@ class Vidar(Agent):
                 "request_digest": request_digest,
                 "state": rec.state,
                 "rollback_ref": rec.rollback_ref,
-                "recorded_at": datetime.now(tz=UTC).isoformat(),
+                "recorded_at": _clock_now(self._clock).isoformat(),
             },
         )
         if completed:
@@ -388,6 +419,9 @@ def _rollback_record_state(
     rec: RollbackRecord,
     *,
     request_digest: str,
+    claim_owner_token: str,
+    lease_expires_at: datetime,
+    completed_by_owner_token: str,
 ) -> dict[str, Any]:
     return {
         "schema_version": "1.0.0",
@@ -395,6 +429,9 @@ def _rollback_record_state(
         "status": "terminal",
         "correlation_id": rec.correlation_id,
         "request_digest": request_digest,
+        "claim_owner_token": claim_owner_token,
+        "lease_expires_at": lease_expires_at.isoformat(),
+        "completed_by_owner_token": completed_by_owner_token,
         "action_type": rec.action_type,
         "resource_id": rec.resource_id,
         "contract": rec.contract,
@@ -415,6 +452,41 @@ def _validate_rollback_state_identity(
         or stored.get("request_digest") != request_digest
     ):
         raise ValueError("rollback correlation collides with different action identity")
+
+
+def _rollback_claim_lease(stored: Mapping[str, Any]) -> tuple[str, datetime]:
+    owner_token = stored.get("owner_token")
+    lease_expires_at = stored.get("lease_expires_at")
+    if (
+        stored.get("schema_version") != "1.0.0"
+        or stored.get("revision") != 1
+        or stored.get("status") != "in_progress"
+        or not _is_owner_token(owner_token)
+        or not isinstance(lease_expires_at, str)
+    ):
+        raise RuntimeError("stored rollback claim is malformed")
+    try:
+        parsed_expiry = datetime.fromisoformat(lease_expires_at)
+    except ValueError as exc:
+        raise RuntimeError("stored rollback claim has invalid lease expiry") from exc
+    if parsed_expiry.tzinfo is None or parsed_expiry.utcoffset() is None:
+        raise RuntimeError("stored rollback claim lease expiry MUST include timezone")
+    return str(owner_token), parsed_expiry.astimezone(UTC)
+
+
+def _clock_now(clock: Callable[[], datetime]) -> datetime:
+    value = clock()
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise RuntimeError("Vidar clock MUST return a timezone-aware datetime")
+    return value.astimezone(UTC)
+
+
+def _is_owner_token(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 32
+        and all(character in "0123456789abcdef" for character in value)
+    )
 
 
 def _rollback_record_from_state(stored: Mapping[str, Any]) -> RollbackRecord:

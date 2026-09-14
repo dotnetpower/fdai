@@ -1346,6 +1346,8 @@ def test_vidar_marks_interrupted_durable_claim_execution_unknown() -> None:
         bus=None,
         executors={"pitr": interrupted_executor},
         state_store=store,
+        clock=lambda: datetime(2026, 9, 15, tzinfo=UTC),
+        claim_lease=timedelta(seconds=30),
     )
     with pytest.raises(asyncio.CancelledError):
         asyncio.run(first.rollback(dict(failed)))
@@ -1355,6 +1357,8 @@ def test_vidar_marks_interrupted_durable_claim_execution_unknown() -> None:
         bus=bus,
         executors={"pitr": interrupted_executor},
         state_store=store,
+        clock=lambda: datetime(2026, 9, 15, 0, 0, 31, tzinfo=UTC),
+        claim_lease=timedelta(seconds=30),
     )
     recovered = asyncio.run(restarted.rollback(dict(failed)))
 
@@ -1364,6 +1368,55 @@ def test_vidar_marks_interrupted_durable_claim_execution_unknown() -> None:
     published = bus.messages_on("object.rollback")
     assert len(published) == 1
     assert published[0].payload["state"] == "execution_unknown"
+
+
+def test_vidar_does_not_expire_another_live_replica_claim() -> None:
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    async def _run() -> tuple[object, object, list[str]]:
+        entered = asyncio.Event()
+        release = asyncio.Event()
+        calls: list[str] = []
+
+        async def rollback_executor(action_run):
+            calls.append(action_run["correlation_id"])
+            entered.set()
+            await release.wait()
+            return "rollback:c-live-claim"
+
+        store = InMemoryStateStore()
+        now = datetime(2026, 9, 15, tzinfo=UTC)
+        first = Vidar(
+            executors={"state_forward_only": rollback_executor},
+            state_store=store,
+            clock=lambda: now,
+            claim_lease=timedelta(minutes=1),
+        )
+        second = Vidar(
+            executors={"state_forward_only": rollback_executor},
+            state_store=store,
+            clock=lambda: now + timedelta(seconds=30),
+            claim_lease=timedelta(minutes=1),
+        )
+        failed = {
+            "correlation_id": "c-live-claim",
+            "action_type": "ops.restart-service",
+            "resource_id": "vm-3",
+            "state": "failed",
+        }
+        owner_task = asyncio.create_task(first.rollback(dict(failed)))
+        await entered.wait()
+        colliding_result = await second.rollback(dict(failed))
+        release.set()
+        owner_result = await owner_task
+        return owner_result, colliding_result, calls
+
+    owner_result, colliding_result, calls = asyncio.run(_run())
+
+    assert owner_result is not None
+    assert owner_result.state == "succeeded"
+    assert colliding_result is None
+    assert calls == ["c-live-claim"]
 
 
 def test_vidar_serializes_concurrent_rollback_delivery() -> None:

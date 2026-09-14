@@ -561,8 +561,9 @@ HIL, and execution rendering so citation order cannot substitute unrelated rule 
 relationship is deterministic grounding evidence before semantic similarity, so the grounding leg cannot contradict the trusted Rule
 relationship. A T2 proposal also cannot bypass grounding authority when a provider fails. HIL approval ids
 and executor idempotency keys are claimed atomically. Var preserves the source ActionRun idempotency key, serializes finalization, and writes one final approval plus publication receipt to the runtime StateStore before removing the ticket. Per-resource locking serializes competing applies before any delivery adapter
-can mutate state. Vidar also claims the correlation and request digest durably before provider recovery; an incomplete claim becomes
-`execution_unknown`, and terminal or publication replay never repeats the rollback. Runtime composition also injects that `StateStore` into
+can mutate state. Vidar also claims the correlation and request digest with an owner token and bounded lease before provider recovery.
+A colliding replica leaves a live lease untouched; only verified expiry permits `execution_unknown`, and revision CAS fences late owner
+completion. Terminal or publication replay never repeats the rollback. Runtime composition also injects that `StateStore` into
 Saga's handoff journal. Saga validates one claim, mutation checkpoint, and completion receipt per escalation and requires an
 operation-bound issue adapter before external mutation. HIL resume resolves catalog rules from the current catalog and accepts a parked server-validated operator-request rule
 only when its rule id, action type, and fixed check reference still match. Idempotency reservation identity and transition contracts remain in one Core module, while codec, lifecycle, state-shape validation, HIL result records, and execution-effect completion live in adjacent single-purpose modules with no authority; the facade re-exports lifecycle behavior without wrapper duplication. Executor results cross Core as `accepted`, `pending`, `no_effect`, or `failed`; acceptance proves delivery only, while HIL, workflow, and reconciliation preserve original correlation plus supplied action-attempt identity and send any potentially effective outcome to independent reconciliation before claiming closure.
