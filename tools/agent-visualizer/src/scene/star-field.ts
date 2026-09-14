@@ -58,14 +58,14 @@ export class StarField {
         }
       `,
       transparent: true,
-      depthTest: false,
+      depthTest: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       toneMapped: false,
     });
     this.object = new THREE.Points(geometry, material);
     this.object.name = "decorative-star-backdrop";
-    this.object.renderOrder = -100;
+    this.object.renderOrder = 100;
     this.object.frustumCulled = false;
   }
 
