@@ -179,6 +179,8 @@ resource "kubernetes_manifest" "job_secret_provider" {
 }
 
 resource "kubernetes_deployment_v1" "workload" {
+  # checkov:skip=CKV_K8S_43:var.workloads rejects images without a sha256 digest; Checkov cannot resolve each.value.image.
+  # checkov:skip=CKV_K8S_14:var.workloads requires immutable digest references rather than mutable image tags.
   for_each = var.workloads
 
   metadata {
@@ -221,14 +223,15 @@ resource "kubernetes_deployment_v1" "workload" {
         }
 
         container {
-          name    = each.key
-          image   = each.value.image
-          command = each.value.command
-          args    = each.value.args
+          name              = each.key
+          image             = each.value.image
+          image_pull_policy = "Always"
+          command           = each.value.command
+          args              = each.value.args
 
           security_context {
             allow_privilege_escalation = false
-            read_only_root_filesystem  = false
+            read_only_root_filesystem  = true
             capabilities { drop = ["ALL"] }
           }
 
@@ -282,6 +285,11 @@ resource "kubernetes_deployment_v1" "workload" {
             }
           }
 
+          volume_mount {
+            name       = "tmp"
+            mount_path = "/tmp"
+          }
+
           dynamic "volume_mount" {
             for_each = length(each.value.secret_environment) > 0 ? [1] : []
             content {
@@ -289,6 +297,13 @@ resource "kubernetes_deployment_v1" "workload" {
               mount_path = "/mnt/secrets-store"
               read_only  = true
             }
+          }
+        }
+
+        volume {
+          name = "tmp"
+          empty_dir {
+            size_limit = "1Gi"
           }
         }
 

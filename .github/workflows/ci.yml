@@ -880,6 +880,15 @@ jobs:
           terraform -chdir=scenario-lab init -backend=false -input=false
           terraform -chdir=scenario-lab validate
 
+      - name: terraform validate and test (AKS runtimes, mocked providers)
+        run: |
+          set -euo pipefail
+          for runtime_root in runtimes/aks/cluster runtimes/aks/database runtimes/aks/workloads; do
+            terraform -chdir="$runtime_root" init -backend=false -input=false -lockfile=readonly
+            terraform -chdir="$runtime_root" validate
+          done
+          terraform -chdir=runtimes/aks/workloads test
+
       - name: Install Terraform security scanners
         working-directory: .
         env:

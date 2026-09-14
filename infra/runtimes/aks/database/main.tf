@@ -251,6 +251,7 @@ locals {
 }
 
 resource "azurerm_key_vault_secret" "state_store_dsn" {
+  # checkov:skip=CKV_AZURE_41:Credential rotation requires coordinated database and workload updates; fixed secret expiry alone would cause an outage.
   name         = "fdai-state-store-dsn"
   value        = local.dsn
   key_vault_id = var.key_vault_id

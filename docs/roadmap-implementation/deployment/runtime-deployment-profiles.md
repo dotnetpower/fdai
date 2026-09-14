@@ -10,6 +10,7 @@ Container Apps and Azure Kubernetes Service (AKS). The canonical design remains 
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| AKS security scan remediation | implemented | `infra/runtimes/aks`; two cluster contract tests, two DSN rotation tests, three native workload plan tests; Checkov 3.2.256 reports 54 passed, 0 failed, and 8 resource-local exceptions. | Azure Policy, host encryption, 50-pod node limits, read-only service roots, bounded scratch storage, and explicit image pulls are configured. Scanner limitations, Managed OS disks, and coordinated DSN rotation have narrow documented exceptions. Azure operational evidence remains open. |
 | Runtime profile and CLI grammar | implemented | `packages/deployment-cli/src/fdai_deployment_cli/runtime_profile.py`; `packages/deployment-cli/tests/test_runtime_profile.py`; 36 focused coordinator tests pass in the current change. | Container Apps with PostgreSQL Flexible Server remains the default. AKS node floors and the non-production `postgres-aks` combination are validated before deployment. |
 | AKS network and cluster state | implemented | `infra/modules/network`; `infra/runtimes/aks/cluster`; `terraform validate` passes in the current change. | The private Standard-tier cluster uses separate system and autoscaled user pools, Microsoft Entra RBAC, Cilium, workload identity, managed Key Vault CSI, and a separate backend key. |
 | AKS workload state | implemented | `infra/runtimes/aks/workloads`; `terraform validate` passes in the current change. | Typed Deployments, Services, ServiceAccounts, federated credentials, HPA, PDB, NetworkPolicy, four default CronJobs, and CSI secret synchronization share one workload state. |
@@ -23,6 +24,7 @@ Container Apps and Azure Kubernetes Service (AKS). The canonical design remains 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Remediated PR #1000's AKS security scan failure by enabling policy admission and host encryption, increasing node Pod limits, and hardening service filesystem and image-pull settings. Documented resource-local scanner and deployment constraints without a global baseline. | Failed CI `34863327772`, attempt 1, source `6850f3d2d2e51aedc011e7a113910f1d1d9db4d2`; current change; four Python contract cases and three Terraform workload plan cases pass; Checkov 3.2.256 reports zero failures across the three AKS roots. | Complete required CI for the updated PR and retain the separate deployment, host-encryption eligibility, capacity, rotation, and recovery evidence below. |
 | 2026-09-15 | in-progress | Added the first implementation ledger. Earlier provenance was not reconstructed. Implemented sealed runtime selection, separate AKS cluster/database/workload states, managed-host routing, typed Kubernetes resources, compact pgvector placement, and signed kit inputs. | Current change paths listed in the scope table; 36 focused coordinator tests, six archive extraction tests, and Terraform validation for the shared, cluster, database, and workload roots pass. | Record complete kit-build evidence, deploy both AKS database profiles online and artifact-offline, close ingress and rollback evidence, and add capacity preflight. |
 
 ### Remaining work
@@ -36,7 +38,9 @@ Container Apps and Azure Kubernetes Service (AKS). The canonical design remains 
 - [ ] Run both AKS profiles from an artifact-offline kit and record that no provider, image, or
   executable is downloaded after verification.
 - [ ] Add subscription quota, regional SKU, availability-zone, and allocatable workload-envelope
-  checks that block an infeasible profile before Terraform planning.
+  checks, including host-encryption eligibility, that block an infeasible profile before Terraform planning.
+- [ ] Demonstrate coordinated `postgres-aks` credential rotation and workload rollout without
+  relying on independent DSN expiration or claiming continuity from CSI synchronization alone.
 - [ ] Add TLS-terminated operator ingress and prove Console-to-Operator authentication without
   exposing a plaintext public endpoint.
 - [ ] Add exact schedule inputs and parity tests for optional Container Apps jobs before enabling

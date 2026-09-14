@@ -114,6 +114,11 @@ AKS renderer maps it to typed Kubernetes `Deployment`, `Service`, `ServiceAccoun
 first AKS implementation keeps two replicas for each long-running service and does not require
 Knative or KEDA.
 
+Long-running service containers use `image_pull_policy=Always`, a read-only root filesystem, and
+a dedicated `/tmp` temporary volume limited to `1Gi`. Workload validation rejects mutable tags
+and malformed image digests before planning. Other writable paths require an explicit workload
+contract; making the whole root filesystem writable is not a compatibility fallback.
+
 Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel worker, a bounded active
 deadline, a retry limit, and bounded history. Manual jobs are created only by a separately approved
 request and are not perpetual desired-state resources.
@@ -134,6 +139,19 @@ The deployment kit includes the Kubernetes provider plus signed `kubectl` and `k
 binaries. A deployment does not download a provider, tool, or workload image from a public source
 after kit verification.
 
+### Cluster security baseline
+
+The cluster enables Azure Policy, patch-channel Kubernetes upgrades, and NodeImage OS upgrades.
+Both node pools enable host encryption and allow 50 pods per node. Confirm the selected
+subscription and SKU support host encryption before deployment; automated regional and feature
+preflight remains open in the implementation ledger. Unsupported targets do not disable encryption.
+
+The default diskless SKUs retain platform-encrypted Managed OS disks rather than requiring
+ephemeral storage. Checkov exceptions stay attached to the affected resource: the pinned scanner
+reads retired AzureRM upgrade and encryption attribute names and cannot resolve validated image
+map entries. Focused configuration and plan tests cover those controls; no global baseline or
+scanner downgrade is used.
+
 ## PostgreSQL profiles
 
 `postgres-flex` remains the default for both runtime platforms. Production uses private networking,
@@ -146,6 +164,10 @@ internal load balancer used by the migration host. The generated DSN is stored i
 read by workloads through managed CSI. Client traffic requires TLS with a state-owned certificate.
 The minimum four user nodes make this profile schedulable
 but do not claim database high availability, backup, or point-in-time recovery.
+
+The Key Vault DSN has no independent fixed expiration. Credential rotation requires coordinated
+database and workload updates; expiring only the secret would interrupt access without rotating
+the database credential. This resource-local exception does not claim automated rotation evidence.
 
 An in-cluster production profile remains unavailable until it proves three database instances,
 synchronous replication, zone and host anti-affinity, disruption budgets, backup immutability,

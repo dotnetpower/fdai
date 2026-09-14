@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 31b38652046caf557a8f456cf805766e34246bdc
-translation_revised: 2026-09-15
+translation_source_sha: 7e4f646a19980fe1c31c0f58cce4a285a10e37f5
+translation_revised: 2026-09-14
 ---
 # 런타임 배포 프로파일
 
@@ -113,6 +113,11 @@ Container Apps 렌더러는 명세를 Container Apps와 Container Apps Jobs로 �
 `PodDisruptionBudget`, `NetworkPolicy`, `CronJob` 리소스로 변환합니다. 첫 AKS 구현은 장기 실행
 서비스마다 두 개의 replica를 유지하며 Knative 또는 KEDA를 요구하지 않습니다.
 
+장기 실행 서비스 컨테이너는 `image_pull_policy=Always`, 읽기 전용 루트 파일시스템, 크기가
+`1Gi`로 제한된 전용 `/tmp` 임시 볼륨을 사용합니다. 워크로드 검증은 플랜 생성 전에 변경 가능한
+태그와 형식이 잘못된 이미지 digest를 거부합니다. 다른 경로에 쓰기가 필요하면 명시적인 워크로드
+계약을 추가해야 합니다. 호환성을 이유로 전체 루트 파일시스템에 쓰기를 허용하지 않습니다.
+
 예약 작업은 `concurrencyPolicy=Forbid`, 완료 수 1, 병렬 작업자 1, 제한된 active deadline, 재시도
 한도, 제한된 이력을 사용합니다. 수동 작업은 별도로 승인된 요청으로만 만들며 영구 desired-state
 리소스로 두지 않습니다.
@@ -132,6 +137,18 @@ managed CSI 공급자는 클러스터와 함께 활성화되며 FDAI 워크로�
 Kubernetes 공급자와 서명된 `kubectl`, `kubelogin` 바이너리가 포함됩니다. 배포는 키트 검증 이후
 공용 출처에서 공급자, 도구, 워크로드 이미지를 다운로드하지 않습니다.
 
+### 클러스터 보안 기준
+
+클러스터는 Azure Policy, patch 채널 Kubernetes 업그레이드, NodeImage OS 업그레이드를 활성화합니다.
+두 노드 풀 모두 호스트 암호화를 활성화하고 노드당 Pod 50개를 허용합니다. 배포 전에 선택한
+구독과 SKU가 호스트 암호화를 지원하는지 확인해야 합니다. 지역과 기능의 자동 사전 검증은 구현
+원장에 미완료 항목으로 남아 있습니다. 지원하지 않는 대상에서 암호화를 비활성화하지 않습니다.
+
+로컬 디스크가 없는 기본 SKU는 임시 저장소 대신 플랫폼에서 암호화하는 Managed OS 디스크를
+유지합니다. Checkov 예외는 해당 리소스에만 둡니다. 고정된 검사기 버전은 AzureRM의 이전 업그레이드
+및 암호화 속성명을 읽고, 검증된 이미지 맵 항목을 해석하지 못합니다. 해당 보안 설정은 범위를
+좁힌 구성 및 플랜 테스트로 검증합니다. 전역 예외 기준이나 검사기 버전 하향은 사용하지 않습니다.
+
 ## PostgreSQL 프로파일
 
 `postgres-flex`는 두 런타임 플랫폼의 기본값입니다. 프로덕션은 프로덕션 강화 계약에 따라 비공개
@@ -143,6 +160,10 @@ Kubernetes 공급자와 서명된 `kubectl`, `kubelogin` 바이너리가 포함�
 CSI를 통해 읽습니다. 클라이언트 트래픽에는 상태가 소유하는 인증서를 사용한 TLS가 필요합니다.
 사용자 노드 최소 4개는 이 프로파일의 스케줄 가능성을 위한 값이며,
 데이터베이스 고가용성, 백업 또는 특정 시점 복구를 의미하지 않습니다.
+
+Key Vault DSN에는 별도의 고정 만료일을 두지 않습니다. 자격 증명을 교체하려면 데이터베이스와
+워크로드를 함께 갱신해야 합니다. 비밀 값만 만료시키면 데이터베이스 자격 증명은 바뀌지 않은 채
+접근이 중단됩니다. 이 리소스 단위 예외가 자동 교체 검증 근거를 의미하지는 않습니다.
 
 클러스터 내부 프로덕션 프로파일은 데이터베이스 instance 3개, 동기 복제, 영역 및 호스트
 anti-affinity, disruption budget, 백업 불변성, 특정 시점 복구, 노드 업그레이드, 영역 손실,
