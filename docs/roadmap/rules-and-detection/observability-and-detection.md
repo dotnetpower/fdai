@@ -44,8 +44,9 @@ are synthetic.
 - A repeated-event burst is an anomaly, not automatic Incident authority. Heimdall always records
   the bounded anomaly, but it can hand off an Incident candidate only when the normalized Event
   declares `incident_correlation=correlate`, carries a non-empty correlation id and evidence key,
-  and meets the configured minimum severity. Huginn preserves a valid source event time only when
-  it is no later than the supplied ingestion time, and Heimdall evaluates that time instead of
+  and meets the configured minimum severity. Huginn stamps ingestion time from its trusted UTC
+  clock and preserves a valid source event time only when it is no later than that boundary;
+  producer-supplied ingestion time cannot widen it. Heimdall evaluates source time instead of
   delivery speed; delayed historical replay cannot appear as a current burst, and a future-dated
   event cannot evict valid history. Legacy Events without source time use arrival time in a separate episode.
   Every event in one repeated-event burst belongs to the same non-empty correlation episode; events

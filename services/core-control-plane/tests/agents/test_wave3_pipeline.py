@@ -41,7 +41,7 @@ def test_huginn_normalizes_and_dedups() -> None:
 
 
 def test_huginn_preserves_a_valid_source_event_time() -> None:
-    huginn = Huginn()
+    huginn = Huginn(clock=lambda: datetime(2026, 9, 14, 2, 0, 1, tzinfo=UTC))
 
     event = asyncio.run(
         huginn.ingest(
@@ -56,6 +56,7 @@ def test_huginn_preserves_a_valid_source_event_time() -> None:
 
     assert event is not None
     assert event["occurred_at"] == "2026-09-14T02:00:00+00:00"
+    assert event["ingested_at"] == "2026-09-14T02:00:01+00:00"
 
 
 def test_huginn_rejects_a_malformed_source_event_time() -> None:
@@ -75,9 +76,9 @@ def test_huginn_rejects_a_malformed_source_event_time() -> None:
 
 
 def test_huginn_rejects_a_source_time_after_ingestion() -> None:
-    huginn = Huginn()
+    huginn = Huginn(clock=lambda: datetime(2026, 9, 14, 2, 0, tzinfo=UTC))
 
-    with pytest.raises(ValueError, match="MUST NOT be after ingested_at"):
+    with pytest.raises(ValueError, match="after trusted ingestion time"):
         asyncio.run(
             huginn.ingest(
                 {
@@ -85,7 +86,22 @@ def test_huginn_rejects_a_source_time_after_ingestion() -> None:
                     "resource_id": "vm-1",
                     "event_type": "cpu_spike",
                     "detected_at": "2026-09-14T02:00:01Z",
-                    "ingested_at": "2026-09-14T02:00:00Z",
+                    "ingested_at": "2099-01-01T00:00:00Z",
+                }
+            )
+        )
+
+
+def test_huginn_rejects_a_naive_ingestion_clock() -> None:
+    huginn = Huginn(clock=lambda: datetime(2026, 9, 14, 2, 0))
+
+    with pytest.raises(ValueError, match="clock MUST return a timezone-aware"):
+        asyncio.run(
+            huginn.ingest(
+                {
+                    "id": "evt-time-1",
+                    "resource_id": "vm-1",
+                    "event_type": "cpu_spike",
                 }
             )
         )

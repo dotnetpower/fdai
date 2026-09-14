@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 2200c60f73f25c6091ecd1ae5ca7982688dac3db
+translation_source_sha: 1cf20ca8602279369d0e572fcae7f6d8d8af7b7d
 translation_revised: 2026-09-14
 ---
 
@@ -47,8 +47,9 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
 - Repeated-event burst는 anomaly이며 자동 인시던트 권한이 아닙니다. Heimdall은 범위가 제한된
   anomaly를 항상 기록하지만 정규화된 Event가 `incident_correlation=correlate`를 선언하고,
   비어 있지 않은 상관관계 ID와 근거 키를 가지며, 설정된 최소 심각도를 만족할 때만
-  인시던트 후보를 전달할 수 있습니다. Huginn은 제공된 수집 시각보다 늦지 않은 유효한 출처
-  Event 시각만 보존합니다. Heimdall은 전달 속도가 아니라 이 시각으로 구간을 평가하므로 지연된
+  인시던트 후보를 전달할 수 있습니다. Huginn은 신뢰하는 UTC 시계로 수집 시각을 기록하고 해당
+  경계보다 늦지 않은 유효한 출처 Event 시각만 보존합니다. 생산자가 제공한 수집 시각은 이
+  경계를 넓힐 수 없습니다. Heimdall은 전달 속도가 아니라 이 시각으로 구간을 평가하므로 지연된
   과거 재생이 현재 burst처럼 보이지 않고, 미래 시각 Event가 유효한 이력을 조기에 축출할 수
   없습니다. 출처 시각이 없는 이전 Event는 별도 에피소드에서 도착 시각을 사용합니다. 하나의
   repeated-event burst에 속한 모든 Event는 동일한 비어 있지 않은 상관관계 에피소드에 속해야 하며
