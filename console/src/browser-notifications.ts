@@ -61,6 +61,10 @@ export interface BrowserAlertAcknowledgement {
   readonly acknowledgedAt: number;
 }
 
+export interface BrowserAlertAcknowledgementMessage {
+  readonly tag: string;
+}
+
 export function browserNotificationPreferenceKey(principalId: string | null | undefined): string {
   return `${STORAGE_PREFIX}:${principalId?.trim() || "local"}`;
 }
@@ -198,21 +202,27 @@ export function readLatestBrowserAlertReceipt(
 
 export function decodeBrowserAlertAcknowledgement(
   value: unknown,
-): BrowserAlertAcknowledgement | null {
+): BrowserAlertAcknowledgementMessage | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const candidate = value as Record<string, unknown>;
   if (
     candidate["type"] !== BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE
     || candidate["channel_id"] !== CONSOLE_WEB_NOTIFICATION_CHANNEL_ID
     || !isSafeNotificationTag(candidate["tag"])
-    || !isSafeTimestamp(candidate["acknowledged_at"])
   ) {
     return null;
   }
-  return {
-    tag: candidate["tag"],
-    acknowledgedAt: candidate["acknowledged_at"],
-  };
+  return { tag: candidate["tag"] };
+}
+
+export function trustedBrowserAlertAcknowledgement(
+  value: unknown,
+  isTrusted: boolean,
+  now = Date.now(),
+): BrowserAlertAcknowledgement | null {
+  if (!isTrusted || !isSafeTimestamp(now)) return null;
+  const message = decodeBrowserAlertAcknowledgement(value);
+  return message === null ? null : { ...message, acknowledgedAt: now };
 }
 
 export function browserAlertNotificationData(

@@ -68,7 +68,6 @@ function acknowledgeClient(client, tag) {
     type: ACKNOWLEDGEMENT_TYPE,
     channel_id: CONSOLE_WEB_CHANNEL_ID,
     tag,
-    acknowledged_at: Date.now(),
   });
 }
 

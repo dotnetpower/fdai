@@ -16,6 +16,7 @@ import {
   readBrowserNotificationPreference,
   recordBrowserAlertDelivered,
   releaseBrowserAlertDelivery,
+  trustedBrowserAlertAcknowledgement,
   writeBrowserNotificationPreference,
 } from "./browser-notifications";
 
@@ -196,23 +197,33 @@ describe("browser notification boundary", () => {
       type: BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
       channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
       tag: "fdai:event-1",
-      acknowledged_at: 1_800_000_000_000,
     })).toEqual({
       tag: "fdai:event-1",
-      acknowledgedAt: 1_800_000_000_000,
     });
     expect(decodeBrowserAlertAcknowledgement({
       type: BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
       channel_id: "teams",
       tag: "fdai:event-1",
-      acknowledged_at: 1_800_000_000_000,
     })).toBeNull();
     expect(decodeBrowserAlertAcknowledgement({
       type: BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
       channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
       tag: "unsafe tag",
-      acknowledged_at: 1_800_000_000_000,
     })).toBeNull();
+  });
+
+  test("accepts only trusted browser messages and mints the acknowledgement time locally", () => {
+    const payload = {
+      type: BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
+      channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
+      tag: "fdai:event-1",
+      acknowledged_at: 1,
+    };
+    expect(trustedBrowserAlertAcknowledgement(payload, false, 1_800_000_000_000)).toBeNull();
+    expect(trustedBrowserAlertAcknowledgement(payload, true, 1_800_000_000_000)).toEqual({
+      tag: "fdai:event-1",
+      acknowledgedAt: 1_800_000_000_000,
+    });
   });
 
   test("keeps legacy claims deduplicated without upgrading them to delivery evidence", () => {

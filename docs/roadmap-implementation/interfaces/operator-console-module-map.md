@@ -30,6 +30,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Required trusted browser message events for Console web acknowledgement and moved acknowledgement time ownership to the receiving page. | `current change`; focused acknowledgement decoder and service-worker tests. | No residual message-timestamp trust remains in this client-local receipt path. |
 | 2026-09-14 | implemented | Preserved the legacy browser-ledger timestamp alias on every new receipt write so old and new Console tabs deduplicate during rolling updates. | `current change`; focused browser notification compatibility test. | Remove the alias only after a separately versioned browser-storage migration proves no supported old tab depends on it. |
 | 2026-09-14 | implemented | Separated the five-minute duplicate window from seven-day bounded receipt retention so delayed notification clicks remain acknowledgeable. | `current change`; focused browser notification tests. | No residual delayed-click retention work for the client-local channel. |
 | 2026-09-14 | implemented | Rejected replay, synthetic-development, and unknown-source stage frames at the Console web notification boundary. | `current change`; focused browser notification tests. | No residual source-admission work for this bounded channel. |
