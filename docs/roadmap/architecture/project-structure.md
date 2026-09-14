@@ -556,7 +556,8 @@ cannot inherit T0 authority. Boundary hardening keeps that sequence fail-closed:
 comparison. Routing resolves nested `resource.type`, then nested `resource.resource_type`, then the legacy flat form without guessing.
 T1 rejects malformed reuse identities, counters, confidence, and similarity evidence instead of raising, and T2 rejects any proposed target, resource type, citation, or ActionType that differs
 from its trusted routing context before quality evaluation. Every citation must be routed, while one routed rule may authorize the ActionType
-through either `remediates` or `alternatives`. A T2 proposal also cannot bypass grounding authority when a provider fails. HIL approval ids
+through either `remediates` or `alternatives`. Exactly one cited rule must provide that authorization; the same rule is bound to risk,
+HIL, and execution rendering so citation order cannot substitute unrelated rule metadata. A T2 proposal also cannot bypass grounding authority when a provider fails. HIL approval ids
 and executor idempotency keys are claimed atomically. Var preserves the source ActionRun idempotency key, serializes finalization, and writes one final approval plus publication receipt to the runtime StateStore before removing the ticket. Per-resource locking serializes competing applies before any delivery adapter
 can mutate state. Vidar also claims the correlation and request digest durably before provider recovery; an incomplete claim becomes
 `execution_unknown`, and terminal or publication replay never repeats the rollback. Runtime composition also injects that `StateStore` into

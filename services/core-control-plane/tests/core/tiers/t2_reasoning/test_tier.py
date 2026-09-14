@@ -241,6 +241,26 @@ async def test_candidate_action_may_be_authorized_by_one_routed_rule(
     assert gate.calls == 1
 
 
+async def test_candidate_action_rejects_multiple_authorizing_rules() -> None:
+    allowed_rules = (
+        _rule(rule_id="r1", remediates="ops.scale-out"),
+        _rule(rule_id="r2", alternatives=("ops.scale-out",)),
+    )
+    candidate = replace(
+        _candidate(),
+        action_type="ops.scale-out",
+        cited_rule_ids=("r1", "r2"),
+    )
+    gate = _FakeGate(QualityOutcome.ELIGIBLE)
+    tier = T2Tier(proposer=_Proposer(candidate), quality_gate=gate)
+
+    decision = await tier.evaluate(context=replace(_context(), allowed_rules=allowed_rules))
+
+    assert decision.outcome is T2Outcome.DENIED
+    assert decision.reason == "t2_candidate_context_mismatch:action_type_rule_ambiguous"
+    assert gate.calls == 0
+
+
 # ---------------------------------------------------------------------------
 # Real QualityGate integration
 # ---------------------------------------------------------------------------

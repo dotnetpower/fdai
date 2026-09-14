@@ -556,7 +556,9 @@ privileged I/O 전에 확인하는 실제 상한을 제공합니다. 어느 계�
 경계 강화는 이 순서를 실패 시 차단으로 유지합니다. Ingest와 라우팅은 비교 전에 빈 리소스
 참조를 정규화합니다. 라우팅은 nested `resource.type`, nested `resource.resource_type`, legacy flat 형태 순서로 해석하며 추측하지 않습니다.
 T1은 잘못된 reuse 식별자, 카운터, 신뢰도 및 유사도 근거를 예외 없이 거부합니다. T2는 품질 평가 전에 신뢰된 라우팅
-컨텍스트와 다른 제안 대상, 리소스 유형, 인용 또는 ActionType을 거부합니다. 모든 인용은 라우팅된 규칙이어야 하며, 그중 하나가 `remediates` 또는 `alternatives`로 ActionType을 허용할 수 있습니다. 프로바이더가
+컨텍스트와 다른 제안 대상, 리소스 유형, 인용 또는 ActionType을 거부합니다. 모든 인용은 라우팅된 규칙이어야 하며, 그중 하나가 `remediates` 또는 `alternatives`로 ActionType을 허용할 수 있습니다. 정확히
+하나의 인용 규칙만 이 권한을 제공해야 하며, 인용 순서로 관련 없는 규칙 메타데이터를 바꿀 수
+없도록 같은 규칙을 risk, HIL, 실행 렌더링에 결속합니다. 프로바이더가
 실패해도 T2 제안은 grounding 권한을 우회할 수 없습니다. HIL 승인 id와 실행기 멱등성 키는 원자적으로
 점유됩니다. Var는 원본 ActionRun 멱등성 키를 보존하고 최종 처리를 직렬화하며, ticket을 제거하기 전에 최종 승인과 게시 증적을 런타임 StateStore에 기록합니다. 리소스별 잠금은 전달 어댑터가 상태를 변경하기 전에 경합하는 적용을 직렬화합니다.
 Vidar도 provider 복구 전에 상관관계와 요청 다이제스트를 영속적으로 점유합니다. 완료되지 않은 점유는 `execution_unknown`이 되며, 종결 또는 게시 재생은 rollback을 반복하지 않습니다. 런타임 조립은 같은 `StateStore`를 Saga의 인계 저널에도 주입합니다. Saga는 에스컬레이션마다

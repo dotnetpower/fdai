@@ -597,25 +597,38 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
                 t1_decision=t1_decision,
                 t2_decision=t2,
             )
-        rule = next(
-            (
-                self._rules_by_id[rule_id]
-                for rule_id in candidate.cited_rule_ids
-                if rule_id in self._rules_by_id
-            ),
-            None,
+        supporting_rules = tuple(
+            rule
+            for rule_id in candidate.cited_rule_ids
+            if (rule := self._rules_by_id.get(rule_id)) is not None
+            and (
+                rule.remediates == candidate.action_type
+                or candidate.action_type in rule.alternatives
+            )
         )
-        if rule is None:
+        if not supporting_rules:
             return await self._routing_hold(
                 event=event,
                 decision=decision,
                 tier="t2",
-                reason="t2_cited_rule_unavailable",
+                reason="t2_supporting_rule_unavailable",
                 citing_rule_ids=candidate.cited_rule_ids,
                 cs_decision=cs_decision,
                 t1_decision=t1_decision,
                 t2_decision=t2,
             )
+        if len(supporting_rules) != 1:
+            return await self._routing_hold(
+                event=event,
+                decision=decision,
+                tier="t2",
+                reason="t2_supporting_rule_ambiguous",
+                citing_rule_ids=candidate.cited_rule_ids,
+                cs_decision=cs_decision,
+                t1_decision=t1_decision,
+                t2_decision=t2,
+            )
+        rule = supporting_rules[0]
         try:
             action = self._action_builder.build_from_candidate(event=event, candidate=candidate)
         except ActionBuildError as exc:
