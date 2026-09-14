@@ -5,9 +5,11 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from fdai_deployment_cli import source_input
 from fdai_deployment_cli.source_input import inspect_source
 from fdai_deployment_cli.source_snapshot import materialize_source, verify_source_snapshot
 
@@ -126,3 +128,22 @@ def test_source_snapshot_rejects_extra_files_and_never_overwrites(checkout: Path
         verify_source_snapshot(destination, expected_digest=digest)
     with pytest.raises(FileExistsError):
         materialize_source(source, destination)
+
+
+def test_reading_a_link_may_update_access_time(checkout: Path, monkeypatch) -> None:
+    access_times = iter((1, 2))
+
+    def observed_stat(*_args, **_kwargs):
+        return SimpleNamespace(
+            st_dev=1,
+            st_ino=2,
+            st_mode=0o120777,
+            st_size=9,
+            st_mtime_ns=10,
+            st_ctime_ns=11,
+            st_atime_ns=next(access_times),
+        )
+
+    monkeypatch.setattr(source_input.os, "stat", observed_stat)
+    monkeypatch.setattr(source_input.os, "readlink", lambda *_args, **_kwargs: "source.py")
+    assert source_input._read_tracked(checkout, "linked.py", mode="120000") == b"source.py"

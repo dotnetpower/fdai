@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: c31d19280b40aa3ea91a2573599d5b3866f5ff65
+translation_source_sha: c8726a8f9b7e81b2ed1c31fffe659716aedf4788
 translation_revised: 2026-09-14
 ---
 
@@ -49,6 +49,9 @@ Flexible Server를 사용하는 새로운 `dev` 설치입니다. 기존 Containe
 입력만 전달합니다. 소스 출처는 `operator-selected-source`로 명시하며 `signed-release`로
 표시하지 않습니다. 변경된 체크아웃, 누락된 입력, 변조된 스냅샷, 기존 실행 기록과의 충돌은
 새로운 변경 작업을 시작하기 전에 차단합니다.
+추적된 내부 문서 링크를 읽으면 소스가 바뀌지 않아도 접근 시각이 갱신될 수 있습니다.
+검증은 접근 시각만 바뀐 경우를 제외하고 대상 바이트, 파일 신원, 모드, 크기, 수정 시각,
+변경 시각을 확인합니다. 추적된 스냅샷 밖으로 나가는 링크는 계속 차단합니다.
 
 소스 모드는 완전한 release 조립, 오프라인 wheelhouse, 의존성 OCI 내보내기, 발급자 키를
 요구하지 않습니다. 필요한 서비스 이미지는 여전히 빌드 또는 검증된 캐시 재사용, digest 재조회,

@@ -46,6 +46,9 @@ deployment pins a clean Git commit, records exact source and dependency digests,
 only the required inputs through the authenticated managed-host connection. Source provenance
 is explicitly `operator-selected-source`, never `signed-release`. A changed checkout, missing
 input, altered snapshot, or conflicting retained run stops before any new effect.
+Reading an internal tracked document link may update its access time without changing source.
+Verification ignores that access-time-only change, while checking the target bytes, file identity,
+mode, size, modification time, and change time; links outside the tracked snapshot stay blocked.
 
 Source mode avoids complete release assembly, offline wheelhouses, dependency OCI exports, and
 publisher keys. Required service images still need a build or a verified cache hit, digest

@@ -117,7 +117,14 @@ def _read_tracked(root: Path, relative: str, *, mode: str) -> bytes:
             before_link = os.stat(parts[-1], dir_fd=parent, follow_symlinks=False)
             target = os.readlink(parts[-1], dir_fd=parent)
             after_link = os.stat(parts[-1], dir_fd=parent, follow_symlinks=False)
-            if before_link != after_link or Path(target).is_absolute():
+            stable_fields = ("st_dev", "st_ino", "st_mode", "st_size", "st_mtime_ns", "st_ctime_ns")
+            if (
+                any(
+                    getattr(before_link, field) != getattr(after_link, field)
+                    for field in stable_fields
+                )
+                or Path(target).is_absolute()
+            ):
                 raise ValueError("source link changed or has an absolute target")
             return os.fsencode(target)
         descriptor = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
