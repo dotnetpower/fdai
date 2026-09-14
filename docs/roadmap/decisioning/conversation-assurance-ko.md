@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 17b4e2358aeaffebccd3131a59d6ce652abe3748
-translation_revised: 2026-09-14
+translation_source_sha: cfce17f126e6c19a2810b09673dd28262f5db5c3
+translation_revised: 2026-09-15
 ---
 # 대화 품질 보증
 
@@ -46,6 +46,10 @@ Turn은 `27/30` 이상이면 통과하고, `24-26`이면 검토가 필요하며,
 측정된 모든 turn은 정확한 프롬프트 프로필 다이제스트, 콘텐츠 없는 라우팅, 근거, 검증,
 T1/T2, 전체 요청 예산, 계측, 지연 시간 및 최종 상태를 하나의 추적 증적에 연결합니다.
 비공개 질문과 답변 본문은 추적되는 근거에 포함하지 않습니다.
+Core는 영속 큐와 Pantheon 품질 보증 단계 전체를 schema-v2 timing으로 기록합니다. Operator는
+추적 지연 시간과 같은 단계 목록을 반환하며 평가가 유예되면 해당 단계를 성능 저하로 표시합니다.
+답변에 UUID 형태의 배포 scope가 있으면 `hidden_scope_leak` hard-zero 위반을 기록합니다. 기존
+민감도 검사도 같은 답변에 `sensitive_output`을 독립적으로 기록할 수 있습니다.
 
 ### 명시적 캠페인 운영
 
@@ -53,6 +57,9 @@ T1/T2, 전체 요청 예산, 계측, 지연 시간 및 최종 상태를 하나�
 상태를 읽거나 중지를 요청할 수 있습니다. 하위 캠페인 하나는 질문을 최대 20개까지
 평가합니다. 더 큰 census는 제한된 하위 캠페인을 순서대로 실행하며 첫 판단 보류 또는
 미완료 하위 캠페인에서 중지합니다.
+고정 사례를 측정하기 전에 런타임은 등록된 사례 로캘을 Pantheon 대화 포트에 전달합니다.
+추적 증적의 `participants[].situation`은 같은 로캘을 기록해야 하며, 불일치는 조용히
+영어로 대체하지 않고 진단 실패로 처리합니다.
 
 선택적인 Unix socket supervisor는 명시적 명령을 기다립니다. 다시 시작해도 캠페인을
 재개하거나 시작하지 않습니다. 공급자 사용 제한, 사용 불가, 시간 초과 또는 누락된 측정

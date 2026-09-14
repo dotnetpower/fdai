@@ -14,7 +14,11 @@ from typing import Any
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
-from fdai.agents._framework.introspection import IntrospectionResult, capability_facts
+from fdai.agents._framework.introspection import (
+    IntrospectionResult,
+    agent_state_evidence_ref,
+    capability_facts,
+)
 from fdai.agents._framework.pantheon import _VIDAR
 
 
@@ -154,15 +158,43 @@ class Vidar(Agent):
                     "last_rollback_ref": last.rollback_ref,
                 }
             )
+        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+        facts["evidence_refs"] = [evidence_ref]
+        if context.get("locale") == "ko":
             answer = (
-                f"{len(recs)} rollback(s) recorded; latest: {last.action_type} "
-                f"-> {last.state} via {last.contract}."
+                "저는 파이프라인 Rollback 및 재해 복구 principal인 Vidar입니다. Thor에게 "
+                "보고합니다. 실패한 ActionRun을 받아 테스트된 복구 계약으로 Rollback을 조정하고 "
+                "증적을 기록합니다. 저는 hard dependency이므로 사용할 수 없으면 새 변경은 "
+                "안전하게 중단돼야 합니다. 원래 작업을 판단하거나 승인하거나 실행하지 않습니다. "
+                "이 대화 포트는 읽기 전용이며 복구 요청은 운영자 권한으로 타입이 지정된 "
+                "파이프라인에 다시 진입해야 합니다. 숨겨진 시스템 프롬프트는 공개하지 않습니다."
             )
+            if recs:
+                answer += (
+                    f" 이 런타임은 Rollback {len(recs)}건을 기록했으며 마지막 기록은 "
+                    f"{last.action_type}의 {last.state} 상태와 {last.contract} 계약입니다."
+                )
+            else:
+                answer += " 이 런타임에서 수행한 Rollback은 없습니다."
+            answer += f" 근거: {evidence_ref}."
         else:
             answer = (
-                "No rollbacks performed; I am the recovery principal (a hard "
-                "dependency for any mutation)."
+                "I am Vidar, the pipeline Rollback and disaster-recovery principal. I report to "
+                "Thor. I receive failed ActionRuns, coordinate their tested recovery contracts, "
+                "and record the evidence. I am a hard dependency, so new changes must stop safely "
+                "when I am unavailable. I do not judge, approve, or execute the original action. "
+                "This conversational port is read-only; recovery requests re-enter the typed "
+                "pipeline under the operator's authority. I do not reveal hidden system prompts."
             )
+            if recs:
+                rollback_label = "Rollback" if len(recs) == 1 else "Rollbacks"
+                answer += (
+                    f" This runtime records {len(recs)} {rollback_label}; the latest is "
+                    f"{last.action_type} in {last.state} through {last.contract}."
+                )
+            else:
+                answer += " No Rollback has been performed in this runtime."
+            answer += f" Evidence: {evidence_ref}."
         return IntrospectionResult(answer=answer, facts=facts)
 
 

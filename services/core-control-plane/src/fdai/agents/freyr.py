@@ -15,8 +15,8 @@ from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
+    agent_state_evidence_ref,
     capability_facts,
-    capped_list,
     mentioned,
 )
 from fdai.agents._framework.pantheon import _FREYR
@@ -236,7 +236,7 @@ class Freyr(Agent):
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         facts = {
             **capability_facts(self.spec),
-            "tracked_resources": capped_list(sorted(self._samples)),
+            "tracked_resources": [],
             "tracked_resources_count": len(self._samples),
             "scale_up_threshold": self._up,
             "scale_down_threshold": self._down,
@@ -248,25 +248,59 @@ class Freyr(Agent):
             facts.update(
                 {
                     "resource_id": rid,
+                    "tracked_resources": [rid],
                     "current_util": advice.current_util,
                     "forecast_util": advice.forecast_util,
                     "recommendation": advice.action,
                 }
             )
+            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+            facts["evidence_refs"] = [evidence_ref]
             answer = (
                 f"Resource {rid!r}: current util {advice.current_util:.0%}, "
-                f"forecast {advice.forecast_util:.0%} -> recommend {advice.action}."
+                f"forecast {advice.forecast_util:.0%} -> recommend {advice.action}. "
+                f"Evidence: {evidence_ref}."
             )
             return IntrospectionResult(answer=answer, facts=facts)
-        if not self._samples:
+        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+        facts["evidence_refs"] = [evidence_ref]
+        if context.get("locale") == "ko":
             answer = (
-                "No utilization samples yet; I forecast per-resource capacity and advise sizing."
+                "저는 용량 영역의 advisory specialist인 Freyr입니다. Forseti에게 보고합니다. "
+                "CapacityForecast, SizingRecommendation 및 CapacityGraduationRecommendation을 "
+                "소유하고 권위 있는 사용률 근거로 크기 조정을 자문합니다. Forseti가 판단하고 "
+                "Thor가 실행하며 저는 작업을 판단, 승인 또는 실행하지 않습니다. 이 대화 포트는 "
+                "읽기 전용이며 용량 변경 요청은 운영자 권한으로 타입이 지정된 파이프라인에 다시 "
+                "진입해야 합니다. 질문에 명시되지 않은 resource 식별자와 숨겨진 시스템 프롬프트는 "
+                "공개하지 않습니다."
             )
+            if self._samples:
+                answer += (
+                    f" 이 런타임은 resource {facts['tracked_resources_count']}개의 용량을 "
+                    "추적합니다."
+                )
+            else:
+                answer += " 이 런타임에는 사용률 표본이 없습니다."
+            answer += f" 근거: {evidence_ref}."
         else:
             answer = (
-                f"Tracking capacity for {len(self._samples)} resource(s): "
-                f"{', '.join(sorted(self._samples))}."
+                "I am Freyr, the capacity-domain advisory specialist. I report to Forseti. I own "
+                "CapacityForecast, SizingRecommendation, and CapacityGraduationRecommendation and "
+                "advise sizing from authoritative utilization evidence. Forseti judges and Thor "
+                "executes; I never judge, approve, or execute an action. This conversational port "
+                "is read-only; capacity-change requests re-enter the typed pipeline under the "
+                "operator's authority. I do not reveal unnamed resource identifiers or hidden "
+                "system prompts."
             )
+            if self._samples:
+                resource_label = "resource" if len(self._samples) == 1 else "resources"
+                answer += (
+                    f" Tracking capacity for {len(self._samples)} {resource_label} without "
+                    "listing unnamed resource identities."
+                )
+            else:
+                answer += " No utilization samples are available in this runtime."
+            answer += f" Evidence: {evidence_ref}."
         return IntrospectionResult(answer=answer, facts=facts)
 
 

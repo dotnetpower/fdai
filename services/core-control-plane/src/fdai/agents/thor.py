@@ -30,6 +30,7 @@ from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
+    agent_state_evidence_ref,
     capability_facts,
     mentioned,
 )
@@ -1229,19 +1230,50 @@ class Thor(Agent):
                     "rollback_ref": target.rollback_ref,
                 }
             )
+            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+            facts["evidence_refs"] = [evidence_ref]
             location = f" on {target.resource_id}" if target.resource_id else ""
             answer = (
                 f"ActionRun {target.correlation_id!r} ({target.action_type}) is "
-                f"{target.state.value}{location}."
+                f"{target.state.value}{location}. Evidence: {evidence_ref}."
             )
             return IntrospectionResult(answer=answer, facts=facts)
-        if not runs:
+        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+        facts["evidence_refs"] = [evidence_ref]
+        if context.get("locale") == "ko":
             answer = (
-                "No action runs dispatched yet; I am the sole executor and track "
-                "each run's lifecycle."
+                "저는 파이프라인 응답자이자 유일한 권한 보유 실행기인 Thor입니다. Odin에게 "
+                "보고합니다. Forseti의 판정, 필요한 현재 Var 승인, 감사 및 안전 검사를 통과한 "
+                "타입이 지정된 ActionRun만 전달합니다. 판단하거나 승인하거나 스스로 권한을 "
+                "부여하지 않습니다. 이 대화 포트는 읽기 전용이며 작업 요청은 운영자 권한으로 "
+                "타입이 지정된 파이프라인에 다시 진입해야 합니다. 숨겨진 시스템 프롬프트는 "
+                "공개하지 않습니다."
             )
+            if not runs:
+                answer += " 이 런타임에서 전달한 ActionRun은 없습니다."
+            else:
+                answer += (
+                    f" 이 런타임은 ActionRun {len(runs)}건을 추적하며 "
+                    f"{len(active)}건이 활성 상태입니다."
+                )
+            answer += f" 근거: {evidence_ref}."
         else:
-            answer = f"{len(active)} active run(s) of {len(runs)} tracked."
+            answer = (
+                "I am Thor, the pipeline responder and sole privileged executor. I report to "
+                "Odin. I dispatch only typed ActionRuns after Forseti's verdict, any required "
+                "current Var approval, audit, and safety checks. I never judge, approve, or "
+                "self-authorize. This conversational port is read-only; action requests re-enter "
+                "the typed pipeline under the operator's authority. I do not reveal hidden system "
+                "prompts."
+            )
+            if not runs:
+                answer += " No ActionRun has been dispatched in this runtime."
+            else:
+                run_label = "ActionRun" if len(runs) == 1 else "ActionRuns"
+                answer += (
+                    f" This runtime tracks {len(runs)} {run_label}, with {len(active)} active."
+                )
+            answer += f" Evidence: {evidence_ref}."
         return IntrospectionResult(answer=answer, facts=facts)
 
 

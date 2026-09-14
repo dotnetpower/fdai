@@ -499,6 +499,7 @@ class PantheonRuntime:
         session_id: str,
         user_id: str,
         question: str,
+        locale: str = "en",
         initiator_role: str | None = None,
         allow_action_proposal: bool = True,
         materialize_handoff: bool = True,
@@ -514,6 +515,7 @@ class PantheonRuntime:
 
         ``initiator_role`` (the console session's Entra role) drives the entry
         RBAC gate for an action command - a Reader cannot submit an action.
+        ``locale`` is forwarded to the server-owned prompt composition.
         Read-only channel adapters disable ``allow_action_proposal`` and
         ``materialize_handoff`` so the narrator can contribute evidence without
         creating a proposal or a discovery issue behind that channel's back.
@@ -524,6 +526,7 @@ class PantheonRuntime:
             session_id=session_id,
             user_id=user_id,
             question=question,
+            locale=locale,
             initiator_role=initiator_role,
             allow_action_proposal=allow_action_proposal,
             materialize_handoff=materialize_handoff,

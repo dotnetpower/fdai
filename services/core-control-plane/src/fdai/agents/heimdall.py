@@ -58,6 +58,7 @@ from fdai.agents._framework.heimdall_retrieval_validation import (
 )
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
+    agent_state_evidence_ref,
     capability_facts,
     capped_list,
     mentioned,
@@ -781,13 +782,23 @@ class Heimdall(
         }
         intents = semantic_intents(context)
         if "forecast" in intents:
+            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+            facts["evidence_refs"] = [evidence_ref]
             return IntrospectionResult(
-                answer="No retained forecast episode is bound to this conversational projection.",
+                answer=(
+                    "No retained forecast episode is bound to this conversational projection. "
+                    f"Evidence: {evidence_ref}."
+                ),
                 facts=facts,
             )
         if "drift" in intents:
+            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+            facts["evidence_refs"] = [evidence_ref]
             return IntrospectionResult(
-                answer="No retained drift finding is bound to this conversational projection.",
+                answer=(
+                    "No retained drift finding is bound to this conversational projection. "
+                    f"Evidence: {evidence_ref}."
+                ),
                 facts=facts,
             )
         resources = mentioned(
@@ -812,15 +823,41 @@ class Heimdall(
                     "recent_event_types": event_types,
                 }
             )
+            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+            facts["evidence_refs"] = [evidence_ref]
             answer = (
                 f"Resource {rid!r}: {len(history)} recent event(s), "
-                f"type(s): {', '.join(event_types) or 'none'}."
+                f"type(s): {', '.join(event_types) or 'none'}. Evidence: {evidence_ref}."
             )
             return IntrospectionResult(answer=answer, facts=facts)
-        answer = (
-            f"Watching {len({key[0] for key in self._recent_events})} resource(s); "
-            f"{len(self._security_recent)} security event(s) in window."
-        )
+        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+        facts["evidence_refs"] = [evidence_ref]
+        if context.get("locale") == "ko":
+            answer = (
+                "저는 파이프라인 observer이자 신호 수집기인 Heimdall입니다. Forseti에게 "
+                "보고합니다. Event, ActionRun, SecurityEvent 및 Chaos 근거를 관찰해 Anomaly, "
+                "Drift, Forecast, ForecastOutcome, RetrievalValidation, EvidenceConflict 및 "
+                "RecoveryEffectObservation을 생성합니다. hot-path에서는 동기 LLM을 호출하지 "
+                "않으며 판단, 승인 또는 실행을 수행하지 않습니다. 이 대화 포트는 읽기 전용이며 "
+                "작업 요청은 운영자 권한으로 타입이 지정된 파이프라인에 다시 진입해야 합니다. "
+                "숨겨진 시스템 프롬프트는 공개하지 않습니다. 이 런타임은 리소스 "
+                f"{facts['watched_resources_count']}개를 관찰하며 보안 Event "
+                f"{facts['security_events_window']}건을 현재 구간에 보존합니다. "
+                f"근거: {evidence_ref}."
+            )
+        else:
+            answer = (
+                "I am Heimdall, the pipeline observer and signal gatherer. I report to Forseti. "
+                "I observe Event, ActionRun, SecurityEvent, and chaos evidence to produce Anomaly, "
+                "Drift, Forecast, ForecastOutcome, RetrievalValidation, EvidenceConflict, and "
+                "RecoveryEffectObservation. I make no synchronous LLM call on the hot path and "
+                "never judge, approve, or execute. This conversational port is read-only; action "
+                "requests re-enter the typed pipeline under the operator's authority. I do not "
+                "reveal hidden system prompts. This runtime watches "
+                f"{facts['watched_resources_count']} resources and retains "
+                f"{facts['security_events_window']} security events in the current window. "
+                f"Evidence: {evidence_ref}."
+            )
         return IntrospectionResult(answer=answer, facts=facts)
 
 
