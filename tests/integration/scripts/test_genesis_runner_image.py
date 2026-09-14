@@ -45,6 +45,49 @@ from tests.integration.scripts.test_genesis_runner_image_sku_choice import (  # 
     usage_rows,
 )
 
+
+@pytest.mark.parametrize("statuses", [None, [], ["ProvisioningState/succeeded"]])
+def test_extension_readback_accepts_succeeded_resource_without_retained_instance_view(
+    tmp_path: Path, statuses: list[str] | None
+) -> None:
+    resource_id = (
+        f"/subscriptions/{SUBSCRIPTION}/resourceGroups/example/providers/Microsoft.Compute/"
+        "virtualMachines/runner/extensions/install"
+    )
+
+    def capture(*_args: object, **_kwargs: object) -> str:
+        return json.dumps(
+            {
+                "id": resource_id,
+                "type": "Microsoft.Compute/virtualMachines/extensions",
+                "provisioningState": "Succeeded",
+                "statuses": statuses,
+            }
+        )
+
+    observation._verify_extension(resource_id, capture=capture, cwd=tmp_path, timeout=30)
+
+
+def test_extension_readback_rejects_explicit_failed_instance_view(tmp_path: Path) -> None:
+    resource_id = (
+        f"/subscriptions/{SUBSCRIPTION}/resourceGroups/example/providers/Microsoft.Compute/"
+        "virtualMachines/runner/extensions/install"
+    )
+
+    def capture(*_args: object, **_kwargs: object) -> str:
+        return json.dumps(
+            {
+                "id": resource_id,
+                "type": "Microsoft.Compute/virtualMachines/extensions",
+                "provisioningState": "Succeeded",
+                "statuses": ["ProvisioningState/failed"],
+            }
+        )
+
+    with pytest.raises(ValueError, match="did not complete"):
+        observation._verify_extension(resource_id, capture=capture, cwd=tmp_path, timeout=30)
+
+
 TENANT = "00000000-0000-0000-0000-000000000000"
 SUBSCRIPTION = "00000000-0000-0000-0000-000000000001"
 BINDING = compute_target_binding(tenant_id=TENANT, subscription_id=SUBSCRIPTION)
@@ -926,7 +969,7 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
                     "id": cmd[5],
                     "type": "Microsoft.Compute/virtualMachines/extensions",
                     "provisioningState": "Succeeded",
-                    "statuses": ["ProvisioningState/succeeded"],
+                    "statuses": None if automatic else ["ProvisioningState/succeeded"],
                 }
             )
         if cmd[:3] == ["/usr/bin/az", "vm", "get-instance-view"]:

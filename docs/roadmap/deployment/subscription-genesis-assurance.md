@@ -86,7 +86,10 @@ Another stage, changed digest, expired record, or silence grants no authority.
 Terraform owns private builder/verifier VMs, extensions, deallocate/generalize, image capture,
 and networking behind FQDN-allowlisted Firewall Basic with two non-VM public egress IPs. Hidden
 Shared Key staging prohibits Azure VM Image Builder, Storage, and image-template resources.
-Acceptance requires image provenance, successful extensions, both VMs deallocated, and no claimed-build retry.
+Acceptance requires image provenance, successful extension resource provisioning, both VMs
+deallocated, and no claimed-build retry. Azure can omit extension instance-view statuses after VM
+deallocation; when statuses are present they must include `ProvisioningState/succeeded`, while an
+absent status list never overrides a non-successful extension resource state.
 Only `FirstPartyUsage=/Unprivileged` is policy-owned: absent or equal on both exact Firewall IPs,
 no unknown tags, and a refreshed zero-change plan. It permits no replacement, rebinding, or claim reuse.
 Policy cleanup parses multiline CLI TSV in order and verifies exact tagged-group and deleted-vault
