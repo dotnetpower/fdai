@@ -35,10 +35,10 @@ apply, resume, or tear down a tenant deployment.
 ## Connected source deployment
 
 Current source-mode support covers private preparation, read-only AKS capacity preflight,
-runner-image plan generation, and a separate source-bound Foundation plan command. Advanced
-Foundation adapters accept source inputs for exact apply preparation and private state handoff,
-but the public source command does not yet drive those stages. Managed-host application execution
-and durable Trial activation are not yet connected. A plan
+runner-image planning and exact-approved Foundation execution through private state handoff.
+The public source command resumes these checkpoints using the shared private coordinator;
+noninteractive execution stops at review without supplying an approval. Managed-host application
+execution and durable Trial activation are not yet connected. A plan
 returns exit code `2` for review, not deployment success; a capacity blocker returns `3`.
 `--prepare-only` makes no Azure call. `--preflight-only` reads the current human target, SKU
 restrictions, x64 architecture, host encryption, required zones and shared-family/total quota at
@@ -53,6 +53,15 @@ does not receive Terraform state or generated data. Existing exact-plan approval
 verification-only recovery, and independent readback remain authoritative. Private state transfer
 includes the Foundation root, its sibling bootstrap module and shared modules, so relative module
 references remain valid on the managed host. These adapters do not prove a completed deployment.
+
+The source coordinator uses the private managed-host route explicitly. It reads Foundation
+provider registrations and inherited policy assignments without registering providers or creating
+policy-probe resources. Policy visibility is not a compliance or deployment-success claim.
+An exclusive run lock covers the shared checkpoint coordinator. Interactive execution uses the
+existing exact-checkpoint approval prompt; noninteractive execution stops at review. The same
+source, snapshot, human target and retained run must match on every resumption. No approval from
+one checkpoint grants another checkpoint, and published exact-source CI remains mandatory before
+resource effects. A verified Foundation handoff still leaves application deployment incomplete.
 
 The development source path is selected explicitly with `fdaictl provision azure --source <path>`.
 It is mutually exclusive with `--online` and `--offline-kit`. Initial support targets a new

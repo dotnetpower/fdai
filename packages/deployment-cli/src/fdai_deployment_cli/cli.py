@@ -201,11 +201,12 @@ def _provision_azure(args: argparse.Namespace) -> int:
                 region=args.region,
                 monthly_cost_ceiling=args.monthly_cost_ceiling,
                 timeout_seconds=args.timeout_seconds,
+                interactive=args.output == "text" and sys.stdin.isatty(),
             )
             _print_mapping(
                 result,
                 output=args.output,
-                text=f"source deployment: {result['state']}; no apply authorized",
+                text=f"source deployment: {result['state']}; deployment is not ready",
             )
             return 2 if result["state"] == "review" else 3
         result = prepare_source_deployment(

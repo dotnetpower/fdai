@@ -1,4 +1,4 @@
-"""Advance a connected source installation to its first exact human plan boundary."""
+"""Supervise connected source Foundation with exact human checkpoint approvals."""
 
 from __future__ import annotations
 
@@ -9,13 +9,14 @@ import sys
 from pathlib import Path
 
 from fdai_deployment_cli.aks_preflight import inspect_aks_target
-from fdai_deployment_cli.contracts import canonical_bytes, load_json_object
+from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
-from fdai_deployment_cli.private_output import read_private_bytes, write_private_bytes
+from fdai_deployment_cli.private_output import read_private_bytes
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.source_deploy import prepare_source_deployment
 from fdai_deployment_cli.source_foundation import _copy_terraform
 from fdai_deployment_cli.source_input import inspect_source
+from fdai_deployment_cli.standalone_status import current_status, prior_attempt
 
 
 def plan_source_installation(
@@ -26,11 +27,13 @@ def plan_source_installation(
     region: str,
     monthly_cost_ceiling: int,
     timeout_seconds: int,
+    interactive: bool = False,
 ) -> dict[str, object]:
-    """Prepare source, inspect capacity and generate a runner image plan without applying.
+    """Advance source Foundation through exact human approvals, or stop for review.
 
-    No kit construction, signature fallback, image publication, state migration or
-    licence activation occurs here. The result must retain deployment_ready=false.
+    No kit construction, signature fallback or licence activation occurs here.
+    Noninteractive use never supplies an approval; Foundation handoff alone keeps
+    deployment_ready=false until separate application acceptance is connected.
     """
     deadline = DeploymentDeadline(timeout_seconds)
     prepared = prepare_source_deployment(
@@ -75,7 +78,7 @@ def plan_source_installation(
     }
     environment["PYTHONPATH"] = str(source.root / "packages/deployment-cli/src")
     source.reverify()
-    _capture(
+    preparation = _capture(
         (
             sys.executable,
             str(scripts / "source_genesis.py"),
@@ -100,53 +103,90 @@ def plan_source_installation(
     )
     environment["AZURE_SUBSCRIPTION_ID"] = str(values["subscription_id"])
     environment["AZURE_TENANT_ID"] = str(values["tenant_id"])
-    plan_dir = foundation / "runner-image-attempt-1"
-    if plan_dir.exists():
-        raise ValueError(
-            "retained source image plan requires exact review; it is not reapplied or replaced"
+    run_binding = preparation.get("run_binding")
+    if not isinstance(run_binding, str):
+        raise ValueError("source Foundation preparation has no retained run binding")
+    approval = foundation / "current-source-approval.json"
+    status_path = foundation / "status.json"
+    while True:
+        source.reverify()
+        previous = prior_attempt(status_path)
+        result = _capture(
+            (
+                sys.executable,
+                str(scripts / "source_genesis.py"),
+                "--advance",
+                "--work-dir",
+                str(foundation),
+                "--source-commit",
+                source.commit,
+                "--target-binding",
+                str(preflight["target_binding"]),
+                "--region",
+                region,
+                "--monthly-cost-ceiling",
+                str(monthly_cost_ceiling),
+                "--source-snapshot",
+                str(work_dir / "source-snapshot"),
+                "--source-snapshot-digest",
+                str(prepared["source_snapshot_digest"]),
+                "--terraform",
+                str(terraform),
+                "--timeout-seconds",
+                str(deadline.remaining(14400)),
+                *(("--approval-file", str(approval)) if interactive and approval.exists() else ()),
+            ),
+            source.root,
+            environment,
+            deadline.remaining(14400),
         )
-    source.reverify()
-    result = _capture(
-        (
-            sys.executable,
-            str(scripts / "genesis_runner_image.py"),
-            "plan",
-            "--work-dir",
-            str(plan_dir),
-            "--profile",
-            str(foundation / "profile.json"),
-            "--foundation-variables",
-            str(foundation / "foundation-variables.json"),
-            "--terraform",
-            str(terraform),
-            "--timeout-seconds",
-            str(deadline.remaining(7800)),
-            "--output",
-            "json",
-        ),
-        source.root,
-        environment,
-        deadline.remaining(7800),
-    )
-    source.reverify()
-    if (
-        result.get("schema_version") != "fdai.genesis-runner-image-plan-result.v1"
-        or result.get("state") != "review"
-        or result.get("apply_authorized") is not False
-        or result.get("mutation_performed") is not False
-    ):
-        raise ValueError("source runner image plan did not return a review-only result")
-    response = {
-        **result,
-        "stage": "runner-image-plan",
-        "source_commit": source.commit,
-        "provenance": "operator-selected-source",
-        "release_signature_verified": False,
-        "deployment_ready": False,
-        "next_action": "review_exact_runner_image_plan",
-    }
-    write_private_bytes(foundation / "source-plan-review.json", canonical_bytes(response))
-    return response
+        source.reverify()
+        if (
+            result.get("schema_version") != "fdai.source-foundation-progress.v1"
+            or result.get("state") != "review"
+            or result.get("source_commit") != source.commit
+            or result.get("run_binding") != run_binding
+            or result.get("provenance") != "operator-selected-source"
+            or result.get("release_signature_verified") is not False
+            or result.get("apply_authorized") is not False
+            or type(result.get("mutation_performed")) is not bool
+            or result.get("deployment_ready") is not False
+        ):
+            raise ValueError("source Foundation did not return a bound review result")
+        status = current_status(
+            status_path, previous=previous, source_commit=source.commit, run_binding=run_binding
+        )
+        if (
+            result.get("attempt") != status["attempt"]
+            or result.get("stage") != status.get("current_stage")
+            or result["mutation_performed"] != status.get("mutation_performed")
+        ):
+            raise ValueError("source Foundation progress differs from its current status")
+        if not interactive or result["stage"] not in {
+            "runner-image-apply",
+            "foundation-apply",
+            "runner-enrollment",
+            "foundation-state",
+        }:
+            return result
+        approval.unlink(missing_ok=True)
+        prompt = subprocess.run(
+            (
+                sys.executable,
+                str(scripts / "genesis_approval_prompt.py"),
+                "--status",
+                str(status_path),
+                "--output",
+                str(approval),
+            ),
+            cwd=source.root,
+            env=environment,
+            stdout=sys.stderr,
+            check=False,
+            timeout=deadline.remaining(600),
+        )
+        if prompt.returncode != 0:
+            raise ValueError("source Foundation exact approval was not granted")
 
 
 def _capture(
@@ -157,7 +197,8 @@ def _capture(
         cwd=root,
         env=environment,
         stdin=subprocess.DEVNULL,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=sys.stderr,
         check=False,
         timeout=timeout,
     )

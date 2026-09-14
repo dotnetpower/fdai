@@ -98,6 +98,107 @@ def test_standalone_run_binding_matches_runner_image_mode() -> None:
     )
 
 
+@pytest.mark.parametrize("provider_ready", [True, False])
+@pytest.mark.parametrize("expired_approval", [False, True])
+def test_source_advance_never_registers_or_applies_without_exact_approval(
+    tmp_path, monkeypatch, provider_ready, expired_approval
+):
+    source = SimpleNamespace(
+        root=ROOT,
+        commit=SOURCE,
+        digest="d" * 64,
+        reverify=lambda: None,
+        to_mapping=lambda: {"source_commit": SOURCE},
+    )
+    monkeypatch.setattr(source_genesis, "inspect_source", lambda *_, **__: source)
+    monkeypatch.setattr(
+        source_genesis, "verify_source_snapshot", lambda *_, **__: source.to_mapping()
+    )
+    monkeypatch.setattr(
+        source_genesis,
+        "active_azure_target",
+        lambda: SimpleNamespace(tenant_id=TENANT, subscription_id=SUBSCRIPTION),
+    )
+    monkeypatch.setattr(source_genesis, "foundation_values", _values)
+    args = SimpleNamespace(
+        source_commit=SOURCE,
+        target_binding=source_genesis.compute_target_binding(
+            tenant_id=TENANT, subscription_id=SUBSCRIPTION
+        ),
+        work_dir=tmp_path / "source",
+        region="koreacentral",
+        monthly_cost_ceiling=1000,
+        timeout_seconds=3600,
+        source_snapshot=tmp_path / "snapshot",
+        source_snapshot_digest="a" * 64,
+        terraform=tmp_path / "terraform",
+        approval_file=None,
+    )
+    source_genesis.prepare(args)
+    if expired_approval:
+        args.approval_file = args.work_dir / "expired-approval.json"
+
+        def expired(*_, **__):
+            raise source_genesis.GenesisApprovalExpiredError("expired")
+
+        monkeypatch.setattr(source_genesis, "load_genesis_approval", expired)
+    calls = []
+
+    class Checks:
+        def __init__(self, root):
+            assert root == ROOT
+
+        def verify_target(self, **kwargs):
+            assert kwargs["subscription_id"] == SUBSCRIPTION
+
+        def verify_toolchain(self, *, apply):
+            assert apply is False
+
+        def capture(self, command, reason, **kwargs):
+            calls.append(command)
+            if command[:2] == ("git", "remote"):
+                return "https://github.com/example/fdai.git"
+            assert command[:4] == ("az", "policy", "assignment", "list")
+            return "[]"
+
+    monkeypatch.setattr(source_genesis, "GenesisChecks", Checks)
+
+    def providers(**kwargs):
+        assert kwargs["apply"] is False
+        assert kwargs["profile"] == "foundation"
+        return SimpleNamespace(
+            state="ready" if provider_ready else "review",
+            to_mapping=lambda: {"mutation_performed": False},
+        )
+
+    monkeypatch.setattr(source_genesis, "reconcile_resource_providers", providers)
+    coordinators = []
+
+    class Coordinator:
+        def __init__(self, *, config, store, checks):
+            assert config.approval is None
+            assert config.approval_path is None
+            assert isinstance(config.foundation_inputs, source_genesis.SourceFoundationPlanInputs)
+            coordinators.append(config)
+
+        def run(self):
+            raise source_genesis.PrivateExecutionWaitError(
+                "runner-image-apply",
+                "runner_image_exact_plan_approval_required",
+                "review_runner_image_plan_and_supply_exact_approval",
+            )
+
+    monkeypatch.setattr(source_genesis, "PrivateExecutionCoordinator", Coordinator)
+    result = source_genesis.advance(args)
+    assert result["state"] == "review"
+    assert result["deployment_ready"] is False
+    assert result["mutation_performed"] is False
+    assert len(coordinators) == int(provider_ready)
+    assert result["stage"] == ("runner-image-apply" if provider_ready else "providers")
+    assert len(calls) == (2 if provider_ready else 1)
+    assert source_genesis.advance(args)["attempt"] == 2
+
+
 def _values(**kwargs: object) -> dict[str, object]:
     return {
         "tenant_id": TENANT,

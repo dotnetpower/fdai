@@ -112,9 +112,11 @@ fdaictl provision azure --source . --runtime aks --prepare-only
 ```
 
 After Azure sign-in, `--preflight-only` instead checks AKS SKU and quota feasibility without
-resource mutation. Omit both flags to advance to the runner-image plan review boundary. This
-preview does not yet apply infrastructure or activate the durable 30-day Trial. A successful
-preparation or preflight is not a deployed application. Source mode does not download a complete
+resource mutation. Omit both flags to advance Foundation checkpoints. Interactive text mode prompts
+for each exact approval before image creation, Foundation apply, host enrollment and private state
+handoff; JSON or noninteractive mode stops at review. This preview does not yet activate the
+application or durable 30-day Trial. A successful preparation or preflight is not a deployed
+application. Source mode does not download a complete
 kit or require a publisher key, and its work directory must be outside the selected checkout.
 
 The following signed-kit path remains separate:
