@@ -30,6 +30,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Made a token-bound notification click atomically establish display and acknowledgement when it races ahead of the display completion callback. | `current change`; focused out-of-order receipt transition test. | No known click-before-display acknowledgement loss remains. |
 | 2026-09-14 | implemented | Bound every new Console web acknowledgement to an unpredictable 128-bit per-claim token while retaining tokenless legacy rows for deduplication only. | `current change`; focused ledger, message-decoder, and service-worker tests. | No known tag-only acknowledgement path remains. |
 | 2026-09-14 | implemented | Reused one bell component and matched disabled-button semantics in the lazy Console web notification fallback. | `current change`; Console production build and responsive browser geometry. | No known loading-state layout shift remains in the notification control. |
 | 2026-09-14 | implemented | Corrected the missing-source notification regression fixture to omit the optional field, matching both the wire shape and strict TypeScript semantics. | `current change`; focused browser notification tests and Console typecheck. | No residual strict-optional mismatch remains in this fixture. |

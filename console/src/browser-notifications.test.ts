@@ -200,7 +200,12 @@ describe("browser notification boundary", () => {
       "principal-a",
       now + 1,
       storage,
-    )).toBeNull();
+    )).toEqual({
+      channelId: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
+      tag: "fdai:event-1",
+      deliveredAt: now + 1,
+      acknowledgedAt: now + 1,
+    });
 
     expect(recordBrowserAlertDelivered(
       "fdai:event-1",
@@ -210,8 +215,8 @@ describe("browser notification boundary", () => {
     )).toEqual({
       channelId: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
       tag: "fdai:event-1",
-      deliveredAt: now + 2,
-      acknowledgedAt: null,
+      deliveredAt: now + 1,
+      acknowledgedAt: now + 1,
     });
     expect(acknowledgeBrowserAlertDelivery(
       "fdai:event-1",
@@ -222,11 +227,11 @@ describe("browser notification boundary", () => {
     )).toEqual({
       channelId: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
       tag: "fdai:event-1",
-      deliveredAt: now + 2,
-      acknowledgedAt: now + 3,
+      deliveredAt: now + 1,
+      acknowledgedAt: now + 1,
     });
     expect(readLatestBrowserAlertReceipt("principal-a", now + 4, storage)?.acknowledgedAt)
-      .toBe(now + 3);
+      .toBe(now + 1);
     expect(readLatestBrowserAlertReceipt("principal-b", now + 4, storage)).toBeNull();
   });
 
