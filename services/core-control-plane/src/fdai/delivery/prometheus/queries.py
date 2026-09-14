@@ -1,21 +1,13 @@
 """AKS-scoped PromQL templates for the reference analyzer metrics.
 
-Design contract: the "Prom-primary, AML-fallback" arm of the
-real-time detection wiring. The 14-metric shipped default (see
-:func:`fdai.delivery.azure.demo_queries.default_metric_queries`) covers
-every analyzer-referenced metric through Azure Monitor Logs KQL - but
-KQL has a 2-5 min ingestion floor even under aggressive polling. AKS
-Managed Prometheus scrapes on the order of 15 s and exposes the same
-CSP-neutral metric names, so an operator with Managed Prometheus wired
-gets **sub-minute** detection for the AKS-scoped metrics; Azure
-resources that Prometheus does not observe (App Gateway, MySQL, Azure
-OpenAI, APIM) stay on the AML floor.
+These templates are available to an explicitly composed Prometheus route.
+They are not enough to bind the inventory-backed analyzer by themselves:
+Azure Managed Prometheus supplies a ``cluster`` alias, while the analyzer
+requires an exact provider resource reference. A deployment must preserve an
+exact ``resource_id`` label before it opts this catalog into analyzer routing.
 
-The map here declares only the metrics AKS Managed Prometheus can
-serve; the composition root pairs this map with the AML analyzer map
-via :class:`~fdai.shared.providers.routed_metric.RoutedMetricProvider`
-so a query for ``node_cpu_percent`` goes to Prometheus while a query
-for ``http_5xx_rate`` still lands on AML.
+The aggregation deliberately preserves all labels except CPU and mode, so an
+exact deployment-supplied identity label survives the expression.
 
 Every query is **author-controlled configuration**, never derived from
 untrusted input. Recording rules ship in AKS Managed Prometheus by
@@ -36,9 +28,11 @@ from fdai.delivery.azure.demo_queries import METRIC_NODE_CPU_PERCENT
 # a common recording rule (Prometheus mixin, exposed by Managed Prom by
 # default); it returns per-node CPU utilization as a ratio in [0, 1] so
 # multiplying by 100 gives the same percent scale the AML KQL template
-# emits for the analyzer's ``GTE 80.0`` bound.
+# emits for the analyzer's ``GTE 80.0`` bound. ``without`` preserves
+# deployment-supplied exact identity labels.
 _NODE_CPU_PERCENT_PROMQL = (
-    '100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])))'
+    "100 * (1 - avg without (cpu) (sum without (mode) "
+    '(rate(node_cpu_seconds_total{job="node", mode=~"idle|iowait|steal"}[5m]))))'
 )
 
 
@@ -53,6 +47,8 @@ def aks_managed_prometheus_queries() -> Mapping[str, str]:
     """Return the CSP-neutral ``metric_name`` -> PromQL map AKS Managed
     Prometheus is authorized to serve.
 
+    A deployment that binds this map must ensure every returned series carries
+    an exact ``resource_id`` label matching the inventory provider reference.
     A fork that adds Prometheus-observable metrics (pod restarts via
     ``kube_pod_container_status_restarts_total``, request errors via
     ``rate(http_requests_total{status=~\"5..\"}[1m])``, ...) copies this

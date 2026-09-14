@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef } from "preact/hooks";
 import { t } from "../i18n";
 import type { Turn } from "./command-deck-presenters";
-import { DEFAULT_NARRATOR } from "./command-deck-presenters";
 import { record as recordHistory, type DraftHistory } from "./draft-history";
 import {
   acknowledgeDeckOpenEvent,
@@ -87,6 +86,7 @@ export function resolveDeckOpenSession(
     ? detail.sessionKey
     : null;
   const targetAgent = normalizeAgentTarget(detail?.targetAgent);
+  const bindingAgent = normalizeAgentTarget(detail?.binding?.selectedAgent);
   const invalidFreshTarget = detail?.newConversation === true &&
     detail.targetAgent !== undefined && targetAgent === null;
   const key = detail?.newConversation === true && targetAgent
@@ -104,10 +104,8 @@ export function resolveDeckOpenSession(
   return {
     key,
     label,
-    contextAgent: detail?.binding
-      ? DEFAULT_NARRATOR
-      : invalidFreshTarget ? null : (targetAgent ?? label),
-    kind: targetAgent || requestedKey?.startsWith("agent:")
+    contextAgent: invalidFreshTarget ? null : (targetAgent ?? bindingAgent),
+    kind: targetAgent || bindingAgent || requestedKey?.startsWith("agent:")
       ? "agent" as const
       : "screen-thread" as const,
     hydrateDurable: detail?.newConversation !== true,
@@ -120,6 +118,14 @@ export function shouldDeferDeckOpen(
   draft: string,
 ): boolean {
   return detail?.onlyWhenIdle === true && (inFlight || draft.trim().length > 0);
+}
+
+/** Distinguish an absent binding from an explicitly malformed incident binding. */
+export function resolveDeckOpenIncidentBinding(
+  detail: DeckOpenDetail | undefined,
+): IncidentConversationBinding | null | undefined {
+  if (detail?.binding === undefined) return undefined;
+  return normalizeIncidentBinding(detail.binding);
 }
 
 export function useCommandDeckEvents(options: EventsOptions) {
@@ -276,7 +282,12 @@ export function useCommandDeckEvents(options: EventsOptions) {
       const briefing = typeof detail?.openingBriefing === "string"
         ? detail.openingBriefing.trim()
         : "";
-      const incidentBinding = normalizeIncidentBinding(detail?.binding) ?? undefined;
+      const resolvedIncidentBinding = resolveDeckOpenIncidentBinding(detail);
+      if (resolvedIncidentBinding === null) {
+        event.preventDefault();
+        return;
+      }
+      const incidentBinding = resolvedIncidentBinding ?? undefined;
       const requestedMode = detail?.contextMode === "general" ||
         incidentBinding !== undefined || detail?.targetAgent ? "general" : "screen";
       const { key, label, contextAgent, kind, hydrateDurable } = resolveDeckOpenSession(

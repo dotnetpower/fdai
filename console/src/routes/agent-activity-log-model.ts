@@ -10,7 +10,7 @@ import {
 import type { LiveAgentActivityEvent } from "./agents.model";
 import type { ObservationDomain, OperationalActivityKind } from "../agent-operational-activity";
 
-export const AGENT_LOG_LIMIT = 200;
+export const AGENT_LOG_LIMIT = 700;
 export type AgentLogColumn = "time" | "route" | "type" | "detail" | "correlation";
 export const DEFAULT_AGENT_LOG_COLUMNS: readonly AgentLogColumn[] = [
   "time",

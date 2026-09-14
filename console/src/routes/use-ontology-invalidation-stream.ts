@@ -1,10 +1,16 @@
-import { useEffect, useRef, useState } from "preact/hooks";
-import { readSseChunk } from "../hooks/sse-reader";
+import {
+  authenticatedSseHeaders,
+  consumeSseFrames,
+  isTransientSseStatus,
+  sseReconnectDelay,
+  useAuthenticatedSse,
+} from "../hooks/sse-client";
 
 export type OntologyInvalidationStreamStatus =
   | "idle"
   | "connecting"
   | "open"
+  | "closed"
   | "reconnecting"
   | "unsupported";
 
@@ -81,150 +87,50 @@ export function ontologyInvalidationHeaders(
   authorization: string | null,
   lastEventId: string | null,
 ): Headers {
-  const headers = new Headers({ accept: "text/event-stream" });
-  if (authorization) headers.set("authorization", authorization);
-  if (lastEventId) headers.set("last-event-id", lastEventId);
-  return headers;
+  return authenticatedSseHeaders(authorization, lastEventId);
 }
 
 export function ontologyInvalidationReconnectDelay(attempt: number): number {
-  return Math.min(30_000, 1_000 * (2 ** Math.min(attempt, 5)));
+  return sseReconnectDelay(attempt);
 }
 
 export async function consumeOntologyInvalidationSse(
   response: Response,
   onEvent: (event: OntologyInvalidationEvent) => void,
 ): Promise<void> {
-  if (!response.ok) {
-    throw new Error(`ontology invalidation stream returned HTTP ${response.status}`);
-  }
-  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
-  if (!contentType.includes("text/event-stream")) {
-    throw new Error("ontology invalidation stream returned an invalid content type");
-  }
-  if (!response.body) throw new Error("ontology invalidation stream response has no body");
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  const consumeBlock = (block: string): void => {
-    const eventId = block.split("\n")
-      .find((line) => line.startsWith("id:"))
-      ?.slice(3).trim();
-    const eventName = block.split("\n")
-      .find((line) => line.startsWith("event:"))
-      ?.slice(6).trim();
-    if (eventName !== EVENT_NAME) return;
-    const data = block.split("\n")
-      .filter((line) => line.startsWith("data:"))
-      .map((line) => line.slice(5).trimStart())
-      .join("\n");
-    if (!data) return;
-    const event = decodeOntologyInvalidationEvent(data);
-    if (event && eventId === String(event.watermark)) onEvent(event);
-  };
-  while (true) {
-    const { value, done } = await readSseChunk(reader);
-    buffer = (buffer + decoder.decode(value, { stream: !done })).replace(/\r\n/g, "\n");
-    if (buffer.length > MAX_SSE_BUFFER_CHARS) {
-      await reader.cancel("ontology invalidation SSE buffer exceeded its bound");
-      throw new Error("ontology invalidation SSE buffer exceeded its bound");
-    }
-    let boundary = buffer.indexOf("\n\n");
-    while (boundary >= 0) {
-      consumeBlock(buffer.slice(0, boundary));
-      buffer = buffer.slice(boundary + 2);
-      boundary = buffer.indexOf("\n\n");
-    }
-    if (done) {
-      if (buffer.trim()) consumeBlock(buffer);
-      return;
-    }
-  }
+  await consumeSseFrames(response, (frame) => {
+    if (frame.event !== EVENT_NAME) return;
+    const event = decodeOntologyInvalidationEvent(frame.data);
+    if (event && frame.id === String(event.watermark)) onEvent(event);
+  }, { maxBufferChars: MAX_SSE_BUFFER_CHARS });
 }
 
 /** Keeps one authenticated invalidation stream connected only while its page is visible. */
 export function useOntologyInvalidationStream(
   options: UseOntologyInvalidationStreamOptions,
 ): UseOntologyInvalidationStreamResult {
-  const [status, setStatus] = useState<OntologyInvalidationStreamStatus>(
-    typeof fetch === "undefined" ? "unsupported" : "idle",
-  );
-  const [lastError, setLastError] = useState<string | null>(null);
-  const onEventRef = useRef(options.onEvent);
-  const lastEventIdRef = useRef<string | null>(null);
-  onEventRef.current = options.onEvent;
+  const connection = useAuthenticatedSse({
+    url: options.url,
+    enabled: options.enabled,
+    getAuthorizationHeader: options.getAuthorizationHeader,
+    pauseWhenHidden: true,
+    resumeFromLastEventId: true,
+    shouldRetryStatus: retryOntologyStatus,
+    maxBufferChars: MAX_SSE_BUFFER_CHARS,
+    onFrame: (frame) => {
+      if (frame.event !== EVENT_NAME) return false;
+      const event = decodeOntologyInvalidationEvent(frame.data);
+      if (!event || frame.id !== String(event.watermark)) return false;
+      options.onEvent(event);
+      return true;
+    },
+  });
+  return {
+    status: connection.status,
+    lastError: connection.lastError,
+  };
+}
 
-  useEffect(() => {
-    if (typeof fetch === "undefined") return undefined;
-    if (!options.enabled) {
-      setStatus("idle");
-      setLastError(null);
-      return undefined;
-    }
-    let cancelled = false;
-    let controller: AbortController | null = null;
-    let reconnectTimer: number | null = null;
-    let reconnectAttempt = 0;
-
-    const isHidden = () => typeof document !== "undefined" && document.hidden;
-    const scheduleReconnect = (): void => {
-      if (cancelled || isHidden()) return;
-      setStatus("reconnecting");
-      const delay = ontologyInvalidationReconnectDelay(reconnectAttempt);
-      reconnectAttempt += 1;
-      reconnectTimer = window.setTimeout(() => {
-        reconnectTimer = null;
-        void connect();
-      }, delay);
-    };
-    const connect = async (): Promise<void> => {
-      if (cancelled || isHidden()) return;
-      controller?.abort();
-      controller = new AbortController();
-      setStatus(reconnectAttempt === 0 ? "connecting" : "reconnecting");
-      try {
-        const authorization = await options.getAuthorizationHeader();
-        const response = await fetch(options.url, {
-          cache: "no-store",
-          headers: ontologyInvalidationHeaders(authorization, lastEventIdRef.current),
-          signal: controller.signal,
-        });
-        if (cancelled) return;
-        setStatus("open");
-        setLastError(null);
-        reconnectAttempt = 0;
-        await consumeOntologyInvalidationSse(response, (event) => {
-          lastEventIdRef.current = String(event.watermark);
-          onEventRef.current(event);
-        });
-        if (!cancelled) scheduleReconnect();
-      } catch (error) {
-        if (cancelled || controller.signal.aborted) return;
-        setLastError(error instanceof Error ? error.message : String(error));
-        scheduleReconnect();
-      }
-    };
-    const onVisibility = (): void => {
-      if (isHidden()) {
-        controller?.abort();
-        if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
-        reconnectTimer = null;
-        setStatus("idle");
-        return;
-      }
-      reconnectAttempt = 0;
-      void connect();
-    };
-
-    document.addEventListener("visibilitychange", onVisibility);
-    void connect();
-    return () => {
-      cancelled = true;
-      controller?.abort();
-      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [options.enabled, options.getAuthorizationHeader, options.url]);
-
-  return { status, lastError };
+function retryOntologyStatus(status: number): boolean {
+  return status === 401 || isTransientSseStatus(status);
 }

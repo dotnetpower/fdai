@@ -16,6 +16,10 @@ STATE_STORE_DSN_ENV = "FDAI_STATE_STORE_DSN"
 _LOGGER = logging.getLogger("fdai.analyzer_tick")
 
 
+class AnalyzerRunReceiptPersistenceError(RuntimeError):
+    """A durable analyzer run receipt could not be written."""
+
+
 def resolve_analyzer_run_id(environment: Mapping[str, str]) -> str | None:
     """Return a retry-stable explicit or platform Job execution identity."""
 
@@ -66,16 +70,22 @@ async def record_analyzer_run_receipt(
     store = build_analyzer_run_receipt_store(environment)
     if store is None:
         return
-    await store.record(
-        run_id=run_id,
-        tick_id=tick_id,
-        recorded_at=recorded_at,
-        report=report,
-    )
+    try:
+        await store.record(
+            run_id=run_id,
+            tick_id=tick_id,
+            recorded_at=recorded_at,
+            report=report,
+        )
+    except Exception as exc:  # noqa: BLE001 - persistence failures retry the bounded tick
+        raise AnalyzerRunReceiptPersistenceError(
+            f"analyzer run receipt persistence failed: {type(exc).__name__}"
+        ) from exc
 
 
 __all__ = [
     "ANALYZER_RUN_ID_ENV",
+    "AnalyzerRunReceiptPersistenceError",
     "CONTAINER_APP_JOB_EXECUTION_NAME_ENV",
     "build_analyzer_run_receipt_store",
     "record_analyzer_run_receipt",

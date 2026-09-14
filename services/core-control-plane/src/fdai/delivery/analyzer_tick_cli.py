@@ -1,15 +1,19 @@
 """One-shot analyzer tick for a Container Apps scheduled Job.
 
-Reads `FDAI_ANALYZER_TARGETS` (a JSON list of ``{resource_id, kind}`` objects),
-adds every eligible resource the durable inventory projection already observed
-when `FDAI_INVENTORY_DSN` is bound, binds the reference analyzers to whichever
+Reads `FDAI_ANALYZER_TARGETS` (a JSON list of
+``{resource_id, kind, provider_resource_id?}`` objects), adds every eligible
+resource the durable inventory projection already observed when
+`FDAI_INVENTORY_DSN` is bound, binds the reference analyzers to whichever
 `MetricProvider` composition wired, and publishes one canonical Event per
 finding to the analyzer ingest topic.
 
-Exit codes: `0` on a clean pass, including a pass with no resolved target;
-`1` when any finding failed to publish, so the Job retries the tick. An
-unreadable inventory projection raises instead of degrading to the configured
-list alone, so the Job retries rather than silently narrowing its coverage.
+One-shot and bounded-loop exit codes are `0` after a clean final pass,
+including a pass with no resolved target, and `1` when the final pass is
+incomplete. The unbounded local loop remains alive across a failed pass,
+target-resolution outage, tick deadline, or run-receipt persistence outage,
+withholds readiness, and retries on the next interval. Configuration and
+programming errors still propagate. An unreadable inventory projection raises
+instead of degrading to the configured list alone.
 """
 
 from __future__ import annotations
@@ -20,6 +24,8 @@ import json
 import logging
 import os
 import sys
+import time
+from collections import Counter, defaultdict
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -28,22 +34,62 @@ from typing import Any
 import httpx
 
 from fdai.composition import attach_metric_provider, default_container_from_env
-from fdai.core.investigation import InvestigationCoordinator, default_analyzers
-from fdai.delivery.analyzer_receipt_store import (
-    StateStoreAnalyzerReceiptStore,
+from fdai.delivery.analyzer_receipt_store import StateStoreAnalyzerReceiptStore
+from fdai.delivery.analyzer_run_receipt import (
+    AnalyzerRunReceiptPersistenceError,
+    record_analyzer_run_receipt,
 )
-from fdai.delivery.analyzer_run_receipt import record_analyzer_run_receipt
 from fdai.delivery.analyzer_targets import (
-    DEFAULT_MAX_DISCOVERED,
-    MAX_DISCOVERED_CEILING,
+    AnalyzerResourceTypeResolution,
     AnalyzerTargetResolution,
+    AnalyzerTargetResolutionError,
     resolve_analyzer_targets,
 )
 from fdai.delivery.analyzer_tick import (
-    DEFAULT_WINDOW_SECONDS,
-    AnalyzerTarget,
+    DEFAULT_PUBLICATION_WINDOW_SECONDS,
+    AnalyzerPublicationStatus,
     AnalyzerTickReport,
     AnalyzerTickRunner,
+)
+from fdai.delivery.analyzer_tick_cli_composition import (
+    build_analyzer_coordinator,
+    build_decision_evidence_admission_provider,
+    build_inventory_sources,
+    build_lifecycle_recorder,
+    build_publication_ledger,
+    build_receipt_store,
+)
+from fdai.delivery.analyzer_tick_cli_config import (
+    BUDGET_ENV,
+    DEFAULT_MAX_DISCOVERED,
+    DEFAULT_TICK_BUDGET_SECONDS,
+    DEFAULT_TRACE_LOOKBACK_SECONDS,
+    INGRESS_TOPIC_ENV,
+    INVENTORY_DSN_ENV,
+    LOOP_INTERVAL_ENV,
+    MAX_DISCOVERED_ENV,
+    POD_EVIDENCE_JSON_ENV,
+    STATE_STORE_DSN_ENV,
+    TARGETS_ENV,
+    TOPIC_ENV,
+    TRACE_LOOKBACK_ENV,
+    TRACE_TOPOLOGIES_ENV,
+    TRACE_WINDOW_ENV,
+    WINDOW_ENV,
+    metric_source_delays,
+    parse_loop_interval,
+    parse_max_discovered,
+    parse_targets,
+    parse_tick_budget,
+    parse_trace_topologies,
+    parse_window_seconds,
+    resolve_finding_topic,
+    resolve_scheduling_mode,
+    resolve_trace_lookback_seconds,
+    resolve_trace_window_seconds,
+)
+from fdai.delivery.analyzer_tick_cli_config import (
+    SCHEDULING_MODES as _SCHEDULING_MODES,
 )
 from fdai.delivery.azure.demo_queries import default_metric_queries
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
@@ -54,31 +100,12 @@ from fdai.delivery.azure.log_query import (
 )
 from fdai.delivery.azure.trace_continuity import (
     AzureTraceContinuitySource,
-    TraceTopologyTarget,
 )
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
-from fdai.delivery.detection_lifecycle_state import DetectionLifecycleRecorder
-from fdai.delivery.persistence import (
-    PostgresOntologyInstanceStore,
-    PostgresOntologyInstanceStoreConfig,
-    PostgresStateStore,
-    PostgresStateStoreConfig,
-    StateStoreDecisionEvidenceAdmissionProvider,
-)
-from fdai.delivery.persistence.postgres_analyzer_publication import (
-    PostgresAnalyzerPublicationLedger,
-)
-from fdai.delivery.persistence.postgres_idempotency import PostgresIdempotencyStoreConfig
-from fdai.delivery.pod_evidence_binding import (
-    POD_EVIDENCE_ENV,
-    build_pod_lifecycle_evidence_source,
-)
-from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.trace_continuity_tick import (
     TraceContinuityTickReport,
     TraceContinuityTickRunner,
 )
-from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.runtime.venue import (
     ExecutionVenue,
     bus_security_protocol,
@@ -86,32 +113,11 @@ from fdai.runtime.venue import (
     uses_developer_identity,
     uses_workload_identity,
 )
-from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
-from fdai.shared.providers.metric import MetricProvider
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.analyzer_tick")
-_REPO_ROOT = repo_asset_root()
 
-TARGETS_ENV = "FDAI_ANALYZER_TARGETS"
-WINDOW_ENV = "FDAI_ANALYZER_WINDOW_SECONDS"
-TRACE_WINDOW_ENV = "FDAI_TRACE_CONTINUITY_WINDOW_SECONDS"
-TRACE_LOOKBACK_ENV = "FDAI_TRACE_CONTINUITY_LOOKBACK_SECONDS"
-DEFAULT_TRACE_LOOKBACK_SECONDS = 900
-TOPIC_ENV = "FDAI_ANALYZER_TOPIC"
-INGRESS_TOPIC_ENV = "KAFKA_TOPIC_EVENTS"
-MAX_DISCOVERED_ENV = "FDAI_ANALYZER_MAX_DISCOVERED_TARGETS"
-INVENTORY_DSN_ENV = "FDAI_INVENTORY_DSN"
-STATE_STORE_DSN_ENV = "FDAI_STATE_STORE_DSN"
-TRACE_TOPOLOGIES_ENV = "FDAI_TRACE_TOPOLOGIES_JSON"
-POD_EVIDENCE_JSON_ENV = POD_EVIDENCE_ENV
-_TRACE_TOPOLOGY_KEYS = frozenset({"topology_ref", "resource_ref", "expected_hops"})
-_MAX_TRACE_TOPOLOGIES = 32
-LOOP_INTERVAL_ENV = "FDAI_ANALYZER_INTERVAL_SECONDS"
-BUDGET_ENV = "FDAI_ANALYZER_BUDGET_SECONDS"
-_DEFAULT_LOOP_INTERVAL_SECONDS = 60
-_DEFAULT_TICK_BUDGET_SECONDS = 300
-_SCHEDULING_MODES = frozenset({"one_shot", "local_loop", "container_apps_job"})
+_PUBLICATION_STATES = tuple(item.value for item in AnalyzerPublicationStatus)
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,7 +131,10 @@ class AnalyzerJobReport:
     @property
     def failed(self) -> bool:
         """Return true when either publisher needs a Job retry."""
-        return self.analyzer.failed or self.trace_continuity.failed
+        incomplete_targets = self.target_resolution.inventory_consulted and (
+            self.target_resolution.truncated or not self.target_resolution.source_complete
+        )
+        return self.analyzer.failed or self.trace_continuity.failed or incomplete_targets
 
     def to_dict(
         self,
@@ -135,6 +144,7 @@ class AnalyzerJobReport:
     ) -> dict[str, object]:
         return {
             **self.analyzer.to_dict(),
+            "coverage": self.coverage(),
             "trace_continuity": self.trace_continuity.to_dict(),
             "target_resolution": self.target_resolution.to_dict(),
             "readiness": self.readiness(
@@ -142,6 +152,143 @@ class AnalyzerJobReport:
                 metric_delays=metric_delays or {},
             ),
         }
+
+    def coverage(self) -> dict[str, object]:
+        """Return strictly reconciled cross-resource evaluation coverage."""
+
+        targets = {target.resource_ref: target for target in self.target_resolution.targets}
+        if len(targets) != len(self.target_resolution.targets):
+            return _unavailable_coverage("selected_resource_identity_duplicate")
+        unavailable_reason = self.target_resolution.coverage_unavailable_reason
+        if (
+            unavailable_reason is None
+            and self.target_resolution.targets
+            and not self.target_resolution.resource_types
+        ):
+            unavailable_reason = "resource_type_evidence_absent"
+        if unavailable_reason is not None:
+            return _unavailable_coverage(unavailable_reason)
+
+        if any(target.resource_type is None for target in targets.values()):
+            return _unavailable_coverage("resource_type_evidence_absent")
+
+        findings_by_resource = Counter(finding.resource_ref for finding in self.analyzer.receipts)
+        if sum(findings_by_resource.values()) != self.analyzer.findings:
+            return _unavailable_coverage("finding_receipts_absent")
+        receipt_by_key = {receipt.idempotency_key: receipt for receipt in self.analyzer.receipts}
+        if len(receipt_by_key) != len(self.analyzer.receipts):
+            return _unavailable_coverage("finding_receipt_identity_duplicate")
+        if set(findings_by_resource) - set(targets):
+            return _unavailable_coverage("finding_target_unselected")
+
+        unsupported = Counter(self.analyzer.unsupported_targets)
+        evaluation_errors = Counter(
+            resource_ref for resource_ref, _error in self.analyzer.analyzer_errors
+        )
+        error_codes_by_resource: dict[str, set[str]] = defaultdict(set)
+        for resource_ref, error in self.analyzer.analyzer_errors:
+            error_codes_by_resource[resource_ref].add(
+                "analyzer_timeout" if error == "timeout" else "analyzer_failure"
+            )
+        if (set(unsupported) | set(evaluation_errors)) - set(targets):
+            return _unavailable_coverage("evaluation_target_unselected")
+
+        delivery_errors: Counter[str] = Counter()
+        unattributed_error_count = 0
+        unattributed_error_codes: set[str] = set()
+        for errors, code in (
+            (self.analyzer.publish_errors, "publication_failure"),
+            (self.analyzer.receipt_errors, "receipt_persistence_failure"),
+        ):
+            for key, _error in errors:
+                receipt = receipt_by_key.get(key)
+                if receipt is None:
+                    unattributed_error_count += 1
+                    unattributed_error_codes.add(code)
+                else:
+                    delivery_errors[receipt.resource_ref] += 1
+                    error_codes_by_resource[receipt.resource_ref].add(code)
+
+        publication_by_resource: dict[str, Counter[str]] = defaultdict(Counter)
+        for receipt in self.analyzer.receipts:
+            publication_by_resource[receipt.resource_ref][receipt.publication.value] += 1
+
+        resources: list[dict[str, object]] = []
+        for target in sorted(
+            targets.values(),
+            key=lambda item: (str(item.resource_type), item.resource_ref),
+        ):
+            resource_ref = target.resource_ref
+            finding_count = findings_by_resource[resource_ref]
+            evaluation_error_count = evaluation_errors[resource_ref]
+            unsupported_count = unsupported[resource_ref]
+            evaluation_state = (
+                "unsupported"
+                if unsupported_count
+                else "evaluation_error"
+                if evaluation_error_count
+                else "finding"
+                if finding_count
+                else "evaluated_no_finding"
+            )
+            resources.append(
+                {
+                    "resource_ref": resource_ref,
+                    "resource_type": str(target.resource_type),
+                    "resource_kind": target.resource_kind,
+                    "evaluation_state": evaluation_state,
+                    "finding_count": finding_count,
+                    "unsupported_count": unsupported_count,
+                    "error_count": evaluation_error_count + delivery_errors[resource_ref],
+                    "error_codes": sorted(error_codes_by_resource[resource_ref]),
+                    "publication_counts": _publication_counts(
+                        publication_by_resource[resource_ref]
+                    ),
+                }
+            )
+
+        try:
+            by_resource_type = _coverage_by_resource_type(
+                self.target_resolution.resource_types,
+                resources,
+            )
+        except ValueError:
+            return _unavailable_coverage("resource_type_totals_unreconciled")
+        publication_counts = _publication_counts(
+            Counter(receipt.publication.value for receipt in self.analyzer.receipts)
+        )
+        evaluated_count = sum(
+            1
+            for resource in resources
+            if resource["evaluation_state"] in {"evaluated_no_finding", "finding"}
+        )
+        error_count = (
+            len(self.analyzer.analyzer_errors)
+            + len(self.analyzer.publish_errors)
+            + len(self.analyzer.receipt_errors)
+        )
+        coverage: dict[str, object] = {
+            "schema_version": "1.1.0",
+            "status": "available",
+            "unavailable_reason": None,
+            "candidate_count": sum(
+                item.candidate_count for item in self.target_resolution.resource_types
+            ),
+            "selected_count": len(resources),
+            "evaluated_count": evaluated_count,
+            "held_count": sum(item.held_count for item in self.target_resolution.resource_types),
+            "finding_count": sum(findings_by_resource.values()),
+            "unsupported_count": sum(unsupported.values()),
+            "error_count": error_count,
+            "unattributed_error_count": unattributed_error_count,
+            "unattributed_error_codes": sorted(unattributed_error_codes),
+            "publication_counts": publication_counts,
+            "resource_types": by_resource_type,
+            "resources": resources,
+            "cause_claim_supported": False,
+            "execution_authority": False,
+        }
+        return coverage
 
     def readiness(
         self,
@@ -154,17 +301,16 @@ class AnalyzerJobReport:
         if scheduling not in _SCHEDULING_MODES:
             raise ValueError("analyzer scheduling mode is invalid")
         target_discovery = (
-            "available"
+            "unavailable"
+            if self.target_resolution.inventory_consulted
+            and (self.target_resolution.truncated or not self.target_resolution.source_complete)
+            else "available"
             if self.target_resolution.inventory_consulted or self.target_resolution.configured > 0
             else "unbound"
         )
         metric_access = (
             "unavailable"
-            if self.analyzer.analyzer_errors
-            or (
-                self.analyzer.targets > 0
-                and len(self.analyzer.unsupported_targets) == self.analyzer.targets
-            )
+            if self.analyzer.analyzer_errors or self.analyzer.unsupported_targets
             else "unverified"
             if self.analyzer.targets == 0
             else "available"
@@ -187,337 +333,96 @@ class AnalyzerJobReport:
         }
 
 
-def resolve_finding_topic(environ: Mapping[str, str]) -> str:
-    """Resolve the topic that actually carries findings into the control loop.
-
-    Findings enter through Huginn's raw ingress, which normalizes them into
-    ``object.event`` for the judging agents. Publishing anywhere else reaches no
-    consumer, so an unset ingress topic is a configuration error rather than a
-    value worth defaulting.
-    """
-
-    topic = environ.get(TOPIC_ENV, "").strip() or environ.get(INGRESS_TOPIC_ENV, "").strip()
-    if not topic:
-        raise RuntimeError(f"{TOPIC_ENV} or {INGRESS_TOPIC_ENV} is required")
-    return topic
-
-
-def parse_targets(raw: str) -> tuple[AnalyzerTarget, ...]:
-    """Parse the configured target list.
-
-    An empty or blank value yields no target. Any other malformed value fails
-    closed rather than silently analyzing nothing.
-    """
-    text = raw.strip()
-    if not text:
-        return ()
-    try:
-        loaded = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"{TARGETS_ENV} MUST be a JSON array: {exc}") from exc
-    if not isinstance(loaded, list):
-        raise ValueError(f"{TARGETS_ENV} MUST be a JSON array")
-    targets: list[AnalyzerTarget] = []
-    seen: set[tuple[str, str]] = set()
-    for index, item in enumerate(loaded):
-        if not isinstance(item, dict):
-            raise ValueError(f"{TARGETS_ENV}[{index}] MUST be an object")
-        resource_ref = item.get("resource_id")
-        resource_kind = item.get("kind")
-        if not isinstance(resource_ref, str) or not isinstance(resource_kind, str):
-            raise ValueError(f"{TARGETS_ENV}[{index}] MUST carry string resource_id and kind")
-        target = AnalyzerTarget(
-            resource_ref=resource_ref.strip(), resource_kind=resource_kind.strip()
-        )
-        identity = (target.resource_ref, target.resource_kind)
-        if identity in seen:
-            continue
-        seen.add(identity)
-        targets.append(target)
-    return tuple(targets)
-
-
-def parse_trace_topologies(raw: str) -> tuple[TraceTopologyTarget, ...]:
-    """Parse strict deployment-supplied trace topology declarations."""
-    text = raw.strip()
-    if not text:
-        return ()
-    try:
-        loaded = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"{TRACE_TOPOLOGIES_ENV} MUST be a JSON array: {exc}") from exc
-    if not isinstance(loaded, list) or len(loaded) > _MAX_TRACE_TOPOLOGIES:
-        raise ValueError(
-            f"{TRACE_TOPOLOGIES_ENV} MUST be an array with at most {_MAX_TRACE_TOPOLOGIES} items"
-        )
-    targets: list[TraceTopologyTarget] = []
-    seen: set[str] = set()
-    for index, item in enumerate(loaded):
-        if not isinstance(item, dict) or set(item) != _TRACE_TOPOLOGY_KEYS:
-            raise ValueError(
-                f"{TRACE_TOPOLOGIES_ENV}[{index}] MUST contain exactly "
-                "topology_ref, resource_ref, and expected_hops"
-            )
-        topology_ref = item["topology_ref"]
-        resource_ref = item["resource_ref"]
-        expected_hops = item["expected_hops"]
-        if (
-            not isinstance(topology_ref, str)
-            or not isinstance(resource_ref, str)
-            or not isinstance(expected_hops, list)
-            or any(not isinstance(hop, str) for hop in expected_hops)
-        ):
-            raise ValueError(f"{TRACE_TOPOLOGIES_ENV}[{index}] has invalid field types")
-        target = TraceTopologyTarget(
-            topology_ref=topology_ref,
-            resource_ref=resource_ref,
-            expected_hops=tuple(expected_hops),
-        )
-        if target.topology_ref in seen:
-            raise ValueError(f"{TRACE_TOPOLOGIES_ENV} topology_ref values MUST be unique")
-        seen.add(target.topology_ref)
-        targets.append(target)
-    return tuple(targets)
-
-
-def parse_window_seconds(raw: str) -> int:
-    """Parse the optional analyzer window; a malformed value fails closed."""
-    text = raw.strip()
-    if not text:
-        return DEFAULT_WINDOW_SECONDS
-    try:
-        window = int(text)
-    except ValueError as exc:
-        raise ValueError(f"{WINDOW_ENV} MUST be a positive integer") from exc
-    if window <= 0:
-        raise ValueError(f"{WINDOW_ENV} MUST be a positive integer")
-    return window
-
-
-def resolve_trace_window_seconds(environ: Mapping[str, str], analyzer_window: int) -> int:
-    """Resolve the trace-continuity detection window, defaulting to the analyzer window.
-
-    A discontinuity is keyed by its detection window, so one window yields at
-    most one distinct finding. Correlating repeats therefore requires a
-    detection window several times shorter than the correlation window.
-    """
-
-    text = environ.get(TRACE_WINDOW_ENV, "").strip()
-    if not text:
-        return analyzer_window
-    try:
-        window = int(text)
-    except ValueError as exc:
-        raise ValueError(f"{TRACE_WINDOW_ENV} MUST be a positive integer") from exc
-    if window <= 0:
-        raise ValueError(f"{TRACE_WINDOW_ENV} MUST be a positive integer")
-    return window
-
-
-def resolve_trace_lookback_seconds(
-    environ: Mapping[str, str],
-    detection_window: int,
-) -> int:
-    """Resolve evidence lookback independently from the idempotency bucket."""
-
-    text = environ.get(TRACE_LOOKBACK_ENV, "").strip()
-    if not text:
-        return max(DEFAULT_TRACE_LOOKBACK_SECONDS, detection_window)
-    try:
-        lookback = int(text)
-    except ValueError as exc:
-        raise ValueError(f"{TRACE_LOOKBACK_ENV} MUST be a positive integer") from exc
-    if lookback < detection_window:
-        raise ValueError(f"{TRACE_LOOKBACK_ENV} MUST be at least {TRACE_WINDOW_ENV}")
-    return lookback
-
-
-def parse_max_discovered(raw: str) -> int:
-    """Parse the optional inventory-backed target bound; malformed fails closed.
-
-    The upper bound matches the resolver ceiling so a misconfigured deployment
-    fails at parse time with the environment key named, not later inside the
-    projection read.
-    """
-    text = raw.strip()
-    if not text:
-        return DEFAULT_MAX_DISCOVERED
-    try:
-        bound = int(text)
-    except ValueError as exc:
-        raise ValueError(f"{MAX_DISCOVERED_ENV} MUST be a positive integer") from exc
-    if not 1 <= bound <= MAX_DISCOVERED_CEILING:
-        raise ValueError(
-            f"{MAX_DISCOVERED_ENV} MUST be an integer in [1, {MAX_DISCOVERED_CEILING}]"
-        )
-    return bound
-
-
-def parse_loop_interval(raw: str) -> int:
-    """Parse the local/deployed schedule interval with one shared bound."""
-
-    text = raw.strip()
-    if not text:
-        return _DEFAULT_LOOP_INTERVAL_SECONDS
-    try:
-        interval = int(text)
-    except ValueError as exc:
-        raise ValueError(f"{LOOP_INTERVAL_ENV} MUST be a positive integer") from exc
-    if not 1 <= interval <= 86_400:
-        raise ValueError(f"{LOOP_INTERVAL_ENV} MUST be in [1, 86400]")
-    return interval
-
-
-def parse_tick_budget(raw: str) -> int:
-    """Parse the shared local and deployed wall-clock budget."""
-
-    text = raw.strip()
-    if not text:
-        return _DEFAULT_TICK_BUDGET_SECONDS
-    try:
-        budget = int(text)
-    except ValueError as exc:
-        raise ValueError(f"{BUDGET_ENV} MUST be a positive integer") from exc
-    if not 1 <= budget <= _DEFAULT_TICK_BUDGET_SECONDS:
-        raise ValueError(f"{BUDGET_ENV} MUST be in [1, {_DEFAULT_TICK_BUDGET_SECONDS}]")
-    return budget
-
-
-def metric_source_delays(environ: Mapping[str, str]) -> dict[str, str]:
-    """Report configured source-specific delay floors without claiming a live measurement."""
-
+def _unavailable_coverage(reason: str) -> dict[str, object]:
     return {
-        "log_analytics": (
-            "120-300_seconds" if environ.get("FDAI_MONITOR_WORKSPACE_ID", "").strip() else "unbound"
-        ),
-        "prometheus": (
-            "15_seconds_plus_ingestion"
-            if environ.get("FDAI_PROMETHEUS_ENDPOINT", "").strip()
-            else "unbound"
-        ),
+        "schema_version": "1.1.0",
+        "status": "unavailable",
+        "unavailable_reason": reason,
+        "cause_claim_supported": False,
+        "execution_authority": False,
     }
 
 
-def resolve_scheduling_mode(raw: str) -> str:
-    """Resolve one allowlisted scheduling-mode receipt value."""
-
-    mode = raw.strip() or "one_shot"
-    if mode not in _SCHEDULING_MODES:
-        raise ValueError("FDAI_ANALYZER_SCHEDULING_MODE is invalid")
-    return mode
+def _publication_counts(counts: Mapping[str, int]) -> dict[str, int]:
+    return {state: counts.get(state, 0) for state in _PUBLICATION_STATES}
 
 
-def build_inventory_projection() -> PostgresOntologyInstanceStore | None:
-    """Bind the durable inventory projection when its database is configured.
-
-    Returns ``None`` when the deployment supplies no inventory DSN, which keeps
-    the tick a configured-target-only pass instead of failing a deployment that
-    never provisioned the projection.
-    """
-    dsn = os.environ.get(INVENTORY_DSN_ENV, "").strip()
-    if not dsn:
-        return None
-    catalog_root = _REPO_ROOT / "rule-catalog"
-    catalog = load_ontology_catalog(
-        catalog_root,
-        schema_registry=PackageResourceSchemaRegistry(),
-        probes_root=catalog_root / "probes",
-    )
-    return PostgresOntologyInstanceStore(
-        config=PostgresOntologyInstanceStoreConfig(
-            dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
-        ),
-        object_types=catalog.object_types,
-        link_types=catalog.link_types,
-    )
-
-
-def build_publication_ledger() -> PostgresAnalyzerPublicationLedger:
-    """Bind restart-durable publication suppression in every execution venue."""
-
-    dsn = os.environ.get(STATE_STORE_DSN_ENV, "").strip()
-    if not dsn:
-        raise RuntimeError(
-            f"{STATE_STORE_DSN_ENV} is required for duplicate-safe analyzer publication"
-        )
-    return PostgresAnalyzerPublicationLedger(
-        config=PostgresIdempotencyStoreConfig(
-            dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
-        )
-    )
-
-
-def build_receipt_store() -> StateStoreAnalyzerReceiptStore:
-    """Bind the bounded receipt projection to the same tracked-state database."""
-
-    dsn = os.environ.get(STATE_STORE_DSN_ENV, "").strip()
-    if not dsn:
-        raise RuntimeError(f"{STATE_STORE_DSN_ENV} is required for analyzer finding receipts")
-    return StateStoreAnalyzerReceiptStore(
-        PostgresStateStore(
-            config=PostgresStateStoreConfig(
-                dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
-            )
-        )
-    )
-
-
-def build_lifecycle_recorder() -> DetectionLifecycleRecorder:
-    """Bind the tracked-state writer that keeps Pod failure history readable.
-
-    The projection shares the analyzer's state store: it is the same durable
-    boundary the publication ledger already requires, so a venue that can
-    suppress a duplicate can also retain what it detected.
-    """
-
-    dsn = os.environ.get(STATE_STORE_DSN_ENV, "").strip()
-    if not dsn:
-        raise RuntimeError(f"{STATE_STORE_DSN_ENV} is required for Pod lifecycle projection")
-    return DetectionLifecycleRecorder(
-        PostgresStateStore(
-            config=PostgresStateStoreConfig(
-                dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
-            )
-        )
-    )
+def _coverage_by_resource_type(
+    resolutions: tuple[AnalyzerResourceTypeResolution, ...],
+    resources: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    rows: dict[str, dict[str, object]] = {
+        resolution.resource_type: {
+            "resource_type": resolution.resource_type,
+            "candidate_count": resolution.candidate_count,
+            "selected_count": resolution.selected_count,
+            "evaluated_count": 0,
+            "held_count": resolution.held_count,
+            "held_reason_counts": dict(resolution.held_reason_counts),
+            "finding_count": 0,
+            "unsupported_count": 0,
+            "error_count": 0,
+            "error_codes": [],
+            "publication_counts": _publication_counts({}),
+        }
+        for resolution in resolutions
+    }
+    observed_selected: Counter[str] = Counter()
+    for resource in resources:
+        resource_type = resource.get("resource_type")
+        evaluation_state = resource.get("evaluation_state")
+        finding_count = resource.get("finding_count")
+        unsupported_count = resource.get("unsupported_count")
+        error_count = resource.get("error_count")
+        error_codes = resource.get("error_codes")
+        publication_counts = resource.get("publication_counts")
+        if (
+            not isinstance(resource_type, str)
+            or resource_type not in rows
+            or not isinstance(evaluation_state, str)
+            or not isinstance(finding_count, int)
+            or not isinstance(unsupported_count, int)
+            or not isinstance(error_count, int)
+            or not isinstance(error_codes, list)
+            or any(not isinstance(code, str) for code in error_codes)
+            or not isinstance(publication_counts, Mapping)
+        ):
+            raise ValueError("analyzer coverage resource row is malformed")
+        row = rows[resource_type]
+        observed_selected[resource_type] += 1
+        if evaluation_state in {"evaluated_no_finding", "finding"}:
+            _increment_coverage_count(row, "evaluated_count", 1)
+        _increment_coverage_count(row, "finding_count", finding_count)
+        _increment_coverage_count(row, "unsupported_count", unsupported_count)
+        _increment_coverage_count(row, "error_count", error_count)
+        row_error_codes = row["error_codes"]
+        if not isinstance(row_error_codes, list):
+            raise ValueError("analyzer coverage error codes are malformed")
+        row["error_codes"] = sorted(set(row_error_codes) | set(error_codes))
+        row_publications = row["publication_counts"]
+        if not isinstance(row_publications, dict):
+            raise ValueError("analyzer coverage publication counts are malformed")
+        for state in _PUBLICATION_STATES:
+            value = publication_counts.get(state)
+            current = row_publications.get(state)
+            if not isinstance(value, int) or not isinstance(current, int):
+                raise ValueError("analyzer coverage publication count is malformed")
+            row_publications[state] = current + value
+    for resolution in resolutions:
+        if observed_selected[resolution.resource_type] != resolution.selected_count:
+            raise ValueError("analyzer coverage selected totals MUST reconcile")
+    return [rows[resource_type] for resource_type in sorted(rows)]
 
 
-def build_decision_evidence_admission_provider() -> (
-    StateStoreDecisionEvidenceAdmissionProvider | None
-):
-    """Bind the durable admission lookup used by target selection."""
-
-    dsn = os.environ.get(STATE_STORE_DSN_ENV, "").strip()
-    if not dsn:
-        _LOGGER.warning(
-            "analyzer_decision_evidence_unavailable",
-            extra={"reason": "state_store_dsn_absent"},
-        )
-        return None
-    return StateStoreDecisionEvidenceAdmissionProvider(
-        store=PostgresStateStore(
-            config=PostgresStateStoreConfig(
-                dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
-            )
-        )
-    )
-
-
-def build_analyzer_coordinator(metric_provider: MetricProvider) -> InvestigationCoordinator:
-    """Compose every production analyzer this venue can actually ground.
-
-    The Pod lifecycle analyzer joins the pantheon only when this venue declares
-    typed Pod evidence. An undeclared source leaves Pod targets reported as
-    unsupported, which is the honest outcome: an analyzer with no observations
-    would have to invent the completeness its receipt claims.
-    """
-
-    return InvestigationCoordinator(
-        analyzers=default_analyzers(
-            metric_provider,
-            pod_lifecycle_evidence=build_pod_lifecycle_evidence_source(),
-        )
-    )
+def _increment_coverage_count(
+    row: dict[str, object],
+    key: str,
+    increment: int,
+) -> None:
+    current = row.get(key)
+    if not isinstance(current, int):
+        raise ValueError("analyzer coverage count is malformed")
+    row[key] = current + increment
 
 
 async def run_once() -> AnalyzerJobReport:
@@ -532,12 +437,14 @@ async def run_once() -> AnalyzerJobReport:
     )
     max_discovered = parse_max_discovered(os.environ.get(MAX_DISCOVERED_ENV, ""))
 
+    inventory = build_inventory_sources()
     resolution = await resolve_analyzer_targets(
         configured=configured,
-        store=build_inventory_projection(),
+        store=inventory.projection if inventory is not None else None,
         now=datetime.now(tz=UTC),
         max_discovered=max_discovered,
         decision_evidence=build_decision_evidence_admission_provider(),
+        provider_references=(inventory.provider_references if inventory is not None else None),
     )
     _LOGGER.info("analyzer_tick_targets_resolved", extra=resolution.to_dict())
     targets = resolution.targets
@@ -567,9 +474,11 @@ async def run_once() -> AnalyzerJobReport:
             monitor_workspace_id=_optional("FDAI_MONITOR_WORKSPACE_ID"),
             monitor_queries=default_metric_queries(),
             metrics_api_queries=None,
-            prometheus_base_url=_optional("FDAI_PROMETHEUS_ENDPOINT"),
+            # Azure Managed Prometheus exposes a cluster alias, not the exact
+            # ARM identity required by inventory-backed analyzer queries.
+            prometheus_base_url=None,
             prometheus_queries=None,
-            prometheus_audience=_optional("FDAI_PROMETHEUS_AUDIENCE"),
+            prometheus_audience=None,
         )
         bus = _build_finding_bus(
             identity=identity,
@@ -579,11 +488,15 @@ async def run_once() -> AnalyzerJobReport:
         try:
             if targets:
                 analyzer_report = await AnalyzerTickRunner(
-                    coordinator=build_analyzer_coordinator(container.metric_provider),
+                    coordinator=build_analyzer_coordinator(
+                        container.metric_provider,
+                        targets=targets,
+                    ),
                     event_bus=bus,
                     publication_ledger=build_publication_ledger(),
                     receipt_store=build_receipt_store(),
                     window_seconds=window_seconds,
+                    publication_window_seconds=DEFAULT_PUBLICATION_WINDOW_SECONDS,
                     topic=topic,
                 ).run_once(targets)
                 await build_lifecycle_recorder().record_report(
@@ -687,40 +600,65 @@ async def run_loop(
     *,
     interval_seconds: int,
     max_ticks: int | None = None,
-    tick_timeout_seconds: float = _DEFAULT_TICK_BUDGET_SECONDS,
+    tick_timeout_seconds: float = DEFAULT_TICK_BUDGET_SECONDS,
     tick: Callable[[], Awaitable[AnalyzerJobReport]] = run_once,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    monotonic: Callable[[], float] = time.monotonic,
 ) -> int:
-    """Run identical one-shot ticks serially and stop on the first failed publication."""
+    """Run fixed-rate serial ticks and keep retryable failures unready."""
 
     if not 1 <= interval_seconds <= 86_400:
         raise ValueError("analyzer loop interval_seconds MUST be in [1, 86400]")
     if max_ticks is not None and max_ticks < 1:
         raise ValueError("analyzer loop max_ticks MUST be positive")
-    if not 0 < tick_timeout_seconds <= _DEFAULT_TICK_BUDGET_SECONDS:
+    if not 0 < tick_timeout_seconds <= DEFAULT_TICK_BUDGET_SECONDS:
         raise ValueError("analyzer loop tick_timeout_seconds is out of bounds")
     completed = 0
+    ready = False
     while max_ticks is None or completed < max_ticks:
+        tick_started = monotonic()
+        failure_reason: str | None = None
         try:
             report = await asyncio.wait_for(tick(), timeout=tick_timeout_seconds)
+            await _record_run_receipt(
+                report,
+                scheduling="local_loop",
+                tick_id=str(completed),
+            )
         except TimeoutError:
-            print("service=local-analyzer event=failed reason=tick_deadline", flush=True)
-            return 1
-        await _record_run_receipt(
-            report,
-            scheduling="local_loop",
-            tick_id=str(completed),
-        )
-        _emit_report(report, scheduling="local_loop")
+            failure_reason = "tick_deadline"
+        except AnalyzerTargetResolutionError:
+            failure_reason = "target_resolution_unavailable"
+        except AnalyzerRunReceiptPersistenceError:
+            failure_reason = "run_receipt_unavailable"
         completed += 1
-        if report.failed:
-            print("service=local-analyzer event=failed", flush=True)
-            return 1
-        if completed == 1:
-            print("service=local-analyzer event=ready", flush=True)
-        if max_ticks is not None and completed >= max_ticks:
-            return 0
-        await sleep(float(interval_seconds))
+        if failure_reason is not None:
+            ready = False
+            if max_ticks is not None and completed >= max_ticks:
+                print(
+                    f"service=local-analyzer event=failed reason={failure_reason}",
+                    flush=True,
+                )
+                return 1
+            print(
+                f"service=local-analyzer event=waiting reason={failure_reason}",
+                flush=True,
+            )
+        else:
+            _emit_report(report, scheduling="local_loop")
+            if report.failed:
+                ready = False
+                if max_ticks is not None and completed >= max_ticks:
+                    print("service=local-analyzer event=failed", flush=True)
+                    return 1
+                print("service=local-analyzer event=waiting reason=tick_failed", flush=True)
+            elif not ready:
+                print("service=local-analyzer event=ready", flush=True)
+                ready = True
+            if max_ticks is not None and completed >= max_ticks:
+                return 0
+        elapsed = monotonic() - tick_started
+        await sleep(max(0.0, float(interval_seconds) - elapsed))
     return 0
 
 
@@ -789,6 +727,47 @@ def main(argv: list[str] | None = None) -> int:
         scheduling=scheduling,
     )
     return 1 if report.failed else 0
+
+
+__all__ = [
+    "BUDGET_ENV",
+    "DEFAULT_MAX_DISCOVERED",
+    "DEFAULT_TRACE_LOOKBACK_SECONDS",
+    "INGRESS_TOPIC_ENV",
+    "INVENTORY_DSN_ENV",
+    "LOOP_INTERVAL_ENV",
+    "MAX_DISCOVERED_ENV",
+    "POD_EVIDENCE_JSON_ENV",
+    "STATE_STORE_DSN_ENV",
+    "StateStoreAnalyzerReceiptStore",
+    "TARGETS_ENV",
+    "TOPIC_ENV",
+    "TRACE_LOOKBACK_ENV",
+    "TRACE_TOPOLOGIES_ENV",
+    "TRACE_WINDOW_ENV",
+    "WINDOW_ENV",
+    "AnalyzerJobReport",
+    "build_analyzer_coordinator",
+    "build_decision_evidence_admission_provider",
+    "build_inventory_sources",
+    "build_lifecycle_recorder",
+    "build_publication_ledger",
+    "build_receipt_store",
+    "main",
+    "metric_source_delays",
+    "parse_loop_interval",
+    "parse_max_discovered",
+    "parse_targets",
+    "parse_tick_budget",
+    "parse_trace_topologies",
+    "parse_window_seconds",
+    "resolve_finding_topic",
+    "resolve_scheduling_mode",
+    "resolve_trace_lookback_seconds",
+    "resolve_trace_window_seconds",
+    "run_loop",
+    "run_once",
+]
 
 
 if __name__ == "__main__":

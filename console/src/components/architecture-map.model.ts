@@ -36,7 +36,12 @@ export interface InventoryResource {
 export interface InventoryLink {
   readonly source: string;
   readonly target: string;
-  readonly type: "contains" | "attached_to" | "depends_on" | "peered_with";
+  readonly type:
+    | "contains"
+    | "attached_to"
+    | "depends_on"
+    | "peered_with"
+    | "runtime_calls";
   readonly connection_kind?: NetworkConnectionKind;
   readonly direction?: NetworkDirection;
   readonly traffic_class?: NetworkTrafficClass;

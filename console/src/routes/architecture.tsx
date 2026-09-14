@@ -74,7 +74,10 @@ export async function loadArchitectureGraph(
   client: Pick<OperatorApiClient, "panel">,
   requestedView: string | null,
 ): Promise<InventoryGraphResponse> {
-  const params = { depth: "4", include: "contains,attached_to,depends_on,peered_with" };
+  const params = {
+    depth: "4",
+    include: "contains,attached_to,depends_on,peered_with,runtime_calls",
+  };
   if (requestedView === null) {
     return client.panel<InventoryGraphResponse>("/inventory/graph", params);
   }

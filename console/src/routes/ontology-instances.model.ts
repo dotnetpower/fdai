@@ -542,13 +542,21 @@ export interface OntologyInstanceRelationshipGroups {
   readonly path: readonly OntologyInstanceLink[];
 }
 
-export type OntologyInstanceNetworkPathStatus = "current" | "stale" | "unknown";
+export type OntologyInstanceNetworkPathStatus =
+  | "current"
+  | "stale"
+  | "unverified_source"
+  | "unknown";
 
 export interface OntologyInstanceNetworkPath {
   readonly status: OntologyInstanceNetworkPathStatus;
   readonly kind: "frontend_ingress" | "direct_public_ip" | "nat_gateway" | null;
   readonly links: readonly OntologyInstanceLink[];
-  readonly reason: "coverage_incomplete" | "no_reviewed_path" | null;
+  readonly reason:
+    | "coverage_incomplete"
+    | "coverage_accounting_unavailable"
+    | "no_reviewed_path"
+    | null;
 }
 
 export interface OntologyInstanceNetworkPaths {
@@ -556,7 +564,11 @@ export interface OntologyInstanceNetworkPaths {
   readonly egress: OntologyInstanceNetworkPath;
 }
 
-export type OntologyInstancePathStepStatus = "observed" | "unknown" | "unavailable";
+export type OntologyInstancePathStepStatus =
+  | "observed"
+  | "unverified_source"
+  | "unknown"
+  | "unavailable";
 
 export interface OntologyInstancePathStep {
   readonly id: string;
@@ -579,45 +591,54 @@ export function ontologyInstanceAksLanes(
   );
   const kubernetesUnavailable = data.sources.some((source) =>
     source.source === "kubernetes_runtime_inventory" && source.status === "unavailable");
-  const infrastructureStatus = (observed: boolean): OntologyInstancePathStepStatus =>
-    observed ? "observed" : "unknown";
-  const runtimeStatus = (observed: boolean): OntologyInstancePathStepStatus =>
-    observed ? "observed" : kubernetesUnavailable ? "unavailable" : "unknown";
+  const relationshipStatus = (
+    ownLinks: readonly OntologyInstanceLink[],
+    upstreamLinks: readonly OntologyInstanceLink[],
+    missing: OntologyInstancePathStepStatus,
+  ): OntologyInstancePathStepStatus => {
+    if (ownLinks.length === 0) return missing;
+    return [...upstreamLinks, ...ownLinks].every(
+      (link) => link.evidence.status === "available" && link.evidence.complete,
+    )
+      ? "observed"
+      : "unverified_source";
+  };
+  const runtimeMissing = kubernetesUnavailable ? "unavailable" : "unknown";
 
-  const managedGroupIds = new Set(mapped("azure.aks-attached-to-node-resource-group")
-    .filter((link) => link.source === data.root_id)
-    .map((link) => link.target));
-  const vmssIds = new Set(data.links
-    .filter((link) => link.link_type === "contains" && managedGroupIds.has(link.source)
-      && resources.get(link.target)?.resource_type === "compute.vm-scale-set")
-    .map((link) => link.target));
-  const vmIds = new Set(mapped("azure.vm-scale-set-contains-vm")
-    .filter((link) => vmssIds.has(link.source))
-    .map((link) => link.target));
-  const nicIds = new Set(mapped("azure.vm-scale-set-nic-attached-to-vm")
-    .filter((link) => vmIds.has(link.target))
-    .map((link) => link.source));
-  const agentPoolIds = new Set(mapped("azure.aks-contains-agent-pool")
-    .filter((link) => link.source === data.root_id)
-    .map((link) => link.target));
-  const nodeIds = new Set(mapped("kubernetes.agent-pool-contains-node")
-    .filter((link) => agentPoolIds.has(link.source))
-    .map((link) => link.target));
-  const scheduledPodIds = new Set(mapped("kubernetes.pod-scheduled-on-node")
-    .filter((link) => nodeIds.has(link.target))
-    .map((link) => link.source));
+  const managedGroupLinks = mapped("azure.aks-attached-to-node-resource-group")
+    .filter((link) => link.source === data.root_id);
+  const managedGroupIds = new Set(managedGroupLinks.map((link) => link.target));
+  const vmssLinks = data.links.filter(
+    (link) => link.link_type === "contains"
+      && managedGroupIds.has(link.source)
+      && resources.get(link.target)?.resource_type === "compute.vm-scale-set",
+  );
+  const vmssIds = new Set(vmssLinks.map((link) => link.target));
+  const vmLinks = mapped("azure.vm-scale-set-contains-vm")
+    .filter((link) => vmssIds.has(link.source));
+  const vmIds = new Set(vmLinks.map((link) => link.target));
+  const nicLinks = mapped("azure.vm-scale-set-nic-attached-to-vm")
+    .filter((link) => vmIds.has(link.target));
+  const agentPoolLinks = mapped("azure.aks-contains-agent-pool")
+    .filter((link) => link.source === data.root_id);
+  const agentPoolIds = new Set(agentPoolLinks.map((link) => link.target));
+  const nodeLinks = mapped("kubernetes.agent-pool-contains-node")
+    .filter((link) => agentPoolIds.has(link.source));
+  const nodeIds = new Set(nodeLinks.map((link) => link.target));
+  const scheduledPodLinks = mapped("kubernetes.pod-scheduled-on-node")
+    .filter((link) => nodeIds.has(link.target));
   const serviceLinks = data.links.filter((link) =>
     link.link_type === "kubernetes_selects"
     || link.link_type === "kubernetes_exposes_endpoints"
     || link.link_type === "kubernetes_exposes_endpoint_slice");
   const serviceIds = new Set(serviceLinks.map((link) => link.source));
-  const selectedPodIds = new Set(serviceLinks
-    .filter((link) => link.link_type === "kubernetes_selects")
-    .map((link) => link.target));
-  const endpointIds = new Set(serviceLinks
-    .filter((link) => link.link_type !== "kubernetes_selects")
-    .map((link) => link.target));
-  const ingressObserved = data.links.some((link) =>
+  const selectedPodLinks = serviceLinks.filter(
+    (link) => link.link_type === "kubernetes_selects",
+  );
+  const endpointLinks = serviceLinks.filter(
+    (link) => link.link_type !== "kubernetes_selects",
+  );
+  const ingressLinks = data.links.filter((link) =>
     link.link_type === "routes_to"
     && (resources.get(link.source)?.resource_type === "kubernetes.ingress"
       || link.evidence.mapping_id === "azure.application-gateway-routes-to-configured-backend"
@@ -628,33 +649,33 @@ export function ontologyInstanceAksLanes(
     {
       id: "ingress",
       steps: [
-        { id: "frontend", status: infrastructureStatus(ingressObserved) },
+        { id: "frontend", status: relationshipStatus(ingressLinks, [], "unknown") },
         { id: "aksOrService", status: "observed" },
       ],
     },
     {
       id: "infrastructure",
       steps: [
-        { id: "managedGroup", status: infrastructureStatus(managedGroupIds.size > 0) },
-        { id: "vmss", status: infrastructureStatus(vmssIds.size > 0) },
-        { id: "vm", status: infrastructureStatus(vmIds.size > 0) },
-        { id: "nic", status: infrastructureStatus(nicIds.size > 0) },
+        { id: "managedGroup", status: relationshipStatus(managedGroupLinks, [], "unknown") },
+        { id: "vmss", status: relationshipStatus(vmssLinks, managedGroupLinks, "unknown") },
+        { id: "vm", status: relationshipStatus(vmLinks, [...managedGroupLinks, ...vmssLinks], "unknown") },
+        { id: "nic", status: relationshipStatus(nicLinks, [...managedGroupLinks, ...vmssLinks, ...vmLinks], "unknown") },
       ],
     },
     {
       id: "runtime",
       steps: [
-        { id: "agentPool", status: infrastructureStatus(agentPoolIds.size > 0) },
-        { id: "node", status: runtimeStatus(nodeIds.size > 0) },
-        { id: "pod", status: runtimeStatus(scheduledPodIds.size > 0) },
+        { id: "agentPool", status: relationshipStatus(agentPoolLinks, [], "unknown") },
+        { id: "node", status: relationshipStatus(nodeLinks, agentPoolLinks, runtimeMissing) },
+        { id: "pod", status: relationshipStatus(scheduledPodLinks, [...agentPoolLinks, ...nodeLinks], runtimeMissing) },
       ],
     },
     {
       id: "service",
       steps: [
-        { id: "service", status: runtimeStatus(serviceIds.size > 0) },
-        { id: "pod", status: runtimeStatus(selectedPodIds.size > 0) },
-        { id: "endpoint", status: runtimeStatus(endpointIds.size > 0) },
+        { id: "service", status: relationshipStatus(serviceLinks, [], runtimeMissing) },
+        { id: "pod", status: relationshipStatus(selectedPodLinks, [], runtimeMissing) },
+        { id: "endpoint", status: relationshipStatus(endpointLinks, [], runtimeMissing) },
       ],
     },
   ];
@@ -716,15 +737,21 @@ export function ontologyInstanceNetworkPaths(
     break;
   }
 
-  const coverageIncomplete = data.relationship_drop_reasons.length > 0
+  const explicitCoverageGap = data.relationship_drop_reasons.length > 0
     || data.truncation_reasons.some((reason) => reason !== "activity_limit");
+  const coverageReason: OntologyInstanceNetworkPath["reason"] = explicitCoverageGap
+    || data.relationship_coverage?.complete === false
+    ? "coverage_incomplete"
+    : data.relationship_coverage == null
+      ? "coverage_accounting_unavailable"
+      : null;
   return {
     ingress: networkPath(
       ingressLinks,
       frontendIngress ? "frontend_ingress" : directPublicIp ? "direct_public_ip" : null,
-      coverageIncomplete,
+      coverageReason,
     ),
-    egress: networkPath(egressLinks, egressLinks.length > 0 ? "nat_gateway" : null, coverageIncomplete),
+    egress: networkPath(egressLinks, egressLinks.length > 0 ? "nat_gateway" : null, coverageReason),
   };
 }
 
@@ -744,20 +771,29 @@ function linksFromEndpointToVm(
 function networkPath(
   links: readonly OntologyInstanceLink[],
   kind: OntologyInstanceNetworkPath["kind"],
-  coverageIncomplete: boolean,
+  coverageReason: OntologyInstanceNetworkPath["reason"],
 ): OntologyInstanceNetworkPath {
   if (links.length === 0) {
     return {
       status: "unknown",
       kind: null,
       links: [],
-      reason: coverageIncomplete ? "coverage_incomplete" : "no_reviewed_path",
+      reason: coverageReason ?? "no_reviewed_path",
     };
   }
+  const sourceQualificationUnavailable = links.some(
+    (link) => link.evidence.status === "unavailable"
+      && (
+        link.evidence.reason === "relationship_source_incomplete"
+        || link.evidence.reason === "relationship_source_coverage_unavailable"
+      ),
+  );
   return {
-    status: links.every((link) => link.evidence.status === "available" && link.evidence.complete)
-      ? "current"
-      : "stale",
+    status: sourceQualificationUnavailable
+      ? "unverified_source"
+      : links.every((link) => link.evidence.status === "available" && link.evidence.complete)
+        ? "current"
+        : "stale",
     kind,
     links,
     reason: null,
@@ -1631,17 +1667,17 @@ function decodeRelationshipEvidence(value: unknown): OntologyInstanceRelationshi
   if (verificationStatus !== inferredVerification) {
     throw new Error("relationship evidence verification status contradicts its kind");
   }
-  const source = nullableString(record.source, "relationship evidence source", 128);
+  const source = nullableString(record.source, "relationship evidence source", 512);
   const sourcePropertyPath = nullableString(
     record.source_property_path,
     "relationship evidence property path",
     512,
   );
-  const mappingId = nullableString(record.mapping_id, "relationship evidence mapping", 256);
+  const mappingId = nullableString(record.mapping_id, "relationship evidence mapping", 512);
   const evidenceMethod = nullableString(
     record.evidence_method,
     "relationship evidence method",
-    128,
+    512,
   );
   const cutoff = nullableTimestamp(record.cutoff, "relationship evidence cutoff");
   const freshness = record.freshness_ceiling_seconds;
@@ -1678,8 +1714,30 @@ function decodeRelationshipEvidence(value: unknown): OntologyInstanceRelationshi
     ) {
       throw new Error("stale relationship evidence is inconsistent");
     }
-  } else if (availableFields.some((field) => field !== null) || complete || reason === null) {
-    throw new Error("unavailable relationship evidence contradicts its fields");
+  } else {
+    const retainedConfigurationProvenance = (
+      evidenceKind === "configuration"
+      && verificationStatus === "configuration_observed"
+      && (
+        reason === "relationship_source_incomplete"
+        || reason === "relationship_source_coverage_unavailable"
+      )
+    );
+    const noRelationshipEvidence = (
+      evidenceKind === null
+      && verificationStatus === "unavailable"
+      && reason === "provider_relationship_evidence_unavailable"
+      && availableFields.every((field) => field === null)
+    );
+    if (
+      complete
+      || reason === null
+      || (!retainedConfigurationProvenance && !noRelationshipEvidence)
+      || (retainedConfigurationProvenance
+        && availableFields.some((field) => field === null))
+    ) {
+      throw new Error("unavailable relationship evidence contradicts its fields");
+    }
   }
   return {
     status,

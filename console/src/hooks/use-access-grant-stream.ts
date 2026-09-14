@@ -8,8 +8,11 @@ import {
   tryOpenCrossTabSnapshotChannel,
   type CrossTabSnapshotChannel,
 } from "./cross-tab-stream";
-import { liveReconnectDelay, liveStreamHeaders } from "./use-live-stream";
-import { readSseChunk } from "./sse-reader";
+import {
+  consumeSseFrames,
+  isTransientSseStatus,
+  useAuthenticatedSse,
+} from "./sse-client";
 
 const CANONICAL_GRANT_ID = /^[A-Za-z0-9._:-]{1,256}$/;
 const SAFE_TEXT = /^[\x20-\x7E]{1,512}$/;
@@ -57,36 +60,10 @@ export async function consumeAccessGrantSse(
   response: Response,
   onSnapshot: (snapshot: AccessGrantSnapshot) => void,
 ): Promise<void> {
-  if (!response.ok) throw new Error(`access grant stream returned HTTP ${response.status}`);
-  if (!response.headers.get("content-type")?.toLowerCase().includes("text/event-stream")) {
-    throw new Error("access grant stream returned an invalid content type");
-  }
-  if (!response.body) throw new Error("access grant stream response has no body");
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  const consumeBlock = (block: string): void => {
-    const data = block.split("\n")
-      .filter((line) => line.startsWith("data:"))
-      .map((line) => line.slice(5).trimStart())
-      .join("\n");
-    const snapshot = data ? decodeAccessGrantSnapshot(data) : null;
+  await consumeSseFrames(response, (frame) => {
+    const snapshot = decodeAccessGrantSnapshot(frame.data);
     if (snapshot) onSnapshot(snapshot);
-  };
-  while (true) {
-    const { value: chunk, done } = await readSseChunk(reader);
-    buffer = (buffer + decoder.decode(chunk, { stream: !done })).replace(/\r\n/g, "\n");
-    let boundary = buffer.indexOf("\n\n");
-    while (boundary >= 0) {
-      consumeBlock(buffer.slice(0, boundary));
-      buffer = buffer.slice(boundary + 2);
-      boundary = buffer.indexOf("\n\n");
-    }
-    if (done) {
-      if (buffer.trim()) consumeBlock(buffer);
-      return;
-    }
-  }
+  });
 }
 
 export function useAccessGrantStream(options: {
@@ -109,7 +86,7 @@ export function useAccessGrantStream(options: {
   useEffect(() => {
     latestSnapshotAtRef.current = null;
     setRequests([]);
-  }, [options.principalId]);
+  }, [options.enabled, options.principalId]);
 
   useEffect(() => {
     if (!options.enabled || !sharingSupported) return undefined;
@@ -131,55 +108,35 @@ export function useAccessGrantStream(options: {
   }, [options.enabled, options.principalId, sharingSupported]);
 
   useEffect(() => {
-    if (!streamEnabled) {
+    if (!options.enabled) {
       setRequests([]);
-      return undefined;
     }
-    let cancelled = false;
-    let controller: AbortController | null = null;
-    let timer: number | null = null;
-    let attempt = 0;
-    const connect = async (): Promise<void> => {
-      if (cancelled || controller) return;
-      const active = new AbortController();
-      controller = active;
-      try {
-        const authorization = await options.getAuthorizationHeader();
-        const response = await fetch(options.url, {
-          headers: liveStreamHeaders(authorization),
-          credentials: "omit",
-          signal: active.signal,
-        });
-        await consumeAccessGrantSse(response, (snapshot) => {
-          if (!cancelled && controller === active) {
-            attempt = 0;
-            if (!shouldAcceptCrossTabSnapshot(latestSnapshotAtRef.current, snapshot.ts)) return;
-            latestSnapshotAtRef.current = snapshot.ts;
-            setRequests(snapshot.requests);
-            channelRef.current?.publish(snapshot);
-          }
-        });
-      } catch {
-        // Durable state is replayed after the bounded reconnect delay.
-      } finally {
-        if (controller === active) controller = null;
-        if (!cancelled) {
-          timer = window.setTimeout(() => {
-            timer = null;
-            attempt += 1;
-            void connect();
-          }, liveReconnectDelay(attempt));
-        }
-      }
-    };
-    void connect();
-    return () => {
-      cancelled = true;
-      if (timer !== null) window.clearTimeout(timer);
-      controller?.abort();
-    };
-  }, [options.getAuthorizationHeader, options.url, streamEnabled]);
+  }, [options.enabled]);
+
+  useAuthenticatedSse({
+    url: options.url,
+    enabled: streamEnabled,
+    pauseWhenHidden: false,
+    resumeFromLastEventId: false,
+    getAuthorizationHeader: options.getAuthorizationHeader,
+    shouldRetryStatus: retryAttentionStatus,
+    onFrame: (frame) => {
+      const snapshot = decodeAccessGrantSnapshot(frame.data);
+      if (
+        !snapshot ||
+        !shouldAcceptCrossTabSnapshot(latestSnapshotAtRef.current, snapshot.ts)
+      ) return false;
+      latestSnapshotAtRef.current = snapshot.ts;
+      setRequests(snapshot.requests);
+      channelRef.current?.publish(snapshot);
+      return true;
+    },
+  });
   return requests;
+}
+
+function retryAttentionStatus(status: number): boolean {
+  return status === 401 || isTransientSseStatus(status);
 }
 
 function decodeAccessGrantSnapshotValue(value: unknown): AccessGrantSnapshot | null {

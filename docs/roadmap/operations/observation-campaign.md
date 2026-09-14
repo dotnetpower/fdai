@@ -29,11 +29,11 @@ agent or the Console managed-resource execution authority.
 | Campaign contract and source registry | implemented | `config/observation-sources.yaml`, `fdai_service_contracts/operational_activity.py`, `delivery/observation_source_catalog.py`, focused contract and catalog tests | The strict semantic-digest catalog covers all ten domains and rejects unknown fields, invalid owners, unbounded limits, and raw activity reason text. |
 | Persistent campaign runner | implemented | `delivery/observation_campaign.py`, focused lifecycle tests | Atomic leases, revision-checked terminal writes, crash recovery, current-state cursors, partial isolation, concurrency four, and privacy-bounded activity summaries are executable. |
 | Local and deployed scheduling parity | implemented | `delivery/observation_campaign_cli.py`, `delivery/inventory_sync_cli.py`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, focused CLI and workspace tests | Both venues wake once per minute for campaign due checks. A valid existing deployed Job name stays unchanged; only an overlength environment name uses the compact `caj-<workload>-<env>-observation` form. |
-| Agent Activity observation projection | implemented | `fdai_operator_service/activity_projection.py`, `console/src/agent-operational-activity.ts`, focused Operator and Console tests | Started and terminal source state hydrates before live delivery, uses stable activity ids, rejects malformed privacy fields, and displays localized domain labels. |
+| Agent Activity observation projection | implemented | `fdai_operator_service/activity_projection.py`, `console/src/agent-operational-activity.ts`, `console/src/hooks/sse-client.ts`, focused Operator and Console tests | Schema `1.3.0` separates stable activity instances from transition ids, distinguishes measured zero from not-recorded and unavailable results, and delivers current activity through the central Live SSE snapshot/delta path. Retained history remains an explicit bounded GET. |
 | Governed live campaign evidence | in-progress | Local campaign `campaign-20260819t005835689445-9e1850c2`; catalog digest `sha256:0a3a4fa0c1ef0a0893f3ce50aec56320c6a558424af1e935eed81e27f81dc9fd`; authenticated Agent Activity | The retained local campaign completed with all ten sources ready and fresh, no reason codes, and explicit successful-empty states. Equivalent deployed-revision evidence remains open. |
 
-The shared activity schema's Assurance Twin `1.2.0` ownership condition is separate from this
-campaign's `1.1.0` observation-domain contract. It doesn't add a campaign source or widen any
+The shared activity schema's Assurance Twin ownership condition remains separate from this
+campaign's `1.3.0` observation-domain contract. It doesn't add a campaign source or widen any
 observation owner, producer, scope, or authority. The inverse schema condition also reserves the
 `assurance-twin` producer for the `assurance-twin.posture` kind, so it cannot impersonate a campaign
 or inventory activity.
@@ -52,6 +52,9 @@ campaign readiness as effect evidence. This shadow-only slice adds no runtime bi
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Revalidated schema `1.3.0` activity production and durable projection after clamping in-flight and failed partial counts. The standard local projection returned all 500 requested rows as `1.3.0` with measured, not-recorded, and unavailable states. | `current change`; backend focused tests `278 passed, 1 skipped`; strict mypy passed; standard local services `11/11`; durable activity projection `500/500`. | Capture an authenticated Live card and failure-transition artifact after Browser Entra is refreshed, then retain equivalent deployed-revision evidence before raising governed live campaign evidence to validated. |
+| 2026-09-14 | implemented | Prevented started and failed inventory or observation rows from exposing partial source counts as completed evidence. Both states now publish `evidence_count: 0` with no `result_count`; only measured terminal rows retain observed counts. | `current change`; Core activity producer and Operator projection regressions passed 13 focused tests. | Retain an authenticated standard-stack failure transition before claiming runtime validation. |
+| 2026-09-14 | implemented | Added operational activity schema `1.3.0` with stable lifecycle identity, registered presentation facts, typed result state/unit, source cutoff, and optional timing. The Operator now seeds current activity into Live SSE without assigning delta cursors, and CAS-superseded work remains not-recorded rather than fabricated measured zero. | `current change`; service-contract, Core producer, Operator projection/stream, and Console decoder/card paths; focused checks listed in the current session. | Retain an authenticated standard-stack observation and equivalent deployed-revision evidence before raising governed live campaign evidence to validated. |
 | 2026-09-12 | implemented | Added an exact-target Azure VM power-state read contract for independent `ops.start-vm@1.0.0` effect observation without registering another campaign source. | `current change`; `delivery/azure/vm_power_state.py`; focused exact-scope, identity, response-bound, and fail-closed tests. | Keep the adapter unwired until separately authorized A3-E runtime evidence work; retain equivalent deployed evidence before validation. |
 | 2026-09-04 | implemented | Added a dedicated scheduled WARA Job rather than widening the general observation campaign. Its scope reader requires a fresh promoted generation, complete workload relationships, and exact inventory-owned ARM ids before the existing shadow observer runs. | `current change`; focused WARA CLI, PostgreSQL scope, runtime, and Azure adapter checks passed. | Retain the separately authorized deployed WARA receipt; keep WARA outside general source discovery. |
 | 2026-09-04 | implemented | Hardening round 13 added a companion exact-id `Resources` coverage query before each WARA violation query. Zero violations can be satisfied only when every target is visible to the same read identity. | `current change`; focused partial-RBAC and invisible-target regression. | Preserve the same coverage proof in future scheduled source registration. |
@@ -223,8 +226,12 @@ components. They carry no judgment, approval, or execution authority.
 ## Agent Activity presentation
 
 Every source attempt publishes a bounded `agent.operational-activity` summary after its durable
-transition. Agent Activity shows domain, owner, source label, terminal status, freshness, evidence
-count, duration, and reason codes. Raw log lines, cloud identifiers, query text, identities, and
+transition. Schema `1.3.0` separates stable `activity_instance_id` from transition idempotency and
+adds only privacy-bounded presentation facts: a registered summary key, safe scope class, optional
+target count, typed result count and unit, result state, source cutoff, and optional start and
+completion times. `result_state` distinguishes a measured zero from a result that was not recorded
+or could not be obtained. An empty reason-code list remains the correct successful state and is not
+rendered as missing evidence. Raw log lines, cloud identifiers, query text, identities, and
 provider errors remain outside the shared activity stream.
 The durable source state and transition audit keep
 `actor: fdai.delivery.observation_campaign` as mechanical provenance and copy the source catalog's
@@ -234,8 +241,16 @@ An ownerless legacy state is reusable only when its original built-in source id 
 owner. A custom or reassigned source is collected again before reuse; a removed ambiguous row is
 withheld from Agent Activity instead of being assigned by domain.
 
-The durable Operator projection loads the current state for every source before the live stream.
-Durable and live delivery share one activity id, so reconnect and refresh cannot duplicate a row.
+Failed terminal and started projections set `evidence_count` to zero and leave `result_count`
+absent even when source rows contain partial counts. Pre-terminal or pre-failure work is not
+completed evidence. A `started` input may omit terminal-only count and reason fields; the Operator
+normalizes those omissions without relaxing terminal validation.
+
+The Operator loads the durable current state into unsequenced Live SSE snapshots. Subsequent
+operational activity uses cursor-bearing deltas on the same physical Live stream, while agent state
+remains on `/agents/stream`. Snapshot and delta delivery share `activity_instance_id`, so lifecycle
+transitions update one current card without a history GET. Agent Activity requests the bounded
+retained history only when the operator explicitly opens that route.
 Passive scheduler wakes that skip every source do not appear as new work rows and preserve the last
 coverage result instead of inventing a healthy state.
 

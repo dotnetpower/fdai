@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "description": "Complete inventory of registered positive decision boundaries that must resolve decision-critical evidence through the shared admission contract (FDAI-CONST-002).",
-  "decision_surface_digest": "7c2123ef7e11b4a00589209f86e32cd05d5643bbb93237873028c6df7d983b8f",
+  "decision_surface_digest": "81eb4c43d0ab98e590c335b534a789847702c64f4cedcafef82cc4e66e51bd25",
   "shared_admission": {
     "module": "fdai.shared.providers.decision_evidence_verifier",
     "assessor": "assess_decision_evidence_admission",

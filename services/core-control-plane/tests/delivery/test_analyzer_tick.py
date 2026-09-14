@@ -8,6 +8,13 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
+from fdai.agents import Heimdall, Huginn
+from fdai.core.incident import (
+    IncidentAutoOpenPolicy,
+    IncidentLifecycleWorkflow,
+    IncidentRegistry,
+    open_detected_incident_candidate,
+)
 from fdai.core.investigation import (
     AnalyzerFinding,
     InvestigationCoordinator,
@@ -21,15 +28,17 @@ from fdai.delivery.analyzer_receipt_store import (
 from fdai.delivery.analyzer_tick import (
     ANALYZER_EVENT_SOURCE,
     ANALYZER_EVENT_TOPIC,
+    DEFAULT_PUBLICATION_WINDOW_SECONDS,
     AnalyzerPublicationClaim,
     AnalyzerTarget,
     AnalyzerTickRunner,
+    analyzer_correlation_id,
     analyzer_idempotency_key,
 )
 from fdai.delivery.analyzer_tick_cli import (
     DEFAULT_MAX_DISCOVERED,
     INVENTORY_DSN_ENV,
-    build_inventory_projection,
+    build_inventory_sources,
     parse_max_discovered,
     parse_targets,
     parse_trace_topologies,
@@ -38,7 +47,12 @@ from fdai.delivery.analyzer_tick_cli import (
 from fdai.delivery.persistence.postgres_analyzer_publication import (
     PostgresAnalyzerPublicationLedger,
 )
-from fdai.shared.contracts.models import Mode, Severity
+from fdai.shared.contracts.models import (
+    IncidentCorrelation,
+    IncidentSeverity,
+    Mode,
+    Severity,
+)
 from fdai.shared.providers.event_bus import (
     EventPublishNotAttemptedError,
     PublishReceipt,
@@ -81,7 +95,13 @@ class StubCoordinator(InvestigationCoordinator):
         return replace(
             report,
             findings=self._findings,
-            analyzer_errors=self._analyzer_errors or report.analyzer_errors,
+            analyzer_errors=(
+                self._analyzer_errors
+                if self._analyzer_errors
+                else ()
+                if self._findings
+                else report.analyzer_errors
+            ),
         )
 
 
@@ -218,6 +238,7 @@ def _runner(
         publication_reconciler=reconciler,  # type: ignore[arg-type]
         receipt_store=receipt_store,  # type: ignore[arg-type]
         window_seconds=300,
+        publication_window_seconds=DEFAULT_PUBLICATION_WINDOW_SECONDS,
         clock=clock,
     )
 
@@ -240,8 +261,12 @@ async def test_each_finding_publishes_one_canonical_event() -> None:
     assert key == "res-1"
     assert payload["source"] == ANALYZER_EVENT_SOURCE
     assert payload["event_type"] == "analyzer.cpu_saturation.observed"
+    assert payload["correlation_id"] == analyzer_correlation_id(_finding())
+    assert payload["incident_correlation"] == IncidentCorrelation.CORRELATE.value
     assert payload["mode"] == Mode.SHADOW.value
     assert payload["payload"]["remediation_ref"] == "ops.scale-out"
+    assert payload["payload"]["window_seconds"] == 300
+    assert payload["payload"]["publication_window_seconds"] == 60
 
 
 @pytest.mark.asyncio
@@ -261,24 +286,112 @@ async def test_no_targets_publishes_nothing_and_succeeds() -> None:
 
 def test_idempotency_key_is_stable_inside_one_window() -> None:
     finding = _finding()
-    first = analyzer_idempotency_key(finding, at=NOW, window_seconds=300)
+    first = analyzer_idempotency_key(finding, window_seconds=300)
     later = analyzer_idempotency_key(
-        finding, at=NOW.replace(minute=4, second=59), window_seconds=300
+        replace(finding, occurred_at=NOW.replace(minute=4, second=59)),
+        window_seconds=300,
     )
-    next_window = analyzer_idempotency_key(finding, at=NOW.replace(minute=5), window_seconds=300)
+    next_window = analyzer_idempotency_key(
+        replace(finding, occurred_at=NOW.replace(minute=5)),
+        window_seconds=300,
+    )
 
     assert first == later
     assert first != next_window
+    assert len(first) == len("analyzer:") + 32
+    assert len(analyzer_correlation_id(finding)) == len("analyzer:") + 32
+
+
+def test_idempotency_key_is_unambiguous_and_bounded_for_long_identifiers() -> None:
+    first = replace(
+        _finding(),
+        resource_ref="a:b",
+        signal="c",
+    )
+    second = replace(
+        _finding(),
+        resource_ref="a",
+        signal="b:c",
+    )
+    long_finding = replace(
+        _finding(),
+        resource_ref="r" * 512,
+        signal="s" * 128,
+    )
+
+    assert analyzer_idempotency_key(first, window_seconds=60) != analyzer_idempotency_key(
+        second,
+        window_seconds=60,
+    )
+    assert len(analyzer_idempotency_key(long_finding, window_seconds=60)) < 512
+
+
+@pytest.mark.asyncio
+async def test_repeated_analyzer_findings_reach_incident_candidate_threshold() -> None:
+    bus = RecordingBus()
+    ledger = _ledger()
+    candidates: list[dict[str, object]] = []
+    registry = IncidentRegistry(state_store=InMemoryStateStore())
+    workflow = IncidentLifecycleWorkflow(
+        registry=registry,
+        allowed_agent_principals={"Heimdall"},
+    )
+
+    async def capture(candidate: dict[str, object]) -> bool:
+        candidates.append(candidate)
+        result = await open_detected_incident_candidate(
+            workflow=workflow,
+            candidate=candidate,
+            policy=IncidentAutoOpenPolicy(),
+        )
+        return result is not None
+
+    huginn = Huginn()
+    heimdall = Heimdall(rate_threshold=5, rate_window=300, incident_candidate_hook=capture)
+    for minute in range(5):
+        occurred_at = NOW + timedelta(minutes=minute)
+        finding = replace(_finding(), occurred_at=occurred_at)
+        runner = _runner(
+            StubCoordinator(findings=(finding,)),
+            bus,
+            ledger=ledger,
+            clock=lambda occurred_at=occurred_at: occurred_at,
+        )
+        await runner.run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
+        normalized = await huginn.ingest(bus.published[-1][2])
+        assert normalized is not None
+        await heimdall.on_typed_message("object.event", normalized)
+
+    published = [payload for _topic, _key, payload in bus.published]
+    assert len({payload["idempotency_key"] for payload in published}) == 5
+    assert {payload["correlation_id"] for payload in published} == {
+        analyzer_correlation_id(_finding())
+    }
+    assert len(candidates) == 1
+    assert candidates[0]["severity"] == "high"
+    assert len(candidates[0]["evidence_keys"]) == 5
+    incidents = tuple(registry.snapshot().values())
+    assert len(incidents) == 1
+    assert incidents[0].severity is IncidentSeverity.SEV2
+    assert len(incidents[0].member_event_ids) == 5
+    assert DEFAULT_PUBLICATION_WINDOW_SECONDS == 60
 
 
 @pytest.mark.asyncio
 async def test_a_retried_tick_suppresses_the_same_key() -> None:
     bus = RecordingBus()
     ledger = _ledger()
-    runner = _runner(StubCoordinator(findings=(_finding(),)), bus, ledger=ledger)
+    at = [NOW]
+    runner = _runner(
+        StubCoordinator(findings=(_finding(),)),
+        bus,
+        ledger=ledger,
+        clock=lambda: at[0],
+    )
     targets = (AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),)
 
     first = await runner.run_once(targets)
+    at[0] += timedelta(seconds=DEFAULT_PUBLICATION_WINDOW_SECONDS)
     duplicate = await runner.run_once(targets)
 
     keys = {payload["idempotency_key"] for _, _, payload in bus.published}
@@ -317,7 +430,10 @@ async def test_active_publication_claim_fails_tick_without_publishing() -> None:
     bus = RecordingBus()
     store = ConditionalStore()
     ledger = _ledger(store)
-    key = analyzer_idempotency_key(_finding(), at=NOW, window_seconds=300)
+    key = analyzer_idempotency_key(
+        _finding(),
+        window_seconds=DEFAULT_PUBLICATION_WINDOW_SECONDS,
+    )
     await ledger.claim(key)
 
     report = await _runner(
@@ -335,7 +451,11 @@ async def test_active_publication_claim_fails_tick_without_publishing() -> None:
 @pytest.mark.asyncio
 async def test_unreadable_publication_claim_fails_closed_for_that_finding_only() -> None:
     bus = RecordingBus()
-    ledger = _ledger(fail_claim_on="res-1")
+    blocked_key = analyzer_idempotency_key(
+        _finding(resource_ref="res-1"),
+        window_seconds=DEFAULT_PUBLICATION_WINDOW_SECONDS,
+    )
+    ledger = _ledger(fail_claim_on=blocked_key)
     coordinator = StubCoordinator(
         findings=(_finding(resource_ref="res-1"), _finding(resource_ref="res-2"))
     )
@@ -351,7 +471,7 @@ async def test_unreadable_publication_claim_fails_closed_for_that_finding_only()
     assert report.published == 1
     assert report.duplicates_suppressed == 0
     assert [key for _, key, _ in bus.published] == ["res-2"]
-    blocked = next(item for item in report.receipts if "res-1" in item.idempotency_key)
+    blocked = next(item for item in report.receipts if item.resource_ref == "res-1")
     assert blocked.publication.value == "failed"
     assert report.publish_errors[0][1] == ("publication_claim=RuntimeError:claim store unavailable")
 
@@ -542,6 +662,7 @@ async def test_a_crash_after_an_acknowledged_publish_never_republishes_on_lease_
         event_bus=bus,  # type: ignore[arg-type]
         publication_ledger=PostgresAnalyzerPublicationLedger(store=store, lease_seconds=1),
         window_seconds=300,
+        publication_window_seconds=DEFAULT_PUBLICATION_WINDOW_SECONDS,
         clock=lambda: NOW,
     )
     report = await expired.run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
@@ -614,7 +735,7 @@ async def test_unsupported_kinds_are_separated_from_analyzer_errors() -> None:
 
     assert report.unsupported_targets == ("res-1",)
     assert report.analyzer_errors == (("res-2", "timeout"),)
-    assert not report.failed
+    assert report.failed
 
 
 @pytest.mark.asyncio
@@ -629,13 +750,53 @@ async def test_a_naive_finding_timestamp_fails_closed() -> None:
     assert bus.published == []
 
 
-def test_runner_rejects_a_non_positive_window() -> None:
+@pytest.mark.asyncio
+async def test_a_future_finding_timestamp_fails_before_publication() -> None:
+    bus = RecordingBus()
+    future = replace(_finding(), occurred_at=NOW + timedelta(seconds=1))
+    runner = _runner(StubCoordinator(findings=(future,)), bus)
+
+    with pytest.raises(ValueError, match="after its ingestion time"):
+        await runner.run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
+
+    assert bus.published == []
+
+
+@pytest.mark.asyncio
+async def test_invalid_receipt_evidence_fails_before_publication() -> None:
+    bus = RecordingBus()
+    store = ConditionalStore()
+    invalid = replace(
+        _finding(),
+        evidence_refs=("duplicate-evidence", "duplicate-evidence"),
+    )
+    runner = _runner(
+        StubCoordinator(findings=(invalid,)),
+        bus,
+        ledger=_ledger(store),
+    )
+
+    with pytest.raises(ValueError, match="bounded and unique"):
+        await runner.run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
+
+    assert bus.published == []
+    assert store.values == {}
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    (
+        {"window_seconds": 0},
+        {"publication_window_seconds": 0},
+    ),
+)
+def test_runner_rejects_a_non_positive_window(kwargs: dict[str, int]) -> None:
     with pytest.raises(ValueError, match="window_seconds"):
         AnalyzerTickRunner(
             coordinator=StubCoordinator(),
             event_bus=RecordingBus(),  # type: ignore[arg-type]
             publication_ledger=_ledger(),
-            window_seconds=0,
+            **kwargs,
         )
 
 
@@ -652,9 +813,42 @@ def test_targets_parse_and_deduplicate() -> None:
     assert parsed == (AnalyzerTarget(resource_ref="a", resource_kind="aks"),)
 
 
+def test_targets_parse_separate_logical_and_provider_identities() -> None:
+    parsed = parse_targets(
+        '[{"resource_id":"logical-a","kind":"aks",'
+        '"provider_resource_id":"/subscriptions/example/resourceGroups/rg/'
+        'providers/Microsoft.ContainerService/managedClusters/a"}]'
+    )
+
+    assert parsed[0].resource_ref == "logical-a"
+    assert parsed[0].provider_query_ref == (
+        "/subscriptions/example/resourceGroups/rg/"
+        "providers/Microsoft.ContainerService/managedClusters/a"
+    )
+
+
+def test_targets_reject_conflicting_kinds_for_one_resource() -> None:
+    with pytest.raises(ValueError, match="conflicts with an earlier target identity"):
+        parse_targets(
+            '[{"resource_id": "a", "kind": "aks"}, {"resource_id": "a", "kind": "mysql"}]'
+        )
+
+    with pytest.raises(ValueError, match="conflicts with an earlier target identity"):
+        parse_targets(
+            '[{"resource_id":"a","kind":"aks","provider_resource_id":"provider-a"},'
+            '{"resource_id":"a","kind":"aks","provider_resource_id":"provider-b"}]'
+        )
+
+
 def test_blank_targets_are_empty_and_malformed_targets_fail_closed() -> None:
     assert parse_targets("  ") == ()
-    for raw in ('{"resource_id": "a"}', "[1]", '[{"resource_id": "a"}]', "not-json"):
+    for raw in (
+        '{"resource_id": "a"}',
+        "[1]",
+        '[{"resource_id": "a"}]',
+        '[{"resource_id":"a","kind":"aks","unknown":"value"}]',
+        "not-json",
+    ):
         with pytest.raises(ValueError):
             parse_targets(raw)
 
@@ -705,7 +899,7 @@ def test_the_projection_stays_unbound_without_a_database(
 ) -> None:
     monkeypatch.delenv(INVENTORY_DSN_ENV, raising=False)
 
-    assert build_inventory_projection() is None
+    assert build_inventory_sources() is None
 
 
 @pytest.mark.asyncio
@@ -747,7 +941,7 @@ async def test_a_persistent_finding_records_receipts_across_repeated_ticks() -> 
 
     assert [report.receipt_errors for report in reports] == [(), (), (), ()]
     assert not any(report.failed for report in reports)
-    keys = {analyzer_idempotency_key(_finding(), at=NOW, window_seconds=300)}
+    keys = {analyzer_idempotency_key(_finding(), window_seconds=300)}
     records = await state.read_states(ANALYZER_RECEIPT_STATE_PREFIX, limit=10)
     assert len(records) == 2
     assert {record["idempotency_key"] for record in records} == keys

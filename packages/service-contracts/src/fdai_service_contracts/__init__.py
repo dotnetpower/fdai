@@ -333,7 +333,11 @@ from fdai_service_contracts.operational_activity import (
     AgentOperationalActivity,
     ObservationDomain,
     OperationalActivityKind,
+    OperationalActivityResultState,
+    OperationalActivityResultUnit,
+    OperationalActivityScopeClass,
     OperationalActivityStatus,
+    OperationalActivitySummaryKey,
     OperationalFreshness,
 )
 from fdai_service_contracts.operational_coverage import (
@@ -397,6 +401,13 @@ from fdai_service_contracts.readiness import (
     live_readiness,
     live_unavailable_readiness,
     unavailable_readiness,
+)
+from fdai_service_contracts.runtime_call import (
+    RUNTIME_CALL_MAPPING_ID,
+    RUNTIME_CALL_MAPPING_REVISION,
+    RUNTIME_CALL_SOURCE_SCHEMA_DIGEST,
+    RUNTIME_CALL_SOURCE_SCHEMA_VERSION,
+    RUNTIME_CALL_VERIFICATION_METHOD,
 )
 from fdai_service_contracts.schema import (
     ContractValidationError,
@@ -684,7 +695,11 @@ __all__ = [
     "OntologyQueryPlan",
     "Operation",
     "OperationalActivityKind",
+    "OperationalActivityResultState",
+    "OperationalActivityResultUnit",
+    "OperationalActivityScopeClass",
     "OperationalActivityStatus",
+    "OperationalActivitySummaryKey",
     "OperationalCoverageCount",
     "OperationalCoverageDisposition",
     "OperationalCoverageDomain",
@@ -721,6 +736,11 @@ __all__ = [
     "ReadInvestigationRequest",
     "ReadInvestigationSelector",
     "ReadInvestigationTaskBudget",
+    "RUNTIME_CALL_MAPPING_ID",
+    "RUNTIME_CALL_MAPPING_REVISION",
+    "RUNTIME_CALL_SOURCE_SCHEMA_DIGEST",
+    "RUNTIME_CALL_SOURCE_SCHEMA_VERSION",
+    "RUNTIME_CALL_VERIFICATION_METHOD",
     "RepositoryHandoverDraft",
     "RepositoryHandoverDraftRecorder",
     "ResolvedStewardIdentity",

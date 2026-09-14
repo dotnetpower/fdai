@@ -143,34 +143,54 @@ instead of rewriting history. A finding that outlives one tick keeps its window-
 a later tick restating the same outcome is an idempotent no-op that retains the first observation
 and leaves detection latency a detection measurement rather than the finding's age.
 
-### Agent-owned AKS detection readiness
+### Resource detection coverage
 
-For every AKS target, the same tick publishes six sanitized observations to Huginn's raw ingress:
-discovery, collector configuration, recent telemetry, detector binding, previous pipeline
-continuity, and action governance. Heimdall reduces those observations into `object.drift`; Muninn
-stores the latest `object.state-snapshot`; Saga audits the transition; and Forseti uses the
-snapshot as an authority ceiling. The first pass is partial because no previous Muninn snapshot
-exists. A later pass can prove pipeline continuity.
+Every analyzer tick records a bounded, read-only coverage section for the five shipped resource
+types: API gateway, Kubernetes cluster, LLM endpoint, MySQL server, and Application Gateway. Target
+selection carries the canonical ontology `resource_type` alongside the analyzer kind, so the
+projection never reverse-engineers a type from an implementation name. The receipt separates:
 
-All six observations in one target tick share a deterministic `pass_id` and the target resource
-partition key. Event Hubs ordering and the Heimdall consumer group therefore deliver each target to
-one consumer even when the runtime has multiple replicas. Heimdall accepts dimensions in any order,
-tracks overlapping pass IDs independently, and publishes no drift until all six from one pass
-arrive. An incomplete pass neither erases another collecting pass nor replaces the last complete
-snapshot.
+- inventory candidates, selected targets, successfully evaluated targets, and held candidates;
+- evaluated targets with no finding from targets with one or more findings;
+- analyzer errors and unsupported targets from exact finding-publication outcomes;
+- each resource type's counts from the bounded per-selected-resource rows.
 
-The reduction is fail-closed. Missing, stale, unavailable, or unauthorized evidence never becomes
-ready. New readiness capability remains `shadow` even when all six dimensions pass, so it cannot
-promote an ActionType or execute a change. The Operator API and console project Muninn's decision and
-do not recompute it. Muninn replaces the latest target snapshot only when `generated_at` is
-strictly newer, so reordered or replayed Drift delivery cannot roll durable readiness backward.
-An inventory-backed target carries graph freshness and coverage evidence into the discovery
-dimension. A stale snapshot or degraded coverage becomes unavailable, never passed. Heimdall
-publishes the Drift but does not execute repair. Collection follows the adaptive source policy in
-[Continuous Operational Instance Graph](../architecture/continuous-operational-instance-graph.md):
-lag, churn, maximum staleness, provider budget, throttling, and circuit state determine the next
-delta or complete reconciliation attempt. The current fixed routine interval remains a legacy
-configuration until that controller is implemented and measured.
+The algebra is strict: candidates equal selected plus held, selected equals the retained resource
+rows, and global counts reconcile with the per-resource-type and per-resource rows. Finding
+publication retains every existing state, including published, duplicate-suppressed, uncertain,
+awaiting-reconciliation, and failed. A successful analyzer call with no finding means only
+`evaluated_no_finding`; it never establishes resource health, detector readiness, recovery, or
+permission to act. The coverage section fixes both cause-claim and execution authority to false.
+
+Each held resource type also records why candidates were not selected, including stale, unusable,
+or unverified state evidence, selection limits, and duplicate candidates. Selected resource rows
+use bounded error codes instead of raw provider exception text. Publication and receipt failures
+that cannot be joined to a selected resource remain explicit unattributed errors. Duplicate
+inventory identities are selected at most once.
+
+Version `1.3.0` analyzer-run receipts carry coverage schema `1.1.0`. The Operator boundary also
+accepts coverage schema `1.0.0` and marks missing hold and error detail as
+`legacy_unspecified`; analyzer-run receipts from before coverage was introduced remain
+section-locally unavailable instead of being reconstructed from incomplete data. The newest
+attempt and the latest successful analyzer run retain separate timestamps and counts. Retained
+finding receipts are cross-run history unless their own immutable identity says otherwise, so the
+Console does not attribute historical findings to the newest run.
+
+### Kubernetes readiness extension
+
+The six-dimension `DetectionReadinessSnapshot` remains a Kubernetes-specific authority-ceiling
+extension: discovery, collector configuration, recent telemetry, detector binding, previous
+pipeline continuity, and action governance. Heimdall reduces only a complete pass, Muninn preserves
+the newest snapshot, Saga audits the transition, and Forseti can lower subsequent authority.
+Missing, stale, unavailable, or unauthorized evidence never becomes ready, and even a complete
+snapshot starts under `shadow`.
+
+The current production analyzer job does not publish the six
+`detection.readiness.observed` records. Until a reviewed mechanical producer is bound, this
+extension is unavailable in live coverage rather than inferred from analyzer success. Existing
+tests prove the reducer and agent choreography only. Kubernetes Pod restart, replacement, and
+recovery history is another optional Kubernetes detail and remains separate from both generic
+coverage and readiness.
 
 ## Composition rules
 
@@ -214,6 +234,7 @@ composition binding, and path #1 also requires an authentication bridge.
 |------|-------|----------|-------|
 | Routed pull providers | implemented | `services/core-control-plane/src/fdai/composition/wire_metric_provider.py`; `services/core-control-plane/tests/providers/test_routed_metric.py` | Prometheus, Metrics API, and Logs providers resolve through a deterministic route order. |
 | Scheduled analyzer job | implemented | `infra/modules/compute/container-apps/analyzer_tick_job.tf`; `services/core-control-plane/src/fdai/delivery/analyzer_tick_cli.py`; `services/core-control-plane/tests/delivery/test_analyzer_tick_routed.py` | Terraform declares the one-minute job and its `fdai.delivery.analyzer_tick_cli` entry point ships. One focused tick reaches each routed backend and publishes its breach as a shadow-mode Event; governed live latency evidence remains open. |
+| Cross-resource detection coverage | implemented | `services/core-control-plane/src/fdai/delivery/analyzer_targets.py`; `services/core-control-plane/src/fdai/delivery/analyzer_tick_cli.py`; `services/operator-service/src/fdai_operator_service/analyzer_coverage_projection.py`; focused Core, Operator, and Console checks | Coverage schema `1.1.0` retains explicit resource types, strict algebra, held-reason counts, bounded attributed and unattributed error codes, and exact publication states without claiming health or authority. |
 | Analyzer lifecycle receipt projection | implemented | `fdai/delivery/analyzer_receipt_store.py`; `fdai_operator_service/analyzer_lifecycle_projection.py`; `console/src/routes/detection-readiness.tsx`; focused analyzer, Operator API, Console, and three-viewport Playwright checks | The bounded tracked-state receipt separates current state from retained restart, replacement, publication, and recovery history. The authenticated read projection exposes incomplete, conflicting, missed, failed, and duplicate evidence without a cause claim, provider read, browser-derived edge, or execution authority. |
 | AKS detection-readiness reduction | implemented | `services/core-control-plane/tests/agents/test_huginn_detection_readiness.py`; `tests/integration/infra/test_detection_readiness.py` | Focused tests cover the agent-owned readiness observations and the infrastructure contract. This is implementation evidence, not live latency evidence. |
 | Metric Alert webhook path | implemented | `fdai_service_contracts/azure_monitor.py`; Operator operations route, durable webhook outbox bridge, semantic Kafka event route; focused contract, route, bridge, and Kafka tests | Verified Common Alert payloads become sanitized shadow Events and publish from a lease-fenced durable proposal. Governed live Action Group delivery and latency evidence remain open. |
@@ -224,6 +245,7 @@ composition binding, and path #1 also requires an authentication bridge.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Hardened cross-resource coverage with deterministic held reasons, bounded error codes, duplicate-candidate selection, legacy normalization, and section-local handling of malformed retained attempts. | `current change`; Core target and analyzer report tests passed 87 cases, Operator coverage and run-projection tests passed 15 cases, and focused Ruff and mypy checks passed. | Retain governed live delivery and latency evidence; no runtime validation was produced by this change. |
 | 2026-08-31 | implemented | Persisted the analyzer's bounded finding receipt in retention-limited tracked state and projected it through the authenticated detection-readiness route as server-authored current state plus retained lifecycle history. Duplicate publication, recovery, and complete, incomplete, conflicting, or missed evidence remain explicit while cause and execution authority stay false. | `current change`; focused Python and Operator API checks passed 90 cases; focused Console checks passed 5 cases; Console typecheck and production build passed; synthetic desktop, constrained-desktop, and mobile Playwright checks passed 3 cases with no measured horizontal overflow. | Governed live delivery and latency evidence remains open and was not produced by this change. |
 | 2026-08-29 | implemented | Hardening round 4 reviewed 26 diagnostic-ingest lenses and normalized diagnostic record time to UTC before Event identity derivation. Offset-only replays now retain one idempotency key. | `current change`; focused Azure diagnostic normalizer tests. | Retain governed live delivery and latency evidence. |
 | 2026-08-29 | implemented | Hardening round 2 reviewed 25 alert-contract lenses and normalized provider timestamps to UTC before deriving Event and idempotency identity. Equivalent offset representations of one alert can no longer create duplicate incident signals. | `current change`; focused Azure Monitor contract tests. | Retain governed live delivery and latency evidence. |
@@ -241,6 +263,8 @@ composition binding, and path #1 also requires an authentication bridge.
 - [x] Persist bounded analyzer finding receipts and expose server-authored current state, retained
   lifecycle history, publication, recovery, duplicate delivery, and explicit evidence-gap states
   through the authenticated Operator API and responsive Console.
+- [x] Record explicit resource types and strict cross-resource analyzer coverage in versioned run
+  receipts, including reconciled held reasons and bounded error codes.
 - [ ] Record governed latency evidence for each path before changing any path from `implemented` to `validated`.
 
 ## What is NOT yet shipped

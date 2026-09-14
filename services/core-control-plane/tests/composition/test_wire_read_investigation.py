@@ -354,4 +354,4 @@ async def test_cross_source_state_conflict_lowers_the_answer_and_activity() -> N
     assert contested["facts"]["execution_authority"] is False
     assert contested_events[-1].payload["status"] == "degraded"
     assert contested_events[-1].payload["freshness"] == "unknown"
-    assert "cross_source_conflict:state" in contested_events[-1].payload["reason_codes"]
+    assert "cross_source_conflict_state" in contested_events[-1].payload["reason_codes"]

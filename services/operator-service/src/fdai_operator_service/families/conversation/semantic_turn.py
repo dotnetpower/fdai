@@ -356,14 +356,17 @@ def _bound_context(
         return context
     incident_id = value.get("incident_id")
     correlation_id = value.get("correlation_id")
-    if incident_id is None and correlation_id is None:
-        return None
+    if (
+        not isinstance(incident_id, str)
+        or not incident_id.strip()
+        or not isinstance(correlation_id, str)
+        or not correlation_id.strip()
+    ):
+        raise ValueError("incident conversation_context requires incident_id and correlation_id")
     return SemanticBoundContext(
         kind="incident",
-        incident_id=incident_id if isinstance(incident_id, str) and incident_id else None,
-        correlation_id=(
-            correlation_id if isinstance(correlation_id, str) and correlation_id else None
-        ),
+        incident_id=incident_id,
+        correlation_id=correlation_id,
     )
 
 

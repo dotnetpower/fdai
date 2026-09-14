@@ -2,20 +2,28 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import secrets
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Protocol
 
 import httpx
 from azure.identity.aio import ManagedIdentityCredential
-from fdai_service_contracts import OperatorReadModel, OperatorTokenVerifier, ReadDataSource
+from fdai_service_contracts import (
+    AgentActivityQuery,
+    OperatorReadModel,
+    OperatorTokenVerifier,
+    ReadDataSource,
+)
 from fdai_service_contracts.venue import (
     bus_security_protocol,
     resolve_execution_venue,
     uses_workload_identity,
 )
+from psycopg import Error as PsycopgError
 
 from fdai_operator_service.adapters import (
     LiveStageKafkaConfig,
@@ -125,7 +133,10 @@ from fdai_operator_service.postgres_read_investigation_replay import (
     PostgresReadInvestigationReplayConfig,
     PostgresReadInvestigationReplayStore,
 )
-from fdai_operator_service.projections import UnavailableOperatorReadModel
+from fdai_operator_service.projections import (
+    ProjectionUnavailableError,
+    UnavailableOperatorReadModel,
+)
 from fdai_operator_service.read_investigation_completion_runtime import (
     ReadInvestigationCompletionBridge,
 )
@@ -144,6 +155,7 @@ from fdai_operator_service.streaming import LiveStreamEvent, LiveStreamHub
 
 WEBHOOK_SIGNING_SECRET_ENV = "FDAI_OPERATOR_WEBHOOK_SECRET"  # noqa: S105
 COST_PSEUDONYM_KEY_ENV = "FDAI_COST_PSEUDONYM_KEY"  # noqa: S105
+_LOGGER = logging.getLogger(__name__)
 REFERENCE_PANEL_ROUTES = (
     PanelRoute("/kpi/autonomy", "autonomy", "autonomy"),
     PanelRoute("/capabilities", "capabilities", "capabilities"),
@@ -168,6 +180,19 @@ def _agent_state_key(event: LiveStreamEvent) -> str | None:
     payload = event.payload
     agent = payload.get("agent")
     return agent if payload.get("type") == "agent.state" and isinstance(agent, str) else None
+
+
+def _live_activity_key(event: LiveStreamEvent) -> str | None:
+    if event.event_type == "activity-status":
+        return "__activity_status__"
+    if event.event_type != "activity":
+        return None
+    payload = event.payload
+    instance_id = payload.get("activity_instance_id")
+    if isinstance(instance_id, str) and instance_id:
+        return instance_id
+    activity_id = payload.get("activity_id")
+    return activity_id if isinstance(activity_id, str) and activity_id else None
 
 
 class OperatorComposition(Protocol):
@@ -215,7 +240,10 @@ class ProductionOperatorComposition:
         family_store = _postgres_family_store(environment)
         context_selection_registry = ContextSelectionRegistry()
         semantic_bus: OperatorSemanticKafkaBus | None = None
-        live_stream_hub = LiveStreamHub()
+        live_stream_hub = LiveStreamHub(
+            latest_key=_live_activity_key,
+            latest_capacity=64,
+        )
         agent_stream_hub = LiveStreamHub(latest_key=_agent_state_key)
         live_stage_relay: LiveStageKafkaRelay | None = None
         publisher = self.semantic_event_publisher
@@ -393,6 +421,10 @@ class ProductionOperatorComposition:
             if local_narrator is not None
             else None
         )
+        live_activity_snapshot_loader = _LiveActivitySnapshotLoader(
+            configured_read_model,
+            live_stream_hub,
+        )
         return OperatorRuntime(
             environment=environment,
             authenticator=authenticator,
@@ -436,6 +468,7 @@ class ProductionOperatorComposition:
                 action_confirmation_bridge,
                 incident_intervention_bridge,
                 azure_monitor_webhook_bridge,
+                live_activity_snapshot_loader,
                 semantic_bus,
                 live_stage_relay,
                 narrator_scheduler,
@@ -458,6 +491,71 @@ class _OwnedHttpClient:
         """Close the owned client exactly once."""
         if not self._client.is_closed:
             await self._client.aclose()
+
+
+class _LiveActivitySnapshotLoader:
+    """Seed current Live activity from the authoritative durable projection."""
+
+    def __init__(
+        self,
+        read_model: OperatorReadModel | None,
+        hub: LiveStreamHub,
+    ) -> None:
+        self._read_model = read_model
+        self._hub = hub
+
+    async def start(self) -> None:
+        if self._read_model is None:
+            await self._hub.seed_latest((_live_activity_status("unavailable"),))
+            return
+        try:
+            projection = await self._read_model.list_agent_activity(AgentActivityQuery(limit=64))
+        except (ProjectionUnavailableError, PsycopgError, TimeoutError) as exc:
+            _LOGGER.warning(
+                "live_activity_snapshot_unavailable",
+                extra={"error_kind": type(exc).__name__},
+            )
+            await self._hub.seed_latest((_live_activity_status("unavailable"),))
+            return
+        items = projection.to_dict().get("items")
+        if not isinstance(items, list) or len(items) > 64:
+            raise ValueError("durable activity snapshot MUST contain a bounded items array")
+        events: list[LiveStreamEvent] = []
+        for item in reversed(items):
+            activity_id = item.get("activity_id") if isinstance(item, Mapping) else None
+            if (
+                not isinstance(item, Mapping)
+                or item.get("type") != "agent.operational-activity"
+                or not isinstance(activity_id, str)
+            ):
+                raise ValueError("durable activity snapshot item is malformed")
+            events.append(
+                LiveStreamEvent(
+                    event_id=activity_id,
+                    payload=dict(item),
+                    event_type="activity",
+                )
+            )
+        events.append(_live_activity_status("ready"))
+        await self._hub.seed_latest(tuple(events))
+
+    async def aclose(self) -> None:
+        """Own no resources after the one-time projection read."""
+
+
+def _live_activity_status(status: str) -> LiveStreamEvent:
+    if status not in {"ready", "unavailable"}:
+        raise ValueError("Live activity status is unsupported")
+    return LiveStreamEvent(
+        event_id=f"activity-status:{status}",
+        event_type="activity-status",
+        payload={
+            "type": "live.activity-status",
+            "status": status,
+            "reason": (None if status == "ready" else "durable_projection_unavailable"),
+            "ts": datetime.now(tz=UTC).isoformat(),
+        },
+    )
 
 
 def _postgres_read_model(environment: OperatorEnvironment) -> OperatorReadModel | None:
@@ -806,6 +904,7 @@ def _application_lifecycle(
     action_confirmation_bridge: ActionConfirmationBridge | None,
     incident_intervention_bridge: IncidentInterventionBridge | None,
     azure_monitor_webhook_bridge: AzureMonitorWebhookBridge | None,
+    live_activity_snapshot_loader: _LiveActivitySnapshotLoader | None,
     bus: OperatorSemanticKafkaBus | None,
     live_stage_relay: LiveStageKafkaRelay | None,
     narrator_scheduler: PeriodicNarratorRefreshScheduler | None,
@@ -827,6 +926,7 @@ def _application_lifecycle(
             action_confirmation_bridge,
             incident_intervention_bridge,
             azure_monitor_webhook_bridge,
+            live_activity_snapshot_loader,
             live_stage_relay,
             narrator_scheduler,
             hil_decision_outbox_bridge,
@@ -1013,7 +1113,7 @@ def _build_data_sources(
         ReadDataSource(
             key="detection-readiness",
             source="service-local-projection" if configured else "not-configured",
-            routes=("/detection-readiness",),
+            routes=("/detection-coverage", "/detection-readiness"),
             availability="unknown" if configured else "unavailable",
             configured=configured,
             reachable=None,

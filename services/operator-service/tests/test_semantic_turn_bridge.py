@@ -676,7 +676,7 @@ def test_context_selection_token_is_bound_to_principal_role_and_purpose() -> Non
     )
 
 
-def test_semantic_envelope_omits_unbound_or_unsupported_conversation_context() -> None:
+def test_semantic_envelope_omits_unsupported_conversation_context() -> None:
     build = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build
 
     unsupported = cast(
@@ -685,17 +685,45 @@ def test_semantic_envelope_omits_unbound_or_unsupported_conversation_context() -
             _proposal(body={"prompt": "Show evidence.", "conversation_context": {"kind": "action"}})
         )["semantic_turn"],
     )
-    identityless = cast(
-        dict[str, object],
-        build(
-            _proposal(
-                body={"prompt": "Show evidence.", "conversation_context": {"kind": "incident"}}
-            )
-        )["semantic_turn"],
-    )
 
     assert "bound_context" not in unsupported
-    assert "bound_context" not in identityless
+
+
+@pytest.mark.parametrize(
+    "conversation_context",
+    (
+        {"kind": "incident"},
+        {"kind": "incident", "incident_id": "incident-42"},
+        {"kind": "incident", "correlation_id": "correlation-7"},
+        {
+            "kind": "incident",
+            "incident_id": 42,
+            "correlation_id": "correlation-7",
+        },
+        {
+            "kind": "incident",
+            "incident_id": "incident-42",
+            "correlation_id": 7,
+        },
+    ),
+)
+def test_semantic_envelope_rejects_partial_incident_context(
+    conversation_context: dict[str, object],
+) -> None:
+    build = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build
+
+    with pytest.raises(
+        ValueError,
+        match="incident conversation_context requires incident_id and correlation_id",
+    ):
+        build(
+            _proposal(
+                body={
+                    "prompt": "Show evidence.",
+                    "conversation_context": conversation_context,
+                }
+            )
+        )
 
 
 class _MemorySemanticStore:

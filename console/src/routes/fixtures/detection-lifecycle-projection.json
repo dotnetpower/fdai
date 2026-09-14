@@ -46,7 +46,7 @@
             "restart-history:pod/old",
             "termination-old"
           ],
-          "idempotency_key": "analyzer:cluster-a/default/orders:container_restart:993432",
+          "idempotency_key": "analyzer:ee09488275d459a7a86053064b6fd1a6",
           "occurred_at": "2026-08-31T11:59:48Z",
           "publication": "published",
           "recorded_at": "2026-08-31T12:00:00Z",
@@ -94,7 +94,7 @@
             "restart-history:pod/new",
             "termination-old"
           ],
-          "idempotency_key": "analyzer:cluster-a/default/payments:pod_replacement:993432",
+          "idempotency_key": "analyzer:1aee898c5d3257c48c0820c13bf3a125",
           "occurred_at": "2026-08-31T11:59:53Z",
           "publication": "published",
           "recorded_at": "2026-08-31T12:00:00Z",
@@ -148,7 +148,7 @@
             "restart-history:pod/new",
             "termination-old"
           ],
-          "idempotency_key": "analyzer:cluster-a/default/reports:pod_replacement:993432",
+          "idempotency_key": "analyzer:51b90234224e587d8f4b9a74240135ce",
           "occurred_at": "2026-08-31T11:59:39Z",
           "publication": "published",
           "recorded_at": "2026-08-31T12:00:00Z",

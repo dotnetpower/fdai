@@ -9,8 +9,6 @@ import {
 import {
   AsyncBoundary,
   DataTable,
-  KpiCard,
-  KpiGrid,
   PageHeader,
   StatusPill,
   type AsyncState,
@@ -19,12 +17,21 @@ import {
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
+import { isRfc3339Timestamp } from "../time-format";
+import {
+  BlastImpact,
+  BlastTraversalContract,
+  ImpactSummary,
+  impactEvidencePresentation,
+} from "./blast-radius-impact";
+import { ImpactResourcePicker } from "./blast-radius-resource-picker";
 import {
   BLAST_RADIUS_LINKS,
   decodeBlastRadiusResponse,
   blastRadiusHref,
   blastRadiusQueryFromSearch,
   blastRadiusRequestIsCurrent,
+  blastRadiusResponseMatchesQuery,
   DEFAULT_BLAST_RADIUS_LINKS,
   type BlastRadiusResponse,
   type BlastRadiusQuery,
@@ -36,8 +43,8 @@ import { formatNumber, t } from "./i18n/ontology";
 /**
  * Blast-radius simulator panel. Wraps ``GET /simulate/blast-radius`` -
  * the caller supplies a target Resource id + depth + traversal links,
- * the panel renders the reachable subgraph as a table so a reviewer
- * eyeballs "which resources would this action touch" before approving.
+ * the panel renders a bounded relationship workbench, evidence inspector,
+ * and exact tables so a reviewer can see which resources may be affected.
  *
  * Purely read-only. There is no button that mutates state; the panel
  * is a projection over the ontology graph the API knows about.
@@ -66,6 +73,12 @@ export function inventoryGraphMatchesImpact(
 ): boolean {
   if (graph.snapshot_id !== undefined) {
     return graph.snapshot_id === impact.source_generation;
+  }
+  if (
+    !isRfc3339Timestamp(graph.snapshot_at)
+    || !isRfc3339Timestamp(impact.source_cutoff)
+  ) {
+    return false;
   }
   const graphCutoff = Date.parse(graph.snapshot_at);
   const impactCutoff = Date.parse(impact.source_cutoff);
@@ -146,6 +159,17 @@ export function BlastRadiusRoute({ client }: Props) {
     });
   }
 
+  function selectTarget(nextTarget: string): void {
+    setTarget(nextTarget);
+    setArchitectureView(null);
+    syncDraft({
+      target: nextTarget || null,
+      depth,
+      links: [...linkSet],
+      architectureView: null,
+    });
+  }
+
   async function runSimulation(query: BlastRadiusQuery = {
     target,
     depth,
@@ -164,6 +188,9 @@ export function BlastRadiusRoute({ client }: Props) {
       const url = `/simulate/blast-radius?${params.toString()}`;
       const payload = await client.panel<unknown>(url);
       const data = decodeBlastRadiusResponse(payload);
+      if (!blastRadiusResponseMatchesQuery(data, query)) {
+        throw new Error("impact response does not match the submitted query");
+      }
       if (blastRadiusRequestIsCurrent(requestGeneration.current, generation)) {
         setState({ status: "ready", data });
       }
@@ -174,18 +201,36 @@ export function BlastRadiusRoute({ client }: Props) {
     }
   }
 
+  const reportData = state.status === "ready" ? state.data : null;
+
   return (
     <div class="stack governance-route blast-radius-route">
       <PageHeader
         title={t("route.blastRadius")}
         subtitle={t("ontology.blast.subtitle")}
+        actions={reportData ? (
+          <div class="blast-projection-meta">
+            <span>{t("ontology.blast.projectionCutoff")}</span>
+            <time dateTime={reportData.source_cutoff}>
+              {reportData.source_cutoff}
+            </time>
+          </div>
+        ) : undefined}
       />
 
+      <div class="blast-readonly-banner" role="note">
+        <strong>{t("ontology.blast.boundaryTitle")}</strong>
+        <span>{t("ontology.blast.boundaryDescription")}</span>
+      </div>
+
+      {reportData ? (
+        <ImpactSummary
+          data={reportData}
+        />
+      ) : null}
+
       <section class="impact-query-panel" aria-labelledby="impact-query-title">
-        <header class="impact-query-head">
-          <h3 id="impact-query-title">{t("ontology.blast.queryTitle")}</h3>
-          <p>{t("ontology.blast.queryDescription")}</p>
-        </header>
+        <h3 id="impact-query-title" class="sr-only">{t("ontology.blast.queryTitle")}</h3>
         <form
           class="impact-query-grid"
           onSubmit={(e) => {
@@ -198,35 +243,18 @@ export function BlastRadiusRoute({ client }: Props) {
             }));
           }}
         >
-          <label class="impact-query-field">
-            <span>{t("ontology.blast.targetResourceId")}</span>
-            <input
-              class="impact-query-input"
-              type="text"
-              value={target}
-              onInput={(e) => {
-                const nextTarget = (e.target as HTMLInputElement).value;
-                setTarget(nextTarget);
-                syncDraft({
-                  target: nextTarget.trim() || null,
-                  depth,
-                  links: [...linkSet],
-                  architectureView,
-                });
-              }}
-              required
-            />
-          </label>
+          <ImpactResourcePicker
+            client={client}
+            selectedId={target}
+            onSelect={selectTarget}
+          />
           <label class="impact-query-field is-compact">
             <span>{t("ontology.blast.depthInput")}</span>
-            <input
+            <select
               class="impact-query-input"
-              type="number"
-              min={1}
-              max={5}
               value={depth}
               onInput={(e) => {
-                const nextDepth = Number((e.target as HTMLInputElement).value);
+                const nextDepth = Number((e.target as HTMLSelectElement).value);
                 setDepth(nextDepth);
                 syncDraft({
                   target: target.trim() || null,
@@ -235,8 +263,15 @@ export function BlastRadiusRoute({ client }: Props) {
                   architectureView,
                 });
               }}
-              required
-            />
+            >
+              {[1, 2, 3, 4, 5].map((option) => (
+                <option key={option} value={option}>
+                  {option === 1
+                    ? t("ontology.blast.depthOneOption")
+                    : t("ontology.blast.depthOption", { depth: option })}
+                </option>
+              ))}
+            </select>
           </label>
           <fieldset class="impact-query-checks">
             <legend>{t("ontology.blast.linkTypes")}</legend>
@@ -277,6 +312,7 @@ export function BlastRadiusRoute({ client }: Props) {
     </div>
   );
 }
+
 function ReportView({ data, client, architectureView }: { readonly data: BlastRadiusResponse; readonly client: OperatorApiClient; readonly architectureView: string | null }) {
   const initialResult = currentRoute().search.get("result");
   const evidenceHref = blastRadiusHref({
@@ -288,6 +324,11 @@ function ReportView({ data, client, architectureView }: { readonly data: BlastRa
   const [view, setView] = useState<"impact" | "map" | "table">(
     initialResult === "map" || initialResult === "table" ? initialResult : "impact",
   );
+  const sourceCoverage = data.relationship_source_coverage;
+  const sourceFullyMaterialized = sourceCoverage !== null
+    && sourceCoverage.complete
+    && sourceCoverage.reviewed_unavailable === 0
+    && sourceCoverage.unclassified === 0;
   const selectView = (next: "impact" | "map" | "table"): void => {
     const params = Object.fromEntries(currentRoute().search.entries());
     setView(next);
@@ -315,6 +356,36 @@ function ReportView({ data, client, architectureView }: { readonly data: BlastRa
         { key: "affected_count", value: data.affected_count, group: "result" },
         { key: "edge_count", value: data.edges.length, group: "result" },
         { key: "complete", value: data.complete, group: "result" },
+        {
+          key: "relationship_evidence_complete",
+          value: data.relationship_evidence_complete ?? "legacy",
+          group: "result",
+        },
+        {
+          key: "relationship_source_accounting_complete",
+          value: sourceCoverage?.complete ?? "unavailable",
+          group: "evidence",
+        },
+        {
+          key: "relationship_source_fully_materialized",
+          value: sourceFullyMaterialized,
+          group: "evidence",
+        },
+        {
+          key: "relationship_source_materialized",
+          value: sourceCoverage?.materialized ?? "unavailable",
+          group: "evidence",
+        },
+        {
+          key: "relationship_source_reviewed_unavailable",
+          value: sourceCoverage?.reviewed_unavailable ?? "unavailable",
+          group: "evidence",
+        },
+        {
+          key: "relationship_source_unclassified",
+          value: sourceCoverage?.unclassified ?? "unavailable",
+          group: "evidence",
+        },
         { key: "truncation_reasons", value: data.truncation_reasons.join(", "), group: "result" },
         { key: "source_generation", value: data.source_generation, group: "evidence" },
         { key: "source_cutoff", value: data.source_cutoff, group: "evidence" },
@@ -331,6 +402,11 @@ function ReportView({ data, client, architectureView }: { readonly data: BlastRa
           link_type: e.link_type,
           depth: e.depth,
           verification_status: e.verification_status,
+          evidence_status: e.evidence?.status ?? "legacy",
+          evidence_verification: e.evidence?.verification_status ?? "legacy",
+          evidence_source: e.evidence?.source,
+          evidence_cutoff: e.evidence?.cutoff,
+          evidence_reason: e.evidence?.reason,
         })),
       },
     }),
@@ -370,48 +446,15 @@ function ReportView({ data, client, architectureView }: { readonly data: BlastRa
     {
       key: "v",
       header: t("ontology.blast.columnVerification"),
-      render: (e) => (
-        <StatusPill
-          kind={e.verification_status === "verified" ? "success" : "warning"}
-          label={t(e.verification_status === "verified"
-            ? "ontology.blast.verified"
-            : "ontology.blast.unverified")}
-        />
-      ),
+      render: (e) => {
+        const evidence = impactEvidencePresentation(e);
+        return <StatusPill kind={evidence.kind} label={evidence.label} />;
+      },
     },
   ];
 
   return (
-    <div class="stack">
-      <div class="governance-summary-strip" aria-label={t("ontology.blast.contextLabel")}>
-        <span class="is-steel"><strong>{data.target}</strong></span>
-        <span>{t("ontology.blast.depthSummary", { depth: formatNumber(data.traversal_depth) })}</span>
-        <span>{data.traversal_links.join(" + ") || t("ontology.blast.noLinks")}</span>
-        <span class={!data.complete ? "is-plum" : "is-teal"}>
-          {!data.complete ? t("ontology.blast.truncated") : t("ontology.blast.complete")}
-        </span>
-      </div>
-      <KpiGrid>
-        <KpiCard
-          href={evidenceHref}
-          label={t("ontology.blast.affectedResources")}
-          value={formatNumber(data.affected_count)}
-          tone={data.affected_count > 25 ? "warning" : "default"}
-        />
-        <KpiCard
-          href={evidenceHref}
-          label={t("ontology.blast.traversalDepth")}
-          value={formatNumber(data.traversal_depth)}
-        />
-        <KpiCard
-          href={evidenceHref}
-          label={t("ontology.blast.truncatedAtCap")}
-          value={!data.complete ? t("ontology.common.yes") : t("ontology.common.no")}
-          tone={!data.complete ? "warning" : "positive"}
-          hint={!data.complete ? data.truncation_reasons.join(", ") : t("ontology.blast.fullGraph")}
-        />
-      </KpiGrid>
-
+    <div class="stack blast-results">
       <section class="stack-section">
         <div class="section-header">
           <h3 class="section-title">{t("ontology.blast.topology")}</h3>
@@ -422,93 +465,49 @@ function ReportView({ data, client, architectureView }: { readonly data: BlastRa
           </div>
         </div>
         {view === "impact" ? (
-          <BlastImpact data={data} architectureView={architectureView} />
+          <BlastImpact
+            data={data}
+            architectureView={architectureView}
+            evidenceHref={evidenceHref}
+          />
         ) : view === "map" ? (
           <BlastRadiusMap client={client} data={data} architectureView={architectureView} />
         ) : (
-          <DataTable
-            columns={reachedColumns}
-            rows={data.reached}
-            keyOf={(node) => `${node.depth}:${node.resource_id}`}
-            empty={t("ontology.blast.noReachable")}
-          />
+          <div class="stack blast-table-view">
+            <section class="stack-section">
+              <h4 class="section-title">
+                {t("ontology.blast.reachedResources", {
+                  count: formatNumber(data.reached.length),
+                })}
+              </h4>
+              <DataTable
+                columns={reachedColumns}
+                rows={data.reached}
+                keyOf={(node) => `${node.depth}:${node.resource_id}`}
+                empty={t("ontology.blast.noReachable")}
+              />
+            </section>
+            <section class="stack-section">
+              <h4 class="section-title">
+                {t("ontology.blast.edgesTraversed", {
+                  count: formatNumber(data.edges.length),
+                })}
+              </h4>
+              <DataTable
+                columns={edgeColumns}
+                rows={data.edges}
+                keyOf={(_edge, index) => `${index}`}
+                empty={t("ontology.blast.noEdges")}
+              />
+            </section>
+          </div>
         )}
       </section>
 
-      <section class="stack-section">
-        <h3 class="section-title">{t("ontology.blast.edgesTraversed", { count: formatNumber(data.edges.length) })}</h3>
-        <DataTable
-          columns={edgeColumns}
-          rows={data.edges}
-          keyOf={(_e, i) => `${i}`}
-          empty={t("ontology.blast.noEdges")}
-        />
-      </section>
+      <BlastTraversalContract data={data} />
     </div>
   );
 }
-function BlastImpact({
-  data,
-  architectureView,
-}: {
-  readonly data: BlastRadiusResponse;
-  readonly architectureView: string | null;
-}) {
-  const nodes = data.reached.filter((node) => node.resource_id !== data.target);
-  const maxDepth = Math.max(1, data.traversal_depth);
-  return (
-    <div class="blast-impact-layout">
-      <div class="blast-rings" role="img" aria-label={t("ontology.blast.scopeAround", { target: data.target })}>
-        <svg viewBox="0 0 560 430">
-          {Array.from({ length: maxDepth }, (_, index) => {
-            const depth = maxDepth - index;
-            const radius = 58 + depth * 58;
-            return <circle key={depth} cx="280" cy="215" r={radius} class={`blast-ring depth-${depth}`} />;
-          })}
-          <circle cx="280" cy="215" r="42" class="blast-target" />
-          <text x="280" y="211" text-anchor="middle" class="blast-target-label">{t("ontology.common.target")}</text>
-          <text x="280" y="229" text-anchor="middle" class="blast-target-name">{shortResource(data.target)}</text>
-          {nodes.slice(0, 24).map((node, index) => {
-            const peers = nodes.filter((candidate) => candidate.depth === node.depth);
-            const peerIndex = peers.indexOf(node);
-            const angle = (Math.PI * 2 * peerIndex) / Math.max(1, peers.length) - Math.PI / 2;
-            const radius = 58 + Math.max(1, node.depth) * 58;
-            const x = 280 + Math.cos(angle) * radius;
-            const y = 215 + Math.sin(angle) * radius;
-            return (
-              <g key={`${node.resource_id}:${index}`}>
-                <circle cx={x} cy={y} r="8" class={`blast-node depth-${node.depth}`} />
-                <text x={x} y={y + 20} text-anchor="middle" class="blast-node-label">{shortResource(node.resource_id)}</text>
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-      <section class="blast-impact-list">
-        <header>
-          <h4>{t("ontology.blast.impactTree")}</h4>
-          <span>{t("ontology.blast.affectedCount", { count: formatNumber(data.affected_count) })}</span>
-        </header>
-        <ol>
-          <li class="is-target"><span>{formatNumber(0)}</span><a href={architectureHref(data.target, architectureView)}><code>{data.target}</code></a><small>{t("ontology.common.target")}</small></li>
-          {data.reached.map((node) => (
-            <li key={`${node.depth}:${node.resource_id}`}>
-              <span>{formatNumber(node.depth)}</span>
-              <a href={architectureHref(node.resource_id, architectureView)}><code>{node.resource_id}</code></a>
-              <small>{node.via_link_type ?? t("ontology.common.direct")}</small>
-            </li>
-          ))}
-        </ol>
-      </section>
-    </div>
-  );
-}
-function shortResource(value: string): string {
-  const parts = value.split("/").filter(Boolean);
-  const last = parts[parts.length - 1] ?? value;
-  return last.length > 22 ? `${last.slice(0, 20)}...` : last;
-}
-
 function BlastRadiusMap({ client, data, architectureView }: { readonly client: OperatorApiClient; readonly data: BlastRadiusResponse; readonly architectureView: string | null }) {
   const [graph, setGraph] = useState<InventoryGraphResponse | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -517,12 +516,17 @@ function BlastRadiusMap({ client, data, architectureView }: { readonly client: O
     setGraph(null);
     setMessage(null);
     const params: Record<string, string> = {
-      depth: "4",
-      include: "contains,attached_to,depends_on",
+      depth: String(data.traversal_depth),
+      include: "contains,attached_to,depends_on,runtime_calls",
     };
-    client.panel<InventoryGraphResponse>("/inventory/graph", params).then(
-      (value) => {
+    client.panel<unknown>("/inventory/graph", params).then(
+      (payload) => {
         if (cancelled) return;
+        if (!isImpactMapGraph(payload)) {
+          setMessage(t("ontology.blast.mapPayloadInvalid"));
+          return;
+        }
+        const value = payload;
         if (!inventoryGraphMatchesImpact(value, data)) {
           setMessage(t("ontology.blast.mapSnapshotMismatch"));
           return;
@@ -556,4 +560,59 @@ function BlastRadiusMap({ client, data, architectureView }: { readonly client: O
       <a class="btn blast-map-open" href={architectureHref(data.target, architectureView)}>{t("ontology.blast.openArchitecture")}</a>
     </div>
   );
+}
+
+function isImpactMapGraph(value: unknown): value is InventoryGraphResponse {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  if (
+    typeof record.snapshot_at !== "string"
+    || !isRfc3339Timestamp(record.snapshot_at)
+    || !Array.isArray(record.resources)
+    || !Array.isArray(record.links)
+    || typeof record.truncated !== "boolean"
+  ) {
+    return false;
+  }
+  const resources = record.resources;
+  if (
+    resources.length > 1_000
+    || resources.some((resource) => {
+      if (typeof resource !== "object" || resource === null || Array.isArray(resource)) {
+        return true;
+      }
+      const item = resource as Record<string, unknown>;
+      return typeof item.id !== "string"
+        || item.id.length === 0
+        || typeof item.type !== "string"
+        || item.type.length === 0
+        || typeof item.name !== "string"
+        || item.name.length === 0
+        || typeof item.status !== "string"
+        || item.status.length === 0;
+    })
+  ) {
+    return false;
+  }
+  const resourceIds = new Set(
+    resources.map((resource) => (resource as Record<string, unknown>).id as string),
+  );
+  const linkTypes = new Set([
+    "contains",
+    "attached_to",
+    "depends_on",
+    "peered_with",
+    "runtime_calls",
+  ]);
+  return record.links.length <= 8_000 && record.links.every((link) => {
+    if (typeof link !== "object" || link === null || Array.isArray(link)) return false;
+    const item = link as Record<string, unknown>;
+    return typeof item.source === "string"
+      && typeof item.target === "string"
+      && typeof item.type === "string"
+      && item.source !== item.target
+      && resourceIds.has(item.source)
+      && resourceIds.has(item.target)
+      && linkTypes.has(item.type);
+  });
 }

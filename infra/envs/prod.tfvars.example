@@ -105,7 +105,7 @@ document_storage_replication_type = "ZRS"
 # ---------------------------------------------------------------
 # analyzer_tick_cron_expression = "*/1 * * * *"
 # analyzer_targets_json = <<-EOT
-#   [{"resource_id": "/subscriptions/<sub>/.../managedClusters/<name>", "kind": "aks_cluster"}]
+#   [{"resource_id": "<logical-resource-id>", "provider_resource_id": "/subscriptions/<sub>/.../managedClusters/<name>", "kind": "aks_cluster"}]
 # EOT
 # prometheus_endpoint = "https://<data-collection-endpoint>.prometheus.monitor.azure.com"
 # prometheus_audience = "https://prometheus.monitor.azure.com"

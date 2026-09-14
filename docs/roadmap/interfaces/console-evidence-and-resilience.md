@@ -60,12 +60,7 @@ Integrations also renders the incident-open email through a sandboxed iframe. Th
 preview endpoint calls the same production renderer used by Azure Communication Services Email and
 supplies only synthetic placeholders. The preview exposes no runtime incident, endpoint, recipient,
 or identity value and provides no send, approval, or execution control.
-Operations includes a Detection readiness route backed only by Muninn's durable StateSnapshots.
-It shows Heimdall's decision, the six evidence dimensions, gaps, authority ceiling, source, and
-observation time. The browser does not probe AKS or derive a replacement decision. Each target
-links to its Architecture resource, and promotion-related counts link to Promotion gates. A
-successful HTTP response for this route or Capabilities that fails strict decoding renders an error
-instead of remaining in the loading skeleton or treating an unknown autonomy mode as enforcement.
+Operations exposes `Detection coverage` at `/detection-coverage` and keeps `/detection-readiness` as a compatibility alias. The route separates the newest attempt, latest successful run, retained findings, and optional exact-resource Kubernetes evidence. Filters and selection are URL-backed, canonical reasons remain in technical detail, and the browser never probes resources or derives health, readiness, coverage, or authority from a successful response.
 With a server-pinned drift context, the GET-only Configuration baselines route fresh-reads identity, lifecycle, drift, Knowledge citation, topology, latency, scheduled-review, and four safety counters.
 It reports absent binding or campaign as unavailable or `not-configured`, never invents progress, strictly rejects malformed data, and compares immutable in-scope versions with failed-attempt counts. The SPA exposes no activation, resume, schedule creation, approval, mitigation, or resource mutation; evidence-run, resume, blueprint review, and materialization use separate authenticated routes.
 Production exposes the panel only after its mounted JSON/DOCX pair, read-only Managed Identity, and exact resource-group allowlist validate at startup. The Operator API never receives executor identity.
@@ -121,7 +116,7 @@ only confirms that displayed content changed; status, freshness, severity, and o
 their labeled content-local cues.
 The console card contract test checks shared KPI destinations, rejects nested whole-card links,
 requires nullable KPI values to declare an evidence state, requires raw data cards to expose a link
-or explicit detail control, and blocks structural card names.
+or explicit detail control, and blocks structural card names. Detection coverage reasons and Trace correlation, stage, and timestamp details use the shared tooltip on pointer or keyboard focus; native `title` attributes remain reserved for embedded frames. Loading and unavailable coverage cards retain their owner links, while Impact Scope uses a responsive single-column mobile form, labeled evidence graph, and 44 px mobile controls without changing its read-only authority. Relationship legend swatches use color and line pattern inside the key instead of a thick colored content-surface edge.
 
 Operating Outcomes publishes its metric, value, baseline, window, sample size, confidence and
 provenance as a bounded Command Deck snapshot. Only Auto-resolution includes vertical breakdowns.
@@ -502,10 +497,7 @@ owned by [Operator Console Progressive Conversations](operator-console-progressi
 
 ## Stream recovery and authentication
 
-Authenticated live, agent, and provisioning SSE readers cancel after 45 seconds without bytes,
-including keepalive comments, then use bounded reconnect. Provisioning also cancels its reader when
-event delivery fails. Agent-stream `401` waits for full-screen login recovery; `403` reconnects so a
-new App Role can take effect without a page reload.
+Authenticated GET-SSE consumers share bounded parsing, inactivity, reconnect, and cursor handling. A cursor advances only after decoder acceptance; cursor-specific `400` or `416` clears it, and a validated `stream_epoch_changed` gap clears it before current snapshots resume. The epoch transition is shown as a stream restart without fabricating a dropped-frame count. Authentication, rate limiting, and rejected frames preserve cursor and backoff. Server drop advisories remain visible, but local cache eviction is not wire loss. Each consumer retains its own visibility and cross-tab policy, and request-scoped conversation streams remain separate.
 
 Command Deck investigation activity can include optional observed execution evidence. The server removes credentials and sensitive identifiers before emission and sets `redacted=true`; the browser
 drops input evidence without that attestation. `input_kind=command` requires a recorded process
@@ -568,7 +560,9 @@ detail to 4 KiB, and milestone agent identities to 64 characters.
 The Web composer sends selected, dropped, and clipboard-pasted raster images through the same bounded attachment tray and validation path. Before staging, the browser fits each raster within a 2048 px longest edge without upscaling and re-encodes it below the 4 MiB per-image ceiling. Clipboard text and HTML retain native textarea paste behavior and never become attachments.
 When a turn carries validated inline image attachments, the streaming route also emits read-only `vision_analyzing` before the narrator composes and `vision_grounded` before the answer, each with image source previews (name, media type, size) but never the base64 payload. The turn escalates to a vision-capable narrator, and the preparing-answer trace renders these stages the same way it renders web-search grounding.
 
-The interactive Live route pauses its SSE reader while the tab is hidden. The shell's incident,
+Live stage, readiness, and authority-free activity share one authenticated `/live/stream`. Snapshots do not advance the Operator-issued delta cursor, and a bounded cache serves late local subscribers without replacing independent GET projections. Agent state and retained history keep their separate routes and authority. The standard-stack Live E2E harness measures this connection budget, typed current activity, explicit retained-history read, and responsive presentation; the harness alone is not authenticated runtime validation.
+
+The interactive Live subscriber reports idle while the tab is hidden. The shell's incident,
 access-grant, and operator-enabled browser notification consumers instead use Web Locks to elect one
 principal-scoped reader per channel across same-origin tabs. Incident and access-grant leaders send
 validated snapshots to follower tabs through `BroadcastChannel`, so every shell keeps its attention

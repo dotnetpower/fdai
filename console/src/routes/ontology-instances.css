@@ -11,6 +11,7 @@
 .ontology-instance-aks-lanes li span { font-size: var(--cs-type-caption-size); font-weight: 700; }
 .ontology-instance-aks-lanes li small { color: var(--fg-muted); font-size: var(--cs-type-caption-size); }
 .ontology-instance-aks-lanes li.is-observed small { color: var(--success); }
+.ontology-instance-aks-lanes li.is-unverified_source small { color: var(--warning); }
 .ontology-instance-aks-lanes li.is-unavailable small { color: var(--warning); }
 .ontology-instance-explorer { display: grid; gap: 10px; min-width: 0; }
 .ontology-instance-toolbar { display: grid; grid-template-columns: minmax(280px, 1fr) auto; align-items: center; gap: 16px; min-height: 56px; padding: 8px 10px; border: 1px solid var(--border); background: var(--bg-subtle); }
@@ -220,6 +221,7 @@
 .ontology-instance-network-path > div span, .ontology-instance-network-path > p { color: var(--fg-muted); font-size: var(--cs-type-caption-size); }
 .ontology-instance-network-path.is-current > div span { color: var(--success); }
 .ontology-instance-network-path.is-stale > div span { color: var(--warning); }
+.ontology-instance-network-path.is-unverified_source > div span { color: var(--warning); }
 .ontology-instance-network-path > p { margin: 5px 0 0; }
 .ontology-instance-network-path details { margin-top: 6px; }
 .ontology-instance-network-path summary { min-height: 36px; padding: 8px 0; color: var(--accent-strong); font-size: var(--cs-type-caption-size); font-weight: 700; cursor: pointer; }

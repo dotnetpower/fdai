@@ -5,6 +5,7 @@ import {
   decodeLiveStageEvent,
   isPermanentLiveStreamFailure,
   isLiveSourceObservationFresh,
+  isLiveEpochGapFrame,
   liveReconnectDelay,
   liveStreamHeaders,
   shouldPauseLiveStream,
@@ -88,6 +89,45 @@ describe("live stream boundary", () => {
       .toBe(true);
     expect(isLiveSourceObservationFresh("2026-07-16T06:00:00Z", Date.parse("2026-07-16T06:00:16Z")))
       .toBe(false);
+  });
+
+  test("surfaces an Operator epoch change without fabricating a drop count", async () => {
+    const response = new Response(
+      [
+        "event: hello",
+        'data: {"cursor_reset":true}',
+        "",
+        "event: gap",
+        'data: {"reason":"stream_epoch_changed"}',
+        "",
+        "",
+      ].join("\n"),
+      { headers: { "content-type": "text/event-stream" } },
+    );
+    let resets = 0;
+    const drops: number[] = [];
+
+    await consumeLiveSse(
+      response,
+      () => undefined,
+      undefined,
+      undefined,
+      (dropped) => drops.push(dropped),
+      undefined,
+      () => {
+        resets += 1;
+      },
+    );
+
+    expect(resets).toBe(1);
+    expect(drops).toEqual([]);
+    expect(isLiveEpochGapFrame({
+      event: "gap",
+      data: '{"reason":"stream_epoch_changed"}',
+      id: null,
+      retryMs: null,
+      droppedBefore: 0,
+    })).toBe(true);
   });
 
   test("classifies auth failures and caps reconnect backoff", () => {

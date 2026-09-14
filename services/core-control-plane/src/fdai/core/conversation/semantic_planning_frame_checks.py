@@ -586,6 +586,7 @@ def deterministic_pre_frame_selection(
     descriptors: tuple[dict[str, Any], ...],
     manifest_descriptors: tuple[dict[str, Any], ...] | None = None,
     inventory_query_language: InventoryQueryLanguageRegistry | None = None,
+    bound_incident: bool = False,
 ) -> tuple[SemanticFrameProposal, Any, VerifiedInvestigationIntent | None] | None:
     """Build accepted typed function or relationship frames before model proposal."""
 
@@ -672,6 +673,7 @@ def deterministic_pre_frame_selection(
         context=context,
         descriptors=manifest_descriptors or descriptors,
         inventory_query_language=inventory_query_language,
+        bound_incident=bound_incident,
     )
     if summary is not None:
         proposal, frame = summary

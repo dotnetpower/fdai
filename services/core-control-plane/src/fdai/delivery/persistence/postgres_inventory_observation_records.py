@@ -9,7 +9,9 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
-from fdai.delivery.persistence.postgres_inventory_snapshot import _snapshot_relationship_props
+from fdai.delivery.persistence.postgres_inventory_snapshot_support import (
+    snapshot_relationship_props as _snapshot_relationship_props,
+)
 from fdai.shared.providers.inventory_observation import (
     InventoryMutationKind,
     InventoryObservationKind,

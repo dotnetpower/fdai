@@ -15,7 +15,11 @@ from fdai_service_contracts import (
     AgentOperationalActivity,
     ObservationDomain,
     OperationalActivityKind,
+    OperationalActivityResultState,
+    OperationalActivityResultUnit,
+    OperationalActivityScopeClass,
     OperationalActivityStatus,
+    OperationalActivitySummaryKey,
     OperationalFreshness,
 )
 
@@ -448,9 +452,26 @@ def _activity(
     reason_codes: tuple[str, ...],
     observed_at: datetime,
 ) -> AgentOperationalActivity:
+    if status in {
+        OperationalActivityStatus.STARTED,
+        OperationalActivityStatus.SUPERSEDED,
+    }:
+        result_state = OperationalActivityResultState.NOT_RECORDED
+    elif (
+        status is OperationalActivityStatus.FAILED
+        or evidence_count == 0
+        and freshness is OperationalFreshness.UNAVAILABLE
+    ):
+        result_state = OperationalActivityResultState.UNAVAILABLE
+    else:
+        result_state = OperationalActivityResultState.MEASURED
+    recorded_evidence_count = (
+        evidence_count if result_state is OperationalActivityResultState.MEASURED else 0
+    )
     return AgentOperationalActivity(
-        schema_version="1.1.0",
+        schema_version="1.3.0",
         activity_id=f"observation:{spec.source_id}:{campaign_id}:{status.value}",
+        activity_instance_id=f"observation:{spec.source_id}:{campaign_id}",
         idempotency_key=f"observation:{spec.source_id}:{campaign_id}:{status.value}",
         kind=OperationalActivityKind.OBSERVATION,
         status=status,
@@ -460,10 +481,26 @@ def _activity(
         observed_at=observed_at,
         source=spec.source_id,
         freshness=freshness,
-        evidence_count=evidence_count,
+        evidence_count=recorded_evidence_count,
         duration_ms=duration_ms,
         correlation_id=campaign_id,
         reason_codes=reason_codes,
+        summary_key=OperationalActivitySummaryKey.SOURCE_OBSERVATION,
+        scope_class=OperationalActivityScopeClass.SOURCE_DOMAIN,
+        result_state=result_state,
+        result_count=(
+            recorded_evidence_count
+            if result_state is OperationalActivityResultState.MEASURED
+            else None
+        ),
+        result_unit=(
+            OperationalActivityResultUnit.RECORDS
+            if result_state is OperationalActivityResultState.MEASURED
+            else None
+        ),
+        source_cutoff=(observed_at if status is not OperationalActivityStatus.STARTED else None),
+        started_at=observed_at if status is OperationalActivityStatus.STARTED else None,
+        completed_at=(observed_at if status is not OperationalActivityStatus.STARTED else None),
     )
 
 
