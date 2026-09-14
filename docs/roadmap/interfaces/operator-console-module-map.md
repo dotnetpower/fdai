@@ -648,6 +648,8 @@ The visible delivery status is always derived from the newest retained delivery,
 older notification cannot make a newer unacknowledged notification appear acknowledged.
 Tabs listen only for the current principal's delivery-ledger storage key, so a send or
 acknowledgement in one tab refreshes the visible state in the others without crossing principals.
+An explicit channel selection or deselection reaches its visible terminal state only after the
+principal-scoped preference write succeeds; unavailable browser storage produces the retry state.
 Visible-heading components use `title` only for rendered heading content. Native HTML `title` bubbles remain limited to accessibility-compatible elements, and all other contextual help uses the shared Tooltip component.
 The static component gallery reads contracts from `mocks/ui/assets/component-registry.json` and presents each specimen before its owner, source, states, usage guidance, responsive behavior, accessibility contract, and product references. A missing or invalid registry blocks documented status instead of inferring canonical status. The gallery remains synthetic presentation evidence and grants no Console, Operator API, or executor authority.
 

@@ -103,6 +103,16 @@ export function writeBrowserNotificationPreference(
   }
 }
 
+export function requireBrowserNotificationPreferenceWrite(
+  enabled: boolean,
+  principalId?: string | null,
+  storage: StorageWriter | null = browserStorage(),
+): void {
+  if (!writeBrowserNotificationPreference(enabled, principalId, storage)) {
+    throw new Error("Console web notification preference storage is unavailable.");
+  }
+}
+
 export function claimBrowserAlertDelivery(
   tag: string,
   principalId?: string | null,

@@ -18,6 +18,7 @@ import {
   readBrowserNotificationPreference,
   recordBrowserAlertDelivered,
   releaseBrowserAlertDelivery,
+  requireBrowserNotificationPreferenceWrite,
   trustedBrowserAlertAcknowledgement,
   writeBrowserNotificationPreference,
 } from "./browser-notifications";
@@ -98,6 +99,15 @@ describe("browser notification boundary", () => {
     expect(readBrowserNotificationPreference("principal-b", storage)).toBe(false);
     expect(writeBrowserNotificationPreference(false, "principal-a", storage)).toBe(true);
     expect(readBrowserNotificationPreference("principal-a", storage)).toBe(false);
+  });
+
+  test("fails explicit preference changes when browser storage is unavailable", () => {
+    expect(() => requireBrowserNotificationPreferenceWrite(true, "principal-a", null))
+      .toThrow(/storage is unavailable/);
+    expect(() => requireBrowserNotificationPreferenceWrite(true, "principal-a", {
+      setItem: () => { throw new Error("quota"); },
+      removeItem: () => { throw new Error("quota"); },
+    })).toThrow(/storage is unavailable/);
   });
 
   test("requires every secure browser capability", () => {
