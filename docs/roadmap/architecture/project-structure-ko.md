@@ -556,7 +556,7 @@ privileged I/O 전에 확인하는 실제 상한을 제공합니다. 어느 계�
 T1은 잘못된 reuse 식별자, 카운터, 신뢰도 및 유사도 근거를 예외 없이 거부합니다. T2는 품질 평가 전에 신뢰된 라우팅
 컨텍스트와 다른 제안 대상, 리소스 유형, 인용 또는 ActionType을 거부합니다. 모든 인용은 라우팅된 규칙이어야 하며, 그중 하나가 `remediates` 또는 `alternatives`로 ActionType을 허용할 수 있습니다. 프로바이더가
 실패해도 T2 제안은 grounding 권한을 우회할 수 없습니다. HIL 승인 id와 실행기 멱등성 키는 원자적으로
-점유되며, Var는 원본 ActionRun 멱등성 키를 최종 승인에 보존합니다. 리소스별 잠금은 전달 어댑터가 상태를 변경하기 전에 경합하는 적용을 직렬화합니다.
+점유됩니다. Var는 원본 ActionRun 멱등성 키를 보존하고 최종 처리를 직렬화하며, ticket을 제거하기 전에 최종 승인과 게시 증적을 런타임 StateStore에 기록합니다. 리소스별 잠금은 전달 어댑터가 상태를 변경하기 전에 경합하는 적용을 직렬화합니다.
 HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서버 검증 운영자 요청 규칙은 규칙 ID,
 작업 유형 및 고정 검사 참조가 계속 정확히 일치할 때만 허용됩니다. 멱등성 예약 신원 및 전이 계약은 하나의 Core 모듈에 유지하고, codec, 수명 주기, 상태 형태 검증, HIL 결과 레코드, 실행 효과 완료 처리는 권한 없이 인접한 단일 책임 모듈로 분리하며 facade는 중복 wrapper 없이 수명 주기 동작을 다시 내보냅니다. 실행기 결과는 `accepted`, `pending`, `no_effect`, `failed`로 Core를 통과합니다. 수락은 전달만 입증하며, HIL, 작업 흐름, 조정은 원래 상관관계와 제공된 액션 시도 신원을 보존하고 효과가 발생했을 수 있는 결과를 종료 주장 전에 독립 조정으로 보냅니다.
 ![컨트롤 루프 배선. 주요 단계는 events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops입니다.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.ko.svg)

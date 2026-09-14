@@ -35,6 +35,7 @@ from fdai.agents.muninn import Muninn
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
+from fdai.agents.var import Var
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.chaos.symptom_index import build_from_entries
 from fdai.core.executor.lock import ResourceLockManager
@@ -248,6 +249,19 @@ def test_runtime_injects_durable_state_store_into_muninn() -> None:
     muninn = runtime.agents["Muninn"]
     assert isinstance(muninn, Muninn)
     assert muninn._durable_state_store is store
+
+
+def test_runtime_injects_durable_state_store_into_var() -> None:
+    store = InMemoryStateStore()
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        muninn_state_store=store,
+    )
+
+    var = runtime.agents["Var"]
+    assert isinstance(var, Var)
+    assert var._state_store is store  # noqa: SLF001 - composition assertion
 
 
 def test_runtime_wires_rule_generation_results_to_mimir_with_durable_store() -> None:

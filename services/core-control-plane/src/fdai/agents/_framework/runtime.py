@@ -294,8 +294,11 @@ class PantheonRuntime:
             operational_evidence_hook=operational_evidence_hook,
             action_observation_hook=heimdall_action_observation_hook,
         )
-        if approver_authorizer is not None:
-            instantiated["Var"] = Var(approver_authorizer=approver_authorizer)
+        if approver_authorizer is not None or muninn_state_store is not None:
+            instantiated["Var"] = Var(
+                approver_authorizer=approver_authorizer,
+                state_store=muninn_state_store,
+            )
         if saga is not None:
             instantiated["Saga"] = saga
         if rollback_executors is not None:

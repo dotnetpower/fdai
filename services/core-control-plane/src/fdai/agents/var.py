@@ -8,8 +8,11 @@ window and the last-seen counter is incremented on repeat.
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import inspect
 from collections.abc import Awaitable, Callable, Mapping
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -19,7 +22,7 @@ from fdai.agents._framework.adapters import (
     InMemoryAdminChannel,
 )
 from fdai.agents._framework.base import Agent
-from fdai.agents._framework.bounded import BoundedLruSet
+from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -28,8 +31,10 @@ from fdai.agents._framework.introspection import (
     mentioned,
 )
 from fdai.agents._framework.pantheon import _VAR
+from fdai.shared.providers.state_store import StateStore
 
 ApproverAuthorizer = Callable[[str, str], bool | Awaitable[bool]]
+_APPROVAL_STATE_PREFIX = "pantheon/var/approval"
 
 
 @dataclass
@@ -73,6 +78,11 @@ def _evict_oldest_ticket(mapping: dict[Any, Any], cap: int, *, keep: Any = None)
             break
 
 
+def _approval_state_key(correlation_id: str, suffix: str) -> str:
+    correlation_digest = hashlib.sha256(correlation_id.encode("utf-8")).hexdigest()
+    return f"{_APPROVAL_STATE_PREFIX}/{correlation_digest}/{suffix}"
+
+
 class Var(Agent):
     """Wave-3 HIL approval + Wave-6 admin channel delivery."""
 
@@ -87,11 +97,14 @@ class Var(Agent):
         bus: PantheonBus | None = None,
         admin_channel: AdminNotificationAdapter | None = None,
         approver_authorizer: ApproverAuthorizer | None = None,
+        state_store: StateStore | None = None,
     ) -> None:
         super().__init__(spec=_VAR)
         self.bus = bus
         self.admin_channel = admin_channel or InMemoryAdminChannel()
         self._approver_authorizer = approver_authorizer
+        self._state_store = state_store
+        self._decision_lock = asyncio.Lock()
         self._pending: dict[str, PendingHilTicket] = {}
         self._pending_shadow_reviews: dict[str, PendingShadowReview] = {}
         # (initiator, action_type) -> AdminCard for dedup counter update
@@ -101,6 +114,10 @@ class Var(Agent):
         # the security metric. Bounded (a distinct blocked attempt still
         # counts; only an exact retry is deduped).
         self._blocked_attempts: BoundedLruSet[str] = BoundedLruSet(self._MAX_PENDING)
+        self._final_approvals: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
+            self._MAX_PENDING
+        )
+        self._published_approvals: BoundedLruSet[str] = BoundedLruSet(self._MAX_PENDING)
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -238,6 +255,23 @@ class Var(Agent):
         approver: str,
         decision: str,
     ) -> dict[str, Any] | None:
+        async with self._decision_lock:
+            return await self._decide_locked(
+                correlation_id,
+                approver=approver,
+                decision=decision,
+            )
+
+    async def _decide_locked(
+        self,
+        correlation_id: str,
+        *,
+        approver: str,
+        decision: str,
+    ) -> dict[str, Any] | None:
+        final_approval = await self._load_final_approval(correlation_id)
+        if final_approval is not None:
+            return await self._publish_final_approval(final_approval)
         ticket = self._pending.get(correlation_id)
         if ticket is None:
             return None
@@ -296,7 +330,7 @@ class Var(Agent):
                 "producer_principal": "Var",
                 "kind": ticket.kind,
                 "correlation_id": correlation_id,
-                "idempotency_key": ticket.idempotency_key,
+                "idempotency_key": (ticket.idempotency_key or f"{correlation_id}:hil_pending"),
                 "action_type": ticket.action_type,
                 "state": final,
                 "approvers": list(ticket.approvers),
@@ -311,11 +345,106 @@ class Var(Agent):
                         "upload_id": ticket.upload_id,
                     }
                 )
-            if self.bus is not None:
-                await self.bus.publish("Var", "object.approval", approval)
-            del self._pending[correlation_id]
-            return approval
+            final_approval = await self._checkpoint_final_approval(approval)
+            return await self._publish_final_approval(final_approval)
         return None
+
+    async def _load_final_approval(self, correlation_id: str) -> dict[str, Any] | None:
+        cached = self._final_approvals.get(correlation_id)
+        if cached is not None:
+            return deepcopy(cached)
+        if self._state_store is None:
+            return None
+        stored = await self._state_store.read_state(_approval_state_key(correlation_id, "final"))
+        if stored is None:
+            return None
+        approval = self._validate_final_approval(stored, correlation_id)
+        self._final_approvals.set(correlation_id, deepcopy(approval))
+        return approval
+
+    async def _checkpoint_final_approval(
+        self,
+        approval: dict[str, Any],
+    ) -> dict[str, Any]:
+        correlation_id = str(approval["correlation_id"])
+        cached = self._final_approvals.get(correlation_id)
+        if cached is not None:
+            if cached != approval:
+                raise RuntimeError("approval finalization collided with a different payload")
+            return deepcopy(cached)
+        if self._state_store is not None:
+            key = _approval_state_key(correlation_id, "final")
+            created = await self._state_store.write_state_if_absent(key, approval)
+            if not created:
+                stored = await self._state_store.read_state(key)
+                if stored is None:
+                    raise RuntimeError("approval final record disappeared after collision")
+                approval = self._validate_final_approval(stored, correlation_id)
+        self._final_approvals.set(correlation_id, deepcopy(approval))
+        return deepcopy(approval)
+
+    async def _publish_final_approval(
+        self,
+        approval: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        correlation_id = str(approval["correlation_id"])
+        if await self._approval_was_published(correlation_id):
+            self._pending.pop(correlation_id, None)
+            return None
+        if self.bus is None:
+            self._pending.pop(correlation_id, None)
+            return deepcopy(approval)
+        await self.bus.publish("Var", "object.approval", deepcopy(approval))
+        await self._mark_approval_published(approval)
+        self._pending.pop(correlation_id, None)
+        return deepcopy(approval)
+
+    async def _approval_was_published(self, correlation_id: str) -> bool:
+        if correlation_id in self._published_approvals:
+            return True
+        if self._state_store is None:
+            return False
+        stored = await self._state_store.read_state(
+            _approval_state_key(correlation_id, "published")
+        )
+        if stored is None:
+            return False
+        if stored.get("correlation_id") != correlation_id:
+            raise RuntimeError("approval publication receipt has conflicting identity")
+        self._published_approvals.add(correlation_id)
+        return True
+
+    async def _mark_approval_published(self, approval: Mapping[str, Any]) -> None:
+        correlation_id = str(approval["correlation_id"])
+        receipt = {
+            "correlation_id": correlation_id,
+            "idempotency_key": str(approval["idempotency_key"]),
+            "state": str(approval["state"]),
+        }
+        if self._state_store is not None:
+            key = _approval_state_key(correlation_id, "published")
+            created = await self._state_store.write_state_if_absent(key, receipt)
+            if not created:
+                stored = await self._state_store.read_state(key)
+                if stored != receipt:
+                    raise RuntimeError("approval publication receipt collision")
+        self._published_approvals.add(correlation_id)
+
+    @staticmethod
+    def _validate_final_approval(
+        stored: Mapping[str, Any],
+        correlation_id: str,
+    ) -> dict[str, Any]:
+        approval = dict(stored)
+        if (
+            approval.get("producer_principal") != "Var"
+            or approval.get("correlation_id") != correlation_id
+            or approval.get("state") not in {"approved", "rejected"}
+            or not isinstance(approval.get("idempotency_key"), str)
+            or not approval["idempotency_key"]
+        ):
+            raise RuntimeError("stored final approval is malformed")
+        return deepcopy(approval)
 
     async def decide_shadow_review(
         self,

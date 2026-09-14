@@ -1407,6 +1407,127 @@ def test_var_preserves_action_run_idempotency_key_on_approval() -> None:
     assert published[0].payload["idempotency_key"] == "c-idempotency:hil_pending"
 
 
+def test_var_retries_stored_final_approval_after_publication_failure() -> None:
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    class _FailOnceApprovalBus:
+        def __init__(self) -> None:
+            self.calls = 0
+            self.payloads: list[dict[str, object]] = []
+
+        def subscribe(self, topic, agent_name, handler):  # noqa: ANN001, ANN201
+            del topic, agent_name, handler
+
+        async def publish(self, principal, topic, payload):  # noqa: ANN001, ANN201
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("approval bus unavailable")
+            assert principal == "Var"
+            assert topic == "object.approval"
+            self.payloads.append(dict(payload))
+
+    store = InMemoryStateStore()
+    bus = _FailOnceApprovalBus()
+    var = Var(bus=bus, state_store=store)
+    asyncio.run(
+        var.on_typed_message(
+            "object.action-run",
+            {
+                "correlation_id": "c-approval-retry",
+                "idempotency_key": "c-approval-retry:hil_pending",
+                "action_type": "ops.restart-service",
+                "state": "hil_pending",
+            },
+        )
+    )
+
+    with pytest.raises(RuntimeError, match="approval bus unavailable"):
+        asyncio.run(
+            var.decide(
+                "c-approval-retry",
+                approver="reviewer@example.com",
+                decision="approve",
+            )
+        )
+    approval = asyncio.run(
+        var.decide(
+            "c-approval-retry",
+            approver="reviewer@example.com",
+            decision="approve",
+        )
+    )
+
+    assert approval is not None
+    assert approval["approvers"] == ["reviewer@example.com"]
+    assert bus.calls == 2
+    assert len(bus.payloads) == 1
+    assert var.pending_tickets() == ()
+
+
+def test_var_replays_final_approval_after_restart() -> None:
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    store = InMemoryStateStore()
+    first = _var_with_pending(
+        "c-approval-restart",
+        idempotency_key="c-approval-restart:hil_pending",
+    )
+    first._state_store = store  # noqa: SLF001 - restart checkpoint seam
+    first.bus = None
+    finalized = asyncio.run(
+        first.decide(
+            "c-approval-restart",
+            approver="reviewer@example.com",
+            decision="approve",
+        )
+    )
+    assert finalized is not None
+
+    bus = InMemoryBus(registry=load_pantheon())
+    restarted = Var(bus=bus, state_store=store)
+    replayed = asyncio.run(
+        restarted.decide(
+            "c-approval-restart",
+            approver="reviewer@example.com",
+            decision="approve",
+        )
+    )
+
+    assert replayed == finalized
+    assert len(bus.messages_on("object.approval")) == 1
+
+
+def test_var_serializes_concurrent_final_approvals() -> None:
+    var = _var_with_pending(
+        "c-approval-concurrent",
+        idempotency_key="c-approval-concurrent:hil_pending",
+    )
+
+    async def _decide_concurrently() -> tuple[dict[str, object] | None, dict[str, object] | None]:
+        first, second = await asyncio.gather(
+            var.decide(
+                "c-approval-concurrent",
+                approver="first@example.com",
+                decision="approve",
+            ),
+            var.decide(
+                "c-approval-concurrent",
+                approver="second@example.com",
+                decision="approve",
+            ),
+        )
+        return first, second
+
+    first, second = asyncio.run(_decide_concurrently())
+
+    finalized = first or second
+    assert finalized is not None
+    assert (first is None) is not (second is None)
+    assert finalized["approvers"] == ["first@example.com"]
+    assert var.bus is not None
+    assert len(var.bus.messages_on("object.approval")) == 1  # type: ignore[union-attr]
+
+
 @pytest.mark.parametrize("idempotency_key", [" ", 7])
 def test_var_rejects_invalid_action_run_idempotency_key(idempotency_key: object) -> None:
     var = Var(bus=None)
