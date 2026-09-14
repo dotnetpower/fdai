@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 5f0f489d38c6702ccf03e09b10f7f1eae0aa2df1
+translation_source_sha: bb8e231258ca6f0273eb185a2885ea2c19515a10
 translation_revised: 2026-09-15
 ---
 # 프로젝트 구조
@@ -544,65 +544,14 @@ privileged I/O 전에 확인하는 실제 상한을 제공합니다. 어느 계�
 기능을 최대 `SHADOW`로 제한하므로, 검증되지 않은 배포 권한을 주장하지 않으면서 읽기 전용 처리를
 계속할 수 있습니다.
 
-`StateStore`는 제거 원시 연산을 `delete_states_beyond(prefix, retain_newest)` 하나만 노출합니다.
-`read_states`와 같은 순서로 한계를 넘는 가장 오래된 행을 버려, 추가 전용 근거 투영의 증가를
-제한합니다. 최신순은 모든 백엔드에서 마지막으로 기록된 순서를 뜻하므로, 어떤 백엔드를 연결하든
-남는 행은 같습니다. 키를 지정할 수 없으므로 권위 있는 기록이나 감사 항목을 지울 수 없습니다.
+[에이전트 판테온 구현 계획](../agents/agent-pantheon-implementation-ko.md#범위가-제한된-공유-상태)이 공유 `StateStore`의 범위 제한 제거 및 재생 의미 체계를 소유합니다.
 
 ## 컨트롤 루프 배선
 
-모든 종단 경로(거부, HIL 시간 초과, abstain, 거부 포함)는 감사 엔트리를 기록합니다. T2
-출력은 quality-gate를 통과한 후에만 risk-gate에 도달합니다.
-권한 상한은 각 작업을 실제 시작 tier인 T0, T1 또는 T2로 평가하며, fallback 작업은 T0
-권한을 물려받을 수 없습니다.
-경계 강화는 이 순서를 실패 시 차단으로 유지합니다. Ingest와 라우팅은 비교 전에 빈 리소스
-참조를 정규화합니다. 라우팅은 nested `resource.type`, nested `resource.resource_type`, legacy flat 형태 순서로 해석하며 추측하지 않습니다.
-T1은 잘못된 reuse 식별자, 카운터, 신뢰도 및 유사도 근거를 예외 없이 거부합니다. T2는 품질 평가 전에 신뢰된 라우팅
-컨텍스트와 다른 제안 대상, 리소스 유형, 인용 또는 ActionType을 거부합니다. 모든 인용은 라우팅된 규칙이어야 하며, 그중 하나가 `remediates` 또는 `alternatives`로 ActionType을 허용할 수 있습니다. 정확히
-하나의 인용 규칙만 이 권한을 제공해야 하며, 인용 순서로 관련 없는 규칙 메타데이터를 바꿀 수
-없도록 같은 규칙을 risk, HIL, 실행 렌더링에 결속합니다. 카탈로그에 정확히 선언된
-`alternatives` 관계는 의미 유사도보다 먼저 적용하는 결정론적 grounding 근거이므로 grounding
-단계가 신뢰된 Rule 관계와 모순될 수 없습니다. 프로바이더가
-실패해도 T2 제안은 grounding 권한을 우회할 수 없습니다. HIL 승인 id와 실행기 멱등성 키는 원자적으로
-점유됩니다. Var는 원본 ActionRun 멱등성 키를 보존하고 최종 처리를 직렬화하며, ticket을 제거하기 전에 최종 승인과 게시 증적을 런타임 StateStore에 기록합니다.
-정규화된 각 Var 결정은 먼저 감사가 포함된 CAS 집계에 결합되므로 재시작 및 동시 복제본은 최종
-처리 전에 변경할 수 없는 같은 principal 집합에서 정족수를 계산합니다. 시작 처리는 정확한 필드의
-대기 상태 조회를 사용해 consumer보다 먼저 종결 집계를 최종 처리하고 영속 최종 승인을 게시하며,
-사람의 결정을 다시 요구하지 않습니다. 리소스별 잠금은 전달
-어댑터가 상태를 변경하기 전에 경합하는 적용을 직렬화합니다. Vidar도 provider 복구 전에
-상관관계와 실패한 ActionRun의 정규 rollback 명령을 소유자 토큰 및 범위가 제한된 점유 유효
-기간과 함께 영속적으로 점유합니다. 안정적인 효과 필드 허용 목록 하나가 실행기 입력과
-다이제스트를 모두 정의합니다. `params`, Action 신원, Workflow 계보, rollback 데이터는 참여하지만
-다시 생성되는 `terminal_at` 같은 전달 메타데이터는 제외합니다. 충돌한 복제본은 유효한 점유를 변경하지 않고 처리를 실패시켜
-EventBusBridge 재시도 또는 DLQ가 전달을 보존하게 합니다. 재처리 시 검증된 만료 뒤에만
-`execution_unknown`을 허용하고 개정 번호 CAS가 늦은 소유자의 완료를 차단합니다. 전체 명령
-다이제스트는 in-process cache 재생과 영속 재생 전에 확인합니다. 종결 재생은
-완전한 schema와 차단 신원을 검증하며, Thor가 리소스 점유를 해제하려면 `succeeded`에 비어 있지
-않고 범위가 제한된 `rollback_ref`가 필요합니다. 유효한 종결 또는 게시 재생은 rollback을 반복하지
-않습니다. 런타임 조립은 같은 `StateStore`를 Saga의 인계 저널에도 주입합니다. Saga는 에스컬레이션마다
-점유, 변경 checkpoint, 완료 증적 하나를 검증하고 외부 변경 전에 작업 ID에 결속된 이슈
-어댑터를 요구합니다. 상류 런타임의 StateStore 어댑터는 이슈 변경 자체를 영속화하고 consumer
-시작 전에 현재 변환 결과를 복원합니다. 영속 인계 증적은 사용하지 않는 로컬 저장소에 복제하지
-않으며, 실제 이슈 변환 결과는 영속 원본을 삭제하지 않고 시작 복원과 같은 결정론적 한도를
-사용합니다. 런타임 조립은 같은 저장소를 Norns에도 주입합니다. Norns는 지문 학습 전에
-각 `object.issue` 멱등성 키를 점유하고 CAS로 영속 지문 횟수에 적용하며 게시 또는 보류까지
-후보를 대기 상태로 유지합니다. 재시작은 완료되지 않은 적용을 재개하거나 전달되지 않은 작업을
-다시 만듭니다. consumer 시작 전의 런타임 복구는 정확한 대기 필드를 조회하고 범위가 제한된
-항목을 하나씩 처리해 작업, 횟수, 후보를 복원합니다. 종결 이력은 완료되지 않은 작업을 밀어낼 수
-없으며 한도 초과는 명시적으로 실패합니다. 타입이 지정된 처리, 시작 처리, 공개 배치 flush는
-하나의 영속 전달 완료 경계를 공유합니다. 차단된 선두 후보는 복구를 멈추지만 다음으로 성공한
-flush가 그 뒤의 영속 대기 후보를 계속 불러옵니다. 따라서 브로커 재생은 근거를 부풀리거나 지우거나
-방치할 수 없습니다. HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서버 검증 운영자 요청 규칙은 규칙 ID,
-작업 유형 및 고정 검사 참조가 계속 정확히 일치할 때만 허용됩니다. 멱등성 예약 신원 및 전이 계약은 하나의 Core 모듈에 유지하고, codec, 수명 주기, 상태 형태 검증, HIL 결과 레코드, 실행 효과 완료 처리는 권한 없이 인접한 단일 책임 모듈로 분리하며 facade는 중복 wrapper 없이 수명 주기 동작을 다시 내보냅니다. 실행기 결과는 `accepted`, `pending`, `no_effect`, `failed`로 Core를 통과합니다. 수락은 전달만 입증하며, HIL, 작업 흐름, 조정은 원래 상관관계와 제공된 액션 시도 신원을 보존하고 효과가 발생했을 수 있는 결과를 종료 주장 전에 독립 조정으로 보냅니다.
-StateStore 이슈 어댑터는 종료 메타데이터를 범위가 제한된 댓글 목록 밖에 유지하고 CAS 전에
-생성된 종료 상태를 검증하므로 작업 한도 경계에서 시작 처리가 거부할 행을 영속화할 수 없습니다.
-Saga는 `object.issue` 게시 뒤에만 인계 완료 증적을 기록합니다. 버스가 없으면 영속 변경 및 감사
-checkpoint를 대기 상태로 남기고 처리기를 실패시켜 재시도 또는 DLQ 재처리를 허용합니다. 이후
-버스 연결은 완료로 억제하지 않고 게시부터 재개합니다.
-Enforce 준비 상태는 `thor_state_store`, `vidar_state_store`, `var_state_store`를 독립적으로
-요구합니다. Production bootstrap은 같은 영속 프로바이더 인스턴스를 모든 정확한 바인딩에 제공할
-수 있지만, 에이전트 소유 바인딩 중 하나라도 없으면 rollback 또는 승인이 process-local 상태를
-사용하기 전에 시작을 실패시킵니다.
+모든 종단 경로는 감사 항목을 기록하고 T2 출력은 품질 게이트를 통과한 뒤에만 안전성 검토에 도달합니다. 각 액션은
+실제 시작 T0, T1 또는 T2 권한 tier를 유지하며 라우팅, 근거 재사용, 근거 확인, 승인, 롤백 및 재시작의 모호성은 실패 시 차단됩니다.
+[에이전트 판테온 구현 계획](../agents/agent-pantheon-implementation-ko.md#영속-권한과-재생)이 세부 CAS, 점유 유효 기간, 멱등성, 게시 및 시작 복구 계약을 소유합니다.
+대기 중인 승인은 현재 카탈로그 신원이 정확히 일치해야 하며, 효과가 발생했을 수 있는 실행기 결과는 컨트롤 루프가 종료를 주장하기 전에 독립 조정을 거칩니다.
 ![컨트롤 루프 배선. 주요 단계는 events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops입니다.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.ko.svg)
 
 ## 구성 모델

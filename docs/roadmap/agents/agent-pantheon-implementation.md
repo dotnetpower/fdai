@@ -22,6 +22,7 @@ cross-agent workflow has an independent rollout record in
 |------|-------|----------|-------|
 | W0-W1 documentation, ontology, and framework scaffolding | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | The fixed registry, package boundary, documentation parity, and typed-topic foundation are executable and checked. |
 | W2-W6 governance, pipeline, interface, specialist, handoff, and security mechanics | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py) | Focused synthetic tests exercise the bounded mechanics, including T1 answer evaluation before optional T2 synthesis. They do not establish live operational validation. |
+| Durable authority, recovery, handoff, and learning replay | implemented | [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_wave3_pipeline.py`](../../../services/core-control-plane/tests/agents/test_wave3_pipeline.py), [`test_bootstrap_config.py`](../../../services/core-control-plane/tests/runtime/test_bootstrap_config.py) | StateStore-backed CAS, lease, checkpoint, outbox, and startup recovery paths have focused restart and concurrency evidence. Two bounded Low-severity cross-replica/idempotency residuals remain open below. |
 | W7 cross-agent shadow workflow mechanics | implemented | [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | Workflows have executable synthetic shadow traces and no evidence here of a default enforce workflow. |
 | W8 KPI, promotion, and degradation machinery | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI reports distinguish measured values from unavailable evidence, promotion fails closed on missing evidence, and injected degradation drills cover the fixed pantheon. |
 | W3 trace-continuity evidence handoff | implemented | `huginn.py`; `heimdall.py`; `test_trace_continuity_chain.py` | The sensing path preserves only bounded allowlisted continuity evidence and carries an observed reason into one Incident candidate without changing roles, topics, or action authority. |
@@ -34,6 +35,7 @@ cross-agent workflow has an independent rollout record in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Consolidated the implemented T1/T2, Var, Vidar, Saga, Norns, and Bragi replay contracts in this focused runtime owner after the legacy Pantheon and project-structure documents reached their size ratchets. | `current change`; 1,372 campaign safety tests, 170 Cost Governance isolation tests with one environment-dependent PostgreSQL skip, strict mypy, Ruff, and structural/documentation gates. | Close the two recorded Low-severity residuals without widening agent roles or authority. |
 | 2026-09-14 | implemented | Removed an unrelated ActionRun fingerprint field from the activity-attribution change so durable and recovery identity remains unchanged. | `current change`; full mypy plus focused Thor durability and recovery regressions. | Retain deployed audit and activity evidence for the exact merged revision. |
 | 2026-09-14 | implemented | Separated operational activity attribution into mechanical actor, accountable `owner_agent`, and authenticated `producer_principal`. Control-loop measurements map to Heimdall, RCA to Forseti, startup audit to Saga, observation campaigns to their declared owner, and Saga audit mirrors identify Saga without replacing the audited principal. | `current change`; service-contract, control-loop, provider-adapter, observation-campaign, startup-probe, pipeline, and Operator projection tests. | Retain deployed audit and activity evidence for the exact merged revision; no role, topic, or execution authority changed. |
 | 2026-08-13 | in-progress | Replaced the broad W0-W8 completion claim with independently evidenced implementation areas. | current change | Gather live evidence and complete separately reviewed promotion before claiming validation or enforce operation. |
@@ -49,6 +51,10 @@ cross-agent workflow has an independent rollout record in
 - [x] Reconcile one-to-many `expects` links with runtime expected-effect lineage and preserve one
   independent outcome per selected effect, as recorded in
   [Operational Learning Ontology](../rules-and-detection/operational-learning-ontology.md).
+- [ ] Advance Saga audit and `object.issue` publication checkpoints through monotonic revision CAS,
+  then retain a two-replica regression showing one audit append and one publication.
+- [ ] Bind each issue operation id globally to one fingerprint and request digest, then retain a
+  regression showing that reuse across fingerprints fails closed.
 - [ ] Complete the remaining prerequisites: bind the deployment-owned signed-context issuer,
   preserve the remaining Forseti-owned causal lineage properties, construct the real runtime
   producer, and implement the governed live-batch producer.
@@ -90,7 +96,87 @@ review, and no workflow reaches enforcement during this wave.
 
 `PantheonRuntime` is the composition boundary for the fixed agent set. The implementation lives in
 `services/core-control-plane/src/fdai/agents/_framework/runtime.py` and is assembled by
-`services/core-control-plane/src/fdai/runtime/bootstrap.py`.
+`services/core-control-plane/src/fdai/runtime/bootstrap_pantheon.py`.
+
+### Durable authority and replay
+
+These runtime contracts preserve the fixed role boundaries in [Agent Pantheon](agent-pantheon.md).
+They provide restart and concurrency safety but do not grant judgment, approval, execution, audit,
+recovery, or publication authority to a different agent.
+
+#### Tier, approval, and command identity
+
+- The authority ceiling evaluates an action at its actual originating T0, T1, or T2 tier. A
+  fallback action cannot inherit T0 authority.
+- Routing resolves nested `resource.type`, nested `resource.resource_type`, then the legacy flat
+  form without guessing. T1 rejects malformed reuse identity, counter, confidence, and similarity
+  evidence.
+- T2 binds target, resource type, citations, and ActionType to trusted routing context. Exactly one
+  cited routed rule authorizes the ActionType through `remediates` or `alternatives`, and that same
+  rule flows through risk, human approval, and execution rendering. Catalog-declared
+  `alternatives` are deterministic grounding evidence before semantic similarity.
+- Mixed-model agreement requires distinct bounded canonical model identities. Different wrappers
+  cannot let one model satisfy its own quorum.
+- Var preserves the source ActionRun idempotency key and joins every normalized principal decision
+  into an audited StateStore compare-and-swap (CAS) aggregate. Concurrent replicas derive quorum
+  from the same immutable decision set.
+- Var stores one final approval and its publication checkpoint before removing the ticket. Startup
+  queries exact pending fields, finalizes terminal aggregates, and republishes stored final payloads
+  before consumers start without asking a person to decide again.
+
+#### Rollback claims and terminal replay
+
+- Vidar claims the correlation and canonical rollback-command digest with an owner token and bounded
+  lease before provider recovery. One stable effect-bearing field allowlist defines both executor
+  input and digest, including parameters, action identity, workflow lineage, and rollback data while
+  excluding regenerated delivery metadata such as `terminal_at`.
+- A competing replica leaves a live lease unchanged and raises a retryable handler failure. After
+  verified expiry, redrive closes the ambiguous claim as `execution_unknown`; revision CAS fences a
+  late owner completion.
+- In-process and durable replay validate the complete command digest. Terminal replay also validates
+  schema, revision, owner tokens, lease, bounded identity, state, notes, and receipt. A successful
+  rollback requires a non-empty bounded `rollback_ref` before Thor releases its resource claim.
+
+#### Durable handoff and learning
+
+- Saga claims each escalation in the runtime StateStore before external mutation. Typed handoff uses
+  the additive `IdempotentIssueTrackerAdapter`, which binds one stable operation id to exact issue
+  content. Legacy `IssueTrackerAdapter` implementations remain available for direct escalation.
+- The shipped `StateStoreIssueTrackerAdapter` CAS-persists issue state and exact operation results
+  and rehydrates its bounded live projection before consumers start. A live provider override
+  provides equivalent provider-side durability; `InMemoryGithubIssueAdapter` remains test-only for
+  typed runtime handoff.
+- Saga checkpoints mutation, audit, publication, and completion. It records completion only after
+  `object.issue` publication; a missing bus keeps prior checkpoints pending and raises a retryable
+  failure. Closure stays outside the bounded occurrence-comment list and is validated before CAS.
+- Norns claims the handoff idempotency key, CAS-applies a pending operation to a durable fingerprint
+  count, and retains each candidate until publication or deterministic hold marks it delivered.
+  Startup queries exact pending fields one bounded item at a time. A blocked head pauses recovery,
+  while the next successful flush continues with durable candidates behind it.
+
+> **Current limitations:** Concurrent Saga replicas can append duplicate audit and issue-publication
+> events after the single operation-bound external mutation. Downstream publication idempotency and
+> Norns deduplication bound the effect. The shipped issue adapter also scopes operation-id binding to
+> one fingerprint; Saga's separate durable handoff claim mitigates the shipped typed caller.
+
+#### Bounded shared state
+
+`StateStore` exposes one removal primitive: `delete_states_beyond(prefix, retain_newest)`. It drops
+the oldest rows past a projection bound in the same order returned by `read_states`. It cannot name
+one key, so it cannot erase an authoritative record or audit entry. Enforcement composition
+requires explicit `thor_state_store`, `vidar_state_store`, and `var_state_store` bindings. Production
+may provide one durable provider instance through all exact parameters, but a missing agent-owned
+binding blocks startup before process-local approval or rollback state can be used.
+
+### Conversational action re-entry
+
+Bragi uses a `proposal_sink` wired to `Huginn.ingest`, the sole writer of `object.event`, and never
+publishes a mutation topic. The proposal carries the operator as `initiator_principal`, returns a
+trackable correlation id, and renders typed pipeline progress without executing. Forseti and Thor
+preserve the initiator, and Var enforces no-self-approval. Entry RBAC rejects action requests below
+`Contributor`. Huginn accepts operator proposal fields only for
+`event_type == "operator_request"` and treats `operator_initiated` as a strict Boolean, so an
+external signal cannot spoof an operator action.
 
 ### Assembly and lifecycle
 
@@ -115,6 +201,9 @@ review, and no workflow reaches enforcement during this wave.
 | `disabled_agents` | Removes optional agents from binding and subscription; Saga and Vidar cannot be disabled. |
 | `saga` | Supplies append-only durable audit for enforce operation. |
 | `thor_state_store` | Rehydrates non-terminal ActionRuns and preserves resource locks after restart. |
+| `vidar_state_store` | Persists rollback claims, owner leases, fencing revisions, and terminal receipts. |
+| `var_state_store` | Persists approval decisions, final payloads, and publication checkpoints. |
+| `muninn_state_store` | Backs Muninn projections, Saga issue state, and Norns handoff-learning recovery. |
 | `payload_validator` | Rejects malformed publications at the provider boundary. |
 | Consumer restart bounds | Apply exponential backoff and a finite restart cap without cancelling siblings. |
 | `health()` | Reports bridge metrics, agent and consumer state, unavailable agents, continuity, and effective enforcement. |

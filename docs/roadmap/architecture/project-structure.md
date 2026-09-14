@@ -543,53 +543,14 @@ deployment authority. The coordinator binds the complete reduced report to a sha
 transition publication. A missing or mismatched admission changes a non-blocked report to `DEGRADED` and caps every capability at `SHADOW`,
 so read-only processing can continue without an unverified deployment-authority claim.
 
-`StateStore` exposes exactly one removal primitive, `delete_states_beyond(prefix, retain_newest)`.
-It bounds the growth of an append-only evidence projection by dropping the oldest rows past the
-bound, in the same order `read_states` returns. Newest-first means last-written first in every
-backend, so which rows survive does not depend on which backend is bound. It cannot name a key, so
-it can never erase an authoritative record or an audit entry.
+The [Agent Pantheon implementation plan](../agents/agent-pantheon-implementation.md#bounded-shared-state) owns the shared `StateStore` removal and replay semantics.
 
 ## Control-Loop Wiring
 
-Every terminal path-including reject, HIL timeout, abstain, and deny-writes an audit entry. T2 output reaches the risk-gate only after
-clearing the quality-gate. The authority ceiling evaluates each action with its actual originating T0, T1, or T2 tier; fallback actions
-cannot inherit T0 authority. Boundary hardening keeps that sequence fail-closed: ingest and routing normalize blank resource references before
-comparison. Routing resolves nested `resource.type`, then nested `resource.resource_type`, then the legacy flat form without guessing.
-T1 rejects malformed reuse identities, counters, confidence, and similarity evidence instead of raising, and T2 rejects any proposed target, resource type, citation, or ActionType that differs
-from its trusted routing context before quality evaluation. Every citation must be routed, while one routed rule may authorize the ActionType
-through either `remediates` or `alternatives`. Exactly one cited rule must provide that authorization; the same rule is bound to risk,
-HIL, and execution rendering so citation order cannot substitute unrelated rule metadata. An exact catalog-declared `alternatives`
-relationship is deterministic grounding evidence before semantic similarity, so the grounding leg cannot contradict the trusted Rule
-relationship. A T2 proposal also cannot bypass grounding authority when a provider fails. HIL approval ids
-and executor idempotency keys are claimed atomically. Var preserves the source ActionRun idempotency key, serializes finalization, and writes one final approval plus publication receipt to the runtime StateStore before removing the ticket.
-Each normalized Var decision is first joined into an audited CAS aggregate, so restart and concurrent replicas derive quorum from the same
-immutable principal set before finalization. Startup uses exact-field pending queries to finalize terminal aggregates and publish durable
-final approvals before consumers, without another human decision. Per-resource locking serializes competing applies before any delivery adapter can mutate state.
-Vidar also claims the correlation and a canonical failed-ActionRun rollback command with an owner token and bounded lease before provider
-recovery. One stable effect-bearing allowlist defines both executor input and digest; params, action identity, workflow lineage, and rollback
-data participate, while regenerated delivery metadata such as `terminal_at` does not.
-A colliding replica leaves a live lease untouched and fails the handler so EventBusBridge retry or DLQ retains the delivery. Only
-verified expiry on redrive permits `execution_unknown`, and revision CAS fences late owner
-completion. The complete command digest is checked before in-process cache replay and durable replay. Terminal replay validates the
-complete schema and fencing identity, and `succeeded` requires a bounded non-empty
-`rollback_ref` before Thor can release its resource claim. Valid terminal or publication replay never repeats the rollback. Runtime composition also injects that `StateStore` into
-Saga's handoff journal. Saga validates one claim, mutation checkpoint, and completion receipt per escalation and requires an
-operation-bound issue adapter before external mutation. The upstream runtime's StateStore adapter persists the issue mutation itself and
-rehydrates the current projection before consumers. Durable handoff receipts are not copied into an unused local store, and the live issue
-projection uses the same deterministic bound as startup without deleting durable source state. Runtime composition injects the same store into Norns; Norns claims each
-`object.issue` idempotency key, CAS-applies it to a durable fingerprint count, and retains a pending candidate until publish or hold.
-Before consumers start, runtime recovery queries exact pending fields and restores operations, counts, and candidates one bounded item at
-a time; terminal history cannot crowd out incomplete work and bound overflow fails explicitly. Typed, startup, and public batch flushes
-share one durable delivery-completion boundary. A blocked head pauses recovery, while the next successful flush continues loading durable
-pending candidates behind it. Broker replay therefore cannot inflate, erase, or strand evidence. HIL resume resolves catalog rules from the current catalog and accepts a parked server-validated operator-request rule
-only when its rule id, action type, and fixed check reference still match. Idempotency reservation identity and transition contracts remain in one Core module, while codec, lifecycle, state-shape validation, HIL result records, and execution-effect completion live in adjacent single-purpose modules with no authority; the facade re-exports lifecycle behavior without wrapper duplication. Executor results cross Core as `accepted`, `pending`, `no_effect`, or `failed`; acceptance proves delivery only, while HIL, workflow, and reconciliation preserve original correlation plus supplied action-attempt identity and send any potentially effective outcome to independent reconciliation before claiming closure.
-The StateStore issue adapter keeps closure metadata outside the bounded comment list and validates each generated close state before CAS,
-so the operation-cap boundary cannot persist a row that startup rejects.
-Saga writes a handoff completion receipt only after `object.issue` publication. A missing bus leaves the durable mutation and audit
-checkpoint pending and fails the handler for retry or DLQ redrive; later binding resumes publication instead of suppressing it as complete.
-Enforce readiness independently requires `thor_state_store`, `vidar_state_store`, and `var_state_store`. Production bootstrap may supply
-the same durable provider instance to all exact bindings, but omission of either agent-owned binding fails startup before rollback or
-approval can use process-local state.
+Every terminal path writes an audit entry, and T2 output reaches the safety check only after the quality gate. Each action retains its
+originating T0, T1, or T2 authority tier; routing, evidence reuse, grounding, approval, rollback, and restart ambiguity fail closed.
+The [Agent Pantheon implementation plan](../agents/agent-pantheon-implementation.md#durable-authority-and-replay) owns detailed CAS, lease, idempotency, publication, and startup-recovery contracts.
+Parked approvals require exact current catalog identity, and potentially effective executor results reach independent reconciliation before the control loop claims closure.
 ![Control-Loop Wiring. The main stages are events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.en.svg)
 
 ## Configuration Model

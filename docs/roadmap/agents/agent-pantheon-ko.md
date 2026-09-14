@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: f3e3497a9017974579058f5c0b94d2e93a6e0549
+translation_source_sha: 34e8b80d87b0a978a04268986bb9d82a6001c11a
 translation_revised: 2026-09-15
 ---
 # 에이전트 판테온
@@ -60,37 +60,18 @@ Odin 에 두 라인이 보고한다: Thor (operations) 와 Forseti (judgment). 4
 
 ## 3. 런타임 관계도
 
-조직도는 보고 라인이고 관계도는 데이터 흐름입니다. Sensing과 전문가는 Forseti에 신호를
-전달합니다. Action verdict는 Thor가 Vidar, Var 또는 실행으로 전달하며 Thor는 document-ingestion
-및 관찰 전용 아키텍처 검토 verdict를 무시합니다. Odin은 해당 ARB 관찰을 액션 포트폴리오
-개수에서 제외하고 Saga는 이를 감사 근거로 보존합니다. Var는 action 및 document HIL 모두에서
-원본 멱등성 키를 보존하고 상관관계별 결정을 직렬화하며, 정규화된 각 principal 결정을 감사가
-포함된 StateStore CAS 집계에 먼저 결합합니다. 재시작되거나 동시에 실행되는 복제본은 변경할 수
-없는 같은 결정 집합에서 정족수를 계산한 뒤 게시 전에 최종 승인을 하나만 저장합니다. 게시 실패
-또는 재시작은 저장된 payload만 재생합니다. Pantheon 시작은 consumer가 시작되기 전에 최종
-checkpoint를 기다리는 종결 결정과 게시를 기다리는 최종 승인을 범위가 제한되게 처리하며, 사람의
-결정을 다시 요구하지 않습니다. Saga는 gated 및 terminal audit을 영속화합니다. 클라우드 참조
-패키지도 유효한 서명과 별개로 독립 Var 승인을 요구합니다.
+조직도는 보고 라인이고 관계도는 데이터 흐름입니다. 감지 에이전트와 전문가는 Forseti에 신호를
+전달합니다. 액션 결정은 Thor가 Vidar, Var 또는 실행으로 전달합니다. Thor는 문서 수집 및 관찰
+전용 아키텍처 검토 결정을 무시하고, Odin은 해당 관찰을 액션 포트폴리오 개수에서 제외하며,
+Saga는 이를 감사 근거로 보존합니다.
+Var 승인, Vidar 복구, Saga 인계, Norns 학습의 영속 멱등성과 재시작 상태는
+[에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#영속-권한과-재생)을 따릅니다.
+클라우드 참조 패키지도 유효한 서명과 별개로 독립 Var 승인을 요구합니다.
 [클라우드 리소스 지식](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)을 참조하세요.
-워크플로 요청은 양의 시도 번호를 포함한 범위가 제한된 `workflow_action` 계보를 Huginn, Forseti, Thor를 거쳐 보존합니다. Thor는 판정이 액션 식별자를 제공한 경우에만 이를 보존하고 상관관계 ID에서 액션 식별자를 만들어 내지 않으며, 범위가 제한된 ActionRun 계보 검증은 권한이 없는 `_framework` 도우미에 둡니다. Delivery 소유 producer는 하나의 완전한 operational plan에 대한 optional argument-bound kinetic proposal을 저장하고 Forseti는 주입된 source로 이를 해석해 strict validation 뒤 같은 Verdict-to-ActionRun path에 보존합니다. 둘 다 attribution 및 evidence 전용이며 quorum, mode,
-judgment, approval 또는 execution authority를 바꾸지 않습니다.
-Vidar는 provider rollback 전에 상관관계와 실패한 ActionRun의 정규 rollback 명령 다이제스트를
-소유자 토큰 및 범위가 제한된 점유 유효 기간과 함께 런타임 StateStore에 원자적으로 점유합니다.
-`params`, Action 신원, Workflow 계보, rollback 데이터를 포함한 안정적인 효과 필드 허용 목록
-하나가 다이제스트와 실행기 입력을 모두 정의합니다. 다시 생성되는 `terminal_at` 및 묶음 버전 같은
-전달 메타데이터는 둘 다에서 제외하지만, 대체된 명령은 종결 증적을 재사용할 수 없습니다. 점유한 실행만 복구를 수행하며,
-다른 복제본은 유효한 점유를 변경하지 않고 재시도 가능한 처리기 오류를 발생시켜 이벤트 버스
-재시도 또는 DLQ가 실패한 ActionRun을 보존하게 합니다. 검증된 유효 기간 만료 뒤의 재처리만 모호한 점유를 복구 반복
-없이 명시적인 `execution_unknown`으로 닫고, 개정 번호 CAS가 늦게 도착한 소유자의 완료를
-차단합니다. Vidar는 in-process cache 재생과 영속 재생 전에 같은 전체 명령 다이제스트를
-검증합니다. 종결 재생은 정확한 schema, 개정 번호, 명령 다이제스트, 점유 및 완료 소유자 토큰,
-유효 기간, 범위가 제한된 신원, 상태, 메모, 증적 불변식을 요구합니다. `succeeded` rollback에는
-비어 있지 않고 범위가 제한된 `rollback_ref`가 필요하며, 잘못된 상태는 Thor가 리소스 점유를
-해제하기 전에 실패 시 차단됩니다. 유효한 종결 및 게시 증적은 provider를 다시 호출하지 않고 재생됩니다.
-Enforce-mode Pantheon 조립은 Thor의 ActionRun 저장소와 별도로 명시적인 `vidar_state_store`와
-`var_state_store`를 요구합니다. 따라서 rollback과 승인은 process-local 대체 경로로 enforce
-mode에 진입할 수 없으며, production bootstrap은 영속 런타임 StateStore를 각 정확한 매개변수로
-전달합니다.
+워크플로 요청은 범위가 제한된 `workflow_action` 계보를 Huginn, Forseti, Thor를 거쳐
+보존합니다. Thor는 판정이 제공한 액션 식별자만 보존하고 상관관계 ID로 새 식별자를 만들지
+않습니다. 전달 계층이 저장한 선택적 작업 제안은 엄격한 검증 뒤 같은 판정-ActionRun 경로를
+따르며, 정족수, 모드, 판단, 승인 또는 실행 권한을 바꾸지 않습니다.
 Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 
 ![3. 런타임 관계도. 주요 단계는 Huginn, Heimdall, Forseti, Mimir, Muninn, Njord, Freyr, Loki, Thor, Vidar, Var, Saga입니다.](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-02.ko.svg)
@@ -647,39 +628,10 @@ Per-resource 순서는 파티션 키 로 보존; cross-resource 순서는 함의
 `pr_native`를 사용하는 검토된 catalog-as-code 변경에만 사용합니다. Bragi는
 `object.handoff-escalation`의 single 쓰기 담당로서 범위가 제한된 요청을 publish합니다.
 Saga는 이를 consume하고 지문 deduplication을 적용한 뒤 `object.issue`를
-materialize하고 감사 근거를 덧붙입니다. Saga는 외부 변경 전에 에스컬레이션 신원을
-런타임 `StateStore`에서 원자적으로 점유합니다. 타입이 지정된 인계를 materialize하려면
-추가형 `IdempotentIssueTrackerAdapter`가 필요하며, 이 어댑터는 안정적인 작업 ID 하나를
-정확한 이슈 내용에 결속합니다. 기존 `IssueTrackerAdapter`는 직접 에스컬레이션과 호환되지만
-타입이 지정된 인계를 실행할 수 없습니다. 이후 Saga는 검증된 변경 checkpoint와 완료 증적을
-저장합니다. 재시도나 프로세스 재시작은 완료되지 않은 단계만 재개하며 같은 에스컬레이션에
-GitHub 댓글을 다시 추가하지 않습니다. 잘못되거나 충돌하는 영속 기록은 실패 시 차단됩니다.
-실제 운영 이슈 추적기는 주입된 전달 어댑터로 유지되므로 로컬과 배포 런타임이 동일한 타입이
-지정된 소유권과 감사 경계를 지킵니다. 배포되는 런타임은 현재 이슈 상태와 모든 정확한 작업
-결과를 CAS로 영속화하고 consumer 시작 전에 변환 결과를 복원하는
-`StateStoreIssueTrackerAdapter`를 연결합니다. 실제 GitHub 오버라이드는 프로바이더 측에서 같은
-영속성을 제공해야 하며, `InMemoryGithubIssueAdapter`는 타입이 지정된 런타임 인계의 테스트에만
-사용합니다.
-타입이 지정된 인계 완료에는 `object.issue` 게시가 필요합니다. Saga에 버스가 없으면 변경 및 감사
-checkpoint를 유지하고 재시도 가능한 실패를 발생시키며 완료 증적은 기록하지 않습니다. 버스를
-연결하고 다시 전달하면 완료 전에 게시부터 재개합니다.
-영속 모드는 사용하지 않는 process-local 저장소에 완료 증적을 복제하지 않습니다. 실제 이슈 변환
-결과는 시작 복원과 같은 결정론적 LRU 한도를 적용하며, 제거되어도 StateStore 원본은 삭제되지
-않습니다.
-이슈 종료는 `closed_by_pr`을 범위가 제한된 발생 댓글 목록 밖에 기록하고 CAS 전에 다음 상태
-전체를 검증하므로 작업 한도에서 종료해도 재시작 후 읽을 수 있습니다.
-`object.issue` 전달은 at-least-once로 유지됩니다. Norns는 인계 지문 횟수를 늘리기 전에 Saga의
-안정적인 멱등성 키를 런타임 `StateStore`에서 원자적으로 점유합니다. `pending` 작업은 CAS를
-통해 영속 지문 횟수에 적용된 뒤 `applied`가 되며, 생성된 후보는 게시 또는 결정론적 보류로
-`delivered`가 될 때까지 `pending`으로 남습니다. 재시작은 완료되지 않은 작업을 재개하거나
-전달되지 않은 후보를 다시 만듭니다. 브로커가 수락한 뒤 응답 시간이 초과되어 재생된 이벤트는
-횟수를 부풀릴 수 없고, 작업과 지문이 충돌하면 실패 시 차단합니다.
-PantheonRuntime은 consumer 시작 전에 정확한 `pending` 작업 및 후보 필드를 조회하고 범위가
-제한된 항목을 하나씩 처리해 횟수와 후보를 복원한 뒤 타입이 지정된 처리기 및 공개 배치 주기와
-같은 flush 경로를 실행합니다. 종결 이력은 복구할 대기 작업을 밀어낼 수 없으며 복구 한도를
-초과하면 명시적으로 실패합니다. Gate, 버스 또는 비율 한도가 현재 후보를 대기열에 남기면 복구를
-멈추고, 다음 flush가 그 선두 후보를 게시하거나 보류한 뒤 다음 영속 대기 후보를 이어서 복원합니다.
-게시 성공 또는 결정론적 보류는 모두 영속 전달 상태를 전진시킵니다.
+구체화하고 감사 근거를 덧붙입니다. 외부 이슈 변경, 완료 전 게시, Norns 학습 재생은
+[에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#영속-권한과-재생)의 영속
+계약을 따릅니다. 실제 운영 이슈 추적기는 주입된 전달 어댑터로 유지되므로 로컬과 배포
+런타임이 동일한 타입 지정 소유권 및 감사 경계를 지킵니다.
 
 ### 7.7 Conversational 포트 MUST-NOT-Bypass 규칙
 
@@ -690,15 +642,8 @@ Conversational 포트 는 액션 을 시작할 수 있지만 스스로 실행할
 Bragi 는 오퍼레이터에게 진행 상황만 렌더링. Bragi 가 실행기 를 직접
 호출하도록 하는 어떤 구현도 defect.
 
-**구현.** Bragi 는 조립 루트 에서 `Huginn.ingest`(`object.event` 의 단독 쓰기 담당)에 연결되는 `proposal_sink` DI 경계 을 가지며, Bragi 자신은 변경 토픽을 절대 publish 하지 않는다.
-`Bragi.submit_action_proposal` 은 결정론적 영어 또는 한국어 명령 구문을 ActionType 으로 매핑하고, `initiator_principal = operator` 와 `operator_initiated = true` 로
-제안 을 만들어 범위가 제한된 싱크 호출로 제출한다. 시간 초과 또는 실패는 오류 상세 없이 `submitted=false`를 반환하며 모든 명령은 제안 상관관계에 digest-only `object.turn`을 발행한다. 오퍼레이터가 추적할
-`correlation_id` 를 반환하고 `object.verdict` / `object.action-run` 에서 파이프라인 진행을 렌더링 할 뿐, 실행하지 않는다. Forseti 는 `initiator_principal` 을 판정 에, Thor
-는 ActionRun 에 전파하고, Var 는 no-self-approval 을 강제한다(initiator 는 자기 액션 을 승인 불가). RBAC 경계 이 모르는 initiator 의 operator-initiated 제안 은
-`SecurityEvent` 와 함께 `deny` 로 실패 시 차단. 콘솔이 오퍼레이터의 Entra 역할 을 전달하면, 항목 RBAC 게이트가 execute 하한(`Contributor`) 미만의 액션 요청을 파이프라인 진입 전에 거부한다 - 즉
-`Reader` 는 어떤 액션 도 제출할 수 없다(위의 principal 레벨 거부 와 defense-in-depth). Spoofing 방어로, Huginn 은 operator-proposal 필드(`initiator_principal` /
-`action_type` / `operator_initiated`)를 명시적 `event_type == "operator_request"` 에 대해서만 honor 하고 `operator_initiated` 를 strict bool 로 coerce 한다
-- 공유 유입 토픽의 위조/외부 신호가 운영자 액션 을 spoof 할 수 없으며, Forseti 는 strict `True` 만 operator-initiated 로 취급한다.
+정확한 제안 싱크, 운영자 RBAC, 위조 방어 및 계보 전달은
+[에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#대화형-액션-재진입)을 따릅니다.
 
 ### 7.8 포크 재정의 경계
 

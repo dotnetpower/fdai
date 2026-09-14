@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:0322ceaa4adc7b2a6ab4a47aedb39b02636a88a1319cf298edc5e5e3cc683f3d",
+  "catalog_digest": "sha256:9546f78d5f7a3ab9d30720f6a32d8541ab1c668e2821e7d6fe23b592d5497c4e",
   "execution_authority": false,
-  "generated_at": "2026-09-14T21:00:52.967225Z",
+  "generated_at": "2026-09-14T21:43:25.416861Z",
   "records": [
     {
       "designed_behavior": [
@@ -106,8 +106,17 @@
         "What is Bragi responsible for?",
         "Bragi는 무엇을 담당하나요?"
       ],
-      "record_digest": "sha256:90c0bc6bf2e157ba39c38dcfc3791f7a6c21b9f5b3dd611870ab1bfa97ad1338",
+      "record_digest": "sha256:11e6bc135fecf5cc80f9ee5e5d718e4b5afe0e46ec3bb760d3e85ac0a3a9e2a7",
       "sources": [
+        {
+          "authority_role": "design",
+          "blob_sha": "34e8b80d87b0a978a04268986bb9d82a6001c11a",
+          "line_end": 35,
+          "line_start": 35,
+          "path": "docs/roadmap/agents/agent-pantheon.md",
+          "source_kind": "doc",
+          "symbol": "Two-port model"
+        },
         {
           "authority_role": "implementation",
           "blob_sha": "c104281496a1fcbe77373c1240e2a734e44ffb18",
@@ -116,15 +125,6 @@
           "path": "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
           "source_kind": "code",
           "symbol": "_BRAGI"
-        },
-        {
-          "authority_role": "design",
-          "blob_sha": "f3e3497a9017974579058f5c0b94d2e93a6e0549",
-          "line_end": 35,
-          "line_start": 35,
-          "path": "docs/roadmap/agents/agent-pantheon.md",
-          "source_kind": "doc",
-          "symbol": "Two-port model"
         }
       ],
       "status": "implemented",
@@ -336,8 +336,17 @@
         "How are FDAI agents organized?",
         "FDAI agent 조직은 어떻게 구성되나요?"
       ],
-      "record_digest": "sha256:2b29b92649bf22c551ded66918012086873cbe6fd3a10807d0077750f26ea2d2",
+      "record_digest": "sha256:8c50298dc2d90a81bc7a7e92297fd29489c839cff6cf27ef9ac9b62bea1ee36d",
       "sources": [
+        {
+          "authority_role": "design",
+          "blob_sha": "34e8b80d87b0a978a04268986bb9d82a6001c11a",
+          "line_end": 18,
+          "line_start": 18,
+          "path": "docs/roadmap/agents/agent-pantheon.md",
+          "source_kind": "doc",
+          "symbol": "Design principles"
+        },
         {
           "authority_role": "implementation",
           "blob_sha": "c104281496a1fcbe77373c1240e2a734e44ffb18",
@@ -346,15 +355,6 @@
           "path": "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
           "source_kind": "code",
           "symbol": "PANTHEON_SPECS"
-        },
-        {
-          "authority_role": "design",
-          "blob_sha": "f3e3497a9017974579058f5c0b94d2e93a6e0549",
-          "line_end": 18,
-          "line_start": 18,
-          "path": "docs/roadmap/agents/agent-pantheon.md",
-          "source_kind": "doc",
-          "symbol": "Design principles"
         }
       ],
       "status": "implemented",
