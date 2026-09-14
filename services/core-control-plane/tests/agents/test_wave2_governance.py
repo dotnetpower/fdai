@@ -1184,6 +1184,46 @@ def test_norns_resumes_claim_interrupted_before_fingerprint_apply() -> None:
     assert restarted.pending_candidates[0]["evidence"]["fingerprint"] == "interrupted-fingerprint"
 
 
+def test_norns_startup_recovers_pending_operation_without_redelivery() -> None:
+    class _FailFirstFingerprintApply(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.failed = False
+
+        async def write_state_with_audit_if_absent(
+            self,
+            key,
+            value,
+            audit_entry,
+        ):  # noqa: ANN001, ANN201
+            if "/fingerprints/" in key and not self.failed:
+                self.failed = True
+                raise RuntimeError("fingerprint apply interrupted")
+            return await super().write_state_with_audit_if_absent(
+                key,
+                value,
+                audit_entry,
+            )
+
+    store = _FailFirstFingerprintApply()
+    payload = {
+        "fingerprint": "startup-operation-fingerprint",
+        "idempotency_key": "handoff:startup-operation",
+    }
+    with pytest.raises(RuntimeError, match="fingerprint apply interrupted"):
+        asyncio.run(
+            Norns(
+                promotion_threshold=2,
+                issue_state_store=store,
+            ).on_typed_message("object.issue", dict(payload))
+        )
+
+    restarted = Norns(promotion_threshold=2, issue_state_store=store)
+    assert asyncio.run(restarted.recover_issue_learning()) == 0
+    assert restarted.occurrences("startup-operation-fingerprint") == 1
+    assert restarted.pending_candidates == []
+
+
 def test_norns_rebuilds_pending_candidate_after_restart() -> None:
     store = InMemoryStateStore()
     payload = {
@@ -1217,6 +1257,28 @@ def test_norns_does_not_rebuild_delivered_candidate_after_restart() -> None:
     asyncio.run(restarted.on_typed_message("object.issue", dict(payload)))
 
     assert restarted.occurrences("delivered-candidate-fingerprint") == 1
+    assert restarted.pending_candidates == []
+
+
+def test_norns_public_flush_completes_durable_candidate_delivery() -> None:
+    store = InMemoryStateStore()
+    bus = InMemoryBus(registry=load_pantheon())
+    enabled = [False]
+    payload = {
+        "fingerprint": "batch-flush-fingerprint",
+        "idempotency_key": "handoff:batch-flush-operation",
+    }
+    norns = Norns(promotion_threshold=1, issue_state_store=store)
+    norns.bind_bus(bus)
+    norns.bind_candidate_publication_gate(lambda: enabled[0])
+    asyncio.run(norns.on_typed_message("object.issue", dict(payload)))
+    assert len(norns.pending_candidates) == 1
+
+    enabled[0] = True
+    assert asyncio.run(norns.flush_candidates()) == 1
+
+    restarted = Norns(promotion_threshold=1, issue_state_store=store)
+    asyncio.run(restarted.on_typed_message("object.issue", dict(payload)))
     assert restarted.pending_candidates == []
 
 

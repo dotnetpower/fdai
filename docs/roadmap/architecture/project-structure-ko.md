@@ -580,7 +580,9 @@ EventBusBridge 재시도 또는 DLQ가 전달을 보존하게 합니다. 재처�
 어댑터를 요구합니다. 런타임 조립은 같은 저장소를 Norns에도 주입합니다. Norns는 지문 학습 전에
 각 `object.issue` 멱등성 키를 점유하고 CAS로 영속 지문 횟수에 적용하며 게시 또는 보류까지
 후보를 대기 상태로 유지합니다. 재시작은 완료되지 않은 적용을 재개하거나 전달되지 않은 작업을
-다시 만들므로 브로커 재생이 근거를 부풀리거나 지울 수 없습니다. HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서버 검증 운영자 요청 규칙은 규칙 ID,
+다시 만듭니다. consumer 시작 전의 범위가 제한된 런타임 복구는 대기 중인 작업, 횟수, 후보를
+복원하며, 타입이 지정된 처리, 시작 처리, 공개 배치 flush가 하나의 영속 전달 완료 경계를
+공유합니다. 따라서 브로커 재생은 근거를 부풀리거나 지우거나 방치할 수 없습니다. HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서버 검증 운영자 요청 규칙은 규칙 ID,
 작업 유형 및 고정 검사 참조가 계속 정확히 일치할 때만 허용됩니다. 멱등성 예약 신원 및 전이 계약은 하나의 Core 모듈에 유지하고, codec, 수명 주기, 상태 형태 검증, HIL 결과 레코드, 실행 효과 완료 처리는 권한 없이 인접한 단일 책임 모듈로 분리하며 facade는 중복 wrapper 없이 수명 주기 동작을 다시 내보냅니다. 실행기 결과는 `accepted`, `pending`, `no_effect`, `failed`로 Core를 통과합니다. 수락은 전달만 입증하며, HIL, 작업 흐름, 조정은 원래 상관관계와 제공된 액션 시도 신원을 보존하고 효과가 발생했을 수 있는 결과를 종료 주장 전에 독립 조정으로 보냅니다.
 ![컨트롤 루프 배선. 주요 단계는 events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops입니다.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.ko.svg)
 

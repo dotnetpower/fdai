@@ -654,6 +654,8 @@ idempotency key in the runtime `StateStore`. A `pending` operation is CAS-applie
 the resulting candidate remains `pending` until publication or deterministic hold marks it `delivered`. Restart resumes an incomplete
 operation or rebuilds an undelivered candidate, while accepted-then-timeout replay cannot inflate the count and an
 operation/fingerprint collision fails closed.
+Before consumers start, PantheonRuntime bounded-scans pending operation and fingerprint rows, restores counts and candidates, and runs the
+same flush path used by typed handlers and public batch ticks. Every successful publish or deterministic hold advances durable delivery.
 
 ### 7.7 Conversational port MUST-NOT-Bypass rule
 

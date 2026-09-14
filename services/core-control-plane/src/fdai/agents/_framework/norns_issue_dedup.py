@@ -37,6 +37,7 @@ class NornsIssueDeduplicator:
 
     def __init__(self, state_store: StateStore | None, local_capacity: int) -> None:
         self._state_store = state_store
+        self._recovery_limit = local_capacity
         self._local_claims: BoundedLruDict[str, str] = BoundedLruDict(local_capacity)
         self._pending_completions: BoundedLruDict[str, str] = BoundedLruDict(local_capacity)
 
@@ -82,6 +83,73 @@ class NornsIssueDeduplicator:
                 fingerprint=fingerprint,
             )
             self._pending_completions.pop(fingerprint)
+
+    async def recover(self, state: NornsLearningState) -> int:
+        """Restore pending operations, counts, and candidate delivery state."""
+        store = self._state_store
+        if store is None:
+            return 0
+        operation_rows = await store.read_states(
+            f"{_OPERATION_PREFIX}/",
+            limit=self._recovery_limit,
+        )
+        for row in operation_rows:
+            operation_digest, fingerprint, status = _operation_identity_from_state(row)
+            if status != "pending":
+                continue
+            await self._apply_fingerprint_operation(
+                operation_digest=operation_digest,
+                fingerprint=fingerprint,
+                promotion_threshold=state._promotion_threshold,
+            )
+            await store.write_state(
+                f"{_OPERATION_PREFIX}/{operation_digest}",
+                _operation_state(
+                    operation_digest=operation_digest,
+                    fingerprint=fingerprint,
+                    status="applied",
+                    revision=2,
+                ),
+            )
+
+        fingerprint_rows = await store.read_states(
+            f"{_FINGERPRINT_PREFIX}/",
+            limit=self._recovery_limit,
+        )
+        pending = 0
+        for row in sorted(
+            fingerprint_rows,
+            key=lambda item: str(item.get("fingerprint") or ""),
+        ):
+            recovered_fingerprint = row.get("fingerprint")
+            threshold = row.get("promotion_threshold")
+            if (
+                not isinstance(recovered_fingerprint, str)
+                or not isinstance(threshold, int)
+                or isinstance(threshold, bool)
+            ):
+                raise RuntimeError("stored issue learning fingerprint state is malformed")
+            state_key = (
+                f"{_FINGERPRINT_PREFIX}/"
+                f"{hashlib.sha256(recovered_fingerprint.encode('utf-8')).hexdigest()}"
+            )
+            application = _application_from_state(
+                row,
+                state_key=state_key,
+                fingerprint=recovered_fingerprint,
+                promotion_threshold=state._promotion_threshold,
+                operation_counted=False,
+            )
+            apply_fingerprint_count(
+                state,
+                recovered_fingerprint,
+                application.occurrence_count,
+                propose=application.candidate_state == "pending",
+            )
+            if application.candidate_state == "pending":
+                self._pending_completions.set(recovered_fingerprint, state_key)
+                pending += 1
+        return pending
 
     def _claim_local(self, payload: Mapping[str, Any]) -> bool:
         operation_id = payload.get("idempotency_key")
@@ -343,6 +411,31 @@ def _validate_operation_state(
         revision=expected_revision,
     ):
         raise ValueError("issue learning operation collides with different content")
+
+
+def _operation_identity_from_state(
+    value: Mapping[str, Any],
+) -> tuple[str, str, str]:
+    operation_ref = value.get("operation_digest")
+    fingerprint = value.get("fingerprint")
+    status = value.get("status")
+    if (
+        not isinstance(operation_ref, str)
+        or not operation_ref.startswith("sha256:")
+        or len(operation_ref) != 71
+        or any(character not in "0123456789abcdef" for character in operation_ref[7:])
+        or not isinstance(fingerprint, str)
+        or not fingerprint
+        or status not in {"pending", "applied"}
+    ):
+        raise RuntimeError("stored issue learning operation state is malformed")
+    operation_digest = operation_ref[7:]
+    _validate_operation_state(
+        value,
+        operation_digest=operation_digest,
+        fingerprint=fingerprint,
+    )
+    return operation_digest, fingerprint, str(status)
 
 
 def _fingerprint_state(

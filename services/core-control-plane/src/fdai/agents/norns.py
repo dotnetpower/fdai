@@ -280,7 +280,6 @@ class Norns(Agent):
         # directly.
         # Off-path batch: forward any newly-formed inert candidates to Mimir.
         await self._flush_candidates_unlocked()
-        await self._issue_deduplicator.after_flush(self)
 
     def _observe_operational_case_cohort(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Muninn":
@@ -485,11 +484,13 @@ class Norns(Agent):
         await self._post_turn_review.review(review_input_from_mapping(raw))
         self.record_behavior("post_turn_review_completed")
 
-    # ---- candidate publication (Norns -> Mimir discovery loop) ---------
-
     async def flush_candidates(self) -> int:
         async with self._learning_lock:
             return await self._flush_candidates_unlocked()
+
+    async def recover_issue_learning(self) -> int:
+        """Restore durable handoff-learning work before consumers start."""
+        return await self._issue_deduplicator.recover(self)
 
     def bind_candidate_publication_gate(self, gate: Callable[[], bool]) -> None:
         """Bind the runtime policy ceiling for inert candidate publication once."""
@@ -567,6 +568,7 @@ class Norns(Agent):
         if self._flush_cursor:
             del self.pending_candidates[: self._flush_cursor]
             self._flush_cursor = 0
+        await self._issue_deduplicator.after_flush(self)
         return published
 
     # ---- 1. fingerprint aggregator ------------------------------------

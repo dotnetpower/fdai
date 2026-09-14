@@ -265,6 +265,35 @@ def test_runtime_injects_durable_issue_dedup_store_into_norns() -> None:
     assert norns._issue_deduplicator._state_store is store  # noqa: SLF001
 
 
+def test_runtime_rehydrates_pending_norns_issue_candidate() -> None:
+    store = InMemoryStateStore()
+    payloads = [
+        {
+            "fingerprint": "startup-fingerprint",
+            "idempotency_key": f"handoff:startup-{index}",
+        }
+        for index in range(3)
+    ]
+    seed = Norns(promotion_threshold=3, issue_state_store=store)
+    for payload in payloads:
+        asyncio.run(seed.on_typed_message("object.issue", payload))
+    assert len(seed.pending_candidates) == 1
+
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        muninn_state_store=store,
+    )
+    asyncio.run(runtime._rehydrate())  # noqa: SLF001 - startup recovery assertion
+
+    norns = runtime.agents["Norns"]
+    assert isinstance(norns, Norns)
+    assert norns.pending_candidates == []
+    replayed = Norns(promotion_threshold=3, issue_state_store=store)
+    asyncio.run(replayed.on_typed_message("object.issue", dict(payloads[0])))
+    assert replayed.pending_candidates == []
+
+
 def test_runtime_injects_durable_state_store_into_var() -> None:
     store = InMemoryStateStore()
     runtime = PantheonRuntime.build(

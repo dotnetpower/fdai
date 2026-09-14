@@ -85,7 +85,10 @@ from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.state_store import StateStore
 
-from .runtime_operational_agents import bind_operational_agents
+from .runtime_operational_agents import (
+    bind_operational_agents,
+    rehydrate_operational_agents,
+)
 
 _LOG = logging.getLogger(__name__)
 _INGRESS_PRINCIPAL = "Huginn"
@@ -683,17 +686,8 @@ class PantheonRuntime:
         )
 
     async def _rehydrate(self) -> None:
-        """Restore durable agent state (in-flight ActionRuns) on startup.
-
-        Runs before the consumer starts so a restart cannot start a
-        second run on a resource that already had one in flight. No-op
-        when no durable store is wired.
-        """
-        thor = self.agents.get("Thor")
-        if isinstance(thor, Thor):
-            restored = await thor.rehydrate()
-            if restored:
-                _LOG.info("pantheon_thor_rehydrated", extra={"in_flight_runs": restored})
+        """Restore durable agent work before consumers start."""
+        await rehydrate_operational_agents(self.agents)
 
     def health(self) -> dict[str, Any]:
         """Return a health snapshot (agents, mode, bridge metrics).
