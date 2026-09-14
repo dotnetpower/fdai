@@ -289,6 +289,10 @@
     "recordSummaryOneAttempt": "{records} records / {stages} named stages / 1 action attempt",
     "source": "Source",
     "lastUpdated": "Last refreshed",
+    "sourceAuthority": {
+      "operatorAuditLog": "Operator audit log",
+      "legacy": "Legacy audit trace"
+    },
     "notApplicable": "Not applicable",
     "notRecorded": "Not recorded",
     "latestActivity": "Latest activity",

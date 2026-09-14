@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 12398b357d9005f353b8f57c37671506d5240c6c
+translation_source_sha: f2c004fe2a248d00109b995e82b5c851df2deaaa
 translation_revised: 2026-09-14
 ---
 # FDAI Console 대화
@@ -87,6 +87,8 @@ true로 표시합니다.
 넓은 화면에서는 상관관계 입력, 복사, 관련 근거 및 새로 고침을 도구 모음 한 행에 유지합니다.
 좁은 화면에서는 판단 요약 4개를 2x2 그리드로 표시하고 상세 맥락을 접힌 상태로 시작합니다.
 최근 탐색 필터 결과가 0건이면 명시적인 필터 빈 상태를 표시합니다.
+출처 맥락은 현지화된 표시 레이블을 사용하고 응답과 게시된 화면 맥락에는 정규 출처 토큰을
+유지합니다.
 
 인증된 `/provisioning` 경로는 하나의 영속 구독 초기 구성 실행을 보여주는 읽기 전용 변환
 결과입니다. 완료된 구성 단계를 재생하고 리소스 검색과 최종 검증을 실시간으로 표시하지만

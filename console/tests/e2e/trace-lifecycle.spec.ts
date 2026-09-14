@@ -488,6 +488,7 @@ test("shows the correlated action lifecycle at desktop width", async ({ page }, 
   await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Refresh trace" })).toBeVisible();
   await expect(page.getByText("Evidence recorded", { exact: true })).toBeVisible();
+  await expect(page.getByText("Operator audit log", { exact: true })).toBeVisible();
   await discovery.locator("summary").click();
   const geometry = await page.locator(".trace-workbench").evaluate((workbench) => {
     const rail = workbench.querySelector(".trace-stage-rail");

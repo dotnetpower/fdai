@@ -166,7 +166,11 @@ export function RuleTraceWorkspace({
           />
           <TraceContext
             label={t("evidence.trace.source")}
-            value={data.source_authority}
+            value={t(
+              data.source_authority === "operator-audit-log"
+                ? "evidence.trace.sourceAuthority.operatorAuditLog"
+                : "evidence.trace.sourceAuthority.legacy",
+            )}
           />
           <TraceContext
             label={t("evidence.trace.lastUpdated")}

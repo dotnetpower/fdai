@@ -289,6 +289,10 @@
     "recordSummaryOneAttempt": "기록 {records}개 / 명명 단계 {stages}개 / 액션 시도 1개",
     "source": "출처",
     "lastUpdated": "마지막 새로 고침",
+    "sourceAuthority": {
+      "operatorAuditLog": "Operator 감사 로그",
+      "legacy": "이전 감사 추적"
+    },
     "notApplicable": "해당 없음",
     "notRecorded": "기록 없음",
     "latestActivity": "최신 활동",
