@@ -37,6 +37,7 @@ export interface TraceStep {
   readonly event_id: string;
   readonly source_correlation_id: string | null;
   readonly recorded_at: string;
+  readonly actor: string;
   readonly stage: string | null;
   readonly decision: string | null;
   readonly reason: string | null;
@@ -322,6 +323,7 @@ export function decodeTraceResponse(
         "trace step",
       ),
       recorded_at: recordedAt,
+      actor: panelNonEmptyString(row, "actor", "trace step"),
       stage,
       decision: nullableNonEmptyString(row, "decision", "trace step"),
       reason: nullableNonEmptyString(row, "reason", "trace step"),
@@ -442,6 +444,7 @@ export function buildTraceViewSnapshot(
           event_id: s.event_id,
           source_correlation_id: s.source_correlation_id,
           recorded_at: s.recorded_at,
+          actor: s.actor,
           stage: s.stage,
           decision: s.decision,
           reason: s.reason,

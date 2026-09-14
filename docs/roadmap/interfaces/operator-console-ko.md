@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: cd1020456e8ddd1312ef635529df6b235905c122
+translation_source_sha: 6489a03579e8198b4b1837131fbd1af13d3ca400
 translation_revised: 2026-09-14
 ---
 # FDAI Console 대화
@@ -49,6 +49,8 @@ value 필드를 보존하여 독립 oracle이 표시된 count를 검증할 수 �
   잘못된 타입이나 공백 값을 기록 없음으로 지울 수 없습니다.
 - PostgreSQL 추적 경계에서는 각 감사 `entry`가 JSON 객체로 유지되어야 합니다. 배열이나
   스칼라 항목은 빈 기록으로 바꾸지 않고 추적을 사용 불가로 처리합니다.
+- 각 단계는 기록된 행위자를 보존합니다. 단계 목록은 행위자와 상대 시간을 표시하고 근거
+  상세는 정규 작업 종류를 유지합니다.
 
 인증된 `/provisioning` 경로는 하나의 영속 구독 초기 구성 실행을 보여주는 읽기 전용 변환
 결과입니다. 완료된 구성 단계를 재생하고 리소스 검색과 최종 검증을 실시간으로 표시하지만

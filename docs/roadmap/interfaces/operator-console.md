@@ -46,6 +46,8 @@ Trace hardening preserves these evidence invariants:
   validated when present. Invalid types or blank values cannot be erased into not recorded.
 - The PostgreSQL Trace boundary requires each audit `entry` to remain a JSON object. An array or
   scalar entry makes the trace unavailable instead of becoming an empty record.
+- Every step preserves the recorded actor. The stage rail presents the actor and relative time,
+  while the evidence detail retains the canonical action kind.
 
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final

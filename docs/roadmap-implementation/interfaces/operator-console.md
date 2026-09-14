@@ -47,6 +47,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Restored each Trace step's recorded actor to the wire model, view context, stage rail, and evidence detail while retaining the canonical action kind separately. | `current change`; focused Operator projection, Console decoder, context, and browser tests. | Complete the final residual review. |
 | 2026-09-14 | implemented | Required every PostgreSQL Trace audit `entry` to remain a JSON object so an array or scalar cannot be normalized into an empty evidence record. | `current change`; focused Operator Trace reader tests. | Complete the final residual review. |
 | 2026-09-14 | implemented | Validated every optional Trace producer field when present so malformed text, workflow, or attempt values cannot be erased into not recorded. | `current change`; parameterized Operator Trace projection tests. | Complete the final residual review. |
 | 2026-09-14 | implemented | Corrected the nullable audit-reference hardening after verifying that the audit ledger schema requires event id, entry hash, and previous hash. The browser again requires all three instead of defending an impossible source state. | `current change`; base audit migration inspection plus focused Operator projection and Console decoder tests. | Complete malformed optional-field and final residual review. |

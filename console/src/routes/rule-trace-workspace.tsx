@@ -158,8 +158,8 @@ export function RuleTraceWorkspace({
                       <span class="trace-stage-index" aria-hidden="true">{index + 1}</span>
                       <span class="trace-stage-copy">
                         <strong>{traceStageLabel(step.stage)}</strong>
-                        <small title={`${step.action_kind} / ${traceOffset(data.steps[0]!, step)}`}>
-                          <code>{step.action_kind}</code>
+                        <small title={`${step.actor} / ${traceOffset(data.steps[0]!, step)}`}>
+                          <span>{step.actor}</span>
                           <span aria-hidden="true"> / </span>
                           {traceOffset(data.steps[0]!, step)}
                           <span class="sr-only">
@@ -274,6 +274,10 @@ function TraceStepDetail({
             <TraceEvidenceDatum
               label={t("evidence.trace.eventId")}
               value={step.event_id}
+            />
+            <TraceEvidenceDatum
+              label={t("evidence.trace.actor")}
+              value={step.actor}
             />
             <TraceEvidenceDatum
               label={t("evidence.trace.sourceCorrelationId")}

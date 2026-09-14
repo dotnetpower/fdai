@@ -250,6 +250,7 @@
     "executionPath": "Execution path",
     "outcome": "Outcome",
     "eventId": "Event id",
+    "actor": "Actor",
     "sourceCorrelationId": "Source correlation id",
     "entryHash": "Entry hash",
     "previousHash": "Previous entry hash",

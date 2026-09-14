@@ -15,6 +15,7 @@ const step = (seq: number) => ({
   event_id: `event-${seq}`,
   source_correlation_id: "corr-1",
   recorded_at: `2026-07-17T09:00:0${seq}Z`,
+  actor: "Forseti",
   stage: "risk-gate",
   decision: "hil",
   reason: "approval required",
@@ -155,6 +156,7 @@ describe("trace view context", () => {
     expect(snapshot?.records?.["steps"]?.[0]).toEqual(expect.objectContaining({
       event_id: "event-1",
       source_correlation_id: "corr-1",
+      actor: "Forseti",
       stage: null,
       reason: "no delivery channel is available",
       entry_hash: "hash-activity",
