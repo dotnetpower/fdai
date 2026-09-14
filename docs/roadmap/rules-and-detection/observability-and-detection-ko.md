@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 835a26704dbe0da5655921fa892b3b519b04dfab
+translation_source_sha: 20064f133b9f88352a4a698c9a0371b58d51aea5
 translation_revised: 2026-09-14
 ---
 
@@ -83,7 +83,9 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
   `300초 동안 Event 5건` 반복 게이트를 충족할 수 있습니다. 정확한 재시도는 같은 키를 유지하며
   Heimdall은 에피소드 안에서 비어 있지 않은 각 근거 키를 한 번만 계산합니다. 중복 전달은
   완료되지 않은 anomaly 게시나 수명 주기 인계를 다시 시도할 수 있지만 횟수를 늘리지는 않습니다.
-  기존 최소 심각도 정책은 기본적으로 `medium` 이하 발견된 문제를 계속 보류합니다. 미래 시각이거나 표준 시간대가
+  결과 `object.anomaly`는 에피소드와 심각도별로 범위가 제한된 멱등성 키 하나를 사용하므로 인계
+  재시도가 downstream 판단을 중복시키지 않습니다. 기존 최소 심각도 정책은 기본적으로 `medium`
+  이하 발견된 문제를 계속 보류합니다. 미래 시각이거나 표준 시간대가
   없는 Finding은 Event 게시 전에 차단하므로, 증적 검증이 설명되지 않은 브로커 부작용 뒤에
   실패할 수 없습니다. 같은 게시 전 검사는 범위가 제한된 고유 근거 참조와 타입이 지정된 평가
   메타데이터도 확인합니다. 인벤토리 기반 대상은 온톨로지 `Resource.id`를

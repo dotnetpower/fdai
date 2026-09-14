@@ -119,6 +119,13 @@ def _incident_episode_id(
     return f"{_EPISODE_ID_PREFIX}{hashlib.sha256(canonical.encode()).hexdigest()}"
 
 
+def _anomaly_idempotency_key(incident_episode_id: str, severity: str) -> str:
+    """Derive a retry-stable key for one episode severity publication."""
+
+    digest = hashlib.sha256(f"{incident_episode_id}\0{severity}".encode()).hexdigest()
+    return f"anomaly:{digest}"
+
+
 def _event_window_time(event: Mapping[str, Any], *, fallback: float) -> tuple[str, float]:
     """Return a comparable event-time or arrival-time coordinate."""
 
@@ -632,9 +639,17 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
                 and _SEVERITY_RANK[severity] >= _SEVERITY_RANK[emitted_severity]
             ):
                 return
+            incident_episode_id = self._incident_episode_ids.setdefault(
+                episode_key,
+                _incident_episode_id(episode_key, window_tail[0][2]),
+            )
             anomaly = {
                 "producer_principal": "Heimdall",
                 "correlation_id": correlation_id,
+                "idempotency_key": _anomaly_idempotency_key(
+                    incident_episode_id,
+                    severity,
+                ),
                 "resource_id": resource_id,
                 "target_type": str(event.get("resource_type") or "unknown"),
                 "event_type": event_type,
@@ -666,10 +681,6 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
                 self._drop_episode(episode_key)
                 return
             evidence_keys = tuple(dict.fromkeys(evidence_key for _, _, evidence_key in window_tail))
-            incident_episode_id = self._incident_episode_ids.setdefault(
-                episode_key,
-                _incident_episode_id(episode_key, evidence_keys[0]),
-            )
             reason_code = "repeated_event_threshold"
             trace_reason = trace_continuity.get("reason_code")
             if isinstance(trace_reason, str) and trace_reason in _TRACE_CONTINUITY_REASONS:

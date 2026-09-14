@@ -1558,6 +1558,7 @@ def test_heimdall_uses_worst_severity_in_burst_window() -> None:
 
     anomaly = bus.messages_on("object.anomaly")[0].payload
     assert anomaly["severity"] == "critical"
+    assert str(anomaly["idempotency_key"]).startswith("anomaly:")
     assert candidates[0]["severity"] == "critical"
 
 
@@ -1791,6 +1792,7 @@ def test_heimdall_accumulates_interleaved_episodes_independently() -> None:
 
 def test_heimdall_retries_candidate_after_transient_hook_failure() -> None:
     candidates: list[dict[str, object]] = []
+    bus = InMemoryBus(registry=load_pantheon())
 
     async def fail_once(candidate: dict[str, object]) -> bool:
         candidates.append(candidate)
@@ -1798,7 +1800,11 @@ def test_heimdall_retries_candidate_after_transient_hook_failure() -> None:
             raise RuntimeError("transient lifecycle failure")
         return True
 
-    heimdall = Heimdall(rate_threshold=2, incident_candidate_hook=fail_once)
+    heimdall = Heimdall(
+        bus=bus,
+        rate_threshold=2,
+        incident_candidate_hook=fail_once,
+    )
     for index in (0, 1, 1):
         asyncio.run(
             heimdall.on_typed_message(
@@ -1816,6 +1822,8 @@ def test_heimdall_retries_candidate_after_transient_hook_failure() -> None:
 
     assert len(candidates) == 2
     assert candidates[0]["evidence_keys"] == candidates[1]["evidence_keys"]
+    anomalies = bus.messages_on("object.anomaly")
+    assert anomalies[0].payload["idempotency_key"] == anomalies[1].payload["idempotency_key"]
     assert heimdall.behavior_snapshot()["incident_candidate_failed"] == 1
     assert heimdall.behavior_snapshot()["incident_candidate"] == 1
     assert heimdall.behavior_snapshot()["repeated_event_duplicate"] == 1
