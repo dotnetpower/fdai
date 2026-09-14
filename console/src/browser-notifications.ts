@@ -402,7 +402,6 @@ function updateBrowserAlertReceipt(
     ) {
       return null;
     }
-    if (transition === "acknowledged" && current.deliveredAt === null) return null;
     const updated: BrowserAlertDeliveryEntry = {
       ...current,
       deliveredAt: current.deliveredAt ?? now,

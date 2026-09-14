@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 8f90613397321bb9d6d2f5c10058e11b360c4480
+translation_source_sha: 12a952e97d9f47a289175d99509f159c3e3d178c
 translation_revised: 2026-09-14
 ---
 
@@ -394,6 +394,9 @@ claim별 토큰이 모두 일치할 때만 별도 확인을 기록합니다. 정
 두 필드를 제거합니다. 토큰이 없는 레거시 레코드는 중복 억제에는 유효하지만 새로운 확인을 만들
 수 없습니다. 컨트롤은 `대기`, `전송됨`, `전송 및 확인됨`을 구분해 선택, 전달 및 사용자 확인을
 하나의 상태로 합치지 않습니다.
+유효한 클릭이 `showNotification()` 완료 callback의 표시 기록보다 먼저 페이지에 도착하면,
+토큰에 결속된 확인이 두 타임스탬프를 원자적으로 기록합니다. 이후 표시 callback은 멱등하게
+처리되어 앞선 클릭을 지울 수 없습니다.
 
 이 증적은 브라우저 로컬 기록입니다. Core의 영속 알림 전달 원장을 갱신하거나
 `notification.delivery.observed`를 충족하지 않으며, 사용자가 인시던트 근거를 읽었다는 점을

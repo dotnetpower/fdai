@@ -659,6 +659,8 @@ structure as the loaded control so module loading does not change its semantic o
 Every new delivery claim carries an unpredictable 128-bit acknowledgement token. Service-worker
 messages and transient navigation values must match both the safe tag and that token before the
 principal-scoped ledger can record acknowledgement; legacy tokenless rows remain dedupe-only.
+A matching click that races ahead of the display callback atomically records both display and
+acknowledgement, and the later display write preserves that monotonic result.
 Visible-heading components use `title` only for rendered heading content. Native HTML `title` bubbles remain limited to accessibility-compatible elements, and all other contextual help uses the shared Tooltip component.
 The static component gallery reads contracts from `mocks/ui/assets/component-registry.json` and presents each specimen before its owner, source, states, usage guidance, responsive behavior, accessibility contract, and product references. A missing or invalid registry blocks documented status instead of inferring canonical status. The gallery remains synthetic presentation evidence and grants no Console, Operator API, or executor authority.
 

@@ -394,6 +394,9 @@ window receives them through the transient `fdai_notification_ack` and
 tokenless records remain valid for deduplication but cannot mint a new acknowledgement. The control reports
 `Ready`, `Sent`, or `Sent + opened` so it never collapses selection, delivery, and user
 acknowledgement into one state.
+If a valid click reaches the page before the `showNotification()` completion callback records
+display, the token-bound acknowledgement atomically records both timestamps. The later display
+callback is idempotent and cannot erase the earlier click.
 
 These are browser-local receipts. They do not update Core's durable notification delivery ledger,
 satisfy `notification.delivery.observed`, prove that the user read the Incident evidence, or grant
