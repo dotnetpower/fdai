@@ -3,6 +3,7 @@ import type { OperatorApiClient } from "../api";
 import {
   acknowledgeBrowserAlertDelivery,
   BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_QUERY,
+  BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TOKEN_QUERY,
   BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
   browserAlertNotificationData,
   browserAlertDeliveryStatusForStorageKey,
@@ -12,6 +13,7 @@ import {
   browserNotificationsSupported,
   browserNotificationWorkerPaths,
   claimBrowserAlertDelivery,
+  readBrowserAlertAcknowledgementToken,
   readBrowserAlertDeliveryStatus,
   readBrowserNotificationPreference,
   recordBrowserAlertDelivered,
@@ -141,9 +143,14 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
   }, [supported, principalId]);
 
   useEffect(() => {
-    const acknowledge = (tag: string, acknowledgedAt: number) => {
+    const acknowledge = (
+      tag: string,
+      acknowledgementToken: string,
+      acknowledgedAt: number,
+    ) => {
       const receipt = acknowledgeBrowserAlertDelivery(
         tag,
+        acknowledgementToken,
         principalId,
         acknowledgedAt,
       );
@@ -155,7 +162,11 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
         event.isTrusted,
       );
       if (acknowledgement !== null) {
-        acknowledge(acknowledgement.tag, acknowledgement.acknowledgedAt);
+        acknowledge(
+          acknowledgement.tag,
+          acknowledgement.acknowledgementToken,
+          acknowledgement.acknowledgedAt,
+        );
       }
     };
     const serviceWorker = "serviceWorker" in navigator ? navigator.serviceWorker : null;
@@ -163,8 +174,12 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
 
     const location = new URL(window.location.href);
     const tag = location.searchParams.get(BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_QUERY);
-    if (tag !== null) {
+    const acknowledgementToken = location.searchParams.get(
+      BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TOKEN_QUERY,
+    );
+    if (tag !== null || acknowledgementToken !== null) {
       location.searchParams.delete(BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_QUERY);
+      location.searchParams.delete(BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TOKEN_QUERY);
       window.history.replaceState(
         window.history.state,
         "",
@@ -174,9 +189,14 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
         type: BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
         channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
         tag,
+        acknowledgement_token: acknowledgementToken,
       });
       if (acknowledgement !== null) {
-        acknowledge(acknowledgement.tag, Date.now());
+        acknowledge(
+          acknowledgement.tag,
+          acknowledgement.acknowledgementToken,
+          Date.now(),
+        );
       }
     }
 
@@ -212,13 +232,26 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
         setState("error");
         return;
       }
+      const acknowledgementToken = readBrowserAlertAcknowledgementToken(
+        alert.tag,
+        principalId,
+      );
+      if (acknowledgementToken === null) {
+        releaseBrowserAlertDelivery(alert.tag, principalId);
+        setState("error");
+        return;
+      }
       void ensureNotificationWorker()
         .then((registration) => registration.showNotification(
           t(ALERT_TITLE_KEYS[alert.kind]),
           {
             body: t(ALERT_BODY_KEYS[alert.kind]),
             tag: alert.tag,
-            data: browserAlertNotificationData(alert, import.meta.env.BASE_URL),
+            data: browserAlertNotificationData(
+              alert,
+              import.meta.env.BASE_URL,
+              acknowledgementToken,
+            ),
           },
         ))
         .then(() => {

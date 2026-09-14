@@ -5,6 +5,7 @@ const STORAGE_PREFIX = "fdai:console:browser-notifications:v1";
 const DELIVERY_PREFIX = "fdai:console:browser-notification-delivery:v1";
 const SAFE_EVENT_ID = /^[A-Za-z0-9._:-]{1,128}$/;
 const SAFE_CORRELATION_ID = /^[\x21-\x7E]{1,256}$/;
+const SAFE_ACKNOWLEDGEMENT_TOKEN = /^[a-f0-9]{32}$/;
 const DELIVERY_DEDUP_MS = 5 * 60_000;
 const DELIVERY_RECEIPT_RETENTION_MS = 7 * 24 * 60 * 60_000;
 const DELIVERY_RATE_WINDOW_MS = 60_000;
@@ -14,6 +15,7 @@ export const CONSOLE_WEB_NOTIFICATION_CHANNEL_ID = "console-web";
 export const BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE =
   "fdai.console-web-notification.acknowledged";
 export const BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_QUERY = "fdai_notification_ack";
+export const BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TOKEN_QUERY = "fdai_notification_token";
 const FAILURE_OUTCOMES: ReadonlySet<string> = new Set([
   "failed",
   "failure",
@@ -28,6 +30,7 @@ type DeliveryStorage = StorageReader & StorageWriter;
 
 interface BrowserAlertDeliveryEntry {
   readonly tag: string;
+  readonly acknowledgementToken: string | null;
   readonly claimedAt: number;
   readonly deliveredAt: number | null;
   readonly acknowledgedAt: number | null;
@@ -58,11 +61,13 @@ export interface BrowserAlertDeliveryReceipt {
 
 export interface BrowserAlertAcknowledgement {
   readonly tag: string;
+  readonly acknowledgementToken: string;
   readonly acknowledgedAt: number;
 }
 
 export interface BrowserAlertAcknowledgementMessage {
   readonly tag: string;
+  readonly acknowledgementToken: string;
 }
 
 export type BrowserAlertDeliveryStatus = "ready" | "delivered" | "acknowledged";
@@ -118,10 +123,13 @@ export function claimBrowserAlertDelivery(
   principalId?: string | null,
   now = Date.now(),
   storage: DeliveryStorage | null = browserStorage(),
+  tokenFactory: () => string | null = createBrowserAcknowledgementToken,
 ): BrowserAlertClaim {
   if (storage === null || !isSafeNotificationTag(tag) || !isSafeTimestamp(now)) {
     return "unavailable";
   }
+  const acknowledgementToken = tokenFactory();
+  if (!isSafeAcknowledgementToken(acknowledgementToken)) return "unavailable";
   const key = browserNotificationDeliveryKey(principalId);
   try {
     const entries = readDeliveryEntries(storage.getItem(key)).filter(
@@ -144,7 +152,13 @@ export function claimBrowserAlertDelivery(
     }
     const next = [
       ...entries,
-      { tag, claimedAt: now, deliveredAt: null, acknowledgedAt: null },
+      {
+        tag,
+        acknowledgementToken,
+        claimedAt: now,
+        deliveredAt: null,
+        acknowledgedAt: null,
+      },
     ].slice(-DELIVERY_LEDGER_LIMIT);
     writeDeliveryEntries(storage, key, next);
     return "claimed";
@@ -177,13 +191,36 @@ export function recordBrowserAlertDelivered(
   return updateBrowserAlertReceipt(tag, principalId, now, "delivered", storage);
 }
 
+export function readBrowserAlertAcknowledgementToken(
+  tag: string,
+  principalId?: string | null,
+  storage: StorageReader | null = browserStorage(),
+): string | null {
+  if (storage === null || !isSafeNotificationTag(tag)) return null;
+  try {
+    return readDeliveryEntries(storage.getItem(browserNotificationDeliveryKey(principalId)))
+      .find((entry) => entry.tag === tag)
+      ?.acknowledgementToken ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function acknowledgeBrowserAlertDelivery(
   tag: string,
+  acknowledgementToken: string,
   principalId?: string | null,
   now = Date.now(),
   storage: DeliveryStorage | null = browserStorage(),
 ): BrowserAlertDeliveryReceipt | null {
-  return updateBrowserAlertReceipt(tag, principalId, now, "acknowledged", storage);
+  return updateBrowserAlertReceipt(
+    tag,
+    principalId,
+    now,
+    "acknowledged",
+    storage,
+    acknowledgementToken,
+  );
 }
 
 export function readLatestBrowserAlertReceipt(
@@ -241,10 +278,14 @@ export function decodeBrowserAlertAcknowledgement(
     candidate["type"] !== BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE
     || candidate["channel_id"] !== CONSOLE_WEB_NOTIFICATION_CHANNEL_ID
     || !isSafeNotificationTag(candidate["tag"])
+    || !isSafeAcknowledgementToken(candidate["acknowledgement_token"])
   ) {
     return null;
   }
-  return { tag: candidate["tag"] };
+  return {
+    tag: candidate["tag"],
+    acknowledgementToken: candidate["acknowledgement_token"],
+  };
 }
 
 export function trustedBrowserAlertAcknowledgement(
@@ -260,14 +301,20 @@ export function trustedBrowserAlertAcknowledgement(
 export function browserAlertNotificationData(
   alert: BrowserAlert,
   baseUrl: string,
+  acknowledgementToken: string,
 ): {
   readonly channel_id: typeof CONSOLE_WEB_NOTIFICATION_CHANNEL_ID;
   readonly tag: string;
+  readonly acknowledgement_token: string;
   readonly path: string;
 } {
+  if (!isSafeAcknowledgementToken(acknowledgementToken)) {
+    throw new Error("Console web acknowledgement token is invalid.");
+  }
   return {
     channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
     tag: alert.tag,
+    acknowledgement_token: acknowledgementToken,
     path: browserNotificationTargetPath(alert.path, baseUrl),
   };
 }
@@ -336,6 +383,7 @@ function updateBrowserAlertReceipt(
   now: number,
   transition: "delivered" | "acknowledged",
   storage: DeliveryStorage | null,
+  acknowledgementToken: string | null = null,
 ): BrowserAlertDeliveryReceipt | null {
   if (storage === null || !isSafeNotificationTag(tag) || !isSafeTimestamp(now)) return null;
   const key = browserNotificationDeliveryKey(principalId);
@@ -347,6 +395,10 @@ function updateBrowserAlertReceipt(
       || current.claimedAt > now
       || (current.deliveredAt !== null && current.deliveredAt > now)
       || (current.acknowledgedAt !== null && current.acknowledgedAt > now)
+      || (
+        transition === "acknowledged"
+        && current.acknowledgementToken !== acknowledgementToken
+      )
     ) {
       return null;
     }
@@ -405,6 +457,9 @@ function readDeliveryEntries(value: string | null): readonly BrowserAlertDeliver
       }
       return [{
         tag: candidate["tag"],
+        acknowledgementToken: isSafeAcknowledgementToken(candidate["acknowledgementToken"])
+          ? candidate["acknowledgementToken"]
+          : null,
         claimedAt,
         deliveredAt,
         acknowledgedAt,
@@ -427,6 +482,21 @@ function writeDeliveryEntries(
       at: entry.claimedAt,
     }))),
   );
+}
+
+function createBrowserAcknowledgementToken(): string | null {
+  if (
+    typeof globalThis.crypto === "undefined"
+    || typeof globalThis.crypto.getRandomValues !== "function"
+  ) {
+    return null;
+  }
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function isSafeAcknowledgementToken(value: unknown): value is string {
+  return typeof value === "string" && SAFE_ACKNOWLEDGEMENT_TOKEN.test(value);
 }
 
 function optionalTimestamp(value: unknown): number | null | undefined {
