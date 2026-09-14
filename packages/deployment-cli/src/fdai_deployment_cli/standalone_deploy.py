@@ -136,6 +136,7 @@ def deploy_azure_foundation(
             monthly_cost_ceiling=monthly_cost_ceiling,
             connectivity="online" if online else "offline",
             root=work_dir / "run",
+            create_runner_image=adopt_runner_image_receipt is None,
         )
         foundation_variables = prepared.variables
         if adopt_runner_image_receipt is not None:
