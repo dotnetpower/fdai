@@ -157,6 +157,8 @@ The explicit local Azure CLI principal alternative bootstraps through `GET /loca
 Standard full-stack preparation always selects Browser Entra, regardless of a stale private Vite
 value. CLI-principal debugging requires an explicit `--auth-mode azure-cli` preparation request
 and paired enablement plus confirmation values at both the browser and Operator API boundaries.
+The standard VS Code compound sets both browser values to `0` and does not provide a CLI-principal
+shortcut.
 The Operator Service resolves the active interactive CLI user at startup, applies a fixed
 Contributor ceiling, and returns a browser-safe profile plus a process-local session nonce. It
 accepts that nonce only from loopback clients, and browser requests also need an exact configured

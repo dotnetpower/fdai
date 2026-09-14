@@ -163,7 +163,8 @@ Core 런타임만 Pantheon을 소유하며 로컬 및 deployed interactive 읽�
 명시적 로컬 Azure CLI principal 대안은 `GET /local-auth/me`를 통해 초기화합니다. 표준 전체
 스택 준비는 오래된 비공개 Vite 값과 관계없이 항상 Browser Entra를 선택합니다. CLI principal
 디버깅에는 명시적인 `--auth-mode azure-cli` 준비 요청과 브라우저 및 Operator API 경계의
-활성화 값과 확인 값 쌍이 필요합니다.
+활성화 값과 확인 값 쌍이 필요합니다. 표준 VS Code 복합 실행은 두 브라우저 값을 `0`으로
+설정하며 CLI principal 바로 가기를 제공하지 않습니다.
 Operator 서비스는 시작할 때 활성 대화형 CLI 사용자를 확인하고 고정된 Contributor 상한을
 적용하며, 브라우저에 안전한 프로파일과 프로세스별 세션 일회값을 반환합니다. 이 일회값은
 loopback 클라이언트에서만 수락하고 브라우저 요청에는 정확히 구성된 origin도 요구합니다.

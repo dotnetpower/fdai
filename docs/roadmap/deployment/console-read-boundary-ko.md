@@ -1,7 +1,7 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: 4861d494f26d04abdd09fab2ee6347195947951c
+translation_source_sha: 7c81e323b4c2a9218714e9b3319f7dd217f57593
 translation_revised: 2026-09-14
 ---
 # Console 읽기 경계
@@ -30,6 +30,7 @@ translation_revised: 2026-09-14
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 표준 VS Code 프런트엔드 디버그 구성을 Browser Entra에 고정하고 두 CLI principal 값을 비활성화했습니다. 이제 복합 실행이 오래된 비공개 Vite 신원 재정의를 상속하지 않습니다. | `current change`; `.vscode/launch.json`; 집중 작업 영역 실행 계약 테스트. | 표준 작업을 재사용하지 않고 명확한 이름의 CLI 디버그 준비 작업을 추가합니다. |
 | 2026-09-14 | implemented | 로컬 서비스를 fan-out하기 전에 스택 전체가 준비된 인증 모드를 검사하도록 했습니다. 모드가 없거나 잘못되면 일부 서비스만 기동하지 않고 모든 서비스를 중지된 상태로 유지합니다. | `current change`; `start-console-services.sh`; 집중 감독기 테스트. | 직접 VS Code 실행 경로도 같은 표준 Browser Entra 계약에 고정합니다. |
 | 2026-09-14 | implemented | Uvicorn을 시작하기 전에 생성된 API 활성화 값 쌍과 준비된 Console 인증 모드를 비교하는 Operator 프로세스 사전 검사를 추가했습니다. Browser Entra와 CLI principal이 섞인 스택은 이제 실행기 경계에서 중단됩니다. | `current change`; `run-console-service.sh`; 집중 Operator 재시작 테스트. | 형제 서비스를 시작하기 전에 스택 전체 사전 검사를 추가합니다. |
 | 2026-09-14 | implemented | 관리형 프런트엔드 프로세스를 준비된 Console 인증 모드 표식에 연결하고 두 Vite 활성화 값을 명시적으로 설정했습니다. 이제 오래된 `.env.local` 값 때문에 Vite가 다른 principal을 선택하지 않습니다. | `current change`; `run-console-service.sh`; 집중 로컬 Console 실행기 테스트. | 해당 Operator 프로세스 및 감독기 사전 검사를 추가합니다. |
