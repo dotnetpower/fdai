@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: c221afe35beb944c9eab6f9af264260155b40b26
+translation_source_sha: be3884ee448391210ed619d8515bd839d6034b34
 translation_revised: 2026-09-14
 ---
 # FDAI Console 대화
@@ -53,6 +53,8 @@ value 필드를 보존하여 독립 oracle이 표시된 count를 검증할 수 �
   상세는 정규 작업 종류를 유지합니다.
 - 브라우저는 판단 요약에 값을 사용하기 전에 추적 종류, 액션 시도 수, 효과 관측 수 및 근본
   원인 근거 여부가 순서가 있는 단계와 일치하는지 확인합니다.
+- 서버 메타데이터는 선택한 추적의 출처 권한을 `operator-audit-log`로 식별합니다. 알 수 없는
+  출처 토큰을 검증된 출처 이력으로 표시할 수 없습니다.
 
 ### 추적 탐색 및 판단 요약
 

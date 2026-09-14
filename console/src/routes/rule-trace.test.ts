@@ -89,6 +89,8 @@ describe("trace response contract", () => {
       .toThrow(/summary counts MUST match ordered steps/);
     expect(() => decodeTraceResponse({ ...root, rca_evidence_recorded: true }))
       .toThrow(/summary counts MUST match ordered steps/);
+    expect(() => decodeTraceResponse({ ...root, source_authority: "browser-derived" }))
+      .toThrow(/source_authority is unsupported/);
   });
 
   it("renders expected source absence as unavailable without hiding server failures", () => {

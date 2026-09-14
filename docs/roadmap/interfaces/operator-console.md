@@ -50,6 +50,8 @@ Trace hardening preserves these evidence invariants:
   while the evidence detail retains the canonical action kind.
 - The browser checks trace kind, action-attempt count, effect-observation count, and RCA evidence
   against the ordered steps before using those values in decision summaries.
+- Server metadata identifies `operator-audit-log` as the selected Trace source authority. Unknown
+  source tokens cannot appear as verified provenance.
 
 ### Trace discovery and decision summary
 

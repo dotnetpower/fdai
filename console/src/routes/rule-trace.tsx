@@ -564,9 +564,13 @@ function decodeTraceMetadata(
   ) {
     throw new Error("invalid Operator API response: trace summary counts MUST match ordered steps");
   }
+  const sourceAuthority = panelNonEmptyString(root, "source_authority", "trace");
+  if (sourceAuthority !== "operator-audit-log") {
+    throw new Error("invalid Operator API response: trace.source_authority is unsupported");
+  }
   return {
     trace_kind: traceKind as TraceResponse["trace_kind"],
-    source_authority: panelNonEmptyString(root, "source_authority", "trace"),
+    source_authority: sourceAuthority,
     complete: panelBoolean(root, "complete", "trace"),
     first_recorded_at: firstRecordedAt,
     last_recorded_at: lastRecordedAt,
