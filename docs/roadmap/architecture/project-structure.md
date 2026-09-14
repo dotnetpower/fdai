@@ -162,9 +162,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   The repository CLI parses content-free samples and never converts a trace commitment into a
   complete-trace claim. The adjacent `quality_trace.py` reducer accepts only record commitments and
   proves completeness from the exact ordered session-to-audit chain; it performs no provider read
-  and grants no qualification authority. `quality_timing.py` joins only matching source revisions,
-  trace counts, trace-set commitments, and the installed latency contract before deriving the two
-  qualification timing fields.
+  and grants no authority. `quality_timing.py` joins the installed contract, source revision,
+  trace count/set, and paired artifact digests before deriving timing fields. Legacy input remains
+  capped; runtime owners retain timestamp and producer authority, and Core/CLI cannot create it.
 - **authorization is instance-bound**: the context provider must return the exact Resource ID from
   `ExecutionAuthorizationRequest.target_resource_ref`. A mismatch holds before policy, identity,
   or effective-access evaluation and is retained in the no-authority audit context.
