@@ -35,6 +35,24 @@ variable "enable_evidence_target_subnet" {
   default     = false
 }
 
+variable "enable_aks_subnet" {
+  description = "Whether to add the secondary address space and subnet owned by an AKS runtime."
+  type        = bool
+  default     = false
+}
+
+variable "aks_address_space" {
+  description = "Secondary VNet CIDR reserved for AKS nodes."
+  type        = string
+  default     = "10.60.8.0/21"
+}
+
+variable "aks_subnet_prefix" {
+  description = "AKS node subnet CIDR inside aks_address_space."
+  type        = string
+  default     = "10.60.8.0/24"
+}
+
 variable "pe_subnet_prefix" {
   description = "Private-endpoint subnet CIDR (must fit inside address_space)."
   type        = string

@@ -1,0 +1,47 @@
+# Runtime Deployment Profile Implementation
+
+This ledger tracks the implementation evidence for new-install runtime selection between Azure
+Container Apps and Azure Kubernetes Service (AKS). The canonical design remains in
+[Runtime Deployment Profiles](../../roadmap/deployment/runtime-deployment-profiles.md).
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Runtime profile and CLI grammar | implemented | `packages/deployment-cli/src/fdai_deployment_cli/runtime_profile.py`; `packages/deployment-cli/tests/test_runtime_profile.py`; 36 focused coordinator tests pass in the current change. | Container Apps with PostgreSQL Flexible Server remains the default. AKS node floors and the non-production `postgres-aks` combination are validated before deployment. |
+| AKS network and cluster state | implemented | `infra/modules/network`; `infra/runtimes/aks/cluster`; `terraform validate` passes in the current change. | The private Standard-tier cluster uses separate system and autoscaled user pools, Microsoft Entra RBAC, Cilium, workload identity, managed Key Vault CSI, and a separate backend key. |
+| AKS workload state | implemented | `infra/runtimes/aks/workloads`; `terraform validate` passes in the current change. | Typed Deployments, Services, ServiceAccounts, federated credentials, HPA, PDB, NetworkPolicy, four default CronJobs, and CSI secret synchronization share one workload state. |
+| Compact in-cluster PostgreSQL | implemented | `infra/runtimes/aks/database`; `terraform validate` passes in the current change. | The non-production profile uses one pgvector StatefulSet, one Premium SSD claim, a private load balancer, generated credentials and TLS material, and a Key Vault DSN with `sslmode=require`. It does not claim HA, backup, or point-in-time recovery. |
+| Managed-host stage routing | implemented | `standalone_application.py`; `standalone_host.py`; 36 focused coordinator tests pass in the current change. | Shared substrate, AKS cluster, optional database, migrations, workloads, and second plans use distinct exact-plan approvals and recovery receipts. |
+| Signed online and offline kit inputs | implemented | `build-standalone-deployment-kit.sh`; `stage-offline-kit.sh`; `mirror-locked-providers.sh`; `test_extract_kubelogin_archive.py`; six extractor tests pass in the current change. | The exact-file-set kit includes the three AKS roots, provider locks, pgvector OCI archive, `kubectl`, and `kubelogin`. A complete kit build remains to be recorded. |
+| Capacity and regional feasibility | in-progress | Structural node floors exist in `runtime_profile.py` and AKS Terraform checks. | SKU quota, zone availability, and workload-envelope calculations are not yet part of preflight. |
+| Operational readiness | in-progress | Local source, test, and Terraform validation evidence only. | No live new-subscription online or artifact-offline AKS receipt exists yet. The path is not classified as production validated. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-09-15 | in-progress | Added the first implementation ledger. Earlier provenance was not reconstructed. Implemented sealed runtime selection, separate AKS cluster/database/workload states, managed-host routing, typed Kubernetes resources, compact pgvector placement, and signed kit inputs. | Current change paths listed in the scope table; 36 focused coordinator tests, six archive extraction tests, and Terraform validation for the shared, cluster, database, and workload roots pass. | Record complete kit-build evidence, deploy both AKS database profiles online and artifact-offline, close ingress and rollback evidence, and add capacity preflight. |
+
+### Remaining work
+
+- [ ] Build one complete signed kit and verify that its manifest contains the AKS roots, all three
+  provider families, pgvector OCI archive, `kubectl`, and `kubelogin`.
+- [ ] Record a successful new-subscription online deployment receipt for AKS with
+  `postgres-flex`, including all second-plan and rollout checks.
+- [ ] Record a successful new-subscription online deployment receipt for AKS with
+  `postgres-aks`, including migration, pgvector extension, persistent-volume, and restart checks.
+- [ ] Run both AKS profiles from an artifact-offline kit and record that no provider, image, or
+  executable is downloaded after verification.
+- [ ] Add subscription quota, regional SKU, availability-zone, and allocatable workload-envelope
+  checks that block an infeasible profile before Terraform planning.
+- [ ] Add TLS-terminated operator ingress and prove Console-to-Operator authentication without
+  exposing a plaintext public endpoint.
+- [ ] Add exact schedule inputs and parity tests for optional Container Apps jobs before enabling
+  their AKS CronJob counterparts.
+- [ ] Demonstrate failed-rollout recovery to the prior healthy workload without repeating an
+  ambiguous Terraform apply.
+- [ ] Add immutable backup and point-in-time restore for `postgres-aks`, then record a restore
+  drill before considering any production database profile.
