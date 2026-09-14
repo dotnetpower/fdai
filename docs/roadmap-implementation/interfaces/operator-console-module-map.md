@@ -30,6 +30,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Made explicit Console web selection and deselection fail closed when principal-scoped preference persistence is unavailable. | `current change`; focused preference-storage failure tests. | No residual success-shaped preference write failure remains. |
 | 2026-09-14 | implemented | Synchronized Console web receipt status across tabs while filtering storage events to the current principal's ledger key. | `current change`; focused principal-key storage-event tests. | No residual cross-tab status synchronization work for this local ledger. |
 | 2026-09-14 | implemented | Derived the header status from the latest retained Console web delivery rather than the receipt that most recently changed. | `current change`; focused multiple-delivery ordering test. | No residual stale-acknowledgement status overwrite remains. |
 | 2026-09-14 | implemented | Required trusted browser message events for Console web acknowledgement and moved acknowledgement time ownership to the receiving page. | `current change`; focused acknowledgement decoder and service-worker tests. | No residual message-timestamp trust remains in this client-local receipt path. |

@@ -16,6 +16,7 @@ import {
   readBrowserNotificationPreference,
   recordBrowserAlertDelivered,
   releaseBrowserAlertDelivery,
+  requireBrowserNotificationPreferenceWrite,
   trustedBrowserAlertAcknowledgement,
   writeBrowserNotificationPreference,
   type BrowserAlertKind,
@@ -237,13 +238,13 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
 
   const toggle = async (): Promise<void> => {
     if (!supported) return;
-    if (state === "on") {
-      writeBrowserNotificationPreference(false, principalId);
-      setState("off");
-      return;
-    }
-    setState("enabling");
     try {
+      if (state === "on") {
+        requireBrowserNotificationPreferenceWrite(false, principalId);
+        setState("off");
+        return;
+      }
+      setState("enabling");
       const permission = Notification.permission === "granted"
         ? "granted"
         : await Notification.requestPermission();
@@ -253,12 +254,13 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
         return;
       }
       await ensureNotificationWorker();
-      writeBrowserNotificationPreference(true, principalId);
+      requireBrowserNotificationPreferenceWrite(true, principalId);
       setWorkerReady(true);
       setDeliveryState("ready");
       setState("on");
     } catch {
       writeBrowserNotificationPreference(false, principalId);
+      setWorkerReady(false);
       setState("error");
     }
   };
