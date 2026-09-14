@@ -2,7 +2,9 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import type { LiveStageEvent } from "./hooks/use-live-stream";
 import {
   acknowledgeBrowserAlertDelivery,
+  acknowledgeBrowserAlertDeliveryForClaim,
   BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
+  BROWSER_NOTIFICATION_DELIVERY_CHANGED_EVENT,
   browserAlertDeliveryStatusForStorageKey,
   browserAlertNotificationData,
   browserAlertForLiveEvent,
@@ -11,6 +13,7 @@ import {
   decodeBrowserAlertAcknowledgement,
   decodeBrowserAlertAcknowledgementFragment,
   isBrowserNotificationPreferenceStorageKey,
+  isBrowserNotificationDeliveryChange,
   isBrowserNotificationPreferenceChange,
   browserNotificationPreferenceKey,
   browserNotificationsSupported,
@@ -24,12 +27,23 @@ import {
   recordBrowserAlertDelivered,
   releaseBrowserAlertDelivery,
   requireBrowserNotificationPreferenceWrite,
-  trustedBrowserAlertAcknowledgement,
   withBrowserNotificationDeadline,
   writeBrowserNotificationPreference,
 } from "./browser-notifications";
 
 const ACKNOWLEDGEMENT_TOKEN = "a".repeat(32);
+
+function indexedStorage(): Storage {
+  const values = new Map<string, string>();
+  return {
+    get length() { return values.size; },
+    clear: () => values.clear(),
+    getItem: (key: string) => values.get(key) ?? null,
+    key: (index: number) => [...values.keys()][index] ?? null,
+    removeItem: (key: string) => { values.delete(key); },
+    setItem: (key: string, value: string) => { values.set(key, value); },
+  };
+}
 
 afterEach(() => vi.useRealTimers());
 
@@ -332,22 +346,6 @@ describe("browser notification boundary", () => {
     })).toBeNull();
   });
 
-  test("accepts only trusted browser messages and mints the acknowledgement time locally", () => {
-    const payload = {
-      type: BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
-      channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
-      tag: "fdai:event-1",
-      acknowledgement_token: ACKNOWLEDGEMENT_TOKEN,
-      acknowledged_at: 1,
-    };
-    expect(trustedBrowserAlertAcknowledgement(payload, false, 1_800_000_000_000)).toBeNull();
-    expect(trustedBrowserAlertAcknowledgement(payload, true, 1_800_000_000_000)).toEqual({
-      tag: "fdai:event-1",
-      acknowledgementToken: ACKNOWLEDGEMENT_TOKEN,
-      acknowledgedAt: 1_800_000_000_000,
-    });
-  });
-
   test("accepts only the closed acknowledgement fragment shape", () => {
     const encodedTag = encodeURIComponent("fdai:event-1");
     expect(decodeBrowserAlertAcknowledgementFragment(
@@ -364,6 +362,63 @@ describe("browser notification boundary", () => {
     )).toBeNull();
     expect(decodeBrowserAlertAcknowledgementFragment(
       `#fdai-notification-ack?tag=${encodedTag}&tag=${encodedTag}&token=${ACKNOWLEDGEMENT_TOKEN}`,
+    )).toBeNull();
+  });
+
+  test("acknowledges the originating principal after the active account changes", () => {
+    const storage = indexedStorage();
+    const now = 1_800_000_000_000;
+    claimBrowserAlertDelivery(
+      "fdai:event-1",
+      "principal-a",
+      now,
+      storage,
+      () => ACKNOWLEDGEMENT_TOKEN,
+    );
+    recordBrowserAlertDelivered(
+      "fdai:event-1",
+      ACKNOWLEDGEMENT_TOKEN,
+      "principal-a",
+      now + 1,
+      storage,
+    );
+
+    expect(acknowledgeBrowserAlertDeliveryForClaim(
+      "fdai:event-1",
+      ACKNOWLEDGEMENT_TOKEN,
+      now + 2,
+      storage,
+    )?.acknowledgedAt).toBe(now + 2);
+    expect(readLatestBrowserAlertReceipt("principal-a", now + 3, storage)?.acknowledgedAt)
+      .toBe(now + 2);
+    expect(readLatestBrowserAlertReceipt("principal-b", now + 3, storage)).toBeNull();
+  });
+
+  test("rejects an ambiguous claim token across principal ledgers", () => {
+    const storage = indexedStorage();
+    const now = 1_800_000_000_000;
+    for (const principalId of ["principal-a", "principal-b"]) {
+      claimBrowserAlertDelivery(
+        "fdai:event-1",
+        principalId,
+        now,
+        storage,
+        () => ACKNOWLEDGEMENT_TOKEN,
+      );
+      recordBrowserAlertDelivered(
+        "fdai:event-1",
+        ACKNOWLEDGEMENT_TOKEN,
+        principalId,
+        now + 1,
+        storage,
+      );
+    }
+
+    expect(acknowledgeBrowserAlertDeliveryForClaim(
+      "fdai:event-1",
+      ACKNOWLEDGEMENT_TOKEN,
+      now + 2,
+      storage,
     )).toBeNull();
   });
 
@@ -524,6 +579,15 @@ describe("browser notification boundary", () => {
     )).toBeNull();
     expect(browserAlertDeliveryStatusForStorageKey(null, "principal-a", now + 2, storage))
       .toBeNull();
+    expect(isBrowserNotificationDeliveryChange(
+      "fdai:console:browser-notification-delivery:v1:principal-a",
+      "principal-a",
+    )).toBe(true);
+    expect(isBrowserNotificationDeliveryChange(
+      "fdai:console:browser-notification-delivery:v1:principal-b",
+      "principal-a",
+    )).toBe(false);
+    expect(BROWSER_NOTIFICATION_DELIVERY_CHANGED_EVENT).toContain("delivery-changed");
   });
 
   test("stale callbacks cannot mutate a replacement claim with the same tag", () => {

@@ -14,6 +14,8 @@ const DELIVERY_LEDGER_LIMIT = 32;
 export const BROWSER_NOTIFICATION_WORKER_TIMEOUT_MS = 10_000;
 export const BROWSER_NOTIFICATION_PREFERENCE_CHANGED_EVENT =
   "fdai:console-web-notification-preference-changed";
+export const BROWSER_NOTIFICATION_DELIVERY_CHANGED_EVENT =
+  "fdai:console-web-notification-delivery-changed";
 export const CONSOLE_WEB_NOTIFICATION_CHANNEL_ID = "console-web";
 export const BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE =
   "fdai.console-web-notification.acknowledged";
@@ -29,6 +31,7 @@ const FAILURE_OUTCOMES: ReadonlySet<string> = new Set([
 type StorageReader = Pick<Storage, "getItem">;
 type StorageWriter = Pick<Storage, "setItem" | "removeItem">;
 type DeliveryStorage = StorageReader & StorageWriter;
+type IndexedDeliveryStorage = DeliveryStorage & Pick<Storage, "key" | "length">;
 
 interface BrowserAlertDeliveryEntry {
   readonly tag: string;
@@ -62,12 +65,6 @@ export interface BrowserAlertDeliveryReceipt {
   readonly acknowledgedAt: number | null;
 }
 
-export interface BrowserAlertAcknowledgement {
-  readonly tag: string;
-  readonly acknowledgementToken: string;
-  readonly acknowledgedAt: number;
-}
-
 export interface BrowserAlertAcknowledgementMessage {
   readonly tag: string;
   readonly acknowledgementToken: string;
@@ -95,6 +92,13 @@ export function isBrowserNotificationPreferenceChange(
 
 export function browserNotificationDeliveryKey(principalId: string | null | undefined): string {
   return `${DELIVERY_PREFIX}:${principalId?.trim() || "local"}`;
+}
+
+export function isBrowserNotificationDeliveryChange(
+  detail: unknown,
+  principalId?: string | null,
+): boolean {
+  return detail === browserNotificationDeliveryKey(principalId);
 }
 
 export function readBrowserNotificationPreference(
@@ -222,6 +226,47 @@ export function recordBrowserAlertDelivered(
   );
 }
 
+export function acknowledgeBrowserAlertDeliveryForClaim(
+  tag: string,
+  acknowledgementToken: string,
+  now = Date.now(),
+  storage: IndexedDeliveryStorage | null = browserStorage(),
+): BrowserAlertDeliveryReceipt | null {
+  if (
+    storage === null
+    || !isSafeNotificationTag(tag)
+    || !isSafeAcknowledgementToken(acknowledgementToken)
+    || !isSafeTimestamp(now)
+  ) {
+    return null;
+  }
+  try {
+    const matchingKeys: string[] = [];
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (key === null || !key.startsWith(`${DELIVERY_PREFIX}:`)) continue;
+      const matches = readDeliveryEntries(storage.getItem(key)).some(
+        (entry) =>
+          entry.tag === tag
+          && entry.acknowledgementToken === acknowledgementToken,
+      );
+      if (matches) matchingKeys.push(key);
+    }
+    return matchingKeys.length === 1
+      ? updateBrowserAlertReceiptAtKey(
+          matchingKeys[0]!,
+          tag,
+          acknowledgementToken,
+          now,
+          "acknowledged",
+          storage,
+        )
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export function readBrowserAlertAcknowledgementToken(
   tag: string,
   principalId?: string | null,
@@ -317,16 +362,6 @@ export function decodeBrowserAlertAcknowledgement(
     tag: candidate["tag"],
     acknowledgementToken: candidate["acknowledgement_token"],
   };
-}
-
-export function trustedBrowserAlertAcknowledgement(
-  value: unknown,
-  isTrusted: boolean,
-  now = Date.now(),
-): BrowserAlertAcknowledgement | null {
-  if (!isTrusted || !isSafeTimestamp(now)) return null;
-  const message = decodeBrowserAlertAcknowledgement(value);
-  return message === null ? null : { ...message, acknowledgedAt: now };
 }
 
 export function decodeBrowserAlertAcknowledgementFragment(
@@ -464,7 +499,24 @@ function updateBrowserAlertReceipt(
   acknowledgementToken: string | null = null,
 ): BrowserAlertDeliveryReceipt | null {
   if (storage === null || !isSafeNotificationTag(tag) || !isSafeTimestamp(now)) return null;
-  const key = browserNotificationDeliveryKey(principalId);
+  return updateBrowserAlertReceiptAtKey(
+    browserNotificationDeliveryKey(principalId),
+    tag,
+    acknowledgementToken,
+    now,
+    transition,
+    storage,
+  );
+}
+
+function updateBrowserAlertReceiptAtKey(
+  key: string,
+  tag: string,
+  acknowledgementToken: string | null,
+  now: number,
+  transition: "delivered" | "acknowledged",
+  storage: DeliveryStorage,
+): BrowserAlertDeliveryReceipt | null {
   try {
     const entries = readDeliveryEntries(storage.getItem(key));
     const current = entries.find((entry) => entry.tag === tag);
@@ -556,6 +608,7 @@ function writeDeliveryEntries(
       at: entry.claimedAt,
     }))),
   );
+  publishBrowserNotificationDeliveryChange(key);
 }
 
 function createBrowserAcknowledgementToken(): string | null {
@@ -612,6 +665,14 @@ function publishBrowserNotificationPreferenceChange(key: string): void {
   if (typeof window === "undefined" || typeof CustomEvent === "undefined") return;
   window.dispatchEvent(new CustomEvent(
     BROWSER_NOTIFICATION_PREFERENCE_CHANGED_EVENT,
+    { detail: key },
+  ));
+}
+
+function publishBrowserNotificationDeliveryChange(key: string): void {
+  if (typeof window === "undefined" || typeof CustomEvent === "undefined") return;
+  window.dispatchEvent(new CustomEvent(
+    BROWSER_NOTIFICATION_DELIVERY_CHANGED_EVENT,
     { detail: key },
   ));
 }

@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 28f9d5d51ea54cbf07bbda139d02e0dce270cae2
+translation_source_sha: 7d2f28c47ed06243805261146210062e7758647c
 translation_revised: 2026-09-14
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -642,8 +642,8 @@ fail-closed 처리합니다. 이 로컬 증적은 Core 전달 상태를 갱신�
 제한 없이 보존하지 않으면서도 늦은 클릭이 수렴할 수 있습니다.
 증적 쓰기는 구조화된 상태와 함께 레거시 `at` 타임스탬프 별칭을 유지하므로, 같은 프로필의
 이전 탭과 새 탭이 Console 롤링 업데이트 중에도 중복을 억제합니다.
-페이지는 신뢰된 브라우저 이벤트의 확인 메시지만 수락하고 자체 시각으로 증적을 기록합니다.
-서비스 워커 페이로드는 이 타임스탬프를 제공하거나 덮어쓸 수 없습니다.
+페이지는 닫힌 형식의 토큰 결속 확인 fragment만 수락하고 자체 시각으로 증적을 기록합니다.
+서비스 워커는 응답 없는 `postMessage` 전송을 전달로 간주하지 않습니다.
 표시되는 전달 상태는 항상 보존된 최신 전달에서 도출하므로, 이전 알림을 열어도 더 최신인 미확인
 알림이 확인된 것으로 표시되지 않습니다.
 탭은 현재 principal의 전달 원장 저장소 키만 수신하므로, 한 탭의 전송이나 확인이 principal
@@ -652,8 +652,8 @@ fail-closed 처리합니다. 이 로컬 증적은 Core 전달 상태를 갱신�
 해제하면 해당 브라우저 principal의 모든 탭에서 수신 자격이 중단됩니다.
 명시적인 채널 선택 또는 선택 해제는 principal 범위 기본 설정 쓰기가 성공한 뒤에만 표시상 최종
 상태에 도달합니다. 브라우저 저장소를 사용할 수 없으면 다시 시도 상태를 표시합니다.
-정확한 Console 창을 활성화한 뒤 확인 메시지 전달이 실패하면, 중복 창을 열지 않고 해당 창에서
-일시적인 확인 대상으로 이동합니다.
+정확한 Console 창도 다른 대상과 같은 일시적 확인 fragment로 이동하므로 listener mount 경쟁이
+클릭을 유실하거나 중복 창을 열 수 없습니다.
 프레임 출처 필드가 없으면 출처 미확인으로 보고 거부합니다. 테스트는 선택적 속성에 JavaScript
 `undefined`를 할당하지 않고 실제 wire shape처럼 필드를 생략합니다.
 지연 로딩 fallback은 로드된 컨트롤과 같은 비활성 버튼, 벨 glyph, 라벨 및 live-status 구조를

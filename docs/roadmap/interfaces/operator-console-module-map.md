@@ -642,8 +642,8 @@ The five-minute duplicate window is independent of the bounded seven-day local r
 so a delayed click can still converge without retaining an unbounded browser history.
 Receipt writes retain the legacy `at` timestamp alias alongside the structured state so old and new
 tabs sharing one profile continue to deduplicate during a rolling Console update.
-The page accepts acknowledgement messages only from trusted browser events and records its own
-receipt time; service-worker payloads cannot supply or override that timestamp.
+The page accepts only the closed token-bound acknowledgement fragment and records its own receipt
+time; the service worker never treats an unacknowledged `postMessage` send as delivery.
 The visible delivery status is always derived from the newest retained delivery, so opening an
 older notification cannot make a newer unacknowledged notification appear acknowledged.
 Tabs listen only for the current principal's delivery-ledger storage key, so a send or
@@ -652,8 +652,8 @@ They also observe the current principal's preference key and storage-clear event
 the channel in one tab stops receiver eligibility in every tab for that browser principal.
 An explicit channel selection or deselection reaches its visible terminal state only after the
 principal-scoped preference write succeeds; unavailable browser storage produces the retry state.
-After an exact Console window is focused, acknowledgement-message failure reuses that window with
-the transient acknowledgement target instead of opening a duplicate window.
+An exact Console window navigates through the same transient acknowledgement fragment as every
+other target, so a listener-mount race cannot discard the click or open a duplicate window.
 An omitted frame source is treated as unknown and rejected; tests model omission as a missing wire
 field rather than assigning JavaScript `undefined` to the optional property.
 The lazy control fallback uses the same disabled button, bell glyph, label, and live-status
