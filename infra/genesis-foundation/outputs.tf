@@ -22,6 +22,7 @@ output "private_handoff" {
     subscription_id = var.subscription_id
     tenant_id       = var.tenant_id
     region          = var.region
+    region_short    = var.region_short
     app_resource_group = {
       id                        = azapi_resource.app_resource_group.id
       name                      = azapi_resource.app_resource_group.name

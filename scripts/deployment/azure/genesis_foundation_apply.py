@@ -497,6 +497,7 @@ def _validate_handoff(handoff: object, review: dict[str, object]) -> None:
         "subscription_id",
         "tenant_id",
         "region",
+        "region_short",
         "app_resource_group",
         "ops",
         "state",
@@ -508,6 +509,11 @@ def _validate_handoff(handoff: object, review: dict[str, object]) -> None:
     context = _object(review["context"], "Foundation review context")
     if handoff.get("source_commit") != context["source_commit"]:
         raise ValueError("Foundation private handoff source is invalid")
+    if (
+        not isinstance(handoff.get("region_short"), str)
+        or re.fullmatch(r"[a-z][a-z0-9]{1,7}", str(handoff["region_short"])) is None
+    ):
+        raise ValueError("Foundation private handoff region token is invalid")
     for key in ("app_resource_group", "ops", "state", "runner", "access"):
         if not isinstance(handoff.get(key), dict):
             raise ValueError("Foundation private handoff component is invalid")

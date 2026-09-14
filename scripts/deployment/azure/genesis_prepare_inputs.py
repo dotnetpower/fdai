@@ -12,6 +12,7 @@ import re
 import subprocess
 from pathlib import Path
 
+from fdai_deployment_cli.azure_naming import azure_region_short_name
 from fdai_deployment_cli.contracts import canonical_digest
 from genesis_checks import CheckError
 from genesis_vm_sku_preflight import discover_foundation_vm_size
@@ -121,7 +122,7 @@ def foundation_values(
         "target_binding": target_binding,
         "workload": "fdai",
         "region": region,
-        "region_short": region[:3],
+        "region_short": azure_region_short_name(region),
         "state_storage_account_name": account_name,
         "state_retention_days": 30,
         "ops_address_space": str(ops),

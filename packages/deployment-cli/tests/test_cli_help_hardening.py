@@ -303,6 +303,62 @@ def test_execution_resolves_the_same_default_or_relative_work_directory(
     assert json.loads(capsys.readouterr().out) == {"deployment_ready": True}
 
 
+def test_azure_adoption_requires_all_inputs(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(cli, "deploy_azure_foundation", _deny)
+
+    assert (
+        _invoke(
+            [
+                "provision",
+                "azure",
+                "--online",
+                "--progress",
+                "off",
+                "--adopt-application-state",
+                "state.json",
+            ]
+        )
+        == 3
+    )
+    assert "requires all three adoption inputs" in capsys.readouterr().err
+
+
+def test_azure_adoption_resolves_relative_inputs(monkeypatch, tmp_path, capsys):
+    received = {}
+
+    def fake_deployment(**kwargs):
+        received.update(kwargs)
+        return {"deployment_ready": True}
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(cli, "deploy_azure_foundation", fake_deployment)
+    assert (
+        _invoke(
+            [
+                "provision",
+                "azure",
+                "--online",
+                "--progress",
+                "off",
+                "--output",
+                "json",
+                "--adopt-application-state",
+                "state.json",
+                "--adopt-application-recovery",
+                "recovery.json",
+                "--adopt-resolved-models",
+                "models.json",
+            ]
+        )
+        == 0
+    )
+    assert received["adopt_application_state"] == tmp_path / "state.json"
+    assert received["adopt_application_recovery"] == tmp_path / "recovery.json"
+    assert received["adopt_resolved_models"] == tmp_path / "models.json"
+    assert json.loads(capsys.readouterr().out) == {"deployment_ready": True}
+
+
 def test_help_distinguishes_local_outputs_and_capability_limits(capsys):
     assert _invoke(["provision", "init", "--help"]) == 0
     assert "profile file to create" in capsys.readouterr().out

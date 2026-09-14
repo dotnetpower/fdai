@@ -191,10 +191,12 @@ The coordinator performs these stages in order:
 6. Verify state handoff and the managed-host image.
 7. Transfer the same verified kit through Bastion.
 8. Run the substrate and application plans under the managed identity.
-9. Import and read back every runtime image digest.
-10. Run database migrations and materialize the authoritative catalogs.
-11. Deploy the services and verify runtime health.
-12. Require a second zero-change Terraform plan before reporting deployment readiness.
+9. Read the Terraform-selected Core application name and derive the deployment-bound capability
+  identity without recomputing an Azure resource name in Python.
+10. Import and read back every runtime image digest.
+11. Run database migrations and materialize the authoritative catalogs.
+12. Deploy the services and verify runtime health.
+13. Require a second zero-change Terraform plan before reporting deployment readiness.
 
 Independent preparation and read-only probes can run concurrently. Approval, apply, cleanup,
 state transition, handoff, migration, and application activation remain serial.

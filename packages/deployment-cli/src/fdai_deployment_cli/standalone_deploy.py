@@ -16,6 +16,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from fdai_deployment_cli.application_state_adoption import (
+    ApplicationStateAdoption,
+    stage_application_state_adoption,
+)
+from fdai_deployment_cli.azure_naming import azure_region_short_name
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit, acquire_deployment_kit
 from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail, terminal_output
@@ -67,6 +72,9 @@ def deploy_azure_foundation(
     timeout_seconds: int,
     license_signing_key: Path | None,
     trial_token: Path | None,
+    adopt_application_state: Path | None = None,
+    adopt_application_recovery: Path | None = None,
+    adopt_resolved_models: Path | None = None,
 ) -> dict[str, object]:
     """Advance one standalone deployment through verified application convergence."""
 
@@ -86,6 +94,31 @@ def deploy_azure_foundation(
         online_url=online_url,
     )
     deadline.remaining()
+    adoption_inputs = (
+        adopt_application_state,
+        adopt_application_recovery,
+        adopt_resolved_models,
+    )
+    if any(value is not None for value in adoption_inputs) and not all(
+        value is not None for value in adoption_inputs
+    ):
+        raise ValueError("recovered public deployment requires all three adoption inputs")
+    adoption: ApplicationStateAdoption | None = None
+    if all(value is not None for value in adoption_inputs):
+        assert adopt_application_state is not None
+        assert adopt_application_recovery is not None
+        assert adopt_resolved_models is not None
+        region_short = azure_region_short_name(region)
+        adoption = stage_application_state_adoption(
+            source_state=adopt_application_state,
+            recovery_receipt=adopt_application_recovery,
+            resolved_models=adopt_resolved_models,
+            output_directory=work_dir / "application-state-adoption",
+            subscription_id=target.subscription_id,
+            resource_group_name=f"rg-fdai-dev-{region_short}",
+            environment="dev",
+            region_short=region_short,
+        )
     begin_stage("discovery")
     progress_detail("Discovering image, storage name, and non-overlapping networks")
     scripts = kit.bundle_root / "scripts/deployment/azure"
@@ -232,6 +265,7 @@ def deploy_azure_foundation(
                 license_signing_key=license_signing_key,
                 trial_token=trial_token,
                 timeout_seconds=deadline.remaining(),
+                application_state_adoption=adoption,
             )
             deadline.remaining()
             return {
