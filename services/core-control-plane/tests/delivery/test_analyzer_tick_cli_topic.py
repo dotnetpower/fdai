@@ -664,7 +664,7 @@ async def test_local_loop_runs_serial_ticks_and_stops_after_the_bound(
     assert result == 0
     assert calls == 2
     assert sleeps == [3.0]
-    assert "service=local-analyzer event=ready" in capsys.readouterr().out
+    assert capsys.readouterr().out.count("service=local-analyzer event=ready") == 2
 
 
 async def test_local_loop_does_not_add_delay_after_a_slow_tick() -> None:
@@ -891,3 +891,5 @@ def test_vscode_task_reuses_the_deployed_analyzer_cli() -> None:
     assert "fdai.delivery.analyzer_tick_cli --loop" in launcher
     assert "  local-analyzer\n" in supervisor
     assert 'run-console-service.sh" local-analyzer' in compatibility_launcher
+    assert 'FDAI_ANALYZER_RUN_ID="$local_analyzer_run_id"' in launcher
+    assert "local-analyzer-$(date -u +%s)-$$" in launcher

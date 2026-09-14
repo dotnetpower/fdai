@@ -573,7 +573,7 @@ export function DetailPanel({
     <LiveDetailShell
       panelId="live-detail-panel"
       titleId="live-detail-title"
-      title={heading}
+      heading={heading}
       closeLabel={t("live.detail.close")}
       onClose={onClose}
     >

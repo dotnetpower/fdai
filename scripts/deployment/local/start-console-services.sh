@@ -116,6 +116,7 @@ for service in "${services[@]}"; do
   if [[ "$service" == "local-analyzer" ]]; then
     service_args+=(--wait-ready)
   fi
+  FDAI_CONSOLE_START_READINESS_SECONDS="$readiness_seconds" \
   FDAI_CONSOLE_EXPECTED_AUTH_MODE="$auth_mode" \
     bash "$repo_root/scripts/deployment/local/run-console-service.sh" "${service_args[@]}" &
   child_pids+=("$!")

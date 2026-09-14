@@ -10,7 +10,12 @@ import {
 import type { LiveAgentActivityEvent } from "./agents.model";
 import type { ObservationDomain, OperationalActivityKind } from "../agent-operational-activity";
 
-export const AGENT_LOG_LIMIT = 700;
+export const AGENT_LIVE_LOG_LIMIT = 700;
+export const AGENT_AUDIT_PARENT_LIMIT = 200;
+export const AGENT_AUDIT_CONVERSATION_LIMIT = 200;
+export const AGENT_AUDIT_LOG_LIMIT =
+  AGENT_AUDIT_PARENT_LIMIT + AGENT_AUDIT_CONVERSATION_LIMIT;
+export const AGENT_LOG_LIMIT = AGENT_LIVE_LOG_LIMIT + AGENT_AUDIT_LOG_LIMIT;
 export type AgentLogColumn = "time" | "route" | "type" | "detail" | "correlation";
 export const DEFAULT_AGENT_LOG_COLUMNS: readonly AgentLogColumn[] = [
   "time",
@@ -40,6 +45,7 @@ export interface AgentLogRow {
   readonly context: string | null;
   readonly correlationId: string | null;
   readonly eventId: string | null;
+  readonly activityId: string | null;
   readonly source: AgentLogSource;
   readonly operationalKind: OperationalActivityKind | null;
   readonly observationDomain: ObservationDomain | null;
@@ -55,7 +61,9 @@ export function buildAgentLogRows(
   events: readonly LiveAgentActivityEvent[],
   auditItems: readonly AuditItem[],
 ): readonly AgentLogRow[] {
-  const rows: AgentLogRow[] = [];
+  const liveRows: AgentLogRow[] = [];
+  const auditRows: AgentLogRow[] = [];
+  const conversationRows: AgentLogRow[] = [];
   const latestLiveEventByAgent = new Map<string, LiveAgentActivityEvent>();
   events.forEach((event, index) => {
     const previous = latestLiveEventByAgent.get(event.agent);
@@ -63,7 +71,7 @@ export function buildAgentLogRows(
     for (const agent of event.agents.length > 0 ? event.agents : [event.agent]) {
       latestLiveEventByAgent.set(agent, event);
     }
-    addBoundedRow(rows, {
+    addBoundedRow(liveRows, {
       id: `live:${event.sequence}`,
       timestamp: event.ts,
       timestampValid: timestamp(event.ts) !== null,
@@ -73,11 +81,12 @@ export function buildAgentLogRows(
       context: event.detail && event.detail !== event.summary ? event.summary : null,
       correlationId: event.correlationId,
       eventId: null,
+      activityId: event.activityId,
       source: event.source,
       operationalKind: event.operationalKind,
       observationDomain: event.observationDomain,
       sortOrder: [0, 0, events.length - index],
-    });
+    }, AGENT_LIVE_LOG_LIMIT);
   });
   auditItems.forEach((item) => {
     const actor = agentOf(item);
@@ -85,7 +94,7 @@ export function buildAgentLogRows(
     const summary = entryStr(item, "summary") || entryStr(item, "detail") ||
       entryStr(item, "reason") || item.action_kind;
     const target = entryStr(item, "resource_ref") || entryStr(item, "target_resource_ref");
-    addBoundedRow(rows, {
+    addBoundedRow(auditRows, {
       id: `audit:${item.seq}`,
       timestamp: item.recorded_at,
       timestampValid: timestamp(item.recorded_at) !== null,
@@ -95,13 +104,14 @@ export function buildAgentLogRows(
       context: `${item.mode} - ${provenance}`,
       correlationId: item.correlation_id,
       eventId: item.event_id,
+      activityId: null,
       source: provenance === "sample" ? "audit-sample" : "audit-operational",
       operationalKind: null,
       observationDomain: null,
       sortOrder: [1, item.seq, 0],
-    });
+    }, AGENT_AUDIT_PARENT_LIMIT);
     entryConversation(item)?.forEach((turn, index) => {
-      addBoundedRow(rows, {
+      addBoundedRow(conversationRows, {
         id: `audit:${item.seq}:conversation:${index}`,
         timestamp: item.recorded_at,
         timestampValid: timestamp(item.recorded_at) !== null,
@@ -111,14 +121,15 @@ export function buildAgentLogRows(
         context: item.action_kind,
         correlationId: item.correlation_id,
         eventId: item.event_id,
+        activityId: null,
         source: provenance === "sample" ? "audit-sample" : "audit-operational",
         operationalKind: null,
         observationDomain: null,
         sortOrder: [1, item.seq, index + 1],
-      });
+      }, AGENT_AUDIT_CONVERSATION_LIMIT);
     });
   });
-  return rows;
+  return [...liveRows, ...auditRows, ...conversationRows].sort(compareRows);
 }
 
 export function filterAgentLogRows(
@@ -139,6 +150,7 @@ export function filterAgentLogRows(
       row.context,
       row.correlationId,
       row.eventId,
+      row.activityId,
       row.source,
       row.operationalKind,
       row.observationDomain,
@@ -208,10 +220,14 @@ function compareOrder(
   return left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
 }
 
-function addBoundedRow(rows: AgentLogRow[], row: AgentLogRow): void {
+function addBoundedRow(
+  rows: AgentLogRow[],
+  row: AgentLogRow,
+  limit: number,
+): void {
   rows.push(row);
   rows.sort(compareRows);
-  if (rows.length > AGENT_LOG_LIMIT) rows.shift();
+  if (rows.length > limit) rows.shift();
 }
 
 function compareRows(left: AgentLogRow, right: AgentLogRow): number {

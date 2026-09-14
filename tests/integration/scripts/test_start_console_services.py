@@ -376,6 +376,7 @@ def test_supervisor_waits_for_the_analyzer_first_clean_tick() -> None:
 
     assert 'if [[ "$service" == "local-analyzer" ]]' in source
     assert "service_args+=(--wait-ready)" in source
+    assert 'FDAI_CONSOLE_START_READINESS_SECONDS="$readiness_seconds"' in source
     assert "FDAI_ANALYZER_RUN_ID:-local-analyzer-$(date -u +%s)-$$" in service_source
     assert 'FDAI_ANALYZER_RUN_ID="$local_analyzer_run_id"' in service_source
 

@@ -3773,7 +3773,7 @@ pre {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.45);
-  z-index: 30;
+  z-index: 120;
   touch-action: none;
   animation: live-backdrop-fade 0.18s ease-out;
 }

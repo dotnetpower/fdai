@@ -48,7 +48,7 @@ An AKS diagnostic receipt is typed evidence attached to the selected Resource re
 not create another ObjectType or LinkType, and its content identity cannot replace the Resource UID
 or relationship identity.
 Every canonical ResourceType also has one explicit recorded-state disposition. Missing state is
-never converted into a generic healthy value.
+never converted into a generic healthy value. The shared Operator workflow adapter may expose an optional `rule.findings-summary` projection with server-recorded counts or explicit `evaluated: false`; that operational summary is not an ontology declaration, relationship, evidence admission, or authority source.
 
 An ObjectSet with a predicate that cannot run in the store first evaluates a 1,000-object,
 relationship-free candidate window. If that window is truncated and does not prove the requested

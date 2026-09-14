@@ -138,12 +138,14 @@ export interface LiveAgentActivityEvent {
   readonly activityId: string | null;
   readonly operationalKind: OperationalActivityKind | null;
   readonly observationDomain: ObservationDomain | null;
+  readonly retained?: boolean;
 }
 
 /** Cap retained incidents so a long-lived tab cannot grow without bound. */
 const MAX_INCIDENTS = 30;
 /** Cap live frames so a long-lived tab has stable memory use. */
-const MAX_LIVE_ACTIVITY = 500;
+const MAX_OPERATIONAL_ACTIVITY = 600;
+const MAX_OTHER_LIVE_ACTIVITY = 100;
 
 export function makeInitialState(): AgentsState {
   const agents: Record<string, AgentNode> = {};
@@ -188,6 +190,7 @@ function projectLiveActivity(
       activityId: null,
       operationalKind: null,
       observationDomain: null,
+      retained: false,
     };
   }
   if (msg.type === "incident.ticket") {
@@ -206,6 +209,7 @@ function projectLiveActivity(
       activityId: null,
       operationalKind: null,
       observationDomain: null,
+      retained: false,
     };
   }
   if (msg.type === "agent.operational-activity") {
@@ -224,6 +228,7 @@ function projectLiveActivity(
       activityId: msg.activity_id,
       operationalKind: msg.kind,
       observationDomain: msg.observation_domain,
+      retained: sourceOverride === "replay",
     };
   }
   const agents = [msg.from_agent, msg.to_agent].filter(
@@ -243,6 +248,7 @@ function projectLiveActivity(
     activityId: null,
     operationalKind: null,
     observationDomain: null,
+    retained: false,
   };
 }
 
@@ -284,13 +290,29 @@ function recordLiveActivity(
     );
   if (duplicateIndex >= 0) {
     const duplicate = state.liveActivity[duplicateIndex];
+    if (
+      sourceOverride === "replay" &&
+      duplicate !== undefined &&
+      duplicate.retained !== true
+    ) {
+      return {
+        ...state,
+        liveActivity: boundLiveActivity(
+          state.liveActivity.map((event, index) =>
+            index === duplicateIndex
+              ? { ...event, retained: true }
+              : event
+          ),
+        ),
+      };
+    }
     if (sourceOverride === undefined && duplicate?.source === "replay") {
       return {
         ...state,
-        liveActivity: [
-          projected,
+        liveActivity: boundLiveActivity([
+          { ...projected, retained: duplicate.retained === true },
           ...state.liveActivity.filter((_, index) => index !== duplicateIndex),
-        ].slice(0, MAX_LIVE_ACTIVITY),
+        ]),
         nextLiveActivitySequence: state.nextLiveActivitySequence + 1,
       };
     }
@@ -299,9 +321,23 @@ function recordLiveActivity(
   if (isRepeatedPassiveState(state.liveActivity, projected)) return state;
   return {
     ...state,
-    liveActivity: [projected, ...state.liveActivity].slice(0, MAX_LIVE_ACTIVITY),
+    liveActivity: boundLiveActivity([projected, ...state.liveActivity]),
     nextLiveActivitySequence: state.nextLiveActivitySequence + 1,
   };
+}
+
+function boundLiveActivity(
+  events: readonly LiveAgentActivityEvent[],
+): readonly LiveAgentActivityEvent[] {
+  const operational = events
+    .filter((event) => event.operationalKind !== null)
+    .slice(0, MAX_OPERATIONAL_ACTIVITY);
+  const other = events
+    .filter((event) => event.operationalKind === null)
+    .slice(0, MAX_OTHER_LIVE_ACTIVITY);
+  return [...operational, ...other].sort(
+    (left, right) => right.sequence - left.sequence,
+  );
 }
 
 function isRuntimeInitializationSnapshot(msg: AgentActivityMessage): boolean {
