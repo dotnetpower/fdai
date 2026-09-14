@@ -644,6 +644,8 @@ Receipt writes retain the legacy `at` timestamp alias alongside the structured s
 tabs sharing one profile continue to deduplicate during a rolling Console update.
 The page accepts acknowledgement messages only from trusted browser events and records its own
 receipt time; service-worker payloads cannot supply or override that timestamp.
+The visible delivery status is always derived from the newest retained delivery, so opening an
+older notification cannot make a newer unacknowledged notification appear acknowledged.
 Visible-heading components use `title` only for rendered heading content. Native HTML `title` bubbles remain limited to accessibility-compatible elements, and all other contextual help uses the shared Tooltip component.
 The static component gallery reads contracts from `mocks/ui/assets/component-registry.json` and presents each specimen before its owner, source, states, usage guidance, responsive behavior, accessibility contract, and product references. A missing or invalid registry blocks documented status instead of inferring canonical status. The gallery remains synthetic presentation evidence and grants no Console, Operator API, or executor authority.
 

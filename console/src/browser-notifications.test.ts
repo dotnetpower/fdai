@@ -12,6 +12,7 @@ import {
   browserNotificationTargetPath,
   browserNotificationWorkerPaths,
   claimBrowserAlertDelivery,
+  readBrowserAlertDeliveryStatus,
   readLatestBrowserAlertReceipt,
   readBrowserNotificationPreference,
   recordBrowserAlertDelivered,
@@ -291,5 +292,25 @@ describe("browser notification boundary", () => {
     )?.acknowledgedAt).toBe(delayedClick);
     expect(readLatestBrowserAlertReceipt("principal-a", delayedClick, storage)?.tag)
       .toBe("fdai:event-1");
+  });
+
+  test("derives status from the latest delivery instead of an older acknowledgement", () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value); },
+      removeItem: (key: string) => { values.delete(key); },
+    };
+    const now = 1_800_000_000_000;
+    claimBrowserAlertDelivery("fdai:event-old", "principal-a", now, storage);
+    recordBrowserAlertDelivered("fdai:event-old", "principal-a", now + 1, storage);
+    claimBrowserAlertDelivery("fdai:event-new", "principal-a", now + 2, storage);
+    recordBrowserAlertDelivered("fdai:event-new", "principal-a", now + 3, storage);
+
+    acknowledgeBrowserAlertDelivery("fdai:event-old", "principal-a", now + 4, storage);
+    expect(readBrowserAlertDeliveryStatus("principal-a", now + 4, storage)).toBe("delivered");
+
+    acknowledgeBrowserAlertDelivery("fdai:event-new", "principal-a", now + 5, storage);
+    expect(readBrowserAlertDeliveryStatus("principal-a", now + 5, storage)).toBe("acknowledged");
   });
 });

@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: e195e63c3db0d69541407b06c21c4daaeb369fd1
+translation_source_sha: 77013079a632aa9375d55be861e4ef8bc13b63ba
 translation_revised: 2026-09-14
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -644,6 +644,8 @@ fail-closed 처리합니다. 이 로컬 증적은 Core 전달 상태를 갱신�
 이전 탭과 새 탭이 Console 롤링 업데이트 중에도 중복을 억제합니다.
 페이지는 신뢰된 브라우저 이벤트의 확인 메시지만 수락하고 자체 시각으로 증적을 기록합니다.
 서비스 워커 페이로드는 이 타임스탬프를 제공하거나 덮어쓸 수 없습니다.
+표시되는 전달 상태는 항상 보존된 최신 전달에서 도출하므로, 이전 알림을 열어도 더 최신인 미확인
+알림이 확인된 것으로 표시되지 않습니다.
 화면에 보이는 제목 컴포넌트는 렌더링되는 제목 내용에만 `title`을 사용합니다. 기본 HTML `title` 말풍선은 접근성과 호환되는 요소로 제한하며, 그 밖의 맥락 도움말은 공통 Tooltip 컴포넌트를 사용합니다.
 정적 컴포넌트 갤러리는 `mocks/ui/assets/component-registry.json`의 계약을 읽고 각 시안을 소유자, 원본, 상태, 사용 지침, 반응형 동작, 접근성 계약 및 제품 참조보다 먼저 표시합니다. 레지스트리가 없거나 잘못되면 정규 상태를 추론하지 않고 문서화를 차단합니다. 갤러리는 합성 표현 근거이며 Console, Operator API 또는 실행기 권한을 부여하지 않습니다.
 
