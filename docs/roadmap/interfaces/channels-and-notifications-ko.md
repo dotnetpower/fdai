@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: b2c172cea1b7ca7b4ee1e405197d16f91ff1dfa4
+translation_source_sha: 0ea7f9b4988554e95f3254c714082bc3464cd2fa
 translation_revised: 2026-09-14
 ---
 
@@ -382,7 +382,9 @@ Console은 브라우저 알림 경계를 명시적인 클라이언트 로컬 `co
 식별자, 승인 컨트롤 또는 실행 링크는 포함하지 않습니다. 반복 프레임은 같은 이벤트 알림을
 교체하며 명시적 선택 기본 설정은 로그인한 브라우저 principal 범위로 저장합니다. principal 범위
 브라우저 원장은 여러 탭에서 같은 이벤트 태그를 5분 동안 억제하고 시스템 알림을 분당 5건으로
-제한합니다. 억제된 이벤트도 감사 및 인시던트 화면에는 그대로 남습니다.
+제한합니다. 억제된 이벤트도 감사 및 인시던트 화면에는 그대로 남습니다. 중복 억제 만료가 확인
+증적을 지우지는 않습니다. 범위가 제한된 로컬 원장은 최대 32개 증적을 7일 동안 유지하여 늦은
+알림 클릭도 수렴할 수 있게 합니다.
 
 `showNotification()`이 완료되면 같은 원장이 `console-web` 전달을 전송됨으로 기록합니다. 사용자가
 알림을 클릭하면 같은 브라우저 principal의 전송 기록에 범위가 제한된 태그가 이미 있을 때만 별도

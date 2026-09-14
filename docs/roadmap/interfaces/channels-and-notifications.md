@@ -382,7 +382,8 @@ raw errors, resource identifiers, approval controls, or execution links. Repeate
 same event notification, and the opt-in preference is scoped to the signed-in browser principal.
 A principal-scoped browser ledger suppresses duplicate event tags for five minutes across tabs and
 limits delivery to five system notifications per minute; suppressed events remain in the audit and
-Incident views.
+Incident views. Deduplication expiry does not erase acknowledgement evidence: the bounded local
+ledger retains up to 32 receipts for seven days so a delayed notification click can still converge.
 
 After `showNotification()` resolves, the same ledger records the `console-web` delivery as sent.
 Clicking that notification records a separate acknowledgement only when its bounded tag already has

@@ -6,6 +6,7 @@ const DELIVERY_PREFIX = "fdai:console:browser-notification-delivery:v1";
 const SAFE_EVENT_ID = /^[A-Za-z0-9._:-]{1,128}$/;
 const SAFE_CORRELATION_ID = /^[\x21-\x7E]{1,256}$/;
 const DELIVERY_DEDUP_MS = 5 * 60_000;
+const DELIVERY_RECEIPT_RETENTION_MS = 7 * 24 * 60 * 60_000;
 const DELIVERY_RATE_WINDOW_MS = 60_000;
 const DELIVERY_RATE_LIMIT = 5;
 const DELIVERY_LEDGER_LIMIT = 32;
@@ -108,9 +109,17 @@ export function claimBrowserAlertDelivery(
   const key = browserNotificationDeliveryKey(principalId);
   try {
     const entries = readDeliveryEntries(storage.getItem(key)).filter(
-      (entry) => entry.claimedAt <= now && entry.claimedAt > now - DELIVERY_DEDUP_MS,
+      (entry) =>
+        entry.claimedAt <= now
+        && entry.claimedAt > now - DELIVERY_RECEIPT_RETENTION_MS,
     );
-    if (entries.some((entry) => entry.tag === tag)) return "duplicate";
+    if (
+      entries.some(
+        (entry) => entry.tag === tag && entry.claimedAt > now - DELIVERY_DEDUP_MS,
+      )
+    ) {
+      return "duplicate";
+    }
     if (
       entries.filter((entry) => entry.claimedAt > now - DELIVERY_RATE_WINDOW_MS).length
       >= DELIVERY_RATE_LIMIT
@@ -174,7 +183,7 @@ export function readLatestBrowserAlertReceipt(
       .filter(
         (entry) =>
           entry.claimedAt <= now
-          && entry.claimedAt > now - DELIVERY_DEDUP_MS
+          && entry.claimedAt > now - DELIVERY_RECEIPT_RETENTION_MS
           && entry.deliveredAt !== null
           && entry.deliveredAt <= now
           && (entry.acknowledgedAt === null || entry.acknowledgedAt <= now),
