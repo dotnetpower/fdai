@@ -1,8 +1,8 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: a9b20a9a9753121008ffad8ec1314a8fa60ef3b2
-translation_revised: 2026-09-13
+translation_source_sha: 40a418222e2b98c823ef01a13d6298a56ab32906
+translation_revised: 2026-09-14
 ---
 # 구독 초기 구성 보증
 
@@ -90,7 +90,10 @@ Azure Run Command 페이로드, 로그, 채팅에 넣지 않습니다.
 Terraform은 비공개 빌더·검증기 VM, 확장, 할당 해제·일반화, 이미지 캡처와 네트워크를 소유합니다.
 FQDN 허용 목록이 있는 Firewall Basic 뒤에 VM과 분리된 공개 송신 IP 두 개를 둡니다. 숨겨진
 Shared Key 스테이징 때문에 Azure VM Image Builder, Storage, 이미지 템플릿은 허용하지 않습니다.
-수락에는 이미지 출처, 확장 성공, 두 VM의 할당 해제가 필요하며 이미 시작한 빌드는 재시도하지 않습니다.
+수락에는 이미지 출처, 성공한 확장 리소스 프로비저닝, 두 VM의 할당 해제가 필요하며 이미 시작한
+빌드는 재시도하지 않습니다. Azure는 VM 할당 해제 후 확장 인스턴스 보기 상태를 생략할 수
+있습니다. 상태가 있으면 `ProvisioningState/succeeded`를 포함해야 하며, 상태 목록이 없더라도
+확장 리소스 상태가 성공이 아니면 수락하지 않습니다.
 정책 소유인 `FirstPartyUsage=/Unprivileged`는 두 정확한 Firewall IP에서 같거나 모두 없어야
 합니다. 알 수 없는 태그가 없어야 하고 새 변경 없음 계획이 필요하며 교체, 재연결, 기록 재사용은
 허용하지 않습니다. 정책 정리는 다중 줄 CLI TSV를 순서대로 파싱하고 정확한 태그 그룹과 삭제된
