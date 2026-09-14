@@ -296,13 +296,14 @@ class PantheonRuntime:
         )
         if approver_authorizer is not None or muninn_state_store is not None:
             instantiated["Var"] = Var(
-                approver_authorizer=approver_authorizer,
-                state_store=muninn_state_store,
+                approver_authorizer=approver_authorizer, state_store=muninn_state_store
             )
         if saga is not None:
             instantiated["Saga"] = saga
-        if rollback_executors is not None:
-            instantiated["Vidar"] = Vidar(executors=rollback_executors)
+        if rollback_executors is not None or muninn_state_store is not None:
+            instantiated["Vidar"] = Vidar(
+                executors=rollback_executors, state_store=muninn_state_store
+            )
         heimdall = instantiated["Heimdall"]
         if read_investigation_hook is not None and isinstance(heimdall, Heimdall):
             heimdall.register_read_investigation(read_investigation_hook)

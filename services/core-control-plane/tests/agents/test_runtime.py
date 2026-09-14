@@ -36,6 +36,7 @@ from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
 from fdai.agents.var import Var
+from fdai.agents.vidar import Vidar
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.chaos.symptom_index import build_from_entries
 from fdai.core.executor.lock import ResourceLockManager
@@ -262,6 +263,20 @@ def test_runtime_injects_durable_state_store_into_var() -> None:
     var = runtime.agents["Var"]
     assert isinstance(var, Var)
     assert var._state_store is store  # noqa: SLF001 - composition assertion
+
+
+def test_runtime_injects_durable_state_store_into_vidar() -> None:
+    store = InMemoryStateStore()
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        muninn_state_store=store,
+        rollback_executors={},
+    )
+
+    vidar = runtime.agents["Vidar"]
+    assert isinstance(vidar, Vidar)
+    assert vidar._state_store is store  # noqa: SLF001 - composition assertion
 
 
 def test_runtime_wires_rule_generation_results_to_mimir_with_durable_store() -> None:

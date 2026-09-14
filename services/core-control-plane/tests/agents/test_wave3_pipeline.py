@@ -1289,6 +1289,120 @@ def test_vidar_retries_publication_without_repeating_rollback() -> None:
     assert bus.payloads[0]["rollback_ref"] == "rollback:c-publish-retry"
 
 
+def test_vidar_replays_durable_terminal_result_after_restart() -> None:
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    calls: list[str] = []
+
+    async def rollback_executor(action_run):
+        calls.append(action_run["correlation_id"])
+        return "rollback:c-durable-restart"
+
+    store = InMemoryStateStore()
+    failed = {
+        "correlation_id": "c-durable-restart",
+        "action_type": "ops.restart-service",
+        "resource_id": "vm-3",
+        "state": "failed",
+    }
+    first = Vidar(
+        bus=None,
+        executors={"state_forward_only": rollback_executor},
+        state_store=store,
+    )
+    completed = asyncio.run(first.rollback(dict(failed)))
+
+    bus = InMemoryBus(registry=load_pantheon())
+    restarted = Vidar(
+        bus=bus,
+        executors={"state_forward_only": rollback_executor},
+        state_store=store,
+    )
+    replayed = asyncio.run(restarted.rollback(dict(failed)))
+
+    assert completed is not None and replayed == completed
+    assert calls == ["c-durable-restart"]
+    assert len(bus.messages_on("object.rollback")) == 1
+
+
+def test_vidar_marks_interrupted_durable_claim_execution_unknown() -> None:
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    calls: list[str] = []
+
+    async def interrupted_executor(action_run):
+        calls.append(action_run["correlation_id"])
+        raise asyncio.CancelledError
+
+    store = InMemoryStateStore()
+    failed = {
+        "correlation_id": "c-interrupted-claim",
+        "action_type": "ops.failover-primary",
+        "resource_id": "db-1",
+        "state": "failed",
+        "rollback_contract": "pitr",
+    }
+    first = Vidar(
+        bus=None,
+        executors={"pitr": interrupted_executor},
+        state_store=store,
+    )
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(first.rollback(dict(failed)))
+
+    bus = InMemoryBus(registry=load_pantheon())
+    restarted = Vidar(
+        bus=bus,
+        executors={"pitr": interrupted_executor},
+        state_store=store,
+    )
+    recovered = asyncio.run(restarted.rollback(dict(failed)))
+
+    assert recovered is not None
+    assert recovered.state == "execution_unknown"
+    assert calls == ["c-interrupted-claim"]
+    published = bus.messages_on("object.rollback")
+    assert len(published) == 1
+    assert published[0].payload["state"] == "execution_unknown"
+
+
+def test_vidar_serializes_concurrent_rollback_delivery() -> None:
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    calls: list[str] = []
+
+    async def rollback_executor(action_run):
+        calls.append(action_run["correlation_id"])
+        await asyncio.sleep(0)
+        return "rollback:c-concurrent"
+
+    bus = InMemoryBus(registry=load_pantheon())
+    vidar = Vidar(
+        bus=bus,
+        executors={"state_forward_only": rollback_executor},
+        state_store=InMemoryStateStore(),
+    )
+    failed = {
+        "correlation_id": "c-concurrent",
+        "action_type": "ops.restart-service",
+        "resource_id": "vm-3",
+        "state": "failed",
+    }
+
+    async def _deliver_twice():
+        return await asyncio.gather(
+            vidar.rollback(dict(failed)),
+            vidar.rollback(dict(failed)),
+        )
+
+    first, second = asyncio.run(_deliver_twice())
+
+    assert first is not None
+    assert second is None
+    assert calls == ["c-concurrent"]
+    assert len(bus.messages_on("object.rollback")) == 1
+
+
 def test_thor_per_resource_mutex_prevents_concurrent_runs() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)

@@ -74,8 +74,7 @@ Odin 에 두 라인이 보고한다: Thor (operations) 와 Forseti (judgment). 4
 >>>>>>> 9cc386759 (fix(var): checkpoint final approvals durably)
 워크플로 요청은 양의 시도 번호를 포함한 범위가 제한된 `workflow_action` 계보를 Huginn, Forseti, Thor를 거쳐 보존합니다. Thor는 판정이 액션 식별자를 제공한 경우에만 이를 보존하고 상관관계 ID에서 액션 식별자를 만들어 내지 않으며, 범위가 제한된 ActionRun 계보 검증은 권한이 없는 `_framework` 도우미에 둡니다. Delivery 소유 producer는 하나의 완전한 operational plan에 대한 optional argument-bound kinetic proposal을 저장하고 Forseti는 주입된 source로 이를 해석해 strict validation 뒤 같은 Verdict-to-ActionRun path에 보존합니다. 둘 다 attribution 및 evidence 전용이며 quorum, mode,
 judgment, approval 또는 execution authority를 바꾸지 않습니다.
-Vidar는 완료된 rollback을 안정적인 증적 게시 전에 기록합니다. broker 실패 시 provider
-rollback을 반복하지 않고 같은 증적을 다시 게시하며, 게시가 성공해야 중복 제거가 완료됩니다.
+Vidar는 provider rollback 전에 상관관계와 action 다이제스트를 런타임 StateStore에 원자적으로 점유합니다. 점유한 실행만 복구를 수행하며, 중단된 점유는 복구를 반복하지 않고 명시적인 `execution_unknown`이 됩니다. 종결 및 게시 증적은 provider를 다시 호출하지 않고 재생됩니다.
 Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 
 ![3. 런타임 관계도. 주요 단계는 Huginn, Heimdall, Forseti, Mimir, Muninn, Njord, Freyr, Loki, Thor, Vidar, Var, Saga입니다.](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-02.ko.svg)

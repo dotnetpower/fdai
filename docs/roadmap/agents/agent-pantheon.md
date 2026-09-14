@@ -61,8 +61,8 @@ document-ingestion and observation-only architecture-review verdicts. Odin exclu
 Saga persists gated and terminal audit. Cloud-reference packages also require this independent Var approval, even with a valid signature; see [Cloud resource knowledge](../interfaces/cloud-resource-knowledge-lifecycle.md). Workflow requests preserve bounded `workflow_action` lineage, including the positive attempt number, through Huginn, Forseti, and Thor.
 Thor preserves an action identifier only when the verdict supplies one and never invents one from the correlation id; bounded ActionRun lineage validation remains an authority-free `_framework` helper. A delivery-owned producer stores an optional argument-bound kinetic proposal for one complete operational plan; Forseti resolves it through an injected source and keeps it on the same Verdict-to-ActionRun path after strict validation. Both are attribution and evidence only;
 neither changes quorum, mode, judgment, approval, or execution authority.
-Vidar records a completed rollback before publishing its stable receipt. A broker failure retries
-that same receipt without repeating the provider rollback, and only a successful publication closes deduplication.
+Vidar atomically claims a correlation and action digest in the runtime StateStore before provider rollback. Only the claimant executes;
+an interrupted claim becomes explicit `execution_unknown` instead of repeating recovery. Terminal and publication receipts replay without another provider call.
 Norns proposes to Mimir, and Odin arbitrates conflicts before judgment.
 
 ![3. Runtime relationship diagram. The main stages are Huginn, Heimdall, Forseti, Mimir, Muninn, Njord, Freyr, Loki, Thor, Vidar, Var, Saga.](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-02.en.svg)
