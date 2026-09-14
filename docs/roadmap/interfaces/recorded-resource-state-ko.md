@@ -1,8 +1,8 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 8d4643e4858f433e23ab01bea267de6c9438ca16
-translation_revised: 2026-09-13
+translation_source_sha: 0e75797d017d3635aa2ceafe13b8f56c33da62c3
+translation_revised: 2026-09-14
 ---
 # 기록된 리소스 상태
 
@@ -207,6 +207,9 @@ ResourceType을 선언합니다.
   같은 필터가 적용된 기록 상태 화면으로 계속 연결됩니다.
 - 온톨로지 디렉터리와 탐색 기록도 온톨로지가 소유하는 현재 Resource 상태에서 같은 `states` 필드를
   제공합니다.
+- `/ontology`는 관측된 Resource 인스턴스 작업 영역으로 열리고, 운영자가 정의 또는 토폴로지 참조
+  보기로 이동한 뒤에만 선언 그래프를 요청합니다. 이름이 명확한 펼침 메뉴는 기존 참조 및 선언 상세
+  링크를 유지하며 기록 상태 또는 그래프 권한을 바꾸지 않습니다.
 - 온톨로지 인스턴스 그래프는 결과 노드가 적어도 검토된 뷰포트 높이를 유지하므로 기록된 상태의
   세부 정보를 확인하는 영역이 축소되지 않습니다.
 - `llm-model-deployment` 기록은 추가 `model_deployment` 객체도 제공할 수 있습니다. Operator 변환

@@ -3,6 +3,7 @@ import type { OntologyEdge, OntologyNode } from "../components/ontology-graph";
 import {
   ontologyNamedSelection,
   ontologyPathSelection,
+  ontologyRouteView,
   selectedOntologyExplanations,
   selectedOntologyRecords,
 } from "./ontology";
@@ -12,6 +13,7 @@ import {
   requestedOntologyAction,
   resolveOntologyActionSelection,
 } from "./ontology-actions";
+import { ontologyViewHref } from "./ontology-navigation";
 import type { OntologyActionTypeRecord } from "./ontology.types";
 
 function action(name: string): OntologyActionTypeRecord {
@@ -102,6 +104,15 @@ describe("ontology explicit selections", () => {
     });
     expect(ontologyPathSelection(["object-types", "Decision"])).toBeNull();
     expect(ontologyPathSelection(["link-types"])).toBeNull();
+  });
+
+  it("opens instances by default while preserving explicit reference routes", () => {
+    expect(ontologyRouteView([], null)).toBe("instances");
+    expect(ontologyRouteView([], "unknown")).toBe("instances");
+    expect(ontologyRouteView([], "map")).toBe("map");
+    expect(ontologyRouteView(["link-types", "based_on"], null)).toBe("links");
+    expect(ontologyViewHref("instances")).toBe("/ontology");
+    expect(ontologyViewHref("objects")).toBe("/ontology?view=objects");
   });
 
   it("never substitutes another ActionType for an invalid or filtered selection", () => {
