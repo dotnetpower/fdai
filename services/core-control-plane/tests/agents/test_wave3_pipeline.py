@@ -1774,6 +1774,75 @@ def test_var_replays_final_approval_after_restart() -> None:
     assert len(bus.messages_on("object.approval")) == 1
 
 
+def test_var_recovers_unpublished_final_without_repeated_human_decision() -> None:
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    store = InMemoryStateStore()
+    first = _var_with_pending(
+        "c-approval-outbox",
+        state_store=store,
+    )
+    first.bus = None
+    finalized = asyncio.run(
+        first.decide(
+            "c-approval-outbox",
+            approver="reviewer@example.com",
+            decision="approve",
+        )
+    )
+    assert finalized is not None
+
+    bus = InMemoryBus(registry=load_pantheon())
+    restarted = Var(bus=bus, state_store=store)
+    recovered = asyncio.run(restarted.recover_approvals())
+
+    assert recovered == (0, 1)
+    published = bus.messages_on("object.approval")
+    assert len(published) == 1
+    assert published[0].payload["correlation_id"] == "c-approval-outbox"
+    assert published[0].payload["approvers"] == ["reviewer@example.com"]
+
+
+def test_var_recovers_terminal_decision_before_final_checkpoint() -> None:
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    class _FailFirstFinalCheckpoint(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.failed = False
+
+        async def write_state_if_absent(self, key, value):  # noqa: ANN001, ANN201
+            if key.endswith("/final") and not self.failed:
+                self.failed = True
+                raise RuntimeError("final checkpoint interrupted")
+            return await super().write_state_if_absent(key, value)
+
+    store = _FailFirstFinalCheckpoint()
+    first = _var_with_pending(
+        "c-decision-finalization",
+        state_store=store,
+    )
+    first.bus = None
+    with pytest.raises(RuntimeError, match="final checkpoint interrupted"):
+        asyncio.run(
+            first.decide(
+                "c-decision-finalization",
+                approver="reviewer@example.com",
+                decision="approve",
+            )
+        )
+
+    bus = InMemoryBus(registry=load_pantheon())
+    restarted = Var(bus=bus, state_store=store)
+    recovered = asyncio.run(restarted.recover_approvals())
+
+    assert recovered == (1, 1)
+    published = bus.messages_on("object.approval")
+    assert len(published) == 1
+    assert published[0].payload["correlation_id"] == "c-decision-finalization"
+    assert published[0].payload["approvers"] == ["reviewer@example.com"]
+
+
 def test_var_combines_pre_final_quorum_across_restart() -> None:
     from fdai.shared.providers.testing.state_store import InMemoryStateStore
 

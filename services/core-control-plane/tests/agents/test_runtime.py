@@ -319,6 +319,42 @@ def test_runtime_rehydrates_durable_saga_issue_projection() -> None:
     assert issue.title == "[no_route] Bragi handoff"
 
 
+def test_runtime_recovers_unpublished_var_approval() -> None:
+    store = InMemoryStateStore()
+    seed = Var(state_store=store)
+    asyncio.run(
+        seed.on_typed_message(
+            "object.action-run",
+            {
+                "correlation_id": "runtime-var-recovery",
+                "action_type": "ops.restart-service",
+                "state": "hil_pending",
+                "idempotency_key": "runtime-var-recovery:hil_pending",
+            },
+        )
+    )
+    finalized = asyncio.run(
+        seed.decide(
+            "runtime-var-recovery",
+            approver="reviewer@example.com",
+            decision="approve",
+        )
+    )
+    assert finalized is not None
+
+    provider = InMemoryEventBus()
+    runtime = PantheonRuntime.build(
+        provider=provider,
+        raw_event_topic=_RAW_TOPIC,
+        muninn_state_store=store,
+    )
+    asyncio.run(runtime._rehydrate())  # noqa: SLF001 - startup recovery assertion
+
+    records = provider._records["object.approval"]  # noqa: SLF001
+    assert len(records) == 1
+    assert records[0][1]["correlation_id"] == "runtime-var-recovery"
+
+
 def test_runtime_injects_durable_state_store_into_var() -> None:
     store = InMemoryStateStore()
     runtime = PantheonRuntime.build(

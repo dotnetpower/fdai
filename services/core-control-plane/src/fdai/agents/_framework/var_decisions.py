@@ -5,9 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Protocol
 
 from fdai.shared.providers.state_store import StateStore
 
@@ -22,6 +23,7 @@ class ApprovalDecisionState:
     revision: int
     disposition: str
     approved_principals: tuple[str, ...]
+    ticket_identity: dict[str, Any]
 
     @property
     def rejected(self) -> bool:
@@ -32,11 +34,26 @@ class ApprovalDecisionState:
         return self.disposition in _TERMINAL_DISPOSITIONS
 
 
+class ApprovalTicket(Protocol):
+    correlation_id: str
+    action_type: str
+    quorum_required: int
+    approvers: list[str]
+    kind: str
+    stage: str | None
+    document_id: str | None
+    upload_id: str | None
+    idempotency_key: str
+    decision_case: dict[str, Any] | None
+    params: dict[str, Any]
+
+
 class VarDecisionJournal:
     """Atomically combine immutable per-principal decisions across replicas."""
 
-    def __init__(self, store: StateStore) -> None:
+    def __init__(self, store: StateStore, *, state_prefix: str) -> None:
         self._store = store
+        self._state_prefix = state_prefix
 
     async def record(
         self,
@@ -73,6 +90,7 @@ class VarDecisionJournal:
                     action_type=action_type,
                     quorum_required=quorum_required,
                     ticket_digest=ticket_digest,
+                    ticket_identity=ticket_identity,
                     claims=claims,
                 )
                 created = await self._store.write_state_with_audit_if_absent(
@@ -94,6 +112,7 @@ class VarDecisionJournal:
                         action_type=action_type,
                         quorum_required=quorum_required,
                         ticket_digest=ticket_digest,
+                        ticket_identity=ticket_identity,
                     )[0]
                 continue
 
@@ -103,6 +122,7 @@ class VarDecisionJournal:
                 action_type=action_type,
                 quorum_required=quorum_required,
                 ticket_digest=ticket_digest,
+                ticket_identity=ticket_identity,
             )
             prior = claims.get(claim_id)
             if prior is not None:
@@ -120,6 +140,7 @@ class VarDecisionJournal:
                 action_type=action_type,
                 quorum_required=quorum_required,
                 ticket_digest=ticket_digest,
+                ticket_identity=ticket_identity,
                 claims=next_claims,
             )
             advanced = await self._store.compare_and_set_state_with_audit(
@@ -142,8 +163,80 @@ class VarDecisionJournal:
                     action_type=action_type,
                     quorum_required=quorum_required,
                     ticket_digest=ticket_digest,
+                    ticket_identity=ticket_identity,
                 )[0]
         raise RuntimeError("approval decision CAS retry limit exceeded")
+
+    async def next_pending_finalization(self) -> ApprovalDecisionState | None:
+        """Return one terminal decision whose final payload is not checkpointed."""
+        stored = await self._store.find_state(
+            f"{self._state_prefix}/",
+            field="finalization_status",
+            value="pending",
+        )
+        if stored is None:
+            return None
+        ticket_identity = _stored_ticket_identity(stored)
+        return _parse_decision_state(
+            stored,
+            correlation_id=str(ticket_identity["correlation_id"]),
+            action_type=str(ticket_identity["action_type"]),
+            quorum_required=int(ticket_identity["quorum_required"]),
+            ticket_digest=_ticket_digest(ticket_identity),
+            ticket_identity=ticket_identity,
+        )[0]
+
+    async def mark_finalized(
+        self,
+        *,
+        state_key: str,
+        ticket_identity: Mapping[str, Any],
+    ) -> None:
+        """Advance one terminal decision after its final payload is durable."""
+        ticket_digest = _ticket_digest(ticket_identity)
+        for _attempt in range(_MAX_CAS_ATTEMPTS):
+            stored = await self._store.read_state(state_key)
+            if stored is None:
+                raise RuntimeError("approval decision state disappeared")
+            current, claims = _parse_decision_state(
+                stored,
+                correlation_id=str(ticket_identity["correlation_id"]),
+                action_type=str(ticket_identity["action_type"]),
+                quorum_required=int(ticket_identity["quorum_required"]),
+                ticket_digest=ticket_digest,
+                ticket_identity=ticket_identity,
+            )
+            if not current.terminal:
+                raise RuntimeError("approval decision is not terminal")
+            if stored.get("finalization_status") == "complete":
+                return
+            next_revision = current.revision + 1
+            value = _decision_state(
+                revision=next_revision,
+                correlation_id=str(ticket_identity["correlation_id"]),
+                action_type=str(ticket_identity["action_type"]),
+                quorum_required=int(ticket_identity["quorum_required"]),
+                ticket_digest=ticket_digest,
+                ticket_identity=ticket_identity,
+                claims=claims,
+                finalization_status="complete",
+            )
+            advanced = await self._store.compare_and_set_state_with_audit(
+                state_key,
+                value,
+                expected_revision=current.revision,
+                audit_entry={
+                    "actor": "Var",
+                    "action_kind": "approval.finalized",
+                    "correlation_id": str(ticket_identity["correlation_id"]),
+                    "ticket_digest": ticket_digest,
+                    "revision": next_revision,
+                    "recorded_at": datetime.now(tz=UTC).isoformat(),
+                },
+            )
+            if advanced:
+                return
+        raise RuntimeError("approval finalization CAS retry limit exceeded")
 
 
 def _decision_state(
@@ -153,13 +246,24 @@ def _decision_state(
     action_type: str,
     quorum_required: int,
     ticket_digest: str,
+    ticket_identity: Mapping[str, Any],
     claims: Mapping[str, Mapping[str, str]],
+    finalization_status: str | None = None,
 ) -> dict[str, Any]:
     approved = sum(claim["decision"] == "approved" for claim in claims.values())
     rejected = any(claim["decision"] == "rejected" for claim in claims.values())
     disposition = (
         "rejected" if rejected else "approved" if approved >= quorum_required else "pending"
     )
+    expected_finalization = "not_ready" if disposition == "pending" else "pending"
+    resolved_finalization = finalization_status or expected_finalization
+    if (
+        disposition == "pending"
+        and resolved_finalization != "not_ready"
+        or disposition in _TERMINAL_DISPOSITIONS
+        and resolved_finalization not in {"pending", "complete"}
+    ):
+        raise ValueError("approval finalization status conflicts with disposition")
     return {
         "schema_version": "1.0.0",
         "revision": revision,
@@ -167,8 +271,10 @@ def _decision_state(
         "action_type": action_type,
         "quorum_required": quorum_required,
         "ticket_digest": ticket_digest,
+        "ticket_identity": _canonical_ticket_identity(ticket_identity),
         "decision_claims": {claim_id: dict(claim) for claim_id, claim in sorted(claims.items())},
         "disposition": disposition,
+        "finalization_status": resolved_finalization,
     }
 
 
@@ -179,6 +285,7 @@ def _parse_decision_state(
     action_type: str,
     quorum_required: int,
     ticket_digest: str,
+    ticket_identity: Mapping[str, Any],
 ) -> tuple[ApprovalDecisionState, dict[str, dict[str, str]]]:
     revision = value.get("revision")
     claims_raw = value.get("decision_claims")
@@ -191,6 +298,7 @@ def _parse_decision_state(
         or value.get("action_type") != action_type
         or value.get("quorum_required") != quorum_required
         or value.get("ticket_digest") != ticket_digest
+        or value.get("ticket_identity") != _canonical_ticket_identity(ticket_identity)
         or not isinstance(claims_raw, Mapping)
         or not claims_raw
     ):
@@ -232,7 +340,9 @@ def _parse_decision_state(
         action_type=action_type,
         quorum_required=quorum_required,
         ticket_digest=ticket_digest,
+        ticket_identity=ticket_identity,
         claims=claims,
+        finalization_status=str(value.get("finalization_status") or ""),
     )
     if dict(value) != canonical:
         raise RuntimeError("stored approval decision aggregate is malformed")
@@ -244,6 +354,7 @@ def _parse_decision_state(
             revision=revision,
             disposition=str(canonical["disposition"]),
             approved_principals=approved_principals,
+            ticket_identity=deepcopy(dict(ticket_identity)),
         ),
         claims,
     )
@@ -257,6 +368,28 @@ def _ticket_digest(ticket_identity: Mapping[str, Any]) -> str:
         sort_keys=True,
     ).encode("utf-8")
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def _canonical_ticket_identity(
+    ticket_identity: Mapping[str, Any],
+) -> dict[str, Any]:
+    encoded = json.dumps(
+        ticket_identity,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    loaded = json.loads(encoded)
+    if not isinstance(loaded, dict):
+        raise ValueError("approval ticket identity MUST be an object")
+    return loaded
+
+
+def _stored_ticket_identity(value: Mapping[str, Any]) -> dict[str, Any]:
+    stored = value.get("ticket_identity")
+    if not isinstance(stored, Mapping):
+        raise RuntimeError("stored approval ticket identity is malformed")
+    return _canonical_ticket_identity(stored)
 
 
 def _decision_receipt_ref(
@@ -291,4 +424,55 @@ def _decision_audit_entry(
     }
 
 
-__all__ = ["ApprovalDecisionState", "VarDecisionJournal"]
+def approval_for_ticket(
+    ticket: ApprovalTicket,
+    *,
+    state: str,
+    approvers: tuple[str, ...] | None = None,
+) -> dict[str, Any]:
+    """Build one deterministic final approval from a validated ticket."""
+    approval: dict[str, Any] = {
+        "producer_principal": "Var",
+        "kind": ticket.kind,
+        "correlation_id": ticket.correlation_id,
+        "idempotency_key": (ticket.idempotency_key or f"{ticket.correlation_id}:hil_pending"),
+        "action_type": ticket.action_type,
+        "state": state,
+        "approvers": list(approvers if approvers is not None else ticket.approvers),
+        "decision_case": ticket.decision_case,
+        "params": dict(ticket.params),
+    }
+    if ticket.kind == "document_ingestion":
+        approval.update(
+            {
+                "stage": ticket.stage,
+                "document_id": ticket.document_id,
+                "upload_id": ticket.upload_id,
+            }
+        )
+    return approval
+
+
+def final_approval_record(
+    approval: Mapping[str, Any],
+    *,
+    publication_status: str,
+    revision: int,
+) -> dict[str, Any]:
+    """Wrap a final approval with durable outbox state."""
+    return {
+        "schema_version": "1.0.0",
+        "record_kind": "final_approval",
+        "revision": revision,
+        "correlation_id": str(approval["correlation_id"]),
+        "publication_status": publication_status,
+        "approval": deepcopy(dict(approval)),
+    }
+
+
+__all__ = [
+    "ApprovalDecisionState",
+    "VarDecisionJournal",
+    "approval_for_ticket",
+    "final_approval_record",
+]

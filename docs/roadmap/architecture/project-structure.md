@@ -563,7 +563,8 @@ relationship is deterministic grounding evidence before semantic similarity, so 
 relationship. A T2 proposal also cannot bypass grounding authority when a provider fails. HIL approval ids
 and executor idempotency keys are claimed atomically. Var preserves the source ActionRun idempotency key, serializes finalization, and writes one final approval plus publication receipt to the runtime StateStore before removing the ticket.
 Each normalized Var decision is first joined into an audited CAS aggregate, so restart and concurrent replicas derive quorum from the same
-immutable principal set before finalization. Per-resource locking serializes competing applies before any delivery adapter can mutate state.
+immutable principal set before finalization. Startup uses exact-field pending queries to finalize terminal aggregates and publish durable
+final approvals before consumers, without another human decision. Per-resource locking serializes competing applies before any delivery adapter can mutate state.
 Vidar also claims the correlation and a canonical digest of the complete failed ActionRun with an owner token and bounded lease before
 provider recovery. Every field available to the rollback executor participates, so params, action identity, workflow lineage, or rollback
 data substitution collides instead of replaying a prior receipt.

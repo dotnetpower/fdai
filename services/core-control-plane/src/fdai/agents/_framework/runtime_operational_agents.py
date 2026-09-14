@@ -11,6 +11,7 @@ from fdai.agents.muninn import Muninn
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
+from fdai.agents.var import Var
 from fdai.core.capacity import CapacityGraduationController
 from fdai.core.case_history import (
     CaseHistoryAnalyzer,
@@ -54,6 +55,14 @@ async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
         restored = await saga.rehydrate_issue_tracker()
         if restored:
             _LOG.info("pantheon_saga_issues_rehydrated", extra={"issues": restored})
+    var = agents.get("Var")
+    if isinstance(var, Var):
+        finalized, published = await var.recover_approvals()
+        if finalized or published:
+            _LOG.info(
+                "pantheon_var_approvals_recovered",
+                extra={"finalized": finalized, "published": published},
+            )
 
 
 def bind_operational_agents(
