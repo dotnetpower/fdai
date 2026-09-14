@@ -49,6 +49,11 @@ moved {
   to   = module.llm_azure_openai[0].azurerm_role_assignment.additional_openai_user["operator_api"]
 }
 
+moved {
+  from = azurerm_role_assignment.runtime_startup_probe_eventhubs_owner
+  to   = azurerm_role_assignment.executor_eventhubs_data_owner["runtime.startup.probe"]
+}
+
 data "azurerm_client_config" "current" {}
 
 resource "terraform_data" "deploy_runner_identity_fence" {
@@ -1082,12 +1087,6 @@ resource "azurerm_role_assignment" "ohl_evidence_eventhubs_sender" {
   scope                = module.event_bus.topic_ids[local.event_topics[0]]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.ohl_evidence_identity[0].principal_id
-}
-
-resource "azurerm_role_assignment" "runtime_startup_probe_eventhubs_owner" {
-  scope                = module.event_bus_auxiliary.topic_ids[local.startup_probe_topic]
-  role_definition_name = "Azure Event Hubs Data Owner"
-  principal_id         = module.identity.principal_id
 }
 
 # -----------------------------------------------------------------------
@@ -2585,7 +2584,6 @@ module "compute" {
     azurerm_role_assignment.canary_eventhubs_sender,
     azurerm_role_assignment.ohl_evidence_acr_pull,
     azurerm_role_assignment.ohl_evidence_eventhubs_sender,
-    azurerm_role_assignment.runtime_startup_probe_eventhubs_owner,
     azurerm_communication_service_email_domain_association.notifications,
     azurerm_role_assignment.notification_email_sender,
   ]
@@ -2607,10 +2605,11 @@ locals {
     for capability in var.resolved_capabilities : capability
     if contains(["Anthropic", "MistralAI"], capability.publisher)
   ]
+  openai_enabled = var.enable_llm && length(local.openai_resolved_capabilities) > 0
 }
 
 module "llm_azure_openai" {
-  count  = var.enable_llm ? 1 : 0
+  count  = local.openai_enabled ? 1 : 0
   source = "./modules/llm/azure-openai"
 
   name                          = local.openai_model_account_name
@@ -2668,13 +2667,16 @@ module "llm_foundry_partner" {
 
 locals {
   llm_model_endpoints = var.enable_llm ? merge(
-    {
+    local.openai_enabled ? {
       "azure-openai:${local.openai_model_account_name}" = module.llm_azure_openai[0].endpoint
-    },
+    } : {},
     length(local.partner_resolved_capabilities) == 0 ? {} : {
       "azure-foundry:${local.partner_model_account_name}" = module.llm_foundry_partner[0].endpoint
     },
   ) : {}
+  primary_llm_endpoint = local.openai_enabled ? module.llm_azure_openai[0].endpoint : (
+    length(local.partner_resolved_capabilities) > 0 ? module.llm_foundry_partner[0].endpoint : ""
+  )
   llm_model_endpoints_json = length(local.llm_model_endpoints) == 0 ? "" : jsonencode(
     local.llm_model_endpoints
   )
@@ -2777,7 +2779,7 @@ module "model_apim_gateway" {
 }
 
 module "llm_private_endpoint" {
-  count                 = var.enable_llm && var.enable_private_networking ? 1 : 0
+  count                 = local.openai_enabled && var.enable_private_networking ? 1 : 0
   source                = "./modules/private-endpoint"
   name                  = "pe-oai-${var.workload}${local.full_suffix}"
   location              = var.region
@@ -2850,7 +2852,7 @@ module "measurement_runners" {
     LLM_MODE                   = "azure"
     LLM_RESOLVED_MODELS_PATH   = var.resolved_models_json
     LLM_RESOLVED_MODELS_SHA256 = var.resolved_models_sha256
-    FDAI_LLM_ENDPOINT          = module.llm_azure_openai[0].endpoint
+    FDAI_LLM_ENDPOINT          = local.primary_llm_endpoint
     FDAI_MODEL_ENDPOINTS_JSON  = local.llm_model_endpoints_json
   } : {})
   tags = local.tags
@@ -3047,12 +3049,12 @@ module "operator_api" {
   stewardship_audit_interval_seconds = var.stewardship_audit_interval_seconds
   inventory_freshness_seconds        = var.inventory_freshness_seconds
   python_task_author_endpoint = (
-    var.enable_llm && var.python_task_author_capability != ""
+    local.openai_enabled && var.python_task_author_capability != ""
     ? module.llm_azure_openai[0].endpoint
     : ""
   )
   python_task_author_deployment = (
-    var.enable_llm && var.python_task_author_capability != ""
+    local.openai_enabled && var.python_task_author_capability != ""
     ? lookup(module.llm_azure_openai[0].deployments, var.python_task_author_capability, "")
     : ""
   )
@@ -3140,8 +3142,8 @@ module "ingestion_gateway" {
   adls_account_url                    = module.document_storage[0].primary_dfs_endpoint
   adls_source_file_system             = module.document_storage[0].source_file_system
   adls_derived_file_system            = module.document_storage[0].derived_file_system
-  embedding_endpoint                  = var.enable_llm ? module.llm_azure_openai[0].endpoint : ""
-  embedding_deployment                = var.enable_llm ? lookup(module.llm_azure_openai[0].deployments, var.ingestion_embedding_capability, "") : ""
+  embedding_endpoint                  = local.openai_enabled ? module.llm_azure_openai[0].endpoint : ""
+  embedding_deployment                = local.openai_enabled ? lookup(module.llm_azure_openai[0].deployments, var.ingestion_embedding_capability, "") : ""
   ocr_endpoint                        = local.document_ocr_effective_endpoint
   ocr_provider                        = var.document_ocr_provider
   ocr_operation_timeout_seconds       = var.document_ocr_operation_timeout_seconds

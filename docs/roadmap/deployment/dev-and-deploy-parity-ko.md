@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 19befa1be21897ac57caba467d2aa105f694d6ce
+translation_source_sha: e8b79dadbba928407afda4a7a4ed3289324b337b
 translation_revised: 2026-09-14
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -503,8 +503,7 @@ auto-open도 비활성화하므로 결정론적 동등성 테스트가 Azure CLI
 
 ## 배포자-스코프 LLM 프로비저닝
 
-Cognitive deployment를 변경할 수 있는 보호된 전체 계획은 해석기를 실행하고 적용할 정확한 매니페스트를 봉인합니다. 개발 게이트웨이 대상 계획도 기존 모델 계정, 호출자 RBAC 및 수집
-종속성을 보존하도록 현재 기능 맵을 해석합니다. 대상 집합에 cognitive deployment가 없으므로 완결성 결과는 차단하지 않습니다.
+Cognitive deployment를 변경할 수 있는 보호된 전체 계획은 해석기를 실행하고 적용할 정확한 매니페스트를 봉인합니다. Terraform은 해당 publisher의 기능이 해석될 때만 각 provider 계정을 만들므로 파트너 전용 결과는 Foundry를 유지하고 Azure OpenAI 계정 할당량을 요청하지 않습니다. 개발 게이트웨이 대상 계획도 기존 종속성을 보존하도록 현재 기능 맵을 해석합니다. 대상 집합에 cognitive deployment가 없으므로 완결성 결과는 차단하지 않습니다.
 
 ![배포자-스코프 LLM 프로비저닝. 주요 단계는 [terraform apply\], az account show / + 배포자 principal 해결, Bootstrap audit entry: / deployer_object_id, sub, region, rule-catalog/llm-registry.yaml 읽기, Azure 카탈로그 조회: / var.region 에서 / 사용가능한 Foundry / AOAI SKU, 배포자가 / Cognitive Services Contributor / 대상 subscription에 있음?, 경고 emit: / LLM 프로비저닝 스킵 / T2 capability = HIL-only, preferred family 사용가능 / AND 배포자 sub 쿼터 있음?, 이 capability HIL-only 마킹 / 나머지는 계속, deployment 프로비저닝 / cap_tpm 은 registry에서, mixed-model 불변식: / primary.publisher != secondary.publisher?, 명확한 에러로 abort / (fork가 preference 확장)입니다.](../../diagrams/generated/fdai-roadmap-deployment-dev-and-deploy-parity-01.ko.svg)
 

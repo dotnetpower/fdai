@@ -29,7 +29,8 @@ domain code and assets. It does not create another control plane or move authori
 > not change Njord ownership, package activation, or action authority.
 > Global Terraform roots can carry unrelated AKS observation bindings. Those values and Reader
 > assignments are not Cost Governance package inputs and cannot activate its runtime. The same
-> boundary excludes the independent runtime-call evidence source flag from FinOps package inputs.
+> boundary excludes the independent runtime-call evidence source flag, shared provider endpoint
+> availability, and startup-probe RBAC state addresses from FinOps package inputs and authority.
 > Protected Terraform deployer roles use the configured stable runner UAMI principal, and planning
 > stops when the authenticated principal differs. The isolated public-development path may instead
 > use its verified Azure CLI human only as the Terraform management principal. Neither identity is
