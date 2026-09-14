@@ -102,10 +102,11 @@ _SEVERITY_RANK = {
     severity: rank for rank, severity in enumerate(("critical", "high", "medium", "low", "info"))
 }
 _DETECTION_READINESS_EVENT = "detection.readiness.observed"
+_EpisodeKey = tuple[str, str, str, str, str]
 
 
 def _incident_episode_id(
-    episode_key: tuple[str, str, str, str],
+    episode_key: _EpisodeKey,
     first_evidence_key: str,
 ) -> str:
     """Derive one stable, opaque identity for a bounded repeat episode."""
@@ -116,6 +117,26 @@ def _incident_episode_id(
         separators=(",", ":"),
     )
     return f"{_EPISODE_ID_PREFIX}{hashlib.sha256(canonical.encode()).hexdigest()}"
+
+
+def _event_window_time(event: Mapping[str, Any], *, fallback: float) -> tuple[str, float]:
+    """Return a comparable event-time or arrival-time coordinate."""
+
+    value = event.get("occurred_at")
+    if value is None:
+        return "arrival", fallback
+    if isinstance(value, datetime):
+        observed_at = value
+    elif isinstance(value, str):
+        try:
+            observed_at = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError("event occurred_at MUST be RFC 3339") from exc
+    else:
+        raise ValueError("event occurred_at MUST be RFC 3339")
+    if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+        raise ValueError("event occurred_at MUST be timezone-aware")
+    return "event", observed_at.timestamp()
 
 
 class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
@@ -152,10 +173,10 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
         self._provider_schema_drift_projector = provider_schema_drift_projector
         self._rate_threshold = rate_threshold
         self._rate_window = rate_window
-        self._recent_events: dict[tuple[str, str, str, str], deque[tuple[float, str, str]]] = {}
-        self._recent_episode_keys: dict[str, dict[tuple[str, str, str, str], None]] = {}
-        self._incident_episode_ids: dict[tuple[str, str, str, str], str] = {}
-        self._incident_episode_severities: dict[tuple[str, str, str, str], str] = {}
+        self._recent_events: dict[_EpisodeKey, deque[tuple[float, str, str]]] = {}
+        self._recent_episode_keys: dict[str, dict[_EpisodeKey, None]] = {}
+        self._incident_episode_ids: dict[_EpisodeKey, str] = {}
+        self._incident_episode_severities: dict[_EpisodeKey, str] = {}
         self._security_recent: deque[dict[str, Any]] = deque(maxlen=security_window_events)
         self._security_high_threshold = security_high_threshold
         self._alert_counters: Counter[tuple[str, str]] = Counter()
@@ -561,25 +582,40 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
         incident_correlation = (
             str(event.get("incident_correlation") or "correlate").strip().casefold()
         )
-        episode_key = (resource_id, event_type, correlation_id, incident_correlation)
+        time_basis, observed_at = _event_window_time(event, fallback=self._clock())
+        episode_key = (
+            resource_id,
+            event_type,
+            correlation_id,
+            incident_correlation,
+            time_basis,
+        )
         history = self._episode_history(episode_key)
-        now = self._clock()
-        while history and now - history[0][0] > self._rate_window:
+        watermark = max(observed_at, history[-1][0] if history else observed_at)
+        while history and watermark - history[0][0] > self._rate_window:
             history.popleft()
         if not history:
             self._incident_episode_ids.pop(episode_key, None)
             self._incident_episode_severities.pop(episode_key, None)
+        if observed_at < watermark - self._rate_window:
+            self.record_behavior("repeated_event_out_of_window")
+            return
         evidence_key = str(event.get("idempotency_key") or event.get("event_id") or "").strip()
         if evidence_key and any(item[2] == evidence_key for item in history):
             self.record_behavior("repeated_event_duplicate")
             return
         history.append(
             (
-                now,
+                observed_at,
                 _event_severity(event),
                 evidence_key,
             )
         )
+        history = deque(
+            sorted(history, key=lambda item: (item[0], item[2])),
+            maxlen=self._rate_threshold * 2,
+        )
+        self._recent_events[episode_key] = history
         if len(history) < self._rate_threshold:
             return
         window_tail = list(history)[-self._rate_threshold :]
@@ -681,7 +717,7 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
 
     def _episode_history(
         self,
-        episode_key: tuple[str, str, str, str],
+        episode_key: _EpisodeKey,
     ) -> deque[tuple[float, str, str]]:
         existing = self._recent_events.get(episode_key)
         if existing is not None:
@@ -697,7 +733,7 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
             self._drop_episode(next(iter(self._recent_events)))
         return history
 
-    def _drop_episode(self, episode_key: tuple[str, str, str, str]) -> None:
+    def _drop_episode(self, episode_key: _EpisodeKey) -> None:
         self._recent_events.pop(episode_key, None)
         self._incident_episode_ids.pop(episode_key, None)
         self._incident_episode_severities.pop(episode_key, None)

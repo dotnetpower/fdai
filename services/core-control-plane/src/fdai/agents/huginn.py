@@ -89,6 +89,28 @@ def _bound_json(value: Any, *, depth: int = 0) -> Any:
     return str(value)[:_MAX_FIELD_CHARS]
 
 
+def _event_occurred_at(raw: Mapping[str, Any]) -> str | None:
+    """Return one validated source-event timestamp when the producer supplied it."""
+
+    for field in ("occurred_at", "detected_at", "created_at"):
+        value = raw.get(field)
+        if value is None or value == "":
+            continue
+        if isinstance(value, datetime):
+            parsed = value
+        elif isinstance(value, str):
+            try:
+                parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise ValueError(f"event {field} MUST be RFC 3339") from exc
+        else:
+            raise ValueError(f"event {field} MUST be RFC 3339")
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            raise ValueError(f"event {field} MUST be timezone-aware")
+        return parsed.isoformat()
+    return None
+
+
 def _change_projection(
     *,
     raw: Mapping[str, Any],
@@ -270,6 +292,9 @@ class Huginn(Agent):
             "event_type": event_type,
             "attributes": attributes,
         }
+        occurred_at = _event_occurred_at(raw)
+        if occurred_at is not None:
+            payload["occurred_at"] = occurred_at
         severity = raw.get("severity") or canonical_payload.get("severity")
         if isinstance(severity, str) and severity.strip():
             payload["severity"] = _bound(severity)
