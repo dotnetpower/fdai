@@ -1,56 +1,22 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 03f9f8ec09f7b9c9d74a49a14630c0d98c2cda17
-translation_revised: 2026-09-08
+translation_source_sha: 8b9ebba98423a0888e43b7c14886269f215d9815
+translation_revised: 2026-09-14
 ---
 # 사용자-에이전트 할당 구현 계획
 
-이 계획은 사용자-에이전트 할당 및 지식 인수인계 설계를 `main`에서 진행하는 종속성 순서의 작업
-묶음으로 구체화합니다. 기능 브랜치 없이 각 묶음을 하나 이상의 집중 커밋으로 완료합니다. IAM
+이 계획은 사용자-에이전트 할당 및 지식 인수인계 설계를 의존성 순서의 작업 묶음으로 구체화합니다.
+각 묶음은 작업 브랜치와 격리된 worktree에서 구현한 뒤 검토된 pull request로 `main`에 병합합니다. IAM
 쓰기를 활성화하기 전에 필요한 소유 모듈, 호환성 경로, API 및 이벤트 계약,
 집중 테스트, Azure 권한, 롤아웃 제어, 근거를 정의합니다.
 
 > **권한 경계:** FDAI Console은 도메인 스키마로 검증된 케이스를 제출합니다. Graph 쓰기 권한 또는 Thor의
 > ID를 받지 않습니다. 담당 체계 병합, 사람 승인, IAM 적용, 지식 승격은 각각 독립적으로 검증
 > 가능한 결과로 유지합니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 묶음 1-3: 임무, 배정 코어, API, 콘솔 | implemented | `services/core-control-plane/src/fdai/core/stewardship/`; `services/core-control-plane/src/fdai/core/human_assignment/`; `services/operator-service/src/fdai_operator_service/families/iam/assignments.py`; `console/src/routes/settings-iam-assignments.tsx`; 집중 사용자-에이전트 배정 테스트 (43 passed) | 이 묶음은 공급자 변경 없이 관찰 전용 의도와 변환 결과를 구성합니다. |
-| 묶음 4: 소유권 PR 조정 | implemented | `ownership_coordination.py`; `stewardship_merge_effects.py`; 서명된 담당 체계 웹후크; 집중 조정 테스트 | 운영 조립은 정확한 서명 병합을 소비하고 제안 다이제스트를 검증합니다. 소유권 결과를 기록하고 영향받는 소유자에게 알리며 재처리해도 동일한 shadow IAM 요청을 게시합니다. 관리형 배포 근거는 남아 있습니다. |
-| 묶음 5: 사용자 접근 공급자 기능 | implemented | `services/core-control-plane/src/fdai/core/human_assignment/access_apply.py`; `services/core-control-plane/src/fdai/delivery/identity/entra_access.py`; `services/core-control-plane/src/fdai/delivery/identity/direct_api.py`; 집중 사용자-에이전트 배정 테스트 (43 passed) | 관찰 전용 허용 목록, 수렴, 롤백 기능이 있지만 묶음 4는 아직 배정 케이스에서 이를 트리거하지 않습니다. |
-| 묶음 6: 무응답 감독자 | implemented | `services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py`; `services/core-control-plane/src/fdai/runtime/bootstrap.py`; 집중 shadow 감독자 테스트 (10 passed) | 주기적 shadow 관찰이 있습니다. 운영 단계 디스패치는 승격되지 않았습니다. |
-| 묶음 7: 인수인계 목표 코어와 명령 | implemented | `goals.py`; `handover_runtime.py`; `handover.py`; `handover_knowledge_lifecycle.py`; 집중 Core, Operator, Console 검사 | 영속 초대는 실제 담당 체계 재검증, 주간 피로도 펜스, 현지화 렌더링, 서버 바인딩 에이전트 라우팅, 다시 알림, 거절, 작업 중 억제, 에이전트 소유 공백 생산을 지원합니다. |
-| 묶음 8: 지식 근거 전달 | implemented | 문서 계약; `knowledge_handover.py`; `handover_knowledge_lifecycle.py`; 집중 검색 및 수명 주기 검사 | 관리되는 업로드는 승인된 근거를 목표와 연결합니다. 검색은 정확한 principal과 원본 ACL을 강제하며 후보는 검토 전용입니다. 충돌과 stale 철회는 내용이 없는 이벤트를 사용합니다. |
-| 묶음 9: 운영 롤아웃 | in-progress | `services/core-control-plane/src/fdai/core/human_assignment/production_controls.py`; `services/core-control-plane/src/fdai/runtime/human_assignment_reconciliation.py`; `services/core-control-plane/src/fdai/delivery/runtime_settings.py` | 기능 축과 관찰 전용 조정이 있습니다. 적용 모드 승격, Azure 권한 검사, 대시보드, 경고, 자동 복구, 운영 훈련은 완료되지 않았습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-01 | in-progress | 안전하게 다시 시도할 수 있는 shadow 소유권 초안 하나, 정확한 병합 상관관계, 소유권 증적, 형식이 지정된 shadow IAM 요청으로 묶음 4 조정 코어를 구현했습니다. | `current change`; `ownership_coordination.py`; `test_ownership_coordination.py`; 집중 소유권 및 액세스 적용 테스트 통과. | 묶음 4를 implemented로 표시하기 전에 운영 GitOps와 서명된 병합 소비를 연결하고 재시작 및 전달 근거를 보존합니다. |
-| 2026-09-05 | implemented | 실제 담당 체계 재검증, 제한된 선제 초대, 리비전 명령, 매핑된 에이전트 대화, 관리되는 문서 증적으로 묶음 7의 운영 조립 웹 부분과 묶음 8의 목표-업로드 부분을 완료했습니다. | `current change`; 집중 Operator 및 Console 테스트, Console typecheck, Console build. | 에이전트 소유 공백, 서버 검색, 병합 후 결과, 수명 주기 전파, 관리되는 배포 근거를 완료합니다. |
-| 2026-09-05 | implemented | 서버 소유 대화 바인딩과 최소 권한의 권위 있는 문서 검증으로 묶음 7과 8 경계를 강화했습니다. | `current change`; 집중 Operator, Console, service migration inventory 테스트가 통과했습니다. | 남은 운영 및 지식 수명 주기 근거를 완료합니다. |
-| 2026-09-05 | implemented | 서버 소유 작업 중 억제와 접근 시점 근거 노후화 전파를 추가했습니다. | `current change`; 집중 Operator 테스트가 통과했습니다. | 에이전트 소유 공백, 에이전트 검색, 후보 승격을 완료합니다. |
-| 2026-08-13 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입하고 묶음 4와 묶음 5의 의존성 주장을 바로잡았습니다. | `current change`; 구현 범위 표에 나열된 소스와 집중 검사. | 묶음 4를 구현하고 묶음 8-9를 완료하며 승격 및 운영 근거를 수집합니다. |
-| 2026-09-05 | implemented | 서명된 병합 결과, 신원 상태, 에이전트 소유 공백, ACL 결합 검색, 검토 전용 후보, 충돌, stale 철회로 묶음 4 운영 조립과 묶음 8 로컬 수명 주기를 완료했습니다. | `current change`; 집중 Core 및 Operator 검사; Core 서비스 Terraform 검증. | 관리형 배포, 승격, 재시작, 장애, 롤백, 재해 복구 근거를 보존합니다. |
-
-### 남은 작업
-
-- [x] 묶음 4를 운영 GitOps 게시기 및 서명된 병합 기록 소비자와 조립하고, 일치하는 병합만 해당 배정 케이스를 진행시킨다는 재시작 안전 로컬 근거를 보존합니다.
-- [x] 일치하는 증적에서만 형식이 지정된 shadow IAM 적용 요청을 게시하고 소유권, 검토, IAM, 실행기 권한이 이벤트 경계에서 합쳐지지 않음을 입증합니다.
-- [x] 현지화된 웹 초대, 목표-업로드 바인딩, 에이전트 소유 공백, 검토 전용 후보, ACL 필터 검색, 충돌 펜스, 노후화, 삭제 전파를 완료합니다.
-- [ ] 묶음 9의 Azure 권한 검사, 비운영 변경 및 롤백 훈련, shadow 비교, 대시보드, 경고, 재시작 및 장애 복구 근거를 수행하고 보존합니다.
-- [ ] IAM 변경, 무응답 디스패치, 선제적 인수인계는 각각 롤아웃 임계값을 통과한 뒤 독립적으로 승격합니다. 소진 또는 불충분한 근거에서는 감사된 no-op을 보존합니다.
-
 ## 제공 형태
 
-구현을 `main`의 집중된 작업 묶음 9개로 나눕니다. 묶음 1부터 묶음 4까지는 완전한 관찰 전용
-워크플로를 만듭니다. 묶음 5는 첫 번째 공급자 변경이며 별도 승격 전까지 관찰 모드로 유지합니다.
+구현을 집중된 작업 묶음 9개로 나눕니다. 묶음 1부터 묶음 4까지는 완전한 관찰 전용
+워크플로를 목표로 합니다. 묶음 5는 첫 번째 공급자 변경이며 별도 승격 전까지 관찰 모드로 유지합니다.
 묶음 6부터 묶음 8까지는 IAM 권한을 높이지 않고 승인 연속성과 지식 수집을 추가합니다. 각 묶음은
 집중 커밋 전에 완료하고 검증하며, 관련 없는 작업 트리 변경을 해당 커밋에 섞지 않습니다.
 
@@ -62,10 +28,10 @@ translation_revised: 2026-09-08
 |------|--------|-------------|
 | 디렉터리 | `HumanIdentityDirectory`, Entra 검색, 정확한 주체 조회, App 역할 목록, 허용 목록 Entra 멤버십 어댑터 | 적용 모드 승격 근거와 프로덕션 권한 준비 상태 |
 | 접근 | `AccessRequestService`, 원자적 상태와 감사, Owner 검토, 자기 승인 방지, 허용 목록 기반 관찰 모드 provider | Assignment-case apply trigger, 회수용 대체 커버리지 수명 주기, provider reconciliation |
-| 담당 체계 | 담당 체계 v2 임무, 커버리지, 에스컬레이션 순서, 영속 handover draft, signed merge intake | Assignment-aware proposal 게시, candidate-digest correlation, matching-merge case 진행 |
+| 담당 체계 | 담당 체계 v2, 영속 문서 초안 게시, 정확한 서명 병합 상관관계 | Operator 배정 요청 소비와 승인된 사례의 PR 시작 |
 | 승인 | `HilResumeCoordinator`, 온콜 기본/보조 영수증, 다시 알림, 부하 제어, 주기적 shadow 무응답 관찰 | 운영 승격, 실제 운영 rung-role 검증, urgency 압축 |
-| 대화 | 인증된 세션, 영구 턴, Bragi 설명, 제한된 handover session 명령 | Agent-owned gap 생산과 현지화된 proactive invitation rendering |
-| 문서 | 에이전트 소유 승인, source span, 결정론적 chunking, pgvector, optional goal reference | Goal-to-upload binding, ACL-filtered retrieval 근거, candidate 전달 |
+| 대화 | 인증된 세션, 영속 턴, 현지화된 초대, 범위가 제한된 인수인계 명령 | 모든 목표 명령의 현재 담당 체계 확인과 완전한 세션 예산 근거 |
+| 문서 | 에이전트 소유 승인, 원본 구간, 결정적 조각, 목표 연결, 비활성 후보 | 독립 서비스 전달, ACL 및 삭제 복구, 관리되는 전달 근거 |
 | 콘솔 | IAM 사용자, 역할, 요청, 디렉터리 검색, 관찰 전용 Assignments 탭 및 편집기 | 수렴 및 활성 목표 프로젝션 |
 
 ## 코딩 전 계약 결정
@@ -93,6 +59,11 @@ Pantheon 에이전트, 목표, 세션, 담당 체계 리비전에 연결합니�
   `doc:<document_id>:<version_id>` 인용, 원본 다이제스트를 검증합니다.
 - 목표 전환에는 리비전 펜스를 적용합니다. 근거가 추가되면 목표는 독립 검토 준비 상태가 됩니다.
   수락은 별도의 Owner 작업으로 유지하며 실행 권한을 부여하지 않습니다.
+- 정확히 같은 재시도를 포함한 모든 목표 명령은 변경 전에 목표 주체의 활성 책임 담당 매핑과
+  정확한 담당 체계 리비전을 다시 검증합니다. 신원 또는 담당 체계 근거가 없으면 명령을
+  보류합니다. 매핑이 제거되어도 허용된 기존 근거는 읽을 수 있지만 변경할 수 없습니다.
+- 재시도는 전체 명령 내용, 정규화된 행위자, 작업, 예상 리비전에 연결됩니다. 같은 식별자로
+  다른 근거나 사유를 보내면 성공으로 처리하지 않고 충돌로 반환합니다.
 
 이 범위는 IAM 변경을 승격하거나 대화 텍스트에서 새 담당자를 추론하지 않습니다. 담당 체계 변경에는
 계속 검토된 pull request 흐름이 필요하며 공급자 변경은 독립적인 승격 축으로 유지합니다.
@@ -161,7 +132,7 @@ semantic 재생은 typed hold만 만들 수 있으며 할당 케이스를 만들
 ActionType을 추가합니다. 판테온 바인딩은 Forseti 판정, Var 승인, Thor 실행, Vidar 복구, Saga
 감사를 유지합니다. 어떤 역할 바인딩도 구성으로 변경할 수 없습니다.
 
-## main 브랜치 작업 묶음 순서
+## 의존성 순서의 작업 묶음
 
 ### 묶음 1 - 운영 책임 v2 및 커버리지
 
@@ -211,10 +182,10 @@ IAM 영수증 모두 없이 어떤 전환도 케이스를 활성으로 만들 �
 
 ### 묶음 4 - 담당 체계 PR 조정
 
-**상태:** 진행 중입니다. 할당 인식 조정기는 안전하게 다시 시도할 수 있는 shadow 초안 하나를
-게시하고 케이스, PR 참조, 후보 다이제스트를 저장합니다. 정확히 병합된 내용을 검증하고 소유권
-결과를 기록한 뒤 형식이 지정된 shadow IAM 요청을 게시합니다. 운영 GitOps 및 서명된 병합
-소비자 조립은 남아 있습니다.
+**상태:** 조정기와 운영 조립의 서명 병합 소비자는 구현되어 있습니다. 정확히 병합된 내용을
+검증하고 소유권 결과를 기록한 뒤 재처리해도 동일한 shadow IAM 요청을 게시합니다. Operator
+배정 제안에는 형식이 지정된 요청 소비자와 승인된 사례의 PR 시작 경로가 더 필요합니다.
+별도의 문서 초안 게시기가 있다는 사실만으로 이 배정 경로의 연결을 입증할 수는 없습니다.
 
 **변경:** 승인된 케이스를 받아 v2 overlay 하나를 렌더링하는 `StewardshipGovernanceService`를
 추가합니다. 제안 상태에 사례 ID, PR 증적, 정본 후보 다이제스트를 저장합니다. 서명된
@@ -232,7 +203,8 @@ GitHub 병합 경로는 PR 참조와 렌더링된 내용 다이제스트가 일�
 **상태:** 공급자 기능은 관찰 모드로 구현되었습니다. 별도 승격에서 필요한 비프로덕션 근거를
 기록할 때까지 적용 모드는 사용할 수 없습니다. 사후 조건 실패 시 현재 시도에서 적용한
 구성원만 롤백합니다. 기존 구성원은 유지하며 검증 예외도 같은 소유권 인식 복구 경로를
-사용합니다. 묶음 4는 아직 이 기능으로 들어오는 배정 케이스 적용 요청을 게시하지 않습니다.
+사용합니다. 일치하는 병합은 shadow 적용 요청을 게시합니다. 요청부터 결과까지의 완전한
+수렴과 대체 담당자를 검증하는 권한 회수는 독립적인 잔여 작업입니다.
 
 **변경:** 계획, apply, verify, 롤백 영수증을 제공하는 CSP 중립
 `shared/providers/human_access.py`를 추가합니다. `delivery/identity/entra_access.py`, 런타임
@@ -253,7 +225,7 @@ role-assignable 그룹을 제외하고, 구성된 FDAI 역할 그룹 개체 ID�
 관찰 모드 no-op, 어댑터 계약을 테스트합니다.
 
 **종료:** 관찰 모드가 요청할 정확한 변경을 기록합니다. 비프로덕션 테넌트에서 대상 불일치 0건과
-add, verify, remove, 복원 훈련 성공을 확인한 후 `main`의 별도 집중 커밋으로 적용 모드를
+add, verify, remove, 복원 훈련 성공을 확인한 후 별도의 검토를 거쳐 적용 모드를
 승격합니다.
 
 ### 묶음 6 - 사람 무응답 감독자
@@ -277,9 +249,10 @@ tick, 거절 최종성, 역할 상실, 일정 장애 대체 경로, 전체 만�
 
 ### 묶음 7 - 선제적 지식 이전 목표
 
-**상태:** Core 수명 주기와 Operator API 명령이 구현되었습니다. 활성 배정이 목표 생성과
-변경을 제어하고 세션 및 주간 invitation 점유는 재시작 후에도 유지되며 raw 답변 대신 승인된 근거
-참조만 받습니다. Agent-side 목표 생산과 현지화된 Bragi 렌더링은 롤아웃 작업으로 남습니다.
+**상태:** Core 수명 주기와 Operator API 명령이 구현되었습니다. Core에서는 활성 배정이 목표
+생성과 변경을 제어합니다. 세션 및 주간 초대 점유는 재시작 후에도 유지되며 원문 답변 대신
+승인된 근거 참조만 받습니다. 현지화된 웹 초대와 내용을 담지 않는 지식 공백 생성은 구현되어
+있습니다. 명령 재검증과 독립 서비스 근거는 이러한 기본 기능과 구분합니다.
 
 **변경:** `core/human_assignment/goals.py` 및 `fatigue.py`를 추가합니다. 채팅 세션 등록이 콘텐츠
 없는 가용성 이벤트를 냅니다. 매핑된 에이전트가 이벤트 버스로 목표 공백을 게시하고, Odin이 중복
@@ -297,7 +270,8 @@ tick, 거절 최종성, 역할 상실, 일정 장애 대체 경로, 전체 만�
 
 **상태:** 결정론적 조각 계보와 inert 후보 계약이 구현되었습니다. 조각은 타입이 지정된
 출처 span, ACL 참조, 제공된 경우 목표 참조, 정책 버전, 내용 다이제스트를
-포함합니다. Goal-to-upload 연결과 Mimir/Norns 후보 전달은 아직 연결되지 않았습니다.
+포함합니다. 목표와 업로드 연결 및 검토 전용 Mimir/Norns 후보 생성은 구현되어 있습니다.
+공유 테스트 저장소만으로 독립 배포된 생산자와 소비자의 기록 교환을 입증할 수는 없습니다.
 
 **변경:** 인수인계 근거 목적과 형식화된 이벤트를 문서 수집 경로에 추가합니다. 청크 메타데이터를
 목표, 소스 범위, ACL, 청크 정책 버전, 콘텐츠 다이제스트로 확장합니다. Muninn이 승인된 근거를
@@ -323,7 +297,8 @@ tick, 거절 최종성, 역할 상실, 일정 장애 대체 경로, 전체 만�
 
 영속 상태가 구성되면 readiness-gated 런타임 워커가 제한된
 `human_access.reconciliation_interval_seconds` 주기로 held 사례의 shadow 복구 계획을
-반복해서 관찰합니다.
+반복해서 관찰합니다. 각 조회는 첫 페이지만 반복하지 않고 이후 페이지로 진행하며 재처리해도
+동일한 감사 식별자를 유지합니다. 저장소 실패 시 처리하지 못한 페이지를 건너뛰지 않습니다.
 
 **변경:** Settings에 분리된 `available`, `enabled`, `mode` 상태를 표시합니다. 준비도 검사,
 대시보드, 경고, 복구 런북, 배포 입력, 관리 ID 권한 검증, 결과 사이에서 보류된 케이스의 조정 작업을
@@ -342,9 +317,9 @@ tick, 거절 최종성, 역할 상실, 일정 장애 대체 경로, 전체 만�
 |------|-------------------|
 | 담당 체계 v2 | `uv run pytest -q --no-cov services/core-control-plane/tests/core/stewardship` 및 `bash scripts/governance/check-stewardship.sh` |
 | 할당 코어 | `uv run pytest -q --no-cov services/core-control-plane/tests/core/human_assignment` |
-| IAM API | `uv run pytest -q --no-cov services/operator-service/tests/ services/operator-service/tests/` |
+| IAM API | `uv run pytest -q --no-cov services/operator-service/tests/test_operator_iam_family.py services/operator-service/tests/test_operator_service_postgres.py services/operator-service/tests/test_handover_runtime.py` |
 | 콘솔 | `npm --prefix console test -- --run src/routes/settings-iam.test.ts src/routes/settings-iam-assignments.test.tsx` |
-| 담당 체계 거버넌스 | `uv run pytest -q --no-cov services/core-control-plane/tests/delivery/stewardship services/core-control-plane/tests/delivery/ingestion_gateway/test_handover.py` |
+| 담당 체계 거버넌스 | `uv run pytest -q --no-cov services/core-control-plane/tests/core/human_assignment/test_ownership_coordination.py services/core-control-plane/tests/runtime/test_stewardship_governance.py services/core-control-plane/tests/runtime/test_stewardship_merge_effects.py` |
 | 승인 감독자 | `uv run pytest -q --no-cov services/core-control-plane/tests/core/hil_resume` |
 | 지식 수명주기 | `uv run pytest -q --no-cov services/core-control-plane/tests/core/document_ingestion services/core-control-plane/tests/delivery/document_index services/core-control-plane/tests/delivery/ingestion_gateway` |
 
@@ -383,6 +358,7 @@ tick, 거절 최종성, 역할 상실, 일정 장애 대체 경로, 전체 만�
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/interfaces/human-agent-assignment-implementation-plan.md) |
 | 목표 동작과 관리자 경험 | [사용자-에이전트 할당 및 지식 인수인계](human-agent-assignment-and-knowledge-handover-ko.md) |
 | 현재 사람 RBAC과 접근 요청 계약 | [사용자 RBAC 및 Entra ID](user-rbac-and-identity-ko.md) |
 | 담당 체계 스키마와 거버넌스 수명주기 | [에이전트 운영 담당 체계 및 인수인계](agent-stewardship-and-handover-ko.md) |

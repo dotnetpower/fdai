@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -54,15 +55,34 @@ class AssignmentReconciler:
             raise ValueError("assignment reconciliation scan_limit is invalid")
         self._store = store
         self._scan_limit = scan_limit
+        self._scan_offset = 0
+        self._scan_lock = asyncio.Lock()
 
     async def plan(self, *, at: datetime | None = None) -> tuple[AssignmentReconciliationItem, ...]:
+        """Observe one rotating page; failed pages are retried before advancing.
+
+        Calls on one worker serialize cursor movement. A restart begins a new sweep, while
+        durable case/revision audit claims prevent duplicate observations from creating effects.
+        """
         timestamp = at or datetime.now(UTC)
         if timestamp.tzinfo is None:
             raise ValueError("assignment reconciliation timestamp MUST be timezone-aware")
+        async with self._scan_lock:
+            return await self._plan_page(timestamp)
+
+    async def _plan_page(self, timestamp: datetime) -> tuple[AssignmentReconciliationItem, ...]:
+        offset = self._scan_offset
         values, total = await self._store.read_state_page(
             _CASE_PREFIX,
             limit=self._scan_limit,
+            offset=offset,
         )
+        if offset and not values:
+            offset = 0
+            values, total = await self._store.read_state_page(
+                _CASE_PREFIX,
+                limit=self._scan_limit,
+            )
         if total > len(values):
             _LOGGER.warning(
                 "assignment_reconciliation_scan_truncated",
@@ -110,6 +130,8 @@ class AssignmentReconciler:
                     "recorded_at": recorded_at,
                 },
             )
+        next_offset = offset + len(values)
+        self._scan_offset = next_offset if values and next_offset < total else 0
         return tuple(items)
 
 

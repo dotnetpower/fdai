@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import NAMESPACE_URL, uuid5
 
@@ -14,7 +16,7 @@ from fdai_operator_service.families.iam.contracts import (
     HandoverGoalCommand,
     IamPrincipal,
 )
-from fdai_operator_service.families.iam.errors import IamConflictError
+from fdai_operator_service.families.iam.errors import IamConflictError, IamUnavailableError
 from fdai_operator_service.families.iam.handover_runtime import ProactiveHandoverRuntime
 from fdai_operator_service.families.operations.contracts import ProjectionQuery
 from fdai_operator_service.postgres_family_store import PostgresProposalConflict
@@ -32,6 +34,7 @@ class MemoryStore:
     def __init__(self) -> None:
         self.states: dict[str, dict[str, object]] = {}
         self.proposals: set[str] = set()
+        self.proposal_payloads: dict[str, Mapping[str, object]] = {}
 
     async def read_state(self, key: str) -> dict[str, object] | None:
         value = self.states.get(key)
@@ -55,8 +58,10 @@ class MemoryStore:
         state_value: Mapping[str, object],
         expected_revision: int,
     ) -> object:
-        del family, operation, principal_id, payload
+        del family, operation, principal_id
         if idempotency_key in self.proposals:
+            if self.proposal_payloads[idempotency_key] != payload:
+                raise PostgresProposalConflict("proposal payload conflict")
             return object()
         current = self.states.get(state_key)
         revision = 0 if current is None else current.get("revision")
@@ -64,6 +69,7 @@ class MemoryStore:
             raise PostgresProposalConflict("state revision conflict")
         self.states[state_key] = dict(state_value)
         self.proposals.add(idempotency_key)
+        self.proposal_payloads[idempotency_key] = dict(payload)
         return object()
 
 
@@ -72,6 +78,7 @@ class OwnershipReader:
         self.active = active
         self.mapped = mapped
         self.raw = raw
+        self.source_revision = "revision-7"
         self.queries: list[ProjectionQuery] = []
 
     async def read(self, query: ProjectionQuery) -> Mapping[str, object]:
@@ -79,7 +86,7 @@ class OwnershipReader:
         subject_id = _SUBJECT if self.mapped else _OTHER_SUBJECT
         if self.raw:
             return {
-                "_revision": "revision-7",
+                "_revision": self.source_revision,
                 "map": {
                     "agents": [
                         {
@@ -98,7 +105,7 @@ class OwnershipReader:
             }
         return {
             "current_ownership": {
-                "source_revision": "revision-7",
+                "source_revision": self.source_revision,
                 "agents": [
                     {
                         "name": "Muninn",
@@ -449,3 +456,236 @@ async def test_removed_document_marks_goal_stale_before_review() -> None:
 
     assert stale["state"] == "stale"
     assert stale["stale_reason"] == "document_evidence_unavailable"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["snooze", "decline", "not-applicable", "evidence"])
+@pytest.mark.parametrize("change", ["removed", "inactive", "revision", "unversioned"])
+async def test_goal_commands_require_current_ownership(operation: str, change: str) -> None:
+    runtime, store, reader = _runtime()
+    invitation = await runtime.invitation_for_session(
+        subject_ref=_SUBJECT,
+        roles=frozenset({OperatorRole.READER}),
+        session_id="login-session-1",
+    )
+    assert invitation is not None
+    goal_id = str(invitation["goal_id"])
+    if change == "removed":
+        reader.mapped = False
+    elif change == "inactive":
+        reader.active = False
+    else:
+        reader.source_revision = "revision-8" if change == "revision" else "unversioned"
+    previous = dict(store.states[f"operator-handover-goal:{goal_id}"])
+    with pytest.raises(IamConflictError, match="ownership"):
+        await runtime.submit(
+            HandoverGoalCommand(
+                principal=IamPrincipal(oid=_SUBJECT, roles=frozenset({OperatorRole.READER})),
+                goal_id=goal_id,
+                operation=operation,
+                expected_revision=1,
+                reason_ref="reason:outside-scope" if operation == "not-applicable" else None,
+                evidence_ref=_EVIDENCE_REF if operation == "evidence" else None,
+                digest="a" * 64 if operation == "evidence" else None,
+                kind="document" if operation == "evidence" else None,
+            )
+        )
+    assert await runtime.get_goal(goal_id) == previous
+
+
+@pytest.mark.asyncio
+async def test_exact_command_replay_is_revalidated_after_ownership_removal() -> None:
+    runtime, _store, reader = _runtime()
+    invitation = await runtime.invitation_for_session(
+        subject_ref=_SUBJECT,
+        roles=frozenset({OperatorRole.READER}),
+        session_id="login-session-1",
+    )
+    assert invitation is not None
+    command = HandoverGoalCommand(
+        principal=IamPrincipal(oid=_SUBJECT, roles=frozenset({OperatorRole.READER})),
+        goal_id=str(invitation["goal_id"]),
+        operation="snooze",
+        expected_revision=1,
+    )
+    await runtime.submit(command)
+    reader.mapped = False
+    with pytest.raises(IamConflictError, match="ownership"):
+        await runtime.submit(command)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field", ["digest", "evidence_ref", "kind"])
+async def test_replay_rejects_changed_evidence_payload(field: str) -> None:
+    runtime, _store, _reader = _runtime()
+    invitation = await runtime.invitation_for_session(
+        subject_ref=_SUBJECT,
+        roles=frozenset({OperatorRole.READER}),
+        session_id="login-session-1",
+    )
+    assert invitation is not None
+    command = HandoverGoalCommand(
+        principal=IamPrincipal(oid=_SUBJECT, roles=frozenset({OperatorRole.READER})),
+        goal_id=str(invitation["goal_id"]),
+        operation="evidence",
+        expected_revision=1,
+        evidence_ref=_EVIDENCE_REF,
+        digest="a" * 64,
+        kind="document",
+    )
+    await runtime.submit(command)
+    changed = replace(command, **{field: "b" * 64 if field == "digest" else "changed"})
+    with pytest.raises(IamConflictError, match="payload|revision"):
+        await runtime.submit(changed)
+
+
+@pytest.mark.asyncio
+async def test_independent_review_rechecks_goal_subject_not_reviewer_mapping() -> None:
+    runtime, _store, reader = _runtime()
+    invitation = await runtime.invitation_for_session(
+        subject_ref=_SUBJECT,
+        roles=frozenset({OperatorRole.READER}),
+        session_id="login-session-1",
+    )
+    assert invitation is not None
+    goal_id = str(invitation["goal_id"])
+    await runtime.submit(
+        HandoverGoalCommand(
+            principal=IamPrincipal(oid=_SUBJECT, roles=frozenset({OperatorRole.READER})),
+            goal_id=goal_id,
+            operation="not-applicable",
+            expected_revision=1,
+            reason_ref="reason:outside-scope",
+        )
+    )
+    accepted = await runtime.submit(
+        HandoverGoalCommand(
+            principal=IamPrincipal(oid=_OTHER_SUBJECT, roles=frozenset({OperatorRole.OWNER})),
+            goal_id=goal_id,
+            operation="accept",
+            expected_revision=2,
+        )
+    )
+    assert accepted["state"] == "accepted"
+    assert reader.queries[-1].principal_id == _OTHER_SUBJECT
+
+
+@pytest.mark.asyncio
+async def test_independent_acceptance_fails_after_mapping_removed() -> None:
+    runtime, _store, reader = _runtime()
+    invitation = await runtime.invitation_for_session(
+        subject_ref=_SUBJECT,
+        roles=frozenset({OperatorRole.READER}),
+        session_id="login-session-1",
+    )
+    assert invitation is not None
+    goal_id = str(invitation["goal_id"])
+    await runtime.submit(
+        HandoverGoalCommand(
+            principal=IamPrincipal(oid=_SUBJECT, roles=frozenset({OperatorRole.READER})),
+            goal_id=goal_id,
+            operation="not-applicable",
+            expected_revision=1,
+            reason_ref="reason:outside-scope",
+        )
+    )
+    reader.mapped = False
+    with pytest.raises(IamConflictError, match="ownership"):
+        await runtime.submit(
+            HandoverGoalCommand(
+                principal=IamPrincipal(oid=_OTHER_SUBJECT, roles=frozenset({OperatorRole.OWNER})),
+                goal_id=goal_id,
+                operation="accept",
+                expected_revision=2,
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_ownership_provider_failure_holds_command_without_state_change(monkeypatch) -> None:
+    runtime, store, reader = _runtime()
+    invitation = await runtime.invitation_for_session(
+        subject_ref=_SUBJECT,
+        roles=frozenset({OperatorRole.READER}),
+        session_id="login-session-1",
+    )
+    assert invitation is not None
+    goal_id = str(invitation["goal_id"])
+    previous = dict(store.states[f"operator-handover-goal:{goal_id}"])
+
+    async def unavailable(_query):
+        raise RuntimeError("test projection unavailable")
+
+    monkeypatch.setattr(reader, "read", unavailable)
+    with pytest.raises(IamUnavailableError):
+        await runtime.submit(
+            HandoverGoalCommand(
+                principal=IamPrincipal(oid=_SUBJECT, roles=frozenset({OperatorRole.READER})),
+                goal_id=goal_id,
+                operation="snooze",
+                expected_revision=1,
+            )
+        )
+    assert await runtime.get_goal(goal_id) == previous
+
+
+@pytest.mark.asyncio
+async def test_legacy_replay_without_payload_digest_is_not_assumed_equivalent() -> None:
+    runtime, store, _reader = _runtime()
+    invitation = await runtime.invitation_for_session(
+        subject_ref=_SUBJECT,
+        roles=frozenset({OperatorRole.READER}),
+        session_id="login-session-1",
+    )
+    assert invitation is not None
+    goal_id = str(invitation["goal_id"])
+    command = HandoverGoalCommand(
+        principal=IamPrincipal(oid=_SUBJECT, roles=frozenset({OperatorRole.READER})),
+        goal_id=goal_id,
+        operation="snooze",
+        expected_revision=1,
+    )
+    await runtime.submit(command)
+    store.states[f"operator-handover-goal:{goal_id}"].pop("last_command_digest", None)
+    with pytest.raises(IamConflictError, match="payload"):
+        await runtime.submit(command)
+
+
+@pytest.mark.asyncio
+async def test_concurrent_different_evidence_has_one_winner_and_one_conflict() -> None:
+    class BarrierVerifier(EvidenceVerifier):
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls = 0
+            self.ready = asyncio.Event()
+
+        async def verify(self, **_kwargs: object) -> bool:
+            self.calls += 1
+            if self.calls >= 2:
+                self.ready.set()
+            await self.ready.wait()
+            return True
+
+    runtime, _store, _reader = _runtime(evidence_verifier=BarrierVerifier())
+    invitation = await runtime.invitation_for_session(
+        subject_ref=_SUBJECT,
+        roles=frozenset({OperatorRole.READER}),
+        session_id="login-session-1",
+    )
+    assert invitation is not None
+    command = HandoverGoalCommand(
+        principal=IamPrincipal(oid=_SUBJECT, roles=frozenset({OperatorRole.READER})),
+        goal_id=str(invitation["goal_id"]),
+        operation="evidence",
+        expected_revision=1,
+        evidence_ref=_EVIDENCE_REF,
+        digest="a" * 64,
+        kind="document",
+    )
+    outcomes = await asyncio.gather(
+        runtime.submit(command),
+        runtime.submit(replace(command, digest="b" * 64)),
+        return_exceptions=True,
+    )
+    assert sum(isinstance(item, IamConflictError) for item in outcomes) == 1
+    assert sum(isinstance(item, Mapping) for item in outcomes) == 1

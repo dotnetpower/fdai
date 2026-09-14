@@ -4,50 +4,16 @@ title: Human-Agent Assignment Implementation Plan
 # Human-Agent Assignment Implementation Plan
 
 This plan turns the human-agent assignment and knowledge-handover design into dependency-ordered
-work packages on `main`. Each package lands as one or more focused commits without a feature
-branch. It names the owning modules, compatibility path, API and event contracts, focused
+work packages. Each package uses a task branch and isolated worktree, then enters `main` through
+a reviewed pull request. It names the owning modules, compatibility path, API and event contracts, focused
 tests, Azure permissions, rollout controls, and evidence required before IAM writes are enabled.
 
 > **Authority boundary:** FDAI Console submits a domain-typed case. It never receives Graph
 > write permission or Thor's identity. Ownership merge, human approval, IAM apply, and knowledge
 > promotion remain independently verifiable effects.
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Packages 1-3: duties, assignment core, API, and console | implemented | `services/core-control-plane/src/fdai/core/stewardship/`; `services/core-control-plane/src/fdai/core/human_assignment/`; `services/operator-service/src/fdai_operator_service/families/iam/assignments.py`; `console/src/routes/settings-iam-assignments.tsx`; focused human-assignment tests (43 passed) | These packages establish observation-only intent and projection without provider mutation. |
-| Package 4: ownership PR coordination | implemented | `ownership_coordination.py`; `stewardship_merge_effects.py`; signed stewardship webhook; focused coordination tests | Production composition consumes the exact signed merge, verifies the proposal digest, records the ownership effect, dispatches affected-owner notification, and publishes a replay-stable shadow IAM request. Governed deployment evidence remains open. |
-| Package 5: human-access provider capability | implemented | `services/core-control-plane/src/fdai/core/human_assignment/access_apply.py`; `services/core-control-plane/src/fdai/delivery/identity/entra_access.py`; `services/core-control-plane/src/fdai/delivery/identity/direct_api.py`; focused human-assignment tests (43 passed) | Observation-only allowlist, convergence, and rollback mechanics exist, but Package 4 doesn't yet trigger them from an assignment case. |
-| Package 6: non-response supervisor | implemented | `services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py`; `services/core-control-plane/src/fdai/runtime/bootstrap.py`; focused shadow-supervisor tests (10 passed) | Periodic shadow observation exists; production rung dispatch isn't promoted. |
-| Package 7: handover goal core and commands | implemented | `goals.py`; `handover_runtime.py`; `handover.py`; `handover_knowledge_lifecycle.py`; focused Core, Operator, and Console checks | Durable invitations include live ownership revalidation, weekly fatigue fencing, localized rendering, server-bound agent routing, snooze, decline, busy-work suppression, and agent-owned gap production. |
-| Package 8: knowledge evidence delivery | implemented | document contracts; `knowledge_handover.py`; `handover_knowledge_lifecycle.py`; focused retrieval and lifecycle checks | Governed upload binds admitted evidence to the goal. Retrieval enforces the exact principal and source ACL; candidates remain review-only; conflicts and stale withdrawals use content-free events. |
-| Package 9: production rollout | in-progress | `services/core-control-plane/src/fdai/core/human_assignment/production_controls.py`; `services/core-control-plane/src/fdai/runtime/human_assignment_reconciliation.py`; `services/core-control-plane/src/fdai/delivery/runtime_settings.py` | Capability axes and observation-only reconciliation exist. Enforce promotion, Azure permission probes, dashboards, alerts, automatic repair, and production drills aren't complete. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-09-01 | in-progress | Implemented the Package 4 coordination core: one idempotent shadow ownership draft, exact merge correlation, ownership receipt, and typed shadow IAM request. | `current change`; `ownership_coordination.py`; `test_ownership_coordination.py`; focused ownership and access-apply tests passed. | Bind production GitOps and signed merge consumption, then retain restart and delivery evidence before marking Package 4 implemented. |
-| 2026-09-05 | implemented | Completed the production-composed web portion of Package 7 and the goal-to-upload portion of Package 8 with live ownership revalidation, bounded proactive invitations, revisioned commands, mapped-agent conversations, and governed document receipts. | `current change`; focused Operator and Console tests, Console typecheck, and Console build. | Complete agent-authored gaps, server retrieval, post-merge effects, lifecycle propagation, and governed deployment evidence. |
-| 2026-09-05 | implemented | Hardened Package 7 and 8 boundaries with server-owned conversation binding and least-privilege authoritative document verification. | `current change`; focused Operator, Console, and service migration inventory tests passed. | Complete the remaining production and knowledge-lifecycle evidence. |
-| 2026-09-05 | implemented | Added server-owned busy-work suppression and read-time evidence staleness propagation. | `current change`; focused Operator tests passed. | Complete agent-authored gaps, agent retrieval, and candidate promotion. |
-| 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected Package 4 and Package 5 dependency claims. | `current change`; source and focused checks listed in the scope table. | Implement Package 4, finish Packages 8-9, and collect promotion and operational evidence. |
-| 2026-09-05 | implemented | Completed Package 4 production composition and the local Package 8 lifecycle with signed merge effects, identity health, agent-owned gaps, ACL-bound retrieval, review-only candidates, conflicts, and stale withdrawals. | `current change`; focused Core and Operator checks; Core service Terraform validation. | Retain governed deployment, promotion, restart, outage, rollback, and disaster-recovery evidence. |
-
-### Remaining work
-
-- [x] Compose Package 4 with the production GitOps publisher and signed merge record consumer, and retain restart-safe local evidence that only the matching merge advances its assignment case.
-- [x] Publish the typed shadow IAM apply request only from that matching receipt and prove no ownership, review, IAM, or executor authority collapses across the event boundary.
-- [x] Complete agent-owned handover gap production, review-only candidate delivery, ACL-filtered agent retrieval, conflict fencing, and staleness/deletion propagation.
-- [ ] Run and retain the Package 9 Azure permission probes, non-production mutation and rollback drills, shadow comparisons, dashboards, alerts, and restart and outage recovery evidence.
-- [ ] Promote IAM mutation, non-response dispatch, and proactive handover independently only after their rollout thresholds pass; preserve audited no-op behavior on exhaustion or insufficient evidence.
-
 ## Delivery shape
 
-Implementation is split into nine focused work packages on `main`. Packages 1 through 4 produce a
+Implementation is split into nine focused work packages. Packages 1 through 4 target a
 complete observation-only workflow. Package 5 is the first provider mutation and stays in
 observation mode until separately promoted. Packages 6 through 8 add approval continuity and
 knowledge capture without raising IAM authority. Complete and validate each package before its
@@ -61,10 +27,10 @@ focused commit; don't mix unrelated worktree changes into that commit.
 |------|-------|------------------------|
 | Directory | `HumanIdentityDirectory`, Entra search, exact subject lookup, App Role roster, allowlisted Entra membership adapter | Enforce promotion evidence and production permission readiness |
 | Access | `AccessRequestService`, atomic state plus audit, Owner review, no self-approval, allowlisted observation-mode provider | Assignment-case apply trigger, revoke replacement-coverage lifecycle, and provider reconciliation |
-| Ownership | Stewardship v2 duties, coverage, escalation ordering, durable handover draft, signed merge intake | Assignment-aware proposal publication, candidate-digest correlation, and matching-merge case advancement |
+| Ownership | Stewardship v2, durable document draft publication, and exact signed-merge correlation | Operator assignment request consumption and approved-case proposal initiation |
 | Approval | `HilResumeCoordinator`, on-call primary/secondary receipt, reminders, load control, periodic shadow non-response observation | Production promotion, live rung-role verification, and urgency compression |
-| Conversation | Authenticated sessions, durable turns, Bragi narration, bounded handover session commands | Agent-owned gap production and localized proactive invitation rendering |
-| Documents | Agent-owned admission, source spans, deterministic chunking, pgvector, optional goal reference | Goal-to-upload binding, ACL-filtered retrieval evidence, and candidate delivery |
+| Conversation | Authenticated sessions, durable turns, localized invitations, and bounded handover commands | Current ownership checks on every goal command and complete session-budget evidence |
+| Documents | Agent-owned admission, source spans, deterministic chunks, goal association, and inert candidates | Independent-service handoff, ACL/deletion recovery, and governed delivery evidence |
 | Console | IAM users, roles, requests, directory search, observation-only Assignments tab and editor | Convergence and active goal projections |
 
 ## Contract decisions before coding
@@ -93,6 +59,11 @@ The slice follows these rules:
   active availability, immutable `doc:<document_id>:<version_id>` citation, and source digest.
 - Goal transitions use revision fencing. Evidence makes a goal ready for independent review;
   acceptance remains a separate Owner action and never grants execution authority.
+- Every goal command, including an exact retry, revalidates the goal subject's active accountable
+  mapping and exact ownership revision before mutation. Missing identity or ownership evidence
+  holds the command. A removed mapping leaves permitted prior evidence readable but not mutable.
+- A retry binds the complete command payload, normalized actor, operation, and expected revision.
+  Reusing that identity with changed evidence or a different reason is a conflict, not success.
 
 This slice does not promote IAM mutation or infer a new owner from conversation text. Ownership
 changes still require the reviewed pull-request flow, and provider-side mutation remains on its
@@ -162,7 +133,7 @@ Add shadow-default `ops.apply-human-access` and `ops.revoke-human-access`
 ActionTypes. Their pantheon bindings remain Forseti judge, Var approver, Thor executor, Vidar
 recovery, and Saga auditor. No role binding is configurable.
 
-## Main-branch work package sequence
+## Dependency-ordered work package sequence
 
 ### Package 1 - Operational ownership v2 and coverage
 
@@ -214,10 +185,10 @@ observation-only case. The UI clearly states that no Entra membership changed.
 
 ### Package 4 - Ownership PR coordination
 
-**Status:** In progress. The assignment-aware coordinator publishes one idempotent shadow draft,
-persists the case, PR ref, and candidate digest, verifies exact merged content, records the
-ownership effect, and publishes a typed shadow IAM request. Production GitOps and signed merge
-consumer composition remain open.
+**Status:** The coordinator and production signed-merge consumer exist. They verify exact merged
+content, record the ownership effect, and publish a replay-stable shadow IAM request. Operator
+assignment proposals still need a typed request consumer and approved-case PR initiation; the
+separate document-draft publisher does not prove that this assignment leg is connected.
 
 **Changes:** Add a `StewardshipGovernanceService` that accepts an approved case and renders one v2
 overlay. Persist case id, PR receipt, and canonical candidate digest in proposal state. The signed
@@ -236,8 +207,9 @@ the case; IAM remains untouched.
 **Status:** The provider capability is implemented in observation mode. Enforce remains unavailable
 until a separate promotion records the required non-production evidence. Postcondition failure
 rolls back only a membership applied by the current attempt; a pre-existing membership is retained,
-and verification exceptions use the same ownership-aware recovery path. Package 4 doesn't yet
-publish the assignment-case apply request that would enter this capability.
+and verification exceptions use the same ownership-aware recovery path. A matching merge publishes
+the shadow apply request; full request-to-effect convergence and replacement-coverage revocation
+remain independently tracked work.
 
 **Changes:** Add CSP-neutral `shared/providers/human_access.py` with plan, apply, verify, and
 rollback receipts. Add `delivery/identity/entra_access.py`, a runtime binder, ActionTypes, and an
@@ -257,7 +229,7 @@ the administrative unit narrows an already tenant-wide application permission.
 postcondition, rollback, shadow no-op, and adapter contract tests.
 
 **Exit:** Observation mode records the exact mutation it would request. Enforce promotion is a
-separate focused commit on `main` after zero target mismatches and successful add, verify, remove,
+separately reviewed promotion after zero target mismatches and successful add, verify, remove,
 and restore drills in a non-production tenant.
 
 ### Package 6 - Human non-response supervisor
@@ -282,9 +254,10 @@ mode never changes the action hash, accepts two decisions, or turns exhaustion i
 ### Package 7 - Proactive knowledge transfer goals
 
 **Status:** Core lifecycle and Operator API commands are implemented. Active assignments gate goal
-creation and mutation, session and weekly invitation claims survive restart, and raw answers are rejected in
-favor of admitted evidence references. Agent-side goal production and localized Bragi rendering
-remain rollout work.
+creation and mutation in Core, session and weekly invitation claims survive restart, and raw
+answers are rejected in favor of admitted evidence references. Localized web invitations and
+content-free gap production exist; command revalidation and independent-service evidence remain
+separate from those primitives.
 
 **Changes:** Add `core/human_assignment/goals.py` and `fatigue.py`. Chat session registration emits a
 content-free availability event. Mapped agents publish goal gaps through the event bus; Odin
@@ -302,7 +275,8 @@ restart; no conversational path changes IAM, approval, or autonomy.
 
 **Status:** Deterministic chunk lineage and inert candidate contracts are implemented. Chunks carry
 typed source spans, ACL references, goal references when supplied, policy version, and content
-digest. Goal-to-upload binding and Mimir/Norns candidate delivery remain unbound.
+digest. Goal-to-upload binding and review-only Mimir/Norns candidate production exist. A shared
+test store is not proof that independently deployed producers and consumers exchange the records.
 
 **Changes:** Add a handover evidence purpose and typed events to the document-ingestion path.
 Extend chunk metadata with goal, source-span, ACL, chunk-policy version, and content digest.
@@ -325,7 +299,9 @@ privileged adapter without changing promotion state. Held cases project recovery
 and no provider call. Malformed persisted case records are isolated with content-free errors so
 later valid cases remain observable, while StateStore I/O failures still propagate for worker
 retry. A durable, readiness-gated runtime worker repeats the observation at the bounded
-`human_access.reconciliation_interval_seconds` cadence. Azure permission
+`human_access.reconciliation_interval_seconds` cadence. Each bounded scan advances through later
+pages and preserves replay-safe audit identities instead of repeatedly observing only the first
+page. Store failure must not skip an unprocessed page. Azure permission
 probes, automatic repair, dashboards, alerts, and deployment recovery drills remain rollout work.
 
 **Changes:** Expose separate `available`, `enabled`, and `mode` states in Settings. Add readiness
@@ -346,9 +322,9 @@ coverage and a current handover review date.
 |-------|------------------------------|
 | Stewardship v2 | `uv run pytest -q --no-cov services/core-control-plane/tests/core/stewardship` plus `bash scripts/governance/check-stewardship.sh` |
 | Assignment core | `uv run pytest -q --no-cov services/core-control-plane/tests/core/human_assignment` |
-| IAM API | `uv run pytest -q --no-cov services/operator-service/tests/ services/operator-service/tests/` |
+| IAM API | `uv run pytest -q --no-cov services/operator-service/tests/test_operator_iam_family.py services/operator-service/tests/test_operator_service_postgres.py services/operator-service/tests/test_handover_runtime.py` |
 | Console | `npm --prefix console test -- --run src/routes/settings-iam.test.ts src/routes/settings-iam-assignments.test.tsx` |
-| Ownership governance | `uv run pytest -q --no-cov services/core-control-plane/tests/delivery/stewardship services/core-control-plane/tests/delivery/ingestion_gateway/test_handover.py` |
+| Ownership governance | `uv run pytest -q --no-cov services/core-control-plane/tests/core/human_assignment/test_ownership_coordination.py services/core-control-plane/tests/runtime/test_stewardship_governance.py services/core-control-plane/tests/runtime/test_stewardship_merge_effects.py` |
 | HIL supervisor | `uv run pytest -q --no-cov services/core-control-plane/tests/core/hil_resume` |
 | Knowledge lifecycle | `uv run pytest -q --no-cov services/core-control-plane/tests/core/document_ingestion services/core-control-plane/tests/delivery/document_index services/core-control-plane/tests/delivery/ingestion_gateway` |
 
@@ -388,6 +364,7 @@ escalation kill switches are independent.
 
 | To learn about | Read |
 |----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/interfaces/human-agent-assignment-implementation-plan.md) |
 | Target behavior and administrator experience | [Human-agent assignment and knowledge handover](human-agent-assignment-and-knowledge-handover.md) |
 | Current human RBAC and access-request contract | [User RBAC and Entra identity](user-rbac-and-identity.md) |
 | Ownership schema and governance lifecycle | [Agent operational ownership and handover](agent-stewardship-and-handover.md) |

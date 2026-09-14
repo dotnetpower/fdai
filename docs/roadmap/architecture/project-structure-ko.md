@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d066fe765d1f00728038fc8b25aa538e26864873
-translation_revised: 2026-09-13
+translation_source_sha: 5301c384ddee89af78fc5f43e8623b9fb7329720
+translation_revised: 2026-09-14
 ---
 # 프로젝트 구조
 이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 검증된 5개 서비스 기준선과 독립 패키지 시스템 지식 서비스 후보의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. Post-turn 런타임 스킬 초안은 스킬을 활성화하지 않고 정규화된 검증 근거 참조를 제안 식별자, 영속 저장소 및 감사 메타데이터에 보존합니다. Bootstrap은 후보를 평가하거나 게시하기 전에 Norns 룰 힌트를 현재 discovery-activation 결정 뒤에 결속합니다. 패키지 release 카탈로그는 도달 가능한 소스 개정 번호에만 고정하며 파생 소스 게이트는 커밋 전과 CI에서 기록된 모든 소스 blob을 비교합니다. 소유 설계 원본만 바뀌면 upstream 통합 뒤에 다시 생성하여 카탈로그 레코드는 유지하고 원본 약속값과 집계 다이제스트만 최종 병합 blob 및 도달 가능한 보호 main 개정 번호에 맞춥니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요.
@@ -55,6 +55,7 @@ translation_revised: 2026-09-13
   어댑터 선택을 소유합니다. 인프라는 선택한 엔드포인트, 신원 및 공급자 값만 전달하므로 수집
   서비스가 다른 서비스 구현을 가져오지 않습니다. 서비스 마이그레이션 CI는 적용 후 스키마를 변경하는 수명 주기 검사를 직렬화하고 forward 복구는 rollback 후 root 소유 공유 index를 보존합니다. 서비스 소유 migration을 검증하기 전에 legacy Alembic 호환 head와 5개 adoption manifest를 함께 전진시켜 분리된 계보를 방지합니다. 영향을 받는 각 서비스 fingerprint는 기준 adoption 전에 소유 legacy 열 및 제약 조건과 함께 전진합니다.
 - **운영 담당 체계 초안 전달은 검토 전용으로 유지**: 런타임 구성과 보호된 Core 배포는 [에이전트 운영 담당 체계 수명 주기](../interfaces/agent-stewardship-operations-ko.md)에 정의된 GitOps, 병합 결과, 신원 상태 및 지식 수명 주기 경계를 보존합니다.
+  Operator 목표 명령은 담당 체계를 다시 검증하고 전체 재시도 내용을 결합합니다. Core 복구 조회는 제한된 페이지를 순회하고 실패한 페이지를 재시도하며, 공급자 호출 없이 영속 사례 및 리비전 감사 점유를 사용합니다.
 - **관찰 모드 ARB 구성**: `core/architecture_review/observation_loop.py`는 프로바이더 중립적인
   Change -> 인증된 컨텍스트 -> 근거 묶음 -> 시나리오 -> DecisionCase 및 ImpactEnvelope 구성을
   담당합니다. Forseti만 기존 형식화된 버스에 관찰 판정을 게시하고 Saga가 감사하며,

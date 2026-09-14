@@ -11,44 +11,6 @@ approval, conversation, and document ingestion while keeping each authority inde
 > **Safety boundary:** Mapping a person to an agent never grants an FDAI role. A combined
 > administrator workflow may request both outcomes, but RBAC and operational ownership are still
 > validated, approved, applied, and audited as separate axes.
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Stewardship v2 duties and coverage | implemented | `services/core-control-plane/src/fdai/core/stewardship/`; `services/core-control-plane/tests/core/stewardship/`; focused stewardship tests (71 passed) | The schema, deterministic migration, coverage, escalation, and notification primitives exist. Live directory coverage and deployment drills remain separate evidence. |
-| Assignment case, independent review, and observation projection | implemented | `services/core-control-plane/src/fdai/core/human_assignment/`; `services/operator-service/src/fdai_operator_service/families/iam/assignments.py`; `console/src/routes/settings-iam-assignments.tsx`; focused human-assignment tests (43 passed) | Revisioned cases and the read-only API/console preserve role, duty, and authority separation. |
-| Joined current-ownership read model and Console | implemented | `services/operator-service/src/fdai_operator_service/ownership_projection.py`; `console/src/routes/{handover,agent-oversight-views}.tsx`; focused Operator and Console checks | The Operator service enriches the reviewed declaration with bounded identity and assignment evidence. The Console shows names as hints, exact subject ids in technical details, primary and backup coverage, source freshness, pending changes, filters, and explicit deployment blockers without joining authority in the browser. |
-| Ownership proposal and matching-merge coordination | implemented | `ownership_coordination.py`; `stewardship_merge_effects.py`; signed merge intake; focused ownership and merge tests | Production composition consumes the signed merge record, validates the exact candidate digest, records the ownership effect, publishes the replay-stable shadow IAM request, notifies affected owners, and retains one Saga receipt. Governed deployment evidence remains open. |
-| Governed human-access mutation capability | implemented | `services/core-control-plane/src/fdai/core/human_assignment/access_apply.py`; `services/core-control-plane/src/fdai/delivery/identity/entra_access.py`; `services/core-control-plane/src/fdai/delivery/identity/direct_api.py`; focused human-assignment tests (43 passed) | Allowlisted plan, apply, verify, and rollback mechanics exist in observation mode. They grant no console, requester, or target principal provider authority. |
-| Human non-response supervision | implemented | `services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py`; `services/core-control-plane/src/fdai/runtime/bootstrap.py`; focused shadow-supervisor tests (10 passed) | The periodic worker is shadow-only; dispatch promotion and live rung-role evidence remain open. |
-| Handover goals and fatigue controls | implemented | `goals.py`; Operator `handover_runtime.py`; Console `handover-i18n.ts`; `handover_knowledge_lifecycle.py`; focused Core, Operator, and Console checks | Durable goals, localized invitation rendering, fatigue controls, and agent-owned gap events are bound. |
-| Teams approval preparation request | implemented | Operator IAM runtime-settings route and PostgreSQL proposal; Console Teams A1 onboarding panel; focused Operator and Console checks | An Owner can request a protected Teams A1 plan from Settings. The proposal is environment-bound and grants no provider, approval, or execution authority. |
-| Knowledge evidence and candidate lifecycle | implemented | `knowledge_handover.py`; `handover_knowledge_lifecycle.py`; document chunk lineage; focused lifecycle and retrieval tests | Goal-bound retrieval fails closed on principal or source-ACL mismatch. Muninn evidence, Mimir and Norns review-only candidates, Forseti conflict events, and stale withdrawals carry references and digests only; they never auto-promote. |
-| Production promotion and operational proof | not-started | No retained promotion receipt, Azure permission probe, or production drill evidence is linked from this document. | IAM enforce, non-response dispatch, and proactive handover remain unavailable until their independent gates pass. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-09-09 | implemented | Added an Owner-only Teams A1 protected-plan proposal to the integrated handover Settings flow without granting the browser provider credentials or apply authority. | `current change`; focused Operator persistence and route checks, Console tests, typecheck, build, Ruff, and strict mypy. | Bind the proposal to protected provider automation and retain tenant-consent, app-installation, plan, and apply receipts. |
-| 2026-09-04 | implemented | Added an additive server-owned current-ownership projection and completed the agent-first Current owners view. Placeholder bindings, schema migration, identity availability, coverage gaps, and pending assignment cases remain distinct states. | `current change`; `test_ownership_projection.py`, `test_entra_directory.py`, `test_operator_iam_family.py`, `test_operator_service_postgres.py`, `handover.test.ts`, and focused type and catalog checks passed. | Retain a governed deployment receipt with real schema v2 primary and backup bindings and complete the separately tracked ownership-to-IAM effect coordination. |
-| 2026-09-01 | in-progress | Added digest-bound, idempotent ownership draft coordination and matching-merge verification that publishes a typed shadow IAM request only after the exact reviewed content converges. | `current change`; `ownership_coordination.py`; `test_ownership_coordination.py`; focused ownership and access-apply tests passed. | Compose the coordinator with the production GitOps publisher and signed merge record consumer, then retain delivery and restart evidence. |
-| 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and separated implemented case, IAM, supervision, and goal mechanics from the missing ownership-to-IAM coordination. | `current change`; source and focused checks listed in the scope table. | Complete proposal and merge coordination, knowledge delivery, independent promotions, and operational evidence. |
-| 2026-09-05 | implemented | Bound signed merge effects, scheduled identity health, agent-owned gap and review-only candidate production, ACL-checked retrieval, conflict events, and stale evidence withdrawal. | `current change`; focused Core and Operator checks; Core service Terraform validation. | Retain governed deployment, independent promotion, provider-outage, rollback, restart, and disaster-recovery evidence. |
-
-### Remaining work
-
-- [x] Bind the implemented digest-bound ownership coordinator to the production GitOps publisher and signed merge record consumer, with a restart-safe receipt and replay-stable IAM event proving only the matching merge advances the case.
-- [ ] Retain one governed deployment receipt where the Current owners projection reports schema v2, no placeholder subjects, and verified primary plus distinct backup or escalation coverage for every non-autonomous agent.
-- [ ] Publish one typed IAM apply request only after the matching ownership receipt, then prove allowlisted convergence and ownership-aware rollback without granting the ingestion or Operator services Graph write authority.
-- [x] Complete goal-to-upload binding, ACL-filtered retrieval, agent-owned gap and review-only candidate events, localized Bragi rendering, conflict review, staleness, and deletion propagation.
-- [ ] Add an explicitly typed group or schedule subject to `AssignmentCase` before the assignment API accepts either subject type; stewardship group display remains a separate read-only capability.
-- [ ] Retain separate promotion evidence for IAM mutation, non-response rung dispatch, and proactive handover; any exhausted approval must remain an audited no-op.
-- [ ] Exercise add, reject, timeout, escalation, revoke, rollback, restart, provider outage, and disaster-recovery drills before marking the workflow `validated`.
-
 ## Design at a glance
 
 The target experience separates authority from operational oversight. `Settings > Identity and
@@ -108,6 +70,13 @@ filtered empty result and applies the standard primary and secondary button role
   Bragi is the only conversational renderer.
 - **Knowledge is advisory first:** Answers and documents don't become authoritative policy or
   ontology facts without review and promotion.
+
+Goal commands revalidate the goal subject's active accountable mapping and exact ownership source
+revision, even for an otherwise identical retry. A removed, unavailable, or revised mapping holds
+the command without hiding permitted prior evidence. Independent Owner acceptance remains distinct
+from the goal subject. Retry identity binds the complete evidence or reason payload; a changed
+payload is a conflict, and an older receipt without that binding requires refresh instead of an
+assumed successful replay.
 
 ## Administrator experience
 
@@ -377,6 +346,7 @@ The first release is complete when:
 
 | To learn about | Read |
 |----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/interfaces/human-agent-assignment-and-knowledge-handover.md) |
 | Dependency-ordered implementation and rollout | [Human-agent assignment implementation plan](human-agent-assignment-implementation-plan.md) |
 | FDAI roles, directory search, and current access requests | [User RBAC and Entra identity](user-rbac-and-identity.md) |
 | Ownership map and accountable owners | [Agent operational ownership and ownership handover](agent-stewardship-and-handover.md) |

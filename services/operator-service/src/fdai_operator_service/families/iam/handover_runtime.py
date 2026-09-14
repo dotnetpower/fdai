@@ -25,6 +25,10 @@ from fdai_operator_service.families.iam.errors import (
     IamNotFoundError,
     IamUnavailableError,
 )
+from fdai_operator_service.families.iam.handover_command_guard import (
+    authorize_goal_command,
+    goal_command_digest,
+)
 from fdai_operator_service.families.operations.contracts import ProjectionQuery, ProjectionReader
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStoreUnavailable,
@@ -252,20 +256,31 @@ class ProactiveHandoverRuntime:
 
     async def submit(self, command: HandoverGoalCommand) -> JsonMapping:
         current = dict(await self.get_goal(command.goal_id))
+        subject_ref = authorize_goal_command(current, command)
+        agents, source_revision = await self._mapped_agents(
+            subject_ref=subject_ref,
+            roles=command.principal.roles,
+            reader_ref=command.principal.oid,
+        )
+        if (
+            current.get("agent_name") not in agents
+            or not source_revision
+            or source_revision == "unversioned"
+            or current.get("source_revision") != source_revision
+        ):
+            raise IamConflictError("handover goal ownership is no longer current")
+        command_digest = goal_command_digest(command)
         if (
             current.get("revision") == command.expected_revision + 1
             and current.get("last_operation") == command.operation
             and current.get("last_expected_revision") == command.expected_revision
-            and current.get("last_actor") == command.principal.oid
+            and str(current.get("last_actor") or "").casefold() == command.principal.oid.casefold()
         ):
+            if current.get("last_command_digest") != command_digest:
+                raise IamConflictError("handover command replay payload conflicts")
             return current
         if _positive_int(current, "revision") != command.expected_revision:
             raise IamConflictError("handover goal revision is stale")
-        if (
-            str(current.get("subject_ref")) != command.principal.oid
-            and command.operation != "accept"
-        ):
-            raise IamConflictError("handover goal belongs to another subject")
         if command.operation == "evidence":
             document_id, version_id = _document_receipt(command)
             if not await self.evidence_verifier.verify(
@@ -276,6 +291,7 @@ class ProactiveHandoverRuntime:
             ):
                 raise IamConflictError("handover evidence is not an admitted document")
         updated = _transition(current, command=command, now=_aware(self.clock()))
+        updated["last_command_digest"] = command_digest
         try:
             await self.store.append_revisioned_proposal(
                 family="iam",
@@ -288,6 +304,7 @@ class ProactiveHandoverRuntime:
                     "goal_id": command.goal_id,
                     "operation": command.operation,
                     "expected_revision": command.expected_revision,
+                    "command_digest": command_digest,
                     "execution_authority": False,
                 },
                 state_key=f"{_GOAL_PREFIX}{command.goal_id}",
@@ -393,12 +410,13 @@ class ProactiveHandoverRuntime:
         *,
         subject_ref: str,
         roles: frozenset[OperatorRole],
+        reader_ref: str | None = None,
     ) -> tuple[tuple[str, ...], str]:
         try:
             payload = await self.ownership.read(
                 ProjectionQuery(
                     operation="stewardship.coverage",
-                    principal_id=subject_ref,
+                    principal_id=reader_ref or subject_ref,
                     path={},
                     params={},
                     limit=100,
