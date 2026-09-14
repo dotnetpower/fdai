@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from uuid import UUID
+
 import pytest
 from fdai.core.incident import (
     IncidentAutoOpenPolicy,
@@ -241,3 +243,32 @@ async def test_new_episode_reuses_an_active_incident_after_observer_restart() ->
     assert second.incident.incident_id == first.incident.incident_id
     assert len(second.incident.member_event_ids) == 2
     assert len(registry.snapshot()) == 1
+
+
+async def test_episode_does_not_reuse_a_broader_manual_correlation() -> None:
+    registry = IncidentRegistry(state_store=InMemoryStateStore())
+    workflow = IncidentLifecycleWorkflow(
+        registry=registry,
+        allowed_agent_principals={"Heimdall"},
+    )
+    manual = await registry.open(
+        correlation_keys=(
+            "resource:api-example",
+            "signal:availability.probe_failed",
+            "correlation:episode-1",
+            "session:manual-review",
+        ),
+        severity=IncidentSeverity.SEV2,
+        member_event_ids=(UUID("00000000-0000-0000-0000-000000000010"),),
+        actor_oid="operator-example",
+    )
+
+    detected = await open_detected_incident_candidate(
+        workflow=workflow,
+        candidate=_candidate(incident_episode_id="episode-detected"),
+        policy=IncidentAutoOpenPolicy(),
+    )
+
+    assert detected is not None and detected.created is True
+    assert detected.incident.incident_id != manual.incident_id
+    assert len(registry.snapshot()) == 2

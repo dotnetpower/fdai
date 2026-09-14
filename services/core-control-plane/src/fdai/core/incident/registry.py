@@ -306,7 +306,10 @@ class IncidentRegistry:
                 IncidentState.RESOLVED,
                 IncidentState.CLOSED,
             }
-            and base_keys.issubset(incident.correlation_keys)
+            and {
+                key for key in incident.correlation_keys if not key.startswith(_EPISODE_KEY_PREFIX)
+            }
+            == base_keys
         ]
         if len(matches) > 1:
             raise IncidentWriteConflictError(

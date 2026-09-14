@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 0641ee174c2c0c4348cbe3cf32afa231abb68acb
+translation_source_sha: ecadf26aa548addd7595b5174be5a90d0319fc06
 translation_revised: 2026-09-14
 ---
 # 프로젝트 구조
@@ -618,7 +618,8 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
   인시던트 frame 모델이 필요한 경로에는 `Incident`와 `query.incident_evidence` 서술자만
   전달하며, 최종 plan 검증에서는 전체 principal 매니페스트를 계속 권위 있는 기준으로 사용합니다.
   감지기가 생성한 Incident는 출처 상관관계와 범위가 제한된 에피소드 신원을 분리합니다.
-  레지스트리는 관측기 재시작 중에도 활성 상관관계 계열 하나를 재사용하며, 침묵 구간 뒤의 재발은
+  레지스트리는 에피소드 외 키 집합이 정확히 일치할 때만 관측기 재시작 중 활성 상관관계 계열
+  하나를 재사용합니다. 더 넓은 수동 상관관계는 이를 흡수할 수 없고, 침묵 구간 뒤의 재발은
   해결되거나 종료된 Incident에 흡수되지 않습니다.
   리소스 검색도 불변 `DiscoveryIntent`, `DiscoveryQueryPlan`, 프로바이더 관찰, 실행 증적,
   명령 설명 및 커버리지 증적을 분리합니다. Core는 프로바이더 중립 범위, 조건식, 출력,

@@ -590,7 +590,7 @@
     "services/core-control-plane/src/fdai/core/incident/ontology_projection.py": "32d1b72e3ddfcf06ca6b9cad22035a85fd085f461bd758562ed1896f4782f3c3",
     "services/core-control-plane/src/fdai/core/incident/platform_sync.py": "ef0dc9ebe47cf9c1a639c77fded7efce166da769a36ed8266c2469b650a680a0",
     "services/core-control-plane/src/fdai/core/incident/proposal_store.py": "d47eb9900a124ffea60d237414e88b691675c6cbecee342ff857d4df83c77c50",
-    "services/core-control-plane/src/fdai/core/incident/registry.py": "1b89c57a32f0ec069edd3288d1a3646d0958f17fafe02f3ae409b2e2fc20f334",
+    "services/core-control-plane/src/fdai/core/incident/registry.py": "e2513aafaf59dac2417731b4c7630ead25201856927bd6edde350957ea0af92b",
     "services/core-control-plane/src/fdai/core/incident/replay.py": "55886cd89078ceea778975bfb0a4de313075a620a0724c76c7aff9adadde3f77",
     "services/core-control-plane/src/fdai/core/incident/sla.py": "fe32afaa52c4953a4a93bc84d00245eb3789d9c5cc69e5df325c547a987f823e",
     "services/core-control-plane/src/fdai/core/incident/sre_request.py": "693969c2f67a7e9b9473ae31bbc9f431760ac57079a658eb922c90508c9d6556",

@@ -56,8 +56,9 @@ are synthetic.
   emits no duplicate candidate while matching events continue, although a more severe observation
   can update the same episode. After a quiet interval longer than the repeat window, the next burst
   receives a new opaque episode id, so a resolved or closed earlier Incident cannot absorb the
-  recurrence. If Heimdall restarts during an active Incident, the registry matches the non-episode
-  correlation keys and reuses that active record rather than opening a duplicate.
+  recurrence. If Heimdall restarts during an active Incident, the registry requires the exact
+  non-episode correlation-key set and reuses that active record rather than opening a duplicate.
+  A broader manual correlation cannot capture the detector episode.
   Events marked
   `incident_correlation=none`, including
   inventory and discovery changes, never open an Incident. The default automatic-open minimum is

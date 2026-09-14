@@ -618,9 +618,9 @@ only when its rule id, action type, and fixed check reference still match. Idemp
   without another model call. Any remaining incident frame-model path receives only the `Incident`
   and `query.incident_evidence` descriptors; the complete principal manifest remains authoritative
   for final plan verification. Detector-created Incidents retain source correlation separately from
-  a bounded episode identity. The registry reuses one active correlation family across observer
-  restarts, while a recurrence after a quiet window cannot be absorbed into a resolved or closed
-  Incident.
+  a bounded episode identity. The registry reuses one active correlation family with an exact
+  non-episode key match across observer restarts; a broader manual correlation cannot capture it,
+  while a recurrence after a quiet window cannot be absorbed into a resolved or closed Incident.
   Resource discovery similarly separates immutable `DiscoveryIntent`, `DiscoveryQueryPlan`,
   provider observations, execution receipts, command explanations, and coverage receipts. Core
   compares only provider-neutral scope, predicate, output, completeness, and equivalence fields;
