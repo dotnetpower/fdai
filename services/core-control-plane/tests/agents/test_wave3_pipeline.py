@@ -1377,6 +1377,57 @@ def test_vidar_rejects_changed_rollback_command_inputs() -> None:
     assert calls == ["A"]
 
 
+def test_vidar_ignores_regenerated_terminal_delivery_metadata() -> None:
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    calls: list[dict[str, object]] = []
+
+    async def rollback_executor(action_run):
+        calls.append(dict(action_run))
+        return "rollback:c-terminal-replay"
+
+    store = InMemoryStateStore()
+    failed = {
+        "producer_principal": "Thor",
+        "schema_version": "1.0.0",
+        "envelope_schema_version": "1.0.0",
+        "correlation_id": "c-terminal-replay",
+        "idempotency_key": "c-terminal-replay:failed",
+        "action_idempotency_key": "action-terminal-replay",
+        "action_type": "ops.restart-service",
+        "resource_id": "vm-3",
+        "state": "failed",
+        "rollback_contract": "state_forward_only",
+        "params": {"reason": "healthcheck"},
+        "terminal_at": "2026-09-15T00:00:00Z",
+    }
+    first = Vidar(
+        executors={"state_forward_only": rollback_executor},
+        state_store=store,
+    )
+    completed = asyncio.run(first.rollback(dict(failed)))
+    assert completed is not None
+
+    restarted = Vidar(
+        executors={"state_forward_only": rollback_executor},
+        state_store=store,
+    )
+    replayed = asyncio.run(
+        restarted.rollback(
+            {
+                **failed,
+                "terminal_at": "2026-09-15T00:05:00Z",
+            }
+        )
+    )
+
+    assert replayed == completed
+    assert len(calls) == 1
+    assert "terminal_at" not in calls[0]
+    assert "schema_version" not in calls[0]
+    assert calls[0]["params"] == {"reason": "healthcheck"}
+
+
 @pytest.mark.parametrize("corruption", ["missing_schema", "missing_success_receipt"])
 def test_vidar_rejects_noncanonical_durable_terminal_state(
     corruption: str,

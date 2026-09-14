@@ -74,10 +74,11 @@ checkpoint를 기다리는 종결 결정과 게시를 기다리는 최종 승인
 [클라우드 리소스 지식](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)을 참조하세요.
 워크플로 요청은 양의 시도 번호를 포함한 범위가 제한된 `workflow_action` 계보를 Huginn, Forseti, Thor를 거쳐 보존합니다. Thor는 판정이 액션 식별자를 제공한 경우에만 이를 보존하고 상관관계 ID에서 액션 식별자를 만들어 내지 않으며, 범위가 제한된 ActionRun 계보 검증은 권한이 없는 `_framework` 도우미에 둡니다. Delivery 소유 producer는 하나의 완전한 operational plan에 대한 optional argument-bound kinetic proposal을 저장하고 Forseti는 주입된 source로 이를 해석해 strict validation 뒤 같은 Verdict-to-ActionRun path에 보존합니다. 둘 다 attribution 및 evidence 전용이며 quorum, mode,
 judgment, approval 또는 execution authority를 바꾸지 않습니다.
-Vidar는 provider rollback 전에 상관관계와 실패한 전체 ActionRun의 정규 다이제스트를 소유자
-토큰 및 범위가 제한된 점유 유효 기간과 함께 런타임 StateStore에 원자적으로 점유합니다.
-다이제스트에는 `params`, Action 신원, Workflow 계보, rollback 데이터를 포함해 rollback 실행기에
-전달되는 모든 필드가 들어가므로 대체된 명령이 종결 증적을 재사용할 수 없습니다. 점유한 실행만 복구를 수행하며,
+Vidar는 provider rollback 전에 상관관계와 실패한 ActionRun의 정규 rollback 명령 다이제스트를
+소유자 토큰 및 범위가 제한된 점유 유효 기간과 함께 런타임 StateStore에 원자적으로 점유합니다.
+`params`, Action 신원, Workflow 계보, rollback 데이터를 포함한 안정적인 효과 필드 허용 목록
+하나가 다이제스트와 실행기 입력을 모두 정의합니다. 다시 생성되는 `terminal_at` 및 묶음 버전 같은
+전달 메타데이터는 둘 다에서 제외하지만, 대체된 명령은 종결 증적을 재사용할 수 없습니다. 점유한 실행만 복구를 수행하며,
 다른 복제본은 유효한 점유를 변경하지 않고 재시도 가능한 처리기 오류를 발생시켜 이벤트 버스
 재시도 또는 DLQ가 실패한 ActionRun을 보존하게 합니다. 검증된 유효 기간 만료 뒤의 재처리만 모호한 점유를 복구 반복
 없이 명시적인 `execution_unknown`으로 닫고, 개정 번호 CAS가 늦게 도착한 소유자의 완료를

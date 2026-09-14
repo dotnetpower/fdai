@@ -11,6 +11,7 @@ import asyncio
 import hashlib
 import json
 from collections.abc import Awaitable, Callable, Mapping
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -26,6 +27,33 @@ from fdai.shared.providers.state_store import StateStore
 _ROLLBACK_STATE_PREFIX = "pantheon/vidar/rollback"
 _DEFAULT_CLAIM_LEASE = timedelta(minutes=5)
 _MAX_CLAIM_LEASE = timedelta(hours=1)
+_ROLLBACK_COMMAND_FIELDS = (
+    "correlation_id",
+    "idempotency_key",
+    "action_idempotency_key",
+    "action_id",
+    "action_type",
+    "resource_id",
+    "state",
+    "shadow_mode",
+    "resolved_autonomy_ceiling",
+    "outcome",
+    "operational_success",
+    "effect_verification_status",
+    "verdict",
+    "params",
+    "quorum_required",
+    "initiator_principal",
+    "rollback_contract",
+    "rollback_ref",
+    "decision_case",
+    "operational_context",
+    "workflow_action",
+    "kinetic_proposal",
+    "prospective_lineage",
+    "execution_audit_receipt",
+    "approval_expires_at",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -285,7 +313,7 @@ class Vidar(Agent):
             notes = "rollback refused because correlation_id is empty"
         elif executor is not None:
             try:
-                rollback_ref = await executor(dict(action_run))
+                rollback_ref = await executor(_rollback_command(action_run, contract=contract))
             except Exception as exc:  # noqa: BLE001 - provider boundary; fail closed
                 notes = f"rollback executor raised {type(exc).__name__}"
             else:
@@ -436,15 +464,26 @@ def _rollback_state_key(correlation_id: str, suffix: str) -> str:
 
 def _rollback_request_digest(action_run: Mapping[str, Any], *, contract: str) -> str:
     encoded = json.dumps(
-        {
-            "action_run": dict(action_run),
-            "resolved_rollback_contract": contract,
-        },
+        _rollback_command(action_run, contract=contract),
         allow_nan=False,
         separators=(",", ":"),
         sort_keys=True,
     ).encode("utf-8")
     return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def _rollback_command(
+    action_run: Mapping[str, Any],
+    *,
+    contract: str,
+) -> dict[str, Any]:
+    command = {
+        field: deepcopy(action_run[field])
+        for field in _ROLLBACK_COMMAND_FIELDS
+        if field in action_run
+    }
+    command["rollback_contract"] = contract
+    return command
 
 
 def _rollback_record_state(
