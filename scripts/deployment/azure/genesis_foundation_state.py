@@ -51,9 +51,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--foundation-plan-directory", type=Path, required=True)
     parser.add_argument("--profile", type=Path, required=True)
     parser.add_argument("--variables-file", type=Path, required=True)
-    parser.add_argument("--offline-kit", type=Path, required=True)
-    parser.add_argument("--release-root", type=Path, required=True)
-    parser.add_argument("--bundle-public-key", type=Path, required=True)
+    foundation_apply._add_artifact_options(parser)
     parser.add_argument("--repository", required=True)
     parser.add_argument("--ssh-private-key", type=Path, required=True)
     parser.add_argument("--expected-foundation-receipt-digest", required=True)
@@ -67,10 +65,21 @@ def _parser() -> argparse.ArgumentParser:
 
 def _execute(args: argparse.Namespace) -> dict[str, object]:
     _validate_arguments(args)
+    foundation_apply._validate_artifact_options(args)
     root = _repository_root()
     directory = _absolute(args.foundation_plan_directory)
     profile_path = _absolute(args.profile)
     profile = load_profile(profile_path)
+    if args.source_snapshot is not None and (
+        profile.environment != "dev"
+        or profile.connectivity != "online"
+        or profile.transport != "manual"
+        or os.environ.get("FDAI_SIGNED_SOURCE_EVIDENCE") is not None
+    ):
+        raise ValueError(
+            "source Foundation state requires connected development "
+            "and published source verification"
+        )
     if profile.access_method != "bastion":
         raise ValueError("Foundation state handoff requires the reviewed Bastion profile")
     foundation = state_contract.load_receipt(
@@ -379,12 +388,8 @@ def _prepare_archive(
         destination=normalized,
         expected_context=context,
     )
-    snapshot = foundation_apply._prepare_verified_snapshot(
-        plan_directory=directory,
-        offline_kit=_absolute(args.offline_kit),
-        release_root=_absolute(args.release_root),
-        bundle_public_key=_absolute(args.bundle_public_key),
-        context=context,
+    snapshot = foundation_apply._snapshot_from_arguments(
+        args, plan_directory=directory, context=context
     )
     try:
         if snapshot.infra_root / "terraform.tfstate" != local_state:

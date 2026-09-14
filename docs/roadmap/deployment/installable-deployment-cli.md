@@ -35,13 +35,24 @@ apply, resume, or tear down a tenant deployment.
 ## Connected source deployment
 
 Current source-mode support covers private preparation, read-only AKS capacity preflight,
-runner-image plan generation, and a separate source-bound Foundation plan command. Source apply,
-managed-host application execution and durable Trial activation are not yet connected. A plan
+runner-image plan generation, and a separate source-bound Foundation plan command. Advanced
+Foundation adapters accept source inputs for exact apply preparation and private state handoff,
+but the public source command does not yet drive those stages. Managed-host application execution
+and durable Trial activation are not yet connected. A plan
 returns exit code `2` for review, not deployment success; a capacity blocker returns `3`.
 `--prepare-only` makes no Azure call. `--preflight-only` reads the current human target, SKU
 restrictions, x64 architecture, host encryption, required zones and shared-family/total quota at
 autoscaler maximum plus simultaneous 33-percent surge. It neither reserves capacity nor accounts
 for the Foundation graph. The distinct source work directory never adopts a kit run.
+
+Source and kit Foundation inputs use distinct types and saved-plan schemas. A retained source
+plan must match the current snapshot and source-input digests. Source execution copies the
+verified infrastructure into a private state-preserving directory, verifies the pinned Terraform
+binary, and acquires only lockfile-selected providers for a local mirror. The immutable snapshot
+does not receive Terraform state or generated data. Existing exact-plan approval, pre-effect claim,
+verification-only recovery, and independent readback remain authoritative. Private state transfer
+includes the Foundation root, its sibling bootstrap module and shared modules, so relative module
+references remain valid on the managed host. These adapters do not prove a completed deployment.
 
 The development source path is selected explicitly with `fdaictl provision azure --source <path>`.
 It is mutually exclusive with `--online` and `--offline-kit`. Initial support targets a new

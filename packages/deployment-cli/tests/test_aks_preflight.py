@@ -46,6 +46,37 @@ def test_quota_includes_both_pools_maximum_and_surge() -> None:
     assert all(quota["required_vcpus"] == 44 for quota in result["quotas"])
 
 
+def test_azure_cli_string_quota_is_normalized_without_ignoring_restrictions() -> None:
+    arguments = _inputs()
+    for entry in arguments["usage"]:
+        entry["currentValue"] = "0"
+        entry["limit"] = "100"
+    result = aks_preflight.assess_aks_capacity(**arguments)
+    assert result["state"] == "feasible"
+    assert all(quota["remaining_vcpus"] == 100 for quota in result["quotas"])
+    arguments["skus"][0]["restrictions"] = [
+        {"type": "Location", "reasonCode": "NotAvailableForSubscription"}
+    ]
+    result = aks_preflight.assess_aks_capacity(**arguments)
+    assert result["state"] == "blocked"
+    assert result["blockers"] == [
+        "system_sku_restricted_or_unknown",
+        "user_sku_restricted_or_unknown",
+    ]
+
+
+@pytest.mark.parametrize(
+    "value", [True, False, -1, 1.5, "-1", "1.0", "1e2", "+10", " 10", "00", "9" * 20, None]
+)
+def test_invalid_quota_representation_remains_blocked(value) -> None:
+    arguments = _inputs()
+    arguments["usage"][0]["limit"] = value
+    assert (
+        "quota_standarddasv5family_invalid"
+        in aks_preflight.assess_aks_capacity(**arguments)["blockers"]
+    )
+
+
 @pytest.mark.parametrize(
     "defect",
     [

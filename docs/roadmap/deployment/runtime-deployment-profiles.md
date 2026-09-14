@@ -80,6 +80,11 @@ planning. The error reports the requested and allocatable quantities without exp
 
 ## State ownership
 
+The read-only capacity preflight accepts nonnegative integer quota values and canonical decimal
+integer strings returned by Azure CLI. Boolean, fractional, signed, whitespace-padded or oversized
+representations remain blocked. Available quota never overrides a SKU restriction, missing zone,
+unsupported architecture or missing host encryption; a different target requires a fresh review.
+
 Runtime selection does not replace one resource type with another in the same state. Each owner
 has a distinct backend key so a new installation creates only its selected platform and an existing
 installation cannot switch platforms by changing one variable.

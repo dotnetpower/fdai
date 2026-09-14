@@ -14,6 +14,7 @@ SCRIPT_DIR = ROOT / "scripts/deployment/azure"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import genesis_foundation_apply as apply  # noqa: E402
+import source_foundation_execution as source_execution  # noqa: E402
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_digest  # noqa: E402
 
 BINDING = "a" * 64
@@ -184,6 +185,82 @@ def test_apply_requires_explicit_exact_approval_before_artifact_or_azure_work(
 
     monkeypatch.setattr(apply, "load_profile", forbidden)
     assert apply.main(_args(tmp_path)) == 3
+
+
+def test_source_execution_retains_state_and_rejects_source_tampering(tmp_path, monkeypatch):
+    import hashlib
+
+    source = {"source_commit": SOURCE, "provenance": "operator-selected-source"}
+    snapshot = tmp_path / "snapshot"
+    infra = snapshot / "tree/infra/genesis-foundation"
+    infra.mkdir(parents=True)
+    (infra / "main.tf").write_text("terraform {}\n")
+    (infra / ".terraform.lock.hcl").write_text("example lock\n")
+    binary = tmp_path / "terraform"
+    binary.write_bytes(b"example terraform")
+    binary.chmod(0o700)
+    plan = tmp_path / "plan"
+    plan.mkdir(mode=0o700)
+    context = {
+        "source_snapshot_digest": "e" * 64,
+        "source_input_digest": canonical_digest(source),
+        "source_commit": SOURCE,
+        "provider_lock_digest": hashlib.sha256(
+            (infra / ".terraform.lock.hcl").read_bytes()
+        ).hexdigest(),
+        "terraform_digest": hashlib.sha256(binary.read_bytes()).hexdigest(),
+    }
+    monkeypatch.setattr(source_execution, "verify_source_snapshot", lambda *_, **__: source)
+    calls = []
+
+    def required(command, **kwargs):
+        calls.append(command[1])
+        assert kwargs["cwd"].is_relative_to(plan)
+        assert "TF_CLI_CONFIG_FILE" in kwargs["env"]
+        if command[1] == "providers":
+            Path(command[-1]).mkdir()
+
+    monkeypatch.setattr(apply, "_required", required)
+    arguments = dict(
+        plan_directory=plan,
+        source_snapshot=snapshot,
+        source_snapshot_digest="e" * 64,
+        terraform=binary,
+        context=context,
+    )
+    prepared = source_execution.prepare_source_execution(**arguments)
+    state = prepared.infra_root / "terraform.tfstate"
+    state.write_text("{}\n")
+    state.chmod(0o600)
+    prepared.cleanup()
+    resumed = source_execution.prepare_source_execution(**arguments)
+    assert state.read_text() == "{}\n"
+    assert not (infra / "terraform.tfstate").exists()
+    assert calls == ["init", "providers", "init", "providers"]
+    resumed.cleanup()
+    copied_source = state.parent / "main.tf"
+    copied_source.write_text("terraform { invalid = true }\n")
+    with pytest.raises(ValueError, match="differs"):
+        source_execution.prepare_source_execution(**arguments)
+    assert len(calls) == 4
+
+
+def test_source_apply_rejects_kit_plan_before_provider_calls(tmp_path, monkeypatch):
+    from dataclasses import replace
+
+    _mock_execution(tmp_path, monkeypatch)
+    monkeypatch.setattr(apply, "load_profile", lambda _: replace(_profile(), connectivity="online"))
+    arguments = _args(tmp_path, "--approve")
+    start = arguments.index("--offline-kit")
+    arguments[start : start + 6] = [
+        "--source-snapshot",
+        str(tmp_path / "snapshot"),
+        "--source-snapshot-digest",
+        "e" * 64,
+        "--terraform",
+        str(tmp_path / "terraform"),
+    ]
+    assert apply.main(arguments) == 3
 
 
 def test_exact_apply_writes_claim_before_effect_and_never_reapplies(

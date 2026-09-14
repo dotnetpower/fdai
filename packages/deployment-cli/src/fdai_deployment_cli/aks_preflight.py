@@ -177,8 +177,9 @@ def assess_aks_capacity(
         if len(matches) != 1:
             blockers.append(f"quota_{family}_missing_or_ambiguous")
             continue
-        current, limit = matches[0].get("currentValue"), matches[0].get("limit")
-        if type(current) is not int or type(limit) is not int or current < 0 or limit < 0:
+        current = _quota_integer(matches[0].get("currentValue"))
+        limit = _quota_integer(matches[0].get("limit"))
+        if current is None or limit is None:
             blockers.append(f"quota_{family}_invalid")
             continue
         remaining = limit - current
@@ -191,6 +192,14 @@ def assess_aks_capacity(
         "pools": pools,
         "quotas": quotas,
     }
+
+
+def _quota_integer(value: object) -> int | None:
+    if type(value) is int and value >= 0:
+        return value
+    if isinstance(value, str) and re.fullmatch(r"(?:0|[1-9][0-9]{0,18})", value):
+        return int(value)
+    return None
 
 
 def _json(arguments: tuple[str, ...], deadline: DeploymentDeadline) -> Any:

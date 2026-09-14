@@ -105,6 +105,12 @@ def test_private_archive_preserves_exact_state_and_executable_provider(
     root = tmp_path / "root"
     mirror = tmp_path / "mirror"
     root.mkdir(mode=0o700)
+    bootstrap = tmp_path / "bootstrap"
+    bootstrap.mkdir(mode=0o700)
+    (bootstrap / "main.tf").write_text('module "identity" { source = "../modules/identity" }\n')
+    modules = tmp_path / "modules/identity"
+    modules.mkdir(mode=0o700, parents=True)
+    (modules / "main.tf").write_text("terraform {}\n")
     provider_dir = mirror / "registry.terraform.io/hashicorp/azurerm/4.81.0/linux_amd64"
     provider_dir.mkdir(mode=0o700, parents=True)
     state, _ = _state_inputs()
@@ -152,6 +158,10 @@ def test_private_archive_preserves_exact_state_and_executable_provider(
         manifest = json.loads((extracted / "manifest.json").read_text())
         assert "root/backend.azurerm.tf" in manifest["files"]
     assert (extracted / "root/terraform.tfstate").read_bytes() == state_path.read_bytes()
+    assert (extracted / "bootstrap/main.tf").read_bytes() == (bootstrap / "main.tf").read_bytes()
+    assert (extracted / "modules/identity/main.tf").read_bytes() == (
+        modules / "main.tf"
+    ).read_bytes()
     assert (extracted / provider.relative_to(tmp_path)).stat().st_mode & 0o777 == 0o700
 
 
