@@ -155,6 +155,10 @@ window coverage. The existing point-only `MetricProvider` can supply candidates 
 complete diagnostic window by itself. Name-only series, mixed identities, future samples,
 point-only sources, and truncated windows remain unavailable. An empty metric query does not prove
 zero.
+Azure Managed Prometheus's default `cluster` label is a cluster-name alias, not an exact ARM
+identity. Inventory-backed analyzer routing therefore remains on Azure Monitor Logs unless an
+explicitly composed PromQL catalog preserves an exact `resource_id` label. A Prometheus response
+missing any requested identity label fails instead of becoming an empty healthy series.
 Before signal reduction, Forseti rechecks the metric target tuple, point labels, metric interval,
 provider cutoff, and source revision against the exact diagnostic context. A mismatch is retained
 as a conflict and its metric cannot contribute a diagnostic signal.

@@ -399,7 +399,7 @@ def metric_source_delays(environ: Mapping[str, str]) -> dict[str, str]:
             "120-300_seconds" if environ.get("FDAI_MONITOR_WORKSPACE_ID", "").strip() else "unbound"
         ),
         "prometheus": (
-            "15_seconds_plus_ingestion"
+            "unbound_exact_resource_identity"
             if environ.get("FDAI_PROMETHEUS_ENDPOINT", "").strip()
             else "unbound"
         ),
@@ -567,9 +567,11 @@ async def run_once() -> AnalyzerJobReport:
             monitor_workspace_id=_optional("FDAI_MONITOR_WORKSPACE_ID"),
             monitor_queries=default_metric_queries(),
             metrics_api_queries=None,
-            prometheus_base_url=_optional("FDAI_PROMETHEUS_ENDPOINT"),
+            # Azure Managed Prometheus exposes a cluster alias, not the exact
+            # ARM identity required by inventory-backed analyzer queries.
+            prometheus_base_url=None,
             prometheus_queries=None,
-            prometheus_audience=_optional("FDAI_PROMETHEUS_AUDIENCE"),
+            prometheus_audience=None,
         )
         bus = _build_finding_bus(
             identity=identity,

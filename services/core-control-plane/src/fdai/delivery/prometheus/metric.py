@@ -165,6 +165,12 @@ class PrometheusMetricProvider:
             labels = {
                 str(k): str(v) for k, v in (series.get("metric") or {}).items() if k != "__name__"
             }
+            missing_labels = tuple(sorted(set(query.labels) - set(labels)))
+            if missing_labels:
+                raise MetricProviderError(
+                    f"Prometheus result for {query.metric_name!r} lacks required "
+                    f"label(s): {list(missing_labels)}"
+                )
             if not _labels_match(labels, query.labels):
                 continue
             for at, value in _samples(series, result_type):

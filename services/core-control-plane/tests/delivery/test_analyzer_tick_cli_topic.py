@@ -292,7 +292,7 @@ def test_scheduling_mode_and_metric_delays_are_explicit() -> None:
         }
     ) == {
         "log_analytics": "120-300_seconds",
-        "prometheus": "15_seconds_plus_ingestion",
+        "prometheus": "unbound_exact_resource_identity",
     }
 
 

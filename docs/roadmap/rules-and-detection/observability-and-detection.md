@@ -95,7 +95,11 @@ are synthetic.
   boundary, the tick reads the exact `provider_ref` from the active inventory snapshot and rewrites
   only the metric query's `resource_id` label. A missing, mismatched, or ambiguous provider
   reference fails the tick. Provider failures retain the metric name but redact the provider
-  reference, which never enters a Finding, receipt, Incident, or serialized analyzer error.
+  reference, which never enters a Finding, receipt, Incident, or serialized analyzer error. The
+  default analyzer does not treat Azure Managed Prometheus's cluster-name alias as this exact
+  identity; it remains on Azure Monitor Logs unless composition supplies PromQL that preserves an
+  exact `resource_id` label. A Prometheus response missing a requested identity label fails instead
+  of becoming an empty healthy series.
 - Heimdall bounds retained repeated-event episodes globally and per resource. A correlation flood
   from one resource evicts only that resource's oldest episode before it can displace another
   resource's partially accumulated evidence.

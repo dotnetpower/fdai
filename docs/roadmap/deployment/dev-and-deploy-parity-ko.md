@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 9d3be1594a0b4af22d951b27b1a852735c81f760
+translation_source_sha: b527555ba0972620e16f4bcdcbd0f41cbcfecad7
 translation_revised: 2026-09-14
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -269,7 +269,10 @@ full-stack supervisor는 표준 로컬 analyzer loop를 시작하며, 이 loop�
 출력, 발견된 문제 Event, 증적 및 Incident는 온톨로지의 논리 `Resource.id`를 유지하며 공급자
 참조가 없거나 일치하지 않으면 틱이 중지됩니다. 두 실행 환경은 1분 시작 간격을 유지합니다.
 로컬 직렬 loop는 다음 대기에 틱 실행 시간을 더하지 않고 차감하므로 배포 cron보다 늦어지지
-않습니다. 두 실행 환경은 5분 분석 구간과 1분 관측 게시 키를 분리합니다.
+않습니다. 두 실행 환경 모두 Azure Managed Prometheus의 cluster 이름 alias를 정확한 인벤토리
+신원으로 취급하지 않습니다. Analyzer의 Prometheus 경로는 정확한 `resource_id`를 보존하는 조회
+카탈로그를 명시적으로 조립해야 하며, 그렇지 않으면 Azure Monitor Logs 경로를 유지합니다. 두
+실행 환경은 5분 분석 구간과 1분 관측 게시 키를 분리합니다.
 게시 전에 재시도에 안정적인 같은 키를 청구하고 브로커 확인을 기록한 뒤에만 반복 게시를
 억제합니다. 레코드가 확실히
 전송되지 않았다는 버스 증명이 있을 때만 청구를 해제하고, 그 외에는 조정을 위해 불확실 상태로

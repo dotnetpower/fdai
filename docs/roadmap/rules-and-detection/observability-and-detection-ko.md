@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 1cf20ca8602279369d0e572fcae7f6d8d8af7b7d
+translation_source_sha: c43577048d40d844675531e90dec472995040241
 translation_revised: 2026-09-14
 ---
 
@@ -94,7 +94,10 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
   `provider_ref`를 읽고 메트릭 조회의 `resource_id` 레이블만 바꿉니다. 공급자 참조가 없거나
   일치하지 않거나 모호하면 틱이 실패합니다. 공급자 오류에는 메트릭 이름을 유지하되 공급자
   참조를 제거합니다. 공급자 참조는 발견된 문제(Finding), 증적, Incident 또는 직렬화된 분석기
-  오류에 포함되지 않습니다.
+  오류에 포함되지 않습니다. 기본 analyzer는 Azure Managed Prometheus의 cluster 이름 alias를
+  이 정확한 신원으로 취급하지 않습니다. 따라서 composition이 정확한 `resource_id` 레이블을
+  보존하는 PromQL을 제공하지 않으면 Azure Monitor Logs 경로를 유지합니다. 요청한 신원 레이블이
+  Prometheus 응답에 없으면 비어 있는 정상 series로 처리하지 않고 실패합니다.
 - Heimdall은 retained repeated-event 에피소드를 global 및 리소스별로 제한합니다. 한 리소스의
   상관관계 flood는 다른 리소스의 partially accumulated 근거보다 해당 리소스의 가장 오래된
   에피소드를 먼저 축출합니다.
