@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 2db9db187421a88f1c8da0f41d80434511229d05
+translation_source_sha: c5a5d418534314c407ad478df09b65f068be9b6b
 translation_revised: 2026-09-14
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -17,14 +17,6 @@ WARA 워크플로 변환 결과는 정확한 평가기 신원과 구조화된 �
 유지합니다. Console은 필요한 생성자, 범위, 최신성 상한 및 담당자를 설명할 수 있지만 근거
 작성기 또는 수정 컨트롤을 제공하지 않습니다.
 온톨로지 인스턴스 변환 결과는 Inspector, 밀집 범례 및 현재 화면 근거 맥락에서 관측된 `runtime_calls`를 일반 직접 관계와 구분합니다. 저장된 원본-대상 방향을 보존하며 런타임 원본을 사용할 수 없을 때 호출을 추론할 수 없습니다. 근거 출처 컨트롤은 기본 및 보조 근거 상태 레이블을 접근 가능한 이름에 포함합니다. 범위가 제한된 대화 기록 저장소는 전체 배열 인코딩 횟수를 로그 수준으로 제한해 가장 긴 보존 suffix를 찾습니다.
-`/ontology` 경로는 인스턴스 우선 셸을 `ontology.tsx`에, 참조 탐색을
-`ontology-navigation.tsx`에 둡니다. 보기 값이 없거나 지원되지 않으면 관측된 Resource 인스턴스
-작업 영역을 열며, 이 작업 영역은 선언 그래프를 요청하지 않고 마운트됩니다. 의미 모델,
-ObjectType, LinkType, ActionType 및 카탈로그 토폴로지 보기는 이름이 명확한 하나의 HTML 기본
-펼침 메뉴 안에 두고 기존 쿼리 및 선언 상세 링크를 유지합니다. 이러한 참조 보기 중 하나로
-들어갈 때 카탈로그 요청을 시작하며, 불러오기 또는 사용 불가 상태에서도 인스턴스로 돌아가는
-경로를 제거하지 않습니다. 이 분리는 표현만 바꾸며 근거, 그래프, 쿼리 또는 실행 권한을 추가하지
-않습니다.
 
 Console 패널 레지스트리는 모든 경로 모듈을 지연 가져오기 뒤에 유지합니다. 이름이 지정된 경로
 내보내기는 하나의 형식 안전 어댑터를 사용하고, 모듈을 공유하는 경로는 하나의 로더를 재사용합니다.
