@@ -20,12 +20,14 @@ read-only, without giving the Operator API an executor identity.
 | Conversation document downloads | implemented | `fdai_operator_service/composition.py`; `document_export.py`; focused ownership and completeness tests | Operator composition regenerates a document only from the authenticated principal's complete verified semantic projection. Markdown remains private and non-cacheable, and PDF is advertised only when its bounded encoder is available. |
 | Unavailable-surface presentation | validated | Focused Operator and Console checks plus authenticated passes over the affected panels | Unserved routes retain server-owned reasons, and panels do not expose raw transport status or nonexistent configuration symbols. |
 | Account identity and same-tenant account selection | implemented | `console/src/components/account-menu.tsx`; `console/src/auth.ts`; focused Console account tests (`11 passed`), typecheck, and production build | The header panel displays MSAL identity and server-verified roles without adding authority. Interactive sessions can open the Entra account picker without a login hint and re-enter the existing startup authorization boundary. |
+| Local operator identity selection | implemented | `prepare-operator-service-env.sh`; `test_prepare_operator_service_env.py` | Standard preparation selects Browser Entra even when a stale private Console environment requests Azure CLI auth. The fixed-ceiling Azure CLI principal requires the explicit `--auth-mode azure-cli` preparation argument. |
 | Recorded Resource state source | implemented | `test_operator_service_composition.py::test_recorded_state_route_and_source_are_common_to_both_venues`; [recorded-state evidence](../../roadmap-implementation/interfaces/recorded-resource-state.md) | Directory, exploration, and batch-state routes share the inventory family store in both venues. Source configuration does not certify the freshness of a recorded fact. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Made Browser Entra the deterministic local preparation default and moved the fixed-ceiling Azure CLI principal behind an explicit preparation argument. A stale `VITE_LOCAL_AZURE_CLI_AUTH=1` value no longer changes the prepared Operator identity. | `current change`; `scripts/deployment/local/prepare-operator-service-env.sh`; `tests/integration/scripts/test_prepare_operator_service_env.py`; focused test passed 5 cases. | Complete launcher-wide mode coherence and retain an authenticated Browser Entra approval-screen check. |
 | 2026-09-12 | implemented | Corrected the promotion-gate source after the catalog projection gained a production writer. Operator now joins every catalog ActionType row with the durable promotion registry, defaults only an absent registry record to the runtime's shadow mode, and binds the joined values into response provenance. | `current change`; Operator workflow-family checks passed 40 cases; focused Console promotion checks passed 6 cases; Console typecheck and catalog parity passed. | Retain authenticated browser evidence and separately complete the governed approval delivery receipt. |
 | 2026-09-06 | implemented | Replaced the ignored Settings catalog refresh flag with an injected bounded read-only provider and added explicit local adoption of an existing T2 deployment. | `current change`; 70 focused Python tests and 35 Console decoder tests passed; authenticated Settings refresh returned HTTP 200 and 47 model versions, including the selected existing primary; no inference request was sent. | T1 answer availability must be decoupled from an absent T2 reviewer separately; model invocation and full mixed-model quorum remain unverified. |
 | 2026-09-01 | implemented | Added an accessible header account panel with verified FDAI roles, IAM navigation, sign-out, and same-tenant Entra account selection. Hardened duplicate actions, initial bundle size, and mobile navigation overlap. | `current change`; `console/src/components/account-menu.tsx`; `console/src/components/account-menu.test.ts`; `console/src/auth.ts`; `console/src/auth.test.ts`; focused Console tests (`11 passed`), typecheck, and production build passed. | Directory switching remains unsupported by the single-tenant issuer contract. |
@@ -88,8 +90,10 @@ The canonical local Operator API uses `FDAI_OPERATOR_API_LOCAL_ENTRA=1` and shar
 runtime helpers with deployment. The browser obtains the API token and the API verifies its JWT
 and App Roles exactly as deployment does. The server's Azure CLI token is confined to Azure
 adapters such as Resource Graph, Microsoft Graph, model discovery, and Event Hubs.
-`FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1` with `VITE_LOCAL_AZURE_CLI_AUTH=1` is an explicit
-CLI-principal debug alternative with a fixed role ceiling.
+Standard preparation selects this Browser Entra mode regardless of stale private Vite values.
+Use `prepare-operator-service-env.sh --auth-mode azure-cli` only for the explicit CLI-principal
+debug alternative. That alternative has a fixed `Contributor` role ceiling and therefore cannot
+open approval details that require `Approver` or `Owner`.
 
 Cost Governance local review remains authenticated. The explicit
 `FDAI_COST_GOVERNANCE_AUTHENTICATED_REVIEW_ACCESS` profile permits disclosure-filtered aggregate

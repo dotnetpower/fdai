@@ -114,7 +114,7 @@ def test_prepares_semantic_transport_or_local_narrator(tmp_path: Path, semantic:
         assert "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR=1" in rendered
 
 
-def test_projects_console_local_azure_cli_opt_in_to_operator(tmp_path: Path) -> None:
+def test_ignores_stale_console_local_azure_cli_opt_in_by_default(tmp_path: Path) -> None:
     repo = _repo(tmp_path, semantic="complete", local_azure_cli_auth="1")
 
     subprocess.run(  # noqa: S603 - test-controlled script and environment
@@ -127,7 +127,32 @@ def test_projects_console_local_azure_cli_opt_in_to_operator(tmp_path: Path) -> 
     )
 
     rendered = (repo / ".fdai/local-operator-service.env").read_text(encoding="utf-8")
+    assert "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=0\n" in rendered
+    assert (repo / ".fdai/local-console-auth-mode").read_text(encoding="utf-8") == (
+        "browser-entra\n"
+    )
+
+
+def test_projects_explicit_local_azure_cli_mode_to_operator(tmp_path: Path) -> None:
+    repo = _repo(tmp_path, semantic="complete")
+
+    subprocess.run(  # noqa: S603 - test-controlled script and environment
+        [
+            _BASH,
+            str(repo / "scripts/deployment/local/prepare-operator-service-env.sh"),
+            "--auth-mode",
+            "azure-cli",
+        ],
+        cwd=repo,
+        env=_isolated_environment(),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    rendered = (repo / ".fdai/local-operator-service.env").read_text(encoding="utf-8")
     assert "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1\n" in rendered
+    assert (repo / ".fdai/local-console-auth-mode").read_text(encoding="utf-8") == "azure-cli\n"
 
 
 def test_rejects_partial_semantic_transport(tmp_path: Path) -> None:
