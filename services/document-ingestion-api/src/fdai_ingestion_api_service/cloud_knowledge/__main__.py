@@ -7,14 +7,14 @@ import stat
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fdai_service_contracts.cloud_knowledge import SourceRegistryRevision
+from fdai_service_contracts.cloud_knowledge import SourceRegistryRevision, canonical_bytes
 from fdai_service_contracts.cloud_knowledge_package import (
     MAX_PACKAGE_BYTES,
     KnowledgeTrustPolicy,
     assemble_signed_release,
     verify_package,
 )
-from fdai_service_contracts.cloud_knowledge_release import KnowledgeReleaseManifest
+from fdai_service_contracts.cloud_knowledge_release import KnowledgeTextReleaseManifest
 
 
 def _read(path: str, maximum: int) -> bytes:
@@ -47,7 +47,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.operation == "assemble":
             if not args.signature or not args.key_id or not args.output:
                 raise ValueError("assembly requires detached signature, key id, and new output")
-            manifest = KnowledgeReleaseManifest.model_validate_json(content)
+            manifest = KnowledgeTextReleaseManifest.model_validate_json(content)
+            if canonical_bytes(manifest) != content:
+                raise ValueError("assembly requires exact canonical v2 manifest bytes")
             content = assemble_signed_release(
                 manifest, key_id=args.key_id, signature=_read(args.signature, 64)
             )

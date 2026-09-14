@@ -16,7 +16,7 @@ from fdai_service_contracts.cloud_knowledge import (
 )
 from fdai_service_contracts.cloud_knowledge_admission import validate_admitted_binding
 from fdai_service_contracts.cloud_knowledge_package import KnowledgeTrustPolicy
-from fdai_service_contracts.cloud_knowledge_release import KnowledgeReleaseManifest
+from fdai_service_contracts.cloud_knowledge_release import parse_knowledge_manifest
 
 
 class CloudReferenceGuard:
@@ -56,7 +56,7 @@ def cloud_reference_units(version: DocumentVersion, content: bytes) -> tuple[Str
     binding = version.cloud_knowledge
     if binding is None:
         raise ValueError("cloud reference extraction requires verified provenance")
-    manifest = KnowledgeReleaseManifest.model_validate_json(content)
+    manifest = parse_knowledge_manifest(content)
     if canonical_bytes(manifest) != content or manifest.digest != binding.manifest_digest:
         raise ValueError("knowledge source no longer matches its admitted manifest")
     if (

@@ -74,17 +74,35 @@ profiles can use thirty-day checks and a ninety-day ceiling after review.
 
 ## Prepare a signed offline package
 
-The exported review manifest contains exact original/normalized UTF-8 content, per-source hashes,
-collection/check times, applicability, rights, and complete collection identity. Version 1 has a
-16 MiB hard ceiling and does not accept ZIP/TAR, scripts, plugins, model weights, or database dumps.
+The exported v2 review manifest contains only exact normalized UTF-8 text, per-source original and
+normalized hashes, collection/check times, applicability, license reference, and complete collection
+identity. Original HTML/Markdown is retained in the collector checkpoint and is not included in new
+exports, packages, collected submissions, or rollback candidates. The 16 MiB hard ceiling remains;
+ZIP/TAR, scripts, plugins, model weights, and database dumps are not accepted.
 Split large source inventories into separately reviewed bounded collections, not an unchecked archive.
+
+The package envelope is `fdai.cloud-knowledge-package.v2`; its manifest is
+`fdai.cloud-knowledge.v2` with reader version `2.0.0`. Upgrade the ingestion API/CLI and worker
+together before delivering v2. Existing v1 packages remain verifiable/importable and stored v1
+generations remain readable under the same current admission gates. New emission is v2 only.
+Never delete fields from an already signed v1 package or relabel its version; create a new review
+manifest and signature instead. A rollback from eligible v1 becomes a higher-sequence v2 candidate
+that pins the old manifest digest and preserves source evidence and admission expiry.
+
+The receiver verifies the included text's SHA-256 and signature. The original SHA-256 is signed
+producer provenance, not a claim that the receiver rehashed an absent body. Verification makes no
+network request to retrieve it. Removing originals does not remove text storage/transfer conditions,
+attribution and modification notices, internal inspection, or independent approval. It also does not
+fix the real-page normalization and table-caveat findings in [Issue #995](https://github.com/dotnetpower/fdai/issues/995#issuecomment-5667579564).
 
 An independently approved signing process signs the exact canonical manifest bytes prefixed with
 the ASCII purpose `fdai.cloud-knowledge.release.v1` and one zero byte. It retains the private key.
-The signature is a raw 64-byte Ed25519 value. Changing any manifest byte requires a new signature.
+This purpose is independent of the manifest's signed schema version. The signature is a raw
+64-byte Ed25519 value. Changing any manifest byte requires a new signature.
 
 The installed ingestion distribution includes an offline command module. Its `assemble` operation
-accepts a manifest, detached signature, key identifier, registry, trust policy, and a new output path.
+accepts an exact canonical v2 manifest, detached signature, key identifier, registry, trust policy,
+and a new output path. Original-body fields, legacy assembly, and noncanonical input are rejected.
 It verifies the result before writing it and refuses to overwrite an existing output. It never
 reads or creates a private key. `inspect` verifies a complete package without importing it.
 
