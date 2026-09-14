@@ -301,8 +301,12 @@ export function decodeTraceResponse(
     if (stage !== null && stage.trim().length === 0) {
       throw new Error("invalid Operator API response: trace step.stage MUST be null or non-empty");
     }
+    const sequence = panelNonNegativeInteger(row, "seq", "trace step");
+    if (sequence < 1) {
+      throw new Error("invalid Operator API response: trace step.seq MUST be positive");
+    }
     return {
-      seq: panelNonNegativeInteger(row, "seq", "trace step"),
+      seq: sequence,
       recorded_at: recordedAt,
       stage,
       decision: panelNullableString(row, "decision", "trace step"),

@@ -98,6 +98,8 @@ describe("trace response contract", () => {
       .toThrow(/MUST be RFC 3339/);
     expect(() => decodeTraceResponse({ ...root, steps: [{ ...step(1), stage: " " }] }))
       .toThrow(/MUST be null or non-empty/);
+    expect(() => decodeTraceResponse({ ...root, steps: [{ ...step(1), seq: 0 }] }))
+      .toThrow(/seq MUST be positive/);
   });
 
   it("shows recorded clock drift instead of flattening it to zero", () => {

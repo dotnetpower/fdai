@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 6a6f0bbf296b25bae4867aeb711418c1839da148
+translation_source_sha: 3fca19994c904ee448ce8241ce93edf3dea6ac17
 translation_revised: 2026-09-14
 ---
 # FDAI Console 대화
@@ -28,6 +28,7 @@ value 필드를 보존하여 독립 oracle이 표시된 count를 검증할 수 �
 추적 하드닝은 다음 근거 불변 조건을 유지합니다.
 
 - 응답 상관관계 ID가 요청한 상관관계와 정확히 일치할 때만 기록을 표시합니다.
+- 모든 감사 순번이 양의 정수일 때만 순서가 있는 단계 또는 근거 링크로 사용합니다.
 
 인증된 `/provisioning` 경로는 하나의 영속 구독 초기 구성 실행을 보여주는 읽기 전용 변환
 결과입니다. 완료된 구성 단계를 재생하고 리소스 검색과 최종 검증을 실시간으로 표시하지만

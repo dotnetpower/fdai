@@ -25,6 +25,7 @@ status, and time labels retain the canonical raw values and exact timestamp for 
 Trace hardening preserves these evidence invariants:
 
 - The response correlation id exactly matches the requested correlation before any record is shown.
+- Every audit sequence is a positive integer before it can become an ordered stage or evidence link.
 
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final
