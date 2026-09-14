@@ -10,6 +10,10 @@ from typing import Any
 from fdai.core.executor import ExecutionResult, ExecutorOutcome
 from fdai.core.executor.direct_api import DirectApiExecutionOutcome, DirectApiExecutionResult
 from fdai.core.executor.tool_call import ToolCallExecutionOutcome, ToolCallExecutionResult
+from fdai.shared.contracts.execution_outcomes import (
+    execution_outcome_is_no_effect,
+    execution_outcome_is_pending,
+)
 from fdai.shared.contracts.models import Action, Rule
 
 
@@ -81,9 +85,27 @@ def is_execution_success(
     )
 
 
+def is_execution_pending(
+    result: ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult,
+) -> bool:
+    """Return whether an approved dispatch still needs authoritative closure."""
+
+    return execution_outcome_is_pending(result.outcome)
+
+
+def is_execution_no_effect(
+    result: ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult,
+) -> bool:
+    """Return whether an approved attempt provably reached no effect boundary."""
+
+    return execution_outcome_is_no_effect(result.outcome)
+
+
 __all__ = [
     "action_payload_hash",
     "approval_request_fingerprint",
+    "is_execution_no_effect",
+    "is_execution_pending",
     "is_execution_success",
     "parked_action_integrity_matches",
 ]

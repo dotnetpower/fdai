@@ -52,6 +52,8 @@ class T2RouteRegistry:
         if getattr(run, "action_type", None) != _ROUTE_ACTION:
             return False
         correlation_id = str(getattr(run, "correlation_id", ""))
+        action_id = str(getattr(run, "action_id", "") or "") or None
+        workflow_action = _workflow_action(getattr(run, "workflow_action", None))
         resource_id = str(getattr(run, "resource_id", "") or "")
         if not correlation_id or resource_id != "control-plane:t2-proposer":
             return False
@@ -87,6 +89,8 @@ class T2RouteRegistry:
                     actor="Thor",
                     action_kind="t2.proposer.route.switched",
                     correlation_id=correlation_id,
+                    action_id=action_id,
+                    workflow_action=workflow_action,
                     prior_route=active_route,
                     active_route=target_route,
                     revision=1,
@@ -109,6 +113,8 @@ class T2RouteRegistry:
                     actor="Thor",
                     action_kind="t2.proposer.route.switched",
                     correlation_id=correlation_id,
+                    action_id=action_id,
+                    workflow_action=workflow_action,
                     prior_route=active_route,
                     active_route=target_route,
                     revision=revision + 1,
@@ -131,6 +137,8 @@ class T2RouteRegistry:
         if action_run.get("action_type") != _ROUTE_ACTION:
             return None
         correlation_id = str(action_run.get("correlation_id") or "")
+        action_id = str(action_run.get("action_id") or "") or None
+        workflow_action = _workflow_action(action_run.get("workflow_action"))
         if not correlation_id:
             return None
         state = await self._store.read_state(_ROUTE_STATE_KEY)
@@ -143,6 +151,8 @@ class T2RouteRegistry:
                     "actor": "Vidar",
                     "producer_principal": "Vidar",
                     "action_kind": "t2.proposer.route.rollback_superseded",
+                    "action_id": action_id,
+                    "workflow_action": workflow_action,
                     "mode": "enforce",
                     "recorded_at": self._timestamp(),
                 }
@@ -168,6 +178,8 @@ class T2RouteRegistry:
                 actor="Vidar",
                 action_kind="t2.proposer.route.rolled_back",
                 correlation_id=correlation_id,
+                action_id=action_id,
+                workflow_action=workflow_action,
                 prior_route=active_route,
                 active_route=prior_route,
                 revision=revision + 1,
@@ -205,6 +217,8 @@ class T2RouteRegistry:
         actor: str,
         action_kind: str,
         correlation_id: str,
+        action_id: str | None,
+        workflow_action: dict[str, object] | None,
         prior_route: str,
         active_route: str,
         revision: int,
@@ -217,6 +231,8 @@ class T2RouteRegistry:
             "actor": actor,
             "producer_principal": actor,
             "action_kind": action_kind,
+            "action_id": action_id,
+            "workflow_action": workflow_action,
             "mode": "enforce",
             "resource_id": "control-plane:t2-proposer",
             "prior_route_ref": prior_route,
@@ -237,6 +253,10 @@ def _revision(state: Mapping[str, Any]) -> int:
     if revision < 1:
         raise ValueError("T2 route registry revision MUST be positive")
     return revision
+
+
+def _workflow_action(value: object) -> dict[str, object] | None:
+    return {str(key): item for key, item in value.items()} if isinstance(value, Mapping) else None
 
 
 def bind_t2_route_selector(*, proposer: object, registry: T2RouteRegistry) -> bool:

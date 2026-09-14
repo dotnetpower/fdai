@@ -334,7 +334,6 @@ def _is_execution_success(
 
 def _synthetic_action_build_failure(*, event: Event, finding: Any, reason: str) -> ExecutionResult:
     """Return a synthetic :class:`ExecutionResult` for the caller.
-
     An :class:`ActionBuildError` means the executor was never invoked;
     the caller still expects a per-finding result, so we synthesize one
     with the ``rejected_invariant`` outcome and the reason on it.
@@ -346,6 +345,7 @@ def _synthetic_action_build_failure(*, event: Event, finding: Any, reason: str) 
         pr_ref=None,
         pr_url=None,
         reason=reason,
+        audit_context={"action_build_failed": True},
     )
 
 

@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 33999b94b5fd57614101226866e1439724f61f2b
+translation_source_sha: c6b367700d31cf9b5efb4e948ea264b0f07eaf54
 translation_revised: 2026-09-14
 ---
 # 지속형 질문 공간
@@ -85,7 +85,7 @@ Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격
 ## 대화 품질 보증 스코어카드
 
 `uv run python scripts/automation/build_semantic_intent_coverage.py`를 실행하면
-`eval/golden-dataset/semantic-intent-coverage.json`이 생성되며 계약 테스트는 오래된 질문은행 원본 다이제스트를 거부합니다. 생성된 FDAI 대화 품질
+`eval/golden-dataset/semantic-intent-coverage.json`이 생성되며 계약 테스트는 오래된 원본 다이제스트를 거부합니다. 따라서 권위 있는 원본이 바뀌면 다이제스트를 수동으로 편집하지 않고 결정론적으로 다시 생성해야 합니다. 생성된 FDAI 대화 품질
 보증 스코어카드(CQAS)는 다음과 같은 소스 기반 주제 계층을 분리하여 보존합니다.
 
 - **운영 모델:** SRE 운영, 복원력 엔지니어링, 변경 및 아키텍처 거버넌스, FinOps입니다.

@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 518883f32248be4c26572e62e71441c69170777d
-translation_revised: 2026-09-13
+translation_source_sha: 2cf2f02eeade58f48e6267c665b0a3027e033dbc
+translation_revised: 2026-09-14
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -367,6 +367,11 @@ dependency 다이제스트를 해석하므로 self-minted 증적은 사용할 �
 `provider_observed` 객체에서는 성공한 API 증적이 상태 갱신이 아닙니다. 조정은
 intended 효과를 fresh 근거와 비교하고 `matched`, `mismatched`, `timed_out`, `unscorable` 중
 하나인 `ReconciliationReceipt`을 발행합니다. 권위 있는 변환 결과만 관찰된 상태를 갱신합니다.
+
+효과 조정 요청은 원래 컨트롤 루프 상관관계를 유지합니다. 계보 판독기는 먼저 그 상관관계에
+기록된 Action을 찾고, 이어서 Action의 실제 식별자로 실행 증적과 `ActionRun` 기록을
+조회합니다. 상관관계 식별자를 액션 식별자 대신 사용하지 않으며, 같은 변환 결과를 반복해
+생성해도 두 번째 감사 기록을 만들지 않습니다.
 
 조정 조정기는 시도를 닫기 전에 exact release, ActionType, 변경할 수 없는 계획,
 인증된 관찰기 맥락, independently 관찰된 기록을 바인딩합니다. 최종 결과와
