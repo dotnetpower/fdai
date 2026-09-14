@@ -40,6 +40,7 @@ test("home offers video and nebula backgrounds and exposes safety as native disc
   const background = await read("src/components/HomeBackground.astro");
   assert.match(hero, /import HomeBackground from "\.\/HomeBackground\.astro"/);
   assert.match(hero, /<HomeBackground base=\{base\} locale=\{locale\}\s*\/>/);
+  assert.match(hero, /import\.meta\.env\.DEV \? "http:\/\/127\.0\.0\.1:5573\/" : `\$\{base\}neural-view\/`/);
   assert.match(background, /<NebulaBackground intensity=\{1\.0\} speed=\{1\.0\} attachToBody\s*\/>/);
   assert.match(background, /fdai:home-background/);
   assert.match(background, /prefers-reduced-motion: reduce/);
