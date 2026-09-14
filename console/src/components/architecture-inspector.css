@@ -1,0 +1,236 @@
+.architecture-inspector {
+  min-width: 0;
+  max-height: clamp(540px, calc(100vh - 260px), 760px);
+  overflow-y: auto;
+  border-left: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.architecture-inspector[hidden] {
+  display: none;
+}
+
+.architecture-inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.architecture-inspector-header strong {
+  font-size: var(--cs-type-compact-size);
+}
+
+.architecture-inspector-tabs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 3px;
+  padding: 6px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+
+.architecture-inspector-tabs button {
+  min-width: 0;
+  min-height: 32px;
+  padding: 5px 4px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: var(--cs-radius-sm);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--cs-type-caption-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.architecture-inspector-tabs button.is-active {
+  border-color: var(--border);
+  background: var(--bg-elevated);
+  color: var(--fg);
+  font-weight: 750;
+}
+
+.architecture-inspector-tabs button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.architecture-inspector-section {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+  padding: 16px;
+}
+
+.architecture-inspector-section .eyebrow {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-label-size);
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.architecture-inspector-section h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--cs-type-panel-title-size);
+  line-height: var(--cs-type-panel-title-line-height);
+}
+
+.architecture-inspector-copy {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+
+.architecture-resource-status {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 7px;
+  padding: 4px 8px;
+  border-radius: var(--cs-radius-sm);
+  background: color-mix(in srgb, var(--success) 10%, var(--bg-elevated));
+  font-size: var(--cs-type-label-size);
+  font-weight: 700;
+}
+
+.architecture-resource-status > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.architecture-resource-status.is-unknown {
+  background: var(--bg-subtle);
+  color: var(--fg-muted);
+}
+
+.architecture-resource-status.is-unknown > span {
+  background: var(--fg-muted);
+}
+
+.architecture-status-note,
+.architecture-source-warning {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+  line-height: 1.5;
+}
+
+.architecture-source-warning {
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--warning) 48%, var(--border));
+  border-radius: var(--cs-radius-sm);
+}
+
+.architecture-resource-summary,
+.architecture-source-facts {
+  display: grid;
+  gap: 8px 12px;
+  margin: 0;
+  font-size: var(--cs-type-compact-size);
+}
+
+.architecture-resource-summary {
+  grid-template-columns: 92px minmax(0, 1fr);
+}
+
+.architecture-resource-summary dt,
+.architecture-source-facts dt {
+  color: var(--fg-muted);
+}
+
+.architecture-resource-summary dd,
+.architecture-source-facts dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.architecture-source-facts > div {
+  display: grid;
+  gap: 3px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.architecture-text-button,
+.architecture-relationships button {
+  min-height: 24px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.architecture-resource-actions {
+  display: grid;
+}
+
+.architecture-resource-actions .btn {
+  justify-content: center;
+}
+
+.architecture-relationships ul {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.architecture-relationships li {
+  display: grid;
+  gap: 4px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.architecture-relationships li > span {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+}
+
+.architecture-technical-details {
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.architecture-technical-details summary {
+  font-size: var(--cs-type-compact-size);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.architecture-technical-details dl {
+  display: grid;
+  gap: 8px;
+}
+
+.architecture-technical-details dt {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+}
+
+.architecture-technical-details dd {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  margin: 0;
+}
+
+.architecture-technical-details code {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

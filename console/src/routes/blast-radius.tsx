@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
-import { ArchitectureMap } from "../components/architecture-map";
+import { ArchitectureTopologyGraph } from "../components/architecture-topology-graph";
+import { layoutArchitectureImpactPresentation } from "../components/architecture-map-layout";
 import {
   architectureHref,
   type InventoryGraphResponse,
@@ -71,6 +72,15 @@ export function inventoryGraphMatchesImpact(
   return Number.isFinite(graphCutoff)
     && Number.isFinite(impactCutoff)
     && graphCutoff === impactCutoff;
+}
+
+export function missingImpactResourceIds(
+  graph: Pick<InventoryGraphResponse, "resources">,
+  impact: Pick<BlastRadiusResponse, "reached" | "target">,
+): readonly string[] {
+  const available = new Set(graph.resources.map((resource) => resource.id));
+  return [...new Set([impact.target, ...impact.reached.map((node) => node.resource_id)])]
+    .filter((resourceId) => !available.has(resourceId));
 }
 
 export function BlastRadiusRoute({ client }: Props) {
@@ -510,7 +520,6 @@ function BlastRadiusMap({ client, data, architectureView }: { readonly client: O
       depth: "4",
       include: "contains,attached_to,depends_on",
     };
-    if (architectureView) params.scope = architectureView;
     client.panel<InventoryGraphResponse>("/inventory/graph", params).then(
       (value) => {
         if (cancelled) return;
@@ -518,18 +527,32 @@ function BlastRadiusMap({ client, data, architectureView }: { readonly client: O
           setMessage(t("ontology.blast.mapSnapshotMismatch"));
           return;
         }
+        const missingResourceIds = missingImpactResourceIds(value, data);
+        if (missingResourceIds.length > 0) {
+          setMessage(t("ontology.blast.mapCoverageIncomplete", {
+            count: missingResourceIds.length,
+          }));
+          return;
+        }
         setGraph(value);
       },
       (error: unknown) => { if (!cancelled) setMessage(error instanceof Error ? error.message : String(error)); },
     );
     return () => { cancelled = true; };
-  }, [client, architectureView, data.source_generation, data.source_cutoff]);
+  }, [client, data]);
   if (message) return <p class="muted footnote">{t("ontology.blast.mapUnavailable", { message })}</p>;
   if (!graph) return <p class="muted footnote">{t("ontology.blast.mapLoading")}</p>;
   const highlighted = new Set([data.target, ...data.reached.map((node) => node.resource_id)]);
+  const presentedGraph = layoutArchitectureImpactPresentation(graph, highlighted);
   return (
     <div class="blast-map-wrap">
-      <ArchitectureMap graph={graph} highlightedIds={highlighted} selectedId={data.target} />
+      <ArchitectureTopologyGraph
+        graph={presentedGraph}
+        highlightedIds={highlighted}
+        selectedId={data.target}
+        variant="impact"
+        allowFullscreen={false}
+      />
       <a class="btn blast-map-open" href={architectureHref(data.target, architectureView)}>{t("ontology.blast.openArchitecture")}</a>
     </div>
   );

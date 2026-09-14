@@ -7,8 +7,7 @@ const brandLogo = readFileSync(
   fileURLToPath(new URL("../../public/brand/fdai-logo.png", import.meta.url)),
 );
 const contentSurfaceStyles = styles
-  .replace(/\.ontology-graph-key i\s*\{[^}]*\}/g, "")
-  .replace(/\.architecture-edge-legend \.is-(?:dependency|attachment|peering)\s*\{[^}]*\}/g, "");
+  .replace(/\.ontology-graph-key i\s*\{[^}]*\}/g, "");
 const approvalRoute = readFileSync(
   fileURLToPath(new URL("../routes/hil-queue.tsx", import.meta.url)),
   "utf8",

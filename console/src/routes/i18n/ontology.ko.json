@@ -670,6 +670,7 @@
     "mapUnavailable": "지도를 사용할 수 없음: {message}",
     "mapLoading": "아키텍처 지도를 불러오는 중...",
     "mapSnapshotMismatch": "아키텍처 지도가 다른 인벤토리 스냅샷을 사용합니다",
+    "mapCoverageIncomplete": "아키텍처 프로젝션에 영향받는 Resource {count}개가 포함되지 않았습니다",
     "openArchitecture": "전체 아키텍처 열기"
   }
 }

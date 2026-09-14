@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 import { OperatorApiError } from "../api";
-import { blastRadiusFailure, inventoryGraphMatchesImpact } from "./blast-radius";
+import {
+  blastRadiusFailure,
+  inventoryGraphMatchesImpact,
+  missingImpactResourceIds,
+} from "./blast-radius";
 import {
   decodeBlastRadiusResponse,
   blastRadiusHref,
@@ -98,6 +102,18 @@ describe("blast-radius route query", () => {
     expect(inventoryGraphMatchesImpact({
       snapshot_at: "2026-08-19T00:30:00Z",
     }, impact)).toBe(false);
+  });
+
+  test("rejects an impact map projection that omits reached Resources", () => {
+    expect(missingImpactResourceIds({
+      resources: [{ id: "root", type: "compute.vm", name: "Root", status: "healthy" }],
+    }, {
+      target: "root",
+      reached: [
+        { resource_id: "root", depth: 0, via_link_type: null },
+        { resource_id: "outside", depth: 1, via_link_type: "depends_on" },
+      ],
+    })).toEqual(["outside"]);
   });
 
   test("decodes an exact-release no-authority impact projection", () => {

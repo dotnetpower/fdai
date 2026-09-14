@@ -5,6 +5,10 @@ import {
   type InventoryGraphResponse,
   type InventoryResource,
 } from "./architecture-map.model";
+import {
+  ARCHITECTURE_TOPOLOGY_COLUMN_PITCH,
+  ARCHITECTURE_TOPOLOGY_ROW_PITCH,
+} from "./architecture-topology-dimensions";
 import { orderArchitectureNetworkPathNodes } from "./architecture-network-path";
 import {
   layoutArchitecturePathComponents,
@@ -19,8 +23,8 @@ import {
 
 const VNET_TYPES = new Set(["virtual-network", "network.vnet"]);
 const SUBNET_TYPES = new Set(["subnet", "network.subnet"]);
-const CELL_WIDTH = 2.15;
-const CELL_HEIGHT = 1.55;
+const CELL_WIDTH = ARCHITECTURE_TOPOLOGY_COLUMN_PITCH;
+const CELL_HEIGHT = ARCHITECTURE_TOPOLOGY_ROW_PITCH;
 const PANEL_GAP = .75;
 interface SubnetPlan extends RectangleItem {
   readonly subnet: InventoryResource;

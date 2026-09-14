@@ -670,6 +670,7 @@
     "mapUnavailable": "Map unavailable: {message}",
     "mapLoading": "Loading architecture map...",
     "mapSnapshotMismatch": "the architecture map uses a different inventory snapshot",
+    "mapCoverageIncomplete": "the architecture projection omits {count} affected Resource(s)",
     "openArchitecture": "Open full architecture"
   }
 }
