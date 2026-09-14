@@ -32,6 +32,39 @@ inside the target virtual network.
 GitHub Actions may validate source, build images, and publish signed releases. It cannot plan,
 apply, resume, or tear down a tenant deployment.
 
+## Connected source deployment
+
+The development source path is selected explicitly with `fdaictl provision azure --source <path>`.
+It is mutually exclusive with `--online` and `--offline-kit`. Initial support targets a new
+`dev` installation using AKS and PostgreSQL Flexible Server. It does not migrate an existing
+Container Apps installation and does not claim disconnected or production readiness.
+
+### Design and critique
+
+Skipping signature checks on a deployment kit would erase its trust boundary. Instead, a source
+deployment pins a clean Git commit, records exact source and dependency digests, and transfers
+only the required inputs through the authenticated managed-host connection. Source provenance
+is explicitly `operator-selected-source`, never `signed-release`. A changed checkout, missing
+input, altered snapshot, or conflicting retained run stops before any new effect.
+
+Source mode avoids complete release assembly, offline wheelhouses, dependency OCI exports, and
+publisher keys. Required service images still need a build or a verified cache hit, digest
+readback, and configuration validation. Foundation, private data-plane execution, exact-plan
+approvals, immutable claims, bounded commands, independent effect checks, and recovery remain
+required. A failed kit verification never falls back to source mode.
+
+No license starts a durable 30-day Trial at first activation, not on each process start or image
+upgrade. Trial availability does not change promotion, risk, RBAC, human approval, or executor
+identity. Expiry blocks new acting work while preserving observation, diagnosis, export, audit,
+and safe completion or recovery of in-flight work. Missing or inconsistent retained Trial state
+cannot silently create another Trial. A later trusted entitlement can replace Trial without an
+infrastructure reinstall; a release signature alone is not an entitlement.
+
+These are target contracts. The implementation ledger records separately the source entrypoint,
+Foundation execution, workload activation, Trial enforcement, and live acceptance. Deployment
+readiness remains false until all selected services, identities, migrations, transport, jobs,
+Console authentication, cleanup, and second zero-change plans have been independently verified.
+
 ## Operator experience
 
 From a source checkout, run:

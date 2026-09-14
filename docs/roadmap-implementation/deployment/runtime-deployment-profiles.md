@@ -10,6 +10,7 @@ Container Apps and Azure Kubernetes Service (AKS). The canonical design remains 
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| BYO-subnet egress and exact workload observations | implemented | `infra/runtimes/aks/cluster/main.tf`; three infrastructure contract cases; cluster Terraform validation and Checkov 16 passed / 0 failed; `aks_readiness.py` with 18 focused tests. | Explicit user-assigned NAT replaces the unsupported managed-VNet mode. Operator DB-role rendering is fixed. Workload readback verifies the complete selected set and Pod digests; full transport, job and Console readiness remains open. |
 | AKS security scan remediation | implemented | `infra/runtimes/aks`; two cluster contract tests, two DSN rotation tests, three native workload plan tests; Checkov 3.2.256 reports 54 passed, 0 failed, and 8 resource-local exceptions. | Azure Policy, host encryption, 50-pod node limits, read-only service roots, bounded scratch storage, and explicit image pulls are configured. Scanner limitations, Managed OS disks, and coordinated DSN rotation have narrow documented exceptions. Azure operational evidence remains open. |
 | Runtime profile and CLI grammar | implemented | `packages/deployment-cli/src/fdai_deployment_cli/runtime_profile.py`; `packages/deployment-cli/tests/test_runtime_profile.py`; 36 focused coordinator tests pass in the current change. | Container Apps with PostgreSQL Flexible Server remains the default. AKS node floors and the non-production `postgres-aks` combination are validated before deployment. |
 | AKS network and cluster state | implemented | `infra/modules/network`; `infra/runtimes/aks/cluster`; `terraform validate` passes in the current change. | The private Standard-tier cluster uses separate system and autoscaled user pools, Microsoft Entra RBAC, Cilium, workload identity, managed Key Vault CSI, and a separate backend key. |
@@ -24,11 +25,18 @@ Container Apps and Azure Kubernetes Service (AKS). The canonical design remains 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Replaced the existing-subnet managed NAT mismatch, supplied the required Operator database role, and replaced unsupported `kubectl rollout status --all` with bounded Deployment/Pod JSON verification. | Current change; 121 focused deployment CLI cases, including 18 readiness cases, pass; three infrastructure regressions, Checkov and cluster Terraform validation pass. | Connect the source deployment path, workload identity token consumption, all five baseline services, authenticated Console ingress, end-to-end readiness, and governed live acceptance. |
 | 2026-09-14 | implemented | Remediated PR #1000's AKS security scan failure by enabling policy admission and host encryption, increasing node Pod limits, and hardening service filesystem and image-pull settings. Documented resource-local scanner and deployment constraints without a global baseline. | Failed CI `34863327772`, attempt 1, source `6850f3d2d2e51aedc011e7a113910f1d1d9db4d2`; current change; four Python contract cases and three Terraform workload plan cases pass; Checkov 3.2.256 reports zero failures across the three AKS roots. | Complete required CI for the updated PR and retain the separate deployment, host-encryption eligibility, capacity, rotation, and recovery evidence below. |
 | 2026-09-15 | in-progress | Added the first implementation ledger. Earlier provenance was not reconstructed. Implemented sealed runtime selection, separate AKS cluster/database/workload states, managed-host routing, typed Kubernetes resources, compact pgvector placement, and signed kit inputs. | Current change paths listed in the scope table; 36 focused coordinator tests, six archive extraction tests, and Terraform validation for the shared, cluster, database, and workload roots pass. | Record complete kit-build evidence, deploy both AKS database profiles online and artifact-offline, close ingress and rollback evidence, and add capacity preflight. |
 
 ### Remaining work
 
+- [ ] Connect source deployment and retain one end-to-end AKS plus `postgres-flex` receipt without
+  building or downloading a complete signed kit. This precedes signed-kit work below.
+- [ ] Bind AKS federated token credentials in Core, Operator, Executor, Canary and scheduled jobs;
+  prove exact identities without relying on Container Apps identity endpoints.
+- [ ] Render all five baseline services from their owning startup contracts and verify that missing
+  service, transport, job, or Console evidence prevents a ready result.
 - [ ] Build one complete signed kit and verify that its manifest contains the AKS roots, all three
   provider families, pgvector OCI archive, `kubectl`, and `kubelogin`.
 - [ ] Record a successful new-subscription online deployment receipt for AKS with

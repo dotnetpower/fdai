@@ -37,6 +37,12 @@ would need a separate, domain-bounded design that explicitly preserves coverage 
 
 ## Module Boundaries
 
+Trial time-window records live in `core/licensing/trial.py` as pure, inert state transitions.
+They do not read a database, open a capability, or initialize themselves from environment values.
+The deployment writer and future persistent adapter own activation and atomic observation;
+runtime composition must authenticate that state before the existing execution ceiling can use it.
+Source deployment provenance belongs to the deployment CLI and is not a license or release signature.
+
 Dependency direction is strict and one-way; a violation is a review blocker.
 Cloud-reference collection belongs to ingestion API, parsing/index activation to the worker, and dated evidence to Core; [the lifecycle owner](../interfaces/cloud-resource-knowledge-lifecycle.md) defines the shared contracts and no-authority boundary. Core exposes applicability as bounded scalar selectors, preserving dependency-only evidence objects. Exact document contexts intersect these selectors before ranking and cannot fall back to broader collection reads. Each new ingestion test has one service-suite owner, and the API's already-declared `aiohttp` dependency is classified as direct rather than indirect.
 

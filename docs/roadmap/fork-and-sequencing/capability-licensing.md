@@ -32,6 +32,29 @@ A read-only root filesystem is not an obstacle, because no activation state is e
 image. The token arrives through the normal secret path, and any durable record belongs in the state
 store.
 
+## Durable keyless Trial target
+
+The connected source deployment will initialize one 30-day Trial at first activation through an
+authenticated deployment writer. Its installation and deployment bindings are independent from
+the source revision and image digest, so an ordinary upgrade or restart cannot renew the Trial.
+The activation time never changes. Every durable observation advances a revision and the
+last-observed UTC time; a clock regression creates a persistent blocked state, not another Trial.
+The first observation at or after expiry blocks new acting requests without stopping observation,
+diagnosis, audit, export, or safety-required in-flight completion and recovery.
+
+The initial implementation adds only the inert record and deterministic transition contract.
+Runtime availability remains on the existing signed-token path until atomic persistent storage,
+authenticated initialization, cross-process readback, and all-path execution gating are connected
+and tested. Missing or inconsistent retained records never authorize reinitialization. Malformed
+or expired signed credentials must not create a fresh Trial fallback.
+
+A future versioned entitlement can remove the Trial restriction; the current signed-token
+30-day ceiling remains unchanged until that contract is implemented. A signed deployment kit
+authenticates artifacts, not usage rights. It removes Trial only when it carries a separately
+valid entitlement. Publisher private keys never enter the deployment. A source owner who also
+controls all persistent state can remove these checks; this offline mechanism does not claim
+tamper-proof enforcement or global reinstall detection.
+
 ## Issuer workstation exception
 
 **Initial design.** Treat the presence of any private-key file under `secrets/` as proof that the

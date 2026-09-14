@@ -123,6 +123,14 @@ Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel work
 deadline, a retry limit, and bounded history. Manual jobs are created only by a separately approved
 request and are not perpetual desired-state resources.
 
+The managed host records the selected Deployment names, image references, and replica bounds.
+Health readback requires that complete set, current observed generations, ready replicas, and
+running Pod image digests from the same source revision. Empty, duplicate, stale, malformed, or
+partially healthy responses are unavailable, not success. This readback does not establish Kafka
+round trips, scheduled-job success, Console authentication, or full deployment readiness.
+Operator rendering supplies its required `fdai_operator` database role; all rendered services
+explicitly select the deployed execution venue.
+
 ## Identity and secrets
 
 Each FDAI workload keeps its current user-assigned Managed Identity. On AKS, one namespaced
@@ -140,6 +148,13 @@ binaries. A deployment does not download a provider, tool, or workload image fro
 after kit verification.
 
 ### Cluster security baseline
+
+The shared platform supplies the existing AKS subnet. The cluster state owns an explicit Standard
+NAT Gateway, static Standard outbound public IP, and both associations before AKS creation; its
+outbound type is `userAssignedNATGateway`, not the AKS-managed-VNet-only `managedNATGateway`.
+The private API endpoint remains private. This is the connected development egress profile, not a
+claim of zone-redundant NAT or policy compatibility where a firewall/UDR path is required. Such
+targets remain blocked until their separate egress contract is selected and verified.
 
 The cluster enables Azure Policy, patch-channel Kubernetes upgrades, and NodeImage OS upgrades.
 Both node pools enable host encryption and allow 50 pods per node. Confirm the selected

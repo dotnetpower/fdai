@@ -665,6 +665,9 @@ def test_aks_workload_binds_digest_image_and_additional_identity() -> None:
 
     assert workload["image"] == (f"example.azurecr.io/operator-service@sha256:{digest}")
     assert workload["external"] is True
+    assert workload["environment"]["FDAI_DATABASE_ROLE"] == "fdai_operator"
+    assert workload["environment"]["PGOPTIONS"] == "-c role=fdai_operator"
+    assert workload["environment"]["FDAI_EXECUTION_VENUE"] == "deployed"
     assert workload["additional_identities"] == {
         "command": {
             "resource_id": "/identities/command",

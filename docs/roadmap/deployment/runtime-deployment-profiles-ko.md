@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 7e4f646a19980fe1c31c0f58cce4a285a10e37f5
+translation_source_sha: 0831302c98df82da4f27a67e6c330ea26906d20d
 translation_revised: 2026-09-14
 ---
 # 런타임 배포 프로파일
@@ -122,6 +122,13 @@ Container Apps 렌더러는 명세를 Container Apps와 Container Apps Jobs로 �
 한도, 제한된 이력을 사용합니다. 수동 작업은 별도로 승인된 요청으로만 만들며 영구 desired-state
 리소스로 두지 않습니다.
 
+관리 호스트는 선택한 Deployment 이름, 이미지 참조, 복제본 수 범위를 기록합니다. 상태 재조회는
+해당 목록 전체, 현재 관측 세대, 준비된 복제본, 같은 소스 버전에서 실행 중인 Pod 이미지 digest를
+요구합니다. 비어 있거나 중복되거나 오래되거나 형식이 잘못됐거나 일부만 정상인 응답은 성공이
+아니라 사용 불가로 처리합니다. 이 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는
+전체 배포 준비가 검증되지는 않습니다. Operator 생성기는 필수 `fdai_operator` 데이터베이스 역할을
+제공하며, 생성되는 모든 서비스는 배포된 실행 위치를 명시적으로 선택합니다.
+
 ## 신원 및 secret
 
 각 FDAI 워크로드는 현재 user-assigned Managed Identity를 유지합니다. AKS에서는 namespace에 속한
@@ -138,6 +145,13 @@ Kubernetes 공급자와 서명된 `kubectl`, `kubelogin` 바이너리가 포함�
 공용 출처에서 공급자, 도구, 워크로드 이미지를 다운로드하지 않습니다.
 
 ### 클러스터 보안 기준
+
+공유 플랫폼은 기존 AKS 서브넷을 제공합니다. 클러스터 상태는 명시적인 Standard NAT Gateway,
+고정 Standard 송신 공용 IP와 두 연결을 소유하고 AKS를 만들기 전에 연결을 완료합니다. 송신
+유형은 AKS 관리형 VNet 전용 `managedNATGateway`가 아니라 `userAssignedNATGateway`입니다.
+비공개 API 엔드포인트는 그대로 비공개로 유지됩니다. 이는 연결된 개발 환경의 송신 프로파일이며,
+NAT의 영역 중복이나 방화벽/UDR 경로가 필요한 정책과의 호환성을 뜻하지 않습니다. 그런 대상은
+별도의 송신 계약을 선택하고 검증할 때까지 차단 대상으로 남습니다.
 
 클러스터는 Azure Policy, patch 채널 Kubernetes 업그레이드, NodeImage OS 업그레이드를 활성화합니다.
 두 노드 풀 모두 호스트 암호화를 활성화하고 노드당 Pod 50개를 허용합니다. 배포 전에 선택한

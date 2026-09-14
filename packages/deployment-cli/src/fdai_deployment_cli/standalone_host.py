@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.aks_readiness import verify_workload_health
 from fdai_deployment_cli.deployment_kit import acquire_deployment_kit
 from fdai_deployment_cli.license import inspect_license
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
@@ -746,6 +747,10 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         workloads_state_key=f"fdai-{application_values['env']}-aks-workloads.tfstate",
         workloads_terraform_data=str(work_dir / "terraform-data-workloads"),
         kubeconfig=str(kubeconfig),
+        expected_workloads={
+            name: {key: workload[key] for key in ("image", "replicas", "max_replicas")}
+            for name, workload in workloads.items()
+        },
     )
     _replace_or_verify_private_json(work_dir / "workloads.auto.tfvars.json", values)
     _replace_private_json(work_dir / "context.json", context)
@@ -1536,6 +1541,11 @@ def _aks_workload(
         "ingestion": ("500m", "1Gi"),
         "worker": ("500m", "1Gi"),
     }[component]
+    runtime_environment = {name: str(value) for name, value in environment.items()}
+    runtime_environment["FDAI_EXECUTION_VENUE"] = "deployed"
+    if component == "operator":
+        runtime_environment["FDAI_DATABASE_ROLE"] = "fdai_operator"
+        runtime_environment["PGOPTIONS"] = "-c role=fdai_operator"
     return {
         "component": component,
         "image": refs[image_name],
@@ -1552,7 +1562,7 @@ def _aks_workload(
         "external": external,
         "readiness_path": readiness_path,
         "liveness_path": liveness_path,
-        "environment": {name: str(value) for name, value in environment.items()},
+        "environment": runtime_environment,
         "secret_environment": secret_environment,
     }
 
@@ -2153,23 +2163,33 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
         kubeconfig = Path(str(context.get("kubeconfig", "")))
         if not kubeconfig.is_file():
             raise ValueError("AKS kubeconfig is unavailable for workload readback")
-        result = subprocess.run(
-            (
-                "kubectl",
-                "rollout",
-                "status",
-                "deployment",
-                "--all",
-                "--namespace",
-                "fdai-runtime",
-                "--timeout=5m",
-                f"--kubeconfig={kubeconfig}",
-            ),
-            check=False,
-            capture_output=True,
-            timeout=360,
+        expected = _mapping(context.get("expected_workloads"), "expected AKS workloads")
+        observed = []
+        for resource in ("deployments", "pods"):
+            observed.append(
+                _capture(
+                    (
+                        "kubectl",
+                        "get",
+                        resource,
+                        "--namespace",
+                        "fdai-runtime",
+                        "--output",
+                        "json",
+                        "--request-timeout=60s",
+                        f"--kubeconfig={kubeconfig}",
+                    ),
+                    cwd=kubeconfig.parent,
+                    timeout=90,
+                    reason="AKS workload observation failed",
+                )
+            )
+        return verify_workload_health(
+            deployments=observed[0],
+            pods=observed[1],
+            expected=expected,
+            source_commit=str(context["source_commit"]),
         )
-        return result.returncode == 0
     return _container_app_health(context, Path(str(context["infra"])))
 
 

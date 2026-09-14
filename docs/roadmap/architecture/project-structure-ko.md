@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 3d14489e4fe9d5bec8cd8da58f862a16c5c71f7d
+translation_source_sha: 1b36c8d3cd07bf8c1551d80a96f7e026fdd36b51
 translation_revised: 2026-09-14
 ---
 # 프로젝트 구조
@@ -35,6 +35,12 @@ translation_revised: 2026-09-14
 커버리지와 fan-out 의미를 명시적으로 보존하는 별도의 도메인 범위 설계가 필요합니다.
 
 ## 모듈 경계(모듈 Boundaries)
+
+Trial 기간 기록은 `core/licensing/trial.py`에 순수하고 권한을 부여하지 않는 상태 전이로 둡니다.
+이 코드는 데이터베이스를 읽거나 기능을 허용하거나 환경 변수에서 스스로 초기화하지 않습니다.
+배포 기록 작성자와 향후 영속 어댑터가 활성화 및 원자적인 관측을 담당합니다. 런타임 구성은
+기존 실행 제한에서 이 상태를 사용하기 전에 출처를 인증해야 합니다. 소스 배포 출처는 배포 CLI가
+담당하며 라이선스나 release 서명을 뜻하지 않습니다.
 
 의존 방향은 엄격하게 단방향이며, 위반은 리뷰 블로커입니다.
 클라우드 참조 수집은 수집 API, 파싱/색인 활성화는 작업자, 날짜를 명시한 근거는 Core가 담당합니다. [수명 주기 설계](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)는 공유 계약과 실행 권한이 없는 경계를 정의합니다. Core는 적용 조건을 제한된 단일 값 선택자로 노출하며 근거 객체는 의존 조회 결과로만 받습니다. 정확한 문서 맥락은 순위 계산 전에 이 선택 조건과 함께 적용하며 더 넓은 컬렉션 조회로 대체할 수 없습니다. 새 수집 테스트마다 서비스 테스트 소유자가 하나이며, 이미 선언된 API의 `aiohttp` 의존성은 간접이 아닌 직접 사용으로 분류합니다.
