@@ -633,6 +633,7 @@ run_job() {
   fail "$purpose Job did not finish within ${budget}s"
 }
 
+ensure_contributor_azd
 for command_name in az azd curl date flock git python3 sha256sum stat tar terraform timeout uv; do
   require_command "$command_name"
 done

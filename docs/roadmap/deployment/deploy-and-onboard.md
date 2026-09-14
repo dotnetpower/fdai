@@ -199,8 +199,8 @@ These customer-agnostic helpers keep both deployment routes repeatable:
   Foundation route. Claims resume verification only and Foundation never implies readiness.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) binds Azure CLI and `azd` entry points to the approved subscription and tenant pair before mutation; Genesis verifies region availability through the exact subscription-bound ARM locations endpoint without changing the active CLI selection, and policy-probe cleanup parses multi-value TSV as ordered lines before proving absence.
 - [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh) remains the direct interactive public
-  `dev` path. It verifies committed provider locks without requesting an upgrade, supplies the
-  already verified deployer principal to Terraform, and saves owner-only platform and Core plans.
+  `dev` path. It verifies committed provider locks, supplies the verified deployer principal to Terraform, and saves owner-only platform and Core plans. Missing Linux x64 or ARM64 `azd` is installed from the SHA-256-pinned official 1.34.0 archive into `~/.local/bin` without `sudo` or replacement.
+  Existing executables are reused, while download, checksum, or path failures stop before provisioning and the wrapper changes only its own PATH.
   Each apply requires the exact SHA-256 in an interactive terminal, a plan no older than 20 minutes,
   unchanged source and actor bindings, and no unresolved prior attempt. It is not a private, shared,
   staging, or production deployment path.

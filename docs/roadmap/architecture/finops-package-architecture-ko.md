@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 9cc4296efd3e4ec9dbf34a5b7ef1539e5ef16e4c
-translation_revised: 2026-09-13
+translation_source_sha: 3ae701a67c3b9c8a1e98f065d78a89fc6609ddab
+translation_revised: 2026-09-14
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -33,8 +33,10 @@ translation_revised: 2026-09-13
 > 전역 Terraform 루트는 관련 없는 AKS 관측 연결을 전달할 수 있습니다. 해당 값과 Reader 역할
 > 할당은 Cost Governance 패키지 입력이 아니며 패키지 런타임을 활성화할 수 없습니다. 같은
 > 경계는 독립 런타임 호출 근거 원본 플래그도 FinOps 패키지 입력에서 제외합니다.
-> Terraform deployer 역할은 구성된 안정 실행기 UAMI principal을 사용하며 인증된 principal이
-> 다르면 계획을 중단합니다. 실행기 호스트를 교체해도 패키지 또는 관찰 권한은 바뀌지 않습니다.
+> 보호된 Terraform deployer 역할은 구성된 안정 실행기 UAMI principal을 사용하며 인증된
+> principal이 다르면 계획을 중단합니다. 격리된 공개 개발 경로는 검증된 Azure CLI 사람을
+> Terraform 관리 principal로만 사용할 수 있습니다. 어느 신원도 패키지 입력 또는 runtime
+> executor가 아니며, 실행기 호스트를 교체해도 패키지 또는 관찰 권한은 바뀌지 않습니다.
 > 실행기의 정확한 registry 범위 `AcrPush` 배정은 서명된 공유 런타임 이미지만 가져옵니다. 이
 > 배정은 Cost Governance 패키지 입력이 아니며 패키지 설치, 활성화, 승격 또는 데이터 접근 권한
 > 부여에 사용할 수 없습니다.

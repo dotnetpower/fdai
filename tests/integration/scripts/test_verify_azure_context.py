@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import hashlib
+import io
 import os
 import pty
 import shutil
 import subprocess
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -420,6 +423,146 @@ ensure_contributor_azd_login 1 tenant-active
         "auth login --check-status",
     ]
     assert "starting its sign-in now" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "mode", ["install", "existing", "user-path", "download-failure", "bad-checksum"]
+)
+def test_contributor_azd_bootstrap_is_pinned_and_fail_closed(tmp_path: Path, mode: str) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    for name in (
+        "bash",
+        "mkdir",
+        "stat",
+        "sha256sum",
+        "tar",
+        "gzip",
+        "timeout",
+        "mktemp",
+        "install",
+        "ln",
+        "rm",
+        "cp",
+    ):
+        executable = shutil.which(name)
+        assert executable is not None
+        (fake_bin / name).symlink_to(executable)
+    uname = fake_bin / "uname"
+    uname.write_text("#!/bin/bash\nprintf 'Linux x86_64\\n'\n", encoding="ascii")
+    uname.chmod(0o755)
+    payload = b"#!/bin/bash\nprintf 'azd version test\\n'\n"
+    archive = tmp_path / "archive.tar.gz"
+    with tarfile.open(archive, "w:gz") as stream:
+        member = tarfile.TarInfo("azd-linux-amd64")
+        member.size = len(payload)
+        member.mode = 0o755
+        stream.addfile(member, io.BytesIO(payload))
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    helper = tmp_path / "contributor-target.sh"
+    helper.write_text(
+        _CONTRIBUTOR_TARGET.read_text(encoding="utf-8").replace(
+            "ac7a6a8c47b0fae1d6ad17defd2f6b4ad8b7a97c4ef6ed52aa2cea2cee5d7144",
+            digest,
+        ),
+        encoding="utf-8",
+    )
+    if mode == "bad-checksum":
+        archive.write_bytes(b"corrupt archive")
+    calls = tmp_path / "curl-calls"
+    curl = fake_bin / "curl"
+    curl.write_text(
+        """#!/bin/bash
+set -euo pipefail
+printf '%s\n' "$*" >> "$FAKE_CURL_CALLS"
+[[ "$FAKE_MODE" != download-failure ]] || exit 22
+while (($# > 0)); do
+    if [[ "$1" == --output ]]; then
+        cp "$FAKE_ARCHIVE" "$2"
+        exit 0
+    fi
+    shift
+done
+exit 9
+""",
+        encoding="ascii",
+    )
+    curl.chmod(0o755)
+    installed = home / ".local/bin/azd"
+    if mode in {"existing", "user-path"}:
+        existing = fake_bin / "azd" if mode == "existing" else installed
+        existing.parent.mkdir(parents=True, exist_ok=True)
+        existing.write_bytes(payload)
+        existing.chmod(0o755)
+    result = subprocess.run(  # noqa: S603 - controlled helper and executable fixtures
+        [
+            _BASH,
+            "-c",
+            'source "$1"; ensure_contributor_azd || exit 1; azd version',
+            "bash",
+            str(helper),
+        ],
+        env={
+            **os.environ,
+            "HOME": str(home),
+            "PATH": str(fake_bin),
+            "FAKE_CURL_CALLS": str(calls),
+            "FAKE_ARCHIVE": str(archive),
+            "FAKE_MODE": mode,
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    if mode in {"download-failure", "bad-checksum"}:
+        assert result.returncode == 1
+        assert not installed.exists()
+        assert "deployment has not started" in result.stderr
+    else:
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == "azd version test\n"
+    if mode in {"existing", "user-path"}:
+        assert not calls.exists()
+    else:
+        invocation = calls.read_text(encoding="ascii")
+        assert "azure-dev-cli_1.34.0/azd-linux-amd64.tar.gz" in invocation
+        assert "--max-time 180" in invocation
+        assert not list((home / ".local/bin").glob(".fdai-azd.*"))
+
+
+@pytest.mark.parametrize("symlink", [False, True])
+def test_contributor_azd_bootstrap_preserves_an_unusable_existing_path(
+    tmp_path: Path, symlink: bool
+) -> None:
+    installed = tmp_path / ".local/bin/azd"
+    installed.parent.mkdir(parents=True)
+    if symlink:
+        installed.symlink_to(tmp_path / "missing-azd")
+    else:
+        installed.write_text("preserve this file", encoding="ascii")
+    result = subprocess.run(  # noqa: S603 - controlled helper and private destination
+        [
+            _BASH,
+            "-c",
+            'source "$1"; ensure_contributor_azd',
+            "bash",
+            str(_CONTRIBUTOR_TARGET),
+        ],
+        env={**os.environ, "HOME": str(tmp_path), "PATH": ""},
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert result.returncode == 1
+    assert "existing user azd is not executable" in result.stderr
+    if symlink:
+        assert installed.is_symlink()
+    else:
+        assert installed.read_text(encoding="ascii") == "preserve this file"
 
 
 def _fake_uv(tmp_path: Path) -> None:
