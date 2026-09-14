@@ -1,7 +1,7 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 37dcf24838b472bb1d2fc78965e994958097cb5d
+translation_source_sha: 0887b9e937cbf7449aace35cc46fe8da3df055f5
 translation_revised: 2026-09-14
 ---
 
@@ -459,8 +459,8 @@ Best for: 구성 변경, IaC patch, 카탈로그 업데이트, 거버넌스 변�
   무시되며 강제 적용 변경 증적은 계속 권위 있는하여 페이로드 충돌을 거부합니다.
 - **업스트림 Azure 게이트웨이 연결** - 개발 operations 게이트웨이 URL과 Easy Auth 대상이
   모두 구성되면 headless 런타임은 enforce-capable `AzureGatewayDirectApiExecutor`를 연결합니다. Core는 `ops.start-vm`, `ops.deallocate-vm`, `ops.scale-out`, `ops.upsert-network-rule`, `ops.delete-network-rule`을 지원하고 격리 실행기는 `ops.scale-out`을 제외합니다.
-  모든 ActionType은 사람 승인이 필요한 T0 상한과 shadow-first를 유지하며 `config/action-type-runtime-support.json`이 표면별 지원을 기록합니다. `dispatch_not_attempted`는 무효과이고 `receipt_timeout`, `execution_unknown`, `awaiting_effect_evidence`는 실패나 성공이 아닌 대기 상태입니다.
-  PR, direct-API, 도구, 원격, 작업 흐름, HIL 경로는 원래 상관관계와 제공된 Action ID 및 시도 번호를 보존합니다. Trace는 각 액션 시도를 분리하고 효과가 발생했을 수 있는 HIL 결과는 종료 전에 독립 조정으로 보냅니다.
+  모든 ActionType은 사람 승인이 필요한 T0 상한과 shadow-first를 유지하며 `config/action-type-runtime-support.json`이 표면별 지원을 기록합니다. `dispatch_not_attempted`는 무효과이고 `receipt_timeout`, `execution_unknown`, `awaiting_effect_evidence`는 실패나 성공이 아닌 대기 상태입니다. 현재 개정 증적은 축약 액션 이름이 아니라 버전을 포함한 정확한 `action_type_ref`에 결속됩니다.
+  PR, direct-API, 도구, 원격, 작업 흐름, HIL 경로는 원래 상관관계와 제공된 Action ID 및 시도 번호를 보존합니다. Trace는 각 액션 시도를 분리하고 효과가 발생했을 수 있는 HIL 결과는 종료 전에 독립 조정으로 보냅니다. 실행 전 무효과 종료도 프로바이더를 호출하지 않은 채 작업 흐름의 영속 `not_attempted` 결과를 기록합니다.
 - **Long-running 연산 잠금** - ARM `202`는 대상 Blob 임차 기간을 비공개 연산 기록에
   유지합니다. 실행기 상태 polling이 임차 기간을 renew하고 최종 상태를 ETag
   compare-and-swap으로 기록한 후 release합니다. 알 수 없는 상태 URL 조회 필드는 차단합니다.

@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: dae242b32aaa99b37976b426b70232fdd6cf3117
+translation_source_sha: 2a9c62ad476a9ea22bf60fc75c12f704281b71cf
 translation_revised: 2026-09-14
 ---
 # 프로세스 자동화(프로세스 자동화)
@@ -212,7 +212,7 @@ catalog-root, 어댑터 라우팅, 저널, 명령 및 샌드박스 실행 세부
   `status=compensated`를 사용할 수 있지만 부분 결과는 `succeeded`가 될 수 없습니다.
 
 프로세스 오케스트레이터는 이제 선언된 보상을 타입이 지정된 유입으로 전달합니다. 전달 전에 보상 의도를 기록하고 제안 참조를 별도 보존하며 비정상 종료 후에도 같은 프로세스를 재개합니다. 제안 참조는 전달만 입증합니다. `WorkflowOutcomeVerifier`가 각 액션과
-보상 증적을 독립적으로 검증해야 forward 단계가 완료되거나 프로세스가 `compensated`가 됩니다. 근거가 없거나 거부되거나 malformed이면 waiting 상태를 유지하거나 `recovery_incomplete`로 끝나며 성공이 되지 않습니다. 검증은 `not_attempted`와 `failed`를 구분하고 대기 중인 근거를 최종 상태로 만들지 않으며, 동일한 액션 식별자와 양의 작업 흐름 시도 번호를 재시도, 보상, HIL 재개, 최종 근거까지 보존합니다. 단계 실행기는 검증 권한 없이 이 결과를 대응시킵니다.
+보상 증적을 독립적으로 검증해야 forward 단계가 완료되거나 프로세스가 `compensated`가 됩니다. 근거가 없거나 거부되거나 malformed이면 waiting 상태를 유지하거나 `recovery_incomplete`로 끝나며 성공이 되지 않습니다. 검증은 `not_attempted`와 `failed`를 구분하고 대기 중인 근거를 최종 상태로 만들지 않으며, 동일한 액션 식별자, 이벤트 신원, 양의 작업 흐름 시도 번호를 재시도, 보상, HIL 재개, 최종 근거까지 보존합니다. 실행 전 무효과 종료도 프로바이더 호출 없이 이 기록기를 통과하며, 단계 실행기는 검증 권한 없이 결과를 대응시킵니다.
 Core는 전달과 동일한 논리 대상 잠금으로 자동화 보류 발행을 직렬화하고, 증적 인코딩과 상태 전이를 분리합니다.
 격리 실행기는 프로바이더 입출력 직전에 자신의 대상 잠금 안에서 현재 보류와 정확한 워크플로 권한 부여를
 다시 확인합니다. 잘못되었거나 새 기록으로 대체된 권한 부여는 전달을 차단하며, 거부된 시도는
