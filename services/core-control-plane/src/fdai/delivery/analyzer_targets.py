@@ -37,6 +37,7 @@ from fdai.delivery.analyzer_inventory import (
     AnalyzerInventoryIdentityError,
     AnalyzerProviderReferenceReader,
     read_provider_query_references,
+    read_resources_by_provider_references,
 )
 from fdai.delivery.analyzer_tick import AnalyzerTarget
 from fdai.shared.providers.decision_evidence_verifier import (
@@ -149,21 +150,19 @@ async def resolve_analyzer_targets(
     if not 1 <= max_discovered <= MAX_DISCOVERED_CEILING:
         raise ValueError(f"max_discovered MUST be in [1, {MAX_DISCOVERED_CEILING}]")
 
-    ordered: list[AnalyzerTarget] = []
-    seen: set[str] = set()
-    configured_by_resource: dict[str, AnalyzerTarget] = {}
-    for target in configured:
-        if target.resource_ref in seen:
-            continue
-        seen.add(target.resource_ref)
-        configured_by_resource[target.resource_ref] = target
-        ordered.append(target)
-    configured_count = len(ordered)
-
     if store is None:
+        unbound_targets = _deduplicate_configured_targets(configured)
+        if any(
+            target.provider_query_ref is None or _looks_like_azure_provider_ref(target.resource_ref)
+            for target in unbound_targets
+        ):
+            raise AnalyzerTargetResolutionError(
+                "configured ARM targets without inventory MUST separate "
+                "resource_id and provider_resource_id"
+            )
         return AnalyzerTargetResolution(
-            targets=tuple(ordered),
-            configured=configured_count,
+            targets=unbound_targets,
+            configured=len(unbound_targets),
             discovered=0,
             inventory_consulted=False,
         )
@@ -179,6 +178,20 @@ async def resolve_analyzer_targets(
         raise AnalyzerTargetResolutionError(
             f"durable inventory projection read failed: {type(exc).__name__}"
         ) from exc
+
+    try:
+        configured_targets = await _reconcile_configured_targets(
+            configured,
+            provider_references=provider_references,
+            analyzer_kinds=analyzer_kinds,
+            source_generation=snapshot.source_generation,
+        )
+    except AnalyzerInventoryIdentityError as exc:
+        raise AnalyzerTargetResolutionError(str(exc)) from exc
+    ordered = list(configured_targets)
+    seen = {target.resource_ref for target in configured_targets}
+    configured_by_resource = {target.resource_ref: target for target in configured_targets}
+    configured_count = len(ordered)
 
     skipped: Counter[str] = Counter()
     eligible: list[AnalyzerTarget] = []
@@ -228,6 +241,7 @@ async def resolve_analyzer_targets(
         provider_query_refs = await read_provider_query_references(
             provider_references,
             expected_resource_types=provider_resource_types,
+            expected_snapshot_id=snapshot.source_generation,
         )
     except AnalyzerInventoryIdentityError as exc:
         raise AnalyzerTargetResolutionError(str(exc)) from exc
@@ -261,6 +275,88 @@ async def resolve_analyzer_targets(
         skipped_reason_counts=tuple(sorted(skipped.items())),
         truncated=snapshot.truncated or withheld,
     )
+
+
+def _deduplicate_configured_targets(
+    configured: Sequence[AnalyzerTarget],
+) -> tuple[AnalyzerTarget, ...]:
+    ordered: list[AnalyzerTarget] = []
+    by_resource: dict[str, AnalyzerTarget] = {}
+    for target in configured:
+        previous = by_resource.get(target.resource_ref)
+        if previous is not None:
+            if (
+                previous.resource_kind != target.resource_kind
+                or previous.provider_query_ref != target.provider_query_ref
+            ):
+                raise AnalyzerTargetResolutionError(
+                    "configured analyzer target identity is ambiguous"
+                )
+            continue
+        by_resource[target.resource_ref] = target
+        ordered.append(target)
+    return tuple(ordered)
+
+
+def _looks_like_azure_provider_ref(value: str) -> bool:
+    return value.casefold().startswith("/subscriptions/")
+
+
+async def _reconcile_configured_targets(
+    configured: Sequence[AnalyzerTarget],
+    *,
+    provider_references: AnalyzerProviderReferenceReader | None,
+    analyzer_kinds: Mapping[str, str],
+    source_generation: str | None,
+) -> tuple[AnalyzerTarget, ...]:
+    provider_refs = tuple(
+        target.provider_query_ref or target.resource_ref
+        for target in configured
+        if target.provider_query_ref is not None
+        or _looks_like_azure_provider_ref(target.resource_ref)
+    )
+    _snapshot_id, resources = await read_resources_by_provider_references(
+        provider_references,
+        provider_refs=provider_refs,
+        expected_snapshot_id=source_generation,
+    )
+    reconciled: list[AnalyzerTarget] = []
+    for target in configured:
+        supplied_provider_ref = target.provider_query_ref
+        if supplied_provider_ref is None and _looks_like_azure_provider_ref(target.resource_ref):
+            supplied_provider_ref = target.resource_ref
+        if supplied_provider_ref is None:
+            reconciled.append(target)
+            continue
+        resource = resources.get(supplied_provider_ref.casefold())
+        if (
+            resource is None
+            or resource.provider_ref is None
+            or resource.provider_ref.casefold() != supplied_provider_ref.casefold()
+        ):
+            raise AnalyzerInventoryIdentityError(
+                "configured provider reference is absent from active inventory"
+            )
+        expected_kind = analyzer_kinds.get(resource.type.strip())
+        if expected_kind != target.resource_kind:
+            raise AnalyzerInventoryIdentityError(
+                "configured analyzer kind conflicts with provider resource type"
+            )
+        if (
+            not _looks_like_azure_provider_ref(target.resource_ref)
+            and target.resource_ref != resource.resource_id
+        ):
+            raise AnalyzerInventoryIdentityError(
+                "configured logical and provider resource identities do not match"
+            )
+        reconciled.append(
+            AnalyzerTarget(
+                resource_ref=resource.resource_id,
+                resource_kind=target.resource_kind,
+                provider_query_ref=resource.provider_ref,
+            )
+        )
+    return _deduplicate_configured_targets(reconciled)
 
 
 async def _eligible_target(

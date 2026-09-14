@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to Azure from one local command or a digest-pinned disconnected deployment appliance.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 06c036df9e26ec5dcc7b7f28fcc7722866dcc7f4 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: a4b5020ea2b3ff20dec9ba6b0c411c21e3940c3f }]
 ---
 
 # Deploy Quickstart
@@ -212,6 +212,11 @@ A successful command reports `deployment_ready=true` after the application conve
 second Terraform plan is zero-change. `subscription_ready=false` can remain while broader assurance
 campaigns, such as complete model-capacity and inventory certification, are still open. This does
 not mean that the selected application failed to deploy.
+
+If you configure analyzer targets directly, use `resource_id` for the logical FDAI Resource and
+`provider_resource_id` for the exact Azure resource ID used by metric queries. When inventory is
+available, FDAI can reconcile a legacy Azure ID to its logical Resource. Without inventory, provide
+both fields so findings and Incidents never expose the provider identity as their target.
 
 The private work directory can contain SSH keys, target-specific inputs, plans, and recovery state.
 Do not upload or share its contents; use sanitized CLI diagnostics instead. Keep the directory until

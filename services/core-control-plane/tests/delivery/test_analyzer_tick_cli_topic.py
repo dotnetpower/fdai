@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from fdai.delivery import analyzer_run_receipt as analyzer_run_receipt_module
 from fdai.delivery import analyzer_tick_cli as analyzer_tick_cli_module
-from fdai.delivery.analyzer_run_receipt import resolve_analyzer_run_id
-from fdai.delivery.analyzer_targets import AnalyzerTargetResolution
+from fdai.delivery.analyzer_run_receipt import (
+    AnalyzerRunReceiptPersistenceError,
+    record_analyzer_run_receipt,
+    resolve_analyzer_run_id,
+)
+from fdai.delivery.analyzer_targets import (
+    AnalyzerTargetResolution,
+    AnalyzerTargetResolutionError,
+)
 from fdai.delivery.analyzer_tick import AnalyzerTarget, AnalyzerTickReport
 from fdai.delivery.analyzer_tick_cli import (
     BUDGET_ENV,
@@ -92,6 +101,31 @@ def test_run_receipts_prefer_explicit_then_platform_execution_identity() -> None
 def test_run_receipts_reject_unstable_whitespace_identity() -> None:
     with pytest.raises(ValueError, match="run identity"):
         resolve_analyzer_run_id({"FDAI_ANALYZER_RUN_ID": "run 1"})
+
+
+async def test_run_receipt_wraps_only_the_persistence_boundary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingStore:
+        async def record(self, **_values: object) -> None:
+            raise ConnectionError("database unavailable")
+
+    monkeypatch.setattr(
+        analyzer_run_receipt_module,
+        "build_analyzer_run_receipt_store",
+        lambda _environment: FailingStore(),
+    )
+
+    with pytest.raises(
+        AnalyzerRunReceiptPersistenceError,
+        match="ConnectionError",
+    ):
+        await record_analyzer_run_receipt(
+            environment={"FDAI_ANALYZER_RUN_ID": "run-1"},
+            tick_id="0",
+            recorded_at=datetime(2026, 9, 14, tzinfo=UTC),
+            report={"failed": False},
+        )
 
 
 def test_trace_window_defaults_to_the_analyzer_window() -> None:
@@ -420,7 +454,88 @@ async def test_local_loop_retries_a_failed_tick_until_ready(
     assert result == 0
     assert sleeps == [4.0]
     output = capsys.readouterr().out
-    assert output.index("event=failed") < output.index("event=ready")
+    assert output.index("event=waiting reason=tick_failed") < output.index("event=ready")
+    assert "event=failed" not in output
+
+
+async def test_local_loop_retries_target_resolution_failure_until_ready(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    calls = 0
+    monotonic = iter((10.0, 11.0, 15.0))
+    sleeps: list[float] = []
+
+    async def tick() -> AnalyzerJobReport:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise AnalyzerTargetResolutionError("active snapshot unavailable")
+        return _job_report()
+
+    result = await run_loop(
+        interval_seconds=5,
+        max_ticks=2,
+        tick=tick,
+        sleep=lambda seconds: _record_sleep(sleeps, seconds),
+        monotonic=lambda: next(monotonic),
+    )
+
+    assert result == 0
+    assert calls == 2
+    assert sleeps == [4.0]
+    output = capsys.readouterr().out
+    assert output.index("reason=target_resolution_unavailable") < output.index("event=ready")
+    assert "event=failed" not in output
+
+
+async def test_local_loop_retries_run_receipt_failure_until_ready(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    receipt_calls = 0
+    monotonic = iter((10.0, 11.0, 15.0))
+    sleeps: list[float] = []
+
+    async def record_receipt(
+        _report: AnalyzerJobReport,
+        *,
+        scheduling: str,
+        tick_id: str,
+    ) -> None:
+        del scheduling, tick_id
+        nonlocal receipt_calls
+        receipt_calls += 1
+        if receipt_calls == 1:
+            raise AnalyzerRunReceiptPersistenceError("state store unavailable")
+
+    monkeypatch.setattr(analyzer_tick_cli_module, "_record_run_receipt", record_receipt)
+
+    result = await run_loop(
+        interval_seconds=5,
+        max_ticks=2,
+        tick=lambda: _async_report(_job_report()),
+        sleep=lambda seconds: _record_sleep(sleeps, seconds),
+        monotonic=lambda: next(monotonic),
+    )
+
+    assert result == 0
+    assert receipt_calls == 2
+    assert sleeps == [4.0]
+    output = capsys.readouterr().out
+    assert output.index("reason=run_receipt_unavailable") < output.index("event=ready")
+    assert output.count('"scheduling": "local_loop"') == 1
+
+
+async def test_local_loop_does_not_hide_unexpected_tick_errors() -> None:
+    async def broken_tick() -> AnalyzerJobReport:
+        raise RuntimeError("programming defect")
+
+    with pytest.raises(RuntimeError, match="programming defect"):
+        await run_loop(
+            interval_seconds=5,
+            max_ticks=2,
+            tick=broken_tick,
+        )
 
 
 async def test_local_loop_stops_when_one_tick_exceeds_the_deployed_deadline(
@@ -439,6 +554,33 @@ async def test_local_loop_stops_when_one_tick_exceeds_the_deployed_deadline(
 
     assert result == 1
     assert "reason=tick_deadline" in capsys.readouterr().out
+
+
+async def test_local_loop_retries_a_tick_deadline_until_ready(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    calls = 0
+
+    async def tick() -> AnalyzerJobReport:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            await asyncio.sleep(1)
+        return _job_report()
+
+    result = await run_loop(
+        interval_seconds=1,
+        max_ticks=2,
+        tick_timeout_seconds=0.01,
+        tick=tick,
+        sleep=lambda _seconds: asyncio.sleep(0),
+    )
+
+    assert result == 0
+    assert calls == 2
+    output = capsys.readouterr().out
+    assert output.index("reason=tick_deadline") < output.index("event=ready")
+    assert "event=failed" not in output
 
 
 async def _async_report(report: AnalyzerJobReport) -> AnalyzerJobReport:

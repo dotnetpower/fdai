@@ -383,7 +383,13 @@ async def test_an_unrouted_metric_marks_the_pass_partial_instead_of_healthy() ->
 async def test_resolved_inventory_targets_drive_the_same_routed_tick() -> None:
     provider, prometheus, _ = _routed()
     bus = RecordingBus()
-    configured = (AnalyzerTarget(resource_ref="res-aks", resource_kind="aks_cluster"),)
+    configured = (
+        AnalyzerTarget(
+            resource_ref="res-aks",
+            resource_kind="aks_cluster",
+            provider_query_ref="/providers/example/resources/res-aks",
+        ),
+    )
 
     resolution = await resolve_analyzer_targets(configured=configured, store=None, now=NOW)
     report = await _runner(provider, bus).run_once(resolution.targets)

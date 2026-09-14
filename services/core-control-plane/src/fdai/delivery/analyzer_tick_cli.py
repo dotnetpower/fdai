@@ -1,16 +1,19 @@
 """One-shot analyzer tick for a Container Apps scheduled Job.
 
-Reads `FDAI_ANALYZER_TARGETS` (a JSON list of ``{resource_id, kind}`` objects),
-adds every eligible resource the durable inventory projection already observed
-when `FDAI_INVENTORY_DSN` is bound, binds the reference analyzers to whichever
+Reads `FDAI_ANALYZER_TARGETS` (a JSON list of
+``{resource_id, kind, provider_resource_id?}`` objects), adds every eligible
+resource the durable inventory projection already observed when
+`FDAI_INVENTORY_DSN` is bound, binds the reference analyzers to whichever
 `MetricProvider` composition wired, and publishes one canonical Event per
 finding to the analyzer ingest topic.
 
 One-shot and bounded-loop exit codes are `0` after a clean final pass,
 including a pass with no resolved target, and `1` when the final pass is
 incomplete. The unbounded local loop remains alive across a failed pass,
-withholds readiness, and retries on the next interval. An unreadable inventory
-projection raises instead of degrading to the configured list alone.
+target-resolution outage, tick deadline, or run-receipt persistence outage,
+withholds readiness, and retries on the next interval. Configuration and
+programming errors still propagate. An unreadable inventory projection raises
+instead of degrading to the configured list alone.
 """
 
 from __future__ import annotations
@@ -39,11 +42,15 @@ from fdai.delivery.analyzer_metric_provider import AnalyzerMetricProvider
 from fdai.delivery.analyzer_receipt_store import (
     StateStoreAnalyzerReceiptStore,
 )
-from fdai.delivery.analyzer_run_receipt import record_analyzer_run_receipt
+from fdai.delivery.analyzer_run_receipt import (
+    AnalyzerRunReceiptPersistenceError,
+    record_analyzer_run_receipt,
+)
 from fdai.delivery.analyzer_targets import (
     DEFAULT_MAX_DISCOVERED,
     MAX_DISCOVERED_CEILING,
     AnalyzerTargetResolution,
+    AnalyzerTargetResolutionError,
     resolve_analyzer_targets,
 )
 from fdai.delivery.analyzer_tick import (
@@ -96,6 +103,7 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 _LOGGER = logging.getLogger("fdai.analyzer_tick")
 
 TARGETS_ENV = "FDAI_ANALYZER_TARGETS"
+_TARGET_KEYS = frozenset({"resource_id", "kind", "provider_resource_id"})
 WINDOW_ENV = "FDAI_ANALYZER_WINDOW_SECONDS"
 TRACE_WINDOW_ENV = "FDAI_TRACE_CONTINUITY_WINDOW_SECONDS"
 TRACE_LOOKBACK_ENV = "FDAI_TRACE_CONTINUITY_LOOKBACK_SECONDS"
@@ -222,25 +230,35 @@ def parse_targets(raw: str) -> tuple[AnalyzerTarget, ...]:
     if not isinstance(loaded, list):
         raise ValueError(f"{TARGETS_ENV} MUST be a JSON array")
     targets: list[AnalyzerTarget] = []
-    kinds_by_resource: dict[str, str] = {}
+    targets_by_resource: dict[str, AnalyzerTarget] = {}
     for index, item in enumerate(loaded):
-        if not isinstance(item, dict):
+        if not isinstance(item, dict) or not {"resource_id", "kind"}.issubset(item):
             raise ValueError(f"{TARGETS_ENV}[{index}] MUST be an object")
+        if not set(item).issubset(_TARGET_KEYS):
+            raise ValueError(f"{TARGETS_ENV}[{index}] contains unknown fields")
         resource_ref = item.get("resource_id")
         resource_kind = item.get("kind")
+        provider_ref = item.get("provider_resource_id")
         if not isinstance(resource_ref, str) or not isinstance(resource_kind, str):
             raise ValueError(f"{TARGETS_ENV}[{index}] MUST carry string resource_id and kind")
+        if provider_ref is not None and not isinstance(provider_ref, str):
+            raise ValueError(f"{TARGETS_ENV}[{index}] provider_resource_id MUST be a string")
         target = AnalyzerTarget(
-            resource_ref=resource_ref.strip(), resource_kind=resource_kind.strip()
+            resource_ref=resource_ref.strip(),
+            resource_kind=resource_kind.strip(),
+            provider_query_ref=provider_ref.strip() if provider_ref is not None else None,
         )
-        previous_kind = kinds_by_resource.get(target.resource_ref)
-        if previous_kind is not None:
-            if previous_kind != target.resource_kind:
+        previous = targets_by_resource.get(target.resource_ref)
+        if previous is not None:
+            if (
+                previous.resource_kind != target.resource_kind
+                or previous.provider_query_ref != target.provider_query_ref
+            ):
                 raise ValueError(
-                    f"{TARGETS_ENV}[{index}] conflicts with an earlier kind for resource_id"
+                    f"{TARGETS_ENV}[{index}] conflicts with an earlier target identity"
                 )
             continue
-        kinds_by_resource[target.resource_ref] = target.resource_kind
+        targets_by_resource[target.resource_ref] = target
         targets.append(target)
     return tuple(targets)
 
@@ -710,26 +728,46 @@ async def run_loop(
     ready = False
     while max_ticks is None or completed < max_ticks:
         tick_started = monotonic()
+        failure_reason: str | None = None
         try:
             report = await asyncio.wait_for(tick(), timeout=tick_timeout_seconds)
+            await _record_run_receipt(
+                report,
+                scheduling="local_loop",
+                tick_id=str(completed),
+            )
         except TimeoutError:
-            print("service=local-analyzer event=failed reason=tick_deadline", flush=True)
-            return 1
-        await _record_run_receipt(
-            report,
-            scheduling="local_loop",
-            tick_id=str(completed),
-        )
-        _emit_report(report, scheduling="local_loop")
+            failure_reason = "tick_deadline"
+        except AnalyzerTargetResolutionError:
+            failure_reason = "target_resolution_unavailable"
+        except AnalyzerRunReceiptPersistenceError:
+            failure_reason = "run_receipt_unavailable"
         completed += 1
-        if report.failed:
-            print("service=local-analyzer event=failed", flush=True)
+        if failure_reason is not None:
             ready = False
-        elif not ready:
-            print("service=local-analyzer event=ready", flush=True)
-            ready = True
-        if max_ticks is not None and completed >= max_ticks:
-            return 1 if report.failed else 0
+            if max_ticks is not None and completed >= max_ticks:
+                print(
+                    f"service=local-analyzer event=failed reason={failure_reason}",
+                    flush=True,
+                )
+                return 1
+            print(
+                f"service=local-analyzer event=waiting reason={failure_reason}",
+                flush=True,
+            )
+        else:
+            _emit_report(report, scheduling="local_loop")
+            if report.failed:
+                ready = False
+                if max_ticks is not None and completed >= max_ticks:
+                    print("service=local-analyzer event=failed", flush=True)
+                    return 1
+                print("service=local-analyzer event=waiting reason=tick_failed", flush=True)
+            elif not ready:
+                print("service=local-analyzer event=ready", flush=True)
+                ready = True
+            if max_ticks is not None and completed >= max_ticks:
+                return 0
         elapsed = monotonic() - tick_started
         await sleep(max(0.0, float(interval_seconds) - elapsed))
     return 0

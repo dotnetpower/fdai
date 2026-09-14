@@ -94,7 +94,11 @@ are synthetic.
   target keeps its ontology `Resource.id` as the analyzer and Event identity. At the delivery
   boundary, the tick reads the exact `provider_ref` from the active inventory snapshot and rewrites
   only the metric query's `resource_id` label. A missing, mismatched, or ambiguous provider
-  reference fails the tick. Provider failures retain the metric name but redact the provider
+  reference fails the tick. A configured target carries the logical `resource_id` separately from
+  the optional exact `provider_resource_id`. A legacy Azure ID in `resource_id` is reverse-resolved
+  in the same active inventory generation and collapsed with its discovered logical Resource.
+  Missing, ambiguous, kind-conflicting, or cross-generation reconciliation fails the tick.
+  Explicit-only operation without inventory requires both identities. Provider failures retain the metric name but redact the provider
   reference, which never enters a Finding, receipt, Incident, or serialized analyzer error. The
   default analyzer does not treat Azure Managed Prometheus's cluster-name alias as this exact
   identity; it remains on Azure Monitor Logs unless composition supplies PromQL that preserves an

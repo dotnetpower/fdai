@@ -33,6 +33,12 @@ class AnalyzerProviderReferenceReader(Protocol):
         resource_ids: tuple[str, ...],
     ) -> tuple[str | None, Mapping[str, ResourceRecord]]: ...
 
+    async def read_active_resources_by_provider_refs(
+        self,
+        *,
+        provider_refs: tuple[str, ...],
+    ) -> tuple[str | None, Mapping[str, ResourceRecord]]: ...
+
 
 @dataclass(frozen=True, slots=True)
 class AnalyzerInventorySources:
@@ -74,6 +80,7 @@ async def read_provider_query_references(
     reader: AnalyzerProviderReferenceReader | None,
     *,
     expected_resource_types: Mapping[str, str],
+    expected_snapshot_id: str | None = None,
 ) -> dict[str, str]:
     """Resolve exact query identities without projecting them into findings."""
 
@@ -94,6 +101,10 @@ async def read_provider_query_references(
         raise AnalyzerInventoryIdentityError(
             "active inventory provider identity snapshot is unavailable"
         )
+    if expected_snapshot_id is not None and snapshot_id != expected_snapshot_id:
+        raise AnalyzerInventoryIdentityError(
+            "active inventory provider identity generation changed during target resolution"
+        )
 
     provider_query_refs: dict[str, str] = {}
     for resource_id in resource_ids:
@@ -108,11 +119,45 @@ async def read_provider_query_references(
                 "active inventory provider identity does not match eligible analyzer targets"
             )
         provider_query_refs[resource_id] = resource.provider_ref.strip()
-    if len(set(provider_query_refs.values())) != len(provider_query_refs):
+    if len({value.casefold() for value in provider_query_refs.values()}) != len(
+        provider_query_refs
+    ):
         raise AnalyzerInventoryIdentityError(
             "active inventory provider identity is ambiguous across analyzer targets"
         )
     return provider_query_refs
+
+
+async def read_resources_by_provider_references(
+    reader: AnalyzerProviderReferenceReader | None,
+    *,
+    provider_refs: tuple[str, ...],
+    expected_snapshot_id: str | None = None,
+) -> tuple[str | None, Mapping[str, ResourceRecord]]:
+    """Resolve configured provider references against one active snapshot."""
+
+    if not provider_refs:
+        return None, {}
+    if reader is None:
+        raise AnalyzerInventoryIdentityError(
+            "configured provider references require an active inventory reader"
+        )
+    normalized = tuple(sorted({value.casefold() for value in provider_refs}))
+    try:
+        snapshot_id, resources = await reader.read_active_resources_by_provider_refs(
+            provider_refs=normalized
+        )
+    except Exception as exc:  # noqa: BLE001 - ambiguous identity MUST fail the tick
+        raise AnalyzerInventoryIdentityError(
+            f"configured provider identity read failed: {type(exc).__name__}"
+        ) from exc
+    if snapshot_id is None:
+        raise AnalyzerInventoryIdentityError("configured provider identity snapshot is unavailable")
+    if expected_snapshot_id is not None and snapshot_id != expected_snapshot_id:
+        raise AnalyzerInventoryIdentityError(
+            "configured provider identity generation changed during target resolution"
+        )
+    return snapshot_id, resources
 
 
 __all__ = [
@@ -121,4 +166,5 @@ __all__ = [
     "AnalyzerProviderReferenceReader",
     "build_analyzer_inventory_sources",
     "read_provider_query_references",
+    "read_resources_by_provider_references",
 ]

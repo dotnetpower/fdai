@@ -182,7 +182,12 @@ set, and applies `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS` before provider I/O. Rep
 explicit resource and kind is harmless, while assigning two different kinds to one resource fails
 configuration instead of selecting by list order. When an explicit logical resource also exists in
 the inventory, its kind must match the reviewed Resource type and its metric query uses the active
-snapshot's exact provider reference. An unsupported resource type is omitted rather than guessed.
+snapshot's exact provider reference. Explicit targets keep the ontology `resource_id` separate from
+the optional exact `provider_resource_id`. A legacy Azure resource ID in `resource_id` is reconciled
+to the active logical identity in the same inventory generation and collapses with its discovered
+peer; missing, ambiguous, conflicting, or cross-generation identity evidence fails closed. Without
+inventory, each explicit target must provide both identities. An unsupported resource type is
+omitted rather than guessed.
 An unreadable projection fails the tick so the Job retries instead of silently reducing coverage.
 Without an inventory DSN, the explicit-only path remains available; when both sources resolve no
 target, the tick is a clean no-op that exits `0`. Set the analyzer cron to an explicit empty string

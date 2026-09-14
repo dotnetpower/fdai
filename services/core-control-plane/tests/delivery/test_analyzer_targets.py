@@ -89,12 +89,14 @@ class StubStore:
         *,
         truncated: bool = False,
         source_complete: bool = True,
+        source_generation: str | None = None,
         error: Exception | None = None,
         honor_property_filter: bool = True,
     ) -> None:
         self._objects = tuple(objects)
         self._truncated = truncated
         self._source_complete = source_complete
+        self._source_generation = source_generation
         self._error = error
         self._honor_property_filter = honor_property_filter
         self.limits: list[int] = []
@@ -131,6 +133,7 @@ class StubStore:
             objects=objects[:limit],
             truncated=self._truncated or len(objects) > limit,
             source_complete=self._source_complete,
+            source_generation=self._source_generation,
         )
 
 
@@ -148,6 +151,7 @@ class StubProviderReferenceReader:
         self._snapshot_id = snapshot_id
         self._error = error
         self.requests: list[tuple[str, ...]] = []
+        self.provider_requests: list[tuple[str, ...]] = []
 
     async def read_active_resources(
         self,
@@ -161,6 +165,21 @@ class StubProviderReferenceReader:
             resource_id: self._resources[resource_id]
             for resource_id in resource_ids
             if resource_id in self._resources
+        }
+
+    async def read_active_resources_by_provider_refs(
+        self,
+        *,
+        provider_refs: tuple[str, ...],
+    ) -> tuple[str | None, Mapping[str, ResourceRecord]]:
+        self.provider_requests.append(provider_refs)
+        if self._error is not None:
+            raise self._error
+        return self._snapshot_id, {
+            resource.provider_ref.casefold(): resource
+            for resource in self._resources.values()
+            if resource.provider_ref is not None
+            and resource.provider_ref.casefold() in provider_refs
         }
 
 
@@ -399,6 +418,140 @@ async def test_configured_targets_lead_and_win_a_duplicate() -> None:
 
 
 @pytest.mark.asyncio
+async def test_configured_arm_reference_collapses_into_logical_inventory_target() -> None:
+    provider_ref = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/example-rg/providers/"
+        "Microsoft.ContainerService/managedClusters/example-aks"
+    )
+    store = StubStore((_resource("logical-aks", "kubernetes-cluster"),))
+    reader = StubProviderReferenceReader(
+        {
+            "logical-aks": ResourceRecord(
+                resource_id="logical-aks",
+                type="kubernetes-cluster",
+                provider_ref=provider_ref,
+            )
+        }
+    )
+
+    resolution = await _resolve(
+        store,
+        configured=(AnalyzerTarget(resource_ref=provider_ref, resource_kind="aks_cluster"),),
+        provider_references=reader,
+    )
+
+    assert resolution.targets == (
+        AnalyzerTarget(resource_ref="logical-aks", resource_kind="aks_cluster"),
+    )
+    assert resolution.targets[0].provider_query_ref == provider_ref
+    assert resolution.configured == 1
+    assert resolution.discovered == 0
+    assert reader.provider_requests == [(provider_ref.casefold(),)]
+
+
+@pytest.mark.asyncio
+async def test_configured_provider_reference_must_match_active_inventory() -> None:
+    provider_ref = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/example-rg/providers/"
+        "Microsoft.ContainerService/managedClusters/missing"
+    )
+
+    with pytest.raises(
+        AnalyzerTargetResolutionError,
+        match="provider reference is absent from active inventory",
+    ):
+        await _resolve(
+            StubStore((_resource("logical-aks", "kubernetes-cluster"),)),
+            configured=(
+                AnalyzerTarget(
+                    resource_ref="logical-aks",
+                    resource_kind="aks_cluster",
+                    provider_query_ref=provider_ref,
+                ),
+            ),
+        )
+
+
+@pytest.mark.asyncio
+async def test_configured_provider_reference_must_use_same_inventory_generation() -> None:
+    provider_ref = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/example-rg/providers/"
+        "Microsoft.ContainerService/managedClusters/example-aks"
+    )
+    store = StubStore(
+        (_resource("logical-aks", "kubernetes-cluster"),),
+        source_generation="generation-2",
+    )
+    reader = StubProviderReferenceReader(
+        {
+            "logical-aks": ResourceRecord(
+                resource_id="logical-aks",
+                type="kubernetes-cluster",
+                provider_ref=provider_ref,
+            )
+        },
+        snapshot_id="generation-1",
+    )
+
+    with pytest.raises(
+        AnalyzerTargetResolutionError,
+        match="generation changed during target resolution",
+    ):
+        await _resolve(
+            store,
+            configured=(
+                AnalyzerTarget(
+                    resource_ref="logical-aks",
+                    resource_kind="aks_cluster",
+                    provider_query_ref=provider_ref,
+                ),
+            ),
+            provider_references=reader,
+        )
+
+
+@pytest.mark.asyncio
+async def test_unbound_legacy_arm_target_requires_separate_identities() -> None:
+    with pytest.raises(
+        AnalyzerTargetResolutionError,
+        match="MUST separate resource_id and provider_resource_id",
+    ):
+        await _resolve(
+            None,
+            configured=(
+                AnalyzerTarget(
+                    resource_ref=(
+                        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+                        "resourceGroups/example-rg/providers/"
+                        "Microsoft.ContainerService/managedClusters/example-aks"
+                    ),
+                    resource_kind="aks_cluster",
+                ),
+            ),
+        )
+
+
+@pytest.mark.asyncio
+async def test_unbound_explicit_target_accepts_separate_identities() -> None:
+    target = AnalyzerTarget(
+        resource_ref="logical-aks",
+        resource_kind="aks_cluster",
+        provider_query_ref=(
+            "/subscriptions/00000000-0000-0000-0000-000000000000/"
+            "resourceGroups/example-rg/providers/"
+            "Microsoft.ContainerService/managedClusters/example-aks"
+        ),
+    )
+
+    resolution = await _resolve(None, configured=(target,))
+
+    assert resolution.targets == (target,)
+
+
+@pytest.mark.asyncio
 async def test_configured_target_kind_must_match_its_inventory_resource_type() -> None:
     store = StubStore((_resource("res-aks", "kubernetes-cluster"),))
 
@@ -608,6 +761,36 @@ async def test_missing_or_mismatched_provider_identity_fails_closed(
 
 
 @pytest.mark.asyncio
+async def test_case_variant_provider_aliases_fail_closed() -> None:
+    store = StubStore(
+        (
+            _resource("res-a", "kubernetes-cluster"),
+            _resource("res-b", "kubernetes-cluster"),
+        )
+    )
+    reader = StubProviderReferenceReader(
+        {
+            "res-a": ResourceRecord(
+                resource_id="res-a",
+                type="kubernetes-cluster",
+                provider_ref="/subscriptions/example/resourceGroups/rg/providers/example/a",
+            ),
+            "res-b": ResourceRecord(
+                resource_id="res-b",
+                type="kubernetes-cluster",
+                provider_ref="/SUBSCRIPTIONS/EXAMPLE/RESOURCEGROUPS/RG/PROVIDERS/EXAMPLE/A",
+            ),
+        }
+    )
+
+    with pytest.raises(
+        AnalyzerTargetResolutionError,
+        match="ambiguous across analyzer targets",
+    ):
+        await _resolve(store, provider_references=reader)
+
+
+@pytest.mark.asyncio
 async def test_an_inventory_projection_requires_its_provider_identity_reader() -> None:
     store = StubStore((_resource("res-aks", "kubernetes-cluster"),))
 
@@ -625,7 +808,13 @@ async def test_an_inventory_projection_requires_its_provider_identity_reader() -
 
 @pytest.mark.asyncio
 async def test_an_unbound_projection_keeps_the_configured_list() -> None:
-    configured = (AnalyzerTarget(resource_ref="res-aks", resource_kind="aks_cluster"),)
+    configured = (
+        AnalyzerTarget(
+            resource_ref="res-aks",
+            resource_kind="aks_cluster",
+            provider_query_ref="/providers/example/resources/res-aks",
+        ),
+    )
 
     resolution = await _resolve(None, configured=configured)
 

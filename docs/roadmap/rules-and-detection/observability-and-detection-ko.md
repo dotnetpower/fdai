@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 4f0b44b028c86bc8ea31a6dbf336093618581f39
+translation_source_sha: c68dd51c34027c2eb258d5990fe66f65a7e5eb54
 translation_revised: 2026-09-14
 ---
 
@@ -92,7 +92,11 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
   메타데이터도 확인합니다. 인벤토리 기반 대상은 온톨로지 `Resource.id`를
   분석기와 Event 신원으로 유지합니다. 전달 경계에서 틱은 활성 인벤토리 스냅샷의 정확한
   `provider_ref`를 읽고 메트릭 조회의 `resource_id` 레이블만 바꿉니다. 공급자 참조가 없거나
-  일치하지 않거나 모호하면 틱이 실패합니다. 공급자 오류에는 메트릭 이름을 유지하되 공급자
+  일치하지 않거나 모호하면 틱이 실패합니다. 구성된 대상은 논리 `resource_id`와 선택적인 정확한
+  `provider_resource_id`를 분리해서 전달합니다. 기존 Azure ID가 `resource_id`에 있으면 같은 활성
+  인벤토리 세대에서 역으로 해석하고 검색된 논리 Resource와 하나로 합칩니다. 조정 결과가 없거나,
+  모호하거나, 종류가 충돌하거나, 세대가 다르면 틱이 실패합니다. 인벤토리가 없는 명시적 전용
+  실행에는 두 신원이 모두 필요합니다. 공급자 오류에는 메트릭 이름을 유지하되 공급자
   참조를 제거합니다. 공급자 참조는 발견된 문제(Finding), 증적, Incident 또는 직렬화된 분석기
   오류에 포함되지 않습니다. 기본 analyzer는 Azure Managed Prometheus의 cluster 이름 alias를
   이 정확한 신원으로 취급하지 않습니다. 따라서 composition이 정확한 `resource_id` 레이블을

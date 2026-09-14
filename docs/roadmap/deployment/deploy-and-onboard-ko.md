@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 06c036df9e26ec5dcc7b7f28fcc7722866dcc7f4
+translation_source_sha: a4b5020ea2b3ff20dec9ba6b0c411c21e3940c3f
 translation_revised: 2026-09-14
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -182,7 +182,12 @@ Analyzer 작업은 기본 1분 shadow 예약으로 `fdai.delivery.analyzer_tick_
 명시적 리소스와 종류를 반복하는 것은 허용하지만, 하나의 리소스에 서로 다른 두 종류를 지정하면
 목록 순서로 하나를 선택하지 않고 구성 오류로 처리합니다. 명시적 논리 리소스가 인벤토리에도
 있으면 해당 종류가 검토된 Resource 유형과 일치해야 하며, 메트릭 조회에는 활성 스냅샷의 정확한
-공급자 참조를 사용합니다. 지원하지 않는 리소스 타입은 추측하지 않고 제외합니다. Projection을
+공급자 참조를 사용합니다. 명시적 대상은 온톨로지 `resource_id`와 선택적인 정확한
+`provider_resource_id`를 분리해서 유지합니다. 기존 Azure 리소스 ID가 `resource_id`에 있으면
+같은 인벤토리 세대의 활성 논리 신원으로 조정하고 검색된 같은 대상과 하나로 합칩니다. 신원
+근거가 없거나, 모호하거나, 충돌하거나, 서로 다른 세대이면 fail-closed 합니다. 인벤토리가
+없으면 각 명시적 대상에 두 신원을 모두 제공해야 합니다. 지원하지 않는 리소스 타입은 추측하지
+않고 제외합니다. Projection을
 읽을 수 없으면 coverage를 조용히 줄이지 않고 tick을 실패시켜 Job이 재시도됩니다. 인벤토리 DSN이
 없으면 명시적 대상 전용 경로를 유지하고, 두 출처 모두 대상이 없으면 tick은 `0`으로 종료하는 정상
 no-op입니다. Analyzer cron을 명시적으로 빈 문자열로 설정하면 작업이 비활성화됩니다.

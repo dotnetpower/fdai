@@ -182,7 +182,7 @@ observation-mode continuity issues. Full latency analysis:
 | Variable | Type | Purpose |
 |----------|------|---------|
 | `analyzer_tick_cron_expression` | string | Cron for the tick job. Default: `"* * * * *"`. An explicit empty string disables it. |
-| `analyzer_targets_json` | string | Optional JSON array of `{"resource_id", "kind"}` pairs. `kind` MUST be one of `aks_cluster` / `mysql_flexible_server` / `azure_openai` / `application_gateway` / `api_management`. Empty uses durable inventory and exits quietly only when both sources have no supported targets. |
+| `analyzer_targets_json` | string | Optional JSON array of `{"resource_id", "kind", "provider_resource_id"?}` targets. `resource_id` is the logical ontology identity. `provider_resource_id` is the exact metric-query identity and is required when inventory is unavailable. `kind` MUST be one of `aks_cluster` / `mysql_flexible_server` / `azure_openai` / `application_gateway` / `api_management`. Empty uses durable inventory and exits quietly only when both sources have no supported targets. |
 | `trace_topologies_json` | string | Optional JSON array of `{"topology_ref", "resource_ref", "expected_hops"}` declarations. Empty disables trace-continuity checks without changing the metric analyzers. |
 | `analyzer_window_seconds` | string | Look-back window per analyzer per tick. Empty -> CLI default (300 s). |
 | `trace_window_seconds` | string | Trace-continuity detection window. One window yields at most one detected issue, so it MUST stay several times shorter than the correlation window. Empty -> analyzer window. |

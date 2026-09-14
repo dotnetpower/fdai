@@ -364,6 +364,57 @@ class PostgresInventorySnapshotStore:
         }
         return snapshot_id, resources
 
+    async def read_active_resources_by_provider_refs(
+        self,
+        *,
+        provider_refs: tuple[str, ...],
+    ) -> tuple[str | None, Mapping[str, ResourceRecord]]:
+        """Read active Resources keyed by normalized exact provider reference."""
+
+        normalized = tuple(sorted({value.casefold() for value in provider_refs}))
+        if (
+            provider_refs != normalized
+            or len(provider_refs) > 1000
+            or any(not value or len(value) > 2048 for value in provider_refs)
+        ):
+            raise ValueError(
+                "active provider references MUST be normalized, unique, ordered, and bounded"
+            )
+        async with await self._connect() as connection:
+            async with connection.transaction():
+                await self._set_timeout(connection)
+                active_cursor = await connection.execute(
+                    "SELECT snapshot_id FROM inventory_active WHERE singleton=TRUE FOR SHARE"
+                )
+                active = await active_cursor.fetchone()
+                if active is None:
+                    return None, {}
+                snapshot_id = str(active["snapshot_id"])
+                if not provider_refs:
+                    return snapshot_id, {}
+                cursor = await connection.execute(
+                    "SELECT resource_id, resource_type, props, provider_ref, last_seen "
+                    "FROM inventory_snapshot_resource "
+                    "WHERE snapshot_id=%s AND lower(provider_ref)=ANY(%s::text[]) "
+                    "ORDER BY provider_ref, resource_id",
+                    (snapshot_id, list(provider_refs)),
+                )
+                rows = await cursor.fetchall()
+        resources: dict[str, ResourceRecord] = {}
+        for row in rows:
+            provider_ref = str(row["provider_ref"])
+            key = provider_ref.casefold()
+            if key in resources:
+                raise ValueError("active inventory provider reference maps to multiple resources")
+            resources[key] = ResourceRecord(
+                resource_id=str(row["resource_id"]),
+                type=str(row["resource_type"]),
+                props=dict(row["props"]),
+                provider_ref=provider_ref,
+                last_seen=(row["last_seen"].isoformat() if row["last_seen"] is not None else None),
+            )
+        return snapshot_id, resources
+
     async def _require_collecting(
         self, connection: psycopg.AsyncConnection[Any], attempt_id: str
     ) -> None:

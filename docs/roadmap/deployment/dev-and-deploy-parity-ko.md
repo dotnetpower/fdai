@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: de366b378dad8f17dd9d030bb48a671fb8920ce8
+translation_source_sha: 1f777f2442895e783b411aaf5aca1ac0ca787dbb
 translation_revised: 2026-09-14
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -267,7 +267,12 @@ full-stack supervisor는 표준 로컬 analyzer loop를 시작하며, 이 loop�
 게시 원장을 직렬로 재사용합니다. 인벤토리 기반 대상의 경우 두 실행 환경 모두 서비스 소유의
 활성 인벤토리 스냅샷에서 정확한 공급자 참조를 읽고 메트릭 조회 범위에만 사용합니다. 분석기
 출력, 발견된 문제 Event, 증적 및 Incident는 온톨로지의 논리 `Resource.id`를 유지하며 공급자
-참조가 없거나 일치하지 않으면 틱이 중지됩니다. 두 실행 환경은 1분 시작 간격을 유지합니다.
+참조가 없거나 일치하지 않으면 틱이 중지됩니다. 명시적 대상은 논리 `resource_id`와 선택적인
+정확한 `provider_resource_id`를 분리해서 인코딩합니다. 기존 Azure 리소스 ID를 `resource_id`로
+제공하면 하나의 인벤토리 세대에서 활성 논리 리소스로 조정하고 같은 검색 리소스와 하나로
+합칩니다. 누락, 모호성, 종류 충돌 또는 세대가 다른 조정은 fail-closed 합니다. 인벤토리가
+없는 명시적 전용 배포는 논리 신원과 공급자 신원을 분리해서 제공해야 하며 Azure 리소스 ID를
+Event 대상으로 게시할 수 없습니다. 두 실행 환경은 1분 시작 간격을 유지합니다.
 로컬 직렬 loop는 다음 대기에 틱 실행 시간을 더하지 않고 차감하므로 배포 cron보다 늦어지지
 않습니다. 두 실행 환경 모두 Azure Managed Prometheus의 cluster 이름 alias를 정확한 인벤토리
 신원으로 취급하지 않습니다. Analyzer의 Prometheus 경로는 정확한 `resource_id`를 보존하는 조회
@@ -281,8 +286,10 @@ full-stack supervisor는 표준 로컬 analyzer loop를 시작하며, 이 loop�
 메트릭, 게시 및 출처 지연 상태를 분리하며 full-stack 준비 상태는 인벤토리 조정과 관측 캠페인
 프로세스뿐 아니라 analyzer loop 프로세스와 최근 관리 시작 이후의 정상 첫 틱도 요구합니다.
 이전 프로세스의 오래된 준비 완료 표시는 이 게이트를 충족할 수 없습니다. 실패한 로컬 틱은
-준비 상태를 해제하고 장기 실행 loop를 종료하는 대신 다음 고정 주기에 재시도합니다. 범위가
-제한된 loop 실행은 마지막 틱의 실패 상태를 그대로 반환합니다.
+준비 상태를 해제하고 장기 실행 loop를 종료하는 대신 다음 고정 주기에 재시도합니다. 대상 해석
+및 공급자 스냅샷 중단, 틱 기한 초과, 실행 증적 영속화 중단도 같은 준비되지 않은 재시도 경로를
+따르지만 구성 오류와 프로그래밍 오류는 계속 명시적으로 종료됩니다. 범위가 제한된 loop 실행은
+마지막 틱의 실패 상태를 그대로 반환합니다.
 
 Standard full-stack launch는 서술기 엔드포인트 조정을 유지합니다. 독립 Operator 서비스는 `RUNTIME_ENV=dev`에서만 local-only 서술기 어댑터를 연결하고 `LLM_RESOLVED_MODELS_PATH`와
 수명이 짧은 Azure CLI 토큰을 사용하며 Core 가져오기 또는 실행기 권한 없이 Azure OpenAI 서술기를 시도합니다. Health는 엔드포인트를 민감정보 제거하고 모델 지식만 쓴 답변은 검증되지 않은으로 유지합니다. 시작 훅은 권한이

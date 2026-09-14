@@ -265,7 +265,13 @@ metrics, events, shadow posture, typed Pod lifecycle evidence binding, and durab
 ledger. For inventory-backed targets, both venues read the exact provider reference from the active
 service-owned inventory snapshot only for metric-query scope. Analyzer output, finding Events,
 receipts, and Incidents retain the logical ontology `Resource.id`, and a missing or mismatched
-provider reference stops the tick. Both venues keep a one-minute start-to-start cadence; the local
+provider reference stops the tick. Explicit targets encode that logical `resource_id` separately
+from the optional exact `provider_resource_id`. A legacy Azure resource ID supplied as
+`resource_id` is reconciled to the active logical resource in one inventory generation and
+collapsed with the same discovered resource. Missing, ambiguous, kind-conflicting, or
+cross-generation reconciliation fails closed. An explicit-only deployment without inventory must
+provide separate logical and provider identities and cannot publish an Azure resource ID as the
+Event target. Both venues keep a one-minute start-to-start cadence; the local
 serial loop subtracts tick execution time from the next delay rather than drifting behind the
 deployed cron. Neither venue treats Azure Managed Prometheus's cluster-name alias as an exact
 inventory identity. Analyzer Prometheus routing requires an explicitly composed query catalog that
@@ -277,8 +283,10 @@ scheduling, discovery, metric, publication, and source-delay state, and full-sta
 requires the analyzer loop process and a clean first tick from its latest managed start alongside
 inventory reconciliation and observation campaign. A stale ready marker from an earlier process
 cannot satisfy this gate. A failed local tick clears readiness and retries on the next fixed-rate
-interval instead of terminating the long-running loop; a bounded loop run still returns its final
-tick's failure status.
+interval instead of terminating the long-running loop. Target-resolution and provider-snapshot
+outages, tick deadlines, and run-receipt persistence outages follow the same unready retry path;
+configuration and programming errors still terminate visibly. A bounded loop run still returns its
+final tick's failure status.
 
 The standard full-stack launch keeps narrator endpoint reconciliation enabled. Its independent
 Operator Service binds a local-only narrator adapter only for `RUNTIME_ENV=dev`, reads

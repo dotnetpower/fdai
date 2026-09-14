@@ -812,16 +812,42 @@ def test_targets_parse_and_deduplicate() -> None:
     assert parsed == (AnalyzerTarget(resource_ref="a", resource_kind="aks"),)
 
 
+def test_targets_parse_separate_logical_and_provider_identities() -> None:
+    parsed = parse_targets(
+        '[{"resource_id":"logical-a","kind":"aks",'
+        '"provider_resource_id":"/subscriptions/example/resourceGroups/rg/'
+        'providers/Microsoft.ContainerService/managedClusters/a"}]'
+    )
+
+    assert parsed[0].resource_ref == "logical-a"
+    assert parsed[0].provider_query_ref == (
+        "/subscriptions/example/resourceGroups/rg/"
+        "providers/Microsoft.ContainerService/managedClusters/a"
+    )
+
+
 def test_targets_reject_conflicting_kinds_for_one_resource() -> None:
-    with pytest.raises(ValueError, match="conflicts with an earlier kind"):
+    with pytest.raises(ValueError, match="conflicts with an earlier target identity"):
         parse_targets(
             '[{"resource_id": "a", "kind": "aks"}, {"resource_id": "a", "kind": "mysql"}]'
+        )
+
+    with pytest.raises(ValueError, match="conflicts with an earlier target identity"):
+        parse_targets(
+            '[{"resource_id":"a","kind":"aks","provider_resource_id":"provider-a"},'
+            '{"resource_id":"a","kind":"aks","provider_resource_id":"provider-b"}]'
         )
 
 
 def test_blank_targets_are_empty_and_malformed_targets_fail_closed() -> None:
     assert parse_targets("  ") == ()
-    for raw in ('{"resource_id": "a"}', "[1]", '[{"resource_id": "a"}]', "not-json"):
+    for raw in (
+        '{"resource_id": "a"}',
+        "[1]",
+        '[{"resource_id": "a"}]',
+        '[{"resource_id":"a","kind":"aks","unknown":"value"}]',
+        "not-json",
+    ):
         with pytest.raises(ValueError):
             parse_targets(raw)
 
