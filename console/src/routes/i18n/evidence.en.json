@@ -252,6 +252,7 @@
     "eventId": "Event id",
     "sourceCorrelationId": "Source correlation id",
     "entryHash": "Entry hash",
+    "previousHash": "Previous entry hash",
     "completePath": "Complete recorded path",
     "timelineDetails": "Complete audit timeline",
     "noReason": "No reason was recorded for this step.",

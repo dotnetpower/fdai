@@ -25,6 +25,7 @@ const trace = {
       outcome: null,
       mode: "enforce",
       entry_hash: "hash-1",
+      previous_hash: "hash-0",
     },
     {
       ...actionIdentity,
@@ -39,6 +40,7 @@ const trace = {
       outcome: null,
       mode: "enforce",
       entry_hash: "hash-2",
+      previous_hash: "hash-1",
     },
     {
       ...actionIdentity,
@@ -53,6 +55,7 @@ const trace = {
       outcome: "awaiting_effect_evidence",
       mode: "enforce",
       entry_hash: "hash-3",
+      previous_hash: "hash-2",
     },
     {
       ...actionIdentity,
@@ -67,6 +70,7 @@ const trace = {
       outcome: "awaiting_effect_evidence",
       mode: "enforce",
       entry_hash: "hash-4",
+      previous_hash: "hash-3",
     },
     {
       ...actionIdentity,
@@ -81,6 +85,7 @@ const trace = {
       outcome: "observation_recorded",
       mode: "enforce",
       entry_hash: "hash-5",
+      previous_hash: "hash-4",
     },
     {
       ...actionIdentity,
@@ -95,6 +100,7 @@ const trace = {
       outcome: "rollback_succeeded",
       mode: "enforce",
       entry_hash: "hash-6",
+      previous_hash: "hash-5",
     },
   ],
   terminal_stage: "audit",
@@ -526,6 +532,7 @@ test("keeps the newest stage visible in a bounded long trace rail", async ({
     action_kind: `test.stage.${index + 1}`,
     mode: "shadow",
     entry_hash: `hash-${index + 1}`,
+    previous_hash: `hash-${index}`,
   }));
   await installFixture(page, {
     body: {

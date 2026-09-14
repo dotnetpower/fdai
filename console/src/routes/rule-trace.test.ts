@@ -25,6 +25,7 @@ const step = (seq: number) => ({
   execution_path: null,
   outcome: null,
   entry_hash: `hash-${seq}`,
+  previous_hash: `hash-${seq - 1}`,
 });
 
 describe("trace response contract", () => {
@@ -157,6 +158,7 @@ describe("trace view context", () => {
       stage: null,
       reason: "no delivery channel is available",
       entry_hash: "hash-activity",
+      previous_hash: "hash-0",
     }));
   });
 });

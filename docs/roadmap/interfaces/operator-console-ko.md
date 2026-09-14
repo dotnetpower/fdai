@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 7e0ca6dbecc389a1e178f0866aae78295acb9e94
+translation_source_sha: a7ce7ab86088a16c99c472df860d3f734f91c517
 translation_revised: 2026-09-14
 ---
 # FDAI Console 대화
@@ -41,6 +41,8 @@ value 필드를 보존하여 독립 oracle이 표시된 count를 검증할 수 �
   공백 값은 기록된 요약이나 빈 상태 레이블을 만들 수 없습니다.
 - 결합된 각 단계는 원본 이벤트 ID와 원본 상관관계 ID를 보존합니다. 요청한 상관관계는 추적
   범위로 유지되며 결합된 행에 기록된 출처 이력을 덮어쓰지 않습니다.
+- 각 단계는 항목 해시와 이전 항목 해시를 감사 원문 출처 이력으로 보존합니다. 추적 화면은
+  이 참조를 표시하지만 전체 원장 체인을 검증했다고 주장하지 않습니다.
 
 인증된 `/provisioning` 경로는 하나의 영속 구독 초기 구성 실행을 보여주는 읽기 전용 변환
 결과입니다. 완료된 구성 단계를 재생하고 리소스 검색과 최종 검증을 실시간으로 표시하지만

@@ -252,6 +252,7 @@
     "eventId": "이벤트 ID",
     "sourceCorrelationId": "원본 상관관계 ID",
     "entryHash": "항목 해시",
+    "previousHash": "이전 항목 해시",
     "completePath": "기록된 전체 경로",
     "timelineDetails": "전체 감사 타임라인",
     "noReason": "이 단계에 기록된 이유가 없습니다.",

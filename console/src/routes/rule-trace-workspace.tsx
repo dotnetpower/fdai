@@ -284,6 +284,10 @@ function TraceStepDetail({
               value={step.entry_hash}
             />
             <TraceEvidenceDatum
+              label={t("evidence.trace.previousHash")}
+              value={step.previous_hash}
+            />
+            <TraceEvidenceDatum
               label={t("evidence.trace.correlationId")}
               value={correlationId}
             />

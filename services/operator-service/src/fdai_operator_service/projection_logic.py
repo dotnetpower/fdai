@@ -329,6 +329,7 @@ def rule_fire_trace(correlation_id: str, items: Sequence[JsonObject]) -> JsonObj
                 "execution_path": _nonempty(entry.get("execution_path")),
                 "outcome": _nonempty(entry.get("outcome")),
                 "entry_hash": str(item["entry_hash"]),
+                "previous_hash": str(item["previous_hash"]),
             }
         )
     return cast(

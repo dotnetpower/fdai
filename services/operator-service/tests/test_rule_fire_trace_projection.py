@@ -28,6 +28,7 @@ def test_trace_preserves_action_attempt_and_execution_outcome() -> None:
                 "action_kind": "executor.remote.awaiting_effect_evidence",
                 "mode": "enforce",
                 "entry_hash": "hash-1",
+                "previous_hash": "hash-0",
                 "entry": {
                     "action_id": "action-1",
                     "workflow_action": {"attempt": 2},
@@ -56,6 +57,7 @@ def test_trace_preserves_action_attempt_and_execution_outcome() -> None:
             "execution_path": "direct_api",
             "outcome": "awaiting_effect_evidence",
             "entry_hash": "hash-1",
+            "previous_hash": "hash-0",
         }
     ]
 
@@ -72,6 +74,7 @@ def test_trace_does_not_invent_missing_action_identity() -> None:
                 "action_kind": "notification.route",
                 "mode": "shadow",
                 "entry_hash": "hash-1",
+                "previous_hash": "hash-0",
                 "entry": {"outcome": "failed"},
             }
         ],
@@ -98,6 +101,7 @@ def test_trace_rejects_conflicting_stage_fields() -> None:
                     "action_kind": "risk_gate.unified",
                     "mode": "shadow",
                     "entry_hash": "hash-1",
+                    "previous_hash": "hash-0",
                     "entry": {
                         "pipeline_stage": "gate",
                         "stage": "execute",
@@ -132,6 +136,7 @@ def test_trace_rejects_invalid_or_conflicting_attempt_identity(
                     "action_kind": "executor.remote.dispatched",
                     "mode": "enforce",
                     "entry_hash": "hash-1",
+                    "previous_hash": "hash-0",
                     "entry": {
                         "attempt": entry_attempt,
                         "workflow_action": {"attempt": workflow_attempt},

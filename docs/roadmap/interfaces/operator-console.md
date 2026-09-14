@@ -38,6 +38,8 @@ Trace hardening preserves these evidence invariants:
   Whitespace-only values cannot create a recorded summary or an empty status label.
 - Every joined step preserves its source event id and source correlation id. The requested
   correlation remains the trace scope and does not overwrite a joined row's recorded provenance.
+- Every step preserves its entry hash and previous entry hash as raw audit provenance. The Trace
+  screen displays these references but does not claim to verify the full ledger chain.
 
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final

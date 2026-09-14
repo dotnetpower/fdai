@@ -47,6 +47,7 @@ export interface TraceStep {
   readonly execution_path: string | null;
   readonly outcome: string | null;
   readonly entry_hash: string;
+  readonly previous_hash: string;
 }
 
 export interface TraceResponse {
@@ -331,6 +332,7 @@ export function decodeTraceResponse(
       execution_path: optionalNonEmptyString(row, "execution_path", "trace step"),
       outcome: optionalNonEmptyString(row, "outcome", "trace step"),
       entry_hash: panelNonEmptyString(row, "entry_hash", "trace step"),
+      previous_hash: panelNonEmptyString(row, "previous_hash", "trace step"),
     };
   });
   const stepCount = panelNonNegativeInteger(root, "step_count", "trace");
@@ -450,6 +452,7 @@ export function buildTraceViewSnapshot(
           execution_path: s.execution_path,
           outcome: s.outcome,
           entry_hash: s.entry_hash,
+          previous_hash: s.previous_hash,
           correlation_id: data.correlation_id,
         })),
       },
