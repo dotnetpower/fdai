@@ -369,65 +369,12 @@ enters event-ingest, trust routing, risk gating, and audit; the webhook never ex
 
 ### 4.4 Browser system notifications
 
-The Console exposes its browser notification boundary as the explicit client-local `console-web`
-channel. The operator selects or deselects that named channel from the Console control; FDAI never
-requests permission during page load. The authenticated `GET /live/stream` feed stays connected
-while a selected tab is in the background and emits notifications only for human approval, denial,
-or failure outcomes. Only `runtime-observed` frames are eligible; replay, synthetic-development,
-unknown-source, and routine successful stages remain silent.
-The channel is available only in a secure context with the Notifications, Service Worker, and Web
-Locks APIs. Web Locks elects one principal-scoped stream leader; a browser without that guarantee
-reports the channel unavailable instead of claiming readiness without a receiver.
-
-Settings > Integrations is the canonical selection surface for personal notification channels.
-Its `Console web` row is scoped to the authenticated principal and the current browser profile;
-the header control is a synchronized shortcut to the same preference. Existing Teams, Slack,
-email, webhook, paging, and SMS A2/A4 bindings remain organization-managed channel-as-audience
-routes and are not presented as personal opt-ins. Another personal channel becomes selectable only
-after Operator can project a verified active principal endpoint and its delivery path consumes the
-same principal-scoped selection. Route membership or a prior conversation alone is not sufficient
-evidence.
-
-Browser notifications are informational. They contain localized generic text, an opaque bounded
-event tag, and a server-derived same-origin link to the read-only Incident view. They never include
-raw errors, resource identifiers, approval controls, or execution links. Repeated frames replace the
-same event notification, and the opt-in preference is scoped to the signed-in browser principal.
-A principal-scoped browser ledger suppresses duplicate event tags for five minutes across tabs and
-limits delivery to five system notifications per minute; suppressed events remain in the audit and
-Incident views. Deduplication expiry does not erase acknowledgement evidence: the bounded local
-ledger retains up to 32 receipts for seven days so a delayed notification click can still converge.
-
-After `showNotification()` resolves, the same ledger records the `console-web` delivery as sent.
-Clicking that notification records a separate acknowledgement only when its bounded tag already has
-a sent record with the same unpredictable per-claim token for one browser principal. Exact,
-navigated, and newly opened Console windows all receive those values through a transient
-`#fdai-notification-ack` fragment, which never reaches the HTTP request or referrer and which the
-Console removes after closed-shape validation. The token locates the originating principal's ledger
-even if another account is active when the notification opens. Legacy
-tokenless records remain valid for deduplication but cannot mint a new acknowledgement. The control reports
-`Ready`, `Sent`, or `Sent + opened` so it never collapses selection, delivery, and user
-acknowledgement into one state.
-The Console consumes the fragment both during mount and on `hashchange`, because navigating an
-already-open exact Incident URL changes only its fragment and does not remount the application.
-If a valid click reaches the page before the `showNotification()` completion callback records
-display, the token-bound acknowledgement atomically records both timestamps. The later display
-callback is idempotent and cannot erase the earlier click.
-
-These are browser-local receipts. They do not update Core's durable notification delivery ledger,
-satisfy `notification.delivery.observed`, prove that the user read the Incident evidence, or grant
-approval or execution authority.
-
-The service worker keeps notification rendering and click handling available while the page is
-backgrounded, but the current Console does not register a Push API subscription or a server-side
-subscription store. A fully closed browser therefore receives no notification. Closed-browser Web
-Push requires a separately authenticated write service, encrypted subscription storage, revocation,
-CSRF protection, and delivery audit before it can be enabled; it does not belong in the Operator API.
-
-Clicking a notification focuses an exact Console window when one exists. Otherwise, the service
-worker navigates a same-origin Console window to the read-only Incident target and focuses the
-window returned by that navigation. If browser focus or navigation fails, it opens the same
-validated target in a new window. This activation acknowledges the local notification only. It
-does not approve or execute an action.
+The explicit client-local `console-web` channel is owned by
+[Console Web Notifications](console-web-notifications.md). Settings is its canonical
+principal-and-browser selection surface, the header is a synchronized shortcut, and only
+`runtime-observed` approval, denial, and failure frames are eligible. Its bounded local display and
+click receipts never satisfy Core delivery, approval, or execution evidence. Organization-managed
+A2/A4 routes remain separate channel-as-audience bindings.
 
 ## 5. Channel Interfaces (contracts)
 

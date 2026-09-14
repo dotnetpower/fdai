@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: a0c3f8bbfd05016953333d0dabd88c4faef5930b
+translation_source_sha: aa4fb9aa3ba89c1bba06653e94f93eca72cdca8f
 translation_revised: 2026-09-14
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -632,63 +632,11 @@ typed-pipeline 결정을 변경하지 않습니다.
 
 Console 설정 경로와 정적 디자인 시안은 Calm Slate 컨트롤 토큰과 표현 프리미티브를 공유합니다. 데스크톱 폼은 34px 표준 높이와 28px 작업 높이를 사용하고 터치 레이아웃은 44px 대상을 사용합니다. 설정 화면은 브라우저 로컬 및 계정 환경 설정, 배포 정책, 근거, 권한을 시각적으로 구분하지만 영속성이나 권한 부여를 변경하지 않습니다.
 `console/src/components/account-menu.tsx`는 로그인 계정 표현을 소유하고 MSAL 이름과 사용자 이름을 표시하며 서버가 검증한 `GET /iam/self` 변환 결과에서만 FDAI 역할을 읽고 IAM 경로로 연결합니다. `console/src/auth.ts`는 로그인 힌트 없이 Entra 계정 선택기를 열고 일반 토큰 획득 및 IAM 권한 확인으로 돌아옵니다. 이 컴포넌트는 디렉터리를 전환하거나 기능을 부여하거나 프로바이더 자격 증명을 받지 않습니다.
-`console/src/components/browser-notification-control.tsx`는 명시적인 클라이언트 로컬
-`console-web` 채널 선택을 소유합니다. principal 범위 브라우저 원장은 알림 표시와 알림 클릭
-확인을 분리하며, `notification-sw.js`는 범위가 제한된 동일 출처 인시던트 대상만 허용합니다.
-`runtime-observed` 단계 프레임만 표시 대상이며 재생, 합성 개발 및 출처 미확인 프레임은
-fail-closed 처리합니다. 이 로컬 증적은 Core 전달 상태를 갱신하거나 인시던트 근거를 읽었다는
-점을 입증하거나 승인 또는 실행 권한을 부여하지 않습니다.
-5분 중복 억제 창은 범위가 제한된 7일 로컬 증적 보존과 분리되어 있으므로, 브라우저 이력을
-제한 없이 보존하지 않으면서도 늦은 클릭이 수렴할 수 있습니다.
-증적 쓰기는 구조화된 상태와 함께 레거시 `at` 타임스탬프 별칭을 유지하므로, 같은 프로필의
-이전 탭과 새 탭이 Console 롤링 업데이트 중에도 중복을 억제합니다.
-페이지는 닫힌 형식의 토큰 결속 확인 fragment만 수락하고 자체 시각으로 증적을 기록합니다.
-서비스 워커는 응답 없는 `postMessage` 전송을 전달로 간주하지 않습니다.
-표시되는 전달 상태는 항상 보존된 최신 전달에서 도출하므로, 이전 알림을 열어도 더 최신인 미확인
-알림이 확인된 것으로 표시되지 않습니다.
-탭은 현재 principal의 전달 원장 저장소 키만 수신하므로, 한 탭의 전송이나 확인이 principal
-경계를 넘지 않고 다른 탭의 표시 상태를 갱신합니다.
-현재 principal의 기본 설정 키와 저장소 전체 삭제 이벤트도 관찰하므로, 한 탭에서 채널 선택을
-해제하면 해당 브라우저 principal의 모든 탭에서 수신 자격이 중단됩니다.
-명시적인 채널 선택 또는 선택 해제는 principal 범위 기본 설정 쓰기가 성공한 뒤에만 표시상 최종
-상태에 도달합니다. 브라우저 저장소를 사용할 수 없으면 다시 시도 상태를 표시합니다.
-정확한 Console 창도 다른 대상과 같은 일시적 확인 fragment로 이동하므로 listener mount 경쟁이
-클릭을 유실하거나 중복 창을 열 수 없습니다.
-프레임 출처 필드가 없으면 출처 미확인으로 보고 거부합니다. 테스트는 선택적 속성에 JavaScript
-`undefined`를 할당하지 않고 실제 wire shape처럼 필드를 생략합니다.
-지연 로딩 fallback은 로드된 컨트롤과 같은 비활성 버튼, 벨 glyph, 라벨 및 live-status 구조를
-사용하므로 모듈 로딩 중 의미나 시각적 영역이 바뀌지 않습니다.
-좁은 화면에서 확인 상태는 같은 의미의 간결한 `열림` 라벨을 사용하며, 버튼의 접근 가능한
-이름에는 전체 작업과 `전송 및 확인됨` 상태가 유지됩니다.
-새 전달 claim마다 예측 불가능한 128-bit 확인 토큰을 갖습니다. 서비스 워커 메시지와 일시적
-탐색 값은 안전한 태그와 이 토큰이 모두 일치해야 principal 범위 원장에 확인을 기록할 수
-있습니다. 토큰이 없는 레거시 행은 중복 억제에만 사용합니다.
-표시 완료와 전송 실패 해제도 같은 토큰을 요구하며, 대체 claim은 태그가 같은 이전 세대를
-제거하므로 지연된 callback이 대체 claim을 변경할 수 없습니다.
-표시 callback보다 먼저 도착한 일치하는 클릭은 표시와 확인을 원자적으로 함께 기록하며, 이후
-표시 쓰기는 앞선 단조 상태를 유지합니다.
-새 창 확인은 닫힌 형식의 일시적 URL fragment를 사용하므로 태그와 claim 토큰이 HTTP 요청이나
-referrer에 포함되지 않으며, 일반 Console 탐색을 계속하기 전에 제거됩니다.
-mount된 컨트롤은 `hashchange`도 처리하므로 애플리케이션 remount에 의존하지 않고 정확한 client의
-fragment 이동을 처리합니다.
-컨트롤은 보안 컨텍스트의 Notifications, Service Worker 및 Web Locks API를 모두 사용할 수 있을
-때만 지원 상태를 표시합니다. Web Locks는 principal 범위 스트림 리더 하나를 선출하는 데
-필수입니다.
-브라우저가 Web Locks를 노출하지만 리더 획득을 거부하면 hook이 실패를 보고하고, 컨트롤은
-수신자 없이 준비 상태를 유지하는 대신 명시적인 다시 시도 상태로 이동합니다.
-확인 토큰 생성은 claim 경계 안에서 처리합니다. 엔트로피 공급자 오류는 live-stream callback
-밖으로 전파되지 않고 명시적인 사용 불가 결과를 반환합니다.
-서비스 워커 등록과 준비 대기에는 각각 10초 제한이 있습니다. 제한을 넘으면 캐시된 promise를
-지우고 컨트롤을 `선택 중`에서 다시 시도 상태로 이동합니다.
-Settings > Integrations는 인증된 principal과 현재 브라우저 프로필 범위의 정식 개인 채널 선택
-행을 표시합니다. 헤더 컨트롤은 같은 문서와 탭 간 기본 설정 이벤트를 공유하므로 두 화면의 상태가
-일치합니다. 조직 A2/A4 바인딩은 읽기 전용 통합 근거로 유지하며 검증된 개인 endpoint인 것처럼
-선택할 수 없습니다.
+`console/src/browser-notifications.ts`, `console/src/components/browser-notification-control.tsx` 및 `console/public/notification-sw.js`는 클라이언트 로컬 알림 모듈을 소유하며, [Console Web 알림](console-web-notifications-ko.md)은 전체 선택, 기능, 전달, 확인, 복구 및 권한 계약을 정의합니다.
 화면에 보이는 제목 컴포넌트는 렌더링되는 제목 내용에만 `title`을 사용합니다. 기본 HTML `title` 말풍선은 접근성과 호환되는 요소로 제한하며, 그 밖의 맥락 도움말은 공통 Tooltip 컴포넌트를 사용합니다.
 정적 컴포넌트 갤러리는 `mocks/ui/assets/component-registry.json`의 계약을 읽고 각 시안을 소유자, 원본, 상태, 사용 지침, 반응형 동작, 접근성 계약 및 제품 참조보다 먼저 표시합니다. 레지스트리가 없거나 잘못되면 정규 상태를 추론하지 않고 문서화를 차단합니다. 갤러리는 합성 표현 근거이며 Console, Operator API 또는 실행기 권한을 부여하지 않습니다.
 
 ## 경계 불변식
-
 `core/conversation/`은 프로토콜만 가져옵니다. Azure SDK, HTTP, Bot Framework 및 프로바이더 호출은
 `delivery/` 아래에 있습니다. 대화 표현은 실행 권한이 되지 않습니다.
 

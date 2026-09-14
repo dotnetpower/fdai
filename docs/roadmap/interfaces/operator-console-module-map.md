@@ -632,63 +632,11 @@ coordinator, not a second policy implementation.
 
 The Console settings routes and static design mocks share Calm Slate control tokens and presentation primitives. Desktop forms use a compact 34 px standard height and 28 px action height, touch layouts use 44 px targets, and Settings keeps browser-local preferences, account preferences, deployment policy, evidence, and authority visually distinct without changing persistence or authorization.
 `console/src/components/account-menu.tsx` owns signed-in account presentation, displays the MSAL name and username, reads FDAI roles only from the server-verified `GET /iam/self` projection, and links to IAM. `console/src/auth.ts` opens the Entra account picker without a login hint for same-tenant selection, then returns through normal token acquisition and IAM authorization. The component does not switch directories, grant capabilities, or receive provider credentials.
-`console/src/components/browser-notification-control.tsx` owns the explicit client-local
-`console-web` channel selection. Its principal-scoped browser ledger separates notification display
-from notification-click acknowledgement, while `notification-sw.js` admits only the bounded
-same-origin Incident target. Only `runtime-observed` stage frames are eligible for display;
-replay, synthetic-development, and unknown-source frames fail closed. These local receipts do not update Core delivery state, prove that
-Incident evidence was read, or grant approval or execution authority.
-The five-minute duplicate window is independent of the bounded seven-day local receipt retention,
-so a delayed click can still converge without retaining an unbounded browser history.
-Receipt writes retain the legacy `at` timestamp alias alongside the structured state so old and new
-tabs sharing one profile continue to deduplicate during a rolling Console update.
-The page accepts only the closed token-bound acknowledgement fragment and records its own receipt
-time; the service worker never treats an unacknowledged `postMessage` send as delivery.
-The visible delivery status is always derived from the newest retained delivery, so opening an
-older notification cannot make a newer unacknowledged notification appear acknowledged.
-Tabs listen only for the current principal's delivery-ledger storage key, so a send or
-acknowledgement in one tab refreshes the visible state in the others without crossing principals.
-They also observe the current principal's preference key and storage-clear events, so deselecting
-the channel in one tab stops receiver eligibility in every tab for that browser principal.
-An explicit channel selection or deselection reaches its visible terminal state only after the
-principal-scoped preference write succeeds; unavailable browser storage produces the retry state.
-An exact Console window navigates through the same transient acknowledgement fragment as every
-other target, so a listener-mount race cannot discard the click or open a duplicate window.
-An omitted frame source is treated as unknown and rejected; tests model omission as a missing wire
-field rather than assigning JavaScript `undefined` to the optional property.
-The lazy control fallback uses the same disabled button, bell glyph, label, and live-status
-structure as the loaded control so module loading does not change its semantic or visual footprint.
-At narrow widths, the acknowledged state uses the equivalent compact `Opened` label while the
-button's accessible name retains the full action and `Sent + opened` state.
-Every new delivery claim carries an unpredictable 128-bit acknowledgement token. Service-worker
-messages and transient navigation values must match both the safe tag and that token before the
-principal-scoped ledger can record acknowledgement; legacy tokenless rows remain dedupe-only.
-Display completion and failed-send release require the same token, and a replacement claim removes
-the older same-tag generation so a delayed callback cannot mutate the replacement.
-A matching click that races ahead of the display callback atomically records both display and
-acknowledgement, and the later display write preserves that monotonic result.
-New-window acknowledgement uses a closed, transient URL fragment, so the tag and claim token never
-enter the HTTP request or referrer and are removed before normal Console navigation continues.
-The mounted control also consumes `hashchange`, covering exact-client fragment navigation without
-depending on an application remount.
-The control declares support only when secure-context Notifications, Service Worker, and Web Locks
-APIs are all present, because Web Locks is required to elect one principal-scoped stream leader.
-If the browser exposes Web Locks but rejects leader acquisition, the hook reports the failure and
-the control moves to its explicit retry state instead of remaining ready without a receiver.
-Acknowledgement-token generation is contained inside the claim boundary; an entropy-provider error
-returns the explicit unavailable result instead of escaping through the live-stream callback.
-Service-worker registration and readiness each have a ten-second deadline; expiry clears the
-cached promise and moves the control from `Selecting` to its retry state.
-Settings > Integrations renders the canonical personal-channel selection row, scoped to the
-authenticated principal and current browser profile. The header control subscribes to the same
-same-document and cross-tab preference events, so both surfaces remain consistent. Organization
-A2/A4 bindings remain read-only integration evidence and cannot be selected as though they were
-verified personal endpoints.
+`console/src/browser-notifications.ts`, `console/src/components/browser-notification-control.tsx`, and `console/public/notification-sw.js` own the client-local notification module; [Console Web Notifications](console-web-notifications.md) defines its complete selection, capability, delivery, acknowledgement, recovery, and authority contract.
 Visible-heading components use `title` only for rendered heading content. Native HTML `title` bubbles remain limited to accessibility-compatible elements, and all other contextual help uses the shared Tooltip component.
 The static component gallery reads contracts from `mocks/ui/assets/component-registry.json` and presents each specimen before its owner, source, states, usage guidance, responsive behavior, accessibility contract, and product references. A missing or invalid registry blocks documented status instead of inferring canonical status. The gallery remains synthetic presentation evidence and grants no Console, Operator API, or executor authority.
 
 ## Boundary invariant
-
 `core/conversation/` imports protocols only. Azure SDK, HTTP, Bot Framework, and provider calls live
 under `delivery/`. Conversation presentation never becomes execution authority.
 
