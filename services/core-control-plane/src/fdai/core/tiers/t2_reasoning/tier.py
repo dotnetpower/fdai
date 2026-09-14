@@ -152,7 +152,11 @@ def _candidate_context_mismatch(
     cited_rules = tuple(allowed_rules.get(rule_id) for rule_id in candidate.cited_rule_ids)
     if any(rule is None for rule in cited_rules):
         return "cited_rule_not_allowed"
-    if any(rule is not None and rule.remediates != candidate.action_type for rule in cited_rules):
+    if not any(
+        rule is not None
+        and (rule.remediates == candidate.action_type or candidate.action_type in rule.alternatives)
+        for rule in cited_rules
+    ):
         return "action_type_not_allowed"
     return None
 

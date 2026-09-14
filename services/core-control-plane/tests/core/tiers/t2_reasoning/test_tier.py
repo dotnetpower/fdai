@@ -59,29 +59,35 @@ def _candidate(*, confidence: dict[str, float] | None = None) -> QualityCandidat
     )
 
 
-def _rule() -> Rule:
-    return Rule.model_validate(
-        {
-            "schema_version": "1.0.0",
-            "id": "r1",
-            "version": "1.0.0",
-            "source": "custom",
-            "severity": "low",
-            "category": "config_drift",
-            "resource_type": "compute.vm",
-            "check_logic": {"kind": "rego", "reference": "policies/example.rego"},
-            "remediation": {"template_ref": "remediations/example"},
-            "remediates": "remediate.tag-add",
-            "provenance": {
-                "source_url": "https://example.com/rules/r1",
-                "resolved_ref": "0000000000000000000000000000000000000000",
-                "content_hash": "sha256:example",
-                "license": "MIT",
-                "redistribution": "embeddable",
-                "retrieved_at": "2026-07-05T00:00:00Z",
-            },
-        }
-    )
+def _rule(
+    *,
+    rule_id: str = "r1",
+    remediates: str = "remediate.tag-add",
+    alternatives: tuple[str, ...] = (),
+) -> Rule:
+    payload = {
+        "schema_version": "1.0.0",
+        "id": rule_id,
+        "version": "1.0.0",
+        "source": "custom",
+        "severity": "low",
+        "category": "config_drift",
+        "resource_type": "compute.vm",
+        "check_logic": {"kind": "rego", "reference": "policies/example.rego"},
+        "remediation": {"template_ref": "remediations/example"},
+        "remediates": remediates,
+        "provenance": {
+            "source_url": f"https://example.com/rules/{rule_id}",
+            "resolved_ref": "0000000000000000000000000000000000000000",
+            "content_hash": "sha256:example",
+            "license": "MIT",
+            "redistribution": "embeddable",
+            "retrieved_at": "2026-07-05T00:00:00Z",
+        },
+    }
+    if alternatives:
+        payload["alternatives"] = list(alternatives)
+    return Rule.model_validate(payload)
 
 
 class _Proposer:
@@ -205,6 +211,34 @@ async def test_missing_candidate_resource_type_is_bound_from_trusted_context() -
     assert decision.outcome is T2Outcome.PROPOSED
     assert decision.candidate is not None
     assert decision.candidate.target_resource_type == "compute.vm"
+
+
+@pytest.mark.parametrize(
+    "allowed_rules",
+    [
+        (_rule(alternatives=("ops.scale-out",)),),
+        (
+            _rule(rule_id="r1"),
+            _rule(rule_id="r2", remediates="ops.scale-out"),
+        ),
+    ],
+)
+async def test_candidate_action_may_be_authorized_by_one_routed_rule(
+    allowed_rules: tuple[Rule, ...],
+) -> None:
+    candidate = replace(
+        _candidate(),
+        action_type="ops.scale-out",
+        cited_rule_ids=tuple(rule.id for rule in allowed_rules),
+    )
+    gate = _FakeGate(QualityOutcome.ELIGIBLE)
+    tier = T2Tier(proposer=_Proposer(candidate), quality_gate=gate)
+    context = replace(_context(), allowed_rules=allowed_rules)
+
+    decision = await tier.evaluate(context=context)
+
+    assert decision.outcome is T2Outcome.PROPOSED
+    assert gate.calls == 1
 
 
 # ---------------------------------------------------------------------------
