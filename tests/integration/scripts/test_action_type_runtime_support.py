@@ -191,6 +191,52 @@ def test_receipt_facts_must_share_one_record(checker: ModuleType) -> None:
     assert checker._receipt_records(tampered, revision=revision) == []
 
 
+@pytest.mark.parametrize(
+    ("action_type_ref", "expected"),
+    [
+        ("ops.start-vm@1.0.0", True),
+        ("ops.start-vm", False),
+        (None, False),
+    ],
+)
+def test_receipt_requires_exact_versioned_action_type_ref(
+    checker: ModuleType,
+    tmp_path: Path,
+    action_type_ref: str | None,
+    expected: bool,
+) -> None:
+    revision = "a" * 40
+    receipt: dict[str, object] = {
+        "receipt_id": "receipt-1",
+        "source_revision": revision,
+        "effect_verified": True,
+    }
+    if action_type_ref is not None:
+        receipt["action_type_ref"] = action_type_ref
+    receipt["receipt_digest"] = checker._canonical_receipt_digest(receipt)
+    path = tmp_path / "receipt.json"
+    path.write_text(json.dumps(receipt), encoding="utf-8")
+    action = checker.CatalogAction(
+        ref="ops.start-vm@1.0.0",
+        name="ops.start-vm",
+        version="1.0.0",
+        execution_path="direct_api",
+        default_mode="shadow",
+        rollback_contract="ops.deallocate-vm@1.0.0",
+        irreversible=False,
+        path="rule-catalog/action-types/ops.start-vm.yaml",
+    )
+
+    assert (
+        checker._receipt_binds_action(
+            tmp_path,
+            {"path": "receipt.json", "revision": revision},
+            action,
+        )
+        is expected
+    )
+
+
 def test_wired_recovery_requires_an_action_bound_source_symbol(
     checker: ModuleType,
     manifest: dict[str, Any],

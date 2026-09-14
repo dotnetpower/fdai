@@ -442,8 +442,7 @@ def _receipt_binds_action(
         return False
     revision = str(reference["revision"])
     return any(
-        record.get("action_type") == action.name
-        or record.get("action_type_ref") in {action.name, action.ref}
+        record.get("action_type_ref") == action.ref
         for record in _receipt_records(payload, revision=revision)
     )
 
