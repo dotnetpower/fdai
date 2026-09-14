@@ -32,6 +32,7 @@ SEMANTIC_PHYSICAL_TOPIC_ENV = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC"
 SEMANTIC_CONSUMER_GROUP_ENV = "FDAI_CHANNEL_EDGE_SEMANTIC_CONSUMER_GROUP_ID"
 SEMANTIC_CLIENT_ID_ENV = "FDAI_CHANNEL_EDGE_SEMANTIC_CLIENT_ID"
 PRINCIPAL_SCOPES_ENV = "FDAI_CHANNEL_EDGE_PRINCIPAL_SCOPES_JSON"
+ATTACHMENTS_ENABLED_ENV = "FDAI_CHANNEL_ATTACHMENTS_ENABLED"
 SLACK_SIGNING_SECRET_ENV = "FDAI_SLACK_SIGNING_SECRET"  # noqa: S105 - environment key
 SLACK_BOT_TOKEN_ENV = "FDAI_SLACK_BOT_TOKEN"  # noqa: S105 - environment key
 SLACK_TEAM_ID_ENV = "FDAI_SLACK_TEAM_ID"
@@ -105,6 +106,7 @@ class ChannelEdgeEnvironment:
     semantic_consumer_group: str
     semantic_client_id: str
     managed_identity_client_id: str | None
+    attachments_enabled: bool
     principal_scopes: Mapping[str, PrincipalScopeSettings]
     slack: SlackEdgeSettings | None
     teams: TeamsEdgeSettings | None
@@ -136,6 +138,7 @@ class ChannelEdgeEnvironment:
                 "semantic request and projection topics MUST differ"
             )
         semantic_physical_topic = values.get(SEMANTIC_PHYSICAL_TOPIC_ENV, "").strip() or None
+        attachments_enabled = _binary_flag(values, ATTACHMENTS_ENABLED_ENV)
         principal_scopes = _principal_scopes(_required(values, PRINCIPAL_SCOPES_ENV))
         slack = (
             _slack_settings(values, principal_scopes)
@@ -168,6 +171,7 @@ class ChannelEdgeEnvironment:
             managed_identity_client_id=(
                 values.get(MANAGED_IDENTITY_CLIENT_ID_ENV, "").strip() or None
             ),
+            attachments_enabled=attachments_enabled,
             principal_scopes=MappingProxyType(principal_scopes),
             slack=slack,
             teams=teams,
@@ -384,6 +388,13 @@ def _bounded_int(
     if not minimum <= value <= maximum:
         raise ChannelEdgeConfigurationError(f"{key} is outside the allowed range")
     return value
+
+
+def _binary_flag(values: Mapping[str, str], key: str) -> bool:
+    value = values.get(key, "0").strip()
+    if value not in {"0", "1"}:
+        raise ChannelEdgeConfigurationError(f"{key} MUST be 0 or 1")
+    return value == "1"
 
 
 __all__ = [

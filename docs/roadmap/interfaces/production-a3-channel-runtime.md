@@ -87,18 +87,19 @@ inventory-document producer.
 | Protected Slack secret materialization | implemented | `deploy-channel-edge-secrets.yml`; `materialize_channel_edge_secrets.py`; protected service materializer; focused workflow and transport tests | An exact-green development revision can transfer five GitHub Secrets to four fixed secrets in the single tagged deployment-owned Key Vault. A separate masked provider binding supplies only those four fixed versionless secret resource identifiers and the Slack workspace identifier. The service materializer verifies exact keys, fixed secret names, and one vault before deriving the edge name and closed Slack-only runtime defaults. The platform and tenant policy continue to own private-network and RBAC posture. This step grants no channel, approval, or execution authority. |
 | A3 edge design and ownership | implemented | [Issue #235](https://github.com/dotnetpower/fdai/issues/235); this document pair; Operator source and deployment roots | The authority-free Operator-distribution design is implemented. The Slack provider and deployed runtime evidence is validated below; Teams remains implemented without provider validation. |
 | Slack provider and protected runtime | validated | Protected plan run `34229586152`; protected apply run `34229833026` at commit `47907cf6a684e5d1901f6cd4943f0c6dc1b84cc1`; [Issue #235](https://github.com/dotnetpower/fdai/issues/235) | Slack HTTP Events API delivered signed requests to the deployed edge. One mapped-principal turn produced one durable delivery, attempt, acknowledgement, and Block Kit thread reply with fallback text. Restarting the current revision preserved the single acknowledgement and reply without duplicate risk. The dedicated identity retained only image pull, Event Hubs data, and Key Vault secret-read roles. |
-| Authenticated ingress and provider publishers | implemented | `fdai_operator_service/families/conversation/channel_edge/`; focused edge checks (`81 passed`) | Operator-local Slack and Teams adapters enforce canonical-principal replacement, bounded admission, URL-free attachment metadata, fixed destinations, strict token audiences, and definitive-versus-ambiguous acknowledgement classification. The standalone runtime binds both route families. |
+| Authenticated ingress and provider publishers | implemented | `fdai_operator_service/families/conversation/channel_edge/`; focused edge checks | Operator-local Slack and Teams adapters enforce canonical-principal replacement, bounded admission, fixed destinations, strict token audiences, and definitive-versus-ambiguous acknowledgement classification. They retain URL-free attachment metadata only for an explicitly enabled protected-ingestion binding; otherwise they reject attachment turns before queue admission. |
 | Operator migration and persistence | implemented | `operator_a3_channel_delivery_20260819`; `channel_{delivery_models,message_ledger}.py`; `postgres_channel_{binding,delivery}.py`; live PostgreSQL checks (`9 passed`, no skips) | The Operator branch owns the inbound processing lease and grants the Operator role only the six channel tables. Runtime-role tests prove lease reclaim, permanent dedupe, binding uniqueness, idempotent delivery, claim and acknowledgement closure, process-loss ambiguity, breaker CAS, and retention cleanup. The standalone lifespan binds these stores. |
 | Semantic request, result, and durable delivery pipeline | implemented | `semantic_turn_runtime.py`; `channel_edge/{pipeline,pipeline_contracts,worker}.py`; focused edge checks; live PostgreSQL join (`1 passed`, no skips) | The Operator edge resolves server-owned scope, persists typed semantic requests, waits for principal-scoped terminal replay, stores the terminal response before provider I/O, completes inbound ownership only after durable delivery, and fences retry and process-loss recovery with persisted breakers. Due sends revalidate the active principal, scope, conversation, and channel binding before provider I/O. |
 | Principal-scoped conversation documents | implemented | `document_export.py`; authenticated document routes; semantic outbox source binding; focused Operator checks | A document draft replays only the authenticated principal's preceding verified result. Partial or unsupported content produces no download, while complete bounded tables can be regenerated as Markdown and optional PDF without execution authority. |
 | Fresh inventory documents and source completeness | in-progress | `semantic_planning_frame_normalization.py`; `semantic_planning_specialized_plans.py`; `semantic_turn_processor.py`; `document_export.py`; `semantic_turn_runtime.py`; adjacent synthetic tests | The current change adds first-turn document reads, bounded row preservation, explicit exclusions, and strict source completeness. Focused checks are deferred to the coordinating session; no live paraphrase-quality or latency improvement is claimed. |
-| Fail-closed runtime and local/Azure workload | implemented | `channel_edge/{application,composition,entry,environment,runtime}.py`; `.vscode/tasks.json`; platform and service Terraform roots; protected deployment workflows and helpers; focused checks | Platform can prepare the dedicated non-executor identity and Operator DSN access without provider credentials. The independent service root still requires principal scopes and one complete Slack or Teams Key Vault contract before creating the edge workload. |
+| Fail-closed runtime and local/Azure workload | implemented | `channel_edge/{application,composition,entry,environment,runtime}.py`; `.vscode/tasks.json`; platform and service Terraform roots; protected deployment workflows and helpers; focused checks | Platform can prepare the dedicated non-executor identity and Operator DSN access without provider credentials. Attachment support defaults off; invalid enablement fails schema parsing, and enabled support without a production ingestor fails before runtime dependencies are allocated. |
 | Independent hardening | implemented | [Hardening campaign](#hardening-campaign); focused edge checks (`81 passed`); Ruff and strict mypy | Ten independent rounds completed with focused regressions for every accepted finding and no verified Medium-or-higher residual. Protected runtime evidence remains a separate validation gate. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Removed silent attachment loss from the Operator A3 path. Disabled Slack and Teams attachment turns stop before queue admission, direct queue injection stops before claim or semantic publication, and an enabled runtime without protected ingestion fails startup. | `current change`; focused environment, composition, ingress, and pipeline checks. | Define and bind the versioned document-ingestion handoff, private vendor fetchers, and ordered citation return before enabling attachment support. |
 | 2026-09-10 | implemented | Admitted canonical semantic `aggregate` presentation and preserved structured count fields across Console and A3 channel artifacts. | `current change`; focused presentation and objective-oracle regressions. | Retain provider rendering compatibility in the next channel release evidence. |
 | 2026-09-09 | validated | Corrected the existing Slack app from Socket Mode to HTTP Events API and retained one governed production A3 turn through a revision restart. | Protected plan run `34229586152`; protected apply run `34229833026` at commit `47907cf6a684e5d1901f6cd4943f0c6dc1b84cc1`; [Issue #235](https://github.com/dotnetpower/fdai/issues/235); three signed HTTP requests returned 2xx; the durable projection remained one delivered record, attempt, and acknowledgement before and after restart; the Slack thread retained one Block Kit reply with fallback text; the dedicated identity retained no executor-like role. | Slack runtime evidence is complete. Teams provider validation remains optional and does not block Issue #235. |
 | 2026-09-08 | implemented | Made empty model-endpoint input default to an empty JSON object so the Operator rollback preflight can materialize disabled channel-edge tfvars without invoking the Core-only model binding. | Failed apply preflight `34228191755`; `current change`; focused materializer CLI regression test. | Recreate and apply the exact protected plan, then retain the runtime receipts. |
@@ -134,6 +135,8 @@ inventory-document producer.
   exposing a value in repository or workflow output.
 - [x] Retain governed local and protected deployed plan/apply/provider-acknowledgement/rollback
   receipts before changing any row to `validated`.
+- [ ] Bind protected Slack and Teams attachment ingestion through a versioned service contract,
+  then retain governed fetch, scan, citation, timeout, and restart receipts before enabling it.
 
 ## Architectural decision
 
@@ -224,15 +227,18 @@ round-trip and bootstrap evidence is recorded in the
 1. Validate the closed environment/config schema and enabled channel set.
 2. Resolve secret references and identity dependencies without logging values.
 3. Open PostgreSQL and the owned HTTP client with redirects disabled and bounded timeouts.
-4. Build authenticated adapters, principal resolvers, protected attachment ingestion, semantic
-  bridge, presentation compiler, delivery coordinator, and fixed routes.
+4. Build authenticated adapters, principal resolvers, semantic bridge, presentation compiler,
+  delivery coordinator, and fixed routes. Protected attachment ingestion remains unavailable until
+  its service handoff and injected ingestor are complete.
 5. Reconcile expired `sending` rows before marking readiness true or accepting traffic.
 6. Start one supervised gateway consumer per enabled adapter.
 7. On shutdown, stop route admission, close queues, cancel and await consumers, close providers
   exactly once, and leave no detached read or send task.
 
 Startup fails before traffic when any enabled channel lacks a secret, principal map, identity,
-endpoint policy, database, attachment dependency, or durable delivery binding. `/health/live` and
+endpoint policy, database, or durable delivery binding. `FDAI_CHANNEL_ATTACHMENTS_ENABLED` accepts
+only `0` or `1`; `1` also requires the production ingestor binding before dependency allocation.
+`/health/live` and
 `/health/ready` report only content-free process state. They expose no channel, principal, endpoint,
 credential, delivery, or queue identifiers.
 
@@ -281,7 +287,7 @@ partially created public route cannot survive automatic recovery.
 | Interrupted or malformed acknowledgement | Record immutable ambiguous duplicate risk; never repost automatically. |
 | Process loss with `sending` lease | Startup reconciliation closes it as ambiguous before consumers start. |
 | Unsupported artifact or provider capability | Send canonical readable text with mandatory limitations, evidence, authority, and unavailable state. |
-| Attachment dependency unavailable | Fail startup when attachment support is enabled; otherwise reject that turn without inline processing. |
+| Attachment dependency unavailable | Fail startup when attachment support is enabled. When disabled, return `422 attachments_unavailable` before queue admission; a direct queue injection fails before claim or semantic publication. |
 
 ## Hardening campaign
 

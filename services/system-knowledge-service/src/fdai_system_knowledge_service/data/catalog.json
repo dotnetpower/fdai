@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:d5798cfe5d04458bf6511ae4dfc8833688bf037fbf05414d56951d7e72a69d7f",
+  "catalog_digest": "sha256:b4237cd4e7c78b04098deba2cec9265c9fcb56b3c76a35b9af8954813b63d012",
   "execution_authority": false,
-  "generated_at": "2026-09-14T09:24:41.502849Z",
+  "generated_at": "2026-09-14T11:01:22.447549Z",
   "records": [
     {
       "designed_behavior": [
@@ -192,11 +192,11 @@
         "How does FDAI prevent duplicate chat replies?",
         "FDAI는 중복 채팅 응답을 어떻게 방지하나요?"
       ],
-      "record_digest": "sha256:c1f73f773ee6da2990888cdba5a23083fbe31b1a35837b07dd707b40b052eefe",
+      "record_digest": "sha256:aae363a28b5d3419db6f82916e5508619ebf892d254989ad116f0c8fd36403ae",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "3a9e20bf8dbc85db9cb0dc015d92ab622593ff4c",
+          "blob_sha": "093e0c81580c01f470a0d95895f642fe3494de4d",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/interfaces/durable-conversation-delivery.md",
@@ -205,7 +205,7 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "3a9e20bf8dbc85db9cb0dc015d92ab622593ff4c",
+          "blob_sha": "093e0c81580c01f470a0d95895f642fe3494de4d",
           "line_end": 66,
           "line_start": 66,
           "path": "docs/roadmap/interfaces/durable-conversation-delivery.md",
@@ -448,7 +448,7 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:ac739ba36fe7b879454601a20ba88a8af9378d772fc624c84be970282541a68d",
+      "record_digest": "sha256:7cea31ebf8d73d20aebaaa4648c788aa127d35ab7cf6f4128b1222ff78ed009a",
       "sources": [
         {
           "authority_role": "design",
@@ -461,7 +461,7 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "9ee13667f44841bc24ad4b71f4782d56d523b1c1",
+          "blob_sha": "ec18bcfb7dc06069d2ffcc51e3a88645094d9d3c",
           "line_end": 79,
           "line_start": 79,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -491,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:6dac702090cfd57fe2352ae6e1ef7c7722fa6e6abe33f5da07bf472bd1a5f387",
+      "record_digest": "sha256:0ada40c27d51b39f41f592a23c4e426173da6fe74f7e12b21fe6f1ba4142d049",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "9ee13667f44841bc24ad4b71f4782d56d523b1c1",
+          "blob_sha": "ec18bcfb7dc06069d2ffcc51e3a88645094d9d3c",
           "line_end": 79,
           "line_start": 79,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -526,20 +526,20 @@
         "How does the existing FDAI Teams conversation path work?",
         "기존 FDAI Teams 대화 경로는 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:a3196336e98d9a475b03ea4e411178d20ee65f13f213d3df31ec5b51e5e67794",
+      "record_digest": "sha256:1d16bcf02ecf173e1566eda2752f904c9f34e1f06b245972cb1dd0c5b06ffa6d",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "a473e1301c05f8eb6401036ab97224e4b6648d87",
-          "line_end": 75,
-          "line_start": 75,
+          "blob_sha": "35722e97a4637873c81993bf74c9cb49694a4b8e",
+          "line_end": 78,
+          "line_start": 78,
           "path": "services/operator-service/src/fdai_operator_service/families/conversation/channel_edge/teams_ingress.py",
           "source_kind": "code",
           "symbol": "TeamsIngressVerifier"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "a81604eb9d6e4056f17972f4431349014894fbcf",
+          "blob_sha": "9d020e60d05908f1ba90263ec66a5697fd45d4a0",
           "line_end": 81,
           "line_start": 81,
           "path": "docs/roadmap/interfaces/production-a3-channel-runtime.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "9fc91e31c520a074bfd642c194ceb379e6539524"
+  "source_revision": "abcb795a6338ec356af107622c652903f23cd6a3"
 }
