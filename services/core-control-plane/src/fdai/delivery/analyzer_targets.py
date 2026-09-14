@@ -144,10 +144,12 @@ async def resolve_analyzer_targets(
 
     ordered: list[AnalyzerTarget] = []
     seen: set[str] = set()
+    configured_by_resource: dict[str, AnalyzerTarget] = {}
     for target in configured:
         if target.resource_ref in seen:
             continue
         seen.add(target.resource_ref)
+        configured_by_resource[target.resource_ref] = target
         ordered.append(target)
     configured_count = len(ordered)
 
@@ -173,7 +175,21 @@ async def resolve_analyzer_targets(
     skipped: set[str] = set()
     eligible: list[AnalyzerTarget] = []
     eligible_resource_types: dict[str, str] = {}
+    configured_resource_types: dict[str, str] = {}
     for record in snapshot.objects:
+        resource_id = record.properties.get("id")
+        resource_type = record.properties.get("type")
+        if isinstance(resource_id, str) and isinstance(resource_type, str):
+            normalized_resource_id = resource_id.strip()
+            normalized_resource_type = resource_type.strip()
+            configured_target = configured_by_resource.get(normalized_resource_id)
+            expected_kind = analyzer_kinds.get(normalized_resource_type)
+            if configured_target is not None and expected_kind is not None:
+                if configured_target.resource_kind != expected_kind:
+                    raise AnalyzerTargetResolutionError(
+                        "configured analyzer kind conflicts with inventory resource type"
+                    )
+                configured_resource_types[normalized_resource_id] = normalized_resource_type
         candidate = await _eligible_target(
             record,
             now=now,
@@ -196,16 +212,27 @@ async def resolve_analyzer_targets(
             break
         selected.append(target)
 
+    provider_resource_types = dict(configured_resource_types)
+    provider_resource_types.update(
+        {target.resource_ref: eligible_resource_types[target.resource_ref] for target in selected}
+    )
     try:
         provider_query_refs = await read_provider_query_references(
             provider_references,
-            expected_resource_types={
-                target.resource_ref: eligible_resource_types[target.resource_ref]
-                for target in selected
-            },
+            expected_resource_types=provider_resource_types,
         )
     except AnalyzerInventoryIdentityError as exc:
         raise AnalyzerTargetResolutionError(str(exc)) from exc
+    ordered = [
+        AnalyzerTarget(
+            resource_ref=target.resource_ref,
+            resource_kind=target.resource_kind,
+            provider_query_ref=(
+                provider_query_refs.get(target.resource_ref) or target.provider_query_ref
+            ),
+        )
+        for target in ordered
+    ]
     for target in selected:
         ordered.append(
             AnalyzerTarget(

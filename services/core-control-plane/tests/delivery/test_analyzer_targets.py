@@ -386,9 +386,51 @@ async def test_configured_targets_lead_and_win_a_duplicate() -> None:
     )
 
     assert resolution.targets[0].resource_ref == "res-aks"
+    assert resolution.targets[0].provider_query_ref == ("/providers/example/resources/res-aks")
     assert [item.resource_ref for item in resolution.targets] == ["res-aks", "res-gw"]
     assert resolution.configured == 1
     assert resolution.discovered == 1
+
+
+@pytest.mark.asyncio
+async def test_configured_target_kind_must_match_its_inventory_resource_type() -> None:
+    store = StubStore((_resource("res-aks", "kubernetes-cluster"),))
+
+    with pytest.raises(
+        AnalyzerTargetResolutionError,
+        match="configured analyzer kind conflicts",
+    ):
+        await _resolve(
+            store,
+            configured=(
+                AnalyzerTarget(
+                    resource_ref="res-aks",
+                    resource_kind="mysql_flexible_server",
+                ),
+            ),
+        )
+
+
+@pytest.mark.asyncio
+async def test_configured_target_uses_provider_identity_despite_stale_state() -> None:
+    store = StubStore(
+        (
+            _resource(
+                "res-aks",
+                "kubernetes-cluster",
+                state_fact=_state_fact(observed_at=NOW - timedelta(seconds=301)),
+            ),
+        )
+    )
+
+    resolution = await _resolve(
+        store,
+        configured=(AnalyzerTarget(resource_ref="res-aks", resource_kind="aks_cluster"),),
+    )
+
+    assert resolution.targets[0].provider_query_ref == ("/providers/example/resources/res-aks")
+    assert resolution.discovered == 0
+    assert resolution.skipped_reasons == (SKIP_STALE_STATE_FACT,)
 
 
 @pytest.mark.asyncio
