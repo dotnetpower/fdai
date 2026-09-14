@@ -103,6 +103,7 @@ def assess_alert_noise(
             issue_codes.append("protected")
         if not complete or any(audience.coverage != "complete" for audience in audiences):
             issue_codes.append("incomplete")
+            reasons.add("routing_coverage_incomplete")
         if issue_codes:
             candidate_count += 1
             if candidate_count > policy.max_candidates:

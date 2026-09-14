@@ -79,6 +79,7 @@ Every record also carries source identity, effective/event/recorded time, freshn
 completeness, provenance digest, and synthetic status. Late evidence creates a new revision.
 Provider throttling, unsupported history, failed paging, and missing directory permission remain
 `unknown` or `partial`; they never become zero notifications or an empty audience.
+Incomplete effective routing also lowers the whole report to partial, not just its finding.
 
 ### Collection and privacy
 

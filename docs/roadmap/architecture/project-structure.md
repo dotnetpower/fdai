@@ -389,7 +389,7 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
 
 ## Customization via Dependency Injection
 
-Upstream defines generic interfaces and working defaults. Forks customize through dependency injection at their own composition root, without editing or copying `core/`; see [the fork model](../../../.github/instructions/generic-scope.instructions.md). [Alert noise governance](../operations/alert-noise-governance.md) uses bounded readers, independent evidence, existing Workflow/Process orchestration, GitOps delivery, source fencing, and effect relays. Its implementation-free shared alert codec owns private-evidence size bounds without widening ontology-query limits. Factories provide mechanics, not independent authority or recipient/effect receipts; operational adoption remains gated.
+Upstream defines generic interfaces and working defaults. Forks customize through dependency injection at their own composition root, without editing or copying `core/`; see [the fork model](../../../.github/instructions/generic-scope.instructions.md). [Alert noise governance](../operations/alert-noise-governance.md) uses bounded readers, independent evidence, existing Workflow/Process orchestration, GitOps delivery, source fencing, and effect relays. Its shared alert codec owns private-evidence size bounds without widening ontology-query limits; its pure assessment propagates incomplete routing to report coverage. Factories provide mechanics, not independent authority or recipient/effect receipts; operational adoption remains gated.
 
 > **Fork maintainers**: start with the procedural walkthrough in
 > [downstream-fork-guide.md](../fork-and-sequencing/downstream-fork-guide.md). This section is the seam catalog

@@ -2,7 +2,7 @@
 title: 알림 과다 수신 관리
 description: 조직 전체의 과도한 알림을 진단하고 탐지 품질을 유지하면서 승인 기반 알림 변경을 제안합니다.
 translation_of: alert-noise-governance.md
-translation_source_sha: 5b08eea1d338e1de7aab282084e3a533a55ba36d
+translation_source_sha: 32c56cbca484b81a55270d91be1e7f7cc62d837a
 translation_revised: 2026-09-15
 ---
 # 알림 과다 수신 관리
@@ -81,6 +81,8 @@ translation_revised: 2026-09-15
 여부도 포함됩니다. 늦게 도착한 근거는 새 개정 번호를 만듭니다. 공급자 속도 제한, 지원되지 않는
 이력, 페이지 수집 실패, 디렉터리 권한 부족은 `unknown` 또는 `partial`로 남으며,
 알림 0건이나 빈 수신 대상이 되지 않습니다.
+
+유효 라우팅을 완전히 확인하지 못하면 개별 점검 결과뿐 아니라 보고서 전체도 부분 확인으로 표시합니다.
 
 ### 수집과 개인정보 보호
 
