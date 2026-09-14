@@ -383,10 +383,11 @@ async def test_signed_offline_package_requires_review_and_readback_before_dated_
     assert all(event.created_at == NOW for event in facts)
     serialized = json.dumps([message.payload for message in bus.published], ensure_ascii=False)
     serialized += "".join(event.model_dump_json() for event in facts)
-    assert all(
-        doc.text not in serialized and doc.original_text not in serialized
-        for doc in intake.manifest.documents
-    )
+    assert all(doc.text not in serialized for doc in intake.manifest.documents)
+    for source in intake.service.registry.sources:
+        original = _INTAKE._PACKAGE_HELPERS._collected_document(source).original_text
+        assert original not in serialized and original.encode() not in content
+    assert b'"original_text"' not in content
     assert not bus.messages_on("object.action-run") and thor.action_runs == {}
     assert all(message.principal != "Thor" for message in bus.published)
     assert bus.handler_errors == 0 and not bus.dead_letters
