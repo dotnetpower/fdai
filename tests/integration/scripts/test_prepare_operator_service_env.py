@@ -92,6 +92,7 @@ def test_prepares_semantic_transport_or_local_narrator(tmp_path: Path, semantic:
         "FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS=http://localhost:5273,http://127.0.0.1:5273"
     ) in rendered
     assert "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=0\n" in rendered
+    assert "FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=0\n" in rendered
     if semantic == "complete":
         expected_namespace = "local-" + hashlib.sha256(str(repo).encode()).hexdigest()[:16]
         assert "FDAI_KAFKA_BOOTSTRAP_SERVERS=example.servicebus.windows.net:9093" in rendered
@@ -128,6 +129,7 @@ def test_ignores_stale_console_local_azure_cli_opt_in_by_default(tmp_path: Path)
 
     rendered = (repo / ".fdai/local-operator-service.env").read_text(encoding="utf-8")
     assert "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=0\n" in rendered
+    assert "FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=0\n" in rendered
     assert (repo / ".fdai/local-console-auth-mode").read_text(encoding="utf-8") == (
         "browser-entra\n"
     )
@@ -152,6 +154,7 @@ def test_projects_explicit_local_azure_cli_mode_to_operator(tmp_path: Path) -> N
 
     rendered = (repo / ".fdai/local-operator-service.env").read_text(encoding="utf-8")
     assert "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1\n" in rendered
+    assert "FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=1\n" in rendered
     assert (repo / ".fdai/local-console-auth-mode").read_text(encoding="utf-8") == "azure-cli\n"
 
 

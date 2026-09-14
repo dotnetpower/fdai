@@ -32,6 +32,7 @@ from fdai_operator_service.environment import (
     HOST_ENV,
     KAFKA_BOOTSTRAP_SERVERS_ENV,
     LIVE_STAGE_CONSUMER_GROUP_ENV,
+    LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV,
     LOCAL_AZURE_CLI_AUTH_ENV,
     LOCAL_AZURE_NARRATOR_ENV,
     LOCAL_ENTRA_AUTH_ENV,
@@ -626,6 +627,7 @@ def test_local_cli_mode_projects_profile_and_authorizes_reader_routes() -> None:
                 **BASE_ENV,
                 "RUNTIME_ENV": "dev",
                 LOCAL_AZURE_CLI_AUTH_ENV: "1",
+                LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
                 CORS_ORIGINS_ENV: "http://127.0.0.1:5273",
             },
             composition=composition,
@@ -672,6 +674,7 @@ def test_cors_preflight_allows_durable_sse_replay_header() -> None:
                 **BASE_ENV,
                 "RUNTIME_ENV": "dev",
                 LOCAL_AZURE_CLI_AUTH_ENV: "1",
+                LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
                 CORS_ORIGINS_ENV: "http://localhost:5273",
             },
             composition=composition,
@@ -709,6 +712,7 @@ def test_cors_exposes_document_integrity_headers() -> None:
                 **BASE_ENV,
                 "RUNTIME_ENV": "dev",
                 LOCAL_AZURE_CLI_AUTH_ENV: "1",
+                LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
                 CORS_ORIGINS_ENV: "http://localhost:5273",
             },
             composition=composition,
@@ -742,6 +746,7 @@ def test_local_cli_mode_rejects_non_loopback_requests() -> None:
                 **BASE_ENV,
                 "RUNTIME_ENV": "dev",
                 LOCAL_AZURE_CLI_AUTH_ENV: "1",
+                LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
             },
             composition=composition,
         ),
@@ -774,6 +779,7 @@ def test_local_cli_mode_rejects_untrusted_browser_origin() -> None:
                 **BASE_ENV,
                 "RUNTIME_ENV": "dev",
                 LOCAL_AZURE_CLI_AUTH_ENV: "1",
+                LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
                 CORS_ORIGINS_ENV: "http://127.0.0.1:5273",
             },
             composition=composition,
@@ -796,14 +802,20 @@ def test_local_cli_profile_route_is_absent_when_mode_is_disabled() -> None:
 @pytest.mark.parametrize(
     "overrides",
     [
-        {LOCAL_AZURE_CLI_AUTH_ENV: "1", "RUNTIME_ENV": "prod"},
         {
             LOCAL_AZURE_CLI_AUTH_ENV: "1",
+            LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
+            "RUNTIME_ENV": "prod",
+        },
+        {
+            LOCAL_AZURE_CLI_AUTH_ENV: "1",
+            LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
             "RUNTIME_ENV": "dev",
             "FDAI_OPERATOR_API_DEV_MODE": "1",
         },
         {
             LOCAL_AZURE_CLI_AUTH_ENV: "1",
+            LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
             "RUNTIME_ENV": "dev",
             LOCAL_ENTRA_AUTH_ENV: "1",
         },
@@ -831,8 +843,23 @@ def test_local_cli_mode_surfaces_unavailable_azure_cli() -> None:
                 **BASE_ENV,
                 "RUNTIME_ENV": "dev",
                 LOCAL_AZURE_CLI_AUTH_ENV: "1",
+                LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
             }
         )
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {LOCAL_AZURE_CLI_AUTH_ENV: "1"},
+        {LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1"},
+    ],
+)
+def test_local_cli_mode_requires_explicit_confirmation(
+    overrides: Mapping[str, str],
+) -> None:
+    with pytest.raises(OperatorServiceConfigurationError, match="enabled together"):
+        OperatorEnvironment.parse({**BASE_ENV, "RUNTIME_ENV": "dev", **overrides})
 
 
 def test_live_stream_requires_reader_authentication_before_opening() -> None:
