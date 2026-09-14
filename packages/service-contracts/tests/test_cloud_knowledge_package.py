@@ -35,7 +35,10 @@ from fdai_service_contracts.cloud_knowledge_package import (
 )
 from fdai_service_contracts.cloud_knowledge_release import (
     CloudKnowledgeDocument,
+    CloudKnowledgeTextDocument,
     KnowledgeReleaseManifest,
+    KnowledgeTextReleaseManifest,
+    normalized_document,
 )
 
 NOW = datetime(2026, 9, 14, 12, tzinfo=UTC)
@@ -45,13 +48,13 @@ KEY_ID = "synthetic-release-key"
 
 @dataclass(frozen=True)
 class _Case:
-    manifest: KnowledgeReleaseManifest
+    manifest: KnowledgeTextReleaseManifest
     registry: SourceRegistryRevision
     trust: KnowledgeTrustPolicy
     private_key: Ed25519PrivateKey
 
 
-def _document(
+def _collected_document(
     source: CloudKnowledgeSource, *, at: datetime = SOURCE_TIME
 ) -> CloudKnowledgeDocument:
     original = f"Original reference: {source.source_id}. 예제."
@@ -84,6 +87,12 @@ def _document(
     )
 
 
+def _document(
+    source: CloudKnowledgeSource, *, at: datetime = SOURCE_TIME
+) -> CloudKnowledgeTextDocument:
+    return normalized_document(_collected_document(source, at=at))
+
+
 @pytest.fixture
 def case() -> _Case:
     private_key = Ed25519PrivateKey.generate()
@@ -109,7 +118,7 @@ def case() -> _Case:
         ),
     )
     return _Case(
-        manifest=KnowledgeReleaseManifest(
+        manifest=KnowledgeTextReleaseManifest(
             release_id="release-1",
             sequence=1,
             collection_id="reference",
@@ -140,6 +149,30 @@ def case() -> _Case:
 
 def _sign(case: _Case) -> bytes:
     return sign_release(case.manifest, key_id=KEY_ID, private_key=case.private_key)
+
+
+def _legacy_manifest(case: _Case) -> KnowledgeReleaseManifest:
+    return KnowledgeReleaseManifest.model_validate(
+        case.manifest.model_dump(exclude={"schema_version", "reader_version", "documents"})
+        | {"documents": tuple(_collected_document(source) for source in case.registry.sources[:2])}
+    )
+
+
+def _legacy_package(case: _Case) -> bytes:
+    """Independently sign a historical v1 fixture; production emitters cannot create it."""
+    manifest = _legacy_manifest(case)
+    content = canonical_bytes(manifest)
+    return _json_bytes(
+        {
+            "schema_version": "fdai.cloud-knowledge-package.v1",
+            "purpose": PACKAGE_PURPOSE,
+            "algorithm": "Ed25519",
+            "key_id": KEY_ID,
+            "manifest_digest": manifest.digest,
+            "manifest": manifest.model_dump(mode="json"),
+            "signature": case.private_key.sign(PACKAGE_PURPOSE.encode() + b"\x00" + content).hex(),
+        }
+    )
 
 
 def test_detached_signature_assembly_matches_signer_and_rejects_wrong_length(case: _Case) -> None:
@@ -183,6 +216,19 @@ def _verify(
 
 def _wire(case: _Case) -> dict[str, Any]:
     return cast(dict[str, Any], json.loads(_sign(case)))
+
+
+def test_new_signed_packages_exclude_original_bodies(case: _Case) -> None:
+    sealed = _sign(case)
+    assert b'"original_text"' not in sealed
+    assert b"Original reference:" not in sealed
+    wire = json.loads(sealed)
+    assert wire["schema_version"] == "fdai.cloud-knowledge-package.v2"
+    assert wire["manifest"]["schema_version"] == "fdai.cloud-knowledge.v2"
+    assert wire["manifest"]["reader_version"] == "2.0.0"
+    assert _verify(case, sealed).binding.sources == tuple(
+        document.evidence for document in case.manifest.documents
+    )
 
 
 def _json_bytes(value: object) -> bytes:
@@ -388,7 +434,7 @@ def test_unknown_nested_fields_are_rejected(case: _Case, path: tuple[str | int, 
     [
         ("purpose", "fdai.application.v1"),
         ("algorithm", "none"),
-        ("schema_version", "fdai.cloud-knowledge-package.v2"),
+        ("schema_version", "fdai.cloud-knowledge-package.v3"),
     ],
 )
 def test_unsupported_envelope_metadata_is_rejected(case: _Case, field: str, value: str) -> None:
@@ -531,7 +577,7 @@ def test_full_text_requires_storage_and_internal_transfer_rights(case: _Case, ri
 
 def test_registered_source_limits_count_utf8_bytes_not_characters(case: _Case) -> None:
     source = case.registry.sources[0].model_copy(
-        update={"max_bytes": len(case.manifest.documents[0].original_text)}
+        update={"max_bytes": len(case.manifest.documents[0].text)}
     )
     registry = case.registry.model_copy(update={"sources": (source, *case.registry.sources[1:])})
     case = _with_registry(case, registry)

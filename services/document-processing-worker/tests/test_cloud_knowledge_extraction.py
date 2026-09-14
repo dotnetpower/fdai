@@ -25,6 +25,8 @@ from fdai_service_contracts.cloud_knowledge_release import (
     CloudKnowledgeDocument,
     KnowledgeReleaseBinding,
     KnowledgeReleaseManifest,
+    KnowledgeTextReleaseManifest,
+    normalized_document,
 )
 
 NOW = datetime(2026, 9, 14, tzinfo=UTC)
@@ -118,6 +120,29 @@ def test_source_sections_preserve_conditions_without_indexing_original_html() ->
     assert len({unit.unit_id for unit in units}) == len(units)
     assert version.cloud_knowledge is not None
     assert version.cloud_knowledge.sources[0].collected_at == NOW - timedelta(days=44)
+
+
+def test_normalized_only_v2_extracts_identical_units_without_original_bytes() -> None:
+    legacy, version = release_version()
+    compact = KnowledgeTextReleaseManifest.model_validate(
+        legacy.model_dump(exclude={"schema_version", "reader_version", "documents"})
+        | {"documents": tuple(normalized_document(document) for document in legacy.documents)}
+    )
+    content = canonical_bytes(compact)
+    assert b"original_text" not in content and b"Raw original" not in content
+    assert version.cloud_knowledge is not None
+    binding = version.cloud_knowledge.model_copy(update={"manifest_digest": compact.digest})
+    compact_version = version.model_copy(
+        update={
+            "cloud_knowledge": binding,
+            "source_sha256": compact.digest,
+            "size_bytes": len(content),
+        }
+    )
+    assert cloud_reference_units(compact_version, content) == cloud_reference_units(
+        version, canonical_bytes(legacy)
+    )
+    assert binding.sources == version.cloud_knowledge.sources
 
 
 def test_swapped_payload_or_unsigned_binding_never_extracts() -> None:

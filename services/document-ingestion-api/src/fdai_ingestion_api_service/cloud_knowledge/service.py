@@ -22,8 +22,11 @@ from fdai_service_contracts.cloud_knowledge import (
 from fdai_service_contracts.cloud_knowledge_admission import validate_admitted_binding
 from fdai_service_contracts.cloud_knowledge_package import KnowledgeTrustPolicy, verify_package
 from fdai_service_contracts.cloud_knowledge_release import (
+    KnowledgeManifest,
     KnowledgeReleaseBinding,
-    KnowledgeReleaseManifest,
+    KnowledgeTextReleaseManifest,
+    normalized_document,
+    parse_knowledge_manifest,
 )
 
 from fdai_ingestion_api_service.cloud_knowledge.projection import project_source, project_status
@@ -122,8 +125,8 @@ class CloudKnowledgeService:
         self._policies()
         return await self._scheduler.tick()
 
-    async def proposal(self, collection_id: str) -> KnowledgeReleaseManifest:
-        """Build complete review material, not a signed release or an active generation."""
+    async def proposal(self, collection_id: str) -> KnowledgeTextReleaseManifest:
+        """Build complete normalized-only review material; collector originals stay local."""
         now = self._clock()
         self._policies()
         if now >= self.registry.valid_until:
@@ -142,9 +145,9 @@ class CloudKnowledgeService:
                 raise ValueError("complete successful source coverage is required")
             if not source.storage_allowed or not source.internal_transfer_allowed:
                 raise ValueError("document review export requires approved transfer rights")
-            documents.append(state.document)
+            documents.append(normalized_document(state.document))
         sequence = await self._store.next_sequence(collection_id)
-        return KnowledgeReleaseManifest(
+        return KnowledgeTextReleaseManifest(
             release_id=f"{collection_id}-{sequence}",
             sequence=sequence,
             collection_id=collection_id,
@@ -211,7 +214,7 @@ class CloudKnowledgeService:
         if prior is None:
             raise ValueError("knowledge rollback source binding is missing")
         validate_admitted_binding(prior, registry=registry, trust=trust, now=self._clock())
-        original = KnowledgeReleaseManifest.model_validate_json(content)
+        original = parse_knowledge_manifest(content)
         if original.digest != prior.manifest_digest or canonical_bytes(original) != content:
             raise ValueError("knowledge rollback manifest identity changed")
         current_versions = await self._ingestion.list_versions(
@@ -228,13 +231,16 @@ class CloudKnowledgeService:
         if withdrawn.intersection(source.source_id for source in prior.sources):
             raise ValueError("knowledge rollback cannot resurrect a withdrawn source")
         sequence = await self._store.next_sequence(collection_id)
-        manifest = KnowledgeReleaseManifest.model_validate(
-            original.model_dump()
+        manifest = KnowledgeTextReleaseManifest.model_validate(
+            original.model_dump(exclude={"schema_version", "reader_version", "documents"})
             | {
                 "release_id": f"{collection_id}-rollback-{sequence}",
                 "sequence": sequence,
                 "package_created_at": self._clock(),
                 "expires_at": prior.admission_expires_at,
+                "documents": tuple(
+                    normalized_document(document) for document in original.documents
+                ),
             }
         )
         binding = KnowledgeReleaseBinding(
@@ -256,7 +262,7 @@ class CloudKnowledgeService:
 
     async def _ingest(
         self,
-        manifest: KnowledgeReleaseManifest,
+        manifest: KnowledgeManifest,
         binding: KnowledgeReleaseBinding,
         *,
         actor_id: str,

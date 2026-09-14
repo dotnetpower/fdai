@@ -21,7 +21,7 @@ from unittest.mock import Mock
 import pytest
 from fdai_ingestion_api_service.cloud_knowledge import __main__ as cli
 from fdai_service_contracts.cloud_knowledge import canonical_bytes, content_digest
-from fdai_service_contracts.cloud_knowledge_release import KnowledgeReleaseManifest
+from fdai_service_contracts.cloud_knowledge_release import KnowledgeTextReleaseManifest
 
 SIGNATURE_DOMAIN = b"fdai.cloud-knowledge.release.v1\x00"
 
@@ -77,7 +77,7 @@ def _no_external_network(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 @dataclass(frozen=True)
 class _OfflineInputs:
     directory: Path
-    manifest: KnowledgeReleaseManifest = field(repr=False)
+    manifest: KnowledgeTextReleaseManifest = field(repr=False)
     manifest_bytes: bytes = field(repr=False)
     package_bytes: bytes = field(repr=False)
 
@@ -114,7 +114,7 @@ def offline(package_case: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     signature = package_case.private_key.sign(SIGNATURE_DOMAIN + manifest_bytes)
     package_bytes = _json_bytes(
         {
-            "schema_version": "fdai.cloud-knowledge-package.v1",
+            "schema_version": "fdai.cloud-knowledge-package.v2",
             "purpose": "fdai.cloud-knowledge.release.v1",
             "algorithm": "Ed25519",
             "key_id": _PACKAGE_HELPERS.KEY_ID,
@@ -136,7 +136,7 @@ def offline(package_case: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
 
 
 def _assert_report(
-    capsys: pytest.CaptureFixture[str], manifest: KnowledgeReleaseManifest | None = None
+    capsys: pytest.CaptureFixture[str], manifest: KnowledgeTextReleaseManifest | None = None
 ) -> None:
     """Only the content-free result contract may cross stdout or stderr."""
     output = capsys.readouterr()
@@ -183,6 +183,7 @@ def test_assemble_preserves_detached_signature_and_exact_canonical_manifest(
     assert output.read_bytes() == offline.package_bytes
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
     wire = json.loads(output.read_bytes())
+    assert all("original_text" not in document for document in wire["manifest"]["documents"])
     signed_bytes = _json_bytes(wire["manifest"])
     assert signed_bytes == offline.manifest_bytes
     signature = bytes.fromhex(wire["signature"])
@@ -256,6 +257,36 @@ def test_inspect_rejects_noncanonical_transport_even_with_valid_inner_signature(
     (offline.directory / "package.json").write_bytes(offline.package_bytes + b"\n")
     assert cli.main(offline.argv("inspect")) == 1
     _assert_report(capsys)
+
+
+@pytest.mark.parametrize("operation", ["inspect", "assemble"])
+def test_legacy_is_inspectable_but_cannot_be_newly_assembled(
+    offline: _OfflineInputs, package_case: Any, capsys: pytest.CaptureFixture[str], operation: str
+) -> None:
+    legacy = _PACKAGE_HELPERS._legacy_manifest(package_case)
+    (offline.directory / "package.json").write_bytes(_PACKAGE_HELPERS._legacy_package(package_case))
+    content = canonical_bytes(legacy)
+    (offline.directory / "manifest.json").write_bytes(content)
+    (offline.directory / "signature.bin").write_bytes(
+        package_case.private_key.sign(SIGNATURE_DOMAIN + content)
+    )
+    before = _input_digests(offline.directory)
+    assert cli.main(offline.argv(operation)) == (0 if operation == "inspect" else 1)
+    if operation == "inspect":
+        output = json.loads(capsys.readouterr().out)
+        assert output["manifest_digest"] == legacy.digest
+    else:
+        _assert_report(capsys)
+    assert _input_digests(offline.directory) == before
+
+
+def test_assembly_requires_canonical_manifest_input_without_silent_rewriting(
+    offline: _OfflineInputs, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (offline.directory / "manifest.json").write_bytes(offline.manifest_bytes + b"\n")
+    assert cli.main(offline.argv("assemble")) == 1
+    _assert_report(capsys)
+    assert not (offline.directory / "assembled.json").exists()
 
 
 @pytest.mark.parametrize(

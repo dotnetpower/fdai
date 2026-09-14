@@ -29,8 +29,11 @@ from fdai_service_contracts.cloud_knowledge import (
     content_digest,
 )
 from fdai_service_contracts.cloud_knowledge_release import (
+    CloudKnowledgeDocument,
+    KnowledgeManifest,
     KnowledgeReleaseBinding,
     KnowledgeReleaseManifest,
+    KnowledgeTextReleaseManifest,
 )
 
 MAX_PACKAGE_BYTES: Final = 16 * 1024 * 1024
@@ -129,15 +132,24 @@ class KnowledgeTrustPolicy(KnowledgeContract):
 
 
 class _PackageEnvelope(KnowledgeContract):
-    """Closed JSON envelope; signature is lowercase hex over domain plus canonical manifest."""
+    """Version-matched envelope; signature covers the versioned canonical manifest."""
 
-    schema_version: Literal["fdai.cloud-knowledge-package.v1"] = "fdai.cloud-knowledge-package.v1"
+    schema_version: Literal[
+        "fdai.cloud-knowledge-package.v1", "fdai.cloud-knowledge-package.v2"
+    ] = "fdai.cloud-knowledge-package.v2"
     purpose: Literal["fdai.cloud-knowledge.release.v1"] = PACKAGE_PURPOSE
     algorithm: Literal["Ed25519"] = "Ed25519"
     key_id: Identifier
     manifest_digest: Digest
-    manifest: KnowledgeReleaseManifest
+    manifest: KnowledgeManifest
     signature: Annotated[str, Field(min_length=128, max_length=128, pattern=r"^[0-9a-f]{128}$")]
+
+    @model_validator(mode="after")
+    def version_pair(self) -> Self:
+        legacy = isinstance(self.manifest, KnowledgeReleaseManifest)
+        if legacy != (self.schema_version == "fdai.cloud-knowledge-package.v1"):
+            raise ValueError("package and manifest versions MUST match")
+        return self
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,7 +161,7 @@ class VerifiedKnowledgePackage:
     No document body or provenance is included in the default representation.
     """
 
-    manifest: KnowledgeReleaseManifest = field(repr=False)
+    manifest: KnowledgeManifest = field(repr=False)
     content: bytes = field(repr=False)
     binding: KnowledgeReleaseBinding = field(repr=False)
 
@@ -189,16 +201,28 @@ def _decode_package(content: bytes) -> _PackageEnvelope:
         ) from None
 
 
+def _checked_text_manifest(manifest: KnowledgeTextReleaseManifest) -> KnowledgeTextReleaseManifest:
+    """Refuse legacy emission and unchecked model-copy fields without exposing document content."""
+    try:
+        return KnowledgeTextReleaseManifest.model_validate(manifest.model_dump(warnings="error"))
+    except (ValueError, TypeError, RecursionError, OverflowError):
+        raise KnowledgePackageError(
+            "new packages require a valid normalized-only v2 manifest"
+        ) from None
+
+
 def assemble_signed_release(
-    manifest: KnowledgeReleaseManifest, *, key_id: str, signature: bytes
+    manifest: KnowledgeTextReleaseManifest, *, key_id: str, signature: bytes
 ) -> bytes:
     """Package a detached external signature; callers still verify independent trust.
 
     This allows offline packaging without giving FDAI a signing key. The signature
-    is over the purpose-domain-separated canonical manifest documented by sign_release.
+    is over the purpose-domain-separated canonical v2 manifest documented by sign_release.
+    Legacy manifests are not stripped after signing; callers must supply a new v2 signature.
     """
     if len(signature) != 64:
         raise KnowledgePackageError("knowledge signature MUST contain 64 bytes")
+    manifest = _checked_text_manifest(manifest)
     encoded = canonical_bytes(
         _PackageEnvelope(
             key_id=key_id,
@@ -213,9 +237,9 @@ def assemble_signed_release(
 
 
 def sign_release(
-    manifest: KnowledgeReleaseManifest, *, key_id: str, private_key: Ed25519PrivateKey
+    manifest: KnowledgeTextReleaseManifest, *, key_id: str, private_key: Ed25519PrivateKey
 ) -> bytes:
-    """Encode and sign a bounded release using an injected, externally reviewed signing key.
+    """Encode and sign a normalized-only v2 release using an injected, reviewed signing key.
 
     Signs ``PACKAGE_PURPOSE.encode('ascii') + b'\\x00' + canonical_bytes(manifest)``.
     The separate key id selects independent verifier trust; no key is loaded, generated,
@@ -225,7 +249,7 @@ def sign_release(
     if not isinstance(private_key, Ed25519PrivateKey):
         raise KnowledgePackageError("signer MUST supply an Ed25519 private key object")
     try:
-        checked = KnowledgeReleaseManifest.model_validate(manifest.model_dump(warnings="error"))
+        checked = _checked_text_manifest(manifest)
         stored = canonical_bytes(checked)
         if len(stored) > MAX_PACKAGE_BYTES:
             raise KnowledgePackageError("knowledge package exceeds the byte limit")
@@ -273,9 +297,7 @@ def _current_key(
     return key, revocation_expires
 
 
-def _registered_collection(
-    manifest: KnowledgeReleaseManifest, registry: SourceRegistryRevision
-) -> None:
+def _registered_collection(manifest: KnowledgeManifest, registry: SourceRegistryRevision) -> None:
     """A complete selected collection cannot shrink after failed collection or broaden origin."""
     if manifest.registry_digest != registry.digest:
         raise KnowledgePackageError("release MUST bind the exact approved source registry digest")
@@ -307,10 +329,12 @@ def _registered_collection(
             raise KnowledgePackageError(
                 "full-text packages require storage and internal transfer rights"
             )
-        if any(
-            len(text.encode("utf-8")) > source.max_bytes
-            for text in (document.original_text, document.text)
-        ):
+        texts = (
+            (document.original_text, document.text)
+            if isinstance(document, CloudKnowledgeDocument)
+            else (document.text,)
+        )
+        if any(len(text.encode("utf-8")) > source.max_bytes for text in texts):
             raise KnowledgePackageError("document text exceeds its registered source byte limit")
         if (
             evidence.source_updated_at is not None
@@ -328,8 +352,10 @@ def verify_package(
     max_bytes: int = MAX_PACKAGE_BYTES,
     minimum_sequence: int = 0,
 ) -> VerifiedKnowledgePackage:
-    """Verify a complete advisory package offline against independently approved inputs.
+    """Verify a complete v1/v2 advisory package offline against independently approved inputs.
 
+    V2 checks its included normalized bytes; original hashes remain signed producer
+    assertions and never cause an original fetch. V1 is verified without rewriting its bytes.
     Byte limits may only narrow the hard ceiling. All timestamps use the supplied aware
     clock without positive-skew grace. Expiry includes registry, trust, key, manifest,
     and revocation validity, but NOT actual-source age: freshness remains separate.

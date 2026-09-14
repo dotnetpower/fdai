@@ -33,6 +33,7 @@ citations, collection times, check receipts, and freshness policy at the answer'
 | Report the newest date across results | One recent passage can hide an old dependency | Per-claim citations and the weakest required evidence determine answer eligibility |
 | Wait for a refresh while answering | An offline source can leave the conversation waiting indefinitely | Return an explicit as-of answer or terminal refresh-required result; track refresh separately |
 | Report atomic index commit as verified success | A transaction cannot independently observe its own committed effect | Keep the generation unavailable during readback; publish visibility and terminal success only after exact independent persisted-index verification |
+| Carry the original body in every release | Repeated HTML/Markdown increases transfer size; silently dropping a signed field breaks identity | Emit normalized-only v2 releases; retain collector originals locally and verify legacy v1 bytes without rewriting them |
 
 ## Source registry and scope
 
@@ -163,14 +164,15 @@ available only under its own current access, freshness, and admission gates.
 ## Offline knowledge package
 
 A knowledge release is an independently versioned, data-only artifact, separate from the application
-deployment kit and rule catalog. Version 1 uses complete, bounded packages per selected collection
-or service group. Delta delivery is later work: it must pin an accepted base digest and the exact
+deployment kit and rule catalog. Version 2 uses complete, normalized-text-only packages per selected
+collection or service group. Original HTML/Markdown stays in the collector checkpoint, not the new
+package. Delta delivery is later work: it must pin an accepted base digest and the exact
 resulting full manifest, with explicit additions, replacements, and tombstones.
 
 | Package component | Required evidence |
 |-------------------|-------------------|
 | Signed manifest | Schema, release identity/sequence, creation time, source-policy reference, reader compatibility, exact file list, size, media type, and SHA-256 per entry |
-| Source and normalized content | Licensed original snapshots where permitted, canonical URLs, sections, applicability, lineage, collection times, and normalizer versions |
+| Normalized content and source provenance | Exact normalized UTF-8 text, original/normalized SHA-256, canonical URLs, applicability, collection/check times, license reference, and unchanged normalizer version; no original body |
 | Check receipts and coverage | Per-document source-check outcomes/digests, collected/check-time ranges, failed and excluded items, and an explicit bounded coverage denominator |
 | Review material | Source/license inventory, machine-readable differences, changed constraints, scan provenance, and human-readable review summary |
 | Optional numeric embeddings | Exact input hashes, model/revision, dimensions, chunker configuration, and finite-value/schema validation |
@@ -197,6 +199,30 @@ Expired update metadata blocks new admission or activation. Already admitted con
 local admission validity, revocation policy, access, and source-freshness limits; package expiry
 does not rewrite collection dates or automatically revoke an otherwise valid historical record.
 Unavailable required revocation evidence blocks the affected use rather than assuming no revocation.
+
+### Normalized-only v2 compatibility
+
+`CloudKnowledgeDocument` remains the collector-local snapshot and verifies both body hashes.
+`CloudKnowledgeTextDocument` is a separate closed transport record with no `original_text` field,
+not even an empty/null placeholder. Projection validates the local snapshot before dropping its
+original; it changes neither normalized text nor source dates, applicability, license, or extractor.
+The receiver verifies the included normalized bytes and signed source provenance. The absent
+original's hash is a producer assertion, not receiver-side proof of original bytes or extraction quality.
+No verifier downloads or reconstructs that original as a fallback.
+
+New manifests use `fdai.cloud-knowledge.v2`, reader `2.0.0`, and envelope
+`fdai.cloud-knowledge-package.v2`. The artifact purpose and signature domain remain
+`fdai.cloud-knowledge.release.v1`; the signed manifest binds its schema version. Envelope/manifest
+version mismatches and any original-body field in v2 are rejected. Upgrade the API/CLI and worker
+together; old readers cannot consume v2. The complete-collection, rights, 16 MiB package, normalized
+UTF-8 byte, signature, revocation, replay, approval, and independent activation checks stay in force.
+
+Readers retain exact v1 verification and persisted-worker compatibility without rewriting old
+digests. New export, signing, detached assembly, collected staging, and higher-sequence rollback
+produce only v2. Rollback from eligible v1 pins its original admitted manifest digest while creating
+a new normalized-only candidate with unchanged source evidence and admission expiry. Existing signed
+bytes are never stripped in place. This transport change does not resolve the real-page hidden-UI,
+link, or cross-section caveat findings recorded in [Issue #995](https://github.com/dotnetpower/fdai/issues/995#issuecomment-5667579564).
 
 ## Internal review and activation
 
@@ -296,10 +322,11 @@ Failure automatically contains the pending generation as unavailable; it never r
 version. Rollback creates a higher-sequence reviewed request from a still-admissible retained version,
 preserves dates, and cannot restore a declared withdrawn source.
 
-V1 packages are canonical JSON capped at 16 MiB, not general archives. They include exact UTF-8
-source/normalized content and provenance, with a purpose-bound Ed25519 signature and independently
-installed trust. The offline CLI inspects or assembles a detached external signature; it never reads
-a private key. V1 intentionally uses lexical-only cloud retrieval and contains no embedding payload.
+Packages are canonical JSON capped at 16 MiB, not general archives. New v2 releases contain exact
+normalized UTF-8 text and source provenance without originals; historical v1 remains readable.
+Both use purpose-bound Ed25519 signatures and independently installed trust. The offline CLI
+inspects either version but assembles only v2 detached signatures; it never reads a private key.
+Cloud retrieval remains lexical-only without embedding payloads.
 Extraction retains whole heading-bounded sections, including tables and footnotes. A section plus
 its provenance exceeding 8 KiB is held instead of silently slicing away applicability or exceptions.
 `FDAI_DOCUMENT_RETRIEVAL_MODE=lexical` also removes document-service embedding startup probes.
