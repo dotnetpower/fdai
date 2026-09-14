@@ -130,7 +130,7 @@ export function claimBrowserAlertDelivery(
       ...entries,
       { tag, claimedAt: now, deliveredAt: null, acknowledgedAt: null },
     ].slice(-DELIVERY_LEDGER_LIMIT);
-    storage.setItem(key, JSON.stringify(next));
+    writeDeliveryEntries(storage, key, next);
     return "claimed";
   } catch {
     return "unavailable";
@@ -146,7 +146,7 @@ export function releaseBrowserAlertDelivery(
   const key = browserNotificationDeliveryKey(principalId);
   try {
     const entries = readDeliveryEntries(storage.getItem(key)).filter((entry) => entry.tag !== tag);
-    storage.setItem(key, JSON.stringify(entries));
+    writeDeliveryEntries(storage, key, entries);
   } catch {
     // A failed release expires through the bounded deduplication window.
   }
@@ -316,9 +316,10 @@ function updateBrowserAlertReceipt(
         ? current.acknowledgedAt ?? now
         : current.acknowledgedAt,
     };
-    storage.setItem(
+    writeDeliveryEntries(
+      storage,
       key,
-      JSON.stringify(entries.map((entry) => entry.tag === tag ? updated : entry)),
+      entries.map((entry) => entry.tag === tag ? updated : entry),
     );
     return deliveryReceipt(updated);
   } catch {
@@ -370,6 +371,20 @@ function readDeliveryEntries(value: string | null): readonly BrowserAlertDeliver
   } catch {
     return [];
   }
+}
+
+function writeDeliveryEntries(
+  storage: StorageWriter,
+  key: string,
+  entries: readonly BrowserAlertDeliveryEntry[],
+): void {
+  storage.setItem(
+    key,
+    JSON.stringify(entries.map((entry) => ({
+      ...entry,
+      at: entry.claimedAt,
+    }))),
+  );
 }
 
 function optionalTimestamp(value: unknown): number | null | undefined {
