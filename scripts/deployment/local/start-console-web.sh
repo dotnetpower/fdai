@@ -2,15 +2,36 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 [--force]" >&2
+  echo "Usage: $0 [--force] [--auth-mode browser-entra|azure-cli]" >&2
   exit 2
 }
 
-if [[ $# -gt 1 ]]; then
+force_preparation=0
+auth_mode="browser-entra"
+while (( $# > 0 )); do
+  case "$1" in
+    --force)
+      force_preparation=1
+      shift
+      ;;
+    --auth-mode)
+      if [[ $# -lt 2 ]]; then
+        usage
+      fi
+      auth_mode="$2"
+      shift 2
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+if [[ "$auth_mode" != "browser-entra" && "$auth_mode" != "azure-cli" ]]; then
   usage
 fi
-if [[ $# -eq 1 && "$1" != "--force" ]]; then
-  usage
+prepare_arguments=(--auth-mode "$auth_mode")
+if [[ "$force_preparation" == "1" ]]; then
+  prepare_arguments=(--force "${prepare_arguments[@]}")
 fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
@@ -99,5 +120,6 @@ if (( ${#conflicts[@]} > 0 )); then
 fi
 
 FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION=1 \
-  bash "$repo_root/scripts/deployment/local/prepare-console-full-stack.sh" "$@"
+  bash "$repo_root/scripts/deployment/local/prepare-console-full-stack.sh" \
+  "${prepare_arguments[@]}"
 exec bash "$repo_root/scripts/deployment/local/start-console-services.sh"

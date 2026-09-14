@@ -40,7 +40,7 @@ def _console_launcher_repo(tmp_path: Path) -> tuple[Path, Path, dict[str, str]]:
         """#!/usr/bin/env bash
 set -euo pipefail
 printf 'prepare:%s:teams=%s\n' \
-  "${1:-}" \
+  "$*" \
   "${FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION:-}" >> "$FDAI_TEST_LOG"
 """,
     )
@@ -76,8 +76,16 @@ exit 1
 @pytest.mark.parametrize(
     ("arguments", "expected_prepare"),
     [
-        ([], "prepare::teams=1"),
-        (["--force"], "prepare:--force:teams=1"),
+        ([], "prepare:--auth-mode browser-entra:teams=1"),
+        (["--force"], "prepare:--force --auth-mode browser-entra:teams=1"),
+        (
+            ["--auth-mode", "azure-cli"],
+            "prepare:--auth-mode azure-cli:teams=1",
+        ),
+        (
+            ["--auth-mode", "azure-cli", "--force"],
+            "prepare:--force --auth-mode azure-cli:teams=1",
+        ),
     ],
 )
 def test_console_web_launcher_prepares_then_starts_full_stack(
@@ -206,7 +214,7 @@ def test_console_web_launcher_allows_managed_service_port(tmp_path: Path) -> Non
 
     assert result.returncode == 0
     assert log_path.read_text(encoding="utf-8").splitlines() == [
-        "prepare::teams=1",
+        "prepare:--auth-mode browser-entra:teams=1",
         "start",
     ]
     assert result.stderr == ""
