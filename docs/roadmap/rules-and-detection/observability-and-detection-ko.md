@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 8894b5d655cfc07a9e9a3736b3e4a4e74c7e9281
+translation_source_sha: e5000609eddeb8f6e3e104ad04f661562c9cd524
 translation_revised: 2026-09-14
 ---
 
@@ -72,8 +72,9 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
   `medium` 이하 발견된 문제를 계속 보류합니다. 인벤토리 기반 대상은 온톨로지 `Resource.id`를
   분석기와 Event 신원으로 유지합니다. 전달 경계에서 틱은 활성 인벤토리 스냅샷의 정확한
   `provider_ref`를 읽고 메트릭 조회의 `resource_id` 레이블만 바꿉니다. 공급자 참조가 없거나
-  일치하지 않거나 모호하면 틱이 실패합니다. 공급자 참조는 발견된 문제(Finding), 증적 또는
-  Incident에 포함되지 않습니다.
+  일치하지 않거나 모호하면 틱이 실패합니다. 공급자 오류에는 메트릭 이름을 유지하되 공급자
+  참조를 제거합니다. 공급자 참조는 발견된 문제(Finding), 증적, Incident 또는 직렬화된 분석기
+  오류에 포함되지 않습니다.
 - Heimdall은 retained repeated-event 에피소드를 global 및 리소스별로 제한합니다. 한 리소스의
   상관관계 flood는 다른 리소스의 partially accumulated 근거보다 해당 리소스의 가장 오래된
   에피소드를 먼저 축출합니다.

@@ -281,6 +281,42 @@ async def test_mapped_metric_provider_rejects_another_returned_resource() -> Non
         ]
 
 
+@pytest.mark.asyncio
+async def test_mapped_metric_provider_redacts_provider_identity_from_errors() -> None:
+    provider_ref = "/providers/example/resources/sensitive"
+
+    class LeakingFailureBackend:
+        async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
+            if False:
+                yield MetricPoint(metric_name=query.metric_name, at=NOW, value=0.0)
+            raise MetricProviderError(f"request failed for {query.labels['resource_id']}")
+
+    provider = AnalyzerMetricProvider(
+        LeakingFailureBackend(),
+        targets=(
+            AnalyzerTarget(
+                resource_ref="resource-logical",
+                resource_kind="aks_cluster",
+                provider_query_ref=provider_ref,
+            ),
+        ),
+    )
+
+    with pytest.raises(MetricProviderError, match="mapped metric query failed") as captured:
+        _ = [
+            point
+            async for point in provider.query(
+                MetricQuery(
+                    metric_name="node_cpu_percent",
+                    labels={"resource_id": "resource-logical"},
+                )
+            )
+        ]
+
+    assert provider_ref not in str(captured.value)
+    assert captured.value.__cause__ is None
+
+
 def test_mapped_metric_provider_rejects_provider_identity_aliases() -> None:
     with pytest.raises(ValueError, match="multiple logical resources"):
         AnalyzerMetricProvider(

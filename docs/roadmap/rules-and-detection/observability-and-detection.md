@@ -72,7 +72,8 @@ are synthetic.
   target keeps its ontology `Resource.id` as the analyzer and Event identity. At the delivery
   boundary, the tick reads the exact `provider_ref` from the active inventory snapshot and rewrites
   only the metric query's `resource_id` label. A missing, mismatched, or ambiguous provider
-  reference fails the tick. The provider reference never enters a Finding, receipt, or Incident.
+  reference fails the tick. Provider failures retain the metric name but redact the provider
+  reference, which never enters a Finding, receipt, Incident, or serialized analyzer error.
 - Heimdall bounds retained repeated-event episodes globally and per resource. A correlation flood
   from one resource evicts only that resource's oldest episode before it can displace another
   resource's partially accumulated evidence.

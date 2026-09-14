@@ -70,7 +70,16 @@ class AnalyzerMetricProvider:
         labels = dict(query.labels)
         labels["resource_id"] = provider_ref
         provider_query = replace(query, labels=labels)
-        async for point in self._provider.query(provider_query):
+        points = aiter(self._provider.query(provider_query))
+        while True:
+            try:
+                point = await anext(points)
+            except StopAsyncIteration:
+                return
+            except MetricProviderError:
+                raise MetricProviderError(
+                    f"mapped metric query failed for {query.metric_name!r}"
+                ) from None
             point_labels = dict(point.labels)
             returned_ref = point_labels.get("resource_id")
             if (
