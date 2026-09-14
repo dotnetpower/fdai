@@ -316,7 +316,7 @@ def rule_fire_trace(correlation_id: str, items: Sequence[JsonObject]) -> JsonObj
         steps.append(
             {
                 "seq": _as_int(item["seq"]),
-                "event_id": _audit_reference(item.get("event_id")),
+                "event_id": str(item["event_id"]),
                 "source_correlation_id": _nonempty(item.get("correlation_id")),
                 "recorded_at": str(item["recorded_at"]),
                 "stage": stage,
@@ -329,7 +329,7 @@ def rule_fire_trace(correlation_id: str, items: Sequence[JsonObject]) -> JsonObj
                 "execution_path": _nonempty(entry.get("execution_path")),
                 "outcome": _nonempty(entry.get("outcome")),
                 "entry_hash": str(item["entry_hash"]),
-                "previous_hash": _audit_reference(item.get("previous_hash")),
+                "previous_hash": str(item["previous_hash"]),
             }
         )
     return cast(
@@ -361,11 +361,6 @@ def _strings(value: object) -> list[str]:
 
 def _nonempty(value: object) -> str | None:
     return value.strip() if isinstance(value, str) and value.strip() else None
-
-
-def _audit_reference(value: object) -> str | None:
-    reference = _nonempty(value)
-    return None if reference is None or reference.lower() in {"none", "null"} else reference
 
 
 def _integer(value: object) -> int | None:

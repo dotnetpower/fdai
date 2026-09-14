@@ -40,8 +40,8 @@ Trace hardening preserves these evidence invariants:
   correlation remains the trace scope and does not overwrite a joined row's recorded provenance.
 - Every step preserves its entry hash and previous entry hash as raw audit provenance. The Trace
   screen displays these references but does not claim to verify the full ledger chain.
-- Missing event and previous-hash references remain `null`. String sentinels such as `None` and
-  `null` are presented as not recorded rather than as valid identifiers.
+- Event id, entry hash, and previous entry hash remain required because the audit ledger schema
+  stores them as non-null provenance. A malformed projection cannot downgrade them to not recorded.
 
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final

@@ -103,24 +103,6 @@ describe("trace response contract", () => {
     expect(decoded.terminal_stage).toBe("risk-gate");
   });
 
-  it("keeps missing event and previous hash provenance explicit", () => {
-    const decoded = decodeTraceResponse({
-      correlation_id: "corr-missing-provenance",
-      step_count: 1,
-      steps: [{
-        ...step(1),
-        event_id: null,
-        previous_hash: null,
-      }],
-      terminal_stage: "risk-gate",
-    });
-
-    expect(decoded.steps[0]).toEqual(expect.objectContaining({
-      event_id: null,
-      previous_hash: null,
-    }));
-  });
-
   it("rejects incomplete identifiers and malformed evidence times", () => {
     const root = {
       correlation_id: "corr-1",
