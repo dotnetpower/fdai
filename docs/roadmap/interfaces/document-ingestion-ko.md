@@ -1,7 +1,7 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 79284fb9f513aef648275f70cb394d08c155130a
+translation_source_sha: 72a809d3cc31c6540e445b1efb7ca74fbf4c4ac8
 translation_revised: 2026-09-14
 ---
 # 문서 인제스트와 투입 구역
@@ -279,6 +279,8 @@ lightweight 로더는 작은 로컬 텍스트 파일에 적합합니다. 운영 
 - 시간 to first searchable 조각 및 시간 to fully 준비된
 - 재시도, 보류, 실패, 취소 비율
 - 저장소 growth, deduplication 절감, processed 단위당 비용
+
+입력과 계산된 비율은 유한한 값이어야 합니다. 변환이나 처리량 계산이 표현 범위를 넘으면 보고서 게시 전에 증적을 거부합니다.
 
 아키텍처는 범위가 제한된 게이트웨이 스트리밍, 동일 security 범위 안의 content-hash deduplication,
 incremental 버전 처리, page-level parallelism, batched 임베딩, autoscaling event-driven

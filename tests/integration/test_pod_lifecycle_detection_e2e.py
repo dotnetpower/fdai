@@ -58,6 +58,7 @@ _WINDOW_START = _PINNED_AT - timedelta(minutes=30)
 _RESTART_REF = "cluster-a/default/orders"
 _REPLACEMENT_REF = "cluster-a/default/payments"
 _GAP_REF = "cluster-a/default/reports"
+_GUID_PLACEHOLDER = "00000000-0000-0000-0000-000000000000"
 _FIXTURE = (
     Path(__file__).resolve().parents[2]
     / "console"
@@ -66,6 +67,32 @@ _FIXTURE = (
     / "fixtures"
     / "detection-lifecycle-projection.json"
 )
+
+
+def _repository_safe_fixture(section: dict[str, Any]) -> dict[str, Any]:
+    fixture = json.loads(json.dumps(section))
+    targets = fixture.get("targets")
+    if not isinstance(targets, list):
+        raise AssertionError("detection lifecycle fixture MUST contain targets")
+    replaced = 0
+    for target in targets:
+        if not isinstance(target, dict):
+            raise AssertionError("detection lifecycle fixture targets MUST be objects")
+        failures = target.get("failures")
+        if not isinstance(failures, list):
+            raise AssertionError("detection lifecycle fixture target failures MUST be a list")
+        for failure in failures:
+            if not isinstance(failure, dict):
+                raise AssertionError("detection lifecycle fixture failures MUST be objects")
+            idempotency_key = failure.get("idempotency_key")
+            if not isinstance(idempotency_key, str) or not idempotency_key.startswith("analyzer:"):
+                raise AssertionError("analyzer failure MUST retain one idempotency key")
+            UUID(idempotency_key.removeprefix("analyzer:"))
+            failure["idempotency_key"] = f"analyzer:{_GUID_PLACEHOLDER}"
+            replaced += 1
+    if replaced == 0:
+        raise AssertionError("detection lifecycle fixture MUST retain analyzer failures")
+    return fixture
 
 
 # --------------------------------------------------------------------------
@@ -451,6 +478,8 @@ class _Path:
                 return rows
             if "runtime:analyzer-finding-receipt" in statement:
                 return []
+            if "runtime:analyzer-tick-receipt" in statement:
+                return []
             if "runtime:detection-readiness" in statement:
                 return []
             raise AssertionError(statement)
@@ -615,7 +644,7 @@ async def test_the_console_contract_is_pinned_at_this_revision() -> None:
 
     path = _Path([_same_uid_restart(), _distinct_uid_replacement(), _missed_recovery_evidence()])
     await path.tick()
-    section = await path.section()
+    section = _repository_safe_fixture(await path.section())
 
     document = json.dumps(section, indent=2, sort_keys=True) + "\n"
     if os.environ.get("FDAI_UPDATE_DETECTION_LIFECYCLE_FIXTURE") == "1":

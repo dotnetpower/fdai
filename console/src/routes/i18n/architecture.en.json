@@ -66,6 +66,9 @@
     "dependsOnArrow": "Depends on ->",
     "peersWith": "Peers with",
     "peersWithArrow": "Peers with <->",
+    "calls": "Calls",
+    "callsArrow": "Calls ->",
+    "calledBy": "Called by",
     "requiredBy": "Required by",
     "boundary": "Boundary"
   },

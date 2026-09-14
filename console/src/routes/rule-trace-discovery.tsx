@@ -1,5 +1,6 @@
 import type { AuditItem, AuditPage } from "../types";
 import type { AsyncState } from "../components/ui";
+import { Tooltip } from "../components/tooltip";
 import { routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { presentationLabel, t } from "./i18n/evidence";
@@ -129,42 +130,46 @@ export function TraceDiscovery({
               <ol class="trace-discovery-list">
                 {items.map((item) => (
                 <li key={item.correlationId}>
-                  <a
-                    class={item.correlationId === selectedCorrelation ? "is-current" : undefined}
-                    href={routeHref("trace", {
-                      params: { correlation: item.correlationId },
-                    })}
-                    aria-current={item.correlationId === selectedCorrelation ? "page" : undefined}
-                    title={`${item.correlationId} / ${item.latestActionKind}`}
+                  <Tooltip
+                    content={`${item.correlationId} / ${item.latestActionKind}`}
+                    anchorStyle={{ display: "block" }}
                   >
-                    <span class="trace-discovery-kind">
-                      {t(`evidence.trace.discovery.kind.${item.traceKind}`)}
-                    </span>
-                    <strong>{item.targetResourceRef
-                      ?? (item.targetCount > 1
-                        ? t("evidence.trace.targetCount", { count: item.targetCount })
-                        : compactId(item.correlationId))}</strong>
-                    <small>
-                      {traceActorLabel(item.latestActor)}
-                      <span aria-hidden="true"> / </span>
-                      {formatConsoleTimestamp(item.latestRecordedAt)}
-                    </small>
-                    <span class="trace-discovery-state-label">
-                      <strong>{item.latestDecision === null
-                        ? presentationLabel("status", item.latestMode)
-                        : presentationLabel("status", item.latestDecision)}</strong>
-                      <small>{t(
-                        Number(item.incidentEvidenceRecorded)
-                          + Number(item.rcaEvidenceRecorded) === 1
-                          ? "evidence.trace.discovery.relatedEvidenceOne"
-                          : "evidence.trace.discovery.relatedEvidence",
-                        {
-                          count: Number(item.incidentEvidenceRecorded)
-                            + Number(item.rcaEvidenceRecorded),
-                        },
-                      )}</small>
-                    </span>
-                  </a>
+                    <a
+                      class={item.correlationId === selectedCorrelation ? "is-current" : undefined}
+                      href={routeHref("trace", {
+                        params: { correlation: item.correlationId },
+                      })}
+                      aria-current={item.correlationId === selectedCorrelation ? "page" : undefined}
+                    >
+                      <span class="trace-discovery-kind">
+                        {t(`evidence.trace.discovery.kind.${item.traceKind}`)}
+                      </span>
+                      <strong>{item.targetResourceRef
+                        ?? (item.targetCount > 1
+                          ? t("evidence.trace.targetCount", { count: item.targetCount })
+                          : compactId(item.correlationId))}</strong>
+                      <small>
+                        {traceActorLabel(item.latestActor)}
+                        <span aria-hidden="true"> / </span>
+                        {formatConsoleTimestamp(item.latestRecordedAt)}
+                      </small>
+                      <span class="trace-discovery-state-label">
+                        <strong>{item.latestDecision === null
+                          ? presentationLabel("status", item.latestMode)
+                          : presentationLabel("status", item.latestDecision)}</strong>
+                        <small>{t(
+                          Number(item.incidentEvidenceRecorded)
+                            + Number(item.rcaEvidenceRecorded) === 1
+                            ? "evidence.trace.discovery.relatedEvidenceOne"
+                            : "evidence.trace.discovery.relatedEvidence",
+                          {
+                            count: Number(item.incidentEvidenceRecorded)
+                              + Number(item.rcaEvidenceRecorded),
+                          },
+                        )}</small>
+                      </span>
+                    </a>
+                  </Tooltip>
                 </li>
                 ))}
               </ol>

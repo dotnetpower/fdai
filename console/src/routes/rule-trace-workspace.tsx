@@ -1,6 +1,7 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { StatusPill } from "../components/ui";
+import { Tooltip } from "../components/tooltip";
 import { routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { presentationLabel, t } from "./i18n/evidence";
@@ -238,7 +239,7 @@ export function RuleTraceWorkspace({
                             ? traceActionLabel(step.action_kind)
                             : traceStageLabel(step.stage)}
                         </strong>
-                        <small title={`${step.actor} / ${traceOffset(data.steps[0]!, step)}`}>
+                        <small>
                           <span>{traceActorLabel(step.actor)}</span>
                           <span aria-hidden="true"> / </span>
                           {traceOffset(data.steps[0]!, step)}
@@ -247,7 +248,7 @@ export function RuleTraceWorkspace({
                           </span>
                         </small>
                       </span>
-                      <span class="trace-stage-state" title={`${state.label}: ${state.value}`}>
+                      <span class="trace-stage-state">
                         <small>{state.label}</small>
                         <strong>{state.value}</strong>
                       </span>
@@ -322,9 +323,11 @@ function TraceStepDetail({
         <TraceFact
           label={t("evidence.trace.column.recordedAt")}
           value={(
-            <time dateTime={step.recorded_at} title={step.recorded_at}>
-              {formatConsoleTimestamp(step.recorded_at)}
-            </time>
+            <Tooltip content={step.recorded_at}>
+              <time dateTime={step.recorded_at}>
+                {formatConsoleTimestamp(step.recorded_at)}
+              </time>
+            </Tooltip>
           )}
         />
         <TraceFact

@@ -241,11 +241,11 @@ function CoverageCard<T>({
   readonly hint: (data: T) => string;
 }) {
   if (load.status === "loading") {
-    return <span class="live-coverage-card skeleton-shimmer" aria-label={label} />;
+    return <a class="live-coverage-card skeleton-shimmer" href={href} aria-label={label} />;
   }
   if (load.status !== "ready") {
     return (
-      <span class="live-coverage-card" data-state={load.status}>
+      <a class="live-coverage-card" href={href} data-state={load.status}>
         <span>{label}</span>
         <strong>
           {t(
@@ -254,7 +254,7 @@ function CoverageCard<T>({
               : "live.coverage.unavailable",
           )}
         </strong>
-      </span>
+      </a>
     );
   }
   return (
