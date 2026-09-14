@@ -7,6 +7,7 @@ import {
 import { architectureNetworkPathRank } from "./architecture-network-path";
 import type { InventoryGraphResponse } from "./architecture-map.model";
 import { layoutArchitecturePresentation } from "./architecture-map-layout";
+import { ARCHITECTURE_TOPOLOGY_HIT_TARGET_SIZE } from "./architecture-topology-dimensions";
 
 const GRAPH: InventoryGraphResponse = {
   snapshot_at: "2026-07-28T00:00:00Z",
@@ -76,6 +77,15 @@ describe("architecture network floor layout", () => {
     expect(vm.x).toBeLessThan(subnet.x! + subnet.w!);
     expect(vm.y).toBeGreaterThan(subnet.y!);
     expect(vm.y).toBeLessThan(subnet.y! + subnet.h!);
+    const members = [pip, nsg, nic, vm, disk];
+    for (const [index, first] of members.entries()) {
+      for (const second of members.slice(index + 1)) {
+        const targetsOverlap =
+          Math.abs(first.x! - second.x!) < ARCHITECTURE_TOPOLOGY_HIT_TARGET_SIZE
+          && Math.abs(first.y! - second.y!) < ARCHITECTURE_TOPOLOGY_HIT_TARGET_SIZE;
+        expect(targetsOverlap, `${first.id} overlaps ${second.id}`).toBe(false);
+      }
+    }
   });
 
   it("leaves ambiguous attachment paths off every subnet floor", () => {

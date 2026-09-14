@@ -4,6 +4,7 @@ import {
   type ArchitectureNetworkPathResult,
 } from "./architecture-network-focus";
 import type { InventoryGraphResponse } from "./architecture-map.model";
+import "./architecture-network-path-panel.css";
 
 interface Props {
   readonly graph: InventoryGraphResponse;
@@ -27,7 +28,7 @@ const FILTER_LABELS: Readonly<Record<keyof ArchitectureNetworkFilters, string>> 
   privateEndpoints: "network.filter.privateEndpoints",
 };
 
-export function ArchitectureNetworkTools({
+export function ArchitectureNetworkPathPanel({
   graph,
   sourceId,
   targetId,
@@ -42,10 +43,10 @@ export function ArchitectureNetworkTools({
   const selectable = graph.resources.filter((resource) => resource.type !== "subscription");
   const byId = new Map(graph.resources.map((resource) => [resource.id, resource]));
   return (
-    <section class="architecture-network-tools" aria-labelledby="architecture-network-tools-title">
-      <div class="architecture-network-tools-heading">
+    <section class="architecture-network-path-panel" aria-labelledby="architecture-network-path-title">
+      <div class="architecture-network-path-heading">
         <div>
-          <h3 id="architecture-network-tools-title">{t("network.title")}</h3>
+          <h3 id="architecture-network-path-title">{t("network.title")}</h3>
           <p>{t("network.observedOnly")}</p>
         </div>
         <div class="architecture-network-export" role="group" aria-label={t("network.export") }>
@@ -61,7 +62,6 @@ export function ArchitectureNetworkTools({
             {selectable.map((resource) => <option value={resource.id}>{resource.name}</option>)}
           </select>
         </label>
-        <span class="architecture-network-path-arrow" aria-hidden="true">-&gt;</span>
         <label>
           <span>{t("network.destination")}</span>
           <select value={targetId ?? ""} onChange={(event) => onTargetChange(event.currentTarget.value || null)}>
@@ -69,7 +69,10 @@ export function ArchitectureNetworkTools({
             {selectable.map((resource) => <option value={resource.id}>{resource.name}</option>)}
           </select>
         </label>
-        <output class={`architecture-network-path-result is-${result?.status ?? "idle"}`} aria-live="polite">
+        <output
+          class={`architecture-network-path-result is-${result?.status ?? "idle"}`}
+          aria-live="polite"
+        >
           {result ? t(`network.path.${result.status}`, { count: result.hops.length }) : t("network.path.idle")}
         </output>
       </div>
