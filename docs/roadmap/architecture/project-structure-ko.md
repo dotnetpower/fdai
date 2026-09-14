@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 867ea6ac3d9bb1b73e5198b5909ad0d8394ef8ac
+translation_source_sha: 5f0f489d38c6702ccf03e09b10f7f1eae0aa2df1
 translation_revised: 2026-09-15
 ---
 # 프로젝트 구조
@@ -595,14 +595,14 @@ flush가 그 뒤의 영속 대기 후보를 계속 불러옵니다. 따라서 �
 방치할 수 없습니다. HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서버 검증 운영자 요청 규칙은 규칙 ID,
 작업 유형 및 고정 검사 참조가 계속 정확히 일치할 때만 허용됩니다. 멱등성 예약 신원 및 전이 계약은 하나의 Core 모듈에 유지하고, codec, 수명 주기, 상태 형태 검증, HIL 결과 레코드, 실행 효과 완료 처리는 권한 없이 인접한 단일 책임 모듈로 분리하며 facade는 중복 wrapper 없이 수명 주기 동작을 다시 내보냅니다. 실행기 결과는 `accepted`, `pending`, `no_effect`, `failed`로 Core를 통과합니다. 수락은 전달만 입증하며, HIL, 작업 흐름, 조정은 원래 상관관계와 제공된 액션 시도 신원을 보존하고 효과가 발생했을 수 있는 결과를 종료 주장 전에 독립 조정으로 보냅니다.
 StateStore 이슈 어댑터는 종료 메타데이터를 범위가 제한된 댓글 목록 밖에 유지하고 CAS 전에
-생성된 종료 상태를 검증하므로 작업 한도 경계에서 시작 처리가 거부할 행을 영속화할 수 없습니다. 멱등성 예약 신원 및 전이 계약은 하나의 Core 모듈에 유지하고, codec, 수명 주기, 상태 형태 검증, HIL 결과 레코드, 실행 효과 완료 처리는 권한 없이 인접한 단일 책임 모듈로 분리하며 facade는 중복 wrapper 없이 수명 주기 동작을 다시 내보냅니다. 실행기 결과는 `accepted`, `pending`, `no_effect`, `failed`로 Core를 통과합니다. 수락은 전달만 입증하며, HIL, 작업 흐름, 조정은 원래 상관관계와 제공된 액션 시도 신원을 보존하고 효과가 발생했을 수 있는 결과를 종료 주장 전에 독립 조정으로 보냅니다.
+생성된 종료 상태를 검증하므로 작업 한도 경계에서 시작 처리가 거부할 행을 영속화할 수 없습니다.
 Saga는 `object.issue` 게시 뒤에만 인계 완료 증적을 기록합니다. 버스가 없으면 영속 변경 및 감사
 checkpoint를 대기 상태로 남기고 처리기를 실패시켜 재시도 또는 DLQ 재처리를 허용합니다. 이후
-버스 연결은 완료로 억제하지 않고 게시부터 재개합니다. 멱등성 예약 신원 및 전이 계약은 하나의 Core 모듈에 유지하고, codec, 수명 주기, 상태 형태 검증, HIL 결과 레코드, 실행 효과 완료 처리는 권한 없이 인접한 단일 책임 모듈로 분리하며 facade는 중복 wrapper 없이 수명 주기 동작을 다시 내보냅니다. 실행기 결과는 `accepted`, `pending`, `no_effect`, `failed`로 Core를 통과합니다. 수락은 전달만 입증하며, HIL, 작업 흐름, 조정은 원래 상관관계와 제공된 액션 시도 신원을 보존하고 효과가 발생했을 수 있는 결과를 종료 주장 전에 독립 조정으로 보냅니다.
+버스 연결은 완료로 억제하지 않고 게시부터 재개합니다.
 Enforce 준비 상태는 `thor_state_store`, `vidar_state_store`, `var_state_store`를 독립적으로
 요구합니다. Production bootstrap은 같은 영속 프로바이더 인스턴스를 모든 정확한 바인딩에 제공할
 수 있지만, 에이전트 소유 바인딩 중 하나라도 없으면 rollback 또는 승인이 process-local 상태를
-사용하기 전에 시작을 실패시킵니다. 멱등성 예약 신원 및 전이 계약은 하나의 Core 모듈에 유지하고, codec, 수명 주기, 상태 형태 검증, HIL 결과 레코드, 실행 효과 완료 처리는 권한 없이 인접한 단일 책임 모듈로 분리하며 facade는 중복 wrapper 없이 수명 주기 동작을 다시 내보냅니다. 실행기 결과는 `accepted`, `pending`, `no_effect`, `failed`로 Core를 통과합니다. 수락은 전달만 입증하며, HIL, 작업 흐름, 조정은 원래 상관관계와 제공된 액션 시도 신원을 보존하고 효과가 발생했을 수 있는 결과를 종료 주장 전에 독립 조정으로 보냅니다.
+사용하기 전에 시작을 실패시킵니다.
 ![컨트롤 루프 배선. 주요 단계는 events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops입니다.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.ko.svg)
 
 ## 구성 모델
