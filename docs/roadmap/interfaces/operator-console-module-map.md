@@ -671,6 +671,8 @@ The control declares support only when secure-context Notifications, Service Wor
 APIs are all present, because Web Locks is required to elect one principal-scoped stream leader.
 If the browser exposes Web Locks but rejects leader acquisition, the hook reports the failure and
 the control moves to its explicit retry state instead of remaining ready without a receiver.
+Acknowledgement-token generation is contained inside the claim boundary; an entropy-provider error
+returns the explicit unavailable result instead of escaping through the live-stream callback.
 Visible-heading components use `title` only for rendered heading content. Native HTML `title` bubbles remain limited to accessibility-compatible elements, and all other contextual help uses the shared Tooltip component.
 The static component gallery reads contracts from `mocks/ui/assets/component-registry.json` and presents each specimen before its owner, source, states, usage guidance, responsive behavior, accessibility contract, and product references. A missing or invalid registry blocks documented status instead of inferring canonical status. The gallery remains synthetic presentation evidence and grants no Console, Operator API, or executor authority.
 
