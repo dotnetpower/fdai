@@ -191,6 +191,10 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
     streamEnabled,
     "browser-notifications",
     principalId,
+    () => {
+      setWorkerReady(false);
+      setState("error");
+    },
   );
 
   useLiveStream({
