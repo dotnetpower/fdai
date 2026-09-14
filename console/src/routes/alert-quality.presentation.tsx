@@ -55,6 +55,7 @@ export function alertQualityReason(reason: string): string {
     routing_source_mismatch: "reason.routingHeld", routing_replacement_missing: "reason.routingHeld",
     routing_replacement_already_bound: "reason.routingHeld", suppression_deadline_does_not_fit: "reason.windowHeld",
     delivery_coverage_incomplete: "reason.deliveryCoverage", history_coverage_incomplete: "reason.historyCoverage",
+    routing_coverage_incomplete: "reason.audienceHeld",
     candidate_limit_reached: "reason.candidateLimit", evidence_reason_limit_reached: "reason.reasonLimit",
     request_expired: "reason.requestExpired", scope_denied: "reason.scopeDenied",
     evidence_not_retained: "reason.evidenceMissing", evidence_unavailable: "reason.evidenceHeld",

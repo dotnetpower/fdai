@@ -27,6 +27,8 @@ The [alert-quality API](../operations/alert-noise-governance.md) accepts explici
 `alert_noise.assess` and `alert_noise.propose` requests, not a conversational routing shortcut.
 Its deterministic assessment adds no lexical intent branch or T2 fallback. Natural-language meaning
 still requires semantic judgment; neither a typed request nor narrator text grants action authority.
+Its isolated browser tests inject a test-only identity and intercepted API records, not a narrator
+or provider. Their timing and screenshots establish UI mechanics only, never live model latency.
 
 ### Core-owned mini candidate selection
 

@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 4b8916e13247160a21f43e3bc8ab21205a73e19b
+translation_source_sha: 9f8cf30e89faada32b3f2efc4e9ccedc1bc466a5
 translation_revised: 2026-09-15
 ---
 # 서술기 라우팅과 지연 시간
@@ -28,6 +28,8 @@ Core는 별도의 범위가 제한된 준비 상태 경로에서 구성된 모�
 명시적인 타입 지정 `alert_noise.assess`, `alert_noise.propose` 요청을 받습니다. 결정론적 평가는
 어휘 기반 의도 분기나 T2 대체 경로를 추가하지 않습니다. 자연어의 의미에는 여전히 의미 판정이
 필요하며 타입 지정 요청이나 서술기 문장으로 작업 권한이 생기지 않습니다.
+격리된 브라우저 테스트는 서술기나 공급자 대신 테스트 전용 신원과 가로챈 API 기록을 주입합니다.
+이때의 시간과 화면 캡처는 UI 동작만 입증하며 실제 모델 지연 시간의 근거가 아닙니다.
 
 ### Core 소유 mini 후보 선택
 
