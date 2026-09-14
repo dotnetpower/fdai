@@ -46,7 +46,7 @@ class RecordingProvisioner:
 
     async def apply(self, plan: HumanAccessPlan) -> HumanAccessReceipt:
         self.applied.append(plan)
-        return HumanAccessReceipt(self.outcome, "entra:receipt-1", "a" * 64)
+        return HumanAccessReceipt(self.outcome, "entra:receipt-1", plan.target_digest)
 
     async def verify(self, plan: HumanAccessPlan) -> bool:
         if self.verify_fails:
@@ -276,3 +276,38 @@ async def test_failed_rollback_is_distinct_degraded_state() -> None:
     assert result.outcome is HumanAccessExecutionOutcome.FAILED
     assert held.state is AssignmentState.DEGRADED
     assert held.degraded_reason == "iam_postcondition_failed_rollback_failed"
+
+
+@pytest.mark.parametrize("revision", [1, True, "5", 0, 999])
+async def test_shadow_plan_rejects_stale_or_coerced_revision(revision):
+    cases = AssignmentCaseService(InMemoryStateStore())
+    merged = await _ownership_merged(cases)
+    provider = RecordingProvisioner()
+    coordinator = HumanAccessApplyCoordinator(cases, provider, {Role.READER: "group-reader"})
+    with pytest.raises(ValueError, match="revision"):
+        await coordinator.execute(
+            case_id=merged.case_id, expected_revision=revision, actor_ref="Thor"
+        )
+    assert not provider.applied
+
+
+async def test_wrong_target_provider_receipt_never_activates_or_rolls_back_another_target():
+    cases = AssignmentCaseService(InMemoryStateStore())
+    merged = await _ownership_merged(cases)
+
+    class WrongReceipt(RecordingProvisioner):
+        async def apply(self, plan):
+            self.applied.append(plan)
+            return HumanAccessReceipt(HumanAccessOutcome.APPLIED, "entra:wrong", "f" * 64)
+
+    provider = WrongReceipt()
+    coordinator = HumanAccessApplyCoordinator(cases, provider, {Role.READER: "group-reader"})
+    result = await coordinator.execute(
+        case_id=merged.case_id,
+        expected_revision=merged.revision,
+        actor_ref="Thor",
+        mode=Mode.ENFORCE,
+    )
+    assert result.reason == "iam_receipt_mismatch"
+    assert (await cases.get_case(merged.case_id)).state is AssignmentState.DEGRADED
+    assert not provider.rolled_back

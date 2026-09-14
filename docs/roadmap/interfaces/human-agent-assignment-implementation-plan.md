@@ -229,6 +229,17 @@ the case; IAM remains untouched.
 
 ### Package 5 - Governed Entra membership apply
 
+Local lifecycle hardening must bind a plan to the exact case revision, immutable review quorum,
+subject provider, and one normalized allowlisted group. Provider receipts are compared with the
+full planned target digest before activation; rollback is successful only after independent
+readback of the inverse target. An unavailable permission or promotion gate remains closed.
+Replacement coverage is evaluated from exact active replacement-case revisions with verified
+ownership and IAM effects before a revoke plan can be proposed. Planning never removes duties,
+revokes access, treats a replacement as approval, or enables enforce mode.
+The existing revoke ActionType accepts bounded `replacement_revisions` for its shadow plan.
+The runtime binds that plan behind the dedicated human-access adapter; missing coverage holds.
+Enforce remains refused until independently reviewed promotion and live rollback evidence exist.
+
 **Status:** The provider capability is implemented in observation mode. Enforce remains unavailable
 until a separate promotion records the required non-production evidence. Postcondition failure
 rolls back only a membership applied by the current attempt; a pre-existing membership is retained,
@@ -258,6 +269,14 @@ separately reviewed promotion after zero target mismatches and successful add, v
 and restore drills in a non-production tenant.
 
 ### Package 6 - Human non-response supervisor
+
+The runtime loads the reviewed escalation catalog. Catalog audience groups require explicit
+audience-to-human resolution; positional guesses from a stewardship list are prohibited. Bound
+windows and urgency inputs are snapshotted with the immutable request. Missing selection or
+audience resolution preserves the existing conservative ladder and records the unavailable
+catalog reason, never invented urgency. Enforce dispatch requires an injected current-role and
+active-identity verifier; an absent verifier cannot default to eligible. Shadow observation
+remains non-dispatching and cannot import standing-authority execution.
 
 **Status:** Implemented as a periodic shadow worker. Coordinator parks snapshot the bounded ladder
 and delivery receipt, and terminal decisions use one CAS winner. Production promotion remains

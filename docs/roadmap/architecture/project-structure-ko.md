@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 06611969dd59a64bd174d16990273d45a0e77ebb
+translation_source_sha: 8fe261c57db0aff7a26447ab383bf0b5fa234bd4
 translation_revised: 2026-09-14
 ---
 # 프로젝트 구조
@@ -54,7 +54,7 @@ translation_revised: 2026-09-14
   버전 기반 공급자 정책을 소유합니다. 문서 워커는 범위가 제한된 로컬 Tesseract 어댑터와 Azure
   어댑터 선택을 소유합니다. 인프라는 선택한 엔드포인트, 신원 및 공급자 값만 전달하므로 수집
   서비스가 다른 서비스 구현을 가져오지 않습니다. 서비스 마이그레이션 CI는 적용 후 스키마를 변경하는 수명 주기 검사를 직렬화하고 forward 복구는 rollback 후 root 소유 공유 index를 보존합니다. 서비스 소유 migration을 검증하기 전에 legacy Alembic 호환 head와 5개 adoption manifest를 함께 전진시켜 분리된 계보를 방지합니다. 영향을 받는 각 서비스 fingerprint는 기준 adoption 전에 소유 legacy 열 및 제약 조건과 함께 전진합니다.
-- **운영 담당 체계 초안 전달은 검토 전용으로 유지**: 런타임 구성과 보호된 Core 배포는 [에이전트 운영 담당 체계 수명 주기](../interfaces/agent-stewardship-operations-ko.md)에 정의된 GitOps, 병합 결과, 신원 상태 및 지식 수명 주기 경계를 보존합니다.
+- **운영 담당 체계 초안 전달은 검토 전용으로 유지**: 런타임 구성과 보호된 Core 배포는 [에이전트 운영 담당 체계 수명 주기](../interfaces/agent-stewardship-operations-ko.md)에 정의된 GitOps, 병합 결과, 신원 상태 및 지식 수명 주기 경계를 보존합니다. 정확한 결과를 읽는 IAM 확인기와 대체 담당 계획은 공급자 중립적입니다. 전용 전달 어댑터가 대상과 결속된 멤버십·역방향 롤백 증적을 검증합니다. 카탈로그 시간과 현재 역할 HIL 확인기는 런타임에 연결되지만 단계 전달이나 IAM 적용 모드를 활성화하지 않습니다.
   Operator 목표 명령은 담당 체계를 다시 검증하고 전체 재시도 내용을 결합합니다. Core 복구 조회는 제한된 페이지를 순회하고 실패한 페이지를 재시도하며, 공급자 호출 없이 영속 사례 및 리비전 감사 점유를 사용합니다. 배정 알림은 Core의 읽기 전용 어댑터로 Operator의 추가 전용 증적을 확인하며, 데이터베이스는 `human_assignment:` 쓰기를 Core로 제한합니다. Huginn, Forseti, Var, Saga, Muninn이 소유 토픽의 형식화된 이벤트를 교환한 뒤 기존 검토용 문서 전달 경로가 PR을 만듭니다. 전송이나 Operator의 Core 효과 조회는 IAM 권한을 부여하지 않습니다.
 - **관찰 모드 ARB 구성**: `core/architecture_review/observation_loop.py`는 프로바이더 중립적인
   Change -> 인증된 컨텍스트 -> 근거 묶음 -> 시나리오 -> DecisionCase 및 ImpactEnvelope 구성을

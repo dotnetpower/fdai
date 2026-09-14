@@ -9,6 +9,7 @@ from dataclasses import replace as dataclass_replace
 from fdai_core_service.assignment_intake_consumer import AssignmentIntakeConsumer
 
 from fdai.agents import AssignmentWorkflowBindings, PantheonRuntime
+from fdai.core.human_assignment.iam_request import AssignmentIamRequestReader
 from fdai.core.human_assignment.request_intake import AssignmentRequestIntake
 from fdai.core.human_assignment.request_processor import AssignmentRequestProcessor
 from fdai.core.human_assignment.service import AssignmentCaseService
@@ -48,7 +49,10 @@ def build_assignment_transport(
     return AssignmentTransportRuntime(
         consumer=AssignmentIntakeConsumer(intake),
         workflow=AssignmentWorkflowBindings(
-            validate=processor.validate, review=processor.validate_review, materializer=processor
+            validate=processor.validate,
+            review=processor.validate_review,
+            materializer=processor,
+            iam_reader=AssignmentIamRequestReader(processor.cases).read,
         ),
     )
 

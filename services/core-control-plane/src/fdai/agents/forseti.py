@@ -27,8 +27,10 @@ from fdai.agents._framework.action_semantics import (
 from fdai.agents._framework.assignment_workflow import (
     AssignmentCheck,
     AssignmentClock,
+    AssignmentIamRead,
     assignment_clock,
     judge_assignment,
+    judge_iam_request,
 )
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict
@@ -178,6 +180,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         self.bus = bus
         self._assignment_check: AssignmentCheck | None = None
         self._assignment_clock: AssignmentClock = assignment_clock
+        self._assignment_iam_reader: AssignmentIamRead | None = None
         self._rbac = rbac if rbac is not None else _DEFAULT_RBAC
         self._action_semantics = action_semantics
         self._operational_context = operational_context
@@ -251,7 +254,16 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         """Bind read-only receipt validation, never a case writer or executor."""
         self._assignment_check, self._assignment_clock = check, clock
 
+    def bind_assignment_iam_reader(self, reader: AssignmentIamRead) -> None:
+        """Bind exact ownership-effect reads; the judgment remains shadow-ceiling HIL."""
+        self._assignment_iam_reader = reader
+
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic == "object.event" and payload.get("event_type") == (
+            "human.assignment.iam_apply_requested"
+        ):
+            await judge_iam_request(self, payload, self._assignment_iam_reader)
+            return
         if topic == "object.event" and payload.get("event_type") == "human.assignment.requested":
             await judge_assignment(
                 self, payload, self._assignment_check, clock=self._assignment_clock

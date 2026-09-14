@@ -203,6 +203,8 @@ class AssignmentOwnershipCoordinator:
                 "action_type": "ops.apply-human-access",
                 "case_id": case_id,
                 "expected_revision": assignment.revision,
+                "ownership_digest": receipt.digest,
+                "ownership_ref": receipt.receipt_ref,
             },
             detected_at=timestamp,
             ingested_at=timestamp,

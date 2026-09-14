@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from fdai.agents._framework.assignment_workflow import (
     AssignmentCheck,
     AssignmentClock,
+    AssignmentIamRead,
     AssignmentMaterializer,
     assignment_clock,
 )
@@ -25,6 +26,7 @@ class AssignmentWorkflowBindings:
     review: AssignmentCheck
     materializer: AssignmentMaterializer
     clock: AssignmentClock = assignment_clock
+    iam_reader: AssignmentIamRead | None = None
 
 
 def bind_assignment_workflow(
@@ -41,6 +43,8 @@ def bind_assignment_workflow(
     ):
         raise TypeError("assignment workflow requires the canonical judge, approver, and memory")
     forseti.bind_assignment_check(bindings.validate, clock=bindings.clock)
+    if bindings.iam_reader is not None:
+        forseti.bind_assignment_iam_reader(bindings.iam_reader)
     var.bind_assignment_check(bindings.review, clock=bindings.clock)
     muninn.bind_assignment_materializer(bindings.materializer, clock=bindings.clock)
 

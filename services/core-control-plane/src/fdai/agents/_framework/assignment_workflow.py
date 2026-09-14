@@ -16,6 +16,7 @@ from fdai.agents._framework.base import Agent
 
 AssignmentClock = Callable[[], datetime]
 AssignmentCheck = Callable[..., Awaitable[None]]
+AssignmentIamRead = Callable[[Mapping[str, Any]], Awaitable[Mapping[str, Any]]]
 
 
 class AssignmentMaterializer(Protocol):
@@ -29,6 +30,43 @@ class AssignmentMaterializer(Protocol):
 def assignment_clock() -> datetime:
     """Return the explicit runtime clock used for fresh source checks at every stage."""
     return datetime.now(UTC)
+
+
+async def judge_iam_request(
+    agent: Agent, payload: Mapping[str, Any], reader: AssignmentIamRead | None
+) -> None:
+    """Forseti proposes only HIL or denial; no IAM event can raise the shadow ceiling."""
+    if payload.get("producer_principal") != "Huginn":
+        raise ValueError("IAM request requires a Huginn-owned event")
+    attributes = payload.get("attributes")
+    notice = attributes.get("iam_request") if isinstance(attributes, Mapping) else None
+    if not isinstance(notice, Mapping) or reader is None:
+        result: dict[str, Any] = {
+            "risk_verdict": "deny",
+            "reason": "assignment_iam_evidence_unavailable",
+        }
+    else:
+        try:
+            result = dict(await reader(notice))
+        except ValueError:
+            result = {"risk_verdict": "deny", "reason": "assignment_iam_evidence_mismatch"}
+    if agent.bus is None:
+        raise RuntimeError("IAM request judgment bus is unavailable")
+    await agent.bus.publish(
+        agent.spec.name,
+        "object.verdict",
+        {
+            "resource_id": payload.get("resource_id"),
+            **result,
+            "kind": "human_access_request",
+            "correlation_id": payload.get("correlation_id"),
+            "idempotency_key": payload.get("idempotency_key"),
+            "event_id": payload.get("event_id"),
+            "action_type": "ops.apply-human-access",
+            "resolved_autonomy_ceiling": "shadow_only",
+            "execution_authority": False,
+        },
+    )
 
 
 async def judge_assignment(
@@ -195,8 +233,10 @@ __all__ = [
     "AssignmentCheck",
     "AssignmentClock",
     "AssignmentMaterializer",
+    "AssignmentIamRead",
     "assignment_clock",
     "judge_assignment",
+    "judge_iam_request",
     "materialize_assignment",
     "review_assignment",
     "seal_assignment",

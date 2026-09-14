@@ -133,6 +133,21 @@ decision* and ticks until it reaches a terminal state.
 
 ## The escalation ladder
 
+Runtime composition now loads the catalog and snapshots matching windows through
+`CatalogEscalationTiming`. `FDAI_HIL_ESCALATION_ENVIRONMENT` explicitly selects `prod` or
+`nonprod`; absence never guesses a non-production context. Private
+`FDAI_HIL_ESCALATION_AUDIENCES_JSON` binds each catalog audience to one exact human. Missing,
+ambiguous, or mismatched audiences preserve the conservative existing timing with a recorded
+reason. The production observation path carries the actual finding class and Action blast radius;
+forecast compression additionally requires explicitly verified lead-time and confidence evidence,
+not raw event text. Runtime mode remains shadow and those bindings cannot promote it.
+
+Enforce construction requires a current-role verifier. The directory adapter disables roster
+caching for this check and requires an active exact person with ordinary Approver/Owner membership.
+Lookup failure holds without treating outage as role loss; expiry is rechecked after the lookup.
+Shadow integrity findings remain observations and cannot resolve the live approval. These local
+checks do not replace measured urgency cohorts or authorization to enable rung dispatch.
+
 An **escalation ladder** is an ordered list of **human-authority rungs**. It is
 distinct from channel fallback: channel fallback answers *"the message did not
 get delivered - try another pipe for the same person"*; the ladder answers

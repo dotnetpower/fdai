@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: f37932cc5d5f8d28bb78c8a783c49100f4950b77
+translation_source_sha: f2c0d4f2649f46f6f418461f921bec8e733ab001
 translation_revised: 2026-09-14
 ---
 # 에이전트 판테온
@@ -68,7 +68,7 @@ Odin 에 두 라인이 보고한다: Thor (operations) 와 Forseti (judgment). 4
 terminal audit을 영속화합니다. Workflow request는 Huginn, Forseti, Thor를 통해 bounded
 `workflow_action` lineage를 보존합니다. Delivery 소유 producer는 하나의 완전한 operational plan에 대한 optional argument-bound kinetic proposal을 저장하고 Forseti는 주입된 source로 이를 해석해 strict validation 뒤 같은 Verdict-to-ActionRun path에 보존합니다. 둘 다 attribution 및 evidence 전용이며 quorum, mode,
 judgment, approval 또는 execution authority를 바꾸지 않습니다. [배정 명령](../interfaces/human-agent-assignment-implementation-plan-ko.md#명령-이벤트-작업)은 Huginn이 정확한 증적 알림을 정규화하고 Forseti가 검증하며, Var가 독립적인 사람의 검토를 확인합니다. Saga가 각 담당자의 결정을 봉인한 뒤 Muninn이 사례를 반영합니다. 모든 단계는 기존 소유 토픽을 사용하며 Operator 화면 상태를 권한으로 신뢰하거나 IAM 권한을 획득하지 않습니다.
-Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
+Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다. 일치하는 배정 병합은 Huginn의 범위가 제한된 IAM 알림으로 다시 들어옵니다. Forseti는 정확한 Core 사례와 담당 체계 결과를 다시 읽고 shadow 상한의 사람 검토 또는 거부만 발행합니다. Thor의 기존 경로는 이 상한을 유지하며 원래 사례 검토나 병합은 현재 실행 승인을 대신하지 않습니다.
 
 ![3. 런타임 관계도. 주요 단계는 Huginn, Heimdall, Forseti, Mimir, Muninn, Njord, Freyr, Loki, Thor, Vidar, Var, Saga입니다.](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-02.ko.svg)
 

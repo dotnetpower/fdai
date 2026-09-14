@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import cast
 from uuid import uuid4
 
@@ -22,6 +23,7 @@ from fdai.shared.providers.direct_api import (
     DirectApiRequest,
 )
 from fdai.shared.providers.human_access import HumanAccessOperation, HumanAccessPlan
+from tests.core.human_assignment.test_replacement import _planner
 
 
 class RecordingCoordinator:
@@ -103,3 +105,26 @@ async def test_resource_ref_must_match_case_id() -> None:
 
     with pytest.raises(DirectApiPreconditionError, match="does not match"):
         await adapter.execute(_request(resource_ref="human-assignment:other-case"))
+
+
+async def test_reviewed_replacement_revoke_path_is_bound_but_remains_shadow_only():
+    planner = await _planner()
+    coordinator = RecordingCoordinator()
+    adapter = HumanAccessDirectApiExecutor(
+        cast(HumanAccessApplyCoordinator, coordinator), replacement=planner
+    )
+    request = replace(
+        _request(action_type=REVOKE_HUMAN_ACCESS_ACTION, resource_ref="human-assignment:old"),
+        arguments={
+            "case_id": "old",
+            "expected_revision": 7,
+            "replacement_revisions": {"primary": 7, "backup": 7},
+        },
+    )
+    receipt = await adapter.execute(request)
+    assert receipt.outcome is DirectApiOutcome.SUCCEEDED
+    assert receipt.detail == "shadow replacement plan verified; no access or duty removed"
+    assert not coordinator.calls
+    assert (await planner.cases.get_case("old")).state.value == "active"
+    with pytest.raises(DirectApiPromotionError):
+        await adapter.execute(replace(request, mode=Mode.ENFORCE))

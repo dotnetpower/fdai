@@ -300,6 +300,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         approval_id: str | None = None,
         assignee_oid: str | None = None,
         escalation_rungs: Sequence[EscalationRung] = (),
+        escalation_context: Mapping[str, object] | None = None,
     ) -> RequestApprovalResult:
         """Park ``action`` and push an A1 approval card.
 
@@ -378,6 +379,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
                 parked,
                 rungs=resolved_escalation_rungs,
                 now=parked_at,
+                context=escalation_context,
             )
         effective_assignee = str(parked.get("assignee_oid") or "").strip() or None
         requested_audit = self._audit_entry(

@@ -9,6 +9,7 @@ from collections.abc import Mapping
 import httpx
 
 from fdai.core.human_assignment import AssignmentCaseService, HumanAccessApplyCoordinator
+from fdai.core.human_assignment.replacement import ReplacementCoveragePlanner
 from fdai.core.rbac.roles import Role
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.identity import EntraHumanAccessProvisioner, HumanAccessDirectApiExecutor
@@ -45,12 +46,14 @@ def build_human_access_direct_api(
         identity=identity,
         allowed_group_ids=frozenset(role_group_ids.values()),
     )
+    cases = AssignmentCaseService(audit_store)
     return HumanAccessDirectApiExecutor(
         HumanAccessApplyCoordinator(
-            AssignmentCaseService(audit_store),
+            cases,
             provisioner,
             role_group_ids,
-        )
+        ),
+        replacement=ReplacementCoveragePlanner(cases, role_group_ids),
     )
 
 
@@ -68,13 +71,16 @@ def _parse_role_group_ids(raw: str) -> dict[Role, str]:
             "Approver, and Owner"
         )
     values = [
-        group_id.strip() if isinstance(group_id, str) else group_id for group_id in payload.values()
+        group_id.strip().casefold() if isinstance(group_id, str) else group_id
+        for group_id in payload.values()
     ]
     if any(not isinstance(group_id, str) or not group_id.strip() for group_id in values):
         raise RuntimeError("human access role group ids MUST be non-empty strings")
     if len(set(values)) != len(values):
         raise RuntimeError("human access role group ids MUST be distinct")
-    return {Role(role_name): str(group_id).strip() for role_name, group_id in payload.items()}
+    return {
+        Role(role_name): str(group_id).strip().casefold() for role_name, group_id in payload.items()
+    }
 
 
 __all__ = ["build_human_access_direct_api"]

@@ -35,6 +35,7 @@ EXPECTED_RUNTIME_MODULES = {
     "__init__.py",
     "adaptive_investigation_runtime.py",
     "assignment_transport.py",
+    "hil_escalation.py",
     "assurance_twin_query.py",
     "blast_probe.py",
     "bootstrap.py",

@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: dd087bf843932bf5a1b5ea1321b89590112ea388
-translation_revised: 2026-09-12
+translation_source_sha: 4ed94590e892f2b68131b930508d22464bc2af2f
+translation_revised: 2026-09-14
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -25,6 +25,21 @@ translation_revised: 2026-09-12
 > ([architecture.instructions.md § 안전성 Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
 
 ## 구현 상태
+
+런타임 조립은 이제 카탈로그를 읽고 `CatalogEscalationTiming`으로 일치하는 응답 구간을
+기록합니다. `FDAI_HIL_ESCALATION_ENVIRONMENT`는 `prod` 또는 `nonprod`를 명시적으로
+선택하며, 미설정을 비프로덕션으로 추측하지 않습니다. 비공개
+`FDAI_HIL_ESCALATION_AUDIENCES_JSON`은 각 카탈로그 수신 대상을 정확한 사람 한 명에
+연결합니다. 대상이 없거나 모호하거나 일치하지 않으면 이유를 기록하고 보수적인 기존 시간을
+유지합니다. 운영 관찰 경로는 실제 이벤트 분류와 Action 영향 범위를 전달합니다. 예측에
+따른 시간 단축에는 원문 이벤트가 아닌 검증된 잔여 시간과 신뢰도 근거가 추가로 필요합니다.
+런타임 모드는 계속 shadow이며 이 설정은 모드를 승격할 수 없습니다.
+
+실제 전달 모드 구성에는 현재 역할 검증기가 필요합니다. 디렉터리 어댑터는 이 검사에서
+역할 목록 캐시를 사용하지 않고 정확한 활성 사람과 일반 Approver/Owner 역할을 확인합니다.
+조회 실패는 권한 상실로 간주하지 않고 보류하며 조회 후 만료 시간을 다시 확인합니다.
+shadow의 무결성 문제는 관찰에 그치고 실제 승인을 종결하지 않습니다. 로컬 검사는 실측
+긴급도 표본이나 다음 단계 전달을 활성화하는 별도 승인을 대신하지 않습니다.
 
 ### 구현 범위
 

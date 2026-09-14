@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Protocol
 
+from fdai.core.hil_resume.escalation_catalog_binding import CatalogEscalationTiming
 from fdai.core.hil_resume.load_control import approval_request_from_park
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.hil_channel import HilChannel, HilChannelError
@@ -42,8 +43,8 @@ class EscalationRung:
     def __post_init__(self) -> None:
         if not self.subject_ref.strip() or len(self.subject_ref) > 256:
             raise ValueError("escalation subject_ref MUST be non-empty and bounded")
-        if not self.minimum_role.strip() or len(self.minimum_role) > 64:
-            raise ValueError("escalation minimum_role MUST be non-empty and bounded")
+        if self.minimum_role not in {"Approver", "Owner"}:
+            raise ValueError("escalation minimum_role MUST be Approver or Owner")
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,7 +64,8 @@ class EscalationPolicy:
             "scan_limit",
             "worker_interval_seconds",
         ):
-            if not 1 <= getattr(self, name) <= 86_400:
+            value = getattr(self, name)
+            if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= 86_400:
                 raise ValueError(f"{name} MUST be in [1, 86400]")
 
 
@@ -71,9 +73,9 @@ class RungEligibility(Protocol):
     async def is_eligible(self, *, subject_ref: str, minimum_role: str) -> bool: ...
 
 
-class _AllowAllEligibility:
+class _UnavailableEligibility:
     async def is_eligible(self, *, subject_ref: str, minimum_role: str) -> bool:
-        return True
+        return False
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,11 +100,15 @@ class HumanNonResponseSupervisor:
         eligibility: RungEligibility | None = None,
         clock: Callable[[], datetime] | None = None,
         actor: str = "fdai.core.hil_resume.escalation_supervisor",
+        catalog_timing: CatalogEscalationTiming | None = None,
     ) -> None:
         self._state_store = state_store
         self._channel = channel
         self.policy = policy or EscalationPolicy()
-        self._eligibility = eligibility or _AllowAllEligibility()
+        if self.policy.mode is Mode.ENFORCE and eligibility is None:
+            raise ValueError("enforce escalation requires current-rung eligibility verification")
+        self._eligibility = eligibility or _UnavailableEligibility()
+        self._catalog_timing = catalog_timing
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._actor = actor
         self._scan_offset = 0
@@ -113,6 +119,7 @@ class HumanNonResponseSupervisor:
         *,
         rungs: Sequence[EscalationRung],
         now: datetime,
+        context: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Snapshot one bounded ladder into a not-yet-persisted HIL park."""
         timestamp = _aware(now)
@@ -129,10 +136,10 @@ class HumanNonResponseSupervisor:
             raise ValueError("escalation ladder requires a non-requester rung")
         if len(unique) > 8:
             raise ValueError("escalation ladder exceeds the eight-rung limit")
-        context = parked.get("approval_context")
-        if not isinstance(context, Mapping):
+        approval_context = parked.get("approval_context")
+        if not isinstance(approval_context, Mapping):
             raise ValueError("parked approval_context MUST be an object")
-        park_deadline = _timestamp(context.get("expires_at"), "approval expires_at")
+        park_deadline = _timestamp(approval_context.get("expires_at"), "approval expires_at")
         overall_deadline = min(
             park_deadline,
             timestamp + timedelta(seconds=self.policy.overall_timeout_seconds),
@@ -160,6 +167,15 @@ class HumanNonResponseSupervisor:
             "delivered_at": None,
             "decision_deadline": None,
         }
+        if self._catalog_timing is not None:
+            timing = self._catalog_timing.resolve(context, [rung.subject_ref for rung in unique])
+            updated["escalation"].update(timing)
+            if timing.get("catalog_status") == "resolved":
+                overall_deadline = min(
+                    overall_deadline,
+                    timestamp + timedelta(seconds=int(timing["catalog_overall_seconds"])),
+                )
+                updated["escalation"]["overall_deadline"] = overall_deadline.isoformat()
         return updated
 
     async def mark_delivered(self, approval_id: str, at: datetime | None = None) -> bool:
@@ -171,6 +187,22 @@ class HumanNonResponseSupervisor:
         if escalation.get("status") != EscalationStatus.PENDING_DELIVERY.value:
             return False
         overall = _timestamp(escalation.get("overall_deadline"), "overall_deadline")
+        if now >= overall:
+            return False
+        ttl = self.policy.decision_timeout_seconds
+        windows = escalation.get("catalog_ttl_seconds")
+        if isinstance(windows, list):
+            index = escalation.get("current_rung")
+            if (
+                not isinstance(index, int)
+                or isinstance(index, bool)
+                or not 0 <= index < len(windows)
+            ):
+                raise ValueError("catalog escalation window index is invalid")
+            value = windows[index]
+            if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= 86400:
+                raise ValueError("catalog escalation window is invalid")
+            ttl = min(ttl, value)
         updated_escalation = dict(escalation)
         updated_escalation.update(
             {
@@ -178,7 +210,7 @@ class HumanNonResponseSupervisor:
                 "delivered_at": now.isoformat(),
                 "decision_deadline": min(
                     overall,
-                    now + timedelta(seconds=self.policy.decision_timeout_seconds),
+                    now + timedelta(seconds=ttl),
                 ).isoformat(),
             }
         )
@@ -200,11 +232,22 @@ class HumanNonResponseSupervisor:
                 continue
             escalation = _escalation(parked)
             if not _integrity_matches(parked, escalation):
-                exhausted += int(await self._exhaust(parked, now=now, reason="integrity_failed"))
+                if self.policy.mode is Mode.SHADOW:
+                    observed += int(
+                        await self._observe_due(parked, now=now, reason="integrity_failed")
+                    )
+                else:
+                    exhausted += int(
+                        await self._exhaust(parked, now=now, reason="integrity_failed")
+                    )
                 continue
             overall_due = now >= _timestamp(escalation.get("overall_deadline"), "overall_deadline")
             status = EscalationStatus(str(escalation.get("status")))
-            if self.policy.mode is Mode.SHADOW and status is EscalationStatus.PENDING_DELIVERY:
+            if (
+                self.policy.mode is Mode.SHADOW
+                and status is EscalationStatus.PENDING_DELIVERY
+                and not overall_due
+            ):
                 continue
             decision_due = (
                 status is EscalationStatus.AWAITING_DECISION
@@ -305,10 +348,25 @@ class HumanNonResponseSupervisor:
     async def _dispatch(self, parked: Mapping[str, Any], *, now: datetime) -> str:
         escalation = _escalation(parked)
         rung = _current_rung(escalation)
-        if not await self._eligibility.is_eligible(
-            subject_ref=str(rung["subject_ref"]),
-            minimum_role=str(rung["minimum_role"]),
-        ):
+        try:
+            eligible = await self._eligibility.is_eligible(
+                subject_ref=str(rung["subject_ref"]),
+                minimum_role=str(rung["minimum_role"]),
+            )
+        except Exception:  # noqa: BLE001 - current identity evidence is required, never inferred
+            await self._cas(
+                parked,
+                escalation=escalation,
+                action_kind="hil.escalation.eligibility_unavailable",
+                reason="current_identity_unavailable",
+                now=now,
+            )
+            return "delivery_failed"
+        now = max(now, _aware(self._clock()))
+        if now >= _timestamp(escalation.get("overall_deadline"), "overall_deadline"):
+            await self._exhaust(parked, now=now, reason="overall_deadline")
+            return "exhausted"
+        if not eligible:
             if await self._advance(parked, now=now, reason="rung_ineligible"):
                 return "advanced"
             await self._exhaust(parked, now=now, reason="no_eligible_rung")

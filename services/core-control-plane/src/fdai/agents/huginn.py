@@ -318,6 +318,13 @@ class Huginn(Agent):
             workflow_action = raw.get("workflow_action")
             if isinstance(workflow_action, Mapping):
                 payload["workflow_action"] = _bound_json(workflow_action)
+        if payload["event_type"] == "human.assignment.iam_apply_requested":
+            payload["attributes"]["iam_request"] = {
+                field: _bound_json(canonical_payload[field])
+                for field in ("case_id", "expected_revision", "ownership_digest", "ownership_ref")
+                if field in canonical_payload
+            }
+            payload["incident_correlation"] = "none"
         change_projection = _change_projection(
             raw=raw,
             canonical_payload=canonical_payload,

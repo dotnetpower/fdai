@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 
+from fdai.core.human_assignment.coverage import approval_quorum_satisfied
 from fdai.core.human_assignment.model import AssignmentState, EffectKind, EffectReceipt
 from fdai.core.human_assignment.service import AssignmentCaseService
 from fdai.core.rbac.roles import Role
@@ -49,6 +50,16 @@ class HumanAccessApplyCoordinator:
         mode: Mode = Mode.SHADOW,
     ) -> HumanAccessExecution:
         assignment_case = await self.cases.get_case(case_id)
+        if (
+            not isinstance(expected_revision, int)
+            or isinstance(expected_revision, bool)
+            or assignment_case.revision != expected_revision
+        ):
+            raise ValueError("human access plan requires the exact current case revision")
+        if assignment_case.intent.subject.provider != "entra":
+            raise ValueError("human access plan subject provider is unsupported")
+        if not approval_quorum_satisfied(assignment_case.intent, assignment_case.reviews):
+            raise ValueError("human access plan requires independent case approval")
         if assignment_case.state not in {
             AssignmentState.OWNERSHIP_MERGED,
             AssignmentState.IAM_APPLYING,
@@ -77,6 +88,19 @@ class HumanAccessApplyCoordinator:
         )
         try:
             receipt = await self.provisioner.apply(plan)
+            if receipt.digest != plan.target_digest or receipt.outcome not in {
+                HumanAccessOutcome.APPLIED,
+                HumanAccessOutcome.ALREADY_APPLIED,
+            }:
+                await self.cases.mark_degraded(
+                    case_id=applying.case_id,
+                    expected_revision=applying.revision,
+                    reason_code="iam_receipt_mismatch",
+                    actor_ref=actor_ref,
+                )
+                return HumanAccessExecution(
+                    HumanAccessExecutionOutcome.FAILED, plan, reason="iam_receipt_mismatch"
+                )
             try:
                 verified = await self.provisioner.verify(plan)
             except Exception:  # noqa: BLE001 - provider boundary fails closed

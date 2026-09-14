@@ -144,6 +144,48 @@ Ruff passes all task-owned Python paths; strict mypy passes 36 changed source mo
 wheel/layout/Pantheon parity selection passes 18 tests. No live Graph, Azure, model, GitHub App,
 tenant deployment, or runtime promotion was performed. S3-S6 remain open.
 
+### S3 safety hardening checkpoint
+
+The local safety slice passes **244 focused tests** and strict mypy on **21 source modules**.
+It connects exact ownership-effect notices to the existing Huginn/Forseti/Thor shadow-HIL path,
+not an enforce executor. The ordinary control loop records that owner handoff instead of invoking
+a model or a second execution. The provider boundary verifies exact target receipts and inverse
+rollback observations. The current-role supervisor loads the reviewed catalog and never defaults
+to eligible. H05/H06 enforce activation and the reviewed revoke-request/duty-removal workflow are
+still incomplete; the read-only replacement planner must not be mistaken for a bound revoker.
+
+| Round | Critique / evidence | Hardening | Residual |
+|-------|----------------------|-----------|----------|
+| S3-01 | Shadow planning ignored the supplied case revision. | Exact integer revision is checked before any plan/provider path;5 regressions pass. | None in tested boundary. |
+| S3-02 | Provider success did not bind the planned subject/group/operation. | Shared canonical target digest; mismatched receipt degrades without attributing or rolling back an unknown target. | Current external provider effect evidence still required. |
+| S3-03 | Rollback returned success after inverse dispatch, before readback. | Verify the inverse membership; a 204-with-still-present member test refuses success. | Real provider rollback drill remains external. |
+| S3-04 | String coercion could accept booleans/numbers as target identifiers or operation. | Typed plan identity and operation validation;4 negative provider-contract tests. | None in tested boundary. |
+| S3-05 | Replacement could reuse the old person or cover the wrong agent/scope. | Exact active revisions, distinct provider subjects, one primary and independent fallback per scope. | Planner is inert, not a revoke authorization. |
+| S3-06 | Revoking one assignment's group could remove access another active assignment still needs. | Bounded same-subject/same-role demand scan; unrelated assignments and other roles remain unchanged. | Bound revoke-review workflow remains open. |
+| S3-07 | Missing eligibility silently allowed every escalation rung. | Enforce construction requires a verifier; fresh exact active person/ordinary-role checks use the real directory shape. | Runtime remains shadow; no promotion. |
+| S3-08 | Provider outage could be treated as role loss and skip a person. | Audited unavailable hold; no advancement/exhaustion on failed identity lookup. | Live directory outage evidence external. |
+| S3-09 | Shadow integrity failure resolved a live approval. Regression failed. | Observe the discrepancy without changing pending status or decision; repaired regression passes. | None in tested shadow boundary. |
+| S3-10 | Approval could expire during role lookup, then still be delivered. Regression failed. | Recheck the current clock after I/O before claiming delivery; repaired regression passes. | Authority can still be checked again only at the normal decision boundary. |
+| S3-11 | Catalog groups could be inferred by position or environment guessed as nonprod. | Explicit environment and exact audience bindings, unavailable reason, immutable bounded windows, confidence-gated pure compression. | Verified production forecast inputs and measured cohorts remain open. |
+| S3-12 | A matching merge event had no actual IAM agent consumer and could fall into generic reasoning. | Exact-effect reader, Huginn normalization, Forseti shadow-HIL, existing Thor path;5 new chain/evidence tests plus prior merge regressions. | Direct adapter still refuses enforce and revoke; no authority change. |
+
+S3 is a validated local safety checkpoint, not complete delivery of H05/H06. These remaining
+authority-bearing connections cannot be labeled Low or silently enabled. Independent goal/knowledge
+work can be prepared without using those unavailable effects; final delivery must report them.
+
+S3 follow-on review S3-13 connected the replacement planner to the existing revoke ActionType's
+shadow adapter with bounded explicit replacement revisions, preserving the unconditional enforce
+refusal. Its focused adapter/runtime/catalog selection passed66 tests, including a real planner
+through the adapter and a refusal to convert that plan to enforce. This closes the previously
+unbound shadow plan, not provider mutation, reviewed old-duty removal, or promotion. The remaining
+provider-effect workflow stays held and is not reclassified Low.
+
+S3-14 reviewed token destination confinement: the membership provider previously accepted an
+arbitrary HTTPS host. It now permits only the implemented Graph endpoint/port before token
+acquisition. Four destination-refusal regressions pass; the final provider/IAM-reader/replacement/
+catalog safety selection passes58 tests. Source rollback semantics and shared plan digests remain
+unchanged. The separate bootstrap/wheel checkpoint passes67 tests on the updated catalog.
+
 ## External completion gates
 
 - [ ] Current deployment identity and v2 coverage readback, GitHub App installation and token

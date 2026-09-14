@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from dataclasses import dataclass
 from enum import StrEnum
@@ -32,9 +34,26 @@ class HumanAccessPlan:
 
     def __post_init__(self) -> None:
         for name in ("case_id", "subject_id", "group_id", "idempotency_key"):
-            value = str(getattr(self, name))
-            if not _IDENTIFIER_PATTERN.fullmatch(value):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not _IDENTIFIER_PATTERN.fullmatch(value):
                 raise ValueError(f"HumanAccessPlan.{name} MUST be a bounded safe identifier")
+        if not isinstance(self.operation, HumanAccessOperation):
+            raise ValueError("HumanAccessPlan.operation MUST be a typed membership operation")
+
+    @property
+    def target_digest(self) -> str:
+        """Bind provider receipts to the complete target and operation, not a source label."""
+        canonical = json.dumps(
+            {
+                "case_id": self.case_id,
+                "subject_id": self.subject_id,
+                "group_id": self.group_id,
+                "operation": self.operation.value,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     @property
     def desired_membership(self) -> bool:
