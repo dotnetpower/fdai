@@ -675,6 +675,8 @@ If the browser exposes Web Locks but rejects leader acquisition, the hook report
 the control moves to its explicit retry state instead of remaining ready without a receiver.
 Acknowledgement-token generation is contained inside the claim boundary; an entropy-provider error
 returns the explicit unavailable result instead of escaping through the live-stream callback.
+Service-worker registration and readiness each have a ten-second deadline; expiry clears the
+cached promise and moves the control from `Selecting` to its retry state.
 Visible-heading components use `title` only for rendered heading content. Native HTML `title` bubbles remain limited to accessibility-compatible elements, and all other contextual help uses the shared Tooltip component.
 The static component gallery reads contracts from `mocks/ui/assets/component-registry.json` and presents each specimen before its owner, source, states, usage guidance, responsive behavior, accessibility contract, and product references. A missing or invalid registry blocks documented status instead of inferring canonical status. The gallery remains synthetic presentation evidence and grants no Console, Operator API, or executor authority.
 

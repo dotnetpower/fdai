@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import type { LiveStageEvent } from "./hooks/use-live-stream";
 import {
   acknowledgeBrowserAlertDelivery,
@@ -23,10 +23,13 @@ import {
   releaseBrowserAlertDelivery,
   requireBrowserNotificationPreferenceWrite,
   trustedBrowserAlertAcknowledgement,
+  withBrowserNotificationDeadline,
   writeBrowserNotificationPreference,
 } from "./browser-notifications";
 
 const ACKNOWLEDGEMENT_TOKEN = "a".repeat(32);
+
+afterEach(() => vi.useRealTimers());
 
 function event(overrides: Partial<LiveStageEvent> = {}): LiveStageEvent {
   return {
@@ -164,6 +167,19 @@ describe("browser notification boundary", () => {
       serviceWorkerApi: true,
       lockManagerApi: false,
     })).toBe(false);
+  });
+
+  test("bounds service worker registration and readiness waits", async () => {
+    vi.useFakeTimers();
+    const pending = withBrowserNotificationDeadline(
+      new Promise<never>(() => undefined),
+      10,
+    );
+    const timedOut = expect(pending).rejects.toThrow(/service worker timed out/);
+    await vi.advanceTimersByTimeAsync(10);
+    await timedOut;
+    await expect(withBrowserNotificationDeadline(Promise.resolve("ready"), 0))
+      .rejects.toThrow(/timeout MUST be positive/);
   });
 
   test("deduplicates across tabs and limits burst delivery", () => {
