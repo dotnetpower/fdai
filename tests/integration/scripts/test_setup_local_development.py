@@ -87,8 +87,20 @@ def test_setup_script_covers_local_development_prerequisites() -> None:
         "code --install-extension",
         '--version "$AZD_VERSION"',
         '--install-folder "$USER_BIN"',
+        'run_with_docker_access bash "$REPO_ROOT/scripts/deployment/local/dev-up.sh"',
+        'check "Local data stack" local_data_stack_healthy',
     ):
         assert command in script
     assert "sudo usermod -aG docker" in script
+    assert "FDAI_DOCKER_GROUP_REEXEC" in (
+        REPO_ROOT / "scripts/deployment/local/dev-up.sh"
+    ).read_text(encoding="utf-8")
+    for container in (
+        "fdai-postgres",
+        "fdai-postgres-validation",
+        "fdai-redpanda",
+        "fdai-clamav",
+    ):
+        assert container in script
     assert "az login" not in script
     assert "gh auth login" not in script
