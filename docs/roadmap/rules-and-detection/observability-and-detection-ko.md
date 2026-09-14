@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 61b30ce1fc99c29e531464dcb4838e6a5d55f07c
+translation_source_sha: f5fb8f20531b697109fe667de68901e7a9d8448a
 translation_revised: 2026-09-14
 ---
 
@@ -71,7 +71,9 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
   선언합니다. 5분 분석 구간은 게시 멱등성과 분리되므로 서로 다른 관측 5건이 기존
   `300초 동안 Event 5건` 반복 게이트를 충족할 수 있습니다. 정확한 재시도는 같은 키를 유지하며
   Heimdall은 에피소드 안에서 비어 있지 않은 각 근거 키를 한 번만 계산합니다. 기존 최소 심각도
-  정책은 기본적으로 `medium` 이하 발견된 문제를 계속 보류합니다. 인벤토리 기반 대상은 온톨로지 `Resource.id`를
+  정책은 기본적으로 `medium` 이하 발견된 문제를 계속 보류합니다. 미래 시각이거나 표준 시간대가
+  없는 Finding은 Event 게시 전에 차단하므로, 증적 검증이 설명되지 않은 브로커 부작용 뒤에
+  실패할 수 없습니다. 인벤토리 기반 대상은 온톨로지 `Resource.id`를
   분석기와 Event 신원으로 유지합니다. 전달 경계에서 틱은 활성 인벤토리 스냅샷의 정확한
   `provider_ref`를 읽고 메트릭 조회의 `resource_id` 레이블만 바꿉니다. 공급자 참조가 없거나
   일치하지 않거나 모호하면 틱이 실패합니다. 공급자 오류에는 메트릭 이름을 유지하되 공급자

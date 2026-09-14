@@ -720,6 +720,18 @@ async def test_a_naive_finding_timestamp_fails_closed() -> None:
     assert bus.published == []
 
 
+@pytest.mark.asyncio
+async def test_a_future_finding_timestamp_fails_before_publication() -> None:
+    bus = RecordingBus()
+    future = replace(_finding(), occurred_at=NOW + timedelta(seconds=1))
+    runner = _runner(StubCoordinator(findings=(future,)), bus)
+
+    with pytest.raises(ValueError, match="after its ingestion time"):
+        await runner.run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
+
+    assert bus.published == []
+
+
 @pytest.mark.parametrize(
     "kwargs",
     (

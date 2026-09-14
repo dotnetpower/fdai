@@ -728,6 +728,10 @@ class AnalyzerTickRunner:
                 f"analyzer finding {finding.signal!r} carries a naive occurred_at; "
                 "a provider MUST return timezone-aware timestamps"
             )
+        if finding.occurred_at > ingested_at:
+            raise ValueError(
+                f"analyzer finding {finding.signal!r} occurred after its ingestion time"
+            )
         idempotency_key = analyzer_idempotency_key(
             finding,
             window_seconds=self._publication_window_seconds,
