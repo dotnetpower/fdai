@@ -34,6 +34,8 @@ Trace hardening preserves these evidence invariants:
   producer fields make the projection unavailable instead of selecting one value.
 - Top-level and workflow action attempt numbers must be positive and must agree when both are
   present. Invalid or conflicting attempt identity makes the projection unavailable.
+- Nullable stage, decision, reason, and terminal stage fields are either `null` or non-empty.
+  Whitespace-only values cannot create a recorded summary or an empty status label.
 
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final

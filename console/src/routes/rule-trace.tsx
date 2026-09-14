@@ -305,10 +305,7 @@ export function decodeTraceResponse(
     if (!isRfc3339Timestamp(recordedAt)) {
       throw new Error("invalid Operator API response: trace step.recorded_at MUST be RFC 3339");
     }
-    const stage = panelNullableString(row, "stage", "trace step");
-    if (stage !== null && stage.trim().length === 0) {
-      throw new Error("invalid Operator API response: trace step.stage MUST be null or non-empty");
-    }
+    const stage = nullableNonEmptyString(row, "stage", "trace step");
     const sequence = panelNonNegativeInteger(row, "seq", "trace step");
     if (sequence < 1) {
       throw new Error("invalid Operator API response: trace step.seq MUST be positive");
@@ -317,8 +314,8 @@ export function decodeTraceResponse(
       seq: sequence,
       recorded_at: recordedAt,
       stage,
-      decision: panelNullableString(row, "decision", "trace step"),
-      reason: panelNullableString(row, "reason", "trace step"),
+      decision: nullableNonEmptyString(row, "decision", "trace step"),
+      reason: nullableNonEmptyString(row, "reason", "trace step"),
       action_kind: panelNonEmptyString(row, "action_kind", "trace step"),
       mode: panelNonEmptyString(row, "mode", "trace step"),
       action_id: optionalNonEmptyString(row, "action_id", "trace step"),
@@ -336,10 +333,7 @@ export function decodeTraceResponse(
   if (new Set(sequence).size !== sequence.length || sequence.some((seq, index) => index > 0 && seq <= sequence[index - 1]!)) {
     throw new Error("invalid Operator API response: trace steps MUST have unique ascending seq values");
   }
-  const terminalStage = panelNullableString(root, "terminal_stage", "trace");
-  if (terminalStage !== null && terminalStage.trim().length === 0) {
-    throw new Error("invalid Operator API response: trace.terminal_stage MUST be null or non-empty");
-  }
+  const terminalStage = nullableNonEmptyString(root, "terminal_stage", "trace");
   let lastNamedStage: string | null = null;
   for (const step of steps) {
     if (step.stage !== null) lastNamedStage = step.stage;
@@ -362,6 +356,20 @@ function optionalNonEmptyString(
 ): string | null {
   if (value[key] === undefined || value[key] === null) return null;
   return panelNonEmptyString(value, key, label);
+}
+
+function nullableNonEmptyString(
+  value: Readonly<Record<string, unknown>>,
+  key: string,
+  label: string,
+): string | null {
+  const parsed = panelNullableString(value, key, label);
+  if (parsed !== null && parsed.trim().length === 0) {
+    throw new Error(
+      `invalid Operator API response: ${label}.${key} MUST be null or non-empty`,
+    );
+  }
+  return parsed;
 }
 
 function optionalPositiveInteger(

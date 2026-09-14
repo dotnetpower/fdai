@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 5aad396ec3afb70e13a79a375ef4a64c8f5d457d
+translation_source_sha: f5487bfd3378578b92ee0d216dd1a8da9e8f7f73
 translation_revised: 2026-09-14
 ---
 # FDAI Console 대화
@@ -37,6 +37,8 @@ value 필드를 보존하여 독립 oracle이 표시된 count를 검증할 수 �
   충돌하면 하나를 임의로 선택하지 않고 변환 결과를 사용 불가로 처리합니다.
 - 최상위 및 워크플로 액션 시도 번호는 양수여야 하며 둘 다 있으면 서로 일치해야 합니다.
   시도 식별 정보가 잘못되거나 충돌하면 변환 결과를 사용 불가로 처리합니다.
+- null 허용 단계, 판단, 이유 및 최종 단계 필드는 `null`이거나 비어 있지 않아야 합니다.
+  공백 값은 기록된 요약이나 빈 상태 레이블을 만들 수 없습니다.
 
 인증된 `/provisioning` 경로는 하나의 영속 구독 초기 구성 실행을 보여주는 읽기 전용 변환
 결과입니다. 완료된 구성 단계를 재생하고 리소스 검색과 최종 검증을 실시간으로 표시하지만

@@ -112,6 +112,12 @@ describe("trace response contract", () => {
       .toThrow(/MUST be RFC 3339/);
     expect(() => decodeTraceResponse({ ...root, steps: [{ ...step(1), stage: " " }] }))
       .toThrow(/MUST be null or non-empty/);
+    expect(() => decodeTraceResponse({ ...root, steps: [{ ...step(1), decision: " " }] }))
+      .toThrow(/decision MUST be null or non-empty/);
+    expect(() => decodeTraceResponse({ ...root, steps: [{ ...step(1), reason: " " }] }))
+      .toThrow(/reason MUST be null or non-empty/);
+    expect(() => decodeTraceResponse({ ...root, terminal_stage: " " }))
+      .toThrow(/terminal_stage MUST be null or non-empty/);
     expect(() => decodeTraceResponse({ ...root, steps: [{ ...step(1), seq: 0 }] }))
       .toThrow(/seq MUST be positive/);
   });
