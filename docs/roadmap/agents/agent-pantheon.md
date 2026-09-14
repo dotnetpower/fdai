@@ -74,6 +74,9 @@ Vidar validates the same complete-command digest before both in-process cache re
 Terminal replay requires the exact schema, revision, command digest, claim and completion owner tokens, lease, bounded identities, state,
 notes, and receipt invariants. A `succeeded` rollback requires a non-empty bounded `rollback_ref`; malformed state fails closed before Thor
 can release its resource claim. Valid terminal and publication receipts replay without another provider call.
+Enforce-mode Pantheon composition requires an explicit `vidar_state_store` in addition to Thor's ActionRun store; rollback executors can
+never enter enforce mode with Vidar's process-local fallback. Production bootstrap binds its durable runtime StateStore through that exact
+parameter.
 Norns proposes to Mimir, and Odin arbitrates conflicts before judgment.
 
 ![3. Runtime relationship diagram. The main stages are Huginn, Heimdall, Forseti, Mimir, Muninn, Njord, Freyr, Loki, Thor, Vidar, Var, Saga.](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-02.en.svg)

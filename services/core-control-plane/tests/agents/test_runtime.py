@@ -376,7 +376,7 @@ def test_runtime_injects_durable_state_store_into_vidar() -> None:
     runtime = PantheonRuntime.build(
         provider=InMemoryEventBus(),
         raw_event_topic=_RAW_TOPIC,
-        muninn_state_store=store,
+        vidar_state_store=store,
         rollback_executors={},
     )
 
@@ -892,12 +892,16 @@ def test_enforce_true_disables_forced_shadow() -> None:
         thor_executor=executor,
         thor_state_store=StateStoreActionRunStore(store=state_store),
         rollback_executors={"state_forward_only": rollback_executor},
+        vidar_state_store=state_store,
         approver_authorizer=lambda _principal, _action_type: True,
         execution_resource_lock=_DistributedTestLock(),
     )
     assert runtime.enforce is True
     thor = runtime.agents["Thor"]
+    vidar = runtime.agents["Vidar"]
     assert isinstance(thor, Thor)
+    assert isinstance(vidar, Vidar)
+    assert vidar._state_store is state_store  # noqa: SLF001 - enforce binding assertion
 
     async def _dispatch() -> object:
         return await thor.dispatch_verdict(
@@ -1032,6 +1036,15 @@ def test_injected_saga_replaces_the_default() -> None:
                 "saga": Saga(audit_chain=StateStoreAuditChainAdapter(store=InMemoryStateStore())),
             },
             "rollback_executors",
+        ),
+        (
+            {
+                "thor_executor": lambda _: None,
+                "thor_state_store": StateStoreActionRunStore(store=InMemoryStateStore()),
+                "saga": Saga(audit_chain=StateStoreAuditChainAdapter(store=InMemoryStateStore())),
+                "rollback_executors": {"state_forward_only": lambda _: None},
+            },
+            "vidar_state_store",
         ),
     ],
 )

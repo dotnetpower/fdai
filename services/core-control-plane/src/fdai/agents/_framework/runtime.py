@@ -137,6 +137,7 @@ class PantheonRuntime:
         thor_executor: ActionExecutor | None = None,
         thor_state_store: ActionRunStore | None = None,
         rollback_executors: dict[str, RollbackExecutor] | None = None,
+        vidar_state_store: StateStore | None = None,
         operator_rbac: dict[str, frozenset[str]] | None = None,
         approver_authorizer: ApproverAuthorizer | None = None,
         execution_resource_lock: ResourceLock | None = None,
@@ -202,6 +203,7 @@ class PantheonRuntime:
             has_state_store=thor_state_store is not None,
             saga=saga,
             has_rollback=bool(rollback_executors),
+            has_vidar_state_store=vidar_state_store is not None,
             has_approver_authorizer=approver_authorizer is not None,
             resource_lock=execution_resource_lock,
         )
@@ -303,9 +305,9 @@ class PantheonRuntime:
             )
         if saga is not None:
             instantiated["Saga"] = saga
-        if rollback_executors is not None or muninn_state_store is not None:
+        if rollback_executors is not None or vidar_state_store is not None:
             instantiated["Vidar"] = Vidar(
-                executors=rollback_executors, state_store=muninn_state_store
+                executors=rollback_executors, state_store=vidar_state_store
             )
         heimdall = instantiated["Heimdall"]
         if read_investigation_hook is not None and isinstance(heimdall, Heimdall):
