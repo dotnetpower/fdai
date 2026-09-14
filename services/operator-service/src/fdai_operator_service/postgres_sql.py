@@ -24,6 +24,27 @@ SELECT seq, event_id, correlation_id, actor, action_kind, mode,
  LIMIT %(fetch)s
 """
 
+AUDIT_TRACE_SQL: Final = """
+WITH correlated_events AS (
+    SELECT DISTINCT event_id
+      FROM audit_log
+     WHERE correlation_id = %(correlation_id)s::text
+       AND event_id IS NOT NULL
+),
+bounded AS (
+    SELECT seq, event_id, correlation_id, actor, action_kind, mode,
+           entry, previous_hash, entry_hash, created_at
+      FROM audit_log
+     WHERE correlation_id = %(correlation_id)s::text
+        OR event_id IN (SELECT event_id FROM correlated_events)
+     ORDER BY seq DESC
+     LIMIT %(fetch)s
+)
+SELECT *
+  FROM bounded
+ ORDER BY seq ASC
+"""
+
 BROWSER_EVIDENCE_PAGE_SQL: Final = """
 SELECT artifact_id, policy_id, policy_version,
        canonical_source_url, canonical_final_url,
@@ -351,6 +372,7 @@ __all__ = [
     "AGENT_ONTOLOGY_ACTIVITY_SQL",
     "AGENT_READ_ACTIVITY_SQL",
     "AUDIT_PAGE_SQL",
+    "AUDIT_TRACE_SQL",
     "HIL_COUNT_SQL",
     "HIL_PAGE_SQL",
     "INCIDENT_CURRENT_PAGE_SQL",

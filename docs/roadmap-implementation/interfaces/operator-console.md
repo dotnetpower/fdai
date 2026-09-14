@@ -47,6 +47,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Added a dedicated Trace query that includes executor rows through the correlated event id and probes a 501st row. Both server and browser reject over-limit traces instead of presenting a newest-500 truncation as complete. | `current change`; focused Operator Trace tests, focused Console Trace tests, and Console typecheck. | Continue the bounded Trace hardening campaign. |
 | 2026-09-14 | implemented | Limited approval lifecycle evidence to explicit approval request, decision, approved, rejected, timeout, and resolution records. Unrelated HIL delivery or notification traffic no longer implies approval, and explicit rejection renders as failed. | `current change`; focused Trace lifecycle tests and Console typecheck. | Continue the bounded Trace hardening campaign. |
 | 2026-09-14 | implemented | Rejected zero audit sequences before Trace can order them or build an Audit entry link. | `current change`; focused Trace route tests and Console typecheck. | Continue the bounded Trace hardening campaign. |
 | 2026-09-14 | implemented | Rejected a Trace response whose body identifies a different correlation from the requested route, preventing a misrouted projection from being presented as the selected evidence. | `current change`; focused Trace route tests and Console typecheck. | Continue the bounded Trace hardening campaign. |

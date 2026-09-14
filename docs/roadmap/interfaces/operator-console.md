@@ -28,6 +28,8 @@ Trace hardening preserves these evidence invariants:
 - Every audit sequence is a positive integer before it can become an ordered stage or evidence link.
 - Approval stages use only explicit request, decision, approved, rejected, timeout, or resolution
   records. Delivery, reminder, and notification events cannot imply that approval was recorded.
+- The server joins executor records through the correlated event id and probes one record beyond the
+  500-record limit. An over-limit trace is unavailable rather than silently truncated.
 
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final

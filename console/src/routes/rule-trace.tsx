@@ -84,6 +84,8 @@ interface Props {
   readonly client: OperatorApiClient;
 }
 
+const TRACE_STEP_LIMIT = 500;
+
 /**
  * Read a ``?correlation=`` deep-link value from the clean route query.
  * The Agent activity timeline links here (``/trace?correlation=...``)
@@ -291,7 +293,13 @@ export function decodeTraceResponse(
       "invalid Operator API response: trace.correlation_id MUST match the requested correlation",
     );
   }
-  const steps = panelArray(root["steps"], "trace.steps").map((value, index) => {
+  const stepValues = panelArray(root["steps"], "trace.steps");
+  if (stepValues.length > TRACE_STEP_LIMIT) {
+    throw new Error(
+      `invalid Operator API response: trace.steps MUST contain at most ${TRACE_STEP_LIMIT} records`,
+    );
+  }
+  const steps = stepValues.map((value, index) => {
     const row = panelRecord(value, `trace.steps[${index}]`);
     const recordedAt = panelNonEmptyString(row, "recorded_at", "trace step");
     if (!isRfc3339Timestamp(recordedAt)) {

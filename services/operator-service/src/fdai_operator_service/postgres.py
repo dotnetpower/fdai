@@ -37,6 +37,7 @@ from fdai_operator_service.postgres_sql import (
     AGENT_ONTOLOGY_ACTIVITY_SQL,
     AGENT_READ_ACTIVITY_SQL,
     AUDIT_PAGE_SQL,
+    AUDIT_TRACE_SQL,
     BROWSER_EVIDENCE_PAGE_SQL,
     HIL_COUNT_SQL,
     HIL_PAGE_SQL,
@@ -66,6 +67,7 @@ _LOGGER = logging.getLogger(__name__)
 
 INCIDENT_HISTORY_LIMIT: Final = 100
 HIL_KEY_PATTERN: Final = r"hil\_park:%"
+TRACE_RECORD_LIMIT: Final = 500
 
 
 def _escape_like(value: str) -> str:
@@ -304,8 +306,18 @@ class PostgresOperatorReadModel:
         return JsonProjection(payload) if payload is not None else None
 
     async def get_rule_fire_trace(self, correlation_id: str) -> JsonProjection | None:
-        page = await self.list_audit(AuditQuery(limit=500, correlation_id=correlation_id))
-        payload = rule_fire_trace(correlation_id, page.items)
+        rows = await self._fetch_all(
+            AUDIT_TRACE_SQL,
+            {
+                "correlation_id": correlation_id,
+                "fetch": TRACE_RECORD_LIMIT + 1,
+            },
+        )
+        if len(rows) > TRACE_RECORD_LIMIT:
+            raise ProjectionUnavailableError(
+                f"audit trace exceeds the {TRACE_RECORD_LIMIT}-record projection limit"
+            )
+        payload = rule_fire_trace(correlation_id, tuple(audit_item(row) for row in rows))
         return JsonProjection(payload) if payload is not None else None
 
     async def _incident_page(self, query: IncidentQuery) -> tuple[PageProjection, int]:

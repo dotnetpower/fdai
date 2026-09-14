@@ -74,6 +74,20 @@ describe("trace response contract", () => {
     expect(() => decodeTraceResponse({ ...root, terminal_stage: "execute" })).toThrow(/last named stage/);
   });
 
+  it("rejects an oversized response instead of presenting a truncated trace as complete", () => {
+    const steps = Array.from({ length: 501 }, (_, index) => ({
+      ...step(1),
+      seq: index + 1,
+    }));
+
+    expect(() => decodeTraceResponse({
+      correlation_id: "corr-oversized",
+      step_count: steps.length,
+      steps,
+      terminal_stage: "risk-gate",
+    })).toThrow(/at most 500 records/);
+  });
+
   it("accepts correlated activity without a pipeline stage", () => {
     const decoded = decodeTraceResponse({
       correlation_id: "corr-activity",

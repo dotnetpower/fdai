@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 144d80e1a8734054b19714218921eefaa7f49ff2
+translation_source_sha: 41ee5e1480fbfe5a4d618c93f4b12dd369c59253
 translation_revised: 2026-09-14
 ---
 # FDAI Console 대화
@@ -31,6 +31,8 @@ value 필드를 보존하여 독립 oracle이 표시된 count를 검증할 수 �
 - 모든 감사 순번이 양의 정수일 때만 순서가 있는 단계 또는 근거 링크로 사용합니다.
 - 승인 단계에는 명시적인 요청, 판단, 승인, 반려, 만료 또는 해석 기록만 사용합니다. 전달,
   알림 반복 및 통지 이벤트만으로 승인이 기록됐다고 표시하지 않습니다.
+- 서버는 연결된 이벤트 ID를 사용해 실행 기록을 결합하고 500개 제한보다 한 건 더 조회합니다.
+  제한을 넘는 추적은 일부를 완전한 결과처럼 표시하지 않고 사용 불가로 처리합니다.
 
 인증된 `/provisioning` 경로는 하나의 영속 구독 초기 구성 실행을 보여주는 읽기 전용 변환
 결과입니다. 완료된 구성 단계를 재생하고 리소스 검색과 최종 검증을 실시간으로 표시하지만
