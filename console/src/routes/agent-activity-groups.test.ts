@@ -117,24 +117,62 @@ describe("agent activity filters", () => {
     expect(filterAgentActivityLog(rows, "Forseti", "old but", agentOf)).toEqual([]);
   });
 
-  test("excludes synthetic readiness proofs from Activity but not Waterfall filtering", () => {
+  test("excludes technical audit duplicates from Activity but not Waterfall filtering", () => {
     const readiness = item(
       1,
       "runtime.startup",
       "startup_readiness.audit_probe",
       "2026-07-15T11:00:00Z",
     );
-    const operational = item(
+    const sourceTransition = item(
       2,
+      "fdai.system",
+      "observation-campaign.source-transition",
+      "2026-07-15T11:00:01Z",
+      { domain: "metrics" },
+    );
+    const auditMirror = item(
+      3,
+      "Saga",
+      "audit.record",
+      "2026-07-15T11:00:02Z",
+      {
+        principal: "Forseti",
+        topic: "object.verdict",
+        payload_digest: "sha256:one",
+        payload: {},
+      },
+    );
+    const genericAudit = item(
+      4,
+      "fdai.system",
+      "audit.record",
+      "2026-07-15T11:00:03Z",
+      { status: "recorded" },
+    );
+    const operational = item(
+      5,
       "Forseti",
       "risk_gate.decision",
-      "2026-07-15T11:00:01Z",
+      "2026-07-15T11:00:04Z",
     );
 
-    expect(filterAgentActivityLog([readiness, operational], null, "", agentOf))
-      .toEqual([operational]);
-    expect(filterAgentActivity([readiness, operational], BASE_FILTERS, agentOf))
-      .toEqual([readiness, operational]);
+    expect(
+      filterAgentActivityLog(
+        [readiness, sourceTransition, auditMirror, genericAudit, operational],
+        null,
+        "",
+        agentOf,
+      ),
+    )
+      .toEqual([genericAudit, operational]);
+    expect(
+      filterAgentActivity(
+        [readiness, sourceTransition, auditMirror, genericAudit, operational],
+        BASE_FILTERS,
+        agentOf,
+      ),
+    ).toEqual([readiness, sourceTransition, auditMirror, genericAudit, operational]);
   });
 
   test("includes recorded conversation recipients and message text in Activity evidence filters", () => {

@@ -1,4 +1,5 @@
 import {
+  AGENT_CONTRACT,
   AGENT_ROLE,
   AGENT_RUNTIME_BINDING,
   STATE_TASK,
@@ -93,37 +94,35 @@ export function agentRuntimeBindingLabel(name: string): string {
   return t("agents.common.notConfigured");
 }
 
+export function agentViewContextRecord(
+  node: AgentNode,
+  layout: AgentLayout,
+): Readonly<Record<string, unknown>> {
+  if (layout === "org") {
+    const role = AGENT_ROLE[node.name];
+    return {
+      agent: node.name,
+      role: agentRoleTitle(node.name) ?? node.name,
+      reports_to: role?.reportsTo ?? t("pantheon.root"),
+      staff: role?.staff ?? false,
+      layer: rosterLayerOf(node.name),
+      runtime_binding: agentRuntimeBindingLabel(node.name),
+      owns: AGENT_CONTRACT[node.name]?.owns ?? [],
+      state: agentStateLabel(node),
+    };
+  }
+  return {
+    agent: node.name,
+    state: agentStateLabel(node),
+    task: currentTask(node),
+    correlation_id: node.correlationId,
+  };
+}
+
 export function agentStateClass(node: AgentNode): string {
   return node.observed ? node.state : "unobserved";
 }
 
 export function agentIconUrl(name: string): string {
   return `url("${import.meta.env.BASE_URL}agent-icons/${name.toLowerCase()}.svg")`;
-}
-
-export function hueForIncident(correlationId: string): number {
-  let hue = 0;
-  for (let index = 0; index < correlationId.length; index += 1) {
-    hue = (hue * 31 + correlationId.charCodeAt(index)) % 360;
-  }
-  return hue;
-}
-
-export function pairsOf(names: readonly string[]): [string, string][] {
-  const pairs: [string, string][] = [];
-  for (let first = 0; first < names.length; first += 1) {
-    for (let second = first + 1; second < names.length; second += 1) {
-      pairs.push([names[first]!, names[second]!]);
-    }
-  }
-  return pairs;
-}
-
-export function centroid(points: readonly Point[]): Point | null {
-  if (points.length === 0) return null;
-  const sum = points.reduce(
-    (total, point) => ({ x: total.x + point.x, y: total.y + point.y }),
-    { x: 0, y: 0 },
-  );
-  return { x: sum.x / points.length, y: sum.y / points.length };
 }

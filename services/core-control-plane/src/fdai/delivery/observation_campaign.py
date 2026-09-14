@@ -27,6 +27,18 @@ _CLAIM_GRACE_SECONDS = 30
 _MAX_CLAIM_ATTEMPTS = 8
 
 ObservationOwner = Literal["Huginn", "Heimdall", "Njord", "Freyr", "Vidar"]
+_LEGACY_OBSERVATION_OWNER_BY_SOURCE: Mapping[str, ObservationOwner] = {
+    "inventory": "Huginn",
+    "activity-log": "Huginn",
+    "resource-health": "Heimdall",
+    "service-health": "Heimdall",
+    "metrics": "Heimdall",
+    "logs": "Heimdall",
+    "guest-logs": "Heimdall",
+    "network-config": "Heimdall",
+    "cost": "Njord",
+    "recovery": "Vidar",
+}
 
 
 class ObservationCoverage(StrEnum):
@@ -226,6 +238,7 @@ class ObservationCampaignRunner:
             "revision": claim_revision + 1,
             "source_id": spec.source_id,
             "domain": spec.domain.value,
+            "owner_agent": spec.owner_agent,
             "campaign_id": campaign_id,
             "status": status.value,
             "coverage": result.coverage.value,
@@ -327,6 +340,7 @@ class ObservationCampaignRunner:
                 "revision": claim_revision,
                 "source_id": spec.source_id,
                 "domain": spec.domain.value,
+                "owner_agent": spec.owner_agent,
                 "campaign_id": campaign_id,
                 "status": "started",
                 "started_at": now.isoformat(),
@@ -515,9 +529,13 @@ def _terminal_run(
     skipped: bool,
 ) -> ObservationSourceRun | None:
     try:
+        stored_owner = state.get("owner_agent")
+        if stored_owner is None:
+            stored_owner = _LEGACY_OBSERVATION_OWNER_BY_SOURCE.get(spec.source_id)
         if (
             state.get("source_id", spec.source_id) != spec.source_id
             or state.get("domain", spec.domain.value) != spec.domain.value
+            or stored_owner != spec.owner_agent
             or _timestamp(state.get("completed_at")) is None
         ):
             return None
@@ -597,6 +615,8 @@ def _audit_transition(
     observed_at: datetime,
 ) -> dict[str, object]:
     return {
+        "actor": "fdai.delivery.observation_campaign",
+        "owner_agent": spec.owner_agent,
         "action_kind": "observation-campaign.source-transition",
         "source_id": spec.source_id,
         "domain": spec.domain.value,
