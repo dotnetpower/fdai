@@ -298,6 +298,31 @@ def test_idempotency_key_is_stable_inside_one_window() -> None:
 
     assert first == later
     assert first != next_window
+    assert len(first) == len("analyzer:") + 36
+
+
+def test_idempotency_key_is_unambiguous_and_bounded_for_long_identifiers() -> None:
+    first = replace(
+        _finding(),
+        resource_ref="a:b",
+        signal="c",
+    )
+    second = replace(
+        _finding(),
+        resource_ref="a",
+        signal="b:c",
+    )
+    long_finding = replace(
+        _finding(),
+        resource_ref="r" * 512,
+        signal="s" * 128,
+    )
+
+    assert analyzer_idempotency_key(first, window_seconds=60) != analyzer_idempotency_key(
+        second,
+        window_seconds=60,
+    )
+    assert len(analyzer_idempotency_key(long_finding, window_seconds=60)) < 512
 
 
 @pytest.mark.asyncio
@@ -425,7 +450,11 @@ async def test_active_publication_claim_fails_tick_without_publishing() -> None:
 @pytest.mark.asyncio
 async def test_unreadable_publication_claim_fails_closed_for_that_finding_only() -> None:
     bus = RecordingBus()
-    ledger = _ledger(fail_claim_on="res-1")
+    blocked_key = analyzer_idempotency_key(
+        _finding(resource_ref="res-1"),
+        window_seconds=DEFAULT_PUBLICATION_WINDOW_SECONDS,
+    )
+    ledger = _ledger(fail_claim_on=blocked_key)
     coordinator = StubCoordinator(
         findings=(_finding(resource_ref="res-1"), _finding(resource_ref="res-2"))
     )
@@ -441,7 +470,7 @@ async def test_unreadable_publication_claim_fails_closed_for_that_finding_only()
     assert report.published == 1
     assert report.duplicates_suppressed == 0
     assert [key for _, key, _ in bus.published] == ["res-2"]
-    blocked = next(item for item in report.receipts if "res-1" in item.idempotency_key)
+    blocked = next(item for item in report.receipts if item.resource_ref == "res-1")
     assert blocked.publication.value == "failed"
     assert report.publish_errors[0][1] == ("publication_claim=RuntimeError:claim store unavailable")
 

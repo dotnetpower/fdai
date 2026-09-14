@@ -380,13 +380,22 @@ def analyzer_idempotency_key(
     *,
     window_seconds: int,
 ) -> str:
-    """Return a stable key per resource, signal, and observation bucket."""
+    """Return a bounded opaque key per resource, signal, and observation bucket."""
     if finding.occurred_at.tzinfo is None or finding.occurred_at.utcoffset() is None:
         raise ValueError("analyzer finding occurred_at MUST be timezone-aware")
     if window_seconds <= 0:
         raise ValueError("analyzer idempotency window_seconds MUST be positive")
     bucket = int(finding.occurred_at.timestamp() // window_seconds)
-    return f"analyzer:{finding.resource_ref}:{finding.signal}:{bucket}"
+    identity = "\0".join(
+        (
+            "publication",
+            finding.resource_kind,
+            finding.resource_ref,
+            finding.signal,
+            str(bucket),
+        )
+    )
+    return f"analyzer:{uuid5(_EVENT_ID_NAMESPACE, identity)}"
 
 
 def analyzer_correlation_id(finding: AnalyzerFinding) -> str:

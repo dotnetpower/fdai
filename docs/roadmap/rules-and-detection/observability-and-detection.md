@@ -65,8 +65,10 @@ are synthetic.
 - Analyzer findings are already bounded detector outputs, not raw inventory changes. The deployed
   one-minute Job and the managed local analyzer loop publish at most one Event per resource,
   signal, and one-minute source-observation bucket. The key uses the Finding's `occurred_at`, not
-  scheduler time, so repeated polling of one unchanged sample remains one Event. Those Events share
-  an opaque resource-and-signal correlation identity and declare `incident_correlation=correlate`.
+  scheduler time, so repeated polling of one unchanged sample remains one Event. A UUID5 over the
+  typed resource, signal, and bucket tuple keeps this idempotency key bounded and prevents delimiter
+  ambiguity. Those Events share an opaque resource-and-signal correlation identity and declare
+  `incident_correlation=correlate`.
   The five-minute analysis window remains separate from publication idempotency, so five distinct
   observations can meet the existing `5 events / 300 seconds` repeat gate. Exact retries keep the
   same key, and Heimdall counts each non-empty evidence key at most once in an episode. The existing

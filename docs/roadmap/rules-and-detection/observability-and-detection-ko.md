@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: f5fb8f20531b697109fe667de68901e7a9d8448a
+translation_source_sha: 78cb3d4afddff9392810fe6ea5ed295f336a249b
 translation_revised: 2026-09-14
 ---
 
@@ -66,9 +66,10 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
 - Analyzer finding은 원시 인벤토리 변경이 아니라 이미 범위가 제한된 detector 출력입니다.
   배포된 1분 Job과 관리되는 로컬 analyzer loop는 리소스, 신호, 1분 출처 관측 버킷마다 Event를
   최대 하나만 게시합니다. 키는 스케줄러 시각이 아니라 Finding의 `occurred_at`을 사용하므로
-  변경되지 않은 샘플 하나를 반복 조회해도 Event 하나로 유지됩니다. 이 Event는 리소스와
-  신호에서 만든 불투명한 상관관계 신원을 공유하고 `incident_correlation=correlate`를
-  선언합니다. 5분 분석 구간은 게시 멱등성과 분리되므로 서로 다른 관측 5건이 기존
+  변경되지 않은 샘플 하나를 반복 조회해도 Event 하나로 유지됩니다. 타입이 지정된 리소스,
+  신호 및 버킷 튜플의 UUID5를 사용해 멱등성 키를 일정한 길이로 제한하고 구분자 모호성을
+  방지합니다. 이 Event는 리소스와 신호에서 만든 불투명한 상관관계 신원을 공유하고
+  `incident_correlation=correlate`를 선언합니다. 5분 분석 구간은 게시 멱등성과 분리되므로 서로 다른 관측 5건이 기존
   `300초 동안 Event 5건` 반복 게이트를 충족할 수 있습니다. 정확한 재시도는 같은 키를 유지하며
   Heimdall은 에피소드 안에서 비어 있지 않은 각 근거 키를 한 번만 계산합니다. 기존 최소 심각도
   정책은 기본적으로 `medium` 이하 발견된 문제를 계속 보류합니다. 미래 시각이거나 표준 시간대가
