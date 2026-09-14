@@ -1,8 +1,8 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 13058cf05079894971ab8b8602e1afa83f700222
-translation_revised: 2026-09-12
+translation_source_sha: e6bdee1e0ede39c8cb33200e2c7a8ffb8d21e7ec
+translation_revised: 2026-09-14
 ---
 # 폐쇄망 배포
 
@@ -24,7 +24,8 @@ translation_revised: 2026-09-12
 |------|------|------|------|
 | 비공개 Azure 네트워킹 및 VNet 배포 호스트 | implemented | `infra/`, `infra/bootstrap/`, `.github/workflows/deploy-dev.yml` 및 집중 인프라 작업 흐름 테스트 | 비공개 엔드포인트, DNS, 영속 배포 호스트, 보호된 계획 및 exact apply는 offline CLI 경로와 독립적으로 구현되어 있습니다. |
 | 내부 mirror 및 고정 입력 제어 | implemented | `infra/modules/preflight-toggles/` 및 `scripts/quality/ci/check-ci-contracts.py` | 저장소는 mirror 입력을 노출하고 변경 가능한 base 이미지 참조나 레지스트리에 묶인 참조를 거부합니다. |
-| 오프라인 도구 키트 구성 및 훈련 | in-progress | [배포 CLI 구현 원장](../../roadmap-implementation/deployment/installable-deployment-cli.md); 현재 여러 루트의 미러 테스트 | 과거 배포 휠 훈련 근거는 해당 버전에만 유효합니다. 확장된 구성 경로는 전체 훈련을 새로 수행해야 하며, 어느 쪽도 런타임 배포를 입증하지 않습니다. |
+| 오프라인 도구 키트 구성 및 훈련 | in-progress | [배포 CLI 구현 원장](../../roadmap-implementation/deployment/installable-deployment-cli.md); 현재 여러 루트의 미러 테스트 | 아래에 보존한 r4 개발 키트 검증은 해당 산출물의 준비만 입증합니다. 현재 운영 적격성과 지정된 전체 모드의 최신 실행은 남아 있으며, 산출물만 검증한 증적으로 런타임 배포를 입증할 수 없습니다. |
+| 보존된 r4 개발 키트 게시 및 빈 환경 준비 | validated | [게시된 r4 배포판](https://github.com/dotnetpower/fdai/releases/tag/deployment-v0.1.0-r4), [정확한 소스의 검증 증적](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906) | 소스 `c137aa104682a59b979f5f3554a06bf87c555b8e`, OCI 이미지 6개, Console, 지원 패키지 7개 및 외부 통신과 DNS를 차단한 검증 11개입니다. 이전 개발용 사전 배포판이며, 현재 main의 내용이나 운영 신뢰, 어플라이언스 배포, 구독 준비 완료를 뜻하지 않습니다. |
 | 폐쇄망 번들 검증 및 계획 명령 | implemented | `packages/deployment-cli`; 산출물 및 패키징 테스트 | 패키지가 `fdaictl`을 등록하고 서명된 로컬 입력을 검증합니다. 계획 수립만으로 새 구독 구성이 완료되지는 않습니다. |
 | 런타임 배포판 구성 및 로컬 준비 | implemented | `runtime_release.py`, `runtime_stage.py`, `offline_prepare.py`; 집중 테스트 251개; 이슈 #461 | 로컬 아카이브, 소스 및 번들 연결, 비공개 스냅샷, 미완료 준비 기록이 집중 검증을 통과했습니다. Azure 설치는 아직 완료되지 않았습니다. |
 | 전체 런타임 이미지 검증 | implemented | 런타임 목록 v2와 범위가 제한된 OCI 검증기; 집중 테스트 355개; 빈 환경에 설치한 CPython 3.12 검토용 휠 | 구성과 준비 과정에서 서비스 이미지 5개와 ClamAV를 검증합니다. 기존 v1은 점검할 수 있지만 전체 준비에는 사용할 수 없습니다. 합성 서명 이미지는 패키징과 내용 검사를 입증하며 출처나 Azure 준비 완료를 뜻하지 않습니다. |
@@ -43,6 +44,7 @@ translation_revised: 2026-09-12
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | validated | 바뀌지 않은 바이트를 다시 빌드하거나 과거 훈련을 반복하지 않고 기존 r4 산출물과 빈 환경 설치 증적을 이슈 #461에 연결했습니다. 공개 산출물과 정확한 CI를 다시 확인하고 보존된 아카이브의 해시를 계산했습니다. | [배포판 및 11개 검사 증적](https://github.com/dotnetpower/fdai/issues/803#issuecomment-5653340906), 소스 CI `34755232779`와 보호된 병합 CI `34755464071` 성공, 아카이브 SHA-256 `c7e8b3e99fd77534ad7e2b2321d2e677fb3fe316a946e4c58ef797d5682bbab5`, 크기 866720653바이트 | 현재 운영 신뢰, 선택한 적격 배포판, 정확한 Foundation 및 애플리케이션 승인, 비공개 호스트의 상태 수렴, 인증된 Console 및 인벤토리 확인, 어플라이언스 진입점 증적은 남아 있습니다. 새 빌드, 설치, 공급자 호출 또는 배포를 수행하지 않았습니다. |
 | 2026-09-12 | implemented | 운영자의 두 산출물 인계를 검증된 완전한 키트를 포함하고 수동 standalone 배포를 시작하는 OCI 배포 어플라이언스 하나로 교체했습니다. | `current change`, 어플라이언스 빌더, 진입점, CLI 계약 및 집중 테스트 | 운영 어플라이언스를 빌드하고 공개 송신 없는 Azure 배포 증적 하나를 보존합니다. |
 | 2026-09-10 | implemented | 런타임 release 적격성을 바꾸지 않고 시스템 지식 서비스 Terraform root를 고정 오프라인 provider mirror에 추가했습니다. | `current change`, root lock, mirror helper 및 집중 가짜 Terraform 검사입니다. | 서비스의 폐쇄망 배포 지원을 주장하기 전에 전체 서명 오프라인 훈련을 보존합니다. |
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 배포 CLI 패키지가 제거된 뒤에도 남아 있던 종단 간 지원 주장을 바로잡았습니다. | 현재 변경과 구현 범위 표에 기재한 인프라, release 스크립트, 패키지 메타데이터 및 집중 작업 흐름 근거 | 전용 offline 검증기와 CLI를 복원하고 trust 루트를 확립한 뒤 air-gap 훈련을 통과해야 합니다. |
@@ -60,6 +62,7 @@ translation_revised: 2026-09-12
 ### 남은 작업
 
 - [x] [배포 CLI 원장](../../roadmap-implementation/deployment/installable-deployment-cli.md)에 기록된 전용 CLI 검증기와 도구 훈련을 복원합니다.
+- [x] r4의 완전한 개발 산출물과 빈 환경의 네트워크 차단 준비 증적을 보존합니다. [이슈 #461](https://github.com/dotnetpower/fdai/issues/461)은 위의 정확한 소스 증적을 재사용하며 현재 배포 인증으로 해석하지 않습니다.
 - [ ] 통제된 의식을 통해 offline trust 루트를 확립하고 패키지한 뒤, 네트워크 호출 없이 점검이 verified, review, rejected 키트를 구분함을 입증합니다.
 - [ ] 배포 가능한 정확한 버전의 깨끗한 체크아웃에서 실제 런타임 아카이브를 구성하고, 패키지 캐시·경로·DNS 없이 `airgap-drill.sh --runtime-release <directory> --require-runtime`을 통과합니다.
 - [ ] 비공개 배포 호스트의 수동 exact-plan 승인 및 적용 경로를 입증하고 롤백, 정리 및 배포 후 검증 증적을 보존합니다.

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 0a49b6032e92de8004a1ea77bb370c47a1c04cc1
+translation_source_sha: 468bac20133bd496a8e7d8e768b63b63b77b716c
 translation_revised: 2026-09-14
 ---
 
@@ -88,6 +88,7 @@ Operations는 기존 객체와 링크를 재사용합니다.
 못해도 인스턴스로 돌아가는 경로를 제거하지 않습니다. 그래프 우선 레이아웃, 선택된 리소스와 범례
 오버레이 및 Inspector 소유 접기 상태는 표현 컨트롤일 뿐이며 링크를 만들거나 쿼리 범위를 바꾸거나
 변경 권한을 부여하지 않습니다.
+방향 배경은 더 짧은 SVG 기하와 독립적으로 전체 그래프 뷰포트를 채웁니다.
 `llm-model-deployment`의 카드, 도구 설명, Inspector 및 화면 맥락은 모델 이름, 버전, 배포 SKU
 및 정규화된 TPM으로 구성된 동일한 범위 제한 객체를 사용합니다. 누락된 값은 보고되지 않음으로
 유지되며 `Succeeded`는 추론 상태나 호출자 접근 권한이 아니라 프로비저닝 완료를 나타냅니다.
