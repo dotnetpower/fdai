@@ -182,3 +182,68 @@ def test_malformed_operator_proposal_is_not_normalized(patch: dict[str, Any]) ->
 
     with pytest.raises(ContractValidationError):
         EventIngest(validator=_validator()).ingest(proposal)
+
+
+@pytest.mark.parametrize(
+    "workflow_action",
+    (
+        [],
+        {
+            "process_id": "process-1",
+            "proposal_ref": "operator-1::run-1",
+        },
+        {
+            "process_id": "process-1",
+            "step_id": "run-task",
+            "proposal_ref": "operator-1::run-1",
+            "unexpected": "field",
+        },
+        {
+            "process_id": 7,
+            "step_id": "run-task",
+            "proposal_ref": "operator-1::run-1",
+        },
+        {
+            "process_id": "process-1",
+            "step_id": "",
+            "proposal_ref": "operator-1::run-1",
+        },
+        {
+            "process_id": "process-1",
+            "step_id": "run-task",
+            "proposal_ref": "operator-1::run-1",
+            "attempt": True,
+        },
+        {
+            "process_id": "process-1",
+            "step_id": "run-task",
+            "proposal_ref": "operator-1::run-1",
+            "attempt": "1",
+        },
+        {
+            "process_id": "process-1",
+            "step_id": "run-task",
+            "proposal_ref": "operator-1::run-1",
+            "attempt": 0,
+        },
+        {
+            "process_id": "process-1",
+            "step_id": "run-task",
+            "proposal_ref": "different-proposal",
+            "attempt": 1,
+        },
+    ),
+)
+def test_malformed_workflow_action_is_not_normalized(workflow_action: object) -> None:
+    proposal = {
+        "idempotency_key": "operator-1::run-1",
+        "initiator_principal": "operator-1",
+        "operator_initiated": True,
+        "action_type": "tool.run-python-on-vm",
+        "event_type": "operator_request",
+        "params": {},
+        "workflow_action": workflow_action,
+    }
+
+    with pytest.raises(ContractValidationError):
+        EventIngest(validator=_validator()).ingest(proposal)
