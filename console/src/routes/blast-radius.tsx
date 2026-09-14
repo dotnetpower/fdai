@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
-import { ArchitectureMap } from "../components/architecture-map";
+import { ArchitectureTopologyGraph } from "../components/architecture-topology-graph";
+import { layoutArchitectureImpactPresentation } from "../components/architecture-map-layout";
 import {
   architectureHref,
   type InventoryGraphResponse,
@@ -53,13 +54,6 @@ interface Props {
   readonly client: OperatorApiClient;
 }
 
-export function inventoryGraphContainsImpactTarget(
-  graph: Pick<InventoryGraphResponse, "resources">,
-  target: string,
-): boolean {
-  return graph.resources.some((resource) => resource.id === target);
-}
-
 export function blastRadiusFailure(error: unknown): AsyncState<never> {
   if (isOptionalOperatorApiUnavailable(error)) {
     return {
@@ -71,24 +65,6 @@ export function blastRadiusFailure(error: unknown): AsyncState<never> {
     status: "error",
     message: error instanceof Error ? error.message : String(error),
   };
-}
-
-export function inventoryGraphContainsImpact(
-  graph: Pick<InventoryGraphResponse, "resources" | "links">,
-  impact: Pick<BlastRadiusResponse, "target" | "reached" | "edges">,
-): boolean {
-  const resourceIds = new Set(graph.resources.map((resource) => resource.id));
-  if (
-    !resourceIds.has(impact.target)
-    || impact.reached.some((resource) => !resourceIds.has(resource.resource_id))
-  ) {
-    return false;
-  }
-  const linkSignatures = new Set(
-    graph.links.map((link) => `${link.source}\0${link.type}\0${link.target}`),
-  );
-  return impact.edges.every((edge) =>
-    linkSignatures.has(`${edge.source}\0${edge.link_type}\0${edge.target}`));
 }
 
 export function inventoryGraphMatchesImpact(
@@ -109,6 +85,15 @@ export function inventoryGraphMatchesImpact(
   return Number.isFinite(graphCutoff)
     && Number.isFinite(impactCutoff)
     && graphCutoff === impactCutoff;
+}
+
+export function missingImpactResourceIds(
+  graph: Pick<InventoryGraphResponse, "resources">,
+  impact: Pick<BlastRadiusResponse, "reached" | "target">,
+): readonly string[] {
+  const available = new Set(graph.resources.map((resource) => resource.id));
+  return [...new Set([impact.target, ...impact.reached.map((node) => node.resource_id)])]
+    .filter((resourceId) => !available.has(resourceId));
 }
 
 export function BlastRadiusRoute({ client }: Props) {
@@ -534,7 +519,6 @@ function BlastRadiusMap({ client, data, architectureView }: { readonly client: O
       depth: String(data.traversal_depth),
       include: "contains,attached_to,depends_on,runtime_calls",
     };
-    if (architectureView) params.scope = architectureView;
     client.panel<unknown>("/inventory/graph", params).then(
       (payload) => {
         if (cancelled) return;
@@ -547,12 +531,11 @@ function BlastRadiusMap({ client, data, architectureView }: { readonly client: O
           setMessage(t("ontology.blast.mapSnapshotMismatch"));
           return;
         }
-        if (!inventoryGraphContainsImpactTarget(value, data.target)) {
-          setMessage(t("ontology.blast.mapTargetMissing"));
-          return;
-        }
-        if (!inventoryGraphContainsImpact(value, data)) {
-          setMessage(t("ontology.blast.mapImpactIncomplete"));
+        const missingResourceIds = missingImpactResourceIds(value, data);
+        if (missingResourceIds.length > 0) {
+          setMessage(t("ontology.blast.mapCoverageIncomplete", {
+            count: missingResourceIds.length,
+          }));
           return;
         }
         setGraph(value);
@@ -560,13 +543,20 @@ function BlastRadiusMap({ client, data, architectureView }: { readonly client: O
       (error: unknown) => { if (!cancelled) setMessage(error instanceof Error ? error.message : String(error)); },
     );
     return () => { cancelled = true; };
-  }, [client, architectureView, data.source_generation, data.source_cutoff]);
+  }, [client, data]);
   if (message) return <p class="muted footnote">{t("ontology.blast.mapUnavailable", { message })}</p>;
   if (!graph) return <p class="muted footnote">{t("ontology.blast.mapLoading")}</p>;
   const highlighted = new Set([data.target, ...data.reached.map((node) => node.resource_id)]);
+  const presentedGraph = layoutArchitectureImpactPresentation(graph, highlighted);
   return (
     <div class="blast-map-wrap">
-      <ArchitectureMap graph={graph} highlightedIds={highlighted} selectedId={data.target} />
+      <ArchitectureTopologyGraph
+        graph={presentedGraph}
+        highlightedIds={highlighted}
+        selectedId={data.target}
+        variant="impact"
+        allowFullscreen={false}
+      />
       <a class="btn blast-map-open" href={architectureHref(data.target, architectureView)}>{t("ontology.blast.openArchitecture")}</a>
     </div>
   );

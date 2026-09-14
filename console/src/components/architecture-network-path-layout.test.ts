@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { layoutArchitecturePathComponents } from "./architecture-network-path-layout";
 import type { InventoryLink, InventoryResource } from "./architecture-map.model";
+import {
+  ARCHITECTURE_TOPOLOGY_HIT_TARGET_SIZE,
+  ARCHITECTURE_TOPOLOGY_NODE_WIDTH,
+} from "./architecture-topology-dimensions";
 
 function component(suffix: string): InventoryResource[] {
   return [
@@ -35,7 +39,17 @@ describe("architecture path lane layout", () => {
     expect(byId.get("nic-a")!.y).toBeLessThan(byId.get("vm-a")!.y);
     expect(byId.get("vm-a")!.y).toBeLessThan(byId.get("disk-a")!.y);
     expect(byId.get("pip-a")!.x).toBeLessThan(byId.get("pip-b")!.x);
+    expect(byId.get("pip-b")!.x - byId.get("pip-a")!.x)
+      .toBeGreaterThan(ARCHITECTURE_TOPOLOGY_NODE_WIDTH * 1.25);
     expect(byId.get("vm-a")!.renderScale).toBe(1.2);
     expect(byId.get("nic-a")!.renderScale).toBe(1);
+    for (const [index, first] of layout.placements.entries()) {
+      for (const second of layout.placements.slice(index + 1)) {
+        const targetsOverlap =
+          Math.abs(first.x - second.x) < ARCHITECTURE_TOPOLOGY_HIT_TARGET_SIZE
+          && Math.abs(first.y - second.y) < ARCHITECTURE_TOPOLOGY_HIT_TARGET_SIZE;
+        expect(targetsOverlap, `${first.resource.id} overlaps ${second.resource.id}`).toBe(false);
+      }
+    }
   });
 });

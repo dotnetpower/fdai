@@ -1,5 +1,15 @@
 import { routeHref } from "../router";
 import { hasArchitectureResourceAbbreviation } from "./architecture-resource-abbreviations";
+import {
+  ARCHITECTURE_TOPOLOGY_COLUMN_PITCH,
+  ARCHITECTURE_TOPOLOGY_ROW_PITCH,
+  architectureTopologyNodeDimensions,
+  architectureTopologyNodeRenderScale,
+} from "./architecture-topology-dimensions";
+import {
+  architectureVisualParentById,
+  normalizeArchitectureTopologyContainment,
+} from "./architecture-topology-containment";
 import type {
   NetworkConnectionKind,
   NetworkDirection,
@@ -50,18 +60,8 @@ export interface ArchitectureView {
   readonly root_resource_id: string;
 }
 
-/** Presentation toggles for the fixed two-dimensional architecture map. */
-export interface ArchitectureDisplayOptions {
-  readonly showConnections: boolean;
-  readonly showLabels: boolean;
-  readonly showGrid: boolean;
-}
-
-export const DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS: ArchitectureDisplayOptions = {
-  showConnections: true,
-  showLabels: true,
-  showGrid: false,
-};
+export type ArchitecturePresentationMode = "topology" | "network";
+export const DEFAULT_ARCHITECTURE_PRESENTATION_MODE: ArchitecturePresentationMode = "topology";
 
 export interface InventoryGraphResponse {
   readonly snapshot_id?: string;
@@ -626,10 +626,34 @@ export function geometryOf(resource: InventoryResource): ArchitectureNodeGeometr
   };
 }
 
-export function architectureHref(resourceId?: string, viewId?: string | null): string {
+export function architectureHref(
+  resourceId?: string,
+  viewId?: string | null,
+  mode: ArchitecturePresentationMode = DEFAULT_ARCHITECTURE_PRESENTATION_MODE,
+): string {
   return routeHref("architecture", {
-    params: { resource: resourceId, view: viewId },
+    params: {
+      resource: resourceId,
+      view: viewId,
+      mode: mode === DEFAULT_ARCHITECTURE_PRESENTATION_MODE ? undefined : mode,
+    },
   });
+}
+
+/** Preserves route-wide preferences while replacing Architecture-owned query state. */
+export function architectureHrefWithRouteState(
+  resourceId: string | undefined,
+  viewId: string | null | undefined,
+  mode: ArchitecturePresentationMode,
+  currentSearch: string,
+): string {
+  const target = new URL(architectureHref(resourceId, viewId, mode), "http://fdai.local");
+  const current = new URLSearchParams(currentSearch);
+  for (const [key, value] of current.entries()) {
+    if (key === "resource" || key === "view" || key === "mode") continue;
+    target.searchParams.append(key, value);
+  }
+  return `${target.pathname}${target.search}`;
 }
 
 export function selectedResourceIdFromHash(value: string): string | null {
@@ -642,6 +666,14 @@ export function architectureViewFromHash(value: string): string | null {
   const queryIndex = value.indexOf("?");
   const search = queryIndex >= 0 ? value.slice(queryIndex + 1) : value.replace(/^\?/, "");
   return new URLSearchParams(search).get("view");
+}
+
+export function architecturePresentationModeFromHash(value: string): ArchitecturePresentationMode {
+  const queryIndex = value.indexOf("?");
+  const search = queryIndex >= 0 ? value.slice(queryIndex + 1) : value.replace(/^\?/, "");
+  return new URLSearchParams(search).get("mode") === "network"
+    ? "network"
+    : DEFAULT_ARCHITECTURE_PRESENTATION_MODE;
 }
 
 export function architectureViewKindLabel(view: ArchitectureView): string {
@@ -781,14 +813,14 @@ export function expandSimpleResourceGroupPanels(
     const parentX = parent.x ?? 0;
     const parentY = parent.y ?? 0;
     const panelGap = .45;
-    const parentInsetX = .45;
+    const parentInsetX = .3;
     const parentInsetTop = .85;
     const parentInsetBottom = .4;
-    const childInsetX = .45;
+    const childInsetX = .3;
     const childInsetTop = .75;
     const childInsetBottom = .35;
-    const cellWidth = 1.65;
-    const cellHeight = 1.2;
+    const cellWidth = ARCHITECTURE_TOPOLOGY_COLUMN_PITCH;
+    const cellHeight = ARCHITECTURE_TOPOLOGY_ROW_PITCH;
     const panels = groups.map((group, index) => {
       const children = directChildren[index] ?? [];
       const occupiedSlots = children.reduce(
@@ -865,18 +897,22 @@ export function expandSimpleResourceGroupPanels(
 }
 
 export function constrainGraph(graph: InventoryGraphResponse): InventoryGraphResponse {
-  const expandedGraph = expandSimpleResourceGroupPanels(graph);
+  const expandedGraph = normalizeArchitectureTopologyContainment(
+    expandSimpleResourceGroupPanels(graph),
+  );
   const byId = new Map(expandedGraph.resources.map((resource) => [resource.id, resource]));
+  const visualParentById = architectureVisualParentById(expandedGraph, byId);
   const resolved = new Map<string, InventoryResource>();
 
   function constrain(resource: InventoryResource, trail = new Set<string>()): InventoryResource {
     const cached = resolved.get(resource.id);
     if (cached) return cached;
-    if (!resource.parent_id || trail.has(resource.id)) {
+    const visualParentId = visualParentById.get(resource.id);
+    if (!visualParentId || trail.has(resource.id)) {
       resolved.set(resource.id, resource);
       return resource;
     }
-    const rawParent = byId.get(resource.parent_id);
+    const rawParent = byId.get(visualParentId);
     if (!rawParent || rawParent.x === undefined || rawParent.y === undefined ||
         rawParent.w === undefined || rawParent.h === undefined) {
       resolved.set(resource.id, resource);
@@ -891,26 +927,26 @@ export function constrainGraph(graph: InventoryGraphResponse): InventoryGraphRes
     const parentH = parent.h ?? rawParent.h;
     if (isRegion(resource)) {
       const inset = .12;
-      const x = clamp(resource.x ?? parentX, parentX + inset, parentX + parentW - inset);
-      const y = clamp(resource.y ?? parentY, parentY + inset, parentY + parentH - inset);
-      const w = clamp(resource.w ?? 1, .5, parentX + parentW - inset - x);
-      const h = clamp(resource.h ?? 1, .5, parentY + parentH - inset - y);
+      const w = clamp(resource.w ?? 1, .5, parentW - inset * 2);
+      const h = clamp(resource.h ?? 1, .5, parentH - inset * 2);
+      const x = clamp(
+        resource.x ?? parentX,
+        parentX + inset,
+        parentX + parentW - inset - w,
+      );
+      const y = clamp(
+        resource.y ?? parentY,
+        parentY + inset,
+        parentY + parentH - inset - h,
+      );
       const constrained = { ...resource, x, y, w, h };
       resolved.set(resource.id, constrained);
       return constrained;
     }
-    const geometry = SHAPE_GEOMETRY[shapeOf(resource)];
-    const availableWidth = Math.max(.1, parentW - .12);
-    const availableDepth = Math.max(.1, parentH - .12);
-    const renderScale = Math.min(
-      resource.render_scale ?? 1,
-      availableWidth / geometry.width,
-      availableDepth / geometry.depth,
-    );
-    const scaledWidth = geometry.width * renderScale;
-    const scaledDepth = geometry.depth * renderScale;
-    const halfWidth = scaledWidth / 2 + .06;
-    const halfDepth = scaledDepth / 2 + .06;
+    const renderScale = architectureTopologyNodeRenderScale(resource.render_scale);
+    const dimensions = architectureTopologyNodeDimensions(renderScale);
+    const halfWidth = dimensions.width / 2 + .06;
+    const halfDepth = dimensions.height / 2 + .06;
     const constrained = {
       ...resource,
       render_scale: renderScale,

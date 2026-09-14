@@ -283,8 +283,8 @@ ships enabled upstream unless its `OperatorApiConfig` input is set.
 
 The Governance routes share the Calm Slate information hierarchy from
 [`mocks/ui/`](../mocks/ui/) while keeping their existing read contracts.
-Architecture keeps its specialized inventory canvas but now uses the same
-quiet hierarchy through a fixed orthographic 2D resource map.
+Architecture uses the same quiet hierarchy through a graph-first orthographic SVG workbench with
+adjacent inspection.
 
 - **Ontology** presents the structured catalog and operational instance projections as
   URL-addressable views. Objects uses a deterministic 2D one-hop neighborhood,
@@ -318,12 +318,13 @@ quiet hierarchy through a fixed orthographic 2D resource map.
 The **Governance > Architecture** panel renders the deployed inventory instance graph from
 `GET /inventory/graph`. It shows subscription and resource-group containment, VNet and
 subnet boundaries, resource status, and `attached_to` / `depends_on` links in one read-only
-2D canvas. Pan, zoom, filtering, selection, and deep links are local view operations only.
+SVG workbench. Pan, zoom, filtering, selection, and deep links are local view operations only.
 The console cannot add, move, resize, or delete resources.
-Before a resource is selected, the map canvas shows only a centered selection prompt, resource
-selector, scope selector, and presentation-mode control. Resources, relationships, map controls,
-and the relationship index remain hidden. Selecting a resource reveals the bounded map and shows
-its status, boundary, and direct relationships in the Inspector.
+The bounded scope overview is visible before selection. Selecting a Resource preserves the
+overview, emphasizes that node, reveals its direct auxiliary neighbors, and opens the nonmodal
+Inspector in the same frame.
+The Network lens keeps every returned VNet visible while Resource remains at **Scope overview**;
+selecting a Resource narrows only that presentation focus.
 
 Production responses merge the immutable reconciliation snapshot with the
 ordered real-time resource/link overlay. The toolbar shows pending real-time
@@ -336,74 +337,30 @@ default view rather than exposed as a duplicate service. Named service views use
 `fdai:service`, `service`, `application`, `app`, `workload`, or `azd-service-name` inventory
 tags. Missing or conflicting service values fall back to a resource-group view instead of being
 guessed into an application. Every view uses the same boundary-normalization pass before
-rendering, so a resource cannot appear outside its declared parent scope. The Map display
-disclosure provides relationship, label, and grid toggles, and the canvas includes Zoom in / out /
-Fit controls. The resource map has no perspective, reflection, orbit, or alternate camera mode.
+rendering, so a Resource cannot appear outside its declared parent scope.
 
-The `Network` presentation mode keeps the same authoritative response and switches to a bounded 2D
-focus over the selected VNet or the observed VNet with the most subnet containment. It rebuilds
-VNet and subnet geometry only from reported containment and bounded `attached_to` membership. The
-source and destination controls trace the shortest typed `attached_to`, `depends_on`, or
+The top toolbar owns registered scope, bounded Resource search, the `Topology | Network` lens,
+and compact read-only source state. A coverage strip keeps displayed and returned Resource and
+relationship counts distinct. The collapsible right Inspector provides Overview, Links, Network
+Path, and Sources views; it moves below the graph at constrained widths without losing state.
+
+The Topology and Network lenses share one accessible orthographic SVG primitive with pan, wheel
+zoom, Fit, full screen, roving keyboard focus, and 44 px mobile targets. Subscription, Resource
+Group, VNet, and Subnet records render as nested neutral boundaries. Known resource types use the
+same reviewed official Azure icons as the static compiler; unmapped types keep stable abbreviation
+fallbacks. Typed paths terminate at node and region boundaries and preserve endpoint and direction
+semantics without converting layout into evidence. Card, containment, placement, and hit-target
+geometry use the same dimensions, so dense revealed Resources cannot overlap or intercept an
+adjacent card's pointer target.
+
+The Network Path Inspector view traces the shortest reported `attached_to`, `depends_on`, or
 `peered_with` path. A fresh, complete graph can report `No observed path`; stale, partial,
-truncated, or relationship-incomplete evidence reports `Path unknown` instead. Layout order and
-resource names never become traffic or reachability evidence.
+truncated, or relationship-incomplete evidence reports `Path unknown`. Filters remain
+presentation-only. SVG and PNG export use one sanitized, identifier-free SVG source that retains
+snapshot time, freshness, completeness, resource-type labels, and
+`Read-only observed topology`.
 
-Known network resource types use the same reviewed official Azure SVG files as the static compiler;
-an unmapped type keeps the stable abbreviation fallback. Relationship paths terminate at node and
-region boundaries, use a neutral halo plus typed endpoint dot when nested boundaries reduce
-contrast, and keep mobile icon nodes and mode controls at a 44 px minimum target.
-The live map and downloaded report share an obstacle-aware orthogonal router. Peer VNet boundaries
-connect through a direct header corridor, dependency and peering arrowheads preserve direction, and
-the self-contained export embeds reviewed SVG source without fetching a local or remote icon URL.
-
-Network filters are presentation-only. SVG and PNG export use one sanitized, identifier-free SVG
-report that retains snapshot time, freshness, completeness, resource-type labels, and
-`Read-only observed topology`. The browser never exports raw provider ids, resource names,
-credentials, endpoints, or subscription ids.
-
-The canvas renders nested flat boundaries first, then resource footprints, connection paths,
-resource abbreviations, and labels. Dependency lines remain visually distinct without changing
-resource scale by depth or adding reflected surfaces.
-
-The map limits its visual grammar to four geometric primitives. Semantic variants change the
-proportions or stacking of those primitives without introducing a new silhouette for every
-Azure resource type:
-
-| Semantic role | Example resource types | Shape |
-|---------------|------------------------|-------|
-| Database | PostgreSQL, SQL Database | Circle |
-| Application runtime | App Service, Container Apps, Functions, AKS | Rectangle |
-| Gateway and L4 | Front Door, Application Gateway, Load Balancer | Wide rectangle |
-| Storage | Storage Account, object storage | Compact rectangle |
-| Queue and event bus | Event Hubs, Service Bus, queues, Kafka | Hexagon |
-| Secret and security | Key Vault, Firewall, NSG | Chamfered rectangle |
-
-Resource color and layer classification are separate contracts:
-
-- **Resource color**: every supported Azure resource type and alias maps to an explicit solid
-  token. The palette is derived from the dominant fills in the current
-  [Azure Architecture Icons](https://learn.microsoft.com/azure/architecture/icons/) and adjusted
-  only when a darker solid is required for Canvas contrast. It is described as Azure-aligned,
-  not as a replacement for or modification of the official SVG icons.
-- **Layer classification**: `Scope`, `Network`, `Security`, `Runtime`, `Data`, `Messaging`, and
-  `Observability` classify the operational role of resources without adding a second color
-  taxonomy.
-- **Visual redundancy**: color is paired with a shape and abbreviation. On wider canvases it is
-  also paired with a service label, while pointer selection exposes inspector metadata. The map
-  does not rely on color alone to distinguish resource types.
-
-On wider canvases, the in-canvas resource-color legend lists only the service tokens present in
-the selected architecture view. Event Hubs, databases, and Storage therefore retain distinct
-green, blue, and teal identities even though all three participate in data movement. Narrow
-canvases omit this secondary legend and use the resource picker, labels, and Inspector instead.
-
-The local FDAI view includes an Event Hubs node in the `web-api -> event-hub -> event-worker`
-flow so every primitive is visible during development. Flat bodies use a quiet outline, and the
-selected resource uses a stronger complete outline as an interaction cue. On narrow canvases,
-the map keeps resource abbreviations but suppresses long labels to prevent overlap; selecting a
-resource still exposes its full name in the Inspector.
-
-The same canvas is reused by **Safety > Impact scope** in a context mode that highlights
+The same SVG primitive is reused by **Safety > Impact scope** in a context mode that highlights
 the target and reached resources while dimming the rest. Live activity scopes and rule
 detected issues deep-link into the full Architecture panel when they carry a resource reference.
 

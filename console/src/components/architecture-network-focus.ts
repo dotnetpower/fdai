@@ -18,6 +18,10 @@ import {
   type ArchitectureNetworkRouteBox,
 } from "./architecture-network-route";
 import { architectureSubnetMembership } from "./architecture-network-layout";
+import {
+  ARCHITECTURE_TOPOLOGY_COLUMN_PITCH,
+  ARCHITECTURE_TOPOLOGY_ROW_PITCH,
+} from "./architecture-topology-dimensions";
 
 const VNET_TYPES = new Set(["virtual-network", "network.vnet"]);
 const SUBNET_TYPES = new Set(["subnet", "network.subnet"]);
@@ -44,22 +48,6 @@ export const DEFAULT_ARCHITECTURE_NETWORK_FILTERS: ArchitectureNetworkFilters = 
   dns: true,
   privateEndpoints: true,
 };
-
-/** Chooses the observed VNet with the most contained subnets, then stable name order. */
-export function defaultArchitectureNetworkFocusId(
-  graph: Pick<InventoryGraphResponse, "links" | "resources">,
-): string | null {
-  const candidates = graph.resources.filter((resource) => VNET_TYPES.has(resource.type));
-  const subnetIds = new Set(
-    graph.resources.filter((resource) => SUBNET_TYPES.has(resource.type)).map((resource) => resource.id),
-  );
-  const score = (resourceId: string) => graph.links.filter(
-    (link) => link.type === "contains" && link.source === resourceId && subnetIds.has(link.target),
-  ).length;
-  return [...candidates].sort(
-    (first, second) => score(second.id) - score(first.id) || first.name.localeCompare(second.name),
-  )[0]?.id ?? null;
-}
 
 export interface ArchitectureNetworkPathHop {
   readonly source: string;
@@ -208,7 +196,13 @@ export function layoutArchitectureNetworkFocusGraph(
       );
       const columns = Math.min(3, Math.max(1, Math.ceil(Math.sqrt(Math.max(1, members.length)))));
       const rows = Math.max(1, Math.ceil(members.length / columns));
-      return { subnet, members, columns, width: Math.max(5.2, columns * 2.2 + 1), height: Math.max(3.2, rows * 1.7 + 1.4) };
+      return {
+        subnet,
+        members,
+        columns,
+        width: Math.max(5.2, columns * ARCHITECTURE_TOPOLOGY_COLUMN_PITCH + .8),
+        height: Math.max(3.2, rows * ARCHITECTURE_TOPOLOGY_ROW_PITCH + 1.2),
+      };
     });
     const subnetColumns = Math.min(2, Math.max(1, Math.ceil(Math.sqrt(Math.max(1, subnetPlans.length)))));
     const columnWidth = Math.max(4.4, ...subnetPlans.map((plan) => plan.width));
@@ -235,8 +229,10 @@ export function layoutArchitectureNetworkFocusGraph(
         updates.set(resource.id, {
           ...resource,
           network_plane_id: plan.subnet.id,
-          x: subnetX + 1.3 + memberColumn * 2.8,
-          y: subnetY + 1.35 + memberRow * 1.9,
+          x: subnetX + .4 + ARCHITECTURE_TOPOLOGY_COLUMN_PITCH / 2
+            + memberColumn * ARCHITECTURE_TOPOLOGY_COLUMN_PITCH,
+          y: subnetY + .8 + ARCHITECTURE_TOPOLOGY_ROW_PITCH / 2
+            + memberRow * ARCHITECTURE_TOPOLOGY_ROW_PITCH,
         });
       });
     });
@@ -250,12 +246,14 @@ export function layoutArchitectureNetworkFocusGraph(
   unplaced.forEach((resource, index) => {
     updates.set(resource.id, {
       ...resource,
-      x: 1.8 + (index % 5) * 2.2,
-      y: networkBottom + 1.2 + Math.floor(index / 5) * 1.7,
+      x: 1.8 + (index % 5) * ARCHITECTURE_TOPOLOGY_COLUMN_PITCH,
+      y: networkBottom + 1.2 + Math.floor(index / 5) * ARCHITECTURE_TOPOLOGY_ROW_PITCH,
     });
   });
   const contentRight = Math.max(7, networkX - networkGap + .4);
-  const contentBottom = networkBottom + (unplaced.length ? 2 + Math.ceil(unplaced.length / 5) * 1.25 : .6);
+  const contentBottom = networkBottom + (unplaced.length
+    ? 1.8 + Math.ceil(unplaced.length / 5) * ARCHITECTURE_TOPOLOGY_ROW_PITCH
+    : .6);
   const groups = graph.resources.filter((resource) => resource.type === "resource-group");
   for (const group of groups) {
     updates.set(group.id, { ...group, x: .7, y: .6, w: contentRight, h: contentBottom });

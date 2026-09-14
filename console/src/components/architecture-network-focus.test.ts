@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_ARCHITECTURE_NETWORK_FILTERS,
   architectureNetworkFocusGraph,
-  defaultArchitectureNetworkFocusId,
   exportArchitectureNetworkSvg,
   filterArchitectureNetworkGraph,
   layoutArchitectureNetworkFocusGraph,
@@ -42,8 +41,19 @@ const GRAPH: InventoryGraphResponse = {
 };
 
 describe("observed network focus", () => {
-  it("selects the VNet with the most observed subnet containment", () => {
-    expect(defaultArchitectureNetworkFocusId(GRAPH)).toBe("vnet");
+  it("keeps every returned VNet visible for the scope overview", () => {
+    const secondary = {
+      id: "vnet-secondary",
+      type: "network.vnet",
+      name: "Secondary",
+      status: "healthy",
+      parent_id: "rg-b",
+    };
+    const graph = { ...GRAPH, resources: [...GRAPH.resources, secondary] };
+
+    expect(architectureNetworkFocusGraph(graph, null)).toBe(graph);
+    expect(layoutArchitectureNetworkFocusGraph(graph).resources.map((resource) => resource.id))
+      .toContain("vnet-secondary");
   });
 
   it("focuses one VNet while retaining only required ancestors and linked resources", () => {

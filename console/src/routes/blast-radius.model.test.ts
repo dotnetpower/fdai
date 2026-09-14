@@ -2,9 +2,8 @@ import { describe, expect, test } from "vitest";
 import { OperatorApiError } from "../api";
 import {
   blastRadiusFailure,
-  inventoryGraphContainsImpact,
-  inventoryGraphContainsImpactTarget,
   inventoryGraphMatchesImpact,
+  missingImpactResourceIds,
 } from "./blast-radius";
 import {
   decodeBlastRadiusResponse,
@@ -131,49 +130,18 @@ describe("blast-radius route query", () => {
       source_generation: "generation-1",
       source_cutoff: "2026-03-03T00:00:00Z",
     })).toBe(false);
-    expect(inventoryGraphContainsImpactTarget({
-      resources: [{
-        id: "root",
-        type: "compute.container-app",
-        name: "Root",
-        status: "Ready",
-      }],
-    }, "root")).toBe(true);
-    expect(inventoryGraphContainsImpactTarget({
-      resources: [{
-        id: "other",
-        type: "compute.container-app",
-        name: "Other",
-        status: "Ready",
-      }],
-    }, "root")).toBe(false);
-    const graph = {
-      resources: [
-        { id: "root", type: "compute.container-app", name: "Root", status: "Ready" },
-        { id: "child", type: "compute.container-app", name: "Child", status: "Ready" },
-      ],
-      links: [{ source: "root", target: "child", type: "runtime_calls" as const }],
-    };
-    const impactGraph = {
+  });
+
+  test("rejects an impact map projection that omits reached Resources", () => {
+    expect(missingImpactResourceIds({
+      resources: [{ id: "root", type: "compute.vm", name: "Root", status: "healthy" }],
+    }, {
       target: "root",
       reached: [
         { resource_id: "root", depth: 0, via_link_type: null },
-        { resource_id: "child", depth: 1, via_link_type: "runtime_calls" },
+        { resource_id: "outside", depth: 1, via_link_type: "depends_on" },
       ],
-      edges: [{
-        source: "root",
-        target: "child",
-        link_type: "runtime_calls",
-        depth: 1,
-        verification_status: "verified" as const,
-        evidence: null,
-      }],
-    };
-    expect(inventoryGraphContainsImpact(graph, impactGraph)).toBe(true);
-    expect(inventoryGraphContainsImpact(
-      { ...graph, links: [] },
-      impactGraph,
-    )).toBe(false);
+    })).toEqual(["outside"]);
   });
 
   test("decodes an exact-release no-authority impact projection", () => {

@@ -598,67 +598,54 @@ After that schedule is exhausted, the surface offers access-check retry and sign
 
 ## Architecture-map resilience
 
-The Architecture route keeps only scope selection in the compact panel that floats over the map's upper-right corner. It omits inventory counts, explanatory copy, and layer filters. The panel is absent when the projection registers no selectable scope. Before a resource is selected, Resource map mode renders no resources, relationships, map controls, legend, or relationship index; the resource selector, available scope selector, presentation-mode control, and centered selection prompt remain available. Selecting a resource reveals the bounded map and its inspection controls. A truncated graph uses one short status badge. The resource-color legend is drawn directly on the 2D canvas beside the subscription boundary, not in a floating or bottom panel. Map fitting reserves horizontal space for it. Resource type names appear without a fixed legend box, title, or color swatches. The names move with pan and scale with map zoom inside bounded readable sizes. A narrow canvas omits this secondary color legend and gives the resource map the complete width; abbreviations, labels, selection details, and the relationship index preserve equivalent identification.
-Resource glyphs use the Microsoft Cloud Adoption Framework [Azure resource abbreviations](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations). Every known canonical type has an explicit lowercase abbreviation; Kubernetes API types use the runtime layer, AKS color family, and stable extensions instead of generated initialisms. A focused check walks the catalog vocabulary and fails when a declared ResourceClass has no layer, colour, and abbreviation, because the map would otherwise keep drawing while silently collapsing that type into the generic fallback. The `llm-model-deployment` child uses the runtime layer, the existing Azure application-service color family, and the stable `model` abbreviation, while its parent remains `llm-endpoint`.
-The relationship legend remains the compact canvas control. The Resource map uses one fixed orthographic 2D projection with Connections enabled. It shows containment as subtle dashed links, shows attachment and dependency links with their directional styles, and renders each resource as a flat shape with color and abbreviation redundancy. It provides no perspective scaling, reflected surfaces, camera orbit, or alternate camera views. Simple projections size every resource-group panel, including a single selected scope, from its observed child count and pack those panels into a balanced world. Focused service and resource-group views fit that repacked content instead of the full subscription frame. A resource node never renders smaller than the standard Event Grid topic block. The world and canvas grow with inventory while authored nested layouts keep their supplied geometry. The map uses the full workspace width and places inspection details below it. Narrow viewports preserve a readable minimum scale and use map panning instead of shrinking boxes into unreadable marks. Selection updates the canonical deep link without reloading inventory and exposes directional relationships before technical identifiers. Selection preserves every common resource coordinate while auxiliary neighbors appear. It does not dim unrelated resources; selection uses the chosen outline and inspection details only. Every resource selection preserves the current map scale and position, including virtual machines. Zoom, fit, and pan remain explicit operator actions.
+The Architecture route uses one graph-first workbench modeled on the Ontology Instances
+presentation. Its top toolbar contains only registered scope selection, bounded Resource search,
+the `Topology | Network` lens, and a compact read-only source state. Scope selection reloads the
+authoritative projection. Resource search selects only a record already returned by that
+projection and never presents a bounded page as a complete tenant search.
 
-The separate `Network` mode keeps the complete inventory response authoritative and uses its own bounded 2D focus. It chooses the selected VNet, or the observed VNet with the most contained subnets when no resource is selected. VNet and subnet rectangles are rebuilt from typed `contains` links, and resource placement uses only the bounded unique-subnet attachment rule below. Six category filters, selection, and path highlighting change presentation only.
+Topology is visible before selection. The deterministic presentation collapses provider helpers
+while keeping every returned count in a separate coverage strip. The strip distinguishes displayed
+and returned Resources and relationships, snapshot time, freshness, and complete or partial
+coverage. Selecting a Resource preserves common coordinates, reveals direct auxiliary neighbors,
+updates the canonical deep link, and opens a nonmodal Inspector without changing inventory.
 
-A source-to-destination query walks only reported `attached_to`, stored-direction `depends_on`, and symmetric `peered_with` relationships. It returns `no_observed_path` only when the graph is fresh, not truncated, and declares complete coverage for all three relationship kinds. Every other negative result is `unknown`. The identifier-free export keeps snapshot time, freshness, completeness, and resource-type labels while omitting names, raw provider ids, subscription ids, endpoints, and credentials. SVG and PNG use the same sanitized SVG source.
+The workbench uses one accessible orthographic SVG for Topology, Network, and the Impact scope map.
+Subscription, Resource Group, VNet, and Subnet records render as nested neutral boundaries.
+Resources use reviewed official icons where available and stable Cloud Adoption Framework
+abbreviations otherwise. Compact text, accessible names, search, and Inspector content preserve
+name, type, and state without relying on color. Typed edges terminate on current node or boundary
+geometry. Containment remains spatial; `attached_to`, `depends_on`, and `peered_with` retain
+distinct paths, endpoint dots, and direction markers.
 
-The factual counts and inspection index continue to use the complete authoritative inventory. The
-2D overview applies a presentation-only projection that keeps network interfaces and managed
-disks visible while collapsing diagnostics, certificates, and provider helper resources.
-Each visible owner shows a `+N` badge for its collapsed neighbors. Selecting a resource reveals its
-direct auxiliary children and semantic neighbors without requesting or inventing new inventory.
-The overview packs only visible resources, orders children by layer and type, reserves up to two
-satellite slots beside a collapsed owner, and places larger resource-group panels first in wide
-rows. Hidden auxiliaries therefore do not create empty grid holes or inflate the world.
-Virtual networks and subnets render as nested flat planes so compute, data, and gateway nodes remain
-readable inside the network boundary. Azure inventory promotes
-only subnets observed inside a VNet payload into `network.subnet` records and emits the observed
-VNet-to-subnet containment edge. The console assigns a resource to a subnet only when registered
-`attached_to` links reach one unique subnet within the bounded resource-to-interface-to-subnet
-chain, or a disk reaches it through the bounded disk-to-workload-to-interface-to-subnet chain.
-Missing or ambiguous membership leaves the resource on the neutral resource-group floor;
-names and provider identifiers never become topology evidence.
+The right Inspector is collapsible and stays in the same workbench. Overview owns the selected
+state and impact-scope drill-down. Links owns exact incoming and outgoing direct relationships.
+Path owns Network source and destination, evidence result, filters, and sanitized export. Sources
+owns snapshot, freshness, displayed and returned counts, completeness, reported relationship
+types, and technical identifiers. At constrained widths the Inspector moves below the graph
+without discarding selection, tab, scale, or path state.
 
-The resource-map renderer draws a VNet as an outer plane and its subnets as inset planes sized
-from their visible members. Evidence-derived membership rails and direct `attached_to` links stay
-on the same 2D plane, while `depends_on` arrows retain their distinct directional style. Plane
-names follow the world axis without a floating label card. Selecting a plane uses the same resource inspector and the
-smallest containing plane remains the pointer target. A focused service or resource-group view
-uses a wide packing target so three network planes share one row when they fit. It also uses a
-smaller desktop legend reserve and canvas height than the complete inventory view. Narrow
-viewports keep a readable minimum node scale, cap the canvas at 520 px, and expose the wider plane through
-panning.
+The Network lens keeps the complete `InventoryGraphResponse` authoritative. With **Scope
+overview** selected, it presents every returned VNet and bounded Resource; selecting a Resource
+derives one bounded presentation focus and records that selection in route state. Path tracing
+walks only reported `attached_to`, stored-direction `depends_on`, and symmetric `peered_with`
+relationships. It returns `no_observed_path` only for fresh, complete relationship coverage; every
+incomplete negative result stays `unknown`. Filters and highlighting change only presentation.
+SVG and PNG exports retain sanitized provenance and omit names, raw provider ids, subscription
+ids, endpoints, and credentials.
 
-Within a subnet, visible path participants form observed `attached_to` components and stay contiguous from network edge to storage: public IP and security, interface, workload, then disk and data. This is layout order, not inferred traffic direction. Each component uses an ordered lane; overlapping intra-subnet edges share a planar spine, and only cross-plane attachments keep a direct route. Workloads render larger than supporting resources. Glyphs replace secondary labels at dense overview scales; selection and focused views restore full resource names, types, and the ordinary subnet label policy.
-The orthographic projection keeps equal world distances at equal screen scale and ignores resource
-height, so near and far resources remain comparable. Zoom supports deep inspection up to 512x
-scale, zooms around the pointer, and lets content-driven worlds grow without a fixed canvas-height
-ceiling. Fit centers a compact 2D world. When a content-driven desktop canvas is substantially
-taller than its projected world, Fit anchors the world's upper bound in the first visible frame
-instead of centering it below the fold. Fit remains the explicit way to restore the complete frame.
-Left-button and middle-button drag both pan the 2D world. The right button keeps its browser
-behavior. Drag input uses the same animation-frame coalescing and defers labels only while the
-pointer is moving.
+The SVG viewport owns pan, wheel zoom, Fit, full screen, keyboard node navigation, and a compact
+relationship legend. Shared card geometry drives placement, containment, routing, and nonoverlapping
+hit regions; visual cards render above their expanded pointer targets so an adjacent target cannot
+steal a card click. Mobile controls and node hit regions are at least 44 px. The viewport remains
+bounded and pannable rather than shrinking text below a readable scale. The Resource search and
+Inspector provide equivalent non-gesture access. Reduced motion and forced colors preserve
+operation and meaning.
 
-Labels avoid collisions, fit long names, and pair each resource name with its plain resource type.
-The compact acronym on the block is a secondary cue, not the only way to identify the resource.
-Labels scale from 13 px to 20 px as the operator zooms; the selected label may reach 22 px. Zoom
-steps are reciprocal, colors follow the console theme, and a keyboard-accessible resource and
-relationship index is equivalent to the filtered canvas. Pointer targets are at least 44 px and
-include containment boundaries. The selected label is the final canvas overlay so no block glyph,
-relationship, or neighboring label can cover it. Truncated snapshots show an explicit
-partial-inventory notice. The canvas renders containment as subdued dashed center-to-center edges.
-Semantic relationships use directional node-to-node arrows on the same 2D plane and do
-not connect resource-group regions as operational endpoints. Drag input coalesces to one draw per
-animation frame and omits labels only while the pointer is moving; pointer release restores the
-labels. The local projection shows only registered relationship types
-whose selected endpoint ids and resource types agree. It drops malformed or over-limit vendor
-relationships, marks the snapshot truncated, and keeps the last complete resource graph rather
-than rendering an untrusted edge. Compact evidence details, trace identities, raw timestamps, and status facts use the shared pointer- and keyboard-accessible Tooltip instead of browser-native `title` bubbles. Component `title` props remain limited to APIs that render a visible heading, and bilingual relationship labels include both `calls` and `calledBy` directions without changing the stored edge.
+The Impact scope map requests an unscoped graph projection at the simulation snapshot and compares
+every target and reached Resource identity before rendering. A snapshot mismatch or any omitted
+impact identity produces an explicit unavailable map instead of understating the affected
+topology. The simulation result and table remain the authoritative impact record.
 
 A subscription-scoped cached snapshot renders immediately. Expired or change-invalidated snapshots
 are marked stale while a background refresh runs. The browser polls only until the Operator API

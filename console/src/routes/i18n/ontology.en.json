@@ -790,9 +790,8 @@
     "mapUnavailable": "Map unavailable: {message}",
     "mapLoading": "Loading architecture map...",
     "mapSnapshotMismatch": "the architecture map uses a different inventory snapshot",
-    "mapTargetMissing": "the architecture map does not contain the selected impact target",
-    "mapImpactIncomplete": "the architecture map omits one or more affected resources or relationships",
     "mapPayloadInvalid": "the architecture map response is malformed",
+    "mapCoverageIncomplete": "the architecture projection omits {count} affected Resource(s)",
     "openArchitecture": "Open full architecture"
   }
 }

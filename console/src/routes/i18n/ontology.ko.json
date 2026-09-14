@@ -790,9 +790,8 @@
     "mapUnavailable": "지도를 사용할 수 없음: {message}",
     "mapLoading": "아키텍처 지도를 불러오는 중...",
     "mapSnapshotMismatch": "아키텍처 지도가 다른 인벤토리 스냅샷을 사용합니다",
-    "mapTargetMissing": "아키텍처 지도에 선택한 영향 대상이 없습니다",
-    "mapImpactIncomplete": "아키텍처 지도에서 하나 이상의 영향받는 리소스 또는 관계가 누락되었습니다",
     "mapPayloadInvalid": "아키텍처 지도 응답의 형식이 잘못되었습니다",
+    "mapCoverageIncomplete": "아키텍처 프로젝션에 영향받는 Resource {count}개가 포함되지 않았습니다",
     "openArchitecture": "전체 아키텍처 열기"
   }
 }

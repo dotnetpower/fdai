@@ -34,7 +34,7 @@ fallback.
 |------|-------|----------|-------|
 | Shared network vocabulary and authored schema | implemented | `packages/network-topology-contracts`; network schema and validation; focused package and compiler tests | The dependency-free vocabulary is shared, while authored `expected` posture and observed evidence rules remain separate. |
 | Network reference layout and Azure icon coverage | implemented | `layout/elk.ts`; reviewed icon mapping and 14 digest-locked official Azure SVGs; canonical bilingual fixture | The network profile adds compact compound layout without changing existing deployment layout behavior. Unknown resource types remain unmapped. |
-| Console 2D resource map, network focus, path tracing, and export | implemented | `architecture-map*.ts*`; `architecture-network-{focus,map,tools,icons}.ts*`; route integration; focused Console and three-viewport checks | Both modes consume the existing authoritative inventory response. The resource map uses a fixed orthographic projection, and Network uses reviewed official icons when mapped, traces only typed relationships, and exports one identifier-free SVG source as SVG or PNG. |
+| Console SVG workbench, network focus, path tracing, and export | implemented | `architecture-{workbench,topology-graph}.*`; `architecture-network-{focus,path-layout,path-panel,icons}.ts*`; route integration; focused Console and four-viewport checks | Topology, Network, and Impact scope consume authoritative read projections through one accessible orthographic SVG. Network traces only typed relationships and exports one identifier-free SVG source as SVG or PNG. |
 | Console Ontology Instances network context | implemented | `ontology-instance-graph.{model.ts,tsx}`; `ontology-instance-resource-icons.ts`; focused tests; Console typecheck and production build; authenticated three-viewport checks | The selected branch presents VNet, Subnet, Private Endpoint, and NIC hierarchy without expanding a peer VNet branch. Reciprocal peering shares one occurrence while retaining both stored records. Observed `runtime_calls` links are a first-class Inspector group and remain visible in the default dense legend. Wheel zoom, native full screen, empty-canvas pan, and a collapsible Inspector preserve the graph workspace. |
 | Integrity, accessibility, and visual regression | implemented | static compiler tests (`107 passed`); exact `1600x900` artifact check; sequential three-viewport Playwright (`1 passed`) | Synthetic browser evidence proves presentation mechanics only. No governed runtime validation is claimed. |
 
@@ -42,7 +42,9 @@ fallback.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Rebased explicit `runtime_calls` direction labels onto the graph-first SVG workbench. The current Inspector reads `Calls` at the stored source and `Called by` at the stored target; the removed legacy relationship index is not restored. | `current change`; graph-first Architecture integration, bilingual route catalogs, Inspector label tests, typecheck, and production build. | Retain governed exact-source runtime-call evidence before changing the Console scope to `validated`. |
 | 2026-09-15 | implemented | Added explicit stored-direction `runtime_calls` labels to the Architecture relationship index and Inspector. The source reads `Calls ->` or `Calls`, and the target reads `Called by`; presentation never reverses the recorded edge. | `current change`; Architecture route catalogs, relationship index and Inspector helpers, focused localization and relationship-label tests, typecheck, and production build. | Retain governed exact-source runtime-call evidence before changing the Console scope to `validated`. |
+| 2026-09-14 | implemented | Replaced the separate Canvas resource map and Network composition with one graph-first SVG workbench. Scope overview, Resource search, coverage, collapsible Inspector, Network path controls, responsive reflow, and the Impact scope map now share one presentation primitive without changing inventory or path evidence. | `current change`; shared topology graph, Architecture workbench, Network path panel, Blast Radius integration, focused Vitest (`158 passed`), typecheck, production build and entry budget, and synthetic Playwright (`5 passed`) at `1440x900`, `993x641`, `390x844`, and `320x844`, including Korean adaptive preferences and Impact scope. | Retain governed exact-source desktop and mobile Console evidence before changing the Console scope to `validated`. |
 | 2026-09-14 | implemented | Replaced the resource map's isometric depth, reflections, orbit, and camera presets with one fixed orthographic 2D projection. The map keeps typed relationships, shape, color, abbreviation, selection, pan, zoom, fit, and deep links; narrow canvases preserve node scale, hide the secondary color legend, and use panning. | `current change`; Architecture map model, geometry, renderer, controller, Inspector, route, localization, and responsive Playwright paths; focused Console tests (`163 passed`), typecheck, and production build; synthetic sequential `1440x900`, `993x641`, and `390x844` checks. | Retain governed exact-source desktop and mobile Console evidence before changing the Console scope to `validated`. |
 | 2026-09-10 | implemented | Added explicit layer, color, and abbreviation mappings for PVC, PV, StorageClass, HPA, PDB, NetworkPolicy, ResourceQuota, and LimitRange. | `current change`; complete canonical ResourceType visual-mapping test and full Console test surface. | Preserve governed exact-source visual evidence before raising the Console scope to `validated`. |
 | 2026-09-04 | implemented | Promoted observed `runtime_calls` relationships from a generic direct edge to a first-class runtime group in the Ontology Instances Inspector and default dense legend. The screen-context projection also preserves these verified links for grounded follow-up without changing relationship direction or authority. | `current change`; focused ontology instance model and view checks, Console typecheck, and production build. | Retain governed exact-source runtime-call and responsive Console evidence before claiming runtime validation. |
@@ -60,6 +62,8 @@ fallback.
 - [x] Render an observed Console VNet focus at desktop, constrained desktop, and
   mobile widths with source-to-destination path highlighting and no inferred reachability claim.
 - [x] Export accessible SVG and PNG artifacts whose provenance and evidence posture remain visible.
+- [x] Present Topology, Network, and Impact scope through one accessible orthographic SVG workbench
+  with adjacent inspection and no legacy Canvas consumer.
 - [ ] Retain governed exact-source desktop and mobile Console evidence before claiming runtime
   validation.
 
@@ -149,7 +153,8 @@ serialized back as inventory. The mode is a presentation projection, not a secon
 2. The 2D top view retains observed containment, `attached_to`, `depends_on`, and `peered_with`
    links. It doesn't convert layout order, resource names, or provider identifiers into traffic.
 3. The focus view expands observed VNet and subnet boundaries and keeps unrelated subscription
-   content outside the frame. The complete factual count and relationship index remain available.
+   content outside the frame. Complete returned counts and exact selected relationships remain
+   available in the coverage strip and Inspector.
 4. A source and destination selector traces the shortest typed relationship path. Each hop shows
   its recorded relationship kind and evidence posture. The presentation result is `found`,
   `no_observed_path`, or `unknown`. A truncated, partial, stale, or relationship-incomplete graph
@@ -169,9 +174,9 @@ endpoint, public IP, route table, NSG, load balancer, network interface, and vir
 
 The static compiler maps known provider resource types to those icon ids. An unknown type stays a
 text card or stable abbreviation and never borrows a similar Azure product icon. The Console uses
-the same reviewed icon files in Network mode and falls back to its stable abbreviation only for an
-unmapped type. Its orthographic resource map keeps shape, color, and abbreviation redundancy
-without depth or reflections.
+the same reviewed icon files in Topology, Network, and Impact scope and falls back to its stable
+abbreviation only for an unmapped type. Neutral node surfaces, visible names, accessible type and
+state labels, and the Inspector keep meaning independent of icon or color.
 
 ## Layout and integrity
 
@@ -202,14 +207,18 @@ Static diagrams retain accessible SVG, localized alt text, node focus, connected
 pan, zoom, overview, fullscreen, and download. Network connections expose their kind, direction,
 traffic class, policy, protocol, port, and evidence posture in the detail panel.
 
-The Console provides DOM controls equivalent to every Canvas-only operation: focus selection,
-source and destination selection, path result, filters, relationship list, fit, and export. Export
+The Console SVG workbench provides bounded Resource search, roving node focus, exact direct
+relationships, source and destination selection, path result, filters, Fit, full screen, and
+export. Export
 creates a sanitized SVG snapshot and optional PNG from the current focus. It embeds no credential,
 subscription id, raw provider resource id, endpoint, or customer-specific value. Live exports show
 snapshot time, source, freshness, scope, truncation, and `Read-only observed topology`.
 Observed links terminate on node and region boundaries rather than at visual centers. A neutral
 halo and typed endpoint dot keep short containment attachments visible across nested boundaries,
-and mobile icon nodes expose at least a 44 px pointer and keyboard target.
+and mobile icon nodes expose at least a 44 px pointer and keyboard target. Layout pitches reserve
+the complete hit-target extent, and pointer targets render behind visible cards so adjacent nodes
+cannot overlap or steal card clicks. The Inspector moves below the graph at constrained widths
+without losing selection, tab, scale, filter, or path state.
 The live map and sanitized export share one obstacle-aware orthogonal router. Peer VNet boundaries
 use a direct header corridor instead of detouring around their child nodes. Dependencies keep a
 forward arrow, peering keeps arrows at both ends, and attachment links keep an endpoint dot. Export
