@@ -101,6 +101,9 @@ async def test_runs_all_due_sources_and_publishes_after_terminal_state() -> None
     assert [item.status.value for item in publisher.items].count("completed") == 2
     saved = await store.read_state("observation-campaign:source:activity-log")
     assert saved is not None and saved["cursor"] == "cursor-1"
+    audit_entries = [row["entry"] for row in store.audit_entries]
+    assert {entry["actor"] for entry in audit_entries} == {"fdai.delivery.observation_campaign"}
+    assert {entry["owner_agent"] for entry in audit_entries} == {"Huginn", "Heimdall"}
 
 
 async def test_isolates_permission_denial_and_reports_partial() -> None:
@@ -129,6 +132,64 @@ async def test_isolates_permission_denial_and_reports_partial() -> None:
     assert summary.sources[0].coverage is ObservationCoverage.UNAUTHORIZED
     assert summary.sources[1].coverage is ObservationCoverage.READY
     assert summary.sources[0].reason_codes == ("source_unauthorized",)
+
+
+async def test_transition_audit_uses_configured_metrics_owner() -> None:
+    store = InMemoryStateStore()
+    runner = ObservationCampaignRunner(
+        sources=(_source("capacity-metrics", ObservationDomain.METRICS, "Freyr"),),
+        probes={
+            "capacity-metrics": Probe(
+                ObservationProbeResult(
+                    coverage=ObservationCoverage.READY,
+                    evidence_count=1,
+                )
+            ),
+        },
+        store=store,
+        publisher=RecordingPublisher(),
+    )
+
+    await runner.run("campaign-capacity")
+
+    audit_entries = [row["entry"] for row in store.audit_entries]
+    assert {entry["owner_agent"] for entry in audit_entries} == {"Freyr"}
+
+
+async def test_ownerless_custom_state_is_refreshed_before_skip() -> None:
+    now = datetime(2026, 8, 14, tzinfo=UTC)
+    store = InMemoryStateStore()
+    await store.write_state(
+        "observation-campaign:source:capacity-metrics",
+        {
+            "revision": 1,
+            "source_id": "capacity-metrics",
+            "domain": "metrics",
+            "campaign_id": "earlier",
+            "status": "completed",
+            "coverage": "ready",
+            "freshness": "fresh",
+            "evidence_count": 1,
+            "duration_ms": 10,
+            "reason_codes": [],
+            "started_at": (now - timedelta(seconds=1)).isoformat(),
+            "completed_at": now.isoformat(),
+        },
+    )
+    probe = Probe(ObservationProbeResult(coverage=ObservationCoverage.READY, evidence_count=2))
+    runner = ObservationCampaignRunner(
+        sources=(_source("capacity-metrics", ObservationDomain.METRICS, "Freyr"),),
+        probes={"capacity-metrics": probe},
+        store=store,
+        publisher=RecordingPublisher(),
+        clock=lambda: now,
+    )
+
+    await runner.run("campaign-capacity-refresh")
+
+    assert probe.calls == [None]
+    refreshed = await store.read_state("observation-campaign:source:capacity-metrics")
+    assert refreshed is not None and refreshed["owner_agent"] == "Freyr"
 
 
 async def test_normalizes_throttling_as_expected_partial_coverage() -> None:

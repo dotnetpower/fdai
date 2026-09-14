@@ -27,9 +27,9 @@ in [architecture.instructions.md](../../../.github/instructions/architecture.ins
 - **Agent-driven, ontology-constrained.** Agents own every state transition. The ontology validates
   target identity, relationships, evidence freshness, allowed actions, and expected effects, but a
   graph result never judges, approves, executes, or raises authority.
-- **Closed-loop operation.** Every accepted signal follows accountable ownership through observe,
-  understand, decide, plan, authorize, execute, verify, recover, and learn. Broker acceptance or an
-  API success is not an operational outcome; independent observation closes the loop.
+- **Closed-loop operation.** Every accepted signal follows accountable ownership through observe, understand, decide, plan, authorize, execute, verify, recover, and learn. Broker acceptance or an API success is not an operational outcome; independent observation closes the loop.
+  Operational attribution grants no execution authority: audit and activity records preserve the mechanical `actor`, name the accountable Pantheon role in `owner_agent`, and use `producer_principal` only for an authenticated event-bus publisher.
+  A projection can expose those identities but cannot infer ownership, authorship, or authority from a service name.
 - **Autonomy before escalation.** Missing evidence triggers bounded reacquisition, alternate-source
   checks, deterministic reevaluation, smaller safe plans, no-op, or rollback before human review.
   Var requests a person only for residual ambiguity, policy-mandated approval, or risk outside

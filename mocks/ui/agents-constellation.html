@@ -3,23 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Org - FDAI Console</title>
+  <title>Roles and ownership - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
-  <link rel="stylesheet" href="assets/agents-preview-workspace.css?v=2" />
-  <script src="assets/calm-slate.js?v=operator-workspaces-v2" defer></script>
-  <script src="assets/agents-preview-data.js?v=2" defer></script>
-  <script src="assets/agents-preview-org.js?v=2" defer></script>
   <link rel="stylesheet" href="assets/operator-workspace.css?v=4" />
+  <link rel="stylesheet" href="assets/agents-preview-workspace.css?v=15" />
+  <script src="assets/calm-slate.js?v=agent-roles-v3" defer></script>
+  <script src="assets/agents-preview-data.js?v=3" defer></script>
+  <script src="assets/agents-preview-org.js?v=13" defer></script>
 </head>
 <body class="cs-operator-neutral agents-preview" data-chat-theme="clear-neutral">
   <main class="cs-container cs-page">
     <nav class="cs-subnav" aria-label="Agent views">
       <a href="agents.html">Fleet</a>
-      <a href="agents-constellation.html" class="cs-active" aria-current="page">Org</a>
       <a href="agent-activity.html">Activity</a>
+      <a href="agents-constellation.html" class="cs-active" aria-current="page">Roles and ownership</a>
     </nav>
     <header class="ap-heading">
-      <div><h1>Org</h1><p>Fixed reporting lines, agent focus, and incident collaboration.</p></div>
+      <div><h1>Roles and ownership</h1><p>Fixed accountability, reporting lines, and owned object types. Runtime state is supporting context only.</p></div>
       <span class="ap-badge">Synthetic preview</span>
     </header>
     <section class="ap-source" aria-label="Preview evidence source">
@@ -42,17 +42,11 @@
     <div class="ap-org-workspace" id="orgWorkspace">
       <section class="ap-org" aria-labelledby="orgTitle">
         <header class="ap-section-head"><h2 id="orgTitle">Reporting hierarchy</h2><a class="ap-focus-shortcut" href="#agentFocus">Agent focus</a></header>
-        <div id="orgTree"></div>
-        <p class="ap-meta">Select a named button with a pointer, Tab + Enter, or arrow keys. "In selected incident" marks participation, not health.</p>
+        <div id="orgTree" class="ap-org-tree"></div>
+        <p class="ap-meta">Select a named node with a pointer, Tab + Enter, or arrow keys. Solid reporting lines show accountability; dashed lines identify staff relationships.</p>
       </section>
       <aside class="ap-org-evidence">
         <section id="agentFocus" class="ap-focus" aria-label="Selected agent" tabindex="-1"></section>
-        <section class="ap-incidents" aria-labelledby="incidentsTitle">
-          <header class="ap-section-head"><h2 id="incidentsTitle">Incidents</h2><button type="button" id="incidentFollow" class="ap-button" aria-pressed="true">Following latest</button></header>
-          <label class="ap-field">Status<select id="incidentStatus"><option value="all">All statuses</option><option value="open">Open</option><option value="investigating">Investigating</option><option value="resolved">Resolved</option></select></label>
-          <div id="incidentList"></div>
-        </section>
-        <section id="incidentWorkflow" class="ap-workflow" aria-label="Selected incident"></section>
       </aside>
     </div>
     <noscript><p class="ap-empty">Enable JavaScript to inspect the local hierarchy and synthetic incidents.</p></noscript>
