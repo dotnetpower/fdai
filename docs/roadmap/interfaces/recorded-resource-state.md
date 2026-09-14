@@ -156,6 +156,9 @@ Impact Scope and Ontology Instances reuse the relationship-evidence envelope fro
 inventory generation. Each edge keeps evidence availability separate from its verification class,
 and `runtime_calls` preserves the stored caller-to-target direction. Missing, stale, incomplete, or
 legacy evidence remains visibly unverified and never changes a recorded Resource state.
+The operational activity projection maps a `cross_source_conflict:<field>` evidence token to the
+machine-safe `cross_source_conflict_<field>` reason code. The read result and state evidence retain
+the original token, so presentation normalization cannot rewrite the underlying conflict record.
 
 The observer appends the promoted generation to the normalized journal before publishing history.
 If history publication fails, ontology projection does not advance. The next reconciliation replays
