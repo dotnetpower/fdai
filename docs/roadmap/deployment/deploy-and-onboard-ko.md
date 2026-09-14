@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 477706483ee84579d85a6e2aeace147399a1de9b
+translation_source_sha: 696a78b491ab7bc0f12614bb803925f17be2dc7f
 translation_revised: 2026-09-14
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -204,6 +204,9 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
   대화형 터미널에 정확한 SHA-256 입력, 생성 후 20분 이내 계획, 변경되지 않은 소스 및 행위자
   결합, 해결되지 않은 이전 시도 없음이 필요합니다. 비공개, 공유, 스테이징 또는 운영 배포
   경로로 사용하지 않습니다.
+  Linux x64 또는 ARM64에서 `azd`가 없으면 `sudo` 없이 SHA-256으로 고정된 공식 1.34.0
+  아카이브를 `~/.local/bin`에 설치합니다. 기존 실행 파일은 재사용하고 업그레이드하지 않습니다.
+  다운로드, checksum 또는 경로 실패는 프로비저닝 전에 중단하며 wrapper 자신의 PATH만 변경합니다.
 - [`onboard.sh`](../../../infra/bootstrap/onboard.sh)와
   [`set-gh-actions-config.sh`](../../../scripts/deployment/azure/set-gh-actions-config.sh)는 기존
   저장소 자동화 도구입니다. 공개 대상 환경 배포에서는 호출하지 않습니다.

@@ -20,7 +20,7 @@ variable "env" {
 }
 
 variable "deploy_runner_principal_id" {
-  description = "Stable deploy UAMI principal id that owns Terraform deployment roles."
+  description = "Authenticated Terraform deployment principal: the stable UAMI for protected deployments, or the verified Azure CLI user for the isolated public dev path. Never the runtime Executor identity."
   type        = string
 
   validation {

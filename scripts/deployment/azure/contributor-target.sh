@@ -157,6 +157,75 @@ resolve_contributor_target() {
   fi
 }
 
+ensure_contributor_azd() {
+  command -v azd >/dev/null 2>&1 && return 0
+  local bin_dir="$HOME/.local/bin"
+  local directory architecture digest command_name
+  if [[ -x "$bin_dir/azd" ]]; then
+    export PATH="$bin_dir:$PATH"
+    return 0
+  fi
+  [[ ! -e "$bin_dir/azd" && ! -L "$bin_dir/azd" ]] || {
+    target_log "ERROR: existing user azd is not executable; repair it before retrying"
+    return 1
+  }
+  case "$(uname -sm)" in
+    "Linux x86_64")
+      architecture=amd64
+      digest=ac7a6a8c47b0fae1d6ad17defd2f6b4ad8b7a97c4ef6ed52aa2cea2cee5d7144
+      ;;
+    "Linux aarch64" | "Linux arm64")
+      architecture=arm64
+      digest=a877d86ab362807df61fd8c98d2b7b7def186d7dd6f1390da3dfe25dcc8431fe
+      ;;
+    *)
+      target_log "ERROR: automatic azd installation supports Linux x64 and ARM64; install azd manually"
+      return 1
+      ;;
+  esac
+  for command_name in curl sha256sum tar timeout mktemp install ln rm mkdir stat; do
+    command -v "$command_name" >/dev/null 2>&1 || {
+      target_log "ERROR: azd installation requires $command_name"
+      return 1
+    }
+  done
+  for directory in "$HOME/.local" "$bin_dir"; do
+    [[ ! -L "$directory" ]] || {
+      target_log "ERROR: azd installation refuses a symlinked user binary directory"
+      return 1
+    }
+    [[ -e "$directory" ]] || mkdir -m 0755 -- "$directory" || return 1
+    [[ -d "$directory" && -O "$directory" && -w "$directory" ]] \
+      && (( (8#$(stat -c '%a' "$directory") & 0022) == 0 )) || {
+      target_log "ERROR: azd installation requires an owned user directory without group or world write access"
+      return 1
+    }
+  done
+  target_log "installing checksum-pinned Azure Developer CLI 1.34.0 in the user binary directory"
+  (
+    temporary="$(mktemp -d "$bin_dir/.fdai-azd.XXXXXX")" || exit 1
+    trap 'rm -rf -- "$temporary"' EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    archive="$temporary/azd.tar.gz"
+    url="https://github.com/Azure/azure-dev/releases/download/azure-dev-cli_1.34.0/azd-linux-$architecture.tar.gz"
+    curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+      --connect-timeout 15 --max-time 180 --output "$archive" "$url" || exit 1
+    printf '%s  %s\n' "$digest" "$archive" | sha256sum --check --status || {
+      target_log "ERROR: azd archive checksum verification failed"
+      exit 1
+    }
+    tar -xzf "$archive" -C "$temporary" -- "azd-linux-$architecture" || exit 1
+    install -m 0755 -- "$temporary/azd-linux-$architecture" "$temporary/azd" || exit 1
+    timeout 15s "$temporary/azd" version >/dev/null || exit 1
+    ln -- "$temporary/azd" "$bin_dir/azd" || exit 1
+  ) || {
+    target_log "ERROR: azd installation failed; deployment has not started"
+    return 1
+  }
+  export PATH="$bin_dir:$PATH"
+}
+
 ensure_contributor_azd_login() {
   local has_terminal="$1"
   local tenant="$2"
