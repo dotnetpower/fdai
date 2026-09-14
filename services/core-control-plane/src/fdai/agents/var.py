@@ -136,12 +136,21 @@ class Var(Agent):
         if raw_initiator is not None and not isinstance(raw_initiator, str):
             self.record_behavior("ticket_invalid_initiator")
             return
+        raw_idempotency_key = payload.get("idempotency_key")
+        if raw_idempotency_key is not None and (
+            not isinstance(raw_idempotency_key, str)
+            or not raw_idempotency_key
+            or raw_idempotency_key != raw_idempotency_key.strip()
+        ):
+            self.record_behavior("ticket_invalid_idempotency_key")
+            return
         self._pending[correlation] = PendingHilTicket(
             correlation_id=correlation,
             action_type=str(payload.get("action_type", "")),
             resource_id=payload.get("resource_id"),
             quorum_required=quorum,
             initiator_principal=raw_initiator.strip() if raw_initiator else None,
+            idempotency_key=raw_idempotency_key or "",
             params=(dict(payload["params"]) if isinstance(payload.get("params"), Mapping) else {}),
             decision_case=(
                 dict(payload["decision_case"])
@@ -287,6 +296,7 @@ class Var(Agent):
                 "producer_principal": "Var",
                 "kind": ticket.kind,
                 "correlation_id": correlation_id,
+                "idempotency_key": ticket.idempotency_key,
                 "action_type": ticket.action_type,
                 "state": final,
                 "approvers": list(ticket.approvers),
@@ -299,7 +309,6 @@ class Var(Agent):
                         "stage": ticket.stage,
                         "document_id": ticket.document_id,
                         "upload_id": ticket.upload_id,
-                        "idempotency_key": ticket.idempotency_key,
                     }
                 )
             if self.bus is not None:

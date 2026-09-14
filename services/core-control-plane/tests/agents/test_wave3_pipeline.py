@@ -1369,6 +1369,7 @@ def _var_with_pending(
     *,
     quorum: int = 1,
     initiator: str | None = None,
+    idempotency_key: str = "action-run:hil-pending",
 ) -> Var:
     reg = load_pantheon()
     var = Var(bus=InMemoryBus(registry=reg))
@@ -1377,11 +1378,53 @@ def _var_with_pending(
         "action_type": "remediate.delete-storage",
         "state": "hil_pending",
         "quorum_required": quorum,
+        "idempotency_key": idempotency_key,
     }
     if initiator is not None:
         payload["initiator_principal"] = initiator
     asyncio.run(var.on_typed_message("object.action-run", payload))
     return var
+
+
+def test_var_preserves_action_run_idempotency_key_on_approval() -> None:
+    var = _var_with_pending(
+        "c-idempotency",
+        idempotency_key="c-idempotency:hil_pending",
+    )
+
+    approval = asyncio.run(
+        var.decide(
+            "c-idempotency",
+            approver="reviewer@example.com",
+            decision="approve",
+        )
+    )
+
+    assert approval is not None
+    assert approval["idempotency_key"] == "c-idempotency:hil_pending"
+    assert var.bus is not None
+    published = var.bus.messages_on("object.approval")  # type: ignore[union-attr]
+    assert published[0].payload["idempotency_key"] == "c-idempotency:hil_pending"
+
+
+@pytest.mark.parametrize("idempotency_key", [" ", 7])
+def test_var_rejects_invalid_action_run_idempotency_key(idempotency_key: object) -> None:
+    var = Var(bus=None)
+
+    asyncio.run(
+        var.on_typed_message(
+            "object.action-run",
+            {
+                "correlation_id": "c-invalid-idempotency",
+                "action_type": "ops.restart-service",
+                "state": "hil_pending",
+                "idempotency_key": idempotency_key,
+            },
+        )
+    )
+
+    assert var.pending_tickets() == ()
+    assert var.behavior_snapshot()["ticket_invalid_idempotency_key"] == 1
 
 
 def test_var_rejects_initiator_self_approval() -> None:
