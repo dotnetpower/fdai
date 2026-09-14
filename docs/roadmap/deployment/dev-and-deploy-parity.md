@@ -276,7 +276,9 @@ send. They preserve their existing local developer identity versus deployed work
 scheduling, discovery, metric, publication, and source-delay state, and full-stack readiness now
 requires the analyzer loop process and a clean first tick from its latest managed start alongside
 inventory reconciliation and observation campaign. A stale ready marker from an earlier process
-cannot satisfy this gate.
+cannot satisfy this gate. A failed local tick clears readiness and retries on the next fixed-rate
+interval instead of terminating the long-running loop; a bounded loop run still returns its final
+tick's failure status.
 
 The standard full-stack launch keeps narrator endpoint reconciliation enabled. Its independent
 Operator Service binds a local-only narrator adapter only for `RUNTIME_ENV=dev`, reads

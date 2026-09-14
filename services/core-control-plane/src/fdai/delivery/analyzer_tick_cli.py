@@ -6,11 +6,11 @@ when `FDAI_INVENTORY_DSN` is bound, binds the reference analyzers to whichever
 `MetricProvider` composition wired, and publishes one canonical Event per
 finding to the analyzer ingest topic.
 
-Exit codes: `0` on a clean pass, including a pass with no resolved target;
-`1` when a target has no analyzer, analysis fails, or any finding or receipt
-fails to persist, so the Job retries the tick. An unreadable inventory
-projection raises instead of degrading to the configured list alone, so the
-Job retries rather than silently narrowing its coverage.
+One-shot and bounded-loop exit codes are `0` after a clean final pass,
+including a pass with no resolved target, and `1` when the final pass is
+incomplete. The unbounded local loop remains alive across a failed pass,
+withholds readiness, and retries on the next interval. An unreadable inventory
+projection raises instead of degrading to the configured list alone.
 """
 
 from __future__ import annotations
@@ -698,7 +698,7 @@ async def run_loop(
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     monotonic: Callable[[], float] = time.monotonic,
 ) -> int:
-    """Run fixed-rate serial ticks and stop on the first failed tick."""
+    """Run fixed-rate serial ticks and keep retryable failures unready."""
 
     if not 1 <= interval_seconds <= 86_400:
         raise ValueError("analyzer loop interval_seconds MUST be in [1, 86400]")
@@ -707,6 +707,7 @@ async def run_loop(
     if not 0 < tick_timeout_seconds <= _DEFAULT_TICK_BUDGET_SECONDS:
         raise ValueError("analyzer loop tick_timeout_seconds is out of bounds")
     completed = 0
+    ready = False
     while max_ticks is None or completed < max_ticks:
         tick_started = monotonic()
         try:
@@ -723,11 +724,12 @@ async def run_loop(
         completed += 1
         if report.failed:
             print("service=local-analyzer event=failed", flush=True)
-            return 1
-        if completed == 1:
+            ready = False
+        elif not ready:
             print("service=local-analyzer event=ready", flush=True)
+            ready = True
         if max_ticks is not None and completed >= max_ticks:
-            return 0
+            return 1 if report.failed else 0
         elapsed = monotonic() - tick_started
         await sleep(max(0.0, float(interval_seconds) - elapsed))
     return 0

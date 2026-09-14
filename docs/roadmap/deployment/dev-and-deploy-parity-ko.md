@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: b527555ba0972620e16f4bcdcbd0f41cbcfecad7
+translation_source_sha: de366b378dad8f17dd9d030bb48a671fb8920ce8
 translation_revised: 2026-09-14
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -280,7 +280,9 @@ full-stack supervisor는 표준 로컬 analyzer loop를 시작하며, 이 loop�
 배포 워크로드 신원 및 전송 보안의 차이는 그대로 유지합니다. 준비 상태는 일정 관리, 검색,
 메트릭, 게시 및 출처 지연 상태를 분리하며 full-stack 준비 상태는 인벤토리 조정과 관측 캠페인
 프로세스뿐 아니라 analyzer loop 프로세스와 최근 관리 시작 이후의 정상 첫 틱도 요구합니다.
-이전 프로세스의 오래된 준비 완료 표시는 이 게이트를 충족할 수 없습니다.
+이전 프로세스의 오래된 준비 완료 표시는 이 게이트를 충족할 수 없습니다. 실패한 로컬 틱은
+준비 상태를 해제하고 장기 실행 loop를 종료하는 대신 다음 고정 주기에 재시도합니다. 범위가
+제한된 loop 실행은 마지막 틱의 실패 상태를 그대로 반환합니다.
 
 Standard full-stack launch는 서술기 엔드포인트 조정을 유지합니다. 독립 Operator 서비스는 `RUNTIME_ENV=dev`에서만 local-only 서술기 어댑터를 연결하고 `LLM_RESOLVED_MODELS_PATH`와
 수명이 짧은 Azure CLI 토큰을 사용하며 Core 가져오기 또는 실행기 권한 없이 Azure OpenAI 서술기를 시도합니다. Health는 엔드포인트를 민감정보 제거하고 모델 지식만 쓴 답변은 검증되지 않은으로 유지합니다. 시작 훅은 권한이

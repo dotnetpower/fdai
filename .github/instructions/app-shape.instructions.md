@@ -65,7 +65,8 @@ The layers communicate through the event bus and git, not direct in-process call
   distribution; they provide local parity for the deployed scheduled jobs and MUST participate in
   readiness so a projection-only stack cannot be reported as detection-ready. Analyzer readiness
   requires a clean first tick after the latest managed start; process presence or an older ready
-  marker is insufficient.
+  marker is insufficient. A failed tick MUST clear readiness while the managed local loop retries
+  at the next bounded interval.
 - An inventory-backed analyzer MUST retain the ontology `Resource.id` in findings, Events, receipts,
   and Incidents. It MAY use the exact provider reference from the active service-owned inventory
   snapshot only to scope the provider metric query. Missing, mismatched, or ambiguous provider

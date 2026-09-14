@@ -379,7 +379,7 @@ async def test_local_loop_does_not_add_delay_after_a_slow_tick() -> None:
     assert sleeps == [0.0]
 
 
-async def test_local_loop_stops_on_publish_failure_without_sleeping(
+async def test_bounded_local_loop_returns_failure_for_its_final_tick(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     slept = False
@@ -390,7 +390,7 @@ async def test_local_loop_stops_on_publish_failure_without_sleeping(
 
     result = await run_loop(
         interval_seconds=5,
-        max_ticks=2,
+        max_ticks=1,
         tick=lambda: _async_report(_job_report(publish_failed=True)),
         sleep=sleep,
     )
@@ -400,6 +400,27 @@ async def test_local_loop_stops_on_publish_failure_without_sleeping(
     output = capsys.readouterr().out
     assert "service=local-analyzer event=failed" in output
     assert "service=local-analyzer event=ready" not in output
+
+
+async def test_local_loop_retries_a_failed_tick_until_ready(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    reports = iter((_job_report(publish_failed=True), _job_report()))
+    monotonic = iter((10.0, 11.0, 15.0))
+    sleeps: list[float] = []
+
+    result = await run_loop(
+        interval_seconds=5,
+        max_ticks=2,
+        tick=lambda: _async_report(next(reports)),
+        sleep=lambda seconds: _record_sleep(sleeps, seconds),
+        monotonic=lambda: next(monotonic),
+    )
+
+    assert result == 0
+    assert sleeps == [4.0]
+    output = capsys.readouterr().out
+    assert output.index("event=failed") < output.index("event=ready")
 
 
 async def test_local_loop_stops_when_one_tick_exceeds_the_deployed_deadline(
@@ -422,6 +443,10 @@ async def test_local_loop_stops_when_one_tick_exceeds_the_deployed_deadline(
 
 async def _async_report(report: AnalyzerJobReport) -> AnalyzerJobReport:
     return report
+
+
+async def _record_sleep(sleeps: list[float], seconds: float) -> None:
+    sleeps.append(seconds)
 
 
 def test_vscode_task_reuses_the_deployed_analyzer_cli() -> None:
