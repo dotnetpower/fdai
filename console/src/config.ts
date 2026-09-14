@@ -29,8 +29,8 @@ export interface ConsoleConfig {
   /** When true, MSAL is bypassed and the Operator API is called anonymously
    *  (matches `FDAI_OPERATOR_API_DEV_MODE=1` on the API). */
   readonly devMode: boolean;
-  /** When true, MSAL is bypassed and the local Operator API projects the
-   *  current `az login` user (matches `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1`). */
+  /** When true with the paired confirmation, MSAL is bypassed and the local
+   *  Operator API projects the current `az login` user. */
   readonly localAzureCliAuth: boolean;
   /** Show a local auth chooser before entering a dev-mode console. Defaults
    *  to true when VITE_DEV_MODE=1; set VITE_LOCAL_LOGIN_PROMPT=0 to retain

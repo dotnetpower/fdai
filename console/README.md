@@ -907,6 +907,7 @@ already-reachable account is left untouched. Disable the hook with
 ```sh
 # Auto-open runs by default; set the flag to 0 to opt out.
 FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1 \
+FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=1 \
   uv run uvicorn 'fdai.delivery.operator_api.dev.local:app' \
     --factory --host 127.0.0.1 --port 8010
 ```

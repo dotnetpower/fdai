@@ -166,7 +166,7 @@ Core 런타임만 Pantheon을 소유하며 로컬 및 deployed interactive 읽�
 로컬 Entra에 고정하고 작업 감독기가 모든 자식에 하나의 변경 불가능한 기대 모드를 전달합니다. 표준 준비 작업은
 `--auth-mode browser-entra`를 전달하며, 별도로 이름을 붙인
 `console: start full stack (Azure CLI debug, Contributor)` 작업만
-`--auth-mode azure-cli`를 전달합니다.
+`--auth-mode azure-cli`를 전달하며 `tools.console`도 같은 API 확인 값 쌍을 설정합니다.
 개발자 안내는 이 실행 경로를 사용하도록 설명하고, 고정된 `Contributor` 모드로는 `Approver` 또는 `Owner` 승인 접근을 검증할 수 없다고 경고합니다.
 Operator 서비스는 시작할 때 활성 대화형 CLI 사용자를 확인하고 고정된 Contributor 상한을
 적용하며, 브라우저에 안전한 프로파일과 프로세스별 세션 일회값을 반환합니다. 이 일회값은

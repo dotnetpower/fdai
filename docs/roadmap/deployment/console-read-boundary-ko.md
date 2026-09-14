@@ -1,7 +1,7 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: bf260fd08539c00ca795eef3ed5a788c5bf02cbe
+translation_source_sha: 9d9bc2e2f2ca38718939e76dd8f9f6f08f152354
 translation_revised: 2026-09-14
 ---
 # Console 읽기 경계
@@ -30,6 +30,7 @@ translation_revised: 2026-09-14
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 지원되는 `tools.console` 실행기, 브라우저 복구 오류, CLI 안내 및 실행 가능한 워크플로 예시를 API 확인 값 쌍에 맞췄습니다. 집중 테스트는 이제 실행기 환경을 실제 Operator 파서로 검증합니다. | `current change`; `tools/console.py`; 집중 실행기 및 Operator 환경 테스트; 문서 검사. | 독립 통합 비평을 반복합니다. |
 | 2026-09-14 | implemented | 27개 작업 토폴로지, 명시적 Browser Entra 명령, 변경 불가능한 API 기대값 및 별도 Azure CLI 디버그 체인에 맞춰 정확한 VS Code 작업 영역 계약을 갱신했습니다. 필수 통합 게이트가 이제 강화된 실행 형태를 검사합니다. | `current change`; `test_vscode_workspace_performance.py`; 집중 작업 영역 계약 테스트 모음. | 독립 통합 비평을 반복합니다. |
 | 2026-09-14 | implemented | 각 모드 표식 및 생성 플래그 검사가 즉시 실패를 반환하도록 캐시 출력 검증을 수정했습니다. 이제 부분적으로 손상된 Operator 환경은 마지막 확인 줄만 일치한다는 이유로 검증을 통과할 수 없습니다. | `current change`; `prepare-console-full-stack.sh`; 전체 쌍 및 단일 플래그 손상 집중 테스트. | 정확한 VS Code 작업 토폴로지 계약을 조정합니다. |
 | 2026-09-14 | implemented | VS Code Operator 디버거 프로세스 자체를 로컬 Browser Entra에 고정하고 API CLI principal 플래그 두 개를 비활성화했습니다. 동시에 CLI 디버그 준비가 실행되어도 브라우저 모드 사전 실행 뒤 디버거 소유 API를 전환할 수 없습니다. | `current change`; `.vscode/launch.json`; 집중 작업 영역 실행 계약 테스트. | 독립 통합 비평을 반복합니다. |
