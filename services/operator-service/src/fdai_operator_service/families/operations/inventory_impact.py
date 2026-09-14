@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import TypedDict
+from datetime import UTC, datetime
+from typing import TypedDict, cast
 
 from fdai_operator_service.families.operations.contracts import (
     InventoryImpactEdge,
     InventoryImpactReader,
+    InventoryRelationshipCoverage,
     ProjectionNotFoundError,
     ProjectionQuery,
     ProjectionUnavailableError,
+)
+from fdai_operator_service.families.operations.relationship_evidence import (
+    project_relationship_evidence,
 )
 
 MAX_IMPACT_DEPTH = 5
@@ -37,6 +42,7 @@ async def project_inventory_impact(
     query: ProjectionQuery,
     reader: InventoryImpactReader,
     ontology_projection: Mapping[str, object],
+    now: Callable[[], datetime] | None = None,
 ) -> dict[str, object]:
     """Traverse stored-direction links with explicit release, cutoff, and truncation state."""
 
@@ -45,6 +51,15 @@ async def project_inventory_impact(
     context = await reader.read_inventory_impact_context()
     if context is None:
         raise ProjectionUnavailableError("active inventory snapshot is unavailable")
+    ontology_context = await reader.read_inventory_ontology_context()
+    if ontology_context is None or (
+        ontology_context.generation != context.snapshot_id
+        or ontology_context.ontology_release_digest != release_digest
+    ):
+        raise ProjectionUnavailableError("active inventory and ontology projection are not aligned")
+    evaluated_at = (now or (lambda: datetime.now(UTC)))()
+    if evaluated_at.tzinfo is None:
+        raise ValueError("impact evaluation time MUST be timezone-aware")
     if not await reader.inventory_resource_exists(
         snapshot_id=context.snapshot_id,
         resource_id=request.target,
@@ -81,15 +96,33 @@ async def project_inventory_impact(
             source_ids=frontier,
             link_types=request.link_types,
         )
+        await _require_edge_targets(
+            reader=reader,
+            snapshot_id=context.snapshot_id,
+            edges=ordered,
+        )
         next_frontier: set[str] = set()
         for edge in ordered:
+            evidence = project_relationship_evidence(
+                edge.evidence,
+                cutoff=context.observed_at,
+                evaluated_at=evaluated_at,
+                source_complete=(
+                    None
+                    if context.relationship_coverage is None
+                    else context.relationship_coverage.complete
+                ),
+            )
             traversed.append(
                 {
                     "source": edge.source,
                     "target": edge.target,
                     "link_type": edge.link_type,
                     "depth": depth,
-                    "verification_status": "unverified",
+                    "verification_status": (
+                        "verified" if evidence["status"] == "available" else "unverified"
+                    ),
+                    "evidence": evidence,
                 }
             )
             if edge.target not in reached:
@@ -111,8 +144,18 @@ async def project_inventory_impact(
             link_types=request.link_types,
             limit=1,
         )
+        probe_edges = _ordered_edges(
+            probe.edges,
+            source_ids=frontier,
+            link_types=request.link_types,
+        )
+        await _require_edge_targets(
+            reader=reader,
+            snapshot_id=context.snapshot_id,
+            edges=probe_edges,
+        )
         depth_limit_reached = probe.truncated or any(
-            edge.target not in reached for edge in probe.edges
+            edge.target not in reached for edge in probe_edges
         )
 
     truncation_reasons = [
@@ -123,8 +166,15 @@ async def project_inventory_impact(
         )
         if active
     ]
+    source_coverage = _relationship_source_coverage(context.relationship_coverage)
+    if (
+        source_coverage is not None
+        and context.relationship_coverage is not None
+        and context.relationship_coverage.materialized < len(traversed)
+    ):
+        raise ProjectionUnavailableError("relationship source coverage undercounts traversed edges")
     return {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "ontology_release_digest": release_digest,
         "source_generation": context.snapshot_id,
         "source_cutoff": context.observed_at.isoformat(),
@@ -138,11 +188,46 @@ async def project_inventory_impact(
         "edges": traversed,
         "affected_count": len(reached) - 1,
         "complete": not truncation_reasons,
+        "relationship_evidence_complete": all(
+            cast(Mapping[str, object], edge["evidence"]).get("complete") is True
+            for edge in traversed
+        ),
+        "relationship_source_coverage": source_coverage,
         "truncated_at_depth": depth_limit_reached,
         "truncation_reasons": truncation_reasons,
         "execution_authority": False,
         "mutation_authority": False,
     }
+
+
+def _relationship_source_coverage(
+    coverage: InventoryRelationshipCoverage | None,
+) -> dict[str, object] | None:
+    if coverage is None:
+        return None
+    return {
+        "materialized": coverage.materialized,
+        "reviewed_unavailable": coverage.reviewed_unavailable,
+        "unclassified": coverage.unclassified,
+        "total_candidates": coverage.total_candidates,
+        "complete": coverage.complete,
+    }
+
+
+async def _require_edge_targets(
+    *,
+    reader: InventoryImpactReader,
+    snapshot_id: str,
+    edges: tuple[InventoryImpactEdge, ...],
+) -> None:
+    target_ids = tuple(sorted({edge.target for edge in edges}))
+    if target_ids and not await reader.inventory_resources_exist(
+        snapshot_id=snapshot_id,
+        resource_ids=target_ids,
+    ):
+        raise ProjectionUnavailableError(
+            "inventory impact relationship target is absent from the active snapshot"
+        )
 
 
 def _impact_request(
@@ -205,6 +290,18 @@ def _ordered_edges(
 ) -> tuple[InventoryImpactEdge, ...]:
     source_order = {value: index for index, value in enumerate(source_ids)}
     link_order = {value: index for index, value in enumerate(link_types)}
+    signatures: set[tuple[str, str, str]] = set()
+    for edge in edges:
+        if edge.source not in source_order or edge.link_type not in link_order:
+            raise ProjectionUnavailableError(
+                "inventory impact reader returned an out-of-scope relationship"
+            )
+        signature = (edge.source, edge.link_type, edge.target)
+        if signature in signatures:
+            raise ProjectionUnavailableError(
+                "inventory impact reader returned a duplicate relationship"
+            )
+        signatures.add(signature)
     return tuple(
         sorted(
             edges,

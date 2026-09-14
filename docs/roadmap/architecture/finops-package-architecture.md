@@ -265,6 +265,9 @@ The Operator semantic stream fallback also remains a host seam: it preserves
 availability, enablement, or package ownership.
 The shared ontology invalidation stream similarly admits `Last-Event-ID` only for authenticated
 read replay. It registers no Cost Governance route and widens no package data access.
+The shared analyzer coverage, operational-activity snapshot, and Impact Scope relationship-evidence
+bindings are also host capabilities. Their routes, replay cursors, and source-state readers neither
+activate the optional package nor enter its data, review, promotion, or execution authority.
 The service-owned incident email preview remains another shared Operator host seam. It reads
 packaged synthetic notification HTML only; it registers no Cost Governance route, does not enable
 the optional package, and exposes no package data or authority.

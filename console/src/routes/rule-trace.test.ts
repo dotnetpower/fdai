@@ -8,16 +8,25 @@ import {
   traceLoadFailure,
   traceOperationalSummary,
 } from "./rule-trace";
+import { traceOffset } from "./rule-trace-supporting-evidence";
 
 const step = (seq: number) => ({
   seq,
+  event_id: `event-${seq}`,
+  source_correlation_id: "corr-1",
   recorded_at: `2026-07-17T09:00:0${seq}Z`,
+  actor: "Forseti",
   stage: "risk-gate",
   decision: "hil",
   reason: "approval required",
   action_kind: "change",
   mode: "shadow",
+  action_id: null,
+  attempt: null,
+  execution_path: null,
+  outcome: null,
   entry_hash: `hash-${seq}`,
+  previous_hash: `hash-${seq - 1}`,
 });
 
 describe("trace response contract", () => {
@@ -28,6 +37,60 @@ describe("trace response contract", () => {
       steps: [step(1), step(2)],
       terminal_stage: "risk-gate",
     }).steps).toHaveLength(2);
+  });
+
+  it("rejects a response for a different requested correlation", () => {
+    expect(() => decodeTraceResponse({
+      correlation_id: "corr-other",
+      step_count: 1,
+      steps: [step(1)],
+      terminal_stage: "risk-gate",
+    }, "corr-requested")).toThrow(/MUST match the requested correlation/);
+  });
+
+  it("accepts consistent server summary metadata and rejects a contradictory latest row", () => {
+    const root = {
+      correlation_id: "corr-1",
+      step_count: 1,
+      steps: [step(1)],
+      terminal_stage: "risk-gate",
+      trace_kind: "decision",
+      source_authority: "operator-audit-log",
+      complete: true,
+      first_recorded_at: step(1).recorded_at,
+      last_recorded_at: step(1).recorded_at,
+      latest_sequence: 1,
+      latest_activity_stage: "risk-gate",
+      latest_action_kind: "change",
+      latest_actor: "Forseti",
+      latest_decision: "hil",
+      latest_outcome: null,
+      latest_mode: "shadow",
+      target_resource_ref: null,
+      target_count: 0,
+      action_attempt_count: 0,
+      effect_observation_count: 0,
+      incident_evidence_recorded: false,
+      rca_evidence_recorded: false,
+    };
+
+    expect(decodeTraceResponse(root)).toEqual(expect.objectContaining({
+      metadata_source: "server",
+      trace_kind: "decision",
+      complete: true,
+    }));
+    expect(() => decodeTraceResponse({ ...root, latest_sequence: 2 }))
+      .toThrow(/latest metadata MUST match ordered steps/);
+    expect(() => decodeTraceResponse({ ...root, trace_kind: "read" }))
+      .toThrow(/summary counts MUST match ordered steps/);
+    expect(() => decodeTraceResponse({ ...root, action_attempt_count: 1 }))
+      .toThrow(/summary counts MUST match ordered steps/);
+    expect(() => decodeTraceResponse({ ...root, effect_observation_count: 1 }))
+      .toThrow(/summary counts MUST match ordered steps/);
+    expect(() => decodeTraceResponse({ ...root, rca_evidence_recorded: true }))
+      .toThrow(/summary counts MUST match ordered steps/);
+    expect(() => decodeTraceResponse({ ...root, source_authority: "browser-derived" }))
+      .toThrow(/source_authority is unsupported/);
   });
 
   it("renders expected source absence as unavailable without hiding server failures", () => {
@@ -60,6 +123,20 @@ describe("trace response contract", () => {
     expect(() => decodeTraceResponse({ ...root, terminal_stage: "execute" })).toThrow(/last named stage/);
   });
 
+  it("rejects an oversized response instead of presenting a truncated trace as complete", () => {
+    const steps = Array.from({ length: 501 }, (_, index) => ({
+      ...step(1),
+      seq: index + 1,
+    }));
+
+    expect(() => decodeTraceResponse({
+      correlation_id: "corr-oversized",
+      step_count: steps.length,
+      steps,
+      terminal_stage: "risk-gate",
+    })).toThrow(/at most 500 records/);
+  });
+
   it("accepts correlated activity without a pipeline stage", () => {
     const decoded = decodeTraceResponse({
       correlation_id: "corr-activity",
@@ -84,6 +161,19 @@ describe("trace response contract", () => {
       .toThrow(/MUST be RFC 3339/);
     expect(() => decodeTraceResponse({ ...root, steps: [{ ...step(1), stage: " " }] }))
       .toThrow(/MUST be null or non-empty/);
+    expect(() => decodeTraceResponse({ ...root, steps: [{ ...step(1), decision: " " }] }))
+      .toThrow(/decision MUST be null or non-empty/);
+    expect(() => decodeTraceResponse({ ...root, steps: [{ ...step(1), reason: " " }] }))
+      .toThrow(/reason MUST be null or non-empty/);
+    expect(() => decodeTraceResponse({ ...root, terminal_stage: " " }))
+      .toThrow(/terminal_stage MUST be null or non-empty/);
+    expect(() => decodeTraceResponse({ ...root, steps: [{ ...step(1), seq: 0 }] }))
+      .toThrow(/seq MUST be positive/);
+  });
+
+  it("shows recorded clock drift instead of flattening it to zero", () => {
+    expect(traceOffset(step(2), step(1))).toBe("-1.0 s");
+    expect(traceOffset(step(1), step(1))).toBe("+0 ms");
   });
 });
 
@@ -109,9 +199,13 @@ describe("trace view context", () => {
     const snapshot = buildTraceViewSnapshot("corr-activity", { status: "ready", data });
 
     expect(snapshot?.records?.["steps"]?.[0]).toEqual(expect.objectContaining({
+      event_id: "event-1",
+      source_correlation_id: "corr-1",
+      actor: "Forseti",
       stage: null,
       reason: "no delivery channel is available",
       entry_hash: "hash-activity",
+      previous_hash: "hash-0",
     }));
   });
 });
@@ -280,6 +374,41 @@ describe("trace operational summary", () => {
 
       expect(traceActionLifecycles(data)[0]!.stages.find((item) => item.id === "dispatch")?.state)
         .toBe("not_recorded");
+      expect(traceActionLifecycles(data)[0]!.stages.find((item) => item.id === "approval")?.state)
+        .toBe("not_recorded");
+    });
+
+    it("marks explicit approval rejection as failed without treating other HIL traffic as approval", () => {
+      const data = decodeTraceResponse({
+        correlation_id: "corr-approval-rejected",
+        step_count: 2,
+        steps: [
+          {
+            ...step(1),
+            action_id: "action-approval",
+            attempt: 1,
+            action_kind: "hil.delivery.observed",
+            decision: null,
+          },
+          {
+            ...step(2),
+            action_id: "action-approval",
+            attempt: 1,
+            action_kind: "hil.rejected",
+            decision: "deny",
+          },
+        ],
+        terminal_stage: "risk-gate",
+      });
+
+      const approval = traceActionLifecycles(data)[0]!.stages.find(
+        (item) => item.id === "approval",
+      );
+
+      expect(approval).toEqual(expect.objectContaining({
+        state: "failed",
+        evidence: expect.objectContaining({ action_kind: "hil.rejected" }),
+      }));
     });
 
     it("never combines two action attempts in one lifecycle", () => {

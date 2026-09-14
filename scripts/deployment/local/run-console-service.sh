@@ -14,7 +14,9 @@ service="$1"
 wait_ready=0
 if [[ $# -eq 2 ]]; then
   if [[ "$2" != "--wait-ready" \
-    || ( "$service" != "core-runtime" && "$service" != "operator-api" ) ]]; then
+    || ( "$service" != "core-runtime" \
+      && "$service" != "operator-api" \
+      && "$service" != "local-analyzer" ) ]]; then
     usage
   fi
   wait_ready=1
@@ -46,7 +48,7 @@ if [[ "$service" == "operator-api" || "$service" == "console-frontend" ]]; then
 fi
 
 case "$service" in
-  core-runtime|inventory-reconciliation|observation-campaign)
+  core-runtime|inventory-reconciliation|observation-campaign|local-analyzer)
     env_file=".fdai/local-runtime.env"
     source_root="services/core-control-plane/src"
     project_file="services/core-control-plane/pyproject.toml"
@@ -214,6 +216,17 @@ case "$service" in
       FDAI_OBSERVATION_SCOPES="$AZURE_SUBSCRIPTION_ID"
       PYTHONPATH="$service_pythonpath"
       "$repo_root/.venv/bin/python" -m fdai.delivery.observation_campaign_cli --loop
+    )
+    ;;
+  local-analyzer)
+    local_analyzer_run_id="${FDAI_ANALYZER_RUN_ID:-local-analyzer-$(date -u +%s)-$$}"
+    service_command=(
+      env -u AZURE_CONFIG_DIR
+      FDAI_EXECUTION_VENUE=local
+      FDAI_ANALYZER_RUN_ID="$local_analyzer_run_id"
+      FDAI_INVENTORY_DSN="${FDAI_INVENTORY_DSN:-$FDAI_STATE_STORE_DSN}"
+      PYTHONPATH="$service_pythonpath"
+      "$repo_root/.venv/bin/python" -m fdai.delivery.analyzer_tick_cli --loop
     )
     ;;
   document-ingestion-api)

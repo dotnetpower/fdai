@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 55ea6070a1866358f84c794f06bcc84cb83f5d88
+translation_source_sha: 19cb7dc62e57fa17b3d08c8d5a082c2c22e006ad
 translation_revised: 2026-09-14
 ---
 
@@ -261,6 +261,9 @@ Operator 의미 스트림의 대체 경로도 호스트 연결부로 유지됩�
 변경하지 않습니다.
 공유 온톨로지 무효화 스트림도 인증된 읽기 재현에만 `Last-Event-ID`를 허용합니다. Cost
 Governance 경로를 등록하거나 패키지 데이터 접근 범위를 넓히지 않습니다.
+공유 분석기 커버리지, 운영 활동 스냅샷 및 영향 범위 관계 근거 연결도 호스트 기능입니다. 해당
+경로, 재현 커서 및 출처 상태 판독기는 선택형 패키지를 활성화하지 않으며 패키지의 데이터, 검토,
+승격 또는 실행 권한에 들어가지 않습니다.
 서비스가 소유하는 인시던트 이메일 미리 보기도 공유 Operator 호스트 연결부로 유지됩니다. 이
 기능은 패키지에 포함된 합성 알림 HTML만 읽습니다. 비용 거버넌스 경로를 등록하거나 선택적
 패키지를 활성화하지 않으며 패키지 데이터나 권한을 공개하지 않습니다.

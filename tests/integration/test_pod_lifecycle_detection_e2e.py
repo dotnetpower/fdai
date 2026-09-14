@@ -451,6 +451,8 @@ class _Path:
                 return rows
             if "runtime:analyzer-finding-receipt" in statement:
                 return []
+            if "runtime:analyzer-tick-receipt" in statement:
+                return []
             if "runtime:detection-readiness" in statement:
                 return []
             raise AssertionError(statement)

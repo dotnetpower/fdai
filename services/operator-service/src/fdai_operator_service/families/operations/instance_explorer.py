@@ -16,7 +16,6 @@ from fdai_operator_service.families.operations.contracts import (
     InventoryInstanceResource,
     InventoryProviderScopeCoverage,
     InventoryRelationshipCoverage,
-    InventoryRelationshipEvidence,
     ProjectionNotFoundError,
     ProjectionQuery,
     ProjectionUnavailableError,
@@ -24,6 +23,9 @@ from fdai_operator_service.families.operations.contracts import (
 from fdai_operator_service.families.operations.recorded_state import (
     RecordedStateObservation,
     recorded_resource_states,
+)
+from fdai_operator_service.families.operations.relationship_evidence import (
+    project_relationship_evidence,
 )
 from fdai_service_contracts import (
     OperatorRole,
@@ -302,10 +304,15 @@ async def project_inventory_instance(
                 "source": edge.source,
                 "target": edge.target,
                 "link_type": edge.link_type,
-                "evidence": _relationship_evidence_projection(
+                "evidence": project_relationship_evidence(
                     edge.evidence,
                     cutoff=context.observed_at,
                     evaluated_at=evaluated_at,
+                    source_complete=(
+                        None
+                        if context.relationship_coverage is None
+                        else context.relationship_coverage.complete
+                    ),
                 ),
             }
             for edge in sorted(
@@ -917,56 +924,6 @@ def _latest_activity_time(
 ) -> str | None:
     times = [item.recorded_at for item in activities if isinstance(item.recorded_at, datetime)]
     return max(times).isoformat() if times else None
-
-
-def _relationship_evidence_projection(
-    evidence: InventoryRelationshipEvidence | None,
-    *,
-    cutoff: datetime,
-    evaluated_at: datetime,
-) -> dict[str, object]:
-    if evidence is None:
-        return {
-            "status": "unavailable",
-            "evidence_kind": None,
-            "verification_status": "unavailable",
-            "source": None,
-            "source_property_path": None,
-            "mapping_id": None,
-            "evidence_method": None,
-            "cutoff": None,
-            "freshness_ceiling_seconds": None,
-            "complete": False,
-            "reason": "provider_relationship_evidence_unavailable",
-        }
-    evidence_cutoff = evidence.evidence_cutoff or cutoff
-    age_seconds = (evaluated_at - evidence_cutoff).total_seconds()
-    if age_seconds < 0:
-        status = "stale"
-        reason = "relationship_evidence_future_cutoff"
-    elif age_seconds > evidence.freshness_ceiling_seconds:
-        status = "stale"
-        reason = "relationship_evidence_stale"
-    else:
-        status = "available"
-        reason = None
-    return {
-        "status": status,
-        "evidence_kind": evidence.evidence_kind,
-        "verification_status": (
-            "independently_verified"
-            if evidence.evidence_kind == "observation"
-            else "configuration_observed"
-        ),
-        "source": evidence.source_identity,
-        "source_property_path": evidence.source_property_path,
-        "mapping_id": evidence.mapping_id,
-        "evidence_method": evidence.evidence_method,
-        "cutoff": evidence_cutoff.isoformat(),
-        "freshness_ceiling_seconds": evidence.freshness_ceiling_seconds,
-        "complete": status == "available",
-        "reason": reason,
-    }
 
 
 __all__ = ["project_inventory_instance", "project_inventory_instances"]

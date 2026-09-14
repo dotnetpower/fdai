@@ -50,6 +50,9 @@ from fdai.core.read_investigation.models import (
     ReadInvestigationResult,
 )
 from fdai.core.read_investigation.planner import plan_read_investigation
+from fdai.core.read_investigation.resource_state_shadow_evidence import (
+    CROSS_SOURCE_CONFLICT_PREFIX,
+)
 from fdai.core.read_investigation.resource_state_shadow_service import (
     ShadowResourceStateComparisonService,
 )
@@ -78,6 +81,13 @@ from fdai.shared.providers.state_store import StateStore
 _FUNCTION_NAME = "inventory.select_resources"
 _PURPOSE = "operations-review"
 _LOG = logging.getLogger(__name__)
+
+
+def _activity_reason_code(reason_code: str) -> str:
+    conflict_prefix = f"{CROSS_SOURCE_CONFLICT_PREFIX}:"
+    if reason_code.startswith(conflict_prefix):
+        return f"{CROSS_SOURCE_CONFLICT_PREFIX}_{reason_code.removeprefix(conflict_prefix)}"
+    return reason_code
 
 
 class _ExactProfileCatalog(ActiveSemanticCatalog):
@@ -226,7 +236,14 @@ class ResourceStateShadowHook:
         if cross_source_conflicts:
             activity_status = OperationalActivityStatus.DEGRADED
             freshness = OperationalFreshness.UNKNOWN
-            reason_codes = tuple(sorted({*reason_codes, *cross_source_conflicts}))
+            reason_codes = tuple(
+                sorted(
+                    {
+                        *reason_codes,
+                        *(_activity_reason_code(code) for code in cross_source_conflicts),
+                    }
+                )
+            )
         await self._publish_activity(
             correlation_id=correlation_ref,
             status=activity_status,

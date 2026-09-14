@@ -1,33 +1,24 @@
-/**
- * Live stage-event stream hook.
- *
- * Subscribes to the Operator API's `GET /live/stream` SSE endpoint via
- * authenticated fetch streaming, honours the connection lifecycle (open / closed /
- * reconnecting), and hands raw {@link LiveStageEvent} records to a
- * consumer via a mutable ring buffer.
- *
- * The hook never issues privileged calls - it is a pure read consumer.
- * Reconnection uses bounded exponential backoff. Upstream today has no
- * replay (the audit page has full history), and the frontend keeps rendering
- * when reconnection lands.
- *
- * Visibility gating: while the page is hidden (backgrounded tab) the
- * hook closes the `EventSource` and reports `idle`. This stops a
- * background tab from hammering the server with EventSource's built-in
- * 3s reconnect loop when the backend is down or slow. The connection
- * is re-established when the page becomes visible again.
- */
-
 import { useEffect, useRef, useState } from "preact/hooks";
+
+import {
+  decodeAgentOperationalActivity,
+  type AgentOperationalActivityMessage,
+} from "../agent-operational-activity";
 import {
   mergeObservationSource,
   normalizeObservationSource,
   type FrameSource,
   type ObservationSource,
 } from "./observation-source";
-import { readSseChunk } from "./sse-reader";
+import {
+  authenticatedSseHeaders,
+  consumeSseFrames,
+  isTransientSseStatus,
+  sseReconnectDelay,
+  useSharedAuthenticatedSse,
+  type SseFrame,
+} from "./sse-client";
 
-/** Stage identifier - mirrors {@link fdai.shared.providers.stage_publisher.StageName}. */
 export type LiveStageName =
   | "ingest"
   | "route"
@@ -36,10 +27,8 @@ export type LiveStageName =
   | "execute"
   | "audit";
 
-/** Stage phase - mirrors {@link StagePhase}. */
 export type LiveStagePhase = "begin" | "progress" | "done" | "failed";
 
-/** One decoded stage frame from the SSE wire. */
 export interface LiveStageEvent {
   readonly event_id: string;
   readonly correlation_id: string;
@@ -57,7 +46,13 @@ export interface LiveSourceEvent {
   readonly ts: string;
 }
 
-/** Status of the underlying EventSource. */
+export interface LiveActivityStatusEvent {
+  readonly type: "live.activity-status";
+  readonly status: "ready" | "unavailable";
+  readonly reason: "durable_projection_unavailable" | null;
+  readonly ts: string;
+}
+
 export type LiveConnectionStatus =
   | "idle"
   | "connecting"
@@ -66,36 +61,40 @@ export type LiveConnectionStatus =
   | "unsupported";
 
 export interface UseLiveStreamOptions {
-  /** Absolute or relative URL to the SSE endpoint. */
   readonly url: string;
-  /** Do not connect until the owning feature is explicitly enabled. */
   readonly enabled?: boolean;
-  /** Disconnect while hidden. Browser notifications set this to false. */
   readonly pauseWhenHidden?: boolean;
-  /** Retry 401/403 responses so a later token acquisition can recover. */
   readonly retryAuthenticationFailures?: boolean;
-  /** Called for every decoded stage event. */
   readonly onEvent: (event: LiveStageEvent) => void;
-  /** Optional connection-status observer. */
+  readonly onActivity?: (event: AgentOperationalActivityMessage) => void;
+  readonly onActivityStatus?: (event: LiveActivityStatusEvent) => void;
+  readonly onGap?: (droppedBefore: number) => void;
+  readonly onCursorReset?: () => void;
   readonly onStatus?: (status: LiveConnectionStatus) => void;
-  /** Acquire the current bearer header. Dev mode returns null. */
   readonly getAuthorizationHeader?: () => Promise<string | null>;
 }
 
 export interface UseLiveStreamResult {
   readonly status: LiveConnectionStatus;
   readonly source: ObservationSource;
-  /** Best-effort last error the browser reported. */
   readonly lastError: string | null;
 }
 
-/**
- * Attach an `EventSource` to the SSE endpoint. Every decoded frame is
- * passed to `onEvent` (in a `useRef` so re-renders do not tear the
- * subscription). The hook cleans up on unmount.
- */
-const LIVE_STAGES: ReadonlySet<string> = new Set(["ingest", "route", "verify", "gate", "execute", "audit"]);
-const LIVE_PHASES: ReadonlySet<string> = new Set(["begin", "progress", "done", "failed"]);
+const LIVE_STAGES: ReadonlySet<string> = new Set([
+  "ingest",
+  "route",
+  "verify",
+  "gate",
+  "execute",
+  "audit",
+]);
+const LIVE_PHASES: ReadonlySet<string> = new Set([
+  "begin",
+  "progress",
+  "done",
+  "failed",
+]);
+const LIVE_SHARED_REPLAY_CAPACITY = 1_024;
 export const LIVE_SOURCE_FRESHNESS_MS = 15_000;
 
 export function decodeLiveStageEvent(data: string): LiveStageEvent | null {
@@ -105,17 +104,34 @@ export function decodeLiveStageEvent(data: string): LiveStageEvent | null {
   } catch {
     return null;
   }
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
   const event = value as Record<string, unknown>;
   if (
-    typeof event.event_id !== "string" || typeof event.correlation_id !== "string" ||
-    typeof event.stage !== "string" || !LIVE_STAGES.has(event.stage) ||
-    typeof event.phase !== "string" || !LIVE_PHASES.has(event.phase) ||
+    typeof event.event_id !== "string" ||
+    typeof event.correlation_id !== "string" ||
+    typeof event.stage !== "string" ||
+    !LIVE_STAGES.has(event.stage) ||
+    typeof event.phase !== "string" ||
+    !LIVE_PHASES.has(event.phase) ||
     typeof event.ts !== "string" ||
-    !(event.detail === undefined || (typeof event.detail === "object" && event.detail !== null && !Array.isArray(event.detail))) ||
+    !(
+      event.detail === undefined ||
+      (
+        typeof event.detail === "object" &&
+        event.detail !== null &&
+        !Array.isArray(event.detail)
+      )
+    ) ||
     !(event.error === undefined || typeof event.error === "string")
-  ) return null;
-  return { ...event, source: normalizeObservationSource(event.source) } as unknown as LiveStageEvent;
+  ) {
+    return null;
+  }
+  return {
+    ...event,
+    source: normalizeObservationSource(event.source),
+  } as unknown as LiveStageEvent;
 }
 
 export function decodeLiveSourceEvent(data: string): LiveSourceEvent | null {
@@ -125,15 +141,57 @@ export function decodeLiveSourceEvent(data: string): LiveSourceEvent | null {
   } catch {
     return null;
   }
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
   const event = value as Record<string, unknown>;
   const source = normalizeObservationSource(event.source);
   if (
     event.status !== "ready" ||
     source === "unknown" ||
     typeof event.ts !== "string"
-  ) return null;
+  ) {
+    return null;
+  }
   return { status: "ready", source, ts: event.ts };
+}
+
+export function decodeLiveActivityStatusEvent(
+  data: string,
+): LiveActivityStatusEvent | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(data);
+  } catch {
+    return null;
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+  const status = value as Record<string, unknown>;
+  if (
+    status.type !== "live.activity-status" ||
+    (status.status !== "ready" && status.status !== "unavailable") ||
+    !(
+      status.reason === null ||
+      status.reason === "durable_projection_unavailable"
+    ) ||
+    typeof status.ts !== "string" ||
+    Number.isNaN(Date.parse(status.ts)) ||
+    (status.status === "ready" && status.reason !== null) ||
+    (
+      status.status === "unavailable" &&
+      status.reason !== "durable_projection_unavailable"
+    )
+  ) {
+    return null;
+  }
+  return {
+    type: "live.activity-status",
+    status: status.status,
+    reason: status.reason,
+    ts: status.ts,
+  };
 }
 
 export function isLiveSourceObservationFresh(
@@ -147,24 +205,29 @@ export function isLiveSourceObservationFresh(
 }
 
 export function liveStreamHeaders(authorization: string | null): Headers {
-  const headers = new Headers({ accept: "text/event-stream" });
-  if (authorization) headers.set("authorization", authorization);
-  return headers;
+  return authenticatedSseHeaders(authorization);
 }
 
 export function liveReconnectDelay(attempt: number): number {
-  return Math.min(30000, 1000 * (2 ** Math.min(attempt, 5)));
+  return sseReconnectDelay(attempt);
 }
 
 export function isPermanentLiveStreamFailure(status: number): boolean {
   return status === 401 || status === 403;
 }
 
-export function shouldStopLiveStream(status: number, retryAuthenticationFailures: boolean): boolean {
-  return isPermanentLiveStreamFailure(status) && !retryAuthenticationFailures;
+export function shouldStopLiveStream(
+  status: number,
+  retryAuthenticationFailures: boolean,
+): boolean {
+  return isPermanentLiveStreamFailure(status) &&
+    !retryAuthenticationFailures;
 }
 
-export function shouldPauseLiveStream(documentHidden: boolean, pauseWhenHidden: boolean): boolean {
+export function shouldPauseLiveStream(
+  documentHidden: boolean,
+  pauseWhenHidden: boolean,
+): boolean {
   return documentHidden && pauseWhenHidden;
 }
 
@@ -172,188 +235,195 @@ export async function consumeLiveSse(
   response: Response,
   onEvent: (event: LiveStageEvent) => void,
   onSource?: (event: LiveSourceEvent) => void,
+  onActivity?: (event: AgentOperationalActivityMessage) => void,
+  onGap?: (droppedBefore: number) => void,
+  onActivityStatus?: (event: LiveActivityStatusEvent) => void,
+  onCursorReset?: () => void,
 ): Promise<void> {
-  if (!response.ok) throw new Error(`live stream returned HTTP ${response.status}`);
-  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
-  if (!contentType.includes("text/event-stream")) throw new Error("live stream returned an invalid content type");
-  if (!response.body) throw new Error("live stream response has no body");
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  const consumeBlock = (block: string): void => {
-    const eventType = block.split("\n")
-      .find((line) => line.startsWith("event:"))
-      ?.slice(6)
-      .trim();
-    const data = block.split("\n")
-      .filter((line) => line.startsWith("data:"))
-      .map((line) => line.slice(5).trimStart())
-      .join("\n");
-    if (!data) return;
-    if (eventType === "source") {
-      const source = decodeLiveSourceEvent(data);
-      if (source) onSource?.(source);
-      return;
-    }
-    const event = decodeLiveStageEvent(data);
-    if (event) onEvent(event);
-  };
-  while (true) {
-    const { value, done } = await readSseChunk(reader);
-    buffer = (buffer + decoder.decode(value, { stream: !done })).replace(/\r\n/g, "\n");
-    let boundary = buffer.indexOf("\n\n");
-    while (boundary >= 0) {
-      consumeBlock(buffer.slice(0, boundary));
-      buffer = buffer.slice(boundary + 2);
-      boundary = buffer.indexOf("\n\n");
-    }
-    if (done) {
-      if (buffer.trim()) consumeBlock(buffer);
-      return;
-    }
-  }
+  await consumeSseFrames(response, (frame) => {
+    consumeLiveFrame(
+      frame,
+      onEvent,
+      (event) => onSource?.(event),
+      onActivity,
+      onGap,
+      onActivityStatus,
+      onCursorReset,
+      () => undefined,
+    );
+  });
 }
 
-export function useLiveStream(options: UseLiveStreamOptions): UseLiveStreamResult {
-  const [status, setStatus] = useState<LiveConnectionStatus>(typeof fetch === "undefined" ? "unsupported" : "idle");
-  const [lastError, setLastError] = useState<string | null>(null);
+export function useLiveStream(
+  options: UseLiveStreamOptions,
+): UseLiveStreamResult {
   const [source, setSource] = useState<ObservationSource>("unknown");
-  const onEventRef = useRef(options.onEvent);
-  const onStatusRef = useRef(options.onStatus);
-  onEventRef.current = options.onEvent;
-  onStatusRef.current = options.onStatus;
+  const sourceExpiryTimerRef = useRef<number | null>(null);
   const {
     url,
-    getAuthorizationHeader,
+    getAuthorizationHeader = noAuthorization,
     enabled = true,
     pauseWhenHidden = true,
     retryAuthenticationFailures = false,
   } = options;
 
-  useEffect(() => {
-    if (typeof fetch === "undefined") return undefined;
-    if (!enabled) {
-      setStatus("idle");
-      setLastError(null);
-      return undefined;
+  const clearSourceObservation = (): void => {
+    if (sourceExpiryTimerRef.current !== null) {
+      window.clearTimeout(sourceExpiryTimerRef.current);
     }
-    let cancelled = false;
-    let controller: AbortController | null = null;
-    let reconnectTimer: number | null = null;
-    let sourceExpiryTimer: number | null = null;
-    let reconnectAttempt = 0;
-    let permanentFailure = false;
-    const publishStatus = (next: LiveConnectionStatus): void => {
-      setStatus(next);
-      onStatusRef.current?.(next);
-    };
-    const clearSourceObservation = (): void => {
-      if (sourceExpiryTimer !== null) window.clearTimeout(sourceExpiryTimer);
-      sourceExpiryTimer = null;
+    sourceExpiryTimerRef.current = null;
+    setSource("unknown");
+  };
+  const observeSource = (incoming: FrameSource): void => {
+    if (incoming === "unknown") return;
+    setSource((current) => mergeObservationSource(current, incoming));
+    if (sourceExpiryTimerRef.current !== null) {
+      window.clearTimeout(sourceExpiryTimerRef.current);
+    }
+    sourceExpiryTimerRef.current = window.setTimeout(() => {
+      sourceExpiryTimerRef.current = null;
       setSource("unknown");
-    };
-    const isHidden = (): boolean => shouldPauseLiveStream(
-      typeof document !== "undefined" && document.hidden,
-      pauseWhenHidden,
-    );
-    const scheduleReconnect = (): void => {
-      if (cancelled || permanentFailure || isHidden()) return;
-      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
-      const delay = liveReconnectDelay(reconnectAttempt);
-      reconnectAttempt += 1;
-      reconnectTimer = window.setTimeout(() => {
-        reconnectTimer = null;
-        void connect();
-      }, delay);
-    };
-    const connect = async (): Promise<void> => {
-      if (cancelled || controller) return;
-      publishStatus("connecting");
-      const active = new AbortController();
-      controller = active;
-      try {
-        const authorization = await getAuthorizationHeader?.() ?? null;
-        if (cancelled || controller !== active) return;
-        const response = await fetch(url, {
-          method: "GET",
-          headers: liveStreamHeaders(authorization),
-          credentials: "omit",
-          signal: active.signal,
-        });
-        if (!response.ok) {
-          permanentFailure = shouldStopLiveStream(
-            response.status,
-            retryAuthenticationFailures,
-          );
-          throw new Error(`live stream returned HTTP ${response.status}`);
+    }, LIVE_SOURCE_FRESHNESS_MS);
+  };
+  const connection = useSharedAuthenticatedSse("live", {
+    url,
+    enabled,
+    pauseWhenHidden,
+    resumeFromLastEventId: true,
+    getAuthorizationHeader,
+    sharedFrameKey: liveSharedFrameKey,
+    sharedReplayCapacity: LIVE_SHARED_REPLAY_CAPACITY,
+    resetCursorOnFrame: isLiveEpochGapFrame,
+    shouldRetryStatus: retryAuthenticationFailures
+      ? retryLiveIncludingAuthentication
+      : isTransientSseStatus,
+    onStatus: (next) => {
+      if (next === "closed" || next === "idle") clearSourceObservation();
+      options.onStatus?.(next);
+    },
+    onFrame: (frame) => consumeLiveFrame(
+      frame,
+      options.onEvent,
+      (event) => {
+        if (isLiveSourceObservationFresh(event.ts)) {
+          observeSource(event.source);
         }
-        publishStatus("open");
-        setLastError(null);
-        const observeSource = (incoming: FrameSource): void => {
-          if (incoming === "unknown") return;
-          reconnectAttempt = 0;
-          setSource((current) => mergeObservationSource(current, incoming));
-          if (sourceExpiryTimer !== null) window.clearTimeout(sourceExpiryTimer);
-          sourceExpiryTimer = window.setTimeout(() => {
-            sourceExpiryTimer = null;
-            setSource("unknown");
-          }, LIVE_SOURCE_FRESHNESS_MS);
-        };
-        await consumeLiveSse(
-          response,
-          (event) => {
-            if (!cancelled && controller === active) {
-              observeSource(normalizeObservationSource(event.source));
-              onEventRef.current(event);
-            }
-          },
-          (event) => {
-            if (
-              !cancelled &&
-              controller === active &&
-              isLiveSourceObservationFresh(event.ts)
-            ) observeSource(event.source);
-          },
-        );
-        if (!cancelled && controller === active) {
-          setLastError("connection to live stream closed");
-          clearSourceObservation();
-          publishStatus("closed");
-        }
-      } catch (error) {
-        if (!cancelled && !active.signal.aborted) {
-          setLastError(error instanceof Error ? error.message : String(error));
-          clearSourceObservation();
-          publishStatus("closed");
-        }
-      } finally {
-        if (controller === active) controller = null;
-        scheduleReconnect();
-      }
-    };
-    const disconnect = (next: LiveConnectionStatus): void => {
-      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
-      reconnectTimer = null;
-      controller?.abort();
-      controller = null;
-      clearSourceObservation();
-      publishStatus(next);
-    };
-    const handleVisibility = (): void => {
-      if (cancelled) return;
-      if (isHidden()) disconnect("idle");
-      else void connect();
-    };
-    if (isHidden()) publishStatus("idle");
-    else void connect();
-    if (pauseWhenHidden) document.addEventListener("visibilitychange", handleVisibility);
-    return () => {
-      cancelled = true;
-      if (pauseWhenHidden) document.removeEventListener("visibilitychange", handleVisibility);
-      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
-      if (sourceExpiryTimer !== null) window.clearTimeout(sourceExpiryTimer);
-      controller?.abort();
-    };
-  }, [url, getAuthorizationHeader, enabled, pauseWhenHidden, retryAuthenticationFailures]);
-  return { status, lastError, source };
+      },
+      options.onActivity,
+      options.onGap,
+      options.onActivityStatus,
+      options.onCursorReset,
+      (incoming, timestamp) => {
+        if (isLiveSourceObservationFresh(timestamp)) observeSource(incoming);
+      },
+    ),
+  });
+
+  useEffect(() => () => {
+    if (sourceExpiryTimerRef.current !== null) {
+      window.clearTimeout(sourceExpiryTimerRef.current);
+    }
+  }, []);
+
+  return {
+    status: connection.status,
+    lastError: connection.lastError,
+    source,
+  };
+}
+
+function consumeLiveFrame(
+  frame: SseFrame,
+  onEvent: (event: LiveStageEvent) => void,
+  onSource: (event: LiveSourceEvent) => void,
+  onActivity: ((event: AgentOperationalActivityMessage) => void) | undefined,
+  onGap: ((droppedBefore: number) => void) | undefined,
+  onActivityStatus: ((event: LiveActivityStatusEvent) => void) | undefined,
+  onCursorReset: (() => void) | undefined,
+  observeStageSource: (source: FrameSource, timestamp: string) => void,
+): boolean {
+  if (frame.droppedBefore > 0) onGap?.(frame.droppedBefore);
+  if (frame.event === "hello") return false;
+  if (frame.event === "gap") {
+    const reset = decodeEpochGap(frame.data);
+    if (reset) onCursorReset?.();
+    return false;
+  }
+  if (frame.event === "source") {
+    const source = decodeLiveSourceEvent(frame.data);
+    if (source) onSource(source);
+    return source !== null;
+  }
+  if (frame.event === "activity" || frame.event === "activity-snapshot") {
+    const activity = decodeAgentOperationalActivityData(frame.data);
+    if (activity) onActivity?.(activity);
+    return activity !== null;
+  }
+  if (frame.event === "activity-status-snapshot") {
+    const status = decodeLiveActivityStatusEvent(frame.data);
+    if (status) onActivityStatus?.(status);
+    return status !== null;
+  }
+  const event = decodeLiveStageEvent(frame.data);
+  if (!event) return false;
+  observeStageSource(
+    normalizeObservationSource(event.source),
+    event.ts,
+  );
+  onEvent(event);
+  return true;
+}
+
+function decodeAgentOperationalActivityData(
+  data: string,
+): AgentOperationalActivityMessage | null {
+  try {
+    return decodeAgentOperationalActivity(JSON.parse(data));
+  } catch {
+    return null;
+  }
+}
+
+function decodeEpochGap(data: string): boolean {
+  try {
+    const value: unknown = JSON.parse(data);
+    return typeof value === "object" &&
+      value !== null &&
+      !Array.isArray(value) &&
+      (value as Record<string, unknown>).reason === "stream_epoch_changed";
+  } catch {
+    return false;
+  }
+}
+
+export function isLiveEpochGapFrame(frame: SseFrame): boolean {
+  return frame.event === "gap" && decodeEpochGap(frame.data);
+}
+
+function liveSharedFrameKey(frame: SseFrame): string | null {
+  if (frame.event === "source") return "source";
+  if (frame.event === "gap" && decodeEpochGap(frame.data)) {
+    return "cursor-gap";
+  }
+  if (frame.event === "activity-status-snapshot") return "activity-status";
+  if (frame.event === "activity" || frame.event === "activity-snapshot") {
+    const activity = decodeAgentOperationalActivityData(frame.data);
+    return activity === null
+      ? null
+      : `activity:${activity.activity_instance_id ?? activity.activity_id}`;
+  }
+
+  const event = decodeLiveStageEvent(frame.data);
+  if (event === null) return null;
+  return frame.id === null
+    ? `stage:${event.event_id}:${event.stage}:${event.phase}`
+    : `delta:${frame.id}`;
+}
+
+function retryLiveIncludingAuthentication(status: number): boolean {
+  return status === 401 || status === 403 || isTransientSseStatus(status);
+}
+
+async function noAuthorization(): Promise<null> {
+  return null;
 }

@@ -12,7 +12,7 @@ export const PANEL_PATHS: Readonly<Record<string, string>> = {
   "hil-queue": "/approvals",
   provision: "/provisioning",
   onboarding: "/onboarding",
-  "detection-readiness": "/detection-readiness",
+  "detection-readiness": "/detection-coverage",
   "configuration-baselines": "/configuration-baselines",
   processes: "/processes",
   "workflow-apps": "/workflow-apps",
@@ -57,6 +57,7 @@ export const PANEL_PATHS: Readonly<Record<string, string>> = {
 };
 
 const PATH_ALIASES: Readonly<Record<string, string>> = {
+  "/detection-readiness": "detection-readiness",
   "/handover": "handover",
   "/settings": "settings-general",
   "/processes/scheduler-runs": "scheduler-runs",
@@ -249,7 +250,7 @@ export function navigate(href: string, replace = false, state: unknown = null): 
   transientRoute = null;
   const resetScroll = shouldResetScroll(window.location.pathname, url.pathname);
   const method = replace ? "replaceState" : "pushState";
-  window.history[method](state, "", `${url.pathname}${url.search}`);
+  window.history[method](state, "", `${url.pathname}${url.search}${url.hash}`);
   window.dispatchEvent(new Event(ROUTE_EVENT));
   if (resetScroll) {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -264,14 +265,18 @@ export function navigate(href: string, replace = false, state: unknown = null): 
 export function replaceRouteState(href: string): void {
   if (typeof window === "undefined") return;
   const url = new URL(href, window.location.origin);
-  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}`);
+  window.history.replaceState(
+    window.history.state,
+    "",
+    `${url.pathname}${url.search}${url.hash}`,
+  );
   window.dispatchEvent(new Event(ROUTE_STATE_EVENT));
 }
 
 export function pushRouteState(href: string, state: unknown = null): void {
   if (typeof window === "undefined") return;
   const url = new URL(href, window.location.origin);
-  window.history.pushState(state, "", `${url.pathname}${url.search}`);
+  window.history.pushState(state, "", `${url.pathname}${url.search}${url.hash}`);
   window.dispatchEvent(new Event(ROUTE_STATE_EVENT));
 }
 

@@ -3,10 +3,6 @@ import type { OperatorApiClient } from "../api";
 import { loadConfig } from "../config";
 import type { ConsoleDataMode } from "../console-data-mode";
 import type { AgentOperationalActivityMessage } from "../agent-operational-activity";
-import {
-  agentStreamDescriptor,
-  useAgentStream,
-} from "../hooks/use-agent-stream";
 import type { LiveStageEvent } from "../hooks/use-live-stream";
 import { useLiveStream } from "../hooks/use-live-stream";
 import { currentRoute, replaceRouteState, routeHref } from "../router";
@@ -37,6 +33,7 @@ import {
   OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT,
   sampleLiveEvents,
 } from "./operations.sample";
+import { useLiveCoverage } from "./live.coverage";
 
 export { liveTraceHref } from "./live.ticker";
 
@@ -82,16 +79,23 @@ export function LiveRoute({ client, dataMode }: Props) {
   );
   const [frozenObserved, setFrozenObserved] = useState(0);
   const [droppedFrames, setDroppedFrames] = useState(0);
+  const [cursorReset, setCursorReset] = useState(false);
   const [observations, setObservations] = useState<
     readonly AgentOperationalActivityMessage[]
   >([]);
   const [observationLoadState, setObservationLoadState] =
     useState<LiveObservationLoadState>("loading");
   const [observationError, setObservationError] = useState<string | null>(null);
+  const [selectedObservationId, setSelectedObservationId] = useState<
+    string | null
+  >(dataMode === "live" ? initialRoute.search.get("activity") : null);
+  const selectedObservationIdRef = useRef(selectedObservationId);
+  const observationAvailabilityRef = useRef<"ready" | "unavailable" | null>(null);
   const pausedRef = useRef(false);
   const frozenObservedRef = useRef(0);
   const pendingEventsRef = useRef<LiveStageEvent[]>([]);
   const pendingObservationsRef = useRef<AgentOperationalActivityMessage[]>([]);
+  const coverage = useLiveCoverage(client, dataMode);
 
   const updateRoute = ({
     eventId = state.selectedEventId,
@@ -103,6 +107,7 @@ export function LiveRoute({ client, dataMode }: Props) {
     replaceRouteState(routeHref("live", {
       params: {
         event: eventId,
+        activity: eventId ? null : selectedObservationId,
         filter: filter === "all" ? null : filter,
         view: view === "flow" ? null : view,
         data: dataMode === "sample" ? "sample" : null,
@@ -112,9 +117,27 @@ export function LiveRoute({ client, dataMode }: Props) {
 
   const selectEvent = (eventId: string | null): void => {
     dispatch({ kind: "select", event_id: eventId });
+    selectedObservationIdRef.current = null;
+    setSelectedObservationId(null);
     replaceRouteState(routeHref("live", {
       params: {
         event: eventId,
+        activity: null,
+        filter: state.filter === "all" ? null : state.filter,
+        view: viewMode === "flow" ? null : viewMode,
+        data: dataMode === "sample" ? "sample" : null,
+      },
+    }));
+  };
+
+  const selectObservation = (activityId: string | null): void => {
+    dispatch({ kind: "select", event_id: null });
+    selectedObservationIdRef.current = activityId;
+    setSelectedObservationId(activityId);
+    replaceRouteState(routeHref("live", {
+      params: {
+        event: null,
+        activity: activityId,
         filter: state.filter === "all" ? null : state.filter,
         view: viewMode === "flow" ? null : viewMode,
         data: dataMode === "sample" ? "sample" : null,
@@ -132,7 +155,13 @@ export function LiveRoute({ client, dataMode }: Props) {
           ? filter
           : "all",
       });
-      dispatch({ kind: "select", event_id: route.search.get("event") });
+      const eventId = route.search.get("event");
+      dispatch({ kind: "select", event_id: eventId });
+      const activityId = dataMode === "live" && eventId === null
+        ? route.search.get("activity")
+        : null;
+      selectedObservationIdRef.current = activityId;
+      setSelectedObservationId(activityId);
       setViewMode(route.search.get("view") === "queue" ? "queue" : "flow");
     };
     sync();
@@ -142,7 +171,7 @@ export function LiveRoute({ client, dataMode }: Props) {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
     };
-  }, []);
+  }, [dataMode]);
 
   const url = useMemo(() => {
     const config = loadConfig();
@@ -162,57 +191,63 @@ export function LiveRoute({ client, dataMode }: Props) {
         frozenObservedRef.current += 1;
       }
     },
-  });
-  const status = dataMode === "sample" ? "open" : stream.status;
-  const lastError = dataMode === "sample" ? null : stream.lastError;
-  const streamSource = dataMode === "sample" ? "synthetic-dev" : stream.source;
-  const observationDescriptor = useMemo(agentStreamDescriptor, []);
-  const observationStream = useAgentStream({
-    url: observationDescriptor.url,
-    enabled: dataMode === "live",
-    getAuthorizationHeader: client.authorizationHeader,
-    onEvent: (event) => {
-      if (event.type !== "agent.operational-activity") return;
+    onActivity: (event) => {
+      observationAvailabilityRef.current = "ready";
       if (pausedRef.current) {
         pendingObservationsRef.current = [
-          ...mergeLiveObservations(pendingObservationsRef.current, [event]),
+          ...mergeLiveObservations(
+            pendingObservationsRef.current,
+            [event],
+            LIVE_OBSERVATION_LIMIT,
+          ),
         ];
         frozenObservedRef.current += 1;
         return;
       }
       setObservationLoadState("ready");
       setObservationError(null);
-      setObservations((current) => mergeLiveObservations(current, [event]));
+      setObservations((current) => mergeLiveObservations(
+        current,
+        [event],
+        LIVE_OBSERVATION_LIMIT,
+        selectedObservationIdRef.current,
+      ));
     },
+    onActivityStatus: (event) => {
+      observationAvailabilityRef.current = event.status;
+      setObservationLoadState(event.status);
+      setObservationError(
+        event.status === "unavailable" ? event.reason : null,
+      );
+    },
+    onGap: (dropped) => setDroppedFrames((current) => current + dropped),
+    onCursorReset: () => setCursorReset(true),
   });
+  const status = dataMode === "sample" ? "open" : stream.status;
+  const lastError = dataMode === "sample" ? null : stream.lastError;
+  const streamSource = dataMode === "sample" ? "synthetic-dev" : stream.source;
 
   useEffect(() => {
     if (dataMode !== "live") {
+      observationAvailabilityRef.current = null;
       setObservations([]);
       setObservationLoadState("unavailable");
       setObservationError(null);
       return undefined;
     }
-    let cancelled = false;
-    setObservationLoadState("loading");
-    setObservationError(null);
-    void client.listAgentActivity(LIVE_OBSERVATION_LIMIT)
-      .then((page) => {
-        if (cancelled) return;
-        setObservations((current) => mergeLiveObservations(current, page.items));
-        setObservationLoadState(
-          page.source.includes("unavailable") ? "unavailable" : "ready",
-        );
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return;
-        setObservationLoadState("error");
-        setObservationError(error instanceof Error ? error.message : String(error));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [client, dataMode]);
+    if (stream.status === "connecting" || stream.status === "idle") {
+      setObservationLoadState("loading");
+      setObservationError(null);
+    } else if (stream.status === "open") {
+      setObservationLoadState(
+        observationAvailabilityRef.current ?? "loading",
+      );
+    } else {
+      setObservationLoadState("unavailable");
+      setObservationError(stream.lastError);
+    }
+    return undefined;
+  }, [dataMode, stream.lastError, stream.status]);
 
   useEffect(() => {
     if (dataMode !== "sample") return undefined;
@@ -280,7 +315,12 @@ export function LiveRoute({ client, dataMode }: Props) {
     if (tickerPaused) {
       pausedRef.current = false;
       setObservations((current) =>
-        mergeLiveObservations(current, pendingObservationsRef.current));
+        mergeLiveObservations(
+          current,
+          pendingObservationsRef.current,
+          LIVE_OBSERVATION_LIMIT,
+          selectedObservationIdRef.current,
+        ));
       pendingObservationsRef.current = [];
       setTickerPaused(false);
     } else {
@@ -293,6 +333,14 @@ export function LiveRoute({ client, dataMode }: Props) {
 
   const selectedTile = state.selectedEventId
     ? state.tiles.find((tile) => tile?.event_id === state.selectedEventId) ?? null
+    : null;
+  const selectedObservation = selectedObservationId
+    ? observations.find(
+      (item) =>
+        (item.activity_instance_id ?? item.activity_id) ===
+          selectedObservationId ||
+        item.activity_id === selectedObservationId,
+    ) ?? null
     : null;
   const selectionState = liveSelectionState(
     state.selectedEventId,
@@ -313,8 +361,12 @@ export function LiveRoute({ client, dataMode }: Props) {
       const tag = target?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable) return;
       if (target?.closest('[role="dialog"]')) return;
-      if (event.key === "Escape" && state.selectedEventId) {
-        selectEvent(null);
+      if (
+        event.key === "Escape" &&
+        (state.selectedEventId || selectedObservationId)
+      ) {
+        if (selectedObservationId) selectObservation(null);
+        else selectEvent(null);
         event.preventDefault();
         return;
       }
@@ -335,7 +387,14 @@ export function LiveRoute({ client, dataMode }: Props) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [state.selectedEventId, state.filter, tickerPaused, state.session_total, viewMode]);
+  }, [
+    state.selectedEventId,
+    selectedObservationId,
+    state.filter,
+    tickerPaused,
+    state.session_total,
+    viewMode,
+  ]);
 
   return (
     <LivePanels
@@ -347,17 +406,22 @@ export function LiveRoute({ client, dataMode }: Props) {
       tickerPaused={tickerPaused}
       frozenObserved={frozenObserved}
       droppedFrames={droppedFrames}
+      cursorReset={cursorReset}
       observations={observations}
       observationLoadState={observationLoadState}
-      observationStreamStatus={observationStream.status}
-      observationStreamSource={observationStream.source}
+      observationStreamStatus={status}
+      observationStreamSource={streamSource}
       observationError={observationError}
+      coverage={coverage}
       viewMode={viewMode}
       selectionState={selectionState}
       selectedTile={selectedTile}
+      selectedObservationId={selectedObservationId}
+      selectedObservation={selectedObservation}
       togglePause={togglePause}
       updateRoute={updateRoute}
       selectEvent={selectEvent}
+      selectObservation={selectObservation}
     />
   );
 }

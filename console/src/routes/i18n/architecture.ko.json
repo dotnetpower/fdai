@@ -69,6 +69,8 @@
     "dependsOnArrow": "종속 대상 ->",
     "peersWith": "피어 연결됨",
     "peersWithArrow": "피어 연결 <->",
+    "calls": "호출",
+    "calledBy": "다음에서 호출됨",
     "requiredBy": "다음에 필요함",
     "boundary": "경계"
   },

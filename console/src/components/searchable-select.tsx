@@ -1,5 +1,5 @@
 import { autoUpdate, computePosition, flip, offset, shift, size } from "@floating-ui/dom";
-import type { JSX } from "preact";
+import type { ComponentChildren, JSX } from "preact";
 import { createPortal } from "preact/compat";
 import { useCallback, useId, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import "./searchable-select.css";
@@ -9,6 +9,7 @@ export interface SearchableSelectOption {
   readonly value: string;
   readonly label: string;
   readonly description?: string;
+  readonly detail?: string;
   readonly keywords?: readonly string[];
   readonly count?: number;
 }
@@ -21,15 +22,25 @@ export interface SearchableSelectProps {
   readonly onChange: (value: string) => void;
   readonly placeholder: string;
   readonly emptyLabel: string;
+  readonly emptyAction?: ComponentChildren;
   readonly helpText: string;
   readonly resultsLabel: (shown: number, total: number) => string;
+  readonly onQueryChange?: (query: string) => void;
+  readonly loading?: boolean;
+  readonly autoFocus?: boolean;
+  readonly maxLength?: number;
   readonly disabled?: boolean;
 }
 
 function findSuggestions(options: readonly SearchableSelectOption[], query: string, value: string) {
   const tokens = query.normalize("NFC").toLocaleLowerCase().trim().split(/\s+/u).filter(Boolean);
   const matches = options.filter((option) => {
-    const text = [option.label, option.description ?? "", ...(option.keywords ?? [])]
+    const text = [
+      option.label,
+      option.description ?? "",
+      option.detail ?? "",
+      ...(option.keywords ?? []),
+    ]
       .join(" ").normalize("NFC").toLocaleLowerCase();
     return tokens.every((token) => text.includes(token));
   });
@@ -55,7 +66,20 @@ function revealHighlight(list: HTMLUListElement | null): void {
  * Dismissal discards the draft, and focus alone never opens the list.
  */
 export function SearchableSelect({
-  label, value, options, onChange, placeholder, emptyLabel, helpText, resultsLabel, disabled = false,
+  label,
+  value,
+  options,
+  onChange,
+  placeholder,
+  emptyLabel,
+  emptyAction,
+  helpText,
+  resultsLabel,
+  onQueryChange,
+  loading = false,
+  autoFocus = false,
+  maxLength,
+  disabled = false,
 }: SearchableSelectProps) {
   const id = useId();
   const committedLabel = options.find((option) => option.value === value)?.label ?? "";
@@ -65,6 +89,7 @@ export function SearchableSelect({
   const listRef = useRef<HTMLUListElement | null>(null);
   const openRef = useRef(false);
   const draftRef = useRef(committedLabel);
+  const highlightedRef = useRef<string | null>(null);
   const composition = useRef<"idle" | "active" | "ended" | "cancelled">("idle");
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(committedLabel);
@@ -83,6 +108,7 @@ export function SearchableSelect({
     setOpen(false);
     setDraft(committedLabel);
     setQuery("");
+    highlightedRef.current = null;
     setHighlighted(null);
     if (inputRef.current) inputRef.current.value = committedLabel;
   }, [committedLabel]);
@@ -161,8 +187,10 @@ export function SearchableSelect({
     draftRef.current = committedLabel;
     setDraft(committedLabel);
     setQuery("");
+    highlightedRef.current = null;
     setHighlighted(null);
     setOpen(true);
+    onQueryChange?.("");
   }
 
   function edit(text: string): void {
@@ -174,12 +202,14 @@ export function SearchableSelect({
     openRef.current = true;
     setDraft(text);
     setQuery(text);
+    highlightedRef.current = null;
     setHighlighted(null);
     setOpen(true);
+    onQueryChange?.(text);
   }
 
   function select(option: SearchableSelectOption): void {
-    if (disabled || !openRef.current) return;
+    if (disabled) return;
     dismiss();
     if (option.value !== value) onChange(option.value);
   }
@@ -206,16 +236,31 @@ export function SearchableSelect({
     if (event.isComposing || event.keyCode === 229 || composition.current === "active") return;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
+      if (loading) {
+        show();
+        highlightedRef.current = null;
+        setHighlighted(null);
+        return;
+      }
       const choices = openRef.current ? suggestions : findSuggestions(options, "", value).suggestions;
-      const current = openRef.current ? highlightedIndex : -1;
+      const currentValue = highlightedRef.current ?? highlighted;
+      const current = openRef.current
+        ? choices.findIndex((option) => option.value === currentValue)
+        : -1;
       show();
       const index = current < 0
         ? event.key === "ArrowDown" ? 0 : choices.length - 1
         : (current + (event.key === "ArrowDown" ? 1 : -1) + choices.length) % choices.length;
-      setHighlighted(choices[index]?.value ?? null);
+      highlightedRef.current = choices[index]?.value ?? null;
+      setHighlighted(highlightedRef.current);
     } else if (event.key === "Enter" && openRef.current) {
       event.preventDefault();
-      const option = suggestions[highlightedIndex];
+      const selectedValue = highlightedRef.current ?? highlighted;
+      const activeId = event.currentTarget.getAttribute("aria-activedescendant");
+      const activeIndex = activeId?.match(/-option-(\d+)$/)?.[1];
+      const option = activeIndex === undefined
+        ? suggestions.find((candidate) => candidate.value === selectedValue)
+        : suggestions[Number(activeIndex)];
       if (option) select(option);
     } else if (event.key.length === 1 || event.key === "Backspace" || event.key === "Delete") {
       composition.current = "idle";
@@ -235,13 +280,15 @@ export function SearchableSelect({
           value={expanded ? draft : committedLabel}
           placeholder={placeholder}
           disabled={disabled}
+          autoFocus={autoFocus}
+          maxLength={maxLength}
           autoComplete="off"
           spellcheck={false}
           aria-autocomplete="list"
           aria-haspopup="listbox"
           aria-expanded={expanded}
-          aria-controls={expanded ? `${id}-list` : undefined}
-          aria-activedescendant={expanded && highlightedIndex >= 0 ? `${id}-option-${highlightedIndex}` : undefined}
+          aria-controls={expanded && !loading ? `${id}-list` : undefined}
+          aria-activedescendant={expanded && !loading && highlightedIndex >= 0 ? `${id}-option-${highlightedIndex}` : undefined}
           aria-describedby={`${id}-help`}
           onClick={(event) => {
             if (!openRef.current) {
@@ -282,38 +329,57 @@ export function SearchableSelect({
           <p class="searchable-select-results" role="status" aria-live="polite" aria-atomic="true">
             {resultsLabel(suggestions.length, total)}
           </p>
-          <ul ref={listRef} id={`${id}-list`} class="searchable-select-list" role="listbox" aria-labelledby={`${id}-label`}>
-            {suggestions.map((option, index) => (
-              <li
-                key={option.value}
-                id={`${id}-option-${index}`}
-                class="searchable-select-option"
-                role="option"
-                aria-selected={option.value === value}
-                data-highlighted={option.value === highlighted ? "true" : undefined}
-                onPointerDown={(event) => {
-                  if (event.pointerType !== "touch") event.preventDefault();
-                }}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => select(option)}
-              >
-                <svg class="searchable-select-check" viewBox="0 0 16 16" aria-hidden="true">
-                  {option.value === value
-                    ? <path d="m3 8 3 3 7-7" fill="none" stroke="currentColor" stroke-width="1.5" />
-                    : null}
-                </svg>
-                <span class="searchable-select-option-copy">
-                  <span class="searchable-select-option-label">{option.label}</span>
-                  {option.description
-                    ? <span class="searchable-select-description">{option.description}</span> : null}
-                </span>
-                {option.count !== undefined
-                  ? <span class="searchable-select-count">{option.count}</span> : null}
-              </li>
-            ))}
-          </ul>
+          {loading ? (
+            <div class="searchable-select-loading" aria-hidden="true">
+              <span class="skeleton-shimmer" />
+              <span class="skeleton-shimmer" />
+              <span class="skeleton-shimmer" />
+            </div>
+          ) : (
+            <ul ref={listRef} id={`${id}-list`} class="searchable-select-list" role="listbox" aria-labelledby={`${id}-label`}>
+              {suggestions.map((option, index) => (
+                <li
+                  key={option.value}
+                  id={`${id}-option-${index}`}
+                  class="searchable-select-option"
+                  role="option"
+                  aria-selected={option.value === value}
+                  data-highlighted={option.value === highlighted ? "true" : undefined}
+                  onPointerDown={(event) => {
+                    if (event.pointerType !== "touch") event.preventDefault();
+                  }}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => select(option)}
+                >
+                  <svg class="searchable-select-check" viewBox="0 0 16 16" aria-hidden="true">
+                    {option.value === value
+                      ? <path d="m3 8 3 3 7-7" fill="none" stroke="currentColor" stroke-width="1.5" />
+                      : null}
+                  </svg>
+                  <span class="searchable-select-option-copy">
+                    <span class="searchable-select-option-label">{option.label}</span>
+                    {option.description
+                      ? <span class="searchable-select-description">{option.description}</span> : null}
+                    {option.detail
+                      ? <code class="searchable-select-detail">{option.detail}</code> : null}
+                  </span>
+                  {option.count !== undefined
+                    ? <span class="searchable-select-count">{option.count}</span> : null}
+                </li>
+              ))}
+            </ul>
+          )}
           <p class="searchable-select-results">{helpText}</p>
-          {suggestions.length === 0 ? <p class="searchable-select-empty">{emptyLabel}</p> : null}
+          {!loading && suggestions.length === 0
+            ? (
+                <>
+                  <p class="searchable-select-empty">{emptyLabel}</p>
+                  {emptyAction
+                    ? <div class="searchable-select-empty-action">{emptyAction}</div>
+                    : null}
+                </>
+              )
+            : null}
         </div>,
         document.body,
       ) : null}

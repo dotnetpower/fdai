@@ -432,6 +432,7 @@ def build_operator_app(
             path="/agents/stream",
             channel="aw.pantheon.agents",
             route_name="agent_stream",
+            resumable=False,
         ),
         Route("/healthz", readiness, methods=["GET"], name="healthz"),
         Route("/hil-queue", get_hil_queue, methods=["GET"], name="get_hil_queue"),

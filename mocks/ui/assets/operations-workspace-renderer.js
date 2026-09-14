@@ -20,7 +20,7 @@
       }).join("") + '</ul></aside><article class="cp-workspace-detail" data-op-record-detail>' +
       (record ? recordBody(record) : '<p class="op-empty" role="status">The requested record is not in this collection. Select a listed example; no substitute record is inferred.</p>') + "</article></div>";
   }
-  function views(page) {
+  function views(page, firstViewSummary) {
     var used = page.views.flatMap(function (view) { return view.sections; });
     if (used.length !== page.sections.length || new Set(used).size !== used.length ||
         page.sections.some(function (section) { return !used.includes(section.id); })) {
@@ -34,6 +34,7 @@
     html += page.views.map(function (view, index) {
       return '<div role="tabpanel" id="op-panel-' + ui().escape(view.id) + '" aria-labelledby="op-tab-' + ui().escape(view.id) +
         '" data-op-panel="' + ui().escape(view.id) + '"' + (index ? " hidden" : "") + ">" +
+        (index === 0 ? firstViewSummary || "" : "") +
         view.sections.map(function (id) { return ui().section(page.sections.find(function (section) { return section.id === id; })); }).join("") + "</div>";
     }).join("");
     return html;
@@ -123,6 +124,13 @@
       var form = event.target.closest("[data-cp-form]");
       if (!form) return;
       event.preventDefault();
+      if (
+        pageId === "detection-readiness"
+        && form.closest("#detection-resource-filters, #detection-finding-filters")
+      ) {
+        form.reset();
+        return;
+      }
       if (pageId !== "scheduler-runs" || form.closest("section").id !== "scheduler-query") return;
       var task = form.querySelector("input").value.trim();
       var status = form.querySelector("select").value;

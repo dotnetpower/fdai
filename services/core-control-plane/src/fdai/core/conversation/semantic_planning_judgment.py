@@ -51,6 +51,7 @@ _OPERATIONAL_DESCRIPTOR_NAMES = {
     ),
     "query.resource_event_history": frozenset({"Resource", "query.resource_event_history"}),
     "query.resource_state_inventory": frozenset({"Resource", "query.resource_state_inventory"}),
+    "query.incident_evidence": frozenset({"Incident", "query.incident_evidence"}),
     "query.subscription_scope_identity": frozenset({"query.subscription_scope_identity"}),
     "query.subscription_service_health": frozenset({"query.subscription_service_health"}),
     "query.resource_configuration_changes": frozenset(

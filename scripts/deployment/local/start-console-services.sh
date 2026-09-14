@@ -20,6 +20,7 @@ services=(
   document-ingestion-api
   document-processing-worker
   isolated-executor
+  local-analyzer
   inventory-reconciliation
   observation-campaign
   console-frontend
@@ -111,8 +112,12 @@ trap handle_signal INT TERM
 
 printf '%s service=console-stack event=starting\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
 for service in "${services[@]}"; do
+  service_args=("$service")
+  if [[ "$service" == "local-analyzer" ]]; then
+    service_args+=(--wait-ready)
+  fi
   FDAI_CONSOLE_EXPECTED_AUTH_MODE="$auth_mode" \
-    bash "$repo_root/scripts/deployment/local/run-console-service.sh" "$service" &
+    bash "$repo_root/scripts/deployment/local/run-console-service.sh" "${service_args[@]}" &
   child_pids+=("$!")
 done
 printf '%s service=console-stack event=started\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"

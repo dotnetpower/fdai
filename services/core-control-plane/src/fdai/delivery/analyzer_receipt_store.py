@@ -13,6 +13,7 @@ from fdai.shared.providers.state_store import StateStore
 
 ANALYZER_RECEIPT_STATE_PREFIX = "runtime:analyzer-finding-receipt:"
 ANALYZER_RUN_RECEIPT_STATE_PREFIX = "runtime:analyzer-tick-receipt:"
+ANALYZER_RUN_RECEIPT_SCHEMA_VERSION = "1.3.0"
 DEFAULT_ANALYZER_RECEIPT_RETENTION = 500
 #: Per-tick observation values. A finding that outlives one tick keeps the same
 #: window-bucket idempotency key, so a later tick re-reports the same outcome
@@ -102,7 +103,7 @@ class StateStoreAnalyzerRunReceiptStore:
         ).hexdigest()
         key = f"{ANALYZER_RUN_RECEIPT_STATE_PREFIX}{attempt_digest}"
         value: dict[str, object] = {
-            "schema_version": "1.2.0",
+            "schema_version": ANALYZER_RUN_RECEIPT_SCHEMA_VERSION,
             "run_id": run_id,
             "tick_id": tick_id,
             "attempt_id": report_digest,
@@ -133,6 +134,7 @@ class StateStoreAnalyzerRunReceiptStore:
 
 
 __all__ = [
+    "ANALYZER_RUN_RECEIPT_SCHEMA_VERSION",
     "ANALYZER_RECEIPT_STATE_PREFIX",
     "ANALYZER_RUN_RECEIPT_STATE_PREFIX",
     "DEFAULT_ANALYZER_RECEIPT_RETENTION",

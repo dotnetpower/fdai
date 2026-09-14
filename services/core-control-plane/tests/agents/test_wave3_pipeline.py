@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
@@ -37,6 +38,73 @@ def test_huginn_normalizes_and_dedups() -> None:
     assert first is not None
     assert first["event_type"] == "restart_needed"
     assert second is None  # dedup
+
+
+def test_huginn_preserves_a_valid_source_event_time() -> None:
+    huginn = Huginn(clock=lambda: datetime(2026, 9, 14, 2, 0, 1, tzinfo=UTC))
+
+    event = asyncio.run(
+        huginn.ingest(
+            {
+                "id": "evt-time-1",
+                "resource_id": "vm-1",
+                "event_type": "cpu_spike",
+                "detected_at": "2026-09-14T02:00:00Z",
+            }
+        )
+    )
+
+    assert event is not None
+    assert event["occurred_at"] == "2026-09-14T02:00:00+00:00"
+    assert event["ingested_at"] == "2026-09-14T02:00:01+00:00"
+
+
+def test_huginn_rejects_a_malformed_source_event_time() -> None:
+    huginn = Huginn()
+
+    with pytest.raises(ValueError, match="detected_at MUST be RFC 3339"):
+        asyncio.run(
+            huginn.ingest(
+                {
+                    "id": "evt-time-1",
+                    "resource_id": "vm-1",
+                    "event_type": "cpu_spike",
+                    "detected_at": "not-a-timestamp",
+                }
+            )
+        )
+
+
+def test_huginn_rejects_a_source_time_after_ingestion() -> None:
+    huginn = Huginn(clock=lambda: datetime(2026, 9, 14, 2, 0, tzinfo=UTC))
+
+    with pytest.raises(ValueError, match="after trusted ingestion time"):
+        asyncio.run(
+            huginn.ingest(
+                {
+                    "id": "evt-time-1",
+                    "resource_id": "vm-1",
+                    "event_type": "cpu_spike",
+                    "detected_at": "2026-09-14T02:00:01Z",
+                    "ingested_at": "2099-01-01T00:00:00Z",
+                }
+            )
+        )
+
+
+def test_huginn_rejects_a_naive_ingestion_clock() -> None:
+    huginn = Huginn(clock=lambda: datetime(2026, 9, 14, 2, 0))
+
+    with pytest.raises(ValueError, match="clock MUST return a timezone-aware"):
+        asyncio.run(
+            huginn.ingest(
+                {
+                    "id": "evt-time-1",
+                    "resource_id": "vm-1",
+                    "event_type": "cpu_spike",
+                }
+            )
+        )
 
 
 def test_huginn_bounds_pathological_attributes() -> None:
@@ -1506,6 +1574,7 @@ def test_heimdall_uses_worst_severity_in_burst_window() -> None:
 
     anomaly = bus.messages_on("object.anomaly")[0].payload
     assert anomaly["severity"] == "critical"
+    assert str(anomaly["idempotency_key"]).startswith("anomaly:")
     assert candidates[0]["severity"] == "critical"
 
 
@@ -1533,6 +1602,173 @@ def test_heimdall_preserves_all_burst_evidence_keys() -> None:
         )
 
     assert candidates[0]["evidence_keys"] == ("failure-0", "failure-1")
+
+
+def test_heimdall_does_not_count_duplicate_event_evidence_toward_threshold() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    candidates: list[dict[str, object]] = []
+
+    async def capture(candidate: dict[str, object]) -> bool:
+        candidates.append(candidate)
+        return True
+
+    heimdall = Heimdall(bus=bus, rate_threshold=2, incident_candidate_hook=capture)
+    repeated = {
+        "resource_id": "api-example",
+        "event_type": "availability.probe_failed",
+        "incident_correlation": "correlate",
+        "correlation_id": "episode-1",
+        "idempotency_key": "failure-1",
+        "severity": "high",
+    }
+
+    asyncio.run(heimdall.on_typed_message("object.event", repeated))
+    asyncio.run(heimdall.on_typed_message("object.event", repeated))
+
+    assert bus.messages_on("object.anomaly") == []
+    assert candidates == []
+    assert heimdall.behavior_snapshot()["repeated_event_duplicate"] == 1
+
+    asyncio.run(
+        heimdall.on_typed_message(
+            "object.event",
+            {**repeated, "idempotency_key": "failure-2"},
+        )
+    )
+
+    assert len(bus.messages_on("object.anomaly")) == 1
+    assert candidates[0]["evidence_keys"] == ("failure-1", "failure-2")
+
+
+def test_heimdall_uses_one_candidate_per_bounded_episode() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    candidates: list[dict[str, object]] = []
+    clock = {"now": 0.0}
+
+    async def capture(candidate: dict[str, object]) -> bool:
+        candidates.append(candidate)
+        return True
+
+    heimdall = Heimdall(
+        bus=bus,
+        rate_threshold=2,
+        rate_window=60,
+        incident_candidate_hook=capture,
+        clock=lambda: clock["now"],
+    )
+
+    def send(index: int, *, severity: str = "high") -> None:
+        asyncio.run(
+            heimdall.on_typed_message(
+                "object.event",
+                {
+                    "resource_id": "api-example",
+                    "event_type": "availability.probe_failed",
+                    "incident_correlation": "correlate",
+                    "correlation_id": "stable-signal",
+                    "idempotency_key": f"failure-{index}",
+                    "severity": severity,
+                },
+            )
+        )
+
+    send(0)
+    clock["now"] = 1.0
+    send(1)
+    clock["now"] = 2.0
+    send(2)
+
+    assert len(candidates) == 1
+
+    clock["now"] = 63.0
+    send(3)
+    clock["now"] = 64.0
+    send(4)
+
+    assert len(candidates) == 2
+    assert candidates[0]["correlation_id"] == candidates[1]["correlation_id"]
+    assert candidates[0]["incident_episode_id"] != candidates[1]["incident_episode_id"]
+
+
+def test_heimdall_uses_event_time_for_replayed_repeat_windows() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    candidates: list[dict[str, object]] = []
+    observed = datetime(2026, 9, 14, 2, 0, tzinfo=UTC)
+
+    async def capture(candidate: dict[str, object]) -> bool:
+        candidates.append(candidate)
+        return True
+
+    heimdall = Heimdall(
+        bus=bus,
+        rate_threshold=2,
+        rate_window=300,
+        incident_candidate_hook=capture,
+        clock=lambda: 0.0,
+    )
+
+    def send(index: int, occurred_at: datetime) -> None:
+        asyncio.run(
+            heimdall.on_typed_message(
+                "object.event",
+                {
+                    "resource_id": "api-example",
+                    "event_type": "availability.probe_failed",
+                    "incident_correlation": "correlate",
+                    "correlation_id": "stable-signal",
+                    "idempotency_key": f"failure-{index}",
+                    "severity": "high",
+                    "occurred_at": occurred_at.isoformat(),
+                },
+            )
+        )
+
+    send(0, observed)
+    send(1, observed + timedelta(minutes=10))
+
+    assert candidates == []
+
+    send(2, observed + timedelta(minutes=10, seconds=1))
+
+    assert len(candidates) == 1
+    assert candidates[0]["evidence_keys"] == ("failure-1", "failure-2")
+
+
+def test_heimdall_reuses_episode_identity_for_more_severe_evidence() -> None:
+    candidates: list[dict[str, object]] = []
+    clock = {"now": 0.0}
+
+    async def capture(candidate: dict[str, object]) -> bool:
+        candidates.append(candidate)
+        return True
+
+    heimdall = Heimdall(
+        rate_threshold=2,
+        rate_window=60,
+        incident_candidate_hook=capture,
+        clock=lambda: clock["now"],
+    )
+    for index, severity in enumerate(("medium", "medium", "critical")):
+        clock["now"] = float(index)
+        asyncio.run(
+            heimdall.on_typed_message(
+                "object.event",
+                {
+                    "resource_id": "api-example",
+                    "event_type": "availability.probe_failed",
+                    "incident_correlation": "correlate",
+                    "correlation_id": "stable-signal",
+                    "idempotency_key": f"failure-{index}",
+                    "severity": severity,
+                },
+            )
+        )
+
+    assert [candidate["severity"] for candidate in candidates] == ["medium", "critical"]
+    assert candidates[0]["incident_episode_id"] == candidates[1]["incident_episode_id"]
 
 
 def test_heimdall_accumulates_interleaved_episodes_independently() -> None:
@@ -1572,6 +1808,7 @@ def test_heimdall_accumulates_interleaved_episodes_independently() -> None:
 
 def test_heimdall_retries_candidate_after_transient_hook_failure() -> None:
     candidates: list[dict[str, object]] = []
+    bus = InMemoryBus(registry=load_pantheon())
 
     async def fail_once(candidate: dict[str, object]) -> bool:
         candidates.append(candidate)
@@ -1579,8 +1816,12 @@ def test_heimdall_retries_candidate_after_transient_hook_failure() -> None:
             raise RuntimeError("transient lifecycle failure")
         return True
 
-    heimdall = Heimdall(rate_threshold=2, incident_candidate_hook=fail_once)
-    for index in range(3):
+    heimdall = Heimdall(
+        bus=bus,
+        rate_threshold=2,
+        incident_candidate_hook=fail_once,
+    )
+    for index in (0, 1, 1):
         asyncio.run(
             heimdall.on_typed_message(
                 "object.event",
@@ -1596,8 +1837,12 @@ def test_heimdall_retries_candidate_after_transient_hook_failure() -> None:
         )
 
     assert len(candidates) == 2
+    assert candidates[0]["evidence_keys"] == candidates[1]["evidence_keys"]
+    anomalies = bus.messages_on("object.anomaly")
+    assert anomalies[0].payload["idempotency_key"] == anomalies[1].payload["idempotency_key"]
     assert heimdall.behavior_snapshot()["incident_candidate_failed"] == 1
     assert heimdall.behavior_snapshot()["incident_candidate"] == 1
+    assert heimdall.behavior_snapshot()["repeated_event_duplicate"] == 1
 
 
 def test_heimdall_records_policy_held_candidate_separately() -> None:

@@ -498,16 +498,16 @@ function RelationshipEvidence({
   readonly trafficDirection: "ingress" | "egress" | null;
 }) {
   const evidence = link.evidence;
-  if (evidence.status === "unavailable") {
+  if (evidence.status === "unavailable" && evidence.evidence_kind === null) {
     return (
       <dl class="ontology-instance-relationship-evidence is-unavailable">
         <div><dt>{t("ontology.instances.relationshipEvidence")}</dt><dd>{t("ontology.instances.unavailable")}</dd></div>
-        <div><dt>{t("ontology.instances.reason")}</dt><dd><code>{evidence.reason}</code></dd></div>
+        <div><dt>{t("ontology.instances.reason")}</dt><dd>{t(`ontology.instances.evidenceReason.${evidence.reason}`)}</dd></div>
       </dl>
     );
   }
   return (
-    <dl class={`ontology-instance-relationship-evidence${evidence.status === "stale" ? " is-unavailable" : ""}`}>
+    <dl class={`ontology-instance-relationship-evidence${evidence.status !== "available" ? " is-unavailable" : ""}`}>
       <div><dt>{t("ontology.instances.directionMeaning")}</dt><dd>{trafficDirection === null
         ? t("ontology.instances.graphDirectionOnly")
         : t(`ontology.instances.verified.${trafficDirection}`)}</dd></div>
@@ -519,7 +519,8 @@ function RelationshipEvidence({
       <div><dt>{t("ontology.instances.completeness")}</dt><dd>{evidence.complete ? t("ontology.instances.complete") : t("ontology.instances.unavailable")}</dd></div>
       <div><dt>{t("ontology.instances.sourceProperty")}</dt><dd><code>{evidence.source_property_path}</code></dd></div>
       <div><dt>{t("ontology.instances.relationshipMapping")}</dt><dd><code>{evidence.mapping_id}</code></dd></div>
-      {evidence.reason === null ? null : <div><dt>{t("ontology.instances.reason")}</dt><dd><code>{evidence.reason}</code></dd></div>}
+      <div><dt>{t("ontology.instances.evidenceMethod")}</dt><dd><code>{evidence.evidence_method}</code></dd></div>
+      {evidence.reason === null ? null : <div><dt>{t("ontology.instances.reason")}</dt><dd>{t(`ontology.instances.evidenceReason.${evidence.reason}`)}</dd></div>}
     </dl>
   );
 }
