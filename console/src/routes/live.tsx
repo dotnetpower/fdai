@@ -79,6 +79,7 @@ export function LiveRoute({ client, dataMode }: Props) {
   );
   const [frozenObserved, setFrozenObserved] = useState(0);
   const [droppedFrames, setDroppedFrames] = useState(0);
+  const [cursorReset, setCursorReset] = useState(false);
   const [observations, setObservations] = useState<
     readonly AgentOperationalActivityMessage[]
   >([]);
@@ -220,6 +221,7 @@ export function LiveRoute({ client, dataMode }: Props) {
       );
     },
     onGap: (dropped) => setDroppedFrames((current) => current + dropped),
+    onCursorReset: () => setCursorReset(true),
   });
   const status = dataMode === "sample" ? "open" : stream.status;
   const lastError = dataMode === "sample" ? null : stream.lastError;
@@ -404,6 +406,7 @@ export function LiveRoute({ client, dataMode }: Props) {
       tickerPaused={tickerPaused}
       frozenObserved={frozenObserved}
       droppedFrames={droppedFrames}
+      cursorReset={cursorReset}
       observations={observations}
       observationLoadState={observationLoadState}
       observationStreamStatus={status}

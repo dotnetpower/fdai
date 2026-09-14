@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: c68a1d0defef57cc8ffb733566f43f08f6a29ab2
+translation_source_sha: 99bbb3b191a57174f498e9c171fa9dfbf8774133
 translation_revised: 2026-09-14
 ---
 # 콘솔 근거 및 복원력
@@ -499,7 +499,7 @@ Cross-origin direct-upload 대상에는 내용 헤더를 보내지만 Operator A
 
 ## 스트림 복구 및 authentication
 
-인증된 GET-SSE 소비자는 범위가 제한된 parsing, 비활성 timeout, 재연결 및 커서 처리를 공유합니다. Decoder가 프레임을 수락한 뒤에만 커서를 진행하며 커서 전용 `400` 또는 `416`만 커서를 지웁니다. 인증, 요청 제한 및 거부된 프레임은 커서와 backoff를 보존합니다. 서버의 누락 안내는 표시하지만 로컬 cache 제거는 wire 손실이 아닙니다. 소비자별 visibility와 탭 정책은 분리하고 요청 범위 대화 스트림은 별도 경로를 유지합니다.
+인증된 GET-SSE 소비자는 범위가 제한된 parsing, 비활성 timeout, 재연결 및 커서 처리를 공유합니다. Decoder가 프레임을 수락한 뒤에만 커서를 진행하며 커서 전용 `400` 또는 `416`과 검증된 `stream_epoch_changed` 누락 프레임만 커서를 지웁니다. Epoch 전이 뒤 현재 스냅샷을 다시 받고, 프레임 폐기 수를 만들어 내지 않으면서 스트림 재시작으로 표시합니다. 인증, 요청 제한 및 거부된 프레임은 커서와 backoff를 보존합니다. 서버의 누락 안내는 표시하지만 로컬 cache 제거는 wire 손실이 아닙니다. 소비자별 visibility와 탭 정책은 분리하고 요청 범위 대화 스트림은 별도 경로를 유지합니다.
 
 Command Deck 조사 활동에는 선택적인 관찰된 실행 근거가 포함될 수 있습니다. 서버는 발행 전에 자격 증명과 민감한 식별자를 제거하고 `redacted=true`를 설정하며, 브라우저는 이 확인이
 없는 입력 근거를 폐기합니다. `input_kind=command`는 기록된 프로세스 호출이 필요하며 exit

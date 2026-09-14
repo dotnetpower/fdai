@@ -451,6 +451,9 @@ def _activity(
         result_state = OperationalActivityResultState.UNAVAILABLE
     else:
         result_state = OperationalActivityResultState.MEASURED
+    recorded_evidence_count = (
+        evidence_count if result_state is OperationalActivityResultState.MEASURED else 0
+    )
     return AgentOperationalActivity(
         schema_version="1.3.0",
         activity_id=f"observation:{spec.source_id}:{campaign_id}:{status.value}",
@@ -464,7 +467,7 @@ def _activity(
         observed_at=observed_at,
         source=spec.source_id,
         freshness=freshness,
-        evidence_count=evidence_count,
+        evidence_count=recorded_evidence_count,
         duration_ms=duration_ms,
         correlation_id=campaign_id,
         reason_codes=reason_codes,
@@ -472,7 +475,9 @@ def _activity(
         scope_class=OperationalActivityScopeClass.SOURCE_DOMAIN,
         result_state=result_state,
         result_count=(
-            evidence_count if result_state is OperationalActivityResultState.MEASURED else None
+            recorded_evidence_count
+            if result_state is OperationalActivityResultState.MEASURED
+            else None
         ),
         result_unit=(
             OperationalActivityResultUnit.RECORDS

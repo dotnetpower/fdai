@@ -35,6 +35,7 @@ export interface UseAuthenticatedSseOptions {
   readonly initialLastEventId?: string | null;
   readonly onLastEventId?: (lastEventId: string | null) => void;
   readonly strictEventId?: boolean;
+  readonly resetCursorOnFrame?: (frame: SseFrame) => boolean;
   readonly sharedFrameKey?: (frame: SseFrame) => string | null;
   readonly sharedReplayCapacity?: number;
 }
@@ -171,11 +172,13 @@ export function useAuthenticatedSse(
   const onFrameRef = useRef(options.onFrame);
   const onStatusRef = useRef(options.onStatus);
   const onLastEventIdRef = useRef(options.onLastEventId);
+  const resetCursorOnFrameRef = useRef(options.resetCursorOnFrame);
   const lastEventIdRef = useRef<string | null>(null);
   const serverRetryRef = useRef<number | null>(null);
   onFrameRef.current = options.onFrame;
   onStatusRef.current = options.onStatus;
   onLastEventIdRef.current = options.onLastEventId;
+  resetCursorOnFrameRef.current = options.resetCursorOnFrame;
 
   const {
     url,
@@ -275,6 +278,14 @@ export function useAuthenticatedSse(
           response,
           (frame) => {
             if (frame.retryMs !== null) serverRetryRef.current = frame.retryMs;
+            if (
+              resumeFromLastEventId &&
+              resetCursorOnFrameRef.current?.(frame) === true
+            ) {
+              lastEventIdRef.current = null;
+              setLastEventId(null);
+              onLastEventIdRef.current?.(null);
+            }
             const accepted = onFrameRef.current(frame);
             if (accepted !== false) reconnectAttempt = 0;
             if (

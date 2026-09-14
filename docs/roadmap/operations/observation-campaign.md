@@ -52,6 +52,7 @@ campaign readiness as effect evidence. This shadow-only slice adds no runtime bi
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Prevented started and failed inventory or observation rows from exposing partial source counts as completed evidence. Both states now publish `evidence_count: 0` with no `result_count`; only measured terminal rows retain observed counts. | `current change`; Core activity producer and Operator projection regressions passed 13 focused tests. | Retain an authenticated standard-stack failure transition before claiming runtime validation. |
 | 2026-09-14 | implemented | Added operational activity schema `1.3.0` with stable lifecycle identity, registered presentation facts, typed result state/unit, source cutoff, and optional timing. The Operator now seeds current activity into Live SSE without assigning delta cursors, and CAS-superseded work remains not-recorded rather than fabricated measured zero. | `current change`; service-contract, Core producer, Operator projection/stream, and Console decoder/card paths; focused checks listed in the current session. | Retain an authenticated standard-stack observation and equivalent deployed-revision evidence before raising governed live campaign evidence to validated. |
 | 2026-09-12 | implemented | Added an exact-target Azure VM power-state read contract for independent `ops.start-vm@1.0.0` effect observation without registering another campaign source. | `current change`; `delivery/azure/vm_power_state.py`; focused exact-scope, identity, response-bound, and fail-closed tests. | Keep the adapter unwired until separately authorized A3-E runtime evidence work; retain equivalent deployed evidence before validation. |
 | 2026-09-04 | implemented | Added a dedicated scheduled WARA Job rather than widening the general observation campaign. Its scope reader requires a fresh promoted generation, complete workload relationships, and exact inventory-owned ARM ids before the existing shadow observer runs. | `current change`; focused WARA CLI, PostgreSQL scope, runtime, and Azure adapter checks passed. | Retain the separately authorized deployed WARA receipt; keep WARA outside general source discovery. |
@@ -232,10 +233,10 @@ or could not be obtained. An empty reason-code list remains the correct successf
 rendered as missing evidence. Raw log lines, cloud identifiers, query text, identities, and
 provider errors remain outside the shared activity stream.
 
-A failed terminal projection sets `evidence_count` to zero and leaves `result_count` absent even
-when internal work observed rows before the failure. Pre-failure work is not completed evidence.
-A `started` projection may omit terminal-only count and reason fields; the Operator normalizes those
-omissions without relaxing terminal validation.
+Failed terminal and started projections set `evidence_count` to zero and leave `result_count`
+absent even when source rows contain partial counts. Pre-terminal or pre-failure work is not
+completed evidence. A `started` input may omit terminal-only count and reason fields; the Operator
+normalizes those omissions without relaxing terminal validation.
 
 The Operator loads the durable current state into unsequenced Live SSE snapshots. Subsequent
 operational activity uses cursor-bearing deltas on the same physical Live stream, while agent state

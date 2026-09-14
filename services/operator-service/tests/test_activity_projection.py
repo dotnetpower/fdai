@@ -66,6 +66,42 @@ def test_projection_merges_authoritative_sources_newest_first() -> None:
     assert items[0]["activity_id"] == "current-state.read:read-correlation:one:completed"
 
 
+@pytest.mark.parametrize(
+    ("status", "failure_code", "result_state"),
+    [
+        ("collecting", None, "not-recorded"),
+        ("failed", "provider_failure", "unavailable"),
+    ],
+)
+def test_partial_inventory_rows_do_not_poison_unmeasured_activity(
+    status: str,
+    failure_code: str | None,
+    result_state: str,
+) -> None:
+    payload = durable_activity_projection(
+        inventory_rows=(
+            {
+                "id": "attempt-partial",
+                "status": status,
+                "source": "azure-resource-graph",
+                "started_at": NOW,
+                "completed_at": NOW if status == "failed" else None,
+                "failure_code": failure_code,
+                "resource_count": 10,
+                "link_count": 5,
+            },
+        ),
+        ontology_rows=(),
+        read_rows=(),
+        limit=10,
+    )
+
+    item = payload["items"][0]
+    assert item["result_state"] == result_state
+    assert item["evidence_count"] == 0
+    assert item["result_count"] is None
+
+
 def test_projects_durable_observation_campaign_activity() -> None:
     payload = durable_activity_projection(
         inventory_rows=(),

@@ -69,6 +69,7 @@ export interface UseLiveStreamOptions {
   readonly onActivity?: (event: AgentOperationalActivityMessage) => void;
   readonly onActivityStatus?: (event: LiveActivityStatusEvent) => void;
   readonly onGap?: (droppedBefore: number) => void;
+  readonly onCursorReset?: () => void;
   readonly onStatus?: (status: LiveConnectionStatus) => void;
   readonly getAuthorizationHeader?: () => Promise<string | null>;
 }
@@ -237,6 +238,7 @@ export async function consumeLiveSse(
   onActivity?: (event: AgentOperationalActivityMessage) => void,
   onGap?: (droppedBefore: number) => void,
   onActivityStatus?: (event: LiveActivityStatusEvent) => void,
+  onCursorReset?: () => void,
 ): Promise<void> {
   await consumeSseFrames(response, (frame) => {
     consumeLiveFrame(
@@ -246,6 +248,7 @@ export async function consumeLiveSse(
       onActivity,
       onGap,
       onActivityStatus,
+      onCursorReset,
       () => undefined,
     );
   });
@@ -290,6 +293,7 @@ export function useLiveStream(
     getAuthorizationHeader,
     sharedFrameKey: liveSharedFrameKey,
     sharedReplayCapacity: LIVE_SHARED_REPLAY_CAPACITY,
+    resetCursorOnFrame: isLiveEpochGapFrame,
     shouldRetryStatus: retryAuthenticationFailures
       ? retryLiveIncludingAuthentication
       : isTransientSseStatus,
@@ -308,6 +312,7 @@ export function useLiveStream(
       options.onActivity,
       options.onGap,
       options.onActivityStatus,
+      options.onCursorReset,
       (incoming, timestamp) => {
         if (isLiveSourceObservationFresh(timestamp)) observeSource(incoming);
       },
@@ -334,9 +339,16 @@ function consumeLiveFrame(
   onActivity: ((event: AgentOperationalActivityMessage) => void) | undefined,
   onGap: ((droppedBefore: number) => void) | undefined,
   onActivityStatus: ((event: LiveActivityStatusEvent) => void) | undefined,
+  onCursorReset: (() => void) | undefined,
   observeStageSource: (source: FrameSource, timestamp: string) => void,
 ): boolean {
   if (frame.droppedBefore > 0) onGap?.(frame.droppedBefore);
+  if (frame.event === "hello") return false;
+  if (frame.event === "gap") {
+    const reset = decodeEpochGap(frame.data);
+    if (reset) onCursorReset?.();
+    return false;
+  }
   if (frame.event === "source") {
     const source = decodeLiveSourceEvent(frame.data);
     if (source) onSource(source);
@@ -372,8 +384,27 @@ function decodeAgentOperationalActivityData(
   }
 }
 
+function decodeEpochGap(data: string): boolean {
+  try {
+    const value: unknown = JSON.parse(data);
+    return typeof value === "object" &&
+      value !== null &&
+      !Array.isArray(value) &&
+      (value as Record<string, unknown>).reason === "stream_epoch_changed";
+  } catch {
+    return false;
+  }
+}
+
+export function isLiveEpochGapFrame(frame: SseFrame): boolean {
+  return frame.event === "gap" && decodeEpochGap(frame.data);
+}
+
 function liveSharedFrameKey(frame: SseFrame): string | null {
   if (frame.event === "source") return "source";
+  if (frame.event === "gap" && decodeEpochGap(frame.data)) {
+    return "cursor-gap";
+  }
   if (frame.event === "activity-status-snapshot") return "activity-status";
   if (frame.event === "activity" || frame.event === "activity-snapshot") {
     const activity = decodeAgentOperationalActivityData(frame.data);
@@ -381,6 +412,7 @@ function liveSharedFrameKey(frame: SseFrame): string | null {
       ? null
       : `activity:${activity.activity_instance_id ?? activity.activity_id}`;
   }
+
   const event = decodeLiveStageEvent(frame.data);
   if (event === null) return null;
   return frame.id === null

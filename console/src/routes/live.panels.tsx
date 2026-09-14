@@ -50,6 +50,7 @@ export function LivePanels({
   tickerPaused,
   frozenObserved,
   droppedFrames,
+  cursorReset,
   observations,
   observationLoadState,
   observationStreamStatus,
@@ -74,6 +75,7 @@ export function LivePanels({
   readonly tickerPaused: boolean;
   readonly frozenObserved: number;
   readonly droppedFrames: number;
+  readonly cursorReset: boolean;
   readonly observations: readonly AgentOperationalActivityMessage[];
   readonly observationLoadState: LiveObservationLoadState;
   readonly observationStreamStatus: LiveConnectionStatus;
@@ -200,6 +202,8 @@ export function LivePanels({
           <strong class={droppedFrames > 0 ? "live-health-warn" : "live-health-ok"}>
             {droppedFrames > 0
               ? t("live.health.dropped", { count: droppedFrames })
+              : cursorReset
+                ? t("live.health.cursorReset")
               : t("live.health.complete")}
           </strong>
         </div>

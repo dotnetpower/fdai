@@ -497,7 +497,7 @@ owned by [Operator Console Progressive Conversations](operator-console-progressi
 
 ## Stream recovery and authentication
 
-Authenticated GET-SSE consumers share bounded parsing, inactivity, reconnect, and cursor handling. A cursor advances only after decoder acceptance; only cursor-specific `400` or `416` clears it, while authentication, rate limiting, and rejected frames preserve cursor and backoff. Server drop advisories remain visible, but local cache eviction is not wire loss. Each consumer retains its own visibility and cross-tab policy, and request-scoped conversation streams remain separate.
+Authenticated GET-SSE consumers share bounded parsing, inactivity, reconnect, and cursor handling. A cursor advances only after decoder acceptance; cursor-specific `400` or `416` clears it, and a validated `stream_epoch_changed` gap clears it before current snapshots resume. The epoch transition is shown as a stream restart without fabricating a dropped-frame count. Authentication, rate limiting, and rejected frames preserve cursor and backoff. Server drop advisories remain visible, but local cache eviction is not wire loss. Each consumer retains its own visibility and cross-tab policy, and request-scoped conversation streams remain separate.
 
 Command Deck investigation activity can include optional observed execution evidence. The server removes credentials and sensitive identifiers before emission and sets `redacted=true`; the browser
 drops input evidence without that attestation. `input_kind=command` requires a recorded process

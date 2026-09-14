@@ -95,13 +95,19 @@ def _inventory_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
         if status is OperationalActivityStatus.FAILED
         else ()
     ) + duration_reasons
-    evidence_count = _count(row, "resource_count") + _count(row, "link_count")
+    observed_evidence_count = _count(row, "resource_count") + _count(
+        row,
+        "link_count",
+    )
     if status is OperationalActivityStatus.STARTED:
         result_state = OperationalActivityResultState.NOT_RECORDED
     elif status is OperationalActivityStatus.FAILED:
         result_state = OperationalActivityResultState.UNAVAILABLE
     else:
         result_state = OperationalActivityResultState.MEASURED
+    evidence_count = (
+        observed_evidence_count if result_state is OperationalActivityResultState.MEASURED else 0
+    )
     return AgentOperationalActivity(
         schema_version="1.3.0",
         activity_id=f"inventory.scan:{attempt_id}:{status.value}",
@@ -304,6 +310,9 @@ def _observation_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
         result_state = OperationalActivityResultState.UNAVAILABLE
     else:
         result_state = OperationalActivityResultState.MEASURED
+    recorded_evidence_count = (
+        evidence_count if result_state is OperationalActivityResultState.MEASURED else 0
+    )
     return AgentOperationalActivity(
         schema_version="1.3.0",
         activity_id=f"observation:{source_id}:{campaign_id}:{status.value}",
@@ -317,7 +326,7 @@ def _observation_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
         observed_at=observed_at,
         source=source_id,
         freshness=freshness,
-        evidence_count=evidence_count,
+        evidence_count=recorded_evidence_count,
         duration_ms=_optional_count(value, "duration_ms"),
         correlation_id=campaign_id,
         reason_codes=reasons,
@@ -325,7 +334,9 @@ def _observation_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
         scope_class=OperationalActivityScopeClass.SOURCE_DOMAIN,
         result_state=result_state,
         result_count=(
-            evidence_count if result_state is OperationalActivityResultState.MEASURED else None
+            recorded_evidence_count
+            if result_state is OperationalActivityResultState.MEASURED
+            else None
         ),
         result_unit=(
             OperationalActivityResultUnit.RECORDS
