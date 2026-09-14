@@ -1861,6 +1861,7 @@
         "services/document-processing-worker/tests/test_cloud_knowledge_extraction.py",
         "services/document-processing-worker/tests/test_cloud_activation.py",
         "services/core-control-plane/src/fdai/core/knowledge/cloud_reference.py",
+        "services/core-control-plane/src/fdai/core/knowledge/cloud_applicability.py",
         "services/core-control-plane/src/fdai/core/conversation/semantic_cloud_reference.py",
         "services/core-control-plane/tests/conversation/test_semantic_cloud_reference.py",
         "services/core-control-plane/src/fdai/delivery/persistence/postgres_cloud_knowledge_read.py",

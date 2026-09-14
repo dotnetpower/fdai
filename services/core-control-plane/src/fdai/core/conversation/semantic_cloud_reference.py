@@ -6,6 +6,8 @@ from fdai_service_contracts.cloud_knowledge import Applicability
 from fdai_service_contracts.ontology_query import SemanticProblemFrame
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
+from fdai.core.knowledge.cloud_applicability import cloud_target_arguments
+
 _PREFIX = "cloud-reference:"
 _FIELDS = {
     "cloud_provider": "provider",
@@ -69,5 +71,5 @@ def cloud_reference_arguments(frame: SemanticProblemFrame) -> dict[str, object]:
     target = Applicability.model_validate(
         {field: items[0] if field in _SINGULAR else items for field, items in values.items()}
     )
-    arguments["applicability"] = target.model_dump(mode="json")
+    arguments.update(cloud_target_arguments(target))
     return arguments

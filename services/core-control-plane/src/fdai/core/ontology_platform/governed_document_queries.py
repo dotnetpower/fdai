@@ -15,6 +15,10 @@ from typing import Any, Literal, Protocol, cast
 from fdai_service_contracts.cloud_knowledge import Applicability, CloudSourceEvidence
 from fdai_service_contracts.ontology_query import content_digest
 
+from fdai.core.knowledge.cloud_applicability import (
+    cloud_target_from_arguments,
+    cloud_target_input_schema,
+)
 from fdai.core.ontology_platform.functions import (
     ContextualOntologyFunction,
     FunctionInvocationContext,
@@ -160,14 +164,7 @@ def governed_document_function_type() -> OntologyFunctionType:
                     "minimum": 1,
                     "maximum": GOVERNED_DOCUMENT_MAX_EXCERPTS,
                 },
-                "applicability": {
-                    **Applicability.model_json_schema(),
-                    "description": (
-                        "Use exact current-turn spans with semantic target kinds cloud_provider, "
-                        "cloud_resource_type, cloud_generation, cloud_sku, cloud_api_version, "
-                        "cloud_region, cloud_deployment_mode. Never invent missing conditions."
-                    ),
-                },
+                **cloud_target_input_schema(),
                 "guidance_mode": {
                     "type": "string",
                     "enum": ["reference", "as_of", "current"],
@@ -238,11 +235,7 @@ def governed_document_function(
         if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 8:
             raise ValueError("governed document limit MUST be in [1, 8]")
 
-        target = (
-            Applicability.model_validate(arguments["applicability"])
-            if "applicability" in arguments
-            else None
-        )
+        target = cloud_target_from_arguments(arguments)
         guidance_mode = arguments.get("guidance_mode", "reference")
         if guidance_mode not in {"reference", "as_of", "current"}:
             raise ValueError("cloud guidance mode is invalid")

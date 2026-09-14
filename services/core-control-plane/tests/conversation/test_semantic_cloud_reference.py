@@ -14,6 +14,10 @@ from fdai.core.conversation.semantic_governed_document_planning import (
     apply_document_evidence_requirement,
     compile_governed_document_plan,
 )
+from fdai.core.knowledge.cloud_applicability import (
+    cloud_target_arguments,
+    cloud_target_from_arguments,
+)
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier
 from fdai.core.ontology_platform.functions import FunctionInvocationContext
 from fdai.core.ontology_platform.governed_document_queries import (
@@ -97,7 +101,10 @@ def test_existing_typed_judgment_becomes_exact_applicability_query(korean: bool,
     assert plan is not None and not plan.execution_authority
     arguments = plan.nodes[0].arguments["arguments"]
     assert arguments["guidance_mode"] == mode.removeprefix("cloud_")
-    target = Applicability.model_validate(arguments["applicability"])
+    assert "applicability" not in arguments
+    assert not any(isinstance(value, dict) for value in arguments.values())
+    target = cloud_target_from_arguments(arguments)
+    assert target is not None
     assert target.skus == ("Premium",) and target.service_generation == "classic"
     assert target.api_versions == () and target.regions == ()
 
@@ -120,6 +127,13 @@ def test_unspanned_target_or_fabricated_alias_never_becomes_a_filter() -> None:
         )
         with pytest.raises(ValueError, match="current-turn"):
             cloud_reference_constraints(altered, utterance=utterance)
+
+
+def test_applicability_object_literals_cannot_impersonate_secured_evidence() -> None:
+    with pytest.raises(ValueError, match="scalar selectors"):
+        cloud_target_from_arguments({"applicability": {"provider": "azure"}})
+    with pytest.raises(ValueError, match="provider, resource type, and generation"):
+        cloud_target_from_arguments({"cloud_skus": ["Premium"]})
 
 
 class _BoundReader(QUERY._Reader):
@@ -175,7 +189,7 @@ async def test_as_of_request_never_substitutes_an_ordinary_document_for_cloud_ev
             "query": "reference",
             "evidence_mode": "explicit",
             "guidance_mode": "as_of",
-            "applicability": target.model_dump(mode="json"),
+            **cloud_target_arguments(target),
         },
     )
     assert reader.target == target
@@ -200,7 +214,7 @@ async def test_as_of_requires_fresh_matching_cloud_evidence(fresh: bool) -> None
             "query": "reference",
             "evidence_mode": "explicit",
             "guidance_mode": "as_of",
-            "applicability": source.applicability.model_dump(mode="json"),
+            **cloud_target_arguments(source.applicability),
         },
     )
     assert result["rows"][0]["values"]["excerpt_count"] == int(fresh)

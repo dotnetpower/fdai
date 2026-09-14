@@ -92,7 +92,7 @@ export function cloudKnowledgeOutcomeText(value: string): string {
 
 /** Match the server's 16 MiB intake ceiling before sending a selected JSON file for verification. */
 export function isCloudKnowledgePackageFile(file: PackageFile): boolean {
-  return file.name.toLowerCase().endsWith(".json") && Number.isSafeInteger(file.size)
+  return /\.json$/i.test(file.name) && Number.isSafeInteger(file.size)
     && file.size > 0 && file.size <= 16 * 1024 * 1024;
 }
 

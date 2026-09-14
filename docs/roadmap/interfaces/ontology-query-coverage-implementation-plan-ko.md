@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 6b270951a56a7456f342c268b0f93a61f1f38b28
+translation_source_sha: ffd796655c00f2677e7b2e303df95789048e686e
 translation_revised: 2026-09-14
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -13,6 +13,8 @@ translation_revised: 2026-09-14
 구간에 결속된 공급자, 세대, SKU 및 기타 적용 조건을 받습니다. 특정 확인 시점의 안내에는
 최신이며 조건이 맞는 근거가 필요하고, 실시간 최신 요청은 답변 중 수집 없이 종료합니다.
 [클라우드 지식 설계](cloud-resource-knowledge-lifecycle-ko.md)는 이 제한된 구현을 기록합니다.
+적용 조건은 직접 전달한 근거 객체가 아닌 단일 값 선택자를 사용합니다. 계약 변경 후
+의미 커버리지 목록을 다시 생성하면 출처 다이제스트만 갱신하며 측정된 커버리지는 바꾸지 않습니다.
 
 > **커버리지 경계:** 100%는 하나의 활성 온톨로지 release에서 읽을 수 있는 모든 선언이
 > principal 범위로 한정된 조회 서술자 또는 타입이 지정된 사용 불가 사유를 갖는다는 뜻입니다. 신원,

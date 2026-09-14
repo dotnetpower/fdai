@@ -191,14 +191,19 @@
         "services/document-ingestion-api"
       ],
       "test_groups": {
-        "unit": [],
+        "unit": [
+          "services/document-ingestion-api/tests/test_cloud_knowledge_collection.py",
+          "services/document-ingestion-api/tests/test_cloud_knowledge_scheduler.py"
+        ],
         "contract": [
+          "services/document-ingestion-api/tests/test_cloud_knowledge_offline.py",
           "services/document-ingestion-api/tests/test_document_download.py",
           "services/document-ingestion-api/tests/test_document_preview.py",
           "services/document-ingestion-api/tests/test_ingestion_service_behavior.py"
         ],
         "integration": [
           "services/document-ingestion-api/tests/test_adls_resumable_upload.py",
+          "services/document-ingestion-api/tests/test_cloud_knowledge_intake.py",
           "services/document-ingestion-api/tests/test_document_search.py",
           "services/document-ingestion-api/tests/test_ingestion_service_composition.py",
           "services/document-ingestion-api/tests/test_ingestion_stewardship_webhook.py",
@@ -215,6 +220,7 @@
       ],
       "test_groups": {
         "unit": [
+          "services/document-processing-worker/tests/test_cloud_knowledge_extraction.py",
           "services/document-processing-worker/tests/test_ingestion_parser_parity.py",
           "services/document-processing-worker/tests/test_local_korean_ocr.py"
         ],
@@ -225,6 +231,8 @@
         ],
         "integration": [
           "services/document-processing-worker/tests/test_artifact_index_lifecycle.py",
+          "services/document-processing-worker/tests/test_cloud_activation.py",
+          "services/document-processing-worker/tests/test_cloud_knowledge_offline_flow.py",
           "services/document-processing-worker/tests/test_purge_verifier.py",
           "services/document-processing-worker/tests/test_protection_reconciliation.py",
           "services/document-processing-worker/tests/test_purview_rms_protection.py"

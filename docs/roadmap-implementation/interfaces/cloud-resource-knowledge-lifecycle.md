@@ -6,7 +6,9 @@ periodic refresh, offline security review, admitted generations, and dated answe
 [operator runbook](../../runbooks/cloud-resource-knowledge.md) separates software operation from
 production prerequisites.
 
-> **Snapshot:** This is `current change` (uncommitted), not a committed or deployed release.
+> **Snapshot:** Local implementation `6e3b6c4b2` and main integration `91fb575f2` are published in
+> [PR #976](https://github.com/dotnetpower/fdai/pull/976). Its first CI attempt found integration
+> gaps; the repair is `current change`. Protected merge and deployment are not yet claimed.
 > An `implemented` row describes only its bounded software slice and supplied focused evidence.
 > No row claims production trust, live source enrollment, automatic prior-version restoration, or
 > a successful operating-system-enforced air-gap rollout. Local containment and readback are not
@@ -31,7 +33,7 @@ activation, composed offline flow, parser parity, artifact/index lifecycle, adap
 protection reconciliation; Core cloud reference, governed reader/queries/knowledge evidence/RCA,
 semantic cloud reference, governed-document planning/runtime and agent chain; and PostgreSQL integration.
 
-The sole skip is [the pre-existing search fixture](../../../services/document-ingestion-api/tests/test_document_search.py#L126):
+The original batch's sole skip was [the pre-existing search fixture](../../../services/document-ingestion-api/tests/test_document_search.py):
 neither `FDAI_VALIDATION_DATABASE_URL` nor `FDAI_DATABASE_URL` was selected. The separate task-owned
 [loopback PostgreSQL file](../../../tests/integration/services/test_cloud_knowledge_postgres.py)
 did run: six cases within the 560 passes cover leases, release high-water/replay, and activation
@@ -49,6 +51,8 @@ stage claims, reviewer membership, scanner transport, search/access fixtures, an
 synthetic. Socket/DNS denial is a test guard, not OS air-gap enforcement. The separate PostgreSQL
 cases prove database mechanics; combining their counts with the composed flow does not produce one
 real deployed drill, service-role/broker receipt, live-source result, or production trust ceremony.
+The CI repair supplies full lifecycle records in that search fixture and executes it against a
+separate loopback database; orphaned, inactive, unavailable, or non-ready chunks remain excluded.
 EN/KO rendering has [separate Core regression evidence](../../../services/core-control-plane/tests/core/knowledge/test_cloud_reference.py)
 within the same batch; the composed flow currently asserts the English answer.
 
@@ -86,8 +90,15 @@ software slices introduce no new agent or managed-resource executor authority.
 | 2026-09-14 | in-progress | Added local K1-K5 software slices: source/release contracts, bounded collection/checkpoints, signed JSON and offline CLI, the existing independent approval/index path, atomic visibility, manual rollback requests, and dated lexical/UI surfaces. This supersedes the proposal-only scope without changing its history. | `current change` (uncommitted); source/test paths in the scope table and the separate owning-session results above: 464 passed with 1 pre-existing database-environment skip, 38 frontend tests plus TypeScript check, 2 browser tests before rollback UI, and 3 actual loopback PostgreSQL tests after the fixture correction. These are not a final combined acceptance result. | Reconcile current applicability and rollback evidence; finish automatic Vidar recovery, independent effect verification, and typed natural-language planning. Establish external production prerequisites and retain K6 composed/live/air-gap receipts under separate authorization. |
 | 2026-09-14 | implemented | Completed bounded K4 verified activation/containment and rollback controls, K5 exact typed planning/filtering and dated surfaces, and K6 composed local control flow. Complete-section extraction holds oversized context instead of slicing it. This supersedes the prior pending software evidence, not its history or external gaps. | `current change` (uncommitted); task-owned source/test paths above. Final 29-file pytest batch: 560 passed, 1 pre-existing search-database skip in 5.50s, including six real loopback PostgreSQL cases and the synthetic composed flow; prior 95 semantic passes are a subset. Ruff lint/format: all 63 Python files; strict mypy: all 45 source files. Frontend after extraction: 38 Vitest tests and both TypeScript configurations passed. Current rollback-inclusive Playwright: 2 passed in 4.6s. Existing migration inventory: 63 passed, 4 deselected, reused with unchanged inputs. The only later source edit is a non-semantic f-string wrap; evidence reuse applies. | Production rights/enrollment, trust/revocation, reviewers/scanner/policy mounting, release evidence, and authorized connected/OS-air-gap drills remain open. Synthetic control flow and separate database mechanics are not one deployed receipt. Automatic prior-version restoration and optional expansion remain deferred; no full Vidar restoration or live-model claim. |
 
+| 2026-09-14 | implemented | Repaired PR #976 attempt-1 integration failures without relaxing evidence or secret controls: scalar applicability selectors replace a literal object input; service tests and the existing direct aiohttp import are registered; the search fixture now creates active lifecycle rows and excludes high-ranked inactive/unavailable/non-ready content; semantic coverage was regenerated. The exact public Python type-name scanner false positive has a value-only exception, with no path exemption. | `current change`; CI run `34839970865`, attempt 1, head `91fb575f2`; 114 focused repair tests passed in 56.96s, including the formerly skipped real PostgreSQL search and generated-source parity. Three-source strict mypy, seven-file Ruff, 33 focused frontend cases, and pinned gitleaks commit-range/control checks passed. | Publish the corrected local commit and retain its exact protected CI/merge result. Production prerequisites and deferred scope remain unchanged. |
+
 ### Remaining work
 
+- [ ] **PR #976 repair evidence:** Retain the corrected exact-head CI result after registering all
+  service tests, classifying the already-declared direct `aiohttp` import, regenerating semantic
+  source coverage, keeping applicability inputs scalar, and correcting the real-DB search fixture.
+  The secret-scan exception matches only the public `Ed25519PrivateKey` identifier, with no file
+  exemption; the pinned scanner still detects a synthetic secret-shaped control.
 - [x] **Current local evidence:** Recorded the final owning Python, static, frontend, browser, and
   reusable migration results in [the evidence boundary](#local-evidence-boundary), including the
   exact pre-existing skip and six executed PostgreSQL cases. Both prior history rows remain unchanged;

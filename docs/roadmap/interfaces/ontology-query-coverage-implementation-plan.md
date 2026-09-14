@@ -9,6 +9,8 @@ Governed cloud-reference queries preserve original source dates and accept exact
 provider, generation, SKU, and other applicability conditions from typed judgment. As-of guidance
 requires fresh matching evidence; live-current requests terminate without fetching during an answer.
 The [cloud knowledge owner](cloud-resource-knowledge-lifecycle.md) records this bounded implementation.
+Applicability uses scalar selectors rather than evidence-object literals. Regenerating the semantic
+coverage inventory after this contract change refreshes source digests, not measured coverage.
 
 > **Coverage boundary:** 100% means every readable declaration in one active ontology release has a principal-scoped query descriptor or a typed unavailable reason. It does not promise a complete or correct answer when identity, provider data, history, or evidence is missing.
 >
