@@ -488,7 +488,7 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
 | 로그 인제스트 | `LogQueryProvider` | **CSP-중립성 계약** - [로그](csp-neutrality-ko.md#7-log-query-계약---structured-log-records) | `NoopLogQueryProvider`; 설정 시 Azure 어댑터가 KQL 연결 | Loki, Elasticsearch, CloudWatch Logs 또는 다른 구조화된 로그 어댑터 |
 | 추적 인제스트 | `TraceQueryProvider` | **CSP-중립성 계약** - [추적](csp-neutrality-ko.md#8-trace-query-계약---distributed-trace-spans) | `NoopTraceQueryProvider`; 설정 시 Azure 어댑터가 Application Insights를 연결합니다. Core는 항목과 참조가 제한되고 표준화되며 정확한 토폴로지, 시나리오, 구간, 관측 시각 및 최대 24시간의 양수 근거 유효 기간에 결속된 독립 인용 계측, 수집기 또는 헤더 전파 신호 하나가 일치할 때만 추적 연속성 원인을 구분할 수 있습니다. 잘못된 신뢰도 구성은 근거 평가 전에 실패하며 결합 인용이 100개를 넘으면 판단을 보류합니다. 홉 순서 발견은 감지기가 문제가 있는 홉을 식별할 때까지 판단을 보류하며, 소유권 근거가 없는 경계는 원인 영역을 `unknown`으로 유지하고, 근거 신뢰도는 T1 상한을 적용한 후 기본 `0.5` 하한을 통과해야 합니다. | Tempo, Jaeger, Honeycomb 또는 다른 구간 어댑터 |
 | Cloud 프로바이더 | 프로바이더 클라이언트 | (위 여덟 경계를 사용) | 참조/범용 Azure 어댑터 | 특정 CSP 어댑터 |
-| **Saga 이슈 인계** | `fdai.agents` facade의 `IssueTrackerAdapter`와 추가형 `IdempotentIssueTrackerAdapter`, 런타임 `StateStore` 저널 | - | `StateStoreIssueTrackerAdapter`는 이슈 상태와 정확한 작업 결과를 CAS로 영속화하고 consumer 시작 전에 복원합니다. `InMemoryGithubIssueAdapter`는 타입이 지정된 런타임 인계의 테스트 전용입니다. | 프로바이더 측에서 작업 ID와 내용을 원자적으로 결속하고 결과를 영속적으로 복구하는 `create_or_comment_once`를 구현합니다. 기존 어댑터는 직접 에스컬레이션에 계속 사용할 수 있지만 추가형 경계가 없으면 타입이 지정된 인계는 실패 시 차단됩니다. |
+| **Saga 이슈 인계** | `fdai.agents` facade의 `IssueTrackerAdapter`와 추가형 `IdempotentIssueTrackerAdapter`, 런타임 `StateStore` 저널 | - | `StateStoreIssueTrackerAdapter`는 이슈 상태와 정확한 작업 결과를 CAS로 영속화하고 실제 처리와 시작 복원에 하나의 결정론적 변환 결과 한도를 적용하며 consumer 시작 전에 복원합니다. `InMemoryGithubIssueAdapter`는 타입이 지정된 런타임 인계의 테스트 전용입니다. | 프로바이더 측에서 작업 ID와 내용을 원자적으로 결속하고 결과를 영속적으로 복구하는 `create_or_comment_once`를 구현합니다. 기존 어댑터는 직접 에스컬레이션에 계속 사용할 수 있지만 추가형 경계가 없으면 타입이 지정된 인계는 실패 시 차단됩니다. |
 | **스키마 출처** | `SchemaRegistry` (원시 JSON 스키마 로더) | - | `PackageResourceSchemaRegistry` (패키지 내장 스키마) | 원격 schema-registry 어댑터; 내용 해시 로 핀된 스냅샷 |
 | **경계 검증** | `ContractValidator` / `EventValidator` (실패 시 차단 입력 검사) | - | `JsonSchemaContractValidator` + `JsonSchemaEventValidator` (draft-2020-12) | 포크가 `core/` 편집 없이 도메인 특이 체크(예: 소스 허용 목록) 추가 가능 |
 | **액션 precondition 근거** | `core/risk_gate/preconditions.py`의 `PreconditionEvaluator`; RiskGate가 consume하는 indexed `PreconditionEvaluation` 기록 | - | `GovernedPreconditionEvaluator`가 정본 이벤트 근거를 결합하고, `StateStoreOpenActionEvidenceProvider`가 Thor의 영속 active-run 인덱스를 읽으며, `OntologyChangeWindowEvidenceProvider`가 범위가 제한된 구간 조회를 수행합니다. 활성 행이 없거나 malformed이면 충돌로 처리하고, 프로바이더가 없으면 조건은 해결되지 않은 상태로 남기며, 잘리거나 malformed인 구간은 inactive 상태로 유지합니다. | 모든 조건 인덱스와 근거가 권한을 유지하거나 낮추기만 한다는 규칙을 보존하면서 읽기 전용 상태 변환 결과를 교체합니다. |
@@ -582,7 +582,9 @@ EventBusBridge 재시도 또는 DLQ가 전달을 보존하게 합니다. 재처�
 않습니다. 런타임 조립은 같은 `StateStore`를 Saga의 인계 저널에도 주입합니다. Saga는 에스컬레이션마다
 점유, 변경 checkpoint, 완료 증적 하나를 검증하고 외부 변경 전에 작업 ID에 결속된 이슈
 어댑터를 요구합니다. 상류 런타임의 StateStore 어댑터는 이슈 변경 자체를 영속화하고 consumer
-시작 전에 현재 변환 결과를 복원합니다. 런타임 조립은 같은 저장소를 Norns에도 주입합니다. Norns는 지문 학습 전에
+시작 전에 현재 변환 결과를 복원합니다. 영속 인계 증적은 사용하지 않는 로컬 저장소에 복제하지
+않으며, 실제 이슈 변환 결과는 영속 원본을 삭제하지 않고 시작 복원과 같은 결정론적 한도를
+사용합니다. 런타임 조립은 같은 저장소를 Norns에도 주입합니다. Norns는 지문 학습 전에
 각 `object.issue` 멱등성 키를 점유하고 CAS로 영속 지문 횟수에 적용하며 게시 또는 보류까지
 후보를 대기 상태로 유지합니다. 재시작은 완료되지 않은 적용을 재개하거나 전달되지 않은 작업을
 다시 만듭니다. consumer 시작 전의 런타임 복구는 정확한 대기 필드를 조회하고 범위가 제한된

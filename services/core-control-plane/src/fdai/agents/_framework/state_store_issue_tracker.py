@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import OrderedDict
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
@@ -20,9 +21,12 @@ _MAX_OPERATIONS_PER_ISSUE = 10_000
 class StateStoreIssueTrackerAdapter:
     """Persist synthetic issue state and exact operation results across restart."""
 
-    def __init__(self, store: StateStore) -> None:
+    def __init__(self, store: StateStore, *, max_issues: int = _MAX_ISSUES) -> None:
+        if max_issues < 1:
+            raise ValueError("max_issues MUST be at least one")
         self._store = store
-        self._issues: dict[str, GitHubIssue] = {}
+        self._max_issues = max_issues
+        self._issues: OrderedDict[str, GitHubIssue] = OrderedDict()
 
     @property
     def issues(self) -> Mapping[str, GitHubIssue]:
@@ -30,9 +34,12 @@ class StateStoreIssueTrackerAdapter:
 
     async def rehydrate(self) -> int:
         """Restore the bounded current issue projection from durable state."""
-        rows = await self._store.read_states(f"{_STATE_PREFIX}/", limit=_MAX_ISSUES)
-        restored: dict[str, GitHubIssue] = {}
-        for row in rows:
+        rows = await self._store.read_states(
+            f"{_STATE_PREFIX}/",
+            limit=self._max_issues,
+        )
+        restored: OrderedDict[str, GitHubIssue] = OrderedDict()
+        for row in reversed(rows):
             fingerprint = row.get("fingerprint")
             if not isinstance(fingerprint, str):
                 raise RuntimeError("stored issue state is malformed")
@@ -112,7 +119,7 @@ class StateStoreIssueTrackerAdapter:
                     ),
                 )
                 if created:
-                    self._issues[fingerprint] = _current_issue(value)
+                    self._remember_issue(fingerprint, _current_issue(value))
                     return _operation_issue(result), True
                 continue
 
@@ -122,7 +129,7 @@ class StateStoreIssueTrackerAdapter:
             if prior is not None:
                 if prior["request_digest"] != request_digest:
                     raise ValueError("issue operation_id reused with different content")
-                self._issues[fingerprint] = _current_issue(current)
+                self._remember_issue(fingerprint, _current_issue(current))
                 return _operation_issue(prior), bool(prior["created"])
             if len(operations) >= _MAX_OPERATIONS_PER_ISSUE:
                 raise RuntimeError("issue operation history capacity exhausted")
@@ -176,7 +183,7 @@ class StateStoreIssueTrackerAdapter:
                 ),
             )
             if advanced:
-                self._issues[fingerprint] = _current_issue(value)
+                self._remember_issue(fingerprint, _current_issue(value))
                 return _operation_issue(result), created_result
         raise RuntimeError("issue operation CAS retry limit exceeded")
 
@@ -190,7 +197,7 @@ class StateStoreIssueTrackerAdapter:
                 return
             current = _validate_issue_state(stored, fingerprint=fingerprint)
             if not bool(current["open"]):
-                self._issues[fingerprint] = _current_issue(current)
+                self._remember_issue(fingerprint, _current_issue(current))
                 return
             next_revision = int(current["revision"]) + 1
             value = _issue_state(
@@ -220,9 +227,15 @@ class StateStoreIssueTrackerAdapter:
                 ),
             )
             if advanced:
-                self._issues[fingerprint] = _current_issue(value)
+                self._remember_issue(fingerprint, _current_issue(value))
                 return
         raise RuntimeError("issue close CAS retry limit exceeded")
+
+    def _remember_issue(self, fingerprint: str, issue: GitHubIssue) -> None:
+        self._issues[fingerprint] = issue
+        self._issues.move_to_end(fingerprint)
+        if len(self._issues) > self._max_issues:
+            self._issues.popitem(last=False)
 
 
 def _validate_request(

@@ -250,7 +250,8 @@ class SagaHandoffJournal:
                 stored = await self._durable.read_state(key)
                 if stored != receipt:
                     raise RuntimeError("handoff completion receipt collision")
-        self._local.put(_RECEIPT_BUCKET, escalation_id, receipt)
+        else:
+            self._local.put(_RECEIPT_BUCKET, escalation_id, receipt)
 
 
 def _state_key(escalation_id: str, suffix: str) -> str:

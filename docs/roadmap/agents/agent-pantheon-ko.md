@@ -655,6 +655,9 @@ GitHub 댓글을 다시 추가하지 않습니다. 잘못되거나 충돌하는 
 `StateStoreIssueTrackerAdapter`를 연결합니다. 실제 GitHub 오버라이드는 프로바이더 측에서 같은
 영속성을 제공해야 하며, `InMemoryGithubIssueAdapter`는 타입이 지정된 런타임 인계의 테스트에만
 사용합니다.
+영속 모드는 사용하지 않는 process-local 저장소에 완료 증적을 복제하지 않습니다. 실제 이슈 변환
+결과는 시작 복원과 같은 결정론적 LRU 한도를 적용하며, 제거되어도 StateStore 원본은 삭제되지
+않습니다.
 `object.issue` 전달은 at-least-once로 유지됩니다. Norns는 인계 지문 횟수를 늘리기 전에 Saga의
 안정적인 멱등성 키를 런타임 `StateStore`에서 원자적으로 점유합니다. `pending` 작업은 CAS를
 통해 영속 지문 횟수에 적용된 뒤 `applied`가 되며, 생성된 후보는 게시 또는 결정론적 보류로

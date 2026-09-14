@@ -653,6 +653,8 @@ remains an injected delivery adapter, so the typed ownership and audit boundary 
 runtime binds `StateStoreIssueTrackerAdapter`, which CAS-persists current issue state and every exact operation result and rehydrates its
 projection before consumers start. A live GitHub override must provide the same provider-side durability; `InMemoryGithubIssueAdapter`
 remains test-only for typed runtime handoffs.
+Durable mode does not mirror completion receipts into the unused process-local store. The live issue projection enforces the same
+deterministic LRU bound used by startup rehydration; eviction never deletes the StateStore source.
 `object.issue` delivery remains at-least-once. Before incrementing a handoff fingerprint, Norns atomically claims Saga's stable
 idempotency key in the runtime `StateStore`. A `pending` operation is CAS-applied to the durable fingerprint count and becomes `applied`;
 the resulting candidate remains `pending` until publication or deterministic hold marks it `delivered`. Restart resumes an incomplete

@@ -938,6 +938,27 @@ async def test_runtime_saga_rehydrates_completed_issue_projection() -> None:
     assert len(restarted.github.issues) == 1
 
 
+async def test_state_store_issue_projection_is_bounded_live_and_after_restart() -> None:
+    store = InMemoryStateStore()
+    adapter = StateStoreIssueTrackerAdapter(store, max_issues=2)
+    for index in range(3):
+        await adapter.create_or_comment_once(
+            operation_id=f"handoff:bounded-{index}",
+            fingerprint=f"bounded-fingerprint-{index}",
+            title=f"[no_route] handoff {index}",
+            body=f"Correlation id: bounded-{index}",
+        )
+
+    assert tuple(adapter.issues) == (
+        "bounded-fingerprint-1",
+        "bounded-fingerprint-2",
+    )
+
+    restarted = StateStoreIssueTrackerAdapter(store, max_issues=2)
+    assert await restarted.rehydrate() == 2
+    assert tuple(restarted.issues) == tuple(adapter.issues)
+
+
 async def test_required_runtime_task_failure_is_not_swallowed() -> None:
     async def fail() -> None:
         raise RuntimeError("retention publisher unavailable")

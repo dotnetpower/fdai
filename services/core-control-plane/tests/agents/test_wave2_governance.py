@@ -256,6 +256,31 @@ def test_saga_handoff_redelivery_is_idempotent() -> None:
     assert saga.behavior_snapshot()["handoff:duplicate"] == 1
 
 
+def test_saga_durable_handoff_does_not_mirror_unused_local_receipt() -> None:
+    store = InMemoryStateStore()
+    saga = Saga(durable_state_store=store)
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-no-local-receipt",
+        "escalation_id": "handoff-no-local-receipt",
+        "correlation_id": "corr-no-local-receipt",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+
+    asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+
+    assert (
+        saga.state_store.get(
+            "handoff_escalation_receipts",
+            "handoff-no-local-receipt",
+        )
+        is None
+    )
+
+
 def test_saga_handoff_requires_idempotent_issue_adapter() -> None:
     class _LegacyIssueTracker:
         def __init__(self) -> None:
