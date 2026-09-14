@@ -116,7 +116,7 @@ only confirms that displayed content changed; status, freshness, severity, and o
 their labeled content-local cues.
 The console card contract test checks shared KPI destinations, rejects nested whole-card links,
 requires nullable KPI values to declare an evidence state, requires raw data cards to expose a link
-or explicit detail control, and blocks structural card names. Detection coverage reasons and Trace correlation, stage, and timestamp details use the shared tooltip on pointer or keyboard focus; native `title` attributes remain reserved for embedded frames. Loading and unavailable coverage cards retain their owner links, while Impact Scope uses a responsive single-column mobile form, labeled evidence graph, and 44 px mobile controls without changing its read-only authority.
+or explicit detail control, and blocks structural card names. Detection coverage reasons and Trace correlation, stage, and timestamp details use the shared tooltip on pointer or keyboard focus; native `title` attributes remain reserved for embedded frames. Loading and unavailable coverage cards retain their owner links, while Impact Scope uses a responsive single-column mobile form, labeled evidence graph, and 44 px mobile controls without changing its read-only authority. Relationship legend swatches use color and line pattern inside the key instead of a thick colored content-surface edge.
 
 Operating Outcomes publishes its metric, value, baseline, window, sample size, confidence and
 provenance as a bounded Command Deck snapshot. Only Auto-resolution includes vertical breakdowns.

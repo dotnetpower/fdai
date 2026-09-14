@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 940398c63c6d91efd22348a87e6e63ddb49f9d24
+translation_source_sha: 2d94648938cd87073bde4b24b2c6cb349ad51b27
 translation_revised: 2026-09-15
 ---
 # 에이전트 판테온
@@ -138,7 +138,7 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 | Freyr | 용량 | 1 | CapacityForecast, SizingRecommendation, CapacityGraduationRecommendation | 용량 예측 및 shadow-only 전환 권고 | no |
 | Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
 
-Heimdall은 결정론적 예측 에피소드 평가와 종결의 accountable 소유자이며 비공개 `heimdall_forecast.py` 보조 로직이 해당 계산을 소유합니다. Repeated-event detector는 권위 있는 anomaly를 발행한
+Heimdall은 결정론적 예측 에피소드 평가와 종결의 accountable 소유자이며 비공개 `heimdall_forecast.py`와 `heimdall_alert_window.py` 보조 로직이 예측 계산과 범위가 제한된 에피소드 및 경고 구간 기록을 소유합니다. Repeated-event detector는 권위 있는 anomaly를 발행한
 뒤 선택적 `incident_candidate_hook`을 호출할 수 있습니다. 이 훅은 정규화된 리소스, 이벤트 타입, 상관관계, worst 심각도, 사유 코드, 모든 burst 근거 키를 조립 소유
 `IncidentLifecycleWorkflow`에 전달합니다. Heimdall은 인시던트를 직접 쓰거나 새 임계값 anomaly를 publish하기 전에 Heimdall은 주입된 범위가 제한된 읽기 전용
 `operational_evidence_hook`을 호출할 수 있습니다. 이 훅은 hold-only Kubernetes 용량 발견 사항 같은 프로바이더 근거를 첨부할 수 있지만 판단, 승인 또는 실행하지 않습니다. 프로바이더 실패는 구조화된 사용 불가

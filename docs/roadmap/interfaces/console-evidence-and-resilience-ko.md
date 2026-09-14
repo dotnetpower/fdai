@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 2c10a2da5feea582ce7ee447654241e16077309b
+translation_source_sha: d20f280246d326db5dca21201459c6589f3fd9ed
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -133,7 +133,7 @@ Exact Incident deep link는 두 변환 결과의 analytical snapshot sequence가
 결과는 라벨이 있는 content-local cue로 계속 표시합니다.
 Console 카드 계약 테스트는 shared KPI 목적지를 확인하고, 중첩된 whole-card 링크를 차단하며,
 nullable KPI 값에 근거 상태를 요구하고, raw 데이터 카드에 링크 또는 명시적 상세 컨트롤을
-요구하며, structural 카드 이름을 차단합니다. 탐지 범위 사유와 Trace 상관관계, 단계 및 타임스탬프 세부 정보는 포인터 또는 키보드 포커스에서 공용 툴팁을 사용하며, 네이티브 `title` 속성은 포함된 프레임에만 사용합니다. 로딩 및 사용 불가 범위 카드는 소유 화면 링크를 유지하고, 영향 범위는 읽기 전용 권한을 바꾸지 않으면서 반응형 단일 열 모바일 양식, 라벨이 있는 근거 그래프 및 44 px 모바일 컨트롤을 사용합니다.
+요구하며, structural 카드 이름을 차단합니다. 탐지 범위 사유와 Trace 상관관계, 단계 및 타임스탬프 세부 정보는 포인터 또는 키보드 포커스에서 공용 툴팁을 사용하며, 네이티브 `title` 속성은 포함된 프레임에만 사용합니다. 로딩 및 사용 불가 범위 카드는 소유 화면 링크를 유지하고, 영향 범위는 읽기 전용 권한을 바꾸지 않으면서 반응형 단일 열 모바일 양식, 라벨이 있는 근거 그래프 및 44 px 모바일 컨트롤을 사용합니다. 관계 범례 견본은 두꺼운 색상 콘텐츠 표면 경계 대신 키 안의 색상과 선 패턴을 사용합니다.
 
 운영 성과는 지표, 값, 기준선, 구간, 표본 수, 신뢰도와 출처를 범위가 제한된
 Command Deck 스냅샷으로 제공합니다. 영역별 분석은 자동 해결률 화면에만 포함합니다.

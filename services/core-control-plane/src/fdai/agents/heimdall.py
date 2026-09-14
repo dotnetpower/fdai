@@ -21,6 +21,23 @@ from typing import Any
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog, is_irreversible
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
+from fdai.agents._framework.heimdall_alert_window import (
+    MAX_EPISODES_PER_RESOURCE as _MAX_EPISODES_PER_RESOURCE,
+)
+from fdai.agents._framework.heimdall_alert_window import (
+    MAX_TRACKED_KEYS as _MAX_TRACKED_KEYS,
+)
+from fdai.agents._framework.heimdall_alert_window import EpisodeKey as _EpisodeKey
+from fdai.agents._framework.heimdall_alert_window import HeimdallAlertWindowMixin
+from fdai.agents._framework.heimdall_alert_window import (
+    anomaly_idempotency_key as _anomaly_idempotency_key,
+)
+from fdai.agents._framework.heimdall_alert_window import (
+    event_window_time as _event_window_time,
+)
+from fdai.agents._framework.heimdall_alert_window import (
+    incident_episode_id as _incident_episode_id,
+)
 from fdai.agents._framework.heimdall_forecast import HeimdallForecastMixin
 from fdai.agents._framework.heimdall_helpers import (
     TRACE_CONTINUITY_REASONS as _TRACE_CONTINUITY_REASONS,
@@ -82,71 +99,19 @@ ActionObservationHook = Callable[[dict[str, Any]], Awaitable[bool]]
 
 _LOG = logging.getLogger(__name__)
 
-#: The admin-card rate limit is per rolling hour. A limiter that never reset
-#: would silence a user permanently after the first burst - so an attacker
-#: could burn the initial quota, then operate with every later security
-#: alert suppressed. The window makes the limit actually recover.
-_ALERT_WINDOW_SECONDS = 3600.0
-
-#: Cap on distinct keys retained in Heimdall's per-key maps (watched
-#: resources, per-(initiator, action) counters, per-initiator alert budgets).
-#: Each is keyed by an unbounded identifier (resource id / principal), so
-#: without a cap a long-lived observer leaks one entry per identifier ever
-#: seen. Oldest-first eviction bounds memory; an evicted resource simply
-#: restarts its rate window on its next event.
-_MAX_TRACKED_KEYS = 10_000
-_MAX_EPISODES_PER_RESOURCE = 100
 _INCIDENT_CORRELATION_DISABLED = frozenset({"none", "disabled"})
-_EPISODE_ID_PREFIX = "episode:"
 _SEVERITY_RANK = {
     severity: rank for rank, severity in enumerate(("critical", "high", "medium", "low", "info"))
 }
 _DETECTION_READINESS_EVENT = "detection.readiness.observed"
-_EpisodeKey = tuple[str, str, str, str, str]
 
 
-def _incident_episode_id(
-    episode_key: _EpisodeKey,
-    first_evidence_key: str,
-) -> str:
-    """Derive one stable, opaque identity for a bounded repeat episode."""
-
-    canonical = json.dumps(
-        (*episode_key, first_evidence_key),
-        ensure_ascii=True,
-        separators=(",", ":"),
-    )
-    return f"{_EPISODE_ID_PREFIX}{hashlib.sha256(canonical.encode()).hexdigest()}"
-
-
-def _anomaly_idempotency_key(incident_episode_id: str, severity: str) -> str:
-    """Derive a retry-stable key for one episode severity publication."""
-
-    digest = hashlib.sha256(f"{incident_episode_id}\0{severity}".encode()).hexdigest()
-    return f"anomaly:{digest}"
-
-
-def _event_window_time(event: Mapping[str, Any], *, fallback: float) -> tuple[str, float]:
-    """Return a comparable event-time or arrival-time coordinate."""
-
-    value = event.get("occurred_at")
-    if value is None:
-        return "arrival", fallback
-    if isinstance(value, datetime):
-        observed_at = value
-    elif isinstance(value, str):
-        try:
-            observed_at = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError as exc:
-            raise ValueError("event occurred_at MUST be RFC 3339") from exc
-    else:
-        raise ValueError("event occurred_at MUST be RFC 3339")
-    if observed_at.tzinfo is None or observed_at.utcoffset() is None:
-        raise ValueError("event occurred_at MUST be timezone-aware")
-    return "event", observed_at.timestamp()
-
-
-class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
+class Heimdall(
+    HeimdallAlertWindowMixin,
+    HeimdallProviderSchemaMixin,
+    HeimdallForecastMixin,
+    Agent,
+):
     """Wave-3 anomaly detection + Wave 6 security correlator."""
 
     def __init__(
@@ -180,6 +145,8 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
         self._provider_schema_drift_projector = provider_schema_drift_projector
         self._rate_threshold = rate_threshold
         self._rate_window = rate_window
+        self._max_tracked_keys = _MAX_TRACKED_KEYS
+        self._max_episodes_per_resource = _MAX_EPISODES_PER_RESOURCE
         self._recent_events: dict[_EpisodeKey, deque[tuple[float, str, str]]] = {}
         self._recent_episode_keys: dict[str, dict[_EpisodeKey, None]] = {}
         self._incident_episode_ids: dict[_EpisodeKey, str] = {}
@@ -728,36 +695,6 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
         )
         return evidence
 
-    def _episode_history(
-        self,
-        episode_key: _EpisodeKey,
-    ) -> deque[tuple[float, str, str]]:
-        existing = self._recent_events.get(episode_key)
-        if existing is not None:
-            return existing
-        resource_id = episode_key[0]
-        resource_episodes = self._recent_episode_keys.setdefault(resource_id, {})
-        resource_episodes[episode_key] = None
-        while len(resource_episodes) > _MAX_EPISODES_PER_RESOURCE:
-            self._drop_episode(next(iter(resource_episodes)))
-        history: deque[tuple[float, str, str]] = deque(maxlen=self._rate_threshold * 2)
-        self._recent_events[episode_key] = history
-        while len(self._recent_events) > _MAX_TRACKED_KEYS:
-            self._drop_episode(next(iter(self._recent_events)))
-        return history
-
-    def _drop_episode(self, episode_key: _EpisodeKey) -> None:
-        self._recent_events.pop(episode_key, None)
-        self._incident_episode_ids.pop(episode_key, None)
-        self._incident_episode_severities.pop(episode_key, None)
-        resource_id = episode_key[0]
-        resource_episodes = self._recent_episode_keys.get(resource_id)
-        if resource_episodes is None:
-            return
-        resource_episodes.pop(episode_key, None)
-        if not resource_episodes:
-            self._recent_episode_keys.pop(resource_id, None)
-
     async def _maybe_classify_severity(self, event: dict[str, Any]) -> str:
         self._security_recent.append(event)
         initiator = str(event.get("initiator_principal", ""))
@@ -791,28 +728,6 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
         _evict_oldest(self._alert_counters, _MAX_TRACKED_KEYS, keep=(initiator, action))
         return severity
 
-    def _reserve_alert_slot(self, initiator: str) -> bool:
-        """Reserve one admin-card slot in the initiator's rolling-hour budget.
-
-        Returns ``True`` and charges the budget when a slot is available;
-        ``False`` when the initiator has spent its quota in the current
-        window. The window resets once :data:`_ALERT_WINDOW_SECONDS` elapses
-        since it opened, so the limit throttles a burst without silencing the
-        user permanently.
-        """
-        now = self._clock()
-        start, count = self._alert_windows.get(initiator, (now, 0))
-        if now - start >= _ALERT_WINDOW_SECONDS:
-            # Window rolled over -> start a fresh budget.
-            start, count = now, 0
-        if count >= self._alert_rate_per_hour:
-            self._alert_windows[initiator] = (start, count)
-            _evict_oldest(self._alert_windows, _MAX_TRACKED_KEYS, keep=initiator)
-            return False
-        self._alert_windows[initiator] = (start, count + 1)
-        _evict_oldest(self._alert_windows, _MAX_TRACKED_KEYS, keep=initiator)
-        return True
-
     async def _maybe_send_admin_card(self, event: dict[str, Any], severity: str) -> None:
         """Send an admin card, deduped by (initiator, action) within window."""
         initiator = str(event.get("initiator_principal", ""))
@@ -834,9 +749,6 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
         if self._alerter_hook is None:
             return
         await self._alerter_hook(payload)
-
-    def alert_count(self, initiator: str, action: str) -> int:
-        return self._alert_counters[(initiator, action)]
 
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
         """Observation answers rest on a populated window of signals.

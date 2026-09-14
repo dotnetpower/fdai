@@ -34,22 +34,12 @@ from typing import Any
 import httpx
 
 from fdai.composition import attach_metric_provider, default_container_from_env
-from fdai.core.investigation import InvestigationCoordinator, default_analyzers
-from fdai.delivery.analyzer_inventory import (
-    AnalyzerInventorySources,
-    build_analyzer_inventory_sources,
-)
-from fdai.delivery.analyzer_metric_provider import AnalyzerMetricProvider
-from fdai.delivery.analyzer_receipt_store import (
-    StateStoreAnalyzerReceiptStore,
-)
+from fdai.delivery.analyzer_receipt_store import StateStoreAnalyzerReceiptStore
 from fdai.delivery.analyzer_run_receipt import (
     AnalyzerRunReceiptPersistenceError,
     record_analyzer_run_receipt,
 )
 from fdai.delivery.analyzer_targets import (
-    DEFAULT_MAX_DISCOVERED,
-    MAX_DISCOVERED_CEILING,
     AnalyzerResourceTypeResolution,
     AnalyzerTargetResolution,
     AnalyzerTargetResolutionError,
@@ -57,11 +47,49 @@ from fdai.delivery.analyzer_targets import (
 )
 from fdai.delivery.analyzer_tick import (
     DEFAULT_PUBLICATION_WINDOW_SECONDS,
-    DEFAULT_WINDOW_SECONDS,
     AnalyzerPublicationStatus,
-    AnalyzerTarget,
     AnalyzerTickReport,
     AnalyzerTickRunner,
+)
+from fdai.delivery.analyzer_tick_cli_composition import (
+    build_analyzer_coordinator,
+    build_decision_evidence_admission_provider,
+    build_inventory_sources,
+    build_lifecycle_recorder,
+    build_publication_ledger,
+    build_receipt_store,
+)
+from fdai.delivery.analyzer_tick_cli_config import (
+    BUDGET_ENV,
+    DEFAULT_MAX_DISCOVERED,
+    DEFAULT_TICK_BUDGET_SECONDS,
+    DEFAULT_TRACE_LOOKBACK_SECONDS,
+    INGRESS_TOPIC_ENV,
+    INVENTORY_DSN_ENV,
+    LOOP_INTERVAL_ENV,
+    MAX_DISCOVERED_ENV,
+    POD_EVIDENCE_JSON_ENV,
+    STATE_STORE_DSN_ENV,
+    TARGETS_ENV,
+    TOPIC_ENV,
+    TRACE_LOOKBACK_ENV,
+    TRACE_TOPOLOGIES_ENV,
+    TRACE_WINDOW_ENV,
+    WINDOW_ENV,
+    metric_source_delays,
+    parse_loop_interval,
+    parse_max_discovered,
+    parse_targets,
+    parse_tick_budget,
+    parse_trace_topologies,
+    parse_window_seconds,
+    resolve_finding_topic,
+    resolve_scheduling_mode,
+    resolve_trace_lookback_seconds,
+    resolve_trace_window_seconds,
+)
+from fdai.delivery.analyzer_tick_cli_config import (
+    SCHEDULING_MODES as _SCHEDULING_MODES,
 )
 from fdai.delivery.azure.demo_queries import default_metric_queries
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
@@ -72,23 +100,8 @@ from fdai.delivery.azure.log_query import (
 )
 from fdai.delivery.azure.trace_continuity import (
     AzureTraceContinuitySource,
-    TraceTopologyTarget,
 )
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
-from fdai.delivery.detection_lifecycle_state import DetectionLifecycleRecorder
-from fdai.delivery.persistence import (
-    PostgresStateStore,
-    PostgresStateStoreConfig,
-    StateStoreDecisionEvidenceAdmissionProvider,
-)
-from fdai.delivery.persistence.postgres_analyzer_publication import (
-    PostgresAnalyzerPublicationLedger,
-)
-from fdai.delivery.persistence.postgres_idempotency import PostgresIdempotencyStoreConfig
-from fdai.delivery.pod_evidence_binding import (
-    POD_EVIDENCE_ENV,
-    build_pod_lifecycle_evidence_source,
-)
 from fdai.delivery.trace_continuity_tick import (
     TraceContinuityTickReport,
     TraceContinuityTickRunner,
@@ -100,31 +113,10 @@ from fdai.runtime.venue import (
     uses_developer_identity,
     uses_workload_identity,
 )
-from fdai.shared.providers.metric import MetricProvider
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.analyzer_tick")
 
-TARGETS_ENV = "FDAI_ANALYZER_TARGETS"
-_TARGET_KEYS = frozenset({"resource_id", "kind", "provider_resource_id"})
-WINDOW_ENV = "FDAI_ANALYZER_WINDOW_SECONDS"
-TRACE_WINDOW_ENV = "FDAI_TRACE_CONTINUITY_WINDOW_SECONDS"
-TRACE_LOOKBACK_ENV = "FDAI_TRACE_CONTINUITY_LOOKBACK_SECONDS"
-DEFAULT_TRACE_LOOKBACK_SECONDS = 900
-TOPIC_ENV = "FDAI_ANALYZER_TOPIC"
-INGRESS_TOPIC_ENV = "KAFKA_TOPIC_EVENTS"
-MAX_DISCOVERED_ENV = "FDAI_ANALYZER_MAX_DISCOVERED_TARGETS"
-INVENTORY_DSN_ENV = "FDAI_INVENTORY_DSN"
-STATE_STORE_DSN_ENV = "FDAI_STATE_STORE_DSN"
-TRACE_TOPOLOGIES_ENV = "FDAI_TRACE_TOPOLOGIES_JSON"
-POD_EVIDENCE_JSON_ENV = POD_EVIDENCE_ENV
-_TRACE_TOPOLOGY_KEYS = frozenset({"topology_ref", "resource_ref", "expected_hops"})
-_MAX_TRACE_TOPOLOGIES = 32
-LOOP_INTERVAL_ENV = "FDAI_ANALYZER_INTERVAL_SECONDS"
-BUDGET_ENV = "FDAI_ANALYZER_BUDGET_SECONDS"
-_DEFAULT_LOOP_INTERVAL_SECONDS = 60
-_DEFAULT_TICK_BUDGET_SECONDS = 300
-_SCHEDULING_MODES = frozenset({"one_shot", "local_loop", "container_apps_job"})
 _PUBLICATION_STATES = tuple(item.value for item in AnalyzerPublicationStatus)
 
 
@@ -433,343 +425,6 @@ def _increment_coverage_count(
     row[key] = current + increment
 
 
-def resolve_finding_topic(environ: Mapping[str, str]) -> str:
-    """Resolve the topic that actually carries findings into the control loop.
-
-    Findings enter through Huginn's raw ingress, which normalizes them into
-    ``object.event`` for the judging agents. Publishing anywhere else reaches no
-    consumer, so an unset ingress topic is a configuration error rather than a
-    value worth defaulting.
-    """
-
-    topic = environ.get(TOPIC_ENV, "").strip() or environ.get(INGRESS_TOPIC_ENV, "").strip()
-    if not topic:
-        raise RuntimeError(f"{TOPIC_ENV} or {INGRESS_TOPIC_ENV} is required")
-    return topic
-
-
-def parse_targets(raw: str) -> tuple[AnalyzerTarget, ...]:
-    """Parse the configured target list.
-
-    An empty or blank value yields no target. Any other malformed value fails
-    closed rather than silently analyzing nothing.
-    """
-    text = raw.strip()
-    if not text:
-        return ()
-    try:
-        loaded = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"{TARGETS_ENV} MUST be a JSON array: {exc}") from exc
-    if not isinstance(loaded, list):
-        raise ValueError(f"{TARGETS_ENV} MUST be a JSON array")
-    targets: list[AnalyzerTarget] = []
-    targets_by_resource: dict[str, AnalyzerTarget] = {}
-    for index, item in enumerate(loaded):
-        if not isinstance(item, dict) or not {"resource_id", "kind"}.issubset(item):
-            raise ValueError(f"{TARGETS_ENV}[{index}] MUST be an object")
-        if not set(item).issubset(_TARGET_KEYS):
-            raise ValueError(f"{TARGETS_ENV}[{index}] contains unknown fields")
-        resource_ref = item.get("resource_id")
-        resource_kind = item.get("kind")
-        provider_ref = item.get("provider_resource_id")
-        if not isinstance(resource_ref, str) or not isinstance(resource_kind, str):
-            raise ValueError(f"{TARGETS_ENV}[{index}] MUST carry string resource_id and kind")
-        if provider_ref is not None and not isinstance(provider_ref, str):
-            raise ValueError(f"{TARGETS_ENV}[{index}] provider_resource_id MUST be a string")
-        target = AnalyzerTarget(
-            resource_ref=resource_ref.strip(),
-            resource_kind=resource_kind.strip(),
-            provider_query_ref=provider_ref.strip() if provider_ref is not None else None,
-        )
-        previous = targets_by_resource.get(target.resource_ref)
-        if previous is not None:
-            if (
-                previous.resource_kind != target.resource_kind
-                or previous.provider_query_ref != target.provider_query_ref
-            ):
-                raise ValueError(
-                    f"{TARGETS_ENV}[{index}] conflicts with an earlier target identity"
-                )
-            continue
-        targets_by_resource[target.resource_ref] = target
-        targets.append(target)
-    return tuple(targets)
-
-
-def parse_trace_topologies(raw: str) -> tuple[TraceTopologyTarget, ...]:
-    """Parse strict deployment-supplied trace topology declarations."""
-    text = raw.strip()
-    if not text:
-        return ()
-    try:
-        loaded = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"{TRACE_TOPOLOGIES_ENV} MUST be a JSON array: {exc}") from exc
-    if not isinstance(loaded, list) or len(loaded) > _MAX_TRACE_TOPOLOGIES:
-        raise ValueError(
-            f"{TRACE_TOPOLOGIES_ENV} MUST be an array with at most {_MAX_TRACE_TOPOLOGIES} items"
-        )
-    targets: list[TraceTopologyTarget] = []
-    seen: set[str] = set()
-    for index, item in enumerate(loaded):
-        if not isinstance(item, dict) or set(item) != _TRACE_TOPOLOGY_KEYS:
-            raise ValueError(
-                f"{TRACE_TOPOLOGIES_ENV}[{index}] MUST contain exactly "
-                "topology_ref, resource_ref, and expected_hops"
-            )
-        topology_ref = item["topology_ref"]
-        resource_ref = item["resource_ref"]
-        expected_hops = item["expected_hops"]
-        if (
-            not isinstance(topology_ref, str)
-            or not isinstance(resource_ref, str)
-            or not isinstance(expected_hops, list)
-            or any(not isinstance(hop, str) for hop in expected_hops)
-        ):
-            raise ValueError(f"{TRACE_TOPOLOGIES_ENV}[{index}] has invalid field types")
-        target = TraceTopologyTarget(
-            topology_ref=topology_ref,
-            resource_ref=resource_ref,
-            expected_hops=tuple(expected_hops),
-        )
-        if target.topology_ref in seen:
-            raise ValueError(f"{TRACE_TOPOLOGIES_ENV} topology_ref values MUST be unique")
-        seen.add(target.topology_ref)
-        targets.append(target)
-    return tuple(targets)
-
-
-def parse_window_seconds(raw: str) -> int:
-    """Parse the optional analyzer window; a malformed value fails closed."""
-    text = raw.strip()
-    if not text:
-        return DEFAULT_WINDOW_SECONDS
-    try:
-        window = int(text)
-    except ValueError as exc:
-        raise ValueError(f"{WINDOW_ENV} MUST be a positive integer") from exc
-    if window <= 0:
-        raise ValueError(f"{WINDOW_ENV} MUST be a positive integer")
-    return window
-
-
-def resolve_trace_window_seconds(environ: Mapping[str, str], analyzer_window: int) -> int:
-    """Resolve the trace-continuity detection window, defaulting to the analyzer window.
-
-    A discontinuity is keyed by its detection window, so one window yields at
-    most one distinct finding. Correlating repeats therefore requires a
-    detection window several times shorter than the correlation window.
-    """
-
-    text = environ.get(TRACE_WINDOW_ENV, "").strip()
-    if not text:
-        return analyzer_window
-    try:
-        window = int(text)
-    except ValueError as exc:
-        raise ValueError(f"{TRACE_WINDOW_ENV} MUST be a positive integer") from exc
-    if window <= 0:
-        raise ValueError(f"{TRACE_WINDOW_ENV} MUST be a positive integer")
-    return window
-
-
-def resolve_trace_lookback_seconds(
-    environ: Mapping[str, str],
-    detection_window: int,
-) -> int:
-    """Resolve evidence lookback independently from the idempotency bucket."""
-
-    text = environ.get(TRACE_LOOKBACK_ENV, "").strip()
-    if not text:
-        return max(DEFAULT_TRACE_LOOKBACK_SECONDS, detection_window)
-    try:
-        lookback = int(text)
-    except ValueError as exc:
-        raise ValueError(f"{TRACE_LOOKBACK_ENV} MUST be a positive integer") from exc
-    if lookback < detection_window:
-        raise ValueError(f"{TRACE_LOOKBACK_ENV} MUST be at least {TRACE_WINDOW_ENV}")
-    return lookback
-
-
-def parse_max_discovered(raw: str) -> int:
-    """Parse the optional inventory-backed target bound; malformed fails closed.
-
-    The upper bound matches the resolver ceiling so a misconfigured deployment
-    fails at parse time with the environment key named, not later inside the
-    projection read.
-    """
-    text = raw.strip()
-    if not text:
-        return DEFAULT_MAX_DISCOVERED
-    try:
-        bound = int(text)
-    except ValueError as exc:
-        raise ValueError(f"{MAX_DISCOVERED_ENV} MUST be a positive integer") from exc
-    if not 1 <= bound <= MAX_DISCOVERED_CEILING:
-        raise ValueError(
-            f"{MAX_DISCOVERED_ENV} MUST be an integer in [1, {MAX_DISCOVERED_CEILING}]"
-        )
-    return bound
-
-
-def parse_loop_interval(raw: str) -> int:
-    """Parse the local/deployed schedule interval with one shared bound."""
-
-    text = raw.strip()
-    if not text:
-        return _DEFAULT_LOOP_INTERVAL_SECONDS
-    try:
-        interval = int(text)
-    except ValueError as exc:
-        raise ValueError(f"{LOOP_INTERVAL_ENV} MUST be a positive integer") from exc
-    if not 1 <= interval <= 86_400:
-        raise ValueError(f"{LOOP_INTERVAL_ENV} MUST be in [1, 86400]")
-    return interval
-
-
-def parse_tick_budget(raw: str) -> int:
-    """Parse the shared local and deployed wall-clock budget."""
-
-    text = raw.strip()
-    if not text:
-        return _DEFAULT_TICK_BUDGET_SECONDS
-    try:
-        budget = int(text)
-    except ValueError as exc:
-        raise ValueError(f"{BUDGET_ENV} MUST be a positive integer") from exc
-    if not 1 <= budget <= _DEFAULT_TICK_BUDGET_SECONDS:
-        raise ValueError(f"{BUDGET_ENV} MUST be in [1, {_DEFAULT_TICK_BUDGET_SECONDS}]")
-    return budget
-
-
-def metric_source_delays(environ: Mapping[str, str]) -> dict[str, str]:
-    """Report configured source-specific delay floors without claiming a live measurement."""
-
-    return {
-        "log_analytics": (
-            "120-300_seconds" if environ.get("FDAI_MONITOR_WORKSPACE_ID", "").strip() else "unbound"
-        ),
-        "prometheus": (
-            "unbound_exact_resource_identity"
-            if environ.get("FDAI_PROMETHEUS_ENDPOINT", "").strip()
-            else "unbound"
-        ),
-    }
-
-
-def resolve_scheduling_mode(raw: str) -> str:
-    """Resolve one allowlisted scheduling-mode receipt value."""
-
-    mode = raw.strip() or "one_shot"
-    if mode not in _SCHEDULING_MODES:
-        raise ValueError("FDAI_ANALYZER_SCHEDULING_MODE is invalid")
-    return mode
-
-
-def build_inventory_sources() -> AnalyzerInventorySources | None:
-    """Bind logical and provider-native inventory views from one DSN."""
-
-    return build_analyzer_inventory_sources(os.environ.get(INVENTORY_DSN_ENV, ""))
-
-
-def build_publication_ledger() -> PostgresAnalyzerPublicationLedger:
-    """Bind restart-durable publication suppression in every execution venue."""
-
-    dsn = os.environ.get(STATE_STORE_DSN_ENV, "").strip()
-    if not dsn:
-        raise RuntimeError(
-            f"{STATE_STORE_DSN_ENV} is required for duplicate-safe analyzer publication"
-        )
-    return PostgresAnalyzerPublicationLedger(
-        config=PostgresIdempotencyStoreConfig(
-            dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
-        )
-    )
-
-
-def build_receipt_store() -> StateStoreAnalyzerReceiptStore:
-    """Bind the bounded receipt projection to the same tracked-state database."""
-
-    dsn = os.environ.get(STATE_STORE_DSN_ENV, "").strip()
-    if not dsn:
-        raise RuntimeError(f"{STATE_STORE_DSN_ENV} is required for analyzer finding receipts")
-    return StateStoreAnalyzerReceiptStore(
-        PostgresStateStore(
-            config=PostgresStateStoreConfig(
-                dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
-            )
-        )
-    )
-
-
-def build_lifecycle_recorder() -> DetectionLifecycleRecorder:
-    """Bind the tracked-state writer that keeps Pod failure history readable.
-
-    The projection shares the analyzer's state store: it is the same durable
-    boundary the publication ledger already requires, so a venue that can
-    suppress a duplicate can also retain what it detected.
-    """
-
-    dsn = os.environ.get(STATE_STORE_DSN_ENV, "").strip()
-    if not dsn:
-        raise RuntimeError(f"{STATE_STORE_DSN_ENV} is required for Pod lifecycle projection")
-    return DetectionLifecycleRecorder(
-        PostgresStateStore(
-            config=PostgresStateStoreConfig(
-                dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
-            )
-        )
-    )
-
-
-def build_decision_evidence_admission_provider() -> (
-    StateStoreDecisionEvidenceAdmissionProvider | None
-):
-    """Bind the durable admission lookup used by target selection."""
-
-    dsn = os.environ.get(STATE_STORE_DSN_ENV, "").strip()
-    if not dsn:
-        _LOGGER.warning(
-            "analyzer_decision_evidence_unavailable",
-            extra={"reason": "state_store_dsn_absent"},
-        )
-        return None
-    return StateStoreDecisionEvidenceAdmissionProvider(
-        store=PostgresStateStore(
-            config=PostgresStateStoreConfig(
-                dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
-            )
-        )
-    )
-
-
-def build_analyzer_coordinator(
-    metric_provider: MetricProvider,
-    *,
-    targets: tuple[AnalyzerTarget, ...],
-) -> InvestigationCoordinator:
-    """Compose every production analyzer this venue can actually ground.
-
-    The Pod lifecycle analyzer joins the pantheon only when this venue declares
-    typed Pod evidence. An undeclared source leaves Pod targets reported as
-    unsupported, which is the honest outcome: an analyzer with no observations
-    would have to invent the completeness its receipt claims.
-    """
-
-    analyzer_provider = AnalyzerMetricProvider(
-        metric_provider,
-        targets=targets,
-        normalize_provider_ref=str.casefold,
-    )
-    return InvestigationCoordinator(
-        analyzers=default_analyzers(
-            analyzer_provider,
-            pod_lifecycle_evidence=build_pod_lifecycle_evidence_source(),
-        )
-    )
-
-
 async def run_once() -> AnalyzerJobReport:
     """Compose the tick from the environment and run one analyzer pass."""
     configured = parse_targets(os.environ.get(TARGETS_ENV, ""))
@@ -945,7 +600,7 @@ async def run_loop(
     *,
     interval_seconds: int,
     max_ticks: int | None = None,
-    tick_timeout_seconds: float = _DEFAULT_TICK_BUDGET_SECONDS,
+    tick_timeout_seconds: float = DEFAULT_TICK_BUDGET_SECONDS,
     tick: Callable[[], Awaitable[AnalyzerJobReport]] = run_once,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     monotonic: Callable[[], float] = time.monotonic,
@@ -956,7 +611,7 @@ async def run_loop(
         raise ValueError("analyzer loop interval_seconds MUST be in [1, 86400]")
     if max_ticks is not None and max_ticks < 1:
         raise ValueError("analyzer loop max_ticks MUST be positive")
-    if not 0 < tick_timeout_seconds <= _DEFAULT_TICK_BUDGET_SECONDS:
+    if not 0 < tick_timeout_seconds <= DEFAULT_TICK_BUDGET_SECONDS:
         raise ValueError("analyzer loop tick_timeout_seconds is out of bounds")
     completed = 0
     ready = False
@@ -1072,6 +727,47 @@ def main(argv: list[str] | None = None) -> int:
         scheduling=scheduling,
     )
     return 1 if report.failed else 0
+
+
+__all__ = [
+    "BUDGET_ENV",
+    "DEFAULT_MAX_DISCOVERED",
+    "DEFAULT_TRACE_LOOKBACK_SECONDS",
+    "INGRESS_TOPIC_ENV",
+    "INVENTORY_DSN_ENV",
+    "LOOP_INTERVAL_ENV",
+    "MAX_DISCOVERED_ENV",
+    "POD_EVIDENCE_JSON_ENV",
+    "STATE_STORE_DSN_ENV",
+    "StateStoreAnalyzerReceiptStore",
+    "TARGETS_ENV",
+    "TOPIC_ENV",
+    "TRACE_LOOKBACK_ENV",
+    "TRACE_TOPOLOGIES_ENV",
+    "TRACE_WINDOW_ENV",
+    "WINDOW_ENV",
+    "AnalyzerJobReport",
+    "build_analyzer_coordinator",
+    "build_decision_evidence_admission_provider",
+    "build_inventory_sources",
+    "build_lifecycle_recorder",
+    "build_publication_ledger",
+    "build_receipt_store",
+    "main",
+    "metric_source_delays",
+    "parse_loop_interval",
+    "parse_max_discovered",
+    "parse_targets",
+    "parse_tick_budget",
+    "parse_trace_topologies",
+    "parse_window_seconds",
+    "resolve_finding_topic",
+    "resolve_scheduling_mode",
+    "resolve_trace_lookback_seconds",
+    "resolve_trace_window_seconds",
+    "run_loop",
+    "run_once",
+]
 
 
 if __name__ == "__main__":
