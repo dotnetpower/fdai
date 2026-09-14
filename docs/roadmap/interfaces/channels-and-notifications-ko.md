@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: d72408d5b2e34f7bdaef72b4ededaa0b419d7b86
+translation_source_sha: ef4c511bcf98c4c6bb4cba9274c1d8773af87dc0
 translation_revised: 2026-09-14
 ---
 
@@ -376,6 +376,9 @@ Console은 브라우저 알림 경계를 명시적인 클라이언트 로컬 `co
 `GET /live/stream` 피드를 유지하고 사람 승인, 차단 또는 실패 결과에만 알림을 표시합니다.
 `runtime-observed` 프레임만 알림 대상입니다. 재생, 합성 개발, 출처 미확인 프레임과 정상 성공
 단계는 알림을 만들지 않습니다.
+이 채널은 보안 컨텍스트에서 Notifications, Service Worker 및 Web Locks API를 모두 사용할 수
+있을 때만 지원됩니다. Web Locks는 principal 범위 스트림 리더 하나를 선출합니다. 이 보장을
+제공하지 않는 브라우저는 수신자 없이 준비 상태를 주장하지 않고 채널을 사용 불가로 표시합니다.
 
 브라우저 알림은 정보 제공 전용입니다. 현지화된 일반 텍스트, 불투명하고 범위가 제한된 이벤트
 태그 및 서버가 만든 동일 출처의 읽기 전용 인시던트 화면 링크만 포함합니다. 원본 오류, 리소스

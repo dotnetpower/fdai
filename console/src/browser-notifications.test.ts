@@ -140,11 +140,19 @@ describe("browser notification boundary", () => {
       secureContext: true,
       notificationApi: true,
       serviceWorkerApi: true,
+      lockManagerApi: true,
     })).toBe(true);
     expect(browserNotificationsSupported({
       secureContext: false,
       notificationApi: true,
       serviceWorkerApi: true,
+      lockManagerApi: true,
+    })).toBe(false);
+    expect(browserNotificationsSupported({
+      secureContext: true,
+      notificationApi: true,
+      serviceWorkerApi: true,
+      lockManagerApi: false,
     })).toBe(false);
   });
 

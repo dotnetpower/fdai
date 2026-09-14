@@ -665,6 +665,8 @@ A matching click that races ahead of the display callback atomically records bot
 acknowledgement, and the later display write preserves that monotonic result.
 New-window acknowledgement uses a closed, transient URL fragment, so the tag and claim token never
 enter the HTTP request or referrer and are removed before normal Console navigation continues.
+The control declares support only when secure-context Notifications, Service Worker, and Web Locks
+APIs are all present, because Web Locks is required to elect one principal-scoped stream leader.
 Visible-heading components use `title` only for rendered heading content. Native HTML `title` bubbles remain limited to accessibility-compatible elements, and all other contextual help uses the shared Tooltip component.
 The static component gallery reads contracts from `mocks/ui/assets/component-registry.json` and presents each specimen before its owner, source, states, usage guidance, responsive behavior, accessibility contract, and product references. A missing or invalid registry blocks documented status instead of inferring canonical status. The gallery remains synthetic presentation evidence and grants no Console, Operator API, or executor authority.
 

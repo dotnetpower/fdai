@@ -47,6 +47,7 @@ export interface BrowserNotificationEnvironment {
   readonly secureContext: boolean;
   readonly notificationApi: boolean;
   readonly serviceWorkerApi: boolean;
+  readonly lockManagerApi: boolean;
 }
 
 export type BrowserAlertClaim = "claimed" | "duplicate" | "rate-limited" | "unavailable";
@@ -357,7 +358,8 @@ export function browserNotificationsSupported(
 ): boolean {
   return environment.secureContext
     && environment.notificationApi
-    && environment.serviceWorkerApi;
+    && environment.serviceWorkerApi
+    && environment.lockManagerApi;
 }
 
 export function browserNotificationWorkerPaths(baseUrl: string): {
@@ -548,6 +550,9 @@ function currentEnvironment(): BrowserNotificationEnvironment {
     secureContext: typeof window !== "undefined" && window.isSecureContext,
     notificationApi: typeof Notification !== "undefined",
     serviceWorkerApi: typeof navigator !== "undefined" && "serviceWorker" in navigator,
+    lockManagerApi: typeof navigator !== "undefined"
+      && "locks" in navigator
+      && typeof navigator.locks.request === "function",
   };
 }
 
