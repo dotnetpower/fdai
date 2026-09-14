@@ -47,6 +47,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Validated every optional Trace producer field when present so malformed text, workflow, or attempt values cannot be erased into not recorded. | `current change`; parameterized Operator Trace projection tests. | Complete the final residual review. |
 | 2026-09-14 | implemented | Corrected the nullable audit-reference hardening after verifying that the audit ledger schema requires event id, entry hash, and previous hash. The browser again requires all three instead of defending an impossible source state. | `current change`; base audit migration inspection plus focused Operator projection and Console decoder tests. | Complete malformed optional-field and final residual review. |
 | 2026-09-14 | implemented | Kept absent event and previous-hash references nullable and normalized `None` or `null` string sentinels to not recorded instead of displaying them as identifiers. | `current change`; focused Operator projection and Console decoder tests. | Complete the final residual review. |
 | 2026-09-14 | implemented | Preserved and displayed each Trace step's previous entry hash alongside its entry hash without claiming that the filtered trace verifies the complete ledger chain. | `current change`; focused Operator projection, Console decoder, context, and browser tests. | Continue the bounded Trace hardening campaign. |

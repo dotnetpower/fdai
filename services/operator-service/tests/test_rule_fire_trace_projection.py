@@ -146,6 +146,46 @@ def test_trace_rejects_invalid_or_conflicting_attempt_identity(
         )
 
 
+@pytest.mark.parametrize(
+    ("entry", "message"),
+    [
+        ({"stage": 3}, "stage MUST be a non-empty string or null"),
+        ({"decision": " "}, "decision MUST be a non-empty string or null"),
+        ({"reason": False}, "reason MUST be a non-empty string or null"),
+        ({"action_id": []}, "action_id MUST be a non-empty string or null"),
+        ({"execution_path": {}}, "execution_path MUST be a non-empty string or null"),
+        ({"outcome": 1}, "outcome MUST be a non-empty string or null"),
+        ({"attempt": "2"}, "attempt MUST be an integer or null"),
+        ({"workflow_action": []}, "workflow_action MUST be an object or null"),
+        (
+            {"workflow_action": {"attempt": "2"}},
+            "attempt MUST be an integer or null",
+        ),
+    ],
+)
+def test_trace_rejects_malformed_optional_evidence(
+    entry: dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        rule_fire_trace(
+            "correlation-1",
+            [
+                {
+                    "seq": 1,
+                    "event_id": "event-1",
+                    "correlation_id": "correlation-1",
+                    "recorded_at": "2026-09-14T03:00:00Z",
+                    "action_kind": "executor.remote.dispatched",
+                    "mode": "enforce",
+                    "entry_hash": "hash-1",
+                    "previous_hash": "hash-0",
+                    "entry": entry,
+                }
+            ],
+        )
+
+
 class _TraceRowsModel(PostgresOperatorReadModel):
     def __init__(self, rows: list[dict[str, Any]]) -> None:
         super().__init__(PostgresOperatorReadModelConfig(dsn="postgresql://example.invalid/db"))

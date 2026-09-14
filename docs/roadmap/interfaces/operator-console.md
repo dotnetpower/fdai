@@ -42,6 +42,8 @@ Trace hardening preserves these evidence invariants:
   screen displays these references but does not claim to verify the full ledger chain.
 - Event id, entry hash, and previous entry hash remain required because the audit ledger schema
   stores them as non-null provenance. A malformed projection cannot downgrade them to not recorded.
+- Optional stage, decision, reason, action, execution, outcome, workflow, and attempt fields are
+  validated when present. Invalid types or blank values cannot be erased into not recorded.
 
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final

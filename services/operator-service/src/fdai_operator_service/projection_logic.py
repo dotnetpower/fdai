@@ -292,14 +292,20 @@ def rule_fire_trace(correlation_id: str, items: Sequence[JsonObject]) -> JsonObj
     terminal_stage: str | None = None
     for item in ordered:
         entry = _mapping(item.get("entry"))
-        workflow_action = _mapping(entry.get("workflow_action"))
-        pipeline_stage = _nonempty(entry.get("pipeline_stage"))
-        entry_stage = _nonempty(entry.get("stage"))
+        raw_workflow_action = entry.get("workflow_action")
+        if raw_workflow_action is None:
+            workflow_action: Mapping[str, object] = {}
+        elif isinstance(raw_workflow_action, Mapping):
+            workflow_action = raw_workflow_action
+        else:
+            raise ValueError("audit trace workflow_action MUST be an object or null")
+        pipeline_stage = _optional_trace_text(entry, "pipeline_stage")
+        entry_stage = _optional_trace_text(entry, "stage")
         if pipeline_stage is not None and entry_stage is not None and pipeline_stage != entry_stage:
             raise ValueError("audit trace stage fields conflict")
         stage = pipeline_stage or entry_stage
-        entry_attempt = _integer(entry.get("attempt"))
-        workflow_attempt = _integer(workflow_action.get("attempt"))
+        entry_attempt = _optional_trace_integer(entry, "attempt")
+        workflow_attempt = _optional_trace_integer(workflow_action, "attempt")
         if any(
             attempt is not None and attempt < 1 for attempt in (entry_attempt, workflow_attempt)
         ):
@@ -320,14 +326,15 @@ def rule_fire_trace(correlation_id: str, items: Sequence[JsonObject]) -> JsonObj
                 "source_correlation_id": _nonempty(item.get("correlation_id")),
                 "recorded_at": str(item["recorded_at"]),
                 "stage": stage,
-                "decision": _nonempty(entry.get("decision")),
-                "reason": _nonempty(entry.get("reason")) or _nonempty(entry.get("deny_reason")),
+                "decision": _optional_trace_text(entry, "decision"),
+                "reason": _optional_trace_text(entry, "reason")
+                or _optional_trace_text(entry, "deny_reason"),
                 "action_kind": str(item["action_kind"]),
                 "mode": str(item["mode"]),
-                "action_id": _nonempty(entry.get("action_id")),
+                "action_id": _optional_trace_text(entry, "action_id"),
                 "attempt": attempt,
-                "execution_path": _nonempty(entry.get("execution_path")),
-                "outcome": _nonempty(entry.get("outcome")),
+                "execution_path": _optional_trace_text(entry, "execution_path"),
+                "outcome": _optional_trace_text(entry, "outcome"),
                 "entry_hash": str(item["entry_hash"]),
                 "previous_hash": str(item["previous_hash"]),
             }
@@ -361,6 +368,24 @@ def _strings(value: object) -> list[str]:
 
 def _nonempty(value: object) -> str | None:
     return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _optional_trace_text(value: Mapping[str, object], key: str) -> str | None:
+    if key not in value or value[key] is None:
+        return None
+    parsed = _nonempty(value[key])
+    if parsed is None:
+        raise ValueError(f"audit trace {key} MUST be a non-empty string or null")
+    return parsed
+
+
+def _optional_trace_integer(value: Mapping[str, object], key: str) -> int | None:
+    if key not in value or value[key] is None:
+        return None
+    parsed = _integer(value[key])
+    if parsed is None:
+        raise ValueError(f"audit trace {key} MUST be an integer or null")
+    return parsed
 
 
 def _integer(value: object) -> int | None:
