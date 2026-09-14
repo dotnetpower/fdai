@@ -25,6 +25,27 @@ from fdai.shared.providers.document_ingestion import (
     GovernedDocumentSearchResult,
 )
 from fdai.shared.providers.knowledge import KnowledgeChunk
+from fdai_service_contracts.document import (
+    AccessDescriptor as CurrentAccessDescriptor,
+)
+from fdai_service_contracts.document import (
+    DocumentDisposition,
+    DocumentIndexState,
+    DocumentRetentionState,
+    DocumentScopeKind,
+)
+from fdai_service_contracts.document import (
+    DocumentPurpose as CurrentDocumentPurpose,
+)
+from fdai_service_contracts.document import (
+    DocumentState as CurrentDocumentState,
+)
+from fdai_service_contracts.document import (
+    DocumentVersion as CurrentDocumentVersion,
+)
+from fdai_service_contracts.document import (
+    RetentionPolicy as CurrentRetentionPolicy,
+)
 
 NOW = datetime(2026, 9, 6, 5, 0, tzinfo=UTC)
 DOCUMENT_ID = UUID(int=1)
@@ -83,6 +104,60 @@ class _Metadata:
 
     async def get_version(self, document_id: UUID, version_id: UUID) -> DocumentVersion:
         return self.versions[(document_id, version_id)]
+
+
+class _CurrentMetadata:
+    def __init__(self, versions: Sequence[CurrentDocumentVersion]) -> None:
+        self.versions = {(item.document_id, item.version_id): item for item in versions}
+        self.calls: list[tuple[UUID, UUID]] = []
+
+    async def get_current_version(
+        self, document_id: UUID, version_id: UUID
+    ) -> CurrentDocumentVersion:
+        self.calls.append((document_id, version_id))
+        return self.versions[(document_id, version_id)]
+
+    async def get_version(self, document_id: UUID, version_id: UUID) -> DocumentVersion:
+        raise AssertionError("exact retrieval used the legacy metadata projection")
+
+
+class _ExactSearch(_Search):
+    def __init__(self, hits: Sequence[KnowledgeChunk]) -> None:
+        super().__init__(hits)
+        self.exact_calls: list[
+            tuple[
+                str,
+                tuple[tuple[UUID, UUID], ...],
+                str,
+                str,
+                int,
+            ]
+        ] = []
+
+    async def search_governed_exact(
+        self,
+        query: str,
+        *,
+        exact_refs: tuple[tuple[UUID, UUID], ...],
+        context_source: str,
+        conversation_ref: str,
+        k: int = 5,
+    ) -> GovernedDocumentSearchResult:
+        self.exact_calls.append(
+            (
+                query,
+                exact_refs,
+                context_source,
+                conversation_ref,
+                k,
+            )
+        )
+        return GovernedDocumentSearchResult(
+            hits=self.hits[:k],
+            index_generation="test-document-index:sha256:" + "b" * 64,
+            complete=True,
+            limitation=None,
+        )
 
 
 class _Access:
@@ -180,6 +255,102 @@ def _hit(
     )
 
 
+def _current_version(
+    *,
+    document_id: UUID = DOCUMENT_ID,
+    version_id: UUID = VERSION_ID,
+    conversation_ref: str = "conversation-example",
+    collection_id: str = "operations",
+    access_descriptor_ref: str = "collection:operations",
+    web_reference: bool = False,
+) -> CurrentDocumentVersion:
+    return CurrentDocumentVersion(
+        document_id=document_id,
+        version_id=version_id,
+        upload_id=UUID(int=version_id.int + 10),
+        source_name=f"attachment-{version_id.int}.txt",
+        source_sha256=f"{version_id.int:064x}",
+        size_bytes=128,
+        media_type="text/plain",
+        observed_format="text",
+        state=CurrentDocumentState.READY,
+        access=CurrentAccessDescriptor(
+            reference=access_descriptor_ref,
+            collection_id=collection_id,
+            reader_groups=("group:responders",),
+        ),
+        retention=CurrentRetentionPolicy(
+            policy_version="session-v1",
+            source_expires_at=NOW + timedelta(hours=1),
+            derived_expires_at=NOW + timedelta(hours=1),
+        ),
+        purposes=(CurrentDocumentPurpose.KNOWLEDGE_BASE,),
+        uploader_id="operator-a",
+        created_at=NOW - timedelta(minutes=10),
+        updated_at=NOW - timedelta(minutes=1),
+        active=True,
+        available=True,
+        disposition=(
+            DocumentDisposition.GOVERNED_KNOWLEDGE
+            if web_reference
+            else DocumentDisposition.SESSION_EPHEMERAL
+        ),
+        index_state=DocumentIndexState.ACTIVE,
+        retention_state=DocumentRetentionState.LIVE,
+        scope_kind=(
+            DocumentScopeKind.COLLECTION if web_reference else DocumentScopeKind.CONVERSATION
+        ),
+        scope_ref=collection_id if web_reference else conversation_ref,
+    )
+
+
+def _exact_hit(
+    *,
+    document_id: UUID = DOCUMENT_ID,
+    version_id: UUID = VERSION_ID,
+    conversation_ref: str = "conversation-example",
+    collection_id: str = "operations",
+    access_descriptor_ref: str = "collection:operations",
+    web_reference: bool = False,
+) -> KnowledgeChunk:
+    hit = _hit(document_id=document_id, version_id=version_id)
+    return KnowledgeChunk(
+        doc_id=hit.doc_id,
+        chunk_id=hit.chunk_id,
+        text=hit.text,
+        source_ref=hit.source_ref,
+        score=hit.score,
+        metadata={
+            **hit.metadata,
+            "collection_id": collection_id,
+            "access_descriptor_ref": access_descriptor_ref,
+            "disposition": "governed_knowledge" if web_reference else "session_ephemeral",
+            "scope_kind": "collection" if web_reference else "conversation",
+            "scope_ref": collection_id if web_reference else conversation_ref,
+        },
+    )
+
+
+def _exact_reader(
+    hits: Sequence[KnowledgeChunk],
+    versions: Sequence[CurrentDocumentVersion],
+) -> tuple[AuthorizedGovernedDocumentReader, _ExactSearch, _CurrentMetadata]:
+    search = _ExactSearch(hits)
+    metadata = _CurrentMetadata(versions)
+    return (
+        AuthorizedGovernedDocumentReader(
+            search=search,
+            metadata=metadata,  # type: ignore[arg-type]
+            access=_Access(),
+            scopes=_Scopes(),
+            clock=lambda: NOW,
+            retrieval_mode="hybrid",
+        ),
+        search,
+        metadata,
+    )
+
+
 def _reader(
     hits: Sequence[KnowledgeChunk],
     versions: Sequence[DocumentVersion],
@@ -222,6 +393,143 @@ async def test_reader_scopes_search_before_projecting_exact_revision() -> None:
     assert result.retrieval_mode == "hybrid"
     assert search.calls == [("recovery", "operations", frozenset({"collection:operations"}), 8)]
     assert scopes.calls == [("operator-a", CeilingRole.READER, "operations-review")]
+
+
+async def test_exact_reader_preauthorizes_all_refs_and_never_calls_broad_search() -> None:
+    reader, search, metadata = _exact_reader(
+        (
+            _exact_hit(
+                collection_id="channel-evidence",
+                access_descriptor_ref="collection:channel-evidence",
+            ),
+        ),
+        (
+            _current_version(
+                collection_id="channel-evidence",
+                access_descriptor_ref="collection:channel-evidence",
+            ),
+        ),
+    )
+    citation = f"doc:{DOCUMENT_ID}:{VERSION_ID}"
+
+    result = await reader.search(
+        query="recovery",
+        principal_ref="operator-a",
+        principal_role=CeilingRole.READER,
+        principal_groups=frozenset({"group:responders"}),
+        purpose="operations-review",
+        limit=2,
+        exact_refs=(citation,),
+        context_source="channel_attachment",
+        conversation_ref="conversation-example",
+        document_context_digest="sha256:" + "c" * 64,
+    )
+
+    assert len(result.excerpts) == 1
+    assert metadata.calls == [(DOCUMENT_ID, VERSION_ID), (DOCUMENT_ID, VERSION_ID)]
+    assert search.calls == []
+    assert search.exact_calls[0][1] == ((DOCUMENT_ID, VERSION_ID),)
+    assert search.exact_calls[0][2] == "channel_attachment"
+    assert result.access_scope_digest != GovernedDocumentAccessScope(
+        collection_id="operations",
+        allowed_access_refs=frozenset({"collection:operations"}),
+        actor_groups=frozenset({"group:responders"}),
+    ).digest_for("operator-a")
+
+
+async def test_exact_web_reader_accepts_authorized_refs_across_collections() -> None:
+    other_document = UUID(int=20)
+    other_version = UUID(int=21)
+    hits = (
+        _exact_hit(web_reference=True),
+        _exact_hit(
+            document_id=other_document,
+            version_id=other_version,
+            collection_id="security",
+            access_descriptor_ref="collection:security",
+            web_reference=True,
+        ),
+    )
+    versions = (
+        _current_version(web_reference=True),
+        _current_version(
+            document_id=other_document,
+            version_id=other_version,
+            collection_id="security",
+            access_descriptor_ref="collection:security",
+            web_reference=True,
+        ),
+    )
+    reader, search, _metadata = _exact_reader(hits, versions)
+    citations = tuple(f"doc:{version.document_id}:{version.version_id}" for version in versions)
+
+    result = await reader.search(
+        query="recovery",
+        principal_ref="operator-a",
+        principal_role=CeilingRole.READER,
+        principal_groups=frozenset({"group:responders"}),
+        purpose="operations-review",
+        limit=4,
+        exact_refs=citations,
+        context_source="web_reference",
+        conversation_ref="web-session-example",
+        document_context_digest="sha256:" + "c" * 64,
+    )
+
+    assert len(result.excerpts) == 2
+    assert result.complete is True
+    assert search.calls == []
+    assert search.exact_calls[0][1] == (
+        (DOCUMENT_ID, VERSION_ID),
+        (other_document, other_version),
+    )
+
+
+async def test_exact_reader_rejects_conversation_mismatch_before_search() -> None:
+    reader, search, _metadata = _exact_reader(
+        (_exact_hit(),),
+        (_current_version(conversation_ref="another-conversation"),),
+    )
+
+    with pytest.raises(PermissionError, match="conversation scope"):
+        await reader.search(
+            query="recovery",
+            principal_ref="operator-a",
+            principal_role=CeilingRole.READER,
+            principal_groups=frozenset({"group:responders"}),
+            purpose="operations-review",
+            limit=2,
+            exact_refs=(f"doc:{DOCUMENT_ID}:{VERSION_ID}",),
+            context_source="channel_attachment",
+            conversation_ref="conversation-example",
+            document_context_digest="sha256:" + "c" * 64,
+        )
+
+    assert search.calls == []
+    assert search.exact_calls == []
+
+
+async def test_exact_reader_rejects_provider_identity_widening() -> None:
+    other_document = UUID(int=20)
+    other_version = UUID(int=21)
+    reader, _search, _metadata = _exact_reader(
+        (_exact_hit(document_id=other_document, version_id=other_version),),
+        (_current_version(),),
+    )
+
+    with pytest.raises(RuntimeError, match="widened"):
+        await reader.search(
+            query="recovery",
+            principal_ref="operator-a",
+            principal_role=CeilingRole.READER,
+            principal_groups=frozenset({"group:responders"}),
+            purpose="operations-review",
+            limit=2,
+            exact_refs=(f"doc:{DOCUMENT_ID}:{VERSION_ID}",),
+            context_source="channel_attachment",
+            conversation_ref="conversation-example",
+            document_context_digest="sha256:" + "c" * 64,
+        )
 
 
 async def test_reader_skips_unauthorized_candidates_without_disclosing_them() -> None:

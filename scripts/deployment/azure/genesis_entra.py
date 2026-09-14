@@ -21,6 +21,11 @@ _GROUPS = {
     "RBAC_OWNERS_GROUP_ID": ("aw-owners", "Owner"),
     "RBAC_BREAK_GLASS_GROUP_ID": ("aw-break-glass", "BreakGlass"),
 }
+_CHANNEL_ATTACHMENT_ROLE = "Document.ChannelAttachment.Submit"
+_ROLE_MEMBER_TYPES = {
+    **{role: ("User",) for _name, role in _GROUPS.values()},
+    _CHANNEL_ATTACHMENT_ROLE: ("Application",),
+}
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 
 
@@ -56,16 +61,18 @@ def plan_entra() -> EntraPlan:
     for name, app in apps.items():
         if app is not None:
             _validate_app(name, app)
+    create_apps = tuple(sorted(name for name, value in apps.items() if value is None))
+    create_groups = tuple(sorted(name for name, value in groups.items() if value is None))
     body: dict[str, object] = {
         "schema_version": "fdai.genesis-entra-plan.v1",
-        "create_apps": sorted(name for name, value in apps.items() if value is None),
-        "create_groups": sorted(name for name, value in groups.items() if value is None),
+        "create_apps": list(create_apps),
+        "create_groups": list(create_groups),
         "configure_api_roles_and_scope": True,
         "configure_runner_owned_spa_graph_permission": True,
     }
     return EntraPlan(
-        create_apps=tuple(body["create_apps"]),
-        create_groups=tuple(body["create_groups"]),
+        create_apps=create_apps,
+        create_groups=create_groups,
         configure_roles=True,
         configure_runner_graph=True,
         digest=canonical_digest(body),
@@ -109,6 +116,8 @@ def read_entra_bindings() -> dict[str, str]:
         raise ValueError("Entra binding readback is incomplete")
     _validate_app("fdai-api", api_app)
     _validate_app("fdai-console-spa", spa_app)
+    if not _roles_valid(api_app.get("appRoles")):
+        raise ValueError("FDAI API App Role readback is incomplete")
     scope = _scope(api_app)
     return {
         "ENTRA_CONSOLE_API_SCOPE": f"api://{api_app['appId']}/{scope['value']}",
@@ -160,19 +169,19 @@ def _ensure_api_app() -> dict[str, Any]:
             item.get("value"): item.get("id")
             for item in roles or []
             if isinstance(item, dict)
-            and item.get("value") in {role for _name, role in _GROUPS.values()}
+            and item.get("value") in _ROLE_MEMBER_TYPES
             and _GUID.fullmatch(str(item.get("id", "")))
         }
         role_payload = [
             {
-                "allowedMemberTypes": ["User"],
+                "allowedMemberTypes": list(member_types),
                 "description": f"FDAI {role} role",
                 "displayName": role,
                 "id": role_values.get(role, str(uuid.uuid4())),
                 "isEnabled": True,
                 "value": role,
             }
-            for _name, role in _GROUPS.values()
+            for role, member_types in _ROLE_MEMBER_TYPES.items()
         ]
         scope_id = str(scope["id"]) if scope is not None else str(uuid.uuid4())
         _az(
@@ -209,6 +218,8 @@ def _ensure_api_app() -> dict[str, Any]:
             },
         )
         app = _app(str(app["appId"]))
+    if not _roles_valid(app.get("appRoles")):
+        raise ValueError("FDAI API App Role readback is incomplete")
     return app
 
 
@@ -397,7 +408,10 @@ def _grant_runner_graph_permission(runner_principal_id: str) -> None:
 def _verify_complete(
     *, api_app: dict[str, Any], spa_app: dict[str, Any], groups: dict[str, str]
 ) -> None:
-    _validate_app("fdai-api", _app(str(api_app["appId"])))
+    verified_api = _app(str(api_app["appId"]))
+    _validate_app("fdai-api", verified_api)
+    if not _roles_valid(verified_api.get("appRoles")):
+        raise ValueError("FDAI API App Role readback is incomplete")
     _validate_app("fdai-console-spa", _app(str(spa_app["appId"])))
     if any(_single_group(name) is None for name, _role in _GROUPS.values()) or any(
         not _GUID.fullmatch(value) for value in groups.values()
@@ -468,16 +482,16 @@ def _scope_or_none(app: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _roles_valid(value: object) -> bool:
-    roles = (
-        {
-            str(item.get("value"))
-            for item in value
-            if isinstance(item, dict) and item.get("isEnabled") is True
-        }
-        if isinstance(value, list)
-        else set()
+    if not isinstance(value, list):
+        return False
+    roles = [item for item in value if isinstance(item, dict) and item.get("isEnabled") is True]
+    if len(roles) != len(_ROLE_MEMBER_TYPES):
+        return False
+    return all(
+        item.get("value") in _ROLE_MEMBER_TYPES
+        and tuple(item.get("allowedMemberTypes", ())) == _ROLE_MEMBER_TYPES[str(item["value"])]
+        for item in roles
     )
-    return roles == {role for _name, role in _GROUPS.values()}
 
 
 def _az(arguments: tuple[str, ...]) -> str:

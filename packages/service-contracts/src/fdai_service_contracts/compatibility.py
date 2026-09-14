@@ -325,6 +325,47 @@ def matrix_digest(manifest: Mapping[str, Any]) -> str:
     return canonical_digest(manifest.get("producer_consumer_matrix"))
 
 
+def transition_certified_matrix(
+    manifest: Mapping[str, Any],
+) -> tuple[Mapping[str, Any], ...]:
+    """Return the ordered matrix subset covered by retained transition evidence."""
+
+    policy = _mapping(manifest.get("policy"), "policy")
+    raw_ids = policy.get("transition_certified_contract_ids")
+    if (
+        not isinstance(raw_ids, list)
+        or not raw_ids
+        or any(not isinstance(contract_id, str) or not contract_id for contract_id in raw_ids)
+        or len(raw_ids) != len(set(raw_ids))
+    ):
+        raise CompatibilityError(
+            "transition-certified contract ids must be unique non-empty strings"
+        )
+    raw_matrix = manifest.get("producer_consumer_matrix")
+    if not isinstance(raw_matrix, list):
+        raise CompatibilityError("producer_consumer_matrix must be an array")
+    matrix = tuple(_mapping(item, "producer_consumer_matrix edge") for item in raw_matrix)
+    by_id: dict[str, Mapping[str, Any]] = {}
+    for edge in matrix:
+        contract_id = edge.get("contract_id")
+        if not isinstance(contract_id, str) or not contract_id or contract_id in by_id:
+            raise CompatibilityError("matrix contract ids must be unique non-empty strings")
+        by_id[contract_id] = edge
+    certified_ids = set(raw_ids)
+    if not certified_ids <= set(by_id):
+        raise CompatibilityError("transition certification references an unknown contract")
+    certified = tuple(edge for edge in matrix if edge.get("contract_id") in certified_ids)
+    if tuple(edge.get("contract_id") for edge in certified) != tuple(raw_ids):
+        raise CompatibilityError("transition certification must preserve matrix order")
+    return certified
+
+
+def transition_certified_matrix_digest(manifest: Mapping[str, Any]) -> str:
+    """Return the historical matrix digest without relabeling unobserved edges."""
+
+    return canonical_digest(transition_certified_matrix(manifest))
+
+
 def validate_peer_upgrade_receipt(
     manifest: Mapping[str, Any],
     receipt: Mapping[str, Any],
@@ -358,13 +399,18 @@ def validate_peer_upgrade_receipt(
     )
     if receipt.get("idempotency_key") != expected_key:
         raise CompatibilityError("receipt idempotency key is not transition-stable")
-    if receipt.get("matrix_digest") != matrix_digest(manifest):
-        raise CompatibilityError("receipt matrix digest does not match the manifest")
     _validate_proof_observations(
         receipt,
         required_proof_kind=required_proof_kind,
         evidence_manifest=evidence_manifest,
     )
+    expected_matrix_digest = (
+        transition_certified_matrix_digest(manifest)
+        if required_proof_kind == "live"
+        else matrix_digest(manifest)
+    )
+    if receipt.get("matrix_digest") != expected_matrix_digest:
+        raise CompatibilityError("receipt matrix digest does not match the manifest")
 
     peers_before = _mapping(receipt.get("peer_versions_before"), "peer_versions_before")
     peers_after = _mapping(receipt.get("peer_versions_after"), "peer_versions_after")
@@ -575,6 +621,8 @@ __all__ = [
     "load_json_object",
     "matrix_digest",
     "project_additive_fields",
+    "transition_certified_matrix",
+    "transition_certified_matrix_digest",
     "validate_delivery_trace",
     "validate_peer_upgrade_receipt",
 ]

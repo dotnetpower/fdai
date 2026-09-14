@@ -6,6 +6,8 @@ import sys
 import threading
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT_DIR = ROOT / "scripts/deployment/azure"
 sys.path.insert(0, str(SCRIPT_DIR))
@@ -58,6 +60,14 @@ def test_read_entra_bindings_returns_only_validated_repository_values(monkeypatc
         "displayName": "fdai-api",
         "signInAudience": "AzureADMyOrg",
         "appId": GUID,
+        "appRoles": [
+            {
+                "value": role,
+                "isEnabled": True,
+                "allowedMemberTypes": list(member_types),
+            }
+            for role, member_types in genesis_entra._ROLE_MEMBER_TYPES.items()
+        ],
         "api": {"oauth2PermissionScopes": [{"id": GUID, "value": "access", "isEnabled": True}]},
     }
     spa = {
@@ -90,3 +100,54 @@ def test_read_entra_bindings_returns_only_validated_repository_values(monkeypatc
         "RBAC_OWNERS_GROUP_ID",
         "RBAC_READERS_GROUP_ID",
     }
+
+
+def test_api_roles_require_human_roles_and_application_only_attachment_role() -> None:
+    roles = [
+        {
+            "value": role,
+            "isEnabled": True,
+            "allowedMemberTypes": list(member_types),
+        }
+        for role, member_types in genesis_entra._ROLE_MEMBER_TYPES.items()
+    ]
+
+    assert genesis_entra._roles_valid(roles) is True
+    assert genesis_entra._roles_valid(roles[:-1]) is False
+    roles[-1]["allowedMemberTypes"] = ["User"]
+    assert genesis_entra._roles_valid(roles) is False
+
+
+def test_read_entra_bindings_rejects_missing_attachment_role(monkeypatch) -> None:
+    api = {
+        "displayName": "fdai-api",
+        "signInAudience": "AzureADMyOrg",
+        "appId": GUID,
+        "appRoles": [
+            {
+                "value": role,
+                "isEnabled": True,
+                "allowedMemberTypes": list(member_types),
+            }
+            for role, member_types in list(genesis_entra._ROLE_MEMBER_TYPES.items())[:-1]
+        ],
+        "api": {"oauth2PermissionScopes": [{"id": GUID, "value": "access", "isEnabled": True}]},
+    }
+    spa = {
+        "displayName": "fdai-console-spa",
+        "signInAudience": "AzureADMyOrg",
+        "appId": GUID,
+    }
+    monkeypatch.setattr(
+        genesis_entra,
+        "_single_app",
+        lambda name: api if name == "fdai-api" else spa,
+    )
+    monkeypatch.setattr(
+        genesis_entra,
+        "_single_group",
+        lambda name: {"id": GUID, "displayName": name},
+    )
+
+    with pytest.raises(ValueError, match="App Role readback"):
+        genesis_entra.read_entra_bindings()

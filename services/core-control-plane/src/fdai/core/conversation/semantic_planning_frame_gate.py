@@ -13,7 +13,10 @@ from .conversation_preflight import (
     operational_target_is_generic,
     operational_time_is_past_hour,
 )
-from .semantic_governed_document_planning import apply_document_evidence_requirement
+from .semantic_governed_document_planning import (
+    apply_document_evidence_requirement,
+    apply_required_document_evidence,
+)
 from .semantic_investigation import VerifiedInvestigationIntent
 from .semantic_manifest_planning import normalize_ontology_manifest_count_frame
 from .semantic_planning_frame import (
@@ -201,6 +204,7 @@ def normalize_and_gate_frame(
     manifest_digest: str,
     bound_incident: bool,
     inventory_query_language: InventoryQueryLanguageRegistry | None,
+    required_document_evidence: bool = False,
 ) -> (
     tuple[SemanticFrameProposal, Any, VerifiedInvestigationIntent | None] | SemanticPlanningOutcome
 ):
@@ -248,6 +252,13 @@ def normalize_and_gate_frame(
         utterance=utterance,
         context=context,
     )
+    if required_document_evidence:
+        proposal, frame = apply_required_document_evidence(
+            proposal,
+            frame,
+            utterance=utterance,
+            context=context,
+        )
     if property_filter_has_stated_subject(
         proposal,
         utterance=utterance,

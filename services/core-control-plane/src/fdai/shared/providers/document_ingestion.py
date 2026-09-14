@@ -8,6 +8,8 @@ from datetime import datetime
 from typing import Protocol, runtime_checkable
 from uuid import UUID
 
+from fdai_service_contracts.document import DocumentVersion as CurrentDocumentVersion
+
 from fdai.shared.contracts import (
     DocumentEnvelope,
     DocumentPurpose,
@@ -292,6 +294,32 @@ class GovernedDocumentSearch(Protocol):
 
 
 @runtime_checkable
+class ExactGovernedDocumentSearch(Protocol):
+    """Search only a request-bound set of exact document/version identities."""
+
+    async def search_governed_exact(
+        self,
+        query: str,
+        *,
+        exact_refs: tuple[tuple[UUID, UUID], ...],
+        context_source: str,
+        conversation_ref: str,
+        k: int = 5,
+    ) -> GovernedDocumentSearchResult: ...
+
+
+@runtime_checkable
+class CurrentDocumentMetadataStore(Protocol):
+    """Read the full current document contract needed for temporary evidence."""
+
+    async def get_current_version(
+        self,
+        document_id: UUID,
+        version_id: UUID,
+    ) -> CurrentDocumentVersion: ...
+
+
+@runtime_checkable
 class DocumentReadyConsumer(Protocol):
     @property
     def purpose(self) -> DocumentPurpose: ...
@@ -309,6 +337,8 @@ class DocumentActivitySink(Protocol):
 
 
 __all__ = [
+    "CurrentDocumentMetadataStore",
+    "ExactGovernedDocumentSearch",
     "ChatDocumentRef",
     "DirectUploadStore",
     "DocumentAccessDeniedError",

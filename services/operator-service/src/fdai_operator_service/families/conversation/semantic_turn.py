@@ -18,6 +18,7 @@ from fdai_service_contracts import (
     PackageResourceSchemaRegistry,
     SemanticBoundContext,
     SemanticConversationModelTier,
+    SemanticDocumentContext,
     SemanticInvestigationContinuation,
     SemanticPlanningProfile,
     SemanticPriorTurn,
@@ -117,6 +118,7 @@ class SemanticTurnEnvelopeBuilder:
             prior_turns=_prior_turns(proposal.body.get("history")),
             planning_profile=_planning_profile(proposal.body),
             conversation_model_tier=_conversation_model_tier(proposal.body),
+            document_context=_document_context(proposal.body.get("document_context")),
             include_model_trace=proposal.body.get("include_model_trace") is True,
             cancelled=proposal.cancellation,
             target_agent=target_agent,
@@ -125,7 +127,9 @@ class SemanticTurnEnvelopeBuilder:
         )
         semantic_payload = semantic_turn.model_dump(mode="json", exclude_none=True)
         schema_version = (
-            "1.7.0"
+            "1.8.0"
+            if semantic_turn.document_context is not None
+            else "1.7.0"
             if semantic_turn.conversation_model_tier is not None
             else "1.6.0"
             if (
@@ -165,6 +169,12 @@ class SemanticTurnEnvelopeBuilder:
         if len(encode_wire_object(envelope)) > MAX_WIRE_BYTES:
             raise ValueError("semantic turn exceeds the 256 KiB wire bound")
         return envelope
+
+
+def _document_context(value: object) -> SemanticDocumentContext | None:
+    if value is None:
+        return None
+    return SemanticDocumentContext.model_validate(value)
 
 
 def _request_id(proposal: ConversationProposal, identity_seed: str) -> str:

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
+from uuid import UUID
 
 import psycopg
 import pytest
@@ -15,6 +16,7 @@ from fdai.delivery.governed_rca_context import (
     RuntimeGovernedRcaContextProvider,
 )
 from fdai.delivery.persistence.postgres_governed_document_read import (
+    _EXACT_SEARCH_SQL,
     PostgresGovernedDocumentReadConfig,
     PostgresGovernedDocumentReadStore,
     _document_version,
@@ -240,6 +242,50 @@ async def test_postgres_governed_search_never_claims_unverified_completeness(
     assert result.index_generation.startswith("postgres-document-index:sha256:")
     assert result.complete is False
     assert result.limitation == "index_completeness_unverified"
+
+
+async def test_postgres_exact_search_attests_bounded_snapshot_without_static_collection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = PostgresGovernedDocumentReadStore(
+        config=PostgresGovernedDocumentReadConfig(dsn="postgresql://reader@example/fdai")
+    )
+    exact_refs = ((UUID(int=1), UUID(int=2)), (UUID(int=3), UUID(int=4)))
+
+    async def exact_snapshot(
+        query: str,
+        *,
+        exact_refs: tuple[tuple[UUID, UUID], ...],
+        context_source: str,
+        conversation_ref: str,
+        k: int,
+    ) -> tuple[tuple[KnowledgeChunk, ...], str]:
+        assert (query, context_source, conversation_ref, k) == (
+            "recovery",
+            "web_reference",
+            "web-session-example",
+            8,
+        )
+        assert exact_refs == ((UUID(int=1), UUID(int=2)), (UUID(int=3), UUID(int=4)))
+        return (), "10:20:"
+
+    monkeypatch.setattr(store, "_search_exact_snapshot", exact_snapshot)
+
+    result = await store.search_governed_exact(
+        "recovery",
+        exact_refs=exact_refs,
+        context_source="web_reference",
+        conversation_ref="web-session-example",
+        k=8,
+    )
+
+    assert result.complete is True
+    assert result.limitation is None
+    assert "chunk.metadata->>'collection_id' = %s" not in _EXACT_SEARCH_SQL
+    assert (
+        "chunk.metadata->>'scope_ref'\n                            = "
+        "chunk.metadata->>'collection_id'"
+    ) in _EXACT_SEARCH_SQL
 
 
 @pytest.mark.parametrize(

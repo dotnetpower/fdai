@@ -309,6 +309,71 @@ async def test_function_handler_converts_query_table_output() -> None:
     assert result.value.complete is True
 
 
+async def test_exact_document_handler_emits_only_returned_citations() -> None:
+    declaration = OntologyFunctionType(
+        name="query.governed_documents",
+        version="1.0.0",
+        kind=OntologyFunctionKind.QUERY,
+        artifact_digest="sha256:" + "d" * 64,
+        publisher="fdai",
+        input_schema={"type": "object", "additionalProperties": False},
+        output_schema={"type": "object"},
+        purpose_bindings=["operations-review"],
+    )
+    release = build_ontology_release(function_types=(declaration,))
+    registry = OntologyFunctionRegistry(release=release)
+    returned = "doc:00000000-0000-0000-0000-000000000001:00000000-0000-0000-0000-000000000002"
+    missing = "doc:00000000-0000-0000-0000-000000000003:00000000-0000-0000-0000-000000000004"
+
+    async def exact_documents(_arguments: dict[str, object]) -> dict[str, object]:
+        return {
+            "rows": [
+                {"row_id": "summary", "values": {"record_kind": "summary"}},
+                {
+                    "row_id": "excerpt",
+                    "values": {
+                        "record_kind": "excerpt",
+                        "document_citation": returned,
+                    },
+                },
+            ],
+            "complete": True,
+            "truncation_reason": None,
+        }
+
+    registry.register(declaration, exact_documents)
+    handler = FunctionNodeHandler(
+        registry,
+        context=FunctionInvocationContext(
+            caller_agent="Bragi",
+            caller_role=CeilingRole.READER,
+            purposes=("operations-review",),
+            principal_ref="operator-a",
+            document_refs=(returned, missing),
+            document_context_source="web_reference",
+            document_conversation_ref="session-a",
+            document_authorization_digest="sha256:" + "a" * 64,
+            document_context_digest="sha256:" + "b" * 64,
+        ),
+    )
+
+    result = await handler(
+        _node(
+            QueryNodeKind.FUNCTION,
+            dependencies=(),
+            arguments={
+                "function_name": "query.governed_documents",
+                "arguments": {},
+                "dependency_arguments": {},
+            },
+        ),
+        {},
+    )
+
+    assert returned in result.evidence_refs
+    assert missing not in result.evidence_refs
+
+
 async def test_function_handler_converts_metric_dataclass_dependency() -> None:
     declaration = OntologyFunctionType(
         name="query.metric_summary",
