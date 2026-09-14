@@ -218,6 +218,89 @@ def test_saga_handoff_redelivery_is_idempotent() -> None:
     assert saga.behavior_snapshot()["handoff:duplicate"] == 1
 
 
+def test_saga_handoff_audit_retry_does_not_duplicate_github_mutation() -> None:
+    class _FailOnceIssueAudit(InMemoryAuditChain):
+        def __init__(self) -> None:
+            super().__init__()
+            self.failed = False
+
+        def append(self, *, principal, topic, correlation_id, payload):  # noqa: ANN001, ANN201
+            if topic == "object.issue" and not self.failed:
+                self.failed = True
+                raise RuntimeError("audit unavailable")
+            return super().append(
+                principal=principal,
+                topic=topic,
+                correlation_id=correlation_id,
+                payload=payload,
+            )
+
+    chain = _FailOnceIssueAudit()
+    saga = Saga(audit_chain=chain)
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-audit-retry",
+        "escalation_id": "handoff-audit-retry",
+        "correlation_id": "corr-audit-retry",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+
+    with pytest.raises(RuntimeError, match="audit unavailable"):
+        asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+    asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+
+    issue = next(iter(saga.github.issues.values()))
+    assert issue.comments == []
+    assert len([entry for entry in chain.entries if entry.topic == "object.issue"]) == 1
+    assert saga.behavior_snapshot()["handoff:materialized"] == 1
+
+
+def test_saga_handoff_publication_retry_does_not_repeat_audit_or_github() -> None:
+    class _FailOnceIssueBus:
+        def __init__(self) -> None:
+            self.publish_calls = 0
+            self.payloads: list[dict[str, object]] = []
+
+        def subscribe(self, topic, agent_name, handler):  # noqa: ANN001, ANN201
+            del topic, agent_name, handler
+
+        async def publish(self, principal, topic, payload):  # noqa: ANN001, ANN201
+            self.publish_calls += 1
+            if self.publish_calls == 1:
+                raise RuntimeError("bus unavailable")
+            assert principal == "Saga"
+            assert topic == "object.issue"
+            self.payloads.append(dict(payload))
+
+    chain = InMemoryAuditChain()
+    bus = _FailOnceIssueBus()
+    saga = Saga(audit_chain=chain)
+    saga.bind_bus(bus)
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-publish-retry",
+        "escalation_id": "handoff-publish-retry",
+        "correlation_id": "corr-publish-retry",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+
+    with pytest.raises(RuntimeError, match="bus unavailable"):
+        asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+    asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+
+    issue = next(iter(saga.github.issues.values()))
+    assert issue.comments == []
+    assert len([entry for entry in chain.entries if entry.topic == "object.issue"]) == 1
+    assert bus.publish_calls == 2
+    assert bus.payloads[0]["idempotency_key"] == "handoff:handoff-publish-retry"
+
+
 def test_saga_close_issue_records_promoting_pr() -> None:
     saga = Saga()
     fp = compute_fingerprint(

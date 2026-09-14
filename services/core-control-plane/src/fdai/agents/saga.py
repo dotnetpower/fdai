@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import inspect
 from collections.abc import Awaitable
+from dataclasses import dataclass, replace
 from typing import Any, Protocol
 
 from fdai.agents._framework.action_semantics import RESULT_VALUES, outcome_result
@@ -25,6 +26,25 @@ from fdai.agents._framework.pantheon import _SAGA
 
 _FINGERPRINT_BUCKET = "issue_fingerprint_index"
 _HANDOFF_RECEIPT_BUCKET = "handoff_escalation_receipts"
+_HANDOFF_MUTATION_BUCKET = "handoff_escalation_mutations"
+
+
+@dataclass(frozen=True, slots=True)
+class _HandoffIssueCheckpoint:
+    fingerprint: str
+    correlation_id: str
+    issue_number: int
+    created: bool
+    occurrence_count: int
+    audit_recorded: bool = False
+    published: bool = False
+
+    def result(self) -> dict[str, Any]:
+        return {
+            "issue_number": self.issue_number,
+            "created": self.created,
+            "occurrence_count": self.occurrence_count,
+        }
 
 
 class SagaAuditChain(Protocol):
@@ -224,13 +244,52 @@ class Saga(Agent):
             primary_agent=emitting_agent,
             failure_reason_code=failure_reason,
         )
-        result = await self.escalate_to_github_issue(
-            fingerprint=fingerprint,
-            emitting_agent=emitting_agent,
-            intent_category=intent_category,
-            failure_reason_code=failure_reason,
-            correlation_id=correlation_id,
-        )
+        stored = self.state_store.get(_HANDOFF_MUTATION_BUCKET, escalation_id)
+        if stored is None:
+            issue_number, created, occurrence_count = await self._mutate_github_issue(
+                fingerprint=fingerprint,
+                emitting_agent=emitting_agent,
+                intent_category=intent_category,
+                failure_reason_code=failure_reason,
+                correlation_id=correlation_id,
+            )
+            checkpoint = _HandoffIssueCheckpoint(
+                fingerprint=fingerprint,
+                correlation_id=correlation_id,
+                issue_number=issue_number,
+                created=created,
+                occurrence_count=occurrence_count,
+            )
+            self.state_store.put(_HANDOFF_MUTATION_BUCKET, escalation_id, checkpoint)
+        elif not isinstance(stored, _HandoffIssueCheckpoint):
+            raise ValueError("handoff mutation checkpoint is malformed")
+        elif stored.fingerprint != fingerprint or stored.correlation_id != correlation_id:
+            raise ValueError("handoff escalation id conflicts with its mutation checkpoint")
+        else:
+            checkpoint = stored
+
+        operation_id = f"handoff:{escalation_id}"
+        if not checkpoint.audit_recorded:
+            await self._append_issue_audit(
+                fingerprint=fingerprint,
+                issue_number=checkpoint.issue_number,
+                created=checkpoint.created,
+                correlation_id=correlation_id,
+                operation_id=operation_id,
+            )
+            checkpoint = replace(checkpoint, audit_recorded=True)
+            self.state_store.put(_HANDOFF_MUTATION_BUCKET, escalation_id, checkpoint)
+        if self.bus is not None and not checkpoint.published:
+            await self._publish_issue(
+                fingerprint=fingerprint,
+                issue_number=checkpoint.issue_number,
+                created=checkpoint.created,
+                correlation_id=correlation_id,
+                operation_id=operation_id,
+            )
+            checkpoint = replace(checkpoint, published=True)
+            self.state_store.put(_HANDOFF_MUTATION_BUCKET, escalation_id, checkpoint)
+        result = checkpoint.result()
         self.state_store.put(_HANDOFF_RECEIPT_BUCKET, escalation_id, result)
         self.record_behavior("handoff:materialized")
 
@@ -391,6 +450,46 @@ class Saga(Agent):
         correlation_id: str,
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        issue_number, created, occurrence_count = await self._mutate_github_issue(
+            fingerprint=fingerprint,
+            emitting_agent=emitting_agent,
+            intent_category=intent_category,
+            failure_reason_code=failure_reason_code,
+            correlation_id=correlation_id,
+            context=context,
+        )
+        operation_id = f"handoff:{fingerprint}:{correlation_id}"
+        await self._append_issue_audit(
+            fingerprint=fingerprint,
+            issue_number=issue_number,
+            created=created,
+            correlation_id=correlation_id,
+            operation_id=operation_id,
+        )
+        if self.bus is not None:
+            await self._publish_issue(
+                fingerprint=fingerprint,
+                issue_number=issue_number,
+                created=created,
+                correlation_id=correlation_id,
+                operation_id=operation_id,
+            )
+        return {
+            "issue_number": issue_number,
+            "created": created,
+            "occurrence_count": occurrence_count,
+        }
+
+    async def _mutate_github_issue(
+        self,
+        *,
+        fingerprint: str,
+        emitting_agent: str,
+        intent_category: str,
+        failure_reason_code: str,
+        correlation_id: str,
+        context: dict[str, Any] | None = None,
+    ) -> tuple[int, bool, int]:
         title = f"[{intent_category}] {emitting_agent} handoff"
         body_lines = [
             f"Fingerprint: `{fingerprint}`",
@@ -409,46 +508,62 @@ class Saga(Agent):
             body=body,
         )
         issue, created = await issue_result if inspect.isawaitable(issue_result) else issue_result
+        occurrence_count = 1 + len(issue.comments)
         self.state_store.put(
             _FINGERPRINT_BUCKET,
             fingerprint,
             {
                 "issue_number": issue.number,
-                "occurrence_count": 1 + len(issue.comments),
+                "occurrence_count": occurrence_count,
                 "last_correlation_id": correlation_id,
             },
         )
+        return issue.number, created, occurrence_count
+
+    async def _append_issue_audit(
+        self,
+        *,
+        fingerprint: str,
+        issue_number: int,
+        created: bool,
+        correlation_id: str,
+        operation_id: str,
+    ) -> None:
         await self._append_audit(
             principal="Saga",
             topic="object.issue",
             correlation_id=correlation_id,
             payload={
+                "idempotency_key": operation_id,
                 "fingerprint": fingerprint,
-                "issue_number": issue.number,
+                "issue_number": issue_number,
                 "created": created,
             },
         )
-        # Publish object.issue onto the bus (Saga is the single writer of the
-        # Issue object type) so the discovery loop's fingerprint learner
-        # (Norns) can count recurring handoffs and propose a new rule. A
-        # bus-less Saga (unit scenarios) records to the append-only chain only.
-        if self.bus is not None:
-            await self.bus.publish(
-                "Saga",
-                "object.issue",
-                {
-                    "producer_principal": "Saga",
-                    "correlation_id": correlation_id,
-                    "fingerprint": fingerprint,
-                    "issue_number": issue.number,
-                    "created": created,
-                },
-            )
-        return {
-            "issue_number": issue.number,
-            "created": created,
-            "occurrence_count": 1 + len(issue.comments),
-        }
+
+    async def _publish_issue(
+        self,
+        *,
+        fingerprint: str,
+        issue_number: int,
+        created: bool,
+        correlation_id: str,
+        operation_id: str,
+    ) -> None:
+        if self.bus is None:
+            return
+        await self.bus.publish(
+            "Saga",
+            "object.issue",
+            {
+                "producer_principal": "Saga",
+                "correlation_id": correlation_id,
+                "idempotency_key": operation_id,
+                "fingerprint": fingerprint,
+                "issue_number": issue_number,
+                "created": created,
+            },
+        )
 
     async def close_issue(self, *, fingerprint: str, closed_by_pr: str) -> None:
         result = self.github.close(fingerprint, closed_by_pr=closed_by_pr)
