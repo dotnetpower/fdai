@@ -1,0 +1,535 @@
+.trace-route {
+  padding-bottom: 76px;
+}
+
+.trace-metric {
+  position: relative;
+  padding-right: 30px;
+}
+
+.trace-metric::after {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  color: var(--accent);
+  font-size: 18px;
+  content: ">";
+  transform: translateY(-50%);
+}
+
+.trace-metric.is-primary {
+  background: color-mix(in oklab, var(--accent) 3%, var(--bg-elevated));
+}
+
+.trace-metric.is-primary > strong {
+  font-size: calc(var(--cs-type-section-title-size) + 1px);
+}
+
+.trace-readonly-boundary {
+  display: block;
+  padding: 0;
+}
+
+.trace-readonly-boundary > summary {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.trace-readonly-boundary > summary span {
+  color: var(--fg-muted);
+  font-weight: 400;
+}
+
+.trace-readonly-boundary > p {
+  margin: 0;
+  padding: 0 12px 10px 34px;
+}
+
+.trace-discovery {
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-sm);
+  background: var(--bg-elevated);
+}
+
+.trace-discovery > summary {
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.trace-discovery > summary > span:first-child {
+  min-width: 0;
+}
+
+.trace-discovery > summary strong,
+.trace-discovery > summary small {
+  display: block;
+}
+
+.trace-discovery > summary small {
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trace-discovery > summary > span:last-child {
+  color: var(--accent);
+  font-size: var(--cs-type-label-size);
+  font-weight: 650;
+}
+
+.trace-discovery-body {
+  padding: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.trace-discovery-state {
+  margin: 0;
+  color: var(--fg-muted);
+}
+
+.trace-discovery-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.trace-discovery-filters button {
+  min-height: 32px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--cs-type-label-size);
+  cursor: pointer;
+}
+
+.trace-discovery-filters button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 8%, var(--bg-elevated));
+  color: var(--fg);
+}
+
+.trace-discovery-limit {
+  margin: 0 0 10px;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-label-size);
+}
+
+.trace-discovery-list {
+  max-height: 320px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  scrollbar-gutter: stable;
+  list-style: none;
+}
+
+.trace-discovery-list a {
+  min-width: 0;
+  min-height: 66px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 3px 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-sm);
+  color: var(--fg);
+  text-decoration: none;
+}
+
+.trace-discovery-list a:hover,
+.trace-discovery-list a.is-current {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 6%, var(--bg-elevated));
+}
+
+.trace-discovery-kind {
+  color: var(--accent);
+  font-size: var(--cs-type-caption-size);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.trace-discovery-list strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trace-discovery-list small {
+  grid-column: 1 / 3;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trace-discovery-state-label {
+  grid-column: 3;
+  grid-row: 1 / 3;
+  max-width: 110px;
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trace-discovery-state-label strong,
+.trace-discovery-state-label small {
+  display: block;
+}
+
+.trace-discovery-state-label small {
+  margin-top: 2px;
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.trace-context-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: -8px 0 16px;
+  border-block: 1px solid var(--border);
+}
+
+.trace-context-details > summary {
+  display: none;
+}
+
+.trace-context-strip > div {
+  min-width: 0;
+  padding: 10px 12px;
+  border-right: 1px solid var(--border);
+}
+
+.trace-context-strip > div:nth-child(3n) {
+  border-right: 0;
+}
+
+.trace-context-strip > div:nth-child(-n + 3) {
+  border-bottom: 1px solid var(--border);
+}
+
+.trace-context-strip dt {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+}
+
+.trace-context-strip dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  font-size: var(--cs-type-label-size);
+  font-weight: 650;
+}
+
+.trace-toolbar {
+  position: sticky;
+  z-index: 6;
+  top: 0;
+  grid-template-columns: minmax(280px, 1fr) auto minmax(320px, auto) auto;
+  box-shadow: 0 8px 18px color-mix(in oklab, var(--bg) 88%, transparent);
+}
+
+.trace-toolbar > .copy-btn {
+  min-height: 40px;
+}
+
+.trace-copy-button.is-copied {
+  border-color: var(--success);
+  color: color-mix(in oklab, var(--success) 72%, var(--fg));
+}
+
+.trace-copy-button.is-failed {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.trace-toolbar-updated {
+  grid-column: 1 / -1;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+}
+
+.trace-toolbar-links a {
+  display: grid;
+  gap: 1px;
+}
+
+.trace-toolbar-links {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.trace-toolbar-links a span,
+.trace-toolbar-links a small {
+  display: block;
+}
+
+.trace-toolbar-links a small {
+  color: var(--fg-muted);
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.trace-workbench.is-compact {
+  min-height: 480px;
+}
+
+.trace-stage-state {
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+}
+
+.trace-stage-state small,
+.trace-stage-state strong {
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trace-stage-state small {
+  color: var(--fg-muted);
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.trace-stage-state strong {
+  color: var(--fg);
+  font-size: var(--cs-type-caption-size);
+}
+
+.trace-no-reason a {
+  margin-left: 8px;
+  font-weight: 650;
+}
+
+.trace-no-action {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-sm);
+  background: var(--bg);
+}
+
+.trace-no-action strong,
+.trace-no-action code {
+  display: block;
+}
+
+.trace-no-action p {
+  margin: 4px 0 10px;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-label-size);
+}
+
+.trace-integrity-note {
+  margin: -4px 0 10px;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+}
+
+.trace-join-note {
+  margin: 10px 0 0;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+}
+
+.trace-integrity-list dd,
+.trace-evidence-grid dd {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.trace-integrity-list dd code,
+.trace-evidence-grid dd code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.trace-integrity-list .copy-btn,
+.trace-evidence-grid .copy-btn {
+  flex: 0 0 auto;
+  min-height: 28px;
+}
+
+.trace-lifecycle-section.is-empty {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 20px;
+  margin-top: 20px;
+  padding-block: 14px;
+  border-block: 1px solid var(--border);
+}
+
+.trace-lifecycle-section.is-empty > :not(.trace-lifecycle-empty) {
+  grid-column: 1;
+}
+
+.trace-lifecycle-empty {
+  grid-column: 2;
+  grid-row: 1 / 4;
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-label-size);
+}
+
+@container (max-width: 820px) {
+  .trace-discovery-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .trace-context-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .trace-context-strip > div,
+  .trace-context-strip > div:nth-child(3n) {
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .trace-context-strip > div:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .trace-context-strip > div:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+
+  .trace-toolbar {
+    position: static;
+    grid-template-columns: minmax(0, 1fr) auto;
+    box-shadow: none;
+  }
+}
+
+@container (max-width: 360px) {
+  .trace-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .trace-metric,
+  .trace-metric:nth-child(2) {
+    display: block;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .trace-metric:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .trace-metric:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+
+  .trace-metric > strong {
+    margin-top: 5px;
+    text-align: left;
+  }
+
+  .trace-discovery > summary {
+    align-items: flex-start;
+  }
+
+  .trace-discovery > summary small {
+    white-space: normal;
+  }
+
+  .trace-context-strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .trace-context-details {
+    margin: 0 0 14px;
+    border-block: 1px solid var(--border);
+  }
+
+  .trace-context-details > summary {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    font-size: var(--cs-type-label-size);
+    font-weight: 650;
+    cursor: pointer;
+  }
+
+  .trace-context-details:not([open]) > .trace-context-strip {
+    display: none;
+  }
+
+  .trace-toolbar-links {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .trace-toolbar-links a:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .trace-toolbar > .copy-btn {
+    min-height: 44px;
+  }
+
+  .trace-context-strip > div,
+  .trace-context-strip > div:nth-child(2n),
+  .trace-context-strip > div:nth-child(3n) {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .trace-context-strip > div:last-child {
+    border-bottom: 0;
+  }
+
+  .trace-lifecycle-section.is-empty {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .trace-lifecycle-empty {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .shell-body > main:has(.trace-route) {
+    padding-inline: 12px;
+  }
+}
+
+@media (forced-colors: active) {
+  .trace-discovery,
+  .trace-discovery-list a,
+  .trace-context-strip,
+  .trace-no-action {
+    border-color: CanvasText;
+  }
+}

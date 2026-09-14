@@ -1,17 +1,15 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
-import {
-  PageHeader,
-  type AsyncState,
-} from "../components/ui";
+import { PageHeader, type AsyncState } from "../components/ui";
 import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { currentRoute, navigate, routeHref } from "../router";
-import { isRfc3339Timestamp } from "../time-format";
+import { formatConsoleTimestamp, isRfc3339Timestamp } from "../time-format";
 import { t } from "./i18n/evidence";
 import {
   panelArray,
+  panelBoolean,
   panelNonEmptyString,
   panelNonNegativeInteger,
   panelNullableString,
@@ -21,9 +19,19 @@ import {
   RuleTraceWorkspace,
 } from "./rule-trace-workspace";
 import { RuleTracePlaceholder } from "./rule-trace-placeholder";
-import { traceStageLabel } from "./rule-trace-supporting-evidence";
+import { TraceCopyButton } from "./rule-trace-copy";
+import {
+  buildTraceDiscovery,
+  TraceDiscovery,
+  type TraceDiscoveryData,
+} from "./rule-trace-discovery";
+import {
+  traceActionLabel,
+  traceStageLabel,
+} from "./rule-trace-supporting-evidence";
 import "./rule-trace.css";
 import "./rule-trace-lifecycle.css";
+import "./rule-trace-experience.css";
 
 /**
  * Rule-fire trace viewer panel. Given a correlation id, calls
@@ -56,6 +64,25 @@ export interface TraceResponse {
   readonly step_count: number;
   readonly steps: readonly TraceStep[];
   readonly terminal_stage: string | null;
+  readonly trace_kind: "read" | "decision" | "unknown";
+  readonly source_authority: string;
+  readonly complete: boolean;
+  readonly first_recorded_at: string;
+  readonly last_recorded_at: string;
+  readonly latest_sequence: number;
+  readonly latest_activity_stage: string | null;
+  readonly latest_action_kind: string;
+  readonly latest_actor: string;
+  readonly latest_decision: string | null;
+  readonly latest_outcome: string | null;
+  readonly latest_mode: string;
+  readonly target_resource_ref: string | null;
+  readonly target_count: number;
+  readonly action_attempt_count: number;
+  readonly effect_observation_count: number;
+  readonly incident_evidence_recorded: boolean;
+  readonly rca_evidence_recorded: boolean;
+  readonly metadata_source: "server" | "legacy";
 }
 
 export type TraceLifecycleState =
@@ -107,6 +134,10 @@ export function traceCorrelationHref(correlationId: string): string {
 export function RuleTraceRoute({ client }: Props) {
   const [correlationId, setCorrelationId] = useState(correlationFromRoute);
   const [state, setState] = useState<AsyncState<TraceResponse>>({ status: "idle" });
+  const [discoveryState, setDiscoveryState] = useState<AsyncState<TraceDiscoveryData>>({
+    status: "loading",
+  });
+  const [loadedAt, setLoadedAt] = useState<string | null>(null);
   const requestGeneration = useRef(0);
 
   usePublishViewContext(
@@ -128,10 +159,12 @@ export function RuleTraceRoute({ client }: Props) {
         setState(data.steps.length === 0
           ? { status: "unavailable", message: t("evidence.trace.empty") }
           : { status: "ready", data });
+        setLoadedAt(new Date().toISOString());
       }
     } catch (err) {
       if (requestGeneration.current === generation) {
         setState(traceLoadFailure(err));
+        setLoadedAt(null);
       }
     }
   }
@@ -145,6 +178,7 @@ export function RuleTraceRoute({ client }: Props) {
         requestGeneration.current += 1;
         setCorrelationId("");
         setState({ status: "idle" });
+        setLoadedAt(null);
         return;
       }
       setCorrelationId(deepLinked);
@@ -161,12 +195,51 @@ export function RuleTraceRoute({ client }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    setDiscoveryState({ status: "loading" });
+    void client.listAudit({ limit: 500 }).then(
+      (page) => {
+        if (active) {
+          setDiscoveryState({
+            status: "ready",
+            data: buildTraceDiscovery(page),
+          });
+        }
+      },
+      (error: unknown) => {
+        if (!active) return;
+        if (isOptionalOperatorApiUnavailable(error)) {
+          setDiscoveryState({
+            status: "unavailable",
+            message: t("evidence.trace.discovery.unavailableReason", {
+              message: error instanceof Error ? error.message : String(error),
+            }),
+          });
+          return;
+        }
+        setDiscoveryState({
+          status: "error",
+          message: t("evidence.trace.discovery.loadError", {
+            message: error instanceof Error ? error.message : String(error),
+          }),
+        });
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [client]);
+
   const headerSummary = state.status === "ready"
-    ? t("evidence.trace.headerSummary", {
+    ? t("evidence.trace.headerSummaryDetailed", {
       count: state.data.step_count,
       stage: state.data.terminal_stage === null
         ? t("evidence.trace.noValue")
         : traceStageLabel(state.data.terminal_stage),
+      latest: state.data.latest_activity_stage === null
+        ? traceActionLabel(state.data.latest_action_kind)
+        : traceStageLabel(state.data.latest_activity_stage),
     })
     : correlationId
       ? correlationId
@@ -179,8 +252,11 @@ export function RuleTraceRoute({ client }: Props) {
         requestGeneration.current += 1;
         setCorrelationId(value);
         setState({ status: "idle" });
+        setLoadedAt(null);
       }}
       onSubmit={() => navigate(traceCorrelationHref(correlationId))}
+      trace={state.status === "ready" ? state.data : null}
+      loadedAt={loadedAt}
     />
   );
 
@@ -191,19 +267,31 @@ export function RuleTraceRoute({ client }: Props) {
         subtitle={t("evidence.trace.subtitle")}
         actions={(
           <div class="trace-header-meta">
-            <span>{t("evidence.trace.summaryLabel")}</span>
+            <span>{t(
+              state.status === "ready"
+                ? "evidence.trace.summaryLabel"
+                : "evidence.trace.selectedCorrelation",
+            )}</span>
             <strong>{headerSummary}</strong>
           </div>
         )}
       />
 
-      <div class="trace-readonly-boundary" role="note">
-        <strong>{t("evidence.trace.boundaryTitle")}</strong>
-        <span>{t("evidence.trace.boundaryBody")}</span>
-      </div>
+      <details class="trace-readonly-boundary">
+        <summary>
+          <strong>{t("evidence.trace.boundaryTitle")}</strong>
+          <span>{t("evidence.trace.boundaryShort")}</span>
+        </summary>
+        <p>{t("evidence.trace.boundaryBody")}</p>
+      </details>
+
+      <TraceDiscovery
+        selectedCorrelation={correlationId}
+        state={discoveryState}
+      />
 
       {state.status === "ready"
-        ? <TraceView data={state.data} toolbar={lookup} />
+        ? <TraceView data={state.data} toolbar={lookup} loadedAt={loadedAt} />
         : (
             <RuleTracePlaceholder
               correlationId={correlationId}
@@ -220,14 +308,18 @@ export function RuleTraceRoute({ client }: Props) {
 
 function TraceLookupForm({
   correlationId,
+  loadedAt,
   loading,
   onChange,
   onSubmit,
+  trace,
 }: {
   readonly correlationId: string;
   readonly loading: boolean;
+  readonly loadedAt: string | null;
   readonly onChange: (value: string) => void;
   readonly onSubmit: () => void;
+  readonly trace: TraceResponse | null;
 }) {
   return (
     <form
@@ -248,15 +340,33 @@ function TraceLookupForm({
         />
       </label>
       {correlationId.trim()
-        ? <TraceEvidenceLinks correlationId={correlationId.trim()} />
+        ? (
+            <>
+              <TraceCopyButton
+                text={correlationId.trim()}
+                label={t("evidence.trace.copyCorrelation")}
+              />
+              <TraceEvidenceLinks
+                correlationId={correlationId.trim()}
+                trace={trace}
+              />
+            </>
+          )
         : null}
       <button
         type="submit"
         class="btn primary"
         disabled={loading || !correlationId.trim()}
       >
-        {t("evidence.trace.fetch")}
+        {t(trace === null ? "evidence.trace.fetch" : "evidence.trace.refresh")}
       </button>
+      {loadedAt !== null ? (
+        <span class="trace-toolbar-updated">
+          {t("evidence.trace.updated", {
+            time: formatConsoleTimestamp(loadedAt),
+          })}
+        </span>
+      ) : null}
     </form>
   );
 }
@@ -353,12 +463,180 @@ export function decodeTraceResponse(
   if (terminalStage !== lastNamedStage) {
     throw new Error("invalid Operator API response: trace.terminal_stage MUST match the last named stage");
   }
+  const metadata = steps.length === 0
+    ? emptyTraceMetadata()
+    : decodeTraceMetadata(root, steps, terminalStage);
   return {
     correlation_id: correlationId,
     step_count: stepCount,
     steps,
     terminal_stage: terminalStage,
+    ...metadata,
   };
+}
+
+function emptyTraceMetadata(): Omit<
+  TraceResponse,
+  "correlation_id" | "step_count" | "steps" | "terminal_stage"
+> {
+  return {
+    trace_kind: "unknown",
+    source_authority: "legacy-audit-trace",
+    complete: false,
+    first_recorded_at: "",
+    last_recorded_at: "",
+    latest_sequence: 0,
+    latest_activity_stage: null,
+    latest_action_kind: "",
+    latest_actor: "",
+    latest_decision: null,
+    latest_outcome: null,
+    latest_mode: "",
+    target_resource_ref: null,
+    target_count: 0,
+    action_attempt_count: 0,
+    effect_observation_count: 0,
+    incident_evidence_recorded: false,
+    rca_evidence_recorded: false,
+    metadata_source: "legacy",
+  };
+}
+
+function decodeTraceMetadata(
+  root: Readonly<Record<string, unknown>>,
+  steps: readonly TraceStep[],
+  terminalStage: string | null,
+): Omit<TraceResponse, "correlation_id" | "step_count" | "steps" | "terminal_stage"> {
+  const first = steps[0];
+  const latest = steps.at(-1);
+  if (first === undefined || latest === undefined) {
+    throw new Error("invalid Operator API response: trace metadata requires at least one step");
+  }
+  if (root["trace_kind"] === undefined) {
+    return legacyTraceMetadata(steps, terminalStage);
+  }
+  const traceKind = panelNonEmptyString(root, "trace_kind", "trace");
+  if (!["read", "decision", "unknown"].includes(traceKind)) {
+    throw new Error("invalid Operator API response: trace.trace_kind is unsupported");
+  }
+  const firstRecordedAt = panelNonEmptyString(root, "first_recorded_at", "trace");
+  const lastRecordedAt = panelNonEmptyString(root, "last_recorded_at", "trace");
+  if (
+    !isRfc3339Timestamp(firstRecordedAt)
+    || !isRfc3339Timestamp(lastRecordedAt)
+    || firstRecordedAt !== first.recorded_at
+    || lastRecordedAt !== latest.recorded_at
+  ) {
+    throw new Error("invalid Operator API response: trace time bounds MUST match ordered steps");
+  }
+  const latestSequence = panelNonNegativeInteger(root, "latest_sequence", "trace");
+  const latestActivityStage = nullableNonEmptyString(root, "latest_activity_stage", "trace");
+  const latestDecision = nullableNonEmptyString(root, "latest_decision", "trace");
+  const latestOutcome = nullableNonEmptyString(root, "latest_outcome", "trace");
+  const targetResourceRef = optionalNonEmptyString(root, "target_resource_ref", "trace");
+  const targetCount = panelNonNegativeInteger(root, "target_count", "trace");
+  if (
+    latestSequence !== latest.seq
+    || latestActivityStage !== latest.stage
+    || panelNonEmptyString(root, "latest_action_kind", "trace") !== latest.action_kind
+    || panelNonEmptyString(root, "latest_actor", "trace") !== latest.actor
+    || latestOutcome !== latest.outcome
+    || panelNonEmptyString(root, "latest_mode", "trace") !== latest.mode
+    || latestDecision !== latestRecordedDecision(steps)
+  ) {
+    throw new Error("invalid Operator API response: trace latest metadata MUST match ordered steps");
+  }
+  if ((targetCount === 1) !== (targetResourceRef !== null)) {
+    throw new Error("invalid Operator API response: trace target summary is inconsistent");
+  }
+  return {
+    trace_kind: traceKind as TraceResponse["trace_kind"],
+    source_authority: panelNonEmptyString(root, "source_authority", "trace"),
+    complete: panelBoolean(root, "complete", "trace"),
+    first_recorded_at: firstRecordedAt,
+    last_recorded_at: lastRecordedAt,
+    latest_sequence: latestSequence,
+    latest_activity_stage: latestActivityStage,
+    latest_action_kind: latest.action_kind,
+    latest_actor: latest.actor,
+    latest_decision: latestDecision,
+    latest_outcome: latestOutcome,
+    latest_mode: latest.mode,
+    target_resource_ref: targetResourceRef,
+    target_count: targetCount,
+    action_attempt_count: panelNonNegativeInteger(root, "action_attempt_count", "trace"),
+    effect_observation_count: panelNonNegativeInteger(
+      root,
+      "effect_observation_count",
+      "trace",
+    ),
+    incident_evidence_recorded: panelBoolean(root, "incident_evidence_recorded", "trace"),
+    rca_evidence_recorded: panelBoolean(root, "rca_evidence_recorded", "trace"),
+    metadata_source: "server",
+  };
+}
+
+function legacyTraceMetadata(
+  steps: readonly TraceStep[],
+  terminalStage: string | null,
+): Omit<TraceResponse, "correlation_id" | "step_count" | "steps" | "terminal_stage"> {
+  const first = steps[0]!;
+  const latest = steps.at(-1)!;
+  const attempts = new Set(
+    steps.flatMap((step) =>
+      step.action_id === null ? [] : [`${step.action_id}:${step.attempt ?? "unknown"}`]
+    ),
+  );
+  return {
+    trace_kind: traceKindFromSteps(steps),
+    source_authority: "legacy-audit-trace",
+    complete: false,
+    first_recorded_at: first.recorded_at,
+    last_recorded_at: latest.recorded_at,
+    latest_sequence: latest.seq,
+    latest_activity_stage: latest.stage,
+    latest_action_kind: latest.action_kind,
+    latest_actor: latest.actor,
+    latest_decision: latestRecordedDecision(steps),
+    latest_outcome: latest.outcome,
+    latest_mode: latest.mode,
+    target_resource_ref: null,
+    target_count: 0,
+    action_attempt_count: attempts.size,
+    effect_observation_count: steps.filter((step) =>
+      step.action_kind.startsWith("effect_observation.")
+      || step.action_kind.startsWith("measurement.action_outcome")
+      || step.action_kind.includes("effect.observation")
+    ).length,
+    incident_evidence_recorded: steps.some((step) =>
+      step.action_kind.startsWith("incident.")
+    ),
+    rca_evidence_recorded: steps.some((step) => step.action_kind.startsWith("rca.")),
+    metadata_source: "legacy",
+  };
+}
+
+function traceKindFromSteps(
+  steps: readonly TraceStep[],
+): TraceResponse["trace_kind"] {
+  if (steps.some((step) =>
+    step.decision !== null
+    || step.action_id !== null
+    || step.execution_path !== null
+    || /^(?:action|effect_observation|executor|hil|policy|risk_gate)\./.test(step.action_kind)
+  )) return "decision";
+  if (steps.every((step) =>
+    /^(?:control_loop|inventory|measurement|ontology|read)\./.test(step.action_kind)
+  )) return "read";
+  return "unknown";
+}
+
+function latestRecordedDecision(steps: readonly TraceStep[]): string | null {
+  for (let index = steps.length - 1; index >= 0; index -= 1) {
+    const decision = steps[index]?.decision;
+    if (decision !== null && decision !== undefined) return decision;
+  }
+  return null;
 }
 
 function optionalNonEmptyString(
@@ -434,6 +712,24 @@ export function buildTraceViewSnapshot(
         { key: "correlation_id", value: data.correlation_id, group: "trace" },
         { key: "step_count", value: data.step_count, group: "trace" },
         { key: "terminal_stage", value: data.terminal_stage, group: "trace" },
+        { key: "trace_kind", value: data.trace_kind, group: "trace" },
+        { key: "complete", value: data.complete, group: "trace" },
+        { key: "source_authority", value: data.source_authority, group: "trace" },
+        { key: "first_recorded_at", value: data.first_recorded_at, group: "trace" },
+        { key: "last_recorded_at", value: data.last_recorded_at, group: "trace" },
+        { key: "latest_sequence", value: data.latest_sequence, group: "trace" },
+        { key: "latest_actor", value: data.latest_actor, group: "trace" },
+        { key: "latest_action_kind", value: data.latest_action_kind, group: "trace" },
+        { key: "latest_decision", value: data.latest_decision, group: "trace" },
+        { key: "latest_outcome", value: data.latest_outcome, group: "trace" },
+        { key: "target_resource_ref", value: data.target_resource_ref, group: "trace" },
+        { key: "target_count", value: data.target_count, group: "trace" },
+        { key: "action_attempt_count", value: data.action_attempt_count, group: "trace" },
+        {
+          key: "effect_observation_count",
+          value: data.effect_observation_count,
+          group: "trace",
+        },
       ],
       records: {
         // Each step carries the `correlation_id` (so the value-chip resolver
@@ -483,21 +779,62 @@ export function buildTraceViewSnapshot(
   };
 }
 
-function TraceEvidenceLinks({ correlationId }: { readonly correlationId: string }) {
+function TraceEvidenceLinks({
+  correlationId,
+  trace,
+}: {
+  readonly correlationId: string;
+  readonly trace: TraceResponse | null;
+}) {
   return (
     <nav class="trace-evidence-links trace-toolbar-links" aria-label={t("evidence.trace.evidence")}>
-      <a href={routeHref("incidents", { params: { status: "all", correlation: correlationId } })}>{t("evidence.trace.incident")}</a>
-      <a href={routeHref("audit", { params: { correlation: correlationId } })}>{t("evidence.trace.audit")}</a>
-      <a href={routeHref("rca", { params: { correlation: correlationId } })}>{t("evidence.trace.rca")}</a>
+      <TraceEvidenceLink
+        href={routeHref("incidents", { params: { status: "all", correlation: correlationId } })}
+        label={t("evidence.trace.incident")}
+        recorded={trace?.incident_evidence_recorded ?? null}
+      />
+      <TraceEvidenceLink
+        href={routeHref("audit", { params: { correlation: correlationId } })}
+        label={t("evidence.trace.audit")}
+        recorded={true}
+      />
+      <TraceEvidenceLink
+        href={routeHref("rca", { params: { correlation: correlationId } })}
+        label={t("evidence.trace.rca")}
+        recorded={trace?.rca_evidence_recorded ?? null}
+      />
     </nav>
+  );
+}
+
+function TraceEvidenceLink({
+  href,
+  label,
+  recorded,
+}: {
+  readonly href: string;
+  readonly label: string;
+  readonly recorded: boolean | null;
+}) {
+  return (
+    <a href={href}>
+      <span>{label}</span>
+      <small>{recorded === null
+        ? t("evidence.trace.evidenceUnknown")
+        : recorded
+          ? t("evidence.trace.evidenceRecorded")
+          : t("evidence.trace.evidenceNotRecorded")}</small>
+    </a>
   );
 }
 
 function TraceView({
   data,
+  loadedAt,
   toolbar,
 }: {
   readonly data: TraceResponse;
+  readonly loadedAt: string | null;
   readonly toolbar: ComponentChildren;
 }) {
   const summary = traceOperationalSummary(data);
@@ -509,6 +846,7 @@ function TraceView({
       lifecycles={lifecycles}
       summary={summary}
       toolbar={toolbar}
+      loadedAt={loadedAt}
     />
   );
 }

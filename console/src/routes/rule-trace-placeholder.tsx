@@ -31,26 +31,26 @@ export function RuleTracePlaceholder({
           label={t("evidence.trace.summary.decision")}
           value={t("evidence.trace.notLoaded")}
           hint={t("evidence.trace.placeholder.metricDecision")}
-        />
-        <TraceMetric
-          href={routeHref("rca", {
-            params: correlationId ? { correlation: correlationId } : {},
-          })}
-          label={t("evidence.trace.summary.rootCause")}
-          value={t("evidence.trace.notLoaded")}
-          hint={t("evidence.trace.placeholder.metricRootCause")}
+          primary
         />
         <TraceMetric
           href={auditHref}
-          label={t("evidence.trace.summary.pipelineStages")}
+          label={t("evidence.trace.operationalEffect")}
           value={t("evidence.trace.notLoaded")}
-          hint={t("evidence.trace.placeholder.metricStages")}
+          hint={t("evidence.trace.placeholder.metricEffect")}
+          primary
         />
         <TraceMetric
           href={auditHref}
-          label={t("evidence.trace.steps")}
+          label={t("evidence.trace.completeness")}
           value={t("evidence.trace.notLoaded")}
-          hint={t("evidence.trace.placeholder.metricSteps")}
+          hint={t("evidence.trace.placeholder.metricCompleteness")}
+        />
+        <TraceMetric
+          href={auditHref}
+          label={t("evidence.trace.terminalAndLatest")}
+          value={t("evidence.trace.notLoaded")}
+          hint={t("evidence.trace.placeholder.metricTerminal")}
         />
       </section>
 

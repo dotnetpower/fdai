@@ -78,8 +78,11 @@ the audit record.
 
 For traces without action identity, the action lifecycle becomes one compact no-action statement.
 The complete timeline disclosure names its record count. At narrow widths the summary uses compact
-rows, related destinations move into a bounded menu, and the stage rail starts within the second
-screen while preserving 44 px controls, text spacing, and exact identifiers.
+rows, and the stage rail starts within the second
+screen while preserving 44 px controls, text spacing, and exact identifiers. Related destinations
+reflow into a bounded two-column grid instead of an additional overlay.
+At wide widths, correlation input, copy, related evidence, and refresh remain in one toolbar row.
+At narrow widths, the four decision summaries use a 2 by 2 grid and detailed context starts collapsed.
 
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final

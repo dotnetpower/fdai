@@ -4,6 +4,7 @@ import {
   type Column,
   type PillKind,
 } from "../components/ui";
+import { presentationActor } from "../deck/presentation-value";
 import { routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { presentationLabel, t } from "./i18n/evidence";
@@ -18,12 +19,15 @@ export function TraceActionLifecycleSection({
   readonly lifecycles: readonly TraceActionLifecycle[];
 }) {
   return (
-    <section class="trace-lifecycle-section" aria-labelledby="trace-action-lifecycle-title">
+    <section
+      class={`trace-lifecycle-section${lifecycles.length === 0 ? " is-empty" : ""}`}
+      aria-labelledby="trace-action-lifecycle-title"
+    >
       <span class="trace-section-label">{t("evidence.trace.readOnlyHint")}</span>
       <h3 id="trace-action-lifecycle-title">{t("evidence.trace.lifecycle.title")}</h3>
       <p>{t("evidence.trace.lifecycle.body")}</p>
       {lifecycles.length === 0 ? (
-        <p class="state-block">{t("evidence.trace.lifecycle.noActionIdentity")}</p>
+        <p class="trace-lifecycle-empty">{t("evidence.trace.lifecycle.noActionIdentity")}</p>
       ) : lifecycles.map((lifecycle) => (
         <article
           class="trace-action-lifecycle-group"
@@ -189,6 +193,17 @@ export function traceActionLabel(actionKind: string): string {
       return t("evidence.trace.action.rollbackRecorded");
     default:
       return actionKind;
+  }
+}
+
+export function traceActorLabel(actor: string): string {
+  switch (actor) {
+    case "fdai.core.control_loop":
+      return t("evidence.trace.actorLabel.controlLoop");
+    case "fdai.measurement":
+      return t("evidence.trace.actorLabel.measurement");
+    default:
+      return presentationActor(actor);
   }
 }
 

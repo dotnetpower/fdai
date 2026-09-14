@@ -48,6 +48,41 @@ describe("trace response contract", () => {
     }, "corr-requested")).toThrow(/MUST match the requested correlation/);
   });
 
+  it("accepts consistent server summary metadata and rejects a contradictory latest row", () => {
+    const root = {
+      correlation_id: "corr-1",
+      step_count: 1,
+      steps: [step(1)],
+      terminal_stage: "risk-gate",
+      trace_kind: "decision",
+      source_authority: "operator-audit-log",
+      complete: true,
+      first_recorded_at: step(1).recorded_at,
+      last_recorded_at: step(1).recorded_at,
+      latest_sequence: 1,
+      latest_activity_stage: "risk-gate",
+      latest_action_kind: "change",
+      latest_actor: "Forseti",
+      latest_decision: "hil",
+      latest_outcome: null,
+      latest_mode: "shadow",
+      target_resource_ref: null,
+      target_count: 0,
+      action_attempt_count: 0,
+      effect_observation_count: 0,
+      incident_evidence_recorded: false,
+      rca_evidence_recorded: false,
+    };
+
+    expect(decodeTraceResponse(root)).toEqual(expect.objectContaining({
+      metadata_source: "server",
+      trace_kind: "decision",
+      complete: true,
+    }));
+    expect(() => decodeTraceResponse({ ...root, latest_sequence: 2 }))
+      .toThrow(/latest metadata MUST match ordered steps/);
+  });
+
   it("renders expected source absence as unavailable without hiding server failures", () => {
     expect(traceLoadFailure(new OperatorApiError(404, "no audit items"))).toEqual({
       status: "unavailable",

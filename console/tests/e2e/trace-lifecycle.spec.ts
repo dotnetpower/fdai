@@ -110,6 +110,110 @@ const trace = {
     },
   ],
   terminal_stage: "audit",
+  trace_kind: "decision",
+  source_authority: "operator-audit-log",
+  complete: true,
+  first_recorded_at: "2026-09-14T02:00:01Z",
+  last_recorded_at: "2026-09-14T02:00:06Z",
+  latest_sequence: 192446,
+  latest_activity_stage: "audit",
+  latest_action_kind: "t2.proposer.route.rolled_back",
+  latest_actor: "Saga",
+  latest_decision: "done",
+  latest_outcome: "rollback_succeeded",
+  latest_mode: "enforce",
+  target_resource_ref: null,
+  target_count: 0,
+  action_attempt_count: 1,
+  effect_observation_count: 1,
+  incident_evidence_recorded: false,
+  rca_evidence_recorded: false,
+} as const;
+
+const auditPage = {
+  items: [...trace.steps].reverse().map((step) => ({
+    seq: step.seq,
+    event_id: step.event_id,
+    correlation_id: step.source_correlation_id,
+    actor: step.actor,
+    action_kind: step.action_kind,
+    mode: step.mode,
+    entry: {
+      stage: step.stage,
+      decision: step.decision,
+      reason: step.reason,
+      action_id: step.action_id,
+      attempt: step.attempt,
+      execution_path: step.execution_path,
+      outcome: step.outcome,
+    },
+    entry_hash: step.entry_hash,
+    previous_hash: step.previous_hash,
+    recorded_at: step.recorded_at,
+  })),
+  next_cursor: "older-audit",
+} as const;
+
+const readTrace = {
+  correlation_id: correlationId,
+  step_count: 2,
+  steps: [
+    {
+      seq: 192446,
+      event_id: correlationId,
+      source_correlation_id: correlationId,
+      recorded_at: "2026-09-14T08:52:01.859635+00:00",
+      actor: "fdai.core.control_loop",
+      stage: "t0_evaluate",
+      decision: null,
+      reason: "no_rule_denied",
+      action_kind: "control_loop.compliant",
+      mode: "shadow",
+      action_id: null,
+      attempt: null,
+      execution_path: null,
+      outcome: null,
+      entry_hash: "hash-read-1",
+      previous_hash: "hash-read-0",
+    },
+    {
+      seq: 192449,
+      event_id: correlationId,
+      source_correlation_id: null,
+      recorded_at: "2026-09-14T08:52:02.160953+00:00",
+      actor: "fdai.measurement",
+      stage: null,
+      decision: null,
+      reason: null,
+      action_kind: "measurement.control_loop.v1",
+      mode: "shadow",
+      action_id: null,
+      attempt: null,
+      execution_path: null,
+      outcome: null,
+      entry_hash: "hash-read-2",
+      previous_hash: "hash-read-1",
+    },
+  ],
+  terminal_stage: "t0_evaluate",
+  trace_kind: "read",
+  source_authority: "operator-audit-log",
+  complete: true,
+  first_recorded_at: "2026-09-14T08:52:01.859635+00:00",
+  last_recorded_at: "2026-09-14T08:52:02.160953+00:00",
+  latest_sequence: 192449,
+  latest_activity_stage: null,
+  latest_action_kind: "measurement.control_loop.v1",
+  latest_actor: "fdai.measurement",
+  latest_decision: null,
+  latest_outcome: null,
+  latest_mode: "shadow",
+  target_resource_ref: "checkout-api",
+  target_count: 1,
+  action_attempt_count: 0,
+  effect_observation_count: 0,
+  incident_evidence_recorded: false,
+  rca_evidence_recorded: false,
 } as const;
 
 interface TraceFixtureOptions {
@@ -121,9 +225,11 @@ interface TraceFixtureOptions {
 async function installFixture(
   page: Page,
   options: TraceFixtureOptions = {},
-): Promise<void> {
+): Promise<string[]> {
+  const requestedPaths: string[] = [];
   const handle = async (route: Route): Promise<void> => {
     const path = new URL(route.request().url()).pathname.replace(/^\/api(?=\/)/, "");
+    requestedPaths.push(path);
     if (path === "/system/data-sources") {
       await route.fulfill({
         status: 200,
@@ -162,6 +268,14 @@ async function installFixture(
       });
       return;
     }
+    if (path === "/audit") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(auditPage),
+      });
+      return;
+    }
     await route.fulfill({
       status: 404,
       contentType: "application/json",
@@ -170,7 +284,9 @@ async function installFixture(
   };
   await page.route("**/api/**", handle);
   await page.route("**/system/data-sources", handle);
+  await page.route("**/audit*", handle);
   await page.route("**/audit/**", handle);
+  return requestedPaths;
 }
 
 async function contrastRatio(
@@ -318,11 +434,16 @@ async function assertTraceWorkbench(page: Page): Promise<void> {
   await expect(detail).toContainText("independent effect evidence pending");
   await expect(detail).toContainText("event-4");
   await expect(detail).toContainText("Thor");
+  await expect(detail.getByRole("heading", {
+    name: /Audit references - chain not verified|감사 참조 - 체인 미검증/,
+  })).toBeVisible();
   await expect(detail).toContainText(correlationId);
   const displayedTimestamp = detail.locator(".trace-step-facts time");
   await expect(displayedTimestamp).toHaveAttribute("datetime", "2026-09-14T02:00:04Z");
   expect(await displayedTimestamp.textContent()).not.toContain("T02:00:04Z");
-  await expect(page.getByText(/Complete audit timeline|전체 감사 타임라인/)).toBeVisible();
+  await expect(page.getByText(
+    /Complete audit timeline \(6 records\)|전체 감사 타임라인 \(기록 6개\)/,
+  )).toBeVisible();
   expect(await contrastRatio(detail.locator(".status-pill"), "color")).toBeGreaterThanOrEqual(4.5);
   expect(await contrastRatio(stages.nth(3), "borderTopColor")).toBeGreaterThanOrEqual(3);
 
@@ -346,11 +467,26 @@ test.describe.configure({ mode: "serial" });
 test("shows the correlated action lifecycle at desktop width", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium");
   await page.setViewportSize({ width: 1904, height: 900 });
-  await installFixture(page);
+  const requestedPaths = await installFixture(page);
 
   await page.goto(`/trace?correlation=${correlationId}`);
+  await expect.poll(() => requestedPaths).toContain("/audit");
 
   await assertTraceWorkbench(page);
+  const discovery = page.locator(".trace-discovery");
+  await expect(discovery.locator("summary")).toContainText("2 recent correlations");
+  await discovery.locator("summary").click();
+  await expect(discovery.locator(".trace-discovery-list li")).toHaveCount(2);
+  await discovery.getByRole("button", { name: "Decision / action" }).click();
+  await expect(discovery.locator(".trace-discovery-list li")).toHaveCount(2);
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
+    origin: new URL(page.url()).origin,
+  });
+  await page.getByRole("button", { name: "Copy correlation id", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Refresh trace" })).toBeVisible();
+  await expect(page.getByText("Evidence recorded", { exact: true })).toBeVisible();
+  await discovery.locator("summary").click();
   const geometry = await page.locator(".trace-workbench").evaluate((workbench) => {
     const rail = workbench.querySelector(".trace-stage-rail");
     const detail = workbench.querySelector(".trace-step-detail");
@@ -383,6 +519,31 @@ test("shows the correlated action lifecycle at desktop width", async ({ page }, 
     "Observation",
     "Recovery",
   ]);
+});
+
+test("compresses a read-only technical trace without inventing an action path", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop-chromium");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installFixture(page, { body: readTrace });
+
+  await page.goto(`/trace?correlation=${correlationId}`);
+
+  await expect(page.locator(".trace-metric").filter({
+    hasText: "Operational effect",
+  })).toContainText("Not applicable");
+  await expect(page.getByText("This trace contains no action attempt")).toBeVisible();
+  await expect(page.getByText("checkout-api", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Control loop measurement" })).toBeVisible();
+  await expect(page.getByText("Measurement service", { exact: true })).toBeVisible();
+  await expect(page.getByText("No action path", { exact: true })).toBeVisible();
+  await expect(page.getByText(
+    "Joined into this trace through the matching event id; the source correlation may differ or be absent.",
+  )).toBeVisible();
+  await expect(page.locator(".trace-lifecycle-section.is-empty")).toBeVisible();
+  await expect(page.locator(".trace-action-lifecycle-group")).toHaveCount(0);
+  await expect(page.locator(".trace-workbench")).toHaveClass(/is-compact/);
 });
 
 test("preserves the two-column trace workbench at constrained desktop width", async ({
@@ -427,9 +588,12 @@ test("keeps lookup context when trace evidence is unavailable", async ({ page },
 
   const lookup = page.getByRole("form", { name: "Look up a correlation id" });
   const input = lookup.getByRole("textbox", { name: "Correlation id" });
-  await expect(page.getByRole("note")).toContainText("Read-only reconstruction");
+  await expect(page.locator(".trace-readonly-boundary summary"))
+    .toContainText("Read-only reconstruction");
   await expect(page.locator(".trace-metric")).toHaveCount(4);
   await expect(page.locator(".trace-workbench")).toBeVisible();
+  await expect(page.locator(".trace-discovery")).toHaveAttribute("open", "");
+  await expect(page.locator(".trace-discovery-list li")).toHaveCount(2);
   await expect(page.getByRole("heading", {
     name: "Select a correlation to inspect its recorded path",
   })).toBeVisible();
@@ -672,6 +836,18 @@ test("reflows the correlated action lifecycle at mobile width", async ({ page },
   await page.goto(`/trace?correlation=${correlationId}&locale=ko`);
 
   await assertTraceWorkbench(page);
+  const metricRows = await page.locator(".trace-metric").evaluateAll((metrics) =>
+    [...new Set(metrics.map((metric) => Math.round(metric.getBoundingClientRect().top)))]
+  );
+  expect(metricRows).toHaveLength(2);
+  await expect(page.locator(".trace-context-details > summary")).toBeVisible();
+  await expect(page.locator(".trace-context-strip")).toBeHidden();
+  const workbenchDistance = await page.evaluate(() => {
+    const route = document.querySelector(".trace-route")?.getBoundingClientRect();
+    const workbench = document.querySelector(".trace-workbench")?.getBoundingClientRect();
+    return route && workbench ? workbench.top - route.top : Number.POSITIVE_INFINITY;
+  });
+  expect(workbenchDistance).toBeLessThan(844 * 2);
   const geometry = await page.locator(".trace-workbench").evaluate((workbench) => {
     const rail = workbench.querySelector(".trace-stage-rail");
     const detail = workbench.querySelector(".trace-step-detail");
