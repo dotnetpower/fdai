@@ -8,7 +8,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from fdai.agents import Norns, PantheonRuntime
+from fdai.agents import Norns, PantheonRuntime, StateStoreIssueTrackerAdapter
 from fdai.core.learning import RuleCandidateHint
 from fdai.core.ontology_platform import MetricAggregation, MetricSemanticDefinition
 from fdai.core.ontology_platform.metric_semantics import MetricSemanticRegistry
@@ -863,6 +863,7 @@ async def test_runtime_saga_uses_durable_state_store_audit() -> None:
     saga = _build_runtime_saga(state_store)
     assert saga.durable_audit is True
     assert saga._durable_state_store is state_store  # noqa: SLF001 - composition assertion
+    assert isinstance(saga.github, StateStoreIssueTrackerAdapter)
 
     await saga.on_typed_message(
         "object.forecast-outcome",
@@ -874,6 +875,67 @@ async def test_runtime_saga_uses_durable_state_store_audit() -> None:
     )
 
     assert len(tuple(state_store.audit_entries)) == 1
+
+
+async def test_runtime_saga_replays_issue_operation_across_restart() -> None:
+    class _FailFirstHandoffCheckpoint(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.failed = False
+
+        async def write_state(self, key, value):  # noqa: ANN001, ANN201
+            if (
+                key.startswith("pantheon/saga/handoff/")
+                and key.endswith("/checkpoint")
+                and not self.failed
+            ):
+                self.failed = True
+                raise RuntimeError("handoff checkpoint interrupted")
+            await super().write_state(key, value)
+
+    store = _FailFirstHandoffCheckpoint()
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "runtime-handoff-restart",
+        "escalation_id": "runtime-handoff-restart",
+        "correlation_id": "runtime-handoff-restart",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+    first = _build_runtime_saga(store)
+    with pytest.raises(RuntimeError, match="handoff checkpoint interrupted"):
+        await first.on_typed_message("object.handoff-escalation", dict(payload))
+
+    restarted = _build_runtime_saga(store)
+    await restarted.on_typed_message("object.handoff-escalation", dict(payload))
+
+    assert len(restarted.github.issues) == 1
+    issue = next(iter(restarted.github.issues.values()))
+    assert issue.comments == []
+    assert restarted.behavior_snapshot()["handoff:materialized"] == 1
+
+
+async def test_runtime_saga_rehydrates_completed_issue_projection() -> None:
+    store = InMemoryStateStore()
+    first = _build_runtime_saga(store)
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "runtime-handoff-complete",
+        "escalation_id": "runtime-handoff-complete",
+        "correlation_id": "runtime-handoff-complete",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+    await first.on_typed_message("object.handoff-escalation", payload)
+
+    restarted = _build_runtime_saga(store)
+    assert restarted.github.issues == {}
+    assert await restarted.rehydrate_issue_tracker() == 1
+    assert len(restarted.github.issues) == 1
 
 
 async def test_required_runtime_task_failure_is_not_swallowed() -> None:

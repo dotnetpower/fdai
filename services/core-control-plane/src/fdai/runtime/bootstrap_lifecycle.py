@@ -24,6 +24,7 @@ from fdai.agents import (
     Saga,
     SemanticRouterConfig,
     StateStoreAuditChainAdapter,
+    StateStoreIssueTrackerAdapter,
     request_rule_generation,
 )
 from fdai.agents.vidar import RollbackExecutor
@@ -318,6 +319,7 @@ def build_runtime_saga(state_store: StateStore) -> Saga:
     return Saga(
         audit_chain=StateStoreAuditChainAdapter(store=state_store),
         durable_state_store=state_store,
+        github=StateStoreIssueTrackerAdapter(state_store),
     )
 
 

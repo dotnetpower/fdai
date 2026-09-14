@@ -9,6 +9,7 @@ from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.base import Agent
 from fdai.agents.muninn import Muninn
 from fdai.agents.norns import Norns
+from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
 from fdai.core.capacity import CapacityGraduationController
 from fdai.core.case_history import (
@@ -48,6 +49,11 @@ async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
                 "pantheon_norns_issue_learning_rehydrated",
                 extra={"pending_candidates": recovered, "published": published},
             )
+    saga = agents.get("Saga")
+    if isinstance(saga, Saga):
+        restored = await saga.rehydrate_issue_tracker()
+        if restored:
+            _LOG.info("pantheon_saga_issues_rehydrated", extra={"issues": restored})
 
 
 def bind_operational_agents(

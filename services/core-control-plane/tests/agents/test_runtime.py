@@ -17,7 +17,7 @@ from datetime import UTC, datetime, timedelta
 from typing import cast
 
 import pytest
-from fdai.agents import request_rule_generation
+from fdai.agents import StateStoreIssueTrackerAdapter, request_rule_generation
 from fdai.agents._framework.bus_bridge import EventBusBridge
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.pantheon import PANTHEON_NAMES, PANTHEON_SPECS
@@ -292,6 +292,31 @@ def test_runtime_rehydrates_pending_norns_issue_candidate() -> None:
     replayed = Norns(promotion_threshold=3, issue_state_store=store)
     asyncio.run(replayed.on_typed_message("object.issue", dict(payloads[0])))
     assert replayed.pending_candidates == []
+
+
+def test_runtime_rehydrates_durable_saga_issue_projection() -> None:
+    store = InMemoryStateStore()
+    first_adapter = StateStoreIssueTrackerAdapter(store)
+    asyncio.run(
+        first_adapter.create_or_comment_once(
+            operation_id="handoff:runtime-rehydrate",
+            fingerprint="runtime-rehydrate-fingerprint",
+            title="[no_route] Bragi handoff",
+            body="Correlation id: runtime-rehydrate",
+        )
+    )
+    restarted = Saga(github=StateStoreIssueTrackerAdapter(store))
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        saga=restarted,
+    )
+
+    asyncio.run(runtime._rehydrate())  # noqa: SLF001 - startup recovery assertion
+
+    assert len(restarted.github.issues) == 1
+    issue = restarted.github.issues["runtime-rehydrate-fingerprint"]
+    assert issue.title == "[no_route] Bragi handoff"
 
 
 def test_runtime_injects_durable_state_store_into_var() -> None:

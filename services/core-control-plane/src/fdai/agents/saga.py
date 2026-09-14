@@ -76,6 +76,14 @@ class Saga(Agent):
         """Return whether the configured audit chain survives restart."""
         return bool(getattr(self.audit_chain, "durable", False))
 
+    async def rehydrate_issue_tracker(self) -> int:
+        """Restore a durable issue projection when the adapter supports it."""
+        rehydrate = getattr(self.github, "rehydrate", None)
+        if not callable(rehydrate):
+            return 0
+        restored = rehydrate()
+        return int(await restored if inspect.isawaitable(restored) else restored)
+
     async def _append_audit(
         self,
         *,

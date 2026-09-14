@@ -648,7 +648,10 @@ runtime `StateStore`. Typed handoff materialization requires the additive `Idemp
 id to the exact issue content; a legacy `IssueTrackerAdapter` remains compatible with direct escalation but cannot execute typed handoffs.
 Saga then stores validated mutation checkpoints and completion receipts. A retry or process restart resumes only incomplete stages and
 never adds a second GitHub comment for the same escalation; malformed or conflicting durable records fail closed. A live issue tracker
-remains an injected delivery adapter, so the typed ownership and audit boundary stay the same in local and deployed runtimes.
+remains an injected delivery adapter, so the typed ownership and audit boundary stay the same in local and deployed runtimes. The shipped
+runtime binds `StateStoreIssueTrackerAdapter`, which CAS-persists current issue state and every exact operation result and rehydrates its
+projection before consumers start. A live GitHub override must provide the same provider-side durability; `InMemoryGithubIssueAdapter`
+remains test-only for typed runtime handoffs.
 `object.issue` delivery remains at-least-once. Before incrementing a handoff fingerprint, Norns atomically claims Saga's stable
 idempotency key in the runtime `StateStore`. A `pending` operation is CAS-applied to the durable fingerprint count and becomes `applied`;
 the resulting candidate remains `pending` until publication or deterministic hold marks it `delivered`. Restart resumes an incomplete
