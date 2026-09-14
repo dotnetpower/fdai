@@ -187,7 +187,8 @@
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
         "docs/roadmap/architecture/ontology-structural-model.md",
         "docs/roadmap/architecture/operating-ontology.md",
-        "docs/roadmap/architecture/operating-ontology-platform.md"
+        "docs/roadmap/architecture/operating-ontology-platform.md",
+        "docs/roadmap/deployment/runtime-deployment-profiles.md"
       ],
       "docs_update_routes": [
         "conversation-attachments"
@@ -261,7 +262,8 @@
         "docs/roadmap/architecture/aks-diagnostic-evidence-plane.md",
         "docs/roadmap-implementation/architecture/aks-diagnostic-evidence-plane.md",
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
-        "docs/roadmap/architecture/ontology-structural-model.md"
+        "docs/roadmap/architecture/ontology-structural-model.md",
+        "docs/roadmap/deployment/runtime-deployment-profiles.md"
       ],
       "validate": [
         "uv run pytest -q --no-cov services/core-control-plane/tests/delivery/test_kubernetes_api_inventory.py services/core-control-plane/tests/delivery/test_kubernetes_inventory.py services/core-control-plane/tests/delivery/test_kubernetes_relationships.py services/core-control-plane/tests/delivery/test_kubernetes_lifecycle_collection.py services/core-control-plane/tests/delivery/test_kubernetes_pod_log_evidence.py services/core-control-plane/tests/core/ontology_platform/test_kubernetes_pod_diagnosis_evidence.py",
@@ -2275,7 +2277,8 @@
         "docs/roadmap/interfaces/operator-console.md",
         "docs/roadmap/interfaces/channels-and-notifications.md",
         "docs/roadmap/architecture/operating-ontology.md",
-        "docs/roadmap/decisioning/action-ontology.md"
+        "docs/roadmap/decisioning/action-ontology.md",
+        "docs/roadmap/deployment/runtime-deployment-profiles.md"
       ],
       "docs_update_routes": [
         "conversation-attachments"
@@ -2283,7 +2286,8 @@
       "docs_update": [
         "docs/roadmap/architecture/finops-package-architecture.md",
         "docs/roadmap/architecture/finops-autonomous-operations.md",
-        "docs/roadmap/fork-and-sequencing/finops-package-delivery-plan.md"
+        "docs/roadmap/fork-and-sequencing/finops-package-delivery-plan.md",
+        "docs/roadmap/deployment/runtime-deployment-profiles.md"
       ],
       "validate": [
         "uv run python scripts/quality/architecture/check-cost-governance-package-inventory.py",
@@ -2369,7 +2373,8 @@
         "docs/roadmap/deployment/installable-deployment-cli.md",
         "docs/roadmap/deployment/provisioning-execution-profiles.md",
         "docs/roadmap/architecture/security-and-identity.md",
-        "docs/roadmap/architecture/llm-strategy.md"
+        "docs/roadmap/architecture/llm-strategy.md",
+        "docs/roadmap/deployment/runtime-deployment-profiles.md"
       ],
       "docs_update_routes": [
         "conversation-attachments"
@@ -2379,7 +2384,8 @@
         "docs/roadmap/deployment/subscription-genesis-assurance.md",
         "docs/roadmap/deployment/deploy-and-onboard.md",
         "docs/roadmap/deployment/installable-deployment-cli.md",
-        "docs/roadmap/deployment/provisioning-execution-profiles.md"
+        "docs/roadmap/deployment/provisioning-execution-profiles.md",
+        "docs/roadmap/deployment/runtime-deployment-profiles.md"
       ],
       "validate": [
         "uv run pytest -q --no-cov tests/integration/scripts/test_genesis_access_tools.py tests/integration/scripts/test_genesis_approval.py tests/integration/scripts/test_genesis_foundation.py tests/integration/scripts/test_genesis_foundation_apply.py tests/integration/scripts/test_genesis_foundation_state.py tests/integration/scripts/test_genesis_orchestrator.py tests/integration/scripts/test_genesis_private_execution.py tests/integration/scripts/test_genesis_runner_enrollment.py tests/integration/scripts/test_genesis_runner_image.py tests/integration/scripts/test_genesis_subprocess.py tests/integration/scripts/test_genesis_up.py tests/integration/scripts/test_contributor_deployment.py tests/integration/scripts/test_verify_azure_context.py",
@@ -2387,6 +2393,41 @@
         "uv run ruff check packages/deployment-cli",
         "uv run mypy --strict packages/deployment-cli/src",
         "uv build --project packages/deployment-cli",
+        "python3 scripts/quality/architecture/check-design-routes.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ]
+    },
+    {
+      "id": "runtime-deployment-profiles",
+      "paths": [
+        "docs/roadmap/deployment/runtime-deployment-profiles*.md",
+        "docs/roadmap-implementation/deployment/runtime-deployment-profiles.md",
+        "infra/runtimes/**",
+        "infra/modules/network/**",
+        "packages/deployment-cli/src/fdai_deployment_cli/runtime_profile.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/standalone_application.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/standalone_host.py",
+        "packages/deployment-cli/tests/test_runtime_profile.py",
+        "packages/deployment-cli/tests/test_standalone_application.py",
+        "packages/deployment-cli/tests/test_standalone_host.py"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/deployment/runtime-deployment-profiles.md",
+        "docs/roadmap/deployment/installable-deployment-cli.md",
+        "docs/roadmap/deployment/provisioning-execution-profiles.md",
+        "docs/roadmap/deployment/production-deployment-hardening.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/deployment/runtime-deployment-profiles.md",
+        "docs/roadmap-implementation/deployment/runtime-deployment-profiles.md"
+      ],
+      "validate": [
+        "uv run --project packages/deployment-cli python -m pytest -c packages/deployment-cli/pyproject.toml -q packages/deployment-cli/tests/test_runtime_profile.py packages/deployment-cli/tests/test_standalone_application.py packages/deployment-cli/tests/test_standalone_host.py",
+        "terraform -chdir=infra/runtimes/aks/cluster validate",
+        "terraform -chdir=infra/runtimes/aks/database validate",
+        "terraform -chdir=infra/runtimes/aks/workloads validate",
         "python3 scripts/quality/architecture/check-design-routes.py",
         "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
       ]
@@ -2404,12 +2445,14 @@
         ".github/instructions/coding-conventions.instructions.md",
         "docs/roadmap/deployment/installable-deployment-cli.md",
         "docs/roadmap/deployment/provisioning-execution-profiles.md",
-        "docs/roadmap/architecture/security-and-identity.md"
+        "docs/roadmap/architecture/security-and-identity.md",
+        "docs/roadmap/deployment/runtime-deployment-profiles.md"
       ],
       "docs_update": [
         "docs/roadmap/deployment/installable-deployment-cli.md",
         "docs/roadmap/deployment/provisioning-execution-profiles.md",
-        "docs/roadmap/deployment/disconnected-deployment.md"
+        "docs/roadmap/deployment/disconnected-deployment.md",
+        "docs/roadmap/deployment/runtime-deployment-profiles.md"
       ],
       "validate": [
         "uv run python scripts/quality/architecture/check-independent-services.py"
@@ -2464,7 +2507,8 @@
         "docs/roadmap/deployment/deploy-and-onboard.md",
         "docs/roadmap/deployment/production-deployment-hardening.md",
         "docs/roadmap/architecture/azure-inventory-network-paths.md",
-        "docs/roadmap/deployment/deployment-resource-conventions.md"
+        "docs/roadmap/deployment/deployment-resource-conventions.md",
+        "docs/roadmap/deployment/runtime-deployment-profiles.md"
       ],
       "docs_update_routes": [
         "conversation-attachments"
@@ -2474,7 +2518,8 @@
         "docs/roadmap/deployment/production-deployment-hardening.md",
         "docs/roadmap/architecture/azure-inventory-network-paths.md",
         "docs/roadmap/deployment/deployment-resource-conventions.md",
-        "docs/roadmap/deployment/dev-and-deploy-parity.md"
+        "docs/roadmap/deployment/dev-and-deploy-parity.md",
+        "docs/roadmap/deployment/runtime-deployment-profiles.md"
       ],
       "validate": [
         "uv run pytest -q --no-cov tests/integration/scripts/test_genesis_orchestrator.py tests/integration/scripts/test_contributor_deployment.py tests/integration/scripts/test_verify_azure_context.py",

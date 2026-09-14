@@ -28,6 +28,7 @@ from fdai_deployment_cli.foundation_failure import foundation_failure_summary
 from fdai_deployment_cli.foundation_output import foundation_output
 from fdai_deployment_cli.foundation_process import run_foundation_process
 from fdai_deployment_cli.private_output import read_private_bytes
+from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.standalone_application import deploy_standalone_application
 from fdai_deployment_cli.standalone_status import current_status, prior_attempt
 
@@ -72,6 +73,7 @@ def deploy_azure_foundation(
     timeout_seconds: int,
     license_signing_key: Path | None,
     trial_token: Path | None,
+    runtime_profile: RuntimeDeploymentProfile | None = None,
     adopt_runner_image_receipt: Path | None = None,
     adopt_application_state: Path | None = None,
     adopt_application_recovery: Path | None = None,
@@ -80,6 +82,10 @@ def deploy_azure_foundation(
     """Advance one standalone deployment through verified application convergence."""
 
     deadline = DeploymentDeadline(timeout_seconds, clock=time.monotonic)
+    selected_runtime = runtime_profile or RuntimeDeploymentProfile.create(
+        runtime_platform="container-apps",
+        database_placement="postgres-flex",
+    )
     begin_stage("azure")
     progress_detail("Checking the active Azure CLI human identity")
     target = active_azure_target()
@@ -291,6 +297,7 @@ def deploy_azure_foundation(
                 license_signing_key=license_signing_key,
                 trial_token=trial_token,
                 timeout_seconds=deadline.remaining(),
+                runtime_profile=selected_runtime,
                 application_state_adoption=adoption,
             )
             deadline.remaining()
@@ -302,6 +309,9 @@ def deploy_azure_foundation(
                 "runtime_release_digest": kit.runtime.digest,
                 "foundation_state_receipt_digest": foundation["foundation_state_receipt_digest"],
                 "application_receipt_digest": application["receipt_digest"],
+                "runtime_profile_digest": selected_runtime.digest,
+                "runtime_platform": selected_runtime.runtime_platform.value,
+                "database_placement": selected_runtime.database_placement.value,
                 "application_converged": True,
                 "deployment_ready": True,
                 "license_mode": application["license_mode"],

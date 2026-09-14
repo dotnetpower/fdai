@@ -21,13 +21,14 @@ from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.deployment_kit import acquire_deployment_kit
 from fdai_deployment_cli.license import inspect_license
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
+from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.target import compute_target_binding
 from fdai_deployment_cli.trust_roots import license_public_key_pem
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _SOURCE_COMMIT = re.compile(r"[0-9a-f]{40}")
-_STAGES: Final = ("substrate", "application")
+_STAGES: Final = ("substrate", "runtime", "database", "application")
 _SUBSTRATE_TARGETS: Final = (
     "module.resource_group",
     "module.log_analytics",
@@ -46,6 +47,7 @@ _SUBSTRATE_TARGETS: Final = (
     "module.operator_api_identity",
     "module.isolated_executor_identity",
     "module.key_vault",
+    "azurerm_role_assignment.kv_officer_self",
     "module.kv_private_endpoint",
     "module.state_store",
     "module.postgres_public_mode_private_endpoint",
@@ -53,6 +55,15 @@ _SUBSTRATE_TARGETS: Final = (
     "module.event_bus_auxiliary",
     "module.event_bus_private_endpoint",
     "azurerm_key_vault_secret.state_store_dsn",
+    "azurerm_role_assignment.command_api_eventhubs_sender",
+    "azurerm_role_assignment.command_api_eventhubs_receiver",
+    "azurerm_role_assignment.inventory_eventhubs_sender",
+    "azurerm_role_assignment.inventory_eventhubs_raw_sender",
+    "azurerm_role_assignment.canary_eventhubs_sender",
+    "azurerm_role_assignment.inventory_kv_secrets_user",
+    "azurerm_role_assignment.operator_api_kv_secrets_user",
+    "azurerm_role_assignment.isolated_executor_kv_secrets_user",
+    "azurerm_role_assignment.executor_eventhubs_data_owner",
 )
 
 
@@ -70,7 +81,23 @@ def main(argv: list[str] | None = None) -> int:
     prepare.add_argument("--adoption-state", type=Path)
     prepare.add_argument("--adoption-models", type=Path)
     prepare.add_argument("--adoption-descriptor", type=Path)
+    prepare.add_argument("--runtime-platform", default="container-apps")
+    prepare.add_argument("--database-placement", default="postgres-flex")
+    prepare.add_argument("--system-node-count", type=int, default=3)
+    prepare.add_argument("--system-node-sku", default="Standard_D2as_v5")
+    prepare.add_argument("--user-node-min-count", type=int, default=3)
+    prepare.add_argument("--user-node-max-count", type=int, default=5)
+    prepare.add_argument("--user-node-sku", default="Standard_D4as_v5")
     prepare.set_defaults(handler=_prepare)
+
+    prepare_runtime = subcommands.add_parser("prepare-runtime")
+    prepare_runtime.set_defaults(handler=_prepare_runtime)
+
+    prepare_database = subcommands.add_parser("prepare-database")
+    prepare_database.set_defaults(handler=_prepare_database)
+
+    prepare_application = subcommands.add_parser("prepare-application")
+    prepare_application.set_defaults(handler=_prepare_aks_application)
 
     plan = subcommands.add_parser("plan")
     plan.add_argument("--stage", choices=_STAGES, required=True)
@@ -131,6 +158,15 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     tenant = _required_guid(handoff, "tenant_id")
     client_id = _required_guid(runner, "client_id")
     principal_id = _required_guid(runner, "principal_id")
+    runtime_profile = RuntimeDeploymentProfile.create(
+        runtime_platform=str(args.runtime_platform),
+        database_placement=str(args.database_placement),
+        system_node_count=int(args.system_node_count),
+        system_node_sku=str(args.system_node_sku),
+        user_node_min_count=int(args.user_node_min_count),
+        user_node_max_count=int(args.user_node_max_count),
+        user_node_sku=str(args.user_node_sku),
+    )
     foundation_binding_digest = _foundation_binding_digest(
         handoff,
         runner=runner,
@@ -157,6 +193,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             or retained.get("foundation_binding_digest") != foundation_binding_digest
             or retained.get("entra_binding_digest") != entra_binding_digest
             or retained.get("application_state_adoption_digest", "") != adoption_digest
+            or _runtime_profile_digest(retained) != runtime_profile.digest
         ):
             raise ValueError("standalone host retained context differs")
         _terraform_init(work_dir, retained)
@@ -168,6 +205,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             "source_commit": retained["source_commit"],
             "kit_manifest_digest": retained["kit_manifest_digest"],
             "runtime_release_digest": retained["runtime_release_digest"],
+            "runtime_profile_digest": runtime_profile.digest,
             "mutation_performed": False,
             "subscription_ready": False,
         }
@@ -221,6 +259,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         )
     }
     refs["clamav"] = f"{login_server}/clamav@{_required_image_digest(sidecars, 'clamav')}"
+    if runtime_profile.database_placement.value == "postgres-aks":
+        refs["pgvector"] = f"{login_server}/pgvector@{_required_image_digest(sidecars, 'pgvector')}"
     operator_id = _required_guid(entra, "CURRENT_OPERATOR_OBJECT_ID")
     steward_names = (
         "Odin",
@@ -249,6 +289,14 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "resource_name_suffix": suffix,
         "foundation_resource_group_context_digest": str(app["foundation_context_digest"]),
         "enable_private_networking": True,
+        "compute_kind": (
+            "aks" if runtime_profile.runtime_platform.value == "aks" else "container_apps"
+        ),
+        "state_store_kind": (
+            "postgres_aks"
+            if runtime_profile.database_placement.value == "postgres-aks"
+            else "postgres_flex"
+        ),
         "enable_private_postgres": False,
         "runner_vnet_id": str(ops["vnet_id"]),
         "runner_vnet_name": str(ops["vnet_name"]),
@@ -298,15 +346,18 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "state_resource_group": str(ops["resource_group_name"]),
         "state_account": str(state["account_name"]),
         "state_container": str(state["container_name"]),
-        "state_key": "fdai-dev.tfstate",
+        "state_key": f"fdai-{values['env']}.tfstate",
         "kit_manifest_digest": kit.verification.manifest_digest,
         "runtime_release_digest": kit.runtime.digest,
+        "runtime_profile": runtime_profile.to_mapping(),
+        "runtime_profile_digest": runtime_profile.digest,
         "registry_name": registry,
         "registry_login_server": login_server,
         "image_refs": refs,
         "infra": str(infra),
         "terraform": str(terraform),
         "provider_mirror": str(provider_mirror),
+        "kit_bin": str(kit.materialized_root / "bin"),
         "terraform_config": str(terraform_config),
         "terraform_data": str(work_dir / "terraform-data"),
     }
@@ -321,7 +372,391 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "source_commit": kit.source_commit,
         "kit_manifest_digest": kit.verification.manifest_digest,
         "runtime_release_digest": kit.runtime.digest,
+        "runtime_profile_digest": runtime_profile.digest,
         "application_state_adopted": adoption is not None,
+        "mutation_performed": False,
+        "subscription_ready": False,
+    }
+
+
+def _prepare_runtime(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
+    context = _private_json(work_dir / "context.json", "standalone host context")
+    if _runtime_platform(context) != "aks":
+        raise ValueError("runtime preparation is only valid for AKS")
+    if not (work_dir / "substrate-receipt.json").is_file():
+        raise ValueError("runtime preparation requires the applied substrate plan")
+    _managed_identity_login_from_context(context, work_dir)
+    substrate = Path(str(context["infra"]))
+    profile = _mapping(context.get("runtime_profile"), "runtime deployment profile")
+    application_values = _private_json(
+        work_dir / "application.auto.tfvars.json", "application variables"
+    )
+    runtime_infra = substrate / "runtimes/aks/cluster"
+    values = {
+        "location": application_values["region"],
+        "resource_group_name": _terraform_output(substrate, "resource_group_name"),
+        "aks_subnet_id": _terraform_output(substrate, "aks_subnet_id"),
+        "container_registry_id": _terraform_output(substrate, "container_registry_id"),
+        "log_analytics_workspace_id": _terraform_output(substrate, "log_workspace_id"),
+        "managed_host_principal_id": context["principal_id"],
+        "environment": application_values["env"],
+        "region_short": application_values["region_short"],
+        "database_placement": profile["database_placement"],
+        "system_node_count": profile["system_node_count"],
+        "system_node_sku": profile["system_node_sku"],
+        "user_node_min_count": profile["user_node_min_count"],
+        "user_node_max_count": profile["user_node_max_count"],
+        "user_node_sku": profile["user_node_sku"],
+        "tags": {"fdai:runtime": "aks"},
+    }
+    context.update(
+        runtime_infra=str(runtime_infra),
+        runtime_state_key=f"fdai-{application_values['env']}-aks-cluster.tfstate",
+        runtime_terraform_data=str(work_dir / "terraform-data-runtime"),
+        resource_group_name=values["resource_group_name"],
+    )
+    _replace_or_verify_private_json(work_dir / "runtime.auto.tfvars.json", values)
+    _replace_private_json(work_dir / "context.json", context)
+    _initialize_terraform_stage("runtime", context, work_dir)
+    return {
+        "schema_version": "fdai.standalone-runtime-prepare.v1",
+        "state": "prepared",
+        "runtime_profile_digest": _runtime_profile_digest(context),
+        "state_key": context["runtime_state_key"],
+        "mutation_performed": False,
+        "subscription_ready": False,
+    }
+
+
+def _prepare_database(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
+    context = _private_json(work_dir / "context.json", "standalone host context")
+    profile = _mapping(context.get("runtime_profile"), "runtime deployment profile")
+    if _runtime_platform(context) != "aks" or profile.get("database_placement") != "postgres-aks":
+        raise ValueError("database preparation is only valid for postgres-aks")
+    for prerequisite in ("runtime-receipt.json", "image-import-receipt.json"):
+        if not (work_dir / prerequisite).is_file():
+            raise ValueError("database preparation prerequisites are incomplete")
+    _managed_identity_login_from_context(context, work_dir)
+    substrate = Path(str(context["infra"]))
+    identities = _terraform_json_output(substrate, "runtime_identity_bindings")
+    if not isinstance(identities, dict):
+        raise ValueError("AKS runtime identity output contract is invalid")
+    principals = {
+        str(_mapping(identities.get(name), f"{name} runtime identity")["principal_id"])
+        for name in ("core", "operator", "executor", "inventory")
+    }
+    key_vault_id = _terraform_output(substrate, "key_vault_id")
+    _activate_terraform_stage("runtime", context, work_dir)
+    runtime_infra = Path(str(context["runtime_infra"]))
+    cluster_name = _terraform_output(runtime_infra, "cluster_name")
+    kubeconfig = work_dir / "aks.kubeconfig"
+    _run(
+        (
+            "az",
+            "aks",
+            "get-credentials",
+            "--resource-group",
+            str(context["resource_group_name"]),
+            "--name",
+            cluster_name,
+            "--file",
+            str(kubeconfig),
+            "--overwrite-existing",
+            "--format",
+            "exec",
+            "--only-show-errors",
+        ),
+        cwd=work_dir,
+        timeout=180,
+        reason="private AKS kubeconfig acquisition failed",
+    )
+    kubeconfig.chmod(0o600)
+    application_values = _private_json(
+        work_dir / "application.auto.tfvars.json", "application variables"
+    )
+    refs = _mapping(context.get("image_refs"), "runtime image references")
+    database_infra = substrate / "runtimes/aks/database"
+    values = {
+        "kubeconfig_path": str(kubeconfig),
+        "image": refs["pgvector"],
+        "key_vault_id": key_vault_id,
+        "runtime_principal_ids": sorted(principals),
+        "tags": {"fdai:runtime": "aks", "fdai:database-placement": "postgres-aks"},
+    }
+    context.update(
+        database_infra=str(database_infra),
+        database_state_key=f"fdai-{application_values['env']}-aks-database.tfstate",
+        database_terraform_data=str(work_dir / "terraform-data-database"),
+        kubeconfig=str(kubeconfig),
+    )
+    _replace_or_verify_private_json(work_dir / "database.auto.tfvars.json", values)
+    _replace_private_json(work_dir / "context.json", context)
+    _initialize_terraform_stage("database", context, work_dir)
+    return {
+        "schema_version": "fdai.standalone-database-prepare.v1",
+        "state": "prepared",
+        "runtime_profile_digest": _runtime_profile_digest(context),
+        "state_key": context["database_state_key"],
+        "mutation_performed": False,
+        "subscription_ready": False,
+    }
+
+
+def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
+    context = _private_json(work_dir / "context.json", "standalone host context")
+    if _runtime_platform(context) != "aks":
+        raise ValueError("AKS application preparation is only valid for AKS")
+    for prerequisite in (
+        "runtime-receipt.json",
+        "image-import-receipt.json",
+        "migration-receipt.json",
+    ):
+        if not (work_dir / prerequisite).is_file():
+            raise ValueError("AKS application preparation prerequisites are incomplete")
+    _managed_identity_login_from_context(context, work_dir)
+    substrate = Path(str(context["infra"]))
+    runtime_infra = Path(str(context["runtime_infra"]))
+    substrate_outputs = {
+        "resource_group": _terraform_output(substrate, "resource_group_name"),
+        "identities": _terraform_json_output(substrate, "runtime_identity_bindings"),
+        "topics": _terraform_json_output(substrate, "event_bus_topics"),
+        "semantic_topics": _terraform_json_output(substrate, "event_bus_semantic_topics"),
+        "kafka": _terraform_output(substrate, "event_bus_kafka_bootstrap"),
+        "operational_kafka": _terraform_output(substrate, "event_bus_operational_kafka_bootstrap"),
+        "workspace": _terraform_output(substrate, "log_workspace_customer_id"),
+        "semantic_physical": _terraform_output(substrate, "event_bus_semantic_physical_topic"),
+        "key_vault_uri": _terraform_output(substrate, "key_vault_uri"),
+    }
+    if _database_placement(context) == "postgres-flex":
+        substrate_outputs.update(
+            postgres_fqdn=_terraform_output(substrate, "postgres_fqdn"),
+            postgres_database=_terraform_output(substrate, "postgres_database"),
+        )
+    else:
+        _activate_terraform_stage("database", context, work_dir)
+        database_infra = Path(str(context["database_infra"]))
+        substrate_outputs.update(
+            postgres_fqdn=_terraform_output(database_infra, "private_host"),
+            postgres_database=_terraform_output(database_infra, "database_name"),
+        )
+    resource_group = str(substrate_outputs["resource_group"])
+    _activate_terraform_stage("runtime", context, work_dir)
+    cluster_name = _terraform_output(runtime_infra, "cluster_name")
+    oidc_issuer_url = _terraform_output(runtime_infra, "oidc_issuer_url")
+    kubeconfig = work_dir / "aks.kubeconfig"
+    _run(
+        (
+            "az",
+            "aks",
+            "get-credentials",
+            "--resource-group",
+            resource_group,
+            "--name",
+            cluster_name,
+            "--file",
+            str(kubeconfig),
+            "--overwrite-existing",
+            "--format",
+            "exec",
+            "--only-show-errors",
+        ),
+        cwd=work_dir,
+        timeout=180,
+        reason="private AKS kubeconfig acquisition failed",
+    )
+    kubeconfig.chmod(0o600)
+    application_values = _private_json(
+        work_dir / "application.auto.tfvars.json", "application variables"
+    )
+    identities = substrate_outputs["identities"]
+    topics = substrate_outputs["topics"]
+    semantic_topics = substrate_outputs["semantic_topics"]
+    if (
+        not isinstance(identities, dict)
+        or not isinstance(topics, list)
+        or not isinstance(semantic_topics, list)
+        or len(semantic_topics) < 3
+    ):
+        raise ValueError("AKS substrate output contract is invalid")
+    core_identity = _mapping(identities.get("core"), "core runtime identity")
+    operator_identity = _mapping(identities.get("operator"), "operator runtime identity")
+    command_identity = _mapping(identities.get("command"), "command runtime identity")
+    executor_identity = _mapping(identities.get("executor"), "executor runtime identity")
+    inventory_identity = _mapping(identities.get("inventory"), "inventory runtime identity")
+    canary_identity = _mapping(identities.get("canary"), "canary runtime identity")
+    core_environment = {
+        "AZURE_TENANT_ID": context["tenant_id"],
+        "AZURE_SUBSCRIPTION_ID": context["subscription_id"],
+        "AZURE_RESOURCE_GROUP": resource_group,
+        "AZURE_REGION": application_values["region"],
+        "AZURE_CLIENT_ID": core_identity["client_id"],
+        "KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["kafka"],
+        "KAFKA_TOPIC_EVENTS": str(topics[0]),
+        "POSTGRES_HOST": substrate_outputs["postgres_fqdn"],
+        "POSTGRES_DATABASE": substrate_outputs["postgres_database"],
+        "RUNTIME_ENV": application_values["env"],
+        "AUTONOMY_MODE_DEFAULT": "shadow",
+        "FDAI_MONITOR_WORKSPACE_ID": substrate_outputs["workspace"],
+    }
+    operator_environment = {
+        "AZURE_CLIENT_ID": operator_identity["client_id"],
+        "FDAI_COMMAND_MI_CLIENT_ID": command_identity["client_id"],
+        "FDAI_ENTRA_TENANT_ID": context["tenant_id"],
+        "FDAI_API_AUDIENCE": application_values["operator_api_audience"],
+        "FDAI_RBAC_READERS_GROUP_ID": application_values["rbac_readers_group_id"],
+        "FDAI_RBAC_CONTRIBUTORS_GROUP_ID": application_values["rbac_contributors_group_id"],
+        "FDAI_RBAC_APPROVERS_GROUP_ID": application_values["rbac_approvers_group_id"],
+        "FDAI_RBAC_OWNERS_GROUP_ID": application_values["rbac_owners_group_id"],
+        "FDAI_RBAC_BREAK_GLASS_GROUP_ID": application_values["rbac_break_glass_group_id"],
+        "FDAI_STEWARDSHIP_REQUIRE_BINDINGS": "1",
+        "FDAI_MAINTAINERS": application_values["stewardship_maintainers"],
+        "FDAI_KAFKA_BOOTSTRAP_SERVERS": core_environment["KAFKA_BOOTSTRAP_SERVERS"],
+        "KAFKA_TOPIC_EVENTS": core_environment["KAFKA_TOPIC_EVENTS"],
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": str(semantic_topics[0]),
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": str(semantic_topics[1]),
+        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": substrate_outputs["semantic_physical"],
+        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": str(semantic_topics[2]),
+    }
+    operator_environment.update(
+        {
+            f"FDAI_STEWARD_{name.upper()}": binding
+            for name, binding in _mapping(
+                application_values["stewardship_agent_bindings"],
+                "stewardship bindings",
+            ).items()
+        }
+    )
+    dsn_secret = {"FDAI_STATE_STORE_DSN": "fdai-state-store-dsn"}
+    refs = _mapping(context.get("image_refs"), "runtime image references")
+    workloads = {
+        "core-control-plane": _aks_workload(
+            "core", refs, core_identity, core_environment, dsn_secret, "/ready", "/live"
+        ),
+        "operator-service": _aks_workload(
+            "operator",
+            refs,
+            operator_identity,
+            operator_environment,
+            {"FDAI_DATABASE_URL": "fdai-state-store-dsn"},
+            "/healthz",
+            "/healthz",
+            external=True,
+            additional_identities={"command": command_identity},
+        ),
+        "isolated-executor": _aks_workload(
+            "executor",
+            refs,
+            executor_identity,
+            {
+                "AZURE_CLIENT_ID": executor_identity["client_id"],
+                "RUNTIME_ENV": application_values["env"],
+                "FDAI_ISOLATED_EXECUTOR_DEPLOYED": "1",
+                "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID": executor_identity["client_id"],
+                "KAFKA_BOOTSTRAP_SERVERS": core_environment["KAFKA_BOOTSTRAP_SERVERS"],
+                "FDAI_ISOLATED_EXECUTOR_HEALTH_PORT": "8000",
+            },
+            {
+                "FDAI_STATE_STORE_DSN": "fdai-state-store-dsn",
+                "FDAI_RESOURCE_LOCK_DSN": "fdai-state-store-dsn",
+            },
+            "/ready",
+            "/live",
+        ),
+    }
+    inventory_environment = {
+        **core_environment,
+        "AZURE_CLIENT_ID": inventory_identity["client_id"],
+        "FDAI_MI_CLIENT_ID": inventory_identity["client_id"],
+    }
+    scheduled_jobs = {
+        "analyzer": _aks_job(
+            refs,
+            inventory_identity,
+            ["python", "-m", "fdai.delivery.analyzer_tick_cli"],
+            "* * * * *",
+            {
+                **inventory_environment,
+                "FDAI_ANALYZER_SCHEDULING_MODE": "kubernetes_cronjob",
+                "FDAI_TRACE_CONTINUITY_LOOKBACK_SECONDS": "900",
+            },
+            {
+                "FDAI_STATE_STORE_DSN": "fdai-state-store-dsn",
+                "FDAI_INVENTORY_DSN": "fdai-state-store-dsn",
+            },
+            component="analysis",
+            deadline_seconds=240,
+        ),
+        "canary": _aks_job(
+            refs,
+            canary_identity,
+            ["python", "-m", "fdai.delivery.canary_cli"],
+            "*/5 * * * *",
+            {
+                "AZURE_CLIENT_ID": canary_identity["client_id"],
+                "KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["operational_kafka"],
+                "FDAI_CANARY_TOPIC": "fdai.control.canary",
+                "FDAI_MI_CLIENT_ID": canary_identity["client_id"],
+            },
+            {},
+            component="canary",
+            deadline_seconds=120,
+            retry_limit=2,
+        ),
+        "inventory": _aks_job(
+            refs,
+            inventory_identity,
+            ["python", "-m", "fdai.delivery.inventory_sync_cli"],
+            "* * * * *",
+            {
+                **inventory_environment,
+                "FDAI_INVENTORY_SCOPES": context["subscription_id"],
+                "FDAI_INVENTORY_SOURCES": "arg,arm",
+                "FDAI_MONITOR_WORKSPACE_ID": substrate_outputs["workspace"],
+            },
+            {"FDAI_INVENTORY_DSN": "fdai-state-store-dsn"},
+            component="inventory",
+            deadline_seconds=900,
+        ),
+        "observation-campaign": _aks_job(
+            refs,
+            inventory_identity,
+            ["python", "-m", "fdai.delivery.observation_campaign_cli"],
+            "* * * * *",
+            {
+                **inventory_environment,
+                "FDAI_OBSERVATION_SCOPES": context["subscription_id"],
+            },
+            {"FDAI_OBSERVATION_DSN": "fdai-state-store-dsn"},
+            component="observation",
+            deadline_seconds=900,
+        ),
+    }
+    workloads_infra = substrate / "runtimes/aks/workloads"
+    values = {
+        "kubeconfig_path": str(kubeconfig),
+        "tenant_id": context["tenant_id"],
+        "oidc_issuer_url": oidc_issuer_url,
+        "key_vault_name": _vault_name(str(substrate_outputs["key_vault_uri"])),
+        "workloads": workloads,
+        "scheduled_jobs": scheduled_jobs,
+        "tags": {"fdai.io/source-commit": context["source_commit"]},
+    }
+    context.update(
+        workloads_infra=str(workloads_infra),
+        workloads_state_key=f"fdai-{application_values['env']}-aks-workloads.tfstate",
+        workloads_terraform_data=str(work_dir / "terraform-data-workloads"),
+        kubeconfig=str(kubeconfig),
+    )
+    _replace_or_verify_private_json(work_dir / "workloads.auto.tfvars.json", values)
+    _replace_private_json(work_dir / "context.json", context)
+    _initialize_terraform_stage("application", context, work_dir)
+    return {
+        "schema_version": "fdai.standalone-aks-application-prepare.v1",
+        "state": "prepared",
+        "runtime_profile_digest": _runtime_profile_digest(context),
+        "workload_count": len(workloads),
+        "scheduled_job_count": len(scheduled_jobs),
+        "state_key": context["workloads_state_key"],
         "mutation_performed": False,
         "subscription_ready": False,
     }
@@ -329,6 +764,12 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
 
 def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     stage = str(args.stage)
+    if stage == "runtime" and not (work_dir / "substrate-receipt.json").is_file():
+        raise ValueError("runtime plan prerequisites are incomplete")
+    if stage == "database":
+        for prerequisite in ("runtime-receipt.json", "image-import-receipt.json"):
+            if not (work_dir / prerequisite).is_file():
+                raise ValueError("database plan prerequisites are incomplete")
     if stage == "application":
         for prerequisite in (
             "substrate-receipt.json",
@@ -337,9 +778,21 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         ):
             if not (work_dir / prerequisite).is_file():
                 raise ValueError("application plan prerequisites are incomplete")
+        context = _private_json(work_dir / "context.json", "standalone host context")
+        if (
+            _runtime_platform(context) == "aks"
+            and not (work_dir / "runtime-receipt.json").is_file()
+        ):
+            raise ValueError("AKS application plan requires the applied runtime plan")
+        if (
+            _database_placement(context) == "postgres-aks"
+            and not (work_dir / "database-receipt.json").is_file()
+        ):
+            raise ValueError("AKS application plan requires the applied database plan")
     context = _private_json(work_dir / "context.json", "standalone host context")
     _managed_identity_login_from_context(context, work_dir)
-    infra = Path(str(context["infra"]))
+    infra, variables = _stage_paths(stage, context, work_dir)
+    _activate_terraform_stage(stage, context, work_dir)
     plan_path = work_dir / f"{stage}.tfplan"
     plan_path.unlink(missing_ok=True)
     command = [
@@ -347,11 +800,11 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "plan",
         "-input=false",
         "-no-color",
-        f"-var-file={work_dir / 'application.auto.tfvars.json'}",
+        f"-var-file={variables}",
         f"-out={plan_path}",
     ]
     if stage == "substrate":
-        command.extend(f"-target={target}" for target in _SUBSTRATE_TARGETS)
+        command.extend(f"-target={target}" for target in _substrate_targets(context))
     _run(command, cwd=infra, timeout=3600, reason=f"{stage} Terraform plan failed")
     show = _capture(
         ("terraform", "show", "-json", str(plan_path)),
@@ -368,6 +821,10 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "plan_digest": digest,
         "target_binding": context["target_binding"],
         "source_commit": context["source_commit"],
+        "runtime_profile_digest": _runtime_profile_digest(context),
+        "runtime_platform": _mapping(context.get("runtime_profile"), "runtime deployment profile")[
+            "runtime_platform"
+        ],
         "summary": summary,
         "expires_at": _moment(datetime.now(UTC) + timedelta(hours=1)),
         "mutation_performed": False,
@@ -385,6 +842,8 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     approval = _private_json(_absolute(args.approval), "standalone plan approval")
     _validate_approval(review, approval, context=context)
     _managed_identity_login_from_context(context, work_dir)
+    infra, _variables = _stage_paths(stage, context, work_dir)
+    _activate_terraform_stage(stage, context, work_dir)
     plan_path = work_dir / f"{stage}.tfplan"
     if _file_digest(plan_path) != review["plan_digest"]:
         raise ValueError("standalone application plan changed before apply")
@@ -414,7 +873,7 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         ) from exc
     _run(
         ("terraform", "apply", "-input=false", "-no-color", str(plan_path)),
-        cwd=Path(str(context["infra"])),
+        cwd=infra,
         timeout=7200,
         reason=f"{stage} exact apply failed; verification-only recovery is required",
     )
@@ -426,6 +885,7 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "state": "applied",
         "stage": stage,
         "plan_digest": review["plan_digest"],
+        "runtime_profile_digest": _runtime_profile_digest(context),
         "claim_digest": canonical_digest(claim),
         "control_plane_readback_verified": True,
         "mutation_performed": True,
@@ -469,17 +929,18 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
     ):
         raise ValueError("standalone apply recovery claim is invalid")
     _managed_identity_login_from_context(context, work_dir)
-    infra = Path(str(context["infra"]))
+    infra, variables = _stage_paths(stage, context, work_dir)
+    _activate_terraform_stage(stage, context, work_dir)
     command = [
         "terraform",
         "plan",
         "-detailed-exitcode",
         "-input=false",
         "-no-color",
-        f"-var-file={work_dir / 'application.auto.tfvars.json'}",
+        f"-var-file={variables}",
     ]
     if stage == "substrate":
-        command.extend(f"-target={target}" for target in _SUBSTRATE_TARGETS)
+        command.extend(f"-target={target}" for target in _substrate_targets(context))
     completed = subprocess.run(command, cwd=infra, check=False, capture_output=True, timeout=1800)
     if completed.returncode != 0:
         raise ValueError("standalone apply effect is not recoverably converged")
@@ -491,6 +952,7 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
         "state": "applied",
         "stage": stage,
         "plan_digest": review["plan_digest"],
+        "runtime_profile_digest": _runtime_profile_digest(context),
         "claim_digest": canonical_digest(claim),
         "control_plane_readback_verified": True,
         "verification_only_recovery": True,
@@ -638,6 +1100,11 @@ def _migrate(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     _managed_identity_login_from_context(context, work_dir)
     if not (work_dir / "substrate-receipt.json").exists():
         raise ValueError("database migration requires the applied substrate plan")
+    if (
+        _database_placement(context) == "postgres-aks"
+        and not (work_dir / "database-receipt.json").exists()
+    ):
+        raise ValueError("database migration requires the applied postgres-aks plan")
     infra = Path(str(context["infra"]))
     bundle = infra.parent
     vault_name = _vault_name(_terraform_output(infra, "key_vault_uri"))
@@ -865,19 +1332,34 @@ def _install_license(args: argparse.Namespace, work_dir: Path) -> dict[str, obje
 def _verify(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     context = _private_json(work_dir / "context.json", "standalone host context")
     _managed_identity_login_from_context(context, work_dir)
-    infra = Path(str(context["infra"]))
-    command = (
-        "terraform",
-        "plan",
-        "-detailed-exitcode",
-        "-input=false",
-        "-no-color",
-        f"-var-file={work_dir / 'application.auto.tfvars.json'}",
-    )
-    completed = subprocess.run(command, cwd=infra, check=False, capture_output=True, timeout=1800)
-    if completed.returncode != 0:
-        raise ValueError("standalone application second plan is not zero-change")
-    health = _container_app_health(context, infra)
+    stages: tuple[str, ...]
+    if _runtime_platform(context) == "aks":
+        stages = (
+            ("substrate", "runtime", "database", "application")
+            if _database_placement(context) == "postgres-aks"
+            else ("substrate", "runtime", "application")
+        )
+    else:
+        stages = ("application",)
+    for stage in stages:
+        infra, variables = _stage_paths(stage, context, work_dir)
+        _activate_terraform_stage(stage, context, work_dir)
+        command: tuple[str, ...] = (
+            "terraform",
+            "plan",
+            "-detailed-exitcode",
+            "-input=false",
+            "-no-color",
+            f"-var-file={variables}",
+        )
+        if stage == "substrate":
+            command += tuple(f"-target={target}" for target in _substrate_targets(context))
+        completed = subprocess.run(
+            command, cwd=infra, check=False, capture_output=True, timeout=1800
+        )
+        if completed.returncode != 0:
+            raise ValueError(f"standalone {stage} second plan is not zero-change")
+    health = _readback_stage("application", context)
     if not health:
         raise ValueError("standalone application runtime health is incomplete")
     receipt: dict[str, object] = {
@@ -885,6 +1367,7 @@ def _verify(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "state": "verified",
         "terraform_zero_change_verified": True,
         "runtime_health_verified": True,
+        "runtime_profile_digest": _runtime_profile_digest(context),
         "effect_verified": True,
         "mutation_performed": False,
         "subscription_ready": False,
@@ -911,6 +1394,199 @@ def _terraform_init(work_dir: Path, context: dict[str, object]) -> None:
         timeout=600,
         reason="standalone application remote state initialization failed",
     )
+
+
+def _stage_paths(stage: str, context: dict[str, object], work_dir: Path) -> tuple[Path, Path]:
+    platform = _runtime_platform(context)
+    if stage == "runtime":
+        if platform != "aks":
+            raise ValueError("runtime stage is only valid for AKS")
+        return Path(str(context["runtime_infra"])), work_dir / "runtime.auto.tfvars.json"
+    if stage == "database":
+        if platform != "aks":
+            raise ValueError("database stage is only valid for AKS")
+        return (
+            Path(str(context["database_infra"])),
+            work_dir / "database.auto.tfvars.json",
+        )
+    if stage == "application" and platform == "aks":
+        return (
+            Path(str(context["workloads_infra"])),
+            work_dir / "workloads.auto.tfvars.json",
+        )
+    return Path(str(context["infra"])), work_dir / "application.auto.tfvars.json"
+
+
+def _activate_terraform_stage(stage: str, context: dict[str, object], work_dir: Path) -> None:
+    platform = _runtime_platform(context)
+    if stage == "runtime":
+        data = context.get("runtime_terraform_data")
+    elif stage == "database":
+        data = context.get("database_terraform_data")
+    elif stage == "application" and platform == "aks":
+        data = context.get("workloads_terraform_data")
+    else:
+        data = context.get("terraform_data", str(work_dir / "terraform-data"))
+    if not isinstance(data, str) or not data:
+        raise ValueError(f"{stage} Terraform data path is unavailable")
+    path = Path(data)
+    if not path.is_absolute() or work_dir not in path.parents:
+        raise ValueError(f"{stage} Terraform data path is outside the managed work directory")
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.environ["TF_DATA_DIR"] = str(path)
+
+
+def _initialize_terraform_stage(stage: str, context: dict[str, object], work_dir: Path) -> None:
+    infra, _variables = _stage_paths(stage, context, work_dir)
+    if stage == "runtime":
+        state_key = context.get("runtime_state_key")
+    elif stage == "database":
+        state_key = context.get("database_state_key")
+    elif stage == "application" and _runtime_platform(context) == "aks":
+        state_key = context.get("workloads_state_key")
+    else:
+        state_key = context.get("state_key")
+    if not isinstance(state_key, str) or not state_key:
+        raise ValueError(f"{stage} Terraform state key is unavailable")
+    backend_example = infra / "backend.azurerm.tf.example"
+    backend = infra / "backend.tf"
+    if not backend.exists():
+        shutil.copyfile(backend_example, backend)
+        backend.chmod(0o600)
+    _configure_terraform(context)
+    _activate_terraform_stage(stage, context, work_dir)
+    _run(
+        (
+            "terraform",
+            "init",
+            "-input=false",
+            f"-backend-config=resource_group_name={context['state_resource_group']}",
+            f"-backend-config=storage_account_name={context['state_account']}",
+            f"-backend-config=container_name={context['state_container']}",
+            f"-backend-config=key={state_key}",
+        ),
+        cwd=infra,
+        timeout=600,
+        reason=f"{stage} Terraform remote state initialization failed",
+    )
+
+
+def _runtime_platform(context: dict[str, object]) -> str:
+    value = context.get("runtime_profile")
+    if value is None:
+        return "container-apps"
+    profile = _mapping(value, "runtime deployment profile")
+    platform = profile.get("runtime_platform")
+    if platform not in {"container-apps", "aks"}:
+        raise ValueError("runtime deployment platform is invalid")
+    return str(platform)
+
+
+def _database_placement(context: dict[str, object]) -> str:
+    value = context.get("runtime_profile")
+    if value is None:
+        return "postgres-flex"
+    profile = _mapping(value, "runtime deployment profile")
+    placement = profile.get("database_placement")
+    if placement not in {"postgres-flex", "postgres-aks"}:
+        raise ValueError("database placement is invalid")
+    return str(placement)
+
+
+def _substrate_targets(context: dict[str, object]) -> tuple[str, ...]:
+    if _database_placement(context) == "postgres-flex":
+        return _SUBSTRATE_TARGETS
+    excluded = {
+        "module.state_store",
+        "module.postgres_public_mode_private_endpoint",
+        "azurerm_key_vault_secret.state_store_dsn",
+        "azurerm_role_assignment.inventory_kv_secrets_user",
+        "azurerm_role_assignment.operator_api_kv_secrets_user",
+        "azurerm_role_assignment.isolated_executor_kv_secrets_user",
+    }
+    return tuple(target for target in _SUBSTRATE_TARGETS if target not in excluded)
+
+
+def _aks_workload(
+    component: str,
+    refs: dict[str, Any],
+    identity: dict[str, Any],
+    environment: dict[str, object],
+    secret_environment: dict[str, str],
+    readiness_path: str,
+    liveness_path: str,
+    *,
+    external: bool = False,
+    additional_identities: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, object]:
+    image_names = {
+        "core": "core-control-plane",
+        "operator": "operator-service",
+        "executor": "isolated-executor",
+        "ingestion": "document-ingestion-api",
+        "worker": "document-processing-worker",
+    }
+    image_name = image_names.get(component)
+    if image_name is None or not isinstance(refs.get(image_name), str):
+        raise ValueError(f"AKS {component} workload image is unavailable")
+    cpu, memory = {
+        "core": ("1000m", "2Gi"),
+        "operator": ("500m", "1Gi"),
+        "executor": ("500m", "1Gi"),
+        "ingestion": ("500m", "1Gi"),
+        "worker": ("500m", "1Gi"),
+    }[component]
+    return {
+        "component": component,
+        "image": refs[image_name],
+        "identity_resource_id": identity["resource_id"],
+        "identity_client_id": identity["client_id"],
+        "additional_identities": additional_identities or {},
+        "command": [],
+        "args": [],
+        "replicas": 2,
+        "max_replicas": 4,
+        "cpu": cpu,
+        "memory": memory,
+        "port": 8000,
+        "external": external,
+        "readiness_path": readiness_path,
+        "liveness_path": liveness_path,
+        "environment": {name: str(value) for name, value in environment.items()},
+        "secret_environment": secret_environment,
+    }
+
+
+def _aks_job(
+    refs: dict[str, Any],
+    identity: dict[str, Any],
+    command: list[str],
+    schedule: str,
+    environment: dict[str, object],
+    secret_environment: dict[str, str],
+    *,
+    component: str,
+    deadline_seconds: int,
+    retry_limit: int = 1,
+) -> dict[str, object]:
+    image = refs.get("core-control-plane")
+    if not isinstance(image, str):
+        raise ValueError("AKS scheduled job image is unavailable")
+    return {
+        "component": component,
+        "image": image,
+        "identity_resource_id": identity["resource_id"],
+        "identity_client_id": identity["client_id"],
+        "command": command,
+        "args": [],
+        "schedule": schedule,
+        "deadline_seconds": deadline_seconds,
+        "retry_limit": retry_limit,
+        "cpu": "500m",
+        "memory": "1Gi",
+        "environment": {name: str(value) for name, value in environment.items()},
+        "secret_environment": secret_environment,
+    }
 
 
 def _application_state_adoption(
@@ -1205,12 +1881,16 @@ def _deployment_binding(_args: argparse.Namespace, work_dir: Path) -> dict[str, 
     if not (work_dir / "substrate-receipt.json").is_file():
         raise ValueError("deployment binding requires verified substrate")
     context = _private_json(work_dir / "context.json", "standalone host context")
-    infra = Path(str(context["infra"]))
-    core_app_name = _terraform_output(infra, "core_app_name")
-    if re.fullmatch(r"[a-z][a-z0-9-]{1,31}", core_app_name) is None:
-        raise ValueError("Terraform core application name is invalid")
+    _managed_identity_login_from_context(context, work_dir)
+    if _runtime_platform(context) == "aks":
+        _activate_terraform_stage("runtime", context, work_dir)
+        runtime_name = _terraform_output(Path(str(context["runtime_infra"])), "cluster_name")
+    else:
+        runtime_name = _terraform_output(Path(str(context["infra"])), "core_app_name")
+    if re.fullmatch(r"[a-z][a-z0-9-]{1,62}", runtime_name) is None:
+        raise ValueError("Terraform runtime name is invalid")
     deployment_binding = hashlib.sha256(
-        (f"{context['tenant_id']}\0{context['subscription_id']}\0{core_app_name}").encode()
+        (f"{context['tenant_id']}\0{context['subscription_id']}\0{runtime_name}").encode()
     ).hexdigest()
     return {
         "schema_version": "fdai.standalone-deployment-binding.v1",
@@ -1245,8 +1925,9 @@ def _configure_terraform(context: dict[str, object]) -> None:
     ):
         raise ValueError("Terraform provider configuration differs from the verified kit")
     data.mkdir(mode=0o700, exist_ok=True)
+    kit_bin = Path(str(context.get("kit_bin", terraform.parent)))
     os.environ["PATH"] = os.pathsep.join(
-        (str(terraform.parent), "/usr/local/bin", "/usr/bin", "/bin")
+        (str(terraform.parent), str(kit_bin), "/usr/local/bin", "/usr/bin", "/bin")
     )
     os.environ["TF_CLI_CONFIG_FILE"] = str(config)
     os.environ["TF_DATA_DIR"] = str(data)
@@ -1384,6 +2065,7 @@ def _validate_approval(
         or review.get("review_digest") != canonical_digest(review_document)
         or review.get("target_binding") != context.get("target_binding")
         or review.get("source_commit") != context.get("source_commit")
+        or _runtime_profile_digest(review) != _runtime_profile_digest(context)
         or review_expiry <= now
         or set(approval) != expected
         or approval.get("schema_version") != "fdai.standalone-plan-approval.v1"
@@ -1424,7 +2106,85 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
             reason="standalone substrate ACR readback failed",
         )
         return value.strip() == "Succeeded"
+    if stage == "database":
+        kubeconfig = Path(str(context.get("kubeconfig", "")))
+        if not kubeconfig.is_file():
+            raise ValueError("AKS kubeconfig is unavailable for database readback")
+        result = subprocess.run(
+            (
+                "kubectl",
+                "rollout",
+                "status",
+                "statefulset/postgres",
+                "--namespace",
+                "fdai-data",
+                "--timeout=5m",
+                f"--kubeconfig={kubeconfig}",
+            ),
+            check=False,
+            capture_output=True,
+            timeout=360,
+        )
+        return result.returncode == 0
+    if stage == "runtime":
+        value = _capture(
+            (
+                "az",
+                "aks",
+                "show",
+                "--resource-group",
+                str(context["resource_group_name"]),
+                "--name",
+                _terraform_output(Path(str(context["runtime_infra"])), "cluster_name"),
+                "--subscription",
+                str(context["subscription_id"]),
+                "--query",
+                "provisioningState",
+                "--output",
+                "tsv",
+                "--only-show-errors",
+            ),
+            cwd=Path(str(context["runtime_infra"])),
+            timeout=60,
+            reason="standalone AKS cluster readback failed",
+        )
+        return value.strip() == "Succeeded"
+    if _runtime_platform(context) == "aks":
+        kubeconfig = Path(str(context.get("kubeconfig", "")))
+        if not kubeconfig.is_file():
+            raise ValueError("AKS kubeconfig is unavailable for workload readback")
+        result = subprocess.run(
+            (
+                "kubectl",
+                "rollout",
+                "status",
+                "deployment",
+                "--all",
+                "--namespace",
+                "fdai-runtime",
+                "--timeout=5m",
+                f"--kubeconfig={kubeconfig}",
+            ),
+            check=False,
+            capture_output=True,
+            timeout=360,
+        )
+        return result.returncode == 0
     return _container_app_health(context, Path(str(context["infra"])))
+
+
+def _runtime_profile_digest(context: dict[str, object]) -> str:
+    """Return the sealed profile digest, treating legacy context as the ACA default."""
+
+    value = context.get("runtime_profile_digest")
+    if value is None:
+        return RuntimeDeploymentProfile.create(
+            runtime_platform="container-apps",
+            database_placement="postgres-flex",
+        ).digest
+    if not isinstance(value, str) or _DIGEST.fullmatch(value) is None:
+        raise ValueError("standalone runtime profile digest is invalid")
+    return value
 
 
 def _container_app_health(context: dict[str, object], infra: Path) -> bool:
@@ -1575,6 +2335,19 @@ def _terraform_output(infra: Path, name: str) -> str:
     ).strip()
 
 
+def _terraform_json_output(infra: Path, name: str) -> object:
+    raw = _capture(
+        ("terraform", "output", "-json", name),
+        cwd=infra,
+        timeout=120,
+        reason="Terraform JSON output readback failed",
+    )
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError("Terraform JSON output is invalid") from exc
+
+
 def _run(command: tuple[str, ...] | list[str], *, cwd: Path, timeout: int, reason: str) -> None:
     result = subprocess.run(command, cwd=cwd, check=False, capture_output=True, timeout=timeout)
     if result.returncode != 0:
@@ -1654,6 +2427,14 @@ def _replace_private_json(path: Path, value: dict[str, object]) -> None:
     )
     os.replace(temporary, path)
     path.chmod(0o600)
+
+
+def _replace_or_verify_private_json(path: Path, value: dict[str, object]) -> None:
+    if path.exists():
+        if _private_json(path, path.name) != value:
+            raise ValueError(f"retained {path.name} differs")
+        return
+    _replace_private_json(path, value)
 
 
 def _mapping(value: object, label: str) -> dict[str, Any]:

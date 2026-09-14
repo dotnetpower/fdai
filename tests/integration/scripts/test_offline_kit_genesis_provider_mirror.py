@@ -18,6 +18,9 @@ ROOTS = (
     "infra/genesis-foundation",
     "infra/genesis-runner-image",
     "infra/scenario-lab",
+    "infra/runtimes/aks/cluster",
+    "infra/runtimes/aks/database",
+    "infra/runtimes/aks/workloads",
     "infra/services/core-control-plane",
     "infra/services/operator-service",
     "infra/services/document-ingestion-api",
@@ -28,6 +31,8 @@ ROOTS = (
 AZURERM = "registry.terraform.io/hashicorp/azurerm"
 AZAPI = "registry.terraform.io/azure/azapi"
 RANDOM = "registry.terraform.io/hashicorp/random"
+KUBERNETES = "registry.terraform.io/hashicorp/kubernetes"
+TLS = "registry.terraform.io/hashicorp/tls"
 
 
 def _bundle(path: Path) -> None:
@@ -39,6 +44,11 @@ def _bundle(path: Path) -> None:
             providers.append((AZAPI, "2.12.0"))
         if root == "infra/scenario-lab":
             providers.append((RANDOM, "3.7.2"))
+        if root in {"infra/runtimes/aks/database", "infra/runtimes/aks/workloads"}:
+            providers.append((KUBERNETES, "2.38.0"))
+        if root == "infra/runtimes/aks/database":
+            providers.append((RANDOM, "3.9.1"))
+            providers.append((TLS, "4.4.1"))
         (directory / ".terraform.lock.hcl").write_text(
             "".join(
                 f'provider "{provider}" {{\n  version = "{version}"\n}}\n'
@@ -117,6 +127,7 @@ def _run(
     fail_root: str = "",
     fail_command: str = "",
     helper: Path = HELPER,
+    python: str = sys.executable,
 ) -> subprocess.CompletedProcess[str]:
     terraform = work / "terraform"
     _fake_terraform(terraform)
@@ -130,6 +141,7 @@ def _run(
             "FAKE_PLATFORM": platform,
             "FAKE_FAIL_ROOT": fail_root,
             "FAKE_FAIL_COMMAND": fail_command,
+            "PYTHON": python,
             # The helper must override an ambient Terraform data directory.
             "TF_DATA_DIR": str(work / "bundle/ambient-data"),
         },
@@ -166,6 +178,9 @@ def test_all_bundled_roots_contribute_locked_providers(tmp_path: Path, platform:
         f"{AZURERM}/terraform-provider-azurerm_4.81.0_{platform}.zip",
         f"{AZAPI}/terraform-provider-azapi_2.12.0_{platform}.zip",
         f"{RANDOM}/terraform-provider-random_3.7.2_{platform}.zip",
+        f"{RANDOM}/terraform-provider-random_3.9.1_{platform}.zip",
+        f"{KUBERNETES}/terraform-provider-kubernetes_2.38.0_{platform}.zip",
+        f"{TLS}/terraform-provider-tls_4.4.1_{platform}.zip",
     }
     assert _snapshot(bundle) == before
     assert not (tmp_path / "mirror-src").exists()
@@ -279,7 +294,7 @@ os.execv(command[0], command)
     monkeypatch.setenv("FAKE_TIMEOUT_LOG", str(timeout_log))
     monkeypatch.setenv("FAKE_TIMEOUT_EXPIRE", "1" if expire else "0")
 
-    result = _run(tmp_path, helper=helper)
+    result = _run(tmp_path, helper=helper, python=str(shim))
 
     assert result.returncode == (124 if expire else 0), result.stderr
     assert len(timeout_log.read_text().splitlines()) == (4 if expire else 2 * len(ROOTS))

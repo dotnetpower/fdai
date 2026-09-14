@@ -41,3 +41,8 @@ output "evidence_target_subnet_prefix" {
   description = "CIDR of the isolated development OHL scale-out evidence subnet."
   value       = var.enable_evidence_target_subnet ? var.evidence_target_subnet_prefix : null
 }
+
+output "aks_subnet_id" {
+  description = "Dedicated AKS node subnet id, or null when the AKS runtime is not selected."
+  value       = length(azurerm_subnet.aks) > 0 ? azurerm_subnet.aks[0].id : null
+}
