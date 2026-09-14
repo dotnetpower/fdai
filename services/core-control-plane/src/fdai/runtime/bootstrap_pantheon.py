@@ -149,6 +149,7 @@ class PantheonInitializationResult:
     case_history_retention_publisher: CaseHistoryRetentionTickPublisher | None = None
     t2_recovery_maintenance: Any = None
     discovery_activation: DiscoveryActivationRuntime | None = None
+    alert_noise_handler: Any = None
 
 
 def _pantheon_enforce_enabled(
@@ -594,6 +595,19 @@ async def initialize_pantheon(
         pantheon_runtime.bridge,
         recovery_effect_observation_handler,
     )
+    from fdai.runtime.alert_noise import bind_alert_noise
+
+    alert_noise_handler = bind_alert_noise(
+        environment=config.environment,
+        runtime=pantheon_runtime,
+        store=config.incident_audit_store,
+        http=config.http_client,
+        identity=config.identity,
+        workflows=config.control_loop.alert_workflows,
+        admissions=config.container.decision_evidence_admission_provider,
+        artifacts=config.control_loop.alert_plan_artifacts,
+        processes=config.control_loop.process_runtime_store,
+    )
     thor_agent = pantheon_runtime.agents.get("Thor")
     if thor_agent is None:  # pragma: no cover - fixed Pantheon invariant
         raise RuntimeError("Pantheon runtime is missing Thor")
@@ -680,6 +694,7 @@ async def initialize_pantheon(
         case_history_retention_publisher=case_history_retention_publisher,
         t2_recovery_maintenance=t2_recovery_maintenance,
         discovery_activation=discovery_activation,
+        alert_noise_handler=alert_noise_handler,
     )
 
 

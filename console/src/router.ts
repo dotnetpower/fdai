@@ -12,6 +12,7 @@ export const PANEL_PATHS: Readonly<Record<string, string>> = {
   provision: "/provisioning",
   onboarding: "/onboarding",
   "detection-readiness": "/detection-readiness",
+  "alert-quality": "/alert-quality",
   "configuration-baselines": "/configuration-baselines",
   processes: "/processes",
   "workflow-apps": "/workflow-apps",

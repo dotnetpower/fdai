@@ -13,6 +13,8 @@ from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
 
+from fdai_service_contracts.alert_noise_wire import ALERT_NOISE_EVENT_TYPES, SignedAlertCommand
+
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import IntrospectionResult, capability_facts
@@ -200,11 +202,18 @@ class Huginn(Agent):
             raise ValueError("dedup_capacity MUST be >= 1")
         self._dedup_capacity = dedup_capacity
         self._discovery_projector = discovery_projector
+        self._alert_noise_verifier: Callable[[Mapping[str, Any]], object] | None = None
         # OrderedDict as an LRU set: key -> None, oldest first.
         self._seen_keys: OrderedDict[str, None] = OrderedDict()
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
+
+    def bind_alert_noise_verifier(self, verifier: Callable[[Mapping[str, Any]], object]) -> None:
+        """Bind deterministic authentication before alert requests can reserve a dedup key."""
+        if self._alert_noise_verifier is not None:
+            raise RuntimeError("alert ingress verifier is already bound")
+        self._alert_noise_verifier = verifier
 
     def health(self) -> dict[str, Any]:
         """Expose ingress / dedup state for Heimdall's probe."""
@@ -223,6 +232,13 @@ class Huginn(Agent):
         one is bound). Duplicates by ``idempotency_key`` are dropped
         and return ``None``.
         """
+        if (
+            raw.get("event_type") in ALERT_NOISE_EVENT_TYPES
+            or raw.get("source") == "operator-alert-noise"
+        ):
+            if self._alert_noise_verifier is None:
+                raise ValueError("alert ingress verifier is unavailable")
+            self._alert_noise_verifier(raw)
         key = str(raw.get("idempotency_key") or raw.get("id") or raw.get("event_id", ""))
         if not key:
             raise ValueError("event missing idempotency_key / id / event_id")
@@ -271,6 +287,12 @@ class Huginn(Agent):
             "attributes": attributes,
         }
         severity = raw.get("severity") or canonical_payload.get("severity")
+        if event_type in ALERT_NOISE_EVENT_TYPES:
+            signed = SignedAlertCommand.model_validate(canonical_payload.get("alert_noise"))
+            if signed.command.operation != event_type or raw.get("mode") != "shadow":
+                raise ValueError("alert quality ingress is mismatched or authority-bearing")
+            payload["alert_noise"] = signed.model_dump(mode="json")
+            payload["incident_correlation"] = "none"
         if isinstance(severity, str) and severity.strip():
             payload["severity"] = _bound(severity)
         if isinstance(inventory_change, Mapping):

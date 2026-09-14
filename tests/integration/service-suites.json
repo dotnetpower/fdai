@@ -71,6 +71,8 @@
       "test_groups": {
         "unit": [
           "services/operator-service/tests/test_adaptive_relationship.py",
+          "services/operator-service/tests/test_alert_quality.py",
+          "services/operator-service/tests/test_alert_quality_settings.py",
           "services/operator-service/tests/test_analyzer_lifecycle_projection.py",
           "services/operator-service/tests/test_assurance_twin_posture_projection.py",
           "services/operator-service/tests/test_autonomy_measurement_projection.py",

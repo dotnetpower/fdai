@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Any
 
@@ -125,6 +125,7 @@ async def _consume(
     stop: asyncio.Event,
     divergence: ShadowDivergenceLedger | None = None,
     irp_handler: Any | None = None,
+    alert_ingress_verifier: Callable[[Mapping[str, Any]], object] | None = None,
 ) -> None:
     """Feed every Kafka envelope through the P1 control loop.
 
@@ -146,6 +147,16 @@ async def _consume(
                 extra={"topic": envelope.topic, "offset": envelope.offset, "key": envelope.key},
             )
             try:
+                if envelope.payload.get("event_type") in {
+                    "alert_noise.assess",
+                    "alert_noise.propose",
+                }:
+                    # Dedicated signed Huginn/Heimdall/Forseti path owns this non-action request.
+                    # Never send alert-quality commands to generic residual T2 reasoning.
+                    if alert_ingress_verifier is None:
+                        raise ValueError("alert ingress verifier is unavailable")
+                    alert_ingress_verifier(envelope.payload)
+                    continue
                 result = await control_loop.process(envelope.payload)
             except Exception as exc:  # noqa: BLE001 - process boundary isolation
                 reason = f"control_loop_unhandled_error:{type(exc).__name__}"

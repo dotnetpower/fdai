@@ -36,6 +36,11 @@ from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from fdai_operator_service.alert_quality import (
+    ALERT_QUALITY_ROUTE_MANIFEST,
+    AlertQualityDependencies,
+    build_alert_quality_routes,
+)
 from fdai_operator_service.audit_filters import audit_sequence, audit_window
 from fdai_operator_service.auth import (
     AuthenticationError,
@@ -124,6 +129,7 @@ class OperatorRouteFamilies:
     report_pdf_encoder: ReportPdfEncoder | None = None
     operation_panels: tuple[PanelRoute, ...] = ()
     cost_governance: CostGovernanceFamilyDependencies | None = None
+    alert_quality: AlertQualityDependencies | None = None
 
 
 MINIMAL_ROUTE_MANIFEST: Final = (
@@ -470,6 +476,13 @@ def build_operator_app(
             )
         ),
         *make_iam_family_routes(route_families.iam),
+        *build_alert_quality_routes(
+            route_families.alert_quality
+            or AlertQualityDependencies(
+                authenticator=authenticator,
+                principal_scopes={},
+            )
+        ),
         *build_workflow_family_routes(
             authorize=route_families.workflow_authorize,
             read_store=route_families.workflow_read_store,
@@ -786,6 +799,10 @@ def aggregate_route_manifest(
     ownership = (
         *((RouteOwnership("GET", "/local-auth/me", "local-auth"),) if include_local_auth else ()),
         *MINIMAL_ROUTE_MANIFEST,
+        *(
+            RouteOwnership(method, path, "alert-quality")
+            for method, path, _ in ALERT_QUALITY_ROUTE_MANIFEST
+        ),
         *(
             RouteOwnership(item.method, item.path, "conversation")
             for item in CONVERSATION_ROUTE_MANIFEST

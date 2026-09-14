@@ -1,0 +1,294 @@
+{
+  "$defs": {
+    "NoiseFinding": {
+      "additionalProperties": false,
+      "description": "A bounded explanation keyed to evidence, never a mutation instruction.",
+      "properties": {
+        "rule_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Rule Ref",
+          "type": "string"
+        },
+        "service_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Service Ref",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "storm",
+            "flapping",
+            "overlap",
+            "broad_role",
+            "unowned",
+            "protected",
+            "incomplete"
+          ],
+          "title": "Reason",
+          "type": "string"
+        },
+        "guidance": {
+          "enum": [
+            "review-routing",
+            "review-evaluation",
+            "review-ownership",
+            "retain-protected",
+            "collect-evidence"
+          ],
+          "title": "Guidance",
+          "type": "string"
+        },
+        "source_episodes": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Source Episodes"
+        },
+        "observed_deliveries": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Observed Deliveries"
+        },
+        "potential_recipients_lower": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Potential Recipients Lower"
+        },
+        "potential_recipients_upper": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Potential Recipients Upper"
+        },
+        "duplicate_paths": {
+          "default": 0,
+          "maximum": 10000000,
+          "minimum": 0,
+          "title": "Duplicate Paths",
+          "type": "integer"
+        },
+        "protected": {
+          "title": "Protected",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "rule_ref",
+        "service_ref",
+        "reason",
+        "guidance",
+        "source_episodes",
+        "observed_deliveries",
+        "protected"
+      ],
+      "title": "NoiseFinding",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Privacy-minimized report binding counts and findings to a frozen input.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "const": "alert-noise-evidence",
+      "default": "alert-noise-evidence",
+      "title": "Source",
+      "type": "string"
+    },
+    "evidence_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Evidence Digest",
+      "type": "string"
+    },
+    "policy_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Policy Digest",
+      "type": "string"
+    },
+    "tenant_ref": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Tenant Ref",
+      "type": "string"
+    },
+    "scope_ref": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Scope Ref",
+      "type": "string"
+    },
+    "observed_at": {
+      "format": "date-time",
+      "title": "Observed At",
+      "type": "string"
+    },
+    "valid_until": {
+      "format": "date-time",
+      "title": "Valid Until",
+      "type": "string"
+    },
+    "window_start": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Window Start"
+    },
+    "window_end": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Window End"
+    },
+    "coverage": {
+      "enum": [
+        "complete",
+        "partial",
+        "unavailable"
+      ],
+      "title": "Coverage",
+      "type": "string"
+    },
+    "reasons": {
+      "items": {
+        "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+        "type": "string"
+      },
+      "maxItems": 32,
+      "title": "Reasons",
+      "type": "array"
+    },
+    "source_episodes": {
+      "anyOf": [
+        {
+          "maximum": 10000000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Source Episodes"
+    },
+    "notification_attempts": {
+      "anyOf": [
+        {
+          "maximum": 10000000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Notification Attempts"
+    },
+    "confirmed_deliveries": {
+      "anyOf": [
+        {
+          "maximum": 10000000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Confirmed Deliveries"
+    },
+    "acknowledgements": {
+      "anyOf": [
+        {
+          "maximum": 10000000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Acknowledgements"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/NoiseFinding"
+      },
+      "maxItems": 10000,
+      "title": "Findings",
+      "type": "array"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "evidence_digest",
+    "policy_digest",
+    "tenant_ref",
+    "scope_ref",
+    "observed_at",
+    "valid_until",
+    "coverage",
+    "reasons",
+    "source_episodes",
+    "notification_attempts",
+    "confirmed_deliveries",
+    "acknowledgements",
+    "findings"
+  ],
+  "title": "NoiseAssessment",
+  "type": "object",
+  "$id": "https://fdai.dev/service-contracts/alert-noise-assessment/1.0.0"
+}

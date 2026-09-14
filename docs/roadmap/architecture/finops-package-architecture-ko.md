@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: a66cbc4784a7a8af550e404bcff1e32573d17986
-translation_revised: 2026-09-14
+translation_source_sha: e5d5cd2d360e67410fb1c61380918c8c2f7369a8
+translation_revised: 2026-09-15
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -247,6 +247,9 @@ Core는 `fdai_cost_governance`를 가져오지 않습니다. 설치된 배포판
 호스트 연결부로 유지됩니다. 이 연결부에 Azure Monitor 수집이나 백그라운드 작업 변환 결과 같은
 독립 기능을 추가해도 비용 거버넌스 동작으로 등록되지는 않습니다. 비용 거버넌스는 검토된 패키지 매니페스트, 정확한 번들,
 프로바이더 요구 사항 및 배포 gate를 통해서만 활성화됩니다.
+[알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)도 이 호스트에서 범위가 분리된
+요청, 선호 설정 계약 및 서명된 결과 중계를 사용합니다. shadow 우선 연결은 Cost Governance 활성화,
+비용 데이터 접근 권한 부여, Njord 소유 기록 발행 또는 패키지 승격을 수행할 수 없습니다.
 공유 정적 카탈로그 검사가 다른 라우트 전용 영어 카탈로그를 등록해도 비용 거버넌스 동작을
 추가하거나 선택적 패키지를 활성화하지 않습니다.
 같은 호스트 인증기가 범위가 제한된 검증 사용자명을 IAM 표시 변환 결과에 전달할 수 있습니다.

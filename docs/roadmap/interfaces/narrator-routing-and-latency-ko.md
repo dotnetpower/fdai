@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 37538718a79418e666abb799fce1d26018b942e3
-translation_revised: 2026-09-14
+translation_source_sha: 4b8916e13247160a21f43e3bc8ab21205a73e19b
+translation_revised: 2026-09-15
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -23,6 +23,11 @@ Console은 운영자 문장에서 배포를 선택하거나 실행 권한을 받
 Core는 별도의 범위가 제한된 준비 상태 경로에서 구성된 모델 대상을 검증합니다. 모델 ID를
 사용할 수 없으면 의미 전송을 계속 실행하면서 계획 전에 타입이 지정된 인증 보류 결과를
 반환합니다. 어휘 기반 라우팅으로 대체하거나 Operator HTTP ID를 빌려 쓰지 않습니다.
+
+[알림 품질 API](../operations/alert-noise-governance-ko.md)는 대화 라우팅의 우회 경로가 아니라
+명시적인 타입 지정 `alert_noise.assess`, `alert_noise.propose` 요청을 받습니다. 결정론적 평가는
+어휘 기반 의도 분기나 T2 대체 경로를 추가하지 않습니다. 자연어의 의미에는 여전히 의미 판정이
+필요하며 타입 지정 요청이나 서술기 문장으로 작업 권한이 생기지 않습니다.
 
 ### Core 소유 mini 후보 선택
 

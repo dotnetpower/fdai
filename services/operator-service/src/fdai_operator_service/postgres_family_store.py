@@ -2430,6 +2430,12 @@ class PostgresFamilyStore:
             attempt=attempt,
         )
 
+    async def claim_alert_quality_proposal(self) -> tuple[str, str, Mapping[str, Any]] | None:
+        """Lease one existing alert-quality outbox request without applying an effect."""
+        from fdai_operator_service.alert_quality_outbox import claim_alert_quality
+
+        return await claim_alert_quality(self._fetch_all)
+
     async def claim_incident_intervention_proposal(
         self,
         *,

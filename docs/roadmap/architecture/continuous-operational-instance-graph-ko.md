@@ -1,13 +1,18 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 4aba9ca3f3c5baa0fb402f6b1947b3fa9962d596
-translation_revised: 2026-09-13
+translation_source_sha: 32fc0f13089674b726900d7e3e307ccf8d50f239
+translation_revised: 2026-09-15
 ---
 # 지속형 운영 인스턴스 그래프
 
 이 문서는 클라우드 리소스 인스턴스, 관계, 관측 상태를 FDAI 온톨로지에서 최신으로
 유지하는 런타임 계약을 소유합니다. 수집은 지속적이며 부하를 고려하고, 원시 이력은 타입이
 지정된 rollup과 검증된 archive를 거쳐 활성 데이터 플레인의 크기를 제한합니다.
+
+[알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)는 경보, 수신 대상 및 전달 근거를
+별도의 비공개 기록으로 보존합니다. 이 기록이나 범위 연결로 인벤토리 세대를 승격하거나 관측된
+그래프 사실을 만들거나 전체 역방향 의존성을 입증하지 않습니다. 공급자 이력이나 디렉터리
+근거가 없으면 부분 상태를 유지하며 이 그래프의 관측 및 단일 작성자 규칙은 바뀌지 않습니다.
 
 > **범위 경계:** 이 설계는 공급자 관측, 온톨로지 인스턴스 변환 결과, 최신성, 압축,
 > archive, 그래프 우선 조회를 다룹니다. 승인, 변경, 실행 권한을 부여하지 않습니다.

@@ -1,0 +1,37 @@
+schema_version: "1.0.0"
+name: alert-evaluation-change
+version: "1.0.0"
+description: >-
+  Obtain independent approval for one immutable single-axis alert evaluation plan
+  before proposing its manual IaC change, with plan-bound compensation and independent detection checks.
+trigger:
+  kind: signal
+  signal_type: alert_noise.evaluation.proposed
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 30
+  min_samples: 100
+  min_accuracy: 1.0
+  max_policy_escapes: 0
+steps:
+  - id: approve_plan
+    kind: approval
+    approval_role: owner
+    quorum: 2
+    no_self_approval: true
+    timeout_seconds: 3600
+  - id: tune_evaluation
+    kind: action
+    action_type_ref: ops.tune-alert-evaluation
+    compensated_by: ops.restore-alert-configuration
+    timeout_seconds: 3600
+    params:
+      plan_digest: '${event.payload.alert_plan.plan_digest}'
+anti_scope: >-
+  No standing authorization, detector deletion or disablement, mixed treatment axes,
+  protected-alert tuning, inline actions, direct API fallback or dependency impact
+  beyond one resource group. The action port must revalidate current service-owner
+  and distinct Owner approvals for the exact plan, excluding requester and executor,
+  and enforce all seven safeguards plus native-rule recall and latency checks.
+  Compensation uses the same forward plan digest and separately current recovery
+  authority. Fewer notifications or a merged PR does not establish detection quality.

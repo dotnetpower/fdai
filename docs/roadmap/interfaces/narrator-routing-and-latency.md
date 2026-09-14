@@ -23,6 +23,11 @@ Core verifies the configured model audiences through a separate bounded readines
 identity is unavailable, semantic transport remains active and returns a typed authentication hold
 before planning; it does not fall back to lexical routing or borrow the Operator HTTP identity.
 
+The [alert-quality API](../operations/alert-noise-governance.md) accepts explicit typed
+`alert_noise.assess` and `alert_noise.propose` requests, not a conversational routing shortcut.
+Its deterministic assessment adds no lexical intent branch or T2 fallback. Natural-language meaning
+still requires semantic judgment; neither a typed request nor narrator text grants action authority.
+
 ### Core-owned mini candidate selection
 
 Core reuses the verified narrator candidate pool and admits at most four mini candidates. Exact

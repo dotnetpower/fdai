@@ -1,0 +1,687 @@
+{
+  "$defs": {
+    "AlertDelivery": {
+      "additionalProperties": false,
+      "description": "One source event/destination observation; unknown delivery is never zero.",
+      "properties": {
+        "ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "episode_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Episode Ref",
+          "type": "string"
+        },
+        "rule_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Rule Ref",
+          "type": "string"
+        },
+        "rule_revision": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rule Revision"
+        },
+        "audience_ref": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Audience Ref"
+        },
+        "attempt_ref": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attempt Ref"
+        },
+        "acknowledger_ref": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Acknowledger Ref"
+        },
+        "condition": {
+          "enum": [
+            "fired",
+            "resolved"
+          ],
+          "title": "Condition",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "source",
+            "attempted",
+            "accepted",
+            "delivered",
+            "acknowledged",
+            "failed"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "event_at": {
+          "format": "date-time",
+          "title": "Event At",
+          "type": "string"
+        },
+        "receipt_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Receipt Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref",
+        "episode_ref",
+        "rule_ref",
+        "condition",
+        "state",
+        "event_at",
+        "receipt_ref"
+      ],
+      "title": "AlertDelivery",
+      "type": "object"
+    },
+    "AlertGroup": {
+      "additionalProperties": false,
+      "description": "Observed group with all reverse dependencies and non-notification effects.",
+      "properties": {
+        "ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Revision",
+          "type": "string"
+        },
+        "audience_refs": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 128,
+          "title": "Audience Refs",
+          "type": "array"
+        },
+        "rule_refs": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 2000,
+          "title": "Rule Refs",
+          "type": "array"
+        },
+        "automation_refs": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 128,
+          "title": "Automation Refs",
+          "type": "array"
+        },
+        "reverse_complete": {
+          "default": false,
+          "title": "Reverse Complete",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref",
+        "revision",
+        "audience_refs",
+        "rule_refs"
+      ],
+      "title": "AlertGroup",
+      "type": "object"
+    },
+    "AlertRule": {
+      "additionalProperties": false,
+      "description": "Exact observed configuration linked to service and policy, not caller labels.",
+      "properties": {
+        "ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "resource_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Resource Ref",
+          "type": "string"
+        },
+        "service_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Service Ref",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Revision",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "metric",
+            "log",
+            "activity",
+            "processing",
+            "unknown"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "severity": {
+          "anyOf": [
+            {
+              "maximum": 4,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Severity"
+        },
+        "classification": {
+          "default": "unknown",
+          "enum": [
+            "informational",
+            "operational",
+            "security",
+            "compliance",
+            "slo",
+            "recovery",
+            "service_health",
+            "telemetry_loss",
+            "approval",
+            "unknown"
+          ],
+          "title": "Classification",
+          "type": "string"
+        },
+        "group_refs": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 5,
+          "title": "Group Refs",
+          "type": "array"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "stateful": {
+          "default": true,
+          "title": "Stateful",
+          "type": "boolean"
+        },
+        "evaluation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Evaluation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "active_incident": {
+          "default": false,
+          "title": "Active Incident",
+          "type": "boolean"
+        },
+        "iac_owned": {
+          "default": false,
+          "title": "Iac Owned",
+          "type": "boolean"
+        },
+        "ownership_verified": {
+          "default": false,
+          "title": "Ownership Verified",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref",
+        "resource_ref",
+        "service_ref",
+        "revision",
+        "kind"
+      ],
+      "title": "AlertRule",
+      "type": "object"
+    },
+    "Audience": {
+      "additionalProperties": false,
+      "description": "A destination and verified scoped identity expansion, never an email address.",
+      "properties": {
+        "ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "direct",
+            "group",
+            "role",
+            "channel",
+            "oncall"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "member_refs": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 2000,
+          "title": "Member Refs",
+          "type": "array"
+        },
+        "potential_members": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Potential Members"
+        },
+        "coverage": {
+          "enum": [
+            "complete",
+            "partial",
+            "unavailable"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Revision",
+          "type": "string"
+        },
+        "primary_verified": {
+          "default": false,
+          "title": "Primary Verified",
+          "type": "boolean"
+        },
+        "backup_verified": {
+          "default": false,
+          "title": "Backup Verified",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref",
+        "kind",
+        "coverage",
+        "revision"
+      ],
+      "title": "Audience",
+      "type": "object"
+    },
+    "Evaluation": {
+      "additionalProperties": false,
+      "description": "Supported threshold semantics; complex native criteria remain unsupported.",
+      "properties": {
+        "metric_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Metric Ref",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "above",
+            "below"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "threshold": {
+          "title": "Threshold",
+          "type": "number"
+        },
+        "window_seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Window Seconds",
+          "type": "integer"
+        },
+        "frequency_seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Frequency Seconds",
+          "type": "integer"
+        },
+        "aggregation": {
+          "enum": [
+            "average",
+            "maximum",
+            "minimum"
+          ],
+          "title": "Aggregation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metric_ref",
+        "operator",
+        "threshold",
+        "window_seconds",
+        "frequency_seconds",
+        "aggregation"
+      ],
+      "title": "Evaluation",
+      "type": "object"
+    },
+    "EvidenceStamp": {
+      "additionalProperties": false,
+      "description": "Source-bound time, completeness and privacy-safe provenance.",
+      "properties": {
+        "source": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Source",
+          "type": "string"
+        },
+        "tenant_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Tenant Ref",
+          "type": "string"
+        },
+        "scope_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Scope Ref",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Revision",
+          "type": "string"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "recorded_at": {
+          "format": "date-time",
+          "title": "Recorded At",
+          "type": "string"
+        },
+        "valid_until": {
+          "format": "date-time",
+          "title": "Valid Until",
+          "type": "string"
+        },
+        "coverage": {
+          "enum": [
+            "complete",
+            "partial",
+            "unavailable"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
+        "synthetic": {
+          "default": false,
+          "title": "Synthetic",
+          "type": "boolean"
+        },
+        "reasons": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Reasons",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source",
+        "tenant_ref",
+        "scope_ref",
+        "revision",
+        "observed_at",
+        "recorded_at",
+        "valid_until",
+        "coverage"
+      ],
+      "title": "EvidenceStamp",
+      "type": "object"
+    },
+    "ProcessingRule": {
+      "additionalProperties": false,
+      "description": "Exact finite effective-rule projection; unknown filters fail closed.",
+      "properties": {
+        "ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Revision",
+          "type": "string"
+        },
+        "rule_refs": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 2000,
+          "title": "Rule Refs",
+          "type": "array"
+        },
+        "action": {
+          "enum": [
+            "suppress",
+            "add"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "group_refs": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 5,
+          "title": "Group Refs",
+          "type": "array"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "effective_from": {
+          "format": "date-time",
+          "title": "Effective From",
+          "type": "string"
+        },
+        "effective_to": {
+          "format": "date-time",
+          "title": "Effective To",
+          "type": "string"
+        },
+        "semantics_complete": {
+          "default": false,
+          "title": "Semantics Complete",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref",
+        "revision",
+        "rule_refs",
+        "action",
+        "enabled",
+        "effective_from",
+        "effective_to"
+      ],
+      "title": "ProcessingRule",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Bounded frozen evidence with explicit independent-collection availability.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "stamp": {
+      "$ref": "#/$defs/EvidenceStamp"
+    },
+    "window_start": {
+      "format": "date-time",
+      "title": "Window Start",
+      "type": "string"
+    },
+    "window_end": {
+      "format": "date-time",
+      "title": "Window End",
+      "type": "string"
+    },
+    "rules": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AlertRule"
+      },
+      "maxItems": 2000,
+      "title": "Rules",
+      "type": "array"
+    },
+    "groups": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AlertGroup"
+      },
+      "maxItems": 1000,
+      "title": "Groups",
+      "type": "array"
+    },
+    "audiences": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Audience"
+      },
+      "maxItems": 2000,
+      "title": "Audiences",
+      "type": "array"
+    },
+    "processing_rules": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ProcessingRule"
+      },
+      "maxItems": 1000,
+      "title": "Processing Rules",
+      "type": "array"
+    },
+    "deliveries": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AlertDelivery"
+      },
+      "maxItems": 10000,
+      "title": "Deliveries",
+      "type": "array"
+    },
+    "delivery_coverage": {
+      "default": "unavailable",
+      "enum": [
+        "complete",
+        "partial",
+        "unavailable"
+      ],
+      "title": "Delivery Coverage",
+      "type": "string"
+    },
+    "history_coverage": {
+      "default": "unavailable",
+      "enum": [
+        "complete",
+        "partial",
+        "unavailable"
+      ],
+      "title": "History Coverage",
+      "type": "string"
+    },
+    "independent_collection": {
+      "default": false,
+      "title": "Independent Collection",
+      "type": "boolean"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "stamp",
+    "window_start",
+    "window_end"
+  ],
+  "title": "AlertEvidence",
+  "type": "object",
+  "$id": "https://fdai.dev/service-contracts/alert-noise-evidence/1.0.0"
+}

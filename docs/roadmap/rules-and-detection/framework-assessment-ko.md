@@ -1,8 +1,8 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: b036f144e4e478e39acc318b686449249078188a
-translation_revised: 2026-09-13
+translation_source_sha: ba7fc48d45fbd0d6f04aa0c3e7145fe46081eb71
+translation_revised: 2026-09-15
 ---
 # WAF 및 CAF 근거 기반 평가
 
@@ -43,6 +43,11 @@ Framework(CAF) 카탈로그를 범위에 결합되고 재현 가능한 shadow �
 공유 Operator 보낼 편지함 수명 주기 facade는 Incident 개입 작업자도 감독할 수 있습니다. 해당
 논리 토픽은 명시적으로 허용 목록에 등록되며, 해당 요청과 준비 상태는 WAF 또는 CAF 범위,
 근거 수락, 재현, 결과에 들어가지 않습니다.
+
+[알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)는 공유 호스트에 별도 알림 품질
+경로, 작업별 발신함 점유 및 서명된 결과 소비자를 추가합니다. 알림 근거, 선호 설정, 생산자
+상태로 WAF/CAF 근거나 준비 상태를 충족할 수 없습니다. 기존 평가 범위, 카탈로그 고정값,
+수락 및 준비 상태 기준은 바뀌지 않으며 알림 결과로 이 항목을 갱신하지 않습니다.
 
 ## 설계 결정 및 비판
 

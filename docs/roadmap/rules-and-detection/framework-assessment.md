@@ -43,6 +43,11 @@ The shared Operator outbox lifecycle facade can also supervise the Incident inte
 Its explicitly allowlisted logical topic, requests, and readiness state do not enter WAF or CAF
 scope, evidence admission, replay, or results.
 
+[Alert noise governance](../operations/alert-noise-governance.md) adds distinct alert-quality routes,
+operation-filtered outbox claims, and a signed result consumer to the shared host. Alert evidence,
+preferences, and producer health cannot satisfy WAF/CAF evidence or readiness. Existing assessment
+scope, catalog pins, admission, and readiness criteria are unchanged; no alert result updates them.
+
 ## Design decision and critique
 
 ### Rejected: copy the WARA runtime

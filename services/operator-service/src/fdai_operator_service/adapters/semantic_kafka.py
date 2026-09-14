@@ -14,6 +14,7 @@ from typing import Any, Literal
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.abc import AbstractTokenProvider
 from azure.identity.aio import ManagedIdentityCredential
+from fdai_service_contracts.alert_noise_wire import ALERT_NOISE_RESULT_TOPIC
 from fdai_service_contracts.framework_assessment import FRAMEWORK_ASSESSMENT_TOPIC
 from fdai_service_contracts.incident_intervention import (
     INCIDENT_INTERVENTION_REQUEST_TOPIC,
@@ -60,6 +61,7 @@ class OperatorSemanticKafkaConfig:
     background_task_projection_topic: str | None = None
     wara_assessment_topic: str = WARA_ASSESSMENT_TOPIC
     framework_assessment_topic: str = FRAMEWORK_ASSESSMENT_TOPIC
+    alert_quality_topic: str = ALERT_NOISE_RESULT_TOPIC
     event_topic: str | None = None
     hil_decision_topic: str | None = None
     notification_receipt_topic: str | None = None
@@ -83,6 +85,11 @@ class OperatorSemanticKafkaConfig:
         ):
             raise ValueError("semantic Kafka topics MUST be distinct valid topic names")
         configured_topics = set(semantic_topics)
+        _require_distinct_topic(
+            self.alert_quality_topic,
+            occupied=configured_topics,
+            error_message="alert quality topic MUST be distinct and valid",
+        )
         _require_distinct_topic(
             self.read_investigation_topic,
             occupied=configured_topics,
@@ -213,6 +220,7 @@ class OperatorSemanticKafkaBus:
         if self._config.notification_receipt_topic is not None:
             allowed.add(self._config.notification_receipt_topic)
         allowed.add(self._config.incident_intervention_topic)
+        allowed.add(self._config.alert_quality_topic + self._config.dlq_suffix)
         if topic not in allowed:
             raise ValueError("semantic Kafka publish topic is not configured")
         producer = await self._get_producer()
@@ -274,6 +282,7 @@ class OperatorSemanticKafkaBus:
             self._config.background_task_projection_topic,
             self._config.wara_assessment_topic,
             self._config.framework_assessment_topic,
+            self._config.alert_quality_topic,
         }:
             raise ValueError("semantic Kafka subscription topic is not configured")
         physical_topic = self._config.physical_topic or topic

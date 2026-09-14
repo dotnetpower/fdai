@@ -15,6 +15,7 @@ from fdai.core.control_loop._helpers import (
     evaluate_unified,
 )
 from fdai.core.control_loop._safeguard_commitment import ControlLoopSafeguardCommitmentMixin
+from fdai.core.detection.alert_noise.execution import ALERT_ACTIONS
 from fdai.core.executor import ExecutionResult, ExecutorOutcome, ShadowExecutor
 from fdai.core.executor.direct_api import DirectApiExecutionResult
 from fdai.core.executor.port import DirectApiExecutionPort
@@ -388,6 +389,10 @@ class ControlLoopExecutionMixin(
                 ),
             )
         execution_ended_at = self._clock()
+        if action.action_type in ALERT_ACTIONS:
+            # Only the exact alert observer may close delivery/recall claims. A generic
+            # PR or target-health observer cannot turn publication into alert improvement.
+            return result
         request_production = await self._produce_effect_reconciliation_request(
             action=action,
             result=result,
