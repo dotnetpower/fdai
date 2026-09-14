@@ -231,4 +231,31 @@ describe("browser notification boundary", () => {
       .toBe("duplicate");
     expect(readLatestBrowserAlertReceipt("principal-a", now + 1, storage)).toBeNull();
   });
+
+  test("retains delivery evidence after the five-minute duplicate window", () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value); },
+      removeItem: (key: string) => { values.delete(key); },
+    };
+    const now = 1_800_000_000_000;
+    expect(claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage)).toBe("claimed");
+    expect(recordBrowserAlertDelivered(
+      "fdai:event-1",
+      "principal-a",
+      now + 1,
+      storage,
+    )).not.toBeNull();
+
+    const delayedClick = now + 6 * 60_000;
+    expect(acknowledgeBrowserAlertDelivery(
+      "fdai:event-1",
+      "principal-a",
+      delayedClick,
+      storage,
+    )?.acknowledgedAt).toBe(delayedClick);
+    expect(readLatestBrowserAlertReceipt("principal-a", delayedClick, storage)?.tag)
+      .toBe("fdai:event-1");
+  });
 });
