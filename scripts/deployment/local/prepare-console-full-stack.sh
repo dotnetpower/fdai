@@ -460,7 +460,9 @@ run_stage \
   materialize_catalogs
 run_stage \
   service-environments \
-  "$(path_digest "${service_environment_inputs[@]}")" \
+  "$(configuration_digest \
+    "$(path_digest "${service_environment_inputs[@]}")" \
+    "auth-mode=$auth_mode")" \
   prepare_service_environments \
   "$repo_root/.fdai/local-operator-service.env" \
   "$repo_root/.fdai/local-document-ingestion-api.env" \

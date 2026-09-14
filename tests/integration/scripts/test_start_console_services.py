@@ -443,6 +443,7 @@ def _staged_preparation_repo(
     tmp_path: Path,
     *,
     stale_stage: str | None = None,
+    auth_mode: str = "browser-entra",
 ) -> tuple[Path, dict[str, str]]:
     repo = tmp_path / "repo"
     prepare_script = repo / "scripts/deployment/local/prepare-console-full-stack.sh"
@@ -489,6 +490,10 @@ def _staged_preparation_repo(
                 stage_digest = hashlib.sha256(
                     f"{digest}\nkubernetes=0\nteams-notifications=0\nno-azure-deployment=0\nlocal-resource-group=\n".encode()
                 ).hexdigest()
+            if stage == "service-environments":
+                stage_digest = hashlib.sha256(
+                    f"{digest}\nauth-mode={auth_mode}\n".encode()
+                ).hexdigest()
             (marker_dir / f"{stage}.sha256").write_text(
                 f"{stage_digest}\n",
                 encoding="utf-8",
@@ -533,11 +538,20 @@ def test_authoritative_settings_stage_tracks_runtime_setting_definitions() -> No
     assert "services/core-control-plane/src/fdai/delivery/runtime_settings.py" in script
 
 
-def test_preparation_reuses_each_unchanged_stage_when_stack_is_stopped(tmp_path: Path) -> None:
-    repo, environment = _staged_preparation_repo(tmp_path)
+@pytest.mark.parametrize("auth_mode", ["browser-entra", "azure-cli"])
+def test_preparation_reuses_each_unchanged_stage_when_stack_is_stopped(
+    tmp_path: Path,
+    auth_mode: str,
+) -> None:
+    repo, environment = _staged_preparation_repo(tmp_path, auth_mode=auth_mode)
 
     result = subprocess.run(  # noqa: S603 - fixed test script and executable.
-        [_BASH, str(repo / "scripts/deployment/local/prepare-console-full-stack.sh")],
+        [
+            _BASH,
+            str(repo / "scripts/deployment/local/prepare-console-full-stack.sh"),
+            "--auth-mode",
+            auth_mode,
+        ],
         cwd=repo,
         env=environment,
         capture_output=True,
