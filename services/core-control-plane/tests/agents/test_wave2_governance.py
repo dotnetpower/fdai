@@ -1137,8 +1137,87 @@ def test_norns_durable_issue_dedup_survives_restart() -> None:
     asyncio.run(restarted.on_typed_message("object.issue", dict(payload)))
 
     assert first.occurrences("durable-fingerprint") == 1
-    assert restarted.occurrences("durable-fingerprint") == 0
+    assert restarted.occurrences("durable-fingerprint") == 1
     assert restarted.behavior_snapshot()["issue_learning_duplicate"] == 1
+
+
+def test_norns_resumes_claim_interrupted_before_fingerprint_apply() -> None:
+    class _FailFirstFingerprintApply(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.failed = False
+
+        async def write_state_with_audit_if_absent(
+            self,
+            key,
+            value,
+            audit_entry,
+        ):  # noqa: ANN001, ANN201
+            if "/fingerprints/" in key and not self.failed:
+                self.failed = True
+                raise RuntimeError("fingerprint apply interrupted")
+            return await super().write_state_with_audit_if_absent(
+                key,
+                value,
+                audit_entry,
+            )
+
+    store = _FailFirstFingerprintApply()
+    payload = {
+        "fingerprint": "interrupted-fingerprint",
+        "idempotency_key": "handoff:interrupted-operation",
+    }
+
+    with pytest.raises(RuntimeError, match="fingerprint apply interrupted"):
+        asyncio.run(
+            Norns(
+                promotion_threshold=1,
+                issue_state_store=store,
+            ).on_typed_message("object.issue", dict(payload))
+        )
+
+    restarted = Norns(promotion_threshold=1, issue_state_store=store)
+    asyncio.run(restarted.on_typed_message("object.issue", dict(payload)))
+
+    assert restarted.occurrences("interrupted-fingerprint") == 1
+    assert len(restarted.pending_candidates) == 1
+    assert restarted.pending_candidates[0]["evidence"]["fingerprint"] == "interrupted-fingerprint"
+
+
+def test_norns_rebuilds_pending_candidate_after_restart() -> None:
+    store = InMemoryStateStore()
+    payload = {
+        "fingerprint": "pending-candidate-fingerprint",
+        "idempotency_key": "handoff:pending-candidate-operation",
+    }
+    first = Norns(promotion_threshold=1, issue_state_store=store)
+    asyncio.run(first.on_typed_message("object.issue", dict(payload)))
+    assert len(first.pending_candidates) == 1
+
+    restarted = Norns(promotion_threshold=1, issue_state_store=store)
+    asyncio.run(restarted.on_typed_message("object.issue", dict(payload)))
+
+    assert restarted.occurrences("pending-candidate-fingerprint") == 1
+    assert len(restarted.pending_candidates) == 1
+
+
+def test_norns_does_not_rebuild_delivered_candidate_after_restart() -> None:
+    store = InMemoryStateStore()
+    bus = InMemoryBus(registry=load_pantheon())
+    payload = {
+        "fingerprint": "delivered-candidate-fingerprint",
+        "idempotency_key": "handoff:delivered-candidate-operation",
+    }
+    first = Norns(promotion_threshold=1, issue_state_store=store)
+    first.bind_bus(bus)
+    asyncio.run(first.on_typed_message("object.issue", dict(payload)))
+    assert len(bus.messages_on("object.rule-candidate")) == 1
+
+    restarted = Norns(promotion_threshold=1, issue_state_store=store)
+    asyncio.run(restarted.on_typed_message("object.issue", dict(payload)))
+
+    assert restarted.occurrences("delivered-candidate-fingerprint") == 1
+    assert restarted.pending_candidates == []
 
 
 def test_norns_durable_issue_operation_rejects_fingerprint_collision() -> None:
@@ -1155,7 +1234,7 @@ def test_norns_durable_issue_operation_rejects_fingerprint_collision() -> None:
         )
     )
 
-    with pytest.raises(ValueError, match="collides with a fingerprint"):
+    with pytest.raises(ValueError, match="collides with"):
         asyncio.run(
             norns.on_typed_message(
                 "object.issue",

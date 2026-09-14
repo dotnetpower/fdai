@@ -280,6 +280,7 @@ class Norns(Agent):
         # directly.
         # Off-path batch: forward any newly-formed inert candidates to Mimir.
         await self._flush_candidates_unlocked()
+        await self._issue_deduplicator.after_flush(self)
 
     def _observe_operational_case_cohort(self, payload: dict[str, Any]) -> None:
         if payload.get("producer_principal") != "Muninn":

@@ -645,8 +645,10 @@ Saga then stores validated mutation checkpoints and completion receipts. A retry
 never adds a second GitHub comment for the same escalation; malformed or conflicting durable records fail closed. A live issue tracker
 remains an injected delivery adapter, so the typed ownership and audit boundary stay the same in local and deployed runtimes.
 `object.issue` delivery remains at-least-once. Before incrementing a handoff fingerprint, Norns atomically claims Saga's stable
-idempotency key in the runtime `StateStore`; accepted-then-timeout replay is a duplicate, and an operation/fingerprint collision fails
-closed instead of manufacturing another learning occurrence.
+idempotency key in the runtime `StateStore`. A `pending` operation is CAS-applied to the durable fingerprint count and becomes `applied`;
+the resulting candidate remains `pending` until publication or deterministic hold marks it `delivered`. Restart resumes an incomplete
+operation or rebuilds an undelivered candidate, while accepted-then-timeout replay cannot inflate the count and an
+operation/fingerprint collision fails closed.
 
 ### 7.7 Conversational port MUST-NOT-Bypass rule
 
