@@ -1,8 +1,8 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: edfe6d304805fa8c2a845801e269612d8bdc8bf4
-translation_revised: 2026-09-14
+translation_source_sha: bc1d22bd507352c76017ef36812d5ad8aa05d4ae
+translation_revised: 2026-09-15
 ---
 
 # 권한 인식 관측 캠페인
@@ -54,6 +54,7 @@ translation_revised: 2026-09-14
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | implemented | 실행 중 및 실패한 부분 개수를 제한한 뒤 스키마 `1.3.0` 활동 생성과 영속 projection을 다시 검증했습니다. 표준 로컬 projection은 요청한 500개 행을 모두 `1.3.0`으로 반환했고 측정됨, 기록 안 됨, 사용 불가 상태를 포함했습니다. | `current change`; backend 집중 테스트 `278 passed, 1 skipped`; strict mypy 통과; 표준 로컬 서비스 `11/11`; 영속 활동 projection `500/500`. | Browser Entra를 갱신한 뒤 인증된 Live 카드와 실패 전이 artifact를 캡처하고, 통제된 실제 캠페인 근거를 validated로 올리기 전에 동등한 배포 개정 번호 근거를 보존합니다. |
 | 2026-09-14 | implemented | 시작 또는 실패 상태인 인벤토리와 관측 행이 일부 출처 개수를 완료된 근거처럼 노출하지 않도록 했습니다. 두 상태는 `evidence_count: 0`을 게시하고 `result_count`를 비우며, 측정이 완료된 종료 행만 관측 개수를 유지합니다. | `current change`; Core 활동 생산자 및 Operator 변환 결과 회귀 검사 13개가 통과했습니다. | 런타임 검증을 주장하기 전에 인증된 표준 스택에서 실패 전이 하나를 보존합니다. |
 | 2026-09-14 | implemented | 안정적인 수명 주기 신원, 등록된 표현 사실, 타입이 지정된 결과 상태와 단위, 소스 기준 시각, 선택적 타이밍을 포함하는 operational activity 스키마 `1.3.0`을 추가했습니다. Operator는 delta 커서를 할당하지 않고 현재 활동을 Live SSE에 seed하며 CAS에서 대체된 작업은 측정된 0을 만들지 않고 기록 안 됨으로 유지합니다. | `current change`; service-contract, Core 생산자, Operator projection/stream 및 Console decoder/card 경로와 현재 세션의 focused 검사. | 통제된 실제 캠페인 근거를 validated로 올리기 전에 인증된 표준 로컬 스택 관찰과 동등한 배포 개정 번호 근거를 보존합니다. |
 | 2026-09-12 | implemented | 캠페인 출처를 추가하지 않고 독립 `ops.start-vm@1.0.0` 효과 관측을 위한 정확한 대상 Azure VM 전원 상태 읽기 계약을 추가했습니다. | `current change`; `delivery/azure/vm_power_state.py`; 정확한 범위, 신원, 응답 한계, 안전한 실패 집중 테스트입니다. | 별도 승인된 A3-E 런타임 근거 작업 전까지 어댑터를 연결하지 않고, 검증 전 동등한 배포 근거를 보존합니다. |

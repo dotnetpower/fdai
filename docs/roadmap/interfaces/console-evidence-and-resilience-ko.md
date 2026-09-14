@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: e1ea34919a92f5923c70bbdbdd5e4ed5ccae64ba
-translation_revised: 2026-09-14
+translation_source_sha: 493f85c33a25d993a7561f28d5abb71efb54193c
+translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
 이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다. 지식 전체 현황은 [클라우드 참조 수명 주기](cloud-resource-knowledge-lifecycle-ko.md)의 날짜, 가장 제한적인 출처 최신성, 정확한 바이트의 패키지 검토와 확인된 롤백 요청을 표시합니다. 반입이나 색인 검증 대기를 검색 활성화로 표시하지 않으며 원본 URL은 표시용으로 유지합니다. 만료된 정책은 이력을 숨기지 않고 쓰기 작업을 차단합니다. 대소문자를 구분하지 않는 JSON 파일명 검사는 파일 형식만 검증하며 대화 의도를 해석하지 않습니다.
@@ -558,7 +558,7 @@ Web 작성기는 선택, 폐기 및 clipboard paste raster를 동일한 범위�
 Turn이 검증된 inline 이미지 첨부를 carry하면 스트리밍 경로는 서술기가 작성하기 전에 읽기 전용 `vision_analyzing`을, 답변 전에 `vision_grounded`를 발행하며, 각 프레임은 이미지 출처 미리 보기(이름, media 타입, 크기)를 포함하되 base64 페이로드는 절대 포함하지 않습니다.
 해당 턴은 vision 지원 서술기로 escalate되고, 답변 준비 trace는 이 단계를 웹 검색 grounding과 동일하게 렌더링합니다.
 
-Live 단계, 준비 상태 및 권한이 없는 활동은 인증된 `/live/stream` 하나를 공유합니다. 스냅샷은 Operator 발급 delta 커서를 진행하지 않으며, 범위가 제한된 cache는 독립 GET 변환 결과를 대체하지 않고 늦은 로컬 구독자에게 현재 프레임을 제공합니다. 에이전트 상태와 보존 이력은 별도 경로와 권한을 유지합니다.
+Live 단계, 준비 상태 및 권한이 없는 활동은 인증된 `/live/stream` 하나를 공유합니다. 스냅샷은 Operator 발급 delta 커서를 진행하지 않으며, 범위가 제한된 cache는 독립 GET 변환 결과를 대체하지 않고 늦은 로컬 구독자에게 현재 프레임을 제공합니다. 에이전트 상태와 보존 이력은 별도 경로와 권한을 유지합니다. 표준 스택 Live E2E 실행 장치는 이 연결 예산, 타입이 지정된 현재 활동, 명시적 보존 이력 읽기 및 반응형 표현을 측정하지만, 실행 장치 자체가 인증된 런타임 검증은 아닙니다.
 
 Interactive Live 구독자는 tab이 hidden 상태일 때 유휴 상태를 보고합니다. Shell의 인시던트, 액세스 권한 및 Operator가 활성화한 브라우저 notification 소비자는 Web Locks를 사용해 same-origin 탭의 각 채널에서 principal 범위로 한정된 읽기 담당 하나를 선출합니다. 인시던트 및 액세스 권한 leader는 검증된 스냅샷을 `BroadcastChannel`을 통해 follower 탭으로 보내므로 각 shell은 중복 SSE 연결을 열지 않고 attention 상태를 유지합니다. Notification leader는 background에서 인증된 실제 운영 읽기 담당을 유지합니다. 이 고정 연결 예산은 HTTP/1.1에서 일반 Operator API 요청에 필요한 용량을 남깁니다. Notification leader는 기존 capped 재시도 대기로 authentication 실패를 재시도하며, notification 권한 또는 principal 범위로 한정된 명시적 선택이 제거되면 즉시 중지합니다. 재생이 아닌 프레임의 사람 승인, 거부, 실패 결과만 발행합니다. Shared 브라우저 원장은 여러 tab에서 같은 이벤트 tag를 5분 동안 억제하고 system notification 전달을 분당 5건으로 제한하지만 감사 또는 인시던트 근거는 제거하지 않습니다.
 
