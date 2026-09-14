@@ -21,7 +21,7 @@ def verify_foundation_runner_image(
     """
 
     image_id = variables.get("runner_source_image_id")
-    source_commit = variables.get("source_commit")
+    source_commit = variables.get("runner_image_source_commit", variables.get("source_commit"))
     toolchain_digest = variables.get("runner_image_toolchain_digest")
     if (
         not isinstance(image_id, str)

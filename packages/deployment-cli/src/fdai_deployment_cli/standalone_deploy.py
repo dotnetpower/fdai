@@ -72,6 +72,7 @@ def deploy_azure_foundation(
     timeout_seconds: int,
     license_signing_key: Path | None,
     trial_token: Path | None,
+    adopt_runner_image_receipt: Path | None = None,
     adopt_application_state: Path | None = None,
     adopt_application_recovery: Path | None = None,
     adopt_resolved_models: Path | None = None,
@@ -136,6 +137,24 @@ def deploy_azure_foundation(
             connectivity="online" if online else "offline",
             root=work_dir / "run",
         )
+        foundation_variables = prepared.variables
+        if adopt_runner_image_receipt is not None:
+            runner_image = importlib.import_module("genesis_runner_image_contract")
+            foundation_variables = prepared.root / "foundation-with-runner-image.json"
+            if foundation_variables.exists():
+                runner_image.verify_foundation_image_input(
+                    source=prepared.variables,
+                    image_receipt=adopt_runner_image_receipt,
+                    profile_path=prepared.profile,
+                    destination=foundation_variables,
+                )
+            else:
+                runner_image.materialize_foundation_image_input(
+                    source=prepared.variables,
+                    image_receipt=adopt_runner_image_receipt,
+                    profile_path=prepared.profile,
+                    destination=foundation_variables,
+                )
     finally:
         sys.path.remove(str(scripts))
     source_evidence = json.dumps(
@@ -179,10 +198,16 @@ def deploy_azure_foundation(
             "--foundation-profile",
             str(prepared.profile),
             "--foundation-variables-file",
-            str(prepared.variables),
-            "--create-runner-image",
-            "--runner-image-terraform",
-            str(prepared.terraform),
+            str(foundation_variables),
+            *(
+                ()
+                if adopt_runner_image_receipt is not None
+                else (
+                    "--create-runner-image",
+                    "--runner-image-terraform",
+                    str(prepared.terraform),
+                )
+            ),
             "--runner-ssh-private-key",
             str(prepared.ssh_private_key),
             *(("--approval-file", str(approval)) if approval.exists() else ()),

@@ -26,6 +26,12 @@ _RUNNER_IMAGE_NETWORKS = (
     "firewall_subnet_prefix",
     "firewall_management_subnet_prefix",
 )
+_OPTIONAL_STRINGS = {
+    "runner_image_source_commit": r"[0-9a-f]{40}",
+    "runner_image_verified_source_commit": r"[0-9a-f]{40}",
+    "runner_image_run_digest": r"[0-9a-f]{64}",
+    "runner_image_receipt_digest": r"[0-9a-f]{64}",
+}
 _REQUIRED = (
     frozenset(_STRINGS)
     | frozenset(_NETWORKS)
@@ -47,6 +53,7 @@ _OPTIONAL = frozenset(
         "enable_bastion",
         "bastion_subnet_prefix",
         "execution_transport",
+        *_OPTIONAL_STRINGS,
         *_RUNNER_IMAGE_NETWORKS,
     }
 )
@@ -97,6 +104,12 @@ def snapshot_foundation_input(
     for name, pattern in _STRINGS.items():
         value = values[name]
         if not isinstance(value, str) or re.fullmatch(pattern, value) is None:
+            raise ValueError(f"foundation plan {name} is invalid")
+    for name, pattern in _OPTIONAL_STRINGS.items():
+        value = values.get(name)
+        if value is not None and (
+            not isinstance(value, str) or re.fullmatch(pattern, value) is None
+        ):
             raise ValueError(f"foundation plan {name} is invalid")
     image = values["runner_source_image_id"]
     if not isinstance(image, str) or _IMAGE.fullmatch(image) is None:

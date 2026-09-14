@@ -60,22 +60,26 @@ override_module {
 }
 
 variables {
-  subscription_id               = "00000000-0000-0000-0000-000000000000"
-  tenant_id                     = "00000000-0000-0000-0000-000000000000"
-  workload                      = "example"
-  env                           = "dev"
-  region                        = "koreacentral"
-  region_short                  = "krc"
-  state_storage_account_name    = "stexamplegenesis"
-  ops_address_space             = "10.70.0.0/24"
-  runner_subnet_prefix          = "10.70.0.0/26"
-  pe_subnet_prefix              = "10.70.0.64/26"
-  runner_ssh_public_key         = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHA6I7nugiew177uO389Zhg2zliPDuRZdNRwT2lKu3To terraform-plan-evaluation-only"
-  runner_source_image_id        = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-images/providers/Microsoft.Compute/galleries/example_gallery/images/runner/versions/1.2.3"
-  runner_image_toolchain_digest = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-  source_commit                 = "0000000000000000000000000000000000000000"
-  run_digest                    = "0000000000000000000000000000000000000000000000000000000000000000"
-  foundation_context_digest     = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  subscription_id                     = "00000000-0000-0000-0000-000000000000"
+  tenant_id                           = "00000000-0000-0000-0000-000000000000"
+  workload                            = "example"
+  env                                 = "dev"
+  region                              = "koreacentral"
+  region_short                        = "krc"
+  state_storage_account_name          = "stexamplegenesis"
+  ops_address_space                   = "10.70.0.0/24"
+  runner_subnet_prefix                = "10.70.0.0/26"
+  pe_subnet_prefix                    = "10.70.0.64/26"
+  runner_ssh_public_key               = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHA6I7nugiew177uO389Zhg2zliPDuRZdNRwT2lKu3To terraform-plan-evaluation-only"
+  runner_source_image_id              = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-images/providers/Microsoft.Compute/galleries/example_gallery/images/runner/versions/1.2.3"
+  runner_image_toolchain_digest       = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  runner_image_source_commit          = "cccccccccccccccccccccccccccccccccccccccc"
+  runner_image_verified_source_commit = "ffffffffffffffffffffffffffffffffffffffff"
+  runner_image_run_digest             = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  runner_image_receipt_digest         = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  source_commit                       = "0000000000000000000000000000000000000000"
+  run_digest                          = "0000000000000000000000000000000000000000000000000000000000000000"
+  foundation_context_digest           = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }
 
 run "foundation_contracts_with_bootstrap_outputs" {
@@ -166,6 +170,10 @@ run "foundation_contracts_with_bootstrap_outputs" {
       !output.private_handoff.runner.public_egress &&
       output.private_handoff.runner.source_image_id == var.runner_source_image_id &&
       output.private_handoff.runner.toolchain_digest == var.runner_image_toolchain_digest &&
+      output.private_handoff.runner.image_source_commit == var.runner_image_source_commit &&
+      output.private_handoff.runner.image_verified_source_commit == var.runner_image_verified_source_commit &&
+      output.private_handoff.runner.image_run_digest == var.runner_image_run_digest &&
+      output.private_handoff.runner.image_receipt_digest == var.runner_image_receipt_digest &&
       output.private_handoff.state.account_name == var.state_storage_account_name &&
       output.private_handoff.state.use_azuread_auth &&
       output.private_handoff.runner.role_manifest == module.bootstrap.deploy_runner_role_manifest &&

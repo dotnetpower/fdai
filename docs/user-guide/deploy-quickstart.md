@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to Azure from one local command or a digest-pinned disconnected deployment appliance.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 8dba06d1b8e83760ecd7d339128055e2fe08c43b }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 0cdab6f39adbe068065f69ae8e50469722d46e74 }]
 ---
 
 # Deploy Quickstart
@@ -165,15 +165,21 @@ revision that contains the adoption support:
 fdaictl provision azure \
   --online \
   --region <azure-region> \
+  --adopt-runner-image-receipt <verified-runner-image-receipt> \
   --adopt-application-state <private-terraform-state> \
   --adopt-application-recovery <private-recovery-receipt> \
   --adopt-resolved-models <private-resolved-models>
 ```
 
-Supply all three mode-0600 files together. The coordinator verifies their digests, target, resource
+Supply the runner receipt and all three application mode-0600 files together. The coordinator
+verifies their digests, target, resource
 count, resource suffix, and model-capability contract. It creates a private staged copy that removes
 only the application resource group's two ownership records. The original local state remains
 unchanged.
+
+The runner receipt reuses an independently verified managed image without another image apply. A
+new Foundation run keeps its current signed source and records the image's original source, signed
+verifier source, image run, and exact receipt digest as separate provenance.
 
 The managed host accepts the staged state only when the Foundation-owned remote application backend
 doesn't contain a state blob. It writes an immutable claim before the single non-forced state push,
