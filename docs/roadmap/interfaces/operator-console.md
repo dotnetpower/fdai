@@ -22,6 +22,10 @@ Trace keeps the summary, correlation lookup, ordered stage rail, selected eviden
 lifecycle, and complete audit timeline in one bounded workspace across idle, loading, ready, empty,
 unavailable, and error states. Selecting a stage changes presentation only. Localized stage, action,
 status, and time labels retain the canonical raw values and exact timestamp for evidence review.
+Trace hardening preserves these evidence invariants:
+
+- The response correlation id exactly matches the requested correlation before any record is shown.
+
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final
 verification, but it never starts, retries, approves, or changes deployment. The route renders

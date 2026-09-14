@@ -114,9 +114,10 @@ export function RuleTraceRoute({ client }: Props) {
     requestGeneration.current = generation;
     setState({ status: "loading" });
     try {
-      const data = decodeTraceResponse(await client.panel<unknown>(
-        `/audit/${encodeURIComponent(id)}/trace`,
-      ));
+      const data = decodeTraceResponse(
+        await client.panel<unknown>(`/audit/${encodeURIComponent(id)}/trace`),
+        id,
+      );
       if (requestGeneration.current === generation) {
         setState(data.steps.length === 0
           ? { status: "unavailable", message: t("evidence.trace.empty") }
@@ -276,9 +277,20 @@ export function traceLoadFailure(error: unknown): {
   return { status: "error", message: traceLoadErrorMessage(error) };
 }
 
-export function decodeTraceResponse(value: unknown): TraceResponse {
+export function decodeTraceResponse(
+  value: unknown,
+  expectedCorrelationId?: string,
+): TraceResponse {
   const root = panelRecord(value, "trace");
   const correlationId = panelNonEmptyString(root, "correlation_id", "trace");
+  if (
+    expectedCorrelationId !== undefined
+    && correlationId !== expectedCorrelationId
+  ) {
+    throw new Error(
+      "invalid Operator API response: trace.correlation_id MUST match the requested correlation",
+    );
+  }
   const steps = panelArray(root["steps"], "trace.steps").map((value, index) => {
     const row = panelRecord(value, `trace.steps[${index}]`);
     const recordedAt = panelNonEmptyString(row, "recorded_at", "trace step");

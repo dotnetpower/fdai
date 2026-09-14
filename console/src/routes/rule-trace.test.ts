@@ -35,6 +35,15 @@ describe("trace response contract", () => {
     }).steps).toHaveLength(2);
   });
 
+  it("rejects a response for a different requested correlation", () => {
+    expect(() => decodeTraceResponse({
+      correlation_id: "corr-other",
+      step_count: 1,
+      steps: [step(1)],
+      terminal_stage: "risk-gate",
+    }, "corr-requested")).toThrow(/MUST match the requested correlation/);
+  });
+
   it("renders expected source absence as unavailable without hiding server failures", () => {
     expect(traceLoadFailure(new OperatorApiError(404, "no audit items"))).toEqual({
       status: "unavailable",
