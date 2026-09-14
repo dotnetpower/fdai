@@ -547,7 +547,8 @@ it can never erase an authoritative record or an audit entry.
 ## Control-Loop Wiring
 
 Every terminal path-including reject, HIL timeout, abstain, and deny-writes an audit entry. T2 output reaches the risk-gate only after
-clearing the quality-gate. Boundary hardening keeps that sequence fail-closed: ingest and routing normalize blank resource references before
+clearing the quality-gate. The authority ceiling evaluates each action with its actual originating T0, T1, or T2 tier; fallback actions
+cannot inherit T0 authority. Boundary hardening keeps that sequence fail-closed: ingest and routing normalize blank resource references before
 comparison, T1 rejects malformed reuse evidence, and a T2 proposal cannot bypass grounding authority when a provider fails. HIL approval ids
 and executor idempotency keys are claimed atomically, while per-resource locking serializes competing applies before any delivery adapter
 can mutate state. HIL resume resolves catalog rules from the current catalog and accepts a parked server-validated operator-request rule

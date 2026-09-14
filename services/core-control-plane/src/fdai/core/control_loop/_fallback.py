@@ -26,7 +26,7 @@ from fdai.core.tiers.t1_lightweight.tier import T1Decision, T1Outcome, T1Tier
 from fdai.core.tiers.t2_reasoning import T2Decision, T2Outcome, T2ProposalContext, T2Tier
 from fdai.core.trust_router import RoutingDecision
 from fdai.core.verticals.change_safety.detector import ChangeSafetyDecision
-from fdai.shared.contracts.models import Action, Event, Mode, Rule
+from fdai.shared.contracts.models import Action, Event, Mode, Rule, Tier
 from fdai.shared.providers.execution_authorization import (
     ExecutionAuthorizationResult,
     ExecutionAuthorizationStatus,
@@ -66,7 +66,7 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
     ) -> None: ...
 
     async def _evaluate_and_audit(
-        self, *, event: Event, action: Action, rule: Rule
+        self, *, event: Event, action: Action, rule: Rule, tier: Tier = Tier.T0
     ) -> UnifiedRiskDecision | None: ...
 
     async def _evaluate_execution_authorization(
@@ -353,7 +353,12 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
             )
         action = self._bind_authorized_identity(action, authorization)
 
-        unified = await self._evaluate_and_audit(event=event, action=action, rule=rule)
+        unified = await self._evaluate_and_audit(
+            event=event,
+            action=action,
+            rule=rule,
+            tier=Tier.T1,
+        )
         if unified is None:
             return await self._routing_hold(
                 event=event,
@@ -661,7 +666,12 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
             )
         action = self._bind_authorized_identity(action, authorization)
 
-        unified = await self._evaluate_and_audit(event=event, action=action, rule=rule)
+        unified = await self._evaluate_and_audit(
+            event=event,
+            action=action,
+            rule=rule,
+            tier=Tier.T2,
+        )
         if unified is None:
             return await self._routing_hold(
                 event=event,
