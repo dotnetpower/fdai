@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { makeStars, StarField, STAR_COUNT } from "../src/scene/star-field";
-import { makeNeuralGeometry } from "../src/scene/geometry";
+import { createPointOcclusionMaterial, makeNeuralGeometry } from "../src/scene/geometry";
 import { pythonFunctions } from "../src/source-graph";
 
 test("decorative stars are bounded, deterministic, slow, and unrelated to graph identities", () => {
@@ -21,11 +21,17 @@ test("decorative stars are bounded, deterministic, slow, and unrelated to graph 
   graph.lines.dispose();
 });
 
-test("stars use one background draw, freeze at repeated time, and respect reduced motion and visibility", () => {
+test("stars render after node depth masks, freeze at repeated time, and respect reduced motion and visibility", () => {
   const field = new StarField(1);
   assert.equal(field.object.geometry.getAttribute("position").count, STAR_COUNT);
-  assert.equal(field.object.renderOrder, -100);
+  assert.equal(field.object.renderOrder, 100);
+  assert.equal(field.object.material.depthTest, true);
   assert.equal(field.object.material.depthWrite, false);
+  const occlusion = createPointOcclusionMaterial(1);
+  assert.equal(occlusion.colorWrite, false);
+  assert.equal(occlusion.depthTest, true);
+  assert.equal(occlusion.depthWrite, true);
+  occlusion.dispose();
   field.update(3, true, false);
   assert.equal(field.object.material.uniforms.time!.value, 3);
   field.update(3, true, false);

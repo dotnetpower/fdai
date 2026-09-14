@@ -212,6 +212,64 @@ class LatencyStageEvidence:
     passed: bool
     gaps: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.stage, LatencyStage) or not isinstance(
+            self.environment, LatencyEnvironment
+        ):
+            raise ValueError("latency stage evidence MUST use contract enums")
+        integer_values = (
+            self.minimum_samples,
+            self.sample_count,
+            self.p50_ceiling_ms,
+            self.p95_ceiling_ms,
+            self.p99_ceiling_ms,
+        )
+        if any(type(value) is not int or value < 0 for value in integer_values):
+            raise ValueError("latency stage evidence counts and ceilings MUST be non-negative")
+        if self.minimum_samples < 1:
+            raise ValueError("latency stage evidence minimum_samples MUST be positive")
+        percentiles = (self.p50_ms, self.p95_ms, self.p99_ms)
+        if self.sample_count == 0:
+            if any(value is not None for value in percentiles):
+                raise ValueError("empty latency stage evidence MUST NOT contain percentiles")
+        elif any(
+            value is None
+            or isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or value < 0
+            for value in percentiles
+        ):
+            raise ValueError("measured latency stage evidence requires finite percentiles")
+        measured_percentiles = tuple(float(value) for value in percentiles if value is not None)
+        if measured_percentiles != tuple(sorted(measured_percentiles)):
+            raise ValueError("latency stage evidence percentiles MUST be ordered")
+        if not self.p50_ceiling_ms <= self.p95_ceiling_ms <= self.p99_ceiling_ms:
+            raise ValueError("latency stage evidence ceilings MUST be ordered")
+        if self.timestamp_authorities != tuple(sorted(set(self.timestamp_authorities))):
+            raise ValueError("latency timestamp authorities MUST be ordered and unique")
+        if bool(self.timestamp_authorities) is not (self.sample_count > 0):
+            raise ValueError("latency timestamp authority presence MUST match sample_count")
+        for authority in self.timestamp_authorities:
+            _token(authority, "latency timestamp authority")
+        if tuple(outcome for outcome, _count in self.outcome_counts) != tuple(LatencySampleOutcome):
+            raise ValueError("latency outcome counts MUST follow contract order")
+        if any(type(count) is not int or count < 0 for _outcome, count in self.outcome_counts):
+            raise ValueError("latency outcome counts MUST be non-negative integers")
+        if sum(count for _outcome, count in self.outcome_counts) != self.sample_count:
+            raise ValueError("latency outcome counts MUST equal sample_count")
+        expected_gaps = _latency_stage_gaps(
+            sample_count=self.sample_count,
+            minimum_samples=self.minimum_samples,
+            percentiles=percentiles,
+            ceilings=(self.p50_ceiling_ms, self.p95_ceiling_ms, self.p99_ceiling_ms),
+            timed_out_samples=dict(self.outcome_counts)[LatencySampleOutcome.TIMED_OUT],
+        )
+        if type(self.passed) is not bool or self.passed is not (not expected_gaps):
+            raise ValueError("latency stage pass state does not match measurements")
+        if self.gaps != expected_gaps:
+            raise ValueError("latency stage gaps do not match measurements")
+
 
 @dataclass(frozen=True, slots=True)
 class ChatOpsLatencyEvidence:
@@ -226,6 +284,47 @@ class ChatOpsLatencyEvidence:
     completed_at: str
     stages: tuple[LatencyStageEvidence, ...]
     latency_slo_met: bool
+
+    def __post_init__(self) -> None:
+        _sha256(self.run_digest, "latency evidence run_digest")
+        if _REVISION.fullmatch(self.source_revision) is None:
+            raise ValueError("latency evidence source_revision MUST be a full git object id")
+        _token(self.contract_version, "latency evidence contract_version")
+        _sha256(self.contract_digest, "latency evidence contract_digest")
+        _sha256(self.sample_manifest_digest, "latency evidence sample_manifest_digest")
+        _sha256(self.trace_set_digest, "latency evidence trace_set_digest")
+        if type(self.trace_count) is not int or self.trace_count < 0:
+            raise ValueError("latency evidence trace_count MUST be a non-negative integer")
+        started = _timestamp(self.started_at, "latency evidence started_at")
+        completed = _timestamp(self.completed_at, "latency evidence completed_at")
+        if completed < started:
+            raise ValueError("latency evidence completed_at MUST NOT precede started_at")
+        if tuple(item.stage for item in self.stages) != tuple(LatencyStage):
+            raise ValueError("latency evidence MUST contain every stage in contract order")
+        uses_installed_version = self.contract_version == CHATOPS_LATENCY_CONTRACT_V1.version
+        uses_installed_digest = self.contract_digest == CHATOPS_LATENCY_CONTRACT_V1.content_digest
+        if uses_installed_version is not uses_installed_digest:
+            raise ValueError("latency evidence installed contract version and digest MUST match")
+        if uses_installed_version:
+            for item, slo in zip(
+                self.stages,
+                CHATOPS_LATENCY_CONTRACT_V1.stages,
+                strict=True,
+            ):
+                if (
+                    item.environment is not slo.environment
+                    or item.minimum_samples != slo.minimum_samples
+                    or item.p50_ceiling_ms != slo.p50_ceiling_ms
+                    or item.p95_ceiling_ms != slo.p95_ceiling_ms
+                    or item.p99_ceiling_ms != slo.p99_ceiling_ms
+                ):
+                    raise ValueError("latency stage evidence does not match the installed contract")
+        if any(item.sample_count > self.trace_count for item in self.stages):
+            raise ValueError("latency stage sample_count MUST NOT exceed trace_count")
+        if type(self.latency_slo_met) is not bool or self.latency_slo_met is not all(
+            item.passed for item in self.stages
+        ):
+            raise ValueError("latency SLO state does not match stage evidence")
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -287,18 +386,13 @@ def reduce_latency_benchmark(
         p95 = _percentile(durations, 0.95)
         p99 = _percentile(durations, 0.99)
         outcomes = Counter(sample.outcome for sample in samples)
-        gaps: list[str] = []
-        if len(samples) < slo.minimum_samples:
-            gaps.append(f"sample_count={len(samples)}<minimum_samples={slo.minimum_samples}")
-        for name, observed, ceiling in (
-            ("p50", p50, slo.p50_ceiling_ms),
-            ("p95", p95, slo.p95_ceiling_ms),
-            ("p99", p99, slo.p99_ceiling_ms),
-        ):
-            if observed is not None and observed > ceiling:
-                gaps.append(f"{name}_ms={observed}>ceiling_ms={ceiling}")
-        if outcomes[LatencySampleOutcome.TIMED_OUT]:
-            gaps.append(f"timed_out_samples={outcomes[LatencySampleOutcome.TIMED_OUT]}")
+        gaps = _latency_stage_gaps(
+            sample_count=len(samples),
+            minimum_samples=slo.minimum_samples,
+            percentiles=(p50, p95, p99),
+            ceilings=(slo.p50_ceiling_ms, slo.p95_ceiling_ms, slo.p99_ceiling_ms),
+            timed_out_samples=outcomes[LatencySampleOutcome.TIMED_OUT],
+        )
         stage_evidence.append(
             LatencyStageEvidence(
                 stage=slo.stage,
@@ -318,7 +412,7 @@ def reduce_latency_benchmark(
                     (outcome, outcomes[outcome]) for outcome in LatencySampleOutcome
                 ),
                 passed=not gaps,
-                gaps=tuple(gaps),
+                gaps=gaps,
             )
         )
     trace_digests = tuple(sorted({sample.trace_digest for sample in batch.samples}))
@@ -369,6 +463,30 @@ def _percentile(samples: tuple[float, ...], quantile: float) -> float | None:
     upper = min(lower + 1, len(ordered) - 1)
     fraction = position - lower
     return round(ordered[lower] + ((ordered[upper] - ordered[lower]) * fraction), 3)
+
+
+def _latency_stage_gaps(
+    *,
+    sample_count: int,
+    minimum_samples: int,
+    percentiles: tuple[float | None, float | None, float | None],
+    ceilings: tuple[int, int, int],
+    timed_out_samples: int,
+) -> tuple[str, ...]:
+    gaps: list[str] = []
+    if sample_count < minimum_samples:
+        gaps.append(f"sample_count={sample_count}<minimum_samples={minimum_samples}")
+    for name, observed, ceiling in zip(
+        ("p50", "p95", "p99"),
+        percentiles,
+        ceilings,
+        strict=True,
+    ):
+        if observed is not None and observed > ceiling:
+            gaps.append(f"{name}_ms={observed}>ceiling_ms={ceiling}")
+    if timed_out_samples:
+        gaps.append(f"timed_out_samples={timed_out_samples}")
+    return tuple(gaps)
 
 
 def _token(value: str, field: str) -> None:

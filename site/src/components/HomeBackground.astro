@@ -1,0 +1,121 @@
+---
+import NebulaBackground from "./NebulaBackground.astro";
+
+interface Props {
+  base: string;
+  locale: "en" | "ko";
+}
+
+const { base, locale } = Astro.props as Props;
+const copy = locale === "ko" ? {
+  label: "홈 배경",
+  video: "영상",
+  nebula: "성운",
+  videoActive: "영상 배경을 사용합니다.",
+  nebulaActive: "성운 배경을 사용합니다.",
+  videoStill: "모션 줄이기 설정에 따라 영상 포스터를 표시합니다.",
+  fallback: "영상을 재생할 수 없어 성운 배경으로 전환했습니다.",
+} : {
+  label: "Home background",
+  video: "Video",
+  nebula: "Nebula",
+  videoActive: "Video background is active.",
+  nebulaActive: "Nebula background is active.",
+  videoStill: "The video poster is shown because reduced motion is enabled.",
+  fallback: "The video could not play, so the nebula background is active.",
+};
+const media = `${base}media/neural-view-hero`;
+---
+
+<div
+  class="home-background"
+  data-home-background-root
+  data-video-src={`${media}.mp4`}
+  data-poster-src={`${media}-poster.webp`}
+  data-video-active={copy.videoActive}
+  data-nebula-active={copy.nebulaActive}
+  data-video-still={copy.videoStill}
+  data-fallback={copy.fallback}>
+  <NebulaBackground intensity={1.0} speed={1.0} attachToBody />
+  <video class="home-neural-video" muted loop playsinline preload="none" aria-hidden="true"></video>
+  <div class="home-background-toggle" role="group" aria-label={copy.label}>
+    <button type="button" data-home-background="video" aria-pressed="false">{copy.video}</button>
+    <button type="button" data-home-background="nebula" aria-pressed="true">{copy.nebula}</button>
+  </div>
+  <span class="sr-only" data-home-background-status aria-live="polite"></span>
+</div>
+
+<script>
+  type BackgroundMode = "video" | "nebula";
+  type ConnectionInfo = { saveData?: boolean; effectiveType?: string };
+  const STORAGE_KEY = "fdai:home-background";
+
+  for (const root of document.querySelectorAll<HTMLElement>("[data-home-background-root]:not([data-initialized])")) {
+    root.dataset.initialized = "true";
+    const video = root.querySelector<HTMLVideoElement>(".home-neural-video")!;
+    const status = root.querySelector<HTMLElement>("[data-home-background-status]")!;
+    const buttons = [...root.querySelectorAll<HTMLButtonElement>("[data-home-background]")];
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const connection = (navigator as Navigator & { connection?: ConnectionInfo }).connection;
+    const constrained = reducedMotion.matches || connection?.saveData === true || /(?:^|-)2g$/u.test(connection?.effectiveType ?? "");
+    let stored: BackgroundMode | null = null;
+    let revision = 0;
+    try {
+      const value = localStorage.getItem(STORAGE_KEY);
+      if (value === "video" || value === "nebula") stored = value;
+    } catch {
+      stored = null;
+    }
+
+    function setReady(ready: boolean) {
+      document.documentElement.dataset.homeVideoReady = String(ready);
+    }
+
+    async function apply(mode: BackgroundMode, persist: boolean, message?: string) {
+      const request = ++revision;
+      document.documentElement.dataset.homeBackground = mode;
+      buttons.forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.homeBackground === mode)));
+      if (persist) {
+        try { localStorage.setItem(STORAGE_KEY, mode); } catch { /* Preference remains session-local. */ }
+      }
+      if (mode === "nebula") {
+        video.pause();
+        setReady(false);
+        status.textContent = message ?? root.dataset.nebulaActive ?? "";
+        return;
+      }
+
+      if (!video.poster) video.poster = root.dataset.posterSrc ?? "";
+      if (!video.src) {
+        video.src = root.dataset.videoSrc ?? "";
+        video.load();
+      }
+      if (reducedMotion.matches) {
+        video.pause();
+        setReady(true);
+        status.textContent = root.dataset.videoStill ?? "";
+        return;
+      }
+      try {
+        await video.play();
+        if (request !== revision || document.documentElement.dataset.homeBackground !== "video") {
+          video.pause();
+          return;
+        }
+        setReady(true);
+        status.textContent = root.dataset.videoActive ?? "";
+      } catch {
+        if (request === revision) await apply("nebula", false, root.dataset.fallback ?? "");
+      }
+    }
+
+    video.addEventListener("loadeddata", () => {
+      if (document.documentElement.dataset.homeBackground === "video") setReady(true);
+    });
+    video.addEventListener("error", () => { void apply("nebula", false, root.dataset.fallback ?? ""); });
+    buttons.forEach((button) => button.addEventListener("click", () => {
+      void apply(button.dataset.homeBackground as BackgroundMode, true);
+    }));
+    void apply(stored ?? (constrained ? "nebula" : "video"), false);
+  }
+</script>

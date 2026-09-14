@@ -10,6 +10,7 @@ on:
       - "site/**"
       - "docs/**"
       - "tools/architecture-diagrams/**"
+      - "tools/agent-visualizer/**"
       - "README.md"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -67,10 +68,12 @@ jobs:
           cache-dependency-path: |
             site/package-lock.json
             tools/architecture-diagrams/package-lock.json
+            tools/agent-visualizer/package-lock.json
 
       - name: Install documentation build dependencies
         run: |
           npm --prefix tools/architecture-diagrams ci --no-audit --no-fund
+          npm --prefix tools/agent-visualizer ci --no-audit --no-fund
           npm --prefix site ci --no-audit --no-fund
 
       - name: Validate documentation sources
@@ -80,6 +83,7 @@ jobs:
           npm --prefix tools/architecture-diagrams run check
           npm --prefix tools/architecture-diagrams run check-public-migration
           npm --prefix tools/architecture-diagrams run check-repository-migration
+          npm --prefix tools/agent-visualizer test
           npm --prefix site test
 
       - name: Configure Pages
@@ -104,6 +108,10 @@ jobs:
           BASE_PATH: ${{ steps.pages.outputs.base_path || '/fdai' }}
         run: |
           npm run build
+          npm --prefix ../tools/agent-visualizer run build:public
+          mkdir -p dist/neural-view
+          cp -R ../tools/agent-visualizer/dist/. dist/neural-view/
+          test -f dist/neural-view/index.html
           npm run check:built
           git diff --exit-code -- src/data/publication-routes.json
 

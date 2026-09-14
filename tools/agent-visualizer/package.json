@@ -11,6 +11,7 @@
     "prebuild": "npm run graph",
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
+    "build:public": "npm run graph && tsc --noEmit && vite build --mode public",
     "preview": "vite preview --host 127.0.0.1 --port 5573 --strictPort",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
