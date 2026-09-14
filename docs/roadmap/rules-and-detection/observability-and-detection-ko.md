@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: c68a5e737387b163acd25aa30b993c24344f8e55
+translation_source_sha: 4f0b44b028c86bc8ea31a6dbf336093618581f39
 translation_revised: 2026-09-14
 ---
 
@@ -566,9 +566,10 @@ kind 집계만 반환합니다. Incident ID, member ID, payload 또는 database 
 선택은 상태를 주장하거나 권한을 부여하지 않습니다. 존재하는 generic `state`에는 admission이 계속
 필요하며 형식이 잘못되면 사용할 수 없습니다. 상태 사실 없이 투영된 리소스도 같은 열거 경로를
 따릅니다. 발견된 대상 수는 상한이 있고 순서는 결정론적입니다. 해석기는 검토된 분석기 Resource
-유형을 저장소 쿼리 필터로 적용하고, 구성된 분석 가능 대상 상한을 적용하기 전에 지원되는
-Resource를 최대 1,000개 읽습니다. 관련 없는 인벤토리 레코드는 조회 구간이나 대상 슬롯을
-차지할 수 없습니다. 지원 Resource 구간이 잘렸거나 인벤토리 출처가 불완전하면 일부 coverage를
+유형을 저장소 쿼리 필터로 적용하고, 구성된 분석 가능 대상 상한을 적용하기 전에 관계를 제외한
+지원 Resource를 최대 1,000개 읽습니다. 관련 없는 인벤토리 레코드는 조회 구간이나 대상 슬롯을
+차지할 수 없고 관계 coverage 공백은 신원 전용 대상 선택을 무효화하지 않습니다. 지원 Resource
+구간이 잘렸거나 Resource 출처가 불완전하면 일부 coverage를
 정상으로 보이지 않고 틱을 실패시키며 대상 검색을 사용 불가로 보고합니다. 이 작업들은
 변경을 실행하지 않으며, 발견된 문제와 예정 작업은
 공유 trust router 및 안전성 검토에 다시 진입합니다.

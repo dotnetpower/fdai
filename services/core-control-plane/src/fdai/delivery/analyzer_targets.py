@@ -173,6 +173,7 @@ async def resolve_analyzer_targets(
             object_types=(RESOURCE_OBJECT_TYPE,),
             property_text_in={"type": tuple(sorted(analyzer_kinds))},
             limit=INVENTORY_SCAN_LIMIT,
+            include_relationships=False,
         )
     except Exception as exc:  # noqa: BLE001 - an unreadable projection MUST retry, not degrade
         raise AnalyzerTargetResolutionError(

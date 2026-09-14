@@ -99,6 +99,7 @@ class StubStore:
         self._honor_property_filter = honor_property_filter
         self.limits: list[int] = []
         self.property_text_filters: list[Mapping[str, Sequence[str]] | None] = []
+        self.relationship_flags: list[bool] = []
 
     async def query_objects(
         self,
@@ -110,10 +111,11 @@ class StubStore:
         limit: int = 100,
         include_relationships: bool = True,
     ) -> OntologyGraphSnapshot:
-        del object_ids, property_equals, include_relationships
+        del object_ids, property_equals
         assert tuple(object_types) == ("Resource",)
         self.limits.append(limit)
         self.property_text_filters.append(property_text_in)
+        self.relationship_flags.append(include_relationships)
         if self._error is not None:
             raise self._error
         objects = self._objects
@@ -228,6 +230,7 @@ async def test_supported_inventory_resources_join_the_tick() -> None:
     )
     assert resolution.discovered == 2
     assert resolution.inventory_consulted is True
+    assert store.relationship_flags == [False]
     assert resolution.skipped_reasons == ()
     assert [target.provider_query_ref for target in resolution.targets] == [
         "/providers/example/resources/res-aks",
