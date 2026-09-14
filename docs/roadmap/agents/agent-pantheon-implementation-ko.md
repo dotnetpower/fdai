@@ -24,7 +24,7 @@ translation_revised: 2026-09-15
 |------|------|------|------|
 | W0-W1 문서, 온톨로지 및 프레임워크 기반 | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | 고정 레지스트리, 패키지 경계, 문서 일치 및 타입이 지정된 토픽 기반을 실행하고 검사할 수 있습니다. |
 | W2-W6 거버넌스, 파이프라인, 인터페이스, 전문 에이전트, 인계 및 보안 메커니즘 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py) | 선택적 T2 종합 전의 T1 답변 평가를 포함한 범위가 제한된 메커니즘을 집중 합성 검사로 실행하지만 실제 운영 검증을 입증하지는 않습니다. |
-| 영속 권한, 복구, 인계 및 학습 재생 | implemented | [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_wave3_pipeline.py`](../../../services/core-control-plane/tests/agents/test_wave3_pipeline.py), [`test_bootstrap_config.py`](../../../services/core-control-plane/tests/runtime/test_bootstrap_config.py) | StateStore 기반 CAS, 점유 유효 기간, 검사 지점, 보낼 편지함 및 시작 복구 경로에는 재시작과 동시성 집중 검사 근거가 있습니다. 범위가 제한된 Low 심각도 복제본 간 및 멱등성 잔여 문제 두 건은 아래에 열어 둡니다. |
+| 영속 권한, 복구, 인계 및 학습 재생 | implemented | [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_wave3_pipeline.py`](../../../services/core-control-plane/tests/agents/test_wave3_pipeline.py), [`test_bootstrap_config.py`](../../../services/core-control-plane/tests/runtime/test_bootstrap_config.py) | StateStore 기반 CAS, 점유 유효 기간, 검사 지점, 보낼 편지함 및 시작 복구 경로에는 재시작과 동시성 집중 검사 근거가 있습니다. 범위가 제한된 Low 심각도 복제본 간, 작업 신원 및 오래된 변환 결과 잔여 문제 세 건은 아래에 열어 둡니다. |
 | W7 에이전트 간 shadow 작업 흐름 메커니즘 | implemented | [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | 작업 흐름에 실행 가능한 합성 shadow 추적이 있으며, enforce 작업 흐름을 기본값으로 사용하는 근거는 이 문서에 없습니다. |
 | W8 KPI, 승격 및 성능 저하 메커니즘 | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI 보고는 측정값과 사용 불가능한 근거를 구분하고, 근거가 없으면 승격을 차단하며, 주입된 성능 저하 훈련이 고정 판테온을 다룹니다. |
 | W3 추적 연속성 근거 인계 | implemented | `huginn.py`; `heimdall.py`; `test_trace_continuity_chain.py` | sensing 경로는 허용 목록의 범위가 제한된 연속성 근거만 보존하고 역할, topic, 작업 권한을 바꾸지 않은 채 관측된 사유를 인시던트 후보 하나에 전달합니다. |
@@ -37,6 +37,7 @@ translation_revised: 2026-09-15
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | implemented | 비활성 지문 후보를 제안됨으로 표시하기 전에 대기열에 추가해 Norns 포화 복구를 재시도 가능한 상태로 유지했습니다. 용량 실패가 게시하지 않은 후보를 전달 완료로 보이게 할 수 없습니다. | `current change`; 집중 포화 재현과 Norns 내구성, 커버리지 및 런타임 검사 162개 통과, strict mypy 및 Ruff 통과. | 에이전트 역할이나 권한을 넓히지 않고 기록된 Low 심각도 잔여 문제 세 건을 해결합니다. |
 | 2026-09-15 | implemented | 기존 판테온 및 프로젝트 구조 문서가 크기 상한에 도달해 구현된 T1/T2, Var, Vidar, Saga, Norns, Bragi 재생 계약을 이 집중 런타임 소유 문서로 통합했습니다. | `current change`; 캠페인 안전 검사 1,372개, 환경 의존 PostgreSQL 건너뜀 1개가 포함된 Cost Governance 격리 검사 170개, strict mypy, Ruff 및 구조/문서 게이트. | 에이전트 역할이나 권한을 넓히지 않고 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
 | 2026-09-15 | implemented | 런타임 동작을 바꾸지 않고 최종 CI 호환성을 복구했습니다. 검증된 실행 결과 분류를 집중 모듈로 옮기고, 평가 기준 테스트 후보를 신뢰된 대상에 결속하고, Norns를 `object.issue`를 통해 검증하고, 자연어 의미 체계 검출기가 정규 enum 검증을 잘못 분류하지 않도록 Var의 잠금된 비공개 판단 도우미 이름을 바꿨습니다. | `current change`; 집중 ControlLoop 패키지, 평가 기준 및 tier 테스트, Norns, Var, framework layout, semantic routing, Ruff, strict mypy, LOC, 번역 및 설계 검사. | 기록된 Low 심각도 잔여 문제 두 건은 유지됩니다. 역할, topic, 승인, 실행 또는 승격 권한은 바뀌지 않았습니다. |
 | 2026-09-14 | implemented | 활동 귀속 변경에서 관련 없는 ActionRun fingerprint 필드를 제거해 영속 및 복구 식별자를 그대로 유지했습니다. | `current change`; 전체 mypy와 집중 Thor 내구성 및 복구 회귀 테스트. | 정확히 병합된 개정 번호의 배포 감사 및 활동 근거를 보존합니다. |
@@ -58,6 +59,8 @@ translation_revised: 2026-09-15
   복제본 두 개에서도 감사 추가와 게시가 각각 한 번임을 보이는 회귀 검사를 보존합니다.
 - [ ] 각 이슈 작업 ID를 전역에서 지문 하나와 요청 다이제스트 하나에 결속하고, 다른 지문에서
   같은 ID를 재사용하면 실패 시 차단됨을 보이는 회귀 검사를 보존합니다.
+- [ ] Var에 영속 최종 승인이 이미 있으면 재생된 `hil_pending` ActionRun을 억제하고, 시작
+  순서가 달라도 완료된 티켓이 운영자 화면에 남지 않음을 보이는 회귀 검사를 보존합니다.
 - [ ] 남은 선행조건을 완료합니다. 배포가 소유하는 서명된 컨텍스트 발급자를 바인딩하고,
   Forseti가 소유하는 남은 인과관계 계보 속성을 보존하며, 실제 런타임 생산자를 구성하고,
   통제된 실제 배치 생산자를 구현합니다.
@@ -155,12 +158,15 @@ translation_revised: 2026-09-15
 - Norns는 인계 멱등성 키를 점유하고 대기 작업을 영속 지문 횟수에 CAS로 적용하며, 게시 또는
   결정론적 보류가 전달 완료를 표시할 때까지 각 후보를 유지합니다. 시작 처리는 정확한 대기 필드를
   범위가 제한된 항목 하나씩 조회합니다. 차단된 선두 항목은 복구를 멈추지만 다음으로 성공한
-  flush는 그 뒤의 영속 후보를 계속 처리합니다.
+  flush는 그 뒤의 영속 후보를 계속 처리합니다. 용량을 검증하고 후보를 추가한 뒤에만 지문을
+  제안됨 집합에 넣으므로 포화 복구도 다시 시도할 수 있습니다.
 
 > **현재 제한 사항:** 동시 Saga 복제본은 작업에 결속된 외부 변경 한 번 뒤에도 감사 및 이슈
 > 게시 이벤트를 중복 추가할 수 있습니다. 하류 게시 멱등성과 Norns 중복 제거가 영향을
 > 제한합니다. 배포되는 이슈 어댑터도 작업 ID 결속을 지문 하나의 범위에서만 확인합니다. Saga의
-> 별도 영속 인계 점유가 배포되는 타입 지정 호출자의 위험을 완화합니다.
+> 별도 영속 인계 점유가 배포되는 타입 지정 호출자의 위험을 완화합니다. 시작 시 Var가 저장된
+> 최종 승인을 게시한 뒤 대기열에 있던 `hil_pending` 이벤트를 소비하면 다른 결정 호출이 지울
+> 때까지 완료된 티켓이 운영자에게 보일 수 있습니다.
 
 #### 범위가 제한된 공유 상태
 

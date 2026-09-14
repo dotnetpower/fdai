@@ -22,7 +22,7 @@ cross-agent workflow has an independent rollout record in
 |------|-------|----------|-------|
 | W0-W1 documentation, ontology, and framework scaffolding | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | The fixed registry, package boundary, documentation parity, and typed-topic foundation are executable and checked. |
 | W2-W6 governance, pipeline, interface, specialist, handoff, and security mechanics | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py) | Focused synthetic tests exercise the bounded mechanics, including T1 answer evaluation before optional T2 synthesis. They do not establish live operational validation. |
-| Durable authority, recovery, handoff, and learning replay | implemented | [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_wave3_pipeline.py`](../../../services/core-control-plane/tests/agents/test_wave3_pipeline.py), [`test_bootstrap_config.py`](../../../services/core-control-plane/tests/runtime/test_bootstrap_config.py) | StateStore-backed CAS, lease, checkpoint, outbox, and startup recovery paths have focused restart and concurrency evidence. Two bounded Low-severity cross-replica/idempotency residuals remain open below. |
+| Durable authority, recovery, handoff, and learning replay | implemented | [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_wave3_pipeline.py`](../../../services/core-control-plane/tests/agents/test_wave3_pipeline.py), [`test_bootstrap_config.py`](../../../services/core-control-plane/tests/runtime/test_bootstrap_config.py) | StateStore-backed CAS, lease, checkpoint, outbox, and startup recovery paths have focused restart and concurrency evidence. Three bounded Low-severity cross-replica, operation-identity, and stale-projection residuals remain open below. |
 | W7 cross-agent shadow workflow mechanics | implemented | [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | Workflows have executable synthetic shadow traces and no evidence here of a default enforce workflow. |
 | W8 KPI, promotion, and degradation machinery | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI reports distinguish measured values from unavailable evidence, promotion fails closed on missing evidence, and injected degradation drills cover the fixed pantheon. |
 | W3 trace-continuity evidence handoff | implemented | `huginn.py`; `heimdall.py`; `test_trace_continuity_chain.py` | The sensing path preserves only bounded allowlisted continuity evidence and carries an observed reason into one Incident candidate without changing roles, topics, or action authority. |
@@ -35,6 +35,7 @@ cross-agent workflow has an independent rollout record in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Kept a saturated Norns recovery retryable by appending the inert fingerprint candidate before marking the fingerprint proposed. Capacity failure can no longer make an unpublished candidate appear delivered. | `current change`; focused saturation reproduction plus Norns durability, coverage, and runtime suites passed 162 tests; strict mypy and Ruff passed. | Resolve the three recorded Low-severity residuals without widening agent roles or authority. |
 | 2026-09-15 | implemented | Consolidated the implemented T1/T2, Var, Vidar, Saga, Norns, and Bragi replay contracts in this focused runtime owner after the legacy Pantheon and project-structure documents reached their size ratchets. | `current change`; 1,372 campaign safety tests, 170 Cost Governance isolation tests with one environment-dependent PostgreSQL skip, strict mypy, Ruff, and structural/documentation gates. | Close the two recorded Low-severity residuals without widening agent roles or authority. |
 | 2026-09-15 | implemented | Restored final CI compatibility without changing runtime behavior: moved verified execution-outcome classification to its focused module, bound the rubric test candidate to its trusted target, exercised Norns through `object.issue`, and renamed Var's locked private decision helper so the natural-language semantic detector does not misclassify canonical enum validation. | `current change`; focused ControlLoop package, rubric, and tier tests; Norns, Var, framework-layout, semantic-routing, Ruff, strict mypy, LOC, translation, and design checks. | The two recorded Low-severity residuals remain; no role, topic, approval, execution, or promotion authority changed. |
 | 2026-09-14 | implemented | Removed an unrelated ActionRun fingerprint field from the activity-attribution change so durable and recovery identity remains unchanged. | `current change`; full mypy plus focused Thor durability and recovery regressions. | Retain deployed audit and activity evidence for the exact merged revision. |
@@ -56,6 +57,8 @@ cross-agent workflow has an independent rollout record in
   then retain a two-replica regression showing one audit append and one publication.
 - [ ] Bind each issue operation id globally to one fingerprint and request digest, then retain a
   regression showing that reuse across fingerprints fails closed.
+- [ ] Suppress a replayed `hil_pending` ActionRun when Var already has a durable final approval,
+  then retain a startup-order regression showing no completed ticket remains operator-visible.
 - [ ] Complete the remaining prerequisites: bind the deployment-owned signed-context issuer,
   preserve the remaining Forseti-owned causal lineage properties, construct the real runtime
   producer, and implement the governed live-batch producer.
@@ -153,12 +156,16 @@ recovery, or publication authority to a different agent.
 - Norns claims the handoff idempotency key, CAS-applies a pending operation to a durable fingerprint
   count, and retains each candidate until publication or deterministic hold marks it delivered.
   Startup queries exact pending fields one bounded item at a time. A blocked head pauses recovery,
-  while the next successful flush continues with durable candidates behind it.
+  while the next successful flush continues with durable candidates behind it. Capacity is
+  validated and the candidate is appended before its fingerprint enters the proposed set, so a
+  saturated recovery remains retryable.
 
 > **Current limitations:** Concurrent Saga replicas can append duplicate audit and issue-publication
 > events after the single operation-bound external mutation. Downstream publication idempotency and
 > Norns deduplication bound the effect. The shipped issue adapter also scopes operation-id binding to
-> one fingerprint; Saga's separate durable handoff claim mitigates the shipped typed caller.
+> one fingerprint; Saga's separate durable handoff claim mitigates the shipped typed caller. Startup
+> can publish Var's stored final approval before a queued replayed `hil_pending` event is consumed,
+> leaving a completed ticket visible until another decision call clears it.
 
 #### Bounded shared state
 
