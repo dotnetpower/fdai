@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: caf2ede73a68ecb9280bbec897eeedf669839657
-translation_revised: 2026-09-13
+translation_source_sha: 4aa33f4de4594e74f0cef64200cac74cabc4e67b
+translation_revised: 2026-09-14
 ---
 
 # 콘솔 운영
@@ -231,7 +231,7 @@ Incidents 목록은 서버가 소유한 `title_source`를 그대로 렌더링하
 현재 상황 블록은 채널 신뢰 계층도 구분합니다. 기록된 A1 승인 요청 전달 실패는 보류된 대응에 여전히
 사람 입력이 필요하지만 승인 카드가 전달되지 않았다는 뜻입니다. A2 운영 알림을 사용할 수 없다는
 근거가 되지는 않습니다. 가장 최근에 기록된 A2 라우팅 결과만 알림 전달 단계를 결정하며, 설정 > 통합은
-승인 전달의 위생 처리된 현재 준비 상태를 소유합니다.
+승인 전달의 위생 처리된 준비 상태와 Teams A1 온보딩의 자동·수동 구분을 소유합니다.
 
 ### Operations 작업 화면
 
