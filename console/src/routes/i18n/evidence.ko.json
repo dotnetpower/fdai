@@ -325,6 +325,7 @@
       "unavailableReason": "최근 추적 탐색을 사용할 수 없습니다: {message}",
       "loadError": "최근 추적 탐색을 불러오지 못했습니다: {message}",
       "empty": "최근 감사 근거가 있는 상관관계가 없습니다.",
+      "filterEmpty": "이 종류와 일치하는 최근 추적이 없습니다.",
       "filter": "추적 종류별 최근 목록 필터",
       "incomplete": "감사 기록 {count}개의 최근 표본입니다. 더 오래된 기록이 있습니다.",
       "summaryComplete": "감사 기록 {records}개에서 상관관계 {count}개",

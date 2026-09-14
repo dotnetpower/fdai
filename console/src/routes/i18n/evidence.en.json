@@ -325,6 +325,7 @@
       "unavailableReason": "Recent Trace discovery is unavailable: {message}",
       "loadError": "Recent Trace discovery could not be loaded: {message}",
       "empty": "No recent audit-backed correlations are available.",
+      "filterEmpty": "No recent traces match this type.",
       "filter": "Filter recent traces by type",
       "incomplete": "Recent sample from {count} audit records. Older records exist.",
       "summaryComplete": "{count} correlations in {records} audit records",

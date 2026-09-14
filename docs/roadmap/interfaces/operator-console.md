@@ -87,6 +87,7 @@ screen while preserving 44 px controls, text spacing, and exact identifiers. Rel
 reflow into a bounded two-column grid instead of an additional overlay.
 At wide widths, correlation input, copy, related evidence, and refresh remain in one toolbar row.
 At narrow widths, the four decision summaries use a 2 by 2 grid and detailed context starts collapsed.
+Filtering recent discovery to zero matches renders an explicit filter-empty state.
 
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final

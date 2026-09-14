@@ -477,6 +477,8 @@ test("shows the correlated action lifecycle at desktop width", async ({ page }, 
   await expect(discovery.locator("summary")).toContainText("2 recent correlations");
   await discovery.locator("summary").click();
   await expect(discovery.locator(".trace-discovery-list li")).toHaveCount(2);
+  await discovery.getByRole("button", { name: "Read", exact: true }).click();
+  await expect(discovery.getByText("No recent traces match this type.")).toBeVisible();
   await discovery.getByRole("button", { name: "Decision / action" }).click();
   await expect(discovery.locator(".trace-discovery-list li")).toHaveCount(2);
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {

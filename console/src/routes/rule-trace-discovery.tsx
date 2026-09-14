@@ -121,8 +121,13 @@ export function TraceDiscovery({
                 })}
               </p>
             ) : null}
-            <ol class="trace-discovery-list">
-              {items.map((item) => (
+            {items.length === 0 ? (
+              <p class="trace-discovery-state" role="status">
+                {t("evidence.trace.discovery.filterEmpty")}
+              </p>
+            ) : (
+              <ol class="trace-discovery-list">
+                {items.map((item) => (
                 <li key={item.correlationId}>
                   <a
                     class={item.correlationId === selectedCorrelation ? "is-current" : undefined}
@@ -161,8 +166,9 @@ export function TraceDiscovery({
                     </span>
                   </a>
                 </li>
-              ))}
-            </ol>
+                ))}
+              </ol>
+            )}
           </>
         )}
       </div>
