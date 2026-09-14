@@ -232,6 +232,29 @@ describe("browser notification boundary", () => {
     expect(readLatestBrowserAlertReceipt("principal-a", now + 1, storage)).toBeNull();
   });
 
+  test("keeps the legacy timestamp alias across every receipt write", () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value); },
+      removeItem: (key: string) => { values.delete(key); },
+    };
+    const key = "fdai:console:browser-notification-delivery:v1:principal-a";
+    const now = 1_800_000_000_000;
+    expect(claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage)).toBe("claimed");
+    recordBrowserAlertDelivered("fdai:event-1", "principal-a", now + 1, storage);
+    acknowledgeBrowserAlertDelivery("fdai:event-1", "principal-a", now + 2, storage);
+
+    const stored = JSON.parse(values.get(key) ?? "[]") as readonly Record<string, unknown>[];
+    expect(stored).toEqual([expect.objectContaining({
+      tag: "fdai:event-1",
+      at: now,
+      claimedAt: now,
+      deliveredAt: now + 1,
+      acknowledgedAt: now + 2,
+    })]);
+  });
+
   test("retains delivery evidence after the five-minute duplicate window", () => {
     const values = new Map<string, string>();
     const storage = {
