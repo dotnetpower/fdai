@@ -549,11 +549,15 @@ class Heimdall(HeimdallProviderSchemaMixin, HeimdallForecastMixin, Agent):
         now = self._clock()
         while history and now - history[0][0] > self._rate_window:
             history.popleft()
+        evidence_key = str(event.get("idempotency_key") or event.get("event_id") or "").strip()
+        if evidence_key and any(item[2] == evidence_key for item in history):
+            self.record_behavior("repeated_event_duplicate")
+            return
         history.append(
             (
                 now,
                 _event_severity(event),
-                str(event.get("idempotency_key") or event.get("event_id") or "").strip(),
+                evidence_key,
             )
         )
         if len(history) < self._rate_threshold:

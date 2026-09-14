@@ -1535,6 +1535,43 @@ def test_heimdall_preserves_all_burst_evidence_keys() -> None:
     assert candidates[0]["evidence_keys"] == ("failure-0", "failure-1")
 
 
+def test_heimdall_does_not_count_duplicate_event_evidence_toward_threshold() -> None:
+    reg = load_pantheon()
+    bus = InMemoryBus(registry=reg)
+    candidates: list[dict[str, object]] = []
+
+    async def capture(candidate: dict[str, object]) -> bool:
+        candidates.append(candidate)
+        return True
+
+    heimdall = Heimdall(bus=bus, rate_threshold=2, incident_candidate_hook=capture)
+    repeated = {
+        "resource_id": "api-example",
+        "event_type": "availability.probe_failed",
+        "incident_correlation": "correlate",
+        "correlation_id": "episode-1",
+        "idempotency_key": "failure-1",
+        "severity": "high",
+    }
+
+    asyncio.run(heimdall.on_typed_message("object.event", repeated))
+    asyncio.run(heimdall.on_typed_message("object.event", repeated))
+
+    assert bus.messages_on("object.anomaly") == []
+    assert candidates == []
+    assert heimdall.behavior_snapshot()["repeated_event_duplicate"] == 1
+
+    asyncio.run(
+        heimdall.on_typed_message(
+            "object.event",
+            {**repeated, "idempotency_key": "failure-2"},
+        )
+    )
+
+    assert len(bus.messages_on("object.anomaly")) == 1
+    assert candidates[0]["evidence_keys"] == ("failure-1", "failure-2")
+
+
 def test_heimdall_accumulates_interleaved_episodes_independently() -> None:
     reg = load_pantheon()
     bus = InMemoryBus(registry=reg)
