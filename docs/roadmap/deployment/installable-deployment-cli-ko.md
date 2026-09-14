@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: c8726a8f9b7e81b2ed1c31fffe659716aedf4788
+translation_source_sha: ca439323d4cd6d3f4800137b3408c14020487701
 translation_revised: 2026-09-14
 ---
 
@@ -36,6 +36,15 @@ GitHub Actions는 소스를 검증하고 이미지를 빌드하며 서명된 rel
 환경을 계획, 적용, 재개 또는 제거할 수 없습니다.
 
 ## 연결된 소스 배포
+
+현재 소스 모드는 비공개 준비, 읽기 전용 AKS 용량 사전 점검, 관리 호스트 이미지 계획 생성,
+별도의 소스 기반 Foundation 계획 명령까지 지원합니다. 소스 적용, 관리 호스트의 애플리케이션
+실행, 영속 Trial 활성화는 아직 연결되지 않았습니다. 계획은 배포 성공이 아니라 검토 대기로
+종료 코드 `2`를 반환하며, 용량 차단은 `3`을 반환합니다. `--prepare-only`는 Azure를 호출하지
+않습니다. `--preflight-only`는 현재 사용자 대상, SKU 제한, x64 아키텍처, 호스트 암호화,
+필수 가용 영역, 자동 확장 최대치와 동시 33퍼센트 추가 노드를 포함한 계열 및 전체 할당량을
+조회합니다. 용량을 예약하거나 Foundation 자원까지 계산하지는 않습니다. 별도의 소스 작업
+디렉터리는 기존 키트 실행 상태를 인수하지 않습니다.
 
 개발용 소스 경로는 `fdaictl provision azure --source <path>`로 명시적으로 선택합니다.
 `--online`, `--offline-kit`과 함께 사용할 수 없습니다. 초기 지원 대상은 AKS와 PostgreSQL

@@ -19,6 +19,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 import genesis_prepare  # noqa: E402
 import genesis_prepare_inputs  # noqa: E402
+import source_genesis  # noqa: E402
 
 SOURCE = subprocess.run(
     ["/usr/bin/git", "rev-parse", "HEAD"],
@@ -29,6 +30,49 @@ SOURCE = subprocess.run(
 ).stdout.strip()
 TENANT = "00000000-0000-0000-0000-000000000001"
 SUBSCRIPTION = "00000000-0000-0000-0000-000000000002"
+
+
+def test_source_preparation_retains_inputs_without_publisher_keys(tmp_path, monkeypatch) -> None:
+    source = SimpleNamespace(root=ROOT, commit=SOURCE, digest="d" * 64, reverify=lambda: None)
+    monkeypatch.setattr(source_genesis, "inspect_source", lambda *_, **__: source)
+    monkeypatch.setattr(
+        source_genesis,
+        "active_azure_target",
+        lambda: SimpleNamespace(tenant_id=TENANT, subscription_id=SUBSCRIPTION),
+    )
+    discoveries = []
+
+    def discover(**kwargs):
+        discoveries.append(kwargs)
+        assert kwargs["execution_transport"] == "manual"
+        return _values(**kwargs)
+
+    monkeypatch.setattr(source_genesis, "foundation_values", discover)
+    binding = source_genesis.compute_target_binding(tenant_id=TENANT, subscription_id=SUBSCRIPTION)
+    args = SimpleNamespace(
+        source_commit=SOURCE,
+        target_binding=binding,
+        work_dir=tmp_path / "source",
+        region="koreacentral",
+        monthly_cost_ceiling=1000,
+    )
+    result = source_genesis.prepare(args)
+    assert source_genesis.prepare(args) == result
+    assert len(discoveries) == 1
+    assert result["mutation_performed"] is False
+    assert result["deployment_ready"] is False
+    assert {path.name for path in args.work_dir.iterdir()} == {
+        "profile.json",
+        "foundation-variables.json",
+        "runner_ed25519",
+        "runner_ed25519.pub",
+        "source-genesis.json",
+    }
+    for path in args.work_dir.iterdir():
+        assert path.stat().st_mode & 0o777 == 0o600
+    args.target_binding = "f" * 64
+    with pytest.raises(ValueError, match="target changed"):
+        source_genesis.prepare(args)
 
 
 def test_standalone_run_binding_matches_runner_image_mode() -> None:

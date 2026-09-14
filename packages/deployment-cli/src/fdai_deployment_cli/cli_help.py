@@ -22,14 +22,18 @@ ROOT_EPILOG = (
     "Deployment requires explicit approval; help grants no authority."
 )
 AZURE_DESCRIPTION = (
-    "Deploy from the active Azure CLI human account using one verified signed kit.\n"
-    "Choose --online or --offline-kit. Exact plans still require human approval.\n"
+    "Use the active Azure CLI human account with source or a verified signed kit.\n"
+    "Choose --source, --online or --offline-kit. Exact plans require human approval.\n"
+    "Source mode currently prepares inputs and plans; apply integration is incomplete.\n"
+    "Use --prepare-only for no Azure access or --preflight-only for read-only SKU/quota checks.\n"
     "New installations seal Container Apps or AKS into every approved plan.\n"
     "New installations can start observation-only without a capability token.\n"
     "Omitting a token does not revoke one previously installed."
 )
 AZURE_EPILOG = (
     "Examples (after az login):\n"
+    "  fdaictl provision azure --source . --runtime aks --prepare-only\n\n"
+    "  fdaictl provision azure --source . --runtime aks --preflight-only\n\n"
     "  fdaictl provision azure --online \\\n"
     "    --region koreacentral --runtime container-apps\n\n"
     "  fdaictl provision azure --online \\\n"

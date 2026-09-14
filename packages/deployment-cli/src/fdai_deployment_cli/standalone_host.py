@@ -85,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     prepare.add_argument("--runtime-platform", default="container-apps")
     prepare.add_argument("--database-placement", default="postgres-flex")
     prepare.add_argument("--system-node-count", type=int, default=3)
-    prepare.add_argument("--system-node-sku", default="Standard_D2as_v5")
+    prepare.add_argument("--system-node-sku", default=None)
     prepare.add_argument("--user-node-min-count", type=int, default=3)
     prepare.add_argument("--user-node-max-count", type=int, default=5)
     prepare.add_argument("--user-node-sku", default="Standard_D4as_v5")
@@ -163,7 +163,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         runtime_platform=str(args.runtime_platform),
         database_placement=str(args.database_placement),
         system_node_count=int(args.system_node_count),
-        system_node_sku=str(args.system_node_sku),
+        system_node_sku=args.system_node_sku,
         user_node_min_count=int(args.user_node_min_count),
         user_node_max_count=int(args.user_node_max_count),
         user_node_sku=str(args.user_node_sku),

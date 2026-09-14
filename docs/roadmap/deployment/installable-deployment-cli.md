@@ -34,6 +34,15 @@ apply, resume, or tear down a tenant deployment.
 
 ## Connected source deployment
 
+Current source-mode support covers private preparation, read-only AKS capacity preflight,
+runner-image plan generation, and a separate source-bound Foundation plan command. Source apply,
+managed-host application execution and durable Trial activation are not yet connected. A plan
+returns exit code `2` for review, not deployment success; a capacity blocker returns `3`.
+`--prepare-only` makes no Azure call. `--preflight-only` reads the current human target, SKU
+restrictions, x64 architecture, host encryption, required zones and shared-family/total quota at
+autoscaler maximum plus simultaneous 33-percent surge. It neither reserves capacity nor accounts
+for the Foundation graph. The distinct source work directory never adopts a kit run.
+
 The development source path is selected explicitly with `fdaictl provision azure --source <path>`.
 It is mutually exclusive with `--online` and `--offline-kit`. Initial support targets a new
 `dev` installation using AKS and PostgreSQL Flexible Server. It does not migrate an existing

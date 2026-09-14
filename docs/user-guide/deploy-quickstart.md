@@ -105,6 +105,20 @@ Invalid commands, incomplete arguments, and conflicting artifact sources still r
 
 ### Run the deployment
 
+For the source-mode development preview, start with local preparation:
+
+```bash
+fdaictl provision azure --source . --runtime aks --prepare-only
+```
+
+After Azure sign-in, `--preflight-only` instead checks AKS SKU and quota feasibility without
+resource mutation. Omit both flags to advance to the runner-image plan review boundary. This
+preview does not yet apply infrastructure or activate the durable 30-day Trial. A successful
+preparation or preflight is not a deployed application. Source mode does not download a complete
+kit or require a publisher key, and its work directory must be outside the selected checkout.
+
+The following signed-kit path remains separate:
+
 After installation, run this from any directory and choose the Azure region:
 
 ```bash

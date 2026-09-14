@@ -62,7 +62,7 @@ grants action authority, changes the selected environment, or enables enforcemen
 | AKS system nodes | At least 2. Production requires at least 3. | 3 |
 | AKS user nodes | At least 3. | 3 with `postgres-flex` |
 | AKS user nodes with `postgres-aks` | At least 4. | 4 for non-production compact use |
-| System node SKU | Region and subscription must report it available. | `Standard_D2as_v5` |
+| System node SKU | At least 4 vCPUs and 4 GB memory; available in the selected region and subscription. | `Standard_D4as_v5` |
 | User node SKU | Region and subscription must report it available. | `Standard_D4as_v5` |
 | Availability zones | Every requested zone must exist for both selected SKUs. | Three zones in production |
 

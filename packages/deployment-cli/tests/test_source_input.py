@@ -10,6 +10,8 @@ from types import SimpleNamespace
 import pytest
 
 from fdai_deployment_cli import source_input
+from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
+from fdai_deployment_cli.source_deploy import prepare_source_deployment
 from fdai_deployment_cli.source_input import inspect_source
 from fdai_deployment_cli.source_snapshot import materialize_source, verify_source_snapshot
 
@@ -147,3 +149,37 @@ def test_reading_a_link_may_update_access_time(checkout: Path, monkeypatch) -> N
     monkeypatch.setattr(source_input.os, "stat", observed_stat)
     monkeypatch.setattr(source_input.os, "readlink", lambda *_args, **_kwargs: "source.py")
     assert source_input._read_tracked(checkout, "linked.py", mode="120000") == b"source.py"
+
+
+def test_source_preparation_resumes_exact_intent_without_renewal(checkout: Path) -> None:
+    arguments = {
+        "source_root": checkout,
+        "work_dir": checkout.parent / "run",
+        "runtime_profile": RuntimeDeploymentProfile.create(
+            runtime_platform="aks", database_placement="postgres-flex"
+        ),
+        "region": "eastus",
+        "monthly_cost_ceiling": 1000,
+    }
+    receipt = prepare_source_deployment(**arguments)
+    assert prepare_source_deployment(**arguments) == receipt
+    assert receipt["deployment_ready"] is False
+    assert receipt["release_signature_verified"] is False
+    with pytest.raises(ValueError, match="intent differs"):
+        prepare_source_deployment(**{**arguments, "region": "westus"})
+
+
+def test_source_preparation_cannot_adopt_kit_state(checkout: Path) -> None:
+    work = checkout.parent / "kit-run"
+    work.mkdir(mode=0o700)
+    (work / "kit-work").mkdir()
+    with pytest.raises(ValueError, match="cannot adopt"):
+        prepare_source_deployment(
+            source_root=checkout,
+            work_dir=work,
+            runtime_profile=RuntimeDeploymentProfile.create(
+                runtime_platform="aks", database_placement="postgres-flex"
+            ),
+            region="eastus",
+            monthly_cost_ceiling=1000,
+        )

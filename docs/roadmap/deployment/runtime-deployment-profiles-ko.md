@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 0831302c98df82da4f27a67e6c330ea26906d20d
+translation_source_sha: cd60902ec8604e64f2afb300f2f99879cb087611
 translation_revised: 2026-09-14
 ---
 # 런타임 배포 프로파일
@@ -64,7 +64,7 @@ fdaictl provision azure \
 | AKS 시스템 노드 | 최소 2개입니다. 프로덕션은 최소 3개입니다. | 3 |
 | AKS 사용자 노드 | 최소 3개입니다. | `postgres-flex` 사용 시 3 |
 | `postgres-aks` 사용 시 AKS 사용자 노드 | 최소 4개입니다. | 비프로덕션 소형 구성에서 4 |
-| 시스템 노드 SKU | 지역과 구독에서 사용 가능해야 합니다. | `Standard_D2as_v5` |
+| 시스템 노드 SKU | 최소 4 vCPU와 4 GB 메모리이며 선택한 지역과 구독에서 사용 가능해야 합니다. | `Standard_D4as_v5` |
 | 사용자 노드 SKU | 지역과 구독에서 사용 가능해야 합니다. | `Standard_D4as_v5` |
 | 가용성 영역 | 요청한 각 영역을 두 SKU에서 모두 사용할 수 있어야 합니다. | 프로덕션에서 3개 영역 |
 

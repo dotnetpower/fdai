@@ -95,7 +95,7 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     azure = command(
         provision_commands,
         "azure",
-        "Deploy with a signed kit and exact human approvals",
+        "Prepare source or deploy a signed kit with exact approvals",
         description=AZURE_DESCRIPTION,
         epilog=AZURE_EPILOG,
     )
@@ -109,6 +109,23 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         type=Path,
         metavar="PATH",
         help="Use a local signed kit; no public artifact fallback",
+    )
+    kit_source.add_argument(
+        "--source",
+        type=Path,
+        metavar="PATH",
+        help="Select a clean source checkout for connected dev AKS deployment",
+    )
+    source_action = azure.add_mutually_exclusive_group()
+    source_action.add_argument(
+        "--prepare-only",
+        action="store_true",
+        help="Verify source and retain a private snapshot without Azure access (source mode only)",
+    )
+    source_action.add_argument(
+        "--preflight-only",
+        action="store_true",
+        help="Prepare source and read AKS SKU/quota feasibility without Azure mutation",
     )
     settings = azure.add_argument_group("Deployment settings")
     settings.add_argument(
@@ -136,9 +153,9 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     )
     settings.add_argument(
         "--system-node-sku",
-        default="Standard_D2as_v5",
+        default=None,
         metavar="SKU",
-        help="AKS system node VM SKU (default: %(default)s)",
+        help="AKS system node VM SKU (AKS default: Standard_D4as_v5)",
     )
     settings.add_argument(
         "--user-nodes",
@@ -282,9 +299,25 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     plan = command(
         provision_commands, "plan", "Plan a verified Terraform root without applying changes"
     )
-    plan.add_argument("--offline-kit", type=Path, required=True)
-    plan.add_argument("--release-root", type=Path, required=True)
-    plan.add_argument("--bundle-public-key", type=Path, required=True)
+    plan_source = plan.add_mutually_exclusive_group(required=True)
+    plan_source.add_argument(
+        "--offline-kit",
+        type=Path,
+        help="Complete signed deployment kit; release and bundle keys required",
+    )
+    plan_source.add_argument(
+        "--source-snapshot", type=Path, help="Private prepared source snapshot (Foundation only)"
+    )
+    plan.add_argument(
+        "--source-snapshot-digest", help="Independently retained source snapshot SHA-256"
+    )
+    plan.add_argument(
+        "--terraform",
+        type=Path,
+        help="Terraform executable matching the committed source toolchain",
+    )
+    plan.add_argument("--release-root", type=Path)
+    plan.add_argument("--bundle-public-key", type=Path)
     plan.add_argument("--work-dir", type=Path, required=True)
     plan.add_argument("--variables-file", type=Path, required=True)
     plan.add_argument("--profile", type=Path, required=True)

@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 단일 로컬 명령 또는 digest로 고정된 폐쇄망 배포 어플라이언스로 FDAI를 Azure에 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: ed08d36c127e24143daeedb20dbef073246f268c
+translation_source_sha: 92ca50ac5ae2a2101d2e0187eedad18c79998616
 translation_revised: 2026-09-14
 ---
 
@@ -104,6 +104,20 @@ Linux에서는 보통 `~/.local/bin`입니다. 이후에는 복제한 디렉터�
 않습니다. 긴 옵션은 축약하지 않고 전체 이름을 입력하세요.
 
 ### 배포 실행
+
+소스 모드 개발 미리 보기는 로컬 준비부터 실행합니다.
+
+```bash
+fdaictl provision azure --source . --runtime aks --prepare-only
+```
+
+Azure 로그인 후 `--preflight-only`를 대신 지정하면 리소스를 변경하지 않고 AKS SKU와
+할당량을 점검합니다. 두 옵션을 모두 생략하면 관리 호스트 이미지 계획 검토 단계까지 진행합니다.
+이 미리 보기는 아직 인프라를 적용하거나 영속적인 30일 Trial을 활성화하지 않습니다.
+준비나 사전 점검의 성공은 애플리케이션 배포 완료를 뜻하지 않습니다. 소스 모드는 완전한
+키트를 다운로드하거나 발급자 키를 요구하지 않으며, 작업 디렉터리는 선택한 체크아웃 밖에 둡니다.
+
+다음 서명 키트 경로는 별도로 유지합니다.
 
 설치 후에는 어느 디렉터리에서든 다음 명령을 실행하고 Azure 리전을 선택합니다.
 
