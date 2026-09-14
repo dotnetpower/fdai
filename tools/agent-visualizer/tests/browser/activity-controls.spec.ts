@@ -58,7 +58,7 @@ test("desktop controls: Cinema border glows without animating text and respects 
   expect(appearance.shadow).not.toBe("none");
   expect(appearance.textAnimation).toBe("none");
   const pulse = await page.locator("#cinema").evaluate((button) => {
-    const animation = button.getAnimations({ subtree: true }).find((candidate) => candidate.animationName === "cinema-border-glow");
+    const [animation] = button.getAnimations({ subtree: true });
     if (!animation) return null;
     animation.pause();
     animation.currentTime = 0;

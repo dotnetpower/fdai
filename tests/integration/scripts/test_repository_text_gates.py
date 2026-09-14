@@ -226,6 +226,20 @@ def test_punctuation_gate_ignores_tracked_gzip_artifacts(git_repo: Path) -> None
     assert "1 file(s) scanned" in punctuation.stdout
 
 
+def test_punctuation_gate_ignores_tracked_mp4_artifacts(git_repo: Path) -> None:
+    (git_repo / "clean.txt").write_text("clean\n", encoding="utf-8")
+    (git_repo / "hero.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42\xe2\x80\x94")
+    assert _run(git_repo, "git", "add", ".").returncode == 0
+
+    full_scan = _run(git_repo, "bash", str(_PUNCTUATION))
+    scoped_scan = _run(git_repo, "bash", str(_PUNCTUATION), "clean.txt", "hero.mp4")
+
+    assert full_scan.returncode == 0, full_scan.stderr
+    assert "1 file(s) scanned" in full_scan.stdout
+    assert scoped_scan.returncode == 0, scoped_scan.stderr
+    assert "1 file(s) scanned" in scoped_scan.stdout
+
+
 def test_punctuation_baseline_only_allows_the_exact_blob(git_repo: Path) -> None:
     path = git_repo / "legacy.txt"
     path.write_text("legacy \u2026 text\n", encoding="utf-8")
