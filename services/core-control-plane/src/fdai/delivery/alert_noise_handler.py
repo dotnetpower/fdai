@@ -149,8 +149,10 @@ class AlertNoiseAgentHandler:
             return result.model_dump(mode="json")
         now = self.clock()
         reason = retained.get("reason")
-        if command.scope_ref not in self.principals.get(command.requester_ref, frozenset()):
-            reason = "scope_denied"
+        try:
+            now = self._request_now(command)
+        except AlertPlanHeld as exc:
+            reason = str(exc)
         report: NoiseAssessment | None = None
         plan: AlertChangePlan | None = None
         status = "held"
@@ -177,7 +179,7 @@ class AlertNoiseAgentHandler:
                         command.treatment,
                         policy=self.policy,
                         requester_ref=command.requester_ref,
-                        now=now,
+                        now=self._request_now(command),
                         evaluation_receipt=comparison,
                     )
                     await self._retain(
@@ -185,8 +187,10 @@ class AlertNoiseAgentHandler:
                         plan.model_dump(mode="json"),
                         "Forseti",
                     )
+                    self._request_now(command)
                     if self.artifacts is not None:
                         await self.artifacts.prepare(plan=plan, evidence=evidence)
+                    self._request_now(command)
                     if self.workflows is not None:
                         await self.workflows.run(
                             plan_digest=digest_record(plan),
@@ -196,8 +200,11 @@ class AlertNoiseAgentHandler:
                     status = "proposal_ready"
                 except (AlertPlanHeld, AlertExecutionHeld) as exc:
                     status, reason, plan = "held", str(exc), None
-        if not command.requested_at <= now < command.expires_at:
-            status, reason, plan = "held", "request_expired", None
+        try:
+            self._request_now(command)
+        except AlertPlanHeld as exc:
+            status, reason, plan = "held", str(exc), None
+        now = self.clock()
         result = AlertNoiseResult.model_validate(
             {
                 "command": command,
@@ -219,6 +226,17 @@ class AlertNoiseAgentHandler:
             "Forseti",
         )
         return result.model_dump(mode="json")
+
+    def _request_now(self, command: AlertNoiseCommand) -> datetime:
+        """Recheck current scope and the trusted clock after I/O and before a new handoff."""
+        now = self.clock()
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise AlertPlanHeld("clock_invalid")
+        if not command.requested_at <= now < command.expires_at:
+            raise AlertPlanHeld("request_expired")
+        if command.scope_ref not in self.principals.get(command.requester_ref, frozenset()):
+            raise AlertPlanHeld("scope_denied")
+        return now
 
     async def _retain(self, key: str, value: Mapping[str, Any], actor: str) -> None:
         created = await self.store.write_state_with_audit_if_absent(

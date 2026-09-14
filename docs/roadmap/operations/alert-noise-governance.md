@@ -256,6 +256,8 @@ Operator reserves the authenticated terminal result with insert-if-absent before
 report or plan projection. A conflicting result cannot change a projection. After an interruption,
 only replay of that exact retained result may finish its idempotent projection writes.
 PostgreSQL claims use parameterized namespaces, exclusive row leases and exact worker fencing.
+The planning handler rechecks the request deadline and current scope after dependency I/O and
+before artifact or Workflow handoffs; terminal recording uses the current clock, not intake time.
 
 ## 7. Bounded rollout and recovery
 
