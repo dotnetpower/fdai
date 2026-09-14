@@ -1,7 +1,7 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: 92742b4fabe532771de6ba9de1ba824c63de386d
+translation_source_sha: 35e471a8c9de6a95d11ec54062f9f7e5deb2689a
 translation_revised: 2026-09-14
 ---
 # Console 읽기 경계
@@ -30,6 +30,7 @@ translation_revised: 2026-09-14
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 생성 결과 변조 또는 오래된 수동 재작성으로부터 두 준비 캐시를 강화했습니다. 이제 캐시를 재사용하려면 모드 표식과 생성된 Operator 플래그 두 개가 요청 모드와 정확히 한 번 일치해야 합니다. | `current change`; `prepare-console-full-stack.sh`; 변경된 출력에 대한 집중 캐시 회귀 테스트. | 동시 준비 및 시작 전체에서 하나의 변경 불가능한 모드 값을 전달합니다. |
 | 2026-09-14 | implemented | 영속 CLI 인증 플래그 안내를 명시적 실행기 및 작업 명령으로 교체하고, 고정된 `Contributor` 상한과 승인 제한을 함께 설명했습니다. | `current change`; `DEVELOPING.md`; `console/README.md`; `user-rbac-and-identity.md`; 이중 언어 문서 검사. | 독립 통합 비평과 인증된 Browser Entra 검증을 완료합니다. |
 | 2026-09-14 | implemented | Reader에는 `count_only`를 반환하고 검증된 Approver 및 Owner principal에는 `full` 승인 상세를 반환하는 HTTP 권한 경계 회귀 테스트를 추가했습니다. 테스트는 권위 있는 읽기 모델에 전달하는 상세 조회 플래그도 검증합니다. | `current change`; `test_operator_service_composition.py::test_hil_queue_detail_level_follows_verified_operator_role`; 역할 사례 3개 통과. | 운영자 복구 안내와 최종 통합 검토를 완료합니다. |
 | 2026-09-14 | implemented | 요청된 운영자 인증 모드를 활성 서비스 환경 단계 캐시 식별자에 추가했습니다. 이제 모든 파일 입력이 같아도 모드를 전환하면 Operator 환경과 모드 표식을 다시 생성합니다. | `current change`; `prepare-console-full-stack.sh`; 두 모드의 집중 단계 캐시 테스트. | 승인 경로 권한 회귀 테스트를 추가하고 운영자 안내를 완성합니다. |

@@ -50,6 +50,8 @@ fi
 
 legacy_preparation_marker="$repo_root/.fdai/console-full-stack-preparation.sha256"
 stage_marker_dir="$repo_root/.fdai/console-preparation"
+auth_mode_file="$repo_root/.fdai/local-console-auth-mode"
+operator_env="$repo_root/.fdai/local-operator-service.env"
 bounded_runner="$repo_root/scripts/automation/run-bounded-command.py"
 stage_timeout_seconds="${FDAI_CONSOLE_PREPARATION_STAGE_TIMEOUT_SECONDS:-300}"
 stage_no_progress_seconds="${FDAI_CONSOLE_PREPARATION_NO_PROGRESS_SECONDS:-120}"
@@ -140,6 +142,22 @@ legacy_digest() {
     "$@"
 }
 
+auth_mode_outputs_match() {
+  local expected_flag
+  if [[ "$auth_mode" == "azure-cli" ]]; then
+    expected_flag=1
+  else
+    expected_flag=0
+  fi
+  [[ -f "$auth_mode_file" ]] || return 1
+  [[ "$(<"$auth_mode_file")" == "$auth_mode" ]] || return 1
+  [[ -f "$operator_env" ]] || return 1
+  [[ "$(grep -Ec '^FDAI_OPERATOR_API_LOCAL_AZURE_CLI=' "$operator_env" || true)" == "1" ]]
+  [[ "$(grep -Fxc "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=$expected_flag" "$operator_env" || true)" == "1" ]]
+  [[ "$(grep -Ec '^FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=' "$operator_env" || true)" == "1" ]]
+  [[ "$(grep -Fxc "FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=$expected_flag" "$operator_env" || true)" == "1" ]]
+}
+
 can_reuse_legacy_preparation() {
   local current_digest="$1"
   local output
@@ -148,6 +166,7 @@ can_reuse_legacy_preparation() {
   for output in "${required_outputs[@]}"; do
     [[ -s "$repo_root/$output" ]] || return 1
   done
+  auth_mode_outputs_match || return 1
   "$repo_root/.venv/bin/python" \
     "$repo_root/scripts/automation/developer-workflow.py" \
     local-services \
@@ -174,6 +193,9 @@ stage_reusable() {
   [[ "$force_preparation" == "0" ]] || return 1
   [[ -f "$marker" ]] || return 1
   [[ "$(<"$marker")" == "$digest" ]] || return 1
+  if [[ "$name" == "service-environments" ]] && ! auth_mode_outputs_match; then
+    return 1
+  fi
   if [[ "$name" == "authoritative-inventory" ]] && ! \
     "$repo_root/.venv/bin/python" \
       "$repo_root/scripts/automation/developer-workflow.py" \

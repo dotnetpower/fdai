@@ -398,6 +398,16 @@ def test_preparation_reuses_an_unchanged_healthy_stack(
         output = repo / relative
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text("prepared\n", encoding="utf-8")
+    (repo / ".fdai/local-console-auth-mode").write_text(
+        f"{auth_mode}\n",
+        encoding="utf-8",
+    )
+    expected_flag = "1" if auth_mode == "azure-cli" else "0"
+    (repo / ".fdai/local-operator-service.env").write_text(
+        f"FDAI_OPERATOR_API_LOCAL_AZURE_CLI={expected_flag}\n"
+        f"FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM={expected_flag}\n",
+        encoding="utf-8",
+    )
     (repo / "console").mkdir()
     (repo / "console/.env.local").write_text("prepared\n", encoding="utf-8")
     (repo / "console/package.json").write_text("{}\n", encoding="utf-8")
@@ -470,6 +480,34 @@ def _staged_preparation_repo(
         output = repo / relative
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text("prepared\n", encoding="utf-8")
+    expected_flag = "1" if auth_mode == "azure-cli" else "0"
+    (repo / ".fdai/local-console-auth-mode").write_text(
+        f"{auth_mode}\n",
+        encoding="utf-8",
+    )
+    (repo / ".fdai/local-operator-service.env").write_text(
+        f"FDAI_OPERATOR_API_LOCAL_AZURE_CLI={expected_flag}\n"
+        f"FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM={expected_flag}\n",
+        encoding="utf-8",
+    )
+    _write_executable(
+        repo / "scripts/deployment/local/prepare-operator-service-env.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+mode="$2"
+flag=0
+if [[ "$mode" == "azure-cli" ]]; then flag=1; fi
+printf '%s\n' "$mode" > .fdai/local-console-auth-mode
+printf 'FDAI_OPERATOR_API_LOCAL_AZURE_CLI=%s\n' "$flag" \
+  > .fdai/local-operator-service.env
+printf 'FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=%s\n' "$flag" \
+  >> .fdai/local-operator-service.env
+""",
+    )
+    _write_executable(
+        repo / "scripts/deployment/local/prepare-independent-service-envs.sh",
+        "#!/usr/bin/env bash\nexit 0\n",
+    )
     digest = "c" * 64
     marker_dir = repo / ".fdai/console-preparation"
     marker_dir.mkdir(parents=True)
@@ -563,6 +601,36 @@ def test_preparation_reuses_each_unchanged_stage_when_stack_is_stopped(
     assert result.returncode == 0
     assert result.stdout.count("event=reused") == 8
     assert "stage=entra-redirects event=completed" not in result.stdout
+
+
+def test_preparation_repairs_auth_outputs_changed_outside_the_cache(
+    tmp_path: Path,
+) -> None:
+    repo, environment = _staged_preparation_repo(tmp_path)
+    (repo / ".fdai/local-console-auth-mode").write_text("azure-cli\n", encoding="utf-8")
+    (repo / ".fdai/local-operator-service.env").write_text(
+        "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1\nFDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=1\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(repo / "scripts/deployment/local/prepare-console-full-stack.sh")],
+        cwd=repo,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.count("stage=service-environments event=completed") == 1
+    assert (repo / ".fdai/local-console-auth-mode").read_text(encoding="utf-8") == (
+        "browser-entra\n"
+    )
+    assert "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=0\n" in (
+        repo / ".fdai/local-operator-service.env"
+    ).read_text(encoding="utf-8")
 
 
 def test_preparation_reruns_only_the_invalidated_stage(tmp_path: Path) -> None:
