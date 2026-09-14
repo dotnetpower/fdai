@@ -10,6 +10,7 @@ import struct
 import zipfile
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Protocol
 from urllib.parse import urlparse
@@ -40,6 +41,7 @@ from fdai_service_contracts import (
     live_unavailable_readiness,
     unavailable_readiness,
 )
+from fdai_service_contracts.cloud_knowledge import content_digest
 
 from fdai_document_worker_service.adapters.ooxml import (
     OoxmlEmbeddedImage,
@@ -99,6 +101,21 @@ class ClamAvMalwareScanner:
             return await asyncio.wait_for(self._scan(chunks), self._config.timeout_seconds)
         except (OSError, TimeoutError, asyncio.IncompleteReadError, ValueError):
             return MalwareVerdict.UNAVAILABLE
+
+    async def verify_database_freshness(self, now: datetime) -> None:
+        """Require the local scanner's loaded signature date before cloud-reference use."""
+        async with asyncio.timeout(min(self._config.timeout_seconds, 5.0)):
+            response = await self._command(b"zVERSION\0")
+        if not _clamav_version_has_signatures(response):
+            raise ValueError("malware signature database is unavailable")
+        try:
+            timestamp = response.rstrip("\0\r\n").split("/", 2)[2]
+            # clamd reports its local ctime; the replica-local sidecar shares the host timezone.
+            observed = datetime.strptime(timestamp, "%a %b %d %H:%M:%S %Y").astimezone(UTC)
+        except ValueError:
+            raise ValueError("malware signature database timestamp is unknown") from None
+        if now.utcoffset() is None or not observed <= now < observed + timedelta(days=7):
+            raise ValueError("malware signature database is stale or future-dated")
 
     async def _scan(self, chunks: AsyncIterator[bytes]) -> MalwareVerdict:
         reader, writer = await asyncio.open_connection(self._config.host, self._config.port)
@@ -261,7 +278,12 @@ class BoundedDocumentExtractor:
         extractor_name = "service-bounded"
         extractor_version = "1.0.0"
         warnings: list[str] = []
-        if observed == "text":
+        if version.cloud_knowledge is not None:
+            from fdai_document_worker_service.adapters.cloud_knowledge import cloud_reference_units
+
+            units = cloud_reference_units(version, content)
+            extractor_name = "cloud-reference"
+        elif observed == "text":
             units = _text_units(content.decode("utf-8-sig"))
         elif observed == "ooxml":
             units = extract_ooxml(content, budget=self._ooxml_budget)
@@ -321,6 +343,7 @@ class BoundedDocumentExtractor:
             extractor_name=extractor_name,
             extractor_version=extractor_version,
             warnings=tuple(warnings),
+            cloud_knowledge=version.cloud_knowledge,
         )
 
     async def _ocr_required(
@@ -574,7 +597,7 @@ class PgvectorDocumentIndex:
         self,
         *,
         dsn: str,
-        embedder: EmbeddingModel,
+        embedder: EmbeddingModel | None,
         dimension: int,
         max_chars: int = 1200,
         overlap: int = 150,
@@ -586,11 +609,21 @@ class PgvectorDocumentIndex:
         self._overlap = overlap
 
     async def commit(self, envelope: DocumentEnvelope) -> int:
-        rows: list[tuple[str, str, str, str, str, str]] = []
+        rows: list[tuple[str, str, str, str, str | None, str]] = []
         doc_id = _document_ref(envelope.document_id, envelope.version_id)
         for unit in envelope.units:
-            for index, text in enumerate(_chunks(unit.text, self._max_chars, self._overlap)):
-                vector = await self._embedder.embed(text)
+            pieces = (
+                (unit.text,)
+                if envelope.cloud_knowledge
+                else _chunks(unit.text, self._max_chars, self._overlap)
+            )
+            for index, text in enumerate(pieces):
+                # Cloud-reference v1 is explicitly lexical-only, including disconnected venues.
+                vector = (
+                    None
+                    if envelope.cloud_knowledge or self._embedder is None
+                    else await self._embedder.embed(text)
+                )
                 chunk_id = f"{doc_id}:{unit.unit_id}:{index}"
                 metadata = {
                     "governed_document": "true",
@@ -623,13 +656,36 @@ class PgvectorDocumentIndex:
                         else None
                     ),
                 }
+                if envelope.cloud_knowledge is not None:
+                    binding = envelope.cloud_knowledge
+                    source = next(
+                        (
+                            item
+                            for item in binding.sources
+                            if unit.locator.startswith(
+                                f"cloud:{content_digest(item.source_id.encode())[:16]}:"
+                            )
+                        ),
+                        None,
+                    )
+                    if source is None:
+                        raise ValueError("cloud knowledge unit lost its source identity")
+                    metadata.update(
+                        {
+                            "cloud_source": source.model_dump_json(),
+                            "cloud_registry_digest": binding.registry_digest,
+                            "cloud_manifest_digest": binding.manifest_digest,
+                            "cloud_admission_expires_at": binding.admission_expires_at.isoformat(),
+                            "retrieval_mode": "lexical",
+                        }
+                    )
                 rows.append(
                     (
                         chunk_id,
                         doc_id,
                         text,
                         f"document://{envelope.document_id}/versions/{envelope.version_id}#{unit.unit_id}",
-                        _vector(vector, self._dimension),
+                        _vector(vector, self._dimension) if vector is not None else None,
                         json.dumps(metadata, sort_keys=True),
                     )
                 )

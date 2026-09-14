@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
+from fdai_service_contracts.cloud_knowledge import CloudSourceEvidence, Freshness
+
+from fdai.core.knowledge.cloud_reference import ApplicableDocumentSearch, CloudReferenceReader
 from fdai.core.operational_context import (
     DocumentEvidenceExcerpt,
     EvidenceTemporalScope,
@@ -49,6 +52,7 @@ class GovernedDocumentEvidenceReadAdapter:
         clock: Callable[[], datetime],
         freshness_ceiling_seconds: int,
         max_bytes: int = 262_144,
+        cloud_reference: CloudReferenceReader | None = None,
     ) -> None:
         if freshness_ceiling_seconds < 1:
             raise ValueError("governed document freshness ceiling MUST be positive")
@@ -58,6 +62,7 @@ class GovernedDocumentEvidenceReadAdapter:
         self._clock = clock
         self._freshness_ceiling_seconds = freshness_ceiling_seconds
         self._max_bytes = max_bytes
+        self._cloud_reference = cloud_reference
 
     async def read(
         self,
@@ -81,6 +86,7 @@ class GovernedDocumentEvidenceReadAdapter:
             query=query,
             context=context,
             limit=limit,
+            cloud_reference=self._cloud_reference,
         )
         service = OperationalEvidenceReadService(
             source=source,
@@ -108,6 +114,7 @@ class _GovernedDocumentEvidenceSource:
         query: str,
         context: GovernedKnowledgeEvidenceContext,
         limit: int,
+        cloud_reference: CloudReferenceReader | None = None,
     ) -> None:
         self._search = search
         self._metadata = metadata
@@ -117,6 +124,7 @@ class _GovernedDocumentEvidenceSource:
         self._query = query
         self._context = context
         self._limit = limit
+        self._cloud_reference = cloud_reference
 
     async def collect(
         self,
@@ -125,13 +133,30 @@ class _GovernedDocumentEvidenceSource:
         if request != self._context.read_request:
             raise GovernedKnowledgeEvidenceHoldError("request_identity_mismatch")
         access_context = self._context.access_context
+        hits: Sequence[KnowledgeChunk]
         try:
-            hits = await self._search.search(
-                self._query,
-                collection_id=access_context.collection_id,
-                allowed_access_refs=access_context.allowed_access_refs,
-                k=self._limit,
-            )
+            target = self._context.cloud_applicability
+            if target is not None:
+                if not isinstance(self._search, ApplicableDocumentSearch):
+                    raise GovernedKnowledgeEvidenceHoldError("cloud_applicability_unavailable")
+                hits = (
+                    await self._search.search_applicable_governed(
+                        self._query,
+                        collection_id=access_context.collection_id,
+                        allowed_access_refs=access_context.allowed_access_refs,
+                        target=target,
+                        k=self._limit,
+                    )
+                ).hits
+            else:
+                hits = await self._search.search(
+                    self._query,
+                    collection_id=access_context.collection_id,
+                    allowed_access_refs=access_context.allowed_access_refs,
+                    k=self._limit,
+                )
+        except GovernedKnowledgeEvidenceHoldError:
+            raise
         except Exception as exc:
             raise GovernedKnowledgeEvidenceHoldError("search_unavailable") from exc
 
@@ -152,6 +177,27 @@ class _GovernedDocumentEvidenceSource:
                 pin=pin,
             )
             await self._authorize(version)
+            cloud_source = None
+            if version.cloud_knowledge is not None:
+                if self._context.cloud_applicability is None:
+                    raise GovernedKnowledgeEvidenceHoldError("cloud_source_applicability_missing")
+                if self._cloud_reference is None:
+                    raise GovernedKnowledgeEvidenceHoldError("cloud_source_verifier_unavailable")
+                serialized = hit.metadata.get("cloud_source")
+                if not isinstance(serialized, str):
+                    raise GovernedKnowledgeEvidenceHoldError("cloud_source_provenance_missing")
+                indexed = CloudSourceEvidence.model_validate_json(serialized)
+                cloud_source, pending = await self._cloud_reference.resolve(
+                    version.cloud_knowledge, indexed.source_id, _aware_now(self._clock)
+                )
+                if not cloud_source.applicability.matches(self._context.cloud_applicability):
+                    raise GovernedKnowledgeEvidenceHoldError("cloud_source_applicability_mismatch")
+                if (
+                    pending
+                    or indexed.source_sha256 != cloud_source.source_sha256
+                    or cloud_source.freshness(_aware_now(self._clock)) is not Freshness.FRESH
+                ):
+                    raise GovernedKnowledgeEvidenceHoldError("cloud_source_refresh_required")
             documents.append(
                 _document_excerpt(
                     hit=hit,
@@ -160,6 +206,7 @@ class _GovernedDocumentEvidenceSource:
                     context=self._context,
                     recorded_at=_aware_now(self._clock),
                     freshness_ceiling_seconds=self._freshness_ceiling_seconds,
+                    cloud_source=cloud_source,
                 )
             )
 
@@ -263,6 +310,7 @@ def _document_excerpt(
     context: GovernedKnowledgeEvidenceContext,
     recorded_at: datetime,
     freshness_ceiling_seconds: int,
+    cloud_source: CloudSourceEvidence | None = None,
 ) -> DocumentEvidenceExcerpt:
     redaction_summary = _summary(hit.metadata.get("redaction_summary", "none"))
     conflicts = _summary(hit.metadata.get("evidence_conflicts", ""), required=False)
@@ -271,6 +319,11 @@ def _document_excerpt(
         "document_revision": document_revision,
         "chunk_id": hit.chunk_id,
         "content_digest": governed_evidence_digest(hit.text),
+        **(
+            {"source_check": cloud_source.check.model_dump(mode="json")}
+            if cloud_source is not None
+            else {}
+        ),
     }
     evidence_ref = f"document:{governed_evidence_digest(identity)}"
     document_ref = (
@@ -289,12 +342,16 @@ def _document_excerpt(
         scope=request.scope,
         redaction_summary=redaction_summary,
         temporal_scope=EvidenceTemporalScope(
-            effective_from=version.created_at,
+            effective_from=cloud_source.collected_at if cloud_source else version.created_at,
             effective_to=version.retention.derived_expires_at,
-            evidence_cutoff=version.updated_at,
+            evidence_cutoff=cloud_source.check.checked_at if cloud_source else version.updated_at,
             recorded_at=recorded_at,
         ),
-        freshness_ceiling_seconds=freshness_ceiling_seconds,
+        freshness_ceiling_seconds=min(
+            freshness_ceiling_seconds, cloud_source.policy.check_interval_seconds
+        )
+        if cloud_source
+        else freshness_ceiling_seconds,
         completeness=1.0,
         synthetic=False,
         conflicts=conflicts,

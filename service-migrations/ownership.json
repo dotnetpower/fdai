@@ -326,6 +326,9 @@
       "workflow_definition"
     ],
     "document-ingestion-api": [
+      "document_knowledge_source",
+      "document_knowledge_check",
+      "document_knowledge_release",
       "document_connector_cancellation",
       "document_connector_batch",
       "document_connector_cursor",
@@ -530,6 +533,9 @@
       "workflow_definition"
     ],
     "document-ingestion-api": [
+      "document_knowledge_source",
+      "document_knowledge_check",
+      "document_knowledge_release",
       "document_connector_cancellation",
       "document_connector_batch",
       "document_connector_cursor",

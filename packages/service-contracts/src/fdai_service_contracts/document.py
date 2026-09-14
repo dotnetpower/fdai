@@ -9,6 +9,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from fdai_service_contracts.cloud_knowledge_release import KnowledgeReleaseBinding
+
 
 class DocumentContract(BaseModel):
     """Immutable validated base for cross-service document records."""
@@ -130,6 +132,7 @@ class ExtractionUnavailableReason(StrEnum):
 class DocumentPurpose(StrEnum):
     KNOWLEDGE_BASE = "knowledge_base"
     MANUAL_DISTILLATION = "manual_distillation"
+    CLOUD_REFERENCE = "cloud_reference"
     HANDOVER_BOOTSTRAP = "handover_bootstrap"
     HANDOVER_EVIDENCE = "handover_evidence"
 
@@ -498,6 +501,7 @@ class DocumentVersion(DocumentContract):
     failure_code: str | None = None
     warnings: tuple[str, ...] = ()
     revision: Annotated[int, Field(ge=1)] = 1
+    cloud_knowledge: KnowledgeReleaseBinding | None = None
 
     @model_validator(mode="after")
     def _validate_scope(self) -> DocumentVersion:
@@ -511,6 +515,14 @@ class DocumentVersion(DocumentContract):
         object.__setattr__(self, "scope_ref", scope_ref)
         if self.promoted_from_version_id == self.version_id:
             raise ValueError("promoted document version MUST NOT reference itself")
+        if (DocumentPurpose.CLOUD_REFERENCE in self.purposes) != (self.cloud_knowledge is not None):
+            raise ValueError("cloud reference purpose requires verified release provenance")
+        if self.cloud_knowledge is not None and (
+            self.cloud_knowledge.manifest_digest != self.source_sha256
+            or DocumentPurpose.KNOWLEDGE_BASE not in self.purposes
+            or self.disposition is not DocumentDisposition.GOVERNED_KNOWLEDGE
+        ):
+            raise ValueError("cloud reference MUST bind the exact governed knowledge payload")
         return self
 
     @model_validator(mode="after")
@@ -552,6 +564,7 @@ class DocumentEnvelope(DocumentContract):
     goal_ref: Annotated[str, Field(min_length=1, max_length=256)] | None = None
     warnings: tuple[str, ...] = ()
     artifact_manifest: DocumentArtifactManifest | None = None
+    cloud_knowledge: KnowledgeReleaseBinding | None = None
 
     @model_validator(mode="after")
     def _validate_artifact_manifest(self) -> DocumentEnvelope:

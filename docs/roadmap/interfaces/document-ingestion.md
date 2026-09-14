@@ -31,6 +31,7 @@ ingestion never turns a restricted document into broadly visible text.
 Document ingestion reuses the agent-driven control loop rather than introducing a standalone
 decision service. See [Document ingestion agent ownership](document-ingestion-agent-ownership.md)
 for the stage-to-agent map, typed objects, promotion discipline, and mandatory Saga audit boundary.
+Cloud-reference packages use the same gates with source dates, signed intake, and lexical-only indexing; see [Cloud resource knowledge](cloud-resource-knowledge-lifecycle.md).
 
 ## Product contract for the drop zone
 

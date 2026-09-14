@@ -58,14 +58,22 @@ protection inspection. Huginn republishes the content-free inspection facts, Hei
 them as an `object.anomaly`, Forseti emits the protection verdict, and Saga seals it. A clear,
 audited decision reaches Muninn, which alone publishes the `object.context-index` command that
 unlocks extraction and indexing; a blocked decision moves the version to `HELD`. A clear document
-with a sensitivity label, `handover_bootstrap`, or `manual_distillation` purpose receives a `hil`
-verdict instead. Saga seals that verdict, Var creates a document approval ticket, and the uploader
-cannot approve their own document. Var's reviewer approval is sealed again by Saga before Muninn
-can unlock indexing; rejection moves the version to `HELD`. Thor ignores both document verdicts
-and approvals. Reconciliation
+with a sensitivity label, `handover_bootstrap`, `manual_distillation`, or `cloud_reference` purpose
+receives a human-approval (`hil`) verdict instead. For `cloud_reference`, a valid package signature
+does not replace Var's independent human review and approval. Saga seals that verdict, Var creates
+a document approval ticket, and the uploader cannot approve their own document. The independent
+reviewer's approval is sealed again by Saga before Muninn can unlock indexing; rejection moves the
+version to `HELD`. Thor ignores both document verdicts and approvals. Reconciliation
 replays `RECEIVED` and `PROTECTION_CHECK` events with stable idempotency keys but never advances
 those gated states. It resumes only post-decision work in `QUARANTINED`, `SCANNING`, `EXTRACTING`,
 or `INDEXING`.
+
+Cloud-reference rollback currently provides a manual review request. An `Owner` can submit an
+eligible retained version with a higher sequence, preserving source dates and the same independent
+approval and indexing gates. Withdrawn or revoked content is not an eligible target. This request
+does not establish automatic Vidar recovery after failed activation or failed readback. Automatic
+recovery and independent effect verification remain open in the
+[cloud lifecycle ledger](../../roadmap-implementation/interfaces/cloud-resource-knowledge-lifecycle.md).
 
 ## Durable worker ownership
 

@@ -22,6 +22,7 @@ from fdai.delivery.governed_rca_context import (
     GovernedRcaContextConfig,
     RuntimeGovernedRcaContextProvider,
 )
+from fdai.delivery.persistence.postgres_cloud_knowledge_read import PostgresCloudKnowledgeRead
 from fdai.delivery.persistence.postgres_governed_document_read import (
     PostgresGovernedDocumentReadConfig,
     PostgresGovernedDocumentReadStore,
@@ -69,12 +70,18 @@ def bind_governed_rca_from_environment(
             dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
         )
     )
+    cloud_reference = PostgresCloudKnowledgeRead(
+        dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1),
+        registry_path=environment.get("FDAI_CLOUD_KNOWLEDGE_REGISTRY_PATH", ""),
+        trust_path=environment.get("FDAI_CLOUD_KNOWLEDGE_TRUST_PATH", ""),
+    )
     reader = GovernedDocumentEvidenceReadAdapter(
         search=cast(DocumentSearch, store),
         metadata=cast(DocumentMetadataStore, store),
         access=cast(DocumentAccessProvider, store),
         clock=lambda: datetime.now(tz=UTC),
         freshness_ceiling_seconds=freshness_seconds,
+        cloud_reference=cloud_reference,
     )
     _LOGGER.info("governed_rca_ready")
     return replace(
@@ -89,6 +96,7 @@ def bind_governed_rca_from_environment(
             ),
             clock=lambda: datetime.now(tz=UTC),
             retrieval_mode="lexical",
+            cloud_reference=cloud_reference,
         ),
         governed_knowledge=GovernedKnowledgeBindings(
             gatherer=GovernedKnowledgeEvidenceGatherer(reader=reader),
