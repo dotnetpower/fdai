@@ -2964,6 +2964,18 @@ def _answer_row_values(values: Mapping[str, object]) -> dict[str, object]:
         for field, value in values.items()
         if isinstance(field, str) and field and not isinstance(value, Mapping | list)
     }
+    if values.get("record_kind") == "excerpt" and values.get("cloud_source") is not None:
+        from fdai_service_contracts.cloud_knowledge import CloudSourceEvidence
+
+        source = CloudSourceEvidence.model_validate(values["cloud_source"])
+        projected.update(
+            {
+                "cloud_collected_at": source.collected_at.isoformat(),
+                "cloud_checked_at": source.check.checked_at.isoformat(),
+                "cloud_source_id": source.source_id,
+                "cloud_status": values.get("cloud_status", "unknown"),
+            }
+        )
     if values.get("record_kind") == "excerpt" and isinstance(values.get("text"), str):
         original_text = values["text"]
         displayed_text = _redact_answer_scalar("text", original_text)
@@ -3942,6 +3954,22 @@ def _render_governed_document_answer(
             ]
         )
     if not excerpts:
+        cloud_hold = summary.get("guidance_outcome")
+        if cloud_hold in {
+            "cloud_source_observation_required",
+            "cloud_applicability_required",
+            "cloud_source_refresh_required",
+        }:
+            lines.append(
+                "현재 안내에는 정확한 리소스 적용 조건과 승인된 최신 원본 확인 근거가 필요합니다. "
+                "답변 중 외부 수집을 수행하지 않았으며 갱신이나 조건 확인이 필요합니다."
+                if korean
+                else (
+                    "Current guidance requires exact resource applicability and an approved "
+                    "source observation. No external collection ran during this answer; "
+                    "refresh or clarify the target."
+                )
+            )
         lines.append(
             (
                 "접근 가능한 범위에서 관련 발췌문을 찾지 못했습니다. "
@@ -3978,10 +4006,34 @@ def _render_governed_document_answer(
         ):
             return None
         rendered_text, display_truncated = _bounded_document_text(text, maximum=1_200)
+        source_date_lines: list[str] = []
+        if excerpt.get("cloud_collected_at") is not None:
+            from fdai.core.knowledge.cloud_reference import citation_times
+
+            source_date_lines.append(
+                "- "
+                + citation_times(
+                    datetime.fromisoformat(str(excerpt["cloud_collected_at"])),
+                    datetime.fromisoformat(str(excerpt["cloud_checked_at"])),
+                    status=str(excerpt.get("cloud_status", "unknown")),
+                    korean=korean,
+                )
+            )
+            if excerpt.get("current_guidance_eligible") is not True:
+                source_date_lines.append(
+                    "- 날짜를 명시한 참조 자료입니다. "
+                    "대상 리소스의 현재 적용 가능성을 확인한 결과가 아닙니다."
+                    if korean
+                    else (
+                        "- Dated reference only; current applicability to the target resource "
+                        "is not verified."
+                    )
+                )
         lines.extend(
             [
                 f"### {_escape_document_text(source_name, maximum=512)}",
                 "",
+                *source_date_lines,
                 (
                     f"- 위치: `{_inline_code(locator)}`"
                     if korean

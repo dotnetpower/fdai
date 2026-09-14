@@ -143,11 +143,11 @@ EXPECTED_OPTIONAL_DEPENDENCIES = {
 
 INDIRECT_RUNTIME_DEPENDENCIES = {
     "operator-service": {"aiohttp"},
-    "document-ingestion-api": {"aiohttp"},
     "document-processing-worker": {"aiohttp"},
 }
 
 IMPORT_DISTRIBUTIONS = {
+    "aiohttp": "aiohttp",
     "aiokafka": "aiokafka",
     "anyio": "anyio",
     "azure.core": "azure-core",

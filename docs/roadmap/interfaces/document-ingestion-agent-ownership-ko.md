@@ -1,7 +1,7 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: 7cd25d0c2c60e0b9d033afcbbbb5db41f63245c5
-translation_revised: 2026-09-04
+translation_source_sha: c48f342debd8cff7d812e480b4e00de66000fcb2
+translation_revised: 2026-09-14
 ---
 
 # 문서 인제스트 에이전트 소유권
@@ -65,14 +65,23 @@ Saga가 감사한 `stage = received`, `decision = admit` 레코드만 소비합�
 `object.anomaly`로 정규화하며, Forseti가 protection 판정을 발행하고 Saga가 봉인합니다.
 감사된 clear 결정은 Muninn으로 전달되고, Muninn만 추출과 인덱싱을 여는
 `object.context-index` 명령을 발행합니다. 차단된 결정은 버전을 `HELD`로 이동합니다.
-민감도 라벨, `handover_bootstrap`, `manual_distillation` 용도가 있는 clear 문서는 대신
-`hil` 판정을 받습니다. Saga가 이 판정을 봉인하고 Var가 문서 승인 티켓을 만들며,
-업로더는 자신의 문서를 승인할 수 없습니다. Var의 reviewer 승인은 Muninn이 인덱싱을
-열기 전에 Saga가 다시 봉인하며, 거절은 버전을 `HELD`로 이동합니다. Thor는 문서
-판정과 승인을 모두 무시합니다.
+민감도 레이블이 있거나 `handover_bootstrap`, `manual_distillation`, `cloud_reference` 용도로
+제출된 문서는 안전성 검사를 통과해도 사람 승인(`hil`) 판정을 받습니다. `cloud_reference`
+패키지의 서명이 유효해도 Var의 독립적인 사람 검토와 승인은 생략할 수 없습니다.
+Saga가 이 판정을 봉인하고 Var가 문서 승인 티켓을 만듭니다. 업로더는 자신의 문서를
+승인할 수 없습니다. 독립 검토자의 승인은 Muninn이 인덱싱을 시작하기 전에 Saga가 다시
+봉인합니다. 거절된 버전은 `HELD`로 이동합니다. Thor는 문서 판정과 승인을 모두 무시합니다.
 조정은 고정된 멱등성 키로 `RECEIVED`와 `PROTECTION_CHECK` 이벤트를 재발행하지만
 해당 gated 상태를 직접 진행하지 않습니다. `QUARANTINED`, `SCANNING`, `EXTRACTING`, `INDEXING`의
 결정 이후 작업만 재개합니다.
+
+클라우드 참고 자료의 롤백은 현재 수동 검토 요청으로 제공됩니다. `Owner` 역할의 사용자는
+요건을 충족하는 보존 버전을 더 높은 순번으로 제출할 수 있습니다. 원래 출처 날짜를 유지하며
+동일한 독립 승인 및 인덱싱 절차를 거칩니다. 철회되었거나 사용 승인이 취소된 콘텐츠는 대상이
+될 수 없습니다. 이 요청이 활성화 실패나 결과 재조회 실패에 대한 Vidar의 자동 복구를
+입증하는 것은 아닙니다. 자동 복구와 독립적인 결과 확인은
+[클라우드 수명 주기 구현 원장](../../roadmap-implementation/interfaces/cloud-resource-knowledge-lifecycle.md)에
+남은 작업으로 기록되어 있습니다.
 
 ## 지속성 있는 워커 소유권
 

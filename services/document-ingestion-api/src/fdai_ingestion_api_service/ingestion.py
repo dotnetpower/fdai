@@ -32,6 +32,7 @@ from fdai_service_contracts import (
     UploadSession,
     classify_document_intake,
 )
+from fdai_service_contracts.cloud_knowledge_release import KnowledgeReleaseBinding
 
 from fdai_ingestion_api_service.state_machine import transition
 
@@ -81,6 +82,7 @@ class CreateUploadRequest:
     scope_kind: DocumentScopeKind | None = None
     scope_ref: str | None = None
     promoted_from_version_id: UUID | None = None
+    cloud_knowledge: KnowledgeReleaseBinding | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -219,6 +221,10 @@ class DocumentIngestionService:
             actor_groups=actor_groups,
             collection_id=request.collection_id,
         )
+        if (DocumentPurpose.CLOUD_REFERENCE in request.purposes) != (
+            request.cloud_knowledge is not None
+        ):
+            raise ValueError("cloud reference uploads require server-verified package intake")
         fixed_ids = (request.upload_id, request.document_id, request.version_id)
         if any(value is not None for value in fixed_ids) and not all(
             value is not None for value in fixed_ids
@@ -325,6 +331,7 @@ class DocumentIngestionService:
             scope_ref=request.scope_ref,
             supersedes_version_id=request.supersedes_version_id,
             promoted_from_version_id=request.promoted_from_version_id,
+            cloud_knowledge=request.cloud_knowledge,
         )
         if request.disposition in _TEMPORARY_DISPOSITIONS:
             if not isinstance(self._metadata, TemporaryDocumentMetadataStore):
@@ -676,6 +683,56 @@ class DocumentIngestionService:
             if len(visible) == limit:
                 break
         return tuple(visible)
+
+    async def authorize_cloud_reference_intake(
+        self,
+        *,
+        actor_id: str,
+        actor_groups: frozenset[str],
+        collection_id: str,
+        previous: DocumentVersion | None,
+    ) -> None:
+        """Authorize before release reservation; normal create still rechecks at the write."""
+        await self._access.authorize_create(
+            actor_id=actor_id,
+            actor_groups=actor_groups,
+            collection_id=collection_id,
+        )
+        if previous is not None:
+            await self._access.authorize_delete(
+                actor_id=actor_id,
+                actor_groups=actor_groups,
+                version=previous,
+            )
+
+    async def read_cloud_reference_revision(
+        self,
+        *,
+        actor_id: str,
+        actor_groups: frozenset[str],
+        document_id: UUID,
+        version_id: UUID,
+    ) -> tuple[DocumentVersion, bytes]:
+        """Read an exact retained revision for a new reviewed rollback upload, never activate it."""
+        version = await self._metadata.get_version(document_id, version_id)
+        await self._access.authorize_read(
+            actor_id=actor_id, actor_groups=actor_groups, version=version
+        )
+        if (
+            version.cloud_knowledge is None
+            or not version.available
+            or version.state not in {DocumentState.READY, DocumentState.READY_WITH_WARNINGS}
+        ):
+            raise DocumentAccessDeniedError("knowledge rollback source is not admissible")
+        session = await self._metadata.get_upload(version.upload_id)
+        content = bytearray()
+        async for chunk in self._objects.read(session.object_key):
+            if len(content) + len(chunk) > self._capabilities.max_file_size:
+                raise ValueError("knowledge rollback exceeds the document limit")
+            content.extend(chunk)
+        if hashlib.sha256(content).hexdigest() != version.source_sha256:
+            raise ValueError("knowledge rollback source integrity failed")
+        return version, bytes(content)
 
     async def cancel_upload(
         self,

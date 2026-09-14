@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Literal, Protocol
 from uuid import UUID
 
+from fdai_service_contracts.cloud_knowledge import Applicability, CloudSourceEvidence, Freshness
 from fdai_service_contracts.document import (
     DocumentDisposition as CurrentDocumentDisposition,
 )
@@ -29,6 +30,11 @@ from fdai_service_contracts.document import (
     DocumentVersion as CurrentDocumentVersion,
 )
 
+from fdai.core.knowledge.cloud_reference import (
+    ApplicableDocumentSearch,
+    ApplicableExactDocumentSearch,
+    CloudReferenceReader,
+)
 from fdai.core.ontology_platform.governed_document_queries import (
     GOVERNED_DOCUMENT_MAX_EXCERPTS,
     GovernedDocumentCollection,
@@ -144,6 +150,7 @@ class AuthorizedGovernedDocumentReader:
         clock: Callable[[], datetime],
         retrieval_mode: Literal["lexical", "hybrid"],
         minimum_score: float = 0.01,
+        cloud_reference: CloudReferenceReader | None = None,
     ) -> None:
         if not math.isfinite(minimum_score) or minimum_score < 0:
             raise ValueError("governed document minimum score MUST be finite and non-negative")
@@ -154,6 +161,7 @@ class AuthorizedGovernedDocumentReader:
         self._clock = clock
         self._retrieval_mode = retrieval_mode
         self._minimum_score = minimum_score
+        self._cloud_reference = cloud_reference
 
     async def search(
         self,
@@ -164,6 +172,7 @@ class AuthorizedGovernedDocumentReader:
         principal_groups: frozenset[str],
         purpose: str,
         limit: int,
+        target: Applicability | None = None,
         exact_refs: tuple[str, ...] = (),
         context_source: str | None = None,
         conversation_ref: str | None = None,
@@ -226,11 +235,33 @@ class AuthorizedGovernedDocumentReader:
                 except DocumentAccessDeniedError as exc:
                     raise PermissionError("exact governed document access is denied") from exc
                 exact_versions[identity] = exact_version
-            search_result = await self._search.search_governed_exact(
+            if target is not None:
+                if not isinstance(self._search, ApplicableExactDocumentSearch):
+                    raise RuntimeError("exact cloud applicability search is unavailable")
+                search_result = await self._search.search_applicable_governed_exact(
+                    query,
+                    exact_refs=exact_identities,
+                    context_source=context_source,
+                    conversation_ref=conversation_ref,
+                    target=target,
+                    k=candidate_limit,
+                )
+            else:
+                search_result = await self._search.search_governed_exact(
+                    query,
+                    exact_refs=exact_identities,
+                    context_source=context_source,
+                    conversation_ref=conversation_ref,
+                    k=candidate_limit,
+                )
+        elif target is not None:
+            if not isinstance(self._search, ApplicableDocumentSearch):
+                raise RuntimeError("applicability-aware document search is unavailable")
+            search_result = await self._search.search_applicable_governed(
                 query,
-                exact_refs=exact_identities,
-                context_source=context_source,
-                conversation_ref=conversation_ref,
+                collection_id=scope.collection_id,
+                allowed_access_refs=scope.allowed_access_refs,
+                target=target,
                 k=candidate_limit,
             )
         else:
@@ -291,6 +322,27 @@ class AuthorizedGovernedDocumentReader:
                 )
             except DocumentAccessDeniedError:
                 continue
+            cloud_source = None
+            cloud_status = None
+            if version.cloud_knowledge is not None:
+                if self._cloud_reference is None:
+                    raise RuntimeError("cloud reference source verification is unavailable")
+                serialized = hit.metadata.get("cloud_source")
+                if not isinstance(serialized, str):
+                    raise RuntimeError("cloud reference source provenance is missing")
+                indexed_source = CloudSourceEvidence.model_validate_json(serialized)
+                cloud_source, pending = await self._cloud_reference.resolve(
+                    version.cloud_knowledge, indexed_source.source_id, observed_at
+                )
+                if indexed_source.source_sha256 != cloud_source.source_sha256:
+                    raise RuntimeError("cloud reference source identity changed")
+                if target is not None and not cloud_source.applicability.matches(target):
+                    raise RuntimeError("cloud reference applicability is unverified")
+                cloud_status = (
+                    "update_pending" if pending else cloud_source.freshness(observed_at).value
+                )
+                if cloud_status == Freshness.UNKNOWN.value:
+                    continue
             if hit.score < self._minimum_score:
                 continue
             locator = hit.metadata.get("locator")
@@ -313,6 +365,16 @@ class AuthorizedGovernedDocumentReader:
                 "source_name": version.source_name,
                 "source_ref": hit.source_ref,
                 "locator": locator,
+                **(
+                    {
+                        "cloud_check_digest": hashlib.sha256(
+                            cloud_source.check.model_dump_json().encode()
+                        ).hexdigest(),
+                        "cloud_status": str(cloud_status),
+                    }
+                    if cloud_source is not None
+                    else {}
+                ),
             }
             excerpts.append(
                 GovernedDocumentExcerpt(
@@ -330,6 +392,9 @@ class AuthorizedGovernedDocumentReader:
                     text=hit.text,
                     content_digest=excerpt_identity["content_digest"],
                     score=hit.score,
+                    cloud_source=cloud_source,
+                    cloud_status=cloud_status,
+                    applicability_verified=target is not None and cloud_source is not None,
                 )
             )
         candidate_limit_reached = len(hits) >= candidate_limit
