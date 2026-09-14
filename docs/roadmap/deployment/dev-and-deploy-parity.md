@@ -158,7 +158,9 @@ Standard full-stack preparation always selects Browser Entra, regardless of a st
 value. CLI-principal debugging requires an explicit `--auth-mode azure-cli` preparation request
 and paired enablement plus confirmation values at both the browser and Operator API boundaries.
 The standard VS Code compound sets both browser values to `0` and does not provide a CLI-principal
-shortcut.
+shortcut. The standard preparation task passes `--auth-mode browser-entra`; the separately named
+`console: start full stack (Azure CLI debug, Contributor)` task is the only VS Code task that
+passes `--auth-mode azure-cli`.
 The Operator Service resolves the active interactive CLI user at startup, applies a fixed
 Contributor ceiling, and returns a browser-safe profile plus a process-local session nonce. It
 accepts that nonce only from loopback clients, and browser requests also need an exact configured

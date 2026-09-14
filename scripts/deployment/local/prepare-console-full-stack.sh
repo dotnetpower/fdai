@@ -5,16 +5,30 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$repo_root"
 
 force_preparation=0
-if [[ $# -gt 1 ]]; then
-  echo "Usage: $0 [--force]" >&2
+auth_mode="browser-entra"
+while (( $# > 0 )); do
+  case "$1" in
+    --force)
+      force_preparation=1
+      shift
+      ;;
+    --auth-mode)
+      if [[ $# -lt 2 ]]; then
+        echo "Usage: $0 [--force] [--auth-mode browser-entra|azure-cli]" >&2
+        exit 2
+      fi
+      auth_mode="$2"
+      shift 2
+      ;;
+    *)
+      echo "Usage: $0 [--force] [--auth-mode browser-entra|azure-cli]" >&2
+      exit 2
+      ;;
+  esac
+done
+if [[ "$auth_mode" != "browser-entra" && "$auth_mode" != "azure-cli" ]]; then
+  echo "Usage: $0 [--force] [--auth-mode browser-entra|azure-cli]" >&2
   exit 2
-fi
-if [[ $# -eq 1 ]]; then
-  if [[ "$1" != "--force" ]]; then
-    echo "Usage: $0 [--force]" >&2
-    exit 2
-  fi
-  force_preparation=1
 fi
 
 if [[ ! -x "$repo_root/.venv/bin/python" ]]; then
@@ -299,7 +313,8 @@ materialize_catalogs() {
 
 prepare_service_environments() {
   run_bounded operator-service-environment \
-    bash "$repo_root/scripts/deployment/local/prepare-operator-service-env.sh"
+    bash "$repo_root/scripts/deployment/local/prepare-operator-service-env.sh" \
+    --auth-mode "$auth_mode"
   run_bounded independent-service-environments \
     bash "$repo_root/scripts/deployment/local/prepare-independent-service-envs.sh"
 }

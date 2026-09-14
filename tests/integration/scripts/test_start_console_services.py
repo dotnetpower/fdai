@@ -85,6 +85,37 @@ def test_preparation_rejects_missing_opa_before_starting_dependencies(tmp_path: 
     assert not (repo / ".fdai").exists()
 
 
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["--auth-mode"],
+        ["--auth-mode", "unexpected"],
+        ["--unknown"],
+    ],
+)
+def test_preparation_rejects_invalid_auth_mode_arguments(
+    tmp_path: Path,
+    arguments: list[str],
+) -> None:
+    repo = tmp_path / "repo"
+    script = repo / "scripts/deployment/local/prepare-console-full-stack.sh"
+    script.parent.mkdir(parents=True)
+    shutil.copy2(_PREPARE_SCRIPT, script)
+
+    result = subprocess.run(  # noqa: S603 - isolated argument validation.
+        [_BASH, str(script), *arguments],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 2
+    assert "Usage:" in result.stderr
+    assert not (repo / ".fdai").exists()
+
+
 def _operator_restart_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     run_script = repo / "scripts/deployment/local/run-console-service.sh"

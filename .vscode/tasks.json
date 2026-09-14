@@ -144,7 +144,28 @@
     {
       "label": "console: prepare full stack",
       "type": "shell",
-      "command": "bash scripts/deployment/local/prepare-console-full-stack.sh",
+      "command": "bash scripts/deployment/local/prepare-console-full-stack.sh --auth-mode browser-entra",
+      "options": {
+        "env": {
+          "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION": "1"
+        }
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "console-full-stack",
+        "close": true
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      }
+    },
+    {
+      "label": "console: prepare full stack (Azure CLI debug, Contributor)",
+      "hide": true,
+      "type": "shell",
+      "command": "bash scripts/deployment/local/prepare-console-full-stack.sh --auth-mode azure-cli",
       "options": {
         "env": {
           "FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION": "1"
@@ -298,6 +319,20 @@
       "dependsOn": [
         "console: require primary worktree",
         "console: prepare full stack",
+        "console: start local services"
+      ],
+      "problemMatcher": [],
+      "runOptions": {
+        "instanceLimit": 2,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "console: start full stack (Azure CLI debug, Contributor)",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "console: require primary worktree",
+        "console: prepare full stack (Azure CLI debug, Contributor)",
         "console: start local services"
       ],
       "problemMatcher": [],

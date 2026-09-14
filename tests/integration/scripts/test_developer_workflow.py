@@ -580,6 +580,24 @@ def test_console_launch_and_readiness_use_canonical_localhost_origin() -> None:
     assert "Console Web: Manual Studio" in full_stack["configurations"]
 
 
+def test_console_tasks_make_operator_identity_mode_explicit() -> None:
+    tasks_source = (REPO_ROOT / ".vscode" / "tasks.json").read_text(encoding="utf-8")
+    tasks = json.loads(
+        "\n".join(line for line in tasks_source.splitlines() if not line.lstrip().startswith("//"))
+    )
+    by_label = {item["label"]: item for item in tasks["tasks"]}
+
+    assert by_label["console: prepare full stack"]["command"].endswith("--auth-mode browser-entra")
+    debug_label = "console: start full stack (Azure CLI debug, Contributor)"
+    debug_prepare_label = "console: prepare full stack (Azure CLI debug, Contributor)"
+    assert by_label[debug_prepare_label]["command"].endswith("--auth-mode azure-cli")
+    assert by_label[debug_label]["dependsOn"] == [
+        "console: require primary worktree",
+        debug_prepare_label,
+        "console: start local services",
+    ]
+
+
 def test_core_readiness_requires_a_fresh_pantheon_heartbeat(tmp_path: Path) -> None:
     log_dir = tmp_path / ".fdai" / "logs"
     log_dir.mkdir(parents=True)
