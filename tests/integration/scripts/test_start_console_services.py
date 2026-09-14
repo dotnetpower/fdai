@@ -681,6 +681,80 @@ def test_preparation_reports_a_missing_console_environment(tmp_path: Path) -> No
     assert result.stderr == "missing local Console environment: console/.env.local\n"
 
 
+def test_preparation_loads_existing_read_scope_from_private_console_environment(
+    tmp_path: Path,
+) -> None:
+    repo, environment = _staged_preparation_repo(tmp_path, stale_stage="runtime-environment")
+    (repo / "console/.env.local").write_text(
+        "VITE_MSAL_TENANT_ID=tenant\n"
+        "VITE_MSAL_CLIENT_ID=client\n"
+        "FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1\n"
+        "FDAI_LOCAL_RESOURCE_GROUP=rg-from-file\n",
+        encoding="utf-8",
+    )
+    _write_executable(
+        repo / "scripts/deployment/azure/prepare-local-runtime-env.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s:%s\n' "$FDAI_LOCAL_NO_AZURE_DEPLOYMENT" "$FDAI_LOCAL_RESOURCE_GROUP" \
+  > .fdai/captured-read-scope
+printf 'prepared\n' > .fdai/local-runtime.env
+""",
+    )
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(repo / "scripts/deployment/local/prepare-console-full-stack.sh")],
+        cwd=repo,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0
+    assert (repo / ".fdai/captured-read-scope").read_text(encoding="utf-8") == ("1:rg-from-file\n")
+
+
+def test_preparation_prefers_explicit_read_scope_environment(tmp_path: Path) -> None:
+    repo, environment = _staged_preparation_repo(tmp_path, stale_stage="runtime-environment")
+    (repo / "console/.env.local").write_text(
+        "VITE_MSAL_TENANT_ID=tenant\n"
+        "VITE_MSAL_CLIENT_ID=client\n"
+        "FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1\n"
+        "FDAI_LOCAL_RESOURCE_GROUP=rg-from-file\n",
+        encoding="utf-8",
+    )
+    _write_executable(
+        repo / "scripts/deployment/azure/prepare-local-runtime-env.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s:%s\n' "$FDAI_LOCAL_NO_AZURE_DEPLOYMENT" "$FDAI_LOCAL_RESOURCE_GROUP" \
+  > .fdai/captured-read-scope
+printf 'prepared\n' > .fdai/local-runtime.env
+""",
+    )
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(repo / "scripts/deployment/local/prepare-console-full-stack.sh")],
+        cwd=repo,
+        env={
+            **environment,
+            "FDAI_LOCAL_NO_AZURE_DEPLOYMENT": "1",
+            "FDAI_LOCAL_RESOURCE_GROUP": "rg-from-process",
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0
+    assert (repo / ".fdai/captured-read-scope").read_text(encoding="utf-8") == (
+        "1:rg-from-process\n"
+    )
+
+
 def test_preparation_repairs_missing_console_dependencies(tmp_path: Path) -> None:
     repo, environment = _staged_preparation_repo(
         tmp_path,

@@ -43,6 +43,38 @@ if [[ ! -f "$repo_root/console/.env.local" ]]; then
   echo "missing local Console environment: console/.env.local" >&2
   exit 1
 fi
+
+load_optional_console_setting() {
+  local key="$1"
+  local value
+  local -a matches
+
+  [[ ! -v "$key" ]] || return 0
+  mapfile -t matches < <(grep -E "^${key}=" "$repo_root/console/.env.local" || true)
+  if (( ${#matches[@]} > 1 )); then
+    echo "duplicate local Console setting: $key" >&2
+    return 1
+  fi
+  if (( ${#matches[@]} == 1 )); then
+    value="${matches[0]#*=}"
+    case "$key" in
+      FDAI_LOCAL_NO_AZURE_DEPLOYMENT)
+        export FDAI_LOCAL_NO_AZURE_DEPLOYMENT="$value"
+        ;;
+      FDAI_LOCAL_RESOURCE_GROUP)
+        export FDAI_LOCAL_RESOURCE_GROUP="$value"
+        ;;
+      *)
+        echo "unsupported local Console setting: $key" >&2
+        return 1
+        ;;
+    esac
+  fi
+}
+
+load_optional_console_setting FDAI_LOCAL_NO_AZURE_DEPLOYMENT
+load_optional_console_setting FDAI_LOCAL_RESOURCE_GROUP
+
 if ! command -v npm >/dev/null 2>&1; then
   echo "missing npm: install Node.js and npm before starting the Console" >&2
   exit 1
