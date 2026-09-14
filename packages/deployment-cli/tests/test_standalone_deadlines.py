@@ -41,6 +41,8 @@ def coordinator(tmp_path, monkeypatch):
         "application": False,
         "prompt_timeout": None,
         "application_timeout": None,
+        "foundation_command": None,
+        "runner_receipt": None,
     }
 
     def prepare(**_kwargs):
@@ -48,8 +50,9 @@ def coordinator(tmp_path, monkeypatch):
         prepared.root.mkdir(parents=True, mode=0o700)
         return prepared
 
-    def foundation(*_args, **_kwargs):
+    def foundation(*args, **_kwargs):
         clock[0] += options["foundation_elapsed"]
+        options["foundation_command"] = args[0]
         return subprocess.CompletedProcess([], 2)
 
     def identity(**_kwargs):
@@ -69,6 +72,13 @@ def coordinator(tmp_path, monkeypatch):
         "genesis_supervisor": SimpleNamespace(_configure_entra=identity),
         "genesis_entra": SimpleNamespace(plan_entra=lambda: {}),
         "genesis_approval_prompt": SimpleNamespace(current_actor_digest=lambda _binding: "a" * 64),
+        "genesis_runner_image_contract": SimpleNamespace(
+            materialize_foundation_image_input=lambda **kwargs: (
+                options.__setitem__("runner_receipt", kwargs["image_receipt"]),
+                kwargs["destination"].write_text("{}", encoding="utf-8"),
+            ),
+            verify_foundation_image_input=lambda **_kwargs: None,
+        ),
     }
     original_import = standalone_deploy.importlib.import_module
     monkeypatch.setattr(
@@ -102,7 +112,7 @@ def coordinator(tmp_path, monkeypatch):
     monkeypatch.setattr(standalone_deploy, "deploy_standalone_application", application)
     monkeypatch.setattr(standalone_deploy, "_current_operator_object_id", lambda: "synthetic")
 
-    def invoke():
+    def invoke(*, runner_receipt=None):
         return standalone_deploy.deploy_azure_foundation(
             work_dir=root,
             online=True,
@@ -113,6 +123,7 @@ def coordinator(tmp_path, monkeypatch):
             timeout_seconds=2000,
             license_signing_key=None,
             trial_token=None,
+            adopt_runner_image_receipt=runner_receipt,
         )
 
     return invoke, options, clock
@@ -139,3 +150,17 @@ def test_preparation_does_not_reset_the_overall_deadline(coordinator):
     with pytest.raises(TimeoutError, match="remaining budget"):
         invoke()
     assert options["prompt_timeout"] is None
+
+
+def test_verified_runner_receipt_skips_image_build(coordinator, tmp_path):
+    invoke, options, _clock = coordinator
+    receipt = tmp_path / "runner-receipt.json"
+    with pytest.raises(RuntimeError, match="stop-after-prompt"):
+        invoke(runner_receipt=receipt)
+
+    command = options["foundation_command"]
+    assert options["runner_receipt"] == receipt
+    assert "--create-runner-image" not in command
+    assert "--runner-image-terraform" not in command
+    variables = command[command.index("--foundation-variables-file") + 1]
+    assert variables.endswith("foundation-with-runner-image.json")
