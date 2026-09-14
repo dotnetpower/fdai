@@ -296,7 +296,10 @@ class Saga(Agent):
             )
             checkpoint = checkpoint.with_audit_recorded()
             await self._handoff_journal.write_checkpoint(escalation_id, checkpoint)
-        if self.bus is not None and not checkpoint.published:
+        if self.bus is None:
+            self.record_behavior("handoff:publication_pending")
+            raise RuntimeError("Saga issue publication bus is unavailable")
+        if not checkpoint.published:
             await self._publish_issue(
                 fingerprint=fingerprint,
                 issue_number=checkpoint.issue_number,

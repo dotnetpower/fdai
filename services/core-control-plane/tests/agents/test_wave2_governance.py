@@ -236,6 +236,7 @@ def test_saga_direct_issue_operation_replay_is_idempotent() -> None:
 
 def test_saga_handoff_redelivery_is_idempotent() -> None:
     saga = Saga()
+    saga.bind_bus(InMemoryBus(registry=load_pantheon()))
     payload = {
         "producer_principal": "Bragi",
         "id": "handoff-1",
@@ -259,6 +260,7 @@ def test_saga_handoff_redelivery_is_idempotent() -> None:
 def test_saga_durable_handoff_does_not_mirror_unused_local_receipt() -> None:
     store = InMemoryStateStore()
     saga = Saga(durable_state_store=store)
+    saga.bind_bus(InMemoryBus(registry=load_pantheon()))
     payload = {
         "producer_principal": "Bragi",
         "id": "handoff-no-local-receipt",
@@ -279,6 +281,33 @@ def test_saga_durable_handoff_does_not_mirror_unused_local_receipt() -> None:
         )
         is None
     )
+
+
+def test_saga_busless_handoff_resumes_publication_after_binding() -> None:
+    store = InMemoryStateStore()
+    saga = Saga(durable_state_store=store)
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-late-bus",
+        "escalation_id": "handoff-late-bus",
+        "correlation_id": "corr-late-bus",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+
+    with pytest.raises(RuntimeError, match="publication bus is unavailable"):
+        asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+
+    bus = InMemoryBus(registry=load_pantheon())
+    saga.bind_bus(bus)
+    asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+    asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+
+    assert len(bus.messages_on("object.issue")) == 1
+    assert saga.behavior_snapshot()["handoff:publication_pending"] == 1
+    assert saga.behavior_snapshot()["handoff:duplicate"] == 1
 
 
 def test_saga_handoff_requires_idempotent_issue_adapter() -> None:
@@ -311,6 +340,7 @@ def test_saga_handoff_requires_idempotent_issue_adapter() -> None:
 def test_saga_completed_handoff_rejects_conflicting_redelivery() -> None:
     store = InMemoryStateStore()
     saga = Saga(durable_state_store=store)
+    saga.bind_bus(InMemoryBus(registry=load_pantheon()))
     payload = {
         "producer_principal": "Bragi",
         "id": "handoff-conflict",
@@ -346,6 +376,7 @@ def test_saga_rejects_malformed_completion_receipt() -> None:
         "failure_reason_code": "no_route",
     }
     first = Saga(durable_state_store=store)
+    first.bind_bus(InMemoryBus(registry=load_pantheon()))
     asyncio.run(first.on_typed_message("object.handoff-escalation", payload))
     digest = hashlib.sha256(b"handoff-malformed-receipt").hexdigest()
     receipt_key = f"pantheon/saga/handoff/{digest}/receipt"
@@ -438,6 +469,9 @@ def test_saga_cross_instance_handoff_uses_one_external_operation() -> None:
         github = _ConcurrentIssueTracker()
         first = Saga(durable_state_store=store, github=github)
         second = Saga(durable_state_store=store, github=github)
+        bus = InMemoryBus(registry=load_pantheon())
+        first.bind_bus(bus)
+        second.bind_bus(bus)
         payload = {
             "producer_principal": "Bragi",
             "id": "handoff-concurrent-replicas",
@@ -507,6 +541,7 @@ def test_saga_handoff_audit_retry_does_not_duplicate_github_mutation() -> None:
         durable_state_store=store,
         github=github,
     )
+    restarted.bind_bus(InMemoryBus(registry=load_pantheon()))
     asyncio.run(restarted.on_typed_message("object.handoff-escalation", payload))
 
     issue = next(iter(github.issues.values()))
@@ -545,6 +580,7 @@ def test_saga_external_operation_id_closes_precheckpoint_crash_window() -> None:
         asyncio.run(first.on_typed_message("object.handoff-escalation", payload))
 
     restarted = Saga(durable_state_store=store, github=github)
+    restarted.bind_bus(InMemoryBus(registry=load_pantheon()))
     asyncio.run(restarted.on_typed_message("object.handoff-escalation", payload))
 
     issue = next(iter(github.issues.values()))

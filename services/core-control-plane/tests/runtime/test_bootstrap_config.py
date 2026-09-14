@@ -8,7 +8,13 @@ from pathlib import Path
 
 import httpx
 import pytest
-from fdai.agents import Norns, PantheonRuntime, StateStoreIssueTrackerAdapter
+from fdai.agents import (
+    InMemoryBus,
+    Norns,
+    PantheonRuntime,
+    StateStoreIssueTrackerAdapter,
+    load_pantheon,
+)
 from fdai.core.learning import RuleCandidateHint
 from fdai.core.ontology_platform import MetricAggregation, MetricSemanticDefinition
 from fdai.core.ontology_platform.metric_semantics import MetricSemanticRegistry
@@ -909,6 +915,7 @@ async def test_runtime_saga_replays_issue_operation_across_restart() -> None:
         await first.on_typed_message("object.handoff-escalation", dict(payload))
 
     restarted = _build_runtime_saga(store)
+    restarted.bind_bus(InMemoryBus(registry=load_pantheon()))
     await restarted.on_typed_message("object.handoff-escalation", dict(payload))
 
     assert len(restarted.github.issues) == 1
@@ -920,6 +927,7 @@ async def test_runtime_saga_replays_issue_operation_across_restart() -> None:
 async def test_runtime_saga_rehydrates_completed_issue_projection() -> None:
     store = InMemoryStateStore()
     first = _build_runtime_saga(store)
+    first.bind_bus(InMemoryBus(registry=load_pantheon()))
     payload = {
         "producer_principal": "Bragi",
         "id": "runtime-handoff-complete",
