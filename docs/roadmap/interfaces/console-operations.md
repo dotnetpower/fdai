@@ -80,9 +80,9 @@ Operations reuses existing objects and links:
 Do not add a generic `WorkItem`, `OperationRequest`, duplicate `Approval`, universal mutable status
 table, or new approval topic. Each source keeps its own schema, revision, lifecycle, and owner.
 
-The Ontology instance workspace is a read-only operational view. Its graph-first layout, selected
-resource and legend overlays, and Inspector-owned collapse state are presentation controls only;
-they do not create links, change query scope, or grant mutation authority.
+The Ontology instance workspace is the default `/ontology` read-only operational view. It mounts without the declaration graph request; semantic-model, declaration, ActionType, and Catalog topology references stay behind one labeled native disclosure with existing deep links.
+Reference loading or failure never removes the path back to instances. Its graph-first layout, selected resource and legend overlays, and Inspector-owned collapse state are presentation controls only;
+none of these controls create links, change query scope, or grant mutation authority.
 For an `llm-model-deployment`, the card, tooltip, Inspector, and screen context use the same bounded
 model name, version, deployment SKU, and normalized TPM object. Missing values remain Not reported,
 and `Succeeded` describes provisioning completion rather than inference health or caller access. For a Kubernetes runtime Resource, the server can add one exact identity object and one allowlisted diagnostic-facts object. The Inspector renders those values as evidence details and never derives a diagnosis, Resource, relationship, or state in the browser.

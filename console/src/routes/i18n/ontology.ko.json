@@ -1,8 +1,13 @@
 {
   "route": {
-    "subtitle": "이 배포에 등록된 ObjectType, LinkType, ActionType 안전 계약 및 관측된 Resource 인스턴스를 살펴봅니다.",
+    "instancesSubtitle": "관측된 Resource 인스턴스를 먼저 찾고, 범위가 제한된 관계와 기록된 상태 및 근거를 확인합니다.",
+    "referenceSubtitle": "필요할 때 읽기 전용 온톨로지 정의, ActionType 안전 계약 및 카탈로그 토폴로지를 확인합니다.",
     "loadingLabel": "온톨로지 그래프",
     "unavailable": "이 배포에는 온톨로지 탐색기 라우트가 연결되지 않아, 여기에서 주장하는 객체 유형이나 관계 유형이 없습니다."
+  },
+  "navigation": {
+    "label": "온톨로지 보기",
+    "reference": "정의 및 토폴로지"
   },
   "context": {
     "ontologyLabel": "온톨로지",
