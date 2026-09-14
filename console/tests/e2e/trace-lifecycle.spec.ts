@@ -839,6 +839,26 @@ test("reflows the correlated action lifecycle at mobile width", async ({ page },
   await page.goto(`/trace?correlation=${correlationId}&locale=ko`);
 
   await assertTraceWorkbench(page);
+  const timelineGeometry = await page.locator(
+    ".trace-timeline-details .data-table-wrap",
+  ).evaluate((wrapper) => {
+    const table = wrapper.querySelector(".data-table");
+    const firstCell = table?.querySelector("td");
+    if (!(table instanceof HTMLElement) || !(firstCell instanceof HTMLElement)) {
+      throw new Error("mobile Trace timeline is missing");
+    }
+    return {
+      clientWidth: wrapper.clientWidth,
+      scrollWidth: wrapper.scrollWidth,
+      tableDisplay: getComputedStyle(table).display,
+      firstCellDisplay: getComputedStyle(firstCell).display,
+      firstCellLabel: firstCell.dataset.label,
+    };
+  });
+  expect(timelineGeometry.scrollWidth).toBeLessThanOrEqual(timelineGeometry.clientWidth);
+  expect(timelineGeometry.tableDisplay).toBe("block");
+  expect(timelineGeometry.firstCellDisplay).toBe("grid");
+  expect(timelineGeometry.firstCellLabel).toBeTruthy();
   const metricRows = await page.locator(".trace-metric").evaluateAll((metrics) =>
     [...new Set(metrics.map((metric) => Math.round(metric.getBoundingClientRect().top)))]
   );

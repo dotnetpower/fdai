@@ -523,6 +523,56 @@
   .shell-body > main:has(.trace-route) {
     padding-inline: 12px;
   }
+
+  .trace-timeline-details .data-table-wrap {
+    overflow: visible;
+  }
+
+  .trace-timeline-details .data-table {
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .trace-timeline-details .data-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .trace-timeline-details .data-table tbody,
+  .trace-timeline-details .data-table tr {
+    display: block;
+  }
+
+  .trace-timeline-details .data-table tr {
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .trace-timeline-details .data-table tr:last-child {
+    border-bottom: 0;
+  }
+
+  .trace-timeline-details .data-table td {
+    display: grid;
+    grid-template-columns: minmax(76px, 0.34fr) minmax(0, 1fr);
+    gap: 8px;
+    align-items: start;
+    padding: 6px 8px;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .trace-timeline-details .data-table td::before {
+    content: attr(data-label);
+    color: var(--fg-muted);
+    font-size: var(--cs-type-caption-size);
+    font-weight: 650;
+  }
 }
 
 @media (forced-colors: active) {

@@ -48,6 +48,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Reflowed the exact audit timeline into labeled vertical rows on mobile while retaining semantic table markup. | `current change`; 390 px and 320 px Trace browser assertions. | Complete authenticated-data and residual-severity validation. |
 | 2026-09-14 | implemented | Replaced the raw selected-Trace source token with a localized display label while retaining the canonical token in the wire response and view context. | `current change`; focused Trace presentation tests and Console typecheck. | Continue the bounded post-implementation hardening rounds. |
 | 2026-09-14 | implemented | Added an explicit no-match state for recent Trace type filters instead of rendering an unexplained empty list. | `current change`; focused Trace discovery browser test. | Continue the bounded post-implementation hardening rounds. |
 | 2026-09-14 | implemented | Restricted selected Trace source authority metadata to the canonical `operator-audit-log` token so an unknown source cannot appear as verified provenance. | `current change`; focused Trace decoder tests and Console typecheck. | Continue the bounded post-implementation hardening rounds. |

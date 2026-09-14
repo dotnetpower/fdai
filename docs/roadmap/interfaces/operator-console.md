@@ -90,6 +90,8 @@ At narrow widths, the four decision summaries use a 2 by 2 grid and detailed con
 Filtering recent discovery to zero matches renders an explicit filter-empty state.
 The source context uses a localized display label while retaining the canonical source token in
 the response and published view context.
+On mobile, the exact audit timeline retains table semantics and reflows each record into a labeled
+vertical row without horizontal scrolling.
 
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final
