@@ -375,6 +375,9 @@ requests permission during page load. The authenticated `GET /live/stream` feed 
 while a selected tab is in the background and emits notifications only for human approval, denial,
 or failure outcomes. Only `runtime-observed` frames are eligible; replay, synthetic-development,
 unknown-source, and routine successful stages remain silent.
+The channel is available only in a secure context with the Notifications, Service Worker, and Web
+Locks APIs. Web Locks elects one principal-scoped stream leader; a browser without that guarantee
+reports the channel unavailable instead of claiming readiness without a receiver.
 
 Browser notifications are informational. They contain localized generic text, an opaque bounded
 event tag, and a server-derived same-origin link to the read-only Incident view. They never include
