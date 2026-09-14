@@ -59,8 +59,8 @@ from fdai.agents._framework.introspection import (
 )
 from fdai.agents._framework.norns_consensus import NornsConsensus
 from fdai.agents._framework.norns_deployment_learning import NornsDeploymentLearning
+from fdai.agents._framework.norns_issue_dedup import NornsIssueDeduplicator
 from fdai.agents._framework.norns_learning import observe_approval as _learn_approval
-from fdai.agents._framework.norns_learning import observe_fingerprint as _learn_fingerprint
 from fdai.agents._framework.norns_learning import observe_outcome as _learn_outcome
 from fdai.agents._framework.norns_learning import observe_override as _learn_override
 from fdai.agents._framework.norns_learning import (
@@ -89,6 +89,7 @@ from fdai.core.operational_learning import (
 )
 from fdai.core.trajectory import ReviewedTrajectoryDataset
 from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidateSink
+from fdai.shared.providers.state_store import StateStore
 
 # LRU cap on the per-event / per-fingerprint maps a long-lived learner keeps,
 # so they cannot grow without bound over the process lifetime.
@@ -121,6 +122,7 @@ class Norns(Agent):
         investigation_strategy_compiler: InvestigationStrategyCandidateCompiler | None = None,
         semantic_feedback_store: SemanticFeedbackCandidateSink | None = None,
         shadow_dwell_ledger: ShadowDwellLedger | None = None,
+        issue_state_store: StateStore | None = None,
         max_pending_candidates: int = _MAX_PENDING_CANDIDATES,
         operational_case_max_age: timedelta = timedelta(days=90),
         clock: Callable[[], datetime] | None = None,
@@ -145,10 +147,8 @@ class Norns(Agent):
         if operational_case_max_age <= timedelta(0):
             raise ValueError("operational_case_max_age MUST be positive")
         super().__init__(spec=_NORNS)
-        # Fingerprints are content hashes (one per distinct incident), so the
-        # counter is bounded by an LRU cap - a long-lived learner would leak
-        # otherwise.
         self._fingerprint_counter: BoundedLruDict[str, int] = BoundedLruDict(_MAX_TRACKED)
+        self._issue_deduplicator = NornsIssueDeduplicator(issue_state_store, _MAX_TRACKED)
         # Fingerprints already proposed - same content-hash keyspace as the
         # counter above, so it is bounded too (a long-lived learner that saw
         # many distinct incidents would otherwise leak one entry per proposal).
@@ -251,7 +251,7 @@ class Norns(Agent):
             await self._flush_candidates_unlocked()
         self._ensure_pending_capacity()
         if topic == "object.issue":
-            self._observe_fingerprint(payload)
+            await self._issue_deduplicator.observe(self, payload)
         elif topic == "object.audit-entry":
             # Saga audits every terminal state and republishes it as an
             # audit-entry; the outcome learner scores rollback rates from it.
@@ -569,9 +569,6 @@ class Norns(Agent):
         return published
 
     # ---- 1. fingerprint aggregator ------------------------------------
-
-    def _observe_fingerprint(self, payload: dict[str, Any]) -> None:
-        _learn_fingerprint(self, payload)
 
     # ---- 2. outcome-threshold learner ---------------------------------
 

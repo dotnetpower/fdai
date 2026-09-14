@@ -643,6 +643,9 @@ id to the exact issue content; a legacy `IssueTrackerAdapter` remains compatible
 Saga then stores validated mutation checkpoints and completion receipts. A retry or process restart resumes only incomplete stages and
 never adds a second GitHub comment for the same escalation; malformed or conflicting durable records fail closed. A live issue tracker
 remains an injected delivery adapter, so the typed ownership and audit boundary stay the same in local and deployed runtimes.
+`object.issue` delivery remains at-least-once. Before incrementing a handoff fingerprint, Norns atomically claims Saga's stable
+idempotency key in the runtime `StateStore`; accepted-then-timeout replay is a duplicate, and an operation/fingerprint collision fails
+closed instead of manufacturing another learning occurrence.
 
 ### 7.7 Conversational port MUST-NOT-Bypass rule
 

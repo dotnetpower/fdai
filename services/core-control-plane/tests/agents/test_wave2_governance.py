@@ -1109,6 +1109,108 @@ def test_norns_dedups_candidate_proposals() -> None:
     assert len(norns.pending_candidates) == 1
 
 
+def test_norns_dedups_replayed_issue_operation_before_counting() -> None:
+    norns = Norns(promotion_threshold=2)
+    replay = {
+        "fingerprint": "replayed-fingerprint",
+        "idempotency_key": "handoff:one-operation",
+    }
+
+    asyncio.run(norns.on_typed_message("object.issue", dict(replay)))
+    asyncio.run(norns.on_typed_message("object.issue", dict(replay)))
+
+    assert norns.occurrences("replayed-fingerprint") == 1
+    assert norns.pending_candidates == []
+    assert norns.behavior_snapshot()["issue_learning_duplicate"] == 1
+
+
+def test_norns_durable_issue_dedup_survives_restart() -> None:
+    store = InMemoryStateStore()
+    payload = {
+        "fingerprint": "durable-fingerprint",
+        "idempotency_key": "handoff:durable-operation",
+    }
+    first = Norns(promotion_threshold=2, issue_state_store=store)
+    restarted = Norns(promotion_threshold=2, issue_state_store=store)
+
+    asyncio.run(first.on_typed_message("object.issue", dict(payload)))
+    asyncio.run(restarted.on_typed_message("object.issue", dict(payload)))
+
+    assert first.occurrences("durable-fingerprint") == 1
+    assert restarted.occurrences("durable-fingerprint") == 0
+    assert restarted.behavior_snapshot()["issue_learning_duplicate"] == 1
+
+
+def test_norns_durable_issue_operation_rejects_fingerprint_collision() -> None:
+    store = InMemoryStateStore()
+    norns = Norns(issue_state_store=store)
+
+    asyncio.run(
+        norns.on_typed_message(
+            "object.issue",
+            {
+                "fingerprint": "first-fingerprint",
+                "idempotency_key": "handoff:colliding-operation",
+            },
+        )
+    )
+
+    with pytest.raises(ValueError, match="collides with a fingerprint"):
+        asyncio.run(
+            norns.on_typed_message(
+                "object.issue",
+                {
+                    "fingerprint": "different-fingerprint",
+                    "idempotency_key": "handoff:colliding-operation",
+                },
+            )
+        )
+
+
+def test_saga_accepted_then_timeout_replay_counts_one_norns_occurrence() -> None:
+    class _AcceptedThenTimeoutBus:
+        def __init__(self, norns: Norns) -> None:
+            self.norns = norns
+            self.calls = 0
+
+        def subscribe(self, topic, agent_name, handler):  # noqa: ANN001, ANN201
+            del topic, agent_name, handler
+
+        async def publish(self, principal, topic, payload):  # noqa: ANN001, ANN201
+            assert principal == "Saga"
+            assert topic == "object.issue"
+            self.calls += 1
+            await self.norns.on_typed_message(topic, dict(payload))
+            if self.calls == 1:
+                raise RuntimeError("broker acknowledgement timed out")
+
+    store = InMemoryStateStore()
+    norns = Norns(promotion_threshold=2, issue_state_store=store)
+    bus = _AcceptedThenTimeoutBus(norns)
+    saga = Saga(durable_state_store=store)
+    saga.bind_bus(bus)
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-accepted-timeout",
+        "escalation_id": "handoff-accepted-timeout",
+        "correlation_id": "corr-accepted-timeout",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+
+    with pytest.raises(RuntimeError, match="acknowledgement timed out"):
+        asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+    asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+
+    fingerprint = next(iter(saga.github.issues))
+    assert bus.calls == 2
+    assert norns.occurrences(fingerprint) == 1
+    assert norns.pending_candidates == []
+    assert norns.behavior_snapshot()["issue_learning_duplicate"] == 1
+
+
 # ---------------------------------------------------------------------------
 # End-to-end via InMemoryBus
 # ---------------------------------------------------------------------------

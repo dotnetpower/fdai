@@ -62,6 +62,7 @@ def bind_operational_agents(
             case_history_analyzer,
             operating_pattern_compiler,
             semantic_feedback_store,
+            muninn_state_store,
         )
     ):
         agents["Norns"] = Norns(
@@ -70,6 +71,7 @@ def bind_operational_agents(
             case_history_analyzer=case_history_analyzer,
             operating_pattern_compiler=operating_pattern_compiler,
             semantic_feedback_store=semantic_feedback_store,
+            issue_state_store=muninn_state_store,
         )
     if any(
         value is not None

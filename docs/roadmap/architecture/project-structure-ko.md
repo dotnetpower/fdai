@@ -570,7 +570,8 @@ T1은 잘못된 reuse 식별자, 카운터, 신뢰도 및 유사도 근거를 �
 뒤에만 `execution_unknown`을 허용하고 개정 번호 CAS가 늦은 소유자의 완료를 차단합니다. 종결 또는
 게시 재생은 rollback을 반복하지 않습니다. 런타임 조립은 같은 `StateStore`를 Saga의 인계 저널에도 주입합니다. Saga는 에스컬레이션마다
 점유, 변경 checkpoint, 완료 증적 하나를 검증하고 외부 변경 전에 작업 ID에 결속된 이슈
-어댑터를 요구합니다. HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서버 검증 운영자 요청 규칙은 규칙 ID,
+어댑터를 요구합니다. 런타임 조립은 같은 저장소를 Norns에도 주입합니다. Norns는 지문 학습 전에
+각 `object.issue` 멱등성 키를 점유하므로 브로커 재생이 근거 횟수를 부풀릴 수 없습니다. HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서버 검증 운영자 요청 규칙은 규칙 ID,
 작업 유형 및 고정 검사 참조가 계속 정확히 일치할 때만 허용됩니다. 멱등성 예약 신원 및 전이 계약은 하나의 Core 모듈에 유지하고, codec, 수명 주기, 상태 형태 검증, HIL 결과 레코드, 실행 효과 완료 처리는 권한 없이 인접한 단일 책임 모듈로 분리하며 facade는 중복 wrapper 없이 수명 주기 동작을 다시 내보냅니다. 실행기 결과는 `accepted`, `pending`, `no_effect`, `failed`로 Core를 통과합니다. 수락은 전달만 입증하며, HIL, 작업 흐름, 조정은 원래 상관관계와 제공된 액션 시도 신원을 보존하고 효과가 발생했을 수 있는 결과를 종료 주장 전에 독립 조정으로 보냅니다.
 ![컨트롤 루프 배선. 주요 단계는 events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops입니다.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.ko.svg)
 

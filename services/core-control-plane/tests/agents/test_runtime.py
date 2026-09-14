@@ -252,6 +252,19 @@ def test_runtime_injects_durable_state_store_into_muninn() -> None:
     assert muninn._durable_state_store is store
 
 
+def test_runtime_injects_durable_issue_dedup_store_into_norns() -> None:
+    store = InMemoryStateStore()
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        muninn_state_store=store,
+    )
+
+    norns = runtime.agents["Norns"]
+    assert isinstance(norns, Norns)
+    assert norns._issue_deduplicator._state_store is store  # noqa: SLF001
+
+
 def test_runtime_injects_durable_state_store_into_var() -> None:
     store = InMemoryStateStore()
     runtime = PantheonRuntime.build(
