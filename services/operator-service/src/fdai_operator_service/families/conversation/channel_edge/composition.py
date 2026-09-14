@@ -14,6 +14,7 @@ from fdai_operator_service.adapters.semantic_kafka import (
 )
 from fdai_operator_service.families.conversation.channel_delivery_models import ChannelKind
 from fdai_operator_service.families.conversation.channel_edge.environment import (
+    ChannelEdgeConfigurationError,
     ChannelEdgeEnvironment,
     PrincipalScopeSettings,
 )
@@ -105,6 +106,10 @@ class ProductionChannelEdgeComposition:
     def build_runtime(self, environ: Mapping[str, str] | None = None) -> ChannelEdgeRuntime:
         """Bind one validated environment snapshot without starting network I/O."""
         environment = ChannelEdgeEnvironment.parse(os.environ if environ is None else environ)
+        if environment.attachments_enabled:
+            raise ChannelEdgeConfigurationError(
+                "channel attachments require a production attachment ingestor binding"
+            )
         provider_http = httpx.AsyncClient(
             trust_env=False,
             limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
@@ -156,6 +161,7 @@ class ProductionChannelEdgeComposition:
                         signing_secret=slack.signing_secret,
                         team_id=slack.team_id,
                         principal_by_sender_id=slack.principal_by_sender_id,
+                        attachments_enabled=environment.attachments_enabled,
                     )
                 )
             )
@@ -178,6 +184,7 @@ class ProductionChannelEdgeComposition:
                         tenant_id=teams.tenant_id,
                         allowed_service_urls=teams.allowed_service_urls,
                         principal_by_aad_object_id=teams.principal_by_aad_object_id,
+                        attachments_enabled=environment.attachments_enabled,
                     ),
                     tokens=TeamsServiceTokenVerifier(
                         config=TeamsTokenConfig(application_id=teams.application_id),

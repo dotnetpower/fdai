@@ -49,6 +49,7 @@ def test_slack_environment_resolves_closed_principal_scope_without_secret_repr()
 
     assert environment.enabled_channels == {ChannelKind.SLACK}
     assert environment.execution_venue is ExecutionVenue.LOCAL
+    assert environment.attachments_enabled is False
     assert environment.slack is not None and environment.teams is None
     assert environment.slack.principal_by_sender_id == {"sender-example": "principal-example"}
     rendered = repr(environment)
@@ -130,3 +131,14 @@ def test_environment_rejects_duplicate_json_keys_and_topics() -> None:
     values["FDAI_SEMANTIC_TURN_PROJECTION_TOPIC"] = values["FDAI_SEMANTIC_TURN_REQUEST_TOPIC"]
     with pytest.raises(ChannelEdgeConfigurationError, match="topics MUST differ"):
         ChannelEdgeEnvironment.parse(values)
+
+
+def test_attachment_enablement_is_a_strict_startup_flag() -> None:
+    values = _environment()
+    values["FDAI_CHANNEL_ATTACHMENTS_ENABLED"] = "1"
+    assert ChannelEdgeEnvironment.parse(values).attachments_enabled is True
+
+    for invalid in ("true", "yes", "2", "-1"):
+        values["FDAI_CHANNEL_ATTACHMENTS_ENABLED"] = invalid
+        with pytest.raises(ChannelEdgeConfigurationError, match="MUST be 0 or 1"):
+            ChannelEdgeEnvironment.parse(values)

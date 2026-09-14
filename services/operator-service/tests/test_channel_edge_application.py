@@ -5,12 +5,16 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import datetime
 
+import pytest
 from fdai_operator_service.families.conversation.channel_delivery_models import ChannelKind
 from fdai_operator_service.families.conversation.channel_edge.application import create_app
 from fdai_operator_service.families.conversation.channel_edge.composition import (
     ProductionChannelEdgeComposition,
 )
 from fdai_operator_service.families.conversation.channel_edge.entry import serve
+from fdai_operator_service.families.conversation.channel_edge.environment import (
+    ChannelEdgeConfigurationError,
+)
 from fdai_operator_service.families.conversation.channel_edge.slack_ingress import (
     SlackIngressAction,
 )
@@ -107,3 +111,21 @@ async def test_production_composition_builds_and_closes_local_slack_edge() -> No
     assert runtime.enabled_channels == {ChannelKind.SLACK}
     assert runtime.ready is False
     await runtime.aclose()
+
+
+def test_production_composition_rejects_enabled_attachments_without_ingestor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    environment = _environment()
+    environment["FDAI_CHANNEL_ATTACHMENTS_ENABLED"] = "1"
+
+    def reject_allocation(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("HTTP client allocated before attachment binding validation")
+
+    monkeypatch.setattr(
+        "fdai_operator_service.families.conversation.channel_edge.composition.httpx.AsyncClient",
+        reject_allocation,
+    )
+
+    with pytest.raises(ChannelEdgeConfigurationError, match="attachment ingestor"):
+        ProductionChannelEdgeComposition().build_runtime(environment)

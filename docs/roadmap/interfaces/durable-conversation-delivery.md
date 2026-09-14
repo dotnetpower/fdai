@@ -75,8 +75,8 @@ grants Core an Operator database writer.
 | Cross-channel readable semantic rows | implemented | Operator `presentation_rows.py`; v1/v2 artifact compilers; focused Operator presentation checks (`94 passed`) | Web, Slack, Teams, and replay receive one bounded projection that leads with readable resource fields and omits nested provider bags from display blocks. The immutable response still retains exact technical evidence, and delivery never regenerates the projection during retry. |
 | Semantic request and terminal projection reliability | implemented | `semantic_turn_runtime.py`; `postgres_semantic_turn_store.py`; focused Operator semantic bridge checks | Operator persists before publication, partitions requests by an opaque session reference, fences the first terminal result, rejects a late competing projection, records timeout holds at the actual fallback time, replays in durable sequence order, and emits receipt-bound confirmed segments only from the stored verified terminal. Missing transport remains a typed no-authority hold. |
 | PostgreSQL schema and production persistence | implemented | [`20260720_0047_conversation_delivery.py`](../../../alembic/versions/20260720_0047_conversation_delivery.py); `operator_a3_channel_delivery_20260819`; Operator store modules; live PostgreSQL checks (`9 passed`, no skips) | Legacy revision 0047 remains frozen. The Operator branch owns the new processing/completed inbound claim and exact role grants. Concrete Operator stores preserve immutable response JSON, claim/attempt and finish/ack transaction boundaries, process-loss ambiguity, breaker CAS, and terminal retention cleanup. |
-| Operator A3 semantic delivery and recovery worker | implemented | `channel_edge/{pipeline,pipeline_contracts,worker}.py`; focused edge checks (`81 passed`); live PostgreSQL join (`1 passed`, no skips) | Deterministic provider-message identity converges retries on one semantic proposal, binding, and delivery. Inbound completion follows durable ownership, provider sends require a closed persisted breaker and active exact-scope binding, ambiguous acknowledgements become immutable duplicate risk, and startup reconciliation precedes worker readiness. |
-| Operator A3 production composition | implemented | `channel_edge/{composition,runtime,application,entry}.py`; private local launch; Operator-service Terraform root; focused edge checks (`74 passed`) | The standalone lifespan probes the Operator role and every owned table, starts semantic transport and replay before consumers, reconciles expired sends before readiness, supervises queue and delivery tasks, and exhaustively closes HTTP clients and credentials. Governed restart and external-provider receipts remain open. |
+| Operator A3 semantic delivery and recovery worker | implemented | `channel_edge/{pipeline,pipeline_contracts,worker}.py`; focused edge checks; live PostgreSQL join (`1 passed`, no skips) | Deterministic provider-message identity converges text-delivery retries on one semantic proposal, binding, and delivery. Attachment-bearing records fail before message claim or semantic publication, so metadata cannot disappear into a text-only response. |
+| Operator A3 production composition | implemented | `channel_edge/{composition,runtime,application,entry}.py`; private local launch; Operator-service Terraform root; focused edge checks | The standalone lifespan probes the Operator role and every owned table, starts semantic transport and replay before consumers, and reconciles expired sends before readiness. Attachment support defaults off and unsupported enablement fails before dependency allocation. |
 | Adapter health policy | implemented | [`adapter_health.py`](../../../services/core-control-plane/src/fdai/core/conversation/adapter_health.py), [`test_adapter_health.py`](../../../services/core-control-plane/tests/conversation/test_adapter_health.py) | Bounded failure windows, fail-closed breaker modes, authorized pause and resume, and authorized A2 fallback behavior pass focused in-memory tests. The separately authenticated command app is not implemented. |
 | Scheduled delivery and adapter command surfaces | in-progress | [`scheduled_continuation.py`](../../../services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py), [`continuation.py`](../../../services/core-control-plane/src/fdai/core/scheduler/continuation.py), [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py) | Scheduled anchors and delivery/snapshot contracts exist. `ScheduledContinuationDeliveryCoordinator`, adapter command routes, and production startup composition are absent from the current tree. |
 | Read-only delivery operations panel | implemented | [`delivery_panel.py`](../../../services/core-control-plane/src/fdai/core/conversation/delivery_panel.py), [`test_delivery_panel.py`](../../../services/core-control-plane/tests/conversation/test_delivery_panel.py) | `ConversationDeliveryPanel` projects latency count/average/p95, state counts, duplicate risk, retries, abandonment, attempt and acknowledgement counts, breaker mode counts, and optional progressive counters. The payload declares `read_only=true` and `mutations_available=false`, exposes no identifier or answer text, and only the snapshot read capability is reachable. No console route or production store binds this projection yet. |
@@ -89,6 +89,7 @@ grants Core an Operator database writer.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Stopped unsupported A3 attachments before ingress queueing and added a pipeline backstop before durable claim or semantic publication. Strict enablement now fails startup while no production ingestor is bound. | `current change`; focused Operator environment, composition, Slack, Teams, and pipeline checks. | Bind the versioned agent-owned ingestion handoff and retain attachment restart, timeout, and citation evidence. |
 | 2026-09-11 | implemented | Assigned distinct fixed semantic outbox namespaces to the independent Operator API and channel edge so each runtime claims only its own durable requests. | `infra/services/operator-service/modules/operator-service/main.tf`; focused Terraform semantic transport checks; live target-only observations under the shared empty namespace. | Apply the independent Operator service transition and retain a fresh paired runtime-call witness. |
 | 2026-09-09 | implemented | Bound semantic Kafka partitioning to the opaque session reference and reconciled the local physical topic to the deployed two-partition floor. | `current change`; focused Operator bridge and local startup checks. | Retain the governed authenticated subscription receipt required by issue #151. |
 | 2026-09-08 | implemented | Revalidated semantic request claims, delayed projection waiting, first-terminal fencing, late-projection rejection, timeout holds, replay cursors, poison quarantine, and receipt-bound confirmed delivery after the streaming change. | `current change`; focused Operator semantic bridge passed 151 tests. | Governed restart and external broker evidence remain separate validation work. |
@@ -118,6 +119,8 @@ grants Core an Operator database writer.
 - [x] Bind the three PostgreSQL stores in production composition.
 - [x] Compose a production channel runtime that invokes startup reconciliation before consumers and
     fails closed when required attachment or channel dependencies are unavailable.
+- [ ] Bind a production attachment ingestor through a versioned service handoff; until then,
+    reject attachments before queue admission and keep their durable-delivery path unavailable.
 - [ ] Add the separately authenticated `/commands/adapters/*` application with authorization,
     audit, and focused pause, resume, and status tests.
 - [ ] Implement `ScheduledContinuationDeliveryCoordinator` for Slack and Teams with stable anchor
@@ -220,8 +223,8 @@ distribution; governed deployed evidence remains open.
 Production channel startup reconciles the ledger before starting consumers. The standalone edge
 invokes that operation before readiness:
 
-- when channel attachments are enabled, startup also requires a fully built production attachment
-    ingestor; an enabled-but-unbound runtime fails before routes or consumers start;
+- the current composition rejects attachment enablement before allocating dependencies because no
+    production ingestor is bound; disabled attachment turns never enter the delivery ledger;
 
 1. Expired `sending` leases become `ambiguous` with `duplicate_risk=true` and `process_loss`.
 2. Due `pending` and `failed` rows are claimed and sent within attempt, freshness, and batch caps.
@@ -252,11 +255,12 @@ mounted in the console Operator API.
 
 ## Conversation and scheduled integration
 
-`ConversationChannelGateway` keeps inbound deduplication, protected attachment evidence, and thread
-semantics from the shared conversation gateway. Attachment bytes complete governed ingestion before
-response persistence; only citations enter the immutable response. See
-[conversation-attachments.md](conversation-attachments.md). Duplicate webhooks or completions do
-not rerun ingestion, the coordinator, or delivery.
+`ConversationChannelGateway` retains the Core-side protected-ingestion contract, but the standalone
+Operator A3 edge does not bind that implementation path. The current edge rejects disabled
+attachments before queue admission and rejects a direct attachment-bearing queue record before
+durable claim or semantic publication. See [conversation-attachments.md](conversation-attachments.md).
+A future versioned service handoff must complete governed ingestion before response persistence and
+place only ordered citations in the immutable response.
 
 If a downstream session or tool fails after governed attachment ingestion, the gateway keeps the
 inbound claim and returns a generic error response. This prevents redelivery from creating another

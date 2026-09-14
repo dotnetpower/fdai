@@ -6,6 +6,7 @@ import asyncio
 from dataclasses import replace
 from datetime import UTC, datetime
 
+import pytest
 from fdai_operator_service.families.conversation.channel_delivery_models import (
     ChannelAdapterBreaker,
     ChannelBindingState,
@@ -17,6 +18,7 @@ from fdai_operator_service.families.conversation.channel_delivery_models import 
 )
 from fdai_operator_service.families.conversation.channel_edge.models import (
     AuthenticatedInboundTurn,
+    ChannelAttachment,
     ChannelDeliveryError,
     ChannelDeliveryReceipt,
     InboundChannelTurn,
@@ -290,6 +292,37 @@ async def test_pipeline_completes_inbound_only_after_durable_delivery_and_sends(
     assert len(deliveries.values) == 1
     assert publisher.messages[0].channel_id == "channel-example"
     assert streams.last_stream is not None and streams.last_stream.closed is True
+
+
+async def test_pipeline_rejects_uningested_attachments_before_claim_or_semantic_work() -> None:
+    messages = _Messages()
+    pipeline, outbox = _pipeline(
+        messages=messages,
+        streams=_Streams(_terminal()),
+        deliveries=_Deliveries(),
+        publisher=_Publisher(),
+    )
+    turn = _turn()
+    attachment_turn = replace(
+        turn,
+        turn=replace(
+            turn.turn,
+            attachments=(
+                ChannelAttachment(
+                    source_ref="slack-file:file-example",
+                    name="evidence.txt",
+                    size_bytes=12,
+                    media_type_hint="text/plain",
+                ),
+            ),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="protected ingestion"):
+        await pipeline.process(attachment_turn)
+
+    assert not messages.keys
+    assert not outbox.proposals
 
 
 async def test_pipeline_duplicate_reuses_durable_delivery_without_semantic_work() -> None:
