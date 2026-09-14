@@ -18,11 +18,13 @@ import { observeControlsDock } from "./ui/controls-dock";
 
 const root = document.querySelector<HTMLElement>("#app");
 if (!root) throw new Error("The visualizer root is missing.");
+const publicBuild = import.meta.env.MODE === "public";
+const initialLocale = new URLSearchParams(window.location.search).get("lang")?.toLowerCase().startsWith("ko") ? "ko" : "en";
 const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
 const ui = new VisualizerUI(root, scenarios, selectFunction, selectInstance);
 const stopDockObserver = observeControlsDock(root);
 const state: ViewState = {
-  locale: "en", scenario: scenarios[0]!, time: 0, playing: !motionPreference.matches,
+  locale: initialLocale, scenario: scenarios[0]!, time: 0, playing: !motionPreference.matches,
   loop: true, speed: DEFAULT_PLAYBACK_SPEED, selected: null, camera: DEFAULT_ACTIVITY_CAMERA, cinema: false,
   reduced: motionPreference.matches, labels: true, glow: 0.8, selectedFunction: null, transportTime: 0, stars: true,
   view: "activity", stateAxis: "operational", relationshipType: "all",
@@ -280,6 +282,11 @@ function animate(now: number) {
     lastFps = now;
   }
   frame = requestAnimationFrame(animate);
+}
+if (publicBuild) {
+  root.querySelector(".view-switch")?.remove();
+  root.querySelector("#ontology-panel")?.remove();
+  root.querySelector("#ontology-inspector")?.remove();
 }
 frame = requestAnimationFrame(animate);
 

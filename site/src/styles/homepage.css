@@ -81,14 +81,63 @@ html:has(.home-hero) main footer {
 
 .home-hero {
   position: relative;
+  isolation: isolate;
   overflow: clip;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  min-height: max(42rem, calc(100svh - var(--sl-nav-height)));
+  min-height: max(32rem, calc(100svh - var(--sl-nav-height) - 2rem));
   padding: 6.5rem var(--home-gutter) 8rem;
   color: var(--home-inverse);
 }
+
+.home-neural-video {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 500ms ease;
+}
+
+html[data-home-background="video"][data-home-video-ready="true"] .home-neural-video { opacity: 0.72; }
+html[data-home-background="video"][data-home-video-ready="true"] .nebula-bg { opacity: 0; }
+.nebula-bg { transition: opacity 500ms ease; }
+
+.home-background-toggle {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: 1.25rem;
+  inset-inline-end: var(--home-gutter);
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid rgb(191 220 255 / 0.42);
+  border-radius: 6px;
+  background: rgb(6 11 22 / 0.78);
+  color: var(--home-inverse-muted);
+  backdrop-filter: blur(12px);
+}
+
+.home-background-toggle button {
+  min-height: 2.75rem;
+  padding: 0.5rem 0.8rem;
+  border: 0;
+  border-radius: 3px;
+  color: inherit;
+  background: transparent;
+  font-size: var(--sl-text-xs);
+}
+
+.home-background-toggle button[aria-pressed="true"] {
+  color: #f7fbff;
+  background: rgb(74 110 142 / 0.72);
+  outline: 1px solid rgb(191 220 255 / 0.5);
+}
+
+.home-background-toggle button:focus-visible { outline: 2px solid #bfdcff; outline-offset: 2px; }
 
 .home-hero-copy {
   position: relative;
@@ -208,15 +257,34 @@ html:has(.home-hero) .home-button:hover { color: var(--home-button-text); backgr
 .home-explore span { font-size: 1.25rem; }
 .home-explore:focus-visible { outline-color: #bfdcff; }
 
+@media (min-width: 50rem) and (max-height: 44rem) {
+  .home-hero { padding-block: 4rem 4.5rem; }
+}
+
 @media (max-width: 49.999rem) {
-  .home-hero { padding-block: 6rem 4rem; gap: 4.5rem; min-height: calc(100svh - var(--sl-nav-height)); }
-  .home-hero-footer { position: relative; inset: auto; width: 100%; flex-wrap: wrap; gap: 0.5rem; }
+  .home-hero { justify-content: flex-start; padding-block: 4rem 1.5rem; gap: 1rem; min-height: calc(100svh - var(--sl-nav-height) - 3rem); }
+  .home-background-toggle { inset-block-start: 0.75rem; inset-inline-end: 1rem; }
+  .home-hero-footer { position: relative; inset: auto; display: grid; grid-template-columns: minmax(0, 1fr) auto; width: 100%; gap: 0.5rem; }
+  .home-hero-note { line-height: 1.6; }
+  .home-explore { justify-self: end; gap: 0.5rem; white-space: normal; text-align: end; }
+}
+
+@media (max-width: 22rem) {
+  .home-hero { padding-bottom: 1rem; }
+  .home-hero-footer { grid-template-columns: minmax(0, 1fr); }
+  .home-hero-note { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-neural-video, .nebula-bg { transition: none; }
 }
 
 @media (forced-colors: active) {
   html:has(.home-hero) { --home-page: Canvas; --home-surface: Canvas; --home-tint: Canvas; --home-text: CanvasText; --home-muted: CanvasText; --home-accent: LinkText; --home-border: ButtonText; --home-control-border: ButtonText; --home-button-bg: ButtonFace; --home-button-text: ButtonText; --home-button-hover: ButtonFace; --home-inverse: CanvasText; --home-inverse-muted: CanvasText; --home-hero-scrim: transparent; background: Canvas; }
   .home-hero-copy::before { display: none; }
   .home-hero-footer { background: Canvas; box-shadow: none; border-color: ButtonText; }
+  .home-background-toggle { color: ButtonText; background: Canvas; border-color: ButtonText; backdrop-filter: none; }
+  .home-background-toggle button[aria-pressed="true"] { color: HighlightText; background: Highlight; outline-color: Highlight; }
   html:has(.home-hero) .hero .sl-link-button { color: LinkText; background: Canvas; border-color: ButtonText; }
   html:has(.home-hero) :is(.hero .sl-link-button, .home-explore):focus-visible { outline-color: Highlight; }
 }
