@@ -1,6 +1,27 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
 const releaseDigest = `sha256:${"a".repeat(64)}`;
+type Rgb = readonly [number, number, number];
+
+function cssRgb(value: string): Rgb {
+  const channels = value.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+  if (channels?.length !== 3) throw new Error(`unsupported CSS color: ${value}`);
+  if (value.startsWith("color(srgb")) {
+    return [channels[0]!, channels[1]!, channels[2]!];
+  }
+  return [channels[0]! / 255, channels[1]! / 255, channels[2]! / 255];
+}
+
+function contrastRatio(first: string, second: string): number {
+  const luminance = (color: string): number => {
+    const linear = cssRgb(color).map((channel) =>
+      channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * linear[0]! + 0.7152 * linear[1]! + 0.0722 * linear[2]!;
+  };
+  const bright = Math.max(luminance(first), luminance(second));
+  const dark = Math.min(luminance(first), luminance(second));
+  return (bright + 0.05) / (dark + 0.05);
+}
 
 function resource(
   id: string,
@@ -37,8 +58,8 @@ function instanceDirectory() {
         false,
       ),
     ],
-    complete: true,
-    truncation_reason: null,
+    complete: false,
+    truncation_reason: "resource_limit",
     execution_authority: false,
     mutation_authority: false,
   };
@@ -228,8 +249,89 @@ test("fills the selected graph viewport with continuous direction regions", asyn
     requests.filter((path) => path === "/ontology/instances/explore").length).toBe(1);
   await expect(page.locator(".ontology-instance-graph-scroll")).toBeVisible();
   expect(requests).not.toContain("/ontology/graph");
+  const toolbar = page.locator(".ontology-instance-toolbar");
+  await expect(toolbar).toContainText(
+    "First 2 Resources shown - search reaches the full generation",
+  );
+  const toolbarStatusColors = await toolbar.evaluate((element) => {
+    const boundStatus = element.querySelector(".ontology-instance-toolbar-scope > span");
+    if (boundStatus === null) throw new Error("compact bound status MUST render");
+    return {
+      background: getComputedStyle(element).backgroundColor,
+      text: getComputedStyle(boundStatus).color,
+    };
+  });
+  expect(contrastRatio(toolbarStatusColors.text, toolbarStatusColors.background))
+    .toBeGreaterThanOrEqual(4.5);
+  await expect(page.locator(".ontology-instance-bound-notice")).toHaveCount(0);
+  const refreshStatus = toolbar.locator(".ontology-instance-refresh-status");
+  await expect(refreshStatus).toBeVisible();
+  await refreshStatus.focus();
+  await expect(page.getByRole("tooltip")).toBeVisible();
+  await page.keyboard.press("Escape");
 
-  await page.getByRole("button", { name: "Full screen", exact: true }).click();
+  const coverage = page.locator(".ontology-instance-presentation-coverage");
+  await expect(coverage).not.toHaveAttribute("open", "");
+  expect(await coverage.locator("summary").evaluate((element) =>
+    element.getBoundingClientRect().height))
+    .toBeLessThanOrEqual(44);
+  await coverage.locator("summary").click();
+  await expect(coverage).toHaveAttribute("open", "");
+  await expect(coverage.locator(".ontology-instance-presentation-coverage-details")).toBeVisible();
+  await expectNoDocumentOverflow(page);
+  await page.screenshot({
+    path: testInfo.outputPath("ontology-coverage-expanded-1440x900.png"),
+  });
+  await coverage.locator("summary").click();
+
+  const legend = page.locator(".ontology-instance-legend-dock");
+  await expect(legend).not.toHaveAttribute("open", "");
+  expect(await legend.evaluate((element) => element.getBoundingClientRect().width))
+    .toBeLessThan(420);
+  await legend.locator("summary").click();
+  await expect(legend).toHaveAttribute("open", "");
+  await expect(legend.locator(".ontology-instance-legend-body")).toBeVisible();
+  await expectNoDocumentOverflow(page);
+  await page.screenshot({
+    path: testInfo.outputPath("ontology-legend-expanded-1440x900.png"),
+  });
+  await legend.locator("summary").click();
+
+  const graphToolGeometry = await page.locator(".ontology-instance-graph-tools").evaluate(
+    (element) => {
+      const style = getComputedStyle(element);
+      const button = element.querySelector("button");
+      if (button === null) throw new Error("graph tool button MUST render");
+      const buttonRect = button.getBoundingClientRect();
+      return {
+        border: style.borderTopWidth,
+        buttonHeight: buttonRect.height,
+        buttonWidth: buttonRect.width,
+      };
+    },
+  );
+  expect(graphToolGeometry).toEqual({
+    border: "0px",
+    buttonHeight: 36,
+    buttonWidth: 36,
+  });
+
+  const fullscreenButton = page.getByRole("button", { name: "Full screen", exact: true });
+  await fullscreenButton.focus();
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Tab");
+  await expect(fullscreenButton).toBeFocused();
+  expect(await fullscreenButton.evaluate((element) => element.matches(":focus-visible"))).toBe(true);
+  const fullscreenFocusColors = await fullscreenButton.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      background: style.backgroundColor,
+      border: style.borderTopColor,
+    };
+  });
+  expect(contrastRatio(fullscreenFocusColors.border, fullscreenFocusColors.background))
+    .toBeGreaterThanOrEqual(3);
+  await fullscreenButton.click();
   await expect.poll(() => page.evaluate(() =>
     document.fullscreenElement?.classList.contains("ontology-instance-graph"))).toBe(true);
   expectDirectionSurfaceCoverage(await graphSurfaceGeometry(page));
@@ -249,9 +351,26 @@ test("fills the selected graph viewport with continuous direction regions", asyn
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/ontology?locale=ko&view=instances&instance=root");
   await expect(page.locator(".ontology-instance-graph-scroll")).toBeVisible();
+  await expect(page.locator(".ontology-instance-toolbar")).toContainText(
+    "첫 Resource 2개 표시 - 검색으로 전체 세대 탐색",
+  );
+  await expect(page.locator(".ontology-instance-bound-notice")).toHaveCount(0);
+  const mobileCoverageTarget = await page
+    .locator(".ontology-instance-presentation-coverage > summary")
+    .evaluate((element) => element.getBoundingClientRect().height);
+  const mobileLegendTarget = await page
+    .locator(".ontology-instance-legend-dock > summary")
+    .evaluate((element) => element.getBoundingClientRect().height);
+  expect(mobileCoverageTarget).toBeGreaterThanOrEqual(44);
+  expect(mobileLegendTarget).toBeGreaterThanOrEqual(44);
   expectDirectionSurfaceCoverage(await graphSurfaceGeometry(page));
   await expectNoDocumentOverflow(page);
   await page.screenshot({
     path: testInfo.outputPath("ontology-direction-surface-ko-390x844.png"),
   });
+
+  await page.setViewportSize({ width: 320, height: 844 });
+  expectDirectionSurfaceCoverage(await graphSurfaceGeometry(page));
+  await expect(page.locator(".ontology-instance-toolbar-status")).toBeVisible();
+  await expectNoDocumentOverflow(page);
 });

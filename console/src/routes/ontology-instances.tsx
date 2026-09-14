@@ -230,7 +230,7 @@ export function OntologyInstancesView({ client }: Props) {
   return (
     <section class="ontology-instance-explorer" aria-label={t("ontology.instances.title")}>
       <AsyncBoundary state={directory} resourceLabel={t("ontology.instances.inventoryLoading")}>
-        {() => (
+        {(directoryData) => (
           <>
             <form
               class="ontology-instance-toolbar"
@@ -310,23 +310,27 @@ export function OntologyInstancesView({ client }: Props) {
                 </span>
               </label>
               <div class="ontology-instance-toolbar-status">
-                <strong>{t("ontology.instances.readOnly")}</strong>
-                <span>{t("ontology.instances.resultBound", {
-                  count: formatNumber(options.length),
-                })}
-                </span>
+                <div class="ontology-instance-toolbar-scope">
+                  <strong>{t("ontology.instances.readOnly")}</strong>
+                  <span>{t(directoryData.complete
+                    ? "ontology.instances.resultBound"
+                    : "ontology.instances.resultBoundCompact", {
+                    count: formatNumber(options.length),
+                  })}</span>
+                </div>
+                {detail.status === "ready" ? (
+                  <OntologyInstanceRefreshStatus
+                    status={detailRefreshStatus}
+                    checkedAt={detailCheckedAt}
+                    nextPeriodicAt={detailNextPeriodicAt}
+                    streamStatus={invalidationStream.status}
+                  />
+                ) : null}
               </div>
             </form>
             {searchUnmatchable ? (
               <p class="ontology-instance-bound-notice" role="note">
                 {t("ontology.instances.searchNotMatchable")}
-              </p>
-            ) : null}
-            {!searchUnmatchable && directory.status === "ready" && !directory.data.complete ? (
-              <p class="ontology-instance-bound-notice" role="note">
-                {t("ontology.instances.resultBoundTruncated", {
-                  count: formatNumber(options.length),
-                })}
               </p>
             ) : null}
             {!searchUnmatchable && directory.status === "ready" && options.length === 0 ? (
@@ -338,21 +342,11 @@ export function OntologyInstancesView({ client }: Props) {
                 <p>{t("ontology.instances.emptyDescription")}</p>
               </div>
             ) : (
-              <>
-                {detail.status === "ready" ? (
-                  <OntologyInstanceRefreshStatus
-                    status={detailRefreshStatus}
-                    checkedAt={detailCheckedAt}
-                    nextPeriodicAt={detailNextPeriodicAt}
-                    streamStatus={invalidationStream.status}
-                  />
-                ) : null}
-                <AsyncBoundary state={detail} resourceLabel={t("ontology.instances.detailLoading")}>
-                  {(data) => (
-                    <OntologyInstanceWorkspace data={data} onSelect={selectResource} />
-                  )}
-                </AsyncBoundary>
-              </>
+              <AsyncBoundary state={detail} resourceLabel={t("ontology.instances.detailLoading")}>
+                {(data) => (
+                  <OntologyInstanceWorkspace data={data} onSelect={selectResource} />
+                )}
+              </AsyncBoundary>
             )}
           </>
         )}
@@ -399,24 +393,35 @@ function OntologyInstanceRefreshStatus({
           : t("ontology.instances.autoRefreshCountdown", {
             countdown: formatOntologyRefreshCountdown(remainingSeconds),
           });
-  const mode = streamStatus === "open"
-    ? "live"
-    : status === "error"
-      ? "error"
-      : streamStatus === "connecting" || streamStatus === "reconnecting"
-        ? "reconnecting"
-        : status;
-  return (
-    <div
-      class={`ontology-instance-refresh-status is-${mode}`}
-      aria-label={t("ontology.instances.autoRefreshLabel")}
-    >
-      <span aria-hidden="true" />
-      <strong>{t(streamStatus === "open"
+  const mode = status === "error"
+    ? "error"
+    : status === "refreshing"
+      ? "refreshing"
+      : streamStatus === "open"
+        ? "live"
+        : streamStatus === "connecting" || streamStatus === "reconnecting"
+          ? "reconnecting"
+          : status;
+  const label = t(status === "error"
+    ? "ontology.instances.autoRefreshFailedLabel"
+    : status === "refreshing"
+      ? "ontology.instances.autoRefreshCheckingLabel"
+      : streamStatus === "open"
         ? "ontology.instances.autoRefreshLiveLabel"
-        : "ontology.instances.autoRefreshActive")}</strong>
-      {status === "error" ? <span role="alert">{detail}</span> : <span>{detail}</span>}
-    </div>
+        : streamStatus === "connecting" || streamStatus === "reconnecting"
+          ? "ontology.instances.autoRefreshReconnectingLabel"
+          : "ontology.instances.autoRefreshActive");
+  return (
+    <Tooltip content={detail} placement="bottom">
+      <span
+        class={`ontology-instance-refresh-status is-${mode}`}
+        aria-label={`${t("ontology.instances.autoRefreshLabel")}: ${label}. ${detail}`}
+      >
+        <span aria-hidden="true" />
+        <strong>{label}</strong>
+        {status === "error" ? <span class="sr-only" role="alert">{detail}</span> : null}
+      </span>
+    </Tooltip>
   );
 }
 

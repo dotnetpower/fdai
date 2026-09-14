@@ -222,6 +222,11 @@ the exact ResourceTypes whose ARM type is supported:
 - The Ontology Instances graph reserves its reviewed viewport height even when a result contains
   only a few nodes, so recorded-state details do not collapse the inspection surface. Direction
   backgrounds cover that complete surface even when the bounded SVG layout is shorter.
+- A bounded directory states its visible limit compactly in the search toolbar and confirms that
+  search reaches the full generation. It does not use a separate warning-shaped row.
+- Selected-instance refresh state shares that toolbar and exposes exact timing or failure detail
+  through an accessible tooltip. Coverage and legend details remain available through native
+  disclosures instead of occupying the graph's default first viewport.
 - An `llm-model-deployment` record may also expose one additive `model_deployment` object. The
   Operator projection allows only model name, model version, deployment SKU, and normalized TPM;
   raw provider properties, tags, rate-limit evidence paths, and credentials stay server-side.
