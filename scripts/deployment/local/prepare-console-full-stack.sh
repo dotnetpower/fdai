@@ -152,10 +152,14 @@ auth_mode_outputs_match() {
   [[ -f "$auth_mode_file" ]] || return 1
   [[ "$(<"$auth_mode_file")" == "$auth_mode" ]] || return 1
   [[ -f "$operator_env" ]] || return 1
-  [[ "$(grep -Ec '^FDAI_OPERATOR_API_LOCAL_AZURE_CLI=' "$operator_env" || true)" == "1" ]]
-  [[ "$(grep -Fxc "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=$expected_flag" "$operator_env" || true)" == "1" ]]
-  [[ "$(grep -Ec '^FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=' "$operator_env" || true)" == "1" ]]
-  [[ "$(grep -Fxc "FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=$expected_flag" "$operator_env" || true)" == "1" ]]
+  [[ "$(grep -Ec '^FDAI_OPERATOR_API_LOCAL_AZURE_CLI=' "$operator_env" || true)" == "1" ]] \
+    || return 1
+  [[ "$(grep -Fxc "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=$expected_flag" "$operator_env" || true)" == "1" ]] \
+    || return 1
+  [[ "$(grep -Ec '^FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=' "$operator_env" || true)" == "1" ]] \
+    || return 1
+  [[ "$(grep -Fxc "FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=$expected_flag" "$operator_env" || true)" == "1" ]] \
+    || return 1
 }
 
 can_reuse_legacy_preparation() {

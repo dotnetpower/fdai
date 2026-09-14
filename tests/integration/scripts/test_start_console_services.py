@@ -604,13 +604,20 @@ def test_preparation_reuses_each_unchanged_stage_when_stack_is_stopped(
     assert "stage=entra-redirects event=completed" not in result.stdout
 
 
+@pytest.mark.parametrize(
+    "stale_operator_environment",
+    [
+        ("FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1\nFDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=1\n"),
+        ("FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1\nFDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=0\n"),
+    ],
+)
 def test_preparation_repairs_auth_outputs_changed_outside_the_cache(
     tmp_path: Path,
+    stale_operator_environment: str,
 ) -> None:
     repo, environment = _staged_preparation_repo(tmp_path)
-    (repo / ".fdai/local-console-auth-mode").write_text("azure-cli\n", encoding="utf-8")
     (repo / ".fdai/local-operator-service.env").write_text(
-        "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1\nFDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=1\n",
+        stale_operator_environment,
         encoding="utf-8",
     )
 
