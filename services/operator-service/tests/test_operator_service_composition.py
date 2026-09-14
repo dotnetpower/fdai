@@ -582,6 +582,42 @@ def test_service_preserves_exact_frozen_minimal_routes() -> None:
     assert snapshot == EXPECTED_ROUTES
 
 
+def test_incident_opened_template_matches_the_reviewed_design_specimen() -> None:
+    response = _client(read_model=EmptyReadModel()).get(
+        "/notification-templates/incident-opened",
+        headers={"Authorization": "Bearer reader"},
+    )
+    design = (REPO_ROOT / "mocks/email-template/incident-opened.html").read_text(encoding="utf-8")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "key": "incident-opened",
+        "subject": "[SEV2] Incident opened - API latency after configuration rollout",
+        "plain_text": (
+            "SEV2 incident opened at 06:03 UTC. Eight signals were correlated. "
+            "No recovery action has run."
+        ),
+        "html": design,
+    }
+
+
+def test_incident_opened_template_preserves_the_safe_email_boundary() -> None:
+    response = _client(read_model=EmptyReadModel()).get(
+        "/notification-templates/incident-opened",
+        headers={"Authorization": "Bearer reader"},
+    )
+    html = response.json()["html"]
+
+    assert response.status_code == 200
+    assert isinstance(html, str)
+    assert 'class="wrap" width="640"' in html
+    assert "FDAI / FIELD DISPATCH" in html
+    assert "Fail-closed" in html
+    assert "approval and execution stay in the console" in html
+    assert "<script" not in html.lower()
+    assert "<form" not in html.lower()
+
+
 def test_health_is_public_and_fails_closed_without_postgres() -> None:
     response = _client().get("/healthz")
     assert (response.status_code, response.json()) == (503, {"status": "not-ready"})
