@@ -42,6 +42,17 @@ def test_trace_preserves_action_attempt_and_execution_outcome() -> None:
     )
 
     assert trace is not None
+    assert trace["trace_kind"] == "decision"
+    assert trace["source_authority"] == "operator-audit-log"
+    assert trace["complete"] is True
+    assert trace["first_recorded_at"] == "2026-09-14T03:00:00Z"
+    assert trace["last_recorded_at"] == "2026-09-14T03:00:00Z"
+    assert trace["latest_sequence"] == 1
+    assert trace["latest_actor"] == "Thor"
+    assert trace["latest_action_kind"] == "executor.remote.awaiting_effect_evidence"
+    assert trace["latest_outcome"] == "awaiting_effect_evidence"
+    assert trace["action_attempt_count"] == 1
+    assert trace["effect_observation_count"] == 0
     assert trace["steps"] == [
         {
             "seq": 1,
