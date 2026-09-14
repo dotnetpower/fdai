@@ -16,7 +16,8 @@ embedding of every catalog rule (via an injected
 :meth:`RagGroundingSource.supports` method that computes cosine
 similarity between the candidate's intent (its ``action_type`` + a
 canonical digest of ``params``) and the cited rule's intent
-(``check_logic.reference`` + ``remediates``). The gate treats a rule
+(``check_logic.reference`` + ``remediates``). An exact catalog-declared
+``alternatives`` match is grounded deterministically before similarity. The gate treats a rule
 id as "not grounding" when its similarity is below a configured
 threshold, and emits a ``ungrounded_citation:<rule_id>`` reason so the
 audit record captures which citation was fabricated / off-topic.
@@ -182,14 +183,19 @@ class RagGroundingSource:
         threshold`` where ``candidate_text`` composes the proposed
         ``action_type`` with a canonical digest of ``params`` and
         ``rule_text`` composes the rule's ``check_logic.reference`` with
-        its ``remediates`` ontology dispatch. A rule id that is not in
+        its ``remediates`` ontology dispatch. An exact action listed in
+        ``Rule.alternatives`` is already a catalog-grounded relationship and
+        returns ``True`` without semantic inference. A rule id that is not in
         the loaded catalog returns ``False`` - the gate's "unknown"
         branch already surfaces that case, but defending here keeps the
         method usable outside the gate too.
         """
-        rule_vec = self._rule_vectors.get(rule_id)
-        if rule_vec is None:
+        rule = self._rules.get(rule_id)
+        if rule is None:
             return False
+        if candidate.action_type in rule.alternatives:
+            return True
+        rule_vec = self._rule_vectors[rule_id]
         candidate_vec = self._index.encode(self._candidate_text(candidate))
         similarity = self._index.cosine(candidate_vec, rule_vec)
         return similarity >= self._threshold
