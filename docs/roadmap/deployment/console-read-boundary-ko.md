@@ -1,7 +1,7 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: 6f113ddc089580307a413c284979fbf33da9722e
+translation_source_sha: 98f70081176bdda82d704b58b08dabf938e3899e
 translation_revised: 2026-09-14
 ---
 # Console 읽기 경계
@@ -23,13 +23,14 @@ translation_revised: 2026-09-14
 | 대화 문서 다운로드 | 구현됨 | `fdai_operator_service/composition.py`, `document_export.py`, 집중 소유권 및 완전성 검사 | Operator 조립은 인증된 principal의 완전한 검증 semantic 변환 결과에서만 문서를 다시 생성합니다. Markdown은 private 및 non-cacheable 상태를 유지하며, 범위가 제한된 encoder를 사용할 수 있을 때만 PDF를 표시합니다. |
 | 사용 불가 화면 표현 | validated | 집중 Operator 및 Console 검사와 영향받는 패널의 인증 통과 | 제공되지 않는 route는 서버가 소유한 사유를 유지하며 패널은 날것 전송 상태나 존재하지 않는 구성 심볼을 노출하지 않습니다. |
 | 계정 신원 및 동일 테넌트 계정 선택 | 구현됨 | `console/src/components/account-menu.tsx`; `console/src/auth.ts`; 집중 콘솔 계정 테스트(`11 passed`), typecheck 및 프로덕션 빌드 | 헤더 패널은 권한을 추가하지 않고 MSAL 신원과 서버가 검증한 역할을 표시합니다. 대화형 세션은 로그인 힌트 없이 Entra 계정 선택기를 열고 기존 시작 권한 확인 경계로 다시 진입할 수 있습니다. |
-| 로컬 운영자 신원 선택 | implemented | `config.ts`; `environment.py`; `prepare-operator-service-env.sh`; 집중 Console, Operator 및 준비 테스트 | 표준 준비는 비공개 Console 환경에 오래된 Azure CLI 인증 요청이 남아 있어도 Browser Entra를 선택합니다. 역할 상한이 고정된 Azure CLI principal을 사용하려면 준비 명령에 `--auth-mode azure-cli`를 명시하고 브라우저 및 API 확인 값을 함께 설정해야 합니다. |
+| 로컬 운영자 신원 선택 | implemented | `config.ts`; `environment.py`; `prepare-operator-service-env.sh`; 집중 Console, Operator, 준비 및 HIL 경로 테스트 | 표준 준비는 비공개 Console 환경에 오래된 Azure CLI 인증 요청이 남아 있어도 Browser Entra를 선택합니다. 역할 상한이 고정된 Azure CLI principal을 사용하려면 준비 명령에 `--auth-mode azure-cli`를 명시하고 브라우저 및 API 확인 값을 함께 설정해야 합니다. HIL 경로는 검증된 `Approver` 또는 `Owner` 역할에만 전체 상세를 반환합니다. |
 | 기록된 Resource 상태 출처 | implemented | `test_operator_service_composition.py::test_recorded_state_route_and_source_are_common_to_both_venues`; [기록된 상태 근거](../../roadmap-implementation/interfaces/recorded-resource-state.md) | 목록, 탐색 및 일괄 상태 조회 경로는 두 실행 환경에서 같은 인벤토리 계열 저장소를 사용합니다. 출처를 구성했다고 해서 기록된 사실의 최신성이 입증되지는 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | Reader에는 `count_only`를 반환하고 검증된 Approver 및 Owner principal에는 `full` 승인 상세를 반환하는 HTTP 권한 경계 회귀 테스트를 추가했습니다. 테스트는 권위 있는 읽기 모델에 전달하는 상세 조회 플래그도 검증합니다. | `current change`; `test_operator_service_composition.py::test_hil_queue_detail_level_follows_verified_operator_role`; 역할 사례 3개 통과. | 운영자 복구 안내와 최종 통합 검토를 완료합니다. |
 | 2026-09-14 | implemented | 요청된 운영자 인증 모드를 활성 서비스 환경 단계 캐시 식별자에 추가했습니다. 이제 모든 파일 입력이 같아도 모드를 전환하면 Operator 환경과 모드 표식을 다시 생성합니다. | `current change`; `prepare-console-full-stack.sh`; 두 모드의 집중 단계 캐시 테스트. | 승인 경로 권한 회귀 테스트를 추가하고 운영자 안내를 완성합니다. |
 | 2026-09-14 | implemented | 요청된 운영자 인증 모드를 기존 전체 스택 준비 캐시 식별자에 추가했습니다. Browser Entra와 Azure CLI 디버그 사이를 전환할 때 다른 모드의 전체 준비 결과를 재사용할 수 없습니다. | `current change`; `prepare-console-full-stack.sh`; 두 모드의 집중 기존 캐시 테스트. | 활성 단계별 서비스 환경 캐시도 같은 모드에 연결합니다. |
 | 2026-09-14 | implemented | 독립 실행형 전체 스택 웹 실행기에 범위가 제한된 `--auth-mode` 선택기를 추가하고 준비 단계에 전달했습니다. 인자를 생략하면 Browser Entra를 선택하며, Azure CLI 디버깅은 호출 시 모드를 명시해야 합니다. | `current change`; `start-console-web.sh`; 집중 실행기 인자 테스트. | 두 준비 캐시를 선택된 모드에 연결합니다. |

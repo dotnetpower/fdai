@@ -207,6 +207,8 @@ def _verify(token: str) -> Mapping[str, object]:
         roles = [OperatorRole.READER.value]
     elif token == "approver":
         roles = [OperatorRole.APPROVER.value]
+    elif token == "owner":
+        roles = [OperatorRole.OWNER.value]
     else:
         roles = []
     return {"oid": "operator", "idtyp": "user", "roles": roles}
@@ -600,6 +602,38 @@ def test_health_reflects_required_dependency_loss_after_startup() -> None:
     available = False
     response = client.get("/healthz")
     assert (response.status_code, response.json()) == (503, {"status": "not-ready"})
+
+
+@pytest.mark.parametrize(
+    ("token", "expected_detail_level", "expected_include_details"),
+    [
+        ("reader", "count_only", False),
+        ("approver", "full", True),
+        ("owner", "full", True),
+    ],
+)
+def test_hil_queue_detail_level_follows_verified_operator_role(
+    token: str,
+    expected_detail_level: str,
+    expected_include_details: bool,
+) -> None:
+    class CapturingReadModel(EmptyReadModel):
+        query: HilQueueQuery | None = None
+
+        async def list_hil_queue(self, query: HilQueueQuery) -> HilQueueProjection:
+            self.query = query
+            return HilQueueProjection(items=(), total=0)
+
+    model = CapturingReadModel()
+    response = _client(read_model=model).get(
+        "/hil-queue",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["detail_level"] == expected_detail_level
+    assert model.query is not None
+    assert model.query.include_details is expected_include_details
 
 
 def _local_cli_identity() -> LocalAzureCliIdentity:
