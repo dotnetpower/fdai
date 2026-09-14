@@ -55,7 +55,7 @@ unbounded tight polling loop.
   Managed-resource writeback remains in the governed action path and closes only after independent
   re-observation. The standalone deploy host's exact-registry `AcrPush` assignment remains a
   write-plane delivery permission. Image import and digest readback create no operational graph
-  fact or observation authority.
+  fact or observation authority. Shared Operator/Core composition also carries content-free assignment notices on separate allowlisted logical topics. Those requests, case dispositions, and review-only PR receipts never become inventory, AKS diagnostic, or runtime-call witnesses; the graph-first query contract and provider observation admission remain unchanged.
 - **Bounded retention:** Raw data is removed from hot or warm storage only after a rollup or archive
   manifest verifies complete source coverage and the applicable retention hold permits deletion.
 

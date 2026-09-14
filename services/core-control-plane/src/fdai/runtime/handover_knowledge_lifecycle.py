@@ -6,13 +6,20 @@ import asyncio
 import logging
 import uuid
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from fdai_service_contracts.handover_observation import (
+    HandoverGoalObservation,
+    handover_observation_fields,
+)
+
 from fdai.core.human_assignment.goals import GoalEvidence, HandoverGoalState
+from fdai.core.stewardship.names import AGENT_NAME_SET
 from fdai.shared.contracts.models import Event, Mode
 from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.handover_goals import HandoverGoalProjectionReader
 from fdai.shared.providers.state_store import StateStore
 
 _GOAL_PREFIXES = ("handover_goal:goal:", "operator-handover-goal:")
@@ -48,7 +55,7 @@ class _LifecycleGoal:
     evidence: tuple[GoalEvidence, ...]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class HandoverKnowledgeLifecycleWorker:
     """Emit agent-owned gaps, review-only candidates, and stale withdrawals."""
 
@@ -57,37 +64,49 @@ class HandoverKnowledgeLifecycleWorker:
     topic: str
     interval_seconds: float = 60.0
     batch_limit: int = 100
+    operator_goals: HandoverGoalProjectionReader | None = None
+    _offsets: dict[str, int] = field(default_factory=dict, init=False, repr=False)
+    _next_prefix: int = field(default=0, init=False, repr=False)
+    _scan_lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False, repr=False)
 
     def __post_init__(self) -> None:
-        if self.interval_seconds <= 0:
-            raise ValueError("handover knowledge interval MUST be positive")
+        if not 0 < self.interval_seconds <= 3600:
+            raise ValueError("handover knowledge interval MUST be in (0, 3600]")
         if not 1 <= self.batch_limit <= 1000:
             raise ValueError("handover knowledge batch limit MUST be between 1 and 1000")
         if not self.topic.strip():
             raise ValueError("handover knowledge event topic MUST be non-empty")
 
     async def run_once(self) -> int:
-        processed = 0
-        for prefix in _GOAL_PREFIXES:
-            offset = 0
-            snapshot_total: int | None = None
-            while processed < self.batch_limit:
-                goals, total = await self.store.read_state_page(
-                    prefix,
-                    limit=self.batch_limit,
-                    offset=offset,
+        """Bound scanned rows, alternate source priority, and retain a failed page for retry."""
+        async with self._scan_lock:
+            return await self._scan()
+
+    async def _scan(self) -> int:
+        processed, scanned = 0, 0
+        for index in range(len(_GOAL_PREFIXES)):
+            prefix = _GOAL_PREFIXES[(self._next_prefix + index) % len(_GOAL_PREFIXES)]
+            if prefix == "operator-handover-goal:" and self.operator_goals is None:
+                continue
+            offset = self._offsets.get(prefix, 0)
+            if prefix == "operator-handover-goal:":
+                if self.operator_goals is None:
+                    raise RuntimeError("Operator goal projection is unavailable")
+                goals, total = await self.operator_goals.read_page(
+                    limit=self.batch_limit - scanned, offset=offset
                 )
-                if snapshot_total is None:
-                    snapshot_total = total
-                if not goals:
-                    break
-                for raw in goals:
-                    processed += int(await self._process(raw))
-                    if processed >= self.batch_limit:
-                        break
-                offset += len(goals)
-                if offset >= snapshot_total:
-                    break
+            else:
+                goals, total = await self.store.read_state_page(
+                    prefix, limit=self.batch_limit - scanned, offset=offset
+                )
+            for raw in goals:
+                processed += int(await self._process(raw))
+                scanned += 1
+            next_offset = offset + len(goals)
+            self._offsets[prefix] = next_offset if goals and next_offset < total else 0
+            if scanned >= self.batch_limit:
+                break
+        self._next_prefix = (self._next_prefix + 1) % len(_GOAL_PREFIXES)
         return processed
 
     async def _process(self, raw: Mapping[str, Any]) -> bool:
@@ -146,8 +165,11 @@ class HandoverKnowledgeLifecycleWorker:
                     "handover_knowledge_lifecycle_reconciled",
                     extra={"processed": processed},
                 )
-            except Exception:  # noqa: BLE001 - durable receipts make the next pass replay-safe
-                _LOGGER.exception("handover_knowledge_lifecycle_failed")
+            except Exception as exc:  # noqa: BLE001 - durable receipts preserve replay safety
+                _LOGGER.error(
+                    "handover_knowledge_lifecycle_failed",
+                    extra={"error_type": type(exc).__name__},
+                )
             try:
                 await asyncio.wait_for(stop.wait(), timeout=self.interval_seconds)
             except TimeoutError:
@@ -268,6 +290,10 @@ def _event(
 
 
 def _parse_goal(raw: Mapping[str, Any]) -> _LifecycleGoal:
+    observation = HandoverGoalObservation.model_validate(handover_observation_fields(raw))
+    raw = observation.model_dump(mode="json")
+    if observation.agent_name not in AGENT_NAME_SET:
+        raise ValueError("handover observation names an unknown agent")
     evidence = raw.get("evidence", [])
     if not isinstance(evidence, list):
         raise ValueError("handover goal evidence MUST be an array")

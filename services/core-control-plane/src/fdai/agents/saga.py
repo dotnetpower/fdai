@@ -15,6 +15,7 @@ from fdai.agents._framework.adapters import (
     InMemoryStateStore,
     IssueTrackerAdapter,
 )
+from fdai.agents._framework.assignment_workflow import seal_assignment
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -89,6 +90,9 @@ class Saga(Agent):
             correlation_id=correlation_id,
             payload=payload,
         )
+        if payload.get("kind") == "human_assignment":
+            await seal_assignment(self, topic, payload)
+            return
         if topic == "object.verdict" and payload.get("kind") == "document_ingestion":
             await self._republish_document_decision(payload, correlation_id)
         if topic == "object.approval" and payload.get("kind") == "document_ingestion":

@@ -113,6 +113,8 @@ def validate_transition(
         raise AssignmentTransitionError("assignment review receipts are append-only")
     if candidate.effect_receipts[: len(current.effect_receipts)] != current.effect_receipts:
         raise AssignmentTransitionError("assignment effect receipts are append-only")
+    if candidate.command_receipts[: len(current.command_receipts)] != current.command_receipts:
+        raise AssignmentTransitionError("assignment command receipts are append-only")
     if candidate.state is AssignmentState.APPROVED and not approval_quorum_satisfied(
         candidate.intent,
         candidate.reviews,

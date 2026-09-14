@@ -116,6 +116,9 @@ class AccessProposalStore:
     def __init__(self) -> None:
         self.records: dict[str, dict[str, object]] = {}
 
+    async def read_state(self, key: str) -> Mapping[str, object] | None:
+        return self.records.get(key)
+
     async def append_proposal(
         self,
         *,
@@ -263,6 +266,7 @@ async def test_assignment_proposals_project_revisioned_independent_review() -> N
     )
     assert reviewed["state"] == "approved"
     assert reviewed["revision"] == 3
+    assert reviewed["convergence_status"] == "awaiting_core"
     projection = await adapter.assignment_projection(
         AssignmentCaseQuery(principal=_iam_principal("owner-2"), limit=50, offset=0)
     )

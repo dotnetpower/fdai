@@ -14,6 +14,12 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fdai.agents._framework.adapters import InMemoryStateStore
+from fdai.agents._framework.assignment_workflow import (
+    AssignmentClock,
+    AssignmentMaterializer,
+    assignment_clock,
+    materialize_assignment,
+)
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -88,8 +94,24 @@ class Muninn(Agent):
         self._case_deletion_days = case_deletion_days
         self._evidence_conflict_sink = evidence_conflict_sink
         self._prospective_lineage_materializer = prospective_lineage_materializer
+        self._assignment_materializer: AssignmentMaterializer | None = None
+        self._assignment_clock: AssignmentClock = assignment_clock
+
+    def bind_assignment_materializer(
+        self,
+        materializer: AssignmentMaterializer,
+        *,
+        clock: AssignmentClock = assignment_clock,
+    ) -> None:
+        """Bind an audit-sealed case projector, not an IAM or PR executor."""
+        self._assignment_materializer, self._assignment_clock = materializer, clock
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic == "object.audit-entry" and payload.get("kind") == "human_assignment":
+            await materialize_assignment(
+                self, payload, self._assignment_materializer, clock=self._assignment_clock
+            )
+            return
         if topic == "object.turn":
             turn_id = str(payload.get("turn_id") or payload.get("id", ""))
             if turn_id:

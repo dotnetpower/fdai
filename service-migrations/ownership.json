@@ -8,6 +8,14 @@
   "migration_dependencies": [
     {
       "consumer_service": "operator-service",
+      "consumer_revision": "operator_assignment_receipts_20260914",
+      "provider_service": "core-control-plane",
+      "provider_revision": "core_assignment_receipts_20260914",
+      "schema_prerequisites": ["operator_assignment_receipt"],
+      "provider_rollback": "blocked-while-assignment-receipts-and-guards-are-retained"
+    },
+    {
+      "consumer_service": "operator-service",
       "consumer_revision": "operator_cost_governance_20260828",
       "provider_service": "core-control-plane",
       "provider_revision": "core_cost_governance_runtime_20260828",
@@ -131,6 +139,7 @@
   },
   "table_migrations": {
     "core-control-plane": [
+      "operator_assignment_receipt",
       "action_outbox",
       "audit_log",
       "case_history",
@@ -449,6 +458,7 @@
       "vertical_package_activation"
     ],
     "operator-service": [
+      "operator_assignment_receipt",
       "automation_blueprint_candidate",
       "background_task_attempt",
       "background_task_completion",

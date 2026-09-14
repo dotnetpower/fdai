@@ -34,6 +34,7 @@ EXPECTED_FDAI_ROOTS = {
 EXPECTED_RUNTIME_MODULES = {
     "__init__.py",
     "adaptive_investigation_runtime.py",
+    "assignment_transport.py",
     "assurance_twin_query.py",
     "blast_probe.py",
     "bootstrap.py",

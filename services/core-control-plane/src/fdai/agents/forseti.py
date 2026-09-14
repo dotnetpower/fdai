@@ -24,6 +24,12 @@ from fdai.agents._framework.action_semantics import (
     quorum_for,
     rollback_contract_for,
 )
+from fdai.agents._framework.assignment_workflow import (
+    AssignmentCheck,
+    AssignmentClock,
+    assignment_clock,
+    judge_assignment,
+)
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.bus import PantheonBus
@@ -170,6 +176,8 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             raise ValueError("cross_vertical_timeout_seconds MUST be in (0, 300]")
         super().__init__(spec=_FORSETI)
         self.bus = bus
+        self._assignment_check: AssignmentCheck | None = None
+        self._assignment_clock: AssignmentClock = assignment_clock
         self._rbac = rbac if rbac is not None else _DEFAULT_RBAC
         self._action_semantics = action_semantics
         self._operational_context = operational_context
@@ -237,7 +245,18 @@ class Forseti(Agent, ForsetiJudgmentMixin):
 
     # ---- typed port ----------------------------------------------------
 
+    def bind_assignment_check(
+        self, check: AssignmentCheck, *, clock: AssignmentClock = assignment_clock
+    ) -> None:
+        """Bind read-only receipt validation, never a case writer or executor."""
+        self._assignment_check, self._assignment_clock = check, clock
+
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic == "object.event" and payload.get("event_type") == "human.assignment.requested":
+            await judge_assignment(
+                self, payload, self._assignment_check, clock=self._assignment_clock
+            )
+            return
         if is_cross_vertical_candidate(topic, payload):
             await self._ingest_cross_vertical_candidate(topic, payload)
             return

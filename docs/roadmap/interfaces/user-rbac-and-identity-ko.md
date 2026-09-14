@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 37af9e5f2e5cfdf36197d3f2292dce4b38b540c4
-translation_revised: 2026-09-06
+translation_source_sha: 6605f5abd40ee6b1d03794477756bbd87e215ad0
+translation_revised: 2026-09-14
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -73,7 +73,7 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
    ([console-operations-ko.md](console-operations-ko.md)).
 
 Operator Service는 token 검증과 server-owned App Role 해석 후에만 role을 serialize하며 browser payload는 이를 넓힐 수 없습니다. Core는 read 전에 principal-scoped purpose를 재검사하고 broker command identity는 executor 권한을 부여하지 않습니다.
-계약은 ordinary role 4개와 고정된 topic만 허용하고 readiness에는 bridge worker 두 개가 모두 필요하며 transactional storage와 replay는 모든 projection을 request, principal, result digest에 bind합니다.
+계약은 일반 역할 4개와 고정된 토픽만 허용하고 준비 상태에는 구성된 모든 브리지 워커가 필요합니다. 트랜잭션 저장과 재생은 모든 조회 결과를 요청·신원·결과 다이제스트에 결속합니다. 배정 요청은 추가 전용 Operator 증적과 동일한 고정 에이전트 검토·감사 연결을 로컬과 배포 환경에서 사용합니다. Core 전용 사례 쓰기와 정확한 명령 증적은 화면의 승인이 배정·IAM 권한으로 바뀌는 것을 막습니다. 독립 Owner 검토에서 요청자와 대상자는 모두 제외합니다.
 
 정확한 HIL 결정 재생은 결정과 정규화된 승인자 신원을 모두 보존해야 합니다. 다른 승인자가 같은
 멱등성 키를 재사용하면 결정이 같아도 충돌로 처리합니다.

@@ -7,6 +7,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, Final
 
+from fdai.core.human_assignment.command_receipt import AssignmentCommandReceipt
 from fdai.core.rbac.roles import Role
 from fdai.core.stewardship.model import Duty
 from fdai.core.stewardship.names import AGENT_NAME_SET
@@ -188,6 +189,7 @@ class AssignmentCase:
     effect_receipts: tuple[EffectReceipt, ...] = ()
     degraded_reason: str | None = None
     superseded_by: str | None = None
+    command_receipts: tuple[AssignmentCommandReceipt, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "case_id", _identifier(self.case_id, "case_id"))
@@ -195,6 +197,10 @@ class AssignmentCase:
             raise AssignmentModelError("revision MUST be >= 1")
         object.__setattr__(self, "reviews", tuple(self.reviews))
         object.__setattr__(self, "effect_receipts", tuple(self.effect_receipts))
+        object.__setattr__(self, "command_receipts", tuple(self.command_receipts))
+        command_ids = [receipt.proposal_id for receipt in self.command_receipts]
+        if len(set(command_ids)) != len(command_ids) or len(command_ids) > 32:
+            raise AssignmentModelError("assignment command receipts MUST be unique and bounded")
         reviewers = [receipt.reviewer_ref.strip().casefold() for receipt in self.reviews]
         if len(set(reviewers)) != len(reviewers):
             raise AssignmentModelError("reviewers MUST be distinct after normalization")
@@ -236,6 +242,7 @@ class AssignmentCase:
             "effect_receipts": [receipt.to_dict() for receipt in self.effect_receipts],
             "degraded_reason": self.degraded_reason,
             "superseded_by": self.superseded_by,
+            "command_receipts": [receipt.to_dict() for receipt in self.command_receipts],
         }
 
     @classmethod
@@ -287,6 +294,15 @@ class AssignmentCase:
             ),
             degraded_reason=_optional_string(value, "degraded_reason"),
             superseded_by=_optional_string(value, "superseded_by"),
+            command_receipts=tuple(
+                AssignmentCommandReceipt(
+                    proposal_id=_string(item, "proposal_id"),
+                    request_digest=_string(item, "request_digest"),
+                )
+                for item in _mapping_list(
+                    {"command_receipts": value.get("command_receipts", [])}, "command_receipts"
+                )
+            ),
         )
 
 

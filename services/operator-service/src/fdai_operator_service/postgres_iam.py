@@ -417,8 +417,14 @@ class PostgresIamAdapters:
             )
             for item in cases
         ]
-        projected.sort(key=lambda item: str(item["case_id"]), reverse=True)
-        return projected
+        from fdai_operator_service.assignment_projection import join_assignment_case
+
+        try:
+            joined = [await join_assignment_case(self.store, item) for item in projected]
+        except (ValueError, PostgresFamilyStoreUnavailable) as exc:
+            raise IamUnavailableError("assignment Core projection is unavailable") from exc
+        joined.sort(key=lambda item: str(item["case_id"]), reverse=True)
+        return joined
 
     async def invitation_for_session(
         self,

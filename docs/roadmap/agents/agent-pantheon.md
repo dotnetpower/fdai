@@ -59,10 +59,10 @@ that data flows into judgment, not directly into execution.
 ## 3. Runtime relationship diagram
 
 The org chart is reporting lines; the relationship diagram is data flow. Sensing and specialists feed Forseti. Action verdicts feed Thor for dispatch to Vidar, Var, or execution; Thor ignores
-document-ingestion and observation-only architecture-review verdicts. Odin excludes those ARB observations from action-portfolio counts, while Saga retains them as audit evidence. Var and Saga preserve stable idempotency through document HIL, while
+document-ingestion, human-assignment, and observation-only architecture-review verdicts. Odin excludes these non-action observations from action-portfolio counts, while Saga retains them as audit evidence. Var and Saga preserve stable idempotency through document HIL, while
 Saga persists gated and terminal audit. Workflow requests preserve bounded `workflow_action`
 lineage through Huginn, Forseti, and Thor. A delivery-owned producer stores an optional argument-bound kinetic proposal for one complete operational plan; Forseti resolves it through an injected source and keeps it on the same Verdict-to-ActionRun path after strict validation. Both are attribution and evidence only;
-neither changes quorum, mode, judgment, approval, or execution authority.
+neither changes quorum, mode, judgment, approval, or execution authority. For [assignment commands](../interfaces/human-agent-assignment-implementation-plan.md#commands-events-and-actions), Huginn normalizes the exact receipt notice, Forseti validates it, Var verifies an independent human review, Saga seals each owner decision, and Muninn materializes the sealed case. Every stage uses the existing owner topics; no agent trusts an Operator presentation state or acquires IAM authority.
 Norns proposes to Mimir, and Odin arbitrates conflicts before judgment.
 
 ![3. Runtime relationship diagram. The main stages are Huginn, Heimdall, Forseti, Mimir, Muninn, Njord, Freyr, Loki, Thor, Vidar, Var, Saga.](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-02.en.svg)

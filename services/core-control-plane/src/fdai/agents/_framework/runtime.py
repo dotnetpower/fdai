@@ -12,6 +12,7 @@ from typing import Any
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from fdai.agents._framework import architecture_review_runtime as arb_runtime
+from fdai.agents._framework import assignment_wiring as assignment_runtime
 from fdai.agents._framework import execution_safety, factory, runtime_health, runtime_subscriptions
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.base import Agent
@@ -180,6 +181,7 @@ class PantheonRuntime:
         conversation_tool_timeout_seconds: float = 5.0,
         cost_runtime: factory.CostRuntimeBindings = factory.DEFAULT_COST_RUNTIME_BINDINGS,
         capacity_graduation_controller: CapacityGraduationController | None = None,
+        assignment_workflow: assignment_runtime.AssignmentWorkflowBindings | None = None,
     ) -> PantheonRuntime:
         """Instantiate + wire the pantheon against ``provider``.
 
@@ -300,6 +302,7 @@ class PantheonRuntime:
             instantiated["Saga"] = saga
         if rollback_executors is not None:
             instantiated["Vidar"] = Vidar(executors=rollback_executors)
+        assignment_runtime.bind_assignment_workflow(instantiated, assignment_workflow)
         heimdall = instantiated["Heimdall"]
         if read_investigation_hook is not None and isinstance(heimdall, Heimdall):
             heimdall.register_read_investigation(read_investigation_hook)

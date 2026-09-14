@@ -1,5 +1,9 @@
 """Assemble the complete logical topic registry for the Core runtime bus."""
 
+from fdai_service_contracts.assignment_transport import (
+    ASSIGNMENT_PROJECTION_TOPIC,
+    ASSIGNMENT_REQUEST_TOPIC,
+)
 from fdai_service_contracts.background_task_projection import (
     BACKGROUND_TASK_PROJECTION_TOPIC,
 )
@@ -30,6 +34,8 @@ RUNTIME_LOGICAL_TOPICS = (
     | frozenset(
         {
             _TRANSITION_TOPIC,
+            ASSIGNMENT_REQUEST_TOPIC,
+            ASSIGNMENT_PROJECTION_TOPIC,
             BACKGROUND_TASK_PROJECTION_TOPIC,
             INCIDENT_INTERVENTION_REQUEST_TOPIC,
             NOTIFICATION_DELIVERY_RECEIPT_TOPIC,

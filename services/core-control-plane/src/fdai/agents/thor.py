@@ -468,6 +468,9 @@ class Thor(Agent):
     # ---- typed port ----------------------------------------------------
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if payload.get("kind") == "human_assignment":
+            self.record_behavior("assignment_non_action_ignored")
+            return
         if topic == "object.verdict":
             if payload.get("kind") == "document_ingestion":
                 self.record_behavior("document_verdict_ignored")

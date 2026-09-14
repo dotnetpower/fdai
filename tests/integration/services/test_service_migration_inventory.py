@@ -95,6 +95,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
     future_tables = set(manifest.table_migrators) - tables
     assert tables <= set(manifest.table_migrators)
     assert future_tables == {
+        "operator_assignment_receipt",
         "document_api_outbox",
         "document_connector_batch",
         "document_connector_cancellation",
@@ -1634,6 +1635,9 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
     certification_support_migration = inventory_module.load_revision_metadata(
         certification_support_path
     )
+    assignment_receipt_migration = inventory_module.load_revision_metadata(
+        MIGRATION_ROOT / "branches/core-control-plane/versions/20260914_core_assignment_receipts.py"
+    )
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
@@ -1668,6 +1672,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(cost_governance_review_migration.owned_tables)
         | set(resource_change_receipt_migration.owned_tables)
         | set(certification_support_migration.owned_tables)
+        | set(assignment_receipt_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")
@@ -2201,8 +2206,19 @@ def test_core_migrations_never_reference_operator_role() -> None:
         if path.name.startswith("__"):
             continue
         source = path.read_text(encoding="utf-8")
-        assert "fdai_operator" not in source, (
-            f"{path.name} references fdai_operator; "
+        import re
+
+        # A runtime trigger may compare current_user with a text literal before the role
+        # exists. DDL privilege/role binding is forbidden, and is independently exercised
+        # by the assignment migration test before creating the Operator role.
+        binding = re.search(
+            r"\b(?:GRANT|REVOKE|ALTER\s+ROLE|CREATE\s+ROLE|SET\s+ROLE)\b"
+            r"[^;]*\bfdai_operator\b",
+            source,
+            re.IGNORECASE,
+        )
+        assert binding is None, (
+            f"{path.name} binds fdai_operator before its role exists; "
             "Core must not depend on the Operator role that is created later in bootstrap order"
         )
 

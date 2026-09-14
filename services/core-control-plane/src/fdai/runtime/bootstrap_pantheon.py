@@ -135,6 +135,7 @@ class PantheonInitialization:
     runtime_positive_integer: Callable[[dict[str, object], str], int]
     build_mutation_dependency_readiness: Callable[..., MutationDependencyReadiness]
     semantic_router_config_from_env: Callable[[], SemanticRouterConfig]
+    assignment_workflow: Any = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -451,6 +452,7 @@ async def initialize_pantheon(
         ),
     ).observe
     pantheon_runtime = PantheonRuntime.build(
+        assignment_workflow=config.assignment_workflow,
         provider=config.bus,
         raw_event_topic=config.container.config.kafka.topic_events,
         consumer_group_prefix=config.environment.get(

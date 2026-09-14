@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 3ae701a67c3b9c8a1e98f065d78a89fc6609ddab
+translation_source_sha: 7193c3d6569a50c75473fd799e934b6e3ce6f518
 translation_revised: 2026-09-14
 ---
 
@@ -71,6 +71,9 @@ Governance 배포판에 포함되거나 설치, 활성화, 승격 상태를 바�
 > **조립 격리:** 공유 Operator 경로 조립은 검증된 인수인계 바인딩으로 웹 대화 제안을 데코레이션할
 > 수 있습니다. 이 데코레이터는 Cost Governance 경로를 래핑하거나 패키지 활성화를 변경하거나 비용
 > 데이터 접근 권한을 부여하지 않습니다.
+> 같은 조립은 배정 알림 워커와 고정 에이전트의 사례 검증도 연결합니다. 해당 SQL 증적,
+> 준비 상태, 검토용 담당 체계 PR은 비용 거버넌스 패키지 밖의 기능입니다. 사람을 Njord
+> 담당자로 배정해도 패키지가 활성화되거나 비용 데이터 접근 권한이 생기지 않습니다.
 
 공유 감사 경로도 측정 출처, 시간 구간과 순번 필터를 보존합니다. 승인된 운영 지출이나
 실측군 비교를 읽어도 Cost Governance를 활성화하거나 수집기를 시작하지 않습니다.

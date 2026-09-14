@@ -75,7 +75,7 @@ Three safety principles govern this design; every choice below preserves them:
   ([console-operations.md](console-operations.md)).
 
 The Operator Service serializes roles only after token verification and server-owned App Role resolution; browser payloads cannot widen them. Core rechecks principal-scoped purpose before reads, and broker command identity never grants executor authority.
-Contracts accept only four ordinary roles and pinned topics, readiness requires both bridge workers, and transactional storage and replay bind every projection to its request, principal, and result digest.
+Contracts accept only four ordinary roles and pinned topics, readiness requires the configured bridge workers, and transactional storage and replay bind every projection to its request, principal, and result digest. Assignment requests use an insert-only Operator receipt and the same fixed-agent review/seal chain locally and when deployed. Core-only case writes and exact command receipts prevent a displayed Operator approval from becoming assignment or IAM authority; independent Owner review excludes both requester and subject.
 
 ## 2. Role Model (4 tiers + Break-Glass)
 

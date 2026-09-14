@@ -147,6 +147,9 @@ class Odin(Agent):
         self.bus = bus
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if payload.get("kind") == "human_assignment":
+            self.record_behavior("assignment_non_action_observed")
+            return
         if topic == "object.arbitration-request":
             await self.arbitrate(payload)
             return

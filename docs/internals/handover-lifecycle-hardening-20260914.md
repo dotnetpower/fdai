@@ -105,6 +105,45 @@ trusted ingress receipt rather than treating a payload role or source string as 
 S2 implementation is not yet complete. Do not proceed to enforcement, claim a Low-only complete
 workflow, or close the source-delivery issue on the strength of S1.
 
+### S2 implementation and hardening
+
+The source connection now runs Operator immutable receipt/outbox -> Huginn -> Forseti -> Saga ->
+Var for independent review -> Saga -> Muninn case CAS -> Saga -> existing review-only ownership
+artifact delivery. Operator reads the Core case/effect projection without importing Core. Goal
+observation has a separate content-free read-only adapter and bounded fair scan. Neither path
+grants IAM authority or knowledge promotion. The earlier S2 design-state paragraph above records
+the pre-implementation checkpoint; this section records the subsequent evidence.
+
+Agent role review: Huginn owns Event/Change ingress; Forseti owns Verdict judgment; Var owns
+Approval; Saga owns append-only AuditEntry and remains a hard dependency; Muninn owns
+StateSnapshot/context materialization. Thor remains the sole privileged executor and explicitly
+ignores this non-action workflow. Odin observes it without counting an action. Their existing
+declared subscriptions and publish ownership are unchanged; no new hot-path LLM is introduced.
+Saga remains the only changed hard dependency. Layout and bilingual Pantheon parity tests pass.
+
+| Round | Critique and observed evidence | Hardening or retained boundary | Residual |
+|-------|--------------------------------|--------------------------------|----------|
+| S2-01 | A hash over shared mutable `state_kv` does not authenticate an Operator request; the existing role had broad writes. | Added atomic insert-only receipt capture, Core-only case namespaces, an exact-role read adapter, and real SQL role-denial tests. | No unresolved source finding in tested role boundary; deployed migration remains external. |
+| S2-02 | Invalid/expired notices could reserve the canonical intake key ahead of a valid source. | Notice-specific held audit namespace; later valid intake regression passes. | No authority from a hold. |
+| S2-03 | Independent notices could overtake case creation or review revisions. | Partition by immutable Operator case; outbox waits for Core revision or expiry; real SQL order test passes. | Transport acceptance is not convergence. |
+| S2-04 | Lease ownership or expiry might allow stale completion; a failed head could starve later requests. | Claim id and unexpired lease fence every closure; attempt ordering; PostgreSQL steal/duplicate tests pass. | Publisher remains stable-identity at-least-once. |
+| S2-05 | Case CAS may succeed before its separate result write; timestamp equality alone cannot prove exact replay. | Full command receipt in the atomic case+audit snapshot; restart at all three operations and changed-key regression pass. | Old unsealed proposals are not backfilled as authority. |
+| S2-06 | Wiring a worker directly to all lifecycle methods would erase agent ownership. | Existing declared owner-topic chain tested through live in-memory subscribers; missing binding is an audited hold. | No added agent, role, subscription owner, or executor capability. |
+| S2-07 | Requester/target review, missing quorum, stale revision, expiry after intake, or Saga failure could advance a case. | Normalized independent Owner checks, elevated two-review quorum, each-stage freshness, audit-before-materialization tests pass. | Provider freshness and promotion evidence remain independent. |
+| S2-08 | A forged materialized result or mismatched merge could open/apply the wrong ownership proposal. | Compare exact Core-only result; reuse idempotent review-only publisher; single PR and wrong/exact merge tests pass. | Live App installation, webhook, and provider recovery remain external. |
+| S2-09 | Operator approval could be presented as applied access. | Read exact Core command lineage; `active` requires both effect references; absent Core is `awaiting_core`. | Console presentation polish remains S4; no membership effect inferred. |
+| S2-10 | Knowledge scan counted only newly emitted rows, causing unbounded rereads and source starvation; malformed evidence could be dropped silently. | Bound scanned rows, rotate page/source priority, retain failed page, strict typed observations, independent stores and real SQL read/write isolation tests. | Candidate consumption and document ACL/deletion lifecycle remain S4. |
+| S2-11 | Schema and role migration changes could be assigned to the wrong service or lose receipts on rollback. | Core owns shared triggers/table; dependent Operator grant; empty down/up passes and retained receipts block destructive rollback. Migration graph validates five branches,196 tables,12 transitions. | Deployment N/N-1 receipts remain external, not Low. |
+| S2-12 | Wire dispositions accepted a reviewed create and held-success reasons. Four focused tests failed before correction. | Enforced operation/disposition/reason consistency and unsupported-version refusal; 15 contract tests pass. | No unresolved contract finding in tested combinations. |
+| S2-13 | New handlers may be unreachable or absent from packages/tests; readiness might conceal missing schema. | Actual runtime bindings, required task supervision, outbox health, Core wheel inventory, service-suite registration; 18 layout/parity/package tests pass. | No source-stage completion claim for live infrastructure. |
+
+Completed S2 focused selection: **355 passed, 1 skipped**. The skip is the unchanged optional PDF
+report extra, unrelated to assignment. Included **14 actual PostgreSQL tests** with disposable
+databases and explicit Core/Operator roles, and the full asynchronous agent-to-review-PR chain.
+Ruff passes all task-owned Python paths; strict mypy passes 36 changed source modules. The Core
+wheel/layout/Pantheon parity selection passes 18 tests. No live Graph, Azure, model, GitHub App,
+tenant deployment, or runtime promotion was performed. S3-S6 remain open.
+
 ## External completion gates
 
 - [ ] Current deployment identity and v2 coverage readback, GitHub App installation and token

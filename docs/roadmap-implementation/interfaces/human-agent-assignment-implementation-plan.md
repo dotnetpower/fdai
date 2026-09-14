@@ -10,11 +10,11 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Packages 1-3: duties, assignment core, API, and console | implemented | `services/core-control-plane/src/fdai/core/stewardship/`; `services/core-control-plane/src/fdai/core/human_assignment/`; `services/operator-service/src/fdai_operator_service/families/iam/assignments.py`; `console/src/routes/settings-iam-assignments.tsx`; focused human-assignment tests (43 passed) | These packages establish observation-only intent and projection without provider mutation. |
-| Package 4: ownership PR coordination | implemented | `ownership_coordination.py`; `stewardship_merge_effects.py`; signed stewardship webhook; focused coordination tests | Production composition consumes the exact signed merge, verifies the proposal digest, records the ownership effect, dispatches affected-owner notification, and publishes a replay-stable shadow IAM request. Governed deployment evidence remains open. |
+| Package 4: ownership PR coordination | implemented | `assignment_transport.py`; `assignment_workflow.py`; `assignment_outcome_consumer.py`; `ownership_coordination.py`; `test_assignment_workflow.py`; `test_assignment_receipt_postgres.py` | Immutable Operator requests now pass the fixed-agent review/seal chain to a canonical Core case and one review-only PR. Matching merge records ownership only; deployed identity, App, notification, IAM, and operational evidence remain independent. |
 | Package 5: human-access provider capability | implemented | `services/core-control-plane/src/fdai/core/human_assignment/access_apply.py`; `services/core-control-plane/src/fdai/delivery/identity/entra_access.py`; `services/core-control-plane/src/fdai/delivery/identity/direct_api.py`; focused human-assignment tests (43 passed) | Observation-only allowlist, convergence, and rollback mechanics exist, but Package 4 doesn't yet trigger them from an assignment case. |
 | Package 6: non-response supervisor | implemented | `services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py`; `services/core-control-plane/src/fdai/runtime/bootstrap.py`; focused shadow-supervisor tests (10 passed) | Periodic shadow observation exists; production rung dispatch isn't promoted. |
 | Package 7: handover goal core and commands | implemented | `goals.py`; `handover_runtime.py`; `handover.py`; `handover_knowledge_lifecycle.py`; focused Core, Operator, and Console checks | Durable invitations include live ownership revalidation, weekly fatigue fencing, localized rendering, server-bound agent routing, snooze, decline, busy-work suppression, and agent-owned gap production. |
-| Package 8: knowledge evidence delivery | implemented | document contracts; `knowledge_handover.py`; `handover_knowledge_lifecycle.py`; focused retrieval and lifecycle checks | Governed upload binds admitted evidence to the goal. Retrieval enforces the exact principal and source ACL; candidates remain review-only; conflicts and stale withdrawals use content-free events. |
+| Package 8: knowledge evidence delivery | in-progress | document contracts; `knowledge_handover.py`; `handover_knowledge_lifecycle.py`; `postgres_handover_goals.py`; real service-role and bounded-scan tests | Upload binding, ACL retrieval, typed read-only observation, and inert event production exist. Accountable candidate consumers, conflict/deletion closure, and governed provider evidence are not proved by those producer primitives. |
 | Package 9: production rollout | in-progress | `services/core-control-plane/src/fdai/core/human_assignment/production_controls.py`; `services/core-control-plane/src/fdai/runtime/human_assignment_reconciliation.py`; `services/core-control-plane/src/fdai/delivery/runtime_settings.py` | Capability axes and observation-only reconciliation exist. Enforce promotion, Azure permission probes, dashboards, alerts, automatic repair, and production drills aren't complete. |
 
 ### Implementation history
@@ -33,6 +33,13 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 ### Remaining work
 
+- [x] Complete S2 immutable receipt/outbox, agent-owned command chain, canonical result projection,
+  and approved-case PR initiation with actual PostgreSQL service-role evidence.
+- [ ] Complete S3 governed IAM/replacement coverage and catalog-backed current HIL eligibility.
+- [ ] Complete S4 required-slot/backup acceptance, session budgets, accountable knowledge consumers,
+  and honest Console convergence/recovery views. Historical checked producer items below do not
+  constitute end-to-end acceptance of this remaining work.
+
 - [x] Compose Package 4 with the production GitOps publisher and signed merge record consumer, and retain restart-safe local evidence that only the matching merge advances its assignment case.
 - [x] Publish the typed shadow IAM apply request only from that matching receipt and prove no ownership, review, IAM, or executor authority collapses across the event boundary.
 - [x] Complete agent-owned handover gap production, review-only candidate delivery, ACL-filtered agent retrieval, conflict fencing, and staleness/deletion propagation.
@@ -41,3 +48,9 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [x] Implement Package 4 with one idempotent, digest-bound stewardship proposal and a signed matching-merge receipt that advances only its assignment case.
 
 - [x] Complete agent-owned handover gap production, localized Bragi rendering, goal-to-upload binding, review-only candidate delivery, ACL retrieval, conflict review, staleness, and deletion propagation.
+
+### Subsequent implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Connected immutable Operator requests through Huginn/Forseti/Var/Saga/Muninn to one review-only ownership PR; introduced exact case command receipts, SQL ownership guards, Core effect reads, and a content-free knowledge observation port. Completed 13 distinct S2 critique/hardening rounds. | `current change`; [review record](../../internals/handover-lifecycle-hardening-20260914.md); 355 focused tests passed, one unrelated optional PDF test skipped;14 real PostgreSQL tests;36 source modules pass strict mypy; lint passes. | S3-S6 and external deployment/promotion gates remain open under #946/#458; no live authority was granted. |

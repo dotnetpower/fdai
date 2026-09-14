@@ -157,6 +157,8 @@ class CoreRuntime:
     stewardship_identity_health_worker: StewardshipIdentityHealthWorker | None = None
     stewardship_merge_effects_worker: StewardshipMergeEffectsWorker | None = None
     handover_knowledge_lifecycle_worker: HandoverKnowledgeLifecycleWorker | None = None
+    assignment_intake_consumer: Any = None
+    assignment_outcome_consumer: Any = None
 
     def task_configuration(self, stop: asyncio.Event) -> RuntimeTaskConfiguration:
         """Project assembled bindings into the task-supervision contract."""
@@ -198,6 +200,8 @@ class CoreRuntime:
             stewardship_identity_health_worker=self.stewardship_identity_health_worker,
             stewardship_merge_effects_worker=self.stewardship_merge_effects_worker,
             handover_knowledge_lifecycle_worker=self.handover_knowledge_lifecycle_worker,
+            assignment_intake_consumer=self.assignment_intake_consumer,
+            assignment_outcome_consumer=self.assignment_outcome_consumer,
         )
 
 
@@ -258,6 +262,12 @@ async def build_core_runtime(
         )
 
     state_store = state_store or _build_audit_store()
+    from fdai.runtime.assignment_transport import (
+        build_assignment_transport,
+        build_handover_goal_reader,
+    )
+
+    assignment_transport = build_assignment_transport(store=state_store, environment=environment)
     decision_evidence_container_url = environment.get(
         "FDAI_DECISION_EVIDENCE_CONTAINER_URL",
         "",
@@ -326,6 +336,23 @@ async def build_core_runtime(
                     environment.get("FDAI_STEWARDSHIP_GOVERNANCE_INTERVAL_SECONDS", "60")
                 ),
             )
+    from fdai_core_service.assignment_outcome_consumer import AssignmentOutcomeConsumer
+
+    assignment_outcome_consumer = (
+        AssignmentOutcomeConsumer(
+            store=state_store,
+            ownership=(
+                stewardship_merge_effects_worker.ownership
+                if stewardship_merge_effects_worker
+                else None
+            ),
+            base=(
+                stewardship_merge_effects_worker.base if stewardship_merge_effects_worker else None
+            ),
+        )
+        if assignment_transport is not None
+        else None
+    )
     stewardship_identity_health_worker = build_stewardship_identity_health_worker(
         store=state_store,
         http_client=resources.http_client,
@@ -336,6 +363,7 @@ async def build_core_runtime(
     handover_knowledge_lifecycle_worker = (
         HandoverKnowledgeLifecycleWorker(
             store=state_store,
+            operator_goals=build_handover_goal_reader(environment),
             bus=messaging.bus,
             topic=container.config.kafka.topic_events,
             interval_seconds=float(
@@ -648,6 +676,7 @@ async def build_core_runtime(
             runtime_positive_integer=_runtime_positive_integer,
             build_mutation_dependency_readiness=_build_mutation_dependency_readiness,
             semantic_router_config_from_env=_semantic_router_config_from_env,
+            assignment_workflow=(assignment_transport.workflow if assignment_transport else None),
         )
     )
     if semantic.semantic_turn_binding is not None:
@@ -698,6 +727,12 @@ async def build_core_runtime(
         stewardship_identity_health_worker=stewardship_identity_health_worker,
         stewardship_merge_effects_worker=stewardship_merge_effects_worker,
         handover_knowledge_lifecycle_worker=handover_knowledge_lifecycle_worker,
+        assignment_intake_consumer=(
+            assignment_transport.with_pantheon(resources.pantheon.runtime)
+            if assignment_transport is not None
+            else None
+        ),
+        assignment_outcome_consumer=assignment_outcome_consumer,
     )
 
 

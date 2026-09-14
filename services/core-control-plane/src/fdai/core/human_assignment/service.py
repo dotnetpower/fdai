@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
 from fdai.core.human_assignment.audit import AssignmentAuditKind
+from fdai.core.human_assignment.command_receipt import AssignmentCommandReceipt
 from fdai.core.human_assignment.coverage import (
     approval_quorum_satisfied,
     normalize_principal_ref,
@@ -50,6 +51,7 @@ class AssignmentCaseService:
         principal: Principal,
         intent: AssignmentIntent,
         now: datetime | None = None,
+        command_receipt: AssignmentCommandReceipt | None = None,
     ) -> AssignmentCase:
         """Create or replay one immutable draft by requester and idempotency key."""
 
@@ -59,7 +61,11 @@ class AssignmentCaseService:
         validate_duty_bindings(intent.duty_bindings)
         case_id = assignment_case_id(intent.requester_ref, intent.idempotency_key)
         requested_at = _timestamp(now)
-        requested = AssignmentCase(case_id=case_id, intent=intent)
+        requested = AssignmentCase(
+            case_id=case_id,
+            intent=intent,
+            command_receipts=(command_receipt,) if command_receipt is not None else (),
+        )
         return await create_case_state(
             self.store,
             requested,
@@ -91,6 +97,7 @@ class AssignmentCaseService:
         case_id: str,
         expected_revision: int,
         now: datetime | None = None,
+        command_receipt: AssignmentCommandReceipt | None = None,
     ) -> AssignmentCase:
         """Move a requester's immutable draft into independent review."""
 
@@ -101,11 +108,13 @@ class AssignmentCaseService:
         ):
             raise AssignmentPermissionError("only the requester may submit the draft")
         if current.state is not AssignmentState.DRAFT:
+            _require_command_replay(current, command_receipt)
             return current
         candidate = replace(
             current,
             state=AssignmentState.PENDING_REVIEW,
             revision=current.revision + 1,
+            command_receipts=_command_receipts(current, command_receipt),
         )
         return await self._persist(
             current,
@@ -124,6 +133,7 @@ class AssignmentCaseService:
         expected_revision: int,
         decision: ReviewDecision,
         now: datetime | None = None,
+        command_receipt: AssignmentCommandReceipt | None = None,
     ) -> AssignmentCase:
         """Append one normalized, independent Owner review decision."""
 
@@ -131,6 +141,7 @@ class AssignmentCaseService:
         existing = _review_by(current, principal.oid)
         if existing is not None:
             if existing.decision is decision:
+                _require_command_replay(current, command_receipt)
                 return current
             raise AssignmentConflictError("reviewer already recorded a different decision")
         if current.state is not AssignmentState.PENDING_REVIEW:
@@ -159,6 +170,7 @@ class AssignmentCaseService:
             state=target,
             revision=current.revision + 1,
             reviews=reviews,
+            command_receipts=_command_receipts(current, command_receipt),
         )
         return await self._persist(
             current,
@@ -366,6 +378,17 @@ class AssignmentCaseService:
             at=at,
             effect_kind=effect_kind,
         )
+
+
+def _command_receipts(
+    case: AssignmentCase, receipt: AssignmentCommandReceipt | None
+) -> tuple[AssignmentCommandReceipt, ...]:
+    return case.command_receipts + ((receipt,) if receipt is not None else ())
+
+
+def _require_command_replay(case: AssignmentCase, receipt: AssignmentCommandReceipt | None) -> None:
+    if receipt is not None and receipt not in case.command_receipts:
+        raise AssignmentConflictError("assignment transition belongs to a different command")
 
 
 def _require_owner(principal: Principal) -> None:

@@ -71,6 +71,9 @@ promotion state; runtime images continue to resolve their service-owned dependen
 > **Composition isolation:** The shared Operator route assembly may decorate web conversation
 > proposals with a verified handover binding. That decorator does not wrap Cost Governance routes,
 > change package activation, or grant access to cost data.
+> The same assembly binds assignment notice workers and fixed-agent case validation. Their SQL
+> receipts, readiness, and review-only ownership PRs are outside the Cost Governance package;
+> assigning a human to Njord never enables the package or grants access to cost data.
 
 The shared audit route also preserves measurement source, time-window and sequence filters.
 Reading admitted operational spend or a cohort comparison does not enable Cost Governance,

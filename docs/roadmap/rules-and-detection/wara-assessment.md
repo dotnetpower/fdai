@@ -34,6 +34,9 @@ content-addressed AKS diagnostic receipt lookup and generation-fenced runtime-ca
 decoder; WARA never joins or interprets either evidence family.
 The shared source-state decoder also accepts only canonical machine-token reasons, so principal
 text and provider details cannot enter WARA through that storage path.
+Assignment request/result topics share the Operator transport but not WARA's evidence or state.
+An accepted human review, ownership PR, or handover goal observation is not an APRL measurement
+and cannot change recommendation applicability, assessment admission, or operational authority.
 
 ## Crosswalk and applicability
 

@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 4aba9ca3f3c5baa0fb402f6b1947b3fa9962d596
-translation_revised: 2026-09-13
+translation_source_sha: da98d672fc8cdd787ae8727faba9b9c481d502ca
+translation_revised: 2026-09-14
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -59,7 +59,7 @@ translation_revised: 2026-09-13
 - **조회와 쓰기 분리:** 공급자 관측과 온톨로지 변환 결과는 조회 플레인 작업입니다. 관리
   리소스 writeback은 통제되는 작업 경로에 남고 독립적인 재관측 후에만 닫힙니다. 독립 실행형
   배포 호스트의 정확한 registry 범위 `AcrPush` 배정은 쓰기 플레인 전달 권한으로 유지됩니다.
-  이미지 가져오기와 다이제스트 재확인은 운영 그래프 사실이나 관측 권한을 만들지 않습니다.
+  이미지 가져오기와 다이제스트 재확인은 운영 그래프 사실이나 관측 권한을 만들지 않습니다. 공유 Operator/Core 조립은 별도로 허용한 논리 토픽으로 내용 없는 배정 알림도 전달합니다. 배정 요청, 사례 결과, 검토용 PR 증적은 인벤토리·AKS 진단·런타임 호출의 관측 근거가 아니며, 그래프 우선 조회와 공급자 관찰 수락 계약을 바꾸지 않습니다.
 - **제한된 보존:** rollup 또는 archive 매니페스트가 완전한 원본 범위를 검증하고 적용되는
   보존 hold가 삭제를 허용한 후에만 hot 또는 warm 저장소에서 원시 데이터를 제거합니다.
 

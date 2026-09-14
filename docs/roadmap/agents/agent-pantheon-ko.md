@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: f6d7e0ba041a2a8f41c89fa4c123b37711ab5039
-translation_revised: 2026-09-11
+translation_source_sha: f37932cc5d5f8d28bb78c8a783c49100f4950b77
+translation_revised: 2026-09-14
 ---
 # 에이전트 판테온
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
@@ -63,11 +63,11 @@ Odin 에 두 라인이 보고한다: Thor (operations) 와 Forseti (judgment). 4
 
 조직도는 보고 라인이고 관계도는 데이터 흐름입니다. Sensing과 전문가는 Forseti에 신호를
 전달합니다. Action verdict는 Thor가 Vidar, Var 또는 실행으로 전달하며 Thor는 document-ingestion
-및 관찰 전용 아키텍처 검토 verdict를 무시합니다. Odin은 해당 ARB 관찰을 액션 포트폴리오
+및 사람 배정·관찰 전용 아키텍처 검토 판정을 무시합니다. Odin은 실행이 아닌 관찰을 액션 포트폴리오
 개수에서 제외하고 Saga는 이를 감사 근거로 보존합니다. Var와 Saga는 document HIL의 stable idempotency를 보존하고 Saga는 gated 및
 terminal audit을 영속화합니다. Workflow request는 Huginn, Forseti, Thor를 통해 bounded
 `workflow_action` lineage를 보존합니다. Delivery 소유 producer는 하나의 완전한 operational plan에 대한 optional argument-bound kinetic proposal을 저장하고 Forseti는 주입된 source로 이를 해석해 strict validation 뒤 같은 Verdict-to-ActionRun path에 보존합니다. 둘 다 attribution 및 evidence 전용이며 quorum, mode,
-judgment, approval 또는 execution authority를 바꾸지 않습니다.
+judgment, approval 또는 execution authority를 바꾸지 않습니다. [배정 명령](../interfaces/human-agent-assignment-implementation-plan-ko.md#명령-이벤트-작업)은 Huginn이 정확한 증적 알림을 정규화하고 Forseti가 검증하며, Var가 독립적인 사람의 검토를 확인합니다. Saga가 각 담당자의 결정을 봉인한 뒤 Muninn이 사례를 반영합니다. 모든 단계는 기존 소유 토픽을 사용하며 Operator 화면 상태를 권한으로 신뢰하거나 IAM 권한을 획득하지 않습니다.
 Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 
 ![3. 런타임 관계도. 주요 단계는 Huginn, Heimdall, Forseti, Mimir, Muninn, Njord, Freyr, Loki, Thor, Vidar, Var, Saga입니다.](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-02.ko.svg)

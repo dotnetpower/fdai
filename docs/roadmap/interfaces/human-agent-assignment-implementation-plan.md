@@ -27,10 +27,10 @@ focused commit; don't mix unrelated worktree changes into that commit.
 |------|-------|------------------------|
 | Directory | `HumanIdentityDirectory`, Entra search, exact subject lookup, App Role roster, allowlisted Entra membership adapter | Enforce promotion evidence and production permission readiness |
 | Access | `AccessRequestService`, atomic state plus audit, Owner review, no self-approval, allowlisted observation-mode provider | Assignment-case apply trigger, revoke replacement-coverage lifecycle, and provider reconciliation |
-| Ownership | Stewardship v2, durable document draft publication, and exact signed-merge correlation | Operator assignment request consumption and approved-case proposal initiation |
+| Ownership | Stewardship v2, immutable Operator receipt intake, audit-sealed agent review, draft PR initiation, and exact signed-merge correlation | Governed GitHub App, deployed identity, and current lifecycle evidence |
 | Approval | `HilResumeCoordinator`, on-call primary/secondary receipt, reminders, load control, periodic shadow non-response observation | Production promotion, live rung-role verification, and urgency compression |
-| Conversation | Authenticated sessions, durable turns, localized invitations, and bounded handover commands | Current ownership checks on every goal command and complete session-budget evidence |
-| Documents | Agent-owned admission, source spans, deterministic chunks, goal association, and inert candidates | Independent-service handoff, ACL/deletion recovery, and governed delivery evidence |
+| Conversation | Authenticated sessions, durable turns, localized invitations, and current-owner command revalidation | Complete session-budget and acceptance evidence |
+| Documents | Agent-owned admission, source spans, deterministic chunks, typed read-only goal observations, and inert candidates | ACL/deletion recovery, accountable candidate consumption, and governed delivery evidence |
 | Console | IAM users, roles, requests, directory search, observation-only Assignments tab and editor | Convergence and active goal projections |
 
 ## Contract decisions before coding
@@ -111,6 +111,30 @@ and `superseded`. Compare-and-set revision checks reject stale commands.
 The Operator API may create a case but can't apply its effects. Machine collaboration uses validated
 events and existing control-loop ingress.
 
+Assignment transport carries only an immutable Operator proposal reference, canonical digest,
+operation, and acceptance time. The consumer resolves the exact namespace-owned source record;
+neither a payload role nor the transport identity substitutes for that authenticated receipt.
+Missing, expired, mismatched, or unauthorized evidence produces an audited hold. A verified
+transport intake is only `awaiting_agent_review`, never an approved or active assignment. The
+case-changing consumer requires Forseti validation, Var's independent review where applicable,
+and Saga's sealed result before coordinating an ownership proposal. Unavailable agent bindings
+remain visible and never fall back to applying the Operator's presentation state.
+
+The shared database is not a shared authority boundary: an insert-only Operator receipt table
+preserves the authenticated command in the same transaction as its outbox proposal. Core reads
+that table but cannot write it; only Core may write assignment cases and command results. Old
+unsealed proposals cannot acquire authority through a migration backfill. Huginn normalizes a
+content-free notice, Forseti validates it, Var rechecks an independent human review, Saga seals
+each decision, and Muninn materializes only that sealed command. Review-only ownership artifact
+delivery uses the existing idempotent PR publisher after the sealed case result; it never merges
+the PR, applies a duty map, grants access, or substitutes for Thor's action path.
+
+Goal observations use a separate content-free, read-only projection. Core cannot write Operator
+goals, and the producer scans a bounded number of rows, rotates pages and source priority, and
+retains a failed page for retry. A goal's observed state never admits a document or promotes a
+knowledge candidate. Core owns the shared-table guards and immutable receipt schema; Operator
+owns only its dependent insert/read grant. Schema rollback refuses to delete retained receipts.
+
 Multiplexing semantic request and result logical topics over one physical Event Hub does not merge
 human principals, roles, approvals, or assignment revisions. The authenticated principal remains in
 the versioned request, and physical-topic RBAC grants transport access only, never assignment or
@@ -151,8 +175,8 @@ coverage.
 
 ### Package 2 - Assignment case core
 
-**Status:** Implemented. The core remains observation-only and has no provider, API, or runtime
-binding.
+**Status:** Implemented. The core remains observation-only; its runtime adapter consumes only
+audit-sealed commands and stores exact command receipts in the same case CAS and audit transaction.
 
 **Changes:** Add `core/human_assignment/model.py`, `transitions.py`, `coverage.py`, `service.py`, and
 `__init__.py`. Reuse `StateStore.write_state_with_audit_if_absent` and revisioned writes. Add
@@ -185,10 +209,11 @@ observation-only case. The UI clearly states that no Entra membership changed.
 
 ### Package 4 - Ownership PR coordination
 
-**Status:** The coordinator and production signed-merge consumer exist. They verify exact merged
-content, record the ownership effect, and publish a replay-stable shadow IAM request. Operator
-assignment proposals still need a typed request consumer and approved-case PR initiation; the
-separate document-draft publisher does not prove that this assignment leg is connected.
+**Status:** The immutable request outbox, Core receipt reader, fixed-agent validation/review/seal
+chain, approved-case draft publisher, and signed-merge consumer are connected in source. Local
+tests cover separate stores and real PostgreSQL service roles, transactional audit failure,
+replay, lease fencing, a single draft PR, and exact merge correlation. GitHub App installation,
+current deployed bindings, and provider drills remain separate evidence gates.
 
 **Changes:** Add a `StewardshipGovernanceService` that accepts an approved case and renders one v2
 overlay. Persist case id, PR receipt, and canonical candidate digest in proposal state. The signed
@@ -275,8 +300,9 @@ restart; no conversational path changes IAM, approval, or autonomy.
 
 **Status:** Deterministic chunk lineage and inert candidate contracts are implemented. Chunks carry
 typed source spans, ACL references, goal references when supplied, policy version, and content
-digest. Goal-to-upload binding and review-only Mimir/Norns candidate production exist. A shared
-test store is not proof that independently deployed producers and consumers exchange the records.
+digest. Goal-to-upload binding and inert candidate production exist. Operator goal observations
+now use a typed read-only adapter with real PostgreSQL writer-isolation tests. Accountable candidate
+consumption, document ACL/deletion convergence, and live provider evidence remain separate work.
 
 **Changes:** Add a handover evidence purpose and typed events to the document-ingestion path.
 Extend chunk metadata with goal, source-span, ACL, chunk-policy version, and content digest.

@@ -77,6 +77,8 @@ class RuntimeTaskConfiguration:
     stewardship_identity_health_worker: Any = None
     stewardship_merge_effects_worker: Any = None
     handover_knowledge_lifecycle_worker: Any = None
+    assignment_intake_consumer: Any = None
+    assignment_outcome_consumer: Any = None
     t1_mini_probe: T1MiniProbe | None = None
 
 
@@ -507,8 +509,32 @@ async def run_runtime_tasks(
         if config.t1_mini_probe is not None
         else None
     )
+    assignment_intake_task = (
+        asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop,
+                lambda: config.assignment_intake_consumer.run(bus=config.bus, stop=config.stop),
+            ),
+            name="assignment-request-intake",
+        )
+        if config.assignment_intake_consumer is not None
+        else None
+    )
     await hooks.supervise_runtime_tasks(
         required=(
+            (
+                asyncio.create_task(
+                    config.readiness.run_when_ready(
+                        config.stop,
+                        lambda: config.assignment_outcome_consumer.run(
+                            bus=config.bus, stop=config.stop
+                        ),
+                    ),
+                    name="assignment-artifact-delivery",
+                )
+                if config.assignment_outcome_consumer is not None
+                else None
+            ),
             consumer_task,
             readiness_refresh_task,
             wait_task,
@@ -527,6 +553,7 @@ async def run_runtime_tasks(
             effect_reconciliation_request_task,
             discovery_activation_task,
             continuous_operating_model_task,
+            assignment_intake_task,
         ),
         background=(
             pantheon_task,
