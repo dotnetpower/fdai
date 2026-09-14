@@ -53,6 +53,10 @@ describe("Ontology Instances view controls", () => {
     expect(styles).toMatch(/\.ontology-instance-graph-tools\s*\{[^}]*position:\s*absolute[^}]*top:\s*12px[^}]*right:\s*12px/s);
     expect(graphSource).toContain('class="ontology-instance-graph-viewport"');
     expect(graphSource).toContain('class="ontology-instance-legend-dock"');
+    expect(graphSource).toContain('class="ontology-instance-direction-surface"');
+    expect(graphSource).not.toContain('<rect class="is-selected"');
+    expect(styles).toMatch(/\.ontology-instance-graph-scroll\s*\{[^}]*position:\s*relative/s);
+    expect(styles).toMatch(/\.ontology-instance-direction-surface\s*\{[^}]*position:\s*absolute[^}]*top:\s*0[^}]*right:\s*0[^}]*left:\s*0[^}]*display:\s*grid[^}]*margin:\s*0 auto/s);
     expect(graphSource).toContain("defaultInstanceLegendLinkTypes(linkTypeCounts)");
     expect(graphSource).toContain('aria-expanded={showAllRelationshipTypes}');
     expect(ontologySource).toContain('class={`stack governance-ontology is-${view}`}');
