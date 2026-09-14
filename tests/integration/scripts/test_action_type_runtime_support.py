@@ -225,6 +225,12 @@ def test_support_checker_is_registered_in_local_and_ci_gates() -> None:
         assert CHECKER_REF in (REPO_ROOT / relative).read_text(encoding="utf-8"), relative
 
 
+def test_ci_installs_support_checker_schema_dependency() -> None:
+    workflow = (REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert "python3 -m pip install --quiet pyyaml jsonschema" in workflow
+
+
 def test_profile_reference_must_exist(
     checker: ModuleType,
     manifest: dict[str, Any],

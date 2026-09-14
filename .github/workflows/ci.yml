@@ -260,7 +260,7 @@ jobs:
         run: uv sync --extra dev --extra pdf-report --extra azure-mcp --frozen
 
       - name: Install contract check dependencies
-        run: python3 -m pip install --quiet pyyaml
+        run: python3 -m pip install --quiet pyyaml jsonschema
 
       - name: Run Python lint and static contracts
         if: needs.changes.outputs.python == 'true'
