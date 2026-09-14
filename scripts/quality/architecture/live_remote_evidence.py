@@ -5,7 +5,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
+from pathlib import Path
 from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+CONTRACT_SOURCE = REPO_ROOT / "packages" / "service-contracts" / "src"
+sys.path.insert(0, str(CONTRACT_SOURCE))
+
+from fdai_service_contracts.compatibility import transition_certified_matrix  # noqa: E402
 
 SERVICE_IDS = (
     "core-control-plane",
@@ -143,7 +151,7 @@ def build_live_remote_evidence(
         "artifacts": artifacts,
     }
     evidence_manifest_digest = canonical_digest(evidence_manifest)
-    matrix_digest = canonical_digest(compatibility.get("producer_consumer_matrix"))
+    matrix_digest = canonical_digest(transition_certified_matrix(compatibility))
     receipts: list[dict[str, Any]] = []
     for service_index, service_id in enumerate(SERVICE_IDS):
         service = remote_services[service_id]

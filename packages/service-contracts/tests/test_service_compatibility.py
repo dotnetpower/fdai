@@ -27,6 +27,8 @@ from fdai_service_contracts import (
     load_manifest_codec,
     matrix_digest,
     run_delivery_transition_harness,
+    transition_certified_matrix,
+    transition_certified_matrix_digest,
     validate_manifest,
     validate_peer_upgrade_receipt,
 )
@@ -98,10 +100,59 @@ def test_manifest_and_focused_fixture_gate_pass(
     output = capsys.readouterr().out
     assert "mode=focused" in output
     assert "proof_kind=focused" in output
+    assert "transition_certified_edges=7" in output
     assert "mechanics_proofs=10" in output
     assert "live_proofs=0" in output
     assert "live_service_proofs=0" in output
     assert "receipts=" not in output
+
+
+def test_transition_certification_excludes_unobserved_attachment_edges() -> None:
+    manifest = _manifest()
+    certified = transition_certified_matrix(manifest)
+
+    assert tuple(edge["contract_id"] for edge in certified) == (
+        "operator-core-request",
+        "core-operator-projection",
+        "document-ingestion-activity",
+        "document-worker-audit",
+        "document-worker-index",
+        "executor-command",
+        "executor-receipt",
+    )
+    assert transition_certified_matrix_digest(manifest) == (
+        "sha256:ece4b04ad431b64f7dd40dcdeced421fb22ba4b6a11abc915c21680798a4a4b7"
+    )
+    assert transition_certified_matrix_digest(manifest) != matrix_digest(manifest)
+
+
+@pytest.mark.parametrize(
+    ("certified_ids", "message"),
+    [
+        (["missing-contract"], "unknown contract"),
+        (
+            ["core-operator-projection", "operator-core-request"],
+            "preserve matrix order",
+        ),
+    ],
+)
+def test_manifest_rejects_invalid_transition_certification_scope(
+    certified_ids: list[str],
+    message: str,
+) -> None:
+    manifest = _manifest()
+    manifest["policy"]["transition_certified_contract_ids"] = certified_ids
+
+    with pytest.raises(CompatibilityError, match=message):
+        validate_manifest(manifest, repo_root=REPO_ROOT)
+
+
+def test_transition_certification_rejects_malformed_matrix_identity() -> None:
+    manifest = _manifest()
+    manifest["producer_consumer_matrix"][0]["contract_id"] = []
+
+    with pytest.raises(CompatibilityError, match="matrix contract ids"):
+        transition_certified_matrix(manifest)
 
 
 def test_service_versions_match_real_n_and_n_minus_one_distributions() -> None:
@@ -521,6 +572,7 @@ def _bound_live_evidence(receipt: dict[str, Any]) -> dict[str, Any]:
     receipt.update(
         {
             "proof_kind": "live",
+            "matrix_digest": transition_certified_matrix_digest(_manifest()),
             "evidence_manifest_digest": canonical_digest(evidence_manifest),
             "evidence_run_id": run_id,
             "evidence_source_digest": source_digest,

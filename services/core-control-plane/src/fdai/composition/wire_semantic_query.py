@@ -224,6 +224,7 @@ from .semantic_query_current_evidence import (
     SemanticQueryConversationRuntime,
     bind_semantic_current_evidence,
 )
+from .semantic_query_invocation_context import semantic_query_invocation_context
 from .semantic_query_runtime_composition import SemanticQueryRuntimeComposition
 
 _FRAME_CAPABILITY = "semantic.query.frame"
@@ -761,37 +762,11 @@ def build_semantic_query_runtime(
                 ),
                 QueryNodeKind.FUNCTION: FunctionNodeHandler(
                     function_registry,
-                    context=FunctionInvocationContext(
-                        caller_agent="Bragi",
-                        caller_role=role,
-                        purposes=(purpose,),
-                        principal_ref=principal.id,
-                        principal_groups=tuple(sorted(principal.groups)),
-                        principal_scope_digest=semantic_principal_scope_digest(
-                            principal=principal,
-                            purpose=purpose,
-                        ),
-                        document_refs=(
-                            document_context.citations if document_context is not None else ()
-                        ),
-                        document_context_source=(
-                            document_context.source.value if document_context is not None else None
-                        ),
-                        document_conversation_ref=(
-                            document_context.conversation_ref
-                            if document_context is not None
-                            else None
-                        ),
-                        document_authorization_digest=(
-                            document_context.authorization_digest
-                            if document_context is not None
-                            else None
-                        ),
-                        document_context_digest=(
-                            document_context.context_digest
-                            if document_context is not None
-                            else None
-                        ),
+                    context=semantic_query_invocation_context(
+                        principal=principal,
+                        role=role,
+                        purpose=purpose,
+                        document_context=document_context,
                     ),
                     receipt_authority=receipt_authority,
                     allow_presentation_read_dependencies=True,

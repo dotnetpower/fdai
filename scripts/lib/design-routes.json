@@ -1536,6 +1536,7 @@
         "services/core-control-plane/src/fdai/core/ontology_platform/query_source_handlers.py",
         "services/core-control-plane/src/fdai/core/stewardship/governance.py",
         "services/core-control-plane/src/fdai/composition/semantic_query_current_evidence.py",
+        "services/core-control-plane/src/fdai/composition/semantic_query_invocation_context.py",
         "services/core-control-plane/src/fdai/composition/wire_semantic_query.py",
         "services/core-control-plane/src/fdai/delivery/persistence/postgres_governed_document_read.py",
         "services/core-control-plane/src/fdai_core_service/contract_codecs.py",
@@ -1545,7 +1546,9 @@
         "services/core-control-plane/src/fdai/shared/providers/local/document_ingestion.py",
         "services/core-control-plane/src/fdai/core/document_ingestion/**",
         "packages/service-contracts/src/fdai_service_contracts/channel_attachment.py",
+        "packages/service-contracts/src/fdai_service_contracts/compatibility.py",
         "packages/service-contracts/src/fdai_service_contracts/handover.py",
+        "packages/service-contracts/src/fdai_service_contracts/manifest.py",
         "packages/service-contracts/src/fdai_service_contracts/semantic_turn.py",
         "packages/service-contracts/src/fdai_service_contracts/__init__.py",
         "packages/service-contracts/src/fdai_service_contracts/compatibility-manifest.json",
@@ -1573,6 +1576,9 @@
         "scripts/deployment/service/materialize_tfvars.py",
         "scripts/deployment/service/plan_bundle.py",
         "scripts/deployment/service/verify_health.sh",
+        "scripts/quality/architecture/check-independent-services.py",
+        "scripts/quality/architecture/check-service-compatibility.py",
+        "scripts/quality/architecture/live_remote_evidence.py",
         ".github/workflows/service-deploy.yml",
         "packages/deployment-cli/src/fdai_deployment_cli/entra_bootstrap.py",
         "packages/deployment-cli/tests/test_entra_bootstrap.py",
@@ -1580,6 +1586,7 @@
         "docs/runbooks/entra-app-registration*.md",
         "packages/service-contracts/tests/test_channel_attachment.py",
         "packages/service-contracts/tests/test_semantic_turn.py",
+        "tests/integration/service-suites.json",
         "services/document-ingestion-api/tests/**",
         "services/operator-service/tests/test_semantic_turn_bridge.py",
         "services/core-control-plane/tests/test_semantic_turn_processor.py",
@@ -1973,6 +1980,9 @@
         "docs/roadmap/architecture/service-graduation-and-ownership.md",
         "docs/roadmap/deployment/deploy-and-onboard.md",
         "docs/roadmap/interfaces/channels-and-notifications.md"
+      ],
+      "docs_update_routes": [
+        "conversation-attachments"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/system-knowledge-service.md",

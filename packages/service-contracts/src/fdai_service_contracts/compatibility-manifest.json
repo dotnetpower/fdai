@@ -2,7 +2,16 @@
   "manifest_version": "1.0.0",
   "policy": {
     "release_labels": ["N-1", "N"],
-    "description": "Every directed wire edge classifies old-old, old-new, new-old, and new-new pairs; unsupported pairs require ordered rollout."
+    "description": "Every directed wire edge classifies old-old, old-new, new-old, and new-new pairs; unsupported pairs require ordered rollout.",
+    "transition_certified_contract_ids": [
+      "operator-core-request",
+      "core-operator-projection",
+      "document-ingestion-activity",
+      "document-worker-audit",
+      "document-worker-index",
+      "executor-command",
+      "executor-receipt"
+    ]
   },
   "services": [
     {

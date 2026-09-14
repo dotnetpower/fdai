@@ -64,6 +64,8 @@ from fdai_service_contracts.compatibility import (
     load_json_object,
     matrix_digest,
     project_additive_fields,
+    transition_certified_matrix,
+    transition_certified_matrix_digest,
     validate_delivery_trace,
     validate_peer_upgrade_receipt,
 )
@@ -857,6 +859,8 @@ __all__ = [
     "supported_document_extensions",
     "supported_document_format_ids",
     "system_knowledge_digest",
+    "transition_certified_matrix",
+    "transition_certified_matrix_digest",
     "unavailable_readiness",
     "validate_delivery_trace",
     "validate_manifest",
