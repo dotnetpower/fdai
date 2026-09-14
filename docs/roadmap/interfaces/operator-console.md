@@ -94,6 +94,8 @@ On mobile, the exact audit timeline retains table semantics and reflows each rec
 vertical row without horizontal scrolling.
 Long canonical action kinds and the compact stage path wrap within a 320 pixel read-only Trace
 instead of widening the workbench.
+At the same width, copy and refresh controls each retain a full readable row, while related
+evidence links remain in a compact two-column grid.
 
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final

@@ -558,6 +558,16 @@ test("compresses a read-only technical trace without inventing an action path", 
       `${selector} overflowed for a read-only Trace at 320px`,
     ).toBeLessThanOrEqual(dimensions.clientWidth);
   }
+  const toolbarControls = await page.locator(
+    ".trace-toolbar > .copy-btn, .trace-toolbar > .btn",
+  ).evaluateAll((controls) => controls.map((control) => ({
+    clientWidth: control.clientWidth,
+    scrollWidth: control.scrollWidth,
+  })));
+  expect(toolbarControls).toHaveLength(2);
+  expect(toolbarControls.every(({ clientWidth, scrollWidth }) =>
+    clientWidth >= 180 && scrollWidth <= clientWidth
+  )).toBe(true);
 });
 
 test("preserves the two-column trace workbench at constrained desktop width", async ({
