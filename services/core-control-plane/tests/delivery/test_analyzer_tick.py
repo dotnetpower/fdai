@@ -761,6 +761,27 @@ async def test_a_future_finding_timestamp_fails_before_publication() -> None:
     assert bus.published == []
 
 
+@pytest.mark.asyncio
+async def test_invalid_receipt_evidence_fails_before_publication() -> None:
+    bus = RecordingBus()
+    store = ConditionalStore()
+    invalid = replace(
+        _finding(),
+        evidence_refs=("duplicate-evidence", "duplicate-evidence"),
+    )
+    runner = _runner(
+        StubCoordinator(findings=(invalid,)),
+        bus,
+        ledger=_ledger(store),
+    )
+
+    with pytest.raises(ValueError, match="bounded and unique"):
+        await runner.run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
+
+    assert bus.published == []
+    assert store.values == {}
+
+
 @pytest.mark.parametrize(
     "kwargs",
     (

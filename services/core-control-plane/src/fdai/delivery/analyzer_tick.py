@@ -481,9 +481,16 @@ class AnalyzerTickRunner:
         receipt_errors: list[tuple[str, str]] = []
         receipts: list[AnalyzerFindingReceipt] = []
         for finding in report.findings:
+            ingested_at = max(tick_started_at, self._clock())
             event = self._build_event(
                 finding,
-                ingested_at=max(tick_started_at, self._clock()),
+                ingested_at=ingested_at,
+            )
+            _finding_receipt(
+                finding,
+                event=event,
+                at=ingested_at,
+                publication=AnalyzerPublicationStatus.FAILED,
             )
             outcome = await self._publish_finding(finding, event=event)
             if outcome.error is not None:
@@ -506,7 +513,7 @@ class AnalyzerTickRunner:
             receipt = _finding_receipt(
                 finding,
                 event=event,
-                at=self._clock(),
+                at=max(ingested_at, self._clock()),
                 publication=outcome.status,
             )
             receipts.append(receipt)

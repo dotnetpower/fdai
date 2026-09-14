@@ -74,7 +74,8 @@ are synthetic.
   same key, and Heimdall counts each non-empty evidence key at most once in an episode. The existing
   minimum-severity policy still holds medium and lower findings by default. A Finding with a future
   or timezone-naive observation time is rejected before Event publication, so receipt validation
-  cannot fail after an unaccounted broker side effect. An inventory-backed
+  cannot fail after an unaccounted broker side effect. The same pre-publication check covers
+  bounded, unique evidence references and typed assessment metadata. An inventory-backed
   target keeps its ontology `Resource.id` as the analyzer and Event identity. At the delivery
   boundary, the tick reads the exact `provider_ref` from the active inventory snapshot and rewrites
   only the metric query's `resource_id` label. A missing, mismatched, or ambiguous provider
