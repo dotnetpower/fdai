@@ -180,7 +180,12 @@ describe("browser notification boundary", () => {
     };
     const now = 1_800_000_000_000;
     expect(claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage)).toBe("claimed");
-    releaseBrowserAlertDelivery("fdai:event-1", "principal-a", storage);
+    releaseBrowserAlertDelivery(
+      "fdai:event-1",
+      acknowledgementToken(storage, "principal-a", "fdai:event-1"),
+      "principal-a",
+      storage,
+    );
     expect(claimBrowserAlertDelivery("fdai:event-1", "principal-a", now + 1, storage)).toBe("claimed");
     expect(claimBrowserAlertDelivery("fdai:event-2", "principal-a", now, null)).toBe("unavailable");
   });
@@ -210,6 +215,7 @@ describe("browser notification boundary", () => {
 
     expect(recordBrowserAlertDelivered(
       "fdai:event-1",
+      acknowledgementToken(storage, "principal-a", "fdai:event-1"),
       "principal-a",
       now + 2,
       storage,
@@ -328,7 +334,13 @@ describe("browser notification boundary", () => {
     const key = "fdai:console:browser-notification-delivery:v1:principal-a";
     const now = 1_800_000_000_000;
     expect(claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage)).toBe("claimed");
-    recordBrowserAlertDelivered("fdai:event-1", "principal-a", now + 1, storage);
+    recordBrowserAlertDelivered(
+      "fdai:event-1",
+      acknowledgementToken(storage, "principal-a", "fdai:event-1"),
+      "principal-a",
+      now + 1,
+      storage,
+    );
     acknowledgeBrowserAlertDelivery(
       "fdai:event-1",
       acknowledgementToken(storage, "principal-a", "fdai:event-1"),
@@ -359,6 +371,7 @@ describe("browser notification boundary", () => {
     expect(claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage)).toBe("claimed");
     expect(recordBrowserAlertDelivered(
       "fdai:event-1",
+      acknowledgementToken(storage, "principal-a", "fdai:event-1"),
       "principal-a",
       now + 1,
       storage,
@@ -385,9 +398,21 @@ describe("browser notification boundary", () => {
     };
     const now = 1_800_000_000_000;
     claimBrowserAlertDelivery("fdai:event-old", "principal-a", now, storage);
-    recordBrowserAlertDelivered("fdai:event-old", "principal-a", now + 1, storage);
+    recordBrowserAlertDelivered(
+      "fdai:event-old",
+      acknowledgementToken(storage, "principal-a", "fdai:event-old"),
+      "principal-a",
+      now + 1,
+      storage,
+    );
     claimBrowserAlertDelivery("fdai:event-new", "principal-a", now + 2, storage);
-    recordBrowserAlertDelivered("fdai:event-new", "principal-a", now + 3, storage);
+    recordBrowserAlertDelivered(
+      "fdai:event-new",
+      acknowledgementToken(storage, "principal-a", "fdai:event-new"),
+      "principal-a",
+      now + 3,
+      storage,
+    );
 
     acknowledgeBrowserAlertDelivery(
       "fdai:event-old",
@@ -417,7 +442,13 @@ describe("browser notification boundary", () => {
     };
     const now = 1_800_000_000_000;
     claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage);
-    recordBrowserAlertDelivered("fdai:event-1", "principal-a", now + 1, storage);
+    recordBrowserAlertDelivered(
+      "fdai:event-1",
+      acknowledgementToken(storage, "principal-a", "fdai:event-1"),
+      "principal-a",
+      now + 1,
+      storage,
+    );
 
     expect(browserAlertDeliveryStatusForStorageKey(
       "fdai:console:browser-notification-delivery:v1:principal-a",
@@ -433,5 +464,49 @@ describe("browser notification boundary", () => {
     )).toBeNull();
     expect(browserAlertDeliveryStatusForStorageKey(null, "principal-a", now + 2, storage))
       .toBeNull();
+  });
+
+  test("stale callbacks cannot mutate a replacement claim with the same tag", () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value); },
+      removeItem: (key: string) => { values.delete(key); },
+    };
+    const now = 1_800_000_000_000;
+    const oldToken = "a".repeat(32);
+    const newToken = "b".repeat(32);
+    expect(claimBrowserAlertDelivery(
+      "fdai:event-1",
+      "principal-a",
+      now,
+      storage,
+      () => oldToken,
+    )).toBe("claimed");
+    expect(claimBrowserAlertDelivery(
+      "fdai:event-1",
+      "principal-a",
+      now + 6 * 60_000,
+      storage,
+      () => newToken,
+    )).toBe("claimed");
+
+    expect(recordBrowserAlertDelivered(
+      "fdai:event-1",
+      oldToken,
+      "principal-a",
+      now + 6 * 60_000 + 1,
+      storage,
+    )).toBeNull();
+    releaseBrowserAlertDelivery("fdai:event-1", oldToken, "principal-a", storage);
+    expect(readBrowserAlertAcknowledgementToken("fdai:event-1", "principal-a", storage))
+      .toBe(newToken);
+    expect(recordBrowserAlertDelivered(
+      "fdai:event-1",
+      newToken,
+      "principal-a",
+      now + 6 * 60_000 + 2,
+      storage,
+    )?.deliveredAt).toBe(now + 6 * 60_000 + 2);
   });
 });

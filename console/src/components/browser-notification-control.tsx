@@ -220,7 +220,6 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
         principalId,
       );
       if (acknowledgementToken === null) {
-        releaseBrowserAlertDelivery(alert.tag, principalId);
         setState("error");
         return;
       }
@@ -238,16 +237,20 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
           },
         ))
         .then(() => {
-          const receipt = recordBrowserAlertDelivered(alert.tag, principalId);
+          const receipt = recordBrowserAlertDelivered(
+            alert.tag,
+            acknowledgementToken,
+            principalId,
+          );
           if (receipt === null) {
-            releaseBrowserAlertDelivery(alert.tag, principalId);
+            releaseBrowserAlertDelivery(alert.tag, acknowledgementToken, principalId);
             setState("error");
             return;
           }
           setDeliveryState(readBrowserAlertDeliveryStatus(principalId));
         })
         .catch(() => {
-          releaseBrowserAlertDelivery(alert.tag, principalId);
+          releaseBrowserAlertDelivery(alert.tag, acknowledgementToken, principalId);
           setState("error");
         });
     },
