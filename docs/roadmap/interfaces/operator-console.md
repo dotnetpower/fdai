@@ -48,6 +48,8 @@ Trace hardening preserves these evidence invariants:
   scalar entry makes the trace unavailable instead of becoming an empty record.
 - Every step preserves the recorded actor. The stage rail presents the actor and relative time,
   while the evidence detail retains the canonical action kind.
+- The browser checks trace kind, action-attempt count, effect-observation count, and RCA evidence
+  against the ordered steps before using those values in decision summaries.
 
 ### Trace discovery and decision summary
 

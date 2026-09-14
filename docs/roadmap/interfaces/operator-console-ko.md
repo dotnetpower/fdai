@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 3c373b625018222534a6a72f08a1dec9ecd53669
+translation_source_sha: c221afe35beb944c9eab6f9af264260155b40b26
 translation_revised: 2026-09-14
 ---
 # FDAI Console 대화
@@ -51,6 +51,8 @@ value 필드를 보존하여 독립 oracle이 표시된 count를 검증할 수 �
   스칼라 항목은 빈 기록으로 바꾸지 않고 추적을 사용 불가로 처리합니다.
 - 각 단계는 기록된 행위자를 보존합니다. 단계 목록은 행위자와 상대 시간을 표시하고 근거
   상세는 정규 작업 종류를 유지합니다.
+- 브라우저는 판단 요약에 값을 사용하기 전에 추적 종류, 액션 시도 수, 효과 관측 수 및 근본
+  원인 근거 여부가 순서가 있는 단계와 일치하는지 확인합니다.
 
 ### 추적 탐색 및 판단 요약
 

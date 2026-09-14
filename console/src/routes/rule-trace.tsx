@@ -535,6 +535,13 @@ function decodeTraceMetadata(
   const latestOutcome = nullableNonEmptyString(root, "latest_outcome", "trace");
   const targetResourceRef = optionalNonEmptyString(root, "target_resource_ref", "trace");
   const targetCount = panelNonNegativeInteger(root, "target_count", "trace");
+  const actionAttemptCount = panelNonNegativeInteger(root, "action_attempt_count", "trace");
+  const effectObservationCount = panelNonNegativeInteger(
+    root,
+    "effect_observation_count",
+    "trace",
+  );
+  const rcaEvidenceRecorded = panelBoolean(root, "rca_evidence_recorded", "trace");
   if (
     latestSequence !== latest.seq
     || latestActivityStage !== latest.stage
@@ -548,6 +555,14 @@ function decodeTraceMetadata(
   }
   if ((targetCount === 1) !== (targetResourceRef !== null)) {
     throw new Error("invalid Operator API response: trace target summary is inconsistent");
+  }
+  if (
+    traceKind !== traceKindFromSteps(steps)
+    || actionAttemptCount !== traceActionAttemptCount(steps)
+    || effectObservationCount !== traceEffectObservationCount(steps)
+    || rcaEvidenceRecorded !== steps.some((step) => step.action_kind.startsWith("rca."))
+  ) {
+    throw new Error("invalid Operator API response: trace summary counts MUST match ordered steps");
   }
   return {
     trace_kind: traceKind as TraceResponse["trace_kind"],
@@ -564,14 +579,10 @@ function decodeTraceMetadata(
     latest_mode: latest.mode,
     target_resource_ref: targetResourceRef,
     target_count: targetCount,
-    action_attempt_count: panelNonNegativeInteger(root, "action_attempt_count", "trace"),
-    effect_observation_count: panelNonNegativeInteger(
-      root,
-      "effect_observation_count",
-      "trace",
-    ),
+    action_attempt_count: actionAttemptCount,
+    effect_observation_count: effectObservationCount,
     incident_evidence_recorded: panelBoolean(root, "incident_evidence_recorded", "trace"),
-    rca_evidence_recorded: panelBoolean(root, "rca_evidence_recorded", "trace"),
+    rca_evidence_recorded: rcaEvidenceRecorded,
     metadata_source: "server",
   };
 }
@@ -603,11 +614,7 @@ function legacyTraceMetadata(
     target_resource_ref: null,
     target_count: 0,
     action_attempt_count: attempts.size,
-    effect_observation_count: steps.filter((step) =>
-      step.action_kind.startsWith("effect_observation.")
-      || step.action_kind.startsWith("measurement.action_outcome")
-      || step.action_kind.includes("effect.observation")
-    ).length,
+    effect_observation_count: traceEffectObservationCount(steps),
     incident_evidence_recorded: steps.some((step) =>
       step.action_kind.startsWith("incident.")
     ),
@@ -629,6 +636,22 @@ function traceKindFromSteps(
     /^(?:control_loop|inventory|measurement|ontology|read)\./.test(step.action_kind)
   )) return "read";
   return "unknown";
+}
+
+function traceActionAttemptCount(steps: readonly TraceStep[]): number {
+  return new Set(
+    steps.flatMap((step) =>
+      step.action_id === null ? [] : [`${step.action_id}:${step.attempt ?? "unknown"}`]
+    ),
+  ).size;
+}
+
+function traceEffectObservationCount(steps: readonly TraceStep[]): number {
+  return steps.filter((step) =>
+    step.action_kind.startsWith("effect_observation.")
+    || step.action_kind.startsWith("measurement.action_outcome")
+    || step.action_kind.includes("effect.observation")
+  ).length;
 }
 
 function latestRecordedDecision(steps: readonly TraceStep[]): string | null {

@@ -81,6 +81,14 @@ describe("trace response contract", () => {
     }));
     expect(() => decodeTraceResponse({ ...root, latest_sequence: 2 }))
       .toThrow(/latest metadata MUST match ordered steps/);
+    expect(() => decodeTraceResponse({ ...root, trace_kind: "read" }))
+      .toThrow(/summary counts MUST match ordered steps/);
+    expect(() => decodeTraceResponse({ ...root, action_attempt_count: 1 }))
+      .toThrow(/summary counts MUST match ordered steps/);
+    expect(() => decodeTraceResponse({ ...root, effect_observation_count: 1 }))
+      .toThrow(/summary counts MUST match ordered steps/);
+    expect(() => decodeTraceResponse({ ...root, rca_evidence_recorded: true }))
+      .toThrow(/summary counts MUST match ordered steps/);
   });
 
   it("renders expected source absence as unavailable without hiding server failures", () => {
