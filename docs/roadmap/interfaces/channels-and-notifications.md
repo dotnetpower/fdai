@@ -44,13 +44,14 @@ durable delivery, and the Teams Workflows webhook binding are owned by
 | Durable outbound conversation delivery | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | The coordinator distinguishes definitive rejection from ambiguous acknowledgement, bounds retries, reconciles interrupted sends, and preserves stable delivery identity in focused tests. |
 | Pure channel presentation rendering | implemented | `fdai_operator_service/families/conversation/channel_edge/{presentation,renderers}.py`; focused Operator renderer checks | One normalized envelope preserves canonical text, facts, limitations, evidence, authority, and unavailable state. Pure Teams and Slack payload builders enforce capability bounds without transport or acknowledgement, and malformed artifacts degrade to canonical text. |
 | Channel-aware presentation assurance | implemented | [`channel_assurance.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/channel_assurance.py), [`test_channel_assurance.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_channel_assurance.py) | Common content, limitation, evidence, and authority checks apply to every channel. Optional progress, activity, rich, thread, and edit checks follow an injected capability profile. Direct Line and custom profiles are supported as contracts; no Direct Line transport is implemented. |
-| Opt-in browser notifications | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`notification-sw.js`](../../../console/public/notification-sw.js), and focused browser notification tests | Permission, preference, visibility, delivery, and notification-click focus behavior pass focused Vitest cases. No live Windows notification or push-service receipt is recorded. |
+| Explicit Console web notifications | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`notification-sw.js`](../../../console/public/notification-sw.js), and focused browser notification tests | The named `console-web` control, principal-scoped preference, browser display receipt, and notification-click acknowledgement pass focused Vitest cases. These receipts are browser-local evidence, not a Core delivery receipt, approval, or live Windows validation. |
 | Stakeholder briefing and A3 edge runtime | implemented | [`briefing.py`](../../../services/core-control-plane/src/fdai/core/notifications/briefing.py), [`test_briefing.py`](../../../services/core-control-plane/tests/notifications/test_briefing.py), [Production A3 channel runtime](production-a3-channel-runtime.md) | Deterministic stakeholder briefing passes focused tests. The standalone Operator-distribution ASGI factory, local launch, and optional Container App are implemented; governed provider and protected deployment evidence remain with the runtime owner. |
 | Dedicated system-knowledge Teams mention endpoint | in-progress | [System Knowledge Service](system-knowledge-service.md); `services/system-knowledge-service/`; focused service checks | The read-only service uses a separate distribution, catalog, and delivery ledger. A deployment selects either a Bot Framework identity or a team-scoped HMAC-authenticated Outgoing Webhook. Production Teams and rollback evidence remain open and do not change A1-A4 readiness. |
 | Optional Cost Governance notifications | implemented | `fdai_cost_governance/notifications.py`; package notification tests; `config/notifications-matrix.yaml` | The package checks activation and applies the same disclosure policy used by API projections before producing a notification. Disabled packages send nothing, while global incident, approval, KPI, and LLM Cost routes remain independent. |
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Named Console web as an explicit client-local notification channel and separated browser display from notification-click acknowledgement in its principal-scoped ledger and visible status. | `current change`; focused browser notification and service-worker tests plus Console typecheck. | Retain a human-confirmed Windows notification click receipt before claiming live desktop validation; add authenticated Web Push and server-side receipts only through a separately designed service. |
 | 2026-09-13 | implemented | Added channel-aware presentation assessment without changing canonical response content or transport authority. | `current change`; focused channel assurance and structural attribution tests passed 14 cases. | Bind authoritative presentation observations in each deployed channel and implement a Direct Line transport before claiming runtime support. |
 | 2026-09-10 | implemented | Added the HMAC-authenticated Teams Outgoing Webhook alternative without changing A1-A4 routing. | `current change`; transport-specific service, Terraform, protected workflow, and focused tests. | Retain live `@FDAI-bot`, five-second response, restart, cost, disable, and restore evidence. |
 | 2026-09-10 | implemented | Added the knowledge bot's dedicated Azure Bot, Teams app package, Managed Identity Blob claim boundary, and protected plan/apply workflow without changing A1-A4 routing. | `current change`; service Terraform, deployment workflow, package builder, and focused checks. | Retain live Teams, cost, disable, and timed rollback evidence. |
@@ -368,30 +369,12 @@ enters event-ingest, trust routing, risk gating, and audit; the webhook never ex
 
 ### 4.4 Browser system notifications
 
-The Console can deliver opt-in A2 status notifications through the browser Notifications API and
-an origin-scoped service worker. The operator enables the feature from an explicit Console control;
-FDAI never requests permission during page load. The authenticated `GET /live/stream` feed stays
-connected while an enabled tab is in the background and emits notifications only for human approval,
-denial, or failure outcomes. Replay frames and routine successful stages remain silent.
-
-Browser notifications are informational. They contain localized generic text, an opaque bounded
-event tag, and a server-derived same-origin link to the read-only Incident view. They never include
-raw errors, resource identifiers, approval controls, or execution links. Repeated frames replace the
-same event notification, and the opt-in preference is scoped to the signed-in browser principal.
-A principal-scoped browser ledger suppresses duplicate event tags for five minutes across tabs and
-limits delivery to five system notifications per minute; suppressed events remain in the audit and
-Incident views.
-
-The service worker keeps notification rendering and click handling available while the page is
-backgrounded, but the current Console does not register a Push API subscription or a server-side
-subscription store. A fully closed browser therefore receives no notification. Closed-browser Web
-Push requires a separately authenticated write service, encrypted subscription storage, revocation,
-CSRF protection, and delivery audit before it can be enabled; it does not belong in the Operator API.
-
-Clicking a notification focuses an exact Console window when one exists. Otherwise, the service
-worker navigates a same-origin Console window to the read-only Incident target and focuses the
-window returned by that navigation. If browser focus or navigation fails, it opens the same
-validated target in a new window. This activation behavior does not approve or execute an action.
+The explicit client-local `console-web` channel is owned by
+[Console Web Notifications](console-web-notifications.md). Settings is its canonical
+principal-and-browser selection surface, the header is a synchronized shortcut, and only
+`runtime-observed` approval, denial, and failure frames are eligible. Its bounded local display and
+click receipts never satisfy Core delivery, approval, or execution evidence. Organization-managed
+A2/A4 routes remain separate channel-as-audience bindings.
 
 ## 5. Channel Interfaces (contracts)
 

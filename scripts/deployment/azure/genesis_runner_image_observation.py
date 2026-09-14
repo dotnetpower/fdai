@@ -177,11 +177,15 @@ def _verify_extension(
         timeout=timeout,
         reason="runner image extension readback failed",
     )
+    statuses = value.get("statuses")
     if (
         str(value.get("id", "")).casefold() != resource_id.casefold()
         or str(value.get("type", "")).casefold() != "microsoft.compute/virtualmachines/extensions"
         or value.get("provisioningState") != "Succeeded"
-        or "ProvisioningState/succeeded" not in value.get("statuses", [])
+        or (
+            statuses not in (None, [])
+            and (not isinstance(statuses, list) or "ProvisioningState/succeeded" not in statuses)
+        )
     ):
         raise ValueError("runner image extension did not complete successfully")
 

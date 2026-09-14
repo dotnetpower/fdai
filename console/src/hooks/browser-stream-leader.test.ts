@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import {
   browserStreamLockName,
   holdBrowserStreamLeadership,
+  reportBrowserStreamLeadershipFailure,
 } from "./browser-stream-leader";
 
 describe("browser stream leadership", () => {
@@ -52,5 +53,27 @@ describe("browser stream leadership", () => {
     )).rejects.toThrow("lock manager unavailable");
 
     expect(states).toEqual([]);
+  });
+
+  test("reports an active lock acquisition failure but ignores cleanup aborts", () => {
+    const states: boolean[] = [];
+    const failures: string[] = [];
+    const active = new AbortController();
+    reportBrowserStreamLeadershipFailure(
+      active.signal,
+      (leader) => states.push(leader),
+      () => failures.push("failed"),
+    );
+
+    const cancelled = new AbortController();
+    cancelled.abort();
+    reportBrowserStreamLeadershipFailure(
+      cancelled.signal,
+      (leader) => states.push(leader),
+      () => failures.push("cancelled"),
+    );
+
+    expect(states).toEqual([false]);
+    expect(failures).toEqual(["failed"]);
   });
 });
