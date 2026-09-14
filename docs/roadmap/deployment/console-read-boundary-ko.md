@@ -1,7 +1,7 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: 98f70081176bdda82d704b58b08dabf938e3899e
+translation_source_sha: 92742b4fabe532771de6ba9de1ba824c63de386d
 translation_revised: 2026-09-14
 ---
 # Console 읽기 경계
@@ -30,6 +30,7 @@ translation_revised: 2026-09-14
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 영속 CLI 인증 플래그 안내를 명시적 실행기 및 작업 명령으로 교체하고, 고정된 `Contributor` 상한과 승인 제한을 함께 설명했습니다. | `current change`; `DEVELOPING.md`; `console/README.md`; `user-rbac-and-identity.md`; 이중 언어 문서 검사. | 독립 통합 비평과 인증된 Browser Entra 검증을 완료합니다. |
 | 2026-09-14 | implemented | Reader에는 `count_only`를 반환하고 검증된 Approver 및 Owner principal에는 `full` 승인 상세를 반환하는 HTTP 권한 경계 회귀 테스트를 추가했습니다. 테스트는 권위 있는 읽기 모델에 전달하는 상세 조회 플래그도 검증합니다. | `current change`; `test_operator_service_composition.py::test_hil_queue_detail_level_follows_verified_operator_role`; 역할 사례 3개 통과. | 운영자 복구 안내와 최종 통합 검토를 완료합니다. |
 | 2026-09-14 | implemented | 요청된 운영자 인증 모드를 활성 서비스 환경 단계 캐시 식별자에 추가했습니다. 이제 모든 파일 입력이 같아도 모드를 전환하면 Operator 환경과 모드 표식을 다시 생성합니다. | `current change`; `prepare-console-full-stack.sh`; 두 모드의 집중 단계 캐시 테스트. | 승인 경로 권한 회귀 테스트를 추가하고 운영자 안내를 완성합니다. |
 | 2026-09-14 | implemented | 요청된 운영자 인증 모드를 기존 전체 스택 준비 캐시 식별자에 추가했습니다. Browser Entra와 Azure CLI 디버그 사이를 전환할 때 다른 모드의 전체 준비 결과를 재사용할 수 없습니다. | `current change`; `prepare-console-full-stack.sh`; 두 모드의 집중 기존 캐시 테스트. | 활성 단계별 서비스 환경 캐시도 같은 모드에 연결합니다. |

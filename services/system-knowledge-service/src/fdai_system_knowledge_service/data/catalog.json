@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:f453a88a427274e8f072782fd46a112e198549a5cf9a24ea7a39d4cbefa8dd23",
+  "catalog_digest": "sha256:5dbe97378c98d2dc31ffb37c761ada0a7616cfa3a4792c1cec3649a84255624d",
   "execution_authority": false,
-  "generated_at": "2026-09-13T04:16:18.216909Z",
+  "generated_at": "2026-09-14T02:38:58.142773Z",
   "records": [
     {
       "designed_behavior": [
@@ -268,11 +268,11 @@
         "How does FDAI authenticate and authorize people?",
         "FDAI는 사용자를 어떻게 인증하고 권한을 확인하나요?"
       ],
-      "record_digest": "sha256:a2395c52cb10cad1a388eed69adc2d8ccda27ddd7a3a0f2fe1a387b8fc0eff4d",
+      "record_digest": "sha256:7526ce9bfb6d930f297b7dbd565bd4b09d657dc9f17bb7149429baac62e61485",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "37af9e5f2e5cfdf36197d3f2292dce4b38b540c4",
+          "blob_sha": "33490f3dd158f03ab626fb69fc114aa52fe11945",
           "line_end": 27,
           "line_start": 27,
           "path": "docs/roadmap/interfaces/user-rbac-and-identity.md",
@@ -448,17 +448,8 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:48e725139f2786c4e698d1ce3cd4ce0112ee40d17b3fef9fc3919322de6a3fc8",
+      "record_digest": "sha256:db8c97ae44180cf467ead40d9a44827e9d634ef97bde6cf44e8af0834fb158e4",
       "sources": [
-        {
-          "authority_role": "design",
-          "blob_sha": "63cff6a63a0fd2551af3d484e3750e7b3b3ce0ba",
-          "line_end": 103,
-          "line_start": 103,
-          "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
-          "source_kind": "doc",
-          "symbol": "Graduation scorecard"
-        },
         {
           "authority_role": "design",
           "blob_sha": "8e6f4d75ff3b5a315bdc6f9a516c64727b2eef8b",
@@ -467,6 +458,15 @@
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
           "source_kind": "doc",
           "symbol": "Revised design"
+        },
+        {
+          "authority_role": "design",
+          "blob_sha": "d235c7fc1eb34e149de5c2332c927cff71f43dab",
+          "line_end": 104,
+          "line_start": 104,
+          "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
+          "source_kind": "doc",
+          "symbol": "Graduation scorecard"
         }
       ],
       "status": "in_progress",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "3fc98c946a0b41f096d62fc48301b9ac354fef81"
+  "source_revision": "8d34024d625f414fa950aa3184b816fe26a0034d"
 }

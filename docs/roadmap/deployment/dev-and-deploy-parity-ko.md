@@ -160,14 +160,14 @@ Core 런타임만 Pantheon을 소유하며 로컬 및 deployed interactive 읽�
 없는 모델로 잘못 표시하지 않도록 `starting` 또는 `event-bridge` mode와 함께 HTTP 200을 반환합니다. Semantic 및 local narrator fallback stream은 동일한 authoritative `ConversationAssuranceReader`를 사용합니다.
 운영 복제본은 서버 소비자 그룹을 공유하므로 요청마다 복제본 하나만 응답합니다. Singleton 로컬 코어는 process-scoped 서버 그룹을 사용하므로 재시작할 때 이전 프로세스의 관련 없는 Pantheon 트래픽을 재생하지 않고 physical 토픽의 현재 오프셋에서 시작합니다.
 요청은 raw 신원 대신 salted SHA-256 user/세션 참조를 전달하며, 시간 초과 또는 잘못된 응답은 전문가 답변을 꾸미지 않고 명시적인 agent-to-Bragi 인계로 표시합니다. 같은 지연 시간 프로파일은 같은 direct, streamed 또는 detached 모드를 선택하며 측정된 프로바이더 지연 시간과 구성된 근거 가용성만 모드를 바꿀 수 있습니다.
-명시적 로컬 Azure CLI principal 대안은 `GET /local-auth/me`를 통해 초기화합니다. 표준 전체
-스택 준비는 오래된 비공개 Vite 값과 관계없이 항상 Browser Entra를 선택합니다. CLI principal
+명시적 로컬 Azure CLI principal 대안은 `GET /local-auth/me`를 통해 초기화합니다. 표준 전체 스택 준비는 오래된 비공개 Vite 값과 관계없이 항상 Browser Entra를 선택합니다. CLI principal
 디버깅에는 명시적인 `--auth-mode azure-cli` 준비 요청과 브라우저 및 Operator API 경계의
 활성화 값과 확인 값 쌍이 필요합니다. 표준 VS Code 복합 실행은 두 브라우저 값을 `0`으로
 설정하며 CLI principal 바로 가기를 제공하지 않습니다. 표준 준비 작업은
 `--auth-mode browser-entra`를 전달하며, 별도로 이름을 붙인
 `console: start full stack (Azure CLI debug, Contributor)` 작업만
 `--auth-mode azure-cli`를 전달합니다.
+개발자 안내는 이 실행 경로를 사용하도록 설명하고, 고정된 `Contributor` 모드로는 `Approver` 또는 `Owner` 승인 접근을 검증할 수 없다고 경고합니다.
 Operator 서비스는 시작할 때 활성 대화형 CLI 사용자를 확인하고 고정된 Contributor 상한을
 적용하며, 브라우저에 안전한 프로파일과 프로세스별 세션 일회값을 반환합니다. 이 일회값은
 loopback 클라이언트에서만 수락하고 브라우저 요청에는 정확히 구성된 origin도 요구합니다.

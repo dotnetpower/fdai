@@ -484,10 +484,11 @@ Human users never hold PATs or long-lived secrets:
   idempotently synchronizes both fixed loopback origins into the configured SPA registration;
   a tenant mismatch or insufficient Graph permission stops startup instead of leaving a broken
   post-sign-in redirect.
-- **CLI principal alternative**: `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1` and
-  `VITE_LOCAL_AZURE_CLI_AUTH=1` project the current CLI user with a fixed local role
-  ceiling when browser sign-in isn't required. This is an explicit alternative, not the
-  canonical full-stack profile.
+- **CLI principal alternative**: Use `console: start full stack (Azure CLI debug, Contributor)` or
+  pass `--auth-mode azure-cli` to `start-console-web.sh`. The launcher projects the current CLI user
+  with a fixed `Contributor` ceiling and sets paired confirmation values at the browser and API
+  boundaries. Don't persist those implementation flags in `console/.env.local`. This diagnostic
+  mode cannot open approval details that require `Approver` or `Owner`.
 - **Synthetic fixtures**: anonymous authorization, static users, seed audit records,
   and scenario replay are available only through `app(test_fixtures=True)` under
   pytest. They aren't an interactive development data source.
