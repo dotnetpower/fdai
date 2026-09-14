@@ -310,6 +310,8 @@ typed semantic targets use exact current-turn source spans for provider, resourc
 SKU, API version, region, and deployment mode. Missing conditions never become compatibility claims;
 query inputs are bounded scalar/string-array selectors, not literal evidence objects. Object-valued
 FunctionType evidence inputs remain dependency-only; the selector does not assert observed state.
+When a turn carries exact document references, retrieval intersects those authorized versions with
+the cloud selectors before ranking. Missing combined capability holds instead of searching a collection.
 the canonical `cloud_as_of` facet requires fresh matching evidence and `cloud_current` terminates
 with a new-observation requirement, without fetching during the answer. RCA holds stale, pending,
 or unbound applicability evidence. Missing source/trust policy is unavailable, never

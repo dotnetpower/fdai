@@ -33,8 +33,9 @@ from fdai_deployment_cli.entra_graph import (
     uuid,
 )
 
-# Human App Roles and flags are pinned by user-rbac-and-identity and its runbook.
+# Human App Roles and the channel attachment workload role are pinned by the identity owners.
 ROLES = ("Reader", "Contributor", "Approver", "Owner", "BreakGlass")
+CHANNEL_ATTACHMENT_ROLE = "Document.ChannelAttachment.Submit"
 _SLOTS = ("readers", "contributors", "approvers", "owners", "break_glass")
 
 
@@ -88,6 +89,7 @@ class EntraPlan:
     desired: EntraDesired
     marker: str
     role_ids: tuple[str, ...]
+    channel_attachment_role_id: str
     scope_id: str
     digest: str
 
@@ -104,6 +106,7 @@ def plan_entra_bootstrap(desired: EntraDesired) -> EntraPlan:
         desired,
         marker,
         tuple(str(uuid5(NAMESPACE_URL, f"{marker}/{role}")) for role in ROLES),
+        str(uuid5(NAMESPACE_URL, f"{marker}/{CHANNEL_ATTACHMENT_ROLE}")),
         str(uuid5(NAMESPACE_URL, f"{marker}/access")),
         digest,
     )
@@ -138,7 +141,7 @@ class EntraBootstrapResult:
 
 
 def _roles(plan: EntraPlan) -> list[Json]:
-    return [
+    human_roles = [
         {
             "id": role_id,
             "value": role,
@@ -148,6 +151,17 @@ def _roles(plan: EntraPlan) -> list[Json]:
             "isEnabled": True,
         }
         for role, role_id in zip(ROLES, plan.role_ids, strict=True)
+    ]
+    return [
+        *human_roles,
+        {
+            "id": plan.channel_attachment_role_id,
+            "value": CHANNEL_ATTACHMENT_ROLE,
+            "displayName": "Channel attachment submitter",
+            "description": "Submit bounded channel attachments to the internal ingestion intake",
+            "allowedMemberTypes": ["Application"],
+            "isEnabled": True,
+        },
     ]
 
 
@@ -178,7 +192,10 @@ def _merge_definitions(existing: object, desired: list[Json]) -> list[Json]:
         if collisions:
             if len(collisions) != 1 or not matches(collisions[0], item):
                 raise EntraBootstrapError("role-or-scope-conflict")
-            if "allowedMemberTypes" in item and collisions[0]["allowedMemberTypes"] != ["User"]:
+            if (
+                "allowedMemberTypes" in item
+                and collisions[0]["allowedMemberTypes"] != item["allowedMemberTypes"]
+            ):
                 raise EntraBootstrapError("role-or-scope-conflict")
         else:
             merged.append(item)

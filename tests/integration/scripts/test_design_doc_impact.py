@@ -77,6 +77,67 @@ def test_one_owning_doc_satisfies_route() -> None:
     assert failures == []
 
 
+def test_explicit_overlapping_route_doc_satisfies_only_owned_paths() -> None:
+    module = _load_module()
+    manifest = {
+        "routes": [
+            {
+                "id": "broad",
+                "paths": ["services/**"],
+                "docs_update": ["docs/broad.md"],
+                "docs_update_routes": ["narrow"],
+            },
+            {
+                "id": "narrow",
+                "paths": ["services/attachments/**"],
+                "docs_update": ["docs/attachments.md"],
+            },
+        ]
+    }
+
+    assert (
+        module.missing_doc_updates(
+            {"services/attachments/intake.py", "docs/attachments.md"},
+            manifest,
+        )
+        == []
+    )
+    assert module.missing_doc_updates(
+        {"services/cost/runtime.py", "docs/attachments.md"},
+        manifest,
+    ) == [("broad", ("services/cost/runtime.py",), ("docs/broad.md",))]
+
+
+def test_overlapping_route_doc_does_not_hide_mixed_unowned_paths() -> None:
+    module = _load_module()
+    manifest = {
+        "routes": [
+            {
+                "id": "broad",
+                "paths": ["services/**"],
+                "docs_update": ["docs/broad.md"],
+                "docs_update_routes": ["narrow"],
+            },
+            {
+                "id": "narrow",
+                "paths": ["services/attachments/**"],
+                "docs_update": ["docs/attachments.md"],
+            },
+        ]
+    }
+
+    failures = module.missing_doc_updates(
+        {
+            "services/attachments/intake.py",
+            "services/cost/runtime.py",
+            "docs/attachments.md",
+        },
+        manifest,
+    )
+
+    assert failures == [("broad", ("services/cost/runtime.py",), ("docs/broad.md",))]
+
+
 def test_localized_owning_doc_satisfies_route() -> None:
     module = _load_module()
     manifest = {

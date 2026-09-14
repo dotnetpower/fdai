@@ -15,7 +15,7 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 POLICY_PATH = REPO_ROOT / "packages" / "service-contracts" / "contract-generation.json"
-GENERATOR_VERSION = "1.1.0"
+GENERATOR_VERSION = "1.2.0"
 _IDENTIFIER_PARTS = re.compile(r"[^A-Za-z0-9]+")
 
 
@@ -325,7 +325,22 @@ def render_artifacts(policy: Mapping[str, Any], repo_root: Path) -> dict[str, st
         python_root = renderer.python_type(schema, root_name)
         typescript_root = renderer.typescript_type(schema, root_name)
         if python_root != root_name or typescript_root != root_name:
-            raise GenerationError(f"top-level schema must generate an object: {path}")
+            union = schema.get("anyOf") or schema.get("oneOf")
+            python_members = tuple(item.strip() for item in python_root.split(" | "))
+            typescript_members = tuple(item.strip() for item in typescript_root.split(" | "))
+            closed_object_union = (
+                isinstance(union, list)
+                and len(union) >= 2
+                and len(python_members) == len(typescript_members) == len(union)
+                and all(member in renderer.python_definitions for member in python_members)
+                and all(member in renderer.typescript_definitions for member in typescript_members)
+            )
+            if not closed_object_union:
+                raise GenerationError(f"top-level schema must generate an object: {path}")
+            renderer.python_definitions[root_name] = f"type {root_name} = {python_root}"
+            renderer.typescript_definitions[root_name] = (
+                f"export type {root_name} = {typescript_root};"
+            )
         python_definitions.extend(renderer.python_definitions.values())
         typescript_definitions.extend(renderer.typescript_definitions.values())
         exported.append(root_name)

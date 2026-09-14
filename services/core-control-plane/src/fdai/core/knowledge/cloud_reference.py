@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Protocol, runtime_checkable
+from uuid import UUID
 
 from fdai_service_contracts.cloud_knowledge import Applicability, CloudSourceEvidence
 from fdai_service_contracts.cloud_knowledge_release import KnowledgeReleaseBinding
@@ -30,6 +31,22 @@ class CloudReferenceReader(Protocol):
     async def resolve(
         self, binding: KnowledgeReleaseBinding, source_id: str, now: datetime
     ) -> tuple[CloudSourceEvidence, bool]: ...
+
+
+@runtime_checkable
+class ApplicableExactDocumentSearch(Protocol):
+    """Intersect exact revisions and cloud conditions before ranking, never a fallback."""
+
+    async def search_applicable_governed_exact(
+        self,
+        query: str,
+        *,
+        exact_refs: tuple[tuple[UUID, UUID], ...],
+        context_source: str,
+        conversation_ref: str,
+        target: Applicability,
+        k: int,
+    ) -> GovernedDocumentSearchResult: ...
 
 
 def citation_dates(source: CloudSourceEvidence, *, status: str, korean: bool) -> str:

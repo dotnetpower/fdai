@@ -598,6 +598,138 @@ def _channel_edge_disable_plan() -> dict[str, object]:
     return plan
 
 
+def _document_channel_intake_enable_plan() -> dict[str, object]:
+    address = "module.document_ingestion_api.module.channel_intake[0].azurerm_container_app.service"
+    resource = _resource(image="image")
+    resource["name"] = "example-document-channel-intake"
+    resource["id"] = (
+        "/subscriptions/example-subscription/resourceGroups/example/providers/"
+        "Microsoft.App/containerApps/example-document-channel-intake"
+    )
+    identity = (
+        "/subscriptions/example/resourceGroups/example/providers/"
+        "Microsoft.ManagedIdentity/userAssignedIdentities/ingestion"
+    )
+    resource["identity"][0]["identity_ids"] = [identity]  # type: ignore[index]
+    resource["registry"][0]["identity"] = identity  # type: ignore[index]
+    resource["secret"] = [  # type: ignore[index]
+        {
+            "name": "channel-intake-database-dsn",
+            "identity": identity,
+            "key_vault_secret_id": "https://example.vault.azure.net/secrets/database",
+        },
+        {
+            "name": "channel-intake-principal-scopes",
+            "identity": identity,
+            "key_vault_secret_id": "https://example.vault.azure.net/secrets/principals",
+        },
+    ]
+    required_environment = {
+        "FDAI_ADLS_ACCOUNT_URL": "https://storage.dfs.core.windows.net",
+        "FDAI_ADLS_SOURCE_FILE_SYSTEM": "documents",
+        "FDAI_CHANNEL_ATTACHMENT_ACCESS_DESCRIPTOR_REF": "access:channel",
+        "FDAI_CHANNEL_ATTACHMENT_API_AUDIENCE": "api://ingestion",
+        "FDAI_CHANNEL_ATTACHMENT_COLLECTION_ID": "channel-evidence",
+        "FDAI_CHANNEL_ATTACHMENT_MAX_CONTENT_BYTES": "26214400",
+        "FDAI_CHANNEL_ATTACHMENT_PRINCIPAL_SCOPES_JSON": None,
+        "FDAI_CHANNEL_ATTACHMENT_READER_GROUPS": "group:responders",
+        "FDAI_CHANNEL_ATTACHMENT_RETENTION_POLICY_VERSION": "session-v1",
+        "FDAI_CHANNEL_EDGE_CLIENT_ID": "channel-edge-client",
+        "FDAI_DATABASE_ROLE": "fdai_ingestion_api",
+        "FDAI_DATABASE_URL": None,
+        "FDAI_DOCUMENT_EVENT_TOPIC": "fdai.pipeline.stages",
+        "FDAI_ENTRA_TENANT_ID": "tenant",
+        "FDAI_EXECUTION_VENUE": "deployed",
+        "FDAI_INGESTION_DEPLOYMENT_ROLE": "channel-intake",
+        "FDAI_KAFKA_BOOTSTRAP_SERVERS": "eventhubs:9093",
+        "FDAI_MI_CLIENT_ID": "ingestion-client",
+        "PGOPTIONS": "-c role=fdai_ingestion_api",
+        "POSTGRES_HOST": "postgres.example",
+        "RUNTIME_ENV": "dev",
+    }
+    environment = []
+    for name, value in required_environment.items():
+        if name == "FDAI_DATABASE_URL":
+            environment.append({"name": name, "secret_name": "channel-intake-database-dsn"})
+        elif name == "FDAI_CHANNEL_ATTACHMENT_PRINCIPAL_SCOPES_JSON":
+            environment.append({"name": name, "secret_name": "channel-intake-principal-scopes"})
+        else:
+            environment.append({"name": name, "value": value})
+    resource["template"][0]["container"] = [  # type: ignore[index]
+        {
+            "name": "document-channel-intake",
+            "image": "image",
+            "command": ["fdai-document-channel-intake"],
+            "args": [],
+            "env": environment,
+            "startup_probe": [
+                {
+                    "transport": "HTTP",
+                    "port": 8000,
+                    "path": "/health/ready",
+                    "failure_count_threshold": 30,
+                }
+            ],
+            "liveness_probe": [
+                {
+                    "transport": "HTTP",
+                    "port": 8000,
+                    "path": "/health/live",
+                    "failure_count_threshold": 3,
+                }
+            ],
+            "readiness_probe": [
+                {
+                    "transport": "HTTP",
+                    "port": 8000,
+                    "path": "/health/ready",
+                    "failure_count_threshold": 3,
+                }
+            ],
+        }
+    ]
+    resource["ingress"] = [
+        {
+            "external_enabled": False,
+            "allow_insecure_connections": False,
+            "target_port": 8000,
+        }
+    ]
+    resource["tags"] = {"fdai:component": "document-channel-intake"}
+    return {
+        "resource_changes": [
+            {
+                "address": (
+                    "module.document_ingestion_api.terraform_data.channel_intake_contract[0]"
+                ),
+                "change": {"actions": ["create"], "before": None, "after": {}},
+            },
+            {
+                "address": address,
+                "change": {"actions": ["create"], "before": None, "after": resource},
+            },
+        ]
+    }
+
+
+def _document_channel_intake_update_plan() -> dict[str, object]:
+    plan = _document_channel_intake_enable_plan()
+    change = plan["resource_changes"][1]["change"]  # type: ignore[index]
+    before = copy.deepcopy(change["after"])
+    before["template"][0]["container"][0]["image"] = "old-image"  # type: ignore[index]
+    change.update({"actions": ["update"], "before": before})
+    plan["resource_changes"] = [plan["resource_changes"][1]]  # type: ignore[index]
+    return plan
+
+
+def _document_channel_intake_disable_plan() -> dict[str, object]:
+    plan = _document_channel_intake_enable_plan()
+    for entry in plan["resource_changes"]:  # type: ignore[union-attr]
+        change = entry["change"]
+        change.update({"actions": ["delete"], "before": change["after"], "after": None})
+    return plan
+
+
 def _worker_plan() -> dict[str, object]:
     address = "module.document_processing_worker.module.container_app.azurerm_container_app.service"
     plan = _plan(address, ["update"])
@@ -1280,6 +1412,68 @@ def test_plan_guard_rejects_authority_bearing_operator_channel_edge(guard: Modul
         )
 
 
+def test_plan_guard_validates_attachment_enabled_channel_edge(guard: ModuleType) -> None:
+    plan = _channel_edge_enable_plan()
+    environment = plan["resource_changes"][1]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    environment.extend(
+        [
+            {"name": "FDAI_CHANNEL_ATTACHMENTS_ENABLED", "value": "1"},
+            {
+                "name": "FDAI_CHANNEL_ATTACHMENT_INTAKE_ORIGIN",
+                "value": "https://intake.internal.example",
+            },
+            {
+                "name": "FDAI_CHANNEL_ATTACHMENT_INTAKE_AUDIENCE",
+                "value": "api://ingestion",
+            },
+            {"name": "FDAI_CHANNEL_ATTACHMENT_CLIENT_ID", "value": "channel-edge"},
+            {
+                "name": "FDAI_CHANNEL_ATTACHMENT_SCRATCH_DIR",
+                "value": "/tmp",  # noqa: S108
+            },
+            {"name": "FDAI_CHANNEL_ATTACHMENT_SCRATCH_ENCRYPTED", "value": "1"},
+            {
+                "name": "FDAI_CHANNEL_ATTACHMENT_MAX_CONTENT_BYTES",
+                "value": "26214400",
+            },
+            {
+                "name": "FDAI_SLACK_FILES_INFO_URL",
+                "value": "https://slack.com/api/files.info",
+            },
+            {
+                "name": "FDAI_SLACK_ATTACHMENT_METADATA_HOSTS_JSON",
+                "value": '["slack.com"]',
+            },
+            {
+                "name": "FDAI_SLACK_ATTACHMENT_DOWNLOAD_HOSTS_JSON",
+                "value": '["files.slack.com"]',
+            },
+        ]
+    )
+
+    guard.validate_plan(
+        plan,
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+        operator_channel_edge_transition="enable",
+    )
+
+    next(item for item in environment if item["name"] == "FDAI_CHANNEL_ATTACHMENT_INTAKE_ORIGIN")[
+        "value"
+    ] = "http://attacker.invalid"
+    with pytest.raises(guard.PlanGuardError, match="intake origin"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+            operator_channel_edge_transition="enable",
+        )
+
+
 def test_plan_guard_rejects_operator_channel_edge_transition_for_other_service(
     guard: ModuleType,
 ) -> None:
@@ -1290,6 +1484,49 @@ def test_plan_guard_rejects_operator_channel_edge_transition_for_other_service(
             environment="dev",
             image_ref="image",
             operator_channel_edge_transition="enable",
+        )
+
+
+def test_plan_guard_allows_document_channel_intake_lifecycle(guard: ModuleType) -> None:
+    guard.validate_plan(
+        _document_channel_intake_enable_plan(),
+        service="document-ingestion-api",
+        environment="dev",
+        image_ref="image",
+        document_channel_intake_transition="enable",
+    )
+    guard.validate_plan(
+        _document_channel_intake_update_plan(),
+        service="document-ingestion-api",
+        environment="dev",
+        image_ref="image",
+    )
+    guard.validate_plan(
+        _document_channel_intake_disable_plan(),
+        service="document-ingestion-api",
+        environment="dev",
+        image_ref="image",
+        document_channel_intake_transition="disable",
+    )
+
+
+def test_plan_guard_rejects_open_or_authority_bearing_channel_intake(
+    guard: ModuleType,
+) -> None:
+    plan = _document_channel_intake_enable_plan()
+    resource = plan["resource_changes"][1]["change"]["after"]  # type: ignore[index]
+    resource["ingress"][0]["external_enabled"] = True
+    resource["template"][0]["container"][0]["env"].append(  # type: ignore[index]
+        {"name": "FDAI_COMMAND_MI_CLIENT_ID", "value": "executor"}
+    )
+
+    with pytest.raises(guard.PlanGuardError, match="authority boundary|ingress contract"):
+        guard.validate_plan(
+            plan,
+            service="document-ingestion-api",
+            environment="dev",
+            image_ref="image",
+            document_channel_intake_transition="enable",
         )
 
 
@@ -1846,6 +2083,7 @@ def test_plan_bundle_seals_runtime_call_evidence_transition(
         runtime_call_evidence_transition=True,
         model_binding_transition=False,
         operator_channel_edge_transition="none",
+        document_channel_intake_transition="none",
         sharepoint_connector_transition="none",
     )
 
@@ -3899,6 +4137,82 @@ def test_tfvars_materializes_bounded_slack_channel_edge_provider(
     assert "channel_edge" not in payload["environments"]["dev"]["operator-service"]
 
 
+def test_tfvars_materializes_operator_channel_attachment_settings(tfvars: ModuleType) -> None:
+    vault = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000"
+        "/resourceGroups/example/providers/Microsoft.KeyVault/vaults/example"
+    )
+    provider = {
+        "principal_scopes_secret_id": f"{vault}/secrets/fdai-channel-edge-principal-scopes",
+        "slack_signing_secret_id": f"{vault}/secrets/fdai-channel-edge-slack-signing-secret",
+        "slack_bot_token_secret_id": f"{vault}/secrets/fdai-channel-edge-slack-bot-token",
+        "slack_team_id": "T00000000",
+        "slack_principal_map_secret_id": (f"{vault}/secrets/fdai-channel-edge-slack-principal-map"),
+        "attachments": {
+            "intake_origin": "https://channel-intake.internal.example",
+            "intake_audience": "api://document-ingestion",
+            "max_content_bytes": 26214400,
+        },
+    }
+
+    edge = tfvars.materialize_operator_channel_edge(
+        provider,
+        operator_name="ca-example-dev-operator-api",
+    )
+
+    assert edge["attachments_enabled"] is True
+    assert edge["attachment_intake_origin"] == "https://channel-intake.internal.example"
+    assert edge["attachment_scratch_dir"] == "/tmp"  # noqa: S108
+    assert edge["slack_download_hosts_json"] == '["files.slack.com"]'
+
+
+def test_tfvars_materializes_document_channel_intake_binding(tfvars: ModuleType) -> None:
+    vault = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000"
+        "/resourceGroups/example/providers/Microsoft.KeyVault/vaults/example"
+    )
+    binding = {
+        "principal_scopes_secret_id": f"{vault}/secrets/fdai-channel-edge-principal-scopes",
+        "edge_client_id": "00000000-0000-0000-0000-000000000003",
+        "collection_id": "channel-evidence",
+        "access_descriptor_ref": "access:channel-evidence",
+        "reader_groups": "group:responders",
+        "retention_policy": "session-v1",
+        "max_content_bytes": 26214400,
+    }
+    payload = {
+        "environments": {
+            "dev": {
+                "document-ingestion-api": {
+                    "name": "ca-dev-ingestion",
+                }
+            }
+        }
+    }
+
+    selected = tfvars.select_tfvars(
+        payload,
+        service="document-ingestion-api",
+        environment="dev",
+        document_channel_intake_enabled=True,
+        document_channel_intake_binding=binding,
+    )
+
+    assert selected["channel_intake"] == {
+        "enabled": True,
+        "name": "ca-dev-document-channel-intake",
+        "principal_scopes_secret_id": (
+            "https://example.vault.azure.net/secrets/fdai-channel-edge-principal-scopes"
+        ),
+        "edge_client_id": "00000000-0000-0000-0000-000000000003",
+        "collection_id": "channel-evidence",
+        "access_descriptor_ref": "access:channel-evidence",
+        "reader_groups": "group:responders",
+        "retention_policy": "session-v1",
+        "max_content_bytes": 26214400,
+    }
+
+
 @pytest.mark.parametrize(
     ("mutation", "error"),
     [
@@ -5752,6 +6066,55 @@ def test_plan_bundle_binds_operator_channel_edge_transition(
             now=now + timedelta(minutes=5),
             **coordinates,
         )
+
+
+def test_plan_bundle_binds_document_channel_intake_transition(
+    bundle: ModuleType,
+    tmp_path: Path,
+) -> None:
+    plan = tmp_path / "service.plan"
+    plan.write_bytes(b"binary plan")
+    plan_json = tmp_path / "service-plan.json"
+    context = tmp_path / "context.json"
+    metadata = tmp_path / "metadata.json"
+    now = datetime(2026, 9, 14, 10, 0, tzinfo=UTC)
+    image = _image("fdai-document-ingestion-api")
+    address = "module.document_ingestion_api.module.container_app.azurerm_container_app.service"
+    payload = _plan(address, ["update"], image=image)
+    primary_change = payload["resource_changes"][0]["change"]  # type: ignore[index]
+    for side in ("before", "after"):
+        resource = primary_change[side]
+        resource["template"][0]["container"][0]["name"] = "document-ingestion-api"
+        resource["template"][0]["container"][0]["command"] = ["fdai-document-ingestion-api"]
+        resource["tags"] = {"fdai:component": "document-ingestion-api"}
+    intake_plan = _document_channel_intake_enable_plan()
+    intake_resource = intake_plan["resource_changes"][1]["change"]["after"]  # type: ignore[index]
+    intake_resource["template"][0]["container"][0]["image"] = image  # type: ignore[index]
+    payload["resource_changes"].extend(intake_plan["resource_changes"])
+    plan_json.write_text(json.dumps(payload), encoding="utf-8")
+    coordinates = _bundle_coordinates()
+
+    created = bundle.create_bundle(
+        plan=plan,
+        plan_json=plan_json,
+        context_path=context,
+        metadata_path=metadata,
+        service="document-ingestion-api",
+        environment="dev",
+        repository="example/fdai",
+        commit_sha="b" * 40,
+        image_ref=image,
+        workflow_run_id="123",
+        document_channel_intake_transition="enable",
+        now=now,
+        **coordinates,
+    )
+
+    assert created["deployment_mode"] == "document-channel-intake-enable"
+    sealed = json.loads(context.read_text(encoding="utf-8"))["document_channel_intake"]
+    assert sealed["service_name"] == "example-document-channel-intake"
+    assert sealed["component_tag"] == "document-channel-intake"
+    assert sealed["image_ref"] == image
 
 
 def test_plan_bundle_seals_disabled_operator_channel_edge_target(

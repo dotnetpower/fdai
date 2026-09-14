@@ -403,3 +403,29 @@ async def test_cloud_generation_activation_is_atomic_and_lexical_has_no_model_ca
         k=5,
     )
     assert unknown_sku.hits == ()
+    exact_arguments = {
+        "context_source": "web_reference",
+        "conversation_ref": "synthetic-conversation",
+        "k": 5,
+    }
+    exact_match = await reader.search_applicable_governed_exact(
+        "Premium",
+        exact_refs=((version.document_id, version.version_id),),
+        target=target,
+        **exact_arguments,
+    )
+    assert len(exact_match.hits) == 2
+    different_version = await reader.search_applicable_governed_exact(
+        "Premium",
+        exact_refs=((version.document_id, uuid4()),),
+        target=target,
+        **exact_arguments,
+    )
+    assert different_version.hits == ()
+    wrong_generation = await reader.search_applicable_governed_exact(
+        "Premium",
+        exact_refs=((version.document_id, version.version_id),),
+        target=target.model_copy(update={"service_generation": "v2"}),
+        **exact_arguments,
+    )
+    assert wrong_generation.hits == ()

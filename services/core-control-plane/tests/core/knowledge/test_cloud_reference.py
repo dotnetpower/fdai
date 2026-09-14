@@ -338,3 +338,58 @@ async def test_reader_rejects_changed_source_digest(helpers: ModuleType) -> None
     case.references.source = _source(NOW, text="Different synthetic source body")
     with pytest.raises(RuntimeError, match="source identity changed"):
         await case.search()
+
+
+@pytest.mark.parametrize("combined_capability", [False, True])
+async def test_exact_document_context_and_cloud_target_never_widen_to_collection(
+    helpers: ModuleType,
+    combined_capability: bool,
+) -> None:
+    from fdai_service_contracts.document import DocumentVersion as CurrentVersion
+
+    case = _case(helpers)
+    legacy = next(iter(case.reader._metadata.versions.values()))
+    current = CurrentVersion.model_validate(legacy.model_dump() | {"index_state": "active"})
+    hits = tuple(
+        replace(
+            hit,
+            metadata={
+                **hit.metadata,
+                "disposition": "governed_knowledge",
+                "scope_kind": "collection",
+                "scope_ref": current.access.collection_id,
+            },
+        )
+        for hit in case.reader._search.hits
+    )
+
+    class Combined(helpers._ExactSearch):
+        async def search_applicable_governed_exact(self, query, *, target, **arguments):
+            assert target == case.source.applicability
+            return await self.search_governed_exact(query, **arguments)
+
+    search = Combined(hits) if combined_capability else helpers._ExactSearch(hits)
+    case.reader._search = search
+    case.reader._metadata = helpers._CurrentMetadata((current,))
+    arguments = dict(
+        query="reference",
+        principal_ref="operator-a",
+        principal_role=CeilingRole.READER,
+        principal_groups=frozenset({"group:responders"}),
+        purpose="operations-review",
+        limit=2,
+        target=case.source.applicability,
+        exact_refs=(f"doc:{current.document_id}:{current.version_id}",),
+        context_source="web_reference",
+        conversation_ref="synthetic-conversation",
+        document_context_digest="sha256:" + "a" * 64,
+    )
+    if combined_capability:
+        result = await case.reader.search(**arguments)
+        assert result.excerpts[0].cloud_source == case.source
+        assert result.excerpts[0].applicability_verified
+        assert search.exact_calls[0][1] == ((current.document_id, current.version_id),)
+    else:
+        with pytest.raises(RuntimeError, match="exact cloud applicability"):
+            await case.reader.search(**arguments)
+    assert search.calls == []

@@ -1,7 +1,7 @@
 ---
 title: 클라우드 리소스 지식 수명 주기
 translation_of: cloud-resource-knowledge-lifecycle.md
-translation_source_sha: 63b0419bab094c1a594aae2a661e7bb357e7dcce
+translation_source_sha: 66132b1c5c0a889e602df3f0abd1b34eccc33362
 translation_revised: 2026-09-14
 ---
 # 클라우드 리소스 지식 수명 주기
@@ -320,6 +320,8 @@ Console 지식 전체 현황은 신뢰 가능한 날짜 범위, 출처 결과, �
 SKU, API 버전, 지역과 배포 모드를 연결합니다. 누락 조건을 호환성으로 간주하지 않습니다.
 조회 입력은 제한된 단일 값과 문자열 배열 선택자이며 근거 객체를 직접 전달하지 않습니다.
 객체형 FunctionType 근거 입력은 의존 조회 결과로만 받으며 선택자가 관측 상태를 주장하지 않습니다.
+발화에 정확한 문서 참조가 있으면 순위 계산 전에 승인된 해당 버전과 클라우드 선택 조건을
+함께 적용합니다. 결합 조회 기능이 없으면 컬렉션 전체로 넓히지 않고 보류합니다.
 정규 의미 값 `cloud_as_of`는 최신이며 조건이 맞는 근거를 요구하고, `cloud_current`는
 답변 중 외부 수집을 하지 않고 새 관측 필요 상태로 종료합니다. 출처/신뢰 정책이 없으면 테스트 키나
 샘플 데이터로 대체하지 않고 사용 불가로 표시합니다.

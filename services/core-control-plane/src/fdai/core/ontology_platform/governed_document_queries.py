@@ -10,7 +10,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal, Protocol, cast
+from typing import Any, Literal, Protocol, TypedDict, cast
+from uuid import UUID
 
 from fdai_service_contracts.cloud_knowledge import Applicability, CloudSourceEvidence
 from fdai_service_contracts.ontology_query import content_digest
@@ -137,7 +138,15 @@ class GovernedDocumentReader(Protocol):
         purpose: str,
         limit: int,
         target: Applicability | None = None,
+        exact_refs: tuple[str, ...] = (),
+        context_source: str | None = None,
+        conversation_ref: str | None = None,
+        document_context_digest: str | None = None,
     ) -> GovernedDocumentCollection: ...
+
+
+class _TargetKeywords(TypedDict, total=False):
+    target: Applicability
 
 
 def governed_document_function_type() -> OntologyFunctionType:
@@ -236,6 +245,7 @@ def governed_document_function(
             raise ValueError("governed document limit MUST be in [1, 8]")
 
         target = cloud_target_from_arguments(arguments)
+        target_keywords: _TargetKeywords = {} if target is None else {"target": target}
         guidance_mode = arguments.get("guidance_mode", "reference")
         if guidance_mode not in {"reference", "as_of", "current"}:
             raise ValueError("cloud guidance mode is invalid")
@@ -263,15 +273,30 @@ def governed_document_function(
                 truncation_reason=reason,
             )
             return cast(dict[str, object], json.loads(held.canonical_json()))
-        collection = await reader.search(
-            query=query,
-            principal_ref=principal_ref,
-            principal_role=invocation_context.caller_role,
-            principal_groups=frozenset(invocation_context.principal_groups),
-            purpose=invocation_context.purposes[0],
-            limit=limit,
-            **({"target": target} if target is not None else {}),
-        )
+        if invocation_context.document_refs:
+            collection = await reader.search(
+                query=query,
+                principal_ref=principal_ref,
+                principal_role=invocation_context.caller_role,
+                principal_groups=frozenset(invocation_context.principal_groups),
+                purpose=invocation_context.purposes[0],
+                limit=limit,
+                exact_refs=invocation_context.document_refs,
+                context_source=invocation_context.document_context_source,
+                conversation_ref=invocation_context.document_conversation_ref,
+                document_context_digest=invocation_context.document_context_digest,
+                **target_keywords,
+            )
+        else:
+            collection = await reader.search(
+                query=query,
+                principal_ref=principal_ref,
+                principal_role=invocation_context.caller_role,
+                principal_groups=frozenset(invocation_context.principal_groups),
+                purpose=invocation_context.purposes[0],
+                limit=limit,
+                **target_keywords,
+            )
         if len(collection.excerpts) > limit:
             raise ValueError("governed document reader exceeded the requested limit")
         if guidance_mode == "as_of" and (
@@ -317,6 +342,11 @@ def governed_document_function(
                     "document_revision": excerpt.document_revision,
                     "source_name": excerpt.source_name,
                     "source_ref": excerpt.source_ref,
+                    **(
+                        {"document_citation": _exact_document_citation(excerpt.source_ref)}
+                        if invocation_context.document_refs
+                        else {}
+                    ),
                     "locator": excerpt.locator,
                     "chunk_id": excerpt.chunk_id,
                     "text": excerpt.text,
@@ -350,6 +380,28 @@ def governed_document_function(
         return cast(dict[str, object], json.loads(table.canonical_json()))
 
     return evaluate
+
+
+def _exact_document_citation(source_ref: str) -> str:
+    prefix = "document://"
+    if not source_ref.startswith(prefix):
+        raise ValueError("exact governed document source ref is invalid")
+    document_id, separator, remainder = source_ref.removeprefix(prefix).partition("/versions/")
+    version_id, fragment, locator = remainder.partition("#")
+    try:
+        parsed_document = UUID(document_id)
+        parsed_version = UUID(version_id)
+    except ValueError as exc:
+        raise ValueError("exact governed document source ref is invalid") from exc
+    if (
+        separator != "/versions/"
+        or fragment != "#"
+        or not locator
+        or str(parsed_document) != document_id
+        or str(parsed_version) != version_id
+    ):
+        raise ValueError("exact governed document source ref is invalid")
+    return f"doc:{parsed_document}:{parsed_version}"
 
 
 __all__ = [

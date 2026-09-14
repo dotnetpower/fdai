@@ -69,6 +69,25 @@ def apply_document_evidence_requirement(
     return updated, build_semantic_frame(updated, utterance=utterance, context=context)
 
 
+def apply_required_document_evidence(
+    proposal: SemanticFrameProposal,
+    frame: SemanticProblemFrame,
+    *,
+    utterance: str,
+    context: tuple[str, ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame]:
+    """Force the server-owned document lane for an exact request context."""
+
+    requirement = _requirement(SemanticDocumentEvidenceMode.REQUIRED)
+    retained = tuple(
+        value
+        for value in proposal.evidence_requirements
+        if not value.startswith(_REQUIREMENT_PREFIX)
+    )
+    updated = proposal.model_copy(update={"evidence_requirements": (*retained, requirement)})
+    return updated, build_semantic_frame(updated, utterance=utterance, context=context)
+
+
 def compile_governed_document_plan(
     *,
     frame: SemanticProblemFrame,
@@ -247,6 +266,7 @@ def _has_function(manifest: QueryManifest) -> bool:
 __all__ = [
     "append_governed_document_plan",
     "apply_document_evidence_requirement",
+    "apply_required_document_evidence",
     "compile_governed_document_plan",
     "document_evidence_mode",
 ]

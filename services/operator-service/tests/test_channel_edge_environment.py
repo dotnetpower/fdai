@@ -44,6 +44,31 @@ def _environment(*, channels: str = "slack") -> dict[str, str]:
     }
 
 
+def _enable_attachments(values: dict[str, str]) -> None:
+    values.update(
+        {
+            "FDAI_CHANNEL_ATTACHMENTS_ENABLED": "1",
+            "FDAI_CHANNEL_ATTACHMENT_INTAKE_ORIGIN": "http://127.0.0.1:8015",
+            "FDAI_CHANNEL_ATTACHMENT_INTAKE_AUDIENCE": "api://document-ingestion",
+            "FDAI_CHANNEL_ATTACHMENT_CLIENT_ID": "channel-edge-attachment-client",
+            "FDAI_CHANNEL_ATTACHMENT_TENANT_ID": "tenant-example",
+            "FDAI_CHANNEL_ATTACHMENT_CLIENT_SECRET": "test-attachment-client-secret",
+            "FDAI_CHANNEL_ATTACHMENT_SCRATCH_DIR": "/tmp/fdai-channel-attachments",  # noqa: S108
+            "FDAI_CHANNEL_ATTACHMENT_SCRATCH_ENCRYPTED": "1",
+            "FDAI_CHANNEL_ATTACHMENT_MAX_CONTENT_BYTES": "1048576",
+            "FDAI_SLACK_FILES_INFO_URL": "https://slack.com/api/files.info",
+            "FDAI_SLACK_ATTACHMENT_METADATA_HOSTS_JSON": '["slack.com"]',
+            "FDAI_SLACK_ATTACHMENT_DOWNLOAD_HOSTS_JSON": '["files.slack.com"]',
+            "FDAI_TEAMS_ATTACHMENT_URL_TEMPLATE": (
+                "https://service.example.com/v3/attachments/{attachment_id}/views/original"
+            ),
+            "FDAI_TEAMS_ATTACHMENT_AUDIENCE": "https://api.botframework.com/.default",
+            "FDAI_TEAMS_ATTACHMENT_HOSTS_JSON": '["service.example.com"]',
+            "FDAI_TEAMS_ATTACHMENT_AUDIENCES_JSON": ('["https://api.botframework.com/.default"]'),
+        }
+    )
+
+
 def test_slack_environment_resolves_closed_principal_scope_without_secret_repr() -> None:
     environment = ChannelEdgeEnvironment.parse(_environment())
 
@@ -135,10 +160,34 @@ def test_environment_rejects_duplicate_json_keys_and_topics() -> None:
 
 def test_attachment_enablement_is_a_strict_startup_flag() -> None:
     values = _environment()
-    values["FDAI_CHANNEL_ATTACHMENTS_ENABLED"] = "1"
-    assert ChannelEdgeEnvironment.parse(values).attachments_enabled is True
+    _enable_attachments(values)
+    environment = ChannelEdgeEnvironment.parse(values)
+    assert environment.attachments_enabled is True
+    assert environment.attachments is not None
+    assert environment.attachments.principal_manifest_digest.startswith("sha256:")
 
     for invalid in ("true", "yes", "2", "-1"):
         values["FDAI_CHANNEL_ATTACHMENTS_ENABLED"] = invalid
         with pytest.raises(ChannelEdgeConfigurationError, match="MUST be 0 or 1"):
             ChannelEdgeEnvironment.parse(values)
+
+
+def test_attachment_enablement_requires_encrypted_scratch_and_fixed_hosts() -> None:
+    values = _environment()
+    _enable_attachments(values)
+    values.pop("FDAI_CHANNEL_ATTACHMENT_SCRATCH_ENCRYPTED")
+    with pytest.raises(ChannelEdgeConfigurationError, match="SCRATCH_ENCRYPTED"):
+        ChannelEdgeEnvironment.parse(values)
+
+    _enable_attachments(values)
+    values["FDAI_SLACK_FILES_INFO_URL"] = "https://attacker.invalid/api/files.info"
+    with pytest.raises(ChannelEdgeConfigurationError, match="fixed HTTPS hosts"):
+        ChannelEdgeEnvironment.parse(values)
+
+
+def test_deployed_attachment_origin_refuses_loopback_http() -> None:
+    values = _environment()
+    _enable_attachments(values)
+    values["FDAI_EXECUTION_VENUE"] = "deployed"
+    with pytest.raises(ChannelEdgeConfigurationError, match="fixed HTTPS origin"):
+        ChannelEdgeEnvironment.parse(values)

@@ -2,8 +2,8 @@
   "schema_version": "1.0.0",
   "generator": {
     "implementation": "scripts/quality/contracts/generate_service_contracts.py",
-    "version": "1.1.0",
-    "sha256": "sha256:df31274ce34100632970081d0d022087e42d8f6c00bc5df5950cfab78196dc90"
+    "version": "1.2.0",
+    "sha256": "sha256:4b8bab81566ea4bf0b46b7e7dd2ed197aabb667dcb4726a6e78daab30cb393b5"
   },
   "source": {
     "manifest": "packages/service-contracts/src/fdai_service_contracts/compatibility-manifest.json",

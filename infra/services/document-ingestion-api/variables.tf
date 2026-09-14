@@ -133,6 +133,61 @@ variable "sharepoint_connector" {
     error_message = "Enabled SharePoint connector requires complete identity, source, and document-policy bindings."
   }
 }
+variable "channel_intake" {
+  description = "Optional internal channel attachment intake workload in this distribution."
+  type = object({
+    enabled                    = optional(bool, false)
+    name                       = optional(string, "")
+    principal_scopes_secret_id = optional(string, "")
+    edge_client_id             = optional(string, "")
+    collection_id              = optional(string, "")
+    access_descriptor_ref      = optional(string, "")
+    reader_groups              = optional(string, "")
+    retention_policy           = optional(string, "")
+    max_content_bytes          = optional(number, 26214400)
+    health = optional(object({
+      port                    = number
+      liveness_path           = string
+      readiness_path          = string
+      startup_path            = optional(string)
+      interval_seconds        = optional(number, 30)
+      timeout_seconds         = optional(number, 3)
+      failure_count_threshold = optional(number, 3)
+      startup_failure_count   = optional(number, 30)
+      }), {
+      port                    = 8000
+      liveness_path           = "/health/live"
+      readiness_path          = "/health/ready"
+      startup_path            = "/health/ready"
+      interval_seconds        = 15
+      timeout_seconds         = 3
+      failure_count_threshold = 3
+      startup_failure_count   = 30
+    })
+    scaling = optional(object({ min_replicas = number, max_replicas = number, cpu = number, memory = string }), {
+      min_replicas = 1
+      max_replicas = 2
+      cpu          = 0.5
+      memory       = "1Gi"
+    })
+  })
+  default = {}
+  validation {
+    condition = !var.channel_intake.enabled || (
+      trimspace(var.channel_intake.name) != "" &&
+      trimspace(var.channel_intake.principal_scopes_secret_id) != "" &&
+      trimspace(var.channel_intake.edge_client_id) != "" &&
+      trimspace(var.channel_intake.collection_id) != "" &&
+      trimspace(var.channel_intake.access_descriptor_ref) != "" &&
+      trimspace(var.channel_intake.reader_groups) != "" &&
+      trimspace(var.channel_intake.retention_policy) != "" &&
+      var.channel_intake.max_content_bytes >= 1 &&
+      var.channel_intake.max_content_bytes <= 1073741824 &&
+      var.channel_intake.health.port == 8000
+    )
+    error_message = "Enabled channel_intake requires fixed identity, policy, secret, byte, and port settings."
+  }
+}
 variable "stewardship_gitops" {
   description = "Platform-owned review-only stewardship GitHub authentication and webhook binding."
   type = object({

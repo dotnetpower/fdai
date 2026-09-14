@@ -163,6 +163,24 @@ locals {
       { name = "FDAI_TEAMS_ALLOWED_SERVICE_URLS_JSON", value = var.channel_edge.teams_allowed_service_urls },
       { name = "FDAI_TEAMS_JWKS_URL", value = var.channel_edge.teams_jwks_url },
     ] : [],
+    var.channel_edge.attachments_enabled ? concat([
+      { name = "FDAI_CHANNEL_ATTACHMENTS_ENABLED", value = "1" },
+      { name = "FDAI_CHANNEL_ATTACHMENT_INTAKE_ORIGIN", value = var.channel_edge.attachment_intake_origin },
+      { name = "FDAI_CHANNEL_ATTACHMENT_INTAKE_AUDIENCE", value = var.channel_edge.attachment_intake_audience },
+      { name = "FDAI_CHANNEL_ATTACHMENT_CLIENT_ID", value = var.identity.edge_client_id },
+      { name = "FDAI_CHANNEL_ATTACHMENT_SCRATCH_DIR", value = var.channel_edge.attachment_scratch_dir },
+      { name = "FDAI_CHANNEL_ATTACHMENT_SCRATCH_ENCRYPTED", value = "1" },
+      { name = "FDAI_CHANNEL_ATTACHMENT_MAX_CONTENT_BYTES", value = tostring(var.channel_edge.attachment_max_content_bytes) },
+      ], var.channel_edge.slack_enabled ? [
+      { name = "FDAI_SLACK_FILES_INFO_URL", value = var.channel_edge.slack_files_info_url },
+      { name = "FDAI_SLACK_ATTACHMENT_METADATA_HOSTS_JSON", value = var.channel_edge.slack_metadata_hosts_json },
+      { name = "FDAI_SLACK_ATTACHMENT_DOWNLOAD_HOSTS_JSON", value = var.channel_edge.slack_download_hosts_json },
+      ] : [], var.channel_edge.teams_enabled ? [
+      { name = "FDAI_TEAMS_ATTACHMENT_URL_TEMPLATE", value = var.channel_edge.teams_attachment_url_template },
+      { name = "FDAI_TEAMS_ATTACHMENT_AUDIENCE", value = var.channel_edge.teams_attachment_audience },
+      { name = "FDAI_TEAMS_ATTACHMENT_HOSTS_JSON", value = var.channel_edge.teams_attachment_hosts_json },
+      { name = "FDAI_TEAMS_ATTACHMENT_AUDIENCES_JSON", value = var.channel_edge.teams_attachment_audiences_json },
+    ] : []) : [],
   )
 }
 
