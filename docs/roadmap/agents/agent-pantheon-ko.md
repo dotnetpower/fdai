@@ -87,9 +87,10 @@ Vidar는 provider rollback 전에 상관관계와 실패한 ActionRun의 정규 
 유효 기간, 범위가 제한된 신원, 상태, 메모, 증적 불변식을 요구합니다. `succeeded` rollback에는
 비어 있지 않고 범위가 제한된 `rollback_ref`가 필요하며, 잘못된 상태는 Thor가 리소스 점유를
 해제하기 전에 실패 시 차단됩니다. 유효한 종결 및 게시 증적은 provider를 다시 호출하지 않고 재생됩니다.
-Enforce-mode Pantheon 조립은 Thor의 ActionRun 저장소와 별도로 명시적인 `vidar_state_store`를
-요구합니다. 따라서 rollback 실행기는 Vidar의 process-local 대체 경로로 enforce mode에 진입할 수
-없으며, production bootstrap은 영속 런타임 StateStore를 이 정확한 매개변수로 전달합니다.
+Enforce-mode Pantheon 조립은 Thor의 ActionRun 저장소와 별도로 명시적인 `vidar_state_store`와
+`var_state_store`를 요구합니다. 따라서 rollback과 승인은 process-local 대체 경로로 enforce
+mode에 진입할 수 없으며, production bootstrap은 영속 런타임 StateStore를 각 정확한 매개변수로
+전달합니다.
 Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 
 ![3. 런타임 관계도. 주요 단계는 Huginn, Heimdall, Forseti, Mimir, Muninn, Njord, Freyr, Loki, Thor, Vidar, Var, Saga입니다.](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-02.ko.svg)

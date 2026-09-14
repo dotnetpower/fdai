@@ -25,6 +25,7 @@ def validate_enforce_bindings(
     saga: Saga | None,
     has_rollback: bool,
     has_vidar_state_store: bool,
+    has_var_state_store: bool,
     has_approver_authorizer: bool,
     resource_lock: ResourceLock | None,
 ) -> None:
@@ -43,6 +44,8 @@ def validate_enforce_bindings(
         missing.append("rollback_executors")
     if not has_vidar_state_store:
         missing.append("vidar_state_store")
+    if not has_var_state_store:
+        missing.append("var_state_store")
     if not has_approver_authorizer:
         missing.append("approver_authorizer")
     if resource_lock is None:

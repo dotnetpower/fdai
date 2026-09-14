@@ -138,6 +138,7 @@ class PantheonRuntime:
         thor_state_store: ActionRunStore | None = None,
         rollback_executors: dict[str, RollbackExecutor] | None = None,
         vidar_state_store: StateStore | None = None,
+        var_state_store: StateStore | None = None,
         operator_rbac: dict[str, frozenset[str]] | None = None,
         approver_authorizer: ApproverAuthorizer | None = None,
         execution_resource_lock: ResourceLock | None = None,
@@ -204,6 +205,7 @@ class PantheonRuntime:
             saga=saga,
             has_rollback=bool(rollback_executors),
             has_vidar_state_store=vidar_state_store is not None,
+            has_var_state_store=var_state_store is not None,
             has_approver_authorizer=approver_authorizer is not None,
             resource_lock=execution_resource_lock,
         )
@@ -299,9 +301,9 @@ class PantheonRuntime:
             operational_evidence_hook=operational_evidence_hook,
             action_observation_hook=heimdall_action_observation_hook,
         )
-        if approver_authorizer is not None or muninn_state_store is not None:
+        if approver_authorizer is not None or var_state_store is not None:
             instantiated["Var"] = Var(
-                approver_authorizer=approver_authorizer, state_store=muninn_state_store
+                approver_authorizer=approver_authorizer, state_store=var_state_store
             )
         if saga is not None:
             instantiated["Saga"] = saga

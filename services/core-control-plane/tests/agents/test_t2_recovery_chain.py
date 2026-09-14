@@ -232,6 +232,7 @@ def test_approved_failure_switches_persistent_route_through_thor() -> None:
         saga=Saga(audit_chain=StateStoreAuditChainAdapter(store)),
         rollback_executors={"state_forward_only": registry.rollback},
         vidar_state_store=store,
+        var_state_store=store,
         approver_authorizer=lambda _principal, _action_type: True,
         execution_resource_lock=_DistributedTestLock(),
     )
@@ -268,6 +269,7 @@ def test_vidar_restores_route_when_thor_verification_fails() -> None:
         saga=Saga(audit_chain=StateStoreAuditChainAdapter(store)),
         rollback_executors={"state_forward_only": registry.rollback},
         vidar_state_store=store,
+        var_state_store=store,
         approver_authorizer=lambda _principal, _action_type: True,
         execution_resource_lock=_DistributedTestLock(),
     )

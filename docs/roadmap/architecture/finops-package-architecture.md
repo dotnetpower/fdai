@@ -30,8 +30,8 @@ domain code and assets. It does not create another control plane or move authori
 > replay, Vidar for rollback claim replay, and Norns for bounded startup recovery of pending
 > handoff-learning work. Those lifecycle and learner records cannot install, activate,
 > configure, publish, or grant data access to the Cost Governance package.
-> Enforce composition names Vidar's durable binding separately from Thor's store. Supplying the
-> same provider instance through both exact parameters still grants no Cost Governance package
+> Enforce composition names Vidar and Var durable bindings separately from Thor's store. Supplying
+> the same provider instance through all exact parameters still grants no Cost Governance package
 > activation, data, publication, or execution authority.
 > Non-agent runtime observation consumers likewise record replay and health evidence only; they do
 > not change Njord ownership, package activation, or action authority.

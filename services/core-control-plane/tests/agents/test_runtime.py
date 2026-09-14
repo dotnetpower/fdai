@@ -349,7 +349,7 @@ def test_runtime_recovers_unpublished_var_approval() -> None:
     runtime = PantheonRuntime.build(
         provider=provider,
         raw_event_topic=_RAW_TOPIC,
-        muninn_state_store=store,
+        var_state_store=store,
     )
     asyncio.run(runtime._rehydrate())  # noqa: SLF001 - startup recovery assertion
 
@@ -363,7 +363,7 @@ def test_runtime_injects_durable_state_store_into_var() -> None:
     runtime = PantheonRuntime.build(
         provider=InMemoryEventBus(),
         raw_event_topic=_RAW_TOPIC,
-        muninn_state_store=store,
+        var_state_store=store,
     )
 
     var = runtime.agents["Var"]
@@ -893,15 +893,19 @@ def test_enforce_true_disables_forced_shadow() -> None:
         thor_state_store=StateStoreActionRunStore(store=state_store),
         rollback_executors={"state_forward_only": rollback_executor},
         vidar_state_store=state_store,
+        var_state_store=state_store,
         approver_authorizer=lambda _principal, _action_type: True,
         execution_resource_lock=_DistributedTestLock(),
     )
     assert runtime.enforce is True
     thor = runtime.agents["Thor"]
     vidar = runtime.agents["Vidar"]
+    var = runtime.agents["Var"]
     assert isinstance(thor, Thor)
     assert isinstance(vidar, Vidar)
+    assert isinstance(var, Var)
     assert vidar._state_store is state_store  # noqa: SLF001 - enforce binding assertion
+    assert var._state_store is state_store  # noqa: SLF001 - enforce binding assertion
 
     async def _dispatch() -> object:
         return await thor.dispatch_verdict(
@@ -1045,6 +1049,16 @@ def test_injected_saga_replaces_the_default() -> None:
                 "rollback_executors": {"state_forward_only": lambda _: None},
             },
             "vidar_state_store",
+        ),
+        (
+            {
+                "thor_executor": lambda _: None,
+                "thor_state_store": StateStoreActionRunStore(store=InMemoryStateStore()),
+                "saga": Saga(audit_chain=StateStoreAuditChainAdapter(store=InMemoryStateStore())),
+                "rollback_executors": {"state_forward_only": lambda _: None},
+                "vidar_state_store": InMemoryStateStore(),
+            },
+            "var_state_store",
         ),
     ],
 )
