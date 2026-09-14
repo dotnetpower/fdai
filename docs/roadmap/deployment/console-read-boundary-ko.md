@@ -1,7 +1,7 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: 6c3893c5e7382010168b14d999a6f1cff313518d
+translation_source_sha: 19ce100dcabad68396c71528f65aa4b144a1f2ac
 translation_revised: 2026-09-14
 ---
 # Console 읽기 경계
@@ -23,13 +23,14 @@ translation_revised: 2026-09-14
 | 대화 문서 다운로드 | 구현됨 | `fdai_operator_service/composition.py`, `document_export.py`, 집중 소유권 및 완전성 검사 | Operator 조립은 인증된 principal의 완전한 검증 semantic 변환 결과에서만 문서를 다시 생성합니다. Markdown은 private 및 non-cacheable 상태를 유지하며, 범위가 제한된 encoder를 사용할 수 있을 때만 PDF를 표시합니다. |
 | 사용 불가 화면 표현 | validated | 집중 Operator 및 Console 검사와 영향받는 패널의 인증 통과 | 제공되지 않는 route는 서버가 소유한 사유를 유지하며 패널은 날것 전송 상태나 존재하지 않는 구성 심볼을 노출하지 않습니다. |
 | 계정 신원 및 동일 테넌트 계정 선택 | 구현됨 | `console/src/components/account-menu.tsx`; `console/src/auth.ts`; 집중 콘솔 계정 테스트(`11 passed`), typecheck 및 프로덕션 빌드 | 헤더 패널은 권한을 추가하지 않고 MSAL 신원과 서버가 검증한 역할을 표시합니다. 대화형 세션은 로그인 힌트 없이 Entra 계정 선택기를 열고 기존 시작 권한 확인 경계로 다시 진입할 수 있습니다. |
-| 로컬 운영자 신원 선택 | implemented | `environment.py`; `prepare-operator-service-env.sh`; 집중 Operator 및 준비 테스트 | 표준 준비는 비공개 Console 환경에 오래된 Azure CLI 인증 요청이 남아 있어도 Browser Entra를 선택합니다. 역할 상한이 고정된 Azure CLI principal을 사용하려면 준비 명령에 `--auth-mode azure-cli`를 명시하고 API 확인 값을 함께 설정해야 합니다. |
+| 로컬 운영자 신원 선택 | implemented | `config.ts`; `environment.py`; `prepare-operator-service-env.sh`; 집중 Console, Operator 및 준비 테스트 | 표준 준비는 비공개 Console 환경에 오래된 Azure CLI 인증 요청이 남아 있어도 Browser Entra를 선택합니다. 역할 상한이 고정된 Azure CLI principal을 사용하려면 준비 명령에 `--auth-mode azure-cli`를 명시하고 브라우저 및 API 확인 값을 함께 설정해야 합니다. |
 | 기록된 Resource 상태 출처 | implemented | `test_operator_service_composition.py::test_recorded_state_route_and_source_are_common_to_both_venues`; [기록된 상태 근거](../../roadmap-implementation/interfaces/recorded-resource-state.md) | 목록, 탐색 및 일괄 상태 조회 경로는 두 실행 환경에서 같은 인벤토리 계열 저장소를 사용합니다. 출처를 구성했다고 해서 기록된 사실의 최신성이 입증되지는 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 브라우저가 로컬 Azure CLI principal을 사용해 MSAL을 우회하려면 Vite 활성화 값과 확인 값을 함께 설정하도록 했습니다. 이제 오래된 브라우저 환경 값 하나만 남아 있으면 신원을 바꾸는 대신 시작을 차단합니다. | `current change`; `console/src/config.ts`; `console/src/config.test.ts`; 집중 Console 구성 테스트. | 관리형 실행 경로를 준비된 모드에 연결하여 두 확인 값을 일관되게 설정합니다. |
 | 2026-09-14 | implemented | 로컬 Azure CLI principal이 Browser Entra를 대체하려면 API 활성화 값과 확인 값을 함께 설정하도록 했습니다. 이제 오래된 서버 환경 값 하나만 남아 있으면 시작이 실패합니다. | `current change`; `environment.py`; `prepare-operator-service-env.sh`; 집중 준비 및 Operator 구성 테스트. | 브라우저 경계에도 같은 실패 시 차단 확인 절차를 완성합니다. |
 | 2026-09-14 | implemented | Browser Entra를 결정적인 로컬 준비 기본값으로 지정하고 역할 상한이 고정된 Azure CLI principal을 명시적 준비 인자 뒤로 옮겼습니다. 오래된 `VITE_LOCAL_AZURE_CLI_AUTH=1` 값은 더 이상 준비된 Operator 신원을 바꾸지 않습니다. | `current change`; `scripts/deployment/local/prepare-operator-service-env.sh`; `tests/integration/scripts/test_prepare_operator_service_env.py`; 집중 테스트 5개 통과. | 실행 경로 전체의 모드 일관성을 완성하고 인증된 Browser Entra 승인 화면 검사를 보존합니다. |
 | 2026-09-12 | implemented | 카탈로그 변환 결과에 프로덕션 writer가 추가된 뒤 승격 게이트 출처를 정정했습니다. 이제 Operator는 모든 카탈로그 ActionType 행을 영속 승격 레지스트리와 결합하고, 레지스트리 레코드가 없을 때만 런타임과 같은 shadow 모드를 기본값으로 사용하며, 결합한 값을 응답 출처에 포함합니다. | `current change`; Operator 워크플로 계열 검사 40개와 집중 Console 승격 검사 6개 통과, Console 타입 검사 및 카탈로그 동등성 검사 통과. | 인증된 브라우저 근거를 보존하고 통제된 승인 전달 증적을 별도로 완료합니다. |
@@ -95,7 +96,9 @@ unavailable 화면은 선언된 사유 또는 자체 카탈로그 문구를 보�
 `Contributor`로 고정되므로 `Approver` 또는 `Owner`가 필요한 승인 상세를 열 수 없습니다.
 생성된 API 환경은 `FDAI_OPERATOR_API_LOCAL_AZURE_CLI`와
 `FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM`을 함께 설정합니다. 두 값 중 하나만 사용해 API를
-직접 시작하면 구성 검증에서 실패합니다.
+직접 시작하면 구성 검증에서 실패합니다. 브라우저도
+`VITE_LOCAL_AZURE_CLI_AUTH`와 `VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM`에 같은 쌍 규칙을 적용합니다.
+두 값이 일치하지 않으면 principal을 조용히 바꾸지 않고 Console 시작을 중단합니다.
 
 비용 거버넌스의 로컬 검토도 인증을 유지합니다. 명시적인
 `FDAI_COST_GOVERNANCE_AUTHENTICATED_REVIEW_ACCESS` 프로필은 검증된 principal에 공개 제어를 적용한

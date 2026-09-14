@@ -20,13 +20,14 @@ read-only, without giving the Operator API an executor identity.
 | Conversation document downloads | implemented | `fdai_operator_service/composition.py`; `document_export.py`; focused ownership and completeness tests | Operator composition regenerates a document only from the authenticated principal's complete verified semantic projection. Markdown remains private and non-cacheable, and PDF is advertised only when its bounded encoder is available. |
 | Unavailable-surface presentation | validated | Focused Operator and Console checks plus authenticated passes over the affected panels | Unserved routes retain server-owned reasons, and panels do not expose raw transport status or nonexistent configuration symbols. |
 | Account identity and same-tenant account selection | implemented | `console/src/components/account-menu.tsx`; `console/src/auth.ts`; focused Console account tests (`11 passed`), typecheck, and production build | The header panel displays MSAL identity and server-verified roles without adding authority. Interactive sessions can open the Entra account picker without a login hint and re-enter the existing startup authorization boundary. |
-| Local operator identity selection | implemented | `environment.py`; `prepare-operator-service-env.sh`; focused Operator and preparation tests | Standard preparation selects Browser Entra even when a stale private Console environment requests Azure CLI auth. The fixed-ceiling Azure CLI principal requires the explicit `--auth-mode azure-cli` preparation argument and paired API confirmation. |
+| Local operator identity selection | implemented | `config.ts`; `environment.py`; `prepare-operator-service-env.sh`; focused Console, Operator, and preparation tests | Standard preparation selects Browser Entra even when a stale private Console environment requests Azure CLI auth. The fixed-ceiling Azure CLI principal requires the explicit `--auth-mode azure-cli` preparation argument plus paired browser and API confirmation. |
 | Recorded Resource state source | implemented | `test_operator_service_composition.py::test_recorded_state_route_and_source_are_common_to_both_venues`; [recorded-state evidence](../../roadmap-implementation/interfaces/recorded-resource-state.md) | Directory, exploration, and batch-state routes share the inventory family store in both venues. Source configuration does not certify the freshness of a recorded fact. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Required paired Vite enablement and confirmation before the browser can bypass MSAL for the local Azure CLI principal. A single stale browser environment value now fails closed instead of changing identity. | `current change`; `console/src/config.ts`; `console/src/config.test.ts`; focused Console configuration tests. | Bind managed launchers to the prepared mode so both confirmation values are set coherently. |
 | 2026-09-14 | implemented | Required paired API enablement and confirmation before the local Azure CLI principal can replace Browser Entra. A single stale server environment value now fails startup. | `current change`; `environment.py`; `prepare-operator-service-env.sh`; focused preparation and Operator configuration tests. | Complete the same fail-closed confirmation at the browser boundary. |
 | 2026-09-14 | implemented | Made Browser Entra the deterministic local preparation default and moved the fixed-ceiling Azure CLI principal behind an explicit preparation argument. A stale `VITE_LOCAL_AZURE_CLI_AUTH=1` value no longer changes the prepared Operator identity. | `current change`; `scripts/deployment/local/prepare-operator-service-env.sh`; `tests/integration/scripts/test_prepare_operator_service_env.py`; focused test passed 5 cases. | Complete launcher-wide mode coherence and retain an authenticated Browser Entra approval-screen check. |
 | 2026-09-12 | implemented | Corrected the promotion-gate source after the catalog projection gained a production writer. Operator now joins every catalog ActionType row with the durable promotion registry, defaults only an absent registry record to the runtime's shadow mode, and binds the joined values into response provenance. | `current change`; Operator workflow-family checks passed 40 cases; focused Console promotion checks passed 6 cases; Console typecheck and catalog parity passed. | Retain authenticated browser evidence and separately complete the governed approval delivery receipt. |
@@ -97,7 +98,9 @@ debug alternative. That alternative has a fixed `Contributor` role ceiling and t
 open approval details that require `Approver` or `Owner`. The generated API environment sets
 `FDAI_OPERATOR_API_LOCAL_AZURE_CLI` and
 `FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM` together. A direct API launch with only one value
-fails configuration validation.
+fails configuration validation. The browser applies the same pair rule to
+`VITE_LOCAL_AZURE_CLI_AUTH` and `VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM`; a mismatched pair stops
+Console startup instead of silently changing the principal.
 
 Cost Governance local review remains authenticated. The explicit
 `FDAI_COST_GOVERNANCE_AUTHENTICATED_REVIEW_ACCESS` profile permits disclosure-filtered aggregate
