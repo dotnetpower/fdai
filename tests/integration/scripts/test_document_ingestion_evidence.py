@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import json
+import sys
 from copy import deepcopy
+from pathlib import Path
 
 import pytest
 from scripts.evaluation.document_ingestion_evidence import (
     DocumentEvidenceError,
+    main,
     summarize_evidence,
 )
 
@@ -71,6 +75,60 @@ def test_summarizes_required_baselines_with_nearest_rank_percentiles() -> None:
     assert summary["throughput_documents_per_second"] == 0.1
     upload = summary["stage_latency"]["upload"]  # type: ignore[index]
     assert upload == {"p50_ms": 10.0, "p95_ms": 1000.0, "samples": 2}
+
+
+def test_rejects_nonfinite_throughput_from_a_finite_window() -> None:
+    receipt = _receipt()
+    receipt["window_seconds"] = 5e-324
+
+    with pytest.raises(DocumentEvidenceError, match="throughput.*finite"):
+        summarize_evidence(receipt)
+
+
+def test_keeps_small_windows_when_the_derived_rate_is_finite() -> None:
+    receipt = _receipt()
+    receipt["window_seconds"] = 1e-300
+
+    summary = summarize_evidence(receipt)
+
+    assert summary["throughput_documents_per_second"] == pytest.approx(1e300)
+    json.dumps(summary, allow_nan=False)
+
+
+@pytest.mark.parametrize("field", ["window_seconds", "latency_ms", "queue_delay_ms"])
+def test_rejects_unrepresentable_numeric_values_as_typed_evidence_errors(field: str) -> None:
+    receipt = _receipt()
+    if field == "window_seconds":
+        receipt[field] = 10**400
+    else:
+        observations = receipt["observations"]
+        assert isinstance(observations, list)
+        observations[0][field] = 10**400
+
+    with pytest.raises(DocumentEvidenceError, match=f"{field}.*finite"):
+        summarize_evidence(receipt)
+
+
+@pytest.mark.parametrize("window_seconds", [5e-324, 10**400])
+def test_cli_rejects_numeric_overflow_without_publishing_or_overwriting(
+    window_seconds: float | int,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    receipt = _receipt()
+    receipt["window_seconds"] = window_seconds
+    input_path = tmp_path / "receipt.json"
+    output_path = tmp_path / "summary.json"
+    input_path.write_text(json.dumps(receipt), encoding="utf-8")
+    output_path.write_text("retained-report", encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["evidence", str(input_path), "--output", str(output_path)])
+
+    with pytest.raises(SystemExit, match="document evidence validation failed:.*finite"):
+        main()
+
+    assert output_path.read_text(encoding="utf-8") == "retained-report"
+    assert capsys.readouterr().out == ""
 
 
 @pytest.mark.parametrize(

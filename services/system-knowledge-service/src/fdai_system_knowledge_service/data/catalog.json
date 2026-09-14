@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:cf6d03396a42934d127a579d8aae45c00054402d7701cdf9a77791fa75a082bc",
+  "catalog_digest": "sha256:07249fe95d69b43b5efcb8831cfcba1b5c6a1b468dc01e88068140e090878b8c",
   "execution_authority": false,
-  "generated_at": "2026-09-14T15:11:01.616229Z",
+  "generated_at": "2026-09-14T15:39:12.092540Z",
   "records": [
     {
       "designed_behavior": [
@@ -149,11 +149,11 @@
         "How does FDAI ingest documents?",
         "FDAI는 문서를 어떻게 수집하나요?"
       ],
-      "record_digest": "sha256:1d7b4666cd75e9332fb2f84088f61d42dbc4c01a4e75752f5abf55c1c4a29cf7",
+      "record_digest": "sha256:1f6e58c555345ae2e162244c3532838a5736a5fb5a7e8d20e8814c20ad643782",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "79284fb9f513aef648275f70cb394d08c155130a",
+          "blob_sha": "72a809d3cc31c6540e445b1efb7ca74fbf4c4ac8",
           "line_end": 104,
           "line_start": 104,
           "path": "docs/roadmap/interfaces/document-ingestion.md",
@@ -162,9 +162,9 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "79284fb9f513aef648275f70cb394d08c155130a",
-          "line_end": 571,
-          "line_start": 571,
+          "blob_sha": "72a809d3cc31c6540e445b1efb7ca74fbf4c4ac8",
+          "line_end": 573,
+          "line_start": 573,
           "path": "docs/roadmap/interfaces/document-ingestion.md",
           "source_kind": "doc",
           "symbol": "Implementation boundaries and rollout"
@@ -448,11 +448,11 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:46fe533af3742185954db42a5f5da3e9d6c32ec7dd61a7544e0c9510494c90a4",
+      "record_digest": "sha256:3118f8e57eab7138369da73e1865a5c2dbb4fbda73b4aed48e60a8d70430504f",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "68792a9fe93c64146d5e989701dec161890b5bb4",
+          "blob_sha": "5caeb97d22321e9d8831a6c1eb0c8d086e878163",
           "line_end": 79,
           "line_start": 79,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -491,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:39c33cc7b4d0ffcb206528dc448495d2881667ce7fcd8643dd0671a6f04f6675",
+      "record_digest": "sha256:7b09f7b60dac243ee58bb88193e89b460c90fbb662fe3131f1e243fa4e1ff441",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "68792a9fe93c64146d5e989701dec161890b5bb4",
+          "blob_sha": "5caeb97d22321e9d8831a6c1eb0c8d086e878163",
           "line_end": 79,
           "line_start": 79,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "b86e35cd1d6b3a285b79ba1d881cbb1db2f68ac1"
+  "source_revision": "68d608b695c7f4af84b2232da40537648691e515"
 }
