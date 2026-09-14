@@ -19,6 +19,14 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 if ! docker info >/dev/null 2>&1; then
+  current_user="${USER:-$(id -un)}"
+  if [[ "${FDAI_DOCKER_GROUP_REEXEC:-0}" != "1" ]] \
+    && command -v sg >/dev/null 2>&1 \
+    && getent group docker | awk -F: '{print $4}' | tr ',' '\n' | grep -Fxq "$current_user"; then
+    printf -v docker_command '%q ' \
+      env FDAI_DOCKER_GROUP_REEXEC=1 bash "${BASH_SOURCE[0]}" "$@"
+    exec sg docker -c "$docker_command"
+  fi
   echo "dev-up: Docker daemon is unavailable; start Docker and retry" >&2
   exit 1
 fi

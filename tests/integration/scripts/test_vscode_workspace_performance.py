@@ -172,6 +172,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "console: start core runtime",
         "console: restart core runtime",
         "console: restart operator api",
+        "console: start local services",
         "console: start full stack",
         "console: start full stack (Azure CLI debug, Contributor)",
         "console: keep full stack ready (10m)",
@@ -248,6 +249,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert local_services["command"] == (
         "bash scripts/deployment/local/start-console-services.sh --auth-mode browser-entra"
     )
+    assert local_services["hide"] is False
     assert local_services["isBackground"] is True
     assert "dependsOn" not in local_services
     assert local_services["runOptions"] == {

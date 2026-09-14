@@ -58,6 +58,15 @@ bash scripts/automation/setup-local-development.sh --check
 
 The commands below are the manual equivalent and remain useful for troubleshooting.
 
+FDAI development commands use ripgrep (`rg`) for fast repository searches. The one-time installer
+installs it automatically. For a manual Ubuntu or WSL setup, install and verify it with:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ripgrep
+rg --version
+```
+
 The local full stack runs the Document Processing Worker on the host. On Ubuntu
 or WSL, install Tesseract OCR and its English and Korean language data:
 

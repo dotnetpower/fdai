@@ -278,6 +278,8 @@ Each production deployment establishes measured baselines and sets p50/p95 targe
 - retry, hold, failure, and cancellation rates;
 - storage growth, deduplication savings, and cost per processed unit.
 
+Inputs and derived rates must be finite; conversion or throughput overflow rejects the receipt before report publication.
+
 The architecture reduces latency through bounded gateway streaming, content-hash deduplication
 inside the same security scope, incremental version processing, page-level parallelism, batched
 embeddings, and autoscaling event-driven workers. Cross-collection or cross-tenant deduplication is

@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
 from fdai_operator_service.families.conversation import (
     CONVERSATION_ROUTE_MANIFEST,
     ConversationFamilyDependencies,
@@ -534,6 +535,82 @@ async def test_post_stream_appends_proposal_before_observation() -> None:
     assert [item.operation for item in outbox.proposals] == ["chat.stream"]
     assert streams.requests[0].proposal_id == "proposal-1"
     assert streams.requests[0].idempotency_key == "chat-stream-one"
+
+
+@pytest.mark.parametrize("path", ["/chat", "/chat/stream"])
+@pytest.mark.parametrize("field", ["attachments", "images", "image_ids"])
+@pytest.mark.parametrize("value", [[{"data_url": "private-image-marker"}], {}, "", False, 0])
+async def test_chat_rejects_unsupported_images_before_durable_acceptance(
+    path: str, field: str, value: object
+) -> None:
+    outbox = _Outbox()
+    streams = _Streams()
+    document_contexts = _DocumentContexts()
+    async with AsyncClient(
+        transport=ASGITransport(
+            app=_app(outbox=outbox, streams=streams, document_contexts=document_contexts)
+        ),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            path,
+            json={
+                "prompt": "Describe the supplied image.",
+                "session_id": "session-example",
+                field: value,
+                "document_refs": [
+                    {
+                        "document_id": "00000000-0000-0000-0000-000000000001",
+                        "version_id": "00000000-0000-0000-0000-000000000002",
+                    }
+                ],
+            },
+        )
+
+    assert response.status_code == (501 if isinstance(value, list) else 400)
+    assert response.json()["error"]["code"] == (
+        "inline_images_unavailable" if isinstance(value, list) else "invalid_inline_images"
+    )
+    assert "private-image-marker" not in response.text
+    assert outbox.proposals == []
+    assert streams.requests == []
+    assert document_contexts.calls == []
+
+
+@pytest.mark.parametrize("path", ["/chat", "/chat/stream"])
+@pytest.mark.parametrize("value", [None, []])
+async def test_chat_preserves_explicit_empty_image_fields(path: str, value: object) -> None:
+    outbox = _Outbox()
+    streams = _Streams()
+    async with AsyncClient(
+        transport=ASGITransport(app=_app(outbox=outbox, streams=streams)),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            path,
+            json={"prompt": "Explain SLOs.", "attachments": value},
+        )
+
+    assert response.status_code == 200
+    assert len(outbox.proposals) == 1
+
+
+async def test_chat_checks_all_image_fields_before_classifying_availability() -> None:
+    outbox = _Outbox()
+    streams = _Streams()
+    async with AsyncClient(
+        transport=ASGITransport(app=_app(outbox=outbox, streams=streams)),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/chat/stream",
+            json={"prompt": "Describe the image.", "attachments": ["image"], "image_ids": False},
+        )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_inline_images"
+    assert outbox.proposals == []
+    assert streams.requests == []
 
 
 async def test_post_stream_replaces_web_document_refs_with_exact_context() -> None:

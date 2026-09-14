@@ -21,6 +21,7 @@ from fdai_operator_service.families.conversation.document_refs import (
     parse_document_refs,
     resolve_web_document_context,
 )
+from fdai_operator_service.families.conversation.inline_images import require_inline_images_absent
 from fdai_operator_service.families.conversation.manifest import (
     CONVERSATION_ROUTE_MANIFEST,
     ConversationRouteSpec,
@@ -114,6 +115,8 @@ def _proposal_endpoint(
                 if spec.max_body_bytes
                 else {}
             )
+            if spec.operation == "chat.exchange":
+                require_inline_images_absent(body)
             if spec.requires_confirmation and body.get("confirmed") is not True:
                 raise ConversationBoundaryError(
                     409,
@@ -162,6 +165,7 @@ def _stream_endpoint(
                 else {}
             )
             if spec.method == "POST" and spec.operation == "chat.stream":
+                require_inline_images_absent(body)
                 refs = parse_document_refs(body.get("document_refs"))
                 if "document_refs" in body:
                     body = dict(body)
