@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 6f2b8006e78829f91e321036efc36b2665ac9630
+translation_source_sha: cc33f3454288976a860f7df095f0d21d7e6c885f
 translation_revised: 2026-09-14
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -659,6 +659,8 @@ fail-closed 처리합니다. 이 로컬 증적은 Core 전달 상태를 갱신�
 새 전달 claim마다 예측 불가능한 128-bit 확인 토큰을 갖습니다. 서비스 워커 메시지와 일시적
 탐색 값은 안전한 태그와 이 토큰이 모두 일치해야 principal 범위 원장에 확인을 기록할 수
 있습니다. 토큰이 없는 레거시 행은 중복 억제에만 사용합니다.
+표시 완료와 전송 실패 해제도 같은 토큰을 요구하며, 대체 claim은 태그가 같은 이전 세대를
+제거하므로 지연된 callback이 대체 claim을 변경할 수 없습니다.
 표시 callback보다 먼저 도착한 일치하는 클릭은 표시와 확인을 원자적으로 함께 기록하며, 이후
 표시 쓰기는 앞선 단조 상태를 유지합니다.
 새 창 확인은 닫힌 형식의 일시적 URL fragment를 사용하므로 태그와 claim 토큰이 HTTP 요청이나

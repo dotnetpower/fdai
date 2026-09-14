@@ -30,6 +30,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Required the current claim token for display completion and failed-send release, replacing any expired same-tag generation atomically. | `current change`; focused stale-callback generation test. | No known tag-only stale callback can mutate a replacement claim. |
 | 2026-09-14 | implemented | Moved new-window acknowledgement from query fields to a closed transient fragment so claim values do not enter HTTP requests or referrers. | `current change`; focused fragment decoder and service-worker navigation tests. | No known query-string acknowledgement transport remains. |
 | 2026-09-14 | implemented | Made a token-bound notification click atomically establish display and acknowledgement when it races ahead of the display completion callback. | `current change`; focused out-of-order receipt transition test. | No known click-before-display acknowledgement loss remains. |
 | 2026-09-14 | implemented | Bound every new Console web acknowledgement to an unpredictable 128-bit per-claim token while retaining tokenless legacy rows for deduplication only. | `current change`; focused ledger, message-decoder, and service-worker tests. | No known tag-only acknowledgement path remains. |

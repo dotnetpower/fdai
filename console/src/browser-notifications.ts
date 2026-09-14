@@ -150,7 +150,7 @@ export function claimBrowserAlertDelivery(
       return "rate-limited";
     }
     const next = [
-      ...entries,
+      ...entries.filter((entry) => entry.tag !== tag),
       {
         tag,
         acknowledgementToken,
@@ -168,13 +168,18 @@ export function claimBrowserAlertDelivery(
 
 export function releaseBrowserAlertDelivery(
   tag: string,
+  acknowledgementToken: string,
   principalId?: string | null,
   storage: DeliveryStorage | null = browserStorage(),
 ): void {
-  if (storage === null) return;
+  if (storage === null || !isSafeAcknowledgementToken(acknowledgementToken)) return;
   const key = browserNotificationDeliveryKey(principalId);
   try {
-    const entries = readDeliveryEntries(storage.getItem(key)).filter((entry) => entry.tag !== tag);
+    const entries = readDeliveryEntries(storage.getItem(key)).filter(
+      (entry) =>
+        entry.tag !== tag
+        || entry.acknowledgementToken !== acknowledgementToken,
+    );
     writeDeliveryEntries(storage, key, entries);
   } catch {
     // A failed release expires through the bounded deduplication window.
@@ -183,11 +188,19 @@ export function releaseBrowserAlertDelivery(
 
 export function recordBrowserAlertDelivered(
   tag: string,
+  acknowledgementToken: string,
   principalId?: string | null,
   now = Date.now(),
   storage: DeliveryStorage | null = browserStorage(),
 ): BrowserAlertDeliveryReceipt | null {
-  return updateBrowserAlertReceipt(tag, principalId, now, "delivered", storage);
+  return updateBrowserAlertReceipt(
+    tag,
+    principalId,
+    now,
+    "delivered",
+    storage,
+    acknowledgementToken,
+  );
 }
 
 export function readBrowserAlertAcknowledgementToken(
@@ -415,10 +428,7 @@ function updateBrowserAlertReceipt(
       || current.claimedAt > now
       || (current.deliveredAt !== null && current.deliveredAt > now)
       || (current.acknowledgedAt !== null && current.acknowledgedAt > now)
-      || (
-        transition === "acknowledged"
-        && current.acknowledgementToken !== acknowledgementToken
-      )
+      || current.acknowledgementToken !== acknowledgementToken
     ) {
       return null;
     }

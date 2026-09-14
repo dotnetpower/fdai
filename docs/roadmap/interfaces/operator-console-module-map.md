@@ -659,6 +659,8 @@ structure as the loaded control so module loading does not change its semantic o
 Every new delivery claim carries an unpredictable 128-bit acknowledgement token. Service-worker
 messages and transient navigation values must match both the safe tag and that token before the
 principal-scoped ledger can record acknowledgement; legacy tokenless rows remain dedupe-only.
+Display completion and failed-send release require the same token, and a replacement claim removes
+the older same-tag generation so a delayed callback cannot mutate the replacement.
 A matching click that races ahead of the display callback atomically records both display and
 acknowledgement, and the later display write preserves that monotonic result.
 New-window acknowledgement uses a closed, transient URL fragment, so the tag and claim token never
