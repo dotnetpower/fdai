@@ -51,6 +51,8 @@ Core only after the exact live evidence closes.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Regenerated the System Knowledge catalog after rebasing the reviewed identity guidance onto the latest protected source revisions. | `current change`; generated catalog, translation parity, and derived-source gate. | No service boundary, writer, or authority changed. |
+| 2026-09-14 | implemented | Refreshed the derived System Knowledge catalog after the reviewed human-identity guidance changed. | `current change`; generated catalog and derived-source gate. | No service boundary, writer, or authority changed. |
 | 2026-09-13 | implemented | Registered the autonomy measurement projection test with the Operator unit suite and aligned the retained availability-state regression with the reviewed provider capability classification. | `current change`; `tests/integration/service-suites.json`; focused service-suite and recorded-state checks passed. | No service boundary, writer, or authority changed. |
 | 2026-09-12 | implemented | Registered the new Operator dashboard aggregation and source tests with their owning service suite. | `current change`; service-suite ownership tests passed. | No service-graduation or authority change remains for this test registration. |
 | 2026-09-11 | implemented | Refreshed the derived System Knowledge catalog after recovery decision and semantic coverage records changed. | `current change`; derived-source gate. | No service authority change. |

@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import tempfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -51,7 +53,7 @@ _CORPUS_KEYS = frozenset(
 )
 _RUN_KEYS = frozenset({"run_id", "started_at", "completed_at", "items"})
 _ITEM_KEYS = frozenset({"item_id", "components", "evidence"})
-_EVIDENCE_KEYS = frozenset(
+_EVIDENCE_KEYS_V1 = frozenset(
     {
         "frozen_blind_corpus",
         "production_e2e",
@@ -60,21 +62,29 @@ _EVIDENCE_KEYS = frozenset(
         "critical_safety_escape",
     }
 )
+_EVIDENCE_KEYS_V1_1 = _EVIDENCE_KEYS_V1 | {
+    "latency_evidence_content_digest",
+    "trace_cohort_evidence_content_digest",
+}
 _COMPONENT_KEYS = frozenset(dimension.value for dimension in QualityDimension)
 
 
 def evaluate_file(path: Path) -> dict[str, object]:
     """Load measured observations and return a deterministic qualification scorecard."""
 
-    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw = json.loads(
+        path.read_text(encoding="utf-8"),
+        object_pairs_hook=_unique_object,
+    )
     batch = _batch(_mapping(raw, "root"))
     return evaluate_chatops_qualification(batch).to_dict()
 
 
 def _batch(raw: Mapping[str, Any]) -> ChatOpsQualificationBatch:
     _require_exact_keys(raw, _ROOT_KEYS, "root")
-    if raw["schema_version"] != "1.0.0":
-        raise ValueError("schema_version MUST be 1.0.0")
+    schema_version = _string(raw["schema_version"], "schema_version")
+    if schema_version not in {"1.0.0", "1.1.0"}:
+        raise ValueError("schema_version MUST be 1.0.0 or 1.1.0")
     runs = raw["runs"]
     if not isinstance(runs, list):
         raise ValueError("runs MUST be an array")
@@ -82,7 +92,9 @@ def _batch(raw: Mapping[str, Any]) -> ChatOpsQualificationBatch:
         qualification_id=_string(raw["qualification_id"], "qualification_id"),
         provenance=_provenance(_mapping(raw["provenance"], "provenance")),
         corpus=_corpus(_mapping(raw["corpus"], "corpus")),
-        runs=tuple(_run(value, index) for index, value in enumerate(runs)),
+        runs=tuple(
+            _run(value, index, schema_version=schema_version) for index, value in enumerate(runs)
+        ),
     )
 
 
@@ -114,7 +126,7 @@ def _corpus(raw: Mapping[str, Any]) -> QualificationCorpus:
     )
 
 
-def _run(raw: object, index: int) -> QualificationRun:
+def _run(raw: object, index: int, *, schema_version: str) -> QualificationRun:
     item = _mapping(raw, f"runs[{index}]")
     _require_exact_keys(item, _RUN_KEYS, f"runs[{index}]")
     observations = item["items"]
@@ -125,19 +137,32 @@ def _run(raw: object, index: int) -> QualificationRun:
         started_at=_string(item["started_at"], f"runs[{index}].started_at"),
         completed_at=_string(item["completed_at"], f"runs[{index}].completed_at"),
         items=tuple(
-            _observation(value, index, item_index) for item_index, value in enumerate(observations)
+            _observation(
+                value,
+                index,
+                item_index,
+                schema_version=schema_version,
+            )
+            for item_index, value in enumerate(observations)
         ),
     )
 
 
-def _observation(raw: object, run_index: int, item_index: int) -> QualificationItemObservation:
+def _observation(
+    raw: object,
+    run_index: int,
+    item_index: int,
+    *,
+    schema_version: str,
+) -> QualificationItemObservation:
     field = f"runs[{run_index}].items[{item_index}]"
     item = _mapping(raw, field)
     _require_exact_keys(item, _ITEM_KEYS, field)
     components = _mapping(item["components"], f"{field}.components")
     _require_exact_keys(components, _COMPONENT_KEYS, f"{field}.components")
     evidence = _mapping(item["evidence"], f"{field}.evidence")
-    _require_exact_keys(evidence, _EVIDENCE_KEYS, f"{field}.evidence")
+    expected_evidence_keys = _EVIDENCE_KEYS_V1_1 if schema_version == "1.1.0" else _EVIDENCE_KEYS_V1
+    _require_exact_keys(evidence, expected_evidence_keys, f"{field}.evidence")
     return QualificationItemObservation(
         item_id=_integer(item["item_id"], f"{field}.item_id"),
         components=tuple(
@@ -154,6 +179,22 @@ def _observation(raw: object, run_index: int, item_index: int) -> QualificationI
             critical_safety_escape=_boolean(
                 evidence["critical_safety_escape"], f"{field}.critical_safety_escape"
             ),
+            latency_evidence_content_digest=(
+                _optional_digest(
+                    evidence["latency_evidence_content_digest"],
+                    f"{field}.latency_evidence_content_digest",
+                )
+                if schema_version == "1.1.0"
+                else None
+            ),
+            trace_cohort_evidence_content_digest=(
+                _optional_digest(
+                    evidence["trace_cohort_evidence_content_digest"],
+                    f"{field}.trace_cohort_evidence_content_digest",
+                )
+                if schema_version == "1.1.0"
+                else None
+            ),
         ),
     )
 
@@ -162,6 +203,15 @@ def _mapping(raw: object, field: str) -> Mapping[str, Any]:
     if not isinstance(raw, dict) or any(not isinstance(key, str) for key in raw):
         raise ValueError(f"{field} MUST be an object with string keys")
     return raw
+
+
+def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    value: dict[str, object] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError("qualification input contains a duplicate object key")
+        value[key] = item
+    return value
 
 
 def _require_exact_keys(raw: Mapping[str, Any], expected: frozenset[str], field: str) -> None:
@@ -203,6 +253,40 @@ def _boolean(raw: object, field: str) -> bool:
     return raw
 
 
+def _optional_digest(raw: object, field: str) -> str | None:
+    if raw is None:
+        return None
+    value = _string(raw, field)
+    if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
+        raise ValueError(f"{field} MUST be a lowercase SHA-256 digest or null")
+    return value
+
+
+def _write_scorecard(output: Path, serialized: str) -> None:
+    if output.is_symlink():
+        raise ValueError("output MUST NOT be a symbolic link")
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{output.name}.",
+        suffix=".tmp",
+        dir=output.parent,
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(serialized)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temporary, 0o644)
+        os.replace(temporary, output)
+        directory = os.open(output.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Write a stable scorecard and optionally require complete qualification."""
 
@@ -220,7 +304,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.output is None:
         sys.stdout.write(serialized)
     else:
-        args.output.write_text(serialized, encoding="utf-8")
+        try:
+            _write_scorecard(args.output, serialized)
+        except (OSError, ValueError) as exc:
+            print(
+                f"chatops-quality-qualification: ERROR: {exc}",
+                file=sys.stderr,
+            )
+            return 2
     if args.require_qualified and not scorecard["qualified"]:
         print("chatops-quality-qualification: NOT QUALIFIED", file=sys.stderr)
         return 3

@@ -74,11 +74,17 @@ def test_managed_host_failure_stays_on_current_phase(tmp_path, monkeypatch, fail
 
     def remote(_tunnel, _root, _work, arguments, **_kwargs):
         stage = {
+            "deployment-binding": "binding",
             "import-images": "images",
             "migrate": "migration",
             "verify": "verification",
         }.get(arguments[0], arguments[-1])
         check(stage)
+        if stage == "binding":
+            return {
+                "deployment_binding": "a" * 64,
+                "terraform_name_verified": True,
+            }
         if arguments[0] == "recover-apply":
             return {
                 "state": "applied",

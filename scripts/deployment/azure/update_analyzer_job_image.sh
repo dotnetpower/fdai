@@ -9,10 +9,6 @@ set -euo pipefail
 
 image_pattern='^[a-z0-9]+[.]azurecr[.]io/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$'
 name_pattern='^[a-z][a-z0-9-]*[a-z0-9]$'
-if [[ ! "$DESIRED_IMAGE" =~ $image_pattern ]]; then
-  echo "desired analyzer image must be an ACR reference pinned by sha256 digest" >&2
-  exit 2
-fi
 for value in "$TARGET_CONTAINER_NAME" "$TARGET_JOB_NAME" "$TARGET_RESOURCE_GROUP"; do
   if [[ ! "$value" =~ $name_pattern ]]; then
     echo "analyzer target names must be lowercase Azure resource names" >&2
@@ -39,6 +35,10 @@ if ! current_image="$(read_image)"; then
   fi
   echo "Analyzer Job does not exist yet; its declarative resource will create the protected image."
   exit 0
+fi
+if [[ ! "$DESIRED_IMAGE" =~ $image_pattern ]]; then
+  echo "desired analyzer image must be an ACR reference pinned by sha256 digest" >&2
+  exit 2
 fi
 if [[ ! "$current_image" =~ $image_pattern ]]; then
   echo "current analyzer image is not one digest-pinned ACR reference" >&2

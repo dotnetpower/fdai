@@ -9,6 +9,7 @@ import sys
 import time
 from pathlib import Path
 
+import pytest
 import yaml
 
 _BASH = "/usr/bin/bash"
@@ -49,10 +50,13 @@ def test_core_runtime_digest_includes_prompt_catalog() -> None:
     assert '--core-ready-after "$readiness_started_at"' in script
 
 
-def test_console_launcher_preserves_private_local_auth_opt_in() -> None:
+def test_console_launcher_uses_prepared_local_auth_mode() -> None:
     script = _RUN_SERVICE_SCRIPT.read_text(encoding="utf-8")
 
-    assert "VITE_LOCAL_AZURE_CLI_AUTH=0" not in script
+    assert 'expected_auth_mode="${FDAI_CONSOLE_EXPECTED_AUTH_MODE:-}"' in script
+    assert 'VITE_LOCAL_AZURE_CLI_AUTH="$local_azure_cli_auth"' in script
+    assert 'VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM="$local_azure_cli_auth"' in script
+    assert "local-console-auth-mode" not in script
 
 
 def test_preparation_rejects_missing_opa_before_starting_dependencies(tmp_path: Path) -> None:
@@ -81,13 +85,48 @@ def test_preparation_rejects_missing_opa_before_starting_dependencies(tmp_path: 
     assert not (repo / ".fdai").exists()
 
 
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["--auth-mode"],
+        ["--auth-mode", "unexpected"],
+        ["--unknown"],
+    ],
+)
+def test_preparation_rejects_invalid_auth_mode_arguments(
+    tmp_path: Path,
+    arguments: list[str],
+) -> None:
+    repo = tmp_path / "repo"
+    script = repo / "scripts/deployment/local/prepare-console-full-stack.sh"
+    script.parent.mkdir(parents=True)
+    shutil.copy2(_PREPARE_SCRIPT, script)
+
+    result = subprocess.run(  # noqa: S603 - isolated argument validation.
+        [_BASH, str(script), *arguments],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 2
+    assert "Usage:" in result.stderr
+    assert not (repo / ".fdai").exists()
+
+
 def _operator_restart_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     run_script = repo / "scripts/deployment/local/run-console-service.sh"
     run_script.parent.mkdir(parents=True)
     shutil.copy2(_RUN_SERVICE_SCRIPT, run_script)
     (repo / ".fdai").mkdir()
-    (repo / ".fdai/local-operator-service.env").write_text("", encoding="utf-8")
+    (repo / ".fdai/local-console-auth-mode").write_text("browser-entra\n", encoding="utf-8")
+    (repo / ".fdai/local-operator-service.env").write_text(
+        "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=0\nFDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=0\n",
+        encoding="utf-8",
+    )
     _write_executable(
         repo / "scripts/automation/run-local-service.sh",
         """#!/usr/bin/env bash
@@ -141,6 +180,7 @@ def _run_operator_restart(
         cwd=repo,
         env={
             **os.environ,
+            "FDAI_CONSOLE_EXPECTED_AUTH_MODE": "browser-entra",
             "FDAI_TEST_LAUNCH_DELAY": str(launch_delay),
             "FDAI_TEST_LAUNCH_EVENT": launch_event,
             "FDAI_TEST_ORDER_FILE": str(order_file),
@@ -203,12 +243,27 @@ def test_operator_restart_rejects_started_service_early_zero_exit(tmp_path: Path
     assert "service=operator-api event=failed stage=runner exit_code=1" in result.stderr
 
 
+def test_operator_restart_rejects_prepared_auth_mode_mismatch(tmp_path: Path) -> None:
+    repo = _operator_restart_repo(tmp_path)
+    (repo / ".fdai/local-operator-service.env").write_text(
+        "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1\nFDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=1\n",
+        encoding="utf-8",
+    )
+
+    result = _run_operator_restart(repo)
+
+    assert result.returncode == 1
+    assert "prepared Console and Operator API auth modes do not match" in result.stderr
+    assert not (repo / "order.txt").exists()
+
+
 def test_supervisor_reports_a_service_that_exits_before_readiness(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     start_script = repo / "scripts/deployment/local/start-console-services.sh"
     start_script.parent.mkdir(parents=True)
     shutil.copy2(_START_SCRIPT, start_script)
     (repo / ".fdai/logs").mkdir(parents=True)
+    (repo / ".fdai/local-console-auth-mode").write_text("browser-entra\n", encoding="utf-8")
 
     _write_executable(
         repo / "scripts/deployment/local/run-console-service.sh",
@@ -230,7 +285,7 @@ set -euo pipefail
 
     started = time.monotonic()
     result = subprocess.run(  # noqa: S603 - fixed test script and executable.
-        [_BASH, str(start_script)],
+        [_BASH, str(start_script), "--auth-mode", "browser-entra"],
         cwd=repo,
         capture_output=True,
         text=True,
@@ -251,6 +306,7 @@ def test_supervisor_propagates_an_immediate_readiness_failure(tmp_path: Path) ->
     start_script.parent.mkdir(parents=True)
     shutil.copy2(_START_SCRIPT, start_script)
     (repo / ".fdai/logs").mkdir(parents=True)
+    (repo / ".fdai/local-console-auth-mode").write_text("browser-entra\n", encoding="utf-8")
     _write_executable(
         repo / "scripts/deployment/local/run-console-service.sh",
         "#!/usr/bin/env bash\nexec sleep 10\n",
@@ -258,7 +314,7 @@ def test_supervisor_propagates_an_immediate_readiness_failure(tmp_path: Path) ->
     _write_executable(repo / ".venv/bin/python", "#!/usr/bin/env bash\nexit 7\n")
 
     result = subprocess.run(  # noqa: S603 - fixed test script and executable.
-        [_BASH, str(start_script)],
+        [_BASH, str(start_script), "--auth-mode", "browser-entra"],
         cwd=repo,
         capture_output=True,
         text=True,
@@ -273,6 +329,41 @@ def test_supervisor_propagates_an_immediate_readiness_failure(tmp_path: Path) ->
     assert "stage=readiness exit_code=7" in result.stderr
 
 
+@pytest.mark.parametrize("prepared_mode", [None, "unexpected", "azure-cli"])
+def test_supervisor_rejects_unprepared_auth_mode(
+    tmp_path: Path,
+    prepared_mode: str | None,
+) -> None:
+    repo = tmp_path / "repo"
+    start_script = repo / "scripts/deployment/local/start-console-services.sh"
+    start_script.parent.mkdir(parents=True)
+    shutil.copy2(_START_SCRIPT, start_script)
+    (repo / ".fdai/logs").mkdir(parents=True)
+    if prepared_mode is not None:
+        (repo / ".fdai/local-console-auth-mode").write_text(
+            f"{prepared_mode}\n",
+            encoding="utf-8",
+        )
+    _write_executable(
+        repo / "scripts/deployment/local/run-console-service.sh",
+        "#!/usr/bin/env bash\nprintf 'started\\n' > started.txt\n",
+    )
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(start_script), "--auth-mode", "browser-entra"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 1
+    assert "prepared Console auth mode" in result.stderr
+    assert "service=console-stack event=starting" not in result.stdout
+    assert not (repo / "started.txt").exists()
+
+
 def test_supervisor_allows_bounded_inventory_recovery() -> None:
     source = _START_SCRIPT.read_text(encoding="utf-8")
 
@@ -285,7 +376,11 @@ def test_inventory_stage_reuse_requires_current_checkpoint() -> None:
     assert "--only inventory-coverage" in source
 
 
-def test_preparation_reuses_an_unchanged_healthy_stack(tmp_path: Path) -> None:
+@pytest.mark.parametrize("auth_mode", ["browser-entra", "azure-cli"])
+def test_preparation_reuses_an_unchanged_healthy_stack(
+    tmp_path: Path,
+    auth_mode: str,
+) -> None:
     repo = tmp_path / "repo"
     prepare_script = repo / "scripts/deployment/local/prepare-console-full-stack.sh"
     prepare_script.parent.mkdir(parents=True)
@@ -304,6 +399,16 @@ def test_preparation_reuses_an_unchanged_healthy_stack(tmp_path: Path) -> None:
         output = repo / relative
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text("prepared\n", encoding="utf-8")
+    (repo / ".fdai/local-console-auth-mode").write_text(
+        f"{auth_mode}\n",
+        encoding="utf-8",
+    )
+    expected_flag = "1" if auth_mode == "azure-cli" else "0"
+    (repo / ".fdai/local-operator-service.env").write_text(
+        f"FDAI_OPERATOR_API_LOCAL_AZURE_CLI={expected_flag}\n"
+        f"FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM={expected_flag}\n",
+        encoding="utf-8",
+    )
     (repo / "console").mkdir()
     (repo / "console/.env.local").write_text("prepared\n", encoding="utf-8")
     (repo / "console/package.json").write_text("{}\n", encoding="utf-8")
@@ -311,8 +416,9 @@ def test_preparation_reuses_an_unchanged_healthy_stack(tmp_path: Path) -> None:
     _write_executable(repo / "console/node_modules/.bin/vite", "#!/usr/bin/env bash\nexit 0\n")
     _write_ready_dependency_script(repo)
     _write_executable(repo / "console/node_modules/.bin/opa", "#!/usr/bin/env bash\nexit 0\n")
+    mode_digest = hashlib.sha256(f"{digest}\nauth-mode={auth_mode}\n".encode()).hexdigest()
     (repo / ".fdai/console-full-stack-preparation.sha256").write_text(
-        f"{digest}\n",
+        f"{mode_digest}\n",
         encoding="utf-8",
     )
     _write_executable(
@@ -330,7 +436,7 @@ esac
     )
 
     result = subprocess.run(  # noqa: S603 - fixed test script and executable.
-        [_BASH, str(prepare_script)],
+        [_BASH, str(prepare_script), "--auth-mode", auth_mode],
         cwd=repo,
         env={**os.environ, "PATH": f"{repo / 'console/node_modules/.bin'}:{os.environ['PATH']}"},
         capture_output=True,
@@ -348,6 +454,7 @@ def _staged_preparation_repo(
     tmp_path: Path,
     *,
     stale_stage: str | None = None,
+    auth_mode: str = "browser-entra",
 ) -> tuple[Path, dict[str, str]]:
     repo = tmp_path / "repo"
     prepare_script = repo / "scripts/deployment/local/prepare-console-full-stack.sh"
@@ -374,6 +481,34 @@ def _staged_preparation_repo(
         output = repo / relative
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text("prepared\n", encoding="utf-8")
+    expected_flag = "1" if auth_mode == "azure-cli" else "0"
+    (repo / ".fdai/local-console-auth-mode").write_text(
+        f"{auth_mode}\n",
+        encoding="utf-8",
+    )
+    (repo / ".fdai/local-operator-service.env").write_text(
+        f"FDAI_OPERATOR_API_LOCAL_AZURE_CLI={expected_flag}\n"
+        f"FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM={expected_flag}\n",
+        encoding="utf-8",
+    )
+    _write_executable(
+        repo / "scripts/deployment/local/prepare-operator-service-env.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+mode="$2"
+flag=0
+if [[ "$mode" == "azure-cli" ]]; then flag=1; fi
+printf '%s\n' "$mode" > .fdai/local-console-auth-mode
+printf 'FDAI_OPERATOR_API_LOCAL_AZURE_CLI=%s\n' "$flag" \
+  > .fdai/local-operator-service.env
+printf 'FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=%s\n' "$flag" \
+  >> .fdai/local-operator-service.env
+""",
+    )
+    _write_executable(
+        repo / "scripts/deployment/local/prepare-independent-service-envs.sh",
+        "#!/usr/bin/env bash\nexit 0\n",
+    )
     digest = "c" * 64
     marker_dir = repo / ".fdai/console-preparation"
     marker_dir.mkdir(parents=True)
@@ -393,6 +528,10 @@ def _staged_preparation_repo(
             if stage == "runtime-environment":
                 stage_digest = hashlib.sha256(
                     f"{digest}\nkubernetes=0\nteams-notifications=0\nno-azure-deployment=0\nlocal-resource-group=\n".encode()
+                ).hexdigest()
+            if stage == "service-environments":
+                stage_digest = hashlib.sha256(
+                    f"{digest}\nauth-mode={auth_mode}\n".encode()
                 ).hexdigest()
             (marker_dir / f"{stage}.sha256").write_text(
                 f"{stage_digest}\n",
@@ -438,8 +577,49 @@ def test_authoritative_settings_stage_tracks_runtime_setting_definitions() -> No
     assert "services/core-control-plane/src/fdai/delivery/runtime_settings.py" in script
 
 
-def test_preparation_reuses_each_unchanged_stage_when_stack_is_stopped(tmp_path: Path) -> None:
+@pytest.mark.parametrize("auth_mode", ["browser-entra", "azure-cli"])
+def test_preparation_reuses_each_unchanged_stage_when_stack_is_stopped(
+    tmp_path: Path,
+    auth_mode: str,
+) -> None:
+    repo, environment = _staged_preparation_repo(tmp_path, auth_mode=auth_mode)
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [
+            _BASH,
+            str(repo / "scripts/deployment/local/prepare-console-full-stack.sh"),
+            "--auth-mode",
+            auth_mode,
+        ],
+        cwd=repo,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.count("event=reused") == 8
+    assert "stage=entra-redirects event=completed" not in result.stdout
+
+
+@pytest.mark.parametrize(
+    "stale_operator_environment",
+    [
+        ("FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1\nFDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=1\n"),
+        ("FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1\nFDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=0\n"),
+    ],
+)
+def test_preparation_repairs_auth_outputs_changed_outside_the_cache(
+    tmp_path: Path,
+    stale_operator_environment: str,
+) -> None:
     repo, environment = _staged_preparation_repo(tmp_path)
+    (repo / ".fdai/local-operator-service.env").write_text(
+        stale_operator_environment,
+        encoding="utf-8",
+    )
 
     result = subprocess.run(  # noqa: S603 - fixed test script and executable.
         [_BASH, str(repo / "scripts/deployment/local/prepare-console-full-stack.sh")],
@@ -452,8 +632,13 @@ def test_preparation_reuses_each_unchanged_stage_when_stack_is_stopped(tmp_path:
     )
 
     assert result.returncode == 0
-    assert result.stdout.count("event=reused") == 8
-    assert "stage=entra-redirects event=completed" not in result.stdout
+    assert result.stdout.count("stage=service-environments event=completed") == 1
+    assert (repo / ".fdai/local-console-auth-mode").read_text(encoding="utf-8") == (
+        "browser-entra\n"
+    )
+    assert "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=0\n" in (
+        repo / ".fdai/local-operator-service.env"
+    ).read_text(encoding="utf-8")
 
 
 def test_preparation_reruns_only_the_invalidated_stage(tmp_path: Path) -> None:

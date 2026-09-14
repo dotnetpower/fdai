@@ -6,11 +6,18 @@ import importlib.util
 from pathlib import Path
 
 from fdai_operator_service.environment import (
+    AUDIENCE_ENV,
     DEFAULT_LIVE_STAGE_CONSUMER_GROUP,
+    GROUP_ENV,
     LIVE_STAGE_CONSUMER_GROUP_ENV,
+    LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV,
+    LOCAL_AZURE_CLI_AUTH_ENV,
+    TENANT_ENV,
+    OperatorEnvironment,
 )
 
 SCRIPT = Path(__file__).parent / "live-e2e" / "operator_service.py"
+PLAYWRIGHT_CONFIG = Path(__file__).parents[1] / "playwright.live.config.ts"
 
 
 def _load_launcher() -> object:
@@ -39,3 +46,36 @@ def test_live_e2e_operator_never_reuses_production_consumer_group(monkeypatch) -
     group_id = captured_environment[LIVE_STAGE_CONSUMER_GROUP_ENV]
     assert group_id != DEFAULT_LIVE_STAGE_CONSUMER_GROUP  # noqa: S101
     assert group_id.startswith(launcher.LIVE_E2E_CONSUMER_GROUP_PREFIX)  # noqa: S101
+
+
+def test_live_e2e_operator_clears_prepared_cli_auth_pair(monkeypatch) -> None:
+    launcher = _load_launcher()
+    monkeypatch.setenv(TENANT_ENV, "tenant")
+    monkeypatch.setenv(AUDIENCE_ENV, "audience")
+    monkeypatch.setenv("RUNTIME_ENV", "dev")
+    monkeypatch.setenv(LOCAL_AZURE_CLI_AUTH_ENV, "1")
+    monkeypatch.setenv(LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV, "1")
+    for index, key in enumerate(GROUP_ENV.values()):
+        monkeypatch.setenv(key, f"group-{index}")
+    captured_environment: dict[str, str] = {}
+
+    def create_app(environment, *, composition):
+        del composition
+        captured_environment.update(environment)
+        return object()
+
+    monkeypatch.setattr(launcher, "create_app", create_app)
+
+    launcher.build_app()
+    parsed = OperatorEnvironment.parse(captured_environment)
+
+    assert captured_environment[LOCAL_AZURE_CLI_AUTH_ENV] == "0"  # noqa: S101
+    assert captured_environment[LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV] == "0"  # noqa: S101
+    assert parsed.local_azure_cli_auth is False  # noqa: S101
+
+
+def test_live_e2e_frontend_clears_prepared_cli_auth_pair() -> None:
+    source = PLAYWRIGHT_CONFIG.read_text(encoding="utf-8")
+
+    assert "VITE_LOCAL_AZURE_CLI_AUTH=0" in source  # noqa: S101
+    assert "VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM=0" in source  # noqa: S101

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import pytest
 from fdai.core.conversation_assurance.quality_qualification import (
     QualificationEvidence,
 )
@@ -60,6 +61,9 @@ def test_exact_eight_stage_chain_is_complete_and_content_free() -> None:
     assert "record_digest" not in str(payload)
     assert "provenance_digest" not in str(payload)
 
+    with pytest.raises(ValueError, match="authoritative record"):
+        replace(evidence, timestamp_authorities=())
+
 
 def test_missing_duplicate_and_cross_correlation_stages_fail_closed() -> None:
     batch = _batch()
@@ -98,7 +102,7 @@ def test_broken_predecessor_and_timestamp_order_fail_closed() -> None:
     assert "timestamp_outside_trace_window" in evidence.gaps
 
 
-def test_complete_trace_and_latency_slo_clear_the_shared_hard_cap() -> None:
+def test_unbound_complete_trace_and_latency_claims_keep_the_shared_hard_cap() -> None:
     trace = reduce_correlation_trace(_batch())
     evidence = QualificationEvidence(
         frozen_blind_corpus=True,
@@ -108,7 +112,12 @@ def test_complete_trace_and_latency_slo_clear_the_shared_hard_cap() -> None:
         critical_safety_escape=False,
     )
 
-    assert evidence.hard_caps(corpus_meets_floor=True) == ()
+    assert evidence.hard_caps(corpus_meets_floor=True) == (
+        QualityHardCap.NO_LATENCY_SLO_OR_COMPLETE_TRACE,
+    )
     assert replace(evidence, complete_trace=False).hard_caps(corpus_meets_floor=True) == (
         QualityHardCap.NO_LATENCY_SLO_OR_COMPLETE_TRACE,
     )
+
+    with pytest.raises(ValueError, match="supplied together"):
+        replace(evidence, latency_evidence_content_digest="e" * 64)

@@ -3,7 +3,7 @@ export const homeCopy = {
   en: {
     kicker: "FORWARD DEPLOYED AGENTS",
     heroNote: "Azure-native. Evidence-led. Human-authorized.",
-    exploreLabel: "Explore FDAI",
+    neuralViewLabel: "Open Neural View",
     navLabel: "Homepage sections",
     docsLabel: "Documentation",
     navigation: [
@@ -72,7 +72,7 @@ export const homeCopy = {
   ko: {
     kicker: "FORWARD DEPLOYED AGENTS",
     heroNote: "Azure 기반. 근거 중심. 사람의 권한 아래.",
-    exploreLabel: "FDAI 살펴보기",
+    neuralViewLabel: "Neural View 열기",
     navLabel: "홈페이지 섹션",
     docsLabel: "문서",
     navigation: [

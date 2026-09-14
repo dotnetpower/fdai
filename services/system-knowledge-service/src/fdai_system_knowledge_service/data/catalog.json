@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:f453a88a427274e8f072782fd46a112e198549a5cf9a24ea7a39d4cbefa8dd23",
+  "catalog_digest": "sha256:af87cd3ffacea05fc969e5fbe4970375729dd24bf4ae4676f548ce47115a7a73",
   "execution_authority": false,
-  "generated_at": "2026-09-13T04:16:18.216909Z",
+  "generated_at": "2026-09-14T04:41:05.251724Z",
   "records": [
     {
       "designed_behavior": [
@@ -268,11 +268,11 @@
         "How does FDAI authenticate and authorize people?",
         "FDAI는 사용자를 어떻게 인증하고 권한을 확인하나요?"
       ],
-      "record_digest": "sha256:a2395c52cb10cad1a388eed69adc2d8ccda27ddd7a3a0f2fe1a387b8fc0eff4d",
+      "record_digest": "sha256:7526ce9bfb6d930f297b7dbd565bd4b09d657dc9f17bb7149429baac62e61485",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "37af9e5f2e5cfdf36197d3f2292dce4b38b540c4",
+          "blob_sha": "33490f3dd158f03ab626fb69fc114aa52fe11945",
           "line_end": 27,
           "line_start": 27,
           "path": "docs/roadmap/interfaces/user-rbac-and-identity.md",
@@ -448,13 +448,13 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:48e725139f2786c4e698d1ce3cd4ce0112ee40d17b3fef9fc3919322de6a3fc8",
+      "record_digest": "sha256:e9f4913072efa1ef69b4b713ff94898f349d9be3cbe623268b5434701e50972c",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "63cff6a63a0fd2551af3d484e3750e7b3b3ce0ba",
-          "line_end": 103,
-          "line_start": 103,
+          "blob_sha": "7713db252dd73a198fcbf63a8eaa16d7d37b2f5e",
+          "line_end": 105,
+          "line_start": 105,
           "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
           "source_kind": "doc",
           "symbol": "Graduation scorecard"
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "3fc98c946a0b41f096d62fc48301b9ac354fef81"
+  "source_revision": "731eb1457788311d5bac55e915d252e5e075b3bb"
 }

@@ -38,6 +38,8 @@ class QualificationEvidence:
     latency_slo: bool
     complete_trace: bool
     critical_safety_escape: bool
+    latency_evidence_content_digest: str | None = None
+    trace_cohort_evidence_content_digest: str | None = None
 
     def __post_init__(self) -> None:
         values = (
@@ -49,6 +51,24 @@ class QualificationEvidence:
         )
         if any(type(value) is not bool for value in values):
             raise ValueError("qualification evidence fields MUST be boolean")
+        digests = (
+            self.latency_evidence_content_digest,
+            self.trace_cohort_evidence_content_digest,
+        )
+        if (digests[0] is None) is not (digests[1] is None):
+            raise ValueError("qualification timing evidence digests MUST be supplied together")
+        for value in digests:
+            if value is not None:
+                _digest(value, "qualification timing evidence digest")
+
+    @property
+    def timing_evidence_bound(self) -> bool:
+        """Report whether both independently reduced timing artifacts are committed."""
+
+        return (
+            self.latency_evidence_content_digest is not None
+            and self.trace_cohort_evidence_content_digest is not None
+        )
 
     def hard_caps(self, *, corpus_meets_floor: bool) -> tuple[QualityHardCap, ...]:
         caps: list[QualityHardCap] = []
@@ -56,7 +76,7 @@ class QualificationEvidence:
             caps.append(QualityHardCap.NO_FROZEN_BLIND_CORPUS)
         if not self.production_e2e:
             caps.append(QualityHardCap.NO_PRODUCTION_E2E_EVIDENCE)
-        if not self.latency_slo or not self.complete_trace:
+        if not self.latency_slo or not self.complete_trace or not self.timing_evidence_bound:
             caps.append(QualityHardCap.NO_LATENCY_SLO_OR_COMPLETE_TRACE)
         if self.critical_safety_escape:
             caps.append(QualityHardCap.CRITICAL_SAFETY_ESCAPE)
@@ -158,6 +178,16 @@ class ChatOpsQualificationBatch:
         run_ids = tuple(run.run_id for run in self.runs)
         if len(run_ids) != len(set(run_ids)):
             raise ValueError("qualification run_id values MUST be unique")
+        timing_bindings = {
+            (
+                item.evidence.latency_evidence_content_digest,
+                item.evidence.trace_cohort_evidence_content_digest,
+            )
+            for run in self.runs
+            for item in run.items
+        }
+        if len(timing_bindings) != 1:
+            raise ValueError("qualification timing evidence bindings MUST match across the batch")
 
 
 @dataclass(frozen=True, slots=True)
@@ -193,6 +223,8 @@ class ChatOpsQualificationScorecard:
     minimum_runs: int
     minimum_turns: int
     minimum_turns_per_locale: int
+    latency_evidence_content_digest: str | None
+    trace_cohort_evidence_content_digest: str | None
     decision_evidence_receipt_digest: str | None
     decision_evidence_verification_bundle_digest: str | None
     qualified: bool
@@ -211,7 +243,7 @@ class ChatOpsQualificationScorecard:
 
     def _payload(self) -> dict[str, object]:
         return {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "evidence_kind": "chatops_quality_qualification_scorecard",
             "qualification_authority": False,
             "qualification_id": self.qualification_id,
@@ -250,6 +282,10 @@ class ChatOpsQualificationScorecard:
                 "minimum_runs": self.minimum_runs,
                 "minimum_turns": self.minimum_turns,
                 "minimum_turns_per_locale": self.minimum_turns_per_locale,
+            },
+            "timing_evidence": {
+                "latency_content_digest": self.latency_evidence_content_digest,
+                "trace_cohort_content_digest": self.trace_cohort_evidence_content_digest,
             },
             "items": [
                 {
@@ -328,7 +364,7 @@ def evaluate_chatops_qualification(
                 minimum_score=item.minimum_score,
                 run_scores=tuple(run_scores),
                 worst_score=worst_score,
-                passed=worst_score >= item.minimum_score,
+                passed=all(score.passed for score in run_scores),
             )
         )
 
@@ -349,6 +385,8 @@ def evaluate_chatops_qualification(
             f"{batch.corpus.korean_turns}"
             f"<minimum_turns_per_locale={contract.minimum_turns_per_locale}"
         )
+    # The v1 batch shape has locale counts but no per-locale outcome or confidence data.
+    gaps.append("locale_statistical_evidence_missing")
     failed_items = [str(item.item_id) for item in results if not item.passed]
     if failed_items:
         gaps.append(f"items_below_threshold={','.join(failed_items)}")
@@ -357,6 +395,11 @@ def evaluate_chatops_qualification(
     elif evaluated_at is None:
         gaps.append("decision_evidence_evaluation_time_missing")
     else:
+        latest_run_completion = max(
+            _timestamp(run.completed_at, "completed_at") for run in batch.runs
+        )
+        if decision_evidence.verified_at < latest_run_completion:
+            gaps.append("decision_evidence_verification_predates_run_completion")
         reasons = assess_decision_evidence_admission(
             decision_evidence,
             expected_evidence_digest=chatops_qualification_evidence_digest(batch),
@@ -367,6 +410,7 @@ def evaluate_chatops_qualification(
         )
         gaps.extend(f"decision_evidence_{reason.value}" for reason in reasons)
 
+    timing_evidence = batch.runs[0].items[0].evidence
     return ChatOpsQualificationScorecard(
         qualification_id=batch.qualification_id,
         provenance=batch.provenance,
@@ -377,6 +421,8 @@ def evaluate_chatops_qualification(
         minimum_runs=contract.minimum_runs,
         minimum_turns=contract.minimum_turns,
         minimum_turns_per_locale=contract.minimum_turns_per_locale,
+        latency_evidence_content_digest=timing_evidence.latency_evidence_content_digest,
+        trace_cohort_evidence_content_digest=(timing_evidence.trace_cohort_evidence_content_digest),
         decision_evidence_receipt_digest=(
             decision_evidence.receipt_digest if decision_evidence is not None else None
         ),
@@ -391,6 +437,7 @@ def evaluate_chatops_qualification(
 def chatops_qualification_evidence_digest(batch: ChatOpsQualificationBatch) -> str:
     """Return the canonical digest of every qualification observation and input."""
 
+    timing_evidence = batch.runs[0].items[0].evidence
     return content_digest(
         {
             "corpus": {
@@ -412,6 +459,12 @@ def chatops_qualification_evidence_digest(batch: ChatOpsQualificationBatch) -> s
                 "source_revision": batch.provenance.source_revision,
             },
             "qualification_id": batch.qualification_id,
+            "timing_evidence": {
+                "latency_content_digest": timing_evidence.latency_evidence_content_digest,
+                "trace_cohort_content_digest": (
+                    timing_evidence.trace_cohort_evidence_content_digest
+                ),
+            },
             "runs": [
                 {
                     "completed_at": run.completed_at,

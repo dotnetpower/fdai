@@ -61,12 +61,11 @@ p, h1, h2, h3 { margin: 0; }
 #cinema::after {
   content: ""; position: absolute; inset: -1px; border: 1px solid #bcf8e9;
   border-radius: inherit; pointer-events: none;
-  box-shadow: 0 0 10px #89ebcf66, inset 0 0 6px #89ebcf26;
   animation: cinema-border-glow 3.8s ease-in-out infinite;
 }
 @keyframes cinema-border-glow {
-  0%, 100% { opacity: .18; }
-  50% { opacity: .85; }
+  0%, 100% { opacity: .28; box-shadow: 0 0 6px #89ebcf42, inset 0 0 3px #89ebcf1f; }
+  50% { opacity: .82; box-shadow: 0 0 14px #89ebcf73, inset 0 0 7px #89ebcf33; }
 }
 .reduced-motion #cinema::after { animation: none; opacity: .35; }
 main { height: calc(100% - 84px); position: relative; }

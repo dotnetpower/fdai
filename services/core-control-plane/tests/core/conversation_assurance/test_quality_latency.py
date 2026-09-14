@@ -139,6 +139,20 @@ def test_percentile_regression_fails_its_stage() -> None:
     assert any(gap.startswith("p99_ms=") for gap in delivery.gaps)
 
 
+def test_reduced_stage_evidence_rejects_contradictory_percentiles_and_gaps() -> None:
+    stage = reduce_latency_benchmark(_batch()).stages[0]
+
+    with pytest.raises(ValueError, match="percentiles MUST be ordered"):
+        replace(stage, p50_ms=3.0, p95_ms=2.0, p99_ms=1.0)
+    with pytest.raises(ValueError, match="gaps do not match"):
+        replace(
+            stage,
+            p99_ms=float(stage.p99_ceiling_ms + 1),
+            passed=False,
+            gaps=("fabricated_reason",),
+        )
+
+
 def test_wrong_environment_and_duplicate_trace_fail_closed() -> None:
     batch = _batch()
     first = batch.samples[0]

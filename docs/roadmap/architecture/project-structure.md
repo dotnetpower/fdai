@@ -127,10 +127,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   ownership frames typed separately; compatibility facades retain stable imports.
 - **qualification reduction is authority-free**:
   `core/conversation_assurance/quality_qualification.py` accepts only premeasured normalized
-  observations and reduces them against the installed quality contract. It derives hard caps from
-  raw evidence state and cannot call a model, read a provider, promote a policy, approve a request,
-  or execute an action. JSON parsing and artifact writing remain in the repository-owned
-  `scripts/evaluation/chatops-quality-qualification.py` boundary. Completed-turn observation
+  observations and reduces them against the installed contract. It derives hard caps and preserves
+  raw threshold decisions. Schema v1 records `locale_statistical_evidence_missing` and cannot qualify. It cannot call a model, read a provider, promote a policy, approve a request, or execute an action.
+  JSON parsing and artifact writing remain in the repository-owned
+  `scripts/evaluation/chatops-quality-qualification.py` boundary, with duplicate-key rejection and atomic output replacement. Completed-turn observation
   adapters use the shared content-free contracts, hash runtime and evidence references, and keep
   every unsupported dimension unavailable instead of manufacturing a score. Evidence owners add
   measurements through contract-bound contributions; the merge rejects cross-case input,
@@ -162,9 +162,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   The repository CLI parses content-free samples and never converts a trace commitment into a
   complete-trace claim. The adjacent `quality_trace.py` reducer accepts only record commitments and
   proves completeness from the exact ordered session-to-audit chain; it performs no provider read
-  and grants no qualification authority. `quality_timing.py` joins only matching source revisions,
-  trace counts, trace-set commitments, and the installed latency contract before deriving the two
-  qualification timing fields.
+  and grants no authority. `quality_timing.py` joins the installed contract, source revision,
+  trace count/set, and paired artifact digests before deriving timing fields. Legacy input remains
+  capped; runtime owners retain timestamp and producer authority, and Core/CLI cannot create it.
 - **authorization is instance-bound**: the context provider must return the exact Resource ID from
   `ExecutionAuthorizationRequest.target_resource_ref`. A mismatch holds before policy, identity,
   or effective-access evaluation and is retained in the no-authority audit context.

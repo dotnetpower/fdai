@@ -232,7 +232,7 @@ export async function initAuth(config: ConsoleConfig): Promise<AuthContext> {
     });
     if (!response.ok) {
       throw new Error(
-        `Local Azure CLI auth failed (${response.status}). Run 'az login' and start the Operator API with FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1.`
+        `Local Azure CLI auth failed (${response.status}). Run 'az login' and start the local stack with '--auth-mode azure-cli'.`
       );
     }
     const sessionToken = response.headers.get("x-fdai-local-session");
