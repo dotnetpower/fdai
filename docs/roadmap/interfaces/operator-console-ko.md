@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 98f9154f94c63b03f8b5aab71a342aacf824572d
+translation_source_sha: 5aad396ec3afb70e13a79a375ef4a64c8f5d457d
 translation_revised: 2026-09-14
 ---
 # FDAI Console 대화
@@ -35,6 +35,8 @@ value 필드를 보존하여 독립 oracle이 표시된 count를 검증할 수 �
   제한을 넘는 추적은 일부를 완전한 결과처럼 표시하지 않고 사용 불가로 처리합니다.
 - `pipeline_stage`와 `stage`가 모두 기록되면 같은 단계를 가리켜야 합니다. 두 생산자 필드가
   충돌하면 하나를 임의로 선택하지 않고 변환 결과를 사용 불가로 처리합니다.
+- 최상위 및 워크플로 액션 시도 번호는 양수여야 하며 둘 다 있으면 서로 일치해야 합니다.
+  시도 식별 정보가 잘못되거나 충돌하면 변환 결과를 사용 불가로 처리합니다.
 
 인증된 `/provisioning` 경로는 하나의 영속 구독 초기 구성 실행을 보여주는 읽기 전용 변환
 결과입니다. 완료된 구성 단계를 재생하고 리소스 검색과 최종 검증을 실시간으로 표시하지만

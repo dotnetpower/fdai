@@ -298,6 +298,19 @@ def rule_fire_trace(correlation_id: str, items: Sequence[JsonObject]) -> JsonObj
         if pipeline_stage is not None and entry_stage is not None and pipeline_stage != entry_stage:
             raise ValueError("audit trace stage fields conflict")
         stage = pipeline_stage or entry_stage
+        entry_attempt = _integer(entry.get("attempt"))
+        workflow_attempt = _integer(workflow_action.get("attempt"))
+        if any(
+            attempt is not None and attempt < 1 for attempt in (entry_attempt, workflow_attempt)
+        ):
+            raise ValueError("audit trace attempt MUST be positive")
+        if (
+            entry_attempt is not None
+            and workflow_attempt is not None
+            and entry_attempt != workflow_attempt
+        ):
+            raise ValueError("audit trace attempt fields conflict")
+        attempt = entry_attempt if entry_attempt is not None else workflow_attempt
         if stage:
             terminal_stage = stage
         steps.append(
@@ -310,8 +323,7 @@ def rule_fire_trace(correlation_id: str, items: Sequence[JsonObject]) -> JsonObj
                 "action_kind": str(item["action_kind"]),
                 "mode": str(item["mode"]),
                 "action_id": _nonempty(entry.get("action_id")),
-                "attempt": _integer(entry.get("attempt"))
-                or _integer(workflow_action.get("attempt")),
+                "attempt": attempt,
                 "execution_path": _nonempty(entry.get("execution_path")),
                 "outcome": _nonempty(entry.get("outcome")),
                 "entry_hash": str(item["entry_hash"]),

@@ -32,6 +32,8 @@ Trace hardening preserves these evidence invariants:
   500-record limit. An over-limit trace is unavailable rather than silently truncated.
 - When both `pipeline_stage` and `stage` are recorded, they must identify the same stage. Conflicting
   producer fields make the projection unavailable instead of selecting one value.
+- Top-level and workflow action attempt numbers must be positive and must agree when both are
+  present. Invalid or conflicting attempt identity makes the projection unavailable.
 
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final

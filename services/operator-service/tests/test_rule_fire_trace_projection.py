@@ -97,6 +97,38 @@ def test_trace_rejects_conflicting_stage_fields() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("entry_attempt", "workflow_attempt", "message"),
+    [
+        (1, 2, "attempt fields conflict"),
+        (0, 2, "attempt MUST be positive"),
+        (1, 0, "attempt MUST be positive"),
+    ],
+)
+def test_trace_rejects_invalid_or_conflicting_attempt_identity(
+    entry_attempt: int,
+    workflow_attempt: int,
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        rule_fire_trace(
+            "correlation-1",
+            [
+                {
+                    "seq": 1,
+                    "recorded_at": "2026-09-14T03:00:00Z",
+                    "action_kind": "executor.remote.dispatched",
+                    "mode": "enforce",
+                    "entry_hash": "hash-1",
+                    "entry": {
+                        "attempt": entry_attempt,
+                        "workflow_action": {"attempt": workflow_attempt},
+                    },
+                }
+            ],
+        )
+
+
 class _TraceRowsModel(PostgresOperatorReadModel):
     def __init__(self, rows: list[dict[str, Any]]) -> None:
         super().__init__(PostgresOperatorReadModelConfig(dsn="postgresql://example.invalid/db"))
