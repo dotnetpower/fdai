@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 type BrowserLockRequest = (
   name: string,
@@ -29,12 +29,25 @@ export async function holdBrowserStreamLeadership(
   });
 }
 
+export function reportBrowserStreamLeadershipFailure(
+  signal: AbortSignal,
+  onLeadershipChange: (leader: boolean) => void,
+  onFailure?: () => void,
+): void {
+  if (signal.aborted) return;
+  onLeadershipChange(false);
+  onFailure?.();
+}
+
 export function useExclusiveBrowserStreamLeader(
   enabled: boolean,
   channel: string,
   principalId: string | null | undefined,
+  onFailure?: () => void,
 ): boolean {
   const [leader, setLeader] = useState(false);
+  const onFailureRef = useRef(onFailure);
+  onFailureRef.current = onFailure;
 
   useEffect(() => {
     setLeader(false);
@@ -48,7 +61,11 @@ export function useExclusiveBrowserStreamLeader(
       controller.signal,
       setLeader,
     ).catch(() => {
-      if (!controller.signal.aborted) setLeader(false);
+      reportBrowserStreamLeadershipFailure(
+        controller.signal,
+        setLeader,
+        onFailureRef.current,
+      );
     });
     return () => controller.abort();
   }, [channel, enabled, principalId]);

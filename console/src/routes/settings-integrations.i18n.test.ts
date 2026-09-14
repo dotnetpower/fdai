@@ -28,4 +28,13 @@ describe("Settings integrations route catalog", () => {
       }),
     ).toContain("HTTP 202 at 12:00");
   });
+
+  it("labels the personal Console web selection scope", () => {
+    expect(settingsIntegrationsText("consoleWebPersonalHint", {
+      user: "operator@example.com",
+    })).toContain("operator@example.com");
+    setLocale("ko");
+    expect(settingsIntegrationsText("personalChannelsTitle")).toBe("내 알림 채널");
+    expect(settingsIntegrationsText("consoleWebPersonalLabel")).toBe("콘솔 웹(개인)");
+  });
 });
