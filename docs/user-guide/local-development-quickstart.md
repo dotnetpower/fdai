@@ -27,6 +27,31 @@ have readable deployment state, start with the Docker data stack and determinist
 
 ## Install the prerequisites
 
+### One-command workstation setup
+
+On x86_64 Ubuntu or WSL, run the repository installer from the repository root:
+
+```bash
+bash scripts/automation/setup-local-development.sh
+```
+
+The script installs the system packages and repository-pinned command-line tools, configures
+Docker access, installs the locked Python and Console dependencies, downloads Playwright Chromium,
+enables the tracked Git hooks, and applies the shared VS Code settings and extensions. It prompts
+for `sudo` in the terminal when required. It doesn't sign in to Azure or GitHub and doesn't create
+tenant-specific configuration.
+
+After the first run, reopen the WSL window so existing terminals receive Docker group membership.
+Import `.vscode/fdai.code-profile` with `Profiles: Import Profile` because profile import remains a
+user-visible VS Code action. You can verify the workstation without changing it:
+
+```bash
+bash scripts/automation/setup-local-development.sh --check
+```
+
+Use the following sections when you need to install a prerequisite manually or diagnose a failed
+check.
+
 ### Docker data stack
 
 Install Docker Engine or Docker Desktop and Docker Compose v2. On WSL, enable the Docker Desktop
@@ -68,7 +93,7 @@ sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor
 tesseract --list-langs
 ```
 
-Install the repository dependencies and hooks:
+If you don't use the one-command installer, install the repository dependencies and hooks:
 
 ```bash
 uv sync --extra dev
