@@ -231,13 +231,15 @@ promotion state. They do not establish a baseline or qualification by themselves
 version-pinned corpus runner and scorecard artifact must supply those records without changing the
 contract or holdout labels in the same promotion change.
 
-The repository runner, `scripts/evaluation/chatops-quality-qualification.py`, accepts complete
-50-item observations for each run and derives hard caps from raw evidence state. It records the
-source revision, contract and corpus digests, evaluator and runtime identifiers, run configuration,
-and run time windows in a content-addressed scorecard. The `--require-qualified` option returns a
-nonzero result unless the corpus floors, three-run floor, and worst-run 9.8 threshold all pass.
-Every generated artifact sets `qualification_authority: false`; a scorecard records evidence but
-cannot promote a policy or grant execution authority.
+The repository runner, `scripts/evaluation/chatops-quality-qualification.py`, accepts complete 50-item
+observations for each run, derives hard caps from raw evidence state, and preserves the
+unrounded threshold decision when a displayed score rounds to `9.8`. Admission verification must
+not predate the latest run completion. Input schema `1.0.0` carries locale counts but no per-locale raw
+outcomes or confidence reduction, so it records `locale_statistical_evidence_missing` and cannot
+qualify. A successor contract must define the sample unit, raw counts, and exact
+`predeclared-binomial-v1` calculation. The CLI rejects duplicate keys and symbolic-link output,
+atomically replaces scorecards, keeps `--require-qualified` nonzero while any gap remains, and sets
+`qualification_authority: false` on every artifact.
 
 Run the reducer from the repository root after a measurement harness has produced the input batch:
 

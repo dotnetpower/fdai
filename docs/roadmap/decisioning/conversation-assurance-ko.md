@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 1d1c29f27abb07a65c962be5974d43ac495ff051
+translation_source_sha: df3a7d2705f6d6538bdcf7ce2f9ef536148e2bfb
 translation_revised: 2026-09-13
 ---
 # 대화 품질 보증
@@ -232,13 +232,15 @@ Timing binder는 이어서 고유하고 완전한 추적 500개 이상과 latenc
 version-pinned 말뭉치 실행기와 점수표 산출물이 같은 승격 변경에서 계약 또는 holdout
 라벨을 변경하지 않고 해당 기록을 제공해야 합니다.
 
-리포지토리 실행기 `scripts/evaluation/chatops-quality-qualification.py`는 각 실행에서 50개
-항목의 완전한 관측값을 받아 원시 근거 상태로부터 하드 상한을 독립적으로 계산합니다. 소스
-리비전, 계약과 말뭉치 다이제스트, 평가자와 런타임 식별자, 실행 구성 및 실행 시간 구간을
-콘텐츠 주소형 점수표에 기록합니다. `--require-qualified` 옵션은 말뭉치 하한, 3회 실행 하한,
-최악 실행 점수 9.8 조건을 모두 통과하지 않으면 0이 아닌 종료 코드를 반환합니다. 생성된 모든
-산출물에는 `qualification_authority: false`가 설정됩니다. 점수표는 근거를 기록하지만 정책을
-승격하거나 실행 권한을 부여할 수 없습니다.
+리포지토리 실행기 `scripts/evaluation/chatops-quality-qualification.py`는 각 실행에서 50개 항목의
+완전한 관측값을 받고 원시 근거 상태에서 하드 상한을 계산하며, 표시 점수가 `9.8`로 반올림되더라도
+반올림 전 임계값 판정을 보존합니다. 결정 근거 수용 검증 시각은 마지막 실행 완료 시각보다 앞설 수
+없습니다. 입력 스키마 `1.0.0`은 로케일별 개수만 운반하고 로케일별 원시 결과나 신뢰도
+계산을 운반하지 않으므로 `locale_statistical_evidence_missing`을 기록하고 qualification하지
+않습니다. 후속 계약은 표본 단위, 원시 개수 및 정확한 `predeclared-binomial-v1` 계산식을 정의해야
+합니다. CLI는 중복 키와 심볼릭 링크 출력을 차단하고 점수표를 원자적으로 교체하며 공백이 하나라도
+남아 있으면 `--require-qualified`가 0이 아닌 종료 코드를 반환하도록 유지합니다. 모든 산출물은
+`qualification_authority: false`를 설정합니다.
 
 측정 실행기가 입력 배치를 생성한 후 리포지토리 루트에서 다음과 같이 축약기를 실행합니다.
 

@@ -100,7 +100,10 @@ def test_emits_stable_scorecard_but_fails_closed_without_verified_admission(
     scorecard = json.loads(first.read_text())
     assert first.read_bytes() == second.read_bytes()
     assert scorecard["qualified"] is False
-    assert scorecard["gaps"] == ["decision_evidence_admission_missing"]
+    assert scorecard["gaps"] == [
+        "locale_statistical_evidence_missing",
+        "decision_evidence_admission_missing",
+    ]
     assert scorecard["qualification_authority"] is False
     assert scorecard["decision_evidence_receipt_digest"] is None
     assert scorecard["decision_evidence_verification_bundle_digest"] is None
@@ -121,6 +124,7 @@ def test_incomplete_batch_is_retained_but_fails_require_qualified(
     )
     assert json.loads(output.read_text())["gaps"] == [
         "run_count=2<minimum_runs=3",
+        "locale_statistical_evidence_missing",
         "decision_evidence_admission_missing",
     ]
 
@@ -147,6 +151,51 @@ def test_malformed_widened_or_mismatched_input_fails_closed(
     _write(source, payload)
 
     assert module.main(["--input", str(source)]) == 2
+
+
+def test_duplicate_input_key_fails_closed(module: ModuleType, tmp_path: Path) -> None:
+    source = tmp_path / "batch.json"
+    rendered = json.dumps(_payload())
+    rendered = rendered.replace(
+        '"qualification_id": "qualification-v1"',
+        '"qualification_id": "other", "qualification_id": "qualification-v1"',
+        1,
+    )
+    source.write_text(rendered, encoding="utf-8")
+
+    assert module.main(["--input", str(source)]) == 2
+
+
+def test_symbolic_link_output_fails_closed(module: ModuleType, tmp_path: Path) -> None:
+    source = tmp_path / "batch.json"
+    target = tmp_path / "target.json"
+    output = tmp_path / "scorecard.json"
+    _write(source, _payload())
+    target.write_text("preserve", encoding="utf-8")
+    output.symlink_to(target)
+
+    assert module.main(["--input", str(source), "--output", str(output)]) == 2
+    assert target.read_text(encoding="utf-8") == "preserve"
+
+
+def test_failed_atomic_replace_preserves_existing_scorecard(
+    module: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "batch.json"
+    output = tmp_path / "scorecard.json"
+    _write(source, _payload())
+    output.write_text("preserve", encoding="utf-8")
+
+    def fail_replace(_: object, __: object) -> None:
+        raise OSError("replace failed")
+
+    monkeypatch.setattr(module.os, "replace", fail_replace)
+
+    assert module.main(["--input", str(source), "--output", str(output)]) == 2
+    assert output.read_text(encoding="utf-8") == "preserve"
+    assert not tuple(tmp_path.glob(".scorecard.json.*.tmp"))
 
 
 def test_direct_script_entrypoint_is_runnable() -> None:

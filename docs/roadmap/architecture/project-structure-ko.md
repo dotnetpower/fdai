@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 28a7dc7dd85b65972c374a5fe436498a9ef656f5
+translation_source_sha: d066fe765d1f00728038fc8b25aa538e26864873
 translation_revised: 2026-09-13
 ---
 # 프로젝트 구조
@@ -126,9 +126,9 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   호환성 facade는 안정적인 import를 유지합니다.
 - **자격 검증 축약에는 권한이 없음**:
   `core/conversation_assurance/quality_qualification.py`는 미리 측정하고 정규화한 관측값만
-  받아 설치된 품질 계약에 따라 축약합니다. 원시 근거 상태에서 하드 상한을 계산하며 모델 호출,
-  프로바이더 읽기, 정책 승격, 요청 승인 또는 작업 실행을 할 수 없습니다. JSON 구문 분석과
-  산출물 쓰기는 리포지토리가 소유하는
+  받아 설치된 계약에 따라 축약합니다. 원시 근거 상태에서 하드 상한을 계산하고 반올림 전 임계값 판정을 보존합니다.
+  v1은 `locale_statistical_evidence_missing`을 기록하며 자격을 충족할 수 없습니다. 모델 호출, 프로바이더 읽기, 정책 승격, 요청 승인 또는 작업 실행도 할 수 없습니다.
+  중복 키 차단을 포함한 JSON 구문 분석과 원자적 산출물 교체는 리포지토리가 소유하는
   `scripts/evaluation/chatops-quality-qualification.py` 경계에 남습니다. 완료된 턴 관측 adapter는
   콘텐츠가 없는 공용 계약을 사용하고 런타임 및 근거 참조를 해시하며, 지원하지 않는 모든 차원을
   점수를 만들지 않고 `unavailable`로 유지합니다. 근거 소유자는 계약에 연결된 기여를 통해
