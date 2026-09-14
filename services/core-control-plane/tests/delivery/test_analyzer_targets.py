@@ -517,7 +517,7 @@ async def test_configured_provider_reference_must_use_same_inventory_generation(
 async def test_unbound_legacy_arm_target_requires_separate_identities() -> None:
     with pytest.raises(
         AnalyzerTargetResolutionError,
-        match="MUST separate resource_id and provider_resource_id",
+        match="MUST separate logical resource_id and provider_resource_id",
     ):
         await _resolve(
             None,
@@ -544,6 +544,18 @@ async def test_unbound_explicit_target_accepts_separate_identities() -> None:
             "resourceGroups/example-rg/providers/"
             "Microsoft.ContainerService/managedClusters/example-aks"
         ),
+    )
+
+    resolution = await _resolve(None, configured=(target,))
+
+    assert resolution.targets == (target,)
+
+
+@pytest.mark.asyncio
+async def test_unbound_non_metric_target_does_not_require_provider_identity() -> None:
+    target = AnalyzerTarget(
+        resource_ref="scenario/pod-uid",
+        resource_kind="kubernetes_pod",
     )
 
     resolution = await _resolve(None, configured=(target,))

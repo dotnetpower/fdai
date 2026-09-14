@@ -98,8 +98,10 @@ are synthetic.
   the optional exact `provider_resource_id`. A legacy Azure ID in `resource_id` is reverse-resolved
   in the same active inventory generation and collapsed with its discovered logical Resource.
   Missing, ambiguous, kind-conflicting, or cross-generation reconciliation fails the tick.
-  Explicit-only operation without inventory requires both identities. Provider failures retain the metric name but redact the provider
-  reference, which never enters a Finding, receipt, Incident, or serialized analyzer error. The
+  Metric-backed explicit-only operation without inventory requires both identities. Evidence-backed
+  non-metric targets retain only their logical identity. Provider failures retain the metric name
+  but redact the provider reference, which never enters a Finding, receipt, Incident, or serialized
+  analyzer error. The
   default analyzer does not treat Azure Managed Prometheus's cluster-name alias as this exact
   identity; it remains on Azure Monitor Logs unless composition supplies PromQL that preserves an
   exact `resource_id` label. A Prometheus response missing a requested identity label fails instead

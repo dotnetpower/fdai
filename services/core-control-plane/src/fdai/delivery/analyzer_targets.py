@@ -152,13 +152,15 @@ async def resolve_analyzer_targets(
 
     if store is None:
         unbound_targets = _deduplicate_configured_targets(configured)
+        provider_bound_kinds = frozenset(analyzer_kinds.values())
         if any(
-            target.provider_query_ref is None or _looks_like_azure_provider_ref(target.resource_ref)
+            _looks_like_azure_provider_ref(target.resource_ref)
+            or (target.resource_kind in provider_bound_kinds and target.provider_query_ref is None)
             for target in unbound_targets
         ):
             raise AnalyzerTargetResolutionError(
-                "configured ARM targets without inventory MUST separate "
-                "resource_id and provider_resource_id"
+                "configured metric targets without inventory MUST separate "
+                "logical resource_id and provider_resource_id"
             )
         return AnalyzerTargetResolution(
             targets=unbound_targets,

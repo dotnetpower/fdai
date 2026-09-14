@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 1f777f2442895e783b411aaf5aca1ac0ca787dbb
+translation_source_sha: fdcc6b8d984149e6bb722e77bc086dd394190a68
 translation_revised: 2026-09-14
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -271,8 +271,9 @@ full-stack supervisor는 표준 로컬 analyzer loop를 시작하며, 이 loop�
 정확한 `provider_resource_id`를 분리해서 인코딩합니다. 기존 Azure 리소스 ID를 `resource_id`로
 제공하면 하나의 인벤토리 세대에서 활성 논리 리소스로 조정하고 같은 검색 리소스와 하나로
 합칩니다. 누락, 모호성, 종류 충돌 또는 세대가 다른 조정은 fail-closed 합니다. 인벤토리가
-없는 명시적 전용 배포는 논리 신원과 공급자 신원을 분리해서 제공해야 하며 Azure 리소스 ID를
-Event 대상으로 게시할 수 없습니다. 두 실행 환경은 1분 시작 간격을 유지합니다.
+없는 메트릭 기반 명시적 대상은 논리 신원과 공급자 신원을 분리해서 제공해야 하며 Azure 리소스
+ID를 Event 대상으로 게시할 수 없습니다. 근거에 기반한 비메트릭 대상은 공급자 신원을 만들지
+않고 논리 신원을 유지합니다. 두 실행 환경은 1분 시작 간격을 유지합니다.
 로컬 직렬 loop는 다음 대기에 틱 실행 시간을 더하지 않고 차감하므로 배포 cron보다 늦어지지
 않습니다. 두 실행 환경 모두 Azure Managed Prometheus의 cluster 이름 alias를 정확한 인벤토리
 신원으로 취급하지 않습니다. Analyzer의 Prometheus 경로는 정확한 `resource_id`를 보존하는 조회

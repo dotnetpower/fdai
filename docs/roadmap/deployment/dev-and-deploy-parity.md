@@ -269,9 +269,10 @@ provider reference stops the tick. Explicit targets encode that logical `resourc
 from the optional exact `provider_resource_id`. A legacy Azure resource ID supplied as
 `resource_id` is reconciled to the active logical resource in one inventory generation and
 collapsed with the same discovered resource. Missing, ambiguous, kind-conflicting, or
-cross-generation reconciliation fails closed. An explicit-only deployment without inventory must
-provide separate logical and provider identities and cannot publish an Azure resource ID as the
-Event target. Both venues keep a one-minute start-to-start cadence; the local
+cross-generation reconciliation fails closed. A metric-backed explicit target without inventory
+must provide separate logical and provider identities and cannot publish an Azure resource ID as
+the Event target. Evidence-backed non-metric targets retain their logical identity without
+inventing a provider identity. Both venues keep a one-minute start-to-start cadence; the local
 serial loop subtracts tick execution time from the next delay rather than drifting behind the
 deployed cron. Neither venue treats Azure Managed Prometheus's cluster-name alias as an exact
 inventory identity. Analyzer Prometheus routing requires an explicitly composed query catalog that

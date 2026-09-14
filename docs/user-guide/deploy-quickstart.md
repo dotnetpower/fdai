@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to Azure from one local command or a digest-pinned disconnected deployment appliance.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: a4b5020ea2b3ff20dec9ba6b0c411c21e3940c3f }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: c1a1fc2bb2024e4f2797654de23ede40f5409cd9 }]
 ---
 
 # Deploy Quickstart
@@ -216,7 +216,8 @@ not mean that the selected application failed to deploy.
 If you configure analyzer targets directly, use `resource_id` for the logical FDAI Resource and
 `provider_resource_id` for the exact Azure resource ID used by metric queries. When inventory is
 available, FDAI can reconcile a legacy Azure ID to its logical Resource. Without inventory, provide
-both fields so findings and Incidents never expose the provider identity as their target.
+both fields for metric-backed targets so findings and Incidents never expose the provider identity
+as their target. Non-metric targets, such as Pod lifecycle evidence, use only their logical ID.
 
 The private work directory can contain SSH keys, target-specific inputs, plans, and recovery state.
 Do not upload or share its contents; use sanitized CLI diagnostics instead. Keep the directory until

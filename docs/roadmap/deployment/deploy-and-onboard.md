@@ -186,8 +186,9 @@ snapshot's exact provider reference. Explicit targets keep the ontology `resourc
 the optional exact `provider_resource_id`. A legacy Azure resource ID in `resource_id` is reconciled
 to the active logical identity in the same inventory generation and collapses with its discovered
 peer; missing, ambiguous, conflicting, or cross-generation identity evidence fails closed. Without
-inventory, each explicit target must provide both identities. An unsupported resource type is
-omitted rather than guessed.
+inventory, each metric-backed explicit target must provide both identities. Evidence-backed
+non-metric targets, such as Pod lifecycle scenarios, retain their logical identity without
+inventing a provider identity. An unsupported resource type is omitted rather than guessed.
 An unreadable projection fails the tick so the Job retries instead of silently reducing coverage.
 Without an inventory DSN, the explicit-only path remains available; when both sources resolve no
 target, the tick is a clean no-op that exits `0`. Set the analyzer cron to an explicit empty string
