@@ -30,6 +30,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Separated exact-window focus failure from acknowledgement-message failure and reused the focused window for the acknowledgement fallback. | `current change`; focused service-worker failure-path test. | No residual duplicate-window path remains for acknowledgement-message failure. |
 | 2026-09-14 | implemented | Made explicit Console web selection and deselection fail closed when principal-scoped preference persistence is unavailable. | `current change`; focused preference-storage failure tests. | No residual success-shaped preference write failure remains. |
 | 2026-09-14 | implemented | Synchronized Console web receipt status across tabs while filtering storage events to the current principal's ledger key. | `current change`; focused principal-key storage-event tests. | No residual cross-tab status synchronization work for this local ledger. |
 | 2026-09-14 | implemented | Derived the header status from the latest retained Console web delivery rather than the receipt that most recently changed. | `current change`; focused multiple-delivery ordering test. | No residual stale-acknowledgement status overwrite remains. |
