@@ -12,6 +12,7 @@ interface WindowClientStub {
   readonly url: string;
   readonly focus: () => Promise<unknown>;
   readonly navigate: (url: string) => Promise<WindowClientStub | null>;
+  readonly postMessage?: (value: unknown) => void;
 }
 
 interface WorkerClients {
@@ -45,11 +46,16 @@ function loadWorker(
   return context;
 }
 
-async function clickNotification(context: WorkerContext, path: string): Promise<void> {
+async function clickNotification(
+  context: WorkerContext,
+  path: string,
+  tag = "fdai:event-1",
+  channelId = "console-web",
+): Promise<void> {
   let pending: Promise<unknown> | undefined;
   const close = vi.fn();
   context.handlers.get("notificationclick")?.({
-    notification: { data: { path }, close },
+    notification: { data: { path, tag, channel_id: channelId }, close },
     waitUntil: (value: Promise<unknown>) => {
       pending = value;
     },
@@ -80,9 +86,11 @@ describe("notification service worker boundary", () => {
 
   test("focuses the client returned by navigation", async () => {
     const target = "https://console.example.com/incidents?status=all";
+    const acknowledgedTarget =
+      "https://console.example.com/incidents?status=all&fdai_notification_ack=fdai%3Aevent-1";
     const navigatedFocus = vi.fn(async () => undefined);
     const navigated: WindowClientStub = {
-      url: target,
+      url: acknowledgedTarget,
       focus: navigatedFocus,
       navigate: async () => null,
     };
@@ -101,7 +109,7 @@ describe("notification service worker boundary", () => {
 
     await clickNotification(context, "/incidents?status=all");
 
-    expect(navigate).toHaveBeenCalledWith(target);
+    expect(navigate).toHaveBeenCalledWith(acknowledgedTarget);
     expect(navigatedFocus).toHaveBeenCalledOnce();
     expect(originalFocus).not.toHaveBeenCalled();
     expect(openWindow).not.toHaveBeenCalled();
@@ -109,6 +117,8 @@ describe("notification service worker boundary", () => {
 
   test("opens the target when focusing an exact client fails", async () => {
     const target = "https://console.example.com/incidents?status=all";
+    const acknowledgedTarget =
+      "https://console.example.com/incidents?status=all&fdai_notification_ack=fdai%3Aevent-1";
     const exact: WindowClientStub = {
       url: target,
       focus: vi.fn(async () => {
@@ -125,6 +135,68 @@ describe("notification service worker boundary", () => {
     await clickNotification(context, "/incidents?status=all");
 
     expect(exact.focus).toHaveBeenCalledOnce();
-    expect(openWindow).toHaveBeenCalledWith(target);
+    expect(openWindow).toHaveBeenCalledWith(acknowledgedTarget);
+  });
+
+  test("reports acknowledgement to an already open exact Console target", async () => {
+    const target = "https://console.example.com/incidents?status=all";
+    const postMessage = vi.fn();
+    const exact: WindowClientStub = {
+      url: target,
+      focus: vi.fn(async () => undefined),
+      navigate: async () => null,
+      postMessage,
+    };
+    const context = loadWorker("https://console.example.com/", {
+      matchAll: async () => [exact],
+      openWindow: async () => null,
+    });
+
+    await clickNotification(context, "/incidents?status=all");
+
+    expect(postMessage).toHaveBeenCalledOnce();
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+      type: "fdai.console-web-notification.acknowledged",
+      channel_id: "console-web",
+      tag: "fdai:event-1",
+    }));
+  });
+
+  test("does not record an acknowledgement for an invalid notification tag", async () => {
+    const target = "https://console.example.com/incidents?status=all";
+    const postMessage = vi.fn();
+    const exact: WindowClientStub = {
+      url: target,
+      focus: vi.fn(async () => undefined),
+      navigate: async () => null,
+      postMessage,
+    };
+    const context = loadWorker("https://console.example.com/", {
+      matchAll: async () => [exact],
+      openWindow: async () => null,
+    });
+
+    await clickNotification(context, "/incidents?status=all", "unsafe tag");
+
+    expect(postMessage).not.toHaveBeenCalled();
+  });
+
+  test("does not record an acknowledgement for another notification channel", async () => {
+    const target = "https://console.example.com/incidents?status=all";
+    const postMessage = vi.fn();
+    const exact: WindowClientStub = {
+      url: target,
+      focus: vi.fn(async () => undefined),
+      navigate: async () => null,
+      postMessage,
+    };
+    const context = loadWorker("https://console.example.com/", {
+      matchAll: async () => [exact],
+      openWindow: async () => null,
+    });
+
+    await clickNotification(context, "/incidents?status=all", "fdai:event-1", "teams");
+
+    expect(postMessage).not.toHaveBeenCalled();
   });
 });

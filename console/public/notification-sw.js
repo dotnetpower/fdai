@@ -1,5 +1,10 @@
 "use strict";
 
+const CONSOLE_WEB_CHANNEL_ID = "console-web";
+const ACKNOWLEDGEMENT_TYPE = "fdai.console-web-notification.acknowledged";
+const ACKNOWLEDGEMENT_QUERY = "fdai_notification_ack";
+const SAFE_NOTIFICATION_TAG = /^fdai:[A-Za-z0-9._:-]{1,128}$/;
+
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
 });
@@ -11,6 +16,9 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const path = event.notification.data?.path;
+  const tag = event.notification.data?.channel_id === CONSOLE_WEB_CHANNEL_ID
+    ? safeNotificationTag(event.notification.data?.tag)
+    : null;
   const target = safeTarget(path);
   if (target === null) return;
 
@@ -20,28 +28,49 @@ self.addEventListener("notificationclick", (event) => {
     if (exact !== undefined) {
       try {
         await exact.focus();
+        acknowledgeClient(exact, tag);
       } catch {
-        await self.clients.openWindow(target.href);
+        await self.clients.openWindow(acknowledgementTarget(target, tag).href);
       }
       return;
     }
     const sameOrigin = windows.find((client) => new URL(client.url).origin === target.origin);
     if (sameOrigin !== undefined) {
       try {
-        const navigated = await sameOrigin.navigate(target.href);
+        const navigated = await sameOrigin.navigate(acknowledgementTarget(target, tag).href);
         if (navigated === null) {
-          await self.clients.openWindow(target.href);
+          await self.clients.openWindow(acknowledgementTarget(target, tag).href);
           return;
         }
         await navigated.focus();
       } catch {
-        await self.clients.openWindow(target.href);
+        await self.clients.openWindow(acknowledgementTarget(target, tag).href);
       }
       return;
     }
-    await self.clients.openWindow(target.href);
+    await self.clients.openWindow(acknowledgementTarget(target, tag).href);
   })());
 });
+
+function safeNotificationTag(value) {
+  return typeof value === "string" && SAFE_NOTIFICATION_TAG.test(value) ? value : null;
+}
+
+function acknowledgementTarget(target, tag) {
+  const acknowledged = new URL(target.href);
+  if (tag !== null) acknowledged.searchParams.set(ACKNOWLEDGEMENT_QUERY, tag);
+  return acknowledged;
+}
+
+function acknowledgeClient(client, tag) {
+  if (tag === null || typeof client.postMessage !== "function") return;
+  client.postMessage({
+    type: ACKNOWLEDGEMENT_TYPE,
+    channel_id: CONSOLE_WEB_CHANNEL_ID,
+    tag,
+    acknowledged_at: Date.now(),
+  });
+}
 
 function safeTarget(path) {
   if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//")) return null;

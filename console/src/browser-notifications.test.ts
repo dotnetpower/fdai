@@ -1,13 +1,20 @@
 import { describe, expect, test } from "vitest";
 import type { LiveStageEvent } from "./hooks/use-live-stream";
 import {
+  acknowledgeBrowserAlertDelivery,
+  BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
+  browserAlertNotificationData,
   browserAlertForLiveEvent,
+  CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
+  decodeBrowserAlertAcknowledgement,
   browserNotificationPreferenceKey,
   browserNotificationsSupported,
   browserNotificationTargetPath,
   browserNotificationWorkerPaths,
   claimBrowserAlertDelivery,
+  readLatestBrowserAlertReceipt,
   readBrowserNotificationPreference,
+  recordBrowserAlertDelivered,
   releaseBrowserAlertDelivery,
   writeBrowserNotificationPreference,
 } from "./browser-notifications";
@@ -63,6 +70,11 @@ describe("browser notification boundary", () => {
       "/fdai/incidents?status=all",
     );
     expect(() => browserNotificationTargetPath("//example.com", "/")).toThrow();
+    expect(browserAlertNotificationData(browserAlertForLiveEvent(event())!, "/")).toEqual({
+      channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
+      tag: "fdai:event-1",
+      path: "/incidents?status=all&correlation=correlation-1",
+    });
   });
 
   test("scopes opt-in storage to the browser principal", () => {
@@ -130,5 +142,90 @@ describe("browser notification boundary", () => {
     releaseBrowserAlertDelivery("fdai:event-1", "principal-a", storage);
     expect(claimBrowserAlertDelivery("fdai:event-1", "principal-a", now + 1, storage)).toBe("claimed");
     expect(claimBrowserAlertDelivery("fdai:event-2", "principal-a", now, null)).toBe("unavailable");
+  });
+
+  test("records Console web delivery and user acknowledgement separately", () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value); },
+      removeItem: (key: string) => { values.delete(key); },
+    };
+    const now = 1_800_000_000_000;
+    expect(claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage)).toBe("claimed");
+    expect(readLatestBrowserAlertReceipt("principal-a", now + 1, storage)).toBeNull();
+    expect(acknowledgeBrowserAlertDelivery(
+      "fdai:event-1",
+      "principal-a",
+      now + 1,
+      storage,
+    )).toBeNull();
+
+    expect(recordBrowserAlertDelivered(
+      "fdai:event-1",
+      "principal-a",
+      now + 2,
+      storage,
+    )).toEqual({
+      channelId: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
+      tag: "fdai:event-1",
+      deliveredAt: now + 2,
+      acknowledgedAt: null,
+    });
+    expect(acknowledgeBrowserAlertDelivery(
+      "fdai:event-1",
+      "principal-a",
+      now + 3,
+      storage,
+    )).toEqual({
+      channelId: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
+      tag: "fdai:event-1",
+      deliveredAt: now + 2,
+      acknowledgedAt: now + 3,
+    });
+    expect(readLatestBrowserAlertReceipt("principal-a", now + 4, storage)?.acknowledgedAt)
+      .toBe(now + 3);
+    expect(readLatestBrowserAlertReceipt("principal-b", now + 4, storage)).toBeNull();
+  });
+
+  test("accepts only bounded Console web acknowledgement messages", () => {
+    expect(decodeBrowserAlertAcknowledgement({
+      type: BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
+      channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
+      tag: "fdai:event-1",
+      acknowledged_at: 1_800_000_000_000,
+    })).toEqual({
+      tag: "fdai:event-1",
+      acknowledgedAt: 1_800_000_000_000,
+    });
+    expect(decodeBrowserAlertAcknowledgement({
+      type: BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
+      channel_id: "teams",
+      tag: "fdai:event-1",
+      acknowledged_at: 1_800_000_000_000,
+    })).toBeNull();
+    expect(decodeBrowserAlertAcknowledgement({
+      type: BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
+      channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
+      tag: "unsafe tag",
+      acknowledged_at: 1_800_000_000_000,
+    })).toBeNull();
+  });
+
+  test("keeps legacy claims deduplicated without upgrading them to delivery evidence", () => {
+    const now = 1_800_000_000_000;
+    const values = new Map<string, string>([[
+      "fdai:console:browser-notification-delivery:v1:principal-a",
+      JSON.stringify([{ tag: "fdai:event-1", at: now }]),
+    ]]);
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value); },
+      removeItem: (key: string) => { values.delete(key); },
+    };
+
+    expect(claimBrowserAlertDelivery("fdai:event-1", "principal-a", now + 1, storage))
+      .toBe("duplicate");
+    expect(readLatestBrowserAlertReceipt("principal-a", now + 1, storage)).toBeNull();
   });
 });

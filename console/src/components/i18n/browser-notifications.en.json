@@ -1,0 +1,23 @@
+{
+  "label": "Console web",
+  "off": "Select Console web as the notification channel",
+  "enabling": "Selecting Console web...",
+  "on": "Deselect the Console web notification channel",
+  "blocked": "Console web notifications are blocked",
+  "unsupported": "Console web notifications are unavailable",
+  "error": "Retry the Console web notification channel",
+  "stateOff": "Not selected",
+  "stateEnabling": "...",
+  "stateOn": "Ready",
+  "stateDelivered": "Sent",
+  "stateAcknowledged": "Sent + opened",
+  "stateBlocked": "Blocked",
+  "stateUnsupported": "Unavailable",
+  "stateError": "Retry",
+  "approvalTitle": "FDAI human approval required",
+  "approvalBody": "Open the Console to review the incident evidence.",
+  "deniedTitle": "FDAI action denied",
+  "deniedBody": "Open the Console to review the safety decision.",
+  "failedTitle": "FDAI operation failed",
+  "failedBody": "Open the Console to review the failure evidence."
+}
