@@ -98,6 +98,7 @@ run "foundation_contracts_with_bootstrap_outputs" {
       azapi_resource.app_resource_group.tags["fdai:foundation-context"] == var.foundation_context_digest &&
       output.foundation_context_digest == var.foundation_context_digest &&
       output.private_handoff.app_resource_group.foundation_context_digest == var.foundation_context_digest &&
+      output.private_handoff.region_short == var.region_short &&
       !contains(keys(azapi_resource.state.tags), "fdai:foundation-context") &&
       !contains(keys(local.provenance_tags), "fdai:foundation-context")
     )
