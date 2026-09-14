@@ -37,19 +37,7 @@ would need a separate, domain-bounded design that explicitly preserves coverage 
 
 ## Module Boundaries
 
-AKS token exchange belongs to each service's Azure adapter or composition, not to Core domain
-logic or shared service contracts. Core and isolated Executor declare their own Azure Identity SDK
-and asynchronous transport dependencies. Operator, Document API and Document Worker consume the
-same SDK token interface without importing another service's implementation. Projected federation
-selects the explicit service identity; it does not change RBAC, approval or execution ownership.
-
-Trial time-window records live in `core/licensing/trial.py` as pure, inert state transitions.
-They do not read a database, open a capability, or initialize themselves from environment values.
-The deployment writer and future persistent adapter own activation and atomic observation;
-runtime composition must authenticate that state before the existing execution ceiling can use it.
-Source deployment provenance belongs to the deployment CLI and is not a license or release signature.
-
-Dependency direction is strict and one-way; a violation is a review blocker.
+Dependency direction is strict and one-way; a violation is a review blocker. [AKS token exchange](../deployment/runtime-deployment-profiles.md#identity-and-secrets) and SDK/async transport dependencies remain service-owned, never Core domain or shared-contract code. Inert Trial records in `core/licensing/trial.py` grant no capability; deployment/persistence owns atomic activation, and runtime must authenticate retained state. Source provenance belongs to the CLI and is neither entitlement nor release signature.
 Cloud-reference collection belongs to ingestion API, parsing/index activation to the worker, and dated evidence to Core; [the lifecycle owner](../interfaces/cloud-resource-knowledge-lifecycle.md) defines the shared contracts and no-authority boundary. Core exposes applicability as bounded scalar selectors, preserving dependency-only evidence objects. Exact document contexts intersect these selectors before ranking and cannot fall back to broader collection reads. Each new ingestion test has one service-suite owner, and the API's already-declared `aiohttp` dependency is classified as direct rather than indirect.
 
 - **core is portable**: it MUST NOT import any cloud SDK directly. Cloud specifics enter
