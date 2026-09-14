@@ -226,7 +226,8 @@ class ResourceStateShadowHook:
         if cross_source_conflicts:
             activity_status = OperationalActivityStatus.DEGRADED
             freshness = OperationalFreshness.UNKNOWN
-            reason_codes = tuple(sorted({*reason_codes, *cross_source_conflicts}))
+            activity_conflicts = (conflict.replace(":", "_") for conflict in cross_source_conflicts)
+            reason_codes = tuple(sorted({*reason_codes, *activity_conflicts}))
         await self._publish_activity(
             correlation_id=correlation_ref,
             status=activity_status,

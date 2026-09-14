@@ -191,7 +191,7 @@ describe("agent live log projection", () => {
     ]);
 
     expect(rows).toHaveLength(AGENT_LOG_LIMIT);
-    expect(rows[0]?.detail).toBe("turn-800");
+    expect(rows[0]?.detail).toBe(`turn-${1000 - AGENT_LOG_LIMIT}`);
     expect(rows.at(-1)?.detail).toBe("turn-999");
   });
 });

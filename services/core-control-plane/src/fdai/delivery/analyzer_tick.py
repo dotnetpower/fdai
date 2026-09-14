@@ -402,14 +402,14 @@ def analyzer_idempotency_key(
             str(bucket),
         )
     )
-    return f"analyzer:{uuid5(_EVENT_ID_NAMESPACE, identity)}"
+    return f"analyzer:{uuid5(_EVENT_ID_NAMESPACE, identity).hex}"
 
 
 def analyzer_correlation_id(finding: AnalyzerFinding) -> str:
     """Return a stable opaque episode identity for one resource and signal."""
 
     identity = "\0".join((finding.resource_kind, finding.resource_ref, finding.signal))
-    return f"analyzer:{uuid5(_EVENT_ID_NAMESPACE, identity)}"
+    return f"analyzer:{uuid5(_EVENT_ID_NAMESPACE, identity).hex}"
 
 
 class AnalyzerTickRunner:

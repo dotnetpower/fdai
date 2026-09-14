@@ -4,6 +4,7 @@ import {
   type Column,
   type PillKind,
 } from "../components/ui";
+import { Tooltip } from "../components/tooltip";
 import { presentationActor } from "../deck/presentation-value";
 import { routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
@@ -95,9 +96,9 @@ export function TraceTimeline({
       key: "at",
       header: t("evidence.trace.column.recordedAt"),
       render: (step) => (
-        <time dateTime={step.recorded_at} title={step.recorded_at}>
-          {formatConsoleTimestamp(step.recorded_at)}
-        </time>
+        <Tooltip content={step.recorded_at}>
+          <time dateTime={step.recorded_at}>{formatConsoleTimestamp(step.recorded_at)}</time>
+        </Tooltip>
       ),
       cellClass: "mono",
     },
@@ -106,7 +107,7 @@ export function TraceTimeline({
       header: t("evidence.trace.column.stage"),
       render: (step) => step.stage === null
         ? <span class="muted">{traceStageLabel(null)}</span>
-        : <span title={step.stage}>{traceStageLabel(step.stage)}</span>,
+        : <Tooltip content={step.stage}><span>{traceStageLabel(step.stage)}</span></Tooltip>,
       cellClass: "mono",
     },
     {

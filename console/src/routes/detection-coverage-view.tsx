@@ -1,6 +1,7 @@
 import type { ComponentChildren, JSX } from "preact";
 
 import { architectureHref } from "../components/architecture-map.model";
+import { Tooltip } from "../components/tooltip";
 import {
   DataTable,
   EmptyState,
@@ -95,7 +96,9 @@ export function CoverageOverview({
       key: "held",
       header: t("coverage.column.held"),
       render: (row) => (
-        <span title={heldReasonSummary(row)}>{row.held_count}</span>
+        <Tooltip content={heldReasonSummary(row)}>
+          <span>{row.held_count}</span>
+        </Tooltip>
       ),
       cellClass: "num",
     },
@@ -109,7 +112,9 @@ export function CoverageOverview({
       key: "errors",
       header: t("coverage.column.errors"),
       render: (row) => (
-        <span title={errorCodeSummary(row.error_codes)}>{row.error_count}</span>
+        <Tooltip content={errorCodeSummary(row.error_codes)}>
+          <span>{row.error_count}</span>
+        </Tooltip>
       ),
       cellClass: "num",
     },
