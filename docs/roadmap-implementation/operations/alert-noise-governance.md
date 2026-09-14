@@ -95,6 +95,7 @@ checks do not prove deployed Azure behavior or authorize promotion.
 | Round | Scope and hypothesis | Finding / initial severity | Change and falsifying evidence | Remaining |
 |-------|----------------------|----------------------------|--------------------------------|-----------|
 | 1 | Noncanonical authority, time, copied records and half-specified treatment axes might cross the boundary. | No new defect; coverage hardening. | [Boundary tests](../../../services/core-control-plane/tests/core/detection/alert_noise/test_boundary_hardening.py): 22 passed. | Keep shared contract validation and no-authority flags; later runtime rounds remain open. |
+| 2 | Lifecycle updates, resolved deliveries and overlapping people might inflate counts or manufacture flapping. | No new defect; coverage hardening. | [Measurement tests](../../../services/core-control-plane/tests/core/detection/alert_noise/test_measurement_hardening.py): 6 passed, including unknown denominators and small-cohort redaction. | Native missing history and identities remain unknown, never zero. |
 
 Document, translation, link, and route checks establish documentation consistency only. The reported
 focused baseline proves bounded implementation mechanics, not live delivery or safety in a tenant.
