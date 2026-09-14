@@ -42,6 +42,12 @@ class RollbackRecord:
 RollbackExecutor = Callable[[dict[str, Any]], Awaitable[str | None]]
 
 
+@dataclass(frozen=True, slots=True)
+class _CachedRollback:
+    request_digest: str
+    record: RollbackRecord
+
+
 class RollbackClaimInProgressError(RuntimeError):
     """Raised so transport retry or DLQ retains a still-leased rollback."""
 
@@ -83,7 +89,7 @@ class Vidar(Agent):
         # revert), so a correlation is rolled back at most once. Bounded so
         # the guard cannot leak on a long-lived recovery principal. Publication
         # completion is tracked separately so a broker failure can replay safely.
-        self._rollback_results: BoundedLruDict[str, RollbackRecord] = BoundedLruDict(
+        self._rollback_results: BoundedLruDict[str, _CachedRollback] = BoundedLruDict(
             self._MAX_RECORDS
         )
         self._published_rollbacks: BoundedLruSet[str] = BoundedLruSet(self._MAX_RECORDS)
@@ -105,16 +111,25 @@ class Vidar(Agent):
 
     async def _rollback_locked(self, action_run: dict[str, Any]) -> RollbackRecord | None:
         correlation_id = str(action_run.get("correlation_id", ""))
+        contract = str(action_run.get("rollback_contract", "state_forward_only"))
+        request_digest = _rollback_request_digest(action_run, contract=contract)
         if correlation_id:
             existing = self._rollback_results.get(correlation_id)
             if existing is not None:
-                if not await self._publish_rollback_once(existing):
+                if existing.request_digest != request_digest:
+                    raise ValueError("rollback correlation collides with different action identity")
+                if not await self._publish_rollback_once(existing.record):
                     return None
-                return existing
+                return existing.record
             if self._state_store is not None:
-                return await self._rollback_durable(action_run, correlation_id)
+                return await self._rollback_durable(
+                    action_run,
+                    correlation_id,
+                    contract=contract,
+                    request_digest=request_digest,
+                )
         rec = await self._execute_rollback(action_run, correlation_id)
-        self._remember_rollback(rec)
+        self._remember_rollback(rec, request_digest=request_digest)
         await self._publish_rollback_once(rec)
         return rec
 
@@ -122,12 +137,13 @@ class Vidar(Agent):
         self,
         action_run: dict[str, Any],
         correlation_id: str,
+        *,
+        contract: str,
+        request_digest: str,
     ) -> RollbackRecord | None:
         store = self._state_store
         if store is None:
             raise RuntimeError("durable rollback requires a StateStore")
-        contract = str(action_run.get("rollback_contract", "state_forward_only"))
-        request_digest = _rollback_request_digest(action_run, contract=contract)
         state_key = _rollback_state_key(correlation_id, "state")
         stored = await store.read_state(state_key)
         if stored is None:
@@ -167,7 +183,7 @@ class Vidar(Agent):
                     claim_owner_token=self._owner_token,
                     lease_expires_at=lease_expires_at,
                 )
-                self._remember_rollback(rec)
+                self._remember_rollback(rec, request_digest=request_digest)
                 await self._publish_rollback_once(rec)
                 return rec
             stored = await store.read_state(state_key)
@@ -206,7 +222,7 @@ class Vidar(Agent):
             )
         else:
             raise RuntimeError("stored rollback state has an unsupported status")
-        self._remember_rollback(rec)
+        self._remember_rollback(rec, request_digest=request_digest)
         await self._publish_rollback_once(rec)
         return rec
 
@@ -290,12 +306,22 @@ class Vidar(Agent):
         )
         return rec
 
-    def _remember_rollback(self, rec: RollbackRecord) -> None:
+    def _remember_rollback(
+        self,
+        rec: RollbackRecord,
+        *,
+        request_digest: str,
+    ) -> None:
         if rec.correlation_id:
             existing = self._rollback_results.get(rec.correlation_id)
             if existing is not None:
+                if existing.request_digest != request_digest:
+                    raise ValueError("rollback correlation collides with different action identity")
                 return
-            self._rollback_results.set(rec.correlation_id, rec)
+            self._rollback_results.set(
+                rec.correlation_id,
+                _CachedRollback(request_digest=request_digest, record=rec),
+            )
         self.records.append(rec)
         # FIFO cap - drop the oldest 25% in one shot to amortise the cost.
         if len(self.records) > self._MAX_RECORDS:

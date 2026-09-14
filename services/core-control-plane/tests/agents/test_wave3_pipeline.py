@@ -1357,19 +1357,22 @@ def test_vidar_rejects_changed_rollback_command_inputs() -> None:
     assert completed is not None
     assert completed.rollback_ref == "restore:A"
 
+    changed = {
+        **original,
+        "params": {"restore_point": "B"},
+    }
+    with pytest.raises(
+        ValueError,
+        match="rollback correlation collides with different action identity",
+    ):
+        asyncio.run(first.rollback(dict(changed)))
+
     restarted = Vidar(executors={"pitr": rollback_executor}, state_store=store)
     with pytest.raises(
         ValueError,
         match="rollback correlation collides with different action identity",
     ):
-        asyncio.run(
-            restarted.rollback(
-                {
-                    **original,
-                    "params": {"restore_point": "B"},
-                }
-            )
-        )
+        asyncio.run(restarted.rollback(dict(changed)))
 
     assert calls == ["A"]
 
