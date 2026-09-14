@@ -12,25 +12,27 @@ export function ArchitectureOverviewPanel({
   graph,
   onViewScopeChange,
 }: Props) {
+  const views = graph.views ?? [];
+  if (views.length === 0 && !graph.truncated) return null;
   return (
     <aside class="architecture-overview-panel" aria-label={t("mapOverview")}>
-      <label class="architecture-view-picker">
+      {views.length > 0 ? <label class="architecture-view-picker">
         <span>{t("scope")}</span>
         <select
-          value={graph.active_view ?? graph.views?.[0]?.id ?? ""}
+          value={graph.active_view ?? views[0]?.id ?? ""}
           onChange={(event) => onViewScopeChange((event.target as HTMLSelectElement).value)}
         >
           {(["fdai", "service", "resource_group"] as const).map((kind) => {
-            const views = (graph.views ?? []).filter((view) => view.kind === kind);
-            if (views.length === 0) return null;
+            const scopedViews = views.filter((view) => view.kind === kind);
+            if (scopedViews.length === 0) return null;
             return (
               <optgroup label={t(kind === "fdai" ? "viewGroup.fdai" : kind === "service" ? "viewGroup.service" : "viewGroup.resourceGroup")}>
-                {views.map((view) => <option value={view.id}>{view.label}</option>)}
+                {scopedViews.map((view) => <option value={view.id}>{view.label}</option>)}
               </optgroup>
             );
           })}
         </select>
-      </label>
+      </label> : null}
       {graph.truncated ? (
         <span class="architecture-partial-badge" role="status">{t("partialTitle")}</span>
       ) : null}

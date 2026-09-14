@@ -51,7 +51,7 @@ export function drawArchitectureNetworkPlanes(
     );
     context.restore();
     if (architectureNetworkPlaneLabelIsVisible(plane, selectedId, camera.scale)) {
-      drawWorldLabel(context, width, height, camera, plane, color);
+      drawWorldLabel(context, width, height, camera, plane, palette.labelText);
     }
   }
 }
@@ -62,7 +62,7 @@ export function architectureNetworkPlaneLabelIsVisible(
   cameraScale: number,
 ): boolean {
   const subnet = plane.type === "network.subnet" || plane.type === "subnet";
-  return !subnet || plane.id === selectedId || cameraScale >= 12;
+  return !subnet || plane.id === selectedId || cameraScale >= 18;
 }
 
 export function drawArchitectureNetworkMemberships(
