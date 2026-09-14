@@ -11,13 +11,14 @@ import {
   browserNotificationsSupported,
   browserNotificationWorkerPaths,
   claimBrowserAlertDelivery,
-  readLatestBrowserAlertReceipt,
+  readBrowserAlertDeliveryStatus,
   readBrowserNotificationPreference,
   recordBrowserAlertDelivered,
   releaseBrowserAlertDelivery,
   trustedBrowserAlertAcknowledgement,
   writeBrowserNotificationPreference,
   type BrowserAlertKind,
+  type BrowserAlertDeliveryStatus,
 } from "../browser-notifications";
 import { useExclusiveBrowserStreamLeader } from "../hooks/browser-stream-leader";
 import { useLiveStream } from "../hooks/use-live-stream";
@@ -32,7 +33,6 @@ interface Props {
 }
 
 type ControlState = "off" | "enabling" | "on" | "blocked" | "unsupported" | "error";
-type DeliveryState = "ready" | "delivered" | "acknowledged";
 
 const CONTROL_LABEL_KEYS: Readonly<Record<ControlState, BrowserNotificationTextKey>> = {
   off: "off",
@@ -52,7 +52,7 @@ const CONTROL_STATE_KEYS: Readonly<Record<ControlState, BrowserNotificationTextK
   error: "stateError",
 };
 
-const DELIVERY_STATE_KEYS: Readonly<Record<DeliveryState, BrowserNotificationTextKey>> = {
+const DELIVERY_STATE_KEYS: Readonly<Record<BrowserAlertDeliveryStatus, BrowserNotificationTextKey>> = {
   ready: "stateOn",
   delivered: "stateDelivered",
   acknowledged: "stateAcknowledged",
@@ -73,15 +73,15 @@ const ALERT_BODY_KEYS: Readonly<Record<BrowserAlertKind, BrowserNotificationText
 export function BrowserNotificationControl({ client, principalId }: Props) {
   const supported = browserNotificationsSupported();
   const [state, setState] = useState<ControlState>(() => initialState(supported, principalId));
-  const [deliveryState, setDeliveryState] = useState<DeliveryState>(
-    () => initialDeliveryState(principalId),
+  const [deliveryState, setDeliveryState] = useState<BrowserAlertDeliveryStatus>(
+    () => readBrowserAlertDeliveryStatus(principalId),
   );
   const [workerReady, setWorkerReady] = useState(false);
 
   useEffect(() => {
     setWorkerReady(false);
     setState(initialState(supported, principalId));
-    setDeliveryState(initialDeliveryState(principalId));
+    setDeliveryState(readBrowserAlertDeliveryStatus(principalId));
   }, [supported, principalId]);
 
   useEffect(() => {
@@ -135,7 +135,7 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
         principalId,
         acknowledgedAt,
       );
-      if (receipt !== null) setDeliveryState("acknowledged");
+      if (receipt !== null) setDeliveryState(readBrowserAlertDeliveryStatus(principalId));
     };
     const onWorkerMessage = (event: MessageEvent<unknown>) => {
       const acknowledgement = trustedBrowserAlertAcknowledgement(
@@ -216,7 +216,7 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
             setState("error");
             return;
           }
-          setDeliveryState(receipt.acknowledgedAt === null ? "delivered" : "acknowledged");
+          setDeliveryState(readBrowserAlertDeliveryStatus(principalId));
         })
         .catch(() => {
           releaseBrowserAlertDelivery(alert.tag, principalId);
@@ -278,12 +278,6 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
       </span>
     </button>
   );
-}
-
-function initialDeliveryState(principalId?: string | null): DeliveryState {
-  const receipt = readLatestBrowserAlertReceipt(principalId);
-  if (receipt !== null && receipt.acknowledgedAt !== null) return "acknowledged";
-  return receipt === null ? "ready" : "delivered";
 }
 
 function initialState(supported: boolean, principalId?: string | null): ControlState {

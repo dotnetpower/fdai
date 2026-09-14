@@ -65,6 +65,8 @@ export interface BrowserAlertAcknowledgementMessage {
   readonly tag: string;
 }
 
+export type BrowserAlertDeliveryStatus = "ready" | "delivered" | "acknowledged";
+
 export function browserNotificationPreferenceKey(principalId: string | null | undefined): string {
   return `${STORAGE_PREFIX}:${principalId?.trim() || "local"}`;
 }
@@ -198,6 +200,16 @@ export function readLatestBrowserAlertReceipt(
   } catch {
     return null;
   }
+}
+
+export function readBrowserAlertDeliveryStatus(
+  principalId?: string | null,
+  now = Date.now(),
+  storage: StorageReader | null = browserStorage(),
+): BrowserAlertDeliveryStatus {
+  const receipt = readLatestBrowserAlertReceipt(principalId, now, storage);
+  if (receipt === null) return "ready";
+  return receipt.acknowledgedAt === null ? "delivered" : "acknowledged";
 }
 
 export function decodeBrowserAlertAcknowledgement(
