@@ -63,8 +63,10 @@ class TrustRouter:
 
         1. ``event.payload['resource'].get('type')`` - the ingested
            inventory adapter's Resource record embedded in the event.
-        2. ``event.payload.get('resource_type')`` - a legacy flat form.
-        3. Otherwise abstain - the router refuses to guess.
+        2. ``event.payload['resource'].get('resource_type')`` - the
+           canonical operator and change-event resource shape.
+        3. ``event.payload.get('resource_type')`` - a legacy flat form.
+        4. Otherwise abstain - the router refuses to guess.
         """
         resource_type = _extract_resource_type(event.payload)
         if resource_type is None:
@@ -97,9 +99,10 @@ class TrustRouter:
 def _extract_resource_type(payload: dict[str, Any]) -> str | None:
     resource = payload.get("resource")
     if isinstance(resource, dict):
-        rt = _normalized_resource_type(resource.get("type"))
-        if rt is not None:
-            return rt
+        for field_name in ("type", "resource_type"):
+            resource_type = _normalized_resource_type(resource.get(field_name))
+            if resource_type is not None:
+                return resource_type
     return _normalized_resource_type(payload.get("resource_type"))
 
 
