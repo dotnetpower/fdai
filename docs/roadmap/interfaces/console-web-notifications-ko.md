@@ -1,7 +1,7 @@
 ---
 title: Console Web 알림
 translation_of: console-web-notifications.md
-translation_source_sha: 839d7c8962b6053ebe9a5ef2680fb85426fd76f8
+translation_source_sha: ede2d396a877f5141e61cb7defabe0fcb7767daa
 translation_revised: 2026-09-14
 ---
 
@@ -55,6 +55,8 @@ FDAI는 페이지를 불러올 때 권한을 요청하지 않습니다. 선택�
 
 principal 범위 브라우저 원장은 다음 규칙을 적용합니다.
 
+- 모든 선점, 표시, 확인 및 해제 쓰기를 동일 출처 탭이 공유하는 단기 Web Lock으로
+  직렬화합니다.
 - 이벤트 태그 하나를 5분 동안 중복 억제합니다.
 - 시스템 알림 표시를 분당 5건으로 제한합니다.
 - 증적을 최대 32개, 7일 동안 유지합니다.

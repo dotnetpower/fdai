@@ -28,7 +28,7 @@ import {
 import { useExclusiveBrowserStreamLeader } from "../hooks/browser-stream-leader";
 import { useLiveStream } from "../hooks/use-live-stream";
 import {
-  browserNotificationText as t,
+  browserNotificationText,
   type BrowserNotificationTextKey,
 } from "./i18n/browser-notifications";
 import { NotificationBellIcon } from "./notification-bell-icon";
@@ -205,6 +205,7 @@ export function BrowserNotificationControl({
   }, [supported, principalId]);
 
   useEffect(() => {
+    let cancelled = false;
     const consumeAcknowledgementFragment = () => {
       const location = new URL(window.location.href);
       const acknowledgement = decodeBrowserAlertAcknowledgementFragment(location.hash);
@@ -214,16 +215,22 @@ export function BrowserNotificationControl({
         "",
         `${location.pathname}${location.search}`,
       );
-      const receipt = acknowledgeBrowserAlertDeliveryForClaim(
+      void acknowledgeBrowserAlertDeliveryForClaim(
         acknowledgement.tag,
         acknowledgement.acknowledgementToken,
         Date.now(),
-      );
-      if (receipt !== null) setDeliveryState(readBrowserAlertDeliveryStatus(principalId));
+      ).then((receipt) => {
+        if (!cancelled && receipt !== null) {
+          setDeliveryState(readBrowserAlertDeliveryStatus(principalId));
+        }
+      });
     };
     consumeAcknowledgementFragment();
     window.addEventListener("hashchange", consumeAcknowledgementFragment);
-    return () => window.removeEventListener("hashchange", consumeAcknowledgementFragment);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("hashchange", consumeAcknowledgementFragment);
+    };
   }, [principalId]);
 
   const streamEnabled = state === "on" && workerReady;
@@ -253,50 +260,54 @@ export function BrowserNotificationControl({
       }
       const alert = browserAlertForLiveEvent(event);
       if (alert === null) return;
-      const claim = claimBrowserAlertDelivery(alert.tag, principalId);
-      if (claim === "duplicate" || claim === "rate-limited") return;
-      if (claim === "unavailable") {
-        setState("error");
-        return;
-      }
-      const acknowledgementToken = readBrowserAlertAcknowledgementToken(
-        alert.tag,
-        principalId,
-      );
-      if (acknowledgementToken === null) {
-        setState("error");
-        return;
-      }
-      void ensureNotificationWorker()
-        .then((registration) => registration.showNotification(
-          t(ALERT_TITLE_KEYS[alert.kind]),
-          {
-            body: t(ALERT_BODY_KEYS[alert.kind]),
-            tag: alert.tag,
-            data: browserAlertNotificationData(
-              alert,
-              import.meta.env.BASE_URL,
-              acknowledgementToken,
-            ),
-          },
-        ))
-        .then(() => {
-          const receipt = recordBrowserAlertDelivered(
+      void claimBrowserAlertDelivery(alert.tag, principalId).then(async (claim) => {
+        if (claim === "duplicate" || claim === "rate-limited") return;
+        if (claim === "unavailable") {
+          setState("error");
+          return;
+        }
+        const acknowledgementToken = readBrowserAlertAcknowledgementToken(
+          alert.tag,
+          principalId,
+        );
+        if (acknowledgementToken === null) {
+          setState("error");
+          return;
+        }
+        try {
+          const registration = await ensureNotificationWorker();
+          await registration.showNotification(
+            browserNotificationText(ALERT_TITLE_KEYS[alert.kind]),
+            {
+              body: browserNotificationText(ALERT_BODY_KEYS[alert.kind]),
+              tag: alert.tag,
+              data: browserAlertNotificationData(
+                alert,
+                import.meta.env.BASE_URL,
+                acknowledgementToken,
+              ),
+            },
+          );
+          const receipt = await recordBrowserAlertDelivered(
             alert.tag,
             acknowledgementToken,
             principalId,
           );
           if (receipt === null) {
-            releaseBrowserAlertDelivery(alert.tag, acknowledgementToken, principalId);
+            await releaseBrowserAlertDelivery(
+              alert.tag,
+              acknowledgementToken,
+              principalId,
+            );
             setState("error");
             return;
           }
           setDeliveryState(readBrowserAlertDeliveryStatus(principalId));
-        })
-        .catch(() => {
-          releaseBrowserAlertDelivery(alert.tag, acknowledgementToken, principalId);
+        } catch {
+          await releaseBrowserAlertDelivery(alert.tag, acknowledgementToken, principalId);
           setState("error");
-        });
+        }
+      });
     },
   });
 
@@ -323,7 +334,7 @@ export function BrowserNotificationControl({
       requireBrowserNotificationPreferenceWrite(true, principalId);
       setSelected(true);
       setWorkerReady(true);
-      setDeliveryState("ready");
+      setDeliveryState(readBrowserAlertDeliveryStatus(principalId));
       setState("on");
     } catch {
       setWorkerReady(false);
@@ -333,15 +344,15 @@ export function BrowserNotificationControl({
 
   const disabled = state === "unsupported" || state === "blocked" || state === "enabling";
   const label = selected && state === "error"
-    ? t("on")
-    : t(CONTROL_LABEL_KEYS[state]);
-  const stateLabel = t(
+    ? browserNotificationText("on")
+    : browserNotificationText(CONTROL_LABEL_KEYS[state]);
+  const stateLabel = browserNotificationText(
     state === "on" ? DELIVERY_STATE_KEYS[deliveryState] : CONTROL_STATE_KEYS[state],
   );
   const visibleStateLabel = compactStatus
     && state === "on"
     && deliveryState === "acknowledged"
-    ? t("stateAcknowledgedCompact")
+    ? browserNotificationText("stateAcknowledgedCompact")
     : stateLabel;
   if (presentation === "settings") {
     return (
@@ -369,7 +380,7 @@ export function BrowserNotificationControl({
     >
       <span class="browser-notification-indicator" aria-hidden="true" />
       <NotificationBellIcon />
-      <span class="topbar-control-label">{t("label")}</span>
+      <span class="topbar-control-label">{browserNotificationText("label")}</span>
       <span class="browser-notification-state" role="status" aria-live="polite">
         {visibleStateLabel}
       </span>

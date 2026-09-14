@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { LiveStageEvent } from "./hooks/use-live-stream";
 import {
   acknowledgeBrowserAlertDelivery,
@@ -33,6 +33,14 @@ import {
 
 const ACKNOWLEDGEMENT_TOKEN = "a".repeat(32);
 
+beforeEach(() => {
+  vi.stubGlobal("navigator", {
+    locks: {
+      request: async (_name: string, callback: () => unknown) => callback(),
+    },
+  });
+});
+
 function indexedStorage(): Storage {
   const values = new Map<string, string>();
   return {
@@ -45,7 +53,10 @@ function indexedStorage(): Storage {
   };
 }
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 
 function event(overrides: Partial<LiveStageEvent> = {}): LiveStageEvent {
   return {
@@ -207,7 +218,7 @@ describe("browser notification boundary", () => {
       .rejects.toThrow(/timeout MUST be positive/);
   });
 
-  test("deduplicates across tabs and limits burst delivery", () => {
+  test("deduplicates across tabs and limits burst delivery", async () => {
     const values = new Map<string, string>();
     const storage = {
       getItem: (key: string) => values.get(key) ?? null,
@@ -215,25 +226,47 @@ describe("browser notification boundary", () => {
       removeItem: (key: string) => { values.delete(key); },
     };
     const now = 1_800_000_000_000;
-    expect(claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage)).toBe("claimed");
-    expect(claimBrowserAlertDelivery("fdai:event-1", "principal-a", now + 1, storage)).toBe("duplicate");
+    expect(await claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage))
+      .toBe("claimed");
+    expect(await claimBrowserAlertDelivery("fdai:event-1", "principal-a", now + 1, storage))
+      .toBe("duplicate");
     for (let index = 2; index <= 5; index += 1) {
-      expect(claimBrowserAlertDelivery(`fdai:event-${index}`, "principal-a", now + index, storage))
+      expect(await claimBrowserAlertDelivery(
+        `fdai:event-${index}`,
+        "principal-a",
+        now + index,
+        storage,
+      ))
         .toBe("claimed");
     }
-    expect(claimBrowserAlertDelivery("fdai:event-6", "principal-a", now + 6, storage))
+    expect(await claimBrowserAlertDelivery(
+      "fdai:event-6",
+      "principal-a",
+      now + 6,
+      storage,
+    ))
       .toBe("rate-limited");
-    expect(claimBrowserAlertDelivery("fdai:event-6", "principal-b", now + 6, storage)).toBe("claimed");
-    expect(claimBrowserAlertDelivery("fdai:event-6", "principal-a", now + 60_001, storage)).toBe("claimed");
+    expect(await claimBrowserAlertDelivery(
+      "fdai:event-6",
+      "principal-b",
+      now + 6,
+      storage,
+    )).toBe("claimed");
+    expect(await claimBrowserAlertDelivery(
+      "fdai:event-6",
+      "principal-a",
+      now + 60_001,
+      storage,
+    )).toBe("claimed");
   });
 
-  test("contains acknowledgement token generation failures", () => {
+  test("contains acknowledgement token generation failures", async () => {
     const storage = {
       getItem: () => null,
       setItem: () => undefined,
       removeItem: () => undefined,
     };
-    expect(claimBrowserAlertDelivery(
+    expect(await claimBrowserAlertDelivery(
       "fdai:event-1",
       "principal-a",
       1_800_000_000_000,
@@ -242,7 +275,65 @@ describe("browser notification boundary", () => {
     )).toBe("unavailable");
   });
 
-  test("recovers malformed delivery storage and releases failed sends", () => {
+  test("serializes every delivery ledger mutation under one browser lock", async () => {
+    const lockNames: string[] = [];
+    vi.stubGlobal("navigator", {
+      locks: {
+        request: async (name: string, callback: () => unknown) => {
+          lockNames.push(name);
+          return callback();
+        },
+      },
+    });
+    const storage = indexedStorage();
+    const now = 1_800_000_000_000;
+
+    await claimBrowserAlertDelivery(
+      "fdai:event-1",
+      "principal-a",
+      now,
+      storage,
+      () => ACKNOWLEDGEMENT_TOKEN,
+    );
+    await recordBrowserAlertDelivered(
+      "fdai:event-1",
+      ACKNOWLEDGEMENT_TOKEN,
+      "principal-a",
+      now + 1,
+      storage,
+    );
+    await acknowledgeBrowserAlertDeliveryForClaim(
+      "fdai:event-1",
+      ACKNOWLEDGEMENT_TOKEN,
+      now + 2,
+      storage,
+    );
+    await releaseBrowserAlertDelivery(
+      "fdai:event-1",
+      ACKNOWLEDGEMENT_TOKEN,
+      "principal-a",
+      storage,
+    );
+
+    expect(lockNames).toHaveLength(4);
+    expect(new Set(lockNames).size).toBe(1);
+    expect(lockNames[0]).toContain("notification-delivery-ledger");
+  });
+
+  test("fails closed when the delivery ledger lock is unavailable", async () => {
+    vi.stubGlobal("navigator", {});
+    const storage = indexedStorage();
+
+    expect(await claimBrowserAlertDelivery(
+      "fdai:event-1",
+      "principal-a",
+      1_800_000_000_000,
+      storage,
+    )).toBe("unavailable");
+    expect(storage.length).toBe(0);
+  });
+
+  test("recovers malformed delivery storage and releases failed sends", async () => {
     const values = new Map<string, string>([[
       "fdai:console:browser-notification-delivery:v1:principal-a",
       "not-json",
@@ -253,18 +344,25 @@ describe("browser notification boundary", () => {
       removeItem: (key: string) => { values.delete(key); },
     };
     const now = 1_800_000_000_000;
-    expect(claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage)).toBe("claimed");
-    releaseBrowserAlertDelivery(
+    expect(await claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage))
+      .toBe("claimed");
+    await releaseBrowserAlertDelivery(
       "fdai:event-1",
       acknowledgementToken(storage, "principal-a", "fdai:event-1"),
       "principal-a",
       storage,
     );
-    expect(claimBrowserAlertDelivery("fdai:event-1", "principal-a", now + 1, storage)).toBe("claimed");
-    expect(claimBrowserAlertDelivery("fdai:event-2", "principal-a", now, null)).toBe("unavailable");
+    expect(await claimBrowserAlertDelivery(
+      "fdai:event-1",
+      "principal-a",
+      now + 1,
+      storage,
+    )).toBe("claimed");
+    expect(await claimBrowserAlertDelivery("fdai:event-2", "principal-a", now, null))
+      .toBe("unavailable");
   });
 
-  test("records Console web delivery and user acknowledgement separately", () => {
+  test("records Console web delivery and user acknowledgement separately", async () => {
     const values = new Map<string, string>();
     const storage = {
       getItem: (key: string) => values.get(key) ?? null,
@@ -272,9 +370,10 @@ describe("browser notification boundary", () => {
       removeItem: (key: string) => { values.delete(key); },
     };
     const now = 1_800_000_000_000;
-    expect(claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage)).toBe("claimed");
+    expect(await claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage))
+      .toBe("claimed");
     expect(readLatestBrowserAlertReceipt("principal-a", now + 1, storage)).toBeNull();
-    expect(acknowledgeBrowserAlertDelivery(
+    expect(await acknowledgeBrowserAlertDelivery(
       "fdai:event-1",
       acknowledgementToken(storage, "principal-a", "fdai:event-1"),
       "principal-a",
@@ -287,7 +386,7 @@ describe("browser notification boundary", () => {
       acknowledgedAt: now + 1,
     });
 
-    expect(recordBrowserAlertDelivered(
+    expect(await recordBrowserAlertDelivered(
       "fdai:event-1",
       acknowledgementToken(storage, "principal-a", "fdai:event-1"),
       "principal-a",
@@ -299,7 +398,7 @@ describe("browser notification boundary", () => {
       deliveredAt: now + 1,
       acknowledgedAt: now + 1,
     });
-    expect(acknowledgeBrowserAlertDelivery(
+    expect(await acknowledgeBrowserAlertDelivery(
       "fdai:event-1",
       acknowledgementToken(storage, "principal-a", "fdai:event-1"),
       "principal-a",
@@ -365,17 +464,17 @@ describe("browser notification boundary", () => {
     )).toBeNull();
   });
 
-  test("acknowledges the originating principal after the active account changes", () => {
+  test("acknowledges the originating principal after the active account changes", async () => {
     const storage = indexedStorage();
     const now = 1_800_000_000_000;
-    claimBrowserAlertDelivery(
+    await claimBrowserAlertDelivery(
       "fdai:event-1",
       "principal-a",
       now,
       storage,
       () => ACKNOWLEDGEMENT_TOKEN,
     );
-    recordBrowserAlertDelivered(
+    await recordBrowserAlertDelivered(
       "fdai:event-1",
       ACKNOWLEDGEMENT_TOKEN,
       "principal-a",
@@ -383,29 +482,29 @@ describe("browser notification boundary", () => {
       storage,
     );
 
-    expect(acknowledgeBrowserAlertDeliveryForClaim(
+    expect((await acknowledgeBrowserAlertDeliveryForClaim(
       "fdai:event-1",
       ACKNOWLEDGEMENT_TOKEN,
       now + 2,
       storage,
-    )?.acknowledgedAt).toBe(now + 2);
+    ))?.acknowledgedAt).toBe(now + 2);
     expect(readLatestBrowserAlertReceipt("principal-a", now + 3, storage)?.acknowledgedAt)
       .toBe(now + 2);
     expect(readLatestBrowserAlertReceipt("principal-b", now + 3, storage)).toBeNull();
   });
 
-  test("rejects an ambiguous claim token across principal ledgers", () => {
+  test("rejects an ambiguous claim token across principal ledgers", async () => {
     const storage = indexedStorage();
     const now = 1_800_000_000_000;
     for (const principalId of ["principal-a", "principal-b"]) {
-      claimBrowserAlertDelivery(
+      await claimBrowserAlertDelivery(
         "fdai:event-1",
         principalId,
         now,
         storage,
         () => ACKNOWLEDGEMENT_TOKEN,
       );
-      recordBrowserAlertDelivered(
+      await recordBrowserAlertDelivered(
         "fdai:event-1",
         ACKNOWLEDGEMENT_TOKEN,
         principalId,
@@ -414,7 +513,7 @@ describe("browser notification boundary", () => {
       );
     }
 
-    expect(acknowledgeBrowserAlertDeliveryForClaim(
+    expect(await acknowledgeBrowserAlertDeliveryForClaim(
       "fdai:event-1",
       ACKNOWLEDGEMENT_TOKEN,
       now + 2,
@@ -422,7 +521,7 @@ describe("browser notification boundary", () => {
     )).toBeNull();
   });
 
-  test("keeps legacy claims deduplicated without upgrading them to delivery evidence", () => {
+  test("keeps legacy claims deduplicated without upgrading them to delivery evidence", async () => {
     const now = 1_800_000_000_000;
     const values = new Map<string, string>([[
       "fdai:console:browser-notification-delivery:v1:principal-a",
@@ -434,12 +533,17 @@ describe("browser notification boundary", () => {
       removeItem: (key: string) => { values.delete(key); },
     };
 
-    expect(claimBrowserAlertDelivery("fdai:event-1", "principal-a", now + 1, storage))
+    expect(await claimBrowserAlertDelivery(
+      "fdai:event-1",
+      "principal-a",
+      now + 1,
+      storage,
+    ))
       .toBe("duplicate");
     expect(readLatestBrowserAlertReceipt("principal-a", now + 1, storage)).toBeNull();
   });
 
-  test("keeps the legacy timestamp alias across every receipt write", () => {
+  test("keeps the legacy timestamp alias across every receipt write", async () => {
     const values = new Map<string, string>();
     const storage = {
       getItem: (key: string) => values.get(key) ?? null,
@@ -448,15 +552,16 @@ describe("browser notification boundary", () => {
     };
     const key = "fdai:console:browser-notification-delivery:v1:principal-a";
     const now = 1_800_000_000_000;
-    expect(claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage)).toBe("claimed");
-    recordBrowserAlertDelivered(
+    expect(await claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage))
+      .toBe("claimed");
+    await recordBrowserAlertDelivered(
       "fdai:event-1",
       acknowledgementToken(storage, "principal-a", "fdai:event-1"),
       "principal-a",
       now + 1,
       storage,
     );
-    acknowledgeBrowserAlertDelivery(
+    await acknowledgeBrowserAlertDelivery(
       "fdai:event-1",
       acknowledgementToken(storage, "principal-a", "fdai:event-1"),
       "principal-a",
@@ -475,7 +580,7 @@ describe("browser notification boundary", () => {
     })]);
   });
 
-  test("retains delivery evidence after the five-minute duplicate window", () => {
+  test("retains delivery evidence after the five-minute duplicate window", async () => {
     const values = new Map<string, string>();
     const storage = {
       getItem: (key: string) => values.get(key) ?? null,
@@ -483,8 +588,9 @@ describe("browser notification boundary", () => {
       removeItem: (key: string) => { values.delete(key); },
     };
     const now = 1_800_000_000_000;
-    expect(claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage)).toBe("claimed");
-    expect(recordBrowserAlertDelivered(
+    expect(await claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage))
+      .toBe("claimed");
+    expect(await recordBrowserAlertDelivered(
       "fdai:event-1",
       acknowledgementToken(storage, "principal-a", "fdai:event-1"),
       "principal-a",
@@ -493,18 +599,18 @@ describe("browser notification boundary", () => {
     )).not.toBeNull();
 
     const delayedClick = now + 6 * 60_000;
-    expect(acknowledgeBrowserAlertDelivery(
+    expect((await acknowledgeBrowserAlertDelivery(
       "fdai:event-1",
       acknowledgementToken(storage, "principal-a", "fdai:event-1"),
       "principal-a",
       delayedClick,
       storage,
-    )?.acknowledgedAt).toBe(delayedClick);
+    ))?.acknowledgedAt).toBe(delayedClick);
     expect(readLatestBrowserAlertReceipt("principal-a", delayedClick, storage)?.tag)
       .toBe("fdai:event-1");
   });
 
-  test("derives status from the latest delivery instead of an older acknowledgement", () => {
+  test("derives status from the latest delivery instead of an older acknowledgement", async () => {
     const values = new Map<string, string>();
     const storage = {
       getItem: (key: string) => values.get(key) ?? null,
@@ -512,16 +618,16 @@ describe("browser notification boundary", () => {
       removeItem: (key: string) => { values.delete(key); },
     };
     const now = 1_800_000_000_000;
-    claimBrowserAlertDelivery("fdai:event-old", "principal-a", now, storage);
-    recordBrowserAlertDelivered(
+    await claimBrowserAlertDelivery("fdai:event-old", "principal-a", now, storage);
+    await recordBrowserAlertDelivered(
       "fdai:event-old",
       acknowledgementToken(storage, "principal-a", "fdai:event-old"),
       "principal-a",
       now + 1,
       storage,
     );
-    claimBrowserAlertDelivery("fdai:event-new", "principal-a", now + 2, storage);
-    recordBrowserAlertDelivered(
+    await claimBrowserAlertDelivery("fdai:event-new", "principal-a", now + 2, storage);
+    await recordBrowserAlertDelivered(
       "fdai:event-new",
       acknowledgementToken(storage, "principal-a", "fdai:event-new"),
       "principal-a",
@@ -529,7 +635,7 @@ describe("browser notification boundary", () => {
       storage,
     );
 
-    acknowledgeBrowserAlertDelivery(
+    await acknowledgeBrowserAlertDelivery(
       "fdai:event-old",
       acknowledgementToken(storage, "principal-a", "fdai:event-old"),
       "principal-a",
@@ -538,7 +644,7 @@ describe("browser notification boundary", () => {
     );
     expect(readBrowserAlertDeliveryStatus("principal-a", now + 4, storage)).toBe("delivered");
 
-    acknowledgeBrowserAlertDelivery(
+    await acknowledgeBrowserAlertDelivery(
       "fdai:event-new",
       acknowledgementToken(storage, "principal-a", "fdai:event-new"),
       "principal-a",
@@ -548,7 +654,31 @@ describe("browser notification boundary", () => {
     expect(readBrowserAlertDeliveryStatus("principal-a", now + 5, storage)).toBe("acknowledged");
   });
 
-  test("synchronizes only the current principal delivery ledger key", () => {
+  test("retains the latest delivery status across preference changes", async () => {
+    const storage = indexedStorage();
+    const now = 1_800_000_000_000;
+    await claimBrowserAlertDelivery(
+      "fdai:event-1",
+      "principal-a",
+      now,
+      storage,
+      () => ACKNOWLEDGEMENT_TOKEN,
+    );
+    await recordBrowserAlertDelivered(
+      "fdai:event-1",
+      ACKNOWLEDGEMENT_TOKEN,
+      "principal-a",
+      now + 1,
+      storage,
+    );
+
+    writeBrowserNotificationPreference(false, "principal-a", storage);
+    writeBrowserNotificationPreference(true, "principal-a", storage);
+
+    expect(readBrowserAlertDeliveryStatus("principal-a", now + 2, storage)).toBe("delivered");
+  });
+
+  test("synchronizes only the current principal delivery ledger key", async () => {
     const values = new Map<string, string>();
     const storage = {
       getItem: (key: string) => values.get(key) ?? null,
@@ -556,8 +686,8 @@ describe("browser notification boundary", () => {
       removeItem: (key: string) => { values.delete(key); },
     };
     const now = 1_800_000_000_000;
-    claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage);
-    recordBrowserAlertDelivered(
+    await claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage);
+    await recordBrowserAlertDelivered(
       "fdai:event-1",
       acknowledgementToken(storage, "principal-a", "fdai:event-1"),
       "principal-a",
@@ -590,7 +720,7 @@ describe("browser notification boundary", () => {
     expect(BROWSER_NOTIFICATION_DELIVERY_CHANGED_EVENT).toContain("delivery-changed");
   });
 
-  test("stale callbacks cannot mutate a replacement claim with the same tag", () => {
+  test("stale callbacks cannot mutate a replacement claim with the same tag", async () => {
     const values = new Map<string, string>();
     const storage = {
       getItem: (key: string) => values.get(key) ?? null,
@@ -600,14 +730,14 @@ describe("browser notification boundary", () => {
     const now = 1_800_000_000_000;
     const oldToken = "a".repeat(32);
     const newToken = "b".repeat(32);
-    expect(claimBrowserAlertDelivery(
+    expect(await claimBrowserAlertDelivery(
       "fdai:event-1",
       "principal-a",
       now,
       storage,
       () => oldToken,
     )).toBe("claimed");
-    expect(claimBrowserAlertDelivery(
+    expect(await claimBrowserAlertDelivery(
       "fdai:event-1",
       "principal-a",
       now + 6 * 60_000,
@@ -615,22 +745,22 @@ describe("browser notification boundary", () => {
       () => newToken,
     )).toBe("claimed");
 
-    expect(recordBrowserAlertDelivered(
+    expect(await recordBrowserAlertDelivered(
       "fdai:event-1",
       oldToken,
       "principal-a",
       now + 6 * 60_000 + 1,
       storage,
     )).toBeNull();
-    releaseBrowserAlertDelivery("fdai:event-1", oldToken, "principal-a", storage);
+    await releaseBrowserAlertDelivery("fdai:event-1", oldToken, "principal-a", storage);
     expect(readBrowserAlertAcknowledgementToken("fdai:event-1", "principal-a", storage))
       .toBe(newToken);
-    expect(recordBrowserAlertDelivered(
+    expect((await recordBrowserAlertDelivered(
       "fdai:event-1",
       newToken,
       "principal-a",
       now + 6 * 60_000 + 2,
       storage,
-    )?.deliveredAt).toBe(now + 6 * 60_000 + 2);
+    ))?.deliveredAt).toBe(now + 6 * 60_000 + 2);
   });
 });

@@ -12,6 +12,8 @@ const DELIVERY_RATE_WINDOW_MS = 60_000;
 const DELIVERY_RATE_LIMIT = 5;
 const DELIVERY_LEDGER_LIMIT = 32;
 export const BROWSER_NOTIFICATION_WORKER_TIMEOUT_MS = 10_000;
+const BROWSER_NOTIFICATION_DELIVERY_LOCK_NAME =
+  "fdai:console-web-notification-delivery-ledger";
 export const BROWSER_NOTIFICATION_PREFERENCE_CHANGED_EVENT =
   "fdai:console-web-notification-preference-changed";
 export const BROWSER_NOTIFICATION_DELIVERY_CHANGED_EVENT =
@@ -32,6 +34,10 @@ type StorageReader = Pick<Storage, "getItem">;
 type StorageWriter = Pick<Storage, "setItem" | "removeItem">;
 type DeliveryStorage = StorageReader & StorageWriter;
 type IndexedDeliveryStorage = DeliveryStorage & Pick<Storage, "key" | "length">;
+
+interface BrowserNotificationLockRequest {
+  <T>(name: string, callback: () => T): Promise<T>;
+}
 
 interface BrowserAlertDeliveryEntry {
   readonly tag: string;
@@ -140,12 +146,28 @@ export function requireBrowserNotificationPreferenceWrite(
   }
 }
 
-export function claimBrowserAlertDelivery(
+/** Atomically claims one browser alert across same-origin tabs. */
+export async function claimBrowserAlertDelivery(
   tag: string,
   principalId?: string | null,
   now = Date.now(),
   storage: DeliveryStorage | null = browserStorage(),
   tokenFactory: () => string | null = createBrowserAcknowledgementToken,
+  requestLock: BrowserNotificationLockRequest | null = browserNotificationLockRequest(),
+): Promise<BrowserAlertClaim> {
+  return withBrowserNotificationDeliveryLock(
+    requestLock,
+    "unavailable",
+    () => claimBrowserAlertDeliveryUnlocked(tag, principalId, now, storage, tokenFactory),
+  );
+}
+
+function claimBrowserAlertDeliveryUnlocked(
+  tag: string,
+  principalId: string | null | undefined,
+  now: number,
+  storage: DeliveryStorage | null,
+  tokenFactory: () => string | null,
 ): BrowserAlertClaim {
   if (storage === null || !isSafeNotificationTag(tag) || !isSafeTimestamp(now)) {
     return "unavailable";
@@ -189,11 +211,31 @@ export function claimBrowserAlertDelivery(
   }
 }
 
-export function releaseBrowserAlertDelivery(
+/** Releases a failed browser alert claim without overwriting concurrent ledger updates. */
+export async function releaseBrowserAlertDelivery(
   tag: string,
   acknowledgementToken: string,
   principalId?: string | null,
   storage: DeliveryStorage | null = browserStorage(),
+  requestLock: BrowserNotificationLockRequest | null = browserNotificationLockRequest(),
+): Promise<void> {
+  await withBrowserNotificationDeliveryLock(
+    requestLock,
+    undefined,
+    () => releaseBrowserAlertDeliveryUnlocked(
+      tag,
+      acknowledgementToken,
+      principalId,
+      storage,
+    ),
+  );
+}
+
+function releaseBrowserAlertDeliveryUnlocked(
+  tag: string,
+  acknowledgementToken: string,
+  principalId: string | null | undefined,
+  storage: DeliveryStorage | null,
 ): void {
   if (storage === null || !isSafeAcknowledgementToken(acknowledgementToken)) return;
   const key = browserNotificationDeliveryKey(principalId);
@@ -209,28 +251,54 @@ export function releaseBrowserAlertDelivery(
   }
 }
 
-export function recordBrowserAlertDelivered(
+/** Records a completed browser notification display under the shared ledger lock. */
+export async function recordBrowserAlertDelivered(
   tag: string,
   acknowledgementToken: string,
   principalId?: string | null,
   now = Date.now(),
   storage: DeliveryStorage | null = browserStorage(),
-): BrowserAlertDeliveryReceipt | null {
-  return updateBrowserAlertReceipt(
-    tag,
-    principalId,
-    now,
-    "delivered",
-    storage,
-    acknowledgementToken,
+  requestLock: BrowserNotificationLockRequest | null = browserNotificationLockRequest(),
+): Promise<BrowserAlertDeliveryReceipt | null> {
+  return withBrowserNotificationDeliveryLock(
+    requestLock,
+    null,
+    () => updateBrowserAlertReceipt(
+      tag,
+      principalId,
+      now,
+      "delivered",
+      storage,
+      acknowledgementToken,
+    ),
   );
 }
 
-export function acknowledgeBrowserAlertDeliveryForClaim(
+/** Acknowledges exactly one principal ledger matching the supplied claim. */
+export async function acknowledgeBrowserAlertDeliveryForClaim(
   tag: string,
   acknowledgementToken: string,
   now = Date.now(),
   storage: IndexedDeliveryStorage | null = browserStorage(),
+  requestLock: BrowserNotificationLockRequest | null = browserNotificationLockRequest(),
+): Promise<BrowserAlertDeliveryReceipt | null> {
+  return withBrowserNotificationDeliveryLock(
+    requestLock,
+    null,
+    () => acknowledgeBrowserAlertDeliveryForClaimUnlocked(
+      tag,
+      acknowledgementToken,
+      now,
+      storage,
+    ),
+  );
+}
+
+function acknowledgeBrowserAlertDeliveryForClaimUnlocked(
+  tag: string,
+  acknowledgementToken: string,
+  now: number,
+  storage: IndexedDeliveryStorage | null,
 ): BrowserAlertDeliveryReceipt | null {
   if (
     storage === null
@@ -282,20 +350,26 @@ export function readBrowserAlertAcknowledgementToken(
   }
 }
 
-export function acknowledgeBrowserAlertDelivery(
+/** Records an acknowledgement in one known principal ledger. */
+export async function acknowledgeBrowserAlertDelivery(
   tag: string,
   acknowledgementToken: string,
   principalId?: string | null,
   now = Date.now(),
   storage: DeliveryStorage | null = browserStorage(),
-): BrowserAlertDeliveryReceipt | null {
-  return updateBrowserAlertReceipt(
-    tag,
-    principalId,
-    now,
-    "acknowledged",
-    storage,
-    acknowledgementToken,
+  requestLock: BrowserNotificationLockRequest | null = browserNotificationLockRequest(),
+): Promise<BrowserAlertDeliveryReceipt | null> {
+  return withBrowserNotificationDeliveryLock(
+    requestLock,
+    null,
+    () => updateBrowserAlertReceipt(
+      tag,
+      principalId,
+      now,
+      "acknowledged",
+      storage,
+      acknowledgementToken,
+    ),
   );
 }
 
@@ -658,6 +732,32 @@ function browserStorage(): Storage | null {
     return window.localStorage;
   } catch {
     return null;
+  }
+}
+
+function browserNotificationLockRequest(): BrowserNotificationLockRequest | null {
+  if (
+    typeof navigator === "undefined"
+    || !("locks" in navigator)
+    || typeof navigator.locks.request !== "function"
+  ) {
+    return null;
+  }
+  const lockManager = navigator.locks;
+  return <T>(name: string, callback: () => T): Promise<T> =>
+    lockManager.request(name, () => callback());
+}
+
+async function withBrowserNotificationDeliveryLock<T>(
+  requestLock: BrowserNotificationLockRequest | null,
+  unavailable: T,
+  callback: () => T,
+): Promise<T> {
+  if (requestLock === null) return unavailable;
+  try {
+    return await requestLock(BROWSER_NOTIFICATION_DELIVERY_LOCK_NAME, callback);
+  } catch {
+    return unavailable;
   }
 }
 

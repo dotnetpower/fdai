@@ -54,6 +54,8 @@ control, or execution link.
 
 The principal-scoped browser ledger:
 
+- serializes claim, display, acknowledgement, and release writes through one short-lived Web Lock
+  shared by same-origin tabs;
 - suppresses one event tag for five minutes;
 - limits display to five notifications per minute;
 - retains at most 32 receipts for seven days;
