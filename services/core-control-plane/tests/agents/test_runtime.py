@@ -269,18 +269,20 @@ def test_runtime_rehydrates_pending_norns_issue_candidate() -> None:
     store = InMemoryStateStore()
     payloads = [
         {
-            "fingerprint": "startup-fingerprint",
-            "idempotency_key": f"handoff:startup-{index}",
+            "fingerprint": f"startup-fingerprint-{cohort}",
+            "idempotency_key": f"handoff:startup-{cohort}-{index}",
         }
+        for cohort in range(2)
         for index in range(3)
     ]
     seed = Norns(promotion_threshold=3, issue_state_store=store)
     for payload in payloads:
         asyncio.run(seed.on_typed_message("object.issue", payload))
-    assert len(seed.pending_candidates) == 1
+    assert len(seed.pending_candidates) == 2
 
+    provider = InMemoryEventBus()
     runtime = PantheonRuntime.build(
-        provider=InMemoryEventBus(),
+        provider=provider,
         raw_event_topic=_RAW_TOPIC,
         muninn_state_store=store,
     )
@@ -289,6 +291,7 @@ def test_runtime_rehydrates_pending_norns_issue_candidate() -> None:
     norns = runtime.agents["Norns"]
     assert isinstance(norns, Norns)
     assert norns.pending_candidates == []
+    assert len(provider._records["object.rule-candidate"]) == 2  # noqa: SLF001
     replayed = Norns(promotion_threshold=3, issue_state_store=store)
     asyncio.run(replayed.on_typed_message("object.issue", dict(payloads[0])))
     assert replayed.pending_candidates == []

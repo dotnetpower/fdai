@@ -1162,6 +1162,11 @@ def test_norns_resumes_claim_interrupted_before_fingerprint_apply() -> None:
                 audit_entry,
             )
 
+        async def read_states(self, prefix, *, limit):  # noqa: ANN001, ANN201
+            raise AssertionError(
+                f"pending recovery MUST NOT scan terminal history: {prefix=} {limit=}"
+            )
+
     store = _FailFirstFingerprintApply()
     payload = {
         "fingerprint": "interrupted-fingerprint",
@@ -1203,6 +1208,11 @@ def test_norns_startup_recovers_pending_operation_without_redelivery() -> None:
                 key,
                 value,
                 audit_entry,
+            )
+
+        async def read_states(self, prefix, *, limit):  # noqa: ANN001, ANN201
+            raise AssertionError(
+                f"pending recovery MUST NOT scan terminal history: {prefix=} {limit=}"
             )
 
     store = _FailFirstFingerprintApply()

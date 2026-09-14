@@ -89,19 +89,35 @@ class NornsIssueDeduplicator:
         store = self._state_store
         if store is None:
             return 0
-        operation_rows = await store.read_states(
-            f"{_OPERATION_PREFIX}/",
-            limit=self._recovery_limit,
-        )
-        for row in operation_rows:
-            operation_digest, fingerprint, status = _operation_identity_from_state(row)
-            if status != "pending":
-                continue
-            await self._apply_fingerprint_operation(
+        pending_from_operations = 0
+        for index in range(self._recovery_limit + 1):
+            row = await store.find_state(
+                f"{_OPERATION_PREFIX}/",
+                field="status",
+                value="pending",
+            )
+            if row is None:
+                break
+            if index == self._recovery_limit:
+                raise RuntimeError("pending issue learning operation recovery capacity exceeded")
+            operation_digest, fingerprint, _status = _operation_identity_from_state(row)
+            application = await self._apply_fingerprint_operation(
                 operation_digest=operation_digest,
                 fingerprint=fingerprint,
                 promotion_threshold=state._promotion_threshold,
             )
+            apply_fingerprint_count(
+                state,
+                fingerprint,
+                application.occurrence_count,
+                propose=application.candidate_state == "pending",
+            )
+            if (
+                application.candidate_state == "pending"
+                and self._pending_completions.get(fingerprint) is None
+            ):
+                self._pending_completions.set(fingerprint, application.state_key)
+                pending_from_operations += 1
             await store.write_state(
                 f"{_OPERATION_PREFIX}/{operation_digest}",
                 _operation_state(
@@ -112,44 +128,42 @@ class NornsIssueDeduplicator:
                 ),
             )
 
-        fingerprint_rows = await store.read_states(
+        row = await store.find_state(
             f"{_FINGERPRINT_PREFIX}/",
-            limit=self._recovery_limit,
+            field="candidate_state",
+            value="pending",
         )
-        pending = 0
-        for row in sorted(
-            fingerprint_rows,
-            key=lambda item: str(item.get("fingerprint") or ""),
+        if row is None:
+            return pending_from_operations
+        recovered_fingerprint = row.get("fingerprint")
+        threshold = row.get("promotion_threshold")
+        if (
+            not isinstance(recovered_fingerprint, str)
+            or not isinstance(threshold, int)
+            or isinstance(threshold, bool)
         ):
-            recovered_fingerprint = row.get("fingerprint")
-            threshold = row.get("promotion_threshold")
-            if (
-                not isinstance(recovered_fingerprint, str)
-                or not isinstance(threshold, int)
-                or isinstance(threshold, bool)
-            ):
-                raise RuntimeError("stored issue learning fingerprint state is malformed")
-            state_key = (
-                f"{_FINGERPRINT_PREFIX}/"
-                f"{hashlib.sha256(recovered_fingerprint.encode('utf-8')).hexdigest()}"
-            )
-            application = _application_from_state(
-                row,
-                state_key=state_key,
-                fingerprint=recovered_fingerprint,
-                promotion_threshold=state._promotion_threshold,
-                operation_counted=False,
-            )
-            apply_fingerprint_count(
-                state,
-                recovered_fingerprint,
-                application.occurrence_count,
-                propose=application.candidate_state == "pending",
-            )
-            if application.candidate_state == "pending":
-                self._pending_completions.set(recovered_fingerprint, state_key)
-                pending += 1
-        return pending
+            raise RuntimeError("stored issue learning fingerprint state is malformed")
+        if self._pending_completions.get(recovered_fingerprint) is not None:
+            return pending_from_operations
+        state_key = (
+            f"{_FINGERPRINT_PREFIX}/"
+            f"{hashlib.sha256(recovered_fingerprint.encode('utf-8')).hexdigest()}"
+        )
+        application = _application_from_state(
+            row,
+            state_key=state_key,
+            fingerprint=recovered_fingerprint,
+            promotion_threshold=state._promotion_threshold,
+            operation_counted=False,
+        )
+        apply_fingerprint_count(
+            state,
+            recovered_fingerprint,
+            application.occurrence_count,
+            propose=True,
+        )
+        self._pending_completions.set(recovered_fingerprint, state_key)
+        return pending_from_operations + 1
 
     def _claim_local(self, payload: Mapping[str, Any]) -> bool:
         operation_id = payload.get("idempotency_key")

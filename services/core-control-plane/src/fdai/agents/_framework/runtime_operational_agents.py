@@ -32,6 +32,7 @@ from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCand
 from fdai.shared.providers.state_store import StateStore
 
 _LOG = logging.getLogger(__name__)
+_MAX_NORNS_STARTUP_RECOVERY = 5_000
 
 
 async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
@@ -43,12 +44,23 @@ async def rehydrate_operational_agents(agents: dict[str, Agent]) -> None:
             _LOG.info("pantheon_thor_rehydrated", extra={"in_flight_runs": restored})
     norns = agents.get("Norns")
     if isinstance(norns, Norns):
-        recovered = await norns.recover_issue_learning()
-        if recovered:
-            published = await norns.flush_candidates()
+        recovered_total = 0
+        published_total = 0
+        for index in range(_MAX_NORNS_STARTUP_RECOVERY + 1):
+            recovered = await norns.recover_issue_learning()
+            if not recovered:
+                break
+            if index == _MAX_NORNS_STARTUP_RECOVERY:
+                raise RuntimeError("Norns pending candidate recovery capacity exceeded")
+            recovered_total += recovered
+            published_total += await norns.flush_candidates()
+        if recovered_total:
             _LOG.info(
                 "pantheon_norns_issue_learning_rehydrated",
-                extra={"pending_candidates": recovered, "published": published},
+                extra={
+                    "pending_candidates": recovered_total,
+                    "published": published_total,
+                },
             )
     saga = agents.get("Saga")
     if isinstance(saga, Saga):
