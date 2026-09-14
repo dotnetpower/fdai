@@ -95,17 +95,17 @@
 .ontology-instance-dense-legend li span { color: var(--fg-muted); font-variant-numeric: tabular-nums; }
 .ontology-instance-dense-legend button { min-height: 28px; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--cs-radius-sm); background: var(--bg-elevated); color: var(--fg-muted); font: inherit; font-size: var(--cs-type-caption-size); font-weight: 700; cursor: pointer; }
 .ontology-instance-dense-legend button:hover, .ontology-instance-dense-legend button:focus-visible { border-color: var(--accent); color: var(--fg); outline: 2px solid color-mix(in srgb, var(--accent) 25%, transparent); outline-offset: 1px; }
-.ontology-instance-graph-scroll { min-width: 0; height: clamp(560px, calc(100vh - 300px), 900px); overflow: auto; touch-action: none; cursor: grab; background-color: var(--bg); background-image: linear-gradient(rgba(68, 104, 142, 0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(68, 104, 142, 0.045) 1px, transparent 1px); background-size: 24px 24px; }
+.ontology-instance-graph-scroll { position: relative; min-width: 0; height: clamp(560px, calc(100vh - 300px), 900px); overflow: auto; touch-action: none; cursor: grab; background-color: var(--bg); background-image: linear-gradient(rgba(68, 104, 142, 0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(68, 104, 142, 0.045) 1px, transparent 1px); background-size: 24px 24px; }
 .ontology-instance-graph-scroll.is-panning { cursor: grabbing; user-select: none; }
 .ontology-instance-graph-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.ontology-instance-graph-canvas { display: block; margin: 0 auto; }
+.ontology-instance-direction-surface { position: absolute; top: 0; right: 0; left: 0; display: grid; margin: 0 auto; pointer-events: none; }
+.ontology-instance-direction-surface > span.is-incoming, .ontology-instance-direction-surface > span.is-outgoing { background: color-mix(in srgb, var(--accent) 2.5%, transparent); }
+.ontology-instance-direction-surface > span.is-selected { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.ontology-instance-graph-canvas { position: relative; z-index: 1; display: block; margin: 0 auto; }
 .ontology-instance-graph:fullscreen { display: flex; flex-direction: column; width: 100vw; height: 100vh; background: var(--bg); }
 .ontology-instance-graph:fullscreen .ontology-instance-graph-viewport { flex: 1 1 auto; min-height: 0; }
 .ontology-instance-graph:fullscreen .ontology-instance-graph-scroll { height: 100%; max-height: none; }
 .ontology-instance-graph:fullscreen .ontology-instance-history { flex: 0 0 auto; max-height: 240px; overflow-y: auto; }
-.ontology-instance-direction-bands rect { stroke: none; }
-.ontology-instance-direction-bands rect.is-incoming, .ontology-instance-direction-bands rect.is-outgoing { fill: color-mix(in srgb, var(--accent) 2.5%, transparent); }
-.ontology-instance-direction-bands rect.is-selected { fill: color-mix(in srgb, var(--accent) 6%, transparent); }
 .ontology-instance-direction-bands text { fill: var(--fg-muted); text-anchor: middle; font-size: var(--cs-type-caption-size); font-weight: 800; }
 .ontology-instance-box { fill: color-mix(in srgb, var(--accent) 4%, transparent); stroke: color-mix(in srgb, var(--accent) 55%, transparent); stroke-width: 2; }
 .ontology-instance-box[data-box-depth="1"] { fill: color-mix(in srgb, var(--accent) 7%, transparent); stroke: color-mix(in srgb, var(--accent) 34%, transparent); stroke-width: 1.5; stroke-dasharray: 4 3; }

@@ -126,6 +126,14 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
   );
   const selectedLeft = rootBox?.x ?? rootNode.x;
   const selectedWidth = rootBox?.width ?? INSTANCE_NODE_WIDTH;
+  const graphCanvasWidth = layout.width * graphScale;
+  const graphCanvasHeight = layout.height * graphScale;
+  const incomingSurfaceWidth = selectedLeft * graphScale;
+  const selectedSurfaceWidth = selectedWidth * graphScale;
+  const outgoingSurfaceWidth = Math.max(
+    0,
+    layout.width - selectedLeft - selectedWidth,
+  ) * graphScale;
   const omittedByOwner = new Map(nested.boxes
     .filter((box) => box.omittedChildren > 0)
     .map((box) => [box.resource.id, box.omittedChildren]));
@@ -376,6 +384,20 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
             ));
           }}
         >
+          <div
+            class="ontology-instance-direction-surface"
+            aria-hidden="true"
+            style={{
+              width: `${graphCanvasWidth}px`,
+              height: `${graphCanvasHeight}px`,
+              minHeight: "100%",
+              gridTemplateColumns: `${incomingSurfaceWidth}px ${selectedSurfaceWidth}px ${outgoingSurfaceWidth}px`,
+            }}
+          >
+            <span class="is-incoming" />
+            <span class="is-selected" />
+            <span class="is-outgoing" />
+          </div>
         <svg
           class={`ontology-instance-graph-canvas${focusedResourceId === null ? "" : " has-focus-path"}`}
           data-layout-direction={layout.direction}
@@ -385,10 +407,10 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
           aria-label={t("ontology.instances.graphTitle")}
           aria-describedby="ontology-instance-map-description"
           style={{
-            width: `${layout.width * graphScale}px`,
-            minWidth: `${layout.width * graphScale}px`,
-            height: `${layout.height * graphScale}px`,
-            minHeight: `${layout.height * graphScale}px`,
+            width: `${graphCanvasWidth}px`,
+            minWidth: `${graphCanvasWidth}px`,
+            height: `${graphCanvasHeight}px`,
+            minHeight: `${graphCanvasHeight}px`,
           }}
         >
           <defs>
@@ -397,9 +419,6 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
             </marker>
           </defs>
           <g class="ontology-instance-direction-bands" aria-hidden="true">
-            <rect class="is-incoming" x="0" y="0" width={selectedLeft} height={layout.height} />
-            <rect class="is-selected" x={selectedLeft} y="0" width={selectedWidth} height={layout.height} />
-            <rect class="is-outgoing" x={selectedLeft + selectedWidth} y="0" width={Math.max(0, layout.width - selectedLeft - selectedWidth)} height={layout.height} />
             <text x={Math.max(70, selectedLeft / 2)} y="19">
               {t("ontology.instances.graphTowardSelection")}
             </text>

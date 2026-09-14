@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 0e75797d017d3635aa2ceafe13b8f56c33da62c3
+translation_source_sha: 1517caf0ee08224f687fb93f1f6c7230ca99b3f7
 translation_revised: 2026-09-14
 ---
 # 기록된 리소스 상태
@@ -211,7 +211,8 @@ ResourceType을 선언합니다.
   보기로 이동한 뒤에만 선언 그래프를 요청합니다. 이름이 명확한 펼침 메뉴는 기존 참조 및 선언 상세
   링크를 유지하며 기록 상태 또는 그래프 권한을 바꾸지 않습니다.
 - 온톨로지 인스턴스 그래프는 결과 노드가 적어도 검토된 뷰포트 높이를 유지하므로 기록된 상태의
-  세부 정보를 확인하는 영역이 축소되지 않습니다.
+  세부 정보를 확인하는 영역이 축소되지 않습니다. 범위가 제한된 SVG 레이아웃이 더 짧아도 방향
+  배경은 이 전체 표면을 채웁니다.
 - `llm-model-deployment` 기록은 추가 `model_deployment` 객체도 제공할 수 있습니다. Operator 변환
   결과는 모델 이름, 모델 버전, 배포 SKU 및 정규화된 TPM만 허용하며 원시 프로바이더 속성, 태그,
   속도 제한 근거 경로 및 자격 증명은 서버에 유지합니다.
