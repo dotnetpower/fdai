@@ -5,22 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agent activity - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
-  <link rel="stylesheet" href="assets/agents-preview-workspace.css?v=2" />
+  <link rel="stylesheet" href="assets/agents-preview-workspace.css?v=16" />
   <link rel="stylesheet" href="assets/agent-activity-preview-workspace.css?v=3" />
   <link rel="stylesheet" href="assets/connected-operations-flow.css?v=4" />
-  <script src="assets/calm-slate.js?v=operator-workspaces-v2" defer></script>
-  <script src="assets/agents-preview-data.js?v=2" defer></script>
+  <link rel="stylesheet" href="assets/agent-organization-preview-dialog.css?v=2" />
+  <script src="assets/calm-slate.js?v=agent-roles-v3" defer></script>
+  <script src="assets/agents-preview-data.js?v=3" defer></script>
   <script src="assets/agent-activity-preview-data.js?v=3" defer></script>
-  <script src="assets/agent-activity-preview-waterfall.js?v=2" defer></script>
+  <script src="assets/agent-activity-preview-waterfall.js?v=3" defer></script>
   <script src="assets/agent-activity-preview-log.js?v=2" defer></script>
+  <script src="assets/agent-organization-preview-dialog.js?v=15" defer></script>
   <link rel="stylesheet" href="assets/operator-workspace.css?v=4" />
 </head>
 <body class="cs-operator-neutral agents-preview agent-activity-preview" data-chat-theme="clear-neutral">
   <main class="cs-container cs-page">
     <nav class="cs-subnav" aria-label="Agent views">
       <a href="agents.html">Fleet</a>
-      <a href="agents-constellation.html">Org</a>
       <a href="agent-activity.html" class="cs-active" aria-current="page">Activity</a>
+      <button type="button" id="activityRolesOpen" aria-haspopup="dialog" aria-expanded="false">Roles and ownership</button>
     </nav>
     <header class="ap-heading">
       <div><h1>Agent activity</h1><p>Inspect agent work, operational observations, and audit handoffs.</p></div>
@@ -58,7 +60,7 @@
       <button type="button" data-view="waterfall" aria-pressed="false" aria-controls="activityWaterfallView">Waterfall</button>
     </div>
     <div id="activitySelection" class="ap-selection" hidden>
-      <span id="activitySelectionText"></span><a id="activityAgentLink" class="ap-button" href="agents-constellation.html">Agent focus</a>
+      <span id="activitySelectionText"></span><a id="activityAgentLink" class="ap-button" href="agents-constellation.html">Role details</a>
     </div>
     <section class="ap-filters" id="activityFilters" aria-label="Activity filters">
       <label class="ap-field">Agent<select id="activityAgentFilter"><option value="">All agents</option></select></label>
@@ -106,5 +108,12 @@
     </section>
     <noscript><p class="ap-empty">Enable JavaScript for local filters and synthetic evidence inspection. No backend connection is made.</p></noscript>
   </main>
+  <dialog id="activityRolesDialog" class="ap-role-dialog" aria-labelledby="activityRolesTitle">
+    <header>
+      <div><span>Read-only reference</span><h2 id="activityRolesTitle">Roles and ownership</h2><p>Inspect fixed accountability. Chronological evidence stays in Activity.</p></div>
+      <button type="button" id="activityRolesClose" aria-label="Close roles and ownership">×</button>
+    </header>
+    <iframe title="Roles and ownership" src="agents-constellation.html?overlay=1&amp;preview=4"></iframe>
+  </dialog>
 </body>
 </html>

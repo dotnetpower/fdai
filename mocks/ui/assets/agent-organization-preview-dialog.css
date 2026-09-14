@@ -1,0 +1,48 @@
+.ap-role-dialog {
+  width: min(1120px, calc(100% - 64px));
+  height: min(780px, calc(100% - 64px));
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 8px;
+  background: var(--cs-bg);
+  color: var(--cs-text);
+  box-shadow: 0 24px 64px rgb(8 15 21 / .28);
+}
+.agent-activity-preview .cs-subnav #activityRolesOpen {
+  min-height: 0;
+  margin: 0 0 -1px;
+  padding: 0.34rem 0 0.5rem;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-compact-size);
+  font-weight: 600;
+}
+.agent-activity-preview .cs-subnav #activityRolesOpen:hover,
+.agent-activity-preview .cs-subnav #activityRolesOpen[aria-expanded="true"] {
+  border-bottom-color: currentColor;
+  background: transparent;
+  color: var(--cs-text);
+}
+.ap-role-dialog::backdrop { background: rgb(15 23 30 / .48); }
+.ap-role-dialog > header { display: flex; min-height: 76px; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 14px 12px 24px; border-bottom: 1px solid var(--cs-hairline); background: var(--cs-card); }
+.ap-role-dialog > header :is(h2, p) { margin: 0; }
+.ap-role-dialog > header span, .ap-role-dialog > header p { color: var(--cs-text-soft); font-size: var(--cs-type-label-size); }
+.ap-role-dialog > header h2 { margin-top: 2px; font-size: var(--cs-type-section-title-size); }
+.agents-preview .ap-role-dialog > header button { width: 44px; height: 44px; flex: 0 0 auto; padding: 0; border-color: transparent; background: transparent; font-size: 18px; }
+.ap-role-dialog iframe { display: block; width: 100%; height: calc(100% - 76px); border: 0; background: var(--cs-bg); }
+body:has(.ap-role-dialog[open]) { overflow: hidden; }
+@media (max-width: 720px) {
+  .ap-role-dialog { width: 100%; height: 100%; border: 0; border-radius: 0; }
+  .ap-role-dialog > header { min-height: 64px; padding: 8px 8px 8px 16px; }
+  .ap-role-dialog > header p { display: none; }
+  .ap-role-dialog iframe { height: calc(100% - 64px); }
+}
+@media (forced-colors: active) {
+  .ap-role-dialog { border-color: CanvasText; }
+}

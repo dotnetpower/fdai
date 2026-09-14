@@ -589,7 +589,7 @@ aren't work. Missing, malformed, future, or authority-bearing frames never promo
 into observed state. Each Operator API replica uses an instance-scoped consumer group so every console
 receives the complete heartbeat set. A consumer that gives up or halts leaves health-derived
 heartbeats while siblings continue; Saga or Vidar failure still forces sticky shadow. These records
-are operational activity, not duplicated action-audit evidence.
+are operational activity, not duplicated action-audit evidence. The Activity journal omits Saga audit-chain mirrors, startup audit probes, and raw observation-transition rows. Waterfall retains that audit evidence and attributes it only from an explicit Pantheon principal, `owner_agent`, known actor, or fixed legacy action owner; an unknown mechanical producer is never assigned by guess. Agent Activity owns per-agent audit and handoff order. Its route-backed Roles and ownership dialog contains only the fixed reporting tree, role ownership, authority boundaries, and supporting current state, preserves underlying filters when closed, and shares the same role-only component as `/pantheon`; neither surface duplicates Incident chronology or conversation evidence.
 
 The Command Deck rejects a complete or pending SSE frame above 256 KiB before accumulating `data:`
 lines or parsing JSON, then uses the deterministic interrupted-stream fallback. Correlation-filtered

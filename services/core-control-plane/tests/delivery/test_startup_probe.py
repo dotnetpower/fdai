@@ -613,6 +613,9 @@ async def test_audit_probe_appends_once_per_process_only_in_synthetic_scope() ->
 
     assert first.evidence == {"append": True, "previously_proven": False}
     assert refreshed.evidence == {"append": False, "previously_proven": True}
+    audit_entry = next(iter(store.audit_entries))["entry"]
+    assert audit_entry["actor"] == "runtime.startup"
+    assert audit_entry["owner_agent"] == "Saga"
     assert (
         sum(
             entry.get("entry", {}).get("kind") == "startup_readiness.audit_probe"

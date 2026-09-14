@@ -43,10 +43,12 @@ def coordinator(tmp_path, monkeypatch):
         "application_timeout": None,
         "foundation_command": None,
         "runner_receipt": None,
+        "create_runner_image": None,
     }
 
-    def prepare(**_kwargs):
+    def prepare(**kwargs):
         clock[0] += options["preparation_elapsed"]
+        options["create_runner_image"] = kwargs["create_runner_image"]
         prepared.root.mkdir(parents=True, mode=0o700)
         return prepared
 
@@ -160,7 +162,16 @@ def test_verified_runner_receipt_skips_image_build(coordinator, tmp_path):
 
     command = options["foundation_command"]
     assert options["runner_receipt"] == receipt
+    assert options["create_runner_image"] is False
     assert "--create-runner-image" not in command
     assert "--runner-image-terraform" not in command
     variables = command[command.index("--foundation-variables-file") + 1]
     assert variables.endswith("foundation-with-runner-image.json")
+
+
+def test_fresh_runner_image_uses_image_build_context(coordinator):
+    invoke, options, _clock = coordinator
+    with pytest.raises(RuntimeError, match="stop-after-prompt"):
+        invoke()
+
+    assert options["create_runner_image"] is True
