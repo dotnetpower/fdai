@@ -47,6 +47,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Kept absent event and previous-hash references nullable and normalized `None` or `null` string sentinels to not recorded instead of displaying them as identifiers. | `current change`; focused Operator projection and Console decoder tests. | Complete the final residual review. |
 | 2026-09-14 | implemented | Preserved and displayed each Trace step's previous entry hash alongside its entry hash without claiming that the filtered trace verifies the complete ledger chain. | `current change`; focused Operator projection, Console decoder, context, and browser tests. | Continue the bounded Trace hardening campaign. |
 | 2026-09-14 | implemented | Preserved each joined Trace step's source event id and source correlation id so event-correlated executor rows do not appear to have been recorded directly under the requested correlation. | `current change`; focused Operator projection, Console decoder, context, and browser tests. | Continue the bounded Trace hardening campaign. |
 | 2026-09-14 | implemented | Rejected whitespace-only stage, decision, reason, and terminal-stage values so empty strings cannot become recorded summaries or unlabeled statuses. | `current change`; focused Console Trace decoder tests and Console typecheck. | Continue the bounded Trace hardening campaign. |

@@ -88,6 +88,29 @@ def test_trace_does_not_invent_missing_action_identity() -> None:
     assert trace["steps"][0]["execution_path"] is None
 
 
+def test_trace_keeps_missing_audit_references_null() -> None:
+    trace = rule_fire_trace(
+        "correlation-1",
+        [
+            {
+                "seq": 1,
+                "event_id": None,
+                "correlation_id": "correlation-1",
+                "recorded_at": "2026-09-14T03:00:00Z",
+                "action_kind": "notification.route",
+                "mode": "shadow",
+                "entry_hash": "hash-1",
+                "previous_hash": "None",
+                "entry": {},
+            }
+        ],
+    )
+
+    assert trace is not None
+    assert trace["steps"][0]["event_id"] is None
+    assert trace["steps"][0]["previous_hash"] is None
+
+
 def test_trace_rejects_conflicting_stage_fields() -> None:
     with pytest.raises(ValueError, match="stage fields conflict"):
         rule_fire_trace(

@@ -34,7 +34,7 @@ import "./rule-trace-lifecycle.css";
 
 export interface TraceStep {
   readonly seq: number;
-  readonly event_id: string;
+  readonly event_id: string | null;
   readonly source_correlation_id: string | null;
   readonly recorded_at: string;
   readonly stage: string | null;
@@ -47,7 +47,7 @@ export interface TraceStep {
   readonly execution_path: string | null;
   readonly outcome: string | null;
   readonly entry_hash: string;
-  readonly previous_hash: string;
+  readonly previous_hash: string | null;
 }
 
 export interface TraceResponse {
@@ -315,7 +315,7 @@ export function decodeTraceResponse(
     }
     return {
       seq: sequence,
-      event_id: panelNonEmptyString(row, "event_id", "trace step"),
+      event_id: nullableNonEmptyString(row, "event_id", "trace step"),
       source_correlation_id: nullableNonEmptyString(
         row,
         "source_correlation_id",
@@ -332,7 +332,7 @@ export function decodeTraceResponse(
       execution_path: optionalNonEmptyString(row, "execution_path", "trace step"),
       outcome: optionalNonEmptyString(row, "outcome", "trace step"),
       entry_hash: panelNonEmptyString(row, "entry_hash", "trace step"),
-      previous_hash: panelNonEmptyString(row, "previous_hash", "trace step"),
+      previous_hash: nullableNonEmptyString(row, "previous_hash", "trace step"),
     };
   });
   const stepCount = panelNonNegativeInteger(root, "step_count", "trace");
