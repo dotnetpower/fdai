@@ -171,6 +171,18 @@ def _investigation_continuation() -> dict[str, object]:
     }
 
 
+@pytest.mark.parametrize("field", ["attachments", "images", "image_ids"])
+def test_semantic_envelope_rejects_images_instead_of_discarding_evidence(field: str) -> None:
+    with pytest.raises(ConversationBoundaryError) as raised:
+        SemanticTurnEnvelopeBuilder().build(
+            _proposal(body={"prompt": "Describe the supplied image.", field: ["image-example"]})
+        )
+
+    assert raised.value.status_code == 501
+    assert raised.value.code == "inline_images_unavailable"
+    assert "image-example" not in raised.value.message
+
+
 @pytest.mark.parametrize("target_agent", ["Bragi", "Mimir", "Njord"])
 def test_semantic_envelope_preserves_canonical_dialogue_target_without_relationship_claim(
     target_agent: str,
