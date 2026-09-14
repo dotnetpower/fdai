@@ -28,6 +28,7 @@ import {
   browserNotificationText as t,
   type BrowserNotificationTextKey,
 } from "./i18n/browser-notifications";
+import { NotificationBellIcon } from "./notification-bell-icon";
 
 interface Props {
   readonly client: OperatorApiClient;
@@ -280,10 +281,7 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
       onClick={() => { void toggle(); }}
     >
       <span class="browser-notification-indicator" aria-hidden="true" />
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-        <path d="M10 21h4" />
-      </svg>
+      <NotificationBellIcon />
       <span class="topbar-control-label">{t("label")}</span>
       <span class="browser-notification-state" role="status" aria-live="polite">
         {stateLabel}

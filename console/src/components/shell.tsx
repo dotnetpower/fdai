@@ -19,6 +19,7 @@ import { IncidentAttention } from "./incident-attention";
 import { browserNotificationText } from "./i18n/browser-notifications";
 import { NavigationShell } from "./navigation-shell";
 import { NavigationTitleProvider } from "./navigation-title";
+import { NotificationBellIcon } from "./notification-bell-icon";
 import type { ConsoleDataMode } from "../console-data-mode";
 import { supportsSampleData } from "../console-data-mode";
 import { DataModeControl } from "./data-mode-control";
@@ -118,9 +119,11 @@ export function Shell({
               type="button"
               class="topbar-control browser-notification-control"
               aria-label={browserNotificationText("enabling")}
+              aria-pressed="false"
               disabled
             >
               <span class="browser-notification-indicator" aria-hidden="true" />
+              <NotificationBellIcon />
               <span class="topbar-control-label">{browserNotificationText("label")}</span>
               <span class="browser-notification-state" role="status" aria-live="polite">
                 {browserNotificationText("stateEnabling")}
