@@ -76,6 +76,26 @@ def test_forseti_requests_arbitration_on_conflicting_advice() -> None:
     assert set(msgs[0].payload["domains_in_conflict"]) == {"cost", "capacity"}
 
 
+def test_forseti_availability_probe_failure_does_not_invent_owner_outage() -> None:
+    bus = _bus()
+
+    def _failing_probe() -> tuple[str, ...]:
+        raise RuntimeError("health source unavailable")
+
+    forseti = Forseti(bus=bus, agent_availability=_failing_probe)
+
+    result = asyncio.run(
+        forseti._close_unowned_arbitration(  # noqa: SLF001 - focused fail-closed seam
+            "probe-failure",
+            domains=["capacity", "cost"],
+        )
+    )
+
+    assert result is None
+    assert forseti.behavior_snapshot()["arbitration_owner_probe_failed"] == 1
+    assert bus.messages_on("object.verdict") == []
+
+
 def test_forseti_no_arbitration_on_unanimous_advice() -> None:
     bus = _bus()
     forseti = Forseti(bus=bus)
