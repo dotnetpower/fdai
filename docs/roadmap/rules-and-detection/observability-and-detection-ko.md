@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 20064f133b9f88352a4a698c9a0371b58d51aea5
+translation_source_sha: 2200c60f73f25c6091ecd1ae5ca7982688dac3db
 translation_revised: 2026-09-14
 ---
 
@@ -562,7 +562,8 @@ kind 집계만 반환합니다. Incident ID, member ID, payload 또는 database 
 따릅니다. 발견된 대상 수는 상한이 있고 순서는 결정론적입니다. 해석기는 검토된 분석기 Resource
 유형을 저장소 쿼리 필터로 적용하고, 구성된 분석 가능 대상 상한을 적용하기 전에 지원되는
 Resource를 최대 1,000개 읽습니다. 관련 없는 인벤토리 레코드는 조회 구간이나 대상 슬롯을
-차지할 수 없습니다. 지원 Resource 구간 자체가 잘린 상태는 명시적으로 유지합니다. 이 작업들은
+차지할 수 없습니다. 지원 Resource 구간이 잘렸거나 인벤토리 출처가 불완전하면 일부 coverage를
+정상으로 보이지 않고 틱을 실패시키며 대상 검색을 사용 불가로 보고합니다. 이 작업들은
 변경을 실행하지 않으며, 발견된 문제와 예정 작업은
 공유 trust router 및 안전성 검토에 다시 진입합니다.
 분석기 누락, 공급자 분석 오류, 게시 실패 또는 증적 저장 실패가 발생하면 예약 항목은 재시도

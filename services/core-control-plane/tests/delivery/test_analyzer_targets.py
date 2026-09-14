@@ -88,11 +88,13 @@ class StubStore:
         objects: Sequence[OntologyObjectRecord] = (),
         *,
         truncated: bool = False,
+        source_complete: bool = True,
         error: Exception | None = None,
         honor_property_filter: bool = True,
     ) -> None:
         self._objects = tuple(objects)
         self._truncated = truncated
+        self._source_complete = source_complete
         self._error = error
         self._honor_property_filter = honor_property_filter
         self.limits: list[int] = []
@@ -126,6 +128,7 @@ class StubStore:
         return OntologyGraphSnapshot(
             objects=objects[:limit],
             truncated=self._truncated or len(objects) > limit,
+            source_complete=self._source_complete,
         )
 
 
@@ -475,6 +478,11 @@ async def test_unmapped_and_malformed_resources_are_skipped_with_reasons() -> No
         SKIP_MALFORMED_RESOURCE,
         SKIP_UNMAPPED_RESOURCE_TYPE,
     )
+    assert resolution.candidate_count == 2
+    assert dict(resolution.skipped_reason_counts) == {
+        SKIP_MALFORMED_RESOURCE: 1,
+        SKIP_UNMAPPED_RESOURCE_TYPE: 1,
+    }
 
 
 @pytest.mark.asyncio
@@ -511,6 +519,11 @@ async def test_stale_conflicting_and_synthetic_evidence_is_skipped() -> None:
         SKIP_STALE_STATE_FACT,
         SKIP_UNUSABLE_STATE_FACT,
     )
+    assert resolution.candidate_count == 4
+    assert dict(resolution.skipped_reason_counts) == {
+        SKIP_STALE_STATE_FACT: 1,
+        SKIP_UNUSABLE_STATE_FACT: 3,
+    }
 
 
 @pytest.mark.asyncio
@@ -631,6 +644,18 @@ async def test_discovered_targets_are_bounded_and_report_truncation() -> None:
     assert store.limits == [INVENTORY_SCAN_LIMIT]
     assert [item.resource_ref for item in resolution.targets] == ["res-00", "res-01"]
     assert resolution.truncated is True
+
+
+@pytest.mark.asyncio
+async def test_incomplete_inventory_source_is_preserved_in_resolution() -> None:
+    store = StubStore(
+        (_resource("res-00", "kubernetes-cluster", state_fact=_state_fact()),),
+        source_complete=False,
+    )
+
+    resolution = await _resolve(store)
+
+    assert resolution.source_complete is False
 
 
 @pytest.mark.asyncio

@@ -127,7 +127,10 @@ class AnalyzerJobReport:
     @property
     def failed(self) -> bool:
         """Return true when either publisher needs a Job retry."""
-        return self.analyzer.failed or self.trace_continuity.failed
+        incomplete_targets = self.target_resolution.inventory_consulted and (
+            self.target_resolution.truncated or not self.target_resolution.source_complete
+        )
+        return self.analyzer.failed or self.trace_continuity.failed or incomplete_targets
 
     def to_dict(
         self,
@@ -156,7 +159,10 @@ class AnalyzerJobReport:
         if scheduling not in _SCHEDULING_MODES:
             raise ValueError("analyzer scheduling mode is invalid")
         target_discovery = (
-            "available"
+            "unavailable"
+            if self.target_resolution.inventory_consulted
+            and (self.target_resolution.truncated or not self.target_resolution.source_complete)
+            else "available"
             if self.target_resolution.inventory_consulted or self.target_resolution.configured > 0
             else "unbound"
         )

@@ -25,6 +25,7 @@ a resource is eligible; the analyzer's own findings carry their evidence.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -92,7 +93,10 @@ class AnalyzerTargetResolution:
     configured: int
     discovered: int
     inventory_consulted: bool
+    candidate_count: int = 0
+    source_complete: bool = True
     skipped_reasons: tuple[str, ...] = ()
+    skipped_reason_counts: tuple[tuple[str, int], ...] = ()
     truncated: bool = False
 
     def to_dict(self) -> dict[str, object]:
@@ -100,7 +104,10 @@ class AnalyzerTargetResolution:
             "configured": self.configured,
             "discovered": self.discovered,
             "inventory_consulted": self.inventory_consulted,
+            "candidate_count": self.candidate_count,
+            "source_complete": self.source_complete,
             "skipped_reasons": list(self.skipped_reasons),
+            "skipped_reason_counts": dict(self.skipped_reason_counts),
             "truncated": self.truncated,
         }
 
@@ -172,7 +179,7 @@ async def resolve_analyzer_targets(
             f"durable inventory projection read failed: {type(exc).__name__}"
         ) from exc
 
-    skipped: set[str] = set()
+    skipped: Counter[str] = Counter()
     eligible: list[AnalyzerTarget] = []
     eligible_resource_types: dict[str, str] = {}
     configured_resource_types: dict[str, str] = {}
@@ -247,7 +254,10 @@ async def resolve_analyzer_targets(
         configured=configured_count,
         discovered=len(selected),
         inventory_consulted=True,
+        candidate_count=len(snapshot.objects),
+        source_complete=snapshot.source_complete,
         skipped_reasons=tuple(sorted(skipped)),
+        skipped_reason_counts=tuple(sorted(skipped.items())),
         truncated=snapshot.truncated or withheld,
     )
 
@@ -257,22 +267,22 @@ async def _eligible_target(
     *,
     now: datetime,
     analyzer_kinds: Mapping[str, str],
-    skipped: set[str],
+    skipped: Counter[str],
     decision_evidence: DecisionEvidenceAdmissionProvider | None,
 ) -> AnalyzerTarget | None:
     """Return one analyzable target, or ``None`` with a recorded skip reason."""
     resource_id = record.properties.get("id")
     resource_type = record.properties.get("type")
     if not isinstance(resource_id, str) or not isinstance(resource_type, str):
-        skipped.add(SKIP_MALFORMED_RESOURCE)
+        skipped[SKIP_MALFORMED_RESOURCE] += 1
         return None
     resource_id = resource_id.strip()
     if not resource_id:
-        skipped.add(SKIP_MALFORMED_RESOURCE)
+        skipped[SKIP_MALFORMED_RESOURCE] += 1
         return None
     analyzer_kind = analyzer_kinds.get(resource_type.strip())
     if analyzer_kind is None:
-        skipped.add(SKIP_UNMAPPED_RESOURCE_TYPE)
+        skipped[SKIP_UNMAPPED_RESOURCE_TYPE] += 1
         return None
     provider_properties = record.properties.get("properties")
     raw = (
@@ -283,7 +293,7 @@ async def _eligible_target(
     if raw is None:
         return AnalyzerTarget(resource_ref=resource_id, resource_kind=analyzer_kind)
     if not isinstance(raw, Mapping):
-        skipped.add(SKIP_UNUSABLE_STATE_FACT)
+        skipped[SKIP_UNUSABLE_STATE_FACT] += 1
         return None
     if "lane" in raw:
         metadata_value = raw
@@ -292,7 +302,7 @@ async def _eligible_target(
     else:
         metadata_value = raw["state"]
         if not isinstance(metadata_value, Mapping):
-            skipped.add(SKIP_UNUSABLE_STATE_FACT)
+            skipped[SKIP_UNUSABLE_STATE_FACT] += 1
             return None
     if not await _state_fact_supports_selection(
         metadata_value,
@@ -312,7 +322,7 @@ async def _state_fact_supports_selection(
     resource_id: str,
     resource_type: str,
     now: datetime,
-    skipped: set[str],
+    skipped: Counter[str],
     decision_evidence: DecisionEvidenceAdmissionProvider | None,
 ) -> bool:
     """Report whether the recorded observation still supports selecting a target.
@@ -326,7 +336,7 @@ async def _state_fact_supports_selection(
     try:
         metadata = StateFactMetadata.from_mapping(raw)
     except (ValueError, TypeError):
-        skipped.add(SKIP_UNUSABLE_STATE_FACT)
+        skipped[SKIP_UNUSABLE_STATE_FACT] += 1
         return False
     if (
         metadata.lane is not StateFactLane.OBSERVED
@@ -335,17 +345,17 @@ async def _state_fact_supports_selection(
         or metadata.conflicts
         or metadata.completeness < 1.0
     ):
-        skipped.add(SKIP_UNUSABLE_STATE_FACT)
+        skipped[SKIP_UNUSABLE_STATE_FACT] += 1
         return False
     if metadata.evidence_cutoff.tzinfo is None:
-        skipped.add(SKIP_UNUSABLE_STATE_FACT)
+        skipped[SKIP_UNUSABLE_STATE_FACT] += 1
         return False
     age_seconds = (now - metadata.evidence_cutoff).total_seconds()
     if age_seconds < 0 or age_seconds > metadata.freshness_ceiling_seconds:
-        skipped.add(SKIP_STALE_STATE_FACT)
+        skipped[SKIP_STALE_STATE_FACT] += 1
         return False
     if decision_evidence is None:
-        skipped.add(SKIP_UNVERIFIED_STATE_FACT)
+        skipped[SKIP_UNVERIFIED_STATE_FACT] += 1
         return False
     evidence_digest = content_digest(
         {
@@ -366,7 +376,7 @@ async def _state_fact_supports_selection(
         source_revision=metadata.source_revision,
     )
     if admission is None:
-        skipped.add(SKIP_UNVERIFIED_STATE_FACT)
+        skipped[SKIP_UNVERIFIED_STATE_FACT] += 1
         return False
     reasons = assess_decision_evidence_admission(
         admission,
@@ -377,7 +387,7 @@ async def _state_fact_supports_selection(
         evaluated_at=now,
     )
     if reasons:
-        skipped.add(SKIP_UNVERIFIED_STATE_FACT)
+        skipped[SKIP_UNVERIFIED_STATE_FACT] += 1
         return False
     return True
 

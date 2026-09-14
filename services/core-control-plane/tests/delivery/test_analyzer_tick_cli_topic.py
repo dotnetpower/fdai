@@ -243,6 +243,39 @@ def test_analyzer_coverage_failure_is_not_a_successful_job(
     assert report.readiness(scheduling="local_loop")["metric_access"] == "unavailable"
 
 
+@pytest.mark.parametrize(
+    "resolution",
+    (
+        AnalyzerTargetResolution(
+            targets=(),
+            configured=0,
+            discovered=200,
+            inventory_consulted=True,
+            truncated=True,
+        ),
+        AnalyzerTargetResolution(
+            targets=(),
+            configured=0,
+            discovered=1,
+            inventory_consulted=True,
+            source_complete=False,
+        ),
+    ),
+)
+def test_incomplete_target_coverage_fails_job_and_readiness(
+    resolution: AnalyzerTargetResolution,
+) -> None:
+    report = _job_report()
+    report = AnalyzerJobReport(
+        analyzer=report.analyzer,
+        trace_continuity=report.trace_continuity,
+        target_resolution=resolution,
+    )
+
+    assert report.failed
+    assert report.readiness(scheduling="local_loop")["target_discovery"] == "unavailable"
+
+
 def test_scheduling_mode_and_metric_delays_are_explicit() -> None:
     assert resolve_scheduling_mode("") == "one_shot"
     assert resolve_scheduling_mode("container_apps_job") == "container_apps_job"
