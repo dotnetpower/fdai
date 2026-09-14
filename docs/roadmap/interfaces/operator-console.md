@@ -44,6 +44,8 @@ Trace hardening preserves these evidence invariants:
   stores them as non-null provenance. A malformed projection cannot downgrade them to not recorded.
 - Optional stage, decision, reason, action, execution, outcome, workflow, and attempt fields are
   validated when present. Invalid types or blank values cannot be erased into not recorded.
+- The PostgreSQL Trace boundary requires each audit `entry` to remain a JSON object. An array or
+  scalar entry makes the trace unavailable instead of becoming an empty record.
 
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final

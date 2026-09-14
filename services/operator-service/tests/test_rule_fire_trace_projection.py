@@ -238,6 +238,29 @@ async def test_trace_reader_reports_conflicting_stage_fields_as_unavailable() ->
         await model.get_rule_fire_trace("correlation-1")
 
 
+@pytest.mark.asyncio
+async def test_trace_reader_rejects_a_non_object_audit_entry() -> None:
+    model = _TraceRowsModel(
+        [
+            {
+                "seq": 1,
+                "event_id": "event-1",
+                "correlation_id": "correlation-1",
+                "actor": "Forseti",
+                "action_kind": "risk_gate.unified",
+                "mode": "shadow",
+                "entry": [],
+                "previous_hash": "hash-0",
+                "entry_hash": "hash-1",
+                "created_at": "2026-09-14T03:00:00Z",
+            }
+        ]
+    )
+
+    with pytest.raises(ProjectionUnavailableError, match="trace entry is malformed"):
+        await model.get_rule_fire_trace("correlation-1")
+
+
 def test_trace_query_joins_executor_rows_through_correlated_event_ids() -> None:
     assert "correlation_id = %(correlation_id)s::text" in AUDIT_TRACE_SQL
     assert "event_id IN (SELECT event_id FROM correlated_events)" in AUDIT_TRACE_SQL

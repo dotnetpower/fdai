@@ -317,6 +317,8 @@ class PostgresOperatorReadModel:
             raise ProjectionUnavailableError(
                 f"audit trace exceeds the {TRACE_RECORD_LIMIT}-record projection limit"
             )
+        if any(not isinstance(row.get("entry"), Mapping) for row in rows):
+            raise ProjectionUnavailableError("authoritative audit trace entry is malformed")
         try:
             payload = rule_fire_trace(correlation_id, tuple(audit_item(row) for row in rows))
         except (TypeError, ValueError) as exc:
