@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { describe, expect, test, vi } from "vitest";
 
+const ACKNOWLEDGEMENT_TOKEN = "a".repeat(32);
+const ACKNOWLEDGEMENT_SUFFIX =
+  `&fdai_notification_ack=fdai%3Aevent-1&fdai_notification_token=${ACKNOWLEDGEMENT_TOKEN}`;
+
 interface WorkerContext {
   readonly handlers: Map<string, (event: unknown) => void>;
   readonly clients: WorkerClients;
@@ -51,11 +55,20 @@ async function clickNotification(
   path: string,
   tag = "fdai:event-1",
   channelId = "console-web",
+  acknowledgementToken = ACKNOWLEDGEMENT_TOKEN,
 ): Promise<void> {
   let pending: Promise<unknown> | undefined;
   const close = vi.fn();
   context.handlers.get("notificationclick")?.({
-    notification: { data: { path, tag, channel_id: channelId }, close },
+    notification: {
+      data: {
+        path,
+        tag,
+        channel_id: channelId,
+        acknowledgement_token: acknowledgementToken,
+      },
+      close,
+    },
     waitUntil: (value: Promise<unknown>) => {
       pending = value;
     },
@@ -86,8 +99,7 @@ describe("notification service worker boundary", () => {
 
   test("focuses the client returned by navigation", async () => {
     const target = "https://console.example.com/incidents?status=all";
-    const acknowledgedTarget =
-      "https://console.example.com/incidents?status=all&fdai_notification_ack=fdai%3Aevent-1";
+    const acknowledgedTarget = `${target}${ACKNOWLEDGEMENT_SUFFIX}`;
     const navigatedFocus = vi.fn(async () => undefined);
     const navigated: WindowClientStub = {
       url: acknowledgedTarget,
@@ -117,8 +129,7 @@ describe("notification service worker boundary", () => {
 
   test("opens the target when focusing an exact client fails", async () => {
     const target = "https://console.example.com/incidents?status=all";
-    const acknowledgedTarget =
-      "https://console.example.com/incidents?status=all&fdai_notification_ack=fdai%3Aevent-1";
+    const acknowledgedTarget = `${target}${ACKNOWLEDGEMENT_SUFFIX}`;
     const exact: WindowClientStub = {
       url: target,
       focus: vi.fn(async () => {
@@ -159,6 +170,7 @@ describe("notification service worker boundary", () => {
       type: "fdai.console-web-notification.acknowledged",
       channel_id: "console-web",
       tag: "fdai:event-1",
+      acknowledgement_token: ACKNOWLEDGEMENT_TOKEN,
     }));
     expect(postMessage.mock.calls[0]?.[0]).not.toHaveProperty("acknowledged_at");
   });
@@ -201,10 +213,34 @@ describe("notification service worker boundary", () => {
     expect(postMessage).not.toHaveBeenCalled();
   });
 
+  test("does not record an acknowledgement with an invalid claim token", async () => {
+    const target = "https://console.example.com/incidents?status=all";
+    const postMessage = vi.fn();
+    const exact: WindowClientStub = {
+      url: target,
+      focus: vi.fn(async () => undefined),
+      navigate: async () => null,
+      postMessage,
+    };
+    const context = loadWorker("https://console.example.com/", {
+      matchAll: async () => [exact],
+      openWindow: async () => null,
+    });
+
+    await clickNotification(
+      context,
+      "/incidents?status=all",
+      "fdai:event-1",
+      "console-web",
+      "predictable",
+    );
+
+    expect(postMessage).not.toHaveBeenCalled();
+  });
+
   test("reuses the focused exact window when acknowledgement messaging fails", async () => {
     const target = "https://console.example.com/incidents?status=all";
-    const acknowledgedTarget =
-      "https://console.example.com/incidents?status=all&fdai_notification_ack=fdai%3Aevent-1";
+    const acknowledgedTarget = `${target}${ACKNOWLEDGEMENT_SUFFIX}`;
     const navigated: WindowClientStub = {
       url: acknowledgedTarget,
       focus: vi.fn(async () => undefined),

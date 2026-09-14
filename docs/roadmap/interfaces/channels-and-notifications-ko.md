@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 0ea7f9b4988554e95f3254c714082bc3464cd2fa
+translation_source_sha: 8f90613397321bb9d6d2f5c10058e11b360c4480
 translation_revised: 2026-09-14
 ---
 
@@ -387,11 +387,13 @@ Console은 브라우저 알림 경계를 명시적인 클라이언트 로컬 `co
 알림 클릭도 수렴할 수 있게 합니다.
 
 `showNotification()`이 완료되면 같은 원장이 `console-web` 전달을 전송됨으로 기록합니다. 사용자가
-알림을 클릭하면 같은 브라우저 principal의 전송 기록에 범위가 제한된 태그가 이미 있을 때만 별도
-확인을 기록합니다. 정확히 일치하는 Console 창에는 서비스 워커 메시지를 보냅니다. 이동하거나
-새로 연 Console 창에는 일시적인 `fdai_notification_ack` 쿼리 필드로 같은 태그를 전달하며,
-Console은 검증 후 이 필드를 제거합니다. 컨트롤은 `대기`, `전송됨`, `전송 및 확인됨`을 구분해
-선택, 전달 및 사용자 확인을 하나의 상태로 합치지 않습니다.
+알림을 클릭하면 같은 브라우저 principal의 전송 기록에 범위가 제한된 태그와 예측 불가능한
+claim별 토큰이 모두 일치할 때만 별도 확인을 기록합니다. 정확히 일치하는 Console 창에는 두 값을
+서비스 워커 메시지로 보냅니다. 이동하거나 새로 연 Console 창에는 일시적인
+`fdai_notification_ack` 및 `fdai_notification_token` 쿼리 필드로 전달하며, Console은 검증 후
+두 필드를 제거합니다. 토큰이 없는 레거시 레코드는 중복 억제에는 유효하지만 새로운 확인을 만들
+수 없습니다. 컨트롤은 `대기`, `전송됨`, `전송 및 확인됨`을 구분해 선택, 전달 및 사용자 확인을
+하나의 상태로 합치지 않습니다.
 
 이 증적은 브라우저 로컬 기록입니다. Core의 영속 알림 전달 원장을 갱신하거나
 `notification.delivery.observed`를 충족하지 않으며, 사용자가 인시던트 근거를 읽었다는 점을

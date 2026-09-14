@@ -3,7 +3,9 @@
 const CONSOLE_WEB_CHANNEL_ID = "console-web";
 const ACKNOWLEDGEMENT_TYPE = "fdai.console-web-notification.acknowledged";
 const ACKNOWLEDGEMENT_QUERY = "fdai_notification_ack";
+const ACKNOWLEDGEMENT_TOKEN_QUERY = "fdai_notification_token";
 const SAFE_NOTIFICATION_TAG = /^fdai:[A-Za-z0-9._:-]{1,128}$/;
+const SAFE_ACKNOWLEDGEMENT_TOKEN = /^[a-f0-9]{32}$/;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
@@ -19,6 +21,9 @@ self.addEventListener("notificationclick", (event) => {
   const tag = event.notification.data?.channel_id === CONSOLE_WEB_CHANNEL_ID
     ? safeNotificationTag(event.notification.data?.tag)
     : null;
+  const acknowledgementToken = event.notification.data?.channel_id === CONSOLE_WEB_CHANNEL_ID
+    ? safeAcknowledgementToken(event.notification.data?.acknowledgement_token)
+    : null;
   const target = safeTarget(path);
   if (target === null) return;
 
@@ -29,12 +34,16 @@ self.addEventListener("notificationclick", (event) => {
       try {
         await exact.focus();
       } catch {
-        await self.clients.openWindow(acknowledgementTarget(target, tag).href);
+        await self.clients.openWindow(
+          acknowledgementTarget(target, tag, acknowledgementToken).href,
+        );
         return;
       }
-      if (!acknowledgeClient(exact, tag)) {
+      if (!acknowledgeClient(exact, tag, acknowledgementToken)) {
         try {
-          const navigated = await exact.navigate(acknowledgementTarget(target, tag).href);
+          const navigated = await exact.navigate(
+            acknowledgementTarget(target, tag, acknowledgementToken).href,
+          );
           await navigated?.focus();
         } catch {
           console.warn("Console web notification acknowledgement delivery failed.");
@@ -45,18 +54,24 @@ self.addEventListener("notificationclick", (event) => {
     const sameOrigin = windows.find((client) => new URL(client.url).origin === target.origin);
     if (sameOrigin !== undefined) {
       try {
-        const navigated = await sameOrigin.navigate(acknowledgementTarget(target, tag).href);
+        const navigated = await sameOrigin.navigate(
+          acknowledgementTarget(target, tag, acknowledgementToken).href,
+        );
         if (navigated === null) {
-          await self.clients.openWindow(acknowledgementTarget(target, tag).href);
+          await self.clients.openWindow(
+            acknowledgementTarget(target, tag, acknowledgementToken).href,
+          );
           return;
         }
         await navigated.focus();
       } catch {
-        await self.clients.openWindow(acknowledgementTarget(target, tag).href);
+        await self.clients.openWindow(
+          acknowledgementTarget(target, tag, acknowledgementToken).href,
+        );
       }
       return;
     }
-    await self.clients.openWindow(acknowledgementTarget(target, tag).href);
+    await self.clients.openWindow(acknowledgementTarget(target, tag, acknowledgementToken).href);
   })());
 });
 
@@ -64,19 +79,33 @@ function safeNotificationTag(value) {
   return typeof value === "string" && SAFE_NOTIFICATION_TAG.test(value) ? value : null;
 }
 
-function acknowledgementTarget(target, tag) {
+function safeAcknowledgementToken(value) {
+  return typeof value === "string" && SAFE_ACKNOWLEDGEMENT_TOKEN.test(value) ? value : null;
+}
+
+function acknowledgementTarget(target, tag, acknowledgementToken) {
   const acknowledged = new URL(target.href);
-  if (tag !== null) acknowledged.searchParams.set(ACKNOWLEDGEMENT_QUERY, tag);
+  if (tag !== null && acknowledgementToken !== null) {
+    acknowledged.searchParams.set(ACKNOWLEDGEMENT_QUERY, tag);
+    acknowledged.searchParams.set(ACKNOWLEDGEMENT_TOKEN_QUERY, acknowledgementToken);
+  }
   return acknowledged;
 }
 
-function acknowledgeClient(client, tag) {
-  if (tag === null || typeof client.postMessage !== "function") return false;
+function acknowledgeClient(client, tag, acknowledgementToken) {
+  if (
+    tag === null
+    || acknowledgementToken === null
+    || typeof client.postMessage !== "function"
+  ) {
+    return false;
+  }
   try {
     client.postMessage({
       type: ACKNOWLEDGEMENT_TYPE,
       channel_id: CONSOLE_WEB_CHANNEL_ID,
       tag,
+      acknowledgement_token: acknowledgementToken,
     });
     return true;
   } catch {

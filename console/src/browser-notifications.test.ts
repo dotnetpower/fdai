@@ -13,6 +13,7 @@ import {
   browserNotificationTargetPath,
   browserNotificationWorkerPaths,
   claimBrowserAlertDelivery,
+  readBrowserAlertAcknowledgementToken,
   readBrowserAlertDeliveryStatus,
   readLatestBrowserAlertReceipt,
   readBrowserNotificationPreference,
@@ -22,6 +23,8 @@ import {
   trustedBrowserAlertAcknowledgement,
   writeBrowserNotificationPreference,
 } from "./browser-notifications";
+
+const ACKNOWLEDGEMENT_TOKEN = "a".repeat(32);
 
 function event(overrides: Partial<LiveStageEvent> = {}): LiveStageEvent {
   return {
@@ -34,6 +37,16 @@ function event(overrides: Partial<LiveStageEvent> = {}): LiveStageEvent {
     detail: { gate_decision: "hil" },
     ...overrides,
   };
+}
+
+function acknowledgementToken(
+  storage: Pick<Storage, "getItem">,
+  principalId: string,
+  tag: string,
+): string {
+  const token = readBrowserAlertAcknowledgementToken(tag, principalId, storage);
+  if (token === null) throw new Error("test claim did not record an acknowledgement token");
+  return token;
 }
 
 describe("browser notification boundary", () => {
@@ -78,11 +91,21 @@ describe("browser notification boundary", () => {
       "/fdai/incidents?status=all",
     );
     expect(() => browserNotificationTargetPath("//example.com", "/")).toThrow();
-    expect(browserAlertNotificationData(browserAlertForLiveEvent(event())!, "/")).toEqual({
+    expect(browserAlertNotificationData(
+      browserAlertForLiveEvent(event())!,
+      "/",
+      ACKNOWLEDGEMENT_TOKEN,
+    )).toEqual({
       channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
       tag: "fdai:event-1",
+      acknowledgement_token: ACKNOWLEDGEMENT_TOKEN,
       path: "/incidents?status=all&correlation=correlation-1",
     });
+    expect(() => browserAlertNotificationData(
+      browserAlertForLiveEvent(event())!,
+      "/",
+      "predictable",
+    )).toThrow(/token is invalid/);
   });
 
   test("scopes opt-in storage to the browser principal", () => {
@@ -173,6 +196,7 @@ describe("browser notification boundary", () => {
     expect(readLatestBrowserAlertReceipt("principal-a", now + 1, storage)).toBeNull();
     expect(acknowledgeBrowserAlertDelivery(
       "fdai:event-1",
+      acknowledgementToken(storage, "principal-a", "fdai:event-1"),
       "principal-a",
       now + 1,
       storage,
@@ -191,6 +215,7 @@ describe("browser notification boundary", () => {
     });
     expect(acknowledgeBrowserAlertDelivery(
       "fdai:event-1",
+      acknowledgementToken(storage, "principal-a", "fdai:event-1"),
       "principal-a",
       now + 3,
       storage,
@@ -210,18 +235,28 @@ describe("browser notification boundary", () => {
       type: BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
       channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
       tag: "fdai:event-1",
+      acknowledgement_token: ACKNOWLEDGEMENT_TOKEN,
     })).toEqual({
       tag: "fdai:event-1",
+      acknowledgementToken: ACKNOWLEDGEMENT_TOKEN,
     });
     expect(decodeBrowserAlertAcknowledgement({
       type: BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
       channel_id: "teams",
       tag: "fdai:event-1",
+      acknowledgement_token: ACKNOWLEDGEMENT_TOKEN,
     })).toBeNull();
     expect(decodeBrowserAlertAcknowledgement({
       type: BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
       channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
       tag: "unsafe tag",
+      acknowledgement_token: ACKNOWLEDGEMENT_TOKEN,
+    })).toBeNull();
+    expect(decodeBrowserAlertAcknowledgement({
+      type: BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
+      channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
+      tag: "fdai:event-1",
+      acknowledgement_token: "predictable",
     })).toBeNull();
   });
 
@@ -230,11 +265,13 @@ describe("browser notification boundary", () => {
       type: BROWSER_NOTIFICATION_ACKNOWLEDGEMENT_TYPE,
       channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
       tag: "fdai:event-1",
+      acknowledgement_token: ACKNOWLEDGEMENT_TOKEN,
       acknowledged_at: 1,
     };
     expect(trustedBrowserAlertAcknowledgement(payload, false, 1_800_000_000_000)).toBeNull();
     expect(trustedBrowserAlertAcknowledgement(payload, true, 1_800_000_000_000)).toEqual({
       tag: "fdai:event-1",
+      acknowledgementToken: ACKNOWLEDGEMENT_TOKEN,
       acknowledgedAt: 1_800_000_000_000,
     });
   });
@@ -267,7 +304,13 @@ describe("browser notification boundary", () => {
     const now = 1_800_000_000_000;
     expect(claimBrowserAlertDelivery("fdai:event-1", "principal-a", now, storage)).toBe("claimed");
     recordBrowserAlertDelivered("fdai:event-1", "principal-a", now + 1, storage);
-    acknowledgeBrowserAlertDelivery("fdai:event-1", "principal-a", now + 2, storage);
+    acknowledgeBrowserAlertDelivery(
+      "fdai:event-1",
+      acknowledgementToken(storage, "principal-a", "fdai:event-1"),
+      "principal-a",
+      now + 2,
+      storage,
+    );
 
     const stored = JSON.parse(values.get(key) ?? "[]") as readonly Record<string, unknown>[];
     expect(stored).toEqual([expect.objectContaining({
@@ -276,6 +319,7 @@ describe("browser notification boundary", () => {
       claimedAt: now,
       deliveredAt: now + 1,
       acknowledgedAt: now + 2,
+      acknowledgementToken: expect.stringMatching(/^[a-f0-9]{32}$/),
     })]);
   });
 
@@ -298,6 +342,7 @@ describe("browser notification boundary", () => {
     const delayedClick = now + 6 * 60_000;
     expect(acknowledgeBrowserAlertDelivery(
       "fdai:event-1",
+      acknowledgementToken(storage, "principal-a", "fdai:event-1"),
       "principal-a",
       delayedClick,
       storage,
@@ -319,10 +364,22 @@ describe("browser notification boundary", () => {
     claimBrowserAlertDelivery("fdai:event-new", "principal-a", now + 2, storage);
     recordBrowserAlertDelivered("fdai:event-new", "principal-a", now + 3, storage);
 
-    acknowledgeBrowserAlertDelivery("fdai:event-old", "principal-a", now + 4, storage);
+    acknowledgeBrowserAlertDelivery(
+      "fdai:event-old",
+      acknowledgementToken(storage, "principal-a", "fdai:event-old"),
+      "principal-a",
+      now + 4,
+      storage,
+    );
     expect(readBrowserAlertDeliveryStatus("principal-a", now + 4, storage)).toBe("delivered");
 
-    acknowledgeBrowserAlertDelivery("fdai:event-new", "principal-a", now + 5, storage);
+    acknowledgeBrowserAlertDelivery(
+      "fdai:event-new",
+      acknowledgementToken(storage, "principal-a", "fdai:event-new"),
+      "principal-a",
+      now + 5,
+      storage,
+    );
     expect(readBrowserAlertDeliveryStatus("principal-a", now + 5, storage)).toBe("acknowledged");
   });
 

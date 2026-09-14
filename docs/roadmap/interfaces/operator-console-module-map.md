@@ -656,6 +656,9 @@ An omitted frame source is treated as unknown and rejected; tests model omission
 field rather than assigning JavaScript `undefined` to the optional property.
 The lazy control fallback uses the same disabled button, bell glyph, label, and live-status
 structure as the loaded control so module loading does not change its semantic or visual footprint.
+Every new delivery claim carries an unpredictable 128-bit acknowledgement token. Service-worker
+messages and transient navigation values must match both the safe tag and that token before the
+principal-scoped ledger can record acknowledgement; legacy tokenless rows remain dedupe-only.
 Visible-heading components use `title` only for rendered heading content. Native HTML `title` bubbles remain limited to accessibility-compatible elements, and all other contextual help uses the shared Tooltip component.
 The static component gallery reads contracts from `mocks/ui/assets/component-registry.json` and presents each specimen before its owner, source, states, usage guidance, responsive behavior, accessibility contract, and product references. A missing or invalid registry blocks documented status instead of inferring canonical status. The gallery remains synthetic presentation evidence and grants no Console, Operator API, or executor authority.
 

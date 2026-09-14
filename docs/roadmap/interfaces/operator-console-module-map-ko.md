@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: ba56e01e6af41ccf6efebdc23fb9df0523abef6d
+translation_source_sha: d8f4dd56ecff7efaa5aed24ecc4aa327edd6c644
 translation_revised: 2026-09-14
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -656,6 +656,9 @@ fail-closed 처리합니다. 이 로컬 증적은 Core 전달 상태를 갱신�
 `undefined`를 할당하지 않고 실제 wire shape처럼 필드를 생략합니다.
 지연 로딩 fallback은 로드된 컨트롤과 같은 비활성 버튼, 벨 glyph, 라벨 및 live-status 구조를
 사용하므로 모듈 로딩 중 의미나 시각적 영역이 바뀌지 않습니다.
+새 전달 claim마다 예측 불가능한 128-bit 확인 토큰을 갖습니다. 서비스 워커 메시지와 일시적
+탐색 값은 안전한 태그와 이 토큰이 모두 일치해야 principal 범위 원장에 확인을 기록할 수
+있습니다. 토큰이 없는 레거시 행은 중복 억제에만 사용합니다.
 화면에 보이는 제목 컴포넌트는 렌더링되는 제목 내용에만 `title`을 사용합니다. 기본 HTML `title` 말풍선은 접근성과 호환되는 요소로 제한하며, 그 밖의 맥락 도움말은 공통 Tooltip 컴포넌트를 사용합니다.
 정적 컴포넌트 갤러리는 `mocks/ui/assets/component-registry.json`의 계약을 읽고 각 시안을 소유자, 원본, 상태, 사용 지침, 반응형 동작, 접근성 계약 및 제품 참조보다 먼저 표시합니다. 레지스트리가 없거나 잘못되면 정규 상태를 추론하지 않고 문서화를 차단합니다. 갤러리는 합성 표현 근거이며 Console, Operator API 또는 실행기 권한을 부여하지 않습니다.
 
