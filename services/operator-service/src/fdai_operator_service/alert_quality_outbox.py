@@ -16,7 +16,7 @@ async def claim_alert_quality(
         """
         WITH candidate AS (
             SELECT key FROM state_kv
-            WHERE key LIKE 'operator-proposal:operations:%'
+            WHERE key LIKE %(proposal_prefix)s
               AND value ->> 'operation' IN ('alert_noise.assess', 'alert_noise.propose')
               AND (value ->> 'dispatch_status' = 'pending' OR
                    (value ->> 'dispatch_status' = 'claimed'
@@ -32,7 +32,7 @@ async def claim_alert_quality(
         FROM candidate WHERE proposal.key = candidate.key
         RETURNING proposal.key, proposal.value
         """,
-        {"claim_id": claim_id},
+        {"claim_id": claim_id, "proposal_prefix": "operator-proposal:operations:%"},
     )
     if not rows:
         return None

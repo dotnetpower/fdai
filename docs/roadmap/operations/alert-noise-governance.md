@@ -255,6 +255,7 @@ See the [operator runbook](../../runbooks/alert-noise-governance.md) for configu
 Operator reserves the authenticated terminal result with insert-if-absent before updating any
 report or plan projection. A conflicting result cannot change a projection. After an interruption,
 only replay of that exact retained result may finish its idempotent projection writes.
+PostgreSQL claims use parameterized namespaces, exclusive row leases and exact worker fencing.
 
 ## 7. Bounded rollout and recovery
 
@@ -320,8 +321,8 @@ named treatment values from retained baseline references. Team/audience-kind/per
 baseline and guard metrics, approval/outcome details, and modeled benefits are not yet projected.
 A report action submits a typed request, never an ARM call or approval. The Settings API and UI
 separate prerequisites, enabled preference, and authority, with scoped human Owner revision checks.
-The current Operator composition still needs its durable preference-store binding; an unavailable
-Settings record is not a saved switch. Neither enabling nor an accepted request promotes an action.
+Operator composition binds its durable preference store; an unavailable Settings record is not a
+saved switch. Neither enabling nor an accepted request promotes an action.
 
 Guidance and optimization notifications are themselves bounded: one deduplicated case per policy,
 scope, and observation window, material updates in the same case, and normal summaries via A4.
