@@ -64,11 +64,13 @@ are synthetic.
   oversized input is held before lifecycle or audit writes.
 - Analyzer findings are already bounded detector outputs, not raw inventory changes. The deployed
   one-minute Job and the managed local analyzer loop publish at most one Event per resource,
-  signal, and one-minute observation bucket. Those Events share an opaque resource-and-signal
-  correlation identity and declare `incident_correlation=correlate`. The five-minute analysis
-  window remains separate from publication idempotency, so five distinct observations can meet the
-  existing `5 events / 300 seconds` repeat gate. Exact retries keep the same key, and the existing
-  minimum-severity policy still holds medium and lower findings by default. An inventory-backed
+  signal, and one-minute source-observation bucket. The key uses the Finding's `occurred_at`, not
+  scheduler time, so repeated polling of one unchanged sample remains one Event. Those Events share
+  an opaque resource-and-signal correlation identity and declare `incident_correlation=correlate`.
+  The five-minute analysis window remains separate from publication idempotency, so five distinct
+  observations can meet the existing `5 events / 300 seconds` repeat gate. Exact retries keep the
+  same key, and the existing minimum-severity policy still holds medium and lower findings by
+  default. An inventory-backed
   target keeps its ontology `Resource.id` as the analyzer and Event identity. At the delivery
   boundary, the tick reads the exact `provider_ref` from the active inventory snapshot and rewrites
   only the metric query's `resource_id` label. A missing, mismatched, or ambiguous provider

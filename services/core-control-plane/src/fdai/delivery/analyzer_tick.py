@@ -373,11 +373,14 @@ class AnalyzerTickReport:
 def analyzer_idempotency_key(
     finding: AnalyzerFinding,
     *,
-    at: datetime,
     window_seconds: int,
 ) -> str:
-    """Return a stable key per resource, signal, and publication bucket."""
-    bucket = int(at.timestamp() // window_seconds)
+    """Return a stable key per resource, signal, and observation bucket."""
+    if finding.occurred_at.tzinfo is None or finding.occurred_at.utcoffset() is None:
+        raise ValueError("analyzer finding occurred_at MUST be timezone-aware")
+    if window_seconds <= 0:
+        raise ValueError("analyzer idempotency window_seconds MUST be positive")
+    bucket = int(finding.occurred_at.timestamp() // window_seconds)
     return f"analyzer:{finding.resource_ref}:{finding.signal}:{bucket}"
 
 
@@ -466,7 +469,6 @@ class AnalyzerTickRunner:
         for finding in report.findings:
             event = self._build_event(
                 finding,
-                publication_at=tick_started_at,
                 ingested_at=max(tick_started_at, self._clock()),
             )
             outcome = await self._publish_finding(finding, event=event)
@@ -714,7 +716,6 @@ class AnalyzerTickRunner:
         self,
         finding: AnalyzerFinding,
         *,
-        publication_at: datetime,
         ingested_at: datetime,
     ) -> Event:
         if finding.occurred_at.tzinfo is None:
@@ -724,7 +725,6 @@ class AnalyzerTickRunner:
             )
         idempotency_key = analyzer_idempotency_key(
             finding,
-            at=publication_at,
             window_seconds=self._publication_window_seconds,
         )
         return Event(

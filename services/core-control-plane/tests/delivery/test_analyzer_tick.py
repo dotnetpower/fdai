@@ -280,11 +280,15 @@ async def test_no_targets_publishes_nothing_and_succeeds() -> None:
 
 def test_idempotency_key_is_stable_inside_one_window() -> None:
     finding = _finding()
-    first = analyzer_idempotency_key(finding, at=NOW, window_seconds=300)
+    first = analyzer_idempotency_key(finding, window_seconds=300)
     later = analyzer_idempotency_key(
-        finding, at=NOW.replace(minute=4, second=59), window_seconds=300
+        replace(finding, occurred_at=NOW.replace(minute=4, second=59)),
+        window_seconds=300,
     )
-    next_window = analyzer_idempotency_key(finding, at=NOW.replace(minute=5), window_seconds=300)
+    next_window = analyzer_idempotency_key(
+        replace(finding, occurred_at=NOW.replace(minute=5)),
+        window_seconds=300,
+    )
 
     assert first == later
     assert first != next_window
@@ -345,10 +349,17 @@ async def test_repeated_analyzer_findings_reach_incident_candidate_threshold() -
 async def test_a_retried_tick_suppresses_the_same_key() -> None:
     bus = RecordingBus()
     ledger = _ledger()
-    runner = _runner(StubCoordinator(findings=(_finding(),)), bus, ledger=ledger)
+    at = [NOW]
+    runner = _runner(
+        StubCoordinator(findings=(_finding(),)),
+        bus,
+        ledger=ledger,
+        clock=lambda: at[0],
+    )
     targets = (AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),)
 
     first = await runner.run_once(targets)
+    at[0] += timedelta(seconds=DEFAULT_PUBLICATION_WINDOW_SECONDS)
     duplicate = await runner.run_once(targets)
 
     keys = {payload["idempotency_key"] for _, _, payload in bus.published}
@@ -389,7 +400,6 @@ async def test_active_publication_claim_fails_tick_without_publishing() -> None:
     ledger = _ledger(store)
     key = analyzer_idempotency_key(
         _finding(),
-        at=NOW,
         window_seconds=DEFAULT_PUBLICATION_WINDOW_SECONDS,
     )
     await ledger.claim(key)
@@ -836,7 +846,7 @@ async def test_a_persistent_finding_records_receipts_across_repeated_ticks() -> 
 
     assert [report.receipt_errors for report in reports] == [(), (), (), ()]
     assert not any(report.failed for report in reports)
-    keys = {analyzer_idempotency_key(_finding(), at=NOW, window_seconds=300)}
+    keys = {analyzer_idempotency_key(_finding(), window_seconds=300)}
     records = await state.read_states(ANALYZER_RECEIPT_STATE_PREFIX, limit=10)
     assert len(records) == 2
     assert {record["idempotency_key"] for record in records} == keys

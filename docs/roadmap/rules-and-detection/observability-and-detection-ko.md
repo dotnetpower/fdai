@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: e5000609eddeb8f6e3e104ad04f661562c9cd524
+translation_source_sha: 26307b662349e95c1374809748771f6a3a7a729f
 translation_revised: 2026-09-14
 ---
 
@@ -64,12 +64,13 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
   Direct 후보 텍스트와 근거 키는 512자로 제한되고 후보 하나는 근거 키를 최대 100개
   포함하며 oversized 입력은 수명 주기 또는 감사 쓰기 전에 보류됩니다.
 - Analyzer finding은 원시 인벤토리 변경이 아니라 이미 범위가 제한된 detector 출력입니다.
-  배포된 1분 Job과 관리되는 로컬 analyzer loop는 리소스, 신호, 1분 관측 버킷마다 Event를
-  최대 하나만 게시합니다. 이 Event는 리소스와 신호에서 만든 불투명한 상관관계 신원을
-  공유하고 `incident_correlation=correlate`를 선언합니다. 5분 분석 구간은 게시 멱등성과
-  분리되므로 서로 다른 관측 5건이 기존 `300초 동안 Event 5건` 반복 게이트를 충족할 수
-  있습니다. 정확한 재시도는 같은 키를 유지하고 기존 최소 심각도 정책은 기본적으로
-  `medium` 이하 발견된 문제를 계속 보류합니다. 인벤토리 기반 대상은 온톨로지 `Resource.id`를
+  배포된 1분 Job과 관리되는 로컬 analyzer loop는 리소스, 신호, 1분 출처 관측 버킷마다 Event를
+  최대 하나만 게시합니다. 키는 스케줄러 시각이 아니라 Finding의 `occurred_at`을 사용하므로
+  변경되지 않은 샘플 하나를 반복 조회해도 Event 하나로 유지됩니다. 이 Event는 리소스와
+  신호에서 만든 불투명한 상관관계 신원을 공유하고 `incident_correlation=correlate`를
+  선언합니다. 5분 분석 구간은 게시 멱등성과 분리되므로 서로 다른 관측 5건이 기존
+  `300초 동안 Event 5건` 반복 게이트를 충족할 수 있습니다. 정확한 재시도는 같은 키를 유지하고
+  기존 최소 심각도 정책은 기본적으로 `medium` 이하 발견된 문제를 계속 보류합니다. 인벤토리 기반 대상은 온톨로지 `Resource.id`를
   분석기와 Event 신원으로 유지합니다. 전달 경계에서 틱은 활성 인벤토리 스냅샷의 정확한
   `provider_ref`를 읽고 메트릭 조회의 `resource_id` 레이블만 바꿉니다. 공급자 참조가 없거나
   일치하지 않거나 모호하면 틱이 실패합니다. 공급자 오류에는 메트릭 이름을 유지하되 공급자
