@@ -99,7 +99,8 @@ are synthetic.
   default analyzer does not treat Azure Managed Prometheus's cluster-name alias as this exact
   identity; it remains on Azure Monitor Logs unless composition supplies PromQL that preserves an
   exact `resource_id` label. A Prometheus response missing a requested identity label fails instead
-  of becoming an empty healthy series.
+  of becoming an empty healthy series. Azure composition compares the exact ARM `resource_id`
+  case-insensitively while every other Prometheus label remains exact and case-sensitive.
 - Heimdall bounds retained repeated-event episodes globally and per resource. A correlation flood
   from one resource evicts only that resource's oldest episode before it can displace another
   resource's partially accumulated evidence.

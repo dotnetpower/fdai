@@ -61,6 +61,7 @@ class PrometheusMetricConfig:
     step_seconds: float = _DEFAULT_STEP_SECONDS
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS
     max_points: int = _DEFAULT_MAX_POINTS
+    case_insensitive_labels: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         if not self.base_url:
@@ -69,6 +70,8 @@ class PrometheusMetricConfig:
             raise ValueError("PrometheusMetricConfig.step_seconds MUST be positive")
         if self.max_points <= 0:
             raise ValueError("PrometheusMetricConfig.max_points MUST be positive")
+        if any(not label for label in self.case_insensitive_labels):
+            raise ValueError("case-insensitive Prometheus label names MUST be non-empty")
 
 
 class PrometheusMetricProvider:
@@ -171,7 +174,11 @@ class PrometheusMetricProvider:
                     f"Prometheus result for {query.metric_name!r} lacks required "
                     f"label(s): {list(missing_labels)}"
                 )
-            if not _labels_match(labels, query.labels):
+            if not _labels_match(
+                labels,
+                query.labels,
+                case_insensitive=self._config.case_insensitive_labels,
+            ):
                 continue
             for at, value in _samples(series, result_type):
                 points.append(
@@ -219,8 +226,22 @@ def _samples(series: Mapping[str, Any], result_type: Any) -> list[tuple[datetime
     return out
 
 
-def _labels_match(sample: Mapping[str, str], wanted: Mapping[str, str]) -> bool:
-    return all(sample.get(k) == v for k, v in wanted.items())
+def _labels_match(
+    sample: Mapping[str, str],
+    wanted: Mapping[str, str],
+    *,
+    case_insensitive: frozenset[str] = frozenset(),
+) -> bool:
+    for key, wanted_value in wanted.items():
+        sample_value = sample.get(key)
+        if sample_value is None:
+            return False
+        if key in case_insensitive:
+            if sample_value.casefold() != wanted_value.casefold():
+                return False
+        elif sample_value != wanted_value:
+            return False
+    return True
 
 
 __all__ = [
