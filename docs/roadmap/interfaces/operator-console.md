@@ -49,6 +49,38 @@ Trace hardening preserves these evidence invariants:
 - Every step preserves the recorded actor. The stage rail presents the actor and relative time,
   while the evidence detail retains the canonical action kind.
 
+### Trace discovery and decision summary
+
+`GET /audit/traces?limit=25` provides a server-owned discovery index over the newest 500 audit
+records. The limit is bounded from 1 through 50. The response identifies the sample bound and
+whether older audit records exist, so the Console labels it as a recent index and never presents it
+as complete history.
+
+Each discovery row preserves the correlation id, latest sequence and time, latest actor and action
+kind, trace kind, latest recorded decision and mode, unique target count and exact target when
+unambiguous, and whether Incident or root-cause evidence appears in the sampled audit records.
+These evidence flags describe recorded rows only. They do not guarantee that a destination
+projection is available.
+
+The selected Trace response remains the authoritative detail. In addition to ordered steps, it
+provides trace kind, source authority, completeness, first and last recorded time, latest activity,
+terminal named stage, unique target scope, action-attempt count, and independent effect-observation
+count. Completeness is true only after the server proves that the trace does not exceed its
+500-record bound.
+
+The Console opens recent discovery while no correlation is selected and keeps it available as a
+compact disclosure after selection. The first summary answers decision, operational effect,
+completeness, and terminal-versus-latest state. It distinguishes not applicable, not recorded,
+pending, failed, and independently observed states. Stage rows use a localized action title for
+stage-less activity, a localized actor display with canonical actor in detail, and separately
+labeled decision, outcome, and mode values. Copy actions provide bounded feedback without changing
+the audit record.
+
+For traces without action identity, the action lifecycle becomes one compact no-action statement.
+The complete timeline disclosure names its record count. At narrow widths the summary uses compact
+rows, related destinations move into a bounded menu, and the stage rail starts within the second
+screen while preserving 44 px controls, text spacing, and exact identifiers.
+
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final
 verification, but it never starts, retries, approves, or changes deployment. The route renders
