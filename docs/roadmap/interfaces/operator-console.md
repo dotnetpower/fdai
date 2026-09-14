@@ -92,6 +92,8 @@ The source context uses a localized display label while retaining the canonical 
 the response and published view context.
 On mobile, the exact audit timeline retains table semantics and reflows each record into a labeled
 vertical row without horizontal scrolling.
+Long canonical action kinds and the compact stage path wrap within a 320 pixel read-only Trace
+instead of widening the workbench.
 
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final

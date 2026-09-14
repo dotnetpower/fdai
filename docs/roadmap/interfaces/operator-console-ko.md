@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: b99560b76148cbe717ab12f472889f7d12218d24
+translation_source_sha: ee062a9f540cf5a13e64fec92624985da2d79278
 translation_revised: 2026-09-14
 ---
 # FDAI Console 대화
@@ -91,6 +91,8 @@ true로 표시합니다.
 유지합니다.
 모바일에서는 정확한 감사 타임라인의 표 의미 체계를 유지하면서 각 기록을 레이블이 있는 세로
 행으로 재배치해 가로 스크롤 없이 표시합니다.
+320픽셀 읽기 전용 추적에서는 긴 정규 액션 종류와 축약 단계 경로를 작업대 안에서 줄바꿈해
+작업대가 넓어지지 않게 합니다.
 
 인증된 `/provisioning` 경로는 하나의 영속 구독 초기 구성 실행을 보여주는 읽기 전용 변환
 결과입니다. 완료된 구성 단계를 재생하고 리소스 검색과 최종 검증을 실시간으로 표시하지만

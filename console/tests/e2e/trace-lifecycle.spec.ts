@@ -547,6 +547,17 @@ test("compresses a read-only technical trace without inventing an action path", 
   await expect(page.locator(".trace-lifecycle-section.is-empty")).toBeVisible();
   await expect(page.locator(".trace-action-lifecycle-group")).toHaveCount(0);
   await expect(page.locator(".trace-workbench")).toHaveClass(/is-compact/);
+  await page.setViewportSize({ width: 320, height: 844 });
+  for (const selector of ["html", "main", ".trace-workbench", ".trace-no-action"]) {
+    const dimensions = await page.locator(selector).evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(
+      dimensions.scrollWidth,
+      `${selector} overflowed for a read-only Trace at 320px`,
+    ).toBeLessThanOrEqual(dimensions.clientWidth);
+  }
 });
 
 test("preserves the two-column trace workbench at constrained desktop width", async ({

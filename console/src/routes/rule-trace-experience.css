@@ -573,6 +573,23 @@
     font-size: var(--cs-type-caption-size);
     font-weight: 650;
   }
+
+  .trace-no-action code {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .trace-path {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    white-space: normal;
+  }
+
+  .trace-path span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
 }
 
 @media (forced-colors: active) {

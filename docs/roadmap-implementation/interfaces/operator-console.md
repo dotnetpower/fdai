@@ -48,6 +48,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Wrapped long canonical action kinds and compact stage paths at 320 px after a real audit-backed read Trace exposed 17 px of internal workbench overflow that the action fixture did not reproduce. | `current change`; focused read-only Trace browser regression and isolated real-data browser validation. | Repeat the final real-data pass and residual-severity review. |
 | 2026-09-14 | implemented | Reflowed the exact audit timeline into labeled vertical rows on mobile while retaining semantic table markup. | `current change`; 390 px and 320 px Trace browser assertions. | Complete authenticated-data and residual-severity validation. |
 | 2026-09-14 | implemented | Replaced the raw selected-Trace source token with a localized display label while retaining the canonical token in the wire response and view context. | `current change`; focused Trace presentation tests and Console typecheck. | Continue the bounded post-implementation hardening rounds. |
 | 2026-09-14 | implemented | Added an explicit no-match state for recent Trace type filters instead of rendering an unexplained empty list. | `current change`; focused Trace discovery browser test. | Continue the bounded post-implementation hardening rounds. |
