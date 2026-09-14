@@ -1,6 +1,6 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: a61bbf192aa4da3d10f039b84ae49ba2ba0c1c7b
+translation_source_sha: d266705f1224eb04fa6b6087cdd1215039de2cbe
 translation_revised: 2026-09-15
 ---
 # 서비스 승격과 데이터 소유권
@@ -53,6 +53,7 @@ translation_revised: 2026-09-15
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | implemented | 금지된 Operator 또는 격리 실행기 가져오기 경계는 유지하면서 알림 런타임 구성·중계 모듈 10개를 정확한 Core wheel 목록에 등록했습니다. | `current change`; [Core 패키징 테스트](../../../tests/integration/services/test_core_service_package.py). | wheel은 소스 패키징이며 런타임 승격이나 배포 근거가 아닙니다. |
 | 2026-09-15 | implemented | Operator 소유의 알림 PostgreSQL 통합 테스트를 추가하고 실제 드라이버에 맞게 발신함 네임스페이스를 매개변수화했습니다. | `current change`; [PostgreSQL 알림 검사](../../../services/operator-service/tests/test_alert_quality_postgres.py) 4개를 일회용 로컬 데이터베이스의 `fdai_operator` 역할로 실행하여 건너뛴 검사 없이 통과했습니다. | 최소 상태 저장 연산을 검증했으며 전체 서비스 마이그레이션이나 배포 신원은 검증하지 않았습니다. |
 | 2026-09-15 | implemented | 서명된 알림 결과의 선확정과 재생 테스트를 Operator 통합 테스트 그룹에 등록했습니다. 최종 수신함과 범위별 조회 결과의 작성자는 Operator 하나로 유지합니다. | `current change`; [브리지 테스트](../../../services/operator-service/tests/test_alert_quality_bridge.py) 3개 통과. | 데이터베이스 동시성과 운영 증적은 알림 조정 원장의 남은 작업이며 서비스나 권한은 변경하지 않았습니다. |
 | 2026-09-14 | implemented | 검토된 신원 안내를 최신 보호 출처 리비전에 rebase한 뒤 System Knowledge 카탈로그를 다시 생성했습니다. | `current change`, 생성된 카탈로그, 번역 동등성 및 파생 출처 게이트. | 서비스 경계, 쓰기 담당 또는 권한은 변경되지 않았습니다. |
