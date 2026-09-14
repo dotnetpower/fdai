@@ -1,23 +1,15 @@
+import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import {
-  AsyncBoundary,
-  DataTable,
-  ErrorState,
-  KpiCard,
-  KpiGrid,
   PageHeader,
-  StatusPill,
   type AsyncState,
-  type Column,
-  type PillKind,
 } from "../components/ui";
 import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { currentRoute, navigate, routeHref } from "../router";
 import { isRfc3339Timestamp } from "../time-format";
-import { presentationLabel, t } from "./i18n/evidence";
-import "./incident-clarity.css";
+import { t } from "./i18n/evidence";
 import {
   panelArray,
   panelNonEmptyString,
@@ -25,6 +17,13 @@ import {
   panelNullableString,
   panelRecord,
 } from "./panel-decode";
+import {
+  RuleTraceWorkspace,
+} from "./rule-trace-workspace";
+import { RuleTracePlaceholder } from "./rule-trace-placeholder";
+import { traceStageLabel } from "./rule-trace-supporting-evidence";
+import "./rule-trace.css";
+import "./rule-trace-lifecycle.css";
 
 /**
  * Rule-fire trace viewer panel. Given a correlation id, calls
@@ -33,7 +32,7 @@ import {
  * hand-grepping the audit log.
  */
 
-interface TraceStep {
+export interface TraceStep {
   readonly seq: number;
   readonly recorded_at: string;
   readonly stage: string | null;
@@ -41,14 +40,37 @@ interface TraceStep {
   readonly reason: string | null;
   readonly action_kind: string;
   readonly mode: string;
+  readonly action_id: string | null;
+  readonly attempt: number | null;
+  readonly execution_path: string | null;
+  readonly outcome: string | null;
   readonly entry_hash: string;
 }
 
-interface TraceResponse {
+export interface TraceResponse {
   readonly correlation_id: string;
   readonly step_count: number;
   readonly steps: readonly TraceStep[];
   readonly terminal_stage: string | null;
+}
+
+export type TraceLifecycleState =
+  | "recorded"
+  | "pending"
+  | "failed"
+  | "not_attempted"
+  | "not_recorded";
+
+export interface TraceLifecycleStage {
+  readonly id: "proposal" | "decision" | "approval" | "dispatch" | "observation" | "recovery";
+  readonly state: TraceLifecycleState;
+  readonly evidence: TraceStep | null;
+}
+
+export interface TraceActionLifecycle {
+  readonly actionId: string;
+  readonly attempt: number | null;
+  readonly stages: readonly TraceLifecycleStage[];
 }
 
 export interface TraceOperationalSummary {
@@ -95,7 +117,11 @@ export function RuleTraceRoute({ client }: Props) {
       const data = decodeTraceResponse(await client.panel<unknown>(
         `/audit/${encodeURIComponent(id)}/trace`,
       ));
-      if (requestGeneration.current === generation) setState({ status: "ready", data });
+      if (requestGeneration.current === generation) {
+        setState(data.steps.length === 0
+          ? { status: "unavailable", message: t("evidence.trace.empty") }
+          : { status: "ready", data });
+      }
     } catch (err) {
       if (requestGeneration.current === generation) {
         setState(traceLoadFailure(err));
@@ -128,60 +154,103 @@ export function RuleTraceRoute({ client }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const headerSummary = state.status === "ready"
+    ? t("evidence.trace.headerSummary", {
+      count: state.data.step_count,
+      stage: state.data.terminal_stage === null
+        ? t("evidence.trace.noValue")
+        : traceStageLabel(state.data.terminal_stage),
+    })
+    : correlationId
+      ? correlationId
+      : t("evidence.trace.notSelected");
+  const lookup = (
+    <TraceLookupForm
+      correlationId={correlationId}
+      loading={state.status === "loading"}
+      onChange={(value) => {
+        requestGeneration.current += 1;
+        setCorrelationId(value);
+        setState({ status: "idle" });
+      }}
+      onSubmit={() => navigate(traceCorrelationHref(correlationId))}
+    />
+  );
+
   return (
-    <div class="stack">
+    <div class="stack trace-route">
       <PageHeader
         title={t("route.ruleTrace")}
         subtitle={t("evidence.trace.subtitle")}
+        actions={(
+          <div class="trace-header-meta">
+            <span>{t("evidence.trace.summaryLabel")}</span>
+            <strong>{headerSummary}</strong>
+          </div>
+        )}
       />
 
-      <section class="stack-section">
-        <h3 class="section-title">{t("evidence.trace.lookupTitle")}</h3>
-        <form
-          class="form-grid inline"
-          onSubmit={(e) => {
-            e.preventDefault();
-            navigate(traceCorrelationHref(correlationId));
-          }}
-        >
-          <label>
-            {t("evidence.trace.correlationId")}
-            <input
-              type="text"
-              value={correlationId}
-              onInput={(e) => {
-                requestGeneration.current += 1;
-                setCorrelationId((e.target as HTMLInputElement).value);
-                setState({ status: "idle" });
-              }}
-              required
-            />
-          </label>
-          <button
-            type="submit"
-            class="btn primary"
-            disabled={state.status === "loading" || !correlationId}
-          >
-            {t("evidence.trace.fetch")}
-          </button>
-        </form>
-      </section>
+      <div class="trace-readonly-boundary" role="note">
+        <strong>{t("evidence.trace.boundaryTitle")}</strong>
+        <span>{t("evidence.trace.boundaryBody")}</span>
+      </div>
 
-      {state.status === "error" ? (
-        <div class="stack">
-          <ErrorState message={state.message} />
-          <TraceEvidenceLinks correlationId={correlationId} />
-        </div>
-      ) : (
-        <AsyncBoundary
-          state={state}
-          resourceLabel={t("evidence.trace.resource")}
-          idle={<p class="muted footnote">{t("evidence.trace.idle")}</p>}
-        >
-          {(data) => <TraceView data={data} />}
-        </AsyncBoundary>
-      )}
+      {state.status === "ready"
+        ? <TraceView data={state.data} toolbar={lookup} />
+        : (
+            <RuleTracePlaceholder
+              correlationId={correlationId}
+              status={state.status}
+              toolbar={lookup}
+              {...(state.status === "error" || state.status === "unavailable"
+                ? { message: state.message }
+                : {})}
+            />
+          )}
     </div>
+  );
+}
+
+function TraceLookupForm({
+  correlationId,
+  loading,
+  onChange,
+  onSubmit,
+}: {
+  readonly correlationId: string;
+  readonly loading: boolean;
+  readonly onChange: (value: string) => void;
+  readonly onSubmit: () => void;
+}) {
+  return (
+    <form
+      class="trace-toolbar"
+      aria-label={t("evidence.trace.lookupTitle")}
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <label class="trace-toolbar-field">
+        <span>{t("evidence.trace.correlationId")}</span>
+        <input
+          type="text"
+          value={correlationId}
+          onInput={(event) => onChange((event.target as HTMLInputElement).value)}
+          required
+        />
+      </label>
+      {correlationId.trim()
+        ? <TraceEvidenceLinks correlationId={correlationId.trim()} />
+        : null}
+      <button
+        type="submit"
+        class="btn primary"
+        disabled={loading || !correlationId.trim()}
+      >
+        {t("evidence.trace.fetch")}
+      </button>
+    </form>
   );
 }
 
@@ -228,6 +297,10 @@ export function decodeTraceResponse(value: unknown): TraceResponse {
       reason: panelNullableString(row, "reason", "trace step"),
       action_kind: panelNonEmptyString(row, "action_kind", "trace step"),
       mode: panelNonEmptyString(row, "mode", "trace step"),
+      action_id: optionalNonEmptyString(row, "action_id", "trace step"),
+      attempt: optionalPositiveInteger(row, "attempt", "trace step"),
+      execution_path: optionalNonEmptyString(row, "execution_path", "trace step"),
+      outcome: optionalNonEmptyString(row, "outcome", "trace step"),
       entry_hash: panelNonEmptyString(row, "entry_hash", "trace step"),
     };
   });
@@ -258,22 +331,26 @@ export function decodeTraceResponse(value: unknown): TraceResponse {
   };
 }
 
-function decisionPill(decision: string | null): PillKind {
-  if (decision === null) return "neutral";
-  const v = decision.toLowerCase();
-  if (v === "auto") return "auto";
-  if (v === "hil") return "hil";
-  if (v === "deny") return "danger";
-  if (v === "abstain") return "neutral";
-  if (v === "done" || v === "ok") return "success";
-  if (v === "failed") return "danger";
-  return "info";
+function optionalNonEmptyString(
+  value: Readonly<Record<string, unknown>>,
+  key: string,
+  label: string,
+): string | null {
+  if (value[key] === undefined || value[key] === null) return null;
+  return panelNonEmptyString(value, key, label);
 }
 
-function modePill(mode: string): PillKind {
-  if (mode === "enforce") return "enforce";
-  if (mode === "shadow") return "shadow";
-  return "neutral";
+function optionalPositiveInteger(
+  value: Readonly<Record<string, unknown>>,
+  key: string,
+  label: string,
+): number | null {
+  if (value[key] === undefined || value[key] === null) return null;
+  const parsed = panelNonNegativeInteger(value, key, label);
+  if (parsed < 1) {
+    throw new Error(`invalid Operator API response: ${label}.${key} MUST be positive`);
+  }
+  return parsed;
 }
 
 export function buildTraceViewSnapshot(
@@ -326,6 +403,10 @@ export function buildTraceViewSnapshot(
           reason: s.reason,
           action_kind: s.action_kind,
           mode: s.mode,
+          action_id: s.action_id,
+          attempt: s.attempt,
+          execution_path: s.execution_path,
+          outcome: s.outcome,
           entry_hash: s.entry_hash,
           correlation_id: data.correlation_id,
         })),
@@ -356,7 +437,7 @@ export function buildTraceViewSnapshot(
 
 function TraceEvidenceLinks({ correlationId }: { readonly correlationId: string }) {
   return (
-    <nav class="trace-evidence-links" aria-label={t("evidence.trace.evidence")}>
+    <nav class="trace-evidence-links trace-toolbar-links" aria-label={t("evidence.trace.evidence")}>
       <a href={routeHref("incidents", { params: { status: "all", correlation: correlationId } })}>{t("evidence.trace.incident")}</a>
       <a href={routeHref("audit", { params: { correlation: correlationId } })}>{t("evidence.trace.audit")}</a>
       <a href={routeHref("rca", { params: { correlation: correlationId } })}>{t("evidence.trace.rca")}</a>
@@ -364,98 +445,188 @@ function TraceEvidenceLinks({ correlationId }: { readonly correlationId: string 
   );
 }
 
-function TraceView({ data }: { readonly data: TraceResponse }) {
+function TraceView({
+  data,
+  toolbar,
+}: {
+  readonly data: TraceResponse;
+  readonly toolbar: ComponentChildren;
+}) {
   const summary = traceOperationalSummary(data);
-
-  const columns: readonly Column<TraceStep>[] = [
-    {
-      key: "n",
-      header: "#",
-      render: (s) => (
-        <a href={routeHref("audit", { params: { correlation: data.correlation_id, entry: s.seq } })}>
-          {s.seq}
-        </a>
-      ),
-      cellClass: "num",
-      headerClass: "num",
-    },
-    { key: "at", header: t("evidence.trace.column.recordedAt"), render: (s) => s.recorded_at, cellClass: "mono" },
-    { key: "stage", header: t("evidence.trace.column.stage"), render: (s) => s.stage ?? <span class="muted">{t("evidence.trace.unnamed")}</span>, cellClass: "mono" },
-    { key: "kind", header: t("evidence.trace.column.actionKind"), render: (s) => s.action_kind, cellClass: "mono" },
-    {
-      key: "dec",
-      header: t("evidence.trace.column.decision"),
-      render: (s) =>
-        s.decision === null
-          ? <span class="muted">-</span>
-              : <StatusPill kind={decisionPill(s.decision)} label={presentationLabel("status", s.decision)} />,
-    },
-            { key: "reason", header: t("evidence.trace.column.reason"), render: (s) => s.reason ?? <span class="muted">-</span> },
-    {
-      key: "mode",
-      header: t("evidence.trace.column.mode"),
-      render: (s) => <StatusPill kind={modePill(s.mode)} label={presentationLabel("status", s.mode)} />,
-    },
-  ];
+  const lifecycles = traceActionLifecycles(data);
 
   return (
-    <div class="stack">
-      <section class="trace-current-summary" aria-labelledby="trace-current-summary-title">
-        <span class="incident-section-label">{t("evidence.trace.summary.label")}</span>
-        <h3 id="trace-current-summary-title">
-          {summary.notificationEscalation
-            ? t("evidence.trace.summary.notificationEscalation")
-            : summary.decisionRecorded
-              ? t("evidence.trace.summary.decisionRecorded")
-              : t("evidence.trace.summary.activityOnly")}
-        </h3>
-        <p>{t("evidence.trace.summary.body")}</p>
-        <dl class="trace-summary-facts">
-          <div>
-            <dt>{t("evidence.trace.summary.decision")}</dt>
-            <dd>{summary.decisionRecorded ? t("evidence.trace.summary.recorded") : t("evidence.trace.summary.notRecorded")}</dd>
-          </div>
-          <div>
-            <dt>{t("evidence.trace.summary.rootCause")}</dt>
-            <dd>{summary.rcaRecorded ? t("evidence.trace.summary.recorded") : t("evidence.trace.summary.notRecorded")}</dd>
-          </div>
-          <div>
-            <dt>{t("evidence.trace.summary.pipelineStages")}</dt>
-            <dd>{summary.namedStageCount > 0
-              ? t("evidence.trace.summary.stageCount", { count: summary.namedStageCount })
-              : t("evidence.trace.summary.noNamedStages")}</dd>
-          </div>
-        </dl>
-      </section>
-      <KpiGrid>
-        <KpiCard
-          href={routeHref("audit", { params: { correlation: data.correlation_id } })}
-          label={t("evidence.trace.steps")}
-          value={data.step_count}
-        />
-        <KpiCard
-          href={routeHref("audit", { params: { correlation: data.correlation_id } })}
-          label={t("evidence.trace.terminalStage")}
-          value={<span class="mono">{data.terminal_stage ?? "-"}</span>}
-        />
-        <KpiCard
-          href={routeHref("incidents", { params: { status: "all", correlation: data.correlation_id } })}
-          label={t("evidence.trace.correlationId")}
-          value={<span class="mono small">{data.correlation_id}</span>}
-        />
-      </KpiGrid>
-      <TraceEvidenceLinks correlationId={data.correlation_id} />
-      <section class="stack-section">
-        <h3 class="section-title">{t("evidence.trace.timeline")}</h3>
-        <DataTable
-          columns={columns}
-          rows={data.steps}
-          keyOf={(s) => s.seq}
-          empty={t("evidence.trace.empty")}
-        />
-      </section>
-    </div>
+    <RuleTraceWorkspace
+      data={data}
+      lifecycles={lifecycles}
+      summary={summary}
+      toolbar={toolbar}
+    />
   );
+}
+
+/** Derive separate presentation-only lifecycles for exact action attempts. */
+export function traceActionLifecycles(data: TraceResponse): readonly TraceActionLifecycle[] {
+  const byAction = new Map<string, TraceStep[]>();
+  for (const step of data.steps) {
+    if (step.action_id === null) continue;
+    const steps = byAction.get(step.action_id) ?? [];
+    steps.push(step);
+    byAction.set(step.action_id, steps);
+  }
+  const groups: { actionId: string; attempt: number | null; steps: TraceStep[] }[] = [];
+  for (const [actionId, steps] of byAction) {
+    const attempts = [...new Set(
+      steps.flatMap((step) => step.attempt === null ? [] : [step.attempt]),
+    )];
+    const soleAttempt = attempts.length === 1 ? attempts[0]! : null;
+    const byAttempt = new Map<number | null, TraceStep[]>();
+    for (const step of steps) {
+      const attempt = step.attempt ?? soleAttempt;
+      const attemptSteps = byAttempt.get(attempt) ?? [];
+      attemptSteps.push(step);
+      byAttempt.set(attempt, attemptSteps);
+    }
+    for (const [attempt, attemptSteps] of byAttempt) {
+      groups.push({ actionId, attempt, steps: attemptSteps });
+    }
+  }
+  return groups
+    .sort((left, right) => left.steps[0]!.seq - right.steps[0]!.seq)
+    .map((group) => ({
+      actionId: group.actionId,
+      attempt: group.attempt,
+      stages: lifecycleStages(group.steps),
+    }));
+}
+
+function lifecycleStages(steps: readonly TraceStep[]): readonly TraceLifecycleStage[] {
+  const stages: TraceLifecycleStage["id"][] = [
+    "proposal",
+    "decision",
+    "approval",
+    "dispatch",
+    "observation",
+    "recovery",
+  ];
+  return stages.map((id) => {
+    const matches = steps.filter((step) => traceStepMatchesLifecycle(step, id));
+    const evidence = matches.at(-1) ?? null;
+    return {
+      id,
+      state: evidence === null ? "not_recorded" : traceLifecycleState(id, evidence),
+      evidence,
+    };
+  });
+}
+
+function traceStepMatchesLifecycle(
+  step: TraceStep,
+  stage: TraceLifecycleStage["id"],
+): boolean {
+  const kind = step.action_kind.toLowerCase();
+  const namedStage = step.stage?.toLowerCase() ?? "";
+  if (stage === "proposal") {
+    return kind.includes("proposal") || namedStage === "plan" || namedStage === "propose";
+  }
+  if (stage === "decision") {
+    return kind.includes("verdict")
+      || kind.includes("risk_gate")
+      || kind.includes("policy.")
+      || (
+        step.decision !== null
+        && ["decision", "gate", "risk-gate"].includes(namedStage)
+      );
+  }
+  if (stage === "approval") return kind.startsWith("hil.");
+  if (stage === "dispatch") {
+    return dispatchLifecycleState(step) !== null;
+  }
+  if (stage === "observation") {
+    return kind.startsWith("effect_observation.")
+      || kind.startsWith("measurement.action_outcome")
+      || kind.includes("effect.observation");
+  }
+  return kind.includes("rollback") || kind.includes("rolled_back") || kind.includes("recovery");
+}
+
+function traceLifecycleState(
+  stage: TraceLifecycleStage["id"],
+  evidence: TraceStep,
+): TraceLifecycleState {
+  const kind = evidence.action_kind.toLowerCase();
+  const decision = evidence.decision?.toLowerCase() ?? "";
+  if (stage === "dispatch") return dispatchLifecycleState(evidence) ?? "not_recorded";
+  if (stage === "approval") {
+    return kind === "hil.requested" || kind === "hil.approved.claimed"
+      ? "pending"
+      : "recorded";
+  }
+  if (
+    kind.includes("execution_pending")
+    || kind.includes("awaiting_effect_evidence")
+    || kind.includes("receipt_timeout")
+    || kind.includes("execution_unknown")
+    || ["hold", "pending", "unknown", "unavailable"].includes(decision)
+  ) {
+    return "pending";
+  }
+  if (
+    kind.includes("failed")
+    || kind.includes("mismatch")
+    || ["failed", "error"].includes(decision)
+  ) {
+    return "failed";
+  }
+  return "recorded";
+}
+
+const DISPATCH_RECORDED_OUTCOMES = new Set([
+  "published",
+  "already_existed",
+  "dispatched",
+  "already_applied",
+]);
+const DISPATCH_PENDING_OUTCOMES = new Set([
+  "publish_outcome_unknown",
+  "awaiting_effect_evidence",
+  "receipt_timeout",
+  "execution_unknown",
+]);
+const DISPATCH_NOT_ATTEMPTED_OUTCOMES = new Set([
+  "dispatch_not_attempted",
+  "abstained_blast_radius",
+  "abstained_precondition",
+  "abstained_render_error",
+  "authentication_failed",
+  "permission_denied",
+  "policy_denied",
+  "network_denied",
+  "rejected_mode",
+  "rejected_invariant",
+  "rejected_capability_unavailable",
+  "rejected_idempotency_conflict",
+  "expired",
+]);
+const DISPATCH_FAILED_OUTCOMES = new Set(["failed", "stopped"]);
+
+function dispatchLifecycleState(step: TraceStep): TraceLifecycleState | null {
+  const kind = step.action_kind.toLowerCase();
+  const hilState: Record<string, TraceLifecycleState> = {
+    "hil.approved.executed": "recorded",
+    "hil.approved.execution_pending": "pending",
+    "hil.approved.execution_not_attempted": "not_attempted",
+    "hil.approved.execute_failed": "failed",
+  };
+  if (kind in hilState) return hilState[kind] ?? null;
+  if (step.execution_path === null && !kind.startsWith("executor.")) return null;
+  const outcome = step.outcome?.toLowerCase()
+    ?? (kind.startsWith("executor.") ? kind.split(".").at(-1) ?? "" : "");
+  if (DISPATCH_NOT_ATTEMPTED_OUTCOMES.has(outcome)) return "not_attempted";
+  if (DISPATCH_PENDING_OUTCOMES.has(outcome)) return "pending";
+  if (DISPATCH_FAILED_OUTCOMES.has(outcome)) return "failed";
+  if (DISPATCH_RECORDED_OUTCOMES.has(outcome)) return "recorded";
+  return null;
 }
 
 export function traceOperationalSummary(data: TraceResponse): TraceOperationalSummary {

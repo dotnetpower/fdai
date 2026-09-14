@@ -18,6 +18,10 @@ canonical operation and value fields so an independent oracle can verify the dis
 Catalog topology preserves its deterministic exact-release coordinates while using one bounded 900 ms spring-settle on initial entry. Interaction ends the effect and reduced-motion preference skips it. Workflow Builder separately summarizes only principal-scoped durable Process history, labels the result as workflow-state-only, and never presents structural validation as a substrate mutation preview.
 Agent Activity links a correlation to Trace only when the row is backed by durable audit evidence.
 Inventory scan, ontology projection, and current-state read correlations remain visible identifiers without an audit-trace link. A manual lookup with no matching audit steps renders a neutral unavailable state instead of an operational failure.
+Trace keeps the summary, correlation lookup, ordered stage rail, selected evidence detail, action-attempt
+lifecycle, and complete audit timeline in one bounded workspace across idle, loading, ready, empty,
+unavailable, and error states. Selecting a stage changes presentation only. Localized stage, action,
+status, and time labels retain the canonical raw values and exact timestamp for evidence review.
 The authenticated `/provisioning` route is a read-only projection of one durable subscription
 genesis run. It replays completed setup stages and follows resource discovery plus final
 verification, but it never starts, retries, approves, or changes deployment. The route renders

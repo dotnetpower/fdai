@@ -4,9 +4,11 @@ import { OperatorApiError } from "../api";
 import {
   buildTraceViewSnapshot,
   decodeTraceResponse,
+  traceActionLifecycles,
   traceLoadFailure,
   traceOperationalSummary,
 } from "./rule-trace";
+import { traceOffset } from "./rule-trace-supporting-evidence";
 
 const step = (seq: number) => ({
   seq,
@@ -16,6 +18,10 @@ const step = (seq: number) => ({
   reason: "approval required",
   action_kind: "change",
   mode: "shadow",
+  action_id: null,
+  attempt: null,
+  execution_path: null,
+  outcome: null,
   entry_hash: `hash-${seq}`,
 });
 
@@ -84,6 +90,11 @@ describe("trace response contract", () => {
     expect(() => decodeTraceResponse({ ...root, steps: [{ ...step(1), stage: " " }] }))
       .toThrow(/MUST be null or non-empty/);
   });
+
+  it("shows recorded clock drift instead of flattening it to zero", () => {
+    expect(traceOffset(step(2), step(1))).toBe("-1.0 s");
+    expect(traceOffset(step(1), step(1))).toBe("+0 ms");
+  });
 });
 
 describe("trace view context", () => {
@@ -137,6 +148,252 @@ describe("trace operational summary", () => {
       decisionRecorded: false,
       rcaRecorded: false,
       namedStageCount: 0,
+    });
+  });
+
+  describe("trace action lifecycle", () => {
+    it("keeps dispatch pending until independent observation is recorded", () => {
+      const action = {
+        action_id: "action-1",
+        attempt: 1,
+        execution_path: "direct_api",
+        outcome: null,
+      };
+      const data = decodeTraceResponse({
+        correlation_id: "corr-lifecycle",
+        step_count: 4,
+        steps: [
+          { ...step(1), ...action, stage: "plan", decision: null, action_kind: "action.proposal.recorded" },
+          { ...step(2), ...action, stage: "risk-gate", decision: "hil", action_kind: "risk_gate.unified" },
+          { ...step(3), ...action, stage: null, decision: null, action_kind: "hil.approved.claimed" },
+          {
+            ...step(4),
+            ...action,
+            stage: "execute",
+            decision: null,
+            action_kind: "hil.approved.execution_pending",
+            outcome: "awaiting_effect_evidence",
+          },
+        ],
+        terminal_stage: "execute",
+      });
+
+      const lifecycles = traceActionLifecycles(data);
+
+      expect(lifecycles).toHaveLength(1);
+      expect(lifecycles[0]?.stages).toEqual([
+        expect.objectContaining({ id: "proposal", state: "recorded" }),
+        expect.objectContaining({ id: "decision", state: "recorded" }),
+        expect.objectContaining({ id: "approval", state: "recorded" }),
+        expect.objectContaining({ id: "dispatch", state: "pending" }),
+        expect.objectContaining({ id: "observation", state: "not_recorded" }),
+        expect.objectContaining({ id: "recovery", state: "not_recorded" }),
+      ]);
+    });
+
+    it("shows observation and recovery only from their own audit evidence", () => {
+      const action = {
+        action_id: "action-2",
+        attempt: 1,
+        execution_path: "direct_api",
+        outcome: null,
+      };
+      const data = decodeTraceResponse({
+        correlation_id: "corr-closure",
+        step_count: 3,
+        steps: [
+          {
+            ...step(1),
+            ...action,
+            stage: "execute",
+            decision: null,
+            action_kind: "executor.direct_api.dispatched",
+            outcome: "dispatched",
+          },
+          {
+            ...step(2),
+            ...action,
+            stage: "verify",
+            decision: "done",
+            action_kind: "effect_observation.recorded",
+          },
+          {
+            ...step(3),
+            ...action,
+            stage: "audit",
+            decision: "done",
+            action_kind: "t2.proposer.route.rolled_back",
+          },
+        ],
+        terminal_stage: "audit",
+      });
+
+      const lifecycle = traceActionLifecycles(data)[0]!.stages;
+
+      expect(lifecycle.find((item) => item.id === "dispatch")?.state).toBe("recorded");
+      expect(lifecycle.find((item) => item.id === "observation")?.state).toBe("recorded");
+      expect(lifecycle.find((item) => item.id === "recovery")?.state).toBe("recorded");
+      expect(lifecycle.find((item) => item.id === "decision")?.state).toBe("not_recorded");
+      expect(lifecycle.find((item) => item.id === "approval")?.state).toBe("not_recorded");
+    });
+
+    it("renders proven no-publication as not attempted instead of completed", () => {
+      const data = decodeTraceResponse({
+        correlation_id: "corr-no-dispatch",
+        step_count: 1,
+        steps: [{
+          ...step(1),
+          stage: "execute",
+          decision: null,
+          action_kind: "executor.remote.dispatch_not_attempted",
+          action_id: "action-3",
+          attempt: 1,
+          execution_path: "direct_api",
+          outcome: "dispatch_not_attempted",
+        }],
+        terminal_stage: "execute",
+      });
+
+      const lifecycle = traceActionLifecycles(data)[0]!.stages;
+
+      expect(lifecycle.find((item) => item.id === "dispatch")?.state).toBe("not_attempted");
+    });
+
+    it("does not treat notification or compensation failures as action dispatch", () => {
+      const action = {
+        action_id: "action-4",
+        attempt: 1,
+        execution_path: null,
+        outcome: null,
+      };
+      const data = decodeTraceResponse({
+        correlation_id: "corr-unrelated-failures",
+        step_count: 2,
+        steps: [
+          {
+            ...step(1),
+            ...action,
+            stage: null,
+            decision: null,
+            action_kind: "hil.request.dispatch_failed",
+          },
+          {
+            ...step(2),
+            ...action,
+            stage: "audit",
+            decision: null,
+            action_kind: "workflow.compensation.failed",
+          },
+        ],
+        terminal_stage: "audit",
+      });
+
+      expect(traceActionLifecycles(data)[0]!.stages.find((item) => item.id === "dispatch")?.state)
+        .toBe("not_recorded");
+    });
+
+    it("never combines two action attempts in one lifecycle", () => {
+      const data = decodeTraceResponse({
+        correlation_id: "corr-two-actions",
+        step_count: 2,
+        steps: [
+          {
+            ...step(1),
+            action_id: "action-a",
+            attempt: 1,
+            execution_path: "direct_api",
+            outcome: "dispatched",
+            action_kind: "executor.direct_api.dispatched",
+          },
+          {
+            ...step(2),
+            action_id: "action-b",
+            attempt: 2,
+            execution_path: "direct_api",
+            outcome: "execution_unknown",
+            action_kind: "executor.remote.execution_unknown",
+          },
+        ],
+        terminal_stage: "risk-gate",
+      });
+
+      const lifecycles = traceActionLifecycles(data);
+
+      expect(lifecycles).toHaveLength(2);
+      expect(lifecycles[0]).toEqual(expect.objectContaining({ actionId: "action-a", attempt: 1 }));
+      expect(lifecycles[1]).toEqual(expect.objectContaining({ actionId: "action-b", attempt: 2 }));
+      expect(lifecycles[0]?.stages.find((item) => item.id === "dispatch")?.state)
+        .toBe("recorded");
+      expect(lifecycles[1]?.stages.find((item) => item.id === "dispatch")?.state)
+        .toBe("pending");
+    });
+
+    it("merges missing-attempt evidence only when one explicit attempt exists", () => {
+      const data = decodeTraceResponse({
+        correlation_id: "corr-one-attempt",
+        step_count: 2,
+        steps: [
+          {
+            ...step(1),
+            action_id: "action-one",
+            attempt: null,
+            execution_path: null,
+            outcome: null,
+            action_kind: "risk_gate.unified",
+          },
+          {
+            ...step(2),
+            action_id: "action-one",
+            attempt: 3,
+            execution_path: "direct_api",
+            outcome: "dispatched",
+            action_kind: "executor.correlated.dispatched",
+          },
+        ],
+        terminal_stage: "risk-gate",
+      });
+
+      const lifecycles = traceActionLifecycles(data);
+
+      expect(lifecycles).toHaveLength(1);
+      expect(lifecycles[0]).toEqual(expect.objectContaining({ actionId: "action-one", attempt: 3 }));
+      expect(lifecycles[0]?.stages.find((item) => item.id === "decision")?.state)
+        .toBe("recorded");
+      expect(lifecycles[0]?.stages.find((item) => item.id === "dispatch")?.state)
+        .toBe("recorded");
+    });
+
+    it("classifies PR-native and denied direct API producer shapes from outcome fields", () => {
+      const data = decodeTraceResponse({
+        correlation_id: "corr-producer-shapes",
+        step_count: 2,
+        steps: [
+          {
+            ...step(1),
+            action_id: "action-pr",
+            attempt: 1,
+            execution_path: "pr_native",
+            outcome: "published",
+            action_kind: "ops.publish-change-summary",
+          },
+          {
+            ...step(2),
+            action_id: "action-direct",
+            attempt: 1,
+            execution_path: "direct_api",
+            outcome: "permission_denied",
+            action_kind: "executor.direct_api.permission_denied",
+          },
+        ],
+        terminal_stage: "risk-gate",
+      });
+
+      const lifecycles = traceActionLifecycles(data);
+
+      expect(lifecycles[0]?.stages.find((item) => item.id === "dispatch")?.state)
+        .toBe("recorded");
+      expect(lifecycles[1]?.stages.find((item) => item.id === "dispatch")?.state)
+        .toBe("not_attempted");
     });
   });
 
