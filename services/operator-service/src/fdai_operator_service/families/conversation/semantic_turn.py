@@ -11,6 +11,7 @@ from uuid import UUID, uuid5
 
 from fdai_operator_service.context_selection import ContextSelectionRegistry
 from fdai_operator_service.families.conversation.contracts import ConversationProposal
+from fdai_operator_service.families.conversation.inline_images import require_inline_images_absent
 from fdai_service_contracts import (
     JsonSchemaContractValidator,
     OperatorPrincipalKind,
@@ -67,6 +68,7 @@ class SemanticTurnEnvelopeBuilder:
         """Validate an authorized proposal without treating role selection as a relationship."""
         if proposal.operation != "chat.stream":
             raise ValueError("semantic turn builder accepts only chat.stream proposals")
+        require_inline_images_absent(proposal.body)
         if any(
             key in proposal.body
             for key in (
