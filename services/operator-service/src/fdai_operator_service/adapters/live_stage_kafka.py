@@ -12,7 +12,7 @@ from typing import Any, Literal, Protocol, cast
 
 from aiokafka import AIOKafkaConsumer
 from aiokafka.abc import AbstractTokenProvider
-from azure.identity.aio import ManagedIdentityCredential
+from azure.core.credentials_async import AsyncTokenCredential
 
 from fdai_operator_service.streaming import (
     AgentActivityProjector,
@@ -42,7 +42,7 @@ class _KafkaConsumer(Protocol):
 
 
 class _ManagedIdentityTokenProvider(AbstractTokenProvider):  # type: ignore[misc]
-    def __init__(self, credential: ManagedIdentityCredential, scope: str) -> None:
+    def __init__(self, credential: AsyncTokenCredential, scope: str) -> None:
         self._credential = credential
         self._scope = scope
 
@@ -85,7 +85,7 @@ class LiveStageKafkaRelay:
         config: LiveStageKafkaConfig,
         hub: LiveStreamHub,
         agent_hub: LiveStreamHub,
-        credential: ManagedIdentityCredential | None,
+        credential: AsyncTokenCredential | None,
         consumer_factory: Callable[[], _KafkaConsumer] | None = None,
         sleeper: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ) -> None:

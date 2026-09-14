@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 1b36c8d3cd07bf8c1551d80a96f7e026fdd36b51
+translation_source_sha: fba0228655cd2b91b1e0774e103b071ebf142607
 translation_revised: 2026-09-14
 ---
 # 프로젝트 구조
@@ -35,6 +35,12 @@ translation_revised: 2026-09-14
 커버리지와 fan-out 의미를 명시적으로 보존하는 별도의 도메인 범위 설계가 필요합니다.
 
 ## 모듈 경계(모듈 Boundaries)
+
+AKS 토큰 교환은 각 서비스의 Azure 어댑터나 조립 지점에서 처리하며 Core 도메인 로직이나
+공유 서비스 계약에 넣지 않습니다. Core와 격리된 Executor는 Azure Identity SDK와 비동기
+전송 의존성을 직접 선언합니다. Operator, Document API, Document Worker는 다른 서비스의
+구현을 가져오지 않고 같은 SDK 토큰 인터페이스를 사용합니다. 투영된 연합 인증은 명시된
+서비스 신원을 선택할 뿐 RBAC, 승인 또는 실행 소유권을 바꾸지 않습니다.
 
 Trial 기간 기록은 `core/licensing/trial.py`에 순수하고 권한을 부여하지 않는 상태 전이로 둡니다.
 이 코드는 데이터베이스를 읽거나 기능을 허용하거나 환경 변수에서 스스로 초기화하지 않습니다.

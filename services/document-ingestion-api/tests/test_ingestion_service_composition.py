@@ -27,6 +27,50 @@ WORKER_SOURCE = REPO_ROOT / "services/document-processing-worker/src/fdai_docume
 SERVICE_SOURCES = (API_SOURCE, WORKER_SOURCE)
 
 
+@pytest.mark.parametrize("module", [api_production, worker_production])
+@pytest.mark.parametrize(
+    "defect", [None, "missing-tenant", "empty-token", "relative-token", "wrong-client"]
+)
+def test_document_service_federation_is_explicit(monkeypatch, module, defect):
+    client = "00000000-0000-0000-0000-000000000001"
+    tenant = "00000000-0000-0000-0000-000000000002"
+    environment = {
+        "FDAI_MI_CLIENT_ID": client,
+        "AZURE_CLIENT_ID": client,
+        "AZURE_TENANT_ID": tenant,
+        "AZURE_FEDERATED_TOKEN_FILE": "/var/run/secrets/azure/tokens/token",
+    }
+    if defect == "missing-tenant":
+        environment.pop("AZURE_TENANT_ID")
+    elif defect == "empty-token":
+        environment["AZURE_FEDERATED_TOKEN_FILE"] = ""
+    elif defect == "relative-token":
+        environment["AZURE_FEDERATED_TOKEN_FILE"] = "relative/token"
+    elif defect == "wrong-client":
+        environment["AZURE_CLIENT_ID"] = tenant
+    calls = []
+    credential = object()
+    monkeypatch.setattr(
+        module, "ManagedIdentityCredential", lambda **_: pytest.fail("fallback is forbidden")
+    )
+    monkeypatch.setattr(
+        module, "WorkloadIdentityCredential", lambda **kwargs: calls.append(kwargs) or credential
+    )
+    if defect:
+        with pytest.raises(module.ProductionConfigurationError, match="AKS workload identity"):
+            module._managed_identity_credential(environment)
+        assert not calls
+    else:
+        assert module._managed_identity_credential(environment) is credential
+        assert calls == [
+            {
+                "tenant_id": tenant,
+                "client_id": client,
+                "token_file_path": environment["AZURE_FEDERATED_TOKEN_FILE"],
+            }
+        ]
+
+
 def _imports(path: Path) -> set[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     imports: set[str] = set()

@@ -26,6 +26,10 @@ uses separate source/trust policy and the existing independent document approval
 
 ## Design at a glance
 
+The shared ingestion host selects its own explicit projected workload identity on AKS. This
+changes Azure token acquisition only: the stewardship webhook still verifies its Git signature,
+handover remains review-only, and no service credential can change a steward or grant RBAC.
+
 The lifecycle has four independent safety boundaries:
 
 1. **Startup readiness** loads the same handover map in production and rejects placeholder

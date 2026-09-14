@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 82be0e0e704e8343da480b3998777c18ab914308
+translation_source_sha: d3db1932a01cf097398fc0df40b5623187502ef6
 translation_revised: 2026-09-14
 ---
 # 런타임 배포 프로파일
@@ -139,6 +139,18 @@ Container Apps 렌더러는 명세를 Container Apps와 Container Apps Jobs로 �
 각 FDAI 워크로드는 현재 user-assigned Managed Identity를 유지합니다. AKS에서는 namespace에 속한
 Kubernetes ServiceAccount가 federated identity credential을 받습니다. 권한이 높은 Executor 신원은
 Console, Operator Service, 작업 또는 다른 워크로드와 공유하지 않습니다.
+
+다섯 기본 서비스는 `AZURE_FEDERATED_TOKEN_FILE`이 선언되면 Azure Identity SDK의 워크로드
+자격 증명을 선택합니다. 투영된 토큰 경로는 절대 경로여야 하고 tenant와 client 식별자는
+유효해야 하며, 연합 client는 서비스에 명시적으로 선택한 신원과 일치해야 합니다. 연합 설정이
+불완전하거나 충돌하면 시작 또는 토큰 획득을 차단합니다. 노드 신원, Azure CLI 또는 다른
+서비스로 대체하지 않습니다. 연합 선언이 없으면 기존에 연결된 Managed Identity 경로를 유지합니다.
+
+Core와 격리된 Executor는 대상별 캐시와 동시 요청 통합을 유지하고, 각 연합 토큰 교환 시간을
+제한하며, SDK 세션을 닫고 민감한 진단을 제외한 획득 실패를 보고합니다. 각 서비스는 SDK와
+비동기 HTTP 전송 의존성을 직접 선언합니다. Operator와 문서 서비스는 기존 어댑터에 SDK의
+공통 비동기 자격 증명 계약을 전달합니다. 이 로컬 통합 검사만으로 배포된 연합 인증, Event Hubs
+접근 또는 서비스 준비 상태가 입증되지는 않습니다.
 
 AKS managed Key Vault CSI 공급자는 각 워크로드의 federated identity를 사용해 고정된 Key Vault
 참조를 namespace의 Kubernetes Secrets로 동기화합니다. 애플리케이션은 계속 환경 변수를 읽으며

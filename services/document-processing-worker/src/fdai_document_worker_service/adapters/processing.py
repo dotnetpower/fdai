@@ -19,7 +19,7 @@ from uuid import UUID
 import httpx
 import psycopg
 import pypdf
-from azure.identity.aio import ManagedIdentityCredential
+from azure.core.credentials_async import AsyncTokenCredential
 from fdai_service_contracts import (
     AdapterReadiness,
     DocumentEnvelope,
@@ -431,7 +431,7 @@ class AzureDocumentIntelligenceOcr:
         self,
         *,
         config: AzureDocumentOcrConfig,
-        credential: ManagedIdentityCredential,
+        credential: AsyncTokenCredential,
         client: httpx.AsyncClient,
     ) -> None:
         self._config = config
@@ -548,7 +548,7 @@ class AzureEmbeddingModel:
         self,
         *,
         config: AzureEmbeddingConfig,
-        credential: ManagedIdentityCredential,
+        credential: AsyncTokenCredential,
         client: httpx.AsyncClient,
     ) -> None:
         self._config = config

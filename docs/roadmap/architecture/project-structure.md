@@ -37,6 +37,12 @@ would need a separate, domain-bounded design that explicitly preserves coverage 
 
 ## Module Boundaries
 
+AKS token exchange belongs to each service's Azure adapter or composition, not to Core domain
+logic or shared service contracts. Core and isolated Executor declare their own Azure Identity SDK
+and asynchronous transport dependencies. Operator, Document API and Document Worker consume the
+same SDK token interface without importing another service's implementation. Projected federation
+selects the explicit service identity; it does not change RBAC, approval or execution ownership.
+
 Trial time-window records live in `core/licensing/trial.py` as pure, inert state transitions.
 They do not read a database, open a capability, or initialize themselves from environment values.
 The deployment writer and future persistent adapter own activation and atomic observation;

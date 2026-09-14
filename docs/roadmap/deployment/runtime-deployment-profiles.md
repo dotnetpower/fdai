@@ -142,6 +142,19 @@ Each FDAI workload keeps its current user-assigned Managed Identity. On AKS, one
 Kubernetes ServiceAccount receives one federated identity credential. The privileged Executor
 identity is never shared with the console, Operator Service, jobs, or other workloads.
 
+The five baseline services select the Azure Identity SDK's workload credential when
+`AZURE_FEDERATED_TOKEN_FILE` is declared. The projected token path must be absolute, tenant and
+client identifiers must be valid, and the federated client must match the service's explicitly
+selected identity. Incomplete or conflicting federation blocks startup or token acquisition;
+it never falls back to the node identity, Azure CLI, or another service. Without the federation
+declaration, the existing attached Managed Identity path remains unchanged.
+
+Core and isolated Executor retain audience-specific caching and request coalescing, bound each
+federated token exchange, close its SDK session, and sanitize acquisition failures. Each owns
+its SDK and asynchronous HTTP transport dependencies. Operator and document services pass the
+SDK's common asynchronous credential contract to their existing adapters. These local integration
+checks do not prove deployed federation, Event Hubs access, or service readiness.
+
 The AKS managed Key Vault CSI provider synchronizes fixed Key Vault references into namespaced
 Kubernetes Secrets by using each workload's federated identity. Applications continue to read
 environment variables and never call Key Vault directly. Terraform plans contain secret names and

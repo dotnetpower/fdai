@@ -14,7 +14,7 @@ from typing import Any, Literal
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.abc import AbstractTokenProvider
-from azure.identity.aio import ManagedIdentityCredential
+from azure.core.credentials_async import AsyncTokenCredential
 from fdai_service_contracts import (
     AdapterReadiness,
     EventEnvelope,
@@ -36,7 +36,7 @@ class _ConsumerGroupHealth:
 
 
 class _ManagedIdentityTokenProvider(AbstractTokenProvider):  # type: ignore[misc]
-    def __init__(self, credential: ManagedIdentityCredential, scope: str) -> None:
+    def __init__(self, credential: AsyncTokenCredential, scope: str) -> None:
         self._credential = credential
         self._scope = scope
         self.expires_at: datetime | None = None
@@ -74,7 +74,7 @@ class EventHubsKafkaBus:
         self,
         *,
         config: EventHubsKafkaConfig,
-        credential: ManagedIdentityCredential | None,
+        credential: AsyncTokenCredential | None,
         monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         self._config = config
@@ -291,7 +291,7 @@ class EventHubsKafkaBus:
 
 def _transport_options(
     config: EventHubsKafkaConfig,
-    credential: ManagedIdentityCredential | None,
+    credential: AsyncTokenCredential | None,
     scope: str,
     *,
     token_provider: _ManagedIdentityTokenProvider | None = None,
