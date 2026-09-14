@@ -135,10 +135,10 @@ export function claimBrowserAlertDelivery(
   if (storage === null || !isSafeNotificationTag(tag) || !isSafeTimestamp(now)) {
     return "unavailable";
   }
-  const acknowledgementToken = tokenFactory();
-  if (!isSafeAcknowledgementToken(acknowledgementToken)) return "unavailable";
   const key = browserNotificationDeliveryKey(principalId);
   try {
+    const acknowledgementToken = tokenFactory();
+    if (!isSafeAcknowledgementToken(acknowledgementToken)) return "unavailable";
     const entries = readDeliveryEntries(storage.getItem(key)).filter(
       (entry) =>
         entry.claimedAt <= now

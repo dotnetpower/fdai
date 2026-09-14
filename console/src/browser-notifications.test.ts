@@ -186,6 +186,21 @@ describe("browser notification boundary", () => {
     expect(claimBrowserAlertDelivery("fdai:event-6", "principal-a", now + 60_001, storage)).toBe("claimed");
   });
 
+  test("contains acknowledgement token generation failures", () => {
+    const storage = {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => undefined,
+    };
+    expect(claimBrowserAlertDelivery(
+      "fdai:event-1",
+      "principal-a",
+      1_800_000_000_000,
+      storage,
+      () => { throw new Error("entropy unavailable"); },
+    )).toBe("unavailable");
+  });
+
   test("recovers malformed delivery storage and releases failed sends", () => {
     const values = new Map<string, string>([[
       "fdai:console:browser-notification-delivery:v1:principal-a",
