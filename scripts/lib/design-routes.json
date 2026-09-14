@@ -189,6 +189,9 @@
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/architecture/operating-ontology-platform.md"
       ],
+      "docs_update_routes": [
+        "conversation-attachments"
+      ],
       "docs_update": [
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
         "docs/roadmap/architecture/ontology-structural-model.md",
@@ -251,6 +254,9 @@
         "docs/roadmap/architecture/ontology-structural-model.md",
         "docs/roadmap/architecture/operating-ontology-platform.md"
       ],
+      "docs_update_routes": [
+        "conversation-attachments"
+      ],
       "docs_update": [
         "docs/roadmap/architecture/aks-diagnostic-evidence-plane.md",
         "docs/roadmap-implementation/architecture/aks-diagnostic-evidence-plane.md",
@@ -292,6 +298,9 @@
         "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md"
+      ],
+      "docs_update_routes": [
+        "conversation-attachments"
       ],
       "docs_update": [
         "docs/roadmap/architecture/ontology-structural-model.md",
@@ -504,6 +513,9 @@
         "docs/roadmap/architecture/project-structure.md",
         "docs/roadmap/architecture/code-map.md"
       ],
+      "docs_update_routes": [
+        "conversation-attachments"
+      ],
       "docs_update": [
         "docs/roadmap/architecture/project-structure.md",
         "docs/roadmap/architecture/security-and-identity.md",
@@ -528,6 +540,9 @@
         "docs/roadmap/architecture/multi-service-repository-layout.md",
         "docs/roadmap/architecture/service-graduation-and-ownership.md"
       ],
+      "docs_update_routes": [
+        "conversation-attachments"
+      ],
       "docs_update": [
         "docs/roadmap/architecture/multi-service-repository-layout.md",
         "docs/roadmap/architecture/project-structure.md"
@@ -549,6 +564,9 @@
         ".github/instructions/generic-scope.instructions.md",
         "docs/roadmap/architecture/project-structure.md",
         "docs/roadmap/architecture/service-graduation-and-ownership.md"
+      ],
+      "docs_update_routes": [
+        "conversation-attachments"
       ],
       "docs_update": [
         "docs/roadmap/architecture/project-structure.md",
@@ -777,6 +795,9 @@
         "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/decisioning/action-ontology.md",
         "docs/roadmap/architecture/project-structure.md"
+      ],
+      "docs_update_routes": [
+        "conversation-attachments"
       ],
       "docs_update": [
         "docs/roadmap/architecture/operating-ontology-platform.md",
@@ -1201,6 +1222,9 @@
         "docs/roadmap/interfaces/durable-conversation-delivery.md",
         "docs/roadmap/architecture/service-graduation-and-ownership.md"
       ],
+      "docs_update_routes": [
+        "conversation-attachments"
+      ],
       "docs_update": [
         "docs/roadmap/interfaces/production-a3-channel-runtime.md",
         "docs/roadmap/interfaces/channels-and-notifications.md",
@@ -1505,14 +1529,67 @@
       "paths": [
         "services/core-control-plane/src/fdai/core/conversation/attachment_directive.py",
         "services/core-control-plane/src/fdai/core/conversation/channel_gateway.py",
+        "services/core-control-plane/src/fdai/core/conversation/semantic_*.py",
+        "services/core-control-plane/src/fdai/core/knowledge/governed_document_reader.py",
+        "services/core-control-plane/src/fdai/core/ontology_platform/functions.py",
+        "services/core-control-plane/src/fdai/core/ontology_platform/governed_document_queries.py",
+        "services/core-control-plane/src/fdai/core/ontology_platform/query_source_handlers.py",
+        "services/core-control-plane/src/fdai/core/stewardship/governance.py",
+        "services/core-control-plane/src/fdai/composition/semantic_query_current_evidence.py",
+        "services/core-control-plane/src/fdai/composition/wire_semantic_query.py",
+        "services/core-control-plane/src/fdai/delivery/persistence/postgres_governed_document_read.py",
+        "services/core-control-plane/src/fdai_core_service/contract_codecs.py",
+        "services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py",
         "services/core-control-plane/src/fdai/shared/providers/conversation_channel.py",
         "services/core-control-plane/src/fdai/shared/providers/document_ingestion.py",
         "services/core-control-plane/src/fdai/shared/providers/local/document_ingestion.py",
         "services/core-control-plane/src/fdai/core/document_ingestion/**",
+        "packages/service-contracts/src/fdai_service_contracts/channel_attachment.py",
+        "packages/service-contracts/src/fdai_service_contracts/handover.py",
+        "packages/service-contracts/src/fdai_service_contracts/semantic_turn.py",
+        "packages/service-contracts/src/fdai_service_contracts/__init__.py",
+        "packages/service-contracts/src/fdai_service_contracts/compatibility-manifest.json",
+        "packages/service-contracts/src/fdai_service_contracts/generated/__init__.py",
+        "packages/service-contracts/src/fdai_service_contracts/generated/contracts.py",
+        "packages/service-contracts/src/fdai_service_contracts/schema.py",
+        "packages/service-contracts/src/fdai_service_contracts/schemas/channel-attachment-*/**",
+        "packages/service-contracts/src/fdai_service_contracts/schemas/operator-core-request/**",
+        "packages/service-contracts/src/fdai_service_contracts/schemas/core-operator-projection/**",
+        "console/src/generated/service-contracts.ts",
+        "services/document-ingestion-api/pyproject.toml",
         "services/document-ingestion-api/src/fdai_ingestion_api_service/**",
+        "services/operator-service/src/fdai_operator_service/families/conversation/**",
+        "services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py",
+        "services/operator-service/src/fdai_operator_service/contract_codecs.py",
+        "services/operator-service/src/fdai_operator_service/composition.py",
+        "service-migrations/ownership.json",
+        "service-migrations/branches/operator-service/versions/**",
+        "infra/services/document-ingestion-api/**",
+        "infra/services/operator-service/**",
+        "scripts/deployment/local/prepare-channel-edge-env.sh",
+        "scripts/deployment/local/prepare-console-full-stack.sh",
+        "scripts/deployment/local/run-console-service.sh",
+        "scripts/deployment/service/guard_plan.py",
+        "scripts/deployment/service/materialize_tfvars.py",
+        "scripts/deployment/service/plan_bundle.py",
+        "scripts/deployment/service/verify_health.sh",
+        ".github/workflows/service-deploy.yml",
+        "packages/deployment-cli/src/fdai_deployment_cli/entra_bootstrap.py",
+        "packages/deployment-cli/tests/test_entra_bootstrap.py",
+        "scripts/deployment/azure/genesis_entra.py",
+        "docs/runbooks/entra-app-registration*.md",
+        "packages/service-contracts/tests/test_channel_attachment.py",
+        "packages/service-contracts/tests/test_semantic_turn.py",
+        "services/document-ingestion-api/tests/**",
+        "services/operator-service/tests/test_semantic_turn_bridge.py",
+        "services/core-control-plane/tests/test_semantic_turn_processor.py",
+        "services/core-control-plane/tests/core/ontology_platform/test_governed_document_queries.py",
+        "services/core-control-plane/tests/core/ontology_platform/test_query_handlers.py",
         "services/core-control-plane/tests/delivery/channels/**",
         "services/core-control-plane/tests/core/document_ingestion/**",
         "services/core-control-plane/tests/agents/test_document_ingestion_agent_chain.py",
+        "tests/integration/scripts/test_service_deploy.py",
+        "tests/integration/scripts/test_service_deploy_workflow.py",
         "docs/roadmap/interfaces/document-lifecycle-governance*.md"
       ],
       "must_read": [
@@ -1552,6 +1629,9 @@
         ".github/instructions/agent-stewardship.instructions.md",
         "docs/roadmap/interfaces/agent-stewardship-and-handover.md",
         "docs/roadmap/interfaces/agent-stewardship-operations.md"
+      ],
+      "docs_update_routes": [
+        "conversation-attachments"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/agent-stewardship-and-handover.md",
@@ -1703,6 +1783,9 @@
         "docs/roadmap/interfaces/console-operations.md",
         "docs/roadmap/interfaces/console-evidence-and-resilience.md"
       ],
+      "docs_update_routes": [
+        "conversation-attachments"
+      ],
       "docs_update": [
         "docs/roadmap/architecture/service-graduation-and-ownership.md",
         "docs/roadmap/interfaces/operator-console.md",
@@ -1803,6 +1886,9 @@
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/architecture/continuous-operational-instance-graph.md"
+      ],
+      "docs_update_routes": [
+        "conversation-attachments"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
@@ -1985,6 +2071,9 @@
         "docs/roadmap/interfaces/user-rbac-and-identity.md",
         "docs/roadmap/operations/operator-initiated-sre-and-arb.md"
       ],
+      "docs_update_routes": [
+        "conversation-attachments"
+      ],
       "docs_update": [
         "docs/roadmap/deployment/console-read-boundary.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md",
@@ -2129,6 +2218,9 @@
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/decisioning/action-ontology.md"
       ],
+      "docs_update_routes": [
+        "conversation-attachments"
+      ],
       "docs_update": [
         "docs/roadmap/architecture/finops-package-architecture.md",
         "docs/roadmap/architecture/finops-autonomous-operations.md",
@@ -2219,6 +2311,9 @@
         "docs/roadmap/deployment/provisioning-execution-profiles.md",
         "docs/roadmap/architecture/security-and-identity.md",
         "docs/roadmap/architecture/llm-strategy.md"
+      ],
+      "docs_update_routes": [
+        "conversation-attachments"
       ],
       "docs_update": [
         "docs/roadmap/deployment/subscription-genesis-provisioning.md",
@@ -2311,6 +2406,9 @@
         "docs/roadmap/deployment/production-deployment-hardening.md",
         "docs/roadmap/architecture/azure-inventory-network-paths.md",
         "docs/roadmap/deployment/deployment-resource-conventions.md"
+      ],
+      "docs_update_routes": [
+        "conversation-attachments"
       ],
       "docs_update": [
         "docs/roadmap/deployment/deploy-and-onboard.md",
@@ -2488,6 +2586,9 @@
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/interfaces/operator-console.md"
       ],
+      "docs_update_routes": [
+        "conversation-attachments"
+      ],
       "docs_update": [
         "docs/roadmap/rules-and-detection/framework-assessment.md",
         "docs/roadmap-implementation/rules-and-detection/framework-assessment.md"
@@ -2536,6 +2637,9 @@
         "docs/roadmap/rules-and-detection/rule-governance.md",
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/interfaces/operator-console.md"
+      ],
+      "docs_update_routes": [
+        "conversation-attachments"
       ],
       "docs_update": [
         "docs/roadmap/rules-and-detection/wara-assessment.md",

@@ -387,6 +387,7 @@ def test_preparation_reuses_an_unchanged_healthy_stack(
     shutil.copy2(_PREPARE_SCRIPT, prepare_script)
     digest = "a" * 64
     required_outputs = (
+        ".venv/bin/fdai-document-channel-intake",
         ".venv/bin/fdai-document-processing-worker",
         ".venv/bin/fdai-isolated-executor-service",
         ".fdai/local-runtime.env",
@@ -470,6 +471,7 @@ def _staged_preparation_repo(
     (repo / "console/package-lock.json").write_text("{}\n", encoding="utf-8")
     _write_executable(repo / "console/node_modules/.bin/vite", "#!/usr/bin/env bash\nexit 0\n")
     for relative in (
+        ".venv/bin/fdai-document-channel-intake",
         ".venv/bin/fdai-document-processing-worker",
         ".venv/bin/fdai-isolated-executor-service",
         ".fdai/local-runtime.env",
@@ -686,6 +688,7 @@ def test_preparation_repairs_missing_console_dependencies(tmp_path: Path) -> Non
     )
     (repo / "console/node_modules/.bin/vite").unlink()
     (repo / ".venv/bin/fdai-document-processing-worker").unlink()
+    (repo / ".venv/bin/fdai-document-channel-intake").unlink()
     (repo / ".venv/bin/fdai-isolated-executor-service").unlink()
     bin_dir = Path(environment["PATH"].split(":", 1)[0])
     _write_executable(
@@ -694,8 +697,11 @@ def test_preparation_repairs_missing_console_dependencies(tmp_path: Path) -> Non
 set -euo pipefail
 mkdir -p .venv/bin
 printf '#!/usr/bin/env bash\nexit 0\n' > .venv/bin/fdai-document-processing-worker
+printf '#!/usr/bin/env bash\nexit 0\n' > .venv/bin/fdai-document-channel-intake
 printf '#!/usr/bin/env bash\nexit 0\n' > .venv/bin/fdai-isolated-executor-service
-chmod +x .venv/bin/fdai-document-processing-worker .venv/bin/fdai-isolated-executor-service
+chmod +x .venv/bin/fdai-document-channel-intake
+chmod +x .venv/bin/fdai-document-processing-worker
+chmod +x .venv/bin/fdai-isolated-executor-service
 """,
     )
     _write_executable(
@@ -723,6 +729,7 @@ chmod +x console/node_modules/.bin/vite
     assert result.stdout.count("event=reused") == 7
     assert (repo / "console/node_modules/.bin/vite").is_file()
     assert (repo / ".venv/bin/fdai-document-processing-worker").is_file()
+    assert (repo / ".venv/bin/fdai-document-channel-intake").is_file()
     assert (repo / ".venv/bin/fdai-isolated-executor-service").is_file()
 
 

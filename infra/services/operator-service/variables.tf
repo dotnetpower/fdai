@@ -56,20 +56,32 @@ variable "runtime_call_evidence" {
 variable "channel_edge" {
   description = "Optional standalone public channel edge in the Operator distribution. Provider secrets and principal mappings are Key Vault references."
   type = object({
-    enabled                       = bool
-    name                          = string
-    slack_enabled                 = bool
-    teams_enabled                 = bool
-    principal_scopes_secret_id    = string
-    slack_signing_secret_id       = string
-    slack_bot_token_secret_id     = string
-    slack_team_id                 = string
-    slack_principal_map_secret_id = string
-    teams_application_id          = string
-    teams_tenant_id               = string
-    teams_principal_map_secret_id = string
-    teams_allowed_service_urls    = string
-    teams_jwks_url                = string
+    enabled                         = bool
+    name                            = string
+    slack_enabled                   = bool
+    teams_enabled                   = bool
+    principal_scopes_secret_id      = string
+    slack_signing_secret_id         = string
+    slack_bot_token_secret_id       = string
+    slack_team_id                   = string
+    slack_principal_map_secret_id   = string
+    teams_application_id            = string
+    teams_tenant_id                 = string
+    teams_principal_map_secret_id   = string
+    teams_allowed_service_urls      = string
+    teams_jwks_url                  = string
+    attachments_enabled             = optional(bool, false)
+    attachment_intake_origin        = optional(string, "")
+    attachment_intake_audience      = optional(string, "")
+    attachment_scratch_dir          = optional(string, "/tmp")
+    attachment_max_content_bytes    = optional(number, 26214400)
+    slack_files_info_url            = optional(string, "https://slack.com/api/files.info")
+    slack_metadata_hosts_json       = optional(string, "[\"slack.com\"]")
+    slack_download_hosts_json       = optional(string, "[\"files.slack.com\"]")
+    teams_attachment_url_template   = optional(string, "")
+    teams_attachment_audience       = optional(string, "")
+    teams_attachment_hosts_json     = optional(string, "[]")
+    teams_attachment_audiences_json = optional(string, "[]")
     health = object({
       port                    = number
       liveness_path           = string
@@ -88,20 +100,32 @@ variable "channel_edge" {
     })
   })
   default = {
-    enabled                       = false
-    name                          = ""
-    slack_enabled                 = false
-    teams_enabled                 = false
-    principal_scopes_secret_id    = ""
-    slack_signing_secret_id       = ""
-    slack_bot_token_secret_id     = ""
-    slack_team_id                 = ""
-    slack_principal_map_secret_id = ""
-    teams_application_id          = ""
-    teams_tenant_id               = ""
-    teams_principal_map_secret_id = ""
-    teams_allowed_service_urls    = ""
-    teams_jwks_url                = ""
+    enabled                         = false
+    name                            = ""
+    slack_enabled                   = false
+    teams_enabled                   = false
+    principal_scopes_secret_id      = ""
+    slack_signing_secret_id         = ""
+    slack_bot_token_secret_id       = ""
+    slack_team_id                   = ""
+    slack_principal_map_secret_id   = ""
+    teams_application_id            = ""
+    teams_tenant_id                 = ""
+    teams_principal_map_secret_id   = ""
+    teams_allowed_service_urls      = ""
+    teams_jwks_url                  = ""
+    attachments_enabled             = false
+    attachment_intake_origin        = ""
+    attachment_intake_audience      = ""
+    attachment_scratch_dir          = "/tmp"
+    attachment_max_content_bytes    = 26214400
+    slack_files_info_url            = "https://slack.com/api/files.info"
+    slack_metadata_hosts_json       = "[\"slack.com\"]"
+    slack_download_hosts_json       = "[\"files.slack.com\"]"
+    teams_attachment_url_template   = ""
+    teams_attachment_audience       = ""
+    teams_attachment_hosts_json     = "[]"
+    teams_attachment_audiences_json = "[]"
     health = {
       port                    = 8014
       liveness_path           = "/health/live"
@@ -131,6 +155,24 @@ variable "channel_edge" {
         var.channel_edge.teams_principal_map_secret_id != "" &&
         can(jsondecode(var.channel_edge.teams_allowed_service_urls)) &&
         startswith(var.channel_edge.teams_jwks_url, "https://")
+      )) &&
+      (!var.channel_edge.attachments_enabled || (
+        startswith(var.channel_edge.attachment_intake_origin, "https://") &&
+        trimspace(var.channel_edge.attachment_intake_audience) != "" &&
+        startswith(var.channel_edge.attachment_scratch_dir, "/") &&
+        var.channel_edge.attachment_max_content_bytes >= 1 &&
+        var.channel_edge.attachment_max_content_bytes <= 1073741824 &&
+        (!var.channel_edge.slack_enabled || (
+          startswith(var.channel_edge.slack_files_info_url, "https://") &&
+          can(jsondecode(var.channel_edge.slack_metadata_hosts_json)) &&
+          can(jsondecode(var.channel_edge.slack_download_hosts_json))
+        )) &&
+        (!var.channel_edge.teams_enabled || (
+          strcontains(var.channel_edge.teams_attachment_url_template, "{attachment_id}") &&
+          trimspace(var.channel_edge.teams_attachment_audience) != "" &&
+          can(jsondecode(var.channel_edge.teams_attachment_hosts_json)) &&
+          can(jsondecode(var.channel_edge.teams_attachment_audiences_json))
+        ))
       ))
     )
     error_message = "Enabled channel_edge requires at least one complete Slack or Teams provider contract plus principal scopes."

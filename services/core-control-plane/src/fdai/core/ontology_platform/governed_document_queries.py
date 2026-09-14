@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, Protocol, cast
+from uuid import UUID
 
 from fdai_service_contracts.ontology_query import content_digest
 
@@ -128,6 +129,10 @@ class GovernedDocumentReader(Protocol):
         principal_groups: frozenset[str],
         purpose: str,
         limit: int,
+        exact_refs: tuple[str, ...] = (),
+        context_source: str | None = None,
+        conversation_ref: str | None = None,
+        document_context_digest: str | None = None,
     ) -> GovernedDocumentCollection: ...
 
 
@@ -216,14 +221,28 @@ def governed_document_function(
         if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 8:
             raise ValueError("governed document limit MUST be in [1, 8]")
 
-        collection = await reader.search(
-            query=query,
-            principal_ref=principal_ref,
-            principal_role=invocation_context.caller_role,
-            principal_groups=frozenset(invocation_context.principal_groups),
-            purpose=invocation_context.purposes[0],
-            limit=limit,
-        )
+        if invocation_context.document_refs:
+            collection = await reader.search(
+                query=query,
+                principal_ref=principal_ref,
+                principal_role=invocation_context.caller_role,
+                principal_groups=frozenset(invocation_context.principal_groups),
+                purpose=invocation_context.purposes[0],
+                limit=limit,
+                exact_refs=invocation_context.document_refs,
+                context_source=invocation_context.document_context_source,
+                conversation_ref=invocation_context.document_conversation_ref,
+                document_context_digest=invocation_context.document_context_digest,
+            )
+        else:
+            collection = await reader.search(
+                query=query,
+                principal_ref=principal_ref,
+                principal_role=invocation_context.caller_role,
+                principal_groups=frozenset(invocation_context.principal_groups),
+                purpose=invocation_context.purposes[0],
+                limit=limit,
+            )
         if len(collection.excerpts) > limit:
             raise ValueError("governed document reader exceeded the requested limit")
 
@@ -252,6 +271,11 @@ def governed_document_function(
                     "document_revision": excerpt.document_revision,
                     "source_name": excerpt.source_name,
                     "source_ref": excerpt.source_ref,
+                    **(
+                        {"document_citation": _exact_document_citation(excerpt.source_ref)}
+                        if invocation_context.document_refs
+                        else {}
+                    ),
                     "locator": excerpt.locator,
                     "chunk_id": excerpt.chunk_id,
                     "text": excerpt.text,
@@ -274,6 +298,28 @@ def governed_document_function(
         return cast(dict[str, object], json.loads(table.canonical_json()))
 
     return evaluate
+
+
+def _exact_document_citation(source_ref: str) -> str:
+    prefix = "document://"
+    if not source_ref.startswith(prefix):
+        raise ValueError("exact governed document source ref is invalid")
+    document_id, separator, remainder = source_ref.removeprefix(prefix).partition("/versions/")
+    version_id, fragment, locator = remainder.partition("#")
+    try:
+        parsed_document = UUID(document_id)
+        parsed_version = UUID(version_id)
+    except ValueError as exc:
+        raise ValueError("exact governed document source ref is invalid") from exc
+    if (
+        separator != "/versions/"
+        or fragment != "#"
+        or not locator
+        or str(parsed_document) != document_id
+        or str(parsed_version) != version_id
+    ):
+        raise ValueError("exact governed document source ref is invalid")
+    return f"doc:{parsed_document}:{parsed_version}"
 
 
 __all__ = [

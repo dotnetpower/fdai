@@ -11,6 +11,8 @@ from types import ModuleType
 from typing import Any
 
 import pytest
+from jsonschema.exceptions import ValidationError
+
 from fdai_service_contracts import (
     CompatibilityError,
     ConsumerCodec,
@@ -29,7 +31,6 @@ from fdai_service_contracts import (
     validate_peer_upgrade_receipt,
 )
 from fdai_service_contracts.codec import MAX_WIRE_BYTES
-from jsonschema.exceptions import ValidationError
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = (
@@ -92,8 +93,8 @@ def test_manifest_and_focused_fixture_gate_pass(
     _checker_module().validate(mode="focused")
 
     assert summary.service_count == 5
-    assert summary.contract_count == 7
-    assert summary.matrix_edge_count == 7
+    assert summary.contract_count == 9
+    assert summary.matrix_edge_count == 9
     output = capsys.readouterr().out
     assert "mode=focused" in output
     assert "proof_kind=focused" in output
@@ -211,9 +212,13 @@ def test_matrix_covers_every_release_pair_for_every_contract() -> None:
     ]
 
 
-@pytest.mark.parametrize("contract_id", ["operator-core-request", "core-operator-projection"])
+@pytest.mark.parametrize(
+    ("contract_id", "expected_version"),
+    (("operator-core-request", "1.8.0"), ("core-operator-projection", "1.7.0")),
+)
 def test_adaptive_wire_negotiates_versions_without_dropping_semantic_fields(
     contract_id: str,
+    expected_version: str,
 ) -> None:
     checker = _checker_module()
     contract = next(item for item in _manifest()["contracts"] if item["id"] == contract_id)
@@ -223,7 +228,6 @@ def test_adaptive_wire_negotiates_versions_without_dropping_semantic_fields(
         if item["contract_id"] == contract_id and item["producer_release"] == "N"
     )
     assert contract["compatibility_policy"] == "version-negotiated"
-    expected_version = "1.7.0" if contract_id == "operator-core-request" else "1.6.0"
     assert (
         fixture["schema_version"]
         == contract["producer_schemas"]["N"]["version"]
@@ -704,9 +708,8 @@ def test_checker_fails_when_declared_codec_artifact_is_not_importable() -> None:
 
 
 def test_core_uses_manifest_declared_executor_receipt_codec_object() -> None:
-    from fdai_core_service.contract_codecs import EXECUTOR_RECEIPT_CONSUMER_V11
-
     from fdai.runtime import isolated_executor_client
+    from fdai_core_service.contract_codecs import EXECUTOR_RECEIPT_CONSUMER_V11
 
     declared = load_manifest_codec(
         "executor-receipt",

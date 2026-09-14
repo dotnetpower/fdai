@@ -293,6 +293,7 @@ def _deployment_context(
     runtime_call_evidence_transition: bool = False,
     model_binding_transition: bool = False,
     operator_channel_edge_transition: str = "none",
+    document_channel_intake_transition: str = "none",
     sharepoint_connector_transition: str = "none",
 ) -> dict[str, Any]:
     contract = resolve_service(service, environment)
@@ -304,6 +305,7 @@ def _deployment_context(
         runtime_call_evidence_transition=runtime_call_evidence_transition,
         model_binding_transition=model_binding_transition,
         operator_channel_edge_transition=operator_channel_edge_transition,
+        document_channel_intake_transition=document_channel_intake_transition,
         sharepoint_connector_transition=sharepoint_connector_transition,
     )
     if degraded_recovery and (
@@ -374,6 +376,35 @@ def _deployment_context(
         )
         edge_context["state"] = "disabled"
         context["operator_channel_edge"] = edge_context
+    intake_address = (
+        "module.document_ingestion_api.module.channel_intake[0].azurerm_container_app.service"
+    )
+    has_intake_resource = isinstance(edge_changes, list) and any(
+        isinstance(entry, dict) and entry.get("address") == intake_address for entry in edge_changes
+    )
+    if document_channel_intake_transition == "enable" or (
+        document_channel_intake_transition == "none" and has_intake_resource
+    ):
+        context["document_channel_intake"] = _target_context(
+            plan_payload,
+            allowed_address=intake_address,
+            service="document-channel-intake",
+            subscription_id=subscription_id,
+            image_ref=image_ref,
+            initial_cutover=False,
+        )
+    elif document_channel_intake_transition == "disable":
+        intake_context = _target_context(
+            plan_payload,
+            allowed_address=intake_address,
+            service="document-channel-intake",
+            subscription_id=subscription_id,
+            image_ref=image_ref,
+            initial_cutover=False,
+            resource_side="before",
+        )
+        intake_context["state"] = "disabled"
+        context["document_channel_intake"] = intake_context
     if service == "core-control-plane":
         if _SHA256_PATTERN.fullmatch(resolved_models_digest) is None:
             raise PlanBundleError("Core deployment requires a canonical resolved-models digest")
@@ -394,12 +425,19 @@ def _deployment_mode(
     runtime_call_evidence_transition: bool,
     model_binding_transition: bool,
     operator_channel_edge_transition: str,
+    document_channel_intake_transition: str,
     sharepoint_connector_transition: str,
 ) -> str:
     if operator_channel_edge_transition not in {"none", "enable", "disable"}:
         raise PlanBundleError("operator channel edge transition must be none, enable, or disable")
     if operator_channel_edge_transition != "none" and service != "operator-service":
         raise PlanBundleError("operator channel edge transition is valid only for operator-service")
+    if document_channel_intake_transition not in {"none", "enable", "disable"}:
+        raise PlanBundleError("document channel intake transition must be none, enable, or disable")
+    if document_channel_intake_transition != "none" and service != "document-ingestion-api":
+        raise PlanBundleError(
+            "document channel intake transition is valid only for document-ingestion-api"
+        )
     if sharepoint_connector_transition not in {"none", "enable", "disable"}:
         raise PlanBundleError("SharePoint connector transition must be none, enable, or disable")
     if sharepoint_connector_transition != "none" and service != "document-ingestion-api":
@@ -413,15 +451,26 @@ def _deployment_mode(
         or runtime_call_evidence_transition
         or model_binding_transition
         or operator_channel_edge_transition != "none"
+        or document_channel_intake_transition != "none"
     ):
         raise PlanBundleError("SharePoint connector transition must be applied independently")
-    if initial_cutover and operator_channel_edge_transition != "none":
+    if initial_cutover and (
+        operator_channel_edge_transition != "none" or document_channel_intake_transition != "none"
+    ):
         raise PlanBundleError("initial cutover and operator channel edge transition are exclusive")
-    if database_host_binding and (initial_cutover or operator_channel_edge_transition != "none"):
+    if database_host_binding and (
+        initial_cutover
+        or operator_channel_edge_transition != "none"
+        or document_channel_intake_transition != "none"
+    ):
         raise PlanBundleError(
             "database host binding is exclusive with initial cutover and channel-edge transition"
         )
-    if model_binding_transition and (initial_cutover or operator_channel_edge_transition != "none"):
+    if model_binding_transition and (
+        initial_cutover
+        or operator_channel_edge_transition != "none"
+        or document_channel_intake_transition != "none"
+    ):
         raise PlanBundleError(
             "model binding transition is exclusive with initial cutover and channel-edge transition"
         )
@@ -434,6 +483,7 @@ def _deployment_mode(
         or database_host_binding
         or model_binding_transition
         or operator_channel_edge_transition != "none"
+        or document_channel_intake_transition != "none"
         or sharepoint_connector_transition != "none"
     ):
         raise PlanBundleError("core evidence binding transition must be applied independently")
@@ -444,6 +494,7 @@ def _deployment_mode(
         or core_evidence_bindings_transition
         or model_binding_transition
         or operator_channel_edge_transition != "none"
+        or document_channel_intake_transition != "none"
         or sharepoint_connector_transition != "none"
     ):
         raise PlanBundleError(
@@ -464,6 +515,8 @@ def _deployment_mode(
         return "initial-cutover"
     if operator_channel_edge_transition != "none":
         return f"operator-channel-edge-{operator_channel_edge_transition}"
+    if document_channel_intake_transition != "none":
+        return f"document-channel-intake-{document_channel_intake_transition}"
     if sharepoint_connector_transition != "none":
         return f"sharepoint-connector-{sharepoint_connector_transition}"
     return "standard"
@@ -498,6 +551,7 @@ def create_bundle(
     runtime_call_evidence_transition: bool = False,
     model_binding_transition: bool = False,
     operator_channel_edge_transition: str = "none",
+    document_channel_intake_transition: str = "none",
     sharepoint_connector_transition: str = "none",
 ) -> dict[str, Any]:
     """Seal a guarded binary plan and its deployment context for exact later apply."""
@@ -534,6 +588,7 @@ def create_bundle(
         runtime_call_evidence_transition=runtime_call_evidence_transition,
         model_binding_transition=model_binding_transition,
         operator_channel_edge_transition=operator_channel_edge_transition,
+        document_channel_intake_transition=document_channel_intake_transition,
         sharepoint_connector_transition=sharepoint_connector_transition,
     )
     context_path.write_bytes(_canonical(context))
@@ -572,6 +627,7 @@ def create_bundle(
             runtime_call_evidence_transition=runtime_call_evidence_transition,
             model_binding_transition=model_binding_transition,
             operator_channel_edge_transition=operator_channel_edge_transition,
+            document_channel_intake_transition=document_channel_intake_transition,
             sharepoint_connector_transition=sharepoint_connector_transition,
         ),
         "created_at": now.astimezone(UTC).isoformat(),
@@ -612,6 +668,7 @@ def verify_bundle(
     runtime_call_evidence_transition: bool = False,
     model_binding_transition: bool = False,
     operator_channel_edge_transition: str = "none",
+    document_channel_intake_transition: str = "none",
     sharepoint_connector_transition: str = "none",
 ) -> dict[str, Any]:
     """Verify exact apply inputs against every sealed plan artifact and mapping."""
@@ -659,6 +716,7 @@ def verify_bundle(
             runtime_call_evidence_transition=runtime_call_evidence_transition,
             model_binding_transition=model_binding_transition,
             operator_channel_edge_transition=operator_channel_edge_transition,
+            document_channel_intake_transition=document_channel_intake_transition,
             sharepoint_connector_transition=sharepoint_connector_transition,
         ),
     }
@@ -695,6 +753,7 @@ def verify_bundle(
         runtime_call_evidence_transition=runtime_call_evidence_transition,
         model_binding_transition=model_binding_transition,
         operator_channel_edge_transition=operator_channel_edge_transition,
+        document_channel_intake_transition=document_channel_intake_transition,
         sharepoint_connector_transition=sharepoint_connector_transition,
     )
     if context != expected_context:
@@ -735,6 +794,11 @@ def _common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--model-binding-transition", action="store_true")
     parser.add_argument(
         "--operator-channel-edge-transition",
+        choices=("none", "enable", "disable"),
+        default="none",
+    )
+    parser.add_argument(
+        "--document-channel-intake-transition",
         choices=("none", "enable", "disable"),
         default="none",
     )
@@ -784,6 +848,7 @@ def main() -> int:
         "runtime_call_evidence_transition": args.runtime_call_evidence_transition,
         "model_binding_transition": args.model_binding_transition,
         "operator_channel_edge_transition": args.operator_channel_edge_transition,
+        "document_channel_intake_transition": args.document_channel_intake_transition,
         "sharepoint_connector_transition": args.sharepoint_connector_transition,
     }
     try:

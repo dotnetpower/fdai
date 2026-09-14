@@ -10,6 +10,7 @@ from fdai_service_contracts.ontology_query import (
     QueryNodeKind,
     content_digest,
 )
+from fdai_service_contracts.semantic_turn import SemanticDocumentContext
 
 from fdai.core.conversation.adaptive_service import AdaptiveConversationService
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentBoundary
@@ -717,7 +718,10 @@ def build_semantic_query_runtime(
         resource_freshness_seconds=resource_freshness_seconds,
     )
 
-    def executor_for(principal: Principal) -> OntologyQueryPlanExecutor:
+    def executor_for(
+        principal: Principal,
+        document_context: SemanticDocumentContext | None,
+    ) -> OntologyQueryPlanExecutor:
         try:
             role = CeilingRole(principal.role)
         except ValueError as exc:
@@ -767,6 +771,27 @@ def build_semantic_query_runtime(
                             principal=principal,
                             purpose=purpose,
                         ),
+                        document_refs=(
+                            document_context.citations if document_context is not None else ()
+                        ),
+                        document_context_source=(
+                            document_context.source.value if document_context is not None else None
+                        ),
+                        document_conversation_ref=(
+                            document_context.conversation_ref
+                            if document_context is not None
+                            else None
+                        ),
+                        document_authorization_digest=(
+                            document_context.authorization_digest
+                            if document_context is not None
+                            else None
+                        ),
+                        document_context_digest=(
+                            document_context.context_digest
+                            if document_context is not None
+                            else None
+                        ),
                     ),
                     receipt_authority=receipt_authority,
                     allow_presentation_read_dependencies=True,
@@ -777,7 +802,7 @@ def build_semantic_query_runtime(
 
     return SemanticQueryConversationRuntime(
         planner=planner,
-        executor_factory=executor_for,
+        contextual_executor_factory=executor_for,
         purpose=purpose,
         function_bindings=function_registry.binding_authorities,
         current_evidence_probe=current_evidence_probe,

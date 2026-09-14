@@ -122,6 +122,16 @@
         "document_version"
       ],
       "provider_rollback": "blocked-until-operator-handover-document-read-rollback"
+    },
+    {
+      "consumer_service": "operator-service",
+      "consumer_revision": "operator_conversation_document_refs_20260914",
+      "provider_service": "document-ingestion-api",
+      "provider_revision": "document_lifecycle_convergence_20260905",
+      "schema_prerequisites": [
+        "document_version"
+      ],
+      "provider_rollback": "blocked-until-operator-conversation-document-ref-rollback"
     }
   ],
   "legacy_inventory": {

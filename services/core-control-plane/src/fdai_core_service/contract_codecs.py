@@ -28,6 +28,21 @@ OPERATOR_REQUEST_CONSUMER_V17 = ConsumerCodec(
     "N",
     ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0", "1.6.0", "1.7.0"),
 )
+OPERATOR_REQUEST_CONSUMER_V18 = ConsumerCodec(
+    "operator-core-request",
+    "N",
+    (
+        "1.0.0",
+        "1.1.0",
+        "1.2.0",
+        "1.3.0",
+        "1.4.0",
+        "1.5.0",
+        "1.6.0",
+        "1.7.0",
+        "1.8.0",
+    ),
+)
 BACKGROUND_TASK_PROJECTION_PRODUCER_V1 = ProducerCodec(
     "background-task-projection",
     "N",
@@ -39,6 +54,7 @@ OPERATOR_PROJECTION_PRODUCER_V12 = ProducerCodec("core-operator-projection", "N"
 OPERATOR_PROJECTION_PRODUCER_V13 = ProducerCodec("core-operator-projection", "N", "1.3.0")
 OPERATOR_PROJECTION_PRODUCER_V14 = ProducerCodec("core-operator-projection", "N", "1.4.0")
 OPERATOR_PROJECTION_PRODUCER_V16 = ProducerCodec("core-operator-projection", "N", "1.6.0")
+OPERATOR_PROJECTION_PRODUCER_V17 = ProducerCodec("core-operator-projection", "N", "1.7.0")
 DOCUMENT_AUDIT_PRODUCER_V1 = ProducerCodec("document-worker-audit", "N-1", "1.0.0")
 DOCUMENT_AUDIT_PRODUCER_V11 = ProducerCodec("document-worker-audit", "N", "1.0.0")
 DOCUMENT_INDEX_PRODUCER_V1 = ProducerCodec("document-worker-index", "N-1", "1.0.0")
@@ -51,5 +67,5 @@ EXECUTOR_RECEIPT_CONSUMER_V11 = ConsumerCodec("executor-receipt", "N", ("1.0.0",
 __all__ = [
     name
     for name in globals()
-    if name.endswith(("_V1", "_V11", "_V12", "_V13", "_V14", "_V15", "_V16", "_V17"))
+    if name.endswith(("_V1", "_V11", "_V12", "_V13", "_V14", "_V15", "_V16", "_V17", "_V18"))
 ]

@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping
 from datetime import datetime
 
 from fdai_service_contracts.ontology_query import EvidenceAuthority
+from fdai_service_contracts.semantic_turn import SemanticDocumentContext
 
 from fdai.core.conversation.adaptive_service import AdaptiveConversationService
 from fdai.core.conversation.semantic_current_evidence import (
@@ -75,7 +76,9 @@ class SemanticQueryConversationRuntime(SemanticConversationRuntime):
         self,
         *,
         planner: SemanticPlanningService,
-        executor_factory: Callable[[Principal], OntologyQueryPlanExecutor],
+        contextual_executor_factory: Callable[
+            [Principal, SemanticDocumentContext | None], OntologyQueryPlanExecutor
+        ],
         purpose: str,
         function_bindings: Mapping[str, EvidenceAuthority],
         current_evidence_probe: SemanticCurrentEvidenceProbe | None,
@@ -83,7 +86,7 @@ class SemanticQueryConversationRuntime(SemanticConversationRuntime):
     ) -> None:
         super().__init__(
             planner=planner,
-            executor_factory=executor_factory,
+            contextual_executor_factory=contextual_executor_factory,
             purpose=purpose,
             function_bindings=function_bindings,
             adaptive_service=adaptive_service,

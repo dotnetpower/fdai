@@ -66,6 +66,11 @@ on:
         type: choice
         options: [none, enable, disable]
         default: none
+      document_channel_intake_transition:
+        description: "Explicit internal document channel-intake transition sealed into the protected plan."
+        type: choice
+        options: [none, enable, disable]
+        default: none
       sharepoint_connector_transition:
         description: "Explicit native SharePoint connector transition sealed into the protected plan."
         type: choice
@@ -154,6 +159,7 @@ jobs:
           CORE_EVIDENCE_BINDINGS_TRANSITION: ${{ inputs.core_evidence_bindings_transition }}
           RUNTIME_CALL_EVIDENCE_TRANSITION: ${{ inputs.runtime_call_evidence_transition }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
+          DOCUMENT_CHANNEL_INTAKE_TRANSITION: ${{ inputs.document_channel_intake_transition }}
           SOURCE_REVISION: ${{ inputs.commit_sha }}
           SHAREPOINT_CONNECTOR_TRANSITION: ${{ inputs.sharepoint_connector_transition }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
@@ -202,7 +208,8 @@ jobs:
           if [[ "$DATABASE_HOST_BINDING" == "true" \
             && ( "$MIGRATE_STATE" == "true" \
               || "$INITIAL_CUTOVER" == "true" \
-              || "$OPERATOR_CHANNEL_EDGE_TRANSITION" != "none" ) ]]; then
+              || "$OPERATOR_CHANNEL_EDGE_TRANSITION" != "none" \
+              || "$DOCUMENT_CHANNEL_INTAKE_TRANSITION" != "none" ) ]]; then
             echo "Database host binding cannot be combined with state migration, initial cutover, or channel-edge transition." >&2
             exit 1
           fi
@@ -220,7 +227,8 @@ jobs:
             }
             [[ "$MIGRATE_STATE" != "true" \
               && "$INITIAL_CUTOVER" != "true" \
-              && "$OPERATOR_CHANNEL_EDGE_TRANSITION" == "none" ]] || {
+              && "$OPERATOR_CHANNEL_EDGE_TRANSITION" == "none" \
+              && "$DOCUMENT_CHANNEL_INTAKE_TRANSITION" == "none" ]] || {
               echo "Model binding transition can combine only with database host binding." >&2
               exit 1
             }
@@ -235,6 +243,7 @@ jobs:
               && "$DATABASE_HOST_BINDING" != "true" \
               && "$MODEL_BINDING_TRANSITION" != "true" \
               && "$OPERATOR_CHANNEL_EDGE_TRANSITION" == "none" \
+              && "$DOCUMENT_CHANNEL_INTAKE_TRANSITION" == "none" \
               && "$SHAREPOINT_CONNECTOR_TRANSITION" == "none" ]] || {
               echo "Core evidence binding transition must be applied independently." >&2
               exit 1
@@ -252,6 +261,7 @@ jobs:
               && "$MODEL_BINDING_TRANSITION" != "true" \
               && "$CORE_EVIDENCE_BINDINGS_TRANSITION" != "true" \
               && "$OPERATOR_CHANNEL_EDGE_TRANSITION" == "none" \
+              && "$DOCUMENT_CHANNEL_INTAKE_TRANSITION" == "none" \
               && "$SHAREPOINT_CONNECTOR_TRANSITION" == "none" ]] || {
               echo "Runtime-call evidence transition must be applied independently." >&2
               exit 1
@@ -267,6 +277,23 @@ jobs:
               exit 1
             }
           fi
+          if [[ "$DOCUMENT_CHANNEL_INTAKE_TRANSITION" != "none" ]]; then
+            [[ "${{ inputs.service }}" == "document-ingestion-api" ]] || {
+              echo "document channel-intake transitions are valid only for document-ingestion-api." >&2
+              exit 1
+            }
+            [[ "$MIGRATE_STATE" != "true" \
+              && "$INITIAL_CUTOVER" != "true" \
+              && "$DATABASE_HOST_BINDING" != "true" \
+              && "$MODEL_BINDING_TRANSITION" != "true" \
+              && "$CORE_EVIDENCE_BINDINGS_TRANSITION" != "true" \
+              && "$RUNTIME_CALL_EVIDENCE_TRANSITION" != "true" \
+              && "$OPERATOR_CHANNEL_EDGE_TRANSITION" == "none" \
+              && "$SHAREPOINT_CONNECTOR_TRANSITION" == "none" ]] || {
+              echo "document channel-intake transitions must be applied independently." >&2
+              exit 1
+            }
+          fi
           if [[ "$SHAREPOINT_CONNECTOR_TRANSITION" != "none" ]]; then
             [[ "${{ inputs.service }}" == "document-ingestion-api" ]] || {
               echo "SharePoint connector transitions are valid only for document-ingestion-api." >&2
@@ -276,7 +303,8 @@ jobs:
               && "$INITIAL_CUTOVER" != "true" \
               && "$DATABASE_HOST_BINDING" != "true" \
               && "$MODEL_BINDING_TRANSITION" != "true" \
-              && "$OPERATOR_CHANNEL_EDGE_TRANSITION" == "none" ]] || {
+              && "$OPERATOR_CHANNEL_EDGE_TRANSITION" == "none" \
+              && "$DOCUMENT_CHANNEL_INTAKE_TRANSITION" == "none" ]] || {
               echo "SharePoint connector transitions must be applied independently." >&2
               exit 1
             }
@@ -568,7 +596,9 @@ jobs:
           WEB_SEARCH_ENABLED: ${{ vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
           WEB_SEARCH_ALLOWED_DOMAINS_JSON: ${{ vars.OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}
           OPERATOR_CHANNEL_EDGE_PROVIDER_JSON: ${{ secrets.OPERATOR_CHANNEL_EDGE_PROVIDER_JSON }}
+          DOCUMENT_CHANNEL_INTAKE_JSON: ${{ secrets.DOCUMENT_CHANNEL_INTAKE_JSON }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
+          DOCUMENT_CHANNEL_INTAKE_TRANSITION: ${{ inputs.document_channel_intake_transition }}
         run: |
           set -euo pipefail
           [[ -n "$SERVICE_TFVARS_JSON" ]] || {
@@ -577,6 +607,7 @@ jobs:
           }
           resolved_model_args=()
           channel_edge_args=()
+          channel_intake_args=()
           current_channel_edge_id=""
           source_revision_binding=""
           if [[ "$SERVICE" == "core-control-plane" ]]; then
@@ -595,6 +626,19 @@ jobs:
                 )"
                 if [[ -n "$current_channel_edge_id" ]]; then
                   channel_edge_args+=(--operator-channel-edge-enabled true)
+                fi
+              fi
+              ;;
+          esac
+          case "$DOCUMENT_CHANNEL_INTAKE_TRANSITION" in
+            enable) channel_intake_args+=(--document-channel-intake-enabled true) ;;
+            disable) channel_intake_args+=(--document-channel-intake-enabled false) ;;
+            none)
+              if [[ "$SERVICE" == "document-ingestion-api" ]]; then
+                current_service="$(terraform -chdir="$TERRAFORM_ROOT" output -json channel_intake 2>/dev/null || printf 'null\n')"
+                current_channel_intake_id="$(jq -er '.id // ""' <<<"$current_service")"
+                if [[ -n "$current_channel_intake_id" ]]; then
+                  channel_intake_args+=(--document-channel-intake-enabled true)
                 fi
               fi
               ;;
@@ -876,6 +920,7 @@ jobs:
             | MODEL_ENDPOINTS_JSON="$model_endpoints_json" \
               OPERATOR_CHANNEL_EDGE_IDENTITY_JSON="$operator_channel_edge_identity_binding" \
               OPERATOR_CHANNEL_EDGE_PROVIDER_JSON="$OPERATOR_CHANNEL_EDGE_PROVIDER_JSON" \
+              DOCUMENT_CHANNEL_INTAKE_JSON="$DOCUMENT_CHANNEL_INTAKE_JSON" \
               STEWARDSHIP_GITOPS_JSON="$stewardship_gitops_binding" \
               DECISION_EVIDENCE_CONTAINER_URL="$decision_evidence_container_url" \
               RUNTIME_CALL_EVIDENCE_JSON="$runtime_call_evidence_binding" \
@@ -884,6 +929,7 @@ jobs:
                 --service "${{ inputs.service }}" \
                 --environment "${{ inputs.environment }}" \
                 "${channel_edge_args[@]}" \
+                "${channel_intake_args[@]}" \
                 "${resolved_model_args[@]}" \
                 --output "$RUNNER_TEMP/service.tfvars.json"
 
@@ -996,6 +1042,7 @@ jobs:
           RUNTIME_CALL_EVIDENCE_TRANSITION: ${{ inputs.runtime_call_evidence_transition }}
           MODEL_BINDING_TRANSITION: ${{ inputs.model_binding_transition }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
+          DOCUMENT_CHANNEL_INTAKE_TRANSITION: ${{ inputs.document_channel_intake_transition }}
           SHAREPOINT_CONNECTOR_TRANSITION: ${{ inputs.sharepoint_connector_transition }}
         run: |
           set -euo pipefail
@@ -1031,6 +1078,7 @@ jobs:
             --image-ref "$IMAGE_REF" \
             --source-revision "$SOURCE_REVISION" \
             --operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION" \
+            --document-channel-intake-transition "$DOCUMENT_CHANNEL_INTAKE_TRANSITION" \
             "${cutover_args[@]}" \
             "${database_args[@]}" \
             "${evidence_args[@]}" \
@@ -1061,6 +1109,7 @@ jobs:
           CORE_EVIDENCE_BINDINGS_TRANSITION: ${{ inputs.core_evidence_bindings_transition }}
           RUNTIME_CALL_EVIDENCE_TRANSITION: ${{ inputs.runtime_call_evidence_transition }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
+          DOCUMENT_CHANNEL_INTAKE_TRANSITION: ${{ inputs.document_channel_intake_transition }}
           SHAREPOINT_CONNECTOR_TRANSITION: ${{ inputs.sharepoint_connector_transition }}
         run: |
           set -euo pipefail
@@ -1105,6 +1154,7 @@ jobs:
             --resolved-models-digest "$RESOLVED_MODELS_DIGEST" \
             --attestation-signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" \
             --operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION" \
+            --document-channel-intake-transition "$DOCUMENT_CHANNEL_INTAKE_TRANSITION" \
             "${cutover_args[@]}" \
             "${database_args[@]}" \
             "${recovery_args[@]}" \
@@ -1142,7 +1192,7 @@ jobs:
             echo "### Protected service plan"
             echo "- Service: \`${{ inputs.service }}\`"
             echo "- Environment: \`${{ inputs.environment }}\`"
-            echo "- Deployment mode: \`${{ inputs.sharepoint_connector_transition != 'none' && format('sharepoint-connector-{0}', inputs.sharepoint_connector_transition) || inputs.database_host_binding && inputs.model_binding_transition && 'database-host-binding+model-binding' || inputs.model_binding_transition && 'model-binding' || inputs.database_host_binding && 'database-host-binding' || inputs.initial_cutover && 'initial-cutover' || inputs.operator_channel_edge_transition != 'none' && format('operator-channel-edge-{0}', inputs.operator_channel_edge_transition) || 'standard' }}\`"
+            echo "- Deployment mode: \`${{ inputs.document_channel_intake_transition != 'none' && format('document-channel-intake-{0}', inputs.document_channel_intake_transition) || inputs.sharepoint_connector_transition != 'none' && format('sharepoint-connector-{0}', inputs.sharepoint_connector_transition) || inputs.database_host_binding && inputs.model_binding_transition && 'database-host-binding+model-binding' || inputs.model_binding_transition && 'model-binding' || inputs.database_host_binding && 'database-host-binding' || inputs.initial_cutover && 'initial-cutover' || inputs.operator_channel_edge_transition != 'none' && format('operator-channel-edge-{0}', inputs.operator_channel_edge_transition) || 'standard' }}\`"
             echo "- Degraded recovery baseline: \`${{ inputs.degraded_recovery }}\`"
             echo "- Commit: \`${{ inputs.commit_sha }}\`"
             echo "- Plan run id: \`$GITHUB_RUN_ID\`"
@@ -1235,6 +1285,7 @@ jobs:
           CORE_EVIDENCE_BINDINGS_TRANSITION: ${{ inputs.core_evidence_bindings_transition }}
           RUNTIME_CALL_EVIDENCE_TRANSITION: ${{ inputs.runtime_call_evidence_transition }}
           OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
+          DOCUMENT_CHANNEL_INTAKE_TRANSITION: ${{ inputs.document_channel_intake_transition }}
           SHAREPOINT_CONNECTOR_TRANSITION: ${{ inputs.sharepoint_connector_transition }}
         run: |
           set -euo pipefail
@@ -1282,6 +1333,7 @@ jobs:
             --resolved-models-digest "$RESOLVED_MODELS_DIGEST" \
             --attestation-signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" \
             --operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION" \
+            --document-channel-intake-transition "$DOCUMENT_CHANNEL_INTAKE_TRANSITION" \
             "${cutover_args[@]}" \
             "${database_args[@]}" \
             "${recovery_args[@]}" \
@@ -1302,6 +1354,7 @@ jobs:
             --image-ref "$IMAGE_REF" \
             --source-revision "$SOURCE_REVISION" \
             --operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION" \
+            --document-channel-intake-transition "$DOCUMENT_CHANNEL_INTAKE_TRANSITION" \
             "${cutover_args[@]}" \
             "${database_args[@]}" \
             "${evidence_args[@]}" \
@@ -1426,6 +1479,23 @@ jobs:
                 --operator-channel-edge-enabled false \
                 --output "$RUNNER_TEMP/service-edge-disabled.tfvars.json"
 
+      - name: Prepare disabled document channel-intake rollback inputs
+        if: ${{ inputs.apply && inputs.document_channel_intake_transition == 'enable' }}
+        env:
+          SERVICE_TFVARS_JSON: ${{ secrets.SERVICE_DEPLOY_TFVARS_JSON }}
+        run: |
+          set -euo pipefail
+          [[ -n "$SERVICE_TFVARS_JSON" ]] || {
+            echo "SERVICE_DEPLOY_TFVARS_JSON is required for channel-intake rollback." >&2
+            exit 1
+          }
+          printf '%s' "$SERVICE_TFVARS_JSON" \
+            | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
+                --service document-ingestion-api \
+                --environment "${{ inputs.environment }}" \
+                --document-channel-intake-enabled false \
+                --output "$RUNNER_TEMP/service-intake-disabled.tfvars.json"
+
       - name: Upload service migration adoption evidence
         if: ${{ always() && steps.protected-source.outcome == 'success' && inputs.apply && inputs.initial_cutover }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -1517,6 +1587,23 @@ jobs:
               exit 1
             fi
             echo "PREVIOUS_CHANNEL_EDGE_REVISION=$previous_edge_revision" >> "$GITHUB_ENV"
+          fi
+          intake_resource_id="$(jq -r '.document_channel_intake.service_resource_id // ""' \
+            "$bundle/service-context.json")"
+          if [[ -n "$intake_resource_id" ]]; then
+            if timeout 60s az containerapp show \
+              --ids "$intake_resource_id" \
+              --only-show-errors \
+              --output json >"$rollback_dir/intake-app.json"; then
+              previous_intake_revision="$(jq -er '.properties.latestRevisionName' \
+                "$rollback_dir/intake-app.json")"
+            elif [[ "${{ inputs.document_channel_intake_transition }}" == "enable" ]]; then
+              previous_intake_revision="absent"
+            else
+              echo "planned document channel intake is missing before a non-enable transition." >&2
+              exit 1
+            fi
+            echo "PREVIOUS_CHANNEL_INTAKE_REVISION=$previous_intake_revision" >> "$GITHUB_ENV"
           fi
 
       - name: Apply exact protected service plan
@@ -1742,6 +1829,50 @@ jobs:
             exit 1
           fi
 
+      - name: Remove failed newly enabled document channel intake
+        if: ${{ inputs.apply && inputs.document_channel_intake_transition == 'enable' && (steps.apply.outcome == 'failure' || steps.health.outcome == 'failure') }}
+        id: intake_rollback
+        continue-on-error: true
+        env:
+          IMAGE_REF: ${{ inputs.image_ref }}
+        run: |
+          set -euo pipefail
+          rollback_dir="$RUNNER_TEMP/service-rollback"
+          intake_resource_id="$(jq -er '.document_channel_intake.service_resource_id' \
+            "$RUNNER_TEMP/service-plan-bundle/service-context.json")"
+          if ! timeout 60s az containerapp show \
+              --ids "$intake_resource_id" \
+              --only-show-errors \
+              --output none 2>/dev/null; then
+            echo "document channel intake was absent after failed enable; no cleanup was needed."
+            exit 0
+          fi
+          terraform -chdir="$TERRAFORM_ROOT" plan \
+            -input=false \
+            -lock-timeout=5m \
+            -out="$rollback_dir/intake-disable.plan" \
+            -var-file="$RUNNER_TEMP/service-intake-disabled.tfvars.json" \
+            -var="image=$IMAGE_REF"
+          terraform -chdir="$TERRAFORM_ROOT" show \
+            -json "$rollback_dir/intake-disable.plan" >"$rollback_dir/intake-disable-plan.json"
+          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/guard_plan.py" \
+            --plan-json "$rollback_dir/intake-disable-plan.json" \
+            --service document-ingestion-api \
+            --environment "${{ inputs.environment }}" \
+            --image-ref "$IMAGE_REF" \
+            --document-channel-intake-transition disable
+          terraform -chdir="$TERRAFORM_ROOT" apply \
+            -input=false \
+            -lock-timeout=5m \
+            "$rollback_dir/intake-disable.plan"
+          if timeout 60s az containerapp show \
+              --ids "$intake_resource_id" \
+              --only-show-errors \
+              --output none 2>/dev/null; then
+            echo "document channel intake still exists after automatic cleanup." >&2
+            exit 1
+          fi
+
       - name: Roll back unhealthy service revision
         if: ${{ inputs.apply && (steps.apply.outcome == 'failure' || steps.health.outcome == 'failure') }}
         id: rollback
@@ -1918,6 +2049,11 @@ jobs:
             echo "service apply or post-apply health failed; automatic channel-edge removal was not verified and operator recovery is required." >&2
             exit 1
           fi
+          if [[ "${{ inputs.document_channel_intake_transition }}" == "enable" \
+            && "${{ steps.intake_rollback.outcome }}" != "success" ]]; then
+            echo "service apply or post-apply health failed; automatic channel-intake removal was not verified and operator recovery is required." >&2
+            exit 1
+          fi
           if jq -e '.platform_rollback_required == true' "$rollback_dir/snapshot.json" >/dev/null; then
             echo "service apply or post-apply health failed; the previous image was restored and verified, but authority was unchanged; a protected platform rollback is required before Core authority can be claimed." >&2
           else
@@ -1942,6 +2078,7 @@ jobs:
             "$RUNNER_TEMP/service-plan-metadata.json" \
             "$RUNNER_TEMP/replayed-service-plan.json" \
             "$RUNNER_TEMP/service-edge-disabled.tfvars.json" \
+            "$RUNNER_TEMP/service-intake-disabled.tfvars.json" \
             "$RUNNER_TEMP/legacy-service-state.json" \
             "$RUNNER_TEMP/independent-service-state.json"
           rm -rf "$RUNNER_TEMP/service-plan-bundle" "$RUNNER_TEMP/service-deploy-azure"

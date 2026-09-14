@@ -55,6 +55,7 @@ from fdai_service_contracts import (
     RuleSearchRequest,
     SemanticAssuranceObservation,
     SemanticDirectResponseIntent,
+    SemanticDocumentContext,
     SemanticInvestigationContinuation,
     SemanticPlanningProfile,
     SemanticRoute,
@@ -80,7 +81,8 @@ from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V13,
     OPERATOR_PROJECTION_PRODUCER_V14,
     OPERATOR_PROJECTION_PRODUCER_V16,
-    OPERATOR_REQUEST_CONSUMER_V17,
+    OPERATOR_PROJECTION_PRODUCER_V17,
+    OPERATOR_REQUEST_CONSUMER_V18,
 )
 from .semantic_assurance_projection import project_semantic_assurance
 from .semantic_presentation_semantics import project_presentation_semantics
@@ -185,6 +187,7 @@ class SemanticTurnRuntime(Protocol):
         bound_resource_context: BoundResourceContext | None = None,
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
+        document_context: SemanticDocumentContext | None = None,
     ) -> RuntimeSemanticTurnResult: ...
 
 
@@ -744,6 +747,8 @@ class SemanticTurnProcessor:
             runtime_kwargs["escalation_policy"] = escalation_policy
         if request.conversation_model_tier is not None:
             runtime_kwargs["conversation_model_tier"] = request.conversation_model_tier
+        if request.document_context is not None:
+            runtime_kwargs["document_context"] = request.document_context
         return await runtime.handle(
             utterance=request.utterance,
             prior_turns=_prior_turns(request, requested_at=requested_at),
@@ -855,6 +860,15 @@ class SemanticTurnProcessor:
         extensions: _SemanticProjectionExtensions | None,
         request_digest: str,
     ) -> bytes:
+        expected_context_digest = (
+            request.document_context.context_digest
+            if request.document_context is not None
+            else None
+        )
+        if result.document_context_digest not in {None, expected_context_digest}:
+            raise ValueError("semantic result document context digest does not match request")
+        if result.document_context_digest != expected_context_digest:
+            result = result.model_copy(update={"document_context_digest": expected_context_digest})
         semantic_result = result.model_dump(mode="json", exclude_none=True)
         evidence_digest = content_digest(semantic_result)
         projection_time = _aware_utc(self._now(), field="semantic processor clock")
@@ -895,7 +909,13 @@ class SemanticTurnProcessor:
                     mode="json"
                 )
         projection = {
-            "schema_version": ("1.6.0" if result.adaptive_answer is not None else "1.4.0"),
+            "schema_version": (
+                "1.7.0"
+                if request.document_context is not None
+                else "1.6.0"
+                if result.adaptive_answer is not None
+                else "1.4.0"
+            ),
             "request_id": envelope["request_id"],
             "correlation_id": envelope["correlation_id"],
             "idempotency_key": envelope["idempotency_key"],
@@ -923,7 +943,9 @@ class SemanticTurnProcessor:
             if encoded_size > MAX_WIRE_BYTES:
                 raise _OperationalEvidenceWireBudgetExceededError
         codec = (
-            OPERATOR_PROJECTION_PRODUCER_V16
+            OPERATOR_PROJECTION_PRODUCER_V17
+            if projection["schema_version"] == "1.7.0"
+            else OPERATOR_PROJECTION_PRODUCER_V16
             if projection["schema_version"] == "1.6.0"
             else OPERATOR_PROJECTION_PRODUCER_V14
         )
@@ -1039,7 +1061,7 @@ def _decode_request(
     payload: Mapping[str, Any],
 ) -> tuple[dict[str, Any], SemanticTurnRequest, datetime]:
     try:
-        envelope = OPERATOR_REQUEST_CONSUMER_V17.decode_mapping(payload)
+        envelope = OPERATOR_REQUEST_CONSUMER_V18.decode_mapping(payload)
         if envelope.get("request_kind") != "semantic_query":
             raise SemanticTurnRejectedError("semantic_request_kind_required")
         semantic_turn = envelope.get("semantic_turn")
@@ -1361,6 +1383,20 @@ def _project_runtime_result(
         return _evidence_incomplete(
             request,
             "too_many_evidence_refs",
+            result=result,
+        ), model_extensions
+    document_citations = frozenset(
+        evidence_ref for evidence_ref in evidence_refs if evidence_ref.startswith("doc:")
+    )
+    expected_document_citations = (
+        frozenset(request.document_context.citations)
+        if request.document_context is not None
+        else frozenset()
+    )
+    if document_citations != expected_document_citations:
+        return _evidence_incomplete(
+            request,
+            "document_context_evidence_mismatch",
             result=result,
         ), model_extensions
     execution_receipt_digest = _execution_receipt_digest(execution)
@@ -6145,6 +6181,8 @@ def _canonical_projection(encoded: bytes, *, request_digest: str) -> bytes:
         return OPERATOR_PROJECTION_PRODUCER_V13.encode(loaded)
     if loaded.get("schema_version") == "1.6.0":
         return OPERATOR_PROJECTION_PRODUCER_V16.encode(loaded)
+    if loaded.get("schema_version") == "1.7.0":
+        return OPERATOR_PROJECTION_PRODUCER_V17.encode(loaded)
     return OPERATOR_PROJECTION_PRODUCER_V14.encode(loaded)
 
 

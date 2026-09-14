@@ -54,6 +54,52 @@ SELECT doc_id, chunk_id, text, source_ref, metadata, score
  LIMIT %s
 """
 
+_EXACT_SEARCH_SQL = """
+WITH inputs AS (
+        SELECT websearch_to_tsquery('simple', %s) AS query
+),
+exact_refs AS (
+        SELECT document_id, version_id
+            FROM jsonb_to_recordset(%s::jsonb) AS ref(document_id text, version_id text)
+),
+authorized AS MATERIALIZED (
+        SELECT chunk.doc_id,
+                     chunk.chunk_id,
+                     chunk.text,
+                     chunk.source_ref,
+                     chunk.metadata,
+                     ts_rank_cd(to_tsvector('simple', chunk.text), inputs.query) AS score
+            FROM knowledge_chunk AS chunk
+            JOIN exact_refs AS ref
+                ON chunk.metadata->>'document_id' = ref.document_id
+             AND chunk.metadata->>'version_id' = ref.version_id
+            CROSS JOIN inputs
+         WHERE chunk.metadata->>'governed_document' = 'true'
+             AND (
+                    (
+                        %s = 'channel_attachment'
+                        AND chunk.metadata->>'disposition' = 'session_ephemeral'
+                        AND chunk.metadata->>'scope_kind' = 'conversation'
+                        AND chunk.metadata->>'scope_ref' = %s
+                    )
+                    OR
+                    (
+                        %s = 'web_reference'
+                        AND chunk.metadata->>'disposition' = 'governed_knowledge'
+                        AND chunk.metadata->>'scope_kind' = 'collection'
+                        AND chunk.metadata->>'scope_ref'
+                            = chunk.metadata->>'collection_id'
+                    )
+               )
+             AND chunk.metadata->>'retention_state' = 'live'
+             AND to_tsvector('simple', chunk.text) @@ inputs.query
+)
+SELECT doc_id, chunk_id, text, source_ref, metadata, score
+    FROM authorized
+ ORDER BY score DESC, doc_id ASC, chunk_id ASC
+ LIMIT %s
+"""
+
 
 @dataclass(frozen=True, slots=True)
 class PostgresGovernedDocumentReadConfig:
@@ -128,6 +174,45 @@ class PostgresGovernedDocumentReadStore:
             limitation="index_completeness_unverified",
         )
 
+    async def search_governed_exact(
+        self,
+        query: str,
+        *,
+        exact_refs: tuple[tuple[UUID, UUID], ...],
+        context_source: str,
+        conversation_ref: str,
+        k: int = 5,
+    ) -> GovernedDocumentSearchResult:
+        """Search only exact, source-scoped revisions from an active index."""
+
+        hits, snapshot = await self._search_exact_snapshot(
+            query,
+            exact_refs=exact_refs,
+            context_source=context_source,
+            conversation_ref=conversation_ref,
+            k=k,
+        )
+        identity = json.dumps(
+            {
+                "snapshot": snapshot,
+                "context_source": context_source,
+                "conversation_ref": conversation_ref,
+                "exact_refs": [
+                    {"document_id": str(document_id), "version_id": str(version_id)}
+                    for document_id, version_id in exact_refs
+                ],
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        generation = hashlib.sha256(identity.encode()).hexdigest()
+        return GovernedDocumentSearchResult(
+            hits=hits,
+            index_generation=f"postgres-document-index:sha256:{generation}",
+            complete=True,
+            limitation=None,
+        )
+
     async def _search_snapshot(
         self,
         query: str,
@@ -173,8 +258,80 @@ class PostgresGovernedDocumentReadStore:
         )
         return hits, snapshot_row["snapshot"]
 
+    async def _search_exact_snapshot(
+        self,
+        query: str,
+        *,
+        exact_refs: tuple[tuple[UUID, UUID], ...],
+        context_source: str,
+        conversation_ref: str,
+        k: int,
+    ) -> tuple[tuple[KnowledgeChunk, ...], str]:
+        if (
+            not query.strip()
+            or len(query) > 20_000
+            or not 1 <= len(exact_refs) <= 8
+            or len(exact_refs) != len(set(exact_refs))
+            or context_source not in {"channel_attachment", "web_reference"}
+            or not conversation_ref.strip()
+            or len(conversation_ref) > 256
+            or not 1 <= k <= 20
+        ):
+            raise ValueError("exact governed document search inputs are invalid")
+        exact_payload = json.dumps(
+            [
+                {"document_id": str(document_id), "version_id": str(version_id)}
+                for document_id, version_id in exact_refs
+            ],
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        async with await self._connect() as connection:
+            await connection.set_isolation_level(IsolationLevel.REPEATABLE_READ)
+            await connection.set_read_only(True)
+            await self._set_timeout(connection)
+            snapshot_row = await (
+                await connection.execute("SELECT txid_current_snapshot()::text AS snapshot")
+            ).fetchone()
+            if snapshot_row is None or not isinstance(snapshot_row.get("snapshot"), str):
+                raise RuntimeError("governed document index snapshot is unavailable")
+            cursor = await connection.execute(
+                _EXACT_SEARCH_SQL,
+                (
+                    query,
+                    exact_payload,
+                    context_source,
+                    conversation_ref,
+                    context_source,
+                    k,
+                ),
+            )
+            rows = await cursor.fetchall()
+        hits = tuple(
+            KnowledgeChunk(
+                doc_id=str(row["doc_id"]),
+                chunk_id=str(row["chunk_id"]),
+                text=str(row["text"]),
+                source_ref=str(row["source_ref"]),
+                metadata=_json_object(row["metadata"]),
+                score=float(row["score"]),
+            )
+            for row in rows
+        )
+        return hits, snapshot_row["snapshot"]
+
     async def get_version(self, document_id: UUID, version_id: UUID) -> DocumentVersion:
         """Return one immutable version payload or a uniform not-found result."""
+
+        current = await self.get_current_version(document_id, version_id)
+        return _project_governed_document_version(current)
+
+    async def get_current_version(
+        self,
+        document_id: UUID,
+        version_id: UUID,
+    ) -> ServiceDocumentVersion:
+        """Return the full current service contract for exact-scope reauthorization."""
 
         async with await self._connect() as connection:
             await connection.set_isolation_level(IsolationLevel.REPEATABLE_READ)
@@ -187,7 +344,7 @@ class PostgresGovernedDocumentReadStore:
             row = await cursor.fetchone()
         if row is None:
             raise DocumentNotFoundError("document version was not found")
-        return _document_version(row["payload"])
+        return ServiceDocumentVersion.model_validate(_json_object(row["payload"]))
 
     async def authorize_read(
         self,
@@ -234,6 +391,14 @@ def _document_version(value: object) -> DocumentVersion:
     """Decode the current service contract, then project the legacy Core view."""
 
     current = ServiceDocumentVersion.model_validate(_json_object(value))
+    return _project_governed_document_version(current)
+
+
+def _project_governed_document_version(
+    current: ServiceDocumentVersion,
+) -> DocumentVersion:
+    """Project only active governed knowledge into the legacy Core contract."""
+
     if (
         current.disposition is not DocumentDisposition.GOVERNED_KNOWLEDGE
         or current.index_state is not DocumentIndexState.ACTIVE

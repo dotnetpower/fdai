@@ -54,6 +54,10 @@ from fdai_operator_service.families.conversation import ConversationFamilyDepend
 from fdai_operator_service.families.conversation.document_export import (
     ConversationDocumentExporter,
 )
+from fdai_operator_service.families.conversation.postgres_document_refs import (
+    PostgresDocumentContextResolver,
+    PostgresDocumentContextResolverConfig,
+)
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
 from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SEMANTIC_REQUEST_TOPIC,
@@ -594,6 +598,13 @@ def _build_route_families(
             projections=semantic_adapters or conversation,
             outbox=semantic_adapters or postgres_conversation,
             streams=semantic_adapters or conversation,
+            document_context_resolver=PostgresDocumentContextResolver(
+                PostgresDocumentContextResolverConfig(
+                    dsn=database_url,
+                    statement_timeout_ms=environment.database_statement_timeout_ms,
+                    connect_timeout_s=environment.database_connect_timeout_s,
+                )
+            ),
         ),
         iam=build_postgres_iam_bindings(
             environment=environment,
