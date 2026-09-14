@@ -29,6 +29,11 @@ import httpx
 
 from fdai.composition import attach_metric_provider, default_container_from_env
 from fdai.core.investigation import InvestigationCoordinator, default_analyzers
+from fdai.delivery.analyzer_inventory import (
+    AnalyzerInventorySources,
+    build_analyzer_inventory_sources,
+)
+from fdai.delivery.analyzer_metric_provider import AnalyzerMetricProvider
 from fdai.delivery.analyzer_receipt_store import (
     StateStoreAnalyzerReceiptStore,
 )
@@ -40,6 +45,7 @@ from fdai.delivery.analyzer_targets import (
     resolve_analyzer_targets,
 )
 from fdai.delivery.analyzer_tick import (
+    DEFAULT_PUBLICATION_WINDOW_SECONDS,
     DEFAULT_WINDOW_SECONDS,
     AnalyzerTarget,
     AnalyzerTickReport,
@@ -59,8 +65,6 @@ from fdai.delivery.azure.trace_continuity import (
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.detection_lifecycle_state import DetectionLifecycleRecorder
 from fdai.delivery.persistence import (
-    PostgresOntologyInstanceStore,
-    PostgresOntologyInstanceStoreConfig,
     PostgresStateStore,
     PostgresStateStoreConfig,
     StateStoreDecisionEvidenceAdmissionProvider,
@@ -73,12 +77,10 @@ from fdai.delivery.pod_evidence_binding import (
     POD_EVIDENCE_ENV,
     build_pod_lifecycle_evidence_source,
 )
-from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.trace_continuity_tick import (
     TraceContinuityTickReport,
     TraceContinuityTickRunner,
 )
-from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.runtime.venue import (
     ExecutionVenue,
     bus_security_protocol,
@@ -86,12 +88,10 @@ from fdai.runtime.venue import (
     uses_developer_identity,
     uses_workload_identity,
 )
-from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.metric import MetricProvider
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.analyzer_tick")
-_REPO_ROOT = repo_asset_root()
 
 TARGETS_ENV = "FDAI_ANALYZER_TARGETS"
 WINDOW_ENV = "FDAI_ANALYZER_WINDOW_SECONDS"
@@ -407,29 +407,10 @@ def resolve_scheduling_mode(raw: str) -> str:
     return mode
 
 
-def build_inventory_projection() -> PostgresOntologyInstanceStore | None:
-    """Bind the durable inventory projection when its database is configured.
+def build_inventory_sources() -> AnalyzerInventorySources | None:
+    """Bind logical and provider-native inventory views from one DSN."""
 
-    Returns ``None`` when the deployment supplies no inventory DSN, which keeps
-    the tick a configured-target-only pass instead of failing a deployment that
-    never provisioned the projection.
-    """
-    dsn = os.environ.get(INVENTORY_DSN_ENV, "").strip()
-    if not dsn:
-        return None
-    catalog_root = _REPO_ROOT / "rule-catalog"
-    catalog = load_ontology_catalog(
-        catalog_root,
-        schema_registry=PackageResourceSchemaRegistry(),
-        probes_root=catalog_root / "probes",
-    )
-    return PostgresOntologyInstanceStore(
-        config=PostgresOntologyInstanceStoreConfig(
-            dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
-        ),
-        object_types=catalog.object_types,
-        link_types=catalog.link_types,
-    )
+    return build_analyzer_inventory_sources(os.environ.get(INVENTORY_DSN_ENV, ""))
 
 
 def build_publication_ledger() -> PostgresAnalyzerPublicationLedger:
@@ -503,7 +484,11 @@ def build_decision_evidence_admission_provider() -> (
     )
 
 
-def build_analyzer_coordinator(metric_provider: MetricProvider) -> InvestigationCoordinator:
+def build_analyzer_coordinator(
+    metric_provider: MetricProvider,
+    *,
+    targets: tuple[AnalyzerTarget, ...],
+) -> InvestigationCoordinator:
     """Compose every production analyzer this venue can actually ground.
 
     The Pod lifecycle analyzer joins the pantheon only when this venue declares
@@ -512,9 +497,14 @@ def build_analyzer_coordinator(metric_provider: MetricProvider) -> Investigation
     would have to invent the completeness its receipt claims.
     """
 
+    analyzer_provider = AnalyzerMetricProvider(
+        metric_provider,
+        targets=targets,
+        normalize_provider_ref=str.casefold,
+    )
     return InvestigationCoordinator(
         analyzers=default_analyzers(
-            metric_provider,
+            analyzer_provider,
             pod_lifecycle_evidence=build_pod_lifecycle_evidence_source(),
         )
     )
@@ -532,12 +522,14 @@ async def run_once() -> AnalyzerJobReport:
     )
     max_discovered = parse_max_discovered(os.environ.get(MAX_DISCOVERED_ENV, ""))
 
+    inventory = build_inventory_sources()
     resolution = await resolve_analyzer_targets(
         configured=configured,
-        store=build_inventory_projection(),
+        store=inventory.projection if inventory is not None else None,
         now=datetime.now(tz=UTC),
         max_discovered=max_discovered,
         decision_evidence=build_decision_evidence_admission_provider(),
+        provider_references=(inventory.provider_references if inventory is not None else None),
     )
     _LOGGER.info("analyzer_tick_targets_resolved", extra=resolution.to_dict())
     targets = resolution.targets
@@ -579,11 +571,15 @@ async def run_once() -> AnalyzerJobReport:
         try:
             if targets:
                 analyzer_report = await AnalyzerTickRunner(
-                    coordinator=build_analyzer_coordinator(container.metric_provider),
+                    coordinator=build_analyzer_coordinator(
+                        container.metric_provider,
+                        targets=targets,
+                    ),
                     event_bus=bus,
                     publication_ledger=build_publication_ledger(),
                     receipt_store=build_receipt_store(),
                     window_seconds=window_seconds,
+                    publication_window_seconds=DEFAULT_PUBLICATION_WINDOW_SECONDS,
                     topic=topic,
                 ).run_once(targets)
                 await build_lifecycle_recorder().record_report(

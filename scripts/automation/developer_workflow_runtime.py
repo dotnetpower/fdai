@@ -31,6 +31,7 @@ LOCAL_SERVICE_ENDPOINTS = (
     ("isolated-executor", "http://127.0.0.1:8013/ready"),
 )
 LOCAL_LOOP_SERVICES = (
+    ("local-analyzer", "fdai.delivery.analyzer_tick_cli"),
     ("inventory-reconciliation", "fdai.delivery.inventory_sync_cli"),
     ("observation-campaign", "fdai.delivery.observation_campaign_cli"),
 )

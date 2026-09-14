@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 0ffd42f0362097cfa6988971d71c071b31929f8f
-translation_revised: 2026-09-11
+translation_source_sha: 8894b5d655cfc07a9e9a3736b3e4a4e74c7e9281
+translation_revised: 2026-09-14
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -63,6 +63,17 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
   에스컬레이션은 deduplicated A2 수명 주기 notice를 발행합니다.
   Direct 후보 텍스트와 근거 키는 512자로 제한되고 후보 하나는 근거 키를 최대 100개
   포함하며 oversized 입력은 수명 주기 또는 감사 쓰기 전에 보류됩니다.
+- Analyzer finding은 원시 인벤토리 변경이 아니라 이미 범위가 제한된 detector 출력입니다.
+  배포된 1분 Job과 관리되는 로컬 analyzer loop는 리소스, 신호, 1분 관측 버킷마다 Event를
+  최대 하나만 게시합니다. 이 Event는 리소스와 신호에서 만든 불투명한 상관관계 신원을
+  공유하고 `incident_correlation=correlate`를 선언합니다. 5분 분석 구간은 게시 멱등성과
+  분리되므로 서로 다른 관측 5건이 기존 `300초 동안 Event 5건` 반복 게이트를 충족할 수
+  있습니다. 정확한 재시도는 같은 키를 유지하고 기존 최소 심각도 정책은 기본적으로
+  `medium` 이하 발견된 문제를 계속 보류합니다. 인벤토리 기반 대상은 온톨로지 `Resource.id`를
+  분석기와 Event 신원으로 유지합니다. 전달 경계에서 틱은 활성 인벤토리 스냅샷의 정확한
+  `provider_ref`를 읽고 메트릭 조회의 `resource_id` 레이블만 바꿉니다. 공급자 참조가 없거나
+  일치하지 않거나 모호하면 틱이 실패합니다. 공급자 참조는 발견된 문제(Finding), 증적 또는
+  Incident에 포함되지 않습니다.
 - Heimdall은 retained repeated-event 에피소드를 global 및 리소스별로 제한합니다. 한 리소스의
   상관관계 flood는 다른 리소스의 partially accumulated 근거보다 해당 리소스의 가장 오래된
   에피소드를 먼저 축출합니다.
@@ -512,8 +523,9 @@ telemetry / metrics
 스케줄러 전달 경로는 정본 멱등 Event를 구성된 Event Hubs 유입 토픽에 게시합니다.
 분석기 Terraform 작업은 `fdai.delivery.analyzer_tick_cli`를 호출하며, 이 진입점은 구성된 대상
 목록과 영속 인벤토리 projection에서 대상을 해석하고 조립된 `MetricProvider`로 참조 분석기를
-실행한 뒤 리소스, 신호, tick 창에서 파생된
-키로 발견 건마다 정본 Event 하나를 게시합니다. 인벤토리 기반 해석은 읽기 전용이며 실패 시
+실행한 뒤 리소스, 신호, finding 관측의 1분 게시 버킷에서 파생된 키로 발견 건마다 정본 Event
+하나를 게시합니다. 기본 5분 분석 구간은 재시도에 안정적인 게시 신원과 독립적입니다.
+인벤토리 기반 해석은 읽기 전용이며 실패 시
 `fdai-incident-evidence-query` 유지관리 진입점은 service 소유 store를 통해 영속 Incident audit를
 읽고 범위가 제한된 correlation prefix 하나에 대한 transition 수, 고유 Incident 수, 최대 member 수,
 kind 집계만 반환합니다. Incident ID, member ID, payload 또는 database 구성은 반환하지 않습니다. 인벤토리 기반 해석은 읽기 전용이며 실패 시
@@ -527,8 +539,12 @@ kind 집계만 반환합니다. Incident ID, member ID, payload 또는 database 
 `state` 사실이 없는 metadata collection은 신원 및 유형 전용 열거 경로를 따릅니다. 이 읽기 전용
 선택은 상태를 주장하거나 권한을 부여하지 않습니다. 존재하는 generic `state`에는 admission이 계속
 필요하며 형식이 잘못되면 사용할 수 없습니다. 상태 사실 없이 투영된 리소스도 같은 열거 경로를
-따릅니다. 발견된 대상 수는 상한이 있고 순서는 결정론적입니다. 이 작업들은 변경을 실행하지
-않으며, 발견된 문제와 예정 작업은 공유 trust router 및 안전성 검토에 다시 진입합니다.
+따릅니다. 발견된 대상 수는 상한이 있고 순서는 결정론적입니다. 해석기는 검토된 분석기 Resource
+유형을 저장소 쿼리 필터로 적용하고, 구성된 분석 가능 대상 상한을 적용하기 전에 지원되는
+Resource를 최대 1,000개 읽습니다. 관련 없는 인벤토리 레코드는 조회 구간이나 대상 슬롯을
+차지할 수 없습니다. 지원 Resource 구간 자체가 잘린 상태는 명시적으로 유지합니다. 이 작업들은
+변경을 실행하지 않으며, 발견된 문제와 예정 작업은
+공유 trust router 및 안전성 검토에 다시 진입합니다.
 게시 실패 시 예약 항목은 재시도 가능 상태로 유지되고 작업 결과는 0이 아닌 값입니다.
 추적 상태와 재시도에도 유지되는 명시적 실행 신원 또는 Container Apps 작업 실행 신원이 구성된
 경우 완료된 각 실행은 대상 해석 수, 발견된 문제의 발행, 추적 연속성 결과, 준비 상태를 포함한
@@ -567,7 +583,7 @@ stale snapshot, cursor lag, 대체 경로 spike, 범위 loss, 공급자 압력�
 |------|------------------|
 | 신호 클래스별 이상 방식 | 정상성이 있는 안정성 및 보안 활동 신호는 z-score를 사용합니다. 주기적인 안정성 및 비용 신호는 명시적인 위상을 가진 seasonal z-score를 사용합니다. |
 | 예측 계열과 기간 | 현재 대상은 모두 구현된 선형 추세 계열을 사용합니다. 용량은 24시간, 복제 지연은 1시간, 비용은 7일, 만료는 30일을 사용합니다. |
-| 상관관계 | 정확한 `correlation_id` 및 `resource_ref` 키를 T1보다 먼저 사용합니다. 일반 창은 60초, 추적 및 반복 창은 300초이며, fuzzy T1에는 `0.85` 이상의 유사도와 공유 근거 필드 2개가 필요합니다. |
+| 상관관계 | 정확한 `correlation_id` 및 `resource_ref` 키를 T1보다 먼저 사용합니다. Analyzer finding 게시에는 재시도에도 안정적인 60초 신원을 사용하고 추적 및 반복 구간은 300초입니다. Fuzzy T1에는 `0.85` 이상의 유사도와 공유 근거 필드 2개가 필요합니다. |
 | 콜드 스타트 | 정상성이 있는 클래스에는 기준선 샘플 30개, 계절 클래스에는 같은 위상의 샘플 10개가 필요합니다. 예측에는 샘플 5개와 `R-squared >= 0.5`가 필요합니다. |
 | 백테스트 및 승격 | 최소 14일의 관찰 모드와 점수화 가능한 에피소드 30개를 확보한 뒤 매주 평가합니다. 정밀도와 재현율은 각각 `0.8` 이상이어야 하고, 90% 구간 포괄률은 `[0.85, 0.95]`, 중앙값 선행 시간은 300초 이상, 판단 보류율은 `0.2` 이하, 정책 이탈은 0건이어야 합니다. |
 | 변경 창 | 완전한 근거가 있는 정확한 범위의 활성 창은 발견된 문제에 주석을 남기고 Incident 승격을 보류합니다. 누락되거나 오래되었거나 불완전하거나 일치하지 않는 창 근거는 발견된 문제를 억제할 수 없습니다. |

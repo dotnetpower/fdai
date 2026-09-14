@@ -344,11 +344,21 @@ async def _async_report(report: AnalyzerJobReport) -> AnalyzerJobReport:
 
 def test_vscode_task_reuses_the_deployed_analyzer_cli() -> None:
     tasks = (_REPO_ROOT / ".vscode/tasks.json").read_text(encoding="utf-8")
-    script = (_REPO_ROOT / "scripts/deployment/local/run-analyzer-loop.sh").read_text(
+    launcher = (_REPO_ROOT / "scripts/deployment/local/run-console-service.sh").read_text(
         encoding="utf-8"
     )
+    supervisor = (_REPO_ROOT / "scripts/deployment/local/start-console-services.sh").read_text(
+        encoding="utf-8"
+    )
+    compatibility_launcher = (
+        _REPO_ROOT / "scripts/deployment/local/run-analyzer-loop.sh"
+    ).read_text(encoding="utf-8")
 
     assert '"label": "analyzer: run continuously (local)"' in tasks
     assert "console: prepare full stack" in tasks
-    assert "fdai.delivery.analyzer_tick_cli --loop" in script
-    assert ".fdai/local-runtime.env" in script
+    assert (
+        "bash scripts/deployment/local/run-console-service.sh local-analyzer --wait-ready" in tasks
+    )
+    assert "fdai.delivery.analyzer_tick_cli --loop" in launcher
+    assert "  local-analyzer\n" in supervisor
+    assert 'run-console-service.sh" local-analyzer' in compatibility_launcher

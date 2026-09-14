@@ -403,14 +403,15 @@ def test_local_services_report_each_unavailable_owner(tmp_path: Path) -> None:
         inventory_probe=lambda _root: True,
         process_records=[
             (repo, [".venv/bin/python", "-m", "fdai"]),
+            (repo, [".venv/bin/python", "-m", "fdai.delivery.analyzer_tick_cli", "--loop"]),
             (repo, [".venv/bin/python", "-m", "fdai.delivery.inventory_sync_cli", "--loop"]),
             (repo, [".venv/bin/python", "-m", "fdai.delivery.observation_campaign_cli", "--loop"]),
         ],
     )
 
     assert result["status"] == "warning"
-    assert result["service_count"] == 10
-    assert result["ready_count"] == 8
+    assert result["service_count"] == 11
+    assert result["ready_count"] == 9
     assert result["unavailable_services"] == [
         "document-ingestion-api",
         "isolated-executor",
@@ -462,6 +463,7 @@ def test_local_services_reject_core_owned_by_another_checkout(tmp_path: Path) ->
         inventory_probe=lambda _root: True,
         process_records=[
             (tmp_path / "other", ["python", "-m", "fdai"]),
+            (repo, ["python", "-m", "fdai.delivery.analyzer_tick_cli", "--loop"]),
             (repo, ["python", "-m", "fdai.delivery.inventory_sync_cli", "--loop"]),
             (repo, ["python", "-m", "fdai.delivery.observation_campaign_cli", "--loop"]),
         ],
@@ -511,6 +513,7 @@ def test_local_service_probes_run_concurrently_in_stable_order(tmp_path: Path) -
         "document-ingestion-api",
         "document-processing-worker",
         "isolated-executor",
+        "local-analyzer",
         "inventory-reconciliation",
         "observation-campaign",
         "inventory-coverage",
@@ -518,6 +521,7 @@ def test_local_service_probes_run_concurrently_in_stable_order(tmp_path: Path) -
     assert result["unavailable_services"] == [
         "core-runtime",
         "document-ingestion-api",
+        "local-analyzer",
         "inventory-reconciliation",
         "observation-campaign",
     ]
@@ -544,6 +548,7 @@ def test_local_services_require_continuous_local_jobs(tmp_path: Path) -> None:
     )
 
     assert result["unavailable_services"] == [
+        "local-analyzer",
         "inventory-reconciliation",
         "observation-campaign",
     ]

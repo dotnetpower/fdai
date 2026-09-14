@@ -339,7 +339,7 @@
     {
       "label": "analyzer: run continuously (local)",
       "type": "shell",
-      "command": "bash scripts/deployment/local/run-analyzer-loop.sh",
+      "command": "bash scripts/deployment/local/run-console-service.sh local-analyzer --wait-ready",
       "dependsOrder": "sequence",
       "dependsOn": [
         "console: require primary worktree",

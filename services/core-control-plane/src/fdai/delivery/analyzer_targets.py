@@ -32,6 +32,11 @@ from datetime import datetime
 from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.core.investigation.analyzers import ANALYZER_KIND_BY_RESOURCE_TYPE
+from fdai.delivery.analyzer_inventory import (
+    AnalyzerInventoryIdentityError,
+    AnalyzerProviderReferenceReader,
+    read_provider_query_references,
+)
 from fdai.delivery.analyzer_tick import AnalyzerTarget
 from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceAdmissionProvider,
@@ -51,8 +56,9 @@ from fdai.shared.providers.state_evidence import (
 RESOURCE_OBJECT_TYPE = "Resource"
 DEFAULT_MAX_DISCOVERED = 200
 #: One below the durable store's own 1,000-row query bound, because resolution
-#: asks for one extra row to detect truncation.
+#: asks for one extra supported Resource to detect truncation.
 MAX_DISCOVERED_CEILING = 999
+INVENTORY_SCAN_LIMIT = MAX_DISCOVERED_CEILING + 1
 
 SKIP_UNMAPPED_RESOURCE_TYPE = "unmapped_resource_type"
 SKIP_MALFORMED_RESOURCE = "malformed_resource"
@@ -63,7 +69,7 @@ ANALYZER_TARGET_EVIDENCE_PURPOSE = "analyzer-target-selection"
 
 
 class AnalyzerTargetResolutionError(RuntimeError):
-    """The durable inventory projection could not be read for this tick."""
+    """The durable inventory or its provider identity could not ground this tick."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,12 +78,14 @@ class AnalyzerTargetResolution:
 
     ``inventory_consulted`` is ``False`` when no durable projection was bound,
     so a reader never mistakes "no store" for "the store observed nothing".
-    ``truncated`` reports that more resources were available than this tick
-    accepted, either because the projection page itself was truncated or
-    because more eligible resources were returned than ``max_discovered``
-    allowed. Ordering inside one returned page is deterministic; which page a
-    truncated projection returns is the store's decision, so a truncated tick
-    is not guaranteed to select the same subset as the previous one.
+    ``truncated`` reports that more supported resources were available than
+    this tick accepted, either because the 1,000-resource supported-type query
+    was truncated or because more eligible resources were returned than
+    ``max_discovered`` allowed. The reviewed type filter runs in the store, so
+    unrelated resources cannot consume the query window. Ordering inside one
+    returned scan is deterministic; which records a truncated projection
+    returns is the store's decision, so a truncated tick is not guaranteed to
+    select the same subset as the previous one.
     """
 
     targets: tuple[AnalyzerTarget, ...]
@@ -105,6 +113,7 @@ async def resolve_analyzer_targets(
     analyzer_kinds: Mapping[str, str] = ANALYZER_KIND_BY_RESOURCE_TYPE,
     max_discovered: int = DEFAULT_MAX_DISCOVERED,
     decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
+    provider_references: AnalyzerProviderReferenceReader | None = None,
 ) -> AnalyzerTargetResolution:
     """Return the configured targets plus every eligible inventory-backed one.
 
@@ -120,10 +129,13 @@ async def resolve_analyzer_targets(
         max_discovered: Upper bound on inventory-backed targets for one tick.
         decision_evidence: Trusted admission provider, or ``None`` to reject
             discovered targets that carry state facts.
+        provider_references: Active inventory reader that binds a discovered
+            logical Resource id to the provider-native metric query identity.
 
     Raises:
         ValueError: ``now`` is naive or ``max_discovered`` is out of bounds.
-        AnalyzerTargetResolutionError: the projection read failed.
+        AnalyzerTargetResolutionError: the projection or provider identity
+            snapshot could not ground every eligible inventory target.
     """
     if now.tzinfo is None:
         raise ValueError("resolve_analyzer_targets requires a timezone-aware now")
@@ -150,7 +162,8 @@ async def resolve_analyzer_targets(
     try:
         snapshot = await store.query_objects(
             object_types=(RESOURCE_OBJECT_TYPE,),
-            limit=max_discovered + 1,
+            property_text_in={"type": tuple(sorted(analyzer_kinds))},
+            limit=INVENTORY_SCAN_LIMIT,
         )
     except Exception as exc:  # noqa: BLE001 - an unreadable projection MUST retry, not degrade
         raise AnalyzerTargetResolutionError(
@@ -159,6 +172,7 @@ async def resolve_analyzer_targets(
 
     skipped: set[str] = set()
     eligible: list[AnalyzerTarget] = []
+    eligible_resource_types: dict[str, str] = {}
     for record in snapshot.objects:
         candidate = await _eligible_target(
             record,
@@ -169,24 +183,42 @@ async def resolve_analyzer_targets(
         )
         if candidate is not None:
             eligible.append(candidate)
+            eligible_resource_types[candidate.resource_ref] = str(record.properties["type"]).strip()
 
     eligible.sort(key=lambda item: (item.resource_ref, item.resource_kind))
-    discovered = 0
+    selected: list[AnalyzerTarget] = []
     withheld = False
     for target in eligible:
-        if discovered >= max_discovered:
-            withheld = True
-            break
         if target.resource_ref in seen:
             continue
-        seen.add(target.resource_ref)
-        ordered.append(target)
-        discovered += 1
+        if len(selected) >= max_discovered:
+            withheld = True
+            break
+        selected.append(target)
+
+    try:
+        provider_query_refs = await read_provider_query_references(
+            provider_references,
+            expected_resource_types={
+                target.resource_ref: eligible_resource_types[target.resource_ref]
+                for target in selected
+            },
+        )
+    except AnalyzerInventoryIdentityError as exc:
+        raise AnalyzerTargetResolutionError(str(exc)) from exc
+    for target in selected:
+        ordered.append(
+            AnalyzerTarget(
+                resource_ref=target.resource_ref,
+                resource_kind=target.resource_kind,
+                provider_query_ref=provider_query_refs[target.resource_ref],
+            )
+        )
 
     return AnalyzerTargetResolution(
         targets=tuple(ordered),
         configured=configured_count,
-        discovered=discovered,
+        discovered=len(selected),
         inventory_consulted=True,
         skipped_reasons=tuple(sorted(skipped)),
         truncated=snapshot.truncated or withheld,
@@ -325,6 +357,7 @@ async def _state_fact_supports_selection(
 
 __all__ = [
     "DEFAULT_MAX_DISCOVERED",
+    "INVENTORY_SCAN_LIMIT",
     "MAX_DISCOVERED_CEILING",
     "RESOURCE_OBJECT_TYPE",
     "SKIP_MALFORMED_RESOURCE",

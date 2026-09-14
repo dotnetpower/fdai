@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: f8d55b3128b96435c8dd8daaced10a8b42cdda4e
-translation_revised: 2026-09-13
+translation_source_sha: 99960dcf1981f1ebd1271bc3145644c7a269b4f9
+translation_revised: 2026-09-14
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 **목표**: 자동화 테스트는 결정론적이고 비밀 없는 상태를 유지하며, 대화형 로컬 Console은 권위 있는 Azure 상태를 표시합니다. Azure 배포는 **배포자 권한과 리전 카탈로그로 프로비저닝할 리소스를 선택**합니다. 별도 `docs site: serve (4321)` 작업은 루프백에서 공개 문서만 미리 보여 줍니다. 백엔드나 채널 경계를 시작하지 않으며 런타임 권한을 부여하지 않습니다. 세 명제가 동시에 참입니다:
@@ -261,14 +261,20 @@ Headless 런타임은 영속 effective 값을 로드합니다. Embedded 로컬 P
 구간 대신 동일하게 검증된 환경, 기본값 및 accepted-versus-held 인계 결과를 사용합니다.
 
 감지 준비 상태도 같은 경계를 사용합니다. 배포는 PostgreSQL의 Muninn StateSnapshot을 읽고,
-대화형 로컬은 로컬 PostgreSQL이 있을 때만 `/detection-readiness`를 등록합니다. 표준 로컬
-분석기 작업은 배포 one-shot CLI, 인벤토리 대상, 메트릭, 이벤트, `shadow` 상태 및 영속 게시
-원장과 타입 지정 Pod 수명 주기 근거 바인딩을 직렬로 재사용합니다. 두 실행 환경은 게시 전에
-같은 구간 키를 청구하고 브로커 확인을 기록한 뒤에만 반복 게시를 억제합니다. 레코드가 확실히
+대화형 로컬은 로컬 PostgreSQL이 있을 때만 `/detection-readiness`를 등록합니다. 관리되는
+full-stack supervisor는 표준 로컬 analyzer loop를 시작하며, 이 loop는 배포 one-shot CLI,
+인벤토리 대상, 메트릭, 이벤트, `shadow` 상태, 타입 지정 Pod 수명 주기 근거 바인딩 및 영속
+게시 원장을 직렬로 재사용합니다. 인벤토리 기반 대상의 경우 두 실행 환경 모두 서비스 소유의
+활성 인벤토리 스냅샷에서 정확한 공급자 참조를 읽고 메트릭 조회 범위에만 사용합니다. 분석기
+출력, 발견된 문제 Event, 증적 및 Incident는 온톨로지의 논리 `Resource.id`를 유지하며 공급자
+참조가 없거나 일치하지 않으면 틱이 중지됩니다. 두 실행 환경은 5분 분석 구간과 1분 관측 게시 키를 분리합니다.
+게시 전에 재시도에 안정적인 같은 키를 청구하고 브로커 확인을 기록한 뒤에만 반복 게시를
+억제합니다. 레코드가 확실히
 전송되지 않았다는 버스 증명이 있을 때만 청구를 해제하고, 그 외에는 조정을 위해 불확실 상태로
 유지하므로 어느 실행 환경도 모호한 전송을 다시 게시하지 않습니다. 기존 로컬 개발자 신원과
 배포 워크로드 신원 및 전송 보안의 차이는 그대로 유지합니다. 준비 상태는 일정 관리, 검색,
-메트릭, 게시 및 출처 지연 상태를 분리합니다.
+메트릭, 게시 및 출처 지연 상태를 분리하며 full-stack 준비 상태는 인벤토리 조정과 관측 캠페인
+프로세스뿐 아니라 analyzer loop 프로세스도 요구합니다.
 
 Standard full-stack launch는 서술기 엔드포인트 조정을 유지합니다. 독립 Operator 서비스는 `RUNTIME_ENV=dev`에서만 local-only 서술기 어댑터를 연결하고 `LLM_RESOLVED_MODELS_PATH`와
 수명이 짧은 Azure CLI 토큰을 사용하며 Core 가져오기 또는 실행기 권한 없이 Azure OpenAI 서술기를 시도합니다. Health는 엔드포인트를 민감정보 제거하고 모델 지식만 쓴 답변은 검증되지 않은으로 유지합니다. 시작 훅은 권한이

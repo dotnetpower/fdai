@@ -62,6 +62,17 @@ are synthetic.
   emits a deduplicated A2 lifecycle notice. Direct candidate text and
   evidence keys are capped at 512 characters, and one candidate carries at most 100 evidence keys;
   oversized input is held before lifecycle or audit writes.
+- Analyzer findings are already bounded detector outputs, not raw inventory changes. The deployed
+  one-minute Job and the managed local analyzer loop publish at most one Event per resource,
+  signal, and one-minute observation bucket. Those Events share an opaque resource-and-signal
+  correlation identity and declare `incident_correlation=correlate`. The five-minute analysis
+  window remains separate from publication idempotency, so five distinct observations can meet the
+  existing `5 events / 300 seconds` repeat gate. Exact retries keep the same key, and the existing
+  minimum-severity policy still holds medium and lower findings by default. An inventory-backed
+  target keeps its ontology `Resource.id` as the analyzer and Event identity. At the delivery
+  boundary, the tick reads the exact `provider_ref` from the active inventory snapshot and rewrites
+  only the metric query's `resource_id` label. A missing, mismatched, or ambiguous provider
+  reference fails the tick. The provider reference never enters a Finding, receipt, or Incident.
 - Heimdall bounds retained repeated-event episodes globally and per resource. A correlation flood
   from one resource evicts only that resource's oldest episode before it can displace another
   resource's partially accumulated evidence.
@@ -540,7 +551,9 @@ ingest topic. The analyzer Terraform job invokes `fdai.delivery.analyzer_tick_cl
 its targets from the configured list plus the durable inventory projection, runs the reference
 analyzers against the composed `MetricProvider`, and
 publishes one canonical Event per finding with a key derived from the resource, the signal, and the
-tick window. Inventory-backed resolution is read-only and fail-closed: a resource type without a
+finding observation's one-minute publication bucket. The default five-minute analysis window is
+independent from this retry-stable publication identity. Inventory-backed resolution is read-only
+and fail-closed: a resource type without a
 The `fdai-incident-evidence-query` maintenance entry point reads the durable Incident audit through
 the service-owned store and returns only transition, distinct-Incident, maximum-member, and kind
 aggregates for one bounded correlation prefix. It never returns Incident IDs, member IDs, payloads,
@@ -557,7 +570,10 @@ resource whose metadata collection has no generic `state` fact follows the ident
 enumeration path; this read-only selection makes no state claim and grants no authority. A present
 generic `state` remains admission-gated and a malformed value remains unusable. A resource projected
 without any state fact follows the same enumeration path. Discovered targets are bounded and
-deterministically ordered. These
+deterministically ordered. The resolver applies the reviewed analyzer Resource types as a
+store-side filter, then reads a bounded window of up to 1,000 supported Resources before applying
+the configured analyzable-target cap. Unrelated inventory records cannot consume the query window
+or target slots. A supported-resource window that is itself truncated remains explicit. These
 jobs don't execute changes; findings and due tasks re-enter the shared trust router and safety
 check. Publish failure keeps a scheduled item retryable and returns a non-zero job result.
 When tracked state and a retry-stable explicit or Container Apps Job execution identity are
@@ -598,7 +614,7 @@ produce batches. The complete collection, retention, rollup, and archive contrac
 |----------|------------------|
 | Anomaly method by signal class | Stationary reliability and security activity use z-score. Periodic reliability and cost signals use seasonal z-score with an explicit phase. |
 | Forecast family and horizon | Every current target uses the implemented linear trend family. Capacity uses 24 hours, replication lag 1 hour, cost 7 days, and expiry 30 days. |
-| Correlation | Exact `correlation_id` and `resource_ref` keys precede T1. The ordinary window is 60 seconds, the trace/repeat window is 300 seconds, and fuzzy T1 requires similarity of at least `0.85` plus two shared evidence fields. |
+| Correlation | Exact `correlation_id` and `resource_ref` keys precede T1. Analyzer finding publication uses 60-second retry-stable identities while the trace/repeat window is 300 seconds. Fuzzy T1 requires similarity of at least `0.85` plus two shared evidence fields. |
 | Cold start | Stationary classes require 30 baseline samples, seasonal classes require 10 same-phase samples, and forecasts require 5 samples plus `R-squared >= 0.5`. |
 | Backtesting and promotion | Evaluate weekly after at least 14 shadow days and 30 scorable episodes. Precision and recall must each be at least `0.8`, 90% interval coverage must remain in `[0.85, 0.95]`, median lead time must be at least 300 seconds, abstention must be at most `0.2`, and policy escapes must remain zero. |
 | Change windows | An exact-scope active window with complete evidence annotates the finding and holds Incident promotion. Missing, stale, incomplete, or mismatched window evidence cannot suppress a finding. |

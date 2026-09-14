@@ -6,9 +6,12 @@ topic, so the standard trust router and safety check govern anything that
 follows. The tick executes no change of its own.
 
 Idempotency mirrors the scheduler: the key is derived from the resource, the
-signal, and the tick's window bucket, and the event id is a stable UUID over
-that key. A durable claim suppresses repeated publication across loop ticks and
-scheduled Job restarts.
+signal, and the finding observation's one-minute publication bucket, and the
+event id is a stable UUID over that key. The five-minute analysis window remains
+separate, so five independently observed high-severity findings can satisfy the
+governed repeat threshold while an exact retry remains a duplicate. A durable
+claim suppresses repeated publication across loop ticks and scheduled Job
+restarts.
 
 Publication has three outcomes, not two. Before it sends, the tick durably
 records its send intent; that record is what makes a later retry answerable.
@@ -41,7 +44,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Protocol
@@ -64,6 +67,7 @@ _LOGGER = logging.getLogger(__name__)
 ANALYZER_EVENT_TOPIC = "fdai.observability.events"
 ANALYZER_EVENT_SOURCE = "fdai.delivery.analyzer_tick"
 DEFAULT_WINDOW_SECONDS = 300
+DEFAULT_PUBLICATION_WINDOW_SECONDS = 60
 _EVENT_ID_NAMESPACE = UUID(int=0)
 
 
@@ -311,16 +315,24 @@ class AnalyzerPublicationReconciler(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class AnalyzerTarget:
-    """One resource the tick investigates."""
+    """One logical resource the tick investigates.
+
+    ``provider_query_ref`` is delivery-only routing material. An analyzer
+    continues to receive ``resource_ref`` so findings, receipts, and Events
+    never expose the provider-native identity.
+    """
 
     resource_ref: str
     resource_kind: str
+    provider_query_ref: str | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if not self.resource_ref.strip():
             raise ValueError("AnalyzerTarget.resource_ref MUST be non-empty")
         if not self.resource_kind.strip():
             raise ValueError("AnalyzerTarget.resource_kind MUST be non-empty")
+        if self.provider_query_ref is not None and not self.provider_query_ref.strip():
+            raise ValueError("AnalyzerTarget.provider_query_ref MUST be non-empty when supplied")
 
 
 @dataclass(frozen=True, slots=True)
@@ -364,9 +376,16 @@ def analyzer_idempotency_key(
     at: datetime,
     window_seconds: int,
 ) -> str:
-    """Return a stable key per resource, signal, and window bucket."""
+    """Return a stable key per resource, signal, and publication bucket."""
     bucket = int(at.timestamp() // window_seconds)
     return f"analyzer:{finding.resource_ref}:{finding.signal}:{bucket}"
+
+
+def analyzer_correlation_id(finding: AnalyzerFinding) -> str:
+    """Return a stable opaque episode identity for one resource and signal."""
+
+    identity = "\0".join((finding.resource_kind, finding.resource_ref, finding.signal))
+    return f"analyzer:{uuid5(_EVENT_ID_NAMESPACE, identity)}"
 
 
 class AnalyzerTickRunner:
@@ -377,6 +396,7 @@ class AnalyzerTickRunner:
         "_clock",
         "_coordinator",
         "_mode",
+        "_publication_window_seconds",
         "_publication_ledger",
         "_receipt_store",
         "_reconciler",
@@ -393,18 +413,22 @@ class AnalyzerTickRunner:
         publication_reconciler: AnalyzerPublicationReconciler | None = None,
         receipt_store: AnalyzerReceiptStore | None = None,
         window_seconds: int = DEFAULT_WINDOW_SECONDS,
+        publication_window_seconds: int | None = None,
         topic: str = ANALYZER_EVENT_TOPIC,
         mode: Mode = Mode.SHADOW,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         if window_seconds <= 0:
             raise ValueError("window_seconds MUST be positive")
+        if publication_window_seconds is not None and publication_window_seconds <= 0:
+            raise ValueError("publication_window_seconds MUST be positive")
         self._coordinator = coordinator
         self._bus = event_bus
         self._publication_ledger = publication_ledger
         self._receipt_store = receipt_store
         self._reconciler = publication_reconciler
         self._window_seconds = window_seconds
+        self._publication_window_seconds = publication_window_seconds or window_seconds
         self._topic = topic
         self._mode = mode
         self._clock: Callable[[], datetime] = clock or (lambda: datetime.now(tz=UTC))
@@ -414,7 +438,7 @@ class AnalyzerTickRunner:
         if not targets:
             return AnalyzerTickReport(targets=0, findings=0, published=0)
 
-        window_at = self._clock()
+        tick_started_at = self._clock()
         report = await self._coordinator.investigate(
             InvestigationRequest(
                 requested_by=ANALYZER_EVENT_SOURCE,
@@ -442,8 +466,8 @@ class AnalyzerTickRunner:
         for finding in report.findings:
             event = self._build_event(
                 finding,
-                window_at=window_at,
-                ingested_at=self._clock(),
+                publication_at=tick_started_at,
+                ingested_at=max(tick_started_at, self._clock()),
             )
             outcome = await self._publish_finding(finding, event=event)
             if outcome.error is not None:
@@ -690,7 +714,7 @@ class AnalyzerTickRunner:
         self,
         finding: AnalyzerFinding,
         *,
-        window_at: datetime,
+        publication_at: datetime,
         ingested_at: datetime,
     ) -> Event:
         if finding.occurred_at.tzinfo is None:
@@ -699,12 +723,15 @@ class AnalyzerTickRunner:
                 "a provider MUST return timezone-aware timestamps"
             )
         idempotency_key = analyzer_idempotency_key(
-            finding, at=window_at, window_seconds=self._window_seconds
+            finding,
+            at=publication_at,
+            window_seconds=self._publication_window_seconds,
         )
         return Event(
             schema_version="1.0.0",
             event_id=uuid5(_EVENT_ID_NAMESPACE, idempotency_key),
             idempotency_key=idempotency_key,
+            correlation_id=analyzer_correlation_id(finding),
             source=ANALYZER_EVENT_SOURCE,
             event_type=f"analyzer.{finding.signal}.observed",
             resource_ref=finding.resource_ref,
@@ -716,6 +743,7 @@ class AnalyzerTickRunner:
                 "evidence_refs": list(finding.evidence_refs),
                 "remediation_ref": finding.remediation_ref,
                 "window_seconds": self._window_seconds,
+                "publication_window_seconds": self._publication_window_seconds,
                 "metadata": dict(finding.metadata),
                 "assessment": (
                     finding.assessment.to_dict() if finding.assessment is not None else None
@@ -723,7 +751,7 @@ class AnalyzerTickRunner:
             },
             detected_at=finding.occurred_at,
             ingested_at=ingested_at,
-            incident_correlation=IncidentCorrelation.NONE,
+            incident_correlation=IncidentCorrelation.CORRELATE,
             mode=self._mode,
         )
 
@@ -834,6 +862,7 @@ def _evidence_state(
 __all__ = [
     "ANALYZER_EVENT_SOURCE",
     "ANALYZER_EVENT_TOPIC",
+    "DEFAULT_PUBLICATION_WINDOW_SECONDS",
     "DEFAULT_WINDOW_SECONDS",
     "AnalyzerEvidenceState",
     "AnalyzerFindingReceipt",
@@ -846,5 +875,6 @@ __all__ = [
     "AnalyzerTarget",
     "AnalyzerTickReport",
     "AnalyzerTickRunner",
+    "analyzer_correlation_id",
     "analyzer_idempotency_key",
 ]

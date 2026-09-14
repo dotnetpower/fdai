@@ -259,12 +259,19 @@ the same validated environment, defaults, and accepted-versus-held handoff outco
 separate fixed severity or window.
 
 Detection readiness uses the same boundary. Deployment reads Muninn StateSnapshots from PostgreSQL, while interactive local registers
-`/detection-readiness` only with local PostgreSQL. The standard local analyzer task serially reuses the deployed one-shot CLI, inventory
-targets, metrics, events, shadow posture, typed Pod lifecycle evidence binding, and durable publication ledger. Both venues claim the same
-window key before publication and suppress a repeat only after a broker acknowledgement is recorded. They release a claim only when the bus
+`/detection-readiness` only with local PostgreSQL. The managed full-stack supervisor starts the
+standard local analyzer loop, which serially reuses the deployed one-shot CLI, inventory targets,
+metrics, events, shadow posture, typed Pod lifecycle evidence binding, and durable publication
+ledger. For inventory-backed targets, both venues read the exact provider reference from the active
+service-owned inventory snapshot only for metric-query scope. Analyzer output, finding Events,
+receipts, and Incidents retain the logical ontology `Resource.id`, and a missing or mismatched
+provider reference stops the tick. Both venues separate the five-minute analysis window from the
+one-minute observation publication key. They claim that same retry-stable key before publication
+and suppress a repeat only after a broker acknowledgement is recorded. They release a claim only when the bus
 attests that the record was provably not sent and otherwise hold it uncertain for reconciliation, so neither venue republishes an ambiguous
 send. They preserve their existing local developer identity versus deployed workload identity and transport security. Readiness separates
-scheduling, discovery, metric, publication, and source-delay state.
+scheduling, discovery, metric, publication, and source-delay state, and full-stack readiness now
+requires the analyzer loop process alongside inventory reconciliation and observation campaign.
 
 The standard full-stack launch keeps narrator endpoint reconciliation enabled. Its independent
 Operator Service binds a local-only narrator adapter only for `RUNTIME_ENV=dev`, reads

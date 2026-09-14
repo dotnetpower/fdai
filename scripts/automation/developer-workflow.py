@@ -68,6 +68,7 @@ LOCAL_SERVICE_NAMES = (
     "document-ingestion-api",
     "document-processing-worker",
     "isolated-executor",
+    "local-analyzer",
     "inventory-reconciliation",
     "observation-campaign",
     "inventory-coverage",
