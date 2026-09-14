@@ -67,7 +67,10 @@ The initial option mixes two lifecycles that should remain independent:
 - **Identity scope:** A product-knowledge bot needs no operational principal scope, provider-read
   credential, or action capability.
 - **Deployment cadence:** FDAI design and implementation knowledge can refresh without redeploying
-  the operational control plane.
+  the operational control plane. The compiler pins each record to the final protected-main source
+  revision, so a merge-time refresh changes only source commitments and the aggregate digest when
+  reviewed retrieval content is unchanged. A cited owner-document correction updates its record
+  digest without changing retrieval or authority.
 - **Channel intent:** A dedicated bot makes every accepted mention a system-knowledge query. It
   avoids keyword routing while the general A3 bot continues to interpret operational requests.
 - **Rollback:** Disabling the knowledge bot should not roll back Core, Operator Service, or existing

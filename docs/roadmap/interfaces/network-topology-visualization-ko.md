@@ -1,8 +1,8 @@
 ---
 title: 네트워크 토폴로지 시각화
 translation_of: network-topology-visualization.md
-translation_source_sha: 4aee25423b3f90ea3be49996fa3c7f7408e94a6f
-translation_revised: 2026-09-14
+translation_source_sha: 69e57e56c0b25e7577735d706f685ae3bcc601d9
+translation_revised: 2026-09-15
 ---
 # 네트워크 토폴로지 시각화
 
@@ -43,6 +43,7 @@ Console은 인벤토리 리소스와 타입이 지정된 관계만으로 범위�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | implemented | 아키텍처 관계 인덱스와 Inspector에 저장 방향을 명시하는 `runtime_calls` 레이블을 추가했습니다. 출처는 `호출 ->` 또는 `호출`로, 대상은 `다음에서 호출됨`으로 표시하며 표현 계층은 기록된 edge를 뒤집지 않습니다. | `current change`, 아키텍처 경로 카탈로그, 관계 인덱스와 Inspector 도우미, 집중 지역화 및 관계 레이블 검사, 타입 검사와 프로덕션 빌드 | Console 범위를 `validated`로 바꾸기 전에 정확한 출처에 연결된 관리되는 runtime-call 근거를 보존합니다. |
 | 2026-09-14 | implemented | 리소스 지도의 등각 깊이, 반사, 회전 및 카메라 사전 설정을 하나의 고정 직교 2D 변환 결과로 바꿨습니다. 지도는 타입이 지정된 관계, 도형, 색상, 약어, 선택, 이동, 확대 및 축소, 맞춤, 딥 링크를 유지합니다. 좁은 캔버스에서는 노드 배율을 유지하고 보조 색상 범례를 숨기며 이동을 사용합니다. | `current change`; 아키텍처 지도 모델, 형상, 렌더러, 컨트롤러, 상세 패널, 경로, 지역화 및 반응형 Playwright 경로, 포커스 Console 검사 163개 통과, 타입 검사 및 운영 빌드, 합성 `1440x900`, `993x641`, `390x844` 순차 검사. | Console 범위를 `validated`로 바꾸기 전에 정확한 출처에 연결된 관리되는 데스크톱 및 모바일 Console 근거를 보존합니다. |
 | 2026-09-10 | implemented | PVC, PV, StorageClass, HPA, PDB, NetworkPolicy, ResourceQuota 및 LimitRange에 명시적인 계층, 색상 및 약어 매핑을 추가했습니다. | `current change`, 전체 정본 ResourceType 시각 매핑 테스트 및 전체 Console 테스트 표면입니다. | Console 범위를 `validated`로 높이기 전에 정확한 출처에 연결된 관리되는 시각 근거를 보존합니다. |
 | 2026-09-04 | implemented | 관측된 `runtime_calls` 관계를 일반 직접 에지에서 온톨로지 인스턴스 Inspector와 기본 밀집 범례의 일급 런타임 그룹으로 승격했습니다. 화면 맥락 변환 결과도 관계 방향이나 권한을 바꾸지 않고 근거 기반 후속 작업에 필요한 검증된 관계를 보존합니다. | `current change`; 집중 온톨로지 인스턴스 모델 및 화면 검사, Console 타입 검사, 운영 빌드입니다. | 런타임 검증을 주장하기 전에 정확한 출처에 연결된 관리되는 runtime-call 및 반응형 Console 근거를 보존합니다. |

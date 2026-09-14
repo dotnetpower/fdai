@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: b80cd4e43e8696bb560848ab87dda29e116b03f4
+translation_source_sha: 920d4e65b61c26e8a446ff34f5b5067d17139e82
 translation_revised: 2026-09-15
 ---
 # 온톨로지 구조 모델
@@ -458,8 +458,8 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
-| 2026-09-14 | implemented | 범위가 제한된 영향 edge에 세대 일치 검사를 적용한 근거 묶음을 추가하고 지도와 Inspector에서 `runtime_calls`의 호출자에서 대상으로의 방향을 보존했습니다. | `current change`, 변경 backend 집중 테스트 448개 통과 및 선택형 테스트 1개 건너뜀, 변경 Console 테스트 415개 통과, 타입 검사, 프로덕션 빌드, 브라우저 테스트 115개 통과 | 새 edge 검증 경로를 `validated`로 분류하기 전에 현재 인증된 관계 근거를 보존합니다. |
 | 2026-09-15 | implemented | 별도 디렉터리 상한 및 새로고침 행을 제거하고 두 상태를 검색 도구막대에 유지했으며, 표현 커버리지와 범례 세부 정보를 기본적으로 접고 전체 화면 도구를 하나의 공용 컨트롤 표면으로 줄였습니다. | `current change`, `ontology-instances.tsx`, `ontology-instance-graph.tsx`, `ontology-instances.css`, 경로 전용 카탈로그, 집중 소스, 지역화, 브라우저, 타입 검사 및 프로덕션 빌드 검사 | 공유 Browser 제어가 다시 연결되면 인증된 변경 후 DOM 기하를 보존합니다. 그래프, 근거 또는 실행 권한은 바뀌지 않았습니다. |
+| 2026-09-14 | implemented | 범위가 제한된 영향 edge에 세대 일치 검사를 적용한 근거 묶음을 추가하고 지도와 Inspector에서 `runtime_calls`의 호출자에서 대상으로의 방향을 보존했습니다. | `current change`, 변경 backend 집중 테스트 448개 통과 및 선택형 테스트 1개 건너뜀, 변경 Console 테스트 415개 통과, 타입 검사, 프로덕션 빌드, 브라우저 테스트 115개 통과 | 새 edge 검증 경로를 `validated`로 분류하기 전에 현재 인증된 관계 근거를 보존합니다. |
 | 2026-09-14 | implemented | 들어오는 방향, 선택 영역 및 나가는 방향의 채우기를 레이아웃 높이의 SVG 사각형에서 전체 높이의 그래프 표면 계층으로 옮기고 정확한 SVG `viewBox`와 노드, 관계선, 레이블, 이동 및 확대·축소 기하를 유지했습니다. | `current change`, `ontology-instance-graph.tsx`, `ontology-instances.css`, 집중 Console 테스트 158개, 전체 화면 데스크톱, 제한된 데스크톱 및 한국어 모바일을 다룬 집중 Playwright 시나리오 2개, 타입 검사와 프로덕션 빌드 | 공유 Browser 제어가 다시 연결되면 인증된 수정 후 DOM 측정을 보존합니다. 그래프, 쿼리 또는 실행 권한은 바뀌지 않았습니다. |
 | 2026-09-14 | implemented | 관측된 Resource 인스턴스 작업 영역을 기본 `/ontology` 진입 화면으로 정하고, 선언 및 토폴로지 보기를 하나의 네이티브 펼침 메뉴로 옮겼으며, 선언 그래프 요청이 인스턴스 탐색을 막지 않게 했습니다. | `current change`, `console/src/routes/ontology.tsx`, `console/src/routes/ontology-navigation.tsx`, 집중 경로, 보기 및 지역화 검사, Console 타입 검사와 프로덕션 빌드 | 기본 상태와 펼친 메뉴 상태를 인증된 표준 포트 브라우저에서 검증한 근거를 보존합니다. 그래프 또는 실행 권한은 바뀌지 않았습니다. |
 | 2026-09-13 | implemented | 미분류 ID로만 보존하던 공급자 정본 Azure 유형 23개를 분류하고, 추가한 모든 ResourceType을 중립 분류 체계에 배정했으며, 정확한 자식 포함 매핑 4개와 문서로 확인한 운영 및 Resource Health 경로만 추가했습니다. | `current change`, 공식 Microsoft 리소스 및 Resource Health 문서, 집중 리소스 레지스트리, 관계 카탈로그, ARG, Resource Health, 기록 상태 및 카탈로그 변환 검사 | 이 전환을 `validated`로 올리기 전에 검토된 공급자 유형, 관계 및 상태 사실을 입증하는 완전한 로컬 새 세대를 보존합니다. |

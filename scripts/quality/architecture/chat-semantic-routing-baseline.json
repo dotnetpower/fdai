@@ -89,7 +89,7 @@
       "path": "console/src/hooks/sse-client.ts",
       "disposition": "retain",
       "owner": "console-streaming",
-      "reason": "Retains strict SSE content-type validation for transport framing without inspecting operator language or selecting intent.",
+      "reason": "Retains strict SSE content type, cursor, event name, status, retry, and transport validation. It does not inspect operator question text, select semantic intent, or grant authority.",
       "issue": 252
     },
     {
@@ -124,7 +124,7 @@
       "path": "console/src/routes/detection-readiness.tsx",
       "disposition": "retain",
       "owner": "console-detection",
-      "reason": "Retains case-insensitive filtering over typed lifecycle records and exact enum validation without selecting intent or authority.",
+      "reason": "Retains presentation-only filtering over recorded detection lifecycle fields and fixed enum validation for localized labels. It does not classify operator intent or grant authority.",
       "issue": 252
     },
     {
@@ -152,7 +152,7 @@
       "path": "console/src/routes/rule-trace.tsx",
       "disposition": "retain",
       "owner": "console-evidence",
-      "reason": "Retains deterministic lifecycle projection from canonical audit action, stage, decision, and outcome tokens without inspecting operator questions or granting authority.",
+      "reason": "Retains strict validation of structured trace kinds, stages, action prefixes, and machine metadata from Operator API responses. It does not inspect operator question text, select intent, or grant authority.",
       "issue": 252
     },
     {

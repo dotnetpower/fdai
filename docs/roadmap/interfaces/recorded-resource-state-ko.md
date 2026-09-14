@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: e70d83f8005f5bd87b74d7a2c5ca57d458c053b0
+translation_source_sha: 8e4d80834939278643be9149843fac3f97898ed6
 translation_revised: 2026-09-15
 ---
 # 기록된 리소스 상태
@@ -149,6 +149,9 @@ Operator가 읽을 수 있는 인벤토리 변환 결과에 함께 기록됩니�
 edge는 근거 가용성과 검증 등급을 별도로 유지하고, `runtime_calls`는 저장된 호출자에서 대상으로의
 방향을 보존합니다. 누락되거나 오래되거나 불완전하거나 기존 형식인 근거는 명시적으로 검증되지
 않은 상태를 유지하며 기록된 Resource 상태를 변경하지 않습니다.
+운영 활동 변환 결과는 `cross_source_conflict:<field>` 근거 토큰을 기계 판독에 안전한
+`cross_source_conflict_<field>` 사유 코드로 매핑합니다. 읽기 결과와 상태 근거는 원본 토큰을
+유지하므로 표현 정규화가 기본 충돌 레코드를 다시 작성하지 않습니다.
 
 observer는 이력을 게시하기 전에 승격된 세대를 정규화 journal에 추가합니다. 이력 게시가 실패하면
 온톨로지 변환은 전진하지 않습니다. 다음 재조정은 같은 coordinator lock 아래에서 보류 중인 활성

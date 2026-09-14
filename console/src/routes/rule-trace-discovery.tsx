@@ -130,7 +130,10 @@ export function TraceDiscovery({
               <ol class="trace-discovery-list">
                 {items.map((item) => (
                 <li key={item.correlationId}>
-                  <Tooltip content={`${item.correlationId} / ${item.latestActionKind}`}>
+                  <Tooltip
+                    content={`${item.correlationId} / ${item.latestActionKind}`}
+                    anchorStyle={{ display: "block" }}
+                  >
                     <a
                       class={item.correlationId === selectedCorrelation ? "is-current" : undefined}
                       href={routeHref("trace", {

@@ -97,7 +97,9 @@ export function TraceTimeline({
       header: t("evidence.trace.column.recordedAt"),
       render: (step) => (
         <Tooltip content={step.recorded_at}>
-          <time dateTime={step.recorded_at}>{formatConsoleTimestamp(step.recorded_at)}</time>
+          <time dateTime={step.recorded_at}>
+            {formatConsoleTimestamp(step.recorded_at)}
+          </time>
         </Tooltip>
       ),
       cellClass: "mono",
@@ -107,7 +109,11 @@ export function TraceTimeline({
       header: t("evidence.trace.column.stage"),
       render: (step) => step.stage === null
         ? <span class="muted">{traceStageLabel(null)}</span>
-        : <Tooltip content={step.stage}><span>{traceStageLabel(step.stage)}</span></Tooltip>,
+        : (
+          <Tooltip content={step.stage}>
+            <span>{traceStageLabel(step.stage)}</span>
+          </Tooltip>
+        ),
       cellClass: "mono",
     },
     {
