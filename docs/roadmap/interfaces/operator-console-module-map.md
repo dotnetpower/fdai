@@ -658,6 +658,8 @@ An omitted frame source is treated as unknown and rejected; tests model omission
 field rather than assigning JavaScript `undefined` to the optional property.
 The lazy control fallback uses the same disabled button, bell glyph, label, and live-status
 structure as the loaded control so module loading does not change its semantic or visual footprint.
+At narrow widths, the acknowledged state uses the equivalent compact `Opened` label while the
+button's accessible name retains the full action and `Sent + opened` state.
 Every new delivery claim carries an unpredictable 128-bit acknowledgement token. Service-worker
 messages and transient navigation values must match both the safe tag and that token before the
 principal-scoped ledger can record acknowledgement; legacy tokenless rows remain dedupe-only.

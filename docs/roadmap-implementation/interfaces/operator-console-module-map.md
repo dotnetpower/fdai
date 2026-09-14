@@ -30,6 +30,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Added an equivalent compact acknowledged label at narrow widths while retaining the full accessible action and status. | `current change`; paired catalog tests and 320 px Korean 200% text browser measurement. | No known notification-state clipping remains in the scoped header control. |
 | 2026-09-14 | implemented | Contained acknowledgement-token generation failures inside the claim result so an entropy error cannot escape the live-stream callback. | `current change`; focused throwing-token-factory test. | No known token-generation exception escapes this browser boundary. |
 | 2026-09-14 | implemented | Synchronized Console web selection changes and storage clears across tabs for the current browser principal. | `current change`; focused preference-key isolation tests. | No known tab can retain receiver eligibility after another tab deselects the channel. |
 | 2026-09-14 | implemented | Propagated Web Locks leader-acquisition failure to the Console web retry state while ignoring normal cleanup aborts. | `current change`; focused browser stream leadership tests. | No known ready-without-leader state remains after lock acquisition failure. |

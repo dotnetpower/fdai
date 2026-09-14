@@ -11,6 +11,7 @@
   "stateOn": "Ready",
   "stateDelivered": "Sent",
   "stateAcknowledged": "Sent + opened",
+  "stateAcknowledgedCompact": "Opened",
   "stateBlocked": "Blocked",
   "stateUnsupported": "Unavailable",
   "stateError": "Retry",

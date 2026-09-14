@@ -35,6 +35,7 @@ interface Props {
 }
 
 type ControlState = "off" | "enabling" | "on" | "blocked" | "unsupported" | "error";
+const COMPACT_STATUS_QUERY = "(max-width: 640px)";
 
 const CONTROL_LABEL_KEYS: Readonly<Record<ControlState, BrowserNotificationTextKey>> = {
   off: "off",
@@ -78,7 +79,16 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
   const [deliveryState, setDeliveryState] = useState<BrowserAlertDeliveryStatus>(
     () => readBrowserAlertDeliveryStatus(principalId),
   );
+  const [compactStatus, setCompactStatus] = useState(isCompactNotificationStatus);
   const [workerReady, setWorkerReady] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia(COMPACT_STATUS_QUERY);
+    const sync = () => setCompactStatus(media.matches);
+    media.addEventListener("change", sync);
+    sync();
+    return () => media.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     setWorkerReady(false);
@@ -303,12 +313,17 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
   const stateLabel = t(
     state === "on" ? DELIVERY_STATE_KEYS[deliveryState] : CONTROL_STATE_KEYS[state],
   );
+  const visibleStateLabel = compactStatus
+    && state === "on"
+    && deliveryState === "acknowledged"
+    ? t("stateAcknowledgedCompact")
+    : stateLabel;
   return (
     <button
       type="button"
       class={`topbar-control browser-notification-control ${state === "on" ? "is-active" : ""}`}
       aria-pressed={state === "on"}
-      aria-label={label}
+      aria-label={`${label}: ${stateLabel}`}
       disabled={disabled}
       onClick={() => { void toggle(); }}
     >
@@ -316,10 +331,16 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
       <NotificationBellIcon />
       <span class="topbar-control-label">{t("label")}</span>
       <span class="browser-notification-state" role="status" aria-live="polite">
-        {stateLabel}
+        {visibleStateLabel}
       </span>
     </button>
   );
+}
+
+function isCompactNotificationStatus(): boolean {
+  return typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia(COMPACT_STATUS_QUERY).matches;
 }
 
 function initialState(supported: boolean, principalId?: string | null): ControlState {
