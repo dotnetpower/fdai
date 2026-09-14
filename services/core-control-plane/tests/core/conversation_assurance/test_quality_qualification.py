@@ -44,7 +44,11 @@ def _evidence(**overrides: bool) -> QualificationEvidence:
         "critical_safety_escape": False,
         **overrides,
     }
-    return QualificationEvidence(**values)
+    return QualificationEvidence(
+        **values,
+        latency_evidence_content_digest="2" * 64,
+        trace_cohort_evidence_content_digest="3" * 64,
+    )
 
 
 def _items(
@@ -243,11 +247,16 @@ def test_scorecard_serialization_is_stable_content_addressed_and_no_authority() 
     second = scorecard.to_dict()
 
     assert first == second
+    assert first["schema_version"] == "1.1.0"
     assert first["qualified"] is False
     assert first["gaps"] == ["locale_statistical_evidence_missing"]
     assert first["qualification_authority"] is False
     assert first["decision_evidence_receipt_digest"] == "sha256:" + "d" * 64
     assert first["decision_evidence_verification_bundle_digest"] == "sha256:" + "e" * 64
+    assert first["timing_evidence"] == {
+        "latency_content_digest": "2" * 64,
+        "trace_cohort_content_digest": "3" * 64,
+    }
     assert len(first["items"]) == 50  # type: ignore[arg-type]
     assert len(first["content_digest"]) == 64  # type: ignore[arg-type]
     assert first["runs"] == [
@@ -267,6 +276,27 @@ def test_scorecard_serialization_is_stable_content_addressed_and_no_authority() 
             "completed_at": "2026-08-23T00:10:00Z",
         },
     ]
+
+
+def test_timing_artifact_bindings_are_uniform_and_enter_the_admission_digest() -> None:
+    baseline = _batch()
+    rebound_evidence = replace(
+        _evidence(),
+        latency_evidence_content_digest="4" * 64,
+        trace_cohort_evidence_content_digest="5" * 64,
+    )
+    rebound = _batch(
+        runs=tuple(_run(index, items=_items(evidence=rebound_evidence)) for index in range(1, 4))
+    )
+
+    assert chatops_qualification_evidence_digest(rebound) != (
+        chatops_qualification_evidence_digest(baseline)
+    )
+
+    mixed_items = list(_items())
+    mixed_items[0] = replace(mixed_items[0], evidence=rebound_evidence)
+    with pytest.raises(ValueError, match="bindings MUST match"):
+        _batch(runs=(_run(1, items=tuple(mixed_items)), _run(2), _run(3)))
 
 
 def test_missing_decision_evidence_fails_closed() -> None:
