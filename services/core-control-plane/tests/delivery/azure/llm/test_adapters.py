@@ -362,6 +362,35 @@ def test_cross_check_config_rejects_bad_temperature() -> None:
         )
 
 
+def test_cross_check_exposes_composition_owned_model_id() -> None:
+    adapter = AzureOpenAICrossCheckModel(
+        identity=_StaticIdentity(),
+        http_client=httpx.AsyncClient(),
+        config=AzureOpenAICrossCheckModelConfig(
+            endpoint="https://oai-test.openai.azure.com",
+            deployment="t2-primary",
+            system_prompt=_TEST_SYSTEM_PROMPT,
+            model_id="openai",
+        ),
+    )
+
+    assert adapter.model_id == "openai"
+
+
+def test_cross_check_rejects_invalid_model_id() -> None:
+    with pytest.raises(ValueError, match="model_id"):
+        AzureOpenAICrossCheckModel(
+            identity=_StaticIdentity(),
+            http_client=httpx.AsyncClient(),
+            config=AzureOpenAICrossCheckModelConfig(
+                endpoint="https://oai-test.openai.azure.com",
+                deployment="t2-primary",
+                system_prompt=_TEST_SYSTEM_PROMPT,
+                model_id="",
+            ),
+        )
+
+
 def test_cross_check_config_rejects_empty_system_prompt() -> None:
     """Wave 2 invariant: an empty system_prompt is a fail-fast defect.
 
