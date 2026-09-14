@@ -18,6 +18,10 @@ const ontologySource = readFileSync(
   fileURLToPath(new URL("./ontology.tsx", import.meta.url)),
   "utf8",
 );
+const navigationSource = readFileSync(
+  fileURLToPath(new URL("./ontology-navigation.tsx", import.meta.url)),
+  "utf8",
+);
 const inspectorSource = readFileSync(
   fileURLToPath(new URL("./ontology-instances-inspector.tsx", import.meta.url)),
   "utf8",
@@ -49,10 +53,14 @@ describe("Ontology Instances view controls", () => {
     expect(styles).toMatch(/\.ontology-instance-graph-tools\s*\{[^}]*position:\s*absolute[^}]*top:\s*12px[^}]*right:\s*12px/s);
     expect(graphSource).toContain('class="ontology-instance-graph-viewport"');
     expect(graphSource).toContain('class="ontology-instance-legend-dock"');
+    expect(graphSource).toContain('class="ontology-instance-direction-surface"');
+    expect(graphSource).not.toContain('<rect class="is-selected"');
+    expect(styles).toMatch(/\.ontology-instance-graph-scroll\s*\{[^}]*position:\s*relative/s);
+    expect(styles).toMatch(/\.ontology-instance-direction-surface\s*\{[^}]*position:\s*absolute[^}]*top:\s*0[^}]*right:\s*0[^}]*left:\s*0[^}]*display:\s*grid[^}]*margin:\s*0 auto/s);
     expect(graphSource).toContain("defaultInstanceLegendLinkTypes(linkTypeCounts)");
     expect(graphSource).toContain('aria-expanded={showAllRelationshipTypes}');
     expect(ontologySource).toContain('class={`stack governance-ontology is-${view}`}');
-    expect(globalStyles).toMatch(/\.ontology-route:has\(\.governance-ontology\.is-instances\)\s*>\s*\.page-header \.page-header-subtitle\s*\{[^}]*display:\s*none/s);
+    expect(globalStyles).not.toMatch(/\.ontology-route:has\(\.governance-ontology\.is-instances\)\s*>\s*\.page-header \.page-header-subtitle\s*\{[^}]*display:\s*none/s);
     expect(instancesSource).toContain('class="ontology-instance-toolbar-status"');
     expect(instancesSource).not.toContain('class="ontology-instance-header"');
   });
@@ -105,14 +113,18 @@ describe("Ontology Instances view controls", () => {
     );
   });
 
-  it("keeps all registry views in one compact scrollable tab row", () => {
-    expect(globalStyles).toMatch(/\.ontology-tabs\s*\{[^}]*display:\s*flex[^}]*min-height:\s*34px[^}]*overflow-x:\s*auto/s);
-    expect(globalStyles).toMatch(/\.ontology-tabs a\.is-active::after\s*\{[^}]*height:\s*2px/s);
-    expect(globalStyles).not.toMatch(/\.ontology-tabs\s*\{[^}]*grid-template-columns:\s*repeat\(5/s);
-    expect(ontologySource).toContain("tabsRef");
-    expect(ontologySource).toContain("activeTab.offsetLeft");
-    expect(ontologySource).toContain('window.addEventListener("resize", alignActiveTab)');
-    expect(globalStyles).toMatch(/\.ontology-route:has\(\.governance-ontology\.is-instances\)[\s\S]*\.page-header-domain,[\s\S]*\.page-header-separator\s*\{\s*display:\s*none/s);
+  it("keeps instances primary and reference views behind one disclosure", () => {
+    expect(ontologySource).toContain('const catalogVisible = view !== "instances"');
+    expect(ontologySource).toMatch(/if \(!catalogVisible\) \{[\s\S]*return undefined;[\s\S]*client\.panel<unknown>\(\s*"\/ontology\/graph"/s);
+    expect(ontologySource).toMatch(/<OntologyNavigation active=\{view\} \/>[\s\S]*view === "instances"[\s\S]*<OntologyInstancesView client=\{client\} \/>[\s\S]*<AsyncBoundary state=\{state\}/s);
+    expect(navigationSource).toContain("<details");
+    expect(navigationSource).toContain("<summary>");
+    expect(navigationSource).toContain('t("ontology.navigation.reference")');
+    expect(navigationSource).toContain('aria-current={active === "instances" ? "page" : undefined}');
+    expect(globalStyles).toMatch(/\.ontology-view-primary\.is-active,[\s\S]*\.ontology-reference-nav\.is-active > summary\s*\{[^}]*border-color:\s*var\(--accent\)[^}]*background:/s);
+    expect(globalStyles).toMatch(/@media \(max-width:\s*620px\)[\s\S]*\.ontology-reference-links\s*\{[\s\S]*position:\s*static/s);
+    expect(ontologySource).not.toContain("tabsRef");
+    expect(globalStyles).not.toContain(".ontology-tabs");
   });
 
   it("connects Resource autocomplete to the existing instance selection path", () => {

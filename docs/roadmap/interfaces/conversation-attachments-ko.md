@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: b9d14059aefcccc29622cb0910f88132aab97a19
+translation_source_sha: b518890bde234bacbba9421dd7cfc42d86754745
 translation_revised: 2026-09-14
 title: 대화 첨부파일
 ---
@@ -38,13 +38,15 @@ title: 대화 첨부파일
 | 채널 전달 호환성 승격 | in-progress | `compatibility-manifest.json`, 전이 인증 범위, 집중 및 독립 서비스 호환성 검사 | 현재 계약 9개는 모두 집중 호환성 검사를 통과합니다. 보존된 전이 근거는 이전에 배포한 edge 7개만 인증하며, 첨부 HTTP edge 2개는 새로운 보호된 N/N-1 근거가 생길 때까지 전이 인증에서 제외됩니다. |
 | Core 정확한 문서 조회 | implemented | `governed_document_reader.py`, `postgres_governed_document_read.py`, `semantic_turn_processor.py`, Core 및 담당 체계 집중 테스트 377개 | Core는 요청에 결속된 모든 버전을 다시 권한 확인하고 정확한 식별자 집합만 검색합니다. 최종 결과는 문서 맥락 다이제스트와 실제 반환된 정확한 인용 집합을 되돌려야 합니다. |
 | Web 채팅 문서 참조 | implemented | Operator `document_refs.py`, `postgres_document_refs.py`, `factory.py`, Operator 이행 `20260914_operator_conversation_document_refs.py`, 집중 Operator 및 이행 검사 | Operator는 영속 semantic 게시 전에 원시 참조를 서버 소유 `web_reference` 맥락으로 바꿉니다. 범위가 제한된 `SECURITY DEFINER` 함수는 원시 테이블 읽기 권한을 부여하지 않으면서 문서 테이블 소유권을 보존하고 업로더 또는 읽기 그룹 접근을 권한 확인합니다. |
-| Web 채팅 inline vision 경로 | in-progress | [`composer-attachments.view.tsx`](../../../console/src/deck/composer-attachments.view.tsx), [`backend-context.ts`](../../../console/src/deck/backend-context.ts), [`conversation_images.py`](../../../services/core-control-plane/src/fdai/delivery/conversation_images.py), [`postgres_conversation_images.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_conversation_images.py) | Console 캡처와 요청 직렬화, 범위가 제한된 이미지 저장소, migration 및 과거 이미지 렌더링은 존재합니다. Operator semantic envelope와 local narrator는 현재 이미지 첨부를 버리며 운영은 이미지 저장소를 채팅 route에 연결하지 않습니다. |
+| Web 채팅 인라인 이미지 해석 경로 | in-progress | [`composer-attachments.view.tsx`](../../../console/src/deck/composer-attachments.view.tsx), [`backend-context.ts`](../../../console/src/deck/backend-context.ts), [`conversation_images.py`](../../../services/core-control-plane/src/fdai/delivery/conversation_images.py), [`postgres_conversation_images.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_conversation_images.py) | Console 캡처, 요청 직렬화, 범위가 제한된 이미지 저장소, 이행 및 과거 이미지 렌더링은 존재합니다. 서버의 이미지 해석, 의미 요청 전달 및 운영 저장소 연결은 미완료입니다. 지원하지 않는 이미지는 거부해야 하며, 이미지를 버린 뒤 텍스트만으로 답해서는 안 됩니다. |
 | 문서 이미지 OCR | implemented | [`processing.py`](../../../services/document-processing-worker/src/fdai_document_worker_service/adapters/processing.py), [`production.py`](../../../services/document-processing-worker/src/fdai_document_worker_service/production.py), [`test_ingestion_adapter_readiness.py`](../../../services/document-processing-worker/tests/test_ingestion_adapter_readiness.py) | Document worker는 OCR endpoint가 설정되면 범위가 제한된 Document Intelligence `prebuilt-read`를 연결하고 그렇지 않으면 실패 시 차단합니다. 이 구현만으로 채널 또는 inline 채팅 인제스트가 완성되지는 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 이미지 전달을 활성화하지 않고 두 HTTP 채팅 경로와 직접 의미 요청 및 서술기 경계의 이미지 누락을 차단했습니다. 잘못된 필드가 섞인 입력은 사용 가능 여부를 판단하기 전에 실패하며, 거부된 이미지는 서술기 자격 증명을 얻을 수 없습니다. | [이슈 #985](https://github.com/dotnetpower/fdai/issues/985), `current change`, 집중 Operator 경로, 의미 요청 연결, 로컬 서술기 및 정확한 문서 검사 245개가 3.65초에 통과했습니다. Ruff 7개 파일 및 strict mypy 소스 4개 검사가 통과했습니다. | 전체 인라인 이미지 지원은 진행 중입니다. [이슈 #303](https://github.com/dotnetpower/fdai/issues/303)에는 보호된 공급자, OCR, 배포 및 효과 증적이 여전히 필요합니다. |
+| 2026-09-14 | in-progress | 두 HTTP 채팅 경로, 의미 요청 묶음 생성기, 로컬 서술기의 Console 첨부 필드에서 이미지가 조용히 누락되는 현상을 재현했습니다. 원시 이미지 전달이나 근거 없는 텍스트 대체 대신 명시적인 사용 불가 경계를 선택했습니다. | `current change`, 집중 Operator 경로, 의미 요청 묶음 및 서술기 회귀 테스트를 두 번 실행해 실패 8건을 재현했습니다. 기존 서술기의 `images` 및 `image_ids` 차단 검사는 통과했습니다. | 수정된 경계를 검증합니다. 전체 인라인 이미지 해석과 이슈 #303의 보호된 공급자 검증은 남아 있습니다. |
 | 2026-09-14 | implemented | 첨부 전달의 CI 소유권과 구조를 정합화했습니다. 출처에서 파생되는 의미 의도 다이제스트를 갱신하고, 범위가 제한된 Core 호출 맥락 모듈을 등록했으며, PostgreSQL 문서 해석기 조립을 PostgreSQL family adapter facade 뒤로 옮겨 Operator 조립 root가 검토된 fan-out 상한 아래에 머물게 했습니다. | `current change`, 의미 의도 범위 테스트, 조립 패키지 분리 테스트, Operator 문서 참조 테스트, Operator 경계 및 파일 LOC 검사 | 보호된 배포 근거를 추가할 때 같은 경계를 유지합니다. 이 구조 보완만으로 실제 운영 검증을 추론하지 않습니다. |
 | 2026-09-14 | implemented | 과거 로컬 및 실제 운영 근거에 새 이름을 붙이지 않고 현재 9개 계약 집중 검사 행렬과 보존된 7개 edge 전이 인증을 분리했습니다. | `current change`, 호환성 manifest와 검증기, 집중 호환성 및 독립 서비스 검사, 인증 범위 부정 테스트 | 보호된 N/N-1 배포가 정확한 스키마, 신원, 상태, offset, 출처, 이미지 및 토폴로지 관측을 기록한 뒤에만 첨부 HTTP edge 2개를 전이 인증에 추가합니다. |
 | 2026-09-14 | implemented | 비공개 Slack 및 Teams 가져오기 경로, 내부 채널 인제스트 워크로드, 영속 허용 및 커밋 재생, 해시에 결속된 최종 증적, 정확한 Web 및 Core 권한 확인, 로컬 및 Terraform 토폴로지, 보호된 전환 검증과 인증된 워크로드 준비 상태 확인을 추가했습니다. | `current change`, 계약 93개, 인제스트 28개, Operator 236개, Core 및 담당 체계 377개, Entra 40개, 정확 참조 이행 2개, 배포, 워크플로 및 로컬 시작 집중 테스트 345개, 소유 영역별 strict mypy 검사 4개, 변경 파일 Ruff 및 생성 산출물 검사 | 테넌트 관리자가 애플리케이션 역할 선행 조건을 완료한 뒤 보호된 운영 배포 근거를 기록합니다. 별도 inline vision 경로를 완성합니다. |
@@ -64,6 +66,7 @@ title: 대화 첨부파일
   전에 principal 범위 문서 권한 확인을 통해 해석합니다.
 - [x] 해석된 `document_refs` 인용을 버전이 지정된 semantic envelope로 전달하고, 권위 있는
   PostgreSQL 문서 메타데이터 기반 운영 resolver를 연결하며, 경로 수준 테스트를 추가합니다.
+- [x] 텍스트 전용 채팅 요청을 수락하기 전에 지원하지 않는 이미지 필드를 거부합니다. [이슈 #985](https://github.com/dotnetpower/fdai/issues/985)에 집중 경계 근거를 기록합니다.
 - [ ] 서버 inline 이미지 parser, byte 및 media 검증, 저장소 연결, semantic transport, vision
   narrator 입력, 이력 메타데이터 및 인증된 조회 경로를 완성합니다.
 - [ ] 내부 인제스트를 먼저 활성화하고, edge 서비스 principal에 정확히
@@ -239,6 +242,18 @@ Bot 또는 Graph 상태를 통해 URL 및 토큰 대상이 포함된 `Attachment
 Framework, Microsoft Graph 및 sovereign-cloud 배포를 지원합니다.
 
 ## Web 채팅 계약
+
+인라인 이미지 기능은 아직 완성되지 않았습니다. 두 채팅 POST 경로는 비어 있지 않은
+`attachments`, `images`, `image_ids` 배열을 `501 inline_images_unavailable`로 거부합니다.
+이는 문서 해석, 영속 요청 수락 및 스트림 시작보다 먼저 수행됩니다. 필드 부재, null 및
+빈 배열은 텍스트 전용 호환성을 유지하며 다른 값은 `400 invalid_inline_images`를 반환합니다.
+직접 의미 요청 묶음을 생성할 때도 같은 검사를 적용하고, 로컬 서술기는 토큰을 얻기 전에
+세 필드를 모두 확인합니다. 오류에는 입력한 이름, 식별자 또는 이미지 바이트를 넣지 않습니다.
+
+이 실패 시 차단 보완은 인라인 이미지 해석의 완성이나 문서 인용 생성을 뜻하지 않습니다.
+원시 데이터 URL을 Kafka로 보내면 검토된 저장소와 근거 경계를 우회하며, 이미지를 조용히
+버리면 다른 질문에 답하게 됩니다. 전체 지원에는 principal 범위 저장소, 미디어 검증,
+의미 요청 전달, 서술 및 보존 작업이 여전히 필요합니다.
 
 Operator API는 multipart 파일, raw 바이트, 저장소 URL 또는 채널 첨부 id를 받지 않습니다.
 SPA 흐름은 다음과 같습니다.

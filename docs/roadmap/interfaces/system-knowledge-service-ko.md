@@ -1,7 +1,7 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: ec18bcfb7dc06069d2ffcc51e3a88645094d9d3c
+translation_source_sha: 80beef94cc09f347897dff21d9dc6e32cae0340c
 translation_revised: 2026-09-14
 ---
 # 시스템 지식 서비스
@@ -127,6 +127,8 @@ Markdown 구조를 수정한 경우를 포함해 인용한 소스가 바뀌면 �
 catalog digest만 바꾸며 검색 권한이나 메시지 전달 동작은 변경하지 않습니다.
 첨부 경계 문서도 같은 원본 기반 갱신 규칙을 따릅니다. 해당 catalog 갱신은 보호된 채널 수집이
 활성화되었거나 runtime 검증을 마쳤다는 주장이 아닙니다.
+문서 기준선 검증은 유한한 값이 아닌 입력과 계산된 비율을 거부합니다. 원본 고정값 갱신은
+이 숫자 계약을 기록할 뿐, 문서 모음의 증적을 인증하거나 측정된 배포 용량을 입증하지 않습니다.
 턴 종료 후 마이그레이션의 인용 근거는 공유 Operator 롤백 계약을 따릅니다. 서비스 버전을
 내려도 legacy `20260912_0090`에서 상속한 근거는 보존됩니다. 이 인용 근거의 갱신은 검토된
 설계를 기록할 뿐, 배포 환경의 롤백이나 중복 전달 증적을 제공하지 않습니다.
