@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 7d2f28c47ed06243805261146210062e7758647c
+translation_source_sha: a0c3f8bbfd05016953333d0dabd88c4faef5930b
 translation_revised: 2026-09-14
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -669,6 +669,8 @@ fail-closed 처리합니다. 이 로컬 증적은 Core 전달 상태를 갱신�
 표시 쓰기는 앞선 단조 상태를 유지합니다.
 새 창 확인은 닫힌 형식의 일시적 URL fragment를 사용하므로 태그와 claim 토큰이 HTTP 요청이나
 referrer에 포함되지 않으며, 일반 Console 탐색을 계속하기 전에 제거됩니다.
+mount된 컨트롤은 `hashchange`도 처리하므로 애플리케이션 remount에 의존하지 않고 정확한 client의
+fragment 이동을 처리합니다.
 컨트롤은 보안 컨텍스트의 Notifications, Service Worker 및 Web Locks API를 모두 사용할 수 있을
 때만 지원 상태를 표시합니다. Web Locks는 principal 범위 스트림 리더 하나를 선출하는 데
 필수입니다.

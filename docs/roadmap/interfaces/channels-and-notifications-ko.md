@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: f78b01c04ba73d7c3a6aa6e3765b660bf4923366
+translation_source_sha: 7b9f979d57292d7d59ced417439238571ae79bf1
 translation_revised: 2026-09-14
 ---
 
@@ -405,6 +405,8 @@ claim별 토큰이 모두 일치할 때만 별도 확인을 기록합니다. 정
 토큰이 없는 레거시 레코드는 중복 억제에는 유효하지만 새로운 확인을 만들 수 없습니다. 컨트롤은
 `대기`, `전송됨`, `전송 및 확인됨`을 구분해 선택, 전달 및 사용자 확인을 하나의 상태로 합치지
 않습니다.
+이미 열려 있는 정확한 인시던트 URL로 이동하면 fragment만 바뀌고 애플리케이션은 다시 mount되지
+않으므로, Console은 mount 시점과 `hashchange` 시점 모두에서 fragment를 처리합니다.
 유효한 클릭이 `showNotification()` 완료 callback의 표시 기록보다 먼저 페이지에 도착하면,
 토큰에 결속된 확인이 두 타임스탬프를 원자적으로 기록합니다. 이후 표시 callback은 멱등하게
 처리되어 앞선 클릭을 지울 수 없습니다.

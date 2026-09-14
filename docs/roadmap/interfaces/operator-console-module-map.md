@@ -669,6 +669,8 @@ A matching click that races ahead of the display callback atomically records bot
 acknowledgement, and the later display write preserves that monotonic result.
 New-window acknowledgement uses a closed, transient URL fragment, so the tag and claim token never
 enter the HTTP request or referrer and are removed before normal Console navigation continues.
+The mounted control also consumes `hashchange`, covering exact-client fragment navigation without
+depending on an application remount.
 The control declares support only when secure-context Notifications, Service Worker, and Web Locks
 APIs are all present, because Web Locks is required to elect one principal-scoped stream leader.
 If the browser exposes Web Locks but rejects leader acquisition, the hook reports the failure and

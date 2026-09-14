@@ -205,9 +205,10 @@ export function BrowserNotificationControl({
   }, [supported, principalId]);
 
   useEffect(() => {
-    const location = new URL(window.location.href);
-    const acknowledgement = decodeBrowserAlertAcknowledgementFragment(location.hash);
-    if (acknowledgement !== null) {
+    const consumeAcknowledgementFragment = () => {
+      const location = new URL(window.location.href);
+      const acknowledgement = decodeBrowserAlertAcknowledgementFragment(location.hash);
+      if (acknowledgement === null) return;
       window.history.replaceState(
         window.history.state,
         "",
@@ -219,7 +220,10 @@ export function BrowserNotificationControl({
         Date.now(),
       );
       if (receipt !== null) setDeliveryState(readBrowserAlertDeliveryStatus(principalId));
-    }
+    };
+    consumeAcknowledgementFragment();
+    window.addEventListener("hashchange", consumeAcknowledgementFragment);
+    return () => window.removeEventListener("hashchange", consumeAcknowledgementFragment);
   }, [principalId]);
 
   const streamEnabled = state === "on" && workerReady;
