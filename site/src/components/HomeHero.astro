@@ -11,7 +11,8 @@ const home = `${base}${locale === "ko" ? "ko/" : ""}`;
 const isHome = Astro.url.pathname.replace(/\/?$/, "/") === home;
 const copy = homeContent(locale);
 const hero = Astro.locals.starlightRoute.entry.data.hero;
-const neuralView = `${base}neural-view/${locale === "ko" ? "?lang=ko" : ""}`;
+const neuralViewBase = import.meta.env.DEV ? "http://127.0.0.1:5573/" : `${base}neural-view/`;
+const neuralView = `${neuralViewBase}${locale === "ko" ? "?lang=ko" : ""}`;
 
 if (isHome && hero?.actions) {
   hero.actions = hero.actions.map(action => ({
