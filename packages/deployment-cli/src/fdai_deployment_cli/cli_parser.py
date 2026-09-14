@@ -169,6 +169,25 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         metavar="PATH",
         help="Private pre-issued capability-token file; never pass the token value",
     )
+    adoption = azure.add_argument_group("Recovered public deployment (advanced)")
+    adoption.add_argument(
+        "--adopt-application-state",
+        type=Path,
+        metavar="PATH",
+        help="Recovered owner-only public-development Terraform state",
+    )
+    adoption.add_argument(
+        "--adopt-application-recovery",
+        type=Path,
+        metavar="PATH",
+        help="Verified contributor recovery receipt for the state",
+    )
+    adoption.add_argument(
+        "--adopt-resolved-models",
+        type=Path,
+        metavar="PATH",
+        help="Resolved model manifest paired with the recovered state",
+    )
     azure.set_defaults(handler=handlers["provision_azure"])
     register_state_handoff_command(provision_commands)
     register_foundation_plan_command(provision_commands)
