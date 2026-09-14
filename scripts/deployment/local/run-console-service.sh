@@ -21,6 +21,8 @@ if [[ $# -eq 2 ]]; then
 fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$repo_root"
+auth_mode_file="$repo_root/.fdai/local-console-auth-mode"
+local_azure_cli_auth=0
 readiness_seconds="${FDAI_CONSOLE_START_READINESS_SECONDS:-60}"
 if [[ ! "$readiness_seconds" =~ ^[1-9][0-9]*$ ]]; then
   echo "FDAI_CONSOLE_START_READINESS_SECONDS must be a positive integer" >&2
@@ -85,9 +87,27 @@ if [[ "$service" == "core-runtime" ]]; then
 fi
 
 if [[ "$service" == "console-frontend" ]]; then
+  if [[ ! -f "$auth_mode_file" ]]; then
+    echo "missing prepared Console auth mode: $auth_mode_file" >&2
+    exit 1
+  fi
+  auth_mode="$(<"$auth_mode_file")"
+  case "$auth_mode" in
+    browser-entra)
+      local_azure_cli_auth=0
+      ;;
+    azure-cli)
+      local_azure_cli_auth=1
+      ;;
+    *)
+      echo "invalid prepared Console auth mode: $auth_mode" >&2
+      exit 1
+      ;;
+  esac
   digest_inputs=(
     "$source_root"
     "$project_file"
+    "$auth_mode_file"
     console/.env.local
     console/package-lock.json
     console/vite.config.ts
@@ -207,6 +227,8 @@ case "$service" in
     service_command=(
       env
       VITE_DEV_MODE=0
+      VITE_LOCAL_AZURE_CLI_AUTH="$local_azure_cli_auth"
+      VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM="$local_azure_cli_auth"
       VITE_OPERATOR_API_BASE_URL=http://127.0.0.1:8010
       VITE_INGESTION_API_BASE_URL=http://127.0.0.1:8011
       VITE_MANUAL_STUDIO_URL=http://127.0.0.1:5474

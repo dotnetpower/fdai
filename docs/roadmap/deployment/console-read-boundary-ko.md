@@ -1,7 +1,7 @@
 ---
 title: Console 읽기 경계
 translation_of: console-read-boundary.md
-translation_source_sha: 19ce100dcabad68396c71528f65aa4b144a1f2ac
+translation_source_sha: dbbbfc04d79db452f38086839bf7cd21a42f3bf5
 translation_revised: 2026-09-14
 ---
 # Console 읽기 경계
@@ -30,6 +30,7 @@ translation_revised: 2026-09-14
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 관리형 프런트엔드 프로세스를 준비된 Console 인증 모드 표식에 연결하고 두 Vite 활성화 값을 명시적으로 설정했습니다. 이제 오래된 `.env.local` 값 때문에 Vite가 다른 principal을 선택하지 않습니다. | `current change`; `run-console-service.sh`; 집중 로컬 Console 실행기 테스트. | 해당 Operator 프로세스 및 감독기 사전 검사를 추가합니다. |
 | 2026-09-14 | implemented | 브라우저가 로컬 Azure CLI principal을 사용해 MSAL을 우회하려면 Vite 활성화 값과 확인 값을 함께 설정하도록 했습니다. 이제 오래된 브라우저 환경 값 하나만 남아 있으면 신원을 바꾸는 대신 시작을 차단합니다. | `current change`; `console/src/config.ts`; `console/src/config.test.ts`; 집중 Console 구성 테스트. | 관리형 실행 경로를 준비된 모드에 연결하여 두 확인 값을 일관되게 설정합니다. |
 | 2026-09-14 | implemented | 로컬 Azure CLI principal이 Browser Entra를 대체하려면 API 활성화 값과 확인 값을 함께 설정하도록 했습니다. 이제 오래된 서버 환경 값 하나만 남아 있으면 시작이 실패합니다. | `current change`; `environment.py`; `prepare-operator-service-env.sh`; 집중 준비 및 Operator 구성 테스트. | 브라우저 경계에도 같은 실패 시 차단 확인 절차를 완성합니다. |
 | 2026-09-14 | implemented | Browser Entra를 결정적인 로컬 준비 기본값으로 지정하고 역할 상한이 고정된 Azure CLI principal을 명시적 준비 인자 뒤로 옮겼습니다. 오래된 `VITE_LOCAL_AZURE_CLI_AUTH=1` 값은 더 이상 준비된 Operator 신원을 바꾸지 않습니다. | `current change`; `scripts/deployment/local/prepare-operator-service-env.sh`; `tests/integration/scripts/test_prepare_operator_service_env.py`; 집중 테스트 5개 통과. | 실행 경로 전체의 모드 일관성을 완성하고 인증된 Browser Entra 승인 화면 검사를 보존합니다. |

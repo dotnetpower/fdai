@@ -49,10 +49,13 @@ def test_core_runtime_digest_includes_prompt_catalog() -> None:
     assert '--core-ready-after "$readiness_started_at"' in script
 
 
-def test_console_launcher_preserves_private_local_auth_opt_in() -> None:
+def test_console_launcher_uses_prepared_local_auth_mode() -> None:
     script = _RUN_SERVICE_SCRIPT.read_text(encoding="utf-8")
 
-    assert "VITE_LOCAL_AZURE_CLI_AUTH=0" not in script
+    assert 'auth_mode_file="$repo_root/.fdai/local-console-auth-mode"' in script
+    assert 'VITE_LOCAL_AZURE_CLI_AUTH="$local_azure_cli_auth"' in script
+    assert 'VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM="$local_azure_cli_auth"' in script
+    assert '"$auth_mode_file"' in script
 
 
 def test_preparation_rejects_missing_opa_before_starting_dependencies(tmp_path: Path) -> None:
