@@ -20,8 +20,8 @@ from fdai_deployment_cli.runtime_release import RUNTIME_SERVICES
 from fdai_deployment_cli.source_deploy import prepare_source_deployment
 from fdai_deployment_cli.source_foundation import _copy_terraform
 from fdai_deployment_cli.source_input import inspect_source
-from fdai_deployment_cli.standalone_status import current_status, prior_attempt
 from fdai_deployment_cli.source_transport import prepare_source_transport
+from fdai_deployment_cli.standalone_status import current_status, prior_attempt
 
 
 def plan_source_installation(
@@ -36,6 +36,7 @@ def plan_source_installation(
     approval_file: Path | None = None,
     installation_options: InstallationOptions | None = None,
     confirm_initial: bool = False,
+    foundation_recovery_directory: Path | None = None,
 ) -> dict[str, object]:
     """Advance source Foundation through exact human approvals, or stop for review.
 
@@ -46,6 +47,21 @@ def plan_source_installation(
     """
     if interactive and approval_file is not None:
         raise ValueError("explicit source approval cannot be combined with interactive approval")
+    if foundation_recovery_directory is not None:
+        from fdai_deployment_cli.source_recovery import resume_source_installation
+
+        if interactive or confirm_initial or installation_options is not None:
+            raise ValueError("source recovery cannot replace the retained initial scope or prompt")
+        return resume_source_installation(
+            source_root=source_root,
+            work_dir=work_dir,
+            recovery_directory=foundation_recovery_directory,
+            runtime_profile=runtime_profile,
+            region=region,
+            monthly_cost_ceiling=monthly_cost_ceiling,
+            timeout_seconds=timeout_seconds,
+            approval_file=approval_file,
+        )
     deadline = DeploymentDeadline(timeout_seconds)
     prepared = prepare_source_deployment(
         source_root=source_root,

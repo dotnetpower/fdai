@@ -177,29 +177,24 @@ runner attestation, private state migration and application deployment incomplet
 
 ### Recovered host enrollment
 
-Rewriting a recovery receipt as an ordinary Foundation receipt would lose
-its original/recovery provenance and state owner. Instead, the enrollment adapter validates the
-unaltered recovery receipt, both claims, review, original snapshot, state hash/lineage and private
-handoff under the original execution lock. It projects only the shared correlation fields in memory;
-that projection is not a new receipt and is never persisted as one. Current enrollment approval,
-source CI and independent host attestation remain separate requirements. This acceptance boundary
-does not migrate state or activate the application.
+The enrollment adapter checks the unaltered recovery receipt, both claims, review, original snapshot,
+state hash/lineage and private handoff under the original lock. Shared correlation fields exist only
+in memory, never as a fabricated ordinary receipt. Current approval, source CI and independent host
+attestation remain separate requirements; this boundary does not migrate state or activate services.
 
 The runner enrollment command accepts `--foundation-recovery-directory` together with the original
 plan directory and `--original-source-snapshot`. A new enrollment requires `--recovery-approval-file`;
 the official prompt produces it from `--recovered-foundation-receipt`. Approval binds that receipt's
 digest and the enrollment source, not the earlier recovery plan. Recovery and enrollment source CI
 must both pass. Claims, known hosts and enrollment receipts stay in the recovery directory, retain
-their recovery receipt reference and record the enrollment source. Verification-only resume cannot
-reenroll or silently change that source. Ordinary Foundation enrollment remains unchanged.
-The claim and resulting receipt retain the verified enrollment approval's actor digest.
+the recovery receipt, enrollment source and approved actor. Verification-only resume never reenrolls
+or changes that source. Ordinary enrollment remains unchanged.
 
 ### Recovered state migration
 
-The state archive builder combines separately verified recovery configuration and original state
-only in its transient migration stage. It rejects a second state in the configuration, checks the
-original state's receipt-bound hash, and rechecks its bytes before archive publication. The archive
-keeps the existing managed-host verification format; neither input becomes a new local state owner.
+Only the transient archive combines verified recovery configuration and original state. It rejects
+a second state owner, checks the receipt-bound state hash and rechecks bytes before publication.
+The existing managed-host format and both original inputs remain unchanged.
 
 The state-handoff command accepts `--foundation-recovery-directory` and `--recovery-approval-file`
 alongside its original source inputs. The official prompt takes both `--recovered-foundation-receipt`
@@ -210,11 +205,22 @@ for recovery, enrollment and migration sources. It holds the original writer loc
 claim-before-transfer, managed-host reattestation, backend migration, independent state comparison
 and cleanup flow. No ordinary Foundation receipt is fabricated.
 
-Migration claims and receipts retain the recovery evidence schema, current migration source and
-verified approver. A retained claim permits verification only, never another transfer or migration.
-After recorded backend authority permits local state deletion, resume validates that authority and
-the final receipt and independently observes the private backend. Missing local state alone grants
-no authority. Public source-coordinator routing and live recovery acceptance remain separate work.
+Migration records retain recovery schema, current source and verified approver. A retained claim
+permits verification only, never another transfer or migration. After backend authority permits local
+state deletion, resume validates that authority and the final receipt, then independently observes
+the backend. Missing local state alone grants no authority. Live recovery acceptance remains open.
+
+### Explicit source recovery
+
+Use `--source <current-checkout> --work-dir <original-run> --foundation-recovery-directory <recovery>`
+to resume a source run. The original snapshot, runtime profile, region and budget remain immutable;
+current execution source is recorded separately. Initial scope cannot be reconfirmed on this route.
+Missing recovery success returns review, never repeats apply. Separate exact approvals advance host
+enrollment and state migration; retained claims select verification only. Completed migration resumes
+through backend observation without repeating enrollment after local state deletion. Under the original
+lock, the verified recovery context then supplies the existing source transfer engine with the original
+application snapshot. Separate immutable progress records preserve old status and false readiness.
+Application activation remains unconnected; this path does not report a completed deployment.
 
 ### Source transfer boundary
 
