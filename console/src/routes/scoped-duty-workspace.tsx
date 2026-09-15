@@ -72,6 +72,8 @@ function ScopedDutySession({ client, canManage, principalOid, contextCurrent }: 
   const pinned = useRef<ScopedDutyCaseRead | undefined>(undefined);
   const creation = useRef<ScopedDutyCreation | null>(null);
   const pendingCommand = useRef<CommandAttempt | null>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const refreshCaseButton = useRef<HTMLButtonElement>(null);
   const catalog = catalogState.status === "ready" ? catalogState.data : null;
   const current = caseState.status === "ready" ? caseState.data : null;
   const now = useObservationClock(catalog, projectionState.status === "ready" ? projectionState.data : null);
@@ -111,13 +113,14 @@ function ScopedDutySession({ client, canManage, principalOid, contextCurrent }: 
   });
   const resetSelection = (id: string) => {
     selectionEpoch.current += 1;
+    returnFocus.current = null;
     for (const kind of ["case", "projection", "write"] as const) controllers.current.get(kind)?.abort();
     selected.current = id; setCaseId(id); pinned.current = undefined;
     pendingCommand.current = null; setCommand(null); setProposal(null); setCommandError(null);
     setCaseState({ status: "idle" }); setProjectionState({ status: "idle" });
   };
   const openCase = (id: string, updateUrl = true) => {
-    if (!isScopedDutyCaseId(id)) { setBadCaseId(true); return; }
+    if (!isScopedDutyCaseId(id)) { setBadCaseId(true); document.getElementById("scoped-case-id")?.focus(); return; }
     setBadCaseId(false); setCaseInput(id);
     if (selected.current !== id) resetSelection(id);
     if (updateUrl) rememberCase(id);
@@ -144,6 +147,17 @@ function ScopedDutySession({ client, canManage, principalOid, contextCurrent }: 
     };
   }, [api]);
 
+  useLayoutEffect(() => {
+    const origin = returnFocus.current;
+    if (busy || !origin) return;
+    returnFocus.current = null;
+    if (document.activeElement === document.body || document.activeElement === origin) {
+      if (origin.isConnected && !origin.matches(":disabled")) origin.focus();
+      else if (refreshCaseButton.current && !refreshCaseButton.current.disabled) refreshCaseButton.current.focus();
+      else document.getElementById("scoped-catalog")?.focus();
+    }
+  }, [busy]);
+
   const changeDraft = (next: ScopedDutyDraft) => {
     if (writing.current || JSON.stringify(draft) === JSON.stringify(next)) return;
     creation.current = null; setCreatedFingerprint(null); setCreateError(null); setDraft(next);
@@ -151,6 +165,7 @@ function ScopedDutySession({ client, canManage, principalOid, contextCurrent }: 
   const write = async (operation: (signal: AbortSignal) => Promise<ScopedDutyProposal>,
     accept: (value: ScopedDutyProposal) => void, fail: (code: ScopedDutyErrorCode | null) => void, begin?: () => void) => {
     if (!valid() || writing.current || !canManage || !isScopedDutyFresh(catalog, Date.now())) return;
+    const origin = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     writing.current = true; setBusy(true); fail(null); begin?.();
     generations.current.case += 1;
     controllers.current.get("case")?.abort();
@@ -161,10 +176,11 @@ function ScopedDutySession({ client, canManage, principalOid, contextCurrent }: 
     const expiry = window.setTimeout(() => controller.abort(), Math.max(0, scopedDutyInstant(catalog!.expires_at) - Date.now()));
     try {
       const value = await operation(controller.signal);
-      if (valid() && selectionEpoch.current === epoch) accept(value);
+      if (valid() && selectionEpoch.current === epoch) { accept(value); returnFocus.current = origin; }
     } catch (error) {
       if (valid() && selectionEpoch.current === epoch) {
         fail(errorCode(error));
+        returnFocus.current = origin;
         if (error instanceof ScopedDutyError && ["conflict", "denied", "unauthorized"].includes(error.code)) {
           setCaseState({ status: "failure", code: error.code });
         }
@@ -215,7 +231,7 @@ function ScopedDutySession({ client, canManage, principalOid, contextCurrent }: 
     <header><h3 id="scoped-duty-title" class="cs-type-section-title">{text("title")}</h3><p>{text("subtitle")}</p></header>
     <p class="scoped-duty-boundary">{text("boundary")}</p>
     <section aria-labelledby="scoped-catalog-title">
-      <div class="scoped-duty-heading"><h4 id="scoped-catalog-title">{text("catalog")}</h4>
+      <div class="scoped-duty-heading"><h4 id="scoped-catalog-title" tabIndex={-1}>{text("catalog")}</h4>
         <button id="scoped-catalog" type="button" class="cs-control-button" disabled={busy || catalogState.status === "loading"} onClick={() => void loadCatalog()}>{text("refreshCatalog")}</button></div>
       <AsyncBoundary state={boundaryState(catalogState)} resourceLabel={text("catalog")}>
         {(value) => <><WindowEvidence value={value} now={now} /><p>{text(value.artifact_delivery_available ? "deliveryAvailable" : "deliveryUnavailable")}</p></>}
@@ -231,7 +247,7 @@ function ScopedDutySession({ client, canManage, principalOid, contextCurrent }: 
           spellcheck={false} aria-invalid={badCaseId} aria-describedby={badCaseId ? "scoped-case-id-error" : undefined} disabled={busy}
           onInput={(event) => { resetSelection(""); setCaseInput(event.currentTarget.value); setBadCaseId(false); }} /></Field>
         <button type="submit" class="cs-control-button" disabled={busy || !caseInput}>{text("openCase")}</button>
-        <button type="button" class="cs-control-button" disabled={busy || !caseId || caseState.status === "loading"} onClick={() => void loadCase(caseId)}>{text("refreshCase")}</button>
+        <button ref={refreshCaseButton} type="button" class="cs-control-button" disabled={busy || !caseId || caseState.status === "loading"} onClick={() => void loadCase(caseId)}>{text("refreshCase")}</button>
       </form>
       {badCaseId ? <p id="scoped-case-id-error" class="cs-control-error" role="alert">{text("invalidCaseId")}</p> : null}
       {caseId ? <a class="scoped-duty-link" href={routeHref("handover", { segments: ["mapping-reviews"], params: { scoped_case: caseId } })}>{text("caseLink")}</a> : null}
@@ -276,32 +292,36 @@ function DraftEditor({ draft, catalog, now, busy, issues, error, accepted, onCha
   readonly accepted: boolean; readonly onChange: (value: ScopedDutyDraft) => void; readonly onCreate: () => void;
 }) {
   const [touched, setTouched] = useState(false);
+  const visibleIssues = touched ? issues : [];
   const update = (next: ScopedDutyDraft) => { setTouched(true); onChange(next); };
   const changeBinding = (index: number, next: ScopedDutyBinding) => update({ ...draft,
     request: { ...draft.request, bindings: draft.request.bindings.map((row, at) => at === index ? next : row) } });
   return <section aria-labelledby="scoped-draft-title"><h4 id="scoped-draft-title">{text("createTitle")}</h4><p>{text("createHint")}</p>
     <form onSubmit={(event) => { event.preventDefault(); setTouched(true); if (!busy) onCreate(); }} autoComplete="off">
       <fieldset disabled={busy}><legend class="sr-only">{text("createTitle")}</legend>
-        <div id="scoped-source_revision" tabIndex={-1}><strong>{text("sourceRevision")}</strong><code>{draft.request.source_revision || text("notRecorded")}</code></div>
+        <div id="scoped-source_revision" tabIndex={-1} {...issueAttributes(visibleIssues, "source_revision")}><strong>{text("sourceRevision")}</strong><code>{draft.request.source_revision || text("notRecorded")}</code></div>
         {catalog && catalog.source_revision !== draft.request.source_revision ? <div class="scoped-duty-notice"><p>{text("sourceChanged")}</p>
           <button type="button" class="cs-control-button" disabled={!isScopedDutyFresh(catalog, now)} onClick={() => update({ ...draft, request: { ...draft.request, source_revision: catalog.source_revision } })}>{text("useCatalog")}</button></div> : null}
         <p id="scoped-subject-help">{text("subjectHint")}</p><p id="scoped-time-help">{text("timeHint")}</p>
-        <div id="scoped-bindings" tabIndex={-1}>{draft.request.bindings.map((row, index) => <BindingEditor key={index} value={row} index={index} catalog={catalog}
-          issues={touched ? issues : []} onChange={(next) => changeBinding(index, next)} onRemove={() => {
+        <div id="scoped-bindings" tabIndex={-1} {...issueAttributes(visibleIssues, "bindings")}>{draft.request.bindings.map((row, index) => <BindingEditor key={index} value={row} index={index} catalog={catalog}
+          issues={visibleIssues} onChange={(next) => changeBinding(index, next)} onRemove={() => {
             update({ ...draft, request: { ...draft.request, bindings: draft.request.bindings.filter((_, at) => at !== index) } });
             queueMicrotask(() => document.getElementById("scoped-add-binding")?.focus());
           }} />)}</div>
-        <button id="scoped-add-binding" class="cs-control-button" type="button" disabled={draft.request.bindings.length >= 30} onClick={() => update({ ...draft,
-          request: { ...draft.request, bindings: [...draft.request.bindings, newScopedDutyBinding()] } })}>{text("addBinding")}</button>
+        <button id="scoped-add-binding" class="cs-control-button" type="button" disabled={draft.request.bindings.length >= 30} onClick={() => {
+          update({ ...draft, request: { ...draft.request, bindings: [...draft.request.bindings, newScopedDutyBinding()] } });
+          queueMicrotask(() => document.getElementById(`scoped-binding-${draft.request.bindings.length}-agent_name`)?.focus());
+        }}>{text("addBinding")}</button>
         <Field label="supersedes" id="scoped-supersedes"><input class="cs-control-input" id="scoped-supersedes" value={draft.request.supersedes_case_id ?? ""} maxLength={36} spellcheck={false}
-          aria-describedby="scoped-supersedes-help" onInput={(event) => update({ ...draft, request: { ...draft.request, supersedes_case_id: event.currentTarget.value || null } })} />
+          {...issueAttributes(visibleIssues, "supersedes", null, "scoped-supersedes-help")} onInput={(event) => update({ ...draft, request: { ...draft.request, supersedes_case_id: event.currentTarget.value || null } })} />
           <span id="scoped-supersedes-help" class="cs-control-help">{text("supersedesHint")}</span></Field>
         <Field label="justification" id="scoped-justification"><textarea id="scoped-justification" class="cs-control-textarea" required minLength={20} maxLength={2000} value={draft.justification}
+          {...issueAttributes(visibleIssues, "justification")}
           onInput={(event) => update({ ...draft, justification: event.currentTarget.value })} /></Field>
         <p>{text("noSecrets")}</p>
         {touched && issues.length > 0 ? <div class="scoped-duty-validation" role="status"><strong>{text("validation")}</strong><ul>{issues.map((issue, index) => {
           const label = text(`issue.${issue.code}`);
-          return <li key={index}><a href={`#${issueTarget(issue)}`} onClick={(event) => { event.preventDefault(); document.getElementById(issueTarget(issue))?.focus(); }}>
+          return <li key={index} id={`scoped-issue-${index}`}><a href={`#${issueTarget(issue)}`} onClick={(event) => { event.preventDefault(); document.getElementById(issueTarget(issue))?.focus(); }}>
             {issue.binding === null ? label : text("bindingIssue", { number: issue.binding + 1, message: label })}</a></li>;
         })}</ul></div> : null}
         {error ? <div role="alert"><p class="cs-control-error">{text(`error.${error}`)}</p><p>{text("createUncertain")}</p></div> : null}
@@ -316,22 +336,23 @@ function BindingEditor({ value, index, catalog, issues, onChange, onRemove }: {
   readonly issues: readonly ScopedDutyIssue[]; readonly onChange: (value: ScopedDutyBinding) => void; readonly onRemove: () => void;
 }) {
   const id = (field: string) => `scoped-binding-${index}-${field}`;
-  const invalid = (field: string) => issues.some((issue) => issue.binding === index && issue.field === field);
+  const errors = (field: string, help?: string) => issueAttributes(issues, field, index, help);
   return <fieldset class="scoped-duty-binding"><legend>{text("binding", { number: index + 1 })}</legend><div class="scoped-duty-grid">
-    <Field label="agent" id={id("agent_name")}><select id={id("agent_name")} class="cs-control-select" value={value.agent_name} aria-invalid={invalid("agent_name")} onChange={(event) => onChange({ ...value, agent_name: event.currentTarget.value })}>{PANTHEON.map((agent) => <option key={agent.name}>{agent.name}</option>)}</select></Field>
-    <Field label="scope" id={id("scope_ref")}><ScopeSelect id={id("scope_ref")} value={value.scope_ref} catalog={catalog} invalid={invalid("scope_ref")} onChange={(scope) => onChange({ ...value, scope_ref: scope })} /></Field>
+    <Field label="agent" id={id("agent_name")}><select id={id("agent_name")} class="cs-control-select" value={value.agent_name} {...errors("agent_name")} onChange={(event) => onChange({ ...value, agent_name: event.currentTarget.value })}>{PANTHEON.map((agent) => <option key={agent.name}>{agent.name}</option>)}</select></Field>
+    <Field label="scope" id={id("scope_ref")}><ScopeSelect id={id("scope_ref")} value={value.scope_ref} catalog={catalog} invalid={errors("scope_ref")["aria-invalid"]}
+      describedBy={errors("scope_ref")["aria-describedby"]} onChange={(scope) => onChange({ ...value, scope_ref: scope })} /></Field>
     <Field label="kind" id={id("kind")}><select id={id("kind")} class="cs-control-select" value={value.subject.kind} onChange={(event) => {
       const kind = event.currentTarget.value as ScopedDutyKind;
       onChange({ ...value, subject: { kind, ref: value.subject.ref }, fallback: kind === "schedule" ? { kind: "user", ref: "" } : null });
     }}>{KINDS.map((kind) => <option key={kind} value={kind}>{text(`kind.${kind}`)}</option>)}</select></Field>
-    <Field label="subjectRef" id={id("subject_ref")}><input id={id("subject_ref")} class="cs-control-input" required maxLength={256} spellcheck={false} value={value.subject.ref} aria-invalid={invalid("subject_ref")}
-      aria-describedby="scoped-subject-help" onInput={(event) => onChange({ ...value, subject: { ...value.subject, ref: event.currentTarget.value } })} /></Field>
-    <Field label="duty" id={id("duty")}><select id={id("duty")} class="cs-control-select" value={value.duty} onChange={(event) => onChange({ ...value, duty: event.currentTarget.value as ScopedDutyBinding["duty"] })}>{DUTIES.map((duty) => <option key={duty} value={duty}>{text(`duty.${duty}`)}</option>)}</select></Field>
+    <Field label="subjectRef" id={id("subject_ref")}><input id={id("subject_ref")} class="cs-control-input" required maxLength={256} spellcheck={false} value={value.subject.ref}
+      {...errors("subject_ref", "scoped-subject-help")} onInput={(event) => onChange({ ...value, subject: { ...value.subject, ref: event.currentTarget.value } })} /></Field>
+    <Field label="duty" id={id("duty")}><select id={id("duty")} class="cs-control-select" value={value.duty} {...errors("duty")} onChange={(event) => onChange({ ...value, duty: event.currentTarget.value as ScopedDutyBinding["duty"] })}>{DUTIES.map((duty) => <option key={duty} value={duty}>{text(`duty.${duty}`)}</option>)}</select></Field>
     {(["effective_from", "effective_until"] as const).map((field) => <Field key={field} label={field === "effective_from" ? "effectiveFrom" : "effectiveUntil"} id={id(field)}>
-      <input id={id(field)} type="text" class="cs-control-input" required maxLength={40} spellcheck={false} value={value[field]} aria-invalid={invalid(field)} aria-describedby="scoped-time-help"
+      <input id={id(field)} type="text" class="cs-control-input" required maxLength={40} spellcheck={false} value={value[field]} {...errors(field, "scoped-time-help")}
         placeholder="YYYY-MM-DDTHH:mm:ssZ" onInput={(event) => onChange({ ...value, [field]: event.currentTarget.value })} /></Field>)}
     {value.subject.kind === "schedule" ? <Field label="fallback" id={id("fallback")}><input id={id("fallback")} class="cs-control-input" required maxLength={256} spellcheck={false}
-      value={value.fallback?.ref ?? ""} aria-invalid={invalid("fallback")} aria-describedby={`${id("fallback")}-help`} onInput={(event) => onChange({ ...value, fallback: { kind: "user", ref: event.currentTarget.value } })} />
+      value={value.fallback?.ref ?? ""} {...errors("fallback", `${id("fallback")}-help`)} onInput={(event) => onChange({ ...value, fallback: { kind: "user", ref: event.currentTarget.value } })} />
       <span id={`${id("fallback")}-help`} class="cs-control-help">{text("fallbackHint")}</span></Field> : null}
   </div><button type="button" class="cs-control-button" onClick={onRemove}>{text("removeBinding", { number: index + 1 })}</button></fieldset>;
 }
@@ -339,12 +360,12 @@ function BindingEditor({ value, index, catalog, issues, onChange, onRemove }: {
 function Field({ label, id, children }: { readonly label: ScopedDutyCopyKey; readonly id: string; readonly children: ComponentChildren }) {
   return <label class="cs-control-field" for={id}><span class="cs-control-label">{text(label)}</span>{children}</label>;
 }
-function ScopeSelect({ id, value, catalog, disabled = false, invalid = false, onChange }: {
+function ScopeSelect({ id, value, catalog, disabled = false, invalid = false, describedBy, onChange }: {
   readonly id: string; readonly value: string; readonly catalog: ScopedDutyCatalog | null;
-  readonly disabled?: boolean; readonly invalid?: boolean; readonly onChange: (value: string) => void;
+  readonly disabled?: boolean; readonly invalid?: boolean; readonly describedBy?: string | undefined; readonly onChange: (value: string) => void;
 }) {
   return <><select id={id} class="cs-control-select" required value={value} disabled={disabled || catalog === null}
-    aria-invalid={invalid} aria-describedby={value ? `${id}-exact` : undefined} onChange={(event) => onChange(event.currentTarget.value)}>
+    aria-invalid={invalid} aria-describedby={[value ? `${id}-exact` : "", describedBy].filter(Boolean).join(" ") || undefined} onChange={(event) => onChange(event.currentTarget.value)}>
     <option value="">{text("chooseScope")}</option>
     {value && !catalog?.scopes.includes(value) ? <option value={value} disabled>{text("scopeUnlisted")}</option> : null}
     {catalog?.scopes.map((scope) => <option key={scope} value={scope}>{scope}</option>)}
@@ -400,7 +421,13 @@ function boundaryState<T>(state: ReadState<T>): AsyncState<T> {
   return { status: ["unavailable", "not_found"].includes(state.code) ? "unavailable" : "error", message: text(`error.${state.code}`) };
 }
 function issueTarget(issue: ScopedDutyIssue): string {
+  if (issue.field === "catalog") return "scoped-catalog-title";
   return issue.binding === null ? `scoped-${issue.field}` : `scoped-binding-${issue.binding}-${issue.field}`;
+}
+/** Describe the same visible corrections at their input without replacing existing help. */
+function issueAttributes(issues: readonly ScopedDutyIssue[], field: string, binding: number | null = null, help?: string) {
+  const ids = issues.flatMap((issue, index) => issue.field === field && issue.binding === binding ? [`scoped-issue-${index}`] : []);
+  return { "aria-invalid": ids.length > 0, "aria-describedby": [help, ...ids].filter(Boolean).join(" ") || undefined };
 }
 function routeSelection(): { readonly value: string; readonly invalid: boolean } {
   const values = currentRoute().search.getAll("scoped_case"), value = values[0] ?? "";

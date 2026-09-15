@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: dfb46d73e3838325672e19533f7e8336910130d3
+translation_source_sha: 3e259a085c1de69da183bf662df12af667fd86c9
 translation_revised: 2026-09-15
 ---
 # 사용자-에이전트 할당 및 지식 이전
@@ -14,9 +14,9 @@ translation_revised: 2026-09-15
 > 워크플로가 두 결과를 함께 요청할 수는 있지만, RBAC과 운영 담당 체계는 여전히 별도 축으로
 > 검증, 승인, 적용, 감사됩니다.
 > **현재 범위:** 한정된 소스 요건과 잔여 소스 구현 이후 서로 다른 최종 통합 비판 검토 12회는 [최종 기록](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)의 체크포인트에서 완료했으며 당시 미해결로 확인된 Medium/High 소스 문제는 없었습니다.
-> 두 번째 로컬 main 병합은 성공했고 [PR #1014](https://github.com/dotnetpower/fdai/pull/1014)에 `c8edd2769`로 게시되었습니다.
-> 해당 헤드의 [CI 실행 34921323157의 1차 시도](https://github.com/dotnetpower/fdai/actions/runs/34921323157/attempts/1)는 실패했습니다. 집중 소스 수정은 로컬에서 구현되었고 전달 복구는 [#946](https://github.com/dotnetpower/fdai/issues/946)에서 진행 중입니다.
-> 최신 게시 헤드는 여전히 `c8edd2769`이며 보호된 CI/병합, 전체 UI 평가표/보조 기술, 실제 운영 근거는 미완료 요건입니다.
+> [PR #1014](https://github.com/dotnetpower/fdai/pull/1014)는 검토된 헤드 `8c1d9977c`의 [CI 34925881557](https://github.com/dotnetpower/fdai/actions/runs/34925881557) 통과 후 `953a17de4`로 병합되었습니다. 병합 후 [CI 34926168342](https://github.com/dotnetpower/fdai/actions/runs/34926168342)도 통과했으며 #946은 완료되었습니다.
+> [로컬 UI 후속 근거](../../internals/handover-ui-evidence-20260915.md)는 [#1017](https://github.com/dotnetpower/fdai/issues/1017)의 서로 다른 합성 브라우저 시나리오 28개, 집중 단위 검사 127개, 집중 비판 검토 10회와 최종 통합 검토 10회를 기록합니다.
+> 평가 기준 ID 50개를 모두 검토했지만 실제 스크린 리더 근거는 없습니다. 결과는 `needs-human`이며 최종 점수나 WCAG 충족을 주장하지 않습니다. 실제 운영 근거는 #458의 요건으로 남습니다.
 > 배포나 승격을 활성화하지 않으며 준비도는 `shadow`와 `operationally_ready=false`를 유지합니다.
 
 ## 설계 개요
@@ -160,12 +160,16 @@ Core는 `FDAI_SCOPED_DUTY_CATALOG_PATH`를 크기가 제한된 비공개 JSON �
 연결되었습니다. 기존 API 6개로 정확한 사례 탐색, 명시적인 UTC 구간, 정적 일정 대체 담당자,
 기존 사례 대체, 수동 새로 고침을 지원합니다. 권위 있는 GET이 사례를 반환하기 전까지
 HTTP202는 `awaiting_core`이며 결과가 불확실한 재시도도 원래 요청 식별자를 유지합니다.
-기록된 단위 검사 95개와 실제 경로/컴포넌트 Playwright 검사 6개는 합성 API 응답을 사용합니다.
-전체 WCAG, 전체 UI 평가표 또는 실제 범위의 근거는 아닙니다.
+필드 오류는 해당 입력으로 연결하며 선언 추가/삭제나 요청 완료 후에는 사용할 수 있는 컨트롤로
+포커스를 복구합니다. 사용자가 직접 이동한 포커스는 빼앗지 않습니다. [후속 근거](../../internals/handover-ui-evidence-20260915.md)는
+두 언어의 키보드 동작, 긴 내용/펼침 상태, 320px 재배치, 실제 200% 글자 확대, 테마와 요청 복구를
+다룹니다. API 응답은 모두 합성이며 실제 스크린 리더 음성 안내와 실제 범위의 근거는 남아 있습니다.
 
 그룹 조회로 개인 권한을 만들지 않으며 오늘의 일정으로 미래 담당 범위를 입증하지 않습니다.
 전역 v2 맵도 변경하지 않습니다. 작업 공간은 IAM 역할, 문서 ACL, 실행 권한을 부여하지 않습니다.
-실제 신원과 GitHub 근거, 운영 도입, 더 넓은 UI 검토는 별도 요건으로 남아 있습니다.
+실제 신원과 GitHub 근거, 운영 도입, 실제 보조 기술 검사는 별도 요건으로 남아 있습니다.
+체크리스트 컨트롤은 서버가 제공한 개별 작업과 검토 리비전을 따릅니다. 클라이언트나 목표가
+바뀌면 비공개 입력을 초기화하고 이전 요청의 늦은 응답을 차단합니다.
 
 ## 할당 및 임무 모델
 
