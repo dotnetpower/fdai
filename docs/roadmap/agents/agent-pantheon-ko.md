@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 34e8b80d87b0a978a04268986bb9d82a6001c11a
+translation_source_sha: f485c5e31dcb50812905465f649c5c1baf9926f9
 translation_revised: 2026-09-15
 ---
 # 에이전트 판테온
@@ -378,17 +378,17 @@ Partitioning:
 ### 6.2 Conversational 포트
 
 Bragi를 포함한 15개 에이전트 모두 정본 이름 또는 도메인 라우팅으로 도달할 수 있습니다.
-질문은 2,000자로 제한하고 세션마다 단조 증가 턴 100개를 보존합니다. 알 수 없음 A2A 요청자 또는 대상 이름은 거부합니다. 포트 간에는 상관관계 추적만 전달하며 기본 응답은 범위가 제한된 시간 초과와 기여자 답변과 같은 소유자, 크기, 민감도 정규화를 거칩니다.
+질문은 2,000자로 제한하고 세션마다 단조 증가 턴 100개를 보존합니다. 알 수 없음 A2A 요청자 또는 대상 이름은 거부합니다. 포트 간에는 상관관계 추적만 전달하며 기본 응답과 contributor 응답은 검증된 동일 운영자 로케일, 범위가 제한된 시간 초과 및 같은 소유자·크기·민감도 정규화를 사용합니다.
 
-각 `AgentSpec`은 고유하고 변경할 수 없으며 versioned된 `ConversationCharter`를 요구합니다. Charter는 role-specific prohibition이 있는 범위가 제한된 서버가 소유한 system instruction, reporting/소유권/토픽/액션 연결/모델 정책/hard-dependency/제안 예산을 정확히 생성한 역할 계약, 해당 에이전트 결정의 mechanics를 명시하는 역할 directive, 영어/한국어 조회 예시, 용도 및 owned-fact 범위가 있는 읽기 도구를 가집니다. 의미 동등성 테스트는 15개 역할 경계를 모두 pin합니다. 런타임은 호출자 정책을 덮어쓰고 각 도구를 고유한 사실 범위로 변환 결과하며 instruction을 노출하지 않고 버전과 별도의 프롬프트 및 full-charter SHA-256 다이제스트를 귀속합니다. 답변은 owned 상태에 근거하며 타입이 지정된 정책이 권위를 유지합니다. Charter 프롬프트는 프롬프트 전체가 아니라 조립의 바닥면입니다. 모든 턴은 그 기준선에 해당 턴이 선택한 situational 계층(peer 대 운영자 대상, 숙의 단계와 계층, 도구 범위, 운영자 로케일, 근거 공백, 명령 의도)를 더해 실제 프롬프트를 조립합니다. 조립은 가산적이고 결정론적하므로 situation은 charter를 조일 수는 있어도 느슨하게 만들 수 없고, 기록된 턴은 정확히 재생됩니다. Turn 맥락은 계층을 선택만 하고 프롬프트 텍스트를 공급하지 않으므로 위조된 맥락이 instruction을 주입할 수 없습니다. 응답은 계층 매니페스트, situation 키, 조립된 프롬프트 다이제스트를 전달하며 텍스트 자체는 전달하지 않습니다. [conversational-deliberation-ko.md](conversational-deliberation-ko.md)를 참조하세요.
+각 `AgentSpec`은 고유하고 변경할 수 없으며 versioned된 `ConversationCharter`를 요구합니다. Charter는 role-specific prohibition이 있는 범위가 제한된 서버가 소유한 system instruction, reporting/소유권/토픽/액션 연결/모델 정책/hard-dependency/제안 예산을 정확히 생성한 역할 계약, 해당 에이전트 결정의 mechanics를 명시하는 역할 directive, 영어/한국어 조회 예시, 용도 및 owned-fact 범위가 있는 읽기 도구를 가집니다. 의미 동등성 테스트는 15개 역할 경계를 모두 pin합니다. 런타임은 호출자 정책을 덮어쓰고 각 도구를 고유한 사실 범위로 변환 결과하며 instruction을 노출하지 않고 버전과 별도의 프롬프트 및 full-charter SHA-256 다이제스트를 귀속합니다. 답변은 owned 상태에 근거하며 타입이 지정된 정책이 권위를 유지합니다. 결정론적 공용 표현 도우미는 각 에이전트의 정규화된 자체 사실과 정확한 근거 참조만 받아 기존 상태 용어를 보존하며 소유권이나 권한을 부여하지 않습니다. Charter 프롬프트는 프롬프트 전체가 아니라 조립의 바닥면입니다. 모든 턴은 그 기준선에 해당 턴이 선택한 situational 계층(peer 대 운영자 대상, 숙의 단계와 계층, 도구 범위, 운영자 로케일, 근거 공백, 명령 의도)를 더해 실제 프롬프트를 조립합니다. 조립은 가산적이고 결정론적하므로 situation은 charter를 조일 수는 있어도 느슨하게 만들 수 없고, 기록된 턴은 정확히 재생됩니다. Turn 맥락은 계층을 선택만 하고 프롬프트 텍스트를 공급하지 않으므로 위조된 맥락이 instruction을 주입할 수 없습니다. 응답은 계층 매니페스트, situation 키, 조립된 프롬프트 다이제스트를 전달하며 텍스트 자체는 전달하지 않습니다. [conversational-deliberation-ko.md](conversational-deliberation-ko.md)를 참조하세요.
 
 Bragi는 범위가 제한된 각 턴에서 스키마로 검증된 의미 판단 하나를 얻습니다. `draft_only`
 액션 자세는 운영자를 시작 주체로 유지한 채 타입이 지정된 파이프라인으로 다시 들어가며 채팅은
 실행하지 않습니다. 읽기 도구 선택은 모델 기반 의미 계획과 정확한 정본 도구 ID 소유권 검사를
 사용합니다. 모델이 바인딩되지 않았거나 실패하면 사용할 수 없음으로 끝나며 구문 사전으로
 대체하지 않습니다.
-Owned-state 범위 좁히기는 범위가 제한된 질문 안에서 내부 `.`, `_`, `-`를 가진 완전한 정본
-식별자만 매칭하며, 더 긴 식별자의 접두사일 뿐인 짧은 후보는 허용하지 않습니다.
+Owned-state 범위 좁히기는 범위가 제한된 질문 안에서 내부 `.`, `_`, `-`를 가진 완전한 정본 식별자만 매칭하며, 더 긴 식별자의 접두사일 뿐인 짧은 후보는 허용하지 않습니다.
+단 하나의 정확한 `question_domains` 식별자는 contributor fan-out 없이 스키마로 검증된 의미 경로를 해당 소유자로 확정합니다. 여러 식별자 또는 접두사만 일치하는 식별자는 의미 채점에 남깁니다.
 `PantheonRuntime.introspect`는 귀속되는 읽기 전용 peer 변환 결과와 digest-only Bragi Turn을 제공하며 제한된 표현 discussion은 [conversational-deliberation-ko.md](conversational-deliberation-ko.md)에 정의합니다.
 
 `AgentConversationToolRegistry`는 모든 declared id를 단일 소유자에 연결하고 잘못된 호출을 거부하며 시간과
@@ -674,26 +674,26 @@ bindings 를 사용할 수 있지만, 소수만 hot-path 에서 그렇게 한다
 
 | 에이전트 | Hot-path LLM? | Off-path LLM? | Conversational 포트 |
 |-------|--------------|---------------|---------------------|
-| Odin | no | no | yes (introspection) |
-| Thor | no | no | yes (introspection) |
-| Forseti | yes (T2 abstain 시만) | no | yes |
-| Huginn | no | no | yes |
-| Heimdall | no | no | yes |
-| Vidar | no | no | yes |
-| Var | no | no | yes |
-| Bragi | yes (번역 및 진단 표시 전용) | no | yes |
-| Saga | no | no | yes |
-| Mimir | no | no | yes |
-| Muninn | no | no | yes |
-| Norns | no | yes (배치 발견) | yes |
-| Njord | no | no | yes |
-| Freyr | no | no | yes |
-| Loki | no | no | yes |
+| Odin | no | no | yes (현지화되고 다이제스트로 검증된 introspection은 정책과 관측 상태를 구분하고 작업을 타입이 지정된 파이프라인에 유지하며 프롬프트를 비공개로 유지) |
+| Thor | no | no | yes (현지화되고 다이제스트로 검증해 인용한 run 상태와 유일한 실행기 경계) |
+| Forseti | yes (T2 abstain 시만) | no | yes (현지화되고 다이제스트로 검증해 인용한 judge 상태와 실행 금지 경계) |
+| Huginn | no | no | yes (현지화되고 다이제스트로 검증해 인용한 유입 상태와 결정론적 LLM 금지 경계) |
+| Heimdall | no | no | yes (현지화되고 다이제스트로 검증해 인용한 observer 상태와 결정론적 LLM 금지 경계) |
+| Vidar | no | no | yes (현지화되고 다이제스트로 검증해 인용한 복구 상태와 hard-dependency fail-closed 경계) |
+| Var | no | no | yes (현지화되고 다이제스트로 검증해 인용한 HIL 상태와 현재 사람·no-self-approval 경계) |
+| Bragi | yes (번역 및 진단 표시 전용) | no | yes (현지화되고 다이제스트로 검증해 인용한 translator-only 라우팅 상태) |
+| Saga | no | no | yes (현지화되고 다이제스트로 검증해 인용한 감사 상태와 추가 전용 hard-dependency 경계) |
+| Mimir | no | no | yes (현지화되고 다이제스트로 검증해 인용한 rule 상태와 품질·shadow·검토 PR 경계) |
+| Muninn | no | no | yes (현지화되고 다이제스트로 검증해 인용한 시간 인식 memory 상태와 신선도·권한 경계) |
+| Norns | no | yes (배치 발견) | yes (현지화되고 다이제스트로 검증해 인용한 pattern 상태와 off-path·비활성 승격 경계) |
+| Njord | no | no | yes (현지화되고 다이제스트로 검증해 인용한 scope-safe 자문 상태와 실행 금지 경계) |
+| Freyr | no | no | yes (현지화되고 다이제스트로 검증해 인용한 resource-safe 자문 상태와 실행 금지 경계) |
+| Loki | no | no | yes (현지화되고 다이제스트로 검증해 인용한 target-safe chaos 상태와 HIL·복구 경계) |
 
-모든 에이전트의 conversational 포트는 변경할 수 없는 `AgentSpec`과 소유 사실에서
-결정론적 introspection을 렌더링할 수 있습니다. 선택적 서술기는 같은 사실을
-LLM과 `owns_code_paths` RAG로 표현할 수 있지만 타입이 지정된 결정이나 실행
-경로를 바꾸지 않습니다.
+모든 에이전트의 conversational 포트는 변경할 수 없는 `AgentSpec`과 소유 사실에서 결정론적 introspection을 렌더링할 수 있습니다.
+운영자 대화 진입점은 검증된 로캘을 `PantheonRuntime`과 Bragi를 거쳐 각 턴의 프롬프트 상황에 전달하며, 로캘이 없거나 유효하지 않으면 영어로 대체합니다.
+로캘은 표현에만 영향을 주며 에이전트 역할, 타입이 지정된 결정 또는 권한을 바꾸지 않습니다. 선택적 서술기는 같은 사실을 LLM과 `owns_code_paths` RAG로
+표현할 수 있지만 타입이 지정된 결정이나 실행 경로를 바꾸지 않습니다.
 
 ## 9. 보안 및 권한 초과 감시
 

@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 93de769b64c3345956cd0d60ed0a87902627901b
+translation_source_sha: 5fc86fa222b2c3c9c8f7fbd61e2a4c15f4ad10ab
 translation_revised: 2026-09-15
 ---
 
@@ -283,6 +283,12 @@ Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 �
 않고 프로바이더 기준선과 Njord의 대화 근거를 재구성합니다. 패키지 누락, 비활성 상태 또는
 프로바이더 불일치는 연결을 비활성 상태로 유지하거나 일관되지 않은 시작을 차단합니다. 에이전트를
 직접 호출하거나 작업 권한을 변경하지 않습니다.
+공유 Pantheon 대화 진입점은 검증된 운영자 로캘을 Njord의 턴별 프롬프트 조립에 전달합니다.
+로캘은 표현에만 영향을 주며 패키지를 활성화하거나 권고 사실 또는 작업 권한을 바꿀 수 없습니다.
+넓은 범위의 Njord 응답은 scope 개수만 공개합니다. 인증된 질문이 정확한 scope를 명시한
+경우에만 facts 또는 설명에 해당 scope 식별자를 포함합니다.
+넓은 범위의 Freyr 응답도 resource 개수만 공개합니다. 인증된 질문이 정확한 resource를
+명시한 경우에만 facts 또는 설명에 해당 resource 식별자를 포함합니다.
 권위 있는 USD 관찰만 `amount_usd` 전문가 ingress로 들어갑니다. 다른 원본 통화는 공개 제어가
 적용된 analytics에서 계속 사용할 수 있지만, 권위 있는 환산 없이는 Njord 권고 기준선에
 포함되지 않습니다.

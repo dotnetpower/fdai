@@ -20,6 +20,7 @@ from fdai.core.conversation_assurance import (
     parse_pantheon_corpus,
 )
 from fdai.runtime.conversation_assurance import runtime_assurance_corpus
+from fdai.runtime.pantheon_assurance_evidence import hard_zero_violations
 from fdai.runtime.pantheon_conversation_assurance import (
     RuntimePantheonConversationAssurance,
     runtime_source_identity,
@@ -63,6 +64,7 @@ class _Pantheon:
     async def ask(self, **values: object) -> object:
         case = build_pantheon_census(PANTHEON_SPECS).cases[0]
         assert values["question"] == case.question
+        assert values["locale"] == case.locale
         spec = PANTHEON_SPECS[0]
         prompt = spec.conversation_policy()
         evidence_digest = "c" * 64
@@ -145,6 +147,16 @@ class _HeldDeliberatingPantheon:
             },
             "t2_status": "budget_denied",
         }
+
+
+def test_pantheon_hard_zero_detects_deployment_scope_identifiers() -> None:
+    leaked = "Tracked scope subscriptions/00000000-0000-0000-0000-000000000001."
+
+    assert set(hard_zero_violations({}, leaked)) == {
+        "hidden_scope_leak",
+        "sensitive_output",
+    }
+    assert hard_zero_violations({}, "Evidence: agent-state:Njord:sha256:" + "a" * 64) == ()
 
 
 async def test_runtime_persists_one_server_assembled_pantheon_diagnostic() -> None:

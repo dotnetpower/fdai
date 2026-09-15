@@ -1,0 +1,42 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.30/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.30",
+  "version": "1.0.0",
+  "id": "${TEAMS_APP_ID}",
+  "developer": {
+    "name": "FDAI",
+    "websiteUrl": "https://github.com/dotnetpower/fdai",
+    "privacyUrl": "https://github.com/dotnetpower/fdai",
+    "termsOfUseUrl": "https://github.com/dotnetpower/fdai"
+  },
+  "name": {
+    "short": "FDAI Approvals",
+    "full": "FDAI Approval Requests"
+  },
+  "description": {
+    "short": "Approve or reject high-risk FDAI actions in this channel.",
+    "full": "This bot posts high-risk FDAI action approval requests to the configured team channel and records your authenticated approve or reject decision. It never executes the action itself."
+  },
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
+  "accentColor": "#2563EB",
+  "bots": [
+    {
+      "botId": "${BOT_APP_ID}",
+      "scopes": [
+        "team"
+      ],
+      "isNotificationOnly": false,
+      "supportsCalling": false,
+      "supportsVideo": false,
+      "supportsFiles": false
+    }
+  ],
+  "permissions": [
+    "identity"
+  ],
+  "validDomains": [],
+  "showLoadingIndicator": false
+}

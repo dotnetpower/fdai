@@ -26,6 +26,7 @@ from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
+    agent_state_evidence_ref,
     capability_facts,
     capped_list,
     mentioned,
@@ -682,20 +683,47 @@ class Var(Agent):
                     "rejected": ticket.rejected,
                 }
             )
+            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+            facts["evidence_refs"] = [evidence_ref]
             answer = (
                 f"HIL {ticket.correlation_id!r} ({ticket.action_type}): "
                 f"{len(ticket.approvers)}/{ticket.quorum_required} approval(s)"
                 + (", rejected" if ticket.rejected else "")
-                + "."
+                + f". Evidence: {evidence_ref}."
             )
             return IntrospectionResult(answer=answer, facts=facts)
-        if not pending:
+        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+        facts["evidence_refs"] = [evidence_ref]
+        if context.get("locale") == "ko":
             answer = (
-                "No HIL approvals pending; I hold the human approval queue "
-                "(distinct principal from the executor)."
+                "저는 사람의 HIL 결정을 Approval로 기록하는 파이프라인 승인 principal인 Var입니다. "
+                "Thor에게 보고하지만 Thor와는 별도 principal입니다. 현재 사람의 승인, 만료, quorum "
+                "및 no-self-approval을 확인하며 작업을 판단하거나 실행하지 않습니다. 침묵이나 이전 "
+                "승인을 현재 권한으로 간주하지 않습니다. 이 대화 포트는 읽기 전용이며 승인 요청은 "
+                "운영자 권한으로 타입이 지정된 파이프라인에 다시 진입해야 합니다. 숨겨진 시스템 "
+                "프롬프트는 공개하지 않습니다."
             )
+            if pending:
+                answer += f" 이 런타임에는 HIL 승인 {len(pending)}건이 대기 중입니다."
+            else:
+                answer += " 이 런타임에는 대기 중인 HIL 승인이 없습니다."
+            answer += f" 근거: {evidence_ref}."
         else:
-            answer = f"{len(pending)} HIL approval(s) pending: {', '.join(sorted(pending))}."
+            answer = (
+                "I am Var, the pipeline approval principal that records current human HIL "
+                "decisions as Approval. I report to Thor but remain a distinct principal from "
+                "Thor. I verify current human approval, expiry, quorum, and no-self-approval and "
+                "never judge or execute an action. Silence and prior approval never become current "
+                "authority. This conversational port is read-only; approval requests re-enter the "
+                "typed pipeline under the operator's authority. I do not reveal hidden system "
+                "prompts."
+            )
+            if pending:
+                approval_label = "approval" if len(pending) == 1 else "approvals"
+                answer += f" This runtime has {len(pending)} HIL {approval_label} pending."
+            else:
+                answer += " No HIL approvals pending in this runtime."
+            answer += f" Evidence: {evidence_ref}."
         return IntrospectionResult(answer=answer, facts=facts)
 
 

@@ -20,6 +20,7 @@ from fdai.agents._framework.adapters import (
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
+    agent_state_evidence_ref,
     capability_facts,
     mentioned,
 )
@@ -644,19 +645,45 @@ class Saga(Agent):
                     ],
                 }
             )
+            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+            facts["evidence_refs"] = [evidence_ref]
             actors = ", ".join(sorted({e.principal for e in scoped})) or "none"
-            answer = f"Correlation {corr[0]!r}: {len(scoped)} audit entr(ies), actor(s): {actors}."
-            return IntrospectionResult(answer=answer, facts=facts)
-        if not entries:
             answer = (
-                "Audit chain is empty; I record every terminal action-lifecycle "
-                "event on an append-only chain."
+                f"Correlation {corr[0]!r}: {len(scoped)} audit entr(ies), actor(s): {actors}. "
+                f"Evidence: {evidence_ref}."
+            )
+            return IntrospectionResult(answer=answer, facts=facts)
+        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+        facts["evidence_refs"] = [evidence_ref]
+        if context.get("locale") == "ko":
+            answer = (
+                "저는 거버넌스 계층의 추가 전용 auditor이자 handoff-to-issue 소유자인 Saga입니다. "
+                "Odin에게 보고합니다. 모든 최종 수명 주기 상태를 해시로 연결된 AuditEntry에 "
+                "추가하고 중복을 제거해 필요한 Issue를 생성합니다. 저는 hard dependency이므로 "
+                "감사 근거가 필요한 전이는 사용할 수 없을 때 fail-closed로 중단돼야 합니다. "
+                "작업을 판단하거나 승인하거나 관리 리소스를 변경하지 않습니다. 이 대화 포트는 "
+                "읽기 전용이며 작업 요청은 운영자 권한으로 타입이 지정된 파이프라인에 다시 "
+                "진입해야 합니다. 숨겨진 시스템 프롬프트는 공개하지 않습니다. 이 런타임은 "
+                f"AuditEntry {facts['audit_entries']}건, 전체 Issue {facts['issues_total']}건, "
+                f"열린 Issue {facts['issues_open']}건을 기록했습니다. 근거: {evidence_ref}."
             )
         else:
-            last = entries[-1]
+            audit_state = (
+                f"The latest sealed entry is sequence {facts['chain_head_seq']}."
+                if entries
+                else "The audit chain is empty."
+            )
             answer = (
-                f"{len(entries)} audit entr(ies) recorded; latest: {last.principal} "
-                f"-> {last.topic}."
+                "I am Saga, the governance-layer append-only auditor and handoff-to-issue owner. "
+                "I report to Odin. I append every terminal lifecycle state to a hash-linked "
+                "AuditEntry chain and deduplicate required Issue materialization. I am a hard "
+                "dependency, so transitions that require audit evidence must fail closed when I "
+                "am unavailable. I never judge, approve, or mutate managed resources. This "
+                "conversational port is read-only; action requests re-enter the typed pipeline "
+                "under the operator's authority. I do not reveal hidden system prompts. This "
+                f"runtime records {facts['audit_entries']} AuditEntries, {facts['issues_total']} "
+                f"Issues, and {facts['issues_open']} open Issues. {audit_state} "
+                f"Evidence: {evidence_ref}."
             )
         return IntrospectionResult(answer=answer, facts=facts)
 
