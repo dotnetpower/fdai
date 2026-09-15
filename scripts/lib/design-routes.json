@@ -1807,11 +1807,13 @@
       "must_read": [
         ".github/instructions/app-shape.instructions.md",
         "docs/roadmap/interfaces/network-topology-visualization.md",
+        "docs/roadmap/interfaces/console-architecture-workbench.md",
         "docs/roadmap/interfaces/console-evidence-and-resilience.md",
         "docs/roadmap/architecture/azure-inventory-network-paths.md"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/network-topology-visualization.md",
+        "docs/roadmap/interfaces/console-architecture-workbench.md",
         "docs/roadmap/interfaces/console-evidence-and-resilience.md",
         "console/README.md",
         "tools/architecture-diagrams/README.md"
@@ -1819,7 +1821,7 @@
       "validate": [
         "npm --prefix packages/network-topology-contracts test",
         "npm --prefix tools/architecture-diagrams test",
-        "npm --prefix console test -- --run src/components/architecture-topology-graph.model.test.ts src/components/architecture-map.model.test.ts src/components/architecture-inspector.test.ts src/components/architecture-network-layout.test.ts src/components/architecture-network-path.test.ts src/components/architecture-network-path-layout.test.ts"
+        "npm --prefix console test -- --run src/components/architecture-landscape-layout.test.ts src/components/architecture-topology-graph.model.test.ts src/components/architecture-map.model.test.ts src/components/architecture-inspector.test.ts src/components/architecture-network-layout.test.ts src/components/architecture-network-path.test.ts src/components/architecture-network-path-layout.test.ts"
       ]
     },
     {

@@ -322,10 +322,12 @@ describe("architecture map model", () => {
     const focusedVm = focused.resources.find((resource) => resource.id === "vm")!;
     const revealed = focused.resources.filter((resource) => resource.id === "disk");
 
-    expect(overview.resources.some((resource) => resource.id === "nic")).toBe(true);
-    expect(focusedVm).toMatchObject({ x: overviewVm.x, y: overviewVm.y });
+    expect(overview.resources.some((resource) => resource.id === "nic")).toBe(false);
+    expect(overview.resources.some((resource) => resource.id === "rg-0")).toBe(true);
+    expect(focusedVm.x).not.toBe(overviewVm?.x);
     expect(new Set(revealed.map((resource) => `${resource.x}:${resource.y}`)).size).toBe(1);
-    expect(revealed.every((resource) => resource.x !== overviewVm.x || resource.y !== overviewVm.y))
+    expect(revealed.every((resource) =>
+      resource.x !== focusedVm.x || resource.y !== focusedVm.y))
       .toBe(true);
   });
 

@@ -76,64 +76,92 @@
 }
 
 .architecture-coverage {
-  display: grid;
-  gap: 8px;
-  padding: 10px 12px;
   border: 1px solid var(--border);
   background: var(--bg-elevated);
 }
 
-.architecture-coverage > header {
+.architecture-coverage > summary {
   display: flex;
-  align-items: baseline;
+  min-height: 48px;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
+  padding: 8px 12px;
+  cursor: pointer;
 }
 
-.architecture-coverage > header strong {
+.architecture-coverage > summary::marker {
+  color: var(--fg-muted);
+}
+
+.architecture-coverage-primary {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.architecture-coverage-primary strong {
   font-size: var(--cs-type-compact-size);
 }
 
-.architecture-coverage > header span {
+.architecture-coverage-primary > span,
+.architecture-coverage-state {
   color: var(--fg-muted);
   font-size: var(--cs-type-caption-size);
+}
+
+.architecture-coverage-state {
+  flex: 0 0 auto;
+  font-weight: 650;
+  text-transform: capitalize;
+}
+
+.architecture-coverage-primary strong {
   font-weight: 700;
 }
 
-.architecture-coverage > header span.is-complete {
+.architecture-coverage strong.is-complete {
   color: var(--success);
 }
 
-.architecture-coverage > header span.is-partial {
+.architecture-coverage strong.is-partial {
   color: var(--warning);
 }
 
-.architecture-coverage dl {
+.architecture-coverage-details {
+  display: grid;
+  gap: 8px;
+  padding: 0 12px 10px;
+}
+
+.architecture-coverage-details dl {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px 16px;
   margin: 0;
 }
 
-.architecture-coverage dl > div {
+.architecture-coverage-details dl > div {
   min-width: 0;
   padding-top: 6px;
   border-top: 1px solid var(--border);
 }
 
-.architecture-coverage dt {
+.architecture-coverage-details dt {
   color: var(--fg-muted);
   font-size: var(--cs-type-caption-size);
 }
 
-.architecture-coverage dd {
+.architecture-coverage-details dd {
   margin: 2px 0 0;
   font-size: var(--cs-type-compact-size);
   font-weight: 750;
   font-variant-numeric: tabular-nums;
 }
 
-.architecture-coverage > p {
+.architecture-coverage-details > p {
   margin: 0;
   color: var(--fg-muted);
   font-size: var(--cs-type-caption-size);
@@ -267,7 +295,7 @@
     white-space: normal;
   }
 
-  .architecture-coverage > header {
+  .architecture-coverage > summary {
     align-items: start;
     flex-direction: column;
     gap: 4px;

@@ -6,8 +6,11 @@ import {
   architectureTopologyBounds,
   architectureTopologyCanvasSize,
   architectureTopologyFitScale,
+  architectureTopologyInitialView,
   architectureTopologyLabelLines,
   architectureTopologyLinkRoute,
+  architectureTopologyPresentationKey,
+  architectureTopologyUnplacedIds,
   architectureTopologyZoomScrollTarget,
   clampArchitectureTopologyScale,
 } from "./architecture-topology-graph.model";
@@ -37,6 +40,17 @@ describe("Architecture topology geometry", () => {
     expect(bounds.y + bounds.height).toBeGreaterThanOrEqual(9);
   });
 
+  it("rejects missing presentation geometry instead of inventing coordinate zero", () => {
+    expect(architectureTopologyUnplacedIds([
+      { id: "group", type: "resource-group", name: "Group", status: "unknown" },
+      { id: "app", type: "app-service", name: "App", status: "healthy", x: 1, y: 2 },
+    ])).toEqual(["group"]);
+    expect(architectureTopologyUnplacedIds([
+      { id: "group", type: "resource-group", name: "Group", status: "unknown", x: 0, y: 0, w: 4, h: 3 },
+      { id: "app", type: "app-service", name: "App", status: "healthy", x: 1, y: 2 },
+    ])).toEqual([]);
+  });
+
   it("fits the authored canvas without enlarging and clamps explicit zoom", () => {
     const canvas = architectureTopologyCanvasSize({ x: 0, y: 0, width: 18, height: 12 });
     expect(canvas).toEqual({ width: 1152, height: 768 });
@@ -44,6 +58,32 @@ describe("Architecture topology geometry", () => {
     expect(architectureTopologyFitScale(canvas, 600, 500)).toBeLessThan(1);
     expect(clampArchitectureTopologyScale(0)).toBe(ARCHITECTURE_TOPOLOGY_MIN_SCALE);
     expect(clampArchitectureTopologyScale(4)).toBe(ARCHITECTURE_TOPOLOGY_MAX_SCALE);
+  });
+
+  it("resets a new presentation canvas to its fitted origin", () => {
+    expect(architectureTopologyInitialView(
+      { width: 1200, height: 800 },
+      600,
+      500,
+    )).toEqual({
+      scale: architectureTopologyFitScale({ width: 1200, height: 800 }, 600, 500),
+      scroll: { left: 0, top: 0 },
+    });
+  });
+
+  it("distinguishes same-sized presentation canvases by identity and geometry", () => {
+    const first = architectureTopologyPresentationKey([
+      { id: "first", type: "app-service", name: "First", status: "healthy", x: 1, y: 1 },
+    ]);
+    const second = architectureTopologyPresentationKey([
+      { id: "second", type: "app-service", name: "Second", status: "healthy", x: 1, y: 1 },
+    ]);
+    const moved = architectureTopologyPresentationKey([
+      { id: "first", type: "app-service", name: "First", status: "healthy", x: 2, y: 1 },
+    ]);
+
+    expect(second).not.toBe(first);
+    expect(moved).not.toBe(first);
   });
 
   it("preserves the viewport center while zooming", () => {
@@ -127,6 +167,40 @@ describe("Architecture topology geometry", () => {
       graph,
       new Set(["app", "vm", "identity"]),
     ).resources.map((item) => item.id)).toContain("identity");
+  });
+
+  it("keeps impacted attached Resources inside their inferred subnet", () => {
+    const graph = {
+      snapshot_at: "2026-09-15T00:00:00Z",
+      freshness: "fresh" as const,
+      scope: null,
+      depth: 4,
+      included_link_types: ["contains", "attached_to"],
+      truncated: false,
+      resources: [
+        { id: "subscription", type: "subscription", name: "Subscription", status: "unknown" },
+        { id: "group", type: "resource-group", name: "Group", status: "unknown", parent_id: "subscription" },
+        { id: "vnet", type: "network.vnet", name: "Network", status: "healthy", parent_id: "group" },
+        { id: "subnet", type: "network.subnet", name: "Subnet", status: "healthy", parent_id: "group" },
+        { id: "nic", type: "network.interface", name: "Interface", status: "healthy", parent_id: "group" },
+        { id: "vm", type: "compute.vm", name: "VM", status: "healthy", parent_id: "group" },
+      ],
+      links: [
+        { source: "subscription", target: "group", type: "contains" as const },
+        { source: "vnet", target: "subnet", type: "contains" as const },
+        { source: "nic", target: "subnet", type: "attached_to" as const },
+        { source: "vm", target: "nic", type: "attached_to" as const },
+      ],
+    };
+    const impact = layoutArchitectureImpactPresentation(
+      graph,
+      new Set(["vm", "nic"]),
+    );
+    const byId = new Map(impact.resources.map((resource) => [resource.id, resource]));
+
+    expect(byId.get("vm")?.network_plane_id).toBe("subnet");
+    expect(byId.get("nic")?.network_plane_id).toBe("subnet");
+    expect(byId.get("vm")?.x).toBeGreaterThan(byId.get("subnet")?.x ?? 0);
   });
 
   it("packs every revealed auxiliary Resource without card collisions", () => {
