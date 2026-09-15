@@ -12,6 +12,8 @@ stream consumes:
   ``provider_ref``.
 - Non-``Succeeded`` events and events whose ARM type is not in the
   vocabulary are dropped.
+- Known child operations reported against only a parent ARM id are dropped
+  because the missing child identity cannot be reconstructed safely.
 - Non-2xx / non-JSON / missing ``value`` responses raise ``ActivityLogError``
   so the delta stream fails closed without a ``final=True`` fence.
 
@@ -179,6 +181,45 @@ async def test_activity_log_rejects_type_that_conflicts_with_the_arm_id() -> Non
             await factory.build_fetch_fn()("")
     finally:
         await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_parent_account_id_drops_child_deployment_operation() -> None:
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-a/providers/Microsoft.CognitiveServices/accounts/account-one"
+    )
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "resourceId": arm_id,
+                        "resourceType": {
+                            "value": "Microsoft.CognitiveServices/accounts/deployments"
+                        },
+                        "operationName": {
+                            "value": "Microsoft.CognitiveServices/accounts/deployments/write"
+                        },
+                        "status": {"value": "Succeeded"},
+                        "eventTimestamp": "2026-07-10T06:15:00Z",
+                    }
+                ]
+            },
+        )
+
+    factory, client, _ = _factory(handler)
+    try:
+        page = await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")
+    finally:
+        await client.aclose()
+
+    assert page.resources == ()
+    assert page.links == ()
+    assert page.cursor == "2026-07-10T06:15:00+00:00"
+    assert page.relationship_reconciliation_after is None
 
 
 @pytest.mark.asyncio

@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 62839db154a0a87393405455a2b53a1dd2b0f067
+translation_source_sha: 8c00d94afe9acc9fcb17e0a78e7077a4789334fd
 translation_revised: 2026-09-15
 ---
 # FDAI Console 대화
@@ -600,6 +600,9 @@ focused 소유자 문서로 분리했습니다:
 - [operator-console-wire-contracts-ko.md](operator-console-wire-contracts-ko.md) - 감사 항목, CLI REPL, 승인 콜백(13.1-13.3), 액션 제출, Python VM workbench, 그라운딩된 코드, 온톨로지 변환 결과(13.6-13.9).
 - [operator-console-view-snapshot-ko.md](operator-console-view-snapshot-ko.md) - self-describing 화면 계약(13.4).
 - [operator-console-incident-roster-ko.md](operator-console-incident-roster-ko.md) - 인시던트 목록 및 교정 이력(13.5).
+
+인시던트 소유자 문서는 적용된 의견을 페이지 새로 고침 없이 갱신하는 제한된 HTTP `202`
+재조회와 권한을 부여하지 않는 Huginn-to-Saga 지침 감사 경로도 정의합니다.
 ## 14. MCP 전달 및 managed 카탈로그
 
 FDAI가 현재 shipped 상태로 제공하는 유일한 MCP 통합은 단일 fixed-transport 읽기 전용 Azure MCP 클라이언트

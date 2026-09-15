@@ -102,8 +102,10 @@ A collected property becomes a relationship only through a reviewed provider map
 mapping omits an observed connection target, an absent graph edge never proves an absent path.
 Every reachable managed-service connection therefore needs its target type in the reviewed catalog.
 Each Azure row's supplied provider type and scope must agree case-insensitively with its exact ARM
-identity before the row enters either a full snapshot or a change stream. A contradiction fails the
-bounded collection and retains the previous complete generation.
+identity before the row enters either a full snapshot or a change stream. A known child operation
+reported against only its parent ARM ID is skipped because the missing child identity cannot be
+reconstructed safely. Every other contradiction fails the bounded collection and retains the
+previous complete generation.
 For an extension-resource identity containing multiple `/providers/` segments, the final provider
 namespace and its following type/name pairs define the observed Resource type; ancestor provider
 segments remain scope and containment context.

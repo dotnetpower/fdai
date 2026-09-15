@@ -759,7 +759,7 @@ async def build_core_runtime(
         operational_readiness_handler=operational_readiness_handler,
         continuous_operating_model_worker=continuous_operating_model_worker,
         operating_intent_revalidation_worker=operating_intent_revalidation_worker,
-        incident_intervention_binding=incident_runtime.intervention_binding,
+        incident_intervention_binding=incident_runtime.with_pantheon(resources.pantheon.runtime),
         incident_notification_replay_worker=incident_runtime.notification_replay_worker,
         notification_receipt_applier=incident_runtime.notification_receipt_applier,
         environment=environment,

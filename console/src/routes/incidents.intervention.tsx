@@ -9,7 +9,7 @@ import type { IncidentSummary } from "../types";
 import { t } from "./i18n/evidence";
 
 type Duration = NonNullable<IncidentInterventionBody["duration"]>;
-type Step = "edit" | "review" | "queued";
+type Step = "edit" | "review" | "queued" | "applied";
 
 const ACTIONS: readonly IncidentInterventionAction[] = [
   "operator_guidance",
@@ -23,9 +23,10 @@ const UUID_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{
 interface Props {
   readonly client: OperatorApiClient;
   readonly incident: IncidentSummary;
+  readonly onAccepted: (receipt: IncidentInterventionReceipt) => Promise<boolean>;
 }
 
-export function IncidentIntervention({ client, incident }: Props) {
+export function IncidentIntervention({ client, incident, onAccepted }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("edit");
@@ -37,6 +38,7 @@ export function IncidentIntervention({ client, incident }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const idempotencyKey = useRef("");
+  const observationGeneration = useRef(0);
   const available = incident.incident_id !== null
     && incident.lifecycle_state !== null
     && incident.target_ref !== null;
@@ -49,6 +51,7 @@ export function IncidentIntervention({ client, incident }: Props) {
   }, [open]);
 
   const close = () => {
+    observationGeneration.current += 1;
     setOpen(false);
     setStep("edit");
     setError(null);
@@ -92,6 +95,18 @@ export function IncidentIntervention({ client, incident }: Props) {
       const accepted = await client.interveneIncident(request, idempotencyKey.current);
       setReceipt(accepted);
       setStep("queued");
+      const generation = observationGeneration.current + 1;
+      observationGeneration.current = generation;
+      void onAccepted(accepted).then(
+        (applied) => {
+          if (observationGeneration.current === generation && applied) setStep("applied");
+        },
+        (failure: unknown) => {
+          if (observationGeneration.current === generation) {
+            setError(failure instanceof Error ? failure.message : String(failure));
+          }
+        },
+      );
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : String(failure));
     } finally {
@@ -207,10 +222,16 @@ export function IncidentIntervention({ client, incident }: Props) {
               </dl>
               <aside>{t("incidents.intervention.authorityNotice")}</aside>
             </div>
-          ) : (
+          ) : step === "queued" ? (
             <div class="incident-intervention-queued" role="status">
               <strong>{t("incidents.intervention.queuedTitle")}</strong>
               <p>{t("incidents.intervention.queuedBody")}</p>
+              <code>{receipt?.request_id}</code>
+            </div>
+          ) : (
+            <div class="incident-intervention-queued" role="status">
+              <strong>{t("incidents.intervention.appliedTitle")}</strong>
+              <p>{t("incidents.intervention.appliedBody")}</p>
               <code>{receipt?.request_id}</code>
             </div>
           )}

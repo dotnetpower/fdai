@@ -95,6 +95,14 @@ _CURSOR_SEP: Final[str] = "\x1f"  # ASCII unit separator - never in a URL or RFC
 _PROVIDER_TYPE_ALIASES: Final = {
     "microsoft.resources/subscriptions/resourcegroups": "Microsoft.Resources/resourceGroups",
 }
+_PARENT_ID_CHILD_OPERATION_TYPES: Final = frozenset(
+    {
+        (
+            "microsoft.cognitiveservices/accounts",
+            "microsoft.cognitiveservices/accounts/deployments",
+        ),
+    }
+)
 
 
 class ActivityLogError(RuntimeError):
@@ -341,6 +349,13 @@ class AzureActivityLogFactory:
             if supplied_arm_type is None
             else _PROVIDER_TYPE_ALIASES.get(supplied_arm_type.casefold(), supplied_arm_type)
         )
+        if (
+            derived_arm_type.casefold(),
+            arm_type.casefold(),
+        ) in _PARENT_ID_CHILD_OPERATION_TYPES:
+            # Activity Log can attach a child deployment operation to its parent
+            # account id. The missing child identity cannot be reconstructed safely.
+            return None
         if self._arm_to_neutral.get(arm_type.casefold()) is None:
             # Activity Log also reports operation categories in resourceType.
             return None
