@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   ARCHITECTURE_LANDSCAPE_GROUP_LIMIT,
+  ARCHITECTURE_SCOPE_DETAIL_LIMIT,
   architectureLandscapeOverviewGraph,
+  architectureScopeDetailGraph,
   layoutGeometrylessArchitectureGraph,
 } from "./architecture-landscape-layout";
 import type { InventoryGraphResponse } from "./architecture-map.model";
@@ -75,5 +77,35 @@ describe("geometry-less Architecture inventory", () => {
     expect(visibleGroups[0]?.collapsed_count).toBeGreaterThan(0);
     expect(visibleGroups.some((resource) => resource.id === "group-23")).toBe(true);
     expect(visibleGroups.some((resource) => resource.id === "group-0")).toBe(false);
+  });
+
+  it("keeps selected scope context and type diversity inside the detail bound", () => {
+    const resources = Array.from({ length: 80 }, (_, index) => ({
+      id: `resource-${index}`,
+      type: index % 2 === 0 ? "app-service" : "postgresql",
+      name: `Resource ${index.toString().padStart(2, "0")}`,
+      status: "healthy",
+      parent_id: "group-a",
+    }));
+    const detail = architectureScopeDetailGraph({
+      ...RAW_GRAPH,
+      resources: [
+        RAW_GRAPH.resources[0]!,
+        RAW_GRAPH.resources[1]!,
+        ...resources,
+        { id: "related", type: "event-hub", name: "Related", status: "healthy", parent_id: "group-a" },
+      ],
+      links: [{ source: "resource-79", target: "related", type: "depends_on" }],
+    }, "resource-79");
+    const ids = new Set(detail.resources.map((resource) => resource.id));
+
+    expect(ids.has("subscription")).toBe(true);
+    expect(ids.has("group-a")).toBe(true);
+    expect(ids.has("resource-79")).toBe(true);
+    expect(ids.has("related")).toBe(true);
+    expect(detail.resources.length).toBeLessThanOrEqual(ARCHITECTURE_SCOPE_DETAIL_LIMIT + 8);
+    expect(new Set(detail.resources.map((resource) => resource.type))).toEqual(
+      new Set(["subscription", "resource-group", "app-service", "postgresql", "event-hub"]),
+    );
   });
 });

@@ -16,6 +16,7 @@ const BOUNDARY_HEADER = .85;
 const BOUNDARY_BOTTOM = .4;
 const ITEM_GAP = .45;
 export const ARCHITECTURE_LANDSCAPE_GROUP_LIMIT = 16;
+export const ARCHITECTURE_SCOPE_DETAIL_LIMIT = 36;
 
 interface LayoutPlan extends RectangleItem {
   readonly resource: InventoryResource;
@@ -61,6 +62,51 @@ export function architectureLandscapeOverviewGraph(
       }),
     links: graph.links.filter((link) =>
       visibleIds.has(link.source) && visibleIds.has(link.target)),
+  };
+}
+
+/** Selects one bounded, type-diverse scope around the requested Resource. */
+export function architectureScopeDetailGraph(
+  graph: InventoryGraphResponse,
+  selectedId: string,
+): InventoryGraphResponse {
+  const byId = new Map(graph.resources.map((resource) => [resource.id, resource]));
+  const selected = byId.get(selectedId);
+  if (!selected) return architectureLandscapeOverviewGraph(graph);
+  const parentById = architecturePresentationParentById(graph, byId);
+  const requiredIds = new Set([selectedId]);
+  addAncestors(selectedId, parentById, byId, requiredIds);
+  const directIds = new Set<string>();
+  for (const resource of graph.resources) {
+    if (parentById.get(resource.id) === selectedId) directIds.add(resource.id);
+  }
+  for (const link of graph.links) {
+    if (link.source === selectedId) directIds.add(link.target);
+    if (link.target === selectedId) directIds.add(link.source);
+  }
+  const scopeRootId = nearestScopeRootId(selectedId, parentById, byId);
+  const scopeCandidates = graph.resources.filter((resource) =>
+    resource.id !== selectedId
+    && isDescendantOf(resource.id, scopeRootId, parentById));
+  const ordered = typeDiverseResources([
+    ...scopeCandidates.filter((resource) => directIds.has(resource.id)),
+    ...scopeCandidates.filter((resource) => !directIds.has(resource.id)),
+  ]);
+  for (const resource of ordered.slice(0, ARCHITECTURE_SCOPE_DETAIL_LIMIT)) {
+    requiredIds.add(resource.id);
+    addAncestors(resource.id, parentById, byId, requiredIds);
+  }
+  for (const directId of directIds) {
+    if (requiredIds.size >= ARCHITECTURE_SCOPE_DETAIL_LIMIT + 8) break;
+    if (!byId.has(directId)) continue;
+    requiredIds.add(directId);
+    addAncestors(directId, parentById, byId, requiredIds);
+  }
+  return {
+    ...graph,
+    resources: graph.resources.filter((resource) => requiredIds.has(resource.id)),
+    links: graph.links.filter((link) =>
+      requiredIds.has(link.source) && requiredIds.has(link.target)),
   };
 }
 
@@ -242,4 +288,85 @@ function descendantCount(
     }
   }
   return count;
+}
+
+function nearestScopeRootId(
+  selectedId: string,
+  parentById: ReadonlyMap<string, string>,
+  byId: ReadonlyMap<string, InventoryResource>,
+): string {
+  let currentId = selectedId;
+  let nearestBoundaryId = selectedId;
+  const visited = new Set<string>();
+  while (!visited.has(currentId)) {
+    visited.add(currentId);
+    const current = byId.get(currentId);
+    if (current?.type === "resource-group") return currentId;
+    if (current && isArchitectureBoundaryResource(current)) nearestBoundaryId = currentId;
+    const parentId = parentById.get(currentId);
+    if (!parentId || !byId.has(parentId)) break;
+    currentId = parentId;
+  }
+  return nearestBoundaryId;
+}
+
+function addAncestors(
+  resourceId: string,
+  parentById: ReadonlyMap<string, string>,
+  byId: ReadonlyMap<string, InventoryResource>,
+  ids: Set<string>,
+): void {
+  let parentId = parentById.get(resourceId);
+  const visited = new Set<string>();
+  while (parentId && byId.has(parentId) && !visited.has(parentId)) {
+    visited.add(parentId);
+    ids.add(parentId);
+    parentId = parentById.get(parentId);
+  }
+}
+
+function isDescendantOf(
+  resourceId: string,
+  rootId: string,
+  parentById: ReadonlyMap<string, string>,
+): boolean {
+  if (resourceId === rootId) return true;
+  let parentId = parentById.get(resourceId);
+  const visited = new Set<string>();
+  while (parentId && !visited.has(parentId)) {
+    if (parentId === rootId) return true;
+    visited.add(parentId);
+    parentId = parentById.get(parentId);
+  }
+  return false;
+}
+
+function typeDiverseResources(
+  resources: readonly InventoryResource[],
+): readonly InventoryResource[] {
+  const byType = new Map<string, InventoryResource[]>();
+  for (const resource of resources) {
+    const items = byType.get(resource.type) ?? [];
+    if (!items.some((item) => item.id === resource.id)) items.push(resource);
+    byType.set(resource.type, items);
+  }
+  for (const items of byType.values()) {
+    items.sort((first, second) =>
+      first.name.localeCompare(second.name) || first.id.localeCompare(second.id));
+  }
+  const ordered: InventoryResource[] = [];
+  const types = [...byType.keys()].sort();
+  let index = 0;
+  while (ordered.length < resources.length) {
+    let added = false;
+    for (const type of types) {
+      const item = byType.get(type)?.[index];
+      if (!item) continue;
+      ordered.push(item);
+      added = true;
+    }
+    if (!added) break;
+    index += 1;
+  }
+  return ordered;
 }

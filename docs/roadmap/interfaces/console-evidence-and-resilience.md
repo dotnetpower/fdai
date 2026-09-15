@@ -624,6 +624,9 @@ of optional presentation fields in an API response.
 The default Landscape shows at most 16 returned Resource Group boundaries, ranked by returned
 descendant count with stable name and identity tie-breakers. Displayed counts and search continue
 to expose that this is a bounded presentation over the complete returned page.
+Resource focus retains its reported ancestor boundaries and direct relationships, then fills the
+smallest containing scope with at most 36 type-diverse returned records. Selection never expands
+the workbench back to the full raw page.
 Resources use reviewed official icons where available and stable Cloud Adoption Framework
 abbreviations otherwise. Compact text, accessible names, search, and Inspector content preserve
 name, type, and state without relying on color. Typed edges terminate on current node or boundary

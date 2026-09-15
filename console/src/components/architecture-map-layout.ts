@@ -8,6 +8,7 @@ import {
 import { layoutArchitectureNetworkFloors } from "./architecture-network-layout";
 import {
   architectureLandscapeOverviewGraph,
+  architectureScopeDetailGraph,
   layoutGeometrylessArchitectureGraph,
 } from "./architecture-landscape-layout";
 import {
@@ -22,7 +23,7 @@ export function layoutArchitecturePresentation(
 ): InventoryGraphResponse {
   const sourceGraph = selectedId === null
     ? architectureLandscapeOverviewGraph(graph)
-    : graph;
+    : architectureScopeDetailGraph(graph, selectedId);
   const networkLayout = layoutArchitectureNetworkFloors(
     layoutGeometrylessArchitectureGraph(sourceGraph),
   );
