@@ -630,6 +630,9 @@ the workbench back to the full raw page.
 Landscape boundaries count reported non-containment relationships that cross Resource Group
 scope, but they do not rewrite those links onto aggregate endpoints. Exact source, target, type,
 and direction appear only when the original records are visible in a focused scope.
+The coverage strip is collapsed by default. Its summary leads with complete or partial state,
+freshness, returned Resource count, displayed Resource count, and any reported page limit.
+Snapshot and relationship totals remain available in the native disclosure.
 Resources use reviewed official icons where available and stable Cloud Adoption Framework
 abbreviations otherwise. Compact text, accessible names, search, and Inspector content preserve
 name, type, and state without relying on color. Typed edges terminate on current node or boundary

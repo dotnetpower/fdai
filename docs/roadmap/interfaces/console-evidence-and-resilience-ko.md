@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 37ed6d6b30c1ce1cf7ed37dcd110445689e05523
+translation_source_sha: 264e1cc639f86c118b2bc1fbe6ee3c3bd89cda33
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -616,6 +616,9 @@ Resource 포커스는 보고된 상위 경계와 직접 관계를 유지한 뒤,
 Landscape 경계는 Resource Group 범위를 넘는 보고된 비포함 관계의 개수만 집계하며, 해당 관계의
 엔드포인트를 집계 경계로 다시 쓰지 않습니다. 정확한 원본, 대상, 타입 및 방향은 원본 기록이 포커스
 범위에 표시될 때만 나타납니다.
+표현 범위 영역은 기본적으로 접혀 있습니다. 요약은 완전 또는 부분 상태, 최신성, 반환된 Resource
+수, 표시된 Resource 수 및 보고된 페이지 상한을 먼저 보여줍니다. 스냅샷과 관계 합계는 기본
+disclosure에서 계속 확인할 수 있습니다.
 포함 관계는 공간으로 표현하고 `attached_to`, `depends_on`, `peered_with`는 구분되는 경로,
 엔드포인트 점 및 방향 표시를 유지합니다.
 

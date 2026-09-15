@@ -243,21 +243,32 @@ function ArchitectureCoverage({
   readonly displayedGraph: InventoryGraphResponse;
 }) {
   return (
-    <section class="architecture-coverage" aria-label={t("coverage.title")}>
-      <header>
-        <strong>{t("coverage.title")}</strong>
-        <span class={graph.truncated ? "is-partial" : "is-complete"}>
-          {t(graph.truncated ? "coverage.partial" : "coverage.complete")}
+    <details class="architecture-coverage">
+      <summary>
+        <span class="architecture-coverage-primary">
+          <strong class={graph.truncated ? "is-partial" : "is-complete"}>
+            {t(graph.truncated ? "coverage.partial" : "coverage.complete")}
+          </strong>
+          <span>{t("coverage.summary", {
+            returned: graph.resources.length,
+            displayed: displayedGraph.resources.length,
+          })}</span>
         </span>
-      </header>
-      <dl>
-        <div><dt>{t("coverage.displayedResources")}</dt><dd>{displayedGraph.resources.length.toLocaleString()}</dd></div>
-        <div><dt>{t("coverage.returnedResources")}</dt><dd>{graph.resources.length.toLocaleString()}</dd></div>
-        <div><dt>{t("coverage.displayedRelationships")}</dt><dd>{displayedGraph.links.length.toLocaleString()}</dd></div>
-        <div><dt>{t("coverage.returnedRelationships")}</dt><dd>{graph.links.length.toLocaleString()}</dd></div>
-      </dl>
-      <p>{t("coverage.note", { time: graph.snapshot_at })}</p>
-    </section>
+        <span class="architecture-coverage-state">
+          {graph.freshness}
+          {graph.limit ? ` - ${t("coverage.limit", { count: graph.limit })}` : ""}
+        </span>
+      </summary>
+      <div class="architecture-coverage-details" aria-label={t("coverage.title")}>
+        <dl>
+          <div><dt>{t("coverage.displayedResources")}</dt><dd>{displayedGraph.resources.length.toLocaleString()}</dd></div>
+          <div><dt>{t("coverage.returnedResources")}</dt><dd>{graph.resources.length.toLocaleString()}</dd></div>
+          <div><dt>{t("coverage.displayedRelationships")}</dt><dd>{displayedGraph.links.length.toLocaleString()}</dd></div>
+          <div><dt>{t("coverage.returnedRelationships")}</dt><dd>{graph.links.length.toLocaleString()}</dd></div>
+        </dl>
+        <p>{t("coverage.note", { time: graph.snapshot_at })}</p>
+      </div>
+    </details>
   );
 }
 
