@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import UTC, datetime
@@ -39,8 +40,8 @@ async def forward_inventory_delta(
     Sparse recovery sources set ``properties_complete`` false so replay merges
     only their property mask and leaves relationships to full reconciliation.
     """
-    if deadline_seconds <= 0:
-        raise ValueError("inventory delta deadline_seconds MUST be > 0")
+    if not math.isfinite(deadline_seconds) or deadline_seconds <= 0:
+        raise ValueError("inventory delta deadline_seconds MUST be finite and > 0")
     cursor_key = f"{_CURSOR_PREFIX}{scope}"
     saved = await state_store.read_state(cursor_key) or {}
     cursor = str(saved.get("cursor") or "")

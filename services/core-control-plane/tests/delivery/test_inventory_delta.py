@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from unittest.mock import AsyncMock
 
 import pytest
 from fdai.delivery.inventory_delta import (
@@ -76,6 +77,26 @@ class _Inventory:
         )
         if self.final:
             yield InventoryBatch(final=True, cursor="cursor-next")
+
+
+@pytest.mark.parametrize("deadline", [float("nan"), float("inf"), float("-inf"), 0.0, -1.0])
+async def test_delta_rejects_unbounded_deadlines_before_reading_state(
+    deadline: float, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    state = InMemoryStateStore()
+    read = AsyncMock(wraps=state.read_state)
+    monkeypatch.setattr(state, "read_state", read)
+    with pytest.raises(ValueError, match="deadline_seconds"):
+        await forward_inventory_delta(
+            inventory=_Inventory(),
+            state_store=state,
+            event_bus=InMemoryEventBus(),
+            topic="events",
+            scope="subscription-1",
+            properties_complete=False,
+            deadline_seconds=deadline,
+        )
+    read.assert_not_awaited()
 
 
 def test_parent_to_child_contains_link_is_owned_by_child_event() -> None:
