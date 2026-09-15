@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 42be15a9ff92eba7e1bfb050b9acad39d6a29b34
-translation_revised: 2026-09-15
+translation_source_sha: 53a3444dcbbb4d1106471f3e3d94fc78d86875c2
+translation_revised: 2026-09-16
 ---
 # 콘솔 근거 및 복원력
 이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다. 지식 전체 현황은 [클라우드 참조 수명 주기](cloud-resource-knowledge-lifecycle-ko.md)의 날짜, 가장 제한적인 출처 최신성, 정확한 바이트의 패키지 검토와 확인된 롤백 요청을 표시합니다. 반입이나 색인 검증 대기를 검색 활성화로 표시하지 않으며 원본 URL은 표시용으로 유지합니다. 만료된 정책은 이력을 숨기지 않고 쓰기 작업을 차단합니다. 대소문자를 구분하지 않는 JSON 파일명 검사는 파일 형식만 검증하며 대화 의도를 해석하지 않습니다.
@@ -438,28 +438,16 @@ Bragi global 안전성 프롬프트 뒤에서 서버가 소유한 charter를 받
 notification-delivery 에스컬레이션이 있으면 이를 우선 표시하고 필요한 후속 작업을 설명합니다. 기록이
 있으면 감사 및 technical 활동을 사용할 수 있습니다. Root-cause analysis와 dossier는 `rca.*`
 기록이 생긴 뒤에만 링크가 되며, 그 전에는 근거가 있는 가설이 기록되지 않았다고 표시합니다. RCA
-경로도 가설이 없거나 주요 가설이 판단을 보류하면 범용 감사 대체 경로 응답을 숨겨
-`incident.members`를 응답 계획 또는 cause로 표시하지 않습니다. 대응 계획은 최신의 근거 있는
-가설보다 감사 순번이 뒤에 있는 명시적 결정 또는 롤백 기록에서만 연결하며, 브라우저가 확인할
-수 있도록 두 순번 참조를 함께 제공합니다. 따라서 `incident.members`, `incident.open`, 이전
-결정 및 다른 수명 주기 행을 대응 계획이나 원인으로 표시하지 않습니다. Trace 경로는 raw
-ordered 표보다 먼저 notification 에스컬레이션, response-decision 근거, RCA 근거 및 named
-파이프라인 단계를 분리한 interpretation 요약을 표시합니다. 범용 correlated 활동은 cause
-점유가 아니라 technical 이력으로 유지합니다.
-
-인용 근거가 있는 가설이 존재하면 RCA 경로는 상관관계 편집기를 접고 주요 가설과 라벨이 있는
-신뢰도, 인과 체인, 인용 대상 링크, 연결된 대응 계획 사실 순서로 검토 화면을 표시합니다.
-신뢰도는 정량 근거일 뿐 권한이 아닙니다. 제한된 너비에서는 인과 재구성에 범위가 제한된 가로
-스크롤을 사용합니다. 모바일에서는 하나의 세로 순서로 바뀌며 관련 화면 링크는 44 px 터치
-대상을 유지합니다. 근거 있음, 판단 보류, 불러오는 중, 빈 결과, 실패 상태는 서로 구분합니다.
-판단 보류 결과는 합성한 원인을 제시하지 않고, 신뢰도를 확인할 수 없으며 인용과 연결된 대응이
-없음을 명시합니다. 요청을 불러오는 중에는 비어 있지 않은 다른 상관관계로 교체할 수 있지만 같은
-상관관계의 중복 요청은 거부합니다. 같은 경로 또는 다른 경로로 제출을 마치면 상관관계 펼침
-컨트롤이 렌더링된 뒤 키보드 포커스를 복원합니다. 임시 설정 경로 이벤트는 편집기를 닫거나
-초안을 버리거나 RCA 요청을 중복 실행하지 않습니다. 불러오는 중 및 오류 상태는 가설이나 대응
-기록이 없는 명시적인 화면 컨텍스트를 게시하므로 같은 경로에서 다시 불러와도 이전의 근거 있는
-결과가 Command Deck에 남지 않습니다. 바뀌는 조회 상태는 atomic polite live region으로
-제공합니다.
+경로는 주요 가설이 없거나 판단을 보류하면 범용 응답을 숨깁니다. 대응 사실은 최신의 근거 있는
+가설 뒤에 기록된 명시적 결정 또는 롤백과 두 감사 순번으로만 연결하므로 이전 결정과 수명 주기
+행은 대응이나 원인이 되지 않습니다. 검토 순서는 주요 가설, 신뢰도, 인과 체인, 인용, 대응입니다.
+제한된 너비의 체인은 스크롤하고 모바일은 44 px 링크를 갖춘 세로 구조로 바뀝니다. 결과 상태는
+서로 구분하며 다른 상관관계가 로딩 요청을 교체할 수 있지만 중복 요청은 차단합니다. 제출 후
+포커스를 복원하고 Settings 이벤트는 초안과 요청을 보존합니다. atomic polite 상태 문구가 완료를
+알리며 로딩 및 오류 화면 컨텍스트는 가설과 대응 기록을 비워 이전 Deck 근거를 남기지 않습니다.
+Trace 경로는 raw ordered 표보다 먼저 notification 에스컬레이션, response-decision 근거, RCA
+근거 및 named 파이프라인 단계를 분리한 interpretation 요약을 표시합니다. 범용 correlated
+활동은 cause 점유가 아니라 technical 이력으로 유지합니다.
 
 Operational 근거는 `matched`, `summary`, `ambiguous`, `none`, `unavailable` 중 하나입니다.
 Collection 요약 요청에서 `summary`는 인시던트 하나를 선택하도록 요구하지 않고 범위가 제한된 matching

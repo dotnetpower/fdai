@@ -436,31 +436,19 @@ decision, change authority, and operator attention instead of presenting raw `pe
 and `shadow` values as one status. Notification-delivery escalation takes precedence for an active
 incident and names the required follow-up. Audit and technical activity remain available when
 records exist. Root-cause analysis and its dossier become links only after an `rca.*` record exists;
-otherwise the rows state that no evidence-backed hypothesis has been recorded. The RCA route also
-hides its generic audit fallback response when no hypothesis exists or the primary hypothesis
-abstains. A response plan is linked only from an explicit decision or rollback record whose audit
-sequence follows the newest grounded hypothesis; the projection includes both sequence references
-for browser verification. Therefore `incident.members`, `incident.open`, older decisions, and
-other lifecycle rows are never presented as a response plan or cause. The Trace route leads with
-an interpretation summary that
+otherwise the rows state that no evidence-backed hypothesis exists. RCA hides generic fallback when
+the primary hypothesis is absent or abstained. It links response facts only to explicit decision or
+rollback evidence after the newest grounded hypothesis and exposes both audit sequence references,
+so older decisions and lifecycle rows cannot become a response or cause. The review then orders the
+primary hypothesis, confidence, causal chain, citations, and response. Constrained chains scroll;
+mobile becomes vertical with 44 px links. Result states remain distinct, another correlation can
+replace a loading request, and duplicate requests are blocked. Submission restores focus; Settings
+events preserve drafts without fetching; atomic polite status text announces completion.
+Loading/error context publishes no hypothesis or response records, preventing stale Deck evidence.
+The Trace route leads with an interpretation summary that
 separates notification escalation, response-decision evidence, RCA evidence, and named pipeline
 stages before showing the raw ordered table; generic correlated activity remains technical history,
 not a cause claim.
-
-Once a citation-grounded hypothesis exists, the RCA route collapses the correlation editor and
-presents one review sequence: primary hypothesis and labeled confidence, causal chain, citation
-destinations, and linked response-plan facts. Confidence is quantitative evidence, never authority.
-At constrained widths the causal reconstruction uses bounded horizontal scrolling; at mobile
-widths it becomes one vertical sequence and related-view links remain 44 px touch targets.
-Grounded, abstained, loading, empty, and failed states remain distinct. An abstained result shows
-unavailable confidence, missing citations, and no linked response instead of presenting a
-synthetic cause. A loading request accepts a different non-empty correlation but rejects a
-same-correlation duplicate. Same-route and replacement submissions restore keyboard focus to the
-correlation disclosure after it renders. Transient Settings route events do not close the editor,
-discard its draft, or duplicate the RCA request. Loading and error states publish an explicit
-screen context with no hypothesis or response records, so a same-route reload cannot leave prior
-grounded evidence available to the Command Deck. The changing lookup status is an atomic polite
-live region.
 
 Operational evidence remains one of `matched`, `summary`, `ambiguous`, `none`, or `unavailable`.
 For a collection summary request, `summary` renders the bounded matching set immediately without
