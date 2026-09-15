@@ -234,31 +234,40 @@ export function ArchitectureTopologyGraph({
             </marker>
           </defs>
           <g class="architecture-topology-regions">
-            {regions.map((resource) => (
-              <g
-                key={resource.id}
-                class={`architecture-topology-resource architecture-topology-region${selectedId === resource.id ? " is-selected" : ""}${active(resource.id) ? "" : " is-muted"}`}
-                data-resource-id={resource.id}
-                data-region-depth={architectureTopologyRegionDepth(resource, byId)}
-                data-resource-type={resource.type}
-                role={onSelect ? "button" : undefined}
-                tabindex={onSelect && focusableId === resource.id ? 0 : -1}
-                aria-label={`${resource.name}. ${resourceTypeLabelOf(resource)}`}
-                onClick={(event) => {
-                  if (suppressRegionClickRef.current) {
-                    event.preventDefault();
-                    return;
-                  }
-                  onSelect?.(resource);
-                }}
-                onKeyDown={(event) => handleArchitectureTopologyKeyDown(
-                  event,
-                  resource,
-                  focusOrder,
-                  onSelect,
-                )}
-              >
-                <title>{resource.name}</title>
+            {regions.map((resource) => {
+              const summary = (resource.collapsed_count ?? 0) > 0
+                ? t("coverage.resourceCount", { count: resource.collapsed_count ?? 0 })
+                : null;
+              const accessibleLabel = [
+                resource.name,
+                resourceTypeLabelOf(resource),
+                summary,
+              ].filter(Boolean).join(". ");
+              return (
+                <g
+                  key={resource.id}
+                  class={`architecture-topology-resource architecture-topology-region${selectedId === resource.id ? " is-selected" : ""}${active(resource.id) ? "" : " is-muted"}`}
+                  data-resource-id={resource.id}
+                  data-region-depth={architectureTopologyRegionDepth(resource, byId)}
+                  data-resource-type={resource.type}
+                  role={onSelect ? "button" : undefined}
+                  tabindex={onSelect && focusableId === resource.id ? 0 : -1}
+                  aria-label={accessibleLabel}
+                  onClick={(event) => {
+                    if (suppressRegionClickRef.current) {
+                      event.preventDefault();
+                      return;
+                    }
+                    onSelect?.(resource);
+                  }}
+                  onKeyDown={(event) => handleArchitectureTopologyKeyDown(
+                    event,
+                    resource,
+                    focusOrder,
+                    onSelect,
+                  )}
+                >
+                  <title>{accessibleLabel}</title>
                 <rect
                   x={resource.x ?? 0}
                   y={resource.y ?? 0}
@@ -289,8 +298,9 @@ export function ArchitectureTopologyGraph({
                     })}
                   </text>
                 ) : null}
-              </g>
-            ))}
+                </g>
+              );
+            })}
           </g>
           <g class="architecture-topology-links">
             {graph.links.map((link, index) => {

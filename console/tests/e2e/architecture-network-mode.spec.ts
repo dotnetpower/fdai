@@ -244,6 +244,9 @@ test("shows the bounded topology overview and keeps selection in one workbench",
   await expect(page.getByRole("button", {
     name: /Example workload.*11 Resources - 0 external links/,
   })).toBeVisible();
+  await expect(page.getByRole("button", {
+    name: /Example subscription.*12 Resources/,
+  })).toBeVisible();
   await expect(page.locator(".architecture-topology-unavailable")).toHaveCount(0);
   const overviewPositions = await page.locator(".architecture-topology-resource").evaluateAll(
     (resources) => resources.map((resource) =>
