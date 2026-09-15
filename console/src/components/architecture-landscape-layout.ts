@@ -129,15 +129,17 @@ export function architectureScopeDetailGraph(
     addAncestors(resource.id, parentById, byId, requiredIds);
   }
   const selectedScopeIds = new Set([...selectedDirect, ...fillers].map((resource) => resource.id));
+  const omittedDirectRelationships = graph.links.filter((link) => {
+    if (link.source !== selectedId && link.target !== selectedId) return false;
+    const relatedId = link.source === selectedId ? link.target : link.source;
+    return !requiredIds.has(relatedId);
+  }).length;
   return {
     ...graph,
     presentation: {
       omitted_resources: scopeCandidates.filter((resource) =>
         !selectedScopeIds.has(resource.id)).length,
-      omitted_direct_relationships: Math.max(
-        0,
-        directResources.length - selectedDirect.length,
-      ),
+      omitted_direct_relationships: omittedDirectRelationships,
     },
     resources: graph.resources.filter((resource) => requiredIds.has(resource.id)),
     links: graph.links.filter((link) =>

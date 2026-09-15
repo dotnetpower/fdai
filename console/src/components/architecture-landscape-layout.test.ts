@@ -268,6 +268,35 @@ describe("geometry-less Architecture inventory", () => {
     expect(detail.presentation?.omitted_direct_relationships).toBe(14);
   });
 
+  it("counts omitted direct link records rather than unique endpoints", () => {
+    const endpoints = Array.from({ length: 37 }, (_, index) => ({
+      id: `endpoint-${index}`,
+      type: "app-service",
+      name: `Endpoint ${index.toString().padStart(2, "0")}`,
+      status: "healthy",
+      parent_id: "group-a",
+    }));
+    const detail = architectureScopeDetailGraph({
+      ...RAW_GRAPH,
+      resources: [
+        RAW_GRAPH.resources[0]!,
+        RAW_GRAPH.resources[1]!,
+        { id: "selected", type: "compute.vm", name: "Selected", status: "healthy", parent_id: "group-a" },
+        ...endpoints,
+      ],
+      links: [
+        ...endpoints.map((resource) => ({
+          source: "selected",
+          target: resource.id,
+          type: "depends_on" as const,
+        })),
+        { source: "selected", target: "endpoint-36", type: "runtime_calls" as const },
+      ],
+    }, "selected");
+
+    expect(detail.presentation?.omitted_direct_relationships).toBe(2);
+  });
+
   it("reserves cross-scope endpoints without charging required ancestors", () => {
     const endpoints = Array.from({ length: ARCHITECTURE_SCOPE_DETAIL_LIMIT }, (_, index) => ({
       id: `endpoint-${index}`,

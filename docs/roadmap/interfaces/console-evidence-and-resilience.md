@@ -641,6 +641,7 @@ scope filler. If direct context alone exceeds that budget, coverage names the om
 count while the Inspector retains the complete returned direct relationship list.
 Direct endpoint reservation spans the complete returned page, including another Resource Group,
 and excludes the selected Resource and ancestor boundaries that are already required context.
+The omitted value counts returned link records, not unique related Resource identities.
 The Inspector resolves its parent boundary through the same reported containment precedence as the
 graph, so a VNet-contained Subnet does not fall back to a less specific Resource Group merely
 because its provider parent field is broader.
