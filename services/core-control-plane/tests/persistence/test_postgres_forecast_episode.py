@@ -303,6 +303,7 @@ async def test_case_projections_create_restart_and_purge_in_real_postgres(
 
 
 async def _exercise_collector_postgres(dsn, state):
+    """Exercise production table DDL in the private schema under its owning test role."""
     import hashlib
     import json
 
@@ -332,6 +333,8 @@ async def _exercise_collector_postgres(dsn, state):
                 / "20260902_core_operational_state_transitions.py"
             )
         )["upgrade"]()
+    assert len(statements) == 2 and statements[1].strip().endswith("TO fdai_core;")
+    statements[1] = statements[1].replace("TO fdai_core;", "TO CURRENT_USER;")
     async with await psycopg.AsyncConnection.connect(dsn) as connection:
         for statement in statements:
             await connection.execute(statement)
