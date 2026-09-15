@@ -85,7 +85,10 @@ from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.state_store import StateStore
 
-from .runtime_operational_agents import bind_operational_agents
+from .runtime_operational_agents import (
+    bind_operational_agents,
+    rehydrate_operational_agents,
+)
 
 _LOG = logging.getLogger(__name__)
 _INGRESS_PRINCIPAL = "Huginn"
@@ -134,6 +137,8 @@ class PantheonRuntime:
         thor_executor: ActionExecutor | None = None,
         thor_state_store: ActionRunStore | None = None,
         rollback_executors: dict[str, RollbackExecutor] | None = None,
+        vidar_state_store: StateStore | None = None,
+        var_state_store: StateStore | None = None,
         operator_rbac: dict[str, frozenset[str]] | None = None,
         approver_authorizer: ApproverAuthorizer | None = None,
         execution_resource_lock: ResourceLock | None = None,
@@ -199,6 +204,8 @@ class PantheonRuntime:
             has_state_store=thor_state_store is not None,
             saga=saga,
             has_rollback=bool(rollback_executors),
+            has_vidar_state_store=vidar_state_store is not None,
+            has_var_state_store=var_state_store is not None,
             has_approver_authorizer=approver_authorizer is not None,
             resource_lock=execution_resource_lock,
         )
@@ -294,12 +301,16 @@ class PantheonRuntime:
             operational_evidence_hook=operational_evidence_hook,
             action_observation_hook=heimdall_action_observation_hook,
         )
-        if approver_authorizer is not None:
-            instantiated["Var"] = Var(approver_authorizer=approver_authorizer)
+        if approver_authorizer is not None or var_state_store is not None:
+            instantiated["Var"] = Var(
+                approver_authorizer=approver_authorizer, state_store=var_state_store
+            )
         if saga is not None:
             instantiated["Saga"] = saga
-        if rollback_executors is not None:
-            instantiated["Vidar"] = Vidar(executors=rollback_executors)
+        if rollback_executors is not None or vidar_state_store is not None:
+            instantiated["Vidar"] = Vidar(
+                executors=rollback_executors, state_store=vidar_state_store
+            )
         heimdall = instantiated["Heimdall"]
         if read_investigation_hook is not None and isinstance(heimdall, Heimdall):
             heimdall.register_read_investigation(read_investigation_hook)
@@ -499,6 +510,7 @@ class PantheonRuntime:
         session_id: str,
         user_id: str,
         question: str,
+        locale: str = "en",
         initiator_role: str | None = None,
         allow_action_proposal: bool = True,
         materialize_handoff: bool = True,
@@ -514,6 +526,7 @@ class PantheonRuntime:
 
         ``initiator_role`` (the console session's Entra role) drives the entry
         RBAC gate for an action command - a Reader cannot submit an action.
+        ``locale`` is forwarded to the server-owned prompt composition.
         Read-only channel adapters disable ``allow_action_proposal`` and
         ``materialize_handoff`` so the narrator can contribute evidence without
         creating a proposal or a discovery issue behind that channel's back.
@@ -524,6 +537,7 @@ class PantheonRuntime:
             session_id=session_id,
             user_id=user_id,
             question=question,
+            locale=locale,
             initiator_role=initiator_role,
             allow_action_proposal=allow_action_proposal,
             materialize_handoff=materialize_handoff,
@@ -679,17 +693,8 @@ class PantheonRuntime:
         )
 
     async def _rehydrate(self) -> None:
-        """Restore durable agent state (in-flight ActionRuns) on startup.
-
-        Runs before the consumer starts so a restart cannot start a
-        second run on a resource that already had one in flight. No-op
-        when no durable store is wired.
-        """
-        thor = self.agents.get("Thor")
-        if isinstance(thor, Thor):
-            restored = await thor.rehydrate()
-            if restored:
-                _LOG.info("pantheon_thor_rehydrated", extra={"in_flight_runs": restored})
+        """Restore durable agent work before consumers start."""
+        await rehydrate_operational_agents(self.agents)
 
     def health(self) -> dict[str, Any]:
         """Return a health snapshot (agents, mode, bridge metrics).

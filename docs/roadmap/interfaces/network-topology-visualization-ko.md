@@ -1,7 +1,7 @@
 ---
 title: 네트워크 토폴로지 시각화
 translation_of: network-topology-visualization.md
-translation_source_sha: 4f8941c837f8a3c01315cb3126649128dc50efda
+translation_source_sha: fa271544e2fbf99e028faff2458d87a63f9d4689
 translation_revised: 2026-09-15
 ---
 # 네트워크 토폴로지 시각화
@@ -43,6 +43,8 @@ Console은 인벤토리 리소스와 타입이 지정된 관계만으로 범위�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | implemented | 명시적인 `runtime_calls` 방향 레이블을 그래프 우선 SVG 작업 영역에 맞췄습니다. 현재 Inspector는 저장된 출처에서 `호출`, 저장된 대상에서 `다음에서 호출됨`으로 표시하며 제거된 기존 관계 인덱스는 복원하지 않습니다. | `current change`, 그래프 우선 아키텍처 통합, 이중 언어 경로 카탈로그, Inspector 레이블 검사, 타입 검사와 프로덕션 빌드 | Console 범위를 `validated`로 바꾸기 전에 정확한 출처에 연결된 관리되는 runtime-call 근거를 보존합니다. |
+| 2026-09-15 | implemented | 아키텍처 관계 인덱스와 Inspector에 저장 방향을 명시하는 `runtime_calls` 레이블을 추가했습니다. 출처는 `호출 ->` 또는 `호출`로, 대상은 `다음에서 호출됨`으로 표시하며 표현 계층은 기록된 edge를 뒤집지 않습니다. | `current change`, 아키텍처 경로 카탈로그, 관계 인덱스와 Inspector 도우미, 집중 지역화 및 관계 레이블 검사, 타입 검사와 프로덕션 빌드 | Console 범위를 `validated`로 바꾸기 전에 정확한 출처에 연결된 관리되는 runtime-call 근거를 보존합니다. |
 | 2026-09-14 | implemented | 분리된 Canvas 리소스 지도와 Network 구성을 하나의 그래프 우선 SVG 작업 영역으로 교체했습니다. 범위 개요, Resource 검색, 표현 범위, 접이식 상세 패널, Network 경로 컨트롤, 반응형 재배치 및 영향 범위 지도가 인벤토리나 경로 근거를 변경하지 않고 하나의 표현 구성 요소를 공유합니다. | `current change`; 공유 토폴로지 그래프, 아키텍처 작업 영역, Network 경로 패널, 영향 범위 통합, 포커스 Vitest 158개 통과, 타입 검사, 운영 빌드와 초기 번들 예산, `1440x900`, `993x641`, `390x844`, `320x844`, 한국어 적응형 설정 및 영향 범위 합성 Playwright 5개 통과. | Console 범위를 `validated`로 바꾸기 전에 정확한 출처에 연결된 관리되는 데스크톱 및 모바일 Console 근거를 보존합니다. |
 | 2026-09-14 | implemented | 리소스 지도의 등각 깊이, 반사, 회전 및 카메라 사전 설정을 하나의 고정 직교 2D 변환 결과로 바꿨습니다. 지도는 타입이 지정된 관계, 도형, 색상, 약어, 선택, 이동, 확대 및 축소, 맞춤, 딥 링크를 유지합니다. 좁은 캔버스에서는 노드 배율을 유지하고 보조 색상 범례를 숨기며 이동을 사용합니다. | `current change`; 아키텍처 지도 모델, 형상, 렌더러, 컨트롤러, 상세 패널, 경로, 지역화 및 반응형 Playwright 경로, 포커스 Console 검사 163개 통과, 타입 검사 및 운영 빌드, 합성 `1440x900`, `993x641`, `390x844` 순차 검사. | Console 범위를 `validated`로 바꾸기 전에 정확한 출처에 연결된 관리되는 데스크톱 및 모바일 Console 근거를 보존합니다. |
 | 2026-09-10 | implemented | PVC, PV, StorageClass, HPA, PDB, NetworkPolicy, ResourceQuota 및 LimitRange에 명시적인 계층, 색상 및 약어 매핑을 추가했습니다. | `current change`, 전체 정본 ResourceType 시각 매핑 테스트 및 전체 Console 테스트 표면입니다. | Console 범위를 `validated`로 높이기 전에 정확한 출처에 연결된 관리되는 시각 근거를 보존합니다. |

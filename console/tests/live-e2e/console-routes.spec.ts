@@ -14,13 +14,14 @@ const AUTHENTICATED_EXTERNAL_STACK = Boolean(
 
 const ROUTES = [
   "/overview",
+  "/dashboard-v2",
   "/live",
   "/incidents",
   "/agents",
   "/approvals",
   "/provisioning",
   "/onboarding",
-  "/detection-readiness",
+  "/detection-coverage",
   "/configuration-baselines",
   "/processes",
   "/workflow-apps",

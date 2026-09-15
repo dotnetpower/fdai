@@ -86,38 +86,10 @@
       "issue": 252
     },
     {
-      "path": "console/src/hooks/use-access-grant-stream.ts",
+      "path": "console/src/hooks/sse-client.ts",
       "disposition": "retain",
       "owner": "console-streaming",
-      "reason": "Retains strict access-grant SSE message and enum validation.",
-      "issue": 252
-    },
-    {
-      "path": "console/src/hooks/use-agent-stream.ts",
-      "disposition": "retain",
-      "owner": "console-streaming",
-      "reason": "Retains strict agent event and status protocol decoding.",
-      "issue": 252
-    },
-    {
-      "path": "console/src/hooks/use-incident-attention-stream.ts",
-      "disposition": "retain",
-      "owner": "console-streaming",
-      "reason": "Retains strict incident attention status protocol validation.",
-      "issue": 252
-    },
-    {
-      "path": "console/src/hooks/use-live-stream.ts",
-      "disposition": "retain",
-      "owner": "console-streaming",
-      "reason": "Retains canonical live stage and phase protocol validation.",
-      "issue": 252
-    },
-    {
-      "path": "console/src/hooks/use-provision-stream.ts",
-      "disposition": "retain",
-      "owner": "console-streaming",
-      "reason": "Retains provisioning event prefix and phase protocol validation.",
+      "reason": "Retains strict SSE content type, cursor, event name, status, retry, and transport validation. It does not inspect operator question text, select semantic intent, or grant authority.",
       "issue": 252
     },
     {
@@ -149,6 +121,13 @@
       "issue": 252
     },
     {
+      "path": "console/src/routes/detection-readiness.tsx",
+      "disposition": "retain",
+      "owner": "console-detection",
+      "reason": "Retains presentation-only filtering over recorded detection lifecycle fields and fixed enum validation for localized labels. It does not classify operator intent or grant authority.",
+      "issue": 252
+    },
+    {
       "path": "console/src/routes/document-ingestion.tsx",
       "disposition": "retain",
       "owner": "console-knowledge",
@@ -170,17 +149,17 @@
       "issue": 252
     },
     {
+      "path": "console/src/routes/rule-trace.tsx",
+      "disposition": "retain",
+      "owner": "console-evidence",
+      "reason": "Retains strict validation of structured trace kinds, stages, action prefixes, and machine metadata from Operator API responses. It does not inspect operator question text, select intent, or grant authority.",
+      "issue": 252
+    },
+    {
       "path": "console/src/routes/settings-models.model.ts",
       "disposition": "retain",
       "owner": "console-settings",
       "reason": "Retains validated model capability inventory contracts and display projection.",
-      "issue": 252
-    },
-    {
-      "path": "console/src/routes/use-ontology-invalidation-stream.ts",
-      "disposition": "retain",
-      "owner": "console-ontology",
-      "reason": "Retains strict machine-protocol validation for ontology invalidation events without interpreting operator language.",
       "issue": 252
     },
     {

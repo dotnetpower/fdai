@@ -1,7 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 
 import { isOptionalOperatorApiUnavailable, OperatorApiError, type OperatorApiClient } from "../api";
-import { architectureHref } from "../components/architecture-map.model";
 import {
   AsyncBoundary,
   DataTable,
@@ -17,8 +16,30 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
-import { routeHref } from "../router";
+import {
+  pushRouteState,
+  replaceRouteState,
+  routeHref,
+  ROUTE_STATE_EVENT,
+} from "../router";
 import { formatConsoleTimestamp } from "../time-format";
+import {
+  CoverageOverview,
+  CoverageResources,
+} from "./detection-coverage-view";
+import {
+  coverageResourceHref,
+  filterCoverageResources,
+  parseCoverageResourceControls,
+  type CoverageResourceControls,
+} from "./detection-coverage-state";
+import {
+  decodeAnalyzerCoverage,
+  decodeAnalyzerRun,
+  type AnalyzerCoverageResourceView,
+  type AnalyzerCoverageView,
+  type AnalyzerRunView,
+} from "./detection-readiness.analyzer-run";
 import { t } from "./i18n/detection-readiness";
 import {
   panelArray,
@@ -76,6 +97,7 @@ const PUBLICATION_STATES = [
   "failed",
 ] as const;
 const ANALYZER_RECOVERY_STATES = ["verified", "open", "unknown"] as const;
+const COVERAGE_VIEWS = ["coverage", "resources", "findings"] as const;
 
 type Decision = typeof DECISIONS[number];
 type Dimension = typeof DIMENSIONS[number];
@@ -88,6 +110,7 @@ type RecoveryStatus = typeof RECOVERY_STATUSES[number];
 type EvidenceGap = typeof EVIDENCE_GAPS[number];
 type PublicationState = typeof PUBLICATION_STATES[number];
 type AnalyzerRecoveryState = typeof ANALYZER_RECOVERY_STATES[number];
+type DetectionCoverageViewId = typeof COVERAGE_VIEWS[number];
 
 interface DetectionObservationView {
   readonly dimension: Dimension;
@@ -153,6 +176,8 @@ interface DetectionReadinessView {
   readonly target_count: number;
   readonly counts: Readonly<Record<Decision, number>>;
   readonly targets: readonly DetectionTargetView[];
+  readonly analyzer_coverage: AnalyzerCoverageView;
+  readonly analyzer_run: AnalyzerRunView | null;
   readonly lifecycle: DetectionLifecycleView;
   readonly pod_lifecycle: LifecycleView;
 }
@@ -188,6 +213,9 @@ interface DetectionLifecycleTarget {
 interface DetectionLifecycleView {
   readonly source: string;
   readonly observed_at: string | null;
+  readonly retained_from: string | null;
+  readonly receipt_count: number;
+  readonly receipt_limit: number;
   readonly target_count: number;
   readonly assessment_count: number;
   readonly evidence_counts: Readonly<Record<EvidenceState, number>>;
@@ -218,7 +246,7 @@ export async function loadDetectionReadinessState(
   client: OperatorApiClient,
 ): Promise<AsyncState<DetectionReadinessView>> {
   try {
-    const value = await client.panel<unknown>("/detection-readiness");
+    const value = await client.panel<unknown>("/detection-coverage");
     return { status: "ready", data: decodeDetectionReadiness(value) };
   } catch (error) {
     return isOptionalOperatorApiUnavailable(error)
@@ -249,6 +277,8 @@ export function decodeDetectionReadiness(value: unknown): DetectionReadinessView
     target_count: targetCount,
     counts,
     targets,
+    analyzer_coverage: decodeAnalyzerCoverage(root["analyzer_coverage"]),
+    analyzer_run: decodeAnalyzerRun(root["analyzer_run"]),
     lifecycle: decodeAnalyzerLifecycle(root["lifecycle"]),
     pod_lifecycle: decodeLifecycle(root["pod_lifecycle"]),
   };
@@ -278,17 +308,28 @@ function decodeAnalyzerLifecycle(value: unknown): DetectionLifecycleView {
   });
   const targetCount = panelNonNegativeInteger(root, "target_count", "detection lifecycle");
   const assessmentCount = panelNonNegativeInteger(root, "assessment_count", "detection lifecycle");
+  const receiptCount = panelNonNegativeInteger(root, "receipt_count", "detection lifecycle");
+  const receiptLimit = panelNonNegativeInteger(root, "receipt_limit", "detection lifecycle");
   const renderedAssessmentCount = targets.reduce((count, target) => count + 1 + target.history.length, 0);
   if (
     targets.length !== targetCount
     || renderedAssessmentCount !== assessmentCount
     || Object.values(evidenceCounts).reduce((sum, count) => sum + count, 0) !== assessmentCount
+    || receiptCount < assessmentCount
+    || receiptCount > receiptLimit
   ) {
     throw new OperatorApiError(502, "invalid Operator API response: detection lifecycle totals do not reconcile");
   }
   return {
     source: panelNonEmptyString(root, "source", "detection lifecycle"),
     observed_at: panelNullableString(root, "observed_at", "detection lifecycle"),
+    retained_from: panelNullableString(
+      root,
+      "retained_from",
+      "detection lifecycle",
+    ),
+    receipt_count: receiptCount,
+    receipt_limit: receiptLimit,
     target_count: targetCount,
     assessment_count: assessmentCount,
     evidence_counts: evidenceCounts,
@@ -556,104 +597,414 @@ function dimensionsOf(values: readonly string[]): readonly Dimension[] {
   return values.map((value) => member(value, DIMENSIONS, "dimension"));
 }
 
+/** Resolve canonical and legacy anchors to the owning Detection coverage view. */
+export function detectionCoverageViewFromHash(hash: string): DetectionCoverageViewId {
+  if (
+    hash.startsWith("#detection-resources")
+    || hash.startsWith("#detection-targets")
+    || hash.startsWith("#pod-detection-lifecycle")
+  ) return "resources";
+  if (
+    hash.startsWith("#detection-findings")
+    || hash.startsWith("#detection-lifecycle")
+  ) return "findings";
+  return "coverage";
+}
+
+/** Return the tab reached by one keyboard navigation direction. */
+export function adjacentDetectionCoverageView(
+  view: DetectionCoverageViewId,
+  direction: "next" | "previous" | "first" | "last",
+): DetectionCoverageViewId {
+  if (direction === "first") return COVERAGE_VIEWS[0]!;
+  if (direction === "last") return COVERAGE_VIEWS[COVERAGE_VIEWS.length - 1]!;
+  const offset = direction === "next" ? 1 : -1;
+  return COVERAGE_VIEWS[
+    (COVERAGE_VIEWS.indexOf(view) + offset + COVERAGE_VIEWS.length)
+      % COVERAGE_VIEWS.length
+  ]!;
+}
+
 function DetectionReadinessBody({ data }: { readonly data: DetectionReadinessView }) {
-  const attention = data.target_count - data.counts.ready;
-  const shadowLimited = data.targets.filter((target) =>
-    ["disabled", "deterministic_fallback", "shadow"].includes(target.authority_ceiling),
-  ).length;
-  const anchor = `${routeHref("detection-readiness")}#detection-targets`;
+  const [activeView, setActiveView] = useState<DetectionCoverageViewId>(() =>
+    detectionCoverageViewFromHash(
+      typeof window === "undefined" ? "" : window.location.hash,
+    ),
+  );
+  const coverage = data.analyzer_coverage;
+  const coverageAvailable = coverage.status === "available";
+  const [resourceControls, setResourceControls] = useState<CoverageResourceControls>(() => {
+    const parsed = parseCoverageResourceControls(
+      typeof window === "undefined"
+        ? new URLSearchParams()
+        : new URLSearchParams(window.location.search),
+    );
+    return {
+      ...parsed,
+      selectedRef: parsed.selectedRef
+        ?? (coverageAvailable
+          ? filterCoverageResources(coverage.resources, parsed)[0]?.resource_ref ?? null
+          : null),
+    };
+  });
+  const routeSearch = typeof window === "undefined"
+    ? new URLSearchParams()
+    : new URLSearchParams(window.location.search);
+  const resourcesHref = coverageResourceHref(
+    routeHref("detection-readiness"),
+    routeSearch,
+    resourceControls,
+    "detection-resources",
+  );
+  const findingsHref = coverageResourceHref(
+    routeHref("detection-readiness"),
+    routeSearch,
+    resourceControls,
+    "detection-findings",
+  );
+  const selectedResource = coverageAvailable
+    ? coverage.resources.find(
+        (resource) => resource.resource_ref === resourceControls.selectedRef,
+      ) ?? null
+    : null;
+  useEffect(() => {
+    const syncRouteState = () => {
+      setActiveView(detectionCoverageViewFromHash(window.location.hash));
+      const parsed = parseCoverageResourceControls(
+        new URLSearchParams(window.location.search),
+      );
+      setResourceControls({
+        ...parsed,
+        selectedRef: parsed.selectedRef
+          ?? (coverageAvailable
+            ? filterCoverageResources(coverage.resources, parsed)[0]?.resource_ref ?? null
+            : null),
+      });
+    };
+    window.addEventListener("hashchange", syncRouteState);
+    window.addEventListener("popstate", syncRouteState);
+    window.addEventListener(ROUTE_STATE_EVENT, syncRouteState);
+    return () => {
+      window.removeEventListener("hashchange", syncRouteState);
+      window.removeEventListener("popstate", syncRouteState);
+      window.removeEventListener(ROUTE_STATE_EVENT, syncRouteState);
+    };
+  }, [coverage, coverageAvailable]);
   usePublishViewContext(
     () => ({
       routeId: "detection-readiness",
       routeLabel: t("title"),
       purpose: t("contextPurpose"),
       glossary: composeGlossary([TERMS.detectionReadiness, TERMS.mode]),
-      headline: t("contextHeadline", { targets: data.target_count, ready: data.counts.ready }),
-      capturedAt: data.observed_at ?? new Date().toISOString(),
+      headline: coverageAvailable
+        ? selectedResource !== null && activeView === "resources"
+          ? t("resources.contextHeadline", {
+              resource: selectedResource.resource_ref,
+              state: t(`resources.state.${selectedResource.evaluation_state}`),
+            })
+          : t("contextHeadline", {
+              evaluated: coverage.evaluated_count,
+              candidates: coverage.candidate_count,
+            })
+        : t("coverage.unavailable"),
+      capturedAt: coverage.recorded_at ?? data.observed_at ?? new Date().toISOString(),
       facts: [
-        { key: "target_count", value: data.target_count, group: "readiness" },
-        { key: "ready_count", value: data.counts.ready, group: "readiness" },
-        { key: "attention_count", value: attention, group: "readiness" },
-        { key: "source", value: data.source, group: "provenance" },
-        { key: "lifecycle_status", value: data.pod_lifecycle.status, group: "lifecycle" },
-        { key: "lifecycle_failing", value: data.pod_lifecycle.counts.failing, group: "lifecycle" },
-        { key: "lifecycle_failure_total", value: data.pod_lifecycle.failure_total, group: "lifecycle" },
-        { key: "lifecycle_recovery_verified", value: data.pod_lifecycle.recovery_counts.verified, group: "lifecycle" },
-        { key: "lifecycle_gap_targets", value: data.pod_lifecycle.gap_target_count, group: "lifecycle" },
+        { key: "coverage_status", value: coverage.status, group: "coverage" },
+        ...(coverageAvailable ? [
+          { key: "candidate_count", value: coverage.candidate_count, group: "coverage" },
+          { key: "selected_count", value: coverage.selected_count, group: "coverage" },
+          { key: "evaluated_count", value: coverage.evaluated_count, group: "coverage" },
+          { key: "held_count", value: coverage.held_count, group: "coverage" },
+          { key: "finding_count", value: coverage.finding_count, group: "coverage" },
+          { key: "error_count", value: coverage.error_count, group: "coverage" },
+        ] : []),
+        ...(data.analyzer_run === null ? [] : [
+          {
+            key: "latest_successful_recorded_at",
+            value: data.analyzer_run.recorded_at,
+            group: "latest_successful_run",
+          },
+          {
+            key: "latest_successful_targets",
+            value: data.analyzer_run.targets,
+            group: "latest_successful_run",
+          },
+        ]),
+        { key: "kubernetes_readiness_targets", value: data.target_count, group: "kubernetes" },
+        { key: "retained_finding_targets", value: data.lifecycle.target_count, group: "findings" },
+        ...(selectedResource === null ? [] : [
+          { key: "selected_resource", value: selectedResource.resource_ref, group: "selection" },
+          { key: "selected_resource_type", value: selectedResource.resource_type, group: "selection" },
+          { key: "selected_evaluation_state", value: selectedResource.evaluation_state, group: "selection" },
+        ]),
+        { key: "resource_type_filter", value: resourceControls.resourceType, group: "filters" },
+        { key: "evaluation_filter", value: resourceControls.evaluation, group: "filters" },
       ],
       records: {
-        targets: data.targets.map((target) => ({ ...target })),
-        lifecycle: data.lifecycle.targets.map((target) => ({ ...target })),
-        pod_lifecycle: data.pod_lifecycle.targets.map((target) => ({ ...target })),
+        resource_coverage: coverageAvailable
+          ? coverage.resources.map((resource) => ({ ...resource }))
+          : [],
+        resource_type_coverage: coverageAvailable
+          ? coverage.resource_types.map((resourceType) => ({ ...resourceType }))
+          : [],
+        retained_findings: data.lifecycle.targets.map((target) => ({ ...target })),
+        kubernetes_readiness: data.targets.map((target) => ({ ...target })),
       },
-    }),
-    [attention, data],
-  );
-  const columns: readonly Column<DetectionTargetView>[] = [
-    {
-      key: "target",
-      header: t("column.target"),
-      render: (target) => <a class="mono small" href={architectureHref(target.resource_ref)}>{target.resource_ref}</a>,
-    },
-    {
-      key: "decision",
-      header: t("column.decision"),
-      render: (target) => <StatusPill kind={decisionKind(target.decision)} label={t(`decision.${target.decision}`)} />,
-    },
-    {
-      key: "evidence",
-      header: t("column.evidence"),
-      render: (target) => `${target.observations.length}/${DIMENSIONS.length}`,
-      cellClass: "num",
-    },
-    {
-      key: "gaps",
-      header: t("column.gaps"),
-      render: (target) => t("gapSummary", {
-        missing: target.missing_dimensions.length,
-        stale: target.stale_dimensions.length,
+      ...(selectedResource === null ? {} : {
+        explanations: {
+          selection: {
+            entity_kind: "Resource",
+            entity_id: selectedResource.resource_ref,
+            label: selectedResource.resource_ref,
+          },
+        },
       }),
-    },
-    {
-      key: "ceiling",
-      header: t("column.ceiling"),
-      render: (target) => <code>{target.authority_ceiling}</code>,
-    },
-  ];
+    }),
+    [
+      activeView,
+      coverage,
+      coverageAvailable,
+      data,
+      resourceControls.evaluation,
+      resourceControls.resourceType,
+      selectedResource,
+    ],
+  );
+  const updateResourceControls = (
+    next: CoverageResourceControls,
+    historyMode: "push" | "replace" = "push",
+  ) => {
+    setResourceControls(next);
+    setActiveView("resources");
+    const href = coverageResourceHref(
+      window.location.pathname,
+      new URLSearchParams(window.location.search),
+      next,
+    );
+    if (historyMode === "push") pushRouteState(href);
+    else replaceRouteState(href);
+  };
+  const openResourceType = (resourceType: string) => {
+    const firstMatch = coverageAvailable
+      ? coverage.resources.find((resource) => resource.resource_type === resourceType)
+      : undefined;
+    updateResourceControls(
+      {
+        ...resourceControls,
+        resourceType,
+        selectedRef: firstMatch?.resource_ref ?? null,
+      },
+      "push",
+    );
+  };
+  const selectView = (view: DetectionCoverageViewId) => {
+    setActiveView(view);
+    const hash = view === "coverage"
+      ? "#detection-coverage-summary"
+      : view === "resources"
+        ? "#detection-resources"
+        : "#detection-findings";
+    pushRouteState(coverageResourceHref(
+      window.location.pathname,
+      new URLSearchParams(window.location.search),
+      resourceControls,
+      hash.slice(1),
+    ));
+  };
   return (
     <div class="stack">
+      <DetectionCoverageTabs activeView={activeView} onSelect={selectView} />
       <div class="governance-readonly-banner">
         <strong>{t("bannerTitle")}</strong>
         <span>{t("bannerBody")}</span>
       </div>
-      <KpiGrid>
-        <KpiCard href={anchor} label={t("targets")} value={data.target_count} />
-        <KpiCard href={anchor} label={t("ready")} value={data.counts.ready} tone={data.counts.ready === data.target_count && data.target_count > 0 ? "positive" : "default"} />
-        <KpiCard href={anchor} label={t("attention")} value={attention} tone={attention > 0 ? "warning" : "positive"} />
-        <KpiCard href={routeHref("promotion-gates")} label={t("shadowLimited")} value={shadowLimited} tone={shadowLimited > 0 ? "warning" : "default"} />
-      </KpiGrid>
-      <section class="stack-section" aria-labelledby="detection-provenance">
-        <h3 id="detection-provenance" class="section-title">{t("provenance")}</h3>
-        <dl class="details-list">
-          <div><dt>{t("source")}</dt><dd><code>{data.source}</code></dd></div>
-          <div><dt>{t("observedAt")}</dt><dd>{data.observed_at ? formatConsoleTimestamp(data.observed_at) : t("notObserved")}</dd></div>
-        </dl>
-      </section>
-      <DetectionLifecycle lifecycle={data.lifecycle} />
-      <section id="detection-targets" class="stack-section">
-        <h3 class="section-title">{t("targetTitle")}</h3>
-        {data.targets.length === 0 ? (
-          <EmptyState title={t("emptyTitle")} body={t("emptyBody")} />
-        ) : (
-          <DataTable columns={columns} rows={data.targets} keyOf={(target) => target.resource_ref} empty={t("emptyTitle")} />
-        )}
-      </section>
-      <PodLifecycleSection lifecycle={data.pod_lifecycle} />
+      <div
+        id="detection-readiness-panel-coverage"
+        class="stack detection-readiness-panel"
+        role="tabpanel"
+        aria-labelledby="detection-readiness-tab-coverage"
+        hidden={activeView !== "coverage"}
+      >
+        <CoverageOverview
+          coverage={coverage}
+          successfulRun={data.analyzer_run}
+          resourcesHref={resourcesHref}
+          findingsHref={findingsHref}
+          onOpenResources={() => selectView("resources")}
+          onOpenFindings={() => selectView("findings")}
+          onSelectResourceType={openResourceType}
+        />
+      </div>
+      <div
+        id="detection-readiness-panel-resources"
+        class="stack detection-readiness-panel"
+        role="tabpanel"
+        aria-labelledby="detection-readiness-tab-resources"
+        hidden={activeView !== "resources"}
+      >
+        <CoverageResources
+          coverage={coverage}
+          controls={resourceControls}
+          onControlsChange={updateResourceControls}
+          renderResourceDetail={(resource) => (
+            resource.resource_type === "kubernetes-cluster" ? (
+              <KubernetesCoverageDetail
+                resource={resource}
+                readiness={data.targets}
+              />
+            ) : null
+          )}
+          renderScopeDetail={(resource) => (
+            resource.resource_type === "kubernetes-cluster" ? (
+              <KubernetesPodScopeDetail lifecycle={data.pod_lifecycle} />
+            ) : null
+          )}
+        />
+      </div>
+      <div
+        id="detection-readiness-panel-findings"
+        class="stack detection-readiness-panel"
+        role="tabpanel"
+        aria-labelledby="detection-readiness-tab-findings"
+        hidden={activeView !== "findings"}
+      >
+        <DetectionLifecycle lifecycle={data.lifecycle} />
+      </div>
     </div>
   );
 }
 
+function DetectionCoverageTabs({
+  activeView,
+  onSelect,
+}: {
+  readonly activeView: DetectionCoverageViewId;
+  readonly onSelect: (view: DetectionCoverageViewId) => void;
+}) {
+  return (
+    <div class="detection-readiness-tabs" role="tablist" aria-label={t("view.label")}>
+      {COVERAGE_VIEWS.map((view) => (
+        <button
+          key={view}
+          id={`detection-readiness-tab-${view}`}
+          type="button"
+          role="tab"
+          aria-selected={activeView === view}
+          aria-controls={`detection-readiness-panel-${view}`}
+          tabIndex={activeView === view ? 0 : -1}
+          onClick={() => onSelect(view)}
+          onKeyDown={(event) => {
+            const direction = event.key === "ArrowRight"
+              ? "next"
+              : event.key === "ArrowLeft"
+                ? "previous"
+                : event.key === "Home"
+                  ? "first"
+                  : event.key === "End"
+                    ? "last"
+                    : null;
+            if (direction === null) return;
+            event.preventDefault();
+            const next = adjacentDetectionCoverageView(view, direction);
+            onSelect(next);
+            queueMicrotask(() => document.getElementById(`detection-readiness-tab-${next}`)?.focus());
+          }}
+        >
+          {t(`view.${view}`)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function KubernetesCoverageDetail({
+  resource,
+  readiness,
+}: {
+  readonly resource: AnalyzerCoverageResourceView;
+  readonly readiness: readonly DetectionTargetView[];
+}) {
+  const snapshot = readiness.find((target) => target.resource_ref === resource.resource_ref);
+  return (
+    <section class="stack-section detection-kubernetes-extension" aria-labelledby="kubernetes-readiness-title">
+      <h4 id="kubernetes-readiness-title" class="section-title">
+        {t("resources.kubernetes.readinessTitle")}
+      </h4>
+      <p class="muted small">{t("resources.kubernetes.axisBoundary")}</p>
+      {snapshot === undefined ? (
+        <UnavailableState
+          message={t("resources.kubernetes.readinessUnavailable")}
+          evidenceState="not-measured"
+        />
+      ) : (
+        <>
+          <dl class="details-list">
+            <div>
+              <dt>{t("column.decision")}</dt>
+              <dd><StatusPill kind={decisionKind(snapshot.decision)} label={t(`decision.${snapshot.decision}`)} /></dd>
+            </div>
+            <div><dt>{t("column.evidence")}</dt><dd>{snapshot.observations.length}/{DIMENSIONS.length}</dd></div>
+            <div><dt>{t("column.gaps")}</dt><dd>{t("gapSummary", { missing: snapshot.missing_dimensions.length, stale: snapshot.stale_dimensions.length })}</dd></div>
+            <div><dt>{t("column.ceiling")}</dt><dd>{t(`ceiling.${snapshot.authority_ceiling}`)}</dd></div>
+          </dl>
+          <ul class="detection-coverage-axes">
+            {DIMENSIONS.map((dimension) => {
+              const observation = snapshot.observations.find(
+                (item) => item.dimension === dimension,
+              );
+              const stale = snapshot.stale_dimensions.includes(dimension);
+              return (
+                <li key={dimension}>
+                  <span>{t(`dimension.${dimension}`)}</span>
+                  <StatusPill
+                    kind={observation === undefined || stale ? "warning" : "success"}
+                    label={stale
+                      ? t("decision.stale")
+                      : observation === undefined
+                        ? t("resources.kubernetes.missing")
+                        : observationLabel(observation.status)}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+    </section>
+  );
+}
+
+function KubernetesPodScopeDetail({ lifecycle }: { readonly lifecycle: LifecycleView }) {
+  return (
+    <section class="detection-pod-scope" aria-labelledby="pod-scope-title">
+      <details>
+        <summary id="pod-scope-title">{t("resources.kubernetes.podScopeTitle")}</summary>
+        <p class="state-block state-unavailable">
+          {t("resources.kubernetes.podScopeBoundary")}
+        </p>
+        <PodLifecycleSection lifecycle={lifecycle} />
+      </details>
+    </section>
+  );
+}
+
 function DetectionLifecycle({ lifecycle }: { readonly lifecycle: DetectionLifecycleView }) {
+  const [selectedRef, setSelectedRef] = useState<string | null>(
+    lifecycle.targets[0]?.resource_ref ?? null,
+  );
+  const [query, setQuery] = useState("");
+  const [evidence, setEvidence] = useState<"all" | EvidenceState>("all");
+  const [delivery, setDelivery] = useState<"all" | PublicationState>("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const filteredTargets = lifecycle.targets.filter((target) =>
+    [target.current, ...target.history].some((assessment) =>
+      findingMatches(assessment, { query, evidence, delivery, fromDate, toDate })
+    )
+  );
+  const selected = filteredTargets.find((target) => target.resource_ref === selectedRef)
+    ?? filteredTargets[0]
+    ?? null;
   return (
     <section class="stack-section detection-lifecycle" aria-labelledby="detection-lifecycle-title">
       <div class="section-heading-row">
@@ -666,6 +1017,17 @@ function DetectionLifecycle({ lifecycle }: { readonly lifecycle: DetectionLifecy
             ? t("analyzerLifecycle.observedAt", { at: formatConsoleTimestamp(lifecycle.observed_at) })
             : t("notObserved")}
         </span>
+      </div>
+      <div class="detection-retention-summary">
+        <span>{t("analyzerLifecycle.retainedReceipts", {
+          count: lifecycle.receipt_count,
+          limit: lifecycle.receipt_limit,
+        })}</span>
+        <span>{lifecycle.retained_from
+          ? t("analyzerLifecycle.retainedFrom", {
+              at: formatConsoleTimestamp(lifecycle.retained_from),
+            })
+          : t("analyzerLifecycle.noRetainedFrom")}</span>
       </div>
       <KpiGrid>
         <KpiCard href="#detection-lifecycle-records" label={t("analyzerLifecycle.assessments")} value={lifecycle.assessment_count} />
@@ -682,26 +1044,143 @@ function DetectionLifecycle({ lifecycle }: { readonly lifecycle: DetectionLifecy
           tone={lifecycle.evidence_counts.conflicting > 0 ? "danger" : "positive"}
         />
       </KpiGrid>
-      <div id="detection-lifecycle-records" class="detection-lifecycle-list">
-        {lifecycle.targets.length === 0 ? (
-          <EmptyState title={t("analyzerLifecycle.emptyTitle")} body={t("analyzerLifecycle.emptyBody")} />
-        ) : lifecycle.targets.map((target) => (
-          <article class="detection-lifecycle-target" key={target.resource_ref}>
-            <h4 class="panel-title mono">{target.resource_ref}</h4>
+      <div class="detection-finding-toolbar" role="group" aria-label={t("analyzerLifecycle.filters")}>
+        <label>
+          <span>{t("analyzerLifecycle.search")}</span>
+          <input
+            class="form-input"
+            type="search"
+            aria-label={t("analyzerLifecycle.search")}
+            value={query}
+            placeholder={t("analyzerLifecycle.searchPlaceholder")}
+            onInput={(event) => setQuery(event.currentTarget.value)}
+          />
+        </label>
+        <label>
+          <span>{t("analyzerLifecycle.evidenceFilter")}</span>
+          <select
+            class="form-input"
+            aria-label={t("analyzerLifecycle.evidenceFilter")}
+            value={evidence}
+            onChange={(event) => setEvidence(event.currentTarget.value as "all" | EvidenceState)}
+          >
+            <option value="all">{t("analyzerLifecycle.allEvidence")}</option>
+            {EVIDENCE_STATES.map((state) => (
+              <option key={state} value={state}>{t(`analyzerLifecycle.evidence.${state}`)}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>{t("analyzerLifecycle.deliveryFilter")}</span>
+          <select
+            class="form-input"
+            aria-label={t("analyzerLifecycle.deliveryFilter")}
+            value={delivery}
+            onChange={(event) => setDelivery(event.currentTarget.value as "all" | PublicationState)}
+          >
+            <option value="all">{t("analyzerLifecycle.allDelivery")}</option>
+            {PUBLICATION_STATES.map((state) => (
+              <option key={state} value={state}>{t(`analyzerLifecycle.publication.${state}`)}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>{t("analyzerLifecycle.fromDate")}</span>
+          <input
+            class="form-input"
+            type="date"
+            aria-label={t("analyzerLifecycle.fromDate")}
+            value={fromDate}
+            onInput={(event) => setFromDate(event.currentTarget.value)}
+          />
+        </label>
+        <label>
+          <span>{t("analyzerLifecycle.toDate")}</span>
+          <input
+            class="form-input"
+            type="date"
+            aria-label={t("analyzerLifecycle.toDate")}
+            value={toDate}
+            onInput={(event) => setToDate(event.currentTarget.value)}
+          />
+        </label>
+        <button
+          type="button"
+          class="secondary"
+          onClick={() => {
+            setQuery("");
+            setEvidence("all");
+            setDelivery("all");
+            setFromDate("");
+            setToDate("");
+          }}
+        >
+          {t("analyzerLifecycle.clearFilters")}
+        </button>
+      </div>
+      <p class="filter-summary">
+        <span>
+          {t("analyzerLifecycle.resultCount", {
+            filtered: filteredTargets.length,
+            total: lifecycle.target_count,
+          })}
+        </span>
+      </p>
+      {selected === null ? (
+        <EmptyState
+          title={lifecycle.targets.length === 0
+            ? t("analyzerLifecycle.emptyTitle")
+            : t("analyzerLifecycle.noMatches")}
+          body={lifecycle.targets.length === 0
+            ? t("analyzerLifecycle.emptyBody")
+            : t("analyzerLifecycle.noMatchesBody")}
+        />
+      ) : (
+        <div id="detection-lifecycle-records" class="detection-record-workspace">
+          <aside class="detection-record-list" aria-label={t("analyzerLifecycle.title")}>
+            <h4>{t("analyzerLifecycle.targets")}</h4>
+            <ul>
+              {filteredTargets.map((target) => (
+                <li key={target.resource_ref}>
+                  <button
+                    type="button"
+                    aria-pressed={selected.resource_ref === target.resource_ref}
+                    aria-controls="detection-lifecycle-detail"
+                    onClick={() => setSelectedRef(target.resource_ref)}
+                  >
+                    <strong class="mono">{target.resource_ref}</strong>
+                    <span>
+                      {currentStateLabel(target.current.current_state)}
+                      {" / "}
+                      {t(`analyzerLifecycle.evidence.${target.current.evidence_state}`)}
+                      {target.current.resource_kind === "kubernetes_pod"
+                        ? ` / ${t(`analyzerLifecycle.recovery.${target.current.recovery_state}`)}`
+                        : ""}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </aside>
+          <article
+            id="detection-lifecycle-detail"
+            class="detection-record-detail"
+          >
+            <h4 class="panel-title mono">{selected.resource_ref}</h4>
             <section
               class="detection-lifecycle-current"
-              aria-label={t("analyzerLifecycle.currentRegion", { target: target.resource_ref })}
+              aria-label={t("analyzerLifecycle.currentRegion", { target: selected.resource_ref })}
             >
               <h5>{t("analyzerLifecycle.current")}</h5>
-              <LifecycleAssessment assessment={target.current} />
+              <LifecycleAssessment assessment={selected.current} />
             </section>
             <details class="detection-lifecycle-history">
-              <summary>{t("analyzerLifecycle.history", { count: target.history.length })}</summary>
-              {target.history.length === 0 ? (
+              <summary>{t("analyzerLifecycle.history", { count: selected.history.length })}</summary>
+              {selected.history.length === 0 ? (
                 <p class="muted small">{t("analyzerLifecycle.noHistory")}</p>
               ) : (
                 <ol>
-                  {target.history.map((assessment) => (
+                  {selected.history.map((assessment) => (
                     <li key={assessment.idempotency_key}>
                       <LifecycleAssessment assessment={assessment} />
                     </li>
@@ -710,8 +1189,13 @@ function DetectionLifecycle({ lifecycle }: { readonly lifecycle: DetectionLifecy
               )}
             </details>
           </article>
-        ))}
-      </div>
+        </div>
+      )}
+      <span class="sr-only" role="status" aria-live="polite">
+        {selected ? t("analyzerLifecycle.selectionChanged", {
+          resource: selected.resource_ref,
+        }) : ""}
+      </span>
       <p class="muted footnote">
         {t("analyzerLifecycle.boundary", { source: lifecycle.source })}
       </p>
@@ -720,7 +1204,15 @@ function DetectionLifecycle({ lifecycle }: { readonly lifecycle: DetectionLifecy
 }
 
 function PodLifecycleSection({ lifecycle }: { readonly lifecycle: LifecycleView }) {
-  const anchor = `${routeHref("detection-readiness")}#pod-detection-lifecycle`;
+  const anchor = `${routeHref("detection-readiness")}${
+    typeof window === "undefined" ? "" : window.location.search
+  }#pod-detection-lifecycle`;
+  const [selectedRef, setSelectedRef] = useState<string | null>(
+    lifecycle.targets[0]?.resource_ref ?? null,
+  );
+  const selected = lifecycle.targets.find((target) => target.resource_ref === selectedRef)
+    ?? lifecycle.targets[0]
+    ?? null;
   const failureColumns: readonly Column<LifecycleFailureView>[] = [
     {
       key: "occurred",
@@ -773,68 +1265,93 @@ function PodLifecycleSection({ lifecycle }: { readonly lifecycle: LifecycleView 
               evidenceState={lifecycle.gap_target_count > 0 ? "insufficient-sample" : "measured"}
             />
           </KpiGrid>
-          <ul class="detection-lifecycle-list">
-            {lifecycle.targets.map((target) => (
-              <li key={target.resource_ref} class="detection-lifecycle-target">
-                <details>
-                  <summary class="detection-lifecycle-summary">
-                    <span class="mono small detection-lifecycle-ref">{target.resource_ref}</span>
-                    <StatusPill kind={currentStateKind(target.current_state)} label={t(`lifecycle.state.${target.current_state}`)} />
-                    <StatusPill kind={podRecoveryKind(target.recovery_state)} label={t(`lifecycle.recovery.${target.recovery_state}`)} />
-                    <span class="small">{t("lifecycle.failureCount", { count: target.failure_count })}</span>
-                  </summary>
-                  <dl class="details-list">
-                    <div>
-                      <dt>{t("lifecycle.currentSignal")}</dt>
-                      <dd>{target.current_signal ? <code>{target.current_signal}</code> : t("lifecycle.noSignal")}</dd>
-                    </div>
-                    <div>
-                      <dt>{t("lifecycle.currentObservedAt")}</dt>
-                      <dd>{target.current_state_observed_at ? formatConsoleTimestamp(target.current_state_observed_at) : t("notObserved")}</dd>
-                    </div>
-                    <div>
-                      <dt>{t("lifecycle.recoveryVerifiedAt")}</dt>
-                      <dd>{target.recovery_verified_at ? formatConsoleTimestamp(target.recovery_verified_at) : t("lifecycle.recoveryNotVerified")}</dd>
-                    </div>
-                    <div>
-                      <dt>{t("lifecycle.retained")}</dt>
-                      <dd>{t("lifecycle.retainedValue", { retained: target.retained_record_count, failures: target.failure_count })}</dd>
-                    </div>
-                  </dl>
-                  <h4 class="detection-lifecycle-subtitle">{t("lifecycle.historyTitle")}</h4>
-                  {target.failures.length === 0 ? (
-                    <p class="small">{t("lifecycle.noHistory")}</p>
-                  ) : (
-                    <DataTable
-                      columns={failureColumns}
-                      rows={target.failures}
-                      keyOf={(failure) => failure.idempotency_key}
-                      empty={t("lifecycle.noHistory")}
-                    />
-                  )}
-                  <h4 class="detection-lifecycle-subtitle">{t("lifecycle.gapsTitle")}</h4>
-                  {target.evidence_gaps.length === 0 ? (
-                    <p class="small">{t("lifecycle.noGaps")}</p>
-                  ) : (
-                    <ul class="detection-lifecycle-gaps">
-                      {target.evidence_gaps.map((gap) => (
-                        <li key={gap}>
-                          <StatusPill kind="warning" label={t(`lifecycle.gap.${gap}`)} />
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {target.evidence_gap_details.length > 0 ? (
-                    <ul class="detection-lifecycle-gap-details small mono">
-                      {target.evidence_gap_details.map((detail) => (
-                        <li key={detail}>{detail}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </details>
-              </li>
-            ))}
-          </ul>
+          {selected ? (
+            <div class="detection-record-workspace">
+              <aside class="detection-record-list" aria-label={t("lifecycle.title")}>
+                <h4>{t("targets")}</h4>
+                <ul>
+                  {lifecycle.targets.map((target) => (
+                    <li key={target.resource_ref}>
+                      <button
+                        type="button"
+                        aria-pressed={selected.resource_ref === target.resource_ref}
+                        aria-controls="pod-detection-lifecycle-detail"
+                        onClick={() => setSelectedRef(target.resource_ref)}
+                      >
+                        <strong class="mono">{target.resource_ref}</strong>
+                        <span>
+                          {t(`lifecycle.state.${target.current_state}`)}
+                          {" / "}
+                          {t(`lifecycle.recovery.${target.recovery_state}`)}
+                          {" / "}
+                          {t("lifecycle.failureCount", { count: target.failure_count })}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </aside>
+              <article
+                id="pod-detection-lifecycle-detail"
+                class="detection-record-detail"
+              >
+                <h4 class="panel-title mono">{selected.resource_ref}</h4>
+                <div class="detection-lifecycle-status">
+                  <StatusPill kind={currentStateKind(selected.current_state)} label={t(`lifecycle.state.${selected.current_state}`)} />
+                  <StatusPill kind={podRecoveryKind(selected.recovery_state)} label={t(`lifecycle.recovery.${selected.recovery_state}`)} />
+                  <span class="small">{t("lifecycle.failureCount", { count: selected.failure_count })}</span>
+                </div>
+                <dl class="details-list">
+                  <div>
+                    <dt>{t("lifecycle.currentSignal")}</dt>
+                    <dd>{selected.current_signal ? <code>{selected.current_signal}</code> : t("lifecycle.noSignal")}</dd>
+                  </div>
+                  <div>
+                    <dt>{t("lifecycle.currentObservedAt")}</dt>
+                    <dd>{selected.current_state_observed_at ? formatConsoleTimestamp(selected.current_state_observed_at) : t("notObserved")}</dd>
+                  </div>
+                  <div>
+                    <dt>{t("lifecycle.recoveryVerifiedAt")}</dt>
+                    <dd>{selected.recovery_verified_at ? formatConsoleTimestamp(selected.recovery_verified_at) : t("lifecycle.recoveryNotVerified")}</dd>
+                  </div>
+                  <div>
+                    <dt>{t("lifecycle.retained")}</dt>
+                    <dd>{t("lifecycle.retainedValue", { retained: selected.retained_record_count, failures: selected.failure_count })}</dd>
+                  </div>
+                </dl>
+                <h4 class="detection-lifecycle-subtitle">{t("lifecycle.historyTitle")}</h4>
+                {selected.failures.length === 0 ? (
+                  <p class="small">{t("lifecycle.noHistory")}</p>
+                ) : (
+                  <DataTable
+                    columns={failureColumns}
+                    rows={selected.failures}
+                    keyOf={(failure) => failure.idempotency_key}
+                    empty={t("lifecycle.noHistory")}
+                  />
+                )}
+                <h4 class="detection-lifecycle-subtitle">{t("lifecycle.gapsTitle")}</h4>
+                {selected.evidence_gaps.length === 0 ? (
+                  <p class="small">{t("lifecycle.noGaps")}</p>
+                ) : (
+                  <ul class="detection-lifecycle-gaps">
+                    {selected.evidence_gaps.map((gap) => (
+                      <li key={gap}>
+                        <StatusPill kind="warning" label={t(`lifecycle.gap.${gap}`)} />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {selected.evidence_gap_details.length > 0 ? (
+                  <ul class="detection-lifecycle-gap-details small mono">
+                    {selected.evidence_gap_details.map((detail) => (
+                      <li key={detail}>{detail}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </article>
+            </div>
+          ) : null}
         </div>
       )}
     </section>
@@ -842,18 +1359,24 @@ function PodLifecycleSection({ lifecycle }: { readonly lifecycle: LifecycleView 
 }
 
 function LifecycleAssessment({ assessment }: { readonly assessment: DetectionLifecycleAssessment }) {
+  const recoveryCapable = assessment.resource_kind === "kubernetes_pod";
   return (
     <div class="detection-lifecycle-assessment">
       <div class="detection-lifecycle-status">
         <StatusPill kind={evidenceKind(assessment.evidence_state)} label={t(`analyzerLifecycle.evidence.${assessment.evidence_state}`)} />
-        <StatusPill kind={analyzerRecoveryKind(assessment.recovery_state)} label={t(`analyzerLifecycle.recovery.${assessment.recovery_state}`)} />
+        {recoveryCapable ? (
+          <StatusPill kind={analyzerRecoveryKind(assessment.recovery_state)} label={t(`analyzerLifecycle.recovery.${assessment.recovery_state}`)} />
+        ) : null}
         <StatusPill kind={publicationKind(assessment.publication.current)} label={t(`analyzerLifecycle.publication.${assessment.publication.current}`)} />
       </div>
       <dl class="details-list detection-lifecycle-facts">
         <div><dt>{t("analyzerLifecycle.currentState")}</dt><dd>{currentStateLabel(assessment.current_state)}</dd></div>
         <div>
           <dt>{t("analyzerLifecycle.event")}</dt>
-          <dd>{signalLabel(assessment.signal)} <code>{assessment.signal}</code></dd>
+          <dd>
+            {signalLabel(assessment.signal)}
+            <code class="technical-token">{assessment.signal}</code>
+          </dd>
         </div>
         <div><dt>{t("analyzerLifecycle.occurredAt")}</dt><dd>{formatConsoleTimestamp(assessment.occurred_at)}</dd></div>
         <div><dt>{t("analyzerLifecycle.latency")}</dt><dd>{t("analyzerLifecycle.seconds", { value: assessment.detection_latency_seconds })}</dd></div>
@@ -871,6 +1394,34 @@ function LifecycleAssessment({ assessment }: { readonly assessment: DetectionLif
   );
 }
 
+function findingMatches(
+  assessment: DetectionLifecycleAssessment,
+  filters: {
+    readonly query: string;
+    readonly evidence: "all" | EvidenceState;
+    readonly delivery: "all" | PublicationState;
+    readonly fromDate: string;
+    readonly toDate: string;
+  },
+): boolean {
+  const query = filters.query.trim().toLocaleLowerCase();
+  const occurredDate = assessment.occurred_at.slice(0, 10);
+  return (filters.evidence === "all" || assessment.evidence_state === filters.evidence)
+    && (filters.delivery === "all" || assessment.publication.current === filters.delivery)
+    && (!filters.fromDate || occurredDate >= filters.fromDate)
+    && (!filters.toDate || occurredDate <= filters.toDate)
+    && (
+      !query
+      || [
+        assessment.resource_ref,
+        assessment.resource_kind,
+        assessment.signal,
+        assessment.current_state,
+        ...assessment.evidence_refs,
+      ].some((value) => value.toLocaleLowerCase().includes(query))
+    );
+}
+
 function currentStateLabel(state: string): string {
   return ["running", "failed", "unknown"].includes(state)
     ? t(`analyzerLifecycle.currentStateValue.${state}`)
@@ -881,6 +1432,12 @@ function signalLabel(signal: string): string {
   return ["container_restart", "pod_replacement", "insufficient_evidence", "conflicting_evidence"].includes(signal)
     ? t(`analyzerLifecycle.signal.${signal}`)
     : signal;
+}
+
+function observationLabel(status: string): string {
+  return ["passed", "failed", "unavailable", "unauthorized"].includes(status)
+    ? t(`observation.${status}`)
+    : status;
 }
 
 function evidenceKind(state: EvidenceState): PillKind {

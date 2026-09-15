@@ -66,4 +66,23 @@ describe("incident attention stream decoder", () => {
       }],
     }))).toBeNull();
   });
+
+  test.each([
+    ["incident_id", 42],
+    ["correlation_id", 42],
+    ["status", 42],
+  ])("rejects a non-string %s instead of coercing it", (field, value) => {
+    const incident = {
+      incident_id: "INC-1",
+      correlation_id: "corr-1",
+      title: "Pod restart detected",
+      severity: "high",
+      status: "open",
+      opened_at: "2026-08-04T00:00:00Z",
+      last_updated_at: "2026-08-04T00:01:00Z",
+      [field]: value,
+    };
+
+    expect(decodeIncidentAttentionSnapshot(snapshot({ incidents: [incident] }))).toBeNull();
+  });
 });

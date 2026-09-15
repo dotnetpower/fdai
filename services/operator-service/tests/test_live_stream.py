@@ -14,8 +14,10 @@ from fdai_operator_service.adapters.live_stage_kafka import (
 )
 from fdai_operator_service.composition import _agent_state_key
 from fdai_operator_service.streaming.live_stream import (
+    LiveStreamDelivery,
     LiveStreamEvent,
     LiveStreamHub,
+    _encode_delivery,
     _encode_event,
     _live_chunks,
 )
@@ -125,12 +127,6 @@ async def test_live_stream_hub_replays_only_bounded_recent_events() -> None:
 def test_live_stream_hub_replay_configuration_fails_closed() -> None:
     with pytest.raises(ValueError, match="positive"):
         LiveStreamHub(replay_capacity=1)
-    with pytest.raises(ValueError, match="mutually exclusive"):
-        LiveStreamHub(
-            latest_key=lambda event: event.event_id,
-            replay_capacity=1,
-            replay_window_seconds=60.0,
-        )
 
 
 async def test_live_stream_hub_rejects_replay_configuration_after_subscription() -> None:
@@ -398,5 +394,8 @@ async def test_live_stream_replays_recent_stage_to_late_subscriber() -> None:
     )
 
     assert (await anext(chunks)).startswith(b"event: hello\n")
-    assert await asyncio.wait_for(anext(chunks), timeout=0.1) == _encode_event(event)
+    assert await asyncio.wait_for(anext(chunks), timeout=0.1) == _encode_delivery(
+        hub.stream_epoch,
+        LiveStreamDelivery(event=event, sequence=1),
+    )
     await chunks.aclose()

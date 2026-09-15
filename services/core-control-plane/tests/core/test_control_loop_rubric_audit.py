@@ -85,7 +85,7 @@ def _event_dict(idempotency: str) -> dict[str, Any]:
 def _candidate() -> QualityCandidate:
     return QualityCandidate(
         action_type="remediate.tag-add",
-        target_resource_ref="resource:example/rg/x",
+        target_resource_ref="res-01",
         params={"tag": "owner"},
         cited_rule_ids=("r1",),
         confidence_signals={"a": 0.8, "b": 0.9},

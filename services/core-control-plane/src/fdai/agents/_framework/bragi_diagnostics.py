@@ -8,6 +8,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from fdai.agents._framework.bragi_models import RoutingDecision
+from fdai.agents._framework.introspection import agent_state_evidence_ref
 
 
 def attach_pantheon_diagnostics(
@@ -83,8 +84,20 @@ def attach_pantheon_diagnostics(
             )
             if len(participants) >= 3:
                 break
-    verification_status = str(answer.get("verification_status") or "unverified")
-    verification_authority = str(answer.get("verification_authority") or "agent_owned_projection")
+    agent_state_verified = (
+        primary is not None
+        and agent_state_evidence_ref(primary, dict(fact_mapping)) in evidence_refs
+    )
+    verification_status = (
+        "verified"
+        if agent_state_verified
+        else str(answer.get("verification_status") or "unverified")
+    )
+    verification_authority = (
+        "agent_owned_projection"
+        if agent_state_verified
+        else str(answer.get("verification_authority") or "agent_owned_projection")
+    )
     answer["pantheon_trace_fragment"] = {
         "schema_version": "1.0.0",
         "turn_digest": _digest(f"{session_id}\0{question}"),

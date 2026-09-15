@@ -26,6 +26,13 @@ domain code and assets. It does not create another control plane or move authori
 > The outbox lifecycle facade also exposes the unrelated Incident intervention worker. Its
 > lifecycle and readiness state cannot activate a Cost Governance package or publish a Njord-owned
 > record.
+> The shared Pantheon runtime may inject the same durable StateStore into Var for final approval
+> replay, Vidar for rollback claim replay, and Norns for bounded startup recovery of pending
+> handoff-learning work. Those lifecycle and learner records cannot install, activate,
+> configure, publish, or grant data access to the Cost Governance package.
+> Enforce composition names Vidar and Var durable bindings separately from Thor's store. Supplying
+> the same provider instance through all exact parameters still grants no Cost Governance package
+> activation, data, publication, or execution authority.
 > Non-agent runtime observation consumers likewise record replay and health evidence only; they do
 > not change Njord ownership, package activation, or action authority.
 > Global Terraform roots can carry unrelated AKS observation bindings. Those values and Reader
@@ -265,6 +272,9 @@ The Operator semantic stream fallback also remains a host seam: it preserves
 availability, enablement, or package ownership.
 The shared ontology invalidation stream similarly admits `Last-Event-ID` only for authenticated
 read replay. It registers no Cost Governance route and widens no package data access.
+The shared analyzer coverage, operational-activity snapshot, and Impact Scope relationship-evidence
+bindings are also host capabilities. Their routes, replay cursors, and source-state readers neither
+activate the optional package nor enter its data, review, promotion, or execution authority.
 The service-owned incident email preview remains another shared Operator host seam. It reads
 packaged synthetic notification HTML only; it registers no Cost Governance route, does not enable
 the optional package, and exposes no package data or authority.
@@ -278,6 +288,13 @@ order. This restart hydration rebuilds the provider baseline and Njord's convers
 without republishing historical findings. A missing package, disabled activation, or provider
 mismatch keeps the binding disabled or blocks inconsistent startup; it never creates a direct agent
 call or changes action authority.
+The shared Pantheon conversation entry point forwards the validated operator locale into Njord's
+per-turn prompt composition. Locale affects presentation only; it cannot activate the package or
+change advisory facts or action authority.
+Broad Njord responses expose scope counts only. A scope identity appears in facts or prose only
+when the authenticated question names that exact scope.
+Broad Freyr responses likewise expose resource counts only. A resource identity appears in facts
+or prose only when the authenticated question names that exact resource.
 Only authoritative USD observations enter the `amount_usd` specialist ingress. Other source
 currencies remain available to disclosure-filtered analytics but do not enter Njord advisory
 baselines without an authoritative conversion.

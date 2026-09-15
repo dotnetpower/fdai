@@ -229,7 +229,7 @@ The current-situation block also keeps channel trust tiers distinct. A recorded 
 dispatch failure means the parked response still needs human input but its approval card was not
 delivered. It does not establish that A2 operational alerts are unavailable. Only the latest
 recorded A2 routing outcome controls the alert-delivery phase, while Settings > Integrations owns
-the sanitized current readiness state for approval delivery.
+the sanitized approval-delivery readiness and the Teams A1 onboarding automated-vs-human split.
 
 ### Operations task view
 

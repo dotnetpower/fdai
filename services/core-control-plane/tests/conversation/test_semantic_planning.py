@@ -2208,6 +2208,10 @@ def test_inventory_document_pre_frame_requires_accepted_judgment() -> None:
             {"Resource", "query.resource_state_inventory"},
         ),
         (
+            "query.incident_evidence",
+            {"Incident", "query.incident_evidence"},
+        ),
+        (
             "query.subscription_scope_identity",
             {"query.subscription_scope_identity"},
         ),
@@ -2245,8 +2249,10 @@ def test_known_operational_judgment_narrows_model_descriptors(
         {"kind": "function" if name.startswith("query.") else "object", "name": name}
         for name in (
             "Resource",
+            "Incident",
             "routes_to",
             "query.gateway_diagnostic_evidence",
+            "query.incident_evidence",
             "query.resource_configuration_changes",
             "query.resource_current_state",
             "query.resource_health_inventory",

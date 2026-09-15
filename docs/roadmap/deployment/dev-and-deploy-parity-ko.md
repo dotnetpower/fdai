@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 171394c49e6264a97976f8b101dd9cce4dcd443e
-translation_revised: 2026-09-14
+translation_source_sha: 10121afbdfd747a1b22cb5b9c56204ee819243bd
+translation_revised: 2026-09-15
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 **목표**: 자동화 테스트는 결정론적이고 비밀 없는 상태를 유지하며, 대화형 로컬 Console은 권위 있는 Azure 상태를 표시합니다. Azure 배포는 **배포자 권한과 리전 카탈로그로 프로비저닝할 리소스를 선택**합니다. 별도 `docs site: serve (4321)` 작업은 루프백에서 공개 문서만 미리 보여 줍니다. 백엔드나 채널 경계를 시작하지 않으며 런타임 권한을 부여하지 않습니다. 세 명제가 동시에 참입니다:
@@ -259,15 +259,13 @@ API에 실행기 신원을 부여하거나 ActionType 및 작업 흐름 승격 �
 Headless 런타임은 영속 effective 값을 로드합니다. Embedded 로컬 Pantheon은 별도의 fixed 심각도나
 구간 대신 동일하게 검증된 환경, 기본값 및 accepted-versus-held 인계 결과를 사용합니다.
 
-감지 준비 상태도 같은 경계를 사용합니다. 배포는 PostgreSQL의 Muninn StateSnapshot을 읽고,
-대화형 로컬은 로컬 PostgreSQL이 있을 때만 `/detection-readiness`를 등록합니다. 표준 로컬
-분석기 작업은 배포 one-shot CLI, 인벤토리 대상, 메트릭, 이벤트, `shadow` 상태 및 영속 게시
-원장과 타입 지정 Pod 수명 주기 근거 바인딩을 직렬로 재사용합니다. 두 실행 환경은 게시 전에
-같은 구간 키를 청구하고 브로커 확인을 기록한 뒤에만 반복 게시를 억제합니다. 레코드가 확실히
-전송되지 않았다는 버스 증명이 있을 때만 청구를 해제하고, 그 외에는 조정을 위해 불확실 상태로
-유지하므로 어느 실행 환경도 모호한 전송을 다시 게시하지 않습니다. 기존 로컬 개발자 신원과
-배포 워크로드 신원 및 전송 보안의 차이는 그대로 유지합니다. 준비 상태는 일정 관리, 검색,
-메트릭, 게시 및 출처 지연 상태를 분리합니다.
+감지 커버리지도 같은 경계를 사용합니다. 두 실행 환경은 PostgreSQL에서 분석기 실행, 보존된 발견
+사항 및 선택형 Kubernetes 근거를 읽으며, 로컬은 해당 저장소가 연결된 경우에만 같은 커버리지
+경로와 준비 상태 별칭을 제공합니다. 관리되는 로컬 loop는 배포 one-shot CLI, 논리 Resource 신원,
+고정 간격, 게시 원장 및 `shadow` 상태를 재사용합니다. 공급자 신원은 메트릭 조회 범위에만 쓰며
+누락되거나 충돌하면 틱을 중지합니다. 두 실행 환경은 5분 분석 구간과 1분 게시 신원을 분리하고
+브로커 확인 뒤에만 재시도를 억제합니다. 준비 상태에는 현재 loop와 첫 정상 틱이 필요합니다.
+일시적 출처 실패는 준비되지 않은 상태로 재시도하고 구성 및 프로그래밍 오류는 종료합니다.
 
 Standard full-stack launch는 서술기 엔드포인트 조정을 유지합니다. 독립 Operator 서비스는 `RUNTIME_ENV=dev`에서만 local-only 서술기 어댑터를 연결하고 `LLM_RESOLVED_MODELS_PATH`와
 수명이 짧은 Azure CLI 토큰을 사용하며 Core 가져오기 또는 실행기 권한 없이 Azure OpenAI 서술기를 시도합니다. Health는 엔드포인트를 민감정보 제거하고 모델 지식만 쓴 답변은 검증되지 않은으로 유지합니다. 시작 훅은 권한이

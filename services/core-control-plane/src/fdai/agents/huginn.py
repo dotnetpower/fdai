@@ -10,12 +10,16 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable, Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
-from fdai.agents._framework.introspection import IntrospectionResult, capability_facts
+from fdai.agents._framework.introspection import (
+    IntrospectionResult,
+    agent_state_evidence_ref,
+    capability_facts,
+)
 from fdai.agents._framework.pantheon import _HUGINN
 from fdai.core.case_history import OperationalCaseInput
 
@@ -87,6 +91,42 @@ def _bound_json(value: Any, *, depth: int = 0) -> Any:
     if isinstance(value, list | tuple):
         return [_bound_json(item, depth=depth + 1) for item in value[:_MAX_ATTR_KEYS]]
     return str(value)[:_MAX_FIELD_CHARS]
+
+
+def _event_occurred_at(
+    raw: Mapping[str, Any],
+    *,
+    ingested_at: datetime,
+) -> str | None:
+    """Return one validated source-event timestamp when the producer supplied it."""
+
+    if ingested_at.tzinfo is None or ingested_at.utcoffset() is None:
+        raise ValueError("Huginn clock MUST return a timezone-aware datetime")
+    observed_at: datetime | None = None
+    observed_field = ""
+    for field in ("occurred_at", "detected_at", "created_at"):
+        value = raw.get(field)
+        if value is None or value == "":
+            continue
+        if isinstance(value, datetime):
+            observed_at = value
+        elif isinstance(value, str):
+            try:
+                observed_at = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise ValueError(f"event {field} MUST be RFC 3339") from exc
+        else:
+            raise ValueError(f"event {field} MUST be RFC 3339")
+        observed_field = field
+        break
+    if observed_at is None:
+        return None
+    if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+        raise ValueError(f"event {observed_field} MUST be timezone-aware")
+
+    if observed_at > ingested_at:
+        raise ValueError(f"event {observed_field} MUST NOT be after trusted ingestion time")
+    return observed_at.isoformat()
 
 
 def _change_projection(
@@ -193,6 +233,7 @@ class Huginn(Agent):
         bus: PantheonBus | None = None,
         dedup_capacity: int = _DEDUP_CAPACITY,
         discovery_projector: DiscoveryProjector | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         super().__init__(spec=_HUGINN)
         self.bus = bus
@@ -200,6 +241,7 @@ class Huginn(Agent):
             raise ValueError("dedup_capacity MUST be >= 1")
         self._dedup_capacity = dedup_capacity
         self._discovery_projector = discovery_projector
+        self._clock: Callable[[], datetime] = clock or (lambda: datetime.now(tz=UTC))
         # OrderedDict as an LRU set: key -> None, oldest first.
         self._seen_keys: OrderedDict[str, None] = OrderedDict()
 
@@ -231,6 +273,9 @@ class Huginn(Agent):
             self._seen_keys.move_to_end(key)
             self.record_behavior("deduped")
             return None
+        ingested_at = self._clock()
+        if ingested_at.tzinfo is None or ingested_at.utcoffset() is None:
+            raise ValueError("Huginn clock MUST return a timezone-aware datetime")
         event_payload = raw.get("payload")
         canonical_payload = event_payload if isinstance(event_payload, Mapping) else {}
         inventory_change = canonical_payload.get("inventory_change")
@@ -269,7 +314,11 @@ class Huginn(Agent):
             "resource_type": _bound(raw.get("resource_type") or resource.get("type")),
             "event_type": event_type,
             "attributes": attributes,
+            "ingested_at": ingested_at.isoformat(),
         }
+        occurred_at = _event_occurred_at(raw, ingested_at=ingested_at)
+        if occurred_at is not None:
+            payload["occurred_at"] = occurred_at
         severity = raw.get("severity") or canonical_payload.get("severity")
         if isinstance(severity, str) and severity.strip():
             payload["severity"] = _bound(severity)
@@ -363,10 +412,33 @@ class Huginn(Agent):
             # uncertainty rather than proof a signal never arrived.
             "dedup_window_full": len(self._seen_keys) >= self._dedup_capacity,
         }
-        answer = (
-            f"Ingesting and deduplicating events; {len(self._seen_keys)} key(s) "
-            f"in the dedup window (capacity {self._dedup_capacity})."
-        )
+        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+        facts["evidence_refs"] = [evidence_ref]
+        if context.get("locale") == "ko":
+            answer = (
+                "저는 파이프라인 Event 수집기이자 리소스 발견 유입을 담당하는 Huginn입니다. "
+                "Forseti에게 보고합니다. 결정론적 hot-path에서 Event와 Change를 정규화하고 중복 "
+                "제거하며 상관관계를 구성해 게시합니다. hot-path에서는 동기 LLM을 호출하지 않으며 "
+                "판단, 승인 또는 실행을 수행하지 않습니다. 이 대화 포트는 읽기 전용이며 작업 "
+                "요청은 운영자 권한으로 타입이 지정된 파이프라인에 다시 진입해야 합니다. 숨겨진 "
+                "시스템 프롬프트는 공개하지 않습니다. 이 런타임은 Event "
+                f"{facts['ingested_count']}건을 수집하고 "
+                f"{facts['deduped_count']}건을 중복 제거했으며 "
+                f"중복 제거 구간에 key {facts['dedup_size']}개를 보존합니다"
+                f"(최대 {facts['dedup_capacity']}개). 근거: {evidence_ref}."
+            )
+        else:
+            answer = (
+                "I am Huginn, the pipeline event collector and resource-discovery ingress. I "
+                "report to Forseti. I normalize, deduplicate, correlate, and publish Event and "
+                "Change on a deterministic hot path. I make no synchronous LLM call on that path "
+                "and never judge, approve, or execute. This conversational port is read-only; "
+                "action requests re-enter the typed pipeline under the operator's authority. I do "
+                "not reveal hidden system prompts. This runtime has ingested "
+                f"{facts['ingested_count']} events, deduplicated {facts['deduped_count']}, and "
+                f"retains {facts['dedup_size']} keys in a {facts['dedup_capacity']}-key window. "
+                f"Evidence: {evidence_ref}."
+            )
         return IntrospectionResult(answer=answer, facts=facts)
 
 

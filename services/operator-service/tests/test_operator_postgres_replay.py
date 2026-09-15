@@ -17,9 +17,13 @@ from fdai_operator_service.families.operations.contracts import (
     InventoryProjectionSourceState,
     InventoryRelationshipCoverage,
     InventoryRelationshipDropClassification,
+    InventoryRelationshipEvidence,
     ProjectionNotFoundError,
     ProjectionQuery,
     ReplayQuery,
+)
+from fdai_operator_service.families.operations.instance_states import (
+    InventoryOntologyContext,
 )
 from fdai_operator_service.family_adapters import PostgresOperationsAdapters
 from fdai_operator_service.postgres_family_store import (
@@ -31,6 +35,13 @@ from fdai_operator_service.postgres_family_store import (
     _projection_source_states,
 )
 from fdai_service_contracts import OperatorRole
+from fdai_service_contracts.runtime_call import (
+    RUNTIME_CALL_MAPPING_ID,
+    RUNTIME_CALL_MAPPING_REVISION,
+    RUNTIME_CALL_SOURCE_SCHEMA_DIGEST,
+    RUNTIME_CALL_SOURCE_SCHEMA_VERSION,
+    RUNTIME_CALL_VERIFICATION_METHOD,
+)
 
 
 async def test_postgres_operations_builds_dynamic_impact_instead_of_reading_static_key(
@@ -69,6 +80,16 @@ async def test_postgres_operations_builds_dynamic_impact_instead_of_reading_stat
         del self
         return snapshot_id == "generation-1" and resource_id == "root"
 
+    async def read_ontology_context(
+        self: PostgresFamilyStore,
+    ) -> InventoryOntologyContext:
+        del self
+        return InventoryOntologyContext(
+            generation="generation-1",
+            ontology_release_digest=f"sha256:{'a' * 64}",
+            manifest_digest=f"sha256:{'b' * 64}",
+        )
+
     async def read_links(
         self: PostgresFamilyStore,
         *,
@@ -83,10 +104,25 @@ async def test_postgres_operations_builds_dynamic_impact_instead_of_reading_stat
         )
         return InventoryImpactLinkPage(edges=edges, truncated=False)
 
+    async def resources_exist(
+        self: PostgresFamilyStore,
+        *,
+        snapshot_id: str,
+        resource_ids: tuple[str, ...],
+    ) -> bool:
+        del self
+        return snapshot_id == "generation-1" and resource_ids == ("child",)
+
     monkeypatch.setattr(PostgresFamilyStore, "read_projection", read_projection)
     monkeypatch.setattr(PostgresFamilyStore, "read_inventory_impact_context", read_context)
+    monkeypatch.setattr(
+        PostgresFamilyStore,
+        "read_inventory_ontology_context",
+        read_ontology_context,
+    )
     monkeypatch.setattr(PostgresFamilyStore, "inventory_resource_exists", resource_exists)
     monkeypatch.setattr(PostgresFamilyStore, "read_inventory_outgoing_links", read_links)
+    monkeypatch.setattr(PostgresFamilyStore, "inventory_resources_exist", resources_exist)
     adapter = PostgresOperationsAdapters(
         PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
     )
@@ -249,9 +285,21 @@ async def test_postgres_inventory_impact_reads_only_active_snapshot_identity_and
             ]
         if "SELECT 1 AS present" in statement:
             return [{"present": 1}]
+        if "SELECT resource_id FROM inventory_snapshot_resource" in statement:
+            return [{"resource_id": "child"}]
         return [
-            {"from_id": "root", "link_type": "contains", "to_id": "child"},
-            {"from_id": "root", "link_type": "contains", "to_id": "extra"},
+            {
+                "from_id": "root",
+                "link_type": "contains",
+                "to_id": "child",
+                "props": {"provider_relationship_evidence": _provider_relationship_evidence()},
+            },
+            {
+                "from_id": "root",
+                "link_type": "contains",
+                "to_id": "extra",
+                "props": {},
+            },
         ]
 
     monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
@@ -261,6 +309,10 @@ async def test_postgres_inventory_impact_reads_only_active_snapshot_identity_and
     exists = await store.inventory_resource_exists(
         snapshot_id="generation-1",
         resource_id="root",
+    )
+    targets_exist = await store.inventory_resources_exist(
+        snapshot_id="generation-1",
+        resource_ids=("child",),
     )
     page = await store.read_inventory_outgoing_links(
         snapshot_id="generation-1",
@@ -321,9 +373,17 @@ async def test_postgres_inventory_impact_reads_only_active_snapshot_identity_and
         ),
     )
     assert exists is True
+    assert targets_exist is True
     assert [(edge.source, edge.link_type, edge.target) for edge in page.edges] == [
         ("root", "contains", "child")
     ]
+    assert page.edges[0].evidence == InventoryRelationshipEvidence(
+        source_identity="azure-resource-graph",
+        source_property_path="id.providerParent",
+        mapping_id="azure.test-parent",
+        evidence_method="deterministic-cross-check",
+        freshness_ceiling_seconds=3_600,
+    )
     assert page.truncated is True
     assert captured[-1][1] == {
         "snapshot_id": "generation-1",
@@ -490,6 +550,36 @@ async def test_postgres_inventory_impact_rejects_malformed_relationship_coverage
         await store.read_inventory_impact_context()
 
 
+async def test_postgres_inventory_impact_translates_malformed_edge_rows(
+    monkeypatch: Any,
+) -> None:
+    async def fetch_all(
+        self: PostgresFamilyStore,
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del self, statement, parameters
+        return [
+            {
+                "from_id": "",
+                "link_type": "contains",
+                "to_id": "child",
+                "props": {},
+            }
+        ]
+
+    monkeypatch.setattr(PostgresFamilyStore, "_fetch_all", fetch_all)
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+
+    with pytest.raises(PostgresFamilyStoreUnavailable, match="row is malformed"):
+        await store.read_inventory_outgoing_links(
+            snapshot_id="generation-1",
+            source_ids=("root",),
+            link_types=("contains",),
+            limit=1,
+        )
+
+
 def test_runtime_call_relationship_evidence_decodes_as_observation() -> None:
     metadata = _runtime_call_observation_metadata()
     evidence = _instance_relationship_evidence(
@@ -506,7 +596,7 @@ def test_runtime_call_relationship_evidence_decodes_as_observation() -> None:
 
 def test_runtime_call_relationship_evidence_rejects_forged_authority() -> None:
     metadata = _runtime_call_observation_metadata()
-    metadata["state_fact"]["authority"] = "execution_ledger"  # type: ignore[index]
+    _runtime_call_state_fact(metadata)["authority"] = "execution_ledger"
 
     with pytest.raises(PostgresFamilyStoreUnavailable, match="not verified"):
         _instance_relationship_evidence(
@@ -520,6 +610,125 @@ def test_runtime_call_relationship_evidence_rejects_another_generation() -> None
         _instance_relationship_evidence(
             {"link_observation_metadata": _runtime_call_observation_metadata()},
             inventory_generation="inventory:generation-two",
+        )
+
+
+@pytest.mark.parametrize(
+    ("location", "field", "value", "message"),
+    [
+        (
+            "metadata",
+            "verification_method",
+            "self-attested",
+            "method is not trusted",
+        ),
+        (
+            "state_fact",
+            "freshness_ceiling_seconds",
+            31_536_001,
+            "freshness is malformed",
+        ),
+        (
+            "state_fact",
+            "completeness",
+            True,
+            "completeness is malformed",
+        ),
+        (
+            "metadata",
+            "verifier_revision",
+            "",
+            "verifier_revision is malformed",
+        ),
+        (
+            "state_fact",
+            "source_revision",
+            "",
+            "source_revision is malformed",
+        ),
+        (
+            "state_fact",
+            "effective_at",
+            "2026-08-24T05:00:00Z",
+            "timestamps are inconsistent",
+        ),
+        (
+            "metadata",
+            "source_schema_digest",
+            f"sha256:{'f' * 64}",
+            "not verified",
+        ),
+        (
+            "state_fact",
+            "evidence_cutoff",
+            "2026-08-24T04:59:00+00:00:30",
+            "evidence_cutoff is malformed",
+        ),
+        (
+            "state_fact",
+            "recorded_at",
+            "2026-08-24T04:58:30Z",
+            "timestamps are inconsistent",
+        ),
+    ],
+)
+def test_runtime_call_relationship_evidence_rejects_untrusted_bounds(
+    location: str,
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    metadata = _runtime_call_observation_metadata()
+    if location == "metadata":
+        metadata[field] = value
+    else:
+        _runtime_call_state_fact(metadata)[field] = value
+
+    with pytest.raises(PostgresFamilyStoreUnavailable, match=message):
+        _instance_relationship_evidence(
+            {"link_observation_metadata": metadata},
+            inventory_generation="inventory:generation-one",
+        )
+
+
+def test_provider_relationship_evidence_rejects_untrusted_method() -> None:
+    evidence = _provider_relationship_evidence()
+    evidence["evidence_method"] = "self-attested"
+
+    with pytest.raises(PostgresFamilyStoreUnavailable, match="method is not trusted"):
+        _instance_relationship_evidence(
+            {"provider_relationship_evidence": evidence},
+            inventory_generation="inventory:generation-one",
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    [
+        (
+            lambda evidence: evidence.__setitem__("unexpected", True),
+            "shape is malformed",
+        ),
+        (
+            lambda evidence: evidence.__setitem__(
+                "freshness_ceiling_seconds",
+                31_536_001,
+            ),
+            "freshness is malformed",
+        ),
+    ],
+)
+def test_provider_relationship_evidence_rejects_malformed_claims(
+    mutate: Any,
+    message: str,
+) -> None:
+    evidence = _provider_relationship_evidence()
+    mutate(evidence)
+
+    with pytest.raises(PostgresFamilyStoreUnavailable, match=message):
+        _instance_relationship_evidence(
+            {"provider_relationship_evidence": evidence},
+            inventory_generation="inventory:generation-one",
         )
 
 
@@ -553,16 +762,37 @@ def _runtime_call_observation_metadata() -> dict[str, object]:
             "source_revision": "1.0.0",
             "synthetic": False,
         },
-        "verification_method": "deterministic-cross-check",
+        "verification_method": RUNTIME_CALL_VERIFICATION_METHOD,
         "verified": True,
         "verifier_identity": "inventory.endpoint-verifier",
         "verifier_revision": "1.0.0",
         "verification_receipt_ref": "sha256:" + "2" * 64,
         "inventory_generation": "inventory:generation-one",
-        "mapping_id": "runtime-call-endpoint-identity",
-        "mapping_revision": "1.1.0",
-        "source_schema_version": "fdai.runtime-call-observation@1.1.0",
-        "source_schema_digest": "sha256:" + "3" * 64,
+        "mapping_id": RUNTIME_CALL_MAPPING_ID,
+        "mapping_revision": RUNTIME_CALL_MAPPING_REVISION,
+        "source_schema_version": RUNTIME_CALL_SOURCE_SCHEMA_VERSION,
+        "source_schema_digest": RUNTIME_CALL_SOURCE_SCHEMA_DIGEST,
+    }
+
+
+def _runtime_call_state_fact(metadata: dict[str, object]) -> dict[str, object]:
+    state_fact = metadata["state_fact"]
+    assert isinstance(state_fact, dict)
+    return state_fact
+
+
+def _provider_relationship_evidence() -> dict[str, object]:
+    return {
+        "mapping_id": "azure.test-parent",
+        "mapping_revision": "mapping-v1",
+        "mapping_receipt_ref": "catalog-receipt:test",
+        "source_identity": "azure-resource-graph",
+        "source_property_path": "id.providerParent",
+        "source_schema_version": "azure-resource-graph@1",
+        "source_schema_digest": f"sha256:{'1' * 64}",
+        "evidence_method": "deterministic-cross-check",
+        "freshness_ceiling_seconds": 3_600,
+        "observation_receipt_ref": f"sha256:{'2' * 64}",
     }
 
 

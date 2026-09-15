@@ -30,10 +30,12 @@ from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
+    agent_state_evidence_ref,
     capability_facts,
     mentioned,
 )
 from fdai.agents._framework.pantheon import _THOR
+from fdai.agents._framework.role_answers import thor_role_answer
 from fdai.core.executor.safeguards import resource_lock_key
 from fdai.core.operational_planning import KineticActionProposal
 from fdai.core.operational_planning.prospective_lineage import ProspectiveLineage
@@ -1229,19 +1231,17 @@ class Thor(Agent):
                     "rollback_ref": target.rollback_ref,
                 }
             )
+            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+            facts["evidence_refs"] = [evidence_ref]
             location = f" on {target.resource_id}" if target.resource_id else ""
             answer = (
                 f"ActionRun {target.correlation_id!r} ({target.action_type}) is "
-                f"{target.state.value}{location}."
+                f"{target.state.value}{location}. Evidence: {evidence_ref}."
             )
             return IntrospectionResult(answer=answer, facts=facts)
-        if not runs:
-            answer = (
-                "No action runs dispatched yet; I am the sole executor and track "
-                "each run's lifecycle."
-            )
-        else:
-            answer = f"{len(active)} active run(s) of {len(runs)} tracked."
+        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+        facts["evidence_refs"] = [evidence_ref]
+        answer = thor_role_answer(str(context.get("locale")), len(runs), len(active), evidence_ref)
         return IntrospectionResult(answer=answer, facts=facts)
 
 

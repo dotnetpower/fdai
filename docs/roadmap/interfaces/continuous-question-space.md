@@ -39,6 +39,8 @@ that ended before a verified plan as failed planning. Expired backlog therefore 
 to be model or successful semantic-planning latency. Core also closes a cancellation-only
 model-call scope when verified planning is cancelled, which stops and drains Azure provider work
 initiated from the synchronous planner thread.
+Pantheon assurance projections use the same schema-v2 interval contract with durable queue and
+`pantheon_assurance` phases; a deferred independent review records the latter as degraded.
 Process readiness keeps the semantic consumer active when only model identity is unavailable. Each
 ordinary semantic turn checks its model audience within five seconds and returns a typed hold before
 planning when authentication cannot be verified. Operator persists the first terminal result as
@@ -176,6 +178,8 @@ controlled evidence exists.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Regenerated federated question-bank and CQAS provenance after final source integration changed the reviewed Console catalog and runtime-call ontology projection digests. All 400 question identities, readiness states, metrics, denominators, and authority fields remain unchanged. | `current change`; official question-bank and semantic-intent generators; 12 focused generated-artifact checks passed. | No semantic, runtime-binding, evidence, or authority behavior changed. |
+| 2026-09-15 | implemented | Regenerated the federated question bank and semantic-intent coverage inventory after the current Console message catalogs and ontology query sources changed. All 400 question identities, review states, metrics, and denominators remain unchanged. | `current change`; canonical question-bank and semantic-intent generators; focused generated-artifact equality tests. | No remaining work for this digest-only synchronization; live readiness and authority are unchanged. |
 | 2026-09-14 | implemented | Regenerated the federated question bank after the reviewed Roles and ownership label changed its Console catalog source digest. All 400 question identities, review states, metrics, and denominators remain unchanged. | `current change`; official question-bank generator and focused generated-artifact equality test. | No semantic, runtime-binding, evidence, or authority behavior changed. |
 | 2026-09-13 | implemented | Regenerated question-bank and CQAS provenance after integrating the verified IAM display catalog changes. All 400 question identities, review states, metrics, and denominators remain unchanged. | `current change`; canonical generators; 12 generated-artifact and 46 IAM checks passed. | No remaining work for this digest refresh; live readiness is unchanged. |
 | 2026-09-11 | implemented | Regenerated the federated question bank and CQAS inventory after the approval Console catalog entered the reviewed source set, preserving all 400 question identities and every coverage denominator. | `current change`; official question-bank and semantic-intent generators; 12 focused generated-artifact checks passed. | No remaining work for this catalog-source digest refresh. |

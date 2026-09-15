@@ -54,13 +54,14 @@ from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
+    agent_state_evidence_ref,
     capability_facts,
     capped_list,
 )
 from fdai.agents._framework.norns_consensus import NornsConsensus
 from fdai.agents._framework.norns_deployment_learning import NornsDeploymentLearning
+from fdai.agents._framework.norns_issue_dedup import NornsIssueDeduplicator
 from fdai.agents._framework.norns_learning import observe_approval as _learn_approval
-from fdai.agents._framework.norns_learning import observe_fingerprint as _learn_fingerprint
 from fdai.agents._framework.norns_learning import observe_outcome as _learn_outcome
 from fdai.agents._framework.norns_learning import observe_override as _learn_override
 from fdai.agents._framework.norns_learning import (
@@ -71,6 +72,7 @@ from fdai.agents._framework.norns_learning import (
 )
 from fdai.agents._framework.norns_semantic_feedback import NornsSemanticFeedbackLearning
 from fdai.agents._framework.pantheon import _NORNS
+from fdai.agents._framework.role_answers import norns_role_answer
 from fdai.core.case_history import CaseHistoryAnalyzer
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.learning import (
@@ -89,6 +91,7 @@ from fdai.core.operational_learning import (
 )
 from fdai.core.trajectory import ReviewedTrajectoryDataset
 from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidateSink
+from fdai.shared.providers.state_store import StateStore
 
 # LRU cap on the per-event / per-fingerprint maps a long-lived learner keeps,
 # so they cannot grow without bound over the process lifetime.
@@ -121,6 +124,7 @@ class Norns(Agent):
         investigation_strategy_compiler: InvestigationStrategyCandidateCompiler | None = None,
         semantic_feedback_store: SemanticFeedbackCandidateSink | None = None,
         shadow_dwell_ledger: ShadowDwellLedger | None = None,
+        issue_state_store: StateStore | None = None,
         max_pending_candidates: int = _MAX_PENDING_CANDIDATES,
         operational_case_max_age: timedelta = timedelta(days=90),
         clock: Callable[[], datetime] | None = None,
@@ -145,10 +149,8 @@ class Norns(Agent):
         if operational_case_max_age <= timedelta(0):
             raise ValueError("operational_case_max_age MUST be positive")
         super().__init__(spec=_NORNS)
-        # Fingerprints are content hashes (one per distinct incident), so the
-        # counter is bounded by an LRU cap - a long-lived learner would leak
-        # otherwise.
         self._fingerprint_counter: BoundedLruDict[str, int] = BoundedLruDict(_MAX_TRACKED)
+        self._issue_deduplicator = NornsIssueDeduplicator(issue_state_store, _MAX_TRACKED)
         # Fingerprints already proposed - same content-hash keyspace as the
         # counter above, so it is bounded too (a long-lived learner that saw
         # many distinct incidents would otherwise leak one entry per proposal).
@@ -251,7 +253,7 @@ class Norns(Agent):
             await self._flush_candidates_unlocked()
         self._ensure_pending_capacity()
         if topic == "object.issue":
-            self._observe_fingerprint(payload)
+            await self._issue_deduplicator.observe(self, payload)
         elif topic == "object.audit-entry":
             # Saga audits every terminal state and republishes it as an
             # audit-entry; the outcome learner scores rollback rates from it.
@@ -484,11 +486,13 @@ class Norns(Agent):
         await self._post_turn_review.review(review_input_from_mapping(raw))
         self.record_behavior("post_turn_review_completed")
 
-    # ---- candidate publication (Norns -> Mimir discovery loop) ---------
-
     async def flush_candidates(self) -> int:
         async with self._learning_lock:
             return await self._flush_candidates_unlocked()
+
+    async def recover_issue_learning(self) -> int:
+        """Restore durable handoff-learning work before consumers start."""
+        return await self._issue_deduplicator.recover(self)
 
     def bind_candidate_publication_gate(self, gate: Callable[[], bool]) -> None:
         """Bind the runtime policy ceiling for inert candidate publication once."""
@@ -497,26 +501,21 @@ class Norns(Agent):
         self._candidate_publication_gate = gate
 
     async def _flush_candidates_unlocked(self) -> int:
-        """Publish newly-accumulated inert RuleCandidates onto the bus.
+        published = 0
+        for index in range(self._max_pending_candidates + 1):
+            if index == self._max_pending_candidates:
+                raise RuntimeError("Norns candidate recovery capacity exceeded")
+            published += await self._flush_candidate_batch_unlocked()
+            if not await self._issue_deduplicator.recover(self):
+                return published
+        raise RuntimeError("Norns candidate recovery loop ended unexpectedly")
 
-        Norns is the single writer of ``object.rule-candidate`` (it owns the
-        ``RuleCandidate`` object type), so it publishes each candidate its
-        learners produced for Mimir's ``CandidateGuard`` + the quality gate to
-        inspect. Publishing does NOT promote anything - candidates stay inert
-        data until the quality gate acts (architecture discovery loop). This
-        is off-path batch work: ``on_typed_message`` flushes after each
-        learner pass, and a batch tick / the sync learners' caller MAY call it
-        directly to drain override / coverage candidates.
+    async def _flush_candidate_batch_unlocked(self) -> int:
+        """Publish one queued batch and complete its durable delivery state.
 
-        Before publication, the internal Urd, Verdandi, and Skuld perspectives
-        must agree. A disagreement is removed from ``pending_candidates`` and
-        retained as a bounded aggregate hold record. A published candidate is
-        also removed once sent, so the buffer holds only proposals awaiting a
-        decision or bus capacity. Publication is rate-limited per the agent's
-        declared ``rate_limits`` (agent-pantheon.md 7.9): when the budget is
-        exhausted the flush stops and leaves the not-yet-sent candidates
-        queued, so a burst is throttled, never dropped. Returns the number of
-        candidates published on this call.
+        Consensus holds and successful publication consume candidates. A
+        disabled gate, missing bus, or rate limit leaves the current candidate
+        queued so the outer recovery loop stops until a later flush.
         """
         if self._candidate_publication_gate is not None and not self._candidate_publication_gate():
             self.record_behavior("rule_candidate_publication_disabled")
@@ -566,12 +565,10 @@ class Norns(Agent):
         if self._flush_cursor:
             del self.pending_candidates[: self._flush_cursor]
             self._flush_cursor = 0
+        await self._issue_deduplicator.after_flush(self)
         return published
 
     # ---- 1. fingerprint aggregator ------------------------------------
-
-    def _observe_fingerprint(self, payload: dict[str, Any]) -> None:
-        _learn_fingerprint(self, payload)
 
     # ---- 2. outcome-threshold learner ---------------------------------
 
@@ -777,16 +774,9 @@ class Norns(Agent):
             "outcomes_tracked": capped_list(sorted(self._outcomes)),
             "outcomes_tracked_count": len(self._outcomes),
         }
-        if not self._fingerprint_counter and not self.pending_candidates:
-            answer = (
-                "No patterns observed yet; I turn operational signals into inert "
-                "rule candidates for the quality gate."
-            )
-        else:
-            answer = (
-                f"Observed {len(self._fingerprint_counter)} fingerprint pattern(s); "
-                f"{len(self.pending_candidates)} candidate(s) proposed."
-            )
+        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+        facts["evidence_refs"] = [evidence_ref]
+        answer = norns_role_answer(str(context.get("locale")), facts, evidence_ref)
         return IntrospectionResult(answer=answer, facts=facts)
 
 

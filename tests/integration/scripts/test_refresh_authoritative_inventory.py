@@ -148,6 +148,7 @@ def test_operator_projection_is_bounded_and_filters_unsupported_links() -> None:
         "attached_to",
         "depends_on",
         "peered_with",
+        "runtime_calls",
     ]
 
 

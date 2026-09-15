@@ -47,6 +47,7 @@ from fdai.shared.contracts.models import (
     ExecutionPath,
     OntologyActionType,
     Rule,
+    Tier,
 )
 from fdai.shared.providers.blast_probe import (
     BlastProbeError,
@@ -450,7 +451,12 @@ class ControlLoopExecutionMixin(
         )
 
     async def _evaluate_and_audit(
-        self, *, event: Event, action: Action, rule: Rule
+        self,
+        *,
+        event: Event,
+        action: Action,
+        rule: Rule,
+        tier: Tier = Tier.T0,
     ) -> UnifiedRiskDecision | None:
         """Evaluate unified risk authority and append its audit row."""
         if self._risk_table is None:
@@ -550,6 +556,7 @@ class ControlLoopExecutionMixin(
                 action_type=action_type,
                 table=self._risk_table,
                 risk_gate=self._risk_gate,
+                tier=tier,
                 cost_override=cost_override,
                 system_degraded=system_degraded,
                 kill_switch_engaged=kill_switch_engaged,
@@ -604,6 +611,7 @@ class ControlLoopExecutionMixin(
             rule=rule,
             action_type=action_type,
             table=self._risk_table,
+            tier=tier,
             cost_override=cost_override,
             system_degraded=system_degraded,
             kill_switch_engaged=kill_switch_engaged,

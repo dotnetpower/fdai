@@ -8,7 +8,10 @@ import {
   openTransientSettingsRoute,
   panelPath,
   parseConsoleRoute,
+  pushRouteState,
+  replaceRouteState,
   resetConsoleScroll,
+  ROUTE_STATE_EVENT,
   registeredPanelRoutes,
   routeHref,
   shouldResetScroll,
@@ -35,6 +38,11 @@ describe("clean console routes", () => {
     expect(panelPath("hil-queue")).toBe("/approvals");
     expect(panelPath("agent-activity")).toBe("/agent-activity");
     expect(panelPath("handover")).toBe("/agent-oversight");
+    expect(panelPath("detection-readiness")).toBe("/detection-coverage");
+    expect(parseConsoleRoute("/detection-readiness")).toMatchObject({
+      panelId: "detection-readiness",
+      canonicalPathname: "/detection-coverage",
+    });
     expect(panelPath("scheduler-runs")).toBe("/scheduler-runs");
     expect(panelPath("scheduled-continuations")).toBe("/scheduled-continuations");
     expect(panelPath("conversation-delivery")).toBe("/conversation-delivery");
@@ -125,6 +133,7 @@ describe("clean console routes", () => {
       dispatchEvent: vi.fn(),
       scrollTo: vi.fn(),
     });
+
     try {
       openTransientSettingsRoute();
       expect(hasTransientRoute()).toBe(true);
@@ -142,6 +151,60 @@ describe("clean console routes", () => {
       expect(currentRoute().search.get("window")).toBe("30d");
     } finally {
       closeTransientRoute();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  test("preserves overlay history state and emits lightweight URL-state updates", () => {
+    const pushState = vi.fn();
+    const replaceState = vi.fn();
+    const dispatchEvent = vi.fn();
+    const marker = { fdaiAgentRolesOverlay: true };
+    vi.stubGlobal("window", {
+      location: {
+        origin: "https://example.com",
+        pathname: "/agent-activity",
+        search: "?view=waterfall",
+      },
+      history: { pushState, replaceState, state: marker },
+      dispatchEvent,
+      scrollTo: vi.fn(),
+    });
+    try {
+      navigate("/agent-activity?view=waterfall&roles=1", false, marker);
+      expect(pushState).toHaveBeenCalledWith(
+        marker,
+        "",
+        "/agent-activity?view=waterfall&roles=1",
+      );
+
+      pushRouteState("/agent-activity?view=waterfall&roles=1", marker);
+      expect(pushState).toHaveBeenLastCalledWith(
+        marker,
+        "",
+        "/agent-activity?view=waterfall&roles=1",
+      );
+      expect(dispatchEvent).toHaveBeenCalledWith(expect.objectContaining({
+        type: ROUTE_STATE_EVENT,
+      }));
+
+      replaceRouteState("/agent-activity?view=waterfall&q=approval#roles");
+      expect(replaceState).toHaveBeenCalledWith(
+        marker,
+        "",
+        "/agent-activity?view=waterfall&q=approval#roles",
+      );
+      expect(dispatchEvent).toHaveBeenCalledWith(expect.objectContaining({
+        type: ROUTE_STATE_EVENT,
+      }));
+
+      pushRouteState("/agent-activity?view=waterfall#timeline", marker);
+      expect(pushState).toHaveBeenLastCalledWith(
+        marker,
+        "",
+        "/agent-activity?view=waterfall#timeline",
+      );
+    } finally {
       vi.unstubAllGlobals();
     }
   });

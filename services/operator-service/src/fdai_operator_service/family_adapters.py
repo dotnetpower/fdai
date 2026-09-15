@@ -258,6 +258,20 @@ class PostgresWorkflowAdapters:
                 )
                 projection_key = "operator-projection:workflow:rule.list"
                 payload = _rule_catalog_payload(stored, request)
+            elif request.operation is WorkflowOperation.RULE_FINDINGS_SUMMARY:
+                summary_key = "operator-projection:workflow:rule.findings-summary"
+                summary = await self.store.read_state(summary_key)
+                if summary is None:
+                    stored = await self.store.read_projection(
+                        family="workflow",
+                        operation=WorkflowOperation.RULE_LIST.value,
+                    )
+                    projection_key = "operator-projection:workflow:rule.list"
+                    payload = {"evaluated": False, "counts": {}}
+                else:
+                    stored = summary
+                    projection_key = summary_key
+                    payload = _rule_findings_summary_payload(summary)
             elif request.operation in {
                 WorkflowOperation.BEST_PRACTICE_LIST,
                 WorkflowOperation.BEST_PRACTICE_DETAIL,
@@ -497,6 +511,33 @@ def _rule_catalog_payload(
         },
         "rules": matched[offset : offset + limit],
     }
+
+
+def _rule_findings_summary_payload(
+    stored: Mapping[str, object],
+) -> dict[str, object]:
+    evaluated = stored.get("evaluated")
+    counts = stored.get("counts")
+    if not isinstance(evaluated, bool) or not isinstance(counts, Mapping):
+        raise HTTPException(
+            status_code=503,
+            detail="authoritative Rule findings summary is malformed",
+        )
+    normalized: dict[str, int] = {}
+    for key, value in counts.items():
+        if (
+            not isinstance(key, str)
+            or not key
+            or not isinstance(value, int)
+            or isinstance(value, bool)
+            or value < 0
+        ):
+            raise HTTPException(
+                status_code=503,
+                detail="authoritative Rule findings summary is malformed",
+            )
+        normalized[key] = value
+    return {"evaluated": evaluated, "counts": normalized}
 
 
 def _rule_counts(rules: list[dict[str, object]], field: str) -> dict[str, int]:

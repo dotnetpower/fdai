@@ -17,7 +17,7 @@ const routes = [
   ["operations", "hil-queue", "hil.html"],
   ["operations", "provision", "provision.html"],
   ["operations", "onboarding", "onboarding.html"],
-  ["operations", "detection-readiness", "detection-readiness.html"],
+  ["operations", "detection-readiness", "detection-coverage.html"],
   ["operations", "configuration-baselines", "configuration-baselines.html"],
   ["operations", "processes", "processes.html"],
   ["operations", "workflow-apps", "workflow-apps.html"],

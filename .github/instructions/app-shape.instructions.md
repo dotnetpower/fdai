@@ -60,6 +60,17 @@ The layers communicate through the event bus and git, not direct in-process call
 
 - [../../.vscode/launch.json](../../.vscode/launch.json) is the source of truth for the local `Console Web: Full Stack` topology: console SPA `5273`, Manual Studio `5474`, Operator API `8010`, Document Ingestion API `8011`, Document Processing Worker health `8012`, and isolated Executor health `8013`; the compound MUST start all five independently packaged backend services, the SPA, and Manual Studio.
   It MUST NOT restore a co-host, retired top-level package, or fixture gateway.
+- The same managed full-stack supervisor MUST also keep the local analyzer, inventory
+  reconciliation, and observation campaign loops alive. These loops add no browser port or service
+  distribution; they provide local parity for the deployed scheduled jobs and MUST participate in
+  readiness so a projection-only stack cannot be reported as detection-ready. Analyzer readiness
+  requires a clean first tick after the latest managed start; process presence or an older ready
+  marker is insufficient. A failed tick MUST clear readiness while the managed local loop retries
+  at the next bounded interval.
+- An inventory-backed analyzer MUST retain the ontology `Resource.id` in findings, Events, receipts,
+  and Incidents. It MAY use the exact provider reference from the active service-owned inventory
+  snapshot only to scope the provider metric query. Missing, mismatched, or ambiguous provider
+  identity MUST fail the analyzer tick instead of querying with a sanitized logical id.
 - Live or full-stack Console validation MUST target the standard `http://localhost:5273` SPA origin and the `127.0.0.1:8010` Operator API listener. The frontend process remains bound to IPv4 loopback; `localhost` is the canonical browser origin so OAuth cache, conversation state, response preferences, and screen context do not split across loopback hostnames. When an authenticated Browser Entra page is shared with the agent, the agent MUST verify that page's origin, rendered Console shell, and signed-in state, then reuse its browser context before seeking a separate Playwright storage-state artifact. If no authenticated context is available, obtain one through the approved interactive sign-in flow; never weaken authentication or request secrets.
 - The isolated Playwright harness and any ad hoc alternate ports are test-only environments. They MUST NOT be reported as Browser Entra full-stack evidence or substituted merely because a standard port is occupied. Diagnose the owner of the occupied port and preserve an already-running standard full stack unless the user explicitly requests a different topology.
 - Vite production preview uses `4173`; it MUST NOT replace the `5273` development origin in launch configurations, Entra SPA redirects, or local-development documentation.

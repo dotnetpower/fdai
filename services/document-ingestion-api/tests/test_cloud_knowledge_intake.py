@@ -125,7 +125,7 @@ class _Case:
     store: _MemoryReleases
     metadata: Any  # Existing MemoryMetadata, loaded from its test file.
     objects: Any  # Existing MemoryObjects; no production object-store fallback.
-    manifest: release.KnowledgeReleaseManifest
+    manifest: release.KnowledgeTextReleaseManifest
     key: Ed25519PrivateKey = field(repr=False)
     clock: Mock
 
@@ -192,9 +192,12 @@ def intake(package_case: Any, monkeypatch: pytest.MonkeyPatch) -> _Case:
     return _Case(service, ingestion, store, metadata, objects, manifest, key, clock)
 
 
-async def _seed_retained_fixture(intake: _Case) -> DocumentVersion:
+async def _seed_retained_fixture(
+    intake: _Case, *, version: DocumentVersion | None = None
+) -> DocumentVersion:
     """Install a READY read fixture only; this does not simulate or prove worker activation."""
-    version = await intake.ingest()
+    if version is None:
+        version = await intake.ingest()
     retained = DocumentVersion.model_validate(
         version.model_dump()
         | {"state": "ready", "active": True, "available": True, "index_state": "active"}
@@ -222,7 +225,8 @@ def _client(intake: _Case, role: Role) -> TestClient:
 
 
 def _seed_sources(intake: _Case, count: int = 2) -> None:
-    for document in intake.manifest.documents[:count]:
+    for source in intake.service.registry.sources[:count]:
+        document = _PACKAGE_HELPERS._collected_document(source)
         intake.store.checkpoints[(intake.manifest.registry_digest, document.evidence.source_id)] = (
             SourceCheckpoint(
                 1, SourceState(document=document, last_attempt=document.evidence.check)
@@ -338,7 +342,14 @@ async def test_stage_collected_requires_full_scope_without_fake_signature(
     binding = release.KnowledgeReleaseBinding.model_validate(result["release"])
     assert binding.intake_origin == "collector" and binding.verified_key_id == "connected-collector"
     assert len(binding.sources) == 2 and result["approval_required"] is True
-    assert UploadSession.model_validate(result["session"]).state is DocumentState.RECEIVED
+    session = UploadSession.model_validate(result["session"])
+    assert session.state is DocumentState.RECEIVED
+    content = intake.objects.content[session.object_key]
+    assert b'"original_text"' not in content and b"Original reference:" not in content
+    assert json.loads(content)["schema_version"] == "fdai.cloud-knowledge.v2"
+    assert all(
+        checkpoint.state.document.original_text for checkpoint in intake.store.checkpoints.values()
+    )
     assert all(not version.active for version in intake.metadata.versions.values())
 
 
@@ -384,6 +395,43 @@ async def test_rollback_uses_higher_sequence_without_renewing_source_dates(intak
     assert intake.metadata.versions[(retained.document_id, retained.version_id)] == retained
 
 
+async def test_legacy_intake_keeps_exact_bytes_but_rollback_emits_only_text(
+    intake: _Case, package_case: Any
+) -> None:
+    case = _PACKAGE_HELPERS._with_registry(package_case, intake.service.registry)
+    legacy = _PACKAGE_HELPERS._legacy_manifest(case)
+    result = await intake.service.import_package(
+        _PACKAGE_HELPERS._legacy_package(case), actor_id="actor-a", actor_groups=WRITERS
+    )
+    original_session = UploadSession.model_validate(result["session"])
+    original_content = intake.objects.content[original_session.object_key]
+    assert original_content == cloud.canonical_bytes(legacy)
+    version = DocumentVersion.model_validate(
+        intake.metadata.versions[(original_session.document_id, original_session.version_id)]
+    )
+    retained = await _seed_retained_fixture(intake, version=version)
+    rollback = await intake.service.rollback(
+        collection_id=COLLECTION,
+        version_id=retained.version_id,
+        actor_id="actor-a",
+        actor_groups=frozenset({"role:Owner"}),
+    )
+    binding = release.KnowledgeReleaseBinding.model_validate(rollback["release"])
+    session = UploadSession.model_validate(rollback["session"])
+    content = intake.objects.content[session.object_key]
+    compact = release.KnowledgeTextReleaseManifest.model_validate_json(content)
+    assert b'"original_text"' not in content and b"Original reference:" not in content
+    assert binding.rollback_source_digest == legacy.digest != compact.digest
+    assert binding.sequence == 2 and binding.intake_origin == "rollback"
+    assert binding.sources == retained.cloud_knowledge.sources
+    assert binding.admission_expires_at == retained.cloud_knowledge.admission_expires_at
+    assert all(
+        new.text == old.text for new, old in zip(compact.documents, legacy.documents, strict=True)
+    )
+    assert intake.objects.content[original_session.object_key] == original_content
+    assert not intake.metadata.versions[(session.document_id, session.version_id)].available
+
+
 @pytest.mark.parametrize("role", [Role.READER, Role.CONTRIBUTOR, Role.APPROVER, Role.OWNER])
 def test_http_permission_flags_and_offline_inspection(
     intake: _Case, role: Role, monkeypatch: pytest.MonkeyPatch
@@ -422,7 +470,9 @@ def test_export_is_inert_and_has_safe_content_headers(intake: _Case) -> None:
         "content-type",
         "x-content-type-options",
     }
-    manifest = release.KnowledgeReleaseManifest.model_validate_json(response.content)
+    manifest = release.KnowledgeTextReleaseManifest.model_validate_json(response.content)
     assert manifest.documents == intake.manifest.documents
+    assert b'"original_text"' not in response.content
+    assert b"Original reference:" not in response.content
     assert not {"private_key", "public_key", "signature", "trust"}.intersection(response.json())
     assert intake.store.reservations == 0 and not intake.metadata.uploads

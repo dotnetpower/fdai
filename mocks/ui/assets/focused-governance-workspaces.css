@@ -105,6 +105,11 @@
   font: inherit;
   font-size: 12.5px;
 }
+.impact-resource-mock-meta {
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-caption-size);
+  line-height: var(--cs-type-caption-line-height);
+}
 
 .fg-button {
   min-height: 40px;

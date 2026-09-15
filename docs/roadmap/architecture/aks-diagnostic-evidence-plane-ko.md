@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: ad9f6c88d449c1071e6adcc4e24aa643ecfa5d8e
+translation_source_sha: 90876afb11085f55d8708b0d98b706bcd48fe997
 translation_revised: 2026-09-14
 ---
 # AKS 진단 근거 플레인
@@ -157,6 +157,10 @@ EndpointSlice 준비 상태에서 생략되거나 null인 `ready` 값은 `ready_
 반환합니다. 기존 점 전용 `MetricProvider`는 후보를 제공할 수 있지만 그 자체로 완전한 진단
 구간을 주장할 수 없습니다. 이름만 있는 시계열, 혼합 신원, 미래 표본, 점 전용 출처 및 잘린
 구간은 사용할 수 없음으로 유지합니다. 빈 메트릭 조회는 0을 입증하지 않습니다.
+Azure Managed Prometheus의 기본 `cluster` 레이블은 정확한 ARM 신원이 아니라 cluster 이름
+alias입니다. 따라서 인벤토리 기반 analyzer는 명시적으로 조립된 PromQL 카탈로그가 정확한
+`resource_id` 레이블을 보존하지 않으면 Azure Monitor Logs 경로를 유지합니다. 요청한 신원
+레이블이 Prometheus 응답에 없으면 빈 정상 시계열로 처리하지 않고 실패합니다.
 Forseti는 신호를 축약하기 전에 메트릭 대상 튜플, 지점 레이블, 메트릭 구간, 프로바이더 기준 시점 및
 출처 revision을 정확한 진단 맥락과 다시 대조합니다. 불일치는 충돌로 보존되며 해당 메트릭은 진단
 신호를 만들 수 없습니다.

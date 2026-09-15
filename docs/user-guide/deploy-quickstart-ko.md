@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: 단일 로컬 명령 또는 digest로 고정된 폐쇄망 배포 어플라이언스로 FDAI를 Azure에 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: f26aee390d0873cf184dcb4663cab86d99ee2553
-translation_revised: 2026-09-14
+translation_source_sha: 3c84f61f749c67be06fb022097b65fe388670b21
+translation_revised: 2026-09-15
 ---
 
 # 배포 빠른 시작
@@ -261,6 +261,12 @@ SSH 키, 계획, 승인은 보존합니다.
 `deployment_ready=true`를 보고합니다. 전체 모델 용량 및 인벤토리 인증과 같은 더 넓은 보증
 캠페인이 열려 있으면 `subscription_ready=false`가 유지될 수 있습니다. 이는 선택한
 애플리케이션 배포가 실패했다는 의미가 아닙니다.
+
+분석기 대상을 직접 구성할 때는 논리 FDAI Resource에 `resource_id`를 사용하고, 메트릭 조회에
+사용하는 정확한 Azure 리소스 ID에는 `provider_resource_id`를 사용하세요. 인벤토리를 사용할 수
+있으면 FDAI가 기존 Azure ID를 논리 Resource로 조정할 수 있습니다. 인벤토리가 없으면 두 필드를
+메트릭 기반 대상에 모두 제공하여 발견된 문제와 Incident가 공급자 신원을 대상으로 노출하지
+않도록 하세요. Pod 수명 주기 근거와 같은 비메트릭 대상은 논리 ID만 사용합니다.
 
 비공개 작업 디렉터리에는 SSH 키, 대상별 입력, 계획, 복구 상태가 포함될 수 있습니다. 내용을
 업로드하거나 공유하지 말고 민감한 값을 제거한 CLI 진단을 사용하세요. 검증 및 필요한 복구가

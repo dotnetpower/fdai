@@ -155,6 +155,14 @@ class LiveStageKafkaRelay:
                     agent_events = self._agent_projector.project(payload)
                     await self._publish_source_observation(agent_events)
                     for agent_event in agent_events:
+                        if agent_event.payload.get("type") == "agent.operational-activity":
+                            await self._hub.publish(
+                                LiveStreamEvent(
+                                    event_id=agent_event.event_id,
+                                    payload=agent_event.payload,
+                                    event_type="activity",
+                                )
+                            )
                         await self._agent_hub.publish(agent_event)
                 await active.commit()
             except asyncio.CancelledError:

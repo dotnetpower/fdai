@@ -1,8 +1,8 @@
 ---
 title: Agent Workflow Shadow Rollout
 translation_of: agent-workflow-rollout.md
-translation_source_sha: f0daf01bce27e75a0c557464f7253345ebbb13dd
-translation_revised: 2026-08-24
+translation_source_sha: 6d37322ca0c9b3c99e041df67fdf093f60fd9ff5
+translation_revised: 2026-09-15
 ---
 # 에이전트 작업 흐름 shadow 롤아웃
 
@@ -24,6 +24,7 @@ translation_revised: 2026-08-24
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | implemented | 강제 적용되는 에이전트 파일 상한을 복원하기 위해 Heimdall의 에피소드 신원, 범위가 제한된 이력 및 순환 경고 예산 보조 로직을 비공개 프레임워크로 분리했습니다. AgentSpec, topic, 소유권, 모델 정책, hot-path 결정성 및 권한은 바뀌지 않았습니다. | `current change`, `heimdall_alert_window.py`, Heimdall 830줄, 집중 framework-layout, Wave 3 및 Wave 6 검사 96개 통과, Ruff, strict mypy 및 강제 LOC 게이트 | 런타임 종료 게이트와 배포 근거는 바뀌지 않았습니다. |
 | 2026-08-24 | implemented | Enforced agent file 상한을 복원하기 위해 forecast-outcome 및 provider-schema publication을 focused private Heimdall mixin으로 이동했습니다. AgentSpec, topic, ownership, model policy 및 authority는 바뀌지 않습니다. | `current change`; Heimdall 789줄, 집중 provider-schema, forecast-outcome, framework-layout, agent-import, LOC, Ruff, format, strict mypy 검사 | Runtime exit-gate 및 deployed provider-schema 근거는 그대로 남습니다. |
 | 2026-08-24 | implemented | Provider-schema review를 위한 Heimdall의 direct delivery import를 injected shared provider Protocol로 교체했습니다. Projector가 없으면 publication을 hold하며 AgentSpec, topic, ownership, model policy 및 authority는 바뀌지 않습니다. | `current change`; provider-schema agent 및 watcher 검사, agent import gate, Ruff, strict mypy | Provider-schema owner가 요구하는 기존 deployed shadow 및 Saga audit 근거를 보존합니다. |
 | 2026-08-19 | implemented | 핸들러 전달, AgentSpec, topic, 소유권, 모델 정책 또는 권한을 바꾸지 않고 반복 Pantheon 핸들러 관찰자 경고를 제한했습니다. 최초 실패는 즉시 남기고, 주기 요약은 억제 횟수를 보존하며, 서로 다른 실패 episode는 분리하고, 다음 관찰 성공은 bridge가 소유한 실패 횟수를 기록합니다. | `current change`, `bus_bridge.py`, telemetry logging, 집중 provider integration 및 framework layout 검사 | 런타임 종료 게이트 근거와 독립 승격 결과는 변경 없이 남아 있습니다. |

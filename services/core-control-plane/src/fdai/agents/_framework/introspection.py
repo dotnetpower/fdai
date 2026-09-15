@@ -129,6 +129,23 @@ def agent_state_evidence_ref(agent_name: str, facts: dict[str, Any]) -> str:
     return f"agent-state:{agent_name}:sha256:{digest}"
 
 
+def attach_agent_state_evidence(agent_name: str, facts: dict[str, Any]) -> str:
+    """Attach and return the deterministic reference for one fact snapshot."""
+    evidence_ref = agent_state_evidence_ref(agent_name, facts)
+    facts["evidence_refs"] = [evidence_ref]
+    return evidence_ref
+
+
+def evidence_backed_result(
+    agent_name: str,
+    facts: dict[str, Any],
+    statement: str,
+) -> IntrospectionResult:
+    """Return one statement with its exact fact-snapshot reference."""
+    evidence_ref = attach_agent_state_evidence(agent_name, facts)
+    return IntrospectionResult(answer=f"{statement}. Evidence: {evidence_ref}.", facts=facts)
+
+
 # ---------------------------------------------------------------------------
 # Default capability self-description (every agent, from its AgentSpec)
 # ---------------------------------------------------------------------------
@@ -174,6 +191,8 @@ __all__ = [
     "semantic_intents",
     "capped_list",
     "agent_state_evidence_ref",
+    "attach_agent_state_evidence",
+    "evidence_backed_result",
     "capability_facts",
     "capability_sentence",
 ]

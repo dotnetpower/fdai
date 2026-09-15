@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 627cb2d94a88ec2e02dae62eae4cb0df01cf9419
+translation_source_sha: aeb41e8f7758757890350cc77a3aaefd87ec43cc
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -76,11 +76,7 @@ Integrations는 sandboxed iframe으로 incident-open 이메일도 렌더링합�
 엔드포인트는 Azure Communication Services 이메일이 사용하는 동일한 운영 렌더러를 호출하고
 합성 자리 표시자만 제공합니다. 미리 보기는 런타임 인시던트, 엔드포인트, recipient 또는 신원 값을
 노출하지 않으며 전송, 승인 또는 실행 컨트롤을 제공하지 않습니다.
-Operations에는 Muninn의 영속 StateSnapshot만 사용하는 감지 준비도 경로가 있습니다.
-이 화면은 Heimdall 판정, 6개 근거 차원, 공백, 권한 상한, 원본, 관찰 시각을 표시합니다.
-브라우저는 AKS를 탐색하거나 대체 판정을 만들지 않습니다. 각 대상은 아키텍처 리소스로,
-승격 관련 개수는 승격 gates로 연결됩니다. 성공한 HTTP 응답이 strict 디코딩을
-통과하지 못하면 해당 경로와 Capabilities는 로딩 골격에 머물거나 알 수 없는 자율성 모드를 적용으로 취급하지 않고 오류를 렌더링합니다.
+Operations는 `/detection-coverage`에서 감지 커버리지를 제공하고 `/detection-readiness`를 호환 별칭으로 유지합니다. 이 경로는 최신 시도, 최근 성공한 실행, 보존된 발견 사항 및 정확한 리소스의 선택형 Kubernetes 근거를 분리합니다. 필터와 선택은 URL에 유지하고 정규 사유는 기술 상세에 보존합니다. 브라우저는 성공 응답에서 리소스 상태, 준비도, 커버리지 또는 권한을 추론하지 않습니다.
 Server-pinned drift 맥락이 있으면 GET-only 구성 기준선 경로가 신원, 수명 주기, drift, Knowledge 인용, topology, 지연 시간, 예약 검토, 네 안전성 counter를 fresh 읽기로 표시합니다.
 연결 또는 campaign 부재는 사용 불가이나 `not-configured`로 보고하며 진행 상황을 만들지 않고 malformed 데이터를 strict하게 거부하며 in-scope 변경할 수 없는 버전 비교와 failed-attempt 개수를 읽습니다. SPA는 activation, 재개, 예약 생성, 승인, 완화, 리소스 변경을 노출하지 않고 evidence-run, 재개, 청사진 검토, 구체화는 별도 인증된 경로를 사용합니다.
 운영은 mounted JSON/DOCX 쌍, 읽기 전용 Managed Identity, exact resource-group 허용 목록을 시작에서 검증한 뒤 패널을 노출합니다. Operator API는 실행기 신원을 받지 않습니다.
@@ -137,7 +133,7 @@ Exact Incident deep link는 두 변환 결과의 analytical snapshot sequence가
 결과는 라벨이 있는 content-local cue로 계속 표시합니다.
 Console 카드 계약 테스트는 shared KPI 목적지를 확인하고, 중첩된 whole-card 링크를 차단하며,
 nullable KPI 값에 근거 상태를 요구하고, raw 데이터 카드에 링크 또는 명시적 상세 컨트롤을
-요구하며, structural 카드 이름을 차단합니다.
+요구하며, structural 카드 이름을 차단합니다. 탐지 범위 사유와 Trace 상관관계, 단계 및 타임스탬프 세부 정보는 포인터 또는 키보드 포커스에서 공용 툴팁을 사용하며, 네이티브 `title` 속성은 포함된 프레임에만 사용합니다. 로딩 및 사용 불가 범위 카드는 소유 화면 링크를 유지하고, 영향 범위는 읽기 전용 권한을 바꾸지 않으면서 반응형 단일 열 모바일 양식, 라벨이 있는 근거 그래프 및 44 px 모바일 컨트롤을 사용합니다. 관계 범례 견본은 두꺼운 색상 콘텐츠 표면 경계 대신 키 안의 색상과 선 패턴을 사용합니다.
 
 운영 성과는 지표, 값, 기준선, 구간, 표본 수, 신뢰도와 출처를 범위가 제한된
 Command Deck 스냅샷으로 제공합니다. 영역별 분석은 자동 해결률 화면에만 포함합니다.
@@ -503,10 +499,7 @@ Cross-origin direct-upload 대상에는 내용 헤더를 보내지만 Operator A
 
 ## 스트림 복구 및 authentication
 
-인증된 실제 운영, 에이전트 및 프로비저닝 SSE 읽기 담당은 keepalive comment를 포함해 45초 동안 바이트가 없으면
-취소하고 범위가 제한된 reconnect를 사용합니다. 프로비저닝은 이벤트 전달 실패 시 읽기 담당도 취소합니다.
-에이전트 스트림의 `401`은 전체 화면 login 복구를 기다리고, `403`은 새 App 역할을 페이지 reload 없이
-반영할 수 있도록 reconnect합니다.
+인증된 GET-SSE 소비자는 범위가 제한된 parsing, 비활성 timeout, 재연결 및 커서 처리를 공유합니다. Decoder가 프레임을 수락한 뒤에만 커서를 진행하며 커서 전용 `400` 또는 `416`과 검증된 `stream_epoch_changed` 누락 프레임만 커서를 지웁니다. Epoch 전이 뒤 현재 스냅샷을 다시 받고, 프레임 폐기 수를 만들어 내지 않으면서 스트림 재시작으로 표시합니다. 인증, 요청 제한 및 거부된 프레임은 커서와 backoff를 보존합니다. 서버의 누락 안내는 표시하지만 로컬 cache 제거는 wire 손실이 아닙니다. 소비자별 visibility와 탭 정책은 분리하고 요청 범위 대화 스트림은 별도 경로를 유지합니다.
 
 Command Deck 조사 활동에는 선택적인 관찰된 실행 근거가 포함될 수 있습니다. 서버는 발행 전에 자격 증명과 민감한 식별자를 제거하고 `redacted=true`를 설정하며, 브라우저는 이 확인이
 없는 입력 근거를 폐기합니다. `input_kind=command`는 기록된 프로세스 호출이 필요하며 exit
@@ -565,16 +558,9 @@ Web 작성기는 선택, 폐기 및 clipboard paste raster를 동일한 범위�
 Turn이 검증된 inline 이미지 첨부를 carry하면 스트리밍 경로는 서술기가 작성하기 전에 읽기 전용 `vision_analyzing`을, 답변 전에 `vision_grounded`를 발행하며, 각 프레임은 이미지 출처 미리 보기(이름, media 타입, 크기)를 포함하되 base64 페이로드는 절대 포함하지 않습니다.
 해당 턴은 vision 지원 서술기로 escalate되고, 답변 준비 trace는 이 단계를 웹 검색 grounding과 동일하게 렌더링합니다.
 
-Interactive 실제 운영 경로는 tab이 hidden 상태일 때 SSE 읽기 담당을 pause합니다. Shell의 인시던트,
-액세스 권한 및 Operator가 활성화한 브라우저 notification 소비자는 Web Locks를 사용해 same-origin 탭의
-각 채널에서 principal 범위로 한정된 읽기 담당 하나를 선출합니다. 인시던트 및 액세스 권한 leader는
-검증된 스냅샷을 `BroadcastChannel`을 통해 follower 탭으로 보내므로 각 shell은 중복 SSE 연결을 열지
-않고 attention 상태를 유지합니다. Notification leader는 background에서 인증된 실제 운영 읽기 담당을
-유지합니다. 이 고정 연결 예산은 HTTP/1.1에서 일반 Operator API 요청에 필요한 용량을 남깁니다.
-Notification leader는 기존 capped 재시도 대기로 authentication 실패를 재시도하며, notification 권한
-또는 principal 범위로 한정된 명시적 선택이 제거되면 즉시 중지합니다. 재생이 아닌 프레임의 사람 승인,
-거부, 실패 결과만 발행합니다. Shared 브라우저 원장은 여러 tab에서 같은 이벤트 tag를 5분 동안 억제하고
-system notification 전달을 분당 5건으로 제한하지만 감사 또는 인시던트 근거는 제거하지 않습니다.
+Live 단계, 준비 상태 및 권한이 없는 활동은 인증된 `/live/stream` 하나를 공유합니다. 스냅샷은 Operator 발급 delta 커서를 진행하지 않으며, 범위가 제한된 cache는 독립 GET 변환 결과를 대체하지 않고 늦은 로컬 구독자에게 현재 프레임을 제공합니다. 에이전트 상태와 보존 이력은 별도 경로와 권한을 유지합니다. 표준 스택 Live E2E 실행 장치는 이 연결 예산, 타입이 지정된 현재 활동, 명시적 보존 이력 읽기 및 반응형 표현을 측정하지만, 실행 장치 자체가 인증된 런타임 검증은 아닙니다.
+
+Interactive Live 구독자는 tab이 hidden 상태일 때 유휴 상태를 보고합니다. Shell의 인시던트, 액세스 권한 및 Operator가 활성화한 브라우저 notification 소비자는 Web Locks를 사용해 same-origin 탭의 각 채널에서 principal 범위로 한정된 읽기 담당 하나를 선출합니다. 인시던트 및 액세스 권한 leader는 검증된 스냅샷을 `BroadcastChannel`을 통해 follower 탭으로 보내므로 각 shell은 중복 SSE 연결을 열지 않고 attention 상태를 유지합니다. Notification leader는 background에서 인증된 실제 운영 읽기 담당을 유지합니다. 이 고정 연결 예산은 HTTP/1.1에서 일반 Operator API 요청에 필요한 용량을 남깁니다. Notification leader는 기존 capped 재시도 대기로 authentication 실패를 재시도하며, notification 권한 또는 principal 범위로 한정된 명시적 선택이 제거되면 즉시 중지합니다. 재생이 아닌 프레임의 사람 승인, 거부, 실패 결과만 발행합니다. Shared 브라우저 원장은 여러 tab에서 같은 이벤트 tag를 5분 동안 억제하고 system notification 전달을 분당 5건으로 제한하지만 감사 또는 인시던트 근거는 제거하지 않습니다.
 
 에이전트 활동 경로는 shared 에이전트 스트림을 열기 전에 범위가 제한된 영속 인벤토리 검사,
 온톨로지 변환 및 현재 상태 읽기 기록을 불러옵니다. 정확한 activity id로 재생과 실제 운영 전달을

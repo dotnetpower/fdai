@@ -67,11 +67,11 @@ additional_tags = {
 # analyzer_tick_cron_expression = "* * * * *"          # explicit default
 # analyzer_targets_json = <<-EOT
 #   [
-#     {"resource_id": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ContainerService/managedClusters/<name>", "kind": "aks_cluster"},
-#     {"resource_id": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.DBforMySQL/flexibleServers/<name>",       "kind": "mysql_flexible_server"},
-#     {"resource_id": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<name>",       "kind": "azure_openai"},
-#     {"resource_id": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Network/applicationGateways/<name>",      "kind": "application_gateway"},
-#     {"resource_id": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ApiManagement/service/<name>",            "kind": "api_management"}
+#     {"resource_id": "<logical-resource-id>", "provider_resource_id": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ContainerService/managedClusters/<name>", "kind": "aks_cluster"},
+#     {"resource_id": "<logical-resource-id>", "provider_resource_id": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.DBforMySQL/flexibleServers/<name>",       "kind": "mysql_flexible_server"},
+#     {"resource_id": "<logical-resource-id>", "provider_resource_id": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<name>",       "kind": "azure_openai"},
+#     {"resource_id": "<logical-resource-id>", "provider_resource_id": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Network/applicationGateways/<name>",      "kind": "application_gateway"},
+#     {"resource_id": "<logical-resource-id>", "provider_resource_id": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.ApiManagement/service/<name>",            "kind": "api_management"}
 #   ]
 # EOT
 # analyzer_window_seconds = "300"   # optional; CLI default when unset

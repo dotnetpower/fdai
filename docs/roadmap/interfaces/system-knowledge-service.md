@@ -67,7 +67,14 @@ The initial option mixes two lifecycles that should remain independent:
 - **Identity scope:** A product-knowledge bot needs no operational principal scope, provider-read
   credential, or action capability.
 - **Deployment cadence:** FDAI design and implementation knowledge can refresh without redeploying
-  the operational control plane.
+  the operational control plane. The compiler pins each record to the final protected-main source
+  revision, so a merge-time refresh changes only source commitments and the aggregate digest when
+  reviewed retrieval content is unchanged. A cited owner-document correction updates its record
+  digest without changing retrieval or authority. Private framework and delivery helper splits are
+  recorded the same way when their cited owner text changes, as are presentation-only corrections
+  to cited Console evidence. The packaged `source_revision` always advances to the reachable
+  protected-main commit used for that compilation, including a cited Architecture presentation
+  replacement.
 - **Channel intent:** A dedicated bot makes every accepted mention a system-knowledge query. It
   avoids keyword routing while the general A3 bot continues to interpret operational requests.
 - **Rollback:** Disabling the knowledge bot should not roll back Core, Operator Service, or existing
@@ -91,6 +98,10 @@ The revised design creates `fdai-system-knowledge-service` as a separate distrib
   contains a mention entity for the exact bot recipient.
 - **Release-bound catalog:** A build command compiles structured records and source citations from
   tracked files. The runtime image contains the catalog, not repository source or Git credentials.
+- **Descriptive boundary:** A rebuilt catalog can expose a revised agent guarantee such as
+  duplicate-event handling and retry, validated event-time windows, and restart-safe recurrence
+  identity, including trusted ingestion time and bounded downstream idempotency keys. It cannot
+  enforce that guarantee or participate in event processing.
 - **Deterministic retrieval:** Exact aliases rank first. Normalized English tokens and Korean
   two-syllable tokens provide bounded lexical fallback. Low-score searches return an explicit
   unavailable answer.
@@ -117,11 +128,11 @@ The revised design creates `fdai-system-knowledge-service` as a separate distrib
 
 `catalog_digest` covers the schema version, source revision, build time, records, and authority
 flag. Rebuilding the same records at a different time therefore creates a distinct packaged
-artifact. Any change to a cited source, including formatting-only compaction or Markdown structure
-repair, requires a catalog rebuild in the same change before packaging so its blob pins and digest
-match the release tree.
-This mechanical refresh carries the revised source identity, including Pantheon attribution
-guidance and its CI-verified corrections, and adds no operational, approval, or execution authority. Deployment-guard source revisions follow the same rebuild rule.
+artifact. Any cited-source change requires a catalog rebuild in the same change before packaging so
+its blob pins and digest match the release tree. Formatting-only compaction or Markdown structure
+repair leaves the behavior claim unchanged but still changes the cited blob identity.
+This mechanical refresh carries the revised source identity, including CI-verified Pantheon
+attribution, localized scope-safe and digest-verified temporal evidence, role and authority boundaries, status-compatible shared role rendering, deterministic canonical-domain routing with locale-preserving aggregation, append-only, fail-closed, translator-only, governed-catalog, inert off-path learning, advisory, and HIL-gated chaos behavior, and prompt confidentiality; it adds no operational, approval, or execution authority. Deployment-guard source revisions follow the same rebuild rule.
 Completion-handoff and behavior-knowledge ledger refreshes follow this rule: they change source
 blob pins and the catalog digest only, without changing retrieval authority or message-delivery
 behavior.
