@@ -62,6 +62,8 @@ const groundedView = {
   incident_id: "incident-01J2",
   hypotheses: [groundedHypothesis],
   response: {
+    hypothesis_seq: 1,
+    source_seq: 2,
     verdict: "auto",
     decision: "rollback approved",
     action_kind: "config.rollback",
@@ -90,6 +92,8 @@ const abstainedView = {
     mode: "shadow",
   }],
   response: {
+    hypothesis_seq: 2,
+    source_seq: 3,
     verdict: "unknown",
     decision: null,
     action_kind: "incident.members",
@@ -107,12 +111,17 @@ function json(route: Route, payload: unknown, status = 200): Promise<void> {
   });
 }
 
-async function installRcaFixture(page: Page): Promise<{ readonly releaseLoading: () => void }> {
+async function installRcaFixture(page: Page): Promise<{
+  readonly releaseLoading: () => void;
+  readonly requestCount: () => number;
+}> {
+  let requests = 0;
   let releaseLoading = (): void => undefined;
   const loadingGate = new Promise<void>((resolve) => {
     releaseLoading = resolve;
   });
   await page.route("**/rca?*", async (route) => {
+    requests += 1;
     const correlation = new URL(route.request().url()).searchParams.get("correlation");
     if (correlation === "inc-loading") {
       await loadingGate;
@@ -138,7 +147,10 @@ async function installRcaFixture(page: Page): Promise<{ readonly releaseLoading:
     }
     await json(route, groundedView);
   });
-  return { releaseLoading };
+  return {
+    releaseLoading,
+    requestCount: () => requests,
+  };
 }
 
 async function expectNoHorizontalOverflow(page: Page): Promise<void> {
@@ -159,7 +171,7 @@ test("matches the RCA design hierarchy and keeps correlation lookup recoverable"
     testInfo.project.name !== "desktop-chromium",
     "Desktop presentation gate runs once.",
   );
-  await installRcaFixture(page);
+  const fixture = await installRcaFixture(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/root-cause-analysis?correlation=${groundedCorrelation}`);
 
@@ -192,6 +204,11 @@ test("matches the RCA design hierarchy and keeps correlation lookup recoverable"
   await expect(page.getByRole("button", { name: "Cancel change" })).toBeVisible();
   await input.fill("inc-unsubmitted");
   await expect(page.locator(".rca-hypothesis-hero")).toBeVisible();
+  const requestsBeforeTransientRoute = fixture.requestCount();
+  await page.evaluate(() => window.dispatchEvent(new Event("fdai:route-changed")));
+  await expect(input).toHaveValue("inc-unsubmitted");
+  await expect(input).toBeVisible();
+  expect(fixture.requestCount()).toBe(requestsBeforeTransientRoute);
   await page.getByRole("button", { name: "Cancel change" }).click();
   await expect(input).toBeHidden();
   await expect(page.locator(".rca-lookup-summary")).toContainText(groundedCorrelation);

@@ -16,6 +16,8 @@ describe("RCA availability", () => {
     expect(hasRecordedRca({
       ...view([]),
       response: {
+        hypothesis_seq: 1,
+        source_seq: 2,
         verdict: "unknown",
         decision: null,
         action_kind: "incident.members",
@@ -62,6 +64,8 @@ describe("RCA response association", () => {
     recorded_at: "2026-07-28T07:11:38Z",
   }]);
   const response: NonNullable<RcaView["response"]> = {
+    hypothesis_seq: 1,
+    source_seq: 2,
     verdict: "auto",
     decision: "approved",
     action_kind: "config.rollback",
@@ -85,7 +89,18 @@ describe("RCA response association", () => {
   it("suppresses the generic incident-members audit fallback", () => {
     expect(linkedRcaResponse({
       ...grounded,
-      response: { ...response, verdict: "unknown", action_kind: "incident.members" },
+      response: {
+        ...response,
+        verdict: "unknown",
+        action_kind: "incident.members",
+      },
+    })).toBeNull();
+  });
+
+  it("suppresses a response associated with an older hypothesis", () => {
+    expect(linkedRcaResponse({
+      ...grounded,
+      response: { ...response, hypothesis_seq: 2, source_seq: 3 },
     })).toBeNull();
   });
 });

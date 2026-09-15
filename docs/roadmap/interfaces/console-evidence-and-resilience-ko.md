@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 61f6d420a9b12c7e4f55e1a1619db8d1041cf1a1
+translation_source_sha: 74afa8af794d60c06527e02195e4f05fe8a5341e
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -439,10 +439,13 @@ notification-delivery 에스컬레이션이 있으면 이를 우선 표시하고
 있으면 감사 및 technical 활동을 사용할 수 있습니다. Root-cause analysis와 dossier는 `rca.*`
 기록이 생긴 뒤에만 링크가 되며, 그 전에는 근거가 있는 가설이 기록되지 않았다고 표시합니다. RCA
 경로도 가설이 없거나 주요 가설이 판단을 보류하면 범용 감사 대체 경로 응답을 숨겨
-`incident.members`를 응답 계획 또는 cause로 표시하지 않습니다. Trace 경로는 raw ordered
-표보다 먼저 notification 에스컬레이션, response-decision 근거, RCA 근거 및 named 파이프라인
-단계를 분리한 interpretation 요약을 표시합니다. 범용 correlated 활동은 cause 점유가 아니라
-technical 이력으로 유지합니다.
+`incident.members`를 응답 계획 또는 cause로 표시하지 않습니다. 대응 계획은 최신의 근거 있는
+가설보다 감사 순번이 뒤에 있는 명시적 결정 또는 롤백 기록에서만 연결하며, 브라우저가 확인할
+수 있도록 두 순번 참조를 함께 제공합니다. 따라서 `incident.members`, `incident.open`, 이전
+결정 및 다른 수명 주기 행을 대응 계획이나 원인으로 표시하지 않습니다. Trace 경로는 raw
+ordered 표보다 먼저 notification 에스컬레이션, response-decision 근거, RCA 근거 및 named
+파이프라인 단계를 분리한 interpretation 요약을 표시합니다. 범용 correlated 활동은 cause
+점유가 아니라 technical 이력으로 유지합니다.
 
 인용 근거가 있는 가설이 존재하면 RCA 경로는 상관관계 편집기를 접고 주요 가설과 라벨이 있는
 신뢰도, 인과 체인, 인용 대상 링크, 연결된 대응 계획 사실 순서로 검토 화면을 표시합니다.
@@ -452,7 +455,8 @@ technical 이력으로 유지합니다.
 판단 보류 결과는 합성한 원인을 제시하지 않고, 신뢰도를 확인할 수 없으며 인용과 연결된 대응이
 없음을 명시합니다. 요청을 불러오는 중에는 비어 있지 않은 다른 상관관계로 교체할 수 있지만 같은
 상관관계의 중복 요청은 거부합니다. 같은 경로 또는 다른 경로로 제출을 마치면 상관관계 펼침
-컨트롤이 렌더링된 뒤 키보드 포커스를 복원합니다.
+컨트롤이 렌더링된 뒤 키보드 포커스를 복원합니다. 임시 설정 경로 이벤트는 편집기를 닫거나
+초안을 버리거나 RCA 요청을 중복 실행하지 않습니다.
 
 Operational 근거는 `matched`, `summary`, `ambiguous`, `none`, `unavailable` 중 하나입니다.
 Collection 요약 요청에서 `summary`는 인시던트 하나를 선택하도록 요구하지 않고 범위가 제한된 matching

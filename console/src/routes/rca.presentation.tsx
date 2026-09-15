@@ -16,7 +16,7 @@ import type {
   RcaView,
 } from "../types";
 import { CausalChainSection } from "./rca-causal-chain";
-import { rcaText } from "./rca.i18n";
+import { rcaCauseDomainText, rcaText, rcaTierText } from "./rca.i18n";
 
 export function RcaBody({ data }: { readonly data: RcaView }) {
   const recorded = hasRecordedRca(data);
@@ -26,7 +26,7 @@ export function RcaBody({ data }: { readonly data: RcaView }) {
     () => ({
       routeId: "rca",
       routeLabel: t("route.rca"),
-      purpose: t("rca.viewPurpose"),
+      purpose: rcaText("viewPurpose"),
       glossary: composeGlossary([
         TERMS.correlationId,
         TERMS.tier,
@@ -34,7 +34,7 @@ export function RcaBody({ data }: { readonly data: RcaView }) {
         TERMS.mode,
         TERMS.outcome,
       ]),
-      headline: t("rca.viewHeadline", {
+      headline: rcaText("viewHeadline", {
         count: data.hypotheses.length,
         correlation: data.correlation_id,
       }),
@@ -58,14 +58,16 @@ export function RcaBody({ data }: { readonly data: RcaView }) {
         <div class="rca-context-status">
           {primaryHypothesis ? (
             <>
-              <StatusPill kind="info" label={t(`rca.tierName.${primaryHypothesis.tier}`)} />
+              <StatusPill kind="info" label={rcaTierText(primaryHypothesis.tier)} />
               <StatusPill
                 kind={primaryHypothesis.grounded ? "success" : "hil"}
-                label={primaryHypothesis.grounded ? t("rca.grounded") : t("rca.abstained")}
+                label={primaryHypothesis.grounded
+                  ? rcaText("grounded")
+                  : rcaText("abstained")}
               />
               <StatusPill kind={primaryHypothesis.mode} label={primaryHypothesis.mode} />
               <time dateTime={primaryHypothesis.recorded_at}>
-                <span>{t("rca.recordedAt")}</span>
+                <span>{rcaText("recordedAt")}</span>
                 {formatConsoleCompactTimestamp(primaryHypothesis.recorded_at)}
               </time>
             </>
@@ -77,26 +79,26 @@ export function RcaBody({ data }: { readonly data: RcaView }) {
               segments: ["incident-rca-dossier"],
               params: { correlation_id: data.correlation_id },
             })}>
-              {t("rca.report")}
+              {rcaText("report")}
             </a>
           ) : null}
           <a href={routeHref("incidents", {
             params: { status: "all", correlation: data.correlation_id },
           })}>
-            {t("rca.incident")}
+            {rcaText("incident")}
           </a>
           <a href={routeHref("trace", { params: { correlation: data.correlation_id } })}>
-            {t("rca.technicalActivity")}
+            {rcaText("technicalActivity")}
           </a>
           <a href={routeHref("audit", { params: { correlation: data.correlation_id } })}>
-            {t("rca.auditRecords")}
+            {rcaText("auditRecords")}
           </a>
         </nav>
       </div>
       {recorded ? (
         <section class="rca-result-section" aria-labelledby="rca-hypotheses-title">
           <header class="rca-section-heading">
-            <h3 id="rca-hypotheses-title">{t("rca.hypotheses")}</h3>
+            <h3 id="rca-hypotheses-title">{rcaText("hypotheses")}</h3>
             <span>{rcaText("hypothesisCount", { count: data.hypotheses.length })}</span>
           </header>
           <div class="rca-hypothesis-list">
@@ -113,8 +115,8 @@ export function RcaBody({ data }: { readonly data: RcaView }) {
         </section>
       ) : (
         <section class="rca-unavailable-state" aria-labelledby="rca-unavailable-title">
-          <h3 id="rca-unavailable-title">{t("rca.notRecordedTitle")}</h3>
-          <p>{t("rca.notRecordedBody")}</p>
+          <h3 id="rca-unavailable-title">{rcaText("notRecordedTitle")}</h3>
+          <p>{rcaText("notRecordedBody")}</p>
         </section>
       )}
     </div>
@@ -127,9 +129,16 @@ export function hasRecordedRca(data: RcaView): boolean {
 
 export function linkedRcaResponse(data: RcaView): RcaResponsePlan | null {
   const primaryHypothesis = data.hypotheses[0];
-  if (!primaryHypothesis?.grounded) return null;
-  if (data.response?.action_kind === "incident.members") return null;
-  return data.response;
+  const response = data.response;
+  if (!primaryHypothesis?.grounded || response === null) return null;
+  if (
+    response.hypothesis_seq !== primaryHypothesis.seq
+    || response.source_seq <= primaryHypothesis.seq
+    || response.action_kind === "incident.members"
+  ) {
+    return null;
+  }
+  return response;
 }
 
 function HypothesisCard({
@@ -145,7 +154,7 @@ function HypothesisCard({
 }) {
   const titleId = `rca-hypothesis-${hypothesis.seq}`;
   const cause = hypothesis.cause
-    ?? (hypothesis.grounded ? t("rca.none") : rcaText("abstainedCauseTitle"));
+    ?? (hypothesis.grounded ? rcaText("none") : rcaText("abstainedCauseTitle"));
   return (
     <article class="rca-hypothesis-workspace" aria-labelledby={titleId}>
       <div class="rca-hypothesis-tier">
@@ -154,17 +163,17 @@ function HypothesisCard({
             ? rcaText("primaryHypothesis")
             : rcaText("hypothesisLabel", { position: hypothesis.seq })}
         </strong>
-        <StatusPill kind="info" label={t(`rca.tierName.${hypothesis.tier}`)} />
-        <StatusPill kind="neutral" label={t(`rca.causeDomain.${hypothesis.cause_domain}`)} />
+        <StatusPill kind="info" label={rcaTierText(hypothesis.tier)} />
+        <StatusPill kind="neutral" label={rcaCauseDomainText(hypothesis.cause_domain)} />
         <StatusPill
           kind={hypothesis.grounded ? "success" : "hil"}
-          label={hypothesis.grounded ? t("rca.grounded") : t("rca.abstained")}
+          label={hypothesis.grounded ? rcaText("grounded") : rcaText("abstained")}
         />
       </div>
       <section class={`rca-hypothesis-hero ${hypothesis.grounded ? "is-grounded" : "is-abstained"}`}>
         <div class="rca-hypothesis-copy">
           <div class="rca-hypothesis-tags">
-            <StatusPill kind="info" label={t(`rca.tierName.${hypothesis.tier}`)} />
+            <StatusPill kind="info" label={rcaTierText(hypothesis.tier)} />
             <StatusPill kind={hypothesis.mode} label={hypothesis.mode} />
           </div>
           <h4 id={titleId}>{cause}</h4>
@@ -179,7 +188,9 @@ function HypothesisCard({
             : rcaText("abstainedCauseTitle")}
         </strong>
         <span>
-          {hypothesis.grounded ? rcaText("hypothesisCaveatBody") : t("rca.abstainedNotice")}
+          {hypothesis.grounded
+            ? rcaText("hypothesisCaveatBody")
+            : rcaText("abstainedNotice")}
         </span>
       </aside>
       <CausalChainSection hypothesis={hypothesis} />
@@ -218,7 +229,7 @@ function ConfidenceIndicator({ hypothesis }: { readonly hypothesis: RcaHypothesi
           {confidenceValue ?? kpiEvidenceLabel("not-measured")}
         </strong>
       </div>
-      <span>{t("rca.confidence")}</span>
+      <span>{rcaText("confidence")}</span>
     </div>
   );
 }
@@ -231,9 +242,9 @@ function CitationsPanel({
   readonly correlationId: string;
 }) {
   return (
-    <section class="rca-panel" aria-label={t("rca.citations")}>
+    <section class="rca-panel" aria-label={rcaText("citations")}>
       <header>
-        <h5>{t("rca.citations")}</h5>
+        <h5>{rcaText("citations")}</h5>
         <span>
           {hypothesis.citations.length > 0
             ? rcaText("referencesResolved")
@@ -256,7 +267,7 @@ function CitationsPanel({
           })}
         </ul>
       ) : (
-        <p class="rca-panel-empty">{t("rca.noCitations")}</p>
+        <p class="rca-panel-empty">{rcaText("noCitations")}</p>
       )}
     </section>
   );
@@ -272,30 +283,30 @@ function ResponsePlan({
   const auditHref = routeHref("audit", { params: { correlation: correlationId } });
   const traceHref = routeHref("trace", { params: { correlation: correlationId } });
   return (
-    <section class="rca-panel" aria-label={t("rca.response")}>
+    <section class="rca-panel" aria-label={rcaText("response")}>
       <header>
-        <h5>{t("rca.response")}</h5>
+        <h5>{rcaText("response")}</h5>
         <span>
           {response === null ? rcaText("responseUnavailable") : rcaText("responseRecorded")}
         </span>
       </header>
       {response === null ? (
-        <p class="rca-panel-empty">{t("rca.noResponse")}</p>
+        <p class="rca-panel-empty">{rcaText("noResponse")}</p>
       ) : (
         <div class="rca-response-facts">
-          <ResponseFact href={traceHref} label={t("rca.verdict")}>
+          <ResponseFact href={traceHref} label={rcaText("verdict")}>
             <StatusPill kind={verdictPill(response.verdict)} label={response.verdict} />
           </ResponseFact>
           <ResponseFact
             href={traceHref}
-            label={t("rca.decision")}
+            label={rcaText("decision")}
             evidenceState={response.decision === null ? "not-applicable" : "measured"}
           >
             {response.decision ?? kpiEvidenceLabel("not-applicable")}
           </ResponseFact>
           <ResponseFact
             href={auditHref}
-            label={t("rca.action")}
+            label={rcaText("action")}
             evidenceState={response.action_kind === null ? "not-applicable" : "measured"}
           >
             <span class="mono">{response.action_kind ?? kpiEvidenceLabel("not-applicable")}</span>
@@ -304,7 +315,7 @@ function ResponsePlan({
             href={response.mode === null
               ? auditHref
               : routeHref("audit", { params: { correlation: correlationId, mode: response.mode } })}
-            label={t("rca.modeColumn")}
+            label={rcaText("modeColumn")}
             evidenceState={response.mode === null ? "not-applicable" : "measured"}
           >
             {response.mode === null
@@ -313,7 +324,7 @@ function ResponsePlan({
           </ResponseFact>
           <ResponseFact
             href={auditHref}
-            label={t("rca.rollback")}
+            label={rcaText("rollback")}
             evidenceState={response.rollback_reference === null ? "not-applicable" : "measured"}
           >
             <span class="mono">

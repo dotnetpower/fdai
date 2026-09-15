@@ -24,19 +24,16 @@ def rca_view(correlation_id: str, items: Sequence[JsonObject]) -> JsonObject | N
     if not items:
         return None
     ordered = sorted(items, key=lambda item: _as_int(item["seq"]))
-    hypotheses = [
-        _hypothesis(item)
-        for item in reversed(ordered)
-        if item.get("action_kind") == "rca.hypothesis"
-    ]
-    action_rows = [item for item in ordered if item.get("action_kind") != "rca.hypothesis"]
+    hypothesis_rows = [item for item in ordered if item.get("action_kind") == "rca.hypothesis"]
+    hypotheses = [_hypothesis(item) for item in reversed(hypothesis_rows)]
+    primary_hypothesis = hypothesis_rows[-1] if hypothesis_rows else None
     return cast(
         JsonObject,
         {
             "correlation_id": correlation_id,
             "incident_id": _first_entry_string(ordered, "incident_id"),
             "hypotheses": hypotheses,
-            "response": _response(action_rows),
+            "response": _linked_response(ordered, primary_hypothesis),
         },
     )
 
@@ -69,7 +66,37 @@ def _hypothesis(item: JsonObject) -> JsonObject:
     )
 
 
-def _response(items: Sequence[JsonObject]) -> JsonObject | None:
+def _linked_response(
+    items: Sequence[JsonObject],
+    primary_hypothesis: JsonObject | None,
+) -> JsonObject | None:
+    if primary_hypothesis is None:
+        return None
+    hypothesis_entry = _mapping(primary_hypothesis.get("entry"))
+    if _nonempty(hypothesis_entry.get("rca_outcome")) != "grounded":
+        return None
+    hypothesis_seq = _as_int(primary_hypothesis["seq"])
+    response_rows = [
+        item
+        for item in items
+        if _as_int(item["seq"]) > hypothesis_seq and _has_response_evidence(item)
+    ]
+    return _response(response_rows, hypothesis_seq=hypothesis_seq)
+
+
+def _has_response_evidence(item: JsonObject) -> bool:
+    entry = _mapping(item.get("entry"))
+    return any(
+        _nonempty(entry.get(key)) is not None
+        for key in ("decision", "gate_decision", "rollback_reference", "rollback_ref")
+    )
+
+
+def _response(
+    items: Sequence[JsonObject],
+    *,
+    hypothesis_seq: int,
+) -> JsonObject | None:
     if not items:
         return None
     latest = items[-1]
@@ -77,6 +104,8 @@ def _response(items: Sequence[JsonObject]) -> JsonObject | None:
     return cast(
         JsonObject,
         {
+            "hypothesis_seq": hypothesis_seq,
+            "source_seq": _as_int(latest["seq"]),
             "verdict": _verdict(newest),
             "decision": _first_entry_string(newest, "decision", "gate_decision"),
             "action_kind": str(latest["action_kind"]),

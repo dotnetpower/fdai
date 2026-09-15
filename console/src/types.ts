@@ -153,6 +153,8 @@ export interface RcaHypothesis {
 }
 
 export interface RcaResponsePlan {
+  readonly hypothesis_seq: number;
+  readonly source_seq: number;
   readonly verdict: string;
   readonly decision: string | null;
   readonly action_kind: string | null;

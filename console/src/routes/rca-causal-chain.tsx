@@ -1,5 +1,4 @@
 import { architectureHref } from "../components/architecture-map.model";
-import { t } from "../i18n";
 import type { RcaHypothesis } from "../types";
 import { rcaText } from "./rca.i18n";
 
@@ -9,9 +8,9 @@ export function CausalChainSection({ hypothesis }: { readonly hypothesis: RcaHyp
   return (
     <section class="rca-detail-section" aria-labelledby={`rca-chain-${hypothesis.seq}`}>
       <header class="rca-section-heading">
-        <h4 id={`rca-chain-${hypothesis.seq}`}>{t("rca.causalChain")}</h4>
+        <h4 id={`rca-chain-${hypothesis.seq}`}>{rcaText("causalChain")}</h4>
         <span>
-          {t("rca.causalSummary", {
+          {rcaText("causalSummary", {
             hops: chain.hops.length,
             ambiguity: chain.ambiguity,
           })}
@@ -36,9 +35,11 @@ export function CausalChainSection({ hypothesis }: { readonly hypothesis: RcaHyp
               <div class="rca-causal-edge">
                 <b aria-hidden="true">-&gt;</b>
                 <strong>{hop.relationship}</strong>
-                <small>{t("rca.causalLead", { seconds: hop.lead_seconds.toFixed(1) })}</small>
                 <small>
-                  {t("rca.causalConfidence", { value: hop.confidence.toFixed(2) })}
+                  {rcaText("causalLead", { seconds: hop.lead_seconds.toFixed(1) })}
+                </small>
+                <small>
+                  {rcaText("causalConfidence", { value: hop.confidence.toFixed(2) })}
                 </small>
               </div>
               <div

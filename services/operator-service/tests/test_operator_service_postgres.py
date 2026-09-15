@@ -2657,6 +2657,64 @@ async def test_trace_and_rca_preserve_frozen_envelopes() -> None:
     assert rca is not None
     assert rca.to_dict()["hypotheses"][0]["tier"] == "t0"
     assert rca.to_dict()["response"]["verdict"] == "auto"
+    assert rca.to_dict()["response"]["hypothesis_seq"] == 1
+    assert rca.to_dict()["response"]["source_seq"] == 2
+
+
+@pytest.mark.asyncio
+async def test_rca_response_requires_a_later_decision_for_the_latest_grounded_hypothesis() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            1,
+            action_kind="risk_gate.shadow_authority",
+            entry={"stage": "gate", "decision": "auto", "rollback_reference": "pr-7"},
+        ),
+        _audit_row(
+            2,
+            action_kind="rca.hypothesis",
+            entry={
+                "rca_outcome": "grounded",
+                "rca_tier": "t0",
+                "rca_cause": "public access open",
+                "rca_confidence": 0.95,
+                "rca_citations": [{"kind": "rule", "ref": "storage.public-access"}],
+            },
+        ),
+        _audit_row(3, action_kind="incident.open", entry={"status": "open"}),
+    ]
+
+    rca = await model.get_rca("corr-1")
+
+    assert rca is not None
+    assert rca.to_dict()["response"] is None
+
+
+@pytest.mark.asyncio
+async def test_rca_response_is_absent_when_the_latest_hypothesis_abstained() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(
+            1,
+            action_kind="rca.hypothesis",
+            entry={
+                "rca_outcome": "abstained",
+                "rca_tier": "t2",
+                "rca_reason": "insufficient grounding",
+                "rca_citations": [],
+            },
+        ),
+        _audit_row(
+            2,
+            action_kind="risk_gate.shadow_authority",
+            entry={"stage": "gate", "decision": "hil"},
+        ),
+    ]
+
+    rca = await model.get_rca("corr-1")
+
+    assert rca is not None
+    assert rca.to_dict()["response"] is None
 
 
 def test_statement_identity_names_a_registered_statement_without_its_text() -> None:

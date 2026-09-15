@@ -34,7 +34,7 @@ export function rcaCorrelationHref(correlationId: string): string {
 }
 
 export function RcaRoute({ client }: Props) {
-  const [selectedCorrelationId, setSelectedCorrelationId] = useState(
+  const [selectedCorrelationId] = useState(
     () => correlationFromLocation(),
   );
   const [draftCorrelationId, setDraftCorrelationId] = useState(
@@ -66,31 +66,12 @@ export function RcaRoute({ client }: Props) {
   }
 
   useEffect(() => {
-    const sync = () => {
-      const deepLinked = correlationFromLocation();
-      if (!deepLinked) {
-        requestGeneration.current += 1;
-        setSelectedCorrelationId("");
-        setDraftCorrelationId("");
-        setLookupOpen(true);
-        setState({ status: "idle" });
-        return;
-      }
-      setSelectedCorrelationId(deepLinked);
-      setDraftCorrelationId(deepLinked);
-      setLookupOpen(false);
-      if (deepLinked === selectedCorrelationId && consumeLookupFocusState()) {
-        setLookupFocusRequest((current) => current + 1);
-      }
-      void fetchRca(deepLinked);
-    };
-    sync();
-    window.addEventListener("popstate", sync);
-    window.addEventListener("fdai:route-changed", sync);
+    if (consumeLookupFocusState()) {
+      setLookupFocusRequest((current) => current + 1);
+    }
+    if (selectedCorrelationId) void fetchRca(selectedCorrelationId);
     return () => {
       requestGeneration.current += 1;
-      window.removeEventListener("popstate", sync);
-      window.removeEventListener("fdai:route-changed", sync);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -117,12 +98,12 @@ export function RcaRoute({ client }: Props) {
 
   return (
     <div class="stack rca-page">
-      <PageHeader title={t("route.rca")} subtitle={t("rca.subtitle")} />
+      <PageHeader title={t("route.rca")} subtitle={rcaText("subtitle")} />
       <aside class="rca-authority-note" role="note">
         <strong>{rcaText("readOnlyTitle")}</strong>
         <span>{rcaText("readOnlyBody")}</span>
       </aside>
-      <section class="rca-query-panel" aria-label={t("rca.lookup")}>
+      <section class="rca-query-panel" aria-label={rcaText("lookup")}>
         {hasCorrelation ? (
           <div class="rca-lookup-summary">
             <div>
@@ -149,12 +130,19 @@ export function RcaRoute({ client }: Props) {
             event.preventDefault();
             const normalized = draftCorrelationId.trim();
             if (normalized) {
-              navigate(rcaCorrelationHref(normalized), false, { fdaiRcaLookupFocus: true });
+              if (normalized === selectedCorrelationId) {
+                setDraftCorrelationId(selectedCorrelationId);
+                setLookupOpen(false);
+                setLookupFocusRequest((current) => current + 1);
+                void fetchRca(selectedCorrelationId);
+              } else {
+                navigate(rcaCorrelationHref(normalized), false, { fdaiRcaLookupFocus: true });
+              }
             }
           }}
         >
           <label class="rca-lookup-field">
-            <span>{t("rca.correlationLabel")}</span>
+            <span>{rcaText("correlationLabel")}</span>
             <input
               ref={lookupInput}
               type="text"
@@ -177,7 +165,7 @@ export function RcaRoute({ client }: Props) {
               )
             }
           >
-            {t("rca.fetch")}
+            {rcaText("fetch")}
           </button>
           <small id="rca-lookup-help">{rcaText("lookupHelp")}</small>
         </form>
@@ -186,7 +174,7 @@ export function RcaRoute({ client }: Props) {
         state={state}
         resourceLabel={t("route.rca")}
         loading={<RcaLoadingState />}
-        idle={<p class="rca-idle-state">{t("rca.idle")}</p>}
+        idle={<p class="rca-idle-state">{rcaText("idle")}</p>}
       >
         {(data) => <RcaBody data={data} />}
       </AsyncBoundary>

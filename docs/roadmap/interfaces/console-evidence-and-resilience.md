@@ -438,8 +438,11 @@ incident and names the required follow-up. Audit and technical activity remain a
 records exist. Root-cause analysis and its dossier become links only after an `rca.*` record exists;
 otherwise the rows state that no evidence-backed hypothesis has been recorded. The RCA route also
 hides its generic audit fallback response when no hypothesis exists or the primary hypothesis
-abstains, so `incident.members` is never presented as a response plan or cause. The Trace route
-leads with an interpretation summary that
+abstains. A response plan is linked only from an explicit decision or rollback record whose audit
+sequence follows the newest grounded hypothesis; the projection includes both sequence references
+for browser verification. Therefore `incident.members`, `incident.open`, older decisions, and
+other lifecycle rows are never presented as a response plan or cause. The Trace route leads with
+an interpretation summary that
 separates notification escalation, response-decision evidence, RCA evidence, and named pipeline
 stages before showing the raw ordered table; generic correlated activity remains technical history,
 not a cause claim.
@@ -453,7 +456,8 @@ Grounded, abstained, loading, empty, and failed states remain distinct. An absta
 unavailable confidence, missing citations, and no linked response instead of presenting a
 synthetic cause. A loading request accepts a different non-empty correlation but rejects a
 same-correlation duplicate. Same-route and replacement submissions restore keyboard focus to the
-correlation disclosure after it renders.
+correlation disclosure after it renders. Transient Settings route events do not close the editor,
+discard its draft, or duplicate the RCA request.
 
 Operational evidence remains one of `matched`, `summary`, `ambiguous`, `none`, or `unavailable`.
 For a collection summary request, `summary` renders the bounded matching set immediately without
