@@ -134,9 +134,18 @@ recovery, or publication authority to a different agent.
   before consumers start without asking a person to decide again.
 - Thor stamps one lifecycle-stable ActionRun identity over correlation, action id and type, resource,
   action idempotency, parameters, quorum, initiator, rollback contract, verdict, and workflow
-  lineage. Var scopes decision and final records by this identity, echoes it with explicit action
-  fields, and Thor rejects a stale approval before execution. Thor and Var also claim the
-  correlation for this identity; a different idempotency generation cannot reuse it.
+  lineage. Before any idempotency or resource claim, Thor atomically creates the initial durable
+  ActionRun as a pending correlation claim. The first durable lifecycle publication promotes it to
+  active; resource contention leaves it retryable but excludes it from restart recovery. Only the
+  canonical identity is authoritative while pending, so a retry refreshes live non-identity fields
+  such as shadow posture before promotion. Active rows and terminal tombstones preserve the
+  canonical identity digest, so only an exact replay can recover the row. Duplicate dispatch reads
+  only that correlation and never runs the cross-replica restart recovery sweep or changes an
+  unrelated resource claim. A peer returns an exact active replay without caching the foreign run
+  or its local mutex, and a pre-upgrade tombstone accepts only its matching non-empty idempotency
+  generation as completed. Var scopes decision and final records by this identity, echoes it with
+  explicit action fields, and Thor rejects a stale approval before execution. Thor and Var also
+  claim the correlation for this identity; a different idempotency generation cannot reuse it.
 
 #### Rollback claims and terminal replay
 

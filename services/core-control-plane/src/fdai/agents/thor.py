@@ -42,6 +42,7 @@ from fdai.agents._framework.introspection import (
 )
 from fdai.agents._framework.pantheon import _THOR
 from fdai.agents._framework.role_answers import thor_role_answer
+from fdai.agents._framework.thor_correlation import resolve_correlation_claim
 from fdai.core.executor.safeguards import resource_lock_key
 from fdai.core.operational_planning import KineticActionProposal
 from fdai.core.operational_planning.prospective_lineage import ProspectiveLineage
@@ -689,9 +690,26 @@ class Thor(Agent):
                 else None
             ),
         )
-        validate_correlation = getattr(self._state_store, "validate_correlation_identity", None)
-        if callable(validate_correlation):
-            await validate_correlation(run)
+        claim_status, existing = await resolve_correlation_claim(self._state_store, run)
+        if claim_status in {"execution_completed", "correlation_completed"}:
+            run.transition(ActionRunState.DENY_DROPPED)
+            run.outcome = (
+                "duplicate_execution_already_completed"
+                if claim_status == "execution_completed"
+                else "duplicate_correlation_already_completed"
+            )
+            self.action_runs[correlation] = run
+            self._idempotency_runs[run.idempotency_key] = run
+            await self._emit_action_run(run)
+            self.record_behavior("dispatch:completed_duplicate")
+            return run
+        if claim_status == "contended":
+            raise _ExecutionResourceUnavailableError
+        if claim_status == "active":
+            if existing is None:
+                raise RuntimeError("Thor active correlation has no ActionRun")
+            self.record_behavior("dispatch:idempotent_duplicate")
+            return existing
         self.action_runs[correlation] = run
         self._idempotency_runs[run.idempotency_key] = run
         if resource_id:
@@ -707,10 +725,8 @@ class Thor(Agent):
             # Emit the initial VERDICTED state so downstream consumers
             # (audit chain, Var) see the lifecycle start.
             await self._emit_action_run(run)
-            # Measurable behaviour: the dispatch verdict split (+ shadow), so a
-            # scenario test reads dispatch:auto / dispatch:hil / dispatch:deny
-            # and dispatch:shadow to assert 'shadow never mutates' and 'deny
-            # never reaches Var' without touching private state.
+            # Record the verdict split so scenario checks can prove shadow and
+            # deny paths never mutate.
             self.record_behavior(f"dispatch:{risk_verdict}")
             if shadow_mode:
                 self.record_behavior("dispatch:shadow")

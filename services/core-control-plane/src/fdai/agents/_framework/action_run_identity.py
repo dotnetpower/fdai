@@ -10,7 +10,10 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
-from typing import Any, Protocol
+from datetime import UTC, datetime
+from typing import Any, Literal, Protocol
+
+from fdai.agents._framework.action_run_store_time import claim_lease_expiry
 
 _DIGEST_PREFIX = "sha256:"
 _IDENTITY_FIELDS = (
@@ -28,8 +31,10 @@ _IDENTITY_FIELDS = (
 )
 
 
-class _StateReader(Protocol):
+class _StateStore(Protocol):
     async def read_state(self, key: str) -> Mapping[str, Any] | None: ...
+
+    async def write_state_if_absent(self, key: str, value: dict[str, Any]) -> bool: ...
 
 
 def action_run_identity_projection(value: Mapping[str, Any]) -> dict[str, Any]:
@@ -82,6 +87,32 @@ def action_run_identity_digest(value: Mapping[str, Any]) -> str:
         sort_keys=True,
     ).encode("utf-8")
     return _DIGEST_PREFIX + hashlib.sha256(encoded).hexdigest()
+
+
+def action_fingerprint(value: Mapping[str, Any]) -> str:
+    """Return the stable execution-effect fingerprint for one ActionRun."""
+
+    payload = {
+        name: value.get(name)
+        for name in (
+            "action_type",
+            "resource_id",
+            "idempotency_key",
+            "params",
+            "decision_case",
+            "operational_context",
+            "workflow_action",
+            "kinetic_proposal",
+        )
+    }
+    encoded = json.dumps(
+        payload,
+        allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return _DIGEST_PREFIX + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def validate_action_run_identity(value: Mapping[str, Any]) -> str:
@@ -149,56 +180,139 @@ def bounded_rollback_ref(value: object, *, max_length: int = 2_048) -> str | Non
     return normalized if normalized and len(normalized) <= max_length else None
 
 
-def validate_inactive_action_run_replay(
+def durable_action_run_state(
+    candidate: Mapping[str, Any],
+    *,
+    active: bool,
+    revision: int,
+) -> dict[str, Any]:
+    """Wrap an ActionRun payload with durable lifecycle metadata."""
+
+    return {
+        **dict(candidate),
+        "action_run_identity": action_run_identity_digest(candidate),
+        "active": "true" if active else "false",
+        "revision": revision,
+    }
+
+
+def durable_action_run_payload(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Remove persistence metadata from one durable ActionRun row."""
+
+    return {
+        name: item
+        for name, item in value.items()
+        if name not in {"active", "action_run_identity", "revision"}
+    }
+
+
+def validate_durable_action_run_state(
     current: Mapping[str, Any],
     candidate: Mapping[str, Any],
 ) -> None:
-    """Suppress the same completed generation and reject correlation reuse."""
+    """Accept only a durable row for the candidate's complete identity."""
 
-    if current.get("active") != "false":
-        raise ValueError("ActionRun replacement requires an inactive tombstone")
     revision = current.get("revision")
     if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
         raise RuntimeError("Thor ActionRun revision is invalid")
     if current.get("correlation_id") != candidate.get("correlation_id"):
-        raise RuntimeError("Thor ActionRun tombstone correlation conflicts")
-    prior_idempotency = current.get("idempotency_key")
-    next_idempotency = candidate.get("idempotency_key")
-    if not isinstance(prior_idempotency, str) or not prior_idempotency:
-        raise RuntimeError("legacy ActionRun tombstone cannot authorize correlation reuse")
-    if prior_idempotency != next_idempotency:
-        raise ValueError("ActionRun correlation cannot bind a different idempotency generation")
+        raise RuntimeError("Thor ActionRun durable correlation conflicts")
+    if current.get("active") not in {"pending", "true", "false"}:
+        raise RuntimeError("Thor ActionRun durable activity marker is invalid")
+    stored_identity = current.get("action_run_identity")
+    if not is_action_run_identity(stored_identity):
+        if current.get("active") == "true":
+            stored_identity = action_run_identity_digest(current)
+        elif (
+            current.get("active") == "false"
+            and isinstance(current.get("idempotency_key"), str)
+            and current.get("idempotency_key")
+            and current.get("idempotency_key") == candidate.get("idempotency_key")
+        ):
+            return
+        else:
+            raise RuntimeError("legacy ActionRun tombstone cannot authorize correlation reuse")
+    if stored_identity != action_run_identity_digest(candidate):
+        raise ValueError("ActionRun correlation cannot bind a different identity")
 
 
-async def validate_durable_action_run_correlation(
-    store: _StateReader,
+async def claim_durable_action_run_identity(
+    store: _StateStore,
+    *,
+    run_key: str,
+    completion_key: str,
+    candidate: Mapping[str, Any],
+    action_fingerprint: str,
+) -> Literal["acquired", "existing", "completed", "contended"]:
+    """Atomically claim one correlation before idempotency or resource state."""
+
+    current = await store.read_state(run_key)
+    if current is not None:
+        validate_durable_action_run_state(current, candidate)
+        return "existing"
+    completion = await store.read_state(completion_key)
+    if completion is not None and completion.get("status") == "completed":
+        if (
+            completion.get("resource_id") != candidate.get("resource_id")
+            or completion.get("action_fingerprint") != action_fingerprint
+        ):
+            raise ValueError("completed idempotency identity conflicts with ActionRun")
+        return "completed"
+    if (
+        completion is not None
+        and completion.get("status") == "reserved"
+        and claim_lease_expiry(completion) > datetime.now(tz=UTC)
+    ):
+        return "contended"
+    if await store.write_state_if_absent(
+        run_key,
+        {
+            **durable_action_run_state(candidate, active=True, revision=0),
+            "active": "pending",
+        },
+    ):
+        return "acquired"
+    current = await store.read_state(run_key)
+    if current is None:
+        raise RuntimeError("Thor ActionRun correlation claim disappeared")
+    validate_durable_action_run_state(current, candidate)
+    return "existing"
+
+
+async def load_durable_action_run_correlation(
+    store: _StateStore,
     *,
     run_prefix: str,
     candidate: Mapping[str, Any],
-) -> None:
-    """Reject correlation reuse before a peer can claim an execution resource."""
+) -> tuple[Literal["pending", "active", "completed"], dict[str, Any] | None]:
+    """Load one exact active correlation without running recovery scans."""
 
-    correlation_id = str(candidate.get("correlation_id") or "")
-    current = await store.read_state(f"{run_prefix}{correlation_id}")
+    key = f"{run_prefix}{candidate.get('correlation_id', '')}"
+    current = await store.read_state(key)
     if current is None:
-        return
-    if current.get("active") == "false":
-        validate_inactive_action_run_replay(current, candidate)
-        return
-    if current.get("correlation_id") != correlation_id or current.get(
-        "idempotency_key"
-    ) != candidate.get("idempotency_key"):
-        raise ValueError("active ActionRun correlation identity conflicts")
+        raise RuntimeError("Thor ActionRun correlation claim disappeared")
+    validate_durable_action_run_state(current, candidate)
+    status = current.get("active")
+    if status == "false":
+        return "completed", None
+    return (
+        "pending" if status == "pending" else "active",
+        durable_action_run_payload(current),
+    )
 
 
 __all__ = [
     "approval_matches_action_run",
+    "action_fingerprint",
     "action_run_identity_digest",
     "action_run_identity_projection",
     "bounded_rollback_ref",
+    "claim_durable_action_run_identity",
+    "durable_action_run_payload",
+    "durable_action_run_state",
     "is_action_run_identity",
+    "load_durable_action_run_correlation",
     "rollback_matches_action_run",
-    "validate_durable_action_run_correlation",
-    "validate_inactive_action_run_replay",
     "validate_action_run_identity",
+    "validate_durable_action_run_state",
 ]

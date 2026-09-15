@@ -1025,12 +1025,63 @@ def test_statestore_rejects_new_generation_for_active_correlation() -> None:
         idempotency_key="active-generation-current",
     )
 
-    with pytest.raises(ValueError, match="active ActionRun correlation identity"):
+    with pytest.raises(ValueError, match="different identity"):
         asyncio.run(StateStoreActionRunStore(store=state).save(replacement))
 
     active = asyncio.run(first.load_active())
     assert len(active) == 1
     assert active[0].idempotency_key == "active-generation-old"
+
+
+def test_statestore_rejects_changed_active_identity_with_same_idempotency() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreActionRunStore(store=state)
+    previous = ActionRun(
+        correlation_id="active-same-key",
+        action_type="ops.restart-service",
+        resource_id="vm-old",
+        state=ActionRunState.HIL_PENDING,
+        verdict="hil",
+        idempotency_key="shared-generation",
+    )
+    asyncio.run(store.save(previous))
+    changed = ActionRun(
+        correlation_id=previous.correlation_id,
+        action_type="remediate.delete-storage",
+        resource_id="storage-current",
+        state=ActionRunState.VERDICTED,
+        verdict="auto",
+        idempotency_key=previous.idempotency_key,
+    )
+
+    with pytest.raises(ValueError, match="different identity"):
+        asyncio.run(StateStoreActionRunStore(store=state).save(changed))
+
+
+def test_statestore_rejects_changed_tombstone_identity_with_same_idempotency() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreActionRunStore(store=state)
+    previous = ActionRun(
+        correlation_id="inactive-same-key",
+        action_type="ops.restart-service",
+        resource_id=None,
+        state=ActionRunState.DENY_DROPPED,
+        verdict="deny",
+        idempotency_key="shared-tombstone-generation",
+    )
+    asyncio.run(store.save(previous))
+    asyncio.run(store.delete(previous.correlation_id))
+    changed = ActionRun(
+        correlation_id=previous.correlation_id,
+        action_type="remediate.delete-storage",
+        resource_id="storage-current",
+        state=ActionRunState.VERDICTED,
+        verdict="auto",
+        idempotency_key=previous.idempotency_key,
+    )
+
+    with pytest.raises(ValueError, match="different identity"):
+        asyncio.run(StateStoreActionRunStore(store=state).save(changed))
 
 
 def test_cross_replica_active_correlation_conflict_never_executes() -> None:
@@ -1056,7 +1107,7 @@ def test_cross_replica_active_correlation_conflict_never_executes() -> None:
         state_store=StateStoreActionRunStore(store=state),
         shadow_by_default=False,
     )
-    with pytest.raises(ValueError, match="active ActionRun correlation identity"):
+    with pytest.raises(ValueError, match="different identity"):
         asyncio.run(
             peer.dispatch_verdict(
                 {
@@ -1074,6 +1125,311 @@ def test_cross_replica_active_correlation_conflict_never_executes() -> None:
     active = asyncio.run(first_store.load_active())
     assert len(active) == 1
     assert active[0].idempotency_key == "cross-replica-old"
+
+
+def test_cross_replica_exact_active_replay_does_not_cache_foreign_lock() -> None:
+    state = InMemoryStateStore()
+    owner_store = StateStoreActionRunStore(store=state)
+    active = ActionRun(
+        correlation_id="foreign-active-correlation",
+        action_type="ops.restart-service",
+        resource_id="foreign-active-resource",
+        state=ActionRunState.HIL_PENDING,
+        verdict="hil",
+        idempotency_key="foreign-active-idempotency",
+    )
+    asyncio.run(owner_store.save(active))
+    peer = Thor(
+        state_store=StateStoreActionRunStore(store=state),
+        shadow_by_default=False,
+    )
+
+    replay = asyncio.run(
+        peer.dispatch_verdict(
+            {
+                "correlation_id": active.correlation_id,
+                "idempotency_key": active.idempotency_key,
+                "action_type": active.action_type,
+                "resource_id": active.resource_id,
+                "risk_verdict": active.verdict,
+                "resolved_autonomy_ceiling": "enforce_auto",
+            }
+        )
+    )
+
+    assert replay.state is ActionRunState.HIL_PENDING
+    assert peer.action_runs == {}
+    assert peer.health()["locked_resources"] == 0
+
+
+def test_atomic_correlation_claim_precedes_cross_replica_resource_claims() -> None:
+    state = InMemoryStateStore()
+    executions: list[str] = []
+
+    async def execute(context):
+        executions.append(context["run"].action_type)
+        await asyncio.sleep(0)
+        return True
+
+    first = Thor(
+        executor=execute,
+        state_store=StateStoreActionRunStore(store=state),
+        shadow_by_default=False,
+    )
+    second = Thor(
+        executor=execute,
+        state_store=StateStoreActionRunStore(store=state),
+        shadow_by_default=False,
+    )
+
+    async def dispatch(thor: Thor, generation: str, resource_id: str):
+        return await thor.dispatch_verdict(
+            {
+                "correlation_id": "atomic-correlation",
+                "idempotency_key": generation,
+                "action_type": f"ops.{generation}",
+                "resource_id": resource_id,
+                "risk_verdict": "auto",
+                "resolved_autonomy_ceiling": "enforce_auto",
+            }
+        )
+
+    async def race():
+        return await asyncio.gather(
+            dispatch(first, "generation-a", "resource-a"),
+            dispatch(second, "generation-b", "resource-b"),
+            return_exceptions=True,
+        )
+
+    results = asyncio.run(race())
+
+    assert len(executions) == 1
+    assert sum(isinstance(result, ValueError) for result in results) == 1
+    _claims, claimed_total = asyncio.run(
+        state.read_state_page(
+            "thor:resource-claim|",
+            limit=10,
+            field="status",
+            value="claimed",
+        )
+    )
+    assert claimed_total == 0
+
+
+def test_exact_duplicate_dispatch_does_not_sweep_unrelated_resource_claims() -> None:
+    state = InMemoryStateStore()
+    first_store = StateStoreActionRunStore(store=state)
+    duplicate = ActionRun(
+        correlation_id="target-correlation",
+        action_type="ops.restart-service",
+        resource_id="target-resource",
+        state=ActionRunState.HIL_PENDING,
+        verdict="hil",
+        idempotency_key="target-generation",
+    )
+    unrelated = ActionRun(
+        correlation_id="unrelated-correlation",
+        action_type="ops.restart-service",
+        resource_id="unrelated-resource",
+        state=ActionRunState.EXECUTING,
+        verdict="auto",
+        idempotency_key="unrelated-generation",
+    )
+    asyncio.run(first_store.save(duplicate))
+    assert asyncio.run(first_store.claim_resource(unrelated)) == "acquired"
+    claim_key = first_store._resource_claim_key(unrelated.resource_id or "")
+    claim_before = asyncio.run(state.read_state(claim_key))
+    assert claim_before is not None
+    asyncio.run(
+        state.write_state(
+            claim_key,
+            {**claim_before, "lease_expires_at": "2000-01-01T00:00:00+00:00"},
+        )
+    )
+
+    peer = Thor(
+        state_store=StateStoreActionRunStore(store=state),
+        shadow_by_default=False,
+    )
+    replay = asyncio.run(
+        peer.dispatch_verdict(
+            {
+                "correlation_id": duplicate.correlation_id,
+                "idempotency_key": duplicate.idempotency_key,
+                "action_type": duplicate.action_type,
+                "resource_id": duplicate.resource_id,
+                "risk_verdict": duplicate.verdict,
+                "resolved_autonomy_ceiling": "enforce_auto",
+            }
+        )
+    )
+
+    claim_after = asyncio.run(state.read_state(claim_key))
+    assert replay.state is ActionRunState.HIL_PENDING
+    assert claim_after is not None
+    assert claim_after["owner_id"] == first_store.owner_id
+    assert claim_after["lease_expires_at"] == "2000-01-01T00:00:00+00:00"
+
+
+def test_completed_correlation_replay_is_registered_and_published() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreActionRunStore(store=state)
+    completed = ActionRun(
+        correlation_id="completed-correlation",
+        action_type="ops.restart-service",
+        resource_id=None,
+        state=ActionRunState.DENY_DROPPED,
+        verdict="deny",
+        idempotency_key="completed-generation",
+    )
+    asyncio.run(store.save(completed))
+    asyncio.run(store.delete(completed.correlation_id))
+    bus = _FailTerminalPublishBus()
+    bus.fail_terminal_once = False
+    peer = Thor(bus=bus, state_store=StateStoreActionRunStore(store=state))
+
+    replay = asyncio.run(
+        peer.dispatch_verdict(
+            {
+                "correlation_id": completed.correlation_id,
+                "idempotency_key": completed.idempotency_key,
+                "action_type": completed.action_type,
+                "resource_id": completed.resource_id,
+                "risk_verdict": completed.verdict,
+            }
+        )
+    )
+
+    assert replay.state is ActionRunState.DENY_DROPPED
+    assert replay.outcome == "duplicate_correlation_already_completed"
+    assert peer.action_runs[completed.correlation_id] is replay
+    assert bus.payloads[-1]["state"] == "deny_dropped"
+
+
+def test_delete_upgrades_resource_less_legacy_active_row_to_tombstone() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreActionRunStore(store=state)
+    legacy = ActionRun(
+        correlation_id="legacy-resource-less",
+        action_type="ops.restart-service",
+        resource_id=None,
+        state=ActionRunState.DENY_DROPPED,
+        verdict="deny",
+    )
+    key = f"thor:run|{legacy.correlation_id}"
+    asyncio.run(
+        state.write_state(
+            key,
+            {**legacy.to_dict(), "active": "true", "revision": 0},
+        )
+    )
+
+    asyncio.run(store.delete(legacy.correlation_id))
+
+    tombstone = asyncio.run(state.read_state(key))
+    assert tombstone is not None
+    assert tombstone["active"] == "false"
+    assert tombstone["action_run_identity"] == action_run_identity_digest(legacy.to_dict())
+
+
+def test_completed_idempotency_preflight_does_not_create_correlation_row() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreActionRunStore(store=state)
+    completed = ActionRun(
+        correlation_id="completed-owner",
+        action_type="ops.restart-service",
+        resource_id="completed-resource",
+        state=ActionRunState.EXECUTING,
+        verdict="auto",
+        idempotency_key="completed-idempotency",
+    )
+    assert asyncio.run(store.claim_resource(completed)) == "acquired"
+    assert asyncio.run(
+        store.release_resource(completed.resource_id or "", completed.correlation_id)
+    )
+    peer = Thor(
+        state_store=StateStoreActionRunStore(store=state),
+        shadow_by_default=False,
+    )
+
+    replay = asyncio.run(
+        peer.dispatch_verdict(
+            {
+                "correlation_id": "completed-replay-correlation",
+                "idempotency_key": completed.idempotency_key,
+                "action_type": completed.action_type,
+                "resource_id": completed.resource_id,
+                "risk_verdict": completed.verdict,
+                "resolved_autonomy_ceiling": "enforce_auto",
+            }
+        )
+    )
+
+    assert replay.state is ActionRunState.DENY_DROPPED
+    assert replay.outcome == "duplicate_execution_already_completed"
+    assert asyncio.run(state.read_state("thor:run|completed-replay-correlation")) is None
+    assert asyncio.run(peer.rehydrate()) == 0
+
+
+def test_contended_resource_pending_claim_accepts_live_shadow_drift() -> None:
+    state = InMemoryStateStore()
+    owner_store = StateStoreActionRunStore(store=state)
+    blocking = ActionRun(
+        correlation_id="blocking-correlation",
+        action_type="ops.restart-service",
+        resource_id="contended-resource",
+        state=ActionRunState.EXECUTING,
+        verdict="auto",
+        idempotency_key="blocking-idempotency",
+    )
+    assert asyncio.run(owner_store.claim_resource(blocking)) == "acquired"
+    executions: list[str] = []
+
+    async def execute(context):
+        executions.append(context["run"].correlation_id)
+        return True
+
+    contender_store = StateStoreActionRunStore(store=state)
+    contender = Thor(
+        executor=execute,
+        state_store=contender_store,
+        shadow_by_default=False,
+    )
+    verdict = {
+        "correlation_id": "contender-correlation",
+        "idempotency_key": "contender-idempotency",
+        "action_type": "ops.restart-service",
+        "resource_id": blocking.resource_id,
+        "risk_verdict": "auto",
+        "resolved_autonomy_ceiling": "enforce_auto",
+    }
+
+    with pytest.raises(RuntimeError):
+        asyncio.run(contender.dispatch_verdict(verdict))
+    pending = asyncio.run(state.read_state("thor:run|contender-correlation"))
+    assert pending is not None
+    assert pending["active"] == "pending"
+    assert (
+        asyncio.run(
+            Thor(
+                state_store=StateStoreActionRunStore(store=state),
+                shadow_by_default=False,
+            ).rehydrate()
+        )
+        == 0
+    )
+
+    assert asyncio.run(
+        owner_store.release_resource(
+            blocking.resource_id or "",
+            blocking.correlation_id,
+        )
+    )
+    contender.set_shadow_required(lambda: True)
+    completed = asyncio.run(contender.dispatch_verdict(verdict))
+    assert completed.state is ActionRunState.SUCCEEDED
+    assert completed.shadow_mode is True
+    assert executions == []
 
 
 def test_statestore_rejects_reuse_of_legacy_inactive_correlation() -> None:
@@ -1105,6 +1461,38 @@ def test_statestore_rejects_reuse_of_legacy_inactive_correlation() -> None:
         "correlation_id": "legacy-correlation",
         "revision": 7,
     }
+
+
+def test_legacy_tombstone_accepts_matching_idempotency_as_completed_replay() -> None:
+    state = InMemoryStateStore()
+    key = "thor:run|legacy-completed-correlation"
+    asyncio.run(
+        state.write_state(
+            key,
+            {
+                "active": "false",
+                "correlation_id": "legacy-completed-correlation",
+                "idempotency_key": "legacy-completed-idempotency",
+                "revision": 4,
+            },
+        )
+    )
+    peer = Thor(state_store=StateStoreActionRunStore(store=state))
+
+    replay = asyncio.run(
+        peer.dispatch_verdict(
+            {
+                "correlation_id": "legacy-completed-correlation",
+                "idempotency_key": "legacy-completed-idempotency",
+                "action_type": "ops.restart-service",
+                "resource_id": "legacy-resource",
+                "risk_verdict": "auto",
+            }
+        )
+    )
+
+    assert replay.state is ActionRunState.DENY_DROPPED
+    assert replay.outcome == "duplicate_correlation_already_completed"
 
 
 def test_released_claim_rejects_new_generation_with_same_correlation() -> None:
@@ -1153,7 +1541,8 @@ def test_statestore_rejects_stale_lifecycle_overwrite_before_terminal_publish() 
     )
 
     asyncio.run(store.save(terminal))
-    asyncio.run(store.save(stale))
+    with pytest.raises(ValueError, match="different identity"):
+        asyncio.run(store.save(stale))
     active = asyncio.run(store.load_active())
 
     assert len(active) == 1
