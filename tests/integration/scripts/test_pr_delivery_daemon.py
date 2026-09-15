@@ -344,6 +344,7 @@ def test_daemon_keeps_the_existing_total_timeout(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(runtime.time, "monotonic", lambda: 256.3)
     fake = FakeRunner(tmp_path, [_payload()])
     coordinator = daemon.DeliveryDaemon(_config(fake), fake)
     monkeypatch.setattr(
