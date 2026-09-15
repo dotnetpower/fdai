@@ -12,7 +12,7 @@ import {
   type MermaidBlock,
 } from "./mermaid.js";
 
-const EXPECTED_DIAGRAMS = 80;
+const EXPECTED_DIAGRAMS = 81;
 const OPERATIONAL_KNOWLEDGE_PLAN = "docs/internals/operational-knowledge-query-hardening-plan.md";
 
 interface MigrationDocument {
