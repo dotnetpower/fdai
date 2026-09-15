@@ -132,6 +132,8 @@ class CloudStructuredDocument(KnowledgeContract):
         # Context is deliberately one level: no cycles or attacker-amplified recursive expansion.
         if any(by_id[ref].context_ids for block in self.blocks for ref in block.context_ids):
             raise ValueError("article context cannot contain recursive dependencies")
+        if any(by_id[ref].context_ids for ref in self.required_context_ids):
+            raise ValueError("global article context cannot contain recursive dependencies")
         return self
 
     @property

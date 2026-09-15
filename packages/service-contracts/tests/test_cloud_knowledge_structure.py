@@ -247,6 +247,14 @@ def test_one_unresolved_dependency_rejects_the_complete_generation() -> None:
         structured_excerpts(doc)
 
 
+def test_global_context_cannot_hide_another_required_dependency() -> None:
+    values = document().model_dump()
+    values["blocks"][0]["context_ids"] = ("note",)
+    values["required_context_ids"] = ("row",)
+    with pytest.raises(ValueError, match="recursive"):
+        CloudStructuredDocument.model_validate(values)
+
+
 def test_signature_covers_context_and_version_pair() -> None:
     import json
 
