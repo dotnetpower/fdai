@@ -228,3 +228,27 @@ The second local merge is conflict-free and leaves every worker/Core/provider/te
 The 47-case integrated result is therefore reused; no unchanged runtime tests were rerun solely
 for this base update. The earlier allocation failure remains historical evidence, not the current
 base CI status.
+
+## PR translation-structure repair
+
+PR #1064's exact published head `2a0da7a799e89518182595ab7a68e68eb59213e1` failed CI run
+`34954596330`, attempt 1. Job `104333557335` (`pytest regression shard 4/4`), step 8
+(`Run regression shard`), failed only
+`test_translated_documents_keep_the_same_section_and_table_structure`. This was a documentation
+source defect: the English owner had 16 headings and 4 tables, while Korean had 13 and 2 after
+removing only its inline implementation history. The same focused test failed locally before repair.
+
+The existing mirrored ledger was also stale. The repository's canonical migration planner,
+scoped to this one owner with `--reconcile-existing`, verified that the current inline history
+contains its complete prior history. Its three planned document outputs were applied through
+file edits and verified byte-for-byte against their generated SHA-256 values. Both owners now
+link to the same current English ledger; neither duplicates implementation history. All three
+historical rows and all residual package boundaries survive. The new repair-history row is
+append-only, and no checker was changed or suppressed.
+
+The two tests in `tests/integration/scripts/test_translated_document_structure.py` now pass.
+The owner-to-ledger append-only check, document-size check, English/Korean translation parity
+and Korean quality check also pass. The repair changes documentation only; prior focused runtime,
+SQL and packaging evidence remains unchanged and was not rerun just to obtain another CI attempt.
+The stopped delivery coordinator is resumed only after a locally committed, non-force-published
+repair. Protected merge and final issue closure still require exact-head CI evidence.

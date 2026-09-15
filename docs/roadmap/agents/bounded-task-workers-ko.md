@@ -2,7 +2,7 @@
 title: 제한된 작업 워커
 translation_of: bounded-task-workers.md
 translation_source: docs/roadmap/agents/bounded-task-workers.md
-translation_source_sha: cde67215ccbaf74d273fa93796e95076d2eb8fb9
+translation_source_sha: 48acf4a899d68e6f7fce76f2e0eef72dd446acde
 translation_revised: 2026-09-15
 ---
 
@@ -213,26 +213,11 @@ Operator API는 다음 GET 전용 경로를 선언합니다. 운영 저장소에
 근거, 동시성, 하트비트, 시간 초과, 취소 소유권, 예산, 재시작 복구,
 PostgreSQL 비교 후 교환, 소유자 범위 읽기, 답변 계획 프로바이더 재사용, 상위 답변 합성,
 완료 인계, GET 전용 조회가 포함됩니다.
-
-## 구현 상태
-
-제한된 워커 코어, 영속 저장소, 명시적으로 활성화하는 운영 구성은 구현되어 있으며 실제
-루프백 PostgreSQL을 포함한 집중 테스트로 확인했습니다. Operator API 경로 계약은 있지만
-상위 요청 접수, 저장소 기반 조회 결과 생성, Console 표시, 분리된 작업의 완료 전달,
-통제된 실환경 근거는 미완료입니다. 집중 테스트 통과는 기능 승격이나 배포된 워커 경로의
-증명이 아닙니다.
-
-구현 범위, 추가 전용 이력, 재개 가능한 남은 작업은
-[영어 정본 원장](bounded-task-workers.md#implementation-status)에서 관리합니다.
-#805의 집중 검사는 151건이며 실제 SQL 19건과 wheel/격리 import 4건을 포함합니다.
-14개 소스의 엄격한 타입 검사도 통과했습니다. 이 수치는
-[작업별 검토 기록](../../internals/task-worker-production-805.md)에 연결되며, 실환경 모델
-호출이나 배포 준비 완료를 의미하지 않습니다.
-
 ## 관련 문서
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/agents/bounded-task-workers.md) |
 | 고정 에이전트 역할 및 소유권 | [에이전트 Pantheon](agent-pantheon-ko.md) |
 | 제한된 답변 계획 수립 | [Operator Console](../interfaces/operator-console-ko.md) |
 | 분리된 백그라운드 세션 | [이슈 #40](https://github.com/dotnetpower/fdai/issues/40) |
