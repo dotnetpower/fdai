@@ -42,21 +42,13 @@ def inspect_aks_target(
         raise ValueError("AKS preflight requires an enabled subscription and active human identity")
     subscription, tenant = account.get("id"), account.get("tenantId")
     if not isinstance(subscription, str) or not isinstance(tenant, str):
-        raise ValueError("AKS preflight target binding is incomplete")
+        raise TypeError("AKS preflight target binding is incomplete")
     target_binding = compute_target_binding(subscription_id=subscription, tenant_id=tenant)
-    skus = _json(
-        (
-            "vm",
-            "list-skus",
-            "--subscription",
-            subscription,
-            "--location",
-            region,
-            "--resource-type",
-            "virtualMachines",
-            "--all",
-        ),
-        deadline,
+    skus = _selected_skus(
+        subscription=subscription,
+        region=region,
+        names={profile.system_node_sku, profile.user_node_sku},
+        deadline=deadline,
     )
     usage = _json(
         ("vm", "list-usage", "--subscription", subscription, "--location", region), deadline
@@ -78,6 +70,39 @@ def inspect_aks_target(
     return result
 
 
+def _selected_skus(
+    *,
+    subscription: str,
+    region: str,
+    names: set[str],
+    deadline: DeploymentDeadline,
+) -> list[object]:
+    """Read each selected VM SKU once instead of downloading the regional catalog."""
+
+    selected: list[object] = []
+    for name in sorted(names):
+        rows = _json(
+            (
+                "vm",
+                "list-skus",
+                "--subscription",
+                subscription,
+                "--location",
+                region,
+                "--resource-type",
+                "virtualMachines",
+                "--size",
+                name,
+                "--all",
+            ),
+            deadline,
+        )
+        if not isinstance(rows, list):
+            raise TypeError("AKS selected SKU observation must be a list")
+        selected.extend(rows)
+    return selected
+
+
 def assess_aks_capacity(
     *,
     profile: RuntimeDeploymentProfile,
@@ -87,7 +112,7 @@ def assess_aks_capacity(
 ) -> dict[str, object]:
     """Evaluate complete provider observations and report missing evidence as a blocker."""
     if not isinstance(skus, list) or not isinstance(usage, list):
-        raise ValueError("AKS feasibility observations must be lists")
+        raise TypeError("AKS feasibility observations must be lists")
     blockers: list[str] = []
     demand: dict[str, int] = {}
     pools: list[dict[str, object]] = []
