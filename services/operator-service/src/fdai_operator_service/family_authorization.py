@@ -21,10 +21,12 @@ _READ_ROLES = frozenset(
     }
 )
 _WRITE_ROLES = frozenset({OperatorRole.CONTRIBUTOR, OperatorRole.APPROVER, OperatorRole.OWNER})
+_READER_CHAT_OPERATIONS = frozenset({"chat.stream"})
 _CONVERSATION_WRITE_OPERATIONS = frozenset(
     spec.operation
     for spec in CONVERSATION_ROUTE_MANIFEST
-    if spec.mode == "proposal" or (spec.mode == "stream" and spec.method == "POST")
+    if (spec.mode == "proposal" or (spec.mode == "stream" and spec.method == "POST"))
+    and spec.operation not in _READER_CHAT_OPERATIONS
 )
 
 
@@ -35,7 +37,7 @@ class OperatorFamilyAuthorizer:
     authenticator: OperatorAuthenticator
 
     async def authorize(self, request: Request, *, operation: str) -> PrincipalScope:
-        """Authenticate conversation reads and require contributor roles for proposals."""
+        """Authenticate conversation reads, Reader chat, and role-gated proposals."""
         required = _WRITE_ROLES if operation in _CONVERSATION_WRITE_OPERATIONS else _READ_ROLES
         if operation in {"test-context.review", "test-context.revoke"}:
             required = frozenset({OperatorRole.APPROVER, OperatorRole.OWNER})
