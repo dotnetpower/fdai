@@ -14,6 +14,7 @@ import {
   architectureTopologyLinkRoute,
   architectureTopologyRegionDepth,
   architectureTopologyResourcePoint,
+  architectureTopologyUnplacedIds,
   architectureTopologyZoomScrollTarget,
   clampArchitectureTopologyScale,
 } from "./architecture-topology-graph.model";
@@ -83,6 +84,7 @@ export function ArchitectureTopologyGraph({
     ? selectedId
     : focusOrder[0]?.id ?? null;
   const active = (resourceId: string) => !activeIds || activeIds.has(resourceId);
+  const unplacedIds = architectureTopologyUnplacedIds(graph.resources);
 
   const changeScale = (requestedScale: number, fit = false): void => {
     const scroll = scrollRef.current;
@@ -152,6 +154,15 @@ export function ArchitectureTopologyGraph({
     if (document.fullscreenElement === frameRef.current) await document.exitFullscreen();
     else await frameRef.current.requestFullscreen();
   };
+
+  if (unplacedIds.length > 0) {
+    return (
+      <div class="architecture-topology-unavailable" role="status">
+        <strong>{t("geometryUnavailable.title")}</strong>
+        <p>{t("geometryUnavailable.description", { count: unplacedIds.length })}</p>
+      </div>
+    );
+  }
 
   return (
     <div

@@ -6,6 +6,22 @@
   background: var(--bg);
 }
 
+.architecture-topology-unavailable {
+  display: grid;
+  min-height: 540px;
+  place-content: center;
+  gap: 8px;
+  padding: 24px;
+  color: var(--fg);
+  text-align: center;
+}
+
+.architecture-topology-unavailable p {
+  max-width: 56ch;
+  margin: 0;
+  color: var(--fg-muted);
+}
+
 .architecture-topology-scroll {
   min-width: 0;
   height: clamp(540px, calc(100vh - 300px), 760px);

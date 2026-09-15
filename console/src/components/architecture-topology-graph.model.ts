@@ -11,6 +11,7 @@ import {
   type InventoryResource,
 } from "./architecture-map.model";
 import { architectureTopologyNodeDimensions } from "./architecture-topology-dimensions";
+import { isArchitectureBoundaryResource } from "./architecture-boundaries";
 
 export {
   ARCHITECTURE_TOPOLOGY_NODE_HEIGHT,
@@ -38,6 +39,19 @@ export const ARCHITECTURE_TOPOLOGY_WORLD_UNIT = 64;
 export const ARCHITECTURE_TOPOLOGY_MIN_SCALE = .28;
 export const ARCHITECTURE_TOPOLOGY_MAX_SCALE = 1.8;
 export const ARCHITECTURE_TOPOLOGY_SCALE_STEP = .2;
+
+/** Returns records that cannot be represented without inventing an origin coordinate. */
+export function architectureTopologyUnplacedIds(
+  resources: readonly InventoryResource[],
+): readonly string[] {
+  return resources
+    .filter((resource) => {
+      if (!Number.isFinite(resource.x) || !Number.isFinite(resource.y)) return true;
+      return isArchitectureBoundaryResource(resource)
+        && (!Number.isFinite(resource.w) || !Number.isFinite(resource.h));
+    })
+    .map((resource) => resource.id);
+}
 
 /** Computes a stable world box for both scope and focused topology projections. */
 export function architectureTopologyBounds(

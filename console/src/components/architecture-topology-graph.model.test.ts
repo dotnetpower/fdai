@@ -8,6 +8,7 @@ import {
   architectureTopologyFitScale,
   architectureTopologyLabelLines,
   architectureTopologyLinkRoute,
+  architectureTopologyUnplacedIds,
   architectureTopologyZoomScrollTarget,
   clampArchitectureTopologyScale,
 } from "./architecture-topology-graph.model";
@@ -35,6 +36,17 @@ describe("Architecture topology geometry", () => {
     expect(bounds.y).toBeLessThanOrEqual(2.2);
     expect(bounds.x + bounds.width).toBeGreaterThanOrEqual(10.7);
     expect(bounds.y + bounds.height).toBeGreaterThanOrEqual(9);
+  });
+
+  it("rejects missing presentation geometry instead of inventing coordinate zero", () => {
+    expect(architectureTopologyUnplacedIds([
+      { id: "group", type: "resource-group", name: "Group", status: "unknown" },
+      { id: "app", type: "app-service", name: "App", status: "healthy", x: 1, y: 2 },
+    ])).toEqual(["group"]);
+    expect(architectureTopologyUnplacedIds([
+      { id: "group", type: "resource-group", name: "Group", status: "unknown", x: 0, y: 0, w: 4, h: 3 },
+      { id: "app", type: "app-service", name: "App", status: "healthy", x: 1, y: 2 },
+    ])).toEqual([]);
   });
 
   it("fits the authored canvas without enlarging and clamps explicit zoom", () => {

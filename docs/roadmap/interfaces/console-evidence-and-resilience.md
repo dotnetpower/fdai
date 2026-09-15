@@ -621,6 +621,9 @@ rendering; an unplaced visible record is an explicit unavailable presentation, n
 `0,0` coordinate.
 Boundary classification uses canonical Resource types and reported containment, not the presence
 of optional presentation fields in an API response.
+The SVG boundary rejects any visible Resource without finite generated geometry and renders an
+explicit unavailable presentation while leaving search and source evidence accessible. It never
+substitutes coordinate zero for a missing placement.
 The default Landscape shows at most 16 returned Resource Group boundaries, ranked by returned
 descendant count with stable name and identity tie-breakers. Displayed counts and search continue
 to expose that this is a bounded presentation over the complete returned page.

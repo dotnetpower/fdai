@@ -107,6 +107,10 @@
   "mapAriaLabel": "2D resource architecture map with {count} resources",
   "selectArchitectureResource": "Select architecture resource",
   "selectResourceOption": "Select resource",
+  "geometryUnavailable": {
+    "title": "Architecture presentation unavailable",
+    "description": "{count} returned records could not be placed. Inventory remains available in search and Sources."
+  },
   "workbench": {
     "title": "Architecture workspace",
     "resource": "Resource",
