@@ -128,6 +128,53 @@ source, snapshot, human target and retained run must match on every resumption. 
 one checkpoint grants another checkpoint, and published exact-source CI remains mandatory before
 resource effects. A verified Foundation handoff still leaves application deployment incomplete.
 
+### Application group collision recovery
+
+**Initial design:** Change the shared workload token when an existing application group blocks a
+new installation. **Critique:** That also renames operations resources after a partial apply and
+can replace already created infrastructure. **Revised contract:** Optional `application_workload`
+selects only the application's CAF group-name token; null preserves the legacy name. Operations,
+state-account and image names keep their original inputs. The selected group remains Terraform-owned
+and flows through the existing group reference and private handoff, without adopting an existing group.
+
+An existing group is not an empty deployment slot, even when its tags resemble FDAI. This input is
+not a recovery command or authority: a changed name requires a new exact plan and current approval.
+Partial recovery must retain the original authoritative state and claim, prove every completed
+resource remains no-op, and reject import, replacement, deletion or expanded roles. Completed
+resources are compared with their recorded state and stable IDs, not unrealized initial plan defaults;
+only equivalent empty representations and originally computed fields can differ. AzAPI dynamic
+state values are decoded through their structured type/value representation before comparison. The ordinary
+claimed apply remains verification-only; this naming input alone cannot resume the partial deployment.
+
+`operations_public_ip_tags` is empty by default and accepts only the exact policy-owned
+`FirstPartyUsage=/Unprivileged` value as an alternative. It is passed explicitly to the existing
+Bastion and NAT IPs, not ignored through lifecycle rules. Recovery requires the same allowed value
+on both retained IPs and pins that value in the new plan; unknown or differing tags stop preparation.
+This prevents a policy-added tag from forcing replacement of the IPs and their dependent connections.
+
+`genesis_foundation_recovery_plan.py` prepares that read-only comparison in a fresh private directory.
+It holds the original execution lock, validates the original review/claim/snapshot and execution copy,
+allows only application naming and that bounded IP-policy input in copied configuration, and passes the original state
+path directly to Terraform. It retains bounded private command diagnostics, binds current recovery
+source and provider bytes, checks the new group is absent, and rejects concurrent state changes.
+The separate expiring review grants no apply authority and is not accepted by ordinary Foundation
+apply. Public-coordinator receipt handoff remains separate and is not implied by this review.
+
+The dedicated `genesis_foundation_recovery_apply.py` executor accepts a fresh `foundation-apply`
+approval whose run binding is the recovery review digest and whose source is the recovery code.
+The official prompt takes `--foundation-recovery-review`; the original status approval cannot
+authorize the new plan. Before a new claim, the executor verifies current human identity, exact-source
+CI, original claim/snapshot/state lineage, configuration/provider/plan hashes, and the new group's
+continued absence. It rechecks current VM SKU/quota evidence, then state, plan, configuration and
+tool hashes plus review expiry immediately before claiming.
+
+The new immutable claim precedes one saved-plan apply against the original local state path.
+A retained claim permits only `--verify-only`, with exact claim identity and evidence checks.
+Existing Foundation observers verify the new handoff through a trusted deadline-bounded capture,
+and a zero-change plan gates the separate recovery receipt. Each verification keeps its own private
+diagnostics; no original receipt is fabricated or overwritten. Successful recovery still leaves
+runner attestation, private state migration and application deployment incomplete.
+
 ### Source transfer boundary
 
 After the current private Foundation reaches its application boundary, the source coordinator

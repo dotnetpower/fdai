@@ -261,6 +261,18 @@ variable "runner_auto_shutdown_timezone" {
   default     = "UTC"
 }
 
+variable "operations_public_ip_tags" {
+  description = "Exact observed policy-owned tags for the operations public IPs. Empty preserves the default; any selection requires a reviewed plan."
+  type        = map(string)
+  default     = {}
+  nullable    = false
+
+  validation {
+    condition     = length(var.operations_public_ip_tags) == 0 || try(length(var.operations_public_ip_tags) == 1 && var.operations_public_ip_tags["FirstPartyUsage"] == "/Unprivileged", false)
+    error_message = "operations_public_ip_tags must be empty or exactly FirstPartyUsage=/Unprivileged."
+  }
+}
+
 variable "enable_public_egress" {
   description = "Give the runner subnet outbound internet through a NAT gateway and one static public IP. Default true: the self-hosted GitHub runner registers over the internet and terraform reaches management.azure.com and login.microsoftonline.com directly. Set false for a closed network, where the host is a jumpbox rather than a GitHub runner and the tenant supplies its own approved path to the Azure management and identity planes (Private Link or a hub route). Turning it off removes the only outbound path this layer creates; nothing else here substitutes for it."
   type        = bool

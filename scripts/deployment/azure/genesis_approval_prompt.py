@@ -212,19 +212,27 @@ def _approval_from_status(status: dict[str, object]) -> tuple[str, dict[str, str
     return stage, {name: str(value) for name, value in evidence.items()}
 
 
-def _approval_from_residual_review(path: Path) -> tuple[str, str, dict[str, str]]:
+def _approval_from_residual_review(
+    path: Path, *, foundation: bool = False
+) -> tuple[str, str, dict[str, str]]:
     """Bind a fresh residual review and its saved plan to the existing human-only prompt."""
     review = _load_status(path)
     digest = review.pop("review_digest", None)
     if (
         not isinstance(digest, str)
         or canonical_digest(review) != digest
-        or review.get("schema_version") != "fdai.runner-image-residual-review.v1"
+        or review.get("schema_version")
+        != (
+            "fdai.foundation-recovery-review.v1"
+            if foundation
+            else "fdai.runner-image-residual-review.v1"
+        )
         or review.get("state") != "review"
         or review.get("apply_authorized") is not False
         or review.get("mutation_performed") is not False
         or review.get("deployment_ready") is not False
         or review.get("original_state_unchanged") is not True
+        or (foundation and review.get("application_group_absent") is not True)
     ):
         raise ValueError("Genesis residual review integrity or state is invalid")
     source = review.get("recovery_source_commit")
@@ -243,7 +251,10 @@ def _approval_from_residual_review(path: Path) -> tuple[str, str, dict[str, str]
         or not timedelta(0) < expires - created <= timedelta(hours=1)
     ):
         raise ValueError("Genesis residual review is expired or has an invalid window")
-    plan = read_private_bytes(path.parent / "residual.tfplan", max_bytes=64 * 1024 * 1024)
+    plan = read_private_bytes(
+        path.parent / ("recovery.tfplan" if foundation else "residual.tfplan"),
+        max_bytes=64 * 1024 * 1024,
+    )
     if hashlib.sha256(plan).hexdigest() != review["plan_digest"]:
         raise ValueError("Genesis residual saved plan differs from its review")
     return digest, source, {"review_digest": digest, "plan_digest": str(review["plan_digest"])}
@@ -256,9 +267,15 @@ def main() -> int:
     context = parser.add_mutually_exclusive_group(required=True)
     context.add_argument("--status", type=Path)
     context.add_argument("--residual-review", type=Path)
+    context.add_argument("--foundation-recovery-review", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    if args.residual_review is not None:
+    if args.foundation_recovery_review is not None:
+        run_binding, source_commit, evidence = _approval_from_residual_review(
+            args.foundation_recovery_review, foundation=True
+        )
+        stage = "foundation-apply"
+    elif args.residual_review is not None:
         run_binding, source_commit, evidence = _approval_from_residual_review(args.residual_review)
         stage = "runner-image"
     else:
