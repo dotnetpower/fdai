@@ -35,7 +35,7 @@ def validate_plan_review(review: dict[str, Any]) -> tuple[str, int]:
         set(review) != _FIELDS
         or review.get("schema_version") != "fdai.standalone-application-plan.v1"
         or not isinstance(stage, str)
-        or stage not in {"substrate", "application"}
+        or stage not in {"substrate", "runtime", "database", "application"}
         or review.get("mutation_performed") is not False
         or review.get("subscription_ready") is not False
         or not isinstance(summary, dict)

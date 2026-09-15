@@ -62,7 +62,7 @@ grants action authority, changes the selected environment, or enables enforcemen
 | AKS system nodes | At least 2. Production requires at least 3. | 3 |
 | AKS user nodes | At least 3. | 3 with `postgres-flex` |
 | AKS user nodes with `postgres-aks` | At least 4. | 4 for non-production compact use |
-| System node SKU | Region and subscription must report it available. | `Standard_D2as_v5` |
+| System node SKU | At least 4 vCPUs and 4 GB memory; available in the selected region and subscription. | `Standard_D4as_v5` |
 | User node SKU | Region and subscription must report it available. | `Standard_D4as_v5` |
 | Availability zones | Every requested zone must exist for both selected SKUs. | Three zones in production |
 
@@ -79,6 +79,22 @@ Memory uses the same inequality. A profile that misses either bound is blocked b
 planning. The error reports the requested and allocatable quantities without exposing tenant data.
 
 ## State ownership
+
+The read-only capacity preflight accepts nonnegative integer quota values and canonical decimal
+integer strings returned by Azure CLI. Boolean, fractional, signed, whitespace-padded or oversized
+representations remain blocked. Available quota never overrides a SKU restriction, missing zone,
+unsupported architecture or missing host encryption; a different target requires a fresh review.
+
+Source execution separately reads the [Azure Retail Prices API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices)
+after initial settings confirmation and before Foundation planning. It selects exactly one primary
+USD hourly Linux consumption meter per selected VM SKU and region; Windows, Spot, Low Priority,
+reservation, foreign-service, future-effective and tiered prices cannot substitute. Four complete
+pages share one deadline, each body is bounded, and redirects or failed reads never trigger retries.
+The partial compute projection uses system nodes plus the user autoscaler maximum for 730 hours.
+If that component alone exceeds the monthly ceiling, planning is blocked. Otherwise the result
+remains `partial`, with Foundation, control-plane, disk, database, network, registry, storage,
+monitoring, messaging, model, tax, surge and setup costs explicitly excluded. It is not a full
+installation estimate, setup-cost verification, billing cap or execution authorization.
 
 Runtime selection does not replace one resource type with another in the same state. Each owner
 has a distinct backend key so a new installation creates only its selected platform and an existing
@@ -97,6 +113,16 @@ pools, cluster identity, networking attachment, and cluster-scoped Azure role as
 Kubernetes resources are applied only after independent Azure control-plane readback proves that
 the private cluster reached `Succeeded`. The workload state then reads the approved cluster's OIDC
 issuer and uses a private kubeconfig on the managed deployment host.
+Database and application preparation both convert that owner-only kubeconfig with
+[`kubelogin` managed identity authentication](https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication)
+using `--login msi` and the exact managed-host client ID. Credential acquisition pins the
+subscription and never requests admin credentials. Local `kubectl config view --minify` readback
+must show one exec-only user, `kubelogin get-token`, one matching client and one MSI login option,
+without environment overrides. Failed conversion or mismatched readback stops before Kubernetes
+operations; neither browser/device-code login nor default/node identity is a fallback.
+The common plan-review validator accepts the existing `substrate`, `runtime`, `database` and
+`application` stages with the same exact digest, expiry and destructive-confirmation checks.
+Accepting an AKS stage never grants it approval or permission to skip an earlier stage.
 
 ## Runtime rendering
 
@@ -128,11 +154,45 @@ Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel work
 deadline, a retry limit, and bounded history. Manual jobs are created only by a separately approved
 request and are not perpetual desired-state resources.
 
+The managed host records the selected Deployment names, image references, and replica bounds.
+Health readback requires that complete set, current observed generations, ready replicas, and
+running Pod image digests from the same source revision. Empty, duplicate, stale, malformed, or
+partially healthy responses are unavailable, not success. The expected set must contain all five
+baseline services; a renderer that omits one cannot redefine a partial rollout as complete.
+This readback does not establish Kafka
+round trips, scheduled-job success, Console authentication, or full deployment readiness.
+The workload factory binds Operator, isolated Executor, Document API and Document Worker to
+`fdai_operator`, `fdai_executor`, `fdai_ingestion_api` and `fdai_ingestion_worker`, respectively,
+through `FDAI_DATABASE_ROLE` and matching `PGOPTIONS`. It leaves the caller's environment unchanged.
+All rendered services explicitly select the deployed execution venue. Role selection neither grants
+database membership nor supplies service-owned DSNs, and never enables Executor authority cutover.
+
 ## Identity and secrets
 
 Each FDAI workload keeps its current user-assigned Managed Identity. On AKS, one namespaced
 Kubernetes ServiceAccount receives one federated identity credential. The privileged Executor
 identity is never shared with the console, Operator Service, jobs, or other workloads.
+
+The five baseline services select the Azure Identity SDK's workload credential when
+`AZURE_FEDERATED_TOKEN_FILE` is declared. The projected token path must be absolute, tenant and
+client identifiers must be valid, and the federated client must match the service's explicitly
+selected identity. Incomplete or conflicting federation blocks startup or token acquisition;
+it never falls back to the node identity, Azure CLI, or another service. Without the federation
+declaration, the existing attached Managed Identity path remains unchanged.
+
+Operator may explicitly select `FDAI_COMMAND_MI_CLIENT_ID` for its semantic and live Kafka
+adapters while `AZURE_CLIENT_ID` remains its primary workload identity. Each identity requires its
+own federated credential for the same ServiceAccount subject and its separately scoped roles.
+Only the primary or declared command client can be selected; an omitted selection keeps the primary
+client, and an invalid or unrelated client fails before token exchange. This does not grant roles
+or fall back after a failed exchange.
+
+Core and isolated Executor retain audience-specific caching and request coalescing, bound each
+federated token exchange, close its SDK session, and sanitize acquisition failures. Each declares
+`azure-core`, `azure-identity`, and the SDK's `aiohttp` transport in its own distribution. Dependency
+checks distinguish direct SDK imports from SDK-owned transport use. Operator and document services pass the
+SDK's common asynchronous credential contract to their existing adapters. These local integration
+checks do not prove deployed federation, Event Hubs access, or service readiness.
 
 The AKS managed Key Vault CSI provider synchronizes fixed Key Vault references into namespaced
 Kubernetes Secrets by using each workload's federated identity. Applications continue to read
@@ -145,6 +205,13 @@ binaries. A deployment does not download a provider, tool, or workload image fro
 after kit verification.
 
 ### Cluster security baseline
+
+The shared platform supplies the existing AKS subnet. The cluster state owns an explicit Standard
+NAT Gateway, static Standard outbound public IP, and both associations before AKS creation; its
+outbound type is `userAssignedNATGateway`, not the AKS-managed-VNet-only `managedNATGateway`.
+The private API endpoint remains private. This is the connected development egress profile, not a
+claim of zone-redundant NAT or policy compatibility where a firewall/UDR path is required. Such
+targets remain blocked until their separate egress contract is selected and verified.
 
 The cluster enables Azure Policy, patch-channel Kubernetes upgrades, and NodeImage OS upgrades.
 Both node pools enable host encryption and allow 50 pods per node. Confirm the selected

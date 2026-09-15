@@ -11,7 +11,6 @@ from datetime import UTC, datetime
 from typing import Protocol
 
 import httpx
-from azure.identity.aio import ManagedIdentityCredential
 from fdai_service_contracts import (
     AgentActivityQuery,
     OperatorReadModel,
@@ -31,6 +30,7 @@ from fdai_operator_service.adapters import (
     OperatorSemanticKafkaBus,
     OperatorSemanticKafkaConfig,
     StartupOwnedLocalAzureNarratorAdapters,
+    create_workload_credential,
 )
 from fdai_operator_service.adapters.narrator_periodic_scheduler import (
     PeriodicNarratorRefreshScheduler,
@@ -805,10 +805,9 @@ def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKaf
     execution_venue = resolve_execution_venue(environment.values)
     credential = None
     if uses_workload_identity(execution_venue):
-        credential = (
-            ManagedIdentityCredential(client_id=environment.managed_identity_client_id)
-            if environment.managed_identity_client_id is not None
-            else ManagedIdentityCredential()
+        credential = create_workload_credential(
+            environment=environment.values,
+            client_id=environment.managed_identity_client_id,
         )
     return OperatorSemanticKafkaBus(
         config=OperatorSemanticKafkaConfig(
@@ -841,10 +840,9 @@ def _build_live_stage_relay(
     execution_venue = resolve_execution_venue(environment.values)
     credential = None
     if uses_workload_identity(execution_venue):
-        credential = (
-            ManagedIdentityCredential(client_id=environment.managed_identity_client_id)
-            if environment.managed_identity_client_id is not None
-            else ManagedIdentityCredential()
+        credential = create_workload_credential(
+            environment=environment.values,
+            client_id=environment.managed_identity_client_id,
         )
     return LiveStageKafkaRelay(
         config=LiveStageKafkaConfig(

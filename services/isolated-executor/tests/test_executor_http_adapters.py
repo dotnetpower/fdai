@@ -9,6 +9,9 @@ from uuid import UUID
 
 import httpx
 import pytest
+from azure.core.credentials import AccessToken
+from azure.core.exceptions import ClientAuthenticationError
+from fdai_executor_service.adapters import workload_identity as identity_module
 from fdai_executor_service.adapters.gateway_direct_api import (
     AzureGatewayDirectApiConfig,
     AzureGatewayDirectApiExecutor,
@@ -74,6 +77,66 @@ async def test_managed_identity_malformed_response_is_redacted() -> None:
             await identity.get_token("gateway")
 
     assert "must-not-leak" not in str(caught.value)
+
+
+@pytest.mark.parametrize("failure", [False, True])
+async def test_executor_federation_is_cached_closed_and_never_falls_back(monkeypatch, failure):
+    calls = []
+
+    class Credential:
+        def __init__(self, **kwargs):
+            assert kwargs["client_id"] == "00000000-0000-0000-0000-000000000001"
+            assert kwargs["retry_total"] == 0
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            calls.append("closed")
+
+        async def get_token(self, scope):
+            calls.append(scope)
+            if failure:
+                raise ClientAuthenticationError("provider diagnostic must not escape")
+            return AccessToken("executor-example-token", _future_epoch())
+
+    monkeypatch.setattr(identity_module, "WorkloadIdentityCredential", Credential)
+
+    async def forbidden(request):
+        pytest.fail("attached identity fallback is forbidden")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(forbidden)) as http:
+        identity = ManagedIdentityWorkloadIdentity.from_env(
+            http_client=http,
+            env={
+                "AZURE_CLIENT_ID": "00000000-0000-0000-0000-000000000001",
+                "AZURE_TENANT_ID": "00000000-0000-0000-0000-000000000002",
+                "AZURE_FEDERATED_TOKEN_FILE": "/var/run/secrets/azure/tokens/token",
+            },
+        )
+        if failure:
+            with pytest.raises(
+                RuntimeError, match="^AKS workload identity token acquisition failed$"
+            ):
+                await identity.get_token("https://management.azure.com/.default")
+        else:
+            token = await identity.get_token("https://management.azure.com/.default")
+            assert token.token == "executor-example-token"
+            assert await identity.get_token(token.audience) is token
+    assert calls == ["https://management.azure.com/.default", "closed"]
+
+
+def test_executor_federation_rejects_identity_substitution():
+    with pytest.raises(identity_module.ManagedIdentityConfigurationError, match="selected service"):
+        ManagedIdentityWorkloadIdentity.from_env(
+            http_client=httpx.AsyncClient(),
+            env={
+                "AZURE_CLIENT_ID": "00000000-0000-0000-0000-000000000001",
+                "FDAI_MI_CLIENT_ID": "00000000-0000-0000-0000-000000000003",
+                "AZURE_TENANT_ID": "00000000-0000-0000-0000-000000000002",
+                "AZURE_FEDERATED_TOKEN_FILE": "/var/run/secrets/azure/tokens/token",
+            },
+        )
 
 
 class _Identity:

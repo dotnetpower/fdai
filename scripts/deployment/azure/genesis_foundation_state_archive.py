@@ -41,6 +41,10 @@ def create_foundation_state_archive(
         stage = Path(raw)
         stage.chmod(0o700)
         _copy_tree(terraform_root, stage / "root", exclude_state_backup=True)
+        for module_name in ("bootstrap", "modules"):
+            module_root = terraform_root.parent / module_name
+            if module_root.exists() or module_root.is_symlink():
+                _copy_tree(module_root, stage / module_name, exclude_state_backup=False)
         backend_example = stage / "root/backend.azurerm.tf.example"
         if backend_example.exists():
             if backend_example.read_bytes() != _REMOTE_BACKEND:

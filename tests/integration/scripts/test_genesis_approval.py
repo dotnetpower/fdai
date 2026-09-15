@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import os
+import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -15,8 +17,10 @@ ROOT = Path(__file__).resolve().parents[3]
 SCRIPT_DIR = ROOT / "scripts/deployment/azure"
 sys.path.insert(0, str(SCRIPT_DIR))
 
+import genesis_approval_prompt as prompt  # noqa: E402
 from genesis_approval import load_genesis_approval  # noqa: E402
 from genesis_approval_prompt import create_approval  # noqa: E402
+from genesis_checks import CheckError  # noqa: E402
 
 RUN_BINDING = "a" * 64
 SOURCE_COMMIT = "b" * 40
@@ -120,6 +124,53 @@ def test_approval_rejects_an_expired_window(tmp_path: Path) -> None:
 class _TtyInput(io.StringIO):
     def isatty(self) -> bool:
         return True
+
+
+@pytest.mark.parametrize("account_type", ["user", "servicePrincipal"])
+def test_prompt_actor_uses_trusted_cli_and_requires_human(
+    monkeypatch: pytest.MonkeyPatch, account_type: str
+) -> None:
+    azure_cli = "/example/trusted/bin/az"
+    environment = {"AZURE_CONFIG_DIR": "/example/private/azure"}
+    commands: list[list[str]] = []
+    tenant = "00000000-0000-0000-0000-000000000000"
+    principal = "00000000-0000-0000-0000-000000000001"
+
+    def run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
+        assert command[0] == azure_cli
+        assert kwargs["env"] == environment
+        assert kwargs["timeout"] == 30
+        value = (
+            json.dumps({"tenantId": tenant, "type": account_type})
+            if command[1] == "account"
+            else principal + "\n"
+        )
+        return subprocess.CompletedProcess(command, 0, stdout=value, stderr="")
+
+    monkeypatch.setattr(prompt, "_azure_identity_environment", lambda: environment)
+    monkeypatch.setattr(prompt, "trusted_tool", lambda name: azure_cli if name == "az" else "")
+    monkeypatch.setattr(prompt.subprocess, "run", run)
+    if account_type == "user":
+        assert (
+            prompt.current_actor_digest(RUN_BINDING)
+            == hashlib.sha256(f"{RUN_BINDING}:{tenant}:{principal}".encode()).hexdigest()
+        )
+    else:
+        with pytest.raises(ValueError, match="authenticated human"):
+            prompt.current_actor_digest(RUN_BINDING)
+    assert [command[1] for command in commands] == ["account", "ad"]
+
+
+def test_prompt_actor_rejects_untrusted_cli(monkeypatch: pytest.MonkeyPatch) -> None:
+    def unavailable(_name: str) -> str:
+        raise CheckError("required_tool_unavailable")
+
+    monkeypatch.setattr(prompt, "_azure_identity_environment", lambda: {})
+    monkeypatch.setattr(prompt, "trusted_tool", unavailable)
+    monkeypatch.setattr(prompt.subprocess, "run", lambda *_args, **_kwargs: pytest.fail("no CLI"))
+    with pytest.raises(CheckError, match="required_tool_unavailable"):
+        prompt.current_actor_digest(RUN_BINDING)
 
 
 def test_prompt_creates_actor_bound_exact_approval(tmp_path: Path) -> None:
