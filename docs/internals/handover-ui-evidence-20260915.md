@@ -259,3 +259,18 @@ following concrete prerequisites remain for #458; none is supplied by this UI ch
 Project-board synchronization timed out in its bounded best-effort read. It did not block local
 implementation or change the authoritative issue criteria. No provider, model, target, permission,
 release publication, deployment or promotion was performed.
+
+## Protected-main integration checkpoint
+
+Local source commit `bde56f58aef3f0f379b0439852378f492152d9f9` passed normal commit hooks after
+the documented newline-only correction. Main advanced once to
+`91ff893cbb0cd39c103298276c53600d3255127d`; exact main CI `34928980843` succeeded. The normal
+local merge is `05b73ab1dc61fad4e1bd292055da2ee823c98376`, with no conflict. Its nine upstream
+paths concern task-worker budgets and their documentation, not Console or shared UI inputs.
+
+The Console/UI diff from the tested source commit to the integrated commit is empty, so the
+28 browser and 127 unit results are reused rather than rerun for commit metadata. The ten final
+integrated questions above were checked against that diff; none gains new authority or an altered
+UI input. The canonical catalog is regenerated for the new protected-main lineage and current
+reviewed source documentation. This is local integration evidence, not yet this follow-up PR's CI,
+protected merge, image publication, deployment or operational evidence.

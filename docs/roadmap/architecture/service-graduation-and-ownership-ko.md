@@ -1,6 +1,6 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: bc268d2699977030456d9c9fd3267641562b3265
+translation_source_sha: b6ada9c9a90256f34dfe53a03d0c9f6beb5af29c
 translation_revised: 2026-09-15
 ---
 # 서비스 승격과 데이터 소유권
@@ -52,6 +52,7 @@ translation_revised: 2026-09-15
 ### 구현 이력
 
 인수인계 전달 상태와 로컬 UI 근거 정정에 따른 파생 카탈로그 갱신은 [영문 구현 이력](service-graduation-and-ownership.md#implementation-history)에 기록합니다. 서비스, 쓰기 담당, 전송 경로나 권한은 바뀌지 않으며 실제 보조 기술, 공급자 및 배포 근거는 별도로 유지합니다.
+CI `34928980843`이 통과한 보호된 main `91ff893cb` 병합 후의 카탈로그 재생성도 같은 영문 이력에 기록합니다. Console 입력과 upstream 작업 워커 예산 수정은 그대로 보존합니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
