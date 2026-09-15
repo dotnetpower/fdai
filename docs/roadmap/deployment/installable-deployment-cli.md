@@ -35,8 +35,7 @@ apply, resume, or tear down a tenant deployment.
 ## Connected source deployment
 
 Current source-mode support covers private preparation, read-only AKS capacity preflight,
-runner-image planning, exact-approved Foundation execution through private state handoff,
-and verified source transfer to the enrolled host.
+runner-image planning, exact-approved Foundation/state handoff, and verified source transfer.
 The public source command resumes these checkpoints using the shared private coordinator;
 new interactive source installations confirm settings at startup only; later stages and JSON
 execution never prompt. `--approval-file <path>` explicitly supplies an existing
@@ -210,17 +209,18 @@ state deletion, resume validates that authority and the final receipt, then inde
 the backend. Missing local state alone grants no authority. Live recovery acceptance remains open.
 
 ### Explicit source recovery
-
 Resume with `--source <current-checkout> --work-dir <original-run> --foundation-recovery-directory <recovery>`.
-Original snapshot, runtime profile, region and budget stay immutable; current execution source is separate.
-No initial-scope reconfirmation or repeated apply is allowed. Missing success returns review; separate
-exact approvals advance enrollment and migration, while retained claims select verification only.
-Completed migration observes the backend without reenrollment after local state deletion. Under the
-original lock, verified recovery supplies the original snapshot to the existing transfer engine.
-Separate immutable progress preserves old status and false readiness.
-It then builds or reverifies all five service OCI archives with the original snapshot and existing
-build claims. A changed revision, incomplete inventory or false readiness flag is rejected; unavailable
-local tools return review. Dependency images, registry import and activation remain unconnected.
+Original snapshot, profile, region and budget remain immutable; execution source is separate. Missing
+success returns review. Separate exact approvals advance enrollment/migration; claims allow verification
+only, never repeated apply or scope changes. Completed migration observes the backend without reenrollment.
+The original lock protects source transfer; immutable progress preserves old status and false readiness.
+Existing claims build/reverify five original-source images; wrong revisions, inventories or readiness
+are rejected. Missing tools return review; registry import and activation remain unconnected.
+
+**Design and critique:** A kit-shaped source object implies release trust. Instead, `standalone_host
+verify-source-runtime` checks pinned snapshot/runtime/bundle digests, six OCI images and platform, then
+rechecks bytes. Opaque hashes prove neither executable contents nor signatures; no login, installation,
+publication or authority follows. Support installation takes an admitted root, without kit fallback.
 
 ### Source transfer boundary
 

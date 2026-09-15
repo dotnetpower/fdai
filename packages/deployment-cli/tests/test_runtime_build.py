@@ -7,7 +7,8 @@ from pathlib import Path
 import pytest
 from test_oci_archive import make_archive
 
-from fdai_deployment_cli.contracts import canonical_bytes
+from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
+from fdai_deployment_cli.source_runtime import verify_source_runtime
 from fdai_deployment_cli.runtime_build import build_runtime_release
 from fdai_deployment_cli.runtime_release import (
     RUNTIME_SERVICES,
@@ -116,6 +117,146 @@ def test_builds_complete_v2_release_from_prebuilt_local_artifacts(tmp_path: Path
             assert str(record["provenance"]).endswith("/provenance.jsonl")
     assert not (output / "runtime/.fdai-incomplete").exists()
     assert descriptor["services"] != catalog["services"]
+
+
+def _source_runtime(tmp_path: Path) -> dict[str, object]:
+    result, output, _descriptor = _build(tmp_path)
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir(mode=0o700)
+    tree = snapshot / "tree"
+    tree.mkdir(mode=0o700)
+    content = b"synthetic source\n"
+    (tree / "example.txt").write_bytes(content)
+    (tree / "example.txt").chmod(0o600)
+    records = [
+        {"path": "example.txt", "mode": "100644", "sha256": hashlib.sha256(content).hexdigest()}
+    ]
+    manifest = {
+        "schema_version": "fdai.source-snapshot.v1",
+        "source": {
+            "commit": COMMIT,
+            "provenance": "operator-selected-source",
+            "release_signature_verified": False,
+            "file_count": 1,
+            "content_digest": canonical_digest({"files": records}),
+        },
+        "files": records,
+    }
+    (snapshot / "source-input.json").write_bytes(canonical_bytes(manifest))
+    (snapshot / "source-input.json").chmod(0o600)
+    return {
+        "snapshot": snapshot,
+        "snapshot_digest": canonical_digest(manifest),
+        "runtime_root": output,
+        "runtime_digest": result["runtime_release_digest"],
+        "deployment_bundle": tmp_path / "deployment-bundle.tar.gz",
+        "bundle_digest": result["deployment_bundle_sha256"],
+        "platform_tag": PLATFORM,
+    }
+
+
+def test_source_runtime_content_is_bound_and_grants_no_authority(tmp_path: Path) -> None:
+    args = _source_runtime(tmp_path)
+    before = {path: path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()}
+    result = verify_source_runtime(**args)
+    assert result["source_commit"] == COMMIT
+    assert result["source_snapshot_digest"] == args["snapshot_digest"]
+    assert len(result["image_content_digests"]) == 6
+    for key in (
+        "release_signature_verified",
+        "bundle_source_verified",
+        "support_contents_verified",
+        "registry_published",
+        "apply_authorized",
+        "deployment_ready",
+        "mutation_performed",
+    ):
+        assert result[key] is False
+    digest = result.pop("receipt_digest")
+    assert digest == canonical_digest(result)
+    assert before == {path: path.read_bytes() for path in tmp_path.rglob("*") if path.is_file()}
+
+
+@pytest.mark.parametrize(
+    "field", ["snapshot_digest", "runtime_digest", "bundle_digest", "platform_tag"]
+)
+def test_source_runtime_rejects_mismatched_bindings(tmp_path: Path, field: str) -> None:
+    args = _source_runtime(tmp_path)
+    args[field] = "linux-aarch64" if field == "platform_tag" else "f" * 64
+    with pytest.raises(ValueError):
+        verify_source_runtime(**args)
+
+
+@pytest.mark.parametrize("changed", ["source", "bundle", "image", "support"])
+def test_source_runtime_rejects_changed_payload(tmp_path: Path, changed: str) -> None:
+    args = _source_runtime(tmp_path)
+    paths = {
+        "source": args["snapshot"] / "tree/example.txt",
+        "bundle": args["deployment_bundle"],
+        "image": args["runtime_root"] / "runtime/sidecars/clamav/image.oci.tar",
+        "support": args["runtime_root"] / "runtime/deployment-support/deployment-support.tar.gz",
+    }
+    paths[changed].write_bytes(b"changed")
+    with pytest.raises(ValueError):
+        verify_source_runtime(**args)
+
+
+@pytest.mark.parametrize("changed", ["source", "bundle", "runtime"])
+def test_source_runtime_rejects_changes_during_image_verification(tmp_path, monkeypatch, changed):
+    from fdai_deployment_cli import source_runtime
+
+    args = _source_runtime(tmp_path)
+    original = source_runtime.validate_runtime_images
+
+    def validate_then_change(root, release):
+        result = original(root, release)
+        paths = {
+            "source": args["snapshot"] / "tree/example.txt",
+            "bundle": args["deployment_bundle"],
+            "runtime": args["runtime_root"] / "runtime/console/console.tar.gz",
+        }
+        paths[changed].write_bytes(b"changed after OCI validation")
+        return result
+
+    monkeypatch.setattr(source_runtime, "validate_runtime_images", validate_then_change)
+    with pytest.raises(ValueError):
+        verify_source_runtime(**args)
+
+
+@pytest.mark.parametrize("invalid", [False, True])
+def test_source_runtime_command_never_logs_in_or_creates_work_directory(
+    tmp_path: Path, monkeypatch, capsys, invalid: bool
+) -> None:
+    import json
+
+    from fdai_deployment_cli import standalone_host
+
+    args = _source_runtime(tmp_path)
+    if invalid:
+        args["runtime_digest"] = "f" * 64
+
+    def unexpected(*positional, **keywords):
+        pytest.fail("content verification cannot login, install or execute")
+
+    for name in ("_managed_identity_login", "_run", "_capture", "_acquire_checkpoint_lock"):
+        monkeypatch.setattr(standalone_host, name, unexpected)
+    options = {
+        "snapshot": "source-snapshot",
+        **{key: key.replace("_", "-") for key in args if key != "snapshot"},
+    }
+    command = ["--work-dir", str(tmp_path / "unused"), "verify-source-runtime"]
+    for name, value in args.items():
+        command.extend(["--" + options[name], str(value)])
+    assert standalone_host.main(command) == (3 if invalid else 0)
+    captured = capsys.readouterr()
+    if invalid:
+        assert not captured.out
+        assert "differs from the retained digest" in captured.err
+    else:
+        result = json.loads(captured.out)
+        assert result["state"] == "content-verified"
+        assert result["deployment_ready"] is False
+    assert not (tmp_path / "unused").exists()
 
 
 @pytest.mark.parametrize(

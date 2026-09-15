@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 01d3033b03c8154a0ae1b9e108a63fabef5c80fc
+translation_source_sha: 839ad46668dda09f0abacb87aaeec686c9b85c6a
 translation_revised: 2026-09-15
 ---
 # 런타임 배포 프로파일
@@ -19,6 +19,11 @@ Container Apps 또는 Azure Kubernetes Service(AKS)를 선택하는 방법을 �
 
 공유 Operator 발신함 구성은 두 플랫폼에서 같은 테스트 맥락 작업을 사용합니다.
 facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권한은 생기지 않습니다.
+
+호스트의 읽기 전용 `verify-source-runtime`은 고정된 소스·런타임 내용만 확인하며 런타임·DB 배치,
+노드 크기·비용·호스트 신원·정확한 계획 승인은 검증하지 않습니다. 이 근거는 프로파일에 연결된
+계획을 대신할 수 없습니다. 지원 자료 설치에는 검증된 경로를 명시적으로 전달하며 소스 자료가
+없다고 kit를 자동 선택하지 않습니다. [소스 경계](installable-deployment-cli-ko.md#명시적-소스-복구)를 참고하세요.
 
 운영자는 런타임 플랫폼과 데이터베이스 배치를 하나씩 선택합니다. `fdaictl`은 조합을 검증하고,
 용량과 비용을 추정하며, 플랫폼별 프로비저닝 그래프를 컴파일하고, 각 정확한 플랜에 대한 승인을
