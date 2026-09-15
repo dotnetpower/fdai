@@ -170,6 +170,12 @@ def _provision_azure(args: argparse.Namespace) -> int:
     )
     if (args.prepare_only or args.preflight_only) and args.source is None:
         raise ValueError("source-only preparation or preflight requires --source")
+    if args.foundation_recovery_directory is not None and (
+        args.source is None or args.work_dir is None or args.prepare_only or args.preflight_only
+    ):
+        raise ValueError(
+            "Foundation recovery requires --source and the original --work-dir without preparation or preflight"
+        )
     if args.approval_file is not None and (
         args.source is None or args.prepare_only or args.preflight_only
     ):
@@ -185,6 +191,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
         or args.prepare_only
         or args.preflight_only
         or args.approval_file is not None
+        or args.foundation_recovery_directory is not None
     ):
         raise ValueError(
             "initial scope options require a source install without an exact approval file"
@@ -223,6 +230,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
                 monthly_cost_ceiling=args.monthly_cost_ceiling,
                 timeout_seconds=args.timeout_seconds,
                 approval_file=args.approval_file,
+                foundation_recovery_directory=args.foundation_recovery_directory,
                 interactive=False,
                 installation_options=(
                     InstallationOptions(
@@ -231,10 +239,12 @@ def _provision_azure(args: argparse.Namespace) -> int:
                         allow_dedicated_identities=args.allow_dedicated_identities,
                         cleanup_temporary_resources=args.cleanup_temporary_resources,
                     )
-                    if args.approval_file is None
+                    if args.approval_file is None and args.foundation_recovery_directory is None
                     else None
                 ),
-                confirm_initial=args.output == "text" and sys.stdin.isatty(),
+                confirm_initial=args.foundation_recovery_directory is None
+                and args.output == "text"
+                and sys.stdin.isatty(),
             )
             _print_mapping(
                 result,

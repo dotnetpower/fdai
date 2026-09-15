@@ -56,6 +56,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--ssh-private-key", type=Path, required=True)
     parser.add_argument("--expected-foundation-receipt-digest", required=True)
     parser.add_argument("--expected-enrollment-receipt-digest", required=True)
+    parser.add_argument("--foundation-recovery-directory", type=Path)
+    parser.add_argument("--recovery-approval-file", type=Path)
     parser.add_argument("--approve", action="store_true")
     parser.add_argument("--resume-verification", action="store_true")
     parser.add_argument("--timeout-seconds", type=int, default=1800)
@@ -64,6 +66,17 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _execute(args: argparse.Namespace) -> dict[str, object]:
+    if getattr(args, "foundation_recovery_directory", None) is not None:
+        from genesis_foundation_recovery_handoff import recovery_lock
+
+        with recovery_lock(_absolute(args.foundation_plan_directory)):
+            return _execute_selected(args)
+    if getattr(args, "recovery_approval_file", None) is not None:
+        raise ValueError("recovery state approval requires an explicit recovery directory")
+    return _execute_selected(args)
+
+
+def _execute_selected(args: argparse.Namespace) -> dict[str, object]:
     _validate_arguments(args)
     foundation_apply._validate_artifact_options(args)
     root = _repository_root()
@@ -82,19 +95,33 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
         )
     if profile.access_method != "bastion":
         raise ValueError("Foundation state handoff requires the reviewed Bastion profile")
-    foundation = state_contract.load_receipt(
-        directory / foundation_apply.RECEIPT_NAME,
-        schema="fdai.genesis-foundation-apply-receipt.v1",
-        expected_digest=args.expected_foundation_receipt_digest,
-    )
-    enrollment = state_contract.load_receipt(
-        directory / ENROLLMENT_RECEIPT_NAME,
-        schema="fdai.genesis-runner-enrollment-receipt.v1",
-        expected_digest=args.expected_enrollment_receipt_digest,
-    )
-    handoff = _private_json(
-        directory / foundation_apply.HANDOFF_NAME, label="Foundation private handoff"
-    )
+    recovery = None
+    if getattr(args, "foundation_recovery_directory", None) is not None:
+        from genesis_foundation_recovery_state import prepare_recovery_migration
+
+        recovery = prepare_recovery_migration(
+            args, original_directory=directory, root=root, profile=profile
+        )
+        foundation, enrollment, handoff = (
+            recovery.foundation,
+            recovery.enrollment,
+            recovery.recovered.handoff,
+        )
+        directory = recovery.directory
+    else:
+        foundation = state_contract.load_receipt(
+            directory / foundation_apply.RECEIPT_NAME,
+            schema="fdai.genesis-foundation-apply-receipt.v1",
+            expected_digest=args.expected_foundation_receipt_digest,
+        )
+        enrollment = state_contract.load_receipt(
+            directory / ENROLLMENT_RECEIPT_NAME,
+            schema="fdai.genesis-runner-enrollment-receipt.v1",
+            expected_digest=args.expected_enrollment_receipt_digest,
+        )
+        handoff = _private_json(
+            directory / foundation_apply.HANDOFF_NAME, label="Foundation private handoff"
+        )
     state_contract.validate_context(profile.target_binding, foundation, enrollment, handoff)
     state = _object(handoff["state"], "Foundation state handoff")
     runner = _object(handoff["runner"], "Foundation runner handoff")
@@ -125,7 +152,11 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
             "backend_key_digest": hashlib.sha256(backend_key.encode()).hexdigest(),
         }
     )
-    local_state = state_contract.local_state_path(directory, foundation)
+    local_state = (
+        recovery.local_state
+        if recovery is not None
+        else state_contract.local_state_path(directory, foundation)
+    )
     archive = directory / f"foundation-state-handoff-{work_id[:12]}.tar.gz"
     claim_path = directory / CLAIM_NAME
     authority_path = directory / AUTHORITY_NAME
@@ -140,6 +171,8 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
             schema="fdai.genesis-foundation-state-handoff-receipt.v1",
             expected_digest=None,
         )
+        if recovery is not None:
+            recovery.validate_record(receipt)
         authority = state_contract.load_authority(authority_path)
         if authority is None:
             raise ValueError("Foundation state handoff receipt is missing backend authority")
@@ -187,14 +220,18 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
     if authority is None:
         if claim is None:
             _unlink_private_if_present(archive, max_bytes=1024 * 1024 * 1024)
-            archive_result = _prepare_archive(
-                args=args,
-                directory=directory,
-                profile_path=profile_path,
-                foundation=foundation,
-                handoff=handoff,
-                archive=archive,
-                local_state=local_state,
+            archive_result = (
+                recovery.prepare_archive(archive)
+                if recovery is not None
+                else _prepare_archive(
+                    args=args,
+                    directory=directory,
+                    profile_path=profile_path,
+                    foundation=foundation,
+                    handoff=handoff,
+                    archive=archive,
+                    local_state=local_state,
+                )
             )
             archive_digest = str(archive_result["archive_digest"])
         else:
@@ -234,6 +271,16 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
         trust_new_host_key=False,
     ) as tunnel:
         if authority is None:
+            if recovery is not None:
+                from genesis_runner_enrollment import _attest_runner
+
+                _attest_runner(
+                    tunnel,
+                    handoff=handoff,
+                    runner=runner,
+                    timeout=args.timeout_seconds,
+                    transport=profile.transport,
+                )
             if claim is None:
                 preflight = tunnel.ssh(
                     (
@@ -251,6 +298,18 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
                     result.returncode != 0 for result in (preflight, archive_absent, work_absent)
                 ):
                     raise ValueError("Foundation remote state preflight is not clean")
+                if recovery is not None:
+                    recovery.verify_configuration()
+                    actor_digest = recovery.require_approval()
+                    if (
+                        hashlib.sha256(
+                            read_private_bytes(local_state, max_bytes=64 * 1024 * 1024)
+                        ).hexdigest()
+                        != foundation["state_digest"]
+                    ):
+                        raise ValueError("Foundation original state changed before migration claim")
+                else:
+                    actor_digest = _operator_digest(checks, profile.target_binding)
                 claim = state_contract.create_claim(
                     foundation=foundation,
                     enrollment=enrollment,
@@ -258,8 +317,11 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
                     archive_digest=archive_digest,
                     state_digest=_required_text(foundation, "state_digest"),
                     backend_key=backend_key,
-                    actor_digest=_operator_digest(checks, profile.target_binding),
+                    actor_digest=actor_digest,
                 )
+                if recovery is not None:
+                    claim["migration_source_commit"] = recovery.source.commit
+                    claim["foundation_evidence_schema"] = "fdai.foundation-recovery-receipt.v1"
                 write_private_output(
                     claim_path,
                     json.dumps(claim, sort_keys=True, separators=(",", ":")) + "\n",
@@ -358,6 +420,9 @@ def _execute(args: argparse.Namespace) -> dict[str, object]:
         "subscription_ready": False,
         "completed_at": completed_at,
     }
+    if recovery is not None:
+        final_receipt["migration_source_commit"] = recovery.source.commit
+        final_receipt["foundation_evidence_schema"] = "fdai.foundation-recovery-receipt.v1"
     final_receipt["receipt_digest"] = canonical_digest(final_receipt)
     write_private_output(
         receipt_path,

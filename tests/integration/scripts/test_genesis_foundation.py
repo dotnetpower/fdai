@@ -41,9 +41,9 @@ from genesis_status import StatusStore  # noqa: E402
 
 @pytest.mark.parametrize("defect", [None, "concurrent-state", "existing-group", "expanded-role"])
 def test_foundation_recovery_planner_never_applies_or_copies_state(
-    tmp_path, monkeypatch, recovery_plans, defect
+    tmp_path, monkeypatch, recovery_plans, defect, *, successor_case=None
 ):
-    old_projection, projection, state = recovery_plans
+    old_projection, projection, state = successor_case or recovery_plans
     parent = tmp_path / "foundation"
     parent.mkdir(mode=0o700)
     original = parent / "original"
@@ -83,6 +83,13 @@ def test_foundation_recovery_planner_never_applies_or_copies_state(
             (_ROOT / "infra/bootstrap/variables.tf").read_bytes(), "operations_public_ip_tags"
         )
     )
+    if successor_case:
+        from genesis_foundation_recovery_successor import REPAIRS
+
+        content = (_ROOT / "infra/bootstrap/main.tf").read_bytes()
+        for before, after in REPAIRS:
+            content = content.replace(after, before)
+        (bootstrap / "main.tf").write_bytes(content)
     persistent = original / "foundation-apply-bundle/source"
     persistent.mkdir(mode=0o700, parents=True)
     recovery_planner._copy_private_tree(snapshot / "tree/infra", persistent / "infra")
@@ -97,6 +104,28 @@ def test_foundation_recovery_planner_never_applies_or_copies_state(
     write_private_bytes(provider / "provider", b"locked-provider")
     source_record = {"source_commit": "a" * 40}
     variables = {"workload": "example", "env": "dev"}
+    if successor_case:
+        expected_variables = {
+            **variables,
+            "application_workload": "exampleaks",
+            "operations_public_ip_tags": {},
+        }
+        for document in (old_projection, projection):
+            document["variables"] = {
+                key: {"value": value} for key, value in expected_variables.items()
+            }
+        predecessor = (
+            {
+                "variables_digest": canonical_digest(expected_variables),
+                "original_lineage_digest": canonical_digest({"lineage": state["lineage"]}),
+                "review_digest": "9" * 64,
+            },
+            {"claim": "predecessor"},
+            old_projection,
+        )
+        monkeypatch.setattr(
+            recovery_planner, "load_predecessor", lambda *_args, **_kwargs: predecessor
+        )
     review = {
         "schema_version": "fdai.foundation-saved-source-plan.v1",
         "context": {
@@ -153,7 +182,13 @@ def test_foundation_recovery_planner_never_applies_or_copies_state(
     monkeypatch.setattr(
         recovery_planner.image,
         "_capture",
-        lambda *_args, **_kwargs: "true" if defect == "existing-group" else "false",
+        lambda *_args, **_kwargs: (
+            "true"
+            if defect == "existing-group"
+            else "synthetic-group"
+            if successor_case
+            else "false"
+        ),
     )
     commands = []
 
@@ -192,11 +227,16 @@ def test_foundation_recovery_planner_never_applies_or_copies_state(
         application_workload="exampleaks",
         timeout_seconds=60,
     )
+    if successor_case:
+        arguments["predecessor_directory"] = tmp_path / "predecessor"
     if defect is None:
         result = prepare_recovery_plan(**arguments)
         assert result["original_state_unchanged"] is True
         assert result["apply_authorized"] is False
-        assert result["application_group_absent"] is True
+        assert result["application_group_absent"] is (successor_case is None)
+        if successor_case:
+            assert result["application_group_preserved"] is True
+            assert result["predecessor_claim_digest"] == canonical_digest({"claim": "predecessor"})
         assert result["original_state_digest"] == hashlib.sha256(state_bytes).hexdigest()
     else:
         with pytest.raises(ValueError):

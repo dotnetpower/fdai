@@ -1,0 +1,1 @@
+../../../../../docs/user-guide/guides/validate-ownership-handover.md

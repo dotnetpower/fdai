@@ -29,6 +29,13 @@ The separately approved foundation phase owns creation of the private `tfstate` 
 both containers as prerequisites and stops when either is absent. It never creates foundation
 resources as an incidental planning side effect.
 
+The bootstrap host's ephemeral OS disk uses `ReadOnly` caching, as required by AzureRM for
+`diff_disk_settings`. Scoped role-definition identifiers are reduced to their GUID component before
+ABAC `GuidEquals` comparison; the observation delegate retains only Cost Management Reader,
+Monitoring Reader and Reader for `ServicePrincipal` subjects on both write and delete. A failed
+partial apply retains its state and claims; use the bounded recovery contract in
+[Installable Deployment CLI](installable-deployment-cli.md), never repeat the claimed apply.
+
 Application feature inputs describe the desired platform state during a full plan. Monitoring uses
 the bounded `module.monitoring` target only when it is the sole selected feature; when combined with
 application features, it remains enabled and participates in the complete non-destructive plan.
@@ -68,6 +75,7 @@ cleanup plans are independently scope-checked before any exact apply.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Bootstrap ephemeral disk and observation delegation | implemented | `infra/bootstrap/main.tf`; offline-host Terraform tests, 14 passed | Required ReadOnly cache and GUID-only condition operands preserve the existing disk placement, role list and principal restriction. Actual partial recovery still requires exact approval and independent effect evidence. |
 | Core control plane startup probe | not-applicable | `current change`; `terraform fmt` and `terraform validate` pass on the service root | Three attempts sized a startup probe to cover a boot that opened the health port late. The runtime now opens that port before startup readiness runs, so liveness answers immediately and the probe is unnecessary. The protected update contract also rejected it, because it proves rollback only for an image and revision-suffix change. |
 | CAF naming and `fdai:` ownership tags | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, and focused Terraform tests | Terraform computes names and tags; runtime code consumes outputs. |
 | Operator API physical resource names | implemented | `infra/main.tf`, `infra/services/operator-service/variables.tf`, and `tests/integration/infra/test_operator_api_resource_naming.py` | New plans use the `operator-api` component for the workload identity and Container App. Existing development resources still require a reviewed replacement apply. |
@@ -90,6 +98,7 @@ cleanup plans are independently scope-checked before any exact apply.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Corrected bootstrap ephemeral OS caching and scoped role-definition operands after an actual partial Foundation recovery exposed provider and Azure condition errors. | Current change; `terraform -chdir=infra/bootstrap test -filter=tests/offline_runner.tftest.hcl`: 14 passed, including exact role/principal restrictions and disk cache. | Retain a separately approved successor plan/apply preserving completed work, followed by independent host and state-handoff evidence. |
 | 2026-09-09 | implemented | Restored the deploy workflow review budget without changing behavior and updated the direct azd test harness to provide every required executable prerequisite. | `current change`; exact deploy-workflow diet and Azure-context tests passed 23 cases. | Retain a new exact-green main receipt before resuming protected deployment. |
 | 2026-09-09 | implemented | Added a private-by-default Foundry network input and routed the public contributor profile through the explicit public option without enabling local authentication. | `current change`; focused Foundry private and public Terraform plans passed. | Retain a fresh-subscription endpoint and managed-identity inference readback before classifying runtime use as validated. |
 | 2026-09-08 | implemented | Defaulted absent model-endpoint input to an empty JSON object so non-Core rollback tfvars materialization remains independent from the Core model-binding contract. | Failed apply preflight `34228191755`; `current change`; focused materializer CLI regression test. | Recreate and apply the exact protected Operator plan. |
