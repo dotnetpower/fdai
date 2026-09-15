@@ -17,6 +17,11 @@ from fdai_service_contracts.decision_evidence_verification import (
     DecisionEvidenceVerificationBundle,
 )
 from fdai_service_contracts.execution_safeguards import SafeguardProofBundle
+from fdai_service_contracts.test_context import (
+    TestContextApplication,
+    TestContextCommand,
+    TestContextDraft,
+)
 
 
 @runtime_checkable
@@ -101,6 +106,9 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("operator-core-request", "1.8.0"): "schemas/operator-core-request/1.8.0.json",
     ("semantic-query-progress", "1.0.0"): "schemas/semantic-query-progress/1.0.0.json",
     ("service-upgrade-receipt", "1.0.0"): "schemas/service-upgrade-receipt/1.0.0.json",
+    ("test-context-application", "1.0.0"): "schemas/test-context-application/1.0.0.json",
+    ("test-context-command", "1.0.0"): "schemas/test-context-command/1.0.0.json",
+    ("test-context-draft", "1.0.0"): "schemas/test-context-draft/1.0.0.json",
 }
 
 
@@ -222,6 +230,12 @@ class JsonSchemaContractValidator:
             if schema_name == "decision-evidence-verification"
             else SafeguardProofBundle
             if schema_name == "execution-safeguard-proof-bundle"
+            else TestContextApplication
+            if schema_name == "test-context-application"
+            else TestContextCommand
+            if schema_name == "test-context-command"
+            else TestContextDraft
+            if schema_name == "test-context-draft"
             else None
         )
         if semantic_model is not None:

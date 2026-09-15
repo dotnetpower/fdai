@@ -1,0 +1,89 @@
+{
+  "$defs": {
+    "TestContextWindow": {
+      "additionalProperties": false,
+      "description": "Complete expected range and explicit aware interval, without approval semantics.",
+      "properties": {
+        "expected_min": {
+          "title": "Expected Min",
+          "type": "number"
+        },
+        "expected_max": {
+          "title": "Expected Max",
+          "type": "number"
+        },
+        "effective_from": {
+          "format": "date-time",
+          "title": "Effective From",
+          "type": "string"
+        },
+        "effective_to": {
+          "format": "date-time",
+          "title": "Effective To",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected_min",
+        "expected_max",
+        "effective_from",
+        "effective_to"
+      ],
+      "title": "TestContextWindow",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Source-grounded chat draft requiring scope selection and independent governance.",
+  "properties": {
+    "target_ref": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Target Ref",
+      "type": "string"
+    },
+    "signal_code": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Signal Code",
+      "type": "string"
+    },
+    "window": {
+      "$ref": "#/$defs/TestContextWindow"
+    },
+    "source_ref": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Source Ref",
+      "type": "string"
+    },
+    "semantic_receipt": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Semantic Receipt",
+      "type": "string"
+    },
+    "authority": {
+      "const": "candidate_only",
+      "default": "candidate_only",
+      "title": "Authority",
+      "type": "string"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "target_ref",
+    "signal_code",
+    "window",
+    "source_ref",
+    "semantic_receipt"
+  ],
+  "title": "TestContextDraft",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/test-context-draft/1.0.0"
+}
