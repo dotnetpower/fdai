@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import os
 import re
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -91,6 +92,7 @@ def build_source_image(
     snapshot_digest: str,
     service: str,
     timeout_seconds: int,
+    verify_only: bool = False,
 ) -> dict[str, object]:
     """Build one baseline service into a private OCI archive, without a kit or registry push.
 
@@ -99,6 +101,8 @@ def build_source_image(
     never rebuilt. Existing success is reusable only after source and archive revalidation.
     The bounded repository runner limits build duration and output silence, and generated
     artifacts remain outside the source. Image validity does not prove runtime readiness.
+    Explicit verification-only recovery may validate completed bytes after interruption,
+    but cannot invoke Docker, overwrite an archive, or repair incomplete build content.
     """
     deadline = DeploymentDeadline(timeout_seconds)
     if service not in RUNTIME_SERVICES:
@@ -132,15 +136,18 @@ def build_source_image(
         "platform_tag": "linux-x86_64",
     }
     recovery = claim_path.exists() or claim_path.is_symlink()
+    if verify_only and not recovery:
+        raise ValueError("source image verification requires a retained exact build claim")
     if recovery:
         if _read_json(claim_path) != claim:
             raise ValueError("source image build claim differs; preserve the work directory")
-        if not receipt_path.exists():
+        if not receipt_path.exists() and not verify_only:
             raise ValueError("source image build is incomplete; do not automatically rebuild")
-        retained = _read_json(receipt_path)
-        digest = retained.pop("receipt_digest", None)
-        if canonical_digest(retained) != digest:
-            raise ValueError("source image receipt digest differs")
+        retained = _read_json(receipt_path) if receipt_path.exists() else None
+        if retained is not None:
+            digest = retained.pop("receipt_digest", None)
+            if canonical_digest(retained) != digest:
+                raise ValueError("source image receipt digest differs")
     else:
         builder = inspect_source_image_builder(timeout_seconds=deadline.remaining(60))
         if builder["state"] != "available":
@@ -215,6 +222,7 @@ def build_source_image(
         retained = None
     deadline.remaining()
     verify_source_snapshot(snapshot, expected_digest=snapshot_digest)
+    _seal_build_metadata(metadata)
     image_digest = _read_json(metadata).get("containerimage.digest")
     if (
         not isinstance(image_digest, str)
@@ -252,6 +260,30 @@ def build_source_image(
     if retained is None:
         write_private_bytes(receipt_path, canonical_bytes(receipt))
     return receipt
+
+
+def _seal_build_metadata(path: Path) -> None:
+    """Tighten Buildx's owner-created 0644 metadata through a held private parent."""
+    parent = _open_private_parent(path)
+    try:
+        descriptor = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
+        try:
+            details = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(details.st_mode)
+                or details.st_uid != os.geteuid()
+                or details.st_nlink != 1
+                or stat.S_IMODE(details.st_mode) not in {0o600, 0o644}
+                or not 0 < details.st_size <= 65536
+            ):
+                raise ValueError("source image metadata ownership or file shape is invalid")
+            if stat.S_IMODE(details.st_mode) != 0o600:
+                os.fchmod(descriptor, 0o600)
+                os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    finally:
+        os.close(parent)
 
 
 def _read_json(path: Path) -> dict[str, object]:
@@ -304,14 +336,19 @@ def main() -> int:
     parser.add_argument("--work-dir", type=Path)
     parser.add_argument("--service", choices=sorted(RUNTIME_SERVICES))
     parser.add_argument("--all-services", action="store_true")
+    parser.add_argument("--verify-only", action="store_true")
     parser.add_argument("--timeout-seconds", type=int, default=3600)
     args = parser.parse_args()
     try:
         if args.check_tools:
             receipt = inspect_source_image_builder(timeout_seconds=min(60, args.timeout_seconds))
         elif args.all_services:
-            if args.service is not None or any(
-                value is None for value in (args.snapshot, args.snapshot_digest, args.work_dir)
+            if (
+                args.service is not None
+                or args.verify_only
+                or any(
+                    value is None for value in (args.snapshot, args.snapshot_digest, args.work_dir)
+                )
             ):
                 raise ValueError(
                     "source image inventory requires an exact snapshot without a service override"
@@ -336,6 +373,7 @@ def main() -> int:
                 snapshot_digest=args.snapshot_digest,
                 service=args.service,
                 timeout_seconds=args.timeout_seconds,
+                verify_only=args.verify_only,
             )
         print(canonical_bytes(receipt).decode())
         return 3 if receipt["state"] == "blocked" and not args.check_tools else 0

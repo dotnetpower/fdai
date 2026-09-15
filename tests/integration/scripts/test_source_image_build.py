@@ -59,7 +59,7 @@ def test_source_builder_probe_is_local_bounded_and_fail_closed(monkeypatch, fail
     assert all("build" not in command for command in calls)
 
 
-@pytest.mark.parametrize("failure", [None, "build", "revision", "digest"])
+@pytest.mark.parametrize("failure", [None, "build", "revision", "digest", "metadata-mode"])
 def test_source_image_build_validates_oci_and_never_repeats_claim(tmp_path, monkeypatch, failure):
     snapshot = tmp_path / "snapshot"
     tree = snapshot / "tree"
@@ -106,7 +106,7 @@ def test_source_image_build_validates_oci_and_never_repeats_claim(tmp_path, monk
                 }
             )
         )
-        metadata.chmod(0o600)
+        metadata.chmod(0o666 if failure == "metadata-mode" else 0o644)
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(images.subprocess, "run", run)
@@ -127,6 +127,55 @@ def test_source_image_build_validates_oci_and_never_repeats_claim(tmp_path, monk
         with pytest.raises(ValueError):
             images.build_source_image(snapshot, work, **arguments)
     assert len(calls) == 1
+
+
+def test_source_image_verification_only_recovers_without_building(tmp_path, monkeypatch):
+    from fdai_deployment_cli.contracts import canonical_bytes
+    from fdai_deployment_cli.private_output import write_private_bytes
+
+    snapshot = tmp_path / "snapshot"
+    tree = snapshot / "tree"
+    for relative in (
+        "services/isolated-executor/docker/Dockerfile",
+        "scripts/automation/run-bounded-command.py",
+    ):
+        path = tree / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"not executed")
+    work = tmp_path / "images"
+    work.mkdir(mode=0o700)
+    claim = {
+        "schema_version": "fdai.source-image-build-claim.v1",
+        "source_commit": COMMIT,
+        "snapshot_digest": "d" * 64,
+        "service": "isolated-executor",
+        "platform_tag": "linux-x86_64",
+    }
+    write_private_bytes(work / "isolated-executor.claim.json", canonical_bytes(claim))
+    fixture = make_archive(work / "isolated-executor.oci.tar")
+    fixture.path.chmod(0o600)
+    metadata = work / "isolated-executor.metadata.json"
+    metadata.write_text(json.dumps({"containerimage.digest": fixture.manifest_digest}))
+    metadata.chmod(0o644)
+    monkeypatch.setattr(
+        images, "verify_source_snapshot", lambda *_args, **_kwargs: {"source_commit": COMMIT}
+    )
+    monkeypatch.setattr(
+        images.subprocess,
+        "run",
+        lambda *_args, **_kwargs: pytest.fail("verification invoked a build"),
+    )
+    receipt = images.build_source_image(
+        snapshot,
+        work,
+        snapshot_digest="d" * 64,
+        service="isolated-executor",
+        timeout_seconds=60,
+        verify_only=True,
+    )
+    assert receipt["state"] == "built"
+    assert metadata.stat().st_mode & 0o777 == 0o600
+    assert (work / "isolated-executor.receipt.json").is_file()
 
 
 @pytest.mark.parametrize("blocked", [False, True])

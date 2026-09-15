@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 2191f6949b7d9cf5fc6c1d881fd8311205bd4deb
+translation_source_sha: 697ffb5a6901321062264bb0bfe222ea66de8b27
 translation_revised: 2026-09-15
 ---
 
@@ -153,6 +153,10 @@ Foundation 준비 전에 소스 설치는 신뢰된 Docker 실행 파일, 명시
 제한을 공유하며, 각 프로세스는 기존 제한 실행기를 사용해 진행 출력이 없는 구간을 최대 300초로
 제한합니다. 실행 전에 비공개 빌드 로그와 서비스별 불변 실행 전 기록을 만듭니다. 실패하거나
 중단된 기록으로 자동 재빌드를 시작할 수 없습니다.
+단일 서비스에 `--verify-only`를 명시하면 정확한 실행 전 기록의 기존 출력을 Docker 호출 없이
+검사합니다. OCI 내용이 불완전하거나 일치하지 않으면 계속 실패합니다. Buildx는 엄격한 umask에서도
+메타데이터를 0644로 만듭니다. 조정기는 현재 소유자, 단일 링크 일반 파일과 비공개 상위 디렉터리를
+확인한 뒤 메타데이터 권한을 0600으로 좁혀 읽습니다.
 
 Buildx 메타데이터가 예상 매니페스트 digest를 제공하면 기존 OCI 검증기가 archive 해시, 모든
 blob, 플랫폼과 소스 리비전을 독립적으로 확인합니다. 증적을 재사용할 때도 같은 검증과 변경 없는

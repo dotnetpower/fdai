@@ -150,6 +150,10 @@ and OCI output outside the snapshot. It never selects an alternate source, remot
 target. One shared deadline bounds the inventory; each process uses the existing bounded runner
 with a 300-second maximum no-progress interval. Private build logs and per-service immutable
 claims precede execution. A failed or interrupted claim cannot trigger an automatic rebuild.
+Explicit `--verify-only` for one service checks retained output under its exact claim without
+invoking Docker. Incomplete or inconsistent OCI content still fails. Buildx creates its metadata
+with mode 0644 even under a restrictive umask; the coordinator validates the current owner,
+single-link regular file and private parent, then tightens that metadata to 0600 before reading.
 
 Buildx metadata supplies the expected manifest digest, and the existing OCI validator independently
 checks archive hashes, every blob, platform and source revision. A reusable receipt requires that
