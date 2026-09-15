@@ -49,6 +49,8 @@ Foundation input and VM metadata reads resolve Azure CLI through the existing tr
 roots, including the operator-owned local installation. They do not require `/usr/bin/az` to exist
 or accept an arbitrary executable from `PATH`. The selected Azure configuration, bounded reads and
 sanitized provider failures remain unchanged.
+Runner-image Terraform receives only a private `az` launcher bound to that resolved executable;
+resumption rejects a substituted launcher. Human identity readback uses the same trusted CLI.
 
 Source and kit Foundation inputs use distinct types and saved-plan schemas. A retained source
 plan must match the current snapshot and source-input digests. Source execution copies the

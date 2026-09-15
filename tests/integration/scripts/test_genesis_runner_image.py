@@ -886,7 +886,10 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
     monkeypatch.setattr(command.GenesisChecks, "verify_source", lambda *a, **kw: None)
     monkeypatch.setattr(command, "_required", lambda cmd, **kw: calls.append(cmd))
     monkeypatch.setattr(command, "_verify_zero_change", lambda **_kw: None)
-    monkeypatch.setattr(command, "_trusted_azure_cli", lambda: Path("/usr/bin/az"))
+    azure_cli = tmp_path / "trusted-az"
+    azure_cli.write_text("#!/bin/sh\nexit 0\n")
+    azure_cli.chmod(0o700)
+    monkeypatch.setattr(command, "_trusted_azure_cli", lambda: azure_cli)
     monkeypatch.setattr(
         command,
         "load_genesis_approval",
@@ -902,7 +905,7 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
         if cmd[1:3] == ["show", "-json"]:
             assert cmd == [str(terraform), "show", "-json", str(work / PLAN_NAME)]
             return json.dumps(_plan_projection(inputs.terraform_values))
-        if cmd[:4] == ["/usr/bin/az", "rest", "--method", "get"]:
+        if cmd[:4] == [str(azure_cli), "rest", "--method", "get"]:
             if "/usages?" in cmd[cmd.index("--url") + 1]:
                 quota_reads.append(cmd)
                 assert not (work / CLAIM_NAME).exists()
@@ -939,9 +942,9 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
             return json.dumps({"value": evidence, "nextLink": None})
         if cmd[:3] == ["/usr/bin/git", "rev-parse", "HEAD"]:
             return source_commit + "\n"
-        if cmd[:3] == ["/usr/bin/az", "account", "show"]:
+        if cmd[:3] == [str(azure_cli), "account", "show"]:
             return json.dumps({"type": "user", "tenantId": TENANT})
-        if cmd[:4] == ["/usr/bin/az", "ad", "signed-in-user", "show"]:
+        if cmd[:4] == [str(azure_cli), "ad", "signed-in-user", "show"]:
             return "00000000-0000-0000-0000-000000000002\n"
         if cmd[1:4] == ["output", "-json", "runner_image"]:
             return json.dumps(
@@ -960,7 +963,7 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
                     "subscription_ready": False,
                 }
             )
-        if cmd[:3] == ["/usr/bin/az", "resource", "show"] and cmd[4] == image_id:
+        if cmd[:3] == [str(azure_cli), "resource", "show"] and cmd[4] == image_id:
             return json.dumps(
                 {
                     "id": image_id,
@@ -978,7 +981,7 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
                     },
                 }
             )
-        if cmd[:4] == ["/usr/bin/az", "vm", "extension", "show"]:
+        if cmd[:4] == [str(azure_cli), "vm", "extension", "show"]:
             assert cmd[4] == "--ids"
             assert cmd[5] in {
                 builder_extension,
@@ -992,12 +995,12 @@ def test_apply_writes_claim_once_and_requires_independent_image_readback(
                     "statuses": None if automatic else ["ProvisioningState/succeeded"],
                 }
             )
-        if cmd[:3] == ["/usr/bin/az", "vm", "get-instance-view"]:
+        if cmd[:3] == [str(azure_cli), "vm", "get-instance-view"]:
             return "1\n"
-        if cmd[:3] == ["/usr/bin/az", "vm", "show"]:
+        if cmd[:3] == [str(azure_cli), "vm", "show"]:
             assert cmd[4] == verifier_vm_id
             return image_id + "\n"
-        if cmd[:4] == ["/usr/bin/az", "network", "public-ip", "show"]:
+        if cmd[:4] == [str(azure_cli), "network", "public-ip", "show"]:
             return json.dumps(
                 {
                     "id": cmd[5],
@@ -1162,6 +1165,10 @@ def test_terraform_environment_uses_private_empty_configuration(
     work = tmp_path / "work"
     work.mkdir(mode=0o700)
 
+    azure_cli = tmp_path / "trusted-az"
+    azure_cli.write_text("#!/bin/sh\nexit 0\n")
+    azure_cli.chmod(0o700)
+    monkeypatch.setattr(command, "_trusted_azure_cli", lambda: azure_cli)
     environment = command._terraform_environment(
         work,
         subscription_id=SUBSCRIPTION,
@@ -1173,7 +1180,20 @@ def test_terraform_environment_uses_private_empty_configuration(
     assert environment["AZURE_CONFIG_DIR"] == str(azure_config)
     assert environment["GH_CONFIG_DIR"] == str(github_config)
     assert "HTTPS_PROXY" not in environment
-    assert environment["PATH"] == "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    tools = work / "terraform-home/bin"
+    assert (
+        environment["PATH"]
+        == f"{tools}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    )
+    assert (tools / "az").resolve(strict=True) == azure_cli
+    assert (
+        command._terraform_environment(work, subscription_id=SUBSCRIPTION, tenant_id=TENANT)
+        == environment
+    )
+    (tools / "az").unlink()
+    (tools / "az").symlink_to(tmp_path / "untrusted-cli")
+    with pytest.raises((ValueError, FileNotFoundError)):
+        command._terraform_environment(work, subscription_id=SUBSCRIPTION, tenant_id=TENANT)
 
 
 def test_provider_drift_is_rejected_before_apply_claim(tmp_path: Path) -> None:
