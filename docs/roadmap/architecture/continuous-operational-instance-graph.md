@@ -100,7 +100,15 @@ their incomplete relationship set. Nested subnet records retain the observed VNe
 an exact child cannot fall back to a Resource Group parent between reconciliations.
 One support boundary owns Resource Changes cursor, retry, ingestion-fence, and publication
 semantics; the provider feed module re-exports that behavior instead of maintaining a second loop.
-Malformed Activity Log continuation metadata cannot close a page stream or advance its durable cursor. Azure Cognitive Services deployment writes/deletes reported only against a parent account are non-projectable change signals: request complete reconciliation without inventing the absent child or blocking unrelated valid rows; other identity contradictions remain errors.
+Malformed Activity Log continuation metadata cannot close a page stream or advance its durable cursor. Azure Cognitive Services deployment writes/deletes reported only against a parent account are non-projectable change signals: request complete reconciliation without inventing the absent child or blocking unrelated valid rows.
+A `Succeeded` `Microsoft.KeyVault/vaults/delete` event with an exact vault ARM identity and a
+`Microsoft.Resources/resourceGroups` envelope is also reconciliation-only. The legacy supplied type
+`Microsoft.Resources/subscriptions/resourcegroups` uses the existing Resource Group alias normalization.
+This exact combination retains the validated event time as a reconciliation hint, emits no Resource
+or relationship, and does not assert vault or Resource Group deletion. Signal-only pages preserve
+the hint; the durable cursor advances only after the existing complete stream fence and marker write.
+Other reviewed identity contradictions retain their existing failure behavior, and status filtering
+and timezone-aware timestamp validation remain unchanged.
 
 A collected property becomes a relationship only through a reviewed provider mapping. If that
 mapping omits an observed connection target, an absent graph edge never proves an absent path.
