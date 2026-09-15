@@ -22,6 +22,7 @@ const ROUTES = [
   "/provisioning",
   "/onboarding",
   "/detection-coverage",
+  "/alert-quality",
   "/configuration-baselines",
   "/processes",
   "/workflow-apps",

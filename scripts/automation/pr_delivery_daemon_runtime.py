@@ -48,6 +48,7 @@ class DeliveryDaemon:
         self.paths = delivery_paths(runner, config)
         self.stop_event = threading.Event()
         self.started = time.monotonic()
+        self.total_deadline = self.started + config.total_timeout_seconds
         self.last_progress = self.started
         self.last_fingerprint: tuple[object, ...] | None = None
         self.last_query: float | None = None
@@ -150,10 +151,10 @@ class DeliveryDaemon:
         now = time.monotonic()
         elapsed = now - self.last_query
         remaining = max(0.0, self.config.interval_seconds - elapsed)
-        total_remaining = max(0.0, self.config.total_timeout_seconds - (now - self.started))
+        total_remaining = max(0.0, self.total_deadline - now)
         progress_remaining = max(
             0.0,
-            self.config.no_progress_seconds - (now - self.last_progress),
+            self.last_progress + self.config.no_progress_seconds - now,
         )
         remaining = min(remaining, total_remaining, progress_remaining)
         if remaining:
@@ -319,18 +320,18 @@ class DeliveryDaemon:
         self._record("watching")
         while not self.stop_event.is_set():
             now = time.monotonic()
-            if now - self.started >= self.config.total_timeout_seconds:
+            if now >= self.total_deadline:
                 self._record("timeout", reason="total_timeout", terminal=True)
                 return 2
-            if now - self.last_progress >= self.config.no_progress_seconds:
+            if now >= self.last_progress + self.config.no_progress_seconds:
                 self._record("no_progress", reason="no_progress_timeout", terminal=True)
                 return 2
             if not self._wait_for_query_slot():
                 continue
             now = time.monotonic()
             if (
-                now - self.started >= self.config.total_timeout_seconds
-                or now - self.last_progress >= self.config.no_progress_seconds
+                now >= self.total_deadline
+                or now >= self.last_progress + self.config.no_progress_seconds
             ):
                 continue
             self.last_query = time.monotonic()

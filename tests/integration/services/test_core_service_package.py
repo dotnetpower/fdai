@@ -127,6 +127,7 @@ EXPECTED_RUNTIME_MODULES = {
     "stewardship_merge_effects.py",
     "t2_recovery.py",
     "t2_route_registry.py",
+    "task_workers.py",
     "venue.py",
     "workflow_action_dispatch.py",
 }
@@ -228,6 +229,10 @@ def test_core_wheel_contains_only_the_declared_fdai_payload(core_wheel: Path) ->
     assert unexpected_suffixes == []
     assert EXPECTED_NON_CODE_MEMBERS <= members
     assert "fdai/runtime/isolated_executor_client.py" in members
+    assert "fdai/delivery/azure/llm/task_worker.py" in members
+    assert "fdai/delivery/persistence/postgres_task_worker_runtime.py" in members
+    assert "fdai/delivery/persistence/postgres_task_worker_inventory.py" in members
+    assert "fdai/delivery/task_worker_inventory.py" in members
     assert "fdai_core_service/main.py" in members
 
 
@@ -269,6 +274,7 @@ import fdai.core.control_loop
 import fdai.rule_catalog.schema.action_type
 import fdai.runtime.bootstrap
 import fdai.runtime.isolated_executor_client
+import fdai.runtime.task_workers
 import fdai.shared.contracts
 import fdai_core_service.main
 

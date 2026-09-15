@@ -7,6 +7,7 @@ import logging
 import os
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
+from dataclasses import replace as dataclass_replace
 from typing import Any, Protocol
 
 import httpx
@@ -19,6 +20,7 @@ from fdai_service_contracts.incident_intervention import (
 )
 from psycopg import OperationalError
 
+from fdai.agents import PantheonRuntime
 from fdai.core.incident import (
     IncidentAutoOpenPolicy,
     IncidentLifecycleNotice,
@@ -127,6 +129,20 @@ class IncidentRuntime:
         await self.registry.bind_projection(
             IncidentOntologyProjector(store=store),
             entries=self.entries,
+        )
+
+    def with_pantheon(
+        self,
+        pantheon: PantheonRuntime | None,
+    ) -> IncidentInterventionConsumerBinding:
+        """Route applied guidance only through the complete accountable agent path."""
+
+        required = {"Huginn", "Forseti", "Saga"}
+        if pantheon is None or not required.issubset(pantheon.agents):
+            return self.intervention_binding
+        return dataclass_replace(
+            self.intervention_binding,
+            ingress=pantheon.ingest_raw_event,
         )
 
 

@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 92aaf3ffb4532910b0aa1d26d74f1b45b16c985b
+translation_source_sha: 2c414aa4269efdac330b5ed16ad844d5dac9341e
 translation_revised: 2026-09-15
 ---
 # FDAI Console 대화
@@ -57,7 +57,7 @@ FDAI Console 대화 표면은 **판단 권한을 가지지 않습니다**. FDAI�
 명시적 고정 census 진단 요청은 범위가 제한된 `conversation-assurance:<case-id>` 목적을 사용합니다. Core는 Bragi가 답변하기 전에 사례, 질문 및 로케일을 서버 소유 census와 대조해 검증합니다. 생성된 `done` 이벤트는 답변, 콘텐츠가 없는 진단, 추적 지연 시간 및 schema-v2 큐/품질 보증 timing을 전달하며, 일반 `operations-review` 요청은 기존 의미 결과 계약을 유지합니다.
 버전 1.2 semantic projection은 서비스 분리 전반에서 이 경계를 보존합니다. `answered`는 exact release, principal manifest, 계획, 실행 receipt, 근거 참조를 요구하며 의존성을 사용할 수 없으면 typed limitation을 반환합니다.
 버전 1.6은 범위가 제한된 인증 그룹 claim과 관리 문서 근거도 전달할 수 있습니다.
-Console은 Core가 제공한 버전 2 의도 근거만 수락하며 정확한 개정 인용과 불완전한 범위의 한계를 표시합니다. 문서 텍스트를 지시나 현재 운영 상태로 취급하지 않습니다.
+Console은 Core가 제공한 버전 2 의도 근거만 수락하며 정확한 개정 인용과 불완전한 범위의 한계를 표시합니다. 문서 텍스트를 지시나 현재 운영 상태로 취급하지 않습니다. 커밋된 의미 의도 범위 artifact는 권위 있는 원본에서 다시 생성하며 런타임 권한을 부여하지 않습니다.
 선택적 문서 근거가 없을 때는 독립 운영 근거가 완성된 경우에만 부분 답변을 허용합니다. 필수 또는 명시적 문서 근거가 없으면 보류하며, 알 수 없는 근거 권위 값과 지원되지 않는 의도 근거 버전은 낮은 버전으로 바꾸거나 표시하지 않고 폐기합니다.
 [구조화된 클라우드 문서 확장](cloud-resource-knowledge-structured-rag-ko.md)은 개발 중입니다. v3 형식 선택이나 수락된 검색어는 권한을 부여하지 않으며 실제 환경의 준비도를 입증하지 않습니다.
 Process 저널은 적응형 Investigation Room도 변환할 수 있습니다. Operator는 반환 전에 Process 개정
@@ -598,7 +598,7 @@ focused 소유자 문서로 분리했습니다:
 
 - [operator-console-wire-contracts-ko.md](operator-console-wire-contracts-ko.md) - 감사 항목, CLI REPL, 승인 콜백(13.1-13.3), 액션 제출, Python VM workbench, 그라운딩된 코드, 온톨로지 변환 결과(13.6-13.9).
 - [operator-console-view-snapshot-ko.md](operator-console-view-snapshot-ko.md) - self-describing 화면 계약(13.4).
-- [operator-console-incident-roster-ko.md](operator-console-incident-roster-ko.md) - 인시던트 목록 및 교정 이력(13.5).
+- [operator-console-incident-roster-ko.md](operator-console-incident-roster-ko.md) - 인시던트 목록, 교정 이력, 카탈로그를 재사용하는 대기/적용 상태, 제한된 HTTP `202` 재조회, 권한을 부여하지 않는 Huginn-to-Saga 지침 감사 경로(13.5).
 ## 14. MCP 전달 및 managed 카탈로그
 
 FDAI가 현재 shipped 상태로 제공하는 유일한 MCP 통합은 단일 fixed-transport 읽기 전용 Azure MCP 클라이언트
