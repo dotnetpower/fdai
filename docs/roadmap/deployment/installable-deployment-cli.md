@@ -51,6 +51,8 @@ or accept an arbitrary executable from `PATH`. The selected Azure configuration,
 sanitized provider failures remain unchanged.
 Runner-image Terraform receives only a private `az` launcher bound to that resolved executable;
 resumption rejects a substituted launcher. Human identity readback uses the same trusted CLI.
+The interactive checkpoint prompt resolves that same trusted CLI before reading the current
+human approver. A missing trusted executable or a service-principal account cannot create approval.
 
 Source and kit Foundation inputs use distinct types and saved-plan schemas. A retained source
 plan must match the current snapshot and source-input digests. Source execution copies the

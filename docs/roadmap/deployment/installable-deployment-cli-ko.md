@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: d1d570840af21e24d76c6255bd10132b996aa9ad
+translation_source_sha: aa12e0555fb022e138303e51d436b9e6a0e0fe4f
 translation_revised: 2026-09-15
 ---
 
@@ -54,6 +54,8 @@ Foundation 입력과 VM 메타데이터 조회는 운영자가 소유한 로컬 
 보고는 그대로 유지합니다.
 관리 호스트 이미지의 Terraform에는 검증된 실행 파일에 고정한 비공개 `az` 연결만 제공합니다.
 재개할 때 연결 대상이 바뀌면 거부하며, 사람 신원 재조회도 같은 신뢰된 CLI를 사용합니다.
+대화형 체크포인트 프롬프트도 같은 신뢰된 CLI를 찾은 뒤 현재 사람 승인자의 신원을 조회합니다.
+신뢰된 실행 파일이 없거나 서비스 주체 계정이면 승인을 만들 수 없습니다.
 
 소스와 키트 Foundation 입력은 서로 다른 타입과 저장 계획 스키마를 사용합니다. 보존된 소스
 계획은 현재 스냅샷과 소스 입력의 digest가 일치해야 합니다. 소스 실행은 검증된 인프라를
