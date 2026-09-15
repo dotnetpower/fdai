@@ -26,6 +26,7 @@ from fdai_service_contracts import (
     SemanticTurnResult,
 )
 from fdai_service_contracts.ontology_query import EvidenceAuthority
+from fdai_service_contracts.test_context import TestContextDraft
 from pydantic import ValidationError
 
 _SEMANTIC_ROUTE_BY_DISPOSITION = {
@@ -117,6 +118,11 @@ def semantic_done_event_data(
     operational_evidence = (
         payload.get("operational_evidence") if isinstance(payload, Mapping) else None
     )
+    context_draft = payload.get("test_context_draft") if isinstance(payload, Mapping) else None
+    if context_draft is not None:
+        if disposition != "action_draft":
+            raise ValueError("test context draft requires a draft-only presentation")
+        context_draft = TestContextDraft.model_validate(context_draft).model_dump(mode="json")
     presentation_artifact = semantic_presentation_artifact(
         semantic=semantic,
         technical_details=technical_details,
@@ -157,6 +163,7 @@ def semantic_done_event_data(
             "revision": 0,
             "status": disposition,
             "answer": answer,
+            **({"test_context_draft": context_draft} if context_draft is not None else {}),
             "source": "semantic-direct-response" if direct_response else authority,
             **(
                 {

@@ -63,6 +63,11 @@ class WorkflowTriggerCoordinator:
         self._index = index
         self._orchestrator = orchestrator
 
+    @property
+    def runtime(self) -> WorkflowOrchestrator:
+        """Expose the same composed runtime without changing mode or granting authority."""
+        return self._orchestrator
+
     async def on_event(self, event: Event) -> tuple[ProcessRun, ...]:
         """Run every Workflow triggered by ``event.event_type`` in shadow.
 

@@ -22,6 +22,7 @@ from fdai.core.ontology_platform.incident_queries import IncidentEvidenceReader
 from fdai.core.ontology_platform.kubernetes_pod_diagnosis_queries import (
     KubernetesPodLogEvidenceReader,
 )
+from fdai.core.ontology_platform.pattern_queries import OperatingPatternQuery
 from fdai.core.ontology_platform.property_values import PropertyValueDomain
 from fdai.core.ontology_platform.recent_resource_changes import RecentResourceChangeReader
 from fdai.core.ontology_platform.resource_event_queries import ResourceEventCollectionReader
@@ -88,6 +89,7 @@ def compose_azure_semantic_query_runtime(
     metric_registry: MetricSemanticRegistry | None = None,
     metric_window_provider: MetricWindowProvider | None = None,
     incident_evidence_reader: IncidentEvidenceReader | None = None,
+    operating_pattern_reader: OperatingPatternQuery | None = None,
     read_investigation_provider: ReadInvestigationProvider | None = None,
     resource_health_reader: ResourceHealthCollectionReader | None = None,
     resource_event_reader: ResourceEventCollectionReader | None = None,
@@ -221,6 +223,7 @@ def compose_azure_semantic_query_runtime(
             metric_registry=metric_registry,
             metric_window_provider=metric_window_provider,
             incident_evidence_reader=incident_evidence_reader,
+            operating_pattern_reader=operating_pattern_reader,
             read_investigation_provider=read_investigation_provider,
             resource_health_reader=resource_health_reader,
             resource_event_reader=resource_event_reader,

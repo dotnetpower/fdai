@@ -1,6 +1,7 @@
 import type { ComponentChildren } from "preact";
 import { createPortal } from "preact/compat";
-import { useEffect, useRef } from "preact/hooks";
+import { useLayoutEffect, useRef } from "preact/hooks";
+import "./live.detail.css";
 
 export function LiveDetailShell({
   panelId,
@@ -18,8 +19,10 @@ export function LiveDetailShell({
   readonly children: ComponentChildren;
 }) {
   const panelRef = useRef<HTMLElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const restoreTarget = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
@@ -29,13 +32,13 @@ export function LiveDetailShell({
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== "Tab" || panel === null) return;
       const focusable = [...panel.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      )];
+        'a[href], button:not([disabled]), summary, input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )].filter((element) => element.getClientRects().length > 0);
       if (focusable.length === 0) return;
       const first = focusable[0];
       const last = focusable.at(-1);
@@ -53,7 +56,7 @@ export function LiveDetailShell({
       document.body.classList.remove("scroll-locked");
       window.requestAnimationFrame(() => restoreTarget?.focus());
     };
-  }, [onClose]);
+  }, []);
 
   const dialog = (
     <div

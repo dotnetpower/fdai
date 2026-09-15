@@ -32,6 +32,8 @@ from fdai.delivery.persistence.pgvector_pattern_library import (
     _encode_vector,
 )
 
+from tests.persistence.test_postgres_forecast_episode import forecast_database as forecast_database
+
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
@@ -134,6 +136,79 @@ async def test_search_rejects_zero_k() -> None:
         await library.search([0.0] * 384, k=0)
 
 
+async def test_retention_lock_uses_fresh_snapshot_after_waiting():
+    from unittest.mock import AsyncMock, call
+
+    connection = AsyncMock()
+    library = PgVectorPatternLibrary(
+        config=PgVectorPatternLibraryConfig(dsn="postgresql://example")
+    )
+    await library._retention_lock(connection)
+    assert connection.execute.await_args_list == [
+        call("SET TRANSACTION ISOLATION LEVEL READ COMMITTED"),
+        call("SELECT pg_advisory_xact_lock(hashtextextended('fdai.t1.case-retention', 0))"),
+    ]
+
+
+@pytest.mark.parametrize("operation", ["add", "purge"])
+@pytest.mark.parametrize("failure", ["timeout", "cancel"])
+async def test_pattern_mutations_bound_connection_wait_and_propagate_cancellation(
+    monkeypatch, operation, failure
+):
+    import asyncio
+
+    import psycopg
+    from fdai.core.case_history import CaseHistoryMaterializer
+    from fdai.core.case_history.testing import (
+        InMemoryCaseHistoryArtifactStore,
+        InMemoryCaseHistoryMetadataStore,
+    )
+
+    from tests.core.case_history.test_service import _seal
+
+    entered = asyncio.Event()
+
+    async def stalled(*_args, **_kwargs):
+        entered.set()
+        await asyncio.Future()
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", stalled)
+    timeout = asyncio.timeout
+    budgets = []
+
+    def deadline(seconds):
+        budgets.append(seconds)
+        return timeout(0 if failure == "timeout" else seconds)
+
+    monkeypatch.setattr(asyncio, "timeout", deadline)
+    library = PgVectorPatternLibrary(
+        config=PgVectorPatternLibraryConfig(dsn="postgresql://example")
+    )
+    if operation == "add":
+        work = library.add(vector=[0.0] * 384, action=_seed_action(signature="bounded"))
+    else:
+        source = await _seal(
+            CaseHistoryMaterializer(
+                metadata=InMemoryCaseHistoryMetadataStore(),
+                artifacts=InMemoryCaseHistoryArtifactStore(),
+            )
+        )
+        work = library.purge(
+            replace(
+                source,
+                deletion_started_at=source.deletion_due_at,
+                deletion_storage_refs=(source.storage_ref,),
+            )
+        )
+    task = asyncio.create_task(work)
+    if failure == "cancel":
+        await entered.wait()
+        task.cancel()
+    with pytest.raises(TimeoutError if failure == "timeout" else asyncio.CancelledError):
+        await task
+    assert budgets == [15]
+
+
 # ---------------------------------------------------------------------------
 # Integration tests - require a live Postgres+pgvector.
 # ---------------------------------------------------------------------------
@@ -191,6 +266,201 @@ def _seed_action(*, signature: str, success_rate: float = 0.95) -> LearnedAction
         incident_id=f"incident-{signature}",
         success_rate=success_rate,
     )
+
+
+@pytest.mark.integration
+async def test_case_upsert_cannot_rebind_retained_action_in_postgres(forecast_database):
+    import asyncio
+    import json
+
+    import psycopg
+    from fdai.core.case_history import CaseHistoryMaterializer, CaseHistoryRetentionService
+    from fdai.core.case_history.derived import CaseHistoryDerivedRetention
+    from fdai.core.case_history.testing import (
+        InMemoryCaseHistoryArtifactStore,
+        InMemoryCaseHistoryMetadataStore,
+    )
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+    from psycopg.conninfo import conninfo_to_dict, make_conninfo
+
+    from tests.core.case_history.test_service import _seal
+
+    async with await psycopg.AsyncConnection.connect(forecast_database) as connection:
+        cursor = await connection.execute(
+            "SELECT nspname FROM pg_extension JOIN pg_namespace ON extnamespace=pg_namespace.oid "
+            "WHERE extname='vector'"
+        )
+        extension = await cursor.fetchone()
+        if extension is None:
+            await connection.execute("CREATE EXTENSION vector")
+            extension = (conninfo_to_dict(forecast_database)["options"].split("=", 1)[1],)
+    settings = conninfo_to_dict(forecast_database)
+    dsn = make_conninfo(forecast_database, options=settings["options"] + "," + extension[0])
+    async with await psycopg.AsyncConnection.connect(dsn) as connection:
+        await connection.execute(
+            "CREATE TABLE state_kv (key TEXT PRIMARY KEY, value JSONB NOT NULL, "
+            "updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())"
+        )
+        await connection.execute(
+            "CREATE TABLE t1_pattern_library (signature TEXT PRIMARY KEY, rule_id TEXT NOT NULL, "
+            "action_type TEXT NOT NULL, params JSONB NOT NULL, embedding vector(384) NOT NULL, "
+            "source_incident_id TEXT NOT NULL, historical_success_rate DOUBLE PRECISION NOT NULL, "
+            "reuse_count INTEGER NOT NULL, operational_case JSONB)"
+        )
+    library = PgVectorPatternLibrary(config=PgVectorPatternLibraryConfig(dsn=dsn))
+    metadata, artifacts = InMemoryCaseHistoryMetadataStore(), InMemoryCaseHistoryArtifactStore()
+    materializer = CaseHistoryMaterializer(metadata=metadata, artifacts=artifacts)
+    source = await _seal(materializer)
+    context = OperationalCaseContext(
+        case_ref=f"case-history:{source.case_id}:{source.revision}:{source.manifest_digest}",
+        failure_fingerprint="f" * 64,
+        resource_type="kubernetes.service",
+        action_type="remediate.disable-public-access",
+        required_topology_role="serves",
+        graph_digest="b" * 64,
+        owner_digest="c" * 64,
+        evidence_cutoff=source.sealed_at,
+        access_scope_digest=source.access_scope_digest,
+        purpose=source.purpose,
+    )
+    original = replace(_seed_action(signature="case-bound"), operational_case=context)
+    vector = _distinct_vector("case-bound")
+    await library.add(vector=vector, action=original)
+    await library.add(
+        vector=vector, action=replace(original, operational_case=None, success_rate=0.8)
+    )
+    for change in (
+        {"rule_id": "other.rule"},
+        {"action_type": "ops.scale-out"},
+        {"params": {"reason": "changed"}},
+        {"incident_id": "other-incident"},
+        {"operational_case": replace(context, access_scope_digest="e" * 64)},
+        {"operational_case": replace(context, case_ref=f"case-history:case-b:1:{'a' * 64}")},
+    ):
+        for omitted in (False, True):
+            if omitted and "operational_case" in change:
+                continue
+            candidate = replace(
+                original, **({"operational_case": None} if omitted else {}), **change
+            )
+            with pytest.raises(ValueError, match="cannot replace"):
+                await library.add(vector=vector, action=candidate)
+    async with await psycopg.AsyncConnection.connect(dsn) as connection:
+        cursor = await connection.execute(
+            "SELECT rule_id, action_type, params, source_incident_id, operational_case, "
+            "historical_success_rate FROM t1_pattern_library WHERE signature = %s",
+            (original.signature,),
+        )
+        assert await cursor.fetchone() == (
+            original.rule_id,
+            original.action_type,
+            dict(original.params),
+            original.incident_id,
+            json.loads(_encode_operational_case(context)),
+            0.8,
+        )
+    with pytest.raises(PermissionError, match="deletion claim"):
+        await library.purge(source)
+    with pytest.raises(PermissionError, match="deletion claim"):
+        await library.purge(
+            replace(
+                source,
+                deletion_started_at=source.deletion_due_at,
+                deletion_storage_refs=(source.storage_ref,),
+                legal_hold=True,
+                legal_hold_ref="hold:example",
+            )
+        )
+    other = replace(
+        original,
+        signature="unrelated",
+        operational_case=replace(
+            context, case_ref=f"case-history:case-other:1:{'a' * 64}", access_scope_digest="e" * 64
+        ),
+    )
+    await library.add(vector=vector, action=other)
+    legacy = replace(
+        original,
+        signature="legacy-case-copy",
+        operational_case=replace(context, access_scope_digest=None, purpose=None),
+    )
+    await library.add(vector=vector, action=legacy)
+    derived_state = InMemoryStateStore()
+    retention = CaseHistoryRetentionService(
+        metadata=metadata,
+        artifacts=artifacts,
+        derived_data=CaseHistoryDerivedRetention(
+            store=derived_state, materializer=materializer, downstream=(library,)
+        ),
+    )
+    async with await psycopg.AsyncConnection.connect(dsn) as connection:
+        await connection.execute(
+            "CREATE FUNCTION reject_pattern_delete() RETURNS trigger LANGUAGE plpgsql AS $$ "
+            "BEGIN RAISE EXCEPTION 'synthetic deletion failure'; END $$"
+        )
+        await connection.execute(
+            "CREATE TRIGGER pattern_delete_failure BEFORE DELETE ON t1_pattern_library "
+            "FOR EACH ROW EXECUTE FUNCTION reject_pattern_delete()"
+        )
+    with pytest.raises(psycopg.errors.RaiseException):
+        await retention.delete_due(now=source.deletion_due_at)
+    pending = await metadata.latest(source.case_id, access_scope_digest=source.access_scope_digest)
+    assert (
+        pending is not None
+        and pending.deletion_started_at is not None
+        and pending.deleted_at is None
+    )
+    async with await psycopg.AsyncConnection.connect(dsn) as connection:
+        cursor = await connection.execute("SELECT COUNT(*) FROM state_kv")
+        assert await cursor.fetchone() == (0,)
+        cursor = await connection.execute("SELECT COUNT(*) FROM t1_pattern_library")
+        assert await cursor.fetchone() == (3,)
+        await connection.execute("DROP TRIGGER pattern_delete_failure ON t1_pattern_library")
+        await connection.execute(
+            "INSERT INTO t1_pattern_library SELECT 'batch-' || item, rule_id, action_type, params, "
+            "embedding, source_incident_id, historical_success_rate, reuse_count, operational_case "
+            "FROM t1_pattern_library CROSS JOIN generate_series(1, 1000) AS item "
+            "WHERE signature=%s",
+            (original.signature,),
+        )
+    with pytest.raises(RuntimeError, match="batch committed"):
+        await retention.delete_due(now=source.deletion_due_at)
+    pending = await metadata.latest(source.case_id, access_scope_digest=source.access_scope_digest)
+    assert pending is not None and pending.deleted_at is None
+    async with await psycopg.AsyncConnection.connect(dsn) as connection:
+        cursor = await connection.execute("SELECT COUNT(*) FROM t1_pattern_library")
+        assert await cursor.fetchone() == (3,)
+    deleted, late = await asyncio.gather(
+        retention.delete_due(now=source.deletion_due_at),
+        library.add(vector=vector, action=replace(original, signature="late-case-write")),
+        return_exceptions=True,
+    )
+    assert deleted == (source.case_id,)
+    assert late is None or isinstance(late, PermissionError)
+    restarted = PgVectorPatternLibrary(config=PgVectorPatternLibraryConfig(dsn=dsn))
+    for action in (
+        original,
+        replace(original, operational_case=None),
+        replace(original, signature="different-signature"),
+    ):
+        with pytest.raises(PermissionError, match="pending deletion"):
+            await restarted.add(vector=vector, action=action)
+    assert await retention.delete_due(now=source.deletion_due_at) == ()
+    await restarted.purge(pending)
+    assert await derived_state.verify_chain()
+    assert await artifacts.get(source.storage_ref) is None
+    async with await psycopg.AsyncConnection.connect(dsn) as connection:
+        cursor = await connection.execute("SELECT signature FROM t1_pattern_library")
+        assert await cursor.fetchall() == [(other.signature,)]
+        cursor = await connection.execute("SELECT key, value FROM state_kv")
+        markers = await cursor.fetchall()
+        assert len(markers) == 1003
+        assert all(
+            source.case_id not in key
+            and source.case_id not in json.dumps(value)
+            and value["execution_authority"] is False
+            for key, value in markers
+        )
 
 
 @pytest.mark.integration

@@ -1,0 +1,23 @@
+{
+  "additionalProperties": false,
+  "description": "Offline N-1 capability marker; never publish or admit this as active traffic.",
+  "properties": {
+    "schema_version": {
+      "const": "0.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "capability": {
+      "const": "unavailable",
+      "title": "Capability",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "capability"
+  ],
+  "title": "AlertUnavailable",
+  "type": "object",
+  "$id": "https://fdai.dev/service-contracts/alert-noise-command/0.0.0"
+}

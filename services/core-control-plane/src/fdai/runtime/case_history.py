@@ -13,11 +13,16 @@ from fdai.core.case_history import (
     CaseHistoryMaterializer,
     CaseHistoryRetentionService,
 )
+from fdai.core.case_history.derived import CaseHistoryDerivedRetention
 from fdai.core.case_history.dual_write import DualWriteCaseHistoryMetadataStore
 from fdai.core.learning import ConsensusPostTurnReviewer, PostTurnProposalModel
 from fdai.delivery.azure.case_history_artifacts import (
     AzureBlobCaseHistoryArtifactStore,
     AzureBlobCaseHistoryConfig,
+)
+from fdai.delivery.persistence.pgvector_pattern_library import (
+    PgVectorPatternLibrary,
+    PgVectorPatternLibraryConfig,
 )
 from fdai.delivery.persistence.postgres_case_history import (
     PostgresCaseHistoryMetadataStore,
@@ -111,6 +116,7 @@ def build_case_history_runtime(
     identity: WorkloadIdentity | None,
     http_client: httpx.AsyncClient | None,
     dsn: str | None = None,
+    pattern_library_dsn: str | None = None,
     relational_read_authority: bool = False,
     models: tuple[PostTurnProposalModel, ...] = (),
 ) -> CaseHistoryRuntime | None:
@@ -137,7 +143,21 @@ def build_case_history_runtime(
         http_client=http_client,
     )
     materializer = CaseHistoryMaterializer(metadata=metadata, artifacts=artifacts)
-    retention = CaseHistoryRetentionService(metadata=metadata, artifacts=artifacts)
+    retention = CaseHistoryRetentionService(
+        metadata=metadata,
+        artifacts=artifacts,
+        derived_data=CaseHistoryDerivedRetention(
+            store=state_store,
+            materializer=materializer,
+            downstream=(
+                PgVectorPatternLibrary(
+                    config=PgVectorPatternLibraryConfig(dsn=pattern_library_dsn.strip())
+                ),
+            )
+            if pattern_library_dsn and pattern_library_dsn.strip()
+            else (),
+        ),
+    )
     analyzer = None
     if len(models) >= 2:
         analyzer = CaseHistoryAnalyzer(

@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 9733fa4581d775387b1ff58b9afc6a954fb4ac1f
-translation_revised: 2026-09-13
+translation_source_sha: 3b653062071f4854e5394ae4ddbc9ccd87457f5e
+translation_revised: 2026-09-15
 ---
 # 운영 학습 온톨로지
 
@@ -150,11 +150,22 @@ Norns는 게시 전에 완전성, 최신성, 출처 분류, 충돌, 중복 수�
   범위가 제한되어야 합니다. 그 `OperatingPatternCandidate` 출력을 검토하거나 일반화하는 것은 없습니다.
 - 검토는 이후 Mimir에서 `Rule`을 대상으로 일어납니다. Pattern 기록을 검토되었다고 부르는 것은 어느
   코드도 수행하지 않는 단계를 주장하는 것입니다.
-- 이 기록은 자체 객체로 발행되지 않습니다. `Norns._observe_operational_case_cohort`가
-  `to_rule_candidate_mapping()`으로 평탄화해 `object.rule-candidate`로 보내므로, compiled cohort는
-  `RuleCandidate` 안에 담겨서만 Mimir에 도달합니다.
-- `object.pattern`은 발행자도 구독자도 없는 등록된 토픽이므로 `Pattern`은 여전히 어느 것도
-  생산하지 않는 소유 ObjectType입니다. 이름 통일이 그 공백을 메우지는 않았습니다.
+- 접근 범위가 있는 후보는 Norns 발행 후에도 `case_scope`를 보존하며 카탈로그 다이제스트는
+   접근 범위와 목적을 모두 포함합니다. Mimir는 후보 수용과 패키지 발행 전에 현재 출처 개정을
+   확인합니다. 출처 누락, 정정, 다른 접근 범위로의 대체가 있으면 검토를 차단합니다.
+- Norns는 동일한 합의와 발행 한도 검사를 거쳐 비활성 기록의 식별자를 `object.pattern`으로
+   발행합니다. `to_rule_candidate_mapping()`은 계속 `object.rule-candidate`로 Mimir에 후보를
+   전달합니다.
+- Muninn은 `object.pattern`을 소비하고 접근 범위, 용도, 액션, release, 시나리오, 출처로 분리한
+   영속 집단에서 패턴을 다시 계산합니다. 현재 봉인된 사례 산출물을 검증한 뒤 불변 패턴을
+   저장합니다. 조회 시 사례 개정 번호와 산출물을 다시 확인하므로 산출물이 삭제되거나 후보가
+   바뀌면 기록을 사용할 수 없습니다. Saga는 저장 스냅샷을 감사합니다. 이는 비활성 패턴의
+   발행과 저장을 완성하지만 규칙 승격이나 새 온톨로지 관계를 추가하지 않습니다.
+
+파생 기록은 원본 삭제와 쓰기를 함께 보호하는 사례 저장소를 사용합니다. Muninn의 보존 틱은
+원본의 최종 삭제 표시 전에 복사된 사례 집단, 스냅샷, 패턴, 발행 표시의 본문을 제거합니다.
+동시 쓰기는 CAS 경쟁 후 원본 적격성을 다시 검증합니다. 저장 한도와 이전 기록·브로커·후속
+데이터 삭제의 남은 조건은 [완료 및 삭제 계약](prediction-learning-and-case-history-ko.md#완료를-위한-상세-설계)을 참고하세요.
 
 그래서 `learned_as`(`ObservedOutcome -> Pattern`)에는 생산 가능한 엔드포인트 쌍이 없습니다. Cohort는
 sealed 사례를 `case-history:<case_id>:<revision>:<manifest_digest>`로 인용할 뿐 `ObservedOutcome`
@@ -261,6 +272,12 @@ T1은 유사도 순위 전에 결정론적 필터로 이전 사례를 검색합�
 5. 현재 근거를 다시 수집하고 모든 precondition, 대상 신원, 영향 범위,
    정책 결정을 재평가합니다.
 6. 현재 그래프가 다르거나 근거가 부족하면 사람 검토로 보류합니다.
+
+현재 재사용 검증 증적은 전체 이벤트, 정확한 매개변수, 액션 서명, 규칙, 불변 사례를
+결합합니다. Azure 어댑터는 구성된 제공자에게 독립 검증 증적을 요청하며 Core는 조회가 끝난
+후의 판단 시각으로 검사합니다. 관측의 과거 시각을 사용하지 않으며 만료 시각부터 재사용을
+보류합니다. 임베딩, 검색, 검증을 합한 총 마감의 기본값은 5초입니다. 시간 초과는 검토 보류로
+처리하고 호출자의 취소는 완료된 판정을 만들지 않은 채 전달합니다.
 
 과거 성공은 검색 관련성만 높입니다. 검증기, risk 게이트, 사람 승인, 예행 실행, 리소스 잠금,
 멱등성, postcondition, 롤백, 감사를 우회하지 않습니다.

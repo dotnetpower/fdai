@@ -14,7 +14,6 @@ Hard dependencies (per pantheon 4.3):
 from __future__ import annotations
 
 import asyncio
-import json
 from collections.abc import Awaitable, Callable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -32,6 +31,10 @@ from fdai.agents._framework.action_run_identity import (
     bounded_rollback_ref,
     rollback_matches_action_run,
 )
+from fdai.agents._framework.action_run_lineage import (
+    bounded_operational_context as _bounded_operational_context,
+)
+from fdai.agents._framework.action_run_lineage import optional_datetime as _optional_datetime
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import (
@@ -44,6 +47,10 @@ from fdai.agents._framework.pantheon import _THOR
 from fdai.agents._framework.role_answers import thor_role_answer
 from fdai.agents._framework.thor_correlation import resolve_correlation_claim
 from fdai.core.executor.safeguards import resource_lock_key
+from fdai.core.operational_context.test_context_dispatch import (
+    TestContextDispatchBinding,
+    TestContextDispatchGuard,
+)
 from fdai.core.operational_planning import KineticActionProposal
 from fdai.core.operational_planning.prospective_lineage import ProspectiveLineage
 from fdai.shared.contracts.models import Autonomy
@@ -134,6 +141,7 @@ class ActionRun:
     rollback_ref: str | None = None
     decision_case: dict[str, Any] | None = None
     operational_context: dict[str, Any] | None = None
+    test_context_guard: TestContextDispatchBinding | None = None
     workflow_action: dict[str, Any] | None = None
     kinetic_proposal: dict[str, Any] | None = None
     prospective_lineage: dict[str, Any] | None = None
@@ -172,6 +180,11 @@ class ActionRun:
             "rollback_ref": self.rollback_ref,
             "decision_case": self.decision_case,
             "operational_context": deepcopy(self.operational_context),
+            **(
+                {"test_context_guard": self.test_context_guard.model_dump(mode="json")}
+                if self.test_context_guard is not None
+                else {}
+            ),
             "workflow_action": deepcopy(self.workflow_action),
             "kinetic_proposal": deepcopy(self.kinetic_proposal),
             "prospective_lineage": deepcopy(self.prospective_lineage),
@@ -215,6 +228,11 @@ class ActionRun:
             rollback_ref=data.get("rollback_ref"),
             decision_case=action_run_lineage.bounded_decision_case(data.get("decision_case")),
             operational_context=operational_context,
+            test_context_guard=(
+                TestContextDispatchBinding.model_validate(data["test_context_guard"])
+                if data.get("test_context_guard") is not None
+                else None
+            ),
             workflow_action=action_run_lineage.bounded_workflow_action(data.get("workflow_action")),
             kinetic_proposal=_durable_kinetic_proposal(data.get("kinetic_proposal")),
             prospective_lineage=_durable_prospective_lineage(data.get("prospective_lineage")),
@@ -302,6 +320,7 @@ class Thor(Agent):
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._execution_resource_lock = execution_resource_lock
         self._require_execution_resource_lock = require_execution_resource_lock
+        self._test_context_dispatch_guard: TestContextDispatchGuard | None = None
         self.action_runs: dict[str, ActionRun] = {}
         self._idempotency_runs: dict[str, ActionRun] = {}
         self._resource_locks: set[str] = set()
@@ -313,6 +332,12 @@ class Thor(Agent):
         )
         # FIFO-cap terminal history; active runs retain resource mutex and approval lookups.
         self._max_retained_runs = 10_000
+
+    def bind_test_context_dispatch_guard(self, guard: TestContextDispatchGuard) -> None:
+        """Bind an authority-lowering context recheck before processing runtime events."""
+        if self._test_context_dispatch_guard is not None:
+            raise RuntimeError("test context dispatch guard is already bound")
+        self._test_context_dispatch_guard = guard
 
     def set_executor(self, executor: ActionExecutor) -> None:
         """Bind the composition root's privileged action executor."""
@@ -497,6 +522,9 @@ class Thor(Agent):
                 return
             await self.dispatch_verdict(payload)
         elif topic == "object.approval":
+            if payload.get("kind") == "test_context_review":
+                self.record_behavior("test_context_approval_ignored")
+                return
             if payload.get("kind") == "document_ingestion":
                 self.record_behavior("document_approval_ignored")
                 return
@@ -673,6 +701,11 @@ class Thor(Agent):
             rollback_contract=str(verdict.get("rollback_contract", "state_forward_only")),
             decision_case=decision_case,
             operational_context=operational_context,
+            test_context_guard=(
+                TestContextDispatchBinding.model_validate(verdict["test_context_guard"])
+                if verdict.get("test_context_guard") is not None
+                else None
+            ),
             workflow_action=action_run_lineage.bounded_workflow_action(
                 verdict.get("workflow_action")
             ),
@@ -817,8 +850,19 @@ class Thor(Agent):
                     return
             run.transition(ActionRunState.EXECUTING)
             await self._emit_action_run(run)
+            if run.test_context_guard is not None:
+                guard = self._test_context_dispatch_guard
+                if guard is None or not await guard.current(
+                    run.test_context_guard, target_ref=run.resource_id
+                ):
+                    run.transition(ActionRunState.DENY_DROPPED)
+                    run.outcome = "test_context_changed_before_dispatch"
+                    await self._emit_action_run(run)
+                    await self._release_resource_claim(run)
+                    self.record_behavior("test_context:dispatch_held")
+                    release_lock = True
+                    return
             if run.shadow_mode:
-                # Shadow-mode: judge and log without mutating.
                 run.transition(ActionRunState.SUCCEEDED)
                 run.outcome = "shadow_success"
                 await self._emit_action_run(run)
@@ -1295,35 +1339,6 @@ __all__ = [
 ]
 
 
-def _bounded_operational_context(raw: object) -> dict[str, Any] | None:
-    if raw is None:
-        return None
-    if not isinstance(raw, Mapping):
-        return None
-    required_lists = {
-        "service_ids",
-        "workload_ids",
-        "objective_ids",
-        "constraint_ids",
-        "stale_sources",
-        "conflicts",
-    }
-    if (
-        not isinstance(raw.get("snapshot_id"), str)
-        or not str(raw["snapshot_id"]).strip()
-        or not isinstance(raw.get("autonomy_ceiling"), str)
-        or any(not isinstance(raw.get(field), list) for field in required_lists)
-    ):
-        return None
-    try:
-        encoded = json.dumps(raw, allow_nan=False, ensure_ascii=True, sort_keys=True)
-    except (TypeError, ValueError):
-        return None
-    if len(encoded) > 16_384:
-        return None
-    return deepcopy(dict(raw))
-
-
 def _resolved_autonomy_ceiling(verdict: Mapping[str, Any]) -> Autonomy:
     """Return the restrictive typed ceiling carried by one verdict."""
 
@@ -1355,20 +1370,6 @@ def _resolved_autonomy_ceiling(verdict: Mapping[str, Any]) -> Autonomy:
         Autonomy.ENFORCE_AUTO: 2,
     }
     return min(values, key=rank.__getitem__)
-
-
-def _optional_datetime(value: object, *, field_name: str) -> datetime | None:
-    if value is None:
-        return None
-    if not isinstance(value, str):
-        raise ValueError(f"durable ActionRun {field_name} MUST be text")
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError as exc:
-        raise ValueError(f"durable ActionRun {field_name} is invalid") from exc
-    if parsed.tzinfo is None:
-        raise ValueError(f"durable ActionRun {field_name} MUST be timezone-aware")
-    return parsed.astimezone(UTC)
 
 
 def _kinetic_proposal(raw: object) -> KineticActionProposal | None:

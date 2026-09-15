@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: e9a47c21baa1312d8bb3575d205ddf989733552f
+translation_source_sha: eaa092b95fa685f9bfd9c1eaa08737dffc4ec6b8
 translation_revised: 2026-09-15
 ---
 # 프로젝트 구조
@@ -40,7 +40,8 @@ checkpoint부터 재개합니다.
 커버리지와 fan-out 의미를 명시적으로 보존하는 별도의 도메인 범위 설계가 필요합니다.
 
 ## 모듈 경계(모듈 Boundaries)
-
+[알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)가 타입 지정 근거, Process와 조건부 수동 PR을 소유합니다. 전용 Operator 조립은 요청 의존성과 감독되는 브리지 하나를 연결하며 공통 루트는 수명 주기만 소유합니다. 역할별 framework mixin은 에이전트 API와 인스턴스 격리를 보존합니다. 공유 수락 목록이 결정 검증을 고정합니다. 기존 검증 절차를 갖춘 생성기는 운영 증적을 재작성하지 않고 release 기반 소스 참조를 재평가하며, 소스 테스트와 생성 지식은 권한을 부여하지 않습니다.
+예측 평가 제외 사유는 모델 facade가 공개하는 문자열 열거형이며 JSON 값과 기존 결과 전송 형식은 바뀌지 않습니다. 컨텍스트 변환 모듈은 Core wheel에 포함되고, Operator 컨텍스트 명령 테스트는 명시적인 서비스 검사 소유자를 가지며, DB 전용 테스트는 통합 검사에서 실행됩니다. 타입 검증 뒤에 근거 허용 여부를 평가하고, 상태를 바꾸지 않는 정확한 재생과 새로 허용된 쓰기를 구분합니다. 레코드 내용이 그대로여도 소유 문서의 줄 배치가 바뀌면 카탈로그 원본 해시를 갱신합니다.
 의존 방향은 엄격하게 단방향이며, 위반은 리뷰 블로커입니다. [AKS 토큰 교환](../deployment/runtime-deployment-profiles-ko.md#신원-및-secret)과 명시적으로 선언한 SDK/비동기 전송 의존성은 서비스가 소유하며 Core 도메인이나 공유 계약에 넣지 않습니다. Operator 자격 증명 테스트는 하나의 서비스 테스트 묶음에 명시적으로 속하며, 생성 함수는 기존 adapters 공개 모듈을 통해 조립 의존 경로 수를 유지합니다. `core/licensing/trial.py`의 비활성 Trial 기록은 기능을 허용하지 않습니다. 배포/영속 계층이 원자적 활성화를 소유하고 런타임은 보존 상태의 출처를 인증해야 합니다. 소스 출처는 CLI가 소유하며 사용 권한이나 release 서명이 아닙니다.
 클라우드 참조 수집은 수집 API, 파싱/색인 활성화는 작업자, 날짜를 명시한 근거는 Core가 담당합니다. [수명 주기 설계](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)는 공유 계약과 실행 권한이 없는 경계를 정의합니다. Core는 적용 조건을 제한된 단일 값 선택자로 노출하며 근거 객체는 의존 조회 결과로만 받습니다. 정확한 문서 맥락은 순위 계산 전에 이 선택 조건과 함께 적용하며 더 넓은 컬렉션 조회로 대체할 수 없습니다. 새 수집 테스트마다 서비스 테스트 소유자가 하나이며, 이미 선언된 API의 `aiohttp` 의존성은 간접이 아닌 직접 사용으로 분류합니다. 새 클라우드 참조 패키지는 정규화 텍스트 전용 v2 레코드를 사용합니다. 수집 원본은 API가 계속 소유하고 패키지/작업자 읽기 경로는 정확한 v1 식별 정보와 기존 승인 조건을 유지합니다.
 
@@ -372,7 +373,7 @@ checkpoint부터 재개합니다.
 
 업스트림은 범용 인터페이스와 동작하는 기본 구현을 제공합니다. 포크는 `core/`를 편집하거나
 복사하지 않고 자체 조립 루트에서 의존성을 주입해 구성을 변경합니다.
-[포크 모델](../../../.github/instructions/generic-scope.instructions.md)을 참조하세요.
+[포크 모델](../../../.github/instructions/generic-scope.instructions.md)을 참조하세요. [알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)는 제한적 조회기, 독립 근거, 기존 Workflow/Process 조정, GitOps 전달, 원본 작성자 통제 및 효과 중계를 연결합니다. 공유 알림 코덱은 온톨로지 쿼리 한도를 늘리지 않고 비공개 근거 크기를 제한하며, 순수 평가 함수는 불완전한 라우팅을 보고서 완전성에도 반영합니다. 공유 시계열 스키마는 완전하고 균일한 관측량과 사례별 탐지 결과를 고정합니다. Core는 평가 구간/주기 중 한 축을 비교하고 전달 계층은 고정된 출처 기록을 인증하며 지원되는 Azure Terraform 기간 필드만 생성합니다. Operator 요청 이력은 자체 접수를 정확한 서명 결과와 연결하며 공유 제안 상세는 Core 테이블에 접근하거나 승인/결과 권한을 만들지 않고 기준선과 재생 지표를 결속합니다. 팩터리는 처리 구조만 제공하며 독립 권한이나 수신자/효과 증적을 만들지 않습니다. 운영 도입에는 아직 충족해야 할 조건이 있습니다.
 
 > **포크 유지관리자**: 절차적 walkthrough는
 > [downstream-fork-guide-ko.md](../fork-and-sequencing/downstream-fork-guide-ko.md)에서 시작. 이 섹션은
@@ -454,12 +455,15 @@ checkpoint부터 재개합니다.
 
 ### 주입 가능한 Seams
 
-아래 **CSP-중립성 계약** 으로 표시된 여덟 경계는 [csp-neutrality-ko.md](csp-neutrality-ko.md)
-의 와이어 수준 계약을 구현합니다. `core/` 는 인터페이스만 봅니다; 포크 또는 미래의 비-Azure
+Operator의 영속 발신함 facade는 별도 래퍼 없이 테스트 맥락 브리지를 재노출합니다.
+import를 모아도 작업 정체성, 문서 수집, 출처 소유권, 구성 의존성 상한은 유지합니다.
+
+아래 **CSP-중립성 계약** 으로 표시된 여덟 경계는 [csp-neutrality-ko.md](csp-neutrality-ko.md)의 와이어 수준 계약을 구현합니다. `core/` 는 인터페이스만 봅니다; 포크 또는 미래의 비-Azure
 단계 는 `core/` 를 편집하지 않고 조립 루트 에서 새 구현을 등록합니다.
 
 | 경계 | 인터페이스 (`shared/`) | 계약 | 기본 (상류) | 포크 오버라이드 예시 |
 |------|-----------------------|-----|-------------|---------------------|
+| 예측 및 테스트 맥락과 파생 사례 수명 주기 | `ForecastContextProvider`; `TestContextSource` (Core); `CaseHistoryDerivedDataStore` | 정확한 범위, 대상, 시각과 독립 검증 근거. 파생 정리가 끝나야 원본 삭제를 완료하며 실행 권한은 없음 | 정규화된 이력 수집, 의미 초안, 인증된 맥락 명령, Saga가 감사한 적용 결과, Thor 실행 직전 검사, 승인된 Pattern 조회, 실제 라이브러리 DSN을 쓰는 원본 삭제 보호형 T1 벡터 정리를 연결함. 독립 증적 발급, Operator 작업 화면, 다른 후속 사본 정리는 미완료임 | 거버넌스를 따르는 출처 및 검증 증적 공급자와 삭제를 보호하는 사례 저장 어댑터 |
 | 제한된 워커 계획 | `core/task_worker/planning_executor.py`의 `TaskWorkerPlanningProvider` | 전송 전에 토큰과 비용 한도를 전달하고 판단 보류에도 측정된 사용량을 반환합니다. 사용량을 측정하지 않는 프로바이더는 실행기 생성 시 거부합니다. | 미연결. #805의 운영 프로바이더와 런타임 구성이 여전히 필요합니다. | 전송 전 한도 적용과 실패 시 사용량 기록을 입증한 읽기 전용 프로바이더 주입 |
 | Event 버스 | `EventBus` (Kafka 프로듀서/컨슈머) | **CSP-중립성 계약** - [이벤트버스](csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜) | SASL/OAUTHBEARER (Entra 토큰 소스) 를 사용하는 librdkafka 기반 클라이언트 | AWS IAM SigV4 인증, GCP IAM 인증, Confluent SASL/PLAIN, 자체 호스팅 Kafka mTLS |
 | 런타임 | `RuntimeAdapter` (OCI + Knative 호환 매니페스트 렌더링) | **CSP-중립성 계약** - [런타임](csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트) | Container Apps IaC 렌더러 (Bicep/Terraform) | Cloud 실행 YAML, App 실행기 서비스, 어떤 K8s 위의 Knative 서비스 |

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 82b3b2a01e7d9b67bc149cf6afa7571988b0d8de
+translation_source_sha: 8037b3ef446e6a6bbfe8ed6db14e458c9f2e481a
 translation_revised: 2026-09-15
 ---
 
@@ -38,9 +38,9 @@ Operations 영역은 기존 도메인 변환 결과를 읽고, 각 스키마와 
 | Operator API 도메인 요청 경로 | 인증, 인가, 출처 개정 번호와 도메인 스키마 검증, 중복 제거, publish | 요청을 접수하며 판단하거나 실행하지 않습니다. |
 | 에이전트 런타임 | 타입이 지정된 pub/sub으로 판단, 승인, 실행, 복구, 감사 | 기존 pantheon 소유권이 권한을 유지합니다. |
 
-Operator API는 mechanical 중계로 유지합니다. FDAI Console과 운영자 클라이언트가 공유하는
-비특권 HTTP 백엔드이며 Thor의 실행기 신원을 받지 않습니다. 오케스트레이터, 숨은 에이전트 또는
-범용 작업 흐름 엔진이 되지 않으며 에이전트는 서로 직접 호출하지 않습니다.
+Operator API는 에이전트 직접 호출 대신 타입 지정 이벤트를 중계합니다. 기능별 조립 모듈은 요청 상태와 감독되는 작업자를 연결할 뿐 실행기나 작업 흐름 권한을 갖지 않습니다.
+출처 필터는 합계를 보존하며 알림 표 머리글은 읽기 쉬운 텍스트 토큰을 사용합니다. [알림 과다 수신 요청](../operations/alert-noise-governance-ko.md)은 원래 접수와 서명된 결과를 표시합니다.
+불확실성은 정확한 요청 키의 최종 결과로만 해소하며 승인과 효과 상태는 정본 Process가 소유합니다. 격리된 테스트 데이터로 인증된 화면의 접근성을 입증할 수는 없습니다.
 
 기록된 Resource 상태 화면은 브라우저에서 공급자 원시 필드를 해석하지 않고 공유하는 독립 상태
 축을 사용합니다. 따라서 정확한 Static Web App 기본 환경 `BuildStatus`를 운영 값으로 표시하고,

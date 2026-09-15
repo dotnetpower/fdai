@@ -91,6 +91,7 @@ from fdai.agents._framework.tool_planner import (
 )
 from fdai.agents._framework.tool_semantic import SemanticToolConfig, SemanticToolPlanner
 from fdai.agents._framework.topics import (
+    ENVELOPE_SCHEMA_VERSION,
     OWNED_OBJECT_TOPICS,
     partition_key_for,
     topic_for_object_type,
@@ -98,6 +99,7 @@ from fdai.agents._framework.topics import (
 from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents._framework.workflows import WORKFLOWS, WorkflowSpec
 from fdai.agents.bragi import Bragi
+from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.huginn import Huginn
 from fdai.agents.mimir import Mimir
@@ -123,6 +125,7 @@ async def request_rule_generation(
 __all__ = [
     "AssignmentWorkflowBindings",
     "Agent",
+    "Forseti",
     "AdminCard",
     "AdminNotificationAdapter",
     "AuditEntry",
@@ -154,6 +157,7 @@ __all__ = [
     "EventBusBridge",
     "Heimdall",
     "Huginn",
+    "ENVELOPE_SCHEMA_VERSION",
     "GitHubIssue",
     "IdempotentIssueTrackerAdapter",
     "IssueTrackerAdapter",

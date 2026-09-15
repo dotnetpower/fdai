@@ -1,10 +1,6 @@
-"""Heimdall - Observer (Wave 3 + Wave 6 behavior).
+"""Heimdall owns independent observation, bounded anomaly episodes and evidence relays.
 
-Heimdall detects anomalies from Event streams, correlates
-SecurityEvents into severity classifications, and (Wave 6) delivers
-admin notifications through a pluggable ``alerter_hook`` that Var
-registers. Deduplication of admin cards uses a rolling window per
-(initiator, action) pair.
+Admin notifications retain per-initiator/action deduplication; observation grants no authority.
 """
 
 from __future__ import annotations
@@ -19,6 +15,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog, is_irreversible
+from fdai.agents._framework.alert_noise_callbacks import HeimdallAlertNoiseMixin
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.heimdall_alert_window import (
@@ -110,6 +107,7 @@ _DETECTION_READINESS_EVENT = "detection.readiness.observed"
 
 
 class Heimdall(
+    HeimdallAlertNoiseMixin,
     HeimdallAlertWindowMixin,
     HeimdallProviderSchemaMixin,
     HeimdallForecastMixin,
@@ -209,6 +207,8 @@ class Heimdall(
         self._rule_generation_validation_handler = handler
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if await self._alert_noise_message(topic, payload):
+            return
         if topic == "object.action-run":
             if self._action_observation_hook is None:
                 self.record_behavior("action_effect_observation:unavailable")
@@ -221,7 +221,7 @@ class Heimdall(
             )
         elif topic == RULE_GENERATION_BUILD_RESULT_TOPIC:
             await self._validate_rule_generation(payload)
-        elif topic == "object.event":
+        elif topic == "object.event" and not await self._forecast_context_message(payload):
             if payload.get("event_type") == "evidence.conflict.candidate.v1":
                 await self._publish_evidence_conflict(payload)
                 return

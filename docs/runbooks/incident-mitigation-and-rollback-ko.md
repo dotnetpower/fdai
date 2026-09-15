@@ -2,13 +2,27 @@
 title: 인시던트 완화와 Rollback Runbook
 description: Governed mitigation을 적용하고 rollback 또는 recovery를 검증하는 템플릿입니다.
 translation_of: incident-mitigation-and-rollback.md
-translation_source_sha: 7fae6b03207c56bea7a1aa8f49c563ce3b117430
-translation_revised: 2026-08-14
+translation_source_sha: 1ce15a9c3a674d674b13b578c760222423f924d8
+translation_revised: 2026-09-15
 fdai_runbook:
   schema_version: 1.0.0
   action_type_patterns:
     - governance.*
-    - ops.*
+    - ops.apply-human-access
+    - ops.revoke-human-access
+    - ops.deallocate-vm
+    - ops.delete-network-rule
+    - ops.drain-connection
+    - ops.failover-primary
+    - ops.flush-cache
+    - ops.publish-change-summary
+    - ops.restart-service
+    - ops.rotate-cert
+    - ops.scale-in
+    - ops.scale-out
+    - ops.start-vm
+    - ops.switch-t2-proposer-route
+    - ops.upsert-network-rule
     - remediate.*
     - tool.*
   sections:
@@ -136,4 +150,5 @@ Rollback은 original 액션을 지우지 않습니다. 두 기록은 추가 전�
 |-----------|------|
 | 인시던트 범위와 심각도 재확인 | [인시던트 분류](incident-triage-ko.md) |
 | 다음 제안을 위한 근거 수집 | [RCA 근거 수집](rca-evidence-collection-ko.md) |
+| 인시던트 완화와 별개인 네 알림 변경 ActionType 검토 | [알림 과다 수신 관리](alert-noise-governance-ko.md) |
 | 복구 후 응답 검토 | [사후 분석 작업 흐름](postmortem-workflow-ko.md) |

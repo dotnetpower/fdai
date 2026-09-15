@@ -2484,6 +2484,33 @@ class PostgresFamilyStore:
             attempt=attempt,
         )
 
+    async def claim_alert_quality_proposal(self) -> tuple[str, str, Mapping[str, Any]] | None:
+        """Lease one existing alert-quality outbox request without applying an effect."""
+        from fdai_operator_service.alert_quality_outbox import claim_alert_quality
+
+        return await claim_alert_quality(self._fetch_all)
+
+    async def recent_alert_quality_requests(
+        self, *, principal_id: str, scope_ref: str, limit: int
+    ) -> tuple[Mapping[str, Any], ...]:
+        """Read a bounded exact principal/scope acceptance page from the Operator outbox."""
+        if not 1 <= limit <= 26:
+            raise ValueError("alert request history limit is invalid")
+        rows = await self._fetch_all(
+            "SELECT value FROM state_kv WHERE key LIKE %(prefix)s "
+            "AND value ->> 'principal_id' = %(principal)s "
+            "AND value #>> '{payload,payload,scope_ref}' = %(scope)s "
+            "AND value ->> 'operation' IN ('alert_noise.assess', 'alert_noise.propose') "
+            "ORDER BY (value ->> 'accepted_at')::timestamptz DESC, key DESC LIMIT %(limit)s",
+            {
+                "prefix": "operator-proposal:operations:%",
+                "principal": principal_id,
+                "scope": scope_ref,
+                "limit": limit,
+            },
+        )
+        return tuple(_json_object(row.get("value"), label="alert request") for row in rows)
+
     async def claim_incident_intervention_proposal(
         self,
         *,

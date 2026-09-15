@@ -1,5 +1,6 @@
 import type { Answer } from "./answerer";
 import { hasAdvisoryResponse, parseActionDraftExplanation, parseAdvisoryResponse } from "./adaptive-answer";
+import { parseTestContextDraft } from "./test-context";
 import {
   citationsForVerification,
   createBackendRequestPayload,
@@ -692,6 +693,7 @@ export async function askBackendStream(
   const answerPlan = parseAnswerPlan(done.answer_plan);
   const answerPlanning = parseAnswerPlanning(done.answer_planning);
   const actionDraft = parseActionDraft(done.action_draft);
+  const testContextDraft = done.status === "action_draft" ? parseTestContextDraft(done.test_context_draft) : undefined;
   const codeArtifacts = parseGroundedCodeArtifacts(done.code_artifacts);
   const incidentCandidates = parseIncidentCandidates(done.incident_candidates);
   const resourceContext = parseResourceContext(done.resource_context);
@@ -750,6 +752,7 @@ export async function askBackendStream(
     ...(documentArtifact ? { documentArtifact } : {}),
     ...(confirmedSegment && !advisoryAnswer ? { confirmed: confirmedSegment } : {}),
     ...(actionDraft ? { actionDraft } : {}),
+    ...(testContextDraft ? { testContextDraft } : {}),
     ...(resourceContext ? { resourceContext } : {}),
     ...(evidenceFreshnessContext ? { evidenceFreshnessContext } : {}),
     ...(modelTrace ? { modelTrace } : {}),

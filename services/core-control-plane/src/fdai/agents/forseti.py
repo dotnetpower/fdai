@@ -1,13 +1,6 @@
-"""Forseti - Judge (Wave 3 behavior).
+"""Forseti owns typed judgment, cross-domain arbitration and bounded planning.
 
-Forseti issues verdicts (auto / hil / deny) based on:
-- a rule-match table (deterministic keyword -> ActionType id)
-- a risk_verdict table (deterministic ActionType id -> auto/hil/deny)
-- an RBAC hook (initiator principal + role → deny + SecurityEvent)
-
-Wave 3 keeps rule matching intentionally simple; the real T0 loader is
-in :mod:`fdai.rule_catalog`. Mixed-model cross-check and grounding
-(T2) land in later waves.
+Evidence, current policy and RBAC govern verdicts; planning never grants execution authority.
 """
 
 from __future__ import annotations
@@ -15,7 +8,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable, Iterable, Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Any, Protocol
 
@@ -24,6 +17,7 @@ from fdai.agents._framework.action_semantics import (
     quorum_for,
     rollback_contract_for,
 )
+from fdai.agents._framework.alert_noise_callbacks import ForsetiAlertNoiseMixin
 from fdai.agents._framework.assignment_workflow import AssignmentJudgmentMixin
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict
@@ -93,6 +87,7 @@ from fdai.core.impact_analysis import (
     change_graph_evidence_from_snapshot,
 )
 from fdai.core.operational_context import OperationalContextMaterializer, SourceFreshness
+from fdai.core.operational_context.test_context import TestContextSource
 from fdai.core.operational_planning import (
     KineticActionProposal,
     KineticActionProposalSource,
@@ -105,7 +100,7 @@ from fdai.core.operational_planning.prospective_lineage import (
     ProspectiveLineage,
     ProspectiveLineageFinalizer,
 )
-from fdai.core.readiness import AuthorityCeiling, DetectionReadinessDecision
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -152,7 +147,13 @@ class _ChangeAssessor(Protocol):
     ) -> ChangeAssessment: ...
 
 
-class Forseti(Agent, ForsetiJudgmentMixin, HandoverKnowledgeMixin, AssignmentJudgmentMixin):
+class Forseti(
+    Agent,
+    ForsetiJudgmentMixin,
+    HandoverKnowledgeMixin,
+    AssignmentJudgmentMixin,
+    ForsetiAlertNoiseMixin,
+):
     """Wave-3 Forseti: rule match + risk verdict + RBAC + SecurityEvent."""
 
     def __init__(
@@ -162,6 +163,9 @@ class Forseti(Agent, ForsetiJudgmentMixin, HandoverKnowledgeMixin, AssignmentJud
         rbac: dict[str, frozenset[str]] | None = None,
         action_semantics: ActionSemanticsCatalog | None = None,
         operational_context: OperationalContextMaterializer | None = None,
+        test_context_source: TestContextSource | None = None,
+        test_context_admission: DecisionEvidenceAdmissionProvider | None = None,
+        test_context_clock: Callable[[], datetime] | None = None,
         decision_coordinator: DomainDecisionCoordinator | None = None,
         operational_planner: SpecialistPlanningCoordinator | None = None,
         kinetic_proposal_source: KineticActionProposalSource | None = None,
@@ -179,6 +183,9 @@ class Forseti(Agent, ForsetiJudgmentMixin, HandoverKnowledgeMixin, AssignmentJud
         self._rbac = rbac if rbac is not None else _DEFAULT_RBAC
         self._action_semantics = action_semantics
         self._operational_context = operational_context
+        self._test_context_source = test_context_source
+        self._test_context_admission = test_context_admission
+        self._test_context_clock = test_context_clock or (lambda: datetime.now(tz=UTC))
         self._decision_coordinator = decision_coordinator or DomainDecisionCoordinator()
         self._operational_planner = operational_planner
         self._kinetic_proposal_source = kinetic_proposal_source
@@ -239,6 +246,8 @@ class Forseti(Agent, ForsetiJudgmentMixin, HandoverKnowledgeMixin, AssignmentJud
         if await self._handover_message(topic, payload):
             return
         if await self._assignment_message(topic, payload):
+            return
+        if await self._alert_noise_message(topic, payload):
             return
         if is_cross_vertical_candidate(topic, payload):
             await self._ingest_cross_vertical_candidate(topic, payload)
@@ -474,23 +483,6 @@ class Forseti(Agent, ForsetiJudgmentMixin, HandoverKnowledgeMixin, AssignmentJud
             snapshot,
             expected_ontology_release=expected_release,
         )
-
-    def _record_detection_readiness(self, payload: dict[str, Any]) -> None:
-        resource_id = str(payload.get("resource_id") or "")
-        try:
-            decision = DetectionReadinessDecision(str(payload.get("decision") or ""))
-            ceiling = AuthorityCeiling(str(payload.get("authority_ceiling") or ""))
-        except ValueError:
-            self.record_behavior("detection_readiness:invalid")
-            return
-        if not resource_id:
-            self.record_behavior("detection_readiness:invalid")
-            return
-        self._detection_readiness.set(
-            resource_id,
-            {"decision": decision.value, "authority_ceiling": ceiling.value},
-        )
-        self.record_behavior(f"detection_readiness:{decision.value}")
 
     # ---- cross-vertical arbitration -----------------------------------
 

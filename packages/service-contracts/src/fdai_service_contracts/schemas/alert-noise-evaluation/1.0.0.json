@@ -1,0 +1,269 @@
+{
+  "$defs": {
+    "Evaluation": {
+      "additionalProperties": false,
+      "description": "Supported threshold semantics; complex native criteria remain unsupported.",
+      "properties": {
+        "metric_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Metric Ref",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "above",
+            "below"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "threshold": {
+          "title": "Threshold",
+          "type": "number"
+        },
+        "window_seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Window Seconds",
+          "type": "integer"
+        },
+        "frequency_seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Frequency Seconds",
+          "type": "integer"
+        },
+        "aggregation": {
+          "enum": [
+            "average",
+            "maximum",
+            "minimum"
+          ],
+          "title": "Aggregation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metric_ref",
+        "operator",
+        "threshold",
+        "window_seconds",
+        "frequency_seconds",
+        "aggregation"
+      ],
+      "title": "Evaluation",
+      "type": "object"
+    },
+    "EvaluationCaseResult": {
+      "additionalProperties": false,
+      "description": "Paired detection for one labeled temporal case; absence is never zero latency.",
+      "properties": {
+        "ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "actionable": {
+          "title": "Actionable",
+          "type": "boolean"
+        },
+        "baseline_detected": {
+          "title": "Baseline Detected",
+          "type": "boolean"
+        },
+        "treatment_detected": {
+          "title": "Treatment Detected",
+          "type": "boolean"
+        },
+        "baseline_latency_seconds": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Baseline Latency Seconds"
+        },
+        "treatment_latency_seconds": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Treatment Latency Seconds"
+        }
+      },
+      "required": [
+        "ref",
+        "actionable",
+        "baseline_detected",
+        "treatment_detected",
+        "baseline_latency_seconds",
+        "treatment_latency_seconds"
+      ],
+      "title": "EvaluationCaseResult",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Measured replay result bound to the exact target, baseline and treatment.",
+  "properties": {
+    "rule_ref": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Rule Ref",
+      "type": "string"
+    },
+    "rule_revision": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Rule Revision",
+      "type": "string"
+    },
+    "scenario_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Scenario Digest",
+      "type": "string"
+    },
+    "baseline": {
+      "$ref": "#/$defs/Evaluation"
+    },
+    "treatment": {
+      "$ref": "#/$defs/Evaluation"
+    },
+    "evaluated_at": {
+      "format": "date-time",
+      "title": "Evaluated At",
+      "type": "string"
+    },
+    "expires_at": {
+      "format": "date-time",
+      "title": "Expires At",
+      "type": "string"
+    },
+    "baseline_true_positive": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Baseline True Positive",
+      "type": "integer"
+    },
+    "treatment_true_positive": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Treatment True Positive",
+      "type": "integer"
+    },
+    "baseline_false_positive": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Baseline False Positive",
+      "type": "integer"
+    },
+    "treatment_false_positive": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Treatment False Positive",
+      "type": "integer"
+    },
+    "baseline_false_negative": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Baseline False Negative",
+      "type": "integer"
+    },
+    "treatment_false_negative": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Treatment False Negative",
+      "type": "integer"
+    },
+    "accepted": {
+      "title": "Accepted",
+      "type": "boolean"
+    },
+    "reason": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Reason",
+      "type": "string"
+    },
+    "replay_method": {
+      "default": "same-bucket-threshold-v1",
+      "enum": [
+        "same-bucket-threshold-v1",
+        "uniform-metric-series-v1"
+      ],
+      "title": "Replay Method",
+      "type": "string"
+    },
+    "baseline_max_latency_seconds": {
+      "anyOf": [
+        {
+          "maximum": 10000000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Baseline Max Latency Seconds"
+    },
+    "treatment_max_latency_seconds": {
+      "anyOf": [
+        {
+          "maximum": 10000000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Treatment Max Latency Seconds"
+    },
+    "case_results": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/EvaluationCaseResult"
+      },
+      "maxItems": 128,
+      "title": "Case Results",
+      "type": "array"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "rule_ref",
+    "rule_revision",
+    "scenario_digest",
+    "baseline",
+    "treatment",
+    "evaluated_at",
+    "expires_at",
+    "baseline_true_positive",
+    "treatment_true_positive",
+    "baseline_false_positive",
+    "treatment_false_positive",
+    "baseline_false_negative",
+    "treatment_false_negative",
+    "accepted",
+    "reason"
+  ],
+  "title": "EvaluationReceipt",
+  "type": "object",
+  "$id": "https://fdai.dev/service-contracts/alert-noise-evaluation/1.0.0"
+}

@@ -174,11 +174,16 @@ function wait(delayMs: number): Promise<void> {
 
 export function LiveCoverage({
   coverage,
+  sample,
 }: {
   readonly coverage: LiveCoverageState;
+  readonly sample: boolean;
 }) {
   return (
-    <section class="live-coverage" aria-labelledby="live-coverage-title">
+    <section
+      class={`live-coverage${sample ? " is-sample" : ""}`}
+      aria-labelledby="live-coverage-title"
+    >
       <div class="live-coverage-heading">
         <div>
           <span class="live-eyebrow">{t("live.coverage.eyebrow")}</span>
@@ -186,7 +191,12 @@ export function LiveCoverage({
         </div>
         <p>{t("live.coverage.boundary")}</p>
       </div>
-      <div class="live-coverage-grid">
+      {sample ? (
+        <div class="live-coverage-sample" role="note">
+          {t("live.coverage.sampleUnavailable")}
+        </div>
+      ) : (
+        <div class="live-coverage-grid">
         <CoverageCard
           href={routeHref("rules")}
           label={t("live.coverage.catalog")}
@@ -256,6 +266,7 @@ export function LiveCoverage({
           href={routeHref("rules")}
           label={t("live.coverage.ruleEvaluation")}
           load={coverage.ruleEvaluation}
+          evidenceState={(data) => data.evaluated ? "measured" : "not-evaluated"}
           value={(data) => data.evaluated
             ? data.evaluatedRules.toLocaleString()
             : t("live.coverage.notEvaluated")}
@@ -265,7 +276,8 @@ export function LiveCoverage({
               })
             : t("live.coverage.ruleEvaluationMissing")}
         />
-      </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -274,12 +286,14 @@ function CoverageCard<T>({
   href,
   label,
   load,
+  evidenceState,
   value,
   hint,
 }: {
   readonly href: string;
   readonly label: string;
   readonly load: Load<T>;
+  readonly evidenceState?: (data: T) => "measured" | "not-evaluated";
   readonly value: (data: T) => string;
   readonly hint: (data: T) => string;
 }) {
@@ -308,7 +322,11 @@ function CoverageCard<T>({
     );
   }
   return (
-    <a class="live-coverage-card" href={href}>
+    <a
+      class="live-coverage-card"
+      data-evidence-state={evidenceState?.(load.data) ?? "measured"}
+      href={href}
+    >
       <span>{label}</span>
       <strong>{value(load.data)}</strong>
       <small>{hint(load.data)}</small>

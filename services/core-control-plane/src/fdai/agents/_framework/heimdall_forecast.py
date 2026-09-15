@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import asyncio
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fdai.agents._framework.bus import PantheonBus
 from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
@@ -23,10 +24,33 @@ class HeimdallForecastMixin:
     _forecast_evaluator: ForecastEpisodeEvaluator | None
     _forecast_closer: ForecastClosureCoordinator | None
     _forecast_store: ForecastEpisodeStore | None
+    _forecast_history_ingress: Callable[[Mapping[str, Any]], Awaitable[str]] | None = None
 
     if TYPE_CHECKING:
 
         def record_behavior(self, key: str, count: int = 1) -> None: ...
+
+    def bind_forecast_history_ingress(
+        self,
+        handler: Callable[[Mapping[str, Any]], Awaitable[str]],
+    ) -> None:
+        """Bind verified source-history retention; never infer completeness from empty input."""
+        if self._forecast_history_ingress is not None:
+            raise RuntimeError("forecast history ingress is already bound")
+        self._forecast_history_ingress = handler
+
+    async def _forecast_context_message(self, payload: dict[str, Any]) -> bool:
+        if payload.get("event_type") == "test_context.command.v1":
+            self.record_behavior("test_context:governance_command_ignored")
+            return True
+        if payload.get("event_type") != "forecast.context_history.v1":
+            return False
+        if self._forecast_history_ingress is None:
+            raise RuntimeError("forecast history ingress is unavailable")
+        async with asyncio.timeout(5):
+            await self._forecast_history_ingress(payload)
+        self.record_behavior("forecast_history:retained")
+        return True
 
     async def publish_forecast_outcome(self, outcome: ForecastOutcome) -> bool:
         """Publish one schema-validated terminal forecast result."""

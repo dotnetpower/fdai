@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 71cafc1ddb7d6d1bd9f47e6432c6347c29c09417
+translation_source_sha: d8f9fe87f0636fb13b70bd23a577c9f4ab26fac0
 translation_revised: 2026-09-15
 ---
 
@@ -37,6 +37,7 @@ translation_revised: 2026-09-15
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | implemented | 예측 기반 구현의 CI 등록 누락을 보완하고 Mimir 컨텍스트 처리, Muninn Pattern 읽기, Heimdall 이력 수신, Forseti 준비 상태 기록을 전용 framework 보조 모듈로 옮겼습니다. 역할, 소유 토픽, 제한된 대기 시간, 권한은 바뀌지 않았습니다. | `current change`; [PR #1029](https://github.com/dotnetpower/fdai/pull/1029); 분리 경로 집중 검사 234개, 근거 허용 경로 검사 316개, 구조 회귀 검사 55개, 실제 루프백 PostgreSQL 검사 3개, strict mypy와 Ruff 통과. | 보호된 CI와 병합은 대기 중이며 예측 후속 작업은 이슈 #1021부터 #1026에 남아 있습니다. |
 | 2026-09-15 | implemented | Rebase 뒤 Var의 공개 대기 티켓 유형을 보호된 main과 일치시키고 기존 배정 검토 바인딩을 집중 배정 작업 흐름 helper로 이동했습니다. | `current change`; 레이아웃, 배정 및 Wave 3 집중 검사 125개 통과, strict mypy, Ruff 및 enforced LOC 통과. | 승인, 배정, 역할 또는 권한 동작은 바뀌지 않았으며 기록된 Low 심각도 잔여 문제를 해결합니다. |
 | 2026-09-15 | implemented | 보호된 main으로 rebase한 뒤 Var shadow 검토 레코드, 범위 제한 티켓 제거 및 차단 시도 중복 제거를 집중 티켓 신원 helper로 이동했습니다. | `current change`; Wave 3, 런타임 및 정족수 검사 193개 통과, strict mypy, Ruff, 에이전트 가져오기 및 enforced LOC 통과, Var 800줄. | 승인 동작이나 권한은 바뀌지 않았으며 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
 | 2026-09-15 | implemented | 수명 주기 순위로 오래된 쓰기를 억제하기 전에, 그리고 Thor가 멱등성을 예약하거나 리소스를 점유하기 전에 활성 영속 ActionRun 신원을 검증하도록 했습니다. 상관관계를 공유하는 peer generation은 실행 전에 실패하며 정규 활성 실행을 복구 화면에서 숨길 수 없습니다. | `current change`; 활성 행 및 복제본 간 충돌 회귀 검사, LOC 상한 아래로 provider 점유 시간 helper 추출. | 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |

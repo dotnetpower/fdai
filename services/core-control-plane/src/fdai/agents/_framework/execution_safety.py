@@ -10,11 +10,27 @@ import logging
 from collections.abc import Awaitable, Callable, Coroutine, Mapping
 
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.pantheon import HARD_DEPENDENCY_AGENTS, PANTHEON_NAMES
 from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionExecutor, ActionRun, ActionRunStore, Thor
 from fdai.shared.providers.resource_lock import ResourceLock
 
 _LOG = logging.getLogger(__name__)
+
+
+def validate_disabled_agents(disabled_agents: frozenset[str] | None) -> frozenset[str]:
+    """Reject unknown or safety-critical disabled agents before runtime construction."""
+    disabled = frozenset(disabled_agents or frozenset())
+    unknown = disabled - PANTHEON_NAMES
+    if unknown:
+        raise ValueError(f"unknown agents in disabled set: {sorted(unknown)}")
+    forbidden = disabled & HARD_DEPENDENCY_AGENTS
+    if forbidden:
+        raise ValueError(
+            "hard-dependency agents cannot be disabled (audit / rollback "
+            f"are mutation safety invariants): {sorted(forbidden)}"
+        )
+    return disabled
 
 
 async def refuse_unbound_action(context: dict[str, object]) -> bool:

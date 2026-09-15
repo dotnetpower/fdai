@@ -129,6 +129,7 @@ def bind_azure_operational_evidence(
         current_reuse_verifier=AzureCurrentReuseVerifier(
             snapshots=snapshots,
             safety=safety,
+            admission_provider=container.decision_evidence_admission_provider,
         ),
         temporal_causal_evidence_provider=AzureTemporalCausalEvidenceProvider(
             snapshots=snapshots,

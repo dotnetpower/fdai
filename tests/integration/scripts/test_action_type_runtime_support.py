@@ -49,14 +49,45 @@ def test_shipped_manifest_covers_the_catalog(checker: ModuleType) -> None:
     assert checker.main(["--root", str(REPO_ROOT)]) == 0
 
 
-def test_current_catalog_baseline_has_49_explicit_rows(
+def test_current_catalog_baseline_has_53_explicit_rows(
     checker: ModuleType,
     manifest: dict[str, Any],
 ) -> None:
     catalog = checker._load_catalog(REPO_ROOT, manifest["catalog_root"])
 
-    assert len(catalog) == 49
+    assert len(catalog) == 53
     assert set(manifest["actions"]) == set(catalog)
+
+
+def test_alert_actions_have_conditional_manual_pr_support_without_operational_claims(
+    checker: ModuleType,
+    manifest: dict[str, Any],
+) -> None:
+    expected = {
+        "ops.restore-alert-configuration@1.0.0",
+        "ops.set-alert-notification-window@1.0.0",
+        "ops.tune-alert-evaluation@1.0.0",
+        "ops.update-alert-routing@1.0.0",
+    }
+    binding = manifest["bindings"]["core-alert-manual-pr"]
+    profile = manifest["support_profiles"]["alert-manual-pr"]
+    catalog = checker._load_catalog(REPO_ROOT, manifest["catalog_root"])
+
+    assert checker._binding_members(manifest["actions"])["core-alert-manual-pr"] == expected
+    assert binding["runtime_surface"] == "core"
+    assert binding["route_status"] == "conditional"
+    assert binding["mode_support"] == {"shadow": "conditional", "enforce": "conditional"}
+    assert binding["activation_conditions"]
+    assert profile["effect_observation"]["status"] == "conditional"
+    assert profile["recovery"]["status"] == "conditional"
+    assert profile["evidence"]["level"] == "focused_tests"
+    assert not checker._demo_ready(binding, profile)
+    for reference in expected:
+        assert manifest["actions"][reference]["bindings"] == {
+            "core-alert-manual-pr": "alert-manual-pr"
+        }
+        assert catalog[reference].execution_path == "pr_manual"
+        assert catalog[reference].default_mode == "shadow"
 
 
 def test_scale_out_is_core_only_not_isolated(manifest: dict[str, Any]) -> None:

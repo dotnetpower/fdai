@@ -19,6 +19,7 @@ from fdai_service_contracts.semantic_turn import (
     SemanticDirectResponseIntent,
     context_selection_digest,
 )
+from fdai_service_contracts.test_context import TestContextDraft
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from fdai.core.ontology_platform import QueryManifest
@@ -393,6 +394,7 @@ class SemanticPlanningOutcome:
     plan: OntologyQueryPlan | None = None
     intent_graph: IntentGraph | None = None
     investigation_intent: VerifiedInvestigationIntent | None = None
+    test_context_draft: TestContextDraft | None = None
     clarification: str | None = None
     direct_response_intent: SemanticDirectResponseIntent | None = None
     direct_response_answer: str | None = None
@@ -405,6 +407,11 @@ class SemanticPlanningOutcome:
     def __post_init__(self) -> None:
         if self.execution_authority:
             raise ValueError("semantic planning outcome MUST NOT carry execution authority")
+        if (
+            self.test_context_draft is not None
+            and self.disposition is not SemanticPlanningDisposition.ACTION_DRAFT
+        ):
+            raise ValueError("test context proposal requires a draft-only planning outcome")
         planned = self.disposition is SemanticPlanningDisposition.PLANNED
         has_plan = (
             self.frame is not None and self.plan is not None and self.intent_graph is not None
