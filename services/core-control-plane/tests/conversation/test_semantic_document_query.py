@@ -727,6 +727,16 @@ def test_retrieval_schema_does_not_promote_independent_hardening_profile(hardeni
         assert term in description
 
 
+@pytest.mark.parametrize("locale", ("", "fr", "en-US", "ko-KR", "KO", "ko "))
+def test_query_schema_rejects_noncanonical_locale_without_language_inference(locale: str) -> None:
+    with pytest.raises(ValueError):
+        _semantic_judgment_proposal_schema(
+            intent_hardening_enabled=False,
+            document_query_enabled=True,
+            source_locale=locale,
+        )
+
+
 def test_legacy_frame_serialization_omits_query_even_when_explicitly_null() -> None:
     proposal = SemanticFrameProposal(
         operation=SemanticOperation.SELECT,

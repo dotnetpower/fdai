@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from concurrent.futures import CancelledError as FutureCancelledError
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from fdai_service_contracts.ontology_query import content_digest
@@ -18,6 +18,7 @@ from fdai_service_contracts.semantic_judgment import (
     SemanticDirectResponseDraft,
     SemanticJudgmentProposal,
 )
+from pydantic import TypeAdapter
 
 from fdai.core.conversation.adaptive_call_scope import (
     call_scoped_provider,
@@ -50,6 +51,7 @@ _MAX_PREFLIGHT_TOKENS = 768
 _UNSUPPORTED_STRICT_SCHEMA_KEYS = frozenset(
     {"default", "title", "minLength", "maxLength", "minItems", "maxItems"}
 )
+_DOCUMENT_QUERY_LOCALE: TypeAdapter[Literal["en", "ko"]] = TypeAdapter(Literal["en", "ko"])
 
 
 @dataclass(frozen=True, slots=True)
@@ -644,11 +646,9 @@ def _semantic_judgment_proposal_schema(
         properties.pop("document_query", None)
         schema.get("$defs", {}).pop("DocumentRetrievalQuery", None)
     elif source_locale is not None:
-        if source_locale not in {"en", "ko"}:
-            raise ValueError("document retrieval source locale MUST be en or ko")
         schema["$defs"]["DocumentRetrievalQuery"]["properties"]["source_locale"] = {
             "type": "string",
-            "const": source_locale,
+            "const": _DOCUMENT_QUERY_LOCALE.validate_python(source_locale, strict=True),
         }
     schema_version.clear()
     schema_version["const"] = (

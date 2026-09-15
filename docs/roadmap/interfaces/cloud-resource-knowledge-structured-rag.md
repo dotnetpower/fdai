@@ -85,6 +85,7 @@ requires the exact `semantic-document-query` pack in the prompt replay manifest.
 `shadow.semantic-document-query` profile is not automatically promoted; older version-pinned
 profiles retain their output schema even when the document capability is present. Bragi renders
 citations, dates and gaps; T2 retains its separate mixed-model and verification gates.
+Source locale uses closed typed validation of `en` or `ko`, never inference from the question.
 
 An unchanged fetch/check preserves collection time and may reuse unchanged derived content.
 Normalized bytes, recipe, applicability or rights decisions changing create a material-update
