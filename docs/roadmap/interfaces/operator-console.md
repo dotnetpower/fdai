@@ -32,21 +32,6 @@ The authenticated active-incident stream can open an idle Command Deck with an i
 When the tab and Deck are idle, the first browser observation of an incident submits one localized read-only investigation turn. A browser-local incident ledger suppresses replay after reload; the incident badge remains an explicit way to investigate again. When an incident question matches several records equally, the terminal answer includes bounded candidate buttons rather than relying on a plain-text instruction. A button opens the candidate's exact incident conversation and immediately submits the localized read-only investigation turn. The click is the operator's explicit request; an automatic active-incident stream open never submits a managed-resource action.
 This doc covers the **pull direction** - the operator asks, simulates, approves - across every channel the notification doc already ships adapters for. Push and pull share the same channel credentials and the same audit contract, but they are distinct integration surfaces. For local preparation, the private `console/.env.local` may carry browser bindings plus only the server-owned `FDAI_LOCAL_NO_AZURE_DEPLOYMENT` and `FDAI_LOCAL_RESOURCE_GROUP` selectors; explicit process values take precedence, duplicate keys fail closed, and neither selector grants execution authority.
 > Customer-agnostic: every channel id, LLM deployment name, resource id, and group name below is a placeholder. A fork supplies concrete values via config ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
-## Live measurement window
-
-Live's Events / sec counts unique decoded control-loop stage and source-read activity messages
-from the central SSE feed over the last 60 event-time seconds. Heartbeats, connection metadata,
-and repeated replay frames do not count. Recent snapshots keep their original observation time;
-older snapshots can populate cards without inflating the current rate. The chart separates
-control-loop messages from source reads, and a fractional rate uses two decimal places.
-
-Gate and tier distributions count each control-loop event once when an explicit decision or tier
-is observed, without waiting for audit completion. Repeated facts do not restart their 60-second
-window. Source reads have no gate or tier and remain outside both denominators. An empty
-distribution says no decision or assignment was observed, not that all source reads were approved.
-Each measurement collection retains at most 10,000 entries; capacity or invalid-time exclusions
-make the window explicitly partial. These browser measurements never grant execution authority.
-
 ## 1. Framing - what this is (and what it is not)
 
 The FDAI Console conversation surface does **not** carry judgment authority. FDAI's judgment stays where it already is - the deterministic
@@ -675,4 +660,4 @@ deployment gates.
 
 | To learn about | Read |
 |----------------|------|
-| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/interfaces/operator-console.md) |
+| Delivery status and Live measurements | [Implementation ledger](../../roadmap-implementation/interfaces/operator-console.md), [Live metrics](live-cockpit-metrics.md) |

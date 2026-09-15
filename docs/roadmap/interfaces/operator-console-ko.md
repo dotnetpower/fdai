@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: d365a15d96986e9b87567c656890e08a820ee199
+translation_source_sha: b19ee36a48a5d1efa7094eeb643c8e78ceedf992
 translation_revised: 2026-09-15
 ---
 # FDAI Console 대화
@@ -35,22 +35,6 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 
 이 문서는 **pull 방향**, 즉 오퍼레이터가 묻고 시뮬레이션하고 승인하는 경로를 다룹니다. Push와 pull은 같은 채널 자격 증명과 감사 계약을 공유하지만 서로 다른 통합 표면입니다. 로컬 준비에서 비공개 `console/.env.local`에는 브라우저 연결과 서버가 소유하는 `FDAI_LOCAL_NO_AZURE_DEPLOYMENT`, `FDAI_LOCAL_RESOURCE_GROUP` 선택자만 추가할 수 있습니다. 명시적 프로세스 값이 우선하고 중복 키는 안전하게 차단하며 어느 선택자도 실행 권한을 부여하지 않습니다.
 > 고객-무관: 아래의 모든 채널 id, LLM 배포 이름, 리소스 id, 그룹 이름은 자리 표시자. 포크는 구성으로 실제 값을 공급합니다 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
-## Live 측정 구간
-
-Live의 초당 이벤트는 중앙 SSE에서 받은 제어 루프 단계 메시지와 소스 읽기 활동 메시지를
-최근 60초의 이벤트 시각 기준으로 집계합니다. 중복 메시지, 연결 유지 신호, 연결 정보는
-집계하지 않습니다. 최근 스냅샷은 원래 관찰 시각을 유지하며, 오래된 스냅샷은 카드에 표시되어도
-현재 처리량을 늘리지 않습니다. 차트는 제어 루프 메시지와 소스 읽기를 구분하고,
-초당 발생 건수는 소수점 둘째 자리까지 표시합니다.
-
-게이트와 티어 구성은 감사 완료를 기다리지 않고 명시적인 결정이나 티어가 관측되면
-제어 루프 이벤트별로 한 번씩 집계합니다. 같은 사실이 다시 전달되어도 60초 구간을
-다시 시작하지 않습니다. 소스 읽기에는 게이트나 티어가 없으므로 두 분모에서 제외합니다.
-분포가 비어 있으면 결정이나 배정이 관측되지 않았다고 표시하며, 소스 읽기가 모두 승인되었다는
-의미로 해석하지 않습니다. 각 측정 모음은 최대 10,000개 항목을 보존하며, 한도 초과나
-잘못된 시각으로 제외된 측정이 있으면 불완전한 구간임을 명시합니다. 이 브라우저 측정은
-실행 권한을 부여하지 않습니다.
-
 ## 1. Framing - 무엇인가 (그리고 무엇이 아닌가)
 
 FDAI Console 대화 표면은 **판단 권한을 가지지 않습니다**. FDAI의 판단 권한은 이미 있는 곳에 그대로 남습니다 - 결정론적 엔진 (T0), quality gate (T2 검증기), risk gate, shipped Rego 정책. 콘솔은 그 판단을 오퍼레이터가 검사하고, 변경을 시뮬레이션하고, 시스템이
@@ -671,4 +655,4 @@ future 범위입니다.
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
-| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/interfaces/operator-console.md) |
+| 구현 상태 및 Live 측정 | [구현 원장](../../roadmap-implementation/interfaces/operator-console.md), [Live 지표](live-cockpit-metrics-ko.md) |
