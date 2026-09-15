@@ -56,6 +56,11 @@ result limit, the store can provide one relationship-free candidate snapshot bou
 objects. The larger scan uses one connection and one source generation. Relationship-bearing
 queries never use this path, and candidate truncation remains explicit.
 
+The [structured cloud-document extension](../interfaces/cloud-resource-knowledge-structured-rag.md)
+is under development. Body blocks, excerpt identities, and query bindings describe document provenance,
+not new ObjectTypes, LinkTypes, resource identities, or observed topology. Retrieval terms cannot
+manufacture classification or applicability.
+
 ## Structural concepts
 
 | Concept | Responsibility | Does not do |

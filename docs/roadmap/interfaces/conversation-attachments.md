@@ -195,6 +195,11 @@ semantic result binds the document-context digest and can cite only references a
 context. Function evidence derives citations from the source refs actually returned by exact search,
 never from the requested set; a missing, substituted, or malformed citation holds the answer.
 
+The [structured cloud-document extension](cloud-resource-knowledge-structured-rag.md) is under
+development. Semantic-judgment `1.2.0` supplies `document_query` to a frame only from accepted model
+judgment, with a digest binding to the exact original question. Retrieval terms cannot widen the
+document context or cloud applicability; original document bodies never enter semantic transport.
+
 ## Slack download contract
 
 Slack event payload URLs are untrusted and discarded. The fetcher:

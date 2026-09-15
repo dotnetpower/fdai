@@ -24,6 +24,10 @@ production prerequisites.
 
 ## Local evidence boundary
 
+The separately scoped [structured RAG extension](cloud-resource-knowledge-structured-rag.md)
+records v3 software, bilingual query contracts and fourteen critique rounds. It retains explicit
+source-quality holds and does not close this ledger's operating prerequisites.
+
 The original implementation session supplied the following final results. Later follow-up evidence
 is recorded in its own history row; it is not added to this original owning batch.
 

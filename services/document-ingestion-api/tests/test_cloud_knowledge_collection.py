@@ -116,6 +116,24 @@ async def test_monthly_full_body_verification() -> None:
     assert transport.etags == [None, None]
 
 
+async def test_structured_upgrade_is_checkpointed_without_refetching_or_redating() -> None:
+    transport = RecordingTransport(
+        SourceResponse(200, b"<main><h1>Guide</h1><p>Retained evidence.</p></main>", "text/html")
+    )
+    legacy = await CloudDocumentCollector(transport, collector_id="test").collect(
+        SOURCE, SourceState(), now=NOW
+    )
+    upgraded = await CloudDocumentCollector(
+        transport, collector_id="test", structured=True
+    ).collect(SOURCE, legacy, now=NOW + timedelta(hours=1))
+    assert upgraded.structured_document is not None
+    assert upgraded.document == legacy.document
+    assert upgraded.last_attempt == legacy.last_attempt
+    assert upgraded.structured_document.evidence.collected_at == NOW
+    assert upgraded.structured_document.evidence.check.checked_at == NOW
+    assert transport.etags == [None]
+
+
 async def test_repeated_304_after_fallback_cannot_renew_source() -> None:
     transport = RecordingTransport(
         SourceResponse(200, b"body", etag='"one"'),

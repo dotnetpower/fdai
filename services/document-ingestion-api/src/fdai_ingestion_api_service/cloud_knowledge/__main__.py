@@ -14,7 +14,10 @@ from fdai_service_contracts.cloud_knowledge_package import (
     assemble_signed_release,
     verify_package,
 )
-from fdai_service_contracts.cloud_knowledge_release import KnowledgeTextReleaseManifest
+from fdai_service_contracts.cloud_knowledge_release import (
+    KnowledgeReleaseManifest,
+    parse_knowledge_manifest,
+)
 
 
 def _read(path: str, maximum: int) -> bytes:
@@ -47,9 +50,12 @@ def main(argv: list[str] | None = None) -> int:
         if args.operation == "assemble":
             if not args.signature or not args.key_id or not args.output:
                 raise ValueError("assembly requires detached signature, key id, and new output")
-            manifest = KnowledgeTextReleaseManifest.model_validate_json(content)
-            if canonical_bytes(manifest) != content:
-                raise ValueError("assembly requires exact canonical v2 manifest bytes")
+            manifest = parse_knowledge_manifest(content)
+            if (
+                isinstance(manifest, KnowledgeReleaseManifest)
+                or canonical_bytes(manifest) != content
+            ):
+                raise ValueError("assembly requires exact canonical v2 or v3 manifest bytes")
             content = assemble_signed_release(
                 manifest, key_id=args.key_id, signature=_read(args.signature, 64)
             )

@@ -1,0 +1,11 @@
+id: semantic-document-query
+version: 1
+layer: pack
+applies_to: [semantic.judgment]
+token_budget: 512
+default_mode: shadow
+body: |-
+  Follow the exact schema_version selected by the supplied response schema. When that schema is 1.2.0 and document_evidence_mode is explicit, required, or optional, provide document_query with concise English retrieval terms for the current utterance, source_locale equal to the supplied locale, target_locale en, and execution_authority false. Preserve the requested topic, identifiers, numbers, units and negation. These are retrieval terms only, never invented SKU, API-version, region, resource identity, access scope, applicability or execution conditions. Keep those independent target fields grounded in exact source spans. Do not add links, markup, instructions or authority. If a safe transformation is unavailable, leave document_query null; the reader will hold rather than use invented terms. When no document evidence is requested or schema 1.2.0 is absent, do not supply a document query. A successful transformation says nothing about document relevance or answer correctness until retrieval and verification complete.
+provenance:
+  source: docs/roadmap/interfaces/cloud-resource-knowledge-structured-rag.md
+  notes: Shadow-only bilingual retrieval wording; preserves model, approval, source and scope boundaries.
