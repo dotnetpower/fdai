@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: bc584dfedefeec4c76dfc9a75b68865093e74aaa
+translation_source_sha: 2191f6949b7d9cf5fc6c1d881fd8311205bd4deb
 translation_revised: 2026-09-15
 ---
 
@@ -129,8 +129,37 @@ release나 사용 권한 증명으로 취급하지 않습니다.
 부분적으로 끝난 전송은 기록을 보존하고 소스 단계를 실패로 처리합니다. 검증된 호스트 전송은
 `remote_transfer_verified=true`인 별도 비공개 증적을 만들지만 적용 권한이나 배포 준비를
 부여하지 않습니다. 공개 명령은 이 증적을 현재 로컬 소스 및 인계 근거와 대조한 뒤
-`source_application_execution_not_connected`를 반환합니다. 호스트의 이미지 빌드와 앱 실행은
+`source_application_execution_not_connected`를 반환합니다. 레지스트리 반입과 앱 실행은
 아직 남아 있습니다. 로컬 검증과 테스트용 전송 근거만으로 Azure 배포 성공을 입증하지 않습니다.
+
+### 소스 이미지 생성
+
+**초기 설계:** 소스를 관리 호스트로 옮긴 뒤 서비스 이미지를 빌드합니다.
+**비판:** 증명된 수동 관리 호스트에는 Terraform, OPA와 ORAS가 있지만 Docker와 Buildx는
+없습니다. 설치 중 검토되지 않은 특권 빌드 도구를 추가하면 호스트의 도구 및 실행 계약이 바뀝니다.
+완전한 서명 키트를 요구하면 명시적 소스 모드의 목적을 잃습니다.
+**수정 계약:** 고객 정보가 없는 공개 서비스 산출물은 운영자의 로컬 Docker 엔진에서 빌드하고,
+비공개 레지스트리 게시와 모든 비공개 데이터 플레인 작업은 증명된 관리 호스트에서 수행합니다.
+빌드 산출물의 출처는 운영자가 선택한 소스이며 서명된 release가 아닙니다.
+
+Foundation 준비 전에 소스 설치는 신뢰된 Docker 실행 파일, 명시적 로컬 Unix 연결과 Buildx를
+확인합니다. 입력 요청, 빌드나 레지스트리 접속은 하지 않으며 환경의 Docker 컨텍스트 및 BuildKit
+연결 대상 변수는 제외합니다. 도구가 없거나 유효하지 않으면 Foundation 실행 전에
+`source-image-tools` 차단 근거를 반환합니다.
+
+소스 인계를 검증한 뒤 조정기는 불변 스냅샷의 기존 Dockerfile에서 기본 서비스 5개를 빌드합니다.
+잠긴 소스 입력, `linux/amd64`, 정확한 리비전 라벨을 사용하며 OCI 출력은 스냅샷 밖에 둡니다.
+다른 소스, 원격 빌드 도구나 게시 대상을 선택하지 않습니다. 전체 이미지 목록은 하나의 실행 시간
+제한을 공유하며, 각 프로세스는 기존 제한 실행기를 사용해 진행 출력이 없는 구간을 최대 300초로
+제한합니다. 실행 전에 비공개 빌드 로그와 서비스별 불변 실행 전 기록을 만듭니다. 실패하거나
+중단된 기록으로 자동 재빌드를 시작할 수 없습니다.
+
+Buildx 메타데이터가 예상 매니페스트 digest를 제공하면 기존 OCI 검증기가 archive 해시, 모든
+blob, 플랫폼과 소스 리비전을 독립적으로 확인합니다. 증적을 재사용할 때도 같은 검증과 변경 없는
+소스를 요구합니다. 기존 OCI archive 크기 한도 512 MiB는 계속 적용합니다. 로컬 빌드 증적은
+레지스트리 게시, 적용 권한과 배포 준비를 false로 유지하며 전체 목록의 의존 이미지 검증도
+false로 유지합니다. ClamAV, Console 정적 파일, 인증된 이미지 전송·반입, 런타임 구성과
+수락 검증은 별도의 미완료 단계입니다.
 
 개발용 소스 경로는 `fdaictl provision azure --source <path>`로 명시적으로 선택합니다.
 `--online`, `--offline-kit`과 함께 사용할 수 없습니다. 초기 지원 대상은 AKS와 PostgreSQL

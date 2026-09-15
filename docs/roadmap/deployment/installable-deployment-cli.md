@@ -126,8 +126,37 @@ A retained claim allows verification only, never another copy or overwrite. Fail
 transfers preserve the claim and fail the source stage. Verified host transfer produces its own
 private receipt with `remote_transfer_verified=true`, but no apply authority or deployment readiness.
 The public command checks that receipt against current local source and handoff evidence, then reports
-`source_application_execution_not_connected`. Host-side image builds and application execution remain
+`source_application_execution_not_connected`. Registry import and application execution remain
 open. Local and mocked transport evidence do not establish a successful Azure deployment.
+
+### Source image construction
+
+**Initial design:** Build service images after transferring source to the managed host.
+**Critique:** The attested manual host has Terraform, OPA and ORAS, but no Docker or Buildx.
+Adding an unreviewed privileged builder during installation would change its tool and execution
+contract. Requiring a complete signed kit instead would defeat explicit source mode.
+**Revised contract:** Build public, customer-agnostic service artifacts on the operator's local
+Docker engine; keep private registry publication and all private data-plane work on the attested
+managed host. These build artifacts are operator-selected source, not signed releases.
+
+Before Foundation preparation, source installation checks a trusted Docker executable, the explicit
+local Unix endpoint and Buildx without prompting, building, or contacting a registry. Ambient
+Docker context and BuildKit endpoint variables are excluded. Missing or invalid tools return
+`source-image-tools` blocked evidence before any Foundation execution.
+
+After verified source handoff, the coordinator builds all five baseline services from the immutable
+snapshot's existing Dockerfiles with locked source inputs, `linux/amd64`, an exact revision label,
+and OCI output outside the snapshot. It never selects an alternate source, remote builder or push
+target. One shared deadline bounds the inventory; each process uses the existing bounded runner
+with a 300-second maximum no-progress interval. Private build logs and per-service immutable
+claims precede execution. A failed or interrupted claim cannot trigger an automatic rebuild.
+
+Buildx metadata supplies the expected manifest digest, and the existing OCI validator independently
+checks archive hashes, every blob, platform and source revision. A reusable receipt requires that
+same validation again and unchanged source. The current 512 MiB OCI archive limit remains enforced.
+Local build receipts keep registry publication, apply authority and deployment readiness false;
+the inventory also keeps dependency-image verification false. ClamAV, Console assets, authenticated
+image transport/import, runtime configuration and acceptance remain separate unfinished steps.
 
 The development source path is selected explicitly with `fdaictl provision azure --source <path>`.
 It is mutually exclusive with `--online` and `--offline-kit`. Initial support targets a new

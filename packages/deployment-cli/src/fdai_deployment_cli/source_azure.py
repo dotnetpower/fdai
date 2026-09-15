@@ -16,6 +16,7 @@ from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.installation_scope import InstallationOptions, confirm_installation_scope
 from fdai_deployment_cli.private_output import read_private_bytes
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
+from fdai_deployment_cli.runtime_release import RUNTIME_SERVICES
 from fdai_deployment_cli.source_deploy import prepare_source_deployment
 from fdai_deployment_cli.source_foundation import _copy_terraform
 from fdai_deployment_cli.source_input import inspect_source
@@ -116,6 +117,28 @@ def plan_source_installation(
     }
     environment["PYTHONPATH"] = str(source.root / "packages/deployment-cli/src")
     source.reverify()
+    builder = _capture(
+        (
+            sys.executable,
+            str(scripts / "source_image_build.py"),
+            "--check-tools",
+            "--timeout-seconds",
+            str(deadline.remaining(60)),
+        ),
+        source.root,
+        environment,
+        deadline.remaining(90),
+    )
+    source.reverify()
+    if (
+        builder.get("schema_version") != "fdai.source-image-builder.v1"
+        or builder.get("state") not in {"available", "blocked"}
+        or builder.get("mutation_performed") is not False
+        or builder.get("deployment_ready") is not False
+    ):
+        raise ValueError("source image builder returned invalid prerequisite evidence")
+    if builder["state"] == "blocked":
+        return {**builder, "stage": "source-image-tools", "source_commit": source.commit}
     preparation = _capture(
         (
             sys.executable,
@@ -288,13 +311,52 @@ def plan_source_installation(
                 != host_transfer.get("receipt_digest")
             ):
                 raise ValueError("source host transfer differs from current local evidence")
+            images: dict[str, object] | None = None
+            if host_transfer is not None:
+                images = _capture(
+                    (
+                        sys.executable,
+                        str(scripts / "source_image_build.py"),
+                        "--all-services",
+                        "--snapshot",
+                        str(work_dir / "source-snapshot"),
+                        "--snapshot-digest",
+                        str(prepared["source_snapshot_digest"]),
+                        "--work-dir",
+                        str(work_dir / "source-images"),
+                        "--timeout-seconds",
+                        str(deadline.remaining(14400)),
+                    ),
+                    source.root,
+                    environment,
+                    deadline.remaining(14400),
+                )
+                source.reverify()
+                services = images.get("services")
+                if (
+                    images.get("schema_version") != "fdai.source-images.v1"
+                    or images.get("state") != "built"
+                    or images.get("source_commit") != source.commit
+                    or images.get("snapshot_digest") != prepared["source_snapshot_digest"]
+                    or not isinstance(services, dict)
+                    or set(services) != RUNTIME_SERVICES
+                    or images.get("registry_published") is not False
+                    or images.get("apply_authorized") is not False
+                    or images.get("deployment_ready") is not False
+                    or canonical_digest(
+                        {key: value for key, value in images.items() if key != "receipt_digest"}
+                    )
+                    != images.get("receipt_digest")
+                ):
+                    raise ValueError("source image inventory differs from current installation")
             return {
                 **result,
                 "cost_review": cost_review,
                 "source_transfer": transfer,
+                **({"source_images": images} if images is not None else {}),
                 "reason_code": "source_application_execution_not_connected",
                 "next_action": (
-                    "build_source_images_on_attested_host_and_validate_application_inputs"
+                    "transfer_verified_images_for_private_registry_import_and_validate_application_inputs"
                     if host_transfer is not None
                     else "transfer_verified_source_to_attested_host_and_validate_application_inputs"
                 ),
