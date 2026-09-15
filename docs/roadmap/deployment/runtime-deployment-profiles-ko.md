@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 03d09476c2299bfedbd2a9c1fd515b3e489ec067
+translation_source_sha: 01d3033b03c8154a0ae1b9e108a63fabef5c80fc
 translation_revised: 2026-09-15
 ---
 # 런타임 배포 프로파일
@@ -123,8 +123,12 @@ DB, 네트워크, 레지스트리, 저장소, 모니터링, 메시지, 모델, �
 
 공유 플랫폼은 Event Hubs, Key Vault, Azure Container Registry, 모니터링, 워크로드 신원,
 `postgres-flex`를 계속 소유합니다. AKS 기반 상태는 클러스터, 노드 풀, 클러스터 신원, 네트워크
-연결, 클러스터 범위 Azure 역할 할당만 소유합니다. 독립적인 Azure 컨트롤 플레인 확인에서 비공개
-클러스터가 `Succeeded` 상태에 도달한 것을 증명한 뒤 Kubernetes 리소스를 적용합니다. 워크로드
+연결, 클러스터 범위 Azure 역할 할당만 소유합니다.
+기본적으로 비활성화되는 개발 환경 알림 과다 수신 파일럿은 어느 런타임을 선택하더라도 공유
+플랫폼 선행 조건으로 유지됩니다. 정확한 대상에는 전용 Action Group 하나와 메트릭 경보 하나만
+포함됩니다. 런타임 선택은 파일럿 승인, 알림 발송 권한 또는 승격을 부여하지 않습니다.
+독립적인 Azure 컨트롤 플레인 확인에서 비공개 클러스터가 `Succeeded` 상태에 도달한 것을 증명한
+뒤 Kubernetes 리소스를 적용합니다. 워크로드
 상태는 승인된 클러스터의 OIDC 발급자를 읽고 managed 배포 호스트의 비공개 kubeconfig를 사용합니다.
 DB 및 애플리케이션 준비는 모두 소유자 전용 kubeconfig를 [`kubelogin` 관리 ID 인증](https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication)으로 변환하며
 `--login msi`와 정확한 관리 호스트 client ID를 지정합니다. 자격 증명 조회는 구독을 고정하고
