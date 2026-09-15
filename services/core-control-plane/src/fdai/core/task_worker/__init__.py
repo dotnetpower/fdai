@@ -19,7 +19,11 @@ from fdai.core.task_worker.models import (
     TaskWorkerUsage,
     isolated_context,
 )
-from fdai.core.task_worker.planning_executor import AnswerPlanningTaskWorkerExecutor
+from fdai.core.task_worker.planning_executor import (
+    AnswerPlanningTaskWorkerExecutor,
+    TaskWorkerPlanningProvider,
+    TaskWorkerPlanningResponse,
+)
 from fdai.core.task_worker.profiles import (
     BACKGROUND_READ_ONLY_PROFILE,
     TaskWorkerCapabilityProfile,
@@ -54,6 +58,8 @@ __all__ = [
     "TERMINAL_WORKER_STATUSES",
     "AttenuatedCapabilities",
     "AnswerPlanningTaskWorkerExecutor",
+    "TaskWorkerPlanningProvider",
+    "TaskWorkerPlanningResponse",
     "TaskWorkerBudget",
     "TaskWorkerCapabilityProfile",
     "TaskWorkerContext",
