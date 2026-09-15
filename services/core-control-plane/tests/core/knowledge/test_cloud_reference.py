@@ -192,6 +192,17 @@ async def test_typed_applicability_requires_prefilter_capability(helpers: Module
         )
 
 
+async def test_changed_normalization_metadata_cannot_reuse_original_hash(
+    helpers: ModuleType,
+) -> None:
+    case = _case(helpers)
+    hit = case.reader._search.hits[0]
+    changed = case.binding.sources[0].model_copy(update={"normalized_sha256": "f" * 64})
+    hit.metadata["cloud_source"] = changed.model_dump_json()
+    with pytest.raises(RuntimeError, match="source identity"):
+        await case.search()
+
+
 @pytest.fixture(
     params=[
         (1, False, "fresh"),

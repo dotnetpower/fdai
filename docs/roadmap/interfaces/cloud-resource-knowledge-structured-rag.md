@@ -63,6 +63,8 @@ source/claim quality needs independent expected evidence.
 Reuse principal-scoped PostgreSQL lexical retrieval. Exact document references, collection access,
 retention, admission, revocation and resource applicability constrain candidates before ranking.
 Required context travels with the selected excerpt; a score cannot establish compatibility.
+At retrieval, normalized identity, applicability, policy and original collection metadata must
+match the admitted source; only a separately verified check receipt may be overlaid.
 Missing evidence produces a bounded hold, not an unscoped retry or a live source fetch.
 
 A schema-validated model-backed query transformation may supply bounded retrieval terms. It cannot

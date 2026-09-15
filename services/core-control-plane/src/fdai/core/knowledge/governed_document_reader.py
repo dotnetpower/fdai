@@ -334,7 +334,9 @@ class AuthorizedGovernedDocumentReader:
                 cloud_source, pending = await self._cloud_reference.resolve(
                     version.cloud_knowledge, indexed_source.source_id, observed_at
                 )
-                if indexed_source.source_sha256 != cloud_source.source_sha256:
+                if indexed_source.model_dump(exclude={"check"}) != cloud_source.model_dump(
+                    exclude={"check"}
+                ):
                     raise RuntimeError("cloud reference source identity changed")
                 if target is not None and not cloud_source.applicability.matches(target):
                     raise RuntimeError("cloud reference applicability is unverified")
