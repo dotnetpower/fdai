@@ -22,7 +22,7 @@ cross-agent workflow has an independent rollout record in
 |------|-------|----------|-------|
 | W0-W1 documentation, ontology, and framework scaffolding | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | The fixed registry, package boundary, documentation parity, and typed-topic foundation are executable and checked. |
 | W2-W6 governance, pipeline, interface, specialist, handoff, and security mechanics | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py) | Focused synthetic tests exercise the bounded mechanics, including T1 answer evaluation before optional T2 synthesis. They do not establish live operational validation. |
-| Durable authority, recovery, handoff, and learning replay | implemented | [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_wave3_pipeline.py`](../../../services/core-control-plane/tests/agents/test_wave3_pipeline.py), [`test_bootstrap_config.py`](../../../services/core-control-plane/tests/runtime/test_bootstrap_config.py) | StateStore-backed CAS, lease, checkpoint, outbox, and startup recovery paths have focused restart and concurrency evidence. Two bounded Low-severity cross-replica/idempotency residuals remain open below. |
+| Durable authority, recovery, handoff, and learning replay | implemented | [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_wave3_pipeline.py`](../../../services/core-control-plane/tests/agents/test_wave3_pipeline.py), [`test_bootstrap_config.py`](../../../services/core-control-plane/tests/runtime/test_bootstrap_config.py) | StateStore-backed CAS, lease, checkpoint, outbox, and startup recovery paths have focused restart and concurrency evidence. Two bounded Low-severity cross-replica and operation-identity residuals remain open below. |
 | W7 cross-agent shadow workflow mechanics | implemented | [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | Workflows have executable synthetic shadow traces and no evidence here of a default enforce workflow. |
 | W8 KPI, promotion, and degradation machinery | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI reports distinguish measured values from unavailable evidence, promotion fails closed on missing evidence, and injected degradation drills cover the fixed pantheon. |
 | W3 trace-continuity evidence handoff | implemented | `huginn.py`; `heimdall.py`; `test_trace_continuity_chain.py` | The sensing path preserves only bounded allowlisted continuity evidence and carries an observed reason into one Incident candidate without changing roles, topics, or action authority. |
@@ -35,6 +35,15 @@ cross-agent workflow has an independent rollout record in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Reconciled Var's public pending-ticket types with protected main and moved its existing assignment-review binding into the focused assignment workflow helper after rebase. | `current change`; 125 focused layout, assignment, and Wave 3 tests; strict mypy, Ruff, and enforced LOC. | No approval, assignment, role, or authority behavior changed; resolve the recorded Low-severity residuals. |
+| 2026-09-15 | implemented | Moved Var shadow-review records, bounded ticket eviction, and blocked-attempt deduplication into the focused ticket-identity helper after rebasing onto protected main. | `current change`; Wave 3, runtime, and quorum suites passed 193 tests; strict mypy, Ruff, agent-import, and enforced LOC passed with Var at 800 lines. | No approval behavior or authority changed; resolve the two recorded Low-severity residuals. |
+| 2026-09-15 | implemented | Validated active durable ActionRun identity before lifecycle-rank suppression and before Thor can reserve idempotency or claim a resource. A peer generation sharing a correlation now fails before execution and cannot hide the canonical active run. | `current change`; active-row and cross-replica conflict regressions; provider lease helpers extracted under the LOC ceiling. | Resolve the two recorded Low-severity residuals. |
+| 2026-09-15 | withdrawn | Withdrew reused-correlation generation replacement after independent review found decision, delivery-order, delete, and resource-claim races. Thor, Var, and durable adapters now bind each correlation to one immutable ActionRun identity and reject every distinct generation; exact same-generation replay remains idempotent. | `current change`; live and durable reuse rejection, legacy tombstone, released-claim, stale authority, and shadow partial-quorum restart regressions passed 300 tests. | Resolve the two recorded Low-severity residuals. |
+| 2026-09-15 | implemented | Preserved the prior action idempotency generation in inactive Thor tombstones and CAS-replaced the row only for a distinct generation. Reused correlations now persist a new shadow HIL run without resurrecting the completed run. | `current change`; stale-generation suppression, tombstone replacement, and reused-correlation partial-quorum restart regressions passed. | Resolve the two recorded Low-severity residuals. |
+| 2026-09-15 | implemented | Persisted Thor ActionRuns in production shadow mode whenever Var uses durable recovery, so an incomplete quorum and its exact matching run rehydrate together before the second approval. | `current change`; partial-quorum shadow restart plus runtime and bootstrap suites passed 137 tests; strict mypy and Ruff passed. | Resolve the two recorded Low-severity residuals. |
+| 2026-09-15 | implemented | Bound Var approvals and Vidar rollbacks to one lifecycle-stable ActionRun digest, scoped their durable records by that identity, and made Thor reject stale authority messages before execution or claim release. | `current change`; authority identity, correlation-reuse, rollback, and full Agent suites; strict mypy, Ruff, agent-import, and LOC gates passed. | Persist matching Thor ActionRuns in shadow mode, then resolve the two recorded Low-severity residuals. |
+| 2026-09-15 | implemented | Required Vidar to normalize a bounded non-whitespace rollback receipt before recording success, made the durable terminal codec reject blank/noncanonical receipts, and made Thor independently retain the resource claim for a blank succeeded payload. | `current change`; Wave 3, T2 recovery-chain, and Thor durability suites passed 161 tests; strict mypy and Ruff passed. | No source-level work remains for rollback receipt completeness; three Low-severity residuals remain open. |
+| 2026-09-15 | implemented | Kept a saturated Norns recovery retryable by appending the inert fingerprint candidate before marking the fingerprint proposed. Capacity failure can no longer make an unpublished candidate appear delivered. | `current change`; focused saturation reproduction plus Norns durability, coverage, and runtime suites passed 162 tests; strict mypy and Ruff passed. | Resolve the three recorded Low-severity residuals without widening agent roles or authority. |
 | 2026-09-15 | implemented | Consolidated the implemented T1/T2, Var, Vidar, Saga, Norns, and Bragi replay contracts in this focused runtime owner after the legacy Pantheon and project-structure documents reached their size ratchets. | `current change`; 1,372 campaign safety tests, 170 Cost Governance isolation tests with one environment-dependent PostgreSQL skip, strict mypy, Ruff, and structural/documentation gates. | Close the two recorded Low-severity residuals without widening agent roles or authority. |
 | 2026-09-15 | implemented | Restored final CI compatibility without changing runtime behavior: moved verified execution-outcome classification to its focused module, bound the rubric test candidate to its trusted target, exercised Norns through `object.issue`, and renamed Var's locked private decision helper so the natural-language semantic detector does not misclassify canonical enum validation. | `current change`; focused ControlLoop package, rubric, and tier tests; Norns, Var, framework-layout, semantic-routing, Ruff, strict mypy, LOC, translation, and design checks. | The two recorded Low-severity residuals remain; no role, topic, approval, execution, or promotion authority changed. |
 | 2026-09-14 | implemented | Removed an unrelated ActionRun fingerprint field from the activity-attribution change so durable and recovery identity remains unchanged. | `current change`; full mypy plus focused Thor durability and recovery regressions. | Retain deployed audit and activity evidence for the exact merged revision. |
@@ -124,6 +133,20 @@ recovery, or publication authority to a different agent.
 - Var stores one final approval and its publication checkpoint before removing the ticket. Startup
   queries exact pending fields, finalizes terminal aggregates, and republishes stored final payloads
   before consumers start without asking a person to decide again.
+- Thor stamps one lifecycle-stable ActionRun identity over correlation, action id and type, resource,
+  action idempotency, parameters, quorum, initiator, rollback contract, verdict, and workflow
+  lineage. Before any idempotency or resource claim, Thor atomically creates the initial durable
+  ActionRun as a pending correlation claim. The first durable lifecycle publication promotes it to
+  active; resource contention leaves it retryable but excludes it from restart recovery. Only the
+  canonical identity is authoritative while pending, so a retry refreshes live non-identity fields
+  such as shadow posture before promotion. Active rows and terminal tombstones preserve the
+  canonical identity digest, so only an exact replay can recover the row. Duplicate dispatch reads
+  only that correlation and never runs the cross-replica restart recovery sweep or changes an
+  unrelated resource claim. A peer returns an exact active replay without caching the foreign run
+  or its local mutex, and a pre-upgrade tombstone accepts only its matching non-empty idempotency
+  generation as completed. Var scopes decision and final records by this identity, echoes it with
+  explicit action fields, and Thor rejects a stale approval before execution. Thor and Var also
+  claim the correlation for this identity; a different idempotency generation cannot reuse it.
 
 #### Rollback claims and terminal replay
 
@@ -136,7 +159,11 @@ recovery, or publication authority to a different agent.
   late owner completion.
 - In-process and durable replay validate the complete command digest. Terminal replay also validates
   schema, revision, owner tokens, lease, bounded identity, state, notes, and receipt. A successful
-  rollback requires a non-empty bounded `rollback_ref` before Thor releases its resource claim.
+  rollback requires a normalized, non-whitespace, bounded `rollback_ref`. Thor independently
+  validates the same receipt boundary before releasing its resource claim.
+- Vidar scopes claim, terminal, and publication records by the same ActionRun identity and echoes it
+  with action type, resource, and rollback contract. Thor ignores a stale or mismatched rollback
+  without changing the current run or releasing its claim.
 
 #### Durable handoff and learning
 
@@ -153,7 +180,9 @@ recovery, or publication authority to a different agent.
 - Norns claims the handoff idempotency key, CAS-applies a pending operation to a durable fingerprint
   count, and retains each candidate until publication or deterministic hold marks it delivered.
   Startup queries exact pending fields one bounded item at a time. A blocked head pauses recovery,
-  while the next successful flush continues with durable candidates behind it.
+  while the next successful flush continues with durable candidates behind it. Capacity is
+  validated and the candidate is appended before its fingerprint enters the proposed set, so a
+  saturated recovery remains retryable.
 
 > **Current limitations:** Concurrent Saga replicas can append duplicate audit and issue-publication
 > events after the single operation-bound external mutation. Downstream publication idempotency and
@@ -166,8 +195,13 @@ recovery, or publication authority to a different agent.
 the oldest rows past a projection bound in the same order returned by `read_states`. It cannot name
 one key, so it cannot erase an authoritative record or audit entry. Enforcement composition
 requires explicit `thor_state_store`, `vidar_state_store`, and `var_state_store` bindings. Production
-may provide one durable provider instance through all exact parameters, but a missing agent-owned
-binding blocks startup before process-local approval or rollback state can be used.
+provides the durable Thor store in shadow and enforce modes whenever Var recovery is durable, so an
+incomplete quorum and its matching ActionRun resume together. Enforcement still requires every
+exact agent-owned binding before process-local approval or rollback state can be used. An inactive
+Thor row retains its stable idempotency generation. The same generation remains suppressed, while a
+different generation fails closed, including pre-campaign tombstones whose generation is unknown.
+Active rows are validated before resource claim, lifecycle-rank suppression, or execution. Released
+resource claims require the same correlation, idempotency key, and action fingerprint.
 
 ### Conversational action re-entry
 

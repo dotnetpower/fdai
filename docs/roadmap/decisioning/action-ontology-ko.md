@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 06ebe1e6066add4421daf4234586eea3448066f6
-translation_revised: 2026-09-06
+translation_source_sha: cc8824ddb7403e0ed85f991dd40b0471ed395c6d
+translation_revised: 2026-09-14
 ---
 
 # 액션 온톨로지
@@ -50,7 +50,7 @@ trigger_kind:
   fail 룰) MAY. 온톨로지 항목 는 합집합을 declare; 런타임 이 경로 선택.
 
 이 축을 제외하고 스키마의 어느 것도 trigger-specific 이 아니다; 실행기,
-RiskGate, 감사 계약은 둘 다 동일.
+RiskGate, 감사 계약은 둘 다 동일합니다. `ops.revoke-human-access`는 명시적인 대체 사례 ID와 정확한 리비전을 결속하는 제한된 `replacement_revisions` 맵을 받습니다. 전용 어댑터는 shadow 모드에서 기본·백업 담당 범위와 다른 활성 배정의 역할 수요를 확인합니다. 인자나 성공한 shadow 계획은 권한 회수, 임무 제거, 적용 모드를 허가하지 않습니다. 현재 승인, 7개 안전장치, 독립적인 승격·결과 근거는 계속 필요합니다.
 
 ## 2. 스키마
 

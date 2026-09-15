@@ -2,6 +2,8 @@ import type { OperatorApiClient } from "./api";
 import { fetchHandoverInvitation } from "./handover-api";
 import { openDeckWithContext } from "./deck/open-deck";
 import { handoverText } from "./deck/handover-i18n";
+import { handoverConversationKey, handoverLoginSessionId } from "./handover-session";
+export { handoverConversationKey, handoverLoginSessionId } from "./handover-session";
 export {
   decodeHandoverGoal,
   decodeHandoverInvitation,
@@ -9,18 +11,6 @@ export {
   type HandoverInvitation,
 } from "./handover-model";
 import type { HandoverInvitation } from "./handover-model";
-
-const SESSION_KEY = "fdai.handover.login-session.v1";
-
-export function handoverLoginSessionId(storage: Storage | null): string {
-  const existing = storage?.getItem(SESSION_KEY)?.trim();
-  if (existing) return existing;
-  const generated = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-    ? crypto.randomUUID()
-    : `handover-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  storage?.setItem(SESSION_KEY, generated);
-  return generated;
-}
 
 export async function offerProactiveHandover(
   client: OperatorApiClient,
@@ -30,7 +20,7 @@ export async function offerProactiveHandover(
   const invitation = await load(client, handoverLoginSessionId(storage));
   if (invitation === null) return null;
   openDeckWithContext({
-    sessionKey: `handover:${invitation.goalId}`,
+    sessionKey: handoverConversationKey(invitation.goalId, invitation.sessionId),
     sessionLabel: invitation.agentName,
     newConversation: false,
     targetAgent: invitation.agentName,

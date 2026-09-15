@@ -190,6 +190,16 @@ class SafeguardLifecycleCoordinator:
 
         return self._config.source_revision
 
+    @property
+    def closure_store(self) -> PostReleaseClosureStore:
+        """Expose the existing authoritative closure seam to source-bound reconciliation."""
+        return self._closure._closure_store
+
+    @property
+    def target_fences(self) -> TargetDispatchFenceStore:
+        """Expose existing read/CAS target lineage, without creating another fence store."""
+        return self._preparer._fence_store
+
     async def prepare_pre_bundle_commitment(
         self,
         *,

@@ -60,6 +60,9 @@ async def test_search_and_roster_project_only_bounded_identity_fields() -> None:
     assert users[0].user_type == "member"
     assert [item.principal_type for item in roster] == ["group", "person"]
     assert roster[1].roles == ("Reader",)
+    assert roster[1].group_ids == ("readers",)
+    assert "group_ids" not in roster[1].to_dict()
+    assert users[0].group_ids == ()
     assert status.source == "microsoft-graph"
     assert status.availability == "available"
     assert status.observed_at is not None
@@ -136,6 +139,7 @@ async def test_application_role_roster_ignores_placeholder_group_configuration()
     assert len(roster) == 1
     assert roster[0].subject_id == "user-1"
     assert roster[0].roles == ("Owner",)
+    assert roster[0].group_ids == ()
 
 
 async def test_exact_subject_lookup_resolves_users_and_groups() -> None:
@@ -172,3 +176,63 @@ async def test_exact_subject_lookup_resolves_users_and_groups() -> None:
     assert group is not None
     assert group.principal_type == "group"
     assert group.display_name == "Example Operations"
+
+
+@pytest.mark.parametrize("group_first", [False, True])
+async def test_group_membership_survives_direct_role_merge_but_not_a_later_removal(group_first):
+    include_group = True
+    person = {
+        "id": "user-1",
+        "displayName": "Example User",
+        "mail": "user@example.com",
+        "accountEnabled": True,
+        "userType": "Member",
+    }
+
+    def handler(request):
+        path = request.url.path
+        assert request.method == "GET"
+        if path.endswith("/servicePrincipals"):
+            return httpx.Response(
+                200,
+                json={
+                    "value": [
+                        {
+                            "id": "app-1",
+                            "appRoles": [
+                                {"id": "role-reader", "value": "Reader"},
+                                {"id": "role-owner", "value": "Owner"},
+                            ],
+                        }
+                    ]
+                },
+            )
+        if path.endswith("/appRoleAssignedTo"):
+            assignments = [
+                {"appRoleId": "role-owner", "principalId": "user-1", "principalType": "User"}
+            ]
+            if include_group:
+                assignments.append(
+                    {"appRoleId": "role-reader", "principalId": "readers", "principalType": "Group"}
+                )
+            return httpx.Response(
+                200, json={"value": assignments[::-1] if group_first else assignments}
+            )
+        if path.endswith("/groups/readers"):
+            return httpx.Response(200, json={"id": "readers", "displayName": "Example Readers"})
+        if path.endswith("/microsoft.graph.user"):
+            return httpx.Response(200, json={"value": [person]})
+        if path.endswith("/users/user-1"):
+            return httpx.Response(200, json=person)
+        raise AssertionError(path)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        directory = EntraHumanIdentityDirectory(client, _token, application_id="app-1")
+        roster = await directory.list_role_roster({}, limit=50)
+        identity = next(item for item in roster if item.principal_type == "person")
+        assert identity.group_ids == ("readers",)
+        assert identity.roles == ("Owner", "Reader")
+        include_group = False
+        fresh = await directory.list_role_roster({}, limit=50)
+        assert fresh[0].group_ids == ()
+        assert fresh[0].roles == ("Owner",)

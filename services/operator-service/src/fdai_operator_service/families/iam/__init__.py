@@ -70,6 +70,8 @@ from fdai_operator_service.families.iam.manifest import IAM_FAMILY_MANIFEST
 from fdai_operator_service.families.iam.notification_receipt import (
     make_notification_receipt_route,
 )
+from fdai_operator_service.families.iam.scoped_duties import make_scoped_duty_routes
+from fdai_operator_service.families.iam.scoped_duty_contracts import ScopedDutyOutbox
 from fdai_operator_service.families.iam.settings import (
     make_model_settings_routes,
     make_runtime_settings_routes,
@@ -91,6 +93,7 @@ class IamFamilyBindings:
     human_access: HumanAccessRequestOutbox | None = None
     directory: HumanIdentityDirectory | None = None
     assignments: AssignmentRequestOutbox | None = None
+    scoped_duties: ScopedDutyOutbox | None = None
     handover_goals: HandoverGoalOutbox | None = None
     handover_conversations: HandoverConversationBinder | None = None
     model_settings: ModelSettingsOutbox | None = None
@@ -137,6 +140,7 @@ def make_iam_family_routes(bindings: IamFamilyBindings) -> tuple[Route, ...]:
             outbox=bindings.handover_goals,
             authorize=bindings.authorize,
         ),
+        *make_scoped_duty_routes(outbox=bindings.scoped_duties, authorize=bindings.authorize),
         *make_model_settings_routes(
             outbox=bindings.model_settings,
             authorize=bindings.authorize,

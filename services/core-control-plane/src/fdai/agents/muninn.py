@@ -15,7 +15,14 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fdai.agents._framework.adapters import InMemoryStateStore
+from fdai.agents._framework.assignment_workflow import (
+    AssignmentClock,
+    AssignmentMaterializer,
+    assignment_clock,
+    materialize_assignment,
+)
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     agent_state_evidence_ref,
@@ -69,7 +76,7 @@ def _readiness_generated_at(record: Mapping[str, Any]) -> datetime | None:
 _MAX_OPERATING_PATTERN_CASES = 100
 
 
-class Muninn(Agent):
+class Muninn(Agent, HandoverKnowledgeMixin):
     """Wave-2 Muninn: state / context store proxy."""
 
     def __init__(
@@ -99,8 +106,26 @@ class Muninn(Agent):
         )
         self._evidence_conflict_sink = evidence_conflict_sink
         self._prospective_lineage_materializer = prospective_lineage_materializer
+        self._assignment_materializer: AssignmentMaterializer | None = None
+        self._assignment_clock: AssignmentClock = assignment_clock
+
+    def bind_assignment_materializer(
+        self,
+        materializer: AssignmentMaterializer,
+        *,
+        clock: AssignmentClock = assignment_clock,
+    ) -> None:
+        """Bind an audit-sealed case projector, not an IAM or PR executor."""
+        self._assignment_materializer, self._assignment_clock = materializer, clock
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if await self._handover_message(topic, payload):
+            return
+        if topic == "object.audit-entry" and payload.get("kind") == "human_assignment":
+            await materialize_assignment(
+                self, payload, self._assignment_materializer, clock=self._assignment_clock
+            )
+            return
         if topic == "object.pattern":
             async with asyncio.timeout(5):
                 await self._materialize_operating_pattern(payload)

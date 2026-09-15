@@ -19,55 +19,44 @@ Consumers of this document:
 
 The pantheon is a thin re-framing of the existing FDAI control loop into named organizational roles. It does not change the safety envelope in [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md); it makes the roles legible and auditable.
 
-- **Deterministic-first, LLM-capable.** Every agent CAN call an LLM through
-  its own bindings, but the runtime hot-path routes almost everything at T0
-  (rule / table lookup) or T1 (similarity). LLM calls are reserved for
-  narrow, declared uses (§8). LLM use is a capability, not a default.
-- **Agent-driven, ontology-constrained.** Agents own every state transition. The ontology validates
-  target identity, relationships, evidence freshness, allowed actions, and expected effects, but a
-  graph result never judges, approves, executes, or raises authority.
+- **Deterministic-first, LLM-capable.** Every agent can call an LLM through its own bindings, but the hot path routes almost everything at T0 (rule/table lookup) or T1 (similarity).
+  LLM calls are a capability, not a default, and remain reserved for narrow, declared uses (§8).
+- **Agent-driven, ontology-constrained.** Agents own every state transition. The ontology validates target identity, relationships, evidence freshness, allowed actions, and expected effects; graph results never judge, approve, execute, or raise authority.
 - **Closed-loop operation.** Every accepted signal follows accountable ownership through observe, understand, decide, plan, authorize, execute, verify, recover, and learn. Broker acceptance or an API success is not an operational outcome; independent observation closes the loop.
   Operational attribution grants no execution authority: audit and activity records preserve the mechanical `actor`, name the accountable Pantheon role in `owner_agent`, and use `producer_principal` only for an authenticated event-bus publisher. A projection can expose those identities but cannot infer ownership, authorship, or authority from a service name, and attribution changes do not alter ActionRun identity or idempotency.
-- **Autonomy before escalation.** Missing evidence triggers bounded reacquisition, alternate-source
-  checks, deterministic reevaluation, smaller safe plans, no-op, or rollback before human review.
-  Var requests a person only for residual ambiguity, policy-mandated approval, or risk outside
-  standing authority.
-- **Two-port model.** Every agent exposes typed pub/sub for authority-bearing machine traffic and a
-  read-only conversational presentation port for operators and bounded peer deliberation (§6).
-- **Single-writer, multi-reader topics.** Each object type has exactly one
-  owner agent that publishes; anyone may subscribe (§6.1).
-- **Judge is not the executor.** Forseti judges, Var carries authorized non-expired approval, and Thor
-  executes only after rechecking the authority ceiling, Saga receipt, stable idempotency reservation,
-  and owner-fenced distributed resource claim; restart ambiguity stays `execution_unknown`.
-- **Pantheon fixed upstream.** The 15-agent set, the org chart, and the
-  role assignments are locked. Forks customize behaviour through configured
-  seams (§10) - not by adding, removing, or renaming agents.
-- **Repository layout preserves the boundary.** Named agents live in
-  [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents), while shared runtime machinery stays in its private
-  `_framework`. External callers import only `fdai.agents`; the layout test enforces the boundary.
+- **Autonomy before escalation.** Missing evidence triggers bounded reacquisition, alternate-source checks, deterministic reevaluation, smaller safe plans, no-op, or rollback before human review.
+  Var requests a person only for residual ambiguity, policy-mandated approval, or risk outside standing authority.
+- **Two-port model.** Every agent exposes typed pub/sub for authority-bearing machine traffic and a read-only conversational presentation port for operators and bounded peer deliberation (§6).
+- **Single-writer, multi-reader topics.** Each object type has exactly one publishing owner agent; anyone may subscribe (§6.1).
+- **Judge is not the executor.** Forseti judges and Var carries authorized non-expired approval. Thor rechecks the authority ceiling, Saga receipt, stable idempotency reservation, and owner-fenced distributed resource claim before execution; restart ambiguity stays `execution_unknown`.
+- **Pantheon fixed upstream.** The 15-agent set, org chart, and role assignments are locked. Forks customize configured seams (§10), never add, remove, or rename agents.
+- **Repository layout preserves the boundary.** Named agents live in [`services/core-control-plane/src/fdai/agents/`](../../../services/core-control-plane/src/fdai/agents); shared runtime machinery stays in private `_framework`. External callers import only `fdai.agents`, as the layout test enforces.
 ## 2. Organization chart
 
-Two lines report to Odin: Thor (operations) and Forseti (judgment). Four
-governance staff report as staff (dotted) to Odin, independent from the
-operations line. Domain specialists and sensing agents sit under Forseti so
-that data flows into judgment, not directly into execution.
+Thor (operations) and Forseti (judgment) report to Odin. Four governance staff have independent dotted reporting lines to Odin.
+Domain specialists and sensing agents sit under Forseti, so evidence feeds judgment rather than execution.
 
 ![2. Organization chart. The main stages are Odin / (Master Planner), Thor / (Responder), Forseti / (Judge), Mimir / (Rule Steward), Muninn / (Memory), Saga / (Auditor), Norns / (Learner), Vidar / (Recovery), Bragi / (Narrator), Var / (Approver), Huginn / (Event Collector), Heimdall / (Observer).](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-01.en.svg)
 
 ## 3. Runtime relationship diagram
 
-The org chart is reporting lines; the relationship diagram is data flow. Sensing and specialists
-feed Forseti. Action decisions feed Thor for dispatch to Vidar, Var, or execution. Thor ignores
-document-ingestion and observation-only architecture-review decisions, Odin excludes those
-observations from action-portfolio counts, and Saga retains them as audit evidence.
-Var approval, Vidar recovery, Saga handoff, and Norns learning preserve durable idempotency and
-restart state through the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#durable-authority-and-replay).
-Cloud-reference packages require independent Var approval even with a valid signature; see
-[Cloud resource knowledge](../interfaces/cloud-resource-knowledge-lifecycle.md). Workflow requests
-preserve bounded `workflow_action` lineage through Huginn, Forseti, and Thor.
-Thor preserves an action identifier only when the verdict supplies one and never invents one from the correlation id; bounded ActionRun lineage validation remains an authority-free `_framework` helper. A delivery-owned producer stores an optional argument-bound kinetic proposal for one complete operational plan; Forseti resolves it through an injected source and keeps it on the same Verdict-to-ActionRun path after strict validation. Both are attribution and evidence only;
-neither changes quorum, mode, judgment, approval, or execution authority.
-Norns proposes to Mimir, and Odin arbitrates conflicts before judgment.
+The org chart shows reporting lines; this diagram shows data flow. Sensing and specialists feed Forseti; action Verdicts feed Thor for Var, Vidar, or execution handling. Thor ignores document-ingestion, assignment-review, and observation-only architecture-review Verdicts; Odin excludes them from action portfolios, and Saga retains their audit evidence.
+Var and Saga preserve stable document HIL idempotency, and Saga persists gated and terminal audit. Cloud-reference packages require independent Var approval even with a valid signature; see [Cloud resource knowledge](../interfaces/cloud-resource-knowledge-lifecycle.md).
+Workflow requests preserve bounded `workflow_action` lineage, including a positive attempt number, through Huginn, Forseti, and Thor. Thor preserves an action identifier only when the Verdict supplies one, never invents it from correlation, and uses an authority-free `_framework` helper for bounded ActionRun lineage validation.
+A delivery-owned producer stores an optional argument-bound kinetic proposal for one complete operational plan. Forseti resolves it through an injected source and preserves the same Verdict-to-ActionRun path after strict validation. Lineage and proposals provide attribution and evidence only, never change quorum, mode, judgment, approval, or execution authority. Norns proposes to Mimir; Odin arbitrates conflicts before judgment.
+Var approval, Vidar recovery, Saga handoff, and Norns learning also preserve durable idempotency and restart state through the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#durable-authority-and-replay).
+
+Var's pending ticket data lives beside its durable decision records in private `var_decisions`.
+The public `PendingHilTicket` and `PendingShadowReview` imports remain available from Var with
+unchanged fields, defaults, and mutability; no approval policy or publishing owner moves.
+
+- **Assignment review:** [Assignment commands](../interfaces/human-agent-assignment-implementation-plan.md#commands-events-and-actions) use Huginn ingress, Forseti validation, independent Var review, Saga seals, and Muninn case materialization on existing topics. Operator projections are not authority. Legacy IAM notices remain shadow-only; fresh removal review and independent IAM removal still precede a review-only old-duty PR. Forseti's receipt handling remains in its private assignment mixin.
+- **Membership execution:** The separately typed path now retains the full original Action and exact case, role-map, and promotion sources before Var parks the original human-approval slots. Muninn preparation is CAS `r -> r+1`, never an edit to approved `expected_revision=r`. Core constructs no mutation identity; Thor dispatches through the isolated dedicated identity, current exact source/allowlist checks, seven safeguards, and operation-independent membership lock. Current kill/health and principal-to-ActionType approval policy are rechecked. One durable intent precedes the attempt and acknowledgement follows; unknown attempts are not automatically retried.
+- **Effect and recovery:** Independent Heimdall observation, Forseti judgment, Saga sealing, and shared release closure precede Muninn effect recording. Vidar proposes and finishes a fresh, separately approved inverse; Thor dispatches it only with original owned-mutation evidence, current demand, and the same target generation. The case remains degraded/supersedable; old approval or role authority is never copied. New ActionTypes still default to shadow, and local authority cutover is prohibited.
+- **Knowledge:** Huginn -> Forseti -> Saga -> Muninn StateSnapshot -> Saga -> Norns -> Mimir -> Saga remains the owner chain. Current Core goal/reviewer/admission/retrieval bindings feed independent source checks and owner-local CAS; Norns retains consensus/publication gates while compiling private Rule/ontology candidates. Mimir admits sources before content and recompiles without a model, retires monotonically, and scrubs only under exact current `legal_hold: false`. Unknown policy or outage never erases. Explicit digest conflicts still go to Odin; packages, reviews, scheduler labels, and merges grant no IAM, catalog, graph, or execution authority.
+- **Durable authority and replay:** The implemented owner contracts preserve actual T0/T1/T2 authority, exact T2 target/rule/citation binding, and distinct canonical cross-check model identities. Var retains audited immutable-principal decision CAS and final outbox recovery. Vidar uses one stable effect-bearing field allowlist for executor input and digest, excluding regenerated delivery metadata, with owner-token leases, revision fencing, and validated terminal receipts; live claims fail retryably, verified lease expiry yields `execution_unknown`, and success requires a bounded non-empty `rollback_ref` before Thor releases its claim.
+  Saga retains mutation -> audit -> required publication -> completion checkpoints. Norns retains pending operation -> durable fingerprint count -> candidate publication or deterministic hold, with bounded pending-only recovery and continuation after a blocked head. Enforce requires explicit `thor_state_store`, `vidar_state_store`, and `var_state_store`; a missing owned binding cannot fall back to process-local authority. Saga's two documented Low-severity checkpoint and issue-operation identity limitations remain open in the focused implementation plan.
+- **Source completion and delivery boundary:** Handover source is implemented, with 20 recorded execution-hardening rounds (EX-01 through EX-20), [12 final integrated source rounds (FI-01 through FI-12)](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation), and [10 additional merge-specific rounds (MI-01 through MI-10)](../../internals/handover-lifecycle-hardening-20260914.md#final-merge-specific-integrated-critique). These are distinct earlier checkpoints, not new evidence for the second merge; their no-unresolved-confirmed-Medium/High conclusion is bounded to the reviewed source. The second local main merge succeeded and was published as `c8edd2769` in [PR #1014](https://github.com/dotnetpower/fdai/pull/1014), but [CI run 34921323157, attempt 1](https://github.com/dotnetpower/fdai/actions/runs/34921323157/attempts/1) failed. Huginn's local repair separates variable names for two typed notices to fix mypy without changing roles or topics. Focused source repairs are implemented locally; delivery repair remains in progress under [#946](https://github.com/dotnetpower/fdai/issues/946), and the latest published head remains `c8edd2769`. The [ledger](../../roadmap-implementation/agents/agent-pantheon.md) keeps reviewed translation refresh, generation, repair hooks/PR update, exact-head protected CI/merge, and UI/assistive/live/deployment/promotion evidence separate and pending.
 
 ![3. Runtime relationship diagram. The main stages are Huginn, Heimdall, Forseti, Mimir, Muninn, Njord, Freyr, Loki, Thor, Vidar, Var, Saga.](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-02.en.svg)
 
@@ -140,61 +129,27 @@ operations / interface), `3` = governance staff.
 | Freyr | Capacity | 1 | CapacityForecast, SizingRecommendation, CapacityGraduationRecommendation | forecast capacity and propose shadow-only graduation | no |
 | Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
 
-Heimdall remains accountable for deterministic forecast episode evaluation and closure while the private `heimdall_forecast.py` and `heimdall_alert_window.py` helpers own forecast calculation and bounded episode and alert-window bookkeeping. Its repeated-event detector can call an optional
-`incident_candidate_hook` after it emits the authoritative anomaly. The hook
-carries the normalized resource, event type, correlation, worst severity, reason
-code, and all burst evidence keys to the composition-owned `IncidentLifecycleWorkflow`.
-Before publishing a threshold anomaly, Heimdall may call an injected bounded read-only
-`operational_evidence_hook`. The hook can attach provider evidence such as a hold-only Kubernetes
-capacity finding, but it cannot decide, approve, or execute. A provider failure is attached as
-structured unavailable evidence and never suppresses the authoritative anomaly.
-One correlation episode repeated inside the rate window forms one anomaly at its worst severity.
-Global/per-resource caps prevent cross-resource eviction. A routine heartbeat,
-healthy probe, or within-threshold observation creates neither a finding nor an
-Incident.
-For a distributed-trace discontinuity Event, Huginn copies only the bounded detector, topology,
-hop, trace-fragment, evidence-reference, and window fields into normalized attributes. Heimdall
-accepts only the registered continuity reason codes, retains that evidence on the anomaly, and
-uses the observed reason on the Incident candidate instead of replacing it with a generic repeat
-reason. Unrecognized fields, including action-like input, are dropped. This evidence handoff does
-not select an ActionType or grant judgment, approval, or execution authority.
-Heimdall does not write the Incident or publish a new object type. Only candidates with explicit
-`incident_correlation=correlate`, correlation and evidence, enabled auto-open, and sufficient
-severity reach the workflow; all others remain anomalies. The workflow rechecks evidence before
-`IncidentRegistry` writes the audited record. Hook failure records a behavior counter and leaves
-the bounded window for retry; accepted and policy-held outcomes use separate counters. Production composition rehydrates the registry and binds the hook when
-enabled; the Operator API does not impersonate Heimdall.
+Heimdall remains accountable for deterministic forecast episode evaluation and closure; private `heimdall_forecast.py` and `heimdall_alert_window.py` own calculation and bounded episode/alert-window bookkeeping.
+After an authoritative repeated-event anomaly, the optional `incident_candidate_hook` sends normalized resource, event type, correlation, worst severity, reason code, and all burst evidence keys to composition-owned `IncidentLifecycleWorkflow`.
+Before a threshold anomaly, an injected bounded read-only `operational_evidence_hook` may attach provider evidence, such as a hold-only Kubernetes capacity finding, but cannot decide, approve, or execute. Provider failure becomes structured unavailable evidence and never suppresses the anomaly.
+One correlation episode inside the rate window produces one anomaly at its worst severity. Global/per-resource caps prevent cross-resource eviction; routine heartbeats, healthy probes, and within-threshold observations create neither findings nor Incidents.
+For distributed-trace discontinuities, Huginn normalizes only bounded detector, topology, hop, trace-fragment, evidence-reference, and window fields. Heimdall accepts registered continuity reasons, retains the evidence on the anomaly, and uses the observed reason rather than a generic repeat reason on the Incident candidate.
+Unknown fields, including action-like input, are dropped; this handoff selects no ActionType and grants no judgment, approval, or execution authority. Heimdall writes no Incident and publishes no new object type.
+Only explicit `incident_correlation=correlate` candidates with correlation, evidence, enabled auto-open, and sufficient severity reach the workflow; others remain anomalies. The workflow rechecks evidence before `IncidentRegistry` writes the audited record.
+Hook failure increments a behavior counter and retains the bounded window for retry; accepted and policy-held outcomes have separate counters. Production composition rehydrates the registry and binds the enabled hook; Operator never impersonates Heimdall.
 
-Huginn is the logical owner of real-time resource discovery and normalized `Change` records. Azure resource
-create, update, and delete signals enter through the canonical Event Hubs Kafka
-ingress and Huginn normalizes, deduplicates, correlates, and publishes them as
-`Event`. IaC plans, release requests, and provider activity with authoritative event time also
-produce `object.change`; Muninn retains immutable content-addressed revisions for decision context.
-Huginn places the same normalized Change evidence on the causal `object.event`, so Forseti does not
-depend on cross-topic arrival order. Forseti evaluates planned changes with bounded impact analysis
-before its ordinary rule judgment and carries the assessment into Verdict and DecisionCase evidence.
-Missing, stale, failed, or review-required assessment forces human approval. Observed changes remain context only, and the current runtime supplies no graph-freshness authority that could auto-clear a
-planned change. Operational-context freshness entries require an explicit string source, timestamp, and integer maximum age; malformed values, including boolean ages, fail closed and lower the verdict
-to human approval. Ordinary verdicts and arbitration DecisionCases materialize from the same typed freshness evidence, so cross-domain arbitration cannot recover authority that the context ceiling
-removed. This projection grants no action authority. Azure-specific parsing, point enrichment, and durable inventory projection remain injected delivery responsibilities; Huginn never imports an
-Azure SDK or writes the inventory database directly. The scheduled Inventory
-sync job remains the periodic reconciliation backstop that repairs missed
-signals with a complete ARG/ARM snapshot. Stale or degraded inventory remains unavailable;
-Heimdall publishes the finding and never acquires resources or starts reconciliation.
+Huginn owns real-time resource discovery and normalized `Change` records. Azure create/update/delete signals enter canonical Event Hubs Kafka ingress and become normalized, deduplicated, correlated `Event` records. IaC plans, release requests, and provider activity with authoritative event time also produce `object.change`; Muninn retains immutable content-addressed revisions for decision context.
+The causal `object.event` carries the same normalized Change evidence, avoiding cross-topic arrival-order dependencies. Before ordinary rule judgment, Forseti performs bounded planned-change impact analysis and retains the assessment in Verdict and DecisionCase evidence. Missing, stale, failed, or review-required assessment forces human approval.
+Observed changes remain context only; runtime supplies no graph-freshness authority to auto-clear planned changes. Freshness requires an explicit string source, timestamp, and integer maximum age; malformed values, including boolean ages, fail closed to human approval.
+Ordinary Verdicts and arbitration DecisionCases use the same typed freshness evidence, so arbitration cannot recover authority removed by the context ceiling. This projection grants no action authority.
+Azure parsing, point enrichment, and durable inventory projection stay injected delivery responsibilities; Huginn imports no Azure SDK and writes no inventory database. Scheduled Inventory sync repairs missed signals with complete ARG/ARM snapshots. Stale/degraded inventory remains unavailable; Heimdall publishes findings, never acquires resources or starts reconciliation.
 
-The 15 agents jointly cover SRE, ARB, and FinOps workflows through composition. Non-agent
-observation consumers may retain replay and health evidence from owned topics, but they never join
-the pantheon, publish owned objects, judge, approve, or execute; see §6, §6.4, and §7.6.
-Forseti's observation-mode ARB failure record preserves the complete Change digest even when context
-or evidence collection fails. The hold remains replayable and cannot gain approval or execution
-authority from an unknown dependency result.
+The 15 agents cover SRE, ARB, and FinOps through composition. Non-agent observation consumers may retain replay/health evidence from owned topics, but never join the pantheon, publish owned objects, judge, approve, or execute (§6, §6.4, §7.6).
+Forseti's observation-mode ARB failure record preserves the complete Change digest even when context/evidence collection fails. The hold stays replayable and gains no approval or execution authority from unknown dependencies.
 
 ### 4.1 Per-agent task inventory
 
-Every agent performs four task categories. **R**ecurring runs on a schedule.
-**E**vent handles typed-port messages. **M**eta is the agent's own health
-and self-improvement. **X**-agent participates in the workflows named in
-[agent-workflows.md](agent-workflows.md).
+Every agent performs four task categories: **R**ecurring (scheduled), **E**vent (typed-port messages), **M**eta (own health and improvement), and **X**-agent ([named workflows](agent-workflows.md)).
 
 | Agent | R (recurring) | E (event) | M (meta) | X-agent |
 |-------|---------------|-----------|----------|---------|
@@ -216,12 +171,8 @@ and self-improvement. **X**-agent participates in the workflows named in
 
 ### 4.2 Per-agent KPI (success and degradation signals)
 
-Every agent MUST emit these metrics into the measurement pipeline
-([goals-and-metrics.md](../architecture/goals-and-metrics.md)) so shadow -> enforce
-promotion gates can evaluate deterministically. The runtime reports every
-declared metric on each health snapshot. A metric without sufficient outcome
-evidence carries `value: null` and an explicit evidence state; promotion gates
-treat it as a failure rather than interpreting absence as zero.
+Every agent reports these metrics to the [measurement pipeline](../architecture/goals-and-metrics.md) on every health snapshot for deterministic shadow -> enforce promotion evaluation.
+Insufficient outcome evidence produces `value: null` plus an explicit evidence state; promotion gates treat it as failure, never zero.
 
 | Agent | Success KPI | Degradation KPI (early warning) |
 |-------|-------------|--------------------------------|
@@ -281,9 +232,7 @@ Common rules:
 
 ### 4.4 Task tier classification (LLM policy per task)
 
-Not every "predictive" or "adaptive" task needs an LLM. The table below
-maps every task from §4.1 to its tier so implementation cannot silently
-promote to T2.
+Not every predictive or adaptive task needs an LLM. These §4.1 task tiers prevent silent promotion to T2.
 
 | Task | Correct tier | Why |
 |------|--------------|-----|
@@ -297,15 +246,11 @@ promote to T2.
 | Huginn schema learning | T1 (batch clustering) + T2 for promotion | real-time normalization stays T0 |
 | Loki adversarial | T2 (off-path) | scenario generation ok LLM; execution deterministic |
 
-Hot-path LLM invocation is restricted to three places: Bragi translator,
-Forseti T2 abstain, Norns off-path batch. Any implementation adding LLM
-to another hot path is a defect.
+The declared LLM invocation boundaries remain Bragi translation, Forseti T2 abstention, and Norns off-path batches; adding another hot-path LLM invocation violates this policy.
 
 ## 5. Ontology integration
 
-`Agent` is a first-class object type in the ontology. It shows up in
-`/ontology/graph` alongside every other object type, so the org chart and
-data ownership are queryable, not documented separately.
+`Agent` is a first-class ontology type in `/ontology/graph`, making the org chart and data ownership queryable alongside other types.
 
 ```yaml
 object_type: Agent
@@ -326,11 +271,8 @@ properties:
     proposals_per_hour: int
 ```
 
-Every `object_type` declaration in the wider ontology MAY carry an optional `lifecycle` block whose `owner` names exactly one `Agent`. That
-field is the ontology semantic-write registry: it says who may create and close instances of the type in the graph. It is separate from the
-event-bus registry in section 4, where `owns` says who may publish `object.<type>`. A type may be in one, both, or neither; a type with no
-`lifecycle` block simply adds no second write authority. See [Operating ontology - Agent
-ownership](../architecture/operating-ontology.md#agent-ownership) for the current per-agent list and the rules for reading it.
+An `object_type` may declare a `lifecycle` block whose `owner` names exactly one `Agent` allowed to create/close its graph instances. This semantic-write registry is separate from §4's event-bus `owns` registry for publishing `object.<type>`.
+A type may belong to either, both, or neither registry; absent `lifecycle` adds no second write authority. See [Operating ontology - Agent ownership](../architecture/operating-ontology.md#agent-ownership) for the current list and interpretation rules.
 
 ## 6. Communication contract
 
@@ -391,11 +333,8 @@ routing. Questions cap at 2,000 characters and each session retains 100 monotoni
 
 Each `AgentSpec` requires a unique immutable, versioned `ConversationCharter`: bounded server-owned system instructions with role-specific prohibitions, an exact generated role contract for reporting, ownership, topics, action bindings, model policy, hard-dependency status, and proposal budgets, a role directive that states the mechanics of the agent's own decision, English/Korean query examples, and read tools with purpose and owned-fact scopes. Semantic parity tests pin all 15 role boundaries. The runtime overwrites caller policy, projects each tool onto its distinct fact scope, and attributes the version plus separate prompt and full-charter SHA-256 digests without exposing instructions. Each agent grounds answers in owned state; typed policy remains the authority. Deterministic shared renderers receive only each agent's normalized owned facts and exact evidence reference, preserve established status vocabulary, and grant no ownership or authority. The charter prompt is the composition floor, not the whole prompt. Every turn composes its effective prompt from that baseline plus the situational layers the turn selects (peer versus operator audience, deliberation phase and tier, tool scope, operator locale, evidence gap, command intent). Composition is additive and deterministic, so a situation can tighten the charter but never loosen it, and a recorded turn replays exactly. The turn context selects layers only; it never supplies prompt text, so a forged context cannot inject instructions. Responses carry the layer manifest, situation key, and composed prompt digest - never the text. See [conversational-deliberation.md](conversational-deliberation.md).
 
-Bragi obtains one schema-validated semantic judgment for each bounded turn. `draft_only` action
-posture re-enters the typed pipeline with the operator as initiator; chat never executes. Read tool
-selection uses model-backed semantic planning and exact canonical tool-id ownership checks. An
-unbound or failed model returns unavailable and never falls back to a phrase dictionary.
-Owned-state scope narrowing matches complete canonical identifiers with internal `.`, `_`, or `-` inside the bounded question and never accepts a shorter candidate that is only an identifier prefix.
+Bragi obtains one schema-validated semantic judgment per bounded turn. `draft_only` actions re-enter the typed pipeline with the operator as initiator; chat never executes.
+Read tools use model-backed semantic planning and exact canonical tool-id ownership checks. Unbound/failed models return unavailable, never a phrase-dictionary fallback. Owned-state narrowing matches complete canonical identifiers, including internal `.`, `_`, or `-`, never a shorter prefix of an identifier in the bounded question.
 A single exact `question_domains` identifier also disambiguates the schema-validated semantic route to its owner without contributor fan-out; multiple or prefix-only identifiers remain with semantic scoring.
 `PantheonRuntime.introspect` supports attributed read-only peer projections and digest-only Bragi Turns; bounded presentation discussion is specified in [conversational-deliberation.md](conversational-deliberation.md).
 
@@ -407,38 +346,15 @@ and data, and holds errors or sensitive output without values. Tool results expo
 Bragi is the router, not the answerer. English, Korean, and mixed-language turns use the same
 structured judgment boundary without adding a topic, agent identity, or execution authority:
 
-1. **Current-screen authority.** A data question stays with Bragi T0 when the
-  active screen supplies facts or records. Specialist delegation and semantic
-  web classification remain off. A missing requested field produces an
-  explicit absence answer instead of a model-memory fallback.
-2. **Canonical glossary lookup.** A direct definition question for a shared
-  ontology or control-loop term (for example `ActionType`, including a Korean
-  particle such as `ActionType이`) is answered from grounded glossary evidence
-  before agent scoring. It is not delegated to an agent whose domain merely
-  shares a word stem.
-3. **Structured semantic judgment.** A bounded T1 model returns canonical intent, targets,
-  requested facets, confidence, ambiguity, discourse mode, and action posture. Core validates
-  source spans, capability identities, confidence, and no-authority fields. Only exact
-  `question_domains`, owned ObjectTypes, agent names, and tool ids are projected.
-4. **Bounded T2 retry.** Unavailable, malformed, ambiguous, or low-confidence T1 output can retry
-  once through the configured T2 binding. A terminal failure asks one clarification question or
-  reports unavailable; it does not reuse lexical matching.
-5. **Handoff.** If both semantic tiers abstain or no exact capability remains, emit
-  `HandoffEscalation` (§6.4). The system files a GitHub issue rather than
-   guess.
+1. **Current-screen authority.** Screen-supplied facts/records keep data questions at Bragi T0, with specialist delegation and semantic web classification off. Missing requested fields produce explicit absence, never model-memory fallback.
+2. **Canonical glossary lookup.** Direct shared ontology/control-loop definitions, including `ActionType` with a Korean particle (`ActionType이`), use grounded glossary evidence before agent scoring, never delegation based merely on a shared word stem.
+3. **Structured semantic judgment.** Bounded T1 returns canonical intent, targets, requested facets, confidence, ambiguity, discourse mode, and action posture. Core validates source spans, capability identities, confidence, and no-authority fields; only exact `question_domains`, owned ObjectTypes, agent names, and tool ids are projected.
+4. **Bounded T2 retry.** Unavailable, malformed, ambiguous, or low-confidence T1 output may retry once through configured T2. Terminal failure asks one clarification or reports unavailable, never lexical matching.
+5. **Handoff.** If both tiers abstain or no exact capability remains, emit `HandoffEscalation` (§6.4) and file a GitHub issue rather than guess.
 
-The explicit deliberation API adds one bounded T1 position and critique round after participant
-selection. Bragi compares only fixed high-signal facts for the same identity. Conflict-free or
-uncomparable claims finish at T1, while a verified structured conflict can invoke one budgeted T2
-synthesis. Synthesizer availability and free-form prose differences never trigger escalation.
-When the current turn already has a schema-validated semantic route, deliberation reuses that
-primary agent and contributor set instead of asking an embedding router to reinterpret the same
-question. The deliberator excludes the primary from contributors, removes duplicate peers, and
-supplements an empty peer set without replacing the verified primary. This reuse changes no
-ownership, judgment, approval, or execution authority.
-The fixed T2 assurance census explicitly retains its declared `t1_semantic` participant-selection
-path so campaign measurements remain comparable with the installed census contract. Every T2
-synthesis outcome names its exact model identity and family separately from its metering key.
+After participant selection, explicit deliberation adds one bounded T1 position/critique round. Bragi compares fixed high-signal facts for the same identity; conflict-free or uncomparable claims finish at T1. Only verified structured conflict permits one budgeted T2 synthesis, never synthesizer availability or prose differences.
+The current turn's schema-validated route reuses its primary and contributors instead of embedding-based reinterpretation. Deliberation removes the primary and duplicate peers from contributors and supplements an empty peer set without replacing the verified primary or changing ownership, judgment, approval, or execution authority.
+The fixed T2 assurance census retains its declared `t1_semantic` selection path for comparability with the installed census contract. Every T2 synthesis names exact model identity and family separately from its metering key.
 
 Winner selection is scored, not first-match, when several agents match:
 
@@ -446,48 +362,28 @@ Winner selection is scored, not first-match, when several agents match:
 score = domain_specificity + ownership_bonus
 ```
 
-Tie-break order (deterministic): total score > pantheon precedence
-(governance > pipeline > domain) > canonical agent name. The winner is
-`primary_agent`; the runners-up become `contributors`. Every routing
-decision is written to `Turn.score_breakdown` for later inspection.
+Deterministic tie-break: total score > pantheon precedence (governance > pipeline > domain) > canonical name. The winner is `primary_agent`, runners-up are `contributors`, and every decision is recorded in `Turn.score_breakdown`.
 
 #### 6.3.1 Shadow answer planning
 
-The Command Deck can use the same deterministic scores to select up to two
-read-only contributors for a presentation-only `AnswerPlanningRound`. This
-round is separate from Bragi's existing terminal multi-agent aggregation and
-from the Quality Gate Debate. In Phase C, typed contributions are measured but
-never injected into the narrator context or terminal answer.
+Command Deck can use the same deterministic scores for up to two read-only contributors in a presentation-only `AnswerPlanningRound`, separate from Bragi's terminal multi-agent aggregation and Quality Gate Debate.
+Phase C measures typed contributions without injecting them into narrator context or terminal answers.
 
 - **Bragi** owns the final answer plan and remains the displayed narrator.
 - **Contributors** expose owned facts and evidence refs after owner, JSON, size, and sensitivity checks.
   Same-identity state/status/verdict/mode/health/outcome conflicts abstain and hand off; contributors never recurse, judge, approve, or execute.
-- **Norns** never participates synchronously. It can analyze opted-in aggregate
-  metadata off-path after the turn.
-- **Odin** is excluded from routine collection. A later Phase E can consult it
-  only for genuine cross-domain conflict, without execution authority.
-- **Saga** is selected only for audit, history, issue, or handoff questions. It
-  is not a universal answer reviewer or verifier.
-- **Forseti, Var, and Thor** retain their judgment, approval, and execution
-  boundaries. Answer style never changes their authority.
+- **Norns** never participates synchronously; after the turn it may analyze opted-in aggregate metadata off-path.
+- **Odin** is excluded from routine collection; later Phase E may consult it only for genuine cross-domain conflict, without execution authority.
+- **Saga** handles only audit, history, issue, or handoff questions, not universal answer review or verification.
+- **Forseti, Var, and Thor** retain judgment, approval, and execution boundaries; answer style never changes authority.
 
-Shipping limits are two contributors, one round, `1200 ms`, and `800` estimated
-added tokens. Nested rounds are disabled. Contributor failure degrades to the
-primary-only answer and bounded metadata; it never routes a supported read-only
-answer to HIL.
-
-The Command Deck reaches this round through the public `PantheonRuntime`
-conversation methods. Delivery adapters do not inspect the runtime agent map or
-invoke an agent's conversational handler directly. Bragi remains the routing
-boundary for every contribution.
+Limits are two contributors, one round, `1200 ms`, and `800` estimated added tokens, with no nesting. Contributor failure leaves a primary-only answer plus bounded metadata, never sends a supported read-only answer to HIL.
+Command Deck uses public `PantheonRuntime` conversation methods. Delivery adapters neither inspect the runtime agent map nor call conversational handlers directly; Bragi routes every contribution.
 
 ### 6.4 Handoff escalation protocol
 
-An agent that cannot resolve a conversational request through owned data, T0, or T1 abstains to
-Bragi instead of guessing through T2. Bragi alone publishes `HandoffEscalation`, and Saga turns it
-into a GitHub issue through `escalate_to_github_issue`. With no EventBus, Bragi records
-`handoff_status: transport_unavailable` on the turn and increments the matching behavior counter;
-it never presents an unmaterialized escalation as successful.
+An agent unable to answer through owned data, T0, or T1 abstains to Bragi rather than guessing through T2. Bragi alone publishes `HandoffEscalation`; Saga creates the GitHub issue through `escalate_to_github_issue`.
+Without EventBus, Bragi records `handoff_status: transport_unavailable` and increments its behavior counter, never reports an unmaterialized escalation as successful.
 
 Deduplication uses a `problem_fingerprint`:
 
@@ -501,53 +397,29 @@ fingerprint = sha1(
 Saga keeps a local `fingerprint -> github_issue_number` index in Muninn.
 
 - **First occurrence** creates the issue with label `fdai:fp:<hash>`.
-- **Repeat occurrence** appends a comment on the same issue with the new
-  `correlation_id` and context. The issue body carries `first_seen`,
-  `last_seen`, and `occurrence_count`; comments record each recurrence.
-- **Auto-close** happens when Mimir promotes a rule or capability that
-  would resolve the fingerprint, and 24 hours of regression tests pass
-  clean. The closing comment links the promoting PR. Manual close is
-  always allowed.
+- **Repeat occurrence** comments on the same issue with new `correlation_id` and context; the body retains `first_seen`, `last_seen`, and `occurrence_count`, and comments record each recurrence.
+- **Auto-close** requires Mimir promotion of a rule/capability resolving the fingerprint plus 24 hours of clean regression tests; the closing comment links the promotion PR. Manual close remains allowed.
 
-The fingerprint hash never carries customer identifiers (labels are hashes
-only); detailed values live only in the fork's issue tracker.
+Fingerprint labels are hashes only, never customer identifiers; detailed values stay in the fork's issue tracker.
 
 ### 6.5 Conversation state and per-user context
 
 Bragi owns `Conversation`, `Turn`, `UserPreference`, and `PostTurnReview`.
 State is partitioned by `user_id`:
 
-- **Session.** A `Conversation` starts on first turn and ends after 30
-  minutes of inactivity; every turn is appended immutably as a `Turn`.
-  `object.turn` carries body references, SHA-256 digests, routing metadata,
-  and the correlation trace. It never carries the raw question or answer.
-- **Multi-turn context.** Bragi passes the last N turns to the primary
-  agent as `prior_turns_ref`, scoped to the requesting `user_id`.
-- **RBAC.** Muninn refuses cross-user reads; a primary agent that tries to
-  read another user's conversation gets an empty result and Saga records
-  the attempt.
-- **Learner boundary.** Norns is limited to metadata by default
-  (`share_with_learner: false` per `UserPreference`). Opt-in surfaces the
-  turn body for pattern extraction; opt-out is the default. Batch trajectory intake accepts only
-  reviewed aggregates, never raw turn or trajectory bodies. A completed,
-  consent-filtered exchange enters Norns on `object.post-turn-review`; it is
-  not encoded as a second shape on `object.turn`.
-- **Retention.** Active conversation: 30 days. Cold storage: 60 additional
-  days. Total: 90 days, then delete. Aggregated anonymized metrics survive
-  in Saga's own audit stream.
+- **Session.** `Conversation` starts at the first turn and ends after 30 inactive minutes. Each turn is appended immutably as a `Turn`; `object.turn` carries only body references, SHA-256 digests, routing metadata, and correlation trace, never raw questions/answers.
+- **Multi-turn context.** Bragi gives the primary agent the last N turns as `prior_turns_ref`, scoped to the requesting `user_id`.
+- **RBAC.** Muninn refuses cross-user reads with an empty result; Saga records attempts to read another user's conversation.
+- **Learner boundary.** Norns receives metadata by default (`UserPreference.share_with_learner: false`); opt-in permits turn-body pattern extraction. Batch trajectory intake accepts reviewed aggregates only, never raw turn/trajectory bodies. Completed consent-filtered exchanges use `object.post-turn-review`, never a second `object.turn` shape.
+- **Retention.** Active conversations: 30 days, then 60 days cold storage, then deletion at 90 days. Aggregated anonymized metrics survive in Saga's audit stream.
 
 ## 7. Ontology actions
 
-Every substrate mutation or tool invocation uses one cataloged `ActionType`
-([action-ontology.md](../decisioning/action-ontology.md)). Typed object
-publication is different: arbitration, findings, candidates, audit entries,
-handoffs, and notifications stay under their single-writer topic contracts and
-do not masquerade as catalog actions.
+Every substrate mutation or tool invocation uses one [cataloged ActionType](../decisioning/action-ontology.md). Typed publications (arbitration, findings, candidates, audit entries, handoffs, notifications) retain single-writer topic contracts and never masquerade as catalog actions.
 
 ### 7.1 Global action role binding
 
-Action lifecycle roles are global single-writer bindings, not fields repeated
-on every `ActionType`:
+Action lifecycle roles are global single-writer bindings, not repeated `ActionType` fields:
 
 ```yaml
 judge: Forseti
@@ -557,15 +429,12 @@ auditor: Saga
 rollback_owner: Vidar
 ```
 
-`PANTHEON_SPECS`, topic ownership, and runtime producer checks enforce these roles for every action. ActionType entries cannot redeclare
-them, and the schema rejects unknown role fields. Initiator eligibility is evaluated from the ActionType's `trigger_kind` and scenario
-restrictions together with AgentSpec capabilities or server-owned operator ingress. This keeps role ownership in one source of truth while
-the ActionType remains the source of truth for operation, safety, and execution-path semantics.
+`PANTHEON_SPECS`, topic ownership, and runtime producer checks enforce every action's roles; ActionTypes cannot redeclare them, and unknown role fields fail schema validation.
+Initiator eligibility combines `trigger_kind` and scenario restrictions with AgentSpec capabilities or server-owned operator ingress. Roles keep one source of truth; ActionType owns operation, safety, and execution-path semantics.
 
 ### 7.2 Lifecycle state machine
 
-An `ActionRun` walks the following states. Each transition is one pub/sub
-event; the state's owner agent is the only publisher.
+Each `ActionRun` transition below is one pub/sub event published only by its state-owner agent.
 
 ```
 proposed  (initiator agent)
@@ -584,44 +453,31 @@ proposed  (initiator agent)
       -> compensated    (Thor + compensating action; terminal after audit)
 ```
 
-Every terminal state writes an `AuditEntry` before closing. Replay from
-the audit log is judge-only: Saga can reconstruct any past decision but
-never re-executes.
+Every terminal state writes an `AuditEntry` before closure. Audit replay is judge-only: Saga reconstructs past decisions, never re-executes.
 
 ### 7.3 Parameter validation and idempotency
 
 Three validation checks, all deterministic:
 
-1. **At propose.** Initiator asserts the params conform to
-   `argument_schema`; the schema registry rejects malformed proposals.
-2. **At verdict.** Forseti re-runs schema + policy + what-if / dry-run;
-   any failure downgrades the verdict to `deny` or `hil`.
-3. **At execute.** Params remain unchanged on Verdict, `ActionRun`, Approval,
-  and audit; Thor validates them again before mutation to catch target-state races.
+1. **At propose.** Initiator asserts `argument_schema` conformance; the registry rejects malformed proposals.
+2. **At verdict.** Forseti repeats schema, policy, and what-if/dry-run checks; failure lowers the verdict to `deny` or `hil`.
+3. **At execute.** Verdict, `ActionRun`, Approval, and audit preserve unchanged parameters; Thor revalidates before mutation to catch target-state races.
 
-Idempotency keys are per-action (`action_run_id`) and per-attempt
-(`attempt_id`). A retried publish with the same key is a no-op at the
-executor; the audit records the duplicate.
+Per-action `action_run_id` and per-attempt `attempt_id` are idempotency keys. Same-key republishing is an executor no-op, with the duplicate audited.
 
 ### 7.4 Impact scope and batch semantics
 
-An ActionType with `blast_radius > 1` fans out to one `ActionAttempt` per
-target resource. Attempts are partitioned by `resource_id` and executed
-independently. Failure isolation:
+An ActionType with `blast_radius > 1` creates one independent `ActionAttempt` per target, partitioned by `resource_id`. Failure isolation:
 
 - A failing attempt rolls back only its own target.
-- Sibling successes are not undone; the rollup `ActionRun` records the
-  mix.
+- Sibling successes remain intact; the rollup `ActionRun` records the mix.
 - Saga writes both the per-attempt entries and the rollup entry.
 
-Per-resource ordering is preserved by the partition key; cross-resource
-ordering is not implied.
+Partition keys preserve per-resource, not cross-resource, ordering.
 
 ### 7.5 Rollback contracts and irreversibility
 
-Every ActionType declares a live `rollback_contract`, including an irreversible
-action. Current values are `pr_revert`, `scripted`, `pitr`, `snapshot_restore`,
-and `state_forward_only`. Examples:
+Every ActionType, including irreversible actions, declares a live `rollback_contract`: `pr_revert`, `scripted`, `pitr`, `snapshot_restore`, or `state_forward_only`. Examples:
 
 | ActionType | rollback_contract | irreversible |
 |------------|-------------------|--------------|
@@ -629,19 +485,13 @@ and `state_forward_only`. Examples:
 | `remediate.rotate-secret` | `snapshot_restore` | false |
 | `tool.run-chaos-experiment` | `scripted` | false |
 
-`irreversible: true` action MUST route through HIL + quorum: at least two
-distinct approvers, no self-approval. Forseti attaches `quorum_required:
-2` to the verdict; Var enforces it.
+An `irreversible: true` action requires HIL, at least two distinct approvers, and no self-approval. Forseti attaches `quorum_required: 2`; Var enforces it.
 
 ### 7.6 Handoff as typed delivery
 
-Handoff escalation is not a `governance.*` ActionType. That category is reserved for reviewed catalog-as-code changes using `pr_native`.
-Bragi, the single writer of `object.handoff-escalation`, publishes the bounded request; Saga consumes it, applies fingerprint deduplication,
-materializes `object.issue`, and appends the audit evidence. The runtime preserves external issue
-mutation, publication-before-completion, and Norns learning replay through the durable contracts in
-the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#durable-authority-and-replay).
-A live issue tracker remains an injected delivery adapter, so local and deployed runtimes keep the
-same typed ownership and audit boundary.
+Handoff is not a `governance.*` ActionType; that category is reserved for reviewed catalog-as-code changes using `pr_native`. Bragi alone publishes bounded `object.handoff-escalation`; Saga consumes it, deduplicates fingerprints, materializes `object.issue`, and appends audit evidence.
+The runtime preserves external issue mutation, publication-before-completion, and Norns learning replay through the durable contracts in the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#durable-authority-and-replay).
+The live issue tracker remains an injected delivery adapter, preserving typed ownership and audit boundaries in local and deployed runtimes.
 
 ### 7.7 Conversational port MUST-NOT-Bypass rule
 
@@ -655,30 +505,18 @@ the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#conver
 
 ### 7.8 Fork override boundaries
 
-A file, Rego, config, or runtime overlay may only tighten an existing
-ActionType. It can lower an autonomy ceiling, add stricter preconditions or
-stop conditions, reduce blast radius, or strengthen a promotion gate. Every
-overlay is downgrade-only and audited. Promotion from shadow to enforce is a
-separate governed ActionType and reviewed PR after the promotion gate passes.
+A file, Rego, config, or runtime overlay may only tighten an existing ActionType: lower autonomy, strengthen preconditions/stop conditions or promotion gates, or reduce blast radius. Every overlay is downgrade-only and audited.
+Shadow-to-enforce promotion requires a separate governed ActionType and reviewed PR after its promotion gate passes.
 
-Role bindings (`executor`, `judge`, `approver`, `auditor`, `initiators`) and
-the rollback contract remain fixed pantheon safety boundaries. A new
-ActionType belongs under `rule-catalog/action-types-custom/`; it is not an
-overlay. See [action-ontology.md § 7](../decisioning/action-ontology.md#7-fork-override-seams)
-for the authoritative precedence and allowed channels.
+Role bindings (`executor`, `judge`, `approver`, `auditor`, `initiators`) and rollback contracts stay fixed. New ActionTypes belong under `rule-catalog/action-types-custom/`, not overlays. See [action-ontology.md § 7](../decisioning/action-ontology.md#7-fork-override-seams) for authoritative precedence and channels.
 
 ### 7.9 Rate limits per agent
 
-Each agent declares `rate_limits`. Defaults ship as `20 proposals/minute`
-and `100 proposals/hour`. Excess proposals are queued to a bounded buffer;
-overflow drops with a `RateLimitExceeded` audit entry, and Norns picks up
-the spike as a learning signal ("why did this agent burst?"). Forks may
-override the numbers through config.
+Each agent declares `rate_limits`, defaulting to `20 proposals/minute` and `100 proposals/hour`. Excess proposals enter a bounded queue; overflow is dropped with a `RateLimitExceeded` audit for Norns to learn why the agent burst. Forks may configure the numbers.
 
 ## 8. LLM policy per agent
 
-LLM invocation is a capability, not a default. Every agent CAN use its
-LLM bindings; only a few do so in the hot-path.
+LLM invocation is a capability, not a default: all agents can use their bindings, but few do so on the hot path.
 
 | Agent | Hot-path LLM? | Off-path LLM? | Conversational port |
 |-------|--------------|---------------|---------------------|
@@ -698,10 +536,9 @@ LLM bindings; only a few do so in the hot-path.
 | Freyr | no | no | yes (localized, digest-verified and cited resource-safe advisory state plus non-execution boundaries) |
 | Loki | no | no | yes (localized, digest-verified and cited target-safe chaos state plus HIL/recovery boundaries) |
 
-Every agent's conversational port can render deterministic introspection from its immutable `AgentSpec` and owned facts.
+Every conversational port can render deterministic introspection from immutable `AgentSpec` and owned facts.
 Operator conversation entry points carry the validated locale through `PantheonRuntime` and Bragi into each turn's prompt situation, falling back to English when absent or invalid.
-Locale changes presentation only and cannot change an agent role, typed decision, or authority. An optional narrator may render the same facts with an LLM and RAG over
-`owns_code_paths`; that presentation layer does not change the typed decision or execution path.
+Locale changes presentation only and cannot change an agent role, typed decision, or authority. An optional LLM narrator with RAG over `owns_code_paths` may present the same facts, never change typed decisions or the execution path.
 
 ## 9. Security and privilege-escalation monitoring
 

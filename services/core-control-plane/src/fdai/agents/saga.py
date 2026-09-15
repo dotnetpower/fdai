@@ -19,7 +19,10 @@ from fdai.agents._framework.adapters import (
     InMemoryStateStore,
     IssueTrackerAdapter,
 )
+from fdai.agents._framework.assignment_workflow import seal_assignment
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
+from fdai.agents._framework.human_access_workflow import seal_human_access
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     agent_state_evidence_ref,
@@ -52,7 +55,7 @@ class SagaAuditChain(Protocol):
     def entries_for_correlation(self, correlation_id: str) -> list[AuditEntry]: ...
 
 
-class Saga(Agent):
+class Saga(Agent, HandoverKnowledgeMixin):
     """Wave-2 Saga: audit chain + GitHub Issue dedup."""
 
     def __init__(
@@ -113,6 +116,14 @@ class Saga(Agent):
             correlation_id=correlation_id,
             payload=payload,
         )
+        if await self._handover_message(topic, payload):
+            return
+        if payload.get("kind") == "human_access_execution":
+            await seal_human_access(self, topic, payload)
+            return
+        if payload.get("kind") == "human_assignment":
+            await seal_assignment(self, topic, payload)
+            return
         if topic == "object.verdict" and payload.get("kind") == "document_ingestion":
             await self._republish_document_decision(payload, correlation_id)
         if topic == "object.approval" and payload.get("kind") == "document_ingestion":
@@ -127,17 +138,24 @@ class Saga(Agent):
             await self._republish_catalog_review_outcome(payload, correlation_id)
         if topic == "object.policy" and payload.get("kind") == "test_context_revision":
             if principal != "Mimir" or self.bus is None:
-                raise ValueError("context application requires Mimir policy and Saga audit transport")
+                raise ValueError(
+                    "context application requires Mimir policy and Saga audit transport"
+                )
             application = TestContextApplication.model_validate(payload.get("application"))
             if application.request_key != correlation_id:
                 raise ValueError("context application correlation mismatch")
-            await self.bus.publish("Saga", "object.audit-entry", {
-                "kind": "test_context_application", "audited_topic": "object.policy",
-                "correlation_id": correlation_id,
-                "idempotency_key": "test-context-application:" + application.command_digest,
-                "application": application.model_dump(mode="json"),
-                "execution_authority": False,
-            })
+            await self.bus.publish(
+                "Saga",
+                "object.audit-entry",
+                {
+                    "kind": "test_context_application",
+                    "audited_topic": "object.policy",
+                    "correlation_id": correlation_id,
+                    "idempotency_key": "test-context-application:" + application.command_digest,
+                    "application": application.model_dump(mode="json"),
+                    "execution_authority": False,
+                },
+            )
         if topic == "object.handoff-escalation":
             await self._materialize_handoff(payload, correlation_id)
         if topic == "object.prospective-lineage":

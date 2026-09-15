@@ -19,6 +19,10 @@ class AssignmentOwnershipError(ValueError):
 def render_assignment_ownership_yaml(base: StewardshipMap, intent: AssignmentIntent) -> str:
     """Return a resolver-valid v2 ownership candidate for one approved intent."""
 
+    if intent.revocation is not None:
+        raise AssignmentOwnershipError(
+            "revocation requires the independently verified removal path"
+        )
     unsupported = sorted(
         {
             binding.scope_ref

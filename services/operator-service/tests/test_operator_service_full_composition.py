@@ -56,6 +56,17 @@ def _registered_identities(app: Starlette) -> set[tuple[str, str]]:
     }
 
 
+def test_assignment_transport_reexports_preserve_the_original_iam_adapters() -> None:
+    from fdai_operator_service import composition, iam_composition
+    from fdai_operator_service.assignment_outbox import AssignmentNoticeBridge
+    from fdai_operator_service.postgres_assignment_outbox import build_assignment_notice_bridge
+
+    assert composition.AssignmentNoticeBridge is AssignmentNoticeBridge
+    assert iam_composition.AssignmentNoticeBridge is AssignmentNoticeBridge
+    assert composition.build_assignment_notice_bridge is build_assignment_notice_bridge
+    assert iam_composition.build_assignment_notice_bridge is build_assignment_notice_bridge
+
+
 def test_aggregate_manifest_and_registered_routes_have_exact_unique_ownership() -> None:
     manifest = aggregate_route_manifest(
         REFERENCE_PANEL_ROUTES,
@@ -64,11 +75,12 @@ def test_aggregate_manifest_and_registered_routes_have_exact_unique_ownership() 
     identities = {(item.method, item.path) for item in manifest}
     owner_counts = Counter(item.owner for item in manifest)
 
-    assert len(manifest) == len(identities) == 201
+    assert len(manifest) == len(identities) == 208
+    assert ("GET", "/handover/readiness") in identities
     assert owner_counts == {
         "minimal": 16,
         "conversation": 43,
-        "iam": 41,
+        "iam": 48,
         "workflow": 43,
         "operations": 42,
         "operations-panel": 8,
@@ -77,7 +89,7 @@ def test_aggregate_manifest_and_registered_routes_have_exact_unique_ownership() 
     assert tuple(manifest[:16]) == MINIMAL_ROUTE_MANIFEST
     app = cast(Starlette, _client().app)
     assert _registered_identities(app) == identities
-    assert len(app.router.routes) == 201
+    assert len(app.router.routes) == 208
     assert {
         ("POST", "/test-context/proposals"),
         ("POST", "/test-context/reviews"),

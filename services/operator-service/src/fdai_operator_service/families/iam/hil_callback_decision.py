@@ -339,7 +339,7 @@ class HilCallbackDecisionService:
                 actor=actor,
             )
         decision_route = context.metadata.get("decision_route", "")
-        if decision_route not in {"action", "workflow"}:
+        if decision_route not in {"action", "workflow", "human_access"}:
             return await session.finish(
                 error_response(
                     503,
@@ -349,7 +349,21 @@ class HilCallbackDecisionService:
                 outcome=HilCallbackOutcome.INVALID,
                 actor=actor,
             )
-        if decision_route == "workflow" and not meets_role(
+        if decision_route == "human_access" and (
+            context.metadata.get("required_role") != "Owner"
+            or not context.metadata.get("target_subject_ref")
+            or context.metadata.get("target_subject_ref") == actor.oid
+        ):
+            return await session.finish(
+                error_response(
+                    403,
+                    "human access review requires independent Owner identity",
+                    kind="role_forbidden",
+                ),
+                outcome=HilCallbackOutcome.INVALID,
+                actor=actor,
+            )
+        if decision_route in {"workflow", "human_access"} and not meets_role(
             actor.roles, context.metadata.get("required_role", "")
         ):
             return await session.finish(

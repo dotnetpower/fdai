@@ -42,6 +42,9 @@ It does not enter WAF or CAF identity, evidence admission, replay, or results.
 The shared Operator outbox lifecycle facade can also supervise the Incident intervention worker.
 Its explicitly allowlisted logical topic, requests, and readiness state do not enter WAF or CAF
 scope, evidence admission, replay, or results.
+The assignment outbox uses the same transport lifecycle with separate logical topics and immutable
+request receipts. Its case review, role claims, and PR result cannot satisfy WAF/CAF evidence or
+alter an assessment result; a goal observation is not admitted manual evidence.
 
 ## Design decision and critique
 

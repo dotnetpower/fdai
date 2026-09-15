@@ -14,6 +14,8 @@ from fdai.core.human_assignment.model import (
     EffectReceipt,
 )
 from fdai.core.human_assignment.ownership import render_assignment_ownership_yaml
+from fdai.core.human_assignment.revocation_ownership import render_revocation_ownership_yaml
+from fdai.core.human_assignment.revocation_target import require_revocation_target
 from fdai.core.human_assignment.service import AssignmentCaseService
 from fdai.core.stewardship import StewardshipMap
 from fdai.shared.contracts.models import Event, Mode
@@ -68,6 +70,45 @@ class AssignmentOwnershipCoordinator:
     event_bus: EventBus
     event_topic: str
 
+    async def request_revocation(self, *, case_id: str, expected_revision: int) -> None:
+        """Publish an inert current-review request, not a removal or old-duty proposal."""
+        from fdai.core.human_assignment.iam_request import AssignmentIamRequestReader
+
+        case = await self.cases.get_case(case_id)
+        if case.intent.revocation is None or case.revision != expected_revision:
+            raise ValueError("revocation request requires the exact removal case")
+        original = await require_revocation_target(
+            self.store, case.intent, revocation_case_id=case_id
+        )
+        ownership = next(
+            item for item in original.effect_receipts if item.kind is EffectKind.OWNERSHIP
+        )
+        notice = {
+            "case_id": case_id,
+            "expected_revision": expected_revision,
+            "ownership_digest": ownership.digest,
+            "ownership_ref": ownership.receipt_ref,
+        }
+        await AssignmentIamRequestReader(self.cases).read(notice)
+        timestamp = max(item.reviewed_at for item in case.reviews)
+        key = f"assignment-revoke-{case.case_id}"
+        event = Event(
+            schema_version="1.0.0",
+            event_id=uuid.uuid5(_NAMESPACE, key),
+            idempotency_key=key,
+            correlation_id=case.case_id,
+            source="human-assignment.revocation",
+            event_type="human.assignment.iam_apply_requested",
+            resource_ref=f"human-assignment:{case_id}",
+            payload=notice,
+            detected_at=timestamp,
+            ingested_at=timestamp,
+            mode=Mode.SHADOW,
+        )
+        await self.event_bus.publish(
+            self.event_topic, key=case.case_id, payload=event.model_dump(mode="json")
+        )
+
     async def open_proposal(
         self,
         *,
@@ -78,14 +119,25 @@ class AssignmentOwnershipCoordinator:
         now: datetime | None = None,
     ) -> tuple[AssignmentCase, OwnershipProposal]:
         assignment = await self.cases.get_case(case_id)
-        if assignment.state not in {
-            AssignmentState.APPROVED,
-            AssignmentState.OWNERSHIP_PR_OPEN,
-        }:
+        revoke = assignment.intent.revocation
+        initial = AssignmentState.IAM_REVOKED if revoke is not None else AssignmentState.APPROVED
+        if assignment.state not in {initial, AssignmentState.OWNERSHIP_PR_OPEN}:
             raise ValueError("ownership proposal requires an approved assignment case")
         if assignment.revision != expected_revision:
             raise ValueError("ownership proposal revision is stale")
-        candidate = render_assignment_ownership_yaml(base, assignment.intent)
+        if revoke is None:
+            candidate = render_assignment_ownership_yaml(base, assignment.intent)
+        else:
+            original = await require_revocation_target(
+                self.store, assignment.intent, revocation_case_id=case_id, allow_held=True
+            )
+            replacements = {
+                replacement_id: await self.cases.get_case(replacement_id)
+                for replacement_id in revoke.replacement_revisions
+            }
+            candidate = render_revocation_ownership_yaml(
+                base, assignment, original=original, replacements=replacements
+            )
         candidate_digest = hashlib.sha256(candidate.encode()).hexdigest()
         key = f"{_PROPOSAL_PREFIX}{case_id}"
         stored = await self.store.read_state(key)
@@ -96,7 +148,7 @@ class AssignmentOwnershipCoordinator:
                     idempotency_key=f"assignment-ownership-{case_id}",
                     rule_ids=("human.assignment.ownership",),
                     title=f"Review operational ownership assignment {case_id}",
-                    body=_body(case_id, candidate_digest),
+                    body=_body(case_id, candidate_digest, revoke=revoke is not None),
                     patch=candidate,
                     patch_path="config/agent-stewardship.yaml",
                     labels=("shadow", "governance", "ownership"),
@@ -138,7 +190,7 @@ class AssignmentOwnershipCoordinator:
         if proposal.candidate_digest != candidate_digest:
             raise ValueError("ownership proposal conflicts with the approved assignment intent")
         current = await self.cases.get_case(case_id)
-        if current.state is AssignmentState.APPROVED:
+        if current.state is initial:
             current = await self.cases.open_ownership_pr(
                 case_id=case_id,
                 expected_revision=expected_revision,
@@ -186,6 +238,10 @@ class AssignmentOwnershipCoordinator:
                 actor_ref=actor_ref,
             )
         elif assignment.state is not AssignmentState.OWNERSHIP_MERGED:
+            if assignment.state is AssignmentState.REVOKED:
+                await self.cases.close_revocation_target(case_id=case_id, actor_ref=actor_ref)
+            return assignment
+        if assignment.intent.revocation is not None:
             return assignment
         timestamp = merge.merged_at.astimezone(UTC)
         event = Event(
@@ -203,6 +259,8 @@ class AssignmentOwnershipCoordinator:
                 "action_type": "ops.apply-human-access",
                 "case_id": case_id,
                 "expected_revision": assignment.revision,
+                "ownership_digest": receipt.digest,
+                "ownership_ref": receipt.receipt_ref,
             },
             detected_at=timestamp,
             ingested_at=timestamp,
@@ -216,7 +274,7 @@ class AssignmentOwnershipCoordinator:
         return assignment
 
 
-def _body(case_id: str, digest: str) -> str:
+def _body(case_id: str, digest: str, *, revoke: bool = False) -> str:
     return "\n".join(
         (
             "This draft proposes an operational ownership change for independent review.",
@@ -225,7 +283,11 @@ def _body(case_id: str, digest: str) -> str:
             f"Candidate digest: `{digest}`",
             "",
             "Merging this pull request records the ownership effect only.",
-            "IAM membership remains a separate shadow-first action.",
+            (
+                "A separately verified IAM removal already precedes this old-duty proposal."
+                if revoke
+                else "IAM membership remains a separate shadow-first action."
+            ),
         )
     )
 

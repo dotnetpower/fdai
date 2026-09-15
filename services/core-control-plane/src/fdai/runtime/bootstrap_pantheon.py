@@ -6,7 +6,7 @@ import asyncio
 import json
 import logging
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -144,6 +144,7 @@ class PantheonInitialization:
     runtime_positive_integer: Callable[[dict[str, object], str], int]
     build_mutation_dependency_readiness: Callable[..., MutationDependencyReadiness]
     semantic_router_config_from_env: Callable[[], SemanticRouterConfig]
+    assignment_workflow: Any = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -425,7 +426,19 @@ async def initialize_pantheon(
         saga=config.runtime_saga,
         rollback_executors=rollback_executors,
     )
-    thor_safety_readiness.require_for_mode(enforce=thor_mutation_bound)
+    human_access = (
+        config.assignment_workflow.human_access if config.assignment_workflow is not None else None
+    )
+    human_access_bound = human_access is not None and human_access.execution_bound
+    if human_access_bound:
+        thor_safety_readiness = replace(
+            thor_safety_readiness,
+            vidar_recovery_contracts=thor_safety_readiness.vidar_recovery_contracts
+            | {"human-access-reviewed-inverse:v1"},
+        )
+    thor_safety_readiness.require_for_mode(
+        enforce=pantheon_enforce and (thor_mutation_bound or human_access_bound)
+    )
     _LOGGER.info(
         "thor_safety_dependency_readiness",
         extra={
@@ -473,6 +486,7 @@ async def initialize_pantheon(
         ),
     ).observe
     pantheon_runtime = PantheonRuntime.build(
+        assignment_workflow=config.assignment_workflow,
         provider=config.bus,
         raw_event_topic=config.container.config.kafka.topic_events,
         consumer_group_prefix=config.environment.get(
@@ -481,9 +495,7 @@ async def initialize_pantheon(
         ).strip(),
         enforce=pantheon_enforce,
         thor_executor=(t2_route_registry.execute if thor_mutation_bound else None),
-        thor_state_store=(
-            StateStoreActionRunStore(config.incident_audit_store) if thor_mutation_bound else None
-        ),
+        thor_state_store=StateStoreActionRunStore(config.incident_audit_store),
         rollback_executors=rollback_executors,
         vidar_state_store=config.incident_audit_store,
         var_state_store=config.incident_audit_store,

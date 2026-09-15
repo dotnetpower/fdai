@@ -75,6 +75,8 @@
           "services/operator-service/tests/test_analyzer_lifecycle_projection.py",
           "services/operator-service/tests/test_analyzer_run_projection.py",
           "services/operator-service/tests/test_assurance_twin_posture_projection.py",
+          "services/operator-service/tests/test_assignment_projection.py",
+          "services/operator-service/tests/test_assignment_revocation.py",
           "services/operator-service/tests/test_autonomy_measurement_projection.py",
           "services/operator-service/tests/test_azure_cli_token.py",
           "services/operator-service/tests/test_background_task_projection.py",
@@ -86,6 +88,12 @@
           "services/operator-service/tests/test_detection_lifecycle_projection.py",
           "services/operator-service/tests/test_entra_directory.py",
           "services/operator-service/tests/test_hil_teams_callback.py",
+          "services/operator-service/tests/test_handover_command_guard.py",
+          "services/operator-service/tests/test_handover_acceptance.py",
+          "services/operator-service/tests/test_handover_reviewer_groups.py",
+          "services/operator-service/tests/test_handover_readiness.py",
+          "services/operator-service/tests/test_handover_session_budget.py",
+          "services/operator-service/tests/test_scoped_duties.py",
           "services/operator-service/tests/test_inventory_instance_projection.py",
           "services/operator-service/tests/test_inventory_state_pages.py",
           "services/operator-service/tests/test_recorded_resource_state.py",
@@ -263,6 +271,7 @@
         "unit": [
           "services/isolated-executor/tests/test_automation_hold_fence.py",
           "services/isolated-executor/tests/test_effect_safety.py",
+          "services/isolated-executor/tests/test_human_access.py",
           "services/isolated-executor/tests/test_executor_terraform_identity.py"
         ],
         "contract": [

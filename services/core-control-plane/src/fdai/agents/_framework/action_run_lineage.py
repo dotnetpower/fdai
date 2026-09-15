@@ -87,7 +87,45 @@ def validate_action_run_lineage(
         raise ValueError("ActionRun workflow_action MUST be canonical and bounded")
 
 
+def bounded_decision_case(raw: object) -> dict[str, Any] | None:
+    """Return one bounded canonical decision case or None when malformed."""
+
+    if not isinstance(raw, Mapping):
+        return None
+    required_strings = (
+        "case_id",
+        "correlation_id",
+        "context_snapshot_id",
+        "created_at",
+        "selected_option_id",
+    )
+    if any(
+        not isinstance(raw.get(field), str) or not str(raw[field]).strip()
+        for field in required_strings
+    ):
+        return None
+    required_arrays = (
+        "protected_objective_ids",
+        "active_constraint_ids",
+        "no_action_effects",
+        "options",
+        "evidence_refs",
+    )
+    if any(not isinstance(raw.get(field), list) for field in required_arrays):
+        return None
+    if not raw["no_action_effects"] or not raw["options"] or not raw["evidence_refs"]:
+        return None
+    try:
+        encoded = json.dumps(raw, allow_nan=False, ensure_ascii=True, sort_keys=True)
+    except (TypeError, ValueError):
+        return None
+    if len(encoded) > 16_384:
+        return None
+    return dict(raw)
+
+
 __all__ = [
+    "bounded_decision_case",
     "bounded_workflow_action",
     "optional_bounded_text",
     "validate_action_run_lineage",

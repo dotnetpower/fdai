@@ -51,6 +51,8 @@ class IdentityRosterEntry:
     roles: tuple[str, ...]
     username: str | None = None
     active: bool = True
+    group_ids: tuple[str, ...] = ()
+    """Private memberships actually observed during expansion; never serialized as authority."""
 
     def __post_init__(self) -> None:
         for name in ("provider", "subject_id", "display_name", "principal_type"):

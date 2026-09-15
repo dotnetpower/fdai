@@ -154,6 +154,8 @@ async def test_entra_directory_builds_group_and_people_role_roster() -> None:
         ("person", "Alex Kim"),
     ]
     assert roster[-1].roles == ("Reader", "Owner")
+    assert roster[-1].group_ids == ("group-reader", "group-owner")
+    assert "group_ids" not in roster[-1].to_dict()
 
 
 async def test_entra_directory_discovers_application_role_roster() -> None:
@@ -245,6 +247,34 @@ async def test_entra_directory_discovers_application_role_roster() -> None:
     ]
     assert cached_roster == roster
     assert service_principal_requests == 1
+    assert next(row for row in roster if row.subject_id == "reader-user").group_ids == (
+        "reader-group",
+    )
+    assert next(row for row in roster if row.subject_id == "owner-user").group_ids == ()
+
+
+async def test_roster_does_not_follow_redirects_even_with_a_redirecting_shared_client():
+    import pytest
+
+    seen = []
+
+    async def redirected(request):
+        seen.append(request.url.host)
+        if request.url.host == "graph.microsoft.com":
+            return httpx.Response(302, headers={"Location": "https://example.com/roster"})
+        return httpx.Response(
+            200, json={"id": "group-reader", "displayName": "Readers", "value": []}
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(redirected), follow_redirects=True
+    ) as client:
+        directory = EntraHumanIdentityDirectory(
+            client, FakeIdentity(), max_attempts=1, roster_cache_seconds=0
+        )
+        with pytest.raises(httpx.HTTPStatusError):
+            await directory.list_role_roster({"Reader": "group-reader"})
+    assert seen == ["graph.microsoft.com"]
 
 
 async def test_entra_directory_rejects_cross_origin_next_link() -> None:

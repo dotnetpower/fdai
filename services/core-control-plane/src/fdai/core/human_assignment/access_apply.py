@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 
+from fdai.core.human_assignment.access_planning import HumanAccessPlanner
 from fdai.core.human_assignment.model import AssignmentState, EffectKind, EffectReceipt
 from fdai.core.human_assignment.service import AssignmentCaseService
 from fdai.core.rbac.roles import Role
@@ -48,35 +49,32 @@ class HumanAccessApplyCoordinator:
         actor_ref: str,
         mode: Mode = Mode.SHADOW,
     ) -> HumanAccessExecution:
-        assignment_case = await self.cases.get_case(case_id)
-        if assignment_case.state not in {
-            AssignmentState.OWNERSHIP_MERGED,
-            AssignmentState.IAM_APPLYING,
-            AssignmentState.DEGRADED,
-        }:
-            raise ValueError("human access apply requires a merged ownership effect")
-        if EffectKind.OWNERSHIP not in assignment_case.effect_kinds:
-            raise ValueError("human access apply requires an ownership effect receipt")
-        group_id = self.role_group_ids.get(assignment_case.intent.requested_role)
-        if group_id is None or assignment_case.intent.requested_role is Role.BREAK_GLASS:
-            raise ValueError("requested role has no routine allowlisted group")
-        plan = HumanAccessPlan(
-            case_id=assignment_case.case_id,
-            subject_id=assignment_case.intent.subject.subject_id,
-            group_id=group_id,
-            operation=HumanAccessOperation.GRANT,
-            idempotency_key=f"human-access:{assignment_case.case_id}",
+        plan = await HumanAccessPlanner(self.cases, self.role_group_ids).plan(
+            case_id=case_id, expected_revision=expected_revision
         )
         if mode is Mode.SHADOW:
             return HumanAccessExecution(HumanAccessExecutionOutcome.PLANNED, plan)
 
         applying = await self.cases.begin_iam_apply(
-            case_id=assignment_case.case_id,
+            case_id=plan.case_id,
             expected_revision=expected_revision,
             actor_ref=actor_ref,
         )
         try:
             receipt = await self.provisioner.apply(plan)
+            if receipt.digest != plan.target_digest or receipt.outcome not in {
+                HumanAccessOutcome.APPLIED,
+                HumanAccessOutcome.ALREADY_APPLIED,
+            }:
+                await self.cases.mark_degraded(
+                    case_id=applying.case_id,
+                    expected_revision=applying.revision,
+                    reason_code="iam_receipt_mismatch",
+                    actor_ref=actor_ref,
+                )
+                return HumanAccessExecution(
+                    HumanAccessExecutionOutcome.FAILED, plan, reason="iam_receipt_mismatch"
+                )
             try:
                 verified = await self.provisioner.verify(plan)
             except Exception:  # noqa: BLE001 - provider boundary fails closed
@@ -151,9 +149,21 @@ class HumanAccessApplyCoordinator:
     ) -> str:
         if receipt.outcome is not HumanAccessOutcome.APPLIED:
             return f"{failure}_not_owned"
+        inverse = HumanAccessPlan(
+            case_id=plan.case_id,
+            subject_id=plan.subject_id,
+            group_id=plan.group_id,
+            operation=HumanAccessOperation.REVOKE,
+            idempotency_key=f"{plan.idempotency_key}:rollback",
+        )
         try:
-            await self.provisioner.rollback(plan)
+            rollback = await self.provisioner.rollback(plan)
         except Exception:  # noqa: BLE001 - provider boundary fails closed
+            return f"{failure}_rollback_failed"
+        if (
+            rollback.outcome is not HumanAccessOutcome.ROLLED_BACK
+            or rollback.digest != inverse.target_digest
+        ):
             return f"{failure}_rollback_failed"
         return f"{failure}_rolled_back"
 

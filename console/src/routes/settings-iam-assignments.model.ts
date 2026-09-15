@@ -8,7 +8,9 @@ export type AssignmentState =
   | "ownership_pr_open"
   | "ownership_merged"
   | "iam_applying"
+  | "iam_revoked"
   | "active"
+  | "revoked"
   | "rejected"
   | "degraded"
   | "superseded";
@@ -163,6 +165,13 @@ export function decodeAssignmentCase(value: unknown): AssignmentCase {
   const intent = record(root["intent"], "assignment case.intent");
   const subject = record(intent["subject"], "assignment case.intent.subject");
   const state = assignmentState(root["state"]);
+  const effects = array(root["effect_receipts"], "assignment case.effect_receipts");
+  const kinds = new Set(effects.map((effect) => record(effect, "assignment effect")["kind"]));
+  if (intent["revocation"] !== undefined && state === "active") throw new Error("Revocation cannot become active.");
+  if ((state === "active" || state === "revoked") && (!kinds.has("iam") || !kinds.has("ownership"))) {
+    throw new Error("Converged assignment requires both effects.");
+  }
+  if (state === "iam_revoked" && !kinds.has("iam")) throw new Error("IAM removal requires effect evidence.");
   return {
     caseId: string(root["case_id"], "assignment case.case_id"),
     state,
@@ -264,7 +273,7 @@ function decodeProjectionItem(value: unknown): AssignmentProjectionItem {
 
 function assignmentState(value: unknown): AssignmentState {
   const state = string(value, "assignment case.state");
-  const states: readonly AssignmentState[] = ["draft", "pending_review", "approved", "ownership_pr_open", "ownership_merged", "iam_applying", "active", "rejected", "degraded", "superseded"];
+  const states: readonly AssignmentState[] = ["draft", "pending_review", "approved", "ownership_pr_open", "ownership_merged", "iam_applying", "iam_revoked", "active", "revoked", "rejected", "degraded", "superseded"];
   if (!states.includes(state as AssignmentState)) throw new Error("assignment case state is invalid");
   return state as AssignmentState;
 }

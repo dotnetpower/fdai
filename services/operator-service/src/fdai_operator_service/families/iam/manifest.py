@@ -33,9 +33,20 @@ IAM_FAMILY_MANIFEST = (
     IamRouteManifestEntry("GET", "/iam/assignment-cases/{case_id:str}", "get_case"),
     IamRouteManifestEntry("POST", "/iam/assignment-cases/{case_id:str}/submit", "submit_case"),
     IamRouteManifestEntry("POST", "/iam/assignment-cases/{case_id:str}/review", "review_case"),
+    IamRouteManifestEntry("GET", "/handover/readiness", "readiness"),
     IamRouteManifestEntry("GET", "/handover/goals/invitation", "invitation"),
     IamRouteManifestEntry("GET", "/handover/goals/{goal_id:str}", "get_goal"),
     IamRouteManifestEntry("POST", "/handover/goals/{goal_id:str}/{operation:str}", "command"),
+    IamRouteManifestEntry("GET", "/handover/scoped-duties/catalog", "scoped_catalog"),
+    IamRouteManifestEntry("GET", "/handover/scoped-duties", "scoped_projection"),
+    IamRouteManifestEntry("POST", "/handover/scoped-duty-cases", "create_scoped_case"),
+    IamRouteManifestEntry("GET", "/handover/scoped-duty-cases/{case_id:str}", "get_scoped_case"),
+    IamRouteManifestEntry(
+        "POST", "/handover/scoped-duty-cases/{case_id:str}/submit", "submit_scoped_case"
+    ),
+    IamRouteManifestEntry(
+        "POST", "/handover/scoped-duty-cases/{case_id:str}/review", "review_scoped_case"
+    ),
     IamRouteManifestEntry("GET", "/models/settings", "get_settings"),
     IamRouteManifestEntry("PUT", "/models/binding-policy", "put_binding_policy"),
     IamRouteManifestEntry("POST", "/models/binding-policy/assess", "post_binding_assessment"),

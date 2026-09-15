@@ -543,10 +543,21 @@ def _build_control_loop(
     hil_channel = _build_hil_channel(http_client, hil_identity)
     approval_load_policy = _load_approval_load_policy(catalog_root)
     escalation_rungs = _load_hil_escalation_rungs(catalog_root) if hil_channel else ()
+    from fdai.runtime.hil_escalation import (
+        build_escalation_timing,
+        build_forecast_urgency_reader,
+        build_rung_eligibility,
+    )
+
     escalation_supervisor = (
         HumanNonResponseSupervisor(
             state_store=audit_store,
             channel=hil_channel,
+            catalog_timing=build_escalation_timing(catalog_root, os.environ),
+            forecast_urgency_reader=build_forecast_urgency_reader(os.environ),
+            eligibility=build_rung_eligibility(
+                catalog_root, http_client=http_client, identity=identity, environment=os.environ
+            ),
             policy=EscalationPolicy(
                 decision_timeout_seconds=300,
                 overall_timeout_seconds=1800,

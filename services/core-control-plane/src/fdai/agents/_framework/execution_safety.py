@@ -12,7 +12,7 @@ from collections.abc import Awaitable, Callable, Coroutine, Mapping
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.pantheon import HARD_DEPENDENCY_AGENTS, PANTHEON_NAMES
 from fdai.agents.saga import Saga
-from fdai.agents.thor import ActionRun, Thor
+from fdai.agents.thor import ActionExecutor, ActionRun, ActionRunStore, Thor
 from fdai.shared.providers.resource_lock import ResourceLock
 
 _LOG = logging.getLogger(__name__)
@@ -31,6 +31,14 @@ def validate_disabled_agents(disabled_agents: frozenset[str] | None) -> frozense
             f"are mutation safety invariants): {sorted(forbidden)}"
         )
     return disabled
+
+
+async def refuse_unbound_action(context: dict[str, object]) -> bool:
+    """A path-specific binding never enables Thor's test-only default for unrelated actions."""
+    del context
+    raise RuntimeError(
+        "general Thor execution is unbound; only the separately bound path is available"
+    )
 
 
 def validate_enforce_bindings(
@@ -114,6 +122,28 @@ def bind_execution_audit(*, thor: Thor, saga: Saga | None, enforce: bool) -> Non
     thor.set_execution_audit_recorder(_record, required=enforce)
 
 
+def configure_thor_execution(
+    *,
+    thor: Thor,
+    executor: ActionExecutor | None,
+    state_store: ActionRunStore | None,
+    resource_lock: ResourceLock | None,
+    saga: Saga | None,
+    enforce: bool,
+    human_access_bound: bool,
+) -> None:
+    """Bind explicit execution/audit/lock seams while keeping unrelated unbound actions denied."""
+    if executor is not None:
+        thor.set_executor(executor)
+    elif enforce and human_access_bound:
+        thor.set_executor(refuse_unbound_action)
+    thor.set_shadow(not enforce)
+    if state_store is not None:
+        thor.set_state_store(state_store)
+    bind_execution_audit(thor=thor, saga=saga, enforce=enforce)
+    thor.set_execution_resource_lock(resource_lock, required=enforce)
+
+
 async def maintain_agents(agents: Mapping[str, Agent], interval: float) -> None:
     """Expire bounded HIL waits while the Pantheon runtime is active."""
 
@@ -160,7 +190,9 @@ async def run_with_maintenance(
 
 __all__ = [
     "bind_execution_audit",
+    "configure_thor_execution",
     "maintain_agents",
+    "refuse_unbound_action",
     "run_with_maintenance",
     "validate_enforce_bindings",
 ]

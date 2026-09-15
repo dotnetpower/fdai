@@ -9,9 +9,11 @@ from typing import Any
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import Handler
 from fdai.agents._framework.bus_bridge import EventBusBridge
+from fdai.agents._framework.human_access_workflow import owned_human_access_handler
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.huginn import Huginn
 from fdai.agents.mimir import Mimir
+from fdai.core.human_assignment.execution_ports import HumanAccessAgentBindings
 from fdai.core.rule_semantic_generation import (
     RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
     RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
@@ -62,6 +64,7 @@ def bind_runtime_subscriptions(
     rule_generation_workers: RuleGenerationWorkerBindings | None,
     rule_generation_activation_binder: RuleGenerationActivationBinder | None,
     rule_generation_state_store: StateStore | None,
+    human_access: HumanAccessAgentBindings | None = None,
 ) -> int:
     """Bind declared subscriptions and optional Mimir Rule-generation wiring."""
     mimir = instantiated["Mimir"]
@@ -84,8 +87,9 @@ def bind_runtime_subscriptions(
 
     subscription_count = 0
     for name, agent in agents.items():
+        handler = owned_human_access_handler(agent, human_access)
         for topic in agent.spec.subscribes:
-            bridge.subscribe(topic, name, agent.on_typed_message)
+            bridge.subscribe(topic, name, handler)
             subscription_count += 1
     if rule_generation_activation_binder is not None and "Mimir" in agents:
         bridge.subscribe(

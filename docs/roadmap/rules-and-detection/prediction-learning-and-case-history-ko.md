@@ -1,6 +1,6 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: 1c2aaeff41fc0851673a404c4a4f48401f949970
+translation_source_sha: 2f893511e6d18ae94371317446f8254ec1791197
 translation_revised: 2026-09-15
 ---
 # 예측 학습 및 케이스 히스토리
@@ -50,6 +50,12 @@ learning intake 또는 관련 없는 예측을 차단하지 않습니다. 런타
 평가를 변경 불가능한 에피소드로 기록합니다. 또한 텔레메트리 grace 기간 이후 due 에피소드를
 종료하고 transactional 게시 발신함을 비웁니다. Poison 게시는 다른 에피소드를
 막지 않도록 격리하고 dead-letter 처리합니다.
+
+위반 예측의 게시 기록에는 평가기가 계산한 위반 예상 시각과 통제된 예측 구간의 신뢰 수준을
+버전이 있는 `approval_timing` 메타데이터로 보존합니다. 승인 감독자는 기존 에피소드와 게시
+기록을 정확히 읽고 계보, 시간, 대상, 구간을 확인해 제한된 응답 시간만 도출합니다.
+이 메타데이터가 없는 이전 게시 기록은 학습 자료로 유효하지만 승인 응답 시간을 줄이지
+못합니다. 새 결과, 새로운 측정값, 권한을 추가하지 않습니다.
 
 ## 예측 결과 계약
 
