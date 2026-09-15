@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: ea455d52bee8ab9132394ed55b65232103f5c9ec
+translation_source_sha: 9aef9ee397bfaaff1fa698923b199cb2806c3ae0
 translation_revised: 2026-09-15
 ---
 # 에이전트 판테온
@@ -47,6 +47,10 @@ Var와 Saga는 문서 HIL의 안정적인 멱등성을 보존하며 Saga는 게�
 워크플로 요청은 양의 시도 번호를 포함한 범위가 제한된 `workflow_action` 계보를 Huginn, Forseti, Thor를 거쳐 보존합니다. Thor는 Verdict가 제공한 작업 식별자만 보존하고 상관관계에서 만들어 내지 않으며 권한이 없는 `_framework` 도우미로 범위가 제한된 ActionRun 계보를 검증합니다.
 전달 계층의 생성기는 하나의 완전한 운영 계획에 대한 선택적인 인자 결속 실행 제안을 저장합니다. Forseti는 주입된 원본으로 이를 해석하고 엄격한 검증 뒤 같은 Verdict-to-ActionRun 경로를 유지합니다. 계보와 제안은 귀속 및 근거만 제공하며 정족수, 모드, 판단, 승인, 실행 권한을 바꾸지 않습니다. Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 Var 승인, Vidar 복구, Saga 인계, Norns 학습도 [에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#영속-권한과-재생)에 따라 영속 멱등성과 재시작 상태를 보존합니다.
+
+Var의 승인 대기 데이터는 비공개 `var_decisions`에서 영속 결정 레코드와 함께 관리합니다.
+공개 `PendingHilTicket`과 `PendingShadowReview`는 Var에서 계속 가져올 수 있으며 필드,
+기본값, 변경 가능성은 그대로입니다. 승인 정책이나 게시 소유권은 이동하지 않습니다.
 
 - **배정 검토:** [배정 명령](../interfaces/human-agent-assignment-implementation-plan-ko.md#명령-이벤트-작업)은 기존 토픽에서 Huginn 유입, Forseti 검증, 독립 Var 검토, Saga 봉인, Muninn 사례 반영을 거칩니다. Operator 조회 결과는 권한이 아닙니다. 이전 IAM 알림은 shadow 전용이며 새 제거 검토와 독립 IAM 제거 근거가 있어야 검토 전용 이전 임무 PR을 만듭니다. Forseti의 증적 처리는 비공개 배정 믹스인에 유지합니다.
 - **멤버십 실행:** 별도로 타입이 지정된 경로는 Var가 원래 사람 승인 슬롯을 만들기 전에 전체 원래 Action과 정확한 사례, 역할 맵, 승격 원본을 보존합니다. Muninn 준비는 CAS `r -> r+1`이며 승인된 `expected_revision=r`을 수정하지 않습니다. Core는 변경 신원을 만들지 않습니다. Thor는 격리된 전용 신원, 정확한 현재 원본/허용 목록 확인, 7개 안전장치, 연산과 무관한 멤버십 잠금을 통해 전달합니다. 현재 비상 정지/상태와 principal별 ActionType 승인 정책을 다시 확인합니다. 시도 전에 영속 의도를 기록하고 응답 뒤 확인 기록을 남기며 결과를 모르는 시도는 자동 재시도하지 않습니다.

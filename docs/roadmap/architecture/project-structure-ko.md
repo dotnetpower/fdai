@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f15641fdd0d649bcf200564cda9a455382c91eaf
+translation_source_sha: 455ca63c921afbe19bddabd837858e9286874688
 translation_revised: 2026-09-15
 ---
 # 프로젝트 구조
@@ -528,6 +528,10 @@ privileged I/O 전에 확인하는 실제 상한을 제공합니다. 어느 계�
 [에이전트 판테온 구현 계획](../agents/agent-pantheon-implementation-ko.md#범위가-제한된-공유-상태)이 공유 `StateStore`의 범위 제한 제거 및 재생 의미 체계를 소유합니다.
 
 ## 컨트롤 루프 배선
+
+Var는 순수 승인 대기 데이터를 비공개 결정 레코드 도우미에 두고 기존 공개 타입 이름을
+다시 내보냅니다. 필드/기본값과 승인 동작은 그대로이며 파생 저장소 지식은 승인이나 실행
+권한을 얻지 않고 원본 약속값만 갱신합니다.
 
 모든 종단 경로는 감사 항목을 기록하고 T2 출력은 품질 게이트를 통과한 뒤에만 안전성 검토에 도달합니다. 각 액션은
 실제 시작 T0, T1 또는 T2 권한 tier를 유지하며 라우팅, 근거 재사용, 근거 확인, 승인, 롤백 및 재시작의 모호성은 실패 시 차단됩니다.

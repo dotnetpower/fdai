@@ -13,7 +13,6 @@ import hashlib
 import inspect
 from collections.abc import Awaitable, Callable, Mapping
 from copy import deepcopy
-from dataclasses import dataclass, field
 from typing import Any
 
 from fdai.agents._framework.adapters import (
@@ -40,6 +39,8 @@ from fdai.agents._framework.introspection import (
 from fdai.agents._framework.pantheon import _VAR
 from fdai.agents._framework.var_decisions import (
     ApprovalDecisionState,
+    PendingHilTicket,
+    PendingShadowReview,
     VarDecisionJournal,
     approval_for_ticket,
     final_approval_record,
@@ -48,35 +49,6 @@ from fdai.shared.providers.state_store import StateStore
 
 ApproverAuthorizer = Callable[[str, str], bool | Awaitable[bool]]
 _APPROVAL_STATE_PREFIX = "pantheon/var/approval"
-
-
-@dataclass
-class PendingHilTicket:
-    correlation_id: str
-    action_type: str
-    resource_id: str | None
-    quorum_required: int
-    initiator_principal: str | None = None
-    params: dict[str, Any] = field(default_factory=dict)
-    kind: str = "action"
-    document_id: str | None = None
-    upload_id: str | None = None
-    stage: str | None = None
-    idempotency_key: str = ""
-    decision_case: dict[str, Any] | None = None
-    approvers: list[str] = field(default_factory=list)
-    rejected: bool = False
-
-
-@dataclass(frozen=True, slots=True)
-class PendingShadowReview:
-    """One Saga-authenticated shadow outcome awaiting a human comparison."""
-
-    correlation_id: str
-    action_type: str
-    observed_at: str
-    policy_escape: bool
-    initiator_principal: str | None
 
 
 def _evict_oldest_ticket(mapping: dict[Any, Any], cap: int, *, keep: Any = None) -> None:

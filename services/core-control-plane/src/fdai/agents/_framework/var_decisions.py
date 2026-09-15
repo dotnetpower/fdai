@@ -6,7 +6,7 @@ import hashlib
 import json
 from collections.abc import Mapping
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
@@ -14,6 +14,37 @@ from fdai.shared.providers.state_store import StateStore
 
 _MAX_CAS_ATTEMPTS = 16
 _TERMINAL_DISPOSITIONS = frozenset({"approved", "rejected"})
+
+
+@dataclass
+class PendingHilTicket:
+    """Var-owned pending decision data; fields and defaults preserve the public ticket contract."""
+
+    correlation_id: str
+    action_type: str
+    resource_id: str | None
+    quorum_required: int
+    initiator_principal: str | None = None
+    params: dict[str, Any] = field(default_factory=dict)
+    kind: str = "action"
+    document_id: str | None = None
+    upload_id: str | None = None
+    stage: str | None = None
+    idempotency_key: str = ""
+    decision_case: dict[str, Any] | None = None
+    approvers: list[str] = field(default_factory=list)
+    rejected: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class PendingShadowReview:
+    """One Saga-authenticated shadow outcome awaiting a human comparison."""
+
+    correlation_id: str
+    action_type: str
+    observed_at: str
+    policy_escape: bool
+    initiator_principal: str | None
 
 
 @dataclass(frozen=True, slots=True)

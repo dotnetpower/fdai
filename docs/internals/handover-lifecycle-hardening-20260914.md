@@ -1418,3 +1418,22 @@ No confirmed Medium/High defect from this failed-head diagnosis remains intentio
 external work. Final repair publication, exact-head protected CI, merge, and cleanup remain under
 #946. Live provider, full UI/assistive, deployment, and promotion evidence remain outside this
 source-delivery authorization.
+
+#### Enforced Var owner size correction
+
+The next exact-head CI `34925133389`, attempt 1, at
+`cc73a07894e373a49a6e5f7aa7c83ab1d07ec269` progressed past the prior failures but its
+terminal static job `104241520105` failed the repository-boundary step: the integrated Var module
+had 817 lines against the unchanged enforced 800-line ceiling. The normal pre-push uses the
+repository's warn-mode size policy, so its earlier success was not this CI enforcement evidence.
+
+A single regression reproduced the count. `PendingHilTicket` and `PendingShadowReview` now live
+beside Var's decision records in the existing private helper; the Var module re-exports the exact
+same types. Fields, defaults, mutability, serialized records, human approvals, and fixed topic
+ownership are unchanged. Var is 789 lines and the helper 509. The new identity/size regression,
+existing approval and shadow tests, and actual SQL forward/inverse chain pass 111 focused cases;
+strict typing and Ruff/format pass. No threshold or allowlist changed. The ten CR integration
+questions were revisited against this data-only extraction; independent approval, source scope,
+owned recovery, source commitments, and UI evidence are unchanged, and the new owning tests cover
+the changed import/layout input. The required-check failure remains historical evidence until a
+new exact head passes CI and is protected-merged.
