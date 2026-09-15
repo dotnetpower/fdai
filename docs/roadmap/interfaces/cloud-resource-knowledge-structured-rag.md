@@ -67,8 +67,9 @@ dates and gaps; T2 operational reasoning retains its separate mixed-model and ve
 
 An unchanged fetch/check preserves collection time and may reuse unchanged derived content.
 Normalized bytes, recipe, applicability or rights decisions changing create a material-update
-candidate. Observation timestamps alone do not create content changes. Expired or revoked content
-becomes unavailable before governed retention cleanup; neither a 404 nor an import renews rights
+candidate. Observation timestamps alone do not create content changes. A new raw source cannot be
+hidden by a stale structured checkpoint: raw identity is compared before derived state.
+Expired or revoked content becomes unavailable before governed retention cleanup; neither a 404 nor an import renews rights
 or source freshness. Automatic prior-generation restoration remains deferred.
 
 ## Qualification

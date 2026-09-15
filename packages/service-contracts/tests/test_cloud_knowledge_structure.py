@@ -221,6 +221,26 @@ def test_pending_change_uses_processing_not_only_original_or_check_time() -> Non
     assert source_update_pending(verified.binding, doc.evidence, doc.evidence)
 
 
+def test_new_raw_body_cannot_be_hidden_by_an_old_structured_checkpoint() -> None:
+    manifest, registry, trust, key = release()
+    verified = verify_package(
+        sign_release(manifest, key_id="fixture", private_key=key),
+        registry=registry,
+        trust=trust,
+        now=NOW,
+    )
+    doc = document()
+    digest = content_digest(b"new source revision")
+    candidate = CloudSourceEvidence.model_validate(
+        doc.evidence.model_dump()
+        | {
+            "source_sha256": digest,
+            "check": doc.evidence.check.model_dump() | {"content_sha256": digest},
+        }
+    )
+    assert source_update_pending(verified.binding, doc.evidence, candidate, doc)
+
+
 def test_one_unresolved_dependency_rejects_the_complete_generation() -> None:
     doc = document().model_copy(update={"unresolved_dependencies": ("missing_diagram",)})
     with pytest.raises(ValueError, match="unresolved"):

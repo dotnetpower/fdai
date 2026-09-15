@@ -38,12 +38,12 @@ navigation while physical subsystems and direct imports remain stable. The 98 fo
 pin domain membership, single ownership, dual-role packages, direct-import compatibility, and peer
 isolation. `verticals` remains its own top-level group. A future physical move is not required and
 would need a separate, domain-bounded design that explicitly preserves coverage and fan-out meaning.
-
 ## Module Boundaries
 
 Dependency direction is strict and one-way; a violation is a review blocker.
 Cloud-reference collection belongs to ingestion API, parsing/index activation to the worker, and dated evidence to Core; [the lifecycle owner](../interfaces/cloud-resource-knowledge-lifecycle.md) defines the shared contracts and no-authority boundary. Core exposes applicability as bounded scalar selectors, preserving dependency-only evidence objects. Exact document contexts intersect these selectors before ranking and cannot fall back to broader collection reads. Each new ingestion test has one service-suite owner, and the API's already-declared `aiohttp` dependency is classified as direct rather than indirect. New cloud-reference packages default to normalized-only v2; the opt-in [structured v3 extension](../interfaces/cloud-resource-knowledge-structured-rag.md) is under development. Collector originals stay API-owned and outside new transport; package/worker readers retain exact v1/v2 identities and unchanged approval gates.
 
+Cloud update comparison validates the raw source before its separately bound processing identity.
 - **core is portable**: it MUST NOT import any cloud SDK directly. Cloud specifics enter
   only through the CSP-neutral interfaces in `shared/providers/`, whose implementations live
   in `delivery/` and `infra/` and are injected at composition time. This keeps a second cloud

@@ -39,3 +39,4 @@ round is a separate local checkpoint; false positives are retained rather than t
 | Round | Severity | Finding and disposition | Verification |
 |---|---|---|---|
 | 1 | Medium | Selecting inner content regions could omit an adjacent applicability paragraph. Unaccounted structural content now holds the candidate. | Added regression failed before the fix; the focused normalization module passes after it. |
+| 2 | Medium | An old structured checkpoint masked a newer raw source when evaluating pending updates. Compare raw identity first and reject cross-source structure. | New changed-body regression failed before the fix; structured contract regressions pass afterward. |

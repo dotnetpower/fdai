@@ -18,9 +18,17 @@ def source_update_pending(
     """
     if (source.source_id, source.source_url) != (candidate.source_id, candidate.source_url):
         raise ValueError("cloud source checkpoint identity differs from admission")
+    if source.source_sha256 != candidate.source_sha256:
+        return True
     if binding.processing_digests:
         if structured is None:
             return True
+        if (
+            structured.evidence.source_id != candidate.source_id
+            or structured.evidence.source_url != candidate.source_url
+            or structured.evidence.source_sha256 != candidate.source_sha256
+        ):
+            raise ValueError("structured checkpoint does not match its raw source")
         candidate = structured.evidence
         index = next(
             (
