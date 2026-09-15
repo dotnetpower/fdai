@@ -44,6 +44,8 @@ from fdai_service_contracts.ontology_query import content_digest
 
 from tests.core.detection.alert_noise.conftest import evidence as evidence
 from tests.core.detection.alert_noise.conftest import now as now
+from tests.core.detection.alert_noise.test_evaluation_hardening import scenarios
+from tests.core.detection.alert_noise.test_temporal_evaluation import _cohort, _configs
 from tests.persistence.test_state_store_decision_evidence import _receipt
 
 SOURCE = "commit:" + "a" * 40
@@ -617,3 +619,47 @@ async def test_comparison_is_exact_current_and_independently_admitted(ledger, ev
     else:
         with pytest.raises(AlertExecutionHeld):
             await reader.read(evidence=enriched, treatment=treatment, now=ledger.clock[0])
+
+
+@pytest.mark.parametrize("method", ["threshold_scenarios", "temporal_scenarios"])
+async def test_admitted_source_replay_is_connected_and_does_not_renew(ledger, evidence, method):
+    _, enriched = _base_and_enrichment(evidence)
+    at = ledger.clock[0]
+    if method == "threshold_scenarios":
+        treatment, _ = _comparison(enriched, at)
+        cohort = scenarios(enriched, at)
+    else:
+        baseline, candidate = _configs(enriched)
+        enriched = enriched.model_copy(
+            update={"rules": (enriched.rules[0].model_copy(update={"evaluation": baseline}),)}
+        )
+        treatment = AlertTreatment(
+            kind="evaluation", target_ref=enriched.rules[0].ref, evaluation=candidate
+        )
+        cohort = _cohort(at, enriched)
+    reader = StateStoreAlertEvaluationReader(
+        store=ledger.store,
+        admissions=ledger.admissions,
+        scope_ref="scope:example",
+        tenant_ref="tenant:example",
+        source_revision=SOURCE,
+        clock=lambda: ledger.clock[0],
+    )
+    assert await reader.read(evidence=enriched, treatment=treatment, now=at) is None
+    await _install_record(
+        ledger,
+        key=alert_evaluation_key(evidence=enriched, treatment=treatment),
+        purpose=ALERT_EVALUATION_PURPOSE,
+        payload={
+            "evidence_digest": digest_record(enriched),
+            "treatment_digest": digest_record(treatment),
+            method: cohort.model_dump(mode="json"),
+        },
+    )
+    first = await reader.read(evidence=enriched, treatment=treatment, now=at)
+    assert first is not None and first.accepted and first.evaluated_at == at
+    ledger.clock[0] += timedelta(seconds=10)
+    assert await reader.read(evidence=enriched, treatment=treatment, now=ledger.clock[0]) == first
+    ledger.clock[0] = first.expires_at
+    with pytest.raises(AlertExecutionHeld):
+        await reader.read(evidence=enriched, treatment=treatment, now=ledger.clock[0])

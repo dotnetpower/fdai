@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 139e8138e654be2d80bda84c3a1ab7f0f5f6044f
+translation_source_sha: fbd83fe85c45ba3c9298a5db23a9a4193c383cfe
 translation_revised: 2026-09-15
 ---
 # 프로젝트 구조
@@ -386,7 +386,7 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
 
 업스트림은 범용 인터페이스와 동작하는 기본 구현을 제공합니다. 포크는 `core/`를 편집하거나
 복사하지 않고 자체 조립 루트에서 의존성을 주입해 구성을 변경합니다.
-[포크 모델](../../../.github/instructions/generic-scope.instructions.md)을 참조하세요. [알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)는 제한적 조회기, 독립 근거, 기존 Workflow/Process 조정, GitOps 전달, 원본 작성자 통제 및 효과 중계를 연결합니다. 공유 알림 코덱은 온톨로지 쿼리 한도를 늘리지 않고 비공개 근거 크기를 제한하며, 순수 평가 함수는 불완전한 라우팅을 보고서 완전성에도 반영합니다. 팩터리는 처리 구조만 제공하며 독립 권한이나 수신자/효과 증적을 만들지 않습니다. 운영 도입에는 아직 충족해야 할 조건이 있습니다.
+[포크 모델](../../../.github/instructions/generic-scope.instructions.md)을 참조하세요. [알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)는 제한적 조회기, 독립 근거, 기존 Workflow/Process 조정, GitOps 전달, 원본 작성자 통제 및 효과 중계를 연결합니다. 공유 알림 코덱은 온톨로지 쿼리 한도를 늘리지 않고 비공개 근거 크기를 제한하며, 순수 평가 함수는 불완전한 라우팅을 보고서 완전성에도 반영합니다. 공유 시계열 스키마는 완전하고 균일한 관측량과 사례별 탐지 결과를 고정합니다. Core는 평가 구간/주기 중 한 축을 비교하고 전달 계층은 고정된 출처 기록을 인증하며 지원되는 Azure Terraform 기간 필드만 생성합니다. 팩터리는 처리 구조만 제공하며 독립 권한이나 수신자/효과 증적을 만들지 않습니다. 운영 도입에는 아직 충족해야 할 조건이 있습니다.
 
 > **포크 유지관리자**: 절차적 walkthrough는
 > [downstream-fork-guide-ko.md](../fork-and-sequencing/downstream-fork-guide-ko.md)에서 시작. 이 섹션은

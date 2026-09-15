@@ -35,6 +35,11 @@ class SchemaNotFoundError(LookupError):
 _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("action", "1.0.0"): "schemas/action/1.0.0.json",
     ("alert-noise-assessment", "1.0.0"): "schemas/alert-noise-assessment/1.0.0.json",
+    ("alert-noise-evaluation", "1.0.0"): "schemas/alert-noise-evaluation/1.0.0.json",
+    (
+        "alert-noise-temporal-scenarios",
+        "1.0.0",
+    ): "schemas/alert-noise-temporal-scenarios/1.0.0.json",
     ("alert-noise-command", "1.0.0"): "schemas/alert-noise-command/1.0.0.json",
     ("alert-noise-evidence", "1.0.0"): "schemas/alert-noise-evidence/1.0.0.json",
     ("alert-noise-plan", "1.0.0"): "schemas/alert-noise-plan/1.0.0.json",

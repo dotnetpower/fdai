@@ -72,7 +72,7 @@ def test_evaluation_receipt_has_no_default_or_stale_fallback(
         treatment = treatment.model_copy(
             update={"evaluation": baseline.model_copy(update={"window_seconds": 600})}
         )
-        reason = "evaluation_requires_single_axis"
+        reason = "evaluation_validation_mismatch"
     elif missing == "receipt":
         receipt = None
         reason = "evaluation_validation_missing"

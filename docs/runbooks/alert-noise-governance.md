@@ -36,7 +36,7 @@ The plan, not the caller, supplies the target, fields, original revision, and ro
 |------------|-----------------------------|-------------------|
 | `ops.update-alert-routing` | Replace one observed Action Group binding on one non-protected metric or scheduled-query rule | Existing groups and exact Terraform JSON action list only; no receiver rewrite or new group |
 | `ops.set-alert-notification-window` | Enable one existing inert suppression rule for one exact rule and a finite UTC interval | Complete effective routing, unaffected independent collection, propagation budget, and absolute expiry |
-| `ops.tune-alert-evaluation` | Change one simple metric criterion's threshold | Independently admitted same-bucket comparison; evaluation-window/frequency changes remain held and unimplemented |
+| `ops.tune-alert-evaluation` | Change one simple metric threshold, window, or frequency | Independently admitted same-bucket threshold or uniform-series temporal comparison with paired recall/latency guards |
 | `ops.restore-alert-configuration` | Restore the pinned baseline of that same forward plan | Current repository bytes equal the retained forward result and separate current recovery authority exists |
 
 ## Preconditions
@@ -85,6 +85,14 @@ freshness, and verifier separation. The effect observation additionally needs se
 outcome admission before the existing Process can advance. These factories do not produce the
 records, run notification tests, create a provider observer, or promote any capability.
 
+The exact `alert-noise:evaluation:` payload binds `evidence_digest` and `treatment_digest`, plus
+exactly one of `comparison`, `threshold_scenarios`, or `temporal_scenarios`. The same independent
+admission authenticates the full frozen content before deterministic replay. Replays use its fixed
+`verified_at`, not the time of a retry. Temporal inputs require complete uniform samples and
+independent onset labels; no missing sample, lost positive or delayed positive is accepted.
+Bind `criteria.0.threshold`, `window_size`, or `frequency` to the selected axis. Unsupported native
+values, dynamic/mixed criteria, missing source durations, or a mismatched baseline hold the plan.
+
 ### Settings and request API
 
 All routes revalidate current identity and exact scope; responses use `Cache-Control: no-store`.
@@ -120,8 +128,9 @@ unreadable bound preference vetoes new requests, never accepted work or separate
    writer, producer readiness, and preference checks allow it. Preserve its correlation reference.
    If the result is unknown, reconcile the retained request before another submission.
 3. **Prepare one inert treatment.** Use current complete evidence and one routing, finite-window,
-   or supported threshold change. Retain the immutable plan and exact source/forward/rollback
-   artifacts. Unsupported window/frequency changes stay held even when a form can express them.
+   or supported evaluation change. Retain the immutable plan and exact source/forward/rollback
+   artifacts. Window/frequency changes require temporal evidence; threshold-only receipts cannot
+   substitute. Provider and promotion qualification remain separate.
 4. **Review future enforcement prerequisites.** Through Var, obtain current decisions from all
    affected service owners and a distinct Owner-level change authority. Neither requester nor
    executor can approve. Pins cover the plan, dependencies, policy, workflow, expiry, and recovery.

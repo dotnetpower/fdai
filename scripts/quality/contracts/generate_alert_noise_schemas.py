@@ -8,6 +8,10 @@ import json
 from pathlib import Path
 
 from fdai_service_contracts.alert_noise import AlertEvidence, NoiseAssessment
+from fdai_service_contracts.alert_noise_evaluation import (
+    EvaluationReceipt,
+    TemporalEvaluationScenarioSet,
+)
 from fdai_service_contracts.alert_noise_plan import AlertChangePlan
 from fdai_service_contracts.alert_noise_wire import (
     SignedAlertCommand,
@@ -24,6 +28,8 @@ MODELS = {
     "alert-noise-command": SignedAlertCommand,
     "alert-noise-result": SignedAlertResult,
     "alert-noise-readiness": SignedAlertReadiness,
+    "alert-noise-evaluation": EvaluationReceipt,
+    "alert-noise-temporal-scenarios": TemporalEvaluationScenarioSet,
 }
 
 

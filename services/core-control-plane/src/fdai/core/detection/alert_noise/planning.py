@@ -5,7 +5,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from fdai_service_contracts.alert_noise import AlertEvidence, AlertRule, NoisePolicy, digest_record
-from fdai_service_contracts.alert_noise_evaluation import EvaluationReceipt
+from fdai_service_contracts.alert_noise_evaluation import (
+    EvaluationReceipt,
+    evaluation_axis,
+    evaluation_method_matches,
+)
 from fdai_service_contracts.alert_noise_plan import (
     AlertChangePlan,
     AlertRollbackBaseline,
@@ -123,12 +127,8 @@ def plan_alert_change(
             or treatment.evaluation is None
         ):
             raise AlertPlanHeld("evaluation_kind_unsupported")
-        changed = [
-            key
-            for key, value in rule.evaluation.model_dump().items()
-            if treatment.evaluation.model_dump()[key] != value
-        ]
-        if len(changed) != 1 or changed[0] != "threshold":
+        axis = evaluation_axis(rule.evaluation, treatment.evaluation)
+        if axis is None or (axis != "threshold" and rule.kind != "metric"):
             raise AlertPlanHeld("evaluation_requires_single_axis")
         if evaluation_receipt is None:
             raise AlertPlanHeld("evaluation_validation_missing")
@@ -139,6 +139,7 @@ def plan_alert_change(
             or evaluation_receipt.rule_revision != rule.revision
             or evaluation_receipt.baseline != rule.evaluation
             or evaluation_receipt.treatment != treatment.evaluation
+            or not evaluation_method_matches(evaluation_receipt)
             or not evaluation_receipt.evaluated_at <= now < evaluation_receipt.expires_at
         ):
             raise AlertPlanHeld("evaluation_validation_mismatch")

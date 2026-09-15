@@ -14,11 +14,15 @@ from datetime import datetime
 
 from fdai_service_contracts.alert_noise import AlertEvidence, digest_record
 from fdai_service_contracts.alert_noise_content import digest_alert_payload
-from fdai_service_contracts.alert_noise_evaluation import EvaluationReceipt
+from fdai_service_contracts.alert_noise_evaluation import (
+    EvaluationReceipt,
+    evaluation_method_matches,
+)
 from fdai_service_contracts.alert_noise_plan import AlertTreatment
 from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.core.detection.alert_noise.execution import AlertExecutionHeld
+from fdai.delivery.alert_noise_evaluation import admitted_alert_comparison
 from fdai.delivery.alert_noise_records import (
     AdmittedAlertRecord as AdmittedAlertRecord,
 )
@@ -212,7 +216,7 @@ def alert_evaluation_key(*, evidence: AlertEvidence, treatment: AlertTreatment) 
 
 
 class StateStoreAlertEvaluationReader:
-    """Read reviewed comparisons with payload {evidence_digest, treatment_digest, comparison}."""
+    """Read independently admitted comparisons or replay exact independently labeled scenarios."""
 
     def __init__(
         self,
@@ -234,7 +238,7 @@ class StateStoreAlertEvaluationReader:
     async def read(
         self, *, evidence: AlertEvidence, treatment: AlertTreatment, now: datetime
     ) -> EvaluationReceipt | None:
-        """Return a current exact admitted threshold comparison; missing review stays unknown."""
+        """Return a current exact admitted comparison; missing source or review stays unknown."""
         result = await self.read_admitted(evidence=evidence, treatment=treatment, now=now)
         return result[0] if result is not None else None
 
@@ -270,19 +274,20 @@ class StateStoreAlertEvaluationReader:
         if record is None:
             return None
         payload = record.payload
-        if (
-            set(payload) != {"evidence_digest", "treatment_digest", "comparison"}
-            or payload["evidence_digest"] != digest_record(evidence)
-            or payload["treatment_digest"] != digest_record(treatment)
-        ):
+        if payload.get("evidence_digest") != digest_record(evidence) or payload.get(
+            "treatment_digest"
+        ) != digest_record(treatment):
             raise AlertExecutionHeld("alert_evaluation_binding_mismatch")
-        comparison = exact_alert_model(EvaluationReceipt, payload["comparison"])
         rule = next((row for row in evidence.rules if row.ref == treatment.target_ref), None)
+        if rule is None:
+            raise AlertExecutionHeld("alert_evaluation_comparison_mismatch")
+        comparison = admitted_alert_comparison(
+            payload, rule=rule, treatment=treatment, verified_at=record.admission.verified_at
+        )
         at = self._clock()
         if (
             at < now
             or not evidence.stamp.current_at(at)
-            or rule is None
             or rule.kind not in {"metric", "log"}
             or comparison.rule_ref != rule.ref
             or comparison.rule_revision != rule.revision
@@ -291,9 +296,8 @@ class StateStoreAlertEvaluationReader:
             or not comparison.accepted
             or not comparison.evaluated_at <= at < comparison.expires_at
             or comparison.evaluated_at > record.admission.verified_at
-            or comparison.baseline.model_dump(exclude={"threshold"})
-            != comparison.treatment.model_dump(exclude={"threshold"})
-            or comparison.baseline.threshold == comparison.treatment.threshold
+            or not evaluation_method_matches(comparison)
+            or (comparison.replay_method == "uniform-metric-series-v1" and rule.kind != "metric")
         ):
             raise AlertExecutionHeld("alert_evaluation_comparison_mismatch")
         record.require_current(now=at)

@@ -16,6 +16,8 @@ from typing import Any
 from fdai_service_contracts.alert_noise import AlertEvidence, digest_record
 from fdai_service_contracts.alert_noise_plan import AlertChangePlan
 
+from fdai.delivery.alert_noise_metric_iac import patch_metric_evaluation
+
 
 @dataclass(frozen=True, slots=True)
 class AlertIaCBinding:
@@ -138,25 +140,12 @@ def render_alert_iac(
         if (
             rule.evaluation is None
             or treatment.evaluation is None
-            or binding.field != "criteria.0.threshold"
             or binding.resource_type != "azurerm_monitor_metric_alert"
-            or rule.evaluation.model_dump(exclude={"threshold"})
-            != treatment.evaluation.model_dump(exclude={"threshold"})
         ):
             raise ValueError("alert IaC evaluation mapping is unsupported")
-        criteria = resource.get("criteria")
-        if (
-            not isinstance(criteria, list)
-            or len(criteria) != 1
-            or not isinstance(criteria[0], dict)
-        ):
-            raise ValueError("alert IaC requires one simple metric criterion")
-        if (
-            type(criteria[0].get("threshold")) not in {int, float}
-            or criteria[0]["threshold"] != rule.evaluation.threshold
-        ):
-            raise ValueError("alert IaC threshold differs from observed baseline")
-        criteria[0]["threshold"] = treatment.evaluation.threshold
+        patch_metric_evaluation(
+            resource, rule.evaluation, treatment.evaluation, field=binding.field
+        )
     else:
         if (
             binding.resource_type != "azurerm_monitor_alert_processing_rule_suppression"

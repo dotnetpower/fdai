@@ -194,7 +194,7 @@ quorum, risk, source fencing, safeguards, and independent proofs still gate disp
 |---------------------|----------------|------------------|
 | `ops.update-alert-routing` | Replace one existing Action Group binding on one non-protected metric or scheduled-query rule | Exact existing Terraform JSON action list; no receiver rewrite, resource creation, or direct Azure fallback |
 | `ops.set-alert-notification-window` | Enable one existing inert suppression rule for one exact rule and a finite UTC interval | Exact existing Terraform JSON schedule; complete effective-rule, protected-path, and independent-collection evidence required |
-| `ops.tune-alert-evaluation` | Change only the threshold of one simple metric criterion | Same-bucket comparison and admitted evaluation receipt; window/frequency guidance remains held, not implemented |
+| `ops.tune-alert-evaluation` | Change one simple metric threshold, window, or frequency | Threshold uses same buckets; temporal replay requires uniform samples, paired recall/latency guards, and exact supported Terraform duration fields |
 | `ops.restore-alert-configuration` | Restore the retained plan's pinned baseline only when current bytes match its forward result | Separately current recovery authority through `pr_manual`; no overwrite of a newer revision |
 
 `AlertPlanArtifactPreparer` reads an exact existing Terraform JSON file through the already bound
@@ -303,11 +303,20 @@ deliveries, and observed human acknowledgements. Report duplicates and interrupt
 service/team and time window. Potential recipient fan-out and modeled savings are estimates, not
 observed per-user deliveries. Empty, censored, and unavailable samples are not a zero baseline.
 
-Threshold changes need underlying telemetry plus independently labeled positive, negative, and
-missed-incident cases; fired-alert history alone cannot measure false negatives. Compare the same
-frozen scenario set, rule versions, workload exposure, and observation window. Live before/after
-changes in traffic or membership are confounders, not proof of causation. Missing acknowledgement
-does not label an alert unnecessary. Raw event, episode, destination, and human burden stay distinct.
+Evaluation changes need underlying telemetry plus independently labeled positive, negative, and
+missed-incident cases. Threshold replay uses the same buckets; window/frequency replay uses complete
+uniform metric samples, an exact shared cadence anchor, warm-up at least the larger window, and
+independent actionable onset labels. Compare detection across identical scenario intervals, require
+fewer false positives, no lost or delayed positive case, and no worse maximum detection latency.
+Uneven/missing samples, early detection in a labeled positive case, incompatible native values and unsupported
+rule kinds hold. A receipt binds the replay method and latency guard; a same-bucket receipt cannot
+admit a window change. These are detector scenarios, not provider delivery or promotion evidence.
+The admitted reader accepts exactly one comparison, threshold cohort, or temporal cohort bound to
+the evidence and treatment digests; replay uses the fixed independent verification time. Repeated
+reads never refresh validity. Terraform emits documented duration tokens including `PT1H` and `P1D`,
+not equivalent-looking values rejected by its provider schema.
+Fired-only history cannot reveal missed incidents. Traffic/membership shifts remain confounders;
+missing acknowledgement never labels an alert unnecessary or proves a causal improvement.
 
 Success requires independent configuration readback, continued source-event collection, the
 expected delivery behavior, preserved protected-response deadlines, and the declared observation
@@ -370,6 +379,7 @@ provider conformance, or a passing executable test.
 | Let one recipient approve a shared change | Cover every affected service, retain independent quorum, and never infer authority from Azure recipient roles. |
 | Accept readback or rollback as proof nobody missed an alert | Verify delivery and recovery independently; keep any missed interval as evidence that restoration cannot erase. |
 | Use a local lock or a later cleanup task | Require effective writer fencing and provider-enforced finite windows, including dependency and restart cases. |
+| Compare aggregate recall or maximum latency only | Keep paired case outcomes; one improved case cannot compensate for another lost or delayed positive. |
 
 ## Related docs
 
