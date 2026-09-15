@@ -42,6 +42,12 @@ from genesis_foundation_recovery_plan import (
     require_ip_policy_only,
     require_naming_only,
 )
+from genesis_foundation_recovery_successor import (
+    group_evidence_valid,
+    require_pending_repairs,
+    validate_successor_plan,
+    verify_predecessor_binding,
+)
 from genesis_foundation_workspace import verify_execution_copy
 from genesis_vm_sku_preflight import recheck_foundation_vm
 
@@ -150,10 +156,8 @@ def _locked(
             review.get(key) is not False
             for key in ("apply_authorized", "mutation_performed", "deployment_ready")
         )
-        or any(
-            review.get(key) is not True
-            for key in ("original_state_unchanged", "application_group_absent")
-        )
+        or any(review.get(key) is not True for key in ("original_state_unchanged",))
+        or not group_evidence_valid(review)
     ):
         raise ValueError("Foundation recovery review authority or state is invalid")
     claim_path = work / "recovery-apply-claim.json"
@@ -195,6 +199,11 @@ def _locked(
         snapshot / "tree/infra/genesis-foundation", work / "source/infra/genesis-foundation"
     )
     require_ip_policy_only(snapshot / "tree/infra/bootstrap", work / "source/infra/bootstrap")
+    predecessor = verify_predecessor_binding(review)
+    if predecessor is not None:
+        require_pending_repairs(
+            snapshot / "tree/infra/bootstrap/main.tf", work / "source/infra/bootstrap/main.tf"
+        )
     for name, digest in (
         ("recovery.tfplan", review["plan_digest"]),
         ("show.stdout", review["plan_json_digest"]),
@@ -227,6 +236,12 @@ def _locked(
     GenesisChecks(repository_root, environment=environment).verify_source(
         source_commit=source.commit, repository=repository, apply=True
     )
+    if predecessor is not None:
+        GenesisChecks(repository_root, environment=environment).verify_source(
+            source_commit=str(predecessor[0]["recovery_source_commit"]),
+            repository=repository,
+            apply=True,
+        )
     state_path = (
         original / "foundation-apply-bundle/source/infra/genesis-foundation/terraform.tfstate"
     )
@@ -238,15 +253,18 @@ def _locked(
         if _hash(state_path) != review["original_state_digest"]:
             raise ValueError("Foundation recovery state changed after planning")
         projection = _json(work / "show.stdout")
-        validate_recovery_plan(
-            projection,
-            _json(work / "original-show.stdout"),
-            state,
-            application_workload=str(variables["application_workload"]),
-        )
+        if predecessor is None:
+            validate_recovery_plan(
+                projection,
+                _json(work / "original-show.stdout"),
+                state,
+                application_workload=str(variables["application_workload"]),
+            )
+        else:
+            validate_successor_plan(projection, predecessor[2], state)
         entries = cast(list[dict[str, Any]], projection["resource_changes"])
         group = next(
-            entry["change"]["after"]["name"]
+            entry["change"]["after"]
             for entry in entries
             if entry["address"] == "azapi_resource.app_resource_group"
         )
@@ -254,11 +272,12 @@ def _locked(
             [
                 str(image._trusted_azure_cli()),
                 "group",
-                "exists",
+                "show" if predecessor is not None else "exists",
                 "--subscription",
                 target.subscription_id,
                 "--name",
-                group,
+                group["name"],
+                *(("--query", "id") if predecessor is not None else ()),
                 "--output",
                 "tsv",
                 "--only-show-errors",
@@ -268,8 +287,9 @@ def _locked(
             timeout=deadline.remaining(30),
             reason="Foundation recovery group availability is unknown",
         )
-        if exists.strip().casefold() != "false":
-            raise ValueError("Foundation recovery cannot adopt an existing application group")
+        expected_group = str(group.get("id")) if predecessor is not None else "false"
+        if exists.strip().casefold() != expected_group.casefold():
+            raise ValueError("Foundation recovery application group ownership changed")
         if deadline.remaining() < 180:
             raise TimeoutError("Foundation recovery lacks its bounded VM verification budget")
         recheck_foundation_vm(
@@ -278,6 +298,8 @@ def _locked(
             evidence_directory=work,
         )
         actor = require_current_approval(review, approval_file)
+        if predecessor != verify_predecessor_binding(review):
+            raise ValueError("Foundation predecessor changed before successor claim")
         source.reverify()
         deadline.remaining()
         if (

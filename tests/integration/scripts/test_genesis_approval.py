@@ -223,7 +223,7 @@ def test_prompt_rejects_non_tty_or_wrong_exact_text(tmp_path: Path) -> None:
         )
 
 
-@pytest.fixture(params=[False, True])
+@pytest.fixture(params=[False, True, "successor"])
 def residual_review(tmp_path, request):
     tmp_path.chmod(0o700)
     moment = datetime.now(timezone.utc).replace(microsecond=0)  # noqa: UP017
@@ -247,6 +247,14 @@ def residual_review(tmp_path, request):
     }
     if request.param:
         value["application_group_absent"] = True
+    if request.param == "successor":
+        value.update(
+            application_group_absent=False,
+            application_group_preserved=True,
+            predecessor_directory=str(tmp_path / "predecessor"),
+            predecessor_review_digest="e" * 64,
+            predecessor_claim_digest="f" * 64,
+        )
     prompt.write_private_output(
         tmp_path / ("recovery.tfplan" if request.param else "residual.tfplan"), plan.decode()
     )

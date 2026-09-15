@@ -216,6 +216,8 @@ def _approval_from_residual_review(
     path: Path, *, foundation: bool = False
 ) -> tuple[str, str, dict[str, str]]:
     """Bind a fresh residual review and its saved plan to the existing human-only prompt."""
+    from genesis_foundation_recovery_successor import group_evidence_valid
+
     review = _load_status(path)
     digest = review.pop("review_digest", None)
     if (
@@ -232,7 +234,7 @@ def _approval_from_residual_review(
         or review.get("mutation_performed") is not False
         or review.get("deployment_ready") is not False
         or review.get("original_state_unchanged") is not True
-        or (foundation and review.get("application_group_absent") is not True)
+        or (foundation and not group_evidence_valid(review))
     ):
         raise ValueError("Genesis residual review integrity or state is invalid")
     source = review.get("recovery_source_commit")

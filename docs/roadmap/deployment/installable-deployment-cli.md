@@ -152,28 +152,27 @@ Bastion and NAT IPs, not ignored through lifecycle rules. Recovery requires the 
 on both retained IPs and pins that value in the new plan; unknown or differing tags stop preparation.
 This prevents a policy-added tag from forcing replacement of the IPs and their dependent connections.
 
-`genesis_foundation_recovery_plan.py` prepares that read-only comparison in a fresh private directory.
-It holds the original execution lock, validates the original review/claim/snapshot and execution copy,
-allows only application naming and that bounded IP-policy input in copied configuration, and passes the original state
-path directly to Terraform. It retains bounded private command diagnostics, binds current recovery
-source and provider bytes, checks the new group is absent, and rejects concurrent state changes.
-The separate expiring review grants no apply authority and is not accepted by ordinary Foundation
-apply. Public-coordinator receipt handoff remains separate and is not implied by this review.
+`genesis_foundation_recovery_plan.py` uses a fresh private directory under the original lock,
+validates original review/claim/snapshot/configuration, and passes the original state path directly
+to Terraform. It binds current source, provider and plan bytes, retains bounded private diagnostics,
+checks group ownership and rejects concurrent state changes. Its expiring review grants no authority.
 
-The dedicated `genesis_foundation_recovery_apply.py` executor accepts a fresh `foundation-apply`
-approval whose run binding is the recovery review digest and whose source is the recovery code.
-The official prompt takes `--foundation-recovery-review`; the original status approval cannot
-authorize the new plan. Before a new claim, the executor verifies current human identity, exact-source
-CI, original claim/snapshot/state lineage, configuration/provider/plan hashes, and the new group's
-continued absence. It rechecks current VM SKU/quota evidence, then state, plan, configuration and
-tool hashes plus review expiry immediately before claiming.
+`genesis_foundation_recovery_apply.py` requires fresh `foundation-apply` approval bound to the recovery
+review and code; the official prompt accepts `--foundation-recovery-review`. Before its immutable claim,
+it verifies current human identity, exact-source CI, original claim/snapshot/lineage, group ownership,
+current VM SKU/quota, configuration/provider/plan/tool/state hashes and expiry. It applies once against
+the original state; a retained claim permits only `--verify-only`. Independent readback and a zero-change
+plan gate a separate receipt. Original receipts are never fabricated; host/state/app acceptance remains separate.
 
-The new immutable claim precedes one saved-plan apply against the original local state path.
-A retained claim permits only `--verify-only`, with exact claim identity and evidence checks.
-Existing Foundation observers verify the new handoff through a trusted deadline-bounded capture,
-and a zero-change plan gates the separate recovery receipt. Each verification keeps its own private
-diagnostics; no original receipt is fabricated or overwritten. Successful recovery still leaves
-runner attestation, private state migration and application deployment incomplete.
+One successor may select `--predecessor-directory` after the initial recovery is claimed but incomplete.
+The predecessor's review, claim, plan, variables, configuration and provider hashes remain immutable.
+All recorded resources, including the newly created application group, must stay no-op with matching IDs
+and known settings. Exactly two absent creates are permitted: the host's ephemeral OS disk changes from
+`ReadWrite` to required `ReadOnly` caching; the observation delegate's scoped role-definition operands
+become bare GUIDs. The three observation roles, `ServicePrincipal` restriction and write/delete clauses
+are unchanged. Only those two exact bootstrap source edits are allowed. The group is independently
+read by ID, not assumed absent. New review, source CI and approval are required; predecessor approval
+cannot authorize the successor. Further successor chains, imports, replacements and extra effects are rejected.
 
 ### Recovered host enrollment
 

@@ -23,6 +23,7 @@ from genesis_approval_prompt import current_actor_digest
 from genesis_foundation_apply_contract import load_apply_claim
 from genesis_foundation_recovery_apply import _validate_claim
 from genesis_foundation_recovery_plan import _json
+from genesis_foundation_recovery_successor import group_evidence_valid, verify_predecessor_binding
 
 
 @contextmanager
@@ -101,7 +102,7 @@ def load_recovery_evidence(
         or receipt.get("review_digest") != review.get("review_digest")
         or review.get("schema_version") != "fdai.foundation-recovery-review.v1"
         or review.get("state") != "review"
-        or review.get("application_group_absent") is not True
+        or not group_evidence_valid(review)
         or review.get("original_state_unchanged") is not True
         or review.get("target_binding") != target_binding
         or receipt.get("execution_source_commit") != review.get("recovery_source_commit")
@@ -130,6 +131,7 @@ def load_recovery_evidence(
         raise ValueError("Foundation recovery handover is not a verified matching recovery")
     claim = _json(recovery_directory / "recovery-apply-claim.json")
     _validate_claim(claim, review)
+    verify_predecessor_binding(review)
     if canonical_digest(claim) != receipt.get("claim_digest"):
         raise ValueError("Foundation recovery handover claim differs from the receipt")
     profile = load_profile(original_directory.parent / "profile.json")
