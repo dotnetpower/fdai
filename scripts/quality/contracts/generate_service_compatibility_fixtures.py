@@ -6,14 +6,51 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from fdai_service_contracts import generate_upgrade_receipts, load_json_object, validate_manifest
 
 ROOT = Path(__file__).resolve().parents[3]
 PACKAGE = ROOT / "packages/service-contracts"
 TARGET = PACKAGE / "tests/fixtures/services/upgrade-receipts.json"
+
+
+def normalize_fixture_metadata(
+    receipts: Sequence[dict[str, Any]],
+) -> tuple[dict[str, Any], ...]:
+    """Preserve historical offline identities by service/direction, never input position.
+
+    Only synthetic fixture IDs and clocks are replaced; checks, versions, matrix
+    digests and peer evidence are copied unchanged. Unknown or incomplete transitions
+    and non-focused evidence cannot be normalized into an apparently valid fixture.
+    """
+    services = (
+        "core-control-plane",
+        "operator-service",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor",
+    )
+    order = tuple(
+        (service, direction) for service in services for direction in ("migration", "rollback")
+    )
+    if any(receipt.get("proof_kind") != "focused" for receipt in receipts):
+        raise ValueError("fixture generation cannot produce live evidence")
+    by_identity = {(row["service_id"], row["direction"]): row for row in receipts}
+    if len(receipts) != len(order) or set(by_identity) != set(order):
+        raise ValueError("fixture transitions must cover each canonical service and direction once")
+    normalized: list[dict[str, Any]] = []
+    for index, identity in enumerate(order):
+        receipt = dict(by_identity[identity])
+        at = datetime(2026, 8, 8, 1, 30, tzinfo=UTC) + timedelta(minutes=index)
+        receipt["receipt_id"] = f"00000000-0000-0000-0000-{201 + index:012d}"
+        receipt["started_at"] = at.isoformat().replace("+00:00", "Z")
+        receipt["completed_at"] = (at + timedelta(seconds=1)).isoformat().replace("+00:00", "Z")
+        normalized.append(receipt)
+    return tuple(normalized)
 
 
 def main() -> int:
@@ -34,16 +71,7 @@ def main() -> int:
     checks = checker._upgrade_checks(manifest)
     if not all(checks.values()):
         raise RuntimeError("service compatibility mechanics checks failed")
-    receipts = generate_upgrade_receipts(manifest, checks=checks)
-    if any(receipt.get("proof_kind") != "focused" for receipt in receipts):
-        raise RuntimeError("fixture generation cannot produce live evidence")
-    # Only offline fixture metadata uses placeholder identities and a fixed clock.
-    # Executed checks, peer requirements and the actual matrix digest remain intact.
-    for index, receipt in enumerate(receipts):
-        at = datetime(2026, 8, 8, 1, 30, tzinfo=UTC) + timedelta(minutes=index)
-        receipt["receipt_id"] = f"00000000-0000-0000-0000-{201 + index:012d}"
-        receipt["started_at"] = at.isoformat().replace("+00:00", "Z")
-        receipt["completed_at"] = (at + timedelta(seconds=1)).isoformat().replace("+00:00", "Z")
+    receipts = normalize_fixture_metadata(generate_upgrade_receipts(manifest, checks=checks))
     rendered = json.dumps(receipts, indent=2, ensure_ascii=False) + "\n"
     if args.check:
         return int(not TARGET.exists() or TARGET.read_text(encoding="utf-8") != rendered)
