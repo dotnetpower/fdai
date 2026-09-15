@@ -17,6 +17,7 @@ from fdai.rule_catalog.pipeline.distill.handover_semantics import (
     HandoverSemanticReview,
 )
 from fdai.runtime.handover_semantics import bind_handover_semantics
+from fdai.runtime.venue import ExecutionVenueError
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.distiller import AbstainingDistiller
 
@@ -74,12 +75,24 @@ def test_missing_runtime_prerequisite_does_not_bind_partial_semantics(tmp_path, 
     assert bind_handover_semantics(**inputs) is inputs["workflow"]
 
 
-async def test_deployed_source_uses_read_identity_and_never_local_fallback(tmp_path):
+@pytest.mark.parametrize("venue", ["unexpected", "LOCAL", "staging"])
+def test_unknown_venue_fails_before_selecting_a_document_source(tmp_path, venue):
+    inputs = arguments(tmp_path)
+    inputs["environment"]["FDAI_EXECUTION_VENUE"] = venue
+    with pytest.raises(ExecutionVenueError):
+        bind_handover_semantics(**inputs)
+
+
+@pytest.mark.parametrize("venue", ["deployed", None, ""])
+async def test_deployed_source_uses_read_identity_and_never_local_fallback(tmp_path, venue):
     inputs = arguments(tmp_path)
     inputs["environment"].update(
-        FDAI_EXECUTION_VENUE="deployed",
         FDAI_ADLS_ACCOUNT_URL="https://example.dfs.core.windows.net",
     )
+    if venue is None:
+        inputs["environment"].pop("FDAI_EXECUTION_VENUE")
+    else:
+        inputs["environment"]["FDAI_EXECUTION_VENUE"] = venue
     assert bind_handover_semantics(**inputs) is inputs["workflow"]
     requests = []
 

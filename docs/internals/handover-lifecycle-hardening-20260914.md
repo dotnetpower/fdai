@@ -1283,3 +1283,15 @@ Ruff and formatting. The MI-01 through MI-10 source boundaries were reviewed aga
 identity-preserving import change; their source contracts and SQL/UI inputs are unchanged, while
 the new composition evidence covers the changed import graph. This is not ten more test runs or
 an additional claim of operational validation. Publication and exact-head CI remain pending.
+
+The normal next pre-push passed that repaired boundary but stopped on the semantic binder's
+ad hoc venue comparisons. Five focused regressions reproduced unknown-value non-rejection and
+missing/empty-venue divergence from the shared deployed default. The binder now uses the existing
+`resolve_execution_venue` and `uses_local_document_providers` contracts. Explicit local capability
+selects local documents; all deployed prerequisites remain mandatory, including when a local path
+is present. Unknown values fail before provider I/O. The owning venue gate and 35 binder/venue/
+actual-SQL tests pass, as do focused Ruff/format and strict typing. This change adds no provider
+I/O, document grant, model invocation, or promotion; no remote write occurred during either
+blocked pre-push attempt. MI-01 through MI-10 were revisited after this correction: their execution,
+approval, migration, privacy, and UI boundaries are unchanged; the new tests replace only the
+venue-selection input evidence for MI-08. The retained final critique remains non-additive.

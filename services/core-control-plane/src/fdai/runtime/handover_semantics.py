@@ -53,6 +53,7 @@ from fdai.runtime.core_handover import (
     CoreHandoverServices,
     CurrentCoreHandoverSource,
 )
+from fdai.runtime.venue import resolve_execution_venue, uses_local_document_providers
 from fdai.shared.contracts.models import (
     OntologyActionType,
     OntologyRelease,
@@ -78,12 +79,12 @@ def bind_handover_semantics(
         return workflow
     local = environment.get("FDAI_LOCAL_DOCUMENT_STORE_DIR", "").strip()
     remote = environment.get("FDAI_ADLS_ACCOUNT_URL", "").strip()
-    venue = environment.get("FDAI_EXECUTION_VENUE", "").strip()
-    if venue == "local":
+    venue = resolve_execution_venue(environment)
+    if uses_local_document_providers(venue):
         if not local:
             return workflow
         envelopes = HandoverEnvelopeReader(local_root=Path(local))
-    elif venue == "deployed":
+    else:
         if not remote or http_client is None or identity is None:
             return workflow
         envelopes = HandoverEnvelopeReader(
@@ -92,8 +93,6 @@ def bind_handover_semantics(
             http_client=http_client,
             identity=identity,
         )
-    else:
-        return workflow
     resources = load_resource_type_registry_from_mapping(
         yaml.safe_load(
             (catalog_root / "vocabulary/resource-types.yaml").read_text(encoding="utf-8")

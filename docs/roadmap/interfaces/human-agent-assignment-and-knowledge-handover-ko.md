@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: aa5c23ca796e20363862687a92d5a71a4aac5264
+translation_source_sha: 1e815b4a718cd49beb2afa60e1ddaa470bb877d1
 translation_revised: 2026-09-15
 ---
 # 사용자-에이전트 할당 및 지식 이전
@@ -15,7 +15,7 @@ translation_revised: 2026-09-15
 > 검증, 승인, 적용, 감사됩니다.
 > **현재 범위:** 한정된 소스 요건과 잔여 소스 구현 이후 서로 다른 최종 통합 비판 검토 12회를
 > 완료했습니다. [최종 기록](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)에 미해결로 확인된 Medium/High 소스 문제는 없습니다.
-> 번역 SHA 갱신, 정본 생성, 로컬 훅, 게시, 정확한 게시 SHA의 CI는 미완료입니다. 전체 UI 평가표/
+> 로컬 소스 및 통합 커밋은 정상 훅을 통과했습니다. 게시 사전 검사와 정확한 게시 SHA의 보호된 CI/병합은 [#946](https://github.com/dotnetpower/fdai/issues/946)에서 추적합니다. 전체 UI 평가표/
 > 보조 기술 및 실제 운영 근거도 별도 요건입니다. 배포나 승격을 활성화하지 않으며
 > 준비도는 `shadow`와 `operationally_ready=false`를 유지합니다.
 
@@ -389,6 +389,11 @@ Console 대화 키에는 로그인과 목표 식별자를 함께 보존합니다
 대체하지 않고 비공개 의미 패키지 컴파일과 독립 검토를 연결합니다. Core 초기화는 기존
 `AssignmentWorkflowBindings`에서 `bind_handover_semantics`로 실제 Norns/Mimir 공급자를
 연결합니다.
+
+문서 공급자는 공통 실행 환경 확인기와 문서 공급자 기능 테이블을 사용합니다. 실행 환경이
+없거나 비어 있으면 더 엄격한 배포 연결을 선택하고 알 수 없는 값은 공급자 I/O 전에 거부합니다.
+배포 전제 조건이 없으면 로컬 문서 경로가 있어도 컴파일을 사용할 수 없습니다. 로컬 저장소는
+명시적인 로컬 기능일 때만 선택하며 원격 원본의 대체 경로로 사용하지 않습니다.
 
 워커는 자신의 작업을 Muninn, Mimir, Norns의 결정으로 표시하지 않고 기계적
 `knowledge.handover.source_observed.v1` 알림을 게시합니다. 실제 경로는 다음과 같습니다.

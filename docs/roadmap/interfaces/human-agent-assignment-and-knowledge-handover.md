@@ -13,8 +13,8 @@ approval, conversation, and document ingestion while keeping each authority inde
 > validated, approved, applied, and audited as separate axes.
 > **Current scope:** The bounded source requirements and 12 distinct final integrated critique rounds
 > after remaining source implementation are complete. The [final record](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) has no
-> unresolved confirmed Medium/High source finding. Translation SHA refresh, canonical generation,
-> local hooks, publication, and exact-pushed-SHA CI remain pending. Full UI-rubric/assistive-technology
+> unresolved confirmed Medium/High source finding. Local source and integration commits passed normal
+> hooks; publication preflight and exact-head protected CI/merge remain tracked by [#946](https://github.com/dotnetpower/fdai/issues/946). Full UI-rubric/assistive-technology
 > and live operational evidence remain separate. No deployment or promotion is enabled; readiness
 > stays `shadow` with `operationally_ready=false`.
 
@@ -392,6 +392,11 @@ vector index or ontology. The handover chain now connects private semantic-packa
 and independent review without replacing ingestion. The Core bootstrap uses
 `bind_handover_semantics` through existing `AssignmentWorkflowBindings` with actual Norns/Mimir
 providers.
+
+Document providers use the shared venue resolver and document-provider capability table. An absent
+or empty venue selects the stricter deployed binding; an unknown value fails before provider I/O.
+Missing deployed prerequisites keep compilation unavailable even when a local document path exists.
+Local storage is selected only by the explicit local capability, never as a remote-source fallback.
 
 The worker publishes mechanical `knowledge.handover.source_observed.v1` notices, not source labels
 that pretend to be Muninn, Mimir, or Norns decisions. The actual chain is:
