@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from fdai_deployment_cli.contracts import canonical_bytes
 from genesis_runner_image_contract import _EXPECTED_RESOURCE_TYPES
 
 _WAIT = "terraform_data.await_builder_poweroff"
@@ -29,13 +30,12 @@ def validate_residual_plan(
     state. The planner must separately bind original claim/state, variables and the exact
     corrected Terraform root. Existing Azure resources and commands must remain no-op;
     only the local Terraform wait marker may be replaced. Unknown, duplicate, omitted,
-    drifted, deferred, incomplete or error-bearing plans are rejected.
+    unverified drift, deferred, incomplete or error-bearing plans are rejected.
     """
     if (
         projection.get("errored") is not False
         or projection.get("complete") is not True
         or projection.get("applyable") is not True
-        or projection.get("resource_drift")
         or projection.get("deferred_changes")
     ):
         raise ValueError("runner image residual plan is incomplete or drifted")
@@ -51,6 +51,9 @@ def validate_residual_plan(
         _READ
     }:
         raise ValueError("runner image residual inventory differs from the approved inventory")
+    refresh_count = _validate_refresh(
+        projection.get("resource_drift", []), changes, original_changes
+    )
     pending = []
     preserved = 0
     for address, entry in changes.items():
@@ -91,6 +94,7 @@ def validate_residual_plan(
         "state": "review",
         "remaining_addresses": sorted(pending),
         "preserved_managed_count": preserved,
+        "verified_refresh_count": refresh_count,
         "apply_authorized": False,
         "mutation_performed": False,
         "deployment_ready": False,
@@ -136,3 +140,67 @@ def _same_known(original: object, actual: object, unknown: object) -> bool:
             )
         )
     return type(original) is type(actual) and original == actual
+
+
+def _validate_refresh(
+    entries: object,
+    changes: dict[str, dict[str, object]],
+    original: dict[str, dict[str, object]],
+) -> int:
+    if not isinstance(entries, list):
+        raise ValueError("runner image residual refresh observations are invalid")
+    seen = set()
+    for entry in entries:
+        if not isinstance(entry, dict) or not isinstance(entry.get("address"), str):
+            raise ValueError("runner image residual refresh record is invalid")
+        address = entry["address"]
+        if address in seen or address not in changes or address in _PENDING | {_WAIT, _READ}:
+            raise ValueError("runner image residual refresh identity is invalid")
+        seen.add(address)
+        delta = entry.get("change")
+        intended = original[address].get("change")
+        planned = changes[address].get("change")
+        if (
+            not isinstance(delta, dict)
+            or not isinstance(intended, dict)
+            or not isinstance(planned, dict)
+            or delta.get("actions") != ["update"]
+            or planned.get("actions") != ["no-op"]
+            or entry.get("type") != changes[address].get("type")
+            or entry.get("mode") != "managed"
+        ):
+            raise ValueError("runner image residual refresh would alter completed work")
+        before, after = delta.get("before"), delta.get("after")
+        if (
+            not isinstance(before, dict)
+            or not isinstance(after, dict)
+            or not isinstance(before.get("id"), str)
+            or not before["id"]
+            or before.get("id") != after.get("id")
+            or after != planned.get("before")
+        ):
+            raise ValueError("runner image residual refresh changed resource identity")
+        unknown = intended.get("after_unknown", {})
+        if not isinstance(unknown, dict):
+            raise ValueError("runner image original unknown-field evidence is invalid")
+        for key in set(before) | set(after):
+            if before.get(key) == after.get(key) or unknown.get(key) is True:
+                continue
+            if _normalized(
+                before.get(key), unordered=key == "application_rule_collection"
+            ) != _normalized(after.get(key), unordered=key == "application_rule_collection"):
+                raise ValueError(
+                    "runner image residual refresh changed a known configuration field"
+                )
+    return len(seen)
+
+
+def _normalized(value: object, *, unordered: bool) -> object:
+    if value is None or value == [] or value == {} or value == "":
+        return None
+    if isinstance(value, dict):
+        return {key: _normalized(item, unordered=unordered) for key, item in value.items()}
+    if isinstance(value, list):
+        result = [_normalized(item, unordered=unordered) for item in value]
+        return sorted(result, key=canonical_bytes) if unordered else result
+    return value

@@ -75,9 +75,12 @@ binds the original review and claim, and permits only the reviewed CLI-path corr
 Terraform configuration. It neither copies authoritative state into a second execution venue nor
 changes the original plan. Completed Azure resources and deprovision commands must remain no-op.
 Only the failed local wait marker may be replaced; remaining image capture, verifier and VM
-deallocation/generalization steps must preserve the original known intent. Drift, deferred work,
+deallocation/generalization steps must preserve the original known intent. Unverified drift, deferred work,
 changed ownership, extra resources or failed checks block the result. This inspection grants no
 apply authority; a residual plan needs its own execution contract and current approval before use.
+Refresh-only differences are accepted only on preserved no-op resources with unchanged resource IDs:
+originally unknown computed fields, equivalent null/empty values, or order-only differences in
+Firewall application-rule sets. A changed known setting or ambiguous refresh record still blocks.
 
 The interactive checkpoint prompt resolves that same trusted CLI before reading the current
 human approver. A missing trusted executable or a service-principal account cannot create approval.

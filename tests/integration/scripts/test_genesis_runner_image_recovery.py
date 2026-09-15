@@ -65,6 +65,46 @@ def test_residual_plan_only_finalizes_pending_work(plans):
     assert result["deployment_ready"] is False
 
 
+@pytest.mark.parametrize("change", ["computed", "empty", "set-order", "known", "identity"])
+def test_residual_refresh_only_accepts_proven_computed_or_equivalent_fields(plans, change):
+    original, current = plans
+    address = "azurerm_firewall.builder"
+    planned = next(item for item in current["resource_changes"] if item["address"] == address)
+    intended = next(item for item in original["resource_changes"] if item["address"] == address)
+    before = {"id": "original-resource", "field": None}
+    after = {"id": "original-resource", "field": []}
+    if change == "computed":
+        intended["change"]["after_unknown"]["field"] = True
+        after["field"] = ["resolved-link"]
+    elif change == "set-order":
+        before = {
+            "id": "original-resource",
+            "application_rule_collection": [{"priority": 100}, {"priority": 200}],
+        }
+        after = {
+            "id": "original-resource",
+            "application_rule_collection": [{"priority": 200}, {"priority": 100}],
+        }
+    elif change == "known":
+        after["field"] = ["changed-rule"]
+    elif change == "identity":
+        after["id"] = "other-resource"
+    planned["change"].update(before=deepcopy(after), after=deepcopy(after))
+    current["resource_drift"] = [
+        {
+            "address": address,
+            "mode": "managed",
+            "type": planned["type"],
+            "change": {"actions": ["update"], "before": before, "after": after},
+        }
+    ]
+    if change in {"known", "identity"}:
+        with pytest.raises(ValueError):
+            recovery.validate_residual_plan(current, original)
+    else:
+        assert recovery.validate_residual_plan(current, original)["verified_refresh_count"] == 1
+
+
 @pytest.mark.parametrize("actions", [["create"], ["update"], ["delete"], ["delete", "create"]])
 def test_residual_plan_never_repeats_completed_work(plans, actions):
     original, current = plans
