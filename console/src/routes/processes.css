@@ -1,0 +1,219 @@
+main:has(.process-route) {
+  padding: 0;
+  background: var(--bg-elevated);
+}
+
+.process-route {
+  --cs-type-section-title-size: 20px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding: 32px 24px 64px;
+  container-type: inline-size;
+}
+.process-route.stack { gap: 24px; }
+.process-route [hidden] { display: none !important; }
+.process-route > .page-header { margin: 0; padding-bottom: 20px; }
+.process-route .page-header-text { max-width: none; }
+.process-route .page-header-subtitle {
+  max-width: 76ch;
+  font-size: var(--cs-type-body-size);
+  line-height: var(--cs-type-body-line-height);
+  margin-top: 4px;
+}
+.process-route .btn {
+  min-height: var(--cs-control-height);
+  font-size: var(--cs-type-compact-size);
+}
+.process-route .process-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.process-route :is(.process-view-switch, .process-toolbar-actions) { display: flex; flex-wrap: wrap; gap: 4px; }
+.process-route .process-view-switch .btn {
+  border-color: transparent;
+  background: transparent;
+  color: var(--fg-muted);
+}
+.process-route .process-view-switch .btn[aria-pressed="true"] {
+  border-color: var(--border);
+  background: var(--bg-subtle);
+  color: var(--fg);
+  font-weight: 600;
+}
+.process-route :is(a, button, summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.process-route .process-status-workspace { gap: 0; }
+.process-route .process-sample-note {
+  padding: 4px 16px;
+  margin-bottom: 16px;
+  border-radius: var(--cs-radius-sm);
+  background: var(--bg);
+  font-size: var(--cs-type-compact-size);
+}
+.process-route .process-sample-note p { margin: 4px 0 12px; }
+.process-route .process-status-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin: 0 0 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--cs-radius-sm);
+  background: var(--bg);
+  font-size: var(--cs-type-body-size);
+  line-height: var(--cs-type-body-line-height);
+}
+.process-route .process-status-summary > div { display: grid; align-content: start; gap: 4px; min-width: 0; padding: 16px; }
+.process-route .process-status-summary dt {
+  min-height: 2lh;
+  font-size: var(--cs-type-compact-size);
+}
+.process-route .process-status-summary dd { display: contents; }
+.process-route .process-status-summary strong {
+  display: block;
+  margin-block: 4px;
+  font-size: var(--cs-type-page-title-size);
+  line-height: 1.15;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.process-route .process-status-summary small {
+  display: block;
+  margin-top: 5px;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+.process-route .process-workspace-heading { margin: 8px 0 16px; }
+.process-route .process-workspace-heading h3 {
+  margin: 0;
+  font-size: var(--cs-type-section-title-size);
+  line-height: var(--cs-type-section-title-line-height);
+}
+.process-route .process-workspace-heading p { margin: 4px 0 0; max-width: 76ch; font-size: var(--cs-type-compact-size); }
+.process-route .process-workspace {
+  grid-template-columns: minmax(240px, .7fr) minmax(0, 1.3fr);
+  min-height: 420px;
+  border-radius: var(--cs-radius);
+}
+.process-route .process-list {
+  display: block;
+  min-width: 0;
+  border-right: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: var(--cs-radius) 0 0 var(--cs-radius);
+  overflow: visible;
+}
+.process-route :is(.process-list h4, .process-view-header) {
+  box-sizing: border-box;
+  min-height: 54px;
+  margin: 0;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--cs-type-panel-title-size);
+  line-height: var(--cs-type-panel-title-line-height);
+  font-weight: 600;
+}
+.process-route .process-view-header h3 { margin: 0; font: inherit; }
+.process-route .process-list-items { display: grid; }
+.process-route .process-list-entry {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  margin: 13px 16px;
+  padding: 12px;
+  border: 1px solid transparent;
+  border-radius: var(--cs-radius-sm);
+  font-size: var(--cs-type-body-size);
+  line-height: var(--cs-type-body-line-height);
+}
+.process-route .process-list-entry.is-active {
+  outline: none;
+  border-color: var(--border);
+  background: var(--bg-elevated);
+}
+.process-route .process-list-entry.is-active:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.process-route .process-list-entry :is(strong, small) {
+  display: block;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.process-route .process-list-entry small { margin-top: 4px; font-size: var(--cs-type-compact-size); }
+.process-route .process-view-stage { padding: 0; container-type: inline-size; }
+.process-route .process-detail-body { padding: 16px; }
+.process-route .process-detail-body > p:first-child { margin: 0 0 16px; overflow-wrap: anywhere; }
+.process-route :is(.process-view-header, .process-section-heading) { overflow-wrap: anywhere; }
+.process-route :is(.process-runtime-meta, .process-provenance) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 16px 24px;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+.process-route :is(.process-runtime-meta, .process-provenance) > div {
+  min-width: 0;
+  padding: 10px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+}
+.process-route :is(.process-runtime-meta, .process-provenance, .process-control-meta) dt {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-compact-size);
+  text-transform: none;
+}
+.process-route :is(.process-runtime-meta, .process-provenance) dd {
+  margin: 4px 0 0;
+  font-size: var(--cs-type-body-size);
+  overflow-wrap: anywhere;
+}
+.process-route code { font-size: var(--cs-type-label-size); }
+.process-route .status-pill {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: var(--cs-type-compact-size);
+  text-transform: none;
+}
+.process-route .status-pill-warning { color: color-mix(in srgb, var(--warning) 70%, var(--fg)); }
+.process-route .status-pill-success { color: color-mix(in srgb, var(--success) 80%, var(--fg)); }
+.process-route .process-detail-section { margin-top: 12px; border-bottom: 1px solid var(--border); }
+.process-route summary {
+  box-sizing: border-box;
+  min-height: var(--cs-control-height);
+  padding-block: 6px;
+  cursor: pointer;
+  font-size: var(--cs-type-compact-size);
+}
+.process-route .process-detail-section > section { border-bottom: 0; }
+.process-route .process-control-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; background: transparent; }
+.process-route .process-control-meta > div { padding: 0; background: transparent; }
+.process-route .process-event-head { flex-wrap: wrap; }
+.process-route .process-event-head > * { min-width: 0; overflow-wrap: anywhere; }
+.process-route .process-event-detail pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.process-route .process-timeline p { overflow-wrap: anywhere; }
+
+@container (max-width: 760px) {
+  .process-route .process-workspace { grid-template-columns: minmax(0, 1fr); }
+  .process-route .process-list { border-right: 0; border-bottom: 1px solid var(--border); border-radius: var(--cs-radius) var(--cs-radius) 0 0; }
+  .process-route .process-list-items { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (max-width: 480px) {
+  .process-route .process-status-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .process-route .process-status-summary > div { padding: 12px; }
+  .process-route :is(.process-list-items, .process-control-meta) { grid-template-columns: minmax(0, 1fr); }
+  .process-route .process-list-items { max-height: 320px; overflow-y: auto; }
+  .process-route :is(.btn, button, summary) { min-height: var(--cs-control-height-touch); }
+  .process-route .btn { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .process-route .process-event-head time { white-space: normal; }
+  .process-route .process-section-heading { flex-wrap: wrap; }
+}
