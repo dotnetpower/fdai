@@ -325,12 +325,14 @@ class StateTransitionStore(Protocol):
         *,
         subject_refs: tuple[str, ...],
         state_types: tuple[str, ...],
-        to_states: tuple[str, ...],
+        to_states: tuple[str, ...] | None,
         start_at: datetime,
         end_at: datetime,
         known_at: datetime,
         limit: int,
-    ) -> StateTransitionRead: ...
+    ) -> StateTransitionRead:
+        """Read bounded scoped history; None includes every destination state, preserving gaps."""
+        ...
 
 
 def state_at(

@@ -44,12 +44,26 @@ describe("panel source availability", () => {
 
   test("classifies every registered console panel by source ownership", () => {
     const panels = resolvePanels();
-    expect(panels).toHaveLength(58);
+    expect(panels).toHaveLength(59);
     expect(panels.filter((panel) => panelSourceClassification(panel.id) === null))
       .toEqual([]);
     expect(panelSourceClassification("documents")).toBe("separate-client");
     expect(panelSourceClassification("github")).toBe("independent");
     expect(panelSourceClassification("settings-diagnostics")).toBe("operator-api");
+  });
+
+  test("keeps Alert quality unknown without its own source and unavailable when that source is held", () => {
+    expect(panelSourceAvailability("alert-quality", sources)).toBe("unknown");
+    const held: ReadDataSourcesPayload = {
+      surface: "read-data-sources",
+      sources: [{
+        key: "alert-noise-governance", source: "alert-noise-governance",
+        routes: ["/alert-quality"], availability: "unavailable", configured: true,
+        reachable: null, authoritative: true, durable: true, synthetic: false,
+        reason: "runtime unavailable", last_observed_at: null,
+      }],
+    };
+    expect(panelSourceAvailability("alert-quality", held)).toBe("unavailable");
   });
 
   test("keeps Cost Governance and LLM cost on independent sources", () => {

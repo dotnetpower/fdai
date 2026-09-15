@@ -305,7 +305,7 @@
       "kind": "semantic_profile",
       "path": "semantic-profile.json",
       "references": [],
-      "sha256": "4339417848ed12c38d019e4a1ccdba7b4c6866b27083283d711fe5aae0b9a91b"
+      "sha256": "a487d7fff6ef44b7ff92804d237912dd0aacce32f31e7970a5c14940c3dc31b5"
     },
     {
       "id": "workflow:cost-aware-remediation",

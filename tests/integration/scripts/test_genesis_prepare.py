@@ -19,6 +19,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 import genesis_prepare  # noqa: E402
 import genesis_prepare_inputs  # noqa: E402
+import source_genesis  # noqa: E402
 
 SOURCE = subprocess.run(
     ["/usr/bin/git", "rev-parse", "HEAD"],
@@ -29,6 +30,74 @@ SOURCE = subprocess.run(
 ).stdout.strip()
 TENANT = "00000000-0000-0000-0000-000000000001"
 SUBSCRIPTION = "00000000-0000-0000-0000-000000000002"
+
+
+def test_source_preparation_retains_inputs_without_publisher_keys(tmp_path, monkeypatch) -> None:
+    source = SimpleNamespace(root=ROOT, commit=SOURCE, digest="d" * 64, reverify=lambda: None)
+    monkeypatch.setattr(source_genesis, "inspect_source", lambda *_, **__: source)
+    monkeypatch.setattr(
+        source_genesis,
+        "active_azure_target",
+        lambda: SimpleNamespace(tenant_id=TENANT, subscription_id=SUBSCRIPTION),
+    )
+    discoveries = []
+
+    def discover(**kwargs):
+        discoveries.append(kwargs)
+        assert kwargs["execution_transport"] == "manual"
+        return _values(**kwargs)
+
+    monkeypatch.setattr(source_genesis, "foundation_values", discover)
+    binding = source_genesis.compute_target_binding(tenant_id=TENANT, subscription_id=SUBSCRIPTION)
+    args = SimpleNamespace(
+        source_commit=SOURCE,
+        target_binding=binding,
+        work_dir=tmp_path / "source",
+        region="koreacentral",
+        monthly_cost_ceiling=1000,
+    )
+    result = source_genesis.prepare(args)
+    assert source_genesis.prepare(args) == result
+    assert len(discoveries) == 1
+    assert result["mutation_performed"] is False
+    assert result["deployment_ready"] is False
+    assert {path.name for path in args.work_dir.iterdir()} == {
+        "profile.json",
+        "foundation-variables.json",
+        "runner_ed25519",
+        "runner_ed25519.pub",
+        "source-genesis.json",
+    }
+    for path in args.work_dir.iterdir():
+        assert path.stat().st_mode & 0o777 == 0o600
+    args.target_binding = "f" * 64
+    with pytest.raises(ValueError, match="target changed"):
+        source_genesis.prepare(args)
+
+
+def test_foundation_input_capture_resolves_trusted_user_cli(tmp_path, monkeypatch):
+    config = tmp_path / "azure"
+    config.mkdir(mode=0o700)
+    monkeypatch.setenv("AZURE_CONFIG_DIR", str(config))
+    resolved = str(tmp_path / "trusted-cli/az")
+    monkeypatch.setattr(
+        genesis_prepare_inputs,
+        "trusted_tool",
+        lambda name: resolved if name == "az" else pytest.fail("unexpected tool"),
+    )
+    calls = []
+
+    def run(arguments, **kwargs):
+        calls.append((arguments, kwargs))
+        return subprocess.CompletedProcess(arguments, 0, "available\n", "")
+
+    monkeypatch.setattr(genesis_prepare_inputs.subprocess, "run", run)
+    assert (
+        genesis_prepare_inputs._capture(("/usr/bin/az", "account", "show"), cwd=ROOT) == "available"
+    )
+    assert calls[0][0] == (resolved, "account", "show")
+    assert calls[0][1]["env"]["AZURE_CONFIG_DIR"] == str(config)
+    assert calls[0][1]["timeout"] == 120
 
 
 def test_standalone_run_binding_matches_runner_image_mode() -> None:
@@ -52,6 +121,107 @@ def test_standalone_run_binding_matches_runner_image_mode() -> None:
         )
         == hashlib.sha256(f"{shared}:runner-image=true".encode()).hexdigest()
     )
+
+
+@pytest.mark.parametrize("provider_ready", [True, False])
+@pytest.mark.parametrize("expired_approval", [False, True])
+def test_source_advance_never_registers_or_applies_without_exact_approval(
+    tmp_path, monkeypatch, provider_ready, expired_approval
+):
+    source = SimpleNamespace(
+        root=ROOT,
+        commit=SOURCE,
+        digest="d" * 64,
+        reverify=lambda: None,
+        to_mapping=lambda: {"source_commit": SOURCE},
+    )
+    monkeypatch.setattr(source_genesis, "inspect_source", lambda *_, **__: source)
+    monkeypatch.setattr(
+        source_genesis, "verify_source_snapshot", lambda *_, **__: source.to_mapping()
+    )
+    monkeypatch.setattr(
+        source_genesis,
+        "active_azure_target",
+        lambda: SimpleNamespace(tenant_id=TENANT, subscription_id=SUBSCRIPTION),
+    )
+    monkeypatch.setattr(source_genesis, "foundation_values", _values)
+    args = SimpleNamespace(
+        source_commit=SOURCE,
+        target_binding=source_genesis.compute_target_binding(
+            tenant_id=TENANT, subscription_id=SUBSCRIPTION
+        ),
+        work_dir=tmp_path / "source",
+        region="koreacentral",
+        monthly_cost_ceiling=1000,
+        timeout_seconds=3600,
+        source_snapshot=tmp_path / "snapshot",
+        source_snapshot_digest="a" * 64,
+        terraform=tmp_path / "terraform",
+        approval_file=None,
+    )
+    source_genesis.prepare(args)
+    if expired_approval:
+        args.approval_file = args.work_dir / "expired-approval.json"
+
+        def expired(*_, **__):
+            raise source_genesis.GenesisApprovalExpiredError("expired")
+
+        monkeypatch.setattr(source_genesis, "load_genesis_approval", expired)
+    calls = []
+
+    class Checks:
+        def __init__(self, root):
+            assert root == ROOT
+
+        def verify_target(self, **kwargs):
+            assert kwargs["subscription_id"] == SUBSCRIPTION
+
+        def verify_toolchain(self, *, apply):
+            assert apply is False
+
+        def capture(self, command, reason, **kwargs):
+            calls.append(command)
+            if command[:2] == ("git", "remote"):
+                return "https://github.com/example/fdai.git"
+            assert command[:4] == ("az", "policy", "assignment", "list")
+            return "[]"
+
+    monkeypatch.setattr(source_genesis, "GenesisChecks", Checks)
+
+    def providers(**kwargs):
+        assert kwargs["apply"] is False
+        assert kwargs["profile"] == "foundation"
+        return SimpleNamespace(
+            state="ready" if provider_ready else "review",
+            to_mapping=lambda: {"mutation_performed": False},
+        )
+
+    monkeypatch.setattr(source_genesis, "reconcile_resource_providers", providers)
+    coordinators = []
+
+    class Coordinator:
+        def __init__(self, *, config, store, checks):
+            assert config.approval is None
+            assert config.approval_path is None
+            assert isinstance(config.foundation_inputs, source_genesis.SourceFoundationPlanInputs)
+            coordinators.append(config)
+
+        def run(self):
+            raise source_genesis.PrivateExecutionWaitError(
+                "runner-image-apply",
+                "runner_image_exact_plan_approval_required",
+                "review_runner_image_plan_and_supply_exact_approval",
+            )
+
+    monkeypatch.setattr(source_genesis, "PrivateExecutionCoordinator", Coordinator)
+    result = source_genesis.advance(args)
+    assert result["state"] == "review"
+    assert result["deployment_ready"] is False
+    assert result["mutation_performed"] is False
+    assert len(coordinators) == int(provider_ready)
+    assert result["stage"] == ("runner-image-apply" if provider_ready else "providers")
+    assert len(calls) == (2 if provider_ready else 1)
+    assert source_genesis.advance(args)["attempt"] == 2
 
 
 def _values(**kwargs: object) -> dict[str, object]:

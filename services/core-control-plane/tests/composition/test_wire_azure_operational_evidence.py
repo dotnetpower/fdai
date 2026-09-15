@@ -31,6 +31,7 @@ from fdai.delivery.azure.graph_dynamic_evidence import (
 )
 from fdai.delivery.azure.operational_evidence import (
     AzureBranchEstimator,
+    AzureCurrentReuseVerifier,
     AzureDynamicPolicy,
     AzureOperationalSnapshotSource,
     AzureReuseSafetyEvaluator,
@@ -101,6 +102,11 @@ def test_absent_graph_prerequisites_leave_explicit_unavailable(container: Contai
     assert bound.graph_dynamic_simulation_request_provider is None
     assert bound.graph_effect_model_reader is None
     assert bound.graph_effect_model_causal_evidence_verifier is None
+    assert isinstance(bound.current_reuse_verifier, AzureCurrentReuseVerifier)
+    assert (
+        bound.current_reuse_verifier._admission_provider
+        is container.decision_evidence_admission_provider
+    )
 
 
 def test_complete_graph_prerequisites_build_production_provider(container: Container) -> None:

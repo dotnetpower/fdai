@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: 78992baf4ec401e2da0d5c9d31861827343870a6
+translation_source_sha: 0ef7e2f3d514f04cc59a9310d5c72ac7420433df
 translation_revised: 2026-09-15
 title: 에이전트 운영 책임 수명 주기
 ---
@@ -19,14 +19,24 @@ title: 에이전트 운영 책임 수명 주기
 > 변경하지 않습니다.
 > **현재 근거:** 2026-09-15 소스 체크포인트는 범위별 Console 담당 체계, Core 목표/검토자/
 > 원본 허용/검색, 비공개 의미 패키지 보존, 격리 IAM 복구를 포함합니다. 잔여 구현 이후 [최종 검토 12회](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)를 완료했으며 미해결로 확인된 Medium/High 소스 문제는 없습니다.
-> 번역 SHA 갱신, 정본 생성, 로컬 훅, 게시/CI, 전체 UI/보조 기술 및 실제 운영 근거는 남아 있습니다. 준비도는 `shadow`, `operationally_ready=false`이며
-> [#458](https://github.com/dotnetpower/fdai/issues/458)은 열린 상태로 유지합니다.
+> [PR #1014](https://github.com/dotnetpower/fdai/pull/1014)는 검토된 헤드 `8c1d9977c`를 `953a17de4`로 병합해 #946 전달을 완료했습니다. 정확한 헤드의 CI `34925881557`과 병합 후 CI `34926168342`가 통과했습니다.
+> [#1017 로컬 UI 근거](../../internals/handover-ui-evidence-20260915.md)는 평가 기준 50개를 기록하고 실제 스크린 리더 검사를 `needs-human`으로 남깁니다. 최종 점수는 없습니다. 준비도는 `shadow`, `operationally_ready=false`이며 [#458](https://github.com/dotnetpower/fdai/issues/458)은 열린 상태입니다.
+
+[운영 검증 가이드](../../user-guide/guides/validate-ownership-handover-ko.md)는 실제 음성, 현재
+신원, 공급자, 복구, 코호트, 정확한 계획의 근거를 구분합니다. #1017은
+[PR #1031](https://github.com/dotnetpower/fdai/pull/1031)의 `33c76944cec4489b51bc3bb90820cc273159d99d` 병합으로
+전달을 완료했고 정확한 헤드의 CI `34933740673`과 병합 후 main CI `34934077457`이 성공했습니다.
+이 결과로 #458이 완료되지는 않습니다.
 
 클라우드 참조 수집과 서명 반입은 같은 수집 호스트를 사용하지만 담당자 변경 권한을
 공유하지 않습니다. 인수인계 초안을 만들거나 담당자를 바꾸지 않으며, [별도 수명 주기](cloud-resource-knowledge-lifecycle-ko.md)의
 출처/신뢰 정책과 기존 독립 문서 승인 절차를 따릅니다.
 
 ## 설계 개요
+
+공유 수집 호스트는 AKS에서 자기 서비스에 명시된 투영 워크로드 신원을 선택합니다. 바뀌는
+것은 Azure 토큰 획득 방식뿐입니다. 운영 소유권 웹후크는 계속 Git 서명을 검증하고, 인계는
+검토 전용으로 유지되며, 서비스 자격 증명은 소유자를 바꾸거나 RBAC 권한을 부여하지 않습니다.
 
 수명 주기에는 서로 독립적인 안전 경계 네 가지가 있습니다.
 
@@ -46,7 +56,7 @@ title: 에이전트 운영 책임 수명 주기
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 시작 바인딩과 읽기 전용 변환 결과 | implemented | `services/operator-service/src/fdai_operator_service/`; `services/operator-service/tests/test_operator_operations_family.py`; `tests/integration/infra/test_operator_api_stewardship.py`; 집중 Operator 및 Terraform 테스트 (15 passed) | 경로와 배포 바인딩이 있습니다. 소스 배선만으로 실제 배포 준비 상태가 입증되지는 않습니다. |
-| Terraform 바인딩 완전성 검사 | implemented | `infra/production-gates.tf`; `.github/workflows/deploy-dev.yml`; `tests/integration/infra/test_operator_api_stewardship.py`; `tests/integration/infra/test_core_stewardship_gitops.py` | 운영 구성은 신원과 GitOps 자격 증명을 배포 소유로 유지하면서 관리자와 자율 운영이 아닌 모든 에이전트 바인딩을 요구합니다. |
+| Terraform 바인딩 완전성 검사 | implemented | `infra/production-gates.tf`; `tests/integration/infra/test_operator_api_stewardship.py`; `tests/integration/infra/test_core_stewardship_gitops.py`; [독립 배포](../deployment/installable-deployment-cli-ko.md) | 운영 구성은 신원과 GitOps 자격 증명을 배포 소유로 유지하면서 유지관리자와 자율 운영이 아닌 모든 에이전트 바인딩을 요구합니다. 과거 워크플로 근거는 현재 테넌트 배포 경로가 아닙니다. |
 | 안내형 등록과 근거 기반 영속 초안 | implemented | `console/src/routes/handover-editor.tsx`; `services/document-processing-worker/src/fdai_document_worker_service/handover.py`; 집중 콘솔 테스트 (21 passed); 집중 수집 전달 테스트 (9 passed) | SPA는 관리형 업로드를 제출하고 워커는 검토 전용 초안을 저장합니다. 어느 효과도 활성 지도를 변경하지 않습니다. |
 | 멱등적 초안 거버넌스 PR 전달 | implemented | [`governance.py`](../../../services/core-control-plane/src/fdai/core/stewardship/governance.py); [`stewardship_governance.py`](../../../services/core-control-plane/src/fdai/runtime/stewardship_governance.py); 집중 담당 체계 및 런타임 테스트 | 런타임은 영속 `handover_draft:*` 레코드를 읽고, 신원 재정의를 허용하지 않은 상태에서 각 완전한 후보를 검증한 다음 구성된 `RemediationPrPublisher`를 통해 게시합니다. PR 참조 또는 차단 결과는 Saga 감사와 함께 원자적으로 기록합니다. 내용 기반 증적을 사용하므로 재시작과 재처리가 안전합니다. 관리형 배포 증적은 별도 근거로 남습니다. |
 | 서명된 병합 수신과 후속 담당 체계 효과 | implemented | `services/document-ingestion-api/src/fdai_ingestion_api_service/adapters/stewardship.py`; `services/core-control-plane/src/fdai/runtime/stewardship_merge_effects.py`; 집중 병합 및 소유권 조정 테스트 | 서명된 수신 경로는 비활성 근거를 저장합니다. Core는 병합된 맵을 검증하고 수신자를 계산하며 다이제스트가 일치하는 제안만 알림 및 Saga 감사와 함께 진행합니다. 부여 병합은 재처리해도 같은 shadow IAM 요청을 게시하고 제거 병합은 재부여를 요청하지 않습니다. |
@@ -87,8 +97,9 @@ title: 에이전트 운영 책임 수명 주기
 - [x] **소스 작업 H10:** [범위별 요청](../../../services/core-control-plane/src/fdai/core/human_assignment/scoped_duty_requests.py)과 [실제 Console 작업 공간](../../../console/src/routes/scoped-duty-workspace.tsx)은 정확한 그룹/일정 주체, 현재 범위/유효 구간, 정적 대체 담당자, 검토된 사례 대체, 읽기 결과를 구현합니다. 기록된 단위 95개/Playwright 6개 검사는 한정된 합성 근거입니다.
 - [x] **인수인계 소스 범위:** [Core 연결](../../../services/core-control-plane/src/fdai/runtime/core_handover.py), [의미 패키지 보존](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/handover_retention.py), [실행 연결](../../../services/core-control-plane/src/fdai/runtime/human_access_runtime.py)로 [소스 체크리스트](human-agent-assignment-implementation-plan-ko.md#현재-변경의-근거와-남은-범위)를 완료했습니다. 근거는 준비도 출력이 아니라 보존된 체크포인트입니다.
 - [x] **최종 소스 비판 검토:** 잔여 소스 구현 이후 서로 다른 통합 검토 12회를 완료했습니다. [FI-01부터 FI-12](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)에 미해결로 확인된 Medium/High 소스 문제는 없습니다.
-- [ ] **게시 근거:** 영문/한국어 검토, 번역 SHA 갱신, 정본 생성, 로컬 훅, 게시, 정확한 게시 SHA의 보호된 CI 근거를 완료합니다.
-- [ ] **UI와 운영 근거:** 전체 UI 평가표/보조 기술 근거와 별도로 통제되는 #458/Teams/문서/배포/코호트/훈련 증적을 보존합니다. 소스 검토는 전체 WCAG/UI 점수나 운영 수락을 입증하지 않습니다.
+- [x] **#946 게시 근거:** 검토된 영문/한국어, 정본 생성, 정상 훅과 보호된 #1014 전달을 완료했으며 정확한 헤드와 병합 후 CI가 통과했습니다. #1017은 자체 후속 전달을 추적합니다.
+- [x] **로컬 UI 근거:** [#1017](../../internals/handover-ui-evidence-20260915.md)은 서로 다른 합성 브라우저 시나리오 28개, 단위 검사 127개, 집중 비판 10회와 최종 검토 10회, 모든 평가 기준 ID를 기록합니다. 실제 보조 기술 출력은 측정하지 않았습니다.
+- [ ] **사람 확인과 운영 근거:** 실제 스크린 리더 안내와 별도로 통제되는 #458/Teams/문서/배포/코호트/훈련 증적을 [현행 독립 경로](../deployment/installable-deployment-cli-ko.md)로 보존합니다. 소스 검토는 전체 WCAG/UI 점수, 운영 수락이나 승격을 허가하지 않습니다.
 
 근거에 기반한 T2 `HandoverInterpreter`는 선택적인 배포 연결로 남습니다. 결정론적
 추출기와 정확한 Graph 확인은 이 연결 없이 동작하며 기본 해석기는 추측하는 대신
@@ -304,9 +315,12 @@ GitHub App에는 어댑터에 필요한 저장소 내용, 풀 리퀘스트, 메�
 입력으로만 허용합니다. 풀 리퀘스트 이벤트용 GitHub 웹후크는 게시된 수집 게이트웨이 경로를
 가리키도록 구성하세요.
 
-보호된 워크플로는 저장소 Variables에서 `ENABLE_STEWARDSHIP_GOVERNANCE`, `GITOPS_OWNER`,
-`GITOPS_REPO`를 읽고 저장소 Secrets에서 `GITOPS_TOKEN`, `GITHUB_WEBHOOK_SECRET`을 읽습니다.
-이 값과 기존 ChatOps 시크릿을 구성하기 전에는 활성화를 비활성 상태로 유지하세요.
+검토된 활성화, 저장소/App 연결, 보호된 비밀 참조는 선택한 독립 배포의 비공개 구성으로
+제공하세요. `fdaictl provision azure`가 정확한 계획에 대한 사람 승인과 전용 관리 호스트
+신원을 조정하며 GitHub Actions는 테넌트 계획/적용 전송 경로가 아닙니다. 과거 근거의
+워크플로 변수로 현재 배포가 구성되지는 않습니다. 현재 App, 서명 웹후크, 독립적으로 승인한
+채널의 선행 조건을 검증하기 전에는 거버넌스를 비활성 상태로 유지하세요. 정적 개인 토큰으로
+대체하거나 비밀 값을 채팅, CLI 인자, 소스 관리, 공개 이슈 근거에 넣지 마세요.
 
 ## 실패 및 복구
 
@@ -332,7 +346,9 @@ uv run pytest services/core-control-plane/tests/core/stewardship services/core-c
 terraform -chdir=infra validate
 ```
 
-배포 후 다음을 확인하세요.
+별도로 승인된 배포 후 선택한 훈련의 범위와 기한 안에서 다음을 관찰하세요. 현재 신원,
+정확한 승인, 역방향 복구/재시작/장애 훈련, 독립 코호트는
+[근거 절차](../../user-guide/guides/validate-ownership-handover-ko.md)를 따릅니다.
 
 1. `GET /stewardship`이 15개 에이전트와 예상 커버리지 발견 사항을 반환합니다.
 2. `stewardship_health:current`가 존재하고 `stewardship_health:last_success`가 동일 개정 번호와
@@ -341,13 +357,15 @@ terraform -chdir=infra validate
 4. 업로드 재처리가 동일한 PR 참조를 반환합니다.
 5. 검토된 테스트 변경 병합이 병합 감사 하나와 운영 알림 하나를 생성합니다.
 6. 같은 GitHub 전달 ID를 다시 보내도 두 번째 기록을 생성하지 않습니다.
-7. 주입된 시계를 갱신 여유 구간을 지나도록 전진하면 설치 토큰 하나가 갱신되고 동시 호출은
-   발급 요청 하나를 공유하며 로그와 증적에는 자격 증명이 나타나지 않습니다.
+7. 승인된 제한 시간의 실제 토큰 갱신 관찰에서 자격 증명 값 없이 갱신과 동시 사용 근거를
+   보존합니다. 주입된 시계 검사는 로컬 공급자 동작만 입증합니다. 배포 시계를 바꾸거나
+   합성 갱신을 실제 관찰이라고 주장하지 마세요.
 
 ## 관련 문서
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| 남은 음성과 운영 근거 | [검증 가이드](../../user-guide/guides/validate-ownership-handover-ko.md) |
 | 소유권 스키마 및 인계 개념 | [agent-stewardship-and-handover-ko.md](agent-stewardship-and-handover-ko.md) |
 | 알림 경로 및 대체 경로 | [channels-and-notifications-ko.md](channels-and-notifications-ko.md) |
 | 사람 권한 확인 | [user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md) |

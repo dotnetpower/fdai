@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: cc8824ddb7403e0ed85f991dd40b0471ed395c6d
-translation_revised: 2026-09-14
+translation_source_sha: ba4da66df9512eb4253aa1f0405ff7e86882c30c
+translation_revised: 2026-09-15
 ---
 
 # 액션 온톨로지
@@ -316,36 +316,34 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
   별도 승격 전까지 관찰 모드를 유지합니다.
 - `ops.revoke-human-access` - 검토된 대체 담당 범위 케이스가 준비될 때까지 역할 그룹 멤버 자격
   제거를 보류합니다.
-- `ops.publish-change-summary` - resource-group 에 대해 정해진 시간
-  범위의 변경 이력을 rendered Markdown 요약으로 만들어 전달 어댑터 에
-  전달. Non-Resource 비즈니스-오브젝트 흐름 의 참조 예제; 짝을 이루는
-  ObjectType `ChangeSummary` 와 LinkType `summarizes` 가 copy-ready
-  scaffold ([downstream-fork-example-vertical-ko.md](../fork-and-sequencing/downstream-fork-example-vertical-ko.md)
-  참조).
+- `ops.publish-change-summary` - 리소스 그룹 하나와 제한된 시간 구간의 Markdown 변경 요약을
+  전달 어댑터로 보냅니다. Resource가 아닌 업무 객체 예제는 `ChangeSummary`와 `summarizes`를
+  [버티컬 구성 예제](../fork-and-sequencing/downstream-fork-example-vertical-ko.md)에서 연결합니다.
 - `ops.start-vm` / `ops.deallocate-vm` - 개발 operations 게이트웨이를 통해 Azure VM 하나를
-  시작하거나 deallocate합니다. 둘 다 shadow-first를 유지하며 shipped T0 상한에서 사람 승인을
-  요구합니다.
-- `ops.scale-out` - 개발 operations 게이트웨이는 정확한 Uniform VM Scale Set 대상 하나를 받고,
-  통제된 요청 하나당 인스턴스 한 개만 늘릴 수 있습니다. FinOps 실행기 ID가 공급자 호출을 소유하며,
-  서버는 ARM 요청 전에 구성된 구독과 리소스 그룹을 다시 확인합니다.
+  시작하거나 할당 해제합니다. 둘 다 shadow-first를 유지하며 제공된 T0 상한에서 사람 승인을 요구합니다.
+- `ops.scale-out` - 개발 게이트웨이는 정확한 Uniform VM Scale Set 하나에서 요청당 인스턴스를 한 개만 늘립니다.
+  FinOps가 공급자 호출을 소유하며 서버는 ARM 요청 전에 구성된 구독과 리소스 그룹을 다시 확인합니다.
 - `ops.upsert-network-rule` / `ops.delete-network-rule` - 개발 operations 게이트웨이를 통해
   범위가 제한된 NSG 룰 하나를 생성, 교체 또는 삭제합니다. 삭제는 Owner-tier 승인이 필요하며 복구는
   별도로 통제된 state-forward 액션입니다.
+- `ops.update-alert-routing` - 정확한 수동 PR을 통해 기존 알림 대상 하나를 교체합니다.
+- `ops.set-alert-notification-window` - 기존 비활성 규칙 하나에 유한한 억제 구간을 설정합니다.
+- `ops.tune-alert-evaluation` - 지원되는 임계값, 평가 구간 또는 주기 중 한 축의 변경을 제안합니다.
+- `ops.restore-alert-configuration` - 별도 복구 권한으로 정확히 보존된 기준선을 복원합니다.
+
+네 [알림 과다 수신 관리 작업](../operations/alert-noise-governance-ko.md)은 `pr_manual`, shadow 기본값,
+Owner 수준의 사람 승인과 독립 효과/복구 근거를 유지합니다. [과거 R7 제안](../fork-and-sequencing/implementation-plan-ko.md)은
+채택되지 않았습니다. ActionType에는 `require_manual_merge` 필드가 없으며 PR-native로 암묵적으로 바꾸지 않습니다.
 
 리소스 프로비저닝은 운영자 요청 ActionType이 아닙니다. FDAI는 코드형 인프라가 리소스 생성을 소유하는 환경을 대상으로 하므로 모델 배포나 클라우드 리소스 생성을 요청하는 대화는 지원되지 않으며 아무것도 제출하지 않습니다. 같은 대화 화면에서 권한이 있는 인벤토리를 조회하여 이미 존재하는 리소스를 확인할 수 있습니다.
 
-**버티컬 매핑.** 각 ops ActionType 은 소유 버티컬 로 태깅되어
-[verticals](../../../services/core-control-plane/src/fdai/core/verticals) 가 점유 하고 버티컬 룰이
-`remediates:` 할 수 있음: `ops.failover-primary` 와 `ops.restart-service`
--> 복원력; `ops.scale-in` / `ops.scale-out` -> 비용 거버넌스;
-`ops.drain-connection` / `ops.rotate-cert` -> 변경 안전성.
-`ops.flush-cache` 와 `ops.publish-change-summary` 는 cross-vertical
-(오퍼레이터-트리거). VM 및 network-rule 게이트웨이 연산은 업스트림 운영자 액션을 위한 Azure
-전달 연결이며 버티컬 소유권을 변경하지 않습니다.
+**버티컬 매핑:** [버티컬](../../../services/core-control-plane/src/fdai/core/verticals)은 태깅된 작업을 소유하며 `remediates:`로 참조합니다.
+`ops.failover-primary` / `ops.restart-service`는 복원력, `ops.scale-in` / `ops.scale-out`은 비용 거버넌스,
+`ops.drain-connection` / `ops.rotate-cert`는 변경 안전성에 속합니다.
+`ops.flush-cache` / `ops.publish-change-summary`는 여러 버티컬에 걸친 운영자 작업입니다. Azure VM/네트워크 게이트웨이 연결은 소유권을 바꾸지 않습니다.
 
-기본 `execution_path: direct_api` (ops 는 latency-sensitive; PR overhead
-는 목적을 defeat). 포크 는 모든 런타임 변경 가 reviewable 차이 로
-landing 해야 하는 compliance-heavy 환경에서 `pr_manual` 을 강제 MAY.
+지연에 민감한 운영 작업은 보통 `execution_path: direct_api`를 사용합니다. 규정상 모든 변경을 검토 가능한 차이로 남겨야 한다면
+포크는 `pr_manual`을 강제할 수 있으며, 알림 작업은 이미 이 경로를 요구합니다.
 
 ### 3.3 `governance.*`
 

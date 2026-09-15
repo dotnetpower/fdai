@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 2a9c62ad476a9ea22bf60fc75c12f704281b71cf
-translation_revised: 2026-09-14
+translation_source_sha: 0a637002c41259e4722d776854fd63790f49c137
+translation_revised: 2026-09-15
 ---
 # 프로세스 자동화(프로세스 자동화)
 
@@ -188,7 +188,7 @@ Mine은 비공개 user 정의를 포함한다. **My automations**는 principal �
 ## 4. 컨트롤 루프 통합
 
 집중 [워크플로 컨트롤 루프 통합](workflow-control-loop-integration-ko.md) 문서가 오케스트레이션,
-catalog-root, 어댑터 라우팅, 저널, 명령 및 샌드박스 실행 세부 정보를 소유합니다.
+catalog-root, 어댑터 라우팅, 저널, 명령 및 샌드박스 실행 세부 정보를 소유합니다. [알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)는 기본 shadow 작업 흐름 세 개와 등록된 수동 PR 작업 네 개에 이 런타임을 재사용합니다. 보존된 연결은 재개 시에도 정확한 계획, 근거, 작업 흐름, 대상, 모드, 상관관계 및 Process를 고정합니다. 독립 Var 승인 정족수, 원본 작성자 통제, 승격, 안전장치 및 결과 수락은 여전히 필요합니다. 어댑터는 두 번째 상태 기계나 운영 완료 주장을 만들지 않습니다.
 
 워크플로 액션 전달과 사람 대상 아웃바운드 알림 전달은 서로 다른 런타임 조립으로 유지합니다. 프로세스 스텝은 계속 타입이 지정된 액션 파이프라인으로 다시 들어가며, A2/A4 알림은 이름이 있는 바인딩과 채널별 영속 fan-out을 갖춘 공급자 중립 알림 라우터를 사용합니다. 런타임은 하나의 공유 조립 도우미로 이 라우터를 구성하므로 인시던트와 담당 체계 워크플로의 엔드포인트, 신뢰 등급, HIL 대체 경로 해석이 어긋나지 않습니다. 명시적인 Teams 또는 Slack shadow 바인딩은 공급자 페이로드 영속 기록에 같은 런타임 `StateStore`를 사용하며 공급자 전송을 수행하지 않습니다. 알림 바인딩은 워크플로 스텝을 선택하거나 진행하거나 승인하거나 실행할 수 없습니다.
 ## 5. saga 보상(saga 보상)

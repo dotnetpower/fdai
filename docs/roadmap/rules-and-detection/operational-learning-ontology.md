@@ -148,11 +148,23 @@ spec, the topic, and every table now use `Pattern`.
   and bounded evidence. Nothing reviews or generalizes its `OperatingPatternCandidate` output.
 - Review happens later, at Mimir, on a `Rule`. Calling a pattern record reviewed asserts a step
   that no code performs.
-- The record is never published as its own object. `Norns._observe_operational_case_cohort`
-  flattens it through `to_rule_candidate_mapping()` onto `object.rule-candidate`, so the compiled
-  cohort reaches Mimir only inside a `RuleCandidate`.
-- `object.pattern` is a registered topic with no publisher and no subscriber, so `Pattern` remains
-  an owned object type that nothing produces. Unifying the name did not close that gap.
+- Scoped candidates retain `case_scope` across Norns publication, and the catalog digest binds
+  both access scope and purpose. Mimir rechecks each current source revision before acceptance
+  and package publication; source loss, correction, or cross-scope substitution blocks review.
+- Norns publishes the inert record identity on `object.pattern` through the same consensus and
+  rate-limited candidate queue, while `to_rule_candidate_mapping()` still carries the candidate
+  to Mimir on `object.rule-candidate`.
+- Muninn consumes `object.pattern`, recompiles the pattern from its scope-, purpose-, action-,
+  release-, scenario-, and source-partitioned durable cohort, verifies current sealed case artifacts,
+  and persists the immutable pattern. Reads repeat case revision and artifact checks; a removed
+  artifact or substituted candidate makes the record ineligible. Saga audits the retention snapshot.
+  This closes inert publication and retention, not rule promotion or a new ontology relationship.
+
+Derived records now use the source-deletion-fenced case projection store. Muninn's retention tick
+removes copied cohort, snapshot, pattern, and emission bodies before final source tombstoning;
+concurrent writes revalidate source eligibility after CAS contention. See the
+[completion and deletion contract](prediction-learning-and-case-history.md#completion-design)
+for layout bounds and remaining legacy, broker, and downstream deletion requirements.
 
 This is why `learned_as` (`ObservedOutcome -> Pattern`) has no producible endpoint pair. A cohort
 cites sealed cases as `case-history:<case_id>:<revision>:<manifest_digest>` and never receives an
@@ -260,6 +272,12 @@ T1 retrieves prior cases by deterministic filters before similarity ranking:
 5. gather current evidence and re-evaluate every precondition, target identity, blast radius, and
    policy decision;
 6. hold for review when the current graph differs or evidence is insufficient.
+
+The current-reuse admission binds the full event, exact parameters, action signature, rule, and
+immutable case. The Azure adapter requests that independent admission from the configured provider;
+Core checks it against the decision clock after I/O, not the historical observation clock. Expiry is
+exclusive. A five-second default total deadline covers embedding, retrieval, and verification;
+timeout holds for review, while caller cancellation propagates without a completed decision.
 
 Historical success raises retrieval relevance only. It never bypasses the verifier, risk gate,
 human approval, dry-run, resource lock, idempotency, postcondition, rollback, or audit path.

@@ -6,6 +6,11 @@ title: Continuous Operational Instance Graph
 This document owns the runtime contract that keeps cloud resource instances, relationships, and observed state current in the FDAI ontology.
 Collection is continuous and load-aware, while raw history moves through typed rollups and verified archives so the active data plane remains bounded.
 
+[Alert noise governance](../operations/alert-noise-governance.md) retains separate private alert,
+audience, and delivery evidence. Those records and their scope bindings do not promote an inventory
+generation, create observed graph facts, or prove complete reverse dependencies. Missing native
+history or directory evidence stays partial; this graph's observation and single-writer rules are unchanged.
+
 > **Scope boundary:** This design covers provider observation, ontology instance projection, freshness, compaction, archive, and graph-first reads.
 > It does not grant approval, mutation, or execution authority.
 >
@@ -13,12 +18,22 @@ Collection is continuous and load-aware, while raw history moves through typed r
 
 ## Design at a glance
 
+Historical Pattern explanations use the same semantic function registry but remain separate from
+observed graph state. `query.operating_patterns` requires independent principal-to-case-scope read
+admission and current source revisions. Its summaries create no resource observations or action
+authority; [case history](../rules-and-detection/prediction-learning-and-case-history.md) owns the contract.
+
 Continuous collection combines push events, resumable provider deltas, and adaptive reconciliation. It does not use a fixed six-hour scan as the normal freshness mechanism and does not run an
 unbounded tight polling loop.
 
 ![Design at a glance. The main stages are Provider events and delta APIs, Durable observation ingress, Normalize and adjudicate, Current operational graph, Bitemporal observation history, Typed rollups, Verified archive, Verified semantic query, Evidence current and complete?, Evidence-backed result, Bounded live read.](../../diagrams/generated/fdai-roadmap-architecture-continuous-operational-instance-graph-01.en.svg)
 
 ## Non-negotiable invariants
+
+On AKS, Operator graph-query and live-stage transport use the projected workload credential bound
+to the Operator identity. The credential change does not alter query admission, topic ownership,
+observation provenance or projection writers. The existing adapters facade owns factory exposure. Incomplete federation remains unavailable and never
+substitutes the node identity or local Azure CLI; local credential policy stays unchanged.
 
 - **Observed truth:** Only authenticated provider observations can enter the `observed` state lane.
   Questions, model output, intended state, dispatch receipts, and executor results cannot create an
@@ -99,10 +114,10 @@ A change-stream row is eligible only when both its identity-derived type and its
 type belong to the reviewed ResourceType vocabulary. If either side is unreviewed, the row is
 discarded because it cannot enter the ontology. If both are reviewed, they must match the exact ARM
 ID shape, including built-in subscription and Resource Group types.
-A provider-resource ID must contain a concrete resource name after every type segment. A collection
-path that ends at a type cannot create a Resource instance.
-Disabled resource-change and recovery accelerators do not require collection-policy entries and
-contribute neither cursor prefixes nor stale-cursor deadlines to reconciliation.
+Provider IDs require a concrete name after every type segment; collection-only paths cannot create Resource instances.
+Disabled resource-change and recovery accelerators need no policy entries and add no cursor prefixes or stale-cursor deadlines.
+The CLI support module owns Activity Log recovery's independent failure boundary before reconciliation and after generation promotion.
+A rejected delta stays unavailable without advancing its cursor, stopping full inventory, or invalidating a verified generation.
 
 Kubernetes fleet collection retains one source-state record per exact cluster binding. The record
 uses a customer-safe scope digest, so one unavailable cluster lowers fleet completeness without

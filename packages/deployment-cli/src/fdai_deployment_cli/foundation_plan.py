@@ -30,6 +30,7 @@ REVIEW_NAME = "foundation-plan.json"
 _MAX_PLAN_BYTES = 64 * 1024 * 1024
 _MAX_JSON_BYTES = 16 * 1024 * 1024
 _SCHEMA = "fdai.foundation-saved-plan.v1"
+_SOURCE_SCHEMA = "fdai.foundation-saved-source-plan.v1"
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _CONTEXT_KEYS = {
     "offline_manifest_digest",
@@ -51,6 +52,10 @@ _AUTHORITY = {
     "subscription_ready": False,
     "mutation_performed": False,
 }
+_SOURCE_CONTEXT_KEYS = (_CONTEXT_KEYS - {"offline_manifest_digest", "deployment_bundle_digest"}) | {
+    "source_input_digest",
+    "source_snapshot_digest",
+}
 
 
 def foundation_plan_context(
@@ -68,6 +73,36 @@ def foundation_plan_context(
     result = {
         "offline_manifest_digest": offline_manifest_digest,
         "deployment_bundle_digest": deployment_bundle_digest,
+        "profile_digest": canonical_digest(profile.to_mapping()),
+        "target_binding": profile.target_binding,
+        "variables_digest": canonical_digest(variables),
+        "terraform_digest": terraform_digest,
+        "provider_lock_digest": hashlib.sha256(provider_lock).hexdigest(),
+        "runner_image_observation_digest": runner_image_observation_digest,
+        "source_commit": variables["source_commit"],
+        "run_digest": variables["run_digest"],
+        "foundation_context_digest": variables["foundation_context_digest"],
+    }
+    _validate_context(result)
+    return result
+
+
+def source_foundation_plan_context(
+    *,
+    profile: ProvisionProfile,
+    variables: dict[str, object],
+    source_input_digest: str,
+    source_snapshot_digest: str,
+    terraform_digest: str,
+    provider_lock: bytes,
+    runner_image_observation_digest: str,
+) -> dict[str, object]:
+    """Bind selected source bytes without fabricating signed-kit provenance."""
+    if profile.environment != "dev" or profile.connectivity != "online":
+        raise ValueError("source Foundation plans require connected development")
+    result = {
+        "source_input_digest": source_input_digest,
+        "source_snapshot_digest": source_snapshot_digest,
         "profile_digest": canonical_digest(profile.to_mapping()),
         "target_binding": profile.target_binding,
         "variables_digest": canonical_digest(variables),
@@ -125,7 +160,7 @@ def save_foundation_plan(
         raise ValueError("saved foundation plan changed during inspection")
     now = datetime.now(UTC).replace(microsecond=0)
     receipt: dict[str, object] = {
-        "schema_version": _SCHEMA,
+        "schema_version": _SOURCE_SCHEMA if set(context) == _SOURCE_CONTEXT_KEYS else _SCHEMA,
         "state": "review",
         **_AUTHORITY,
         "context": context,
@@ -177,7 +212,7 @@ def verify_foundation_plan(
     }
     if (
         set(receipt) != expected_keys
-        or receipt["schema_version"] != _SCHEMA
+        or receipt["schema_version"] not in {_SCHEMA, _SOURCE_SCHEMA}
         or receipt["state"] != "review"
         or any(receipt[key] is not value for key, value in _AUTHORITY.items())
     ):
@@ -186,7 +221,10 @@ def verify_foundation_plan(
     if digest != expected_review_digest or canonical_digest(receipt) != expected_review_digest:
         raise ValueError("foundation review digest does not match")
     context = receipt["context"]
-    if not isinstance(context, dict) or set(context) != _CONTEXT_KEYS:
+    expected_context_keys = (
+        _SOURCE_CONTEXT_KEYS if receipt["schema_version"] == _SOURCE_SCHEMA else _CONTEXT_KEYS
+    )
+    if not isinstance(context, dict) or set(context) != expected_context_keys:
         raise ValueError("foundation review context is invalid")
     _validate_context(context)
     if (
@@ -209,7 +247,7 @@ def verify_foundation_plan(
 
 
 def _validate_context(context: dict[str, object]) -> None:
-    if set(context) != _CONTEXT_KEYS:
+    if set(context) not in (_CONTEXT_KEYS, _SOURCE_CONTEXT_KEYS):
         raise ValueError("foundation plan context fields are invalid")
     for key, value in context.items():
         pattern = r"[0-9a-f]{40}" if key == "source_commit" else r"[0-9a-f]{64}"

@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 979f482994d9de3d73cb02af78cda852a0c9efe6
+translation_source_sha: 3dbf7cb3dae18d23fb8047ad33065bc5e18c313e
 translation_revised: 2026-09-15
 ---
 # FDAI 온톨로지 안전 인프라
@@ -52,7 +52,7 @@ principal 범위 매니페스트에서 오고 계획 검증은 정확한 release
 분리합니다. 검색어/프레임 다이제스트는 원래 질문에 연결되며, 검색된 인용문은 참조 근거일 뿐
 관측 상태나 실행 권한이 아닙니다.
 생성된 의미 의도 범위 산출물은 정본 온톨로지 조회 또는 Resource 어휘가 바뀌면 다시 생성합니다.
-오래된 산출물은 런타임 근거가 아니라 CI 실패로 유지됩니다.
+오래된 산출물은 런타임 근거가 아니라 CI 실패로 유지됩니다. 범위가 지정된 운영 Pattern을 읽으려면 상태에 접근하기 전에 인증된 principal과 정확한 인자에 결합된 독립 `case-history-read` 허용 근거가 필요합니다. 경계 인벤토리는 허용 여부를 결정하는 함수와 집중 테스트를 고정합니다. 다시 컴파일한 요약은 비활성 상태를 유지하며 현재 원본 근거가 없다고 접근 권한이나 실행 권한이 생기지 않습니다.
 ## Catalog-owned 인스턴스 변환 결과
 
 Core 런타임 시작은 이제 Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,

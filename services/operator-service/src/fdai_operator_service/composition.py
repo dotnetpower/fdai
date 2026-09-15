@@ -6,12 +6,11 @@ import logging
 import os
 import secrets
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Protocol
 
 import httpx
-from azure.identity.aio import ManagedIdentityCredential
 from fdai_service_contracts import (
     AgentActivityQuery,
     OperatorReadModel,
@@ -31,6 +30,7 @@ from fdai_operator_service.adapters import (
     OperatorSemanticKafkaBus,
     OperatorSemanticKafkaConfig,
     StartupOwnedLocalAzureNarratorAdapters,
+    create_workload_credential,
 )
 from fdai_operator_service.adapters.narrator_periodic_scheduler import (
     PeriodicNarratorRefreshScheduler,
@@ -108,7 +108,10 @@ from fdai_operator_service.model_lifecycle_composition import (
 )
 from fdai_operator_service.outbox_runtime import (
     ActionConfirmationBridge,
+    AlertQualityBridge,
     IncidentInterventionBridge,
+    TestContextBridge,
+    build_alert_quality_bindings,
 )
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
@@ -367,6 +370,13 @@ class ProductionOperatorComposition:
             if family_store is not None and semantic_bus is not None and event_topic is not None
             else None
         )
+        test_context_bridge = (
+            TestContextBridge(
+                store=family_store, publisher=semantic_bus, topic=event_topic, source=semantic_bus
+            )
+            if family_store is not None and semantic_bus is not None and event_topic is not None
+            else None
+        )
         local_cli_identity = (
             self.local_cli_identity_factory() if environment.local_azure_cli_auth else None
         )
@@ -399,6 +409,15 @@ class ProductionOperatorComposition:
             context_selection_registry=context_selection_registry,
             teams_http_client=teams_http_client,
         )
+        alert_quality, alert_quality_bridge = build_alert_quality_bindings(
+            authenticator=authenticator,
+            environ=environment.values,
+            store=family_store,
+            transport=semantic_bus,
+            event_topic=event_topic,
+            proposal_writer=route_families.operations_proposal_writer,
+        )
+        route_families = replace(route_families, alert_quality=alert_quality)
         if (
             semantic_bridge is not None
             and self.adaptive_relationship_resolver is None
@@ -452,7 +471,9 @@ class ProductionOperatorComposition:
                 azure_monitor_webhook_bridge,
                 live_stage_relay,
                 hil_decision_outbox_bridge,
-                assignment_notice_bridge,
+                alert_quality_bridge=alert_quality_bridge,
+                assignment_notice_bridge=assignment_notice_bridge,
+                test_context_bridge=test_context_bridge,
             ),
             live_stream_hub=live_stream_hub,
             agent_stream_hub=agent_stream_hub,
@@ -478,7 +499,9 @@ class ProductionOperatorComposition:
                 narrator_scheduler,
                 hil_decision_outbox_bridge,
                 teams_http_client,
-                assignment_notice_bridge,
+                alert_quality_bridge=alert_quality_bridge,
+                assignment_notice_bridge=assignment_notice_bridge,
+                test_context_bridge=test_context_bridge,
             ),
         )
 
@@ -805,10 +828,9 @@ def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKaf
     execution_venue = resolve_execution_venue(environment.values)
     credential = None
     if uses_workload_identity(execution_venue):
-        credential = (
-            ManagedIdentityCredential(client_id=environment.managed_identity_client_id)
-            if environment.managed_identity_client_id is not None
-            else ManagedIdentityCredential()
+        credential = create_workload_credential(
+            environment=environment.values,
+            client_id=environment.managed_identity_client_id,
         )
     return OperatorSemanticKafkaBus(
         config=OperatorSemanticKafkaConfig(
@@ -841,10 +863,9 @@ def _build_live_stage_relay(
     execution_venue = resolve_execution_venue(environment.values)
     credential = None
     if uses_workload_identity(execution_venue):
-        credential = (
-            ManagedIdentityCredential(client_id=environment.managed_identity_client_id)
-            if environment.managed_identity_client_id is not None
-            else ManagedIdentityCredential()
+        credential = create_workload_credential(
+            environment=environment.values,
+            client_id=environment.managed_identity_client_id,
         )
     return LiveStageKafkaRelay(
         config=LiveStageKafkaConfig(
@@ -916,6 +937,8 @@ def _application_lifecycle(
     hil_decision_outbox_bridge: HilDecisionOutboxBridge | None,
     teams_http_client: httpx.AsyncClient | None,
     assignment_notice_bridge: AssignmentNoticeBridge | None = None,
+    alert_quality_bridge: AlertQualityBridge | None = None,
+    test_context_bridge: TestContextBridge | None = None,
 ) -> ApplicationLifecycle | None:
     services = tuple(
         service
@@ -932,10 +955,12 @@ def _application_lifecycle(
             action_confirmation_bridge,
             incident_intervention_bridge,
             azure_monitor_webhook_bridge,
+            alert_quality_bridge,
             live_activity_snapshot_loader,
             live_stage_relay,
             narrator_scheduler,
             hil_decision_outbox_bridge,
+            test_context_bridge,
             assignment_notice_bridge,
             _OwnedHttpClient(teams_http_client) if teams_http_client is not None else None,
         )
@@ -963,6 +988,8 @@ def _readiness_probe(
     live_stage_relay: LiveStageKafkaRelay | None,
     hil_decision_outbox_bridge: HilDecisionOutboxBridge | None = None,
     assignment_notice_bridge: AssignmentNoticeBridge | None = None,
+    alert_quality_bridge: AlertQualityBridge | None = None,
+    test_context_bridge: TestContextBridge | None = None,
 ) -> ReadinessProbe:
     if store is None:
         return _unavailable
@@ -1000,6 +1027,8 @@ def _readiness_probe(
             )
             and (live_stage_relay is None or live_stage_relay.readiness())
             and (hil_decision_outbox_bridge is None or hil_decision_outbox_bridge.workers_ready())
+            and (alert_quality_bridge is None or alert_quality_bridge.workers_ready())
+            and (test_context_bridge is None or test_context_bridge.workers_ready())
             and (assignment_notice_bridge is None or assignment_notice_bridge.workers_ready())
         )
 
@@ -1011,6 +1040,23 @@ def _build_data_sources(
 ) -> tuple[ReadDataSource, ...]:
     reason = None if configured else "Authoritative service-local projections are not configured."
     return (
+        ReadDataSource(
+            key="alert-quality",
+            source="operator-alert-quality-projection"
+            if inventory_configured
+            else "not-configured",
+            routes=("/alert-quality",),
+            availability="unknown" if inventory_configured else "unavailable",
+            configured=inventory_configured,
+            reachable=None,
+            authoritative=inventory_configured,
+            durable=True if inventory_configured else None,
+            reason=(
+                None
+                if inventory_configured
+                else "Authoritative alert quality projections are not configured."
+            ),
+        ),
         ReadDataSource(
             key="ontology-instances",
             source="service-local-inventory" if inventory_configured else "not-configured",

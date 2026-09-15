@@ -97,7 +97,7 @@ test("desktop: real Python function selection, source locations, and caller/call
   await expect(page.locator("#function-list")).toHaveText("No matching source functions.");
 });
 
-test("desktop: source-declared broadcast fan-out, parallel workers, and Azure Resource Graph budget distinction", async ({ page }) => {
+test("desktop: source-declared broadcast fan-out and parallel workers", async ({ page }) => {
   await page.goto("/");
   await pause(page);
   await seek(page, 22);
@@ -108,8 +108,7 @@ test("desktop: source-declared broadcast fan-out, parallel workers, and Azure Re
   await page.locator("#broadcast-panel summary").click();
   await expect(page.locator("#broadcast-detail")).toContainText("Thor -> object.action-run");
   await expect(page.locator("#broadcast-detail")).toContainText("on_typed_message");
-  await expect(page.locator(".arg-budget")).toContainText("Azure Resource Graph 3 req/s");
-  await expect(page.locator(".rate-note")).toContainText("Not a live polling schedule");
+  await expect(page.locator(".arg-budget, .arg-workflows, .rate-note")).toHaveCount(0);
   const activeClock = await page.locator("#stage").getAttribute("data-transport-time");
   await page.waitForTimeout(400);
   expect(await page.locator("#stage").getAttribute("data-transport-time")).toBe(activeClock);
@@ -122,7 +121,7 @@ test("desktop: source-declared broadcast fan-out, parallel workers, and Azure Re
   await expect(page.locator(".cinema-watermark")).toContainText("SYNTHETIC DEMO");
 });
 
-test("desktop: default 1x, per-second Azure Resource Graph clock, named scan paths, and independent activity phases", async ({ page, baseURL }, testInfo) => {
+test("desktop: default 1x, per-second Azure Resource Graph clock, and independent activity phases", async ({ page, baseURL }, testInfo) => {
   if (!baseURL) throw new Error("Neural View tests require a configured base URL.");
   const origin = new URL(baseURL).origin;
   const outside: string[] = [];
@@ -154,10 +153,6 @@ test("desktop: default 1x, per-second Azure Resource Graph clock, named scan pat
   const changed = await page.locator(".workload-lane").evaluateAll((lanes) => lanes.map((lane) => lane.getAttribute("data-active")));
   expect(changed.some((active, index) => active !== initial[index])).toBe(true);
   expect(changed.some((active, index) => active === initial[index])).toBe(true);
-  await page.locator('[data-arg-workflow="resource-changes"]').click();
-  await expect(page.locator("#function-detail h3")).toContainText("AzureResourceChangeFeed.poll()");
-  await page.locator('[data-arg-workflow="resource-scan"]').click();
-  await expect(page.locator("#function-detail h3")).toContainText("AzureArgQueryFactory._fetch_all_pages()");
   await page.locator('[data-agent="Huginn"]').click();
   await expect(page.locator(".function-node-label")).toHaveCount(Number(await page.locator("#stage").getAttribute("data-function-count")));
   await page.screenshot({ path: testInfo.outputPath("named-functions-parallel.png") });

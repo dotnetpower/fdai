@@ -16,7 +16,7 @@
   "stateUnsupported": "사용 불가",
   "stateError": "다시 시도",
   "approvalTitle": "FDAI 사람 승인 필요",
-  "approvalBody": "콘솔에서 인시던트 근거를 검토하세요.",
+  "approvalBody": "콘솔에서 승인 근거를 검토하세요.",
   "deniedTitle": "FDAI 작업 거부됨",
   "deniedBody": "콘솔에서 안전성 결정을 검토하세요.",
   "failedTitle": "FDAI 운영 실패",

@@ -5,7 +5,7 @@ from __future__ import annotations
 from urllib.parse import urlparse
 
 import httpx
-from azure.identity.aio import ManagedIdentityCredential
+from azure.core.credentials_async import AsyncTokenCredential
 from fdai_service_contracts import ResolvedStewardIdentity, StewardKind
 
 _GRAPH_SCOPE = "https://graph.microsoft.com/.default"
@@ -17,7 +17,7 @@ class GraphPersonDirectory:
     def __init__(
         self,
         *,
-        credential: ManagedIdentityCredential,
+        credential: AsyncTokenCredential,
         client: httpx.AsyncClient,
         base_url: str = "https://graph.microsoft.com/v1.0",
     ) -> None:

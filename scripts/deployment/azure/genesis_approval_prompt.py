@@ -17,6 +17,7 @@ from typing import TextIO
 
 from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
+from genesis_checks import trusted_tool
 from genesis_runner_image_review import show_image_vm_selection
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
@@ -96,9 +97,10 @@ def current_actor_digest(run_binding: str) -> str:
     """Bind approval to the currently authenticated Azure human without persisting identity."""
 
     environment = _azure_identity_environment()
+    azure_cli = trusted_tool("az")
     account = subprocess.run(
         [
-            "/usr/bin/az",
+            azure_cli,
             "account",
             "show",
             "--query",
@@ -115,7 +117,7 @@ def current_actor_digest(run_binding: str) -> str:
     )
     principal = subprocess.run(
         [
-            "/usr/bin/az",
+            azure_cli,
             "ad",
             "signed-in-user",
             "show",

@@ -150,6 +150,56 @@ def test_build_injects_operational_planner_into_forseti() -> None:
     assert forseti._operational_planner is planner
 
 
+async def test_pantheon_reads_reviewed_context_and_holds_revoked_context() -> None:
+    from dataclasses import replace
+
+    from fdai.core.operational_context.test_context_lifecycle import GovernedTestContextStore
+
+    from tests.core.operational_context.test_test_context import NOW, _claim, _TransitionAdmission
+
+    admission = _TransitionAdmission()
+    context_source = GovernedTestContextStore(
+        store=InMemoryStateStore(),
+        admission=admission,
+        clock=lambda: NOW,
+    )
+    draft = replace(_claim(), state="proposed", reviewed_by="")
+    await context_source.record_transition(draft, expected_revision=0, now=NOW)
+    reviewed = replace(draft, state="reviewed", revision=2, reviewed_by="reviewer-two")
+    await context_source.record_transition(reviewed, expected_revision=1, now=NOW)
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        test_context_source=context_source,
+        test_context_admission=admission,
+    )
+    forseti = runtime.agents["Forseti"]
+    assert isinstance(forseti, Forseti)
+    assert forseti._test_context_source is context_source
+    forseti._test_context_clock = lambda: NOW
+    event = {
+        "event_type": "restart_needed",
+        "resource_id": draft.target_ref,
+        "access_scope_digest": draft.access_scope_digest,
+        "metric": draft.signal_code,
+        "observed_value": 80.0,
+        "detected_at": NOW.isoformat(),
+        "service_impact": "none",
+        "protected_signal": False,
+        "correlation_id": "context-review-example",
+    }
+    result = await forseti.judge(event)
+    assert result is not None and result["risk_verdict"] == "deny"
+    assert result["test_context"]["expected_condition"] == "expected"
+    await context_source.record_transition(
+        replace(reviewed, state="revoked", revision=3), expected_revision=2, now=NOW
+    )
+    after = await forseti.judge(event)
+    assert after is not None and after["risk_verdict"] == "hil"
+    assert after["test_context"]["reason"] == "independent_review_required"
+    assert after["resolved_autonomy_ceiling"] == "shadow_only"
+
+
 def test_build_injects_kinetic_proposal_source_into_forseti() -> None:
     source = cast(KineticActionProposalSource, object())
 

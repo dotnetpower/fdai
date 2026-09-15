@@ -17,14 +17,23 @@ ownership (`stewardship`). It complements the handover-map schema and ownership 
 > **Current evidence:** The 2026-09-15 source checkpoints include scoped Console ownership,
 > Core goal/reviewer/admission/retrieval, private semantic retention, and isolated IAM recovery.
 > The [final record](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) completes 12 distinct rounds after remaining source implementation, with no unresolved confirmed Medium/High source finding.
-> Translation SHA refresh, canonical generation, local hooks, publication/CI, and full UI/assistive/live
-> evidence remain pending. Readiness stays `shadow`, `operationally_ready=false`; [#458](https://github.com/dotnetpower/fdai/issues/458) remains open.
+> [PR #1014](https://github.com/dotnetpower/fdai/pull/1014) completed #946 delivery at `953a17de4` from reviewed head `8c1d9977c`; exact-head CI `34925881557` and post-merge CI `34926168342` passed.
+> [#1017 local UI evidence](../../internals/handover-ui-evidence-20260915.md) accounts for all 50 rubric IDs, retaining real screen-reader checks as `needs-human` without a final score. Readiness stays `shadow`, `operationally_ready=false`; [#458](https://github.com/dotnetpower/fdai/issues/458) remains open.
+
+The [operational validation guide](../../user-guide/guides/validate-ownership-handover.md) separates
+actual speech, current identity, provider, recovery, cohort and exact-plan evidence. #1017 delivery
+completed through [PR #1031](https://github.com/dotnetpower/fdai/pull/1031), squash `33c76944cec4489b51bc3bb90820cc273159d99d`;
+exact-head CI `34933740673` and post-merge main CI `34934077457` succeeded. This does not complete #458.
 
 Cloud-reference collection and signed intake share this ingestion host, not its ownership authority.
 They never create a handover draft or change a steward; [their lifecycle](cloud-resource-knowledge-lifecycle.md)
 uses separate source/trust policy and the existing independent document approval gates.
 
 ## Design at a glance
+
+The shared ingestion host selects its own explicit projected workload identity on AKS. This
+changes Azure token acquisition only: the stewardship webhook still verifies its Git signature,
+handover remains review-only, and no service credential can change a steward or grant RBAC.
 
 The lifecycle has four independent safety boundaries:
 
@@ -45,7 +54,7 @@ The lifecycle has four independent safety boundaries:
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Startup binding and read-only projection | implemented | `services/operator-service/src/fdai_operator_service/`; `services/operator-service/tests/test_operator_operations_family.py`; `tests/integration/infra/test_operator_api_stewardship.py`; focused Operator and Terraform tests (15 passed) | The route and deployment bindings exist. Source wiring doesn't by itself prove a live deployment is ready. |
-| Terraform binding completeness gates | implemented | `infra/production-gates.tf`; `.github/workflows/deploy-dev.yml`; `tests/integration/infra/test_operator_api_stewardship.py`; `tests/integration/infra/test_core_stewardship_gitops.py` | Production configuration requires maintainers and every non-autonomous agent binding while keeping identities and GitOps credentials deployment-owned. |
+| Terraform binding completeness gates | implemented | `infra/production-gates.tf`; `tests/integration/infra/test_operator_api_stewardship.py`; `tests/integration/infra/test_core_stewardship_gitops.py`; [standalone deployment](../deployment/installable-deployment-cli.md) | Production configuration requires maintainers and every non-autonomous agent binding while keeping identities and GitOps credentials deployment-owned. Historical workflow evidence is not the current tenant-deployment path. |
 | Guided registration and grounded durable draft | implemented | `console/src/routes/handover-editor.tsx`; `services/document-processing-worker/src/fdai_document_worker_service/handover.py`; focused console tests (21 passed); focused ingestion delivery tests (9 passed) | The SPA submits a governed upload and the worker stores a review-only draft. Neither effect changes the active map. |
 | Idempotent draft governance PR delivery | implemented | [`governance.py`](../../../services/core-control-plane/src/fdai/core/stewardship/governance.py); [`stewardship_governance.py`](../../../services/core-control-plane/src/fdai/runtime/stewardship_governance.py); focused stewardship and runtime tests | The runtime reads durable `handover_draft:*` records, validates each complete candidate without accepting identity overrides, publishes through the configured `RemediationPrPublisher`, and atomically records the PR reference or rejection with a Saga audit. Content-addressed receipts make restart and replay safe. A governed deployment receipt remains separate evidence. |
 | Signed merge intake and downstream ownership effects | implemented | `services/document-ingestion-api/src/fdai_ingestion_api_service/adapters/stewardship.py`; `services/core-control-plane/src/fdai/runtime/stewardship_merge_effects.py`; focused merge and ownership-coordination tests | Signed intake persists inert evidence. Core validates the merged map, computes recipients, and advances only a digest-matched proposal with notification and Saga audit. A grant merge publishes a replay-stable shadow IAM request; a removal merge never requests another grant. |
@@ -60,6 +69,8 @@ The lifecycle has four independent safety boundaries:
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Corrected current deployment guidance to the standalone exact-plan coordinator and managed host, separated injected-clock tests from live refresh, and added a bilingual speech/operational evidence protocol without runtime changes. | `current change`; [validation guide](../../user-guide/guides/validate-ownership-handover.md); [#1043 review record](../../internals/handover-operational-readiness-20260915.md); protected #1031 source and successful post-merge CI `34934077457`. | Real EN/KO speech and all current #458 operational receipts remain required. Historical source/image/map evidence is not current deployment approval. |
+| 2026-09-15 | implemented | Reconciled completed #946 source delivery and recorded #1017's local UI correction/evidence boundary. Tenant deployment uses the current standalone exact-plan coordinator and managed host, not historical GitHub workflow transport. | [PR #1014](https://github.com/dotnetpower/fdai/pull/1014), reviewed `8c1d9977c`, squash `953a17de4`, successful exact-head CI `34925881557` and post-merge CI `34926168342`; `current change`; [UI evidence and operational prerequisites](../../internals/handover-ui-evidence-20260915.md). | #458 remains open for selected release/target, independent exact-plan approval, current identities, App/ChatOps setup, source/ACL/hold evidence, independent effects, recovery drills and promotion cohorts. Real screen-reader output remains unmeasured. |
 | 2026-08-21 | implemented | Aligned the ingestion API's fallback Pantheon transport with the canonical `fdai.pantheon.objects` Event Bus topic. Terraform remains the naming authority, and the change does not alter stewardship resolution, notification ordering, RBAC, approval, or execution authority. | `current change`; ingestion composition defaults, Event Bus naming contract, and focused independent-service checks. | Retain the protected Event Bus migration and post-apply transport receipt tracked by the deployment naming owner. |
 | 2026-08-18 | in-progress | Made the ingestion API composition that builds the stewardship webhook and repository handover intake resolve its execution venue through the shared contract instead of a private parser, so a venue-selected credential or endpoint cannot diverge from the other services. No stewardship lifecycle behavior changed. | `current change`; `services/document-ingestion-api/tests` passed with the other independent service suites at 874 focused cases and 1 skip; the venue gate reported OK across 6 source trees. | The unwired post-merge ownership effects and scheduled identity health below remain open. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected the lifecycle claim to distinguish startup, draft generation, signed merge intake, and unimplemented operational effects. | `current change`; source and focused checks listed in the scope table. | Wire governance PR publication, complete post-merge effects and scheduled identity health, then retain runtime evidence. |
@@ -88,8 +99,9 @@ unchanged historical evidence rather than current gap lists.
 - [x] **Source work H10:** [Scoped requests](../../../services/core-control-plane/src/fdai/core/human_assignment/scoped_duty_requests.py) and [the actual Console workspace](../../../console/src/routes/scoped-duty-workspace.tsx) implement exact group/schedule subjects, current scope/effective intervals, static fallback, reviewed supersession, and projection. The recorded95 unit/6 Playwright checks are bounded synthetic evidence.
 - [x] **Handover source scope:** Complete the [source checklist](human-agent-assignment-implementation-plan.md#current-change-evidence-and-remaining-scope) with [Core bindings](../../../services/core-control-plane/src/fdai/runtime/core_handover.py), [semantic retention](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/handover_retention.py), and [execution binding](../../../services/core-control-plane/src/fdai/runtime/human_access_runtime.py), supported by the retained checkpoints rather than readiness output.
 - [x] **Final source critique:** Complete 12 distinct integrated rounds after remaining source implementation; [FI-01 through FI-12](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) leave no unresolved confirmed Medium/High source finding.
-- [ ] **Publication evidence:** Complete EN/KO review, translation SHA refresh, canonical generation, local hooks, publication, and exact-pushed-SHA protected CI evidence.
-- [ ] **UI and operational evidence:** Retain complete UI-rubric/assistive-technology evidence and separately governed #458/Teams/document/deployment/cohort/drill receipts; source review establishes neither full WCAG/UI score nor operational acceptance.
+- [x] **#946 publication evidence:** Reviewed EN/KO, generation, normal hooks and protected #1014 delivery completed with successful exact-head and post-merge CI. #1017 tracks its own follow-up delivery.
+- [x] **Local UI evidence:** [#1017](../../internals/handover-ui-evidence-20260915.md) records 28 distinct synthetic browser scenarios, 127 unit checks, ten focused plus ten final critiques and every rubric ID; real assistive-technology output remains unmeasured.
+- [ ] **Human and operational evidence:** Retain real screen-reader announcements and separately governed #458/Teams/document/deployment/cohort/drill receipts through the [current standalone path](../deployment/installable-deployment-cli.md). Source review grants no full WCAG/UI score, operational acceptance or promotion.
 
 The grounded T2 `HandoverInterpreter` remains an optional deployment binding. The deterministic
 extractor and exact Graph resolution work without it, and the default interpreter holds for review
@@ -312,9 +324,13 @@ one-hour installation lease closes. No token or JWT is logged. A static `gitops_
 only as a mutually exclusive compatibility input. Configure the GitHub webhook for pull-request
 events and point it to the published ingestion gateway route.
 
-The protected workflow reads `ENABLE_STEWARDSHIP_GOVERNANCE`, `GITOPS_OWNER`, and `GITOPS_REPO`
-from repository Variables and reads `GITOPS_TOKEN` and `GITHUB_WEBHOOK_SECRET` from repository
-Secrets. Keep activation disabled until those values and the existing ChatOps secrets are present.
+Supply reviewed activation, repository/App bindings and protected secret references through the
+selected standalone deployment's private configuration. `fdaictl provision azure` coordinates
+exact-plan human approval and the dedicated managed-host identity; GitHub Actions is not a tenant
+plan/apply transport. The historical workflow variables in earlier evidence do not configure a
+current deployment. Keep governance disabled until current App, signed-webhook and independently
+approved channel prerequisites are verified. Do not substitute a static personal token or put
+secret values in chat, CLI arguments, source control or public issue evidence.
 
 ## Failure and recovery
 
@@ -340,7 +356,9 @@ uv run pytest services/core-control-plane/tests/core/stewardship services/core-c
 terraform -chdir=infra validate
 ```
 
-After deployment, verify:
+After a separately authorized deployment, verify these observations within the selected drill's
+scope and deadlines. Use the [evidence protocol](../../user-guide/guides/validate-ownership-handover.md)
+for current identities, exact approvals, inverse/restart/outage drills and independent cohorts:
 
 1. `GET /stewardship` returns 15 agents and the expected coverage findings.
 2. `stewardship_health:current` exists and `stewardship_health:last_success` has the same revision
@@ -349,13 +367,15 @@ After deployment, verify:
 4. Reprocessing the upload returns the same PR reference.
 5. Merging a reviewed test change produces one merge audit and one operational notification.
 6. Re-delivering the same GitHub delivery id produces no second record.
-7. Advancing the injected clock across the refresh skew produces one renewed installation token,
-   while concurrent callers share one mint request and no credential appears in logs or receipts.
+7. An approved bounded real token-refresh observation retains renewal and concurrent-lease
+  evidence without credential values. Injected-clock checks prove only local provider mechanics;
+  never change a deployment clock or claim a synthetic refresh is a live observation.
 
 ## Related docs
 
 | To learn about | Read |
 |----------------|------|
+| Remaining speech and operational evidence | [Validation guide](../../user-guide/guides/validate-ownership-handover.md) |
 | Ownership schema and handover concepts | [agent-stewardship-and-handover.md](agent-stewardship-and-handover.md) |
 | Notification routes and fallback | [channels-and-notifications.md](channels-and-notifications.md) |
 | Human authorization | [user-rbac-and-identity.md](user-rbac-and-identity.md) |

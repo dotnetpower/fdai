@@ -48,7 +48,7 @@ keeps model-accepted `document_query` terms separate from scalar applicability a
 access. Query/frame digests bind the original question; retrieved excerpts remain reference evidence,
 not observed state or execution authority.
 The generated semantic-intent coverage artifact is regenerated when canonical ontology query or
-Resource vocabulary changes. A stale artifact remains a CI failure, not runtime evidence.
+Resource vocabulary changes. A stale artifact remains a CI failure, not runtime evidence. Scoped operating Pattern reads require independent `case-history-read` admission bound to the authenticated principal and exact arguments before state access. The boundary inventory pins the controlling admission function and its focused tests. Recompiled summaries remain inert, and missing current source evidence never grants access or execution authority.
 ## Catalog-owned instance projection
 
 Core runtime startup now projects Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,

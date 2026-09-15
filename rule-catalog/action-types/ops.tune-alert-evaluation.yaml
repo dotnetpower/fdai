@@ -1,0 +1,78 @@
+schema_version: "1.0.0"
+name: ops.tune-alert-evaluation
+version: "1.0.0"
+operation: update
+interfaces:
+  - ControlPlane
+  - IdempotentByKey
+  - RateLimited
+  - RequiresInventoryFresh
+  - GraphTraversalRequired
+  - RequiresMaintenanceWindow
+rollback_contract: pr_revert
+irreversible: false
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 30
+  min_samples: 100
+  min_accuracy: 1.0
+  max_policy_escapes: 0
+preconditions:
+  - kind: graph_fresh_within_seconds
+    value: 300
+  - kind: no_conflicting_open_action_on_resource
+  - kind: maintenance_window_active
+stop_conditions:
+  - kind: provider_api_error_streak
+    count: 1
+  - kind: dependent_resource_degraded
+  - kind: time_box_exceeded_seconds
+    seconds: 3600
+blast_radius:
+  computation: static_enum
+  static_bucket: resource_group
+  max_affected_resources: 1
+# One exact existing rule and one treatment axis; never infer quality from volume.
+# The action port must prove native rule semantics, held-out recall and latency,
+# no dependent active incident, and complete dependency impact within one resource group.
+# Tested rollback, successful dry-run, target/dependency fencing, stable idempotency
+# and audit intent plus closure remain mandatory runtime evidence, not catalog claims.
+# Declaring the promotion gate does not promote evaluation tuning or its provider.
+description: >-
+  Propose one approved threshold or evaluation-parameter change on one supported
+  existing alert rule through a manually reviewed IaC diff, without claiming improved detection.
+category: ops
+trigger_kind:
+  kind: operator_request
+execution_path: pr_manual
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: owner
+  t1:
+    max_autonomy: enforce_hil
+    min_role: owner
+  t2:
+    max_autonomy: shadow_only
+    min_role: owner
+env_scope: any
+prod_downgrade:
+  mode: enforce_hil
+  detection_ref: risk-classification/env-detector
+argument_schema:
+  type: object
+  additionalProperties: false
+  required: [plan_digest]
+  properties:
+    plan_digest:
+      type: string
+      pattern: "^[a-f0-9]{64}$"
+      minLength: 64
+      maxLength: 64
+      description: SHA-256 digest of the approved forward plan; no caller-selected target or evaluation.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai/blob/main/rule-catalog/action-types/ops.tune-alert-evaluation.yaml
+  resolved_ref: action-type:ops.tune-alert-evaluation@1.0.0
+  content_hash: sha256:d0de280756dffb711d0c7e881a2d997cd024463f014f064ff53682a928218f62
+  license: BUSL-1.1
+  retrieved_at: "2026-09-14T00:00:00Z"

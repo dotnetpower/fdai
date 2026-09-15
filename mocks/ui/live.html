@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Live - FDAI Console</title>
-  <link rel="stylesheet" href="assets/calm-slate.css?v=live-semantics-v3" />
+  <link rel="stylesheet" href="assets/calm-slate.css?v=live-semantics-v4" />
   <script src="assets/calm-slate.js?v=operator-workspaces-v2" defer></script>
   <link rel="stylesheet" href="assets/operator-workspace.css?v=4" />
 </head>
@@ -13,7 +13,7 @@
     <header class="cs-live-header">
       <div class="cs-live-heading">
         <h1 class="cs-live-title">Live</h1>
-        <p class="cs-live-lead">Current control-loop activity and decisions.</p>
+        <p class="cs-live-lead">Current control-loop and source-read activity.</p>
       </div>
       <div class="cs-live-controls">
         <button class="cs-control-button is-compact" id="live-pause" type="button" aria-pressed="false">Freeze view</button>
@@ -24,7 +24,7 @@
     <section class="cs-live-scope" aria-label="Observation scope">
       <span><strong>Scope</strong> Example environment</span>
       <span><strong>Principal</strong> Operator / reader</span>
-      <span><strong>Evidence</strong> Synthetic runtime frames</span>
+      <span><strong>Transport</strong> Synthetic generator</span>
       <span class="cs-live-scope-warning">Not valid for operational readiness or approval</span>
     </section>
 
@@ -45,6 +45,17 @@
           <button type="button" data-attention-filter="failed">Failed <span id="attention-failed">0</span></button>
           <button type="button" data-attention-filter="stuck">Over budget <span id="attention-stuck">0</span></button>
         </div>
+      </div>
+    </section>
+
+    <section class="cs-live-authority is-sample" aria-labelledby="live-authority-title">
+      <div class="cs-live-authority-heading">
+        <span>Authority coverage</span>
+        <h2 id="live-authority-title">Authority sources</h2>
+        <p>Catalog, ARG, analyzer, and rule evaluation remain separate.</p>
+      </div>
+      <div class="cs-live-authority-sample">
+        Authoritative values are not populated in this synthetic preview.
       </div>
     </section>
 
@@ -100,9 +111,11 @@
 
     <section class="cs-live-workspace" id="live-workspace">
       <div class="cs-live-workbar">
-        <div><span>Current work</span><h2>Control-loop work</h2><small id="work-summary">0 active · 0 need attention</small></div>
-        <div class="cs-live-filterbar" aria-label="Work filters">
-          <button type="button" class="is-active" data-live-filter="all" aria-pressed="true">Active <span id="filter-all">0</span></button>
+        <div><span>Current activity</span><h2>Live activity</h2><small id="work-summary">0 current · 0 control-loop · 0 source reads</small></div>
+        <div class="cs-live-filterbar" aria-label="Live activity filters">
+          <button type="button" class="is-active" data-live-filter="all" aria-pressed="true">All <span id="filter-all">0</span></button>
+          <button type="button" data-live-filter="control" aria-pressed="false">Control loop <span id="filter-control">0</span></button>
+          <button type="button" data-live-filter="source" aria-pressed="false">Source reads <span id="filter-source">0</span></button>
           <button type="button" data-live-filter="hil" aria-pressed="false">Approval <span id="filter-hil">0</span></button>
           <button type="button" data-live-filter="abstain" aria-pressed="false" hidden>Review <span id="filter-abstain">0</span></button>
           <button type="button" data-live-filter="deny" aria-pressed="false">Deny <span id="filter-deny">0</span></button>
@@ -110,9 +123,9 @@
           <button type="button" data-live-filter="stuck" aria-pressed="false">Over budget <span id="filter-stuck">0</span></button>
         </div>
         <div class="cs-live-work-actions">
-          <div class="cs-live-view-toggle" role="group" aria-label="Work view">
-            <button type="button" id="view-queue" aria-pressed="false">Queue</button>
-            <button type="button" id="view-flow" class="is-active" aria-pressed="true">Flow</button>
+          <div class="cs-live-view-toggle" role="group" aria-label="Activity layout">
+            <button type="button" id="view-queue" aria-pressed="false">List</button>
+            <button type="button" id="view-flow" class="is-active" aria-pressed="true">Grid</button>
           </div>
           <button class="cs-live-fullscreen" id="live-fullscreen" type="button" aria-label="View work full screen" title="View work full screen" aria-pressed="false">
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3 H3 V7 M13 3 H17 V7 M17 13 V17 H13 M7 17 H3 V13" /></svg>
@@ -120,17 +133,17 @@
         </div>
       </div>
 
-      <section id="queue-view" aria-label="Control-loop work queue">
+      <section id="queue-view" aria-label="Live activity queue">
         <div class="cs-live-queue-wrap">
           <table class="cs-live-queue">
-            <thead><tr><th>Work</th><th>Tier / mode</th><th>Why</th><th>Owner / stage</th><th>Risk / impact</th><th>Age / SLA</th><th>Control state</th></tr></thead>
+            <thead><tr><th>Activity</th><th>Type / state</th><th>Result / why</th><th>Owner / source</th><th>Risk / authority</th><th>Age / duration</th><th>Recorded state</th></tr></thead>
             <tbody id="live-queue"></tbody>
           </table>
           <p class="cs-live-empty" id="queue-empty" hidden>No work matches this filter.</p>
         </div>
       </section>
 
-      <section id="flow-view" aria-label="Control-loop flow">
+      <section id="flow-view" aria-label="Live activity flow">
         <div class="cs-swarm" id="swarm"></div>
       </section>
     </section>
@@ -138,57 +151,94 @@
     <div class="cs-live-detail-backdrop" id="detail-backdrop" hidden>
       <aside class="cs-live-detail" role="dialog" aria-modal="true" aria-labelledby="detail-title">
         <header><h3 id="detail-title">Control-loop work</h3><button type="button" id="detail-close" aria-label="Close details">x</button></header>
-        <p class="cs-live-detail-boundary" id="detail-evidence-boundary"><strong>Synthetic runtime observation</strong><span>Not durable audit evidence and not valid for operational approval.</span></p>
-        <ol class="cs-live-detail-trace" id="detail-trace" aria-label="Control-loop stages"></ol>
-        <section class="cs-live-control-state" aria-labelledby="detail-state-heading">
-          <h4 id="detail-state-heading">Control state</h4>
-          <div><span>Policy decision</span><strong id="detail-policy">Pending</strong><small id="detail-policy-note">No decision observed</small></div>
-          <div><span>Authority</span><strong id="detail-authority">Pending</strong><small id="detail-authority-note">No authority observed</small></div>
-          <div><span>Execution</span><strong id="detail-execution">Not started</strong><small id="detail-execution-note">No dispatch receipt</small></div>
-          <div><span>Effect</span><strong id="detail-effect">Not verified</strong><small id="detail-effect-note">Independent observation required</small></div>
-        </section>
-        <dl class="cs-live-detail-list">
-          <dt>Event ID</dt><dd><code id="detail-event"></code></dd>
-          <dt>Correlation ID</dt><dd><code id="detail-correlation"></code></dd>
-          <dt>Rule</dt><dd id="detail-rule"></dd>
-          <dt>Action type</dt><dd id="detail-action"></dd>
-          <dt>Why</dt><dd id="detail-reason"></dd>
-          <dt>Target</dt><dd id="detail-target"></dd>
-          <dt>Mode</dt><dd id="detail-mode"></dd>
-          <dt>Vertical</dt><dd id="detail-vertical"></dd>
-          <dt>Scope</dt><dd id="detail-scope"></dd>
-          <dt>Tier</dt><dd id="detail-tier"></dd>
-          <dt>Gate decision</dt><dd id="detail-decision"></dd>
-          <dt>Age</dt><dd id="detail-age"></dd>
-        </dl>
-        <h4>Evidence provenance</h4>
-        <dl class="cs-live-detail-list is-provenance">
-          <dt>Authority class</dt><dd id="detail-source-authority">Synthetic fixture</dd>
-          <dt>Source identity</dt><dd id="detail-source-identity">preview-generator</dd>
-          <dt>Purpose</dt><dd>Interface mechanics only</dd>
-          <dt>Observed / recorded</dt><dd id="detail-source-time"></dd>
-          <dt>Freshness</dt><dd id="detail-source-freshness">Within 5s preview policy</dd>
-          <dt>Coverage</dt><dd id="detail-source-coverage">1 synthetic generator · no omitted attempts since load</dd>
-          <dt>Provenance digest</dt><dd><code id="detail-source-digest"></code></dd>
-          <dt>Synthetic</dt><dd>Yes · cannot satisfy live readiness</dd>
-        </dl>
-        <h4>Safety evidence</h4>
-        <ul class="cs-live-detail-safety">
-          <li><span>Stop condition</span><strong>Synthetic receipt</strong><small>Abort when expected state or deadline diverges.</small></li>
-          <li><span>Rollback / recovery</span><strong>Synthetic receipt</strong><small>Bounded recovery path declared for the action type.</small></li>
-          <li><span>Impact scope</span><strong id="detail-impact">Synthetic receipt</strong><small id="detail-impact-note">One logical target inside the preview scope.</small></li>
-          <li><span>What-if / dry-run</span><strong>Synthetic receipt</strong><small>No provider readiness claim.</small></li>
-          <li><span>Logical-target lock</span><strong id="detail-lock">Synthetic receipt</strong><small>Pinned preview target revision.</small></li>
-          <li><span>Idempotency</span><strong id="detail-idempotency">Synthetic receipt</strong><small id="detail-idempotency-note"></small></li>
-          <li><span>Two-phase audit</span><strong id="detail-audit-state">Intent only</strong><small id="detail-audit-note">Terminal closure not observed.</small></li>
-        </ul>
-        <p class="cs-muted">Read-only projection. The Console does not execute this action.</p>
-        <div class="cs-live-detail-actions"><a class="cs-control-button is-compact" id="detail-trace-link" href="rule-trace.html">Open runtime trace</a><a class="cs-control-button is-compact" id="detail-audit-link" href="audit.html">View audit intent</a><a class="cs-control-button is-compact" href="service-map.html">Architecture</a></div>
+        <p class="cs-live-detail-boundary" id="detail-evidence-boundary"><strong id="detail-boundary-title">Synthetic runtime observation</strong><span id="detail-boundary-copy">Not durable audit evidence and not valid for operational approval.</span></p>
+        <div id="detail-control-content">
+          <ol class="cs-live-detail-trace" id="detail-trace" aria-label="Control-loop stages"></ol>
+          <section class="cs-live-control-state" aria-labelledby="detail-state-heading">
+            <h4 id="detail-state-heading">Control state</h4>
+            <div><span>Policy decision</span><strong id="detail-policy">Pending</strong><small id="detail-policy-note">No decision observed</small></div>
+            <div><span>Authority</span><strong id="detail-authority">Pending</strong><small id="detail-authority-note">No authority observed</small></div>
+            <div><span>Execution</span><strong id="detail-execution">Not started</strong><small id="detail-execution-note">No dispatch receipt</small></div>
+            <div><span>Effect</span><strong id="detail-effect">Not verified</strong><small id="detail-effect-note">Independent observation required</small></div>
+          </section>
+          <dl class="cs-live-detail-list">
+            <dt>Event ID</dt><dd><code id="detail-event"></code></dd>
+            <dt>Correlation ID</dt><dd><code id="detail-correlation"></code></dd>
+            <dt>Rule</dt><dd id="detail-rule"></dd>
+            <dt>Action type</dt><dd id="detail-action"></dd>
+            <dt>Why</dt><dd id="detail-reason"></dd>
+            <dt>Target</dt><dd id="detail-target"></dd>
+            <dt>Mode</dt><dd id="detail-mode"></dd>
+            <dt>Vertical</dt><dd id="detail-vertical"></dd>
+            <dt>Scope</dt><dd id="detail-scope"></dd>
+            <dt>Tier</dt><dd id="detail-tier"></dd>
+            <dt>Gate decision</dt><dd id="detail-decision"></dd>
+            <dt>Age</dt><dd id="detail-age"></dd>
+          </dl>
+          <h4>Evidence provenance</h4>
+          <dl class="cs-live-detail-list is-provenance">
+            <dt>Authority class</dt><dd id="detail-source-authority">Synthetic fixture</dd>
+            <dt>Source identity</dt><dd id="detail-source-identity">preview-generator</dd>
+            <dt>Purpose</dt><dd>Interface mechanics only</dd>
+            <dt>Observed / recorded</dt><dd id="detail-source-time"></dd>
+            <dt>Freshness</dt><dd id="detail-source-freshness">Within 5s preview policy</dd>
+            <dt>Coverage</dt><dd id="detail-source-coverage">1 synthetic generator · no omitted attempts since load</dd>
+            <dt>Provenance digest</dt><dd><code id="detail-source-digest"></code></dd>
+            <dt>Synthetic</dt><dd>Yes · cannot satisfy live readiness</dd>
+          </dl>
+          <h4>Safety evidence</h4>
+          <ul class="cs-live-detail-safety">
+            <li><span>Stop condition</span><strong>Synthetic receipt</strong><small>Abort when expected state or deadline diverges.</small></li>
+            <li><span>Rollback / recovery</span><strong>Synthetic receipt</strong><small>Bounded recovery path declared for the action type.</small></li>
+            <li><span>Impact scope</span><strong id="detail-impact">Synthetic receipt</strong><small id="detail-impact-note">One logical target inside the preview scope.</small></li>
+            <li><span>What-if / dry-run</span><strong>Synthetic receipt</strong><small>No provider readiness claim.</small></li>
+            <li><span>Logical-target lock</span><strong id="detail-lock">Synthetic receipt</strong><small>Pinned preview target revision.</small></li>
+            <li><span>Idempotency</span><strong id="detail-idempotency">Synthetic receipt</strong><small id="detail-idempotency-note"></small></li>
+            <li><span>Two-phase audit</span><strong id="detail-audit-state">Intent only</strong><small id="detail-audit-note">Terminal closure not observed.</small></li>
+          </ul>
+          <p class="cs-muted">Read-only projection. The Console does not execute this action.</p>
+          <div class="cs-live-detail-actions"><a class="cs-control-button is-compact" id="detail-trace-link" href="rule-trace.html">Open runtime trace</a><a class="cs-control-button is-compact" id="detail-audit-link" href="audit.html">View audit intent</a><a class="cs-control-button is-compact" href="service-map.html">Architecture</a></div>
+        </div>
+        <div id="detail-source-content" hidden>
+          <section class="cs-live-detail-section" aria-labelledby="detail-source-summary-heading">
+            <h4 id="detail-source-summary-heading">Observation summary</h4>
+            <dl class="cs-live-detail-list">
+              <dt>Purpose</dt><dd id="detail-source-title"></dd>
+              <dt>Status</dt><dd id="detail-source-status"></dd>
+              <dt>Scope</dt><dd id="detail-source-scope"></dd>
+              <dt>Owner</dt><dd id="detail-source-owner"></dd>
+            </dl>
+          </section>
+          <section class="cs-live-detail-section" aria-labelledby="detail-source-result-heading">
+            <h4 id="detail-source-result-heading">Result and limitations</h4>
+            <dl class="cs-live-detail-list">
+              <dt>Recorded result</dt><dd id="detail-source-result"></dd>
+              <dt>Reason code</dt><dd><code id="detail-source-reason"></code></dd>
+            </dl>
+          </section>
+          <section class="cs-live-detail-section" aria-labelledby="detail-source-timing-heading">
+            <h4 id="detail-source-timing-heading">Timing and freshness</h4>
+            <dl class="cs-live-detail-list">
+              <dt>Freshness</dt><dd id="detail-source-read-freshness"></dd>
+              <dt>Duration</dt><dd id="detail-source-duration"></dd>
+              <dt>Observed</dt><dd id="detail-source-observed"></dd>
+            </dl>
+          </section>
+          <details class="cs-live-detail-technical">
+            <summary>Technical identifiers</summary>
+            <dl class="cs-live-detail-list">
+              <dt>Activity ID</dt><dd><code id="detail-source-activity"></code></dd>
+              <dt>Source</dt><dd><code id="detail-source-name"></code></dd>
+            </dl>
+          </details>
+          <p class="cs-muted">Read-only source evidence. It is not a control-loop decision or execution result.</p>
+          <div class="cs-live-detail-actions"><a class="cs-control-button is-compact" href="agent-activity.html">Open agent activity</a></div>
+        </div>
       </aside>
     </div>
 
   </main>
 
-  <script src="assets/live.js?v=operator-workspaces-v2" defer></script>
+  <script src="assets/live.js?v=operator-workspaces-v3" defer></script>
 </body>
 </html>

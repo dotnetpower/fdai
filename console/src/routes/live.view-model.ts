@@ -1,11 +1,12 @@
 import { useMemo } from "preact/hooks";
+import type { AgentOperationalActivityMessage } from "../agent-operational-activity";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import type { LiveConnectionStatus } from "../hooks/use-live-stream";
 import type { ObservationSource } from "../hooks/observation-source";
 import { t } from "./i18n/live";
+import type { LiveMetricSummary } from "./live.metrics";
 import {
-  RATE_WINDOW_MS,
   formatDuration,
   isTileStuck,
   type LiveState,
@@ -21,16 +22,16 @@ export interface LiveAttention {
 
 export function useLiveViewModel(
   state: LiveState,
+  metrics: LiveMetricSummary,
   status: LiveConnectionStatus,
   streamSource: ObservationSource,
   selectedTile: TileState | null,
   droppedFrames = 0,
+  observations: readonly AgentOperationalActivityMessage[] = [],
 ) {
-  const eps = (state.ratePings.length / (RATE_WINDOW_MS / 1000)).toFixed(1);
-  const gateTotal = Object.values(state.gateCounts).reduce((total, count) => total + count, 0);
-  const tierTotal = Object.values(state.tierCounts).reduce((total, count) => total + count, 0);
+  const { eps, gateTotal, tierTotal, gateCounts, tierCounts } = metrics;
   const autoShare = gateTotal > 0
-    ? Math.round(((state.gateCounts.auto ?? 0) / gateTotal) * 100)
+    ? Math.round((gateCounts.auto / gateTotal) * 100)
     : 0;
   const attention = state.tiles.reduce<LiveAttention>(
     (counts, tile) => {
@@ -61,6 +62,13 @@ export function useLiveViewModel(
     () => state.tiles.filter((tile) => tile !== null).length,
     [state.tiles],
   );
+  const sourceActivityCount = observations.length;
+  const activeSourceActivityCount = observations.filter(
+    (activity) => activity.status === "started",
+  ).length;
+  const degradedSourceActivityCount = observations.filter(
+    (activity) => activity.status === "degraded" || activity.status === "failed",
+  ).length;
   const filterCounts = useMemo(
     () => ({
       all: activeTileCount,
@@ -79,9 +87,6 @@ export function useLiveViewModel(
     (latest, tile) => Math.max(latest, tile.last_seen_at),
     0,
   );
-  const lastEventLabel = lastEventAt > 0
-    ? t("live.spark.secondsAgo", { count: Math.max(0, Math.floor((state.now - lastEventAt) / 1000)) })
-    : t("live.health.notObserved");
   const streamConnected = status === "open";
   const streamOpen = streamConnected && streamSource !== "unknown";
   const emptyState = streamOpen
@@ -106,10 +111,9 @@ export function useLiveViewModel(
         routeId: "live",
         routeLabel: "Live cockpit",
         purpose:
-          "The real-time cockpit: events flowing through the trust router and " +
-          "risk gate right now, one tile per in-flight action, with the T0/T1/T2 " +
-          "tier mix and auto/hil/deny gate mix over a rolling 60s window. " +
-          "Read-only; streaming is presentation, never a judgment.",
+          "The read-only real-time cockpit: control-loop events and bounded " +
+          "source-read activity share one chronological workspace while retaining " +
+          "their distinct authority semantics. Streaming is presentation, never a judgment.",
         glossary: composeGlossary([
           TERMS.tier,
           TERMS.gateDecision,
@@ -117,7 +121,10 @@ export function useLiveViewModel(
           TERMS.actionKind,
           TERMS.shadowMode,
         ]),
-        headline: `${activeTileCount} tile(s), ${eps} eps, ${attentionTotal} needing attention`,
+        headline:
+          `${activeTileCount + sourceActivityCount} activity item(s), ` +
+          `${activeTileCount} control-loop, ${sourceActivityCount} source-read, ` +
+          `${attentionTotal} needing attention`,
         capturedAt: new Date().toISOString(),
         facts: [
           { key: "eps", value: eps, group: "throughput" },
@@ -127,18 +134,24 @@ export function useLiveViewModel(
           { key: "tiles.active", value: activeTileCount, group: "tiles" },
           { key: "tiles.empty", value: state.tiles.length - activeTileCount, group: "tiles" },
           { key: "tiles.shadow", value: shadowCount, group: "tiles" },
-          { key: "tier.t0", value: percent(state.tierCounts.t0 ?? 0, tierTotal), group: "tier" },
-          { key: "tier.t1", value: percent(state.tierCounts.t1 ?? 0, tierTotal), group: "tier" },
-          { key: "tier.t2", value: percent(state.tierCounts.t2 ?? 0, tierTotal), group: "tier" },
-          { key: "gate.auto", value: percent(state.gateCounts.auto ?? 0, gateTotal), group: "gate" },
-          { key: "gate.hil", value: percent(state.gateCounts.hil ?? 0, gateTotal), group: "gate" },
-          { key: "gate.abstain", value: percent(state.gateCounts.abstain ?? 0, gateTotal), group: "gate" },
-          { key: "gate.deny", value: percent(state.gateCounts.deny ?? 0, gateTotal), group: "gate" },
+          { key: "tier.t0", value: percent(tierCounts.t0, tierTotal), group: "tier" },
+          { key: "tier.t1", value: percent(tierCounts.t1, tierTotal), group: "tier" },
+          { key: "tier.t2", value: percent(tierCounts.t2, tierTotal), group: "tier" },
+          { key: "gate.auto", value: percent(gateCounts.auto, gateTotal), group: "gate" },
+          { key: "gate.hil", value: percent(gateCounts.hil, gateTotal), group: "gate" },
+          { key: "gate.abstain", value: percent(gateCounts.abstain, gateTotal), group: "gate" },
+          { key: "gate.deny", value: percent(gateCounts.deny, gateTotal), group: "gate" },
+          { key: "messages.control", value: metrics.control, group: "throughput" },
+          { key: "messages.source", value: metrics.source, group: "throughput" },
+          { key: "messages.partial", value: metrics.partial, group: "throughput" },
           { key: "attention.total", value: attentionTotal, group: "attention" },
           { key: "attention.hil", value: attention.hil, group: "attention" },
           { key: "attention.deny", value: attention.deny, group: "attention" },
           { key: "attention.failed", value: attention.failed, group: "attention" },
           { key: "attention.stuck", value: attention.stuck, group: "attention" },
+          { key: "source_activity.total", value: sourceActivityCount, group: "source_activity" },
+          { key: "source_activity.active", value: activeSourceActivityCount, group: "source_activity" },
+          { key: "source_activity.degraded", value: degradedSourceActivityCount, group: "source_activity" },
           { key: "verticals.change", value: verticalCounts.change ?? 0, group: "verticals" },
           { key: "verticals.resilience", value: verticalCounts.resilience ?? 0, group: "verticals" },
           { key: "verticals.cost", value: verticalCounts.cost ?? 0, group: "verticals" },
@@ -187,8 +200,7 @@ export function useLiveViewModel(
     },
     [
       state.tiles,
-      state.tierCounts,
-      state.gateCounts,
+      metrics,
       state.session_total,
       droppedFrames,
       state.session_started_at,
@@ -203,13 +215,17 @@ export function useLiveViewModel(
       verticalCounts,
       shadowCount,
       activeTileCount,
+      activeSourceActivityCount,
       state.filter,
       state.selectedEventId,
+      sourceActivityCount,
+      degradedSourceActivityCount,
       selectedTile,
     ],
   );
 
   return {
+    metrics,
     eps,
     gateTotal,
     tierTotal,
@@ -219,7 +235,7 @@ export function useLiveViewModel(
     activeTileCount,
     filterCounts,
     populatedTiles,
-    lastEventLabel,
+    lastEventAt,
     streamOpen,
     streamConnected,
     emptyState,

@@ -140,6 +140,20 @@ def _make_loop(
     )
 
 
+def test_case_history_binding_survives_absent_t1_and_rejects_rebinding(tmp_path: Path) -> None:
+    loop = _make_loop(t1_engine=None, audit=InMemoryStateStore(), tmp_path=tmp_path)
+
+    def current_reader():
+        return loop.case_history_reuse
+
+    assert current_reader() is None
+    materializer = AsyncMock()
+    loop.bind_case_history_reuse(materializer)
+    assert current_reader() is materializer
+    with pytest.raises(RuntimeError, match="already bound"):
+        loop.bind_case_history_reuse(AsyncMock())
+
+
 def _configure_t1_routing(loop: ControlLoop) -> None:
     action_types = load_action_type_catalog(
         Path(__file__).resolve().parents[4] / "rule-catalog" / "action-types",

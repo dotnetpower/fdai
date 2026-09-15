@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import asyncio
+from collections.abc import Callable, Mapping
+from dataclasses import asdict
 from datetime import datetime
 from typing import Any
 
@@ -15,7 +17,14 @@ from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.forseti_decision_helpers import copy_change_assessment, source_freshness
 from fdai.core.operational_context import OperationalContextMaterializer
+from fdai.core.operational_context.test_context import (
+    TestContextSource,
+    evaluate_test_context,
+    observation_context_digest,
+)
+from fdai.core.readiness import AuthorityCeiling, DetectionReadinessDecision
 from fdai.shared.contracts.models import Autonomy
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 
 RULE_MATCH: dict[str, str] = {
     "public_network_enabled": "remediate.disable-public-access",
@@ -44,11 +53,31 @@ class ForsetiJudgmentMixin:
     _action_semantics: ActionSemanticsCatalog | None
     _detection_readiness: BoundedLruDict[str, dict[str, str]]
     _operational_context: OperationalContextMaterializer | None
+    _test_context_source: TestContextSource | None
+    _test_context_admission: DecisionEvidenceAdmissionProvider | None
+    _test_context_clock: Callable[[], datetime]
     _rbac: dict[str, frozenset[str]]
     _unresolved_arbitrations: BoundedLruDict[str, dict[str, Any]]
 
     def record_behavior(self, name: str, amount: int = 1) -> None:
         raise NotImplementedError
+
+    def _record_detection_readiness(self, payload: dict[str, Any]) -> None:
+        resource_id = str(payload.get("resource_id") or "")
+        try:
+            decision = DetectionReadinessDecision(str(payload.get("decision") or ""))
+            ceiling = AuthorityCeiling(str(payload.get("authority_ceiling") or ""))
+        except ValueError:
+            self.record_behavior("detection_readiness:invalid")
+            return
+        if not resource_id:
+            self.record_behavior("detection_readiness:invalid")
+            return
+        self._detection_readiness.set(
+            resource_id,
+            {"decision": decision.value, "authority_ceiling": ceiling.value},
+        )
+        self.record_behavior(f"detection_readiness:{decision.value}")
 
     async def judge_document_ingestion(self, event: dict[str, Any]) -> dict[str, Any]:
         """Admit a validated upload into the mandatory safety pipeline."""
@@ -254,12 +283,104 @@ class ForsetiJudgmentMixin:
             verdict["workflow_action"] = dict(workflow_action)
         copy_change_assessment(event, verdict)
         await self._attach_operational_context(event, verdict)
+        await self._attach_test_context(event, verdict)
         self.record_behavior(f"verdict:{verdict['risk_verdict']}")
         if rbac_denied:
             self.record_behavior("rbac_denied")
         if self.bus is not None:
             await self.bus.publish("Forseti", "object.verdict", verdict)
         return verdict
+
+    async def _attach_test_context(self, event: dict[str, Any], verdict: dict[str, Any]) -> None:
+        if self._test_context_source is None:
+            return
+        try:
+            scope = event.get("access_scope_digest")
+            target = event.get("resource_id")
+            if not isinstance(scope, str) or not isinstance(target, str) or not event.get("metric"):
+                return
+            now = self._test_context_clock()
+            async with asyncio.timeout(5):
+                claim = await self._test_context_source.read(
+                    target_ref=target,
+                    access_scope_digest=scope,
+                    at=now,
+                    signal_code=str(event["metric"]),
+                )
+                if claim is None:
+                    return
+                admission = (
+                    await self._test_context_admission.admit(
+                        evidence_digest=claim.digest,
+                        scope_digest="sha256:" + scope,
+                        purpose_id="operational-test-context",
+                        source_revision=claim.policy_revision,
+                    )
+                    if self._test_context_admission is not None
+                    else None
+                )
+                observed_at = datetime.fromisoformat(str(event.get("detected_at", "")))
+                observed_value = event.get("observed_value")
+                if isinstance(observed_value, bool) or not isinstance(observed_value, (int, float)):
+                    raise ValueError("test context observation MUST be numeric")
+                observation_admission = (
+                    await self._test_context_admission.admit(
+                        evidence_digest=observation_context_digest(
+                            target_ref=target,
+                            access_scope_digest=scope,
+                            signal_code=str(event.get("metric", "")),
+                            observed_value=observed_value,
+                            observed_at=observed_at,
+                            service_impact=event.get("service_impact", "unknown"),
+                            protected_signal=event.get("protected_signal", True),
+                        ),
+                        scope_digest="sha256:" + scope,
+                        purpose_id="operational-test-observation",
+                        source_revision=claim.policy_revision,
+                    )
+                    if self._test_context_admission is not None
+                    else None
+                )
+                result = evaluate_test_context(
+                    claim,
+                    target_ref=target,
+                    access_scope_digest=scope,
+                    signal_code=str(event.get("metric", "")),
+                    observed_value=event.get("observed_value"),
+                    observed_at=observed_at,
+                    evaluated_at=self._test_context_clock(),
+                    service_impact=event.get("service_impact", "unknown"),
+                    protected_signal=event.get("protected_signal", True),
+                    admission=admission,
+                    observation_admission=observation_admission,
+                )
+                latest = await self._test_context_source.read(
+                    target_ref=target,
+                    access_scope_digest=scope,
+                    at=self._test_context_clock(),
+                    signal_code=str(event["metric"]),
+                )
+                if latest != claim or self._test_context_clock() >= claim.effective_to:
+                    raise ValueError("test context changed during judgment")
+        except Exception:  # noqa: BLE001 - unavailable context never permits remediation
+            self._hold_for_context(verdict, "test_context_unavailable")
+            verdict["resolved_autonomy_ceiling"] = Autonomy.SHADOW_ONLY.value
+            return
+        verdict["test_context"] = asdict(result)
+        verdict["test_context_guard"] = {
+            "target_ref": target,
+            "access_scope_digest": scope,
+            "signal_code": str(event["metric"]),
+            "context_digest": claim.digest,
+        }
+        if result.response_disposition == "observe":
+            if verdict.get("risk_verdict") != "deny":
+                verdict["risk_verdict"] = "deny"
+                verdict["reason"] = "expected_test_signal_no_remediation"
+            verdict["resolved_autonomy_ceiling"] = Autonomy.SHADOW_ONLY.value
+        elif result.response_disposition == "hold":
+            self._hold_for_context(verdict, result.reason)
+            verdict["resolved_autonomy_ceiling"] = Autonomy.SHADOW_ONLY.value
 
     async def _attach_operational_context(
         self,
@@ -307,7 +428,14 @@ class ForsetiJudgmentMixin:
             "conflicts": list(snapshot.conflicts),
             "autonomy_ceiling": snapshot.autonomy_ceiling.value,
         }
-        verdict["resolved_autonomy_ceiling"] = snapshot.autonomy_ceiling.value
+        ceilings = (verdict["resolved_autonomy_ceiling"], snapshot.autonomy_ceiling.value)
+        verdict["resolved_autonomy_ceiling"] = (
+            Autonomy.SHADOW_ONLY.value
+            if Autonomy.SHADOW_ONLY.value in ceilings
+            else Autonomy.ENFORCE_HIL.value
+            if Autonomy.ENFORCE_HIL.value in ceilings
+            else Autonomy.ENFORCE_AUTO.value
+        )
         if snapshot.review_required:
             self._hold_for_context(verdict, "operational_context_ceiling")
 

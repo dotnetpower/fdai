@@ -37,6 +37,8 @@ class OperatorFamilyAuthorizer:
     async def authorize(self, request: Request, *, operation: str) -> PrincipalScope:
         """Authenticate conversation reads and require contributor roles for proposals."""
         required = _WRITE_ROLES if operation in _CONVERSATION_WRITE_OPERATIONS else _READ_ROLES
+        if operation in {"test-context.review", "test-context.revoke"}:
+            required = frozenset({OperatorRole.APPROVER, OperatorRole.OWNER})
         principal = self.authenticator.authenticate(request.headers.get("authorization"))
         if principal.principal_kind is OperatorPrincipalKind.WORKLOAD:
             if operation != "chat.stream" or principal.roles != frozenset({OperatorRole.READER}):

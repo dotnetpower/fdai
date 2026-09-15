@@ -25,6 +25,7 @@ from .mysql_pressure_evidence import (
     mysql_saturation_bundle_function_type,
 )
 from .network_path import network_path_function_type
+from .pattern_queries import operating_pattern_function_type
 from .pod_telemetry import pod_telemetry_function_type
 from .recent_resource_changes import recent_resource_changes_function_type
 from .relationship_queries import ontology_relationships_function_type
@@ -72,6 +73,7 @@ def operational_function_types(
         ontology_evidence_health_function_type(),
         ontology_manifest_function_type(),
         network_path_function_type(),
+        operating_pattern_function_type(),
         mysql_demand_bundle_function_type(),
         mysql_pressure_function_type(),
         mysql_saturation_bundle_function_type(),

@@ -46,6 +46,13 @@ The assignment outbox uses the same transport lifecycle with separate logical to
 request receipts. Its case review, role claims, and PR result cannot satisfy WAF/CAF evidence or
 alter an assessment result; a goal observation is not admitted manual evidence.
 
+[Alert noise governance](../operations/alert-noise-governance.md) adds distinct alert-quality routes,
+operation-filtered outbox claims, and a signed result consumer to the shared host. Alert evidence,
+preferences, and producer health cannot satisfy WAF/CAF evidence or readiness. Existing assessment
+scope, catalog pins, admission, and readiness criteria are unchanged; no alert result updates them.
+Alert request history selects its own outbox namespace, principal and exact scope; its signed
+terminal and baseline detail are not framework-assessment receipts and never update WAF/CAF state.
+
 ## Design decision and critique
 
 ### Rejected: copy the WARA runtime

@@ -70,16 +70,14 @@ Process journal. Its strict decoder rejects contradictory phase counts, duplicat
 invalid selections, and non-finite effect ranges. Ordinary Processes keep the existing view with
 `planning: null`. The Planning Room is read-only and exposes no action, approval, or retry control.
 
-Activity uses one bounded chronological log for durable audit rows and browser-session runtime
-frames. Each row keeps its source label, so a runtime frame is never presented as durable audit
-evidence. Recorded and live agent-to-agent turns render as individual `from -> to` rows with their
-full bounded message text. The log retains at most 200 rendered rows, starts with live tail enabled,
-pauses tailing when the operator scrolls upward, and supports agent and keyword filters. Time,
-route, type, detail, and correlation columns are configurable; type is hidden by default. Fullscreen
-changes presentation only. The Time column shows clock time only in the browser's IANA timezone,
-including `KST` for `Asia/Seoul`; the machine-readable row retains the complete timestamp. The
-Waterfall view remains the durable audit master-detail surface for lifecycle, inputs, outputs,
-recorded conversations, and hashes.
+Activity combines at most 200 chronological durable audit and browser-session runtime rows, preserving each source label. Recorded and live agent-to-agent turns remain individual `from -> to` rows with their full bounded message text.
+Live tail starts enabled, pauses on upward scroll, and supports agent and keyword filters. Time, route, type, detail, and correlation columns are configurable; type starts hidden. Fullscreen changes presentation only.
+Time shows clock time in the browser's IANA timezone (`KST` for `Asia/Seoul`); machine rows retain complete timestamps. Waterfall remains the durable audit master-detail surface for lifecycle, inputs, outputs, recorded conversations, and hashes.
+
+Audit follows the approved record-review mock: query controls, a newest-first record rail, selected evidence, raw JSON, and provenance. Selection is local; exact-record links retain server-side sequence bounds and current filters.
+Text search covers loaded records only. Decision, window, and correlation filters query the existing Operator API. Pagination preserves selection and surfaces failures without discarding earlier evidence.
+Ledger-wide aggregates remain unavailable without a server projection. Only a selected record's explicit stage marks its evidence phase; neither dispatch nor observation alone proves an effect. Stored hashes never become a browser integrity verification.
+Ledger guarantees remain unverified, unsupported replay/export actions are omitted, and English/Korean layouts reflow without clipping identifiers. Current-screen context preserves causal fields and the exact selected record.
 Periodic idle and watching health snapshots update current agent state and observation time without
 reloading the unchanged durable audit page. Active work, completed handler transitions, Incidents,
 and handoffs continue to refresh audit evidence. The Activity header shows the latest observed
@@ -570,10 +568,9 @@ state without opening a duplicate SSE connection. The notification leader keeps 
 live reader open in the background. This fixed connection budget leaves capacity for ordinary
 Operator API requests under HTTP/1.1. The notification leader retries authentication failures with
 the existing capped backoff and stops as soon as notification permission or the principal-scoped
-opt-in is removed. It emits only human approval, denial, and failure outcomes from non-replay
-frames. A shared browser ledger suppresses the same event tag for five minutes across tabs and
-limits system notification delivery to five per minute without removing any audit or Incident
-evidence.
+opt-in is removed. Eligible alerts open correlated Audit evidence, not an assumed Incident.
+[Console Web Notifications](console-web-notifications.md) owns event admission, bounded local
+delivery, and recovery from legacy Incident links; no audit or Incident evidence is removed.
 
 The Agent Activity route loads bounded durable inventory scan, ontology projection, and current-state
 read records before opening the shared agent stream. Exact activity ids deduplicate replay and live

@@ -168,6 +168,53 @@ def test_local_transition_evidence_covers_five_stable_artifact_pairs() -> None:
     assert evidence["summary"]["independent_upgrade_and_rollback_proofs"] == 5
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+def test_focused_fixture_metadata_preserves_service_direction_identity(reverse: bool) -> None:
+    path = REPO_ROOT / "scripts/quality/contracts/generate_service_compatibility_fixtures.py"
+    spec = importlib.util.spec_from_file_location("compatibility_fixture_generator", path)
+    assert spec is not None and spec.loader is not None
+    generator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generator)
+    receipts = json.loads(
+        (
+            REPO_ROOT / "packages/service-contracts/tests/fixtures/services/upgrade-receipts.json"
+        ).read_text(encoding="utf-8")
+    )
+    receipts.sort(key=lambda row: (row["service_id"], row["direction"]), reverse=reverse)
+    normalized = generator.normalize_fixture_metadata(receipts)
+    by_identity = {(row["service_id"], row["direction"]): row for row in normalized}
+    evidence = json.loads(TRANSITION_EVIDENCE_PATH.read_text(encoding="utf-8"))
+    metadata = {"receipt_id", "started_at", "completed_at"}
+
+    for service in evidence["services"]:
+        for direction in ("migration", "rollback"):
+            assert (
+                by_identity[(service["id"], direction)]["receipt_id"]
+                == service[f"{direction}_receipt_id"]
+            )
+    for original in receipts:
+        actual = by_identity[(original["service_id"], original["direction"])]
+        assert {key: value for key, value in actual.items() if key not in metadata} == {
+            key: value for key, value in original.items() if key not in metadata
+        }
+    assert generator.normalize_fixture_metadata(tuple(reversed(normalized))) == normalized
+    with pytest.raises(ValueError, match="each canonical service"):
+        generator.normalize_fixture_metadata(normalized[:-1])
+    with pytest.raises(ValueError, match="each canonical service"):
+        generator.normalize_fixture_metadata((*normalized[:-1], normalized[0]))
+    with pytest.raises(ValueError, match="cannot produce live evidence"):
+        generator.normalize_fixture_metadata(
+            ({**normalized[0], "proof_kind": "live"}, *normalized[1:])
+        )
+
+
+def test_focused_fixture_ids_match_retained_local_transition_evidence() -> None:
+    checker = _checker_module()
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+
+    checker._validate_local_transition_evidence(manifest)
+
+
 def test_checker_rejects_tampered_local_transition_artifact(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

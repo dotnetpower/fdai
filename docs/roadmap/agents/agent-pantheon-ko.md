@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 9aef9ee397bfaaff1fa698923b199cb2806c3ae0
+translation_source_sha: d1efa19212618d542ac7add040fac70ca24a5501
 translation_revised: 2026-09-15
 ---
 # 에이전트 판테온
@@ -83,14 +83,13 @@ Forseti가 중재를 제기한 뒤에는 같은 이벤트에 일반 판단을 �
 Norns는 inert `RuleCandidate` 제안의 sole 쓰기 담당으로 유지됩니다. Three-perspective 합의, balanced 집단 한도, pending 큐, Mimir 검토 및 카탈로그 activation 경계는
 [Operational Learning 온톨로지](../rules-and-detection/operational-learning-ontology-ko.md#norns-consensus-및-catalog-boundary)가 소유합니다. 비공개 `norns_deployment_learning.py` 보조 로직은 범위가 제한된 scenario-gap 및 preflight-blocker 집계 상태만 보유합니다. 모든 후보 생성과 publish는 계속 Norns가 합의 및 rate-limit 경계를 통해 수행합니다. Caller-supplied recurring preflight 수동 차단 요인은 scope-deduplicate된 inert `preflight-toggle-gap` 후보가 되며 토글을 만들거나 배포 권한을 변경하지 않습니다. 재현된 Rule 수집 실패는 Huginn-owned 이벤트로 들어옵니다. Heimdall은 exact 실패를 독립적으로 validate하고 `object.retrieval-validation`을 publish하며, Saga는 해당 근거를 감사하고 Muninn은 `object.context-index`로 materialize합니다. Norns는 raw 텍스트, 검증되지 않은 실패, 수집 외 원인 및 exact Rule 버전이 없는 대상을 strict하게 거부합니다. 남은 challenger를 영속하게 기록한 뒤 동일한 합의 및 `object.rule-candidate` 경로를 사용합니다. 적응형 인과 조사에서는 Muninn이 `object.context-index`로 범위가 제한된 전송 안전 활성 및 도전 선택기 비교를 제공하며, Norns가 생산자와 균형 잡힌 개선 및 대조 근거를 검증하고 실행 중인 선택기를 바꾸지 않는 비활성 shadow 전용 `revision`을 같은 Mimir 대기열로 보냅니다. 영속 싱크가 없으면 이벤트를 폐기하지 않고 backpressure합니다. 운영 런타임은 이 최종 게시 경계에 기본적으로 닫힌 상한도 주입합니다. 닫힌 게이트는 범위가 제한된 대기 큐와 합의 근거를 보존하고, 열린 게이트도 카탈로그, 승격, 승인 또는 실행 권한을 부여하지 않으며 Mimir와 검토된 catalog-as-code pull request를 다음 경계로 유지합니다.
 
-운영 사례 코호트에서 Norns는 하나로 고정된 FDAI 수정본과 시나리오 세트, 불변 사례별
-완전하고 최신이며 충돌이 없는 검토 레코드도 요구합니다. 합성으로 표시된 live 레코드와
-중복 사례 수정본은 게시 전에 보류합니다. Mimir는 비활성 초안을 만들기 전에 같은 검토
-레코드와 정확한 릴리스를 독립적으로 다시 해석합니다. 두 에이전트 모두 권위 있는 승격
-레지스트리를 변경할 수 없으며, 독립적으로 승인된 정확한 재생만 이를 변경할 수 있습니다.
-Muninn은 영속 코호트 쓰기가 성공한 뒤에만 프로세스 로컬 코호트 캐시를 갱신합니다. 게시
-후에는 발행 다이제스트도 영속한 다음 해당 억제 표시를 캐시하며, 영속 쓰기 전에는 표시가
-존재하지 않습니다.
+운영 사례 집단은 고정된 release, 완전하고 최신이며 충돌과 중복이 없는 사례의
+[검토 계약](../rules-and-detection/operational-learning-ontology-ko.md)을 따르며 Mimir가 독립적으로 다시 확인합니다.
+Muninn은 접근 범위, 용도, 메커니즘, `ActionType`, release, 시나리오, 출처로 집단을 분리하고
+삭제와 쓰기를 함께 보호하는 원자적 비교 후 갱신으로 스냅샷을 고정하며 사례 본문의 프로세스 로컬 캐시는 두지 않습니다.
+Norns는 합의와 발행 한도를 거쳐 비활성 `Pattern`을 발행하며 대기 중인 범위별 입력은 브로커 재시도나 보존된 재전달이 필요합니다.
+Muninn은 본문과 묶음 버전을 검증하고 현재 범위별 사례와 산출물로 다시 계산해 Saga 스냅샷을 남깁니다. 조회는 변조와 삭제를 차단합니다.
+승격이나 실행 권한은 늘어나지 않습니다. 승격에는 승인된 재현이 필요하며 런타임에 연결된 테스트 맥락 조회기는 Forseti의 상한을 낮출 수만 있습니다.
 
 Shadow dwell은 루프의 마지막 비활성 장벽입니다. Norns는 shadow 모드 감사 결과를 대상별 dwell 관측으로 보존하며(shadow 결과는 여전히 실제 rollback 비율 학습기에 섞이지 않습니다) 산출된 자기 검증 근거를 게시하는 후보에 첨부합니다. Mimir는 그 이벤트 근거에서 판정을 다시 유도하고, 근거가 없거나 일관되지 않거나 대상이 다르거나 임계 미달인 후보의 승격을 거부합니다. 정책 위반 탈출 0건 기준은 설정 항목이 아닙니다. 이는 두 에이전트 어느 쪽에도 권한을 부여하지 않으며, 카탈로그는 여전히 머지된 catalog-as-code PR로만 바뀐니다. [자율 규칙 발견](../rules-and-detection/rule-catalog-autonomous-discovery-ko.md#shadow-dwell-근거상류-구현)을 참고하세요.
 
@@ -277,7 +276,7 @@ properties:
 
 ## 6. 통신 계약
 
-판테온은 Event Hubs `:9093`의 Kafka 또는 프로세스 내 로컬 어댑터인 기존 `EventBus` wire를 사용합니다. Heimdall은 한 준비 상태 통과의 6개 dimension이 모두 도착한 뒤 표류를 게시하며 Muninn은 엄격히 더 새로운 스냅샷만 수락합니다.
+판테온은 Event Hubs `:9093`의 Kafka 또는 프로세스 내 로컬 어댑터인 기존 `EventBus` wire를 사용합니다. Heimdall은 한 준비 상태 검사의 여섯 차원이 모두 도착한 뒤 Drift를 게시하며 Muninn은 엄격히 더 새로운 스냅샷만 수락합니다. [알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)는 Huginn에서 중복 제거 전에 요청을 인증합니다. 인스턴스별 framework mixin은 Heimdall/Forseti의 `object.event`/`object.drift`와 Thor의 `object.action-run` 콜백을 보존하며 역할, 토픽, 독립 증명 및 권한 경계를 바꾸지 않습니다.
 Huginn은 자체 표준 시간대 UTC 시계로 수집 시각을 기록하며 이 경계에 생산자 시각을 신뢰하지 않습니다. 반복 Event 에피소드에서는 비어 있지 않은 각 Event `idempotency_key`를 한 번만 계산하고 신뢰하는 수집 시각보다 늦지 않은 유효한 출처 Event 시각이 있으면 이를 사용합니다. 따라서 at-least-once 전달, 지연된 재생 또는 미래 시각으로 Heimdall 임계값을 조작할 수 없습니다. 중복 Event는 횟수를 늘리지 않으면서 완료되지 않은 게시나 수명 주기 인계를 다시 시도할 수 있습니다. 각 anomaly 게시는 에피소드와 심각도별로 범위가 제한된 키 하나를 사용하므로 downstream 재시도도 멱등성을 유지합니다. 수락된 에피소드는 조용한 반복 구간이 지난 뒤에만 같은 심각도의 후보를 다시 만들며, 다음 에피소드에는 별도의 불투명 신원을 부여하므로 종료된 Incident가 재발을 흡수하지 않습니다.
 최선 노력 `AgentHandlerObserver`는 전달, judgment, 실행을 변경하지 않고 핸들러 수명 주기를 보고합니다. 로컬 조립은 SSE로, deployed 조립은 shared 단계 토픽으로 게시해 Operator API가 중계합니다. 관측 대상은 등록된 15개 에이전트뿐이며, 같은 브리지로 구독하는 내부 프레임워크 principal은 에이전트 활동을 투영하지 않고 전달도 영향을 받지 않습니다. `recovery-effect-observer`가 그런 principal 중 하나로, 버전이 지정된 `workflow.recovery.effect_observed.v1` 관측을 Workflow 복구 수집 지점으로 전달하는 전용 소비자 그룹입니다. 이 주체는 어떤 객체 타입도 소유하지 않고 아무것도 발행하지 않습니다. 외부 관측은 스스로 도달하지 못합니다. Huginn이 원시 신호를 `object.event`로 정규화하면, 최종 효과 관측자인 Heimdall이 Huginn이 생산했음을 입증하고 선언된 필드만 범위를 제한해 자신이 소유한 `object.recovery-effect-observation` 토픽으로 중계하며, 이 소비자 그룹은 그 토픽만 읽습니다. 이 중계는 유일한 특권 실행기가 결코 발행할 수 없는 관측자 소유 경로에 근거를 붙잡아 두고, 수집 지점은 영구 저장 전에 버스가 찍은 `producer_principal`을 다시 인증합니다. Heimdall의 중계는 출처와 형태만 입증하며, 효과를 검증하지 않고 어떤 권한도 부여하지 않습니다.
 ### 6.1 타입이 지정된 포트
@@ -288,7 +287,7 @@ Owned-topic 생산자 검사는 끌 수 없고 알 수 없는 `object.*` 구독�
 Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합니다. 오퍼레이터 redrive도 소유자, 묶음, 스키마를 다시 검사하고 실패하면 원본 페이로드만 다시 보관합니다. 각 소비자는 자기 task 안에서 구독을 닫으므로, broker adapter는 인터프리터 종료 처리 시점이 아니라 종료 절차 중에 소비자 그룹을 반납합니다.
 | 토픽 | 발행기 | 기본 subscribers |
 |-------|-----------|---------------------|
-| object.event | Huginn | Heimdall, Muninn(보존 틱), Njord/Freyr/Loki(범위가 제한된 전문가 신호) |
+| object.event | Huginn | Heimdall, Muninn(보존 틱), Var/Mimir(테스트 맥락 명령), Njord/Freyr/Loki(범위가 제한된 전문가 신호) |
 | object.change | Huginn | Muninn (변경할 수 없는 변경 개정 번호), Forseti (관찰 모드 ARB 결합) |
 | object.anomaly, object.drift, object.forecast | Heimdall | Forseti; Muninn은 감지 준비도 표류만 읽음 |
 | object.forecast-outcome | Heimdall | Saga, Muninn |
@@ -299,12 +298,13 @@ Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합�
 | object.arbitration-request | Forseti | Odin |
 | object.arbitration-decision | Odin | Forseti, Saga |
 | object.action-run | Thor | Heimdall(최종 효과 관측), Vidar, Var, Saga |
-| object.approval | Var | Thor, Saga |
+| object.approval | Var | Thor(액션 승인만), Saga, Mimir(테스트 맥락 검토), Norns(학습 검토) |
 | object.rollback | Vidar | Thor (ActionRun 변환 결과), Saga |
 | object.audit-entry | Saga | Norns, Muninn (문서 인덱스 게이트), Var (문서 HIL) |
 | object.issue | Saga | Norns, Mimir |
 | object.rule-candidate | Norns | Mimir |
-| object.rule | Mimir | Forseti (캐시 reload), Saga (catalog-review 감사) |
+| object.pattern | Norns | Muninn (비활성 기록 보존 및 조회 시 현재 사례 검증) |
+| object.rule, object.policy | Mimir | Forseti(Rule 캐시 갱신), Saga(Rule 및 Policy 감사) |
 | object.context-index, object.state-snapshot | Muninn | Norns (봉인된 case-history intake), Saga (스냅샷 감사) |
 | object.conversation | Bragi | (세션 인덱스) |
 | object.turn | Bragi | Muninn |

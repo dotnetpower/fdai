@@ -1,0 +1,76 @@
+{
+  "source": "alert-noise-governance",
+  "available": true,
+  "enabled": true,
+  "requestable": true,
+  "authority": "shadow",
+  "unavailable_reason": null,
+  "assessment": {
+    "schema_version": "1.0.0",
+    "source": "alert-noise-evidence",
+    "evidence_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "policy_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "tenant_ref": "tenant:example",
+    "scope_ref": "scope:example_team-1",
+    "observed_at": "2026-09-14T10:00:00Z",
+    "valid_until": "2026-09-14T11:00:00Z",
+    "window_start": "2026-09-14T09:00:00Z",
+    "window_end": "2026-09-14T10:00:00Z",
+    "coverage": "complete",
+    "reasons": [],
+    "source_episodes": 3,
+    "notification_attempts": null,
+    "confirmed_deliveries": 0,
+    "acknowledgements": null,
+    "findings": [
+      {
+        "rule_ref": "rule:example_1",
+        "service_ref": "service:example",
+        "reason": "overlap",
+        "guidance": "review-routing",
+        "source_episodes": 3,
+        "observed_deliveries": null,
+        "potential_recipients_lower": 5,
+        "potential_recipients_upper": 10,
+        "duplicate_paths": 1,
+        "protected": false
+      }
+    ],
+    "execution_authority": false
+  },
+  "plans": [
+    {
+      "schema_version": "1.0.0",
+      "action_type": "ops.update-alert-routing",
+      "tenant_ref": "tenant:example",
+      "scope_ref": "scope:example_team-1",
+      "requester_ref": "principal:example",
+      "evidence_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "policy_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "target_revision": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "treatment": {
+        "kind": "routing",
+        "target_ref": "rule:example_1",
+        "replacement_group_ref": "group:replacement",
+        "remove_group_ref": "group:source",
+        "processing_rule_ref": null,
+        "starts_at": null,
+        "ends_at": null,
+        "evaluation": null
+      },
+      "service_refs": ["service:example"],
+      "lock_refs": ["lock:example"],
+      "created_at": "2026-09-14T10:01:00Z",
+      "expires_at": "2026-09-14T10:59:00Z",
+      "max_execution_seconds": 60,
+      "max_observation_seconds": 300,
+      "max_recovery_seconds": 300,
+      "rollback_ref": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "evaluation_receipt_digest": null,
+      "execution_path": "pr_manual",
+      "default_mode": "shadow",
+      "quorum_required": 2,
+      "execution_authority": false
+    }
+  ]
+}

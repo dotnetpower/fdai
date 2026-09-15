@@ -15,6 +15,7 @@ sys.path.insert(0, str(_SCRIPT_DIR))
 from genesis_foundation import (  # noqa: E402
     FoundationPlanError,
     FoundationPlanInputs,
+    SourceFoundationPlanInputs,
     missing_foundation_report,
     prepare_foundation_plan,
 )
@@ -117,6 +118,64 @@ def test_complete_inputs_generate_only_an_exact_saved_plan(tmp_path: Path) -> No
         "mutation_performed": False,
         "subscription_ready": False,
     }
+
+
+@pytest.mark.parametrize("defect", [None, "kit-result", "kit-review", "snapshot", "signature"])
+def test_source_foundation_plan_never_adopts_kit_provenance(tmp_path, monkeypatch, defect):
+    snapshot_digest = "d" * 64
+    monkeypatch.setattr(
+        "genesis_foundation.verify_source_snapshot", lambda *_, **__: {"source_commit": "c" * 40}
+    )
+    inputs = SourceFoundationPlanInputs(
+        source_snapshot=tmp_path / "snapshot",
+        source_snapshot_digest=snapshot_digest,
+        terraform=tmp_path / "terraform",
+        profile=tmp_path / "profile.json",
+        variables_file=tmp_path / "variables.json",
+    )
+
+    def capture(command, _reason, **_kwargs):
+        assert "--source-snapshot" in command
+        assert "--offline-kit" not in command
+        assert "--release-root" not in command
+        assert "--bundle-public-key" not in command
+        result = json.loads(_saved_result())
+        result.update(
+            {
+                "schema_version": "fdai.provision-source-plan.v1",
+                "source_snapshot_digest": snapshot_digest,
+                "provenance": "operator-selected-source",
+                "release_signature_verified": False,
+                "deployment_ready": False,
+            }
+        )
+        result["saved_plan"]["schema_version"] = "fdai.foundation-saved-source-plan.v1"
+        if defect == "kit-result":
+            result["schema_version"] = "fdai.provision-plan.v1"
+        elif defect == "kit-review":
+            result["saved_plan"]["schema_version"] = "fdai.foundation-saved-plan.v1"
+        elif defect == "snapshot":
+            result["source_snapshot_digest"] = "e" * 64
+        elif defect == "signature":
+            result["release_signature_verified"] = True
+        return json.dumps(result)
+
+    arguments = dict(
+        inputs=inputs,
+        repository_root=_ROOT,
+        orchestration_work_dir=tmp_path / "run",
+        attempt=1,
+        prior_report=None,
+        timeout=900,
+        capture=capture,
+    )
+    if defect is None:
+        result = prepare_foundation_plan(**arguments)
+        assert result["state"] == "review"
+        assert result["apply_authorized"] is False
+    else:
+        with pytest.raises(FoundationPlanError):
+            prepare_foundation_plan(**arguments)
 
 
 def test_unexpired_prior_plan_is_reverified_without_replanning(tmp_path: Path) -> None:

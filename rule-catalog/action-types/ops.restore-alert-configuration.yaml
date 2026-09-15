@@ -1,0 +1,79 @@
+schema_version: "1.0.0"
+name: ops.restore-alert-configuration
+version: "1.0.0"
+operation: update
+interfaces:
+  - ControlPlane
+  - IdempotentByKey
+  - RateLimited
+  - RequiresInventoryFresh
+  - GraphTraversalRequired
+  - RequiresMaintenanceWindow
+rollback_contract: pr_revert
+irreversible: false
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 30
+  min_samples: 100
+  min_accuracy: 1.0
+  max_policy_escapes: 0
+preconditions:
+  - kind: graph_fresh_within_seconds
+    value: 300
+  - kind: no_conflicting_open_action_on_resource
+  - kind: maintenance_window_active
+stop_conditions:
+  - kind: provider_api_error_streak
+    count: 1
+  - kind: dependent_resource_degraded
+  - kind: time_box_exceeded_seconds
+    seconds: 3600
+blast_radius:
+  computation: static_enum
+  static_bucket: resource_group
+  max_affected_resources: 1
+# Resolve the SAME approved forward plan, never a caller-supplied restore payload.
+# Its separately authorized recovery envelope must still be current; forward expiry
+# or revocation never creates recovery permission. Use the authorized recovery window.
+# Restore only that plan's changed fields on its exact target, preserving other edits
+# and fencing target/dependencies within one resource group. Tested rollback, dry-run,
+# stable idempotency and two-phase audit are required again on the recovery path.
+# Independent observation, not a revert PR, must prove restored configuration/effects.
+description: >-
+  Propose conditional restoration of only an approved forward plan's changed fields
+  to its pinned baseline through a manually reviewed IaC diff and current recovery authority.
+category: ops
+trigger_kind:
+  kind: operator_request
+execution_path: pr_manual
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: owner
+  t1:
+    max_autonomy: enforce_hil
+    min_role: owner
+  t2:
+    max_autonomy: shadow_only
+    min_role: owner
+env_scope: any
+prod_downgrade:
+  mode: enforce_hil
+  detection_ref: risk-classification/env-detector
+argument_schema:
+  type: object
+  additionalProperties: false
+  required: [plan_digest]
+  properties:
+    plan_digest:
+      type: string
+      pattern: "^[a-f0-9]{64}$"
+      minLength: 64
+      maxLength: 64
+      description: The same SHA-256 digest as the approved forward plan, not a new restore plan or target.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai/blob/main/rule-catalog/action-types/ops.restore-alert-configuration.yaml
+  resolved_ref: action-type:ops.restore-alert-configuration@1.0.0
+  content_hash: sha256:2950843de77b390c3166efbc3e7046e2541b98f8878585f204c6e14d957faa11
+  license: BUSL-1.1
+  retrieved_at: "2026-09-14T00:00:00Z"

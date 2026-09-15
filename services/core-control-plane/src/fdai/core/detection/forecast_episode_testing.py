@@ -78,6 +78,12 @@ class InMemoryForecastEpisodeStore:
         episode = self.episodes[closure.episode_id]
         existing = self.closures.get(closure.episode_id)
         if existing is not None:
+            if (
+                existing.reason != closure.reason
+                or existing.outcome_payload != closure.outcome_payload
+                or existing.observation != closure.observation
+            ):
+                raise ValueError("forecast episode closure conflict")
             return False
         if episode.state is not ForecastEpisodeState.OPEN:
             return False

@@ -1,8 +1,8 @@
 """ManagedIdentityWorkloadIdentity - production `WorkloadIdentity` adapter.
 
-Reaches the Azure Managed Identity token endpoint via ``httpx``; no
-``azure-identity`` SDK is pulled in - the wire contract is documented and
-stable
+Reaches the attached Managed Identity endpoint via ``httpx`` or uses the Azure
+Identity SDK for an explicitly configured AKS projected service-account token.
+The attached identity wire contract is documented and stable
 (https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/how-to-use-vm-token).
 
 Container Apps injects two environment variables when a user-assigned MI
@@ -25,9 +25,13 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Final
+from uuid import UUID
 
 import httpx
+from azure.core.exceptions import AzureError
+from azure.identity.aio import WorkloadIdentityCredential
 
 from fdai.shared.providers.workload_identity import IdentityToken
 
@@ -53,6 +57,8 @@ class ManagedIdentityWorkloadIdentityConfig:
     the identity endpoint)."""
 
     timeout_seconds: float = 10.0
+    federated_tenant_id: str | None = None
+    federated_token_file: str | None = None
 
 
 class ManagedIdentityWorkloadIdentity:
@@ -71,9 +77,11 @@ class ManagedIdentityWorkloadIdentity:
         config: ManagedIdentityWorkloadIdentityConfig | None = None,
     ) -> None:
         cfg = config or _config_from_env()
-        if not cfg.endpoint.startswith(("https://", "http://")):
+        if cfg.federated_token_file is not None:
+            _validate_federation(cfg)
+        elif not cfg.endpoint.startswith(("https://", "http://")):
             raise ManagedIdentityConfigurationError("IDENTITY_ENDPOINT MUST be an absolute URL")
-        if not cfg.header:
+        if cfg.federated_token_file is None and not cfg.header:
             raise ManagedIdentityConfigurationError("IDENTITY_HEADER MUST NOT be empty")
         if cfg.timeout_seconds <= 0:
             raise ManagedIdentityConfigurationError("timeout_seconds MUST be > 0")
@@ -128,6 +136,30 @@ class ManagedIdentityWorkloadIdentity:
             return await self._fetch_and_cache(audience)
 
     async def _fetch_and_cache(self, audience: str) -> IdentityToken:
+        if self._config.federated_token_file is not None:
+            async with asyncio.timeout(self._config.timeout_seconds):
+                try:
+                    async with WorkloadIdentityCredential(
+                        tenant_id=self._config.federated_tenant_id,
+                        client_id=self._config.client_id,
+                        token_file_path=self._config.federated_token_file,
+                        retry_total=0,
+                    ) as credential:
+                        scope = (
+                            audience
+                            if audience.endswith("/.default")
+                            else audience.rstrip("/") + "/.default"
+                        )
+                        token = await credential.get_token(scope)
+                except (AzureError, OSError, ValueError):
+                    raise RuntimeError("AKS workload identity token acquisition failed") from None
+            identity = IdentityToken(
+                token=token.token,
+                expires_at=datetime.fromtimestamp(token.expires_on, tz=UTC),
+                audience=audience,
+            )
+            self._cache[audience] = identity
+            return identity
         params: dict[str, str] = {
             "api-version": _API_VERSION,
             "resource": _audience_to_resource(audience),
@@ -147,9 +179,7 @@ class ManagedIdentityWorkloadIdentity:
             token_str = str(body["access_token"])
             expires_on = int(body["expires_on"])
         except (KeyError, TypeError, ValueError) as exc:
-            raise RuntimeError(
-                f"Managed Identity endpoint returned an unrecognized body: {body!r}"
-            ) from exc
+            raise RuntimeError("Managed Identity endpoint returned an unrecognized body") from exc
 
         identity = IdentityToken(
             token=token_str,
@@ -158,6 +188,28 @@ class ManagedIdentityWorkloadIdentity:
         )
         self._cache[audience] = identity
         return identity
+
+
+def _validate_federation(config: ManagedIdentityWorkloadIdentityConfig) -> None:
+    try:
+        UUID(config.federated_tenant_id or "")
+        UUID(config.client_id or "")
+    except ValueError:
+        raise ManagedIdentityConfigurationError(
+            "AKS workload identity requires valid tenant and client identifiers"
+        ) from None
+    token_file = config.federated_token_file or ""
+    if (
+        config.endpoint
+        or config.header
+        or not token_file
+        or token_file != token_file.strip()
+        or not Path(token_file).is_absolute()
+    ):
+        raise ManagedIdentityConfigurationError(
+            "AKS workload identity requires one absolute projected token path "
+            "without endpoint credentials"
+        )
 
 
 def _audience_to_resource(audience: str) -> str:
@@ -180,6 +232,20 @@ def _config_from_env(
 ) -> ManagedIdentityWorkloadIdentityConfig:
     """Read the standard Container Apps / IMDS env vars."""
     src: Mapping[str, str] = env if env is not None else os.environ
+    if "AZURE_FEDERATED_TOKEN_FILE" in src:
+        client_id = src.get("AZURE_CLIENT_ID")
+        selected = src.get(client_id_env)
+        if selected and (client_id is None or selected.casefold() != client_id.casefold()):
+            raise ManagedIdentityConfigurationError(
+                "AKS workload identity differs from the selected service identity"
+            )
+        return ManagedIdentityWorkloadIdentityConfig(
+            endpoint="",
+            header="",
+            client_id=client_id,
+            federated_tenant_id=src.get("AZURE_TENANT_ID"),
+            federated_token_file=src["AZURE_FEDERATED_TOKEN_FILE"],
+        )
     endpoint = (
         src.get("IDENTITY_ENDPOINT")
         or src.get("MSI_ENDPOINT")

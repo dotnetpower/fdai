@@ -28,6 +28,7 @@ from fdai.core.executor import (
 from fdai.core.executor.renderer import TemplateRenderer
 from fdai.core.executor.tool_call import ToolReceiptObserver
 from fdai.core.workflow.workflow_runtime import WorkflowActionDispatcher
+from fdai.runtime.alert_noise_execution import build_alert_pr_execution_port
 from fdai.runtime.delivery import _build_direct_api_executor, _build_tool_executor
 from fdai.runtime.isolated_executor_client import EventBusDirectApiExecutionClient
 from fdai.runtime.safeguard_isolated_executor import (
@@ -36,6 +37,7 @@ from fdai.runtime.safeguard_isolated_executor import (
 from fdai.runtime.workflow_action_dispatch import EventBusWorkflowActionDispatcher
 from fdai.shared.contracts.models import OntologyActionType
 from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.process_runtime import ProcessRuntimeStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _PRODUCTION_RUNTIME_ENVS = frozenset({"staging", "prod", "production"})
@@ -80,6 +82,7 @@ def build_thor_execution_port(
     ontology_release: Any,
     property_semantics: Any,
     catalog_root: Path,
+    process_store: ProcessRuntimeStore | None = None,
 ) -> ThorExecutionPort:
     """Return the Thor port, composing the in-process one when none is injected.
 
@@ -109,6 +112,17 @@ def build_thor_execution_port(
         resource_lock=resource_lock,
         idempotency=idempotency_store,
         safeguard_coordinator=safeguard_coordinator,
+    )
+    alert_executor = build_alert_pr_execution_port(
+        fallback=executor,
+        audit_store=audit_store,
+        publisher=publisher,
+        resource_lock=resource_lock,
+        coordinator=safeguard_coordinator,
+        promotion_registry=promotion_registry,
+        ontology_release=ontology_release,
+        decision_evidence_provider=container.decision_evidence_admission_provider,
+        process_store=process_store,
     )
     if isinstance(direct_api_execution_port, EventBusDirectApiExecutionClient):
         direct_api_executor: DirectApiExecutionPort | None = (
@@ -142,7 +156,9 @@ def build_thor_execution_port(
         safeguard_coordinator=safeguard_coordinator,
     )
     return InProcessThorExecutionPort(
-        pr_native=executor,
+        # The compatibility dataclass still names ShadowExecutor rather than
+        # the structural PR port. Both normal dispatch and HIL receive this wrapper.
+        pr_native=cast(ShadowExecutor, alert_executor),
         direct_api=direct_api_executor,
         tool_call=tool_executor,
         safeguard_lifecycle_ready=True,

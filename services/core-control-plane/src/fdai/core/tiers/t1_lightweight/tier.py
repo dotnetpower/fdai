@@ -34,12 +34,15 @@ binds a concrete pair. This module is the T1 orchestrator only.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+import asyncio
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import StrEnum
 from math import isfinite, sqrt
 from typing import Any, Protocol, runtime_checkable
 
+from fdai.core.case_history import CaseHistoryMaterializer
 from fdai.shared.contracts.models import Event
 
 from .contextual_reuse import (
@@ -155,6 +158,9 @@ class T1Config:
     """A learned action MUST have cleared a success-rate floor over its
     prior reuses; unproven candidates are abstained even on high similarity."""
 
+    timeout_seconds: float = 5.0
+    """Total cooperative deadline for embedding, lookup, and current evidence admission."""
+
 
 class T1Tier:
     """Compose embedding + similarity + safety-re-verify for T1 reuse."""
@@ -166,19 +172,48 @@ class T1Tier:
         pattern_library: PatternLibrary,
         current_reuse_verifier: CurrentReuseVerifier | None = None,
         config: T1Config | None = None,
+        clock: Callable[[], datetime] | None = None,
+        case_history: CaseHistoryMaterializer | None = None,
     ) -> None:
         cfg = config or T1Config()
         if not 0.0 <= cfg.similarity_threshold <= 1.0:
             raise ValueError("similarity_threshold MUST be in [0.0, 1.0]")
         if not 0.0 <= cfg.min_success_rate <= 1.0:
             raise ValueError("min_success_rate MUST be in [0.0, 1.0]")
+        if (
+            isinstance(cfg.timeout_seconds, bool)
+            or not isfinite(cfg.timeout_seconds)
+            or not 0 < cfg.timeout_seconds <= 60
+        ):
+            raise ValueError("T1 timeout_seconds MUST be finite and in (0, 60]")
         self._embed = embedding_model
         self._library = pattern_library
         self._current_reuse_verifier = current_reuse_verifier
         self._config = cfg
+        self._clock = clock or (lambda: datetime.now(UTC))
+        self._case_history = case_history
+
+    def bind_case_history(self, materializer: CaseHistoryMaterializer) -> None:
+        """Bind the authoritative current-case reader once at runtime composition."""
+        if self._case_history is not None:
+            raise RuntimeError("T1 case history is already bound")
+        self._case_history = materializer
 
     async def evaluate(self, *, event: Event) -> T1Decision:
-        """Return a :class:`T1Decision` for one event."""
+        """Evaluate one event under a total deadline; caller cancellation propagates."""
+        try:
+            async with asyncio.timeout(self._config.timeout_seconds):
+                return await self._evaluate(event=event)
+        except TimeoutError:
+            return T1Decision(
+                outcome=T1Outcome.ABSTAIN,
+                event_id=str(event.event_id),
+                threshold=self._config.similarity_threshold,
+                reason="t1_deadline_exceeded",
+                reasons=("t1_deadline_exceeded",),
+            )
+
+    async def _evaluate(self, *, event: Event) -> T1Decision:
         query_text = _event_text(event)
         try:
             vector = await self._embed.embed(query_text)
@@ -275,6 +310,26 @@ class T1Tier:
         context = best.action.operational_case
         current_verification = None
         if context is not None:
+            current_case = False
+            if self._case_history is not None and context.access_scope_digest and context.purpose:
+                try:
+                    current_case = await self._case_history.current_revision_available(
+                        case_ref=context.case_ref,
+                        access_scope_digest=context.access_scope_digest,
+                        purpose=context.purpose,
+                        now=self._clock(),
+                    )
+                except Exception:  # noqa: BLE001
+                    current_case = False
+            if current_case is not True:
+                return T1Decision(
+                    outcome=T1Outcome.ABSTAIN,
+                    event_id=str(event.event_id),
+                    threshold=self._config.similarity_threshold,
+                    best_match=best,
+                    reason="current_case_revision_unavailable",
+                    reasons=("current_case_revision_unavailable",),
+                )
             verifier = self._current_reuse_verifier
             contextual_reasons: tuple[str, ...]
             if verifier is None:
@@ -294,8 +349,29 @@ class T1Tier:
                         action=best.action,
                         context=context,
                         verification=verification,
+                        evaluated_at=self._clock(),
                     )
                     current_verification = verification
+                    if not contextual_reasons and self._case_history is not None:
+                        try:
+                            current_case = await self._case_history.current_revision_available(
+                                case_ref=context.case_ref,
+                                access_scope_digest=context.access_scope_digest or "",
+                                purpose=context.purpose or "",
+                                now=self._clock(),
+                            )
+                        except Exception:  # noqa: BLE001
+                            current_case = False
+                        if current_case is not True:
+                            contextual_reasons = ("current_case_revision_changed",)
+                        else:
+                            contextual_reasons = contextual_reuse_reasons(
+                                event=event,
+                                action=best.action,
+                                context=context,
+                                verification=verification,
+                                evaluated_at=self._clock(),
+                            )
             if contextual_reasons:
                 return T1Decision(
                     outcome=T1Outcome.ABSTAIN,

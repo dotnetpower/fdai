@@ -74,6 +74,7 @@ from fdai_service_contracts.ontology_query import (
     TaskStatus,
     content_digest,
 )
+from fdai_service_contracts.test_context import TestContextDraft
 
 from fdai_core_service.dialogue_relationship import runtime_relationship
 
@@ -150,6 +151,7 @@ _SEMANTIC_PLANNER_UNAVAILABLE_REASONS = {
 @dataclass(frozen=True, slots=True)
 class _SemanticProjectionExtensions:
     rule_search: RuleSearchProjection | None = None
+    test_context_draft: TestContextDraft | None = None
     technical_details: dict[str, object] | None = None
     model: str | None = None
     latency_ms: int | None = None
@@ -886,6 +888,10 @@ class SemanticTurnProcessor:
             ),
         }
         if extensions is not None:
+            if extensions.test_context_draft is not None:
+                payload["test_context_draft"] = extensions.test_context_draft.model_dump(
+                    mode="json"
+                )
             if extensions.rule_search is not None:
                 payload["rule_search"] = extensions.rule_search.model_dump(mode="json")
             if extensions.technical_details is not None:
@@ -1343,6 +1349,13 @@ def _project_runtime_result(
             if continuation is not None
             else None
         )
+        if disposition == "action_draft" and result.planning.test_context_draft is not None:
+            operational_extensions = _merge_projection_extensions(
+                operational_extensions,
+                _SemanticProjectionExtensions(
+                    test_context_draft=result.planning.test_context_draft
+                ),
+            )
         return terminal, _merge_projection_extensions(
             model_extensions,
             operational_extensions,
@@ -1906,6 +1919,11 @@ def _merge_projection_extensions(
         return first
     return _SemanticProjectionExtensions(
         rule_search=first.rule_search if first.rule_search is not None else second.rule_search,
+        test_context_draft=(
+            first.test_context_draft
+            if first.test_context_draft is not None
+            else second.test_context_draft
+        ),
         technical_details=(
             first.technical_details
             if first.technical_details is not None

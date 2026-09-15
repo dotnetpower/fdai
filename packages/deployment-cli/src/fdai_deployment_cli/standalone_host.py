@@ -17,7 +17,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Final
 
-from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.contracts import canonical_digest, load_json_object
+from fdai_deployment_cli.aks_readiness import verify_workload_health
 from fdai_deployment_cli.deployment_kit import acquire_deployment_kit
 from fdai_deployment_cli.license import inspect_license
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
@@ -84,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     prepare.add_argument("--runtime-platform", default="container-apps")
     prepare.add_argument("--database-placement", default="postgres-flex")
     prepare.add_argument("--system-node-count", type=int, default=3)
-    prepare.add_argument("--system-node-sku", default="Standard_D2as_v5")
+    prepare.add_argument("--system-node-sku", default=None)
     prepare.add_argument("--user-node-min-count", type=int, default=3)
     prepare.add_argument("--user-node-max-count", type=int, default=5)
     prepare.add_argument("--user-node-sku", default="Standard_D4as_v5")
@@ -162,7 +163,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         runtime_platform=str(args.runtime_platform),
         database_placement=str(args.database_placement),
         system_node_count=int(args.system_node_count),
-        system_node_sku=str(args.system_node_sku),
+        system_node_sku=args.system_node_sku,
         user_node_min_count=int(args.user_node_min_count),
         user_node_max_count=int(args.user_node_max_count),
         user_node_sku=str(args.user_node_sku),
@@ -449,28 +450,12 @@ def _prepare_database(_args: argparse.Namespace, work_dir: Path) -> dict[str, ob
     _activate_terraform_stage("runtime", context, work_dir)
     runtime_infra = Path(str(context["runtime_infra"]))
     cluster_name = _terraform_output(runtime_infra, "cluster_name")
-    kubeconfig = work_dir / "aks.kubeconfig"
-    _run(
-        (
-            "az",
-            "aks",
-            "get-credentials",
-            "--resource-group",
-            str(context["resource_group_name"]),
-            "--name",
-            cluster_name,
-            "--file",
-            str(kubeconfig),
-            "--overwrite-existing",
-            "--format",
-            "exec",
-            "--only-show-errors",
-        ),
-        cwd=work_dir,
-        timeout=180,
-        reason="private AKS kubeconfig acquisition failed",
+    kubeconfig = _prepare_aks_kubeconfig(
+        context,
+        work_dir,
+        resource_group=str(context["resource_group_name"]),
+        cluster_name=cluster_name,
     )
-    kubeconfig.chmod(0o600)
     application_values = _private_json(
         work_dir / "application.auto.tfvars.json", "application variables"
     )
@@ -543,28 +528,9 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     _activate_terraform_stage("runtime", context, work_dir)
     cluster_name = _terraform_output(runtime_infra, "cluster_name")
     oidc_issuer_url = _terraform_output(runtime_infra, "oidc_issuer_url")
-    kubeconfig = work_dir / "aks.kubeconfig"
-    _run(
-        (
-            "az",
-            "aks",
-            "get-credentials",
-            "--resource-group",
-            resource_group,
-            "--name",
-            cluster_name,
-            "--file",
-            str(kubeconfig),
-            "--overwrite-existing",
-            "--format",
-            "exec",
-            "--only-show-errors",
-        ),
-        cwd=work_dir,
-        timeout=180,
-        reason="private AKS kubeconfig acquisition failed",
+    kubeconfig = _prepare_aks_kubeconfig(
+        context, work_dir, resource_group=resource_group, cluster_name=cluster_name
     )
-    kubeconfig.chmod(0o600)
     application_values = _private_json(
         work_dir / "application.auto.tfvars.json", "application variables"
     )
@@ -746,6 +712,10 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         workloads_state_key=f"fdai-{application_values['env']}-aks-workloads.tfstate",
         workloads_terraform_data=str(work_dir / "terraform-data-workloads"),
         kubeconfig=str(kubeconfig),
+        expected_workloads={
+            name: {key: workload[key] for key in ("image", "replicas", "max_replicas")}
+            for name, workload in workloads.items()
+        },
     )
     _replace_or_verify_private_json(work_dir / "workloads.auto.tfvars.json", values)
     _replace_private_json(work_dir / "context.json", context)
@@ -1507,6 +1477,99 @@ def _substrate_targets(context: dict[str, object]) -> tuple[str, ...]:
     return tuple(target for target in _SUBSTRATE_TARGETS if target not in excluded)
 
 
+def _prepare_aks_kubeconfig(
+    context: dict[str, object], work_dir: Path, *, resource_group: str, cluster_name: str
+) -> Path:
+    """Select explicit managed-host MSI authentication before any Kubernetes operation."""
+    client_id = _required_guid(context, "client_id")
+    subscription_id = _required_guid(context, "subscription_id")
+    kubeconfig = work_dir / "aks.kubeconfig"
+    if kubeconfig.exists() or kubeconfig.is_symlink():
+        read_private_bytes(kubeconfig, max_bytes=1024 * 1024)
+    else:
+        write_private_output(kubeconfig, "")
+    _run(
+        (
+            "az",
+            "aks",
+            "get-credentials",
+            "--subscription",
+            subscription_id,
+            "--resource-group",
+            resource_group,
+            "--name",
+            cluster_name,
+            "--file",
+            str(kubeconfig),
+            "--overwrite-existing",
+            "--format",
+            "exec",
+            "--only-show-errors",
+        ),
+        cwd=work_dir,
+        timeout=180,
+        reason="private AKS kubeconfig acquisition failed",
+    )
+    read_private_bytes(kubeconfig, max_bytes=1024 * 1024)
+    _run(
+        (
+            "kubelogin",
+            "convert-kubeconfig",
+            "--kubeconfig",
+            str(kubeconfig),
+            "--login",
+            "msi",
+            "--client-id",
+            client_id,
+        ),
+        cwd=work_dir,
+        timeout=60,
+        reason="private AKS managed-host authentication setup failed",
+    )
+    read_private_bytes(kubeconfig, max_bytes=1024 * 1024)
+    rendered = _capture(
+        (
+            "kubectl",
+            "config",
+            "view",
+            "--minify",
+            "--output",
+            "json",
+            "--kubeconfig",
+            str(kubeconfig),
+        ),
+        cwd=work_dir,
+        timeout=30,
+        reason="private AKS authentication configuration readback failed",
+    )
+    configuration = load_json_object(
+        rendered.encode(), label="AKS authentication configuration", max_bytes=1024 * 1024
+    )
+    users = configuration.get("users")
+    if not isinstance(users, list) or len(users) != 1 or not isinstance(users[0], dict):
+        raise ValueError("AKS authentication configuration has ambiguous users")
+    user = _mapping(users[0].get("user"), "AKS authentication user")
+    execution = _mapping(user.get("exec"), "AKS authentication command")
+    arguments = execution.get("args")
+    if (
+        set(user) != {"exec"}
+        or execution.get("command") != "kubelogin"
+        or not isinstance(arguments, list)
+        or not all(isinstance(value, str) for value in arguments)
+        or arguments[:1] != ["get-token"]
+        or execution.get("env") not in (None, [])
+        or "-l" in arguments
+        or any(value.startswith(("--login=", "--client-id=")) for value in arguments)
+    ):
+        raise ValueError("AKS authentication must use only the selected managed identity")
+    for flag, expected in (("--login", "msi"), ("--client-id", client_id)):
+        if arguments.count(flag) != 1 or arguments[
+            arguments.index(flag) + 1 : arguments.index(flag) + 2
+        ] != [expected]:
+            raise ValueError("AKS authentication does not match the managed host identity")
+    return kubeconfig
+
+
 def _aks_workload(
     component: str,
     refs: dict[str, Any],
@@ -1536,6 +1599,17 @@ def _aks_workload(
         "ingestion": ("500m", "1Gi"),
         "worker": ("500m", "1Gi"),
     }[component]
+    runtime_environment = {name: str(value) for name, value in environment.items()}
+    runtime_environment["FDAI_EXECUTION_VENUE"] = "deployed"
+    database_role = {
+        "operator": "fdai_operator",
+        "executor": "fdai_executor",
+        "ingestion": "fdai_ingestion_api",
+        "worker": "fdai_ingestion_worker",
+    }.get(component)
+    if database_role is not None:
+        runtime_environment["FDAI_DATABASE_ROLE"] = database_role
+        runtime_environment["PGOPTIONS"] = f"-c role={database_role}"
     return {
         "component": component,
         "image": refs[image_name],
@@ -1552,7 +1626,7 @@ def _aks_workload(
         "external": external,
         "readiness_path": readiness_path,
         "liveness_path": liveness_path,
-        "environment": {name: str(value) for name, value in environment.items()},
+        "environment": runtime_environment,
         "secret_environment": secret_environment,
     }
 
@@ -2153,23 +2227,41 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
         kubeconfig = Path(str(context.get("kubeconfig", "")))
         if not kubeconfig.is_file():
             raise ValueError("AKS kubeconfig is unavailable for workload readback")
-        result = subprocess.run(
-            (
-                "kubectl",
-                "rollout",
-                "status",
-                "deployment",
-                "--all",
-                "--namespace",
-                "fdai-runtime",
-                "--timeout=5m",
-                f"--kubeconfig={kubeconfig}",
-            ),
-            check=False,
-            capture_output=True,
-            timeout=360,
+        expected = _mapping(context.get("expected_workloads"), "expected AKS workloads")
+        if not {
+            "core-control-plane",
+            "operator-service",
+            "document-ingestion-api",
+            "document-processing-worker",
+            "isolated-executor",
+        }.issubset(expected):
+            return False
+        observed = []
+        for resource in ("deployments", "pods"):
+            observed.append(
+                _capture(
+                    (
+                        "kubectl",
+                        "get",
+                        resource,
+                        "--namespace",
+                        "fdai-runtime",
+                        "--output",
+                        "json",
+                        "--request-timeout=60s",
+                        f"--kubeconfig={kubeconfig}",
+                    ),
+                    cwd=kubeconfig.parent,
+                    timeout=90,
+                    reason="AKS workload observation failed",
+                )
+            )
+        return verify_workload_health(
+            deployments=observed[0],
+            pods=observed[1],
+            expected=expected,
+            source_commit=str(context["source_commit"]),
         )
-        return result.returncode == 0
     return _container_app_health(context, Path(str(context["infra"])))
 
 

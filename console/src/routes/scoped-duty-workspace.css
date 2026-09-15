@@ -113,6 +113,8 @@
   justify-self: start;
 }
 
+.scoped-duty-workspace .cs-control-button.is-primary { color: var(--cs-card); }
+
 .scoped-duty-workspace :is(.cs-control-input, .cs-control-select) { padding-block: 10px; }
 .scoped-duty-workspace :is(.cs-control-button, .cs-control-input, .cs-control-select, .cs-control-textarea):not(:disabled) {
   border-color: var(--cs-text-soft);
@@ -121,7 +123,7 @@
 .scoped-duty-workspace :is(.cs-control-help, .cs-control-error) { font-size: var(--cs-type-compact-size); line-height: var(--cs-type-compact-line-height); }
 .scoped-duty-workspace .cs-control-label { font-size: var(--cs-type-compact-size); }
 
-.scoped-duty-workspace :is(button, input, select, textarea, summary, a):focus-visible {
+.scoped-duty-workspace :is(button, input, select, textarea, summary, a, [tabindex="-1"]):focus-visible {
   outline: 3px solid var(--cs-steel);
   outline-offset: 3px;
 }
