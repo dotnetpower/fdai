@@ -100,6 +100,10 @@ A provider-resource ID must contain a concrete resource name after every type se
 path that ends at a type cannot create a Resource instance.
 Disabled resource-change and recovery accelerators do not require collection-policy entries and
 contribute neither cursor prefixes nor stale-cursor deadlines to reconciliation.
+An enabled Activity Log recovery accelerator has the same independent failure boundary before
+reconciliation and after complete-generation promotion. A rejected delta remains unavailable and
+does not advance its cursor. Its warning does not terminate the complete inventory loop or
+invalidate a separately verified complete generation.
 
 Kubernetes fleet collection retains one source-state record per exact cluster binding. The record
 uses a customer-safe scope digest, so one unavailable cluster lowers fleet completeness without

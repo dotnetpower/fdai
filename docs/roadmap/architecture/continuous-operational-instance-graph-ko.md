@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 41b344415a6977f77a93c28b9c0581211ebc2cfb
+translation_source_sha: cf955fb79e352cd2e2444898f91fcd62fab80583
 translation_revised: 2026-09-15
 ---
 # 지속형 운영 인스턴스 그래프
@@ -87,6 +87,9 @@ Activity Log의 컨트롤 플레인 결과는 `operationStatus`와 정규화된 
 reconciliation 사이에 Resource Group 부모로 되돌아가지 않습니다.
 Resource Changes의 커서, 재시도, 수집 경계 및 게시 의미는 하나의 지원 경계가 소유합니다. 공급자
 feed 모듈은 두 번째 루프를 유지하지 않고 이 동작을 다시 내보냅니다.
+활성화된 Activity Log 복구 가속기는 전체 조정 전과 완전한 세대 승격 후에 동일한 독립 실패
+경계를 적용합니다. 거부된 변경분은 사용 불가 상태로 남고 커서를 진행하지 않습니다.
+이 경고는 전체 인벤토리 루프를 종료하거나 별도로 검증된 완전한 세대를 무효화하지 않습니다.
 
 수집된 속성은 검토된 프로바이더 mapping을 거쳐야만 관계가 됩니다. Mapping이 관측된 연결
 대상을 빠뜨리면 없는 그래프 edge가 경로 부재를 입증하지 않습니다. 따라서 도달 가능한 모든

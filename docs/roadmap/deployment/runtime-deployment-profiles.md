@@ -123,6 +123,11 @@ Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel work
 deadline, a retry limit, and bounded history. Manual jobs are created only by a separately approved
 request and are not perpetual desired-state resources.
 
+The inventory command preserves the same read-only failure boundaries on both platforms and in
+the local managed stack. Activity Log recovery acceleration is independent of full reconciliation:
+an accelerator failure before or after generation promotion is reported as unavailable, without
+advancing the failed delta cursor or terminating the complete inventory loop.
+
 ## Identity and secrets
 
 Each FDAI workload keeps its current user-assigned Managed Identity. On AKS, one namespaced

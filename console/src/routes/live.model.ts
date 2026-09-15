@@ -70,7 +70,14 @@ export const STATUS_LABEL: Record<LiveConnectionStatus, string> = {
   unsupported: "SSE unsupported",
 };
 
-export type FilterKind = "all" | "hil" | "deny" | "failed" | "stuck";
+export type FilterKind =
+  | "all"
+  | "control"
+  | "source"
+  | "hil"
+  | "deny"
+  | "failed"
+  | "stuck";
 
 // ---------------------------------------------------------------------------
 // Rate buckets (per-tier events/sec history)
@@ -619,7 +626,8 @@ export function pickSlot(state: LiveState, now: number): number {
 // ---------------------------------------------------------------------------
 
 export function matchesFilter(tile: TileState, filter: FilterKind, now = Date.now()): boolean {
-  if (filter === "all") return true;
+  if (filter === "all" || filter === "control") return true;
+  if (filter === "source") return false;
   if (filter === "hil") return tile.gate_decision === "hil";
   if (filter === "deny") return tile.gate_decision === "deny";
   if (filter === "failed") return tile.failed;

@@ -3,10 +3,7 @@ import type {
   AgentOperationalActivityMessage,
 } from "../agent-operational-activity";
 import type { LiveConnectionStatus } from "../hooks/use-live-stream";
-import {
-  observationSourceLabel,
-  type ObservationSource,
-} from "../hooks/observation-source";
+import { useContentUpdatePulse } from "../hooks/use-content-update-pulse";
 import { t as appT } from "../i18n";
 import { routeHref } from "../router";
 import { formatConsoleTime } from "../time-format";
@@ -60,7 +57,12 @@ export function mergeLiveObservations(
       incomingAt > previousAt ||
       incomingAt === previousAt && lifecycleRank(item) >= lifecycleRank(previous)
     ) {
-      byActivity.set(key, item);
+      byActivity.set(
+        key,
+        isV13(item) && item.started_at === null && previous?.started_at
+          ? { ...item, started_at: previous.started_at }
+          : item,
+      );
     }
   });
   const ordered = [...byActivity.values()]
@@ -88,14 +90,21 @@ function activityLabel(item: AgentOperationalActivityMessage): string {
   return appT(`agentActivity.log.lane.${item.kind}`);
 }
 
-function activityContext(item: AgentOperationalActivityMessage): string {
+/** Return the operator-facing observation title without exposing a machine identifier. */
+export function activityTitle(item: AgentOperationalActivityMessage): string {
   if (item.observation_domain) {
-    return appT(`agentActivity.observationDomain.${item.observation_domain}`);
+    return t("live.observations.observationTitle", {
+      domain: appT(`agentActivity.observationDomain.${item.observation_domain}`),
+    });
   }
+  return activityLabel(item);
+}
+
+function activityContext(item: AgentOperationalActivityMessage): string {
   if (isV13(item)) {
     return t(`live.observations.scope.${item.scope_class}`);
   }
-  return item.owner_agent;
+  return item.source;
 }
 
 export function activityResultLabel(item: AgentOperationalActivityMessage): string {
@@ -154,143 +163,70 @@ function lifecycleRank(item: AgentOperationalActivityMessage): number {
   return ranks[item.status];
 }
 
-export function LiveObservations({
-  items,
-  loadState,
-  streamStatus,
-  streamSource,
-  error,
-  selectedActivityId,
+/** Pulse changed source facts, not timestamps, elapsed time, or card selection. */
+export function liveObservationUpdateKey(item: AgentOperationalActivityMessage): string {
+  return [
+    item.activity_instance_id ?? item.activity_id,
+    item.status,
+    item.freshness,
+    item.owner_agent,
+    item.observation_domain,
+    item.reason_codes.join(","),
+    isV13(item)
+      ? [item.summary_key, item.scope_class, item.result_state, item.result_count, item.result_unit].join(":")
+      : item.evidence_count,
+  ].join("|");
+}
+
+/** Render one source-read activity using the same visual slots as control-loop work. */
+export function LiveObservationCard({
+  item,
+  selected,
   onSelect,
 }: {
-  readonly items: readonly AgentOperationalActivityMessage[];
-  readonly loadState: LiveObservationLoadState;
-  readonly streamStatus: LiveConnectionStatus;
-  readonly streamSource: ObservationSource;
-  readonly error: string | null;
-  readonly selectedActivityId: string | null;
-  readonly onSelect: (activityId: string | null) => void;
+  readonly item: AgentOperationalActivityMessage;
+  readonly selected: boolean;
+  readonly onSelect: () => void;
 }) {
-  const visible = items;
-  const active = items.filter((item) => item.status === "started").length;
-  const degraded = items.filter(
-    (item) => item.status === "degraded" || item.status === "failed",
-  ).length;
-  const presentation = liveObservationPresentation(
-    loadState,
-    streamStatus,
-    visible.length,
-  );
-
+  const contentUpdated = useContentUpdatePulse(liveObservationUpdateKey(item));
   return (
-    <section class="live-observations" aria-labelledby="live-observations-title">
-      <div class="live-observations-toolbar">
-        <div class="live-observations-identity">
-          <strong id="live-observations-title">{t("live.observations.title")}</strong>
-          <small>{t("live.observations.note")}</small>
-        </div>
-        <div class="live-observations-summary">
-          <span>{t("live.observations.active", { count: active })}</span>
-          <span>{t("live.observations.degraded", { count: degraded })}</span>
-          <span>{t("live.observations.retained", { count: items.length })}</span>
-          <span>
-            {streamStatus === "open"
-              ? observationSourceLabel(streamSource)
-              : t(`live.status.${streamStatus}`)}
-          </span>
-          <a href={routeHref("agent-activity")}>{t("live.observations.openActivity")}</a>
-        </div>
-      </div>
-      {presentation === "loading" ? (
-        <div class="live-observation-grid" role="status" aria-busy="true">
-          <span class="sr-only">{t("live.observations.loading")}</span>
-          {Array.from({ length: 4 }, (_, index) => (
-            <span key={index} class="live-observation-skeleton skeleton-shimmer" aria-hidden="true" />
-          ))}
-        </div>
-      ) : presentation === "error" ? (
-        <div class="live-observation-state is-error" role="alert">
-          {t("live.observations.error", { error: error ?? t("live.control.notObserved") })}
-        </div>
-      ) : presentation === "waiting" ? (
-        <div class="live-observation-state" role="status">
-          {t("live.observations.waiting")}
-        </div>
-      ) : presentation === "unavailable" ? (
-        <div class="live-observation-state" role="status">
-          {t("live.observations.unavailable")}
-        </div>
-      ) : presentation === "empty" ? (
-        <div class="live-observation-state" role="status">
-          {t("live.observations.empty")}
-        </div>
-      ) : (
-        <ul
-          class="live-observation-grid"
-          aria-label={t("live.observations.records", { count: visible.length })}
-        >
-          {visible.map((item) => (
-            <li
-              key={item.activity_instance_id ?? item.activity_id}
-              class="live-observation-entry"
-            >
-              <button
-                type="button"
-                class="live-observation-item live-work-card"
-                data-status={item.status}
-                data-selected={
-                  (item.activity_instance_id ?? item.activity_id) === selectedActivityId
-                    ? "1"
-                    : "0"
-                }
-                aria-expanded={
-                  (item.activity_instance_id ?? item.activity_id) === selectedActivityId
-                }
-                aria-haspopup="dialog"
-                aria-controls="live-observation-detail-panel"
-                aria-label={t("live.observations.cardLabel", {
-                  activity: activityLabel(item),
-                })}
-                onClick={() => onSelect(
-                  (item.activity_instance_id ?? item.activity_id) === selectedActivityId
-                    ? null
-                    : (item.activity_instance_id ?? item.activity_id),
-                )}
-              >
-                <span class="live-observation-topline">
-                  <strong>{activityLabel(item)}</strong>
-                  <span class={`live-observation-status is-${item.status}`}>
-                    {t(`live.observations.status.${item.status}`)}
-                  </span>
-                </span>
-                <span class="live-observation-detail">
-                  {activityContext(item)} · {item.owner_agent}
-                </span>
-                <span class="live-observation-result">{activityResultLabel(item)}</span>
-                {item.reason_codes.length > 0 ? (
-                  <span class="live-observation-reason">
-                    <code>{item.reason_codes[0]}</code>
-                    {item.reason_codes.length > 1
-                      ? t("live.observations.reasonMore", {
-                          count: item.reason_codes.length - 1,
-                        })
-                      : null}
-                  </span>
-                ) : null}
-                <span class="live-observation-meta">
-                  <span>
-                    {t(`live.observations.freshness.${item.freshness}`)}
-                    {" · "}
-                    {activityDurationLabel(item.duration_ms)}
-                  </span>
-                  <time dateTime={item.observed_at}>{formatConsoleTime(item.observed_at)}</time>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+    <button
+      type="button"
+      class={`live-observation-item live-work-card${contentUpdated ? " is-content-updated" : ""}`}
+      data-status={item.status}
+      data-selected={selected ? "1" : "0"}
+      aria-expanded={selected}
+      aria-haspopup="dialog"
+      aria-controls="live-observation-detail-panel"
+      aria-label={t("live.observations.cardLabel", {
+        activity: activityTitle(item),
+      })}
+      onClick={onSelect}
+    >
+      <span class="live-tile-top">
+        <span class="live-activity-kind">{t("live.observations.kindBadge")}</span>
+        <span class={`live-observation-status is-${item.status}`}>
+          {t(`live.observations.status.${item.status}`)}
+        </span>
+      </span>
+      <strong class="live-tile-action">{activityTitle(item)}</strong>
+      <span class="live-tile-target">
+        {activityContext(item)} · {item.owner_agent}
+      </span>
+      <span class="live-tile-reason">{activityResultLabel(item)}</span>
+      {item.reason_codes.length > 0 ? (
+        <span class="live-observation-reason">
+          {t("live.observations.reasonRecorded", {
+            count: item.reason_codes.length,
+          })}
+        </span>
+      ) : null}
+      <span class="live-observation-meta">
+        <span>{t(`live.observations.freshness.${item.freshness}`)}</span>
+        <span>{activityDurationLabel(item.duration_ms)}</span>
+        <time dateTime={item.observed_at}>{formatConsoleTime(item.observed_at)}</time>
+      </span>
+    </button>
   );
 }
 
@@ -306,89 +242,130 @@ export function LiveObservationDetailPanel({
     <LiveDetailShell
       panelId="live-observation-detail-panel"
       titleId="live-observation-detail-title"
-      heading={activityLabel(item)}
+      heading={activityTitle(item)}
       closeLabel={t("live.detail.close")}
       onClose={onClose}
     >
-      <dl class="live-detail-list">
-        {isV13(item) ? (
-          <>
-            <dt>{t("live.observations.detail.instanceId")}</dt>
-            <dd><code>{item.activity_instance_id}</code></dd>
-            <dt>{t("live.observations.detail.summary")}</dt>
-            <dd>{activityLabel(item)}</dd>
-            <dt>{t("live.observations.detail.scope")}</dt>
-            <dd>{t(`live.observations.scope.${item.scope_class}`)}</dd>
-          </>
-        ) : null}
-        <dt>{t("live.observations.detail.activityId")}</dt>
-        <dd><code>{item.activity_id}</code></dd>
-        <dt>{t("live.observations.detail.kind")}</dt>
-        <dd>{appT(`agentActivity.log.lane.${item.kind}`)}</dd>
-        <dt>{t("live.observations.detail.status")}</dt>
-        <dd>{t(`live.observations.status.${item.status}`)}</dd>
-        <dt>{t("live.observations.detail.owner")}</dt>
-        <dd>{item.owner_agent}</dd>
-        <dt>{t("live.observations.detail.producer")}</dt>
-        <dd><code>{item.producer}</code></dd>
-        <dt>{t("live.observations.detail.domain")}</dt>
-        <dd>
-          {item.observation_domain
-            ? appT(`agentActivity.observationDomain.${item.observation_domain}`)
-            : notObserved}
-        </dd>
-        <dt>{t("live.observations.detail.observedAt")}</dt>
-        <dd><time dateTime={item.observed_at}>{formatConsoleTime(item.observed_at)}</time></dd>
-        <dt>{t("live.observations.detail.source")}</dt>
-        <dd><code>{item.source}</code></dd>
-        <dt>{t("live.observations.detail.freshness")}</dt>
-        <dd>{t(`live.observations.freshness.${item.freshness}`)}</dd>
-        <dt>{t("live.observations.detail.result")}</dt>
-        <dd>{activityResultLabel(item)}</dd>
-        {isV13(item) && item.target_count !== null ? (
-          <>
-            <dt>{t("live.observations.detail.targetCount")}</dt>
-            <dd>{item.target_count.toLocaleString()}</dd>
-          </>
-        ) : null}
-        <dt>{t("live.observations.detail.duration")}</dt>
-        <dd>{activityDurationLabel(item.duration_ms)}</dd>
-        {isV13(item) ? (
-          <>
-            <dt>{t("live.observations.detail.sourceCutoff")}</dt>
-            <dd>
-              {item.source_cutoff
-                ? <time dateTime={item.source_cutoff}>{formatConsoleTime(item.source_cutoff)}</time>
-                : notObserved}
-            </dd>
-            <dt>{t("live.observations.detail.startedAt")}</dt>
-            <dd>
-              {item.started_at
-                ? <time dateTime={item.started_at}>{formatConsoleTime(item.started_at)}</time>
-                : notObserved}
-            </dd>
-            <dt>{t("live.observations.detail.completedAt")}</dt>
-            <dd>
-              {item.completed_at
-                ? <time dateTime={item.completed_at}>{formatConsoleTime(item.completed_at)}</time>
-                : notObserved}
-            </dd>
-          </>
-        ) : null}
-        <dt>{t("live.observations.detail.correlationId")}</dt>
-        <dd>{item.correlation_id ? <code>{item.correlation_id}</code> : notObserved}</dd>
-        {item.reason_codes.length > 0 ? (
-          <>
-            <dt>{t("live.observations.detail.reasonCodes")}</dt>
-            <dd>{item.reason_codes.join(", ")}</dd>
-          </>
-        ) : null}
-        <dt>{t("live.observations.detail.authority")}</dt>
-        <dd>{t("live.scope.readOnly")}</dd>
-      </dl>
-      <p class="muted live-detail-note">
-        {t("live.observations.detail.readOnly")}
+      <p class="live-detail-boundary">
+        <strong>{t("live.observations.detail.boundaryTitle")}</strong>
+        <span>{t("live.observations.detail.readOnly")}</span>
       </p>
+      <section class="live-detail-section" aria-labelledby="live-observation-summary-heading">
+        <h3 id="live-observation-summary-heading">
+          {t("live.observations.detail.summaryHeading")}
+        </h3>
+        <dl class="live-detail-list">
+          <dt>{t("live.observations.detail.summary")}</dt>
+          <dd>{activityTitle(item)}</dd>
+          <dt>{t("live.observations.detail.status")}</dt>
+          <dd>{t(`live.observations.status.${item.status}`)}</dd>
+          {isV13(item) ? (
+            <>
+              <dt>{t("live.observations.detail.scope")}</dt>
+              <dd>{t(`live.observations.scope.${item.scope_class}`)}</dd>
+            </>
+          ) : null}
+          <dt>{t("live.observations.detail.domain")}</dt>
+          <dd>
+            {item.observation_domain
+              ? appT(`agentActivity.observationDomain.${item.observation_domain}`)
+              : notObserved}
+          </dd>
+          <dt>{t("live.observations.detail.owner")}</dt>
+          <dd>{item.owner_agent}</dd>
+        </dl>
+      </section>
+      <section class="live-detail-section" aria-labelledby="live-observation-result-heading">
+        <h3 id="live-observation-result-heading">
+          {t("live.observations.detail.resultHeading")}
+        </h3>
+        <dl class="live-detail-list">
+          <dt>{t("live.observations.detail.result")}</dt>
+          <dd>{activityResultLabel(item)}</dd>
+          {isV13(item) && item.target_count !== null ? (
+            <>
+              <dt>{t("live.observations.detail.targetCount")}</dt>
+              <dd>{item.target_count.toLocaleString()}</dd>
+            </>
+          ) : null}
+          <dt>{t("live.observations.detail.source")}</dt>
+          <dd><code>{item.source}</code></dd>
+          {item.reason_codes.length > 0 ? (
+            <>
+              <dt>{t("live.observations.detail.reasonCodes")}</dt>
+              <dd>{item.reason_codes.join(", ")}</dd>
+            </>
+          ) : null}
+        </dl>
+      </section>
+      <section class="live-detail-section" aria-labelledby="live-observation-timing-heading">
+        <h3 id="live-observation-timing-heading">
+          {t("live.observations.detail.timingHeading")}
+        </h3>
+        <dl class="live-detail-list">
+          <dt>{t("live.observations.detail.freshness")}</dt>
+          <dd>{t(`live.observations.freshness.${item.freshness}`)}</dd>
+          <dt>{t("live.observations.detail.duration")}</dt>
+          <dd>{activityDurationLabel(item.duration_ms)}</dd>
+          <dt>{t("live.observations.detail.observedAt")}</dt>
+          <dd><time dateTime={item.observed_at}>{formatConsoleTime(item.observed_at)}</time></dd>
+          {isV13(item) ? (
+            <>
+              <dt>{t("live.observations.detail.sourceCutoff")}</dt>
+              <dd>
+                {item.source_cutoff
+                  ? <time dateTime={item.source_cutoff}>{formatConsoleTime(item.source_cutoff)}</time>
+                  : notObserved}
+              </dd>
+              <dt>{t("live.observations.detail.startedAt")}</dt>
+              <dd>
+                {item.started_at
+                  ? <time dateTime={item.started_at}>{formatConsoleTime(item.started_at)}</time>
+                  : notObserved}
+              </dd>
+              <dt>{t("live.observations.detail.completedAt")}</dt>
+              <dd>
+                {item.completed_at
+                  ? <time dateTime={item.completed_at}>{formatConsoleTime(item.completed_at)}</time>
+                  : notObserved}
+              </dd>
+            </>
+          ) : null}
+        </dl>
+      </section>
+      <details class="live-detail-technical">
+        <summary>{t("live.observations.detail.technicalHeading")}</summary>
+        <dl class="live-detail-list">
+          {isV13(item) ? (
+            <>
+              <dt>{t("live.observations.detail.instanceId")}</dt>
+              <dd><code>{item.activity_instance_id}</code></dd>
+            </>
+          ) : null}
+          <dt>{t("live.observations.detail.activityId")}</dt>
+          <dd><code>{item.activity_id}</code></dd>
+          <dt>{t("live.observations.detail.kind")}</dt>
+          <dd>{appT(`agentActivity.log.lane.${item.kind}`)}</dd>
+          <dt>{t("live.observations.detail.producer")}</dt>
+          <dd><code>{item.producer}</code></dd>
+          <dt>{t("live.observations.detail.correlationId")}</dt>
+          <dd>{item.correlation_id ? <code>{item.correlation_id}</code> : notObserved}</dd>
+        </dl>
+      </details>
+      <section class="live-detail-section" aria-labelledby="live-observation-authority-heading">
+        <h3 id="live-observation-authority-heading">
+          {t("live.observations.detail.authorityHeading")}
+        </h3>
+        <dl class="live-detail-list">
+          <dt>{t("live.observations.detail.authority")}</dt>
+          <dd>{t("live.scope.readOnly")}</dd>
+        </dl>
+      </section>
+      <div class="live-detail-actions">
+        <a class="btn" href={routeHref("agent-activity")}>
+          {t("live.observations.openActivity")}
+        </a>
+      </div>
     </LiveDetailShell>
   );
 }
