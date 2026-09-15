@@ -346,6 +346,18 @@ export function ArchitectureTopologyGraph({
                 architectureTopologyNodeDimensions(resource.render_scale);
               const icon = architectureNetworkIconForResourceType(resource.type);
               const lines = architectureTopologyLabelLines(resource.name);
+              const summary = resource.presentation_role === "summary"
+                ? t("coverage.groupSummary", {
+                    resources: resource.collapsed_count ?? 0,
+                    links: resource.external_link_count ?? 0,
+                  })
+                : null;
+              const accessibleLabel = [
+                resource.name,
+                resourceTypeLabelOf(resource),
+                summary,
+                resource.status,
+              ].filter(Boolean).join(". ");
               return (
                 <g
                   key={resource.id}
@@ -354,7 +366,7 @@ export function ArchitectureTopologyGraph({
                   data-status={resource.status.toLowerCase()}
                   role={onSelect ? "button" : undefined}
                   tabindex={onSelect ? (focusableId === resource.id ? 0 : -1) : undefined}
-                  aria-label={`${resource.name}. ${resourceTypeLabelOf(resource)}. ${resource.status}`}
+                  aria-label={accessibleLabel}
                   transform={`translate(${position.x} ${position.y})`}
                   onClick={() => onSelect?.(resource)}
                   onKeyDown={(event) => handleArchitectureTopologyKeyDown(
@@ -364,7 +376,7 @@ export function ArchitectureTopologyGraph({
                     onSelect,
                   )}
                 >
-                  <title>{`${resource.name}. ${resourceTypeLabelOf(resource)}. ${resource.status}`}</title>
+                  <title>{accessibleLabel}</title>
                   <rect
                     class="architecture-topology-node-surface"
                     x={-nodeWidth / 2}
@@ -407,12 +419,7 @@ export function ArchitectureTopologyGraph({
                     x={-nodeWidth / 2 + .18}
                     y={nodeHeight / 2 - .18}
                   >
-                    {resource.presentation_role === "summary"
-                      ? t("coverage.groupSummary", {
-                          resources: resource.collapsed_count ?? 0,
-                          links: resource.external_link_count ?? 0,
-                        })
-                      : resourceTypeLabelOf(resource)}
+                    {summary ?? resourceTypeLabelOf(resource)}
                   </text>
                   {(resource.collapsed_count ?? 0) > 0 ? (
                     <g

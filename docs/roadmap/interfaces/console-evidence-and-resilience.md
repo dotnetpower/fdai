@@ -631,6 +631,8 @@ Subscription remains a neutral outer boundary while each Resource Group becomes 
 card with returned descendant and cross-scope relationship counts. An empty nested panel is not
 used as a summary. Summary generation discards any incoming presentation coordinates and dimensions
 before assigning compact card geometry.
+The localized descendant and external-link summary appears in both visible card text and the
+card's accessible name.
 Resource focus retains its reported ancestor boundaries and direct relationships, then fills the
 smallest containing scope with at most 36 type-diverse returned records. Selection never expands
 the workbench back to the full raw page.
