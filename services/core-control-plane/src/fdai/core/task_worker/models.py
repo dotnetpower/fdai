@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -118,20 +119,73 @@ class TaskWorkerContext:
 
 @dataclass(frozen=True, slots=True)
 class TaskWorkerUsage:
+    """Measured usage plus a separately identified unresolved provider reservation."""
+
     tokens: int = 0
     cost_microusd: int = 0
     tool_calls: int = 0
+    reserved_tokens: int = 0
+    reserved_cost_microusd: int = 0
+    complete: bool = True
 
     def __post_init__(self) -> None:
-        if self.tokens < 0 or self.cost_microusd < 0 or self.tool_calls < 0:
-            raise ValueError("worker usage values MUST be non-negative")
+        for value in (
+            self.tokens,
+            self.cost_microusd,
+            self.tool_calls,
+            self.reserved_tokens,
+            self.reserved_cost_microusd,
+        ):
+            if type(value) is not int or value < 0:
+                raise ValueError("worker usage values MUST be non-negative integers")
+        if type(self.complete) is not bool:
+            raise ValueError("worker usage completeness MUST be boolean")
+        if self.complete and (self.reserved_tokens or self.reserved_cost_microusd):
+            raise ValueError("complete worker usage cannot retain an unresolved reservation")
 
     def within(self, budget: TaskWorkerBudget) -> bool:
         return (
-            self.tokens <= budget.max_tokens
-            and self.cost_microusd <= budget.max_cost_microusd
+            self.tokens + self.reserved_tokens <= budget.max_tokens
+            and self.cost_microusd + self.reserved_cost_microusd <= budget.max_cost_microusd
             and self.tool_calls <= budget.max_tool_calls
         )
+
+    def to_dict(self) -> dict[str, int | bool]:
+        """Keep legacy measured records stable; expose every unresolved reservation."""
+        result: dict[str, int | bool] = {
+            "tokens": self.tokens,
+            "cost_microusd": self.cost_microusd,
+            "tool_calls": self.tool_calls,
+        }
+        if not self.complete:
+            result.update(
+                reserved_tokens=self.reserved_tokens,
+                reserved_cost_microusd=self.reserved_cost_microusd,
+                complete=False,
+            )
+        return result
+
+    @classmethod
+    def from_dict(cls, raw: Mapping[str, object]) -> TaskWorkerUsage:
+        """Read old or current JSON usage without coercing malformed accounting values."""
+        if not {"tokens", "cost_microusd", "tool_calls"}.issubset(raw):
+            raise ValueError("worker measured usage fields are required")
+        values = {}
+        for name in (
+            "tokens",
+            "cost_microusd",
+            "tool_calls",
+            "reserved_tokens",
+            "reserved_cost_microusd",
+        ):
+            value = raw.get(name, 0)
+            if type(value) is not int:
+                raise ValueError("worker usage values MUST be integers")
+            values[name] = value
+        complete = raw.get("complete", True)
+        if type(complete) is not bool:
+            raise ValueError("worker usage completeness MUST be boolean")
+        return cls(**values, complete=complete)
 
 
 @dataclass(frozen=True, slots=True)

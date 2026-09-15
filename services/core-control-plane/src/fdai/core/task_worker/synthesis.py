@@ -52,21 +52,13 @@ class TaskWorkerSynthesis:
                     "summary": worker.summary,
                     "evidence_refs": list(worker.evidence_refs),
                     "caveats": list(worker.caveats),
-                    "usage": {
-                        "tokens": worker.usage.tokens,
-                        "cost_microusd": worker.usage.cost_microusd,
-                        "tool_calls": worker.usage.tool_calls,
-                    },
+                    "usage": worker.usage.to_dict(),
                     "terminal_reason": worker.terminal_reason,
                     "trusted": False,
                 }
                 for worker in self.workers
             ],
-            "total_usage": {
-                "tokens": self.total_usage.tokens,
-                "cost_microusd": self.total_usage.cost_microusd,
-                "tool_calls": self.total_usage.tool_calls,
-            },
+            "total_usage": self.total_usage.to_dict(),
             "unique_evidence_refs": list(self.unique_evidence_refs),
         }
 
@@ -109,6 +101,9 @@ def synthesize_task_worker_results(
             tokens=sum(worker.usage.tokens for worker in workers),
             cost_microusd=sum(worker.usage.cost_microusd for worker in workers),
             tool_calls=sum(worker.usage.tool_calls for worker in workers),
+            reserved_tokens=sum(worker.usage.reserved_tokens for worker in workers),
+            reserved_cost_microusd=sum(worker.usage.reserved_cost_microusd for worker in workers),
+            complete=all(worker.usage.complete for worker in workers),
         ),
         unique_evidence_refs=evidence_refs,
     )
