@@ -1,7 +1,7 @@
 ---
 title: Console 아키텍처 작업 영역
 translation_of: console-architecture-workbench.md
-translation_source_sha: 075ed80397d02630bd24b26bd3fc93b8b56c0517
+translation_source_sha: b8f53705e085b04e8353c302b9f74ce85f23ba26
 translation_revised: 2026-09-15
 ---
 # Console 아키텍처 작업 영역
@@ -31,11 +31,11 @@ translation_revised: 2026-09-15
 기본 Landscape는 정규 Resource 타입, `parent_id` 및 보고된 `contains` 관계에서 Subscription,
 Resource Group, VNet 및 Subnet 포함 관계를 파생합니다. API가 표현 좌표를 제공할 필요가 없습니다.
 
-- 반환된 하위 Resource 수가 많은 순서로 Resource Group 요약을 최대 16개 표시하며, 개수가 같으면
+- 반환된 하위 Resource 수가 많은 순서로 Resource Group 요약을 최대 8개 표시하며, 개수가 같으면
   이름과 식별자로 안정적으로 정렬합니다.
 - Subscription은 중립적인 바깥 경계로 유지합니다.
 - 각 Resource Group은 하위 항목과 범위 간 관계 수를 담은 간결한 요약 카드가 됩니다.
-- Resource Group이 반환되지 않으면 안정적으로 정렬된 실제 Resource 최대 16개와 필요한 상위
+- Resource Group이 반환되지 않으면 안정적으로 정렬된 실제 Resource 최대 8개와 필요한 상위
   경계를 표시합니다.
 - 입력에 있던 요약 좌표와 크기는 간결한 카드를 배치하기 전에 제거합니다.
 - 보이는 요약과 접근 가능한 이름에 같은 지역화된 개수를 사용합니다.
@@ -67,9 +67,15 @@ Landscape 경계는 Resource Group 범위를 넘는 보고된 비포함 관계�
 
 ## Network 및 영향
 
-Network 보기는 반환된 전체 그래프를 근거로 유지합니다. 기본 개요는 반환된 모든 VNet 및 Subnet
-경계와 그 밖의 보고된 네트워크 역할 Resource 최대 48개 및 필요한 상위 경계를 표시합니다. 전체
-원시 Resource 집합을 반복하지 않습니다.
+Network 보기는 반환된 전체 그래프를 근거로 유지합니다. 기본 개요는 순위가 높은 VNet 경계 최대
+2개, 관련 Subnet 경계 4개, 관련 네트워크 역할 Resource 4개 및 필요한 상위 경계를 표시합니다.
+전체 원시 Resource 집합을 반복하지 않습니다.
+VNet 순위와 Subnet 선택은 작업 영역의 다른 부분과 같은 정규 `contains` 이후 `parent_id`
+우선순위를 사용합니다. 같은 VNet에서 다음 Subnet을 가져오기 전에 순위가 지정된 VNet 순서로
+Subnet을 round-robin 배분합니다. connector Resource가 개요 상한 밖에 있거나 찾은 경로가 표현을
+확장한 뒤에도 네트워크 역할은 표현 전용으로 추론한 Subnet 포함 관계를 유지합니다.
+기본 Network 개요는 Resource 포커스보다 넓은 복합 배치 비율을 사용하므로, 사용 가능한 패널에
+들어가는 경우 순위가 지정된 두 VNet 범위를 나란히 유지합니다.
 
 경로 추적은 보고된 `attached_to`, 저장 방향의 `depends_on` 및 대칭 `peered_with` 관계만
 탐색합니다. 범위가 제한된 개요가 아니라 반환된 전체 근거 그래프를 사용합니다. 범주 필터를 적용한
@@ -91,8 +97,9 @@ Network 보기는 반환된 전체 그래프를 근거로 유지합니다. 기�
 SVG 뷰포트는 이동, 휠 확대 및 축소, 맞춤, 전체 화면 및 이동식 키보드 탐색을 소유합니다. 새
 Landscape 또는 범위는 원점에 맞춘 전체 보기로 시작합니다. 재설정 식별자에 표시 Resource 식별자와
 형상을 포함하므로 크기가 같은 다른 범위도 이전 확대 또는 이동 상태를 유지하지 않습니다. 같은
-canvas 안에서 크기만 바뀌면 콘텐츠가 전체 보기보다 작아지는 경우를 제외하고 확대 상태를
-유지합니다.
+canvas 안에서 크기만 바뀌면 운영자가 선택한 확대 상태를 그대로 유지합니다. 자동 전체 보기
+상태인 canvas는 상세 패널이나 뷰포트가 사용 가능한 크기를 바꾸면
+전체 보기를 다시 계산합니다.
 
 상세 패널은 개요, 관계, 경로 및 출처를 소유합니다. 데스크톱에서는 그래프 옆에 있고 제한된
 너비에서는 선택 또는 경로 상태를 버리지 않고 그래프 아래로 이동합니다. 모바일 컨트롤과 노드
@@ -109,6 +116,8 @@ canvas 안에서 크기만 바뀌면 콘텐츠가 전체 보기보다 작아지�
 - 직접 엔드포인트 예약 및 정확한 제외 관계 계산
 - 범주 필터 적용 후 경로 복원
 - 보이는 요약과 접근 가능한 요약의 동등성
+- 밀집 Landscape는 데스크톱 전체 보기 75% 이상, 밀집 Network 개요는 50% 이상
+- 전체 보기를 적용한 밀집 개요의 스크롤 크기가 그래프 뷰포트보다 크지 않음
 - 데스크톱 `1440x900`, 제한된 화면 `993x641`, 모바일 `390x844`, 최소 화면 `320x844`
 - 확인된 Medium 이상 문제가 없는 독립 리뷰
 

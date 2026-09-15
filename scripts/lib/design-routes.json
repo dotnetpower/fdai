@@ -1841,6 +1841,7 @@
         "docs/roadmap/interfaces/operator-console-progressive-conversations.md",
         "docs/roadmap/interfaces/narrator-routing-and-latency.md",
         "docs/roadmap/interfaces/console-operations.md",
+        "docs/roadmap/interfaces/console-architecture-workbench.md",
         "docs/roadmap/interfaces/console-evidence-and-resilience.md"
       ],
       "docs_update_routes": [
@@ -1853,6 +1854,7 @@
         "docs/roadmap/interfaces/operator-console-progressive-conversations.md",
         "docs/roadmap/interfaces/narrator-routing-and-latency.md",
         "docs/roadmap/interfaces/console-operations.md",
+        "docs/roadmap/interfaces/console-architecture-workbench.md",
         "docs/roadmap/interfaces/console-evidence-and-resilience.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md"
       ],

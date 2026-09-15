@@ -42,6 +42,7 @@ export function layoutArchitectureNetworkOverviewPresentation(
 ): InventoryGraphResponse {
   return constrainGraph(layoutGeometrylessArchitectureGraph(
     withArchitectureSubnetMembership(graph),
+    3.2,
   ));
 }
 
