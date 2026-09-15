@@ -194,6 +194,28 @@ their recovery receipt reference and record the enrollment source. Verification-
 reenroll or silently change that source. Ordinary Foundation enrollment remains unchanged.
 The claim and resulting receipt retain the verified enrollment approval's actor digest.
 
+### Recovered state migration
+
+The state archive builder combines separately verified recovery configuration and original state
+only in its transient migration stage. It rejects a second state in the configuration, checks the
+original state's receipt-bound hash, and rechecks its bytes before archive publication. The archive
+keeps the existing managed-host verification format; neither input becomes a new local state owner.
+
+The state-handoff command accepts `--foundation-recovery-directory` and `--recovery-approval-file`
+alongside its original source inputs. The official prompt takes both `--recovered-foundation-receipt`
+and `--recovered-enrollment-receipt` to issue a separate `foundation-state` approval bound to both
+receipts and current migration source. The adapter verifies both retained claims, original state or
+exact backend authority, host-key evidence, recovery configuration, providers and variables, and CI
+for recovery, enrollment and migration sources. It holds the original writer lock through the shared
+claim-before-transfer, managed-host reattestation, backend migration, independent state comparison
+and cleanup flow. No ordinary Foundation receipt is fabricated.
+
+Migration claims and receipts retain the recovery evidence schema, current migration source and
+verified approver. A retained claim permits verification only, never another transfer or migration.
+After recorded backend authority permits local state deletion, resume validates that authority and
+the final receipt and independently observes the private backend. Missing local state alone grants
+no authority. Public source-coordinator routing and live recovery acceptance remain separate work.
+
 ### Source transfer boundary
 
 After the current private Foundation reaches its application boundary, the source coordinator

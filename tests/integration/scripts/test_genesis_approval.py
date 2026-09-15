@@ -254,7 +254,10 @@ def residual_review(tmp_path, request):
 
 
 @pytest.mark.parametrize("defect", [None, "digest", "unverified"])
-def test_recovered_foundation_approval_uses_new_enrollment_source(tmp_path, monkeypatch, defect):
+@pytest.mark.parametrize("state_migration", [False, True])
+def test_recovered_foundation_approval_uses_new_enrollment_source(
+    tmp_path, monkeypatch, defect, state_migration
+):
     from types import SimpleNamespace
 
     from fdai_deployment_cli import source_input
@@ -277,10 +280,25 @@ def test_recovered_foundation_approval_uses_new_enrollment_source(tmp_path, monk
     path = tmp_path / "recovery-apply-receipt.json"
     _write(path, receipt)
     output = tmp_path / "approval.json"
+    enrollment = {
+        "schema_version": "fdai.genesis-runner-enrollment-receipt.v1",
+        "state": "attested",
+        "foundation_receipt_digest": receipt["receipt_digest"],
+        "foundation_evidence_schema": "fdai.foundation-recovery-receipt.v1",
+        "identity_attested": True,
+        "services_attested": True,
+        "manual_host_readback_verified": True,
+        "effect_verified": True,
+        "mutation_performed": False,
+    }
+    enrollment["receipt_digest"] = prompt.canonical_digest(enrollment)
+    enrollment_path = tmp_path / "enrollment.json"
+    _write(enrollment_path, enrollment)
     monkeypatch.setattr(
         sys,
         "argv",
-        ["prompt", "--recovered-foundation-receipt", str(path), "--output", str(output)],
+        ["prompt", "--recovered-foundation-receipt", str(path), "--output", str(output)]
+        + (["--recovered-enrollment-receipt", str(enrollment_path)] if state_migration else []),
     )
     monkeypatch.setattr(
         source_input, "inspect_source", lambda *_args: SimpleNamespace(commit="d" * 40)
@@ -288,9 +306,9 @@ def test_recovered_foundation_approval_uses_new_enrollment_source(tmp_path, monk
     monkeypatch.setattr(prompt, "current_actor_digest", lambda _binding: "e" * 64)
 
     def interact(**kwargs):
-        assert kwargs["stage"] == "runner-enrollment"
+        assert kwargs["stage"] == ("foundation-state" if state_migration else "runner-enrollment")
         return create_approval(
-            **kwargs, input_stream=_TtyInput("runner-enrollment\n"), output_stream=io.StringIO()
+            **kwargs, input_stream=_TtyInput(kwargs["stage"] + "\n"), output_stream=io.StringIO()
         )
 
     monkeypatch.setattr(prompt, "create_approval", interact)
@@ -303,9 +321,36 @@ def test_recovered_foundation_approval_uses_new_enrollment_source(tmp_path, monk
         approval = load_genesis_approval(
             output, run_binding=receipt["receipt_digest"], source_commit="d" * 40
         )
+        evidence = {"foundation_receipt_digest": receipt["receipt_digest"]}
+        if state_migration:
+            evidence["enrollment_receipt_digest"] = enrollment["receipt_digest"]
         assert approval.authorizes(
-            "runner-enrollment", foundation_receipt_digest=receipt["receipt_digest"]
+            "foundation-state" if state_migration else "runner-enrollment", **evidence
         )
+
+
+@pytest.mark.parametrize("defect", ["foundation", "effect", "digest"])
+def test_recovered_state_prompt_rejects_unverified_enrollment(tmp_path, defect):
+    receipt = {
+        "schema_version": "fdai.genesis-runner-enrollment-receipt.v1",
+        "state": "attested",
+        "foundation_receipt_digest": "a" * 64,
+        "foundation_evidence_schema": "fdai.foundation-recovery-receipt.v1",
+        "identity_attested": True,
+        "services_attested": True,
+        "manual_host_readback_verified": True,
+        "effect_verified": True,
+        "mutation_performed": False,
+    }
+    if defect == "foundation":
+        receipt["foundation_receipt_digest"] = "b" * 64
+    elif defect == "effect":
+        receipt["effect_verified"] = False
+    receipt["receipt_digest"] = "c" * 64 if defect == "digest" else prompt.canonical_digest(receipt)
+    path = tmp_path / "enrollment.json"
+    _write(path, receipt)
+    with pytest.raises(ValueError):
+        prompt._recovered_state_evidence(path, "a" * 64)
 
 
 def test_residual_prompt_binds_recovery_review_not_original_status(residual_review, monkeypatch):

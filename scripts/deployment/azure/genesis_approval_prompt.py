@@ -282,8 +282,37 @@ def _approval_from_recovered_foundation(path: Path) -> tuple[str, str, dict[str,
     return digest, source.commit, {"foundation_receipt_digest": digest}
 
 
+def _recovered_state_evidence(path: Path, foundation_digest: str) -> dict[str, str]:
+    """Require recovered-host attestation before offering state migration approval."""
+    from genesis_foundation_state_contract import load_receipt
+
+    receipt = load_receipt(
+        path, schema="fdai.genesis-runner-enrollment-receipt.v1", expected_digest=None
+    )
+    if (
+        receipt.get("state") != "attested"
+        or receipt.get("foundation_receipt_digest") != foundation_digest
+        or receipt.get("foundation_evidence_schema") != "fdai.foundation-recovery-receipt.v1"
+        or any(
+            receipt.get(field) is not True
+            for field in (
+                "identity_attested",
+                "services_attested",
+                "manual_host_readback_verified",
+                "effect_verified",
+            )
+        )
+        or receipt.get("mutation_performed") is not False
+    ):
+        raise ValueError("recovered host receipt is invalid for state migration approval")
+    return {
+        "foundation_receipt_digest": foundation_digest,
+        "enrollment_receipt_digest": str(receipt["receipt_digest"]),
+    }
+
+
 def main() -> int:
-    """Prompt from one private status or residual review and publish an exact approval."""
+    """Prompt from a private checkpoint, recovery review or verified recovery receipt."""
 
     parser = argparse.ArgumentParser(description=__doc__)
     context = parser.add_mutually_exclusive_group(required=True)
@@ -291,13 +320,19 @@ def main() -> int:
     context.add_argument("--residual-review", type=Path)
     context.add_argument("--foundation-recovery-review", type=Path)
     context.add_argument("--recovered-foundation-receipt", type=Path)
+    parser.add_argument("--recovered-enrollment-receipt", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if args.recovered_enrollment_receipt is not None and args.recovered_foundation_receipt is None:
+        raise ValueError("recovered enrollment evidence requires its recovered Foundation receipt")
     if args.recovered_foundation_receipt is not None:
         run_binding, source_commit, evidence = _approval_from_recovered_foundation(
             args.recovered_foundation_receipt
         )
         stage = "runner-enrollment"
+        if args.recovered_enrollment_receipt is not None:
+            evidence = _recovered_state_evidence(args.recovered_enrollment_receipt, run_binding)
+            stage = "foundation-state"
     elif args.foundation_recovery_review is not None:
         run_binding, source_commit, evidence = _approval_from_residual_review(
             args.foundation_recovery_review, foundation=True

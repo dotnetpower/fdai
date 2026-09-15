@@ -68,7 +68,7 @@ class RecoveryHandoff:
         }
 
 
-def load_recovery_handoff(
+def load_recovery_evidence(
     *,
     original_directory: Path,
     recovery_directory: Path,
@@ -76,11 +76,11 @@ def load_recovery_handoff(
     expected_digest: str,
     target_binding: str,
 ) -> RecoveryHandoff:
-    """Validate complete recovery evidence and current original state before host enrollment.
+    """Read immutable recovery evidence without asserting current state ownership.
 
-    The caller must hold ``recovery_lock`` across validation and enrollment. Receipt integrity
-    is not current execution authority: the enrollment caller separately checks source CI,
-    human approval, host identity and effect readback. No artifact or state is written here.
+    Under the original execution lock, callers must additionally verify the retained
+    original state or its exact recorded backend authority before effects. Receipt
+    integrity never replaces current source CI, human approval or host attestation.
     """
     if not all(
         path.is_absolute() for path in (original_directory, recovery_directory, source_snapshot)
@@ -162,18 +162,6 @@ def load_recovery_handoff(
         or context["source_commit"] != receipt["source_commit"]
     ):
         raise ValueError("Foundation recovery handover original source differs")
-    state_path = (
-        original_directory
-        / "foundation-apply-bundle/source/infra/genesis-foundation/terraform.tfstate"
-    )
-    state_bytes = read_private_bytes(state_path, max_bytes=64 * 1024 * 1024)
-    if hashlib.sha256(state_bytes).hexdigest() != receipt.get("state_digest"):
-        raise ValueError("Foundation recovery handover current state differs from the receipt")
-    state = load_json_object(
-        state_bytes, label="Foundation recovery state", max_bytes=64 * 1024 * 1024
-    )
-    if canonical_digest({"lineage": state.get("lineage")}) != review.get("original_lineage_digest"):
-        raise ValueError("Foundation recovery handover state lineage differs")
     handoff = _json(recovery_directory / "recovery-private-handoff.json")
     if (
         canonical_digest(handoff) != receipt.get("handoff_digest")
@@ -187,6 +175,53 @@ def load_recovery_handoff(
     ):
         raise ValueError("Foundation recovery private handoff context differs")
     return RecoveryHandoff(receipt, handoff, target_binding)
+
+
+def load_recovery_handoff(
+    *,
+    original_directory: Path,
+    recovery_directory: Path,
+    source_snapshot: Path,
+    expected_digest: str,
+    target_binding: str,
+) -> RecoveryHandoff:
+    """Admit host enrollment only with immutable evidence and the current original state.
+
+    The caller holds recovery_lock through validation, approval and host attestation.
+    """
+    recovered = load_recovery_evidence(
+        original_directory=original_directory,
+        recovery_directory=recovery_directory,
+        source_snapshot=source_snapshot,
+        expected_digest=expected_digest,
+        target_binding=target_binding,
+    )
+    verify_original_state(original_directory, recovery_directory, recovered)
+    return recovered
+
+
+def verify_original_state(
+    original_directory: Path,
+    recovery_directory: Path,
+    recovered: RecoveryHandoff,
+) -> Path:
+    """Require the retained original writer's exact state bytes and lineage."""
+    state_path = (
+        original_directory
+        / "foundation-apply-bundle/source/infra/genesis-foundation/terraform.tfstate"
+    )
+    state_bytes = read_private_bytes(state_path, max_bytes=64 * 1024 * 1024)
+    if hashlib.sha256(state_bytes).hexdigest() != recovered.receipt.get("state_digest"):
+        raise ValueError("Foundation recovery handover current state differs from the receipt")
+    state = load_json_object(
+        state_bytes,
+        label="Foundation recovery state",
+        max_bytes=64 * 1024 * 1024,
+    )
+    review = _json(recovery_directory / "recovery-review.json")
+    if canonical_digest({"lineage": state.get("lineage")}) != review.get("original_lineage_digest"):
+        raise ValueError("Foundation recovery handover state lineage differs")
+    return state_path
 
 
 def require_enrollment_approval(
