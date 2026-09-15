@@ -356,6 +356,17 @@
     "diagram_ids": []
   },
   {
+    "route": "/guides/validate-ownership-handover/",
+    "locale": "en",
+    "source_path": "docs/user-guide/guides/validate-ownership-handover.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
     "route": "/ko/",
     "locale": "ko",
     "source_path": "site/src/content/docs/ko/index.mdx",
@@ -693,6 +704,17 @@
     "route": "/ko/guides/use-operator-conversations/",
     "locale": "ko",
     "source_path": "docs/user-guide/guides/use-operator-conversations-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/guides/validate-ownership-handover/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/guides/validate-ownership-handover-ko.md",
     "source_kind": "user-guide",
     "navigation_section": "Operate",
     "audience": "operator",
