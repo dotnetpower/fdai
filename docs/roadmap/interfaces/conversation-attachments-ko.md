@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: b518890bde234bacbba9421dd7cfc42d86754745
-translation_revised: 2026-09-14
+translation_source_sha: 1788f4f59c8abfe8f033ae93c92c53187f914c22
+translation_revised: 2026-09-15
 title: 대화 첨부파일
 ---
 # 대화 첨부파일
@@ -198,6 +198,11 @@ ordered `document_context`를 포함한 additive `operator-core-request` `1.8.0`
 reference만 cite할 수 있습니다. 함수 근거의 인용은 요청 집합을 복사하지 않고 정확 검색이
 실제로 반환한 `source_ref`에서 파생합니다. 인용이 누락되거나 대체되거나 형식이 잘못되면 답변을
 보류합니다.
+
+[구조화된 클라우드 문서 확장](cloud-resource-knowledge-structured-rag-ko.md)은 개발 중입니다.
+의미 판단 `1.2.0`의 `document_query`는 수락된 모델 판단에서만 프레임에 전달되며, 다이제스트로
+정확한 원래 질문에 연결됩니다. 검색어는 문서 맥락이나 클라우드 적용 조건을 넓힐 수 없으며,
+원본 문서 본문은 의미 처리 전송에 포함하지 않습니다.
 
 ## Slack download 계약
 

@@ -17,6 +17,10 @@ security-reviewed offline document packages without presenting an old snapshot a
 
 ## Design at a glance
 
+The [structured retrieval extension](cloud-resource-knowledge-structured-rag.md) specifies the
+versioned extraction, safe-chunk and bilingual evaluation follow-up without changing source clocks
+or granting operational approval.
+
 A registered source produces immutable document revisions and append-only source-check receipts.
 Both online updates and offline packages enter the existing governed document-ingestion boundary.
 Only an admitted collection generation can serve retrieval-augmented generation (RAG), which

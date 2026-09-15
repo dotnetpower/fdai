@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
+from fdai_service_contracts.cloud_knowledge_query import DocumentRetrievalQuery
 from fdai_service_contracts.ontology_query import QueryContract, content_digest
 
 Digest = Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
@@ -117,7 +118,7 @@ class SemanticDirectResponseDraft(QueryContract):
 class SemanticJudgmentProposal(QueryContract):
     """Untrusted structured meaning proposed without policy or action authority."""
 
-    schema_version: Literal["1.0.0", "1.1.0"] = "1.0.0"
+    schema_version: Literal["1.0.0", "1.1.0", "1.2.0"] = "1.0.0"
     primary_intent: MachineToken
     secondary_intents: Annotated[tuple[MachineToken, ...], Field(max_length=8)] = ()
     targets: Annotated[tuple[SemanticTarget, ...], Field(max_length=32)] = ()
@@ -138,6 +139,20 @@ class SemanticJudgmentProposal(QueryContract):
     document_evidence_mode: SemanticDocumentEvidenceMode = Field(
         default=SemanticDocumentEvidenceMode.NONE,
         exclude_if=lambda mode: mode is SemanticDocumentEvidenceMode.NONE,
+    )
+    document_query: DocumentRetrievalQuery | None = Field(
+        default=None,
+        exclude_if=lambda query: query is None,
+        description=(
+            "For optional, required or explicit document evidence, use this same judgment "
+            "call to supply English retrieval terms for the original utterance. source_locale "
+            "must equal the supplied locale and target_locale must be en. Preserve numbers, "
+            "units, identifiers and negation; never fabricate SKU, API-version or applicability "
+            "conditions, alter targets or filters, or grant authority. A non-null query requires "
+            "schema_version 1.2.0. Return null if faithful transformation is unavailable, for "
+            "document_evidence_mode none, or for a direct social response. Version 1.2.0 "
+            "document evidence without a query remains unavailable, not an English search."
+        ),
     )
     discourse_mode: SemanticDiscourseMode = SemanticDiscourseMode.DIRECT
     action_posture: Literal["advise_only", "draft_only"] = "advise_only"
@@ -184,8 +199,8 @@ class SemanticJudgmentProposal(QueryContract):
         )
         if len(forbidden_spans) != len(set(forbidden_spans)):
             raise ValueError("semantic judgment forbidden action spans MUST be unique")
-        if self.forbidden_actions and self.schema_version != "1.1.0":
-            raise ValueError("semantic judgment forbidden actions require schema 1.1.0")
+        if self.forbidden_actions and self.schema_version not in {"1.1.0", "1.2.0"}:
+            raise ValueError("semantic judgment forbidden actions require schema 1.1.0 or later")
         if any(action.kind not in {"action", "action_type"} for action in self.forbidden_actions):
             raise ValueError("semantic judgment forbidden actions MUST use an action kind")
         if self.ambiguous != bool(self.alternatives or self.unresolved_terms):
@@ -219,11 +234,22 @@ class SemanticJudgmentProposal(QueryContract):
             or self.action_posture != "advise_only"
             or self.action_subject != "none"
             or self.document_evidence_mode is not SemanticDocumentEvidenceMode.NONE
+            or self.document_query is not None
             or self.forbidden_actions
         ):
             raise ValueError("semantic direct response answer MUST remain unambiguous and advisory")
         if self.ambiguous and self.document_evidence_mode is not SemanticDocumentEvidenceMode.NONE:
             raise ValueError("ambiguous semantic judgment MUST NOT request document evidence")
+        if self.document_query is not None:
+            if self.schema_version != "1.2.0":
+                raise ValueError("semantic judgment document query requires schema 1.2.0")
+            if (
+                self.ambiguous
+                or self.document_evidence_mode is SemanticDocumentEvidenceMode.NONE
+                or self.discourse_mode is not SemanticDiscourseMode.DIRECT
+                or self.action_posture != "advise_only"
+            ):
+                raise ValueError("semantic document query requires unambiguous advisory evidence")
         if (
             self.document_evidence_mode is SemanticDocumentEvidenceMode.EXPLICIT
             and self.primary_intent != "query.governed_documents"

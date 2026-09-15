@@ -26,6 +26,9 @@ def bind_cloud_knowledge(
         raise ValueError("cloud knowledge requires both independently approved policies")
     read = policy_reader(env)
     registry, trust = read()
+    output_format = env.get("FDAI_CLOUD_KNOWLEDGE_FORMAT", "v2")
+    if output_format not in {"v2", "v3"}:
+        raise ValueError("cloud knowledge format must be v2 or v3")
     allowed = set(env.get("FDAI_DOCUMENT_COLLECTIONS", "shared-knowledge").split(","))
     if any(source.collection_id not in allowed for source in registry.sources):
         raise ValueError("cloud sources MUST belong to configured document collections")
@@ -37,7 +40,9 @@ def bind_cloud_knowledge(
     scheduler = CloudKnowledgeScheduler(
         registry=registry,
         store=store,
-        collector=CloudDocumentCollector(PublicDocumentationTransport(), collector_id="Huginn"),
+        collector=CloudDocumentCollector(
+            PublicDocumentationTransport(), collector_id="Huginn", structured=output_format == "v3"
+        ),
         clock=clock,
     )
     return CloudKnowledgeService(
@@ -50,6 +55,7 @@ def bind_cloud_knowledge(
         reader_groups=(env["FDAI_RBAC_READERS_GROUP_ID"],),
         retention_policy=env.get("FDAI_DOCUMENT_POLICY_VERSION", "prod-policy-v1"),
         current_policy=read,
+        structured=output_format == "v3",
     )
 
 

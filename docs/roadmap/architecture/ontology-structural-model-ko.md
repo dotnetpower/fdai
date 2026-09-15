@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 5c673e44791693f3c9970a3a041b39eed5d16154
+translation_source_sha: 28e1bf0f2949c23af152b82ced95920614a03af9
 translation_revised: 2026-09-15
 ---
 # 온톨로지 구조 모델
@@ -54,6 +54,11 @@ LinkType을 만들지 않으며 내용 신원은 Resource UID나 관계 신원�
 평가합니다. 이 구간이 잘렸고 요청한 결과 제한을 증명하지 못하면 저장소는 객체 50,000개로 제한된
 관계 없는 후보 스냅샷 하나를 제공할 수 있습니다. 더 큰 스캔은 연결 하나와 출처 세대 하나를
 사용합니다. 관계를 포함하는 조회는 이 경로를 사용하지 않으며 후보 잘림은 계속 명시됩니다.
+
+[구조화된 클라우드 문서 확장](../interfaces/cloud-resource-knowledge-structured-rag-ko.md)은 개발
+중입니다. 본문 블록, 인용문 식별자 및 검색어 결속은 문서 출처 이력을 설명하며, 새 ObjectType,
+LinkType, 리소스 식별자 또는 관측된 토폴로지를 만들지 않습니다. 검색어로 분류나 적용 조건을
+만들어 낼 수 없습니다.
 
 ## 구조 개념
 

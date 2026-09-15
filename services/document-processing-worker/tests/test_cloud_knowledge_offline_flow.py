@@ -245,8 +245,9 @@ async def _search(runtime: Any) -> Any:
     )
 
 
+@pytest.mark.parametrize("representation", ["text", "structured"])
 async def test_signed_offline_package_requires_review_and_readback_before_dated_answer(
-    intake: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    intake: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, representation: str
 ) -> None:
     # Age the synthetic source BEFORE signing, never the received/READY metadata afterwards.
     intake.manifest = intake.manifest.model_copy(
@@ -257,6 +258,41 @@ async def test_signed_offline_package_requires_review_and_readback_before_dated_
             )
         }
     )
+    if representation == "structured":
+        from fdai_service_contracts.cloud_knowledge_release import (
+            KnowledgeStructuredReleaseManifest,
+        )
+        from fdai_service_contracts.cloud_knowledge_structure import (
+            CloudArticleBlock,
+            CloudStructuredDocument,
+            excerpt_digest,
+        )
+
+        documents = tuple(
+            CloudStructuredDocument(
+                evidence=doc.evidence,
+                title=doc.title,
+                text=doc.text,
+                derived_at=intake.manifest.package_created_at,
+                blocks=(
+                    CloudArticleBlock(
+                        block_id="body",
+                        kind="paragraph",
+                        start=0,
+                        end=len(doc.text),
+                        heading_path=(doc.title,),
+                    ),
+                ),
+            )
+            for doc in intake.manifest.documents
+        )
+        intake.manifest = KnowledgeStructuredReleaseManifest.model_validate(
+            intake.manifest.model_dump(exclude={"schema_version", "reader_version", "documents"})
+            | {
+                "documents": documents,
+                "excerpt_digests": tuple(excerpt_digest(doc) for doc in documents),
+            }
+        )
     # This helper calls CloudKnowledgeService.import_package and checks the actual session.
     version = await intake.ingest()
     session = intake.metadata.uploads[version.upload_id]
@@ -379,6 +415,14 @@ async def test_signed_offline_package_requires_review_and_readback_before_dated_
     assert binding.imported_at.isoformat() not in answer
     assert "instruction_authority=false" in answer and "execution_authority=false" in answer
     assert "https://" not in answer
+    korean = _render_governed_document_answer(
+        [output], korean=True, output_shape="governed_document_excerpts"
+    )
+    assert korean is not None and "과거 참조용" in korean
+    for source in binding.sources:
+        assert source.collected_at.isoformat() in korean
+        assert source.check.checked_at.isoformat() in korean
+    assert binding.imported_at.isoformat() not in korean
     facts = (*intake.metadata.events, *runtime.metadata.events)
     assert all(event.created_at == NOW for event in facts)
     serialized = json.dumps([message.payload for message in bus.published], ensure_ascii=False)
