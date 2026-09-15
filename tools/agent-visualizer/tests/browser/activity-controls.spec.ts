@@ -113,6 +113,43 @@ test("desktop wheel: labels zoom like the canvas, remain clickable, and do not t
   expect(await distance(page)).toBeCloseTo(fixed, 2);
 });
 
+test("desktop panels scroll without visible outer scrollbar rails", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 760 });
+  await page.goto("/");
+  for (const selector of [".intro-panel", ".activity-inspector"]) {
+    const metrics = await page.locator(selector).evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+      return {
+        clientHeight: element.clientHeight,
+        scrollHeight: element.scrollHeight,
+        scrollTop: element.scrollTop,
+        scrollbarWidth: getComputedStyle(element).scrollbarWidth,
+      };
+    });
+    expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight);
+    expect(metrics.scrollTop).toBeGreaterThan(0);
+    expect(metrics.scrollbarWidth).toBe("none");
+  }
+});
+
+test("desktop scenario picker stays within the left rail", async ({ page }) => {
+  await page.goto("/");
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 993, height: 641 }]) {
+    await page.setViewportSize(viewport);
+    const geometry = await page.evaluate(() => {
+      const picker = document.querySelector(".scenario-picker")!.getBoundingClientRect();
+      const field = document.querySelector(".visual-field")!.getBoundingClientRect();
+      const description = document.querySelector("#scenario-description")!;
+      return {
+        gap: field.left - picker.right,
+        descriptionFits: description.scrollWidth <= description.clientWidth,
+      };
+    });
+    expect(geometry.gap).toBeGreaterThanOrEqual(8);
+    expect(geometry.descriptionFits).toBe(true);
+  }
+});
+
 test("desktop dock: rests lower and expands upward without moving camera controls or resizing the graph", async ({ page }, testInfo) => {
   await page.goto("/");
   await page.mouse.move(20, 100);
