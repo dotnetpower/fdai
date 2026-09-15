@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: d1efa19212618d542ac7add040fac70ca24a5501
+translation_source_sha: 0a8ac475e917762896bef24dbf6251b4c5cda48c
 translation_revised: 2026-09-15
 ---
 # 에이전트 판테온
@@ -53,6 +53,7 @@ Var의 승인 대기 데이터는 비공개 `var_decisions`에서 영속 결정 
 기본값, 변경 가능성은 그대로입니다. 승인 정책이나 게시 소유권은 이동하지 않습니다.
 
 - **배정 검토:** [배정 명령](../interfaces/human-agent-assignment-implementation-plan-ko.md#명령-이벤트-작업)은 기존 토픽에서 Huginn 유입, Forseti 검증, 독립 Var 검토, Saga 봉인, Muninn 사례 반영을 거칩니다. Operator 조회 결과는 권한이 아닙니다. 이전 IAM 알림은 shadow 전용이며 새 제거 검토와 독립 IAM 제거 근거가 있어야 검토 전용 이전 임무 PR을 만듭니다. Forseti의 증적 처리는 비공개 배정 믹스인에 유지합니다.
+- **인시던트 지침:** Core가 `operator_guidance`를 영속 적용한 뒤 요청은 `incident_correlation: none`과 `execution_authority: false`를 유지한 `incident.operator_guidance.v1` 이벤트로 Huginn을 통해 다시 유입됩니다. Saga는 선언된 `object.event` 구독에서 이 이벤트 유형만 받아 담당 감사 기록을 추가합니다. Forseti는 같은 정규화 이벤트를 인식하지만 판단하지 않으므로 지침은 Verdict, HIL 요청 또는 ActionRun을 만들 수 없습니다.
 - **멤버십 실행:** 별도로 타입이 지정된 경로는 Var가 원래 사람 승인 슬롯을 만들기 전에 전체 원래 Action과 정확한 사례, 역할 맵, 승격 원본을 보존합니다. Muninn 준비는 CAS `r -> r+1`이며 승인된 `expected_revision=r`을 수정하지 않습니다. Core는 변경 신원을 만들지 않습니다. Thor는 격리된 전용 신원, 정확한 현재 원본/허용 목록 확인, 7개 안전장치, 연산과 무관한 멤버십 잠금을 통해 전달합니다. 현재 비상 정지/상태와 principal별 ActionType 승인 정책을 다시 확인합니다. 시도 전에 영속 의도를 기록하고 응답 뒤 확인 기록을 남기며 결과를 모르는 시도는 자동 재시도하지 않습니다.
 - **효과와 복구:** 독립 Heimdall 관측, Forseti 판단, Saga 봉인, 공유 잠금 해제 종결이 Muninn의 효과 기록보다 먼저입니다. Vidar는 새로 별도 승인받는 역방향 작업을 제안하고 마무리합니다. Thor는 원래 직접 수행한 변경의 근거, 현재 수요, 같은 대상 세대가 있을 때만 전달합니다. 사례는 degraded 상태로 남아 별도 대체가 가능하며 이전 승인이나 역할 권한을 복사하지 않습니다. 새 ActionType은 계속 shadow가 기본이고 로컬 권한 전환은 허용하지 않습니다.
 - **지식:** Huginn -> Forseti -> Saga -> Muninn StateSnapshot -> Saga -> Norns -> Mimir -> Saga 담당 경로를 유지합니다. 현재 Core 목표/검토자/원본 허용/검색 연결은 독립 원본 확인과 소유자별 CAS에 사용됩니다. Norns는 합의/게시 게이트를 유지하면서 비공개 Rule/온톨로지 후보를 컴파일합니다. Mimir는 내용보다 원본을 먼저 확인하고 모델 없이 재컴파일하며 되돌릴 수 없는 사용 종료와 정확한 현재 `legal_hold: false` 조건의 내용 제거를 담당합니다. 알 수 없는 정책이나 장애에서는 삭제하지 않습니다. 명시적인 다이제스트 충돌은 Odin에게 전달하며 패키지, 검토, 스케줄러 출처 이름, 병합은 IAM, 카탈로그, 그래프, 실행 권한을 부여하지 않습니다.

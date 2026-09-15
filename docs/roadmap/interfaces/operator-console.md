@@ -56,7 +56,7 @@ Terminal intake preserves the exact verification reason and evidence-manifest co
 An explicit fixed-census diagnostic request uses a bounded `conversation-assurance:<case-id>` purpose. Core validates the case, question, and locale against its server-owned census before Bragi answers. The resulting `done` event carries the answer, content-free diagnostics, trace latency, and schema-v2 queue/assurance timing; ordinary `operations-review` requests retain the existing semantic result contract.
 The version 1.2 semantic projection preserves this boundary across the service split: `answered` requires exact release, principal manifest, plan, execution receipt, and evidence references; unavailable dependencies return a typed limitation.
 Version 1.6 can also carry bounded authenticated group claims and governed-document evidence.
-The Console accepts only Core-projected version 2 intent evidence, displays exact revision citations and incomplete-coverage limits, and never treats document text as instructions or current operational state.
+The Console accepts only Core-projected version 2 intent evidence, displays exact revision citations and incomplete-coverage limits, and never treats document text as instructions or current operational state. The committed semantic-intent coverage artifact is regenerated from authoritative sources and grants no runtime authority.
 Missing optional document evidence permits a partial answer only after independent operational evidence completes; required or explicit document evidence stays held. Unknown evidence authority values and unsupported intent-evidence versions are discarded, never downgraded or displayed.
 The [structured cloud-document extension](cloud-resource-knowledge-structured-rag.md) is under development: v3 format selection and accepted retrieval terms grant no authority and do not establish live readiness.
 The Process journal can also project an adaptive Investigation Room. Operator rechecks the Process
@@ -603,7 +603,7 @@ Split into focused owner documents:
 
 - [operator-console-wire-contracts.md](operator-console-wire-contracts.md) - audit entry, CLI REPL, approval callback (13.1-13.3), action submit, Python VM workbench, grounded code, and ontology projection (13.6-13.9).
 - [operator-console-view-snapshot.md](operator-console-view-snapshot.md) - the self-describing screen contract (13.4).
-- [operator-console-incident-roster.md](operator-console-incident-roster.md) - incident roster and fix history (13.5).
+- [operator-console-incident-roster.md](operator-console-incident-roster.md) - incident roster, fix history, catalog-reused queued/applied status, bounded HTTP `202` revalidation, and the no-authority Huginn-to-Saga guidance audit path (13.5).
 ## 14. MCP delivery and managed catalog
 
 FDAI's only shipped MCP integration is a single fixed-transport, read-only Azure MCP client

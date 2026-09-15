@@ -7,7 +7,10 @@ from datetime import UTC, datetime
 
 import pytest
 from fdai.shared.providers.event_bus import EventEnvelope
-from fdai_core_service.incident_intervention_consumer import consume_incident_interventions
+from fdai_core_service.incident_intervention_consumer import (
+    consume_incident_interventions,
+    incident_intervention_raw_event,
+)
 from fdai_service_contracts.incident_intervention import (
     INCIDENT_INTERVENTION_REQUEST_TOPIC,
     IncidentInterventionAction,
@@ -91,13 +94,18 @@ def _payload() -> dict[str, object]:
     ).model_dump(mode="json")
 
 
-async def _consume(bus: _Bus, service: _Service) -> None:
+async def _consume(
+    bus: _Bus,
+    service: _Service,
+    ingress: object | None = None,
+) -> None:
     await consume_incident_interventions(
         bus=bus,  # type: ignore[arg-type]
         topic=INCIDENT_INTERVENTION_REQUEST_TOPIC,
         group_id="core-incident-intervention-v1",
         service=service,  # type: ignore[arg-type]
         stop=asyncio.Event(),
+        ingress=ingress,  # type: ignore[arg-type]
     )
 
 
@@ -112,6 +120,41 @@ async def test_consumer_validates_and_applies_redelivery() -> None:
     assert service.requests[0].execution_authority is False
     assert bus.dead_letters == []
     assert bus.stream.closed is True
+
+
+async def test_consumer_routes_applied_guidance_through_huginn_ingress() -> None:
+    envelope = EventEnvelope(INCIDENT_INTERVENTION_REQUEST_TOPIC, INCIDENT_ID, _payload(), 1)
+    bus = _Bus([envelope])
+    ingested: list[dict[str, object]] = []
+
+    async def ingress(payload: dict[str, object]) -> object:
+        ingested.append(payload)
+        return payload
+
+    await _consume(bus, _Service(), ingress)
+
+    assert len(ingested) == 1
+    assert ingested[0] == incident_intervention_raw_event(
+        IncidentInterventionRequest.model_validate(_payload())
+    )
+    assert ingested[0]["incident_correlation"] == "none"
+    assert ingested[0]["resource_ref"] == incident_target_ref("service:checkout-api")
+    attributes = ingested[0]["attributes"]
+    assert isinstance(attributes, dict)
+    intervention = attributes["incident_intervention"]
+    assert isinstance(intervention, dict)
+    assert intervention["guidance"] == "Preserve this operator context."
+    assert intervention["execution_authority"] is False
+
+
+async def test_consumer_retries_when_agent_ingress_fails_after_durable_apply() -> None:
+    envelope = EventEnvelope(INCIDENT_INTERVENTION_REQUEST_TOPIC, INCIDENT_ID, _payload(), 1)
+
+    async def unavailable(_payload: dict[str, object]) -> object:
+        raise RuntimeError("pantheon unavailable")
+
+    with pytest.raises(RuntimeError, match="pantheon unavailable"):
+        await _consume(_Bus([envelope]), _Service(), unavailable)
 
 
 async def test_consumer_dead_letters_invalid_partition_without_apply() -> None:
