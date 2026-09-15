@@ -83,6 +83,7 @@ jobs:
           npm --prefix tools/architecture-diagrams run check
           npm --prefix tools/architecture-diagrams run check-public-migration
           npm --prefix tools/architecture-diagrams run check-repository-migration
+          npm --prefix tools/agent-visualizer run graph
           npm --prefix tools/agent-visualizer test
           npm --prefix site test
 
