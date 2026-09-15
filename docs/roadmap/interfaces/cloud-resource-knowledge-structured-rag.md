@@ -76,8 +76,11 @@ the generic two-excerpt authored-document diversity limit. Access and candidate 
 A schema-validated model-backed query transformation may supply bounded retrieval terms. It cannot
 change the original intent, target conditions, audience or authority. Missing transformation
 capability remains unavailable; keyword intent routing and automatic external translation are not
-fallbacks. English and Korean retrieval outcomes are evaluated separately. Bragi renders citations,
-dates and gaps; T2 operational reasoning retains its separate mixed-model and verification gates.
+fallbacks. English and Korean retrieval outcomes are evaluated separately. Schema 1.2 additionally
+requires the exact `semantic-document-query` pack in the prompt replay manifest. The new
+`shadow.semantic-document-query` profile is not automatically promoted; older version-pinned
+profiles retain their output schema even when the document capability is present. Bragi renders
+citations, dates and gaps; T2 retains its separate mixed-model and verification gates.
 
 An unchanged fetch/check preserves collection time and may reuse unchanged derived content.
 Normalized bytes, recipe, applicability or rights decisions changing create a material-update

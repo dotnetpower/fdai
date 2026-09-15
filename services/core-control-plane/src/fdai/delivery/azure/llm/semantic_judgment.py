@@ -30,6 +30,7 @@ from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentObservation,
 )
 from fdai.core.prompts import PromptReplayManifest, estimate_chat_request_tokens
+from fdai.core.prompts.types import PromptLayer
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.model_trace import (
     bounded_usage,
@@ -198,7 +199,10 @@ class AzureOpenAISemanticJudgmentModel:
                 input_digest=input_digest,
                 proposal_schema=_semantic_judgment_proposal_schema(
                     intent_hardening_enabled=self._config.intent_hardening_enabled,
-                    document_query_enabled=any(
+                    document_query_enabled=_document_query_prompt_enabled(
+                        self._config.system_prompt_manifest
+                    )
+                    and any(
                         capability.get("kind") == "function_type"
                         and capability.get("name") == "query.governed_documents"
                         for capability in capabilities
@@ -601,6 +605,16 @@ def _validate_output_reserve(
         and manifest.reserved_output_tokens < required_tokens
     ):
         raise ValueError(f"{name} prompt output reserve is below configured max_tokens")
+
+
+def _document_query_prompt_enabled(manifest: PromptReplayManifest | None) -> bool:
+    """An advertised read capability cannot silently upgrade an unrelated prompt contract."""
+    return manifest is not None and any(
+        layer.id == "semantic-document-query"
+        and layer.version == 1
+        and layer.layer is PromptLayer.PACK
+        for layer in manifest.layer_manifest
+    )
 
 
 def _semantic_judgment_proposal_schema(

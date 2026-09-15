@@ -57,6 +57,18 @@ profiles:
     reserved_output_tokens: 4096
     promotion_evidence: []
     provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
+  - id: shadow.semantic-document-query
+    version: 1
+    capability_id: semantic.judgment
+    mode: shadow
+    root: {id: semantic-judgment, version: 8, layer: base}
+    packs:
+      - {id: semantic-document-query, version: 1, layer: pack}
+    system_token_budget: 32768
+    request_token_budget: 65536
+    reserved_output_tokens: 2048
+    promotion_evidence: []
+    provenance: {source: docs/roadmap/interfaces/cloud-resource-knowledge-structured-rag.md}
   - id: active.semantic-judgment
     version: 3
     capability_id: semantic.judgment

@@ -567,9 +567,11 @@ async def test_existing_model_call_flows_through_real_judgment_gate_and_dispatch
 ) -> None:
     requests: list[dict[str, Any]] = []
     prompt = "Judge the supplied meaning using the structured output contract."
+    from fdai.core.prompts.types import LayerRef, PromptLayer
+
     prompt_manifest = PromptReplayManifest(
         system_text_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
-        layer_manifest=(),
+        layer_manifest=(LayerRef("semantic-document-query", 1, PromptLayer.PACK, 16),),
         token_estimate=16,
         profile_id="synthetic.document-query",
         profile_version=1,
@@ -741,3 +743,20 @@ def test_legacy_frame_serialization_omits_query_even_when_explicitly_null() -> N
 
     assert proposal.model_dump_json() == golden
     assert proposal.model_copy(update={"document_query": None}).model_dump_json() == golden
+
+
+def test_query_schema_upgrade_requires_the_explicit_versioned_prompt_pack() -> None:
+    from fdai.core.prompts.types import LayerRef, PromptLayer
+    from fdai.delivery.azure.llm.semantic_judgment import _document_query_prompt_enabled
+
+    def manifest(identity: str, version: int) -> PromptReplayManifest:
+        return PromptReplayManifest(
+            system_text_sha256="a" * 64,
+            layer_manifest=(LayerRef(identity, version, PromptLayer.PACK, 16),),
+            token_estimate=16,
+        )
+
+    assert not _document_query_prompt_enabled(None)
+    assert not _document_query_prompt_enabled(manifest("semantic-judgment", 17))
+    assert not _document_query_prompt_enabled(manifest("semantic-document-query", 2))
+    assert _document_query_prompt_enabled(manifest("semantic-document-query", 1))
