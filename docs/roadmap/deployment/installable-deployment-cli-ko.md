@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 79f43000a4bfc432b374368dcf04e85fc806eeb9
+translation_source_sha: a0884293db85179db84d0f3272cfc1c444db5f81
 translation_revised: 2026-09-15
 ---
 
@@ -176,6 +176,7 @@ SKU·할당량, 구성·provider·계획·도구·상태 해시와 만료를 검
 이 두 변경만 허용합니다. 그룹이 없다고 가정하지 않고 ID로 독립 조회합니다. 새 검토·소스 CI와
 승인이 필요하며 앞선 승인은 후속 적용을 승인하지 않습니다. 추가 후속 연결, 가져오기, 교체와
 범위를 벗어난 변경은 거부합니다.
+후속 복구 회귀는 실행 중 다른 테스트가 Python 모듈 이름을 바꿔도 수집 시 확보한 검증 함수를 유지합니다.
 
 ### 복구한 호스트 등록
 

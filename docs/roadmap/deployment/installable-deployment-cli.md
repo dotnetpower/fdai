@@ -173,6 +173,7 @@ become bare GUIDs. The three observation roles, `ServicePrincipal` restriction a
 are unchanged. Only those two exact bootstrap source edits are allowed. The group is independently
 read by ID, not assumed absent. New review, source CI and approval are required; predecessor approval
 cannot authorize the successor. Further successor chains, imports, replacements and extra effects are rejected.
+Successor regressions retain collected helpers even when runtime tests replace Python module names.
 
 ### Recovered host enrollment
 
