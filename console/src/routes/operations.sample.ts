@@ -3,6 +3,7 @@ import {
   sampleDetectionReadiness,
   sampleOnboarding,
 } from "./operations.sample-readiness";
+import { sampleProcessResponse } from "./operations.sample-processes";
 
 const SAMPLE_AT = "2026-09-01T09:00:00Z";
 
@@ -19,17 +20,6 @@ export {
   sampleLiveObservations,
   sampleLiveEvents,
 } from "./operations.sample-events";
-
-const PROCESS = {
-  id: "sample-process-1",
-  workflow_ref: "incident-review",
-  workflow_version: "1",
-  status: "waiting",
-  current_step: "evidence",
-  target_resource_id: "sample-resource",
-  updated_at: SAMPLE_AT,
-  has_view: false,
-};
 
 const BACKGROUND_TASK = {
   task_id: "sample-task-1",
@@ -73,8 +63,7 @@ export function operationsSampleResponse(
     return sampleDetectionReadiness();
   }
   if (path === "/configuration-baselines") return sampleConfigurationBaselines();
-  if (path === "/views/process") return sampleProcessList();
-  if (path === "/views/process/sample-process-1/events") return sampleProcessJournal();
+  if (path === "/views/process" || path.startsWith("/views/process/")) return sampleProcessResponse(path);
   if (path === "/views/workflow-apps") return sampleWorkflowApps();
   if (path === "/scheduler-runs") {
     return sampleSchedulerRuns(params.get("task_id") ?? "inventory-reconciliation");
@@ -219,41 +208,6 @@ function sampleApprovals() {
     ],
     total: 1,
     detail_level: "full",
-  };
-}
-
-function sampleProcessList() {
-  return {
-    source: "synthetic-preview",
-    synthetic: true,
-    durable: false,
-    principal_scoped: true,
-    items: [PROCESS],
-  };
-}
-
-function sampleProcessJournal() {
-  return {
-    process: {
-      ...PROCESS,
-      started_at: "2026-09-01T08:50:00Z",
-      correlation_id: "sample-correlation-1",
-      revision: 3,
-    },
-    events: [
-      {
-        event_id: "sample-process-event-1",
-        kind: "step.completed",
-        recorded_at: "2026-09-01T08:55:00Z",
-        correlation_id: "sample-correlation-1",
-        causation_id: null,
-        step_id: "collect",
-        attempt: 1,
-        payload: { outcome: "sample evidence collected" },
-      },
-    ],
-    count: 1,
-    planning: null,
   };
 }
 
