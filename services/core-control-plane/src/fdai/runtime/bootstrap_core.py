@@ -463,35 +463,11 @@ async def build_core_runtime(
         state_store=state_store,
         environ=environment,
     )
-    vm_power_state_source = None
-    observation_source_client_id = environment.get("FDAI_OHL_SOURCE_MI_CLIENT_ID", "").strip()
-    if observation_source_client_id:
-        if resources.http_client is None:
-            raise RuntimeError("VM power-state observation requires an HTTP client")
-        core_client_id = environment.get("FDAI_MI_CLIENT_ID", "").strip()
-        if core_client_id and observation_source_client_id.casefold() == core_client_id.casefold():
-            raise RuntimeError(
-                "VM power-state source and Core observer identities MUST be distinct"
-            )
-        from fdai.delivery.azure.vm_power_state import (
-            AzureSubscriptionVmPowerStateSource,
-        )
-
-        observation_source_identity = _build_runtime_workload_identity(
-            resources.http_client,
-            client_id_env="FDAI_OHL_SOURCE_MI_CLIENT_ID",
-            require_client_id=True,
-        )
-        vm_power_state_source = AzureSubscriptionVmPowerStateSource(
-            identity=observation_source_identity,
-            http_client=resources.http_client,
-            subscription_id=str(container.config.azure.subscription_id),
-        )
     container = bind_executed_action_observation_from_env(
         container,
         state_store=state_store,
         environ=environment,
-        vm_power_state_source=vm_power_state_source,
+        http_client=resources.http_client,
     )
     container = bind_live_blast_probe_failure_streak(
         container,
@@ -741,9 +717,7 @@ async def build_core_runtime(
             build_mutation_dependency_readiness=_build_mutation_dependency_readiness,
             semantic_router_config_from_env=_semantic_router_config_from_env,
             assignment_workflow=(assignment_transport.workflow if assignment_transport else None),
-            effect_reconciliation_request_sink=(
-                effect_request_binding.producer if effect_request_binding is not None else None
-            ),
+            effect_request_sink=effect_request_binding.producer if effect_request_binding else None,
         )
     )
     human_access_reconciliation = bind_assignment_reconciliation(

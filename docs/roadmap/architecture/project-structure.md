@@ -89,7 +89,9 @@ Cloud-reference collection belongs to ingestion API, parsing/index activation to
   protected service handoff attaches the inventory-reader Managed Identity to Core only as the
   observation source, binds scale-out to the FinOps execution lineage and VM start to the
   Resilience execution lineage, and removes that exact extra identity when observation is
-  disabled. Core receives the seed through a Managed Identity-backed Key Vault reference. The separate
+  disabled. The source builder stays in `runtime/observation_evidence.py`, leaving
+  `runtime/bootstrap_core.py` as composition-only code. Core receives the seed through a Managed
+  Identity-backed Key Vault reference. The separate
   `fdai-operational-instance-certification` reads generation-fenced PostgreSQL aggregates and writes
   one private Blob receipt through a non-executor identity; all authority fields stay false.
 - **standing-authorization lifecycle has one writer**: authenticated Operator commands enter through

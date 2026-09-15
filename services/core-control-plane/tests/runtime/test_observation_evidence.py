@@ -4,16 +4,23 @@ from __future__ import annotations
 
 import base64
 
+import httpx
 import pytest
 from fdai.composition import default_container
 from fdai.delivery.azure.observation_context import build_azure_observation_context_pair
-from fdai.delivery.azure.vm_power_state import AzureVmPowerStateReading
+from fdai.delivery.azure.vm_power_state import (
+    AzureSubscriptionVmPowerStateSource,
+    AzureVmPowerStateReading,
+)
 from fdai.delivery.executed_action_observation import (
     ActionRoutedExecutedActionObservationCollector,
 )
 from fdai.delivery.reconciliation import IndependentObservationContextVerifier
 from fdai.delivery.reconciliation_artifacts import StateStoreReconciliationArtifactResolver
-from fdai.runtime.observation_evidence import bind_executed_action_observation_from_env
+from fdai.runtime.observation_evidence import (
+    bind_executed_action_observation_from_env,
+    build_vm_power_state_source,
+)
 from fdai.shared.config import AppConfig
 from fdai.shared.providers.testing import InMemoryStateStore
 
@@ -64,6 +71,51 @@ class _VmPowerStateSource:
         target_revision: int,
     ) -> AzureVmPowerStateReading:
         raise AssertionError((resource_ref, target_revision))
+
+
+class _Identity:
+    async def get_token(self, audience: str):
+        raise AssertionError(audience)
+
+
+async def test_builds_vm_source_from_distinct_explicit_identity() -> None:
+    calls: list[tuple[str, bool]] = []
+
+    def identity_builder(
+        _http_client: httpx.AsyncClient,
+        *,
+        client_id_env: str,
+        require_client_id: bool,
+    ):
+        calls.append((client_id_env, require_client_id))
+        return _Identity()
+
+    async with httpx.AsyncClient() as client:
+        source = build_vm_power_state_source(
+            subscription_id="00000000-0000-0000-0000-000000000000",
+            environ={
+                "FDAI_MI_CLIENT_ID": "00000000-0000-0000-0000-000000000001",
+                "FDAI_OHL_SOURCE_MI_CLIENT_ID": "00000000-0000-0000-0000-000000000003",
+            },
+            http_client=client,
+            identity_builder=identity_builder,
+        )
+
+    assert isinstance(source, AzureSubscriptionVmPowerStateSource)
+    assert calls == [("FDAI_OHL_SOURCE_MI_CLIENT_ID", True)]
+
+
+def test_vm_source_rejects_core_identity_reuse() -> None:
+    with pytest.raises(RuntimeError, match="MUST be distinct"):
+        build_vm_power_state_source(
+            subscription_id="00000000-0000-0000-0000-000000000000",
+            environ={
+                "FDAI_MI_CLIENT_ID": "00000000-0000-0000-0000-000000000001",
+                "FDAI_OHL_SOURCE_MI_CLIENT_ID": "00000000-0000-0000-0000-000000000001",
+            },
+            http_client=None,
+            identity_builder=lambda *_args, **_kwargs: _Identity(),
+        )
 
 
 def test_absent_configuration_keeps_observation_unavailable() -> None:
@@ -151,7 +203,7 @@ def test_complete_configuration_binds_collector_verifier_and_artifacts(
     ]
 
 
-def test_complete_configuration_requires_vm_power_state_source(
+def test_complete_configuration_requires_vm_power_state_transport(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async def inventory_context(resource_ref: str):
@@ -163,7 +215,7 @@ def test_complete_configuration_requires_vm_power_state_source(
         lambda: inventory_context,
     )
 
-    with pytest.raises(RuntimeError, match="requires a VM power-state source"):
+    with pytest.raises(RuntimeError, match="requires an HTTP client"):
         bind_executed_action_observation_from_env(
             _container(),
             state_store=InMemoryStateStore(),

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 34794dcd47aabca23b865a1f55a77913f6555590
+translation_source_sha: a115481456accb3485717ecbdfbc095a393f695a
 translation_revised: 2026-09-15
 ---
 # 프로젝트 구조
@@ -85,8 +85,9 @@ checkpoint부터 재개합니다.
   신원 계보에 서명합니다. `runtime/observation_evidence.py`는 완전한 배포 구성 하나에만 검증기와
   ActionType별 Azure 수집기를 연결합니다. 보호된 서비스 인계는 인벤토리 읽기 Managed Identity를
   관측 출처로만 Core에 연결하고, 규모 확장은 FinOps 실행 계보에, VM 시작은 Resilience 실행
-  계보에 결속하며, 관측을 비활성화하면 해당 추가 신원만 제거합니다. Core는 Managed Identity
-  기반 Key Vault 참조로 seed를 받습니다. 별도의
+  계보에 결속하며, 관측을 비활성화하면 해당 추가 신원만 제거합니다. 출처 생성기는
+  `runtime/observation_evidence.py`에 유지하여 `runtime/bootstrap_core.py`가 조립만 담당하게
+  합니다. Core는 Managed Identity 기반 Key Vault 참조로 seed를 받습니다. 별도의
   `fdai-operational-instance-certification` 전달 진입점은 세대 일치가 확인된 PostgreSQL 집계를 읽고
   실행기 신원이 아닌 Managed Identity로 내용 기반의 비공개 Blob 증적 하나를 씁니다. 모든 권한
   필드는 `false`로 고정되며 일부 구성이나 겹치는 신원 계보는 실패 시 차단됩니다.
