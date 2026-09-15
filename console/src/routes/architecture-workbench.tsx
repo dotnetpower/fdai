@@ -275,6 +275,11 @@ function ArchitectureCoverage({
         <span class="architecture-coverage-state">
           {graph.freshness}
           {graph.limit ? ` - ${t("coverage.limit", { count: graph.limit })}` : ""}
+          {(displayedGraph.presentation?.omitted_direct_relationships ?? 0) > 0
+            ? ` - ${t("coverage.omittedDirect", {
+                count: displayedGraph.presentation?.omitted_direct_relationships ?? 0,
+              })}`
+            : ""}
         </span>
       </summary>
       <div class="architecture-coverage-details" aria-label={t("coverage.title")}>

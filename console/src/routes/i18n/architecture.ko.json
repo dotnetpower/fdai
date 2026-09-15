@@ -130,6 +130,7 @@
     "partial": "반환된 변환 결과가 부분적임",
     "summary": "{returned}개 반환 - {displayed}개 표시",
     "limit": "상한 {count}개",
+    "omittedDirect": "지도 밖 직접 관계 {count}개",
     "displayedResources": "표시된 리소스",
     "returnedResources": "반환된 리소스",
     "displayedRelationships": "표시된 관계",

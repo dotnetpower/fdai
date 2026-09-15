@@ -130,6 +130,7 @@
     "partial": "Partial returned projection",
     "summary": "{returned} returned - {displayed} shown",
     "limit": "limit {count}",
+    "omittedDirect": "{count} direct links outside map",
     "displayedResources": "Displayed resources",
     "returnedResources": "Returned resources",
     "displayedRelationships": "Displayed relationships",

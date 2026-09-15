@@ -108,22 +108,33 @@ export function architectureScopeDetailGraph(
   const scopeCandidates = graph.resources.filter((resource) =>
     resource.id !== selectedId
     && isDescendantOf(resource.id, scopeRootId, parentById));
-  const ordered = typeDiverseResources([
-    ...scopeCandidates.filter((resource) => directIds.has(resource.id)),
-    ...scopeCandidates.filter((resource) => !directIds.has(resource.id)),
-  ]);
-  for (const resource of ordered.slice(0, ARCHITECTURE_SCOPE_DETAIL_LIMIT)) {
+  const directResources = typeDiverseResources(
+    scopeCandidates.filter((resource) => directIds.has(resource.id)),
+  );
+  const selectedDirect = directResources.slice(0, ARCHITECTURE_SCOPE_DETAIL_LIMIT);
+  for (const resource of selectedDirect) {
     requiredIds.add(resource.id);
     addAncestors(resource.id, parentById, byId, requiredIds);
   }
-  for (const directId of directIds) {
-    if (requiredIds.size >= ARCHITECTURE_SCOPE_DETAIL_LIMIT + 8) break;
-    if (!byId.has(directId)) continue;
-    requiredIds.add(directId);
-    addAncestors(directId, parentById, byId, requiredIds);
+  const fillerLimit = Math.max(0, ARCHITECTURE_SCOPE_DETAIL_LIMIT - selectedDirect.length);
+  const fillers = typeDiverseResources(
+    scopeCandidates.filter((resource) => !directIds.has(resource.id)),
+  ).slice(0, fillerLimit);
+  for (const resource of fillers) {
+    requiredIds.add(resource.id);
+    addAncestors(resource.id, parentById, byId, requiredIds);
   }
+  const selectedScopeIds = new Set([...selectedDirect, ...fillers].map((resource) => resource.id));
   return {
     ...graph,
+    presentation: {
+      omitted_resources: scopeCandidates.filter((resource) =>
+        !selectedScopeIds.has(resource.id)).length,
+      omitted_direct_relationships: Math.max(
+        0,
+        directResources.length - selectedDirect.length,
+      ),
+    },
     resources: graph.resources.filter((resource) => requiredIds.has(resource.id)),
     links: graph.links.filter((link) =>
       requiredIds.has(link.source) && requiredIds.has(link.target)),

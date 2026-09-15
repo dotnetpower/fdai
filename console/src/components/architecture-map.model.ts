@@ -91,6 +91,10 @@ export interface InventoryGraphResponse {
   };
   readonly active_view?: string;
   readonly views?: readonly ArchitectureView[];
+  readonly presentation?: {
+    readonly omitted_resources: number;
+    readonly omitted_direct_relationships: number;
+  };
 }
 
 export type ArchitectureLayer =

@@ -634,6 +634,9 @@ before assigning compact card geometry.
 Resource focus retains its reported ancestor boundaries and direct relationships, then fills the
 smallest containing scope with at most 36 type-diverse returned records. Selection never expands
 the workbench back to the full raw page.
+Direct children and relationship endpoints consume the 36-record focus budget before unrelated
+scope filler. If direct context alone exceeds that budget, coverage names the omitted direct-link
+count while the Inspector retains the complete returned direct relationship list.
 The Inspector resolves its parent boundary through the same reported containment precedence as the
 graph, so a VNet-contained Subnet does not fall back to a less specific Resource Group merely
 because its provider parent field is broader.

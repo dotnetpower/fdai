@@ -203,4 +203,68 @@ describe("geometry-less Architecture inventory", () => {
       .toBe(focusedNodes.length);
     expect(architectureTopologyUnplacedIds(focused.resources)).toEqual([]);
   });
+
+  it("reserves direct relationship endpoints before type-diverse filler", () => {
+    const direct = Array.from({ length: 20 }, (_, index) => ({
+      id: `direct-${index}`,
+      type: "app-service",
+      name: `Direct ${index.toString().padStart(2, "0")}`,
+      status: "healthy",
+      parent_id: "group-a",
+    }));
+    const unrelated = Array.from({ length: 60 }, (_, index) => ({
+      id: `unrelated-${index}`,
+      type: "app-service",
+      name: `A unrelated ${index.toString().padStart(2, "0")}`,
+      status: "healthy",
+      parent_id: "group-a",
+    }));
+    const detail = architectureScopeDetailGraph({
+      ...RAW_GRAPH,
+      resources: [
+        RAW_GRAPH.resources[0]!,
+        RAW_GRAPH.resources[1]!,
+        { id: "selected", type: "compute.vm", name: "Selected", status: "healthy", parent_id: "group-a" },
+        ...unrelated,
+        ...direct,
+      ],
+      links: direct.map((resource) => ({
+        source: "selected",
+        target: resource.id,
+        type: "depends_on" as const,
+      })),
+    }, "selected");
+    const ids = new Set(detail.resources.map((resource) => resource.id));
+
+    expect(direct.every((resource) => ids.has(resource.id))).toBe(true);
+    expect(detail.presentation?.omitted_direct_relationships).toBe(0);
+  });
+
+  it("reports direct relationships omitted beyond the focus bound", () => {
+    const direct = Array.from({ length: 50 }, (_, index) => ({
+      id: `direct-${index}`,
+      type: "app-service",
+      name: `Direct ${index.toString().padStart(2, "0")}`,
+      status: "healthy",
+      parent_id: "group-a",
+    }));
+    const detail = architectureScopeDetailGraph({
+      ...RAW_GRAPH,
+      resources: [
+        RAW_GRAPH.resources[0]!,
+        RAW_GRAPH.resources[1]!,
+        { id: "selected", type: "compute.vm", name: "Selected", status: "healthy", parent_id: "group-a" },
+        ...direct,
+      ],
+      links: direct.map((resource) => ({
+        source: "selected",
+        target: resource.id,
+        type: "depends_on" as const,
+      })),
+    }, "selected");
+
+    expect(detail.resources.filter((resource) => resource.id.startsWith("direct-")))
+      .toHaveLength(ARCHITECTURE_SCOPE_DETAIL_LIMIT);
+    expect(detail.presentation?.omitted_direct_relationships).toBe(14);
+  });
 });
