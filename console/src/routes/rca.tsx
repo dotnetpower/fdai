@@ -34,13 +34,19 @@ export function rcaCorrelationHref(correlationId: string): string {
 }
 
 export function RcaRoute({ client }: Props) {
-  const [correlationId, setCorrelationId] = useState(() => correlationFromLocation());
+  const [selectedCorrelationId, setSelectedCorrelationId] = useState(
+    () => correlationFromLocation(),
+  );
+  const [draftCorrelationId, setDraftCorrelationId] = useState(
+    () => correlationFromLocation(),
+  );
   const [lookupOpen, setLookupOpen] = useState(() => !correlationFromLocation());
   const [state, setState] = useState<AsyncState<RcaView>>({ status: "idle" });
   const requestGeneration = useRef(0);
   const lookupInput = useRef<HTMLInputElement>(null);
+  const lookupToggle = useRef<HTMLButtonElement>(null);
 
-  async function fetchRca(id: string = correlationId): Promise<void> {
+  async function fetchRca(id: string): Promise<void> {
     if (!id) return;
     const generation = requestGeneration.current + 1;
     requestGeneration.current = generation;
@@ -63,12 +69,14 @@ export function RcaRoute({ client }: Props) {
       const deepLinked = correlationFromLocation();
       if (!deepLinked) {
         requestGeneration.current += 1;
-        setCorrelationId("");
+        setSelectedCorrelationId("");
+        setDraftCorrelationId("");
         setLookupOpen(true);
         setState({ status: "idle" });
         return;
       }
-      setCorrelationId(deepLinked);
+      setSelectedCorrelationId(deepLinked);
+      setDraftCorrelationId(deepLinked);
       setLookupOpen(false);
       void fetchRca(deepLinked);
     };
@@ -83,20 +91,23 @@ export function RcaRoute({ client }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!consumeLookupFocusState()) return;
+    window.requestAnimationFrame(() => lookupToggle.current?.focus());
+  }, []);
+
   const loadedCorrelation = state.status === "ready"
     ? state.data.correlation_id
-    : correlationId;
+    : selectedCorrelationId;
   const hasCorrelation = Boolean(loadedCorrelation.trim());
 
   function toggleLookup(): void {
     if (lookupOpen) {
-      const retainedCorrelation = state.status === "ready"
-        ? state.data.correlation_id
-        : correlationFromLocation();
-      setCorrelationId(retainedCorrelation);
+      setDraftCorrelationId(loadedCorrelation);
       setLookupOpen(false);
       return;
     }
+    setDraftCorrelationId(loadedCorrelation);
     setLookupOpen(true);
     window.requestAnimationFrame(() => lookupInput.current?.focus());
   }
@@ -116,6 +127,7 @@ export function RcaRoute({ client }: Props) {
               <small>{lookupStatusLabel(state)}</small>
             </div>
             <button
+              ref={lookupToggle}
               type="button"
               class="btn"
               aria-controls="rca-lookup-form"
@@ -132,8 +144,10 @@ export function RcaRoute({ client }: Props) {
           hidden={hasCorrelation && !lookupOpen}
           onSubmit={(event) => {
             event.preventDefault();
-            const normalized = correlationId.trim();
-            if (normalized) navigate(rcaCorrelationHref(normalized));
+            const normalized = draftCorrelationId.trim();
+            if (normalized) {
+              navigate(rcaCorrelationHref(normalized), false, { fdaiRcaLookupFocus: true });
+            }
           }}
         >
           <label class="rca-lookup-field">
@@ -141,16 +155,18 @@ export function RcaRoute({ client }: Props) {
             <input
               ref={lookupInput}
               type="text"
-              value={correlationId}
+              value={draftCorrelationId}
               aria-describedby="rca-lookup-help"
-              onInput={(event) => setCorrelationId((event.target as HTMLInputElement).value)}
+              onInput={(event) => setDraftCorrelationId(
+                (event.target as HTMLInputElement).value,
+              )}
               required
             />
           </label>
           <button
             type="submit"
             class="btn primary"
-            disabled={state.status === "loading" || !correlationId.trim()}
+            disabled={state.status === "loading" || !draftCorrelationId.trim()}
           >
             {t("rca.fetch")}
           </button>
@@ -167,6 +183,26 @@ export function RcaRoute({ client }: Props) {
       </AsyncBoundary>
     </div>
   );
+}
+
+function consumeLookupFocusState(): boolean {
+  const state: unknown = window.history.state;
+  if (
+    state === null
+    || typeof state !== "object"
+    || !("fdaiRcaLookupFocus" in state)
+    || state.fdaiRcaLookupFocus !== true
+  ) {
+    return false;
+  }
+  const nextState = { ...state };
+  delete nextState.fdaiRcaLookupFocus;
+  window.history.replaceState(
+    nextState,
+    "",
+    `${window.location.pathname}${window.location.search}${window.location.hash}`,
+  );
+  return true;
 }
 
 function lookupStatusLabel(state: AsyncState<RcaView>): string {

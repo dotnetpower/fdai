@@ -437,8 +437,9 @@ and `shadow` values as one status. Notification-delivery escalation takes preced
 incident and names the required follow-up. Audit and technical activity remain available when
 records exist. Root-cause analysis and its dossier become links only after an `rca.*` record exists;
 otherwise the rows state that no evidence-backed hypothesis has been recorded. The RCA route also
-hides its generic audit fallback response when no hypothesis exists, so `incident.members` is never
-presented as a response plan or cause. The Trace route leads with an interpretation summary that
+hides its generic audit fallback response when no hypothesis exists or the primary hypothesis
+abstains, so `incident.members` is never presented as a response plan or cause. The Trace route
+leads with an interpretation summary that
 separates notification escalation, response-decision evidence, RCA evidence, and named pipeline
 stages before showing the raw ordered table; generic correlated activity remains technical history,
 not a cause claim.

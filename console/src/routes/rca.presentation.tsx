@@ -21,6 +21,7 @@ import { rcaText } from "./rca.i18n";
 export function RcaBody({ data }: { readonly data: RcaView }) {
   const recorded = hasRecordedRca(data);
   const primaryHypothesis = data.hypotheses[0] ?? null;
+  const linkedResponse = linkedRcaResponse(data);
   usePublishViewContext(
     () => ({
       routeId: "rca",
@@ -41,14 +42,14 @@ export function RcaBody({ data }: { readonly data: RcaView }) {
       facts: [
         { key: "correlation_id", value: data.correlation_id, group: "rca" },
         { key: "hypothesis_count", value: data.hypotheses.length, group: "rca" },
-        { key: "verdict", value: data.response?.verdict ?? null, group: "rca" },
+        { key: "verdict", value: linkedResponse?.verdict ?? null, group: "rca" },
       ],
       records: {
         hypotheses: data.hypotheses.map((hypothesis) => ({ ...hypothesis })),
-        response: data.response ? [{ ...data.response }] : [],
+        response: linkedResponse ? [{ ...linkedResponse }] : [],
       },
     }),
-    [data],
+    [data, linkedResponse],
   );
 
   return (
@@ -104,7 +105,7 @@ export function RcaBody({ data }: { readonly data: RcaView }) {
                 key={hypothesis.seq}
                 hypothesis={hypothesis}
                 correlationId={data.correlation_id}
-                response={data.response}
+                response={linkedResponse}
                 primary={index === 0}
               />
             ))}
@@ -122,6 +123,13 @@ export function RcaBody({ data }: { readonly data: RcaView }) {
 
 export function hasRecordedRca(data: RcaView): boolean {
   return data.hypotheses.length > 0;
+}
+
+export function linkedRcaResponse(data: RcaView): RcaResponsePlan | null {
+  const primaryHypothesis = data.hypotheses[0];
+  if (!primaryHypothesis?.grounded) return null;
+  if (data.response?.action_kind === "incident.members") return null;
+  return data.response;
 }
 
 function HypothesisCard({

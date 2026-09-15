@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: c32ff97cfc7177392b4f3dbe453444a93b0f959e
+translation_source_sha: b51f3ab88abb4288902d20febd75fcc26a9042e4
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -438,10 +438,11 @@ Bragi global 안전성 프롬프트 뒤에서 서버가 소유한 charter를 받
 notification-delivery 에스컬레이션이 있으면 이를 우선 표시하고 필요한 후속 작업을 설명합니다. 기록이
 있으면 감사 및 technical 활동을 사용할 수 있습니다. Root-cause analysis와 dossier는 `rca.*`
 기록이 생긴 뒤에만 링크가 되며, 그 전에는 근거가 있는 가설이 기록되지 않았다고 표시합니다. RCA
-경로도 가설이 없으면 범용 감사 대체 경로 응답을 숨겨 `incident.members`를 응답 계획
-또는 cause로 표시하지 않습니다. Trace 경로는 raw ordered 표보다 먼저 notification 에스컬레이션,
-response-decision 근거, RCA 근거 및 named 파이프라인 단계를 분리한 interpretation 요약을
-표시합니다. 범용 correlated 활동은 cause 점유가 아니라 technical 이력으로 유지합니다.
+경로도 가설이 없거나 주요 가설이 판단을 보류하면 범용 감사 대체 경로 응답을 숨겨
+`incident.members`를 응답 계획 또는 cause로 표시하지 않습니다. Trace 경로는 raw ordered
+표보다 먼저 notification 에스컬레이션, response-decision 근거, RCA 근거 및 named 파이프라인
+단계를 분리한 interpretation 요약을 표시합니다. 범용 correlated 활동은 cause 점유가 아니라
+technical 이력으로 유지합니다.
 
 인용 근거가 있는 가설이 존재하면 RCA 경로는 상관관계 편집기를 접고 주요 가설과 라벨이 있는
 신뢰도, 인과 체인, 인용 대상 링크, 연결된 대응 계획 사실 순서로 검토 화면을 표시합니다.

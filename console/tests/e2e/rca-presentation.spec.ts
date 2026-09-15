@@ -89,7 +89,14 @@ const abstainedView = {
     causal_chain: null,
     mode: "shadow",
   }],
-  response: null,
+  response: {
+    verdict: "unknown",
+    decision: null,
+    action_kind: "incident.members",
+    mode: "shadow",
+    rollback_reference: null,
+    recorded_at: "2026-07-16T09:50:31Z",
+  },
 };
 
 function json(route: Route, payload: unknown, status = 200): Promise<void> {
@@ -176,6 +183,9 @@ test("matches the RCA design hierarchy and keeps correlation lookup recoverable"
   await page.getByRole("button", { name: "Change correlation" }).click();
   const input = page.getByRole("textbox", { name: "Correlation id" });
   await expect(input).toBeFocused();
+  await input.fill("");
+  await expect(page.locator(".rca-lookup-summary")).toContainText(groundedCorrelation);
+  await expect(page.getByRole("button", { name: "Cancel change" })).toBeVisible();
   await input.fill("inc-unsubmitted");
   await expect(page.locator(".rca-hypothesis-hero")).toBeVisible();
   await page.getByRole("button", { name: "Cancel change" }).click();
@@ -186,6 +196,15 @@ test("matches the RCA design hierarchy and keeps correlation lookup recoverable"
     path: testInfo.outputPath("rca-desktop-1440x900.png"),
     fullPage: true,
   });
+
+  await page.getByRole("button", { name: "Change correlation" }).click();
+  await input.fill("inc-abstained");
+  await input.press("Enter");
+  await expect(page).toHaveURL(/correlation=inc-abstained/);
+  await expect(page.getByRole("button", { name: "Change correlation" })).toBeFocused();
+  await expect(page.getByRole("heading", {
+    name: "Insufficient grounding - no root cause presented",
+  })).toBeVisible();
 
   await page.evaluate(() => localStorage.setItem("fdai:console:theme", "dark"));
   await page.reload();
@@ -260,6 +279,7 @@ test("keeps abstained, empty, and failed RCA states distinct", async ({ page }, 
   await expect(page.locator(".rca-confidence.is-unavailable")).toBeVisible();
   await expect(page.getByText("No citations - insufficient evidence.")).toBeVisible();
   await expect(page.getByText("No linked response action has been recorded")).toBeVisible();
+  await expect(page.getByText("incident.members", { exact: true })).toHaveCount(0);
 
   await page.goto("/root-cause-analysis?correlation=inc-empty");
   await expect(page.getByRole("heading", {
