@@ -5,6 +5,7 @@ import {
   ARCHITECTURE_TOPOLOGY_ROW_PITCH,
   architectureTopologyNodeDimensions,
 } from "./architecture-topology-dimensions";
+import { architecturePresentationParentById } from "./architecture-landscape-layout";
 
 /** Packs overlapping targets and expands nested regions before final clamping. */
 export function normalizeArchitectureTopologyContainment(
@@ -17,29 +18,7 @@ export function architectureVisualParentById(
   graph: Pick<InventoryGraphResponse, "links" | "resources">,
   byId: ReadonlyMap<string, InventoryResource>,
 ): ReadonlyMap<string, string> {
-  const containsParents = new Map<string, string>();
-  const containmentPriority = (resourceId: string): number => {
-    const type = byId.get(resourceId)?.type;
-    if (type === "subnet" || type === "network.subnet") return 4;
-    if (type === "virtual-network" || type === "network.vnet") return 3;
-    if (type === "resource-group") return 2;
-    if (type === "subscription") return 1;
-    return 0;
-  };
-  for (const link of graph.links) {
-    const source = byId.get(link.source);
-    if (link.type !== "contains" || !source || !isTopologyRegion(source)) continue;
-    const current = containsParents.get(link.target);
-    if (!current || containmentPriority(link.source) > containmentPriority(current)) {
-      containsParents.set(link.target, link.source);
-    }
-  }
-  return new Map(graph.resources.flatMap((resource) => {
-    const parentId = resource.network_plane_id
-      ?? containsParents.get(resource.id)
-      ?? resource.parent_id;
-    return parentId ? [[resource.id, parentId] as const] : [];
-  }));
+  return architecturePresentationParentById(graph, byId);
 }
 
 function packTopologyInteractionTargets(

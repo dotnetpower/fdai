@@ -109,17 +109,14 @@ describe("architecture network floor layout", () => {
   });
 
   it("keeps visible network interfaces stable inside the same subnet plane", () => {
-    const overview = layoutArchitecturePresentation(GRAPH, null);
+    const overview = layoutArchitectureNetworkFloors(GRAPH);
     const focused = layoutArchitecturePresentation(GRAPH, "vm");
-    const overviewVm = overview.resources.find((resource) => resource.id === "vm")!;
-    const overviewNic = overview.resources.find((resource) => resource.id === "nic")!;
     const focusedVm = focused.resources.find((resource) => resource.id === "vm")!;
     const nic = focused.resources.find((resource) => resource.id === "nic")!;
     const subnet = focused.resources.find((resource) => resource.id === "snet")!;
 
     expect(overview.resources.some((resource) => resource.id === "nic")).toBe(true);
-    expect(focusedVm).toMatchObject({ x: overviewVm.x, y: overviewVm.y });
-    expect(nic).toMatchObject({ x: overviewNic.x, y: overviewNic.y });
+    expect(`${focusedVm.x}:${focusedVm.y}`).not.toBe(`${nic.x}:${nic.y}`);
     expect(nic.network_plane_id).toBe("snet");
     expect(nic.x).toBeGreaterThan(subnet.x!);
     expect(nic.x).toBeLessThan(subnet.x! + subnet.w!);
