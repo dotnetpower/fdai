@@ -10,6 +10,8 @@ const html = readFileSync(join(uiRoot, "live.html"), "utf8");
 
 test("flow preview exposes twelve concurrent work slots", () => {
   assert.match(script, /var FLOW_POOL_SIZE = 12;/);
+  assert.match(script, /var SOURCE_READS = \[/);
+  assert.match(script, /sourceTiles = SOURCE_READS\.map/);
   assert.match(script, /for \(var slotIndex = 0; slotIndex < FLOW_POOL_SIZE; slotIndex\+\+\) spawn\(t\);\s*renderOperationalState\(t\);/);
   assert.match(stylesheet, /grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); grid-template-rows: repeat\(3, minmax\(0, 1fr\)\)/);
   assert.match(stylesheet, /\.cs-swarm \{[^}]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
@@ -34,7 +36,7 @@ test("live badges explain authority and mode in flow and queue", () => {
   assert.match(script, /data-live-term-tip/);
   assert.match(script, /queueBody\.contains\(document\.activeElement\)/);
   assert.match(script, /document\.addEventListener\("focusin"/);
-  assert.match(html, /<th>Tier \/ mode<\/th><th>Why<\/th>/);
+  assert.match(html, /<th>Type \/ state<\/th><th>Result \/ why<\/th>/);
   assert.doesNotMatch(html, /Priority basis/);
 });
 
@@ -65,4 +67,15 @@ test("live controls use unique element ids", () => {
   const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
 
   assert.deepEqual(Array.from(new Set(duplicates)), []);
+});
+
+test("Live mock keeps authority and source activity explicit", () => {
+  assert.match(html, /class="cs-live-authority is-sample"/);
+  assert.match(html, /Authoritative values are not populated in this synthetic preview/);
+  assert.match(html, /data-live-filter="control"/);
+  assert.match(html, /data-live-filter="source"/);
+  assert.match(html, /id="detail-source-content"/);
+  assert.match(script, /function buildSourceTile/);
+  assert.match(script, /function openSourceDetail/);
+  assert.match(script, /3,205 evidence items/);
 });

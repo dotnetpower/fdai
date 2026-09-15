@@ -92,6 +92,7 @@ an all-Low review claim, or operational adoption.
 
 | 2026-09-15 | implemented | Integrated main `97a72cc1d` after the six CI repair batches, preserving handover UI fixes, source deployment features, the workload-identity adapter contract and both sides' append-only history. Reconciled the task environment against the new frozen workspace lock. | `current change`; 104 owning credential/transport/composition/alert/package/test-ownership checks and Console types passed; changed-document size passed against `97a72cc1d`. The new exact-release semantic artifacts remain source-only and no cloud operation ran. | Publish the repaired head and require fresh exact-head CI before protected merge. |
 | 2026-09-15 | implemented | Round 31 resolved the merged ontology-query context's 4507-line overflow against the unchanged 4500-line budget. Replaced a duplicate semantic-retrieval implementation overview with a concise ledger link; retained normative contracts, full historical row content, source receipts and open live-evidence requirements. | `current change`; design-route budget, changed-document size, append-only implementation history and Korean translation-quality checks passed. This documentation-only repair reuses unchanged source tests; no route or budget was weakened. | Publish the repaired head and require exact-head CI. The first attempt to push `3e3b8ef3f` was stopped by the local hook; remote PR head remained `4a9cb4647`. |
+| 2026-09-15 | implemented | Confirmed that repaired head `46897130f` passed all required CI jobs. The bounded coordinator then locally integrated and published `473e8fddd` before stopping on a temporarily stale PR-head projection. Current Git/local/PR identities matched; integrated the later CI-green main `77e408882` and resolved only the Korean source-SHA conflict, preserving both documents' content and the upstream integrity signature. | `current change`; [PR CI 34937981601, attempt 1](https://github.com/dotnetpower/fdai/actions/runs/34937981601/attempts/1) and [main CI 34938224919](https://github.com/dotnetpower/fdai/actions/runs/34938224919) succeeded. The merged Console typecheck and 43 focused layout/browser-notification/service-worker cases passed; changed-document size and translation quality passed. Alert Core and callback sources are unchanged. | Publish this local integration and require exact-head protected merge evidence. Parent #1027 retains operational and authenticated-accessibility exits; no live provider or deployment operation ran. |
 
 ### Remaining work
 
@@ -101,10 +102,11 @@ planning and pipeline regression slice passed 40 checks. Temporal replay measure
 branch coverage; changed source strict typing passed. The exact admitted reader now consumes real
 frozen source cohorts when supplied, instead of requiring an externally calculated comparison.
 
-Current integration base: `97a72cc1d`. Assignment/handover, Teams lifecycle and ActionRun authority
+Current integration base: `77e408882`. Assignment/handover, Teams lifecycle and ActionRun authority
 coexist with alert handlers and their workers, topics, readiness and 211-route manifest. Alert effects
 retain the shared no-effect completion boundary; generic PR/health evidence cannot verify delivery
-or recall. The latest integration checks passed 104 cases, two-source strict typing and Console types.
+or recall. The prior integration passed 104 cases and two-source strict typing; the latest
+Console integration passed 43 focused cases and Console types without changing alert Core sources.
 
 - [x] **Coverage gate:** The final owned feature measurement reached lines 96.61%, branches 90.67%
   and combined 95.06% using `--cov=fdai.core.detection.alert_noise --cov-branch`.
