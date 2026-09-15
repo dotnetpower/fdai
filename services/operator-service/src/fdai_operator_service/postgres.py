@@ -16,6 +16,7 @@ from fdai_service_contracts import (
     AgentActivityQuery,
     AuditQuery,
     BrowserEvidenceQuery,
+    BrowserEvidenceWorkspaceQuery,
     HilQueueProjection,
     HilQueueQuery,
     IncidentAttentionProjection,
@@ -29,7 +30,14 @@ from fdai_service_contracts import (
 from psycopg.rows import dict_row
 
 from fdai_operator_service.activity_projection import durable_activity_projection
+from fdai_operator_service.browser_evidence_cursor import (
+    decode_browser_evidence_cursor,
+    encode_browser_evidence_cursor,
+)
 from fdai_operator_service.browser_evidence_projection import browser_evidence_projection
+from fdai_operator_service.browser_evidence_workspace_projection import (
+    browser_evidence_workspace_projection,
+)
 from fdai_operator_service.incident_projection import incident_outcome_metrics, incident_summary
 from fdai_operator_service.postgres_sql import (
     AGENT_INVENTORY_ACTIVITY_SQL,
@@ -39,6 +47,7 @@ from fdai_operator_service.postgres_sql import (
     AUDIT_PAGE_SQL,
     AUDIT_TRACE_SQL,
     BROWSER_EVIDENCE_PAGE_SQL,
+    BROWSER_EVIDENCE_WORKSPACE_SQL,
     HIL_COUNT_SQL,
     HIL_PAGE_SQL,
     INCIDENT_CURRENT_PAGE_SQL,
@@ -152,6 +161,54 @@ class PostgresOperatorReadModel:
         except (TypeError, ValueError) as exc:
             raise ProjectionUnavailableError(
                 "durable browser evidence metadata is malformed"
+            ) from exc
+        return JsonProjection(payload)
+
+    async def list_browser_evidence_workspace(
+        self, query: BrowserEvidenceWorkspaceQuery
+    ) -> JsonProjection:
+        """Read one drift-aware payload-free workspace observation."""
+
+        cursor = decode_browser_evidence_cursor(
+            query.cursor,
+            query=query,
+            now=datetime.now(UTC),
+        )
+        rows = await self._fetch_all(
+            BROWSER_EVIDENCE_WORKSPACE_SQL,
+            {
+                "artifact_id": query.artifact_id,
+                "host": query.host,
+                "host_scope": query.host_scope,
+                "policy_id": query.policy_id,
+                "policy_version": query.policy_version,
+                "captured_from": query.captured_from,
+                "captured_before": query.captured_before,
+                "retention": query.retention,
+                "finding": query.finding,
+                "custody_ref": query.custody_ref,
+                "sort": query.sort,
+                "cursor_attention_rank": None if cursor is None else cursor[0],
+                "cursor_captured_at": None if cursor is None else cursor[1],
+                "cursor_artifact_id": None if cursor is None else cursor[2],
+                "fetch": query.limit + 1,
+            },
+        )
+        item_rows = [row for row in rows if row.get("artifact_id") is not None]
+        try:
+            next_cursor = (
+                encode_browser_evidence_cursor(item_rows[query.limit - 1], query=query)
+                if len(item_rows) > query.limit
+                else None
+            )
+            payload = browser_evidence_workspace_projection(
+                rows,
+                limit=query.limit,
+                next_cursor=next_cursor,
+            )
+        except (TypeError, ValueError) as exc:
+            raise ProjectionUnavailableError(
+                "durable Browser evidence workspace metadata is malformed"
             ) from exc
         return JsonProjection(payload)
 

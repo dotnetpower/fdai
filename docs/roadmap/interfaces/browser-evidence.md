@@ -10,7 +10,9 @@ browser-control, approval, or execution surface.
 > **Current implementation boundary:** Provider-neutral contracts, URL and DNS policy, redaction,
 > in-memory custody, an optional Playwright delivery adapter, typed tool and workflow surfaces, and
 > shadow comparison, a Reader-scoped payload-free Operator metadata route, and its Console inspection
-> panel exist. The isolated browser image and governed live dashboard evidence remain open.
+> panel exist. A versioned investigation workspace adds bounded filters, drift-aware pagination,
+> safe withheld aggregates, and exact custody-audit navigation without widening payload access.
+> The isolated browser image and governed live dashboard evidence remain open.
 
 ## Design at a glance
 
@@ -114,11 +116,51 @@ uses a separate `WorkflowEvidenceDispatcher`; it does not resolve an `ActionType
 the action dispatcher, risk gate, or executor. Unavailable or abstained evidence fails that workflow
 step closed.
 
-The Console Evidence view is inspection-only. It shows source host, policy, capture and
-expiry, redaction count, prompt-injection scan status, isolation status, hashes, and custody
-reference. Its Command Deck snapshot includes only the metadata and counts already visible on the
-screen. The API omits screenshot, visible text, and snapshot payloads, and the view exposes no
-capture, promotion, approval, or execution controls.
+The Console Evidence view is inspection-only. It shows source host, policy, capture and expiry,
+redaction count, prompt-injection scan status, isolation admission, named digest coverage, browser
+runtime, immutable artifact identity, legal-hold metadata, and custody reference. Its Command Deck
+snapshot includes only the metadata and counts already visible on the screen. The API omits
+screenshot, visible text, accessibility snapshot, selector, redaction-entry, prompt-injection-text,
+and isolation-receipt payloads, and the view exposes no capture, promotion, approval, or execution
+controls.
+
+### Inspection workspace contract
+
+`GET /browser-evidence` retains the original unversioned bounded metadata envelope for deployment
+compatibility. `GET /browser-evidence/snapshot` serves the `2.0.0` workspace contract. Cached older
+Console assets can therefore keep reading v1 while the new Console requires v2 and renders a typed
+unavailable state when that route is absent.
+
+One v2 response is one PostgreSQL statement observation. It reports `observed_at`,
+`source_observed_at`, `loaded_count`, `matching_admitted_count`, `snapshot_admitted_count`,
+`snapshot_withheld_count`, fixed non-identifying withheld reasons, and page continuation. Cursor
+pages bind the normalized filter and sort contract but declare `consistency=drift_aware`: cleanup
+can delete an expired row and a monotonic legal hold can change after a response. The API never
+calls those pages an exact cross-request snapshot.
+
+The Operator migration exposes two new read-only database views:
+
+- **Admitted metadata**: A security-barrier view returns scalar metadata and canonical hosts only
+  for records with valid bounded fields, printable-ASCII machine identifiers, canonical hosts whose
+  dot-separated segments are at most 63 characters, `untrusted=true`, and the exact verified
+  isolation shape.
+- **Snapshot-wide withholding**: A one-row aggregate returns non-overlapping
+  `isolation_unverified`, `trust_invalid`, and `invalid_metadata` counts. It exposes no artifact,
+  host, policy, custody, time, or payload field and accepts no caller-supplied filter.
+
+Filters are exact and bounded: artifact SHA, lowercase IDNA host plus requested/final/either scope,
+policy id and optional version, inclusive capture start, exclusive capture end, retention state,
+finding presence, and custody reference. Default attention order places security findings,
+`expired_pending_purge`, expiring, and held records before ordinary retained records; newest order
+is also available. Retention precedence is held first, then expired when `expires_at` is at or
+before the statement observation, then expiring within seven days, then retained. Because cleanup
+deletes the complete artifact row, the display term is `expired_pending_purge`; the Console does not
+claim that historical expired metadata survives cleanup.
+
+A custody link is exact only when one audit row matches the canonical custody UUID, actor,
+`browser_evidence.capture` action, content digest, untrusted state, and no-action-authority marker.
+Ambiguous, missing, malformed, or JavaScript-unsafe audit sequences remain labeled unavailable.
+Trace navigation appears only when that exact audit match also supplies a non-empty correlation id.
 
 ## Shadow measurement and promotion
 
@@ -143,10 +185,11 @@ artifact, inspect egress and DNS telemetry, and keep the capability in shadow mo
 a wider policy to make the capture pass.
 
 Retention is policy-owned. The store contract includes bounded expiry cleanup, and the in-memory
-implementation exercises that lifecycle. The PostgreSQL adapter now claims and deletes bounded
-expired rows with row locking while preserving append-only custody audit. A separate cleanup job
-remains open. Legal hold is monotonic in the store and belongs in the deployment's governed
-retention process, not a Console control.
+implementation exercises that lifecycle. The PostgreSQL adapter claims and deletes bounded expired
+rows with row locking while preserving append-only custody audit. The inspection workspace can show
+an expired row only while cleanup is pending; deletion removes that row from later drift-aware
+pages. Legal hold is monotonic in the store and belongs in the deployment's governed retention
+process, not a Console control.
 
 ## Verification
 
@@ -156,7 +199,10 @@ API minimization, secret and visual/text redaction, injection scanning, declared
 response, and screenshot bounds, auth-state forwarding, timeout/crash handling, hashes, custody,
 replay, human/API conflict, unavailable abstention, no executor credential, and workflow authority
 separation. Focused persistence tests cover durable decoding, replay, legal hold, and concurrent
-cleanup. Operator API projection and Console decoding tests remain open with those surfaces.
+cleanup. Operator checks cover v1 compatibility, v2 filter and cursor validation, database-view
+least privilege, withheld aggregation, retention classification, count reconciliation, and exact
+audit linking. Console checks cover strict decoding, master-detail interaction, data states,
+localization, keyboard operation, responsive layout, reduced motion, forced colors, and overflow.
 
 ## Implementation status
 

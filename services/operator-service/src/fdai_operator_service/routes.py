@@ -47,6 +47,9 @@ from fdai_operator_service.auth import (
     AuthorizationError,
     OperatorAuthenticator,
 )
+from fdai_operator_service.browser_evidence_filters import (
+    parse_browser_evidence_workspace_query,
+)
 from fdai_operator_service.contracts import ApplicationLifecycle, ReadinessProbe
 from fdai_operator_service.families.conversation import (
     CONVERSATION_ROUTE_MANIFEST,
@@ -140,6 +143,7 @@ MINIMAL_ROUTE_MANIFEST: Final = (
     RouteOwnership("GET", "/audit", "minimal"),
     RouteOwnership("GET", "/audit/{correlation_id}/trace", "minimal"),
     RouteOwnership("GET", "/browser-evidence", "minimal"),
+    RouteOwnership("GET", "/browser-evidence/snapshot", "minimal"),
     RouteOwnership("GET", "/agents/stream", "minimal"),
     RouteOwnership("GET", "/healthz", "minimal"),
     RouteOwnership("GET", "/hil-queue", "minimal"),
@@ -280,6 +284,17 @@ def build_operator_app(
         projection = await read_model.list_browser_evidence(
             BrowserEvidenceQuery(limit=_strict_limit(request))
         )
+        return JSONResponse(redact_projection(projection.to_dict()))
+
+    async def get_browser_evidence_workspace(request: Request) -> Response:
+        authorize(request)
+        try:
+            query = parse_browser_evidence_workspace_query(
+                tuple(request.query_params.multi_items())
+            )
+            projection = await read_model.list_browser_evidence_workspace(query)
+        except ValueError as exc:
+            raise _BadQueryError(str(exc)) from exc
         return JSONResponse(redact_projection(projection.to_dict()))
 
     async def get_kpi(request: Request) -> Response:
@@ -431,6 +446,12 @@ def build_operator_app(
             get_browser_evidence,
             methods=["GET"],
             name="get_browser_evidence",
+        ),
+        Route(
+            "/browser-evidence/snapshot",
+            get_browser_evidence_workspace,
+            methods=["GET"],
+            name="get_browser_evidence_workspace",
         ),
         make_live_stream_route(
             hub=agent_stream_hub,
