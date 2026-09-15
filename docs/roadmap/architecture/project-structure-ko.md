@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ed8a7aa9b80848bef095255afda4303cfd6ea81a
+translation_source_sha: 6572a0d992ade7ceed2a2c3bbc9703028434f310
 translation_revised: 2026-09-15
 ---
 # 프로젝트 구조
@@ -459,7 +459,7 @@ checkpoint부터 재개합니다.
 
 | 경계 | 인터페이스 (`shared/`) | 계약 | 기본 (상류) | 포크 오버라이드 예시 |
 |------|-----------------------|-----|-------------|---------------------|
-| 예측·테스트 맥락과 파생 사례 수명 주기 | `ForecastContextProvider`; `TestContextSource` (Core); `CaseHistoryDerivedDataStore` | 정확한 범위, 대상, 시각과 독립 검증 근거. 파생 정리가 끝나야 원본 삭제를 완료하며 실행 권한은 없음 | 이력 수집·조회, 의미 초안, 인증된 맥락 발신함, Var/Mimir 전이, Thor 실행 직전 검사, 승인된 Pattern 조회, T1 현재 출처 검사를 연결함. 연결 환경의 수집 범위와 후속 저장소 보존 검증은 별개임 | 거버넌스를 따르는 출처·검증 증적 공급자와 삭제를 보호하는 사례 저장 어댑터 |
+| 예측 및 테스트 맥락과 파생 사례 수명 주기 | `ForecastContextProvider`; `TestContextSource` (Core); `CaseHistoryDerivedDataStore` | 정확한 범위, 대상, 시각과 독립 검증 근거. 파생 정리가 끝나야 원본 삭제를 완료하며 실행 권한은 없음 | 정규화된 이력 수집, 의미 초안, 인증된 맥락 명령, Saga가 감사한 적용 결과, Thor 실행 직전 검사, 승인된 Pattern 조회, 실제 라이브러리 DSN을 쓰는 원본 삭제 보호형 T1 벡터 정리를 연결함. 독립 증적 발급, Operator 작업 화면, 다른 후속 사본 정리는 미완료임 | 거버넌스를 따르는 출처 및 검증 증적 공급자와 삭제를 보호하는 사례 저장 어댑터 |
 | 제한된 워커 계획 | `core/task_worker/planning_executor.py`의 `TaskWorkerPlanningProvider` | 전송 전에 토큰과 비용 한도를 전달하고 판단 보류에도 측정된 사용량을 반환합니다. 사용량을 측정하지 않는 프로바이더는 실행기 생성 시 거부합니다. | 미연결. #805의 운영 프로바이더와 런타임 구성이 여전히 필요합니다. | 전송 전 한도 적용과 실패 시 사용량 기록을 입증한 읽기 전용 프로바이더 주입 |
 | Event 버스 | `EventBus` (Kafka 프로듀서/컨슈머) | **CSP-중립성 계약** - [이벤트버스](csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜) | SASL/OAUTHBEARER (Entra 토큰 소스) 를 사용하는 librdkafka 기반 클라이언트 | AWS IAM SigV4 인증, GCP IAM 인증, Confluent SASL/PLAIN, 자체 호스팅 Kafka mTLS |
 | 런타임 | `RuntimeAdapter` (OCI + Knative 호환 매니페스트 렌더링) | **CSP-중립성 계약** - [런타임](csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트) | Container Apps IaC 렌더러 (Bicep/Terraform) | Cloud 실행 YAML, App 실행기 서비스, 어떤 K8s 위의 Knative 서비스 |

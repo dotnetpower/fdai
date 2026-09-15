@@ -152,7 +152,11 @@ class TestContextCommandHandler:
                 target_ref=claim.target_ref,
                 policy_revision=claim.policy_revision,
                 revision=claim.revision,
-                state="proposed" if request.operation == "propose" else "reviewed" if request.operation == "review" else "revoked",
+                state="proposed"
+                if request.operation == "propose"
+                else "reviewed"
+                if request.operation == "review"
+                else "revoked",
                 context_digest=claim.digest,
             ).model_dump(mode="json"),
             "context_digest": claim.digest,
