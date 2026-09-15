@@ -194,7 +194,7 @@ function ActiveTooltip({
             >
               {content}
             </span>,
-            document.body,
+            document.fullscreenElement ?? document.body,
           )
         : null}
     </span>

@@ -1,3 +1,4 @@
+import { createPortal } from "preact/compat";
 import type { AgentOperationalActivityMessage } from "../agent-operational-activity";
 import type { LiveConnectionStatus } from "../hooks/use-live-stream";
 import {
@@ -19,6 +20,7 @@ import {
   type LiveObservationLoadState,
 } from "./live.observations";
 import { LiveTile } from "./live.tiles";
+import { useLiveFullscreen } from "./live.fullscreen";
 
 export type LiveViewMode = "queue" | "flow";
 
@@ -212,6 +214,7 @@ export function LiveActivityWorkspace({
   readonly onSelectEvent: (eventId: string | null) => void;
   readonly onSelectObservation: (activityId: string | null) => void;
 }) {
+  const fullscreen = useLiveFullscreen();
   const counts = liveActivityCounts(tiles, observations, now);
   const orderedItems = composeLiveActivityItems(tiles, observations, filter, now);
   const selectedKey = selectedEventId !== null
@@ -238,8 +241,12 @@ export function LiveActivityWorkspace({
           : t(`live.status.${observationStreamStatus}`),
       });
 
-  return (
-    <section class="live-workspace" aria-labelledby="live-workspace-title">
+  const workspace = (
+    <section ref={fullscreen.workspaceRef}
+      class={`live-workspace${fullscreen.active ? " is-fullscreen" : ""}`}
+      role={fullscreen.active ? "dialog" : undefined}
+      aria-modal={fullscreen.active ? true : undefined}
+      aria-labelledby="live-workspace-title">
       <header class="live-work-header">
         <div class="live-work-identity">
           <span class="live-eyebrow">{t("live.work.eyebrow")}</span>
@@ -289,6 +296,18 @@ export function LiveActivityWorkspace({
               </button>
             ))}
           </div>
+          <Tooltip content={t(fullscreen.active ? "live.work.exitFullscreen" : "live.work.fullscreen")}>
+            <button ref={fullscreen.triggerRef} type="button" class="live-fullscreen-button"
+              aria-pressed={fullscreen.active}
+              aria-label={t(fullscreen.active ? "live.work.exitFullscreen" : "live.work.fullscreen")}
+              onClick={() => void fullscreen.toggle()}>
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d={fullscreen.active
+                  ? "M3 7H7V3M17 7H13V3M17 13H13V17M3 13H7V17"
+                  : "M7 3H3V7M13 3H17V7M17 13V17H13M7 17H3V13"} />
+              </svg>
+            </button>
+          </Tooltip>
         </div>
       </header>
 
@@ -309,6 +328,7 @@ export function LiveActivityWorkspace({
             <li key={entry.key} class="live-activity-entry">
               {entry.kind === "control" ? (
                 <LiveTile
+                  sample={sample}
                   tile={entry.tile}
                   filter="all"
                   selected={entry.tile.event_id === selectedEventId}
@@ -342,8 +362,13 @@ export function LiveActivityWorkspace({
 
       <footer class="live-work-footer">
         <span>{sourceWindow}</span>
+        {fullscreen.mode === "expanded" ? <span role="status">{t("live.work.fullscreenFallback")}</span> : null}
+        {fullscreen.error ? <span role="alert">{t("live.work.fullscreenError")}</span> : null}
         <a href={routeHref("agent-activity")}>{t("live.observations.openActivity")}</a>
       </footer>
     </section>
   );
+  return fullscreen.mode === "expanded"
+    ? createPortal(<div class="live live-fullscreen-host">{workspace}</div>, document.body)
+    : workspace;
 }

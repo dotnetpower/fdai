@@ -149,6 +149,19 @@ function stageEvent(
 }
 
 describe("Live cockpit model", () => {
+  test("replay resets bounded activity and selection while preserving the current filter", () => {
+    const populated = applyEvent(makeInitialState(3), stageEvent("route", { tier: "t0" }));
+    const reset = reducer({
+      ...populated,
+      filter: "deny",
+      selectedEventId: "evt-live-1",
+    }, { kind: "reset" });
+    expect(reset.tiles).toEqual([null, null, null]);
+    expect(reset.selectedEventId).toBeNull();
+    expect(reset.filter).toBe("deny");
+    expect(reset.ratePings).toHaveLength(0);
+  });
+
   test("retains correlation and execution mode across stage frames", () => {
     let state = makeInitialState();
     state = applyEvent(state, stageEvent("route", { tier: "t0" }));

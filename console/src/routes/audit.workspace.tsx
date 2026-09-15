@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import type { AuditItem } from "../types";
 import { StatusPill } from "../components/ui";
 import { currentRoute, routeHref } from "../router";
@@ -33,6 +33,10 @@ export function AuditWorkspace({ data, selection }: {
       ? items.find((item) => item.seq === chosen) ?? items[0]
       : undefined;
   const phase = selected ? auditRecordedPhase(selected) : null;
+  const detailRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (detailRef.current) detailRef.current.scrollTop = 0;
+  }, [selected?.seq]);
   const correlation = selected?.correlation_id ?? currentRoute().search.get("correlation");
   usePublishViewContext(
     () => ({
@@ -104,7 +108,8 @@ export function AuditWorkspace({ data, selection }: {
             </ul>
           ) : <p class="audit-empty" role="status">{t(data.items.length ? "evidence.audit.workspace.noMatches" : "evidence.audit.empty")}</p>}
         </aside>
-        <div id="audit-selected-record" class="audit-record-detail">
+        <div ref={detailRef} id="audit-selected-record" class="audit-record-detail" role="region"
+          aria-label={w("selected")} tabIndex={0}>
           {selected ? <AuditRecordDetail key={selected.seq} item={selected} /> : (
             <p class="audit-empty">{w("select")}</p>
           )}

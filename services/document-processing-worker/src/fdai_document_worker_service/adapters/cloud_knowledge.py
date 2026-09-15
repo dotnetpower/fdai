@@ -16,7 +16,11 @@ from fdai_service_contracts.cloud_knowledge import (
 )
 from fdai_service_contracts.cloud_knowledge_admission import validate_admitted_binding
 from fdai_service_contracts.cloud_knowledge_package import KnowledgeTrustPolicy
-from fdai_service_contracts.cloud_knowledge_release import parse_knowledge_manifest
+from fdai_service_contracts.cloud_knowledge_release import (
+    KnowledgeStructuredReleaseManifest,
+    parse_knowledge_manifest,
+)
+from fdai_service_contracts.cloud_knowledge_structure import structured_excerpts
 
 
 class CloudReferenceGuard:
@@ -65,6 +69,22 @@ def cloud_reference_units(version: DocumentVersion, content: bytes) -> tuple[Str
         or tuple(doc.evidence for doc in manifest.documents) != binding.sources
     ):
         raise ValueError("knowledge source metadata does not match the admitted document")
+    if isinstance(manifest, KnowledgeStructuredReleaseManifest):
+        if binding.processing_digests != tuple(
+            document.processing_digest for document in manifest.documents
+        ):
+            raise ValueError("knowledge processing recipe does not match admission")
+        return tuple(
+            StructuralUnit(
+                unit_id=excerpt.unit_id,
+                kind="text",
+                locator=excerpt.unit_id,
+                section_name=excerpt.heading,
+                text=excerpt.text,
+            )
+            for document in manifest.documents
+            for excerpt in structured_excerpts(document)
+        )
     units = []
     for document in manifest.documents:
         evidence = document.evidence

@@ -40,6 +40,8 @@ The workbench is complete only when it answers these bounded operational questio
 Conversation planning can project a smaller model-facing view after schema-validated intent classification. Subscription inventory documents retain `Resource`; configuration comparison adds the two reviewed configuration functions; gateway diagnostics add `routes_to` and the reviewed gateway function. This projection is a prompt-minimization view, not another manifest or authority
 source. Every descriptor still originates in the complete principal-scoped manifest, and plan verification still resolves against the exact release. The generated semantic-intent coverage artifact is regenerated when canonical ontology query or
 Resource vocabulary changes. A stale artifact remains a CI failure, not runtime evidence. Scoped operating Pattern reads require independent `case-history-read` admission bound to the authenticated principal and exact arguments before state access. The boundary inventory pins the controlling admission function and its focused tests. Recompiled summaries remain inert, and missing current source evidence never grants access or execution authority.
+The [structured retrieval owner](../interfaces/cloud-resource-knowledge-structured-rag.md)
+separates accepted query terms from applicability/access; excerpts never become observations or authority.
 ## Catalog-owned instance projection
 
 Core runtime startup now projects Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,

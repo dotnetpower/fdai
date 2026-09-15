@@ -30,6 +30,7 @@ describe("shared Tooltip contract", () => {
   test("renders in a portal and avoids viewport collisions", () => {
     expect(source).toContain("createPortal(");
     expect(source).toContain("document.body");
+    expect(source).toContain("document.fullscreenElement ?? document.body");
     expect(source).toContain("flip({ padding: 16 })");
     expect(source).toContain("shift({ padding: 16 })");
   });

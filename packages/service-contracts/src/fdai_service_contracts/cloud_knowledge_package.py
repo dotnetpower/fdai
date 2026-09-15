@@ -32,7 +32,7 @@ from fdai_service_contracts.cloud_knowledge_release import (
     CloudKnowledgeDocument,
     KnowledgeManifest,
     KnowledgeReleaseBinding,
-    KnowledgeReleaseManifest,
+    KnowledgeStructuredReleaseManifest,
     KnowledgeTextReleaseManifest,
 )
 
@@ -135,7 +135,9 @@ class _PackageEnvelope(KnowledgeContract):
     """Version-matched envelope; signature covers the versioned canonical manifest."""
 
     schema_version: Literal[
-        "fdai.cloud-knowledge-package.v1", "fdai.cloud-knowledge-package.v2"
+        "fdai.cloud-knowledge-package.v1",
+        "fdai.cloud-knowledge-package.v2",
+        "fdai.cloud-knowledge-package.v3",
     ] = "fdai.cloud-knowledge-package.v2"
     purpose: Literal["fdai.cloud-knowledge.release.v1"] = PACKAGE_PURPOSE
     algorithm: Literal["Ed25519"] = "Ed25519"
@@ -146,8 +148,8 @@ class _PackageEnvelope(KnowledgeContract):
 
     @model_validator(mode="after")
     def version_pair(self) -> Self:
-        legacy = isinstance(self.manifest, KnowledgeReleaseManifest)
-        if legacy != (self.schema_version == "fdai.cloud-knowledge-package.v1"):
+        suffix = self.manifest.schema_version.rsplit(".", 1)[-1]
+        if self.schema_version != f"fdai.cloud-knowledge-package.{suffix}":
             raise ValueError("package and manifest versions MUST match")
         return self
 
@@ -201,18 +203,27 @@ def _decode_package(content: bytes) -> _PackageEnvelope:
         ) from None
 
 
-def _checked_text_manifest(manifest: KnowledgeTextReleaseManifest) -> KnowledgeTextReleaseManifest:
+def _checked_text_manifest(
+    manifest: KnowledgeTextReleaseManifest | KnowledgeStructuredReleaseManifest,
+) -> KnowledgeTextReleaseManifest | KnowledgeStructuredReleaseManifest:
     """Refuse legacy emission and unchecked model-copy fields without exposing document content."""
     try:
+        if isinstance(manifest, KnowledgeStructuredReleaseManifest):
+            return KnowledgeStructuredReleaseManifest.model_validate(
+                manifest.model_dump(warnings="error")
+            )
         return KnowledgeTextReleaseManifest.model_validate(manifest.model_dump(warnings="error"))
     except (ValueError, TypeError, RecursionError, OverflowError):
         raise KnowledgePackageError(
-            "new packages require a valid normalized-only v2 manifest"
+            "new packages require a valid normalized-only v2 or structured v3 manifest"
         ) from None
 
 
 def assemble_signed_release(
-    manifest: KnowledgeTextReleaseManifest, *, key_id: str, signature: bytes
+    manifest: KnowledgeTextReleaseManifest | KnowledgeStructuredReleaseManifest,
+    *,
+    key_id: str,
+    signature: bytes,
 ) -> bytes:
     """Package a detached external signature; callers still verify independent trust.
 
@@ -225,6 +236,11 @@ def assemble_signed_release(
     manifest = _checked_text_manifest(manifest)
     encoded = canonical_bytes(
         _PackageEnvelope(
+            schema_version=(
+                "fdai.cloud-knowledge-package.v3"
+                if isinstance(manifest, KnowledgeStructuredReleaseManifest)
+                else "fdai.cloud-knowledge-package.v2"
+            ),
             key_id=key_id,
             manifest_digest=manifest.digest,
             manifest=manifest,
@@ -237,7 +253,10 @@ def assemble_signed_release(
 
 
 def sign_release(
-    manifest: KnowledgeTextReleaseManifest, *, key_id: str, private_key: Ed25519PrivateKey
+    manifest: KnowledgeTextReleaseManifest | KnowledgeStructuredReleaseManifest,
+    *,
+    key_id: str,
+    private_key: Ed25519PrivateKey,
 ) -> bytes:
     """Encode and sign a normalized-only v2 release using an injected, reviewed signing key.
 
@@ -254,6 +273,11 @@ def sign_release(
         if len(stored) > MAX_PACKAGE_BYTES:
             raise KnowledgePackageError("knowledge package exceeds the byte limit")
         envelope = _PackageEnvelope(
+            schema_version=(
+                "fdai.cloud-knowledge-package.v3"
+                if isinstance(checked, KnowledgeStructuredReleaseManifest)
+                else "fdai.cloud-knowledge-package.v2"
+            ),
             key_id=key_id,
             manifest_digest=content_digest(stored),
             manifest=checked,
@@ -417,6 +441,11 @@ def verify_package(
         admission_expires_at=expires,
         verified_key_id=key.key_id,
         sources=tuple(document.evidence for document in manifest.documents),
+        processing_digests=(
+            tuple(document.processing_digest for document in manifest.documents)
+            if isinstance(manifest, KnowledgeStructuredReleaseManifest)
+            else ()
+        ),
         withdrawn_source_ids=manifest.withdrawn_source_ids,
     )
     return VerifiedKnowledgePackage(manifest=manifest, content=stored, binding=binding)

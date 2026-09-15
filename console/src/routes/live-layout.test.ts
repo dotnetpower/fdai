@@ -61,7 +61,7 @@ describe("Live responsive header", () => {
   it("loads the route-owned visual contract", () => {
     expect(route).toContain('import "./live.css"');
     expect(detailShell).toContain('import "./live.detail.css"');
-    expect(detailShell).toContain("createPortal(dialog, document.body)");
+    expect(detailShell).toContain("createPortal(dialog, document.fullscreenElement ?? document.body)");
     expect(ruleBody(".live-detail-backdrop")).toContain("z-index: 120");
     expect(detailStyles).toMatch(
       /\.live-detail-panel\s*\{[^}]*width: min\(560px, 100%\)/,
