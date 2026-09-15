@@ -181,6 +181,19 @@ async def test_activity_log_rejects_type_that_conflicts_with_the_arm_id() -> Non
         await client.aclose()
 
 
+@pytest.mark.parametrize("next_link", [0, False, [], {}])
+async def test_malformed_continuation_never_looks_like_a_complete_page(next_link: object) -> None:
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"value": [], "nextLink": next_link})
+
+    factory, client, _ = _factory(handler)
+    try:
+        with pytest.raises(ActivityLogError, match="nextLink"):
+            await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")
+    finally:
+        await client.aclose()
+
+
 @pytest.mark.asyncio
 async def test_delete_event_is_not_upserted_and_still_advances_cursor() -> None:
     vocab = _vocab()

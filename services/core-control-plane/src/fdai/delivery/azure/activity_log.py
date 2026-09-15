@@ -196,6 +196,8 @@ class AzureActivityLogFactory:
             running_max = _max_dt(carried_max, page_max)
 
             link = payload.get("nextLink")
+            if link is not None and not isinstance(link, str):
+                raise ActivityLogError("Activity Log nextLink MUST be text or null")
             if isinstance(link, str) and link:
                 return ActivityLogPage(
                     resources=resources,
