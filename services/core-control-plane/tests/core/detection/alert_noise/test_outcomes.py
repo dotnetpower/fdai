@@ -482,7 +482,7 @@ def test_key_is_bounded_without_truncating_identity() -> None:
         context.execution.source_event.action_digest
     )
     with pytest.raises(ValueError):
-        alert_effect_key(plan_digest=digest, dispatch_ref="r" * 161)
+        alert_effect_key(plan_digest=digest, dispatch_ref="r" * 513)
     require_alert_dispatch_lineage(context)
 
 

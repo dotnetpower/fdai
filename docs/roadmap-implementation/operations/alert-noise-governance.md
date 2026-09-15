@@ -51,6 +51,8 @@ an all-Low review claim, or operational adoption.
 
 | 2026-09-15 | in-progress | Round 17 reproduced real Core Process creation failure under the service role after full migration: `process_event_seq_seq` lacked USAGE. Added an append-only forward migration granting only the required Core privilege. | `current change`; [full migration regression](../../../services/core-control-plane/tests/persistence/test_alert_noise_lifecycle_postgres.py) passed with zero skips after root and all five service migrations; actual Core-role Process restart and per-target hold replay passed, with grant/revoke/restore and no Operator sequence privilege. Migration ownership validates five branches and 198 tables. | Full dispatch/effect lifecycle, accessibility, source selectors, operational receipts and protected delivery remain open. |
 
+| 2026-09-15 | in-progress | Round 18 separated canonical Workflow dispatch references from letter-prefixed audience refs; numeric UUIDs now survive exact publication/effect validation. Added real complete-migration dispatch and effect replay. | `current change`: 10 failing numeric-prefix cases reproduced before correction; 70 focused identity/outcome tests passed. Eight actual PostgreSQL checks passed, including three full-migration cases with real lock, reservation, audit, generation, closure, Process and hold stores; only the PR sink and independent observation/approval facts are explicit synthetic fixtures. | Separately authorized operational source/pilot evidence, source selectors, complete accessibility and versioned rollout remain open. |
+
 ### Remaining work
 
 The temporal source extension passed 121 focused replay/IaC/admitted-source checks, then 30 native
@@ -88,9 +90,10 @@ The focused merge check passed 32 tests plus Console types and changed-boundary 
   proves CAS and new-connection replay against actual loopback PostgreSQL.
 - [x] **Operator PostgreSQL primitives:** Round 11 proves exclusive claims, stale-worker fencing,
   expired-lease restart, Settings concurrency and terminal-result consistency with zero skips.
-- [ ] **Full persistence lifecycle:** Verify canonical Process resume, actual dispatch generations,
-  effect reconciliation and automation holds across restart with the complete service migrations.
-  The local four-test minimal `state_kv` fixture does not close this separate exit.
+- [x] **Full persistence lifecycle:** Complete root and all five service migrations now exercise
+  canonical Process replay, actual PostgreSQL lock/reservation/audit/dispatch/closure generations,
+  duplicate suppression, verified effect completion and adverse/missing-evidence holds across
+  new connections. The sink, approval and effect facts remain test-only, not provider evidence.
 - [ ] **ANG-3 authority and source fencing:** Demonstrate current Var service-owner plus distinct
   Owner quorum, revocation, target/dependency/source revalidation, tested rollback and dry-run, real
   replacement-recipient reachability, and independently admitted exclusive-writer protection through
@@ -142,6 +145,7 @@ checks do not prove deployed Azure behavior or authorize promotion.
 
 | Round | Scope and hypothesis | Finding / initial severity | Change and falsifying evidence | Remaining |
 |-------|----------------------|----------------------------|--------------------------------|-----------|
+| 18 | Canonical Process UUID prefixes might fail the audience-style effect reference check. | High availability: numeric prefixes 0-9 all failed while a-f passed, breaking retained publication and independent effect lookup. | [Reference regression](../../../services/core-control-plane/tests/core/detection/alert_noise/test_dispatch_reference.py), shared `AlertDispatchRef`, and [full migration outcomes](../../../services/core-control-plane/tests/persistence/test_alert_noise_dispatch_postgres.py): 70 focused plus 8 real PostgreSQL checks passed; no change to exact Action/Process lineage, approval, or outcome authority. | No known residual for this identity defect. Real provider and independent source receipts remain deployment prerequisites. |
 | 17 | Whole-migration Core-role Process creation might differ from memory and minimal-table tests. | High availability: reproduced `InsufficientPrivilege` for `process_event_seq_seq`; no Process journal could be created by Core. | [Forward migration](../../../service-migrations/branches/core-control-plane/versions/20260915_core_process_sequence.py) grants only USAGE to the table's existing writer. [Real database check](../../../services/core-control-plane/tests/persistence/test_alert_noise_lifecycle_postgres.py) proves shadow Process restart, persistent holds and exact privilege rollback without widening Operator grants. | No known residual for this privilege defect; independent provider and complete effect-path evidence remain separately gated. |
 | 1 | Noncanonical authority, time, copied records and half-specified treatment axes might cross the boundary. | No new defect; coverage hardening. | [Boundary tests](../../../services/core-control-plane/tests/core/detection/alert_noise/test_boundary_hardening.py): 22 passed. | Keep shared contract validation and no-authority flags; later runtime rounds remain open. |
 | 2 | Lifecycle updates, resolved deliveries and overlapping people might inflate counts or manufacture flapping. | No new defect; coverage hardening. | [Measurement tests](../../../services/core-control-plane/tests/core/detection/alert_noise/test_measurement_hardening.py): 6 passed, including unknown denominators and small-cohort redaction. | Native missing history and identities remain unknown, never zero. |

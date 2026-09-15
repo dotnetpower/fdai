@@ -15,6 +15,7 @@ from uuid import uuid4
 
 import psycopg
 import pytest
+from fdai_operator_service.alert_quality_history import StateKvAlertQualityRequestSource
 from fdai_operator_service.alert_quality_runtime import command_from_record
 from fdai_operator_service.alert_quality_settings import (
     AlertQualityPreference,
@@ -30,6 +31,14 @@ from psycopg import sql
 from psycopg.conninfo import make_conninfo
 
 from .test_alert_quality_bridge import NOW, RESULT_KEY, SCOPE, SUBJECT, bridge_fixture
+from .test_alert_quality_history import (
+    KEY as HISTORY_KEY,
+)
+from .test_alert_quality_history import (
+    HistoryState,
+    acceptance,
+    terminal,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -152,3 +161,20 @@ async def test_concurrent_terminal_results_cannot_mix_projection(alert_database:
     assert (projection is not None) == (winner == ready)
     await bridge.accept_result(winner)
     assert await target.read_state(RESULT_KEY) == winner
+
+
+async def test_request_history_sql_is_principal_scoped_and_survives_restart(alert_database):
+    state = HistoryState()
+    record = acceptance(state, subject=SUBJECT, scope=SCOPE)
+    terminal(state, record, held=True)
+    acceptance(state, subject="operator-other", scope=SCOPE)
+    target = store(alert_database)
+    for key, value in state.records.items():
+        await target.write_state(key, value)
+    reopened = StateKvAlertQualityRequestSource(
+        store(alert_database), transport_key=HISTORY_KEY, clock=lambda: NOW
+    )
+    result = await reopened.read(principal_id=SUBJECT, scope_ref=SCOPE)
+    assert len(result.requests) == 1 and result.requests[0].status == "held"
+    exact = await reopened.read(principal_id=SUBJECT, scope_ref=SCOPE, request_key="example-key")
+    assert exact == result

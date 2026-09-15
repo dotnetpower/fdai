@@ -16,7 +16,7 @@ from fdai_service_contracts.alert_noise import (
 )
 from fdai_service_contracts.alert_noise_base import AlertContractBase as ContractBase
 from fdai_service_contracts.alert_noise_base import AlertTime as AwareDatetime
-from fdai_service_contracts.alert_noise_base import FalseOnly
+from fdai_service_contracts.alert_noise_base import AlertDispatchRef, FalseOnly
 from fdai_service_contracts.executor_models import Digest
 
 ActionName = Literal[
@@ -167,7 +167,7 @@ class AlertEffectObservation(ContractBase):
     """Independent observation; a provider acceptance cannot produce success."""
 
     plan_digest: Digest
-    dispatch_ref: Ref
+    dispatch_ref: AlertDispatchRef
     source_ref: Ref
     observer_ref: Ref
     executor_ref: Ref

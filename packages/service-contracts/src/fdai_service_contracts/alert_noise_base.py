@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import AwareDatetime, BeforeValidator, ConfigDict
+from pydantic import AwareDatetime, BeforeValidator, ConfigDict, Field
 
 from fdai_service_contracts.executor_models import ContractBase
 
@@ -41,3 +41,7 @@ def _time(value: object) -> object:
 
 FalseOnly = Annotated[Literal[False], BeforeValidator(_false)]
 AlertTime = Annotated[AwareDatetime, BeforeValidator(_time)]
+ALERT_DISPATCH_REF_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,511}$"
+# A canonical Workflow proposal reference can start with a UUID digit and is not
+# a letter-prefixed audience/target Ref. Preserve its complete original identity.
+AlertDispatchRef = Annotated[str, Field(strict=True, pattern=ALERT_DISPATCH_REF_PATTERN)]

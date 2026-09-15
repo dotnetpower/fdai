@@ -75,8 +75,9 @@ or link declaration with an owner and provenance; a private `ProcessingRule` is 
 | Assessment | Fixed observation window, evidence cutoff, query/policy versions, coverage, unavailable sources, no-change baseline, overlap bounds, and per-service/team findings |
 | Change proposal | One treatment axis, exact before/after diff, target and dependency revisions, affected audiences, protected paths, expected range, expiry, rollback reference, and immutable digest |
 
-Every record also carries source identity, effective/event/recorded time, freshness policy,
-completeness, provenance digest, and synthetic status. Late evidence creates a new revision.
+Every record carries source identity, effective/event/recorded time, freshness, completeness,
+provenance and synthetic status. Workflow dispatch refs preserve numeric UUID prefixes and their
+full bounded identity, unlike audience refs. Late evidence creates a new revision.
 Provider throttling, unsupported history, failed paging, and missing directory permission remain
 `unknown` or `partial`; they never become zero notifications or an empty audience.
 Incomplete effective routing also lowers the whole report to partial, not just its finding.

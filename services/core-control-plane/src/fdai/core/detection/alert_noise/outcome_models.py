@@ -9,7 +9,13 @@ from typing import Annotated, Literal, Self
 from uuid import UUID
 
 from fdai_service_contracts.alert_noise import Ref, digest_record
-from fdai_service_contracts.alert_noise_base import AlertContractBase, AlertTime, FalseOnly
+from fdai_service_contracts.alert_noise_base import (
+    ALERT_DISPATCH_REF_PATTERN,
+    AlertContractBase,
+    AlertDispatchRef,
+    AlertTime,
+    FalseOnly,
+)
 from fdai_service_contracts.alert_noise_plan import AlertChangePlan
 from fdai_service_contracts.executor_models import Digest, NonEmpty
 from fdai_service_contracts.ontology_query import content_digest
@@ -35,6 +41,7 @@ AlertEffectOutcome = Literal[
 ]
 _DIGEST = re.compile(r"sha256:[a-f0-9]{64}")
 _REF = re.compile(r"[a-z][a-z0-9_.:-]{0,159}")
+_DISPATCH_REF = re.compile(ALERT_DISPATCH_REF_PATTERN)
 
 
 def alert_executed_action_key(action_digest: str) -> str:
@@ -50,7 +57,7 @@ def alert_effect_key(*, plan_digest: str, dispatch_ref: str) -> str:
         type(plan_digest) is not str
         or _DIGEST.fullmatch(plan_digest) is None
         or type(dispatch_ref) is not str
-        or _REF.fullmatch(dispatch_ref) is None
+        or _DISPATCH_REF.fullmatch(dispatch_ref) is None
     ):
         raise AlertExecutionHeld("alert_effect_lookup_invalid")
     return "alert-noise:effect:" + content_digest(
@@ -157,7 +164,7 @@ class AlertEffectDrift(AlertContractBase):
     step_id: NonEmpty
     action_digest: Digest
     plan_digest: Digest
-    dispatch_ref: Ref
+    dispatch_ref: AlertDispatchRef
     outcome_ref: NonEmpty
     effect_outcome: AlertEffectOutcome
     workflow_outcome_ref: NonEmpty | None
