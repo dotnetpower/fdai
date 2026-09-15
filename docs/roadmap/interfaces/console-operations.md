@@ -36,7 +36,7 @@ Console operations use four boundaries:
 | Agent runtime | Judge, approve, execute, recover, and audit through typed pub/sub | Existing pantheon ownership remains authoritative. |
 
 The Operator API relays typed events, not direct agent calls, and has no executor identity.
-It is not a workflow engine or hidden agent. Source facets and fresh period reads never reframe old totals.
+It is not a workflow engine or hidden agent. Source facets preserve totals; alert table headers use readable text tokens.
 [Alert noise requests](../operations/alert-noise-governance.md) expose original acceptances and signed results.
 Only an exact-key terminal resolves uncertainty; the canonical Process owns approval and effect state.
 

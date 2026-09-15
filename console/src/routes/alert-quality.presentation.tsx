@@ -231,7 +231,7 @@ export function AlertQualityFindingTable({ rows, scope, coverage }: {
   return <div style={{ maxWidth: "100%", minWidth: 0, overflowX: "auto" }} tabIndex={0} role="region" aria-label={text("findings")}>
     <table class="data-table" style={{ minWidth: 840 }}>
       <caption>{text("findings")}</caption>
-      <thead><tr>{headers.map((key) => <th key={key} scope="col">{text(key)}</th>)}</tr></thead>
+      <thead><tr>{headers.map((key) => <th key={key} scope="col" style={{ color: "var(--fg)" }}>{text(key)}</th>)}</tr></thead>
       <tbody>{rows.map((row, index) => <tr key={`${row.rule_ref}:${row.reason}:${index}`}>
         <td><a style={{ display: "inline-flex", alignItems: "center", minHeight: 44 }} href={routeHref("alert-quality", { params: { scope_ref: scope, rule_ref: row.rule_ref } })}>{row.rule_ref}</a><br />{text("service")}: {row.service_ref}
           <br />{text("team")}: {row.team_refs?.join(", ") ?? text("unknown")}

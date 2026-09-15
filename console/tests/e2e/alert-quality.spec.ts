@@ -118,6 +118,76 @@ async function geometry(page: Page) {
 
 test.describe.configure({ mode: "serial" });
 
+test("expanded route text contrast and tab order remain accessible", async ({ page }, info) => {
+  await fixture(page, { facets: true });
+  await expect(page.getByRole("button", { name: en.assess, exact: true })).toBeEnabled();
+  for (const summary of await page.locator("main details > summary").all()) {
+    await summary.focus();
+    await summary.press("Enter");
+  }
+  const contrast = await page.locator("main").evaluate((main) => {
+    const channels = (color: string) => color.match(/[\d.]+/g)!.map(Number);
+    const luminance = (rgb: number[]) => rgb.slice(0, 3).reduce((sum, channel, index) => {
+      const value = channel / 255;
+      return sum + (value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4) * [0.2126, 0.7152, 0.0722][index]!;
+    }, 0);
+    return [...main.querySelectorAll("p, span, h1, h2, h3, h4, dt, dd, th, td, a, button, summary, label, select")]
+      .filter((element) => element.checkVisibility() && !element.closest(":disabled, [aria-disabled=true]")
+        && [...element.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()))
+      .map((element) => {
+        const ancestors: Element[] = [];
+        for (let parent: Element | null = element; parent; parent = parent.parentElement) ancestors.unshift(parent);
+        let background = [255, 255, 255];
+        for (const parent of ancestors) {
+          const color = channels(getComputedStyle(parent).backgroundColor);
+          const alpha = color[3] ?? 1;
+          background = background.map((value, index) => color[index]! * alpha + value * (1 - alpha));
+        }
+        const style = getComputedStyle(element);
+        const color = channels(style.color);
+        const foreground = color.slice(0, 3).map((value, index) => value * (color[3] ?? 1) + background[index]! * (1 - (color[3] ?? 1)));
+        const fg = luminance(foreground), bg = luminance(background);
+        const large = Number.parseFloat(style.fontSize) >= 24 || (Number.parseFloat(style.fontSize) >= 18.667 && Number.parseInt(style.fontWeight) >= 700);
+        return { tag: element.tagName, text: element.textContent?.trim().slice(0, 60), ratio: (Math.max(fg, bg) + .05) / (Math.min(fg, bg) + .05), minimum: large ? 3 : 4.5 };
+      });
+  });
+  expect(contrast.length).toBeGreaterThan(50);
+  expect(contrast.filter((item) => item.ratio < item.minimum)).toEqual([]);
+  const targets = page.locator("main a[href], main button:not(:disabled), main select:not(:disabled), main input:not(:disabled), main summary, main [tabindex='0']");
+  const count = await targets.evaluateAll((elements) => {
+    const visible = elements.filter((element) => element.checkVisibility());
+    visible.forEach((element, index) => element.setAttribute("data-alert-focus-check", String(index)));
+    return visible.length;
+  });
+  const seen = new Set<string>();
+  const invisibleFocus: string[] = [];
+  await page.locator("[data-alert-focus-check='0']").focus();
+  for (let index = 0; index < count + 30; index += 1) {
+    const current = await page.evaluate(() => {
+      const active = document.activeElement;
+      return active?.getAttribute("data-alert-focus-check") ?? null;
+    });
+    if (current !== null) {
+      seen.add(current);
+      if (index > 0) {
+        const visible = await page.locator(`[data-alert-focus-check='${current}']`).evaluate((element) => {
+          const style = getComputedStyle(element);
+          const outline = style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0;
+          return element.matches(":focus-visible") && (outline || style.boxShadow !== "none");
+        });
+        if (!visible) invisibleFocus.push(current);
+      }
+    }
+    await page.keyboard.press("Tab");
+  }
+  expect(seen.size).toBe(count);
+  expect(invisibleFocus).toEqual([]);
+  const measurements = { checkedTextNodes: contrast.length, minimumRatio: Math.min(...contrast.map((row) => row.ratio)),
+    focusableTargets: count, visitedTargets: seen.size };
+  console.info("alert-accessibility", JSON.stringify(measurements));
+  await info.attach("contrast-and-keyboard", { body: JSON.stringify(measurements), contentType: "application/json" });
+});
+
 test("source facets and period use keyboard without changing retained totals", async ({ page }, info) => {
   const { writes } = await fixture(page, { facets: true });
   const main = page.locator("main");

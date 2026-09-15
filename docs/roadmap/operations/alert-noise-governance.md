@@ -299,10 +299,9 @@ new optimization without disabling already authorized recovery.
 
 ## 8. Measurement and operator experience
 
-Keep four denominators separate: source alert episodes, notification attempts, confirmed channel
-deliveries, and observed human acknowledgements. Report duplicates and interruptions per authorized
-service/team and time window. Potential recipient fan-out and modeled savings are estimates, not
-observed per-user deliveries. Empty, censored, and unavailable samples are not a zero baseline.
+Keep source episodes, notification attempts, confirmed deliveries and human acknowledgements separate.
+Report duplicates and interruptions per authorized service/team and time window. Potential reach and
+modeled savings are estimates, not per-user deliveries; empty, censored or unavailable samples are not zero.
 
 Evaluation changes need underlying telemetry plus independently labeled positive, negative, and
 missed-incident cases. Threshold replay uses the same buckets; window/frequency replay uses complete

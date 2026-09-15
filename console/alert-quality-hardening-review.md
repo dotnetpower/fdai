@@ -31,6 +31,13 @@ intercepted synthetic API records. It is not Browser Entra or provider validatio
 
 ## Rubric assessment
 
+Round 19 measured seven table headers at 4.416:1 and corrected only their foreground token.
+The new expanded-state scenario passes 220 displayed text-node checks (minimum 4.707:1), tab
+visits all 29 focusable targets, and each keyboard-focused target has visible focus styling.
+These are default-theme isolated measurements, not all-state contrast or screen-reader proof.
+No standard Console listener was present at the observation time; startup would require its
+separately authorized Azure/model preflight, so no synthetic full-stack replacement was launched.
+
 The source-selector extension retains the same 49 applicable criteria and the earlier baseline.
 Its new scope is the recorded team/audience filters, explicit unknown facets, and next-assessment
 period control, using the actual route with intercepted evidence. The hypothesis is that native
