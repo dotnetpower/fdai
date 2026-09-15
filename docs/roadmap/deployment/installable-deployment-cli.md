@@ -173,6 +173,7 @@ become bare GUIDs. The three observation roles, `ServicePrincipal` restriction a
 are unchanged. Only those two exact bootstrap source edits are allowed. The group is independently
 read by ID, not assumed absent. New review, source CI and approval are required; predecessor approval
 cannot authorize the successor. Further successor chains, imports, replacements and extra effects are rejected.
+Successor regressions retain collected helpers even when runtime tests replace Python module names.
 
 ### Recovered host enrollment
 
@@ -191,9 +192,8 @@ or changes that source. Ordinary enrollment remains unchanged.
 
 ### Recovered state migration
 
-Only the transient archive combines verified recovery configuration and original state. It rejects
-a second state owner, checks the receipt-bound state hash and rechecks bytes before publication.
-The existing managed-host format and both original inputs remain unchanged.
+Only a transient archive combines verified recovery configuration and original state; both inputs stay
+unchanged. Duplicate state owners or changed receipt-bound hashes/bytes block publication in the existing host format.
 
 The state-handoff command accepts `--foundation-recovery-directory` and `--recovery-approval-file`
 alongside its original source inputs. The official prompt takes both `--recovered-foundation-receipt`

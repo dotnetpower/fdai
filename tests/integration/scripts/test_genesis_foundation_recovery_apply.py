@@ -8,7 +8,7 @@ import json
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -21,7 +21,12 @@ import genesis_foundation_recovery_successor as successor  # noqa: E402
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest  # noqa: E402
 from fdai_deployment_cli.private_output import write_private_bytes  # noqa: E402
 from fdai_deployment_cli.target import compute_target_binding  # noqa: E402
-from tests.integration.scripts.test_genesis_foundation import recovery_plans  # noqa: E402, F401
+from tests.integration.scripts.test_genesis_foundation import (  # noqa: E402
+    recovery_plans,
+)
+from tests.integration.scripts.test_genesis_foundation import (  # noqa: E402
+    test_foundation_recovery_planner_never_applies_or_copies_state as _check_recovery_planner,
+)
 
 __all__ = ["recovery_plans"]
 
@@ -30,11 +35,11 @@ __all__ = ["recovery_plans"]
 def test_successor_planner_preserves_original_state_owner(
     tmp_path, monkeypatch, successor_plans, defect
 ):
-    from tests.integration.scripts.test_genesis_foundation import (
-        test_foundation_recovery_planner_never_applies_or_copies_state,
-    )
-
-    test_foundation_recovery_planner_never_applies_or_copies_state(
+    monkeypatch.setitem(sys.modules, "tests", ModuleType("tests"))
+    for module_name in tuple(sys.modules):
+        if module_name.startswith("tests.integration"):
+            monkeypatch.delitem(sys.modules, module_name)
+    _check_recovery_planner(
         tmp_path,
         monkeypatch,
         None,
