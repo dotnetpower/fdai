@@ -15,30 +15,14 @@ evaluation gates, and failed-query feedback loop.
 > **Safety boundary:** Rule discovery and policy evaluation are separate operations. OPA evaluates
 > only an exact active Rule against schema-valid, current evidence through the existing T0 path.
 >
-> **Implementation status (2026-08-13):** FDAI ships deterministic Rego and expression manifests,
-> strict promoted-surface and content-addressed validation-receipt loading, held-out cohort
-> evaluation, privacy-safe challenger feedback,
-> atomic in-memory generations, the read-only `catalog.search_rules` function,
-> concept-first bounded retrieval, lexical degradation, a durable StateStore challenger store,
-> and a durable PostgreSQL `CatalogSemanticIndex` with isolated active and discovery generations.
-> Direct semantic-runtime composition binds the function only when a caller supplies both a
-> provider-neutral semantic index and its exact catalog digest. Without that pair, the principal
-> manifest records `catalog.search_rules` as `runtime_binding_unavailable` and does not advertise it
-> to the planner. Production bootstrap now composes the durable adapter only when its active
-> generation exactly matches the current Rule catalog, semantic schema, ontology release, and
-> embedding space, model version, and dimension. Missing, stale, or inaccessible state remains an optional readiness
-> degradation and leaves the function unregistered. Reader-gated
-> `POST /rules/search` reads an Operator
-> Service projection; it does not directly invoke the Core function. Retrieval and function
-> receipts retain `execution_authority: false` wherever the Core capability is bound.
-> Validated generation-activation commands enter only through Mimir. A durable, lease-fenced
-> outbox publisher emits terminal results, and Mimir stores a projection-only receipt that grants
-> no index, policy, approval, mutation, or execution authority.
-> Production reconciliation loads exact governed documents, persists a replay-identical request,
-> and binds Heimdall's independent receipt before Mimir publishes activation.
-> Reproduced retrieval-owned failures flow through Huginn ingress, Heimdall validation, Saga audit,
-> and Muninn context materialization. Norns then persists an inert challenger with shadow audit
-> before ordinary consensus and Mimir intake.
+> **Implementation evidence:** The [ledger below](#implementation-status) records shipped
+> manifests, held-out evaluation, strict promoted-surface loading, corpus-isolated indexes,
+> receipt-backed Operator projections, and the accountable build, validation, and activation pipeline.
+> Core registers `catalog.search_rules` only with a supplied semantic index and matching catalog,
+> schema, ontology, and embedding identities. Missing, stale, or inaccessible state leaves the
+> function unregistered as an optional readiness degradation, never a policy or execution grant.
+> Governed live binding and Reader-scoped projection evidence remain open.
+>
 > Rego manifests now carry the exact deny decision path and a normalized location-free OPA AST
 > digest in addition to the source digest. The T0 evaluator uses the same identities and emits
 > input- and result-bound evaluation receipts for allow and deny outcomes. Retrieval still cannot
@@ -100,7 +84,6 @@ evaluation gates, and failed-query feedback loop.
 | 2026-08-13 | implemented | Completed production generation reconciliation with endpoint-binding-derived embedding identity, strict promoted-surface document loading, replay-identical request persistence, exact staged-receipt binding, and Mimir-owned activation-command publication after Heimdall validation. Query binding now also rejects active generations from another embedding space or model version. | `current change`; `rule_generation_documents.py`, semantic-index adapters, `mimir.py`, `activation.py`, and focused document, worker, runtime, activation, and bootstrap checks. | Record governed live build, validation, activation, and Reader-scoped projection evidence before changing this capability to `validated`. |
 | 2026-08-29 | implemented | Hardening round 18 re-audited production binding, reconciliation, activation publication, Mimir/Heimdall ownership, and Reader-scoped projection. No repository defect above Low remained; the sole open item is governed live evidence. | `current change`; focused semantic retrieval, bootstrap, activation, publication, and projection checks. | Record governed live evidence without changing repository authority. |
 | 2026-09-15 | implemented | Source-only refresh for [#946](https://github.com/dotnetpower/fdai/issues/946) / [PR #1014](https://github.com/dotnetpower/fdai/pull/1014) after existing ActionType edits changed the ontology release. Real in-memory lexical retrieval recomputed the Korean receipt from the same seven held-out cases, one sample per required cohort; authored promoted status, training, current thresholds, and prior receipts remain unchanged. | `current change`; [new Korean receipt](../../../rule-catalog/surface-validation-receipts/3e44e952cbe8bbed633e91a1482ddd0380241895c1d51c5d494fecdb29a7d187.json); unchanged dataset `sha256:1307e83d264c8c0b6fdc4342f840b51cebe18f930ca4bd9242387052da54d6de`. Implementation-session results: canonical receipt loading and [`test_korean_surface_candidate_passes_exact_inactive_generation_review`](../../../services/core-control-plane/tests/rule_catalog/test_discovery_catalog_search.py) passed; strengthened [generator regressions](../../../tests/integration/scripts/test_refresh_release_derived_pins.py) `9 passed`; second default check `measured=7 fixtures=16 changed=0`. These results were not rerun for this documentation edit. | [Normal CI run 34921323157, attempt 1](https://github.com/dotnetpower/fdai/actions/runs/34921323157/attempts/1) failed at head `c8edd`; the local repair awaits a new commit and exact-head CI. Governed live binding and Reader-scoped projection evidence remain open. No deployed index or promotion registry was activated or changed. |
-
 | 2026-09-15 | implemented | Re-evaluated source commitments after four alert ActionTypes changed the ontology release in [PR #1030](https://github.com/dotnetpower/fdai/pull/1030). The existing generator reran all seven original held-out cases and 16 unchanged F1-F8 fixtures, preserved the authored promoted surface and old receipts, and wrote one new validation-only receipt. | `current change`; [new receipt](../../../rule-catalog/surface-validation-receipts/0772dcbbaef0a5086cd12fc81519c9ae9165891b24b044c216c65d378ba3e2ea.json), same frozen dataset and policy; 44 focused catalog/runtime/profile checks plus 18 corrected-pin/generator/receipt checks passed; second default generator check reports zero changes. | Exact-head PR CI and governed live retrieval evidence remain separate. No deployed index, activation or promotion registry changed. |
 
 ### Remaining work

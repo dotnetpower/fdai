@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 15c3afb7262267ceb6aa43a99ddcf03005e60657
+translation_source_sha: c4a35378b4c3c5f67b1d975105d8e582ea90d7f9
 translation_revised: 2026-09-15
 ---
 # Rule 의미 검색
@@ -16,30 +16,14 @@ translation_revised: 2026-09-15
 > **안전 경계:** Rule 발견과 정책 평가는 별개의 작업입니다. OPA는 기존 T0 경로를 통해
 > 스키마에 맞고 현재 상태인 근거를 사용하는 정확한 활성 Rule만 평가합니다.
 >
-> **구현 상태 (2026-08-13):** FDAI는 결정론적 Rego 및 표현식 매니페스트, strict promoted
-> 표면 및 내용 기반 주소를 가진 검증 증적 로딩, held-out 집단 evaluation, privacy-safe
-> challenger feedback, retained-generation
-> 롤백 증적을 포함한 atomic in-memory 세대, 읽기 전용
-> `catalog.search_rules` 함수, concept-first 범위가 제한된
-> 수집, lexical 성능 저하, 영속 StateStore challenger 저장소 및 활성과 발견 세대를
-> 격리하는 영속 PostgreSQL `CatalogSemanticIndex`를 제공합니다.
-> 직접 의미 런타임 구성은 호출자가 provider-neutral 의미 인덱스와 정확한 카탈로그
-> 다이제스트를 함께 제공할 때만 함수를 바인딩합니다. 이 쌍이 없으면 principal 매니페스트는
-> `catalog.search_rules`를 `runtime_binding_unavailable`로 기록하고 planner에 노출하지
-> 않습니다. 운영 bootstrap은 활성 세대가 현재 Rule 카탈로그, 의미 스키마, 온톨로지 release
-> 및 임베딩 공간, 모델 버전, 차원과 정확히 일치할 때만 영속 어댑터를 구성합니다. 상태가 없거나 오래되거나
-> 접근할 수 없으면 선택적 준비 상태 저하로 남고 함수는 등록되지 않습니다. Reader-gated
-> `POST /rules/search`는 Operator Service 변환 결과를 읽으며
-> Core 함수를 직접 호출하지 않습니다. Core 기능이 연결된 곳에서 검색 및 함수 증적은
-> `execution_authority: false`를 유지합니다.
-> 검증된 세대 활성화 명령은 Mimir를 통해서만 들어옵니다. 영속적이고 lease로 격리된 outbox
-> 발행기가 최종 결과를 내보내며, Mimir는 인덱스, 정책, 승인, 변경 또는 실행 권한을 부여하지
-> 않는 변환 전용 증적을 저장합니다.
-> 운영 reconciliation은 정확한 통제 문서를 로드하고 replay가 동일한 요청을 영속화하며,
-> Mimir가 활성화를 발행하기 전에 Heimdall의 독립 증적을 연결합니다.
-> 재현된 retrieval-owned 실패는 Huginn 유입, Heimdall 검증, Saga 감사 및 Muninn 맥락
-> 구체화를 거칩니다. Norns는 일반 합의 및 Mimir intake 전에 shadow 감사와 함께 inert
-> challenger를 저장합니다.
+> **구현 근거:** [아래 원장](#구현-상태)은 제공되는 매니페스트, 평가 전용 자료를 사용한 검증,
+> 엄격한 승격 표면 로딩, 코퍼스별로 격리된 인덱스, 증적 기반 Operator 변환 결과와
+> 책임 담당이 정해진 빌드, 검증, 활성화 파이프라인을 기록합니다.
+> Core는 의미 인덱스가 제공되고 카탈로그, 스키마, 온톨로지, 임베딩 식별자가 일치할 때만
+> `catalog.search_rules`를 등록합니다. 상태가 없거나 오래되었거나 접근할 수 없으면 함수는
+> 등록되지 않고 선택적 준비 상태 저하로 남으며, 정책이나 실행 권한을 부여하지 않습니다.
+> 통제된 실제 운영 연결과 Reader 범위 변환 결과의 근거는 미완료로 유지합니다.
+>
 > Rego 매니페스트는 이제 소스 다이제스트와 함께 정확한 deny 판정 경로와 위치 정보를 제외한
 > 정규화된 OPA AST 다이제스트를 포함합니다. T0 평가기는 같은 식별자를 사용하고 allow 및 deny
 > 결과에 입력과 결과가 연결된 평가 증적을 생성합니다. 검색은 해당 평가 증적 없이는 여전히
@@ -69,6 +53,9 @@ translation_revised: 2026-09-15
 | Operator Rule 검색 변환 결과 | implemented | `packages/service-contracts/src/fdai_service_contracts/semantic_turn.py`; `services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py`; Operator Service workflow 어댑터 및 경로; current change 집중 검사 | `POST /rules/search`는 검증된 정확한 함수 호출 증적과 정규 다이제스트를 포함하는 개정 번호가 있는 구체화된 변환 결과를 읽습니다. 공유 계약은 내용, 다이제스트, 작업, 의도, 기능 및 최종 상태 차이를 거부합니다. 직접 Core 호출이나 정책, 승인, 변경 또는 실행 권한을 추가하지 않습니다. |
 
 ### 구현 이력
+
+알림 ActionType 추가 이후의 소스 재평가를 포함한 최신 근거는
+[영문 정본 이력](rule-semantic-retrieval.md#implementation-history)을 확인하세요.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|

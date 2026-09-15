@@ -91,6 +91,7 @@ an all-Low review claim, or operational adoption.
 | 2026-09-15 | implemented | Round 30 repaired stale ontology-bound semantic source artifacts caused by the new alert declarations. Ran the existing review-gated offline generator rather than changing a validation receipt's digest by hand. It measured the same seven held-out retrieval cohorts, rechecked 16 unchanged F1-F8 cases, preserved historical receipts and package/promotion state, and emitted a new content-addressed validation-only receipt. | `current change`; 44 source/runtime/profile checks passed, then 18 corrected exact-pin/generator/receipt tests passed. Profile and package convergence validators pass with ontology release `sha256:a3c824bf91653141c36ef7b7fcc2d39bcfc52d55a634d97c5f875a9e8b6a2661`; second generator check reports `changed=0`. | Revalidate the complete failed-node slice and publish the repaired PR head. These are source checks, not new provider, deployment or promotion evidence. |
 
 | 2026-09-15 | implemented | Integrated main `97a72cc1d` after the six CI repair batches, preserving handover UI fixes, source deployment features, the workload-identity adapter contract and both sides' append-only history. Reconciled the task environment against the new frozen workspace lock. | `current change`; 104 owning credential/transport/composition/alert/package/test-ownership checks and Console types passed; changed-document size passed against `97a72cc1d`. The new exact-release semantic artifacts remain source-only and no cloud operation ran. | Publish the repaired head and require fresh exact-head CI before protected merge. |
+| 2026-09-15 | implemented | Round 31 resolved the merged ontology-query context's 4507-line overflow against the unchanged 4500-line budget. Replaced a duplicate semantic-retrieval implementation overview with a concise ledger link; retained normative contracts, full historical row content, source receipts and open live-evidence requirements. | `current change`; design-route budget, changed-document size, append-only implementation history and Korean translation-quality checks passed. This documentation-only repair reuses unchanged source tests; no route or budget was weakened. | Publish the repaired head and require exact-head CI. The first attempt to push `3e3b8ef3f` was stopped by the local hook; remote PR head remained `4a9cb4647`. |
 
 ### Remaining work
 
@@ -103,13 +104,13 @@ frozen source cohorts when supplied, instead of requiring an externally calculat
 Current integration base: `97a72cc1d`. Assignment/handover, Teams lifecycle and ActionRun authority
 coexist with alert handlers and their workers, topics, readiness and 211-route manifest. Alert effects
 retain the shared no-effect completion boundary; generic PR/health evidence cannot verify delivery
-or recall. The latest integration checks passed 147 cases and five-boundary strict typing.
+or recall. The latest integration checks passed 104 cases, two-source strict typing and Console types.
 
 - [x] **Coverage gate:** The final owned feature measurement reached lines 96.61%, branches 90.67%
   and combined 95.06% using `--cov=fdai.core.detection.alert_noise --cov-branch`.
   Its seven database setup errors were subsequently resolved and rerun; no measured Core source
   changed. Both floors were checked independently; temporal comparison alone measured 100%.
-- [x] **Hardening batches:** Rounds 1-24 below each have focused verification and a local commit.
+- [x] **Hardening batches:** Rounds 1-31 below each have focused verification and a local commit.
   Reproduced source and delivery defects were fixed; other rounds record coverage/verification
   without inventing findings. Counting rounds does not close operational or accessibility gaps.
 - [ ] **ANG-1 evidence:** Supply independently admitted directory, current ownership/incident,
@@ -196,6 +197,7 @@ checks do not prove deployed Azure behavior or authorize promotion.
 
 | Round | Scope and hypothesis | Finding / initial severity | Change and falsifying evidence | Remaining |
 |-------|----------------------|----------------------------|--------------------------------|-----------|
+| 31 | Merged owner-document growth may exceed a routed context budget. | Low documentation defect, blocking publication: ontology-query context reached 4507 lines against 4500. | Shortened duplicate opening status prose and linked the retained detailed ledger; design-route, size, history and translation checks pass without changing routes, budgets or runtime contracts. | Protected publication remains pending; operational qualification is separate. |
 | 30 | New ActionTypes may invalidate exact-release semantic profile and reviewed surface references. | High availability/integration defect: rule-generation document loading held and package convergence rejected stale ontology pins. | Official source-only generator remeasured unchanged retrieval/F1-F8 cases, preserved old receipts and promotion state, and produced current exact pins; 44 plus 18 focused checks and idempotent regeneration passed. | Live evidence remains bound to its original release; source refresh never promotes the package or deployed index. |
 | 29 | Alert callback additions might exceed the two agent modules' enforced size baselines. | Medium structural defect: CI measured Forseti 1145 > 1111 and Heimdall 862 > 837. | Cohesive role-local callback mixins retain APIs and instance isolation; both baselines, strict typing and owning tests pass. No agent, role, topic or authority was added. | This source structure fix does not close operational qualification. |
 | 28 | String enum membership in a pure typed effect classifier may be reported as unreviewed natural-language routing. | Verified false positive, not a runtime intent defect: no utterance input or language judgment exists on this path. | Exact-path retained classification with owner/rationale plus typed-input regression; 53 semantic/effect tests pass. The detector and production code are unchanged. | Future source changes remain subject to the same lexical scan and regression; no broader exception was added. |
