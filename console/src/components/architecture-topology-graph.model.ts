@@ -40,6 +40,23 @@ export const ARCHITECTURE_TOPOLOGY_MIN_SCALE = .28;
 export const ARCHITECTURE_TOPOLOGY_MAX_SCALE = 1.8;
 export const ARCHITECTURE_TOPOLOGY_SCALE_STEP = .2;
 
+/** Creates a stable reset identity from the visible records and generated geometry. */
+export function architectureTopologyPresentationKey(
+  resources: readonly InventoryResource[],
+): string {
+  return [...resources]
+    .sort((first, second) => first.id.localeCompare(second.id))
+    .map((resource) => [
+      resource.id,
+      resource.x,
+      resource.y,
+      resource.w,
+      resource.h,
+      resource.render_scale,
+    ].join(":"))
+    .join("|");
+}
+
 /** Returns records that cannot be represented without inventing an origin coordinate. */
 export function architectureTopologyUnplacedIds(
   resources: readonly InventoryResource[],

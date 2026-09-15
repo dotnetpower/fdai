@@ -9,6 +9,7 @@ import {
   architectureTopologyInitialView,
   architectureTopologyLabelLines,
   architectureTopologyLinkRoute,
+  architectureTopologyPresentationKey,
   architectureTopologyUnplacedIds,
   architectureTopologyZoomScrollTarget,
   clampArchitectureTopologyScale,
@@ -68,6 +69,21 @@ describe("Architecture topology geometry", () => {
       scale: architectureTopologyFitScale({ width: 1200, height: 800 }, 600, 500),
       scroll: { left: 0, top: 0 },
     });
+  });
+
+  it("distinguishes same-sized presentation canvases by identity and geometry", () => {
+    const first = architectureTopologyPresentationKey([
+      { id: "first", type: "app-service", name: "First", status: "healthy", x: 1, y: 1 },
+    ]);
+    const second = architectureTopologyPresentationKey([
+      { id: "second", type: "app-service", name: "Second", status: "healthy", x: 1, y: 1 },
+    ]);
+    const moved = architectureTopologyPresentationKey([
+      { id: "first", type: "app-service", name: "First", status: "healthy", x: 2, y: 1 },
+    ]);
+
+    expect(second).not.toBe(first);
+    expect(moved).not.toBe(first);
   });
 
   it("preserves the viewport center while zooming", () => {

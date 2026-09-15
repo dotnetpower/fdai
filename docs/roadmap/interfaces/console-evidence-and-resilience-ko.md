@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 583a831d7af9fdc0d70b001aeb280d8b5d3fe5f7
+translation_source_sha: 3d794976a9423a4c118207e5034eb1b0dcc4b892
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -669,6 +669,8 @@ SVG 뷰포트는 이동, 휠 확대 및 축소, 맞춤, 전체 화면, 키보드
 Landscape에서 다른 범위로 전환하면 새 canvas는 원점에 맞춘 전체 보기로 시작합니다. 같은 canvas
 안에서 크기만 바뀌면 콘텐츠가 전체 보기보다 작아지는 경우를 제외하고 운영자의 확대 상태를
 유지합니다.
+재설정 식별자에는 표시된 Resource 식별자와 형상이 포함되므로, 크기가 같은 서로 다른 범위가
+이전 뷰포트 상태를 유지할 수 없습니다.
 
 영향 범위 지도는 시뮬레이션 스냅샷에 해당하는 범위 미지정 그래프 프로젝션을 요청하고, 렌더링 전에
 모든 대상 및 도달 Resource 식별자를 비교합니다. 스냅샷이 일치하지 않거나 영향 식별자가 하나라도

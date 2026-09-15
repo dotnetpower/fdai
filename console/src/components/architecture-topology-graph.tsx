@@ -13,6 +13,7 @@ import {
   architectureTopologyInitialView,
   architectureTopologyLabelLines,
   architectureTopologyLinkRoute,
+  architectureTopologyPresentationKey,
   architectureTopologyRegionDepth,
   architectureTopologyResourcePoint,
   architectureTopologyUnplacedIds,
@@ -73,6 +74,10 @@ export function ArchitectureTopologyGraph({
     [graph.resources],
   );
   const activeIds = architectureTopologyActiveIds(graph, highlightedIds);
+  const presentationKey = useMemo(
+    () => architectureTopologyPresentationKey(graph.resources),
+    [graph.resources],
+  );
   const bounds = useMemo(() => architectureTopologyBounds(graph.resources), [graph.resources]);
   const canvas = useMemo(() => architectureTopologyCanvasSize(bounds), [bounds]);
   const regions = graph.resources.filter(isRegion).sort(
@@ -145,7 +150,7 @@ export function ArchitectureTopologyGraph({
     observer.observe(scroll);
     resize();
     return () => observer.disconnect();
-  }, [canvas.height, canvas.width]);
+  }, [canvas.height, canvas.width, presentationKey]);
 
   useEffect(() => {
     const scroll = scrollRef.current;

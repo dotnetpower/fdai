@@ -689,6 +689,8 @@ Inspector provide equivalent non-gesture access. Reduced motion and forced color
 operation and meaning.
 Changing from Landscape to another scope starts that new canvas at its fitted origin. Resize inside
 the same canvas preserves operator zoom unless the content would become smaller than Fit.
+Reset identity includes the visible Resource identities and geometry, so two different scopes with
+the same canvas dimensions cannot retain stale viewport state.
 
 The Impact scope map requests an unscoped graph projection at the simulation snapshot and compares
 every target and reached Resource identity before rendering. A snapshot mismatch or any omitted
