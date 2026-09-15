@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: b4db5fe358494dc667e9182f0e97ec456cc41720
-translation_revised: 2026-09-15
+translation_source_sha: f806f62926b40ad7e07a4ac81beebbb800a07339
+translation_revised: 2026-09-16
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -38,7 +38,7 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 | 로컬 Browser Entra 세션 복원력 | 구현됨 | `console/src/auth-session.ts`; `console/src/auth.ts`; focused Console 인증 테스트(`10 passed`)와 typecheck | MSAL Browser v4는 loopback origin에서만 암호화된 `localStorage`를 사용하고 배포 origin에서는 `sessionStorage`를 유지합니다. 시작 시, 30분마다, focus, visibility 또는 network 복구 뒤에 하나로 병합된 refresh를 실행합니다. Entra는 여전히 대화형 인증을 요구할 수 있습니다. |
 | 알림 통합 구성 및 진단 | 구현됨 | `teams_workflow_binding.py`; `teams_workflow_diagnostics.py`; `families/iam/{capabilities,settings,manifest}.py`; 집중 바인딩, 진단 및 IAM 기능군 테스트 | Owner는 Teams 엔드포인트를 저장하고 테스트할 수 있습니다. Contributor, Approver 및 Owner는 `no-store` 응답으로 시크릿이 없는 바인딩 버전과 시각 메타데이터만 받으며 엔드포인트 값은 브라우저로 반환되지 않습니다. Reader와 BreakGlass에는 `visible: false`만 반환합니다. Slack은 일회성 테스트로 유지합니다. 모든 Teams 저장, 테스트 및 메타데이터 조회 감사 기록에는 URL을 넣지 않습니다. |
 | 사용자별 비용 거버넌스 접근 | 구현됨 | `CostAccessGrant`, `CostDisclosureCeiling`, 비용 거버넌스 Operator 경로 및 집중 테스트 | Reader는 시간 검사와 배포 공개 상한을 적용하기 전에 principal, 목적, scope가 일치하는 최신 grant를 선택합니다. 서버는 직렬화 전에 `hidden`, `aggregate`, `masked` 또는 `detailed` 공개 정책을 적용하며, 권한은 패키지를 활성화하거나 액션을 승격할 수 없습니다. |
-| IAM 관리 진단 및 요청 변환 결과 | implemented | `entra_directory.py`; `families/iam/iam_routes.py`; `postgres_iam.py`; `console/src/routes/settings-iam*`; 집중 Operator, Console 및 Browser 테스트 | Console은 FDAI Owner와 테넌트 관리자를 구분하고, 자격 증명을 사용할 수 있을 때 서버 측 읽기 전용 Graph 디렉터리를 사용하며, 승인이 멤버십을 변경했다고 주장하지 않고 영속 요청 및 검토 제안을 표시합니다. |
+| IAM 관리 진단 및 요청 변환 결과 | implemented | `entra_directory.py`; `families/iam/iam_routes.py`; `postgres_iam.py`; `console/src/routes/settings-iam*`; `console/tests/e2e/settings-{iam,overlay,production-controls}.spec.ts`; 집중 Operator, Console 및 Browser 테스트 | Console은 FDAI Owner와 테넌트 관리자를 구분하고, 자격 증명을 사용할 수 있을 때 서버 측 읽기 전용 Graph 디렉터리를 사용하며, 승인이 멤버십을 변경했다고 주장하지 않고 영속 요청 및 검토 제안을 표시합니다. IAM 탭과 요청 컨트롤은 기능 검사를 바꾸지 않고 공통 데스크톱 및 터치 표현을 사용합니다. |
 | 독립적으로 검토한 회수 의도 | implemented | [회수 의도](../../../services/core-control-plane/src/fdai/core/human_assignment/revocation_intent.py); [기록된 실행 체크포인트](../../internals/handover-lifecycle-hardening-20260914.md#execution-source-critique-checkpoint) | 요청/결과 `1.1.0`이 원래 사례와 대체 사례의 리비전을 고정합니다. 새 제거 검토, 원래 사례의 CAS 보류, 독립 IAM 회수, 검토 전용 이전 임무 PR은 별도 결과입니다. Core에는 변경 대체 경로가 없으며 격리 경로에도 현재 승인, 안전장치, 독립 승격이 필요합니다. |
 | Core와 Operator 인수인계 권한과 예산 | implemented | [수락](../../../services/operator-service/src/fdai_operator_service/families/iam/handover_acceptance.py); [세션 예산](../../../services/operator-service/src/fdai_operator_service/families/iam/handover_session_budget.py); [Core 연결](../../../services/core-control-plane/src/fdai/runtime/core_handover.py); [기록된 Core 근거](../../internals/handover-lifecycle-hardening-20260914.md#core-source-and-retrieval-critique-checkpoint) | 영역 6개, 독립 검토, 개인 전체의 영속 제한, 현재 Core 목표/검토자/원본 허용/검색 연결을 구현했습니다. Reader 백업은 현재 관찰한 역할 그룹 소속과 정확한 문서 ACL이 일치해야 합니다. 비공개 메타데이터, 임무 이름, App Role만으로 부족한 그룹 근거를 채우지 않습니다. |
 | 범위별 담당 검토와 H10 UI | implemented | [범위별 런타임](../../../services/core-control-plane/src/fdai/runtime/scoped_duties.py); [Console 작업 영역](../../../console/src/routes/scoped-duty-workspace.tsx); [기록된 H10 UI 근거](../../internals/handover-lifecycle-hardening-20260914.md#h10-console-implementation-and-focused-critique-evidence): 단위 테스트 95개, Playwright 시나리오 6개 | Owner 전용 사용자/그룹/일정 임무, 정확한 범위, UTC 구간, 고정 대체 담당자, 검토, 병합 관측, 사례 대체를 연결했습니다. HTTP 202는 Core 처리 대기입니다. 데스크톱/모바일, 계정 초기화, 대비 근거는 실제 경로의 합성 근거이며 전체 WCAG/평가 기준이나 실제 운영 인증이 아닙니다. |
@@ -541,7 +541,7 @@ Settings 활동 bar 그룹은 콘솔의 클라우드 권한을 넓히지 않고 
 | `/settings/models` | 해결된 T1/T2 모델, 라이프사이클 및 지연 시간 근거, 로그인 사용자의 T1 서술기 선호, 런타임 상태를 변경하지 않는 distinct-publisher T2 카탈로그 초안 빌더입니다. Interactive 로컬은 테넌트 식별자, 엔드포인트 또는 자격 증명을 복사하지 않고 준비된 resolved-model 산출물에서 이 화면을 materialize합니다. |
 | `/settings/runtime-policies` | 허용 목록된 런타임 정책의 정제된 환경, 영속 재정의 및 effective 값을 표시합니다. Interactive 로컬은 준비 상태를 추론하지 않고 검증된 준비 환경에서 진단과 구성된 통합 상태를 materialize합니다. 읽기 담당은 조회하고 Owner는 개정 번호 및 감사 검사를 통해 업데이트합니다. |
 | `/settings/memory` | 프로바이더가 등록된 경우 영속 운영자 지침을 표시하고, 그렇지 않으면 명시적인 사용 불가 상태를 표시합니다. |
-| `/settings/iam` | 로그인 principal, App 역할, 유효 기능, 참조된 사용자 및 액세스 요청입니다. |
+| `/settings/iam` | 로그인 principal, App 역할, 유효 기능, 참조된 사용자 및 공통 데스크톱과 터치 표현을 사용하는 액세스 요청입니다. |
 | `/settings/integrations` | ID, 전달 및 운영자 채널 연결의 읽기 전용 상태입니다. |
 | `/settings/diagnostics` | Operator API 엔드포인트 및 인증 세션 진단입니다. |
 

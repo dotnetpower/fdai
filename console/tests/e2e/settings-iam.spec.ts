@@ -83,7 +83,7 @@ test("explains Owner authority and preserves IAM data on narrow screens", async 
   await expect(page.getByText("Separate protected workflow")).toBeVisible();
   await page.getByRole("tab", { name: "Users" }).click();
   await expect(page).toHaveURL(/\/settings\/iam\/users$/);
-  await expect(page.getByText("Find a user for a role request")).toBeVisible();
+  await expect(page.getByText("Find a user by email or name")).toBeVisible();
   await expect(page.getByText("Example Operator")).toBeVisible();
   await expect(page.getByRole("link", { name: "Open assignment reviews" })).toBeVisible();
 
