@@ -13,7 +13,7 @@ import shutil
 import stat
 import subprocess
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -603,14 +603,18 @@ def _validate_handoff(handoff: object, review: dict[str, object]) -> None:
         raise ValueError("Foundation access handoff is invalid")
 
 
-def _independent_readback(handoff: dict[str, object], cwd: Path) -> None:
+def _independent_readback(
+    handoff: dict[str, object], cwd: Path, *, capture: Callable[..., str] | None = None
+) -> None:
+    """Verify Foundation resources through the existing reader or a bounded trusted capture."""
+    capture = capture or _capture
     app = _object(handoff["app_resource_group"], "Foundation application group")
     ops = _object(handoff["ops"], "Foundation operations handoff")
     state = _object(handoff["state"], "Foundation state handoff")
     runner = _object(handoff["runner"], "Foundation runner handoff")
     access = _object(handoff["access"], "Foundation access handoff")
     group = json.loads(
-        _capture(
+        capture(
             ["az", "group", "show", "--ids", str(app["id"]), "--output", "json"],
             cwd=cwd,
             timeout=60,
@@ -618,7 +622,7 @@ def _independent_readback(handoff: dict[str, object], cwd: Path) -> None:
         )
     )
     account = json.loads(
-        _capture(
+        capture(
             [
                 "az",
                 "resource",
@@ -647,7 +651,7 @@ def _independent_readback(handoff: dict[str, object], cwd: Path) -> None:
         raise ValueError("Foundation group or state protection readback failed")
     for container in (state["container_name"], state["plan_container"]):
         container_id = f"{state['account_id']}/blobServices/default/containers/{container}"
-        _capture(
+        capture(
             [
                 "az",
                 "resource",
@@ -664,7 +668,7 @@ def _independent_readback(handoff: dict[str, object], cwd: Path) -> None:
             reason="Foundation private container readback failed",
         )
     vm = json.loads(
-        _capture(
+        capture(
             [
                 "az",
                 "vm",
@@ -696,7 +700,7 @@ def _independent_readback(handoff: dict[str, object], cwd: Path) -> None:
         if not isinstance(bastion_id, str) or not bastion_id:
             raise ValueError("Foundation Bastion handoff is incomplete")
         bastion = json.loads(
-            _capture(
+            capture(
                 [
                     "az",
                     "network",

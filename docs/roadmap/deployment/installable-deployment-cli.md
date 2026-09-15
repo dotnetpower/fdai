@@ -156,7 +156,22 @@ allows only application naming and that bounded IP-policy input in copied config
 path directly to Terraform. It retains bounded private command diagnostics, binds current recovery
 source and provider bytes, checks the new group is absent, and rejects concurrent state changes.
 The separate expiring review grants no apply authority and is not accepted by ordinary Foundation
-apply. A separately approved recovery executor and public-coordinator receipt handoff remain required.
+apply. Public-coordinator receipt handoff remains separate and is not implied by this review.
+
+The dedicated `genesis_foundation_recovery_apply.py` executor accepts a fresh `foundation-apply`
+approval whose run binding is the recovery review digest and whose source is the recovery code.
+The official prompt takes `--foundation-recovery-review`; the original status approval cannot
+authorize the new plan. Before a new claim, the executor verifies current human identity, exact-source
+CI, original claim/snapshot/state lineage, configuration/provider/plan hashes, and the new group's
+continued absence. It rechecks current VM SKU/quota evidence, then state, plan, configuration and
+tool hashes plus review expiry immediately before claiming.
+
+The new immutable claim precedes one saved-plan apply against the original local state path.
+A retained claim permits only `--verify-only`, with exact claim identity and evidence checks.
+Existing Foundation observers verify the new handoff through a trusted deadline-bounded capture,
+and a zero-change plan gates the separate recovery receipt. Each verification keeps its own private
+diagnostics; no original receipt is fabricated or overwritten. Successful recovery still leaves
+runner attestation, private state migration and application deployment incomplete.
 
 ### Source transfer boundary
 
