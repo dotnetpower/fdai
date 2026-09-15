@@ -6,6 +6,7 @@ import {
   type InventoryResource,
 } from "./architecture-map.model";
 import { layoutArchitectureNetworkFloors } from "./architecture-network-layout";
+import { layoutGeometrylessArchitectureGraph } from "./architecture-landscape-layout";
 import {
   ARCHITECTURE_TOPOLOGY_COLUMN_PITCH,
   ARCHITECTURE_TOPOLOGY_ROW_PITCH,
@@ -16,7 +17,9 @@ export function layoutArchitecturePresentation(
   graph: InventoryGraphResponse,
   selectedId: string | null,
 ): InventoryGraphResponse {
-  const networkLayout = layoutArchitectureNetworkFloors(graph);
+  const networkLayout = layoutArchitectureNetworkFloors(
+    layoutGeometrylessArchitectureGraph(graph),
+  );
   const overview = constrainGraph(architecturePresentationGraph(networkLayout, null));
   if (selectedId === null) return overview;
   const presented = architecturePresentationGraph(networkLayout, selectedId);
@@ -28,7 +31,9 @@ export function layoutArchitectureImpactPresentation(
   graph: InventoryGraphResponse,
   impactedIds: ReadonlySet<string>,
 ): InventoryGraphResponse {
-  const networkLayout = layoutArchitectureNetworkFloors(graph);
+  const networkLayout = layoutArchitectureNetworkFloors(
+    layoutGeometrylessArchitectureGraph(graph),
+  );
   const overview = constrainGraph(architecturePresentationGraph(networkLayout, null));
   const visibleIds = new Set(overview.resources.map((resource) => resource.id));
   for (const resourceId of impactedIds) {

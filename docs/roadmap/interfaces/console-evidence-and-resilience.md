@@ -619,6 +619,8 @@ Subscription, Resource Group, VNet, and Subnet records render as nested neutral 
 Console creates all presentation geometry deterministically from the returned projection before
 rendering; an unplaced visible record is an explicit unavailable presentation, never an implicit
 `0,0` coordinate.
+Boundary classification uses canonical Resource types and reported containment, not the presence
+of optional presentation fields in an API response.
 Resources use reviewed official icons where available and stable Cloud Adoption Framework
 abbreviations otherwise. Compact text, accessible names, search, and Inspector content preserve
 name, type, and state without relying on color. Typed edges terminate on current node or boundary

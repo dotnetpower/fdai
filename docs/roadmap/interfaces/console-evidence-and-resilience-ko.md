@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: f4aae6588ffdad0a1e7c9bf025c963298520b500
+translation_source_sha: f2eaa0ba27dfdef7f371f2cfeeb0138b7002798f
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -602,7 +602,9 @@ Resource와 관계를 구분합니다. Resource를 선택하면 보고된 가장
 작업 영역은 토폴로지, Network 및 영향 범위 지도에 하나의 접근 가능한 직교 SVG를 사용합니다.
 Subscription, Resource Group, VNet 및 Subnet 기록은 중첩된 중립 경계로 표시합니다. Console은
 렌더링 전에 반환된 변환 결과에서 모든 표현 형상을 결정론적으로 생성합니다. 배치되지 않은 표시
-기록은 암묵적인 `0,0` 좌표가 아니라 명시적인 표현 사용 불가 상태가 됩니다. Resource는
+기록은 암묵적인 `0,0` 좌표가 아니라 명시적인 표현 사용 불가 상태가 됩니다. 경계 분류는 API
+응답의 선택적 표현 필드 존재 여부가 아니라 정규 Resource 타입과 보고된 포함 관계를 사용합니다.
+Resource는
 검토된 공식 아이콘을 사용할 수 있으면 이를 사용하고, 그렇지 않으면 Cloud Adoption Framework의
 고정된 약어를 사용합니다. 간결한 텍스트, 접근 가능한 이름, 검색 및 상세 패널은 색상에 의존하지
 않고 이름, 타입 및 상태를 유지합니다. 타입이 지정된 간선은 현재 노드 또는 경계 형상에서 끝납니다.
