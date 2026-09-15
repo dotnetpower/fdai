@@ -8,10 +8,49 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
 _RUNNER = Path(__file__).parents[3] / "scripts/automation/run-local-service.sh"
+
+
+def _complete_lock_record(
+    lock_file: Path, process: subprocess.Popen[bytes], deadline: float
+) -> str:
+    """Wait for the parent's final owner/child record, not the child's earlier ready log."""
+    while True:
+        record = lock_file.read_text() if lock_file.exists() else ""
+        fields = record.split()
+        if (
+            record.endswith("\n")
+            and len(fields) == 3
+            and len(fields[0]) == 64
+            and all(character in "0123456789abcdef" for character in fields[0])
+            and all(field.isdecimal() and int(field) > 0 for field in fields[1:])
+        ):
+            return record
+        assert process.poll() is None
+        assert time.monotonic() < deadline
+        time.sleep(0.02)
+
+
+@pytest.mark.parametrize("incomplete", ["", "a" * 64 + " 123\n", "a" * 64 + " 123 456"])
+def test_owner_snapshot_waits_for_complete_lock_publication(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, incomplete: str
+) -> None:
+    lock_file = tmp_path / "service.lock"
+    lock_file.touch()
+    complete = "a" * 64 + " 123 456\n"
+    read = Mock(side_effect=[incomplete, complete])
+    monkeypatch.setattr(Path, "read_text", read)
+    monkeypatch.setattr(time, "sleep", lambda _: None)
+    process = Mock(spec=subprocess.Popen)
+    process.poll.return_value = None
+
+    assert _complete_lock_record(lock_file, process, time.monotonic() + 5) == complete
+    assert read.call_count == 2
+    process.poll.assert_called_once_with()
 
 
 @pytest.mark.parametrize(
@@ -70,7 +109,7 @@ def test_stack_owned_service_is_reused_or_refused_without_stopping_siblings(
             assert process.poll() is None
             assert time.monotonic() < deadline
             time.sleep(0.02)
-        original_lock = Path(f"{log_file}.lock").read_text()
+        original_lock = _complete_lock_record(Path(f"{log_file}.lock"), process, deadline)
         sibling_pid = int(sibling_pid_file.read_text())
         if changed_inputs:
             environment["FDAI_LOCAL_SERVICE_INPUT_DIGEST"] = "b" * 64
