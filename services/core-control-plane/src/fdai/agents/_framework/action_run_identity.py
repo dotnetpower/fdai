@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Protocol
 
 _DIGEST_PREFIX = "sha256:"
 _IDENTITY_FIELDS = (
@@ -26,6 +26,10 @@ _IDENTITY_FIELDS = (
     "verdict",
     "workflow_action",
 )
+
+
+class _StateReader(Protocol):
+    async def read_state(self, key: str) -> Mapping[str, Any] | None: ...
 
 
 def action_run_identity_projection(value: Mapping[str, Any]) -> dict[str, Any]:
@@ -166,6 +170,27 @@ def validate_inactive_action_run_replay(
         raise ValueError("ActionRun correlation cannot bind a different idempotency generation")
 
 
+async def validate_durable_action_run_correlation(
+    store: _StateReader,
+    *,
+    run_prefix: str,
+    candidate: Mapping[str, Any],
+) -> None:
+    """Reject correlation reuse before a peer can claim an execution resource."""
+
+    correlation_id = str(candidate.get("correlation_id") or "")
+    current = await store.read_state(f"{run_prefix}{correlation_id}")
+    if current is None:
+        return
+    if current.get("active") == "false":
+        validate_inactive_action_run_replay(current, candidate)
+        return
+    if current.get("correlation_id") != correlation_id or current.get(
+        "idempotency_key"
+    ) != candidate.get("idempotency_key"):
+        raise ValueError("active ActionRun correlation identity conflicts")
+
+
 __all__ = [
     "approval_matches_action_run",
     "action_run_identity_digest",
@@ -173,6 +198,7 @@ __all__ = [
     "bounded_rollback_ref",
     "is_action_run_identity",
     "rollback_matches_action_run",
+    "validate_durable_action_run_correlation",
     "validate_inactive_action_run_replay",
     "validate_action_run_identity",
 ]

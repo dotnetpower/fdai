@@ -37,6 +37,7 @@ translation_revised: 2026-09-15
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | implemented | 수명 주기 순위로 오래된 쓰기를 억제하기 전에, 그리고 Thor가 멱등성을 예약하거나 리소스를 점유하기 전에 활성 영속 ActionRun 신원을 검증하도록 했습니다. 상관관계를 공유하는 peer generation은 실행 전에 실패하며 정규 활성 실행을 복구 화면에서 숨길 수 없습니다. | `current change`; 활성 행 및 복제본 간 충돌 회귀 검사, LOC 상한 아래로 provider 점유 시간 helper 추출. | 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
 | 2026-09-15 | withdrawn | 독립 검토에서 결정, 전달 순서, 삭제 및 리소스 점유 경쟁을 발견해 상관관계 재사용 generation 교체를 철회했습니다. 이제 Thor, Var 및 영속 어댑터는 상관관계마다 변경할 수 없는 ActionRun 신원 하나를 결속하고 서로 다른 모든 generation을 거부합니다. 정확히 같은 generation 재생만 멱등성을 유지합니다. | `current change`; 실제 및 영속 재사용 거부, 기존 tombstone, 해제된 점유, 오래된 권한 및 shadow 일부 정족수 재시작 회귀 검사 300개 통과. | 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
 | 2026-09-15 | implemented | 비활성 Thor tombstone에 이전 액션 멱등성 generation을 보존하고 서로 다른 generation에서만 행을 CAS로 교체하도록 했습니다. 재사용한 상관관계도 완료된 실행을 되살리지 않고 새 shadow HIL 실행을 영속화합니다. | `current change`; 오래된 generation 억제, tombstone 교체 및 상관관계 재사용 일부 정족수 재시작 회귀 검사 통과. | 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
 | 2026-09-15 | implemented | Var가 영속 복구를 사용할 때 프로덕션 shadow 모드에서도 Thor ActionRun을 영속화해 미완료 정족수와 정확히 일치하는 실행이 두 번째 승인 전에 함께 복원되도록 했습니다. | `current change`; 일부 정족수 shadow 재시작, 런타임 및 bootstrap 검사 137개 통과, strict mypy 및 Ruff 통과. | 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
@@ -187,8 +188,9 @@ ActionRun이 함께 재개됩니다. 적용 모드 조립은 여전히 명시적
 `vidar_state_store`, `var_state_store` 바인딩을 모두 요구하며, 하나라도 없으면 프로세스 로컬
 승인 또는 롤백 상태를 사용하기 전에 시작을 차단합니다. 비활성 Thor 행은 안정적인 멱등성
 generation을 유지합니다. 같은 generation은 계속 억제하고 다른 generation은 실패 시
-차단합니다. Generation을 알 수 없는 기존 tombstone도 재사용 권한을 부여하지 않습니다. 해제된
-리소스 점유는 상관관계, 멱등성 키 및 액션 지문이 모두 같아야 완료된 같은 실행으로 인정합니다.
+차단합니다. Generation을 알 수 없는 기존 tombstone도 재사용 권한을 부여하지 않습니다. 활성
+행은 리소스 점유, 수명 주기 순위 억제 또는 실행 전에 검증합니다. 해제된 리소스 점유는
+상관관계, 멱등성 키 및 액션 지문이 모두 같아야 완료된 같은 실행으로 인정합니다.
 
 ### 대화형 액션 재진입
 

@@ -689,6 +689,9 @@ class Thor(Agent):
                 else None
             ),
         )
+        validate_correlation = getattr(self._state_store, "validate_correlation_identity", None)
+        if callable(validate_correlation):
+            await validate_correlation(run)
         self.action_runs[correlation] = run
         self._idempotency_runs[run.idempotency_key] = run
         if resource_id:

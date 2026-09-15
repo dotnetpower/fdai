@@ -1004,6 +1004,78 @@ def test_statestore_rejects_new_generation_for_inactive_correlation() -> None:
     assert asyncio.run(first.load_active()) == []
 
 
+def test_statestore_rejects_new_generation_for_active_correlation() -> None:
+    state = InMemoryStateStore()
+    first = StateStoreActionRunStore(store=state)
+    previous = ActionRun(
+        correlation_id="active-reused-correlation",
+        action_type="ops.restart-service",
+        resource_id="vm-old",
+        state=ActionRunState.HIL_PENDING,
+        verdict="hil",
+        idempotency_key="active-generation-old",
+    )
+    asyncio.run(first.save(previous))
+    replacement = ActionRun(
+        correlation_id=previous.correlation_id,
+        action_type="remediate.delete-storage",
+        resource_id="storage-current",
+        state=ActionRunState.VERDICTED,
+        verdict="auto",
+        idempotency_key="active-generation-current",
+    )
+
+    with pytest.raises(ValueError, match="active ActionRun correlation identity"):
+        asyncio.run(StateStoreActionRunStore(store=state).save(replacement))
+
+    active = asyncio.run(first.load_active())
+    assert len(active) == 1
+    assert active[0].idempotency_key == "active-generation-old"
+
+
+def test_cross_replica_active_correlation_conflict_never_executes() -> None:
+    state = InMemoryStateStore()
+    first_store = StateStoreActionRunStore(store=state)
+    previous = ActionRun(
+        correlation_id="cross-replica-correlation",
+        action_type="ops.restart-service",
+        resource_id="vm-old",
+        state=ActionRunState.HIL_PENDING,
+        verdict="hil",
+        idempotency_key="cross-replica-old",
+    )
+    asyncio.run(first_store.save(previous))
+    executions: list[str] = []
+
+    async def execute(context):
+        executions.append(context["run"].action_type)
+        return True
+
+    peer = Thor(
+        executor=execute,
+        state_store=StateStoreActionRunStore(store=state),
+        shadow_by_default=False,
+    )
+    with pytest.raises(ValueError, match="active ActionRun correlation identity"):
+        asyncio.run(
+            peer.dispatch_verdict(
+                {
+                    "correlation_id": previous.correlation_id,
+                    "idempotency_key": "cross-replica-current",
+                    "action_type": "remediate.delete-storage",
+                    "resource_id": "storage-current",
+                    "risk_verdict": "auto",
+                    "resolved_autonomy_ceiling": "enforce_auto",
+                }
+            )
+        )
+
+    assert executions == []
+    active = asyncio.run(first_store.load_active())
+    assert len(active) == 1
+    assert active[0].idempotency_key == "cross-replica-old"
+
+
 def test_statestore_rejects_reuse_of_legacy_inactive_correlation() -> None:
     state = InMemoryStateStore()
     key = "thor:run|legacy-correlation"

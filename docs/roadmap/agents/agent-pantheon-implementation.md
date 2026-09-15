@@ -35,6 +35,7 @@ cross-agent workflow has an independent rollout record in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Validated active durable ActionRun identity before lifecycle-rank suppression and before Thor can reserve idempotency or claim a resource. A peer generation sharing a correlation now fails before execution and cannot hide the canonical active run. | `current change`; active-row and cross-replica conflict regressions; provider lease helpers extracted under the LOC ceiling. | Resolve the two recorded Low-severity residuals. |
 | 2026-09-15 | withdrawn | Withdrew reused-correlation generation replacement after independent review found decision, delivery-order, delete, and resource-claim races. Thor, Var, and durable adapters now bind each correlation to one immutable ActionRun identity and reject every distinct generation; exact same-generation replay remains idempotent. | `current change`; live and durable reuse rejection, legacy tombstone, released-claim, stale authority, and shadow partial-quorum restart regressions passed 300 tests. | Resolve the two recorded Low-severity residuals. |
 | 2026-09-15 | implemented | Preserved the prior action idempotency generation in inactive Thor tombstones and CAS-replaced the row only for a distinct generation. Reused correlations now persist a new shadow HIL run without resurrecting the completed run. | `current change`; stale-generation suppression, tombstone replacement, and reused-correlation partial-quorum restart regressions passed. | Resolve the two recorded Low-severity residuals. |
 | 2026-09-15 | implemented | Persisted Thor ActionRuns in production shadow mode whenever Var uses durable recovery, so an incomplete quorum and its exact matching run rehydrate together before the second approval. | `current change`; partial-quorum shadow restart plus runtime and bootstrap suites passed 137 tests; strict mypy and Ruff passed. | Resolve the two recorded Low-severity residuals. |
@@ -188,7 +189,8 @@ incomplete quorum and its matching ActionRun resume together. Enforcement still 
 exact agent-owned binding before process-local approval or rollback state can be used. An inactive
 Thor row retains its stable idempotency generation. The same generation remains suppressed, while a
 different generation fails closed, including pre-campaign tombstones whose generation is unknown.
-Released resource claims require the same correlation, idempotency key, and action fingerprint.
+Active rows are validated before resource claim, lifecycle-rank suppression, or execution. Released
+resource claims require the same correlation, idempotency key, and action fingerprint.
 
 ### Conversational action re-entry
 

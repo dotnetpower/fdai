@@ -7,11 +7,20 @@ import json
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any, Literal
 from uuid import uuid4
 
-from fdai.agents._framework.action_run_identity import validate_inactive_action_run_replay
+from fdai.agents._framework.action_run_identity import (
+    validate_durable_action_run_correlation,
+    validate_inactive_action_run_replay,
+)
+from fdai.agents._framework.action_run_store_time import (
+    claim_lease_expiry as _claim_lease_expiry,
+)
+from fdai.agents._framework.action_run_store_time import (
+    lease_expiry as _lease_expiry,
+)
 from fdai.agents._framework.adapters import AuditEntry, _digest
 from fdai.agents.thor import ActionRun, ActionRunState
 from fdai.shared.providers.state_store import StateStore
@@ -169,6 +178,11 @@ class StateStoreActionRunStore:
     owner_id: str = field(default_factory=lambda: uuid4().hex)
     claim_lease_seconds: int = 600
 
+    async def validate_correlation_identity(self, run: ActionRun) -> None:
+        await validate_durable_action_run_correlation(
+            self.store, run_prefix=self.run_prefix, candidate=run.to_dict()
+        )
+
     async def save(self, run: ActionRun) -> None:
         completion = await self.store.read_state(self._completion_key(run.idempotency_key))
         if completion is not None:
@@ -200,6 +214,11 @@ class StateStoreActionRunStore:
             if current.get("active") == "false":
                 validate_inactive_action_run_replay(current, run.to_dict())
                 return
+            if (
+                current.get("correlation_id") != run.correlation_id
+                or current.get("idempotency_key") != run.idempotency_key
+            ):
+                raise ValueError("active ActionRun correlation identity conflicts")
             try:
                 current_state = ActionRunState(str(current.get("state") or ""))
             except ValueError as exc:
@@ -772,21 +791,6 @@ def _action_fingerprint(run: ActionRun) -> str:
         sort_keys=True,
     )
     return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
-
-
-def _lease_expiry(seconds: int) -> str:
-    return (datetime.now(tz=UTC) + timedelta(seconds=seconds)).isoformat()
-
-
-def _claim_lease_expiry(claim: Mapping[str, Any]) -> datetime:
-    raw = claim.get("lease_expires_at")
-    if not isinstance(raw, str):
-        return datetime.min.replace(tzinfo=UTC)
-    try:
-        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except ValueError:
-        return datetime.min.replace(tzinfo=UTC)
-    return parsed.astimezone(UTC) if parsed.tzinfo is not None else datetime.min.replace(tzinfo=UTC)
 
 
 __all__ = [
