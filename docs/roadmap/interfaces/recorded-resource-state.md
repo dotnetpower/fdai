@@ -16,6 +16,9 @@ browser-side operational verdict.
 The instance directory and detail merge ordered realtime changes over one active generation.
 Recorded-state pages remain immutable and generation-fenced. The Operator Service projects their
 Resource properties into three independent axes that both Console screens consume.
+The explicit `summary=count` mode returns only the active immutable ARG directory count, source
+generation, and cutoff. It does not wait for ontology projection alignment. Resource rows, state
+facts, pagination, and detail continue to require the strict inventory-to-ontology generation fence.
 
 Kubernetes identity and diagnostic facts remain a separate allowlisted detail object. They do not
 become an operational, availability, or provisioning state axis, and missing diagnostic facts do

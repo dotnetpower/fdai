@@ -76,6 +76,40 @@ class InventoryStateReader(Protocol):
         ...
 
 
+async def project_inventory_resource_count(
+    *,
+    query: ProjectionQuery,
+    reader: InventoryStateReader,
+) -> dict[str, object]:
+    """Count the active immutable ARG snapshot without requiring ontology alignment."""
+
+    if query.params != {"summary": ("count",)} or query.cursor is not None:
+        raise ValueError("resource count requires summary=count and no cursor")
+    context = await reader.read_inventory_impact_context()
+    if context is None:
+        raise ProjectionUnavailableError("active inventory snapshot is unavailable")
+    _validate_inventory_context(context)
+    page = await reader.read_inventory_state_page(
+        snapshot_id=context.snapshot_id,
+        search=None,
+        offset=0,
+        limit=1,
+    )
+    active = await reader.read_inventory_impact_context()
+    if active != context:
+        raise InventoryGenerationChangedError
+    _validate_page(page, offset=0, limit=1)
+    return {
+        "schema_version": "1.0.0",
+        "source_kind": "inventory_snapshot_resource",
+        "source_generation": context.snapshot_id,
+        "source_cutoff": context.observed_at.isoformat(),
+        "total_count": page.total_count,
+        "execution_authority": False,
+        "mutation_authority": False,
+    }
+
+
 async def project_inventory_states(
     *,
     query: ProjectionQuery,
@@ -89,6 +123,8 @@ async def project_inventory_states(
     The canonical unsigned cursor binds the current source, search, page size,
     release and authenticated context. It cannot supply scope or reader authority.
     """
+    if "summary" in query.params:
+        return await project_inventory_resource_count(query=query, reader=reader)
     search = _search(query)
     release_digest, _ = _ontology_identity(ontology_projection)
     if re.fullmatch(r"sha256:[a-f0-9]{64}", release_digest) is None:
@@ -98,13 +134,7 @@ async def project_inventory_states(
         if query.cursor is not None:
             raise InventoryGenerationChangedError
         raise ProjectionUnavailableError("active inventory snapshot is unavailable")
-    if (
-        not context.snapshot_id
-        or len(context.snapshot_id) > 256
-        or context.observed_at.tzinfo is None
-        or context.observed_at.utcoffset() is None
-    ):
-        raise ProjectionUnavailableError("active inventory snapshot identity is malformed")
+    _validate_inventory_context(context)
     ontology_context = await reader.read_inventory_ontology_context()
     if (
         ontology_context is not None
@@ -197,6 +227,16 @@ def _search(query: ProjectionQuery) -> str | None:
     if len(raw) > 256:
         raise ValueError("states search MUST be at most 256 characters")
     return raw.strip() or None
+
+
+def _validate_inventory_context(context: InventoryImpactContext) -> None:
+    if (
+        not context.snapshot_id
+        or len(context.snapshot_id) > 256
+        or context.observed_at.tzinfo is None
+        or context.observed_at.utcoffset() is None
+    ):
+        raise ProjectionUnavailableError("active inventory snapshot identity is malformed")
 
 
 def _encode(payload: Mapping[str, object]) -> str:
