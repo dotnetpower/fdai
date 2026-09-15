@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0.0",
+  "date": "2026-09-15",
+  "issue": 1065,
+  "base_revision": "d5851038bc9d99b5080138681b8d84ecb2ecfff2",
+  "reviewed_revision": "1e1f06c0f",
+  "scope": [
+    "inventory delta deadlines and cursor persistence",
+    "Activity Log pagination and parent-only deployment changes",
+    "promoted inventory observation metadata",
+    "provider retry hints and campaign cooldown persistence",
+    "analyzer target admission",
+    "local analyzer readiness"
+  ],
+  "rounds": [
+    {"round": 1, "finding": "Non-finite delta deadlines admitted", "severity": "Medium", "status": "resolved", "commit": "ae7dfac42", "validation": "2 failing counterexamples before fix; 24 owning tests passed after fix"},
+    {"round": 2, "finding": "Malformed persisted cursors silently coerced", "severity": "Medium", "status": "resolved", "commit": "9a8855d62", "validation": "6 failing counterexamples before fix; 30 owning tests passed"},
+    {"round": 3, "finding": "Cursor storage outside recovery deadline", "severity": "Medium", "status": "resolved", "commit": "19f2335fd", "validation": "2 failing storage-stall counterexamples; 32 owning tests passed"},
+    {"round": 4, "finding": "Explicitly unavailable inventory requires absent counters", "severity": "Medium", "status": "resolved", "commit": "d8d675f1d", "validation": "Unavailable-summary regression reproduced; 17 Azure probe tests passed"},
+    {"round": 5, "finding": "Missing freshness and non-boolean truncation accepted", "severity": "Medium", "status": "resolved", "commit": "cf7ff3d8f", "validation": "6 invalid-metadata counterexamples; 23 Azure probe tests passed"},
+    {"round": 6, "finding": "Provider Retry-After lost across campaigns", "severity": "Medium", "status": "resolved", "commit": "2c4be69ee", "validation": "2 failing parser/restart counterexamples; 202 related checks plus corrected 21-test runner suite passed"},
+    {"round": 7, "finding": "Malformed nextLink treated as final page", "severity": "Medium", "status": "resolved", "commit": "c65925584", "validation": "4 failing continuation counterexamples; 37 Activity Log tests passed"},
+    {"round": 8, "finding": "Parent-only deployment change poisons valid delta rows", "severity": "High", "status": "resolved", "commit": "15af03312", "validation": "Write/delete counterexamples; 71 Activity Log and delta tests passed"},
+    {"round": 9, "finding": "Failed analyzer waiting markers retain false readiness", "severity": "Medium", "status": "resolved", "commit": "06217cee0", "validation": "4 failing readiness counterexamples; 12 focused workflow tests passed"},
+    {"round": 10, "finding": "No defect in exact analyzer admission holds", "severity": "None", "status": "verified", "commit": "9559bcdcc", "validation": "7 additional exact evidence, scope, purpose, generation, expiry and future checks; 53 target tests passed"},
+    {"round": 11, "finding": "Malformed companion retry hint discards valid cooldown", "severity": "Medium", "status": "resolved", "commit": "1e1f06c0f", "validation": "Independent review reproduction; 57 parser/campaign/probe tests passed"},
+    {"round": 12, "finding": "No significant issue found by independent final review", "severity": "None", "status": "verified", "commit": "1e1f06c0f", "validation": "Read-only code-review follow-up over the complete bounded change set"}
+  ],
+  "final_validation": {
+    "focused_tests_passed": 367,
+    "strict_mypy_source_files": 7,
+    "strict_mypy": "passed",
+    "unresolved_medium_or_higher_in_reviewed_changes": 0,
+    "local_commits_with_hooks": 11
+  },
+  "runtime_evidence": {
+    "venue": "local-loopback-read-only",
+    "selected_targets": 22,
+    "source_complete": true,
+    "admission_lookups": 13,
+    "no_current_admission": 13,
+    "admitted": 0,
+    "conclusion": "Unverified state holds are intentional; no proof or operational success was manufactured."
+  },
+  "limitations": [
+    "The review is scoped to changed event-production boundaries, not the entire repository.",
+    "Live model/provider validation and managed-stack restart were not performed by this hardening campaign.",
+    "Runtime adoption requires an approved restart and exact-revision evidence.",
+    "Missing current independent admission records remain an external evidence prerequisite.",
+    "Configured source cadence and cost cooldown are not reduced to create more UI events."
+  ]
+}
