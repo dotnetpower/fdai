@@ -11,6 +11,7 @@ from fdai.agents._framework.introspection import IntrospectionResult
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents.bragi import Bragi
+from fdai.agents.thor import ActionRun, ActionRunState, Thor
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 
 from tests.agents.semantic_judgment_support import (
@@ -46,6 +47,931 @@ def test_ask_routes_to_primary_agent() -> None:
     assert turn.answer["primary_agent"] == "Thor"
 
 
+def test_ask_forwards_locale_to_agent_prompt_composition() -> None:
+    runtime = _runtime()
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id="locale-ko",
+            user_id="operator-one",
+            question="Odin, 현재 역할을 설명해 주세요.",
+            locale="ko",
+        )
+    )
+
+    assert turn is not None
+    assert turn.primary_agent == "Odin"
+    participant = turn.answer["pantheon_trace_fragment"]["participants"][0]
+    assert participant["situation"].startswith("audience=operator;phase=direct;tier=T0;locale=ko;")
+
+
+@pytest.mark.parametrize(
+    ("locale", "question", "expected"),
+    (
+        (
+            "en",
+            "Thor, explain your role, reporting line, mandate, and limitations.",
+            (
+                "sole privileged executor",
+                "I report to Odin.",
+                "after Forseti's verdict",
+                "I never judge, approve, or self-authorize.",
+                "No ActionRun has been dispatched",
+            ),
+        ),
+        (
+            "en",
+            "Thor, state who you report to and what you may not decide.",
+            ("I report to Odin.", "I never judge, approve, or self-authorize."),
+        ),
+        (
+            "ko",
+            "Thor, 역할, 보고 체계, 임무와 한계를 설명해 주세요.",
+            (
+                "유일한 권한 보유 실행기인 Thor",
+                "Odin에게 보고합니다.",
+                "Forseti의 판정",
+                "판단하거나 승인하거나 스스로 권한을 부여하지 않습니다.",
+                "전달한 ActionRun은 없습니다.",
+            ),
+        ),
+        (
+            "ko",
+            "Thor, 누구에게 보고하고 어떤 결정을 할 수 없는지 알려 주세요.",
+            ("Odin에게 보고합니다.", "판단하거나 승인하거나 스스로 권한을 부여하지 않습니다."),
+        ),
+    ),
+)
+def test_thor_role_answer_preserves_execution_boundaries(
+    locale: str,
+    question: str,
+    expected: tuple[str, ...],
+) -> None:
+    runtime = _runtime()
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id=f"thor-role-{locale}",
+            user_id="operator-one",
+            question=question,
+            locale=locale,
+        )
+    )
+
+    assert turn is not None
+    assert turn.primary_agent == "Thor"
+    assert all(fragment in turn.answer["answer"] for fragment in expected)
+    assert turn.answer["facts"]["evidence_refs"][0] in turn.answer["answer"]
+    assert turn.answer["pantheon_trace_fragment"]["reported_verification_status"] == "verified"
+
+
+def test_thor_role_aggregate_and_target_state_cover_active_runs() -> None:
+    runtime = _runtime()
+    thor = runtime.agents["Thor"]
+    assert isinstance(thor, Thor)
+    thor.action_runs["run-one"] = ActionRun(
+        correlation_id="run-one",
+        action_type="remediate.restart",
+        resource_id="resource-one",
+        state=ActionRunState.EXECUTING,
+        verdict="auto",
+    )
+
+    english = asyncio.run(thor.on_conversation_turn("Describe your current runs.", {}))
+    korean = asyncio.run(
+        thor.on_conversation_turn("현재 실행 상태를 설명해 주세요.", {"locale": "ko"})
+    )
+    target = asyncio.run(thor.on_conversation_turn("Show run-one.", {}))
+
+    assert "tracks 1 ActionRun, with 1 active" in english["answer"]
+    assert "ActionRun 1건을 추적하며 1건이 활성 상태" in korean["answer"]
+    assert english["facts"]["evidence_refs"][0] in english["answer"]
+    assert korean["facts"]["evidence_refs"][0] in korean["answer"]
+    assert target["answer"].startswith(
+        "ActionRun 'run-one' (remediate.restart) is executing on resource-one. Evidence: "
+    )
+    assert target["facts"]["evidence_refs"][0] in target["answer"]
+
+
+@pytest.mark.parametrize(
+    ("locale", "question", "expected"),
+    (
+        (
+            "en",
+            "Forseti, explain your role, reporting line, mandate, and limitations.",
+            (
+                "pipeline judge",
+                "I report to Odin, not Thor.",
+                "deterministic rules and policy first",
+                "verifier-checked T2 only for residual ambiguity",
+                "I never approve or execute actions.",
+            ),
+        ),
+        (
+            "en",
+            "Forseti, who do you report to and which duties are outside your authority?",
+            ("I report to Odin, not Thor.", "I never approve or execute actions."),
+        ),
+        (
+            "ko",
+            "Forseti, 역할, 보고 체계, 임무와 한계를 설명해 주세요.",
+            (
+                "파이프라인 judge인 Forseti",
+                "Thor가 아닌 Odin에게 보고합니다.",
+                "결정론적 규칙과 정책을 먼저 적용",
+                "잔여 모호성에만 검증이 적용된 T2",
+                "작업을 승인하거나 실행하지 않습니다.",
+            ),
+        ),
+        (
+            "ko",
+            "Forseti, 누구에게 보고하고 어떤 권한을 갖지 않는지 알려 주세요.",
+            ("Thor가 아닌 Odin에게 보고합니다.", "작업을 승인하거나 실행하지 않습니다."),
+        ),
+    ),
+)
+def test_forseti_role_answer_preserves_judge_boundaries(
+    locale: str,
+    question: str,
+    expected: tuple[str, ...],
+) -> None:
+    runtime = _runtime()
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id=f"forseti-role-{locale}",
+            user_id="operator-one",
+            question=question,
+            locale=locale,
+        )
+    )
+
+    assert turn is not None
+    assert turn.primary_agent == "Forseti"
+    assert all(fragment in turn.answer["answer"] for fragment in expected)
+    assert turn.answer["facts"]["evidence_refs"][0] in turn.answer["answer"]
+    assert turn.answer["pantheon_trace_fragment"]["reported_verification_status"] == "verified"
+
+
+@pytest.mark.parametrize(
+    ("locale", "question", "expected"),
+    (
+        (
+            "en",
+            "Huginn, explain your role, reporting line, mandate, and limitations.",
+            (
+                "event collector and resource-discovery ingress",
+                "I report to Forseti.",
+                "normalize, deduplicate, correlate, and publish Event and Change",
+                "no synchronous LLM call",
+                "never judge, approve, or execute",
+            ),
+        ),
+        (
+            "en",
+            "Huginn, who do you report to and what is forbidden on your hot path?",
+            ("I report to Forseti.", "no synchronous LLM call"),
+        ),
+        (
+            "ko",
+            "Huginn, 역할, 보고 체계, 임무와 한계를 설명해 주세요.",
+            (
+                "Event 수집기이자 리소스 발견 유입을 담당하는 Huginn",
+                "Forseti에게 보고합니다.",
+                "Event와 Change를 정규화하고 중복 제거",
+                "hot-path에서는 동기 LLM을 호출하지 않으며",
+                "판단, 승인 또는 실행을 수행하지 않습니다.",
+            ),
+        ),
+        (
+            "ko",
+            "Huginn, 누구에게 보고하고 hot-path에서 무엇을 하지 않는지 알려 주세요.",
+            ("Forseti에게 보고합니다.", "hot-path에서는 동기 LLM을 호출하지 않으며"),
+        ),
+    ),
+)
+def test_huginn_role_answer_preserves_deterministic_ingress_boundaries(
+    locale: str,
+    question: str,
+    expected: tuple[str, ...],
+) -> None:
+    runtime = _runtime()
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id=f"huginn-role-{locale}",
+            user_id="operator-one",
+            question=question,
+            locale=locale,
+        )
+    )
+
+    assert turn is not None
+    assert turn.primary_agent == "Huginn"
+    assert all(fragment in turn.answer["answer"] for fragment in expected)
+    assert turn.answer["facts"]["evidence_refs"][0] in turn.answer["answer"]
+    assert turn.answer["pantheon_trace_fragment"]["reported_verification_status"] == "verified"
+
+
+@pytest.mark.parametrize(
+    ("locale", "question", "expected"),
+    (
+        (
+            "en",
+            "Heimdall, explain your role, reporting line, mandate, and limitations.",
+            (
+                "pipeline observer and signal gatherer",
+                "I report to Forseti.",
+                "produce Anomaly, Drift, Forecast",
+                "no synchronous LLM call on the hot path",
+                "never judge, approve, or execute",
+            ),
+        ),
+        (
+            "en",
+            "Heimdall, who do you report to and what is forbidden on your hot path?",
+            ("I report to Forseti.", "no synchronous LLM call on the hot path"),
+        ),
+        (
+            "ko",
+            "Heimdall, 역할, 보고 체계, 임무와 한계를 설명해 주세요.",
+            (
+                "observer이자 신호 수집기인 Heimdall",
+                "Forseti에게 보고합니다.",
+                "Anomaly, Drift, Forecast",
+                "hot-path에서는 동기 LLM을 호출하지 않으며",
+                "판단, 승인 또는 실행을 수행하지 않습니다.",
+            ),
+        ),
+        (
+            "ko",
+            "Heimdall, 누구에게 보고하고 hot-path에서 무엇을 하지 않는지 알려 주세요.",
+            ("Forseti에게 보고합니다.", "hot-path에서는 동기 LLM을 호출하지 않으며"),
+        ),
+    ),
+)
+def test_heimdall_role_answer_preserves_deterministic_observer_boundaries(
+    locale: str,
+    question: str,
+    expected: tuple[str, ...],
+) -> None:
+    runtime = _runtime()
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id=f"heimdall-role-{locale}",
+            user_id="operator-one",
+            question=question,
+            locale=locale,
+        )
+    )
+
+    assert turn is not None
+    assert turn.primary_agent == "Heimdall"
+    assert all(fragment in turn.answer["answer"] for fragment in expected)
+    assert turn.answer["facts"]["evidence_refs"][0] in turn.answer["answer"]
+    assert turn.answer["pantheon_trace_fragment"]["reported_verification_status"] == "verified"
+
+
+@pytest.mark.parametrize(
+    ("locale", "question", "expected"),
+    (
+        (
+            "en",
+            "Vidar, explain your role, reporting line, mandate, and limitations.",
+            (
+                "Rollback and disaster-recovery principal",
+                "I report to Thor.",
+                "receive failed ActionRuns",
+                "hard dependency",
+                "do not judge, approve, or execute the original action",
+            ),
+        ),
+        (
+            "en",
+            "Vidar, who do you report to and what happens when recovery is unavailable?",
+            ("I report to Thor.", "new changes must stop safely"),
+        ),
+        (
+            "ko",
+            "Vidar, 역할, 보고 체계, 임무와 한계를 설명해 주세요.",
+            (
+                "Rollback 및 재해 복구 principal인 Vidar",
+                "Thor에게 보고합니다.",
+                "실패한 ActionRun",
+                "hard dependency",
+                "원래 작업을 판단하거나 승인하거나 실행하지 않습니다.",
+            ),
+        ),
+        (
+            "ko",
+            "Vidar, 누구에게 보고하며 복구를 사용할 수 없으면 어떻게 되는지 알려 주세요.",
+            ("Thor에게 보고합니다.", "새 변경은 안전하게 중단돼야 합니다."),
+        ),
+    ),
+)
+def test_vidar_role_answer_preserves_fail_closed_recovery_boundaries(
+    locale: str,
+    question: str,
+    expected: tuple[str, ...],
+) -> None:
+    runtime = _runtime()
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id=f"vidar-role-{locale}",
+            user_id="operator-one",
+            question=question,
+            locale=locale,
+        )
+    )
+
+    assert turn is not None
+    assert turn.primary_agent == "Vidar"
+    assert all(fragment in turn.answer["answer"] for fragment in expected)
+    assert turn.answer["facts"]["evidence_refs"][0] in turn.answer["answer"]
+    assert turn.answer["pantheon_trace_fragment"]["reported_verification_status"] == "verified"
+
+
+@pytest.mark.parametrize(
+    ("locale", "question", "expected"),
+    (
+        (
+            "en",
+            "Var, explain your role, reporting line, mandate, and limitations.",
+            (
+                "pipeline approval principal",
+                "I report to Thor",
+                "distinct principal from Thor",
+                "current human approval, expiry, quorum, and no-self-approval",
+                "never judge or execute an action",
+            ),
+        ),
+        (
+            "en",
+            "Var, who do you report to and why can you not approve your own request?",
+            ("I report to Thor", "no-self-approval"),
+        ),
+        (
+            "ko",
+            "Var, 역할, 보고 체계, 임무와 한계를 설명해 주세요.",
+            (
+                "파이프라인 승인 principal인 Var",
+                "Thor에게 보고하지만 Thor와는 별도 principal",
+                "현재 사람의 승인, 만료, quorum",
+                "no-self-approval",
+                "작업을 판단하거나 실행하지 않습니다.",
+            ),
+        ),
+        (
+            "ko",
+            "Var, 누구에게 보고하고 자기 요청을 승인할 수 없는 이유를 알려 주세요.",
+            ("Thor에게 보고하지만", "no-self-approval"),
+        ),
+    ),
+)
+def test_var_role_answer_preserves_human_approval_separation(
+    locale: str,
+    question: str,
+    expected: tuple[str, ...],
+) -> None:
+    runtime = _runtime()
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id=f"var-role-{locale}",
+            user_id="operator-one",
+            question=question,
+            locale=locale,
+        )
+    )
+
+    assert turn is not None
+    assert turn.primary_agent == "Var"
+    assert all(fragment in turn.answer["answer"] for fragment in expected)
+    assert turn.answer["facts"]["evidence_refs"][0] in turn.answer["answer"]
+    assert turn.answer["pantheon_trace_fragment"]["reported_verification_status"] == "verified"
+
+
+@pytest.mark.parametrize(
+    ("locale", "question", "expected"),
+    (
+        (
+            "en",
+            "Bragi, explain your role, reporting line, mandate, and limitations.",
+            (
+                "pipeline narrator and translator",
+                "I report to Thor.",
+                "render the same evidence in the operator's locale",
+                "presentation-only",
+                "no judgment, approval, evidence-mutation, or execution authority",
+            ),
+        ),
+        (
+            "en",
+            "Bragi, who do you report to and can your model output authorize an action?",
+            ("I report to Thor.", "Model output is presentation-only"),
+        ),
+        (
+            "ko",
+            "Bragi, 역할, 보고 체계, 임무와 한계를 설명해 주세요.",
+            (
+                "파이프라인 서술기이자 번역기인 Bragi",
+                "Thor에게 보고합니다.",
+                "동일한 근거를 운영자 로캘로 표현",
+                "모델 출력은 표현 전용",
+                "판단, 승인, 근거 변경 또는 실행 권한을 갖지 않습니다.",
+            ),
+        ),
+        (
+            "ko",
+            "Bragi, 누구에게 보고하고 모델 출력이 작업을 승인할 수 있는지 알려 주세요.",
+            ("Thor에게 보고합니다.", "모델 출력은 표현 전용"),
+        ),
+    ),
+)
+def test_bragi_role_answer_preserves_translator_only_boundary(
+    locale: str,
+    question: str,
+    expected: tuple[str, ...],
+) -> None:
+    runtime = _runtime()
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id=f"bragi-role-{locale}",
+            user_id="operator-one",
+            question=question,
+            locale=locale,
+        )
+    )
+
+    assert turn is not None
+    assert turn.primary_agent == "Bragi"
+    assert all(fragment in turn.answer["answer"] for fragment in expected)
+    assert turn.answer["facts"]["evidence_refs"][0] in turn.answer["answer"]
+    assert turn.answer["pantheon_trace_fragment"]["reported_verification_status"] == "verified"
+
+
+@pytest.mark.parametrize(
+    ("locale", "question", "expected"),
+    (
+        (
+            "en",
+            "Saga, explain your role, reporting line, mandate, and limitations.",
+            (
+                "append-only auditor and handoff-to-issue owner",
+                "I report to Odin.",
+                "hash-linked AuditEntry chain",
+                "hard dependency",
+                "never judge, approve, or mutate managed resources",
+            ),
+        ),
+        (
+            "en",
+            "Saga, who do you report to and what happens when audit evidence is unavailable?",
+            ("I report to Odin.", "must fail closed"),
+        ),
+        (
+            "ko",
+            "Saga, 역할, 보고 체계, 임무와 한계를 설명해 주세요.",
+            (
+                "추가 전용 auditor이자 handoff-to-issue 소유자인 Saga",
+                "Odin에게 보고합니다.",
+                "해시로 연결된 AuditEntry",
+                "hard dependency",
+                "판단하거나 승인하거나 관리 리소스를 변경하지 않습니다.",
+            ),
+        ),
+        (
+            "ko",
+            "Saga, 누구에게 보고하며 감사 근거를 사용할 수 없으면 어떻게 되는지 알려 주세요.",
+            ("Odin에게 보고합니다.", "fail-closed로 중단돼야 합니다."),
+        ),
+    ),
+)
+def test_saga_role_answer_preserves_append_only_audit_boundaries(
+    locale: str,
+    question: str,
+    expected: tuple[str, ...],
+) -> None:
+    runtime = _runtime()
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id=f"saga-role-{locale}",
+            user_id="operator-one",
+            question=question,
+            locale=locale,
+        )
+    )
+
+    assert turn is not None
+    assert turn.primary_agent == "Saga"
+    assert all(fragment in turn.answer["answer"] for fragment in expected)
+    assert turn.answer["facts"]["evidence_refs"][0] in turn.answer["answer"]
+    assert turn.answer["pantheon_trace_fragment"]["reported_verification_status"] == "verified"
+
+
+@pytest.mark.parametrize(
+    ("locale", "question", "expected"),
+    (
+        (
+            "en",
+            "Mimir, explain your role, reporting line, mandate, and limitations.",
+            (
+                "governance-layer rule steward",
+                "I report to Odin.",
+                "quality gate, regression checks, and shadow evidence",
+                "reviewed catalog PR",
+                "never judge, approve, or execute an action",
+            ),
+        ),
+        (
+            "en",
+            "Mimir, who do you report to and can you promote an operational rule directly?",
+            ("I report to Odin.", "cannot promote without a reviewed catalog PR"),
+        ),
+        (
+            "ko",
+            "Mimir, 역할, 보고 체계, 임무와 한계를 설명해 주세요.",
+            (
+                "거버넌스 계층의 rule steward인 Mimir",
+                "Odin에게 보고합니다.",
+                "품질 gate, 회귀 검사와 shadow 근거",
+                "검토된 catalog PR",
+                "작업을 판단하거나 승인하거나 실행하지 않습니다.",
+            ),
+        ),
+        (
+            "ko",
+            "Mimir, 누구에게 보고하며 운영 규칙을 직접 승격할 수 있는지 알려 주세요.",
+            ("Odin에게 보고합니다.", "검토된 catalog PR 없이는 승격할 수 없습니다."),
+        ),
+    ),
+)
+def test_mimir_role_answer_preserves_governed_rule_boundaries(
+    locale: str,
+    question: str,
+    expected: tuple[str, ...],
+) -> None:
+    runtime = _runtime()
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id=f"mimir-role-{locale}",
+            user_id="operator-one",
+            question=question,
+            locale=locale,
+        )
+    )
+
+    assert turn is not None
+    assert turn.primary_agent == "Mimir"
+    assert all(fragment in turn.answer["answer"] for fragment in expected)
+    assert turn.answer["facts"]["evidence_refs"][0] in turn.answer["answer"]
+    assert turn.answer["pantheon_trace_fragment"]["reported_verification_status"] == "verified"
+
+
+@pytest.mark.parametrize(
+    ("locale", "question", "expected"),
+    (
+        (
+            "en",
+            "Muninn, explain your role, reporting line, mandate, and limitations.",
+            (
+                "governance-layer memory agent",
+                "I report to Odin.",
+                "StateSnapshot and ContextIndex",
+                "current, bitemporal, and case-history context",
+                "does not by itself prove a current provider observation or action authority",
+            ),
+        ),
+        (
+            "en",
+            "Muninn, who do you report to and does stored memory grant action authority?",
+            ("I report to Odin.", "does not by itself prove"),
+        ),
+        (
+            "ko",
+            "Muninn, 역할, 보고 체계, 임무와 한계를 설명해 주세요.",
+            (
+                "거버넌스 계층의 memory 에이전트인 Muninn",
+                "Odin에게 보고합니다.",
+                "StateSnapshot과 ContextIndex",
+                "bitemporal 상태와 사례 이력",
+                "작업 권한을 자동으로 증명하지 않습니다.",
+            ),
+        ),
+        (
+            "ko",
+            "Muninn, 누구에게 보고하고 저장된 기억이 작업 권한을 주는지 알려 주세요.",
+            ("Odin에게 보고합니다.", "작업 권한을 자동으로 증명하지 않습니다."),
+        ),
+    ),
+)
+def test_muninn_role_answer_preserves_memory_evidence_boundaries(
+    locale: str,
+    question: str,
+    expected: tuple[str, ...],
+) -> None:
+    runtime = _runtime()
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id=f"muninn-role-{locale}",
+            user_id="operator-one",
+            question=question,
+            locale=locale,
+        )
+    )
+
+    assert turn is not None
+    assert turn.primary_agent == "Muninn"
+    assert all(fragment in turn.answer["answer"] for fragment in expected)
+    assert turn.answer["facts"]["evidence_refs"][0] in turn.answer["answer"]
+    assert turn.answer["pantheon_trace_fragment"]["reported_verification_status"] == "verified"
+
+
+@pytest.mark.parametrize(
+    ("locale", "question", "expected"),
+    (
+        (
+            "en",
+            "Norns, explain your role, reporting line, mandate, and limitations.",
+            (
+                "governance-layer learner",
+                "I report to Odin.",
+                "RuleCandidate and Pattern",
+                "bounded off-path discovery",
+                "candidate is inert",
+                "Mimir's quality gate",
+            ),
+        ),
+        (
+            "en",
+            "Norns, who do you report to and can your candidates promote themselves?",
+            ("I report to Odin.", "candidate is inert"),
+        ),
+        (
+            "ko",
+            "Norns, 역할, 보고 체계, 임무와 한계를 설명해 주세요.",
+            (
+                "거버넌스 계층의 learner인 Norns",
+                "Odin에게 보고합니다.",
+                "RuleCandidate와 Pattern",
+                "off-path 발견에만",
+                "후보는 비활성",
+                "Mimir의 품질 gate",
+            ),
+        ),
+        (
+            "ko",
+            "Norns, 누구에게 보고하고 후보가 스스로 승격할 수 있는지 알려 주세요.",
+            ("Odin에게 보고합니다.", "후보는 비활성이며"),
+        ),
+    ),
+)
+def test_norns_role_answer_preserves_inert_learning_boundaries(
+    locale: str,
+    question: str,
+    expected: tuple[str, ...],
+) -> None:
+    runtime = _runtime()
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id=f"norns-role-{locale}",
+            user_id="operator-one",
+            question=question,
+            locale=locale,
+        )
+    )
+
+    assert turn is not None
+    assert turn.primary_agent == "Norns"
+    assert all(fragment in turn.answer["answer"] for fragment in expected)
+    assert turn.answer["facts"]["evidence_refs"][0] in turn.answer["answer"]
+    assert turn.answer["pantheon_trace_fragment"]["reported_verification_status"] == "verified"
+
+
+@pytest.mark.parametrize(
+    ("locale", "question", "expected"),
+    (
+        (
+            "en",
+            "Njord, explain your role, reporting line, mandate, and limitations.",
+            (
+                "cost-domain advisory specialist",
+                "I report to Forseti.",
+                "CostAnomaly and Budget",
+                "never judge, approve, or execute an action",
+                "do not reveal unnamed scope identifiers",
+            ),
+        ),
+        (
+            "en",
+            "Njord, who do you report to and may you execute a cost change?",
+            ("I report to Forseti.", "never judge, approve, or execute an action"),
+        ),
+        (
+            "ko",
+            "Njord, 역할, 보고 체계, 임무와 한계를 설명해 주세요.",
+            (
+                "비용 영역의 advisory specialist인 Njord",
+                "Forseti에게 보고합니다.",
+                "CostAnomaly와 Budget",
+                "작업을 판단, 승인 또는 실행하지 않습니다.",
+                "질문에 명시되지 않은 scope 식별자",
+            ),
+        ),
+        (
+            "ko",
+            "Njord, 누구에게 보고하고 비용 변경을 실행할 수 있는지 알려 주세요.",
+            ("Forseti에게 보고합니다.", "작업을 판단, 승인 또는 실행하지 않습니다."),
+        ),
+    ),
+)
+def test_njord_role_answer_preserves_advisory_and_scope_boundaries(
+    locale: str,
+    question: str,
+    expected: tuple[str, ...],
+) -> None:
+    runtime = _runtime()
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id=f"njord-role-{locale}",
+            user_id="operator-one",
+            question=question,
+            locale=locale,
+        )
+    )
+
+    assert turn is not None
+    assert turn.primary_agent == "Njord"
+    assert all(fragment in turn.answer["answer"] for fragment in expected)
+    assert turn.answer["facts"]["tracked_scopes"] == []
+    assert turn.answer["facts"]["evidence_refs"][0] in turn.answer["answer"]
+    assert turn.answer["pantheon_trace_fragment"]["reported_verification_status"] == "verified"
+
+
+@pytest.mark.parametrize(
+    ("locale", "question", "expected"),
+    (
+        (
+            "en",
+            "Freyr, explain your role, reporting line, mandate, and limitations.",
+            (
+                "capacity-domain advisory specialist",
+                "I report to Forseti.",
+                "CapacityForecast, SizingRecommendation",
+                "Forseti judges and Thor executes",
+                "never judge, approve, or execute an action",
+                "do not reveal unnamed resource identifiers",
+            ),
+        ),
+        (
+            "en",
+            "Freyr, who do you report to and may you execute a capacity change?",
+            ("I report to Forseti.", "never judge, approve, or execute an action"),
+        ),
+        (
+            "ko",
+            "Freyr, 역할, 보고 체계, 임무와 한계를 설명해 주세요.",
+            (
+                "용량 영역의 advisory specialist인 Freyr",
+                "Forseti에게 보고합니다.",
+                "CapacityForecast, SizingRecommendation",
+                "Forseti가 판단하고 Thor가 실행",
+                "작업을 판단, 승인 또는 실행하지 않습니다.",
+                "질문에 명시되지 않은 resource 식별자",
+            ),
+        ),
+        (
+            "ko",
+            "Freyr, 누구에게 보고하고 용량 변경을 실행할 수 있는지 알려 주세요.",
+            ("Forseti에게 보고합니다.", "작업을 판단, 승인 또는 실행하지 않습니다."),
+        ),
+    ),
+)
+def test_freyr_role_answer_preserves_advisory_and_resource_boundaries(
+    locale: str,
+    question: str,
+    expected: tuple[str, ...],
+) -> None:
+    runtime = _runtime()
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id=f"freyr-role-{locale}",
+            user_id="operator-one",
+            question=question,
+            locale=locale,
+        )
+    )
+
+    assert turn is not None
+    assert turn.primary_agent == "Freyr"
+    assert all(fragment in turn.answer["answer"] for fragment in expected)
+    assert turn.answer["facts"]["tracked_resources"] == []
+    assert turn.answer["facts"]["evidence_refs"][0] in turn.answer["answer"]
+    assert turn.answer["pantheon_trace_fragment"]["reported_verification_status"] == "verified"
+
+
+@pytest.mark.parametrize(
+    ("locale", "question", "expected"),
+    (
+        (
+            "en",
+            "Loki, explain your role, reporting line, mandate, and limitations.",
+            (
+                "chaos advisory specialist",
+                "I report to Forseti.",
+                "ChaosExperiment and ResilienceScore",
+                "verified dry-run, tested recovery plan, stop condition",
+                "Every experiment requires HIL",
+                "Forseti judges and Thor executes",
+            ),
+        ),
+        (
+            "en",
+            "Loki, who do you report to and may you execute a chaos experiment?",
+            ("I report to Forseti.", "I never judge, approve, or execute an action."),
+        ),
+        (
+            "ko",
+            "Loki, 역할, 보고 체계, 임무와 한계를 설명해 주세요.",
+            (
+                "chaos advisory specialist인 Loki",
+                "Forseti에게 보고합니다.",
+                "ChaosExperiment와 ResilienceScore",
+                "검증된 dry-run",
+                "모든 실험은 HIL 승인이 필요",
+                "Forseti가 판단하고 Thor가 실행",
+            ),
+        ),
+        (
+            "ko",
+            "Loki, 누구에게 보고하고 chaos 실험을 실행할 수 있는지 알려 주세요.",
+            ("Forseti에게 보고합니다.", "작업을 판단, 승인 또는 실행하지 않습니다."),
+        ),
+    ),
+)
+def test_loki_role_answer_preserves_hil_chaos_boundaries(
+    locale: str,
+    question: str,
+    expected: tuple[str, ...],
+) -> None:
+    runtime = _runtime()
+
+    turn = asyncio.run(
+        runtime.ask(
+            session_id=f"loki-role-{locale}",
+            user_id="operator-one",
+            question=question,
+            locale=locale,
+        )
+    )
+
+    assert turn is not None
+    assert turn.primary_agent == "Loki"
+    assert all(fragment in turn.answer["answer"] for fragment in expected)
+    assert turn.answer["facts"]["in_flight_targets"] == []
+    assert turn.answer["facts"]["evidence_refs"][0] in turn.answer["answer"]
+    assert turn.answer["pantheon_trace_fragment"]["reported_verification_status"] == "verified"
+
+
+def test_exact_canonical_domain_disambiguates_semantic_owner_without_prefix_match() -> None:
+    runtime = _runtime()
+
+    exact = asyncio.run(
+        runtime.ask(
+            session_id="loki-domain-exact",
+            user_id="operator-one",
+            question="chaos_experiment_status 영역의 현재 상태와 근거를 설명해 주세요.",
+            locale="ko",
+        )
+    )
+    prefixed = asyncio.run(
+        runtime.ask(
+            session_id="loki-domain-prefix",
+            user_id="operator-one",
+            question="chaos_experiment_status_extra 영역의 현재 상태와 근거를 설명해 주세요.",
+            locale="ko",
+        )
+    )
+
+    assert exact is not None
+    assert exact.primary_agent == "Loki"
+    assert exact.decision.method == "semantic_judgment"
+    assert exact.decision.tie_break == "canonical_question_domain"
+    assert exact.answer["contributors"] == []
+    assert "Muninn:" not in exact.answer["answer"]
+    assert prefixed is not None
+    assert prefixed.decision.tie_break != "canonical_question_domain"
+
+
 def test_every_pantheon_agent_is_directly_reachable() -> None:
     runtime = _runtime()
 
@@ -65,11 +991,36 @@ def test_every_pantheon_agent_is_directly_reachable() -> None:
         assert fragment["actual_primary_agent"] == spec.name
         assert fragment["execution_authority"] is False
         assert len(fragment["answer_digest"]) == 64
+        assert fragment["reported_verification_status"] == "verified"
+        assert fragment["reported_verification_authority"] == "agent_owned_projection"
         assert turn.question not in str(fragment)
         assert spec.conversation.system_prompt not in str(fragment)
         assert "latency_ms" not in fragment
         assert "hard_zero_violations" not in fragment
         assert "pantheon_observations" not in turn.answer
+
+
+def test_agent_state_verification_rejects_a_mismatched_evidence_ref() -> None:
+    odin = _runtime().agents["Odin"]
+    bragi = Bragi(semantic_judgment=semantic_test_boundary())
+
+    async def responder(question: str, context: dict) -> dict:
+        result = await odin.on_conversation_turn(question, context)
+        result["facts"]["evidence_refs"] = ["agent-state:Odin:sha256:" + "0" * 64]
+        return result
+
+    bragi.register_responder("Odin", responder)
+    turn = asyncio.run(
+        bragi.ask(
+            session_id="mismatched-agent-state",
+            user_id="operator-one",
+            question="Odin, describe your current capability",
+        )
+    )
+
+    assert turn is not None
+    fragment = turn.answer["pantheon_trace_fragment"]
+    assert fragment["reported_verification_status"] == "unverified"
 
 
 def test_every_agent_has_unique_bounded_conversation_charter() -> None:
@@ -978,7 +1929,7 @@ def test_introspect_facts_lists_are_capped() -> None:
             )
         )
     result = asyncio.run(njord.on_conversation_turn("cost overview", {}))
-    assert len(result["facts"]["tracked_scopes"]) == 20
+    assert result["facts"]["tracked_scopes"] == []
     assert result["facts"]["tracked_scopes_count"] == 30
 
 
@@ -991,5 +1942,5 @@ def test_introspect_freyr_facts_lists_are_capped() -> None:
     for i in range(30):
         asyncio.run(freyr.ingest_utilization(resource_id=f"res-{i:02d}", utilization=0.5))
     result = asyncio.run(freyr.on_conversation_turn("capacity overview", {}))
-    assert len(result["facts"]["tracked_resources"]) == 20
+    assert result["facts"]["tracked_resources"] == []
     assert result["facts"]["tracked_resources_count"] == 30

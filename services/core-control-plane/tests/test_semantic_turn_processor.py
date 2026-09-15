@@ -3104,6 +3104,11 @@ async def test_pantheon_assurance_purpose_uses_bound_diagnostic_runtime() -> Non
     assert assurance["assessment_state"] == "completed"
     assert assurance["assessment_reasons"] == ["mixed_family_consensus"]
     assert assurance["execution_authority"] is False
+    timing = assurance["turn_timing"]
+    assert timing["schema_version"] == 2
+    assert timing["duration_ms"] == sum(phase["duration_ms"] for phase in timing["phases"])
+    assert timing["phases"][-1]["phase"] == "pantheon_assurance"
+    assert timing["phases"][-1]["status"] == "completed"
 
 
 def test_semantic_turn_timing_partitions_end_to_end_duration_without_gaps() -> None:

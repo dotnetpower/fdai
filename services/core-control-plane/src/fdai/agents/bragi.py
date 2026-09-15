@@ -43,9 +43,11 @@ from fdai.agents._framework.deliberation import (
 )
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
+    agent_state_evidence_ref,
     capability_facts,
 )
 from fdai.agents._framework.pantheon import _BRAGI, PANTHEON_NAMES, PANTHEON_SPECS
+from fdai.agents._framework.role_answers import bragi_role_answer
 from fdai.agents._framework.semantic_routing import SemanticAgentRouter
 from fdai.core.conversation.semantic_judgment import SemanticJudgmentBoundary
 from fdai.core.metering.budget import BudgetLedger, ModelBudget
@@ -395,10 +397,11 @@ class Bragi(Agent):
 
     # ---- routing -------------------------------------------------------
 
-    def route(self, judgment: SemanticJudgmentProposal) -> RoutingDecision:
+    def route(
+        self, judgment: SemanticJudgmentProposal, *, question: str | None = None
+    ) -> RoutingDecision:
         return route_semantic_judgment(
-            judgment,
-            max_contributors=_MAX_CONTRIBUTORS,
+            judgment, max_contributors=_MAX_CONTRIBUTORS, question=question
         )
 
     def should_delegate(self, question: str, view_context: dict[str, Any]) -> bool:
@@ -440,13 +443,15 @@ class Bragi(Agent):
         session_id: str,
         user_id: str,
         question: str,
+        locale: str = "en",
         initiator_role: str | None = None,
         allow_action_proposal: bool = True,
         materialize_handoff: bool = True,
     ) -> Turn:
         """Route + call primary + record the turn.
 
-        ``initiator_role`` (the console session's Entra role) is applied by the
+        ``locale`` selects the language layer. ``initiator_role`` (the console session's Entra role)
+        is applied by the
         entry RBAC gate when the turn is an action command; ``None`` skips it.
         A read-only channel sets ``allow_action_proposal=False`` so an action
         utterance is redirected to the dedicated proposal route without
@@ -524,7 +529,7 @@ class Bragi(Agent):
             await self._publish_turn(session_id=session_id, turn=turn)
             return turn
         decision = (
-            self.route(judgment)
+            self.route(judgment, question=question)
             if judgment is not None
             else RoutingDecision(
                 primary_agent=None,
@@ -567,6 +572,7 @@ class Bragi(Agent):
                     {
                         "session_id": session_id,
                         "user_id": user_id,
+                        "locale": locale,
                         "semantic_action_posture": judgment.action_posture,
                         "semantic_requested_facets": judgment.requested_facets,
                         "semantic_primary_intent": judgment.primary_intent,
@@ -607,11 +613,16 @@ class Bragi(Agent):
                     contributor_answers: list[dict[str, Any]] = []
                     contributor_errors: list[str] = []
                 else:
-                    contributor_answers, contributor_errors = await self._ask_contributors(
+                    contributor_answers, contributor_errors = await ask_contributors(
+                        self._agent_responders,
                         decision.contributors,
                         question=question,
                         session_id=session_id,
+                        limit=_MAX_CONTRIBUTORS,
+                        timeout_seconds=_CONTRIBUTOR_TIMEOUT_SECONDS,
+                        logger=_LOG,
                         primary_agent=decision.primary_agent,
+                        locale=locale,
                     )
                 successful = [item["agent"] for item in contributor_answers]
                 answer["contributors"] = successful
@@ -754,25 +765,6 @@ class Bragi(Agent):
         self.record_behavior("handoff:published")
         return "published"
 
-    async def _ask_contributors(
-        self,
-        contributors: tuple[str, ...],
-        *,
-        question: str,
-        session_id: str,
-        primary_agent: str | None = None,
-    ) -> tuple[list[dict[str, Any]], list[str]]:
-        return await ask_contributors(
-            self._agent_responders,
-            contributors,
-            question=question,
-            session_id=session_id,
-            limit=_MAX_CONTRIBUTORS,
-            timeout_seconds=_CONTRIBUTOR_TIMEOUT_SECONDS,
-            logger=_LOG,
-            primary_agent=primary_agent,
-        )
-
     def prior_turns(self, session_id: str, *, limit: int = 5) -> tuple[Turn, ...]:
         session = self._sessions.get(session_id)
         if session is None:
@@ -788,11 +780,9 @@ class Bragi(Agent):
             **capability_facts(self.spec),
             "roster": roster,
         }
-        answer = (
-            "I am the narrator: I route your question to the agent that owns it. "
-            f"{len(PANTHEON_SPECS)} agents are reachable - ask about topics like "
-            "cost, capacity, anomalies, action status, audit history, or rules."
-        )
+        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+        facts["evidence_refs"] = [evidence_ref]
+        answer = bragi_role_answer(str(context.get("locale")), len(PANTHEON_SPECS), evidence_ref)
         return IntrospectionResult(answer=answer, facts=facts)
 
 

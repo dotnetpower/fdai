@@ -54,6 +54,7 @@ from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
+    agent_state_evidence_ref,
     capability_facts,
     capped_list,
 )
@@ -71,6 +72,7 @@ from fdai.agents._framework.norns_learning import (
 )
 from fdai.agents._framework.norns_semantic_feedback import NornsSemanticFeedbackLearning
 from fdai.agents._framework.pantheon import _NORNS
+from fdai.agents._framework.role_answers import norns_role_answer
 from fdai.core.case_history import CaseHistoryAnalyzer
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.learning import (
@@ -777,16 +779,9 @@ class Norns(Agent):
             "outcomes_tracked": capped_list(sorted(self._outcomes)),
             "outcomes_tracked_count": len(self._outcomes),
         }
-        if not self._fingerprint_counter and not self.pending_candidates:
-            answer = (
-                "No patterns observed yet; I turn operational signals into inert "
-                "rule candidates for the quality gate."
-            )
-        else:
-            answer = (
-                f"Observed {len(self._fingerprint_counter)} fingerprint pattern(s); "
-                f"{len(self.pending_candidates)} candidate(s) proposed."
-            )
+        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+        facts["evidence_refs"] = [evidence_ref]
+        answer = norns_role_answer(str(context.get("locale")), facts, evidence_ref)
         return IntrospectionResult(answer=answer, facts=facts)
 
 

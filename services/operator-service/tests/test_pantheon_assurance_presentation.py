@@ -19,7 +19,22 @@ def _assurance() -> dict[str, object]:
         "assessment_state": "completed",
         "assessment_reasons": ["mixed_family_consensus"],
         "trace_receipt_id": "a" * 64,
-        "pantheon_trace": {"receipt_digest": "a" * 64},
+        "turn_timing": {
+            "schema_version": 2,
+            "started_at": "2026-08-30T12:00:00.000+00:00",
+            "completed_at": "2026-08-30T12:00:00.025+00:00",
+            "duration_ms": 25,
+            "phases": [
+                {
+                    "phase": "pantheon_assurance",
+                    "status": "completed",
+                    "started_at": "2026-08-30T12:00:00.000+00:00",
+                    "completed_at": "2026-08-30T12:00:00.025+00:00",
+                    "duration_ms": 25,
+                }
+            ],
+        },
+        "pantheon_trace": {"receipt_digest": "a" * 64, "latency_ms": 20},
         "pantheon_observations": {"read_only": True},
         "pantheon_semantic_reviews": [],
         "pantheon_diagnostic": {"score": 25},
@@ -57,7 +72,23 @@ def test_pantheon_assurance_projection_becomes_one_bounded_terminal_answer() -> 
     assert done["assessment_state"] == "completed"
     assert done["assessment_reasons"] == ["mixed_family_consensus"]
     assert done["source"] == "pantheon-conversation-assurance"
+    assert done["latency_ms"] == 20
+    assert done["turn_timing"]["duration_ms"] == 25
+    assert done["turn_timing"]["phases"][0]["phase"] == "pantheon_assurance"
     assert done["execution_authority"] is False
+
+
+def test_legacy_pantheon_assurance_without_timing_remains_readable() -> None:
+    assurance = _assurance()
+    assurance.pop("turn_timing")
+    trace = cast(dict[str, object], assurance["pantheon_trace"])
+    trace.pop("latency_ms")
+
+    done = semantic_done_event_data({"payload": {"pantheon_assurance": assurance}})
+
+    assert done["answer"] == "Bounded Pantheon answer."
+    assert "latency_ms" not in done
+    assert "turn_timing" not in done
 
 
 class _Store:
