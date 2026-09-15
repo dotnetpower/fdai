@@ -131,7 +131,9 @@ request and are not perpetual desired-state resources.
 The managed host records the selected Deployment names, image references, and replica bounds.
 Health readback requires that complete set, current observed generations, ready replicas, and
 running Pod image digests from the same source revision. Empty, duplicate, stale, malformed, or
-partially healthy responses are unavailable, not success. This readback does not establish Kafka
+partially healthy responses are unavailable, not success. The expected set must contain all five
+baseline services; a renderer that omits one cannot redefine a partial rollout as complete.
+This readback does not establish Kafka
 round trips, scheduled-job success, Console authentication, or full deployment readiness.
 Operator rendering supplies its required `fdai_operator` database role; all rendered services
 explicitly select the deployed execution venue.

@@ -676,6 +676,69 @@ def test_aks_workload_binds_digest_image_and_additional_identity() -> None:
     }
 
 
+@pytest.mark.parametrize(
+    "missing_service",
+    [
+        "core-control-plane",
+        "operator-service",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor",
+        None,
+    ],
+)
+def test_aks_application_readback_requires_complete_baseline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, missing_service: str | None
+) -> None:
+    kubeconfig = tmp_path / "aks.kubeconfig"
+    kubeconfig.write_text("test configuration", encoding="utf-8")
+    expected = {
+        name: {"image": f"example.com/{name}@sha256:{'a' * 64}", "replicas": 2}
+        for name in (
+            "core-control-plane",
+            "operator-service",
+            "document-ingestion-api",
+            "document-processing-worker",
+            "isolated-executor",
+        )
+        if name != missing_service
+    }
+    observations: list[str] = []
+    health_checks: list[dict[str, object]] = []
+
+    def capture(command: tuple[str, ...], **_kwargs: object) -> str:
+        observations.append(command[2])
+        return "observed-json"
+
+    def verify_health(**kwargs: object) -> bool:
+        health_checks.append(kwargs)
+        return True
+
+    monkeypatch.setattr(standalone_host, "_capture", capture)
+    monkeypatch.setattr(standalone_host, "verify_workload_health", verify_health)
+    context = {
+        "runtime_profile": {"runtime_platform": "aks", "database_placement": "postgres-flex"},
+        "kubeconfig": str(kubeconfig),
+        "expected_workloads": expected,
+        "source_commit": "c" * 40,
+    }
+
+    assert standalone_host._readback_stage("application", context) is (missing_service is None)
+    if missing_service is None:
+        assert observations == ["deployments", "pods"]
+        assert health_checks == [
+            {
+                "deployments": "observed-json",
+                "pods": "observed-json",
+                "expected": expected,
+                "source_commit": "c" * 40,
+            }
+        ]
+    else:
+        assert observations == []
+        assert health_checks == []
+
+
 def test_database_plan_requires_cluster_and_image_receipts(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="database plan prerequisites"):
         standalone_host._plan(SimpleNamespace(stage="database"), tmp_path)

@@ -2164,6 +2164,14 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
         if not kubeconfig.is_file():
             raise ValueError("AKS kubeconfig is unavailable for workload readback")
         expected = _mapping(context.get("expected_workloads"), "expected AKS workloads")
+        if not {
+            "core-control-plane",
+            "operator-service",
+            "document-ingestion-api",
+            "document-processing-worker",
+            "isolated-executor",
+        }.issubset(expected):
+            return False
         observed = []
         for resource in ("deployments", "pods"):
             observed.append(

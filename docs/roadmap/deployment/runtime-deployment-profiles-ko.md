@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: b687c19b14303f891046740d2e6e8e1325e7cc62
+translation_source_sha: ab86c18914f0b6c8fc22004b229206d76c0312ec
 translation_revised: 2026-09-15
 ---
 # 런타임 배포 프로파일
@@ -130,7 +130,9 @@ Container Apps 렌더러는 명세를 Container Apps와 Container Apps Jobs로 �
 관리 호스트는 선택한 Deployment 이름, 이미지 참조, 복제본 수 범위를 기록합니다. 상태 재조회는
 해당 목록 전체, 현재 관측 세대, 준비된 복제본, 같은 소스 버전에서 실행 중인 Pod 이미지 digest를
 요구합니다. 비어 있거나 중복되거나 오래되거나 형식이 잘못됐거나 일부만 정상인 응답은 성공이
-아니라 사용 불가로 처리합니다. 이 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는
+아니라 사용 불가로 처리합니다. 기대 목록에는 다섯 기본 서비스가 모두 있어야 하며, 생성기가
+하나를 누락했다고 해서 부분 롤아웃을 완료된 것으로 판단해서는 안 됩니다.
+이 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는
 전체 배포 준비가 검증되지는 않습니다. Operator 생성기는 필수 `fdai_operator` 데이터베이스 역할을
 제공하며, 생성되는 모든 서비스는 배포된 실행 위치를 명시적으로 선택합니다.
 
