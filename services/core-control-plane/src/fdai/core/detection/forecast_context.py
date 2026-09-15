@@ -12,8 +12,7 @@ from datetime import UTC, datetime
 from fdai.core.detection.forecast_closure import ForecastObservationProvider
 from fdai.core.detection.forecast_episode import ForecastEpisode
 from fdai.core.detection.forecast_outcome import ForecastObservation
-from fdai.shared.contracts.models import TelemetryCompleteness
-from fdai.shared.contracts.models.forecast_outcome import ForecastScoringExclusion
+from fdai.shared.contracts.models import ForecastScoringExclusion, TelemetryCompleteness
 from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceAdmission,
     DecisionEvidenceAdmissionProvider,
@@ -122,9 +121,10 @@ class ContextualForecastObservationProvider:
             or not completed_at <= verified_at < evidence.valid_until
         ):
             return _exclude(observation, "context_mismatch")
-        if not isinstance(admission, DecisionEvidenceAdmission) or (
-            not evidence.recorded_at <= admission.verified_at <= verified_at < admission.valid_until
-            or assess_decision_evidence_admission(
+        if not isinstance(admission, DecisionEvidenceAdmission):
+            return _exclude(observation, "intervention_history_unavailable")
+        if (
+            assess_decision_evidence_admission(
                 admission,
                 expected_evidence_digest="sha256:" + _context_ref(evidence).split(":", 1)[1],
                 expected_scope_digest="sha256:" + evidence.access_scope_digest,
@@ -132,6 +132,10 @@ class ContextualForecastObservationProvider:
                 expected_source_revision=evidence.source_revision,
                 evaluated_at=verified_at,
             )
+            or not evidence.recorded_at
+            <= admission.verified_at
+            <= verified_at
+            < admission.valid_until
         ):
             return _exclude(observation, "intervention_history_unavailable")
         references = tuple(
@@ -165,7 +169,7 @@ class ContextualForecastObservationProvider:
 
 
 def _exclude(
-    observation: ForecastObservation, reason: ForecastScoringExclusion
+    observation: ForecastObservation, reason: ForecastScoringExclusion | str
 ) -> ForecastObservation:
     return replace(
         observation,

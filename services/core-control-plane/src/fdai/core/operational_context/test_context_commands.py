@@ -39,23 +39,25 @@ class TestContextCommandHandler:
         command = TestContextCommand.model_validate(payload)
         digest = content_digest(command.model_dump(mode="json"))
         request = command.request
-        receipt = await self._admission.admit(
+        admission = await self._admission.admit(
             evidence_digest=digest,
             scope_digest="sha256:" + request.access_scope_digest,
             purpose_id="operator-test-context-command",
             source_revision=request.policy_revision,
         )
         now = self._clock()
-        if not isinstance(receipt, DecisionEvidenceAdmission) or (
-            not command.requested_at <= receipt.verified_at <= now < receipt.valid_until
-            or assess_decision_evidence_admission(
-                receipt,
+        if admission is None or not isinstance(admission, DecisionEvidenceAdmission):
+            raise PermissionError("test context command identity or scope admission failed")
+        if (
+            assess_decision_evidence_admission(
+                admission,
                 expected_evidence_digest=digest,
                 expected_scope_digest="sha256:" + request.access_scope_digest,
                 expected_purpose_id="operator-test-context-command",
                 expected_source_revision=request.policy_revision,
                 evaluated_at=now,
             )
+            or not command.requested_at <= admission.verified_at <= now < admission.valid_until
         ):
             raise PermissionError("test context command identity or scope admission failed")
         return command

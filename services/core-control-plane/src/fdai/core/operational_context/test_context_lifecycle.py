@@ -52,7 +52,7 @@ class GovernedTestContextStore:
 
     async def _record(
         self, claim: TestContextClaim, *, expected_revision: int, now: datetime
-    ) -> None:
+    ) -> bool:
         if now.utcoffset() is None or claim.recorded_at > now:
             raise ValueError("test context transition time is invalid")
         key = _state_key(claim.access_scope_digest, claim.target_ref)
@@ -65,7 +65,7 @@ class GovernedTestContextStore:
             and type(expected_revision) is int
             and expected_revision == claim.revision - 1
         ):
-            return
+            return False
         prior_revision = prior.revision if prior else 0
         if type(expected_revision) is not int or expected_revision != prior_revision:
             raise ValueError("test context expected revision is no longer current")
@@ -109,25 +109,30 @@ class GovernedTestContextStore:
         transition_digest = _digest(
             {"claim": claim.digest, "prior": prior.digest if prior else None}
         )
-        receipt = await self._admission.admit(
+        admission = await self._admission.admit(
             evidence_digest=transition_digest,
             scope_digest="sha256:" + claim.access_scope_digest,
             purpose_id="test-context-transition",
             source_revision=claim.policy_revision,
         )
         completed_at = self._clock()
-        if not isinstance(receipt, DecisionEvidenceAdmission) or (
-            completed_at.utcoffset() is None
-            or not now <= completed_at
-            or not claim.recorded_at <= receipt.verified_at <= completed_at < receipt.valid_until
-            or assess_decision_evidence_admission(
-                receipt,
+        if admission is None or not isinstance(admission, DecisionEvidenceAdmission):
+            raise PermissionError("test context transition requires independent admission")
+        if (
+            assess_decision_evidence_admission(
+                admission,
                 expected_evidence_digest=transition_digest,
                 expected_scope_digest="sha256:" + claim.access_scope_digest,
                 expected_purpose_id="test-context-transition",
                 expected_source_revision=claim.policy_revision,
                 evaluated_at=completed_at,
             )
+            or completed_at.utcoffset() is None
+            or not now <= completed_at
+            or not claim.recorded_at
+            <= admission.verified_at
+            <= completed_at
+            < admission.valid_until
         ):
             raise PermissionError("test context transition requires independent admission")
         if claim.state == "reviewed" and completed_at >= claim.effective_to:
@@ -141,7 +146,7 @@ class GovernedTestContextStore:
             "owner_agent": "Mimir",
             "context_digest": claim.digest,
             "previous_digest": prior.digest if prior else None,
-            "admission_ref": receipt.receipt_digest,
+            "admission_ref": admission.receipt_digest,
             "state": claim.state,
             "scope_digest": claim.access_scope_digest,
             "timestamp": now.isoformat(),
@@ -160,6 +165,7 @@ class GovernedTestContextStore:
         )
         if not applied:
             raise RuntimeError("test context changed concurrently; reload before retry")
+        return True
 
     async def read(
         self,

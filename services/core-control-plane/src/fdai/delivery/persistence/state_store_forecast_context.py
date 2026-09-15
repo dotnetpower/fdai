@@ -123,8 +123,9 @@ class StateStoreForecastContextProvider:
                 raw[name] = sorted(raw[name])
             stored = await self._store.read_state(key)
             revision, history = _history(stored)
-            if raw in history:
-                return evidence.digest
+            for retained in history:
+                if raw == retained:
+                    return _parse_evidence(retained).digest
             previous = _parse_evidence(history[-1]) if history else None
             if previous is not None:
                 if (
@@ -187,19 +188,19 @@ class StateStoreForecastContextProvider:
             source_revision=evidence.source_revision,
         )
         now = self._clock()
-        if not isinstance(receipt, DecisionEvidenceAdmission) or (
-            not evidence.recorded_at
-            <= receipt.verified_at
-            <= now
-            < min(receipt.valid_until, evidence.valid_until)
-            or assess_decision_evidence_admission(
-                receipt,
-                expected_evidence_digest="sha256:" + evidence.digest,
-                expected_scope_digest="sha256:" + evidence.access_scope_digest,
-                expected_purpose_id=purpose,
-                expected_source_revision=evidence.source_revision,
-                evaluated_at=now,
+        if not isinstance(receipt, DecisionEvidenceAdmission):
+            raise ForecastContextUnavailableError(
+                "forecast history source coverage admission failed"
             )
+        if assess_decision_evidence_admission(
+            receipt,
+            expected_evidence_digest="sha256:" + evidence.digest,
+            expected_scope_digest="sha256:" + evidence.access_scope_digest,
+            expected_purpose_id=purpose,
+            expected_source_revision=evidence.source_revision,
+            evaluated_at=now,
+        ) or not evidence.recorded_at <= receipt.verified_at <= now < min(
+            receipt.valid_until, evidence.valid_until
         ):
             raise ForecastContextUnavailableError(
                 "forecast history source coverage admission failed"

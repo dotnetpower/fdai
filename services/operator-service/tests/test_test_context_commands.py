@@ -245,6 +245,7 @@ async def test_explicit_start_recovers_terminal_workers_without_duplicate_live_t
     assert sum(record.message == "test_context_worker_stopped" for record in caplog.records) == 2
 
 
+@pytest.mark.integration
 async def test_context_outbox_real_postgres_replay_claim_and_lease_recovery():
     import asyncio
     import os

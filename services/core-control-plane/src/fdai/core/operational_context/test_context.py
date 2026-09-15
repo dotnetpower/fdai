@@ -211,9 +211,10 @@ def evaluate_test_context(
         or not claim.effective_from <= observed_at <= evaluated_at < claim.effective_to
     ):
         return result("unknown", "hold", "held", "context_not_current_at_decision")
-    if not isinstance(admission, DecisionEvidenceAdmission) or (
-        not claim.recorded_at <= admission.verified_at <= evaluated_at < admission.valid_until
-        or assess_decision_evidence_admission(
+    if admission is None or not isinstance(admission, DecisionEvidenceAdmission):
+        return result("unknown", "hold", "held", "context_admission_required")
+    if (
+        assess_decision_evidence_admission(
             admission,
             expected_evidence_digest=claim.digest,
             expected_scope_digest="sha256:" + access_scope_digest,
@@ -221,6 +222,7 @@ def evaluate_test_context(
             expected_source_revision=claim.policy_revision,
             evaluated_at=evaluated_at,
         )
+        or not claim.recorded_at <= admission.verified_at <= evaluated_at < admission.valid_until
     ):
         return result("unknown", "hold", "held", "context_admission_required")
     if (
@@ -230,12 +232,10 @@ def evaluate_test_context(
         return result(
             "unexpected", "investigate", "test_cohort", "outside_expected_signal_envelope"
         )
-    if not isinstance(observation_admission, DecisionEvidenceAdmission) or (
-        not observed_at
-        <= observation_admission.verified_at
-        <= evaluated_at
-        < observation_admission.valid_until
-        or assess_decision_evidence_admission(
+    if not isinstance(observation_admission, DecisionEvidenceAdmission):
+        return result("unknown", "hold", "held", "observation_admission_required")
+    if (
+        assess_decision_evidence_admission(
             observation_admission,
             expected_evidence_digest=observation_context_digest(
                 target_ref=target_ref,
@@ -251,6 +251,10 @@ def evaluate_test_context(
             expected_source_revision=claim.policy_revision,
             evaluated_at=evaluated_at,
         )
+        or not observed_at
+        <= observation_admission.verified_at
+        <= evaluated_at
+        < observation_admission.valid_until
     ):
         return result("unknown", "hold", "held", "observation_admission_required")
     return result("expected", "observe", "test_cohort", "within_reviewed_test_envelope")

@@ -110,10 +110,10 @@ class OperatingPatternQuery:
             source_revision=self._source_revision,
         )
         now = self._clock()
+        if not isinstance(receipt, DecisionEvidenceAdmission):
+            raise PermissionError("pattern query scope authorization failed")
         if (
-            not isinstance(receipt, DecisionEvidenceAdmission)
-            or now >= receipt.valid_until
-            or assess_decision_evidence_admission(
+            assess_decision_evidence_admission(
                 receipt,
                 expected_evidence_digest=digest,
                 expected_scope_digest=scope_digest,
@@ -121,6 +121,7 @@ class OperatingPatternQuery:
                 expected_source_revision=self._source_revision,
                 evaluated_at=now,
             )
+            or now >= receipt.valid_until
         ):
             raise PermissionError("pattern query scope authorization failed")
         materializer = self._materializer()

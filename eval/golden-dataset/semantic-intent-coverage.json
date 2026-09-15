@@ -304,7 +304,7 @@
     "unverified_operational_success_claim_rate",
     "worst_slice_regression_count"
   ],
-  "inventory_digest": "sha256:e2e7921aa00f4315ed5c9dc2d6a1ca40f11c6ae944e8a9e0ab5b09807d1fb118",
+  "inventory_digest": "sha256:880e35135909f55b1e61fea68001217960c1aec6b7c0bfd3ac255c9cc80cfaca",
   "metric_contract": {
     "ambiguity": [
       {
@@ -954,7 +954,7 @@
     "services/core-control-plane/src/fdai/agents/_framework/pantheon.py": "sha256:d5a562a09141f151162ea47af5fde612786924ba0f59a956a6d1dfd1e839bee5",
     "services/core-control-plane/src/fdai/core/conversation/question_adequacy.py": "sha256:fe9a5288e009fdf4dac438717e0ac3128a0e4caac4885b870604e732591d9aec",
     "services/core-control-plane/src/fdai/core/conversation_assurance/models.py": "sha256:4c191e51be8e6515a3508b97ae9e157c3761430cd29f63b78722f09ad9240020",
-    "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:93b36a181f57f31f4cac238138724d40c4fc7bd5d225063ff31a4f2b83f34c52",
+    "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:ba151cc4a0ca4e44fcfdb5e02b8e20ace0eb194182421a6ea8a0fdfb361373d0",
     "services/operator-service/src/fdai_operator_service/families/conversation/presentation_artifact_v3.py": "sha256:618e049ecfc064c3dcc3972c1508dd1d0a7d48def7e8e1ab4411777f3d260299",
     "services/operator-service/src/fdai_operator_service/families/conversation/presentation_planner.py": "sha256:2a5a515d0ebb49a4389df1ff662e99f3afbd234efaa613c92a722dc91d31795f"
   },

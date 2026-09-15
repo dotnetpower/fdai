@@ -191,6 +191,7 @@ async def test_schema_is_available_after_migration(forecast_database: str) -> No
     await store.verify_schema()
 
 
+@pytest.mark.integration
 async def test_case_projections_create_restart_and_purge_in_real_postgres(
     forecast_database: str,
 ) -> None:

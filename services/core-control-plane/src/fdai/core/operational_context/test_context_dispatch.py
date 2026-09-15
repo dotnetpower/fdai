@@ -67,18 +67,21 @@ class TestContextDispatchGuard:
                 )
                 latest = await self._source.read(**query, at=self._clock())
                 now = self._clock()
-                return (
-                    latest == claim
-                    and isinstance(receipt, DecisionEvidenceAdmission)
-                    and claim.effective_from <= now < min(claim.effective_to, receipt.valid_until)
-                    and not assess_decision_evidence_admission(
-                        receipt,
-                        expected_evidence_digest=claim.digest,
-                        expected_scope_digest="sha256:" + binding.access_scope_digest,
-                        expected_purpose_id="operational-test-context",
-                        expected_source_revision=claim.policy_revision,
-                        evaluated_at=now,
-                    )
+                if (
+                    latest != claim
+                    or not isinstance(receipt, DecisionEvidenceAdmission)
+                    or not claim.effective_from
+                    <= now
+                    < min(claim.effective_to, receipt.valid_until)
+                ):
+                    return False
+                return not assess_decision_evidence_admission(
+                    receipt,
+                    expected_evidence_digest=claim.digest,
+                    expected_scope_digest="sha256:" + binding.access_scope_digest,
+                    expected_purpose_id="operational-test-context",
+                    expected_source_revision=claim.policy_revision,
+                    evaluated_at=now,
                 )
         except Exception:  # noqa: BLE001
             return False

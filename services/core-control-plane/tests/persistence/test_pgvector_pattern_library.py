@@ -268,6 +268,7 @@ def _seed_action(*, signature: str, success_rate: float = 0.95) -> LearnedAction
     )
 
 
+@pytest.mark.integration
 async def test_case_upsert_cannot_rebind_retained_action_in_postgres(forecast_database):
     import asyncio
     import json

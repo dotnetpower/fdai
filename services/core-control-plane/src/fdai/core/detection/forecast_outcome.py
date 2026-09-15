@@ -5,17 +5,17 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal, get_args
+from typing import Literal
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from fdai.shared.contracts.models import (
     ForecastMissOrigin,
     ForecastOutcome,
     ForecastOutcomeLabel,
+    ForecastScoringExclusion,
     Mode,
     TelemetryCompleteness,
 )
-from fdai.shared.contracts.models.forecast_outcome import ForecastScoringExclusion
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,14 +46,14 @@ class ForecastObservation:
     telemetry_completeness: TelemetryCompleteness
     evidence_refs: tuple[str, ...]
     intervention_refs: tuple[str, ...] = ()
-    scoring_exclusions: tuple[ForecastScoringExclusion, ...] = ()
+    scoring_exclusions: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if (
             not isinstance(self.scoring_exclusions, tuple)
             or len(self.scoring_exclusions) > 5
             or any(
-                value not in get_args(ForecastScoringExclusion) for value in self.scoring_exclusions
+                value not in tuple(ForecastScoringExclusion) for value in self.scoring_exclusions
             )
             or len(set(self.scoring_exclusions)) != len(self.scoring_exclusions)
         ):
@@ -103,7 +103,9 @@ def close_forecast(
         intervention_refs=observation.intervention_refs,
         evidence_refs=tuple(sorted(set(expectation.evidence_refs + observation.evidence_refs))),
         telemetry_completeness=observation.telemetry_completeness,
-        scoring_exclusions=observation.scoring_exclusions,
+        scoring_exclusions=tuple(
+            ForecastScoringExclusion(value) for value in observation.scoring_exclusions
+        ),
         closed_at=closed_at,
         mode=expectation.mode,
     )

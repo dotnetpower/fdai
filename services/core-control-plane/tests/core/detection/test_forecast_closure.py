@@ -9,8 +9,7 @@ from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_episode import ForecastEpisode, ForecastEvaluationKind
 from fdai.core.detection.forecast_episode_testing import InMemoryForecastEpisodeStore
 from fdai.core.detection.forecast_outcome import ForecastObservation
-from fdai.shared.contracts.models import TelemetryCompleteness
-from fdai.shared.contracts.models.forecast_outcome import ForecastScoringExclusion
+from fdai.shared.contracts.models import ForecastScoringExclusion, TelemetryCompleteness
 
 from .test_forecast_episode import T0, _episode
 

@@ -17,6 +17,7 @@ from .case_review import (
     CaseReviewError,
     ImmutableCaseRef,
     OperationalCaseReview,
+    parse_candidate_case_scope,
     parse_case_reviews,
     validate_case_review_window,
 )
@@ -180,6 +181,7 @@ class OperationalPatternRuleCandidate:
         scenario_set_version = _required_identifier(evidence, "scenario_set_version")
         try:
             case_reviews = parse_case_reviews(evidence.get("case_reviews"), case_refs)
+            scope = parse_candidate_case_scope(raw)
         except CaseReviewError as exc:
             raise CatalogCompilationError(exc.code) from exc
         digest_evidence = _parse_digests(
@@ -216,18 +218,7 @@ class OperationalPatternRuleCandidate:
             "scenario_set_version": scenario_set_version,
             "case_reviews": tuple(review.to_mapping() for review in case_reviews),
         }
-        scope = raw.get("case_scope")
-        if "case_scope" in raw:
-            if (
-                not isinstance(scope, Mapping)
-                or set(scope) != {"access_scope_digest", "purpose"}
-                or not isinstance(scope.get("access_scope_digest"), str)
-                or _SHA256.fullmatch(scope["access_scope_digest"]) is None
-                or not isinstance(scope.get("purpose"), str)
-                or not scope["purpose"].strip()
-                or len(scope["purpose"]) > 512
-            ):
-                raise CatalogCompilationError("candidate_case_scope_invalid")
+        if scope is not None:
             material["case_scope"] = dict(scope)
         return cls(
             pattern_id=pattern_id,
@@ -244,10 +235,8 @@ class OperationalPatternRuleCandidate:
             scenario_set_version=scenario_set_version,
             case_reviews=case_reviews,
             digest=_digest(material),
-            access_scope_digest=scope["access_scope_digest"]
-            if isinstance(scope, Mapping)
-            else None,
-            purpose=scope["purpose"] if isinstance(scope, Mapping) else None,
+            access_scope_digest=scope["access_scope_digest"] if scope is not None else None,
+            purpose=scope["purpose"] if scope is not None else None,
         )
 
     def to_mapping(self) -> dict[str, object]:

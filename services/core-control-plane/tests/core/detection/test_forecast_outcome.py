@@ -10,8 +10,11 @@ from fdai.core.detection.forecast_outcome import (
     close_forecast,
     close_missed_breach,
 )
-from fdai.shared.contracts.models import ForecastOutcomeLabel, TelemetryCompleteness
-from fdai.shared.contracts.models.forecast_outcome import ForecastScoringExclusion
+from fdai.shared.contracts.models import (
+    ForecastOutcomeLabel,
+    ForecastScoringExclusion,
+    TelemetryCompleteness,
+)
 
 T0 = datetime(2026, 7, 1, tzinfo=UTC)
 

@@ -15,13 +15,16 @@ from .enums import Mode
 
 Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 NonEmpty = Annotated[str, Field(min_length=1, max_length=512)]
-ForecastScoringExclusion = Literal[
-    "intervention_history_unavailable",
-    "context_mismatch",
-    "excluded_window",
-    "resource_deleted",
-    "intervention_affected",
-]
+
+
+class ForecastScoringExclusion(StrEnum):
+    """Canonical reasons a measured forecast cannot enter untreated scoring."""
+
+    INTERVENTION_HISTORY_UNAVAILABLE = "intervention_history_unavailable"
+    CONTEXT_MISMATCH = "context_mismatch"
+    EXCLUDED_WINDOW = "excluded_window"
+    RESOURCE_DELETED = "resource_deleted"
+    INTERVENTION_AFFECTED = "intervention_affected"
 
 
 class ForecastOutcomeLabel(StrEnum):

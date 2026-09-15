@@ -67,6 +67,25 @@ class CaseReviewError(ValueError):
         super().__init__(code)
 
 
+def parse_candidate_case_scope(raw: Mapping[str, object]) -> dict[str, str] | None:
+    """Validate optional scope without treating an explicit null as a legacy candidate."""
+    if "case_scope" not in raw:
+        return None
+    scope = raw["case_scope"]
+    if not isinstance(scope, Mapping) or set(scope) != {"access_scope_digest", "purpose"}:
+        raise CaseReviewError("candidate_case_scope_invalid")
+    digest, purpose = scope["access_scope_digest"], scope["purpose"]
+    if (
+        not isinstance(digest, str)
+        or _SHA256.fullmatch(digest) is None
+        or not isinstance(purpose, str)
+        or not purpose.strip()
+        or len(purpose) > 512
+    ):
+        raise CaseReviewError("candidate_case_scope_invalid")
+    return {"access_scope_digest": digest, "purpose": purpose}
+
+
 @dataclass(frozen=True, slots=True)
 class ImmutableCaseRef:
     case_id: str

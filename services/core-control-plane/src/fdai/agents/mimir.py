@@ -15,8 +15,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from fdai_service_contracts.test_context import TestContextCommand
-
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.candidate_guard import CandidateGuard
@@ -29,9 +27,8 @@ from fdai.agents._framework.introspection import (
     mentioned,
     semantic_intents,
 )
+from fdai.agents._framework.mimir_context import MimirContextMixin
 from fdai.agents._framework.pantheon import _MIMIR
-from fdai.core.case_history import CaseHistoryMaterializer
-from fdai.core.operational_context.test_context_commands import TestContextCommandHandler
 from fdai.core.operational_learning import (
     CatalogCandidateCompiler,
     CatalogCompilationError,
@@ -45,7 +42,6 @@ from fdai.core.operational_learning import (
     ShadowDwellThresholds,
     evaluate_shadow_dwell,
 )
-from fdai.core.operational_learning.case_review import require_current_candidate_cases
 from fdai.core.rule_semantic_generation import (
     RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
     RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
@@ -88,7 +84,7 @@ class CatalogReviewCapacityError(RuntimeError):
     """Review work is saturated; transport must retry or dead-letter."""
 
 
-class Mimir(Agent, HandoverKnowledgeMixin):
+class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin):
     """Wave-2 Mimir: promotion state + candidate intake."""
 
     def __init__(
@@ -128,25 +124,6 @@ class Mimir(Agent, HandoverKnowledgeMixin):
         self._rule_generation_activation_binder: RuleGenerationActivationBinder | None = None
         self._rule_generation_state_store: StateStore | None = None
         self._clock = clock or (lambda: datetime.now(UTC))
-        self._test_context_commands: TestContextCommandHandler | None = None
-        self._case_history: CaseHistoryMaterializer | None = None
-
-    def bind_case_history(self, materializer: CaseHistoryMaterializer) -> None:
-        """Bind the current source reader for scoped operational learning reviews."""
-        if self._case_history is not None:
-            raise RuntimeError("Mimir case history is already bound")
-        self._case_history = materializer
-
-    async def _require_current_candidate_cases(self, candidate: dict[str, Any]) -> None:
-        await require_current_candidate_cases(
-            candidate, materializer=self._case_history, clock=self._clock
-        )
-
-    def bind_test_context_commands(self, handler: TestContextCommandHandler) -> None:
-        """Bind reviewed context policy persistence without changing catalog authority."""
-        if self._test_context_commands is not None:
-            raise RuntimeError("Mimir context command handler is already bound")
-        self._test_context_commands = handler
 
     def bind_rule_generation_build_handler(
         self,
@@ -176,27 +153,7 @@ class Mimir(Agent, HandoverKnowledgeMixin):
         self._rule_generation_state_store = store
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
-        context_proposal = (
-            topic == "object.event" and payload.get("event_type") == "test_context.command.v1"
-        )
-        context_review = topic == "object.approval" and payload.get("kind") == "test_context_review"
-        if context_proposal or context_review:
-            if payload.get("producer_principal") != ("Var" if context_review else "Huginn"):
-                raise PermissionError("test context command has the wrong topic owner")
-            command = payload.get("command") if context_review else payload.get("attributes")
-            if not isinstance(command, dict):
-                raise ValueError("test context command is malformed")
-            typed_command = TestContextCommand.model_validate(command)
-            if context_proposal and typed_command.request.operation != "propose":
-                return
-            if self._test_context_commands is None or self.bus is None:
-                raise RuntimeError("Mimir test context dependencies are unavailable")
-            async with asyncio.timeout(5):
-                result = await self._test_context_commands.transition(
-                    command, reviewed_by_var=context_review
-                )
-                await self.bus.publish("Mimir", "object.policy", result)
-            self.record_behavior("test_context:revision_published")
+        if await self._test_context_message(topic, payload, self.record_behavior):
             return
         if topic == "object.rule-candidate":
             async with self._review_lock:

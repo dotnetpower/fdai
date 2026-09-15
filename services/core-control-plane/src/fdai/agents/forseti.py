@@ -106,7 +106,6 @@ from fdai.core.operational_planning.prospective_lineage import (
     ProspectiveLineage,
     ProspectiveLineageFinalizer,
 )
-from fdai.core.readiness import AuthorityCeiling, DetectionReadinessDecision
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 
 _LOGGER = logging.getLogger(__name__)
@@ -482,23 +481,6 @@ class Forseti(Agent, ForsetiJudgmentMixin, HandoverKnowledgeMixin, AssignmentJud
             snapshot,
             expected_ontology_release=expected_release,
         )
-
-    def _record_detection_readiness(self, payload: dict[str, Any]) -> None:
-        resource_id = str(payload.get("resource_id") or "")
-        try:
-            decision = DetectionReadinessDecision(str(payload.get("decision") or ""))
-            ceiling = AuthorityCeiling(str(payload.get("authority_ceiling") or ""))
-        except ValueError:
-            self.record_behavior("detection_readiness:invalid")
-            return
-        if not resource_id:
-            self.record_behavior("detection_readiness:invalid")
-            return
-        self._detection_readiness.set(
-            resource_id,
-            {"decision": decision.value, "authority_ceiling": ceiling.value},
-        )
-        self.record_behavior(f"detection_readiness:{decision.value}")
 
     # ---- cross-vertical arbitration -----------------------------------
 

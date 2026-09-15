@@ -9,7 +9,6 @@ registers. Deduplication of admin cards uses a rolling window per
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import logging
@@ -172,7 +171,6 @@ class Heimdall(
         self._forecast_evaluator = forecast_evaluator
         self._forecast_closer = forecast_closer
         self._forecast_store = forecast_store
-        self._forecast_history_ingress: Callable[[Mapping[str, Any]], Awaitable[str]] | None = None
         self._action_semantics = action_semantics
         self._rule_generation_validation_handler: RuleGenerationValidationHandler | None = None
         self._alert_windows: dict[str, tuple[float, int]] = {}
@@ -200,15 +198,6 @@ class Heimdall(
 
         self._operational_evidence_hook = hook
 
-    def bind_forecast_history_ingress(
-        self,
-        handler: Callable[[Mapping[str, Any]], Awaitable[str]],
-    ) -> None:
-        """Bind verified source-history retention; never infer completeness from empty input."""
-        if self._forecast_history_ingress is not None:
-            raise RuntimeError("forecast history ingress is already bound")
-        self._forecast_history_ingress = handler
-
     def bind_rule_generation_validation_handler(
         self,
         handler: RuleGenerationValidationHandler,
@@ -232,17 +221,7 @@ class Heimdall(
             )
         elif topic == RULE_GENERATION_BUILD_RESULT_TOPIC:
             await self._validate_rule_generation(payload)
-        elif topic == "object.event":
-            if payload.get("event_type") == "test_context.command.v1":
-                self.record_behavior("test_context:governance_command_ignored")
-                return
-            if payload.get("event_type") == "forecast.context_history.v1":
-                if self._forecast_history_ingress is None:
-                    raise RuntimeError("forecast history ingress is unavailable")
-                async with asyncio.timeout(5):
-                    await self._forecast_history_ingress(payload)
-                self.record_behavior("forecast_history:retained")
-                return
+        elif topic == "object.event" and not await self._forecast_context_message(payload):
             if payload.get("event_type") == "evidence.conflict.candidate.v1":
                 await self._publish_evidence_conflict(payload)
                 return
