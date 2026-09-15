@@ -30,11 +30,12 @@ The Pantheon remains exactly 15 named agents. A task worker is a runtime helper 
 - Write operator memory, runtime skills, rules, schedules, or workflow definitions.
 - Create another worker or ask the operator for clarification.
 
-A read-only answer-planning provider can execute the bounded investigation only through
-`TaskWorkerPlanningProvider.contribute_bounded`. It receives both the token and cost ceilings and
-returns `TaskWorkerPlanningResponse` with measured total tokens and cost, including abstention.
-An unmetered `AnswerPlanningProvider` is rejected when the executor is constructed. The worker
-does not inherit the provider's agent identity or authority.
+A read-only answer-planning provider receives token and cost ceilings and returns
+`TaskWorkerPlanningResponse` with measured usage, including abstention. The original
+`TaskWorkerPlanningProvider.contribute_bounded` seam remains compatible. Production additionally
+requires `PreparedTaskWorkerPlanningProvider`: immutable preparation, durable reservation, then
+one revalidated call. An unmetered `AnswerPlanningProvider` fails executor construction. The worker
+does not inherit a provider's agent identity or authority.
 
 ## Request and isolated context
 
@@ -71,6 +72,13 @@ The detached `background.read-only` profile contains exactly `resolve_resource`,
 arbitrary-query capabilities remain denied even if a registry entry is accidentally labeled
 `read`.
 
+The current production registry binds `resolve_resource` and `get_resource_state` to recorded
+PostgreSQL inventory. Each call requires one exact resource reference from a server-owned allowlist.
+One SQL statement binds the active snapshot, resource, bounded state fields, observation time and
+freshness. Missing, stale, future, expected-only or unreconciled target state remains unavailable.
+The other five names explicitly return `source_unbound`; they do not query Azure. Registry
+construction does not implement tool selection or the deferred parent-admission path.
+
 ## Lifecycle and budgets
 
 The runtime uses these states:
@@ -81,24 +89,61 @@ pending -> running -> succeeded | abstained | cancelled | timed_out |
 ```
 
 - A semaphore bounds concurrent workers.
-- Wall-clock timeout cancels the worker and records `timed_out`.
+- Execution wall-clock timeout cancels the worker and records `timed_out`; queue time is separate.
 - Token, cost, and tool-call limits produce `budget_exhausted`.
 - Only the immutable cancellation owner can cancel a live worker.
-- Heartbeats record current tool usage at a bounded interval.
+- Heartbeats serialize current tool and planning usage with any unresolved reservation.
 - Unsupported evidence or injection markers in output produce `denied`.
 - A restart converts unresolved `pending` or `running` records to
   `failed(runtime_restart_interrupted)`. It does not rerun ambiguous work.
 
 Every transition uses compare-and-swap state checks. Duplicate worker IDs are safe to retry only
-when the complete request matches.
+when the complete request and attenuated capabilities match. Concurrent admission joins the
+original task; queued cancellation also writes a terminal result. Recovery refuses to act on the
+same runtime's active tasks.
 
-The planning provider must enforce both ceilings before a billable request, not estimate cost from
-the returned summary. Its response carries nonnegative integer usage; missing or malformed usage
-fails rather than becoming a zero-cost success. The runtime retains reported usage and suppresses
-the summary when either ceiling is exceeded. Empty contributions remain metered abstentions.
-This contract is a prerequisite for #805, not a production model binding. Production stays
-unavailable until the concrete provider proves pre-dispatch budget enforcement, failure/cancellation
-accounting, and durable restart behavior.
+The concrete Azure OpenAI adapter bounds complete UTF-8 request bytes plus framing allowance and
+caps output before obtaining a token or making HTTP requests. Both ceilings must fit first. Cost
+uses configured USD rates and returned input/output token counts, not summary length or invoice
+evidence. The adapter makes one structured-output request with no retry, redirect or model fallback.
+
+Before dispatch, the runtime persists `reserved_tokens`, `reserved_cost_microusd` and
+`complete: false`. A valid usage envelope replaces this allowance with measured `tokens` and
+`cost_microusd`, including empty or malformed-content responses. Missing usage, transport failure,
+cancellation and timeout preserve the unresolved allowance instead of reporting a free call.
+Heartbeat and restart cannot erase it. Complete usage retains the legacy three-field JSON shape;
+incomplete records add reservation fields and completeness. Neither representation grants another
+attempt or raises the immutable budget.
+
+Example: a provider request is cancelled after reservation but before usage is returned. The
+terminal result stays cancelled with incomplete accounting. Reopening the runtime returns that
+same result without another model call or a fabricated zero-cost measurement.
+
+## Production composition
+
+Core bootstrap owns `TaskWorkerRuntimeBinding` in `runtime/task_workers.py`. It composes the real
+PostgreSQL store, scoped recorded-read registry and prepared Azure planning adapter. Startup does
+not create work or probe a model. This source foundation remains opt-in because parent admission,
+user-facing Settings, projections and detached completion are separate packages.
+
+| Prerequisite | Behavior |
+|--------------|----------|
+| `FDAI_TASK_WORKERS_ENABLED` | Absent or false leaves the binding absent without loading dependencies. Invalid values fail startup. |
+| `FDAI_STATE_STORE_DSN` | Requires both PostgreSQL login and current role to be `fdai_core`, the owned worker tables, and required read/write grants. Administrator `SET ROLE` is not equivalent. |
+| `FDAI_TASK_WORKER_READ_SCOPE_JSON` | Requires exactly `scope_ref` and 1-64 unique exact `resource_refs`; no wildcard, prompt-derived scope or arbitrary query. Keep populated values outside source control. |
+| Existing model resolution and endpoints | Reuses an eligible structured OpenAI `t1.judge` target for a Bragi presentation contribution, not judgment. Current model holds remain authoritative. |
+| Workload identity, HTTP and pricing | All must be injected; missing or non-USD pricing fails startup. No in-memory store, unmetered provider or synthetic fallback is available. |
+
+An exclusive PostgreSQL advisory lease permits one enabled worker-runtime owner per database.
+A competing owner fails startup. Within a 30-second startup deadline, schema checks precede
+recovery of up to ten batches of 1000 unresolved rows; terminal history cannot hide old work.
+Lease loss fails later operations without reacquiring the lease. It is not an exactly-once HTTP
+guarantee: a request already dispatched may remain unmeasured and is never replayed automatically.
+
+Shutdown blocks admission, cancels and drains known work, and attempts unresolved-row recovery
+before releasing owned resources. The binding has a 30-second drain deadline; failures propagate
+while shared cleanup is still attempted. Database outage leaves durable recovery work, not a
+successful completion claim. Local and deployed composition use the same opt-in contract.
 
 ## Durable records
 
@@ -106,7 +151,10 @@ PostgreSQL stores one current snapshot and append-only branch events. The snapsh
 request metadata, attenuated tools, status, usage, heartbeat, and terminal result. Branch events
 record creation, start, heartbeat, terminal reason, and completion-delivery failure.
 
-The terminal snapshot and event are written before the optional completion sink runs. A sink
+Production writes the terminal snapshot and event in one transaction before the optional completion
+sink runs. An event-write failure rolls back the terminal transition without refunding persisted
+usage. The additive `RecoverableTaskWorkerStore` contract supplies atomic finish and unresolved-only
+queries; legacy stores remain usable outside the production binding. A sink
 failure cannot rewrite the terminal result or rerun the worker. Issue #40 can claim detached
 completion, and issue #48 can deliver it through the reply ledger.
 
@@ -120,7 +168,7 @@ Only these bounded fields enter synthesis:
 - Worker ID and terminal status.
 - Summary for `succeeded` or `abstained` results only.
 - Evidence references and caveats.
-- Token, cost, and tool-call usage.
+- Token, cost, and tool-call usage, including completeness and unresolved allowances.
 - Terminal reason.
 
 Every contribution carries `trusted: false`. Failed, denied, cancelled, timed-out, and
@@ -129,7 +177,8 @@ the worker store.
 
 ## Read-only operations
 
-Production exposes GET-only routes backed by the PostgreSQL store:
+The Operator API declares these GET-only routes; their production store-backed materialization
+remains a separate package:
 
 - `/task-workers`
 - `/task-workers/{worker_id}`
@@ -161,9 +210,10 @@ provider reuse, parent synthesis, completion handoff, and GET-only projections.
 
 ## Implementation status
 
-The bounded worker core and durable store are implemented and covered by focused tests. The
-Operator API route contract is present, but production worker composition, store-backed
-projection materialization, console presentation, and governed live evidence remain incomplete.
+The bounded worker core, durable store and opt-in production composition are implemented and
+covered by focused tests, including actual loopback PostgreSQL. The Operator API route contract
+is present, but parent admission, store-backed projection materialization, Console presentation,
+detached completion and governed live evidence remain incomplete.
 This ledger separates implementation evidence from operational validation; passing focused tests
 does not promote the capability or prove a deployed worker path.
 
@@ -171,24 +221,27 @@ does not promote the capability or prove a deployed worker path.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Metered planning adapter prerequisite | implemented | `core/task_worker/planning_executor.py`; `tests/core/task_worker/test_planning_executor.py` | Both ceilings reach the bounded provider. Measured token/cost usage survives success, abstention, budget rejection, and terminal replay. Unmetered providers fail construction; no production provider is bound. |
+| Metered planning and prepared production adapter | implemented | `core/task_worker/planning_executor.py`; `delivery/azure/llm/task_worker.py`; focused provider tests | Durable reservation precedes one bounded call; measured and unresolved usage survive failure, cancellation and replay. Configured-rate USD accounting is not invoice evidence. |
 | Request model, isolated context, and capability attenuation | implemented | `core/task_worker/models.py`, `attenuation.py`, `profiles.py`; `tests/core/task_worker/test_attenuation.py` | The request is depth-one, the context projection is bounded, and the final tool set is the deterministic intersection of the three authorities. |
-| Runtime lifecycle, planning executor, and tool gateway | implemented | `core/task_worker/runtime.py`, `planning_executor.py`, `tools.py`; focused runtime and planning-executor tests | State transitions, concurrency, timeouts, cancellation ownership, budgets, heartbeats, read-only dispatch, abstention, and bounded failures are implemented without a production runtime binding. |
-| Durable snapshots, branch events, recovery, and owner-scoped queries | implemented | `delivery/persistence/postgres_task_worker.py`; Alembic revision `20260720_0039`; `tests/persistence/test_task_worker.py` | PostgreSQL compare-and-swap persistence and restart recovery exist. This row does not claim a deployed database validation. |
+| Runtime lifecycle, planning executor, and tool gateway | implemented | `core/task_worker/runtime.py`, `planning_executor.py`, `tools.py`; focused lifecycle and accounting tests | Admission, recovery and drain are serialized; queued cancellation is durable and heartbeats cannot erase reservations. No parent/tool-selection loop is added. |
+| Durable snapshots, branch events, recovery, and owner-scoped queries | implemented | `delivery/persistence/postgres_task_worker.py`; runtime lease adapter; `tests/integration/services/test_task_worker_runtime_postgres.py` | Actual loopback PostgreSQL verifies exact Core login, lease exclusion/loss, atomic terminal rollback and recovery behind 1001 terminal rows. No deployed database claim. |
 | Parent synthesis and completion-sink ordering | implemented | `core/task_worker/synthesis.py`, `runtime.py`; focused synthesis and runtime tests | Worker contributions remain untrusted and bounded; terminal persistence precedes optional sink delivery. No production completion sink binding was found. |
 | GET-only Operator API projection | in-progress | `families/conversation/manifest.py`; `test_operator_conversation_family.py` | The three authenticated GET routes and response-envelope seam exist, but no materializer was found that derives owner-scoped worker projections from the task-worker store. |
-| Production composition and operational evidence | not-started | No non-test `TaskWorkerRuntime` construction, console task-worker surface, or governed live receipt was found | Production tools, planning integration, completion delivery, projection reads, and live failure-path evidence remain to be wired and exercised. |
+| Production Core composition and recorded-read registry | implemented | `runtime/task_workers.py`, `bootstrap_core.py`, `bootstrap_resources.py`; focused factory, shutdown, actual-SQL and Core wheel tests | Opt-in assembly fails on missing dependencies. Two recorded inventory operations work; five sources stay explicitly unavailable. Construction performs no model call. |
+| Parent, Console, detached completion and operational evidence | not-started | Separate package boundaries; no governed live receipt added by #805 | Authenticated parent admission, operator projections/UI, durable reply delivery and live failure-path evidence remain outside this binding. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Composed opt-in production workers with prepared Azure planning, durable measured/unresolved accounting, scoped recorded reads, singleton recovery and dependency-ordered shutdown. Reproduced and fixed multi-fact, recovery-window, admission/cancellation and graph-reader assumptions. | `current change`; #805; [focused review and exact checks](../../internals/task-worker-production-805.md); 151 focused tests passed, including 19 actual-SQL and 4 wheel/import checks; strict mypy passed for 14 source files. | Parent admission/tool selection, owner-scoped Operator materialization, Console, detached replies, additional provider sources and governed live receipts remain separate. |
 | 2026-09-15 | implemented | Reproduced acceptance of an unmetered provider, then replaced ignored cost limits and summary-derived tokens with a worker-specific bounded response. Review rejected adapting the unmetered shadow seam or treating a Protocol as proof of actual billing control. | `current change`; #805; focused planning-executor and runtime selection passed 34 tests; strict targeted mypy passed. | Prove concrete pre-dispatch limits and failure/cancellation accounting, then complete production composition and restart verification under #805. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger and separated the implemented worker core from unfinished production and projection integration. | Current task-worker source, persistence adapter and migration, focused core and persistence tests, and Operator API route tests. | Bind the production runtime and projections, expose the read-only operator experience, and capture governed live evidence. |
 
 ### Remaining work
 
-- [ ] Compose `TaskWorkerRuntime` with the production read-only tool registry and answer-planning provider, then prove startup and restart behavior without a synthetic fallback.
+- [x] Compose `TaskWorkerRuntime` with the production recorded-read registry and prepared answer-planning provider; startup, actual-SQL restart and packaging checks pass under #805 without a production synthetic fallback.
+- [ ] Bind authenticated parent admission and tool selection to the existing answer plan before claiming an end-to-end investigation; independently supply the five unavailable evidence sources where required.
 - [ ] Materialize `workers.list`, `workers.get`, and `workers.events` from the PostgreSQL worker store with owner predicates inside each query and foreign-owner 404 coverage.
 - [ ] Wire durable completion delivery into the detached-session reply path and prove that sink failure appends an event without rewriting or rerunning the terminal result.
 - [ ] Add the operator-facing read-only worker projection and capture governed live receipts for success, timeout, budget exhaustion, denial, restart recovery, and cross-owner isolation.

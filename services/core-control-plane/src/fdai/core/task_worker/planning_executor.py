@@ -49,6 +49,45 @@ class TaskWorkerPlanningProvider(Protocol):
     ) -> TaskWorkerPlanningResponse: ...
 
 
+@dataclass(frozen=True, slots=True)
+class PreparedTaskWorkerPlanning:
+    """Immutable request input and conservative pre-dispatch accounting bounds."""
+
+    agent: str
+    prompt: str
+    max_tokens: int
+    max_cost_microusd: int
+    input_token_upper_bound: int
+    output_token_limit: int
+    cost_upper_bound_microusd: int
+    binding_digest: str
+
+    @property
+    def token_upper_bound(self) -> int:
+        return self.input_token_upper_bound + self.output_token_limit
+
+
+@runtime_checkable
+class PreparedTaskWorkerPlanningProvider(TaskWorkerPlanningProvider, Protocol):
+    """Add durable pre-dispatch preparation without weakening the original bounded seam."""
+
+    def prepare_contribution(
+        self, *, agent: str, prompt: str, max_tokens: int, max_cost_microusd: int
+    ) -> PreparedTaskWorkerPlanning: ...
+
+    async def contribute_prepared(
+        self, prepared: PreparedTaskWorkerPlanning
+    ) -> TaskWorkerPlanningResponse: ...
+
+
+class TaskWorkerPlanningError(RuntimeError):
+    """A failed provider attempt, optionally retaining usage measured before content failure."""
+
+    def __init__(self, reason: str, *, usage: TaskWorkerUsage | None = None) -> None:
+        super().__init__(reason)
+        self.usage = usage
+
+
 class AnswerPlanningTaskWorkerExecutor:
     """Use one metered contributor without giving the worker an agent identity."""
 
@@ -57,13 +96,17 @@ class AnswerPlanningTaskWorkerExecutor:
         *,
         provider: TaskWorkerPlanningProvider,
         contributor_agent: str,
+        require_prepared: bool = False,
     ) -> None:
         if not contributor_agent.strip():
             raise ValueError("contributor_agent MUST be non-empty")
         if not isinstance(provider, TaskWorkerPlanningProvider):
             raise TypeError("worker planning requires bounded contributions with measured usage")
+        if require_prepared and not isinstance(provider, PreparedTaskWorkerPlanningProvider):
+            raise TypeError("production worker planning requires prepared budget reservations")
         self._provider = provider
         self._contributor_agent = contributor_agent
+        self._require_prepared = require_prepared
 
     async def execute(
         self,
@@ -76,14 +119,39 @@ class AnswerPlanningTaskWorkerExecutor:
         """Forward both ceilings and preserve measured usage for runtime enforcement."""
         if not isinstance(context, TaskWorkerContext):
             raise TypeError("task worker executor requires TaskWorkerContext")
-        response = await self._provider.contribute_bounded(
-            agent=self._contributor_agent,
-            prompt=_prompt(context),
-            max_tokens=max_tokens,
-            max_cost_microusd=max_cost_microusd,
-        )
+        try:
+            if isinstance(self._provider, PreparedTaskWorkerPlanningProvider):
+                if self._require_prepared and not tools.has_usage_checkpoint:
+                    raise RuntimeError("production worker planning requires a durable checkpoint")
+                prepared = self._provider.prepare_contribution(
+                    agent=self._contributor_agent,
+                    prompt=_prompt(context),
+                    max_tokens=max_tokens,
+                    max_cost_microusd=max_cost_microusd,
+                )
+                await tools.reserve_planning(
+                    tokens=prepared.token_upper_bound,
+                    cost_microusd=prepared.cost_upper_bound_microusd,
+                )
+                response = await self._provider.contribute_prepared(prepared)
+            else:
+                response = await self._provider.contribute_bounded(
+                    agent=self._contributor_agent,
+                    prompt=_prompt(context),
+                    max_tokens=max_tokens,
+                    max_cost_microusd=max_cost_microusd,
+                )
+        except TaskWorkerPlanningError as error:
+            if error.usage is not None:
+                await tools.record_planning_usage(
+                    tokens=error.usage.tokens, cost_microusd=error.usage.cost_microusd
+                )
+            raise
         if not isinstance(response, TaskWorkerPlanningResponse):
             raise TypeError("worker planning response MUST include measured usage")
+        await tools.record_planning_usage(
+            tokens=response.tokens, cost_microusd=response.cost_microusd
+        )
         usage = TaskWorkerUsage(
             tokens=response.tokens,
             cost_microusd=response.cost_microusd,
@@ -102,7 +170,7 @@ class AnswerPlanningTaskWorkerExecutor:
                 usage=usage,
                 abstained=True,
             )
-        summary = "\n".join(fact.claim for fact in contribution.facts)
+        summary = " ".join(fact.claim for fact in contribution.facts)
         return TaskWorkerOutput(
             summary=summary,
             evidence_refs=contribution.evidence_refs,
@@ -126,6 +194,9 @@ def _prompt(context: TaskWorkerContext) -> str:
 
 __all__ = [
     "AnswerPlanningTaskWorkerExecutor",
+    "PreparedTaskWorkerPlanning",
+    "PreparedTaskWorkerPlanningProvider",
+    "TaskWorkerPlanningError",
     "TaskWorkerPlanningProvider",
     "TaskWorkerPlanningResponse",
 ]

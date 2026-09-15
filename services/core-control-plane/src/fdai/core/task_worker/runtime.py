@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Protocol
 
@@ -20,9 +20,14 @@ from fdai.core.task_worker.models import (
     TaskWorkerUsage,
     isolated_context,
 )
-from fdai.core.task_worker.store import TaskWorkerStore
+from fdai.core.task_worker.store import (
+    RecoverableTaskWorkerStore,
+    TaskWorkerConflictError,
+    TaskWorkerStore,
+)
 from fdai.core.task_worker.tools import (
     TaskWorkerBudgetExhaustedError,
+    TaskWorkerPlanningBudgetError,
     TaskWorkerTool,
     TaskWorkerToolDeniedError,
     TaskWorkerToolGateway,
@@ -70,7 +75,12 @@ class TaskWorkerRuntime:
         config: TaskWorkerRuntimeConfig | None = None,
         completion_sink: TaskWorkerCompletionSink | None = None,
         clock: Callable[[], datetime] | None = None,
+        require_recoverable_store: bool = False,
     ) -> None:
+        if require_recoverable_store and not isinstance(store, RecoverableTaskWorkerStore):
+            raise TypeError(
+                "production workers require complete recovery and atomic terminal writes"
+            )
         self._store = store
         self._executor = executor
         self._tools = tools
@@ -79,6 +89,8 @@ class TaskWorkerRuntime:
         self._clock = clock or (lambda: datetime.now(UTC))
         self._semaphore = asyncio.Semaphore(self._config.max_parallelism)
         self._tasks: dict[str, asyncio.Task[TaskWorkerResult]] = {}
+        self._lifecycle_lock = asyncio.Lock()
+        self._closed = False
 
     async def start(
         self,
@@ -86,6 +98,18 @@ class TaskWorkerRuntime:
         *,
         parent_visible_tools: frozenset[str],
     ) -> asyncio.Task[TaskWorkerResult]:
+        """Serialize durable admission and expose only a cancellation-ready task handle."""
+        async with self._lifecycle_lock:
+            return await self._start(request, parent_visible_tools=parent_visible_tools)
+
+    async def _start(
+        self,
+        request: TaskWorkerRequest,
+        *,
+        parent_visible_tools: frozenset[str],
+    ) -> asyncio.Task[TaskWorkerResult]:
+        if self._closed:
+            raise RuntimeError("task worker runtime is closed")
         capabilities = self._attenuate(request, parent_visible_tools)
         snapshot, created = await self._store.create(
             TaskWorkerSnapshot(
@@ -97,6 +121,10 @@ class TaskWorkerRuntime:
             )
         )
         if not created:
+            if snapshot.capabilities != capabilities:
+                raise TaskWorkerConflictError(
+                    "worker capabilities changed since the original request"
+                )
             if snapshot.result is not None:
                 return asyncio.create_task(self._return(snapshot.result))
             active = self._tasks.get(request.worker_id)
@@ -109,12 +137,14 @@ class TaskWorkerRuntime:
             at=request.created_at,
             details=(("parent_trace_ref", request.parent_trace_ref),),
         )
+        entered = asyncio.Event()
         task = asyncio.create_task(
-            self._run(request, capabilities),
+            self._run_registered(request, capabilities, entered),
             name=f"task-worker:{request.worker_id}",
         )
         self._tasks[request.worker_id] = task
         task.add_done_callback(lambda _task: self._tasks.pop(request.worker_id, None))
+        await entered.wait()
         return task
 
     async def run(
@@ -147,23 +177,83 @@ class TaskWorkerRuntime:
             )
             await self._finish(snapshot, result)
 
-    async def recover_interrupted(self) -> tuple[TaskWorkerResult, ...]:
+    async def recover_interrupted(self, *, max_batches: int = 10) -> tuple[TaskWorkerResult, ...]:
+        """Recover an idle runtime; production selects unresolved rows, not terminal history."""
+        async with self._lifecycle_lock:
+            if any(not task.done() for task in self._tasks.values()):
+                raise RuntimeError("worker recovery cannot run while tasks are active")
+            return await self._recover_interrupted(max_batches=max_batches)
+
+    async def _recover_interrupted(self, *, max_batches: int = 10) -> tuple[TaskWorkerResult, ...]:
+        if type(max_batches) is not int or not 1 <= max_batches <= 100:
+            raise ValueError("worker recovery max_batches MUST be in [1, 100]")
         recovered: list[TaskWorkerResult] = []
-        for snapshot in await self._store.list(limit=1_000):
-            if snapshot.status not in {TaskWorkerStatus.PENDING, TaskWorkerStatus.RUNNING}:
-                continue
-            now = max(self._clock(), snapshot.request.created_at)
-            result = self._terminal(
-                snapshot.request,
-                status=TaskWorkerStatus.FAILED,
-                reason="runtime_restart_interrupted",
-                usage=snapshot.usage,
-                started_at=snapshot.request.created_at,
-                finished_at=now,
+        for _batch in range(max_batches):
+            rows = (
+                await self._store.list_interrupted(limit=1_000)
+                if isinstance(self._store, RecoverableTaskWorkerStore)
+                else tuple(
+                    row
+                    for row in await self._store.list(limit=1_000)
+                    if row.status in {TaskWorkerStatus.PENDING, TaskWorkerStatus.RUNNING}
+                )
             )
-            await self._finish(snapshot, result)
-            recovered.append(result)
+            if not rows:
+                return tuple(recovered)
+            for snapshot in rows:
+                now = max(self._clock(), snapshot.request.created_at)
+                result = self._terminal(
+                    snapshot.request,
+                    status=TaskWorkerStatus.FAILED,
+                    reason="runtime_restart_interrupted",
+                    usage=snapshot.usage,
+                    started_at=snapshot.request.created_at,
+                    finished_at=now,
+                )
+                await self._finish(snapshot, result)
+                recovered.append(result)
+        if isinstance(
+            self._store, RecoverableTaskWorkerStore
+        ) and await self._store.list_interrupted(limit=1):
+            raise RuntimeError("worker recovery batch budget exhausted")
         return tuple(recovered)
+
+    async def aclose(self) -> None:
+        """Stop new work and drain active tasks before the production lease is released."""
+        async with self._lifecycle_lock:
+            self._closed = True
+            tasks = tuple(self._tasks.values())
+            for task in tasks:
+                task.cancel()
+            if tasks:
+                await asyncio.gather(*tasks, return_exceptions=True)
+            await self._recover_interrupted()
+
+    async def _run_registered(
+        self,
+        request: TaskWorkerRequest,
+        capabilities: AttenuatedCapabilities,
+        entered: asyncio.Event,
+    ) -> TaskWorkerResult:
+        """Persist cancellation even while queued or between lifecycle checkpoints."""
+        try:
+            entered.set()
+            return await self._run(request, capabilities)
+        except asyncio.CancelledError:
+            snapshot = await self._store.get(request.worker_id)
+            if snapshot is None:
+                raise RuntimeError("cancelled worker has no durable snapshot") from None
+            if snapshot.result is not None:
+                return snapshot.result
+            result = self._terminal(
+                request,
+                status=TaskWorkerStatus.CANCELLED,
+                reason="cancelled_by_owner",
+                usage=snapshot.usage,
+                started_at=request.created_at,
+                finished_at=max(self._clock(), request.created_at),
+            )
+            return await self._finish(snapshot, result)
 
     async def _run(
         self,
@@ -195,10 +285,19 @@ class TaskWorkerRuntime:
                     finished_at=max(self._clock(), started),
                 )
                 return await self._finish(running, result)
+
+            async def checkpoint(usage: TaskWorkerUsage) -> None:
+                current = await self._store.heartbeat(
+                    request.worker_id, usage=usage, at=max(self._clock(), started)
+                )
+                if current.status is not TaskWorkerStatus.RUNNING:
+                    raise RuntimeError("worker accounting lost the running state")
+
             gateway = TaskWorkerToolGateway(
                 tools=self._tools,
                 capabilities=capabilities,
                 budget=request.budget,
+                usage_checkpoint=checkpoint,
             )
             heartbeat_stop = asyncio.Event()
             heartbeat_task = asyncio.create_task(
@@ -213,11 +312,7 @@ class TaskWorkerRuntime:
                         max_tokens=request.budget.max_tokens,
                         max_cost_microusd=request.budget.max_cost_microusd,
                     )
-                usage = TaskWorkerUsage(
-                    tokens=output.usage.tokens,
-                    cost_microusd=output.usage.cost_microusd,
-                    tool_calls=gateway.usage.tool_calls,
-                )
+                usage = replace(output.usage, tool_calls=gateway.usage.tool_calls)
                 status, reason = self._validate_output(request, output, gateway, usage)
                 result = self._terminal(
                     request,
@@ -244,6 +339,15 @@ class TaskWorkerRuntime:
                     request,
                     status=TaskWorkerStatus.CANCELLED,
                     reason="cancelled_by_owner",
+                    usage=gateway.usage,
+                    started_at=started,
+                    finished_at=max(self._clock(), started),
+                )
+            except TaskWorkerPlanningBudgetError:
+                result = self._terminal(
+                    request,
+                    status=TaskWorkerStatus.BUDGET_EXHAUSTED,
+                    reason="planning_budget_exhausted",
                     usage=gateway.usage,
                     started_at=started,
                     finished_at=max(self._clock(), started),
@@ -295,7 +399,7 @@ class TaskWorkerRuntime:
                 await asyncio.wait_for(stop.wait(), timeout=interval)
             except TimeoutError:
                 now = self._clock()
-                await self._store.heartbeat(worker_id, usage=gateway.usage, at=now)
+                await gateway.checkpoint_usage()
                 await self._store.append_event(
                     worker_id,
                     kind="worker.heartbeat",
@@ -308,20 +412,23 @@ class TaskWorkerRuntime:
         snapshot: TaskWorkerSnapshot,
         result: TaskWorkerResult,
     ) -> TaskWorkerResult:
-        await self._store.transition(
-            snapshot.request.worker_id,
-            expected=frozenset({TaskWorkerStatus.PENDING, TaskWorkerStatus.RUNNING}),
-            status=result.status,
-            usage=result.usage,
-            at=result.finished_at,
-            result=result,
-        )
-        await self._store.append_event(
-            snapshot.request.worker_id,
-            kind=f"worker.{result.status.value}",
-            at=result.finished_at,
-            details=(("reason", result.terminal_reason),),
-        )
+        if isinstance(self._store, RecoverableTaskWorkerStore):
+            await self._store.finish(result)
+        else:
+            await self._store.transition(
+                snapshot.request.worker_id,
+                expected=frozenset({TaskWorkerStatus.PENDING, TaskWorkerStatus.RUNNING}),
+                status=result.status,
+                usage=result.usage,
+                at=result.finished_at,
+                result=result,
+            )
+            await self._store.append_event(
+                result.worker_id,
+                kind=f"worker.{result.status.value}",
+                at=result.finished_at,
+                details=(("reason", result.terminal_reason),),
+            )
         if self._completion_sink is not None:
             try:
                 await self._completion_sink.publish(result)
@@ -357,6 +464,8 @@ class TaskWorkerRuntime:
         gateway: TaskWorkerToolGateway,
         usage: TaskWorkerUsage,
     ) -> tuple[TaskWorkerStatus, str]:
+        if not usage.complete:
+            return TaskWorkerStatus.FAILED, "provider_usage_unavailable"
         if not usage.within(request.budget):
             return TaskWorkerStatus.BUDGET_EXHAUSTED, "reported_usage_exceeded"
         allowed_evidence = {*request.evidence_refs, *gateway.evidence_refs}

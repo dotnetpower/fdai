@@ -121,6 +121,7 @@ from fdai.runtime.stewardship_identity_health import (
     build_stewardship_identity_health_worker,
 )
 from fdai.runtime.stewardship_merge_effects import StewardshipMergeEffectsWorker
+from fdai.runtime.task_workers import TaskWorkerRuntimeBinding, build_task_worker_runtime_from_env
 from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue
 from fdai.shared.contracts.models import ResponseOutcome
 from fdai.shared.providers.hil_registry import HilWorkflowDecisionRegistry
@@ -160,6 +161,7 @@ class CoreRuntime:
     assignment_intake_consumer: Any = None
     assignment_outcome_consumer: Any = None
     human_access_reconciliation: Any = None
+    task_workers: TaskWorkerRuntimeBinding | None = None
 
     def task_configuration(self, stop: asyncio.Event) -> RuntimeTaskConfiguration:
         """Project assembled bindings into the task-supervision contract."""
@@ -265,6 +267,15 @@ async def build_core_runtime(
         )
 
     state_store = state_store or _build_audit_store()
+    llm_bindings = container.llm_bindings
+    resources.task_workers = await build_task_worker_runtime_from_env(
+        environment=environment,
+        resolved_models=container.resolved_models,
+        held_capabilities=container.held_model_capabilities,
+        identity=identity,
+        http_client=resources.http_client,
+        pricing=llm_bindings.conversation_pricing if llm_bindings is not None else None,
+    )
     from fdai.runtime.assignment_transport import (
         build_assignment_transport,
         build_handover_goal_reader,
@@ -776,6 +787,7 @@ async def build_core_runtime(
         ),
         assignment_outcome_consumer=assignment_outcome_consumer,
         human_access_reconciliation=human_access_reconciliation,
+        task_workers=resources.task_workers,
     )
 
 
