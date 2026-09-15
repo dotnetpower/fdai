@@ -236,8 +236,11 @@ targets remain blocked until their separate egress contract is selected and veri
 
 The cluster enables Azure Policy, patch-channel Kubernetes upgrades, and NodeImage OS upgrades.
 Both node pools enable host encryption and allow 50 pods per node. Confirm the selected
-subscription and SKU support host encryption before deployment; automated regional and feature
-preflight remains open in the implementation ledger. Unsupported targets do not disable encryption.
+subscription and SKU support host encryption before deployment. The read-only preflight queries
+each distinct selected SKU exactly once, then checks its regional restrictions, three required
+zones, architecture, host encryption, and family plus total quota. It does not download the whole
+regional SKU catalog or retry a failed provider read. Unsupported targets do not disable
+encryption. Allocatable workload-envelope validation remains open in the implementation ledger.
 
 The default diskless SKUs retain platform-encrypted Managed OS disks rather than requiring
 ephemeral storage. Checkov exceptions stay attached to the affected resource: the pinned scanner

@@ -221,3 +221,10 @@ core/provider tests are reused, not added to the 47-case denominator.
 No additional confirmed Medium/High source finding was found in these post-integration reviews.
 Publication and protected merge evidence will be recorded on #805 and its PR after it exists;
 neither is claimed by this local checkpoint.
+
+The subsequent base revision `cfae4884dca2392c1ca2ec6cc22dc9f4d0c12681` has successful main CI
+`34953780219`. It adds only the deployment CLI's selected-SKU preflight and its tests/owner docs.
+The second local merge is conflict-free and leaves every worker/Core/provider/test input unchanged.
+The 47-case integrated result is therefore reused; no unchanged runtime tests were rerun solely
+for this base update. The earlier allocation failure remains historical evidence, not the current
+base CI status.
