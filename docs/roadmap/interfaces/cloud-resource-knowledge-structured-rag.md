@@ -6,9 +6,10 @@ agent-owned admission and activation path rather than introducing another RAG se
 Composed legacy/text and structured tests exercise the same real agent handlers, including
 self-approval rejection, audit-before-index, no Thor execution, and English/Korean source dates.
 
-> **Scope:** Source implementation is authorized under Issue #1019. Operational qualification,
-> source rights, production trust, independent human reviewers and live model evaluation remain
-> separate prerequisites under Issue #995. An implementation test is not an operational approval.
+> **Scope:** Issue #1019 / PR #1047 delivered the original source implementation. Issue #1061
+> adds retained-source preparation. Operational qualification, source rights, production trust,
+> independent human reviewers and live model evaluation remain under Issue #995. Implementation
+> tests and local preparation are not operational approval.
 
 ## Design decisions
 
@@ -99,6 +100,46 @@ Expired or revoked content becomes unavailable before governed retention cleanup
 or source freshness. Automatic prior-generation restoration remains deferred.
 
 ## Qualification
+
+### Retained-source preparation
+
+An opt-in normalizer `2.1.0` extends the existing v3 representation without rewriting `2.0.0`
+checkpoints. The installed `article-blocks-2.0.0` excerpt recipe remains unchanged; processing
+identity already binds the normalizer and exact block text. V3 releases containing `2.1.0` require
+reader `3.1.0`. Historical reader `3.0.0` and v1/v2 records keep their exact bytes and algorithms.
+The ingestion default stays `2.0.0` until a deployment explicitly selects the compatible upgrade.
+`FDAI_CLOUD_KNOWLEDGE_NORMALIZER_VERSION=2.1.0` requires explicit v3 output; incompatible or unknown
+values fail configuration. This is a reader-compatibility pin, not a capability or authority switch.
+
+| Initial option | Critique | Revised boundary |
+|---|---|---|
+| Remove all unsupported flags | A missing diagram or ambiguous label can change meaning | Add only explicit inert structures; other dependencies stay held |
+| Guess tab names or use the first duplicate ID | Presentation order cannot resolve source identity | Resolve a unique label in the same tab group; referenced duplicate IDs stay held |
+| Drop empty tables or split a procedure to fit | This silently changes source accounting or context | Preserve captured headings with an explicit no-data-rows marker; atomic composites retain their byte ceiling |
+| Reuse a same-body checkpoint after a metadata/version change | Matching raw bytes do not bind new applicability or rights | Compare immutable source metadata, title and selected normalizer before reuse |
+
+Supported additions preserve `details` summaries and every disclosed body, inert `nobr` text,
+source-local tab labels, and complete nested-code/notice composites. Only a unique first direct
+summary defines a disclosure label. Explicit notice roles remain required context, including on new
+elements; retained descendant conditions are checked before atomic code/table rendering.
+Header-only tables describe the captured representation, never proof that a resource has no properties. Arbitrary table spans,
+unlabelled or ambiguous tabs, required unfetched media and oversized atomic context remain holds.
+
+A separate local review command reads an explicit bounded manifest of retained snapshots. It
+verifies original/normalized file hashes, emits new original-free candidates and per-source
+processing/hold records, and never creates registry approval, a signature, an active index or a
+model answer. Paths are no-follow and confined to the selected input root; output is exclusive and
+private. Source, output and total-byte ceilings plus per-source/total deadlines bound the run.
+Normalization and complete excerpt measurement share a resource-limited child process. A late
+candidate is not published as successful, and a held/unprocessed source cannot claim excerpt metrics.
+Reported processing time cannot renew collection or successful-check time. A partial run preserves
+the complete requested denominator and explicit unprocessed entries, not a smaller successful scope.
+Live source/media/model calls, independent reviewer labels, production trust and operating targets
+remain separately supplied prerequisites. An OS-isolated local check is identified as local evidence.
+The [operator runbook](../../runbooks/cloud-resource-knowledge.md#prepare-retained-sources-without-network-access)
+defines the review input, output, limits and exit codes; these files are not signed release manifests.
+
+### Independent answer qualification
 
 Freeze declared source and question scopes before measuring. Report collected, qualified, approved,
 indexed and answer-qualified counts separately. Use guide-first collections; large reference tables

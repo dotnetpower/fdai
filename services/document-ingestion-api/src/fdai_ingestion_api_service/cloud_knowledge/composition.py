@@ -41,7 +41,10 @@ def bind_cloud_knowledge(
         registry=registry,
         store=store,
         collector=CloudDocumentCollector(
-            PublicDocumentationTransport(), collector_id="Huginn", structured=output_format == "v3"
+            PublicDocumentationTransport(),
+            collector_id="Huginn",
+            structured=output_format == "v3",
+            normalizer_version=env.get("FDAI_CLOUD_KNOWLEDGE_NORMALIZER_VERSION", "2.0.0"),
         ),
         clock=clock,
     )

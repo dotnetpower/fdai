@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import ModuleType
-from typing import Any, NoReturn, cast
+from typing import Any, Literal, NoReturn, cast
 from unittest.mock import AsyncMock, Mock
 from uuid import UUID
 
@@ -325,11 +325,12 @@ async def test_unauthorized_replacement_cannot_reserve(intake: _Case) -> None:
 
 
 @pytest.mark.parametrize("count", [1, 2])
-@pytest.mark.parametrize("structured", [False, True])
+@pytest.mark.parametrize("normalizer", [None, "2.0.0", "2.1.0"])
 async def test_stage_collected_requires_full_scope_without_fake_signature(
-    intake: _Case, count: int, structured: bool
+    intake: _Case, count: int, normalizer: Literal["2.0.0", "2.1.0"] | None
 ) -> None:
     _seed_sources(intake, count)
+    structured = normalizer is not None
     if structured:
         from fdai_service_contracts.cloud_knowledge_structure import (
             CloudArticleBlock,
@@ -341,6 +342,7 @@ async def test_stage_collected_requires_full_scope_without_fake_signature(
             document = checkpoint.state.document
             assert document is not None
             derived = CloudStructuredDocument(
+                normalizer_version=normalizer or "2.0.0",
                 evidence=document.evidence,
                 title=document.title,
                 text=document.text,
@@ -377,6 +379,9 @@ async def test_stage_collected_requires_full_scope_without_fake_signature(
     )
     assert all(not version.active for version in intake.metadata.versions.values())
     if structured:
+        assert json.loads(content)["reader_version"] == (
+            "3.1.0" if normalizer == "2.1.0" else "3.0.0"
+        )
         assert len(binding.processing_digests) == 2
         received = intake.metadata.versions[(session.document_id, session.version_id)]
         retained = await _seed_retained_fixture(intake, version=received)
@@ -391,10 +396,64 @@ async def test_stage_collected_requires_full_scope_without_fake_signature(
         assert rolled.sources == binding.sources
         assert rolled.processing_digests == binding.processing_digests
         assert rolled.admission_expires_at == binding.admission_expires_at
-        assert UploadSession.model_validate(rollback["session"]).state is DocumentState.RECEIVED
+        rollback_session = UploadSession.model_validate(rollback["session"])
+        assert rollback_session.state is DocumentState.RECEIVED
+        original_manifest = release.KnowledgeStructuredReleaseManifest.model_validate_json(content)
+        rollback_manifest = release.KnowledgeStructuredReleaseManifest.model_validate_json(
+            intake.objects.content[rollback_session.object_key]
+        )
+        assert rollback_manifest.reader_version == original_manifest.reader_version
+        assert rollback_manifest.documents == original_manifest.documents
+        assert rollback_manifest.excerpt_digests == original_manifest.excerpt_digests
     assert all(
         checkpoint.state.document.original_text for checkpoint in intake.store.checkpoints.values()
     )
+
+
+@pytest.mark.parametrize(
+    "output_format,normalizer,valid",
+    [
+        (None, None, True),
+        ("v3", None, True),
+        ("v3", "2.0.0", True),
+        ("v3", "2.1.0", True),
+        (None, "2.1.0", False),
+        ("v2", "2.1.0", False),
+        ("v3", "2.2.0", False),
+        ("v3", "", False),
+    ],
+)
+def test_composition_requires_an_explicit_compatible_normalizer(
+    intake: _Case,
+    monkeypatch: pytest.MonkeyPatch,
+    output_format: str | None,
+    normalizer: str | None,
+    valid: bool,
+) -> None:
+    from fdai_ingestion_api_service.cloud_knowledge import composition
+
+    monkeypatch.setattr(
+        composition,
+        "policy_reader",
+        lambda env: lambda: (intake.service.registry, intake.service.trust),
+    )
+    env = {
+        "FDAI_CLOUD_KNOWLEDGE_REGISTRY_PATH": "synthetic-registry",
+        "FDAI_CLOUD_KNOWLEDGE_TRUST_PATH": "synthetic-trust",
+        "FDAI_DOCUMENT_COLLECTIONS": COLLECTION,
+        "FDAI_RBAC_READERS_GROUP_ID": "synthetic-readers",
+    }
+    if output_format is not None:
+        env["FDAI_CLOUD_KNOWLEDGE_FORMAT"] = output_format
+    if normalizer is not None:
+        env["FDAI_CLOUD_KNOWLEDGE_NORMALIZER_VERSION"] = normalizer
+    if not valid:
+        with pytest.raises(ValueError):
+            composition.bind_cloud_knowledge(env, ingestion=intake.ingestion, dsn="synthetic-dsn")
+        return
+    bound = composition.bind_cloud_knowledge(env, ingestion=intake.ingestion, dsn="synthetic-dsn")
+    assert bound is not None and bound._structured is (output_format == "v3")
+    assert bound._scheduler._collector._normalizer == (normalizer or "2.0.0")
 
 
 async def test_status_keeps_active_dates_when_newer_version_is_pending(intake: _Case) -> None:
