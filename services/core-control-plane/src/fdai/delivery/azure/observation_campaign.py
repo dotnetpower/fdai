@@ -501,15 +501,15 @@ class PromotedInventoryObservationProbe:
     ) -> ObservationProbeResult:
         del cursor
         summary = await self._coverage_reader(spec.max_results)
-        count = _bounded_aggregate(summary, "resource_count") + _bounded_aggregate(
-            summary,
-            "link_count",
-        )
         if summary.get("source") == "unavailable":
             return ObservationProbeResult(
                 coverage=ObservationCoverage.UNCONFIGURED,
                 reason_codes=("source_unconfigured",),
             )
+        count = _bounded_aggregate(summary, "resource_count") + _bounded_aggregate(
+            summary,
+            "link_count",
+        )
         if summary.get("freshness") in {"stale", "unknown"}:
             return ObservationProbeResult(
                 coverage=ObservationCoverage.STALE,

@@ -167,7 +167,7 @@ separately. Each registered source reports one of these coverage outcomes:
 The runner continues independent sources after an expected denial or failure. The aggregate
 campaign is `completed` only when every required source's current coverage is `ready`; otherwise it
 is `partial`.
-No missing source becomes a zero count, healthy state, or permission inference.
+No missing source becomes a zero count, healthy state, or permission inference. The promoted-inventory probe classifies an explicitly unavailable source before requiring measured counters.
 
 ## Collection policy
 

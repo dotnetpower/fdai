@@ -1,7 +1,7 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: 799652360db57c1b49212906b1fd76fcd606977a
+translation_source_sha: 4c92eb3acaa64546235e3f0e1809d53eb9cf8887
 translation_revised: 2026-09-15
 ---
 
@@ -171,7 +171,7 @@ translation_revised: 2026-09-15
 
 예상된 권한 거부나 실패 후에도 실행기는 독립 출처를 계속 실행합니다. 모든 필수 출처의 현재
 커버리지가 `ready`일 때만 집계 캠페인이 `completed`이며, 그 외에는 `partial`입니다. 누락된
-출처를 0건, 정상 상태 또는 권한 추론으로 바꾸지 않습니다.
+출처를 0건, 정상 상태 또는 권한 추론으로 바꾸지 않습니다. 승격 인벤토리 검사는 측정 개수를 요구하기 전에 명시적인 소스 사용 불가 상태를 분류합니다.
 
 ## 수집 정책
 

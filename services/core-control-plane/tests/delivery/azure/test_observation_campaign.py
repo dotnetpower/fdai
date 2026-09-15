@@ -534,3 +534,16 @@ async def test_promoted_inventory_probe_reports_stale_without_raw_resources() ->
 
     assert result.coverage is ObservationCoverage.STALE
     assert result.reason_codes == ("source_stale",)
+
+
+async def test_promoted_inventory_absence_does_not_require_measured_counts() -> None:
+    async def summary(_limit: int) -> dict[str, object]:
+        return {"source": "unavailable"}
+
+    result = await PromotedInventoryObservationProbe(summary).collect(
+        _spec("inventory", ObservationDomain.INVENTORY, "Huginn"), cursor=None
+    )
+
+    assert result.coverage is ObservationCoverage.UNCONFIGURED
+    assert result.reason_codes == ("source_unconfigured",)
+    assert result.evidence_count == 0
