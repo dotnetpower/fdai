@@ -61,6 +61,8 @@ import {
   type IdentityRosterItem,
 } from "./routes/settings-iam.model";
 
+const READ_DATA_SOURCES_CACHE_MS = 15_000;
+
 export class OperatorApiClient {
   readonly #transport: OperatorApiTransport;
   readonly #operations: OperationsApiClient;
@@ -68,6 +70,8 @@ export class OperatorApiClient {
   readonly #iam: IamApiClient;
   readonly #reporting: ReportingApiClient;
   #dataSourcesPromise: Promise<ReadDataSourcesPayload> | null = null;
+  #dataSourcesCache: ReadDataSourcesPayload | null = null;
+  #dataSourcesCacheExpiresAt = 0;
 
   constructor(
     config: ConsoleConfig,
@@ -201,15 +205,24 @@ export class OperatorApiClient {
   }
 
   async dataSources(): Promise<ReadDataSourcesPayload> {
+    if (
+      this.#dataSourcesCache !== null
+      && Date.now() < this.#dataSourcesCacheExpiresAt
+    ) {
+      return this.#dataSourcesCache;
+    }
     this.#dataSourcesPromise ??= this.#insights
       .panel<unknown>("/system/data-sources")
-      .then(decodeReadDataSources);
-    try {
-      return await this.#dataSourcesPromise;
-    } catch (error) {
-      this.#dataSourcesPromise = null;
-      throw error;
-    }
+      .then(decodeReadDataSources)
+      .then((payload) => {
+        this.#dataSourcesCache = payload;
+        this.#dataSourcesCacheExpiresAt = Date.now() + READ_DATA_SOURCES_CACHE_MS;
+        return payload;
+      })
+      .finally(() => {
+        this.#dataSourcesPromise = null;
+      });
+    return this.#dataSourcesPromise;
   }
 
   async iamOverview(): Promise<IamOverview> {

@@ -380,6 +380,9 @@ an unavailable package available, grant cost-data access, or promote an action.
 The shared Console transport treats only an explicitly classified source-gate failure as an
 unavailable projection. A generic `503` remains an operational error and cannot be used to imply
 that Cost Governance is merely unconfigured.
+The client coalesces concurrent manifest reads and reuses a successful result for at most 15
+seconds. The next source-gated read revalidates expired provenance, so an Operator Service restart
+or configuration recovery cannot pin Cost Governance to an earlier unavailable state.
 
 Install, upgrade, and rollback use a separate protected workflow on the private deployment runner.
 The workflow verifies protected `main`, required CI, the exact release source, the signed image

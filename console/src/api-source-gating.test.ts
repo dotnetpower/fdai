@@ -28,7 +28,10 @@ const auth: AuthContext = {
   async signOut() {},
 };
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 describe("read source gating", () => {
   test("keeps agent audit usable when optional activity projection is unavailable", async () => {
@@ -143,5 +146,60 @@ describe("read source gating", () => {
       } finally {
         stopObserving();
       }
+  });
+
+  test("coalesces source reads and revalidates a successful manifest after 15 seconds", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-16T00:00:00Z"));
+    const first = {
+      surface: "read-data-sources",
+      sources: [{
+        key: "operational-state",
+        source: "not-configured",
+        routes: ["/kpi"],
+        availability: "unavailable",
+        configured: false,
+        reachable: null,
+        authoritative: false,
+        durable: null,
+        synthetic: false,
+        reason: "Authoritative state is not connected.",
+        last_observed_at: null,
+      }],
+    };
+    const second = {
+      surface: "read-data-sources",
+      sources: [{
+        ...first.sources[0],
+        source: "service-local-projection",
+        availability: "unknown",
+        configured: true,
+        authoritative: true,
+        durable: true,
+        reason: null,
+      }],
+    };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json(first))
+      .mockResolvedValueOnce(Response.json(second));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new OperatorApiClient(config, auth);
+
+    const [initial, concurrent] = await Promise.all([
+      client.dataSources(),
+      client.dataSources(),
+    ]);
+    expect(initial).toEqual(concurrent);
+    expect(fetchMock).toHaveBeenCalledOnce();
+
+    await vi.advanceTimersByTimeAsync(14_999);
+    await expect(client.dataSources()).resolves.toEqual(initial);
+    expect(fetchMock).toHaveBeenCalledOnce();
+
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(client.dataSources()).resolves.toEqual(
+      expect.objectContaining({ sources: [expect.objectContaining({ authoritative: true })] }),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
