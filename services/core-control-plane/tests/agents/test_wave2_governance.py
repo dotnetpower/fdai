@@ -18,7 +18,7 @@ from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.mimir import Mimir
 from fdai.agents.muninn import Muninn
-from fdai.agents.norns import Norns
+from fdai.agents.norns import Norns, NornsCapacityError
 from fdai.agents.saga import Saga, compute_fingerprint
 from fdai.core.rule_semantic_generation import (
     RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
@@ -1381,6 +1381,76 @@ def test_norns_public_flush_recovers_candidates_behind_blocked_head() -> None:
     assert asyncio.run(restarted.flush_candidates()) == 2
     assert restarted.pending_candidates == []
     assert len(bus.messages_on("object.rule-candidate")) == 2
+
+
+def test_norns_saturated_recovery_does_not_deliver_an_unpublished_candidate() -> None:
+    class _InterruptFingerprintApply(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.allow_fingerprint_apply = False
+
+        async def write_state_with_audit_if_absent(
+            self,
+            key,
+            value,
+            audit_entry,
+        ):  # noqa: ANN001, ANN201
+            if "/fingerprints/" in key and not self.allow_fingerprint_apply:
+                raise RuntimeError("fingerprint apply interrupted")
+            return await super().write_state_with_audit_if_absent(
+                key,
+                value,
+                audit_entry,
+            )
+
+    store = _InterruptFingerprintApply()
+    fingerprints = {"saturated-fingerprint-a", "saturated-fingerprint-b"}
+    for index, fingerprint in enumerate(sorted(fingerprints)):
+        with pytest.raises(RuntimeError, match="fingerprint apply interrupted"):
+            asyncio.run(
+                Norns(
+                    promotion_threshold=1,
+                    issue_state_store=store,
+                ).on_typed_message(
+                    "object.issue",
+                    {
+                        "fingerprint": fingerprint,
+                        "idempotency_key": f"handoff:saturated-{index}",
+                    },
+                )
+            )
+
+    store.allow_fingerprint_apply = True
+    bus = InMemoryBus(registry=load_pantheon())
+    restarted = Norns(
+        promotion_threshold=1,
+        max_pending_candidates=1,
+        issue_state_store=store,
+    )
+    restarted.bind_bus(bus)
+
+    with pytest.raises(NornsCapacityError, match="capacity exhausted"):
+        asyncio.run(restarted.recover_issue_learning())
+    assert len(restarted.pending_candidates) == 1
+    assert bus.messages_on("object.rule-candidate") == []
+
+    with pytest.raises(RuntimeError, match="candidate recovery capacity exceeded"):
+        asyncio.run(restarted.flush_candidates())
+    assert len(bus.messages_on("object.rule-candidate")) == 1
+    assert asyncio.run(restarted.flush_candidates()) == 1
+    published = {
+        message.payload["evidence"]["fingerprint"]
+        for message in bus.messages_on("object.rule-candidate")
+    }
+    assert published == fingerprints
+
+    final_restart = Norns(
+        promotion_threshold=1,
+        max_pending_candidates=1,
+        issue_state_store=store,
+    )
+    assert asyncio.run(final_restart.recover_issue_learning()) == 0
+    assert final_restart.pending_candidates == []
 
 
 def test_norns_durable_issue_operation_rejects_fingerprint_collision() -> None:
