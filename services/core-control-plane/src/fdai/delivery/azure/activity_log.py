@@ -52,6 +52,9 @@ Safety / cost invariants
   the shared :func:`~fdai.delivery.azure.arg_query._truncate_props` helper.
 - The overall page count per :meth:`delta` call is bounded by the
   inventory adapter's ``max_delta_pages`` cap.
+- A successful Key Vault delete with the known Resource Group type envelope
+  requests event-time reconciliation only; its contradictory identity never
+  produces a resource upsert. Other reviewed type conflicts remain errors.
 """
 
 from __future__ import annotations
@@ -364,6 +367,15 @@ class AzureActivityLogFactory:
             # Azure sometimes omits the child id. Request authoritative reconciliation
             # rather than minting a child or poisoning the complete delta page.
             return at, None, succeeded
+        if (
+            succeeded
+            and derived_arm_type.casefold() == "microsoft.keyvault/vaults"
+            and arm_type.casefold() == "microsoft.resources/resourcegroups"
+            and operation is not None
+            and operation.casefold() == "microsoft.keyvault/vaults/delete"
+        ):
+            # This known delete envelope cannot establish either Resource's state.
+            return at, None, True
         try:
             arm_type = arm_provider_type(arm_id, arm_type)
         except ArmIdentityError as exc:

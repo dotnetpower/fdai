@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 6466432293c3dbe8080084d1a2029dc7d81a7f7c
+translation_source_sha: 48e385694369e9fce7067c82b31368097a311890
 translation_revised: 2026-09-15
 ---
 # 지속형 운영 인스턴스 그래프
@@ -105,7 +105,7 @@ Activity Log의 컨트롤 플레인 결과는 `operationStatus`와 정규화된 
 reconciliation 사이에 Resource Group 부모로 되돌아가지 않습니다.
 Resource Changes의 커서, 재시도, 수집 경계 및 게시 의미는 하나의 지원 경계가 소유합니다. 공급자
 feed 모듈은 두 번째 루프를 유지하지 않고 이 동작을 다시 내보냅니다.
-잘못된 Activity Log 다음 페이지 정보는 페이지 스트림을 종료하거나 영속 커서를 진행할 수 없습니다. 부모 계정만 가리키는 Azure Cognitive Services 배포 쓰기나 삭제는 변환할 수 없는 변경 신호입니다. 없는 자식 ID를 만들거나 유효한 다른 행을 막지 않고 전체 조정을 요청하며, 다른 신원 모순은 오류로 유지합니다.
+잘못된 다음 페이지 정보는 Activity Log 스트림을 완료하거나 영속 커서를 진행할 수 없습니다. 부모 계정만 가리키는 Azure Cognitive Services 배포 쓰기/삭제와 정확한 Key Vault ARM ID에 정규화된 Resource Group 묶음이 결합된 `Microsoft.KeyVault/vaults/delete` 이벤트는 `Succeeded`일 때 전체 조정만 요청합니다. 신호만 있는 페이지도 시간대가 포함된 검증된 이벤트 시간을 보존하며, Resource/관계를 추가하거나 갱신하지 않고 없는 자식을 만들거나 삭제를 단정하거나 유효한 다른 행을 막지 않습니다. 커서 저장에는 완전한 스트림 종료 경계와 조정 마커 저장이 필요하며, 그 밖의 상태, 타임스탬프 및 검토된 신원 검증은 바꾸지 않습니다. 정확한 별칭과 집중 검증 근거는 [구현 원장](../../roadmap-implementation/architecture/continuous-operational-instance-graph.md)에 기록되어 있습니다.
 
 수집된 속성은 검토된 프로바이더 mapping을 거쳐야만 관계가 됩니다. Mapping이 관측된 연결
 대상을 빠뜨리면 없는 그래프 edge가 경로 부재를 입증하지 않습니다. 따라서 도달 가능한 모든
