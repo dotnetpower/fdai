@@ -623,8 +623,8 @@ regressing denial escapes, duplicate application, rollback, or unavailable-sourc
 
 ## Settings and component presentation boundary
 
-The [Console settings and component presentation reference](../../reference/console-settings-presentation.md)
-defines shared controls, IAM stages, component documentation, and authority boundaries.
+The [Console settings and component presentation reference](../../reference/console-settings-presentation.md) defines shared controls, IAM stages, component documentation, and authority boundaries.
+Production Settings uses the shared typography, 34 px desktop and 44 px touch targets, action emphasis, visible focus, and active mobile navigation without changing persistence, RBAC, evidence, approval, or execution authority.
 
 ## Rejected alternatives
 

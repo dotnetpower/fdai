@@ -61,7 +61,11 @@ export function OperatorMemoryRoute({ client }: { readonly client: OperatorApiCl
       <form class="settings-filter-bar" onSubmit={(event) => { event.preventDefault(); void load(); }}>
         <label>
           <span>{t("settings.operatorMemory.scopeKind")}</span>
-          <select value={scopeKind} onChange={(event) => setScopeKind(event.currentTarget.value)}>
+          <select
+            class="form-input"
+            value={scopeKind}
+            onChange={(event) => setScopeKind(event.currentTarget.value)}
+          >
             <option value="">{t("settings.operatorMemory.allScopes")}</option>
             <option value="resource-group">resource-group</option>
             <option value="resource">resource</option>
@@ -69,7 +73,11 @@ export function OperatorMemoryRoute({ client }: { readonly client: OperatorApiCl
         </label>
         <label>
           <span>{t("settings.operatorMemory.scopeRef")}</span>
-          <input value={scopeRef} onInput={(event) => setScopeRef(event.currentTarget.value)} />
+          <input
+            class="form-input"
+            value={scopeRef}
+            onInput={(event) => setScopeRef(event.currentTarget.value)}
+          />
         </label>
         <button type="submit" class="btn">{t("settings.operatorMemory.filter")}</button>
       </form>

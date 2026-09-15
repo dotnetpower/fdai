@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:16c8ea02cddad2de4178f758531b2354651bfd0fffb099063105647753081d5f",
+  "catalog_digest": "sha256:febd4d1ddcc07af4b068a710ce024b1c2ea48370067ad27cea0661a08892bfdc",
   "execution_authority": false,
-  "generated_at": "2026-09-15T14:46:21.435288Z",
+  "generated_at": "2026-09-15T15:17:03.179327Z",
   "records": [
     {
       "designed_behavior": [
@@ -268,11 +268,11 @@
         "How does FDAI authenticate and authorize people?",
         "FDAI는 사용자를 어떻게 인증하고 권한을 확인하나요?"
       ],
-      "record_digest": "sha256:f9b36bc216b2f50121473d351bdddc6937c5be4028dda5a5b79dd4302c026296",
+      "record_digest": "sha256:ac98102e85da7fdeb28b5c4ed487f43f7411d6b2414ece8bb98f1a1a6f9497fa",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "b4db5fe358494dc667e9182f0e97ec456cc41720",
+          "blob_sha": "f806f62926b40ad7e07a4ac81beebbb800a07339",
           "line_end": 23,
           "line_start": 23,
           "path": "docs/roadmap/interfaces/user-rbac-and-identity.md",
@@ -448,7 +448,7 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:05a9eb1fe0ed0992f3787f2a8aad50a553ce4232a15be8ea78e2020adedb40c5",
+      "record_digest": "sha256:04423c119a6defacff01848af89920db91af65d8b17cfd06a70e64a2a296ed04",
       "sources": [
         {
           "authority_role": "design",
@@ -461,7 +461,7 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "93dc487c67caf71965c73a454f0f338449fd8540",
+          "blob_sha": "e9e2774da19ee01a72d0cdd89e94f650cc376745",
           "line_end": 86,
           "line_start": 86,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -491,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:e38e395d2a280a43185c00f2a40d67c1a6c97f74f69b25e325149472335202f8",
+      "record_digest": "sha256:f21139c51c34b37dce1aa527eeaa113ad38f7234433f60f9420736bf7eb993ba",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "93dc487c67caf71965c73a454f0f338449fd8540",
+          "blob_sha": "e9e2774da19ee01a72d0cdd89e94f650cc376745",
           "line_end": 86,
           "line_start": 86,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "b5b941a6606d8c06034149b59cece7eeeada3679"
+  "source_revision": "9545ac69ce9eddb871978ddc777649cd93460cbe"
 }
