@@ -138,12 +138,14 @@ export interface LiveAgentActivityEvent {
   readonly activityId: string | null;
   readonly operationalKind: OperationalActivityKind | null;
   readonly observationDomain: ObservationDomain | null;
+  readonly retained?: boolean;
 }
 
 /** Cap retained incidents so a long-lived tab cannot grow without bound. */
 const MAX_INCIDENTS = 30;
 /** Cap live frames so a long-lived tab has stable memory use. */
-const MAX_LIVE_ACTIVITY = 100;
+const MAX_OPERATIONAL_ACTIVITY = 600;
+const MAX_OTHER_LIVE_ACTIVITY = 100;
 
 export function makeInitialState(): AgentsState {
   const agents: Record<string, AgentNode> = {};
@@ -170,6 +172,7 @@ export function makeInitialState(): AgentsState {
 function projectLiveActivity(
   msg: AgentActivityMessage,
   sequence: number,
+  sourceOverride?: FrameSource,
 ): LiveAgentActivityEvent | null {
   if (msg.type === "agent.state") {
     if (_LAYER_OF[msg.agent] === undefined) return null;
@@ -187,6 +190,7 @@ function projectLiveActivity(
       activityId: null,
       operationalKind: null,
       observationDomain: null,
+      retained: false,
     };
   }
   if (msg.type === "incident.ticket") {
@@ -205,6 +209,7 @@ function projectLiveActivity(
       activityId: null,
       operationalKind: null,
       observationDomain: null,
+      retained: false,
     };
   }
   if (msg.type === "agent.operational-activity") {
@@ -216,13 +221,14 @@ function projectLiveActivity(
       agents: [msg.owner_agent],
       state: msg.status === "started" ? activeState : "watching",
       summary: `${msg.kind} - ${msg.status}`,
-      detail: `${msg.producer} - ${msg.source} - ${msg.freshness} - ${msg.evidence_count} evidence`,
+      detail: operationalActivityDetail(msg),
       correlationId: msg.correlation_id,
       ts: msg.observed_at,
-      source: "runtime-observed",
+      source: sourceOverride ?? "runtime-observed",
       activityId: msg.activity_id,
       operationalKind: msg.kind,
       observationDomain: msg.observation_domain,
+      retained: sourceOverride === "replay",
     };
   }
   const agents = [msg.from_agent, msg.to_agent].filter(
@@ -242,7 +248,27 @@ function projectLiveActivity(
     activityId: null,
     operationalKind: null,
     observationDomain: null,
+    retained: false,
   };
+}
+
+export function operationalActivityDetail(
+  message: AgentOperationalActivityMessage,
+): string {
+  const result = message.schema_version === "1.3.0"
+    ? message.result_state === "measured"
+      ? `${message.result_count} ${message.result_unit}`
+      : message.result_state
+    : message.evidence_count > 0
+      ? `${message.evidence_count} evidence-items`
+      : "not-recorded";
+  const duration = message.duration_ms === null
+    ? "duration not-recorded"
+    : `${message.duration_ms} ms`;
+  const reasons = message.reason_codes.length > 0
+    ? ` - ${message.reason_codes.join(",")}`
+    : "";
+  return `${message.producer} - ${message.source} - ${message.freshness} - ${result} - ${duration}${reasons}`;
 }
 
 function recordLiveActivity(
@@ -251,18 +277,67 @@ function recordLiveActivity(
   sourceOverride?: FrameSource,
 ): AgentsState {
   if (isRuntimeInitializationSnapshot(msg)) return state;
-  const projected = projectLiveActivity(msg, state.nextLiveActivitySequence);
+  const projected = projectLiveActivity(
+    msg,
+    state.nextLiveActivitySequence,
+    sourceOverride,
+  );
   if (projected === null) return state;
-  const event = sourceOverride === undefined ? projected : { ...projected, source: sourceOverride };
-  if (event.activityId !== null && state.liveActivity.some(
-    (candidate) => candidate.activityId === event.activityId,
-  )) return state;
-  if (isRepeatedPassiveState(state.liveActivity, event)) return state;
+  const duplicateIndex = projected.activityId === null
+    ? -1
+    : state.liveActivity.findIndex(
+      (candidate) => candidate.activityId === projected.activityId,
+    );
+  if (duplicateIndex >= 0) {
+    const duplicate = state.liveActivity[duplicateIndex];
+    if (
+      sourceOverride === "replay" &&
+      duplicate !== undefined &&
+      duplicate.retained !== true
+    ) {
+      return {
+        ...state,
+        liveActivity: boundLiveActivity(
+          state.liveActivity.map((event, index) =>
+            index === duplicateIndex
+              ? { ...event, retained: true }
+              : event
+          ),
+        ),
+      };
+    }
+    if (sourceOverride === undefined && duplicate?.source === "replay") {
+      return {
+        ...state,
+        liveActivity: boundLiveActivity([
+          { ...projected, retained: duplicate.retained === true },
+          ...state.liveActivity.filter((_, index) => index !== duplicateIndex),
+        ]),
+        nextLiveActivitySequence: state.nextLiveActivitySequence + 1,
+      };
+    }
+    return state;
+  }
+  if (isRepeatedPassiveState(state.liveActivity, projected)) return state;
   return {
     ...state,
-    liveActivity: [event, ...state.liveActivity].slice(0, MAX_LIVE_ACTIVITY),
+    liveActivity: boundLiveActivity([projected, ...state.liveActivity]),
     nextLiveActivitySequence: state.nextLiveActivitySequence + 1,
   };
+}
+
+function boundLiveActivity(
+  events: readonly LiveAgentActivityEvent[],
+): readonly LiveAgentActivityEvent[] {
+  const operational = events
+    .filter((event) => event.operationalKind !== null)
+    .slice(0, MAX_OPERATIONAL_ACTIVITY);
+  const other = events
+    .filter((event) => event.operationalKind === null)
+    .slice(0, MAX_OTHER_LIVE_ACTIVITY);
+  return [...operational, ...other].sort(
+    (left, right) => right.sequence - left.sequence,
+  );
 }
 
 function isRuntimeInitializationSnapshot(msg: AgentActivityMessage): boolean {

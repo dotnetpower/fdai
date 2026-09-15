@@ -1,8 +1,8 @@
 ---
 title: Entra 앱 등록
 translation_of: entra-app-registration.md
-translation_source_sha: 89a8a3f44b11773173d88aeb5d79444625ec865a
-translation_revised: 2026-08-11
+translation_source_sha: f7c8f55ca6abba3ffa1264ea444564ea2eb34572
+translation_revised: 2026-09-14
 ---
 
 # Entra 앱 등록
@@ -24,7 +24,7 @@ FDAI 콘솔에 필요한 두 개의 Entra ID 앱 등록 - `fdai-api` (Operator A
 
 | 등록 | 목적 | 핵심 설정 |
 |------|------|-----------|
-| `fdai-api` | 콘솔(및 이후 ChatOps 백엔드)의 Web API 오디언스. | 애플리케이션 ID URI `api://<api-app-id>`; delegated 범위 `access` 하나; App Roles 다섯 개; v2 접근 토큰. |
+| `fdai-api` | 콘솔, ChatOps 백엔드 및 내부 첨부 intake의 Web API 오디언스. | 애플리케이션 ID URI `api://<api-app-id>`; delegated 범위 `access` 하나; 사람용 App Role 다섯 개와 application-only 첨부 역할 하나; v2 접근 토큰. |
 | `fdai-console-spa` | SPA 사인인 클라이언트 (MSAL, PKCE). | SPA redirect URI; `fdai-api` 의 `access` 범위 에 대한 delegated 권한. |
 
 둘 다 실행기 아이덴티티를 갖지 않습니다 - 그것은 별도의 user-assigned Managed
@@ -56,21 +56,25 @@ API_APPID=$(az ad app create \
   --sign-in-audience AzureADMyOrg \
   --query appId -o tsv)
 
-# Five App Roles (values MUST equal the Role enum in core/rbac/roles.py:
-# Reader / Contributor / Approver / Owner / BreakGlass).
+# Five human App Roles plus one application-only attachment role.
 python3 - <<'PY' > /tmp/fdai_approles.json
 import json, uuid
 roles = [
-    ("Reader", "View the operator console"),
-    ("Contributor", "Reader plus author draft governance PRs"),
-    ("Approver", "Contributor plus review and approve governance PRs and HIL"),
-    ("Owner", "Full administration of the fork's control plane"),
-    ("BreakGlass", "Segregated emergency access (never auto-activated)"),
+  ("Reader", "View the operator console", ["User"]),
+  ("Contributor", "Reader plus author draft governance PRs", ["User"]),
+  ("Approver", "Contributor plus review and approve governance PRs and HIL", ["User"]),
+  ("Owner", "Full administration of the fork's control plane", ["User"]),
+  ("BreakGlass", "Segregated emergency access (never auto-activated)", ["User"]),
+  (
+    "Document.ChannelAttachment.Submit",
+    "Submit bounded channel attachments to the internal ingestion intake",
+    ["Application"],
+  ),
 ]
 print(json.dumps([{
-    "allowedMemberTypes": ["User"], "description": d, "displayName": n,
+  "allowedMemberTypes": members, "description": d, "displayName": n,
     "id": str(uuid.uuid4()), "isEnabled": True, "value": n,
-} for n, d in roles]))
+} for n, d, members in roles]))
 PY
 az ad app update --id "$API_APPID" --app-roles @/tmp/fdai_approles.json
 az ad app update --id "$API_APPID" --identifier-uris "api://$API_APPID"
@@ -191,7 +195,30 @@ az ad app permission admin-consent --id "$SPA_APPID"
 
 실제 배포에서는 App Roles를 개별 사용자가 아니라 다섯 개의 `aw-*` Entra 보안
 그룹에 할당하세요
-([user-rbac-and-identity.md § 4.4](../roadmap/interfaces/user-rbac-and-identity.md#44-app-roles-token-surface)).
+([user-rbac-and-identity-ko.md § 4.4](../roadmap/interfaces/user-rbac-and-identity-ko.md#44-app-roles-token-surface)).
+
+전용 Operator channel-edge Managed Identity가 생성되면 해당 서비스 principal에는
+application-only 첨부 역할만 할당합니다. 이 신원에 사람용 FDAI 역할을 할당하지 마세요.
+
+```sh
+EDGE_CLIENT_ID=<channel-edge-managed-identity-client-id>
+EDGE_SP_OBJID=$(az ad sp show --id "$EDGE_CLIENT_ID" --query id -o tsv)
+ATTACHMENT_ROLE_ID=$(az ad app show --id "$API_APPID" \
+  --query "appRoles[?value=='Document.ChannelAttachment.Submit'].id | [0]" -o tsv)
+python3 - "$EDGE_SP_OBJID" "$API_SP_OBJID" "$ATTACHMENT_ROLE_ID" <<'PY' \
+  > /tmp/fdai_channel_attachment_assign.json
+import json, sys
+print(json.dumps({"principalId": sys.argv[1], "resourceId": sys.argv[2], "appRoleId": sys.argv[3]}))
+PY
+az rest --method POST \
+  --uri "https://graph.microsoft.com/v1.0/servicePrincipals/$API_SP_OBJID/appRoleAssignedTo" \
+  --headers "Content-Type=application/json" \
+  --body @/tmp/fdai_channel_attachment_assign.json
+```
+
+Edge에서 첨부를 활성화하기 전에 내부 channel intake를 활성화합니다. Edge 시작 과정은 정확한
+API audience를 요청하고 인증된 intake probe를 호출합니다. 역할 정의, 할당 또는 audience가
+없으면 edge는 준비 상태가 되지 않습니다.
 
 ## 4. id를 구성에 매핑
 

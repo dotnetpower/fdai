@@ -7,7 +7,15 @@ from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
-from fdai.core.control_loop._helpers import _is_execution_success
+from fdai.core.control_loop._execution_outcomes import (
+    is_execution_no_effect as _is_execution_no_effect,
+)
+from fdai.core.control_loop._execution_outcomes import (
+    is_execution_pending as _is_execution_pending,
+)
+from fdai.core.control_loop._helpers import (
+    _is_execution_success,
+)
 from fdai.core.control_loop.models import ControlLoopOutcome, ControlLoopResult
 from fdai.core.executor import ExecutionResult
 from fdai.core.executor.action_builder import ActionBuilder, ActionBuildError
@@ -229,22 +237,40 @@ async def process_operator_request(
         correlation_id=correlation_id,
     )
     succeeded = _is_execution_success(result)
+    pending = _is_execution_pending(result)
+    no_effect = _is_execution_no_effect(result)
     await host._emit_stage(
         event_id=event_id,
         correlation_id=correlation_id,
         stage=StageName.EXECUTE,
-        phase=StagePhase.DONE if succeeded else StagePhase.FAILED,
-        detail={"action_type": action.action_type, "mode": action.mode.value},
-        error=None if succeeded else getattr(result, "reason", None) or "execution_failed",
+        phase=(
+            StagePhase.DONE if succeeded else StagePhase.PROGRESS if pending else StagePhase.FAILED
+        ),
+        detail={
+            "action_type": action.action_type,
+            "mode": action.mode.value,
+            "outcome": result.outcome.value,
+        },
+        error=(
+            None if succeeded or pending else getattr(result, "reason", None) or "execution_failed"
+        ),
     )
     return await _finish(
         host,
         event=event,
         correlation_id=correlation_id,
         outcome=(
-            ControlLoopOutcome.EXECUTED if succeeded else ControlLoopOutcome.ABSTAINED_ACTION_BUILD
+            ControlLoopOutcome.EXECUTED
+            if succeeded
+            else ControlLoopOutcome.EXECUTION_PENDING
+            if pending
+            else ControlLoopOutcome.EXECUTION_NOT_ATTEMPTED
+            if no_effect
+            else ControlLoopOutcome.ABSTAINED_ACTION_BUILD
         ),
-        decision="auto" if succeeded else "abstain",
+        decision=(
+            "auto" if succeeded else "hold" if pending else "no-op" if no_effect else "abstain"
+        ),
         resource_type=resource_type,
         citing_rule_ids=(rule.id,),
         execution_results=(result,),

@@ -14,6 +14,12 @@ describe("architecture inspector labels", () => {
     expect(architectureRelationshipLabel(link, "vnet-b")).toBe("Peers with");
   });
 
+  it("preserves runtime-call direction semantics", () => {
+    const link = { source: "app-a", target: "app-b", type: "runtime_calls" as const };
+    expect(architectureRelationshipLabel(link, "app-a")).toBe("Calls");
+    expect(architectureRelationshipLabel(link, "app-b")).toBe("Called by");
+  });
+
   it("does not present unknown status as a reported state", () => {
     expect(architectureStatusLabel("unknown")).toBe("Status unavailable");
     expect(architectureStatusLabel("vm_deallocated")).toBe("Vm deallocated");

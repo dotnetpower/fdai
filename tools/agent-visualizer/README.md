@@ -29,6 +29,19 @@ npm --prefix tools/agent-visualizer run preview
 The production output has relative asset URLs and bundles its dependencies and FDAI brand
 assets locally. It doesn't load fonts, scripts, analytics, or scenario data from a CDN.
 
+## Publishing as a static experience
+
+Build the public GitHub Pages variant from the repository root:
+
+```bash
+npm --prefix tools/agent-visualizer run build:public
+```
+
+The public build keeps the source-derived Activity view and removes the local Ontology entry
+point. The Ontology view depends on the loopback-only PostgreSQL snapshot middleware and isn't a
+public evidence source. The Pages workflow publishes the resulting static files under
+`/neural-view/`; add `?lang=ko` to start the experience in Korean.
+
 ## Controls
 
 | Control | Result |
@@ -45,7 +58,7 @@ assets locally. It doesn't load fonts, scripts, analytics, or scenario data from
 | Python function details | Inspect source file/line and unresolved or external call receivers |
 | Event bus or broadcast disclosure | Inspect overlapping topics and each declared subscriber fan-out |
 | Pub/sub declarations | Browse every relevant canonical topic and available Python handlers |
-| Azure ARG node | Focus the source-backed query entry point |
+| Azure Resource Graph node | Focus the source-backed query entry point |
 | Resource scan / change detection | Inspect the inventory query and resource-change polling functions |
 | Orbit | Slowly move around the full neural field |
 | Follow | Default Activity camera; follow the latest story activity, or pin a selected agent |
@@ -81,7 +94,7 @@ as well as the canvas, without disabling label selection or intercepting sidebar
 Select **Tour**, then **Cinema** for automatic camera choreography. Each scenario contains two
 complete tours: overview, event-bus fan-out, a source-backed Python function, and Azure.
 The function shot uses the selected function when available, otherwise Huginn's source-backed
-ingestion entry point (or the ARG query entry if that definition is absent). The same scenario
+ingestion entry point (or the Azure Resource Graph query entry if that definition is absent). The same scenario
 time reproduces the same pose after the brief mode-entry transition.
 The tour returns continuously to the overview at the scenario loop boundary.
 
@@ -111,7 +124,8 @@ and source file/line; click or keyboard activation opens the caller/callee view.
 - **Background stars:** Small, unconnected, unlabelled decorative specks. They are not graph
   nodes and cannot be selected. A seeded 360-star field uses one GPU draw call, with slow
   individual brightness changes and a quieter center so it doesn't compete with the graph.
-  Stars pause with playback and remain static under Reduce motion.
+  Stars pause with playback and remain static under Reduce motion. A depth-only node silhouette
+  keeps the screen-space backdrop behind graph nodes while the camera moves.
 - **Shared functions:** A shared function appears once, placed near one reachable agent.
   Reachability and visual grouping don't transfer ownership or execution authority.
 - **Capability labels:** The side panel retains readable role descriptions; these aren't
@@ -212,7 +226,7 @@ pseudonymized or omitted, while their actual counts and recorded relationships a
 
 ## Azure Resource Graph rate
 
-The ARG transport declares a default sustained shared budget of **3 requests per second**
+The Azure Resource Graph transport declares a default sustained shared budget of **3 requests per second**
 and a burst allowance of **15** in
 [`arg_transport.py`](../../services/core-control-plane/src/fdai/delivery/azure/arg_transport.py).
 This is a rate limiter shared by concurrent queries, not a scheduler that detects changes
@@ -221,7 +235,7 @@ three times per second.
 The visualizer reads that default from source and animates three synthetic request starts per
 **active display second**, independent of the scenario's playback speed. At the default 1x,
 story and transport clocks advance together. Selecting 2x accelerates the story and agent tasks
-while the combined ARG lane still starts three requests per real second, not six.
+while the combined Azure Resource Graph lane still starts three requests per real second, not six.
 
 The requests alternate between two source-backed workflows sharing that visual budget:
 
@@ -232,7 +246,7 @@ The requests alternate between two source-backed workflows sharing that visual b
 Huginn is the accountable collection agent; the actual reads belong to the independent inventory
 worker and provider adapters. Returned changes enter the event ingress for Huginn normalization
 and Heimdall observation. The dotted agent/worker line shows that responsibility and data flow,
-not a direct Python call from Huginn or a claim that an ARG query is executing.
+not a direct Python call from Huginn or a claim that an Azure Resource Graph query is executing.
 
 The Azure marker stays static, without rotation or flashing request-slot indicators. Small,
 subdued request and response trails follow the worker/query path. Response travel time is
@@ -240,7 +254,7 @@ illustrative, not measured latency. No response is claimed to prove an actual re
 
 Pausing freezes both clocks. Restart and scenario selection reset both; seeking places the
 transport clock at the chosen scenario time for reproducible 1x-default shots. Changing
-playback speed does not accelerate or reset ARG traffic; story loops do not reset its ongoing
+playback speed does not accelerate or reset Azure Resource Graph traffic; story loops do not reset its ongoing
 transport clock. Hidden tabs do not accumulate missed traffic.
 
 The tool does not call Azure, change the limiter, consume quota, or assert a live polling interval.
@@ -250,7 +264,7 @@ The pane keeps the synthetic source and rate distinction visible, including in C
 
 The AST generator indexes Python under `services/*/src/` and `packages/*/src/`. It includes
 all definitions in canonical agent-owned files, conservatively resolved transitive callees,
-declared subscriber handlers, and inventory, ARG query/transport, resource-change feed, and
+declared subscriber handlers, and inventory, Azure Resource Graph query/transport, resource-change feed, and
 change-acceleration definitions with their reachable callees.
 The displayed function and edge counts describe this scope, not the whole repository.
 
@@ -298,7 +312,7 @@ cannot authorize or execute managed-resource changes.
 | `scripts/` | No-import AST indexing, topic/rate extraction, and source snapshot generation |
 | `src/generated/` | Generated Python call topology; private DB data is never placed here |
 | `src/agents.ts` | Curated agent positions and semantic role labels |
-| `src/playback/` | Pure time projection, concurrent fan-out, and synthetic ARG slots |
+| `src/playback/` | Pure time projection, concurrent fan-out, and synthetic Azure Resource Graph slots |
 | `src/scene/` | Real function nodes, event bus, Azure trails, selection, and GPU cleanup |
 | `src/camera/` | Overview, follow, focus, and manual camera control |
 | `src/recorded/` | Full-map accounting, catalog/instance layers, private snapshot decoder and history inspector |

@@ -19,7 +19,11 @@ from typing import Any
 from uuid import UUID
 
 import yaml
-from fdai_service_contracts.handover import HandoverDraftArtifact, HandoverDraftOutcome
+from fdai_service_contracts.handover import (
+    HandoverDraftArtifact,
+    HandoverDraftOutcome,
+    handover_governance_idempotency_key,
+)
 
 from fdai.core.stewardship.model import StewardshipValidationError
 from fdai.core.stewardship.resolver import load_stewardship_from_mapping
@@ -53,16 +57,7 @@ class StewardshipGovernanceResult:
 def stewardship_idempotency_key(artifact: HandoverDraftArtifact) -> str:
     """Return the stable content-addressed key for one draft artifact."""
 
-    digest = hashlib.sha256()
-    for part in (
-        str(artifact.upload_id),
-        str(artifact.document_id),
-        str(artifact.version_id),
-        artifact.yaml,
-    ):
-        digest.update(part.encode("utf-8"))
-        digest.update(b"\x1f")
-    return f"stewardship-handover:{digest.hexdigest()}"
+    return handover_governance_idempotency_key(artifact)
 
 
 @dataclass(frozen=True, slots=True)

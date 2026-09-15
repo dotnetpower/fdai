@@ -6745,14 +6745,24 @@ def _anchored_fixture() -> Any:
         key="id",
         properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
     )
+    incident = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Incident",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
     function = incident_evidence_function_type()
-    release = build_ontology_release(object_types=(resource,), function_types=(function,))
+    release = build_ontology_release(
+        object_types=(resource, incident),
+        function_types=(function,),
+    )
     return build_query_manifest(
         release=release,
         principal_role=CeilingRole.READER,
         purposes=("operations-review",),
         principal_scope_digest=DIGEST,
-        object_types=(resource,),
+        object_types=(resource, incident),
         functions=(function,),
     )
 
@@ -6794,6 +6804,71 @@ def test_anchored_incident_read_is_built_from_the_binding_without_a_plan_proposa
         "limit": INCIDENT_EVIDENCE_MAX_RECORDS,
     }
     assert outcome.execution_authority is False
+
+
+def test_accepted_bound_incident_intent_skips_frame_and_plan_models() -> None:
+    manifest = _anchored_fixture()
+    model = _Model(frame=None, plan=None)
+    utterance = "Report what the evidence for this incident establishes."
+    target = "this incident"
+    target_start = utterance.index(target)
+    judgment_model = _OperatingSubjectJudgmentModel()
+    judgment_model.judge = lambda **_kwargs: {
+        "primary_intent": "query.incident_evidence",
+        "targets": [
+            {
+                "kind": "incident_id",
+                "value": target,
+                "source_start": target_start,
+                "source_end": target_start + len(target),
+            }
+        ],
+        "requested_facets": ["incident_evidence", "missing_evidence", "next_safe_step"],
+        "confidence": 0.95,
+        "ambiguous": False,
+        "action_posture": "advise_only",
+        "action_subject": "none",
+        "execution_authority": False,
+    }
+    judgment = SemanticJudgmentBoundary(
+        profile_id="semantic-planning.test",
+        profile_version="1.0.0",
+        primary=SemanticJudgmentBinding(
+            tier=SemanticJudgmentTier.T1,
+            model=judgment_model,
+            model_config_digest=DIGEST,
+            prompt_digest=DIGEST,
+        ),
+    )
+    service = SemanticPlanningService(
+        model=model,
+        semantic_judgment=judgment,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_incident=BoundIncident(
+            incident_id="00000000-0000-0000-0000-000000000702",
+            correlation_id="bound-incident",
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("Incident",)
+    assert outcome.frame.output_shape == SemanticOutputShape.INCIDENT_EVIDENCE
+    assert (model.frame_calls, model.plan_calls) == (0, 0)
+    assert _incident_arguments(outcome) == {
+        "incident_id": "00000000-0000-0000-0000-000000000702",
+        "correlation_id": "bound-incident",
+        "limit": INCIDENT_EVIDENCE_MAX_RECORDS,
+    }
 
 
 def test_bound_incident_historical_comparison_holds_without_recurrence_capability() -> None:

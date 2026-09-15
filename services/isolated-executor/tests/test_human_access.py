@@ -442,3 +442,6 @@ async def test_membership_attempt_audit_conforms_to_actual_executor_writer(fixtu
     await fixture.adapter.execute(fixture.request)
     for entry in fixture.store.audit:
         _require_executor_audit_entry(entry)
+        assert entry["actor"] == "fdai_executor_service.effect_executor"
+        assert entry.get("owner_agent") == "Thor"
+        assert "producer_principal" not in entry

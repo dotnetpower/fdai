@@ -178,16 +178,24 @@ if [[ "$PLATFORM" != "$HOST_PLATFORM" || "$PLATFORM_TAG" != "$HOST_PLATFORM_TAG"
 fi
 TERRAFORM_VERSION="1.9.8"
 OPA_VERSION="0.68.0"
+KUBECTL_VERSION="1.31.14"
+KUBELOGIN_VERSION="0.2.19"
 case "$HOST_PLATFORM" in
   linux_amd64)
     TERRAFORM_SHA256="186e0145f5e5f2eb97cbd785bc78f21bae4ef15119349f6ad4fa535b83b10df8"
     OPA_SHA256="dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa"
     OPA_ASSET="opa_linux_amd64_static"
+    KUBECTL_SHA256="8791ec7c8966b61420d55103a5fb948de9f0ca3d7306d789734975ad9704bdb0"
+    KUBELOGIN_SHA256="ebaeff02aa899c5cae6a2b954b64fc02738185319df2570f7dc053451efa4b2f"
+    KUBELOGIN_ARCH="amd64"
     ;;
   linux_arm64)
     TERRAFORM_SHA256="f85868798834558239f6148834884008f2722548f84034c9b0f62934b2d73ebb"
     OPA_SHA256="1a583e593cdf4931c0b0bbedd3c9f585012953449115bcc3e15b3806d0f5ee68"
     OPA_ASSET="opa_linux_arm64_static"
+    KUBECTL_SHA256="3abb0c2d7121e1833831f56fd857a93de386e76d14b64baf86220d0afe495209"
+    KUBELOGIN_SHA256="aad7e7ca2a8e67db15b110e535123c1bc0f31ef488f5d3ab5b9ae7c9de6f48d3"
+    KUBELOGIN_ARCH="arm64"
     ;;
 esac
 
@@ -296,6 +304,24 @@ download_opa() {
   chmod 755 "$OUT/toolchain/opa"
 }
 
+download_kubernetes_tools() {
+  curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
+    --retry-max-time 120 --connect-timeout 10 --max-time 90 \
+    -o "$OUT/toolchain/kubectl" \
+    "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${KUBELOGIN_ARCH}/kubectl"
+  echo "$KUBECTL_SHA256  $OUT/toolchain/kubectl" | sha256sum -c -
+  chmod 755 "$OUT/toolchain/kubectl"
+  curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
+    --retry-max-time 120 --connect-timeout 10 --max-time 90 \
+    -o "$OUT/toolchain/kubelogin.zip" \
+    "https://github.com/Azure/kubelogin/releases/download/v${KUBELOGIN_VERSION}/kubelogin-linux-${KUBELOGIN_ARCH}.zip"
+  echo "$KUBELOGIN_SHA256  $OUT/toolchain/kubelogin.zip" | sha256sum -c -
+  run_timed 120 \
+    "$PYTHON" scripts/deployment/release/extract-kubelogin-archive.py \
+    --archive "$OUT/toolchain/kubelogin.zip" --output "$OUT/toolchain/kubelogin"
+  chmod 755 "$OUT/toolchain/kubelogin"
+}
+
 build_bundle() {
   run_timed 900 env \
     SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1700000000}" \
@@ -332,6 +358,10 @@ echo "   OPA"
 download_opa &
 opa_pid=$!
 remember_background "$opa_pid"
+echo "   kubectl and kubelogin"
+download_kubernetes_tools &
+kubernetes_tools_pid=$!
+remember_background "$kubernetes_tools_pid"
 echo "-- signed deployment bundle"
 build_bundle &
 bundle_pid=$!
@@ -364,6 +394,7 @@ mirror_pid=$!
 remember_background "$mirror_pid"
 
 wait_or_stop "$opa_pid"
+wait_or_stop "$kubernetes_tools_pid"
 wait_or_stop "$cli_pid"
 wait_or_stop "$mirror_pid"
 # The kit's CLI version is the version of the wheel it actually carries. Reading
@@ -382,6 +413,8 @@ cp "$OUT/bundle.tar.gz" "$KIT/$BUNDLE_IN_KIT"
 cp "$TERRAFORM_BIN" "$KIT/terraform/terraform"
 cp -r "$OUT/mirror" "$KIT/terraform/providers"
 cp "$OUT/toolchain/opa" "$KIT/bin/opa"
+cp "$OUT/toolchain/kubectl" "$KIT/bin/kubectl"
+cp "$OUT/toolchain/kubelogin" "$KIT/bin/kubelogin"
 
 if [[ -n "$RUNTIME_RELEASE" ]]; then
   echo "-- prebuilt runtime release"

@@ -134,7 +134,7 @@ async def test_proven_unsent_command_releases_receipt_work_and_stays_retryable()
             coordinator,
         ).execute(action=_action(mode=Mode.ENFORCE))
 
-        assert result.outcome.value == "rejected_invariant"
+        assert result.outcome.value == "dispatch_not_attempted"
         assert result.reason == "dispatch transport proved no publication"
         rows = await store.read_states(f"{_PREFIX}not-published:", limit=1)
         assert len(rows) == 1

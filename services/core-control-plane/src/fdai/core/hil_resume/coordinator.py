@@ -45,27 +45,20 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from enum import StrEnum
 from typing import cast
 from uuid import uuid4
 
 from fdai.core.executor import (
     DirectApiExecutionPort,
-    ExecutionResult,
     MutationDependencyReadiness,
     ShadowExecutor,
     ThorExecutionPort,
-)
-from fdai.core.executor.direct_api import (
-    DirectApiExecutionResult,
 )
 from fdai.core.executor.safeguard_lifecycle_coordinator import (
     SafeguardLifecycleCoordinator,
 )
 from fdai.core.executor.tool_call import (
-    ToolCallExecutionResult,
     ToolCallShadowExecutor,
 )
 from fdai.core.hil_resume.approval_records import (
@@ -94,6 +87,8 @@ from fdai.core.hil_resume.integrity import (
 from fdai.core.hil_resume.integrity import (
     approval_request_fingerprint as _approval_request_fingerprint,
 )
+from fdai.core.hil_resume.integrity import is_execution_no_effect as _is_no_effect
+from fdai.core.hil_resume.integrity import is_execution_pending as _is_pending
 from fdai.core.hil_resume.integrity import is_execution_success as _is_success
 from fdai.core.hil_resume.integrity import (
     parked_action_integrity_matches as _parked_action_integrity_matches,
@@ -104,9 +99,17 @@ from fdai.core.hil_resume.load_control import (
     ApprovalReminderDispatcher,
     approval_request_from_park,
 )
+from fdai.core.hil_resume.reconciliation import produce_effect_reconciliation_request
+from fdai.core.hil_resume.results import (
+    RequestApprovalResult,
+    RequestOutcome,
+    ResolveOutcome,
+    ResolveResult,
+)
 from fdai.core.hil_resume.rule_source import resolve_parked_rule
 from fdai.core.oncall import OnCallResolution, OnCallResolver
 from fdai.core.ontology_platform.evidence_conflict import EvidenceConflictCurrentReader
+from fdai.core.ontology_platform.reconciliation_producer import EffectReconciliationRequestSink
 from fdai.core.operational_planning import PreDispatchKineticSafetyWriter
 from fdai.shared.contracts.models import (
     Action,
@@ -114,7 +117,6 @@ from fdai.shared.contracts.models import (
     Rule,
 )
 from fdai.shared.providers.hil_channel import (
-    HilApprovalReceipt,
     HilChannel,
     HilChannelError,
     HilDecision,
@@ -125,86 +127,6 @@ _LOGGER = logging.getLogger(__name__)
 
 _STATUS_PENDING = "pending"
 _STATUS_RESOLVED = "resolved"
-
-
-class RequestOutcome(StrEnum):
-    """Result of :meth:`HilResumeCoordinator.request_approval`."""
-
-    PARKED = "parked"
-    """Action parked and the approval card dispatched."""
-
-    PARKED_DISPATCH_FAILED = "parked_dispatch_failed"
-    """Action parked but the HilChannel push failed. The action stays
-    pending (fail-toward-safety); a re-drive or a fallback channel can
-    still deliver the card. Never auto-executes."""
-
-    PARKED_DEFERRED = "parked_deferred"
-    """Action is durably parked while grouping or quiet-hour policy defers
-    the channel notification. It remains independently decidable."""
-
-    ALREADY_PARKED = "already_parked"
-    """An exact replay found the same approval request already parked."""
-
-    APPROVAL_ID_CONFLICT = "approval_id_conflict"
-    """The approval ID was already bound to a different request."""
-
-
-class ResolveOutcome(StrEnum):
-    """Terminal result of :meth:`HilResumeCoordinator.resolve`."""
-
-    EXECUTED = "executed"
-    """APPROVE -> the parked action was re-dispatched to the executor."""
-
-    EXECUTE_FAILED = "execute_failed"
-    """APPROVE accepted but the executor reported a failure. The park is
-    still marked resolved so a retry does not double-apply; the audit
-    entry records the failure."""
-
-    REJECTED = "rejected"
-    """REJECT -> the reason was recorded, no execution."""
-
-    TIMED_OUT = "timed_out"
-    """TIMEOUT -> fail-closed no-op."""
-
-    ALREADY_RESOLVED = "already_resolved"
-    """The park already reached a terminal state; idempotent no-op."""
-
-    NOT_FOUND = "not_found"
-    """No park for this approval_id (unknown / expired). Fail-safe no-op."""
-
-    SELF_APPROVAL_REFUSED = "self_approval_refused"
-    """approver_oid == submitter_oid; refused before any execution."""
-
-    MISSING_CAPABILITY = "missing_capability"
-    """The approver lacks the HIL-approval capability; refused before any
-    execution (role-scoped queue, but still capability-gated)."""
-
-    CONFLICTING_DECISION = "conflicting_decision"
-    """A different terminal decision was already recorded; refused."""
-
-    OWNED_ROUTE_HELD = "owned_route_held"
-    """A separately owned approval route remains unchanged and never uses direct dispatch."""
-
-
-@dataclass(frozen=True, slots=True)
-class RequestApprovalResult:
-    outcome: RequestOutcome
-    approval_id: str
-    receipt: HilApprovalReceipt | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class ResolveResult:
-    outcome: ResolveOutcome
-    approval_id: str
-    execution_result: (
-        ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult | None
-    ) = None
-    reason: str | None = None
-    delegated: bool = False
-    """True when an authorized operator approved on the assignee's behalf."""
-    assignee_oid: str | None = None
-    """The operator the park was surfaced to, when recorded."""
 
 
 class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
@@ -233,6 +155,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         mutation_dependency_readiness: MutationDependencyReadiness | None = None,
         evidence_conflict_reader: EvidenceConflictCurrentReader | None = None,
         safeguard_lifecycle_coordinator: SafeguardLifecycleCoordinator | None = None,
+        effect_reconciliation_request_sink: EffectReconciliationRequestSink | None = None,
     ) -> None:
         if (thor_execution_port is None) != (mutation_dependency_readiness is None):
             raise ValueError(
@@ -273,6 +196,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         self._pre_dispatch_kinetic_safety_writer = pre_dispatch_kinetic_safety_writer
         self._evidence_conflict_reader = evidence_conflict_reader
         self._safeguard_lifecycle_coordinator = safeguard_lifecycle_coordinator
+        self._effect_reconciliation_request_sink = effect_reconciliation_request_sink
 
     async def _resolve_on_call(self) -> OnCallResolution | None:
         """Resolve the current on-call responder, or ``None`` when unconfigured.
@@ -395,6 +319,11 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
                 "event_id": str(action.event_id),
                 "action_id": str(action.action_id),
                 "action_type": action.action_type,
+                "workflow_action": (
+                    action.workflow_action.model_dump(mode="json")
+                    if action.workflow_action is not None
+                    else None
+                ),
                 "rule_id": rule.id,
                 "severity": rule.severity.value,
                 "category": rule.category.value,
@@ -717,7 +646,15 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
                 idempotency_key=f"{idem}:hil_execute_failed",
                 approval_id=approval_id,
                 correlation_id=correlation_id,
-                detail={"reason": "rule_not_in_catalog"},
+                detail={
+                    "action_id": str(action.action_id),
+                    "workflow_action": (
+                        action.workflow_action.model_dump(mode="json")
+                        if action.workflow_action is not None
+                        else None
+                    ),
+                    "reason": "rule_not_in_catalog",
+                },
             )
             return ResolveResult(
                 outcome=ResolveOutcome.EXECUTE_FAILED,
@@ -732,14 +669,30 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
             rule=rule,
             correlation_id=correlation_id,
         )
+        reconciliation = await produce_effect_reconciliation_request(
+            self._effect_reconciliation_request_sink,
+            action=action,
+            result=result,
+            correlation_id=correlation_id,
+        )
         succeeded = _is_success(result)
+        pending = _is_pending(result)
+        no_effect = _is_no_effect(result)
         delegation_mode = (
             delegation.mode.value
             if delegation is not None and delegation.mode is not None
             else DelegationMode.ROLE_SCOPED.value
         )
         await self._audit(
-            action_kind="hil.approved.executed" if succeeded else "hil.approved.execute_failed",
+            action_kind=(
+                "hil.approved.executed"
+                if succeeded
+                else "hil.approved.execution_pending"
+                if pending
+                else "hil.approved.execution_not_attempted"
+                if no_effect
+                else "hil.approved.execute_failed"
+            ),
             idempotency_key=f"{idem}:hil_executed",
             approval_id=approval_id,
             correlation_id=correlation_id,
@@ -748,13 +701,37 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
                 "assignee_oid": assignee_oid,
                 "delegated": is_delegated,
                 "delegation_mode": delegation_mode,
+                "action_id": str(action.action_id),
                 "action_type": action.action_type,
+                "workflow_action": (
+                    action.workflow_action.model_dump(mode="json")
+                    if action.workflow_action is not None
+                    else None
+                ),
                 "mode": action.mode.value,
+                "execution_outcome": result.outcome.value,
                 "safeguard_bundle_digest": result.safeguard_bundle_digest,
+                **(
+                    {
+                        "effect_reconciliation_request_status": reconciliation.status.value,
+                        "effect_reconciliation_request_reason": reconciliation.reason_code,
+                        "effect_reconciliation_id": reconciliation.reconciliation_id,
+                    }
+                    if reconciliation is not None
+                    else {}
+                ),
             },
         )
         return ResolveResult(
-            outcome=ResolveOutcome.EXECUTED if succeeded else ResolveOutcome.EXECUTE_FAILED,
+            outcome=(
+                ResolveOutcome.EXECUTED
+                if succeeded
+                else ResolveOutcome.EXECUTION_PENDING
+                if pending
+                else ResolveOutcome.EXECUTION_NOT_ATTEMPTED
+                if no_effect
+                else ResolveOutcome.EXECUTE_FAILED
+            ),
             approval_id=approval_id,
             execution_result=result,
             delegated=is_delegated,

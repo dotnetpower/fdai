@@ -120,7 +120,7 @@
     "conversationDelivery": "대화 전송",
     "skills": "스킬",
     "onboarding": "온보딩",
-    "detectionReadiness": "감지 준비도",
+    "detectionReadiness": "감지 커버리지",
     "processes": "프로세스",
     "workflowApps": "워크플로우 앱",
     "operatorMemory": "오퍼레이터 메모리",
@@ -198,7 +198,7 @@
       "agentActivity": "에이전트 활동",
       "architecture": "아키텍처",
       "ontology": "온톨로지",
-      "pantheon": "조직",
+      "pantheon": "역할 및 소유권",
       "handover": "에이전트 감독 및 인수인계",
       "blastRadius": "영향 범위",
       "promotionGates": "승급 게이트",
@@ -218,7 +218,7 @@
       "capabilities": "기능",
       "skills": "스킬",
       "onboarding": "온보딩",
-      "detectionReadiness": "감지 준비도",
+      "detectionReadiness": "감지 커버리지",
       "configurationBaselines": "구성 기준선",
       "processes": "프로세스",
       "workflowApps": "워크플로우 앱",
@@ -254,7 +254,7 @@
       "agentActivity": "에이전트별 타임라인: 어떤 에이전트가 무엇을 언제 어떻게 했는지",
       "architecture": "배포된 리소스, 경계 및 종속성",
       "ontology": "리소스 + 링크 그래프 (classDiagram)",
-      "pantheon": "고정된 15개 에이전트의 보고 체계와 실시간 상태",
+      "pantheon": "고정된 15개 에이전트의 책임, 보고 체계, 소유 객체 유형과 보조 런타임 상태",
       "handover": "현재 담당자, 통제된 담당 체계 제안 및 사용자 업무 인수인계",
       "blastRadius": "변경 전에 도달 가능한 하위 그래프 시뮬레이션",
       "promotionGates": "ActionType별 관찰 모드에서 실행 모드로의 승격 준비도",
@@ -274,7 +274,7 @@
       "capabilities": "선언된 capability 계약, side-effect 클래스, 역할 및 기본 모드",
       "skills": "설치된 런타임 스킬 메타데이터, 종속성, 적용 가능 여부 및 로드 진단",
       "onboarding": "프로비저닝된 리소스 및 필수 역할 할당",
-      "detectionReadiness": "에이전트 소유 Kubernetes 텔레메트리, 탐지기, 파이프라인, 거버넌스 준비도",
+      "detectionReadiness": "지원되는 API, Kubernetes, AI, 데이터베이스 및 게이트웨이 리소스의 평가 커버리지",
       "configurationBaselines": "기준선 무결성, 현재 drift, Knowledge 및 측정 latency",
       "processes": "워크플로우 런타임 상태와 동적 온톨로지 기반 보기",
       "workflowApps": "게시된 워크플로우별 읽기 화면 및 실행 이력",
@@ -440,6 +440,7 @@
       "recovery": "복구"
     },
     "main": {
+      "refresh": "이력 새로 고침",
       "auditUnavailable": "영구 감사 사용 불가",
       "runtimeStillConnected": "아래의 실시간 런타임 활동은 계속 연결되어 있습니다.",
       "sampleTitle": "로컬 샘플 감사 데이터",
@@ -661,7 +662,6 @@
     "workspace": {
       "label": "에이전트 작업 영역",
       "fleet": "Fleet",
-      "org": "조직",
       "activity": "활동",
       "handover": "인수인계"
     },
@@ -684,10 +684,15 @@
     },
     "org": {
       "eyebrow": "읽기 전용 조직",
-      "title": "조직",
-      "description": "고정된 15개 에이전트의 보고 체계와 현재 런타임 상태, 보존된 인시던트 참여 정보를 보여줍니다.",
+      "title": "역할 및 소유권",
+      "description": "고정된 15개 에이전트의 책임, 보고 체계, 소유 객체 유형을 보여줍니다. 런타임 상태는 보조 정보입니다.",
       "chartLabel": "에이전트 조직도",
-      "contextPurpose": "고정된 15개 에이전트의 보고 체계와 현재 런타임 상태입니다. 이 읽기 전용 화면은 작업을 실행하지 않고 선택한 에이전트와 인시던트 근거를 엽니다."
+      "contextPurpose": "고정된 15개 에이전트의 책임, 보고 체계, 소유 객체 유형과 보조 런타임 상태입니다. 시간 기반 활동은 에이전트 활동 화면에서 확인합니다.",
+      "contextHeadline": "권한이 분리된 고정 에이전트 역할 {agents}개"
+    },
+    "organization": {
+      "close": "역할 및 소유권 닫기",
+      "boundary": "이 화면은 책임을 설명할 뿐 판정, 승인, 실행 또는 복구 권한을 부여하지 않습니다."
     },
     "layout": {
       "label": "레이아웃 모드",
@@ -903,9 +908,9 @@
       "empty": "인시던트 없음 - 자율 운영 유지 중."
     },
     "context": {
-      "purpose": "15개 에이전트 Fleet의 실시간 상태와 고정 소유권입니다. 이 읽기 전용 화면은 선택한 작업을 설명하고 여기서 실행하지 않는 통제된 제안을 엽니다.",
+      "purpose": "15개 에이전트 Fleet의 현재 관찰 상태와 고정 소유권입니다. 시간 순서 근거는 에이전트 활동에서 확인합니다.",
       "selectedHeadline": "{title} ({status}) - 에이전트 {agents}개, turn {turns}개",
-      "headline": "인시던트 {incidents}개 - 에이전트 {agents}개 참여 중"
+      "headline": "현재 참여 중인 에이전트 {agents}개"
     },
     "error": {
       "historyUnavailable": "영구 인시던트 이력을 사용할 수 없습니다: {error}",

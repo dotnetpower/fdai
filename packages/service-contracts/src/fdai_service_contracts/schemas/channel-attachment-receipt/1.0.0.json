@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/channel-attachment-receipt/1.0.0",
+  "$defs": {
+    "base": {
+      "type": "object",
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "handoff_id": {"type": "string", "pattern": "^channel-attachment-[a-f0-9]{64}$"},
+        "request_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "execution_authority": {"const": false},
+        "receipt_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+      }
+    },
+    "admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "receipt_kind", "handoff_id", "request_digest", "policy_digest",
+        "max_content_bytes", "accepted_at", "expires_at", "execution_authority", "receipt_digest"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "receipt_kind": {"const": "admission"},
+        "handoff_id": {"type": "string", "pattern": "^channel-attachment-[a-f0-9]{64}$"},
+        "request_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "policy_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "max_content_bytes": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
+        "accepted_at": {"type": "string", "format": "date-time"},
+        "expires_at": {"type": "string", "format": "date-time"},
+        "execution_authority": {"const": false},
+        "receipt_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+      }
+    },
+    "commit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "receipt_kind", "handoff_id", "request_digest", "upload_id",
+        "document_id", "version_id", "observed_size", "observed_sha256", "state",
+        "committed_at", "execution_authority", "receipt_digest"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "receipt_kind": {"const": "commit"},
+        "handoff_id": {"type": "string", "pattern": "^channel-attachment-[a-f0-9]{64}$"},
+        "request_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "upload_id": {"type": "string", "format": "uuid"},
+        "document_id": {"type": "string", "format": "uuid"},
+        "version_id": {"type": "string", "format": "uuid"},
+        "observed_size": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
+        "observed_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "state": {"const": "received"},
+        "committed_at": {"type": "string", "format": "date-time"},
+        "execution_authority": {"const": false},
+        "receipt_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+      }
+    },
+    "terminal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "receipt_kind", "handoff_id", "request_digest", "upload_id",
+        "document_id", "version_id", "commit_receipt_digest", "observed_size",
+        "observed_sha256", "requested_purpose", "outcome", "document_state", "index_state",
+        "retention_state", "active", "available", "handover_draft_ready", "citation",
+        "reason_code", "observed_at", "execution_authority", "receipt_digest"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "receipt_kind": {"const": "terminal"},
+        "handoff_id": {"type": "string", "pattern": "^channel-attachment-[a-f0-9]{64}$"},
+        "request_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "upload_id": {"type": "string", "format": "uuid"},
+        "document_id": {"type": "string", "format": "uuid"},
+        "version_id": {"type": "string", "format": "uuid"},
+        "commit_receipt_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+        "observed_size": {"type": "integer", "minimum": 1, "maximum": 9223372036854775807},
+        "observed_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "requested_purpose": {"enum": ["handover_bootstrap", "knowledge_base"]},
+        "outcome": {"enum": ["pending", "ready", "rejected"]},
+        "document_state": {
+          "enum": [
+            "created", "uploading", "received", "quarantined", "scanning",
+            "protection_check", "extracting", "indexing", "ready",
+            "ready_with_warnings", "held", "failed", "deleting", "deleted"
+          ]
+        },
+        "index_state": {
+          "enum": ["not_requested", "queued", "building", "active", "tombstoned", "purged", "failed"]
+        },
+        "retention_state": {
+          "enum": ["live", "expiring", "held", "tombstoned", "purge_pending", "purged"]
+        },
+        "active": {"type": "boolean"},
+        "available": {"type": "boolean"},
+        "handover_draft_ready": {"type": "boolean"},
+        "citation": {
+          "type": ["string", "null"],
+          "pattern": "^doc:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "reason_code": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "observed_at": {"type": "string", "format": "date-time"},
+        "execution_authority": {"const": false},
+        "receipt_digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+      }
+    }
+  },
+  "oneOf": [
+    {"$ref": "#/$defs/admission"},
+    {"$ref": "#/$defs/commit"},
+    {"$ref": "#/$defs/terminal"}
+  ]
+}

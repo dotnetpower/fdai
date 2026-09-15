@@ -1,6 +1,11 @@
-import { decodeRecordedResourceStates, stateRecord, stateText, stateTime } from "../recorded-resource-state";
+import {
+  decodeRecordedResourceStates,
+  isRecordedStateGenerationTransition,
+  stateRecord,
+  stateText,
+  stateTime,
+} from "../recorded-resource-state";
 import { isOperationalResourceType } from "../resource-presentation";
-import { OperatorApiError } from "../api-transport";
 import type { DashboardResource, DashboardSnapshot } from "./dashboard-v2.model";
 
 const LIMIT = 500;
@@ -25,12 +30,6 @@ async function readWithinDeadline(read: () => Promise<unknown>, remaining: numbe
       }),
     ]);
   } finally { clearTimeout(timer); }
-}
-
-function isGenerationTransition(error: unknown): boolean {
-  return error instanceof OperatorApiError
-    && error.status === 409
-    && ["inventory_generation_changed", "ontology_generation_changed"].includes(error.message);
 }
 
 function wait(delayMs: number): Promise<void> {
@@ -146,7 +145,7 @@ export async function loadDashboardRecordedStates(
       return await loadDashboardRecordedStateGeneration(client, cancelled, started);
     } catch (error) {
       if (
-        !isGenerationTransition(error)
+        !isRecordedStateGenerationTransition(error)
         || attempt >= GENERATION_RETRY_DELAYS_MS.length
       ) throw error;
       if (cancelled()) return null;

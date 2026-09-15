@@ -32,8 +32,8 @@ _ROLE_TARGETS = {
     "module.document_storage[0].azurerm_role_assignment.deployer_data_owner": (
         "Storage Blob Data Owner"
     ),
-    _PARTNER_ROLE: "Azure AI User",
-    _WEB_SEARCH_ROLE: "Azure AI User",
+    _PARTNER_ROLE: "Azure AI Developer",
+    _WEB_SEARCH_ROLE: "Azure AI Developer",
     "module.operational_history_storage[0].azurerm_role_assignment.deployer_data_owner": (
         "Storage Blob Data Owner"
     ),

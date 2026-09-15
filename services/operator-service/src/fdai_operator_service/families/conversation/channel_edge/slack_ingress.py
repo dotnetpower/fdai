@@ -32,6 +32,7 @@ class SlackIngressConfig:
     principal_by_sender_id: Mapping[str, str]
     max_body_bytes: int = _DEFAULT_MAX_BODY_BYTES
     replay_window: timedelta = _DEFAULT_REPLAY_WINDOW
+    attachments_enabled: bool = False
 
     def __post_init__(self) -> None:
         if not self.signing_secret:
@@ -51,6 +52,8 @@ class SlackIngressConfig:
             raise ValueError("Slack max_body_bytes MUST be positive")
         if self.replay_window <= timedelta(0):
             raise ValueError("Slack replay_window MUST be positive")
+        if type(self.attachments_enabled) is not bool:
+            raise ValueError("Slack attachments_enabled MUST be boolean")
 
 
 class SlackIngressAction(StrEnum):
@@ -191,6 +194,13 @@ class SlackIngressVerifier:
             raise SlackIngressError(
                 "Slack message text is invalid", code="invalid_payload", http_status=400
             )
+        attachments = _attachments(event.get("files", ()))
+        if attachments and not self._config.attachments_enabled:
+            raise SlackIngressError(
+                "Slack attachment ingestion is unavailable",
+                code="attachments_unavailable",
+                http_status=422,
+            )
         try:
             turn = InboundChannelTurn(
                 channel_kind=ChannelKind.SLACK,
@@ -199,7 +209,7 @@ class SlackIngressVerifier:
                 sender_id=sender_id,
                 text=text_value,
                 thread_id=thread_id,
-                attachments=_attachments(event.get("files", ())),
+                attachments=attachments,
             )
         except ValueError as exc:
             raise SlackIngressError(

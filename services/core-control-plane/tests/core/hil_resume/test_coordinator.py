@@ -28,6 +28,10 @@ from fdai.core.executor import (
     ShadowExecutor,
     TemplateRenderer,
 )
+from fdai.core.executor.direct_api import (
+    DirectApiExecutionOutcome,
+    DirectApiExecutionResult,
+)
 from fdai.core.hil_resume import (
     ApprovalLoadController,
     ApprovalLoadPolicy,
@@ -41,6 +45,10 @@ from fdai.core.hil_resume import (
     ResolveOutcome,
 )
 from fdai.core.oncall import OnCallResolver
+from fdai.core.ontology_platform.reconciliation_producer import (
+    ReconciliationRequestProduction,
+    ReconciliationRequestProductionStatus,
+)
 from fdai.shared.contracts.models import (
     Action,
     ActionStopCondition,
@@ -60,6 +68,7 @@ from fdai.shared.contracts.models import (
     RuleSource,
     Severity,
     StopConditionKind,
+    WorkflowActionRef,
 )
 from fdai.shared.providers.hil_channel import HilChannelError, HilDecision
 from fdai.shared.providers.oncall_schedule import OnCallShift, StaticOnCallSchedule
@@ -182,6 +191,7 @@ def _coordinator(
     with_escalation: bool = False,
     state_store: InMemoryStateStore | None = None,
     pre_dispatch_kinetic_safety_writer: Any | None = None,
+    effect_reconciliation_request_sink: Any | None = None,
 ) -> tuple[
     HilResumeCoordinator,
     RecordingRemediationPrPublisher,
@@ -213,6 +223,7 @@ def _coordinator(
         rules_by_id={_RULE_ID: _rule()},
         escalation_supervisor=escalation_supervisor,
         pre_dispatch_kinetic_safety_writer=pre_dispatch_kinetic_safety_writer,
+        effect_reconciliation_request_sink=effect_reconciliation_request_sink,
     )
     return coordinator, publisher, store, channel
 
@@ -643,10 +654,145 @@ async def test_approve_blocks_resume_dispatch_when_kinetic_safety_fails() -> Non
         approver_oid=_APPROVER,
     )
 
-    assert result.outcome is ResolveOutcome.EXECUTE_FAILED
+    assert result.outcome is ResolveOutcome.EXECUTION_NOT_ATTEMPTED
     assert result.execution_result is not None
     assert result.execution_result.outcome is ExecutorOutcome.REJECTED_INVARIANT
     assert publisher.records == ()
+
+
+@pytest.mark.asyncio
+async def test_approved_pending_execution_is_not_recorded_as_failed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    reconciliation = AsyncMock(
+        return_value=ReconciliationRequestProduction(
+            ReconciliationRequestProductionStatus.PUBLISHED,
+            "broker_acknowledged",
+            "reconciliation:one",
+        )
+    )
+    coordinator, _, store, _ = _coordinator(
+        effect_reconciliation_request_sink=reconciliation,
+    )
+    action = _action().model_copy(
+        update={
+            "workflow_action": WorkflowActionRef(
+                process_id="process-hil-001",
+                step_id="restart",
+                proposal_ref="proposal:hil:001",
+                attempt=2,
+            )
+        }
+    )
+    await coordinator.request_approval(
+        action=action,
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="pending-execution-correlation",
+        approval_id="pending-execution",
+    )
+
+    async def pending_dispatch(
+        _self: HilResumeCoordinator,
+        **_kwargs: Any,
+    ) -> DirectApiExecutionResult:
+        return DirectApiExecutionResult(
+            action_id=str(action.action_id),
+            outcome=DirectApiExecutionOutcome.AWAITING_EFFECT_EVIDENCE,
+            mode=Mode.ENFORCE,
+            safeguard_bundle_digest="sha256:" + "b" * 64,
+            audit_context={
+                "effect_possible": True,
+                "reconciliation_required": True,
+            },
+        )
+
+    monkeypatch.setattr(HilResumeCoordinator, "_dispatch", pending_dispatch)
+
+    result = await coordinator.resolve(
+        approval_id="pending-execution",
+        decision=HilDecision.APPROVE,
+        approver_oid=_APPROVER,
+    )
+
+    assert result.outcome is ResolveOutcome.EXECUTION_PENDING
+    terminal = [
+        item["entry"]
+        for item in store.audit_entries
+        if item["entry"].get("action_kind") == "hil.approved.execution_pending"
+    ]
+    assert terminal[-1]["execution_outcome"] == "awaiting_effect_evidence"
+    assert terminal[-1]["action_id"] == str(action.action_id)
+    assert terminal[-1]["workflow_action"]["attempt"] == 2
+    assert terminal[-1]["effect_reconciliation_request_status"] == "published"
+    assert terminal[-1]["effect_reconciliation_id"] == "reconciliation:one"
+    reconciliation.assert_awaited_once_with(
+        action,
+        "awaiting_effect_evidence",
+        None,
+        correlation_id="pending-execution-correlation",
+    )
+    requested = next(
+        item["entry"]
+        for item in store.audit_entries
+        if item["entry"].get("action_kind") == "hil.requested"
+    )
+    claimed = next(
+        item["entry"]
+        for item in store.audit_entries
+        if item["entry"].get("action_kind") == "hil.approved.claimed"
+    )
+    assert requested["workflow_action"]["attempt"] == 2
+    assert claimed["workflow_action"]["attempt"] == 2
+    assert not any(
+        item["entry"].get("action_kind") == "hil.approved.execute_failed"
+        for item in store.audit_entries
+    )
+
+
+@pytest.mark.asyncio
+async def test_approved_no_effect_attempt_is_not_recorded_as_execution_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    coordinator, _, store, _ = _coordinator()
+    await coordinator.request_approval(
+        action=_action(),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="not-attempted-correlation",
+        approval_id="not-attempted",
+    )
+
+    async def no_effect_dispatch(
+        _self: HilResumeCoordinator,
+        **_kwargs: Any,
+    ) -> DirectApiExecutionResult:
+        return DirectApiExecutionResult(
+            action_id=str(_action().action_id),
+            outcome=DirectApiExecutionOutcome.DISPATCH_NOT_ATTEMPTED,
+            mode=Mode.ENFORCE,
+            reason="broker refused before publication",
+        )
+
+    monkeypatch.setattr(HilResumeCoordinator, "_dispatch", no_effect_dispatch)
+
+    result = await coordinator.resolve(
+        approval_id="not-attempted",
+        decision=HilDecision.APPROVE,
+        approver_oid=_APPROVER,
+    )
+
+    assert result.outcome is ResolveOutcome.EXECUTION_NOT_ATTEMPTED
+    terminal = [
+        item["entry"]
+        for item in store.audit_entries
+        if item["entry"].get("action_kind") == "hil.approved.execution_not_attempted"
+    ]
+    assert terminal[-1]["execution_outcome"] == "dispatch_not_attempted"
+    assert not any(
+        item["entry"].get("action_kind") == "hil.approved.execute_failed"
+        for item in store.audit_entries
+    )
 
 
 @pytest.mark.asyncio
@@ -1054,11 +1200,11 @@ async def test_hil_terminal_audit_preserves_enforce_action_mode() -> None:
         approver_oid=_APPROVER,
     )
 
-    assert result.outcome is ResolveOutcome.EXECUTE_FAILED
+    assert result.outcome is ResolveOutcome.EXECUTION_NOT_ATTEMPTED
     terminal = [
         item["entry"]
         for item in store.audit_entries
-        if item["entry"].get("action_kind") == "hil.approved.execute_failed"
+        if item["entry"].get("action_kind") == "hil.approved.execution_not_attempted"
     ]
     assert terminal[-1]["mode"] == "enforce"
 

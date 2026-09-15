@@ -81,6 +81,8 @@ _EXPECTED_FILES = frozenset(
         "semantic_query_runtime_composition.py",
         # Binds principal-scoped current-evidence probes to the exact semantic registry.
         "semantic_query_current_evidence.py",
+        # Builds the principal and exact-document Function invocation context.
+        "semantic_query_invocation_context.py",
         # Binds exact-release semantic planning and request-role query executors.
         "wire_semantic_query.py",
         # Binds fixed-role adaptive prompts and independent, bounded answer models.

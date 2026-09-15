@@ -35,12 +35,22 @@ import {
   agentActivityTimestamp,
   agentStreamDescriptor,
   useAgentStream,
-  type AgentActivityMessage,
   type AgentStreamStatus,
 } from "../hooks/use-agent-stream";
-import { observationSourceLabel, type ObservationSource } from "../hooks/observation-source";
+import {
+  mergeObservationSource,
+  normalizeObservationSource,
+  observationSourceLabel,
+  type ObservationSource,
+} from "../hooks/observation-source";
 import { t } from "../i18n";
-import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
+import {
+  currentRoute,
+  navigate,
+  replaceRouteState,
+  ROUTE_STATE_EVENT,
+  routeHref,
+} from "../router";
 import {
   activityPresentationState,
   activityProvenanceCounts,
@@ -95,16 +105,19 @@ import {
   stateTime,
 } from "./agents.view-model";
 import { LiveActivityJournal } from "./agent-live-activity";
+import { AgentOrganizationDialog } from "./agent-organization";
 
 interface Props {
   readonly client: OperatorApiClient;
 }
 /** Number of audit rows pulled to build the timeline (newest first). */
 const TIMELINE_LIMIT = 200;
+export const OPERATIONAL_ACTIVITY_LIMIT = 500;
 
 interface Data {
   readonly items: readonly AuditItem[];
   readonly olderAvailable: boolean;
+  readonly operationalSource: string;
 }
 
 export function agentActivityExplanations(
@@ -154,17 +167,22 @@ function activityFiltersFromRoute(): ActivityFilters {
   return activityFiltersFromSearch(currentRoute().search);
 }
 
-export function shouldRefreshAuditForAgentMessage(message: AgentActivityMessage): boolean {
-  return !(
-    message.type === "agent.state" &&
-    (message.state === "idle" || message.state === "watching") &&
-    message.correlation_id === null &&
-    message.detail === "Runtime agent initialized"
-  );
+export function shouldRefreshAgentActivity(
+  trigger: "initial" | "operator" | "stream-frame" | "stream-open" | "gap",
+): boolean {
+  return trigger === "initial" || trigger === "operator" || trigger === "gap";
 }
 
-export function shouldRefreshAuditForStreamStatus(status: AgentStreamStatus): boolean {
-  return status === "open";
+export function agentActivityObservationSource(
+  operationalSource: string,
+  streamSource: ObservationSource,
+): ObservationSource {
+  const durableSource = operationalSource === "durable-operational-projection"
+    ? "runtime-observed"
+    : normalizeObservationSource(operationalSource);
+  return streamSource === "mixed"
+    ? "mixed"
+    : mergeObservationSource(durableSource, streamSource);
 }
 
 export function AgentActivityRoute({ client }: Props) {
@@ -173,7 +191,6 @@ export function AgentActivityRoute({ client }: Props) {
   const [lastEventAt, setLastEventAt] = useState<string | null>(null);
   const [runtime, dispatch] = useReducer(reducer, undefined, makeInitialState);
   const requestGeneration = useRef(0);
-  const lastStreamRefresh = useRef(0);
   const stream = useMemo(agentStreamDescriptor, []);
 
   async function loadAudit(showLoading: boolean): Promise<void> {
@@ -184,14 +201,18 @@ export function AgentActivityRoute({ client }: Props) {
     try {
       const [page, operational] = await Promise.all([
         client.listAudit({ limit: TIMELINE_LIMIT }),
-        client.listAgentActivity(TIMELINE_LIMIT),
+        client.listAgentActivity(OPERATIONAL_ACTIVITY_LIMIT),
       ]);
       if (requestGeneration.current === generation) {
         dispatch({ kind: "hydrate-activity", activities: operational.items });
         if (operational.items[0]) setLastEventAt(operational.items[0].observed_at);
         setState({
           status: "ready",
-          data: { items: page.items, olderAvailable: page.next_cursor !== null },
+          data: {
+            items: page.items,
+            olderAvailable: page.next_cursor !== null,
+            operationalSource: operational.source,
+          },
         });
       }
     } catch (err) {
@@ -220,17 +241,11 @@ export function AgentActivityRoute({ client }: Props) {
     onEvent: (message) => {
       dispatch({ kind: "message", msg: message });
       setLastEventAt(agentActivityTimestamp(message));
-      if (!shouldRefreshAuditForAgentMessage(message)) return;
-      const now = Date.now();
-      if (now - lastStreamRefresh.current < 1500) return;
-      lastStreamRefresh.current = now;
+    },
+    onGap: () => {
       void loadAudit(false);
     },
   });
-
-  useEffect(() => {
-    if (shouldRefreshAuditForStreamStatus(streamStatus)) void loadAudit(false);
-  }, [streamStatus]);
 
   return (
     <div class="stack">
@@ -238,6 +253,21 @@ export function AgentActivityRoute({ client }: Props) {
       <PageHeader
         title={t("route.agentActivity")}
         subtitle={t("nav.panelSub.agentActivity")}
+        actions={(
+          <button
+            type="button"
+            class="cs-control-button"
+            disabled={refreshing}
+            aria-busy={refreshing}
+            onClick={() => { void loadAudit(false); }}
+          >
+            {t(
+              refreshing
+                ? "agentActivity.toolbar.refreshing"
+                : "agentActivity.main.refresh",
+            )}
+          </button>
+        )}
       />
       <AsyncBoundary state={state} resourceLabel={t("route.agentActivity")}>
         {(data) => (
@@ -252,6 +282,10 @@ export function AgentActivityRoute({ client }: Props) {
           />
         )}
       </AsyncBoundary>
+      <AgentOrganizationRouteOverlay
+        agents={runtime.agents}
+        runtimeCurrent={streamStatus === "open"}
+      />
     </div>
   );
 }
@@ -281,6 +315,10 @@ function ActivityBody({
     () => currentRoute().search.get("view") === "waterfall" ? "waterfall" : "activity",
   );
   const [filters, setFilters] = useState<ActivityFilters>(activityFiltersFromRoute);
+  const activitySource = agentActivityObservationSource(
+    data.operationalSource,
+    streamSource,
+  );
 
   const filtered = useMemo(
     () => filterAgentActivity(data.items, filters, agentOf),
@@ -405,6 +443,11 @@ function ActivityBody({
         { key: "older_available", value: data.olderAvailable, group: "page" },
         { key: "stream_status", value: streamStatus, group: "runtime" },
         { key: "stream_source", value: observationSourceLabel(streamSource), group: "runtime" },
+        {
+          key: "activity_source",
+          value: observationSourceLabel(activitySource),
+          group: "evidence",
+        },
         { key: "live_agents", value: liveAgents, group: "runtime" },
         { key: "operational_audit_rows", value: provenanceCounts.operational, group: "evidence" },
         { key: "sample_audit_rows", value: provenanceCounts.sample, group: "evidence" },
@@ -447,6 +490,7 @@ function ActivityBody({
       presentedAudit,
       streamStatus,
       streamSource,
+      activitySource,
       liveAgents,
       provenanceCounts,
       filters,
@@ -460,7 +504,7 @@ function ActivityBody({
           filters={filters}
           onChange={openFilters}
           streamStatus={streamStatus}
-          streamSource={streamSource}
+          streamSource={activitySource}
           liveAgents={liveAgents}
           lastEventAt={lastEventAt}
           refreshing={refreshing}
@@ -499,17 +543,17 @@ function ActivityBody({
           operationalAuditCount={provenanceCounts.operational}
           sampleAuditCount={provenanceCounts.sample}
           streamStatus={streamStatus}
-          streamSource={streamSource}
+          streamSource={activitySource}
         />
       ) : null}
       {view === "activity" ? (
         <LiveActivityJournal
           events={runtime.liveActivity}
-          auditItems={data.items}
+          auditItems={activityAudit}
           selectedAgent={selected}
           query={filters.query}
           streamStatus={streamStatus}
-          streamSource={streamSource}
+          streamSource={activitySource}
           lastEventAt={lastEventAt}
           onSelectedAgentChange={(agent) => openActivity(agent, "activity")}
           onQueryChange={(query) => openFilters({ ...filters, query })}
@@ -567,7 +611,7 @@ function ActivityBody({
               ? t("agentActivity.main.noAudit")
               : t("agentActivity.main.noMatches")}
           body={presentation.emptyKind === "selected-audit"
-            ? selectedAgentAuditEmptyBody(selectedNode, streamSource)
+            ? selectedAgentAuditEmptyBody(selectedNode, activitySource)
             : presentation.emptyKind === "all-audit"
               ? t("agentActivity.main.noAuditBody")
               : t("agentActivity.main.noMatchesBody")}
@@ -578,6 +622,96 @@ function ActivityBody({
     </div>
   );
 }
+
+function roleOverlayHref(open: boolean, roleAgent: string | null): string {
+  const url = new URL(window.location.href);
+  if (open) {
+    url.searchParams.set("roles", "1");
+    if (roleAgent) url.searchParams.set("roleAgent", roleAgent);
+    else url.searchParams.set("roleAgent", "");
+  } else {
+    url.searchParams.delete("roles");
+    url.searchParams.delete("roleAgent");
+  }
+  return `${url.pathname}${url.search}`;
+}
+
+function AgentOrganizationRouteOverlay({
+  agents,
+  runtimeCurrent,
+}: {
+  readonly agents: Readonly<Record<string, AgentNode>>;
+  readonly runtimeCurrent: boolean;
+}) {
+  const readRoute = () => {
+    const route = currentRoute();
+    const roleAgent = route.search.has("roleAgent")
+      ? route.search.get("roleAgent") || null
+      : route.search.get("agent");
+    return {
+      open: route.panelId === "agent-activity" && route.search.get("roles") === "1",
+      agent: roleAgent,
+    };
+  };
+  const initial = readRoute();
+  const [open, setOpen] = useState(initial.open);
+  const [roleAgent, setRoleAgent] = useState<string | null>(initial.agent);
+  const openRef = useRef(initial.open);
+  const closingRef = useRef(false);
+  const restoreFocus = () => window.setTimeout(() => {
+    document.getElementById("agent-roles-trigger")?.focus();
+  }, 0);
+
+  useEffect(() => {
+    const sync = () => {
+      const next = readRoute();
+      const shouldRestoreFocus = openRef.current && !next.open;
+      openRef.current = next.open;
+      if (!next.open) closingRef.current = false;
+      setOpen(next.open);
+      setRoleAgent(next.agent);
+      if (shouldRestoreFocus) restoreFocus();
+    };
+    window.addEventListener("popstate", sync);
+    window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
+    };
+  }, []);
+
+  if (!open) return null;
+
+  const close = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    if (window.history.state?.fdaiAgentRolesOverlay === true) {
+      window.addEventListener("popstate", restoreFocus, { once: true });
+      window.history.back();
+      return;
+    }
+    setOpen(false);
+    replaceRouteState(roleOverlayHref(false, null));
+    restoreFocus();
+  };
+  const selectAgent = (agent: string | null) => {
+    setRoleAgent(agent);
+    replaceRouteState(roleOverlayHref(true, agent));
+  };
+
+  return (
+    <AgentOrganizationDialog
+      agents={agents}
+      selectedAgent={roleAgent}
+      runtimeCurrent={runtimeCurrent}
+      onSelectAgent={selectAgent}
+      onClose={close}
+    />
+  );
+}
+
 function LiveAgentActivity({
   node,
   incidents,
@@ -618,7 +752,7 @@ function LiveAgentActivity({
         <div><dt>{t("agentActivity.main.localSamples")}</dt><dd>{sampleAuditCount}</dd></div>
       </dl>
       <nav aria-label={t("agentActivity.main.evidenceLinks", { agent: node.name })}>
-        <a href={routeHref("agents", { params: { view: "org", agent: node.name, correlation: node.correlationId } })}>
+        <a href={routeHref("pantheon", { params: { agent: node.name } })}>
           {t("agentActivity.main.openDetail")}
         </a>
         {node.correlationId ? (
@@ -636,8 +770,8 @@ function LiveAgentActivity({
           <ul>
             {incidents.slice(0, 5).map((incident) => (
               <li key={incident.correlationId}>
-                <a href={routeHref("agents", {
-                  params: { view: "org", agent: node.name, correlation: incident.correlationId },
+                <a href={routeHref("incidents", {
+                  params: { status: "all", correlation: incident.correlationId },
                 })}>
                   <span>{incident.ticketId || t("route.incidents")}</span>
                   <span>{incident.title}</span>

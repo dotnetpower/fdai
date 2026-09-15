@@ -9,7 +9,7 @@ Verifies:
   dispatch call.
 - When ``direct_api_executor`` IS wired BUT the ActionType stays on
   ``execution_path == pr_native``, the PR sibling still receives it.
-- ``_is_execution_success`` recognizes the direct-API success outcomes.
+- Execution helpers distinguish independently verified success from pending closure.
 """
 
 from __future__ import annotations
@@ -18,7 +18,13 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fdai.core.control_loop import ControlLoop, _is_execution_success
+from fdai.core.control_loop import (
+    ControlLoop,
+    ControlLoopOutcome,
+    _is_execution_pending,
+    _is_execution_success,
+)
+from fdai.core.control_loop._process import _aggregate_outcome
 from fdai.core.executor import ExecutionResult, ExecutorOutcome
 from fdai.core.executor.direct_api import (
     DirectApiExecutionOutcome,
@@ -38,6 +44,7 @@ from fdai.shared.contracts.models import (
     RollbackKind,
     Rule,
 )
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
 def _action_type(
@@ -117,6 +124,7 @@ def _make_loop(
     direct_api_executor: MagicMock | None = None,
     action_types_by_name: dict[str, OntologyActionType] | None = None,
     pre_dispatch_kinetic_safety_writer: MagicMock | None = None,
+    audit_store: InMemoryStateStore | None = None,
 ) -> ControlLoop:
     return ControlLoop(
         event_ingest=MagicMock(),
@@ -124,7 +132,7 @@ def _make_loop(
         t0_engine=MagicMock(),
         action_builder=MagicMock(),
         executor=pr_executor,
-        audit_store=MagicMock(),
+        audit_store=audit_store or InMemoryStateStore(),
         rules_by_id={"example.rule.x": _rule()},
         action_types_by_name=action_types_by_name,
         direct_api_executor=direct_api_executor,
@@ -370,6 +378,10 @@ def test_is_execution_success_for_pr_native_outcomes(
         (DirectApiExecutionOutcome.ABSTAINED_PRECONDITION, False),
         (DirectApiExecutionOutcome.STOPPED, False),
         (DirectApiExecutionOutcome.FAILED, False),
+        (DirectApiExecutionOutcome.DISPATCH_NOT_ATTEMPTED, False),
+        (DirectApiExecutionOutcome.AWAITING_EFFECT_EVIDENCE, False),
+        (DirectApiExecutionOutcome.RECEIPT_TIMEOUT, False),
+        (DirectApiExecutionOutcome.EXECUTION_UNKNOWN, False),
         (DirectApiExecutionOutcome.REJECTED_MODE, False),
         (DirectApiExecutionOutcome.REJECTED_INVARIANT, False),
     ],
@@ -384,6 +396,50 @@ def test_is_execution_success_for_direct_api_outcomes(
         audit_context={"effect_verified": expected},
     )
     assert _is_execution_success(result) is expected
+
+
+@pytest.mark.parametrize(
+    ("outcome", "expected"),
+    [
+        (DirectApiExecutionOutcome.AWAITING_EFFECT_EVIDENCE, True),
+        (DirectApiExecutionOutcome.RECEIPT_TIMEOUT, True),
+        (DirectApiExecutionOutcome.EXECUTION_UNKNOWN, True),
+        (DirectApiExecutionOutcome.DISPATCH_NOT_ATTEMPTED, False),
+        (DirectApiExecutionOutcome.FAILED, False),
+    ],
+)
+def test_is_execution_pending_for_direct_api_outcomes(
+    outcome: DirectApiExecutionOutcome,
+    expected: bool,
+) -> None:
+    result = DirectApiExecutionResult(action_id="a", outcome=outcome)
+
+    assert _is_execution_pending(result) is expected
+
+
+def test_pending_execution_dominates_success_and_denial_in_aggregate() -> None:
+    succeeded = DirectApiExecutionResult(
+        action_id="success",
+        outcome=DirectApiExecutionOutcome.DISPATCHED,
+        audit_context={"effect_verified": True},
+    )
+    pending = DirectApiExecutionResult(
+        action_id="pending",
+        outcome=DirectApiExecutionOutcome.EXECUTION_UNKNOWN,
+    )
+
+    assert _aggregate_outcome(("deny",), (succeeded, pending)) is (
+        ControlLoopOutcome.EXECUTION_PENDING
+    )
+
+
+def test_proven_no_effect_has_a_distinct_aggregate_outcome() -> None:
+    result = DirectApiExecutionResult(
+        action_id="not-attempted",
+        outcome=DirectApiExecutionOutcome.DISPATCH_NOT_ATTEMPTED,
+    )
+
+    assert _aggregate_outcome((), (result,)) is ControlLoopOutcome.EXECUTION_NOT_ATTEMPTED
 
 
 def test_is_execution_success_none_returns_false() -> None:

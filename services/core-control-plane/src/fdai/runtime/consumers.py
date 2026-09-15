@@ -176,7 +176,9 @@ async def _consume(
                     or payload.get("id")
                     or envelope.key
                 )
-                divergence.record_authoritative(correlation_id, _authoritative_decision(result))
+                authoritative = _authoritative_decision(result)
+                if authoritative is not None:
+                    divergence.record_authoritative(correlation_id, authoritative)
             if irp_handler is not None and result.outcome is not ControlLoopOutcome.DEDUPED:
                 try:
                     await irp_handler.handle(envelope.payload)
@@ -404,10 +406,14 @@ async def _consume_canaries(
             )
 
 
-def _authoritative_decision(result: ControlLoopResult) -> str:
+def _authoritative_decision(result: ControlLoopResult) -> str | None:
     """Normalize a P1 :class:`ControlLoopResult` to the shared decision
     vocabulary used by the pantheon (``auto`` / ``hil`` / ``deny`` /
-    ``dedupe`` / ``abstain``) so the two sides are directly comparable."""
+    ``dedupe`` / ``abstain``) so the two sides are directly comparable.
+
+    A still-pending effect has no terminal authoritative decision and is
+    omitted until reconciliation produces one.
+    """
     outcome = result.outcome
     if outcome == ControlLoopOutcome.EXECUTED:
         return "auto"
@@ -417,6 +423,8 @@ def _authoritative_decision(result: ControlLoopResult) -> str:
         return "deny"
     if outcome == ControlLoopOutcome.DEDUPED:
         return "dedupe"
+    if outcome == ControlLoopOutcome.EXECUTION_PENDING:
+        return None
     return "abstain"
 
 

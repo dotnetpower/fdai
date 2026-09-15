@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "operator_assignment_receipts_20260914"
-down_revision: str | Sequence[str] | None = "operator_cost_disclosure_audit_20260912"
+down_revision: str | Sequence[str] | None = "operator_conversation_document_refs_20260914"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 migration_owner = "operator-service"
@@ -18,7 +18,7 @@ migration_prerequisites = {
 }
 rollback = {
     "strategy": "revoke-assignment-receipt-grants-after-producers-stop",
-    "restores": "operator_cost_disclosure_audit_20260912",
+    "restores": "operator_conversation_document_refs_20260914",
     "requires": "assignment-consumers-and-producers-stopped",
 }
 

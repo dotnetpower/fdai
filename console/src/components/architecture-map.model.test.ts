@@ -4,10 +4,10 @@ import { describe, expect, test } from "vitest";
 import { layoutArchitecturePresentation } from "./architecture-map-layout";
 import {
   ARCHITECTURE_VISUAL_RESOURCE_TYPES,
-  DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS,
   architecturePresentationGraph,
   architectureHref,
-  DEFAULT_ARCHITECTURE_CAMERA_VIEW,
+  architectureHrefWithRouteState,
+  architecturePresentationModeFromHash,
   architectureViewKindLabel,
   architectureViewFromHash,
   constrainGraph,
@@ -25,13 +25,7 @@ import {
   type InventoryGraphResponse,
 } from "./architecture-map.model";
 import { hasArchitectureResourceAbbreviation } from "./architecture-resource-abbreviations";
-
-describe("architecture display defaults", () => {
-  test("shows resource reflections and connections by default", () => {
-    expect(DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS.showReflections).toBe(true);
-    expect(DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS.showConnections).toBe(true);
-  });
-});
+import { architectureTopologyNodeDimensions } from "./architecture-topology-dimensions";
 
 describe("architecture Azure discovery mappings", () => {
   test("predefines an abbreviation for every visual resource type", () => {
@@ -79,10 +73,6 @@ const GRAPH: InventoryGraphResponse = {
 };
 
 describe("architecture map model", () => {
-  test("uses the isometric camera by default", () => {
-    expect(DEFAULT_ARCHITECTURE_CAMERA_VIEW).toBe("iso");
-  });
-
   test("maps resource types to visual layers", () => {
     expect(layerOf(GRAPH.resources[1]!)).toBe("runtime");
     expect(layerOf(GRAPH.resources[2]!)).toBe("data");
@@ -362,7 +352,17 @@ describe("architecture map model", () => {
     expect(architectureHref("web api")).toBe("/architecture?resource=web+api");
     expect(selectedResourceIdFromHash("#/architecture?resource=web%20api")).toBe("web api");
     expect(architectureHref("web-api", "commerce-api")).toBe("/architecture?resource=web-api&view=commerce-api");
+    expect(architectureHref("web-api", "commerce-api", "network"))
+      .toBe("/architecture?resource=web-api&view=commerce-api&mode=network");
     expect(architectureViewFromHash("#/architecture?view=commerce-api")).toBe("commerce-api");
+    expect(architecturePresentationModeFromHash("?mode=network")).toBe("network");
+    expect(architecturePresentationModeFromHash("?mode=unexpected")).toBe("topology");
+    expect(architectureHrefWithRouteState(
+      "web-api",
+      "commerce-api",
+      "network",
+      "?locale=ko&resource=old&mode=topology",
+    )).toBe("/architecture?resource=web-api&view=commerce-api&mode=network&locale=ko");
   });
 
   test("labels architecture view boundaries explicitly", () => {
@@ -392,7 +392,7 @@ describe("architecture map model", () => {
     })).toBe("Resource group");
   });
 
-  test("clamps regions and nodes inside their parent boundaries", () => {
+  test("clamps regions and rendered cards inside their parent boundaries", () => {
     const constrained = constrainGraph({
       ...GRAPH,
       resources: [
@@ -404,13 +404,18 @@ describe("architecture map model", () => {
     });
     const region = constrained.resources[1]!;
     const app = constrained.resources[3]!;
+    const appSize = architectureTopologyNodeDimensions(app.render_scale);
     expect((region.x ?? 0) + (region.w ?? 0)).toBeLessThanOrEqual(9.88);
     expect((region.y ?? 0) + (region.h ?? 0)).toBeLessThanOrEqual(7.88);
-    expect(app.x).toBeLessThanOrEqual((region.x ?? 0) + (region.w ?? 0) - .58);
-    expect(app.y).toBeCloseTo((region.y ?? 0) + (region.h ?? 0) - .44, 8);
+    expect((app.x ?? 0) - appSize.width / 2).toBeGreaterThanOrEqual((region.x ?? 0) + .06);
+    expect((app.x ?? 0) + appSize.width / 2)
+      .toBeLessThanOrEqual((region.x ?? 0) + (region.w ?? 0) - .06);
+    expect((app.y ?? 0) - appSize.height / 2).toBeGreaterThanOrEqual((region.y ?? 0) + .06);
+    expect((app.y ?? 0) + appSize.height / 2)
+      .toBeLessThanOrEqual((region.y ?? 0) + (region.h ?? 0) - .06);
   });
 
-  test("scales a wide gateway to fit a narrow parent", () => {
+  test("expands a narrow parent to fit the rendered card floor", () => {
     const constrained = constrainGraph({
       ...GRAPH,
       resources: [
@@ -418,12 +423,17 @@ describe("architecture map model", () => {
         { id: "gateway", type: "application-gateway", name: "gateway", status: "healthy", parent_id: "rg", x: 1, y: 1 },
       ],
     });
+    const parent = constrained.resources[0]!;
     const gateway = constrained.resources[1]!;
-    const geometry = geometryOf(gateway);
-    expect((gateway.x ?? 0) - geometry.width / 2).toBeGreaterThanOrEqual(.06);
-    expect((gateway.x ?? 0) + geometry.width / 2).toBeLessThanOrEqual(.94);
-    expect((gateway.y ?? 0) - geometry.depth / 2).toBeGreaterThanOrEqual(.06);
-    expect((gateway.y ?? 0) + geometry.depth / 2).toBeLessThanOrEqual(.94);
+    const dimensions = architectureTopologyNodeDimensions(gateway.render_scale);
+    expect(parent.w).toBeGreaterThan(1);
+    expect(parent.h).toBeGreaterThan(1);
+    expect((gateway.x ?? 0) - dimensions.width / 2).toBeGreaterThanOrEqual((parent.x ?? 0) + .06);
+    expect((gateway.x ?? 0) + dimensions.width / 2)
+      .toBeLessThanOrEqual((parent.x ?? 0) + (parent.w ?? 0) - .06);
+    expect((gateway.y ?? 0) - dimensions.height / 2).toBeGreaterThanOrEqual((parent.y ?? 0) + .06);
+    expect((gateway.y ?? 0) + dimensions.height / 2)
+      .toBeLessThanOrEqual((parent.y ?? 0) + (parent.h ?? 0) - .06);
   });
 
   test("sizes simple resource-group panels around EGT-scale resources", () => {

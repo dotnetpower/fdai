@@ -18,6 +18,11 @@ from fdai_operator_service.families.conversation.channel_delivery_models import 
     VerifiedChannelEndpoint,
     channel_response_digest,
 )
+from fdai_operator_service.families.conversation.channel_edge.attachment_ingestion import (
+    ChannelAttachmentIngestionResult,
+    ChannelAttachmentIngestor,
+    attachment_purpose,
+)
 from fdai_operator_service.families.conversation.channel_edge.models import (
     AuthenticatedInboundTurn,
     ChannelDeliveryError,
@@ -47,7 +52,9 @@ from fdai_operator_service.families.conversation.contracts import (
     ConversationStreamReader,
     ConversationStreamRequest,
     JsonObject,
+    JsonValue,
 )
+from fdai_service_contracts import DocumentPurpose
 
 _IDENTITY_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 
@@ -65,6 +72,7 @@ class ChannelDeliveryPipeline:
         semantic_outbox: ConversationProposalOutbox,
         semantic_streams: ConversationStreamReader,
         publishers: Mapping[ChannelKind, ChannelPublisher],
+        attachment_ingestor: ChannelAttachmentIngestor | None = None,
         config: ChannelDeliveryPipelineConfig | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
@@ -77,6 +85,7 @@ class ChannelDeliveryPipeline:
         self._semantic_outbox = semantic_outbox
         self._semantic_streams = semantic_streams
         self._publishers = dict(publishers)
+        self._attachment_ingestor = attachment_ingestor
         self._config = config or ChannelDeliveryPipelineConfig()
         self._clock = clock or (lambda: datetime.now(UTC))
         self._slack = SlackPresentationRenderer()
@@ -102,12 +111,51 @@ class ChannelDeliveryPipeline:
                     "resolved channel principal does not match authenticated principal"
                 )
             binding = await self._binding(authenticated, context=context, now=now)
-            terminal = await self._semantic_terminal(
-                authenticated,
-                context=context,
-                conversation_id=binding.conversation_id,
-                idempotency_key=inbound_key,
-            )
+            attachment_result: ChannelAttachmentIngestionResult | None = None
+            if authenticated.turn.attachments:
+                if self._attachment_ingestor is None:
+                    raise ValueError("channel attachments require protected ingestion")
+                requested_purpose = attachment_purpose(authenticated.turn.text)
+                attachment_result = await self._attachment_ingestor.ingest(
+                    authenticated,
+                    conversation_ref=binding.conversation_id,
+                    purpose=requested_purpose,
+                )
+                if (
+                    attachment_result.purpose is not requested_purpose
+                    or len(attachment_result.receipts) != len(authenticated.turn.attachments)
+                    or attachment_result.document_context.principal_ref
+                    != authenticated.principal_id
+                    or attachment_result.document_context.conversation_ref
+                    != binding.conversation_id
+                ):
+                    raise ValueError(
+                        "channel attachment result does not match the authenticated turn"
+                    )
+            if attachment_result is not None and (
+                attachment_result.purpose is DocumentPurpose.HANDOVER_BOOTSTRAP
+                or not authenticated.turn.text.strip()
+            ):
+                terminal = _attachment_acknowledgement(
+                    attachment_result,
+                    locale=context.locale,
+                )
+            else:
+                try:
+                    terminal = await self._semantic_terminal(
+                        authenticated,
+                        context=context,
+                        conversation_id=binding.conversation_id,
+                        idempotency_key=inbound_key,
+                        attachment_result=attachment_result,
+                    )
+                except Exception:
+                    if attachment_result is None:
+                        raise
+                    terminal = _attachment_semantic_failure(
+                        attachment_result,
+                        locale=context.locale,
+                    )
             record = _delivery_record(
                 delivery_id=delivery_id,
                 inbound_key=inbound_key,
@@ -218,17 +266,21 @@ class ChannelDeliveryPipeline:
         context: ChannelPrincipalContext,
         conversation_id: str,
         idempotency_key: str,
+        attachment_result: ChannelAttachmentIngestionResult | None = None,
     ) -> JsonObject:
+        body: JsonObject = {
+            "prompt": authenticated.turn.text,
+            "locale": context.locale,
+            "conversation_id": conversation_id,
+        }
+        if attachment_result is not None:
+            body["document_context"] = attachment_result.document_context.model_dump(mode="json")
         receipt = await self._semantic_outbox.append(
             ConversationProposal(
                 operation="chat.stream",
                 scope=context.scope,
                 idempotency_key=idempotency_key,
-                body={
-                    "prompt": authenticated.turn.text,
-                    "locale": context.locale,
-                    "conversation_id": conversation_id,
-                },
+                body=body,
             )
         )
         stream = await self._semantic_streams.open(
@@ -341,6 +393,60 @@ async def _terminal_event(stream: ConversationEventStream) -> JsonObject:
         if event.event == "done":
             return event.data
     raise ValueError("semantic event stream closed before terminal done")
+
+
+def _attachment_acknowledgement(
+    result: ChannelAttachmentIngestionResult,
+    *,
+    locale: str,
+) -> JsonObject:
+    citations: list[JsonValue] = list(result.document_context.citations)
+    if result.purpose is DocumentPurpose.HANDOVER_BOOTSTRAP:
+        answer = (
+            "인수인계 근거와 검토 초안이 준비되었습니다."
+            if locale == "ko"
+            else "The handover evidence and review draft are ready."
+        )
+    else:
+        answer = (
+            "첨부 근거를 사용할 준비가 되었습니다."
+            if locale == "ko"
+            else "The attachment evidence is ready."
+        )
+    verification: JsonObject = {
+        "authority": "document-ingestion",
+        "evidence_refs": citations,
+    }
+    return {
+        "status": "direct_response",
+        "answer": answer,
+        "verification": verification,
+        "document_context_digest": result.document_context.context_digest,
+        "execution_authority": False,
+    }
+
+
+def _attachment_semantic_failure(
+    result: ChannelAttachmentIngestionResult,
+    *,
+    locale: str,
+) -> JsonObject:
+    citations: list[JsonValue] = list(result.document_context.citations)
+    verification: JsonObject = {
+        "authority": "document-ingestion",
+        "evidence_refs": citations,
+    }
+    return {
+        "status": "direct_response",
+        "answer": (
+            "첨부 근거는 준비되었지만 현재 답변을 생성할 수 없습니다."
+            if locale == "ko"
+            else "The attachment evidence is ready, but an answer is currently unavailable."
+        ),
+        "verification": verification,
+        "document_context_digest": result.document_context.context_digest,
+        "execution_authority": False,
+    }
 
 
 def _inbound_key(authenticated: AuthenticatedInboundTurn) -> str:

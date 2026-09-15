@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 696a78b491ab7bc0f12614bb803925f17be2dc7f
+translation_source_sha: 0cdab6f39adbe068065f69ae8e50469722d46e74
 translation_revised: 2026-09-14
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -52,9 +52,9 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 - **실행기 입력:** SSH 공개 키, 여유 할당량, Log Analytics 대상을 제공합니다. 변경 허용 Genesis는 공급자나 정책을 변경하기 전에 `prepare-genesis-access-tools.sh`를 실행해 Azure 리소스를 만들지 않고 안정적인 Bastion 및 Microsoft Entra SSH CLI 확장을 고정합니다. 로컬 CLI를 미리 준비하거나 복구할 때만 직접 실행하며 검사 모드는 읽기 전용입니다. 오프라인 Bootstrap에는 정확한 사전 준비 이미지도 필요합니다.
 
 [Genesis 기반 계층 루트](../../../infra/genesis-foundation/)는 ARM으로 두 리소스 그룹, 비공개 상태 계정, `tfstate` 및 `deployment-plans` 컨테이너와 블롭 보호를 관리합니다. 계정 키 조회 없이 기존 Bootstrap의 네트워크, 배포 신원, 실행기를 재사용합니다. 선택적 Standard Bastion 서브넷에는 Azure가 요구하는 전체 인바운드 및 아웃바운드 Network Security Group 규칙을 연결하며, 필수 플랫폼 규칙이 하나라도 없으면 터널 생성을 차단합니다.
-새 플랫폼 상태에서는 `foundation_resource_group_context_digest`로 참조 전용 소유권을 선택하고 기반 계층 태그와 지역을 확인합니다. 기존 상태의 소유권 변경에는 여전히 별도 검토된 이전 절차가 필요합니다.
+새 플랫폼 상태에서는 `foundation_resource_group_context_digest`로 참조 전용 소유권을 선택하고 기반 계층 태그와 지역을 확인합니다. 검증된 공개 개발 실패 상태는 고급 삭제 없는 채택 경로로만 비어 있는 Foundation 관리 애플리케이션 백엔드에 들어갈 수 있습니다. 이 경로는 리소스 그룹 소유자 주소 두 개를 제거하고 원래 상태를 유지하며, 강제하지 않는 push 한 번 전에 claim을 기록하고 readback을 검증하며, 모든 삭제 또는 교체 계획을 승인 전에 차단합니다.
 `fdaictl provision plan --stage foundation`은 로컬 backend를 사용하는 비공개 모의 실행입니다. 정확한 상태 이전 아카이브에서만 서명된 AzureRM backend 예제를 활성화해 검증된 호스트에 전달합니다. Genesis는 Terraform 아카이브와 실행 파일 다이제스트를 각각 인증하고
-계획 전에 전체 지역 카탈로그에서 [호환되는 이미지 및 호스트 VM SKU](subscription-genesis-assurance-ko.md#기반-및-외부-컨트롤-플레인)를 조회하며 이미지의 관리형 디스크와 호스트의 임시 디스크 요건을 구분합니다.
+계획 전에 전체 지역 카탈로그에서 [호환되는 이미지 및 호스트 VM SKU](subscription-genesis-assurance-ko.md#기반-및-외부-컨트롤-플레인)를 조회하며 이미지의 관리형 디스크와 호스트의 임시 디스크 요건을 구분합니다. 이후 서명된 Foundation 실행은 image apply를 반복하지 않고 독립 검증된 runner-image 증적을 채택할 수 있습니다. 입력은 현재 Foundation 출처와 실행을 유지하면서 원래 이미지 출처, 서명 검증기 출처, 이미지 실행 및 정확한 증적 다이제스트를 별도로 연결합니다.
 이미지 및 기반 계층 적용, Bastion 등록, 검증된 상태 이전에는 정확한 승인이 필요하며, 애플리케이션 배포와 준비 상태는 [Genesis 원장](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)에 미완료로 남아 있습니다.
 
 Azure Policy가 인벤토리 일부를 거부하는 테난트는 계획이 수렴하기 전에 예외 또는 대응하는
@@ -179,10 +179,10 @@ Analyzer 작업은 기본 1분 shadow 예약으로 `fdai.delivery.analyzer_tick_
 리소스, 신호, tick 창에서 파생된 키를 가진 정본 Event 하나를 게시합니다. `FDAI_INVENTORY_DSN`이
 설정되면 `FDAI_ANALYZER_TARGETS`와 영속 인벤토리 projection의 지원 리소스를 병합하고, 병합된 집합의
 중복을 제거한 뒤 프로바이더 I/O 전에 `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS`를 적용합니다. 지원하지
-않는 리소스 타입은 추측하지 않고 제외합니다. Projection을 읽을 수 없으면 coverage를 조용히 줄이지
-않고 tick을 실패시켜 Job이 재시도됩니다. 인벤토리 DSN이 없으면 명시적 대상 전용 경로를 유지하고,
-두 출처 모두 대상이 없으면 tick은 `0`으로 종료하는 정상 no-op입니다. Analyzer cron을 명시적으로
-빈 문자열로 설정하면 작업이 비활성화됩니다.
+않는 리소스 타입은 추측하지 않고 제외합니다. Projection을
+읽을 수 없으면 coverage를 조용히 줄이지 않고 tick을 실패시켜 Job이 재시도됩니다. 인벤토리 DSN이
+없으면 명시적 대상 전용 경로를 유지하고, 두 출처 모두 대상이 없으면 tick은 `0`으로 종료하는 정상
+no-op입니다. Analyzer cron을 명시적으로 빈 문자열로 설정하면 작업이 비활성화됩니다.
 
 #### 제한된 egress 환경의 인벤토리 디스커버리
 
@@ -199,8 +199,8 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
   경로를 유지합니다. 점유가 있으면 검증만 재개하며 기반 계층 완료만으로 준비 상태를 주장하지 않습니다.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에 Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결하며, Genesis는 활성 CLI 선택을 바꾸지 않고 정확한 구독 결합 ARM 위치 엔드포인트로 지역 가용성을 확인하고 정책 프로브 정리는 다중 값 TSV를 순서가 있는 줄로 파싱한 뒤 부재를 증명합니다.
 - [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 직접 사용하는 대화형 공개 `dev`
-  경로입니다. 업그레이드를 요청하지 않고 커밋된 provider lock을 검증하며, 이미 검증된 배포자
-  principal을 Terraform에 전달하고, 소유자 전용 platform 및 Core 계획을 저장합니다. 각 적용은
+  경로입니다. provider lock을 검증하고 확인된 principal을 전달하며 소유자 전용 계획을 저장합니다.
+  실패한 적용은 정리된 후속 소스가 refresh-only 재확인과 별도 종료 증적을 기록할 때까지 차단되며 이전 계획은 다시 적용하지 않습니다. 정책으로 비공개가 된 기존 Key Vault는 Managed Host를 사용하는 `fdai-up.sh` 경로로 보냅니다. 각 적용은
   대화형 터미널에 정확한 SHA-256 입력, 생성 후 20분 이내 계획, 변경되지 않은 소스 및 행위자
   결합, 해결되지 않은 이전 시도 없음이 필요합니다. 비공개, 공유, 스테이징 또는 운영 배포
   경로로 사용하지 않습니다.
@@ -276,7 +276,7 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 | 8 | **User-assigned Managed Identity** | - | 실행기와 별도 범위의 읽기 신원, [워크로드 아이덴티티 계약](../architecture/csp-neutrality-ko.md#4-워크로드-아이덴티티-계약--oidc-토큰) 구현 | 실행기는 작업 허용 목록을 유지합니다. 인벤토리와 RCA는 서로 다른 읽기 전용 신원을 사용합니다. Split 서비스 hydration은 선택적 platform 출력이 없으면 비활성 기본값을 유지하고, 값이 있으면 platform이 내보낸 RCA reader만 허용합니다. |
 | 9 | **Log Analytics workspace + Application Insights** | Pay-as-you-go, **기본 30일 보존** | traces / metrics / logs / audit-forward | `appi-*` 리소스가 workspace에 바인딩되며 보존은 배포 후 **UI에서 설정 가능** |
 | 10 | **Container Registry (ACR)** | Basic (나중에 geo-replication 필요 시 Standard) | 서명된 이미지 + 빌드 증명 | 다이제스트로 고정, 변경 가능한 태그 절대 아님 |
-| 11 | **Azure OpenAI 계정 + Foundry 계정/project** (**명시적 선택**, `var.enable_llm`) | Standard | T1 임베딩 + T2 mixed-model 배포 및 100K TPM의 전용 GPT-4.1-nano 웹 검색 프롬프트 에이전트 | 프로비저닝에는 deployer 권한과 리전 계열 용량이 필요하며, 그렇지 않으면 해당 기능이 **`hil-only`**로 강등됩니다. [dev-and-deploy-parity-ko.md § 배포자-스코프 LLM 프로비저닝](dev-and-deploy-parity-ko.md#배포자-스코프-llm-프로비저닝)을 참조하세요. 웹 검색을 활성화하면 Terraform이 배포 지역에 별도 `AIServices` Foundry 계정, project 및 `t1.web_search` 배포를 만들고 deployer와 활성화된 Operator API 신원에 `Azure AI User`를 부여합니다. 보호된 post-apply 단계는 실제 도구 준비 상태 탐색 전에 정확한 도메인 허용 목록으로 `fdai-web-search`를 조정합니다. 비공개 모드는 `privatelink.services.ai.azure.com`을 추가하며 테넌트 정책이 소유하는 거부 ACL 세부 정보는 Terraform이 보존합니다. |
+| 11 | **Azure OpenAI 계정 + Foundry 계정/project** (**명시적 선택**, `var.enable_llm`) | Standard | T1 임베딩 + T2 mixed-model 배포 및 100K TPM의 전용 GPT-4.1-nano 웹 검색 프롬프트 에이전트 | 프로비저닝에는 deployer 권한과 리전 계열 용량이 필요하며, 그렇지 않으면 해당 기능이 **`hil-only`**로 강등됩니다. [dev-and-deploy-parity-ko.md § 배포자-스코프 LLM 프로비저닝](dev-and-deploy-parity-ko.md#배포자-스코프-llm-프로비저닝)을 참조하세요. Terraform은 OpenAI 기능이 하나 이상 해석될 때만 Azure OpenAI 계정을 만들며 파트너 전용 해석은 사용할 수 없는 OpenAI 계정 할당량을 요청하지 않고 Foundry를 유지합니다. Foundry project 호출자에는 `Azure AI Developer`를 부여합니다. 보호된 웹 검색 단계는 정확한 도메인 허용 목록과 실제 도구 준비 상태 확인을 유지합니다. 비공개 모드는 `privatelink.services.ai.azure.com`을 추가하며 테넌트 정책이 소유하는 거부 ACL 세부 정보는 Terraform이 보존합니다. |
 | 12 | **ADLS Gen2 문서 계정** (**명시적 선택**, `enable_document_ingestion`) | StorageV2 Standard ZRS, HNS | 비공개 격리 구역, 변경할 수 없는 통제된 버전, derived 묶음 | 비공개 모드에서 Shared Key와 공개 접근 비활성화; soft 삭제 + 수명 주기; `blob`과 `dfs` 비공개 엔드포인트 |
 | 13 | **Case-history Blob 계정** (`enable_case_history`) | StorageV2 Standard ZRS | 재생 및 통제된 Norns 분석용 내용 기반 주소를 가진 prediction/인시던트 사례 개정 번호 | Shared Key 비활성화, 비공개 컨테이너, versioning, 변경 피드, soft 삭제, 범위가 제한된 old-version 수명 주기, Defender scanner private-link 접근, 전용 case-history UAMI 데이터 역할, `blob` 비공개 엔드포인트. 실행기 MI에는 Blob 역할을 부여하지 않습니다. |
 | 14 | **문서 인제스트 Container Apps** (**명시적 선택**) | Consumption, 공개 API + ClamAV를 포함한 내부 워커 | 인증된 범위가 제한된 업로드 중계와 독립적으로 규모되는 안전성 검사, 추출, pgvector 인덱싱, 수명 주기 이벤트 | API, 워커, 이행 UAMI를 분리합니다. 워커만 Event Hubs 수신과 OCR 권한을 받으며 런타임 신원에는 실행기 권한이 없습니다. |

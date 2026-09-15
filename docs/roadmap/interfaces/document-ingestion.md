@@ -31,6 +31,7 @@ ingestion never turns a restricted document into broadly visible text.
 Document ingestion reuses the agent-driven control loop rather than introducing a standalone
 decision service. See [Document ingestion agent ownership](document-ingestion-agent-ownership.md)
 for the stage-to-agent map, typed objects, promotion discipline, and mandatory Saga audit boundary.
+Cloud-reference packages use the same gates with source dates, signed intake, and lexical-only indexing; see [Cloud resource knowledge](cloud-resource-knowledge-lifecycle.md).
 
 ## Product contract for the drop zone
 
@@ -276,6 +277,8 @@ Each production deployment establishes measured baselines and sets p50/p95 targe
 - time to first searchable chunk and time to fully ready;
 - retry, hold, failure, and cancellation rates;
 - storage growth, deduplication savings, and cost per processed unit.
+
+Inputs and derived rates must be finite; conversion or throughput overflow rejects the receipt before report publication.
 
 The architecture reduces latency through bounded gateway streaming, content-hash deduplication
 inside the same security scope, incremental version processing, page-level parallelism, batched

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a19d741ed8e69714f7e00ea4b5382f4948a0087e
+translation_source_sha: 4c92efc3fae2cf7a4f2213f5581daabc1e1f51d6
 translation_revised: 2026-09-15
 ---
 # 프로젝트 구조
@@ -37,6 +37,7 @@ translation_revised: 2026-09-15
 ## 모듈 경계(모듈 Boundaries)
 
 의존 방향은 엄격하게 단방향이며, 위반은 리뷰 블로커입니다.
+클라우드 참조 수집은 수집 API, 파싱/색인 활성화는 작업자, 날짜를 명시한 근거는 Core가 담당합니다. [수명 주기 설계](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)는 공유 계약과 실행 권한이 없는 경계를 정의합니다. Core는 적용 조건을 제한된 단일 값 선택자로 노출하며 근거 객체는 의존 조회 결과로만 받습니다. 정확한 문서 맥락은 순위 계산 전에 이 선택 조건과 함께 적용하며 더 넓은 컬렉션 조회로 대체할 수 없습니다. 새 수집 테스트마다 서비스 테스트 소유자가 하나이며, 이미 선언된 API의 `aiohttp` 의존성은 간접이 아닌 직접 사용으로 분류합니다. 새 클라우드 참조 패키지는 정규화 텍스트 전용 v2 레코드를 사용합니다. 수집 원본은 API가 계속 소유하고 패키지/작업자 읽기 경로는 정확한 v1 식별 정보와 기존 승인 조건을 유지합니다.
 
 - **코어는 이식 가능**: 어떤 클라우드 SDK도 직접 가져오기 하지 **않습니다**. 클라우드 특이성은
   `shared/providers/` 의 CSP-중립 인터페이스로만 진입하며, 구현은 `delivery/` 와 `infra/` 에 있고
@@ -45,36 +46,20 @@ translation_revised: 2026-09-15
   계약, 프로바이더, 텔레메트리, 구성만 가져옵니다. `delivery/`는 어댑터 경계 뒤에서
   `core/`와 `shared/`를 조립하고 `composition/`이 모든 계층을 연결합니다. `core/`와 `agents/`는
   `delivery/`를 가져오기하지 않으며 provider 동작은 shared Protocol과 composition으로 진입합니다.
-  집중 sibling 모듈은 canonical identity 투영과 hashing을 소유할 수 있으며 기존 소유 모듈은 해당 공개 표면을 다시 내보냅니다. 멱등성 예약의 안정된 작업 비교도 이 분리를 따르며 직렬화 바이트, 전이 검증, replay 의미는 바뀌지 않습니다. 버전이 있는 최종 측정 계약도 같은 서비스 경계를 따릅니다. Core는 정규화 이벤트의 분류를 감사 기록과 원자적으로 보존하고, Operator는 Core를 가져오거나 분류를 실행 및 효과 권한으로 해석하지 않고 읽습니다. 중복 확인 응답은 일치하는 보존 기록을 요구하며, 충돌 때문에 원래 분류를 조용히 대체하거나 버리지 않습니다. 측정 시각에는 시간대가 명시된 datetime 또는 ISO 8601 문자열을 사용하고 숫자를 암묵적으로 epoch 시각으로 바꾸지 않습니다.
-- **사람 승인 권한은 서비스별로 분리**: Operator는 Teams/Slack 인증, `cryptography`를 통한 JWT/JWK 암호화 검증, 콜백 감사, 영속 결정 발신함을 소유합니다. Core 구현을 가져오거나 실행기 신원을 받지 않습니다.
-  Core는 타입이 지정된 결정을 워크플로 레지스트리, 작업 HIL 조정기 또는 정확한 사용자 접근 경로로 전달합니다. 별도로 연결된 Bot Managed Identity는 Teams A1용이며 실행기 신원을 재사용하지 않습니다.
-- **문서 OCR은 계약과 공급자 소유권으로 분리**: 공유 SDK는 배포 권한이 없는 버전별 공급자 정책을, 문서 워커는 범위가 제한된 Tesseract와 Azure 어댑터 선택을 소유합니다. 인프라는 서비스 간 구현 가져오기 없이 엔드포인트, 신원, 공급자 값을 제공합니다. 마이그레이션 CI는 기준선 도입 후 스키마 변경 수명 주기 검사를 직렬화하며 후속 복구는 롤백 뒤 루트 소유 공유 인덱스를 보존합니다. 이전 Alembic 헤드, 도입 매니페스트 5개, 관련 서비스 지문은 기준선 도입 전에 소유 열과 제약 조건을 함께 반영하여 계보 분리를 방지합니다.
-- **담당 체계와 인수인계는 서비스별로 소유**: 런타임과 보호된 Core 배포는 [에이전트 운영 담당 체계 수명 주기](../interfaces/agent-stewardship-operations-ko.md)의 GitOps, 병합 결과, 신원 상태, 카탈로그 시간 정책, 지식 경계를 보존합니다. Operator는 체크리스트 전환, 현재 검토자, SQL 읽기 어댑터, 개인 전체의 세션 예산, 담당 체계 전용 H10 경로 6개를 소유합니다. Console의 범위별 편집기는 IAM이나 미래 담당 권한 없이 현재 사용자/그룹/일정 임무, UTC 구간, 대체 담당자, 사례 대체를 다루며 검토된 초안 전달과 병합 관측은 분리됩니다.
-  Core만 배정 사례를 쓰고 보류, 대체 담당 확인, 원본 검증, 소유자별 단계, 준비도 관찰을 소유합니다. `CoreHandoverServices`, `PostgresCoreHandoverReview`, `PostgresCoreHandoverSearch`가 현재 목표, 검토자, 원본 허용, 검색을 연결합니다. `bind_handover_semantics`는 기존 `AssignmentWorkflowBindings`로 실제 Norns/Mimir 소비자를 연결하고 내용보다 원본 ACL, 목적, 현재 검토를 먼저 확인합니다. 정확한 타입 지정 JSON Rule과 기능 서술자가 있는 `Distiller`의 온톨로지 후보는 비공개 불변 패키지에 저장되며 Mimir가 모델 없이 독립적으로 재컴파일합니다. 이제 기존 구독에서 되돌릴 수 없는 사용 종료와 정확한 현재 법적 보존 해제 근거에 따른 내용 제거를 수행합니다. 알 수 없는 정책이나 장애에서는 삭제하지 않으며 예약, 증적, 다이제스트, 감사는 보존합니다. 문서 테이블 `SELECT`, 활성 카탈로그/그래프 쓰기, 단일 모델 산문 Rule의 원문 충실도를 보장하지 않습니다.
-  Core는 `HumanAccessPlanner`만 만들며 변경 신원을 생성하지 않습니다. `HumanAccessWorkflowRuntime`은 원래 HIL 검토 전에 전체 원래 Action/사례/역할 맵/승격 자료를 결속하고, 승인된 인자를 바꾸지 않는 준비 CAS `r -> r+1` 및 고정 담당 pub/sub를 Thor의 격리된 전용 Managed Identity에 연결합니다. 정확한 현재 원본/허용 목록, 비상 정지/상태, principal별 ActionType 정책, 7개 안전장치, 연산과 무관한 멤버십 잠금은 계속 필요합니다. 전달 전에 영속 의도를 하나 기록하며 확인 응답은 효과 근거가 아니고 결과를 모르는 시도는 자동 반복하지 않습니다. 독립 Heimdall 관측과 공유 잠금 해제 종결이 Core의 효과 기록보다 먼저입니다. Vidar는 원래 직접 수행한 변경, 현재 수요, 같은 대상 세대에 결속된 새 독립 승인 역방향 작업을 제안하고 마무리합니다. 사례는 이전 승인이나 역할 권한을 복사하지 않고 degraded/대체 가능 상태로 남습니다. 새 ActionType은 shadow가 기본이며 로컬 권한 전환은 허용하지 않습니다. 잔여 구현 이후 [최종 소스 검토 12회](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)를 완료했으며 미해결로 확인된 Medium/High 소스 문제는 없습니다. [구현 원장](../../roadmap-implementation/architecture/project-structure.md)은 이 완료와 미완료 번역 갱신, 정본 생성, 훅, 게시/CI, 전체 UI/보조 기술 및 실제 운영 근거를 구분하며 운영 준비 상태는 false로 유지합니다.
-- **관찰 모드 ARB 구성**: `core/architecture_review/observation_loop.py`는 프로바이더 중립적인
-  Change -> 인증된 컨텍스트 -> 근거 묶음 -> 시나리오 -> DecisionCase 및 ImpactEnvelope 구성을
-  담당합니다. Forseti만 기존 형식화된 버스에 관찰 판정을 게시하고 Saga가 감사하며,
-  `ArchitectureReviewProjector.project_observation`이 읽기 전용 ReviewCase 및 ReviewCheck
-  객체를 파생합니다. 이 경로에는 승인, 변경, 승격 또는 실행 권한이 없으며 중복 및 재시작에
-  안전한 재현을 위해 주입된 상태 저장소를 사용합니다.
-  루프는 계획된 의도만 수락하고 온톨로지 및 카탈로그 릴리스를 정확히 결속하며, 일시적인
-  보류를 투영할 때 기존 점검을 삭제하지 않습니다.
-  적합한 envelope를 게시하기 전에 완전한 그래프 소스 generation을 검증하며, 영속화된 상태를
-  사용해 실패한 읽기 모델 projection을 재시도합니다.
-  관찰 판정은 감사 전용입니다. Odin은 이를 액션 포트폴리오에서 제외하고 Thor는 전달하지
-  않습니다.
-  주입된 상태 저장소에 projection 상태 표식 계약이 없을 때만 범위가 제한된 프로세스 로컬
-  선입선출 캐시가 해당 상태를 보존합니다.
-  프로세스 계보는 기존 타입 지정 Change의 `process_ref`에서 `change_instantiates_process`로만
-  변환하며 검증 충돌은 지름길 edge를 만들지 않습니다.
-  시나리오 식별자는 ASCII 안전성과 길이 제한을 유지하므로 UUID 형태의 변경도 유효한 온톨로지
-  branch 키로 처리됩니다.
-기한 초과 영속화는 제한된 방식으로 수행하거나 내구성 있는 outbox로 전달하며, 정규화된 Change
-provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니다.
-  Pantheon member는 `agents/` 바로 아래의 flat layout을 유지합니다. Private behavior-extraction
-  mixin은 `agents/_framework/`에 두며 member의 AgentSpec, topic, ownership, model policy 또는
-  authority를 바꿀 수 없습니다.
+  단일 책임을 가진 인접 모듈은 정본 신원 변환과 해시 계산을 소유할 수 있으며 기존 소유 모듈은 해당 공개 기능을 다시 내보냅니다. 분석기 발견 증적, 분석기 작업 구성과 조립, 인벤토리 스냅샷 맥락 보조 로직도 같은 분리를 따릅니다. 기존 모듈은 공개 계약을 계속 다시 내보내며 쓰기 담당, 프로바이더 또는 권한은 이동하지 않습니다. 멱등성 예약의 안정된 작업 비교도 이 분리를 따르며 직렬화 바이트, 전이 검증, 재생 의미는 바뀌지 않습니다. 버전이 있는 최종 측정 계약도 같은 서비스 경계를 따릅니다. Core는 정규화 이벤트의 분류를 감사 기록과 원자적으로 보존하고, Operator는 Core를 가져오거나 분류를 실행 및 효과 권한으로 해석하지 않고 읽습니다. 버전이 있는 운영 활동도 같은 경계를 따릅니다. Core는 스키마로 검증되고 개인정보 범위가 제한된 기록을 내보내며, Operator는 읽기 모델만 저장하고 중계하고 Console은 표현만 지역화합니다. 충돌 근거는 원본 토큰을 바꾸지 않고 기계 판독에 안전한 활동 사유 코드로 매핑합니다. 중복 확인 응답은 일치하는 보존 기록을 요구하며, 충돌 때문에 원래 분류를 조용히 대체하거나 버리지 않습니다. 측정 시각에는 시간대가 명시된 datetime 또는 ISO 8601 문자열을 사용하고 숫자를 암묵적으로 epoch 시각으로 바꾸지 않습니다.
+- **사람 승인 권한은 서비스별로 분리**: Operator는 Teams/Slack 인증, `cryptography`를 통한 로컬 JWT/JWK 암호학적 검증, 콜백 감사, 영속 결정 발신함을 소유합니다. Core 구현을 가져오거나 실행기 신원을 받지 않습니다.
+  Core는 타입이 지정된 결정만 소비하며 워크플로 슬롯은 레지스트리로, 승인 대기 작업은 HIL 조정기 또는 정확한 사용자 접근 경로로 전달합니다. Core 조립 루트는 별도로 연결된 Bot Managed Identity를 Teams A1 전달에 사용하며 실행기 신원을 재사용하지 않습니다.
+- **문서 OCR은 계약과 공급자 소유권으로 분리**: 공유 서비스 계약 SDK는 배포 권한이 없는 버전별 공급자 정책을 소유하며 문서 워커는 범위가 제한된 로컬 Tesseract 어댑터와 Azure 어댑터 선택을 소유합니다. 인프라는 선택한 엔드포인트, 신원, 공급자 값만 제공하므로 어느 수집 서비스도 다른 서비스 구현을 가져오지 않습니다. 마이그레이션 CI는 기준선 도입 후 스키마 변경 수명 주기 검사를 직렬화하며 후속 복구는 롤백 뒤 루트 소유 공유 인덱스를 보존합니다. 서비스 소유 마이그레이션 검증 전에 이전 Alembic 호환 헤드와 도입 매니페스트 5개를 함께 갱신합니다. 관련 서비스 지문은 기준선 도입 전에 소유한 이전 열과 제약 조건을 반영하여 계보 분리를 방지합니다.
+- **담당 체계와 인수인계는 서비스별로 소유하며 초안 전달은 검토 전용으로 유지**: 런타임 조립과 보호된 Core 배포는 [에이전트 운영 담당 체계 수명 주기](../interfaces/agent-stewardship-operations-ko.md)의 GitOps, 병합 결과, 신원 상태, 카탈로그 시간 정책, 지식 수명 주기 경계를 보존합니다. Operator는 체크리스트 전환, 현재 검토자, SQL 읽기 어댑터, 개인 전체의 세션 예산, 담당 체계 전용 H10 경로 6개를 소유합니다. Console의 범위별 편집기는 IAM이나 미래 담당 권한 없이 현재 사용자/그룹/일정 임무, UTC 구간, 대체 담당자, 사례 대체를 다루며 검토된 초안 전달과 병합 관측은 분리됩니다.
+  Core만 배정 사례를 쓰고 보류, 대체 담당 확인, 원본 검증, 소유자별 단계, 준비도 관찰을 소유합니다. `CoreHandoverServices`, `PostgresCoreHandoverReview`, `PostgresCoreHandoverSearch`가 현재 목표, 검토자, 원본 허용, 검색을 연결합니다. `bind_handover_semantics`는 기존 `AssignmentWorkflowBindings`로 실제 Norns/Mimir 소비자를 연결하고 내용보다 원본 ACL, 목적, 현재 검토를 먼저 확인합니다. 정확한 타입 지정 JSON Rule과 기능 서술자가 있는 `Distiller`의 온톨로지 후보는 비공개 불변 패키지에 저장되며 Mimir가 모델 없이 독립적으로 재컴파일합니다. 기존 구독에서 되돌릴 수 없는 사용 종료와 정확한 현재 법적 보존 해제 근거에 따른 내용 제거를 수행합니다. 알 수 없는 정책이나 장애에서는 삭제하지 않으며 예약, 증적, 다이제스트, 감사는 보존합니다. 문서 테이블 `SELECT`, 활성 카탈로그/그래프 쓰기, 단일 모델 산문 Rule의 원문 충실도를 보장하지 않습니다.
+  Core는 `HumanAccessPlanner`만 만들며 변경 신원을 생성하지 않습니다. `HumanAccessWorkflowRuntime`은 원래 HIL 검토 전에 전체 원래 Action/사례/역할 맵/승격 자료를 결속하고, 승인된 인자를 바꾸지 않는 준비 CAS `r -> r+1` 및 고정 담당 pub/sub를 Thor의 격리된 전용 Managed Identity에 연결합니다. 정확한 현재 원본/허용 목록, 비상 정지/상태, principal별 ActionType 정책, 7개 안전장치, 연산과 무관한 멤버십 잠금은 계속 필요합니다. 전달 전에 영속 의도를 하나 기록하며 확인 응답은 효과 근거가 아니고 결과를 모르는 시도는 자동 반복하지 않습니다. 독립 Heimdall 관측과 공유 잠금 해제 종결이 Core의 효과 기록보다 먼저입니다. Vidar는 원래 직접 수행한 변경, 현재 수요, 같은 대상 세대에 결속된 새 독립 승인 역방향 작업을 제안하고 마무리합니다. 사례는 이전 승인이나 역할 권한을 복사하지 않고 degraded/대체 가능 상태로 남습니다. 새 ActionType은 shadow가 기본이며 로컬 권한 전환은 허용하지 않습니다.
+  완료된 인수인계 소스 작업에는 실행 경로 강화 20회와 잔여 구현 이후의 [최종 통합 소스 검토 12회](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)가 포함되며 미해결로 확인된 Medium/High 소스 문제는 없습니다. [구현 원장](../../roadmap-implementation/architecture/project-structure.md)은 이 완료와 통합 작업(번역 갱신, 정본 생성, 훅), 게시/CI, 전체 UI/보조 기술 및 실제 운영 근거를 구분하며 운영 준비 상태는 false로 유지합니다.
+- **관찰 모드 ARB 구성**: `core/architecture_review/observation_loop.py`는 공급자 중립적인 Change -> 인증된 맥락 -> 근거 묶음 -> 시나리오 -> DecisionCase 및 ImpactEnvelope 구성을 소유합니다. Forseti만 기존 타입 지정 버스에 관찰 판정을 게시하고 Saga가 감사하며 `ArchitectureReviewProjector.project_observation`이 읽기 전용 ReviewCase 및 ReviewCheck 객체를 파생합니다.
+  이 경로에는 승인, 변경, 승격 또는 실행 권한이 없습니다. 주입된 상태 저장소로 중복 및 재시작에 안전한 재생을 지원하며 저장소에 변환 상태 표식 계약이 없을 때만 범위가 제한된 프로세스 로컬 선입선출 캐시가 해당 상태를 보존합니다.
+  루프는 계획된 의도만 수락하고 정확한 온톨로지 및 카탈로그 릴리스를 결속하며 기존 점검을 삭제하지 않고 일시적 보류를 표시합니다. 관찰 판정은 감사 전용이므로 Odin은 작업 포트폴리오에서 제외하고 Thor는 전달하지 않습니다.
+  프로세스 계보는 기존 타입 지정 Change의 `process_ref`에서 `change_instantiates_process`로만 변환합니다. 검증 충돌은 지름길 간선을 만들지 않으며 정규화된 Change 출처는 정본 `process_ref`를 보존합니다.
+  적합한 묶음을 게시하기 전에 완전한 그래프 원본 세대를 검증하고 실패한 읽기 모델 변환은 영속 상태에서 재시도합니다. ASCII 안전성과 길이 제한을 지키는 시나리오 식별자로 UUID 형태의 변경도 유효한 온톨로지 분기 키로 유지합니다.
+  시간 초과 기록의 영속화는 범위를 제한하거나 영속 발신함에 넘깁니다. 판테온 구성원은 `agents/` 바로 아래에 유지하고 비공개 동작 분리 믹스인은 `agents/_framework/`에 두며 AgentSpec, 토픽, 소유권, 모델 정책 또는 권한을 바꾸지 않습니다.
 - **버티컬 패키지 구체화는 충돌을 허용하지 않음**: 일반 Core 구체화기는 표준 Rule 또는
   Workflow 로딩 전에 중복 자산 id와 패키지 상대 경로를 차단합니다. 설치는 비활성 패키지가
   수명 주기에 들어가기 전에 전체 Rule 및 Workflow 계약을 검증합니다. 비용 효과 관찰과
@@ -157,9 +142,9 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
   과거 `context_locale_scorecard.py`는 호환 전용으로 다시 내보냅니다.
   표본을 구문 분석하며 추적 약속값을 완전한 추적 주장으로 변환하지 않습니다. 인접한
   `quality_trace.py` 축약기는 레코드 약속값만 받고 순서가 정확한 세션부터 감사까지의 연결에서
-  완전성을 증명합니다. 프로바이더를 읽지 않으며 qualification 권한을 부여하지 않습니다.
-  `quality_timing.py`는 두 qualification timing 필드를 파생하기 전에 일치하는 출처 리비전,
-  추적 수, 추적 집합 약속값 및 설치된 latency 계약만 결합합니다.
+  완전성을 증명하며 권한을 부여하지 않습니다. `quality_timing.py`는 설치된 계약, 출처 리비전,
+  추적 수와 집합 및 산출물 다이제스트 쌍을 결합한 뒤 timing 필드를 파생합니다. 이전 입력에는
+  상한을 유지하며 런타임 소유자가 타임스탬프와 생산자 권한을 계속 소유합니다.
 - **authorization은 instance에 binding됩니다**: Context provider는
   `ExecutionAuthorizationRequest.target_resource_ref`의 exact Resource ID를 반환해야 합니다.
   불일치는 policy, identity 또는 effective-access 평가 전에 보류되며 권한 없는 audit context에
@@ -497,7 +482,7 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
 | **Runtime-call 근거 변환** | `services/core-control-plane/src/fdai/{core/ontology_platform,delivery}/`의 `RuntimeCallObservation`, `RuntimeCallTelemetryProducer`, `RuntimeCallInventoryEnricher` | - | 예약 인벤토리 작업이 기존 single-writer enrichment 경계를 연결하며, 인증된 source가 정확한 caller 및 target Resource id를 제공할 때까지 edge를 추가하지 않고 `telemetry_source_unavailable`을 기록합니다. AKS Pod 로그 근거는 별도의 내용 없는 읽기 경로를 사용하며 출처 revision, 프로바이더 기준 시점 및 구간 범위를 독립적으로 연결하기 전까지 불완전 상태로 유지됩니다. AKS 결정론적 축약기는 인과관계와 실행 권한을 거짓으로 고정한 Forseti 소유 T0 근거 증적을 생성합니다. | Exact-release, active-generation, scope, freshness, independent-verifier, no-authority 검사를 보존하면서 권위 있는 telemetry source를 주입합니다. |
 | **작업 흐름 카탈로그 (프로세스 자동화)** | `services/core-control-plane/src/fdai/rule_catalog/schema/workflow.py`의 `load_workflow_catalog(root, *, schema_registry, action_type_names, rule_ids=...)`; `services/core-control-plane/src/fdai/core/workflow/`의 `compile_workflow(...)` | - | `rule-catalog/workflows/` 아래 shadow-first 작업 흐름입니다. 각 액션 단계는 `ActionType`을 cross-reference하고 근거/컨트롤 단계는 전용 타입이 지정된 계약을 사용합니다. | 포크는 자체 `fork/workflows/` 디렉토리에 작업 흐름 YAML을 추가로 로드해 concatenate한 ActionType / 룰 집합과 함께 `dataclasses.replace(container, workflows=...)`로 주입합니다. 두 루트 간 `name` 중복은 실패 시 차단됩니다. 자세한 내용은 [(4[56])](../decisioning/process-automation-ko.md)을 참고하세요. |
 | **복구 시도 및 디스패치** | `core/workflow/`의 `recovery_attempt.py`, `recovery_effect_claim.py`, `recovery_terminalization.py`, `recovery_coordinator*.py` 계열(`recovery_coordinator.py`가 경로 순서를 소유하고 `_models`, `_records`, `_support`, `_binding`, `_dispatch`, `_effect`, `_release`, `_terminalization`이 각각 한 단계를 소유), `recovery_effect_ingress.py`; `core/executor/`의 `hold_dispatch_fence.py`; `shared/providers/automation_hold_state.py`의 `AutomationHoldStateReader`와 `HoldReleaseAuthorizationReader`; `delivery/persistence/`의 `workflow_recovery.py`; `delivery/`의 `workflow_recovery_observation_handler.py`; `agents/_framework/`의 `heimdall_huginn_projection.py` | - | 영속적 복구 시도 신원 결속, 배타적인 compare-and-set 사전 디스패치 청구 하나, 별도 승인/안전장치 증적, 신원 분리가 적용된 권위 있는 효과 완료 주장, 비정상 종료에 안전한 최종 Process/Saga outbox, 논리 대상 잠금 내부의 권한 부여 결속 디스패치 fence, 독립적인 사후 효과 관측을 위한 버전이 지정된 타입 안전 관측자 경로 수집 지점 하나. 이 수집 지점은 Heimdall이 소유한 `object.recovery-effect-observation` 토픽만 읽습니다. 외부 관측은 Huginn이 `object.event`로 정규화하고, Heimdall이 `heimdall_huginn_projection.py`로 선언된 필드를 자신의 토픽에 투영합니다. 이 모듈은 투영 로직을 `heimdall.py` 밖에 두며 어떤 권한도 부여하지 않습니다. 런타임은 복구 승인 저널, Workflow 결과 기록기를 감싼 확정 안전장치 번들 보존, 독립 효과 관측 저널, 관측자 그룹 관측 수집 지점을 연결합니다 | 새 모듈은 기존 자동화 보류, 승인 저널, 복구 승인 계약을 사용하며 새로운 실행 권한이나 프로바이더 연결을 도입하지 않습니다. 포크는 각 읽기 및 기록 seam을 교체할 수 있지만 영속성이 승인이나 효과 검증 권한을 부여하게 만들 수는 없습니다. [#652, #656, #658, #640](../decisioning/process-automation-ko.md) 참조. |
-| **경로 교차 안전장치 증적 및 독립 효과 관측** | `core/executor/`의 `execution_provenance.py`, `safeguard_dispatch_validation.py`, `effect_observation.py`, `effect_observation_ledger.py`, `effect_observation_codec.py`, `effect_observation_source.py`; `delivery/persistence/`의 `postgres_effect_observation.py`; `delivery/azure/`의 `vm_power_state_effect_source.py`; `delivery/github/`의 `effect_state_source.py` | - | 영속 안전장치 디스패치 증적이 신원 스키마 1.1.0에서 실행 경로, 오케스트레이션 출처(`core`, `workflow`), 실행 장소(`core`, `isolated_executor`)를 결속하며, 출처 필드 이전의 1.0.0 레코드도 그대로 읽히고 다이제스트가 검증됩니다. 독립 효과 관측은 정확한 번들, Action, 대상, 소스 리비전, 증적 레코드, 실행기 영수증에 결속된 별도의 추가 전용 영수증이며 증적 창, 신선도, 확정성, 완전성, 충돌, 합성 여부, 봉쇄 범위로 판정합니다. `verified`만 효과를 종결하고 `missing`, `stale`, `conflicting`, `censored`, `unavailable`은 새 효과를 승인하지 않는 하나의 미상 보류이며, `failed`는 일곱 가지 안전장치와 현재 사람 승인을 다시 명시하는 비활성 `GovernedRecoveryRequest`만 낼 수 있습니다. 관측자, 실행기, 소스 신원은 서로 달라야 하고 모든 읽을 수 없거나 도달할 수 없거나 표현할 수 없는 소스는 버리지 않고 보류로 보존하며, 보존된 관측이 없는 디스패치는 효과가 없는 것이 아니라 `missing`으로 읽습니다. 모든 영수증은 실행, sink 커밋, 잠금 해제, 승격 권한을 거짓으로 고정합니다 | 포크는 관측 소스 seam이나 추가 전용 저장소를 교체할 수 있지만, 관측이 실행, sink, 해제, 승격 권한을 부여하게 하거나 약한 관측을 verified로 넓힐 수는 없습니다. [#633](../decisioning/execution-model-ko.md) 참조. |
+| **경로 교차 안전장치 증적 및 독립 효과 관측** | `core/executor/`의 `execution_provenance.py`, `safeguard_dispatch_validation.py`, `effect_observation.py`, `effect_observation_ledger.py`, `effect_observation_codec.py`, `effect_observation_source.py`; `delivery/persistence/`의 `postgres_effect_observation.py`; `delivery/azure/`의 `vm_power_state_effect_source.py`; `delivery/github/`의 `effect_state_source.py` | - | 영속 안전장치 디스패치 증적은 신원 스키마 1.1.0에서 실행 경로, 오케스트레이션 출처(`core`, `workflow`), 실행 장소(`core`, `isolated_executor`)를 결속하며 출처 필드 이전의 1.0.0 레코드도 그대로 읽고 다이제스트를 검증할 수 있습니다. 독립 효과 관측은 정확한 번들, Action, 대상, 원본 개정, 근거 레코드, 실행기 증적에 결속된 별도의 추가 전용 증적이며 근거 구간, 최신성, 확정성, 완전성, 충돌, 합성 여부, 영향 억제 범위로 판정합니다. `verified`만 효과를 종결합니다. `missing`, `stale`, `conflicting`, `censored`, `unavailable`은 새 효과를 승인하지 않는 하나의 미상 보류이며 `failed`는 7개 안전장치와 현재 사람 승인을 다시 명시하는 비활성 `GovernedRecoveryRequest`만 낼 수 있습니다. 읽을 수 없거나 도달할 수 없거나 표현할 수 없는 원본은 버리지 않고 보류로 보존하며 보존된 관측이 없는 전달은 효과 부재가 아니라 `missing`으로 읽습니다. 관측자, 실행기, 원본 신원은 서로 달라야 하며 모든 증적은 실행, 싱크 커밋, 잠금 해제, 승격 권한을 false로 고정합니다. | 포크는 관측 원본 경계나 추가 전용 저장소를 교체할 수 있지만 관측이 실행, 싱크, 해제, 승격 권한을 부여하게 하거나 약한 관측을 `verified`로 확대할 수는 없습니다. [#633](../decisioning/execution-model-ko.md)을 참조하세요. |
 | **통제된 Python 작업** | `shared/providers/`의 `PythonTaskAuthor`, `PythonTaskArtifactStore`, `VmTaskTargetResolver`, `VmTaskRunner` | - | 로컬 템플릿 작성자 + in-memory 산출물/대상 + 계획 수립 실행기; 운영은 변경할 수 없는 산출물을 Postgres에 저장하고 활성 인벤토리에서 대상을 해석하며 headless 실행기가 Azure Managed Run Command를 연결 | 포크는 내용 해시, declared 기능, 멱등성, non-executing Operator API 계획, 타입이 지정된 제안 전달을 유지하면서 다른 작성자, 산출물 저장소, 대상 해석기, compute 실행기를 제공. [(4[56]) § 4.5](../decisioning/workflow-control-loop-integration-ko.md#45-governed-python-task-및-cron-schedule) 참조. |
 | **통제된 샌드박스 프로파일** | `core/sandbox/`의 `SandboxProfileCatalog`, `VmTaskSandboxCatalog`, `ToolSandboxCatalog`, `DocumentConverterSandboxCatalog`; `shared/providers/`의 `DocumentConverter` | - | 프로파일이 없는 명령, VM-task, 도구, converter 요청은 실패 시 차단합니다. Profiled 래퍼는 구체적인 어댑터 직전에 기능, 모드, 접미사, 시간 초과, 인자/입력/출력 바이트, workspace/네트워크 상한을 적용합니다. | 포크는 각 어댑터 연결과 함께 명시적 서버가 소유한 프로파일을 제공합니다. 프로바이더 계약 뒤에서 converter 또는 alternate 실행기를 구현할 수 있지만 호스트 경로, executable, 자격 증명 또는 더 넓은 요청 권한을 노출하지 않습니다. [(4[56]) § 4.6](../decisioning/workflow-control-loop-integration-ko.md#46-governed-command-및-shell-artifact) 참조. |
 | **통제된 실행 백엔드** | `shared/providers/execution_backend.py`의 `ExecutionBackend`와 `ExecutionSubmissionLedger`; `core/execution_backend/`의 프로파일 intersection 및 조정기; `composition/`의 `bind_execution_backends(...)` | - | 프로파일은 비활성화된 상태로 로드되고 기존 샌드박스 검증이 먼저 실행됩니다. PostgreSQL은 멱등적 수명 주기 시도를 저장하고 bubblewrap 및 VM 어댑터는 기존 동작을 보존하며 Azure Container Apps 작업은 pre-provisioned pinned 템플릿만 시작합니다. | 조립에서 서버가 소유한 프로파일과 구체적인 어댑터를 제공합니다. 연결은 워크로드, 자격 증명, 네트워크, workspace 접근, 한도, 지역, 범위를 추가하지 않고 낮출 수만 있습니다. 충족 여부, 승인, 롤백, 감사 결정을 소유하지 않습니다. [execution-backends-ko.md](../interfaces/execution-backends-ko.md)를 참조하세요. |
@@ -548,8 +533,7 @@ privileged I/O 전에 확인하는 실제 상한을 제공합니다. 어느 계�
 grounding 권한을 우회할 수 없습니다. HIL 승인 id와 실행기 멱등성 키는 원자적으로
 점유되고, 리소스별 잠금은 전달 어댑터가 상태를 변경하기 전에 경합하는 적용을 직렬화합니다.
 HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서버 검증 운영자 요청 규칙은 규칙 ID,
-작업 유형 및 고정 검사 참조가 계속 정확히 일치할 때만 허용됩니다. 멱등성 예약 신원 및 전이 계약은 하나의 Core 모듈에 유지하고, codec, 수명 주기 및 상태 형태 검증은 권한 없이 인접한 단일 책임 모듈로 분리하며 facade는 중복 wrapper 없이 수명 주기 동작을 다시 내보냅니다.
-
+작업 유형 및 고정 검사 참조가 계속 정확히 일치할 때만 허용됩니다. 멱등성 예약 신원 및 전이 계약은 하나의 Core 모듈에 유지하고, codec, 수명 주기, 상태 형태 검증, HIL 결과 레코드, 실행 효과 완료 처리는 권한 없이 인접한 단일 책임 모듈로 분리하며 facade는 중복 wrapper 없이 수명 주기 동작을 다시 내보냅니다. 실행기 결과는 `accepted`, `pending`, `no_effect`, `failed`로 Core를 통과합니다. 수락은 전달만 입증하며, HIL, 작업 흐름, 조정은 원래 상관관계와 제공된 액션 시도 신원을 보존하고 효과가 발생했을 수 있는 결과를 종료 주장 전에 독립 조정으로 보냅니다.
 ![컨트롤 루프 배선. 주요 단계는 events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops입니다.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.ko.svg)
 
 ## 구성 모델
@@ -594,6 +578,7 @@ HIL 재개는 현재 카탈로그에서 규칙을 해석합니다. 보류된 서
   composition이 패키지 코드와 리소스를 제공합니다. Core는 선택적 패키지를 import하지 않으며
   패키지 활성화는 사용자 접근 및 액션 승격과 독립적으로 유지됩니다. 보호된 W7 워크플로는 판단, 승인, 실행 또는 승격 권한을 패키지나 Operator 조립으로 옮기지 않고 정확한 release, Process, 공개 및 보존 근거를 유지합니다.
 - 서비스 wire 계약은 `packages/service-contracts/src/fdai_service_contracts/`에 있으며, `execution_safeguards.py`는 Core, 작업 흐름, Isolated 실행기의 생성기와 검증기가 공유하는 공급자 중립 무권한 7개 증명 묶음을 소유합니다. `recorded_resource_state.py`는 Core 변환 결과와 Operator 조회가 공유하는 공급자 중립 상태 경로 적용성 집합과 범위가 제한된 사용 불가 사유 토큰을 소유합니다. 공급자 어댑터는 검토된 토큰만 선택할 수 있으며, 공급자 응답 원문과 프로비저닝 기반 추론은 계약 밖에 둡니다.
+  `operational_activity.py`는 버전이 지정되고 권한을 부여하지 않는 Agent Activity 수명 주기 근거를 소유합니다. 버전 `1.3.0`은 안정적인 활동 신원을 전환 멱등성과 분리하고 기계 처리에 안전한 사유 코드를 요구합니다. `runtime_call.py`는 인증된 런타임 호출 변환 결과에서 사용하는 정확한 호출자 및 대상 Resource 참조와 권한을 부여하지 않는 근거 메타데이터를 소유합니다. Core 조립은 정확한 release, 세대, 범위, 최신성 및 독립 검증기 검사를 통과한 뒤에만 인벤토리를 보강할 수 있습니다.
   `schemas/<contract-id>/<version>.json` 아래의 버전별 JSON 스키마는 불변이므로 새 필드는
   새 추가적 버전으로 배포되며 이전 소비자는 그것을 계속 무시합니다. 저장소가 소유하고
   체크섬으로 고정한 생성기는 호환성 매니페스트의 모든 N/N-1 스키마를 백엔드 서비스 5개용

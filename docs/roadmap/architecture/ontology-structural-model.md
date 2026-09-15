@@ -48,7 +48,7 @@ An AKS diagnostic receipt is typed evidence attached to the selected Resource re
 not create another ObjectType or LinkType, and its content identity cannot replace the Resource UID
 or relationship identity.
 Every canonical ResourceType also has one explicit recorded-state disposition. Missing state is
-never converted into a generic healthy value.
+never converted into a generic healthy value. The shared Operator workflow adapter may expose an optional `rule.findings-summary` projection with server-recorded counts or explicit `evaluated: false`; that operational summary is not an ontology declaration, relationship, evidence admission, or authority source.
 
 An ObjectSet with a predicate that cannot run in the store first evaluates a 1,000-object,
 relationship-free candidate window. If that window is truncated and does not prove the requested
@@ -292,6 +292,13 @@ response, presentation, focus-graph, Inspector-only, purpose-delegated, redacted
 without overlapping those disposition buckets. Layout selection never changes the authoritative
 response count.
 
+The Console opens `/ontology` on the observed Resource instance workspace. Declaration, action
+contract, semantic-model, and Catalog topology views remain available through one labeled
+disclosure and retain their existing deep links. The declaration graph is loaded only after an
+operator enters one of those reference views, so its latency or unavailability cannot block the
+instance directory. This navigation and loading boundary changes no evidence, graph, query, or
+execution authority.
+
 The selected-instance view consumes a durable authenticated inventory-invalidation SSE stream and
 revalidates its bounded response after each committed watermark. A monotonic 15-second countdown
 drives fallback polling while SSE is unavailable. Focus, online, and visible-state recovery trigger
@@ -317,6 +324,12 @@ may summarize only ordered network paths whose stored edges and reviewed mapping
 present in the response. A missing path remains unknown when relationship coverage is incomplete
 or the required backend association is not modeled. Browser layout never changes completeness or
 authority.
+
+Impact traversal carries one evidence object per edge rather than assigning a blanket verification
+value to the query. Configuration-observed and independently verified evidence remain distinct from
+availability, and query completeness never repairs stale or incomplete relationship coverage.
+`runtime_calls` retains caller-to-target stored direction and requires the exact active generation
+and ontology release before the Console can present the bounded path.
 
 The instance graph legend shows `contains`, `attached_to`, and `depends_on` by default. Operators
 can expand the legend to inspect every relationship type in the bounded response. This presentation
@@ -357,6 +370,13 @@ column, so hop depth rather than row packing decides the width. Zoom stops at th
 first render because a smaller scale only shrinks nodes and never adds a relationship. A layout
 bound never doubles as a completeness bound: how much of a scope a root summarizes stays an
 independent decision.
+Direction-region backgrounds belong to the viewport surface rather than the bounded graph
+geometry. When the rendered SVG is shorter than the viewport, those regions continue through the
+complete scroll surface without moving nodes, edges, labels, or pan and zoom coordinates.
+Supporting metadata follows the same graph-first hierarchy. The directory bound and current
+refresh state stay in the search toolbar, while presentation coverage and graph-legend details
+start collapsed behind native disclosures. Compact presentation never removes a limitation,
+relationship meaning, evidence count, or recovery state.
 
 Containment leaves a Resource from its underside while attachment leaves from its side, and a
 contained Resource follows its owner's order within a column. What a Resource is attached to is
@@ -441,8 +461,10 @@ major version or explicit graph migration. No rollout rewrites historical contex
 | Ordered typed-path query | implemented | `TypedPathDefinition`, `QueryNodeKind.TYPED_PATH`, deterministic verifier, secured handler, composition binding, and focused query checks | Existing v1 traversal now accepts one LinkType. Typed paths execute 1-8 exact directed steps and hold on incomplete intermediate evidence. |
 | Link roles and semantic traits | implemented | Shared LinkType contract and schema, query manifest, seven reviewed runtime declarations plus two taxonomy declarations, and catalog tests | Optional empty fields preserve legacy provenance. Reviewed fields do not create inverse edges or presentation layout. |
 | Lifecycle-free declarations and authority carriers | implemented | `object-type-lifecycle-classification.yaml`; `CapacityGraduationRecommendation`, `EvidenceConflict`, and `ProspectiveLineage`; strict catalog and parity checks | Every lifecycle-free ObjectType has one reviewable classification. The three additive carriers preserve fixed agent ownership and grant no execution authority. |
-| Completeness and presentation separation | implemented | Authoritative ontology graph materializer, integration tests, Console decoder, LinkType inspector, graph-first instance workspace, bilingual product catalog, typecheck, and production build | The declaration graph carries four independent limitation families and exposes every bounded LinkType with roles and traits. The instance workspace keeps selection, legend, and Inspector state in the presentation layer without changing graph authority. |
+| Completeness and presentation separation | implemented | Authoritative ontology graph materializer, integration tests, Console decoder, LinkType inspector, graph-first instance workspace, bilingual product catalog, typecheck, production build, and focused browser geometry | The declaration graph carries four independent limitation families and exposes every bounded LinkType with roles and traits. The instance workspace keeps compact bound and refresh state, disclosure-owned coverage and legend details, selection, Inspector state, and full-height direction regions in the presentation layer without changing graph authority. |
+| Instance-first Console entry | implemented | `ontology.tsx`; `ontology-navigation.tsx`; ontology route, view, and localization checks; Console typecheck and production build | `/ontology` renders observed Resource instances without waiting for the declaration graph. Definitions and topology stay available through a labeled native disclosure and existing deep links. |
 | Operational relationship coverage accounting | implemented | `inventory_sync.py`; Operator instance contracts and PostgreSQL reader; Console instance model, graph, Inspector, and focused Python and Console checks | Each promoted generation records candidate dispositions without provider identifiers. The Console distinguishes response, focus-graph, Inspector-only, and IAM-only relationships, while a legacy generation reports that candidate accounting is unavailable. |
+| Per-edge relationship evidence and impact traversal | implemented | `runtime_call.py`; `relationship_evidence.py`; `inventory_impact.py`; Console Impact Scope and ontology instance models; focused backend and Console checks | Each traversed edge preserves availability, verification class, provenance, and stored direction. Query completeness remains independent from relationship-evidence completeness and grants no authority. |
 | Bounded ObjectSet candidate scan | validated | `OntologyInstanceStore.scan_objects`; PostgreSQL and in-memory adapters; `object_sets.py`; focused checks and authenticated recent-transition replay | Non-pushable object-only predicates use a 1,000-object probe and at most one 50,000-object, one-connection candidate snapshot. Relationship queries retain the ordinary bound, and truncation never becomes a complete result. |
 | Live instance presentation | validated | `ontology-instance-refresh.ts`; Operator capacity and operational-state allowlists; ontology instance route, graph, Inspector, styles, bilingual catalog, focused tests, live ARG collection, and authenticated browser inspection | Visible selected-instance views revalidate every 15 seconds and on browser resume. Semantic text badges preserve exact provider states and distinguish unavailable, not-applicable, and unrecorded values. NodePool and VMSS cards expose only their reviewed provider capacities, and refresh failure retains the last verified response with an explicit warning. |
 | Durable instance invalidation delivery | validated | Operator inventory observation replay, `/ontology/instances/stream`, Console SSE consumer, monotonic polling countdown, and authenticated AKS transition evidence | SSE remained connected while an AKS start added VM and NIC topology and moved the cluster from `Stopped` to `Running`; each committed watermark caused an authoritative re-read. |
@@ -455,6 +477,10 @@ major version or explicit graph migration. No rollout rewrites historical contex
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Removed the standalone directory-bound and refresh rows, retained both states in the search toolbar, collapsed presentation coverage and legend details by default, and reduced the fullscreen tool to one shared control surface. | `current change`; `ontology-instances.tsx`; `ontology-instance-graph.tsx`; `ontology-instances.css`; route-local catalogs; focused source, localization, browser, typecheck, and production-build checks. | Retain authenticated post-change DOM geometry when the shared Browser control reconnects; no graph, evidence, or execution authority changed. |
+| 2026-09-14 | implemented | Added generation-fenced evidence envelopes to bounded impact edges and preserved the caller-to-target direction of `runtime_calls` in map and Inspector presentation. | `current change`; focused changed backend tests (`448 passed`, one optional skip), changed Console tests (`415 passed`), typecheck, production build, and browser checks (`115 passed`). | Retain current authenticated relationship evidence before classifying the new edge verification path as `validated`. |
+| 2026-09-14 | implemented | Moved the incoming, selected, and outgoing direction fills from layout-height SVG rectangles to a full-height graph-surface layer, preserving the exact SVG viewBox and node, edge, label, pan, and zoom geometry. | `current change`; `ontology-instance-graph.tsx`; `ontology-instances.css`; 158 focused Console tests; two focused Playwright scenarios across fullscreen desktop, constrained desktop, and Korean mobile; typecheck and production build. | Retain an authenticated post-fix DOM measurement when the shared Browser control reconnects; no graph, query, or execution authority changed. |
+| 2026-09-14 | implemented | Made the observed Resource instance workspace the default `/ontology` entry, moved declaration and topology views behind one native disclosure, and stopped the declaration graph request from gating instance discovery. | `current change`; `console/src/routes/ontology.tsx`; `console/src/routes/ontology-navigation.tsx`; focused route, view, and localization checks; Console typecheck and production build. | Retain authenticated standard-port browser evidence for the default and expanded disclosure states; no graph or execution authority changed. |
 | 2026-09-13 | implemented | Classified 23 provider-native Azure types that were preserved only as unclassified identities, assigned every added ResourceType to the neutral taxonomy, added four exact child-containment mappings, and extended only documented operational and Resource Health paths. | `current change`; official Microsoft resource and Resource Health references; focused resource registry, relationship catalog, ARG, Resource Health, recorded-state, and catalog projection checks. | Retain a complete refreshed local generation proving the reviewed provider types, relationships, and state facts before raising this transition to `validated`. |
 | 2026-09-11 | implemented | Required explicit runtime-call and PostgreSQL-role source states in current instance-detail decoding so omission cannot become availability or measured zero. | `current change`; `ontology-instances.model.ts`; focused missing-source decoder check. | Retain authenticated available-source evidence on standard ports under issue #260. |
 | 2026-09-10 | in-progress | Added one reviewed exact EndpointSlice-to-Pod UID route with content-safe backend health facts. | `current change`; focused EndpointSlice fact, source-schema, relationship, and catalog checks. | Retain a complete live generation for the expanded release under Issue #578. |

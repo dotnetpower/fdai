@@ -191,6 +191,15 @@ class HilDispatchMixin:
                 }
             correlation_id = str(candidate.get("correlation_id") or approval_id)
             idem = str(candidate.get("idempotency_key") or approval_id)
+            action = candidate.get("action")
+            action_lineage = (
+                {
+                    "action_id": action.get("action_id"),
+                    "workflow_action": action.get("workflow_action"),
+                }
+                if isinstance(action, Mapping)
+                else {}
+            )
             applied = await self._state_store.compare_and_set_state_with_audit(
                 _park_key(approval_id),
                 updated,
@@ -200,7 +209,7 @@ class HilDispatchMixin:
                     idempotency_key=f"{idem}:{action_kind}:{revision}",
                     approval_id=approval_id,
                     correlation_id=correlation_id,
-                    detail=detail,
+                    detail={**action_lineage, **dict(detail)},
                 ),
             )
             if applied:

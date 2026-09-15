@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 06ce27a70b3aa1ac1ae9074a0f5ce01dc9c7504b
+translation_source_sha: 78eaaadb290a26c25f82841ce73f7c4c82527729
 translation_revised: 2026-09-15
 ---
 
@@ -492,10 +492,10 @@ Teams SSO OBO 승인에 대한 목표 계약은 다음과 같습니다:
   bearer 토큰이 없으면 실패 시 차단합니다. Full-stack 준비 단계는 두 개의 고정 loopback 출처를
   구성된 SPA 등록에 안전하게 재시도할 수 있는 방식으로 동기화합니다. 테넌트가 다르거나 Graph
   권한이 부족하면 sign-in 후 redirect가 깨진 상태로 남지 않도록 시작을 중단합니다.
-- **CLI principal 대안**: 브라우저 로그인이 필요하지 않을 때
-  `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1`과 `VITE_LOCAL_AZURE_CLI_AUTH=1`은 현재 CLI 사용자를 고정된
-  로컬 역할 상한으로 변환 결과합니다. 이는 명시적 대안이며 정본 full-stack 프로파일이
-  아닙니다.
+- **CLI principal 대안**: `console: start full stack (Azure CLI debug, Contributor)` 작업을 사용하거나 `start-console-web.sh`에 `--auth-mode azure-cli`를 전달합니다. 실행기는 현재 CLI
+  사용자를 고정된 `Contributor` 상한으로 변환하고 브라우저 및 API 경계에 확인 값 쌍을 설정합니다.
+  이 구현 플래그를 `console/.env.local`에 영속하지 마세요. 이 진단 모드는 `Approver` 또는
+  `Owner`가 필요한 승인 상세를 열 수 없습니다.
 - **Synthetic 고정본**: 익명 권한 부여, static 사용자, 시드 감사 기록 및 시나리오 재생은
   pytest의 `app(test_fixtures=True)`에서만 사용할 수 있습니다. Interactive 개발 데이터 원본이
   아닙니다.

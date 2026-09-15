@@ -7,6 +7,18 @@ BACKGROUND_TASK_PROJECTION_CONSUMER_V1 = ConsumerCodec(
     "N",
     ("1.0.0",),
 )
+CHANNEL_ATTACHMENT_ADMISSION_PRODUCER_UNAVAILABLE = ProducerCodec(
+    "channel-attachment-admission", "N-1", "0.0.0"
+)
+CHANNEL_ATTACHMENT_ADMISSION_PRODUCER_V1 = ProducerCodec(
+    "channel-attachment-admission", "N", "1.0.0"
+)
+CHANNEL_ATTACHMENT_RECEIPT_CONSUMER_UNAVAILABLE = ConsumerCodec(
+    "channel-attachment-receipt", "N-1", ("0.0.0",)
+)
+CHANNEL_ATTACHMENT_RECEIPT_CONSUMER_V1 = ConsumerCodec(
+    "channel-attachment-receipt", "N", ("0.0.0", "1.0.0")
+)
 CORE_REQUEST_PRODUCER_V1 = ProducerCodec("operator-core-request", "N-1", "1.0.0")
 CORE_REQUEST_PRODUCER_V11 = ProducerCodec("operator-core-request", "N", "1.1.0")
 CORE_REQUEST_PRODUCER_V12 = ProducerCodec("operator-core-request", "N", "1.2.0")
@@ -15,6 +27,7 @@ CORE_REQUEST_PRODUCER_V14 = ProducerCodec("operator-core-request", "N", "1.4.0")
 CORE_REQUEST_PRODUCER_V15 = ProducerCodec("operator-core-request", "N", "1.5.0")
 CORE_REQUEST_PRODUCER_V16 = ProducerCodec("operator-core-request", "N", "1.6.0")
 CORE_REQUEST_PRODUCER_V17 = ProducerCodec("operator-core-request", "N", "1.7.0")
+CORE_REQUEST_PRODUCER_V18 = ProducerCodec("operator-core-request", "N", "1.8.0")
 CORE_PROJECTION_CONSUMER_V1 = ConsumerCodec("core-operator-projection", "N-1", ("1.0.0",))
 CORE_PROJECTION_CONSUMER_V11 = ConsumerCodec("core-operator-projection", "N", ("1.0.0", "1.1.0"))
 CORE_PROJECTION_CONSUMER_V12 = ConsumerCodec(
@@ -29,6 +42,11 @@ CORE_PROJECTION_CONSUMER_V14 = ConsumerCodec(
 CORE_PROJECTION_CONSUMER_V16 = ConsumerCodec(
     "core-operator-projection", "N", ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.6.0")
 )
+CORE_PROJECTION_CONSUMER_V17 = ConsumerCodec(
+    "core-operator-projection",
+    "N",
+    ("1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.6.0", "1.7.0"),
+)
 
 __all__ = [
     "BACKGROUND_TASK_PROJECTION_CONSUMER_V1",
@@ -38,6 +56,7 @@ __all__ = [
     "CORE_PROJECTION_CONSUMER_V13",
     "CORE_PROJECTION_CONSUMER_V14",
     "CORE_PROJECTION_CONSUMER_V16",
+    "CORE_PROJECTION_CONSUMER_V17",
     "CORE_REQUEST_PRODUCER_V1",
     "CORE_REQUEST_PRODUCER_V11",
     "CORE_REQUEST_PRODUCER_V12",
@@ -46,4 +65,5 @@ __all__ = [
     "CORE_REQUEST_PRODUCER_V15",
     "CORE_REQUEST_PRODUCER_V16",
     "CORE_REQUEST_PRODUCER_V17",
+    "CORE_REQUEST_PRODUCER_V18",
 ]

@@ -1,4 +1,4 @@
-"""Extract declared pub/sub topology and ARG rate metadata from syntax, not live services."""
+"""Extract declared pub/sub topology and Azure Resource Graph rate metadata from syntax."""
 
 import ast
 

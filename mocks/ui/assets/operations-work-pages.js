@@ -20,6 +20,9 @@
   function timeline(id, title, items, description) {
     return { id: id, title: title, type: "timeline", items: items, description: description };
   }
+  function disclosure(id, title, items, description) {
+    return { id: id, title: title, type: "disclosure", items: items, description: description };
+  }
   function workspace(id, title, listTitle, records, description) {
     return {
       id: id, title: title, type: "workspace", listTitle: listTitle, records: records,
@@ -101,9 +104,9 @@
         facts("process-domain-view", "Readiness evidence view", [
           ["View specification", code("example-readiness-view@1")],
           ["Region", "Retained decision evidence"], ["Evidence cutoff", "2026-09-06T09:12:03Z"],
-          ["Readiness at cutoff", status("Partial", "warning", "detection-readiness.html#detection-assessment-history")],
+          ["Readiness at cutoff", status("Partial", "warning", "detection-coverage.html#detection-assessment-history")],
           ["Independent recovery", "Not verified"],
-          ["Evidence", code("example-evidence-lifecycle-0", "detection-readiness.html#detection-assessment-history")]
+          ["Evidence", code("example-evidence-lifecycle-0", "detection-coverage.html#detection-assessment-history")]
         ], "A synthetic server-rendered ViewSpec region. This earlier decision snapshot is not silently overwritten by the later recovery receipt.")
       ]
     },
@@ -172,7 +175,7 @@
         facts("background-outcome", "Outcome and evidence", [
           ["Outcome", status("Pending")], ["Explanation", "This investigation is still running; no terminal result has been recorded."],
           ["Result truncated", "No result recorded"],
-          ["Evidence", code("example-evidence-worker-a", "detection-readiness.html?record=example-lifecycle-worker#detection-lifecycle-records")],
+          ["Evidence", code("example-evidence-worker-a", "detection-coverage.html?record=example-lifecycle-worker#detection-lifecycle-records")],
           ["Evidence completeness", status("Truncated list", "warning")]
         ]),
         facts("background-attribution", "Execution attribution", [
@@ -240,28 +243,93 @@
 
   window.FDAI_OPERATIONS_WORK_PAGES = {
     "detection-readiness": {
-      group: "Operations", title: "Detection readiness",
-      subtitle: "Agent-owned evidence that monitored Kubernetes targets can produce governed failure signals.",
-      note: synthetic + "Huginn ingests facts, Heimdall reduces readiness, Muninn stores snapshots, and Saga audits transitions. Detection establishes neither cause nor execution authority.",
-      kpis: [["Monitored targets", "4", "stored sample"], ["Ready", "1", "six evidence axes"], ["Needs attention", "3", "partial, stale, or unknown"], ["Shadow-limited", "3", "disabled, fallback, or shadow"]],
+      group: "Operations", title: "Detection coverage",
+      subtitle: "Evaluation coverage across supported API, Kubernetes, AI, database, and gateway resources.",
+      note: synthetic + "Coverage shows what was considered, evaluated, held, or produced a finding. A no-finding evaluation is not a health or readiness claim.",
+      kpisInFirstView: true,
+      kpis: [["Candidate resources", "7", "supported inventory and configured targets"], ["Selected resources", "5", "retained latest-attempt rows"], ["Evaluated resources", "4", "completed with or without findings"], ["Findings", "1", "latest analyzer attempt"]],
       views: [
-        { id: "targets", label: "Targets", sections: ["detection-provenance", "detection-targets"] },
-        { id: "lifecycle", label: "Lifecycle", sections: ["detection-lifecycle-summary", "detection-lifecycle-records"] },
-        { id: "failures", label: "Failures", sections: ["pod-lifecycle-summary", "pod-detection-lifecycle"] }
+        { id: "coverage", label: "Coverage", sections: ["detection-attempt-comparison", "detection-coverage-by-type", "detection-provenance"] },
+        { id: "resources", label: "Resources", sections: ["detection-resource-filters", "detection-resources"] },
+        { id: "findings", label: "Findings", sections: ["detection-lifecycle-summary", "detection-finding-filters", "detection-lifecycle-records"] }
       ],
       sections: [
-        facts("detection-provenance", "Evidence provenance", [["Source", code("example-muninn-readiness-projection")], ["Last agent snapshot", asOf], ["Evidence profile", "Synthetic"]]),
-        facts("detection-lifecycle-summary", "Pod lifecycle evidence", [
+        facts("detection-attempt-comparison", "Attempt comparison", [["Latest attempt", asOf], ["Selected resources", "5"], ["Errors", "1"], ["Latest successful analyzer run", "2026-09-06T09:10:00Z"], ["Selected targets", "5"], ["Findings", "1"]], "The stable successful reference remains separate from the latest coverage attempt."),
+        table("detection-coverage-by-type", "Coverage by resource type", ["Resource type", "Candidates", "Selected", "Evaluated", "Held", "Findings", "Errors"], [
+          ["API gateway", "1", "1", "1", "0", "0", "0"],
+          ["Kubernetes cluster", "2", "1", "1", "1", "1", "0"],
+          ["LLM endpoint", "1", "1", "1", "0", "0", "0"],
+          ["MySQL server", "2", "1", "0", "1", "0", "1"],
+          ["Application Gateway", "1", "1", "1", "0", "0", "0"]
+        ], "A completed evaluation with no finding does not establish resource health."),
+        disclosure("detection-provenance", "Technical provenance", [["Latest attempt source", code("example-analyzer-run-receipt")], ["Attempt recorded", asOf], ["Successful run source", code("example-analyzer-run-receipt")], ["Evidence profile", "Synthetic"]], "Exact source identifiers and timestamps."),
+        {
+          id: "detection-resource-filters", title: "Resource filters and sorting", type: "form",
+          fields: [
+            ["Search resources", "search", "Resource, type, analyzer, or error", 3],
+            ["Resource type", "select", ["All resource types", "API gateway", "Kubernetes cluster", "LLM endpoint", "MySQL server", "Application Gateway"], 3],
+            ["Evaluation state", "select", ["All evaluation states", "Evaluation error", "Finding observed", "Unsupported", "Evaluated - no finding"], 3],
+            ["Sort resources", "select", ["Attention first", "Resource type", "Resource name"], 3]
+          ],
+          action: "Clear filters", inlineAction: true, actionSpan: 3,
+          description: "URL-backed controls in production preserve the selected resource and view."
+        },
+        workspace("detection-resources", "Resource evaluations", "Selected resources", [
+          {
+            id: "example-mysql-server", label: "example-mysql-server", summary: "Evaluation error retained separately from findings.",
+            facts: [["Resource type", "MySQL server"], ["Evaluation", status("Evaluation error", "danger")], ["Errors", "1"], ["Error reason", "Analyzer timed out"]],
+            sections: [facts("mysql-technical-identifiers", "Technical identifiers", [["Analyzer kind", code("mysql_flexible_server")], ["Canonical type", code("mysql-server")]])]
+          },
+          {
+            id: "example-kubernetes-cluster", label: "example-kubernetes-cluster", summary: "One finding; Kubernetes readiness and Pod lifecycle available as optional detail.",
+            facts: [["Resource type", "Kubernetes cluster"], ["Evaluation", status("Finding observed", "warning")], ["Findings", "1"], ["Finding delivery", status("Published", "success")]],
+            sections: [
+              facts("kubernetes-readiness", "Kubernetes readiness evidence", [["Decision", status("Ready", "success")], ["Evidence axes", "6 / 6"], ["Coverage gaps", "Missing 0, stale 0"], ["Authority ceiling", code("shadow")]], "Exact selected-cluster evidence only. The six-axis snapshot is Kubernetes-specific."),
+              table("kubernetes-pod-lifecycle", "Current-scope Kubernetes Pod evidence", ["Pod projection", "State", "Recovery", "Retained failures", "Evidence gaps"], [
+                [code("example-workload-api"), status("Recovered", "success"), status("Verified", "success"), "1", "0"],
+                [code("example-workload-worker"), status("Unknown"), status("Unknown"), "0", "2"]
+              ], "Current-scope detail; no exact selected-cluster association is inferred.")
+            ]
+          },
+          {
+            id: "example-api-gateway", label: "example-api-gateway", summary: "Evaluated with no finding; no health claim.",
+            facts: [["Resource type", "API gateway"], ["Evaluation", status("Evaluated - no finding")], ["Analyzer kind", code("api_management")], ["Finding delivery", "No finding publication"]],
+            sections: []
+          },
+          {
+            id: "example-llm-endpoint", label: "example-llm-endpoint", summary: "Evaluated with no finding; no health claim.",
+            facts: [["Resource type", "LLM endpoint"], ["Evaluation", status("Evaluated - no finding")], ["Analyzer kind", code("azure_openai")], ["Finding delivery", "No finding publication"]],
+            sections: []
+          },
+          {
+            id: "example-application-gateway", label: "example-application-gateway", summary: "Evaluated with no finding; no health claim.",
+            facts: [["Resource type", "Application Gateway"], ["Evaluation", status("Evaluated - no finding")], ["Analyzer kind", code("application_gateway")], ["Finding delivery", "No finding publication"]],
+            sections: []
+          }
+        ], "Read-only latest-attempt evidence. Selecting a resource changes presentation only."),
+        facts("detection-lifecycle-summary", "Retained findings and delivery", [
           ["Source", code("example-analyzer-receipts")], ["Last receipt", asOf],
+          ["Retained receipts", "3 of 500"], ["Oldest retained receipt", "2026-09-06T09:07:03Z"],
           ["Assessments", "3"], ["Incomplete or missed", "1"], ["Conflicting", "1"]
-        ], "Current state stays separate from earlier restart, replacement, publication, and recovery history."),
-        workspace("detection-lifecycle-records", "Current state and retained assessments", "Targets", [
+        ], "Cross-run finding history remains separate from the latest coverage attempt."),
+        {
+          id: "detection-finding-filters", title: "Retained finding filters", type: "form",
+          fields: [
+            ["Search findings", "search", "Resource, kind, signal, or evidence", 3],
+            ["Evidence state", "select", ["All evidence states", "Complete", "Incomplete", "Conflicting", "Missed"], 2],
+            ["Delivery", "select", ["All delivery states", "Published", "Duplicate suppressed", "Publication failed"], 2],
+            ["From date", "date", "", 2], ["To date", "date", "", 2]
+          ],
+          action: "Clear filters", inlineAction: true, actionSpan: 2,
+          description: "Production date bounds are inclusive and retained history stays separate from the latest attempt."
+        },
+        workspace("detection-lifecycle-records", "Latest and retained assessments", "Finding targets", [
           {
             id: "example-lifecycle-api", label: "example-workload-api", summary: "Running now; earlier restart retained; recovery independently verified.",
-            facts: [["Current observed state", status("Running", "success")], ["Evidence", status("Complete", "success")], ["Recovery", status("Verified", "success")], ["Publication", status("Duplicate suppressed")]],
+            facts: [["Latest recorded state", status("Running", "success")], ["Evidence", status("Complete", "success")], ["Recovery", status("Verified", "success")], ["Publication", status("Duplicate suppressed")]],
             sections: [
               facts("detection-current-assessment", "Current state and latest assessment", [
-                ["Lifecycle event", code("container_restart")], ["Observed event time", "2026-09-06T09:14:30Z"],
+                ["Finding signal", code("container_restart")], ["Observed event time", "2026-09-06T09:14:30Z"],
                 ["Recorded time", "2026-09-06T09:14:32Z"], ["Detection latency", "2 seconds"],
                 ["Evidence reference", code("example-evidence-lifecycle-1")], ["Duplicate delivery", "Observed and suppressed without republishing"],
                 ["Cause claim supported", "No"], ["Execution authority", "None"]
@@ -274,10 +342,10 @@
           },
           {
             id: "example-lifecycle-worker", label: "example-workload-worker", summary: "Current state unknown because the retained observations conflict.",
-            facts: [["Current observed state", status("Unknown")], ["Evidence", status("Conflicting", "danger")], ["Recovery", status("Unknown")], ["Publication", status("Publication uncertain", "warning")]],
+            facts: [["Latest recorded state", status("Unknown")], ["Evidence", status("Conflicting", "danger")], ["Publication", status("Publication uncertain", "warning")]],
             sections: [
               facts("detection-conflicting-assessment", "Current state and latest assessment", [
-                ["Lifecycle event", code("conflicting_evidence")], ["Observed event time", "2026-09-06T09:14:00Z"],
+                ["Finding signal", code("conflicting_evidence")], ["Observed event time", "2026-09-06T09:14:00Z"],
                 ["Recorded time", "2026-09-06T09:14:04Z"], ["Detection latency", "4 seconds"],
                 ["Evidence references", "example-evidence-worker-a; example-evidence-worker-b"],
                 ["Cause claim supported", "No"], ["Execution authority", "None"]
@@ -285,34 +353,7 @@
               facts("detection-conflicting-history", "Earlier failure and recovery history", [["Earlier assessments", "No earlier assessment retained; this is not proof of no prior failure"]])
             ]
           }
-        ], "Read-only bounded receipts. Selecting a target changes only this local example."),
-        table("detection-targets", "Target readiness", ["Target", "Decision", "Evidence axes", "Coverage gaps", "Authority ceiling"], [
-          [code("example-workload-api", "architecture.html?resource=example-workload-api"), status("Ready", "success"), "6 / 6", "Missing 0, stale 0", code("shadow")],
-          [code("example-workload-worker", "architecture.html?resource=example-workload-worker"), status("Partial", "warning"), "4 / 6", "Missing 2: detector_bound, pipeline_observed; stale 0", code("deterministic_fallback")],
-          [code("example-workload-ingress", "architecture.html?resource=example-workload-ingress"), status("Stale", "warning"), "6 / 6", "Missing 0; stale 1: telemetry_observed", code("human_approval")],
-          [code("example-workload-batch", "architecture.html?resource=example-workload-batch"), status("Unknown"), "0 / 6", "Missing 6, stale 0", code("disabled")]
-        ], "The six axes are discovered, collector_configured, telemetry_observed, detector_bound, pipeline_observed, and action_governed. Coverage is not a new authorization."),
-        facts("pod-lifecycle-summary", "Pod failure and recovery", [["Failing now", "0"], ["Recovery verified", "1"], ["Retained failures", "1"], ["Targets with evidence gaps", "1"]]),
-        workspace("pod-detection-lifecycle", "Current state, failure history, and evidence gaps", "Pod projections", [
-          {
-            id: "example-pod-api", label: "example-workload-api", summary: "Recovered; verified recovery; one failure among two retained records.",
-            facts: [["Current state", status("Recovered", "success")], ["Recovery", status("Verified", "success")], ["Current signal", code("container_restart")], ["Current state observed", "2026-09-06T09:14:30Z"], ["Recovery verified at", "2026-09-06T09:14:32Z"], ["Retention", "1 of 2 retained records are failures"]],
-            sections: [
-              table("pod-failure-history", "Failure history", ["Occurred", "Signal", "Recovery", "Delivery", "Evidence"], [
-                ["2026-09-06T09:12:00Z", code("container_restart"), code("restart_observed_recovered"), code("published"), status("Complete", "success")]
-              ]),
-              facts("pod-evidence-gaps", "Evidence gaps", [["Gaps", "No evidence gap recorded for this target"]])
-            ]
-          },
-          {
-            id: "example-pod-worker", label: "example-workload-worker", summary: "Unknown current state; recovery not independently verified; conflicting observations.",
-            facts: [["Current state", status("Unknown")], ["Recovery", status("Unknown")], ["Current signal", code("conflicting_evidence")], ["Current state observed", "Not observed"], ["Recovery verified at", "Not independently verified"], ["Retention", "0 of 1 retained records are failures"]],
-            sections: [
-              facts("pod-worker-history", "Failure history", [["History", "No failure retained; absence does not establish health"]]),
-              facts("pod-worker-gaps", "Evidence gaps", [["Gap", status("Conflicting evidence", "warning")], ["Delivery", status("Delivery uncertain", "warning")], ["Details", "example-evidence-worker-a and example-evidence-worker-b disagree on the current Pod identity."]])
-            ]
-          }
-        ], "Failure count, retention, recovery, and unknown evidence remain distinct. No repair controls.")
+        ], "Read-only bounded receipts. Retained history is not attributed to the latest analyzer attempt.")
       ]
     },
     "configuration-baselines": {

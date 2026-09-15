@@ -2,8 +2,8 @@
 title: 로컬 개발 빠른 시작
 description: Linux 또는 WSL 워크스테이션에서 Docker, 로컬 상태, 인증 및 전체 FDAI Console 스택을 구성합니다.
 translation_of: local-development-quickstart.md
-translation_source_sha: 0c2378cdb3336083b9b40b1bb980533f3601a79b
-translation_revised: 2026-09-13
+translation_source_sha: d82a6729c02b2d82da15b7f9962ff4136cbb876b
+translation_revised: 2026-09-14
 ---
 
 # 로컬 개발 빠른 시작
@@ -28,6 +28,33 @@ Azure 읽기와 환경 메타데이터는 선택한 배포에 근거합니다. �
 > 자동으로 채택하지 않습니다. 이 경계를 우회하기 위해 상태 파일을 복사하거나 이동하지 마세요.
 
 ## 필수 구성 요소 설치
+
+### 한 번에 워크스테이션 구성
+
+x86_64 Ubuntu 또는 WSL에서는 리포지토리 루트에서 다음 설치 스크립트를 실행하세요.
+
+```bash
+bash scripts/automation/setup-local-development.sh
+```
+
+이 스크립트는 시스템 패키지와 리포지토리에 고정된 명령줄 도구를 설치하고, Docker 접근을
+구성하며, 잠금 파일에 정의된 Python 및 Console 의존성을 설치합니다. 또한 Playwright Chromium을
+다운로드하고, 추적되는 Git 후크를 활성화하며, 공유 VS Code 설정과 확장을 적용합니다. 런타임 및
+검증용 PostgreSQL과 pgvector, Redpanda, ClamAV로 구성된 Docker 데이터 스택도 시작하고 준비될 때까지
+기다립니다. 필요한 경우 터미널에서 `sudo` 입력을 요청합니다. Azure 또는 GitHub에 로그인하거나
+테넌트별 구성을 만들지는 않습니다.
+
+설치 스크립트는 새로 할당된 Docker 그룹을 사용해 첫 실행 중에도 데이터 스택을 시작할 수 있습니다.
+Docker 명령을 직접 실행하기 전에는 기존 터미널에 그룹 멤버십을 반영하도록 WSL 창을 다시 여세요.
+프로필 가져오기는 사용자가 확인해야 하는 VS Code 작업이므로 `Profiles: Import Profile`에서
+`.vscode/fdai.code-profile`을 가져오세요. 다음 명령으로 도구 모음과 데이터 스택의 정상 상태를
+변경 없이 검증할 수 있습니다.
+
+```bash
+bash scripts/automation/setup-local-development.sh --check
+```
+
+필수 구성 요소를 수동으로 설치하거나 실패한 검사를 진단해야 할 때는 다음 섹션을 사용하세요.
 
 ### Docker 데이터 스택
 
@@ -72,7 +99,7 @@ sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor
 tesseract --list-langs
 ```
 
-리포지토리 의존성과 후크를 설치합니다.
+한 번에 설치하는 스크립트를 사용하지 않는 경우 리포지토리 의존성과 후크를 설치합니다.
 
 ```bash
 uv sync --extra dev
@@ -124,6 +151,17 @@ FDAI Terraform 상태가 적용되지 않은 기여자나 고객 구독에서는
 설정해 로컬 Console 스택을 준비할 수 있습니다. 스크립트는 활성 구독에서 해당 그룹의 존재를
 확인하고 리전을 읽습니다. 범위가 없거나 잘못되면 준비를 중단하며, 리소스 그룹을 만들어 내거나
 구독 전체를 암묵적으로 선택하지 않습니다.
+
+VS Code 작업에서 같은 명시적 범위를 재사용하려면 아래에서 설명하는 Git에서 무시되는
+`console/.env.local` 파일에 두 설정을 추가합니다.
+
+```dotenv
+FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1
+FDAI_LOCAL_RESOURCE_GROUP=<existing-read-scope>
+```
+
+프로세스 환경에 명시적으로 내보낸 값은 파일의 값보다 우선합니다. 선택한 리소스 그룹은 로컬
+워크스테이션에만 보관하고 커밋하지 마세요.
 
 PostgreSQL, Redpanda 및 ClamAV는 계속 로컬에서 실행됩니다. 이 옵션은 Terraform 배포 검색만
 생략하며 인증이나 권위 있는 소스 검사는 유지하고 Azure 리소스를 생성하지 않습니다. 기존 읽기
@@ -199,6 +237,12 @@ docker compose -f infra/local/docker-compose.yml ps
 가져오므로 더 오래 걸릴 수 있습니다. 이후 실행에서는 입력과 출력이 바뀌지 않은 단계를
 재사용합니다.
 
+준비는 성공했지만 서비스 감독기가 시작되지 않으면 `Tasks: Run Task` ->
+`console: start local services`를 실행합니다. 이 표시되는 백그라운드 작업은 준비된 환경을
+재사용하고 준비를 반복하지 않은 채 전체 서비스 집합을 시작합니다. 그런 다음
+`console: wait full stack ready`를 실행하세요. 전체 시작이 완료되면 `ready: 10/10`과
+`unavailable: none`을 보고합니다.
+
 | 화면 또는 서비스 | 주소 또는 준비 신호 |
 |-------------------|----------------------|
 | Console | `http://localhost:5273` |
@@ -212,6 +256,11 @@ docker compose -f infra/local/docker-compose.yml ps
 준비 과정은 `http://localhost:5273`과 `http://127.0.0.1:5273`을 모두 로컬 SPA 리디렉션으로
 등록합니다. 인증과 세션 상태가 호스트 이름에 따라 분리되지 않도록 표준 브라우저 원점인
 `http://localhost:5273`을 사용하세요.
+
+원격 WSL 워크스페이스에서는 VS Code 통합 브라우저가 원격 포트를 전달하면서 `localhost`를
+`127.0.0.1`로 다시 쓸 수 있습니다. 이는 Console 서버 또는 Entra 구성이 바뀐 것이 아니라
+브라우저의 포트 전달 동작입니다. 표준 인증 및 세션 원점이 필요하면 호스트의 일반 Chrome 또는
+Edge 창에서 `http://localhost:5273`을 여세요.
 
 `console: wait full stack ready` 작업은 시작에 성공한 후 범위가 제한된 진단에만 사용합니다.
 서비스 로그는 `.fdai/logs/` 아래에 있습니다.
@@ -236,7 +285,9 @@ Docker 의존성을 중지하기 전에 VS Code 작업 또는 디버그 복합 �
 
 VS Code 작업을 실행하는 것과 같은 Linux 또는 WSL 셸에서 세 가지 확인 명령을 실행합니다.
 `docker info`가 권한 거부를 보고하거나 데몬에 접근하지 못하면 FDAI 스택을 `sudo`로 실행하지
-말고 해당 사용자의 데몬 접근을 수정합니다.
+말고 해당 사용자의 데몬 접근을 수정합니다. 사용자를 `docker` 그룹에 추가한 후에는 작업을
+실행하기 전에 WSL 창을 다시 열거나 VS Code를 재시작하여 확장 호스트에 새 그룹 멤버십을
+반영합니다.
 
 ### 비정상 컨테이너
 

@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: dbb80087267caeb835a749b225cc5b1a80f0a866
+translation_source_sha: 78992baf4ec401e2da0d5c9d31861827343870a6
 translation_revised: 2026-09-15
 title: 에이전트 운영 책임 수명 주기
 ---
@@ -21,6 +21,10 @@ title: 에이전트 운영 책임 수명 주기
 > 원본 허용/검색, 비공개 의미 패키지 보존, 격리 IAM 복구를 포함합니다. 잔여 구현 이후 [최종 검토 12회](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)를 완료했으며 미해결로 확인된 Medium/High 소스 문제는 없습니다.
 > 번역 SHA 갱신, 정본 생성, 로컬 훅, 게시/CI, 전체 UI/보조 기술 및 실제 운영 근거는 남아 있습니다. 준비도는 `shadow`, `operationally_ready=false`이며
 > [#458](https://github.com/dotnetpower/fdai/issues/458)은 열린 상태로 유지합니다.
+
+클라우드 참조 수집과 서명 반입은 같은 수집 호스트를 사용하지만 담당자 변경 권한을
+공유하지 않습니다. 인수인계 초안을 만들거나 담당자를 바꾸지 않으며, [별도 수명 주기](cloud-resource-knowledge-lifecycle-ko.md)의
+출처/신뢰 정책과 기존 독립 문서 승인 절차를 따릅니다.
 
 ## 설계 개요
 

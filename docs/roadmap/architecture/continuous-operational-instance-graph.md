@@ -35,7 +35,8 @@ unbounded tight polling loop.
   The fixed Heimdall recovery observer enters only on first adoption through the explicit Core evidence transition; rebinding or unrelated environment drift remains ineligible.
 - **Single writer:** Collectors append typed observations. They never mutate ontology instances
   directly. One projection owner adjudicates observations and atomically advances its current
-  subgraph.
+  subgraph. Snapshot and journal record conversion call one support-owned relationship-evidence
+  encoder, so the two persistence paths cannot diverge in retained evidence.
 - **Graph first:** Ordinary questions read the current operational graph before any provider API.
   A live provider read is allowed only when required evidence is missing, stale, incomplete,
   conflicting, or explicitly requested under a bounded read policy.

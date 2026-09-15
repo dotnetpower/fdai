@@ -20,6 +20,10 @@ ownership (`stewardship`). It complements the handover-map schema and ownership 
 > Translation SHA refresh, canonical generation, local hooks, publication/CI, and full UI/assistive/live
 > evidence remain pending. Readiness stays `shadow`, `operationally_ready=false`; [#458](https://github.com/dotnetpower/fdai/issues/458) remains open.
 
+Cloud-reference collection and signed intake share this ingestion host, not its ownership authority.
+They never create a handover draft or change a steward; [their lifecycle](cloud-resource-knowledge-lifecycle.md)
+uses separate source/trust policy and the existing independent document approval gates.
+
 ## Design at a glance
 
 The lifecycle has four independent safety boundaries:

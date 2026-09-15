@@ -21,7 +21,7 @@ sign-in work. This runbook covers both the **local sign-in test**
 
 | Registration | Purpose | Key settings |
 |--------------|---------|--------------|
-| `fdai-api` | Web API audience for the console (and later ChatOps backend). | Application ID URI `api://<api-app-id>`; one delegated scope `access`; five App Roles; v2 access tokens. |
+| `fdai-api` | Web API audience for the console, ChatOps backend, and internal attachment intake. | Application ID URI `api://<api-app-id>`; one delegated scope `access`; five human App Roles and one application-only attachment role; v2 access tokens. |
 | `fdai-console-spa` | SPA sign-in client (MSAL, PKCE). | SPA redirect URIs; delegated permission to `fdai-api`'s `access` scope. |
 
 Neither holds the executor identity - that is a separate user-assigned Managed
@@ -53,21 +53,25 @@ API_APPID=$(az ad app create \
   --sign-in-audience AzureADMyOrg \
   --query appId -o tsv)
 
-# Five App Roles (values MUST equal the Role enum in core/rbac/roles.py:
-# Reader / Contributor / Approver / Owner / BreakGlass).
+# Five human App Roles plus one application-only attachment role.
 python3 - <<'PY' > /tmp/fdai_approles.json
 import json, uuid
 roles = [
-    ("Reader", "View the operator console"),
-    ("Contributor", "Reader plus author draft governance PRs"),
-    ("Approver", "Contributor plus review and approve governance PRs and HIL"),
-    ("Owner", "Full administration of the fork's control plane"),
-    ("BreakGlass", "Segregated emergency access (never auto-activated)"),
+  ("Reader", "View the operator console", ["User"]),
+  ("Contributor", "Reader plus author draft governance PRs", ["User"]),
+  ("Approver", "Contributor plus review and approve governance PRs and HIL", ["User"]),
+  ("Owner", "Full administration of the fork's control plane", ["User"]),
+  ("BreakGlass", "Segregated emergency access (never auto-activated)", ["User"]),
+  (
+    "Document.ChannelAttachment.Submit",
+    "Submit bounded channel attachments to the internal ingestion intake",
+    ["Application"],
+  ),
 ]
 print(json.dumps([{
-    "allowedMemberTypes": ["User"], "description": d, "displayName": n,
+  "allowedMemberTypes": members, "description": d, "displayName": n,
     "id": str(uuid.uuid4()), "isEnabled": True, "value": n,
-} for n, d in roles]))
+} for n, d, members in roles]))
 PY
 az ad app update --id "$API_APPID" --app-roles @/tmp/fdai_approles.json
 az ad app update --id "$API_APPID" --identifier-uris "api://$API_APPID"
@@ -190,6 +194,30 @@ az ad app permission admin-consent --id "$SPA_APPID"
 For a real deployment, assign the App Roles to the five `aw-*` Entra security
 groups instead of to individual users
 ([user-rbac-and-identity.md § 4.4](../roadmap/interfaces/user-rbac-and-identity.md#44-app-roles-token-surface)).
+
+After the dedicated Operator channel-edge Managed Identity exists, assign only the
+application-only attachment role to its service principal. Don't assign a human FDAI role to this
+identity.
+
+```sh
+EDGE_CLIENT_ID=<channel-edge-managed-identity-client-id>
+EDGE_SP_OBJID=$(az ad sp show --id "$EDGE_CLIENT_ID" --query id -o tsv)
+ATTACHMENT_ROLE_ID=$(az ad app show --id "$API_APPID" \
+  --query "appRoles[?value=='Document.ChannelAttachment.Submit'].id | [0]" -o tsv)
+python3 - "$EDGE_SP_OBJID" "$API_SP_OBJID" "$ATTACHMENT_ROLE_ID" <<'PY' \
+  > /tmp/fdai_channel_attachment_assign.json
+import json, sys
+print(json.dumps({"principalId": sys.argv[1], "resourceId": sys.argv[2], "appRoleId": sys.argv[3]}))
+PY
+az rest --method POST \
+  --uri "https://graph.microsoft.com/v1.0/servicePrincipals/$API_SP_OBJID/appRoleAssignedTo" \
+  --headers "Content-Type=application/json" \
+  --body @/tmp/fdai_channel_attachment_assign.json
+```
+
+Enable the internal channel intake before enabling attachments at the edge. Edge startup requests
+the exact API audience and calls the authenticated intake probe. A missing role definition,
+assignment, or audience keeps the edge unready.
 
 ## 4. Map ids to configuration
 

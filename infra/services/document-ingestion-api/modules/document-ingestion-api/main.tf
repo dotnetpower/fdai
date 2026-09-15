@@ -89,3 +89,77 @@ module "container_app" {
   rollback_strategy = var.rollback.strategy
   tags              = var.tags
 }
+
+resource "terraform_data" "channel_intake_contract" {
+  count = var.channel_intake.enabled ? 1 : 0
+
+  lifecycle {
+    precondition {
+      condition     = var.database.role == "fdai_ingestion_api"
+      error_message = "Enabled channel_intake requires the fdai_ingestion_api database role."
+    }
+    precondition {
+      condition     = var.identity.resource_id != "" && var.identity.client_id != ""
+      error_message = "Enabled channel_intake requires the ingestion workload identity."
+    }
+    precondition {
+      condition     = var.auth.tenant_id != "" && var.auth.api_audience != ""
+      error_message = "Enabled channel_intake requires one exact Entra tenant and audience."
+    }
+  }
+}
+
+module "channel_intake" {
+  count  = var.channel_intake.enabled ? 1 : 0
+  source = "../../../_modules/container-app"
+
+  name                 = var.channel_intake.name
+  platform             = var.platform
+  image                = var.image
+  identity_ids         = [var.identity.resource_id]
+  registry_identity_id = var.identity.resource_id
+  command              = ["fdai-document-channel-intake"]
+  args                 = []
+  secrets = [
+    {
+      name                = "channel-intake-database-dsn"
+      identity            = var.identity.resource_id
+      key_vault_secret_id = var.database.dsn_secret_id
+    },
+    {
+      name                = "channel-intake-principal-scopes"
+      identity            = var.identity.resource_id
+      key_vault_secret_id = var.channel_intake.principal_scopes_secret_id
+    },
+  ]
+  environment = [
+    { name = "FDAI_DATABASE_URL", secret_name = "channel-intake-database-dsn" },
+    { name = "POSTGRES_HOST", value = var.database.host },
+    { name = "FDAI_DATABASE_ROLE", value = "fdai_ingestion_api" },
+    { name = "PGOPTIONS", value = "-c role=fdai_ingestion_api" },
+    { name = "FDAI_INGESTION_DEPLOYMENT_ROLE", value = "channel-intake" },
+    { name = "FDAI_EXECUTION_VENUE", value = "deployed" },
+    { name = "RUNTIME_ENV", value = var.runtime_env },
+    { name = "FDAI_MI_CLIENT_ID", value = var.identity.client_id },
+    { name = "FDAI_ENTRA_TENANT_ID", value = var.auth.tenant_id },
+    { name = "FDAI_CHANNEL_ATTACHMENT_API_AUDIENCE", value = var.auth.api_audience },
+    { name = "FDAI_CHANNEL_EDGE_CLIENT_ID", value = var.channel_intake.edge_client_id },
+    { name = "FDAI_CHANNEL_ATTACHMENT_PRINCIPAL_SCOPES_JSON", secret_name = "channel-intake-principal-scopes" },
+    { name = "FDAI_CHANNEL_ATTACHMENT_COLLECTION_ID", value = var.channel_intake.collection_id },
+    { name = "FDAI_CHANNEL_ATTACHMENT_ACCESS_DESCRIPTOR_REF", value = var.channel_intake.access_descriptor_ref },
+    { name = "FDAI_CHANNEL_ATTACHMENT_READER_GROUPS", value = var.channel_intake.reader_groups },
+    { name = "FDAI_CHANNEL_ATTACHMENT_RETENTION_POLICY_VERSION", value = var.channel_intake.retention_policy },
+    { name = "FDAI_CHANNEL_ATTACHMENT_MAX_CONTENT_BYTES", value = tostring(var.channel_intake.max_content_bytes) },
+    { name = "FDAI_KAFKA_BOOTSTRAP_SERVERS", value = var.platform.kafka_bootstrap_servers },
+    { name = "FDAI_DOCUMENT_EVENT_TOPIC", value = var.event_topics.pipeline_stages },
+    { name = "FDAI_ADLS_ACCOUNT_URL", value = var.document_store.account_url },
+    { name = "FDAI_ADLS_SOURCE_FILE_SYSTEM", value = var.document_store.source_file_system },
+  ]
+  health            = var.channel_intake.health
+  ingress           = { external_enabled = false, target_port = 8000 }
+  scaling           = var.channel_intake.scaling
+  component         = "document-channel-intake"
+  rollback_strategy = var.rollback.strategy
+  tags              = var.tags
+  depends_on        = [terraform_data.channel_intake_contract]
+}

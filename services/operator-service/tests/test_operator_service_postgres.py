@@ -68,6 +68,7 @@ from fdai_operator_service.postgres_sql import (
     AGENT_ONTOLOGY_ACTIVITY_SQL,
     AGENT_READ_ACTIVITY_SQL,
     AUDIT_PAGE_SQL,
+    AUDIT_TRACE_SQL,
     HIL_COUNT_SQL,
     HIL_PAGE_SQL,
     INCIDENT_CURRENT_PAGE_SQL,
@@ -298,6 +299,7 @@ def _binding_policy(*, revision: int, active_digest: bool = True) -> dict[str, o
 def _hil_row() -> dict[str, Any]:
     """One authoritative pending park record the projection can render."""
     return {
+        "incident_available": False,
         "total_count": 1,
         "updated_at": _NOW,
         "value": {
@@ -319,6 +321,16 @@ def _hil_row() -> dict[str, Any]:
             },
         },
     }
+
+
+def test_hil_item_preserves_authoritative_incident_availability() -> None:
+    row = _hil_row()
+    row["incident_available"] = True
+
+    projected = hil_item(row)
+
+    assert projected is not None
+    assert projected["incident_available"] is True
 
 
 def test_legacy_action_park_without_metadata_remains_requestable() -> None:
@@ -1814,7 +1826,7 @@ class StubPostgresReadModel(PostgresOperatorReadModel):
         parameters: Mapping[str, object],
     ) -> list[dict[str, Any]]:
         self.calls.append((statement, parameters))
-        if statement == AUDIT_PAGE_SQL:
+        if statement in {AUDIT_PAGE_SQL, AUDIT_TRACE_SQL}:
             return self.audit_rows
         if statement == KPI_SAMPLE_SQL:
             return self.audit_rows
@@ -1960,6 +1972,7 @@ async def test_hil_reader_gets_count_only_and_approver_gets_redacted_detail() ->
         "detail_level": "count_only",
     }
     assert details.items[0]["target_resource_ref"] == "resource-1"
+    assert details.items[0]["incident_available"] is False
     assert details.items[0]["decision_requestable"] is True
     assert details.items[0]["decision_unavailable_reason"] is None
     assert "credential" not in details.items[0]
@@ -1973,6 +1986,24 @@ def test_hil_queue_excludes_approvals_with_a_durable_decision_receipt() -> None:
         assert "NOT EXISTS" in statement
         assert "'operator-hil-decision:' || (state_kv.value->>'approval_id')" in statement
         assert "LIKE %(key_pattern)s ESCAPE E'\\\\'" in statement
+
+
+def test_hil_queue_excludes_incomplete_or_expired_decisions() -> None:
+    for statement in (HIL_COUNT_SQL, HIL_PAGE_SQL):
+        assert "jsonb_typeof(value->'submitter_oid') = 'string'" in statement
+        assert "jsonb_typeof(value->'request_fingerprint') = 'string'" in statement
+        assert "jsonb_typeof(value#>'{approval_context,expires_at}') = 'string'" in statement
+        assert "> CURRENT_TIMESTAMP" in statement
+        assert "value#>>'{metadata,decision_route}' IN ('action', 'workflow')" in statement
+        assert "jsonb_typeof(value#>'{metadata,required_role}') = 'string'" in statement
+
+
+def test_hil_queue_links_only_current_canonical_incidents() -> None:
+    assert "AS incident_available" in HIL_PAGE_SQL
+    assert "incident.valid_to_seq IS NULL" in HIL_PAGE_SQL
+    assert "incident.has_incident_activity" in HIL_PAGE_SQL
+    assert "incident.has_canonical_incident" in HIL_PAGE_SQL
+    assert "incident.correlation_id =" in HIL_PAGE_SQL
 
 
 def test_hil_queue_search_escapes_like_metacharacters() -> None:
@@ -2630,6 +2661,7 @@ async def test_trace_and_rca_preserve_frozen_envelopes() -> None:
 
 def test_statement_identity_names_a_registered_statement_without_its_text() -> None:
     assert statement_identity(AUDIT_PAGE_SQL) == "AUDIT_PAGE_SQL"
+    assert statement_identity(AUDIT_TRACE_SQL) == "AUDIT_TRACE_SQL"
     assert statement_identity(INCIDENT_PAGE_SQL) == "INCIDENT_PAGE_SQL"
     assert statement_identity("SELECT 1") == "unregistered_statement"
 

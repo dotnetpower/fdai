@@ -1,3 +1,4 @@
+import { OperatorApiError } from "./api-transport";
 import { isRfc3339Timestamp } from "./time-format";
 
 export type RecordedStateAxis = "operational" | "provisioning" | "availability";
@@ -16,6 +17,15 @@ export interface RecordedResourceStates {
   readonly operational: RecordedStateFact;
   readonly provisioning: RecordedStateFact;
   readonly availability: RecordedStateFact;
+}
+
+export function isRecordedStateGenerationTransition(error: unknown): boolean {
+  return error instanceof OperatorApiError
+    && error.status === 409
+    && [
+      "inventory_generation_changed",
+      "ontology_generation_changed",
+    ].includes(error.message);
 }
 
 export function stateRecord(value: unknown, label: string): Record<string, unknown> {

@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 9f875b25052b9e547fac0a6708ffe549d98054ad
-translation_revised: 2026-09-09
+translation_source_sha: 37538718a79418e666abb799fce1d26018b942e3
+translation_revised: 2026-09-14
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -282,6 +282,10 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 `LatencyStageReceipt`는 호출자가 기간을 직접 제출하지 못하게 합니다. 단계 소유자가 monotonic
 시작 및 완료 값을 제공하면 adapter는 증적 환경이 설치된 단계 계약과 일치한 후에만 밀리초를
 파생합니다.
+축약된 latency 및 trace 근거는 단계 순서, 계약 하한과 상한, 통과 여부와 공백의 일관성,
+타임스탬프 권위 출처의 존재 여부를 다시 검증합니다. Qualification 입력 `1.0.0`은 계속 읽을 수
+있지만 timing 하드 상한을 해제할 수 없습니다. 입력 `1.1.0`은 latency 및 trace-cohort 콘텐츠
+다이제스트 쌍을 연결하고 점수표 `1.1.0`은 독립 재생을 위해 같은 쌍을 노출합니다.
 
 콘텐츠가 없는 표본을 수집한 후 저장소 벤치마크 어댑터를 실행합니다.
 
@@ -352,16 +356,17 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 | 환경 T1/T2 바인딩 초안 및 보호된 계획 | implemented | 공통 `ModelBindingPolicy`; Operator IAM 경로 및 PostgreSQL 어댑터; Console 모델 편집기; 보호된 해석기 및 배포 워크플로; 집중 테스트 | Owner 전용 초안은 리비전 및 멱등성 제한과 함께 영속화됩니다. 평가 및 계획 요청에는 권한이 없고 활성 산출물 다이제스트를 결합하며 보호된 배포 워크플로를 통해서만 활성화에 도달합니다. 공급자 및 롤백 증적은 남아 있습니다. |
 | 답변 연속성 및 프롬프트 ablation 설정 | implemented | Operator 런타임 설정 경로 및 PostgreSQL 어댑터, Core 시작 스냅샷, 콘솔 런타임 정책, 집중 Core, Operator 및 콘솔 검사 | Owner 변경은 비활성 제안과 리비전으로 보호된 Core 정책 레코드를 하나의 트랜잭션으로 영속화합니다. 두 설정은 재시작 후 적용되고, 프롬프트 ablation은 정보만 줄이며, 연속성은 보류 또는 미지원 표현만 변경합니다. |
 | 공개 웹 후보 라우팅 | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/`; focused Operator 테스트 | 프로바이더 중립 및 Azure 구성 경로가 있습니다. 로컬 및 배포 프로파일의 관리되는 이동 지연 시간 및 장애 조치 근거가 남아 있습니다. |
-| 5단계 qualification 지연 시간 계약 | implemented | [`quality_latency.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_latency.py), [`chatops_quality_latency.py`](../../../scripts/evaluation/chatops_quality_latency.py), 집중 검사 | 버전이 지정된 계약은 PR 회귀, 라이브 카나리, 릴리스 단계를 분리하고 표본 하한과 p50/p95/p99 상한을 적용하며 콘텐츠가 없는 근거를 생성합니다. 라이브 또는 릴리스 벤치마크 증적을 주장하지 않습니다. |
+| 5단계 qualification 지연 시간 계약 | implemented | [`quality_latency.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_latency.py), [`chatops_quality_latency.py`](../../../scripts/evaluation/chatops_quality_latency.py), 집중 검사 | 버전이 지정된 계약은 PR 회귀, 라이브 카나리, 릴리스 단계를 분리합니다. 축약 결과는 모든 단계, 하한, 상한, 통과 여부, 공백 및 타임스탬프 권위 출처 불변식을 다시 검증합니다. 라이브 또는 릴리스 벤치마크 증적을 주장하지 않습니다. |
 | 단계 소유자 timing 증적 adapter | implemented | [`quality_latency.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_latency.py), 집중 Core 검사 | Adapter는 monotonic 단계 소유자 값에서 기간을 파생하고 설치된 계약과 다른 환경을 차단합니다. Runtime 연결은 미완료 상태입니다. |
-| 8단계 상관관계 추적 계약 | implemented | [`quality_trace.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_trace.py), [`chatops_quality_trace.py`](../../../scripts/evaluation/chatops_quality_trace.py), 집중 검사 | 축약기는 하나의 correlation digest, 이전 레코드 연결, 권위 있는 타임스탬프, 출처 이력 약속값을 갖는 세션부터 감사까지의 순서가 지정된 연결을 요구합니다. 라이브 완전 추적 증적을 주장하지 않습니다. |
-| Timing 근거 연결 | implemented | [`quality_timing.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_timing.py), 집중 검사 | 완전한 집합에는 고유 추적 500개 이상이 있어야 하며 latency 산출물의 설치된 계약, 출처 리비전, 추적 수 및 추적 집합 약속값과 정확히 일치해야 합니다. |
+| 8단계 상관관계 추적 계약 | implemented | [`quality_trace.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_trace.py), [`chatops_quality_trace.py`](../../../scripts/evaluation/chatops_quality_trace.py), 집중 검사 | 축약기는 하나의 correlation digest, 이전 레코드 연결, 권위 있는 타임스탬프, 출처 이력 약속값을 갖는 세션부터 감사까지의 순서가 지정된 연결을 요구합니다. 생성된 근거는 완전성 또는 권위 출처 상태와 모순될 수 없습니다. 라이브 완전 추적 증적을 주장하지 않습니다. |
+| Timing 근거 연결 | implemented | [`quality_timing.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_timing.py), 집중 검사 | 완전한 집합에는 고유 추적 500개 이상이 있어야 하며 latency 산출물의 설치된 계약, 출처 리비전, 추적 수, 추적 집합 약속값 및 산출물 콘텐츠 다이제스트 쌍과 일치해야 합니다. 이전 입력에는 timing 상한을 계속 적용합니다. |
 | 선택적 report-format parity | implemented | `fdai_operator_service.reporting.optional_pdf_report_encoder`; `IncidentRcaReportingProjectionReader`; Operator composition 및 경로 테스트 | 로컬 및 배포 Operator composition은 같은 service-local loader와 authoritative audit-backed Incident report reader를 사용합니다. Venue, 환경 및 identity는 report 권한을 바꾸지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | Qualification timing이 하드 상한을 해제하기 전에 콘텐츠 주소 기반 latency 및 trace-cohort 연결을 요구하고 생성된 축약 결과의 불변식을 다시 검증하도록 했습니다. | `current change`; 집중 scorecard, timing 및 CLI 검사(`69 passed`), Ruff 통과 | 권위 있는 단계 소유자를 연결하고 일치하는 500개 이상 추적 통제 집합 하나를 보존합니다. |
 | 2026-09-08 | implemented | Core mini 탐색에 비어 있지 않은 실제 첫 토큰 TTFT 측정을 추가하고, Operator와 Console을 통해 TTFT 및 전체 처리 시간 구간을 별도로 변환했으며, TPM을 변경하거나 압력 실패를 재시도할 수 없는 범위가 제한된 동일 요청 용량 벤치마크를 추가했습니다. | `current change`, 집중 Core/Operator TTFT 및 벤치마크 검사 41개, Console 라우팅 및 툴팁 검사 66개, Ruff 및 strict mypy 통과 | 실제 벤치마크는 일관된 깨끗한 커밋 스냅샷에서만 실행합니다. 런타임 검증 상태를 높이기 전에 인증된 화면 표시 브라우저 처리 시간 근거를 보존합니다. |
 | 2026-09-07 | validated | 선택된 T2 일반 지식 턴이 분류와 범위가 제한된 답변 작성을 하나의 T2 preflight에서 함께 수행하도록 연결했습니다. GPT-5 preflight 요청은 낮은 추론 수준을 사용하며 이 조언 경로에서는 adaptive 계획/검토/개선/확인을 실행하지 않습니다. | `current change`; 집중 preflight/조립 검사 162개, Ruff, strict mypy, 서비스 경계 검사와 로컬 라이브 진단 1회가 4.286초 만에 `model=gpt-5.6-sol`의 `advisory_response`로 완료됐습니다. | 지연 시간 목표를 주장하기 전에 인증된 화면 표시 브라우저 스트리밍 근거와 측정 분포를 보존합니다. |
 | 2026-09-07 | implemented | 대화별 `Auto`/`T1`/`T2` 선택기를 추가했습니다. T2는 모델이 작성하는 대화 단계에 구성된 기본 모델을 사용하며 독립 검토 모델과 권한 없는 요청 경계를 유지합니다. | `current change`; 집중 서비스 계약, Operator, Core 라우팅, Console 요청 본문, 영속성, 지역화, 타입 검사, 빌드 검사입니다. | 인증된 화면 표시 브라우저 근거를 보존하고 장치 간 연속성이 필요해지면 서버 쪽 선호 설정 영속성을 추가합니다. |

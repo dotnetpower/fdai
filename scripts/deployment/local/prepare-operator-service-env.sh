@@ -3,10 +3,38 @@
 
 set -euo pipefail
 
+usage() {
+  echo "Usage: $0 [--auth-mode browser-entra|azure-cli]" >&2
+  exit 2
+}
+
+auth_mode="browser-entra"
+if [[ $# -gt 2 ]]; then
+  usage
+fi
+if [[ $# -gt 0 ]]; then
+  if [[ "$1" != "--auth-mode" || $# -ne 2 ]]; then
+    usage
+  fi
+  auth_mode="$2"
+fi
+case "$auth_mode" in
+  browser-entra)
+    local_azure_cli_auth=0
+    ;;
+  azure-cli)
+    local_azure_cli_auth=1
+    ;;
+  *)
+    usage
+    ;;
+esac
+
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 runtime_env="$repo_root/.fdai/local-runtime.env"
 console_env="$repo_root/console/.env.local"
 output_env="$repo_root/.fdai/local-operator-service.env"
+auth_mode_file="$repo_root/.fdai/local-console-auth-mode"
 
 if [[ ! -f "$runtime_env" ]]; then
   echo "missing prepared local runtime environment: $runtime_env" >&2
@@ -40,11 +68,6 @@ if [[ ! "$VITE_MSAL_API_SCOPE" =~ ^api://([^/]+)/[^/]+$ ]]; then
 fi
 
 api_audience="${BASH_REMATCH[1]}"
-local_azure_cli_auth="${VITE_LOCAL_AZURE_CLI_AUTH:-0}"
-if [[ "$local_azure_cli_auth" != "0" && "$local_azure_cli_auth" != "1" ]]; then
-  echo "VITE_LOCAL_AZURE_CLI_AUTH MUST be 0 or 1" >&2
-  exit 1
-fi
 operator_database_url="$FDAI_DATABASE_URL"
 if [[ "$operator_database_url" == *\?* ]]; then
   operator_database_url+="&options=-c%20role%3Dfdai_operator"
@@ -68,9 +91,10 @@ fi
 mkdir -p "$(dirname "$output_env")"
 umask 077
 temp_env="$(mktemp "${output_env}.XXXXXX")"
-trap 'rm -f "$temp_env"' EXIT
+temp_auth_mode="$(mktemp "${auth_mode_file}.XXXXXX")"
+trap 'rm -f "$temp_env" "$temp_auth_mode"' EXIT
 
-grep -vE '^(FDAI_DATABASE_URL|FDAI_DATABASE_ROLE|FDAI_ENTRA_TENANT_ID|FDAI_API_AUDIENCE|FDAI_COST_GOVERNANCE_(AUTHENTICATED|OWNER)_REVIEW_ACCESS|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_SEMANTIC_TURN_(OUTBOX_NAMESPACE|(REQUEST|PROJECTION|PHYSICAL)_TOPIC)|FDAI_HIL_DECISION_TOPIC|FDAI_RBAC_(READERS|CONTRIBUTORS|APPROVERS|OWNERS|BREAK_GLASS)_GROUP_ID|FDAI_OPERATOR_SERVICE_(HOST|PORT|LOCAL_AZURE_NARRATOR)|FDAI_OPERATOR_API_(LOCAL_AZURE_CLI|CORS_ALLOW_ORIGINS))=' \
+grep -vE '^(FDAI_DATABASE_URL|FDAI_DATABASE_ROLE|FDAI_ENTRA_TENANT_ID|FDAI_API_AUDIENCE|FDAI_COST_GOVERNANCE_(AUTHENTICATED|OWNER)_REVIEW_ACCESS|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_SEMANTIC_TURN_(OUTBOX_NAMESPACE|(REQUEST|PROJECTION|PHYSICAL)_TOPIC)|FDAI_HIL_DECISION_TOPIC|FDAI_RBAC_(READERS|CONTRIBUTORS|APPROVERS|OWNERS|BREAK_GLASS)_GROUP_ID|FDAI_OPERATOR_SERVICE_(HOST|PORT|LOCAL_AZURE_NARRATOR)|FDAI_OPERATOR_API_(LOCAL_AZURE_CLI|LOCAL_AZURE_CLI_CONFIRM|CORS_ALLOW_ORIGINS))=' \
   "$runtime_env" > "$temp_env" || true
 {
   printf 'FDAI_DATABASE_URL=%s\n' "$operator_database_url"
@@ -87,6 +111,7 @@ grep -vE '^(FDAI_DATABASE_URL|FDAI_DATABASE_ROLE|FDAI_ENTRA_TENANT_ID|FDAI_API_A
   printf 'FDAI_OPERATOR_SERVICE_HOST=127.0.0.1\n'
   printf 'FDAI_OPERATOR_SERVICE_PORT=8010\n'
   printf 'FDAI_OPERATOR_API_LOCAL_AZURE_CLI=%s\n' "$local_azure_cli_auth"
+  printf 'FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=%s\n' "$local_azure_cli_auth"
   printf 'FDAI_COST_GOVERNANCE_AUTHENTICATED_REVIEW_ACCESS=1\n'
   if [[ -n "$semantic_request_topic" && -n "$semantic_projection_topic" ]]; then
     printf 'FDAI_KAFKA_BOOTSTRAP_SERVERS=%s\n' "$semantic_bootstrap"
@@ -102,6 +127,8 @@ grep -vE '^(FDAI_DATABASE_URL|FDAI_DATABASE_ROLE|FDAI_ENTRA_TENANT_ID|FDAI_API_A
   printf 'FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS=http://localhost:5273,http://127.0.0.1:5273\n'
 } >> "$temp_env"
 
+printf '%s\n' "$auth_mode" > "$temp_auth_mode"
 mv "$temp_env" "$output_env"
+mv "$temp_auth_mode" "$auth_mode_file"
 trap - EXIT
 echo "prepared local independent Operator Service environment"

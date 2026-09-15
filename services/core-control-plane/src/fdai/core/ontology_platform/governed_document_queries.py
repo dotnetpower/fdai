@@ -7,13 +7,19 @@ import json
 import math
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal, Protocol, cast
+from typing import Any, Literal, Protocol, TypedDict, cast
+from uuid import UUID
 
+from fdai_service_contracts.cloud_knowledge import Applicability, CloudSourceEvidence
 from fdai_service_contracts.ontology_query import content_digest
 
+from fdai.core.knowledge.cloud_applicability import (
+    cloud_target_from_arguments,
+    cloud_target_input_schema,
+)
 from fdai.core.ontology_platform.functions import (
     ContextualOntologyFunction,
     FunctionInvocationContext,
@@ -56,6 +62,9 @@ class GovernedDocumentExcerpt:
     content_digest: str
     score: float
     instruction_authority: Literal[False] = False
+    cloud_source: CloudSourceEvidence | None = None
+    cloud_status: str | None = None
+    applicability_verified: bool = False
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -128,7 +137,16 @@ class GovernedDocumentReader(Protocol):
         principal_groups: frozenset[str],
         purpose: str,
         limit: int,
+        target: Applicability | None = None,
+        exact_refs: tuple[str, ...] = (),
+        context_source: str | None = None,
+        conversation_ref: str | None = None,
+        document_context_digest: str | None = None,
     ) -> GovernedDocumentCollection: ...
+
+
+class _TargetKeywords(TypedDict, total=False):
+    target: Applicability
 
 
 def governed_document_function_type() -> OntologyFunctionType:
@@ -154,6 +172,16 @@ def governed_document_function_type() -> OntologyFunctionType:
                     "type": "integer",
                     "minimum": 1,
                     "maximum": GOVERNED_DOCUMENT_MAX_EXCERPTS,
+                },
+                **cloud_target_input_schema(),
+                "guidance_mode": {
+                    "type": "string",
+                    "enum": ["reference", "as_of", "current"],
+                    "description": (
+                        "Default reference is not current operational guidance. Semantic facets "
+                        "cloud_as_of require fresh matching sources; cloud_current requires a new "
+                        "source observation, never a live fetch during this query."
+                    ),
                 },
             },
         },
@@ -216,16 +244,76 @@ def governed_document_function(
         if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 8:
             raise ValueError("governed document limit MUST be in [1, 8]")
 
-        collection = await reader.search(
-            query=query,
-            principal_ref=principal_ref,
-            principal_role=invocation_context.caller_role,
-            principal_groups=frozenset(invocation_context.principal_groups),
-            purpose=invocation_context.purposes[0],
-            limit=limit,
-        )
+        target = cloud_target_from_arguments(arguments)
+        target_keywords: _TargetKeywords = {} if target is None else {"target": target}
+        guidance_mode = arguments.get("guidance_mode", "reference")
+        if guidance_mode not in {"reference", "as_of", "current"}:
+            raise ValueError("cloud guidance mode is invalid")
+        if guidance_mode == "current" or (guidance_mode == "as_of" and target is None):
+            reason = (
+                "cloud_source_observation_required"
+                if guidance_mode == "current"
+                else "cloud_applicability_required"
+            )
+            held = QueryTable(
+                rows=(
+                    QueryRow.from_values(
+                        "governed-document-summary",
+                        {
+                            "record_kind": "summary",
+                            "evidence_mode": evidence_mode,
+                            "guidance_outcome": reason,
+                            "excerpt_count": 0,
+                            "instruction_authority": False,
+                            "execution_authority": False,
+                        },
+                    ),
+                ),
+                complete=False,
+                truncation_reason=reason,
+            )
+            return cast(dict[str, object], json.loads(held.canonical_json()))
+        if invocation_context.document_refs:
+            collection = await reader.search(
+                query=query,
+                principal_ref=principal_ref,
+                principal_role=invocation_context.caller_role,
+                principal_groups=frozenset(invocation_context.principal_groups),
+                purpose=invocation_context.purposes[0],
+                limit=limit,
+                exact_refs=invocation_context.document_refs,
+                context_source=invocation_context.document_context_source,
+                conversation_ref=invocation_context.document_conversation_ref,
+                document_context_digest=invocation_context.document_context_digest,
+                **target_keywords,
+            )
+        else:
+            collection = await reader.search(
+                query=query,
+                principal_ref=principal_ref,
+                principal_role=invocation_context.caller_role,
+                principal_groups=frozenset(invocation_context.principal_groups),
+                purpose=invocation_context.purposes[0],
+                limit=limit,
+                **target_keywords,
+            )
         if len(collection.excerpts) > limit:
             raise ValueError("governed document reader exceeded the requested limit")
+        if guidance_mode == "as_of" and (
+            not collection.excerpts
+            or any(
+                excerpt.cloud_source is None
+                or excerpt.cloud_status != "fresh"
+                or not excerpt.applicability_verified
+                for excerpt in collection.excerpts
+            )
+        ):
+            collection = replace(
+                collection,
+                excerpts=(),
+                complete=False,
+                limitation="cloud_source_refresh_required",
+            )
 
         summary = QueryRow.from_values(
             "governed-document-summary",
@@ -241,6 +329,8 @@ def governed_document_function(
                 "retrieval_mode": collection.retrieval_mode,
                 "instruction_authority": False,
                 "execution_authority": False,
+                "guidance_mode": guidance_mode,
+                "guidance_outcome": collection.limitation or "as_of_reference",
             },
         )
         excerpt_rows = tuple(
@@ -252,6 +342,11 @@ def governed_document_function(
                     "document_revision": excerpt.document_revision,
                     "source_name": excerpt.source_name,
                     "source_ref": excerpt.source_ref,
+                    **(
+                        {"document_citation": _exact_document_citation(excerpt.source_ref)}
+                        if invocation_context.document_refs
+                        else {}
+                    ),
                     "locator": excerpt.locator,
                     "chunk_id": excerpt.chunk_id,
                     "text": excerpt.text,
@@ -260,6 +355,17 @@ def governed_document_function(
                     "index_generation": collection.index_generation,
                     "access_scope_digest": collection.access_scope_digest,
                     "retrieval_mode": collection.retrieval_mode,
+                    **(
+                        {
+                            "cloud_source": excerpt.cloud_source.model_dump(mode="json"),
+                            "cloud_status": excerpt.cloud_status,
+                            "current_guidance_eligible": excerpt.cloud_status == "fresh"
+                            and excerpt.applicability_verified
+                            and guidance_mode == "as_of",
+                        }
+                        if excerpt.cloud_source is not None
+                        else {}
+                    ),
                     "instruction_authority": False,
                     "execution_authority": False,
                 },
@@ -274,6 +380,28 @@ def governed_document_function(
         return cast(dict[str, object], json.loads(table.canonical_json()))
 
     return evaluate
+
+
+def _exact_document_citation(source_ref: str) -> str:
+    prefix = "document://"
+    if not source_ref.startswith(prefix):
+        raise ValueError("exact governed document source ref is invalid")
+    document_id, separator, remainder = source_ref.removeprefix(prefix).partition("/versions/")
+    version_id, fragment, locator = remainder.partition("#")
+    try:
+        parsed_document = UUID(document_id)
+        parsed_version = UUID(version_id)
+    except ValueError as exc:
+        raise ValueError("exact governed document source ref is invalid") from exc
+    if (
+        separator != "/versions/"
+        or fragment != "#"
+        or not locator
+        or str(parsed_document) != document_id
+        or str(parsed_version) != version_id
+    ):
+        raise ValueError("exact governed document source ref is invalid")
+    return f"doc:{parsed_document}:{parsed_version}"
 
 
 __all__ = [

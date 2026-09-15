@@ -66,6 +66,11 @@ output "key_vault_uri" {
   value       = module.key_vault.uri
 }
 
+output "key_vault_id" {
+  description = "Key Vault resource id for separately stateful runtime components."
+  value       = module.key_vault.id
+}
+
 output "resolved_models_sha256" {
   description = "Resolved-model artifact digest applied to the current runtime revision."
   value       = var.resolved_models_sha256
@@ -128,6 +133,57 @@ output "postgres_fqdn" {
 output "postgres_database" {
   description = "Postgres database name (pgvector-enabled)."
   value       = module.state_store.database_name
+}
+
+output "application_vnet_id" {
+  description = "Application VNet id for a separately stateful AKS runtime."
+  value       = var.enable_private_networking ? module.network[0].vnet_id : null
+}
+
+output "aks_subnet_id" {
+  description = "AKS node subnet id, or null unless the private AKS runtime is selected."
+  value       = var.enable_private_networking && var.compute_kind == "aks" ? module.network[0].aks_subnet_id : null
+}
+
+output "container_registry_id" {
+  description = "Container Registry resource id for runtime-specific pull authorization."
+  value       = module.container_registry.id
+}
+
+output "runtime_identity_bindings" {
+  description = "Workload identities consumed by a separately stateful runtime renderer."
+  value = {
+    core = {
+      resource_id  = module.identity.resource_id
+      client_id    = module.identity.client_id
+      principal_id = module.identity.principal_id
+    }
+    operator = var.enable_operator_api ? {
+      resource_id  = module.operator_api_identity[0].resource_id
+      client_id    = module.operator_api_identity[0].client_id
+      principal_id = module.operator_api_identity[0].principal_id
+    } : null
+    command = var.enable_operator_api ? {
+      resource_id  = module.command_api_identity[0].resource_id
+      client_id    = module.command_api_identity[0].client_id
+      principal_id = module.command_api_identity[0].principal_id
+    } : null
+    executor = var.enable_isolated_executor ? {
+      resource_id  = module.isolated_executor_identity[0].resource_id
+      client_id    = module.isolated_executor_identity[0].client_id
+      principal_id = module.isolated_executor_identity[0].principal_id
+    } : null
+    inventory = {
+      resource_id  = module.inventory_identity.resource_id
+      client_id    = module.inventory_identity.client_id
+      principal_id = module.inventory_identity.principal_id
+    }
+    canary = {
+      resource_id  = module.canary_identity.resource_id
+      client_id    = module.canary_identity.client_id
+      principal_id = module.canary_identity.principal_id
+    }
+  }
 }
 
 output "container_app_environment_id" {
@@ -200,7 +256,7 @@ output "contributor_core_service_tfvars" {
     }
     runtime_env = var.env
     llm = {
-      endpoint                   = module.llm_azure_openai[0].endpoint
+      endpoint                   = local.primary_llm_endpoint
       model_endpoints            = local.llm_model_endpoints
       web_search_enabled         = false
       web_search_allowed_domains = []
@@ -377,14 +433,14 @@ output "identity_finops_principal_id" {
 }
 
 # ---------------------------------------------------------------------------
-# LLM (Azure OpenAI) - present only when `enable_llm = true`.
+# LLM (Azure OpenAI) - present only when a resolved OpenAI capability exists.
 # One-of null-coalesce lets composition roots read the values without a
 # conditional in every call site: an empty deployments map means "no LLM
 # provisioned in this env".
 # ---------------------------------------------------------------------------
 
 output "llm_endpoint" {
-  description = "AOAI account endpoint (custom-subdomain URL). Empty string when enable_llm=false."
+  description = "AOAI account endpoint (custom-subdomain URL). Empty when no OpenAI capability resolved."
   value       = length(module.llm_azure_openai) > 0 ? module.llm_azure_openai[0].endpoint : ""
 }
 
@@ -394,12 +450,12 @@ output "llm_model_endpoints" {
 }
 
 output "llm_resource_id" {
-  description = "Cognitive Services account ARM id. Empty string when enable_llm=false."
+  description = "Azure OpenAI account ARM id. Empty when no OpenAI capability resolved."
   value       = length(module.llm_azure_openai) > 0 ? module.llm_azure_openai[0].resource_id : ""
 }
 
 output "llm_deployments" {
-  description = "Map of capability name -> deployment name. Empty map when enable_llm=false."
+  description = "Map of OpenAI capability name -> deployment name. Empty when none resolved."
   value       = length(module.llm_azure_openai) > 0 ? module.llm_azure_openai[0].deployments : {}
 }
 
@@ -639,11 +695,13 @@ locals {
         role_name = azurerm_role_assignment.ingestion_document_data[0].role_definition_name
         scope     = azurerm_role_assignment.ingestion_document_data[0].scope
       },
+    ],
+    local.openai_enabled ? [
       {
         role_name = "Cognitive Services OpenAI User"
         scope     = module.llm_azure_openai[0].resource_id
       },
-    ],
+    ] : [],
     var.ingestion_cohost_worker ? [
       {
         role_name = azurerm_role_assignment.ingestion_eventhubs_receiver[0].role_definition_name
@@ -688,11 +746,13 @@ locals {
         role_name = azurerm_role_assignment.ingestion_worker_document_data[0].role_definition_name
         scope     = azurerm_role_assignment.ingestion_worker_document_data[0].scope
       },
+    ],
+    local.openai_enabled ? [
       {
         role_name = "Cognitive Services OpenAI User"
         scope     = module.llm_azure_openai[0].resource_id
       },
-    ],
+    ] : [],
     local.document_ocr_binding_enabled ? [
       {
         role_name = azurerm_role_assignment.ingestion_ocr_user[0].role_definition_name

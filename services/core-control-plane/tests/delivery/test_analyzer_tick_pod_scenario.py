@@ -441,7 +441,7 @@ def test_unbound_pod_evidence_reports_unsupported_targets_instead_of_a_verdict(
 ) -> None:
     monkeypatch.delenv(cli.POD_EVIDENCE_JSON_ENV)
 
-    assert cli.main([]) == 0
+    assert cli.main([]) == 1
 
     report = _reports(capsys.readouterr().out)[-1]
     assert report["published"] == 0

@@ -1204,3 +1204,64 @@ six editor-preserved EOF corrections used the specifically scoped formatter afte
 autonomous continuation response, and all six before/after AST hashes matched. The full repository
 suite was not run; exact pushed-SHA CI remains required for protected merge. The evidence counts
 above overlap and are never added into one full-product total.
+
+### Main integration and delivery checkpoint
+
+The local source commit `3425765713cb8c486ea31fe9a1cedf71f693a7d3` passed the normal
+commit hooks. Before publication, the task integrated protected-main revision
+`ad8e3a83d64e2eaf845f4800175536404a3906e8`, which contained 33 newer commits.
+Both parents' implementation-history rows were retained. Generated System Knowledge content
+was rebuilt from the merged sources, not hand-merged. No primary-checkout source or service changed.
+
+Two integration defects were reproduced and corrected:
+
+- The unpublished Operator assignment migration and the newer conversation-document migration
+  shared a parent, producing two heads. Only the unpublished assignment migration was linked
+  after the existing main head, with matching literal rollback metadata. The complete owning
+  migration inventory then passed 71 checks; no published migration was rewritten.
+- The membership adapter labeled a direct SQL audit as a Thor-authenticated bus publication.
+  The new regression failed because `owner_agent` was absent. The producer now preserves
+  `actor=fdai_executor_service.effect_executor`, records `owner_agent=Thor`, and does not invent
+  `producer_principal`. The actual writer allowlist, action identity, and idempotency are unchanged.
+
+Main's typed pending/unknown/no-effect results and extracted HIL result module remain authoritative.
+The merge retains the human-access owned-route hold, current source guard inside the shared lock,
+and original pending command reference. Independent observation and closure, not publication,
+still determine an effect. The merged Operator inventory has 204 routes, including the handover
+readiness and scoped-duty surfaces, as the actual full-composition test verifies.
+
+#### Final merge-specific integrated critique
+
+These ten questions were reviewed after the remaining integration corrections. They supplement,
+rather than replace or recount, EX-01 through EX-20 and FI-01 through FI-12. Unchanged source and
+test inputs reuse their recorded evidence; rerunning a command is not a new critique round.
+
+| Round | Distinct integration question | Evidence and outcome |
+|-------|-------------------------------|----------------------|
+| MI-01 | Does the audit retain mechanical identity without inventing an authenticated publisher? | The failing producer regression now passes and checks `actor`, `owner_agent`, and absence of `producer_principal`; the real Executor writer remains unchanged. |
+| MI-02 | Can the union of both migration branches reach one valid service head? | The six reproduced inventory failures resolve after reparenting only the unpublished assignment revision; all 71 owning inventory checks pass. Core/worker dependencies and both parents' owned tables remain present. |
+| MI-03 | Did main integration rewrite original Action, case, or approval material? | Post-correction actual SQL/fixed-agent forward and inverse tests preserve the original Action and fresh inverse quorum. Source identity and approved `expected_revision` are not changed by merge-result or audit attribution fields. |
+| MI-04 | Can the new execution-result classification bypass the pre-publication source guard? | The merged wrapper calls the current source guard between existing lock-ownership guards and returns canonical `AWAITING_EFFECT_EVIDENCE` with the original command reference. Runtime and receipt-journal owning tests pass; no pending result is effect success. |
+| MI-05 | Did HIL result extraction restore legacy dispatch for a human-access park? | `OWNED_ROUTE_HELD` lives in main's extracted result module, and the coordinator still refuses the separately owned route before legacy resolution. Existing main reconciliation outcomes and catalog-only Rule resolution remain intact. |
+| MI-06 | Can a terminal provider receipt clear the target fence or activate a case by itself? | Actual Core/Executor SQL recovery and fixed-agent tests run the independent Heimdall observation plus original atomic closure after the audit correction. A receipt or command acknowledgement alone remains insufficient. |
+| MI-07 | Did inverse recovery gain old approval, unowned pre-state, or a new target generation? | Post-correction isolated tests plus actual SQL inverse retain fresh human decisions, owned mutation proof, current demand, exact original generation, and degraded/supersedable case state. |
+| MI-08 | Did normalized-only upstream document packages broaden handover access or activation? | The merged 88-test SQL/semantic/retention selection passes. The audit-only correction does not change those source inputs: exact admitted envelopes feed inert packages, Mimir reviews independently, and unknown legal hold never permits erasure. |
+| MI-09 | Does merged authentication or the newer shell expose prior-account controls or false approval? | Source TypeScript and 117 focused Console tests pass. Nine actual-route Playwright tests pass on the merged shell, including account fencing, Reader denial, uncertain retries, independent review, six slots, upload boundaries, and measured responsive/contrast states. |
+| MI-10 | Are source completion, preserved history, generated commitments, and operational gaps still distinct? | Both parents' append-only histories pass (56 and 17 changed owners); the actual main-relative size gate passes 34 changed documents and translation parity passes 17 pairs. The canonical catalog contains 14 records. Publication/CI is tracked separately by #946; full UI/assistive and #458 operational evidence remain open. |
+
+The merged owning execution/HIL/Operator/migration selection initially reported 136 passing
+tests and six migration-head failures; the later 71-test inventory result resolves those failures.
+The subsequent SQL/semantic/retention selection passed 88. After the audit correction, the
+isolated membership plus actual SQL recovery/fixed-agent selection passed 26. These overlap and
+are not summed. Strict typing passed the three merged execution/HIL modules; 14 layout/Pantheon
+document checks and relevant Ruff/format checks passed. The final nine-test browser run was
+synthetic and isolated, not a live API, Browser Entra, or provider validation. Its desktop and
+Korean narrow screenshots were reviewed; full accessibility certification remains unmeasured.
+
+Eight semantically reviewed conflict translations were refreshed with the canonical SHA tool.
+The canonical catalog rebuild produced 14 records with digest
+`sha256:55239549f224e46a03f382a2092e9652ed7f09b30d0313729e999c7781a7a209`.
+The topic-parent size comparison initially classified a main-owned 402-line new document as
+task-new. The correct delivery-base comparison passes without modifying that unrelated document
+or weakening the gate. Normal integration hooks and exact pushed-SHA protection remain the
+delivery boundary; their final commit, PR, and merge evidence belongs to #946.

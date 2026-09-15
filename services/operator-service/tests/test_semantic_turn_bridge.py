@@ -78,6 +78,8 @@ from fdai_service_contracts import (
     OperationalEvidenceProjection,
     RuleSearchProjection,
     RuleSearchReceipt,
+    SemanticDocumentContext,
+    SemanticDocumentContextSource,
     SemanticInvestigationContinuation,
     SemanticQueryProgress,
     SemanticTurnRequest,
@@ -85,6 +87,7 @@ from fdai_service_contracts import (
     context_selection_digest,
     query_content_digest,
     rule_search_query_digest,
+    semantic_document_context_digest,
 )
 from fdai_service_contracts.ontology_query import QueryNodeKind, content_digest
 from pydantic import ValidationError
@@ -121,6 +124,32 @@ def _proposal(*, body: JsonObject | None = None) -> ConversationProposal:
     )
 
 
+def _channel_document_context(
+    *,
+    principal_ref: str = "operator-1",
+    conversation_ref: str = "conversation-example",
+) -> SemanticDocumentContext:
+    material: dict[str, object] = {
+        "schema_version": "1.0.0",
+        "source": SemanticDocumentContextSource.CHANNEL_ATTACHMENT,
+        "principal_ref": principal_ref,
+        "conversation_ref": conversation_ref,
+        "citations": (
+            "doc:00000000-0000-0000-0000-000000000001:00000000-0000-0000-0000-000000000002",
+        ),
+        "authorization_digest": f"sha256:{'a' * 64}",
+        "receipt_digests": (f"sha256:{'b' * 64}",),
+        "execution_authority": False,
+    }
+    provisional = SemanticDocumentContext.model_construct(
+        **material,
+        context_digest=f"sha256:{'0' * 64}",
+    )
+    return SemanticDocumentContext.model_validate(
+        {**material, "context_digest": semantic_document_context_digest(provisional)}
+    )
+
+
 def _investigation_continuation() -> dict[str, object]:
     return {
         "schema_version": "1.0.0",
@@ -140,6 +169,18 @@ def _investigation_continuation() -> dict[str, object]:
         "source_execution_receipt_digest": f"sha256:{'e' * 64}",
         "execution_authority": False,
     }
+
+
+@pytest.mark.parametrize("field", ["attachments", "images", "image_ids"])
+def test_semantic_envelope_rejects_images_instead_of_discarding_evidence(field: str) -> None:
+    with pytest.raises(ConversationBoundaryError) as raised:
+        SemanticTurnEnvelopeBuilder().build(
+            _proposal(body={"prompt": "Describe the supplied image.", field: ["image-example"]})
+        )
+
+    assert raised.value.status_code == 501
+    assert raised.value.code == "inline_images_unavailable"
+    assert "image-example" not in raised.value.message
 
 
 @pytest.mark.parametrize("target_agent", ["Bragi", "Mimir", "Njord"])
@@ -252,6 +293,49 @@ def test_semantic_envelope_preserves_conversation_model_tier(tier: str) -> None:
     assert envelope["schema_version"] == "1.7.0"
     assert semantic["conversation_model_tier"] == tier
     assert semantic["execution_authority"] is False
+
+
+def test_semantic_envelope_uses_1_8_for_exact_document_context() -> None:
+    context = _channel_document_context()
+    envelope = SemanticTurnEnvelopeBuilder().build(
+        _proposal(
+            body={
+                "prompt": "Summarize the attached evidence.",
+                "conversation_id": "conversation-example",
+                "document_context": context.model_dump(mode="json"),
+            }
+        )
+    )
+
+    assert envelope["schema_version"] == "1.8.0"
+    semantic_turn = envelope["semantic_turn"]
+    assert isinstance(semantic_turn, dict)
+    assert semantic_turn["document_context"] == context.model_dump(mode="json")
+
+
+@pytest.mark.parametrize(
+    ("principal_ref", "conversation_ref"),
+    (("another-principal", "conversation-example"), ("operator-1", "another-session")),
+)
+def test_semantic_envelope_rejects_cross_scope_document_context(
+    principal_ref: str,
+    conversation_ref: str,
+) -> None:
+    context = _channel_document_context(
+        principal_ref=principal_ref,
+        conversation_ref=conversation_ref,
+    )
+
+    with pytest.raises(ValidationError, match="match request principal and session"):
+        SemanticTurnEnvelopeBuilder().build(
+            _proposal(
+                body={
+                    "prompt": "Summarize the attached evidence.",
+                    "conversation_id": "conversation-example",
+                    "document_context": context.model_dump(mode="json"),
+                }
+            )
+        )
 
 
 def test_semantic_envelope_rejects_unknown_conversation_model_tier() -> None:
@@ -592,7 +676,7 @@ def test_context_selection_token_is_bound_to_principal_role_and_purpose() -> Non
     )
 
 
-def test_semantic_envelope_omits_unbound_or_unsupported_conversation_context() -> None:
+def test_semantic_envelope_omits_unsupported_conversation_context() -> None:
     build = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build
 
     unsupported = cast(
@@ -601,17 +685,45 @@ def test_semantic_envelope_omits_unbound_or_unsupported_conversation_context() -
             _proposal(body={"prompt": "Show evidence.", "conversation_context": {"kind": "action"}})
         )["semantic_turn"],
     )
-    identityless = cast(
-        dict[str, object],
-        build(
-            _proposal(
-                body={"prompt": "Show evidence.", "conversation_context": {"kind": "incident"}}
-            )
-        )["semantic_turn"],
-    )
 
     assert "bound_context" not in unsupported
-    assert "bound_context" not in identityless
+
+
+@pytest.mark.parametrize(
+    "conversation_context",
+    (
+        {"kind": "incident"},
+        {"kind": "incident", "incident_id": "incident-42"},
+        {"kind": "incident", "correlation_id": "correlation-7"},
+        {
+            "kind": "incident",
+            "incident_id": 42,
+            "correlation_id": "correlation-7",
+        },
+        {
+            "kind": "incident",
+            "incident_id": "incident-42",
+            "correlation_id": 7,
+        },
+    ),
+)
+def test_semantic_envelope_rejects_partial_incident_context(
+    conversation_context: dict[str, object],
+) -> None:
+    build = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build
+
+    with pytest.raises(
+        ValueError,
+        match="incident conversation_context requires incident_id and correlation_id",
+    ):
+        build(
+            _proposal(
+                body={
+                    "prompt": "Show evidence.",
+                    "conversation_context": conversation_context,
+                }
+            )
+        )
 
 
 class _MemorySemanticStore:

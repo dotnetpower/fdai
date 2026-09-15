@@ -50,6 +50,11 @@ class DocumentEvidenceError(ValueError):
 
 
 def summarize_evidence(payload: Mapping[str, object]) -> dict[str, object]:
+    """Summarize declared corpus observations using finite, JSON-safe baseline metrics.
+
+    Invalid or unrepresentable numeric evidence raises ``DocumentEvidenceError`` before a
+    report is returned. Shape validation does not authenticate a supplied runtime receipt.
+    """
     _reject_content_fields(payload)
     if payload.get("schema_version") != "1.0.0":
         raise DocumentEvidenceError("schema_version MUST be 1.0.0")
@@ -121,6 +126,9 @@ def summarize_evidence(payload: Mapping[str, object]) -> dict[str, object]:
         }
         for stage, values in sorted(by_stage.items())
     }
+    throughput = len(successful_documents) / window_seconds
+    if not math.isfinite(throughput):
+        raise DocumentEvidenceError("throughput MUST remain finite for the supplied window")
     return {
         "schema_version": "1.0.0",
         "revision": revision,
@@ -131,7 +139,7 @@ def summarize_evidence(payload: Mapping[str, object]) -> dict[str, object]:
             "p50_ms": _nearest_rank(queue_delays, 0.50),
             "p95_ms": _nearest_rank(queue_delays, 0.95),
         },
-        "throughput_documents_per_second": len(successful_documents) / window_seconds,
+        "throughput_documents_per_second": throughput,
         "storage_growth_bytes": max(storage_values) - min(storage_values),
         "failure_rate": failures / len(observations),
     }
@@ -161,7 +169,10 @@ def _nonnegative_number(payload: Mapping[str, object], key: str) -> float:
     value = payload.get(key)
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise DocumentEvidenceError(f"{key} MUST be numeric")
-    number = float(value)
+    try:
+        number = float(value)
+    except OverflowError as exc:
+        raise DocumentEvidenceError(f"{key} MUST be finite and non-negative") from exc
     if not math.isfinite(number) or number < 0:
         raise DocumentEvidenceError(f"{key} MUST be finite and non-negative")
     return number
@@ -198,7 +209,7 @@ def main() -> int:
         summary = summarize_evidence(raw)
     except (OSError, json.JSONDecodeError, DocumentEvidenceError) as exc:
         _fail(f"document evidence validation failed: {exc}")
-    rendered = json.dumps(summary, indent=2, sort_keys=True) + "\n"
+    rendered = json.dumps(summary, indent=2, sort_keys=True, allow_nan=False) + "\n"
     if args.output is None:
         print(rendered, end="")
     else:

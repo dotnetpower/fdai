@@ -2,7 +2,7 @@
 title: Console Evidence and Resilience
 ---
 # Console Evidence and Resilience
-This document owns the operator console contracts for evidence provenance, localization, stream recovery, durable replay, and Architecture-map resilience. The conversational tool and RBAC contract remains in [operator-console.md](operator-console.md).
+This document owns the operator console contracts for evidence provenance, localization, stream recovery, durable replay, and Architecture-map resilience. The conversational tool and RBAC contract remains in [operator-console.md](operator-console.md). The Knowledge overview exposes [cloud-reference lifecycle](cloud-resource-knowledge-lifecycle.md) dates, weakest source freshness, exact-byte package review, and confirmed rollback requests. Import and pending index verification never appear as searchable activation; source URLs remain inert and expired policy disables writes without hiding history. Its case-insensitive JSON filename check validates file format only, never conversational intent.
 ## Navigation context
 Selecting an Activity Bar domain opens its Explorer and navigates to the first visible panel under the operator's local order and visibility preferences. This navigation remains active when the Command Deck is closed or floating; a full-workspace Deck closes before the route changes. Browser evidence that opens the current-screen Deck begins from an ordinary panel such as Overview. Settings owns a modal overlay and is not a valid hidden launcher context.
 The Activity Bar conversation control opens or resumes general chat without changing the route or Explorer. Its pressed state tracks general chat only. The bottom launcher and `Ctrl+K` or `/` select a separate current-screen conversation. General chat defaults to the workspace; screen chat defaults to the right dock. The rail tooltip opens to the right and the bottom tooltip above, on hover or keyboard focus, and each names its context and actual open/close action. The [conversation lifecycle](operator-console-progressive-conversations.md#command-deck-workspace-lifecycle) owns draft preservation and explicit screen attachments.
@@ -60,12 +60,7 @@ Integrations also renders the incident-open email through a sandboxed iframe. Th
 preview endpoint calls the same production renderer used by Azure Communication Services Email and
 supplies only synthetic placeholders. The preview exposes no runtime incident, endpoint, recipient,
 or identity value and provides no send, approval, or execution control.
-Operations includes a Detection readiness route backed only by Muninn's durable StateSnapshots.
-It shows Heimdall's decision, the six evidence dimensions, gaps, authority ceiling, source, and
-observation time. The browser does not probe AKS or derive a replacement decision. Each target
-links to its Architecture resource, and promotion-related counts link to Promotion gates. A
-successful HTTP response for this route or Capabilities that fails strict decoding renders an error
-instead of remaining in the loading skeleton or treating an unknown autonomy mode as enforcement.
+Operations exposes `Detection coverage` at `/detection-coverage` and keeps `/detection-readiness` as a compatibility alias. The route separates the newest attempt, latest successful run, retained findings, and optional exact-resource Kubernetes evidence. Filters and selection are URL-backed, canonical reasons remain in technical detail, and the browser never probes resources or derives health, readiness, coverage, or authority from a successful response.
 With a server-pinned drift context, the GET-only Configuration baselines route fresh-reads identity, lifecycle, drift, Knowledge citation, topology, latency, scheduled-review, and four safety counters.
 It reports absent binding or campaign as unavailable or `not-configured`, never invents progress, strictly rejects malformed data, and compares immutable in-scope versions with failed-attempt counts. The SPA exposes no activation, resume, schedule creation, approval, mitigation, or resource mutation; evidence-run, resume, blueprint review, and materialization use separate authenticated routes.
 Production exposes the panel only after its mounted JSON/DOCX pair, read-only Managed Identity, and exact resource-group allowlist validate at startup. The Operator API never receives executor identity.
@@ -121,7 +116,7 @@ only confirms that displayed content changed; status, freshness, severity, and o
 their labeled content-local cues.
 The console card contract test checks shared KPI destinations, rejects nested whole-card links,
 requires nullable KPI values to declare an evidence state, requires raw data cards to expose a link
-or explicit detail control, and blocks structural card names.
+or explicit detail control, and blocks structural card names. Detection coverage reasons and Trace correlation, stage, and timestamp details use the shared tooltip on pointer or keyboard focus; native `title` attributes remain reserved for embedded frames. Loading and unavailable coverage cards retain their owner links, while Impact Scope uses a responsive single-column mobile form, labeled evidence graph, and 44 px mobile controls without changing its read-only authority. Relationship legend swatches use color and line pattern inside the key instead of a thick colored content-surface edge.
 
 Operating Outcomes publishes its metric, value, baseline, window, sample size, confidence and
 provenance as a bounded Command Deck snapshot. Only Auto-resolution includes vertical breakdowns.
@@ -386,7 +381,7 @@ Read-source provenance, ontology browse, cross-screen operational, and inventory
 rendered deterministically from typed evidence. Ontology browse requires a target and browse verb,
 forwards only allowlisted identity fields with prompt values up to 256 characters, and renders
 duplicate or malformed counts and selections unavailable. Ontology projection and its deterministic
-browse answer stay in their own prompt module, separate from general prompt assembly. Ontology Instances carries active-generation provider type coverage separately from Resource state and relationship coverage; the browser validates reconciled counts and shows bounded unknown type names without raw object identities or properties. Promotion Gates displays server-joined durable mode and its catalog-default or registry source; browser values cannot author either field. Valid mode fields do not bypass malformed missing-evidence list rejection; decoder regression fixtures must exercise both checks independently. Dashboard v2 restarts its complete bounded page traversal only for typed inventory or ontology generation transitions, discards partial pages, shares the original deadline across two delayed retries, and keeps persistent mismatch visible instead of mixing generations or returning an empty inventory. The Architecture map assigns every canonical ResourceType an explicit layer, color token, and abbreviation; only unknown future types use its generic fallback.
+browse answer stay in their own prompt module, separate from general prompt assembly. Ontology Instances carries active-generation provider type coverage separately from Resource state and relationship coverage; the browser validates reconciled counts and shows bounded unknown type names without raw object identities or properties. Promotion Gates displays server-joined durable mode and its catalog-default or registry source; browser values cannot author either field. Valid mode fields do not bypass malformed missing-evidence list rejection; decoder regression fixtures must exercise both checks independently. Dashboard v2 restarts its complete bounded page traversal only for typed inventory or ontology generation transitions, discards partial pages, shares the original deadline across two delayed retries, and keeps persistent mismatch visible instead of mixing generations or returning an empty inventory. The Architecture map assigns every canonical ResourceType an explicit layer, color token, and abbreviation; only unknown future types use its generic fallback. Correlation Trace preserves server-projected action id, attempt, execution path, and outcome; exact event-name boundaries classify proposal, decision, approval, dispatch, observation, and recovery per attempt without introducing a natural-language router, while missing evidence remains not recorded, proven no-effect renders as not attempted, and absence never implies success.
 The Reader-gated `/ontology/graph` projection contains one exact catalog release with a schema
 version, projection revision, release digest, declaration records, semantic-map profile, and
 catalog topology. It never returns deployment instance properties. Runtime objects and state facts
@@ -502,10 +497,7 @@ owned by [Operator Console Progressive Conversations](operator-console-progressi
 
 ## Stream recovery and authentication
 
-Authenticated live, agent, and provisioning SSE readers cancel after 45 seconds without bytes,
-including keepalive comments, then use bounded reconnect. Provisioning also cancels its reader when
-event delivery fails. Agent-stream `401` waits for full-screen login recovery; `403` reconnects so a
-new App Role can take effect without a page reload.
+Authenticated GET-SSE consumers share bounded parsing, inactivity, reconnect, and cursor handling. A cursor advances only after decoder acceptance; cursor-specific `400` or `416` clears it, and a validated `stream_epoch_changed` gap clears it before current snapshots resume. The epoch transition is shown as a stream restart without fabricating a dropped-frame count. Authentication, rate limiting, and rejected frames preserve cursor and backoff. Server drop advisories remain visible, but local cache eviction is not wire loss. Each consumer retains its own visibility and cross-tab policy, and request-scoped conversation streams remain separate.
 
 Command Deck investigation activity can include optional observed execution evidence. The server removes credentials and sensitive identifiers before emission and sets `redacted=true`; the browser
 drops input evidence without that attestation. `input_kind=command` requires a recorded process
@@ -568,7 +560,9 @@ detail to 4 KiB, and milestone agent identities to 64 characters.
 The Web composer sends selected, dropped, and clipboard-pasted raster images through the same bounded attachment tray and validation path. Before staging, the browser fits each raster within a 2048 px longest edge without upscaling and re-encodes it below the 4 MiB per-image ceiling. Clipboard text and HTML retain native textarea paste behavior and never become attachments.
 When a turn carries validated inline image attachments, the streaming route also emits read-only `vision_analyzing` before the narrator composes and `vision_grounded` before the answer, each with image source previews (name, media type, size) but never the base64 payload. The turn escalates to a vision-capable narrator, and the preparing-answer trace renders these stages the same way it renders web-search grounding.
 
-The interactive Live route pauses its SSE reader while the tab is hidden. The shell's incident,
+Live stage, readiness, and authority-free activity share one authenticated `/live/stream`. Snapshots do not advance the Operator-issued delta cursor, and a bounded cache serves late local subscribers without replacing independent GET projections. Agent state and retained history keep their separate routes and authority. The standard-stack Live E2E harness measures this connection budget, typed current activity, explicit retained-history read, and responsive presentation; the harness alone is not authenticated runtime validation.
+
+The interactive Live subscriber reports idle while the tab is hidden. The shell's incident,
 access-grant, and operator-enabled browser notification consumers instead use Web Locks to elect one
 principal-scoped reader per channel across same-origin tabs. Incident and access-grant leaders send
 validated snapshots to follower tabs through `BroadcastChannel`, so every shell keeps its attention
@@ -589,7 +583,7 @@ aren't work. Missing, malformed, future, or authority-bearing frames never promo
 into observed state. Each Operator API replica uses an instance-scoped consumer group so every console
 receives the complete heartbeat set. A consumer that gives up or halts leaves health-derived
 heartbeats while siblings continue; Saga or Vidar failure still forces sticky shadow. These records
-are operational activity, not duplicated action-audit evidence.
+are operational activity, not duplicated action-audit evidence. The Activity journal omits Saga audit-chain mirrors, startup audit probes, and raw observation-transition rows. Waterfall retains that audit evidence and attributes it only from an explicit Pantheon principal, `owner_agent`, known actor, or fixed legacy action owner; an unknown mechanical producer is never assigned by guess. Agent Activity owns per-agent audit and handoff order. Its route-backed Roles and ownership dialog contains only the fixed reporting tree, role ownership, authority boundaries, and supporting current state, preserves underlying filters when closed, and shares the same role-only component as `/pantheon`; neither surface duplicates Incident chronology or conversation evidence.
 
 The Command Deck rejects a complete or pending SSE frame above 256 KiB before accumulating `data:`
 lines or parsing JSON, then uses the deterministic interrupted-stream fallback. Correlation-filtered
@@ -604,70 +598,54 @@ After that schedule is exhausted, the surface offers access-check retry and sign
 
 ## Architecture-map resilience
 
-The Architecture route keeps only scope selection in the compact panel that floats over the map's upper-right corner. It omits inventory counts, explanatory copy, and layer filters. Before a resource is selected, Map mode renders no resources, relationships, map controls, legend, or relationship index; the resource selector, scope selector, presentation-mode control, and centered selection prompt remain available. Selecting a resource reveals the bounded map and its inspection controls. A truncated graph uses one short status badge. The resource-color legend is drawn directly on the world floor beside the subscription boundary, not in a floating or bottom panel. Camera fitting reserves floor space for it. Resource type names are written directly on that floor without a fixed legend box, title, or color swatches. The names move with pan and scale with map zoom inside bounded readable sizes.
-Resource glyphs use the Microsoft Cloud Adoption Framework [Azure resource abbreviations](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations). Every known canonical type has an explicit lowercase abbreviation; Kubernetes API types use the runtime layer, AKS color family, and stable extensions instead of generated initialisms. A focused check walks the catalog vocabulary and fails when a declared ResourceClass has no layer, colour, and abbreviation, because the map would otherwise keep drawing while silently collapsing that type into the generic fallback. The `llm-model-deployment` child uses the runtime layer, the existing Azure application-service color family, and the stable `model` abbreviation, while its parent remains `llm-endpoint`.
-The relationship legend remains the compact canvas control. The default isometric map starts with Reflections and Connections enabled. It shows containment as subtle dashed links, shows attachment and dependency links with their directional styles, and renders each resource shape; top and front views are optional. Simple projections size every resource-group panel, including a single selected scope, from its observed child count and pack those panels into a balanced world. Focused service and resource-group views fit that repacked content instead of the full subscription frame. A resource node never renders smaller than the standard Event Grid topic block. The world and canvas grow with inventory while authored nested layouts keep their supplied geometry. The map uses the full workspace width and places inspection details below it. Narrow viewports preserve node size and use map panning instead of shrinking boxes into unreadable marks. Selection updates the canonical deep link without reloading inventory and exposes directional relationships before technical identifiers. Selection preserves every common resource coordinate while auxiliary neighbors appear. It does not dim unrelated resources; selection uses the chosen outline and inspection details only. Every resource selection preserves the current camera scale and position, including virtual machines. Zoom, fit, pan, and camera-view controls remain explicit operator actions.
+The Architecture route uses one graph-first workbench modeled on the Ontology Instances
+presentation. Its top toolbar contains only registered scope selection, bounded Resource search,
+the `Topology | Network` lens, and a compact read-only source state. Scope selection reloads the
+authoritative projection. Resource search selects only a record already returned by that
+projection and never presents a bounded page as a complete tenant search.
 
-The separate `Network` mode keeps the complete inventory response authoritative and replaces the isometric presentation with a bounded 2D focus. It chooses the selected VNet, or the observed VNet with the most contained subnets when no resource is selected. VNet and subnet rectangles are rebuilt from typed `contains` links, and resource placement uses only the bounded unique-subnet attachment rule below. Six category filters, selection, and path highlighting change presentation only.
+Topology is visible before selection. The deterministic presentation collapses provider helpers
+while keeping every returned count in a separate coverage strip. The strip distinguishes displayed
+and returned Resources and relationships, snapshot time, freshness, and complete or partial
+coverage. Selecting a Resource preserves common coordinates, reveals direct auxiliary neighbors,
+updates the canonical deep link, and opens a nonmodal Inspector without changing inventory.
 
-A source-to-destination query walks only reported `attached_to`, stored-direction `depends_on`, and symmetric `peered_with` relationships. It returns `no_observed_path` only when the graph is fresh, not truncated, and declares complete coverage for all three relationship kinds. Every other negative result is `unknown`. The identifier-free export keeps snapshot time, freshness, completeness, and resource-type labels while omitting names, raw provider ids, subscription ids, endpoints, and credentials. SVG and PNG use the same sanitized SVG source.
+The workbench uses one accessible orthographic SVG for Topology, Network, and the Impact scope map.
+Subscription, Resource Group, VNet, and Subnet records render as nested neutral boundaries.
+Resources use reviewed official icons where available and stable Cloud Adoption Framework
+abbreviations otherwise. Compact text, accessible names, search, and Inspector content preserve
+name, type, and state without relying on color. Typed edges terminate on current node or boundary
+geometry. Containment remains spatial; `attached_to`, `depends_on`, and `peered_with` retain
+distinct paths, endpoint dots, and direction markers.
 
-The factual counts and inspection index continue to use the complete authoritative inventory. The
-isometric overview applies a presentation-only projection that keeps network interfaces and managed
-disks visible while collapsing diagnostics, certificates, and provider helper resources.
-Each visible owner shows a `+N` badge for its collapsed neighbors. Selecting a resource reveals its
-direct auxiliary children and semantic neighbors without requesting or inventing new inventory.
-The overview packs only visible resources, orders children by layer and type, reserves up to two
-satellite slots beside a collapsed owner, and places larger resource-group panels first in wide
-rows. Hidden auxiliaries therefore do not create empty grid holes or inflate the world.
-Virtual networks and subnets render as low floor lanes so compute, data, and gateway nodes remain
-readable above the network plane; floor lanes do not render reflections. Azure inventory promotes
-only subnets observed inside a VNet payload into `network.subnet` records and emits the observed
-VNet-to-subnet containment edge. The console assigns a resource to a subnet only when registered
-`attached_to` links reach one unique subnet within the bounded resource-to-interface-to-subnet
-chain, or a disk reaches it through the bounded disk-to-workload-to-interface-to-subnet chain.
-Missing or ambiguous membership leaves the resource on the neutral resource-group floor;
-names and provider identifiers never become topology evidence.
+The right Inspector is collapsible and stays in the same workbench. Overview owns the selected
+state and impact-scope drill-down. Links owns exact incoming and outgoing direct relationships.
+Path owns Network source and destination, evidence result, filters, and sanitized export. Sources
+owns snapshot, freshness, displayed and returned counts, completeness, reported relationship
+types, and technical identifiers. At constrained widths the Inspector moves below the graph
+without discarding selection, tab, scale, or path state.
 
-The isometric renderer draws a VNet as an outer floor and its subnets as inset floor planes sized
-from their visible members. Evidence-derived membership rails and direct `attached_to` links stay
-on the floor, while `depends_on` arrows remain above resource tops. Plane names follow the world
-axis without a floating label card. Selecting a plane uses the same resource inspector and the
-smallest containing plane remains the pointer target. A focused service or resource-group view
-uses a wide packing target so three network floors share one row when they fit. It also uses a
-smaller desktop legend reserve and canvas height than the complete inventory view. Narrow
-viewports keep the same node size, cap the canvas at 520 px, and expose the wider floor through
-panning.
+The Network lens keeps the complete `InventoryGraphResponse` authoritative. With **Scope
+overview** selected, it presents every returned VNet and bounded Resource; selecting a Resource
+derives one bounded presentation focus and records that selection in route state. Path tracing
+walks only reported `attached_to`, stored-direction `depends_on`, and symmetric `peered_with`
+relationships. It returns `no_observed_path` only for fresh, complete relationship coverage; every
+incomplete negative result stays `unknown`. Filters and highlighting change only presentation.
+SVG and PNG exports retain sanitized provenance and omit names, raw provider ids, subscription
+ids, endpoints, and credentials.
 
-Within a subnet, visible path participants form observed `attached_to` components and stay contiguous from network edge to storage: public IP and security, interface, workload, then disk and data. This is layout order, not inferred traffic direction. Each component uses a depth lane; overlapping intra-subnet edges share a floor spine, and only cross-plane attachments keep a direct route. Workloads render larger than supporting resources. Glyphs replace secondary labels at dense overview scales; selection and focused views restore full resource names, types, and the ordinary subnet label policy.
-Perspective scales projected points within bounded depth limits so near resources read larger than
-far resources while picking and containment use the same projection. Zoom supports deep inspection
-up to 512x scale, zooms around the pointer, and lets content-driven worlds grow without a fixed
-canvas-height ceiling. The default isometric camera uses a low oblique angle so path lanes read
-left-to-right while depth recedes. Fit places a compact world slightly below center to reserve
-visual depth above it. When a content-driven canvas is substantially taller than its projected
-world, Fit anchors the world's upper bound in the first visible frame instead of centering it below
-the fold. Fit remains the explicit way to restore the complete frame.
-Left-button drag pans the projected world. Middle-button drag orbits the camera horizontally around
-the world center with normalized continuous yaw; vertical movement doesn't change pitch. The right
-button keeps its browser behavior. Orbit input uses the same animation-frame coalescing and keeps
-floors, paths, and reflections visible while labels are deferred.
+The SVG viewport owns pan, wheel zoom, Fit, full screen, keyboard node navigation, and a compact
+relationship legend. Shared card geometry drives placement, containment, routing, and nonoverlapping
+hit regions; visual cards render above their expanded pointer targets so an adjacent target cannot
+steal a card click. Mobile controls and node hit regions are at least 44 px. The viewport remains
+bounded and pannable rather than shrinking text below a readable scale. The Resource search and
+Inspector provide equivalent non-gesture access. Reduced motion and forced colors preserve
+operation and meaning.
 
-Labels avoid collisions, fit long names, and pair each resource name with its plain resource type.
-The compact acronym on the block is a secondary cue, not the only way to identify the resource.
-Labels scale from 13 px to 20 px as the operator zooms; the selected label may reach 22 px. Zoom
-steps are reciprocal, colors follow the console theme, and a keyboard-accessible resource and
-relationship index is equivalent to the filtered canvas. Pointer targets are at least 44 px and
-include containment boundaries. The selected label is the final canvas overlay so no block glyph,
-relationship, or neighboring label can cover it. Truncated snapshots show an explicit
-partial-inventory notice. The canvas renders containment as subdued dashed center-to-center edges.
-Semantic relationships use directional node-to-node arrows above the connected block tops and do
-not connect resource-group regions as operational endpoints. Drag input coalesces to one draw per
-animation frame, keeps reflections continuous, and omits labels only while the pointer is moving;
-pointer release restores the labels. The local projection shows only registered relationship types
-whose selected endpoint ids and resource types agree. It drops malformed or over-limit vendor
-relationships, marks the snapshot truncated, and keeps the last complete resource graph rather
-than rendering an untrusted edge.
+The Impact scope map requests an unscoped graph projection at the simulation snapshot and compares
+every target and reached Resource identity before rendering. A snapshot mismatch or any omitted
+impact identity produces an explicit unavailable map instead of understating the affected
+topology. The simulation result and table remain the authoritative impact record.
 
 A subscription-scoped cached snapshot renders immediately. Expired or change-invalidated snapshots
 are marked stale while a background refresh runs. The browser polls only until the Operator API

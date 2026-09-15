@@ -24,13 +24,17 @@ ROOT_EPILOG = (
 AZURE_DESCRIPTION = (
     "Deploy from the active Azure CLI human account using one verified signed kit.\n"
     "Choose --online or --offline-kit. Exact plans still require human approval.\n"
+    "New installations seal Container Apps or AKS into every approved plan.\n"
     "New installations can start observation-only without a capability token.\n"
     "Omitting a token does not revoke one previously installed."
 )
 AZURE_EPILOG = (
     "Examples (after az login):\n"
     "  fdaictl provision azure --online \\\n"
-    "    --region koreacentral\n\n"
+    "    --region koreacentral --runtime container-apps\n\n"
+    "  fdaictl provision azure --online \\\n"
+    "    --runtime aks --database postgres-flex \\\n"
+    "    --system-nodes 3 --user-nodes 3\n\n"
     "  fdaictl provision azure \\\n"
     "    --offline-kit /media/fdai-kit.tar.gz\n\n"
     "  fdaictl provision azure --online \\\n"
@@ -52,6 +56,13 @@ _ARGUMENT_HELP = {
     "--directory": "Existing local input directory for this operation",
     "--settings": "Path to deployment-owned Console settings JSON",
     "--region": "Azure region for the selected deployment profile",
+    "--runtime": "New-install runtime platform: container-apps or aks",
+    "--database": "PostgreSQL placement: postgres-flex or postgres-aks",
+    "--system-nodes": "AKS system node count; minimum 2",
+    "--system-node-sku": "AKS system node Azure VM SKU",
+    "--user-nodes": "AKS user node minimum; postgres-aks requires at least 4",
+    "--max-user-nodes": "AKS user node autoscaler maximum",
+    "--user-node-sku": "AKS user node Azure VM SKU",
     "--environment": "Deployment environment; this value grants no execution authority",
     "--target-binding": "Reviewed target binding as a lowercase SHA-256 digest",
     "--connectivity": "Artifact connectivity profile: online or offline",
@@ -87,6 +98,9 @@ _ARGUMENT_METAVARS = {
     "--host": "HOST",
     "--access-method": "METHOD",
     "--monthly-cost-ceiling": "USD",
+    "--system-nodes": "COUNT",
+    "--user-nodes": "COUNT",
+    "--max-user-nodes": "COUNT",
     "--ops-resource-group": "NAME",
     "--app-resource-group": "NAME",
     "--state-storage-account": "NAME",

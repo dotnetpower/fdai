@@ -2076,3 +2076,24 @@ def test_infrastructure_scan_blocks_medium_high_and_critical_findings() -> None:
     assert "terraform-security:" not in workflow
     assert "checkov -d infra --quiet --compact --framework terraform" in workflow
     assert "--baseline" not in workflow
+
+
+def test_aks_runtime_roots_keep_offline_validation_and_workload_plan_tests() -> None:
+    workflow = yaml.safe_load((_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
+    job = workflow["jobs"]["terraform-validate"]
+    step = next(
+        step
+        for step in job["steps"]
+        if step.get("name") == "terraform validate and test (AKS runtimes, mocked providers)"
+    )
+
+    assert job["defaults"]["run"]["working-directory"] == "infra"
+    assert "continue-on-error" not in step
+    assert "set -euo pipefail" in step["run"]
+    assert "runtimes/aks/cluster runtimes/aks/database runtimes/aks/workloads" in step["run"]
+    assert (
+        'terraform -chdir="$runtime_root" init -backend=false -input=false -lockfile=readonly'
+        in step["run"]
+    )
+    assert 'terraform -chdir="$runtime_root" validate' in step["run"]
+    assert "terraform -chdir=runtimes/aks/workloads test" in step["run"]

@@ -244,7 +244,7 @@ def _audit(
 ) -> dict[str, object]:
     return {
         "actor": "fdai_executor_service.effect_executor",
-        "producer_principal": "Thor",
+        "owner_agent": "Thor",
         "audit_phase": "intent" if phase == "intent" else "terminal",
         "action_kind": "human_access.dispatch." + phase,
         "action_id": str(request.action_id),

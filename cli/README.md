@@ -185,11 +185,12 @@ implementation.
 ### Authentication
 
 The CLI never accepts a bearer token in an argument, URL, or environment variable.
-For a loopback API it first requests `GET /local-auth/me`. When the Operator Service
-is running with `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1`, the server resolves the
-current interactive Azure CLI user, applies its fixed Contributor ceiling, and
-returns an opaque process-local session header. The CLI keeps that value in memory
-and attaches it to snapshot, chat, and SSE requests.
+For a loopback API it first requests `GET /local-auth/me`. Start the supported local
+API with `uv run python -m tools.console`; that launcher sets the paired CLI-auth
+confirmation values. The server resolves the current interactive Azure CLI user,
+applies its fixed Contributor ceiling, and returns an opaque process-local session
+header. The CLI keeps that value in memory and attaches it to snapshot, chat, and
+SSE requests.
 
 The bootstrap endpoint is unavailable outside loopback and when Browser Entra is
 active. A missing endpoint falls back to an ordinary read request; a `401` or `403`

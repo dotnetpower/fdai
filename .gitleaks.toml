@@ -32,12 +32,15 @@ Integrity artifacts that are high-entropy by design and carry no secrets:
     - frozen synthetic action fixture whose idempotency field is not a credential.
   - the exact historical `api-action` test fixture value, which is a synthetic
     action identifier and was shortened after publication to avoid key-name heuristics.
+  - the exact Python class name Ed25519PrivateKey in type annotations; this
+    public identifier is not key material. No source path or actual key value is exempted.
 Scope stays narrow so real secrets anywhere else still fire.
 """
 regexes = [
   '''^(3d3c42e5aac5ba805825da76410c181273ba90b1|11f9893b081a58869d3b5fccaea48c9e9e46f990|043fb46d1a93c77aae656e7c1c64a875d1fc6a0a)$''',
   '''^BC528686B50D79E339D3721CEB3E94ADBE1229CF$''',
   '''^api-action$''',
+  '''^Ed25519PrivateKey$''',
 ]
 paths = [
   '''security/integrity/manifest\.json''',

@@ -41,27 +41,8 @@ are synthetic.
   within-threshold sample records observation evidence only. An Incident can open only after
   a detector emits a bounded, grounded finding and `IncidentLifecycleWorkflow` rechecks the
   allowed agent principal, correlation keys, reason, and member-event evidence.
-- A repeated-event burst is an anomaly, not automatic Incident authority. Heimdall always records
-  the bounded anomaly, but it can hand off an Incident candidate only when the normalized Event
-  declares `incident_correlation=correlate`, carries a non-empty correlation id and evidence key,
-  and meets the configured minimum severity. Every event in one repeated-event burst belongs to the
-  same non-empty correlation episode; events from independent episodes never satisfy one another's
-  threshold or interrupt their independent accumulation. The burst severity is the most severe
-  recorded value in that bounded window, not the
-  value on whichever Event arrived last. Every Event that satisfies the threshold contributes its
-  stable evidence key to the candidate and the resulting Incident member set. Events marked
-  `incident_correlation=none`, including
-  inventory and discovery changes, never open an Incident. The default automatic-open minimum is
-  `high`; an unclassified burst remains `medium` and stays an anomaly. If anomaly publication or
-  the lifecycle handoff fails, Heimdall retains that bounded episode window and retries only when
-  the next matching Event arrives; it does not create an unbounded background retry loop. The
-  handoff reports `accepted` or `held`, and Heimdall records those outcomes separately so a policy
-  hold is never counted as a successful Incident candidate. A more severe recurrence for an open
-  Incident raises its severity through an append-only `incident.severity` row; a recurrence never
-  lowers severity, replay reconstructs the same monotonic result, and the committed escalation
-  emits a deduplicated A2 lifecycle notice. Direct candidate text and
-  evidence keys are capped at 512 characters, and one candidate carries at most 100 evidence keys;
-  oversized input is held before lifecycle or audit writes.
+- A repeated-event burst is an anomaly, not automatic Incident authority. Candidate handoff requires `incident_correlation=correlate`, non-empty correlation and evidence keys, and the configured minimum severity; `none` never opens an Incident. Huginn stamps trusted UTC ingestion and accepts only source time no later than that boundary, so replay or future time cannot manipulate Heimdall's bounded episode. Distinct evidence keys count once, burst severity is monotonic, and one accepted episode suppresses duplicate candidates while allowing a more-severe update. A quiet interval creates a new opaque episode; restart reuses only an active Incident with the exact non-episode correlation keys. Failed publication or handoff retries only on a matching Event, with `accepted` and `held` kept distinct. Candidate text, evidence count, and lifecycle notices remain bounded and append-only.
+- Analyzer findings are bounded detector outputs. Deployed and local loops use the same fixed-rate cadence and publish one retry-stable Event per logical Resource, signal, and one-minute `occurred_at` bucket; the five-minute analysis window remains independent. UUID5 keys, distinct evidence, and one anomaly key per episode and severity prevent polling, replay, and handoff retries from multiplying judgment. Future or timezone-naive findings, malformed evidence, partial target coverage, and publication or receipt failures fail before a clean result. Inventory-backed analysis preserves ontology `Resource.id`; an exact active-snapshot provider reference scopes only the metric query and never enters Finding, receipt, Incident, or serialized error evidence. Configured and legacy provider identities reconcile within one inventory generation or fail closed, and inventory-free metric targets require both identities. Prometheus is eligible only when composed queries and responses preserve the exact requested identity; otherwise Azure Monitor Logs remains the path.
 - Heimdall bounds retained repeated-event episodes globally and per resource. A correlation flood
   from one resource evicts only that resource's oldest episode before it can displace another
   resource's partially accumulated evidence.
@@ -540,7 +521,9 @@ ingest topic. The analyzer Terraform job invokes `fdai.delivery.analyzer_tick_cl
 its targets from the configured list plus the durable inventory projection, runs the reference
 analyzers against the composed `MetricProvider`, and
 publishes one canonical Event per finding with a key derived from the resource, the signal, and the
-tick window. Inventory-backed resolution is read-only and fail-closed: a resource type without a
+finding observation's one-minute publication bucket. The default five-minute analysis window is
+independent from this retry-stable publication identity. Inventory-backed resolution is read-only
+and fail-closed: a resource type without a
 The `fdai-incident-evidence-query` maintenance entry point reads the durable Incident audit through
 the service-owned store and returns only transition, distinct-Incident, maximum-member, and kind
 aggregates for one bounded correlation prefix. It never returns Incident IDs, member IDs, payloads,
@@ -557,9 +540,16 @@ resource whose metadata collection has no generic `state` fact follows the ident
 enumeration path; this read-only selection makes no state claim and grants no authority. A present
 generic `state` remains admission-gated and a malformed value remains unusable. A resource projected
 without any state fact follows the same enumeration path. Discovered targets are bounded and
-deterministically ordered. These
+deterministically ordered. The resolver applies the reviewed analyzer Resource types as a
+store-side filter, then reads a relationship-free bounded window of up to 1,000 supported Resources
+before applying the configured analyzable-target cap. Unrelated inventory records cannot consume
+the query window or target slots, and a relationship coverage gap cannot invalidate identity-only
+target selection. A truncated supported-resource window or incomplete Resource source fails the
+tick and reports target discovery unavailable rather than presenting partial coverage as healthy. These
 jobs don't execute changes; findings and due tasks re-enter the shared trust router and safety
-check. Publish failure keeps a scheduled item retryable and returns a non-zero job result.
+check. A missing analyzer, provider analysis error, publish failure, or receipt failure keeps a
+scheduled item retryable and returns a non-zero job result; partial target coverage is never
+reported as a clean pass.
 When tracked state and a retry-stable explicit or Container Apps Job execution identity are
 configured, every completed pass also retains one content-digested
 `runtime:analyzer-tick-receipt:` record with target-resolution counts, finding publication,
@@ -598,7 +588,7 @@ produce batches. The complete collection, retention, rollup, and archive contrac
 |----------|------------------|
 | Anomaly method by signal class | Stationary reliability and security activity use z-score. Periodic reliability and cost signals use seasonal z-score with an explicit phase. |
 | Forecast family and horizon | Every current target uses the implemented linear trend family. Capacity uses 24 hours, replication lag 1 hour, cost 7 days, and expiry 30 days. |
-| Correlation | Exact `correlation_id` and `resource_ref` keys precede T1. The ordinary window is 60 seconds, the trace/repeat window is 300 seconds, and fuzzy T1 requires similarity of at least `0.85` plus two shared evidence fields. |
+| Correlation | Exact `correlation_id` and `resource_ref` keys precede T1. Analyzer finding publication uses 60-second retry-stable identities while the trace/repeat window is 300 seconds. Fuzzy T1 requires similarity of at least `0.85` plus two shared evidence fields. |
 | Cold start | Stationary classes require 30 baseline samples, seasonal classes require 10 same-phase samples, and forecasts require 5 samples plus `R-squared >= 0.5`. |
 | Backtesting and promotion | Evaluate weekly after at least 14 shadow days and 30 scorable episodes. Precision and recall must each be at least `0.8`, 90% interval coverage must remain in `[0.85, 0.95]`, median lead time must be at least 300 seconds, abstention must be at most `0.2`, and policy escapes must remain zero. |
 | Change windows | An exact-scope active window with complete evidence annotates the finding and holds Incident promotion. Missing, stale, incomplete, or mismatched window evidence cannot suppress a finding. |

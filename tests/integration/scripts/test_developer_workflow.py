@@ -400,17 +400,19 @@ def test_local_services_report_each_unavailable_owner(tmp_path: Path) -> None:
         repo,
         probe=lambda url: not url.endswith(("8011/healthz", "8013/ready")),
         core_probe=lambda _root: True,
+        analyzer_probe=lambda _root: True,
         inventory_probe=lambda _root: True,
         process_records=[
             (repo, [".venv/bin/python", "-m", "fdai"]),
+            (repo, [".venv/bin/python", "-m", "fdai.delivery.analyzer_tick_cli", "--loop"]),
             (repo, [".venv/bin/python", "-m", "fdai.delivery.inventory_sync_cli", "--loop"]),
             (repo, [".venv/bin/python", "-m", "fdai.delivery.observation_campaign_cli", "--loop"]),
         ],
     )
 
     assert result["status"] == "warning"
-    assert result["service_count"] == 10
-    assert result["ready_count"] == 8
+    assert result["service_count"] == 11
+    assert result["ready_count"] == 9
     assert result["unavailable_services"] == [
         "document-ingestion-api",
         "isolated-executor",
@@ -459,9 +461,11 @@ def test_local_services_reject_core_owned_by_another_checkout(tmp_path: Path) ->
         repo,
         probe=lambda _url: True,
         core_probe=lambda _root: True,
+        analyzer_probe=lambda _root: True,
         inventory_probe=lambda _root: True,
         process_records=[
             (tmp_path / "other", ["python", "-m", "fdai"]),
+            (repo, ["python", "-m", "fdai.delivery.analyzer_tick_cli", "--loop"]),
             (repo, ["python", "-m", "fdai.delivery.inventory_sync_cli", "--loop"]),
             (repo, ["python", "-m", "fdai.delivery.observation_campaign_cli", "--loop"]),
         ],
@@ -511,6 +515,7 @@ def test_local_service_probes_run_concurrently_in_stable_order(tmp_path: Path) -
         "document-ingestion-api",
         "document-processing-worker",
         "isolated-executor",
+        "local-analyzer",
         "inventory-reconciliation",
         "observation-campaign",
         "inventory-coverage",
@@ -518,6 +523,7 @@ def test_local_service_probes_run_concurrently_in_stable_order(tmp_path: Path) -
     assert result["unavailable_services"] == [
         "core-runtime",
         "document-ingestion-api",
+        "local-analyzer",
         "inventory-reconciliation",
         "observation-campaign",
     ]
@@ -544,6 +550,7 @@ def test_local_services_require_continuous_local_jobs(tmp_path: Path) -> None:
     )
 
     assert result["unavailable_services"] == [
+        "local-analyzer",
         "inventory-reconciliation",
         "observation-campaign",
     ]
@@ -558,7 +565,14 @@ def test_console_launch_and_readiness_use_canonical_localhost_origin() -> None:
     assert frontend["command"] == ("npm run dev -- --host 127.0.0.1 --port 5273 --strictPort")
     assert frontend["serverReadyAction"]["uriFormat"] == "http://localhost:5273"
     assert frontend["env"]["VITE_MANUAL_STUDIO_URL"] == "http://127.0.0.1:5474"
-    assert "VITE_LOCAL_AZURE_CLI_AUTH" not in frontend["env"]
+    assert frontend["env"]["VITE_LOCAL_AZURE_CLI_AUTH"] == "0"
+    assert frontend["env"]["VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM"] == "0"
+    operator_api = next(
+        item for item in launch["configurations"] if item["name"] == "Console Web: Operator API"
+    )
+    assert operator_api["env"]["FDAI_OPERATOR_API_LOCAL_AZURE_CLI"] == "0"
+    assert operator_api["env"]["FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM"] == "0"
+    assert operator_api["env"]["FDAI_OPERATOR_API_LOCAL_ENTRA"] == "1"
     assert developer_workflow_runtime.LOCAL_SERVICE_ENDPOINTS[0] == (
         "console-frontend",
         "http://localhost:5273/",
@@ -577,6 +591,30 @@ def test_console_launch_and_readiness_use_canonical_localhost_origin() -> None:
         item for item in launch["compounds"] if item["name"] == "Console Web: Full Stack"
     )
     assert "Console Web: Manual Studio" in full_stack["configurations"]
+
+
+def test_console_tasks_make_operator_identity_mode_explicit() -> None:
+    tasks_source = (REPO_ROOT / ".vscode" / "tasks.json").read_text(encoding="utf-8")
+    tasks = json.loads(
+        "\n".join(line for line in tasks_source.splitlines() if not line.lstrip().startswith("//"))
+    )
+    by_label = {item["label"]: item for item in tasks["tasks"]}
+
+    assert by_label["console: prepare full stack"]["command"].endswith("--auth-mode browser-entra")
+    debug_label = "console: start full stack (Azure CLI debug, Contributor)"
+    debug_prepare_label = "console: prepare full stack (Azure CLI debug, Contributor)"
+    assert by_label[debug_prepare_label]["command"].endswith("--auth-mode azure-cli")
+    assert by_label[debug_label]["dependsOn"] == [
+        "console: require primary worktree",
+        debug_prepare_label,
+        "console: start local services (Azure CLI debug)",
+    ]
+    assert by_label["console: start local services"]["command"].endswith(
+        "--auth-mode browser-entra"
+    )
+    assert by_label["console: start local services (Azure CLI debug)"]["command"].endswith(
+        "--auth-mode azure-cli"
+    )
 
 
 def test_core_readiness_requires_a_fresh_pantheon_heartbeat(tmp_path: Path) -> None:
@@ -677,6 +715,37 @@ def test_core_restart_readiness_spans_one_log_rotation(tmp_path: Path) -> None:
         not_before=started,
         now=current,
     )
+
+
+def test_analyzer_readiness_requires_success_after_latest_start(tmp_path: Path) -> None:
+    log_dir = tmp_path / ".fdai" / "logs"
+    log_dir.mkdir(parents=True)
+    log_file = log_dir / "local-analyzer.log"
+    log_file.write_text(
+        "\n".join(
+            (
+                "2026-08-20T13:00:00.000000+00:00 service=local-analyzer event=starting",
+                "service=local-analyzer event=ready",
+                "2026-08-20T13:01:00.000000+00:00 service=local-analyzer event=starting",
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert not developer_workflow_runtime._analyzer_tick_ready(tmp_path)
+
+    with log_file.open("a", encoding="utf-8") as handle:
+        handle.write("service=local-analyzer event=ready\n")
+
+    assert developer_workflow_runtime._analyzer_tick_ready(tmp_path)
+
+    with log_file.open("a", encoding="utf-8") as handle:
+        handle.write(
+            "2026-08-20T13:02:00.000000+00:00 service=local-analyzer event=stopped exit_code=1\n"
+        )
+
+    assert not developer_workflow_runtime._analyzer_tick_ready(tmp_path)
 
 
 def test_local_service_wait_retries_until_the_complete_topology_is_ready(

@@ -94,6 +94,43 @@ class CorrelationTraceEvidence:
     complete_trace: bool
     gaps: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        _sha256(self.trace_digest, "trace evidence trace_digest")
+        if _REVISION.fullmatch(self.source_revision) is None:
+            raise ValueError("trace evidence source_revision MUST be a full git object id")
+        started = _timestamp(self.started_at, "trace evidence started_at")
+        completed = _timestamp(self.completed_at, "trace evidence completed_at")
+        if completed < started:
+            raise ValueError("trace evidence completed_at MUST NOT precede started_at")
+        if self.correlation_digest is not None:
+            _sha256(self.correlation_digest, "trace evidence correlation_digest")
+        _sha256(self.event_manifest_digest, "trace evidence event_manifest_digest")
+        if tuple(stage for stage, _count in self.stage_counts) != tuple(CorrelationTraceStage):
+            raise ValueError("trace evidence stage counts MUST follow contract order")
+        if any(type(count) is not int or count < 0 for _stage, count in self.stage_counts):
+            raise ValueError("trace evidence stage counts MUST be non-negative integers")
+        if self.timestamp_authorities != tuple(
+            authority
+            for authority in TraceTimestampAuthority
+            if authority in self.timestamp_authorities
+        ) or len(self.timestamp_authorities) != len(set(self.timestamp_authorities)):
+            raise ValueError("trace timestamp authorities MUST be unique and in contract order")
+        if any(
+            not isinstance(authority, TraceTimestampAuthority)
+            for authority in self.timestamp_authorities
+        ):
+            raise ValueError("trace timestamp authorities MUST use contract enums")
+        if type(self.complete_trace) is not bool or self.complete_trace is not (not self.gaps):
+            raise ValueError("trace completeness does not match gaps")
+        if self.complete_trace and (
+            self.correlation_digest is None
+            or any(count != 1 for _stage, count in self.stage_counts)
+            or not self.timestamp_authorities
+        ):
+            raise ValueError(
+                "complete trace evidence requires one authoritative record for every stage"
+            )
+
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {
             "schema_version": "1.0.0",

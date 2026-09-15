@@ -8,6 +8,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  width: min(100%, 760px);
+  margin-inline: auto;
   padding: 0 0 12px;
 }
 .settings-email-template-head span:first-child { min-width: 0; }
@@ -22,9 +24,11 @@
 }
 .settings-email-template-frame {
   display: block;
-  width: 100%;
+  width: min(100%, 760px);
   height: 720px;
+  margin-inline: auto;
   border: 1px solid var(--border);
+  border-radius: 2px;
   background: #eeeae3;
 }
 @media (max-width: 700px) {

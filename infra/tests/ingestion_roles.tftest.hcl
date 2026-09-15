@@ -459,6 +459,36 @@ run "partner_models_use_separate_foundry_account" {
   }
 }
 
+run "partner_only_models_do_not_create_openai_account" {
+  command = plan
+
+  variables {
+    enable_document_ingestion = false
+    resolved_capabilities = [{
+      name         = "t2.reasoner.secondary"
+      publisher    = "MistralAI"
+      family       = "Mistral-Large-3"
+      version      = "1"
+      sku          = "GlobalStandard"
+      capacity_tpm = 1000
+    }]
+  }
+
+  assert {
+    condition     = length(module.llm_azure_openai) == 0
+    error_message = "Partner-only capabilities must not create an Azure OpenAI account."
+  }
+
+  assert {
+    condition = (
+      length(output.llm_model_endpoints) == 1 &&
+      output.llm_model_endpoints["azure-foundry:aif-fdai-models"] ==
+      "https://aif-fdai-models.services.ai.azure.com/"
+    )
+    error_message = "Partner-only capabilities must publish only the Foundry endpoint."
+  }
+}
+
 run "terraform_owned_document_intelligence_binds_effective_worker_access" {
   command = plan
 
@@ -589,7 +619,7 @@ run "disabled_ingestion_emits_inert_evidence" {
   }
 
   assert {
-    condition     = output.llm_model_endpoints == {}
+    condition     = length(output.llm_model_endpoints) == 0
     error_message = "A disabled LLM deployment must not publish model endpoints."
   }
 

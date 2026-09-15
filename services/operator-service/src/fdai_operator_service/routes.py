@@ -80,6 +80,9 @@ from fdai_operator_service.families.workflow import (
     WorkflowReadStore,
     build_workflow_family_routes,
 )
+from fdai_operator_service.notification_template_preview import (
+    incident_opened_template_preview,
+)
 from fdai_operator_service.ownership_projection import OwnershipProjectionReader
 from fdai_operator_service.projections import ProjectionUnavailableError
 from fdai_operator_service.redaction import redact_projection
@@ -429,6 +432,7 @@ def build_operator_app(
             path="/agents/stream",
             channel="aw.pantheon.agents",
             route_name="agent_stream",
+            resumable=False,
         ),
         Route("/healthz", readiness, methods=["GET"], name="healthz"),
         Route("/hil-queue", get_hil_queue, methods=["GET"], name="get_hil_queue"),
@@ -834,16 +838,7 @@ def _validate_registered_routes(
 
 
 def _incident_template_preview() -> JsonObject:
-    incident_id = "00000000-0000-0000-0000-000000000000"
-    subject = "Incident opened: SEV2"
-    plain_text = "Synthetic incident-open template preview."
-    html = f"<html><body><h1>{subject}</h1><p>{plain_text}</p><p>{incident_id}</p></body></html>"
-    return {
-        "key": "incident-opened",
-        "subject": subject,
-        "plain_text": plain_text,
-        "html": html,
-    }
+    return incident_opened_template_preview()
 
 
 __all__ = [

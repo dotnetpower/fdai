@@ -443,6 +443,15 @@ class DocumentIngestionEventConsumer:
                         )
                         and healthy
                     )
+                elif effect.kind is WorkerEffectKind.KNOWLEDGE_ACTIVATION:
+                    healthy = (
+                        await self._run_reconcile(
+                            effect.upload_id,
+                            DocumentWorkerStage.INDEXING,
+                            self._worker.index,
+                        )
+                        and healthy
+                    )
                 else:
                     await self._worker.reconcile_effect(effect)
             except asyncio.CancelledError:

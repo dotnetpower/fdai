@@ -33,6 +33,49 @@ _OPERATOR_CHANNEL_EDGE_ADDRESS = (
 _OPERATOR_CHANNEL_EDGE_CONTRACT_ADDRESS = (
     "module.operator_service.terraform_data.channel_edge_contract[0]"
 )
+_DOCUMENT_CHANNEL_INTAKE_ADDRESS = (
+    "module.document_ingestion_api.module.channel_intake[0].azurerm_container_app.service"
+)
+_DOCUMENT_CHANNEL_INTAKE_CONTRACT_ADDRESS = (
+    "module.document_ingestion_api.terraform_data.channel_intake_contract[0]"
+)
+_DOCUMENT_CHANNEL_INTAKE_REQUIRED_ENVIRONMENT = frozenset(
+    {
+        "FDAI_ADLS_ACCOUNT_URL",
+        "FDAI_ADLS_SOURCE_FILE_SYSTEM",
+        "FDAI_CHANNEL_ATTACHMENT_ACCESS_DESCRIPTOR_REF",
+        "FDAI_CHANNEL_ATTACHMENT_API_AUDIENCE",
+        "FDAI_CHANNEL_ATTACHMENT_COLLECTION_ID",
+        "FDAI_CHANNEL_ATTACHMENT_MAX_CONTENT_BYTES",
+        "FDAI_CHANNEL_ATTACHMENT_PRINCIPAL_SCOPES_JSON",
+        "FDAI_CHANNEL_ATTACHMENT_READER_GROUPS",
+        "FDAI_CHANNEL_ATTACHMENT_RETENTION_POLICY_VERSION",
+        "FDAI_CHANNEL_EDGE_CLIENT_ID",
+        "FDAI_DATABASE_ROLE",
+        "FDAI_DATABASE_URL",
+        "FDAI_DOCUMENT_EVENT_TOPIC",
+        "FDAI_ENTRA_TENANT_ID",
+        "FDAI_EXECUTION_VENUE",
+        "FDAI_INGESTION_DEPLOYMENT_ROLE",
+        "FDAI_KAFKA_BOOTSTRAP_SERVERS",
+        "FDAI_MI_CLIENT_ID",
+        "PGOPTIONS",
+        "POSTGRES_HOST",
+        "RUNTIME_ENV",
+    }
+)
+_DOCUMENT_CHANNEL_INTAKE_FORBIDDEN_ENVIRONMENT = frozenset(
+    {
+        "FDAI_COMMAND_MI_CLIENT_ID",
+        "FDAI_EMBEDDING_DEPLOYMENT",
+        "FDAI_EMBEDDING_ENDPOINT",
+        "FDAI_GITHUB_APP_PRIVATE_KEY",
+        "FDAI_GITOPS_TOKEN",
+        "FDAI_INGESTION_CORS_ALLOW_ORIGINS",
+        "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID",
+        "FDAI_STEWARDSHIP_GITHUB_WEBHOOK_ENABLED",
+    }
+)
 _OPERATOR_CHANNEL_EDGE_REQUIRED_ENVIRONMENT = frozenset(
     {
         "FDAI_DATABASE_URL",
@@ -55,6 +98,34 @@ _OPERATOR_CHANNEL_EDGE_FORBIDDEN_ENVIRONMENT = frozenset(
         "FDAI_DEV_OPERATIONS_GATEWAY_URL",
         "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID",
         "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER",
+        "FDAI_CHANNEL_ATTACHMENT_CLIENT_SECRET",
+        "FDAI_CHANNEL_ATTACHMENT_TENANT_ID",
+    }
+)
+_OPERATOR_CHANNEL_ATTACHMENT_REQUIRED_ENVIRONMENT = frozenset(
+    {
+        "FDAI_CHANNEL_ATTACHMENTS_ENABLED",
+        "FDAI_CHANNEL_ATTACHMENT_CLIENT_ID",
+        "FDAI_CHANNEL_ATTACHMENT_INTAKE_AUDIENCE",
+        "FDAI_CHANNEL_ATTACHMENT_INTAKE_ORIGIN",
+        "FDAI_CHANNEL_ATTACHMENT_MAX_CONTENT_BYTES",
+        "FDAI_CHANNEL_ATTACHMENT_SCRATCH_DIR",
+        "FDAI_CHANNEL_ATTACHMENT_SCRATCH_ENCRYPTED",
+    }
+)
+_OPERATOR_SLACK_ATTACHMENT_REQUIRED_ENVIRONMENT = frozenset(
+    {
+        "FDAI_SLACK_ATTACHMENT_DOWNLOAD_HOSTS_JSON",
+        "FDAI_SLACK_ATTACHMENT_METADATA_HOSTS_JSON",
+        "FDAI_SLACK_FILES_INFO_URL",
+    }
+)
+_OPERATOR_TEAMS_ATTACHMENT_REQUIRED_ENVIRONMENT = frozenset(
+    {
+        "FDAI_TEAMS_ATTACHMENT_AUDIENCE",
+        "FDAI_TEAMS_ATTACHMENT_AUDIENCES_JSON",
+        "FDAI_TEAMS_ATTACHMENT_HOSTS_JSON",
+        "FDAI_TEAMS_ATTACHMENT_URL_TEMPLATE",
     }
 )
 _MODEL_BINDING_ENVIRONMENT = frozenset(
@@ -206,6 +277,19 @@ def _operator_channel_edge_contract(base: ServiceContract) -> ServiceContract:
     )
 
 
+def _document_channel_intake_contract(base: ServiceContract) -> ServiceContract:
+    return ServiceContract(
+        service="document-channel-intake",
+        environment=base.environment,
+        terraform_root=base.terraform_root,
+        backend_key=base.backend_key,
+        allowed_resource_address=_DOCUMENT_CHANNEL_INTAKE_ADDRESS,
+        image_repository=base.image_repository,
+        entrypoint="fdai-document-channel-intake",
+        required_environment=tuple(sorted(_DOCUMENT_CHANNEL_INTAKE_REQUIRED_ENVIRONMENT)),
+    )
+
+
 def _difference_paths(before: Any, after: Any, *, path: str = "$") -> list[str]:
     if type(before) is not type(after):
         return [path]
@@ -224,6 +308,23 @@ def _difference_paths(before: Any, after: Any, *, path: str = "$") -> list[str]:
             paths.extend(_difference_paths(left, right, path=f"{path}[{index}]"))
         return paths
     return [] if before == after else [path]
+
+
+def _bounded_string_array(value: object, *, maximum: int = 32) -> tuple[str, ...] | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        loaded = json.loads(value)
+    except json.JSONDecodeError:
+        return None
+    if (
+        not isinstance(loaded, list)
+        or not 1 <= len(loaded) <= maximum
+        or any(not isinstance(item, str) or not item.strip() or len(item) > 512 for item in loaded)
+        or len(loaded) != len(set(loaded))
+    ):
+        return None
+    return tuple(loaded)
 
 
 def _actions(change: Any, *, address: str) -> tuple[str, ...]:
@@ -1956,6 +2057,103 @@ def _guard_operator_channel_edge(
     forbidden = sorted(_OPERATOR_CHANNEL_EDGE_FORBIDDEN_ENVIRONMENT & set(names))
     if forbidden:
         violations.append(f"channel edge environment grants execution authority at {address}")
+    values = {
+        item["name"]: item.get("value")
+        for item in environment
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+    }
+    if values.get("FDAI_CHANNEL_ATTACHMENTS_ENABLED") == "1":
+        required_attachment = set(_OPERATOR_CHANNEL_ATTACHMENT_REQUIRED_ENVIRONMENT)
+        enabled_channels = str(values.get("FDAI_CHANNEL_EDGE_ENABLED_CHANNELS", "")).split(",")
+        if "slack" in enabled_channels:
+            required_attachment.update(_OPERATOR_SLACK_ATTACHMENT_REQUIRED_ENVIRONMENT)
+        if "teams" in enabled_channels:
+            required_attachment.update(_OPERATOR_TEAMS_ATTACHMENT_REQUIRED_ENVIRONMENT)
+        if required_attachment - set(names):
+            violations.append(
+                f"attachment-enabled channel edge is missing required names at {address}"
+            )
+        origin = values.get("FDAI_CHANNEL_ATTACHMENT_INTAKE_ORIGIN")
+        try:
+            parsed_origin = urlsplit(str(origin))
+            origin_port = parsed_origin.port
+        except ValueError:
+            parsed_origin = urlsplit("")
+            origin_port = None
+        if (
+            parsed_origin.scheme != "https"
+            or not parsed_origin.hostname
+            or origin_port not in {None, 443}
+            or parsed_origin.path not in {"", "/"}
+            or parsed_origin.query
+            or parsed_origin.fragment
+            or parsed_origin.username is not None
+            or parsed_origin.password is not None
+        ):
+            violations.append(f"channel attachment intake origin is invalid at {address}")
+        if values.get("FDAI_CHANNEL_ATTACHMENT_CLIENT_ID") != values.get(
+            "FDAI_CHANNEL_EDGE_MI_CLIENT_ID"
+        ):
+            violations.append(f"channel attachment client identity is substituted at {address}")
+        audience = values.get("FDAI_CHANNEL_ATTACHMENT_INTAKE_AUDIENCE")
+        if not isinstance(audience, str) or not audience.strip() or len(audience) > 512:
+            violations.append(f"channel attachment intake audience is invalid at {address}")
+        if values.get("FDAI_CHANNEL_ATTACHMENT_SCRATCH_ENCRYPTED") != "1" or not str(
+            values.get("FDAI_CHANNEL_ATTACHMENT_SCRATCH_DIR", "")
+        ).startswith("/"):
+            violations.append(f"channel attachment scratch contract is invalid at {address}")
+        try:
+            maximum = int(str(values.get("FDAI_CHANNEL_ATTACHMENT_MAX_CONTENT_BYTES", "")))
+        except ValueError:
+            maximum = 0
+        if not 1 <= maximum <= 1073741824:
+            violations.append(f"channel attachment byte ceiling is invalid at {address}")
+        if "slack" in enabled_channels:
+            metadata_hosts = _bounded_string_array(
+                values.get("FDAI_SLACK_ATTACHMENT_METADATA_HOSTS_JSON")
+            )
+            download_hosts = _bounded_string_array(
+                values.get("FDAI_SLACK_ATTACHMENT_DOWNLOAD_HOSTS_JSON")
+            )
+            try:
+                files_info = urlsplit(str(values.get("FDAI_SLACK_FILES_INFO_URL", "")))
+                files_info_port = files_info.port
+            except ValueError:
+                files_info = urlsplit("")
+                files_info_port = None
+            if (
+                metadata_hosts is None
+                or download_hosts is None
+                or files_info.scheme != "https"
+                or files_info.hostname not in metadata_hosts
+                or files_info_port not in {None, 443}
+                or files_info.query
+                or files_info.fragment
+            ):
+                violations.append(f"Slack attachment destination policy is invalid at {address}")
+        if "teams" in enabled_channels:
+            hosts = _bounded_string_array(values.get("FDAI_TEAMS_ATTACHMENT_HOSTS_JSON"))
+            audiences = _bounded_string_array(values.get("FDAI_TEAMS_ATTACHMENT_AUDIENCES_JSON"))
+            teams_audience = values.get("FDAI_TEAMS_ATTACHMENT_AUDIENCE")
+            template = str(values.get("FDAI_TEAMS_ATTACHMENT_URL_TEMPLATE", ""))
+            try:
+                resolved_template = urlsplit(template.replace("{attachment_id}", "probe"))
+                template_port = resolved_template.port
+            except ValueError:
+                resolved_template = urlsplit("")
+                template_port = None
+            if (
+                hosts is None
+                or audiences is None
+                or teams_audience not in audiences
+                or template.count("{attachment_id}") != 1
+                or resolved_template.scheme != "https"
+                or resolved_template.hostname not in hosts
+                or template_port not in {None, 443}
+                or resolved_template.query
+                or resolved_template.fragment
+            ):
+                violations.append(f"Teams attachment destination policy is invalid at {address}")
 
     identity_ids = _identity_ids(resource, address=address)
     if len(identity_ids) != 1:
@@ -2012,6 +2210,109 @@ def _guard_operator_channel_edge(
     tags = resource.get("tags")
     if not isinstance(tags, dict) or tags.get("fdai:component") != "operator-channel-edge":
         violations.append(f"channel edge component tag is invalid at {address}")
+    return violations
+
+
+def _guard_document_channel_intake(
+    resource: dict[str, Any],
+    *,
+    address: str,
+    image_ref: str,
+) -> list[str]:
+    """Validate the internal no-authority intake before a protected transition."""
+
+    violations: list[str] = []
+    containers = _containers(resource, address=address)
+    if set(containers) != {"document-channel-intake"}:
+        return [f"channel intake must contain exactly one owned container at {address}"]
+    container = containers["document-channel-intake"]
+    if container.get("image") != image_ref:
+        violations.append(f"channel intake image does not match the attested image at {address}")
+    if container.get("command") != ["fdai-document-channel-intake"] or container.get(
+        "args"
+    ) not in ([], None):
+        violations.append(f"channel intake command is invalid at {address}")
+    environment = container.get("env")
+    if not isinstance(environment, list):
+        raise PlanGuardError(f"channel intake at {address} has an invalid environment")
+    names = [item.get("name") for item in environment if isinstance(item, dict)]
+    if len(names) != len(environment) or not all(isinstance(name, str) for name in names):
+        raise PlanGuardError(f"channel intake at {address} has an invalid environment entry")
+    if len(set(names)) != len(names):
+        violations.append(f"channel intake environment contains duplicate names at {address}")
+    if _DOCUMENT_CHANNEL_INTAKE_REQUIRED_ENVIRONMENT - set(names):
+        violations.append(f"channel intake environment is missing required names at {address}")
+    if _DOCUMENT_CHANNEL_INTAKE_FORBIDDEN_ENVIRONMENT & set(names):
+        violations.append(f"channel intake environment crosses an authority boundary at {address}")
+    values = {
+        item["name"]: item.get("value")
+        for item in environment
+        if isinstance(item, dict) and isinstance(item.get("name"), str)
+    }
+    expected_values = {
+        "FDAI_DATABASE_ROLE": "fdai_ingestion_api",
+        "FDAI_EXECUTION_VENUE": "deployed",
+        "FDAI_INGESTION_DEPLOYMENT_ROLE": "channel-intake",
+        "PGOPTIONS": "-c role=fdai_ingestion_api",
+    }
+    if any(values.get(name) != value for name, value in expected_values.items()):
+        violations.append(f"channel intake fixed runtime values are invalid at {address}")
+    identity_ids = _identity_ids(resource, address=address)
+    if len(identity_ids) != 1:
+        violations.append(f"channel intake must use one ingestion workload identity at {address}")
+    else:
+        identity_id = next(iter(identity_ids))
+        registries = resource.get("registry")
+        if (
+            not isinstance(registries, list)
+            or len(registries) != 1
+            or not isinstance(registries[0], dict)
+            or registries[0].get("identity") != identity_id
+        ):
+            violations.append(f"channel intake registry identity is invalid at {address}")
+        secrets = resource.get("secret")
+        if not isinstance(secrets, list) or len(secrets) != 2:
+            violations.append(
+                f"channel intake must bind exactly two secret references at {address}"
+            )
+        elif any(
+            not isinstance(secret, dict)
+            or secret.get("identity") != identity_id
+            or not isinstance(secret.get("key_vault_secret_id"), str)
+            or not secret["key_vault_secret_id"]
+            for secret in secrets
+        ):
+            violations.append(f"channel intake secret identity is invalid at {address}")
+    ingress = resource.get("ingress")
+    if (
+        not isinstance(ingress, list)
+        or len(ingress) != 1
+        or not isinstance(ingress[0], dict)
+        or ingress[0].get("external_enabled") is not False
+        or ingress[0].get("allow_insecure_connections") is not False
+        or ingress[0].get("target_port") != 8000
+    ):
+        violations.append(f"channel intake ingress contract is invalid at {address}")
+    expected_probes = {
+        "startup_probe": ("/health/ready", 30),
+        "liveness_probe": ("/health/live", 3),
+        "readiness_probe": ("/health/ready", 3),
+    }
+    for probe_name, (path, failure_count) in expected_probes.items():
+        probes = container.get(probe_name)
+        if (
+            not isinstance(probes, list)
+            or len(probes) != 1
+            or not isinstance(probes[0], dict)
+            or probes[0].get("transport") != "HTTP"
+            or probes[0].get("port") != 8000
+            or probes[0].get("path") != path
+            or probes[0].get("failure_count_threshold") != failure_count
+        ):
+            violations.append(f"channel intake {probe_name} contract is invalid at {address}")
+    tags = resource.get("tags")
+    if not isinstance(tags, dict) or tags.get("fdai:component") != "document-channel-intake":
+        violations.append(f"channel intake component tag is invalid at {address}")
     return violations
 
 
@@ -2318,6 +2619,7 @@ def validate_plan(
     model_binding_transition: bool = False,
     resolved_models_digest: str = "",
     operator_channel_edge_transition: str = "none",
+    document_channel_intake_transition: str = "none",
     sharepoint_connector_transition: str = "none",
 ) -> None:
     """Allow only bounded actions that deploy the exact attested service image."""
@@ -2325,6 +2627,12 @@ def validate_plan(
         raise PlanGuardError("operator channel edge transition must be none, enable, or disable")
     if operator_channel_edge_transition != "none" and service != "operator-service":
         raise PlanGuardError("operator channel edge transition is valid only for operator-service")
+    if document_channel_intake_transition not in {"none", "enable", "disable"}:
+        raise PlanGuardError("document channel intake transition must be none, enable, or disable")
+    if document_channel_intake_transition != "none" and service != "document-ingestion-api":
+        raise PlanGuardError(
+            "document channel intake transition is valid only for document-ingestion-api"
+        )
     if sharepoint_connector_transition not in {"none", "enable", "disable"}:
         raise PlanGuardError("SharePoint connector transition must be none, enable, or disable")
     if sharepoint_connector_transition != "none" and service != "document-ingestion-api":
@@ -2338,9 +2646,14 @@ def validate_plan(
         or runtime_call_evidence_transition
         or model_binding_transition
         or operator_channel_edge_transition != "none"
+        or document_channel_intake_transition != "none"
     ):
         raise PlanGuardError("SharePoint connector transition must be applied independently")
-    if database_host_binding and (initial_cutover or operator_channel_edge_transition != "none"):
+    if database_host_binding and (
+        initial_cutover
+        or operator_channel_edge_transition != "none"
+        or document_channel_intake_transition != "none"
+    ):
         raise PlanGuardError(
             "database host binding is exclusive with initial cutover and channel-edge transition"
         )
@@ -2348,6 +2661,7 @@ def validate_plan(
         service != "core-control-plane"
         or initial_cutover
         or operator_channel_edge_transition != "none"
+        or document_channel_intake_transition != "none"
     ):
         raise PlanGuardError(
             "model binding transition is Core-only and exclusive with "
@@ -2359,6 +2673,7 @@ def validate_plan(
         or database_host_binding
         or model_binding_transition
         or operator_channel_edge_transition != "none"
+        or document_channel_intake_transition != "none"
         or sharepoint_connector_transition != "none"
     ):
         raise PlanGuardError(
@@ -2371,14 +2686,26 @@ def validate_plan(
         or core_evidence_bindings_transition
         or model_binding_transition
         or operator_channel_edge_transition != "none"
+        or document_channel_intake_transition != "none"
         or sharepoint_connector_transition != "none"
     ):
         raise PlanGuardError(
             "runtime-call evidence transition is Core/Operator-only "
             "and must be applied independently"
         )
+    if document_channel_intake_transition != "none" and (
+        initial_cutover
+        or database_host_binding
+        or core_evidence_bindings_transition
+        or runtime_call_evidence_transition
+        or model_binding_transition
+        or operator_channel_edge_transition != "none"
+        or sharepoint_connector_transition != "none"
+    ):
+        raise PlanGuardError("document channel intake transition must be applied independently")
     contract = resolve_service(service, environment)
     channel_edge_contract = _operator_channel_edge_contract(contract)
+    channel_intake_contract = _document_channel_intake_contract(contract)
     resource_changes = payload.get("resource_changes", [])
     if not isinstance(resource_changes, list):
         raise PlanGuardError("Terraform plan resource_changes must be an array")
@@ -2386,6 +2713,7 @@ def validate_plan(
     selected_after: dict[str, Any] | None = None
     selected_before: dict[str, Any] | None = None
     channel_edge_actions: dict[str, tuple[str, ...]] = {}
+    channel_intake_actions: dict[str, tuple[str, ...]] = {}
     for entry in resource_changes:
         if not isinstance(entry, dict) or not isinstance(entry.get("address"), str):
             raise PlanGuardError("Terraform plan contains an invalid resource change")
@@ -2469,6 +2797,83 @@ def validate_plan(
                     )
                 )
             continue
+        if service == "document-ingestion-api" and address in {
+            _DOCUMENT_CHANNEL_INTAKE_ADDRESS,
+            _DOCUMENT_CHANNEL_INTAKE_CONTRACT_ADDRESS,
+        }:
+            channel_intake_actions[address] = actions
+            expected_action = {
+                "none": ("update",),
+                "enable": ("create",),
+                "disable": ("delete",),
+            }[document_channel_intake_transition]
+            if address == _DOCUMENT_CHANNEL_INTAKE_CONTRACT_ADDRESS:
+                if document_channel_intake_transition == "none" or actions != expected_action:
+                    violations.append(
+                        "document channel intake contract marker action "
+                        f"{actions!r} is not an explicit transition at {address}"
+                    )
+                continue
+            if actions != expected_action and not (
+                document_channel_intake_transition == "enable" and actions == ("update",)
+            ):
+                violations.append(
+                    f"document channel intake action {actions!r} is not an explicit "
+                    f"{document_channel_intake_transition} at {address}"
+                )
+                continue
+            if not isinstance(change, dict):
+                raise PlanGuardError(f"plan change for {address} is invalid")
+            if document_channel_intake_transition == "enable":
+                after = _resource(change, side="after", address=address)
+                violations.extend(
+                    _guard_document_channel_intake(
+                        after,
+                        address=address,
+                        image_ref=image_ref,
+                    )
+                )
+                if actions == ("update",):
+                    before = _resource(change, side="before", address=address)
+                    violations.extend(
+                        _guard_update(
+                            before,
+                            after,
+                            address=address,
+                            contract=channel_intake_contract,
+                            initial_cutover=False,
+                            database_host_binding=False,
+                        )
+                    )
+            elif document_channel_intake_transition == "disable":
+                violations.extend(
+                    _guard_document_channel_intake(
+                        _resource(change, side="before", address=address),
+                        address=address,
+                        image_ref=image_ref,
+                    )
+                )
+            else:
+                before = _resource(change, side="before", address=address)
+                after = _resource(change, side="after", address=address)
+                violations.extend(
+                    _guard_document_channel_intake(
+                        after,
+                        address=address,
+                        image_ref=image_ref,
+                    )
+                )
+                violations.extend(
+                    _guard_update(
+                        before,
+                        after,
+                        address=address,
+                        contract=channel_intake_contract,
+                        initial_cutover=False,
+                        database_host_binding=False,
+                    )
+                )
+            continue
         if address != contract.allowed_resource_address:
             violations.append(f"cross-service or platform action {actions!r} at {address}")
             continue
@@ -2528,6 +2933,25 @@ def validate_plan(
             )
     elif _OPERATOR_CHANNEL_EDGE_CONTRACT_ADDRESS in channel_edge_actions:
         violations.append("operator channel edge standard update changed its contract marker")
+    if document_channel_intake_transition in {"enable", "disable"}:
+        initial_transition = channel_intake_actions == {
+            _DOCUMENT_CHANNEL_INTAKE_ADDRESS: (
+                ("create",) if document_channel_intake_transition == "enable" else ("delete",)
+            ),
+            _DOCUMENT_CHANNEL_INTAKE_CONTRACT_ADDRESS: (
+                ("create",) if document_channel_intake_transition == "enable" else ("delete",)
+            ),
+        }
+        idempotent_enable = (
+            document_channel_intake_transition == "enable"
+            and channel_intake_actions == {_DOCUMENT_CHANNEL_INTAKE_ADDRESS: ("update",)}
+        )
+        if not initial_transition and not idempotent_enable:
+            violations.append(
+                f"document channel intake {document_channel_intake_transition} plan is incomplete"
+            )
+    elif _DOCUMENT_CHANNEL_INTAKE_CONTRACT_ADDRESS in channel_intake_actions:
+        violations.append("document channel intake standard update changed its contract marker")
     resource_drift = payload.get("resource_drift", [])
     allowed_worker_drift = (
         initial_cutover
@@ -2608,6 +3032,11 @@ def main() -> int:
         default="none",
     )
     parser.add_argument(
+        "--document-channel-intake-transition",
+        choices=("none", "enable", "disable"),
+        default="none",
+    )
+    parser.add_argument(
         "--sharepoint-connector-transition",
         choices=("none", "enable", "disable"),
         default="none",
@@ -2630,6 +3059,7 @@ def main() -> int:
             model_binding_transition=args.model_binding_transition,
             resolved_models_digest=args.resolved_models_digest,
             operator_channel_edge_transition=args.operator_channel_edge_transition,
+            document_channel_intake_transition=args.document_channel_intake_transition,
             sharepoint_connector_transition=args.sharepoint_connector_transition,
         )
     except (OSError, json.JSONDecodeError, ServiceContractError, PlanGuardError) as exc:

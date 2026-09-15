@@ -58,12 +58,50 @@ class OperationalFreshness(StrEnum):
     UNKNOWN = "unknown"
 
 
+class OperationalActivitySummaryKey(StrEnum):
+    """Registered operator-facing summary without arbitrary producer prose."""
+
+    INVENTORY_COLLECTION = "inventory_collection"
+    ONTOLOGY_PROJECTION = "ontology_projection"
+    CURRENT_STATE_OBSERVATION = "current_state_observation"
+    SOURCE_OBSERVATION = "source_observation"
+    ASSURANCE_POSTURE = "assurance_posture"
+
+
+class OperationalActivityScopeClass(StrEnum):
+    """Privacy-safe scope category without provider or target identifiers."""
+
+    CONFIGURED_ESTATE = "configured-estate"
+    SOURCE_DOMAIN = "source-domain"
+    INVESTIGATION = "investigation"
+    CHANGE_REVIEW = "change-review"
+
+
+class OperationalActivityResultState(StrEnum):
+    """Whether a count was measured, omitted, or could not be obtained."""
+
+    MEASURED = "measured"
+    NOT_RECORDED = "not-recorded"
+    UNAVAILABLE = "unavailable"
+
+
+class OperationalActivityResultUnit(StrEnum):
+    """Registered unit for a measured operational result."""
+
+    EVIDENCE_ITEMS = "evidence-items"
+    RESOURCES = "resources"
+    RECORDS = "records"
+    SIGNALS = "signals"
+    RECEIPTS = "receipts"
+
+
 class AgentOperationalActivity(ContractBase):
     """Carry bounded factual work evidence without action authority or target data."""
 
     type: Literal["agent.operational-activity"] = "agent.operational-activity"
-    schema_version: Literal["1.0.0", "1.1.0", "1.2.0"] = "1.0.0"
+    schema_version: Literal["1.0.0", "1.1.0", "1.2.0", "1.3.0"] = "1.0.0"
     activity_id: Annotated[str, Field(min_length=1, max_length=512)]
+    activity_instance_id: Annotated[str | None, Field(min_length=1, max_length=512)] = None
     idempotency_key: Annotated[str, Field(min_length=1, max_length=512)]
     kind: OperationalActivityKind
     status: OperationalActivityStatus
@@ -85,6 +123,15 @@ class AgentOperationalActivity(ContractBase):
         tuple[Annotated[str, Field(min_length=1, max_length=128)], ...],
         Field(max_length=16),
     ] = ()
+    summary_key: OperationalActivitySummaryKey | None = None
+    scope_class: OperationalActivityScopeClass | None = None
+    target_count: Annotated[int | None, Field(strict=True, ge=0, le=1_000_000)] = None
+    result_state: OperationalActivityResultState | None = None
+    result_count: Annotated[int | None, Field(strict=True, ge=0, le=1_000_000)] = None
+    result_unit: OperationalActivityResultUnit | None = None
+    source_cutoff: datetime | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
     execution_authority: Literal[False] = False
 
     @model_serializer(mode="wrap")
@@ -96,6 +143,20 @@ class AgentOperationalActivity(ContractBase):
         payload = dict(handler(self))
         if self.schema_version == "1.0.0":
             payload.pop("observation_domain", None)
+        if self.schema_version != "1.3.0":
+            for field in (
+                "activity_instance_id",
+                "summary_key",
+                "scope_class",
+                "target_count",
+                "result_state",
+                "result_count",
+                "result_unit",
+                "source_cutoff",
+                "started_at",
+                "completed_at",
+            ):
+                payload.pop(field, None)
         return payload
 
     @model_validator(mode="after")
@@ -103,9 +164,14 @@ class AgentOperationalActivity(ContractBase):
         """Pin logical ownership independently from the process producing evidence."""
         if self.observed_at.tzinfo is None:
             raise ValueError("observed_at MUST include a timezone")
+        self._validate_presentation()
+        if any(not _OBSERVATION_REASON_CODE.fullmatch(code) for code in self.reason_codes):
+            raise ValueError("activity reason_codes MUST be machine-safe identifiers")
         if self.kind is OperationalActivityKind.OBSERVATION:
-            if self.schema_version != "1.1.0" or self.observation_domain is None:
-                raise ValueError("observation activity MUST use schema 1.1.0 with a domain")
+            if self.schema_version not in {"1.1.0", "1.3.0"} or self.observation_domain is None:
+                raise ValueError(
+                    "observation activity MUST use schema 1.1.0 or 1.3.0 with a domain"
+                )
             expected_owners = {
                 ObservationDomain.INVENTORY: frozenset({"Huginn"}),
                 ObservationDomain.ACTIVITY_LOG: frozenset({"Huginn"}),
@@ -123,8 +189,6 @@ class AgentOperationalActivity(ContractBase):
                 or self.producer != "observation-campaign-job"
             ):
                 raise ValueError("observation activity owner and producer MUST match its domain")
-            if any(not _OBSERVATION_REASON_CODE.fullmatch(code) for code in self.reason_codes):
-                raise ValueError("observation reason_codes MUST be machine-safe identifiers")
         elif self.observation_domain is not None:
             raise ValueError("non-observation activity MUST NOT declare an observation domain")
         elif self.kind is OperationalActivityKind.INVENTORY_SCAN:
@@ -134,15 +198,11 @@ class AgentOperationalActivity(ContractBase):
             if self.owner_agent != "Heimdall" or self.producer != "core-control-plane":
                 raise ValueError("current-state reads MUST be Heimdall-owned Core evidence")
         elif self.kind is OperationalActivityKind.ASSURANCE_TWIN_POSTURE:
-            if self.schema_version != "1.2.0":
-                raise ValueError("assurance-twin posture activity MUST use schema 1.2.0")
+            if self.schema_version not in {"1.2.0", "1.3.0"}:
+                raise ValueError("assurance-twin posture activity MUST use schema 1.2.0 or 1.3.0")
             if self.owner_agent != "Heimdall" or self.producer != "assurance-twin":
                 raise ValueError(
                     "assurance-twin posture activity MUST be Heimdall-owned twin evidence"
-                )
-            if any(not _OBSERVATION_REASON_CODE.fullmatch(code) for code in self.reason_codes):
-                raise ValueError(
-                    "assurance-twin posture reason_codes MUST be machine-safe identifiers"
                 )
         elif self.owner_agent != "Heimdall" or self.producer != "inventory-sync-job":
             raise ValueError("ontology projection MUST be Heimdall-owned job evidence")
@@ -159,11 +219,104 @@ class AgentOperationalActivity(ContractBase):
             raise ValueError("reason_codes MUST NOT contain duplicates")
         return self
 
+    def _validate_presentation(self) -> None:
+        presentation_values = (
+            self.activity_instance_id,
+            self.summary_key,
+            self.scope_class,
+            self.target_count,
+            self.result_state,
+            self.result_count,
+            self.result_unit,
+            self.source_cutoff,
+            self.started_at,
+            self.completed_at,
+        )
+        if self.schema_version != "1.3.0":
+            if any(value is not None for value in presentation_values):
+                raise ValueError("presentation facts require schema 1.3.0")
+            return
+        if self.activity_instance_id is None:
+            raise ValueError("schema 1.3.0 activity_instance_id MUST be present")
+        if self.summary_key is None or self.scope_class is None or self.result_state is None:
+            raise ValueError("schema 1.3.0 presentation classification MUST be present")
+        expected_presentation = {
+            OperationalActivityKind.INVENTORY_SCAN: (
+                OperationalActivitySummaryKey.INVENTORY_COLLECTION,
+                OperationalActivityScopeClass.CONFIGURED_ESTATE,
+            ),
+            OperationalActivityKind.INVENTORY_ONTOLOGY_PROJECTION: (
+                OperationalActivitySummaryKey.ONTOLOGY_PROJECTION,
+                OperationalActivityScopeClass.CONFIGURED_ESTATE,
+            ),
+            OperationalActivityKind.CURRENT_STATE_READ: (
+                OperationalActivitySummaryKey.CURRENT_STATE_OBSERVATION,
+                OperationalActivityScopeClass.INVESTIGATION,
+            ),
+            OperationalActivityKind.OBSERVATION: (
+                OperationalActivitySummaryKey.SOURCE_OBSERVATION,
+                OperationalActivityScopeClass.SOURCE_DOMAIN,
+            ),
+            OperationalActivityKind.ASSURANCE_TWIN_POSTURE: (
+                OperationalActivitySummaryKey.ASSURANCE_POSTURE,
+                OperationalActivityScopeClass.CHANGE_REVIEW,
+            ),
+        }
+        if (self.summary_key, self.scope_class) != expected_presentation[self.kind]:
+            raise ValueError("schema 1.3.0 presentation classification MUST match activity kind")
+        for field_name, value in (
+            ("source_cutoff", self.source_cutoff),
+            ("started_at", self.started_at),
+            ("completed_at", self.completed_at),
+        ):
+            if value is not None and value.tzinfo is None:
+                raise ValueError(f"{field_name} MUST include a timezone")
+        if (
+            self.started_at is not None
+            and self.completed_at is not None
+            and self.completed_at < self.started_at
+        ):
+            raise ValueError("completed_at MUST NOT precede started_at")
+        if self.status is OperationalActivityStatus.STARTED and self.completed_at is not None:
+            raise ValueError("started activity MUST NOT include completed_at")
+        if (
+            self.status is OperationalActivityStatus.STARTED
+            and self.result_state is not OperationalActivityResultState.NOT_RECORDED
+        ):
+            raise ValueError("started activity result MUST be not-recorded")
+        if (
+            self.status is OperationalActivityStatus.FAILED
+            and self.result_state is not OperationalActivityResultState.UNAVAILABLE
+        ):
+            raise ValueError("failed activity result MUST be unavailable")
+        if (
+            self.status
+            in {
+                OperationalActivityStatus.COMPLETED,
+                OperationalActivityStatus.SUPERSEDED,
+            }
+            and self.result_state is OperationalActivityResultState.UNAVAILABLE
+        ):
+            raise ValueError("completed activity result MUST NOT be unavailable")
+        if self.result_state is OperationalActivityResultState.MEASURED:
+            if self.result_count is None or self.result_unit is None:
+                raise ValueError("measured result MUST include count and unit")
+            if self.result_count != self.evidence_count:
+                raise ValueError("measured result_count MUST match evidence_count")
+        elif self.result_count is not None or self.result_unit is not None:
+            raise ValueError("unmeasured result MUST NOT include count or unit")
+        elif self.evidence_count != 0:
+            raise ValueError("unmeasured result MUST keep evidence_count at zero")
+
 
 __all__ = [
     "AgentOperationalActivity",
     "ObservationDomain",
     "OperationalActivityKind",
+    "OperationalActivityResultState",
+    "OperationalActivityResultUnit",
+    "OperationalActivityScopeClass",
     "OperationalActivityStatus",
+    "OperationalActivitySummaryKey",
     "OperationalFreshness",
 ]

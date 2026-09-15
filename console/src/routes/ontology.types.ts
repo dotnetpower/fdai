@@ -707,14 +707,16 @@ function detailDigest(record: Record<string, unknown>, key: string): string {
   return value;
 }
 
+/** Resolves a route view, defaulting missing or unsupported values to live instances. */
 export function ontologyView(value: string | null): OntologyView {
-  return value === "objects"
+  return value === "map"
+    || value === "objects"
     || value === "links"
     || value === "actions"
     || value === "instances"
     || value === "topology"
     ? value
-    : "map";
+    : "instances";
 }
 
 export function recordValue(record: UnknownRecord | undefined, key: string): string | null {

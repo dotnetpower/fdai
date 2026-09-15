@@ -11,12 +11,40 @@ from fdai_service_contracts import (
     AgentOperationalActivity,
     ObservationDomain,
     OperationalActivityKind,
+    OperationalActivityResultState,
+    OperationalActivityResultUnit,
+    OperationalActivityScopeClass,
     OperationalActivityStatus,
+    OperationalActivitySummaryKey,
     OperationalFreshness,
 )
 
 MAX_ACTIVITY_DURATION_MS = 86_400_000
 ObservationOwner = Literal["Huginn", "Heimdall", "Njord", "Freyr", "Vidar"]
+_OBSERVATION_OWNERS: Mapping[ObservationDomain, frozenset[ObservationOwner]] = {
+    ObservationDomain.INVENTORY: frozenset({"Huginn"}),
+    ObservationDomain.ACTIVITY_LOG: frozenset({"Huginn"}),
+    ObservationDomain.RESOURCE_HEALTH: frozenset({"Heimdall"}),
+    ObservationDomain.SERVICE_HEALTH: frozenset({"Heimdall"}),
+    ObservationDomain.METRICS: frozenset({"Heimdall", "Freyr"}),
+    ObservationDomain.LOGS: frozenset({"Heimdall"}),
+    ObservationDomain.GUEST_LOGS: frozenset({"Heimdall"}),
+    ObservationDomain.NETWORK_CONFIG: frozenset({"Heimdall"}),
+    ObservationDomain.COST: frozenset({"Njord"}),
+    ObservationDomain.RECOVERY: frozenset({"Vidar"}),
+}
+_LEGACY_OBSERVATION_OWNER_BY_SOURCE: Mapping[str, ObservationOwner] = {
+    "inventory": "Huginn",
+    "activity-log": "Huginn",
+    "resource-health": "Heimdall",
+    "service-health": "Heimdall",
+    "metrics": "Heimdall",
+    "logs": "Heimdall",
+    "guest-logs": "Heimdall",
+    "network-config": "Heimdall",
+    "cost": "Njord",
+    "recovery": "Vidar",
+}
 
 
 def durable_activity_projection(
@@ -28,11 +56,16 @@ def durable_activity_projection(
     limit: int,
 ) -> dict[str, object]:
     """Validate and merge bounded durable activities newest first."""
+    observation_activities: list[AgentOperationalActivity] = []
+    for row in observation_rows:
+        activity = _observation_activity(row)
+        if activity is not None:
+            observation_activities.append(activity)
     activities = [
         *(_inventory_activity(row) for row in inventory_rows),
         *(_ontology_activity(row) for row in ontology_rows),
         *(_read_activity(row) for row in read_rows),
-        *(_observation_activity(row) for row in observation_rows),
+        *observation_activities,
     ]
     by_id: dict[str, AgentOperationalActivity] = {}
     for activity in activities:
@@ -91,8 +124,23 @@ def _inventory_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
         if status is OperationalActivityStatus.FAILED
         else ()
     ) + duration_reasons
+    observed_evidence_count = _count(row, "resource_count") + _count(
+        row,
+        "link_count",
+    )
+    if status is OperationalActivityStatus.STARTED:
+        result_state = OperationalActivityResultState.NOT_RECORDED
+    elif status is OperationalActivityStatus.FAILED:
+        result_state = OperationalActivityResultState.UNAVAILABLE
+    else:
+        result_state = OperationalActivityResultState.MEASURED
+    evidence_count = (
+        observed_evidence_count if result_state is OperationalActivityResultState.MEASURED else 0
+    )
     return AgentOperationalActivity(
+        schema_version="1.3.0",
         activity_id=f"inventory.scan:{attempt_id}:{status.value}",
+        activity_instance_id=f"inventory.scan:{attempt_id}",
         idempotency_key=f"inventory.scan:{attempt_id}:{status.value}",
         kind=OperationalActivityKind.INVENTORY_SCAN,
         status=status,
@@ -105,10 +153,24 @@ def _inventory_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
             if status is OperationalActivityStatus.FAILED
             else OperationalFreshness.UNKNOWN
         ),
-        evidence_count=_count(row, "resource_count") + _count(row, "link_count"),
+        evidence_count=evidence_count,
         duration_ms=duration_ms,
         correlation_id=attempt_id,
         reason_codes=reason_codes,
+        summary_key=OperationalActivitySummaryKey.INVENTORY_COLLECTION,
+        scope_class=OperationalActivityScopeClass.CONFIGURED_ESTATE,
+        result_state=result_state,
+        result_count=(
+            evidence_count if result_state is OperationalActivityResultState.MEASURED else None
+        ),
+        result_unit=(
+            OperationalActivityResultUnit.EVIDENCE_ITEMS
+            if result_state is OperationalActivityResultState.MEASURED
+            else None
+        ),
+        source_cutoff=completed_at,
+        started_at=started_at,
+        completed_at=completed_at,
     )
 
 
@@ -125,18 +187,30 @@ def _ontology_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
     status = (
         OperationalActivityStatus.COMPLETED if available else OperationalActivityStatus.DEGRADED
     )
+    observed_at = _timestamp(row.get("updated_at"), "ontology updated_at")
     return AgentOperationalActivity(
+        schema_version="1.3.0",
         activity_id=f"inventory.ontology-projection:{generation}:{status.value}",
+        activity_instance_id=f"inventory.ontology-projection:{generation}",
         idempotency_key=f"inventory.ontology-projection:{generation}:{status.value}",
         kind=OperationalActivityKind.INVENTORY_ONTOLOGY_PROJECTION,
         status=status,
         owner_agent="Heimdall",
         producer="inventory-sync-job",
-        observed_at=_timestamp(row.get("updated_at"), "ontology updated_at"),
+        observed_at=observed_at,
         source="inventory-ontology",
         freshness=(OperationalFreshness.FRESH if available else OperationalFreshness.UNAVAILABLE),
         reason_codes=reasons,
         correlation_id=generation,
+        summary_key=OperationalActivitySummaryKey.ONTOLOGY_PROJECTION,
+        scope_class=OperationalActivityScopeClass.CONFIGURED_ESTATE,
+        result_state=(
+            OperationalActivityResultState.NOT_RECORDED
+            if available
+            else OperationalActivityResultState.UNAVAILABLE
+        ),
+        source_cutoff=observed_at,
+        completed_at=observed_at,
     )
 
 
@@ -155,8 +229,11 @@ def _read_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
         OperationalActivityStatus.COMPLETED if succeeded else OperationalActivityStatus.DEGRADED
     )
     tool_id = _text(row.get("tool_id"), "read activity tool_id", maximum=96)
+    evidence_count = 1 if succeeded else 0
     return AgentOperationalActivity(
+        schema_version="1.3.0",
         activity_id=f"current-state.read:{correlation_ref}:{status.value}",
+        activity_instance_id=f"current-state.read:{correlation_ref}",
         idempotency_key=f"current-state.read:{correlation_ref}:{status.value}",
         kind=OperationalActivityKind.CURRENT_STATE_READ,
         status=status,
@@ -165,14 +242,25 @@ def _read_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
         observed_at=recorded_at,
         source=f"read-investigation:{tool_id}",
         freshness=(OperationalFreshness.FRESH if succeeded else OperationalFreshness.UNAVAILABLE),
-        evidence_count=1 if succeeded else 0,
+        evidence_count=evidence_count,
         duration_ms=_count(sample, "queue_duration_ms") + _count(sample, "execution_duration_ms"),
         correlation_id=correlation_ref,
         reason_codes=() if succeeded else ("read_failed",),
+        summary_key=OperationalActivitySummaryKey.CURRENT_STATE_OBSERVATION,
+        scope_class=OperationalActivityScopeClass.INVESTIGATION,
+        result_state=(
+            OperationalActivityResultState.MEASURED
+            if succeeded
+            else OperationalActivityResultState.UNAVAILABLE
+        ),
+        result_count=evidence_count if succeeded else None,
+        result_unit=(OperationalActivityResultUnit.EVIDENCE_ITEMS if succeeded else None),
+        source_cutoff=recorded_at,
+        completed_at=recorded_at,
     )
 
 
-def _observation_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
+def _observation_activity(row: Mapping[str, Any]) -> AgentOperationalActivity | None:
     value = _mapping(row.get("value"), "observation activity value")
     source_id = _text(value.get("source_id"), "observation source id", maximum=96)
     campaign_id = _text(value.get("campaign_id"), "observation campaign id", maximum=96)
@@ -180,24 +268,23 @@ def _observation_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
         domain = ObservationDomain(_text(value.get("domain"), "observation domain", maximum=64))
     except ValueError as exc:
         raise ValueError("observation domain is unsupported") from exc
-    owners: Mapping[ObservationDomain, ObservationOwner] = {
-        ObservationDomain.INVENTORY: "Huginn",
-        ObservationDomain.ACTIVITY_LOG: "Huginn",
-        ObservationDomain.RESOURCE_HEALTH: "Heimdall",
-        ObservationDomain.SERVICE_HEALTH: "Heimdall",
-        ObservationDomain.METRICS: "Heimdall",
-        ObservationDomain.LOGS: "Heimdall",
-        ObservationDomain.GUEST_LOGS: "Heimdall",
-        ObservationDomain.NETWORK_CONFIG: "Heimdall",
-        ObservationDomain.COST: "Njord",
-        ObservationDomain.RECOVERY: "Vidar",
-    }
+    owner_value = value.get("owner_agent")
+    if owner_value is None:
+        owner = _LEGACY_OBSERVATION_OWNER_BY_SOURCE.get(source_id)
+        if owner is None:
+            return None
+    else:
+        owner_text = _text(owner_value, "observation owner agent", maximum=32)
+        if owner_text not in _OBSERVATION_OWNERS[domain]:
+            raise ValueError("observation owner agent is incompatible with its domain")
+        owner = owner_text
     status_value = _text(value.get("status"), "observation status", maximum=32)
     statuses = {
         "started": OperationalActivityStatus.STARTED,
         "completed": OperationalActivityStatus.COMPLETED,
         "degraded": OperationalActivityStatus.DEGRADED,
         "failed": OperationalActivityStatus.FAILED,
+        "superseded": OperationalActivityStatus.SUPERSEDED,
     }
     try:
         status = statuses[status_value]
@@ -212,27 +299,80 @@ def _observation_activity(row: Mapping[str, Any]) -> AgentOperationalActivity:
             )
         except ValueError as exc:
             raise ValueError("observation freshness is unsupported") from exc
-    reasons = _string_tuple(value.get("reason_codes"), "observation reason codes")
+    if status is OperationalActivityStatus.STARTED:
+        reasons = _string_tuple(
+            value.get("reason_codes", []),
+            "observation reason codes",
+        )
+        evidence_count = _count(value, "evidence_count") if "evidence_count" in value else 0
+    else:
+        reasons = _string_tuple(
+            value.get("reason_codes"),
+            "observation reason codes",
+        )
+        evidence_count = _count(value, "evidence_count")
+    started_at = (
+        _timestamp(value.get("started_at"), "observation started_at")
+        if value.get("started_at") is not None
+        else None
+    )
+    completed_at = (
+        _timestamp(value.get("completed_at"), "observation completed_at")
+        if status is not OperationalActivityStatus.STARTED
+        else None
+    )
+    observed_at = started_at if status is OperationalActivityStatus.STARTED else completed_at
+    if observed_at is None:
+        raise ValueError("observation activity timestamp MUST be present")
+    if status in {
+        OperationalActivityStatus.STARTED,
+        OperationalActivityStatus.SUPERSEDED,
+    }:
+        result_state = OperationalActivityResultState.NOT_RECORDED
+    elif (
+        status is OperationalActivityStatus.FAILED
+        or evidence_count == 0
+        and freshness is OperationalFreshness.UNAVAILABLE
+    ):
+        result_state = OperationalActivityResultState.UNAVAILABLE
+    else:
+        result_state = OperationalActivityResultState.MEASURED
+    recorded_evidence_count = (
+        evidence_count if result_state is OperationalActivityResultState.MEASURED else 0
+    )
     return AgentOperationalActivity(
-        schema_version="1.1.0",
+        schema_version="1.3.0",
         activity_id=f"observation:{source_id}:{campaign_id}:{status.value}",
+        activity_instance_id=f"observation:{source_id}:{campaign_id}",
         idempotency_key=f"observation:{source_id}:{campaign_id}:{status.value}",
         kind=OperationalActivityKind.OBSERVATION,
         status=status,
-        owner_agent=owners[domain],
+        owner_agent=owner,
         producer="observation-campaign-job",
         observation_domain=domain,
-        observed_at=(
-            _timestamp(value.get("started_at"), "observation started_at")
-            if status is OperationalActivityStatus.STARTED
-            else _timestamp(value.get("completed_at"), "observation completed_at")
-        ),
+        observed_at=observed_at,
         source=source_id,
         freshness=freshness,
-        evidence_count=_count(value, "evidence_count"),
+        evidence_count=recorded_evidence_count,
         duration_ms=_optional_count(value, "duration_ms"),
         correlation_id=campaign_id,
         reason_codes=reasons,
+        summary_key=OperationalActivitySummaryKey.SOURCE_OBSERVATION,
+        scope_class=OperationalActivityScopeClass.SOURCE_DOMAIN,
+        result_state=result_state,
+        result_count=(
+            recorded_evidence_count
+            if result_state is OperationalActivityResultState.MEASURED
+            else None
+        ),
+        result_unit=(
+            OperationalActivityResultUnit.RECORDS
+            if result_state is OperationalActivityResultState.MEASURED
+            else None
+        ),
+        source_cutoff=completed_at,
+        started_at=started_at,
+        completed_at=completed_at,
     )
 
 

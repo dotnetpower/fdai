@@ -6,8 +6,24 @@ const styles = readFileSync(
   fileURLToPath(new URL("../styles.css", import.meta.url)),
   "utf8",
 );
+const routeStyles = readFileSync(
+  fileURLToPath(new URL("./live.css", import.meta.url)),
+  "utf8",
+);
 const panels = readFileSync(
   fileURLToPath(new URL("./live.panels.tsx", import.meta.url)),
+  "utf8",
+);
+const route = readFileSync(
+  fileURLToPath(new URL("./live.tsx", import.meta.url)),
+  "utf8",
+);
+const observations = readFileSync(
+  fileURLToPath(new URL("./live.observations.tsx", import.meta.url)),
+  "utf8",
+);
+const detailShell = readFileSync(
+  fileURLToPath(new URL("./live.detail-shell.tsx", import.meta.url)),
   "utf8",
 );
 const mockAlignedStyles = styles.slice(styles.indexOf("/* Mock-aligned Live cockpit"));
@@ -18,7 +34,19 @@ function ruleBody(selector: string): string {
     ?.groups?.body ?? "";
 }
 
+function routeRuleBody(selector: string): string {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return routeStyles.match(new RegExp(`${escaped}\\s*\\{(?<body>[\\s\\S]*?)\\}`))
+    ?.groups?.body ?? "";
+}
+
 describe("Live responsive header", () => {
+  it("loads the route-owned visual contract", () => {
+    expect(route).toContain('import "./live.css"');
+    expect(detailShell).toContain("createPortal(dialog, document.body)");
+    expect(ruleBody(".live-detail-backdrop")).toContain("z-index: 120");
+  });
+
   it("wraps controls against the available content width", () => {
     expect(ruleBody(".live .page-header")).toContain("flex-wrap: wrap");
     expect(ruleBody(".live .page-header-text")).toContain("flex: 1 1 280px");
@@ -49,12 +77,29 @@ describe("Live responsive header", () => {
     );
   });
 
-  it("keeps flow slots stable while signaling semantic updates", () => {
-    expect(panels).toContain("state.tiles.map((tile, slotIndex)");
-    expect(panels).toContain('key={`slot-${slotIndex}`}');
-    expect(panels).not.toContain("[...view.populatedTiles]");
+  it("packs flow events sequentially while signaling semantic updates", () => {
+    expect(panels).toContain("view.populatedTiles.map((tile)");
+    expect(panels).toContain("key={tile.event_id}");
+    expect(panels).not.toContain("state.tiles.map((tile, slotIndex)");
     expect(styles).toMatch(
       /\.live-tile\.is-content-updated \.live-tile-stage\s*\{[^}]*color: var\(--accent\)/,
+    );
+  });
+
+  it("renders retained activity in compact selectable cards within bounded scroll", () => {
+    expect(observations).toContain("export const LIVE_OBSERVATION_LIMIT = 500");
+    expect(observations).not.toContain("items.slice(0,");
+    expect(observations).toContain('class="live-observation-item live-work-card"');
+    expect(observations).toContain('aria-haspopup="dialog"');
+    expect(observations).not.toContain("activityHref");
+    expect(routeRuleBody(".live .live-observation-grid")).toContain(
+      "max-height: 480px",
+    );
+    expect(routeRuleBody(".live .live-observation-grid")).toContain(
+      "overflow-y: auto",
+    );
+    expect(routeRuleBody(".live .live-observation-item")).toContain(
+      "min-height: 112px",
     );
   });
 });

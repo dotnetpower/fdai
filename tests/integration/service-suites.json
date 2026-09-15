@@ -71,7 +71,9 @@
       "test_groups": {
         "unit": [
           "services/operator-service/tests/test_adaptive_relationship.py",
+          "services/operator-service/tests/test_analyzer_coverage_projection.py",
           "services/operator-service/tests/test_analyzer_lifecycle_projection.py",
+          "services/operator-service/tests/test_analyzer_run_projection.py",
           "services/operator-service/tests/test_assurance_twin_posture_projection.py",
           "services/operator-service/tests/test_assignment_projection.py",
           "services/operator-service/tests/test_assignment_revocation.py",
@@ -147,6 +149,7 @@
           "services/operator-service/tests/test_agent_stream.py",
           "services/operator-service/tests/test_azure_monitor_webhook_runtime.py",
           "services/operator-service/tests/test_canonical_incident_roster.py",
+          "services/operator-service/tests/test_channel_attachment_handoff.py",
           "services/operator-service/tests/test_channel_binding_postgres.py",
           "services/operator-service/tests/test_channel_delivery_postgres.py",
           "services/operator-service/tests/test_channel_edge_application.py",
@@ -169,7 +172,10 @@
           "services/operator-service/tests/test_incident_rca_reporting_projection.py",
           "services/operator-service/tests/test_incident_intervention_route.py",
           "services/operator-service/tests/test_incident_intervention_runtime.py",
+          "services/operator-service/tests/test_live_activity_multiplex.py",
+          "services/operator-service/tests/test_live_activity_snapshot.py",
           "services/operator-service/tests/test_live_stream.py",
+          "services/operator-service/tests/test_live_stream_resumption.py",
           "services/operator-service/tests/test_operator_conversation_search_postgres.py",
           "services/operator-service/tests/test_operator_postgres_replay.py",
           "services/operator-service/tests/test_operator_service_composition.py",
@@ -178,6 +184,7 @@
           "services/operator-service/tests/test_operator_signal_shutdown.py",
           "services/operator-service/tests/test_presentation_rows.py",
           "services/operator-service/tests/test_postgres_background_task_projection.py",
+          "services/operator-service/tests/test_postgres_document_refs.py",
           "services/operator-service/tests/test_background_task_projection_transport.py",
           "services/operator-service/tests/test_postgres_family_store_cancellation.py",
           "services/operator-service/tests/test_read_investigation_completion_composition.py",
@@ -185,6 +192,7 @@
           "services/operator-service/tests/test_read_investigation_completion_store.py",
           "services/operator-service/tests/test_read_investigation_replay.py",
           "services/operator-service/tests/test_read_investigation_runtime.py",
+          "services/operator-service/tests/test_rule_fire_trace_projection.py",
           "services/operator-service/tests/test_semantic_kafka_adapter.py",
           "services/operator-service/tests/test_semantic_query_progress_relay.py",
           "services/operator-service/tests/test_semantic_turn_bridge.py"
@@ -198,15 +206,25 @@
         "services/document-ingestion-api"
       ],
       "test_groups": {
-        "unit": [],
+        "unit": [
+          "services/document-ingestion-api/tests/test_cloud_knowledge_collection.py",
+          "services/document-ingestion-api/tests/test_cloud_knowledge_scheduler.py"
+        ],
         "contract": [
+          "services/document-ingestion-api/tests/test_cloud_knowledge_offline.py",
           "services/document-ingestion-api/tests/test_document_download.py",
           "services/document-ingestion-api/tests/test_document_preview.py",
           "services/document-ingestion-api/tests/test_ingestion_service_behavior.py"
         ],
         "integration": [
           "services/document-ingestion-api/tests/test_adls_resumable_upload.py",
+          "services/document-ingestion-api/tests/test_cloud_knowledge_intake.py",
+          "services/document-ingestion-api/tests/test_channel_attachment_http.py",
+          "services/document-ingestion-api/tests/test_channel_attachment_intake.py",
+          "services/document-ingestion-api/tests/test_channel_attachment_production.py",
+          "services/document-ingestion-api/tests/test_channel_attachment_reservation_adapter.py",
           "services/document-ingestion-api/tests/test_document_search.py",
+          "services/document-ingestion-api/tests/test_handover_readiness_adapter.py",
           "services/document-ingestion-api/tests/test_ingestion_service_composition.py",
           "services/document-ingestion-api/tests/test_ingestion_stewardship_webhook.py",
           "services/document-ingestion-api/tests/test_sharepoint_connector.py",
@@ -222,6 +240,7 @@
       ],
       "test_groups": {
         "unit": [
+          "services/document-processing-worker/tests/test_cloud_knowledge_extraction.py",
           "services/document-processing-worker/tests/test_ingestion_parser_parity.py",
           "services/document-processing-worker/tests/test_local_korean_ocr.py"
         ],
@@ -232,6 +251,8 @@
         ],
         "integration": [
           "services/document-processing-worker/tests/test_artifact_index_lifecycle.py",
+          "services/document-processing-worker/tests/test_cloud_activation.py",
+          "services/document-processing-worker/tests/test_cloud_knowledge_offline_flow.py",
           "services/document-processing-worker/tests/test_purge_verifier.py",
           "services/document-processing-worker/tests/test_protection_reconciliation.py",
           "services/document-processing-worker/tests/test_purview_rms_protection.py"

@@ -133,6 +133,19 @@ def test_general_apply_defers_to_declarative_creation_when_target_is_absent(
     assert not calls.exists()
 
 
+def test_first_apply_defers_placeholder_image_when_target_is_absent(tmp_path: Path) -> None:
+    result, _state, calls = _run(
+        tmp_path,
+        desired_image="ghcr.io/example/fdai:unbuilt",
+        missing_target=True,
+        require_existing=False,
+    )
+
+    assert result.returncode == 0
+    assert "does not exist yet" in result.stdout
+    assert not calls.exists()
+
+
 def test_protected_update_fails_when_target_is_absent(tmp_path: Path) -> None:
     result, _state, calls = _run(tmp_path, missing_target=True)
 

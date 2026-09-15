@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 3c10d5bfdb1b06a8b09295ce8ef4a2aa2dd98731
-translation_revised: 2026-08-25
+translation_source_sha: d1e351b2c35548f8e285864d697749ab27f15000
+translation_revised: 2026-09-14
 ---
 
 # 에이전트 판테온 구현 계획
@@ -27,6 +27,7 @@ translation_revised: 2026-08-25
 | W7 에이전트 간 shadow 작업 흐름 메커니즘 | implemented | [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | 작업 흐름에 실행 가능한 합성 shadow 추적이 있으며, enforce 작업 흐름을 기본값으로 사용하는 근거는 이 문서에 없습니다. |
 | W8 KPI, 승격 및 성능 저하 메커니즘 | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI 보고는 측정값과 사용 불가능한 근거를 구분하고, 근거가 없으면 승격을 차단하며, 주입된 성능 저하 훈련이 고정 판테온을 다룹니다. |
 | W3 추적 연속성 근거 인계 | implemented | `huginn.py`; `heimdall.py`; `test_trace_continuity_chain.py` | sensing 경로는 허용 목록의 범위가 제한된 연속성 근거만 보존하고 역할, topic, 작업 권한을 바꾸지 않은 채 관측된 사유를 인시던트 후보 하나에 전달합니다. |
+| 운영 활동 귀속 | implemented | `control_loop/_measurement.py`; `control_loop/_rca.py`; `agents/_framework/provider_adapters.py`; `delivery/{observation_campaign,startup_probe}.py`; Operator 활동 투영과 집중 테스트 | 기계 행위자와 책임지는 Pantheon 소유자를 구분합니다. 인증된 버스 게시자만 `producer_principal`을 채우며, 소유자를 알 수 없는 기존 사용자 정의 source는 감사 근거로 유지하고 임의의 에이전트 활동으로 만들지 않습니다. |
 | 최종 ActionRun 효과 관찰 경로 | implemented | [`executed_action_observation.py`](../../../services/core-control-plane/src/fdai/delivery/executed_action_observation.py), [`wire_azure_operational_evidence.py`](../../../services/core-control-plane/src/fdai/composition/wire_azure_operational_evidence.py), [`test_executed_action_observation.py`](../../../services/core-control-plane/tests/delivery/test_executed_action_observation.py) | Heimdall은 Thor의 최종 ActionRun을 소비하고 정확한 실행 전 아티팩트를 복원하며 검증기가 승인한 독립 관찰만 저장합니다. 배포가 소유하는 서명된 컨텍스트와 실제 종료 근거는 아직 필요합니다. |
 | O7 운영 승격 근거 측정 | implemented | [`operational_promotion.py`](../../../services/core-control-plane/src/fdai/core/measurement/operational_promotion.py), [`operational_promotion_evidence.py`](../../../services/core-control-plane/src/fdai/delivery/measurement/operational_promotion_evidence.py), [`test_operational_promotion_evidence.py`](../../../services/core-control-plane/tests/delivery/test_operational_promotion_evidence.py) | 실행기는 매니페스트에 결합된 불변 배치를 소비하고 인과관계, 측정 단위, 재발 또는 정책 이탈 근거가 없으면 안전하게 차단합니다. 현재 완전한 실제 배치를 구체화하는 런타임 생산자는 없습니다. |
 | 실제 운영 KPI 검증 및 실제 enforce 승격 | in-progress | [운영 학습 온톨로지](../rules-and-detection/operational-learning-ontology-ko.md), [목표와 메트릭](../architecture/goals-and-metrics-ko.md) | 측정 및 관찰 소비자는 있지만 완전하게 보존된 실제 shadow 코호트, 운영 승격 증적, 독립적인 검토 또는 실제 판테온 enforce 승격 근거는 없습니다. |
@@ -35,6 +36,8 @@ translation_revised: 2026-08-25
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 활동 귀속 변경에서 관련 없는 ActionRun fingerprint 필드를 제거해 영속 및 복구 식별자를 그대로 유지했습니다. | `current change`; 전체 mypy와 집중 Thor 내구성 및 복구 회귀 테스트. | 정확히 병합된 개정 번호의 배포 감사 및 활동 근거를 보존합니다. |
+| 2026-09-14 | implemented | 운영 활동 귀속을 기계 행위자, 책임 `owner_agent`, 인증된 `producer_principal`로 분리했습니다. 컨트롤 루프 측정은 Heimdall, RCA는 Forseti, 시작 감사는 Saga, 관측 캠페인은 선언된 소유자에 귀속하며 Saga 감사 미러는 감사 대상 주체를 바꾸지 않고 Saga를 기록합니다. | `current change`; 서비스 계약, 컨트롤 루프, provider adapter, 관측 캠페인, 시작 probe, 파이프라인 및 Operator 투영 테스트. | 정확히 병합된 개정 번호의 배포 감사 및 활동 근거를 보존합니다. 역할, topic 또는 실행 권한은 바뀌지 않았습니다. |
 | 2026-08-13 | in-progress | W0-W8 전체 완료 주장을 독립적으로 근거를 확인할 수 있는 구현 영역으로 교체했습니다. | 현재 변경 | 검증 완료 또는 enforce 운영을 주장하기 전에 실제 근거를 수집하고 별도 검토를 거친 승격을 완료합니다. |
 | 2026-08-14 | implemented | 선택적 대화 T2 종합을 범위가 제한된 T1 답변 신호의 결정론적 충돌 평가 결과에만 실행하도록 했습니다. | `current change`, 집중 숙의 테스트 36개 및 framework layout 검사 | 에스컬레이션하지 않는 분기와 충돌로 에스컬레이션하는 분기의 통제된 런타임 근거를 보존합니다. |
 | 2026-08-17 | implemented | 범위가 제한된 Huginn-Heimdall 연속성 근거 인계를 추가하고 인시던트 후보에 인식된 관측 사유를 보존했습니다. | `current change`; 작업처럼 보이는 위조 입력을 제외한 집중 추적-인시던트 체인 통과. | 이슈 #142에서 추적하는 통제된 실시간 시나리오 근거를 보존합니다. |

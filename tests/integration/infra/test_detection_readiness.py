@@ -7,6 +7,7 @@ _ROOT = Path(__file__).resolve().parents[3]
 _JOB = _ROOT / "infra/modules/compute/container-apps/analyzer_tick_job.tf"
 _MAIN = _ROOT / "infra/main.tf"
 _DEPLOY_WORKFLOW = _ROOT / ".github/workflows/deploy-dev.yml"
+_CLI_CONFIG = _ROOT / "services/core-control-plane/src/fdai/delivery/analyzer_tick_cli_config.py"
 
 
 def test_analyzer_job_uses_inventory_identity_not_executor_identity() -> None:
@@ -20,20 +21,16 @@ def test_analyzer_job_uses_inventory_identity_not_executor_identity() -> None:
 
 def test_analyzer_job_binds_the_inventory_projection_env_the_cli_reads() -> None:
     """The scheduled tick can only discover targets if the job binds this key."""
-    cli = (_ROOT / "services/core-control-plane/src/fdai/delivery/analyzer_tick_cli.py").read_text(
-        encoding="utf-8"
-    )
+    config = _CLI_CONFIG.read_text(encoding="utf-8")
     source = _JOB.read_text(encoding="utf-8")
 
-    assert 'INVENTORY_DSN_ENV = "FDAI_INVENTORY_DSN"' in cli
+    assert 'INVENTORY_DSN_ENV = "FDAI_INVENTORY_DSN"' in config
     assert 'name        = "FDAI_INVENTORY_DSN"' in source
     assert 'name  = "FDAI_ANALYZER_TARGETS"' in source
 
 
 def test_analyzer_job_binds_deployment_supplied_trace_topologies() -> None:
-    cli = (_ROOT / "services/core-control-plane/src/fdai/delivery/analyzer_tick_cli.py").read_text(
-        encoding="utf-8"
-    )
+    config = _CLI_CONFIG.read_text(encoding="utf-8")
     source = _JOB.read_text(encoding="utf-8")
     root_variables = (_ROOT / "infra/variables.tf").read_text(encoding="utf-8")
     module_variables = (_ROOT / "infra/modules/compute/container-apps/variables.tf").read_text(
@@ -43,7 +40,7 @@ def test_analyzer_job_binds_deployment_supplied_trace_topologies() -> None:
     normalized_main = " ".join(main.split())
     workflow = _DEPLOY_WORKFLOW.read_text(encoding="utf-8")
 
-    assert 'TRACE_TOPOLOGIES_ENV = "FDAI_TRACE_TOPOLOGIES_JSON"' in cli
+    assert 'TRACE_TOPOLOGIES_ENV = "FDAI_TRACE_TOPOLOGIES_JSON"' in config
     assert 'name  = "FDAI_TRACE_TOPOLOGIES_JSON"' in source
     assert 'name  = "FDAI_TRACE_CONTINUITY_LOOKBACK_SECONDS"' in source
     assert 'value = "900"' in source
@@ -62,8 +59,15 @@ def test_startup_probe_uses_dedicated_operational_topic_and_identity() -> None:
     assert operational_topics is not None
     assert "local.canary_topic" in operational_topics.group(1)
     assert "local.startup_probe_topic" in operational_topics.group(1)
-    assert 'resource "azurerm_role_assignment" "runtime_startup_probe_eventhubs_owner"' in source
-    assert "module.event_bus_auxiliary.topic_ids[local.startup_probe_topic]" in source
+    assert "from = azurerm_role_assignment.runtime_startup_probe_eventhubs_owner" in source
+    assert (
+        'to   = azurerm_role_assignment.executor_eventhubs_data_owner["runtime.startup.probe"]'
+        in source
+    )
+    assert (
+        'resource "azurerm_role_assignment" "runtime_startup_probe_eventhubs_owner"' not in source
+    )
+    assert "module.event_bus_auxiliary.all_topic_ids" in source
     assert 'role_definition_name = "Azure Event Hubs Data Owner"' in source
     for name in (
         "startup_kafka_settle_seconds",

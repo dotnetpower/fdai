@@ -7,6 +7,7 @@ import pytest
 from fdai_service_contracts.control_loop_measurement import (
     CONTROL_LOOP_MEASUREMENT_ACTION_KIND,
     CONTROL_LOOP_MEASUREMENT_ACTOR,
+    CONTROL_LOOP_MEASUREMENT_OWNER_AGENT,
     ControlLoopMeasurement,
     control_loop_measurement_id,
 )
@@ -127,6 +128,7 @@ def test_strict_audit_parser_preserves_source_marker(synthetic: bool | None) -> 
             **payload,
             "actor": CONTROL_LOOP_MEASUREMENT_ACTOR,
             "action_kind": CONTROL_LOOP_MEASUREMENT_ACTION_KIND,
+            "owner_agent": CONTROL_LOOP_MEASUREMENT_OWNER_AGENT,
         }
     )
     assert measurement == ControlLoopMeasurement.model_validate(payload)
@@ -138,6 +140,8 @@ def test_strict_audit_parser_preserves_source_marker(synthetic: bool | None) -> 
     [
         {"actor": "untrusted-writer"},
         {"action_kind": "measurement.action_outcome.v1"},
+        {"owner_agent": "Norns"},
+        {"owner_agent": None},
         {"action_kind": "measurement.control_loop.v2"},
         {"schema_version": None},
         {"seq": 1},
@@ -154,6 +158,7 @@ def test_audit_parser_rejects_wrong_envelopes_and_additional_fields(
                 **_payload(),
                 "actor": CONTROL_LOOP_MEASUREMENT_ACTOR,
                 "action_kind": CONTROL_LOOP_MEASUREMENT_ACTION_KIND,
+                "owner_agent": CONTROL_LOOP_MEASUREMENT_OWNER_AGENT,
                 **overrides,
             }
         )
@@ -164,6 +169,7 @@ def test_audit_parser_requires_inner_entry_not_hash_chain_wrapper() -> None:
         **_payload(),
         "actor": CONTROL_LOOP_MEASUREMENT_ACTOR,
         "action_kind": CONTROL_LOOP_MEASUREMENT_ACTION_KIND,
+        "owner_agent": CONTROL_LOOP_MEASUREMENT_OWNER_AGENT,
     }
     with pytest.raises(ValueError, match="actor"):
         ControlLoopMeasurement.from_audit_entry(
@@ -185,6 +191,7 @@ def test_action_ids_default_is_empty_and_explicit_order_survives_wire_roundtrip(
             **wire,
             "actor": CONTROL_LOOP_MEASUREMENT_ACTOR,
             "action_kind": CONTROL_LOOP_MEASUREMENT_ACTION_KIND,
+            "owner_agent": CONTROL_LOOP_MEASUREMENT_OWNER_AGENT,
         }
     )
     assert restored.action_ids == action_ids
@@ -200,6 +207,7 @@ def test_strict_audit_parser_rejects_invalid_action_identity_types(
                 **_payload(),
                 "actor": CONTROL_LOOP_MEASUREMENT_ACTOR,
                 "action_kind": CONTROL_LOOP_MEASUREMENT_ACTION_KIND,
+                "owner_agent": CONTROL_LOOP_MEASUREMENT_OWNER_AGENT,
                 "action_ids": action_ids,
             }
         )

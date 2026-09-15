@@ -178,7 +178,7 @@ describe("console static translation keys", () => {
       "components/agent-workspace-nav.tsx",
       "routes/agents.tsx",
       "routes/agents.constellation.tsx",
-      "routes/agents.detail.tsx",
+      "routes/agent-organization.tsx",
       "routes/agents.roster.tsx",
     ];
     const hardcoded: string[] = [];

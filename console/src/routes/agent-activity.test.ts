@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
-import type { AgentActivityMessage } from "../hooks/use-agent-stream";
 import type { AuditItem } from "../types";
 import {
   activityPresentationState,
   activityProvenanceCounts,
+  agentActivityObservationSource,
   agentActivityExplanations,
   agentOf,
   auditProvenanceOf,
@@ -14,8 +14,8 @@ import {
   matchingLiveIncident,
   otherEntryFields,
   selectedAgentAuditEmptyBody,
-  shouldRefreshAuditForAgentMessage,
-  shouldRefreshAuditForStreamStatus,
+  shouldRefreshAgentActivity,
+  OPERATIONAL_ACTIVITY_LIMIT,
 } from "./agent-activity";
 import type { AgentNode, Incident } from "./agents.model";
 
@@ -82,43 +82,38 @@ describe("agent activity deep-link selection", () => {
 });
 
 describe("agent activity durable refresh", () => {
-  const stateMessage = (
-    state: "idle" | "watching" | "collecting",
-    detail: string,
-    correlationId: string | null = null,
-  ): AgentActivityMessage => ({
-    type: "agent.state",
-    agent: "Huginn",
-    state,
-    ts: "2026-07-28T03:30:00Z",
-    correlation_id: correlationId,
-    detail,
-    source: "runtime-observed",
+  test("requests the full bounded operational activity page", () => {
+    expect(OPERATIONAL_ACTIVITY_LIMIT).toBe(500);
   });
 
-  test("does not reload durable audit for periodic health snapshots", () => {
-    expect(shouldRefreshAuditForAgentMessage(
-      stateMessage("watching", "Runtime agent initialized"),
-    )).toBe(false);
-    expect(shouldRefreshAuditForAgentMessage(
-      stateMessage("idle", "Runtime agent initialized"),
-    )).toBe(false);
+  test("does not reload durable projections for stream frames or opens", () => {
+    expect(shouldRefreshAgentActivity("stream-frame")).toBe(false);
+    expect(shouldRefreshAgentActivity("stream-open")).toBe(false);
   });
 
-  test("reloads durable audit for work and completed handler transitions", () => {
-    expect(shouldRefreshAuditForAgentMessage(
-      stateMessage("collecting", "Processing fdai.change.events", "corr-1"),
-    )).toBe(true);
-    expect(shouldRefreshAuditForAgentMessage(
-      stateMessage("watching", "Processed fdai.change.events"),
-    )).toBe(true);
+  test("reloads only for initial, operator, and gap recovery reads", () => {
+    expect(shouldRefreshAgentActivity("initial")).toBe(true);
+    expect(shouldRefreshAgentActivity("operator")).toBe(true);
+    expect(shouldRefreshAgentActivity("gap")).toBe(true);
   });
 
-  test("reloads durable audit only when the live stream opens", () => {
-    expect(shouldRefreshAuditForStreamStatus("open")).toBe(true);
-    expect(shouldRefreshAuditForStreamStatus("connecting")).toBe(false);
-    expect(shouldRefreshAuditForStreamStatus("idle")).toBe(false);
-    expect(shouldRefreshAuditForStreamStatus("closed")).toBe(false);
+  test("presents a durable operational projection as runtime-observed evidence", () => {
+    expect(agentActivityObservationSource(
+      "durable-operational-projection",
+      "unknown",
+    )).toBe("runtime-observed");
+    expect(agentActivityObservationSource(
+      "optional-source-unavailable",
+      "replay",
+    )).toBe("replay");
+    expect(agentActivityObservationSource(
+      "durable-operational-projection",
+      "synthetic-dev",
+    )).toBe("mixed");
+    expect(agentActivityObservationSource(
+      "durable-operational-projection",
+      "mixed",
+    )).toBe("mixed");
   });
 });
 
@@ -215,6 +210,93 @@ describe("agentOf attribution", () => {
   test("the bare FDAI runtime actor is not presented as a custom agent", () => {
     const item = makeItem({ actor: "fdai", entry: {} });
     expect(agentOf(item)).toBe("System");
+    expect(agentOf(makeItem({
+      actor: "fdai.system",
+      action_kind: "system.housekeeping",
+      entry: {},
+    }))).toBe("System");
+  });
+
+  test.each([
+    ["inventory", "Huginn"],
+    ["activity-log", "Huginn"],
+    ["metrics", "Heimdall"],
+    ["cost", "Njord"],
+    ["recovery", "Vidar"],
+  ])("attributes observation campaign %s transitions to %s", (domain, owner) => {
+    const item = makeItem({
+      actor: "fdai.system",
+      action_kind: "observation-campaign.source-transition",
+      entry: { domain, source_id: domain },
+    });
+
+    expect(agentOf(item)).toBe(owner);
+  });
+
+  test("prefers authenticated and accountable Pantheon identities", () => {
+    expect(agentOf(makeItem({
+      actor: "fdai.measurement",
+      action_kind: "measurement.control_loop.v1",
+      entry: { producer_principal: "Forseti", owner_agent: "Heimdall" },
+    }))).toBe("Forseti");
+    expect(agentOf(makeItem({
+      actor: "fdai.system",
+      action_kind: "observation-campaign.source-transition",
+      entry: { owner_agent: "Freyr", domain: "metrics", source_id: "capacity-metrics" },
+    }))).toBe("Freyr");
+  });
+
+  test("does not infer a legacy owner for a custom metrics source", () => {
+    expect(agentOf(makeItem({
+      actor: "fdai.system",
+      action_kind: "observation-campaign.source-transition",
+      entry: { domain: "metrics", source_id: "capacity-metrics" },
+    }))).toBe("System");
+  });
+
+  test("does not treat inherited object keys as agents or legacy sources", () => {
+    expect(agentOf(makeItem({
+      actor: "fdai.system",
+      action_kind: "observation-campaign.source-transition",
+      entry: { domain: "metrics", source_id: "constructor" },
+    }))).toBe("System");
+    expect(agentOf(makeItem({
+      actor: "fdai.system",
+      action_kind: "system.housekeeping",
+      entry: { owner_agent: "constructor" },
+    }))).toBe("System");
+  });
+
+  test.each([
+    ["fdai.core.rca", "rca.hypothesis", { producer_principal: "control-loop" }, "Forseti"],
+    ["fdai.measurement", "measurement.control_loop.v1", {}, "Heimdall"],
+    ["fdai.measurement", "measurement.control_loop.rejected.v1", {}, "Heimdall"],
+    [
+      "fdai.system",
+      "audit.record",
+      {
+        principal: "Thor",
+        topic: "object.action-run",
+        payload_digest: "sha256:one",
+        payload: {},
+      },
+      "Saga",
+    ],
+    ["runtime.startup", "startup_readiness.audit_probe", {}, "Saga"],
+  ])("restores legacy %s %s ownership from %j to %s", (actor, actionKind, entry, owner) => {
+    expect(agentOf(makeItem({
+      actor,
+      action_kind: actionKind,
+      entry,
+    }))).toBe(owner);
+  });
+
+  test("does not turn an unrelated generic audit row into Saga activity", () => {
+    expect(agentOf(makeItem({
+      actor: "fdai.system",
+      action_kind: "audit.record",
+      entry: { status: "recorded" },
+    }))).toBe("System");
   });
 
   test("a non-agent producer_principal string is used as-is", () => {

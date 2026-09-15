@@ -97,7 +97,7 @@ test("desktop: real Python function selection, source locations, and caller/call
   await expect(page.locator("#function-list")).toHaveText("No matching source functions.");
 });
 
-test("desktop: source-declared broadcast fan-out, parallel workers, and ARG budget distinction", async ({ page }) => {
+test("desktop: source-declared broadcast fan-out, parallel workers, and Azure Resource Graph budget distinction", async ({ page }) => {
   await page.goto("/");
   await pause(page);
   await seek(page, 22);
@@ -108,7 +108,7 @@ test("desktop: source-declared broadcast fan-out, parallel workers, and ARG budg
   await page.locator("#broadcast-panel summary").click();
   await expect(page.locator("#broadcast-detail")).toContainText("Thor -> object.action-run");
   await expect(page.locator("#broadcast-detail")).toContainText("on_typed_message");
-  await expect(page.locator(".arg-budget")).toContainText("3 req/s");
+  await expect(page.locator(".arg-budget")).toContainText("Azure Resource Graph 3 req/s");
   await expect(page.locator(".rate-note")).toContainText("Not a live polling schedule");
   const activeClock = await page.locator("#stage").getAttribute("data-transport-time");
   await page.waitForTimeout(400);
@@ -122,7 +122,7 @@ test("desktop: source-declared broadcast fan-out, parallel workers, and ARG budg
   await expect(page.locator(".cinema-watermark")).toContainText("SYNTHETIC DEMO");
 });
 
-test("desktop: default 1x, per-second ARG clock, named scan paths, and independent activity phases", async ({ page, baseURL }, testInfo) => {
+test("desktop: default 1x, per-second Azure Resource Graph clock, named scan paths, and independent activity phases", async ({ page, baseURL }, testInfo) => {
   if (!baseURL) throw new Error("Neural View tests require a configured base URL.");
   const origin = new URL(baseURL).origin;
   const outside: string[] = [];

@@ -22,6 +22,7 @@ resource "azurerm_virtual_network" "primary" {
   address_space = concat(
     [var.address_space],
     var.enable_functions_subnet || var.enable_evidence_target_subnet ? [var.functions_address_space] : [],
+    var.enable_aks_subnet ? [var.aks_address_space] : [],
   )
   tags = var.tags
 }
@@ -99,6 +100,16 @@ resource "azurerm_subnet" "evidence_target" {
   resource_group_name             = var.resource_group_name
   virtual_network_name            = azurerm_virtual_network.primary.name
   address_prefixes                = [var.evidence_target_subnet_prefix]
+  default_outbound_access_enabled = false
+}
+
+resource "azurerm_subnet" "aks" {
+  # checkov:skip=CKV2_AZURE_31:AKS applies workload NetworkPolicy while this subnet keeps platform routing independent of an NSG lifecycle.
+  count                           = var.enable_aks_subnet ? 1 : 0
+  name                            = "snet-aks"
+  resource_group_name             = var.resource_group_name
+  virtual_network_name            = azurerm_virtual_network.primary.name
+  address_prefixes                = [var.aks_subnet_prefix]
   default_outbound_access_enabled = false
 }
 

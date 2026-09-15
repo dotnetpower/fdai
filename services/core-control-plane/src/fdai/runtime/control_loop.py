@@ -618,6 +618,7 @@ def _build_control_loop(
         mutation_dependency_readiness=mutation_dependency_readiness,
         evidence_conflict_reader=evidence_conflict_projection,
         safeguard_lifecycle_coordinator=safeguard_coordinator,
+        effect_reconciliation_request_sink=effect_reconciliation_request_sink,
     )
     kill_switch = StateStoreKillSwitch(store=audit_store)
 

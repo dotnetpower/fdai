@@ -9,11 +9,11 @@ import json
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from types import MappingProxyType
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fdai_service_contracts.ontology_query import EvidenceAuthority
 from jsonschema import Draft202012Validator
-from pydantic import Field, ValidationInfo, field_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from fdai.shared.contracts.models import (
     CEILING_ROLE_RANK,
@@ -44,6 +44,24 @@ class FunctionInvocationContext(ContractBase):
     principal_ref: Annotated[str, Field(min_length=1, max_length=256)] | None = None
     principal_groups: tuple[Annotated[str, Field(min_length=1, max_length=256)], ...] = ()
     principal_scope_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")] | None = None
+    document_refs: tuple[
+        Annotated[
+            str,
+            Field(
+                pattern=(
+                    r"^doc:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}:"
+                    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                )
+            ),
+        ],
+        ...,
+    ] = ()
+    document_context_source: Literal["channel_attachment", "web_reference"] | None = None
+    document_conversation_ref: Annotated[str, Field(min_length=1, max_length=256)] | None = None
+    document_authorization_digest: (
+        Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")] | None
+    ) = None
+    document_context_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")] | None = None
 
     @field_validator("purposes", "evidence_refs", "principal_groups", mode="after")
     @classmethod
@@ -59,6 +77,22 @@ class FunctionInvocationContext(ContractBase):
                 f"ontology function invocation {info.field_name} exceeds {limit} items"
             )
         return unique
+
+    @model_validator(mode="after")
+    def _document_constraint_is_complete(self) -> FunctionInvocationContext:
+        if len(self.document_refs) > 8 or len(self.document_refs) != len(set(self.document_refs)):
+            raise ValueError("ontology document refs MUST be at most eight unique values")
+        bound = (
+            self.document_context_source,
+            self.document_conversation_ref,
+            self.document_authorization_digest,
+            self.document_context_digest,
+        )
+        if bool(self.document_refs) != all(value is not None for value in bound):
+            raise ValueError("ontology document context MUST be complete or absent")
+        if self.document_refs and self.principal_ref is None:
+            raise ValueError("ontology document context requires a principal")
+        return self
 
 
 class FunctionInvocationReceipt(ContractBase):

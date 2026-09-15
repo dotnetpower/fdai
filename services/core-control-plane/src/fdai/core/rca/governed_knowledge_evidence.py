@@ -9,6 +9,8 @@ from datetime import UTC, datetime
 from typing import Protocol
 from uuid import UUID
 
+from fdai_service_contracts.cloud_knowledge import Applicability
+
 from fdai.core.operational_context import (
     AuthenticatedPrincipalContext,
     EvidenceLane,
@@ -60,6 +62,7 @@ class GovernedKnowledgeEvidenceContext:
     authenticated_context: AuthenticatedPrincipalContext
     access_context: GovernedDocumentAccessContext
     expected_revisions: tuple[GovernedDocumentRevision, ...] = ()
+    cloud_applicability: Applicability | None = None
 
     def __post_init__(self) -> None:
         if self.read_request.purpose != self.authenticated_context.purpose:

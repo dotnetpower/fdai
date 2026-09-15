@@ -9,8 +9,6 @@ import {
   architectureViewExists,
   formatAge,
   loadArchitectureGraph,
-  shouldShowArchitectureMapResources,
-  shouldShowArchitectureSelectionPrompt,
 } from "./architecture";
 
 describe("architecture resource selection", () => {
@@ -44,17 +42,6 @@ describe("architecture resource selection", () => {
 
   it("rejects an explicit resource outside the current graph", () => {
     expect(architectureResourceExists(resources, "missing-resource")).toBe(false);
-  });
-
-  it("shows the map selection prompt only before a resource is selected", () => {
-    expect(shouldShowArchitectureSelectionPrompt(null, "map")).toBe(true);
-    expect(shouldShowArchitectureSelectionPrompt("web-api", "map")).toBe(false);
-    expect(shouldShowArchitectureSelectionPrompt(null, "network")).toBe(false);
-  });
-
-  it("keeps map resources hidden until a resource is selected", () => {
-    expect(shouldShowArchitectureMapResources(null)).toBe(false);
-    expect(shouldShowArchitectureMapResources("web-api")).toBe(true);
   });
 
   it("maps inventory provenance to a readable label", () => {
@@ -114,12 +101,12 @@ describe("architecture view selection", () => {
     await expect(loadArchitectureGraph({ panel }, "production")).resolves.toBe(graph);
     expect(panel).toHaveBeenNthCalledWith(1, "/inventory/graph", {
       depth: "4",
-      include: "contains,attached_to,depends_on,peered_with",
+      include: "contains,attached_to,depends_on,peered_with,runtime_calls",
       scope: "production",
     });
     expect(panel).toHaveBeenNthCalledWith(2, "/inventory/graph", {
       depth: "4",
-      include: "contains,attached_to,depends_on,peered_with",
+      include: "contains,attached_to,depends_on,peered_with,runtime_calls",
     });
   });
 });

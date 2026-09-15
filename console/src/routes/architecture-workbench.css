@@ -1,0 +1,307 @@
+.architecture-surface {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+
+.architecture-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, .55fr) minmax(280px, 1fr) auto auto;
+  align-items: end;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+
+.architecture-toolbar.is-scope-less {
+  grid-template-columns: minmax(300px, 1fr) auto auto;
+}
+
+.architecture-toolbar .searchable-select > .searchable-select-help {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.architecture-toolbar-field,
+.architecture-mode-control {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  color: var(--fg);
+  font-size: var(--cs-type-label-size);
+  font-weight: 600;
+}
+
+.architecture-toolbar-field select {
+  width: 100%;
+  min-height: var(--cs-control-height-touch);
+  padding: 8px var(--cs-control-padding-inline);
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-sm);
+  background: var(--bg-elevated);
+  color: var(--fg);
+  font: inherit;
+}
+
+.architecture-mode-control .segmented-control {
+  min-height: var(--cs-control-height-touch);
+  align-items: center;
+}
+
+.architecture-mode-control .segmented-control button {
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+.architecture-toolbar-status {
+  display: grid;
+  align-self: center;
+  gap: 3px;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.architecture-toolbar-status strong {
+  color: var(--fg);
+  font-size: var(--cs-type-label-size);
+}
+
+.architecture-coverage {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.architecture-coverage > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.architecture-coverage > header strong {
+  font-size: var(--cs-type-compact-size);
+}
+
+.architecture-coverage > header span {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+  font-weight: 700;
+}
+
+.architecture-coverage > header span.is-complete {
+  color: var(--success);
+}
+
+.architecture-coverage > header span.is-partial {
+  color: var(--warning);
+}
+
+.architecture-coverage dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+}
+
+.architecture-coverage dl > div {
+  min-width: 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.architecture-coverage dt {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+}
+
+.architecture-coverage dd {
+  margin: 2px 0 0;
+  font-size: var(--cs-type-compact-size);
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.architecture-coverage > p {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+}
+
+.architecture-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 272px);
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius);
+  background: var(--bg-elevated);
+}
+
+.architecture-workbench.is-inspector-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.architecture-map-pane {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.architecture-inspector-toggle {
+  position: relative;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-sm);
+  background: var(--bg-elevated);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.architecture-inspector-toggle > span {
+  position: absolute;
+  inset: 9px 8px;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+}
+
+.architecture-inspector-toggle > span::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 4px;
+  border-left: 1.5px solid currentColor;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  content: "";
+}
+
+.architecture-inspector-toggle:hover,
+.architecture-inspector-toggle:focus-visible {
+  border-color: var(--accent);
+  color: var(--fg);
+  outline: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  outline-offset: 1px;
+}
+
+.architecture-map-pane > .tooltip-anchor:has(.architecture-inspector-toggle.is-restore) {
+  position: absolute;
+  z-index: 8;
+  inset: 0;
+  pointer-events: none;
+}
+
+.architecture-inspector-toggle.is-restore {
+  position: absolute;
+  z-index: 8;
+  top: 12px;
+  right: 220px;
+  pointer-events: auto;
+}
+
+.architecture-toolbar select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 1100px) {
+  .architecture-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .architecture-toolbar.is-scope-less {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .architecture-toolbar-status {
+    text-align: left;
+  }
+
+  .architecture-coverage dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .architecture-workbench {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .architecture-inspector {
+    max-height: none;
+    overflow: visible;
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .architecture-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .architecture-toolbar.is-scope-less {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .architecture-toolbar-field select,
+  .architecture-mode-control .segmented-control,
+  .architecture-mode-control .segmented-control button {
+    min-height: 44px;
+  }
+
+  .architecture-toolbar-status {
+    white-space: normal;
+  }
+
+  .architecture-coverage > header {
+    align-items: start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .architecture-coverage dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .architecture-inspector-toggle {
+    width: 44px;
+    height: 44px;
+  }
+
+  .architecture-inspector-toggle > span {
+    inset: 12px 10px;
+  }
+
+  .architecture-inspector-tabs button,
+  .architecture-network-export button,
+  .architecture-network-path-controls select,
+  .architecture-network-filters label,
+  .architecture-relationships button {
+    min-height: 44px;
+  }
+
+  .architecture-network-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 360px) {
+  .architecture-route .page-header-domain,
+  .architecture-route .page-header-separator {
+    display: none;
+  }
+}

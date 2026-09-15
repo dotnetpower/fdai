@@ -11,6 +11,7 @@ def test_foundry_web_search_uses_identity_and_private_mode() -> None:
 
     assert "public_network_access_enabled = !var.private_networking_enabled" in module
     assert "local_auth_enabled            = false" in module
+    assert 'role_definition_name             = "Azure AI Developer"' in module
     assert 'identity {\n    type = "SystemAssigned"' in module
     assert 'module "foundry_web_search_private_endpoint"' in root
     assert 'private_dns_zone_name = "privatelink.services.ai.azure.com"' in root

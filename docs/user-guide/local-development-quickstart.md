@@ -27,6 +27,34 @@ have readable deployment state, start with the Docker data stack and determinist
 
 ## Install the prerequisites
 
+### One-command workstation setup
+
+On x86_64 Ubuntu or WSL, run the repository installer from the repository root:
+
+```bash
+bash scripts/automation/setup-local-development.sh
+```
+
+The script installs the system packages and repository-pinned command-line tools, configures
+Docker access, installs the locked Python and Console dependencies, downloads Playwright Chromium,
+enables the tracked Git hooks, and applies the shared VS Code settings and extensions. It also
+starts and waits for the Docker data stack: runtime and validation PostgreSQL with pgvector,
+Redpanda, and ClamAV. It prompts for `sudo` in the terminal when required. It doesn't sign in to
+Azure or GitHub and doesn't create tenant-specific configuration.
+
+The installer can start the data stack during its first run by using the newly assigned Docker
+group. Reopen the WSL window before running Docker commands directly so existing terminals receive
+that group membership. Import `.vscode/fdai.code-profile` with `Profiles: Import Profile` because
+profile import remains a user-visible VS Code action. You can verify the toolchain and healthy data
+stack without changing them:
+
+```bash
+bash scripts/automation/setup-local-development.sh --check
+```
+
+Use the following sections when you need to install a prerequisite manually or diagnose a failed
+check.
+
 ### Docker data stack
 
 Install Docker Engine or Docker Desktop and Docker Compose v2. On WSL, enable the Docker Desktop
@@ -68,7 +96,7 @@ sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor
 tesseract --list-langs
 ```
 
-Install the repository dependencies and hooks:
+If you don't use the one-command installer, install the repository dependencies and hooks:
 
 ```bash
 uv sync --extra dev
@@ -121,6 +149,17 @@ Console stack with `FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1` and
 `FDAI_LOCAL_RESOURCE_GROUP=<existing-read-scope>` on the preparation task or script. The script
 verifies that group in the active subscription and reads its region. Missing or invalid scope
 stops preparation; it never invents a resource group or silently selects the entire subscription.
+
+To reuse the same explicit scope from VS Code tasks, add both settings to the gitignored
+`console/.env.local` file described below:
+
+```dotenv
+FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1
+FDAI_LOCAL_RESOURCE_GROUP=<existing-read-scope>
+```
+
+An explicitly exported process environment takes precedence over values in the file. Keep the
+selected resource group local to the workstation and never commit it.
 
 PostgreSQL, Redpanda, and ClamAV remain local. This option skips Terraform deployment discovery,
 not authentication or authoritative-source checks, and creates no Azure resources. Existing
@@ -197,6 +236,11 @@ debugger. Both paths use the same preparation script. The first run can take lon
 pulls images and installs dependencies; later runs reuse stages whose inputs and outputs have not
 changed.
 
+If preparation succeeds but the service supervisor doesn't start, run `Tasks: Run Task` ->
+`console: start local services`. This visible background task reuses the prepared environments and
+starts the complete service set without repeating preparation. Then run
+`console: wait full stack ready`; a complete start reports `ready: 10/10` and `unavailable: none`.
+
 | Surface | Address or readiness signal |
 |---------|-----------------------------|
 | Console | `http://localhost:5273` |
@@ -210,6 +254,11 @@ changed.
 Preparation registers both `http://localhost:5273` and `http://127.0.0.1:5273` as local SPA
 redirects. Use `http://localhost:5273` as the standard browser origin so authentication and
 session state do not split across hostnames.
+
+In a remote WSL workspace, the VS Code integrated browser can rewrite `localhost` to
+`127.0.0.1` while forwarding the remote port. This is browser forwarding behavior, not a change
+to the Console server or Entra configuration. Open `http://localhost:5273` in a regular host
+Chrome or Edge window when you need the canonical authentication and session origin.
 
 Use the `console: wait full stack ready` task only as a bounded diagnostic after a successful
 start. Service logs are under `.fdai/logs/`.
@@ -234,7 +283,9 @@ logs.
 
 Run the three verification commands from the same Linux or WSL shell that runs VS Code tasks. If
 `docker info` reports permission denied or cannot reach the daemon, fix daemon access for that user
-instead of running the FDAI stack with `sudo`.
+instead of running the FDAI stack with `sudo`. After adding the user to the `docker` group, reopen
+the WSL window or restart VS Code before running tasks so the extension host receives the new group
+membership.
 
 ### A container is unhealthy
 

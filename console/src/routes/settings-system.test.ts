@@ -5,6 +5,7 @@ import {
   isCurrentDiagnosticCheck,
   isHealthy,
   normalizeTeamsWorkflowAccountHint,
+  personalNotificationPrincipalLabel,
 } from "./settings-system";
 
 function auth(overrides: Partial<AuthContext>): AuthContext {
@@ -42,6 +43,25 @@ describe("Settings authentication mode", () => {
   it("distinguishes Azure CLI and production Entra", () => {
     expect(authenticationMode(auth({ devMode: true, localAzureCli: true }))).toBe("Azure CLI");
     expect(authenticationMode(auth({ devMode: false }))).toBe("Microsoft Entra ID");
+  });
+
+  it("uses a compact account label for personal notification scope", () => {
+    expect(personalNotificationPrincipalLabel(auth({
+      account: {
+        homeAccountId: "home",
+        localAccountId: "local",
+        username: "long.user@example.com",
+        name: "Long User",
+      },
+    }))).toBe("Long User");
+    expect(personalNotificationPrincipalLabel(auth({
+      account: {
+        homeAccountId: "home",
+        localAccountId: "local",
+        username: "long.user@example.com",
+      },
+    }))).toBe("long.user@example.com");
+    expect(personalNotificationPrincipalLabel(auth({ account: null }))).toBeNull();
   });
 });
 

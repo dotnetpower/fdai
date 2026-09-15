@@ -1,8 +1,8 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: 85d896f8d98fae64291edbef34e1119f369f7ca6
-translation_revised: 2026-08-31
+translation_source_sha: 6ca9c7fa7238e9880dabfc4d1a07119604757f61
+translation_revised: 2026-09-14
 ---
 
 # 근실시간 감지 경로
@@ -139,32 +139,48 @@ API는 Console에 전달하기 전에 멱등성 키와 리소스별로 증적을
 기록하는 이후 틱은 멱등한 no-op이며 첫 관측을 보존합니다. 그 결과 감지 지연은 점검 결과의
 경과 시간이 아니라 감지 측정값으로 남습니다.
 
-### 에이전트 소유 AKS 감지 준비도
+### 리소스 감지 커버리지
 
-같은 틱은 각 AKS 대상에 대해 발견, 수집기 구성, 최근 텔레메트리, detector 연결,
-이전 파이프라인 연속성, 액션 거버넌스의 정제된 6개 관측을 Huginn raw 유입에 발행합니다.
-Heimdall은 관측을 `object.drift`로 축약하고, Muninn은 최신 `object.state-snapshot`을 저장하며,
-Saga는 전환을 감사하고, Forseti는 스냅샷을 권한 상한으로 사용합니다. 첫 통과에는 이전 Muninn
-스냅샷이 없으므로 부분이며, 이후 통과에서 파이프라인 연속성을 증명할 수 있습니다.
+모든 분석기 실행은 현재 제공되는 다섯 가지 리소스 유형의 범위가 제한된 읽기 전용 커버리지를
+기록합니다. 대상은 API gateway, Kubernetes cluster, LLM endpoint, MySQL server 및
+Application Gateway입니다. 대상 선택 단계부터 정규 온톨로지 `resource_type`을 분석기 종류와
+함께 전달하므로 구현 이름에서 리소스 유형을 역추정하지 않습니다. 실행 증적은 다음을 구분합니다.
 
-한 대상 틱의 6개 관측은 결정론적 `pass_id`와 대상 리소스 파티션 키를 공유합니다.
-따라서 런타임 복제본이 여러 개여도 Event Hubs 정렬과 Heimdall 소비자 그룹이 각 대상을
-한 소비자에 전달합니다. Heimdall은 차원을 어떤 순서로든 받고 겹친 통과 ID를 독립적으로
-추적하며, 한 통과의 6개가 모두 도착하기 전에는 표류를 발행하지 않습니다. 불완전한 통과는
-수집 중인 다른 통과를 지우거나 마지막 완전한 스냅샷을 교체하지 않습니다.
+- 인벤토리 후보, 선택된 대상, 실제 평가를 마친 대상 및 보류된 후보
+- 발견 사항 없이 평가를 마친 대상과 발견 사항이 있는 대상
+- 분석기 오류와 지원되지 않는 대상, 발견 사항별 정확한 게시 결과
+- 리소스 유형별 수치와 범위가 제한된 선택 대상별 행
 
-축약은 실패 시 차단입니다. 누락, stale, 사용 불가, 승인되지 않은 근거는 준비된이 되지 않습니다.
-6개 차원이 모두 통과해도 새 준비 상태 기능은 `shadow`로 유지되므로 ActionType을 승격하거나
-변경을 실행할 수 없습니다. Operator API와 콘솔은 Muninn 판정을 변환 결과하며 다시 계산하지 않습니다.
-Muninn은 `generated_at`이 엄격히 더 새로운 경우에만 대상의 최신 스냅샷을 교체하므로 순서가 바뀌거나
-재전달된 표류가 영속 준비도를 과거로 되돌릴 수 없습니다.
-Inventory 기반 대상은 그래프 최신성과 범위 근거를 발견 dimension에 전달합니다. Stale
-snapshot 또는 degraded 범위는 passed가 아니라 사용 불가가 됩니다. Heimdall은 drift를
-publish하지만 복구를 실행하지 않습니다. 수집은
-[지속형 운영 인스턴스 그래프](../architecture/continuous-operational-instance-graph-ko.md)의 적응형
-원본 정책을 따릅니다. lag, 변경량, 최대 노후 시간, 공급자 예산, throttling, circuit 상태가 다음
-delta 또는 완전한 reconciliation 시도를 결정합니다. 현재 고정 정기 간격은 controller가 구현되고
-측정될 때까지 이전 구성으로 유지됩니다.
+후보는 선택과 보류의 합, 선택 수는 보존된 리소스 행 수와 같아야 하며 전체 수치는 리소스 유형별
+및 리소스별 수치와 일치해야 합니다. 발견 사항 게시 상태는 게시됨, 중복 억제, 불확실, 조정 대기,
+실패를 포함한 기존 상태를 그대로 유지합니다. 발견 사항이 없는 성공한 분석은
+`evaluated_no_finding`만 의미합니다. 리소스 정상, 탐지기 준비, 복구 또는 실행 권한을 뜻하지
+않습니다. 커버리지 섹션은 원인 주장과 실행 권한을 모두 `false`로 고정합니다.
+
+보류된 각 리소스 유형은 오래되거나 사용할 수 없거나 검증되지 않은 상태 근거, 선택 한도, 중복
+후보와 같이 선택하지 않은 이유도 기록합니다. 선택된 리소스 행은 프로바이더 예외 원문 대신 범위가
+제한된 오류 코드를 사용합니다. 선택된 리소스와 연결할 수 없는 게시 및 증적 저장 실패는 귀속되지
+않은 오류로 명시합니다. 인벤토리에 같은 ID가 여러 번 있어도 한 번만 선택합니다.
+
+분석기 실행 증적 `1.3.0`은 커버리지 스키마 `1.1.0`을 포함합니다. Operator 경계는 커버리지
+스키마 `1.0.0`도 허용하며 누락된 보류 및 오류 세부 정보를 `legacy_unspecified`로 표시합니다.
+커버리지를 도입하기 전의 분석기 실행 증적은 불완전한 데이터에서 재구성하지 않고 해당 섹션만
+사용 불가로 표시합니다. 최신 시도와 최근 성공한 분석기 실행은 시각과 수치를 별도로 유지합니다.
+보존된 발견 사항 증적은 자체 불변 ID가 달리 증명하지 않는 한 여러 실행에 걸친 이력이므로 Console은
+과거 발견 사항을 최신 실행에 귀속하지 않습니다.
+
+### Kubernetes 준비도 확장
+
+6차원 `DetectionReadinessSnapshot`은 Kubernetes 전용 권한 상한 확장으로 유지합니다. 차원은 발견,
+수집기 구성, 최근 텔레메트리, 탐지기 연결, 이전 파이프라인 연속성 및 작업 거버넌스입니다.
+Heimdall은 완전한 통과만 축약하고, Muninn은 가장 최신 스냅샷을 보존하며, Saga는 전환을 감사하고,
+Forseti는 이후 권한을 낮출 수 있습니다. 누락되거나 오래되었거나 사용할 수 없거나 권한이 없는
+근거는 준비 완료가 되지 않으며, 완전한 스냅샷도 처음에는 `shadow` 상한을 유지합니다.
+
+현재 운영 분석기 작업은 6개의 `detection.readiness.observed` 레코드를 게시하지 않습니다. 검토된
+기계식 생산자가 연결되기 전까지 이 확장은 분석기 성공에서 추론하지 않고 실제 커버리지에서 사용
+불가로 표시합니다. 기존 테스트는 축약기와 에이전트 흐름만 증명합니다. Kubernetes Pod 재시작,
+교체 및 복구 이력은 또 다른 선택형 Kubernetes 세부 정보이며 범용 커버리지 및 준비도와 분리합니다.
 
 ## 조합 규칙
 
@@ -206,6 +222,7 @@ delta 또는 완전한 reconciliation 시도를 결정합니다. 현재 고정 �
 |------|------|------|------|
 | 라우팅된 pull 프로바이더 | implemented | `services/core-control-plane/src/fdai/composition/wire_metric_provider.py`; `services/core-control-plane/tests/providers/test_routed_metric.py` | Prometheus, Metrics API, Logs 프로바이더를 결정론적 경로 순서로 선택합니다. |
 | 예약된 분석 작업 | implemented | `infra/modules/compute/container-apps/analyzer_tick_job.tf`; `services/core-control-plane/src/fdai/delivery/analyzer_tick_cli.py`; `services/core-control-plane/tests/delivery/test_analyzer_tick_routed.py` | Terraform이 1분 간격 작업을 선언하고 `fdai.delivery.analyzer_tick_cli` 진입점도 제공됩니다. 집중 테스트 하나가 라우팅된 각 백엔드에 도달해 임계 위반을 shadow 모드 Event로 발행합니다. 관리되는 실제 지연 근거는 남아 있습니다. |
+| 교차 리소스 감지 커버리지 | implemented | `services/core-control-plane/src/fdai/delivery/analyzer_targets.py`; `services/core-control-plane/src/fdai/delivery/analyzer_tick_cli.py`; `services/operator-service/src/fdai_operator_service/analyzer_coverage_projection.py`; 집중 Core, Operator 및 Console 검사 | 커버리지 스키마 `1.1.0`은 명시적 리소스 유형, 엄격한 대수 관계, 보류 이유 수, 범위가 제한된 귀속 및 미귀속 오류 코드, 정확한 게시 상태를 보존하며 정상 상태나 권한을 주장하지 않습니다. |
 | 분석기 수명 주기 증적 변환 결과 | implemented | `fdai/delivery/analyzer_receipt_store.py`; `fdai_operator_service/analyzer_lifecycle_projection.py`; `console/src/routes/detection-readiness.tsx`; 집중 분석기, Operator API, Console 및 세 화면 크기 Playwright 검사 | 범위 제한 추적 상태 증적이 현재 상태를 보존된 재시작, 교체, 게시 및 복구 이력과 분리합니다. 인증된 읽기 변환 결과는 원인 주장, 프로바이더 읽기, 브라우저 유도 간선 또는 실행 권한 없이 불완전, 충돌, 누락, 실패 및 중복 근거를 노출합니다. |
 | AKS 감지 준비도 축약 | implemented | `services/core-control-plane/tests/agents/test_huginn_detection_readiness.py`; `tests/integration/infra/test_detection_readiness.py` | 집중 테스트가 에이전트 소유 준비도 관측과 인프라 계약을 검증합니다. 이는 구현 근거이며 실제 지연 근거는 아닙니다. |
 | 메트릭 경보 웹훅 경로 | implemented | `fdai_service_contracts/azure_monitor.py`; Operator operations 경로, 영속 웹훅 outbox 브리지, semantic Kafka Event 경로; 집중 계약, 경로, 브리지 및 Kafka 테스트 | 검증된 Common Alert payload를 정리된 shadow Event로 바꾸고 lease fence가 있는 영속 제안에서 게시합니다. 관리되는 실제 액션 그룹 전달 및 지연 근거는 아직 남아 있습니다. |
@@ -216,6 +233,7 @@ delta 또는 완전한 reconciliation 시도를 결정합니다. 현재 고정 �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 결정적인 보류 이유, 범위가 제한된 오류 코드, 중복 후보 선택 방지, 이전 버전 정규화 및 형식이 잘못된 보존 시도의 섹션 단위 처리를 추가해 교차 리소스 커버리지를 강화했습니다. | `current change`; Core 대상 및 분석기 보고서 테스트 87개와 Operator 커버리지 및 실행 변환 테스트 15개가 통과했고, 집중 Ruff 및 mypy 검사도 통과했습니다. | 관리되는 실제 전달 및 지연 근거를 보존합니다. 이 변경은 런타임 검증을 만들지 않았습니다. |
 | 2026-08-31 | implemented | 분석기의 범위 제한 점검 결과 증적을 보존 수가 제한된 추적 상태에 저장하고, 인증된 감지 준비도 경로를 통해 서버가 작성한 현재 상태와 보존 수명 주기 이력으로 변환했습니다. 중복 게시, 복구 및 완전, 불완전, 충돌 또는 누락 근거를 명시적으로 유지하며 원인 주장과 실행 권한은 false로 유지합니다. | `current change`; 집중 Python 및 Operator API 검사 90개, 집중 Console 검사 5개, Console 타입 검사 및 운영 빌드, 가로 넘침이 측정되지 않은 synthetic 데스크톱, 제한된 데스크톱 및 모바일 Playwright 검사 3개가 통과했습니다. | 관리되는 실제 전달 및 지연 근거는 여전히 남아 있으며 이 변경에서는 생성하지 않았습니다. |
 | 2026-08-29 | implemented | 강화 라운드 4에서 진단 유입 관점 26개를 검토하고 Event 신원을 만들기 전에 진단 기록 시각을 UTC로 정규화했습니다. 오프셋 표현만 다른 재생은 이제 하나의 멱등성 키를 유지합니다. | `current change`; 집중 Azure 진단 정규화기 테스트. | 관리되는 실제 전달 및 지연 근거를 보존합니다. |
 | 2026-08-29 | implemented | 강화 라운드 2에서 경보 계약 관점 25개를 검토하고 Event 및 멱등성 신원을 만들기 전에 프로바이더 시각을 UTC로 정규화했습니다. 하나의 경보를 서로 다른 오프셋으로 표현해도 중복 인시던트 신호를 만들지 않습니다. | `current change`; 집중 Azure Monitor 계약 테스트. | 관리되는 실제 전달 및 지연 근거를 보존합니다. |
@@ -233,6 +251,8 @@ delta 또는 완전한 reconciliation 시도를 결정합니다. 현재 고정 �
 - [x] 범위 제한 분석기 점검 결과 증적을 저장하고 서버가 작성한 현재 상태, 보존 수명 주기
   이력, 게시, 복구, 중복 전달 및 명시적 근거 공백 상태를 인증된 Operator API와 반응형
   Console에 노출합니다.
+- [x] 조정된 보류 이유와 범위가 제한된 오류 코드를 포함하는 엄격한 교차 리소스 분석기
+  커버리지를 버전이 지정된 실행 증적에 기록합니다.
 - [ ] 경로 상태를 `implemented`에서 `validated`로 변경하기 전에 각 경로의 관리되는 지연 근거를 기록합니다.
 
 ## 아직 배송 안 됨
