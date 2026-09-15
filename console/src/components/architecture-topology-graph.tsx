@@ -10,6 +10,7 @@ import {
   architectureTopologyBounds,
   architectureTopologyCanvasSize,
   architectureTopologyFitScale,
+  architectureTopologyInitialView,
   architectureTopologyLabelLines,
   architectureTopologyLinkRoute,
   architectureTopologyRegionDepth,
@@ -116,6 +117,7 @@ export function ArchitectureTopologyGraph({
   useEffect(() => {
     const scroll = scrollRef.current;
     if (!scroll) return;
+    let initialized = false;
     const resize = () => {
       const fit = architectureTopologyFitScale(
         canvas,
@@ -123,7 +125,18 @@ export function ArchitectureTopologyGraph({
         scroll.clientHeight,
       );
       fitScaleRef.current = fit;
-      if (scaleRef.current === 1 || scaleRef.current < fit) {
+      if (!initialized) {
+        const initial = architectureTopologyInitialView(
+          canvas,
+          scroll.clientWidth,
+          scroll.clientHeight,
+        );
+        initialized = true;
+        scaleRef.current = initial.scale;
+        setScale(initial.scale);
+        scroll.scrollLeft = initial.scroll.left;
+        scroll.scrollTop = initial.scroll.top;
+      } else if (scaleRef.current < fit) {
         scaleRef.current = fit;
         setScale(fit);
       }
@@ -132,7 +145,7 @@ export function ArchitectureTopologyGraph({
     observer.observe(scroll);
     resize();
     return () => observer.disconnect();
-  }, [canvas]);
+  }, [canvas.height, canvas.width]);
 
   useEffect(() => {
     const scroll = scrollRef.current;

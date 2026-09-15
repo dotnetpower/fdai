@@ -671,6 +671,8 @@ steal a card click. Mobile controls and node hit regions are at least 44 px. The
 bounded and pannable rather than shrinking text below a readable scale. The Resource search and
 Inspector provide equivalent non-gesture access. Reduced motion and forced colors preserve
 operation and meaning.
+Changing from Landscape to another scope starts that new canvas at its fitted origin. Resize inside
+the same canvas preserves operator zoom unless the content would become smaller than Fit.
 
 The Impact scope map requests an unscoped graph projection at the simulation snapshot and compares
 every target and reached Resource identity before rendering. A snapshot mismatch or any omitted

@@ -89,6 +89,18 @@ export function architectureTopologyFitScale(
   ));
 }
 
+/** Starts each new presentation canvas at a complete, origin-aligned overview. */
+export function architectureTopologyInitialView(
+  canvas: ArchitectureTopologyCanvasSize,
+  viewportWidth: number,
+  viewportHeight: number,
+): { readonly scale: number; readonly scroll: ArchitectureTopologyScrollTarget } {
+  return {
+    scale: architectureTopologyFitScale(canvas, viewportWidth, viewportHeight),
+    scroll: { left: 0, top: 0 },
+  };
+}
+
 /** Preserves the viewport center while the operator changes topology scale. */
 export function architectureTopologyZoomScrollTarget({
   scrollLeft,

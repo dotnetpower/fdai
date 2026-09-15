@@ -6,6 +6,7 @@ import {
   architectureTopologyBounds,
   architectureTopologyCanvasSize,
   architectureTopologyFitScale,
+  architectureTopologyInitialView,
   architectureTopologyLabelLines,
   architectureTopologyLinkRoute,
   architectureTopologyUnplacedIds,
@@ -56,6 +57,17 @@ describe("Architecture topology geometry", () => {
     expect(architectureTopologyFitScale(canvas, 600, 500)).toBeLessThan(1);
     expect(clampArchitectureTopologyScale(0)).toBe(ARCHITECTURE_TOPOLOGY_MIN_SCALE);
     expect(clampArchitectureTopologyScale(4)).toBe(ARCHITECTURE_TOPOLOGY_MAX_SCALE);
+  });
+
+  it("resets a new presentation canvas to its fitted origin", () => {
+    expect(architectureTopologyInitialView(
+      { width: 1200, height: 800 },
+      600,
+      500,
+    )).toEqual({
+      scale: architectureTopologyFitScale({ width: 1200, height: 800 }, 600, 500),
+      scroll: { left: 0, top: 0 },
+    });
   });
 
   it("preserves the viewport center while zooming", () => {
