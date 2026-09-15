@@ -316,7 +316,12 @@ purpose or digest drift, or original/current expiry. Scrubbing requires exact cu
 outage never authorizes erasure. Claim identity, receipt, digest, and audit survive; releasing a hold
 permits scrubbing, not revival. The existing scheduler rotates at most 25 packages per notice with
 atomic audit. This grants no catalog, graph, mutation, or promotion authority. The [12-round final source review](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) followed remaining implementation and leaves no unresolved confirmed Medium/High source finding.
-Translation refresh, canonical generation, local hooks, publication/CI, provider conformance, and live lifecycle/cohort evidence remain open in the linked ledger; full UI/assistive evidence remains separate.
+Source publication completed through [PR #1014](https://github.com/dotnetpower/fdai/pull/1014), and
+the local UI follow-up completed through [PR #1031](https://github.com/dotnetpower/fdai/pull/1031).
+The [validation guide](../../user-guide/guides/validate-ownership-handover.md) defines the remaining
+human and operational evidence procedure. Actual screen-reader speech, provider conformance, and
+governed deployed source, ACL, legal-hold, deletion, and cohort evidence remain open in the linked
+ledger; none is inferred from source delivery.
 
 ## Implementation surfaces
 
