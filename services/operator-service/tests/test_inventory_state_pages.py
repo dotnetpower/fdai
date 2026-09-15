@@ -23,6 +23,7 @@ from fdai_operator_service.families.operations.instance_states import (
     OntologyGenerationChangedError,
     _encode,
     _validate_page,
+    project_inventory_resource_count,
     project_inventory_states,
 )
 from fdai_operator_service.family_adapters import PostgresOperationsAdapters
@@ -99,6 +100,13 @@ class _Reader:
 async def _read(reader: _Reader, query: ProjectionQuery = QUERY) -> dict[str, object]:
     return await project_inventory_states(
         query=query, reader=reader, ontology_projection=ONTOLOGY, now=lambda: NOW
+    )
+
+
+async def _count(reader: _Reader, query: ProjectionQuery | None = None) -> dict[str, object]:
+    return await project_inventory_resource_count(
+        query=query or replace(QUERY, params={"summary": ("count",)}, limit=100),
+        reader=reader,
     )
 
 
@@ -183,6 +191,67 @@ async def test_29_resources_are_projected_with_one_bulk_reader_call() -> None:
     rows = page["resources"]
     assert isinstance(rows, list)
     assert all(row["states"]["operational"]["value"] == "Running" for row in rows)
+
+
+async def test_resource_count_uses_active_inventory_without_ontology_alignment() -> None:
+    reader = _Reader()
+    reader.ontology_context = None
+
+    result = await _count(reader)
+
+    assert result == {
+        "schema_version": "1.0.0",
+        "source_kind": "inventory_snapshot_resource",
+        "source_generation": "generation-1",
+        "source_cutoff": NOW.isoformat(),
+        "total_count": 3,
+        "execution_authority": False,
+        "mutation_authority": False,
+    }
+    assert reader.calls == [("generation-1", None, 0, 1)]
+
+
+async def test_resource_count_rechecks_active_inventory_after_count() -> None:
+    reader = _Reader()
+    reader.next_context = InventoryImpactContext("generation-2", NOW)
+
+    with pytest.raises(InventoryGenerationChangedError):
+        await _count(reader)
+
+
+@pytest.mark.parametrize(
+    "context",
+    [
+        InventoryImpactContext("", NOW),
+        InventoryImpactContext("generation-1", datetime(2026, 9, 5)),
+    ],
+)
+async def test_resource_count_rejects_malformed_active_context(
+    context: InventoryImpactContext,
+) -> None:
+    reader = _Reader()
+    reader.context = context
+
+    with pytest.raises(ProjectionUnavailableError, match="identity is malformed"):
+        await _count(reader)
+
+    assert reader.calls == []
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        replace(QUERY, params={"summary": ("count",), "limit": ("1",)}),
+        replace(QUERY, params={"summary": ("count",)}, cursor="cursor"),
+    ],
+)
+async def test_resource_count_rejects_query_shape(query: ProjectionQuery) -> None:
+    reader = _Reader()
+
+    with pytest.raises(ValueError, match="requires summary=count"):
+        await _count(reader, query)
+
+    assert reader.calls == []
 
 
 @pytest.mark.parametrize(
