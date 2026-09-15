@@ -4,6 +4,7 @@ import { independentWorkloads } from "../playback/workloads";
 import { localized, type AgentId, type Locale, type Scenario } from "../model";
 import { t } from "./i18n";
 import { agentColor } from "../agents";
+import { setAttribute, setStyle, setText } from "./dom-state";
 
 /** Independent lanes and overlapping broadcasts are explicitly synthetic, even over real source paths. */
 export class FlowPanel {
@@ -48,13 +49,13 @@ export class FlowPanel {
     for (const work of flow.independent) {
       const lane = this.lanes.get(work.agent)!;
       lane.classList.toggle("is-active", work.active);
-      lane.dataset.active = String(work.active);
-      lane.style.setProperty("--lane-progress", `${work.progress * 100}%`);
-      lane.querySelector(".lane-state")!.textContent = t(work.active ? "working" : "waitingLane", locale);
-      lane.title = `${localized(work.purpose, locale)}\n${work.functionId}()`;
-      lane.setAttribute("aria-label", `${work.agent}: ${localized(work.purpose, locale)}. ${t(work.active ? "working" : "waitingLane", locale)}`);
+      setAttribute(lane, "data-active", String(work.active));
+      setStyle(lane, "--lane-progress", `${work.progress * 100}%`);
+      setText(lane.querySelector(".lane-state")!, t(work.active ? "working" : "waitingLane", locale));
+      setAttribute(lane, "title", `${localized(work.purpose, locale)}\n${work.functionId}()`);
+      setAttribute(lane, "aria-label", `${work.agent}: ${localized(work.purpose, locale)}. ${t(work.active ? "working" : "waitingLane", locale)}`);
     }
-    this.parallelCount.textContent = String(flow.independent.filter((work) => work.active).length);
+    setText(this.parallelCount, String(flow.independent.filter((work) => work.active).length));
     const key = `${flow.broadcasts.map((broadcast) => `${broadcast.topic.id}:${broadcast.phase}`).join(",")}:${locale}`;
     if (key === this.key) return;
     this.key = key;
