@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 from pathlib import Path
@@ -44,6 +45,28 @@ def _write(root: Path, relative: str, source: str) -> None:
 
 def test_current_repository_semantic_baseline_is_complete() -> None:
     assert _load_module().violations() == []
+
+
+def test_alert_effect_classifier_is_reviewed_typed_evidence_not_language_routing() -> None:
+    module = _load_module()
+    relative = "services/core-control-plane/src/fdai/core/detection/alert_noise/outcomes.py"
+    baseline, failures = module._baseline(REPO_ROOT)
+    assert failures == []
+    assert baseline[relative]["disposition"] == "retain"
+    assert baseline[relative]["owner"] == "alert-noise-effect-verification"
+    source = (REPO_ROOT / relative).read_text(encoding="utf-8")
+    function = next(
+        node
+        for node in ast.parse(source).body
+        if isinstance(node, ast.FunctionDef) and node.name == "classify_alert_effect"
+    )
+
+    assert {arg.arg: ast.unparse(arg.annotation) for arg in function.args.args} == {
+        "context": "AlertEffectContext",
+        "observation": "AlertEffectObservation | None",
+    }
+    assert [argument.arg for argument in function.args.kwonlyargs] == ["now"]
+    assert module._function_has_lexical_judgment(function, compile_aliases={"compile"})
 
 
 def test_detector_scans_every_production_source_tree() -> None:
