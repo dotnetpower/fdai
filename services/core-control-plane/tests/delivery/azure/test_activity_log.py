@@ -12,6 +12,8 @@ stream consumes:
   ``provider_ref``.
 - Non-``Succeeded`` events and events whose ARM type is not in the
   vocabulary are dropped.
+- Known child changes reported against only a parent ARM id request reconciliation
+  without reconstructing the missing child identity.
 - Non-2xx / non-JSON / missing ``value`` responses raise ``ActivityLogError``
   so the delta stream fails closed without a ``final=True`` fence.
 
@@ -238,6 +240,45 @@ async def test_known_parent_only_child_change_requests_reconciliation_without_fa
     assert page.relationship_reconciliation_after == "2026-07-10T06:15:00+00:00"
     assert page.cursor == "2026-07-10T06:15:00+00:00"
     assert page.has_more is False
+
+
+@pytest.mark.asyncio
+async def test_parent_only_child_page_retains_reconciliation_without_resources() -> None:
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-a/providers/Microsoft.CognitiveServices/accounts/account-one"
+    )
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "resourceId": arm_id,
+                        "resourceType": {
+                            "value": "Microsoft.CognitiveServices/accounts/deployments"
+                        },
+                        "operationName": {
+                            "value": "Microsoft.CognitiveServices/accounts/deployments/write"
+                        },
+                        "status": {"value": "Succeeded"},
+                        "eventTimestamp": "2026-07-10T06:15:00Z",
+                    }
+                ]
+            },
+        )
+
+    factory, client, _ = _factory(handler)
+    try:
+        page = await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")
+    finally:
+        await client.aclose()
+
+    assert page.resources == ()
+    assert page.links == ()
+    assert page.cursor == "2026-07-10T06:15:00+00:00"
+    assert page.relationship_reconciliation_after == "2026-07-10T06:15:00+00:00"
 
 
 @pytest.mark.asyncio
