@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: b97e602c81675b09e8298e3a69e4311aa11ce6b6
+translation_source_sha: 2498aaba41cdddd083076cd4e73e5e68698bedf8
 translation_revised: 2026-09-15
 ---
 # 런타임 배포 프로파일
@@ -267,25 +267,7 @@ anti-affinity, disruption budget, 백업 불변성, 특정 시점 복구, 노드
 
 선택된 프로파일은 유한한 의존성 그래프로 컴파일됩니다.
 
-```mermaid
-flowchart LR
-    A[Verify signed kit] --> B[Inspect target and capacity]
-    B --> C[Foundation exact plan]
-    C --> D[Shared Azure platform]
-    D --> E{Runtime platform}
-    E -->|Container Apps| F[Container Apps substrate]
-    E -->|AKS| G[AKS cluster and node pools]
-    G --> H[Managed CSI and workload identity]
-    F --> I{Database placement}
-    H --> I
-    I -->|Flexible Server| J[PostgreSQL Flexible Server]
-    I -->|AKS| K[In-cluster PostgreSQL]
-    J --> L[Migrations]
-    K --> L
-    L --> M[Independent services]
-    M --> N[Scheduled jobs]
-    N --> O[Readiness and zero-change plans]
-```
+![서명된 키트 검증에서 런타임과 데이터베이스 선택, 서비스 배포 및 준비 상태 확인까지의 프로비저닝 흐름입니다.](../../diagrams/generated/fdai-roadmap-deployment-runtime-deployment-profiles-01.ko.svg)
 
 변경을 일으키는 각 노드는 자체 정확한 플랜, 현재 사람 승인, 효과 전 claim, timeout, rollback 또는
 복구 참조, 권위 있는 observer를 가집니다. `deployment_ready=true`가 되려면 선택된 모든 서비스가
