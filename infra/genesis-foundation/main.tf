@@ -128,6 +128,7 @@ module "bootstrap" {
   genesis_app_resource_group_id = azapi_resource.app_resource_group.id
 
   workload                     = var.workload
+  operations_public_ip_tags    = var.operations_public_ip_tags
   env                          = var.env
   region                       = var.region
   region_short                 = var.region_short

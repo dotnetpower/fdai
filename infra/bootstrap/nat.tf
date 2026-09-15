@@ -28,6 +28,7 @@ resource "azurerm_public_ip" "nat" {
   resource_group_name = azurerm_resource_group.ops.name
   allocation_method   = "Static"
   sku                 = "Standard"
+  ip_tags             = var.operations_public_ip_tags
   tags                = local.tags
 }
 

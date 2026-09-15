@@ -32,7 +32,7 @@ from fdai_deployment_cli.source_snapshot import verify_source_snapshot
 from fdai_deployment_cli.standalone_deploy import active_azure_target
 from fdai_deployment_cli.target import compute_target_binding
 from genesis_foundation_apply_contract import load_apply_claim
-from genesis_foundation_recovery import validate_recovery_plan
+from genesis_foundation_recovery import select_public_ip_tags, validate_recovery_plan
 from genesis_foundation_workspace import verify_execution_copy
 from genesis_runner_image_recovery_plan import materialize_provider_links
 from genesis_subprocess import run_with_heartbeat
@@ -42,7 +42,7 @@ _MAX = 64 * 1024 * 1024
 
 
 def require_naming_only(original: Path, current: Path) -> None:
-    """Require the exact application-only main.tf change and one added variable block."""
+    """Require only application naming and the bounded operations-IP policy input."""
     old_main = (original / "main.tf").read_bytes()
     expected = old_main
     replacements = (
@@ -56,6 +56,11 @@ def require_naming_only(original: Path, current: Path) -> None:
             b'  name      = "rg-${local.suffix}"\n',
             b'  name      = "rg-${local.application_suffix}"\n',
         ),
+        (
+            b"  workload                     = var.workload\n",
+            b"  workload                     = var.workload\n"
+            b"  operations_public_ip_tags    = var.operations_public_ip_tags\n",
+        ),
     )
     for before, after in replacements:
         if expected.count(before) != 1:
@@ -64,15 +69,36 @@ def require_naming_only(original: Path, current: Path) -> None:
     if (current / "main.tf").read_bytes() != expected:
         raise ValueError("Foundation recovery changes more than application naming")
     variables = (current / "variables.tf").read_bytes()
-    block = re.search(
-        rb'^variable "application_workload" \{\n.*?^\}\n\n', variables, re.MULTILINE | re.DOTALL
-    )
-    if (
-        block is None
-        or variables[: block.start()] + variables[block.end() :]
-        != (original / "variables.tf").read_bytes()
-    ):
+    for name in ("application_workload", "operations_public_ip_tags"):
+        variables = _without_variable(variables, name)
+    if variables != (original / "variables.tf").read_bytes():
         raise ValueError("Foundation recovery variable changes are outside naming scope")
+
+
+def _without_variable(content: bytes, name: str) -> bytes:
+    pattern = rb'^variable "' + name.encode() + rb'" \{\n.*?^\}\n\n'
+    result, count = re.subn(pattern, b"", content, flags=re.MULTILINE | re.DOTALL)
+    if count != 1:
+        raise ValueError("Foundation recovery requires one exact added variable")
+    return result
+
+
+def require_ip_policy_only(original: Path, current: Path) -> None:
+    """Permit only the explicit tag input on the two original public-IP resources."""
+    before = b'  sku                 = "Standard"\n'
+    after = before + b"  ip_tags             = var.operations_public_ip_tags\n"
+    for name in ("nat.tf", "bastion.tf"):
+        content = (original / name).read_bytes()
+        if (
+            content.count(before) != 1
+            or content.replace(before, after, 1) != (current / name).read_bytes()
+        ):
+            raise ValueError("Foundation recovery bootstrap changes exceed IP policy scope")
+    variables = _without_variable(
+        (current / "variables.tf").read_bytes(), "operations_public_ip_tags"
+    )
+    if variables != (original / "variables.tf").read_bytes():
+        raise ValueError("Foundation recovery bootstrap variable changes exceed IP policy scope")
 
 
 def prepare_recovery_plan(
@@ -173,6 +199,7 @@ def _prepare_locked(
     current_infra = source.root / "infra/genesis-foundation"
     original_infra = snapshot / "tree/infra/genesis-foundation"
     require_naming_only(original_infra, current_infra)
+    require_ip_policy_only(original_infra.parent / "bootstrap", current_infra.parent / "bootstrap")
     binary = image._trusted_terraform(terraform)
     if image._file_digest(binary) != context["terraform_digest"]:
         raise ValueError("Foundation recovery Terraform differs from original evidence")
@@ -199,21 +226,26 @@ def _prepare_locked(
         original / "foundation-apply-bundle/source", authenticated_source=reference
     )
     source_bytes = {}
-    for name in ("main.tf", "variables.tf"):
-        source_bytes[name] = (current_infra / name).read_bytes()
+    for name in (
+        "genesis-foundation/main.tf",
+        "genesis-foundation/variables.tf",
+        "bootstrap/nat.tf",
+        "bootstrap/bastion.tf",
+        "bootstrap/variables.tf",
+    ):
+        source_bytes[name] = (current_infra.parent / name).read_bytes()
 
     def ignore(directory: str, names: list[str]) -> list[str]:
-        return (
-            [name for name in names if name in source_bytes]
-            if Path(directory) == reference / "infra/genesis-foundation"
-            else []
-        )
+        if not Path(directory).is_relative_to(reference / "infra"):
+            return []
+        relative = Path(directory).relative_to(reference / "infra")
+        return [name for name in names if (relative / name).as_posix() in source_bytes]
 
     candidate = work / "source"
     shutil.copytree(reference, candidate, ignore=ignore)
     root = candidate / "infra/genesis-foundation"
     for name, content in source_bytes.items():
-        write_private_bytes(root / name, content)
+        write_private_bytes(candidate / "infra" / name, content)
     configuration_digest = image._execution_tree_digest(candidate)
     normalized = work / "original-variables.json"
     snapshot_foundation_input(
@@ -227,6 +259,7 @@ def _prepare_locked(
     if canonical_digest(variables) != context["variables_digest"]:
         raise ValueError("Foundation recovery original variables changed")
     variables["application_workload"] = application_workload
+    variables["operations_public_ip_tags"] = select_public_ip_tags(state)
     write_private_bytes(work / "recovery-variables.json", canonical_bytes(variables))
     environment = image._terraform_environment(
         work, subscription_id=target.subscription_id, tenant_id=target.tenant_id

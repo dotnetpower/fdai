@@ -42,6 +42,18 @@ variable "application_workload" {
   }
 }
 
+variable "operations_public_ip_tags" {
+  description = "Exact observed policy-owned tags for the operations public IPs. Empty preserves the default; any selection requires a reviewed plan."
+  type        = map(string)
+  default     = {}
+  nullable    = false
+
+  validation {
+    condition     = length(var.operations_public_ip_tags) == 0 || try(length(var.operations_public_ip_tags) == 1 && var.operations_public_ip_tags["FirstPartyUsage"] == "/Unprivileged", false)
+    error_message = "operations_public_ip_tags must be empty or exactly FirstPartyUsage=/Unprivileged."
+  }
+}
+
 variable "env" {
   description = "Deployment environment, independent of approval and runtime authority."
   type        = string

@@ -86,7 +86,8 @@ run "application_name_is_independent_from_operations" {
   command = plan
 
   variables {
-    application_workload = "exampleaks"
+    application_workload      = "exampleaks"
+    operations_public_ip_tags = { FirstPartyUsage = "/Unprivileged" }
   }
 
   assert {
@@ -109,6 +110,16 @@ run "invalid_application_name_is_rejected" {
   }
 
   expect_failures = [var.application_workload]
+}
+
+run "invalid_operations_policy_tag_is_rejected" {
+  command = plan
+
+  variables {
+    operations_public_ip_tags = { FirstPartyUsage = "other" }
+  }
+
+  expect_failures = [var.operations_public_ip_tags]
 }
 
 run "foundation_contracts_with_bootstrap_outputs" {

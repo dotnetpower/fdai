@@ -91,6 +91,8 @@ does not permit an automatic reapply or treat missing success evidence as zero r
 An optional Foundation `application_workload` token can separate the new application group's name
 from operations naming without changing the AKS profile. It grants no ownership of an existing group;
 partial-state recovery follows the [application group collision contract](installable-deployment-cli.md#application-group-collision-recovery).
+The separate `operations_public_ip_tags` input preserves only the exact observed Foundation
+Bastion/NAT policy tag; it does not alter AKS node settings or grant lifecycle drift exceptions.
 
 The read-only capacity preflight accepts nonnegative integer quota values and canonical decimal
 integer strings returned by Azure CLI. Boolean, fractional, signed, whitespace-padded or oversized

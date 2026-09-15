@@ -28,7 +28,10 @@ from genesis_foundation import (  # noqa: E402
     missing_foundation_report,
     prepare_foundation_plan,
 )
-from genesis_foundation_recovery import validate_recovery_plan  # noqa: E402
+from genesis_foundation_recovery import (  # noqa: E402
+    select_public_ip_tags,
+    validate_recovery_plan,
+)
 from genesis_foundation_recovery_plan import (  # noqa: E402
     prepare_recovery_plan,
     require_naming_only,
@@ -64,7 +67,22 @@ def test_foundation_recovery_planner_never_applies_or_copies_state(
     start = variables_text.index('variable "application_workload"')
     end = variables_text.index('variable "env"', start)
     (infra / "main.tf").write_bytes(main)
+    (infra / "main.tf").write_bytes(
+        main.replace(b"  operations_public_ip_tags    = var.operations_public_ip_tags\n", b"")
+    )
     (infra / "variables.tf").write_text(variables_text[:start] + variables_text[end:])
+    bootstrap = infra.parent / "bootstrap"
+    bootstrap.mkdir()
+    for name in ("nat.tf", "bastion.tf"):
+        content = (_ROOT / "infra/bootstrap" / name).read_bytes()
+        (bootstrap / name).write_bytes(
+            content.replace(b"  ip_tags             = var.operations_public_ip_tags\n", b"")
+        )
+    (bootstrap / "variables.tf").write_bytes(
+        recovery_planner._without_variable(
+            (_ROOT / "infra/bootstrap/variables.tf").read_bytes(), "operations_public_ip_tags"
+        )
+    )
     persistent = original / "foundation-apply-bundle/source"
     persistent.mkdir(mode=0o700, parents=True)
     recovery_planner._copy_private_tree(snapshot / "tree/infra", persistent / "infra")
@@ -207,6 +225,7 @@ def test_recovery_configuration_permits_only_application_naming(tmp_path):
     variables = (current / "variables.tf").read_text()
     start = variables.index('variable "application_workload"')
     end = variables.index('variable "env"', start)
+    main = main.replace(b"  operations_public_ip_tags    = var.operations_public_ip_tags\n", b"")
     (original / "main.tf").write_bytes(main)
     (original / "variables.tf").write_text(variables[:start] + variables[end:])
     require_naming_only(original, current)
@@ -291,6 +310,45 @@ def recovery_plans():
         ],
     }
     return original, current, state
+
+
+@pytest.mark.parametrize("drift", [False, True])
+def test_recovery_preserves_real_state_not_original_planning_defaults(recovery_plans, drift):
+    original, current, state = recovery_plans
+    attributes = state["resources"][0]["instances"][0]["attributes"]
+    attributes.update({"name": "ops", "tags": {}, "dns_servers": None})
+    change = current["resource_changes"][1]["change"]
+    change["after"].update({"tags": {}, "dns_servers": [], "name": "changed" if drift else "ops"})
+    change["before"] = copy.deepcopy(change["after"])
+    original["resource_changes"][1]["change"]["after"]["tags"] = {"initial": "planned"}
+    if drift:
+        with pytest.raises(ValueError, match="known resource setting"):
+            validate_recovery_plan(current, original, state, application_workload="exampleaks")
+    else:
+        validate_recovery_plan(current, original, state, application_workload="exampleaks")
+
+
+@pytest.mark.parametrize(
+    "tags",
+    [{}, {"FirstPartyUsage": "/Unprivileged"}, {"FirstPartyUsage": "other"}, {"other": "tag"}],
+)
+def test_recovery_limits_observed_ip_tags(recovery_plans, tags):
+    state = copy.deepcopy(recovery_plans[2])
+    state["resources"] = [
+        {
+            "module": "module.bootstrap",
+            "mode": "managed",
+            "type": "azurerm_public_ip",
+            "name": name,
+            "instances": [{"index_key": 0, "attributes": {"id": name, "ip_tags": tags}}],
+        }
+        for name in ("bastion", "nat")
+    ]
+    if tags in ({}, {"FirstPartyUsage": "/Unprivileged"}):
+        assert select_public_ip_tags(state) == tags
+    else:
+        with pytest.raises(ValueError, match="policy tags"):
+            select_public_ip_tags(state)
 
 
 def test_residual_foundation_only_names_missing_application_group(recovery_plans):

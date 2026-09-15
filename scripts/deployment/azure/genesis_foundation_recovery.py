@@ -10,6 +10,8 @@ from typing import cast
 from fdai_deployment_cli.contracts import canonical_bytes
 
 _APPLICATION = "azapi_resource.app_resource_group"
+_POLICY_TAGS = {"FirstPartyUsage": "/Unprivileged"}
+_INPUT_CHANGES = {"application_workload", "operations_public_ip_tags"}
 
 
 def validate_recovery_plan(
@@ -47,16 +49,20 @@ def validate_recovery_plan(
         or not isinstance(old_variables, dict)
         or variables.get("application_workload") != {"value": application_workload}
         or canonical_bytes(
-            {key: value for key, value in variables.items() if key != "application_workload"}
+            {key: value for key, value in variables.items() if key not in _INPUT_CHANGES}
         )
         != canonical_bytes(
-            {key: value for key, value in old_variables.items() if key != "application_workload"}
+            {key: value for key, value in old_variables.items() if key not in _INPUT_CHANGES}
         )
     ):
         raise ValueError("Foundation recovery changed inputs beyond the application name")
     old_changes = _changes(original)
     changes = _changes(projection)
     existing = _state_instances(state)
+    if variables.get("operations_public_ip_tags", {"value": {}}) != {
+        "value": select_public_ip_tags(state)
+    }:
+        raise ValueError("Foundation recovery IP tags differ from the retained policy value")
     if set(changes) != set(old_changes) or not existing.keys() <= changes.keys():
         raise ValueError("Foundation recovery inventory changed")
     if _APPLICATION not in changes or _APPLICATION in existing:
@@ -89,9 +95,10 @@ def validate_recovery_plan(
             if (
                 actions != ["no-op"]
                 or change.get("before") != actual
-                or actual.get("id") != existing[address]
+                or actual.get("id") != existing[address]["id"]
             ):
                 raise ValueError("Foundation recovery would alter completed work")
+            intended = existing[address]
         else:
             if actions != ["create"] or change.get("before") is not None:
                 raise ValueError("Foundation recovery pending resource is not a fresh create")
@@ -128,7 +135,7 @@ def _changes(projection: Mapping[str, object]) -> dict[str, dict[str, object]]:
     return result
 
 
-def _state_instances(state: Mapping[str, object]) -> dict[str, str]:
+def _state_instances(state: Mapping[str, object]) -> dict[str, dict[str, object]]:
     if (
         state.get("version") != 4
         or type(state.get("serial")) is not int
@@ -166,14 +173,44 @@ def _state_instances(state: Mapping[str, object]) -> dict[str, str]:
             identifier = attributes.get("id") if isinstance(attributes, dict) else None
             if not isinstance(identifier, str) or not identifier or address in result:
                 raise ValueError("Foundation recovery state identity is invalid")
-            result[address] = identifier
+            attributes = cast(dict[str, object], attributes)
+            decoded = dict(attributes)
+            if str(resource["type"]).startswith("azapi_"):
+                for field in ("body", "output"):
+                    value = decoded.get(field)
+                    if isinstance(value, dict) and set(value) == {"type", "value"}:
+                        decoded[field] = value["value"]
+            result[address] = decoded
     if not result:
         raise ValueError("Foundation recovery requires existing managed state")
     return result
 
 
+def select_public_ip_tags(state: Mapping[str, object]) -> dict[str, str]:
+    """Accept only equal empty or exact policy-owned tags on retained Bastion/NAT IPs."""
+    instances = _state_instances(state)
+    addresses = {
+        "module.bootstrap.azurerm_public_ip.bastion[0]",
+        "module.bootstrap.azurerm_public_ip.nat[0]",
+    }
+    present = addresses & instances.keys()
+    if not present:
+        return {}
+    if present != addresses:
+        raise ValueError("Foundation recovery public IP policy evidence is incomplete")
+    values = [instances[address].get("ip_tags") for address in sorted(addresses)]
+    tags = [{} if value is None else value for value in values]
+    if tags[0] != tags[1] or tags[0] not in ({}, _POLICY_TAGS):
+        raise ValueError("Foundation recovery public IP policy tags are unsupported")
+    return dict(cast(dict[str, str], tags[0]))
+
+
 def _same_known(expected: object, actual: object, unknown: object) -> bool:
     if unknown is True:
+        return True
+    if (expected is None or expected == "" or expected == [] or expected == {}) and (
+        actual is None or actual == "" or actual == [] or actual == {}
+    ):
         return True
     if isinstance(expected, dict):
         fields = unknown if isinstance(unknown, dict) else {}
