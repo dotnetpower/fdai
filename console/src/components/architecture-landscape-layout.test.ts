@@ -108,4 +108,17 @@ describe("geometry-less Architecture inventory", () => {
       new Set(["subscription", "resource-group", "app-service", "postgresql", "event-hub"]),
     );
   });
+
+  it("counts cross-scope relationships without rewriting their endpoints", () => {
+    const overview = architectureLandscapeOverviewGraph(RAW_GRAPH);
+    const groupA = overview.resources.find((resource) => resource.id === "group-a")!;
+    const groupB = overview.resources.find((resource) => resource.id === "group-b")!;
+
+    expect(groupA.external_link_count).toBe(1);
+    expect(groupB.external_link_count).toBe(1);
+    expect(overview.links).toEqual([
+      { source: "subscription", target: "group-a", type: "contains" },
+      { source: "subscription", target: "group-b", type: "contains" },
+    ]);
+  });
 });

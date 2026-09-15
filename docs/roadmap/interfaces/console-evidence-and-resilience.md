@@ -627,6 +627,9 @@ to expose that this is a bounded presentation over the complete returned page.
 Resource focus retains its reported ancestor boundaries and direct relationships, then fills the
 smallest containing scope with at most 36 type-diverse returned records. Selection never expands
 the workbench back to the full raw page.
+Landscape boundaries count reported non-containment relationships that cross Resource Group
+scope, but they do not rewrite those links onto aggregate endpoints. Exact source, target, type,
+and direction appear only when the original records are visible in a focused scope.
 Resources use reviewed official icons where available and stable Cloud Adoption Framework
 abbreviations otherwise. Compact text, accessible names, search, and Inspector content preserve
 name, type, and state without relying on color. Typed edges terminate on current node or boundary

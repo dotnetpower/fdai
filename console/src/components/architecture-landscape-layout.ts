@@ -36,6 +36,7 @@ export function architectureLandscapeOverviewGraph(
     group.id,
     descendantCount(group.id, graph.resources, parentById),
   ]));
+  const externalLinks = externalLinkCounts(graph, parentById, byId);
   const visibleGroups = [...groups]
     .sort((first, second) =>
       (descendants.get(second.id) ?? 0) - (descendants.get(first.id) ?? 0)
@@ -58,7 +59,11 @@ export function architectureLandscapeOverviewGraph(
         const count = resource.type === "resource-group"
           ? descendants.get(resource.id)
           : descendantCount(resource.id, graph.resources, parentById);
-        return count === undefined ? resource : { ...resource, collapsed_count: count };
+        if (count === undefined) return resource;
+        const counted = { ...resource, collapsed_count: count };
+        return resource.type === "resource-group"
+          ? { ...counted, external_link_count: externalLinks.get(resource.id) ?? 0 }
+          : counted;
       }),
     links: graph.links.filter((link) =>
       visibleIds.has(link.source) && visibleIds.has(link.target)),
@@ -157,7 +162,9 @@ export function layoutGeometrylessArchitectureGraph(
 
 export function architecturePresentationParentById(
   graph: Pick<InventoryGraphResponse, "links" | "resources">,
-  byId = new Map(graph.resources.map((resource) => [resource.id, resource])),
+  byId: ReadonlyMap<string, InventoryResource> = new Map(
+    graph.resources.map((resource) => [resource.id, resource]),
+  ),
 ): ReadonlyMap<string, string> {
   const reportedParents = new Map<string, string>();
   for (const link of graph.links) {
@@ -369,4 +376,36 @@ function typeDiverseResources(
     index += 1;
   }
   return ordered;
+}
+
+function externalLinkCounts(
+  graph: Pick<InventoryGraphResponse, "links" | "resources">,
+  parentById: ReadonlyMap<string, string>,
+  byId: ReadonlyMap<string, InventoryResource>,
+): ReadonlyMap<string, number> {
+  const counts = new Map<string, number>();
+  for (const link of graph.links) {
+    if (link.type === "contains") continue;
+    const sourceGroup = owningGroupId(link.source, parentById, byId);
+    const targetGroup = owningGroupId(link.target, parentById, byId);
+    if (!sourceGroup || !targetGroup || sourceGroup === targetGroup) continue;
+    counts.set(sourceGroup, (counts.get(sourceGroup) ?? 0) + 1);
+    counts.set(targetGroup, (counts.get(targetGroup) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function owningGroupId(
+  resourceId: string,
+  parentById: ReadonlyMap<string, string>,
+  byId: ReadonlyMap<string, InventoryResource>,
+): string | null {
+  let currentId: string | undefined = resourceId;
+  const visited = new Set<string>();
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId);
+    if (byId.get(currentId)?.type === "resource-group") return currentId;
+    currentId = parentById.get(currentId);
+  }
+  return null;
 }

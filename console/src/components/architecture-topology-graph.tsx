@@ -249,6 +249,17 @@ export function ArchitectureTopologyGraph({
                     {t("coverage.resourceCount", { count: resource.collapsed_count ?? 0 })}
                   </text>
                 ) : null}
+                {(resource.external_link_count ?? 0) > 0 ? (
+                  <text
+                    class="architecture-topology-region-links"
+                    x={(resource.x ?? 0) + .2}
+                    y={(resource.y ?? 0) + .94}
+                  >
+                    {t("coverage.externalLinkCount", {
+                      count: resource.external_link_count ?? 0,
+                    })}
+                  </text>
+                ) : null}
               </g>
             ))}
           </g>

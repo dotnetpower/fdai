@@ -113,7 +113,8 @@
   letter-spacing: 0;
 }
 
-.architecture-topology-region > .architecture-topology-region-count {
+.architecture-topology-region > .architecture-topology-region-count,
+.architecture-topology-region > .architecture-topology-region-links {
   fill: var(--fg-muted);
   font-size: .18px;
   font-weight: 650;
