@@ -83,6 +83,31 @@ source, snapshot, human target and retained run must match on every resumption. 
 one checkpoint grants another checkpoint, and published exact-source CI remains mandatory before
 resource effects. A verified Foundation handoff still leaves application deployment incomplete.
 
+### Source transfer boundary
+
+After the current private Foundation reaches its application boundary, the source coordinator
+loads the original state-handoff receipt through its bounded plan reference. It checks the retained
+digest, source, target, host attestation, remote-backend authority, zero-change plan and transient
+cleanup. Portable status is a projection, not the original receipt to rehash.
+
+The coordinator then prepares `source-transfer.tar` and an immutable local transfer receipt.
+The uncompressed archive contains the canonical source manifest plus numbered regular blobs,
+not archive-selected destination paths or links. The receiver reconstructs only manifest-owned
+files and internal links into a fresh private snapshot, checking independently supplied archive
+and snapshot digests before source execution. It rejects duplicate, missing, extra, absolute,
+traversal, hardlink and conflicting file/directory records. Limits are 65536 files, 64 MiB per file,
+2 GiB total source bytes and 16 MiB of manifest; archive overhead is separately bounded.
+Existing output, partial state or changed receipts are preserved rather than repaired or replaced.
+
+The installed `python -m fdai_deployment_cli.source_transport` receiver accepts the archive,
+fresh destination and both independent digests, returns sanitized verification evidence, and never
+executes the received code. A later Bastion integration must supply those digests from the
+authenticated handoff, not from the archive itself. Local preparation verifies a complete receiver
+round trip before reuse. Its receipt explicitly leaves remote transfer, apply authorization and
+deployment readiness unverified. The source command reports `source_application_execution_not_connected`
+until attested-host transfer, source builds and application execution are connected; it does not
+pass source bytes to signed-kit verification or forge signed-release provenance.
+
 The development source path is selected explicitly with `fdaictl provision azure --source <path>`.
 It is mutually exclusive with `--online` and `--offline-kit`. Initial support targets a new
 `dev` installation using AKS and PostgreSQL Flexible Server. It does not migrate an existing

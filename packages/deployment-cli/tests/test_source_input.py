@@ -3,17 +3,28 @@
 from __future__ import annotations
 
 import os
+import hashlib
+import io
+import json
+import tarfile
 import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from fdai_deployment_cli import source_input
+from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.source_deploy import prepare_source_deployment
 from fdai_deployment_cli.source_input import inspect_source
 from fdai_deployment_cli.source_snapshot import materialize_source, verify_source_snapshot
+from fdai_deployment_cli.source_transport import (
+    archive_source_snapshot,
+    receive_source_snapshot,
+    prepare_source_transport,
+)
 
 
 def _git(root: Path, *arguments: str) -> None:
@@ -183,3 +194,184 @@ def test_source_preparation_cannot_adopt_kit_state(checkout: Path) -> None:
             region="eastus",
             monthly_cost_ceiling=1000,
         )
+
+
+def test_source_transport_roundtrip_preserves_modes_and_internal_links(checkout):
+    (checkout / "run.sh").write_text("#!/bin/sh\nexit 0\n")
+    (checkout / "run.sh").chmod(0o755)
+    (checkout / "nested").mkdir()
+    (checkout / "nested/linked.py").symlink_to("../source.py")
+    _git(checkout, "add", ".")
+    _git(checkout, "-c", "commit.gpgsign=false", "commit", "-m", "fixture executable and link")
+    source = inspect_source(checkout)
+    snapshot = checkout.parent / "snapshot"
+    snapshot_digest = materialize_source(source, snapshot)
+    archive = checkout.parent / "source.tar"
+    digest = archive_source_snapshot(snapshot, archive, snapshot_digest=snapshot_digest)
+    other = checkout.parent / "source-again.tar"
+    assert archive_source_snapshot(snapshot, other, snapshot_digest=snapshot_digest) == digest
+    destination = checkout.parent / "received"
+    receipt = receive_source_snapshot(
+        archive, destination, archive_digest=digest, snapshot_digest=snapshot_digest
+    )
+    assert (
+        verify_source_snapshot(destination, expected_digest=snapshot_digest) == source.to_mapping()
+    )
+    assert (destination / "tree/run.sh").stat().st_mode & 0o777 == 0o700
+    assert (destination / "tree/nested/linked.py").readlink() == Path("../source.py")
+    assert not (destination / "tree/.git").exists()
+    assert receipt["apply_authorized"] is False
+    with pytest.raises(FileExistsError):
+        receive_source_snapshot(
+            archive, destination, archive_digest=digest, snapshot_digest=snapshot_digest
+        )
+    with pytest.raises(FileExistsError):
+        archive_source_snapshot(snapshot, archive, snapshot_digest=snapshot_digest)
+
+
+@pytest.mark.parametrize("corruption", ["archive", "snapshot", "mode", "link", "content"])
+def test_source_transport_rejects_corruption_before_execution(checkout, corruption):
+    source = inspect_source(checkout)
+    snapshot = checkout.parent / "snapshot"
+    snapshot_digest = materialize_source(source, snapshot)
+    archive = checkout.parent / "source.tar"
+    digest = archive_source_snapshot(snapshot, archive, snapshot_digest=snapshot_digest)
+    if corruption == "archive":
+        digest = "f" * 64
+    elif corruption == "snapshot":
+        snapshot_digest = "f" * 64
+    elif corruption == "mode":
+        archive.chmod(0o644)
+    elif corruption == "link":
+        linked = checkout.parent / "linked.tar"
+        linked.symlink_to(archive)
+        archive = linked
+    else:
+        with archive.open("ab") as stream:
+            stream.write(b"unverified")
+    destination = checkout.parent / "received"
+    with pytest.raises((ValueError, OSError)):
+        receive_source_snapshot(
+            archive, destination, archive_digest=digest, snapshot_digest=snapshot_digest
+        )
+    assert not destination.exists()
+
+
+def test_source_transfer_preparation_reverifies_without_overwriting(checkout):
+    snapshot = checkout.parent / "snapshot"
+    snapshot_digest = materialize_source(inspect_source(checkout), snapshot)
+    work_dir = checkout.parent / "transfer"
+    work_dir.mkdir(mode=0o700)
+    first = prepare_source_transport(snapshot, work_dir, snapshot_digest=snapshot_digest)
+    assert prepare_source_transport(snapshot, work_dir, snapshot_digest=snapshot_digest) == first
+    assert first["remote_transfer_verified"] is False
+    assert first["deployment_ready"] is False
+    with (work_dir / "source-transfer.tar").open("ab") as stream:
+        stream.write(b"changed")
+    with pytest.raises(ValueError, match="digest differs"):
+        prepare_source_transport(snapshot, work_dir, snapshot_digest=snapshot_digest)
+
+
+@pytest.mark.parametrize(
+    "corruption",
+    [
+        "absolute",
+        "traversal",
+        "extra",
+        "duplicate",
+        "symlink",
+        "hardlink",
+        "missing",
+        "blob",
+        "manifest-path",
+        "directory-collision",
+    ],
+)
+def test_source_transport_rejects_untrusted_archive_structure(checkout, corruption):
+    snapshot = checkout.parent / "snapshot"
+    snapshot_digest = materialize_source(inspect_source(checkout), snapshot)
+    original = checkout.parent / "source.tar"
+    archive_source_snapshot(snapshot, original, snapshot_digest=snapshot_digest)
+    with tarfile.open(original) as archive:
+        entries = [(member, archive.extractfile(member).read()) for member in archive]
+    if corruption in {"manifest-path", "directory-collision"}:
+        manifest = json.loads(entries[0][1])
+        manifest["files"][0]["path"] = (
+            "../escaped"
+            if corruption == "manifest-path"
+            else manifest["files"][1]["path"] + "/child"
+        )
+        manifest["source"]["content_digest"] = canonical_digest({"files": manifest["files"]})
+        snapshot_digest = canonical_digest(manifest)
+        entries[0] = (entries[0][0], canonical_bytes(manifest))
+    if corruption == "absolute":
+        entries[1][0].name = "/escaped"
+    elif corruption == "traversal":
+        entries[1][0].name = "../escaped"
+    elif corruption in {"symlink", "hardlink"}:
+        entries[1][0].type = tarfile.SYMTYPE if corruption == "symlink" else tarfile.LNKTYPE
+        entries[1][0].linkname = "../../escaped"
+    elif corruption == "extra":
+        entries.append((tarfile.TarInfo("unexpected"), b"extra"))
+    elif corruption == "duplicate":
+        entries.insert(2, entries[1])
+    elif corruption == "missing":
+        entries.pop()
+    elif corruption == "blob":
+        entries[1] = (entries[1][0], b"changed")
+    malicious = checkout.parent / "untrusted.tar"
+    with tarfile.open(malicious, "w", format=tarfile.USTAR_FORMAT) as archive:
+        for member, content in entries:
+            member.size = len(content)
+            archive.addfile(member, io.BytesIO(content))
+    malicious.chmod(0o600)
+    digest = hashlib.sha256(malicious.read_bytes()).hexdigest()
+    with pytest.raises((ValueError, OSError)):
+        receive_source_snapshot(
+            malicious,
+            checkout.parent / "received",
+            archive_digest=digest,
+            snapshot_digest=snapshot_digest,
+        )
+    assert not (checkout.parent / "escaped").exists()
+
+
+@pytest.mark.parametrize("valid", [True, False])
+def test_source_transport_cli_receives_without_execution(checkout, valid):
+    source = inspect_source(checkout)
+    snapshot = checkout.parent / "snapshot"
+    snapshot_digest = materialize_source(source, snapshot)
+    archive = checkout.parent / "source.tar"
+    digest = archive_source_snapshot(snapshot, archive, snapshot_digest=snapshot_digest)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "fdai_deployment_cli.source_transport",
+            "--archive",
+            str(archive),
+            "--destination",
+            str(checkout.parent / "received"),
+            "--archive-digest",
+            digest if valid else "f" * 64,
+            "--snapshot-digest",
+            snapshot_digest,
+        ],
+        cwd=checkout.parent,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        env={**os.environ, "PYTHONPATH": str(Path(source_input.__file__).parents[1])},
+    )
+    if valid:
+        assert result.returncode == 0, result.stderr
+        receipt = json.loads(result.stdout)
+        assert receipt["source_commit"] == source.commit
+        assert receipt["provenance"] == "operator-selected-source"
+        assert receipt["deployment_ready"] is False
+        assert receipt["apply_authorized"] is False
+    else:
+        assert result.returncode == 3
+        assert result.stdout == ""
+        assert "Traceback" not in result.stderr
+        assert str(checkout.parent) not in result.stderr

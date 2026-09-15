@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: d18eb09eee0fc1bf88acb88829ed771dab6a86bf
+translation_source_sha: c58b15a86ff8c8325c4862385ab984fec1b70718
 translation_revised: 2026-09-15
 ---
 
@@ -86,6 +86,30 @@ Foundation 입력과 VM 메타데이터 조회는 운영자가 소유한 로컬 
 사용자 대상, 보존된 실행 상태가 일치해야 합니다. 한 체크포인트의 승인은 다른 체크포인트의
 권한을 부여하지 않으며, 리소스 변경 전에는 게시된 정확한 소스의 CI 검증을 계속 요구합니다.
 Foundation 인계를 검증해도 애플리케이션 배포는 아직 완료되지 않은 상태입니다.
+
+### 소스 전송 경계
+
+현재 비공개 Foundation이 애플리케이션 경계에 도달하면 소스 조정기는 범위가 제한된 계획 참조로
+원본 상태 인계 증적을 읽습니다. 보존된 digest, 소스, 대상, 호스트 증명, 원격 backend 권한,
+변경 없음 계획과 임시 자료 정리를 확인합니다. 이식 가능한 상태 보고는 요약이며 원본 증적의
+해시를 다시 계산할 입력이 아닙니다.
+
+이후 조정기는 `source-transfer.tar`와 불변 로컬 전송 증적을 준비합니다. 비압축 archive에는
+정규 소스 매니페스트와 번호가 지정된 일반 파일만 포함하고, archive가 지정한 대상 경로나 링크는
+추출하지 않습니다. 수신기는 독립적으로 전달된 archive 및 스냅샷 digest를 검증하고 새로운
+비공개 스냅샷에 매니페스트의 파일과 내부 링크만 복원합니다. 받은 코드를 실행하기 전에 검증하며,
+중복·누락·추가·절대 경로·상위 경로 이탈·하드 링크·파일/디렉터리 충돌은 거부합니다.
+한도는 파일 65536개, 파일당 64 MiB, 전체 소스 2 GiB, 매니페스트 16 MiB이며 archive의
+추가 크기도 별도로 제한합니다. 기존 출력, 부분 상태나 변경된 증적은 자동 복구하거나 덮어쓰지
+않고 보존합니다.
+
+설치된 `python -m fdai_deployment_cli.source_transport` 수신기는 archive, 새 대상과 두
+독립 digest를 받아 민감한 정보를 제외한 검증 근거를 반환하며 받은 코드를 실행하지 않습니다.
+후속 Bastion 연결은 archive 자체가 아니라 인증된 인계에서 digest를 전달해야 합니다. 로컬
+준비는 완전한 수신 왕복을 검증한 뒤 재사용합니다. 증적은 원격 전송·적용 승인·배포 준비를
+미검증 상태로 유지합니다. 증명된 호스트 전송, 소스 빌드와 앱 실행이 연결될 때까지 소스 명령은
+`source_application_execution_not_connected`를 반환합니다. 소스를 서명 키트 검증에 넘기거나
+서명된 release 출처로 위장하지 않습니다.
 
 개발용 소스 경로는 `fdaictl provision azure --source <path>`로 명시적으로 선택합니다.
 `--online`, `--offline-kit`과 함께 사용할 수 없습니다. 초기 지원 대상은 AKS와 PostgreSQL

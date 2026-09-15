@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from fdai_deployment_cli import cli, source_azure
+from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.private_output import write_private_bytes
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 
@@ -66,6 +67,15 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
     )
     monkeypatch.setattr(source_azure.shutil, "which", lambda _: str(executable))
     calls = []
+    transfers = []
+    monkeypatch.setattr(
+        source_azure,
+        "prepare_source_transport",
+        lambda *args, **kwargs: (
+            transfers.append((args, kwargs))
+            or {"state": "prepared", "remote_transfer_verified": False}
+        ),
+    )
 
     def capture(command, cwd, environment, timeout):
         calls.append(command)
@@ -96,6 +106,24 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
             else "application-plan"
         )
         status_path = work_dir / "foundation/status.json"
+        handoff = {
+            "schema_version": "fdai.genesis-foundation-state-handoff-receipt.v1",
+            "state": "verified",
+            "source_commit": source.commit,
+            "target_binding": "a" * 64,
+            "effect_verified": True,
+            "runner_attested": True,
+            "remote_backend_authority_verified": True,
+            "zero_change_verified": True,
+            "remote_transient_deleted": True,
+        }
+        handoff["receipt_digest"] = canonical_digest(handoff)
+        if stage == "application-plan":
+            plan_root = work_dir / "foundation/foundation-plan-attempt-1"
+            plan_root.mkdir(mode=0o700)
+            write_private_bytes(
+                plan_root / "foundation-state-handoff-receipt.json", json.dumps(handoff).encode()
+            )
         status_path.write_text(
             json.dumps(
                 {
@@ -107,6 +135,14 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
                     "mode": "apply",
                     "state": "waiting",
                     "current_stage": stage,
+                    "route": "private-runner",
+                    "completed_stages": ["foundation-state"] if stage == "application-plan" else [],
+                    "foundation_report": {
+                        "state_handoff": {"receipt_digest": handoff["receipt_digest"]},
+                        "foundation_plan": {"plan_ref": "foundation-plan-attempt-1"},
+                    }
+                    if stage == "application-plan"
+                    else {},
                     "mutation_performed": False,
                 }
             )
@@ -178,8 +214,35 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
     assert len(calls) == (3 if interactive and not deployment_ready else 2)
     assert len(prompts) == int(interactive and not deployment_ready)
     assert len(initial_confirmations) == int(mode == "startup")
+    assert len(transfers) == int(not deployment_ready and mode in {"interactive", "approved"})
     if approval_file is not None:
         assert approval_file.read_bytes() == b"example exact approval"
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "source_commit",
+        "target_binding",
+        "receipt_digest",
+        "runner_attested",
+        "zero_change_verified",
+        "remote_backend_authority_verified",
+        "remote_transient_deleted",
+    ],
+)
+def test_source_transfer_rejects_unverified_handoff(tmp_path, monkeypatch, field):
+    original = source_azure.load_json_object
+
+    def changed(raw, **kwargs):
+        result = original(raw, **kwargs)
+        if kwargs.get("label") == "source Foundation handoff receipt":
+            result[field] = "changed" if field.endswith(("digest", "binding", "commit")) else False
+        return result
+
+    monkeypatch.setattr(source_azure, "load_json_object", changed)
+    with pytest.raises(ValueError, match="Foundation handoff"):
+        test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, False, "approved")
 
 
 def test_source_orchestration_stops_before_foundation_on_capacity_block(

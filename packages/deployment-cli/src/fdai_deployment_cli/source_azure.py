@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -19,6 +20,7 @@ from fdai_deployment_cli.source_deploy import prepare_source_deployment
 from fdai_deployment_cli.source_foundation import _copy_terraform
 from fdai_deployment_cli.source_input import inspect_source
 from fdai_deployment_cli.standalone_status import current_status, prior_attempt
+from fdai_deployment_cli.source_transport import prepare_source_transport
 
 
 def plan_source_installation(
@@ -206,6 +208,74 @@ def plan_source_installation(
             or result["mutation_performed"] != status.get("mutation_performed")
         ):
             raise ValueError("source Foundation progress differs from its current status")
+        if result["stage"] == "application-plan":
+            report = status.get("foundation_report")
+            handoff = report.get("state_handoff") if isinstance(report, dict) else None
+            plan = report.get("foundation_plan") if isinstance(report, dict) else None
+            plan_ref = plan.get("plan_ref") if isinstance(plan, dict) else None
+            completed = status.get("completed_stages")
+            if (
+                not isinstance(handoff, dict)
+                or not isinstance(plan_ref, str)
+                or re.fullmatch(r"foundation-plan-attempt-[1-9][0-9]*", plan_ref) is None
+            ):
+                raise ValueError("source application transfer requires verified Foundation handoff")
+            expected_handoff_digest = handoff.get("receipt_digest")
+            handoff = load_json_object(
+                read_private_bytes(
+                    foundation / plan_ref / "foundation-state-handoff-receipt.json",
+                    max_bytes=1024 * 1024,
+                ),
+                label="source Foundation handoff receipt",
+                max_bytes=1024 * 1024,
+            )
+            if (
+                status.get("route") != "private-runner"
+                or not isinstance(completed, list)
+                or "foundation-state" not in completed
+                or not isinstance(handoff, dict)
+                or handoff.get("schema_version")
+                != "fdai.genesis-foundation-state-handoff-receipt.v1"
+                or handoff.get("state") != "verified"
+                or handoff.get("source_commit") != source.commit
+                or handoff.get("target_binding") != preflight["target_binding"]
+                or any(
+                    handoff.get(key) is not True
+                    for key in (
+                        "effect_verified",
+                        "runner_attested",
+                        "remote_backend_authority_verified",
+                        "zero_change_verified",
+                        "remote_transient_deleted",
+                    )
+                )
+            ):
+                raise ValueError("source application transfer requires verified Foundation handoff")
+            from fdai_deployment_cli.contracts import canonical_digest
+
+            if (
+                canonical_digest(
+                    {key: value for key, value in handoff.items() if key != "receipt_digest"}
+                )
+                != expected_handoff_digest
+                or handoff.get("receipt_digest") != expected_handoff_digest
+            ):
+                raise ValueError("source Foundation handoff digest differs")
+            deadline.remaining()
+            transfer = prepare_source_transport(
+                work_dir / "source-snapshot",
+                work_dir,
+                snapshot_digest=str(prepared["source_snapshot_digest"]),
+            )
+            source.reverify()
+            deadline.remaining()
+            return {
+                **result,
+                "cost_review": cost_review,
+                "source_transfer": transfer,
+                "reason_code": "source_application_execution_not_connected",
+                "next_action": "transfer_verified_source_to_attested_host_and_validate_application_inputs",
+            }
         if not interactive or result["stage"] not in {
             "runner-image-apply",
             "foundation-apply",
