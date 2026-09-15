@@ -133,6 +133,7 @@ its blob pins and digest match the release tree. Formatting-only compaction or M
 repair leaves the behavior claim unchanged but still changes the cited blob identity.
 This mechanical refresh carries the revised source identity, including CI-verified Pantheon
 attribution, localized scope-safe and digest-verified temporal evidence, role and authority boundaries, status-compatible shared role rendering, deterministic canonical-domain routing with locale-preserving aggregation, append-only, fail-closed, translator-only, governed-catalog, inert off-path learning, advisory, and HIL-gated chaos behavior, and prompt confidentiality; it adds no operational, approval, or execution authority. Deployment-guard source revisions follow the same rebuild rule.
+A cited Reader interactive-chat correction remains descriptive: it records that Reader can use `chat.stream` at the Reader tool floor while background, mutation, approval, and execution operations stay role-gated.
 The current refresh also carries the reviewed Incident guidance boundary in which Saga audits the
 Huginn-normalized event and Forseti declines judgment; this source-pin update grants no authority.
 Completion-handoff and behavior-knowledge ledger refreshes follow this rule: they change source

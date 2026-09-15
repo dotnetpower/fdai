@@ -3,11 +3,7 @@ title: User RBAC and Entra Identity
 ---
 # User RBAC and Entra Identity
 
-How **human users** authenticate, are authorized, and are audited across the console,
-ChatOps, and the catalog-as-code repository. This file is authoritative for the human
-identity model; non-human identities (executor Managed Identity, GitHub App, Teams bot)
-remain governed by [security-and-identity.md](../architecture/security-and-identity.md) and
-[deploy-and-onboard.md](../deployment/deploy-and-onboard.md).
+How **human users** authenticate, are authorized, and are audited across the console, ChatOps, and the catalog-as-code repository. This file is authoritative for the human identity model; non-human identities (executor Managed Identity, GitHub App, Teams bot) remain governed by [security-and-identity.md](../architecture/security-and-identity.md) and [deploy-and-onboard.md](../deployment/deploy-and-onboard.md).
 
 It resolves the P0 blocker "final identity mapping (external IdP ↔ Entra ↔ Managed
 Identity)" from [security-and-identity.md#open-decisions](../architecture/security-and-identity.md#open-decisions)
@@ -100,8 +96,8 @@ more roles.
 
 | # | Role | Entra Security Group | Analog | May do |
 |---|------|----------------------|--------|--------|
-| 1 | **Reader** | `aw-readers` | Azure Reader | View console: KPI dashboard, audit log, shadow results, HIL queue |
-| 2 | **Contributor** | `aw-contributors` | Azure Contributor | All of Reader + author draft PRs and start bounded read investigations |
+| 1 | **Reader** | `aw-readers` | Azure Reader | View console: KPI dashboard, audit log, shadow results, HIL queue, and use Reader-floor conversational tools |
+| 2 | **Contributor** | `aw-contributors` | Azure Contributor | All of Reader + author draft PRs and start bounded background read investigations |
 | 3 | **Approver** | `aw-approvers` | (Reviewer) | All of Reader + review/approve governance PRs + approve runtime HIL requests + approve enforce promotions / exemptions / overrides (quorum applies to high-risk - see §5) |
 | 4 | **Owner** | `aw-owners` | Azure Owner | All of Approver + trigger kill-switch + manage runtime settings, environment model-binding drafts, and Entra group membership + apply infra IaC |
 | - | **Break-Glass** | `aw-break-glass` | (separate emergency account) | Console view, kill-switch, and emergency access-grant capabilities only. It has no runtime HIL approval capability and isn't an Owner superset. |
@@ -131,7 +127,8 @@ more roles.
 | Action | Reader | Contributor | Approver | Owner | Break-Glass |
 |--------|:------:|:-----------:|:--------:|:-----:|:-----------:|
 | View console | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Start bounded read investigation | | ✓ | ✓ | ✓ | |
+| Start an interactive read-only conversation | ✓ | ✓ | ✓ | ✓ | |
+| Start bounded background read investigation | | ✓ | ✓ | ✓ | |
 | Author rule / rule-set draft PR | | ✓ | ✓ | ✓ | |
 | Author assignment / exemption / override draft PR | | ✓ | ✓ | ✓ | |
 | Review + approve standard governance PR | | | ✓ | ✓ | |
@@ -148,6 +145,8 @@ more roles.
 | Manage `aw-*` group membership | | | | ✓ | |
 | Apply infra IaC (deployer) | | | | ✓ | |
 | Hold the executor Managed Identity | (never) - the MI is non-human |||||
+
+An interactive `chat.stream` turn is a Reader operation, not a bounded background read investigation. It may durably record the question and answer for replay, but it can invoke only tools at the caller's existing RBAC floor. It cannot submit a mutation proposal, start a background investigation, approve, or execute, and it never raises the principal's role. All other proposal and POST stream operations retain their documented role floor.
 
 The production API exposes `POST /system/kill-switch` only when a durable command service is
 wired. Owner and externally activated Break-Glass roles pass its capability check, but the current
