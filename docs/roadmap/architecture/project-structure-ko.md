@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 95462a0cc261a03230123cf74942cbbf2cd7b97d
+translation_source_sha: 13a9ac6f5d34e9860f37e649d8d5f970bc2cfcd3
 translation_revised: 2026-09-15
 ---
 # 프로젝트 구조
@@ -460,6 +460,7 @@ checkpoint부터 재개합니다.
 
 | 경계 | 인터페이스 (`shared/`) | 계약 | 기본 (상류) | 포크 오버라이드 예시 |
 |------|-----------------------|-----|-------------|---------------------|
+| 제한된 워커 계획 | `core/task_worker/planning_executor.py`의 `TaskWorkerPlanningProvider` | 전송 전에 토큰과 비용 한도를 전달하고 판단 보류에도 측정된 사용량을 반환합니다. 사용량을 측정하지 않는 프로바이더는 실행기 생성 시 거부합니다. | 미연결. #805의 운영 프로바이더와 런타임 구성이 여전히 필요합니다. | 전송 전 한도 적용과 실패 시 사용량 기록을 입증한 읽기 전용 프로바이더 주입 |
 | Event 버스 | `EventBus` (Kafka 프로듀서/컨슈머) | **CSP-중립성 계약** - [이벤트버스](csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜) | SASL/OAUTHBEARER (Entra 토큰 소스) 를 사용하는 librdkafka 기반 클라이언트 | AWS IAM SigV4 인증, GCP IAM 인증, Confluent SASL/PLAIN, 자체 호스팅 Kafka mTLS |
 | 런타임 | `RuntimeAdapter` (OCI + Knative 호환 매니페스트 렌더링) | **CSP-중립성 계약** - [런타임](csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트) | Container Apps IaC 렌더러 (Bicep/Terraform) | Cloud 실행 YAML, App 실행기 서비스, 어떤 K8s 위의 Knative 서비스 |
 | 시크릿 & 구성 | `SecretProvider` / `ConfigProvider` | **CSP-중립성 계약** - [시크릿](csp-neutrality-ko.md#3-시크릿-계약--환경변수--k8s-secret) | env + Container Apps KV-reference 브릿지 | ESO + Key Vault / AWS Secrets Manager / GCP 시크릿 Manager / HashiCorp Vault |
