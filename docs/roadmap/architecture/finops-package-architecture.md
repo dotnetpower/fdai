@@ -150,7 +150,7 @@ manifest reference, and W6 source inventory's `package_manifest_sha256` together
 fixture references. Re-evaluate the unchanged expected outcomes for eight positive and eight
 negative cases; retain the deliberately foreign release in the F6 mixed-release negative case.
 This source-only refresh does not qualify W7 live evidence or change enablement, data access,
-mode, or promotion. Earlier live receipts remain bound to their original release.
+mode, or promotion. Earlier live receipts remain bound to their original release. Adding alert ActionTypes follows this same source-only refresh and cannot activate Cost Governance.
 
 ### Keep agents active and ownership fixed
 

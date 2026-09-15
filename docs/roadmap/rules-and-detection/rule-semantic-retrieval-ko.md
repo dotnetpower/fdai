@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 85edf092624e0cf9cb9e35cca54717e2b4cc9286
+translation_source_sha: 15c3afb7262267ceb6aa43a99ddcf03005e60657
 translation_revised: 2026-09-15
 ---
 # Rule 의미 검색
@@ -300,7 +300,7 @@ source revision
 직접 작성한 표면의 `promoted` 상태와 내용 기반 주소를 가진 이전 증적은 보존합니다.
 쓰기 전에는 소스/정책 지문과 대상 파일의 원래 바이트가 여전히 일치해야 합니다. 끊어진 링크를
 포함한 심볼릭 링크 대상과 변경 불가능한 증적의 덮어쓰기는 차단합니다. 활성화는 임시 평가
-인덱스에만 한정하며, 배포 인덱스나 승격 레지스트리는 변경하지 않습니다.
+인덱스에만 한정하며, 배포 인덱스나 승격 레지스트리는 변경하지 않습니다. 알림 ActionType 추가도 같은 재평가 기반 소스 갱신 경계를 사용합니다.
 
 ### 독립 세대 검증
 
