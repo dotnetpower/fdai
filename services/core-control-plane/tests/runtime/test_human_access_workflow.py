@@ -314,6 +314,10 @@ async def test_actual_shared_safeguards_publish_original_action_and_keep_receipt
 
     f = setup
     f.clock["now"] = datetime.now(UTC)
+    f.runtime.observer.identity.get_token.return_value = replace(
+        f.runtime.observer.identity.get_token.return_value,
+        expires_at=f.clock["now"] + timedelta(hours=1),
+    )
     f.notice = HumanAccessWorkNotice.model_validate(
         {
             **f.notice.model_dump(),
