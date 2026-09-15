@@ -2689,6 +2689,7 @@ body.deck-open { overflow: hidden; }
   .settings-overlay-navigation {
     overflow-x: auto;
     overflow-y: hidden;
+    scroll-padding-inline: 8px;
     padding: 8px;
     border-right: 0;
     border-bottom: 1px solid var(--border);
@@ -16820,6 +16821,21 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
   display: block;
   color: var(--fg-muted);
 }
+.settings-role-request-form textarea {
+  min-height: 96px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-sm);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+.settings-role-request-form textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .login-panel::before {
   content: "";
   position: absolute;
@@ -19421,8 +19437,6 @@ body.agent-organization-dialog-open {
   .settings-route button,
   .settings-route .btn,
   .settings-route button.secondary { min-height: 44px; }
-  .settings-route .btn,
-  .settings-route button.secondary { height: var(--cs-control-height-touch); }
   .settings-route .page-header-domain-trigger {
     display: inline-flex;
     align-items: center;
@@ -19478,7 +19492,22 @@ body.agent-organization-dialog-open {
   font-size: var(--cs-type-label-size);
 }
 .settings-filter-bar input,
-.settings-filter-bar select { width: 100%; min-width: 0; }
+.settings-filter-bar select {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--cs-control-height);
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-sm);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+}
+.settings-filter-bar input:focus-visible,
+.settings-filter-bar select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .operator-memory-route > .settings-filter-bar {
   padding-top: 0;
   border: 0;
@@ -19495,7 +19524,23 @@ body.agent-organization-dialog-open {
 .settings-runtime-meta { display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 5px; color: var(--fg-muted); font-size: 10px; }
 .settings-runtime-control { display: grid; grid-template-columns: auto minmax(128px, 180px) auto; align-items: center; justify-content: end; gap: 8px; min-width: min(100%, 360px); }
 .settings-runtime-control input[type="number"],
-.settings-runtime-control select { width: 100%; min-width: 0; max-width: 100%; min-height: 34px; }
+.settings-runtime-control select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: var(--cs-control-height);
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-sm);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+}
+.settings-runtime-control input[type="number"]:focus-visible,
+.settings-runtime-control select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .settings-runtime-flags { min-height: 24px; display: inline-flex; align-items: center; justify-content: flex-end; }
 .settings-runtime-reset { max-width: 100%; white-space: normal; }
 .settings-runtime-actions { padding: 12px 0; border-top: 1px solid var(--border); }
@@ -19507,7 +19552,6 @@ body.agent-organization-dialog-open {
 .settings-route .btn,
 .settings-route button.secondary,
 .agent-oversight-workspace button.secondary {
-  height: var(--cs-control-height);
   min-height: var(--cs-control-height);
   padding: 7px 13px;
   border: 1px solid var(--border);
@@ -19524,6 +19568,15 @@ body.agent-organization-dialog-open {
   border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
   background: color-mix(in srgb, var(--accent) 7%, var(--bg-elevated));
   color: var(--accent-strong);
+}
+.settings-route .btn.primary:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: white;
+  font-weight: 700;
+}
+.settings-route .btn.primary:hover:not(:disabled) {
+  background: var(--accent-strong);
 }
 .settings-route .btn:focus-visible,
 .settings-route button.secondary:focus-visible,
@@ -19594,6 +19647,8 @@ body.agent-organization-dialog-open {
   background: transparent;
   color: var(--fg-muted);
   cursor: pointer;
+  font: inherit;
+  font-size: var(--cs-type-compact-size);
 }
 .settings-tabs button.is-restricted svg {
   width: 14px;
@@ -19605,6 +19660,14 @@ body.agent-organization-dialog-open {
   stroke-linejoin: round;
 }
 .settings-tabs button:hover { color: var(--fg); }
+.settings-tabs button:focus-visible,
+.settings-roster-toolbar button:focus-visible,
+.settings-directory-search-form input:focus-visible,
+.settings-role-select:focus-visible,
+.settings-request-review input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .settings-tabs button.is-active {
   border-bottom-color: var(--cs-steel);
   background: transparent;
@@ -19997,7 +20060,7 @@ body.agent-organization-dialog-open {
 .assignment-inline-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .assignment-identity-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px; }
 .assignment-identity-results button { display: grid; gap: 2px; min-height: 52px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); text-align: left; }
-.assignment-identity-results button.is-selected { outline: 2px solid var(--focus); outline-offset: 1px; }
+.assignment-identity-results button.is-selected { outline: 2px solid var(--accent); outline-offset: 1px; }
 .assignment-identity-results small { color: var(--fg-muted); overflow-wrap: anywhere; }
 .assignment-duty-row { display: grid; grid-template-columns: minmax(120px, 0.8fr) minmax(120px, 0.7fr) minmax(180px, 1.3fr) 38px; gap: 7px; }
 .assignment-validation { display: grid; gap: 5px; padding: 11px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--cs-shade); font-size: 0.76rem; }
@@ -20078,7 +20141,7 @@ body.agent-organization-dialog-open {
 .settings-model-catalog-head-actions button:hover,
 .settings-model-catalog-entry button:hover { background: var(--cs-shade); }
 .settings-model-catalog-head-actions button:focus-visible,
-.settings-model-catalog-entry button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.settings-model-catalog-entry button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .settings-model-catalog-head-actions button:disabled,
 .settings-model-catalog-entry button:disabled { cursor: not-allowed; opacity: 0.58; }
 .settings-model-catalog-controls {
@@ -20102,7 +20165,7 @@ body.agent-organization-dialog-open {
   color: var(--fg);
   font: inherit;
 }
-.settings-model-catalog-controls input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.settings-model-catalog-controls input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .settings-model-catalog-controls > span { justify-self: end; color: var(--fg-muted); font-size: 0.72rem; }
 .settings-model-catalog-grid {
   display: grid;
@@ -20185,7 +20248,7 @@ body.agent-organization-dialog-open {
 .settings-binding-editor select:focus-visible,
 .settings-binding-fields input:focus-visible,
 .settings-binding-fields select:focus-visible {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 .settings-binding-fields {
@@ -20249,7 +20312,7 @@ body.agent-organization-dialog-open {
   color: var(--fg);
   font: inherit;
 }
-.settings-t2-picker select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.settings-t2-picker select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .settings-t2-picker select:disabled { cursor: not-allowed; opacity: 0.64; }
 .settings-t2-invariant {
   display: flex;
@@ -20321,7 +20384,7 @@ body.agent-organization-dialog-open {
   background: color-mix(in srgb, var(--accent) 22%, var(--bg-elevated));
 }
 .settings-model-preference-control > button:focus-visible {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 .settings-model-preference-control > button:disabled {
@@ -20499,7 +20562,7 @@ body.agent-organization-dialog-open {
   cursor: pointer;
 }
 .settings-domain-list button:hover { border-color: var(--border); background: var(--cs-shade); color: var(--fg); }
-.settings-domain-list button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.settings-domain-list button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .settings-domain-empty {
   display: block;
   padding: 18px 12px;
@@ -20529,7 +20592,7 @@ body.agent-organization-dialog-open {
   font: 0.8rem var(--font-mono);
 }
 .settings-domain-add input:focus-visible {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 .settings-domain-add button { min-height: var(--cs-control-height); }
@@ -20601,7 +20664,7 @@ body.agent-organization-dialog-open {
   background: color-mix(in srgb, var(--accent) 22%, var(--bg-elevated));
 }
 .settings-web-search-actions > button:focus-visible {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 .settings-web-search-actions > button:disabled {
@@ -20697,6 +20760,7 @@ body.agent-organization-dialog-open {
   border-radius: 6px;
   background: var(--bg);
   color: var(--fg);
+  font: inherit;
   padding: 8px 10px;
 }
 .settings-search-results {
@@ -20730,6 +20794,8 @@ body.agent-organization-dialog-open {
   background: transparent;
   color: var(--fg-muted);
   cursor: pointer;
+  font: inherit;
+  font-size: var(--cs-type-compact-size);
 }
 .settings-roster-toolbar button.is-active {
   border-color: var(--border);
@@ -20839,6 +20905,7 @@ body.agent-organization-dialog-open {
   border-radius: 6px;
   background: var(--bg);
   color: var(--fg);
+  font: inherit;
   padding: 6px 8px;
 }
 .settings-request-review > div { display: flex; gap: 6px; }
@@ -20857,8 +20924,6 @@ body.agent-organization-dialog-open {
   .settings-route button,
   .settings-route .btn,
   .settings-route button.secondary { min-height: 44px; }
-  .settings-route .btn,
-  .settings-route button.secondary { height: var(--cs-control-height-touch); }
   .settings-route .page-header-domain-trigger { display: inline-flex; align-items: center; }
   .settings-toggle-control { justify-content: flex-start; }
   .settings-toggle-control { min-height: 44px; }

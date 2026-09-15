@@ -625,6 +625,11 @@ regressing denial escapes, duplicate application, rollback, or unavailable-sourc
 
 The [Console settings and component presentation reference](../../reference/console-settings-presentation.md)
 defines shared controls, IAM stages, component documentation, and authority boundaries.
+The production Settings overlay uses those shared control roles for typography, 34 px desktop
+controls, 44 px touch targets, primary and secondary emphasis, and visible keyboard focus. On
+narrow screens it keeps the current destination inside the horizontal navigation viewport and
+reflows controls without clipping. These presentation rules do not change persistence, RBAC,
+evidence, approval, or execution authority.
 
 ## Rejected alternatives
 

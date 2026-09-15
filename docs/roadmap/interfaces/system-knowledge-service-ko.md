@@ -1,7 +1,7 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: a73991a45f932d8bafd28e1ab8ba9dceda312262
+translation_source_sha: 7f6fbd3ca2dc2abb01c95fe2d32a1196d768a25a
 translation_revised: 2026-09-15
 ---
 # 시스템 지식 서비스
@@ -143,6 +143,8 @@ catalog digest만 바꾸며 검색 권한이나 메시지 전달 동작은 변�
 턴 종료 후 마이그레이션의 인용 근거는 공유 Operator 롤백 계약을 따릅니다. 서비스 버전을
 내려도 legacy `20260912_0090`에서 상속한 근거는 보존됩니다. 이 인용 근거의 갱신은 검토된
 설계를 기록할 뿐, 배포 환경의 롤백이나 중복 전달 증적을 제공하지 않습니다.
+인용한 신원 소유 문서의 표현만 바뀐 경우에도 같은 규칙을 따릅니다. 컴파일러는 IAM 사실,
+검색 동작 또는 운영 권한을 추가하지 않고 원본 blob 고정값과 전체 다이제스트만 갱신합니다.
 
 컴파일한 카탈로그는 중복 식별자, 중복 exact alias, 추적되지 않는 경로, 잘못된 소스 범위,
 digest 불일치 및 소스 없는 레코드를 차단합니다. 소스 본문은 런타임 응답에 포함하지 않습니다.

@@ -179,7 +179,7 @@ export function DirectoryUserSearch({
                 setSearched(false);
               }}
             />
-            <button type="submit" disabled={searching}>
+            <button type="submit" class="secondary" disabled={searching}>
               {searching ? t("settings.iam.searching") : t("settings.iam.search")}
             </button>
           </div>
@@ -228,6 +228,7 @@ export function DirectoryUserSearch({
           <div>
             <button
               type="button"
+              class="btn primary"
               disabled={justification.trim().length < 20 || pendingSubject !== null}
               onClick={() => { void assign(); }}
             >
@@ -235,6 +236,7 @@ export function DirectoryUserSearch({
             </button>
             <button
               type="button"
+              class="secondary"
               disabled={pendingSubject !== null}
               onClick={() => { setAssignmentDraft(null); setJustification(""); }}
             >

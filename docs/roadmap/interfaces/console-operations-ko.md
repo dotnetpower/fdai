@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 8037b3ef446e6a6bbfe8ed6db14e458c9f2e481a
+translation_source_sha: 6a97fca4211a45fff8fc498e01d7dcf52172a9c6
 translation_revised: 2026-09-15
 ---
 
@@ -625,6 +625,10 @@ unavailable-source 비율이 악화되지 않을 때만 진행합니다.
 
 [Console 설정 및 컴포넌트 표현 참조](../../reference/console-settings-presentation-ko.md)에서
 공유 컨트롤, IAM 단계, 컴포넌트 문서화 및 권한 경계를 정의합니다.
+운영 Settings 오버레이는 서체, 데스크톱 34px 컨트롤, 44px 터치 대상, 기본 및 보조 강조,
+가시적인 키보드 포커스에 이 공통 컨트롤 역할을 사용합니다. 좁은 화면에서는 현재 대상을
+가로 탐색 영역 안에 유지하고 컨트롤이 잘리지 않도록 재배치합니다. 이 표현 규칙은 영속성,
+RBAC, 근거, 승인 또는 실행 권한을 변경하지 않습니다.
 
 ## 채택하지 않은 대안
 
