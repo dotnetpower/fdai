@@ -57,6 +57,8 @@ The worker reproduces the sealed chunk inventory only after Saga-audited Var app
 index command. A separate read-only transaction checks the complete persisted row set before the
 fenced visibility transition. This proves stored effects, not correctness of the shared parser;
 source/claim quality needs independent expected evidence.
+Legacy and structured generations share a persisted-effect test matrix covering body/provenance
+tampering, changes after readback, invisible pending rows and exact-version/applicability rejection.
 
 ## Retrieval and lifecycle
 
