@@ -112,8 +112,20 @@ fdaictl provision azure --source . --runtime aks --prepare-only
 ```
 
 After Azure sign-in, `--preflight-only` instead checks AKS SKU and quota feasibility without
-resource mutation. Omit both flags to advance Foundation checkpoints without input prompts, in
-both text and JSON mode. To resume an already approved checkpoint, add
+resource mutation. Omit both flags to start the Foundation flow. A new interactive source run
+shows installation settings and asks for confirmation at startup only. Supply a separate setup
+estimate ceiling with `--setup-cost-ceiling <USD>` or enter it during that initial review.
+Use `--console-access public-https-entra` or `private-https-entra`, and explicitly select
+`--allow-dedicated-identities` and `--cleanup-temporary-resources` when intended. Services and data
+stay retained. These settings do not deploy resources or grant exact-plan approval by themselves.
+
+The private initial confirmation is reused only with the same source, target, runtime, budgets and
+options before its original expiry. Changed or expired settings stop without another question.
+JSON and non-TTY fresh runs return `initial_confirmation_required` without reading input. No later
+source execution stage prompts. Full execution from one startup authorization still requires the
+bounded per-effect authorization adapters; the preview does not implement them yet.
+
+To resume an already approved exact checkpoint, omit initial-scope options and add
 `--approval-file <private-exact-approval.json>` to the same command. The approval must match the
 current source, run, human and exact checkpoint evidence and must not be expired. The command
 continues within that approval; a new approval requirement returns review state and exit code `2`

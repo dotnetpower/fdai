@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 단일 로컬 명령 또는 digest로 고정된 폐쇄망 배포 어플라이언스로 FDAI를 Azure에 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 20eaea456818fed5e760a50669046da34d2c2c24
+translation_source_sha: cec8a8f187bd95201a0226bcb962f446afe65ed1
 translation_revised: 2026-09-15
 ---
 
@@ -112,8 +112,20 @@ fdaictl provision azure --source . --runtime aks --prepare-only
 ```
 
 Azure 로그인 후 `--preflight-only`를 대신 지정하면 리소스를 변경하지 않고 AKS SKU와
-할당량을 점검합니다. 두 옵션을 모두 생략하면 텍스트와 JSON 모드 모두 입력 요청 없이
-Foundation 체크포인트들을 진행합니다. 이미 승인된 체크포인트를 재개하려면 같은 명령에
+할당량을 점검합니다. 두 옵션을 모두 생략하면 Foundation 흐름을 시작합니다. 새 대화형 소스
+실행은 시작할 때만 설치 설정을 보여주고 확인을 요청합니다. 별도의 구축 예상 비용 한도는
+`--setup-cost-ceiling <USD>`로 지정하거나 초기 검토 중 입력합니다. Console은
+`--console-access public-https-entra` 또는 `private-https-entra`로 선택하고, 필요하면
+`--allow-dedicated-identities`와 `--cleanup-temporary-resources`를 명시합니다. 서비스와
+데이터는 유지합니다. 이 설정만으로 리소스를 배포하거나 정확한 계획의 승인 권한을 얻지 않습니다.
+
+비공개 초기 확인은 최초 유효 기간 안에서 소스, 대상, 런타임, 예산과 옵션이 모두 같을 때만
+재사용합니다. 설정이 바뀌거나 만료되면 다시 묻지 않고 중단합니다. 새로운 JSON 및 비TTY
+실행은 입력을 읽지 않고 `initial_confirmation_required`를 반환합니다. 이후 소스 실행
+단계에서는 묻지 않습니다. 초기 권한 하나로 전체 실행을 완료하려면 작업별 제한적 권한
+어댑터가 필요하며 현재 미리 보기에는 아직 구현되지 않았습니다.
+
+이미 승인된 정확한 체크포인트를 재개하려면 초기 범위 옵션을 생략하고 같은 명령에
 `--approval-file <private-exact-approval.json>`을 추가합니다. 승인은 현재 소스, 실행 기록,
 사람 신원, 정확한 체크포인트 근거와 일치해야 하며 만료되지 않아야 합니다. 명령은 승인 범위
 안에서 계속 진행합니다. 새 승인이 필요하면 입력을 기다리거나 승인을 만들지 않고 검토 상태와

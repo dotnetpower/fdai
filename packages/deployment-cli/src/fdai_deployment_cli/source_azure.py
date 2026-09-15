@@ -11,6 +11,7 @@ from pathlib import Path
 from fdai_deployment_cli.aks_preflight import inspect_aks_target
 from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
+from fdai_deployment_cli.installation_scope import InstallationOptions, confirm_installation_scope
 from fdai_deployment_cli.private_output import read_private_bytes
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.source_deploy import prepare_source_deployment
@@ -29,6 +30,8 @@ def plan_source_installation(
     timeout_seconds: int,
     interactive: bool = False,
     approval_file: Path | None = None,
+    installation_options: InstallationOptions | None = None,
+    confirm_initial: bool = False,
 ) -> dict[str, object]:
     """Advance source Foundation through exact human approvals, or stop for review.
 
@@ -54,6 +57,25 @@ def plan_source_installation(
     if preflight["state"] != "feasible":
         return {**preflight, "stage": "aks-preflight"}
     work_dir = work_dir.absolute()
+    if installation_options is not None:
+        confirmation = confirm_installation_scope(
+            work_dir=work_dir,
+            binding={
+                "source_commit": source.commit,
+                "target_binding": preflight["target_binding"],
+                "preparation_digest": prepared["receipt_digest"],
+                "runtime_profile_digest": runtime_profile.digest,
+                "region": region,
+                "monthly_cost_ceiling": monthly_cost_ceiling,
+            },
+            runtime_profile=runtime_profile,
+            options=installation_options,
+            interactive=confirm_initial,
+            timeout_seconds=deadline.remaining(86400),
+        )
+        source.reverify()
+        if confirmation["state"] != "confirmed":
+            return {**confirmation, "source_commit": source.commit}
     tools = work_dir / "source-tools"
     tools.mkdir(mode=0o700, exist_ok=True)
     terraform = tools / "terraform"

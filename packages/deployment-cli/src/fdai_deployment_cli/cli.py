@@ -157,6 +157,8 @@ def _provision_init(args: argparse.Namespace) -> int:
 def _provision_azure(args: argparse.Namespace) -> int:
     """Run the standalone active-Azure-login deployment path."""
 
+    from fdai_deployment_cli.installation_scope import InstallationOptions
+
     runtime_profile = RuntimeDeploymentProfile.create(
         runtime_platform=args.runtime,
         database_placement=args.database,
@@ -172,6 +174,21 @@ def _provision_azure(args: argparse.Namespace) -> int:
         args.source is None or args.prepare_only or args.preflight_only
     ):
         raise ValueError("--approval-file requires source deployment, not preparation or preflight")
+    initial_options_requested = (
+        args.setup_cost_ceiling is not None
+        or args.console_access is not None
+        or args.allow_dedicated_identities
+        or args.cleanup_temporary_resources
+    )
+    if initial_options_requested and (
+        args.source is None
+        or args.prepare_only
+        or args.preflight_only
+        or args.approval_file is not None
+    ):
+        raise ValueError(
+            "initial scope options require a source install without an exact approval file"
+        )
     selected_dir = args.work_dir
     if selected_dir is None:
         selected_dir = Path.home() / (
@@ -207,11 +224,25 @@ def _provision_azure(args: argparse.Namespace) -> int:
                 timeout_seconds=args.timeout_seconds,
                 approval_file=args.approval_file,
                 interactive=False,
+                installation_options=(
+                    InstallationOptions(
+                        setup_cost_ceiling=args.setup_cost_ceiling,
+                        console_access=args.console_access or "public-https-entra",
+                        allow_dedicated_identities=args.allow_dedicated_identities,
+                        cleanup_temporary_resources=args.cleanup_temporary_resources,
+                    )
+                    if args.approval_file is None
+                    else None
+                ),
+                confirm_initial=args.output == "text" and sys.stdin.isatty(),
             )
             _print_mapping(
                 result,
                 output=args.output,
-                text=f"source deployment: {result['state']}; deployment is not ready",
+                text=(
+                    f"source deployment: {result['state']}; "
+                    f"reason={result.get('reason_code', 'review_required')}; deployment is not ready"
+                ),
             )
             return 2 if result["state"] == "review" else 3
         result = prepare_source_deployment(

@@ -197,6 +197,30 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         metavar="PATH",
         help="Private run directory (default: ~/.local/state/fdai/azure)",
     )
+    initial = azure.add_argument_group("Initial source installation scope")
+    initial.add_argument(
+        "--setup-cost-ceiling",
+        type=int,
+        metavar="USD",
+        help="Setup cost estimate ceiling; requested at initial confirmation if omitted",
+    )
+    initial.add_argument(
+        "--console-access",
+        choices=("public-https-entra", "private-https-entra"),
+        default=None,
+        metavar="ACCESS",
+        help="Console exposure preference (default: public-https-entra); never changes deployment alone",
+    )
+    initial.add_argument(
+        "--allow-dedicated-identities",
+        action="store_true",
+        help="Include dedicated identities and minimum role assignments in the initial scope",
+    )
+    initial.add_argument(
+        "--cleanup-temporary-resources",
+        action="store_true",
+        help="Include cleanup of this run's temporary resources; retain services and data",
+    )
     settings.add_argument(
         "--timeout-seconds",
         type=int,

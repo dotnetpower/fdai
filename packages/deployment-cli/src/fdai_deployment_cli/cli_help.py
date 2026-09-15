@@ -24,7 +24,8 @@ ROOT_EPILOG = (
 AZURE_DESCRIPTION = (
     "Use the active Azure CLI human account with source or a verified signed kit.\n"
     "Choose --source, --online or --offline-kit. Exact plans require human approval.\n"
-    "Source mode never prompts; --approval-file supplies an existing exact approval.\n"
+    "A new source install confirms scope at startup only; later stages never prompt.\n"
+    "Scope confirmation is not apply approval; --approval-file supplies exact approval.\n"
     "Source Foundation uses exact approvals; application activation is incomplete.\n"
     "Use --prepare-only for no Azure access or --preflight-only for read-only SKU/quota checks.\n"
     "New installations seal Container Apps or AKS into every approved plan.\n"

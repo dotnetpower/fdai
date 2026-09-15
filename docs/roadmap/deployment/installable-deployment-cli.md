@@ -37,9 +37,10 @@ apply, resume, or tear down a tenant deployment.
 Current source-mode support covers private preparation, read-only AKS capacity preflight,
 runner-image planning and exact-approved Foundation execution through private state handoff.
 The public source command resumes these checkpoints using the shared private coordinator;
-text and JSON execution never prompt. `--approval-file <path>` explicitly supplies an existing
+new interactive source installations confirm settings at startup only; later stages and JSON
+execution never prompt. `--approval-file <path>` explicitly supplies an existing
 private human approval to the shared verifier. Without it, retained ambient approvals are ignored.
-The coordinator advances within that exact approval and returns review state when another
+Initial confirmation is separate from that approval. The coordinator advances within exact approval and returns review state when another
 checkpoint needs authority; it does not create approval, read stdin or report success. Managed-host application
 execution and durable Trial activation are not yet connected. A plan
 returns exit code `2` for review, not deployment success; a capacity blocker returns `3`.
@@ -80,7 +81,51 @@ It is mutually exclusive with `--online` and `--offline-kit`. Initial support ta
 `dev` installation using AKS and PostgreSQL Flexible Server. It does not migrate an existing
 Container Apps installation and does not claim disconnected or production readiness.
 
-### Design and critique
+### Initial confirmation and bounded unattended execution
+
+**Initial design:** Ask for installation scope before the first execution stage, then use that
+scope throughout a finite unattended run. Scope includes the exact source and target, runtime
+profile, region, monthly estimate ceiling, separate setup estimate ceiling, Console access,
+service retention, and temporary-resource cleanup.
+
+`--setup-cost-ceiling` supplies a whole-USD setup estimate ceiling; a fresh interactive run asks
+for it at startup if omitted. `--console-access` chooses `public-https-entra` (default) or
+`private-https-entra`. `--allow-dedicated-identities` and `--cleanup-temporary-resources` are
+explicit opt-ins, and services/data stay retained. These source-install-only settings cannot
+silently apply to kit, preparation, preflight, or legacy exact-approval invocations. They are
+preferences pending execution-side scope validation, not deployed settings or a billing cap.
+
+**Critique:** A startup yes/no answer cannot authenticate later resource ownership, prices, RBAC
+scope, or rollback safety. Existing plan reviews do not contain enough evidence for those checks.
+Treating a saved scope as an exact checkpoint approval would erase an authority boundary.
+
+**Revised contract:** Initial confirmation records installation preferences, not apply authority.
+A fresh interactive source installation shows the complete scope and collects one bounded answer.
+JSON and non-TTY runs return `initial_confirmation_required` instead of reading input. Preparation
+and preflight-only calls do not ask. An exact retained confirmation resumes without asking; a
+changed source, target, budget or option, expired confirmation, or an already-started run lacking
+that record stops without prompting or silently renewing consent. Legacy exact-approved resumes
+remain supported without treating an approval file as blanket scope consent.
+
+The confirmation has an immutable private record, an exact preparation/run binding and a finite
+validity window. Its digest detects drift, not human identity or authorization. It cannot mint
+`fdai.genesis-approval.v1` records, and it never enables runtime action authority or Trial.
+
+Full start-once execution additionally requires an independently reviewed bounded authorization
+adapter for every effect. Before each claim it must verify exact plan bytes, current source/target,
+complete fresh price evidence against both ceilings, exact new-resource ownership, allowlisted
+role/scope/principal tuples, no existing-resource destruction, current authorization/revocation,
+and all existing lock, idempotency, rollback and audit requirements. Cleanup covers only declared
+temporary resources created by that run and must independently prove absence. Retained services
+and data are not cleanup targets. Missing evidence ends the run with a persisted review/blocked
+result, never another prompt, guessed cost, automatic consent, or repeated ambiguous apply.
+The scope collector can ship independently; until those effect adapters are verified, it cannot
+claim that one initial confirmation completes deployment authorization. The initial collection
+window is at most ten minutes, within the invocation deadline; the record lasts no longer than
+the original invocation budget or 24 hours. Restart cannot extend it. Signed-kit startup and its
+later approval prompts remain a separate integration requirement, not implemented by this change.
+
+### Source provenance and Trial
 
 Automatically prompting on a text terminal interrupts unattended runs. Automatically approving
 every later plan would erase the exact-plan boundary. The revised source interface separates
