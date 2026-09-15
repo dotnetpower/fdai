@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: a9ff955d7eb5c2435e103457f62b8d12e21e1727
+translation_source_sha: b477ff6374fa99d30b40fdb4f76beac566aba32f
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -558,7 +558,7 @@ Turn이 검증된 inline 이미지 첨부를 carry하면 스트리밍 경로는 
 
 Live 단계, 준비 상태 및 권한이 없는 활동은 인증된 `/live/stream` 하나를 공유합니다. 스냅샷은 Operator 발급 delta 커서를 진행하지 않으며, 범위가 제한된 cache는 독립 GET 변환 결과를 대체하지 않고 늦은 로컬 구독자에게 현재 프레임을 제공합니다. 에이전트 상태와 보존 이력은 별도 경로와 권한을 유지합니다. 표준 스택 Live E2E 실행 장치는 이 연결 예산, 타입이 지정된 현재 활동, 명시적 보존 이력 읽기 및 반응형 표현을 측정하지만, 실행 장치 자체가 인증된 런타임 검증은 아닙니다.
 
-Interactive Live 구독자는 tab이 hidden 상태일 때 유휴 상태를 보고합니다. Shell의 인시던트, 액세스 권한 및 Operator가 활성화한 브라우저 notification 소비자는 Web Locks를 사용해 same-origin 탭의 각 채널에서 principal 범위로 한정된 읽기 담당 하나를 선출합니다. 인시던트 및 액세스 권한 leader는 검증된 스냅샷을 `BroadcastChannel`을 통해 follower 탭으로 보내므로 각 shell은 중복 SSE 연결을 열지 않고 attention 상태를 유지합니다. Notification leader는 background에서 인증된 실제 운영 읽기 담당을 유지합니다. 이 고정 연결 예산은 HTTP/1.1에서 일반 Operator API 요청에 필요한 용량을 남깁니다. Notification leader는 기존 capped 재시도 대기로 authentication 실패를 재시도하며, notification 권한 또는 principal 범위로 한정된 명시적 선택이 제거되면 즉시 중지합니다. 재생이 아닌 프레임의 사람 승인, 거부, 실패 결과만 발행합니다. Shared 브라우저 원장은 여러 tab에서 같은 이벤트 tag를 5분 동안 억제하고 system notification 전달을 분당 5건으로 제한하지만 감사 또는 인시던트 근거는 제거하지 않습니다.
+대화형 Live 구독자는 탭이 숨겨져 있을 때 유휴 상태를 보고합니다. 셸의 인시던트, 액세스 권한 및 운영자가 활성화한 브라우저 알림 소비자는 Web Locks를 사용해 동일 출처 탭의 각 채널에서 principal 범위로 한정된 읽기 담당 하나를 선출합니다. 인시던트 및 액세스 권한 리더는 검증된 스냅샷을 `BroadcastChannel`을 통해 나머지 탭으로 보내므로 각 셸은 중복 SSE 연결 없이 주의가 필요한 상태를 유지합니다. 알림 리더는 백그라운드에서 인증된 실시간 읽기를 유지합니다. 이 고정 연결 예산은 HTTP/1.1에서 일반 Operator API 요청에 필요한 용량을 남깁니다. 알림 리더는 기존의 상한이 있는 재시도 대기로 인증 실패를 재시도하며, 알림 권한 또는 principal 범위의 명시적 선택이 제거되면 즉시 중지합니다. 허용된 알림은 인시던트가 존재한다고 가정하지 않고 관련 감사 근거를 엽니다. [Console Web 알림](console-web-notifications-ko.md)이 이벤트 허용, 범위가 제한된 로컬 전달 및 기존 인시던트 링크에서의 복구를 정의하며, 감사 또는 인시던트 근거는 제거하지 않습니다.
 
 에이전트 활동 경로는 shared 에이전트 스트림을 열기 전에 범위가 제한된 영속 인벤토리 검사,
 온톨로지 변환 및 현재 상태 읽기 기록을 불러옵니다. 정확한 activity id로 재생과 실제 운영 전달을

@@ -454,6 +454,7 @@
     "notLoaded": "인시던트 {id}이 로드된 결과에 없습니다.",
     "continueSearch": "검색을 계속하려면 더 불러오세요.",
     "filteredUnavailable": "이 필터 결과에서는 사용할 수 없습니다.",
+    "openAudit": "관련 감사 이력 보기",
     "evidence": "인시던트 근거"
   },
   "contextSelection": {
