@@ -916,6 +916,22 @@ async def test_change_stream_failure_degrades_without_stopping_the_tick(
     assert result.unavailable_sources == ("resourcechanges", "activity_log")
 
 
+async def test_post_promotion_recovery_failure_degrades_without_stopping_the_tick() -> None:
+    import logging
+
+    from fdai.delivery.inventory_sync_cli_support import try_recovery_delta_operation
+
+    async def _unavailable() -> int:
+        raise RuntimeError("activity log row rejected")
+
+    assert (
+        await try_recovery_delta_operation(
+            _unavailable, logger=logging.getLogger("fdai.delivery.inventory_sync_cli")
+        )
+        is None
+    )
+
+
 async def test_change_stream_is_skipped_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
     config = InventoryJobConfig.from_env(
         {

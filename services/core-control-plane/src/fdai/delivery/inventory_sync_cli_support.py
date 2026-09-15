@@ -63,6 +63,23 @@ _ResourceChangeForwarder = Callable[..., Awaitable[int]]
 _WorkloadIdentityFactory = Callable[..., WorkloadIdentity]
 
 
+async def try_recovery_delta_operation(
+    operation: Callable[[], Awaitable[int]],
+    *,
+    logger: logging.Logger,
+) -> int | None:
+    """Degrade one read-only Activity Log accelerator attempt independently."""
+
+    try:
+        return await operation()
+    except Exception as exc:  # noqa: BLE001 - read-only accelerator degrades independently
+        logger.warning(
+            "inventory_change_stream_unavailable",
+            extra={"reason": type(exc).__name__},
+        )
+        return None
+
+
 def resolve_resource_types(
     config: InventoryJobConfig,
     vocabulary: ResourceTypeRegistry,
