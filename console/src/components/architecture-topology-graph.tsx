@@ -57,6 +57,7 @@ export function ArchitectureTopologyGraph({
   const scrollRef = useRef<HTMLDivElement>(null);
   const fitScaleRef = useRef(1);
   const scaleRef = useRef(1);
+  const autoFitRef = useRef(true);
   const pendingScrollRef = useRef<{ readonly left: number; readonly top: number } | null>(null);
   const {
     panning,
@@ -96,6 +97,7 @@ export function ArchitectureTopologyGraph({
     const scroll = scrollRef.current;
     if (!scroll) return;
     const nextScale = clampArchitectureTopologyScale(requestedScale);
+    autoFitRef.current = fit;
     pendingScrollRef.current = fit
       ? { left: 0, top: 0 }
       : architectureTopologyZoomScrollTarget({
@@ -137,11 +139,12 @@ export function ArchitectureTopologyGraph({
           scroll.clientHeight,
         );
         initialized = true;
+        autoFitRef.current = true;
         scaleRef.current = initial.scale;
         setScale(initial.scale);
         scroll.scrollLeft = initial.scroll.left;
         scroll.scrollTop = initial.scroll.top;
-      } else if (scaleRef.current < fit) {
+      } else if (autoFitRef.current) {
         scaleRef.current = fit;
         setScale(fit);
       }
@@ -205,6 +208,7 @@ export function ArchitectureTopologyGraph({
         onPointerCancel={finishPan}
         onWheel={(event) => {
           event.preventDefault();
+          autoFitRef.current = false;
           changeScale(scaleRef.current + (
             event.deltaY < 0
               ? ARCHITECTURE_TOPOLOGY_SCALE_STEP
