@@ -677,6 +677,38 @@ def test_aks_workload_binds_digest_image_and_additional_identity() -> None:
 
 
 @pytest.mark.parametrize(
+    ("component", "service", "role"),
+    [
+        ("operator", "operator-service", "fdai_operator"),
+        ("executor", "isolated-executor", "fdai_executor"),
+        ("ingestion", "document-ingestion-api", "fdai_ingestion_api"),
+        ("worker", "document-processing-worker", "fdai_ingestion_worker"),
+    ],
+)
+def test_aks_workload_preserves_service_database_role(component, service, role) -> None:
+    environment = {"RUNTIME_ENV": "dev", "FDAI_DATABASE_ROLE": "wrong-role", "PGOPTIONS": ""}
+    workload = standalone_host._aks_workload(
+        component,
+        {service: f"example.com/{service}@sha256:{'a' * 64}"},
+        {"resource_id": f"/identities/{component}", "client_id": f"{component}-client"},
+        environment,
+        {},
+        "/ready",
+        "/live",
+    )
+
+    assert workload["environment"]["FDAI_DATABASE_ROLE"] == role
+    assert workload["environment"]["PGOPTIONS"] == f"-c role={role}"
+    assert workload["environment"]["FDAI_EXECUTION_VENUE"] == "deployed"
+    assert "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER" not in workload["environment"]
+    assert environment == {
+        "RUNTIME_ENV": "dev",
+        "FDAI_DATABASE_ROLE": "wrong-role",
+        "PGOPTIONS": "",
+    }
+
+
+@pytest.mark.parametrize(
     "missing_service",
     [
         "core-control-plane",

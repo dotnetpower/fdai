@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: ab86c18914f0b6c8fc22004b229206d76c0312ec
+translation_source_sha: fa78a211589b5cd60cd871cdd6da0109f46745f7
 translation_revised: 2026-09-15
 ---
 # 런타임 배포 프로파일
@@ -133,8 +133,12 @@ Container Apps 렌더러는 명세를 Container Apps와 Container Apps Jobs로 �
 아니라 사용 불가로 처리합니다. 기대 목록에는 다섯 기본 서비스가 모두 있어야 하며, 생성기가
 하나를 누락했다고 해서 부분 롤아웃을 완료된 것으로 판단해서는 안 됩니다.
 이 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는
-전체 배포 준비가 검증되지는 않습니다. Operator 생성기는 필수 `fdai_operator` 데이터베이스 역할을
-제공하며, 생성되는 모든 서비스는 배포된 실행 위치를 명시적으로 선택합니다.
+전체 배포 준비가 검증되지는 않습니다. 워크로드 생성기는 Operator, 격리된 Executor, 문서 API,
+문서 Worker에 각각 `fdai_operator`, `fdai_executor`, `fdai_ingestion_api`,
+`fdai_ingestion_worker` 역할을 `FDAI_DATABASE_ROLE`과 일치하는 `PGOPTIONS`로 설정합니다.
+호출자의 환경은 변경하지 않습니다. 생성되는 모든 서비스는 배포된 실행 위치를 명시적으로
+선택합니다. 역할 선택은 데이터베이스 역할의 구성원 자격이나 서비스별 DSN을 제공하지 않으며,
+Executor 실행 권한 전환을 활성화하지 않습니다.
 
 ## 신원 및 secret
 

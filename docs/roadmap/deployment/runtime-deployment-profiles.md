@@ -135,8 +135,11 @@ partially healthy responses are unavailable, not success. The expected set must 
 baseline services; a renderer that omits one cannot redefine a partial rollout as complete.
 This readback does not establish Kafka
 round trips, scheduled-job success, Console authentication, or full deployment readiness.
-Operator rendering supplies its required `fdai_operator` database role; all rendered services
-explicitly select the deployed execution venue.
+The workload factory binds Operator, isolated Executor, Document API and Document Worker to
+`fdai_operator`, `fdai_executor`, `fdai_ingestion_api` and `fdai_ingestion_worker`, respectively,
+through `FDAI_DATABASE_ROLE` and matching `PGOPTIONS`. It leaves the caller's environment unchanged.
+All rendered services explicitly select the deployed execution venue. Role selection neither grants
+database membership nor supplies service-owned DSNs, and never enables Executor authority cutover.
 
 ## Identity and secrets
 

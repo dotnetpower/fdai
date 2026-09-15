@@ -1543,9 +1543,15 @@ def _aks_workload(
     }[component]
     runtime_environment = {name: str(value) for name, value in environment.items()}
     runtime_environment["FDAI_EXECUTION_VENUE"] = "deployed"
-    if component == "operator":
-        runtime_environment["FDAI_DATABASE_ROLE"] = "fdai_operator"
-        runtime_environment["PGOPTIONS"] = "-c role=fdai_operator"
+    database_role = {
+        "operator": "fdai_operator",
+        "executor": "fdai_executor",
+        "ingestion": "fdai_ingestion_api",
+        "worker": "fdai_ingestion_worker",
+    }.get(component)
+    if database_role is not None:
+        runtime_environment["FDAI_DATABASE_ROLE"] = database_role
+        runtime_environment["PGOPTIONS"] = f"-c role={database_role}"
     return {
         "component": component,
         "image": refs[image_name],
