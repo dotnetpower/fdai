@@ -94,6 +94,14 @@ class CloudDocumentCollector:
     ) -> SourceState:
         """Fetch once, with one full-body fallback only for an unusable conditional result."""
         if not source_due(source, previous, now):
+            if previous.document is not None and self.processing_due(source, previous, now):
+                try:
+                    structured = self._structure(previous.document, previous, now)
+                    return SourceState.model_validate(
+                        previous.model_dump() | {"structured_document": structured}
+                    )
+                except (OSError, ValueError):
+                    return self._failed(source, previous, now, "processing_unavailable")
             return previous
         etag = None
         old = previous.document
@@ -195,6 +203,20 @@ class CloudDocumentCollector:
             )
         except (TimeoutError, OSError, ValueError):
             return self._failed(source, previous, now, "source_unavailable")
+
+    def processing_due(
+        self, source: CloudKnowledgeSource, state: SourceState, now: datetime
+    ) -> bool:
+        """An approved format upgrade can reuse retained bytes without a new source check."""
+        return bool(
+            self._structured
+            and source.enabled
+            and source.storage_allowed
+            and state.document is not None
+            and state.structured_document is None
+            and state.consecutive_failures < 5
+            and (state.retry_after is None or now >= state.retry_after)
+        )
 
     def _structure(
         self, document: CloudKnowledgeDocument, previous: SourceState, now: datetime

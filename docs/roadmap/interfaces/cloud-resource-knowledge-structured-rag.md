@@ -79,6 +79,8 @@ An unchanged fetch/check preserves collection time and may reuse unchanged deriv
 Normalized bytes, recipe, applicability or rights decisions changing create a material-update
 candidate. Observation timestamps alone do not create content changes. A new raw source cannot be
 hidden by a stale structured checkpoint: raw identity is compared before derived state.
+A processing-only sweep checkpoints retained-byte upgrades under the existing lease, reuses the
+old check receipt and reports reprocessing separately. Export requires that durable checkpoint.
 Expired or revoked content becomes unavailable before governed retention cleanup; neither a 404 nor an import renews rights
 or source freshness. Automatic prior-generation restoration remains deferred.
 

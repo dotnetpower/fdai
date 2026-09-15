@@ -154,13 +154,14 @@ class CloudKnowledgeService:
                 raise ValueError("document review export requires approved transfer rights")
             documents.append(normalized_document(state.document))
             if self._structured:
-                from fdai_ingestion_api_service.cloud_knowledge.structured_normalization import (
-                    reprocess_document,
-                )
-
-                structured_documents.append(
-                    state.structured_document or reprocess_document(state.document, now=now)
-                )
+                if state.structured_document is None:
+                    raise ValueError("structured source checkpoint requires a processing sweep")
+                if (
+                    state.structured_document.evidence.source_sha256
+                    != state.document.evidence.source_sha256
+                ):
+                    raise ValueError("structured source checkpoint does not match retained bytes")
+                structured_documents.append(state.structured_document)
         sequence = await self._store.next_sequence(collection_id)
         if self._structured:
             return KnowledgeStructuredReleaseManifest(

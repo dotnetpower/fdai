@@ -1,7 +1,7 @@
 ---
 title: 통제된 문서 형식 정책
 translation_of: document-ingestion-format-policy.md
-translation_source_sha: 31e80a9e07c08ddbd262481282576f3b0bb3ffce
+translation_source_sha: 13a8dcb8efea4979e6464b67b024c35b4fa5d233
 translation_revised: 2026-09-15
 ---
 # 통제된 문서 형식 정책
@@ -87,6 +87,8 @@ Azure 모드는 관리 ID를 통해 `prebuilt-read` 모델을 사용합니다. �
 구조화된 본문을 선택할 때 선택 영역 밖에 설명되지 않은 문단이 있으면 보류합니다.
 파싱 성공을 이유로 적용 조건이나 예외를 조용히 제외하지 않습니다.
 구조화된 표 행은 같은 제목 계층에 앞서 나온 문단·목록의 조건을 유지합니다.
+보관 바이트의 형식 업그레이드는 다시 다운로드하지 않고 영속 처리 체크포인트를 만듭니다.
+내보내기는 일시적인 변환으로 이 체크포인트를 대체하지 않습니다.
 
 포함된 이미지는 범위가 제한된 패키지 구성원 추출과 유효 OCR 공급자를 사용합니다. 기본
 텍스트가 있는 최신 Office 문서는 포함된 이미지 OCR을 사용할 수 없을 때
