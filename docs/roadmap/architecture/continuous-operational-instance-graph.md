@@ -82,7 +82,7 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
 The collector uses the cheapest authoritative signal that can preserve the required freshness:
 
 1. Push resource create, update, and delete events into the canonical event stream.
-2. Drain resumable provider deltas from a durable cursor under a finite positive deadline while lag or an incomplete overlay exists.
+2. Drain resumable provider deltas from a validated durable text cursor under a finite positive deadline while lag or an incomplete overlay exists; malformed stored cursors block recovery rather than resetting the lookback.
 3. Run bounded reconciliation to detect missed events, repair relationships, and prove scope completeness.
 4. Run exact live reads only when inventory lacks an evidence family or a verified query needs fresher evidence.
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fdai.delivery.inventory_delta import (
@@ -97,6 +97,31 @@ async def test_delta_rejects_unbounded_deadlines_before_reading_state(
             deadline_seconds=deadline,
         )
     read.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [{}, {"cursor": None}, {"cursor": False}, {"cursor": 0}, {"cursor": 42}, {"cursor": []}],
+)
+async def test_delta_rejects_malformed_persisted_cursor_without_rewinding(
+    stored: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    state = InMemoryStateStore()
+    await state.write_state("inventory_delta_cursor:subscription-1", stored)
+    inventory = _Inventory()
+    delta = Mock(side_effect=AssertionError("malformed cursor reached provider"))
+    monkeypatch.setattr(inventory, "delta", delta)
+    with pytest.raises(RuntimeError, match="persisted cursor"):
+        await forward_inventory_delta(
+            inventory=inventory,
+            state_store=state,
+            event_bus=InMemoryEventBus(),
+            topic="events",
+            scope="subscription-1",
+            properties_complete=False,
+        )
+    delta.assert_not_called()
+    assert await state.read_state("inventory_delta_cursor:subscription-1") == stored
 
 
 def test_parent_to_child_contains_link_is_owned_by_child_event() -> None:

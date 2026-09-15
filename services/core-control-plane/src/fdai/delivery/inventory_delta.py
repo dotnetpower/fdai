@@ -43,8 +43,10 @@ async def forward_inventory_delta(
     if not math.isfinite(deadline_seconds) or deadline_seconds <= 0:
         raise ValueError("inventory delta deadline_seconds MUST be finite and > 0")
     cursor_key = f"{_CURSOR_PREFIX}{scope}"
-    saved = await state_store.read_state(cursor_key) or {}
-    cursor = str(saved.get("cursor") or "")
+    saved = await state_store.read_state(cursor_key)
+    cursor = "" if saved is None else saved.get("cursor")
+    if not isinstance(cursor, str):
+        raise RuntimeError("inventory delta persisted cursor MUST be text")
     latest_cursor = cursor
     published = 0
     final_cursor: str | None = None
