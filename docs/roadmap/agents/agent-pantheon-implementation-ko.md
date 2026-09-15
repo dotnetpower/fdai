@@ -37,6 +37,7 @@ translation_revised: 2026-09-15
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | implemented | 비활성 Thor tombstone에 이전 액션 멱등성 generation을 보존하고 서로 다른 generation에서만 행을 CAS로 교체하도록 했습니다. 재사용한 상관관계도 완료된 실행을 되살리지 않고 새 shadow HIL 실행을 영속화합니다. | `current change`; 오래된 generation 억제, tombstone 교체 및 상관관계 재사용 일부 정족수 재시작 회귀 검사 통과. | 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
 | 2026-09-15 | implemented | Var가 영속 복구를 사용할 때 프로덕션 shadow 모드에서도 Thor ActionRun을 영속화해 미완료 정족수와 정확히 일치하는 실행이 두 번째 승인 전에 함께 복원되도록 했습니다. | `current change`; 일부 정족수 shadow 재시작, 런타임 및 bootstrap 검사 137개 통과, strict mypy 및 Ruff 통과. | 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
 | 2026-09-15 | implemented | Var 승인과 Vidar 롤백을 수명 주기 동안 안정적인 ActionRun 다이제스트 하나에 결속하고 영속 레코드를 해당 신원으로 범위화했으며, Thor가 실행이나 점유 해제 전에 오래된 권한 메시지를 거부하도록 했습니다. | `current change`; 권한 신원, 상관관계 재사용, 롤백 및 전체 에이전트 검사, strict mypy, Ruff, 에이전트 가져오기 및 LOC 게이트 통과. | Shadow 모드에서 일치하는 Thor ActionRun을 영속화한 뒤 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
 | 2026-09-15 | implemented | Vidar가 성공을 기록하기 전에 범위가 제한되고 공백이 아닌 롤백 증적을 정규화하도록 했습니다. 영속 종결 codec은 비어 있거나 비정규적인 증적을 차단하고 Thor도 공백인 성공 페이로드에서 리소스 점유를 독립적으로 유지합니다. | `current change`; Wave 3, T2 복구 체인 및 Thor 내구성 검사 161개 통과, strict mypy 및 Ruff 통과. | 롤백 증적 완전성의 소스 작업은 남아 있지 않으며 Low 심각도 잔여 문제 세 건은 계속 열려 있습니다. |
@@ -182,7 +183,9 @@ translation_revised: 2026-09-15
 프로덕션은 shadow 및 enforce 모드 모두에서 Thor 저장소도 제공하므로 미완료 정족수와 해당
 ActionRun이 함께 재개됩니다. 적용 모드 조립은 여전히 명시적인 `thor_state_store`,
 `vidar_state_store`, `var_state_store` 바인딩을 모두 요구하며, 하나라도 없으면 프로세스 로컬
-승인 또는 롤백 상태를 사용하기 전에 시작을 차단합니다.
+승인 또는 롤백 상태를 사용하기 전에 시작을 차단합니다. 비활성 Thor 행은 안정적인 멱등성
+generation을 유지합니다. 같은 generation은 계속 억제하고, 명시적으로 재사용한 상관관계의 다른
+generation만 tombstone을 CAS로 교체할 수 있습니다.
 
 ### 대화형 액션 재진입
 

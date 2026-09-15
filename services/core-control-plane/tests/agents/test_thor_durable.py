@@ -976,6 +976,36 @@ def test_statestore_completion_marker_blocks_stale_run_resurrection() -> None:
     assert asyncio.run(first.load_active()) == []
 
 
+def test_statestore_replaces_inactive_tombstone_for_new_generation() -> None:
+    state = InMemoryStateStore()
+    first = StateStoreActionRunStore(store=state)
+    previous = ActionRun(
+        correlation_id="reused-correlation",
+        action_type="ops.restart-service",
+        resource_id="vm-old",
+        state=ActionRunState.HIL_PENDING,
+        verdict="hil",
+        idempotency_key="generation-old",
+    )
+    asyncio.run(first.save(previous))
+    asyncio.run(first.delete(previous.correlation_id))
+
+    replacement = ActionRun(
+        correlation_id=previous.correlation_id,
+        action_type="remediate.delete-storage",
+        resource_id="storage-current",
+        state=ActionRunState.HIL_PENDING,
+        verdict="hil",
+        idempotency_key="generation-current",
+    )
+    asyncio.run(StateStoreActionRunStore(store=state).save(replacement))
+
+    active = asyncio.run(first.load_active())
+    assert len(active) == 1
+    assert active[0].idempotency_key == "generation-current"
+    assert active[0].action_type == "remediate.delete-storage"
+
+
 def test_statestore_rejects_stale_lifecycle_overwrite_before_terminal_publish() -> None:
     state = InMemoryStateStore()
     store = StateStoreActionRunStore(store=state)

@@ -2046,6 +2046,22 @@ def test_shadow_hil_partial_quorum_survives_restart() -> None:
     from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
     store = InMemoryStateStore()
+    prior_thor = Thor(
+        bus=InMemoryBus(registry=load_pantheon()),
+        state_store=StateStoreActionRunStore(store),
+    )
+    asyncio.run(
+        prior_thor.dispatch_verdict(
+            {
+                "correlation_id": "c-shadow-quorum-restart",
+                "idempotency_key": "generation-old",
+                "action_type": "ops.restart-service",
+                "risk_verdict": "deny",
+                "resource_id": "vm-old",
+            }
+        )
+    )
+
     first_bus = InMemoryBus(registry=load_pantheon())
     first_thor = Thor(bus=first_bus, state_store=StateStoreActionRunStore(store))
     first_var = Var(bus=first_bus, state_store=store)
@@ -2054,6 +2070,7 @@ def test_shadow_hil_partial_quorum_survives_restart() -> None:
         first_thor.dispatch_verdict(
             {
                 "correlation_id": "c-shadow-quorum-restart",
+                "idempotency_key": "generation-current",
                 "action_type": "remediate.delete-storage",
                 "risk_verdict": "hil",
                 "resolved_autonomy_ceiling": "shadow_only",
