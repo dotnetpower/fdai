@@ -207,6 +207,14 @@ checks distinguish direct SDK imports from SDK-owned transport use. Operator and
 SDK's common asynchronous credential contract to their existing adapters. These local integration
 checks do not prove deployed federation, Event Hubs access, or service readiness.
 
+For the Container Apps profile, the protected platform-to-Core handoff carries the exact
+inventory-reader identity resource and client ids with the observation context. The service
+materializer attaches that read-only identity once, removes only that identity when observation is
+disabled, and rejects any mismatched binding. Signed scale-out evidence names the FinOps executor
+credential lineage, while VM-start evidence names the Resilience executor credential lineage.
+Neither identity choice grants execution authority, and local interactive never receives this
+binding.
+
 The AKS managed Key Vault CSI provider synchronizes fixed Key Vault references into namespaced
 Kubernetes Secrets by using each workload's federated identity. Applications continue to read
 environment variables and never call Key Vault directly. Terraform plans contain secret names and
@@ -228,8 +236,11 @@ targets remain blocked until their separate egress contract is selected and veri
 
 The cluster enables Azure Policy, patch-channel Kubernetes upgrades, and NodeImage OS upgrades.
 Both node pools enable host encryption and allow 50 pods per node. Confirm the selected
-subscription and SKU support host encryption before deployment; automated regional and feature
-preflight remains open in the implementation ledger. Unsupported targets do not disable encryption.
+subscription and SKU support host encryption before deployment. The read-only preflight queries
+each distinct selected SKU exactly once, then checks its regional restrictions, three required
+zones, architecture, host encryption, and family plus total quota. It does not download the whole
+regional SKU catalog or retry a failed provider read. Unsupported targets do not disable
+encryption. Allocatable workload-envelope validation remains open in the implementation ledger.
 
 The default diskless SKUs retain platform-encrypted Managed OS disks rather than requiring
 ephemeral storage. Checkov exceptions stay attached to the affected resource: the pinned scanner

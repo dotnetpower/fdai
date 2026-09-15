@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: a6d62af712dd72ff06bed79d927280a101d5e899
+translation_source_sha: f5b472d2a5c3bc26bd03d876285d2cb11f583b16
 translation_revised: 2026-09-15
 ---
 # 런타임 배포 프로파일
@@ -203,6 +203,13 @@ Core와 격리된 Executor는 대상별 캐시와 동시 요청 통합을 유지
 공통 비동기 자격 증명 계약을 전달합니다. 이 로컬 통합 검사만으로 배포된 연합 인증, Event Hubs
 접근 또는 서비스 준비 상태가 입증되지는 않습니다.
 
+Container Apps 프로필에서 보호된 플랫폼과 Core 사이의 인계는 관측 컨텍스트와 함께 정확한
+인벤토리 읽기 신원의 리소스 ID 및 client ID를 전달합니다. 서비스 구체화 도구는 이 읽기 전용
+신원을 한 번만 연결하고, 관측을 비활성화하면 해당 신원만 제거하며, 일치하지 않는 결속을
+거부합니다. 서명된 규모 확장 근거는 FinOps 실행 자격 증명 계보를 기록하고, VM 시작 근거는
+Resilience 실행 자격 증명 계보를 기록합니다. 어떤 신원 선택도 실행 권한을 부여하지 않으며
+로컬 interactive는 이 결속을 받지 않습니다.
+
 AKS managed Key Vault CSI 공급자는 각 워크로드의 federated identity를 사용해 고정된 Key Vault
 참조를 namespace의 Kubernetes Secrets로 동기화합니다. 애플리케이션은 계속 환경 변수를 읽으며
 Key Vault를 직접 호출하지 않습니다. Terraform 플랜에는 secret 값이 아니라 secret 이름과 버전 없는
@@ -223,8 +230,11 @@ NAT의 영역 중복이나 방화벽/UDR 경로가 필요한 정책과의 호환
 
 클러스터는 Azure Policy, patch 채널 Kubernetes 업그레이드, NodeImage OS 업그레이드를 활성화합니다.
 두 노드 풀 모두 호스트 암호화를 활성화하고 노드당 Pod 50개를 허용합니다. 배포 전에 선택한
-구독과 SKU가 호스트 암호화를 지원하는지 확인해야 합니다. 지역과 기능의 자동 사전 검증은 구현
-원장에 미완료 항목으로 남아 있습니다. 지원하지 않는 대상에서 암호화를 비활성화하지 않습니다.
+구독과 SKU가 호스트 암호화를 지원하는지 확인해야 합니다. 읽기 전용 사전 검증은 서로 다른
+선택 SKU를 각각 한 번만 조회한 다음 지역 제한, 필요한 세 개 영역, 아키텍처, 호스트 암호화,
+제품군별 quota 및 전체 quota를 확인합니다. 전체 지역 SKU 카탈로그를 다운로드하거나 실패한
+프로바이더 읽기를 재시도하지 않습니다. 지원하지 않는 대상에서 암호화를 비활성화하지 않습니다.
+할당 가능한 워크로드 범위 검증은 구현 원장에 미완료 항목으로 남아 있습니다.
 
 로컬 디스크가 없는 기본 SKU는 임시 저장소 대신 플랫폼에서 암호화하는 Managed OS 디스크를
 유지합니다. Checkov 예외는 해당 리소스에만 둡니다. 고정된 검사기 버전은 AzureRM의 이전 업그레이드

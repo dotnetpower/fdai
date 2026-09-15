@@ -103,6 +103,14 @@ review decisions, conflict resolution, branch protection, retries after provider
 closure, and worktree cleanup remain interactive `pr-delivery` responsibilities. On a later turn,
 read status once with the same arguments and the `status` operation; do not tail or poll its log.
 
+After its own base merge and verified non-force push, the coordinator MAY wait for GitHub's PR
+projection to catch up only when the PR still reports the exact pre-push head from the triggering
+observation. This exception is limited to two normal observations and 300 seconds, remains subject
+to the shorter existing deadline, and re-verifies a clean worktree plus exact local and Git remote
+topic heads every time. It does not consume checks or mergeability from the stale snapshot. A third
+SHA, changed local or remote head, dirty worktree, or expired bound stops fail-closed. A restarted
+coordinator does not inherit the exception because it did not perform the verified push.
+
 ## Waiting and resumption
 
 GitHub Actions and reviews are external evidence. Do not repeatedly query them interactively. When

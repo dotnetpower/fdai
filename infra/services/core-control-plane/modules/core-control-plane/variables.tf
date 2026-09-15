@@ -183,10 +183,12 @@ variable "llm" {
 variable "observation_context" {
   description = "Optional deployment-owned signed context for Heimdall executed-action observations."
   type = object({
-    enabled                     = optional(bool, false)
-    signing_seed_secret_id      = optional(string, "")
-    executor_credential_lineage = optional(string, "")
-    source_credential_lineage   = optional(string, "")
+    enabled                              = optional(bool, false)
+    signing_seed_secret_id               = optional(string, "")
+    executor_credential_lineage          = optional(string, "")
+    vm_start_executor_credential_lineage = optional(string, "")
+    source_credential_lineage            = optional(string, "")
+    source_identity_client_id            = optional(string, "")
   })
   default = {}
 }

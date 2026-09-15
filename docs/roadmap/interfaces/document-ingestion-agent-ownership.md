@@ -75,6 +75,10 @@ does not establish automatic Vidar recovery after failed activation or failed re
 recovery and independent effect verification remain open in the
 [cloud lifecycle ledger](../../roadmap-implementation/interfaces/cloud-resource-knowledge-lifecycle.md).
 
+The [structured retrieval extension](cloud-resource-knowledge-structured-rag.md) is under development
+and keeps these owners. A block, excerpt, format selection, or signature cannot replace Forseti
+admission, Saga-audited independent Var approval, or Muninn's index command.
+
 ## Durable worker ownership
 
 Each mechanical worker operation acquires a separate PostgreSQL claim for `(upload_id, stage)`

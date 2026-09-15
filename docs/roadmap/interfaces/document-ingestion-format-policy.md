@@ -78,7 +78,20 @@ workflow-supplied provider value.
 | DOC, PPT, XLS, and other OLE binaries | Not accepted | Save a modern OOXML or PDF version in the source application |
 | ZIP and other generic archives | Not accepted | Archive expansion isn't an upload format |
 
+Cloud-reference packages follow the [structured retrieval design](cloud-resource-knowledge-structured-rag.md),
+not a new general upload format. The v3 opt-in is under development: one normalized body plus blocks
+supports excerpts with table headers and required context within 8192 UTF-8 bytes. Unsafe or
+incomplete structure holds the complete generation; legacy v1/v2 extraction remains unchanged.
+
 ## Extraction and failure behavior
+
+Structured article selection holds all unaccounted non-chrome text outside the chosen content region;
+successful parsing cannot silently omit an applicability caveat.
+Explicit publisher page controls are excluded by structural role, not by deleting hidden content.
+Structured table rows retain preceding paragraph/list conditions from their heading ancestry.
+Format upgrades from retained bytes require a durable processing checkpoint, not another download;
+export cannot substitute a transient conversion for that checkpoint.
+Structured collected submissions and rollback requests remain received-only until normal approval.
 
 Embedded images use bounded package-member extraction and the effective OCR provider. A modern
 Office document with usable native text can finish as `ready_with_warnings` when embedded-image OCR

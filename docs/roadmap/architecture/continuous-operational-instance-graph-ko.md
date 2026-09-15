@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: aa85adad3df0a327bcadb364da2238964d19ba18
+translation_source_sha: 6466432293c3dbe8080084d1a2029dc7d81a7f7c
 translation_revised: 2026-09-15
 ---
 # 지속형 운영 인스턴스 그래프
@@ -42,6 +42,9 @@ Azure CLI로 대체하지 않습니다. 로컬 자격 증명 정책은 그대로
 
 - **관측된 사실:** 인증된 공급자 관측만 `observed` 상태 lane에 들어갈 수 있습니다. 질문,
   모델 출력, 의도 상태, dispatch 증적, 실행기 결과는 관측 사실을 만들 수 없습니다.
+  개발 중인 [구조화된 클라우드 문서 경로](../interfaces/cloud-resource-knowledge-structured-rag-ko.md)는
+  날짜가 명시된 참조 인용문만 제공합니다. 출처 확인 시각과 검색어 다이제스트로 Resource 상태를
+  최신으로 바꾸거나 그래프의 완전성을 입증할 수 없습니다.
 - **배포 근거:** 보호된 플랫폼 계획 메타데이터는 전용 저장소 모듈에서 생성합니다. 워크플로
   YAML은 봉인된 입력을 이 모듈에 전달하며, 계획과 해당 증적은 관측 그래프 사실을 만들 수
   없습니다. 상태를 재정의하는 모든 서비스 배포 실행 또는 작업 단계는 보호된 원본 검증기가

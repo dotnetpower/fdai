@@ -7,6 +7,7 @@ import json
 import os
 import threading
 import time
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from scripts.automation.pr_delivery_daemon_support import (
@@ -23,6 +24,19 @@ from scripts.automation.pr_delivery_daemon_support import (
     write_state,
 )
 
+_MAX_DELAYED_HEAD_OBSERVATIONS = 2
+_MAX_DELAYED_HEAD_SECONDS = 300.0
+
+
+@dataclass(frozen=True)
+class _PendingHeadProjection:
+    """Bound one GitHub projection delay to the coordinator's verified push."""
+
+    previous_head: str
+    pushed_head: str
+    started_at: float
+    observations: int = 0
+
 
 class DeliveryDaemon:
     """Advance one pull request until a terminal or bounded wait outcome."""
@@ -37,6 +51,7 @@ class DeliveryDaemon:
         self.last_progress = self.started
         self.last_fingerprint: tuple[object, ...] | None = None
         self.last_query: float | None = None
+        self.pending_head_projection: _PendingHeadProjection | None = None
         self.state: dict[str, object] = {
             "schema_version": 1,
             "repository": config.repository,
@@ -145,17 +160,68 @@ class DeliveryDaemon:
             self.stop_event.wait(remaining)
         return not self.stop_event.is_set()
 
-    def _verify_identity(self, current: PullRequestSnapshot) -> None:
-        """Stop if GitHub no longer names the pinned branches or local head."""
+    def _remote_topic_head(self) -> str:
+        """Read the exact Git remote topic ref without trusting the PR projection."""
+        remote_line = git(
+            self.runner,
+            self.config,
+            "ls-remote",
+            self.config.remote,
+            f"refs/heads/{self.config.topic_branch}",
+            timeout=60,
+        )
+        return remote_line.split(maxsplit=1)[0] if remote_line else ""
+
+    def _verify_identity(self, current: PullRequestSnapshot) -> bool:
+        """Validate identity or hold one bounded coordinator-owned projection delay."""
         if current.head_branch != self.config.topic_branch:
             raise DeliveryError("pull request head branch changed")
         if current.base_branch != self.config.base_branch:
             raise DeliveryError("pull request base branch changed")
         local_head = git(self.runner, self.config, "rev-parse", "HEAD")
-        if current.state == "OPEN" and current.head_sha != local_head:
-            raise DeliveryError("remote pull request head differs from the local worktree")
+        pending = self.pending_head_projection
+        if (
+            pending is not None
+            and current.head_sha == local_head
+            and local_head == pending.pushed_head
+        ):
+            self.pending_head_projection = None
+            self.state["pr_head_projection_pending"] = False
+        if current.state != "OPEN":
+            return True
+        if git(self.runner, self.config, "status", "--porcelain"):
+            raise DeliveryError("delivery worktree became dirty")
+        remote_head = self._remote_topic_head()
+        expected_remote_head = pending.pushed_head if pending is not None else local_head
+        if local_head != expected_remote_head:
+            raise DeliveryError("local worktree head changed after topic branch push")
+        if remote_head != expected_remote_head:
+            raise DeliveryError("remote topic branch changed after verified push")
+        if current.head_sha == local_head:
+            return True
 
-    def _sync_base(self) -> None:
+        pending = self.pending_head_projection
+        if pending is None or current.head_sha != pending.previous_head:
+            raise DeliveryError("remote pull request head differs from the local worktree")
+        elapsed = time.monotonic() - pending.started_at
+        if (
+            pending.observations >= _MAX_DELAYED_HEAD_OBSERVATIONS
+            or elapsed > _MAX_DELAYED_HEAD_SECONDS
+        ):
+            raise DeliveryError("pull request head projection did not converge after push")
+
+        observations = pending.observations + 1
+        self.pending_head_projection = replace(pending, observations=observations)
+        self.state.update(
+            pr_head_projection_pending=True,
+            projected_head_sha=current.head_sha,
+            pushed_head_sha=pending.pushed_head,
+            projection_observations=observations,
+        )
+        self._record("waiting_for_pr_head")
+        return False
+
+    def _sync_base(self, previous_pr_head: str) -> None:
         """Merge the latest base locally, push without force, and verify exact SHA."""
         self._record("syncing_base")
         if git(self.runner, self.config, "status", "--porcelain"):
@@ -182,23 +248,30 @@ class DeliveryDaemon:
             self.config.command_timeout_seconds,
         )
         require_success(push, "topic branch push")
-        remote_line = git(
-            self.runner,
-            self.config,
-            "ls-remote",
-            self.config.remote,
-            f"refs/heads/{self.config.topic_branch}",
-            timeout=60,
-        )
-        remote_sha = remote_line.split(maxsplit=1)[0] if remote_line else ""
+        remote_sha = self._remote_topic_head()
         if remote_sha != local_head:
             raise DeliveryError("pushed topic branch does not match the local commit")
         self.last_progress = time.monotonic()
-        self.state.update(head_sha=local_head, base_sha=base_head)
+        if local_head != previous_pr_head:
+            self.pending_head_projection = _PendingHeadProjection(
+                previous_head=previous_pr_head,
+                pushed_head=local_head,
+                started_at=self.last_progress,
+            )
+        else:
+            self.pending_head_projection = None
+        self.state.update(
+            head_sha=local_head,
+            base_sha=base_head,
+            pr_head_projection_pending=self.pending_head_projection is not None,
+            projected_head_sha=previous_pr_head,
+            pushed_head_sha=local_head,
+            projection_observations=0,
+        )
         self._record("base_synced")
 
-    def _enable_auto_merge(self) -> None:
-        """Restore the repository's existing protected auto-merge method once."""
+    def _enable_auto_merge(self, expected_head: str) -> None:
+        """Restore protected auto-merge only for the identity-verified PR head."""
         flag = f"--{self.config.merge_method}"
         result = self.runner(
             (
@@ -211,6 +284,8 @@ class DeliveryDaemon:
                 "--auto",
                 flag,
                 "--delete-branch",
+                "--match-head-commit",
+                expected_head,
             ),
             self.config.worktree,
             60,
@@ -260,7 +335,8 @@ class DeliveryDaemon:
                 continue
             self.last_query = time.monotonic()
             current = self._query()
-            self._verify_identity(current)
+            if not self._verify_identity(current):
+                continue
             self.state.update(
                 pr_state=current.state.lower(),
                 head_sha=current.head_sha,
@@ -291,10 +367,10 @@ class DeliveryDaemon:
                 self._record("blocked", reason="merge_conflict", terminal=True)
                 return 5
             if current.merge_state == "BEHIND":
-                self._sync_base()
+                self._sync_base(current.head_sha)
                 continue
             if not current.auto_merge_enabled:
-                self._enable_auto_merge()
+                self._enable_auto_merge(current.head_sha)
                 continue
             self.stop_event.wait(self.config.interval_seconds)
         self._record("interrupted", reason="signal", terminal=True)

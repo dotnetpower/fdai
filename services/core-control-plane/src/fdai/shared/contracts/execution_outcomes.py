@@ -62,6 +62,7 @@ _ACCEPTED_OUTCOMES = frozenset(
         "already_existed",
         "dispatched",
         "already_applied",
+        "succeeded",
     }
 )
 _PENDING_OUTCOMES = frozenset(
