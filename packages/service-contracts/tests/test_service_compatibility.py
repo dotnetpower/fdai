@@ -32,6 +32,7 @@ from fdai_service_contracts import (
     validate_manifest,
     validate_peer_upgrade_receipt,
 )
+from fdai_service_contracts.alert_noise_codec import ALERT_WIRE_MODELS
 from fdai_service_contracts.codec import MAX_WIRE_BYTES
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -95,8 +96,8 @@ def test_manifest_and_focused_fixture_gate_pass(
     _checker_module().validate(mode="focused")
 
     assert summary.service_count == 5
-    assert summary.contract_count == 9
-    assert summary.matrix_edge_count == 9
+    assert summary.contract_count == 12
+    assert summary.matrix_edge_count == 12
     output = capsys.readouterr().out
     assert "mode=focused" in output
     assert "proof_kind=focused" in output
@@ -355,7 +356,7 @@ def test_missing_pair_without_explicit_unsupported_rollout_fails_closed() -> Non
     manifest = _manifest()
     matrix = manifest["producer_consumer_matrix"]
     assert isinstance(matrix, list)
-    edge = matrix[0]
+    edge = next(row for row in matrix if row["contract_id"] == "operator-core-request")
     assert isinstance(edge, dict)
     pairs = edge["supported_pairs"]
     assert isinstance(pairs, list)
@@ -799,4 +800,8 @@ def test_wire_fixture_versions_match_declared_producer_releases() -> None:
         release = fixture["producer_release"]
         declared_version = contract["producer_schemas"][release]["version"]
 
-        assert fixture["payload"]["schema_version"] == declared_version
+        if fixture["contract_id"] in ALERT_WIRE_MODELS and release == "N":
+            assert declared_version == "1.0.0"
+            ALERT_WIRE_MODELS[fixture["contract_id"]].model_validate(fixture["payload"])
+        else:
+            assert fixture["payload"]["schema_version"] == declared_version

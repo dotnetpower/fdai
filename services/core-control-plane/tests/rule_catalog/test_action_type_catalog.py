@@ -572,6 +572,10 @@ _DOC_OPS_ACTION_TYPES: frozenset[str] = frozenset(
         "ops.delete-network-rule",
         "ops.apply-human-access",
         "ops.revoke-human-access",
+        "ops.restore-alert-configuration",
+        "ops.set-alert-notification-window",
+        "ops.tune-alert-evaluation",
+        "ops.update-alert-routing",
     }
 )
 
@@ -586,6 +590,13 @@ _DOC_GOVERNANCE_ACTION_TYPES: frozenset[str] = frozenset(
         "governance.override-ceiling",
     }
 )
+
+
+def test_ops_inventory_matches_the_current_owner_document() -> None:
+    text = (REPO_ROOT / "docs/roadmap/decisioning/action-ontology.md").read_text(encoding="utf-8")
+    section = text.split("### 3.2 `ops.*`", 1)[1].split("### 3.3", 1)[0]
+
+    assert set(re.findall(r"`(ops\.[a-z0-9-]+)`", section)) == _DOC_OPS_ACTION_TYPES
 
 
 def test_every_doc_declared_ops_action_type_ships_as_yaml() -> None:
@@ -644,18 +655,29 @@ def test_governance_action_execution_paths_match_authority_contract() -> None:
         assert action.execution_path is expected
 
 
-def test_no_shipped_action_type_uses_pr_manual() -> None:
-    """R7 collapsed pr_manual into pr_native + require_manual_merge; no
-    upstream ActionType should still use the legacy pr_manual value."""
+def test_shipped_manual_pr_actions_remain_shadow_and_human_approved() -> None:
+    """R7 was not adopted; explicit manual PRs retain their strict authority contract."""
 
-    from fdai.shared.contracts.models import ExecutionPath
+    from fdai.shared.contracts.models import Autonomy, CeilingRole, ExecutionPath
 
     catalog = load_action_type_catalog(CATALOG_ROOT, schema_registry=_registry())
-    offenders = [a.name for a in catalog if a.execution_path is ExecutionPath.PR_MANUAL]
-    assert not offenders, (
-        "R7 (implementation-plan.md 2.6) collapsed pr_manual into pr_native + "
-        f"require_manual_merge; these YAMLs still use pr_manual: {sorted(offenders)}"
-    )
+    manual = [action for action in catalog if action.execution_path is ExecutionPath.PR_MANUAL]
+    assert {action.name for action in manual} == {
+        "ops.restore-alert-configuration",
+        "ops.set-alert-notification-window",
+        "ops.tune-alert-evaluation",
+        "ops.update-alert-routing",
+    }
+    for action in manual:
+        assert action.default_mode is Mode.SHADOW
+        assert action.rollback_contract is RollbackKind.PR_REVERT
+        assert action.ceiling_by_tier is not None
+        for ceiling in (action.ceiling_by_tier.t0, action.ceiling_by_tier.t1):
+            assert ceiling is not None
+            assert ceiling.max_autonomy is Autonomy.ENFORCE_HIL
+            assert ceiling.min_role is CeilingRole.OWNER
+        assert action.ceiling_by_tier.t2 is not None
+        assert action.ceiling_by_tier.t2.max_autonomy is Autonomy.SHADOW_ONLY
 
 
 def test_every_ops_and_governance_declares_execution_path() -> None:

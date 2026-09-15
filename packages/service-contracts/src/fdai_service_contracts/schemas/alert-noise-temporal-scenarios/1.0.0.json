@@ -1,0 +1,134 @@
+{
+  "$defs": {
+    "EvaluationSeries": {
+      "additionalProperties": false,
+      "description": "One independent complete uniform metric scenario, including full warm-up.\n\nEach value represents one equally weighted native metric sample at the end of a\ndeclared interval. Aggregated, missing, censored or irregular samples are unsupported.\nActionable onset is independently labeled, never inferred from detector firings.",
+      "properties": {
+        "ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "starts_at": {
+          "format": "date-time",
+          "title": "Starts At",
+          "type": "string"
+        },
+        "sample_seconds": {
+          "maximum": 3600,
+          "minimum": 1,
+          "title": "Sample Seconds",
+          "type": "integer"
+        },
+        "values": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 10000,
+          "minItems": 2,
+          "title": "Values",
+          "type": "array"
+        },
+        "evaluation_start": {
+          "format": "date-time",
+          "title": "Evaluation Start",
+          "type": "string"
+        },
+        "evaluation_end": {
+          "format": "date-time",
+          "title": "Evaluation End",
+          "type": "string"
+        },
+        "actionable_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Actionable At"
+        },
+        "label_source_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Label Source Ref",
+          "type": "string"
+        },
+        "label_revision": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Label Revision",
+          "type": "string"
+        },
+        "complete": {
+          "title": "Complete",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref",
+        "starts_at",
+        "sample_seconds",
+        "values",
+        "evaluation_start",
+        "evaluation_end",
+        "actionable_at",
+        "label_source_ref",
+        "label_revision",
+        "complete"
+      ],
+      "title": "EvaluationSeries",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Frozen same-exposure uniform series for supported simple metric semantics only.",
+  "properties": {
+    "rule_ref": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Rule Ref",
+      "type": "string"
+    },
+    "rule_revision": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Rule Revision",
+      "type": "string"
+    },
+    "source_ref": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Source Ref",
+      "type": "string"
+    },
+    "reviewer_ref": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Reviewer Ref",
+      "type": "string"
+    },
+    "cutoff": {
+      "format": "date-time",
+      "title": "Cutoff",
+      "type": "string"
+    },
+    "series": {
+      "items": {
+        "$ref": "#/$defs/EvaluationSeries"
+      },
+      "maxItems": 128,
+      "minItems": 2,
+      "title": "Series",
+      "type": "array"
+    }
+  },
+  "required": [
+    "rule_ref",
+    "rule_revision",
+    "source_ref",
+    "reviewer_ref",
+    "cutoff",
+    "series"
+  ],
+  "title": "TemporalEvaluationScenarioSet",
+  "type": "object",
+  "$id": "https://fdai.dev/service-contracts/alert-noise-temporal-scenarios/1.0.0"
+}

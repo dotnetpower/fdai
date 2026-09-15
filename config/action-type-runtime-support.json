@@ -3,6 +3,24 @@
   "description": "Source-grounded ActionType runtime support by binding surface. Catalog presence and source wiring do not claim deployed or live operational evidence.",
   "catalog_root": "rule-catalog/action-types",
   "bindings": {
+    "core-alert-manual-pr": {
+      "runtime_surface": "core",
+      "route_status": "conditional",
+      "mode_support": {
+        "shadow": "conditional",
+        "enforce": "conditional"
+      },
+      "activation_conditions": [
+        "Catalog and retained Workflow defaults remain shadow. Enforce requires separately current ActionType and Workflow promotion plus scoped Var service-owner and distinct Owner approvals; this manifest grants none of them.",
+        "A real existing-file GitOps publisher, production-eligible PostgreSQL lock, independent external-writer exclusion, current source/dependency evidence, successful dry-run, retained rollback and the existing safeguard coordinator must be bound.",
+        "Effect and recovery callbacks require independent admitted observations and separate canonical Workflow outcome admissions. Missing evidence holds; no deployed or current-revision operational receipt is registered."
+      ],
+      "source_assertion": {
+        "kind": "set_values",
+        "path": "services/core-control-plane/src/fdai/core/detection/alert_noise/execution_models.py",
+        "symbol": "ALERT_ACTIONS"
+      }
+    },
     "core-pr-native": {
       "runtime_surface": "core",
       "route_status": "wired",
@@ -184,6 +202,45 @@
     }
   },
   "support_profiles": {
+    "alert-manual-pr": {
+      "delivery_status": "executable",
+      "effect_observation": {
+        "status": "conditional",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/runtime/alert_noise_effect_runtime.py",
+            "symbol": "AlertEffectRuntime"
+          }
+        ]
+      },
+      "recovery": {
+        "status": "conditional",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/runtime/alert_noise_execution.py",
+            "symbol": "build_alert_pr_execution_port"
+          },
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/alert_noise_authority.py",
+            "symbol": "StateStoreAlertRecoveryAuthorityReader"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/core-control-plane/tests/core/detection/alert_noise/test_execution.py"
+          },
+          {
+            "path": "services/core-control-plane/tests/runtime/test_alert_noise_effects_runtime.py"
+          },
+          {
+            "path": "services/core-control-plane/tests/persistence/test_alert_noise_dispatch_postgres.py"
+          }
+        ]
+      }
+    },
     "pr-native-shadow": {
       "delivery_status": "shadow_only",
       "effect_observation": {
@@ -632,6 +689,12 @@
       "unsupported_reason": "No built-in Core, isolated Executor, or Pantheon runtime binding was found.",
       "note": "Catalog presence does not imply executable support."
     },
+    "ops.restore-alert-configuration@1.0.0": {
+      "bindings": {
+        "core-alert-manual-pr": "alert-manual-pr"
+      },
+      "note": "Conditional manual-PR restore uses the retained exact baseline, separately current recovery authority and independent observation. It never releases automation holds automatically or overwrites a newer revision."
+    },
     "ops.revoke-human-access@1.0.0": {
       "bindings": {
         "core-human-access": "human-access-revoke-blocked"
@@ -654,6 +717,12 @@
       },
       "note": "The in-process Core gateway and conditional observer support scale-out; the isolated Executor target registry and recovery adapter do not."
     },
+    "ops.set-alert-notification-window@1.0.0": {
+      "bindings": {
+        "core-alert-manual-pr": "alert-manual-pr"
+      },
+      "note": "Conditional manual-PR scheduling targets one existing inert processing rule with finite expiry, protected/automation exclusion and unaffected collection. Provider activation and expiry require separate evidence."
+    },
     "ops.start-vm@1.0.0": {
       "bindings": {
         "core-azure-gateway": "core-start-vm",
@@ -666,6 +735,18 @@
         "pantheon-t2-route": "pantheon-t2-route"
       },
       "note": "Thor and Vidar are wired conditionally for this control-plane route change; do not present it as an Azure resource recovery."
+    },
+    "ops.tune-alert-evaluation@1.0.0": {
+      "bindings": {
+        "core-alert-manual-pr": "alert-manual-pr"
+      },
+      "note": "Conditional manual-PR tuning changes one supported threshold, window or frequency axis using independently admitted paired detector evidence. No live provider, pilot or promotion receipt is claimed."
+    },
+    "ops.update-alert-routing@1.0.0": {
+      "bindings": {
+        "core-alert-manual-pr": "alert-manual-pr"
+      },
+      "note": "Conditional manual-PR routing replaces one existing Action Group binding, never receiver membership or a new resource. Default shadow and all current approvals, fencing and independent effect checks remain authoritative."
     },
     "ops.upsert-network-rule@1.0.0": {
       "bindings": {

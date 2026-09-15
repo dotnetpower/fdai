@@ -6,6 +6,11 @@ title: Continuous Operational Instance Graph
 This document owns the runtime contract that keeps cloud resource instances, relationships, and observed state current in the FDAI ontology.
 Collection is continuous and load-aware, while raw history moves through typed rollups and verified archives so the active data plane remains bounded.
 
+[Alert noise governance](../operations/alert-noise-governance.md) retains separate private alert,
+audience, and delivery evidence. Those records and their scope bindings do not promote an inventory
+generation, create observed graph facts, or prove complete reverse dependencies. Missing native
+history or directory evidence stays partial; this graph's observation and single-writer rules are unchanged.
+
 > **Scope boundary:** This design covers provider observation, ontology instance projection, freshness, compaction, archive, and graph-first reads.
 > It does not grant approval, mutation, or execution authority.
 >

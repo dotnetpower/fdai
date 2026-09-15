@@ -1,13 +1,6 @@
-"""Forseti - Judge (Wave 3 behavior).
+"""Forseti owns typed judgment, cross-domain arbitration and bounded planning.
 
-Forseti issues verdicts (auto / hil / deny) based on:
-- a rule-match table (deterministic keyword -> ActionType id)
-- a risk_verdict table (deterministic ActionType id -> auto/hil/deny)
-- an RBAC hook (initiator principal + role → deny + SecurityEvent)
-
-Wave 3 keeps rule matching intentionally simple; the real T0 loader is
-in :mod:`fdai.rule_catalog`. Mixed-model cross-check and grounding
-(T2) land in later waves.
+Evidence, current policy and RBAC govern verdicts; planning never grants execution authority.
 """
 
 from __future__ import annotations
@@ -24,6 +17,7 @@ from fdai.agents._framework.action_semantics import (
     quorum_for,
     rollback_contract_for,
 )
+from fdai.agents._framework.alert_noise_callbacks import ForsetiAlertNoiseMixin
 from fdai.agents._framework.assignment_workflow import AssignmentJudgmentMixin
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict
@@ -153,7 +147,13 @@ class _ChangeAssessor(Protocol):
     ) -> ChangeAssessment: ...
 
 
-class Forseti(Agent, ForsetiJudgmentMixin, HandoverKnowledgeMixin, AssignmentJudgmentMixin):
+class Forseti(
+    Agent,
+    ForsetiJudgmentMixin,
+    HandoverKnowledgeMixin,
+    AssignmentJudgmentMixin,
+    ForsetiAlertNoiseMixin,
+):
     """Wave-3 Forseti: rule match + risk verdict + RBAC + SecurityEvent."""
 
     def __init__(
@@ -246,6 +246,8 @@ class Forseti(Agent, ForsetiJudgmentMixin, HandoverKnowledgeMixin, AssignmentJud
         if await self._handover_message(topic, payload):
             return
         if await self._assignment_message(topic, payload):
+            return
+        if await self._alert_noise_message(topic, payload):
             return
         if is_cross_vertical_candidate(topic, payload):
             await self._ingest_cross_vertical_candidate(topic, payload)

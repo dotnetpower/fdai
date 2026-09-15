@@ -175,6 +175,7 @@ class CoreRuntime:
             discovery_activation=self.discovery_activation,
             semantic_turn_binding=self.semantic.semantic_turn_binding,
             t1_mini_probe=self.semantic.t1_mini_probe,
+            alert_noise_handler=self.pantheon.alert_noise_handler,
             divergence_ledger=self.pantheon.divergence_ledger,
             pantheon_runtime=self.pantheon.runtime,
             pantheon_heartbeat=self.pantheon.heartbeat,

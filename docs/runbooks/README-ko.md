@@ -2,8 +2,8 @@
 title: SRE Runbook
 description: Incident response, recovery, governed automation을 위한 customer-neutral 운영자 절차와 템플릿입니다.
 translation_of: README.md
-translation_source_sha: ead0596f0cae176cbc8fda54249a555dc76619ff
-translation_revised: 2026-08-11
+translation_source_sha: 9fdc446529d53c267aa6d603d4a597ddc7cfe462
+translation_revised: 2026-09-15
 ---
 
 # SRE 런북
@@ -31,6 +31,7 @@ translation_revised: 2026-08-11
 | [컨트롤 플레인 regional 장애 조치 및 failback](control-plane-failover-ko.md) | Regional 장애 또는 예약된 full control-plane 복구 훈련을 선언할 때 |
 | [Chaos game 일](chaos-game-day-ko.md) | 승격된 fault 시나리오를 훈련할 때 |
 | [경보 튜닝](alert-tuning-ko.md) | Noise, miss, stale 라우팅을 측정해 수정할 때 |
+| [알림 과다 수신 관리](alert-noise-governance-ko.md) | shadow 우선 알림 평가나 정확한 계획에 따른 네 수동 PR 작업의 선행 조건, 검증, 복구 안내가 필요할 때 |
 
 ## 거버넌스와 설정
 

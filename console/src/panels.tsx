@@ -30,6 +30,7 @@ import type { OperatorApiClient } from "./api";
 import type { AuthContext } from "./auth";
 import type { ConsoleDataMode } from "./console-data-mode";
 import { t } from "./i18n";
+import { alertQualityNavText } from "./routes/i18n/alert-quality-nav";
 
 function lazyRoute<K extends string, M extends Record<K, ComponentType<PanelProps>>>(
   load: () => Promise<M>,
@@ -109,6 +110,10 @@ const OnboardingRoute = lazyRoute(() => import("./routes/onboarding"), "Onboardi
 const DetectionReadinessRoute = lazyRoute(
   () => import("./routes/detection-readiness"),
   "DetectionReadinessRoute",
+);
+const AlertQualityRoute = lazyRoute(
+  () => import("./routes/alert-quality"),
+  "AlertQualityRoute",
 );
 const ConfigurationBaselinesRoute = lazyRoute(
   () => import("./routes/configuration-baselines"),
@@ -308,6 +313,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.detectionReadiness"),
     group: "operations",
     component: DetectionReadinessRoute,
+  },
+  {
+    id: "alert-quality",
+    get label() { return alertQualityNavText("title"); },
+    get subtitle() { return alertQualityNavText("subtitle"); },
+    group: "operations",
+    component: AlertQualityRoute,
   },
   {
     id: "configuration-baselines",
