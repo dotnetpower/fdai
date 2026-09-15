@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 3dbf7cb3dae18d23fb8047ad33065bc5e18c313e
+translation_source_sha: d164b7bc5cf669d43e9fe7e59b29a02591b7fc77
 translation_revised: 2026-09-15
 ---
 # FDAI 온톨로지 안전 인프라
@@ -47,12 +47,10 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 게이트웨이 진단은 `routes_to`와 검토된 게이트웨이 함수를 추가합니다. 이 변환 결과는 프롬프트
 최소화를 위한 보기이며 다른 매니페스트나 권한 원본이 아닙니다. 모든 서술자는 여전히 전체
 principal 범위 매니페스트에서 오고 계획 검증은 정확한 release에 대해 수행됩니다.
-개발 중인 [구조화된 클라우드 문서 확장](../interfaces/cloud-resource-knowledge-structured-rag-ko.md)은
-수락된 모델 판단의 `document_query` 검색어를 단일 값 적용 조건 및 정확한 문서 접근 범위와
-분리합니다. 검색어/프레임 다이제스트는 원래 질문에 연결되며, 검색된 인용문은 참조 근거일 뿐
-관측 상태나 실행 권한이 아닙니다.
 생성된 의미 의도 범위 산출물은 정본 온톨로지 조회 또는 Resource 어휘가 바뀌면 다시 생성합니다.
 오래된 산출물은 런타임 근거가 아니라 CI 실패로 유지됩니다. 범위가 지정된 운영 Pattern을 읽으려면 상태에 접근하기 전에 인증된 principal과 정확한 인자에 결합된 독립 `case-history-read` 허용 근거가 필요합니다. 경계 인벤토리는 허용 여부를 결정하는 함수와 집중 테스트를 고정합니다. 다시 컴파일한 요약은 비활성 상태를 유지하며 현재 원본 근거가 없다고 접근 권한이나 실행 권한이 생기지 않습니다.
+[구조화 검색 설계](../interfaces/cloud-resource-knowledge-structured-rag-ko.md)는
+수락된 검색어와 적용 조건/접근 범위를 분리하며, 인용문은 관측이나 권한으로 바뀌지 않습니다.
 ## Catalog-owned 인스턴스 변환 결과
 
 Core 런타임 시작은 이제 Rule, PolicyArtifact, ResourceClass, ResourceType, SignalType,
