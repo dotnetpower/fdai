@@ -4,13 +4,10 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Mapping
-from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from fdai.agents._framework.action_run_identity import (
-    action_run_identity_digest,
-    is_action_run_identity,
-)
+from fdai.agents._framework.action_run_identity import is_action_run_identity
+from fdai.agents._framework.var_decisions import PendingHilTicket, PendingShadowReview
 
 APPROVAL_STATE_PREFIX = "pantheon/var/approval"
 
@@ -38,64 +35,6 @@ class _BlockedAttemptState(Protocol):
     def _blocked_attempts(self) -> _BlockedAttemptSet: ...
 
     def record_behavior(self, name: str, amount: int = 1) -> None: ...
-
-
-@dataclass
-class PendingHilTicket:
-    """One action or document approval awaiting distinct human principals."""
-
-    correlation_id: str
-    action_type: str
-    resource_id: str | None
-    quorum_required: int
-    action_id: str | None = None
-    action_run_identity: str | None = None
-    initiator_principal: str | None = None
-    params: dict[str, Any] = field(default_factory=dict)
-    kind: str = "action"
-    document_id: str | None = None
-    upload_id: str | None = None
-    stage: str | None = None
-    idempotency_key: str = ""
-    rollback_contract: str = "state_forward_only"
-    decision_case: dict[str, Any] | None = None
-    approvers: list[str] = field(default_factory=list)
-    rejected: bool = False
-
-    def __post_init__(self) -> None:
-        if self.kind != "action":
-            return
-        if not self.idempotency_key:
-            self.idempotency_key = self.correlation_id
-        if self.action_run_identity is None:
-            self.action_run_identity = action_run_identity_digest(
-                {
-                    "correlation_id": self.correlation_id,
-                    "action_id": self.action_id,
-                    "action_type": self.action_type,
-                    "resource_id": self.resource_id,
-                    "action_idempotency_key": self.idempotency_key,
-                    "params": self.params,
-                    "quorum_required": self.quorum_required,
-                    "initiator_principal": self.initiator_principal,
-                    "rollback_contract": self.rollback_contract,
-                    "verdict": "hil",
-                    "workflow_action": None,
-                }
-            )
-        elif not is_action_run_identity(self.action_run_identity):
-            raise ValueError("pending HIL ticket ActionRun identity is malformed")
-
-
-@dataclass(frozen=True, slots=True)
-class PendingShadowReview:
-    """One Saga-authenticated shadow outcome awaiting a human comparison."""
-
-    correlation_id: str
-    action_type: str
-    observed_at: str
-    policy_escape: bool
-    initiator_principal: str | None
 
 
 def evict_oldest_ticket(

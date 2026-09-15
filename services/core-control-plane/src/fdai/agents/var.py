@@ -22,12 +22,7 @@ from fdai.agents._framework.adapters import (
     AdminNotificationAdapter,
     InMemoryAdminChannel,
 )
-from fdai.agents._framework.assignment_workflow import (
-    AssignmentCheck,
-    AssignmentClock,
-    assignment_clock,
-    review_assignment,
-)
+from fdai.agents._framework.assignment_workflow import AssignmentReviewMixin
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
@@ -80,7 +75,7 @@ from fdai.shared.providers.state_store import StateStore
 ApproverAuthorizer = Callable[[str, str], bool | Awaitable[bool]]
 
 
-class Var(Agent):
+class Var(AssignmentReviewMixin, Agent):
     """Wave-3 HIL approval + Wave-6 admin channel delivery."""
 
     #: Bound the in-memory maps so a long-lived approver cannot leak one entry
@@ -108,8 +103,7 @@ class Var(Agent):
         )
         self._decision_lock = asyncio.Lock()
         self._pending: dict[str, PendingHilTicket] = {}
-        self._assignment_check: AssignmentCheck | None = None
-        self._assignment_clock: AssignmentClock = assignment_clock
+        self.initialize_assignment_review()
         self._pending_shadow_reviews: dict[str, PendingShadowReview] = {}
         # (initiator, action_type) -> AdminCard for dedup counter update
         self._last_cards: dict[tuple[str, str], AdminCard] = {}
@@ -129,19 +123,8 @@ class Var(Agent):
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
 
-    # ---- typed port ----------------------------------------------------
-
-    def bind_assignment_check(
-        self, check: AssignmentCheck, *, clock: AssignmentClock = assignment_clock
-    ) -> None:
-        """Bind exact independent human-review verification without case-write authority."""
-        self._assignment_check, self._assignment_clock = check, clock
-
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
-        if topic == "object.audit-entry" and payload.get("kind") == "human_assignment":
-            await review_assignment(
-                self, payload, self._assignment_check, clock=self._assignment_clock
-            )
+        if await self._assignment_review_message(topic, payload):
             return
         if topic == "object.audit-entry":
             self._ingest_document_hil(payload)
@@ -303,8 +286,6 @@ class Var(Agent):
             keep=correlation,
         )
         self.record_behavior("shadow_review_pending")
-
-    # ---- HIL decision --------------------------------------------------
 
     async def decide(
         self,

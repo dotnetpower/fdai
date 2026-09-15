@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 048f9dd3887ebf2c48cbd853ab39002873e43aab
+translation_source_sha: 71cafc1ddb7d6d1bd9f47e6432c6347c29c09417
 translation_revised: 2026-09-15
 ---
 
@@ -37,6 +37,7 @@ translation_revised: 2026-09-15
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | implemented | Rebase 뒤 Var의 공개 대기 티켓 유형을 보호된 main과 일치시키고 기존 배정 검토 바인딩을 집중 배정 작업 흐름 helper로 이동했습니다. | `current change`; 레이아웃, 배정 및 Wave 3 집중 검사 125개 통과, strict mypy, Ruff 및 enforced LOC 통과. | 승인, 배정, 역할 또는 권한 동작은 바뀌지 않았으며 기록된 Low 심각도 잔여 문제를 해결합니다. |
 | 2026-09-15 | implemented | 보호된 main으로 rebase한 뒤 Var shadow 검토 레코드, 범위 제한 티켓 제거 및 차단 시도 중복 제거를 집중 티켓 신원 helper로 이동했습니다. | `current change`; Wave 3, 런타임 및 정족수 검사 193개 통과, strict mypy, Ruff, 에이전트 가져오기 및 enforced LOC 통과, Var 800줄. | 승인 동작이나 권한은 바뀌지 않았으며 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
 | 2026-09-15 | implemented | 수명 주기 순위로 오래된 쓰기를 억제하기 전에, 그리고 Thor가 멱등성을 예약하거나 리소스를 점유하기 전에 활성 영속 ActionRun 신원을 검증하도록 했습니다. 상관관계를 공유하는 peer generation은 실행 전에 실패하며 정규 활성 실행을 복구 화면에서 숨길 수 없습니다. | `current change`; 활성 행 및 복제본 간 충돌 회귀 검사, LOC 상한 아래로 provider 점유 시간 helper 추출. | 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
 | 2026-09-15 | withdrawn | 독립 검토에서 결정, 전달 순서, 삭제 및 리소스 점유 경쟁을 발견해 상관관계 재사용 generation 교체를 철회했습니다. 이제 Thor, Var 및 영속 어댑터는 상관관계마다 변경할 수 없는 ActionRun 신원 하나를 결속하고 서로 다른 모든 generation을 거부합니다. 정확히 같은 generation 재생만 멱등성을 유지합니다. | `current change`; 실제 및 영속 재사용 거부, 기존 tombstone, 해제된 점유, 오래된 권한 및 shadow 일부 정족수 재시작 회귀 검사 300개 통과. | 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
