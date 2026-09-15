@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: deddbe87d2ca40a0ee350c0f789b0c1ff532c425
+translation_source_sha: a941d9964d4788b8c8025ec268d47cd12c1f9dc8
 translation_revised: 2026-09-15
 ---
 
@@ -378,6 +378,11 @@ GET/헤드 interception, visual 및 텍스트 민감정보 제거, 시크릿 can
 추가 전용 보관 기록이 하나의 실패 시 차단 경계를 구성합니다. 브라우저 내용은 항상
 신뢰할 수 없는이며 액션을 approve하거나 execute할 수 없습니다. [브라우저 근거 수집](../interfaces/browser-evidence-ko.md)을
 참고하세요.
+Operator 역할은 허용된 페이로드 없는 작업 공간 메타데이터와 고정된 스냅샷 전체 보류 집계
+하나만 조회할 수 있습니다. 산출물 테이블 또는 내부 허용 view는 조회할 수 없습니다. 보류
+출력에는 개수만 포함되며, 보관 이동은 하나의 정확한 `actor`, 작업, 다이제스트, 신뢰 및 권한
+없음 감사 일치가 있을 때만 나타납니다. 모호하거나 잘못된 일치는 `sequence` 또는 상관관계
+식별정보를 노출하지 않습니다.
 
 이벤트 페이로드와 도구 출력은 **신뢰할 수 없는** ; 결정론적 검증기와 정책 재검사가 권위이며,
 모델이나 이벤트 텍스트가 아님.

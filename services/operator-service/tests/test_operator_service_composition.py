@@ -71,6 +71,7 @@ from fdai_service_contracts import (
     AgentActivityQuery,
     AuditQuery,
     BrowserEvidenceQuery,
+    BrowserEvidenceWorkspaceQuery,
     HilQueueProjection,
     HilQueueQuery,
     IncidentAttentionProjection,
@@ -129,6 +130,7 @@ EXPECTED_ROUTES = (
     (("GET", "HEAD"), "/audit", "get_audit"),
     (("GET", "HEAD"), "/audit/{correlation_id}/trace", "rule_fire_trace"),
     (("GET", "HEAD"), "/browser-evidence", "get_browser_evidence"),
+    (("GET", "HEAD"), "/browser-evidence/snapshot", "get_browser_evidence_workspace"),
     (("GET", "HEAD"), "/healthz", "healthz"),
     (("GET", "HEAD"), "/hil-queue", "get_hil_queue"),
     (("GET", "HEAD"), "/incidents", "panel:incidents"),
@@ -161,6 +163,42 @@ class EmptyReadModel(OperatorReadModel):
     async def list_browser_evidence(self, query: BrowserEvidenceQuery) -> JsonProjection:
         return JsonProjection(
             {"surface": "browser-evidence", "items": [], "count": 0, "limit": query.limit}
+        )
+
+    async def list_browser_evidence_workspace(
+        self, query: BrowserEvidenceWorkspaceQuery
+    ) -> JsonProjection:
+        del query
+        return JsonProjection(
+            {
+                "schema_version": "2.0.0",
+                "surface": "browser-evidence-workspace",
+                "consistency": "drift_aware",
+                "summary_scope": "filtered_and_snapshot",
+                "observed_at": "2026-09-15T00:00:00+00:00",
+                "source_observed_at": None,
+                "loaded_count": 0,
+                "matching_admitted_count": 0,
+                "snapshot_total_count": 0,
+                "snapshot_admitted_count": 0,
+                "snapshot_withheld_count": 0,
+                "withheld_reasons": {
+                    "invalid_metadata": 0,
+                    "trust_invalid": 0,
+                    "isolation_unverified": 0,
+                },
+                "summary": {
+                    "security_finding_count": 0,
+                    "legal_hold_count": 0,
+                    "expiring_count": 0,
+                    "expired_pending_purge_count": 0,
+                    "retained_count": 0,
+                },
+                "has_more": False,
+                "next_cursor": None,
+                "page_complete": True,
+                "items": [],
+            }
         )
 
     async def dashboard_metrics(self) -> JsonProjection:
@@ -998,6 +1036,36 @@ def test_browser_evidence_is_reader_scoped_get_only_and_bounded() -> None:
         {"surface": "browser-evidence", "items": [], "count": 0, "limit": 25},
     )
     assert client.post("/browser-evidence", headers=headers).status_code == 405
+
+    assert client.get("/browser-evidence/snapshot").status_code == 401
+    assert (
+        client.get(
+            "/browser-evidence/snapshot",
+            headers={"Authorization": "Bearer unknown"},
+        ).status_code
+        == 403
+    )
+    workspace = client.get(
+        "/browser-evidence/snapshot?limit=25&sort=attention",
+        headers=headers,
+    )
+    assert workspace.status_code == 200
+    assert workspace.json()["schema_version"] == "2.0.0"
+    assert (
+        client.get(
+            "/browser-evidence/snapshot?limit=0",
+            headers=headers,
+        ).status_code
+        == 400
+    )
+    assert (
+        client.get(
+            "/browser-evidence/snapshot?host=one&host=two",
+            headers=headers,
+        ).status_code
+        == 400
+    )
+    assert client.post("/browser-evidence/snapshot", headers=headers).status_code == 405
 
 
 def test_llm_usage_requires_one_bounded_timezone_aware_range() -> None:

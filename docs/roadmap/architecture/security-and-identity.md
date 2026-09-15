@@ -386,6 +386,11 @@ GET/HEAD interception, visual and text redaction, secret canaries, prompt-inject
 content hashes, and append-only custody records form one fail-closed boundary. Browser content is
 always untrusted and cannot approve or execute an action. See
 [Browser evidence collection](../interfaces/browser-evidence.md).
+The Operator role can select only admitted payload-free workspace metadata and one fixed
+snapshot-wide withheld aggregate. It cannot select the artifact table or the internal admission
+view. Withheld output contains counts only, and custody navigation appears only for one exact actor,
+action, digest, trust, and no-authority audit match. Ambiguous or malformed matches expose no
+sequence or correlation identity.
 
 Event payloads and tool output are **untrusted**; the deterministic verifier and policy
 re-check are the authority, never model or event text.
