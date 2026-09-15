@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import subprocess
 from dataclasses import replace
 
@@ -141,3 +142,37 @@ def test_failed_provider_is_not_retried(monkeypatch) -> None:
     with pytest.raises(ValueError, match="no retry"):
         aks_preflight.inspect_aks_target(profile=_inputs()["profile"], region="eastus")
     assert len(calls) == 1
+
+
+def test_preflight_reads_each_selected_sku_once(monkeypatch) -> None:
+    calls: list[tuple[str, ...]] = []
+    inputs = _inputs()
+
+    def provider(command, **_kwargs):
+        calls.append(command)
+        if command[1:3] == ("account", "show"):
+            stdout = (
+                b'{"id":"00000000-0000-0000-0000-000000000000",'
+                b'"tenantId":"00000000-0000-0000-0000-000000000000",'
+                b'"state":"Enabled","userType":"user"}'
+            )
+        elif command[1:3] == ("vm", "list-skus"):
+            assert command[command.index("--size") + 1] == "Standard_D4as_v5"
+            stdout = json.dumps(inputs["skus"]).encode()
+        else:
+            assert command[1:3] == ("vm", "list-usage")
+            stdout = json.dumps(inputs["usage"]).encode()
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr=b"")
+
+    monkeypatch.setattr(aks_preflight.subprocess, "run", provider)
+
+    result = aks_preflight.inspect_aks_target(
+        profile=inputs["profile"],
+        region="eastus",
+    )
+
+    sku_calls = [command for command in calls if command[1:3] == ("vm", "list-skus")]
+    assert result["state"] == "feasible"
+    assert len(sku_calls) == 1
+    assert "--size" in sku_calls[0]
+    assert calls[-1][1:3] == ("vm", "list-usage")
