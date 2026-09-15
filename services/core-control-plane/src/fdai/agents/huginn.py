@@ -367,6 +367,27 @@ class Huginn(Agent):
             workflow_action = raw.get("workflow_action")
             if isinstance(workflow_action, Mapping):
                 payload["workflow_action"] = _bound_json(workflow_action)
+        if payload["event_type"] == "human.assignment.iam_apply_requested":
+            payload["attributes"]["iam_request"] = {
+                field: _bound_json(canonical_payload[field])
+                for field in ("case_id", "expected_revision", "ownership_digest", "ownership_ref")
+                if field in canonical_payload
+            }
+            payload["incident_correlation"] = "none"
+        if payload["event_type"] == "knowledge.handover.source_observed.v1":
+            from fdai_service_contracts.handover_knowledge import HandoverKnowledgeNotice
+
+            notice = HandoverKnowledgeNotice.model_validate(canonical_payload.get("notice"))
+            payload["attributes"] = {"knowledge_notice": notice.model_dump(mode="json")}
+            payload["correlation_id"] = notice.source_id
+            payload["incident_correlation"] = "none"
+        if payload["event_type"] == "human.assignment.execution.v1":
+            from fdai_service_contracts.human_access_workflow import HumanAccessWorkNotice
+
+            access_notice = HumanAccessWorkNotice.model_validate(canonical_payload.get("notice"))
+            payload["attributes"] = {"human_access_notice": access_notice.model_dump(mode="json")}
+            payload["correlation_id"] = str(access_notice.request_id)
+            payload["incident_correlation"] = "none"
         change_projection = _change_projection(
             raw=raw,
             canonical_payload=canonical_payload,

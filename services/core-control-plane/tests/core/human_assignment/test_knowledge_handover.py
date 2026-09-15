@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
+from uuid import uuid4
 
 import pytest
 from fdai.core.human_assignment import (
+    GoalEvidence,
     HandoverGoal,
     HandoverKnowledgeAccessContext,
     HandoverKnowledgeClaim,
@@ -35,6 +38,17 @@ class Query:
         return self.chunks
 
 
+class Admission:
+    def __init__(self, available=True):
+        self.available = available
+
+    async def verify(self, **kwargs):
+        return self.available
+
+    async def verify_subject(self, **kwargs):
+        return self.available
+
+
 def _goal() -> HandoverGoal:
     return HandoverGoal(
         goal_id="goal-1",
@@ -45,6 +59,7 @@ def _goal() -> HandoverGoal:
         prompt_ref="prompt:runbook",
         priority=90,
         created_at=_NOW,
+        evidence=(GoalEvidence("source-1", _DIGEST_A, "document_span"),),
     )
 
 
@@ -73,7 +88,7 @@ async def test_retrieval_requires_goal_owner_and_exact_source_acl() -> None:
             ),
         )
     )
-    retrieval = HandoverKnowledgeRetrieval(query=query)
+    retrieval = HandoverKnowledgeRetrieval(query=query, admission=Admission())
     access = HandoverKnowledgeAccessContext(
         principal_ref="subject-1",
         collection_id="handover",
@@ -114,13 +129,61 @@ async def test_retrieval_surfaces_provider_acl_leak() -> None:
     )
 
     with pytest.raises(PermissionError, match="outside the source ACL"):
-        await HandoverKnowledgeRetrieval(query=query).search(
+        await HandoverKnowledgeRetrieval(query=query, admission=Admission()).search(
             goal=_goal(),
             question="rollback",
             access=HandoverKnowledgeAccessContext(
                 principal_ref="subject-1",
                 collection_id="handover",
                 allowed_access_refs=frozenset({"user:subject-1"}),
+            ),
+        )
+
+
+@pytest.mark.parametrize("admitted", [None, False])
+async def test_stale_chunk_acl_metadata_never_substitutes_for_current_source_admission(admitted):
+    query = Query(
+        (
+            KnowledgeChunk(
+                doc_id="doc-1",
+                chunk_id="doc-1#1",
+                text="Previously indexed text.",
+                source_ref="source-1",
+                metadata={"goal_ref": "goal-1", "access_descriptor_ref": "user:subject-1"},
+            ),
+        )
+    )
+    access = HandoverKnowledgeAccessContext("subject-1", "handover", frozenset({"user:subject-1"}))
+    retrieval = HandoverKnowledgeRetrieval(
+        query=query,
+        admission=Admission(False) if admitted is False else None,
+    )
+    with pytest.raises(PermissionError, match="current source"):
+        await retrieval.search(goal=_goal(), question="rollback", access=access)
+    assert query.calls == []
+
+
+async def test_canonical_document_citation_cannot_bypass_chunk_provenance():
+    document, version = uuid4(), uuid4()
+    reference = f"doc:{document}:{version}"
+    goal = replace(_goal(), evidence=(GoalEvidence(reference, _DIGEST_A, "document_span"),))
+    query = Query(
+        (
+            KnowledgeChunk(
+                doc_id="different-document",
+                chunk_id="different-chunk",
+                text="Unbound source text.",
+                source_ref=reference,
+                metadata={"goal_ref": goal.goal_id, "access_descriptor_ref": "user:subject-1"},
+            ),
+        )
+    )
+    with pytest.raises(PermissionError, match="current source"):
+        await HandoverKnowledgeRetrieval(query=query, admission=Admission()).search(
+            goal=goal,
+            question="rollback",
+            access=HandoverKnowledgeAccessContext(
+                "subject-1", "handover", frozenset({"user:subject-1"})
             ),
         )
 

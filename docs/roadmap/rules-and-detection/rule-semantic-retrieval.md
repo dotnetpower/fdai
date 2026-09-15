@@ -99,6 +99,7 @@ evaluation gates, and failed-query feedback loop.
 | 2026-08-13 | in-progress | Wired Mimir-owned build request/result topics to the durable builder and Heimdall-owned independent validation to its existing RetrievalValidation topic. Mimir stores validation evidence as a no-authority projection, and Muninn does not convert it into retrieval-failure feedback. | `current change`; focused Pantheon ownership, parity, handler, and runtime checks passed 221 tests; exact chain and forged/unbound checks passed; Ruff and strict mypy passed. | Add the production catalog resolver and reconciliation trigger, then publish the exact activation command after independent evidence. |
 | 2026-08-13 | implemented | Completed production generation reconciliation with endpoint-binding-derived embedding identity, strict promoted-surface document loading, replay-identical request persistence, exact staged-receipt binding, and Mimir-owned activation-command publication after Heimdall validation. Query binding now also rejects active generations from another embedding space or model version. | `current change`; `rule_generation_documents.py`, semantic-index adapters, `mimir.py`, `activation.py`, and focused document, worker, runtime, activation, and bootstrap checks. | Record governed live build, validation, activation, and Reader-scoped projection evidence before changing this capability to `validated`. |
 | 2026-08-29 | implemented | Hardening round 18 re-audited production binding, reconciliation, activation publication, Mimir/Heimdall ownership, and Reader-scoped projection. No repository defect above Low remained; the sole open item is governed live evidence. | `current change`; focused semantic retrieval, bootstrap, activation, publication, and projection checks. | Record governed live evidence without changing repository authority. |
+| 2026-09-15 | implemented | Source-only refresh for [#946](https://github.com/dotnetpower/fdai/issues/946) / [PR #1014](https://github.com/dotnetpower/fdai/pull/1014) after existing ActionType edits changed the ontology release. Real in-memory lexical retrieval recomputed the Korean receipt from the same seven held-out cases, one sample per required cohort; authored promoted status, training, current thresholds, and prior receipts remain unchanged. | `current change`; [new Korean receipt](../../../rule-catalog/surface-validation-receipts/3e44e952cbe8bbed633e91a1482ddd0380241895c1d51c5d494fecdb29a7d187.json); unchanged dataset `sha256:1307e83d264c8c0b6fdc4342f840b51cebe18f930ca4bd9242387052da54d6de`. Implementation-session results: canonical receipt loading and [`test_korean_surface_candidate_passes_exact_inactive_generation_review`](../../../services/core-control-plane/tests/rule_catalog/test_discovery_catalog_search.py) passed; strengthened [generator regressions](../../../tests/integration/scripts/test_refresh_release_derived_pins.py) `9 passed`; second default check `measured=7 fixtures=16 changed=0`. These results were not rerun for this documentation edit. | [Normal CI run 34921323157, attempt 1](https://github.com/dotnetpower/fdai/actions/runs/34921323157/attempts/1) failed at head `c8edd`; the local repair awaits a new commit and exact-head CI. Governed live binding and Reader-scoped projection evidence remain open. No deployed index or promotion registry was activated or changed. |
 
 ### Remaining work
 
@@ -286,6 +287,18 @@ source revision
 Model enrichment runs off the request and API startup paths. Source text is untrusted data and is
 never treated as model instructions. Unknown concept ids produce an inert ontology proposal rather
 than extending the ontology automatically.
+
+### Source-only release refresh
+
+Use the [release-derived pin generator](../../../scripts/catalog/refresh-release-derived-pins.py)
+when a reviewed ontology change invalidates source pins. It checks by default; `--write` requires
+real in-memory lexical retrieval of the seven existing held-out cases through the canonical
+`evaluate_semantic_surface`, followed by current-policy `ELIGIBLE_FOR_REVIEW`. Recompute metrics
+rather than copying them, retaining the frozen dataset, training queries, configured thresholds,
+authored `promoted` state, and prior content-addressed receipts. Before any write, source/policy
+fingerprints and original destination bytes must still match; symlink destinations, including
+dangling links, and immutable receipt replacement are rejected. Activation is confined to the
+temporary evaluation index; neither the deployed index nor a promotion registry is changed.
 
 ### Independent generation validation
 

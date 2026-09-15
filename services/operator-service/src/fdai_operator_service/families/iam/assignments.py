@@ -25,6 +25,7 @@ from fdai_operator_service.families.iam.http import (
     require_string,
 )
 from fdai_service_contracts import OperatorRole
+from fdai_service_contracts.assignment_transport import AssignmentRevocationRequest
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
@@ -103,6 +104,7 @@ def make_assignment_routes(
                 directory,
                 command.subject_id,
                 identity_provider=identity_provider,
+                require_active=command.revocation is None,
             )
             if identity is None:
                 return error_response(400, "target identity was not found")
@@ -133,10 +135,15 @@ def make_assignment_routes(
             case_id = str(request.path_params["case_id"])
             current = await outbox.get_case(case_id)
             subject_id = _case_subject_id(current)
+            intent = current.get("intent")
+            revoke = isinstance(intent, Mapping) and intent.get("revocation") is not None
+            if revoke and isinstance(intent, Mapping):
+                AssignmentRevocationRequest.model_validate(intent["revocation"])
             identity = await _exact_identity(
                 directory,
                 subject_id,
                 identity_provider=identity_provider,
+                require_active=not revoke,
             )
             if identity is None:
                 return error_response(400, "target identity was not found")
@@ -310,6 +317,7 @@ def _create_command(
         "duty_bindings",
         "goal_refs",
         "justification",
+        "revocation",
     }
     unknown = sorted(set(body) - allowed)
     if unknown:
@@ -333,6 +341,11 @@ def _create_command(
     role = OperatorRole(require_string(body, "requested_role"))
     if role is OperatorRole.BREAK_GLASS:
         raise ValueError("BreakGlass is not available for routine assignment")
+    revocation = body.get("revocation")
+    if revocation is not None:
+        revocation = AssignmentRevocationRequest.model_validate(revocation).model_dump(mode="json")
+        if goals:
+            raise ValueError("revocation cannot create handover goals")
     return AssignmentCreateCommand(
         principal=principal,
         idempotency_key=require_string(body, "idempotency_key"),
@@ -342,6 +355,7 @@ def _create_command(
         duty_bindings=tuple(duties),
         goal_refs=tuple(goals),
         justification=require_string(body, "justification"),
+        revocation=revocation,
     )
 
 
@@ -350,13 +364,20 @@ async def _exact_identity(
     subject_id: str,
     *,
     identity_provider: str,
+    require_active: bool = True,
 ) -> object | None:
+    """Require the exact person; only removal may target an already disabled account."""
     identity = await directory.get_by_subject_id(subject_id)
     if identity is None:
         return None
     if identity.provider.casefold() != identity_provider.casefold():
         raise ValueError("target identity provider does not match the configured provider")
-    if not identity.active:
+    if (
+        identity.subject_id.casefold() != subject_id.casefold()
+        or identity.principal_type != "person"
+    ):
+        raise ValueError("target identity is not the exact requested person")
+    if require_active and not identity.active:
         raise ValueError("target identity is inactive")
     return identity
 

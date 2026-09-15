@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: dd087bf843932bf5a1b5ea1321b89590112ea388
-translation_revised: 2026-09-12
+translation_source_sha: 9583ee90921005ca00311c7414ee4a264ebcd2fe
+translation_revised: 2026-09-15
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -26,19 +26,43 @@ translation_revised: 2026-09-12
 
 ## 구현 상태
 
+런타임 조립은 이제 카탈로그를 읽고 `CatalogEscalationTiming`으로 일치하는 응답 구간을
+기록합니다. `FDAI_HIL_ESCALATION_ENVIRONMENT`는 `prod` 또는 `nonprod`를 명시적으로
+선택하며, 미설정을 비프로덕션으로 추측하지 않습니다. 비공개
+`FDAI_HIL_ESCALATION_AUDIENCES_JSON`은 각 카탈로그 수신 대상을 정확한 사람 한 명에
+연결합니다. 대상이 없거나 모호하거나 일치하지 않으면 이유를 기록하고 보수적인 기존 시간을
+유지합니다. 운영 관찰 경로는 실제 이벤트 분류와 Action 영향 범위를 전달합니다. 예측에
+따른 시간 단축에는 원문 이벤트가 아닌 검증된 잔여 시간과 신뢰도 근거가 추가로 필요합니다.
+런타임 모드는 계속 shadow이며 이 설정은 모드를 승격할 수 없습니다.
+
+Heimdall의 기존 평가기는 계산한 위반 예상 시각과 구성된 예측 구간의 신뢰 수준을
+트랜잭션 게시 기록에 보존합니다. 승인 대기를 저장하기 전에 감독자는 Core 에피소드와
+게시 대기열에서 정확한 `forecast:<episode-id>` 및 Action 대상을 읽습니다. 원본 식별자,
+감지기/버전, 범위 다이제스트, 기준 시점, 예측 기간, 임계값을 넘은 구간을 확인합니다.
+신뢰도는 `R²`가 아닙니다. 이전 형식의 누락 필드, 종료된 에피소드, 오래된 근거, 조회 실패,
+I/O 중 만료는 보수적인 시간을 유지합니다. 5초로 제한된 조회는 실제 원본을 재시도하지
+않습니다. 대기 기록은 원본 다이제스트와 최초 마감 시각을 유지하며 재시도로 연장하지 않습니다.
+
+실제 전달 모드 구성에는 현재 역할 검증기가 필요합니다. 디렉터리 어댑터는 이 검사에서
+역할 목록 캐시를 사용하지 않고 정확한 활성 사람과 일반 Approver/Owner 역할을 확인합니다.
+조회 실패는 권한 상실로 간주하지 않고 보류하며 조회 후 만료 시간을 다시 확인합니다.
+shadow의 무결성 문제는 관찰에 그치고 실제 승인을 종결하지 않습니다. 로컬 검사는 실측
+긴급도 표본이나 다음 단계 전달을 활성화하는 별도 승인을 대신하지 않습니다.
+
 ### 구현 범위
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 영구 shadow 에스컬레이션 supervisor | implemented | [`escalation_supervisor.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py), [`test_escalation_supervisor.py`](../../../services/core-control-plane/tests/core/hil_resume/test_escalation_supervisor.py) | 제한된 스캔, 전달 claim 및 에스컬레이션 예정 관찰이 승인 또는 실행 권한을 진행하지 않도록 구현되어 있습니다. |
 | HIL 재개 및 위임 단계 검증 | implemented | [`coordinator.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/coordinator.py), [`test_delegation.py`](../../../services/core-control-plane/tests/core/hil_resume/test_delegation.py) | 타입이 지정된 경로를 계속하기 전에 재개 스냅샷과 단계 자격을 검증합니다. |
-| 에스컬레이션 사다리 및 긴급도 카탈로그 | in-progress | [`escalation_ladder.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/escalation_ladder.py), [`test_escalation_ladder_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_escalation_ladder_catalog.py), [`rule-catalog/escalation-ladders/`](../../../rule-catalog/escalation-ladders/README.md) | 검토된 사다리 및 긴급도 정책 인스턴스가 fail-closed 로더 및 순수 스케줄 함수와 함께 배포되었으며, 집중 검사가 만료, 대체 전달, starvation 방지, 결정론적 재실행을 다룹니다. Supervisor는 아직 카탈로그를 읽지 않으며, 실행 중인 집합에서 측정된 긴급도 압축 근거는 없습니다. |
+| 에스컬레이션 사다리 및 긴급도 카탈로그 | in-progress | [`escalation_ladder.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/escalation_ladder.py); [`forecast_urgency.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/forecast_urgency.py); 집중 카탈로그, 원본, SQL, 승인 테스트 | 감독자는 검토된 카탈로그를 읽고 보존된 정확한 예측을 검증한 뒤 응답 시간을 줄입니다. 원본, 신뢰도, 만료, 취소, 재시도 검사는 통과했으며 실측 긴급도 압축 코호트 근거는 남아 있습니다. |
 | A3-E 상시 사람 권한 | in-progress | [`standing-authorization.json`](../../../services/core-control-plane/src/fdai/shared/contracts/authority/standing-authorization.json), [`lifecycle.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/lifecycle.py), [`fence.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/fence.py), [`lease.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/lease.py), [`provider_eligibility.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/provider_eligibility.py), [`promotion_candidate.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/promotion_candidate.py), [`shadow_cohort_runner.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/shadow_cohort_runner.py), [`shadow_cohort_cli.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/shadow_cohort_cli.py), [`shadow_reversion_command.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/shadow_reversion_command.py), [`postgres_standing_authority.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_standing_authority.py), 집중 상시 권한 및 영속성 테스트 | 타입이 지정된 평가기, 변경할 수 없는 개정 번호와 증명 결속, 해시 체인 수명 주기, 원자적 PostgreSQL 저장소, 다시 만들 수 있는 스냅샷, 정확한 읽기 시점 fence 계약, 비활성 효과 범위 lease, 도출된 프로바이더 커밋 fence 자격, 비활성 승격 후보 수명 주기, 그리고 결정론적 로컬 shadow 집단 실행기가 있습니다. 커밋 fence를 수행할 수 있는 프로바이더 어댑터가 하나도 등록되어 있지 않으므로, 배포된 모든 ActionType은 `INELIGIBLE_CAPABILITY`로 도출되며 어떤 후보도 승인에 도달할 수 없습니다. 실행기는 소스 개정 번호, manifest/corpus/구성 다이제스트, 후보/lease 계약 버전, 순서가 지정된 케이스 결과, 거부 이유, 카운트, 정책 탈출 없음, 제한 시간 구성(총 1800초, 진행 없음 120초, 케이스당 30초), 레지스트리 전후 다이제스트를 결속한 정규 콘텐츠 주소 영수증을 생성합니다. 영수증은 `venue=local`, `evidence_class=synthetic_development`이며 모든 권한 플래그가 False이므로 런타임 승격을 충족할 수 없습니다. 이제 엄격히 로컬 전용 CLI가 닫힌 경계 있는 자료 집합 스키마로 이 실행기를 구동하며, `venue=local`과 `evidence_class=synthetic_development`가 아닌 문서나 영수증을 모두 거부합니다. 이 스키마에는 프로바이더 자격을 선언할 키가 없으므로, 등록된 어댑터가 하나도 없는 상태에서 실제 ActionType으로 이루어진 자료 집합은 모든 케이스가 `INELIGIBLE_CAPABILITY`로 도출되어 완전한 집단을 만들 수 없습니다. 또한 나중에 승인된 어댑터가 `plan_effect_shadow_reversion`을 소비할 수 있도록 비활성 `ShadowReversionCommand` 계약, 작성기 Protocol, 안전한 방향으로 실패하는 조율 이음새를 추가했습니다. 이 Protocol을 구현한 어댑터는 없으며 변경 이음새는 패키지 이름 공간에 노출되지 않습니다. FDAI-CONST-008은 미구현 상태이며, #632 실제/통제 승격은 별도로 승인된 작업입니다. 이 모듈들은 어떤 권한 경로에도 연결되지 않았습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 카탈로그 응답 시간을 Core SQL 역할로 조회한 정확한 Heimdall 예측 에피소드 및 게시 기록에 연결했습니다. 요청의 원시 숫자는 시간을 줄이지 않으며, 이전 형식·누락·만료·종료·불일치 원본은 보수적인 시간을 유지합니다. | `current change`; 예측 원본/평가기, 실제 에이전트 게시, 조정기, 런타임, SQL 검사 104개 통과; 후속 시간대/원본 검사 31개 통과; 소스 8개 strict mypy 통과 | 실측 시간 코호트와 명시적 전달 승격을 별도로 보존합니다. 상시 권한 모듈은 연결하지 않으며 #632는 변경하지 않습니다. |
 | 2026-09-13 | in-progress | 도출된 프로바이더 자격 변경을 비활성 복귀 명령 및 로컬 집단 CLI와 조정했습니다. 자료 집합 스키마에는 부적격 ActionType을 선언할 키가 더 이상 없고 해석기도 이를 `build_candidate_record`에 전달하지 않으므로, 로컬 자료 집합 역시 자격을 주장할 수 없습니다. 등록된 어댑터가 하나도 없으므로 자료 집합의 실제 ActionType은 모두 `INELIGIBLE_CAPABILITY`로 도출되어 실제 ActionType 집단은 완전한 영수증에 도달할 수 없습니다. CLI 정상 경로는 명시적인 테스트 전용 가정 어댑터 레지스트리로만 검증합니다. | `current change`; `core/standing_authority/shadow_cohort_corpus.py`; `tests/core/standing_authority/test_shadow_cohort_cli.py`; `tests/core/standing_authority` 344개 통과; Ruff, 포맷, strict mypy 통과; 헌법, 로드맵 추적, design-route, 문서 크기, 번역, 읽을 수 있는 한글, 문장 부호, core import, 경계 docstring, 하위 시스템 fanout, fork 독립성, 파일 LOC 게이트 통과. | 변경 없음: 작성기 어댑터, 런타임 연결, 통제된 집단, 독립 효과 관측은 모두 존재하지 않습니다. FDAI-CONST-008은 `planned` 상태를 유지하며 #632는 계속 열려 있습니다. |
 | 2026-09-13 | in-progress | 남아 있던 코드 전용 A3-E 선행 작업 두 가지를 추가했습니다. `shadow_reversion_command.py`는 정확한 소스 개정 번호, 되돌릴 ActionType, 실패하거나 알 수 없는 관측 근거, 이유 코드, 중지·롤백·킬 스위치 결속, 기대하는 현재 상시 권한 fence와 상태, 서로 다른 사람 제안자와 검토자, 안정적인 idempotency 키, 2단계 의도·종결 감사 레코드를 결속하는 콘텐츠 주소 `ShadowReversionCommand`와 `ShadowReversionWriter` Protocol, 안전한 방향으로 실패하는 `apply_shadow_reversion` 조율 이음새를 정의합니다. 일치하거나 대기 중인 근거, `NONE` 전이, 자기 검토, 에이전트 또는 실행기 신원은 모두 거부됩니다. `shadow_cohort_cli.py`와 `shadow_cohort_corpus.py`는 기존 `run_cohort` 위에 엄격히 로컬 전용 하네스를 더합니다. 닫힌 자료 집합 스키마, 문서 크기·케이스·검토·경과 시간 한도, 단조 시계 마감, 심볼릭 링크를 거부하는 출력 봉쇄, 기록 전 영수증 venue와 evidence class 확인을 포함합니다. 두 패키지 모두 연결되지 않았습니다. 작성기 Protocol을 구현한 어댑터가 없고, 작성기와 조율기는 의도적으로 패키지 이름 공간에서 제외했으며, 어떤 에이전트, 위험 게이트, 실행기, HIL 재개, 워크플로, 제어 루프, 조립, 런타임, 전달 경로도 두 모듈을 가져오지 않음을 정적 테스트가 증명합니다. | `current change`; [`shadow_reversion_command.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/shadow_reversion_command.py), [`shadow_cohort_cli.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/shadow_cohort_cli.py), [`shadow_cohort_corpus.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/shadow_cohort_corpus.py); `tests/core/standing_authority` 323개 통과(신규 99개); Ruff, 포맷, strict mypy 통과; 파일 LOC 게이트 실패 0건; core import, 경계 docstring, 하위 시스템 fanout, fork 독립성 게이트 통과. 독립 비평이 중첩된 레코드 오류에서 문서화된 사용 오류 코드 대신 1로 종료되던 문제와 비활성 가드가 하드코딩된 불완전한 검사 경로 집합만 훑던 문제를 찾아냈고, 전체 트리 import 검사기와 회귀 케이스로 둘 다 수정했습니다. | 이것들은 계약과 개발용 하네스이며 권한이 아닙니다. 작성기 어댑터는 없고 CLI는 합성 로컬 근거만 생성하며, #632가 추적하는 영속 프로바이더 경계, 통제된 런타임 집단, 독립 검토, 명시적 현재 사람 승인, 보존된 독립 효과 관측은 모두 열려 있습니다. |
 | 2026-09-13 | in-progress | 호출자가 프로바이더 자격을 선언하던 표면을 제거했습니다. `provider_eligibility.py`는 `ProviderFenceCapability`, 비어 있는 `A3E_COMMIT_FENCE_ADAPTERS` 레지스트리, `a3e_fence_capability`, `partition_provider_eligibility`, `derive_ineligible_provider_action_types`를 추가합니다. `build_candidate_record`는 더 이상 `ineligible_provider_action_types`를 받지 않으며, `PromotionCandidateRecord.__post_init__`이 손으로 선언한 구분을 거부합니다. 따라서 빌더도 데이터클래스 직접 생성 경로도 어떤 어댑터도 강제하지 못하는 자격을 주장할 수 없습니다. 어댑터 레지스트리가 비어 있으므로 배포된 모든 ActionType은 `INELIGIBLE_CAPABILITY`로 분류되고, 실제 후보는 생성 시점에 `PROVIDER_INELIGIBLE`로 거부됩니다. 수명 주기 상태 기계 검증은 `tests/`에만 존재하는 명시적 가정 레지스트리를 사용합니다. 이 모듈은 순수하며 어떤 권한 경로에도 연결되지 않습니다. | `current change`; [`provider_eligibility.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/provider_eligibility.py), [`test_provider_eligibility.py`](../../../services/core-control-plane/tests/core/standing_authority/test_provider_eligibility.py); `tests/core/standing_authority` 242개 통과(신규 18개), 배포된 ActionType 49개 전체에 대한 카탈로그 검사 포함; Ruff, 포맷, strict mypy 통과; 파일 LOC 게이트 실패 0건; core import 게이트 통과; 독립 비평이 새 import 가드의 거짓 음성 하나(패키지 재노출 경로를 가져와도 표시되지 않음)와 `test_lifecycle.py`의 기존 무의미한 검사 경로 하나를 찾아냈고 둘 다 수정 후 재검증했습니다. | 이 변경은 자격 주장을 제한할 뿐 적격한 프로바이더를 만들지는 않습니다. 효과 커밋 시점에 lease와 fencing 세대를 원자적으로 검증하는 영속 프로바이더 경계, 통제된 런타임 집단, 독립 검토, 명시적 현재 사람 승인(#632)은 모두 열려 있습니다. |
@@ -55,8 +79,9 @@ translation_revised: 2026-09-12
 
 - [x] 검토된 에스컬레이션 사다리와 긴급도 정책 카탈로그 인스턴스가 fail-closed 로더와 함께
   배포되었으며, 집중 검사가 만료, 대체 전달, starvation 방지, 결정론적 재실행을 다룹니다.
-- [ ] 에스컬레이션 supervisor를 카탈로그에 연결하고 실행 중인 집합에서 측정된 긴급도 압축
-  근거를 보존합니다.
+- [x] 감독자를 검토된 카탈로그 및 정확한 현재 예측 원본에 연결합니다. 집중 원본, SQL,
+  생산자 및 승인 재시도 테스트가 통과했습니다.
+- [ ] 통제된 실행 코호트에서 측정한 긴급도 압축 근거를 보존합니다.
 - [x] 정족수, 철회, 유효성, 대응자 확인, 정확한 묶음 및 자기 승인 방지 부정 테스트를
   갖춘 A3-E 상시 권한 스키마와 평가기를 구현합니다.
 - [x] 권한을 연결하지 않고 변경할 수 없는 수명 주기 개정 번호, 원자적 PostgreSQL

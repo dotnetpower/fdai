@@ -179,6 +179,14 @@ class ForecastEpisodeEvaluator:
             mode=target.mode,
         )
         payload = _forecast_payload(episode) if finding is not None else None
+        if payload is not None and finding is not None:
+            payload["approval_timing"] = {
+                "schema_version": "1.0.0",
+                "predicted_breach_at": (
+                    feature_cutoff + timedelta(seconds=finding.lead_time_seconds)
+                ).isoformat(),
+                "confidence_level": target.confidence_level,
+            }
         return await self._store.record(episode, forecast_payload=payload)
 
 

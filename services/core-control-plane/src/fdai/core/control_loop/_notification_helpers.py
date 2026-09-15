@@ -77,6 +77,7 @@ async def request_hil_approval(
     rule: Rule,
     correlation_id: str,
     submitter_oid: str,
+    event: Event | None = None,
 ) -> None:
     if coordinator is None:
         return
@@ -86,6 +87,11 @@ async def request_hil_approval(
             rule=rule,
             submitter_oid=submitter_oid,
             correlation_id=correlation_id,
+            escalation_context=(
+                {"finding_class": event.event_type, "impact": action.blast_radius.scope.value}
+                if event is not None
+                else None
+            ),
         )
     except Exception:  # noqa: BLE001 - a failed park remains fail-closed
         logger.warning(

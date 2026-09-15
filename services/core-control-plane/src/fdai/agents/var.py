@@ -13,13 +13,18 @@ import hashlib
 import inspect
 from collections.abc import Awaitable, Callable, Mapping
 from copy import deepcopy
-from dataclasses import dataclass, field
 from typing import Any
 
 from fdai.agents._framework.adapters import (
     AdminCard,
     AdminNotificationAdapter,
     InMemoryAdminChannel,
+)
+from fdai.agents._framework.assignment_workflow import (
+    AssignmentCheck,
+    AssignmentClock,
+    assignment_clock,
+    review_assignment,
 )
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
@@ -34,6 +39,8 @@ from fdai.agents._framework.introspection import (
 from fdai.agents._framework.pantheon import _VAR
 from fdai.agents._framework.var_decisions import (
     ApprovalDecisionState,
+    PendingHilTicket,
+    PendingShadowReview,
     VarDecisionJournal,
     approval_for_ticket,
     final_approval_record,
@@ -42,35 +49,6 @@ from fdai.shared.providers.state_store import StateStore
 
 ApproverAuthorizer = Callable[[str, str], bool | Awaitable[bool]]
 _APPROVAL_STATE_PREFIX = "pantheon/var/approval"
-
-
-@dataclass
-class PendingHilTicket:
-    correlation_id: str
-    action_type: str
-    resource_id: str | None
-    quorum_required: int
-    initiator_principal: str | None = None
-    params: dict[str, Any] = field(default_factory=dict)
-    kind: str = "action"
-    document_id: str | None = None
-    upload_id: str | None = None
-    stage: str | None = None
-    idempotency_key: str = ""
-    decision_case: dict[str, Any] | None = None
-    approvers: list[str] = field(default_factory=list)
-    rejected: bool = False
-
-
-@dataclass(frozen=True, slots=True)
-class PendingShadowReview:
-    """One Saga-authenticated shadow outcome awaiting a human comparison."""
-
-    correlation_id: str
-    action_type: str
-    observed_at: str
-    policy_escape: bool
-    initiator_principal: str | None
 
 
 def _evict_oldest_ticket(mapping: dict[Any, Any], cap: int, *, keep: Any = None) -> None:
@@ -118,6 +96,8 @@ class Var(Agent):
         )
         self._decision_lock = asyncio.Lock()
         self._pending: dict[str, PendingHilTicket] = {}
+        self._assignment_check: AssignmentCheck | None = None
+        self._assignment_clock: AssignmentClock = assignment_clock
         self._pending_shadow_reviews: dict[str, PendingShadowReview] = {}
         # (initiator, action_type) -> AdminCard for dedup counter update
         self._last_cards: dict[tuple[str, str], AdminCard] = {}
@@ -136,7 +116,18 @@ class Var(Agent):
 
     # ---- typed port ----------------------------------------------------
 
+    def bind_assignment_check(
+        self, check: AssignmentCheck, *, clock: AssignmentClock = assignment_clock
+    ) -> None:
+        """Bind exact independent human-review verification without case-write authority."""
+        self._assignment_check, self._assignment_clock = check, clock
+
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic == "object.audit-entry" and payload.get("kind") == "human_assignment":
+            await review_assignment(
+                self, payload, self._assignment_check, clock=self._assignment_clock
+            )
+            return
         if topic == "object.audit-entry":
             self._ingest_document_hil(payload)
             self._ingest_shadow_review(payload)

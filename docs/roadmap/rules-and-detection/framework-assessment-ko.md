@@ -1,8 +1,8 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: b036f144e4e478e39acc318b686449249078188a
-translation_revised: 2026-09-13
+translation_source_sha: 7fdfeef604049b65506db2016dea0f1bf950a6b7
+translation_revised: 2026-09-14
 ---
 # WAF 및 CAF 근거 기반 평가
 
@@ -43,6 +43,9 @@ Framework(CAF) 카탈로그를 범위에 결합되고 재현 가능한 shadow �
 공유 Operator 보낼 편지함 수명 주기 facade는 Incident 개입 작업자도 감독할 수 있습니다. 해당
 논리 토픽은 명시적으로 허용 목록에 등록되며, 해당 요청과 준비 상태는 WAF 또는 CAF 범위,
 근거 수락, 재현, 결과에 들어가지 않습니다.
+배정 발신함도 같은 전송 수명 주기를 사용하지만 논리 토픽과 불변 요청 증적은 분리합니다.
+사례 검토, 역할 주장, PR 결과는 WAF/CAF 근거를 충족하거나 평가 결과를 변경할 수 없습니다.
+관찰된 목표는 승인된 수동 근거가 아닙니다.
 
 ## 설계 결정 및 비판
 

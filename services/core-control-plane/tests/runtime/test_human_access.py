@@ -49,7 +49,20 @@ def test_human_access_runtime_is_absent_when_disabled() -> None:
     )
 
 
-async def test_human_access_runtime_uses_dedicated_identity_and_exact_role_map() -> None:
+def test_core_human_access_planning_needs_no_http_or_mutation_identity() -> None:
+    environment = {
+        "FDAI_HUMAN_ACCESS_ROLE_GROUPS_JSON": _environment()["FDAI_HUMAN_ACCESS_ROLE_GROUPS_JSON"]
+    }
+    adapter = build_human_access_direct_api(
+        audit_store=InMemoryStateStore(), http_client=None, environment=environment
+    )
+    assert isinstance(adapter, HumanAccessDirectApiExecutor)
+    assert not hasattr(adapter.planner, "provisioner")
+    assert not hasattr(adapter.planner, "identity")
+    assert not hasattr(adapter.planner, "execute")
+
+
+async def test_human_access_runtime_ignores_mutation_credentials_and_pins_exact_role_map() -> None:
     environment = _environment()
     async with httpx.AsyncClient() as client:
         executor = build_human_access_direct_api(
@@ -59,9 +72,8 @@ async def test_human_access_runtime_uses_dedicated_identity_and_exact_role_map()
         )
 
     assert isinstance(executor, HumanAccessDirectApiExecutor)
-    provisioner = executor.coordinator.provisioner
-    assert provisioner.identity._config.client_id == "human-access-client"
-    assert set(executor.coordinator.role_group_ids.values()) == {
+    assert not hasattr(executor.planner, "provisioner")
+    assert set(executor.planner.role_group_ids.values()) == {
         "group-reader",
         "group-contributor",
         "group-approver",
@@ -72,11 +84,6 @@ async def test_human_access_runtime_uses_dedicated_identity_and_exact_role_map()
 @pytest.mark.parametrize(
     "update, message",
     [
-        ({"FDAI_HUMAN_ACCESS_MI_CLIENT_ID": "executor-client"}, "MUST be distinct"),
-        (
-            {"FDAI_HUMAN_ACCESS_MI_CLIENT_ID": ""},
-            "dedicated workload identity",
-        ),
         ({"FDAI_HUMAN_ACCESS_ROLE_GROUPS_JSON": "{}"}, "MUST define"),
         (
             {

@@ -147,6 +147,13 @@ source format, unit id, and locator for that line. Claim evidence, proposal evid
 digests, and replay digests all retain that tuple, so a citation cannot drift to another paragraph,
 shape, table cell, page block, or speaker note.
 
+The bridge accepts both the legacy envelope and the independent worker's service contract without
+reparsing either through a narrower model. Layout normalization preserves significant whitespace
+inside valid JSON string values. The [accepted handover integration](manual-distillation.md#accepted-handover-source-integration)
+now binds current Core goal, reviewer, admission, and retrieval checks to Norns compilation and
+independent, source-before-content Mimir review. Private packages use this bridge and the existing
+ontology compiler; their connected retention lifecycle grants no graph, catalog, or execution authority.
+
 Locators use a deterministic grammar and 1-based ordinals:
 
 - **DOCX:** `docx/paragraph:{n}`, `docx/heading:{level}:{n}`, or
@@ -392,6 +399,11 @@ Document and graph lifecycles stay linked by immutable digests:
 - **Rollback:** Projection failure or later rejection restores the exact prior graph revision and
   records the failed proposal digest. A rollback transition accepts only the prior revision recorded
   when projection began; a caller cannot substitute another graph revision.
+- **Private handover packages:** Mimir's existing subscription retires packages monotonically and
+  scrubs only with exact current `legal_hold: false` evidence for every bound source. Unknown or
+  missing policy and source outages never authorize erasure; claims, receipts, digests, and audit
+  survive. This is private-package maintenance, not graph mutation or catalog retirement authority;
+  [manual distillation](manual-distillation.md#accepted-handover-source-integration) owns the contract.
 
 Projection and reconciliation are separate. Accepting declared intent can update the governed
 intent projection. A provider-observed statement becomes current truth only after fresh external
@@ -525,6 +537,9 @@ cost-required assessment and deployment availability remain unpassed until prici
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Handover envelope compatibility and JSON fidelity | implemented | [Provenance bridge](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_ingestion.py); [runtime binding](../../../services/core-control-plane/src/fdai/runtime/handover_semantics.py); [recorded SEM evidence](../../internals/handover-lifecycle-hardening-20260914.md#reboot-recovery-and-semantic-compilation-critique-checkpoint) | Legacy and independent-worker envelopes preserve original locators and JSON values. Current Core goal/reviewer/admission/retrieval bindings feed Norns and independent Mimir review. Source-private lifecycle is connected; operational conformance is not completed. |
+| Private handover package retirement | implemented | [Retention policy](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/handover_retention.py); [SQL packages](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_handover_semantics.py); [final semantic/retention/Core runtime selection: 61 passed](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) | Mimir owns monotonic retirement and exact current legal-hold-gated scrubbing on its existing subscription. Missing/unknown policy or outage never erases; a released hold cannot revive a package. No active graph, catalog, mutation, or promotion authority is added. |
+| Final handover source critique | implemented | [FI-01 through FI-12](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) | Twelve distinct integrated rounds followed remaining source implementation; no unresolved confirmed Medium/High source finding. Translation refresh, canonical generation, hooks, publication/CI, full UI/assistive evidence, and live conformance remain separate and open. |
 | Proposal, claim inventory, and deterministic gates | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_claims.py`; `ontology_verify.py`; `ontology_review.py`; focused tests in `tests/rule_catalog/pipeline/distill/` | D0-D4 contracts and fail-closed review packaging are implemented. Structural inventory remains unclassified until model and governed evidence supply meaning. |
 | Envelope provenance and format equivalence | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_ingestion.py`; `ontology_evaluation.py`; `tests/rule_catalog/pipeline/distill/test_ontology_format_equivalence.py` | Structured locators and normalized proposal identities are covered with synthetic cross-format evidence. |
 | Real-corpus extraction conformance | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_conformance.py`; `ontology_corpus_gate.py`; `tests/rule_catalog/pipeline/distill/test_ontology_conformance.py` | English Markdown and SGML partitions are covered. Required PDF, Office, OCR, and Korean annotations remain open. |
@@ -535,11 +550,19 @@ cost-required assessment and deployment availability remain unpassed until prici
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Extended the existing provenance bridge to independent-worker envelopes and preserved significant whitespace inside typed JSON values after reproducing a changed Rule parameter. | `current change`; focused bridge and compiler selection:28 passed before the later source-order and locator hardening; updated compiler and actual SQL selection:37 passed; [SEM checkpoint](../../internals/handover-lifecycle-hardening-20260914.md#reboot-recovery-and-semantic-compilation-critique-checkpoint). | Complete the handover integration's private-package retention and lifecycle checks and retain provider conformance; no ontology projection or promotion occurred. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source, hardening record, and focused tests listed in the scope table. | Close the missing corpus partitions and retain governed shadow evidence. |
 | 2026-08-21 | implemented | Removed lexical semantic and authority inference from structural claim inventory. Model-cited source ranges remain content-addressed and replayable, but claims stay unclassified and non-critical until model output and governed evidence classify them. Provider-observation verification now requires an explicitly classified claim plus a fresh external receipt. | `current change`; focused ontology format, verifier, semantic investigation, and public-corpus regressions passed within the 304-case slice; diff-scoped changed tests passed 3176 cases with 7 environment-gated skips. | Keep missing PDF, Office, OCR, and Korean provider partitions and live-shadow promotion evidence open. |
+| 2026-09-15 | implemented | Superseded the earlier private-package retention gap: current Core source bindings, Norns compilation, independent Mimir review, monotonic retirement, and conditional scrubbing are source-connected without graph authority. | `current change`; source paths above; [RET-01 through RET-14](../../internals/handover-lifecycle-hardening-20260914.md#semantic-retention-review-evidence) record 60 focused policy/compiler/actual-SQL/agent tests. Earlier semantic counts remain their recorded overlapping selections, not a new total. | Live source/ACL/hold-release evidence, provider conformance, cohorts, and promotion remain open. Final integrated critiques, static/docs reconciliation, and delivery are unfinished; neither this task nor production is validated. |
+| 2026-09-15 | implemented | Completed 12 distinct final integrated handover critique rounds after remaining source implementation; no unresolved confirmed Medium/High source finding. | `current change`; [FI-01 through FI-12](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation), including 61 semantic/retention/Core runtime checks; selections overlap and are not summed. | Translation SHA refresh, canonical generation, local hooks, publication/CI, full UI/assistive evidence, and live source/conformance/cohort/promotion evidence remain pending; #458 remains open. |
 
 ### Remaining work
 
+- [x] Connect private handover package retirement and exact current legal-hold-gated scrubbing
+  while preserving retry identity and audit; see the [recorded retention checkpoint](../../internals/handover-lifecycle-hardening-20260914.md#semantic-retention-review-evidence).
+- [x] Complete 12 distinct final integrated source critiques after remaining implementation; [the final record](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) leaves no unresolved confirmed Medium/High source finding.
+- [ ] Complete EN/KO review, translation SHA refresh, canonical generation, local hooks, publication, and exact-pushed-SHA CI; full UI/assistive evidence remains separately open in the [handover plan](../interfaces/human-agent-assignment-implementation-plan.md#current-change-evidence-and-remaining-scope).
+- [ ] Retain deployed source ACL, hold-release/deletion, and cohort evidence under [#458](https://github.com/dotnetpower/fdai/issues/458) and [#424](https://github.com/dotnetpower/fdai/issues/424).
 - [ ] Add licensed or synthetic annotations for the required PDF, Office, OCR, and Korean partitions and pass the corpus gate with a bound provider.
 - [ ] Run untrusted PDF decompression in the documented isolated-worker boundary and retain fail-closed conformance evidence.
 - [ ] Retain at least 30 distinct live-shadow days and 500 eligible reviewed proposals with zero guard violations before promotion review.

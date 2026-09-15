@@ -239,6 +239,7 @@ class EntraHumanIdentityDirectory:
             active=parsed.active,
             user_type=parsed.user_type,
             roles=roles,
+            group_ids=existing.group_ids if existing else (),
         )
 
     async def get_by_subject_id(self, subject_id: str) -> DirectoryIdentity | None:
@@ -337,6 +338,9 @@ class EntraHumanIdentityDirectory:
                     user_type=parsed.user_type,
                     principal_type="person",
                     roles=roles,
+                    group_ids=tuple(
+                        sorted(set(existing.group_ids if existing else ()) | {group_id})
+                    ),
                 )
                 if len(people) >= limit:
                     break

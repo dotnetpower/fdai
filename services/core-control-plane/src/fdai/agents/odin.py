@@ -39,6 +39,7 @@ from fdai.agents._framework.arbitration import (
 )
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
+from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     capability_facts,
@@ -95,7 +96,7 @@ class ArbitrationDecision:
     dispositions: dict[str, str] = field(default_factory=dict)
 
 
-class Odin(Agent):
+class Odin(Agent, HandoverKnowledgeMixin):
     """Wave-4 Odin: arbitration + portfolio outcome monitor."""
 
     def __init__(
@@ -147,6 +148,11 @@ class Odin(Agent):
         self.bus = bus
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if await self._handover_message(topic, payload):
+            return
+        if payload.get("kind") == "human_assignment":
+            self.record_behavior("assignment_non_action_observed")
+            return
         if topic == "object.arbitration-request":
             await self.arbitrate(payload)
             return

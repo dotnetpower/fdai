@@ -5,11 +5,7 @@ from typing import Any, cast
 from uuid import uuid4
 
 import pytest
-from fdai.core.human_assignment import (
-    HumanAccessApplyCoordinator,
-    HumanAccessExecution,
-    HumanAccessExecutionOutcome,
-)
+from fdai.core.human_assignment.access_planning import HumanAccessPlanner
 from fdai.delivery.direct_api_router import RoutedDirectApiExecutor
 from fdai.delivery.identity.direct_api import (
     APPLY_HUMAN_ACCESS_ACTION,
@@ -48,17 +44,14 @@ def _request(
 class _RecordingCoordinator:
     calls: list[dict[str, Any]] = field(default_factory=list)
 
-    async def execute(self, **kwargs: Any) -> HumanAccessExecution:
+    async def plan(self, **kwargs: Any) -> HumanAccessPlan:
         self.calls.append(dict(kwargs))
-        return HumanAccessExecution(
-            HumanAccessExecutionOutcome.PLANNED,
-            HumanAccessPlan(
-                case_id=str(kwargs["case_id"]),
-                subject_id="target-1",
-                group_id="group-reader",
-                operation=HumanAccessOperation.GRANT,
-                idempotency_key="human-access:case-1",
-            ),
+        return HumanAccessPlan(
+            case_id=str(kwargs["case_id"]),
+            subject_id="target-1",
+            group_id="group-reader",
+            operation=HumanAccessOperation.GRANT,
+            idempotency_key="human-access:case-1",
         )
 
 
@@ -74,7 +67,7 @@ class _RecordingExecutor:
 
 async def test_human_access_direct_api_projects_shadow_plan_only() -> None:
     coordinator = _RecordingCoordinator()
-    executor = HumanAccessDirectApiExecutor(cast(HumanAccessApplyCoordinator, coordinator))
+    executor = HumanAccessDirectApiExecutor(cast(HumanAccessPlanner, coordinator))
 
     receipt = await executor.execute(_request())
 
@@ -84,15 +77,13 @@ async def test_human_access_direct_api_projects_shadow_plan_only() -> None:
         {
             "case_id": "case-1",
             "expected_revision": 4,
-            "actor_ref": "Thor",
-            "mode": Mode.SHADOW,
         }
     ]
 
 
 async def test_human_access_direct_api_rejects_enforce_revoke_and_extra_arguments() -> None:
     coordinator = _RecordingCoordinator()
-    executor = HumanAccessDirectApiExecutor(cast(HumanAccessApplyCoordinator, coordinator))
+    executor = HumanAccessDirectApiExecutor(cast(HumanAccessPlanner, coordinator))
 
     with pytest.raises(DirectApiPromotionError):
         await executor.execute(_request(mode=Mode.ENFORCE))

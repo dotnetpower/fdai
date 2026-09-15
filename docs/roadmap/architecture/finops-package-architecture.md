@@ -80,6 +80,12 @@ promotion state; runtime images continue to resolve their service-owned dependen
 > **Composition isolation:** The shared Operator route assembly may decorate web conversation
 > proposals with a verified handover binding. That decorator does not wrap Cost Governance routes,
 > change package activation, or grant access to cost data.
+> The same assembly binds assignment notice workers and fixed-agent case validation. Their SQL
+> receipts, readiness, and review-only ownership PRs are outside the Cost Governance package;
+> assigning a human to Njord never enables the package or grants access to cost data.
+> The separately bound membership Executor and Vidar inverse use their own current human approvals,
+> target lock and independent effect closure. Their readiness cannot enable an unbound generic Thor
+> executor, a Cost Governance mutation, package activation or package data access.
 
 The shared audit route also preserves measurement source, time-window and sequence filters.
 Reading admitted operational spend or a cohort comparison does not enable Cost Governance,
@@ -136,6 +142,15 @@ immutable context snapshot pinned to the exact release, profile version, princip
 cutoff. Missing service mapping, stale topology, conflicting objectives, incomplete evidence, or
 an unverified link can only lower autonomy. The graph never becomes a coordination store, policy
 engine, approval record, or execution surface.
+
+For a reviewed ontology release change, use the [release-derived pin generator](../../../scripts/catalog/refresh-release-derived-pins.py)
+under the [check-by-default, review-gated write workflow](../rules-and-detection/rule-semantic-retrieval.md#source-only-release-refresh).
+Refresh the exact release and canonical profile digest, packaged profile-byte SHA-256, asset
+manifest reference, and W6 source inventory's `package_manifest_sha256` together with all 16 F1-F8
+fixture references. Re-evaluate the unchanged expected outcomes for eight positive and eight
+negative cases; retain the deliberately foreign release in the F6 mixed-release negative case.
+This source-only refresh does not qualify W7 live evidence or change enablement, data access,
+mode, or promotion. Earlier live receipts remain bound to their original release.
 
 ### Keep agents active and ownership fixed
 

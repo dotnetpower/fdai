@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 from dataclasses import dataclass
 from typing import Final
 from urllib.parse import urlparse
@@ -38,14 +36,17 @@ class EntraHumanAccessProvisioner:
         parsed = urlparse(self.base_url)
         if (
             parsed.scheme != "https"
-            or not parsed.netloc
+            or parsed.hostname != "graph.microsoft.com"
+            or parsed.port not in {None, 443}
             or parsed.username
             or parsed.password
             or parsed.path.rstrip("/") != "/v1.0"
             or parsed.query
             or parsed.fragment
         ):
-            raise ValueError("human access Graph base_url MUST be an HTTPS v1.0 URL")
+            raise ValueError(
+                "human access Graph base_url MUST be the supported HTTPS Graph v1.0 endpoint"
+            )
         if not self.allowed_group_ids or any(not item.strip() for item in self.allowed_group_ids):
             raise ValueError("allowed_group_ids MUST contain non-empty group ids")
         if self.max_attempts < 1 or self.max_attempts > 5:
@@ -113,6 +114,8 @@ class EntraHumanAccessProvisioner:
             idempotency_key=f"{plan.idempotency_key}:rollback",
         )
         receipt = await self.apply(inverse)
+        if not await self.verify(inverse):
+            raise RuntimeError("human access rollback postcondition did not converge")
         return HumanAccessReceipt(
             HumanAccessOutcome.ROLLED_BACK,
             receipt.receipt_ref,
@@ -206,17 +209,7 @@ def _retry_seconds(value: str | None, attempt: int) -> float:
 
 
 def _receipt(plan: HumanAccessPlan, outcome: HumanAccessOutcome) -> HumanAccessReceipt:
-    canonical = json.dumps(
-        {
-            "case_id": plan.case_id,
-            "subject_id": plan.subject_id,
-            "group_id": plan.group_id,
-            "operation": plan.operation.value,
-        },
-        sort_keys=True,
-        separators=(",", ":"),
-    )
-    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    digest = plan.target_digest
     return HumanAccessReceipt(outcome, f"entra-group-membership:{digest}", digest)
 
 

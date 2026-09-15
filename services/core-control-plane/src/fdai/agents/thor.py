@@ -304,10 +304,7 @@ class Thor(Agent):
         self._resource_dispatch_locks: WeakValueDictionary[str, asyncio.Lock] = (
             WeakValueDictionary()
         )
-        # Cap the in-memory run map so a long-running dispatcher cannot leak
-        # one entry per correlation id forever. Only TERMINAL runs are
-        # evicted (oldest first) once over the cap; active runs are always
-        # retained (they back the per-resource mutex and approval lookup).
+        # FIFO-cap terminal history; active runs retain resource mutex and approval lookups.
         self._max_retained_runs = 10_000
 
     def set_executor(self, executor: ActionExecutor) -> None:
@@ -478,6 +475,9 @@ class Thor(Agent):
     # ---- typed port ----------------------------------------------------
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if payload.get("kind") in {"human_assignment", "handover_knowledge"}:
+            self.record_behavior("assignment_non_action_ignored")
+            return
         if topic == "object.verdict":
             if payload.get("kind") == "document_ingestion":
                 self.record_behavior("document_verdict_ignored")

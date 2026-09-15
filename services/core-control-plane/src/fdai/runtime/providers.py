@@ -261,6 +261,9 @@ def _build_safeguard_lifecycle_coordinator(
         verifier_id = "fdai-in-memory-lock-readback"
         trust_anchor_id = "fdai:local-test-only"
 
+    from fdai.delivery.human_access_closure import HumanAccessClosureStore
+
+    closures = HumanAccessClosureStore(closures, audit_store)
     coordinator = SafeguardLifecycleCoordinator(
         resource_lock=resource_lock,
         reservation_store=reservations,

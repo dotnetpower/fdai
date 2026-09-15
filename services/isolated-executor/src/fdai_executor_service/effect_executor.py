@@ -229,7 +229,9 @@ class ServiceDirectApiEffectExecutor:
                     hold_reason,
                 )
             try:
-                receipt = await self._executor.execute(build_direct_api_request(action))
+                receipt = await self._executor.execute(
+                    build_direct_api_request(action, deadline_at=deadline_at)
+                )
             except DirectApiError as exc:
                 return await self._finish_provider_error(action, exc)
             except Exception:  # noqa: BLE001 - provider boundary
