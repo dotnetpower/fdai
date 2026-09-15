@@ -5,15 +5,16 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import NoReturn
 
 from genesis_approval import GenesisApproval
 from genesis_checks import GenesisChecks
 from genesis_foundation import (
+    FoundationInputs,
     FoundationPlanError,
-    FoundationPlanInputs,
+    _artifact_arguments,
     missing_foundation_report,
     prepare_foundation_plan,
 )
@@ -52,7 +53,7 @@ class PrivateExecutionConfig:
     tenant_id: str
     source_commit: str
     work_dir: Path
-    foundation_inputs: FoundationPlanInputs | None
+    foundation_inputs: FoundationInputs | None
     approval: GenesisApproval | None
     approval_path: Path | None
     create_runner_image: bool
@@ -149,7 +150,7 @@ class PrivateExecutionCoordinator:
             next_action="run_exact_protected_application_plan_from_attested_runner",
         )
 
-    def _run_runner_image(self, inputs: FoundationPlanInputs) -> Path:
+    def _run_runner_image(self, inputs: FoundationInputs) -> Path:
         if not self.config.create_runner_image:
             self.store.mark_skipped("runner-image-plan", "runner-image-apply")
             return inputs.variables_file
@@ -336,7 +337,7 @@ class PrivateExecutionCoordinator:
 
     def _prepare_foundation(
         self,
-        inputs: FoundationPlanInputs,
+        inputs: FoundationInputs,
         variables_file: Path,
     ) -> dict[str, object]:
         prior = self._current_foundation_plan()
@@ -348,13 +349,7 @@ class PrivateExecutionCoordinator:
                 "foundation-apply-claim.json",
                 "foundation-apply-receipt.json",
             )
-        effective_inputs = FoundationPlanInputs(
-            offline_kit=inputs.offline_kit,
-            release_root=inputs.release_root,
-            bundle_public_key=inputs.bundle_public_key,
-            profile=inputs.profile,
-            variables_file=variables_file,
-        )
+        effective_inputs = replace(inputs, variables_file=variables_file)
         self._begin("foundation-plan")
         try:
             report = self._prepare_plan(
@@ -385,7 +380,7 @@ class PrivateExecutionCoordinator:
 
     def _run_foundation_apply(
         self,
-        inputs: FoundationPlanInputs,
+        inputs: FoundationInputs,
         variables_file: Path,
         plan_report: dict[str, object],
     ) -> dict[str, object]:
@@ -406,12 +401,7 @@ class PrivateExecutionCoordinator:
                 str(inputs.profile),
                 "--variables-file",
                 str(variables_file),
-                "--offline-kit",
-                str(inputs.offline_kit),
-                "--release-root",
-                str(inputs.release_root),
-                "--bundle-public-key",
-                str(inputs.bundle_public_key),
+                *_artifact_arguments(inputs),
                 "--expected-review-digest",
                 str(plan_report["review_digest"]),
                 "--expected-plan-digest",
@@ -448,7 +438,7 @@ class PrivateExecutionCoordinator:
 
     def _run_runner_enrollment(
         self,
-        inputs: FoundationPlanInputs,
+        inputs: FoundationInputs,
         plan_report: dict[str, object],
         foundation: dict[str, object],
     ) -> dict[str, object]:
@@ -525,7 +515,7 @@ class PrivateExecutionCoordinator:
 
     def _run_foundation_state(
         self,
-        inputs: FoundationPlanInputs,
+        inputs: FoundationInputs,
         variables_file: Path,
         plan_report: dict[str, object],
         foundation: dict[str, object],
@@ -569,12 +559,7 @@ class PrivateExecutionCoordinator:
                 str(inputs.profile),
                 "--variables-file",
                 str(variables_file),
-                "--offline-kit",
-                str(inputs.offline_kit),
-                "--release-root",
-                str(inputs.release_root),
-                "--bundle-public-key",
-                str(inputs.bundle_public_key),
+                *_artifact_arguments(inputs),
                 "--repository",
                 self.config.repository,
                 "--ssh-private-key",

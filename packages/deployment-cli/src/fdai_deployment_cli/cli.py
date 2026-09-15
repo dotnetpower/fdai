@@ -14,8 +14,10 @@ from collections.abc import Mapping
 from contextlib import nullcontext
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import cast
 
 from fdai_deployment_cli.__about__ import __version__
+from fdai_deployment_cli.aks_preflight import inspect_aks_target
 from fdai_deployment_cli.bootstrap_reconcile import reconcile_bootstrap
 from fdai_deployment_cli.bundle import (
     extract_bundle_archive,
@@ -43,9 +45,12 @@ from fdai_deployment_cli.offline_kit import materialize_verified_artifacts, veri
 from fdai_deployment_cli.offline_prepare import prepare_offline_release
 from fdai_deployment_cli.plan_input import read_plan_input, snapshot_plan_input
 from fdai_deployment_cli.private_output import write_private_output
-from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.profile import load_profile, write_profile
+from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.simulation import rehearse
+from fdai_deployment_cli.source_azure import plan_source_installation
+from fdai_deployment_cli.source_deploy import prepare_source_deployment
+from fdai_deployment_cli.source_foundation import prepare_source_foundation_plan
 from fdai_deployment_cli.standalone_deploy import deploy_azure_foundation
 from fdai_deployment_cli.state import read_journal
 from fdai_deployment_cli.status_projection import project_status
@@ -152,6 +157,8 @@ def _provision_init(args: argparse.Namespace) -> int:
 def _provision_azure(args: argparse.Namespace) -> int:
     """Run the standalone active-Azure-login deployment path."""
 
+    from fdai_deployment_cli.installation_scope import InstallationOptions
+
     runtime_profile = RuntimeDeploymentProfile.create(
         runtime_platform=args.runtime,
         database_placement=args.database,
@@ -161,9 +168,34 @@ def _provision_azure(args: argparse.Namespace) -> int:
         user_node_max_count=args.max_user_nodes,
         user_node_sku=args.user_node_sku,
     )
+    if (args.prepare_only or args.preflight_only) and args.source is None:
+        raise ValueError("source-only preparation or preflight requires --source")
+    if args.approval_file is not None and (
+        args.source is None or args.prepare_only or args.preflight_only
+    ):
+        raise ValueError("--approval-file requires source deployment, not preparation or preflight")
+    initial_options_requested = (
+        args.setup_cost_ceiling is not None
+        or args.console_access is not None
+        or args.allow_dedicated_identities
+        or args.cleanup_temporary_resources
+    )
+    if initial_options_requested and (
+        args.source is None
+        or args.prepare_only
+        or args.preflight_only
+        or args.approval_file is not None
+    ):
+        raise ValueError(
+            "initial scope options require a source install without an exact approval file"
+        )
     selected_dir = args.work_dir
     if selected_dir is None:
-        selected_dir = Path.home() / ".local/state/fdai/azure"
+        selected_dir = Path.home() / (
+            ".local/state/fdai/azure-source"
+            if args.source is not None
+            else ".local/state/fdai/azure"
+        )
     work_dir = selected_dir if selected_dir.is_absolute() else Path.cwd() / selected_dir
     adoption_paths = tuple(
         getattr(args, name)
@@ -177,6 +209,67 @@ def _provision_azure(args: argparse.Namespace) -> int:
         path is not None for path in adoption_paths
     ):
         raise ValueError("recovered public deployment requires all three adoption inputs")
+    if args.source is not None:
+        if args.online_url is not None or any(path is not None for path in adoption_paths):
+            raise ValueError(
+                "source deployment cannot reuse kit URLs or application-state adoption"
+            )
+        if not args.prepare_only and not args.preflight_only:
+            result = plan_source_installation(
+                source_root=args.source,
+                work_dir=work_dir,
+                runtime_profile=runtime_profile,
+                region=args.region,
+                monthly_cost_ceiling=args.monthly_cost_ceiling,
+                timeout_seconds=args.timeout_seconds,
+                approval_file=args.approval_file,
+                interactive=False,
+                installation_options=(
+                    InstallationOptions(
+                        setup_cost_ceiling=args.setup_cost_ceiling,
+                        console_access=args.console_access or "public-https-entra",
+                        allow_dedicated_identities=args.allow_dedicated_identities,
+                        cleanup_temporary_resources=args.cleanup_temporary_resources,
+                    )
+                    if args.approval_file is None
+                    else None
+                ),
+                confirm_initial=args.output == "text" and sys.stdin.isatty(),
+            )
+            _print_mapping(
+                result,
+                output=args.output,
+                text=(
+                    f"source deployment: {result['state']}; "
+                    f"reason={result.get('reason_code', 'review_required')}; deployment is not ready"
+                ),
+            )
+            return 2 if result["state"] == "review" else 3
+        result = prepare_source_deployment(
+            source_root=args.source,
+            work_dir=work_dir,
+            runtime_profile=runtime_profile,
+            region=args.region,
+            monthly_cost_ceiling=args.monthly_cost_ceiling,
+        )
+        if args.preflight_only:
+            result = inspect_aks_target(
+                profile=runtime_profile,
+                region=args.region,
+                timeout_seconds=min(args.timeout_seconds, 180),
+            )
+            _print_mapping(
+                result,
+                output=args.output,
+                text=f"AKS capacity preflight: {result['state']}; no deployment performed",
+            )
+            return 0 if result["state"] == "feasible" else 3
+        _print_mapping(
+            result,
+            output=args.output,
+            text="source snapshot prepared; no Azure access or deployment performed",
+        )
+        return 0
 
     def adoption_path(value: Path | None) -> Path | None:
         if value is None or value.is_absolute():
@@ -309,6 +402,23 @@ def _provision_plan(args: argparse.Namespace) -> int:
     work_dir = _absolute_work_dir(args.work_dir)
     profile = load_profile(args.profile)
     foundation = args.stage == "foundation"
+    source_mode = args.source_snapshot is not None
+    if source_mode:
+        if (
+            not foundation
+            or not args.save_plan
+            or args.source_snapshot_digest is None
+            or args.terraform is None
+        ):
+            raise ValueError(
+                "source plans require foundation, --save-plan, snapshot digest and Terraform"
+            )
+        if args.release_root is not None or args.bundle_public_key is not None:
+            raise ValueError("source plans cannot accept kit verification keys")
+    elif args.release_root is None or args.bundle_public_key is None:
+        raise ValueError("kit plans require release and bundle verification keys")
+    elif args.source_snapshot_digest is not None or args.terraform is not None:
+        raise ValueError("kit plans cannot accept source execution inputs")
     if args.save_plan and not foundation:
         raise ValueError("saved local plans are supported only for the foundation stage")
     if foundation and (profile.host != "managed-vm" or profile.monthly_cost_ceiling <= 0):
@@ -325,9 +435,26 @@ def _provision_plan(args: argparse.Namespace) -> int:
         active_binding=active_binding,
         use_managed_identity=os.environ.get("ARM_USE_MSI", "").casefold() == "true",
     )
+    if source_mode:
+        _create_private_work_dir(work_dir)
+        result = prepare_source_foundation_plan(
+            snapshot=_absolute_work_dir(args.source_snapshot),
+            snapshot_digest=cast(str, args.source_snapshot_digest),
+            terraform=_absolute_work_dir(cast(Path, args.terraform)),
+            profile=profile,
+            variables_file=args.variables_file,
+            work_dir=work_dir,
+            environment_builder=_terraform_environment,
+        )
+        _print_mapping(
+            result,
+            output=args.output,
+            text="source Foundation plan saved; exact human approval remains required",
+        )
+        return 0
     verification = verify_offline_kit(
         args.offline_kit,
-        release_root_pem=_read_public_key(args.release_root),
+        release_root_pem=_read_public_key(cast(Path, args.release_root)),
         cli_version=__version__,
         platform_tag=_runtime_platform_tag(),
     )
@@ -345,7 +472,7 @@ def _provision_plan(args: argparse.Namespace) -> int:
     )
     bundle_verification = verify_bundle(
         bundle_root,
-        public_key_pem=_read_public_key(args.bundle_public_key),
+        public_key_pem=_read_public_key(cast(Path, args.bundle_public_key)),
         cli_version=__version__,
     )
     _require_bundle_version(

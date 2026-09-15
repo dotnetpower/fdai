@@ -18,6 +18,7 @@ from fdai_deployment_cli.foundation_plan import REVIEW_NAME
 from fdai_deployment_cli.plan_input import read_plan_input
 from fdai_deployment_cli.private_output import read_private_bytes
 from fdai_deployment_cli.profile import load_profile
+from fdai_deployment_cli.source_snapshot import verify_source_snapshot
 from genesis_checks import CheckError
 from genesis_vm_sku_preflight import recheck_foundation_vm
 
@@ -78,6 +79,53 @@ class FoundationPlanInputs:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class SourceFoundationPlanInputs:
+    """Source-bound inputs with no kit identity or publisher-key fallback."""
+
+    source_snapshot: Path
+    source_snapshot_digest: str
+    terraform: Path
+    profile: Path
+    variables_file: Path
+
+    def validate(self) -> None:
+        """Require absolute paths and a currently verified source snapshot."""
+        if not all(path.is_absolute() for path in self.paths):
+            raise FoundationPlanError("foundation_input_paths_must_be_absolute", 64)
+        if _DIGEST.fullmatch(self.source_snapshot_digest) is None:
+            raise FoundationPlanError("foundation_source_snapshot_digest_invalid", 64)
+        verify_source_snapshot(self.source_snapshot, expected_digest=self.source_snapshot_digest)
+
+    @property
+    def paths(self) -> tuple[Path, ...]:
+        """Return paths without inventing signed-kit inputs."""
+        return (self.source_snapshot, self.terraform, self.profile, self.variables_file)
+
+
+FoundationInputs = FoundationPlanInputs | SourceFoundationPlanInputs
+
+
+def _artifact_arguments(inputs: FoundationInputs) -> tuple[str, ...]:
+    if isinstance(inputs, SourceFoundationPlanInputs):
+        return (
+            "--source-snapshot",
+            str(inputs.source_snapshot),
+            "--source-snapshot-digest",
+            inputs.source_snapshot_digest,
+            "--terraform",
+            str(inputs.terraform),
+        )
+    return (
+        "--offline-kit",
+        str(inputs.offline_kit),
+        "--release-root",
+        str(inputs.release_root),
+        "--bundle-public-key",
+        str(inputs.bundle_public_key),
+    )
+
+
 def missing_foundation_report() -> dict[str, object]:
     """Return an identifier-free report for the externally supplied input boundary."""
 
@@ -101,7 +149,7 @@ def missing_foundation_report() -> dict[str, object]:
 
 def prepare_foundation_plan(
     *,
-    inputs: FoundationPlanInputs,
+    inputs: FoundationInputs,
     repository_root: Path,
     orchestration_work_dir: Path,
     attempt: int,
@@ -147,12 +195,7 @@ def prepare_foundation_plan(
         "plan",
         "--stage",
         "foundation",
-        "--offline-kit",
-        str(inputs.offline_kit),
-        "--release-root",
-        str(inputs.release_root),
-        "--bundle-public-key",
-        str(inputs.bundle_public_key),
+        *_artifact_arguments(inputs),
         "--profile",
         str(inputs.profile),
         "--work-dir",
@@ -176,8 +219,10 @@ def prepare_foundation_plan(
     if not isinstance(result, dict):
         raise FoundationPlanError("foundation_plan_result_invalid")
     saved = result.get("saved_plan")
+    source_mode = isinstance(inputs, SourceFoundationPlanInputs)
+    expected_schema = "fdai.provision-source-plan.v1" if source_mode else "fdai.provision-plan.v1"
     if (
-        result.get("schema_version") != "fdai.provision-plan.v1"
+        result.get("schema_version") != expected_schema
         or result.get("stage") != "foundation"
         or result.get("state") != "review"
         or result.get("apply_authorized") is not False
@@ -186,14 +231,28 @@ def prepare_foundation_plan(
         or not isinstance(saved, dict)
     ):
         raise FoundationPlanError("foundation_plan_result_invalid")
-    report = _report_from_saved_plan(saved, plan_ref=plan_ref, attempt=attempt)
+    if isinstance(inputs, SourceFoundationPlanInputs) and (
+        result.get("source_snapshot_digest") != inputs.source_snapshot_digest
+        or result.get("provenance") != "operator-selected-source"
+        or result.get("release_signature_verified") is not False
+        or result.get("deployment_ready") is not False
+    ):
+        raise FoundationPlanError("foundation_source_plan_binding_invalid")
+    report = _report_from_saved_plan(
+        saved,
+        plan_ref=plan_ref,
+        attempt=attempt,
+        expected_schema="fdai.foundation-saved-source-plan.v1"
+        if source_mode
+        else "fdai.foundation-saved-plan.v1",
+    )
     _validate_report(report)
     return report
 
 
 def _reverify_current_plan(
     *,
-    inputs: FoundationPlanInputs,
+    inputs: FoundationInputs,
     repository_root: Path,
     orchestration_work_dir: Path,
     prior_report: dict[str, object],
@@ -214,6 +273,17 @@ def _reverify_current_plan(
             label="Foundation review",
         )
         context = review.get("context")
+        if isinstance(inputs, SourceFoundationPlanInputs):
+            source = verify_source_snapshot(
+                inputs.source_snapshot, expected_digest=inputs.source_snapshot_digest
+            )
+            if (
+                review.get("schema_version") != "fdai.foundation-saved-source-plan.v1"
+                or not isinstance(context, dict)
+                or context.get("source_snapshot_digest") != inputs.source_snapshot_digest
+                or context.get("source_input_digest") != canonical_digest(source)
+            ):
+                raise FoundationPlanError("foundation_source_plan_binding_invalid", 3)
         current_variables_digest = _current_variables_digest(
             inputs=inputs,
             orchestration_work_dir=orchestration_work_dir,
@@ -267,7 +337,7 @@ def _reverify_current_plan(
     return prior_report
 
 
-def _current_variables_digest(*, inputs: FoundationPlanInputs, orchestration_work_dir: Path) -> str:
+def _current_variables_digest(*, inputs: FoundationInputs, orchestration_work_dir: Path) -> str:
     profile = load_profile(inputs.profile)
     with TemporaryDirectory(
         prefix="foundation-plan-input-", dir=orchestration_work_dir
@@ -284,10 +354,14 @@ def _current_variables_digest(*, inputs: FoundationPlanInputs, orchestration_wor
 
 
 def _report_from_saved_plan(
-    saved: dict[str, object], *, plan_ref: str, attempt: int
+    saved: dict[str, object],
+    *,
+    plan_ref: str,
+    attempt: int,
+    expected_schema: str = "fdai.foundation-saved-plan.v1",
 ) -> dict[str, object]:
     if (
-        saved.get("schema_version") != "fdai.foundation-saved-plan.v1"
+        saved.get("schema_version") != expected_schema
         or saved.get("state") != "review"
         or saved.get("apply_authorized") is not False
         or saved.get("mutation_performed") is not False

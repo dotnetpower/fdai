@@ -1,6 +1,6 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 7287bb9de51cc14f4505dd5a0d4f5e041edf355c
+translation_source_sha: 4ba6aae475fafacabbd7bf1e98e38847415dc4ae
 translation_revised: 2026-09-15
 ---
 # 서비스 승격과 데이터 소유권
@@ -50,6 +50,9 @@ translation_revised: 2026-09-15
 | 기록 상태 읽기 변환 결과 | validated | Core 및 Azure 인벤토리 변환 결과, Operator 기록 상태 변환 결과, Console 디코더 및 이유 기반 표시, 집중 검사와 실제 근거 | Operator는 활성 인벤토리 세대를 읽기 전용으로 변환합니다. Console은 Azure를 조회하거나 정상 여부를 추론하거나 변경 권한을 얻지 않습니다. |
 | 서비스 소유 테스트 범위 | implemented | `tests/integration/service-suites.json`, 서비스 스위트 소유권 게이트, 집중 Operator 측정 테스트 | 각 서비스 테스트 파일에는 정확히 하나의 소유 서비스 스위트가 있습니다. Dashboard 집계 및 출처 projection 테스트는 Operator 단위 테스트 그룹에 유지되며 새 서비스 경계를 의미하지 않습니다. |
 ### 구현 이력
+
+인수인계 전달 상태와 로컬 UI 근거 정정에 따른 파생 카탈로그 갱신은 [영문 구현 이력](service-graduation-and-ownership.md#implementation-history)에 기록합니다. 서비스, 쓰기 담당, 전송 경로나 권한은 바뀌지 않으며 실제 보조 기술, 공급자 및 배포 근거는 별도로 유지합니다.
+CI `34928980843`이 통과한 보호된 main `91ff893cb` 병합 후의 카탈로그 재생성도 같은 영문 이력에 기록합니다. Console 입력과 upstream 작업 워커 예산 수정은 그대로 보존합니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|

@@ -90,6 +90,8 @@ an all-Low review claim, or operational adoption.
 
 | 2026-09-15 | implemented | Round 30 repaired stale ontology-bound semantic source artifacts caused by the new alert declarations. Ran the existing review-gated offline generator rather than changing a validation receipt's digest by hand. It measured the same seven held-out retrieval cohorts, rechecked 16 unchanged F1-F8 cases, preserved historical receipts and package/promotion state, and emitted a new content-addressed validation-only receipt. | `current change`; 44 source/runtime/profile checks passed, then 18 corrected exact-pin/generator/receipt tests passed. Profile and package convergence validators pass with ontology release `sha256:a3c824bf91653141c36ef7b7fcc2d39bcfc52d55a634d97c5f875a9e8b6a2661`; second generator check reports `changed=0`. | Revalidate the complete failed-node slice and publish the repaired PR head. These are source checks, not new provider, deployment or promotion evidence. |
 
+| 2026-09-15 | implemented | Integrated main `97a72cc1d` after the six CI repair batches, preserving handover UI fixes, source deployment features, the workload-identity adapter contract and both sides' append-only history. Reconciled the task environment against the new frozen workspace lock. | `current change`; 104 owning credential/transport/composition/alert/package/test-ownership checks and Console types passed; changed-document size passed against `97a72cc1d`. The new exact-release semantic artifacts remain source-only and no cloud operation ran. | Publish the repaired head and require fresh exact-head CI before protected merge. |
+
 ### Remaining work
 
 The temporal source extension passed 121 focused replay/IaC/admitted-source checks, then 30 native
@@ -98,7 +100,7 @@ planning and pipeline regression slice passed 40 checks. Temporal replay measure
 branch coverage; changed source strict typing passed. The exact admitted reader now consumes real
 frozen source cohorts when supplied, instead of requiring an externally calculated comparison.
 
-Current integration base: `91ff893cb`. Assignment/handover, Teams lifecycle and ActionRun authority
+Current integration base: `97a72cc1d`. Assignment/handover, Teams lifecycle and ActionRun authority
 coexist with alert handlers and their workers, topics, readiness and 211-route manifest. Alert effects
 retain the shared no-effect completion boundary; generic PR/health evidence cannot verify delivery
 or recall. The latest integration checks passed 147 cases and five-boundary strict typing.

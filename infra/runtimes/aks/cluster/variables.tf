@@ -75,7 +75,7 @@ variable "system_node_count" {
 variable "system_node_sku" {
   description = "System-pool Azure VM SKU."
   type        = string
-  default     = "Standard_D2as_v5"
+  default     = "Standard_D4as_v5"
 }
 
 variable "user_node_min_count" {

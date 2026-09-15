@@ -59,7 +59,6 @@ public evidence source. The Pages workflow publishes the resulting static files 
 | Event bus or broadcast disclosure | Inspect overlapping topics and each declared subscriber fan-out |
 | Pub/sub declarations | Browse every relevant canonical topic and available Python handlers |
 | Azure Resource Graph node | Focus the source-backed query entry point |
-| Resource scan / change detection | Inspect the inventory query and resource-change polling functions |
 | Orbit | Slowly move around the full neural field |
 | Follow | Default Activity camera; follow the latest story activity, or pin a selected agent |
 | Tour | Automatically frame the overview, event bus, a Python function, and Azure |

@@ -15,7 +15,8 @@ from fdai_service_contracts import (
 
 
 class _AccessToken(Protocol):
-    token: str
+    @property
+    def token(self) -> str: ...
 
 
 class ProtectionTokenCredential(Protocol):

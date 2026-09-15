@@ -83,6 +83,7 @@
           "services/operator-service/tests/test_assignment_revocation.py",
           "services/operator-service/tests/test_autonomy_measurement_projection.py",
           "services/operator-service/tests/test_azure_cli_token.py",
+          "services/operator-service/tests/test_azure_workload_credential.py",
           "services/operator-service/tests/test_background_task_projection.py",
           "services/operator-service/tests/test_browser_evidence_projection.py",
           "services/operator-service/tests/test_conversation_history.py",

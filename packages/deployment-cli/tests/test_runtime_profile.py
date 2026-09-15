@@ -38,6 +38,7 @@ def test_aks_profile_accepts_supported_node_floors(database: str, user_nodes: in
     )
 
     assert profile.runtime_platform.value == "aks"
+    assert profile.system_node_sku == "Standard_D4as_v5"
     assert profile.user_node_min_count == user_nodes
 
 

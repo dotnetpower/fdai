@@ -644,6 +644,145 @@ def test_postgres_aks_substrate_excludes_flexible_server() -> None:
     assert "module.key_vault" in targets
 
 
+@pytest.mark.parametrize("existing", [False, True])
+def test_aks_kubeconfig_uses_explicit_host_identity(tmp_path, monkeypatch, existing):
+    tmp_path.chmod(0o700)
+    kubeconfig = tmp_path / "aks.kubeconfig"
+    if existing:
+        kubeconfig.write_text("prior kubeconfig")
+        kubeconfig.chmod(0o600)
+    context = {
+        "client_id": "00000000-0000-0000-0000-000000000001",
+        "subscription_id": "00000000-0000-0000-0000-000000000002",
+    }
+    commands = []
+
+    def run(command, **kwargs):
+        commands.append(command)
+        assert kubeconfig.stat().st_mode & 0o777 == 0o600
+        assert kwargs["cwd"] == tmp_path
+        assert kwargs["timeout"] in (60, 180)
+        kubeconfig.write_text("generated kubeconfig")
+
+    monkeypatch.setattr(standalone_host, "_run", run)
+    reads = []
+
+    def capture(command, **kwargs):
+        reads.append(command)
+        assert command[:3] == ("kubectl", "config", "view")
+        assert "--minify" in command and "--raw" not in command
+        return json.dumps(
+            {
+                "users": [
+                    {
+                        "user": {
+                            "exec": {
+                                "command": "kubelogin",
+                                "args": [
+                                    "get-token",
+                                    "--login",
+                                    "msi",
+                                    "--client-id",
+                                    context["client_id"],
+                                ],
+                            }
+                        }
+                    }
+                ]
+            }
+        )
+
+    monkeypatch.setattr(standalone_host, "_capture", capture)
+    assert (
+        standalone_host._prepare_aks_kubeconfig(
+            context, tmp_path, resource_group="example-group", cluster_name="example-cluster"
+        )
+        == kubeconfig
+    )
+    assert commands[0][commands[0].index("--subscription") + 1] == context["subscription_id"]
+    assert "--admin" not in commands[0]
+    assert len(reads) == 1
+    assert commands[1] == (
+        "kubelogin",
+        "convert-kubeconfig",
+        "--kubeconfig",
+        str(kubeconfig),
+        "--login",
+        "msi",
+        "--client-id",
+        context["client_id"],
+    )
+
+
+@pytest.mark.parametrize("failure", ["link", "public-file", "missing-client", "convert"])
+def test_aks_kubeconfig_fails_closed(tmp_path, monkeypatch, failure):
+    tmp_path.chmod(0o700)
+    kubeconfig = tmp_path / "aks.kubeconfig"
+    if failure == "link":
+        kubeconfig.symlink_to(tmp_path / "missing")
+    elif failure == "public-file":
+        kubeconfig.write_text("unsafe config")
+        kubeconfig.chmod(0o644)
+    context = {
+        "client_id": "" if failure == "missing-client" else "00000000-0000-0000-0000-000000000001",
+        "subscription_id": "00000000-0000-0000-0000-000000000002",
+    }
+    commands = []
+
+    def run(command, **_kwargs):
+        commands.append(command)
+        if command[0] == "kubelogin":
+            raise ValueError("conversion failed")
+        kubeconfig.write_text("generated")
+
+    monkeypatch.setattr(standalone_host, "_run", run)
+    with pytest.raises((ValueError, OSError)):
+        standalone_host._prepare_aks_kubeconfig(
+            context, tmp_path, resource_group="example-group", cluster_name="example-cluster"
+        )
+    assert len(commands) == (2 if failure == "convert" else 0)
+
+
+@pytest.mark.parametrize(
+    "authentication", ["devicecode", "wrong-client", "duplicate", "secret", "multiple-users", "env"]
+)
+def test_aks_kubeconfig_readback_rejects_wrong_authentication(
+    tmp_path, monkeypatch, authentication
+):
+    tmp_path.chmod(0o700)
+    client = "00000000-0000-0000-0000-000000000001"
+    context = {"client_id": client, "subscription_id": "00000000-0000-0000-0000-000000000002"}
+    user = {
+        "exec": {
+            "command": "kubelogin",
+            "args": ["get-token", "--login", "msi", "--client-id", client],
+        }
+    }
+    if authentication == "devicecode":
+        user["exec"]["args"][2] = "devicecode"
+    elif authentication == "wrong-client":
+        user["exec"]["args"][-1] = "unselected-client"
+    elif authentication == "duplicate":
+        user["exec"]["args"].extend(["--login", "devicecode"])
+    elif authentication == "secret":
+        user["token"] = "synthetic-test-token"
+    elif authentication == "env":
+        user["exec"]["env"] = [{"name": "AZURE_CLIENT_ID", "value": "other"}]
+    users = [{"user": user}] * (2 if authentication == "multiple-users" else 1)
+    monkeypatch.setattr(
+        standalone_host,
+        "_run",
+        lambda *_args, **_kwargs: (tmp_path / "aks.kubeconfig").write_text("config"),
+    )
+    monkeypatch.setattr(
+        standalone_host, "_capture", lambda *_args, **_kwargs: json.dumps({"users": users})
+    )
+    with pytest.raises(ValueError, match="AKS authentication"):
+        standalone_host._prepare_aks_kubeconfig(
+            context, tmp_path, resource_group="example-group", cluster_name="example-cluster"
+        )
+
+
 def test_aks_workload_binds_digest_image_and_additional_identity() -> None:
     digest = "a" * 64
     workload = standalone_host._aks_workload(
@@ -665,12 +804,110 @@ def test_aks_workload_binds_digest_image_and_additional_identity() -> None:
 
     assert workload["image"] == (f"example.azurecr.io/operator-service@sha256:{digest}")
     assert workload["external"] is True
+    assert workload["environment"]["FDAI_DATABASE_ROLE"] == "fdai_operator"
+    assert workload["environment"]["PGOPTIONS"] == "-c role=fdai_operator"
+    assert workload["environment"]["FDAI_EXECUTION_VENUE"] == "deployed"
     assert workload["additional_identities"] == {
         "command": {
             "resource_id": "/identities/command",
             "client_id": "command-client",
         }
     }
+
+
+@pytest.mark.parametrize(
+    ("component", "service", "role"),
+    [
+        ("operator", "operator-service", "fdai_operator"),
+        ("executor", "isolated-executor", "fdai_executor"),
+        ("ingestion", "document-ingestion-api", "fdai_ingestion_api"),
+        ("worker", "document-processing-worker", "fdai_ingestion_worker"),
+    ],
+)
+def test_aks_workload_preserves_service_database_role(component, service, role) -> None:
+    environment = {"RUNTIME_ENV": "dev", "FDAI_DATABASE_ROLE": "wrong-role", "PGOPTIONS": ""}
+    workload = standalone_host._aks_workload(
+        component,
+        {service: f"example.com/{service}@sha256:{'a' * 64}"},
+        {"resource_id": f"/identities/{component}", "client_id": f"{component}-client"},
+        environment,
+        {},
+        "/ready",
+        "/live",
+    )
+
+    assert workload["environment"]["FDAI_DATABASE_ROLE"] == role
+    assert workload["environment"]["PGOPTIONS"] == f"-c role={role}"
+    assert workload["environment"]["FDAI_EXECUTION_VENUE"] == "deployed"
+    assert "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER" not in workload["environment"]
+    assert environment == {
+        "RUNTIME_ENV": "dev",
+        "FDAI_DATABASE_ROLE": "wrong-role",
+        "PGOPTIONS": "",
+    }
+
+
+@pytest.mark.parametrize(
+    "missing_service",
+    [
+        "core-control-plane",
+        "operator-service",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor",
+        None,
+    ],
+)
+def test_aks_application_readback_requires_complete_baseline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, missing_service: str | None
+) -> None:
+    kubeconfig = tmp_path / "aks.kubeconfig"
+    kubeconfig.write_text("test configuration", encoding="utf-8")
+    expected = {
+        name: {"image": f"example.com/{name}@sha256:{'a' * 64}", "replicas": 2}
+        for name in (
+            "core-control-plane",
+            "operator-service",
+            "document-ingestion-api",
+            "document-processing-worker",
+            "isolated-executor",
+        )
+        if name != missing_service
+    }
+    observations: list[str] = []
+    health_checks: list[dict[str, object]] = []
+
+    def capture(command: tuple[str, ...], **_kwargs: object) -> str:
+        observations.append(command[2])
+        return "observed-json"
+
+    def verify_health(**kwargs: object) -> bool:
+        health_checks.append(kwargs)
+        return True
+
+    monkeypatch.setattr(standalone_host, "_capture", capture)
+    monkeypatch.setattr(standalone_host, "verify_workload_health", verify_health)
+    context = {
+        "runtime_profile": {"runtime_platform": "aks", "database_placement": "postgres-flex"},
+        "kubeconfig": str(kubeconfig),
+        "expected_workloads": expected,
+        "source_commit": "c" * 40,
+    }
+
+    assert standalone_host._readback_stage("application", context) is (missing_service is None)
+    if missing_service is None:
+        assert observations == ["deployments", "pods"]
+        assert health_checks == [
+            {
+                "deployments": "observed-json",
+                "pods": "observed-json",
+                "expected": expected,
+                "source_commit": "c" * 40,
+            }
+        ]
+    else:
+        assert observations == []
+        assert health_checks == []
 
 
 def test_database_plan_requires_cluster_and_image_receipts(tmp_path: Path) -> None:
