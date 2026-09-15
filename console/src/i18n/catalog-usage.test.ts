@@ -6,6 +6,7 @@ import mainCatalog from "./messages.en.json";
 import analyticsCatalog from "../routes/i18n/analytics.en.json";
 import approvalsCatalog from "../routes/i18n/approvals.en.json";
 import architectureCatalog from "../routes/i18n/architecture.en.json";
+import browserEvidenceCatalog from "../routes/i18n/browser-evidence.en.json";
 import conversationAssuranceCatalog from "../routes/i18n/conversation-assurance.en.json";
 import costGovernanceCatalog from "../routes/i18n/cost-governance.en.json";
 import dashboardV2Catalog from "../routes/i18n/dashboard-v2.en.json";
@@ -112,6 +113,9 @@ describe("console static translation keys", () => {
       ...catalogKeys(architectureCatalog),
       ...catalogKeys({ architecture: architectureCatalog }),
     ]);
+    const browserEvidenceKeys = catalogKeys({
+      browserEvidence: browserEvidenceCatalog,
+    });
     const conversationAssuranceKeys = catalogKeys({ assurance: conversationAssuranceCatalog });
     const costGovernanceKeys = catalogKeys({ costGovernance: costGovernanceCatalog });
     const dashboardV2Keys = catalogKeys(dashboardV2Catalog);
@@ -144,6 +148,8 @@ describe("console static translation keys", () => {
       const relativePath = relative(SOURCE_ROOT, file);
       const routeKeys = catalogImport.includes('from "./i18n/approvals"')
         ? approvalsKeys
+        : catalogImport.includes('from "./i18n/browser-evidence"')
+        ? browserEvidenceKeys
         : catalogImport.includes('from "./i18n/cost-governance"')
         ? costGovernanceKeys
         : catalogImport.includes('from "./i18n/dashboard-v2"') ||

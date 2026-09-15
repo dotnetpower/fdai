@@ -306,6 +306,10 @@ mutation surface, and it writes no PR and no audit entry. Its
 `side_effect_class` is `read`, and a shadow-mode test asserts it never
 touches the executor, the PR adapter, or the state store. This is what
 keeps it safe at the Reader floor. Browser capture follows [Browser evidence collection](browser-evidence.md); Bragi never receives a browser handle.
+The Reader-only Browser evidence workspace receives admitted scalar custody metadata through its
+versioned projection, while snapshot-wide withheld reasons contain no record identity. Exact
+filters, cursors, and Audit or Trace links remain read operations; they cannot request a capture,
+reveal captured material, or grant promotion, approval, or execution authority.
 ### 3.2 Week-1 additions (write / approve / runbook)
 
 | Tool | Purpose | RBAC floor | Notes |

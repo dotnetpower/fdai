@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 96aa2064ef1b40c277eb3e2c9c6e6d6356338add
-translation_revised: 2026-09-15
+translation_source_sha: c1be54ff6ed45ea5f7cc343e595e1dcb86080fdd
+translation_revised: 2026-09-16
 ---
 # FDAI Console 대화
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다.
@@ -304,6 +304,10 @@ Catalog-owned resource-health 이력 의도도 같은 결정론적 precedence를
 호출하지 않고, PR과 감사 항목을 쓰기 안 함. 그 `side_effect_class`는
 `read` 이며, shadow-mode 테스트가 실행기 / PR 어댑터 / 상태 저장소를 절대
 건드리지 않음을 assert. 이것이 읽기 담당 하한에서 안전한 이유입니다. 브라우저 수집은 [브라우저 근거 수집](browser-evidence-ko.md) 계약을 따르며 Bragi는 브라우저 handle을 받지 않습니다.
+Reader 전용 브라우저 근거 작업 공간은 버전이 지정된 변환 결과를 통해 허용된 스칼라 보관
+메타데이터를 받으며 스냅샷 전체 보류 사유에는 기록 식별정보가 없습니다. 정확한 필터, 커서 및
+Audit 또는 Trace 링크는 읽기 작업으로 유지됩니다. 수집을 요청하거나 수집 자료를 공개하거나
+승격, 승인 또는 실행 권한을 부여할 수 없습니다.
 ### 3.2 Week-1 추가 (쓰기 / approve / 런북)
 
 | 도구 | 목적 | RBAC 하한 | 참고 |

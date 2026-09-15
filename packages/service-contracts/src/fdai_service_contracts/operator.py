@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -110,6 +111,100 @@ class BrowserEvidenceQuery:
     def __post_init__(self) -> None:
         if not 1 <= self.limit <= 500:
             raise ValueError("browser evidence limit must be in [1, 500]")
+
+
+@dataclass(frozen=True, slots=True)
+class BrowserEvidenceWorkspaceQuery:
+    """Bound one exact-filter, drift-aware Browser evidence workspace page."""
+
+    limit: int
+    cursor: str | None = None
+    artifact_id: str | None = None
+    host: str | None = None
+    host_scope: Literal["requested", "final", "either"] = "either"
+    policy_id: str | None = None
+    policy_version: int | None = None
+    captured_from: datetime | None = None
+    captured_before: datetime | None = None
+    retention: Literal["held", "expired_pending_purge", "expiring", "retained"] | None = None
+    finding: Literal["present", "clear"] | None = None
+    custody_ref: str | None = None
+    sort: Literal["attention", "newest"] = "attention"
+
+    def __post_init__(self) -> None:
+        if type(self.limit) is not int or not 1 <= self.limit <= 500:
+            raise ValueError("browser evidence workspace limit MUST be in [1, 500]")
+        if self.cursor is not None and (not re.fullmatch(r"[A-Za-z0-9_-]{1,4096}", self.cursor)):
+            raise ValueError("browser evidence workspace cursor MUST be bounded base64url")
+        if (
+            self.artifact_id is not None
+            and re.fullmatch(r"sha256:[0-9a-f]{64}", self.artifact_id) is None
+        ):
+            raise ValueError("browser evidence artifact MUST be a canonical SHA-256 id")
+        if self.host is not None:
+            candidate = self.host.strip().rstrip(".")
+            try:
+                canonical = candidate.encode("idna").decode("ascii").lower()
+            except UnicodeError as exc:
+                raise ValueError("browser evidence host MUST be valid IDNA") from exc
+            if (
+                not candidate
+                or canonical != self.host
+                or len(canonical) > 253
+                or any(character.isspace() for character in canonical)
+            ):
+                raise ValueError("browser evidence host MUST be an exact lowercase IDNA hostname")
+        if self.host_scope not in {"requested", "final", "either"}:
+            raise ValueError("browser evidence host scope MUST be requested, final, or either")
+        if self.policy_id is not None and not _bounded_ascii_operator_text(
+            self.policy_id, maximum=256
+        ):
+            raise ValueError("browser evidence policy id MUST be bounded ASCII text")
+        if self.policy_version is not None and (
+            self.policy_id is None
+            or type(self.policy_version) is not int
+            or self.policy_version < 1
+            or self.policy_version > 2_147_483_647
+        ):
+            raise ValueError(
+                "browser evidence policy version MUST be positive and include policy id"
+            )
+        for value, label in (
+            (self.captured_from, "captured_from"),
+            (self.captured_before, "captured_before"),
+        ):
+            if value is not None and value.tzinfo is None:
+                raise ValueError(f"browser evidence {label} MUST include timezone")
+        if (
+            self.captured_from is not None
+            and self.captured_before is not None
+            and self.captured_from >= self.captured_before
+        ):
+            raise ValueError("browser evidence capture bounds are reversed")
+        if self.retention is not None and self.retention not in {
+            "held",
+            "expired_pending_purge",
+            "expiring",
+            "retained",
+        }:
+            raise ValueError("browser evidence retention filter is invalid")
+        if self.finding is not None and self.finding not in {"present", "clear"}:
+            raise ValueError("browser evidence finding filter MUST be present or clear")
+        if self.custody_ref is not None and not _bounded_ascii_operator_text(
+            self.custody_ref, maximum=512
+        ):
+            raise ValueError("browser evidence custody reference MUST be bounded ASCII text")
+        if self.sort not in {"attention", "newest"}:
+            raise ValueError("browser evidence sort MUST be attention or newest")
+
+
+def _bounded_ascii_operator_text(value: object, *, maximum: int) -> bool:
+    return (
+        isinstance(value, str)
+        and 1 <= len(value) <= maximum
+        and value == value.strip()
+        and all(32 <= ord(character) <= 126 for character in value)
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -284,6 +379,10 @@ class OperatorReadModel(Protocol):
 
     async def list_browser_evidence(self, query: BrowserEvidenceQuery) -> JsonProjection: ...
 
+    async def list_browser_evidence_workspace(
+        self, query: BrowserEvidenceWorkspaceQuery
+    ) -> JsonProjection: ...
+
     async def dashboard_metrics(self) -> JsonProjection: ...
 
     async def llm_usage(self, range_start: datetime, range_end: datetime) -> JsonProjection: ...
@@ -312,6 +411,7 @@ __all__ = [
     "AgentActivityReadModel",
     "AuditQuery",
     "BrowserEvidenceQuery",
+    "BrowserEvidenceWorkspaceQuery",
     "HilQueueProjection",
     "HilQueueQuery",
     "IncidentAttentionQuery",
