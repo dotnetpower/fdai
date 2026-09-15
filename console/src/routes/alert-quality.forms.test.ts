@@ -178,11 +178,12 @@ describe("authorized picker and producer/read separation", () => {
     for (const assessment of [null, { ...data.assessment!, valid_until: "2026-09-14T10:01:00Z" }]) {
       const onAssess = vi.fn();
       const view = inspect(AlertQualityRequestControls({ state: { status: "ready", data: { ...data,
-        assessment, unavailable_reason: "assessment_expired" } }, command: "idle", onAssess, onRefresh: vi.fn(), onStop: vi.fn() }));
+        assessment, unavailable_reason: "assessment_expired" } }, command: "idle", onAssess, onRefresh: vi.fn(), onStop: vi.fn(),
+        periodSeconds: 86400, onPeriodChange: vi.fn() }));
       const button = view.elements.find((item) => item.props["aria-describedby"] === "alert-quality-assess-help")!;
       expect(button.props.disabled).toBe(false);
       (button.props.onClick as () => void)();
-      expect(onAssess).toHaveBeenCalledTimes(1);
+      expect(onAssess).toHaveBeenCalledExactlyOnceWith(86400);
     }
   });
 
@@ -190,7 +191,7 @@ describe("authorized picker and producer/read separation", () => {
     for (const [command, requestable] of [["unknown", true], ["idle", false]] as const) {
       const onAssess = vi.fn();
       const view = inspect(AlertQualityRequestControls({ state: { status: "ready", data: { ...data, requestable } },
-        command, onAssess, onRefresh: vi.fn(), onStop: vi.fn() }));
+        command, onAssess, onRefresh: vi.fn(), onStop: vi.fn(), periodSeconds: 86400, onPeriodChange: vi.fn() }));
       const button = view.elements.find((item) => item.props["aria-describedby"] === "alert-quality-assess-help")!;
       expect(button.props.disabled).toBe(true);
       (button.props.onClick as () => void)();
@@ -201,7 +202,8 @@ describe("authorized picker and producer/read separation", () => {
   it("keeps manual requests disabled for a settings veto even when the report is still enabled", () => {
     const onAssess = vi.fn();
     const view = inspect(AlertQualityRequestControls({ state: { status: "ready", data: { ...data, requestable: true } },
-      command: "idle", preferenceHeld: true, onAssess, onRefresh: vi.fn(), onStop: vi.fn() }));
+      command: "idle", preferenceHeld: true, onAssess, onRefresh: vi.fn(), onStop: vi.fn(),
+      periodSeconds: 86400, onPeriodChange: vi.fn() }));
     const button = view.elements.find((item) => item.props["aria-describedby"] === "alert-quality-assess-help")!;
     expect(button.props.disabled).toBe(true);
     (button.props.onClick as () => void)();

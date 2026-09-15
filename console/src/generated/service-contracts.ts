@@ -36,6 +36,7 @@ export interface AlertNoiseCommandV1_0_0AlertNoiseCommand {
   readonly evidence_digest?: string | null;
   readonly treatment?: AlertNoiseCommandV1_0_0AlertTreatment | null;
   readonly execution_authority?: false;
+  readonly period_seconds?: number | null;
 }
 
 export interface AlertNoiseCommandV1_0_0 {
@@ -97,6 +98,7 @@ export interface AlertNoiseResultV1_0_0AlertNoiseCommand {
   readonly evidence_digest?: string | null;
   readonly treatment?: AlertNoiseResultV1_0_0AlertTreatment | null;
   readonly execution_authority?: false;
+  readonly period_seconds?: number | null;
 }
 
 export interface AlertNoiseResultV1_0_0NoiseFinding {
@@ -110,6 +112,8 @@ export interface AlertNoiseResultV1_0_0NoiseFinding {
   readonly potential_recipients_upper?: number | null;
   readonly duplicate_paths?: number;
   readonly protected: boolean;
+  readonly team_refs?: ReadonlyArray<string> | null;
+  readonly audience_kinds?: ReadonlyArray<"direct" | "group" | "role" | "channel" | "oncall"> | null;
 }
 
 export interface AlertNoiseResultV1_0_0NoiseAssessment {

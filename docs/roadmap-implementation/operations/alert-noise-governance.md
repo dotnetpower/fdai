@@ -20,6 +20,7 @@ an all-Low review claim, or operational adoption.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| ANG-2: source-backed selectors | implemented | [Ownership and facet contracts](../../../packages/service-contracts/src/fdai_service_contracts/alert_noise.py), [period API checks](../../../services/operator-service/tests/test_alert_quality_period.py), [source checks](../../../services/core-control-plane/tests/core/detection/alert_noise/test_facets_and_period.py), [Console filters](../../../console/src/routes/alert-quality.facets.ts) | Complete current ownership supplies team refs; effective destinations supply kind sets; missing facets stay unknown. Whole-hour period requests use actual bounded source reads, not clipped report totals. Operational source population remains ANG-1 work. |
 | ANG-2: exact request and proposal detail | implemented | [Request history source](../../../services/operator-service/src/fdai_operator_service/alert_quality_history.py), [history tests](../../../services/operator-service/tests/test_alert_quality_history.py), [Console history](../../../console/src/routes/alert-quality.history.tsx), [browser cases](../../../console/tests/e2e/alert-quality.spec.ts) | Scoped original acceptance and exact signed terminal, explicit unconfirmed expiry, full normalized rollback baseline, measured detector guards, and actual Process links. Current approvals/outcomes remain in the canonical journal. Team/audience/period selector sources remain open. |
 | ANG-1: versioned evidence and read-only collection mechanics | implemented | [Shared contracts](../../../packages/service-contracts/src/fdai_service_contracts/alert_noise.py), [contract tests](../../../packages/service-contracts/tests/test_alert_noise.py), [Azure reader](../../../services/core-control-plane/src/fdai/delivery/azure/alert_noise_source.py), [source tests](../../../services/core-control-plane/tests/delivery/azure/test_alert_noise_source.py), [history tests](../../../services/core-control-plane/tests/delivery/azure/test_alert_noise_history.py) | Bounded native reads, private pseudonymous evidence, and explicit partial/unknown states exist. A private processing-rule record is not an inventory declaration. |
 | ANG-1: complete operational evidence | in-progress | [Admitted supplement reader](../../../services/core-control-plane/src/fdai/delivery/alert_noise_evidence.py), [admission tests](../../../services/core-control-plane/tests/delivery/test_alert_noise_evidence.py) | Native collection does not prove directory membership, current ownership/incident state, complete reverse dependencies, historical rule revisions, or delivery/recipient outcomes. Exact-base independent supplements are required, not claimed produced. |
@@ -55,6 +56,8 @@ an all-Low review claim, or operational adoption.
 
 | 2026-09-15 | implemented | Registered actual signed command, result and readiness codecs and all 12 N/N-1 pairs. Old capability markers remain offline-only; no signed record downgrade exists. Runtime paths use the same codec instances and retain signature checks. | `current change`; 164 focused contract, bridge, agent-pipeline and runtime checks passed. The generator refreshes only ten offline mechanics receipts; the seven-edge historical live certificate remains unchanged. | Exact deployed peer activation/rollback evidence remains separate from source compatibility. |
 
+| 2026-09-15 | implemented | Added independently stamped team sets, exact finding facets, and 1-168-hour source reads through the signed request and existing Operator outbox. Omitted periods preserve original acceptance bytes; shifted or wrong-length source intervals hold. Added scoped bilingual filters and next-assessment period selection without changing report totals or authority. | `current change`; 328 owning backend checks and 292 Console checks passed; strict source typing, Console types and schema/generation parity passed. Thirteen isolated browser cases passed, with the two affected cases rerun after final facet consistency; desktop, 993px, 390px, 320px and measured 200% text/spacing passed. | Standard authenticated and full assistive-technology evidence, durable compensation, operational sources and protected delivery remain separate. |
+
 ### Remaining work
 
 The temporal source extension passed 121 focused replay/IaC/admitted-source checks, then 30 native
@@ -89,8 +92,10 @@ The focused merge check passed 32 tests plus Console types and changed-boundary 
   held and unconfirmed outcomes. New proposal details bind the normalized rollback baseline,
   detector replay guards and actual Process link. Current approvals and outcomes stay journal-owned.
   Backend, Console and browser checks pass without resending uncertain writes.
-- [ ] **ANG-2 selectors:** Add team/audience-kind/period selectors only from authoritative fields.
-  A service reference is not a team; an observation window is not a selectable coverage claim.
+- [x] **ANG-2 selectors:** Source-stamped team and effective audience-kind sets now drive bounded
+  display filters, with explicit unknown values and per-rule identity consistency. Period selection
+  requests the exact fresh native interval; it never changes old aggregate denominators. Real source
+  population remains required, and a service reference is never a team alias.
 - [x] **Settings composition:** The existing factory passes `StateKvAlertQualityPreferenceStore`.
   Owner authorization, CAS/audit, conflict, unavailable and shadow-independence tests pass; round 11
   proves CAS and new-connection replay against actual loopback PostgreSQL.
@@ -135,7 +140,6 @@ The focused merge check passed 32 tests plus Console types and changed-boundary 
 | Priority | Unclosed outcome | Next falsifying evidence |
 |----------|------------------|--------------------------|
 | High | End-to-end approved provider effect and recovery cannot be qualified from reader factories or synthetic receipts. | Select an authorized environment, bind real directory/ownership/delivery/exclusion/observer sources and retain independently admitted exact-plan observations. No secrets or tenant values belong in this ledger. |
-| Medium | Team/audience-kind/period selectors require authoritative source fields. | Exact source-backed facets and frozen-period selection, without relabeling services as teams or inventing historical coverage. |
 | Medium | Durable compensation and standard authenticated accessibility remain unverified. | Forward dispatch/effect replay now passes complete migrations; separately prove compensation restart and the remaining UI rubric gates. Intercepted browser data is not authenticated operational evidence. |
 
 These open items mean the complete user-requested design is not yet implemented or at an all-Low

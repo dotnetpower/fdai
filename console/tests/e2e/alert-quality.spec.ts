@@ -18,6 +18,7 @@ async function fixture(page: Page, options: {
   expired?: boolean; ambiguous?: boolean; settingsConflict?: boolean;
   scopeGate?: Promise<void>;
   reconcile?: boolean;
+  facets?: boolean;
 } = {}) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.clock.setFixedTime(new Date(now));
@@ -26,6 +27,10 @@ async function fixture(page: Page, options: {
   const report = structuredClone(reportFixture);
   const settings = structuredClone(settingsFixture);
   report.assessment.findings.push({ ...report.assessment.findings[0]!, reason: "flapping", guidance: "review-evaluation" });
+  if (options.facets) {
+    Object.assign(report.assessment.findings[0]!, { team_refs: ["team:example"], audience_kinds: ["group"] });
+    report.assessment.findings[1]!.rule_ref = "rule:example_2";
+  }
   if (options.expired) report.assessment.valid_until = "2026-09-14T10:04:00Z";
   // Replace only the test browser's module response. Production authentication is unchanged.
   if (!options.anonymous) await page.route("**/src/auth.ts*", (route) => route.fulfill({
@@ -85,7 +90,8 @@ async function fixture(page: Page, options: {
     if (path === "/alert-quality/assess" || path === "/alert-quality/proposals") {
       writes.push({ path, body: request.postDataJSON(), key: request.headers()["idempotency-key"] });
       if (options.ambiguous) return route.abort();
-      return route.fulfill({ status: 202, json: { ...report, unavailable_reason: "proposal_pending" } });
+      return route.fulfill({ status: 202, json: { ...report, available: false, requestable: false,
+        assessment: null, plans: [], unavailable_reason: path.endsWith("assess") ? "assessment_pending" : "proposal_pending" } });
     }
     if (path === "/alert-quality") return route.fulfill({ json: options.missing
       ? { ...report, assessment: null, plans: [], unavailable_reason: "assessment_missing" } : report });
@@ -111,6 +117,41 @@ async function geometry(page: Page) {
 }
 
 test.describe.configure({ mode: "serial" });
+
+test("source facets and period use keyboard without changing retained totals", async ({ page }, info) => {
+  const { writes } = await fixture(page, { facets: true });
+  const main = page.locator("main");
+  const findings = main.locator("#alert-quality-findings");
+  await expect(findings.locator("tbody tr")).toHaveCount(2);
+  const team = findings.getByRole("combobox", { name: en.team, exact: true });
+  await team.focus();
+  await team.press("End");
+  await team.press("Enter");
+  await expect(team).toHaveValue("team:example");
+  await expect(findings.locator("tbody tr")).toHaveCount(1);
+  const audience = findings.getByRole("combobox", { name: en.audienceKind, exact: true });
+  await audience.selectOption("group");
+  await expect(findings.locator("tbody tr")).toHaveCount(1);
+  await team.selectOption("__unknown__");
+  await audience.selectOption("__unknown__");
+  await expect(findings.locator("tbody tr")).toHaveCount(1);
+  expect(writes).toHaveLength(0);
+  const period = main.getByRole("combobox", { name: en.requestedPeriod, exact: true });
+  await period.focus();
+  await period.press("Home");
+  await period.press("Enter");
+  await expect(period).toHaveValue("3600");
+  await expect(main.locator("#alert-quality-evidence time").first()).toHaveAttribute("datetime", reportFixture.assessment.observed_at);
+  const assess = main.getByRole("button", { name: en.assess, exact: true });
+  await assess.focus();
+  await assess.press("Enter");
+  await expect(main.getByText(en["command.submitted"], { exact: true })).toBeVisible();
+  expect(writes).toHaveLength(1);
+  expect(writes[0]!.body).toEqual({ scope_ref: scope, period_seconds: 3600 });
+  await geometry(page);
+  await findings.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath("alert-facets-en-desktop.png") });
+});
 
 test("desktop request history exposes exact baseline and canonical Process navigation", async ({ page }, info) => {
   const { writes } = await fixture(page);
@@ -209,11 +250,11 @@ test("desktop completes only the threshold evaluation axis", async ({ page }) =>
 });
 
 test("Korean expanded evidence fits desktop then constrained and mobile", async ({ page }, info) => {
-  await fixture(page, { locale: "ko" });
+  await fixture(page, { locale: "ko", facets: true });
   await expect(page.locator("main").getByRole("button", { name: ko.assess, exact: true })).toBeEnabled();
   const summaries = page.locator("main details > summary");
   for (const summary of await summaries.all()) await summary.click();
-  for (const viewport of [{ width: 1440, height: 900 }, { width: 993, height: 641 }, { width: 390, height: 844 }]) {
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 993, height: 641 }, { width: 390, height: 844 }, { width: 320, height: 844 }]) {
     await page.setViewportSize(viewport);
     await geometry(page);
     await page.locator("main").evaluate((element) => { element.scrollTop = 0; });
@@ -222,6 +263,16 @@ test("Korean expanded evidence fits desktop then constrained and mobile", async 
       .getByRole("heading", { name: ko.before, exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: info.outputPath(`alert-history-ko-${viewport.width}.png`) });
   }
+  // Measure every original font first so inherited values do not double repeatedly.
+  await page.locator("main").evaluate((main) => {
+    const elements = [main, ...main.querySelectorAll<HTMLElement>("*")];
+    const sizes = elements.map((element) => Number.parseFloat(getComputedStyle(element).fontSize));
+    elements.forEach((element, index) => { (element as HTMLElement).style.fontSize = `${sizes[index]! * 2}px`; });
+  });
+  await page.addStyleTag({ content: "main * { line-height:1.5!important; letter-spacing:.12em!important; word-spacing:.16em!important } main p { margin-bottom:2em!important }" });
+  await geometry(page);
+  await page.locator("main select[name=team_ref]").scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath("alert-facets-ko-320-text200.png") });
 });
 
 test("scope loading starts with an accessible reduced-motion skeleton", async ({ page }) => {

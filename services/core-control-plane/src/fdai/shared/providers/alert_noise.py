@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from fdai_service_contracts.alert_noise import AlertEvidence, Audience, NoiseAssessment
 from fdai_service_contracts.alert_noise_plan import (
@@ -19,6 +19,13 @@ class AlertEvidenceSource(Protocol):
     """Collect a server-bound scope using a reader identity, never caller endpoints."""
 
     async def collect(self, *, now: datetime) -> AlertEvidence: ...
+
+
+@runtime_checkable
+class AlertPeriodEvidenceSource(Protocol):
+    """Collect an exact requested interval; unsupported sources must not broaden it."""
+
+    async def collect_period(self, *, now: datetime, period_seconds: int) -> AlertEvidence: ...
 
 
 class AlertAudienceResolver(Protocol):

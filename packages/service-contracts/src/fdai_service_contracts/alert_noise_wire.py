@@ -11,7 +11,12 @@ from uuid import NAMESPACE_URL, uuid5
 
 from pydantic import Field, model_validator
 
-from fdai_service_contracts.alert_noise import NoiseAssessment, Ref, digest_record
+from fdai_service_contracts.alert_noise import (
+    AlertPeriodSeconds,
+    NoiseAssessment,
+    Ref,
+    digest_record,
+)
 from fdai_service_contracts.alert_noise_base import AlertContractBase as ContractBase
 from fdai_service_contracts.alert_noise_base import AlertTime as AwareDatetime
 from fdai_service_contracts.alert_noise_base import FalseOnly
@@ -49,9 +54,12 @@ class AlertNoiseCommand(ContractBase):
     evidence_digest: Digest | None = None
     treatment: AlertTreatment | None = None
     execution_authority: FalseOnly = False
+    period_seconds: AlertPeriodSeconds | None = None
 
     @model_validator(mode="after")
     def shape(self) -> Self:
+        if self.operation != "alert_noise.assess" and self.period_seconds is not None:
+            raise ValueError("alert period selection belongs only to new assessments")
         if not 0 < (self.expires_at - self.requested_at).total_seconds() <= 300:
             raise ValueError("alert request MUST have a bounded positive deadline")
         if (self.operation == "alert_noise.propose") != (
@@ -93,6 +101,15 @@ class AlertNoiseResult(ContractBase):
             raise ValueError("only proposal results may contain a plan")
         if self.assessment is not None and self.assessment.scope_ref != self.command.scope_ref:
             raise ValueError("alert result scope mismatch")
+        if self.assessment is not None and self.command.period_seconds is not None:
+            start, end = self.assessment.window_start, self.assessment.window_end
+            if (
+                start is None
+                or end is None
+                or (end - start).total_seconds() != self.command.period_seconds
+                or not self.command.requested_at <= end <= self.recorded_at
+            ):
+                raise ValueError("alert assessment MUST match the exact requested period")
         if self.plan is not None and (
             self.plan.requester_ref != self.command.requester_ref
             or self.plan.scope_ref != self.command.scope_ref

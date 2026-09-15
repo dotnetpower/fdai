@@ -13,7 +13,7 @@
         "request_ref": "request:example", "requester_ref": "principal:example",
         "scope_ref": "scope:example", "requested_at": "2026-09-15T00:00:00Z",
         "expires_at": "2026-09-15T00:05:00Z", "evidence_digest": null,
-        "treatment": null, "execution_authority": false
+        "treatment": null, "execution_authority": false, "period_seconds": null
       },
       "signature": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
     }
@@ -34,9 +34,9 @@
           "request_ref": "request:example", "requester_ref": "principal:example",
           "scope_ref": "scope:example", "requested_at": "2026-09-15T00:00:00Z",
           "expires_at": "2026-09-15T00:05:00Z", "evidence_digest": null,
-          "treatment": null, "execution_authority": false
+          "treatment": null, "execution_authority": false, "period_seconds": null
         },
-        "command_digest": "sha256:f4a0b869b8dd829fee879f0a20445fb1801a658901a79e6945f94f62508da615",
+        "command_digest": "sha256:565ecb3ec9fd323c4c44898b37e4ccb60aed9e86f84994d696857404d0cc2345",
         "recorded_at": "2026-09-15T00:00:01Z", "status": "held",
         "reason": "source_unavailable", "assessment": null, "plan": null,
         "detail": null, "execution_authority": false

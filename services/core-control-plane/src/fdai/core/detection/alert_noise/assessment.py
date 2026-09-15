@@ -43,6 +43,7 @@ def assess_alert_noise(
         raise ValueError("assessment clock MUST include a timezone")
     groups = {group.ref: group for group in evidence.groups}
     audience_map = {audience.ref: audience for audience in evidence.audiences}
+    ownership = {row.service_ref: row for row in evidence.service_ownership}
     by_rule: dict[str, list[AlertDelivery]] = defaultdict(list)
     for item in evidence.deliveries:
         by_rule[item.rule_ref].append(item)
@@ -56,6 +57,15 @@ def assess_alert_noise(
     findings: list[NoiseFinding] = []
     candidate_count = 0
     for rule in sorted(evidence.rules, key=lambda item: item.ref):
+        owner = ownership.get(rule.service_ref)
+        teams = (
+            owner.team_refs
+            if rule.ownership_verified
+            and owner is not None
+            and owner.stamp.coverage == "complete"
+            and owner.stamp.current_at(now)
+            else None
+        )
         events = by_rule[rule.ref]
         episodes = {item.episode_ref for item in events if item.condition == "fired"}
         destinations: set[str] = set()
@@ -139,6 +149,12 @@ def assess_alert_noise(
                         "potential_recipients_upper": upper,
                         "duplicate_paths": overlap if lower_value is not None else 0,
                         "protected": rule.protected,
+                        "team_refs": teams,
+                        "audience_kinds": (
+                            tuple(sorted({audience.kind for audience in audiences}))
+                            if complete
+                            else None
+                        ),
                     }
                 )
             )

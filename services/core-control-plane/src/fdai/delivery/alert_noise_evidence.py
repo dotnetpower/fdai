@@ -35,7 +35,7 @@ from fdai.delivery.alert_noise_records import (
 from fdai.delivery.alert_noise_records import (
     read_admitted_alert_record as read_admitted_alert_record,
 )
-from fdai.shared.providers.alert_noise import AlertEvidenceSource
+from fdai.shared.providers.alert_noise import AlertEvidenceSource, AlertPeriodEvidenceSource
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.state_store import StateStore
 
@@ -86,16 +86,34 @@ class AdmittedAlertEvidenceSource:
 
     async def collect(self, *, now: datetime) -> AlertEvidence:
         """Collect native evidence first; never replace a failed read with a ledger-only answer."""
+        return await self._bounded_collect(now, None)
+
+    async def collect_period(self, *, now: datetime, period_seconds: int) -> AlertEvidence:
+        """Retain the selected native interval through independent supplement admission."""
+        return await self._bounded_collect(now, period_seconds)
+
+    async def _bounded_collect(self, now: datetime, period_seconds: int | None) -> AlertEvidence:
         try:
             async with asyncio.timeout(65):
-                return await self._collect(now)
+                return await self._collect(now, period_seconds)
         except AlertExecutionHeld:
             raise
         except Exception:
             raise AlertExecutionHeld("alert_evidence_unavailable") from None
 
-    async def _collect(self, now: datetime) -> AlertEvidence:
-        base = AlertEvidence.model_validate(await self._inner.collect(now=now))
+    async def _collect(self, now: datetime, period_seconds: int | None) -> AlertEvidence:
+        if period_seconds is None:
+            collected = await self._inner.collect(now=now)
+        elif isinstance(self._inner, AlertPeriodEvidenceSource):
+            collected = await self._inner.collect_period(now=now, period_seconds=period_seconds)
+        else:
+            raise AlertExecutionHeld("period_source_unavailable")
+        base = AlertEvidence.model_validate(collected)
+        if period_seconds is not None and (
+            base.window_end != now
+            or (base.window_end - base.window_start).total_seconds() != period_seconds
+        ):
+            raise AlertExecutionHeld("alert_period_mismatch")
         if (
             base.stamp.synthetic
             or base.stamp.scope_ref != self._scope_ref
@@ -169,6 +187,9 @@ class AdmittedAlertEvidenceSource:
         }
         if len(base.rules) != len(enriched.rules) or len(base.groups) != len(enriched.groups):
             raise AlertExecutionHeld("alert_supplement_configuration_changed")
+        owners = {row.service_ref: row for row in enriched.service_ownership}
+        if any(owners.get(row.service_ref) != row for row in base.service_ownership):
+            raise AlertExecutionHeld("alert_supplement_ownership_changed")
         for old, new in zip(base.rules, enriched.rules, strict=True):
             if old.model_dump(exclude=allowed) != new.model_dump(exclude=allowed) or (
                 old.classification != "unknown" and old.classification != new.classification

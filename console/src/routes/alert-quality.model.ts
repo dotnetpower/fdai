@@ -11,6 +11,7 @@ const ACTIONS = ["ops.update-alert-routing", "ops.set-alert-notification-window"
 export const ALERT_FINDINGS_PAGE_SIZE = 50;
 export const ALERT_MAX_PLANS = 32;
 export const ALERT_MAX_PROJECTION_BYTES = 1_048_576;
+export const ALERT_AUDIENCE_KINDS = ["direct", "group", "role", "channel", "oncall"] as const;
 
 /** The privacy-minimized finding preserves distinct episode, delivery and potential counts. */
 export interface AlertNoiseFinding {
@@ -24,6 +25,8 @@ export interface AlertNoiseFinding {
   readonly potential_recipients_upper: number | null;
   readonly duplicate_paths: number;
   readonly protected: boolean;
+  readonly team_refs?: readonly string[] | null;
+  readonly audience_kinds?: readonly typeof ALERT_AUDIENCE_KINDS[number][] | null;
 }
 
 /** Exact NoiseAssessment 1.0.0 projection; validity is not an observation period. */
@@ -219,7 +222,11 @@ export function alertQualityScope(search: URLSearchParams): string | null {
 }
 
 function finding(value: unknown): AlertNoiseFinding {
-  const row = exact(value, "rule_ref service_ref reason guidance source_episodes observed_deliveries potential_recipients_lower potential_recipients_upper duplicate_paths protected");
+  const row = exact(value, "rule_ref service_ref reason guidance source_episodes observed_deliveries potential_recipients_lower potential_recipients_upper duplicate_paths protected team_refs audience_kinds");
+  const teams = Object.hasOwn(row, "team_refs") ? { team_refs: row.team_refs === null ? null : refs(row.team_refs, 32, true) } : {};
+  const kinds = Object.hasOwn(row, "audience_kinds") ? { audience_kinds: row.audience_kinds === null ? null
+    : array(row.audience_kinds, 5).map((kind) => member(kind, ALERT_AUDIENCE_KINDS)) } : {};
+  if (kinds.audience_kinds?.some((kind, index, values) => index > 0 && kind <= values[index - 1]!)) fail("audience kinds must be sorted and unique");
   const lower = nullableCount(row.potential_recipients_lower);
   const upper = nullableCount(row.potential_recipients_upper);
   if (lower !== null && upper !== null && lower > upper) fail("recipient bounds are reversed");
@@ -232,6 +239,7 @@ function finding(value: unknown): AlertNoiseFinding {
     source_episodes: nullableCount(row.source_episodes), observed_deliveries: nullableCount(row.observed_deliveries),
     potential_recipients_lower: lower, potential_recipients_upper: upper,
     duplicate_paths: boundedInteger(row.duplicate_paths), protected: boolean(row.protected),
+    ...teams, ...kinds,
   };
 }
 
@@ -254,10 +262,14 @@ function assessment(value: unknown): AlertNoiseAssessment {
   }
   const findings = array(row.findings, 10_000).map(finding);
   const ruleServices = new Map<string, string>();
+  const ruleFacets = new Map<string, string>();
   for (const item of findings) {
     const service = ruleServices.get(item.rule_ref);
     if (service !== undefined && service !== item.service_ref) fail("rule service identity is inconsistent");
     ruleServices.set(item.rule_ref, item.service_ref);
+    const facets = JSON.stringify([item.team_refs ?? null, item.audience_kinds ?? null]);
+    if (ruleFacets.has(item.rule_ref) && ruleFacets.get(item.rule_ref) !== facets) fail("rule facet identity is inconsistent");
+    ruleFacets.set(item.rule_ref, facets);
   }
   return {
     schema_version: literal(row.schema_version, "1.0.0"), source: literal(row.source, "alert-noise-evidence"),

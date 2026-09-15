@@ -19,11 +19,13 @@ from typing import Any
 from fdai_service_contracts.alert_noise import (
     AlertEvidence,
     AlertGroup,
+    AlertPeriodSeconds,
     AlertRule,
     Audience,
     EvidenceStamp,
     ProcessingRule,
 )
+from pydantic import TypeAdapter
 
 from fdai.delivery.azure.alert_noise_history import attach_alert_history, pin_evidence
 from fdai.delivery.azure.alert_noise_http import (
@@ -138,9 +140,14 @@ class AzureAlertEvidenceSource:
 
     async def collect(self, *, now: datetime) -> AlertEvidence:
         """Use only ARM GETs; every source and optional resolver shares a finite budget."""
+        return await self.collect_period(now=now, period_seconds=86400)
+
+    async def collect_period(self, *, now: datetime, period_seconds: int) -> AlertEvidence:
+        """Query the exact selected whole-hour interval without claiming complete history."""
+        period_seconds = TypeAdapter(AlertPeriodSeconds).validate_python(period_seconds)
         if now.tzinfo is None:
             raise ValueError("alert evidence cutoff MUST be timezone-aware")
-        start = now - timedelta(days=1)
+        start = now - timedelta(seconds=period_seconds)
         budget = self._reader.new_budget()
         raw: dict[str, tuple[Mapping[str, Any], ...]] = {}
         failures: dict[str, str] = {}

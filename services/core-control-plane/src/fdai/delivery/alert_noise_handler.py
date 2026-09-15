@@ -32,7 +32,11 @@ from fdai.core.detection.alert_noise.workflow import AlertWorkflowCoordinator
 from fdai.delivery.alert_noise_codecs import COMMAND_CONSUMER_V1, RESULT_PRODUCER_V1
 from fdai.delivery.alert_noise_evidence import StateStoreAlertEvaluationReader
 from fdai.delivery.alert_noise_projection import alert_proposal_detail
-from fdai.shared.providers.alert_noise import AlertEvidenceSource, AlertPlanArtifacts
+from fdai.shared.providers.alert_noise import (
+    AlertEvidenceSource,
+    AlertPeriodEvidenceSource,
+    AlertPlanArtifacts,
+)
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.state_store import StateStore
 
@@ -106,8 +110,22 @@ class AlertNoiseAgentHandler:
             else:
                 try:
                     async with asyncio.timeout(65):
-                        evidence = await source.collect(now=now)
+                        if command.period_seconds is None:
+                            evidence = await source.collect(now=now)
+                        elif isinstance(source, AlertPeriodEvidenceSource):
+                            evidence = await source.collect_period(
+                                now=now, period_seconds=command.period_seconds
+                            )
+                            if (
+                                evidence.window_end != now
+                                or (evidence.window_end - evidence.window_start).total_seconds()
+                                != command.period_seconds
+                            ):
+                                raise ValueError("alert source returned a different period")
+                        else:
+                            reason = "period_source_unavailable"
                 except (ValueError, RuntimeError, TimeoutError):
+                    evidence = None
                     reason = "source_unavailable"
         evidence_digest: str | None = None
         if evidence is not None:

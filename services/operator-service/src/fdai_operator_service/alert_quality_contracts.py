@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, Self
 
-from fdai_service_contracts.alert_noise import NoiseAssessment, Ref
+from fdai_service_contracts.alert_noise import AlertPeriodSeconds, NoiseAssessment, Ref
 from fdai_service_contracts.alert_noise_base import FalseOnly
 from fdai_service_contracts.alert_noise_plan import AlertChangePlan, AlertTreatment
 from fdai_service_contracts.executor_models import ContractBase, Digest
@@ -82,10 +82,11 @@ class AlertQualityScopesResponse(ContractBase):
 
 
 class AlertAssessmentBody(ContractBase):
-    """Only a scope selector is accepted for a producer-owned assessment request."""
+    """Select scope and optional bounded source period; never supply assessment facts."""
 
     model_config = ConfigDict(strict=True, str_strip_whitespace=False)
     scope_ref: Ref
+    period_seconds: AlertPeriodSeconds | None = None
 
     @model_validator(mode="after")
     def exact_scope(self) -> Self:
@@ -98,6 +99,7 @@ class AlertProposalBody(AlertAssessmentBody):
 
     evidence_digest: Digest
     treatment: AlertTreatment
+    period_seconds: None = None
 
     @model_validator(mode="after")
     def exact_treatment_axis(self) -> Self:

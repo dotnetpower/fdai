@@ -38,7 +38,7 @@ export type AlertQualityRequestMemory = ReturnType<typeof createAlertQualityRequ
 /** One mounted, authorized scope owns these requests. Disposal never claims server cancellation. */
 export interface AlertQualitySession {
   readonly load: () => Promise<void>;
-  readonly assess: () => Promise<void>;
+  readonly assess: (periodSeconds?: number) => Promise<void>;
   readonly propose: (draft: AlertProposalDraft) => Promise<void>;
   readonly proposeRouting: (rule: string, remove: string, replacement: string) => Promise<void>;
   readonly stopWaiting: () => void;
@@ -201,7 +201,10 @@ export function createAlertQualitySession(
     ? null : validateAlertProposal(data, scope, draft, Date.now()).body);
   return {
     load,
-    assess: () => send("/alert-quality/assess", () => ({ scope_ref: scope })),
+    assess: (periodSeconds) => send("/alert-quality/assess", () => periodSeconds === undefined
+      ? { scope_ref: scope }
+      : Number.isSafeInteger(periodSeconds) && periodSeconds >= 3600 && periodSeconds <= 604800 && periodSeconds % 3600 === 0
+        ? { scope_ref: scope, period_seconds: periodSeconds } : null),
     propose,
     proposeRouting: (rule, remove, replacement) => propose({
       kind: "routing", target_ref: rule, remove_group_ref: remove, replacement_group_ref: replacement,

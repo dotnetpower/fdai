@@ -237,6 +237,21 @@
           "default": false,
           "title": "Execution Authority",
           "type": "boolean"
+        },
+        "period_seconds": {
+          "anyOf": [
+            {
+              "maximum": 604800,
+              "minimum": 3600,
+              "multipleOf": 3600,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Period Seconds"
         }
       },
       "required": [
@@ -1244,6 +1259,47 @@
         "protected": {
           "title": "Protected",
           "type": "boolean"
+        },
+        "team_refs": {
+          "anyOf": [
+            {
+              "items": {
+                "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+                "type": "string"
+              },
+              "maxItems": 32,
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Team Refs"
+        },
+        "audience_kinds": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "direct",
+                  "group",
+                  "role",
+                  "channel",
+                  "oncall"
+                ],
+                "type": "string"
+              },
+              "maxItems": 5,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Audience Kinds"
         }
       },
       "required": [

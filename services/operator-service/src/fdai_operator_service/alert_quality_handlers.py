@@ -152,13 +152,17 @@ async def _post(
         # Namespace the existing globally keyed outbox by principal, NOT body content.
         # Reusing a key with another scope, operation or treatment therefore conflicts.
         request_key = alert_request_ref(principal.subject_id, keys[0])
+        selectors = body.model_dump(mode="json")
+        if body.period_seconds is None:
+            # Preserve the original default request bytes and its durable idempotency identity.
+            selectors.pop("period_seconds", None)
         proposal = EventProposal(
             operation=operation,
             principal_id=principal.subject_id,
             idempotency_key=request_key,
             correlation_id=request_key,
             payload={
-                **body.model_dump(mode="json"),
+                **selectors,
                 "request_idempotency_key": keys[0],
                 "requester_ref": alert_quality_requester_ref(principal.subject_id, body.scope_ref),
             },

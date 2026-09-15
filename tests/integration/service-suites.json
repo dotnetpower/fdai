@@ -72,6 +72,7 @@
         "unit": [
           "services/operator-service/tests/test_adaptive_relationship.py",
           "services/operator-service/tests/test_alert_quality.py",
+          "services/operator-service/tests/test_alert_quality_period.py",
           "services/operator-service/tests/test_alert_quality_history.py",
           "services/operator-service/tests/test_alert_quality_settings.py",
           "services/operator-service/tests/test_analyzer_coverage_projection.py",

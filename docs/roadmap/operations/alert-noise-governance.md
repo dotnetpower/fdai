@@ -327,14 +327,15 @@ missed incidents, SLO burn, escalation latency, delivery failures, and rollback 
 guard metrics. Stop and recover on a protected-path regression, even if volume improved.
 
 The implemented **Operations > Alert quality** surface is Live-only and uses server-discovered
-authorized scopes, rule/service filters, and inert routing, finite-window, and evaluation forms.
+authorized scopes, source-backed rule/service/team/audience filters, and inert single-axis forms.
 It separates observed counts from unknowns, observation bounds from evidence cutoff/expiry, and
 named treatment values from retained baseline references. Detailed request reads use the original
 Operator acceptance and exact signed terminal, never a newer report as proof of completion. An
 expired request without a result stays unconfirmed. Exact request-key reconciliation permits a new
 deliberate request, never automatic resend. Signed proposal details bind the full rollback baseline,
 replay metrics and canonical Process link; the Process journal owns current approval/outcome state.
-Team/audience-kind/period filters and modeled benefits require their own real source fields.
+Team/kind facets use source facts; period selection requests new evidence, never clipped totals.
+Missing facets stay unknown; modeled benefits still require independent evidence.
 A report action submits a typed request, never an ARM call or approval. The Settings API and UI
 separate prerequisites, enabled preference, and authority, with scoped human Owner revision checks.
 Operator composition binds its durable preference store; an unavailable Settings record is not a

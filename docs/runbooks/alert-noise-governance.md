@@ -111,6 +111,15 @@ not part of the previously certified seven-edge deployed transition.
 
 All routes revalidate current identity and exact scope; responses use `Cache-Control: no-store`.
 
+Team filters use a complete, current `service_ownership` evidence row containing the exact
+`service_ref`, sorted `team_refs` and independent source stamp. Missing, stale or unverified
+ownership stays unknown; service identity is never relabeled as a team. Audience kinds come from
+the observed effective destinations and remain unknown when routing coverage is incomplete.
+These display facets do not grant approval or change the assessment's aggregate denominators.
+For a new assessment, `period_seconds` selects whole hours from 1 to 168; omission keeps the
+source's one-day default. The Console offers 1 hour, 1 day and 7 days. Selection requests a new
+bounded source read; it never clips an old aggregate or claims complete historical coverage.
+
 | Request | Meaning |
 |---------|---------|
 | `GET /alert-quality/scopes` | Discover only the signed-in subject's configured opaque scopes; no query arguments. |

@@ -55,5 +55,6 @@ def command_from_record(record: Mapping[str, Any]) -> AlertNoiseCommand:
             "expires_at": accepted + timedelta(minutes=5),
             "evidence_digest": body.get("evidence_digest"),
             "treatment": body.get("treatment"),
+            "period_seconds": body.get("period_seconds"),
         }
     )

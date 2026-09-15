@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: d89f7b2c504e0884a34afce4a9ce508f3fcef4e7
+translation_source_sha: caed015e050085fecdc54f411ce7f8e141cc0cc9
 translation_revised: 2026-09-15
 ---
 
@@ -38,8 +38,8 @@ Operations 영역은 기존 도메인 변환 결과를 읽고, 각 스키마와 
 | Operator API 도메인 요청 경로 | 인증, 인가, 출처 개정 번호와 도메인 스키마 검증, 중복 제거, publish | 요청을 접수하며 판단하거나 실행하지 않습니다. |
 | 에이전트 런타임 | 타입이 지정된 pub/sub으로 판단, 승인, 실행, 복구, 감사 | 기존 pantheon 소유권이 권한을 유지합니다. |
 
-Operator API는 Thor의 실행기 신원이 없는 공용 비특권 중계이며 작업 흐름 엔진이나 숨은 에이전트가 아닙니다.
-에이전트는 직접 호출이 아닌 타입 지정 이벤트로 통신합니다. [알림 과다 수신 요청](../operations/alert-noise-governance-ko.md)은 원래 접수와 서명된 결과를 표시합니다.
+Operator API는 실행기 신원이 없는 중계이며 에이전트 직접 호출 대신 타입 지정 이벤트를 사용합니다. 작업 흐름 엔진이나 숨은 에이전트가 아닙니다.
+출처 기반 필터와 새 기간 조회는 기존 합계를 바꾸지 않습니다. [알림 과다 수신 요청](../operations/alert-noise-governance-ko.md)은 원래 접수와 서명된 결과를 표시합니다.
 불확실성은 정확한 요청 키의 최종 결과로만 해소하며 승인과 효과 상태는 정본 Process가 소유합니다.
 
 기록된 Resource 상태 화면은 브라우저에서 공급자 원시 필드를 해석하지 않고 공유하는 독립 상태

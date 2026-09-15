@@ -147,7 +147,7 @@ export function useAlertQualityReport(identity: AlertQualityIdentity, scopes: Al
   return {
     state: alertQualityReadPresentation(state, "report"), command, now,
     refresh: () => { if (current()) void session.current?.load(); },
-    assess: () => { if (current()) void session.current?.assess(); },
+    assess: (periodSeconds?: number) => { if (current()) void session.current?.assess(periodSeconds); },
     propose: (draft: AlertProposalDraft) => { if (current()) void session.current?.propose(draft); },
     stop: () => { if (current()) session.current?.stopWaiting(); },
   };

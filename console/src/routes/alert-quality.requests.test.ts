@@ -129,6 +129,23 @@ describe("latest read and unmount isolation", () => {
 });
 
 describe("deliberate idempotency and no blind retries", () => {
+  it.each([3600, 86400, 604800])("requests the exact source period %s without clipping a report", async (period) => {
+    const fixture = setup();
+    await fixture.owner.load();
+    await fixture.owner.assess(period);
+    expect(network).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(network.mock.calls[0]?.[1]?.body))).toEqual({ scope_ref: scope, period_seconds: period });
+    expect(fixture.onRead).toHaveBeenLastCalledWith({ status: "ready", data: payload() });
+  });
+
+  it.each([0, 3601, 608400, NaN, Infinity])("blocks invalid source period %s before a POST", async (period) => {
+    const fixture = setup();
+    await fixture.owner.load();
+    await fixture.owner.assess(period);
+    expect(network).not.toHaveBeenCalled();
+    expect(fixture.onCommand).toHaveBeenLastCalledWith("blocked");
+  });
+
   it("coalesces overlapping clicks but gives a later deliberate request a new key", async () => {
     const fixture = setup();
     await fixture.owner.load();

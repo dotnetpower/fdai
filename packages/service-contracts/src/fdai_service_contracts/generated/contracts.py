@@ -42,6 +42,7 @@ class AlertNoiseCommandV1_0_0AlertNoiseCommand(TypedDict):
     evidence_digest: NotRequired[str | None]
     treatment: NotRequired[AlertNoiseCommandV1_0_0AlertTreatment | None]
     execution_authority: NotRequired[Literal[False]]
+    period_seconds: NotRequired[int | None]
 
 
 class AlertNoiseCommandV1_0_0(TypedDict):
@@ -103,6 +104,7 @@ class AlertNoiseResultV1_0_0AlertNoiseCommand(TypedDict):
     evidence_digest: NotRequired[str | None]
     treatment: NotRequired[AlertNoiseResultV1_0_0AlertTreatment | None]
     execution_authority: NotRequired[Literal[False]]
+    period_seconds: NotRequired[int | None]
 
 
 class AlertNoiseResultV1_0_0NoiseFinding(TypedDict):
@@ -116,6 +118,8 @@ class AlertNoiseResultV1_0_0NoiseFinding(TypedDict):
     potential_recipients_upper: NotRequired[int | None]
     duplicate_paths: NotRequired[int]
     protected: bool
+    team_refs: NotRequired[tuple[str, ...] | None]
+    audience_kinds: NotRequired[tuple[Literal['direct', 'group', 'role', 'channel', 'oncall'], ...] | None]
 
 
 class AlertNoiseResultV1_0_0NoiseAssessment(TypedDict):

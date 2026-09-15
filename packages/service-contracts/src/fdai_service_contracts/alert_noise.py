@@ -18,6 +18,7 @@ Count = Annotated[int, Field(strict=True, ge=0, le=10_000_000)]
 Positive = Annotated[int, Field(strict=True, ge=1, le=86_400)]
 Finite = Annotated[float, Field(strict=True, allow_inf_nan=False)]
 Coverage = Literal["complete", "partial", "unavailable"]
+AlertPeriodSeconds = Annotated[int, Field(strict=True, ge=3600, le=604800, multiple_of=3600)]
 AudienceKind = Literal["direct", "group", "role", "channel", "oncall"]
 RuleKind = Literal["metric", "log", "activity", "processing", "unknown"]
 Classification = Literal[
@@ -208,6 +209,20 @@ class AlertDelivery(ContractBase):
         return self
 
 
+class AlertServiceOwnership(ContractBase):
+    """An independently sourced complete team set; not approval or recipient membership."""
+
+    service_ref: Ref
+    team_refs: Annotated[tuple[Ref, ...], Field(min_length=1, max_length=32)]
+    stamp: EvidenceStamp
+
+    @model_validator(mode="after")
+    def canonical_teams(self) -> Self:
+        if self.team_refs != tuple(sorted(set(self.team_refs))):
+            raise ValueError("service ownership teams MUST be sorted and unique")
+        return self
+
+
 class AlertEvidence(ContractBase):
     """Bounded frozen evidence with explicit independent-collection availability."""
 
@@ -224,6 +239,7 @@ class AlertEvidence(ContractBase):
     history_coverage: Coverage = "unavailable"
     independent_collection: StrictBool = False
     execution_authority: FalseOnly = False
+    service_ownership: Annotated[tuple[AlertServiceOwnership, ...], Field(max_length=2000)] = ()
 
     @model_validator(mode="after")
     def consistency(self) -> Self:
@@ -242,6 +258,18 @@ class AlertEvidence(ContractBase):
                 raise ValueError("evidence identities MUST be unique within each family")
         rules = {rule.ref: rule for rule in self.rules}
         audiences = {audience.ref for audience in self.audiences}
+        services = {rule.service_ref for rule in self.rules}
+        if len({row.service_ref for row in self.service_ownership}) != len(self.service_ownership):
+            raise ValueError("service ownership MUST contain one row per service")
+        for owner in self.service_ownership:
+            if (
+                owner.service_ref not in services
+                or owner.stamp.tenant_ref != self.stamp.tenant_ref
+                or owner.stamp.scope_ref != self.stamp.scope_ref
+                or owner.stamp.observed_at > self.stamp.observed_at
+                or owner.stamp.synthetic != self.stamp.synthetic
+            ):
+                raise ValueError("service ownership MUST match the exact evidence scope and cutoff")
         for delivery in self.deliveries:
             if delivery.rule_ref not in rules:
                 raise ValueError("delivery MUST reference an observed rule")
@@ -285,6 +313,15 @@ class NoiseFinding(ContractBase):
     potential_recipients_upper: Count | None = None
     duplicate_paths: Count = 0
     protected: StrictBool
+    team_refs: Annotated[tuple[Ref, ...], Field(min_length=1, max_length=32)] | None = None
+    audience_kinds: Annotated[tuple[AudienceKind, ...], Field(max_length=5)] | None = None
+
+    @model_validator(mode="after")
+    def canonical_facets(self) -> Self:
+        for values in (self.team_refs, self.audience_kinds):
+            if values is not None and values != tuple(sorted(set(values))):
+                raise ValueError("finding facets MUST be sorted and unique")
+        return self
 
 
 class NoiseAssessment(ContractBase):
@@ -311,6 +348,14 @@ class NoiseAssessment(ContractBase):
 
     @model_validator(mode="after")
     def observation_window(self) -> Self:
+        identities: dict[
+            str, tuple[str, tuple[str, ...] | None, tuple[AudienceKind, ...] | None]
+        ] = {}
+        for finding in self.findings:
+            identity = (finding.service_ref, finding.team_refs, finding.audience_kinds)
+            if finding.rule_ref in identities and identities[finding.rule_ref] != identity:
+                raise ValueError("rule findings MUST preserve one source facet identity")
+            identities[finding.rule_ref] = identity
         if self.valid_until <= self.observed_at:
             raise ValueError("assessment validity MUST be positive")
         if (self.window_start is None) != (self.window_end is None):

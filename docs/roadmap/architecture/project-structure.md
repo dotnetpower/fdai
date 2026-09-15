@@ -38,16 +38,10 @@ would need a separate, domain-bounded design that explicitly preserves coverage 
 ## Module Boundaries
 
 Dependency direction is strict and one-way; a violation is a review blocker.
-Core's Process writer owns sequence use as well as table insertion. A forward service migration
-grants only `USAGE` on `process_event_seq_seq` to `fdai_core`; Operator receives no sequence grant.
-This repairs durable creation without changing approval authority or rewriting applied migrations.
-Alert dispatch references retain the canonical Workflow identity, including UUIDs beginning with
-digits, across publication, independent effect and recovery contracts; audience Ref rules cannot
-truncate or relabel those references. Full-migration tests use the service role's own login session
-for PostgreSQL lock readback, not a privileged session hidden behind `SET ROLE`.
-Service-owned alert codecs share exact signed contract models, not implementation imports. Their
-offline unavailable markers and regenerated mechanics receipts cannot expand the historical live
-transition certificate; ordered activation and rollback follow the alert runbook.
+[Alert noise governance](../operations/alert-noise-governance.md) owns its scoped sources, exact-period
+reads, signed contracts, canonical Process identity and independent effects. Core receives only
+`USAGE` on its journal sequence; Operator gains no privilege. Codecs share contracts, not service
+implementations; offline mechanics never expand live certification or grant authority.
 Cloud-reference collection belongs to ingestion API, parsing/index activation to the worker, and dated evidence to Core; [the lifecycle owner](../interfaces/cloud-resource-knowledge-lifecycle.md) defines the shared contracts and no-authority boundary. Core exposes applicability as bounded scalar selectors, preserving dependency-only evidence objects. Exact document contexts intersect these selectors before ranking and cannot fall back to broader collection reads. Each new ingestion test has one service-suite owner, and the API's already-declared `aiohttp` dependency is classified as direct rather than indirect. New cloud-reference packages use normalized-only v2 records; collector originals stay API-owned, while package/worker readers preserve exact v1 identity and unchanged approval gates.
 
 - **core is portable**: it MUST NOT import any cloud SDK directly. Cloud specifics enter

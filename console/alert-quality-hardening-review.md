@@ -31,6 +31,19 @@ intercepted synthetic API records. It is not Browser Entra or provider validatio
 
 ## Rubric assessment
 
+The source-selector extension retains the same 49 applicable criteria and the earlier baseline.
+Its new scope is the recorded team/audience filters, explicit unknown facets, and next-assessment
+period control, using the actual route with intercepted evidence. The hypothesis is that native
+controls in the existing grid preserve desktop alignment, keyboard use and report provenance
+without changing aggregate counts. Thirteen isolated scenarios passed; the two changed scenarios
+passed again after final per-rule facet consistency. Source selection uses keyboard input and one
+exact POST; filtering preserves recorded totals. Korean expanded content passed 1440, 993, 390
+and 320px geometry, then actual doubled computed font sizes and user spacing overrides. The
+two-dimensional table remains an explicit bounded scrolling exception. English desktop and Korean
+320px enlarged-text images were inspected and contain synthetic references only. All 292 owning
+Console checks and type checks passed. Existing ratings below remain the earlier checkpoint,
+not a complete new accessibility certification or authenticated-stack claim.
+
 All 50 criteria are selected for this new route. A local behavioral pass is not a complete rubric
 score. `U` means evidence is still needed, not an inapplicable feature or a passing assertion.
 

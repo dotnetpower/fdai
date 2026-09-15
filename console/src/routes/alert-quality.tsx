@@ -1,4 +1,5 @@
 /** Operations alert quality: authorized scope selection and inert, single-axis proposals only. */
+import { useState } from "preact/hooks";
 import type { AuthContext } from "../auth";
 import type { OperatorApiClient } from "../api";
 import { AsyncBoundary, PageHeader, UnavailableState } from "../components/ui";
@@ -89,6 +90,7 @@ function ScopedAlertQuality({ identity, scopes, scope, rule, invalidRule }: {
   readonly identity: AlertQualityIdentity; readonly scopes: AlertQualityScopes;
   readonly scope: string; readonly rule: string | null; readonly invalidRule: boolean;
 }) {
+  const [periodSeconds, setPeriodSeconds] = useState(86400);
   const settings = useAlertQualitySettings(identity, scopes, scope);
   const report = useAlertQualityReport(identity, scopes, scope, settings.requestsAllowed);
   const { state, command, now } = report;
@@ -98,6 +100,7 @@ function ScopedAlertQuality({ identity, scopes, scope, rule, invalidRule }: {
   return <>
     <AlertQualitySettingsPanel state={settings.state} isCurrent={settings.isCurrent} onRefresh={settings.refresh} onSave={settings.save} />
     <AlertQualityRequestControls state={state} command={command} onRefresh={report.refresh}
+      periodSeconds={periodSeconds} onPeriodChange={setPeriodSeconds}
       onAssess={report.assess} onStop={report.stop} preferenceHeld={preferenceHeld} />
     <AsyncBoundary state={state} resourceLabel={text("title")}>
       {(data) => <div class="stack" style={{ minWidth: 0, gap: 40 }}>

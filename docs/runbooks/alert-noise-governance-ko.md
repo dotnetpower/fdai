@@ -2,7 +2,7 @@
 title: 알림 과다 수신 관리 런북
 description: shadow 우선 알림 평가와 정확한 계획에 따른 수동 PR 변경 및 복구 선행 조건을 검토합니다.
 translation_of: alert-noise-governance.md
-translation_source_sha: 3ac7ae3cc69c55b7926e20a78aea659a6da75567
+translation_source_sha: c75e21a1fe40685bd32b10c11d6c34feb1245ddc
 translation_revised: 2026-09-15
 fdai_runbook:
   schema_version: 1.0.0
@@ -110,6 +110,15 @@ fdai_runbook:
 ### Settings와 요청 API
 
 모든 경로는 현재 신원과 정확한 범위를 다시 검증하며 응답에 `Cache-Control: no-store`를 사용합니다.
+
+팀 필터는 정확한 `service_ref`, 정렬된 `team_refs` 및 독립 출처 시각을 포함하는 완전하고
+유효한 `service_ownership` 근거를 사용합니다. 담당 근거가 없거나 오래되거나 검증되지 않으면
+알 수 없음으로 남기며 서비스 신원을 팀으로 바꾸어 표시하지 않습니다. 수신 대상 유형은
+관측된 유효 대상에서 가져오며 라우팅 수집 범위가 불완전하면 알 수 없음으로 남깁니다.
+이 표시 필터는 승인 권한을 부여하거나 평가 전체의 집계 분모를 바꾸지 않습니다.
+새 평가의 `period_seconds`는 1-168시간 범위의 정수 시간을 지정하며 생략하면 기존 하루
+기본값을 사용합니다. Console은 1시간, 1일 및 7일을 제공합니다. 기간 선택은 한도가 있는
+새 출처 조회를 요청하며 기존 집계를 잘라 내거나 완전한 과거 수집 범위를 주장하지 않습니다.
 
 | 요청 | 의미 |
 |------|------|

@@ -294,6 +294,37 @@
       "title": "AlertRule",
       "type": "object"
     },
+    "AlertServiceOwnership": {
+      "additionalProperties": false,
+      "description": "An independently sourced complete team set; not approval or recipient membership.",
+      "properties": {
+        "service_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Service Ref",
+          "type": "string"
+        },
+        "team_refs": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Team Refs",
+          "type": "array"
+        },
+        "stamp": {
+          "$ref": "#/$defs/EvidenceStamp"
+        }
+      },
+      "required": [
+        "service_ref",
+        "team_refs",
+        "stamp"
+      ],
+      "title": "AlertServiceOwnership",
+      "type": "object"
+    },
     "Audience": {
       "additionalProperties": false,
       "description": "A destination and verified scoped identity expansion, never an email address.",
@@ -674,6 +705,15 @@
       "default": false,
       "title": "Execution Authority",
       "type": "boolean"
+    },
+    "service_ownership": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AlertServiceOwnership"
+      },
+      "maxItems": 2000,
+      "title": "Service Ownership",
+      "type": "array"
     }
   },
   "required": [

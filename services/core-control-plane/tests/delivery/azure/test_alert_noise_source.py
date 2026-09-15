@@ -132,6 +132,7 @@ async def collect(
     policy: dict[str, Any] | None = None,
     limits: AlertReadLimits = _DEFAULT_READ_LIMITS,
     scope_ref: str = "scope:example",
+    period_seconds: int | None = None,
 ) -> tuple[AlertEvidence, list[httpx.Request], AzureAlertEvidenceSource]:
     requests: list[httpx.Request] = []
 
@@ -162,7 +163,22 @@ async def collect(
             ),
             audiences=resolver,
         )
-        return await source.collect(now=NOW), requests, source
+        evidence = (
+            await source.collect(now=NOW)
+            if period_seconds is None
+            else await source.collect_period(now=NOW, period_seconds=period_seconds)
+        )
+        return evidence, requests, source
+
+
+@pytest.mark.parametrize("seconds", [3600, 86400, 604800])
+async def test_selected_period_is_the_actual_bounded_native_history_query(seconds):
+    evidence, requests, _ = await collect(period_seconds=seconds)
+    start = NOW - timedelta(seconds=seconds)
+    assert evidence.window_start == start and evidence.window_end == NOW
+    assert requests[-1].url.params["customTimeRange"] == f"{start.isoformat()}/{NOW.isoformat()}"
+    assert evidence.stamp.coverage == "partial"
+    assert all(request.method == "GET" for request in requests)
 
 
 async def test_collection_uses_pinned_gets_and_actual_rg_history_scope() -> None:

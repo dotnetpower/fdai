@@ -5,6 +5,7 @@ import { EmptyState, LoadingState, UnavailableState, type AsyncState } from "../
 import { getLocale } from "../i18n";
 import { navigate, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
+import { ALERT_UNKNOWN_FACET, filterAlertFindings } from "./alert-quality.facets";
 import {
   ALERT_FINDINGS_PAGE_SIZE, alertQualityFreshness, alertQualityRequestable,
   type AlertNoiseAssessment, type AlertNoiseFinding, type AlertQualityPayload, type AlertQualityPlan,
@@ -79,20 +80,30 @@ export function CommandFeedback({ command, onStop }: { readonly command: AlertQu
 }
 
 /** Initial and expired reports do not disable a ready producer; command uncertainty still does. */
-export function AlertQualityRequestControls({ state, command, onRefresh, onAssess, onStop, preferenceHeld = false }: {
+export function AlertQualityRequestControls({ state, command, onRefresh, onAssess, onStop, periodSeconds, onPeriodChange, preferenceHeld = false }: {
   readonly state: AsyncState<AlertQualityPayload>; readonly command: AlertQualityCommandState;
-  readonly onRefresh: () => void; readonly onAssess: () => void; readonly onStop: () => void;
+  readonly onRefresh: () => void; readonly onAssess: (periodSeconds?: number) => void; readonly onStop: () => void;
+  readonly periodSeconds: number; readonly onPeriodChange: (seconds: number) => void;
   readonly preferenceHeld?: boolean;
 }) {
   const waiting = command === "pending";
   const held = waiting || command === "unknown" || command === "rejected" || command === "blocked";
   const requestable = !held && !preferenceHeld && state.status === "ready" && alertQualityRequestable(state.data);
   return <section class="stack-section" aria-label={text("assessmentRequests")}>
+    <label style={{ minWidth: 0, display: "grid", gap: 8 }}>
+      <span>{text("requestedPeriod")}</span>
+      <select class="cs-control-select" name="period_seconds" value={periodSeconds} disabled={waiting}
+        style={{ minHeight: 44, minWidth: 0, width: "100%" }} aria-describedby="alert-quality-period-help"
+        onChange={(event) => onPeriodChange(Number(event.currentTarget.value))}>
+        {[3600, 86400, 604800].map((seconds) => <option key={seconds} value={seconds}>{text(`period.${seconds}` as AlertQualityMessage)}</option>)}
+      </select>
+    </label>
+    <p class="muted" id="alert-quality-period-help">{text("requestedPeriodHelp")}</p>
     <div class="toolbar">
       <button class="btn" type="button" style={{ minHeight: 44 }} disabled={waiting || state.status === "loading"}
         onClick={onRefresh}>{text("refresh")}</button>
       <button class="btn" type="button" style={{ minHeight: 44 }} disabled={!requestable}
-        aria-describedby="alert-quality-assess-help" onClick={() => { if (requestable) onAssess(); }}>{text("assess")}</button>
+        aria-describedby="alert-quality-assess-help" onClick={() => { if (requestable) onAssess(periodSeconds); }}>{text("assess")}</button>
     </div>
     <p id="alert-quality-assess-help" class="muted">{text("assessHelp")}</p>
     {preferenceHeld ? <p class="muted">{text("settings.requestHold")}</p> : null}
@@ -142,16 +153,19 @@ export function AlertQualityEvidence({ report, now }: { readonly report: AlertNo
   </section>;
 }
 
-/** Filters operate only on returned rule/service identities, never fabricated teams or periods. */
+/** Facets narrow returned evidence only; missing ownership/routing has its own unknown choice. */
 export function AlertQualityFindings({ report, rule, invalidRule }: {
   readonly report: AlertNoiseAssessment; readonly rule: string | null; readonly invalidRule: boolean;
 }) {
   const [page, setPage] = useState(0);
   const [service, setService] = useState("");
+  const [team, setTeam] = useState("");
+  const [audience, setAudience] = useState("");
   const rules = [...new Set(report.findings.map((row) => row.rule_ref))].sort();
   const services = [...new Set(report.findings.map((row) => row.service_ref))].sort();
-  const rows = invalidRule ? [] : report.findings.filter((item) => (rule === null || item.rule_ref === rule)
-    && (service === "" || item.service_ref === service));
+  const teams = [...new Set(report.findings.flatMap((row) => row.team_refs ?? []))].sort();
+  const audiences = [...new Set(report.findings.flatMap((row) => row.audience_kinds ?? []))].sort();
+  const rows = invalidRule ? [] : filterAlertFindings(report.findings, { rule, service, team, audience });
   const start = Math.min(page, Math.max(0, Math.ceil(rows.length / ALERT_FINDINGS_PAGE_SIZE) - 1)) * ALERT_FINDINGS_PAGE_SIZE;
   return <section class="stack-section" id="alert-quality-findings" aria-labelledby="alert-quality-findings-title">
     <h3 id="alert-quality-findings-title">{text("findings")}</h3>
@@ -173,12 +187,28 @@ export function AlertQualityFindings({ report, rule, invalidRule }: {
           {services.map((value) => <option key={value} value={value}>{value}</option>)}
         </select>
       </label>
+      <label style={{ minWidth: 0 }}><span>{text("team")}</span>
+        <select name="team_ref" style={{ minHeight: 44, minWidth: 0, width: "100%" }} value={team}
+          onChange={(event) => { setTeam(event.currentTarget.value); setPage(0); }}>
+          <option value="">{text("allTeams")}</option>
+          <option value={ALERT_UNKNOWN_FACET}>{text("unknown")}</option>
+          {teams.map((value) => <option key={value} value={value}>{value}</option>)}
+        </select>
+      </label>
+      <label style={{ minWidth: 0 }}><span>{text("audienceKind")}</span>
+        <select name="audience_kind" style={{ minHeight: 44, minWidth: 0, width: "100%" }} value={audience}
+          onChange={(event) => { setAudience(event.currentTarget.value); setPage(0); }}>
+          <option value="">{text("allAudienceKinds")}</option>
+          <option value={ALERT_UNKNOWN_FACET}>{text("unknown")}</option>
+          {audiences.map((value) => <option key={value} value={value}>{text(`audience.${value}`)}</option>)}
+        </select>
+      </label>
     </div>
     <p class="muted">{text("filterLimits")}</p>
     {rule !== null || invalidRule ? <a style={{ display: "inline-flex", alignItems: "center", minHeight: 44 }}
       href={routeHref("alert-quality", { params: { scope_ref: report.scope_ref } })}>{text("allRules")}</a> : null}
     {invalidRule ? <UnavailableState message={text("invalidRule")} />
-      : rows.length === 0 ? <EmptyState title={text(rule === null && service === "" ? "noFindings" : "noMatchedRule")} />
+      : rows.length === 0 ? <EmptyState title={text(rule === null && service === "" && team === "" && audience === "" ? "noFindings" : "noMatchedRule")} />
         : <>
           <AlertQualityFindingTable rows={rows.slice(start, start + ALERT_FINDINGS_PAGE_SIZE)} scope={report.scope_ref} coverage={report.coverage} />
           <div class="toolbar">
@@ -203,7 +233,10 @@ export function AlertQualityFindingTable({ rows, scope, coverage }: {
       <caption>{text("findings")}</caption>
       <thead><tr>{headers.map((key) => <th key={key} scope="col">{text(key)}</th>)}</tr></thead>
       <tbody>{rows.map((row, index) => <tr key={`${row.rule_ref}:${row.reason}:${index}`}>
-        <td><a style={{ display: "inline-flex", alignItems: "center", minHeight: 44 }} href={routeHref("alert-quality", { params: { scope_ref: scope, rule_ref: row.rule_ref } })}>{row.rule_ref}</a><br />{text("service")}: {row.service_ref}</td>
+        <td><a style={{ display: "inline-flex", alignItems: "center", minHeight: 44 }} href={routeHref("alert-quality", { params: { scope_ref: scope, rule_ref: row.rule_ref } })}>{row.rule_ref}</a><br />{text("service")}: {row.service_ref}
+          <br />{text("team")}: {row.team_refs?.join(", ") ?? text("unknown")}
+          <br />{text("audienceKind")}: {row.audience_kinds == null ? text("unknown") : row.audience_kinds.length === 0 ? text("noAudience") : row.audience_kinds.map((kind) => text(`audience.${kind}`)).join(", ")}
+        </td>
         <td>{text(`reason.${row.reason}`)}</td><td>{text(`guidance.${row.guidance}`)}<br />{text("duplicates")}: {count(row.duplicate_paths)}</td>
         <td class="num">{row.source_episodes === null ? text("unknown") : count(row.source_episodes)}</td>
         <td class="num">{count(row.observed_deliveries)}</td>
