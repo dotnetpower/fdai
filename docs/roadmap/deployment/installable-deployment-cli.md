@@ -37,7 +37,10 @@ apply, resume, or tear down a tenant deployment.
 Current source-mode support covers private preparation, read-only AKS capacity preflight,
 runner-image planning and exact-approved Foundation execution through private state handoff.
 The public source command resumes these checkpoints using the shared private coordinator;
-noninteractive execution stops at review without supplying an approval. Managed-host application
+text and JSON execution never prompt. `--approval-file <path>` explicitly supplies an existing
+private human approval to the shared verifier. Without it, retained ambient approvals are ignored.
+The coordinator advances within that exact approval and returns review state when another
+checkpoint needs authority; it does not create approval, read stdin or report success. Managed-host application
 execution and durable Trial activation are not yet connected. A plan
 returns exit code `2` for review, not deployment success; a capacity blocker returns `3`.
 `--prepare-only` makes no Azure call. `--preflight-only` reads the current human target, SKU
@@ -66,8 +69,8 @@ references remain valid on the managed host. These adapters do not prove a compl
 The source coordinator uses the private managed-host route explicitly. It reads Foundation
 provider registrations and inherited policy assignments without registering providers or creating
 policy-probe resources. Policy visibility is not a compliance or deployment-success claim.
-An exclusive run lock covers the shared checkpoint coordinator. Interactive execution uses the
-existing exact-checkpoint approval prompt; noninteractive execution stops at review. The same
+An exclusive run lock covers the shared checkpoint coordinator. Exact approval is collected
+separately before unattended execution; output format and TTY presence never grant authority. The same
 source, snapshot, human target and retained run must match on every resumption. No approval from
 one checkpoint grants another checkpoint, and published exact-source CI remains mandatory before
 resource effects. A verified Foundation handoff still leaves application deployment incomplete.
@@ -78,6 +81,12 @@ It is mutually exclusive with `--online` and `--offline-kit`. Initial support ta
 Container Apps installation and does not claim disconnected or production readiness.
 
 ### Design and critique
+
+Automatically prompting on a text terminal interrupts unattended runs. Automatically approving
+every later plan would erase the exact-plan boundary. The revised source interface separates
+approval collection from execution: one explicitly supplied, current, source-bound checkpoint
+approval permits its existing scope only. Missing or expired authority produces retained review
+evidence and exit code `2`, without waiting for stdin. Signed-kit interaction is unchanged.
 
 Skipping signature checks on a deployment kit would erase its trust boundary. Instead, a source
 deployment pins a clean Git commit, records exact source and dependency digests, and transfers

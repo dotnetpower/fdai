@@ -15,10 +15,12 @@ from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 
 
 @pytest.mark.parametrize("deployment_ready", [False, True])
-@pytest.mark.parametrize("interactive", [False, True])
-def test_source_plan_runs_preparation_before_review(
-    tmp_path, monkeypatch, deployment_ready, interactive
-):
+@pytest.mark.parametrize("mode", ["review", "interactive", "approved", "ambient"])
+def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deployment_ready, mode):
+    interactive = mode == "interactive"
+    approval_file = tmp_path / "approved-checkpoint.json" if mode == "approved" else None
+    if approval_file is not None:
+        write_private_bytes(approval_file, b"example exact approval")
     root = tmp_path / "checkout"
     toolchain = root / "infra/genesis-runner-image/toolchain.json"
     toolchain.parent.mkdir(parents=True)
@@ -58,6 +60,10 @@ def test_source_plan_runs_preparation_before_review(
             assert Path(command[1]).name == "source_genesis.py"
             foundation = work_dir / "foundation"
             foundation.mkdir(mode=0o700)
+            if mode == "ambient":
+                write_private_bytes(
+                    foundation / "current-source-approval.json", b"unselected approval"
+                )
             write_private_bytes(
                 foundation / "foundation-variables.json",
                 b'{"subscription_id":"example","tenant_id":"example"}',
@@ -65,8 +71,14 @@ def test_source_plan_runs_preparation_before_review(
             return {"state": "prepared", "run_binding": "f" * 64}
         assert Path(command[1]).name == "source_genesis.py"
         assert "--advance" in command
-        assert ("--approval-file" in command) == (len(calls) > 2)
-        stage = "runner-image-apply" if len(calls) == 2 else "application-plan"
+        assert ("--approval-file" in command) == (approval_file is not None or len(calls) > 2)
+        if approval_file is not None:
+            assert command[command.index("--approval-file") + 1] == str(approval_file)
+        stage = (
+            "runner-image-apply"
+            if len(calls) == 2 and approval_file is None
+            else "application-plan"
+        )
         status_path = work_dir / "foundation/status.json"
         status_path.write_text(
             json.dumps(
@@ -119,6 +131,7 @@ def test_source_plan_runs_preparation_before_review(
         monthly_cost_ceiling=1000,
         timeout_seconds=1800,
         interactive=interactive,
+        approval_file=approval_file,
     )
     if deployment_ready:
         with pytest.raises(ValueError, match="bound review"):
@@ -132,6 +145,8 @@ def test_source_plan_runs_preparation_before_review(
         assert result["provenance"] == "operator-selected-source"
     assert len(calls) == (3 if interactive and not deployment_ready else 2)
     assert len(prompts) == int(interactive and not deployment_ready)
+    if approval_file is not None:
+        assert approval_file.read_bytes() == b"example exact approval"
 
 
 def test_source_orchestration_stops_before_foundation_on_capacity_block(
@@ -168,8 +183,13 @@ def test_source_orchestration_stops_before_foundation_on_capacity_block(
     assert not (tmp_path / "work").exists()
 
 
-def test_source_plan_pending_approval_is_not_cli_success(monkeypatch, capsys) -> None:
+@pytest.mark.parametrize("output", ["text", "json"])
+@pytest.mark.parametrize("approved", [False, True])
+def test_source_plan_pending_approval_is_not_cli_success(
+    monkeypatch, capsys, output, approved
+) -> None:
     calls = []
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr(
         cli,
         "plan_source_installation",
@@ -187,10 +207,33 @@ def test_source_plan_pending_approval_is_not_cli_success(monkeypatch, capsys) ->
                 "--work-dir",
                 "/tmp/example-source-run",
                 "--output",
-                "json",
+                output,
+                *(["--approval-file", "/tmp/example-approval.json"] if approved else []),
             ]
         )
         == 2
     )
     assert calls[0]["source_root"] == Path(".")
-    assert '"deployment_ready":false' in capsys.readouterr().out
+    assert calls[0]["interactive"] is False
+    assert calls[0]["approval_file"] == (Path("/tmp/example-approval.json") if approved else None)
+    text = capsys.readouterr().out
+    assert ('"deployment_ready":false' in text) if output == "json" else ("not ready" in text)
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["--online"],
+        ["--source", ".", "--prepare-only"],
+        ["--source", ".", "--preflight-only"],
+    ],
+)
+def test_source_approval_cannot_be_silently_ignored(monkeypatch, capsys, arguments) -> None:
+    monkeypatch.setattr(cli, "plan_source_installation", lambda **_: pytest.fail("no execution"))
+    assert (
+        cli.main(
+            ["provision", "azure", *arguments, "--approval-file", "/tmp/example-approval.json"]
+        )
+        == 3
+    )
+    assert "--approval-file requires source deployment" in capsys.readouterr().err

@@ -127,6 +127,12 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         action="store_true",
         help="Prepare source and read AKS SKU/quota feasibility without Azure mutation",
     )
+    azure.add_argument(
+        "--approval-file",
+        type=Path,
+        metavar="PATH",
+        help="Existing exact human checkpoint approval (source mode only); never prompt",
+    )
     settings = azure.add_argument_group("Deployment settings")
     settings.add_argument(
         "--region", default="koreacentral", help="Azure deployment region (default: %(default)s)"

@@ -168,6 +168,10 @@ def _provision_azure(args: argparse.Namespace) -> int:
     )
     if (args.prepare_only or args.preflight_only) and args.source is None:
         raise ValueError("source-only preparation or preflight requires --source")
+    if args.approval_file is not None and (
+        args.source is None or args.prepare_only or args.preflight_only
+    ):
+        raise ValueError("--approval-file requires source deployment, not preparation or preflight")
     selected_dir = args.work_dir
     if selected_dir is None:
         selected_dir = Path.home() / (
@@ -201,7 +205,8 @@ def _provision_azure(args: argparse.Namespace) -> int:
                 region=args.region,
                 monthly_cost_ceiling=args.monthly_cost_ceiling,
                 timeout_seconds=args.timeout_seconds,
-                interactive=args.output == "text" and sys.stdin.isatty(),
+                approval_file=args.approval_file,
+                interactive=False,
             )
             _print_mapping(
                 result,

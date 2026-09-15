@@ -28,13 +28,17 @@ def plan_source_installation(
     monthly_cost_ceiling: int,
     timeout_seconds: int,
     interactive: bool = False,
+    approval_file: Path | None = None,
 ) -> dict[str, object]:
     """Advance source Foundation through exact human approvals, or stop for review.
 
     No kit construction, signature fallback or licence activation occurs here.
-    Noninteractive use never supplies an approval; Foundation handoff alone keeps
-    deployment_ready=false until separate application acceptance is connected.
+    Noninteractive use passes only an explicitly supplied approval to the shared
+    verifier and never prompts or adopts an ambient approval. Foundation handoff
+    alone keeps deployment_ready=false until application acceptance is connected.
     """
+    if interactive and approval_file is not None:
+        raise ValueError("explicit source approval cannot be combined with interactive approval")
     deadline = DeploymentDeadline(timeout_seconds)
     prepared = prepare_source_deployment(
         source_root=source_root,
@@ -106,7 +110,11 @@ def plan_source_installation(
     run_binding = preparation.get("run_binding")
     if not isinstance(run_binding, str):
         raise ValueError("source Foundation preparation has no retained run binding")
-    approval = foundation / "current-source-approval.json"
+    approval = (
+        approval_file.absolute()
+        if approval_file is not None
+        else foundation / "current-source-approval.json"
+    )
     status_path = foundation / "status.json"
     while True:
         source.reverify()
@@ -134,7 +142,11 @@ def plan_source_installation(
                 str(terraform),
                 "--timeout-seconds",
                 str(deadline.remaining(14400)),
-                *(("--approval-file", str(approval)) if interactive and approval.exists() else ()),
+                *(
+                    ("--approval-file", str(approval))
+                    if approval_file is not None or (interactive and approval.exists())
+                    else ()
+                ),
             ),
             source.root,
             environment,

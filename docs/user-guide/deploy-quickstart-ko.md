@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 단일 로컬 명령 또는 digest로 고정된 폐쇄망 배포 어플라이언스로 FDAI를 Azure에 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 3c84f61f749c67be06fb022097b65fe388670b21
+translation_source_sha: 20eaea456818fed5e760a50669046da34d2c2c24
 translation_revised: 2026-09-15
 ---
 
@@ -112,9 +112,12 @@ fdaictl provision azure --source . --runtime aks --prepare-only
 ```
 
 Azure 로그인 후 `--preflight-only`를 대신 지정하면 리소스를 변경하지 않고 AKS SKU와
-할당량을 점검합니다. 두 옵션을 모두 생략하면 Foundation 체크포인트들을 진행합니다. 대화형
-텍스트 모드는 이미지 생성, Foundation 적용, 호스트 등록, 비공개 상태 이전 전에 각각 정확한
-승인을 요구합니다. JSON 또는 비대화형 모드는 검토 단계에서 멈춥니다. 이 미리 보기는 아직
+할당량을 점검합니다. 두 옵션을 모두 생략하면 텍스트와 JSON 모드 모두 입력 요청 없이
+Foundation 체크포인트들을 진행합니다. 이미 승인된 체크포인트를 재개하려면 같은 명령에
+`--approval-file <private-exact-approval.json>`을 추가합니다. 승인은 현재 소스, 실행 기록,
+사람 신원, 정확한 체크포인트 근거와 일치해야 하며 만료되지 않아야 합니다. 명령은 승인 범위
+안에서 계속 진행합니다. 새 승인이 필요하면 입력을 기다리거나 승인을 만들지 않고 검토 상태와
+종료 코드 `2`를 반환합니다. 보존된 승인을 암묵적으로 선택하지 않습니다. 이 미리 보기는 아직
 애플리케이션이나 영속적인 30일 Trial을 활성화하지 않습니다.
 준비나 사전 점검의 성공은 애플리케이션 배포 완료를 뜻하지 않습니다. 소스 모드는 완전한
 키트를 다운로드하거나 발급자 키를 요구하지 않으며, 작업 디렉터리는 선택한 체크아웃 밖에 둡니다.
