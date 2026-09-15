@@ -16,6 +16,7 @@ export const broadcastTopics = schedules.map(({ id }) => {
   return topic;
 });
 export const ARG_VISUAL_HZ = codeGraph.arg.requests_per_second;
+export const BUS_FANOUT_DELAY = 0.65;
 
 /** Each publisher owns an independent demo clock; multiple topics can be in flight at once. */
 export function eventFlowAt(time: number, scenario: Scenario) {

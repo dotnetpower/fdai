@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { agents, agentColor } from "../agents";
 import type { AgentId } from "../model";
-import { callsFrom, callsTo, codeGraph, functionById, homeAgent, pythonFunctions } from "../source-graph";
+import { callsFrom, callsTo, codeGraph, functionById, homeAgent, pythonFunctions, serviceFor } from "../source-graph";
+import { serviceLayouts } from "./service-layout";
 
 export interface NeuralPoint {
   position: THREE.Vector3;
@@ -11,7 +12,7 @@ export interface NeuralPoint {
   color: THREE.Color;
 }
 
-export const AZURE_POSITION = new THREE.Vector3(-26, 21, -4);
+export const AZURE_POSITION = serviceLayouts["azure-resource-graph"].center;
 export const BUS_POSITION = new THREE.Vector3(0, 0, -2);
 
 /** Stable presentation layout; no random firing, fabricated functions, or guessed call edges. */
@@ -39,10 +40,10 @@ export function makeNeuralGeometry() {
   const anchors = new Map<AgentId, THREE.Vector3>();
   const functionPositions = new Map<string, THREE.Vector3>();
   const colorById = new Map<string, THREE.Color>();
-  const counts = new Map<AgentId | null, number>();
+  const counts = new Map<string, number>();
   for (const fn of pythonFunctions) {
-    const owner = homeAgent(fn);
-    counts.set(owner, (counts.get(owner) ?? 0) + 1);
+    const group = serviceFor(fn) ?? homeAgent(fn) ?? "shared";
+    counts.set(group, (counts.get(group) ?? 0) + 1);
   }
   function connect(a: THREE.Vector3, b: THREE.Vector3, color: THREE.Color, strength: number) {
     const path = connectionCurve(a, b, 0.08).getPoints(5);
@@ -59,21 +60,24 @@ export function makeNeuralGeometry() {
     colorById.set(agent.id, color);
     points.push({ position: center, owner: agent.id, functionId: null, size: 1.7, color });
   }
-  const placed = new Map<AgentId | null, number>();
+  const placed = new Map<string, number>();
   for (const fn of pythonFunctions) {
     const owner = homeAgent(fn);
-    const index = placed.get(owner) ?? 0;
-    placed.set(owner, index + 1);
-    const count = counts.get(owner)!;
+    const service = serviceFor(fn);
+    const group = service ?? owner ?? "shared";
+    const index = placed.get(group) ?? 0;
+    placed.set(group, index + 1);
+    const count = counts.get(group)!;
     const fraction = (index + 0.5) / count;
     const angle = index * 2.399963;
     const radius = 2.2 + Math.sqrt(fraction) * (3.2 + Math.min(3, Math.sqrt(count) * 0.17));
     const latitude = (random() - 0.5) * 1.6;
-    const center = owner ? anchors.get(owner)! : AZURE_POSITION;
+    const center = service ? serviceLayouts[service].center : owner ? anchors.get(owner)! : AZURE_POSITION;
     const position = center.clone().add(new THREE.Vector3(
       Math.cos(angle) * radius, Math.sin(angle) * radius * 0.85, latitude * radius,
     ));
-    const color = owner ? colorById.get(owner)! : new THREE.Color("#70b9ff");
+    const color = service ? new THREE.Color(serviceLayouts[service].color)
+      : owner ? colorById.get(owner)! : new THREE.Color("#70b9ff");
     const degree = (callsFrom.get(fn.id)?.size ?? 0) + (callsTo.get(fn.id)?.size ?? 0);
     functionPositions.set(fn.id, position);
     points.push({ position, owner, functionId: fn.id, size: 0.28 + Math.min(0.65, Math.log1p(degree) * 0.16), color });

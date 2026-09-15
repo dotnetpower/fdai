@@ -59,6 +59,8 @@ public evidence source. The Pages workflow publishes the resulting static files 
 | Event bus or broadcast disclosure | Inspect overlapping topics and each declared subscriber fan-out |
 | Pub/sub declarations | Browse every relevant canonical topic and available Python handlers |
 | Azure Resource Graph node | Focus the source-backed query entry point |
+| Azure OpenAI / Console SSE / Teams / Slack | Inspect each adapter's real Python entry point |
+| Source adapters disclosure | Open those same source entries by keyboard, even when a marker is outside the camera view |
 | Orbit | Slowly move around the full neural field |
 | Follow | Default Activity camera; follow the latest story activity, or pin a selected agent |
 | Tour | Automatically frame the overview, event bus, a Python function, and Azure |
@@ -125,13 +127,41 @@ and source file/line; click or keyboard activation opens the caller/callee view.
   individual brightness changes and a quieter center so it doesn't compete with the graph.
   Stars pause with playback and remain static under Reduce motion. A depth-only node silhouette
   keeps the screen-space backdrop behind graph nodes while the camera moves.
+- **Nebula backdrop:** Activity and Cinema reuse the site's existing
+  [nebula still](../../site/scripts/og-nebula-bg.png) across the full-page space background, not
+  inside the graph panel. A dark overlay preserves text contrast without replacing the cloud
+  structure. The image, including its fixed stars, is decorative and adds no motion; the Stars
+  control still toggles the separate twinkling field. Ontology keeps its existing background,
+  and forced colors removes the backdrop.
+  Activity input and select backgrounds are translucent; their text and focus indicators stay
+  opaque, and native option lists retain a solid background for readability.
 - **Shared functions:** A shared function appears once, placed near one reachable agent.
   Reachability and visual grouping don't transfer ownership or execution authority.
+- **External source groups:** The right-hand Azure OpenAI group and the separate lower-left
+  channel group contain real adapter definitions and reachable helpers. They are not extra agents.
+  Selecting one shows **Source in focus** rather than assigning it an agent's role.
+- **API lanes:** Dashed connections run from an adapter's source function to its API marker.
+  Model requests move toward Azure OpenAI; response chunks return toward the adapter. Console
+  SSE uses a fast stream, while Teams and Slack use discrete message pulses, matching their
+  different transport shapes. All traffic is illustrative: no API is called and arrivals do not
+  prove delivery, model success, or operational effects.
+  The stream uses 24 visual emissions per active display second with a 0.45-second transit,
+  not measured token throughput. Pause freezes it, seeking is reproducible, and Reduce motion
+  leaves only the static source topology. The existing Resource Graph illustration retains its
+  separate three-per-display-second clock.
 - **Capability labels:** The side panel retains readable role descriptions; these aren't
   extra graph nodes or measured functions.
 - **Moving light:** The publisher sends to the event bus, which fans out to declared subscribers.
   Publishers have separate periods and offsets, so several topics can be in flight at once.
   They do not take turns through a global topic queue.
+- **Departure labels:** A canonical event topic briefly appears at its publishing agent, then
+  at the event bus when the subscriber fan-out starts. Labels fade over `1.8` scenario seconds;
+  pause freezes them and seeking restores the corresponding state. They share the node-label
+  collision layout, stay near their origin, and do not intercept clicks. Crowded captions are
+  suppressed instead of moving to an unrelated node. Concurrent bus departures show up to two topic
+  names and a remaining count; the broadcast disclosure retains every topic and subscriber.
+  These captions identify simulated events, not observed traffic. Reduce motion suppresses them
+  with the moving signals, and Node labels hides them with the other scene annotations.
 - **Independent activity:** All 15 agents have separate synthetic task periods, durations,
   and offsets. A lane shows its purpose, working/waiting state, and local progress. Each activity
   lights its specific source function and local path, rather than lighting all functions equally.
@@ -150,6 +180,15 @@ and source file/line; click or keyboard activation opens the caller/callee view.
 The `SYNTHETIC DEMO` watermark remains visible in Cinema and fullscreen. Playback time is
 scenario-relative, not an operational timestamp. Source topology and simulated timing never merge
 into a claim of observed execution. Frame rate is a local rendering sample.
+Once a paused Activity camera and label fades settle, the canvas redraws only when its inputs
+change. A stationary view can therefore show `0 render fps` without being broken. Camera input,
+selection, resize, playback, and appearance changes invalidate that frame.
+
+Scene setup is exception-safe: failed initialization releases its canvas, controls, observers,
+and GPU resources. Source-selection geometry releases superseded buffers, function annotations
+share one delegated click listener, and stable labels do not rewrite unchanged DOM attributes.
+Normal teardown and development hot replacement release listeners and private snapshots;
+back-forward cache navigation retains and resumes the live view instead of destroying it.
 
 ## Full ontology map and actual instances
 

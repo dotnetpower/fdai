@@ -5,6 +5,8 @@ import { ScreenLabels } from "../scene/screen-labels";
 import { mapCurve } from "./map-curves";
 import { mapPointMaterial } from "./map-material";
 import { recorded } from "./state";
+import { disposeSceneObjects } from "../scene/resources";
+import { setAttribute } from "../ui/dom-state";
 
 const KIND_COLORS: Readonly<Record<string, string>> = {
   object_type: "#8cddd1", interface_type: "#c5b0e7", function_type: "#e2c995",
@@ -51,11 +53,11 @@ export class RecordedRelationScene {
 
   constructor(container: HTMLElement, private readonly onSelect: (id: string) => void, ratio: number) {
     this.labelLayer.className = "node-labels recorded-labels";
-    container.append(this.labelLayer);
     this.layout = new ScreenLabels(this.labelLayer);
     this.nodes = new THREE.Points(this.geometry, mapPointMaterial(ratio));
     this.nodes.frustumCulled = false;
     this.group.add(this.nodes, this.highlight, this.selectedEdges);
+    container.append(this.labelLayer);
   }
 
   pick(raycaster: THREE.Raycaster) {
@@ -198,7 +200,7 @@ export class RecordedRelationScene {
     }
     this.hadPulse = changed.size > 0;
     for (const [id, label] of this.labels) {
-      label.setAttribute("aria-pressed", String(id === selected));
+      setAttribute(label, "aria-pressed", String(id === selected));
       priorities.set(id, id === selected ? 300 : this.byId.get(id)?.nodeKind === "object_type" ? 100 : 0);
     }
     const point = this.positions.get(selected);
@@ -211,5 +213,14 @@ export class RecordedRelationScene {
     this.labelLayer.dataset.drawnLinks = String(this.drawnLinks);
   }
 
-  dispose() { this.arrows?.dispose(); this.labelLayer.remove(); }
+  dispose() {
+    disposeSceneObjects(this.group);
+    this.labelLayer.remove();
+    this.labels.clear();
+    this.positions.clear();
+    this.byId.clear();
+    this.palette.clear();
+    this.graph = null;
+    this.visibleIds = [];
+  }
 }

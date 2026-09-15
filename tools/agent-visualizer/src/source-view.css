@@ -18,6 +18,12 @@
 #broadcast-detail { padding: 0 10px 8px; line-height: 1.6; overflow-wrap: anywhere; color: #a9bcc7; }
 #broadcast-detail code { display: block; font-size: 9px; padding: 3px 0; }
 .service-label { color: #b2e5ff; border: 1px solid #5a83a0; background: #0a1826e8; font-size: 10px; }
+.event-launch-label {
+  position: absolute; left: 0; top: 0; max-width: 210px; padding: 3px 6px;
+  pointer-events: none; border-radius: 3px; white-space: pre-line; overflow-wrap: anywhere;
+  color: #c7ece4; background: #070d13c2; font: 11px/1.5 var(--cs-font-mono);
+  text-shadow: 0 1px 4px #000;
+}
 .label-leaders { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; }
 .label-leaders line { stroke: #809da7; stroke-width: .7; stroke-opacity: .65; stroke-dasharray: 2 2; }
 .tour-status { color: #e6c797; font-size: 9px; }
@@ -33,12 +39,13 @@
 .function-annotation-suffix { color: #9ab4bb; padding-left: 1px; }
 .function-node-label:hover:not(:disabled), .function-node-label:focus-visible { color: #ddfff3; background: transparent; z-index: 2; }
 .function-node-label:hover .function-annotation-name { text-decoration: underline; text-underline-offset: 4px; }
-.source-browser, .topic-browser { margin-top: 22px; border-top: 1px solid #32434d; padding-top: 14px; }
-.source-browser > summary, .topic-browser > summary { cursor: pointer; font: 10px var(--cs-font-mono); color: #b8d2d9; line-height: 1.6; }
+.source-browser, .topic-browser, .adapter-browser { margin-top: 22px; border-top: 1px solid #32434d; padding-top: 14px; }
+.source-browser > summary, .topic-browser > summary, .adapter-browser > summary { cursor: pointer; font: 10px var(--cs-font-mono); color: #b8d2d9; line-height: 1.6; }
 #function-count { float: right; color: #b9ffee; }
-#function-query { width: 100%; margin: 12px 0 8px; padding: 9px 8px; background: #0a141f; border: 1px solid #5c7381; border-radius: 3px; color: #d9e8f1; font-size: 11px; }
+#function-query { width: 100%; margin: 12px 0 8px; padding: 9px 8px; background: var(--field-surface, #0a141f); border: 1px solid #5c7381; border-radius: 3px; color: #d9e8f1; font-size: 11px; }
+#function-query::placeholder { color: var(--muted); opacity: 1; }
 .function-list { max-height: 168px; overflow: auto; scrollbar-width: thin; }
-.function-list button, #function-detail button, .topic-browser button { display: block; width: 100%; text-align: left; color: #b9ccd8; padding: 7px 6px; font: 10px var(--cs-font-mono); overflow-wrap: anywhere; border: 1px solid transparent; border-radius: 3px; }
+.function-list button, #function-detail button, .topic-browser button, .adapter-browser button { display: block; width: 100%; text-align: left; color: #b9ccd8; padding: 7px 6px; font: 10px var(--cs-font-mono); overflow-wrap: anywhere; border: 1px solid transparent; border-radius: 3px; }
 .function-list button[aria-pressed="true"] { color: #d3fff2; background: #17342e; border-color: #76aa9e; }
 #function-detail h3 { font: 11px var(--cs-font-mono); color: #c2f6e8; overflow-wrap: anywhere; margin-top: 16px; line-height: 1.5; }
 #function-detail p { font-size: 10px; line-height: 1.6; overflow-wrap: anywhere; color: #adbdc8; margin-top: 8px; }
@@ -46,7 +53,7 @@
 #function-detail h4 { margin: 14px 0 5px; font-size: 11px; color: #b9cbd3; font-weight: 400; }
 #function-detail details { margin-top: 14px; font-size: 10px; color: #b4bfc5; }
 #function-detail summary, .topic-browser summary { cursor: pointer; }
-.topic-browser p { font-size: 10px; line-height: 1.6; color: #a3b7c1; margin: 8px 0; overflow-wrap: anywhere; }
+.topic-browser p, .adapter-browser p { font-size: 10px; line-height: 1.6; color: #a3b7c1; margin: 8px 0; overflow-wrap: anywhere; }
 .topic-browser details { font: 10px var(--cs-font-mono); margin-top: 12px; line-height: 1.5; color: #a7d8cd; overflow-wrap: anywhere; }
 .cinema .flow-panel { top: 95px; left: 32px; right: auto; width: 300px; }
 .cinema .concurrent-agents { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -64,8 +71,8 @@
   .field-caption { bottom: -5px; }
   #function-query { min-height: 44px; font-size: 13px; }
   .function-list { max-height: 220px; }
-  .function-list button, #function-detail button, .topic-browser button { min-height: 44px; font-size: 12px; }
-  .source-browser > summary, .topic-browser > summary { min-height: 44px; font-size: 12px; }
+  .function-list button, #function-detail button, .topic-browser button, .adapter-browser button { min-height: 44px; font-size: 12px; }
+  .source-browser > summary, .topic-browser > summary, .adapter-browser > summary { min-height: 44px; font-size: 12px; }
   .cinema .flow-panel { position: absolute; top: 83px; left: 16px; right: 16px; width: auto; margin: 0; }
   .cinema .visual-field { display: block; height: auto; }
 }
