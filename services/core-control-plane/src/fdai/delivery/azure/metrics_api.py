@@ -71,6 +71,7 @@ from urllib.parse import quote
 import httpx
 
 from fdai.shared.providers.metric import (
+    MetricFailureReason,
     MetricPoint,
     MetricProviderError,
     MetricQuery,
@@ -228,13 +229,15 @@ class AzureMonitorMetricsProvider:
         template = self._config.templates.get(query.metric_name)
         if template is None:
             raise MetricProviderError(
-                f"no Metrics API template configured for metric {query.metric_name!r}"
+                f"no Metrics API template configured for metric {query.metric_name!r}",
+                reason=MetricFailureReason.INVALID_QUERY,
             )
         resource_id = query.labels.get("resource_id")
         if not resource_id:
             raise MetricProviderError(
                 f"MetricQuery for {query.metric_name!r} MUST supply a "
-                "``resource_id`` label - the Metrics API is scoped per ARM id"
+                "``resource_id`` label - the Metrics API is scoped per ARM id",
+                reason=MetricFailureReason.INVALID_QUERY,
             )
         points = await self._run(query=query, template=template, resource_id=resource_id)
         for point in points:
@@ -278,29 +281,46 @@ class AzureMonitorMetricsProvider:
                 params=params,
                 timeout=self._config.timeout_seconds,
             )
+        except httpx.TimeoutException as exc:
+            raise MetricProviderError(
+                f"Azure Monitor Metrics request timed out for {query.metric_name!r}",
+                reason=MetricFailureReason.TIMEOUT,
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            raise MetricProviderError(
+                f"Azure Monitor Metrics returned HTTP {exc.response.status_code} "
+                f"for {query.metric_name!r}",
+                reason=MetricFailureReason.HTTP_ERROR,
+                http_status=exc.response.status_code,
+            ) from exc
         except httpx.HTTPError as exc:
             raise MetricProviderError(
-                f"Azure Monitor Metrics request failed for {query.metric_name!r}: {exc}"
+                f"Azure Monitor Metrics request failed for {query.metric_name!r}",
+                reason=MetricFailureReason.TRANSPORT_ERROR,
             ) from exc
 
         if response.status_code >= 400:
             raise MetricProviderError(
                 f"Azure Monitor Metrics returned HTTP {response.status_code} for "
-                f"{query.metric_name!r}"
+                f"{query.metric_name!r}",
+                reason=MetricFailureReason.HTTP_ERROR,
+                http_status=response.status_code,
             )
 
         if len(response.content) > self._config.max_response_bytes:
             raise MetricProviderError(
                 f"Azure Monitor Metrics response for {query.metric_name!r} is "
                 f"{len(response.content)} bytes, over the "
-                f"{self._config.max_response_bytes}-byte cap; narrow the query"
+                f"{self._config.max_response_bytes}-byte cap; narrow the query",
+                reason=MetricFailureReason.RESPONSE_LIMIT,
             )
 
         try:
             payload = response.json()
         except ValueError as exc:
             raise MetricProviderError(
-                f"Azure Monitor Metrics returned non-JSON for {query.metric_name!r}"
+                f"Azure Monitor Metrics returned non-JSON for {query.metric_name!r}",
+                reason=MetricFailureReason.INVALID_RESPONSE,
             ) from exc
 
         return self._map_payload(
@@ -324,29 +344,39 @@ class AzureMonitorMetricsProvider:
     ) -> list[MetricPoint]:
         if not isinstance(payload, Mapping):
             raise MetricProviderError(
-                f"Azure Monitor Metrics payload not a JSON object for {query.metric_name!r}"
+                f"Azure Monitor Metrics payload not a JSON object for {query.metric_name!r}",
+                reason=MetricFailureReason.INVALID_RESPONSE,
             )
         value = payload.get("value")
         if not isinstance(value, list) or not value:
             raise MetricProviderError(
-                f"Azure Monitor Metrics payload missing 'value' for {query.metric_name!r}"
+                f"Azure Monitor Metrics payload missing 'value' for {query.metric_name!r}",
+                reason=MetricFailureReason.INVALID_RESPONSE,
             )
         if len(value) != 1:
-            raise MetricProviderError("Azure Monitor Metrics returned an ambiguous metric set")
+            raise MetricProviderError(
+                "Azure Monitor Metrics returned an ambiguous metric set",
+                reason=MetricFailureReason.INVALID_RESPONSE,
+            )
         metric_entry = value[0]
         if not isinstance(metric_entry, Mapping):
             raise MetricProviderError(
-                f"Azure Monitor Metrics 'value[0]' not an object for {query.metric_name!r}"
+                f"Azure Monitor Metrics 'value[0]' not an object for {query.metric_name!r}",
+                reason=MetricFailureReason.INVALID_RESPONSE,
             )
         scoped = template.resource_type is not None or bool(filters)
         _verify_metric_identity(metric_entry, template, target_id, required=scoped)
         timeseries = metric_entry.get("timeseries")
         if not isinstance(timeseries, list):
             raise MetricProviderError(
-                f"Azure Monitor Metrics missing 'timeseries' for {query.metric_name!r}"
+                f"Azure Monitor Metrics missing 'timeseries' for {query.metric_name!r}",
+                reason=MetricFailureReason.INVALID_RESPONSE,
             )
         if scoped and len(timeseries) > 1:
-            raise MetricProviderError("Azure Monitor Metrics returned ambiguous split series")
+            raise MetricProviderError(
+                "Azure Monitor Metrics returned ambiguous split series",
+                reason=MetricFailureReason.INVALID_RESPONSE,
+            )
 
         # ``aggregation`` name -> JSON key on each ``data`` object.
         agg_key = template.aggregation.lower()
@@ -356,18 +386,30 @@ class AzureMonitorMetricsProvider:
         timestamps: set[datetime] = set()
         for series in timeseries:
             if not isinstance(series, Mapping):
-                raise MetricProviderError("Azure Monitor Metrics series MUST be an object")
+                raise MetricProviderError(
+                    "Azure Monitor Metrics series MUST be an object",
+                    reason=MetricFailureReason.INVALID_RESPONSE,
+                )
             series_labels = dict(base_labels)
             dimensions = _series_dimensions(series)
             if scoped and dimensions != {item.name: item.value for item in filters}:
-                raise MetricProviderError("Azure Monitor Metrics returned unexpected dimensions")
+                raise MetricProviderError(
+                    "Azure Monitor Metrics returned unexpected dimensions",
+                    reason=MetricFailureReason.INVALID_RESPONSE,
+                )
             series_labels.update(dimensions)
             data = series.get("data")
             if not isinstance(data, list):
-                raise MetricProviderError("Azure Monitor Metrics series data MUST be an array")
+                raise MetricProviderError(
+                    "Azure Monitor Metrics series data MUST be an array",
+                    reason=MetricFailureReason.INVALID_RESPONSE,
+                )
             for datum in data:
                 if not isinstance(datum, Mapping):
-                    raise MetricProviderError("Azure Monitor Metrics point MUST be an object")
+                    raise MetricProviderError(
+                        "Azure Monitor Metrics point MUST be an object",
+                        reason=MetricFailureReason.INVALID_RESPONSE,
+                    )
                 raw_value = datum.get(agg_key)
                 if raw_value is None:
                     # Metrics API returns bins with no aggregate when
@@ -375,30 +417,36 @@ class AzureMonitorMetricsProvider:
                     # emitting a phantom zero.
                     continue
                 if isinstance(raw_value, bool):
-                    raise MetricProviderError("Azure Monitor Metrics aggregate MUST be numeric")
+                    raise MetricProviderError(
+                        "Azure Monitor Metrics aggregate MUST be numeric",
+                        reason=MetricFailureReason.INVALID_RESPONSE,
+                    )
                 try:
                     numeric = float(raw_value)
                 except (TypeError, ValueError):
                     raise MetricProviderError(
-                        f"Azure Monitor Metrics non-numeric {agg_key} for "
-                        f"{query.metric_name!r}: {raw_value!r}"
+                        f"Azure Monitor Metrics non-numeric {agg_key} for {query.metric_name!r}",
+                        reason=MetricFailureReason.INVALID_RESPONSE,
                     ) from None
                 if not isfinite(numeric):
                     raise MetricProviderError(
-                        f"Azure Monitor Metrics non-finite {agg_key} for {query.metric_name!r}"
+                        f"Azure Monitor Metrics non-finite {agg_key} for {query.metric_name!r}",
+                        reason=MetricFailureReason.INVALID_RESPONSE,
                     )
                 ts_raw = datum.get("timeStamp")
                 if not isinstance(ts_raw, str):
                     raise MetricProviderError(
-                        f"Azure Monitor Metrics point missing 'timeStamp' for {query.metric_name!r}"
+                        "Azure Monitor Metrics point missing 'timeStamp' for "
+                        f"{query.metric_name!r}",
+                        reason=MetricFailureReason.INVALID_RESPONSE,
                     )
                 text = ts_raw.replace("Z", "+00:00") if ts_raw.endswith("Z") else ts_raw
                 try:
                     at = datetime.fromisoformat(text)
                 except ValueError as exc:
                     raise MetricProviderError(
-                        f"Azure Monitor Metrics unparseable timestamp "
-                        f"{ts_raw!r} for {query.metric_name!r}"
+                        f"Azure Monitor Metrics unparseable timestamp for {query.metric_name!r}",
+                        reason=MetricFailureReason.INVALID_RESPONSE,
                     ) from exc
                 if query.since is not None and _as_utc(at) < _as_utc(query.since):
                     continue
@@ -407,7 +455,10 @@ class AzureMonitorMetricsProvider:
                 if not _labels_match_excluding_resource_id(series_labels, query.labels):
                     continue
                 if scoped and _as_utc(at) in timestamps:
-                    raise MetricProviderError("Azure Monitor Metrics returned duplicate timestamps")
+                    raise MetricProviderError(
+                        "Azure Monitor Metrics returned duplicate timestamps",
+                        reason=MetricFailureReason.INVALID_RESPONSE,
+                    )
                 timestamps.add(_as_utc(at))
                 points.append(
                     MetricPoint(
@@ -421,7 +472,8 @@ class AzureMonitorMetricsProvider:
                     raise MetricProviderError(
                         f"Azure Monitor Metrics returned more than "
                         f"{self._config.max_points} points for "
-                        f"{query.metric_name!r}; narrow the query"
+                        f"{query.metric_name!r}; narrow the query",
+                        reason=MetricFailureReason.RESPONSE_LIMIT,
                     )
 
         points.sort(key=lambda p: p.at)
@@ -439,11 +491,17 @@ def _query_scope(
         match is None
         or f"{match['namespace']}/{match['kind']}".casefold() != template.resource_type.casefold()
     ):
-        raise MetricProviderError("metric template does not support the exact resource type")
+        raise MetricProviderError(
+            "metric template does not support the exact resource type",
+            reason=MetricFailureReason.INVALID_QUERY,
+        )
     if match["child"] is None:
         return resource_id, template.dimension_filters
     if not template.deployment_scope:
-        raise MetricProviderError("metric template does not support a child resource")
+        raise MetricProviderError(
+            "metric template does not support a child resource",
+            reason=MetricFailureReason.INVALID_QUERY,
+        )
     deployment_filter = MetricsApiDimensionFilter("ModelDeploymentName", match["deployment"])
     return resource_id[: match.start("child")], (*template.dimension_filters, deployment_filter)
 
@@ -458,26 +516,41 @@ def _verify_metric_identity(
     name = entry.get("name")
     name_value = name.get("value") if isinstance(name, Mapping) else name
     if (required or name is not None) and name_value != template.azure_metric_name:
-        raise MetricProviderError("Azure Monitor Metrics returned another metric identity")
+        raise MetricProviderError(
+            "Azure Monitor Metrics returned another metric identity",
+            reason=MetricFailureReason.INVALID_RESPONSE,
+        )
     metric_id = entry.get("id")
     expected = f"{target_id}/providers/Microsoft.Insights/metrics/{template.azure_metric_name}"
     if metric_id is not None and (
         not isinstance(metric_id, str) or metric_id.casefold() != expected.casefold()
     ):
-        raise MetricProviderError("Azure Monitor Metrics returned another resource identity")
+        raise MetricProviderError(
+            "Azure Monitor Metrics returned another resource identity",
+            reason=MetricFailureReason.INVALID_RESPONSE,
+        )
     if entry.get("errorCode") not in (None, "Success", "success"):
-        raise MetricProviderError("Azure Monitor Metrics returned a metric-level error")
+        raise MetricProviderError(
+            "Azure Monitor Metrics returned a metric-level error",
+            reason=MetricFailureReason.PROVIDER_ERROR,
+        )
 
 
 def _series_dimensions(series: Mapping[str, Any]) -> dict[str, str]:
     metadata = series.get("metadatavalues", [])
     if not isinstance(metadata, list):
-        raise MetricProviderError("Azure Monitor Metrics dimensions MUST be an array")
+        raise MetricProviderError(
+            "Azure Monitor Metrics dimensions MUST be an array",
+            reason=MetricFailureReason.INVALID_RESPONSE,
+        )
     dimensions: dict[str, str] = {}
     names: set[str] = set()
     for item in metadata:
         if not isinstance(item, Mapping):
-            raise MetricProviderError("Azure Monitor Metrics dimension MUST be an object")
+            raise MetricProviderError(
+                "Azure Monitor Metrics dimension MUST be an object",
+                reason=MetricFailureReason.INVALID_RESPONSE,
+            )
         name = item.get("name")
         key = name.get("value") if isinstance(name, Mapping) else name
         value = item.get("value")
@@ -488,7 +561,10 @@ def _series_dimensions(series: Mapping[str, Any]) -> dict[str, str]:
             or key.casefold() == "resource_id"
             or key.casefold() in names
         ):
-            raise MetricProviderError("Azure Monitor Metrics returned invalid dimensions")
+            raise MetricProviderError(
+                "Azure Monitor Metrics returned invalid dimensions",
+                reason=MetricFailureReason.INVALID_RESPONSE,
+            )
         names.add(key.casefold())
         dimensions[key] = value
     return dimensions

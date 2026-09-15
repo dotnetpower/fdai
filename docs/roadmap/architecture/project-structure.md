@@ -530,6 +530,9 @@ if forced to be sync. The **CPU / startup seams** - `SchemaRegistry`, `ContractV
 **sync**: they run once at startup, or are pure CPU boundary validation with no I/O, so an async wrapper would only add noise. Tests use
 `pytest-asyncio` with `asyncio_mode = "auto"` so a plain `async def test_...` runs without a per-test marker.
 
+The shared `MetricProviderError` contract owns bounded failure metadata; Azure transports classify it and the Analyzer redacts identities.
+The [metric diagnostics contract](aks-diagnostic-evidence-plane.md#safe-metric-failure-diagnostics) preserves legacy providers, empty results, and fail-closed behavior.
+
 Startup readiness keeps provider-neutral pass budgets, probe timeouts, and derived evidence lifetimes in `core/readiness`. Runtime schedules
 bounded refresh, closes at original expiry, and exposes the live ceiling that Thor checks before privileged I/O; no layer can raise
 deployment authority. The coordinator binds the complete reduced report to a shared decision-evidence admission before persistence and

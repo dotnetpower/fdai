@@ -9,6 +9,7 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Safe metric failure context | implemented | `MetricProviderError` and the Azure metric adapters; focused regressions in `services/core-control-plane/tests/providers/test_metric_error.py`, `services/core-control-plane/tests/delivery/azure/test_metric_failure_context.py`, and `services/core-control-plane/tests/delivery/test_analyzer_tick_routed.py`. | Bounded reason and HTTP status survive identity redaction without claiming diagnostic coverage or historical cause. |
 | Exact topology and basic runtime state | validated | Issue #278 and local base commit | One exact cluster generation proved 103 Kubernetes Resources, 208 verified relationships, and one exact Node-to-VMSS VM bridge. |
 | Fleet-safe source bindings | implemented | Fleet binding, Terraform identity, and focused configuration tests | Live fleet evidence remains pending. |
 | Diagnostic object facts and relationships | implemented | Kubernetes inventory, source-schema, relationship, and projection tests | Live resource counts remain pending. |
@@ -21,6 +22,7 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Added optional provider-neutral metric failure metadata at Azure Logs/Metrics error construction and preserved it across the Analyzer's redacting boundary. | Current change for #1073; 254 focused metric error, Azure transport, mapped-boundary, routing, and Prometheus regressions passed; Ruff and strict mypy for the changed sources. | Historical generic errors remain insufficient to establish their cause; no live validation or deployment is claimed. |
 | 2026-09-14 | implemented | Refused to treat Azure Managed Prometheus's cluster-name alias as the exact inventory ARM identity. Analyzer routing stays on Azure Monitor Logs unless injected PromQL preserves `resource_id`, and the real Prometheus mapper fails on missing requested identity labels. | `current change`; analyzer composition, Prometheus query catalog and adapter, focused real-response tests. | Retain a governed exact-label Prometheus deployment before claiming sub-minute analyzer evidence. |
 | 2026-09-14 | implemented | Moved the shared startup-probe Event Hubs role from its duplicate standalone Terraform address into the existing executor role collection. The principal, exact topic scope, role, AKS fleet bindings, and diagnostic authority are unchanged. | Failed public-development apply under Issue #936; actual retained old-address state accepted the moved block with zero managed-resource refresh changes; focused readiness and Terraform checks. | No AKS diagnostic evidence-plane behavior changed. |
 | 2026-09-12 | implemented | Removed provider-schema-only inputs and resource ownership from the shared compute module. Kubernetes fleet bindings, Reader roles, inventory resources, observations, and diagnostic authority are unchanged. | `current change`; root and compute Terraform validation, focused provider infrastructure checks, and three compute-module Terraform tests. | No AKS diagnostic evidence-plane behavior changed. |
@@ -58,6 +60,7 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 
 ### Remaining work
 
+- [x] Preserve safe failure categories without changing empty-result or fail-closed behavior; covered by the focused regressions in the scope table.
 - [x] Pass focused tests for fleet-safe bindings and exact resource resolution.
 - [x] Pass focused tests for diagnostic objects, endpoint health, metrics, logs, and Event coverage.
 - [x] Pass focused deterministic diagnosis and no-authority projection tests.
