@@ -69,6 +69,41 @@ def test_federated_identity_must_match_selected_service():
         azure_identity.create_workload_credential(environment=_environment(), client_id=TENANT)
 
 
+@pytest.mark.parametrize("select_command", [False, True])
+def test_explicit_command_identity_uses_its_own_exchange(monkeypatch, select_command):
+    command_client = "00000000-0000-0000-0000-000000000003"
+    environment = {**_environment(), "FDAI_COMMAND_MI_CLIENT_ID": command_client}
+    calls = []
+    monkeypatch.setattr(
+        azure_identity, "ManagedIdentityCredential", lambda **_: pytest.fail("no MI fallback")
+    )
+    monkeypatch.setattr(
+        azure_identity,
+        "WorkloadIdentityCredential",
+        lambda **kwargs: calls.append(kwargs) or object(),
+    )
+    azure_identity.create_workload_credential(
+        environment=environment, client_id=command_client if select_command else None
+    )
+    assert calls[0]["client_id"] == (command_client if select_command else CLIENT)
+    assert calls[0]["tenant_id"] == TENANT
+    assert calls[0]["token_file_path"] == environment["AZURE_FEDERATED_TOKEN_FILE"]
+    assert environment["AZURE_CLIENT_ID"] == CLIENT
+
+
+@pytest.mark.parametrize("selected", ["", "not-a-client", "00000000-0000-0000-0000-000000000004"])
+def test_command_declaration_cannot_allow_unrelated_or_invalid_client(monkeypatch, selected):
+    environment = {
+        **_environment(),
+        "FDAI_COMMAND_MI_CLIENT_ID": "00000000-0000-0000-0000-000000000003",
+    }
+    monkeypatch.setattr(
+        azure_identity, "WorkloadIdentityCredential", lambda **_: pytest.fail("invalid client")
+    )
+    with pytest.raises(ValueError, match="AKS workload identity"):
+        azure_identity.create_workload_credential(environment=environment, client_id=selected)
+
+
 def test_container_apps_retains_selected_attached_identity(monkeypatch):
     calls = []
     monkeypatch.setattr(

@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: dde8859d839d617124f8656f026e32b53e11c986
+translation_source_sha: 7cd8dab56baf9d850a309632af708ce679c9eb1d
 translation_revised: 2026-09-15
 ---
 # 런타임 배포 프로파일
@@ -169,6 +169,13 @@ Console, Operator Service, 작업 또는 다른 워크로드와 공유하지 않
 유효해야 하며, 연합 client는 서비스에 명시적으로 선택한 신원과 일치해야 합니다. 연합 설정이
 불완전하거나 충돌하면 시작 또는 토큰 획득을 차단합니다. 노드 신원, Azure CLI 또는 다른
 서비스로 대체하지 않습니다. 연합 선언이 없으면 기존에 연결된 Managed Identity 경로를 유지합니다.
+
+Operator는 의미 처리 및 실시간 Kafka 어댑터에 `FDAI_COMMAND_MI_CLIENT_ID`를 명시적으로
+선택할 수 있으며 `AZURE_CLIENT_ID`는 기본 워크로드 신원으로 유지합니다. 각 신원에는 동일한
+ServiceAccount 주체를 위한 별도의 연합 자격 증명과 범위가 제한된 역할이 필요합니다. 기본
+client 또는 선언된 명령 client만 선택할 수 있습니다. 선택을 생략하면 기본 client를 유지하고,
+잘못되거나 관련 없는 client는 토큰 교환 전에 거부합니다. 역할을 부여하거나 교환 실패 뒤에
+다른 신원으로 대체하지 않습니다.
 
 Core와 격리된 Executor는 대상별 캐시와 동시 요청 통합을 유지하고, 각 연합 토큰 교환 시간을
 제한하며, SDK 세션을 닫고 민감한 진단을 제외한 획득 실패를 보고합니다. 각 서비스는 자체 배포

@@ -173,6 +173,13 @@ selected identity. Incomplete or conflicting federation blocks startup or token 
 it never falls back to the node identity, Azure CLI, or another service. Without the federation
 declaration, the existing attached Managed Identity path remains unchanged.
 
+Operator may explicitly select `FDAI_COMMAND_MI_CLIENT_ID` for its semantic and live Kafka
+adapters while `AZURE_CLIENT_ID` remains its primary workload identity. Each identity requires its
+own federated credential for the same ServiceAccount subject and its separately scoped roles.
+Only the primary or declared command client can be selected; an omitted selection keeps the primary
+client, and an invalid or unrelated client fails before token exchange. This does not grant roles
+or fall back after a failed exchange.
+
 Core and isolated Executor retain audience-specific caching and request coalescing, bound each
 federated token exchange, close its SDK session, and sanitize acquisition failures. Each declares
 `azure-core`, `azure-identity`, and the SDK's `aiohttp` transport in its own distribution. Dependency
