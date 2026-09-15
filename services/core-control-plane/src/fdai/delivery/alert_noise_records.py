@@ -98,14 +98,15 @@ class AdmittedAlertRecord:
             or admission.receipt_digest != receipt.receipt_digest
             or admission.execution_authority is not False
             or admission.promotion_authority is not False
-            or assess_decision_evidence_admission(
-                admission,
-                expected_evidence_digest=receipt.evidence_digest,
-                expected_scope_digest=receipt.scope_digest,
-                expected_purpose_id=receipt.purpose_id,
-                expected_source_revision=receipt.source_revision,
-                evaluated_at=now,
-            )
+        ):
+            raise AlertExecutionHeld("alert_record_admission_mismatch")
+        if assess_decision_evidence_admission(
+            admission,
+            expected_evidence_digest=receipt.evidence_digest,
+            expected_scope_digest=receipt.scope_digest,
+            expected_purpose_id=receipt.purpose_id,
+            expected_source_revision=receipt.source_revision,
+            evaluated_at=now,
         ):
             raise AlertExecutionHeld("alert_record_admission_mismatch")
 
@@ -178,7 +179,7 @@ async def read_admitted_alert_record(
             admission = DecisionEvidenceAdmission(**asdict(admission))
             result = AdmittedAlertRecord(encoded, receipt, admission, key)
             await result.require_unchanged(store)
-            result.require_current(now=now)
+            AdmittedAlertRecord.require_current(result, now=now)
             return result
     except AlertExecutionHeld:
         raise

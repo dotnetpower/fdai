@@ -256,7 +256,7 @@ See the [operator runbook](../../runbooks/alert-noise-governance.md) for configu
 Operator reserves the authenticated terminal result with insert-if-absent before updating any
 report or plan projection. A conflicting result cannot change a projection. After an interruption,
 only replay of that exact retained result may finish its idempotent projection writes.
-PostgreSQL claims use parameterized namespaces, exclusive row leases and exact worker fencing.
+PostgreSQL claims use parameterized namespaces, exclusive row leases and exact worker fencing. Alert record and Workflow-promotion decisions are registered in the shared admission inventory with source-bound, fail-closed guards.
 The planning handler rechecks the request deadline and current scope after dependency I/O and
 before artifact or Workflow handoffs; terminal recording uses the current clock, not intake time.
 

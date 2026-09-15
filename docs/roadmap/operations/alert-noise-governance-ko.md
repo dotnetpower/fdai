@@ -2,7 +2,7 @@
 title: 알림 과다 수신 관리
 description: 조직 전체의 과도한 알림을 진단하고 탐지 품질을 유지하면서 승인 기반 알림 변경을 제안합니다.
 translation_of: alert-noise-governance.md
-translation_source_sha: 7f099e0793b4296f4f9fc2a23a159c42dd5087dd
+translation_source_sha: 8550f2edfadc1383cfbf651b96f3cd9078e0f001
 translation_revised: 2026-09-15
 ---
 # 알림 과다 수신 관리
@@ -261,7 +261,7 @@ Core는 결정, Operator는 요청 발신함과 조회 결과, Executor는 전�
 Operator는 보고서나 계획 조회 결과를 갱신하기 전에 인증된 최종 결과를 한 번만 삽입하여
 확정합니다. 충돌하는 결과는 조회 결과를 바꿀 수 없습니다. 중단 후에는 정확히 같은 보존
 결과를 재생해야만 멱등적인 조회 결과 저장을 마칠 수 있습니다.
-PostgreSQL 작업 선점은 매개변수로 전달한 네임스페이스, 독점 행 임대와 정확한 작업자 검사를 사용합니다.
+PostgreSQL 작업 선점은 매개변수로 전달한 네임스페이스, 독점 행 임대와 정확한 작업자 검사를 사용합니다. 알림 기록과 Workflow 승격 결정은 출처에 결속된 실패 시 거부 검증과 함께 공유 근거 수락 목록에 등록합니다.
 계획 처리기는 의존성 입출력 후와 산출물 또는 Workflow 인계 전에 요청 기한과 현재 허용 범위를
 다시 확인합니다. 최종 기록에는 수락 시각이 아닌 현재 시각을 사용합니다.
 

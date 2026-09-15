@@ -178,14 +178,15 @@ class StateStoreAlertWorkflowPromotionReader:
             or not receipt.recorded_at <= admission.verified_at
             or admission.valid_until > receipt.fresh_until
             or not now <= evaluated_at < admission.valid_until
-            or assess_decision_evidence_admission(
-                admission,
-                expected_evidence_digest=evidence_digest,
-                expected_scope_digest=scope_digest,
-                expected_purpose_id=ALERT_WORKFLOW_PROMOTION_PURPOSE,
-                expected_source_revision=self._source_revision,
-                evaluated_at=evaluated_at,
-            )
+        ):
+            raise AlertExecutionHeld("workflow_promotion_admission_mismatch")
+        if assess_decision_evidence_admission(
+            admission,
+            expected_evidence_digest=evidence_digest,
+            expected_scope_digest=scope_digest,
+            expected_purpose_id=ALERT_WORKFLOW_PROMOTION_PURPOSE,
+            expected_source_revision=self._source_revision,
+            evaluated_at=evaluated_at,
         ):
             raise AlertExecutionHeld("workflow_promotion_admission_mismatch")
         return admission
