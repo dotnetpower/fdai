@@ -6,6 +6,9 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
+from azure.core.credentials import AccessToken
+from azure.core.exceptions import ClientAuthenticationError
+from fdai.delivery.azure import workload_identity as identity_module
 from fdai.delivery.azure.workload_identity import (
     ManagedIdentityConfigurationError,
     ManagedIdentityWorkloadIdentity,
@@ -20,6 +23,53 @@ def _cfg(**overrides: object) -> ManagedIdentityWorkloadIdentityConfig:
     }
     base.update(overrides)
     return ManagedIdentityWorkloadIdentityConfig(**base)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("failure", [False, True])
+async def test_aks_federation_closes_sdk_and_never_falls_back(monkeypatch, failure):
+    calls = []
+
+    class Credential:
+        def __init__(self, **kwargs):
+            assert kwargs["client_id"] == "00000000-0000-0000-0000-000000000001"
+            assert kwargs["retry_total"] == 0
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            calls.append("closed")
+
+        async def get_token(self, scope):
+            calls.append(scope)
+            if failure:
+                raise ClientAuthenticationError("provider diagnostic must not escape")
+            return AccessToken("example-token", _future_epoch(3600))
+
+    monkeypatch.setattr(identity_module, "WorkloadIdentityCredential", Credential)
+
+    async def forbidden(request):
+        pytest.fail("attached identity endpoint must not be called for AKS")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(forbidden)) as http:
+        identity = ManagedIdentityWorkloadIdentity.from_env(
+            http_client=http,
+            env={
+                "AZURE_CLIENT_ID": "00000000-0000-0000-0000-000000000001",
+                "AZURE_TENANT_ID": "00000000-0000-0000-0000-000000000002",
+                "AZURE_FEDERATED_TOKEN_FILE": "/var/run/secrets/azure/tokens/token",
+            },
+        )
+        if failure:
+            with pytest.raises(
+                RuntimeError, match="^AKS workload identity token acquisition failed$"
+            ):
+                await identity.get_token("https://example.servicebus.windows.net")
+        else:
+            token = await identity.get_token("https://example.servicebus.windows.net")
+            assert token.token == "example-token"
+            assert await identity.get_token(token.audience) is token
+    assert calls == ["https://example.servicebus.windows.net/.default", "closed"]
 
 
 def _future_epoch(seconds_ahead: int) -> int:

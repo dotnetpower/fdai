@@ -164,10 +164,12 @@ def test_review_expiring_during_approval_never_writes_approval(
     assert not list(tmp_path.iterdir())
 
 
+@pytest.mark.parametrize("stage", ["substrate", "runtime", "database", "application"])
 def test_exact_approval_still_passes_managed_host_validation(
-    tmp_path, monkeypatch, ready_terminal
+    tmp_path, monkeypatch, ready_terminal, stage
 ) -> None:
     review = _review(
+        stage=stage,
         summary={
             "action_counts": {"create": 1, "delete": 1},
             "resource_type_counts": {"azurerm_resource_group": 2},
@@ -175,9 +177,9 @@ def test_exact_approval_still_passes_managed_host_validation(
                 {"address": "azurerm_resource_group.new", "actions": ["create"]},
                 {"address": "azurerm_resource_group.old", "actions": ["delete"]},
             ],
-        }
+        },
     )
-    answers = iter(("application-apply", "application-apply-destructive"))
+    answers = iter((f"{stage}-apply", f"{stage}-apply-destructive"))
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
     monkeypatch.setattr(
         standalone_application, "_azure_actor_digest", lambda _binding, **_kwargs: "d" * 64
@@ -185,6 +187,7 @@ def test_exact_approval_still_passes_managed_host_validation(
     path = standalone_application._approve_plan(tmp_path, review)
     assert path.stat().st_mode & 0o777 == 0o600
     approval = json.loads(path.read_text())
+    assert approval["stage"] == stage
     standalone_host._validate_approval(review, approval, context=review)
 
 

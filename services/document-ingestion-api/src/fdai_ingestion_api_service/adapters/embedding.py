@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import httpx
-from azure.identity.aio import ManagedIdentityCredential
+from azure.core.credentials_async import AsyncTokenCredential
 from fdai_service_contracts import (
     AdapterReadiness,
     configured_readiness,
@@ -33,7 +33,7 @@ class AzureEmbeddingModel:
         self,
         *,
         config: AzureEmbeddingConfig,
-        credential: ManagedIdentityCredential,
+        credential: AsyncTokenCredential,
         client: httpx.AsyncClient,
     ) -> None:
         self._config = config

@@ -5,7 +5,6 @@ import hashlib
 import json
 import os
 import tarfile
-from argparse import Namespace
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -23,6 +22,7 @@ from fdai_deployment_cli.bundle import (
 )
 from fdai_deployment_cli.cli import (
     _create_private_work_dir,
+    _parser,
     _provision_plan,
     _read_public_key,
     _read_private_license_token,
@@ -1183,13 +1183,25 @@ def test_complete_plan_handler_reaches_verification_under_msi(
         "fdai_deployment_cli.cli.verify_offline_kit",
         reached_verification,
     )
-    args = Namespace(
-        stage="platform",
-        save_plan=False,
-        work_dir=tmp_path / "work",
-        profile=tmp_path / "profile.json",
-        offline_kit=tmp_path / "kit",
-        release_root=tmp_path / "release.pub",
+    args = _parser().parse_args(
+        [
+            "provision",
+            "plan",
+            "--stage",
+            "platform",
+            "--work-dir",
+            str(tmp_path / "work"),
+            "--profile",
+            str(tmp_path / "profile.json"),
+            "--variables-file",
+            str(tmp_path / "variables.json"),
+            "--offline-kit",
+            str(tmp_path / "kit"),
+            "--release-root",
+            str(tmp_path / "release.pub"),
+            "--bundle-public-key",
+            str(tmp_path / "bundle.pub"),
+        ]
     )
     args.release_root.write_bytes(b"unused")
 

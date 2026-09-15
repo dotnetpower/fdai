@@ -9,10 +9,12 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from uuid import UUID
 
 import httpx
 import psycopg
-from azure.identity.aio import ManagedIdentityCredential
+from azure.core.credentials_async import AsyncTokenCredential
+from azure.identity.aio import ManagedIdentityCredential, WorkloadIdentityCredential
 from azure.storage.filedatalake.aio import DataLakeServiceClient
 from fdai_service_contracts import AdapterLiveReadinessProvider, ProtectionInspector
 from fdai_service_contracts.venue import (
@@ -435,14 +437,38 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
     )
 
 
-def _managed_identity_credential(env: Mapping[str, str]) -> ManagedIdentityCredential:
-    """Select the exact user-assigned identity attached to the worker Container App."""
-    return ManagedIdentityCredential(client_id=env["FDAI_MI_CLIENT_ID"].strip())
+def _managed_identity_credential(env: Mapping[str, str]) -> AsyncTokenCredential:
+    """Select the worker identity through explicit AKS federation or the attached MI."""
+    client_id = env["FDAI_MI_CLIENT_ID"].strip()
+    if "AZURE_FEDERATED_TOKEN_FILE" not in env:
+        return ManagedIdentityCredential(client_id=client_id)
+    tenant = env.get("AZURE_TENANT_ID", "")
+    workload_client = env.get("AZURE_CLIENT_ID", "")
+    token_file = env["AZURE_FEDERATED_TOKEN_FILE"]
+    try:
+        UUID(tenant)
+        UUID(workload_client)
+    except ValueError:
+        raise ProductionConfigurationError(
+            "AKS workload identity requires valid tenant and client identifiers"
+        ) from None
+    if (
+        client_id.casefold() != workload_client.casefold()
+        or not token_file
+        or token_file != token_file.strip()
+        or not Path(token_file).is_absolute()
+    ):
+        raise ProductionConfigurationError(
+            "AKS workload identity must match the worker and its absolute projected token path"
+        )
+    return WorkloadIdentityCredential(
+        tenant_id=tenant, client_id=workload_client, token_file_path=token_file
+    )
 
 
 def _deployed_credential(
-    credential: ManagedIdentityCredential | None,
-) -> ManagedIdentityCredential:
+    credential: AsyncTokenCredential | None,
+) -> AsyncTokenCredential:
     if credential is None:
         raise ProductionConfigurationError("deployed document worker requires its managed identity")
     return credential

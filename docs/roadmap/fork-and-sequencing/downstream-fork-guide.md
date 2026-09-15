@@ -78,6 +78,12 @@ One fork can have no deployments or several deployments in different environment
 also be deployed directly. `.fdai-fork`, `FDAI_FORK`, and `git config fdai.fork true` enable
 repository-integrity checks only; runtime code must not branch on them.
 
+The connected source deployment and keyless Trial target applies equally to upstream and forks.
+A fork marker, clean checkout, or artifact signature never grants entitlement or starts a new
+Trial. Preserve the installation-bound record across upgrades; atomic storage and runtime
+enforcement remain separate implementation work in
+[Capability Licensing](capability-licensing.md#durable-keyless-trial-target).
+
 An optional vertical package is also independent from the fork boundary. For example,
 [`fdai-cost-governance`](../architecture/finops-package-architecture.md) can be included in a
 reviewed upstream or downstream image, then enabled or disabled for each deployment. Package

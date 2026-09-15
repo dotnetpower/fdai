@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: e4e295eb17de124f5219719c0e446068e09cd591
+translation_source_sha: 3bbe36f9b8110e13193827d2cd62d2a68e40c3a4
 translation_revised: 2026-09-15
 title: 에이전트 운영 책임 수명 주기
 ---
@@ -27,6 +27,10 @@ title: 에이전트 운영 책임 수명 주기
 출처/신뢰 정책과 기존 독립 문서 승인 절차를 따릅니다.
 
 ## 설계 개요
+
+공유 수집 호스트는 AKS에서 자기 서비스에 명시된 투영 워크로드 신원을 선택합니다. 바뀌는
+것은 Azure 토큰 획득 방식뿐입니다. 운영 소유권 웹후크는 계속 Git 서명을 검증하고, 인계는
+검토 전용으로 유지되며, 서비스 자격 증명은 소유자를 바꾸거나 RBAC 권한을 부여하지 않습니다.
 
 수명 주기에는 서로 독립적인 안전 경계 네 가지가 있습니다.
 

@@ -10,7 +10,7 @@ from typing import Any
 
 from aiokafka import AIOKafkaProducer
 from aiokafka.abc import AbstractTokenProvider
-from azure.identity.aio import ManagedIdentityCredential
+from azure.core.credentials_async import AsyncTokenCredential
 from fdai_service_contracts import (
     AdapterReadiness,
     configured_readiness,
@@ -20,7 +20,7 @@ from fdai_service_contracts import (
 
 
 class _ManagedIdentityTokenProvider(AbstractTokenProvider):  # type: ignore[misc]
-    def __init__(self, credential: ManagedIdentityCredential, scope: str) -> None:
+    def __init__(self, credential: AsyncTokenCredential, scope: str) -> None:
         self._credential = credential
         self._scope = scope
 
@@ -38,7 +38,7 @@ class EventHubsKafkaPublisher:
         self,
         *,
         bootstrap_servers: str,
-        credential: ManagedIdentityCredential,
+        credential: AsyncTokenCredential,
         client_id: str = "fdai-ingestion-api",
     ) -> None:
         if not bootstrap_servers:

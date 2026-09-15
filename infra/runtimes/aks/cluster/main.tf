@@ -9,6 +9,34 @@ locals {
 
 data "azurerm_client_config" "current" {}
 
+resource "azurerm_public_ip" "egress" {
+  name                = "pip-${local.name}-egress"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+  tags                = local.tags
+}
+
+resource "azurerm_nat_gateway" "egress" {
+  name                    = "nat-${local.name}"
+  location                = var.location
+  resource_group_name     = var.resource_group_name
+  sku_name                = "Standard"
+  idle_timeout_in_minutes = 4
+  tags                    = local.tags
+}
+
+resource "azurerm_nat_gateway_public_ip_association" "egress" {
+  nat_gateway_id       = azurerm_nat_gateway.egress.id
+  public_ip_address_id = azurerm_public_ip.egress.id
+}
+
+resource "azurerm_subnet_nat_gateway_association" "egress" {
+  subnet_id      = var.aks_subnet_id
+  nat_gateway_id = azurerm_nat_gateway.egress.id
+}
+
 resource "azurerm_user_assigned_identity" "cluster" {
   name                = "id-${local.name}"
   location            = var.location
@@ -79,7 +107,7 @@ resource "azurerm_kubernetes_cluster" "runtime" {
     network_plugin_mode = "overlay"
     network_data_plane  = "cilium"
     network_policy      = "cilium"
-    outbound_type       = "managedNATGateway"
+    outbound_type       = "userAssignedNATGateway"
     load_balancer_sku   = "standard"
     service_cidr        = "10.43.0.0/24"
     dns_service_ip      = "10.43.0.10"
@@ -95,7 +123,11 @@ resource "azurerm_kubernetes_cluster" "runtime" {
     secret_rotation_enabled = true
   }
 
-  depends_on = [azurerm_role_assignment.cluster_network]
+  depends_on = [
+    azurerm_role_assignment.cluster_network,
+    azurerm_nat_gateway_public_ip_association.egress,
+    azurerm_subnet_nat_gateway_association.egress,
+  ]
 }
 
 resource "azurerm_kubernetes_cluster_node_pool" "user" {

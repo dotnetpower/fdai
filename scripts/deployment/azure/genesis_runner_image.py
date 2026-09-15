@@ -8,7 +8,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import stat
 import subprocess
 import sys
@@ -21,7 +20,7 @@ from fdai_deployment_cli.plan_input import read_plan_input
 from fdai_deployment_cli.private_output import write_private_output
 from fdai_deployment_cli.profile import load_profile
 from genesis_approval import GenesisApproval, load_genesis_approval
-from genesis_checks import CheckError, GenesisChecks
+from genesis_checks import CheckError, GenesisChecks, trusted_tool
 from genesis_runner_image_contract import (
     CLAIM_NAME,
     PLAN_JSON_NAME,
@@ -582,7 +581,7 @@ def _require_apply_approval(path: Path | None, *, review: Mapping[str, object]) 
 def _operator_digest(run_binding: str, *, root: Path) -> str:
     raw = _capture(
         [
-            "/usr/bin/az",
+            str(_trusted_azure_cli()),
             "account",
             "show",
             "--query",
@@ -598,7 +597,7 @@ def _operator_digest(run_binding: str, *, root: Path) -> str:
     object_id = (
         _capture(
             [
-                "/usr/bin/az",
+                str(_trusted_azure_cli()),
                 "ad",
                 "signed-in-user",
                 "show",
@@ -798,15 +797,26 @@ def _terraform_environment(
         if not github_config.is_dir() or github_config.stat().st_mode & 0o022:
             raise ValueError("GitHub CLI configuration directory is not trusted")
     trusted_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-    az_cli = shutil.which("az", path=trusted_path)
-    if az_cli is None or _trusted_executable(Path(az_cli), label="Azure CLI") != Path(
-        "/usr/bin/az"
-    ).resolve(strict=True):
-        raise ValueError("Azure CLI executable is not trusted")
+    tools = terraform_home / "bin"
+    tools.mkdir(mode=0o700, exist_ok=True)
+    details = tools.lstat()
+    if (
+        not stat.S_ISDIR(details.st_mode)
+        or details.st_uid != os.geteuid()
+        or details.st_mode & 0o077
+    ):
+        raise ValueError("runner image tool directory is not private")
+    azure_cli = _trusted_azure_cli()
+    launcher = tools / "az"
+    if launcher.exists() or launcher.is_symlink():
+        if not launcher.is_symlink() or launcher.resolve(strict=True) != azure_cli:
+            raise ValueError("runner image Azure CLI binding changed")
+    else:
+        launcher.symlink_to(azure_cli)
     environment = {
         "AZURE_CONFIG_DIR": str(azure_config),
         "HOME": str(terraform_home),
-        "PATH": trusted_path,
+        "PATH": f"{tools}:{trusted_path}",
         "TF_CLI_CONFIG_FILE": str(cli_config),
         "TF_DATA_DIR": str(work_dir / "terraform-data"),
         "TF_IN_AUTOMATION": "1",
@@ -824,7 +834,7 @@ def _trusted_terraform(path: Path) -> Path:
 
 
 def _trusted_azure_cli() -> Path:
-    expected = Path("/usr/bin/az").resolve(strict=True)
+    expected = Path(trusted_tool("az"))
     return _trusted_executable(expected, label="Azure CLI")
 
 
