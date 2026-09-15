@@ -152,7 +152,6 @@ answer fidelity, presentation quality, and model invariance remain `not_scored` 
 controlled evidence exists.
 
 ## Implementation status
-
 ### Implementation scope
 
 | Area | State | Evidence | Notes |
