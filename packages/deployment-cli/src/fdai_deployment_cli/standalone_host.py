@@ -17,7 +17,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Final
 
-from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.aks_readiness import verify_workload_health
 from fdai_deployment_cli.deployment_kit import acquire_deployment_kit
 from fdai_deployment_cli.license import inspect_license
@@ -450,28 +450,12 @@ def _prepare_database(_args: argparse.Namespace, work_dir: Path) -> dict[str, ob
     _activate_terraform_stage("runtime", context, work_dir)
     runtime_infra = Path(str(context["runtime_infra"]))
     cluster_name = _terraform_output(runtime_infra, "cluster_name")
-    kubeconfig = work_dir / "aks.kubeconfig"
-    _run(
-        (
-            "az",
-            "aks",
-            "get-credentials",
-            "--resource-group",
-            str(context["resource_group_name"]),
-            "--name",
-            cluster_name,
-            "--file",
-            str(kubeconfig),
-            "--overwrite-existing",
-            "--format",
-            "exec",
-            "--only-show-errors",
-        ),
-        cwd=work_dir,
-        timeout=180,
-        reason="private AKS kubeconfig acquisition failed",
+    kubeconfig = _prepare_aks_kubeconfig(
+        context,
+        work_dir,
+        resource_group=str(context["resource_group_name"]),
+        cluster_name=cluster_name,
     )
-    kubeconfig.chmod(0o600)
     application_values = _private_json(
         work_dir / "application.auto.tfvars.json", "application variables"
     )
@@ -544,28 +528,9 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     _activate_terraform_stage("runtime", context, work_dir)
     cluster_name = _terraform_output(runtime_infra, "cluster_name")
     oidc_issuer_url = _terraform_output(runtime_infra, "oidc_issuer_url")
-    kubeconfig = work_dir / "aks.kubeconfig"
-    _run(
-        (
-            "az",
-            "aks",
-            "get-credentials",
-            "--resource-group",
-            resource_group,
-            "--name",
-            cluster_name,
-            "--file",
-            str(kubeconfig),
-            "--overwrite-existing",
-            "--format",
-            "exec",
-            "--only-show-errors",
-        ),
-        cwd=work_dir,
-        timeout=180,
-        reason="private AKS kubeconfig acquisition failed",
+    kubeconfig = _prepare_aks_kubeconfig(
+        context, work_dir, resource_group=resource_group, cluster_name=cluster_name
     )
-    kubeconfig.chmod(0o600)
     application_values = _private_json(
         work_dir / "application.auto.tfvars.json", "application variables"
     )
@@ -1510,6 +1475,99 @@ def _substrate_targets(context: dict[str, object]) -> tuple[str, ...]:
         "azurerm_role_assignment.isolated_executor_kv_secrets_user",
     }
     return tuple(target for target in _SUBSTRATE_TARGETS if target not in excluded)
+
+
+def _prepare_aks_kubeconfig(
+    context: dict[str, object], work_dir: Path, *, resource_group: str, cluster_name: str
+) -> Path:
+    """Select explicit managed-host MSI authentication before any Kubernetes operation."""
+    client_id = _required_guid(context, "client_id")
+    subscription_id = _required_guid(context, "subscription_id")
+    kubeconfig = work_dir / "aks.kubeconfig"
+    if kubeconfig.exists() or kubeconfig.is_symlink():
+        read_private_bytes(kubeconfig, max_bytes=1024 * 1024)
+    else:
+        write_private_output(kubeconfig, "")
+    _run(
+        (
+            "az",
+            "aks",
+            "get-credentials",
+            "--subscription",
+            subscription_id,
+            "--resource-group",
+            resource_group,
+            "--name",
+            cluster_name,
+            "--file",
+            str(kubeconfig),
+            "--overwrite-existing",
+            "--format",
+            "exec",
+            "--only-show-errors",
+        ),
+        cwd=work_dir,
+        timeout=180,
+        reason="private AKS kubeconfig acquisition failed",
+    )
+    read_private_bytes(kubeconfig, max_bytes=1024 * 1024)
+    _run(
+        (
+            "kubelogin",
+            "convert-kubeconfig",
+            "--kubeconfig",
+            str(kubeconfig),
+            "--login",
+            "msi",
+            "--client-id",
+            client_id,
+        ),
+        cwd=work_dir,
+        timeout=60,
+        reason="private AKS managed-host authentication setup failed",
+    )
+    read_private_bytes(kubeconfig, max_bytes=1024 * 1024)
+    rendered = _capture(
+        (
+            "kubectl",
+            "config",
+            "view",
+            "--minify",
+            "--output",
+            "json",
+            "--kubeconfig",
+            str(kubeconfig),
+        ),
+        cwd=work_dir,
+        timeout=30,
+        reason="private AKS authentication configuration readback failed",
+    )
+    configuration = load_json_object(
+        rendered.encode(), label="AKS authentication configuration", max_bytes=1024 * 1024
+    )
+    users = configuration.get("users")
+    if not isinstance(users, list) or len(users) != 1 or not isinstance(users[0], dict):
+        raise ValueError("AKS authentication configuration has ambiguous users")
+    user = _mapping(users[0].get("user"), "AKS authentication user")
+    execution = _mapping(user.get("exec"), "AKS authentication command")
+    arguments = execution.get("args")
+    if (
+        set(user) != {"exec"}
+        or execution.get("command") != "kubelogin"
+        or not isinstance(arguments, list)
+        or not all(isinstance(value, str) for value in arguments)
+        or arguments[:1] != ["get-token"]
+        or execution.get("env") not in (None, [])
+        or "-l" in arguments
+        or any(value.startswith(("--login=", "--client-id=")) for value in arguments)
+    ):
+        raise ValueError("AKS authentication must use only the selected managed identity")
+    for flag, expected in (("--login", "msi"), ("--client-id", client_id)):
+        if arguments.count(flag) != 1 or arguments[
+            arguments.index(flag) + 1 : arguments.index(flag) + 2
+        ] != [expected]:
+            raise ValueError("AKS authentication does not match the managed host identity")
+    return kubeconfig
 
 
 def _aks_workload(

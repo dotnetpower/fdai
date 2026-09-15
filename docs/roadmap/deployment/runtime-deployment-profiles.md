@@ -113,6 +113,13 @@ pools, cluster identity, networking attachment, and cluster-scoped Azure role as
 Kubernetes resources are applied only after independent Azure control-plane readback proves that
 the private cluster reached `Succeeded`. The workload state then reads the approved cluster's OIDC
 issuer and uses a private kubeconfig on the managed deployment host.
+Database and application preparation both convert that owner-only kubeconfig with
+[`kubelogin` managed identity authentication](https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication)
+using `--login msi` and the exact managed-host client ID. Credential acquisition pins the
+subscription and never requests admin credentials. Local `kubectl config view --minify` readback
+must show one exec-only user, `kubelogin get-token`, one matching client and one MSI login option,
+without environment overrides. Failed conversion or mismatched readback stops before Kubernetes
+operations; neither browser/device-code login nor default/node identity is a fallback.
 The common plan-review validator accepts the existing `substrate`, `runtime`, `database` and
 `application` stages with the same exact digest, expiry and destructive-confirmation checks.
 Accepting an AKS stage never grants it approval or permission to skip an earlier stage.

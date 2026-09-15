@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 7cd8dab56baf9d850a309632af708ce679c9eb1d
+translation_source_sha: e3d5d4897486c39edae4c406de0dd6be5e0e95a1
 translation_revised: 2026-09-15
 ---
 # 런타임 배포 프로파일
@@ -112,6 +112,12 @@ DB, 네트워크, 레지스트리, 저장소, 모니터링, 메시지, 모델, �
 연결, 클러스터 범위 Azure 역할 할당만 소유합니다. 독립적인 Azure 컨트롤 플레인 확인에서 비공개
 클러스터가 `Succeeded` 상태에 도달한 것을 증명한 뒤 Kubernetes 리소스를 적용합니다. 워크로드
 상태는 승인된 클러스터의 OIDC 발급자를 읽고 managed 배포 호스트의 비공개 kubeconfig를 사용합니다.
+DB 및 애플리케이션 준비는 모두 소유자 전용 kubeconfig를 [`kubelogin` 관리 ID 인증](https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication)으로 변환하며
+`--login msi`와 정확한 관리 호스트 client ID를 지정합니다. 자격 증명 조회는 구독을 고정하고
+관리자 자격 증명을 요청하지 않습니다. 로컬 `kubectl config view --minify` 재조회는 exec만
+사용하는 사용자 하나, `kubelogin get-token`, 일치하는 client 하나와 MSI 로그인 옵션 하나를
+확인하며 환경 변수 재정의를 허용하지 않습니다. 변환 실패나 재조회 불일치 시 Kubernetes
+작업 전에 중단합니다. 브라우저/디바이스 코드 로그인이나 기본/노드 신원으로 대체하지 않습니다.
 공용 계획 검토기는 기존 `substrate`, `runtime`, `database`, `application` 단계에 같은
 정확한 digest·만료·파괴적 변경 확인 조건을 적용합니다. AKS 단계를 허용한다고 승인하거나
 선행 단계를 생략할 권한을 부여하지는 않습니다.
