@@ -323,9 +323,12 @@ describe("Operator API response decoders", () => {
         },
       ],
       response: {
+        hypothesis_seq: 2,
+        source_seq: 3,
         verdict: "auto",
         decision: "auto",
         action_kind: "risk_gate.shadow_authority",
+        action_type_id: "storage.disable-public-access",
         mode: "enforce",
         rollback_reference: "pr-7",
         recorded_at: "2026-07-14T10:03:00Z",
@@ -336,6 +339,9 @@ describe("Operator API response decoders", () => {
     expect(view.hypotheses[0]?.cause_domain).toBe("infrastructure");
     expect(view.hypotheses[0]?.causal_chain?.hops[0]?.lead_seconds).toBe(75);
     expect(view.response?.verdict).toBe("auto");
+    expect(view.response?.hypothesis_seq).toBe(2);
+    expect(view.response?.source_seq).toBe(3);
+    expect(view.response?.action_type_id).toBe("storage.disable-public-access");
     expect(() =>
       decodeRcaView({
         ...grounded,
@@ -365,6 +371,13 @@ describe("Operator API response decoders", () => {
       ...grounded,
       response: { ...grounded.response, recorded_at: "later" },
     })).toThrow(/RFC 3339/);
+    expect(() => decodeRcaView({
+      ...grounded,
+      response: {
+        ...grounded.response,
+        hypothesis_seq: undefined,
+      },
+    })).toThrow(/hypothesis_seq MUST be a finite number/);
   });
 
   test("decodes an RCA view with an abstained hypothesis and null response", () => {

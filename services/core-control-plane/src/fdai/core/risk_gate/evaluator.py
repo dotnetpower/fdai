@@ -92,6 +92,7 @@ class UnifiedRiskDecision:
             "quorum": self.quorum,
             "winning_side": self.winning_side,
             "gate_outcome": self.gate.outcome.value,
+            "effective_mode": self.gate.effective_mode.value,
             "gate_reasons": list(self.gate.reasons),
         }
         if self.authority is not None:

@@ -211,6 +211,7 @@ def test_build_unified_risk_audit_shape(
     )
     assert entry["action_kind"] == "risk_gate.unified"
     assert entry["mode"] == "shadow"
+    assert entry["effective_mode"] == "shadow"
     assert entry["decision"] in {"auto", "hil", "shadow", "deny"}
     assert "winning_side" in entry
     assert "gate_outcome" in entry

@@ -436,9 +436,16 @@ decision, change authority, and operator attention instead of presenting raw `pe
 and `shadow` values as one status. Notification-delivery escalation takes precedence for an active
 incident and names the required follow-up. Audit and technical activity remain available when
 records exist. Root-cause analysis and its dossier become links only after an `rca.*` record exists;
-otherwise the rows state that no evidence-backed hypothesis has been recorded. The RCA route also
-hides its generic audit fallback response when no hypothesis exists, so `incident.members` is never
-presented as a response plan or cause. The Trace route leads with an interpretation summary that
+otherwise the rows state that no evidence-backed hypothesis exists. RCA hides generic fallback when
+the primary hypothesis is absent or abstained. It links response facts only to later decision or
+rollback evidence, renders recorded action type and effective mode or unavailable, and exposes both
+sequence references as exact Audit links. Older and lifecycle rows cannot become a response or
+cause. The review orders hypothesis, confidence, chain, citations, and response. Constrained chains
+scroll; mobile becomes vertical with 44 px evidence links. Result states remain distinct; another can
+replace a loading request, and duplicate requests are blocked. Submission restores focus; Settings
+events preserve drafts without fetching; atomic polite status text announces completion.
+Loading/error context publishes no hypothesis or response records, preventing stale Deck evidence.
+The Trace route leads with an interpretation summary that
 separates notification escalation, response-decision evidence, RCA evidence, and named pipeline
 stages before showing the raw ordered table; generic correlated activity remains technical history,
 not a cause claim.

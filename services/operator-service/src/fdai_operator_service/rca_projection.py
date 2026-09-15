@@ -17,6 +17,8 @@ _CAUSE_DOMAINS = frozenset(
         "unknown",
     }
 )
+_RESPONSE_ACTION_KINDS = frozenset({"risk_gate.shadow_authority", "risk_gate.unified"})
+_RESPONSE_DECISIONS = frozenset({"abstain", "auto", "deny", "hil", "shadow"})
 
 
 def rca_view(correlation_id: str, items: Sequence[JsonObject]) -> JsonObject | None:
@@ -24,19 +26,16 @@ def rca_view(correlation_id: str, items: Sequence[JsonObject]) -> JsonObject | N
     if not items:
         return None
     ordered = sorted(items, key=lambda item: _as_int(item["seq"]))
-    hypotheses = [
-        _hypothesis(item)
-        for item in reversed(ordered)
-        if item.get("action_kind") == "rca.hypothesis"
-    ]
-    action_rows = [item for item in ordered if item.get("action_kind") != "rca.hypothesis"]
+    hypothesis_rows = [item for item in ordered if item.get("action_kind") == "rca.hypothesis"]
+    hypotheses = [_hypothesis(item) for item in reversed(hypothesis_rows)]
+    primary_hypothesis = hypothesis_rows[-1] if hypothesis_rows else None
     return cast(
         JsonObject,
         {
             "correlation_id": correlation_id,
             "incident_id": _first_entry_string(ordered, "incident_id"),
             "hypotheses": hypotheses,
-            "response": _response(action_rows),
+            "response": _linked_response(ordered, primary_hypothesis),
         },
     )
 
@@ -69,22 +68,83 @@ def _hypothesis(item: JsonObject) -> JsonObject:
     )
 
 
-def _response(items: Sequence[JsonObject]) -> JsonObject | None:
+def _linked_response(
+    items: Sequence[JsonObject],
+    primary_hypothesis: JsonObject | None,
+) -> JsonObject | None:
+    if primary_hypothesis is None:
+        return None
+    hypothesis_entry = _mapping(primary_hypothesis.get("entry"))
+    if _nonempty(hypothesis_entry.get("rca_outcome")) != "grounded":
+        return None
+    hypothesis_seq = _as_int(primary_hypothesis["seq"])
+    response_rows = [
+        item
+        for item in items
+        if _as_int(item["seq"]) > hypothesis_seq
+        and _response_matches_hypothesis(item, primary_hypothesis)
+    ]
+    return _response(response_rows, hypothesis_seq=hypothesis_seq)
+
+
+def _response_matches_hypothesis(
+    item: JsonObject,
+    hypothesis: JsonObject,
+) -> bool:
+    if not _has_response_evidence(item):
+        return False
+    event_id = _record_string(item, "event_id")
+    hypothesis_event_id = _record_string(hypothesis, "event_id")
+    if event_id is None or event_id != hypothesis_event_id:
+        return False
+    remediation_ref = _record_string(hypothesis, "rca_remediation_ref")
+    return remediation_ref is None or _response_action_type(item) == remediation_ref
+
+
+def _has_response_evidence(item: JsonObject) -> bool:
+    return (
+        item.get("action_kind") in _RESPONSE_ACTION_KINDS and _response_decision(item) is not None
+    )
+
+
+def _response(
+    items: Sequence[JsonObject],
+    *,
+    hypothesis_seq: int,
+) -> JsonObject | None:
     if not items:
         return None
     latest = items[-1]
-    newest = list(reversed(items))
+    decision = _response_decision(latest)
+    if decision is None:
+        return None
     return cast(
         JsonObject,
         {
-            "verdict": _verdict(newest),
-            "decision": _first_entry_string(newest, "decision", "gate_decision"),
+            "hypothesis_seq": hypothesis_seq,
+            "source_seq": _as_int(latest["seq"]),
+            "verdict": decision,
+            "decision": decision,
             "action_kind": str(latest["action_kind"]),
-            "mode": str(latest["mode"]),
-            "rollback_reference": _first_entry_string(newest, "rollback_reference", "rollback_ref"),
+            "action_type_id": _response_action_type(latest),
+            "mode": _response_mode(latest),
+            "rollback_reference": _first_entry_string(
+                (latest,), "rollback_reference", "rollback_ref"
+            ),
             "recorded_at": str(latest["recorded_at"]),
         },
     )
+
+
+def _response_action_type(item: JsonObject) -> str | None:
+    entry = _mapping(item.get("entry"))
+    return _nonempty(entry.get("action_type_id"))
+
+
+def _response_mode(item: JsonObject) -> str | None:
+    entry = _mapping(item.get("entry"))
+    mode = _nonempty(entry.get("effective_mode"))
+    return mode if mode in {"shadow", "enforce"} else None
 
 
 def _causal_chain(raw: object) -> JsonObject | None:
@@ -138,20 +198,19 @@ def _causal_chain(raw: object) -> JsonObject | None:
     )
 
 
-def _verdict(items: Sequence[JsonObject]) -> str:
-    for item in items:
-        entry = _mapping(item.get("entry"))
-        tokens = {
-            str(item.get("action_kind") or "").lower(),
-            str(entry.get("decision") or "").lower(),
-            str(entry.get("gate_decision") or "").lower(),
-            str(entry.get("outcome") or "").lower(),
-            str(entry.get("status") or "").lower(),
-        }
-        for verdict in ("auto", "hil", "deny", "abstain"):
-            if verdict in tokens or (verdict == "abstain" and "abstained" in tokens):
-                return verdict
-    return "unknown"
+def _response_decision(item: JsonObject) -> str | None:
+    entry = _mapping(item.get("entry"))
+    decisions = {
+        decision
+        for key in ("decision", "gate_decision")
+        if (decision := _canonical_response_decision(entry.get(key))) is not None
+    }
+    return decisions.pop() if len(decisions) == 1 else None
+
+
+def _canonical_response_decision(value: object) -> str | None:
+    decision = (_nonempty(value) or "").lower()
+    return decision if decision in _RESPONSE_DECISIONS else None
 
 
 def _first_entry_string(items: Sequence[JsonObject], *keys: str) -> str | None:
@@ -161,6 +220,10 @@ def _first_entry_string(items: Sequence[JsonObject], *keys: str) -> str | None:
             if value := _nonempty(entry.get(key)):
                 return value
     return None
+
+
+def _record_string(item: JsonObject, key: str) -> str | None:
+    return _nonempty(item.get(key)) or _nonempty(_mapping(item.get("entry")).get(key))
 
 
 def _mapping(value: object) -> dict[str, Any]:
