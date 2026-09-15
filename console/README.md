@@ -81,9 +81,18 @@ truth and exposes no action or approval control.
 Optional read projections, including workflow Processes, reports, ontology,
 inventory, pantheon, promotion gates, and LLM cost, render an explicit
 unavailable state when the composition root does not register their GET route.
-The Processes panel consumes `GET /views/process` and
+The Processes panel consumes `GET /views/process`,
+`GET /views/process/{process_id}/events`, and the optional
 `GET /views/process/{process_id}`. It renders server-selected, bounded
 ViewSpecs instead of computing workflow or ontology decisions in the browser.
+The workspace presents loaded-run counts, a selectable run list, and nine
+snapshot facts before expandable control, investigation, planning, journal,
+and workflow-evidence sections. An event deep link opens its journal and event.
+Use **Provenance** to inspect the source without clearing the selected run.
+Explicit **Sample** mode provides three generic runs with read-only evidence
+and no permitted transitions; an empty Live source never activates Sample.
+The focused `processes-mock-parity.spec.ts` check compares the master mock and
+Console at equal content width with pinned navigation, not just overflow.
 
 The Overview health axis fails closed: known guard failures show **Needs
 attention**, and missing promotion or autonomy evidence shows **Evidence
@@ -320,11 +329,14 @@ The **Governance > Architecture** panel renders the deployed inventory instance 
 subnet boundaries, resource status, and `attached_to` / `depends_on` links in one read-only
 SVG workbench. Pan, zoom, filtering, selection, and deep links are local view operations only.
 The console cannot add, move, resize, or delete resources.
-The bounded scope overview is visible before selection. Selecting a Resource preserves the
-overview, emphasizes that node, reveals its direct auxiliary neighbors, and opens the nonmodal
-Inspector in the same frame.
-The Network lens keeps every returned VNet visible while Resource remains at **Scope overview**;
-selecting a Resource narrows only that presentation focus.
+The bounded Landscape is visible before selection. It derives containment without requiring API
+coordinates, keeps Subscription as a neutral boundary, and shows at most 8 Resource Group summary
+cards ranked by returned descendants. Selecting a Resource opens a type-diverse, 36-record focus
+that reserves direct relationship endpoints first and opens the nonmodal Inspector in the same
+frame.
+The Network lens keeps at most 2 VNet boundaries, 4 related Subnet boundaries, and 4 related
+network-role records while Resource remains at **Scope overview**. Path calculation still uses the
+complete returned evidence graph, and selecting a Resource narrows only the presentation focus.
 
 Production responses merge the immutable reconciliation snapshot with the
 ordered real-time resource/link overlay. The toolbar shows pending real-time
@@ -352,6 +364,8 @@ fallbacks. Typed paths terminate at node and region boundaries and preserve endp
 semantics without converting layout into evidence. Card, containment, placement, and hit-target
 geometry use the same dimensions, so dense revealed Resources cannot overlap or intercept an
 adjacent card's pointer target.
+Any visible record without finite generated geometry produces an explicit unavailable
+presentation instead of falling back to coordinate zero.
 
 The Network Path Inspector view traces the shortest reported `attached_to`, `depends_on`, or
 `peered_with` path. A fresh, complete graph can report `No observed path`; stale, partial,

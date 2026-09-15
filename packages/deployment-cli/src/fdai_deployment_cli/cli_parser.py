@@ -133,6 +133,12 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         metavar="PATH",
         help="Existing exact human checkpoint approval (source mode only); never prompt",
     )
+    azure.add_argument(
+        "--foundation-recovery-directory",
+        type=Path,
+        metavar="PATH",
+        help="Resume an existing source run after separately verified Foundation recovery",
+    )
     settings = azure.add_argument_group("Deployment settings")
     settings.add_argument(
         "--region", default="koreacentral", help="Azure deployment region (default: %(default)s)"

@@ -4,9 +4,10 @@ import {
   isOptionalOperatorApiUnavailable,
   type OperatorApiClient,
 } from "../api";
+import { OperatorApiError } from "../api-transport";
 import type { ConsoleDataMode } from "../console-data-mode";
-import { isRecordedStateGenerationTransition } from "../recorded-resource-state";
 import { routeHref } from "../router";
+import { isRfc3339Timestamp } from "../time-format";
 import {
   decodeAnalyzerRun,
   type AnalyzerRunView,
@@ -153,11 +154,13 @@ export async function loadLiveResourceTotal(
   for (let attempt = 0; ; attempt += 1) {
     try {
       return decodeResourceTotal(
-        await client.panel("/ontology/instances/states", { limit: "1" }),
+        await client.panel("/ontology/instances/states", { summary: "count" }),
       );
     } catch (error) {
       if (
-        !isRecordedStateGenerationTransition(error)
+        !(error instanceof OperatorApiError
+          && error.status === 409
+          && error.message === "inventory_generation_changed")
         || attempt >= RESOURCE_GENERATION_RETRY_DELAYS_MS.length
         || cancelled()
       ) {
@@ -357,7 +360,12 @@ export function decodeResourceTotal(value: unknown): number {
     root.schema_version !== "1.0.0" ||
     root.execution_authority !== false ||
     root.mutation_authority !== false ||
-    root.source_kind !== "inventory_snapshot_resource"
+    root.source_kind !== "inventory_snapshot_resource" ||
+    typeof root.source_generation !== "string" ||
+    !root.source_generation.trim() ||
+    root.source_generation.length > 256 ||
+    typeof root.source_cutoff !== "string" ||
+    !isRfc3339Timestamp(root.source_cutoff)
   ) {
     throw new Error("resource page authority is malformed");
   }

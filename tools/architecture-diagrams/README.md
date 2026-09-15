@@ -47,7 +47,7 @@ fails when a committed artifact is missing or stale.
 
 `migrate-repository` replaces paired roadmap Mermaid blocks with localized static diagram
 references and writes their canonical specifications. The repository migration inventory currently
-contains 80 specifications; update the inventory test in the same change when an additional reviewed
+contains 81 specifications; update the inventory test in the same change when an additional reviewed
 block is migrated, then run `render` and `check-repository-migration`.
 
 ## Diagram kinds

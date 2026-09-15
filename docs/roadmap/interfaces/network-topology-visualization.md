@@ -213,6 +213,13 @@ export. Export
 creates a sanitized SVG snapshot and optional PNG from the current focus. It embeds no credential,
 subscription id, raw provider resource id, endpoint, or customer-specific value. Live exports show
 snapshot time, source, freshness, scope, truncation, and `Read-only observed topology`.
+The Console first derives presentation-only geometry from authoritative containment identity and
+typed links. The default Landscape aggregates descendants under Subscription and Resource Group
+boundaries, and the Network overview limits visible records to network boundaries and reported
+network roles. It retains at most 2 ranked VNet boundaries, 4 related Subnet boundaries, 4
+related network roles, and required ancestors. Found paths may restore an omitted network plane
+and its ancestors from the complete returned evidence graph. API responses do not carry or authorize layout coordinates. Every visible record
+must have finite generated geometry before it reaches the SVG renderer.
 Observed links terminate on node and region boundaries rather than at visual centers. A neutral
 halo and typed endpoint dot keep short containment attachments visible across nested boundaries,
 and mobile icon nodes expose at least a 44 px pointer and keyboard target. Layout pitches reserve
@@ -231,7 +238,7 @@ embeds the reviewed SVG source at build time and doesn't fetch a local or remote
 | Schema | Shared-vocabulary parity plus separate positive and negative fixtures for authored diagrams and observed presentation state. |
 | Layout | Canonical hub-spoke, dual-ingress, private-endpoint fan-out, and dense crossing fixtures pass integrity checks. |
 | Rendering | English and Korean SVG contain every boundary, icon, connection, annotation, and accessible detail. |
-| Console model | Focus selection, ambiguity, path tracing, filtering, and no-observed-path behavior pass deterministic tests. |
+| Console model | Geometry-less inventory, bounded Landscape aggregation, focus selection, ambiguity, path tracing, filtering, and no-observed-path behavior pass deterministic tests. |
 | Console UI | Desktop `1440x900`, constrained desktop `993x641`, and mobile `390x844` show no incoherent overlap or horizontal document overflow. |
 | Provenance | Stale, partial, expected, observed, and unknown states remain distinct in UI and export. |
 
@@ -243,5 +250,6 @@ An adversarial contract test rejects an observed presentation that marks an infe
 | To learn about | Read |
 |----------------|------|
 | Inventory authority and restricted network collection | [Restricted-network Azure inventory](../architecture/azure-inventory-network-paths.md) |
+| Console Landscape and generated geometry | [Console Architecture Workbench](console-architecture-workbench.md) |
 | Console evidence and map resilience | [Console Evidence and Resilience](console-evidence-and-resilience.md#architecture-map-resilience) |
 | Deployment network requirements | [Network Connectivity Matrix](../deployment/network-connectivity-matrix.md) |

@@ -1,0 +1,188 @@
+id: fdai-roadmap-deployment-runtime-deployment-profiles-01
+version: 1
+kind: flowchart
+updated: 2026-09-15
+formats:
+  - svg
+locales:
+  en:
+    title: Provisioning graph
+    description: FDAI flow for Provisioning graph.
+    alt: Provisioning flow from signed-kit verification through runtime and database selection to service deployment and readiness checks.
+  ko:
+    title: 프로비저닝 그래프
+    description: 프로비저닝 그래프에 대한 FDAI 흐름입니다.
+    alt: 서명된 키트 검증에서 런타임과 데이터베이스 선택, 서비스 배포 및 준비 상태 확인까지의 프로비저닝 흐름입니다.
+canvas:
+  width: 1600
+  height: 1200
+  direction: RIGHT
+groups: []
+nodes:
+  - id: a
+    kind: process
+    shape: card
+    label:
+      en: Verify signed kit
+      ko: 서명된 키트 검증
+  - id: b
+    kind: process
+    shape: card
+    label:
+      en: Inspect target and capacity
+      ko: 대상과 용량 확인
+  - id: c
+    kind: process
+    shape: card
+    label:
+      en: Foundation exact plan
+      ko: Foundation 정확한 플랜
+  - id: d
+    kind: process
+    shape: card
+    label:
+      en: Shared Azure platform
+      ko: 공유 Azure 플랫폼
+  - id: e
+    kind: decision
+    shape: diamond
+    label:
+      en: Runtime platform
+      ko: 런타임 플랫폼
+  - id: f
+    kind: process
+    shape: card
+    label:
+      en: Container Apps substrate
+      ko: Container Apps 기반
+    description:
+      en: "When: Container Apps"
+      ko: "조건: Container Apps"
+  - id: g
+    kind: process
+    shape: card
+    label:
+      en: AKS cluster and node pools
+      ko: AKS 클러스터와 노드 풀
+    description:
+      en: "When: AKS"
+      ko: "조건: AKS"
+  - id: h
+    kind: process
+    shape: card
+    label:
+      en: Managed CSI and workload identity
+      ko: 관리형 CSI와 워크로드 ID
+  - id: i
+    kind: decision
+    shape: diamond
+    label:
+      en: Database placement
+      ko: 데이터베이스 배치
+  - id: j
+    kind: process
+    shape: card
+    label:
+      en: PostgreSQL Flexible Server
+      ko: PostgreSQL Flexible Server
+    description:
+      en: "When: Flexible Server"
+      ko: "조건: Flexible Server"
+  - id: k
+    kind: process
+    shape: card
+    label:
+      en: In-cluster PostgreSQL
+      ko: 클러스터 내부 PostgreSQL
+    description:
+      en: "When: AKS"
+      ko: "조건: AKS"
+  - id: l
+    kind: process
+    shape: card
+    label:
+      en: Migrations
+      ko: 마이그레이션
+  - id: m
+    kind: process
+    shape: card
+    label:
+      en: Independent services
+      ko: 독립 서비스
+  - id: n
+    kind: process
+    shape: card
+    label:
+      en: Scheduled jobs
+      ko: 예약 작업
+  - id: o
+    kind: process
+    shape: card
+    label:
+      en: Readiness and zero-change plans
+      ko: 준비 상태와 변경 없는 플랜
+edges:
+  - id: flow-01
+    from: a
+    to: b
+    kind: request
+  - id: flow-02
+    from: b
+    to: c
+    kind: request
+  - id: flow-03
+    from: c
+    to: d
+    kind: request
+  - id: flow-04
+    from: d
+    to: e
+    kind: request
+  - id: flow-05
+    from: e
+    to: f
+    kind: request
+  - id: flow-06
+    from: e
+    to: g
+    kind: request
+  - id: flow-07
+    from: g
+    to: h
+    kind: request
+  - id: flow-08
+    from: f
+    to: i
+    kind: request
+  - id: flow-09
+    from: h
+    to: i
+    kind: request
+  - id: flow-10
+    from: i
+    to: j
+    kind: request
+  - id: flow-11
+    from: i
+    to: k
+    kind: request
+  - id: flow-12
+    from: j
+    to: l
+    kind: request
+  - id: flow-13
+    from: k
+    to: l
+    kind: request
+  - id: flow-14
+    from: l
+    to: m
+    kind: request
+  - id: flow-15
+    from: m
+    to: n
+    kind: request
+  - id: flow-16
+    from: n
+    to: o
+    kind: request

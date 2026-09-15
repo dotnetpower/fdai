@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const require = createRequire(join(root, "console/package.json"));
 const { chromium } = require("playwright");
-const origin = "http://127.0.0.1:5373";
+const origin = process.env.FDAI_MOCK_ORIGIN || "http://127.0.0.1:5373";
 const routes = [
   ["live", "Live"],
   ["incidents", "Incidents"],
@@ -102,6 +102,40 @@ async function routeMeasurements(page, frame, route, readyMs) {
   });
   return { route, readyMs, shell, surface };
 }
+
+test("Onboarding uses the neutral Operations summary hierarchy", { timeout: 30000 }, async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 900 },
+      reducedMotion: "reduce",
+    });
+    const page = await context.newPage();
+    const { frame } = await openRoute(page, "onboarding");
+    const presentation = await frame.evaluate(() => {
+      const summary = getComputedStyle(document.querySelector(".ob-summary"));
+      const kpi = getComputedStyle(document.querySelector(".ob-kpi"));
+      const count = getComputedStyle(document.querySelector(".ob-count"));
+      return {
+        summaryBorder: summary.borderTopWidth,
+        kpiRadius: kpi.borderRadius,
+        kpiShadow: kpi.boxShadow,
+        countRadius: count.borderRadius,
+      };
+    });
+    assert.deepEqual(presentation, {
+      summaryBorder: "1px",
+      kpiRadius: "0px",
+      kpiShadow: "none",
+      countRadius: "0px",
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.equal(await frame.evaluate(() =>
+      document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
+  } finally {
+    await browser.close();
+  }
+});
 
 test("Operations previews meet the scoped quality gates", { timeout: 240000 }, async () => {
   const browser = await chromium.launch({ headless: true });

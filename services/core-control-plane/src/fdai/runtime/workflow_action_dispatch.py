@@ -34,6 +34,7 @@ class EventBusWorkflowActionDispatcher:
         proposal_ref = f"{process_id}:step:{step.id}:attempt:{attempt}"
         initiator = (
             context.get("workflow.requester_principal")
+            or context.get("requester.principal")
             or context.get("event.payload.operator_request.initiator_principal")
             or "fdai.workflow"
         )

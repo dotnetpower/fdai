@@ -241,6 +241,7 @@ export function makeInitialState(poolSize = POOL_SIZE): LiveState {
 }
 
 export type Action =
+  | { readonly kind: "reset" }
   | { readonly kind: "event"; readonly event: LiveStageEvent }
   | { readonly kind: "batch"; readonly events: readonly LiveStageEvent[] }
   | { readonly kind: "seed-rate"; readonly now: number; readonly per_tier_per_second: number }
@@ -249,6 +250,7 @@ export type Action =
   | { readonly kind: "filter"; readonly value: FilterKind };
 
 export function reducer(state: LiveState, action: Action): LiveState {
+  if (action.kind === "reset") return { ...makeInitialState(state.tiles.length), filter: state.filter };
   if (action.kind === "select") {
     return { ...state, selectedEventId: action.event_id };
   }

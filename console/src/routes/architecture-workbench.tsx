@@ -7,13 +7,18 @@ import { ArchitectureTopologyGraph } from "../components/architecture-topology-g
 import {
   DEFAULT_ARCHITECTURE_NETWORK_FILTERS,
   architectureNetworkFocusGraph,
+  architectureNetworkOverviewGraph,
+  architectureNetworkPathPresentationGraph,
   exportArchitectureNetworkSvg,
   filterArchitectureNetworkGraph,
   layoutArchitectureNetworkFocusGraph,
   traceArchitectureNetworkPath,
   type ArchitectureNetworkFilters,
 } from "../components/architecture-network-focus";
-import { layoutArchitecturePresentation } from "../components/architecture-map-layout";
+import {
+  layoutArchitectureNetworkOverviewPresentation,
+  layoutArchitecturePresentation,
+} from "../components/architecture-map-layout";
 import {
   resourceTypeLabelOf,
   type ArchitecturePresentationMode,
@@ -52,25 +57,34 @@ export function ArchitectureWorkbench({
   const [pathSourceId, setPathSourceId] = useState<string | null>(null);
   const [pathTargetId, setPathTargetId] = useState<string | null>(null);
   const selected = graph.resources.find((resource) => resource.id === selectedId) ?? null;
-  const networkFocusGraph = useMemo(
+  const networkEvidenceGraph = useMemo(
     () => architectureNetworkFocusGraph(graph, selectedId),
     [graph, selectedId],
   );
-  const filteredNetworkGraph = useMemo(
-    () => filterArchitectureNetworkGraph(networkFocusGraph, networkFilters),
-    [networkFilters, networkFocusGraph],
+  const networkPath = useMemo(
+    () => traceArchitectureNetworkPath(networkEvidenceGraph, pathSourceId, pathTargetId),
+    [networkEvidenceGraph, pathSourceId, pathTargetId],
   );
+  const filteredNetworkGraph = useMemo(() => {
+    const base = filterArchitectureNetworkGraph(
+      selectedId ? networkEvidenceGraph : architectureNetworkOverviewGraph(graph),
+      networkFilters,
+    );
+    return networkPath?.status === "found"
+      ? architectureNetworkPathPresentationGraph(
+          base,
+          networkEvidenceGraph,
+          networkPath.resourceIds,
+        )
+      : base;
+  }, [graph, networkEvidenceGraph, networkFilters, networkPath, selectedId]);
   const displayedGraph = useMemo(
     () => mode === "network"
       ? selectedId
         ? layoutArchitectureNetworkFocusGraph(filteredNetworkGraph)
-        : layoutArchitecturePresentation(filteredNetworkGraph, null)
+        : layoutArchitectureNetworkOverviewPresentation(filteredNetworkGraph)
       : layoutArchitecturePresentation(graph, selectedId),
     [filteredNetworkGraph, graph, mode, selectedId],
-  );
-  const networkPath = useMemo(
-    () => traceArchitectureNetworkPath(networkFocusGraph, pathSourceId, pathTargetId),
-    [networkFocusGraph, pathSourceId, pathTargetId],
   );
   const highlightedIds = networkPath?.status === "found"
     ? new Set(networkPath.resourceIds)
@@ -204,7 +218,7 @@ export function ArchitectureWorkbench({
           sourceLabel={sourceLabel}
           pathContent={(
             <ArchitectureNetworkPathPanel
-              graph={networkFocusGraph}
+              graph={networkEvidenceGraph}
               sourceId={pathSourceId}
               targetId={pathTargetId}
               result={networkPath}
@@ -243,21 +257,38 @@ function ArchitectureCoverage({
   readonly displayedGraph: InventoryGraphResponse;
 }) {
   return (
-    <section class="architecture-coverage" aria-label={t("coverage.title")}>
-      <header>
-        <strong>{t("coverage.title")}</strong>
-        <span class={graph.truncated ? "is-partial" : "is-complete"}>
-          {t(graph.truncated ? "coverage.partial" : "coverage.complete")}
+    <details class="architecture-coverage">
+      <summary>
+        <span class="sr-only">{t("coverage.title")}. </span>
+        <span class="architecture-coverage-primary">
+          <strong class={graph.truncated ? "is-partial" : "is-complete"}>
+            {t(graph.truncated ? "coverage.partial" : "coverage.complete")}
+          </strong>
+          <span>{t("coverage.summary", {
+            returned: graph.resources.length,
+            displayed: displayedGraph.resources.length,
+          })}</span>
         </span>
-      </header>
-      <dl>
-        <div><dt>{t("coverage.displayedResources")}</dt><dd>{displayedGraph.resources.length.toLocaleString()}</dd></div>
-        <div><dt>{t("coverage.returnedResources")}</dt><dd>{graph.resources.length.toLocaleString()}</dd></div>
-        <div><dt>{t("coverage.displayedRelationships")}</dt><dd>{displayedGraph.links.length.toLocaleString()}</dd></div>
-        <div><dt>{t("coverage.returnedRelationships")}</dt><dd>{graph.links.length.toLocaleString()}</dd></div>
-      </dl>
-      <p>{t("coverage.note", { time: graph.snapshot_at })}</p>
-    </section>
+        <span class="architecture-coverage-state">
+          {graph.freshness}
+          {graph.limit ? ` - ${t("coverage.limit", { count: graph.limit })}` : ""}
+          {(displayedGraph.presentation?.omitted_direct_relationships ?? 0) > 0
+            ? ` - ${t("coverage.omittedDirect", {
+                count: displayedGraph.presentation?.omitted_direct_relationships ?? 0,
+              })}`
+            : ""}
+        </span>
+      </summary>
+      <div class="architecture-coverage-details" aria-label={t("coverage.title")}>
+        <dl>
+          <div><dt>{t("coverage.displayedResources")}</dt><dd>{displayedGraph.resources.length.toLocaleString()}</dd></div>
+          <div><dt>{t("coverage.returnedResources")}</dt><dd>{graph.resources.length.toLocaleString()}</dd></div>
+          <div><dt>{t("coverage.displayedRelationships")}</dt><dd>{displayedGraph.links.length.toLocaleString()}</dd></div>
+          <div><dt>{t("coverage.returnedRelationships")}</dt><dd>{graph.links.length.toLocaleString()}</dd></div>
+        </dl>
+        <p>{t("coverage.note", { time: graph.snapshot_at })}</p>
+      </div>
+    </details>
   );
 }
 

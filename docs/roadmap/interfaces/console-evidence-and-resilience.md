@@ -7,6 +7,14 @@ This document owns the operator console contracts for evidence provenance, local
 Selecting an Activity Bar domain opens its Explorer and navigates to the first visible panel under the operator's local order and visibility preferences. This navigation remains active when the Command Deck is closed or floating; a full-workspace Deck closes before the route changes. Browser evidence that opens the current-screen Deck begins from an ordinary panel such as Overview. Settings owns a modal overlay and is not a valid hidden launcher context.
 The Activity Bar conversation control opens or resumes general chat without changing the route or Explorer. Its pressed state tracks general chat only. The bottom launcher and `Ctrl+K` or `/` select a separate current-screen conversation. General chat defaults to the workspace; screen chat defaults to the right dock. The rail tooltip opens to the right and the bottom tooltip above, on hover or keyboard focus, and each names its context and actual open/close action. The [conversation lifecycle](operator-console-progressive-conversations.md#command-deck-workspace-lifecycle) owns draft preservation and explicit screen attachments.
 Selecting a cached screen conversation from another screen is the bounded exception: the console navigates to its origin while suppressing only the synchronous conversation-owned route event, then activates its transcript. The Deck remains open without a transient default-session switch or close/reopen focus cycle. General, same-screen, and agent conversations switch without navigation.
+Direct Settings URLs keep a static background shell until the overlay closes instead of loading a
+hidden Dashboard projection. The Settings shell and other top-level lazy surfaces show a loading
+state and a reload action if their module fails. Models, Runtime policies, Identity and access, and
+document capability reads also let the operator retry a failed initial request without reloading the
+whole console.
+The lightweight current-screen launcher remains available without loading the full Command Deck.
+The console loads the Deck after the first pointer, `Ctrl+K`, `/`, general-conversation, or
+incident-conversation request and replays that bounded request after the listener is ready.
 Reselecting the already active same-screen conversation is focus-only; it does not reload the sessionStorage transcript over newer in-memory turns.
 Selecting an inactive conversation records only a browser-local read acknowledgement and does not change its activity timestamp, so the history order remains stable. Principal-scoped `Mine`, `Unread`, and `Favorites` filters use only browser-local navigation metadata; toggling a favorite doesn't change server activity, evidence, or ordering. A conversation title is bold only while its observed activity is newer than its persisted read timestamp; selecting it clears that cue without moving the row. Only newer server activity advances the ordering timestamp.
 For a non-agent conversation, the first operator question becomes the title while the originating screen remains separate metadata. The normalized question is bounded to 512 characters in history metadata and preserved across browser and durable restoration. When the title is visually truncated, its visible text keeps the ellipsis. Pointer hover anywhere on the selectable conversation row, including its time, or keyboard focus shows the bounded full question through the shared console tooltip, including titles that fit.
@@ -22,9 +30,9 @@ Command Deck renders transport tokens only in the explicit draft state and rende
 The shared page title renders the domain and panel labels when they differ, including `Overview / Dashboard`. A domain root whose panel title repeats the domain label and a standalone utility keep a single title.
 The shared top bar renders the icon-only FDAI mark in its original source colors beside the `FDAI Console` wordmark. Console themes don't desaturate or recolor the brand asset.
 On Overview analysis and every Operations child route, `Sample | Live` appears before incident attention. `Live` is the initial default; `Sample` writes `data=sample`, persists for the tab, replaces the complete projection with a deterministic generic fixture, and shows a page-width non-operational-evidence banner.
-A GET-only Sample client serves ordinary projections without authentication or network access. Sample Live seeds 180 deterministic terminal control loops across its 60-second window, then starts one unique loop per second and reveals its ingest, routing, verification, gate, execution when applicable, and audit stages at 800 ms intervals. The latest 30 cards keep fixed positions while their state, progress, owner, and brief top-edge update signal change; authoritative Live retains its 12-item bound. Live, Provision, and Scheduled Continuations use bounded local fixtures; Sample removes Incident intervention, rejects every POST, never activates from API failure, and never mixes with live values. Unsupported routes hide the control and remain Live.
+A GET-only Sample client serves ordinary projections without authentication or network access. Sample Live uses twelve representative cards, a 180-loop metric warmup, and replayable tier-specific timing defined by [Live and Audit presentation](live-audit-presentation.md). Live, Provision, and Scheduled Continuations use bounded local fixtures; Sample removes Incident intervention, rejects every POST, never activates from API failure, and never mixes with live values. Unsupported routes hide the control and remain Live.
 Live follows the same shared title contract as `Operations / Live`. Its observation controls stay in the shared header actions area and wrap below the title on narrow viewports, so Freeze, source, window, and connection status remain visible. An open SSE response proves transport connectivity only. Live reports the source as ready after a fresh validated Huginn runtime heartbeat or an authoritative runtime or replay stage frame is observed. The runtime-source marker expires after 15 seconds without a new observation and never creates a control-loop tile. A keepalive-only connection renders `Awaiting source`, keeps operational metrics unavailable, and points the operator to Core Runtime and stage-topic readiness instead of presenting zero as measured health. The Operator API retains at most 256 accepted stage frames for 60 seconds and replays them in observed order when a new Live subscriber connects. This process-local recovery fills only the current Live window, resets when the Operator API restarts, and never replaces History. Flow is the default view with a bounded 12-item work pool.
-Flow and Queue preserve the same title, target, scope, reason, tier, mode, owner, and stage facts; Queue adds only observed risk, impact, SLA, and control-state fields. Flow renders only populated work, packs six items per desktop row, and sorts by attention priority and then newest observation. Terminal outcomes remain available in History instead of occupying the Live work surface. Tier, autonomy, and mode badges use shared pointer and keyboard tooltips. A missing autonomy, risk, impact, or SLA remains `Not observed` and is never inferred in the browser.
+Grid and List share card content and retain at most 15 current control/source items in event-start order, with four desktop columns in Grid. Details preserve the recorded risk, impact, SLA, and control state. Tier, autonomy, and mode badges use shared pointer and keyboard tooltips, including fullscreen. Missing facts remain `Not observed`; retained terminal history stays in its owning history route.
 The Agents workspace uses three compact views: `Fleet`, `Org`, and `Activity`. Fleet combines live
 runtime state with the fixed registry ownership and safety flags inside per-agent Details
 disclosures. Org renders the keyboard-accessible reporting chart and selected incident evidence.
@@ -61,6 +69,14 @@ preview endpoint calls the same production renderer used by Azure Communication 
 supplies only synthetic placeholders. The preview exposes no runtime incident, endpoint, recipient,
 or identity value and provides no send, approval, or execution control.
 Operations exposes `Detection coverage` at `/detection-coverage` and keeps `/detection-readiness` as a compatibility alias. The route separates the newest attempt, latest successful run, retained findings, and optional exact-resource Kubernetes evidence. Filters and selection are URL-backed, canonical reasons remain in technical detail, and the browser never probes resources or derives health, readiness, coverage, or authority from a successful response.
+The standard authenticated route inventory includes `Alert quality` at `/alert-quality`. Its
+Browser Entra assurance uses only the canonical Console and Operator API origins, restores an
+existing provider-hosted session through the owner-only state contract, and never intercepts
+identity or API responses. Automated evidence may verify authorized scope discovery, shadow and
+no-execution posture, the three inert proposal forms without submission, localization, responsive
+geometry, forced colors, reduced motion, and keyboard focus. It must redact scope and response
+content and classify audible or braille output as `needs-human` until a person using the named
+assistive technology confirms it.
 With a server-pinned drift context, the GET-only Configuration baselines route fresh-reads identity, lifecycle, drift, Knowledge citation, topology, latency, scheduled-review, and four safety counters.
 It reports absent binding or campaign as unavailable or `not-configured`, never invents progress, strictly rejects malformed data, and compares immutable in-scope versions with failed-attempt counts. The SPA exposes no activation, resume, schedule creation, approval, mitigation, or resource mutation; evidence-run, resume, blueprint review, and materialization use separate authenticated routes.
 Production exposes the panel only after its mounted JSON/DOCX pair, read-only Managed Identity, and exact resource-group allowlist validate at startup. The Operator API never receives executor identity.
@@ -595,59 +611,13 @@ After that schedule is exhausted, the surface offers access-check retry and sign
 
 ## Architecture-map resilience
 
-The Architecture route uses one graph-first workbench modeled on the Ontology Instances
-presentation. Its top toolbar contains only registered scope selection, bounded Resource search,
-the `Topology | Network` lens, and a compact read-only source state. Scope selection reloads the
-authoritative projection. Resource search selects only a record already returned by that
-projection and never presents a bounded page as a complete tenant search.
+The focused [Console Architecture Workbench](console-architecture-workbench.md) owner defines
+Landscape aggregation, Resource focus, generated geometry, Network paths, Impact presentation,
+responsive interaction, and the geometry-less live-response regression gates.
 
-Topology is visible before selection. The deterministic presentation collapses provider helpers
-while keeping every returned count in a separate coverage strip. The strip distinguishes displayed
-and returned Resources and relationships, snapshot time, freshness, and complete or partial
-coverage. Selecting a Resource preserves common coordinates, reveals direct auxiliary neighbors,
-updates the canonical deep link, and opens a nonmodal Inspector without changing inventory.
-
-The workbench uses one accessible orthographic SVG for Topology, Network, and the Impact scope map.
-Subscription, Resource Group, VNet, and Subnet records render as nested neutral boundaries.
-Resources use reviewed official icons where available and stable Cloud Adoption Framework
-abbreviations otherwise. Compact text, accessible names, search, and Inspector content preserve
-name, type, and state without relying on color. Typed edges terminate on current node or boundary
-geometry. Containment remains spatial; `attached_to`, `depends_on`, and `peered_with` retain
-distinct paths, endpoint dots, and direction markers.
-
-The right Inspector is collapsible and stays in the same workbench. Overview owns the selected
-state and impact-scope drill-down. Links owns exact incoming and outgoing direct relationships.
-Path owns Network source and destination, evidence result, filters, and sanitized export. Sources
-owns snapshot, freshness, displayed and returned counts, completeness, reported relationship
-types, and technical identifiers. At constrained widths the Inspector moves below the graph
-without discarding selection, tab, scale, or path state.
-
-The Network lens keeps the complete `InventoryGraphResponse` authoritative. With **Scope
-overview** selected, it presents every returned VNet and bounded Resource; selecting a Resource
-derives one bounded presentation focus and records that selection in route state. Path tracing
-walks only reported `attached_to`, stored-direction `depends_on`, and symmetric `peered_with`
-relationships. It returns `no_observed_path` only for fresh, complete relationship coverage; every
-incomplete negative result stays `unknown`. Filters and highlighting change only presentation.
-SVG and PNG exports retain sanitized provenance and omit names, raw provider ids, subscription
-ids, endpoints, and credentials.
-
-The SVG viewport owns pan, wheel zoom, Fit, full screen, keyboard node navigation, and a compact
-relationship legend. Shared card geometry drives placement, containment, routing, and nonoverlapping
-hit regions; visual cards render above their expanded pointer targets so an adjacent target cannot
-steal a card click. Mobile controls and node hit regions are at least 44 px. The viewport remains
-bounded and pannable rather than shrinking text below a readable scale. The Resource search and
-Inspector provide equivalent non-gesture access. Reduced motion and forced colors preserve
-operation and meaning.
-
-The Impact scope map requests an unscoped graph projection at the simulation snapshot and compares
-every target and reached Resource identity before rendering. A snapshot mismatch or any omitted
-impact identity produces an explicit unavailable map instead of understating the affected
-topology. The simulation result and table remain the authoritative impact record.
-
-A subscription-scoped cached snapshot renders immediately. Expired or change-invalidated snapshots
-are marked stale while a background refresh runs. The browser polls only until the Operator API
-atomically promotes the completed refresh, never upgrades the server freshness verdict, and retries
-transient failures with bounded 2-to-30-second backoff while the stale graph remains usable.
+This resilience owner continues to define inventory source availability, snapshot freshness,
+bounded refresh, localization fallback, and unavailable-state behavior shared with other Console
+routes.
 
 ## Verification
 
@@ -656,9 +626,18 @@ transient failures with bounded 2-to-30-second backoff while the stale graph rem
 - Provenance tests cover unavailable, unknown, malformed, and route-owner states.
 - Stream tests cover inactivity, authentication classification, frame limits, and action timeout.
 - Architecture tests cover layout, selection, accessibility, cache freshness, and bounded polling. Browser Entra state transfer accepts only the exact MSAL cache-encryption cookie, keeps its value out of logs, and binds it to the target loopback origin; live Command Deck evidence follows the accessible `complementary` or full-workspace `dialog` role and creates a new conversation through the history panel.
+- Architecture layout regression uses a geometry-less, truncated 500-record projection with 40
+  Resource Groups and verifies bounded Landscape and focus counts, finite placement, unique
+  positions, and zero implicit origin fallback.
+- Browser checks assert unique rendered transforms, no unavailable-geometry fallback, a compact
+  collapsed coverage summary, exact path-hop restoration, and zero horizontal overflow before
+  responsive states can pass.
+- Architecture hardening completion requires an independent review with no confirmed
+  Medium-or-higher finding after the geometry-less live-shape regression passes.
 
 ## Related docs
 
 | To learn about | Read |
 |----------------|------|
+| Architecture Landscape, focus, and generated geometry | [Console Architecture Workbench](console-architecture-workbench.md) |
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/interfaces/console-evidence-and-resilience.md) |

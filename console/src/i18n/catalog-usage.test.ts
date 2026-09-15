@@ -52,6 +52,18 @@ function staticKeys(source: string): string[] {
   return [...source.matchAll(STATIC_TRANSLATION)].map((match) => match[1]!);
 }
 
+function translatorImport(source: string): string {
+  const parsed = ts.createSourceFile("source.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  for (const statement of parsed.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+    const bindings = statement.importClause?.namedBindings;
+    if (bindings && ts.isNamedImports(bindings) && bindings.elements.some(binding => binding.name.text === "t")) {
+      return `from "${statement.moduleSpecifier.text}"`;
+    }
+  }
+  return "";
+}
+
 function hardcodedPresentationStrings(file: string, source: string): string[] {
   const parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const hardcoded: string[] = [];
@@ -84,6 +96,14 @@ function hardcodedPresentationStrings(file: string, source: string): string[] {
 }
 
 describe("console static translation keys", () => {
+  test("selects the t binding rather than another catalog's formatting helpers", () => {
+    expect(translatorImport(`
+      import { statusLabel } from "./i18n/workflow";
+      import { t } from "./i18n/processes";
+    `)).toBe('from "./i18n/processes"');
+    expect(translatorImport(`import { t as mainT } from "../i18n";`)).toBe("");
+  });
+
   test("all literal t() calls resolve in their English source catalog", () => {
     const mainKeys = catalogKeys(mainCatalog);
     const analyticsKeys = catalogKeys({ analytics: analyticsCatalog });
@@ -120,39 +140,40 @@ describe("console static translation keys", () => {
 
     for (const file of sourceFiles(SOURCE_ROOT)) {
       const source = readFileSync(file, "utf8");
+      const catalogImport = translatorImport(source);
       const relativePath = relative(SOURCE_ROOT, file);
-      const routeKeys = source.includes('from "./i18n/approvals"')
+      const routeKeys = catalogImport.includes('from "./i18n/approvals"')
         ? approvalsKeys
-        : source.includes('from "./i18n/cost-governance"')
+        : catalogImport.includes('from "./i18n/cost-governance"')
         ? costGovernanceKeys
-        : source.includes('from "./i18n/dashboard-v2"') ||
+        : catalogImport.includes('from "./i18n/dashboard-v2"') ||
             file.endsWith("routes/i18n/dashboard-v2.ts")
           ? dashboardV2Keys
-        : source.includes('from "./i18n/live"')
+        : catalogImport.includes('from "./i18n/live"')
         ? liveKeys
-        : source.includes('from "./i18n/analytics"')
+        : catalogImport.includes('from "./i18n/analytics"')
           ? analyticsKeys
-          : relativePath === "routes/i18n/dashboard-v2.ts" || source.includes('from "./i18n/dashboard-v2"')
+          : relativePath === "routes/i18n/dashboard-v2.ts" || catalogImport.includes('from "./i18n/dashboard-v2"')
             ? dashboardV2Keys
-          : source.includes("i18n/detection-readiness")
+          : catalogImport.includes("i18n/detection-readiness")
             ? detectionReadinessKeys
-          : source.includes("i18n/architecture")
+          : catalogImport.includes("i18n/architecture")
             ? architectureKeys
-              : source.includes("i18n/conversation-assurance")
+              : catalogImport.includes("i18n/conversation-assurance")
                 ? conversationAssuranceKeys
-            : source.includes("i18n/evidence")
+            : catalogImport.includes("i18n/evidence")
               ? evidenceKeys
-              : source.includes("i18n/governance")
+              : catalogImport.includes("i18n/governance")
                 ? governanceKeys
-            : source.includes("i18n/ontology")
+            : catalogImport.includes("i18n/ontology")
               ? ontologyKeys
-              : source.includes("i18n/workflow")
+              : catalogImport.includes("i18n/workflow")
                 ? workflowKeys
-          : source.includes('from "./i18n/llm-cost"')
+          : catalogImport.includes('from "./i18n/llm-cost"')
             ? llmCostKeys
-          : source.includes("i18n/processes")
+          : catalogImport.includes("i18n/processes")
             ? processesKeys
-          : source.includes("i18n/provision")
+          : catalogImport.includes("i18n/provision")
             ? provisionKeys
             : new Set<string>();
       const expected = new Set([...mainKeys, ...routeKeys]);

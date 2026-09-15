@@ -123,6 +123,7 @@ resource "azurerm_public_ip" "bastion" {
   resource_group_name = azurerm_resource_group.ops.name
   allocation_method   = "Static"
   sku                 = "Standard"
+  ip_tags             = var.operations_public_ip_tags
   tags                = merge(local.tags, { "fdai:component" = "operator-access" })
 }
 

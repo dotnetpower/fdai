@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 139e389792fb424a0b10969f0d0fa7935d32fd13
+translation_source_sha: 27ff36e2b548c81292f4d9084684db4a67d554cd
 translation_revised: 2026-09-15
 ---
 # 지속형 질문 공간
@@ -83,6 +83,11 @@ logical-topic 표시를 받습니다. 스키마로 검증되는 request payload�
 Golden 질문, Console 표시 질문 또는 답변 가능한 질문으로 승격되지 않습니다. 권장 사항,
 롤백, 스케일링 또는 자동화에 관한 질문은 자문이나 초안 전용으로 유지되며 항상
 `execution_authority=false`를 보존합니다.
+
+개발 중인 [구조화된 클라우드 문서 평가](cloud-resource-knowledge-structured-rag-ko.md)는 별도로
+고정한 영어/한국어 질문 집합을 사용합니다. 수집, 품질 검토, 승인, 색인 및 답변 근거는 각각
+별도로 집계합니다. 합성 수치 진단이나 검색어 스키마 수락은 모델 품질이나 운영 준비도를
+입증하지 않으며, 검토된 CQAS 분모를 늘리지 않습니다.
 
 ## 대화 품질 보증 스코어카드
 

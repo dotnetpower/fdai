@@ -5,6 +5,7 @@ import {
   incidentCommandSummary,
   incidentDisplayTitle,
   incidentHandoffSteps,
+  incidentInterventionWasApplied,
   incidentPageMatchesSnapshot,
   incidentDisplayIdentifier,
   incidentRosterStage,
@@ -108,6 +109,21 @@ describe("incident pagination", () => {
 
     expect(mergeOlderAuditItems(current, incomingNewestFirst).map((item) => item.seq))
       .toEqual([1, 2, 3, 4]);
+  });
+});
+
+describe("incident intervention revalidation", () => {
+  it("matches only the authoritative applied audit for the accepted request", () => {
+    const applied = auditItem("incident.intervention-applied", "operator", {
+      request_id: "request-1",
+    });
+    expect(incidentInterventionWasApplied([applied], "request-1")).toBe(true);
+    expect(incidentInterventionWasApplied([applied], "request-2")).toBe(false);
+    expect(incidentInterventionWasApplied([
+      auditItem("incident.intervention-proposed", "operator", {
+        request_id: "request-1",
+      }),
+    ], "request-1")).toBe(false);
   });
 });
 

@@ -23,6 +23,13 @@ Core verifies the configured model audiences through a separate bounded readines
 identity is unavailable, semantic transport remains active and returns a typed authentication hold
 before planning; it does not fall back to lexical routing or borrow the Operator HTTP identity.
 
+The [alert-quality API](../operations/alert-noise-governance.md) accepts explicit typed
+`alert_noise.assess` and `alert_noise.propose` requests, not a conversational routing shortcut.
+Its deterministic assessment adds no lexical intent branch or T2 fallback. Natural-language meaning
+still requires semantic judgment; neither a typed request nor narrator text grants action authority.
+Its isolated browser tests inject a test-only identity and intercepted API records, not a narrator
+or provider. Their timing and screenshots establish UI mechanics only, never live model latency.
+
 ### Core-owned mini candidate selection
 
 Core reuses the verified narrator candidate pool and admits at most four mini candidates. Exact
@@ -105,7 +112,12 @@ T2 primary exception remains owned by
 `LocalAzureNarratorAdapters` is the separate legacy local narrator, not the semantic Kafka path.
 Its ordered fallback, text/vision probes, rolling p50/TTFT windows, failure penalties, and
 Operator-owned periodic scheduler do not implement Core mini routing. Do not enable the legacy
-narrator alongside semantic Kafka to obtain model measurements. Image turns remain unavailable
+narrator alongside semantic Kafka to obtain model measurements. The adapter invokes its injected
+HTTP stream with an explicit `POST` method. It skips answer-free Azure prompt-filter, passing
+content-filter, terminal-stop, and usage metadata frames, while malformed or oversized data still
+fails closed. Provider-status and malformed-frame warnings are bounded and contain no prompt,
+endpoint, token, or response body. Its bounded system prompt states FDAI's product scope and treats
+FDAI as a product name rather than inventing an acronym expansion. Image turns remain unavailable
 without a server-owned resolver from an opaque conversation-image id to validated bounded bytes;
 client-provided image fields cannot supply that authority.
 

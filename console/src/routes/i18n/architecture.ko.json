@@ -107,6 +107,10 @@
   "mapAriaLabel": "리소스 {count}개의 2D 아키텍처 지도",
   "selectArchitectureResource": "아키텍처 리소스 선택",
   "selectResourceOption": "리소스 선택",
+  "geometryUnavailable": {
+    "title": "아키텍처 표현을 사용할 수 없음",
+    "description": "반환된 기록 {count}개를 배치할 수 없습니다. 인벤토리는 검색과 출처에서 계속 확인할 수 있습니다."
+  },
   "workbench": {
     "title": "아키텍처 작업 영역",
     "resource": "리소스",
@@ -124,11 +128,17 @@
     "title": "표현 범위",
     "complete": "반환된 변환 결과가 완전함",
     "partial": "반환된 변환 결과가 부분적임",
+    "summary": "{returned}개 반환 - {displayed}개 표시",
+    "limit": "상한 {count}개",
+    "omittedDirect": "지도 밖 직접 관계 {count}개",
     "displayedResources": "표시된 리소스",
     "returnedResources": "반환된 리소스",
     "displayedRelationships": "표시된 관계",
     "returnedRelationships": "반환된 관계",
-    "note": "스냅샷 {time}. 표현 개수는 인벤토리 근거를 변경하지 않습니다."
+    "note": "스냅샷 {time}. 표현 개수는 인벤토리 근거를 변경하지 않습니다.",
+    "resourceCount": "Resource {count}개",
+    "externalLinkCount": "보고된 외부 관계 {count}개",
+    "groupSummary": "Resource {resources}개 - 외부 관계 {links}개"
   },
   "inspector": {
     "title": "상세 패널",

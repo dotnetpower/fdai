@@ -20,7 +20,7 @@ domain code and assets. It does not create another control plane or move authori
 > **Current status:** FDAI now has an independent `fdai-cost-governance` wheel, source
 > distribution, image profile, exact ontology profile, atomic disabled-first package lifecycle,
 > package-owned catalog assets, gated Operator and Console projections, and local W0-W7 validation
-> mechanics. The shared Console catalog-source and panel-registry scanners are repository validation only; a non-FinOps component or label change does not
+> mechanics. The shared Console catalog-source scanner resolves the imported `t` binding rather than unrelated formatting imports. It and the panel-registry scanner are repository validation only; a non-FinOps component or label change does not
 > enter the Cost Governance package, activation state, or authority. Shared Operator composition may supervise unrelated event-bus workers, but they cannot
 > activate, configure, publish, or change Cost Governance through conversation fallback streams.
 > The outbox lifecycle facade also exposes the unrelated Incident intervention worker. Its
@@ -152,7 +152,7 @@ manifest reference, and W6 source inventory's `package_manifest_sha256` together
 fixture references. Re-evaluate the unchanged expected outcomes for eight positive and eight
 negative cases; retain the deliberately foreign release in the F6 mixed-release negative case.
 This source-only refresh does not qualify W7 live evidence or change enablement, data access,
-mode, or promotion. Earlier live receipts remain bound to their original release.
+mode, or promotion. Earlier live receipts remain bound to their original release. Adding alert ActionTypes follows this same source-only refresh and cannot activate Cost Governance.
 
 ### Keep agents active and ownership fixed
 
@@ -275,6 +275,9 @@ The shared service-contract export, Operator composition root, and Console messa
 multi-capability host seams. Adding an independent capability such as Azure Monitor ingestion or
 background-task projection does not register Cost Governance behavior. Cost Governance activates only from
 its reviewed package manifest, exact bundle, provider requirements, and deployment gate.
+[Alert noise governance](../operations/alert-noise-governance.md) likewise uses separate scoped
+requests, preference contracts, and a signed result bridge in this host. Its shadow-first bindings cannot
+activate Cost Governance, grant cost-data access, publish Njord-owned records, or promote the package.
 The shared static catalog guard can register another route-local English catalog without adding
 Cost Governance behavior or activating the optional package.
 The same host authenticator may pass a bounded verified username to the IAM display projection.

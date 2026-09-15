@@ -43,6 +43,152 @@ def test_monitoring_scope_accepts_only_monitoring_module() -> None:
         enforce(_plan("module.compute.container_app"), mode="monitoring")
 
 
+def _pilot_rule(threshold: int) -> dict[str, object]:
+    return {
+        "enabled": True,
+        "severity": 3,
+        "auto_mitigate": True,
+        "frequency": "PT5M",
+        "window_size": "PT5M",
+        "scopes": [
+            "/subscriptions/00000000-0000-0000-0000-000000000001/"
+            "resourceGroups/rg/providers/Microsoft.KeyVault/vaults/kv"
+        ],
+        "criteria": [
+            {
+                "metric_namespace": "Microsoft.KeyVault/vaults",
+                "metric_name": "Availability",
+                "aggregation": "Average",
+                "operator": "LessThan",
+                "threshold": threshold,
+            }
+        ],
+        "action": [{"action_group_id": "dedicated"}],
+    }
+
+
+def test_alert_noise_pilot_scope_accepts_baseline_treatment_recovery_and_cleanup() -> None:
+    group = "module.alert_noise_pilot[0].azurerm_monitor_action_group.pilot"
+    rule = "module.alert_noise_pilot[0].azurerm_monitor_metric_alert.pilot"
+    baseline = {
+        "resource_changes": [
+            {
+                "address": group,
+                "change": {
+                    "actions": ["create"],
+                    "before": None,
+                    "after": {
+                        "email_receiver": [
+                            {
+                                "name": "approved-test-recipient",
+                                "email_address": "protected@example.invalid",
+                                "use_common_alert_schema": True,
+                            }
+                        ],
+                        "webhook_receiver": [],
+                    },
+                },
+            },
+            {
+                "address": rule,
+                "change": {"actions": ["create"], "before": None, "after": _pilot_rule(0)},
+            },
+        ]
+    }
+    assert enforce(baseline, mode="alert-noise-pilot") == frozenset({group, rule})
+
+    for before, after in ((0, 101), (101, 0)):
+        transition = {
+            "resource_changes": [
+                {
+                    "address": rule,
+                    "change": {
+                        "actions": ["update"],
+                        "before": _pilot_rule(before),
+                        "after": _pilot_rule(after),
+                    },
+                }
+            ]
+        }
+        assert enforce(transition, mode="alert-noise-pilot") == frozenset({rule})
+
+    cleanup = {
+        "resource_changes": [
+            {
+                "address": group,
+                "change": {
+                    "actions": ["delete"],
+                    "before": {
+                        "email_receiver": [
+                            {
+                                "name": "approved-test-recipient",
+                                "email_address": "protected@example.invalid",
+                                "use_common_alert_schema": True,
+                            }
+                        ],
+                        "webhook_receiver": [],
+                    },
+                },
+            },
+            {
+                "address": rule,
+                "change": {"actions": ["delete"], "before": _pilot_rule(0)},
+            },
+        ]
+    }
+    assert enforce(cleanup, mode="alert-noise-pilot") == frozenset({group, rule})
+
+
+def test_alert_noise_pilot_scope_rejects_mixed_or_widened_changes() -> None:
+    group = "module.alert_noise_pilot[0].azurerm_monitor_action_group.pilot"
+    rule = "module.alert_noise_pilot[0].azurerm_monitor_metric_alert.pilot"
+    widened = _pilot_rule(101)
+    widened["severity"] = 2
+    plan = {
+        "resource_changes": [
+            {
+                "address": rule,
+                "change": {
+                    "actions": ["update"],
+                    "before": _pilot_rule(0),
+                    "after": widened,
+                },
+            }
+        ]
+    }
+    with pytest.raises(ValueError, match="change only threshold"):
+        enforce(plan, mode="alert-noise-pilot")
+    with pytest.raises(ValueError, match="outside its bounded scope"):
+        enforce(_plan(group, rule, "module.monitoring[0].unexpected"), mode="alert-noise-pilot")
+
+    drifted_cleanup = {
+        "resource_changes": [
+            {
+                "address": group,
+                "change": {
+                    "actions": ["delete"],
+                    "before": {
+                        "email_receiver": [
+                            {
+                                "name": "approved-test-recipient",
+                                "email_address": "protected@example.invalid",
+                                "use_common_alert_schema": True,
+                            }
+                        ],
+                        "webhook_receiver": [{"name": "unexpected"}],
+                    },
+                },
+            },
+            {
+                "address": rule,
+                "change": {"actions": ["delete"], "before": _pilot_rule(0)},
+            },
+        ]
+    }
+    with pytest.raises(ValueError, match="cannot delete a drifted resource pair"):
+        enforce(drifted_cleanup, mode="alert-noise-pilot")
+
+
 def test_rca_reader_identity_scope_accepts_only_identity_and_role() -> None:
     identity = "module.rca_reader_identity.azurerm_user_assigned_identity.primary"
     role = "azurerm_role_assignment.rca_monitoring_reader"
@@ -154,6 +300,7 @@ def test_cli_admits_specialized_scopes() -> None:
     )
 
     assert "cost-governance" in result.stdout
+    assert "alert-noise-pilot" in result.stdout
     assert "observability-analyzer" in result.stdout
     assert "provider-schema" in result.stdout
 

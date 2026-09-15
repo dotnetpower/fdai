@@ -17,6 +17,10 @@ security-reviewed offline document packages without presenting an old snapshot a
 
 ## Design at a glance
 
+The [structured retrieval extension](cloud-resource-knowledge-structured-rag.md) specifies the
+implemented versioned extraction, safe chunks, opt-in retained-source preparation and bilingual
+evaluation boundary without changing source clocks or granting operational approval.
+
 A registered source produces immutable document revisions and append-only source-check receipts.
 Both online updates and offline packages enter the existing governed document-ingestion boundary.
 Only an admitted collection generation can serve retrieval-augmented generation (RAG), which
@@ -34,6 +38,8 @@ citations, collection times, check receipts, and freshness policy at the answer'
 | Wait for a refresh while answering | An offline source can leave the conversation waiting indefinitely | Return an explicit as-of answer or terminal refresh-required result; track refresh separately |
 | Report atomic index commit as verified success | A transaction cannot independently observe its own committed effect | Keep the generation unavailable during readback; publish visibility and terminal success only after exact independent persisted-index verification |
 | Carry the original body in every release | Repeated HTML/Markdown increases transfer size; silently dropping a signed field breaks identity | Emit normalized-only v2 releases; retain collector originals locally and verify legacy v1 bytes without rewriting them |
+| Require another approving person for every routine document update | Repeated manual approval duplicates an already authorized, bounded content policy | Target requester-initiated application inside independently established policy; retain the implemented manual lane until the new path is verified and promoted |
+| Treat the requester's Apply command as its own approval | A request cannot create or widen authority | Consume prior human authorization through Var, never synthesize a requester approval or replace source/security checks |
 
 ## Source registry and scope
 
@@ -77,7 +83,9 @@ hold, never an invented date. A missing publisher modification date alone is acc
 fetch/check can establish what the source served, but not when its author changed it.
 
 A successful full-body fetch of identical bytes adds a fetch/check receipt without rebuilding
-chunks. HTTP 304 adds only a check receipt. It is valid only for the exact origin, representation,
+unchanged chunks. Reviewed metadata or normalizer changes produce a new processing candidate even
+when the body matches; a retained-byte upgrade preserves the existing successful check. HTTP 304
+adds a check receipt, not a collection date. It is valid only for the exact origin, representation,
 and request validator already bound to an available complete body; otherwise perform a bounded full
 fetch or record unknown. Preserve ETag strength, Last-Modified, request binding, and response outcome.
 Record the equivalence basis: a weak/date validator is a server assertion, not byte equality.
@@ -218,13 +226,52 @@ together; old readers cannot consume v2. The complete-collection, rights, 16 MiB
 UTF-8 byte, signature, revocation, replay, approval, and independent activation checks stay in force.
 
 Readers retain exact v1 verification and persisted-worker compatibility without rewriting old
-digests. New export, signing, detached assembly, collected staging, and higher-sequence rollback
-produce only v2. Rollback from eligible v1 pins its original admitted manifest digest while creating
+digests. Default export, signing, detached assembly, collected staging, and higher-sequence rollback
+use normalized-only v2; explicit structured v3 follows its versioned owner, and v3 rollback preserves
+the original normalizer, reader and excerpt identities. Rollback from eligible v1 pins its original admitted manifest digest while creating
 a new normalized-only candidate with unchanged source evidence and admission expiry. Existing signed
 bytes are never stripped in place. This transport change does not resolve the real-page hidden-UI,
 link, or cross-section caveat findings recorded in [Issue #995](https://github.com/dotnetpower/fdai/issues/995#issuecomment-5667579564).
 
 ## Internal review and activation
+
+### Requester-initiated application target
+
+The target experience is **Apply by the authenticated requester**, without selecting another person
+or obtaining a new per-document `Approver` decision for a candidate already covered by independently
+approved content-activation policy. The requester invokes prior authority; they do not approve,
+renew, widen, or grant it to themselves. This is a bounded reference-content workflow, not A3-E
+emergency authority, a resource action, or promotion of a document into executable policy.
+
+> **Not implemented:** The current `cloud_reference` path still uses the manual lane below.
+> Registry approval, package signing, `can_import`, and a format setting do not enable this target.
+> Runtime implementation, focused evidence and independent promotion are required first.
+
+- **One policy setup, not another person per document:** Establish requester eligibility, exact
+   sources and rights, collection, audience, reference purpose, permitted content/processing changes,
+   limits, validity, revocation and recovery under independent policy review. A source registry or
+   signature alone is not activation authorization. Policy author/requester and approver remain distinct.
+- **Bind at request time:** A future uploader need not be named during preparation. The intake API
+   records the actual authenticated requester and binds the exact manifest, index-input digest, policy
+   revision, expected active generation and idempotency key. No client-supplied approval identity is used.
+- **Keep agent ownership:** Huginn receives, Heimdall inspects and Forseti checks admissibility.
+   Var verifies that prior human authorization covers this exact request; Saga seals that basis before
+   Muninn commands indexing. The requester, importer and worker never manufacture a human decision.
+- **Recheck before effects:** Current entitlement, policy validity/revocation, trust, scanner data,
+   rights, freshness, complete scope and processing identity must pass before indexing and the final
+   visibility transition. A changed, missing, expired or out-of-policy binding holds with an audited
+   reason; a later policy amendment needs a new exact request, not automatic approval of held work.
+- **Immediate start, verified completion:** No manual wait is added to an eligible request, but
+   scanning and indexing remain bounded asynchronous work. Keep all seven safeguards and the
+   [independent persisted-index readback](../../../services/document-processing-worker/src/fdai_document_worker_service/adapters/cloud_index_verification.py)
+   before fenced visibility and terminal success. A queued request is not an applied generation.
+
+Sensitive content, promotion into decision-authoritative rules or policies, new/wider source rights,
+restricted-network transfer review and managed-resource actions retain their own approval requirements.
+Do not remove those controls when simplifying ordinary reference updates. An unavailable policy path
+never falls back to self-approval.
+
+### Current manual activation lane
 
 1. **Quarantine:** accept the sealed package and record arrival, transfer identity, and digest.
    Arrival grants no search visibility and makes no external fetch.
@@ -234,23 +281,25 @@ link, or cross-section caveat findings recorded in [Issue #995](https://github.c
 3. **Prepare review:** compare with the active generation and present changed sections, rights,
    applicability, dates, gaps, and withdrawals. A security reviewer independent of the requester
    accepts or rejects the proposed content scope.
-4. **Build privately:** the governed worker builds an inactive index over accepted content. Preserve
+4. **Approve exactly:** the authorization binds package/content digest, index-input digest,
+   destination collection, audience, purpose, policy revision, reviewer, expiry, and expected active
+   revision. Saga seals Var's approval before Muninn unlocks indexing. Recheck these bindings and
+   current scanner/trust evidence at activation, not just at import.
+5. **Build privately:** the governed worker builds an inactive index over accepted content. Preserve
    approved normalized bytes or request new review if transformation changes their meaning. Optional
    imported vectors require the exact approved query embedder; otherwise re-embed the whole affected
    index with an available approved internal model, or use explicitly permitted lexical-only search.
    Never mix incompatible vector spaces or fetch a model from the internet as a fallback.
-5. **Approve exactly:** the final authorization binds package/content digest, index-input digest,
-   destination collection, audience, purpose, policy revision, reviewer, expiry, and expected active
-   revision. Recheck these and current scanner/trust evidence at activation, not just at import.
 6. **Activate:** compare-and-swap the active collection pointer under a logical-target lock after
    admission, required approval, dry-run, and durable audit intent. Never expose a partial generation.
 7. **Verify:** an independent authorized readback confirms the active generation and expected
    searchable/excluded citations. Only this closes success; index-build completion alone does not.
 
-The same gates govern online candidates. Manual independent activation is the initial default.
+The same gates govern online candidates. Manual independent activation is the implemented default.
 Unchanged check observations may be admitted under the approved source-check policy without content
 reapproval. Automatic content activation requires explicit bounded standing authorization and a
-separately tested, shadow-evaluated promotion; enabling a collector grants neither.
+separately tested, shadow-evaluated promotion. The target above removes repetitive per-document
+manual approval only inside that prior authorization; enabling a collector grants neither.
 
 Failed candidates leave the valid active generation intact. Failed activation/readback invokes a
 tested rollback to an eligible prior generation or an unavailable state if no safe target exists.
@@ -314,10 +363,11 @@ online sources run. A restart repeats the due check, not previously successful d
 
 Each bounded collection release is one immutable governed document version. This reuses the existing
 Huginn, Heimdall, Forseti, Saga, Var, and Muninn chain rather than creating a second approval system.
-`cloud_reference` requires independent review even after a valid signature. Source bodies and index
-rows commit behind expected-version fencing. A pending generation is unavailable while a separate
-read-only connection verifies its exact active identity and every persisted chunk against the sealed
-source. A second fenced transaction publishes chunk visibility, availability, and terminal audit.
+The implemented `cloud_reference` lane requires independent review even after a valid signature.
+Source bodies and index rows commit behind expected-version fencing. A pending generation is
+unavailable while a separate read-only connection verifies its exact active identity and every
+persisted chunk against the sealed source. A second fenced transaction publishes chunk visibility,
+availability, and terminal audit.
 Failure automatically contains the pending generation as unavailable; it never reauthorizes a prior
 version. Rollback creates a higher-sequence reviewed request from a still-admissible retained version,
 preserves dates, and cannot restore a declared withdrawn source.

@@ -83,6 +83,17 @@ planning. The error reports the requested and allocatable quantities without exp
 
 ## State ownership
 
+Both runtime profiles depend on the verified managed-host image. Its local builder poweroff wait
+uses the coordinator's trusted Azure CLI path rather than requiring `/usr/bin/az`. Partial image
+construction retains its original claim and state; the [source transfer boundary](installable-deployment-cli.md#connected-source-deployment)
+does not permit an automatic reapply or treat missing success evidence as zero resource effects.
+
+An optional Foundation `application_workload` token can separate the new application group's name
+from operations naming without changing the AKS profile. It grants no ownership of an existing group;
+partial-state recovery follows the [application group collision contract](installable-deployment-cli.md#application-group-collision-recovery).
+The separate `operations_public_ip_tags` input preserves only the exact observed Foundation
+Bastion/NAT policy tag; it does not alter AKS node settings or grant lifecycle drift exceptions.
+
 The read-only capacity preflight accepts nonnegative integer quota values and canonical decimal
 integer strings returned by Azure CLI. Boolean, fractional, signed, whitespace-padded or oversized
 representations remain blocked. Available quota never overrides a SKU restriction, missing zone,
@@ -113,6 +124,9 @@ installation cannot switch platforms by changing one variable.
 The shared platform continues to own Event Hubs, Key Vault, Azure Container Registry, monitoring,
 workload identities, and `postgres-flex`. The AKS substrate state owns only the cluster, node
 pools, cluster identity, networking attachment, and cluster-scoped Azure role assignments.
+The default-disabled dev alert-noise pilot remains a shared-platform prerequisite for either
+runtime choice. Its exact target contains only one dedicated Action Group and one metric alert;
+runtime selection grants no pilot approval, notification authority, or promotion.
 Kubernetes resources are applied only after independent Azure control-plane readback proves that
 the private cluster reached `Succeeded`. The workload state then reads the approved cluster's OIDC
 issuer and uses a private kubeconfig on the managed deployment host.
@@ -202,6 +216,14 @@ checks distinguish direct SDK imports from SDK-owned transport use. Operator and
 SDK's common asynchronous credential contract to their existing adapters. These local integration
 checks do not prove deployed federation, Event Hubs access, or service readiness.
 
+For the Container Apps profile, the protected platform-to-Core handoff carries the exact
+inventory-reader identity resource and client ids with the observation context. The service
+materializer attaches that read-only identity once, removes only that identity when observation is
+disabled, and rejects any mismatched binding. Signed scale-out evidence names the FinOps executor
+credential lineage, while VM-start evidence names the Resilience executor credential lineage.
+Neither identity choice grants execution authority, and local interactive never receives this
+binding.
+
 The AKS managed Key Vault CSI provider synchronizes fixed Key Vault references into namespaced
 Kubernetes Secrets by using each workload's federated identity. Applications continue to read
 environment variables and never call Key Vault directly. Terraform plans contain secret names and
@@ -223,8 +245,12 @@ targets remain blocked until their separate egress contract is selected and veri
 
 The cluster enables Azure Policy, patch-channel Kubernetes upgrades, and NodeImage OS upgrades.
 Both node pools enable host encryption and allow 50 pods per node. Confirm the selected
-subscription and SKU support host encryption before deployment; automated regional and feature
-preflight remains open in the implementation ledger. Unsupported targets do not disable encryption.
+subscription and SKU support host encryption before deployment. The read-only preflight queries
+the regional catalog once and uses an exact-name Azure CLI projection so only the distinct selected
+SKUs are serialized, then checks their regional restrictions, three required zones, architecture,
+host encryption, and family plus total quota. It does not issue a second catalog request for a
+different node-pool SKU or retry a failed provider read. Unsupported targets do not disable
+encryption. Allocatable workload-envelope validation remains open in the implementation ledger.
 
 The default diskless SKUs retain platform-encrypted Managed OS disks rather than requiring
 ephemeral storage. Checkov exceptions stay attached to the affected resource: the pinned scanner
@@ -258,25 +284,7 @@ should use a dedicated tainted database node pool unless measured capacity prove
 
 The selected profile compiles a finite dependency graph:
 
-```mermaid
-flowchart LR
-    A[Verify signed kit] --> B[Inspect target and capacity]
-    B --> C[Foundation exact plan]
-    C --> D[Shared Azure platform]
-    D --> E{Runtime platform}
-    E -->|Container Apps| F[Container Apps substrate]
-    E -->|AKS| G[AKS cluster and node pools]
-    G --> H[Managed CSI and workload identity]
-    F --> I{Database placement}
-    H --> I
-    I -->|Flexible Server| J[PostgreSQL Flexible Server]
-    I -->|AKS| K[In-cluster PostgreSQL]
-    J --> L[Migrations]
-    K --> L
-    L --> M[Independent services]
-    M --> N[Scheduled jobs]
-    N --> O[Readiness and zero-change plans]
-```
+![Provisioning flow from signed-kit verification through runtime and database selection to service deployment and readiness checks.](../../diagrams/generated/fdai-roadmap-deployment-runtime-deployment-profiles-01.en.svg)
 
 Every mutating node has its own exact plan, current human approval, pre-effect claim, timeout,
 rollback or recovery reference, and authoritative observer. `deployment_ready=true` requires all

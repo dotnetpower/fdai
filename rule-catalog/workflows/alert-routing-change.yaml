@@ -1,0 +1,36 @@
+schema_version: "1.0.0"
+name: alert-routing-change
+version: "1.0.0"
+description: >-
+  Obtain independent approval for one immutable alert routing plan before
+  proposing its manual IaC change, with plan-bound compensation and independent effect verification.
+trigger:
+  kind: signal
+  signal_type: alert_noise.routing.proposed
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 30
+  min_samples: 100
+  min_accuracy: 1.0
+  max_policy_escapes: 0
+steps:
+  - id: approve_plan
+    kind: approval
+    approval_role: owner
+    quorum: 2
+    no_self_approval: true
+    timeout_seconds: 3600
+  - id: update_routing
+    kind: action
+    action_type_ref: ops.update-alert-routing
+    compensated_by: ops.restore-alert-configuration
+    timeout_seconds: 3600
+    params:
+      plan_digest: '${event.payload.alert_plan.plan_digest}'
+anti_scope: >-
+  No standing authorization, resource creation, inline actions, direct API fallback,
+  protected-route removal or dependency impact beyond one resource group. The action
+  port must revalidate current service-owner and distinct Owner approvals for the
+  exact plan, excluding requester and executor, and enforce all seven safeguards.
+  Compensation uses the same forward plan digest and separately current recovery
+  authority. PR creation or merge is not proof of an Azure or notification effect.

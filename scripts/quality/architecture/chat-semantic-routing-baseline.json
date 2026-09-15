@@ -65,6 +65,13 @@
       "issue": 252
     },
     {
+      "path": "console/src/deck/deferred-command-deck.tsx",
+      "disposition": "retain",
+      "owner": "console-command-deck",
+      "reason": "Retains keyboard and activation-event matching for lazy presentation loading only. It does not inspect question text, select semantic intent, or grant authority.",
+      "issue": 252
+    },
+    {
       "path": "console/src/deck/presentation-modules/table.tsx",
       "disposition": "retain",
       "owner": "console-presentation",
@@ -419,6 +426,13 @@
       "disposition": "retain",
       "owner": "semantic-conversation",
       "reason": "Retains exact target identifier syntax validation shared by structured planners.",
+      "issue": 252
+    },
+    {
+      "path": "services/core-control-plane/src/fdai/core/detection/alert_noise/outcomes.py",
+      "disposition": "retain",
+      "owner": "alert-noise-effect-verification",
+      "reason": "Retains exact typed effect outcome enums, dispatch lineage, observation intervals and guard metrics. It accepts no operator utterance, selects no natural-language intent and grants no execution, recovery or hold-release authority.",
       "issue": 252
     },
     {

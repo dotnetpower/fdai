@@ -225,6 +225,25 @@ class GitOpsPrAdapter(RemediationPrPublisher):
             return "open"
         raise GitOpsPrError("governance PR lookup returned an unknown state")
 
+    async def read_existing(self, path: str) -> str | None:
+        """Read one exact bounded UTF-8 file from this publisher's configured base branch.
+
+        This is read-only and never follows provider download links. Writer exclusion
+        and source digest checks still belong to the governed publication boundary.
+        """
+        from fdai.delivery.gitops_pr.existing_file import existing_file_path, read_existing_file
+
+        path = existing_file_path(path)
+        url = self._repo_url(f"contents/{self._content_path(path)}")
+        url += "?" + urlencode({"ref": self._config.default_branch})
+        return await read_existing_file(
+            client=self._http,
+            url=url,
+            path=path,
+            headers=self._headers,
+            timeout_seconds=self._config.timeout_seconds,
+        )
+
     # ------------------------------------------------------------------
     # helpers
     # ------------------------------------------------------------------

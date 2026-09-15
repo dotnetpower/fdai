@@ -27,6 +27,7 @@ _RUNNER_IMAGE_NETWORKS = (
     "firewall_management_subnet_prefix",
 )
 _OPTIONAL_STRINGS = {
+    "application_workload": r"[a-z][a-z0-9]{1,11}",
     "runner_image_source_commit": r"[0-9a-f]{40}",
     "runner_image_verified_source_commit": r"[0-9a-f]{40}",
     "runner_image_run_digest": r"[0-9a-f]{64}",
@@ -46,6 +47,7 @@ _REQUIRED = (
 _OPTIONAL = frozenset(
     {
         "state_retention_days",
+        "operations_public_ip_tags",
         "runner_vm_size",
         "runner_admin_username",
         "runner_parallelism",
@@ -116,6 +118,11 @@ def snapshot_foundation_input(
         raise ValueError("foundation plan requires an exact managed image or gallery version")
     _validate_networks(values)
     _validate_runner_image_networks(values)
+    if values.get("operations_public_ip_tags", {}) not in (
+        {},
+        {"FirstPartyUsage": "/Unprivileged"},
+    ):
+        raise ValueError("foundation plan operations public IP policy tags are unsupported")
     retention = values.get("state_retention_days", 30)
     if type(retention) is not int or not 1 <= retention <= 365:
         raise ValueError("foundation plan retention MUST be an integer from 1 through 365")

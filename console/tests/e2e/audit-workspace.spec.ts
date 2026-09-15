@@ -17,7 +17,7 @@ const rows = [
 ];
 
 async function fixture(page: Page, options: {
-  empty?: boolean; fail?: boolean; delay?: number; long?: boolean; paginated?: boolean;
+  empty?: boolean; fail?: boolean; delay?: number; long?: boolean; paginated?: boolean; count?: number;
 } = {}) {
   const requests: URL[] = [];
   let olderAttempts = 0;
@@ -40,7 +40,10 @@ async function fixture(page: Page, options: {
     if (options.fail || (url.searchParams.has("cursor") && ++olderAttempts === 1)) {
       return route.fulfill({ status: 503, json: { error: { message: "Audit source unavailable" } } });
     }
-    const base = options.long ? rows.map(row => ({
+    const base = options.count ? Array.from({length: options.count}, (_, index) => ({
+      ...rows[0]!, seq: 100 - index, event_id: `event-many-${index}`,
+      action_kind: index === options.count! - 1 ? "last.audit.record" : "record.review",
+    })) : options.long ? rows.map(row => ({
       ...row, actor: `service.${"long-identity-".repeat(12)}`, event_id: "e".repeat(200),
       entry: { ...row.entry, resource_id: "resource/".repeat(28), reason: "긴 감사 기록 근거 ".repeat(25) },
     })) : rows;
@@ -92,6 +95,39 @@ test("desktop mock hierarchy preserves selection, raw evidence, and exact record
   await expect(page.locator(".audit-record")).toHaveCount(1);
   expect(requests.at(-1)?.searchParams.get("from_seq")).toBe("41");
   expect(requests.at(-1)?.searchParams.get("through_seq")).toBe("41");
+});
+
+test("many records keep a bounded rail and selected detail without truncating loaded rows", async ({ page }) => {
+  await fixture(page, { count: 50 });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/audit");
+  await expect(page.locator(".audit-record")).toHaveCount(50);
+  const workspace = page.locator(".audit-workspace");
+  const geometry = await workspace.evaluate(node => ({
+    width: node.getBoundingClientRect().width,
+    height: node.getBoundingClientRect().height,
+  }));
+  expect(geometry).toEqual({ width: 1232, height: 620 });
+  const rail = page.locator(".audit-record-list");
+  expect(await rail.evaluate(node => node.scrollHeight > node.clientHeight)).toBe(true);
+  await page.locator(".audit-record").last().focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#audit-selected-title")).toHaveText("last.audit.record");
+  await expect(page.locator(".audit-record").last()).toBeFocused();
+  await expect(page.locator(".audit-record")).toHaveCount(50);
+  await workspace.scrollIntoViewIfNeeded();
+  await expect(page.locator("#audit-selected-title")).toBeInViewport();
+  await page.locator(".audit-record-detail").focus();
+  await expect(page.locator(".audit-record-detail")).toBeFocused();
+  await page.keyboard.press("PageDown");
+  await expect.poll(async () =>
+    page.locator(".audit-record-detail").evaluate(node => node.scrollTop),
+  ).toBeGreaterThan(0);
+  await page.locator(".audit-record").first().click();
+  await expect.poll(async () =>
+    page.locator(".audit-record-detail").evaluate(node => node.scrollTop),
+  ).toBe(0);
+  await expect(page.locator("#audit-selected-title")).toBeInViewport();
 });
 
 test("query controls retain deep-link bounds and distinguish loaded search from server filters", async ({ page }) => {

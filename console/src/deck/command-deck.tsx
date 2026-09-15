@@ -10,7 +10,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import { t } from "../i18n";
-import { offerProactiveHandover } from "../handover-invitation";
 import { navigate } from "../router";
 import { type VerificationProgress } from "./backend";
 export {
@@ -76,14 +75,6 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     deckUser?.accountId ?? deckUser?.username ?? deckUser?.name ?? null,
     deckUser?.devMode ?? false,
   );
-  useEffect(() => {
-    const storage = typeof window === "undefined" ? null : window.sessionStorage;
-    void offerProactiveHandover(client, storage).catch((error: unknown) => {
-      console.warn("proactive_handover_unavailable", {
-        error_type: error instanceof Error ? error.name : "UnknownError",
-      });
-    });
-  }, [client]);
   const [open, setOpen] = useState(false);
   const contextStoreRef = useRef(new ConversationContextStore());
   const [context, setContext] = useState<ConversationContext>({ mode: "screen", snapshot: null });

@@ -7,7 +7,7 @@
   "resumeTitle": "Resume the live view",
   "context": {"devTitle": "Local ControlLoop: no managed-resource changes", "source": "Source", "window": "Window"},
   "scope": {"label": "Live observation scope", "mode": "Mode", "readOnly": "Read-only", "source": "Source", "transport": "Transport", "syntheticTransport": "Synthetic generator", "evidence": "Evidence", "observed": "Authoritative runtime source observed", "sample": "Synthetic sample stream - not operational evidence", "notReady": "No authoritative runtime source observed - not valid as live readiness evidence"},
-  "lead": "See current control-loop and source-read activity, follow recorded stages, and open bounded evidence. This surface observes; it never executes.",
+  "lead": "Current control-loop and source-read activity.",
   "health": {"label": "Live observation health", "stream": "Stream", "lastEvent": "Last event", "lastSignal": "Last signal", "sourceCoverage": "Source coverage", "environment": "Environment", "presentation": "Presentation", "backlog": "Frame continuity", "complete": "No overflow detected", "dropped": "{count} old frame(s) dropped at the bounded buffer", "cursorReset": "Stream restarted - current snapshots restored", "notObserved": "Not observed", "devLocal": "Local ControlLoop", "configuredRuntime": "Configured runtime", "following": "Following live", "frozen": "Frozen - {count} frame(s) queued"},
   "status": {"idle": "Idle", "connecting": "Connecting", "open": "Live", "sample": "Sample stream", "connected": "Connected", "awaitingSource": "Awaiting source", "closed": "Closed", "unsupported": "SSE unsupported"},
   "observations": {
@@ -122,10 +122,41 @@
   "kpi": {"events": "Events / sec", "average": "/s - 60s avg", "messagesHelp": "Unique SSE activity messages - last 60s", "partial": "Partial window - some measurements excluded", "noGate": "No gate decision observed", "noTier": "No tier assignment observed", "controlOnly": "Control-loop only; source reads are not classified here.", "gateMix": "Gate mix (60s)", "auto": "auto", "tierMix": "Tier mix (60s)", "finalized": "{count} observed decisions", "routed": "{count} routed events", "emptyTitle": "0 control-loop events in the last 60 seconds", "emptyDetail": "No gate or tier distribution is available for an empty measured window.", "tierLabel": {"t0": "Deterministic", "t1": "Evidence-backed", "t2": "Adaptive"}},
   "decision": {"auto": "Auto", "hil": "Approval", "abstain": "Held", "deny": "Denied"},
   "work": {
+    "fullscreen": "View activity full screen",
+    "exitFullscreen": "Exit full screen",
+    "fullscreenFallback": "Expanded view - browser fullscreen is unavailable.",
+    "fullscreenError": "Could not change fullscreen mode. Try the browser fullscreen control.",
+    "progress": "Recorded pipeline stage, not verified effect",
     "eyebrow": "Current activity", "title": "Live activity", "summary": "{total} current - {control} control-loop - {source} source reads", "currentWindow": "Showing {visible} of {count} current items - {source}", "sampleWindow": "Synthetic activity preview - not operational evidence", "sampleSourceUnavailable": "Source-read cards are available only from the authoritative Live stream.", "activityLabel": "{count} current live activity items", "queue": "List", "flow": "Grid", "viewModeLabel": "Activity layout", "filtersLabel": "Live activity filters", "queueLabel": "Prioritized live activity list", "flowLabel": "Live activity grid", "filterTitle": "Filter: {filter} (press {key})", "filterNote": "Select an item to inspect its recorded detail.", "noMatch": "No live activity matches this filter.", "routing": "Routing event", "actions": "{count} actions", "unknownResource": "Unknown resource", "overBudget": "Over budget", "pending": "Pending", "approval": "Approval", "noRule": "No rule matched", "needsApproval": "Needs approval", "executionMode": "Execution mode: {mode}", "agentRelay": "Agent relay", "itemLabel": "{action} on {resource}", "why": "Why: {reason}", "slaRemaining": "{value}s left",
     "columns": {"controlLoop": "Control loop", "stage": "Current stage", "age": "Age", "tier": "Tier", "mode": "Mode", "decision": "Decision", "work": "Work", "tierMode": "Tier / mode", "why": "Why", "ownerStage": "Owner / stage", "riskImpact": "Risk / impact", "ageSla": "Age / SLA", "controlState": "Control state"}
   },
   "control": {"notObserved": "Not observed", "notStarted": "Not started", "notDispatched": "Not dispatched", "simulated": "Simulated", "inProgress": "In progress", "completed": "Completed", "executionFailed": "Failed"},
+  "sample": {
+    "restart": "Replay Sample",
+    "restartHelp": "Restart the same synthetic story sequence. No runtime records or actions.",
+    "title": {
+      "publicBlob": "Disable public blob access", "restore": "Enable point-in-time restore",
+      "autoscale": "Raise autoscale minimum", "certificate": "Rotate expiring certificate",
+      "rightsize": "Right-size batch compute", "firewall": "Remove orphan firewall rule",
+      "clusterAccess": "Narrow cluster admin access", "dns": "Pin DNS to internal resolver",
+      "vault": "Reduce vault access", "retention": "Extend log retention",
+      "disk": "Delete unattached disk", "replica": "Fail over lagging replica"
+    },
+    "target": {
+      "publicBlob": "Web app storage", "restore": "Billing database", "autoscale": "EU web service",
+      "certificate": "Core identity service", "rightsize": "Batch worker pool", "firewall": "Shared network",
+      "clusterAccess": "Production Kubernetes", "dns": "Shared network", "vault": "Identity secrets vault",
+      "retention": "Operations workspace", "disk": "Legacy workload", "replica": "EU database replica"
+    },
+    "reason": {
+      "publicBlob": "Public access violates storage policy", "restore": "Recovery coverage is below policy",
+      "autoscale": "Capacity is below the reliability floor", "certificate": "Certificate expires within 30 days",
+      "rightsize": "CPU is consistently underused", "firewall": "Rule has no active workload owner",
+      "clusterAccess": "Cluster-wide privilege exceeds need", "dns": "Public resolver bypasses network policy",
+      "vault": "Grant is broader than the workload needs", "retention": "Retention is shorter than evidence policy",
+      "disk": "Disk is unused and still accruing cost", "replica": "Replication lag threatens recovery time"
+    }
+  },
   "help": {
     "tier": {"t0": "T0 uses deterministic rules for repeatable decisions.", "t1": "T1 reuses evidence-backed similarity from prior validated patterns.", "t2": "T2 uses grounded adaptive reasoning and still requires deterministic verification.", "unknown": "The decision tier has not been observed."},
     "autonomy": {"A0": "A0 observes, explains, or simulates only; it cannot mutate a managed target.", "A1": "A1 permits a reversible, resource-scoped low-risk action inside current policy.", "A2": "A2 permits a promoted workflow inside a measured and pre-approved envelope.", "A3_H": "A3-H requires independent per-execution human approval before dispatch.", "A3_E": "A3-E uses valid standing human authorization for a bounded reversible emergency mitigation.", "A4": "A4 is denied; execution is prohibited.", "guide": "Authority guide: A0 observes; A1 is bounded low risk; A2 is a promoted envelope; A3-H requires current approval; A3-E requires standing authorization; A4 is denied. This event has not published an exact autonomy class."},

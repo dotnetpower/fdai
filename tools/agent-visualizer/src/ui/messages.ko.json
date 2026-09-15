@@ -227,5 +227,11 @@
   "historyStateType": "저장된 상태 전이 종류",
   "catalogCoveragePartial": "저장된 카탈로그의 범위가 불완전합니다.",
   "unresolvedDbLinks": "개의 저장 관계는 현재 그래프 밖의 끝점을 참조합니다.",
-  "controlsDock": "재생 및 카메라 컨트롤"
+  "controlsDock": "재생 및 카메라 컨트롤",
+  "sourceAdapters": "소스 어댑터",
+  "sourceFocus": "소스 자세히",
+  "sourceChannels": "채널",
+  "sourceAdapterNote": "에이전트가 아닌 소스 어댑터입니다. 통신 흐름은 시뮬레이션입니다.",
+  "sourceDefinitions": "이 소스 그룹의 함수",
+  "serviceTrafficNote": "빠른 빛은 모델 응답 조각과 Console SSE를 표현하며, 실제 처리량이 아닙니다. Teams와 Slack은 메시지 단위로 표시합니다. 이 화면에서는 외부 요청을 보내지 않습니다."
 }

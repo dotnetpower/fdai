@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -20,6 +21,7 @@ from fdai.delivery.analyzer_targets import (
     resolve_analyzer_targets,
 )
 from fdai.delivery.analyzer_tick import AnalyzerTarget
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.ontology_instance import (
     OntologyGraphSnapshot,
@@ -422,6 +424,52 @@ async def test_state_fact_without_independent_admission_is_skipped() -> None:
 
     assert resolution.targets == ()
     assert resolution.skipped_reasons == (SKIP_UNVERIFIED_STATE_FACT,)
+
+
+@pytest.mark.parametrize(
+    "mismatch",
+    ["evidence", "scope", "purpose", "source_revision", "expired", "future", "valid"],
+)
+async def test_target_admission_is_bound_to_exact_evidence_and_time(mismatch: str) -> None:
+    store = StubStore((_resource("res-aks", "kubernetes-cluster", state_fact=_state_fact()),))
+
+    class Admission(StubDecisionEvidenceAdmissionProvider):
+        async def admit(
+            self, *, evidence_digest: str, scope_digest: str, purpose_id: str, source_revision: str
+        ) -> DecisionEvidenceAdmission:
+            receipt = await super().admit(
+                evidence_digest=evidence_digest,
+                scope_digest=scope_digest,
+                purpose_id=purpose_id,
+                source_revision=source_revision,
+            )
+            if mismatch == "evidence":
+                return replace(receipt, evidence_digest="sha256:" + "0" * 64)
+            if mismatch == "scope":
+                return replace(receipt, scope_digest="sha256:" + "0" * 64)
+            if mismatch == "purpose":
+                return replace(receipt, purpose_id="other-purpose")
+            if mismatch == "source_revision":
+                return replace(receipt, source_revision="other-generation")
+            if mismatch == "expired":
+                return replace(receipt, valid_until=NOW - timedelta(seconds=1))
+            if mismatch == "future":
+                return replace(receipt, verified_at=NOW + timedelta(seconds=1))
+            return receipt
+
+    result = await resolve_analyzer_targets(
+        configured=(),
+        store=store,  # type: ignore[arg-type]
+        now=NOW,
+        decision_evidence=Admission(lambda: NOW),
+        provider_references=_provider_reader(store),
+    )
+    if mismatch == "valid":
+        assert len(result.targets) == 1
+        assert result.skipped_reasons == ()
+    else:
+        assert result.targets == ()
+        assert result.skipped_reasons == (SKIP_UNVERIFIED_STATE_FACT,)
 
 
 @pytest.mark.asyncio

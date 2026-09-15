@@ -1,0 +1,279 @@
+{
+  "$defs": {
+    "AlertNoiseCommand": {
+      "additionalProperties": false,
+      "description": "A principal-bound request with no supplied facts, approvals or provider endpoints.",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "operation": {
+          "enum": [
+            "alert_noise.assess",
+            "alert_noise.propose"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "request_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Request Ref",
+          "type": "string"
+        },
+        "requester_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Requester Ref",
+          "type": "string"
+        },
+        "scope_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Scope Ref",
+          "type": "string"
+        },
+        "requested_at": {
+          "format": "date-time",
+          "title": "Requested At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "evidence_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Digest"
+        },
+        "treatment": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlertTreatment"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "execution_authority": {
+          "const": false,
+          "default": false,
+          "title": "Execution Authority",
+          "type": "boolean"
+        },
+        "period_seconds": {
+          "anyOf": [
+            {
+              "maximum": 604800,
+              "minimum": 3600,
+              "multipleOf": 3600,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Period Seconds"
+        }
+      },
+      "required": [
+        "operation",
+        "request_ref",
+        "requester_ref",
+        "scope_ref",
+        "requested_at",
+        "expires_at"
+      ],
+      "title": "AlertNoiseCommand",
+      "type": "object"
+    },
+    "AlertTreatment": {
+      "additionalProperties": false,
+      "description": "Exactly one operator-selected treatment, never a provider path or script.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "routing",
+            "suppression",
+            "evaluation"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "target_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Target Ref",
+          "type": "string"
+        },
+        "replacement_group_ref": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Replacement Group Ref"
+        },
+        "remove_group_ref": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remove Group Ref"
+        },
+        "processing_rule_ref": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Processing Rule Ref"
+        },
+        "starts_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Starts At"
+        },
+        "ends_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ends At"
+        },
+        "evaluation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Evaluation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "target_ref"
+      ],
+      "title": "AlertTreatment",
+      "type": "object"
+    },
+    "Evaluation": {
+      "additionalProperties": false,
+      "description": "Supported threshold semantics; complex native criteria remain unsupported.",
+      "properties": {
+        "metric_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Metric Ref",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "above",
+            "below"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "threshold": {
+          "title": "Threshold",
+          "type": "number"
+        },
+        "window_seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Window Seconds",
+          "type": "integer"
+        },
+        "frequency_seconds": {
+          "maximum": 86400,
+          "minimum": 1,
+          "title": "Frequency Seconds",
+          "type": "integer"
+        },
+        "aggregation": {
+          "enum": [
+            "average",
+            "maximum",
+            "minimum"
+          ],
+          "title": "Aggregation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metric_ref",
+        "operator",
+        "threshold",
+        "window_seconds",
+        "frequency_seconds",
+        "aggregation"
+      ],
+      "title": "Evaluation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Only the authenticated Operator outbox signs a principal-bound command.",
+  "properties": {
+    "command": {
+      "$ref": "#/$defs/AlertNoiseCommand"
+    },
+    "signature": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Signature",
+      "type": "string"
+    }
+  },
+  "required": [
+    "command",
+    "signature"
+  ],
+  "title": "SignedAlertCommand",
+  "type": "object",
+  "$id": "https://fdai.dev/service-contracts/alert-noise-command/1.0.0"
+}

@@ -254,7 +254,7 @@ def _core_log_lines(root: Path) -> tuple[str, ...]:
 
 
 def _analyzer_tick_ready(root: Path) -> bool:
-    """Require one clean analyzer tick after the latest managed start."""
+    """Require a clean analyzer tick after the latest start or readiness regression."""
 
     ready = False
     for line in _service_log_lines(root, "local-analyzer"):
@@ -264,6 +264,7 @@ def _analyzer_tick_ready(root: Path) -> bool:
             ready = True
         elif (
             "service=local-analyzer event=failed" in line
+            or "service=local-analyzer event=waiting" in line
             or "service=local-analyzer event=stopped" in line
         ):
             ready = False

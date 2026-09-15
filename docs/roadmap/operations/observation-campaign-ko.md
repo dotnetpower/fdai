@@ -1,7 +1,7 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: 799652360db57c1b49212906b1fd76fcd606977a
+translation_source_sha: 5d9397272c0f486b4353f1b4937f30897099221a
 translation_revised: 2026-09-15
 ---
 
@@ -54,6 +54,7 @@ translation_revised: 2026-09-15
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | implemented | 복구 기한과 커서, 변환할 수 없는 변경, 관측 메타데이터, 영속 재시도 대기, 분석 대상 근거와 준비 상태를 다루는 비평 및 하드닝 12라운드를 완료했습니다. | #1065; [라운드 근거](../../baselines/live-event-production-hardening-2026-09-15.json); 집중 테스트 367개, 소스 7개의 strict mypy 통과 및 중대한 문제가 남지 않은 독립 최종 검토입니다. | 런타임 반영과 독립 근거 승인은 별도 요건이며 가짜 이벤트나 보류 조건 완화는 없습니다. |
 | 2026-09-15 | validated | 로컬 스키마 `1.3.0` 활동 스냅샷 및 delta 경로와 보존 이력 경계를 검증했습니다. Live는 SSE 연결 하나를 사용하고 암묵적인 Agent GET을 보내지 않았으며, 명시적 Agent Activity는 요청한 `1.3.0` 행 500개를 모두 반환하고 live delta로 행을 잃지 않고 렌더링했습니다. | `current change`; backend 집중 테스트 `353 passed, 1 skipped`; Console 집중 테스트 `188 passed`; strict mypy 및 typecheck 통과; production-adapter Playwright `1 passed`; 표준 로컬 서비스 `11/11`; 인증된 표준 Live 검사와 안전한 1440×900 session screenshot. | 별도로 통제되는 실제 캠페인 행을 validated로 올리기 전에 동등한 배포 개정 번호 근거를 보존합니다. |
 | 2026-09-15 | implemented | 실행 중 및 실패한 부분 개수를 제한한 뒤 스키마 `1.3.0` 활동 생성과 영속 projection을 다시 검증했습니다. 표준 로컬 projection은 요청한 500개 행을 모두 `1.3.0`으로 반환했고 측정됨, 기록 안 됨, 사용 불가 상태를 포함했습니다. | `current change`; backend 집중 테스트 `278 passed, 1 skipped`; strict mypy 통과; 표준 로컬 서비스 `11/11`; 영속 활동 projection `500/500`. | Browser Entra를 갱신한 뒤 인증된 Live 카드와 실패 전이 artifact를 캡처하고, 통제된 실제 캠페인 근거를 validated로 올리기 전에 동등한 배포 개정 번호 근거를 보존합니다. |
 | 2026-09-14 | implemented | 시작 또는 실패 상태인 인벤토리와 관측 행이 일부 출처 개수를 완료된 근거처럼 노출하지 않도록 했습니다. 두 상태는 `evidence_count: 0`을 게시하고 `result_count`를 비우며, 측정이 완료된 종료 행만 관측 개수를 유지합니다. | `current change`; Core 활동 생산자 및 Operator 변환 결과 회귀 검사 13개가 통과했습니다. | 런타임 검증을 주장하기 전에 인증된 표준 스택에서 실패 전이 하나를 보존합니다. |
@@ -171,7 +172,7 @@ translation_revised: 2026-09-15
 
 예상된 권한 거부나 실패 후에도 실행기는 독립 출처를 계속 실행합니다. 모든 필수 출처의 현재
 커버리지가 `ready`일 때만 집계 캠페인이 `completed`이며, 그 외에는 `partial`입니다. 누락된
-출처를 0건, 정상 상태 또는 권한 추론으로 바꾸지 않습니다.
+출처를 0건, 정상 상태 또는 권한 추론으로 바꾸지 않습니다. 승격 인벤토리 검사는 측정 개수를 요구하기 전에 명시적인 소스 사용 불가 상태를 분류하며, 준비 상태에는 유효한 최신성과 불리언 잘림 여부가 명시되어야 합니다.
 
 ## 수집 정책
 
@@ -180,6 +181,7 @@ translation_revised: 2026-09-15
 - **커서 복구:** Pull 읽기 담당은 영속 출처 커서로 공백을 닫고 종료 결과가 영속화된 뒤에만
   커서를 확정합니다. Activity Log 복구는 timestamp 전용 닫힌 창을 요청하고 완전히 읽은 창만
   checkpoint하며, 관련 없는 실패를 가속하지 않고 명시적 `source_catchup` 상태만 즉시 이어갑니다.
+- **공급자 재시도 대기:** `Retry-After`와 Cost Management 재시도 기한 중 가장 늦은 값을 UTC로 보존하며, 다른 헤더가 잘못되어도 유효한 기한은 유지합니다. 재시작이나 따라잡기도 기한 전에 재시도하지 않으며, 짧은 대기 값이 등록된 주기를 줄이지 않습니다. 잘못된 재시도 상태는 해당 출처를 명시적으로 차단합니다.
 - **완전 조정:** 권위 있는 인벤토리 CLI는 로컬과 배포의 같은 실행 조건 게이트를 통해 전체
   ARG/ARM 승격을 수행합니다. 캠페인은 해당 승격 그래프를 관측하며 구성, 비용 및 복구 probe는
   등록된 범위 제한 읽기를 각각 실행합니다.

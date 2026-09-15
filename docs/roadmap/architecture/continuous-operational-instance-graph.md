@@ -6,6 +6,11 @@ title: Continuous Operational Instance Graph
 This document owns the runtime contract that keeps cloud resource instances, relationships, and observed state current in the FDAI ontology.
 Collection is continuous and load-aware, while raw history moves through typed rollups and verified archives so the active data plane remains bounded.
 
+[Alert noise governance](../operations/alert-noise-governance.md) retains separate private alert,
+audience, and delivery evidence. Those records and their scope bindings do not promote an inventory
+generation, create observed graph facts, or prove complete reverse dependencies. Missing native
+history or directory evidence stays partial; this graph's observation and single-writer rules are unchanged.
+
 > **Scope boundary:** This design covers provider observation, ontology instance projection, freshness, compaction, archive, and graph-first reads.
 > It does not grant approval, mutation, or execution authority.
 >
@@ -33,6 +38,9 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
 - **Observed truth:** Only authenticated provider observations can enter the `observed` state lane.
   Questions, model output, intended state, dispatch receipts, and executor results cannot create an
   observed fact.
+  The developing [structured cloud-document path](../interfaces/cloud-resource-knowledge-structured-rag.md)
+  supplies dated reference excerpts only. Source-check times and query digests cannot refresh
+  Resource state or prove graph completeness.
 - **Deployment evidence:** Protected platform plan metadata is built by a focused repository
   module. Workflow YAML passes sealed inputs to it; neither the plan nor its receipt can establish
   an observed graph fact. Every status-overriding service-deployment run or action step executes
@@ -77,7 +85,7 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
 The collector uses the cheapest authoritative signal that can preserve the required freshness:
 
 1. Push resource create, update, and delete events into the canonical event stream.
-2. Drain resumable provider deltas from a durable cursor while lag or an incomplete overlay exists.
+2. Drain resumable provider deltas from a validated durable text cursor under one finite positive end-to-end deadline, including cursor reads and final writes, while lag or an incomplete overlay exists; malformed stored cursors block recovery rather than resetting the lookback.
 3. Run bounded reconciliation to detect missed events, repair relationships, and prove scope completeness.
 4. Run exact live reads only when inventory lacks an evidence family or a verified query needs fresher evidence.
 
@@ -92,6 +100,7 @@ their incomplete relationship set. Nested subnet records retain the observed VNe
 an exact child cannot fall back to a Resource Group parent between reconciliations.
 One support boundary owns Resource Changes cursor, retry, ingestion-fence, and publication
 semantics; the provider feed module re-exports that behavior instead of maintaining a second loop.
+Malformed continuation metadata cannot complete an Activity Log stream or advance its durable cursor. Parent-only Azure Cognitive Services deployment writes/deletes remain reconciliation-only when `Succeeded`. For normalized Resource Group envelopes, this treatment is limited to two exact ARM identity-derived types, `Microsoft.KeyVault/vaults` and `Microsoft.Storage/storageAccounts`, each paired with its exact `<derived-type>/delete` operation and `Succeeded` status. These signals retain validated timezone-aware event time, including signal-only pages, without Resource/relationship upserts, invented children, deletion claims, or blocking unrelated valid rows. Cursor persistence requires the complete stream fence and marker write; other status, timestamp, and reviewed-identity checks remain unchanged. [The ledger](../../roadmap-implementation/architecture/continuous-operational-instance-graph.md) records the exact aliases and focused evidence.
 
 A collected property becomes a relationship only through a reviewed provider mapping. If that
 mapping omits an observed connection target, an absent graph edge never proves an absent path.

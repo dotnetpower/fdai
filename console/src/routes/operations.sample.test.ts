@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { decodeHilQueuePage, decodeIncidentPage } from "../api";
 import { decodeAgentOperationalActivity } from "../agent-operational-activity";
@@ -18,7 +19,8 @@ import {
   OPERATIONS_SAMPLE_LIVE_HISTORY_COUNT,
   OPERATIONS_SAMPLE_LIVE_LOOP_INTERVAL_MS,
   OPERATIONS_SAMPLE_PROVISION_EVENTS,
-  OPERATIONS_SAMPLE_LIVE_STAGE_INTERVAL_MS,
+  sampleLiveStageDelay,
+  sampleLivePreviewEvents,
   OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT,
   sampleLiveObservations,
   sampleLiveEvents,
@@ -27,12 +29,35 @@ import {
 import { decodeProcessJournal, decodeProcessList } from "./processes.model";
 import { decodeSchedulerRunPage } from "./scheduler-runs.model";
 import { decodeWorkflowApps } from "./workflow-apps.model";
+import { LIVE_SAMPLE_STORIES, liveSampleStory } from "./operations.sample-live-stories";
 
 function response(path: string, query = ""): unknown {
   const value = operationsSampleResponse(path, new URLSearchParams(query));
   expect(value).not.toBeUndefined();
   return value;
 }
+
+test("Live comparison stories retain declared resource and action types", () => {
+  const vocabulary = readFileSync(
+    new URL("../../../rule-catalog/vocabulary/resource-types.yaml", import.meta.url), "utf8",
+  );
+  const resources = new Set([...vocabulary.matchAll(/^\s+- id: ([\w.-]+)$/gm)].map(match => match[1]));
+  expect(LIVE_SAMPLE_STORIES).toHaveLength(12);
+  for (const story of LIVE_SAMPLE_STORIES) {
+    expect(resources.has(story.resourceType), story.resourceType).toBe(true);
+    expect(existsSync(new URL(
+      `../../../rule-catalog/action-types/${story.actionType}.yaml`, import.meta.url,
+    )), story.actionType).toBe(true);
+    expect(liveSampleStory(story.rule)).toBe(story);
+  }
+  expect(liveSampleStory("runtime-observed-rule")).toBeUndefined();
+  const preview = sampleLivePreviewEvents();
+  expect(new Set(preview.map(event => event.event_id)).size).toBe(12);
+  expect(preview.some(event => event.phase === "failed")).toBe(true);
+  expect(new Set(preview.flatMap(event =>
+    event.detail?.["decision"] ? [event.detail["decision"]] : [],
+  ))).toEqual(new Set(["auto", "hil", "deny", "abstain"]));
+});
 
 describe("Operations Sample registry", () => {
   test("provides valid list and evidence projections", () => {
@@ -63,9 +88,9 @@ describe("Operations Sample registry", () => {
     expect(detection.pod_lifecycle.targets).toHaveLength(2);
     expect(decodeConfigurationBaselines(response("/configuration-baselines")).baseline.version)
       .toBe("sample-v3");
-    expect(decodeProcessList(response("/views/process")).items).toHaveLength(1);
+    expect(decodeProcessList(response("/views/process")).items).toHaveLength(3);
     expect(decodeProcessJournal(response("/views/process/sample-process-1/events")).events)
-      .toHaveLength(1);
+      .toHaveLength(4);
     expect(decodeWorkflowApps(response("/views/workflow-apps")).items).toHaveLength(1);
     expect(decodeSchedulerRunPage(
       response("/scheduler-runs", "task_id=inventory-reconciliation"),
@@ -102,8 +127,10 @@ describe("Operations Sample registry", () => {
       execution_authority: false,
     });
     expect(OPERATIONS_SAMPLE_LIVE_LOOP_INTERVAL_MS).toBe(1_000);
-    expect(OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP).toBe(3);
-    expect(OPERATIONS_SAMPLE_LIVE_STAGE_INTERVAL_MS).toBe(800);
+    expect(OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP).toBe(2);
+    expect(sampleLiveStageDelay(0, 5, 6)).toBe(2_400);
+    expect(sampleLiveStageDelay(1, 5, 6)).toBe(3_400);
+    expect(sampleLiveStageDelay(2, 5, 6)).toBe(4_800);
     const dynamic = sampleLiveEvents(OPERATIONS_SAMPLE_LIVE_HISTORY_COUNT, 1);
     expect(new Set(dynamic.map((event) => event.event_id)).size).toBe(1);
     expect(dynamic.map((event) => event.stage)).toEqual([
@@ -123,9 +150,9 @@ describe("Operations Sample registry", () => {
       "Saga",
     ]);
     expect(dynamic.filter((event) => event.detail?.["decision"] === "hil")).toHaveLength(0);
-    expect(dynamic.every((event) => event.detail?.["target"] === "sample-container-app-01"))
+    expect(dynamic.every((event) => event.detail?.["target"] === "sample-web-storage-01"))
       .toBe(true);
-    expect(dynamic.every((event) => event.detail?.["scope"] === "sample-service-ring"))
+    expect(dynamic.every((event) => event.detail?.["scope"] === "rg-webapp"))
       .toBe(true);
     expect(dynamic.every((event) => event.detail?.["risk"] === "low")).toBe(true);
     expect(OPERATIONS_SAMPLE_LIVE_EVENTS.some((event) => event.phase === "failed")).toBe(true);

@@ -56,17 +56,15 @@ Terminal intake preserves the exact verification reason and evidence-manifest co
 An explicit fixed-census diagnostic request uses a bounded `conversation-assurance:<case-id>` purpose. Core validates the case, question, and locale against its server-owned census before Bragi answers. The resulting `done` event carries the answer, content-free diagnostics, trace latency, and schema-v2 queue/assurance timing; ordinary `operations-review` requests retain the existing semantic result contract.
 The version 1.2 semantic projection preserves this boundary across the service split: `answered` requires exact release, principal manifest, plan, execution receipt, and evidence references; unavailable dependencies return a typed limitation.
 Version 1.6 can also carry bounded authenticated group claims and governed-document evidence.
-The Console accepts only Core-projected version 2 intent evidence, displays exact revision
-citations and incomplete-coverage limits, and never treats document text as instructions or
-current operational state. Missing optional document evidence remains a partial answer only when
-independent operational evidence completed; required or explicit document evidence stays held. Unknown evidence authority values and unsupported intent-evidence versions are discarded rather than downgraded or displayed.
-The Process journal can also project an adaptive Investigation Room. Operator rechecks the Process
-revision and nested content digests before returning it, and the Console validates the same identity
-before rendering bounded rounds, competing hypotheses, evidence gaps, and terminal status. The room
-is read-only and exposes no mutation, approval, promotion, planning-selection, or execution control.
+The Console accepts only Core-projected version 2 intent evidence, displays exact revision citations and incomplete-coverage limits, and never treats document text as instructions or current operational state. The committed semantic-intent coverage artifact is regenerated from authoritative sources and grants no runtime authority.
+Missing optional document evidence permits a partial answer only after independent operational evidence completes; required or explicit document evidence stays held. Unknown evidence authority values and unsupported intent-evidence versions are discarded, never downgraded or displayed.
+The [structured cloud-document extension](cloud-resource-knowledge-structured-rag.md) is under development: v3 format selection and accepted retrieval terms grant no authority and do not establish live readiness.
+The Process journal also projects an adaptive Investigation Room. Operator rechecks the Process revision and nested content digests; Console validates the same identity before showing bounded rounds, competing hypotheses, evidence gaps, and terminal status. The room grants no mutation, approval, promotion, planning-selection, or execution control.
+The Process workspace shows loaded-run counts and nine snapshot facts before collapsed control, investigation, planning, journal, and workflow-evidence sections. Provenance preserves selection; event links open the containing journal and record.
+Explicit Sample mode provides three generic read-only runs, never replaces an empty Live source, and exposes no permitted transitions. Equal-content-width mock comparison, keyboard interaction, light/dark status contrast, and 320-1440px reflow checks cover this presentation. Catalog validation follows the imported `t` binding rather than unrelated formatting helpers.
 Operator-owned Kafka adapters publish semantic proposals, consume semantic projections, and relay validated Core stage and Pantheon runtime-state frames into separate bounded `/live/stream` and `/agents/stream` SSE hubs. The Live route uses `/live/stream` for control-loop decisions and a separate read-only `/agents/stream` subscription for current source-read activity, so inventory, health, metrics, logs, cost, and recovery observations remain visibly active without being presented as decisions or execution. Authenticated `GET /agents/activity` projects bounded inventory scan, ontology projection, and current-state read history from durable sources before the Console applies newer stream frames; current-state replay and live frames share the same hashed-correlation activity id. These observation routes use the same bearer gate as snapshot reads, stay connected with keepalives when Kafka is absent, and report `Awaiting source` until an authoritative frame arrives; `GET /chat/health` reads the semantic bridge's process-owned worker readiness directly instead of requiring a durable conversation projection row.
 Terraform pins the request and projection topics, while Core renders verified query tables and Operator maps durable results to the existing `done` event.
-Injected providers take precedence and the local narrator is exclusive.
+Injected providers take precedence and the local narrator is exclusive. When `FDAI_LOCAL_RESOLVED_MODELS_PATH` selects an explicit absolute artifact, full-stack preparation includes both its path and bytes in the legacy and staged runtime-environment cache identities. Changing the path or file regenerates the model bindings instead of reusing stale output.
 The Operator API never marks a review ready, creates a catalog proposal, or grants authority. Reporting an incorrect answer adds evidence for autonomous re-evaluation, and every governed transition still requires exact replay evidence plus the existing catalog lifecycle.
 ### 1.1 Vocabulary added to the shared glossary
 
@@ -604,7 +602,7 @@ Split into focused owner documents:
 
 - [operator-console-wire-contracts.md](operator-console-wire-contracts.md) - audit entry, CLI REPL, approval callback (13.1-13.3), action submit, Python VM workbench, grounded code, and ontology projection (13.6-13.9).
 - [operator-console-view-snapshot.md](operator-console-view-snapshot.md) - the self-describing screen contract (13.4).
-- [operator-console-incident-roster.md](operator-console-incident-roster.md) - incident roster and fix history (13.5).
+- [operator-console-incident-roster.md](operator-console-incident-roster.md) - incident roster, fix history, catalog-reused queued/applied status, bounded HTTP `202` revalidation, and the no-authority Huginn-to-Saga guidance audit path (13.5).
 ## 14. MCP delivery and managed catalog
 
 FDAI's only shipped MCP integration is a single fixed-transport, read-only Azure MCP client
@@ -660,4 +658,4 @@ deployment gates.
 
 | To learn about | Read |
 |----------------|------|
-| Delivery status and Live measurements | [Implementation ledger](../../roadmap-implementation/interfaces/operator-console.md), [Live metrics](live-cockpit-metrics.md) |
+| Delivery status and Live design | [Implementation ledger](../../roadmap-implementation/interfaces/operator-console.md), [Live metrics](live-cockpit-metrics.md), [Live and Audit presentation](live-audit-presentation.md) |

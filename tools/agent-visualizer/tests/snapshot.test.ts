@@ -62,3 +62,24 @@ test("self-typed relationships have a visible loop rather than a zero-length edg
   assert.ok(curve.getPoint(0).distanceTo(origin) < 0.001);
   assert.ok(curve.getPoint(1).distanceTo(origin) < 0.001);
 });
+
+test("disposing recorded data releases retained snapshots and callbacks", () => {
+  const snapshot = decodeOntologySnapshot(fullMapFixture());
+  const store = new RecordedStore();
+  store.snapshot = snapshot;
+  store.graph = snapshot.graph;
+  store.events = snapshot.events;
+  store.status = "ready";
+  let calls = 0;
+  store.onChange = () => { calls++; };
+  store.dispose();
+  store.onChange();
+  assert.equal(calls, 0);
+  assert.equal(store.snapshot, null);
+  assert.equal(store.graph, null);
+  assert.equal(store.directory, null);
+  assert.deepEqual(store.events, []);
+  assert.deepEqual(store.changes, []);
+  assert.equal(store.status, "idle");
+  assert.equal(store.busy, false);
+});

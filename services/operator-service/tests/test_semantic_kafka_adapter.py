@@ -606,6 +606,17 @@ async def test_context_result_dead_letter_is_allowed_without_result_publish_auth
         await bus.aclose()
 
 
+@pytest.mark.parametrize("field", ["alert_quality_topic", "physical_topic"])
+def test_alert_and_physical_topics_cannot_collide_with_test_context(field: str) -> None:
+    from fdai_service_contracts.test_context import TEST_CONTEXT_RESULT_TOPIC
+
+    with pytest.raises(ValueError, match="distinct"):
+        OperatorSemanticKafkaConfig(
+            bootstrap_servers="example.servicebus.windows.net:9093",
+            **{field: TEST_CONTEXT_RESULT_TOPIC},
+        )
+
+
 async def test_invalid_payload_is_dead_lettered_and_committed_before_next_yield(
     monkeypatch,  # type: ignore[no-untyped-def]
 ) -> None:

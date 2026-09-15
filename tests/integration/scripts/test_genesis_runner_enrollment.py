@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from types import TracebackType
+from types import SimpleNamespace, TracebackType
 
 import pytest
 
@@ -417,3 +418,100 @@ def test_new_enrollment_entrypoints_remain_python_310_compatible() -> None:
         source = path.read_text(encoding="utf-8")
         assert "from datetime import UTC" not in source
         compile(source, str(path), "exec")
+
+
+@pytest.mark.parametrize(
+    "defect", [None, "missing-approval", "wrong-stage", "wrong-actor", "wrong-source"]
+)
+def test_recovered_host_enrollment_requires_separate_authority(tmp_path, monkeypatch, defect):
+    import genesis_foundation_recovery_handoff as handover
+    from fdai_deployment_cli import source_input
+
+    plan, profile, original = _prepare(tmp_path)
+    _mock_boundaries(monkeypatch)
+    recovery_dir = tmp_path / "recovery"
+    recovery_dir.mkdir(mode=0o700)
+    lock = tmp_path / "source-execution.lock"
+    lock.touch(mode=0o600)
+    handoff = _handoff()
+    handoff["runner"]["execution_transport"] = "manual"
+    recovered_receipt = {
+        "schema_version": "fdai.foundation-recovery-receipt.v1",
+        "receipt_digest": "5" * 64,
+        "source_commit": SOURCE,
+        "handoff_digest": canonical_digest(handoff),
+        "execution_source_commit": "6" * 40,
+    }
+    recovered = handover.RecoveryHandoff(recovered_receipt, handoff, BINDING)
+    monkeypatch.setattr(handover, "load_recovery_handoff", lambda **_kwargs: recovered)
+    monkeypatch.setattr(
+        source_input,
+        "inspect_source",
+        lambda *_args: SimpleNamespace(commit="7" * 40, reverify=lambda: None),
+    )
+    monkeypatch.setattr(handover, "current_actor_digest", lambda _binding: "8" * 64)
+    monkeypatch.setattr(
+        enrollment,
+        "_azure_actor_digest",
+        lambda _binding: pytest.fail("recovery claims must use the verified approval actor"),
+    )
+    checked_sources = []
+    monkeypatch.setattr(
+        enrollment.GenesisChecks,
+        "verify_source",
+        lambda _self, **kwargs: checked_sources.append(kwargs["source_commit"]),
+    )
+    moment = datetime.now(UTC).replace(microsecond=0)
+    authority = {
+        "schema_version": "fdai.genesis-approval.v1",
+        "approved": True,
+        "run_binding": recovered_receipt["receipt_digest"],
+        "source_commit": "7" * 40,
+        "stage": "runner-enrollment",
+        "actor_digest": "8" * 64,
+        "evidence": {"foundation_receipt_digest": recovered_receipt["receipt_digest"]},
+        "approved_at": moment.isoformat(),
+        "expires_at": (moment + timedelta(minutes=30)).isoformat(),
+    }
+    if defect == "wrong-stage":
+        authority.update(
+            stage="foundation-apply", evidence={"review_digest": "9" * 64, "plan_digest": "a" * 64}
+        )
+    elif defect == "wrong-actor":
+        authority["actor_digest"] = "9" * 64
+    elif defect == "wrong-source":
+        authority["source_commit"] = "9" * 40
+    approval_path = tmp_path / "recovery-enrollment-approval.json"
+    if defect != "missing-approval":
+        _private_json(approval_path, authority)
+    context = [
+        "--foundation-recovery-directory",
+        str(recovery_dir),
+        "--original-source-snapshot",
+        str(tmp_path / "snapshot"),
+    ]
+    approve = ["--approve"] + (
+        ["--recovery-approval-file", str(approval_path)] if defect != "missing-approval" else []
+    )
+    arguments = _arguments(plan, profile, recovered_receipt, *context, *approve)
+    if defect is not None:
+        assert enrollment.main(arguments) == 3
+        assert not (recovery_dir / enrollment.CLAIM_NAME).exists()
+        assert not FakeTunnel.calls
+        return
+    assert enrollment.main(arguments) == 0
+    result = json.loads((recovery_dir / enrollment.RECEIPT_NAME).read_bytes())
+    assert result["foundation_receipt_digest"] == recovered_receipt["receipt_digest"]
+    assert result["foundation_evidence_schema"] == recovered_receipt["schema_version"]
+    assert result["enrollment_source_commit"] == "7" * 40
+    assert result["actor_digest"] == authority["actor_digest"]
+    assert result["manual_host_readback_verified"] is True
+    assert set(checked_sources) == {"6" * 40, "7" * 40}
+    assert json.loads((plan / enrollment.FOUNDATION_RECEIPT_NAME).read_bytes()) == original
+    assert (
+        enrollment.main(
+            _arguments(plan, profile, recovered_receipt, *context, "--resume-verification")
+        )
+        == 0
+    )
+    assert all("fdai-enroll-runner" not in command[0] for command, _ in FakeTunnel.calls)

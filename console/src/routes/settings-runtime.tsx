@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
-import { LoadingState, PageHeader, StatusPill } from "../components/ui";
+import { ErrorState, LoadingState, PageHeader, StatusPill } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
@@ -156,7 +156,13 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
         ) : null}
       />
       {loading ? <LoadingState label={t("settings.runtimePolicies.loading")} /> : null}
-      {error ? <div class="error" role="alert">{error}</div> : null}
+      {error ? (
+        <ErrorState
+          message={error}
+          onRetry={() => { void load(); }}
+          retryLabel={t("settings.retry")}
+        />
+      ) : null}
       {notice ? <div class="state-block state-success" role="status">{notice}</div> : null}
       {!loading && view ? (
         <>

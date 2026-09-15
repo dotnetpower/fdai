@@ -2,14 +2,25 @@ import type { AgentOperationalActivityV13Message } from "../agent-operational-ac
 import type { LiveStageEvent } from "../hooks/use-live-stream";
 import type { ProvisionEvent } from "../hooks/use-provision-stream";
 import type { ScheduledContinuationPayload } from "../user-context-client";
+import { LIVE_SAMPLE_STORIES } from "./operations.sample-live-stories";
 
 const SAMPLE_AT = "2026-09-01T09:00:00Z";
 
 export const OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT = 12;
 export const OPERATIONS_SAMPLE_LIVE_HISTORY_COUNT = 180;
 export const OPERATIONS_SAMPLE_LIVE_LOOP_INTERVAL_MS = 1_000;
-export const OPERATIONS_SAMPLE_LIVE_STAGE_INTERVAL_MS = 800;
-export const OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP = 3;
+export const OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP = 2;
+
+/** Place Sample stages inside the specimen's T0/T1/T2 durations without inventing runtime progress. */
+export function sampleLiveStageDelay(index: number, stageIndex: number, stageCount: number): number {
+  const durations = [2_400, 3_400, 4_800] as const;
+  return Math.round(durations[index % durations.length]! * stageIndex / Math.max(1, stageCount - 1));
+}
+
+/** Seed all twelve comparison stories, including a failure, independently of random pool eviction. */
+export function sampleLivePreviewEvents(): readonly LiveStageEvent[] {
+  return LIVE_SAMPLE_STORIES.flatMap((_, index) => sampleLiveEvents(index === 4 ? 16 : index, 1));
+}
 
 export function sampleLiveObservations(
   now = Date.now(),
@@ -64,98 +75,7 @@ export function sampleLiveObservations(
   ];
 }
 
-const SAMPLE_WORKLOADS = [
-  {
-    resourceType: "compute.container-app",
-    actionType: "ops.restart",
-    target: "sample-container-app",
-    scope: "sample-service-ring",
-    vertical: "resilience",
-    rule: "sample.resilience.restart-threshold",
-    impact: "single sample revision",
-  },
-  {
-    resourceType: "compute.virtual-machine",
-    actionType: "ops.scale-out",
-    target: "sample-vm-scale-set",
-    scope: "sample-compute-pool",
-    vertical: "cost",
-    rule: "sample.cost.capacity-envelope",
-    impact: "two sample instances",
-  },
-  {
-    resourceType: "compute.aks",
-    actionType: "ops.reconfigure",
-    target: "sample-aks-cluster",
-    scope: "sample-workload-zone",
-    vertical: "change",
-    rule: "sample.change.rollout-guard",
-    impact: "one sample namespace",
-  },
-  {
-    resourceType: "data.postgresql",
-    actionType: "ops.investigate",
-    target: "sample-postgresql",
-    scope: "sample-data-plane",
-    vertical: "resilience",
-    rule: "sample.resilience.replica-lag",
-    impact: "one sample replica",
-  },
-  {
-    resourceType: "data.storage-account",
-    actionType: "ops.rotate",
-    target: "sample-storage-account",
-    scope: "sample-storage-scope",
-    vertical: "change",
-    rule: "sample.change.rotation-window",
-    impact: "single sample binding",
-  },
-  {
-    resourceType: "network.application-gateway",
-    actionType: "ops.reconfigure",
-    target: "sample-application-gateway",
-    scope: "sample-edge-zone",
-    vertical: "resilience",
-    rule: "sample.resilience.backend-health",
-    impact: "one sample backend pool",
-  },
-  {
-    resourceType: "network.load-balancer",
-    actionType: "ops.investigate",
-    target: "sample-load-balancer",
-    scope: "sample-network-zone",
-    vertical: "resilience",
-    rule: "sample.resilience.probe-drift",
-    impact: "one sample frontend",
-  },
-  {
-    resourceType: "observability.log-analytics",
-    actionType: "ops.reconfigure",
-    target: "sample-log-workspace",
-    scope: "sample-observability-plane",
-    vertical: "cost",
-    rule: "sample.cost.retention-envelope",
-    impact: "one sample table",
-  },
-  {
-    resourceType: "ai.model-deployment",
-    actionType: "ops.scale-out",
-    target: "sample-model-deployment",
-    scope: "sample-ai-capacity",
-    vertical: "cost",
-    rule: "sample.cost.model-capacity",
-    impact: "one sample deployment",
-  },
-  {
-    resourceType: "integration.event-hub",
-    actionType: "ops.investigate",
-    target: "sample-event-stream",
-    scope: "sample-integration-plane",
-    vertical: "resilience",
-    rule: "sample.resilience.consumer-lag",
-    impact: "one sample consumer group",
-  },
-] as const;
+const SAMPLE_WORKLOADS = LIVE_SAMPLE_STORIES;
 const TIERS = ["t0", "t1", "t2"] as const;
 const NON_HIL_DECISIONS = ["auto", "deny", "abstain"] as const;
 

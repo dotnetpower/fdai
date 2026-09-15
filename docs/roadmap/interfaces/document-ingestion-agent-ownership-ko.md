@@ -1,7 +1,7 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: c48f342debd8cff7d812e480b4e00de66000fcb2
-translation_revised: 2026-09-14
+translation_source_sha: a52479d80621ffa543b69bf56f08032783a68a5f
+translation_revised: 2026-09-16
 ---
 
 # 문서 인제스트 에이전트 소유권
@@ -65,7 +65,7 @@ Saga가 감사한 `stage = received`, `decision = admit` 레코드만 소비합�
 `object.anomaly`로 정규화하며, Forseti가 protection 판정을 발행하고 Saga가 봉인합니다.
 감사된 clear 결정은 Muninn으로 전달되고, Muninn만 추출과 인덱싱을 여는
 `object.context-index` 명령을 발행합니다. 차단된 결정은 버전을 `HELD`로 이동합니다.
-민감도 레이블이 있거나 `handover_bootstrap`, `manual_distillation`, `cloud_reference` 용도로
+현재 구현에서는 민감도 레이블이 있거나 `handover_bootstrap`, `manual_distillation`, `cloud_reference` 용도로
 제출된 문서는 안전성 검사를 통과해도 사람 승인(`hil`) 판정을 받습니다. `cloud_reference`
 패키지의 서명이 유효해도 Var의 독립적인 사람 검토와 승인은 생략할 수 없습니다.
 Saga가 이 판정을 봉인하고 Var가 문서 승인 티켓을 만듭니다. 업로더는 자신의 문서를
@@ -82,6 +82,18 @@ Saga가 이 판정을 봉인하고 Var가 문서 승인 티켓을 만듭니다. 
 입증하는 것은 아닙니다. 자동 복구와 독립적인 결과 확인은
 [클라우드 수명 주기 구현 원장](../../roadmap-implementation/interfaces/cloud-resource-knowledge-lifecycle.md)에
 남은 작업으로 기록되어 있습니다.
+
+[구조화 검색 확장](cloud-resource-knowledge-structured-rag-ko.md)도 같은 담당 체계를 유지합니다.
+블록, 인용문, 형식 선택이나 서명은 Forseti의 반입 판단, Saga가 감사한 해당 Var 승인 근거
+또는 Muninn의 색인 명령을 대신할 수 없습니다.
+
+[요청자 직접 적용 목표](cloud-resource-knowledge-lifecycle-ko.md#요청자-직접-적용-목표)는 사전에
+독립적으로 승인된 정책에 포함되는 적격 참조 내용에 한해서만 새 문서별 사람 결정을 없앱니다.
+Var는 해당 요청에 대한 기존 사람 승인을 검증하며, 사람의 검토 결과를 만들거나 요청자에게
+권한을 부여하지 않습니다. 반입 API는 준비 단계에서 지정한 사람이 아니라 실제 요청이 있을
+때 인증된 요청자를 기록합니다. 이 정책 경로는 구현하거나 승격하지 않았습니다. 현재의 문서별
+승인과 자기 승인 금지는 계속 적용합니다. 민감한 내용과 판단 기준이 되는 규칙이나 정책으로의
+승격은 자체 승인 요건을 유지합니다.
 
 ## 지속성 있는 워커 소유권
 
@@ -127,6 +139,7 @@ system-assigned principal로 대체 경로하지 않습니다.
 | 격리된 native PDF 구문 분석 | implemented | `services/document-processing-worker/src/fdai_document_worker_service/adapters/pdf_isolation.py`; 집중 격리 및 구문 분석기 동등성 검사 | 기계적 worker는 신뢰할 수 없는 native PDF 구문 분석을 리소스 상한이 있는 별도 프로세스에 위임합니다. 구문 분석기 실패는 타입이 지정된 안전하지 않은 패키지 결과를 반환하며 수명 주기 또는 에이전트 권한을 부여하지 않습니다. |
 | 영속 worker 점유 fencing 및 복구 | implemented | `services/core-control-plane/src/fdai/core/document_ingestion/`; `services/core-control-plane/tests/core/document_ingestion/`; service-owned worker 테스트 | Focused 테스트는 gated 상태 재생, 임차 기간과 점유 소유권, 중복 전달 및 결정 이후 복구 동작을 다룹니다. |
 | 배포 신원, topic RBAC 및 재시작 근거 | in-progress | `config/independent-service-live-evidence-manifest.json`; `infra/`; 독립 service 패키지 | 토폴로지와 연결이 선언되고 service 검사가 있지만 이 owner 문서에는 현재 이미지 신원, topic 권한, 재시작 및 실행기 접근 부재 탐색에 대한 정확한 관리 증적이 없습니다. |
+| 정책 기반 요청자 적용 | not-started | [수명 주기 목표](cloud-resource-knowledge-lifecycle-ko.md#요청자-직접-적용-목표) | 같은 고정 담당 체계로 기존 사람 승인을 검증해야 하며 런타임 승인이나 권한 변경은 포함하지 않습니다. |
 
 ### 구현 이력
 
@@ -134,9 +147,11 @@ system-assigned principal로 대체 경로하지 않습니다.
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 agent-chain, core ingestion, service 패키지 및 계약 근거입니다. | 정확한 배포 신원, 전송, 재시작 및 권한 상한 근거를 보존해야 합니다. |
 | 2026-08-27 | implemented | 서버가 소유하는 벽시계, CPU, 주소 공간, 페이지 및 문자 상한을 적용해 native PDF 구문 분석을 장기 실행 문서 worker와 격리했습니다. | `current change`; 문서 worker 격리 및 구문 분석기 동등성 검사입니다. | 배포 신원, 전송, 재시작 및 엔드투엔드 에이전트 근거는 아래 열린 작업으로 유지합니다. |
+| 2026-09-15 | not-started | 현재 문서별 승인과 기존 독립 내용 정책에 따른 요청자 적용 목표를 구분했습니다. | `current change`; 이 담당 문서와 연결된 클라우드 수명 주기 설계입니다. 문서만 변경하며 런타임 검사나 승인을 주장하지 않습니다. | 기존 에이전트로 정확한 정책 승인 검증, 철회 시 이전 작업 차단 및 요청자 기록을 구현하고 집중 검증과 독립적인 승격 근거를 보존해야 합니다. |
 
 ### 남은 작업
 
+- [ ] 적격 요청자 적용이 Var와 Saga를 통해 사전 독립 정책 권한을 사용하고 자기 부여 또는 철회된 권한을 차단하며, Muninn과 독립적인 저장 재조회 이후에만 공개됨을 입증합니다. [수명 주기 목표](cloud-resource-knowledge-lifecycle-ko.md#요청자-직접-적용-목표)에서 추적합니다.
 - [ ] API가 worker group을 소비할 수 없고 worker에는 선언된 수신 및 전송 topic만 있으며 어느 service도 Thor 신원이나 실행기 역할을 얻을 수 없음을 입증하는 정확한 이미지 기반 관리 증적을 보존합니다.
 - [ ] Gated 상태가 사실만 재생하고 결정 이후 작업이 하나의 영속 stage 점유로 수렴함을 보여주는 재시작, 중복, 순서 변경, 임차 기간 만료 및 조정 근거를 보존합니다.
 - [ ] 내용이 전송 또는 감사 레코드에 복사되지 않은 상태로 Huginn ingress에서 Saga 감사를 거쳐 Var 승인 또는 Muninn 인덱싱까지 이어지는 protected 문서 흐름과 clear 문서 흐름을 각각 하나씩 기록합니다.

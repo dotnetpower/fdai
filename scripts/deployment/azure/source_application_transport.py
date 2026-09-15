@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import genesis_foundation_state_contract as state_contract
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest, load_json_object
@@ -17,6 +18,9 @@ from fdai_deployment_cli.source_transport import prepare_source_transport
 from genesis_bastion import BastionTunnel, validate_known_hosts, validate_ssh_private_key
 from genesis_runner_enrollment import _attest_runner
 
+if TYPE_CHECKING:
+    from genesis_foundation_recovery_state import RecoveryMigration
+
 
 def transfer_application_source(
     *,
@@ -27,6 +31,7 @@ def transfer_application_source(
     target_binding: str,
     report: dict[str, object] | None,
     timeout_seconds: int,
+    recovery: RecoveryMigration | None = None,
 ) -> dict[str, object]:
     """Verify the complete handoff and current host before a claimed source-only transfer.
 
@@ -34,16 +39,28 @@ def transfer_application_source(
     human target, source CI and Foundation state authority. This command does not apply
     infrastructure, install dependencies, build images, or activate the application.
     Interrupted transfers permit verification only, never automatic replacement or retry.
+    A recovered Foundation supplies its verified migration context under the same original
+    lock after independent backend observation; no ordinary apply receipt is substituted.
     """
     deadline = DeploymentDeadline(timeout_seconds)
     report = _object(report)
-    plan_ref = _object(report.get("foundation_plan")).get("plan_ref")
-    if (
-        not isinstance(plan_ref, str)
-        or re.fullmatch(r"foundation-plan-attempt-[1-9][0-9]*", plan_ref) is None
-    ):
-        raise ValueError("source transfer requires an exact Foundation plan reference")
-    directory = foundation_root / plan_ref
+    if recovery is None:
+        plan_ref = _object(report.get("foundation_plan")).get("plan_ref")
+        if (
+            not isinstance(plan_ref, str)
+            or re.fullmatch(r"foundation-plan-attempt-[1-9][0-9]*", plan_ref) is None
+        ):
+            raise ValueError("source transfer requires an exact Foundation plan reference")
+        directory = foundation_root / plan_ref
+    else:
+        recovery.verify_configuration()
+        if (
+            recovery.original_directory.parent != foundation_root
+            or recovery.recovered.receipt.get("source_commit") != source_commit
+            or recovery.recovered.target_binding != target_binding
+        ):
+            raise ValueError("source transfer recovery context differs from the original run")
+        directory = recovery.directory
     state = state_contract.load_receipt(
         directory / "foundation-state-handoff-receipt.json",
         schema="fdai.genesis-foundation-state-handoff-receipt.v1",
@@ -66,22 +83,27 @@ def transfer_application_source(
         )
     ):
         raise ValueError("source transfer Foundation state is not verified")
-    foundation = state_contract.load_receipt(
-        directory / "foundation-apply-receipt.json",
-        schema="fdai.genesis-foundation-apply-receipt.v1",
-        expected_digest=_digest(state.get("foundation_receipt_digest")),
-    )
+    if recovery is None:
+        foundation = state_contract.load_receipt(
+            directory / "foundation-apply-receipt.json",
+            schema="fdai.genesis-foundation-apply-receipt.v1",
+            expected_digest=_digest(state.get("foundation_receipt_digest")),
+        )
+        handoff = _read(directory / "foundation-private-handoff.json")
+        if foundation.get("effect_verified") is not True:
+            raise ValueError("source transfer Foundation source or effect differs")
+    else:
+        recovery.validate_record(state)
+        foundation, handoff = recovery.foundation, recovery.recovered.handoff
+        if foundation["receipt_digest"] != state.get("foundation_receipt_digest"):
+            raise ValueError("source transfer recovery receipt differs from state handoff")
     enrollment = state_contract.load_receipt(
         directory / "runner-enrollment-receipt.json",
         schema="fdai.genesis-runner-enrollment-receipt.v1",
         expected_digest=_digest(state.get("enrollment_receipt_digest")),
     )
-    handoff = _read(directory / "foundation-private-handoff.json")
     state_contract.validate_context(target_binding, foundation, enrollment, handoff)
-    if (
-        foundation.get("source_commit") != source_commit
-        or foundation.get("effect_verified") is not True
-    ):
+    if foundation.get("source_commit") != source_commit:
         raise ValueError("source transfer Foundation source or effect differs")
     runner, access, ops = (_object(handoff.get(key)) for key in ("runner", "access", "ops"))
     username = runner.get("admin_username")
@@ -118,8 +140,8 @@ def transfer_application_source(
     }
     claim = {"schema_version": "fdai.source-host-transfer-claim.v1", **context}
     claim_path = work / "source-host-transfer-claim.json"
-    recovery = claim_path.exists() or claim_path.is_symlink()
-    if recovery and _read(claim_path) != claim:
+    verification_only = claim_path.exists() or claim_path.is_symlink()
+    if verification_only and _read(claim_path) != claim:
         raise ValueError("source transfer claim differs; preserve retained evidence")
     remote_root = f"/home/{username}/.fdai-transfer-{canonical_digest(claim)[:24]}"
     remote_receiver = f"{remote_root}/source-receiver.pyz"
@@ -147,7 +169,7 @@ def transfer_application_source(
             transport="manual",
         )
         deadline.remaining()
-        if not recovery:
+        if not verification_only:
             write_private_bytes(claim_path, canonical_bytes(claim))
             created = tunnel.ssh(("mkdir", "-m", "0700", "--", remote_root), timeout=60)
             if created.returncode != 0:
@@ -173,7 +195,7 @@ def transfer_application_source(
                 str(transfer["archive_digest"]),
                 "--snapshot-digest",
                 snapshot_digest,
-                *(("--verify-existing",) if recovery else ()),
+                *(("--verify-existing",) if verification_only else ()),
             ),
             timeout=1800,
         )

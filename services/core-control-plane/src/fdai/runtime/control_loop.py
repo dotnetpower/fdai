@@ -100,6 +100,7 @@ from fdai.rule_catalog.schema.resource_type import (
 from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
+from fdai.runtime.alert_noise_control import build_alert_workflow_bindings
 from fdai.runtime.configuration import _resolve_catalog_root, _resolve_policies_root
 from fdai.runtime.control_loop_execution_ports import (
     build_thor_execution_port,
@@ -491,6 +492,7 @@ def _build_control_loop(
         ontology_release=ontology_release,
         property_semantics=property_semantics,
         catalog_root=catalog_root,
+        process_store=process_runtime_store,
     )
     thor_execution_port = gate_execution(thor_execution_port, license_authority, audit_store)
     executor, direct_api_executor, tool_executor = _legacy_executor_bindings(thor_execution_port)
@@ -694,6 +696,32 @@ def _build_control_loop(
         audit_store,
         resource_lock=resource_lock,
     )
+    workflow_coordinator = _build_workflow_coordinator(
+        catalog_root=catalog_root,
+        workflows=workflows,
+        action_types_by_name=action_types_by_name,
+        audit_store=audit_store,
+        process_store=process_runtime_store,
+        ontology_store=ontology_instance_store,
+        outcome_verifier=workflow_outcome_ledger,
+        architecture_evidence_provider=container.architecture_review_evidence_provider,
+        decision_evidence_provider=container.decision_evidence_admission_provider,
+        action_dispatcher=workflow_action_dispatcher,
+        automation_holds=workflow_automation_holds,
+    )
+    alert_bindings = build_alert_workflow_bindings(
+        workflow_coordinator=workflow_coordinator,
+        workflows=workflows,
+        action_types_by_name=action_types_by_name,
+        ontology_release=ontology_release,
+        process_store=process_runtime_store,
+        audit_store=audit_store,
+        promotion_registry=promotion_registry,
+        decision_evidence_provider=container.decision_evidence_admission_provider,
+    )
+    from fdai.runtime.alert_noise_execution import build_alert_plan_artifacts
+
+    alert_plan_artifacts = build_alert_plan_artifacts(store=audit_store, publisher=publisher)
     return ControlLoop(
         event_ingest=event_ingest,
         trust_router=trust_router,
@@ -727,19 +755,10 @@ def _build_control_loop(
         resource_dependency_graph=container.resource_dependency_graph or None,
         causal_runtime_coordinator=causal_runtime_coordinator,
         hil_resume_coordinator=hil_resume_coordinator,
-        workflow_coordinator=_build_workflow_coordinator(
-            catalog_root=catalog_root,
-            workflows=workflows,
-            action_types_by_name=action_types_by_name,
-            audit_store=audit_store,
-            process_store=process_runtime_store,
-            ontology_store=ontology_instance_store,
-            outcome_verifier=workflow_outcome_ledger,
-            architecture_evidence_provider=container.architecture_review_evidence_provider,
-            decision_evidence_provider=container.decision_evidence_admission_provider,
-            action_dispatcher=workflow_action_dispatcher,
-            automation_holds=workflow_automation_holds,
-        ),
+        workflow_coordinator=workflow_coordinator,
+        alert_workflows=alert_bindings.workflows,
+        alert_action_binder=alert_bindings.binder,
+        alert_plan_artifacts=alert_plan_artifacts,
         process_runtime_store=process_runtime_store,
         governance_assignments=governance_catalog.assignments,
         governance_overrides=governance_catalog.overrides,

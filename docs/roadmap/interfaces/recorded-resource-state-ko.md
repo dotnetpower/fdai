@@ -1,7 +1,7 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: e1daadcaf67f6d3d1f410798cfb3939dda279c85
+translation_source_sha: 0a4c2ed654ae18853974567274e12395b0ebb645
 translation_revised: 2026-09-15
 ---
 # 기록된 리소스 상태
@@ -18,6 +18,9 @@ translation_revised: 2026-09-15
 인스턴스 목록과 상세 정보는 현재 세대 위에 순서가 보장된 실시간 변경을 병합합니다.
 기록 상태 페이지는 불변 상태와 세대 경계를 유지합니다. Operator Service는 Resource 속성을
 두 Console 화면이 사용하는 독립적인 세 가지 구분으로 표현합니다.
+명시적인 `summary=count` 모드는 활성 불변 ARG 디렉터리 개수, 출처 세대, 기준 시점만
+반환하며 온톨로지 변환 결과의 세대 정합성을 기다리지 않습니다. Resource 행, 상태 사실,
+페이지 나누기, 상세 정보는 계속 엄격한 inventory-to-ontology 세대 경계를 요구합니다.
 
 Kubernetes 신원과 진단 사실은 별도의 허용 목록 세부 객체로 유지됩니다. 운영, 가용성 또는
 프로비저닝 상태 축이 되지 않으며 누락된 진단 사실을 상태 값으로 바꾸지 않습니다.

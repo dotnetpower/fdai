@@ -1,8 +1,8 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: ad656d87a8ae6b1e1b539bbb6197a0681472af3e
-translation_revised: 2026-09-14
+translation_source_sha: 9bb302382ea4fbd30c7b7abefc56f7099787e4e0
+translation_revised: 2026-09-15
 ---
 # WARA 근거 기반 평가
 
@@ -167,6 +167,13 @@ Operator 조립 루트는 검토된 fanout 상한을 유지하기 위해 하나�
 보낼 편지함 수명 주기 facade는 관련 없는 Incident 개입 작업자도 감독할 수 있습니다. 해당
 작업자의 논리 토픽은 명시적으로 허용 목록에 등록되며, 요청과 준비 상태는 WARA 근거,
 변환 결과 또는 평가 권한에 들어갈 수 없습니다.
+
+[알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)는 별도 알림 품질 경로, 작업별
+발신함 점유 및 서명된 결과 소비자를 사용합니다. 비공개 근거, 선호 설정 및 생산자 상태로
+WARA 조회 결과를 갱신하거나 근거/준비 상태 요구 사항을 충족하지 않습니다. WARA의 기존 범위,
+고정 쿼리, 소비자 격리 및 준비 상태 기준은 그대로 유지됩니다.
+알림 요청 이력 쿼리는 자체 발신함 네임스페이스, principal 및 정확한 범위만 선택합니다.
+서명된 최종 결과와 기준선 상세로 WARA 평가 상태를 충족하거나 갱신하지 않습니다.
 
 각 행은 범위, 평가 시각, 출처 리비전, 근거 완전성, 제한 사항을 표시합니다. 카탈로그 존재와
 `product_group_verified`는 메타데이터이며 충족 배지가 아닙니다. 선택적 변환 결과가 없으면

@@ -92,6 +92,50 @@
       ]
     },
     {
+      "id": "alert-noise-governance",
+      "paths": [
+        "docs/roadmap/operations/alert-noise-governance*.md",
+        "docs/roadmap-implementation/operations/alert-noise-governance.md",
+        "docs/runbooks/alert-noise-governance*.md",
+        "packages/service-contracts/src/fdai_service_contracts/alert_noise*.py",
+        "packages/service-contracts/src/fdai_service_contracts/schemas/alert-noise-*/**",
+        "packages/service-contracts/tests/test_alert_noise*.py",
+        "services/core-control-plane/src/fdai/core/detection/alert_noise/**",
+        "services/core-control-plane/src/fdai/delivery/alert_noise*.py",
+        "services/core-control-plane/src/fdai/delivery/azure/alert_noise*.py",
+        "services/core-control-plane/src/fdai/runtime/alert_noise*.py",
+        "services/core-control-plane/src/fdai/shared/providers/alert_noise.py",
+        "services/core-control-plane/tests/**/test_alert_noise*.py",
+        "services/core-control-plane/tests/core/detection/alert_noise/**",
+        "services/operator-service/src/fdai_operator_service/alert_quality*.py",
+        "services/operator-service/tests/test_alert_quality*.py",
+        "console/src/routes/alert-quality*",
+        "console/src/routes/i18n/alert-quality*",
+        "console/tests/e2e/alert-quality.spec.ts",
+        "rule-catalog/action-types/ops.*alert*.yaml",
+        "rule-catalog/workflows/alert-*.yaml",
+        "scripts/quality/contracts/generate_alert_noise_schemas.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/architecture/fdai-constitution.md",
+        "docs/roadmap/operations/alert-noise-governance.md",
+        "docs/roadmap/rules-and-detection/observability-and-detection.md",
+        "docs/roadmap/interfaces/channels-and-notifications.md",
+        "docs/roadmap/decisioning/action-ontology.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/operations/alert-noise-governance.md",
+        "docs/roadmap-implementation/operations/alert-noise-governance.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-design-routes.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py",
+        "python3 scripts/quality/architecture/check-document-size.py",
+        "bash scripts/quality/localization/check-translations.sh docs/roadmap/operations/alert-noise-governance.md docs/roadmap/operations/alert-noise-governance-ko.md"
+      ]
+    },
+    {
       "id": "permission-aware-observation-campaign",
       "paths": [
         "config/observation-sources.yaml",
@@ -1763,11 +1807,13 @@
       "must_read": [
         ".github/instructions/app-shape.instructions.md",
         "docs/roadmap/interfaces/network-topology-visualization.md",
+        "docs/roadmap/interfaces/console-architecture-workbench.md",
         "docs/roadmap/interfaces/console-evidence-and-resilience.md",
         "docs/roadmap/architecture/azure-inventory-network-paths.md"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/network-topology-visualization.md",
+        "docs/roadmap/interfaces/console-architecture-workbench.md",
         "docs/roadmap/interfaces/console-evidence-and-resilience.md",
         "console/README.md",
         "tools/architecture-diagrams/README.md"
@@ -1775,7 +1821,7 @@
       "validate": [
         "npm --prefix packages/network-topology-contracts test",
         "npm --prefix tools/architecture-diagrams test",
-        "npm --prefix console test -- --run src/components/architecture-topology-graph.model.test.ts src/components/architecture-map.model.test.ts src/components/architecture-inspector.test.ts src/components/architecture-network-layout.test.ts src/components/architecture-network-path.test.ts src/components/architecture-network-path-layout.test.ts"
+        "npm --prefix console test -- --run src/components/architecture-landscape-layout.test.ts src/components/architecture-topology-graph.model.test.ts src/components/architecture-map.model.test.ts src/components/architecture-inspector.test.ts src/components/architecture-network-layout.test.ts src/components/architecture-network-path.test.ts src/components/architecture-network-path-layout.test.ts"
       ]
     },
     {
@@ -1795,6 +1841,7 @@
         "docs/roadmap/interfaces/operator-console-progressive-conversations.md",
         "docs/roadmap/interfaces/narrator-routing-and-latency.md",
         "docs/roadmap/interfaces/console-operations.md",
+        "docs/roadmap/interfaces/console-architecture-workbench.md",
         "docs/roadmap/interfaces/console-evidence-and-resilience.md"
       ],
       "docs_update_routes": [
@@ -1807,6 +1854,7 @@
         "docs/roadmap/interfaces/operator-console-progressive-conversations.md",
         "docs/roadmap/interfaces/narrator-routing-and-latency.md",
         "docs/roadmap/interfaces/console-operations.md",
+        "docs/roadmap/interfaces/console-architecture-workbench.md",
         "docs/roadmap/interfaces/console-evidence-and-resilience.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md"
       ],
@@ -1953,6 +2001,8 @@
       "paths": [
         "docs/roadmap/interfaces/cloud-resource-knowledge-lifecycle*.md",
         "docs/roadmap-implementation/interfaces/cloud-resource-knowledge-lifecycle.md",
+        "docs/roadmap/interfaces/cloud-resource-knowledge-structured-rag*.md",
+        "docs/roadmap-implementation/interfaces/cloud-resource-knowledge-structured-rag.md",
         "docs/runbooks/cloud-resource-knowledge*.md",
         "packages/service-contracts/src/fdai_service_contracts/cloud_knowledge*.py",
         "packages/service-contracts/tests/test_cloud_knowledge*.py",
@@ -1967,23 +2017,30 @@
         "services/core-control-plane/src/fdai/core/knowledge/cloud_applicability.py",
         "services/core-control-plane/src/fdai/core/conversation/semantic_cloud_reference.py",
         "services/core-control-plane/tests/conversation/test_semantic_cloud_reference.py",
+        "services/core-control-plane/tests/conversation/test_semantic_document_query.py",
         "services/core-control-plane/src/fdai/delivery/persistence/postgres_cloud_knowledge_read.py",
         "services/core-control-plane/tests/core/knowledge/test_cloud_reference.py",
         "console/src/routes/cloud-knowledge*",
         "console/tests/e2e/cloud-knowledge.spec.ts",
         "service-migrations/branches/*/versions/20260914_cloud_knowledge*.py",
-        "tests/integration/services/test_cloud_knowledge_postgres.py"
+        "tests/integration/services/test_cloud_knowledge_postgres.py",
+        "scripts/evaluation/cloud_knowledge_evidence.py",
+        "tests/integration/scripts/test_cloud_knowledge_evidence.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
         "docs/roadmap/interfaces/cloud-resource-knowledge-lifecycle.md",
+        "docs/roadmap/interfaces/cloud-resource-knowledge-structured-rag.md",
+        "docs/roadmap-implementation/interfaces/cloud-resource-knowledge-structured-rag.md",
         "docs/roadmap/interfaces/document-lifecycle-governance.md",
         "docs/roadmap/interfaces/document-ingestion-agent-ownership.md",
         "docs/roadmap/deployment/disconnected-deployment.md"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/cloud-resource-knowledge-lifecycle.md",
-        "docs/roadmap-implementation/interfaces/cloud-resource-knowledge-lifecycle.md"
+        "docs/roadmap-implementation/interfaces/cloud-resource-knowledge-lifecycle.md",
+        "docs/roadmap/interfaces/cloud-resource-knowledge-structured-rag.md",
+        "docs/roadmap-implementation/interfaces/cloud-resource-knowledge-structured-rag.md"
       ],
       "validate": [
         "bash scripts/quality/localization/check-translations.sh {changed_paths}",

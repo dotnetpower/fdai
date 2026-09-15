@@ -12,6 +12,7 @@ export class FunctionSelection {
 
   constructor(private readonly positions: ReadonlyMap<string, THREE.Vector3>, layer: HTMLElement) {
     this.object = new THREE.LineSegments(this.geometry, this.material);
+    this.object.visible = false;
     this.label.className = "function-scene-label";
     this.label.hidden = true;
     this.label.setAttribute("aria-hidden", "true");
@@ -34,13 +35,25 @@ export class FunctionSelection {
           for (let i = 1; i < path.length; i++) values.push(...path[i - 1]!.toArray(), ...path[i]!.toArray());
         }
       }
+      // Release the old attribute's GPU buffer before replacing its identity.
+      this.geometry.dispose();
       this.geometry.setAttribute("position", new THREE.Float32BufferAttribute(values, 3));
       this.geometry.computeBoundingSphere();
+      this.object.visible = values.length > 0;
       this.label.hidden = !origin;
       if (origin && id) {
         const fn = functionById.get(id)!;
         this.label.textContent = `${fn.id.split(".").slice(-2).join(".")}() :${fn.line}`;
       }
     }
+
+  }
+
+  dispose() {
+    this.object.removeFromParent();
+    this.geometry.dispose();
+    this.material.dispose();
+    this.label.remove();
+    this.current = null;
   }
 }

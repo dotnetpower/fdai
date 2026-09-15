@@ -30,6 +30,7 @@ if [[ "$auth_mode" != "browser-entra" && "$auth_mode" != "azure-cli" ]]; then
   echo "Usage: $0 [--force] [--auth-mode browser-entra|azure-cli]" >&2
   exit 2
 fi
+resolved_models_override="${FDAI_LOCAL_RESOLVED_MODELS_PATH:-}"
 legacy_preparation_marker="$repo_root/.fdai/console-full-stack-preparation.sha256"
 if [[ "$force_preparation" == "1" ]]; then
   rm -f "$legacy_preparation_marker"
@@ -124,6 +125,9 @@ for optional_input in \
     legacy_preparation_inputs+=("$optional_input")
   fi
 done
+if [[ -n "$resolved_models_override" && -f "$resolved_models_override" ]]; then
+  legacy_preparation_inputs+=("$resolved_models_override")
+fi
 
 run_bounded() {
   local label="$1"
@@ -399,7 +403,8 @@ if [[ "$force_preparation" == "0" && -f "$legacy_preparation_marker" ]]; then
   current_legacy_digest="$(
     configuration_digest \
       "$(legacy_digest "${legacy_preparation_inputs[@]}")" \
-      "auth-mode=$auth_mode"
+      "auth-mode=$auth_mode" \
+      "resolved-models-override=$resolved_models_override"
   )"
   if can_reuse_legacy_preparation "$current_legacy_digest"; then
     printf '%s service=console-preparation event=reused\n' \
@@ -463,6 +468,9 @@ for optional_input in \
     runtime_environment_inputs+=("$optional_input")
   fi
 done
+if [[ -n "$resolved_models_override" && -f "$resolved_models_override" ]]; then
+  runtime_environment_inputs+=("$resolved_models_override")
+fi
 inventory_inputs=(
   .fdai/local-runtime.env
   rule-catalog
@@ -505,7 +513,8 @@ run_stage \
     "kubernetes=${FDAI_LOCAL_KUBERNETES_LIFECYCLE:-0}" \
     "teams-notifications=${FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION:-0}" \
     "no-azure-deployment=${FDAI_LOCAL_NO_AZURE_DEPLOYMENT:-0}" \
-    "local-resource-group=${FDAI_LOCAL_RESOURCE_GROUP:-}")" \
+    "local-resource-group=${FDAI_LOCAL_RESOURCE_GROUP:-}" \
+    "resolved-models-override=$resolved_models_override")" \
   prepare_runtime_environment \
   "$repo_root/.fdai/local-runtime.env"
 run_stage \

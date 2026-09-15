@@ -3,6 +3,81 @@ import { restoreBrowserEntraSessionStorage } from "./browser-entra-state";
 
 test.use({ trace: "off", screenshot: "off", video: "off" });
 
+test("shows recorded-stage progress and replays the same Sample story sequence", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await restoreBrowserEntraSessionStorage(page);
+  await page.goto("/live?locale=en&data=sample");
+  const ingest = page.locator('.live-tile[data-stage="ingest"]').first();
+  await expect(ingest).toBeVisible();
+  const eventId = await ingest.getAttribute("data-event-id");
+  const card = page.locator(`.live-tile[data-event-id="${eventId}"]`);
+  const meter = card.locator(".live-tile-bar");
+  const before = Number(await meter.getAttribute("aria-valuenow"));
+  await expect(meter).toHaveCSS("height", "3px");
+  await expect.poll(async () => Number(await meter.getAttribute("aria-valuenow"))).toBeGreaterThan(before);
+  await expect(page.locator(".live-observation-item .live-tile-bar")).toHaveCount(0);
+  await expect(page.locator(".live-tile-action").filter({ hasText: "Disable public blob access" }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Replay Sample", exact: true }).click();
+  await expect(page.locator(".live-work-card")).toHaveCount(15);
+  await expect(page.locator('.live-tile[data-event-id="sample-event-181"]')).toBeVisible();
+  await page.locator(".live-control-btn").click();
+  await expect(page.locator(".live-control-btn")).toHaveAttribute("aria-pressed", "true");
+  expect(await page.locator(".live-gate-segment").count()).toBe(4);
+  expect(await page.locator(".live-gate-segment").evaluateAll(nodes =>
+    nodes.reduce((sum, node) => sum + Number(node.getAttribute("stroke-dasharray")?.split(" ")[0]), 0),
+  )).toBeCloseTo(100);
+});
+
+for (const fallback of [false, true]) {
+  test(`fullscreen keeps cards, details, tooltips and focus usable (${fallback ? "expanded" : "native"})`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await restoreBrowserEntraSessionStorage(page);
+    await page.goto("/live?locale=en&data=sample");
+    await expect(page.locator(".live-work-card")).toHaveCount(15);
+    await page.locator(".live-control-btn").click();
+    if (fallback) {
+      await page.evaluate(() => Object.defineProperty(document, "fullscreenEnabled", { get: () => false }));
+    }
+    const fullscreen = page.locator(".live-fullscreen-button");
+    await fullscreen.click();
+    await expect(fullscreen).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".live-workspace")).toHaveAttribute("aria-modal", "true");
+    if (fallback) await expect(page.locator(".live-work-footer")).toContainText("Expanded view");
+    else expect(await page.evaluate(() => document.fullscreenElement?.classList.contains("live-workspace"))).toBe(true);
+    await expect(page.locator(".live-work-card")).toHaveCount(15);
+    if (fallback) {
+      const first = page.locator(".live-filter-chip").first();
+      await first.focus();
+      await page.keyboard.press("Shift+Tab");
+      await expect(page.locator(".live-work-footer a")).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(first).toBeFocused();
+    }
+    await page.locator(".live-tile").first().click();
+    const drawer = page.locator("#live-detail-panel");
+    await expect(drawer).toBeVisible();
+    if (!fallback) {
+      expect(await drawer.evaluate(node => document.fullscreenElement?.contains(node))).toBe(true);
+    }
+    await drawer.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(drawer).toBeHidden();
+    await fullscreen.hover();
+    await expect(page.getByRole("tooltip").filter({ hasText: "Exit full screen" })).toBeVisible();
+    if (fallback) await page.keyboard.press("Escape");
+    else await fullscreen.click();
+    await expect(fullscreen).toHaveAttribute("aria-pressed", "false");
+    await expect(fullscreen).toBeFocused();
+    await expect(page.locator(".live-work-card")).toHaveCount(15);
+    if (!fallback) {
+      await fullscreen.click();
+      await expect(fullscreen).toHaveAttribute("aria-pressed", "true");
+      await page.keyboard.press("Escape");
+      await expect(fullscreen).toHaveAttribute("aria-pressed", "false");
+      await expect(fullscreen).toBeFocused();
+    }
+  });
+}
+
 test("updates SSE activity throughput and explains the 60-second classification window", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await restoreBrowserEntraSessionStorage(page);
@@ -121,6 +196,14 @@ test("keeps Sample cards chronological, readable, and in the right detail panel"
       nodes.some(node => node.scrollWidth > node.clientWidth),
     );
     expect(overflow).toBe(false);
+    const healthContained = await page.locator(".live-health").evaluate(node => {
+      const boundary = node.getBoundingClientRect();
+      return [...node.children].every(child => {
+        const rect = child.getBoundingClientRect();
+        return rect.left >= boundary.left && rect.right <= boundary.right + 1;
+      });
+    });
+    expect(healthContained).toBe(true);
     await expect(cards.first()).toHaveCSS("animation-name", "none");
   }
   await page.setViewportSize({ width: 390, height: 844 });

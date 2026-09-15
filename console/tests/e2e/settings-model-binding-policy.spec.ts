@@ -147,3 +147,37 @@ test("keeps environment model binding bounded and authority-free", async ({ page
     expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
   }
 });
+
+test("retries the same catalog refresh after a transient failure", async ({ page }) => {
+  await installFixture(page);
+  let refreshAttempts = 0;
+  await page.route("**/models/settings**", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("refresh_catalog") !== "1") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(projection),
+      });
+      return;
+    }
+    refreshAttempts += 1;
+    await route.fulfill(refreshAttempts === 1 ? {
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "catalog refresh unavailable" }),
+    } : {
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(projection),
+    });
+  });
+  await page.goto("/settings/models");
+
+  await page.getByRole("button", { name: "Refresh catalog" }).click();
+  await expect(page.getByText("HTTP 503", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Retry" }).click();
+
+  await expect(page.getByText("HTTP 503", { exact: true })).toHaveCount(0);
+  await expect.poll(() => refreshAttempts).toBe(2);
+});

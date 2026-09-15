@@ -17,6 +17,8 @@ from fdai.core.control_loop._execution_outcomes import (
     is_execution_success as _is_execution_success,
 )
 from fdai.core.control_loop.models import ControlLoopOutcome, ControlLoopResult
+from fdai.core.detection.alert_noise.execution import ALERT_ACTIONS, AlertExecutionHeld
+from fdai.core.detection.alert_noise.workflow import AlertActionBinder
 from fdai.core.executor import ExecutionResult
 from fdai.core.executor.action_builder import ActionBuilder, ActionBuildError
 from fdai.core.executor.direct_api import DirectApiExecutionResult
@@ -42,6 +44,7 @@ class OperatorRequestHost(Protocol):
     _audit_store: StateStore
     _hil_resume_coordinator: HilResumeCoordinator | None
     _inventory_context_provider: Callable[[str], Awaitable[Mapping[str, Any] | None]] | None
+    _alert_action_binder: AlertActionBinder | None
 
     async def _emit_stage(
         self,
@@ -132,6 +135,22 @@ async def process_operator_request(
     )
     try:
         action, rule = host._action_builder.build_from_operator_request(event=event)
+        if action.action_type in ALERT_ACTIONS:
+            binder = getattr(host, "_alert_action_binder", None)
+            if binder is None:
+                raise AlertExecutionHeld("alert_action_binding_unavailable")
+            action = await binder.bind(action, event)
+    except AlertExecutionHeld as exc:
+        await _audit_abstain(host, event=event, reason=str(exc))
+        return await _finish(
+            host,
+            event=event,
+            correlation_id=correlation_id,
+            outcome=ControlLoopOutcome.ABSTAINED_ACTION_BUILD,
+            decision="abstain",
+            resource_type=resource_type,
+            reason=str(exc),
+        )
     except ActionBuildError as exc:
         await _audit_abstain(host, event=event, reason=str(exc))
         return await _finish(

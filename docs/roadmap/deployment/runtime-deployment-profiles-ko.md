@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 76573db285943dedfc4181f03a4ccd74b66c4572
+translation_source_sha: f1d2a1a784e6970d2705c226318843a34fc1c769
 translation_revised: 2026-09-15
 ---
 # 런타임 배포 프로파일
@@ -84,6 +84,17 @@ $$
 
 ## 상태 소유권
 
+두 런타임 프로파일은 검증된 관리 호스트 이미지에 의존합니다. 로컬 제작 VM 종료 대기는
+`/usr/bin/az`를 요구하지 않고 조정기가 제공하는 신뢰된 Azure CLI 경로를 사용합니다.
+이미지 생성이 일부만 진행돼도 원래 실행 전 기록과 상태를 보존합니다. [소스 배포 경계](installable-deployment-cli-ko.md#연결된-소스-배포)는
+자동 재적용을 허용하지 않으며 성공 근거가 없다고 리소스 변경도 없었던 것으로 해석하지 않습니다.
+
+Foundation의 선택 입력 `application_workload`는 AKS 프로파일을 바꾸지 않고 새 애플리케이션
+그룹 이름을 운영 리소스 이름과 분리합니다. 기존 그룹의 소유권을 부여하지는 않으며, 부분 상태
+복구는 [애플리케이션 그룹 충돌 계약](installable-deployment-cli-ko.md#애플리케이션-그룹-충돌-복구)을 따릅니다.
+별도 입력 `operations_public_ip_tags`는 관측된 정확한 Foundation Bastion/NAT 정책 태그만
+유지하며, AKS 노드 설정을 바꾸거나 수명주기 차이를 무시하는 예외를 부여하지 않습니다.
+
 읽기 전용 용량 사전 점검은 음수가 아닌 정수 할당량과 Azure CLI가 반환하는 정규 십진 정수
 문자열을 허용합니다. 불리언, 소수, 부호나 공백이 붙은 값, 크기 한도를 넘은 표현은 계속
 차단합니다. 할당량이 남아 있어도 SKU 제한, 가용 영역 누락, 지원하지 않는 아키텍처 또는
@@ -112,8 +123,12 @@ DB, 네트워크, 레지스트리, 저장소, 모니터링, 메시지, 모델, �
 
 공유 플랫폼은 Event Hubs, Key Vault, Azure Container Registry, 모니터링, 워크로드 신원,
 `postgres-flex`를 계속 소유합니다. AKS 기반 상태는 클러스터, 노드 풀, 클러스터 신원, 네트워크
-연결, 클러스터 범위 Azure 역할 할당만 소유합니다. 독립적인 Azure 컨트롤 플레인 확인에서 비공개
-클러스터가 `Succeeded` 상태에 도달한 것을 증명한 뒤 Kubernetes 리소스를 적용합니다. 워크로드
+연결, 클러스터 범위 Azure 역할 할당만 소유합니다.
+기본적으로 비활성화되는 개발 환경 알림 과다 수신 파일럿은 어느 런타임을 선택하더라도 공유
+플랫폼 선행 조건으로 유지됩니다. 정확한 대상에는 전용 Action Group 하나와 메트릭 경보 하나만
+포함됩니다. 런타임 선택은 파일럿 승인, 알림 발송 권한 또는 승격을 부여하지 않습니다.
+독립적인 Azure 컨트롤 플레인 확인에서 비공개 클러스터가 `Succeeded` 상태에 도달한 것을 증명한
+뒤 Kubernetes 리소스를 적용합니다. 워크로드
 상태는 승인된 클러스터의 OIDC 발급자를 읽고 managed 배포 호스트의 비공개 kubeconfig를 사용합니다.
 DB 및 애플리케이션 준비는 모두 소유자 전용 kubeconfig를 [`kubelogin` 관리 ID 인증](https://learn.microsoft.com/en-us/azure/aks/kubelogin-authentication)으로 변환하며
 `--login msi`와 정확한 관리 호스트 client ID를 지정합니다. 자격 증명 조회는 구독을 고정하고
@@ -198,6 +213,13 @@ Core와 격리된 Executor는 대상별 캐시와 동시 요청 통합을 유지
 공통 비동기 자격 증명 계약을 전달합니다. 이 로컬 통합 검사만으로 배포된 연합 인증, Event Hubs
 접근 또는 서비스 준비 상태가 입증되지는 않습니다.
 
+Container Apps 프로필에서 보호된 플랫폼과 Core 사이의 인계는 관측 컨텍스트와 함께 정확한
+인벤토리 읽기 신원의 리소스 ID 및 client ID를 전달합니다. 서비스 구체화 도구는 이 읽기 전용
+신원을 한 번만 연결하고, 관측을 비활성화하면 해당 신원만 제거하며, 일치하지 않는 결속을
+거부합니다. 서명된 규모 확장 근거는 FinOps 실행 자격 증명 계보를 기록하고, VM 시작 근거는
+Resilience 실행 자격 증명 계보를 기록합니다. 어떤 신원 선택도 실행 권한을 부여하지 않으며
+로컬 interactive는 이 결속을 받지 않습니다.
+
 AKS managed Key Vault CSI 공급자는 각 워크로드의 federated identity를 사용해 고정된 Key Vault
 참조를 namespace의 Kubernetes Secrets로 동기화합니다. 애플리케이션은 계속 환경 변수를 읽으며
 Key Vault를 직접 호출하지 않습니다. Terraform 플랜에는 secret 값이 아니라 secret 이름과 버전 없는
@@ -218,8 +240,12 @@ NAT의 영역 중복이나 방화벽/UDR 경로가 필요한 정책과의 호환
 
 클러스터는 Azure Policy, patch 채널 Kubernetes 업그레이드, NodeImage OS 업그레이드를 활성화합니다.
 두 노드 풀 모두 호스트 암호화를 활성화하고 노드당 Pod 50개를 허용합니다. 배포 전에 선택한
-구독과 SKU가 호스트 암호화를 지원하는지 확인해야 합니다. 지역과 기능의 자동 사전 검증은 구현
-원장에 미완료 항목으로 남아 있습니다. 지원하지 않는 대상에서 암호화를 비활성화하지 않습니다.
+구독과 SKU가 호스트 암호화를 지원하는지 확인해야 합니다. 읽기 전용 사전 검증은 지역
+카탈로그를 한 번 조회하고 정확한 이름의 Azure CLI projection을 사용하여 서로 다른 선택 SKU만
+직렬화한 다음 지역 제한, 필요한 세 개 영역, 아키텍처, 호스트 암호화, 제품군별 quota 및 전체
+quota를 확인합니다. 다른 노드 풀 SKU를 위해 두 번째 카탈로그 요청을 보내거나 실패한
+프로바이더 읽기를 재시도하지 않습니다. 지원하지 않는 대상에서 암호화를 비활성화하지 않습니다.
+할당 가능한 워크로드 범위 검증은 구현 원장에 미완료 항목으로 남아 있습니다.
 
 로컬 디스크가 없는 기본 SKU는 임시 저장소 대신 플랫폼에서 암호화하는 Managed OS 디스크를
 유지합니다. Checkov 예외는 해당 리소스에만 둡니다. 고정된 검사기 버전은 AzureRM의 이전 업그레이드
@@ -251,25 +277,7 @@ anti-affinity, disruption budget, 백업 불변성, 특정 시점 복구, 노드
 
 선택된 프로파일은 유한한 의존성 그래프로 컴파일됩니다.
 
-```mermaid
-flowchart LR
-    A[Verify signed kit] --> B[Inspect target and capacity]
-    B --> C[Foundation exact plan]
-    C --> D[Shared Azure platform]
-    D --> E{Runtime platform}
-    E -->|Container Apps| F[Container Apps substrate]
-    E -->|AKS| G[AKS cluster and node pools]
-    G --> H[Managed CSI and workload identity]
-    F --> I{Database placement}
-    H --> I
-    I -->|Flexible Server| J[PostgreSQL Flexible Server]
-    I -->|AKS| K[In-cluster PostgreSQL]
-    J --> L[Migrations]
-    K --> L
-    L --> M[Independent services]
-    M --> N[Scheduled jobs]
-    N --> O[Readiness and zero-change plans]
-```
+![서명된 키트 검증에서 런타임과 데이터베이스 선택, 서비스 배포 및 준비 상태 확인까지의 프로비저닝 흐름입니다.](../../diagrams/generated/fdai-roadmap-deployment-runtime-deployment-profiles-01.ko.svg)
 
 변경을 일으키는 각 노드는 자체 정확한 플랜, 현재 사람 승인, 효과 전 claim, timeout, rollback 또는
 복구 참조, 권위 있는 observer를 가집니다. `deployment_ready=true`가 되려면 선택된 모든 서비스가

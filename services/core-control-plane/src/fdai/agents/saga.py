@@ -8,6 +8,7 @@ import inspect
 from collections.abc import Awaitable
 from typing import Any, Protocol
 
+from fdai_service_contracts.incident_intervention import INCIDENT_INTERVENTION_EVENT_TYPE
 from fdai_service_contracts.test_context import TestContextApplication
 
 from fdai.agents._framework.action_semantics import RESULT_VALUES, outcome_result
@@ -108,6 +109,13 @@ class Saga(Agent, HandoverKnowledgeMixin):
             await result
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if (
+            topic == "object.event"
+            and payload.get("event_type") != INCIDENT_INTERVENTION_EVENT_TYPE
+        ):
+            return
+        if topic == "object.event" and payload.get("producer_principal") != "Huginn":
+            raise ValueError("incident guidance requires the Huginn-owned normalized Event")
         principal = str(payload.get("producer_principal", "unknown"))
         correlation_id = str(payload.get("correlation_id") or "")
         await self._append_audit(

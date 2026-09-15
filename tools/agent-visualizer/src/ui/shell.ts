@@ -6,7 +6,10 @@ import { t, type MessageKey } from "./i18n";
 import { icon } from "./icons";
 import { FunctionInspector } from "./function-inspector";
 import { FlowPanel } from "./flow-panel";
-import { codeGraph, homeAgent, functionById } from "../source-graph";
+import { codeGraph, homeAgent, functionById, pythonFunctions, serviceFor, sourceServices } from "../source-graph";
+import { serviceLayouts } from "../scene/service-layout";
+import { mountSourceAdapters } from "./source-adapters";
+import { setAttribute, setStyle, setText } from "./dom-state";
 import { eventFlowAt } from "../playback/event-flow";
 import { TopicInspector } from "./topic-inspector";
 import { tourShotAt } from "../camera/tour";
@@ -100,6 +103,7 @@ export class VisualizerUI {
           </div>
           <div id="source-browser"></div>
           <div id="topic-browser"></div>
+          <div id="adapter-browser"></div>
           <section class="event-panel" aria-labelledby="event-heading">
             <h2 id="event-heading" class="micro" data-copy="event"></h2>
             <div id="event-detail" aria-live="off"></div>
@@ -158,6 +162,7 @@ export class VisualizerUI {
     this.functions = new FunctionInspector(this.element("source-browser"), onFunction);
     this.flow = new FlowPanel(this.element("flow-panel"), onFunction);
     this.topics = new TopicInspector(this.element("topic-browser"), onFunction);
+    mountSourceAdapters(this.element("adapter-browser"), onFunction);
     this.ontology = new RecordedInspector(this.element("ontology-panel"), this.element("ontology-inspector"), onInstance);
     root.querySelectorAll<HTMLButtonElement>("[data-agent]").forEach((button) => {
       this.agentButtons.set(button.dataset.agent as AgentId, button);
@@ -199,17 +204,17 @@ export class VisualizerUI {
     const isOntology = state.view === "ontology";
     const duration = scenario.duration;
     this.root.classList.toggle("ontology-mode", isOntology);
-    this.root.querySelectorAll<HTMLButtonElement>("[data-view]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.view === state.view)));
-    this.root.querySelector("h1")!.textContent = t(isOntology ? "ontologyTitle" : "headline", locale);
-    this.root.querySelector(".eyebrow")!.textContent = t(isOntology ? "ontologyEyebrow" : "eyebrow", locale);
-    this.root.querySelector(".intro-panel > .intro")!.textContent = t(isOntology ? "ontologyIntro" : "intro", locale);
+    this.root.querySelectorAll<HTMLButtonElement>("[data-view]").forEach((button) => setAttribute(button, "aria-pressed", String(button.dataset.view === state.view)));
+    setText(this.root.querySelector("h1")!, t(isOntology ? "ontologyTitle" : "headline", locale));
+    setText(this.root.querySelector(".eyebrow")!, t(isOntology ? "ontologyEyebrow" : "eyebrow", locale));
+    setText(this.root.querySelector(".intro-panel > .intro")!, t(isOntology ? "ontologyIntro" : "intro", locale));
     this.root.querySelectorAll<HTMLElement>('[data-copy="noExecution"]').forEach((element) => {
-      element.textContent = t(isOntology ? "ontologyProvenance" : "noExecution", locale);
+      setText(element, t(isOntology ? "ontologyProvenance" : "noExecution", locale));
     });
     this.root.querySelectorAll<HTMLElement>('.provenance .demo-badge, .cinema-watermark .demo-badge').forEach((element) => {
-      element.textContent = t(isOntology ? "localDbBadge" : "demo", locale);
+      setText(element, t(isOntology ? "localDbBadge" : "demo", locale));
     });
-    this.root.querySelector('.field-caption [data-copy="source"]')!.textContent = t(isOntology ? "ontologySource" : "source", locale);
+    setText(this.root.querySelector('.field-caption [data-copy="source"]')!, t(isOntology ? "ontologySource" : "source", locale));
     const projection = projectTimeline(scenario, time);
     const latest = projection.latest;
     const flow = eventFlowAt(time, scenario);
@@ -218,13 +223,13 @@ export class VisualizerUI {
     const functionOwner = state.selectedFunction ? homeAgent(functionById.get(state.selectedFunction)!) : null;
     this.functions.update(state.selectedFunction ? functionOwner : selected ?? latest?.agent ?? null, state.selectedFunction, locale);
     this.topics.update(selected ?? latest?.agent ?? null, locale);
-    this.element("time").textContent = formatTime(time);
-    this.element("duration").textContent = formatTime(duration);
+    setText(this.element("time"), formatTime(time));
+    setText(this.element("duration"), formatTime(duration));
     const timeline = this.element<HTMLInputElement>("timeline");
     timeline.max = String(duration);
     timeline.value = String(time);
-    timeline.setAttribute("aria-valuetext", `${formatTime(time)} / ${formatTime(duration)}`);
-    timeline.style.setProperty("--progress", `${time / duration * 100}%`);
+    setAttribute(timeline, "aria-valuetext", `${formatTime(time)} / ${formatTime(duration)}`);
+    setStyle(timeline, "--progress", `${time / duration * 100}%`);
     const play = this.element<HTMLButtonElement>("play");
     const historyUnavailable = isOntology && (!recorded.graph || !recorded.replayEnabled);
     play.disabled = historyUnavailable;
@@ -238,29 +243,29 @@ export class VisualizerUI {
       play.setAttribute("aria-label", playLabel);
       play.title = playLabel;
     }
-    this.element("loop").setAttribute("aria-pressed", String(state.loop));
+    setAttribute(this.element("loop"), "aria-pressed", String(state.loop));
     this.element<HTMLInputElement>("motion").checked = state.reduced;
     this.element<HTMLInputElement>("labels").checked = state.labels;
     this.element<HTMLInputElement>("stars").checked = state.stars;
     this.root.classList.toggle("hide-labels", !state.labels);
     this.root.classList.toggle("reduced-motion", state.reduced);
     this.root.querySelectorAll<HTMLButtonElement>("[data-camera]").forEach((button) => {
-      button.setAttribute("aria-pressed", String(button.dataset.camera === state.camera));
+      setAttribute(button, "aria-pressed", String(button.dataset.camera === state.camera));
       if (button.dataset.camera === "tour") {
         button.disabled = !this.graphicsAvailable || state.reduced || isOntology;
-        button.title = t(state.reduced ? "tourReduced" : "tourHint", locale);
+        setAttribute(button, "title", t(state.reduced ? "tourReduced" : "tourHint", locale));
       }
     });
     const shot = this.element("tour-status");
     shot.hidden = state.camera !== "tour";
-    shot.textContent = t(`tour_${tourShotAt(time, scenario.duration)}`, locale);
+    setText(shot, t(`tour_${tourShotAt(time, scenario.duration)}`, locale));
     const activeIds = flow.active;
     for (const agent of agents) {
       const button = this.agentButtons.get(agent.id)!;
       const active = activeIds.has(agent.id);
       button.classList.toggle("is-active", active);
-      button.setAttribute("aria-pressed", String(agent.id === selected));
-      button.setAttribute("aria-label", `${agent.id}: ${localized(agent.role, locale)}. ${t(active ? "active" : "quiet", locale)}`);
+      setAttribute(button, "aria-pressed", String(agent.id === selected));
+      setAttribute(button, "aria-label", `${agent.id}: ${localized(agent.role, locale)}. ${t(active ? "active" : "quiet", locale)}`);
     }
     if (isOntology) {
       this.ontology.update(state.stateAxis, state.relationshipType, locale);
@@ -272,9 +277,12 @@ export class VisualizerUI {
       return;
     }
     const detailAgent = selected ?? latest?.agent ?? null;
-    this.element<HTMLButtonElement>("focus").disabled = detailAgent === null || !this.graphicsAvailable;
-    this.element<HTMLButtonElement>("clear").disabled = selected === null;
-    const detailKey = `${scenario.id}:${selected}:${latest?.at}:${locale}`;
+    const selectedDefinition = state.selectedFunction ? functionById.get(state.selectedFunction) : null;
+    const serviceId = selectedDefinition ? serviceFor(selectedDefinition) : null;
+    const service = sourceServices.find((entry) => entry.id === serviceId);
+    this.element<HTMLButtonElement>("focus").disabled = (detailAgent === null && !selectedDefinition) || !this.graphicsAvailable;
+    this.element<HTMLButtonElement>("clear").disabled = selected === null && !selectedDefinition;
+    const detailKey = `${scenario.id}:${selected}:${state.selectedFunction}:${latest?.at}:${locale}`;
     if (detailKey === this.detailKey) return;
     this.detailKey = detailKey;
     this.element("scenario-description").textContent = localized(scenario.description, locale);
@@ -284,7 +292,13 @@ export class VisualizerUI {
     this.element("timeline-markers").innerHTML = scenario.events.map((event) =>
       `<span style="left:${event.at / scenario.duration * 100}%"></span>`).join("");
     const agent = detailAgent ? agentById.get(detailAgent) : null;
-    this.element("agent-detail").innerHTML = agent
+    this.root.querySelector(".activity-inspector > .section-heading h2")!.textContent = t(service ? "sourceFocus" : "inspect", locale);
+    this.element("agent-detail").innerHTML = service && serviceId
+      ? `<div class="agent-symbol" style="--agent-color:${serviceLayouts[serviceId].color}">${icon("focus")}</div>
+         <h2 class="agent-name">${serviceId === "channels" ? t("sourceChannels", locale) : service.name}</h2><p class="agent-role">${t("sourceAdapterNote", locale)}</p>
+         <h3 class="micro capabilities-heading">${t("sourceDefinitions", locale)}</h3>
+         <p class="agent-role">${pythonFunctions.filter((fn) => serviceFor(fn) === serviceId).length}</p>`
+      : agent
       ? `<div class="agent-symbol" style="--agent-color:${agentColor(agent.id)}">${icon("focus")}</div>
          <h2 class="agent-name">${agent.id}</h2><p class="agent-role">${localized(agent.role, locale)}</p>
          <span class="family-tag" style="--agent-color:${agentColor(agent.id)}">${t(agent.family, locale)}</span>
@@ -292,7 +306,8 @@ export class VisualizerUI {
          <ul class="capabilities">${agent.capabilities.map((capability, index) =>
            `<li><span>0${index + 1}</span>${localized(capability, locale)}</li>`).join("")}</ul>`
       : `<h2 class="empty-title">${t("selectAgent", locale)}</h2><p class="intro">${t("selectHint", locale)}</p>`;
-    this.root.querySelector(".tiny-index")!.textContent = `${String(agents.findIndex((item) => item.id === detailAgent) + 1).padStart(2, "0")} / 15`;
+    this.root.querySelector(".tiny-index")!.textContent = service ? "API"
+      : `${String(agents.findIndex((item) => item.id === detailAgent) + 1).padStart(2, "0")} / 15`;
     this.element("event-detail").innerHTML = latest
       ? `<div class="event-route"><span>${formatTime(latest.at)}</span><span>${latest.agent}</span></div>
          <h3>${localized(latest.title, locale)}</h3><p>${localized(latest.detail, locale)}</p>

@@ -61,10 +61,54 @@ Foundation input and VM metadata reads resolve Azure CLI through the existing tr
 roots, including the operator-owned local installation. They do not require `/usr/bin/az` to exist
 or accept an arbitrary executable from `PATH`. The selected Azure configuration, bounded reads and
 sanitized provider failures remain unchanged.
-Runner-image Terraform receives only a private `az` launcher bound to that resolved executable;
-resumption rejects a substituted launcher. Human identity readback uses the same trusted CLI.
+Runner-image Terraform receives only a private mode-`0700` regular-file `az` launcher that
+executes the resolved CLI by absolute path. This preserves installation-relative CLI wrappers
+without allowing `PATH` substitution; resumption rejects any changed launcher. Human identity
+readback uses the same trusted CLI.
+The builder poweroff wait resolves `az` from that sealed process path, not `/usr/bin/az`.
+It accepts only stopped or deallocated power states and propagates CLI errors. A failure after
+an apply claim can leave billable resources even when the coordinator has no success receipt.
+Preserve the original plan, claim and Terraform state; read-only observation does not authorize
+reapplying the plan or establish that a stopped VM is deallocated.
+
+For a failed local poweroff wait, recovery starts with a new read-only residual plan, not another
+apply of the claimed binary. Planning retains the original variables and authoritative state,
+binds the original review and claim, and permits only the reviewed CLI-path correction in a fresh
+Terraform configuration. It neither copies authoritative state into a second execution venue nor
+changes the original plan. Completed Azure resources and deprovision commands must remain no-op.
+Only the failed local wait marker may be replaced; remaining image capture, verifier and VM
+deallocation/generalization steps must preserve the original known intent. Unverified drift, deferred work,
+changed ownership, extra resources or failed checks block the result. This inspection grants no
+apply authority; a residual plan needs its own execution contract and current approval before use.
+Refresh-only differences are accepted only on preserved no-op resources with unchanged resource IDs:
+originally unknown computed fields, equivalent null/empty values, or order-only differences in
+Firewall application-rule sets. A changed known setting or ambiguous refresh record still blocks.
+Concurrent changes to the original state, claim, source or configuration prevent review publication;
+the planner preserves incomplete output and never overwrites a previous recovery directory.
+When mirror-only initialization creates provider links, the planner replaces only links to the
+same relative package in the original hash-verified provider tree with private file copies.
+Original provider bytes must remain unchanged, and the resulting execution tree must contain no
+links. Foreign links still fail; authoritative state is never part of this copy.
+
+The separate `genesis_runner_image_recovery_apply.py` command accepts only an explicitly supplied
+new Genesis approval: stage `runner-image`, run binding equal to the residual review digest, source
+equal to the recovery source, and evidence equal to the residual review and plan digests. Original
+approval records cannot satisfy that binding. Before claiming, it verifies current human identity,
+exact-source CI, configuration/provider/plan hashes, state lineage and unchanged original state bytes.
+The new immutable claim records human/executor digests and a stable idempotency key. The saved plan
+is applied with the original local state path; no second state owner or implicit adoption is created.
+
+A retained residual claim permits `--verify-only`, never another apply. Success requires the existing
+independent image, VM, extension and policy observers plus a fresh zero-change plan. It writes a
+separate residual receipt and never fabricates an original apply receipt or deployment readiness.
+The public full-install coordinator does not yet consume this residual receipt automatically.
+
 The interactive checkpoint prompt resolves that same trusted CLI before reading the current
 human approver. A missing trusted executable or a service-principal account cannot create approval.
+Its mutually exclusive `--residual-review <path>` input validates the new review's integrity,
+freshness, execution bindings and saved plan before prompting. It binds approval to the residual
+review and recovery source, not the original status. The existing human-only terminal confirmation
+remains mandatory; selecting this input does not grant approval or apply any resources.
 
 Source and kit Foundation inputs use distinct types and saved-plan schemas. A retained source
 plan must match the current snapshot and source-input digests. Source execution copies the
@@ -83,6 +127,100 @@ separately before unattended execution; output format and TTY presence never gra
 source, snapshot, human target and retained run must match on every resumption. No approval from
 one checkpoint grants another checkpoint, and published exact-source CI remains mandatory before
 resource effects. A verified Foundation handoff still leaves application deployment incomplete.
+
+### Application group collision recovery
+
+**Initial design:** Change the shared workload token when an existing application group blocks a
+new installation. **Critique:** That also renames operations resources after a partial apply and
+can replace already created infrastructure. **Revised contract:** Optional `application_workload`
+selects only the application's CAF group-name token; null preserves the legacy name. Operations,
+state-account and image names keep their original inputs. The selected group remains Terraform-owned
+and flows through the existing group reference and private handoff, without adopting an existing group.
+
+An existing group is not an empty deployment slot, even when its tags resemble FDAI. This input is
+not a recovery command or authority: a changed name requires a new exact plan and current approval.
+Partial recovery must retain the original authoritative state and claim, prove every completed
+resource remains no-op, and reject import, replacement, deletion or expanded roles. Completed
+resources are compared with their recorded state and stable IDs, not unrealized initial plan defaults;
+only equivalent empty representations and originally computed fields can differ. AzAPI dynamic
+state values are decoded through their structured type/value representation before comparison. The ordinary
+claimed apply remains verification-only; this naming input alone cannot resume the partial deployment.
+
+`operations_public_ip_tags` is empty by default and accepts only the exact policy-owned
+`FirstPartyUsage=/Unprivileged` value as an alternative. It is passed explicitly to the existing
+Bastion and NAT IPs, not ignored through lifecycle rules. Recovery requires the same allowed value
+on both retained IPs and pins that value in the new plan; unknown or differing tags stop preparation.
+This prevents a policy-added tag from forcing replacement of the IPs and their dependent connections.
+
+`genesis_foundation_recovery_plan.py` uses a fresh private directory under the original lock,
+validates original review/claim/snapshot/configuration, and passes the original state path directly
+to Terraform. It binds current source, provider and plan bytes, retains bounded private diagnostics,
+checks group ownership and rejects concurrent state changes. Its expiring review grants no authority.
+
+`genesis_foundation_recovery_apply.py` requires fresh `foundation-apply` approval bound to the recovery
+review and code; the official prompt accepts `--foundation-recovery-review`. Before its immutable claim,
+it verifies current human identity, exact-source CI, original claim/snapshot/lineage, group ownership,
+current VM SKU/quota, configuration/provider/plan/tool/state hashes and expiry. It applies once against
+the original state; a retained claim permits only `--verify-only`. Independent readback and a zero-change
+plan gate a separate receipt. Original receipts are never fabricated; host/state/app acceptance remains separate.
+
+One successor may select `--predecessor-directory` after the initial recovery is claimed but incomplete.
+The predecessor's review, claim, plan, variables, configuration and provider hashes remain immutable.
+All recorded resources, including the newly created application group, must stay no-op with matching IDs
+and known settings. Exactly two absent creates are permitted: the host's ephemeral OS disk changes from
+`ReadWrite` to required `ReadOnly` caching; the observation delegate's scoped role-definition operands
+become bare GUIDs. The three observation roles, `ServicePrincipal` restriction and write/delete clauses
+are unchanged. Only those two exact bootstrap source edits are allowed. The group is independently
+read by ID, not assumed absent. New review, source CI and approval are required; predecessor approval
+cannot authorize the successor. Further successor chains, imports, replacements and extra effects are rejected.
+Successor regressions retain collected helpers even when runtime tests replace Python module names.
+
+### Recovered host enrollment
+
+The enrollment adapter checks the unaltered recovery receipt, both claims, review, original snapshot,
+state hash/lineage and private handoff under the original lock. Shared correlation fields exist only
+in memory, never as a fabricated ordinary receipt. Current approval, source CI and independent host
+attestation remain separate requirements; this boundary does not migrate state or activate services.
+
+The runner enrollment command accepts `--foundation-recovery-directory` together with the original
+plan directory and `--original-source-snapshot`. A new enrollment requires `--recovery-approval-file`;
+the official prompt produces it from `--recovered-foundation-receipt`. Approval binds that receipt's
+digest and the enrollment source, not the earlier recovery plan. Recovery and enrollment source CI
+must both pass. Claims, known hosts and enrollment receipts stay in the recovery directory, retain
+the recovery receipt, enrollment source and approved actor. Verification-only resume never reenrolls
+or changes that source. Ordinary enrollment remains unchanged.
+
+### Recovered state migration
+
+Only the transient archive combines verified recovery configuration and original state. It rejects
+a second state owner, checks the receipt-bound state hash and rechecks bytes before publication.
+The existing managed-host format and both original inputs remain unchanged.
+
+The state-handoff command accepts `--foundation-recovery-directory` and `--recovery-approval-file`
+alongside its original source inputs. The official prompt takes both `--recovered-foundation-receipt`
+and `--recovered-enrollment-receipt` to issue a separate `foundation-state` approval bound to both
+receipts and current migration source. The adapter verifies both retained claims, original state or
+exact backend authority, host-key evidence, recovery configuration, providers and variables, and CI
+for recovery, enrollment and migration sources. It holds the original writer lock through the shared
+claim-before-transfer, managed-host reattestation, backend migration, independent state comparison
+and cleanup flow. No ordinary Foundation receipt is fabricated.
+
+Migration records retain recovery schema, current source and verified approver. A retained claim
+permits verification only, never another transfer or migration. After backend authority permits local
+state deletion, resume validates that authority and the final receipt, then independently observes
+the backend. Missing local state alone grants no authority. Live recovery acceptance remains open.
+
+### Explicit source recovery
+
+Use `--source <current-checkout> --work-dir <original-run> --foundation-recovery-directory <recovery>`
+to resume a source run. The original snapshot, runtime profile, region and budget remain immutable;
+current execution source is recorded separately. Initial scope cannot be reconfirmed on this route.
+Missing recovery success returns review, never repeats apply. Separate exact approvals advance host
+enrollment and state migration; retained claims select verification only. Completed migration resumes
+through backend observation without repeating enrollment after local state deletion. Under the original
+lock, the verified recovery context then supplies the existing source transfer engine with the original
+application snapshot. Separate immutable progress records preserve old status and false readiness.
+Application activation remains unconnected; this path does not report a completed deployment.
 
 ### Source transfer boundary
 
@@ -126,8 +264,41 @@ A retained claim allows verification only, never another copy or overwrite. Fail
 transfers preserve the claim and fail the source stage. Verified host transfer produces its own
 private receipt with `remote_transfer_verified=true`, but no apply authority or deployment readiness.
 The public command checks that receipt against current local source and handoff evidence, then reports
-`source_application_execution_not_connected`. Host-side image builds and application execution remain
+`source_application_execution_not_connected`. Registry import and application execution remain
 open. Local and mocked transport evidence do not establish a successful Azure deployment.
+
+### Source image construction
+
+**Initial design:** Build service images after transferring source to the managed host.
+**Critique:** The attested manual host has Terraform, OPA and ORAS, but no Docker or Buildx.
+Adding an unreviewed privileged builder during installation would change its tool and execution
+contract. Requiring a complete signed kit instead would defeat explicit source mode.
+**Revised contract:** Build public, customer-agnostic service artifacts on the operator's local
+Docker engine; keep private registry publication and all private data-plane work on the attested
+managed host. These build artifacts are operator-selected source, not signed releases.
+
+Before Foundation preparation, source installation checks a trusted Docker executable, the explicit
+local Unix endpoint and Buildx without prompting, building, or contacting a registry. Ambient
+Docker context and BuildKit endpoint variables are excluded. Missing or invalid tools return
+`source-image-tools` blocked evidence before any Foundation execution.
+
+After verified source handoff, the coordinator builds all five baseline services from the immutable
+snapshot's existing Dockerfiles with locked source inputs, `linux/amd64`, an exact revision label,
+and OCI output outside the snapshot. It never selects an alternate source, remote builder or push
+target. One shared deadline bounds the inventory; each process uses the existing bounded runner
+with a 300-second maximum no-progress interval. Private build logs and per-service immutable
+claims precede execution. A failed or interrupted claim cannot trigger an automatic rebuild.
+Explicit `--verify-only` for one service checks retained output under its exact claim without
+invoking Docker. Incomplete or inconsistent OCI content still fails. Buildx creates its metadata
+with mode 0644 even under a restrictive umask; the coordinator validates the current owner,
+single-link regular file and private parent, then tightens that metadata to 0600 before reading.
+
+Buildx metadata supplies the expected manifest digest, and the existing OCI validator independently
+checks archive hashes, every blob, platform and source revision. A reusable receipt requires that
+same validation again and unchanged source. The current 512 MiB OCI archive limit remains enforced.
+Local build receipts keep registry publication, apply authority and deployment readiness false;
+the inventory also keeps dependency-image verification false. ClamAV, Console assets, authenticated
+image transport/import, runtime configuration and acceptance remain separate unfinished steps.
 
 The development source path is selected explicitly with `fdaictl provision azure --source <path>`.
 It is mutually exclusive with `--online` and `--offline-kit`. Initial support targets a new

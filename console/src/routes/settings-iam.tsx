@@ -2,7 +2,14 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { Tooltip } from "../components/tooltip";
-import { DataTable, LoadingState, PageHeader, StatusPill, type PillKind } from "../components/ui";
+import {
+  DataTable,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+  StatusPill,
+  type PillKind,
+} from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
@@ -204,7 +211,13 @@ export function SettingsIamRoute({ client, auth }: Props) {
       ) : null}
 
       {loading ? <LoadingState label={t("settings.iam.loading")} /> : null}
-      {error ? <div class="error" role="alert">{t("settings.iam.loadFailed", { error })}</div> : null}
+      {error ? (
+        <ErrorState
+          message={t("settings.iam.loadFailed", { error })}
+          onRetry={() => { void load(); }}
+          retryLabel={t("settings.retry")}
+        />
+      ) : null}
       {!loading && !error && overview && invalidTab ? (
         <div class="state-block state-unavailable" role="alert">
           {t("settings.iam.invalidTab")}

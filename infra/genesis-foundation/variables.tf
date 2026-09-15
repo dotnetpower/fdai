@@ -31,6 +31,29 @@ variable "workload" {
   }
 }
 
+variable "application_workload" {
+  description = "Optional application-only CAF workload token. Null preserves the original name; changing it requires a new reviewed plan and never adopts an existing group."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.application_workload == null ? true : can(regex("^[a-z][a-z0-9]{1,11}$", var.application_workload))
+    error_message = "application_workload must be null or contain 2-12 lowercase letters or digits and start with a letter."
+  }
+}
+
+variable "operations_public_ip_tags" {
+  description = "Exact observed policy-owned tags for the operations public IPs. Empty preserves the default; any selection requires a reviewed plan."
+  type        = map(string)
+  default     = {}
+  nullable    = false
+
+  validation {
+    condition     = length(var.operations_public_ip_tags) == 0 || try(length(var.operations_public_ip_tags) == 1 && var.operations_public_ip_tags["FirstPartyUsage"] == "/Unprivileged", false)
+    error_message = "operations_public_ip_tags must be empty or exactly FirstPartyUsage=/Unprivileged."
+  }
+}
+
 variable "env" {
   description = "Deployment environment, independent of approval and runtime authority."
   type        = string

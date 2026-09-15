@@ -185,7 +185,7 @@ resource "azurerm_linux_virtual_machine" "runner" {
   }
 
   os_disk {
-    caching = "ReadWrite"
+    caching = "ReadOnly"
     # Azure requires a storage type in the VM model, but Local placement creates
     # no managed OS disk for tenant policy to downgrade.
     storage_account_type = "Standard_LRS"
@@ -300,7 +300,7 @@ locals {
     }
   } : {}
   subscription_observation_role_ids = sort([
-    for role in data.azurerm_role_definition.subscription_observation : role.role_definition_id
+    for role in data.azurerm_role_definition.subscription_observation : basename(role.role_definition_id)
   ])
   subscription_observation_role_condition = <<-EOT
     (

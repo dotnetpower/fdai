@@ -23,6 +23,274 @@ from fdai_deployment_cli.target import compute_target_binding  # noqa: E402
 
 
 @pytest.fixture
+def source_recovery_run(tmp_path, monkeypatch):
+    import source_recovery as recovery_runner
+    from fdai_deployment_cli import source_recovery as admission
+    from fdai_deployment_cli.contracts import ProvisionProfile
+    from fdai_deployment_cli.profile import write_profile
+    from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
+
+    tmp_path.chmod(0o700)
+    work = tmp_path / "run"
+    original = work / "foundation/foundation-plan-attempt-3"
+    original.mkdir(mode=0o700, parents=True)
+    work.chmod(0o700)
+    original.parent.chmod(0o700)
+    (original.parent / "source-execution.lock").touch(mode=0o600)
+    recovery = work / "foundation-recovery-attempt-1"
+    recovery.mkdir(mode=0o700)
+    snapshot = {"source_commit": "a" * 40, "source_tree": "b" * 40}
+    profile = RuntimeDeploymentProfile.create(
+        runtime_platform="aks", database_placement="postgres-flex"
+    )
+    intent = {
+        "schema_version": "fdai.source-deployment-intent.v1",
+        "source": snapshot,
+        "source_input_digest": canonical_digest(snapshot),
+        "runtime_profile": profile.to_mapping(),
+        "environment": "dev",
+        "region": "koreacentral",
+        "monthly_cost_ceiling": 500,
+    }
+    write_private_bytes(work / "source-intent.json", canonical_bytes(intent))
+    preparation = {
+        "schema_version": "fdai.source-deployment-preparation.v1",
+        "state": "prepared",
+        "provenance": "operator-selected-source",
+        "release_signature_verified": False,
+        "apply_authorized": False,
+        "mutation_performed": False,
+        "deployment_ready": False,
+        "subscription_ready": False,
+        "source_commit": snapshot["source_commit"],
+        "source_input_digest": canonical_digest(snapshot),
+        "source_snapshot_digest": "c" * 64,
+        "intent_digest": canonical_digest(intent),
+        "runtime_profile_digest": profile.digest,
+    }
+    preparation["receipt_digest"] = canonical_digest(preparation)
+    write_private_bytes(work / "source-preparation.json", canonical_bytes(preparation))
+    marker = {
+        "source_commit": snapshot["source_commit"],
+        "source_input_digest": canonical_digest(snapshot),
+        "target_binding": "d" * 64,
+        "run_binding": "e" * 64,
+    }
+    marker["receipt_digest"] = canonical_digest(marker)
+    write_private_bytes(original.parent / "source-genesis.json", canonical_bytes(marker))
+    write_profile(
+        original.parent / "profile.json",
+        ProvisionProfile(
+            environment="dev",
+            region="koreacentral",
+            target_binding="d" * 64,
+            connectivity="online",
+            host="managed-vm",
+            transport="manual",
+            access_method="bastion",
+            shadow_only=True,
+            approval_quorum=1,
+            monthly_cost_ceiling=500,
+        ),
+    )
+    status = {"foundation_report": {"foundation_plan": {"plan_ref": original.name}}}
+    write_private_bytes(original.parent / "status.json", canonical_bytes(status))
+    review = {
+        "schema_version": "fdai.foundation-recovery-review.v1",
+        "source_commit": "a" * 40,
+        "target_binding": "d" * 64,
+    }
+    review["review_digest"] = canonical_digest(review)
+    write_private_bytes(recovery / "recovery-review.json", canonical_bytes(review))
+    monkeypatch.setattr(admission, "verify_source_snapshot", lambda *_args, **_kwargs: snapshot)
+    source = SimpleNamespace(root=tmp_path, commit="f" * 40, reverify=Mock())
+    monkeypatch.setattr(recovery_runner, "inspect_source", lambda *_args: source)
+    monkeypatch.setattr(admission, "inspect_source", lambda *_args: source)
+    monkeypatch.setattr(
+        recovery_runner,
+        "load_recovery_evidence",
+        lambda **_kwargs: SimpleNamespace(handoff={"run_digest": "e" * 64}),
+    )
+    monkeypatch.setattr(
+        recovery_runner.GenesisChecks,
+        "capture",
+        lambda *_args, **_kwargs: "https://github.com/example/repository.git",
+    )
+    args = SimpleNamespace(
+        work_dir=work,
+        recovery_directory=recovery,
+        runtime_profile_digest=profile.digest,
+        region="koreacentral",
+        monthly_cost_ceiling=500,
+        timeout_seconds=14400,
+        approval_file=None,
+    )
+    return args, source, profile
+
+
+@pytest.mark.parametrize(
+    "stage", ["needs-apply", "needs-enrollment", "enroll", "needs-state", "migrate", "completed"]
+)
+def test_source_recovery_retains_application_source_and_never_repeats_effects(
+    source_recovery_run, monkeypatch, stage
+):
+    from datetime import UTC, datetime, timedelta
+
+    import source_recovery as recovery_runner
+
+    args, source, profile = source_recovery_run
+    recovery = args.recovery_directory
+    original_status = (args.work_dir / "foundation/status.json").read_bytes()
+    receipt = {"receipt_digest": "1" * 64}
+    enrolled = {"schema_version": "fdai.genesis-runner-enrollment-receipt.v1", "state": "attested"}
+    enrolled["receipt_digest"] = canonical_digest(enrolled)
+    if stage != "needs-apply":
+        write_private_bytes(recovery / "recovery-apply-receipt.json", canonical_bytes(receipt))
+    if stage in {"needs-state", "migrate", "completed"}:
+        write_private_bytes(recovery / "runner-enrollment-claim.json", canonical_bytes({}))
+        write_private_bytes(recovery / "runner-enrollment-receipt.json", canonical_bytes(enrolled))
+    if stage == "completed":
+        write_private_bytes(recovery / "foundation-state-handoff-claim.json", canonical_bytes({}))
+    if stage in {"enroll", "migrate"}:
+        now = datetime.now(UTC).replace(microsecond=0)
+        approval_stage = "runner-enrollment" if stage == "enroll" else "foundation-state"
+        evidence = {"foundation_receipt_digest": "1" * 64}
+        if stage == "migrate":
+            evidence["enrollment_receipt_digest"] = enrolled["receipt_digest"]
+        authority = {
+            "schema_version": "fdai.genesis-approval.v1",
+            "approved": True,
+            "stage": approval_stage,
+            "run_binding": "1" * 64,
+            "source_commit": source.commit,
+            "actor_digest": "2" * 64,
+            "evidence": evidence,
+            "approved_at": now.isoformat(),
+            "expires_at": (now + timedelta(minutes=30)).isoformat(),
+        }
+        args.approval_file = recovery / "approval.json"
+        write_private_bytes(args.approval_file, canonical_bytes(authority))
+    calls = []
+
+    def enroll(arguments):
+        calls.append(("enroll", arguments.resume_verification))
+        assert arguments.foundation_recovery_directory == recovery
+        assert arguments.original_source_snapshot == args.work_dir / "source-snapshot"
+        return enrolled
+
+    def migrate(arguments):
+        calls.append(("migrate", arguments.resume_verification))
+        assert arguments.source_snapshot == args.work_dir / "source-snapshot"
+        assert arguments.expected_enrollment_receipt_digest == enrolled["receipt_digest"]
+        return {"receipt_digest": "3" * 64}
+
+    monkeypatch.setattr(recovery_runner.enrollment_command, "_execute", enroll)
+    monkeypatch.setattr(recovery_runner.state_command, "_execute", migrate)
+    monkeypatch.setattr(
+        recovery_runner, "prepare_recovery_migration", lambda *_args, **_kwargs: Mock()
+    )
+    transfers = []
+    monkeypatch.setattr(
+        recovery_runner,
+        "transfer_application_source",
+        lambda **kwargs: transfers.append(kwargs) or {"remote_transfer_verified": True},
+    )
+    result = recovery_runner.resume(args)
+    assert result["source_commit"] == "a" * 40
+    assert result["execution_source_commit"] == source.commit
+    assert result["deployment_ready"] is False
+    assert result["release_signature_verified"] is False
+    assert (args.work_dir / "foundation/status.json").read_bytes() == original_status
+    expected_calls = {
+        "needs-apply": [],
+        "needs-enrollment": [],
+        "enroll": [("enroll", False)],
+        "needs-state": [("enroll", True)],
+        "migrate": [("enroll", True), ("migrate", False)],
+        "completed": [("migrate", True)],
+    }
+    assert calls == expected_calls[stage]
+    assert len(transfers) == (1 if stage in {"migrate", "completed"} else 0)
+    if transfers:
+        assert transfers[0]["source_commit"] == "a" * 40
+        assert transfers[0]["snapshot"] == args.work_dir / "source-snapshot"
+    assert result["stage"] == (
+        "application-plan"
+        if stage in {"migrate", "completed"}
+        else "foundation-apply"
+        if stage == "needs-apply"
+        else "runner-enrollment"
+        if stage == "needs-enrollment"
+        else "foundation-state"
+    )
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [("region", "westus2"), ("monthly_cost_ceiling", 501), ("runtime_profile_digest", "0" * 64)],
+)
+def test_source_recovery_rejects_changed_original_settings(
+    source_recovery_run, monkeypatch, field, value
+):
+    import source_recovery as recovery_runner
+
+    args, _, _ = source_recovery_run
+    setattr(args, field, value)
+    monkeypatch.setattr(
+        recovery_runner.enrollment_command, "_execute", lambda *_: pytest.fail("no effects")
+    )
+    with pytest.raises(ValueError, match="original installation settings"):
+        recovery_runner.resume(args)
+
+
+@pytest.mark.parametrize("tamper", [False, True])
+def test_public_recovery_keeps_original_run_instead_of_preparing_new_source(
+    source_recovery_run, monkeypatch, tamper
+):
+    import source_recovery as recovery_runner
+    from fdai_deployment_cli import source_azure
+
+    args, source, profile = source_recovery_run
+    monkeypatch.setattr(
+        source_azure,
+        "prepare_source_deployment",
+        lambda **_: pytest.fail("must not prepare or rewrite original source"),
+    )
+
+    def capture(command, root, environment, timeout):
+        assert Path(command[1]).name == "source_recovery.py"
+        assert root == source.root
+        assert environment["PYTHONPATH"] == str(source.root / "packages/deployment-cli/src")
+        assert 0 < timeout <= args.timeout_seconds
+        result = recovery_runner.resume(args)
+        if tamper:
+            result["execution_source_commit"] = "0" * 40
+            result["receipt_digest"] = canonical_digest(
+                {key: value for key, value in result.items() if key != "receipt_digest"}
+            )
+        return result
+
+    monkeypatch.setattr(source_azure, "_capture", capture)
+    parameters = dict(
+        source_root=source.root,
+        work_dir=args.work_dir,
+        foundation_recovery_directory=args.recovery_directory,
+        runtime_profile=profile,
+        region=args.region,
+        monthly_cost_ceiling=args.monthly_cost_ceiling,
+        timeout_seconds=args.timeout_seconds,
+    )
+    if tamper:
+        with pytest.raises(ValueError, match="different execution context"):
+            source_azure.plan_source_installation(**parameters)
+    else:
+        result = source_azure.plan_source_installation(**parameters)
+        assert result["source_commit"] == "a" * 40
+        assert result["execution_source_commit"] == "f" * 40
+        assert result["stage"] == "foundation-apply"
+
+
+@pytest.fixture
 def source_transfer(tmp_path, monkeypatch):
     foundation_root = tmp_path / "foundation"
     directory = foundation_root / "foundation-plan-attempt-1"
@@ -201,6 +469,41 @@ def test_source_transfer_verifies_host_and_recovers_without_copy(source_transfer
     assert "copy" not in calls
     assert any(isinstance(command, tuple) and "--verify-existing" in command for command in calls)
     assert not any(isinstance(command, tuple) and command[0] == "mkdir" for command in calls)
+
+
+@pytest.mark.parametrize("mismatch", [False, True])
+def test_recovered_transfer_never_fabricates_ordinary_foundation(source_transfer, mismatch):
+    arguments, calls, _, directory = source_transfer
+    foundation_path = directory / "foundation-apply-receipt.json"
+    handoff_path = directory / "foundation-private-handoff.json"
+    foundation, handoff = (
+        json.loads(foundation_path.read_bytes()),
+        json.loads(handoff_path.read_bytes()),
+    )
+    foundation_path.unlink()
+    handoff_path.unlink()
+    context = SimpleNamespace(
+        original_directory=directory,
+        directory=directory,
+        foundation=foundation,
+        recovered=SimpleNamespace(
+            receipt=foundation, handoff=handoff, target_binding=arguments["target_binding"]
+        ),
+        verify_configuration=Mock(),
+        validate_record=Mock(),
+    )
+    if mismatch:
+        context.recovered.target_binding = "0" * 64
+        with pytest.raises(ValueError, match="recovery context differs"):
+            transport.transfer_application_source(**arguments, recovery=context)
+        assert not calls
+        return
+    result = transport.transfer_application_source(**arguments, recovery=context)
+    assert result["remote_transfer_verified"] is True
+    assert result["source_commit"] == arguments["source_commit"]
+    assert not foundation_path.exists()
+    assert not handoff_path.exists()
+    context.validate_record.assert_called_once()
 
 
 @pytest.mark.parametrize("stage", ["attest", "copy", "hash", "receipt"])

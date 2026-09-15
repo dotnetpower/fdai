@@ -29,7 +29,17 @@ def no_live_prices(monkeypatch):
 
 @pytest.mark.parametrize("deployment_ready", [False, True])
 @pytest.mark.parametrize(
-    "mode", ["review", "interactive", "approved", "ambient", "startup", "transferred"]
+    "mode",
+    [
+        "review",
+        "interactive",
+        "approved",
+        "ambient",
+        "startup",
+        "transferred",
+        "builder-blocked",
+        "builder-invalid",
+    ],
 )
 def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deployment_ready, mode):
     interactive = mode == "interactive"
@@ -71,6 +81,7 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
     )
     monkeypatch.setattr(source_azure.shutil, "which", lambda _: str(executable))
     calls = []
+    builder_checks = []
     transfers = []
     monkeypatch.setattr(
         source_azure,
@@ -82,6 +93,30 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
     )
 
     def capture(command, cwd, environment, timeout):
+        if Path(command[1]).name == "source_image_build.py":
+            if "--all-services" in command:
+                assert mode == "transferred"
+                inventory = {
+                    "schema_version": "fdai.source-images.v1",
+                    "state": "built",
+                    "source_commit": source.commit,
+                    "snapshot_digest": "e" * 64,
+                    "services": dict.fromkeys(source_azure.RUNTIME_SERVICES, {"state": "built"}),
+                    "registry_published": False,
+                    "apply_authorized": False,
+                    "deployment_ready": False,
+                }
+                inventory["receipt_digest"] = canonical_digest(inventory)
+                return inventory
+            builder_checks.append(command)
+            assert "--check-tools" in command
+            assert not calls
+            return {
+                "schema_version": "fdai.source-image-builder.v1",
+                "state": "blocked" if mode == "builder-blocked" else "available",
+                "mutation_performed": False,
+                "deployment_ready": mode == "builder-invalid",
+            }
         calls.append(command)
         assert cwd == root
         assert "FDAI_SIGNED_SOURCE_EVIDENCE" not in environment
@@ -218,6 +253,17 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
         ),
         confirm_initial=mode == "startup",
     )
+    if mode in {"builder-blocked", "builder-invalid"}:
+        if mode == "builder-invalid":
+            with pytest.raises(ValueError, match="invalid prerequisite"):
+                source_azure.plan_source_installation(**arguments)
+        else:
+            result = source_azure.plan_source_installation(**arguments)
+            assert result["stage"] == "source-image-tools"
+            assert result["state"] == "blocked"
+        assert not calls
+        assert not transfers
+        return
     if deployment_ready:
         with pytest.raises(ValueError, match="bound review"):
             source_azure.plan_source_installation(**arguments)
@@ -233,9 +279,10 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
             assert result["source_host_transfer"]["remote_transfer_verified"] is True
             assert (
                 result["next_action"]
-                == "build_source_images_on_attested_host_and_validate_application_inputs"
+                == "transfer_verified_images_for_private_registry_import_and_validate_application_inputs"
             )
     assert len(calls) == (3 if interactive and not deployment_ready else 2)
+    assert len(builder_checks) == 1
     assert len(prompts) == int(interactive and not deployment_ready)
     assert len(initial_confirmations) == int(mode == "startup")
     assert len(transfers) == int(
@@ -403,6 +450,42 @@ def test_source_approval_cannot_be_silently_ignored(monkeypatch, capsys, argumen
         == 3
     )
     assert "--approval-file requires source deployment" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "extra", [[], ["--prepare-only"], ["--preflight-only"], ["--setup-cost-ceiling", "1000"]]
+)
+def test_explicit_foundation_recovery_never_reconfirms_initial_scope(monkeypatch, capsys, extra):
+    calls = []
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(
+        cli,
+        "plan_source_installation",
+        lambda **kwargs: calls.append(kwargs) or {"state": "review"},
+    )
+    result = cli.main(
+        [
+            "provision",
+            "azure",
+            "--source",
+            ".",
+            "--runtime",
+            "aks",
+            "--work-dir",
+            "/tmp/example-run",
+            "--foundation-recovery-directory",
+            "/tmp/example-recovery",
+            *extra,
+        ]
+    )
+    if extra:
+        assert result == 3
+        assert not calls
+    else:
+        assert result == 2
+        assert calls[0]["foundation_recovery_directory"] == Path("/tmp/example-recovery")
+        assert calls[0]["installation_options"] is None
+        assert calls[0]["confirm_initial"] is False
 
 
 @pytest.mark.parametrize("confirmation_state", ["review", "confirmed"])

@@ -6,6 +6,7 @@ import json
 from datetime import UTC, datetime
 
 import httpx
+import pytest
 from fdai.delivery.azure.log_query import (
     AzureLogAnalyticsQueryConfig,
     AzureLogAnalyticsQueryProvider,
@@ -18,9 +19,14 @@ from fdai.delivery.azure.observation_campaign import (
     AzureResourceGraphObservation,
     AzureResourceGraphObservationProbe,
     PromotedInventoryObservationProbe,
+    _raise_for_status,
     _subscription_cursor_key,
 )
-from fdai.delivery.observation_campaign import ObservationCoverage, ObservationSourceSpec
+from fdai.delivery.observation_campaign import (
+    ObservationCoverage,
+    ObservationSourceSpec,
+    ObservationThrottledError,
+)
 from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
 from fdai_service_contracts import ObservationDomain
 
@@ -534,3 +540,56 @@ async def test_promoted_inventory_probe_reports_stale_without_raw_resources() ->
 
     assert result.coverage is ObservationCoverage.STALE
     assert result.reason_codes == ("source_stale",)
+
+
+async def test_promoted_inventory_absence_does_not_require_measured_counts() -> None:
+    async def summary(_limit: int) -> dict[str, object]:
+        return {"source": "unavailable"}
+
+    result = await PromotedInventoryObservationProbe(summary).collect(
+        _spec("inventory", ObservationDomain.INVENTORY, "Huginn"), cursor=None
+    )
+
+    assert result.coverage is ObservationCoverage.UNCONFIGURED
+    assert result.reason_codes == ("source_unconfigured",)
+    assert result.evidence_count == 0
+
+
+def test_azure_throttle_retains_the_provider_retry_deadline() -> None:
+    with pytest.raises(ObservationThrottledError) as raised:
+        _raise_for_status(httpx.Response(429, headers={"Retry-After": "600"}), source="cost")
+    assert getattr(raised.value, "retry_not_before", None) is not None
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("freshness", None),
+        ("freshness", "warm"),
+        ("freshness", []),
+        ("truncated", None),
+        ("truncated", "false"),
+        ("truncated", 0),
+    ],
+)
+async def test_promoted_inventory_needs_explicit_evidence_metadata(
+    field: str, value: object
+) -> None:
+    async def summary(_limit: int) -> dict[str, object]:
+        result: dict[str, object] = {
+            "source": "azure-resource-graph",
+            "freshness": "fresh",
+            "resource_count": 1,
+            "link_count": 0,
+            "truncated": False,
+        }
+        if value is None:
+            del result[field]
+        else:
+            result[field] = value
+        return result
+
+    with pytest.raises(RuntimeError, match=field):
+        await PromotedInventoryObservationProbe(summary).collect(
+            _spec("inventory", ObservationDomain.INVENTORY, "Huginn"), cursor=None
+        )

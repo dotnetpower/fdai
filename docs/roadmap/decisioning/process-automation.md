@@ -191,7 +191,7 @@ LinkTypes cover only the runtime graph edges between first-class object types.
 ## 4. Control-loop integration
 
 The focused [Workflow Control-Loop Integration](workflow-control-loop-integration.md) document owns
-orchestration, catalog-root, adapter routing, journals, commands, and sandbox execution details.
+orchestration, catalog-root, adapter routing, journals, commands, and sandbox execution details. [Alert noise governance](../operations/alert-noise-governance.md) reuses that runtime for three default-shadow workflows and four registered manual-PR actions. Its retained binding pins the exact plan, evidence, workflow, target, mode, correlation, and Process across resume. Independent Var quorum, source fencing, promotion, safeguards, and outcome admission remain required; the adapter creates no second state machine or operational completion claim.
 
 Workflow action delivery and outbound human notification delivery remain separate runtime compositions. Process steps continue to re-enter the typed action pipeline, while A2/A4 notices use the provider-neutral notification router with named bindings and durable per-channel fan-out. The runtime builds that router through one shared composition helper so incident and stewardship workflows cannot drift in endpoint, trust-tier, or HIL fallback resolution. An explicit Teams or Slack shadow binding receives the same runtime `StateStore` as its durable provider-payload recorder and performs no provider transport. A notification binding cannot select, advance, approve, or execute a workflow step.
 ## 5. Saga compensation

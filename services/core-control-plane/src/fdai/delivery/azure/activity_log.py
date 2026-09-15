@@ -52,6 +52,9 @@ Safety / cost invariants
   the shared :func:`~fdai.delivery.azure.arg_query._truncate_props` helper.
 - The overall page count per :meth:`delta` call is bounded by the
   inventory adapter's ``max_delta_pages`` cap.
+- A successful Key Vault or Storage Account delete with the known Resource Group type envelope
+  requests event-time reconciliation only; its contradictory identity never
+  produces a resource upsert. Other reviewed type conflicts remain errors.
 """
 
 from __future__ import annotations
@@ -196,6 +199,8 @@ class AzureActivityLogFactory:
             running_max = _max_dt(carried_max, page_max)
 
             link = payload.get("nextLink")
+            if link is not None and not isinstance(link, str):
+                raise ActivityLogError("Activity Log nextLink MUST be text or null")
             if isinstance(link, str) and link:
                 return ActivityLogPage(
                     resources=resources,
@@ -344,6 +349,34 @@ class AzureActivityLogFactory:
         if self._arm_to_neutral.get(arm_type.casefold()) is None:
             # Activity Log also reports operation categories in resourceType.
             return None
+        at = _parse_ts(event.get("eventTimestamp"))
+        if at is None:
+            raise ActivityLogError(
+                "Activity Log eventTimestamp MUST be a timezone-aware RFC 3339 timestamp"
+            )
+        if (
+            derived_arm_type.casefold() == "microsoft.cognitiveservices/accounts"
+            and arm_type.casefold() == "microsoft.cognitiveservices/accounts/deployments"
+            and operation is not None
+            and operation.casefold()
+            in {
+                "microsoft.cognitiveservices/accounts/deployments/write",
+                "microsoft.cognitiveservices/accounts/deployments/delete",
+            }
+        ):
+            # Azure sometimes omits the child id. Request authoritative reconciliation
+            # rather than minting a child or poisoning the complete delta page.
+            return at, None, succeeded
+        if (
+            succeeded
+            and derived_arm_type.casefold()
+            in {"microsoft.keyvault/vaults", "microsoft.storage/storageaccounts"}
+            and arm_type.casefold() == "microsoft.resources/resourcegroups"
+            and operation is not None
+            and operation.casefold() == f"{derived_arm_type.casefold()}/delete"
+        ):
+            # This known delete envelope cannot establish either Resource's state.
+            return at, None, True
         try:
             arm_type = arm_provider_type(arm_id, arm_type)
         except ArmIdentityError as exc:
@@ -351,11 +384,6 @@ class AzureActivityLogFactory:
                 "Activity Log resource type conflicts with its provider id"
             ) from exc
 
-        at = _parse_ts(event.get("eventTimestamp"))
-        if at is None:
-            raise ActivityLogError(
-                "Activity Log eventTimestamp MUST be a timezone-aware RFC 3339 timestamp"
-            )
         operation_kind = operation.rsplit("/", maxsplit=1)[-1].casefold() if operation else ""
         relationship_incomplete = succeeded and operation_kind in {"write", "delete"}
         if operation_kind == "delete":

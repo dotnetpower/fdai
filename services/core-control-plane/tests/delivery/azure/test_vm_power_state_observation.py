@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import ast
 from dataclasses import replace
 from datetime import timedelta
-from pathlib import Path
 
 import pytest
 from fdai.core.ontology_platform.kinetics import ReconciliationStatus
@@ -30,8 +28,6 @@ from tests.delivery.azure.vm_power_state_fixtures import (
     RESOURCE_REF,
     vm_start_fixture,
 )
-
-SOURCE_ROOT = Path(__file__).resolve().parents[3] / "src" / "fdai"
 
 
 class _Source:
@@ -160,29 +156,14 @@ async def test_non_running_power_state_is_retained_as_mismatched() -> None:
     assert outcome.receipt.mismatches == (f"{RESOURCE_REF}:power_state",)
 
 
-async def test_starting_state_remains_held_until_a_later_running_read() -> None:
-    artifacts, action = vm_start_fixture()
-    source = _Source(_reading(state="starting"))
-    collector = AzureVmStartObservationCollector(
-        source=source,
-        context_issuer=_Issuer(),
-        observer_identity="observer:heimdall:vm-power",
-        source_identity="source:azure-arm:vm-power",
-        clock=lambda: CREATED_AT + timedelta(seconds=31),
-    )
-    args = dict(
-        action=action,
-        artifacts=artifacts,
-        execution_outcome="succeeded",
-        execution_completed_at=CREATED_AT + timedelta(seconds=1),
-        execution_receipt_ref=None,
-        correlation_id="correlation:vm-start",
-    )
+async def test_starting_state_is_retained_as_unscorable_transition() -> None:
+    _artifacts, _action, observation, outcome = await _outcome(_reading(state="starting"))
 
-    assert await collector.collect(**args) is None
-    source.reading = _reading(state="running")
-    assert await collector.collect(**args) is not None
-    assert len(source.calls) == 2
+    assert observation.evidence.complete is False
+    assert observation.evidence.records[0].to_record().properties == {"power_state": "starting"}
+    assert observation.evidence.censoring_refs == ()
+    assert outcome.receipt.status is ReconciliationStatus.UNSCORABLE
+    assert outcome.recommendation.reason_code == "observation_incomplete"
 
 
 @pytest.mark.parametrize(
@@ -289,27 +270,3 @@ async def test_signed_context_substitution_is_rejected() -> None:
 def test_reading_rejects_incomplete_observed_state() -> None:
     with pytest.raises(ValueError, match="completeness"):
         replace(_reading(), complete=False)
-
-
-def test_vm_power_state_observer_is_not_runtime_wired() -> None:
-    forbidden = (
-        "fdai.delivery.azure.vm_power_state",
-        "fdai.delivery.azure.vm_power_state_observation",
-    )
-    roots = ("composition", "core/control_loop", "runtime")
-    violations: list[str] = []
-    for root in roots:
-        path = SOURCE_ROOT / root
-        candidates = (path,) if path.is_file() else path.rglob("*.py")
-        for candidate in candidates:
-            tree = ast.parse(candidate.read_text(encoding="utf-8"))
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Import):
-                    modules = tuple(alias.name for alias in node.names)
-                elif isinstance(node, ast.ImportFrom) and node.module is not None:
-                    modules = (node.module,)
-                else:
-                    modules = ()
-                if any(module.startswith(prefix) for module in modules for prefix in forbidden):
-                    violations.append(str(candidate.relative_to(SOURCE_ROOT)))
-    assert violations == []

@@ -28,6 +28,14 @@ additional_tags = {
   "fdai:environment-class" = "dev"
 }
 
+# Alert-noise provider qualification is a separate, one-rule dev pilot.
+# Keep it disabled until the exact protected plan satisfies its applicable approval contract.
+# Never commit either populated value.
+# enable_alert_noise_pilot             = true
+# alert_noise_pilot_phase              = "baseline"
+# alert_noise_pilot_target_resource_id = "/subscriptions/.../resourceGroups/.../providers/Microsoft.KeyVault/vaults/..."
+# alert_noise_pilot_email              = "approved-test-recipient@example.invalid"
+
 # ---------------------------------------------------------------
 # Private-networking deploy (policy-locked "private-everything"
 # tenants). When true, the deploy MUST run from the bootstrap
