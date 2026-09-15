@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { AuditItem } from "../types";
-import { appendAuditPage, resolveAuditEntry } from "./audit.model";
+import { appendAuditPage, auditContextRecord, auditEntryText, auditRecordedPhase, resolveAuditEntry, searchAuditItems } from "./audit.model";
 import { auditFiltersFromSearch } from "./audit";
 
 function item(seq: number): AuditItem {
@@ -8,6 +8,33 @@ function item(seq: number): AuditItem {
 }
 
 describe("audit pagination", () => {
+  test("keeps selected record identity and causal fields in screen context", () => {
+    expect(auditContextRecord({
+      ...item(42), entry: { reason: "Requires human approval", detail: "No dispatch", outcome: "hil" },
+    })).toMatchObject({
+      seq: 42, reason: "Requires human approval", detail: "No dispatch", outcome: "hil", summary: "-",
+    });
+  });
+  test("searches recorded identities only within the loaded page", () => {
+    const first = { ...item(2), actor: "Saga", entry: { idempotency_key: "idem-one", rule_id: "rule-one" } };
+    const second = { ...item(1), entry: { summary: "Saga is mentioned, but is not the actor" } };
+    expect(searchAuditItems([first, second], " saga ")).toEqual([first]);
+    expect(searchAuditItems([first, second], "IDEM-ONE")).toEqual([first]);
+    expect(searchAuditItems([first, second], "rule-one")).toEqual([first]);
+    expect(searchAuditItems([first, second], "absent")).toEqual([]);
+    expect(searchAuditItems([first, second], "")).toEqual([first, second]);
+  });
+
+  test("does not convert outcomes, hashes, or action names into verified stages", () => {
+    const record = { ...item(1), action_kind: "effect_observation.recorded", entry: { outcome: "succeeded" } };
+    expect(auditRecordedPhase(record)).toBeNull();
+    expect(auditRecordedPhase({ ...record, entry: { stage: "verify" } })).toBe("observe");
+    expect(auditRecordedPhase({ ...record, entry: { stage: "execute" } })).toBe("dispatch");
+    expect(auditRecordedPhase({ ...record, entry: { stage: "unknown" } })).toBeNull();
+    expect(auditEntryText({ stage: false }, "stage")).toBeNull();
+    expect(auditEntryText({ stage: " " }, "stage")).toBeNull();
+  });
+
   test("turns an exact entry link into immutable server-side sequence bounds", () => {
     const filters = auditFiltersFromSearch(new URLSearchParams("entry=42"));
     expect(filters.fromSeq).toBe(42);
