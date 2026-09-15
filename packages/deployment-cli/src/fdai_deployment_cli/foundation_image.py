@@ -20,9 +20,18 @@ def verify_foundation_runner_image(
     never returned or included in an error.
     """
 
+    mode = variables.get("runner_bootstrap_mode", "offline")
     image_id = variables.get("runner_source_image_id")
+    marketplace_version = variables.get("runner_marketplace_image_version", "")
     source_commit = variables.get("runner_image_source_commit", variables.get("source_commit"))
     toolchain_digest = variables.get("runner_image_toolchain_digest")
+    if mode == "online":
+        return _verify_marketplace_image(
+            version=marketplace_version,
+            toolchain_digest=toolchain_digest,
+            expected_region=expected_region,
+            run=run,
+        )
     if (
         not isinstance(image_id, str)
         or not image_id
@@ -57,7 +66,7 @@ def verify_foundation_runner_image(
     except json.JSONDecodeError as exc:
         raise ValueError("Foundation runner image observation is invalid") from exc
     if not isinstance(observed, dict):
-        raise ValueError("Foundation runner image observation is invalid")
+        raise TypeError("Foundation runner image observation is invalid")
     tags = observed.get("tags")
     image_type = str(observed.get("type", "")).casefold()
     os_type = observed.get("managedOsType") or observed.get("galleryOsType")
@@ -85,6 +94,75 @@ def verify_foundation_runner_image(
             "provisioning_state": "Succeeded",
             "os_type": "Linux",
             "source_commit": source_commit,
+            "toolchain_digest": toolchain_digest,
+        }
+    )
+
+
+def _verify_marketplace_image(
+    *,
+    version: object,
+    toolchain_digest: object,
+    expected_region: str,
+    run: RunCommand,
+) -> str:
+    if (
+        not isinstance(version, str)
+        or not version
+        or not isinstance(toolchain_digest, str)
+        or not toolchain_digest
+    ):
+        raise ValueError("Foundation Marketplace image input is incomplete")
+    urn = f"Canonical:ubuntu-24_04-lts:server:{version}"
+    completed = run(
+        [
+            "az",
+            "vm",
+            "image",
+            "show",
+            "--location",
+            expected_region,
+            "--urn",
+            urn,
+            "--query",
+            (
+                "{version:name,location:location,"
+                "osType:osDiskImage.operatingSystem,"
+                "hyperVGeneration:hyperVGeneration}"
+            ),
+            "--output",
+            "json",
+            "--only-show-errors",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    if completed.returncode != 0:
+        raise ValueError("Foundation Marketplace image is unavailable")
+    try:
+        observed = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError("Foundation Marketplace image observation is invalid") from exc
+    if (
+        not isinstance(observed, dict)
+        or observed.get("version") != version
+        or str(observed.get("location", "")).casefold() != expected_region.casefold()
+        or observed.get("osType") != "Linux"
+        or observed.get("hyperVGeneration") != "V2"
+    ):
+        raise ValueError("Foundation Marketplace image does not match the reviewed input")
+    return canonical_digest(
+        {
+            "schema_version": "fdai.foundation-marketplace-image-observation.v1",
+            "publisher": "Canonical",
+            "offer": "ubuntu-24_04-lts",
+            "sku": "server",
+            "version": version,
+            "region": expected_region,
+            "os_type": "Linux",
+            "hyper_v_generation": "V2",
             "toolchain_digest": toolchain_digest,
         }
     )
