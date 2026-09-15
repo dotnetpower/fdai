@@ -4,9 +4,8 @@ description: Diagnose organization-wide alert overload and propose approval-boun
 ---
 # Alert Noise Governance
 
-This capability provides shadow-first assessment of unnecessary alerts across people, teams,
-roles, and channels. It separates advice from approval-bound Azure notification changes and
-requires independent evidence before reporting reduced interruption or preserved response.
+This capability assesses unnecessary alerts across people, teams, roles, and channels in shadow mode.
+It separates advice from approval-bound Azure changes; interruption and response claims require independent evidence.
 
 > **Implementation boundary:** Shadow-first implementation; operational adoption remains gated.
 > Four catalog actions and opt-in runtime mechanics exist, but this checkpoint claims no provider
@@ -339,6 +338,7 @@ A report action submits a typed request, never an ARM call or approval. The Sett
 separate prerequisites, enabled preference, and authority, with scoped human Owner revision checks.
 Dedicated Operator request composition binds projections, durable preferences, history and one supervised bridge; unavailable Settings is not a saved switch.
 The shared root owns lifecycle/readiness, never feature policy. Neither enabling nor accepting a request promotes an action.
+Alert and test-context bridges keep distinct logical topics and independent readiness; either failed worker closes readiness. Core migration branches join through additive no-op markers, never rewritten ancestors or changed grants.
 
 Guidance and optimization notifications are themselves bounded: one deduplicated case per policy,
 scope, and observation window, material updates in the same case, and normal summaries via A4.

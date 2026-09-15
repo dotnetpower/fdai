@@ -127,6 +127,10 @@ async def test_alert_process_and_fail_closed_holds_survive_full_migration_restar
             "SELECT to_regclass('safeguard_dispatch_evidence'), "
             "to_regclass('executor_post_release_closure')"
         ).fetchone() == ("safeguard_dispatch_evidence", "executor_post_release_closure")
+        assert connection.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'forecast_episode' AND column_name = 'closure_observation'"
+        ).fetchone() == ("closure_observation",)
     monkeypatch.setattr(workflow_fixtures, "InMemoryStateStore", lambda **kwargs: _state(db.core))
     monkeypatch.setattr(
         workflow_fixtures, "InMemoryProcessRuntimeStore", lambda: _processes(db.core)

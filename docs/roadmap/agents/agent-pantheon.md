@@ -81,14 +81,13 @@ free of surrounding whitespace at ingress. The shared observation cutoff must in
 Norns remains the sole writer of inert `RuleCandidate` proposals. Its three-perspective consensus, balanced cohort limits, pending queue, Mimir review, and catalog activation boundary are owned by
 [Operational Learning Ontology](../rules-and-detection/operational-learning-ontology.md#norns-consensus-and-catalog-boundary). The private `norns_deployment_learning.py` helper holds only bounded scenario-gap and preflight-blocker aggregation state; Norns still creates and publishes every candidate through its consensus and rate-limit boundary. Caller-supplied recurring preflight manual blockers become scope-deduplicated inert `preflight-toggle-gap` candidates and never create a toggle or change deployment authority. Reproduced Rule-retrieval failures enter as Huginn-owned events. Heimdall independently validates the exact failure and publishes `object.retrieval-validation`; Saga audits that evidence and Muninn materializes it as `object.context-index`. Norns strictly rejects raw text, unverified failures, non-retrieval causes, and targets without an exact Rule version; it durably records the remaining challenger before using the same consensus and `object.rule-candidate` path. For adaptive causal investigation, Muninn supplies bounded transport-safe active/challenger comparisons through `object.context-index`; Norns validates the producer and balanced improvement/control evidence, compiles an inert shadow-only `revision`, and sends it to the same Mimir queue without changing a running selector. A missing durable sink backpressures the event instead of dropping it. Production runtime also injects a default-off ceiling at this final publication boundary: a closed gate preserves the bounded pending queue and consensus evidence, while an open gate grants no catalog, promotion, approval, or execution authority and still leads to Mimir plus a reviewed catalog-as-code pull request.
 
-For operational-case cohorts, Norns also requires one pinned FDAI revision and scenario set plus a
-complete, fresh, conflict-free review record for every immutable case. A live record marked
-synthetic and a duplicate case revision are held before publication. Mimir independently parses
-the same review records and exact release before producing an inert draft. Neither agent can move
-the authoritative promotion registry; only an independently approved exact replay can do that.
-Muninn updates its process-local cohort cache only after the durable cohort write succeeds. After
-publication, it also persists the emitted digest before caching that suppression marker; the marker
-is absent before the durable write.
+Operational cohorts follow the pinned-release, complete, fresh, conflict-free and nonduplicate case
+[review contract](../rules-and-detection/operational-learning-ontology.md); Mimir rechecks it independently.
+Muninn partitions scope, purpose, mechanism, ActionType, release, scenario, and source, uses bounded
+CAS and frozen snapshots in a deletion-fenced projection store, with no process-local case-body cache.
+Norns publishes inert `Pattern` through consensus/rate limits; queued scoped input requires broker retry or retained replay.
+Muninn validates body/envelope versions, recompiles current scoped cases and artifacts, and retains Saga snapshots; reads reject tampering/deletion.
+Neither agent gains promotion/execution authority. Reviewed replay alone promotes; the runtime-bound test-context reader can only lower Forseti's ceiling.
 
 Shadow dwell is the loop's last inert bar. Norns retains shadow-mode audit outcomes as per-target dwell observations - shadow results still never dilute its real rollback-rate learner - and attaches the resulting self-verifying evidence to the candidate it publishes. Mimir re-derives the verdict from that wire evidence and refuses promotion for a candidate with missing, inconsistent, target-mismatched, or under-threshold dwell; the zero policy-escape allowance is not configurable. This grants no authority to either agent: the catalog still changes only through a merged catalog-as-code pull request. See [Autonomous Rule Discovery](../rules-and-detection/rule-catalog-autonomous-discovery.md#shadow-dwell-evidence-upstream-implementation).
 
@@ -290,7 +289,7 @@ Each consumer closes its subscription inside its own task, so the broker adapter
 
 | Topic | Publisher | Primary subscribers |
 |-------|-----------|---------------------|
-| object.event | Huginn | Heimdall, Muninn (retention ticks), Njord/Freyr/Loki (bounded specialist signals) |
+| object.event | Huginn | Heimdall, Muninn (retention ticks), Var/Mimir (test-context commands), Njord/Freyr/Loki (bounded specialist signals) |
 | object.change | Huginn | Muninn (immutable change revisions), Forseti (observation-mode ARB join) |
 | object.anomaly, object.drift, object.forecast | Heimdall | Forseti; Muninn reads detection-readiness drift only |
 | object.forecast-outcome | Heimdall | Saga, Muninn |
@@ -301,12 +300,13 @@ Each consumer closes its subscription inside its own task, so the broker adapter
 | object.arbitration-request | Forseti | Odin |
 | object.arbitration-decision | Odin | Forseti, Saga |
 | object.action-run | Thor | Heimdall (terminal effect observation), Vidar, Var, Saga |
-| object.approval | Var | Thor, Saga |
+| object.approval | Var | Thor (action approvals only), Saga, Mimir (test-context reviews), Norns (learning reviews) |
 | object.rollback | Vidar | Thor (ActionRun projection), Saga |
 | object.audit-entry | Saga | Norns, Muninn (document index gate), Var (document HIL) |
 | object.issue | Saga | Norns, Mimir |
 | object.rule-candidate | Norns | Mimir |
-| object.rule | Mimir | Forseti (cache reload), Saga (catalog-review audit) |
+| object.pattern | Norns | Muninn (inert retention and current-case read validation) |
+| object.rule, object.policy | Mimir | Forseti (Rule cache reload), Saga (Rule and Policy audit) |
 | object.context-index, object.state-snapshot | Muninn | Norns (sealed case-history intake), Saga (snapshot audit) |
 | object.conversation | Bragi | (session index) |
 | object.turn | Bragi | Muninn |

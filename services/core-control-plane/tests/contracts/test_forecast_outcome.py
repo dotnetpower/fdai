@@ -56,6 +56,72 @@ def test_registry_exposes_forecast_outcome_schema() -> None:
     assert schema["title"] == "ForecastOutcome"
 
 
+def test_legacy_serialization_does_not_add_scoring_exclusions() -> None:
+    outcome = ForecastOutcome.model_validate(_payload())
+    raw = outcome.model_dump(mode="json")
+    assert "scoring_exclusions" not in raw
+    JsonSchemaContractValidator(PackageResourceSchemaRegistry()).validate("forecast-outcome", raw)
+
+
+def test_complete_metrics_can_be_unscorable_with_explicit_v11_context_exclusion() -> None:
+    outcome = ForecastOutcome.model_validate(
+        _payload(
+            schema_version="1.1.0",
+            label="unscorable",
+            scoring_exclusions=["intervention_history_unavailable"],
+        )
+    )
+    raw = outcome.model_dump(mode="json")
+    assert raw["telemetry_completeness"] == "complete"
+    assert raw["scoring_exclusions"] == ["intervention_history_unavailable"]
+    JsonSchemaContractValidator(PackageResourceSchemaRegistry()).validate("forecast-outcome", raw)
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"schema_version": "1.0.0", "label": "unscorable"},
+        {"schema_version": "1.1.0", "label": "true_positive"},
+        {"schema_version": "1.1.0", "label": "unscorable", "scoring_exclusions": ["other"]},
+        {
+            "schema_version": "1.1.0",
+            "label": "unscorable",
+            "scoring_exclusions": ["excluded_window", "excluded_window"],
+        },
+    ],
+)
+def test_exclusions_cannot_bypass_version_or_scoring_contract(overrides: dict[str, object]) -> None:
+    fields: dict[str, object] = {"scoring_exclusions": ["excluded_window"], **overrides}
+    with pytest.raises(ValidationError):
+        ForecastOutcome.model_validate(_payload(**fields))
+
+
+def test_forecast_validation_cache_preserves_each_declared_version() -> None:
+    validator = JsonSchemaContractValidator(PackageResourceSchemaRegistry())
+    legacy = ForecastOutcome.model_validate(_payload()).model_dump(mode="json")
+    excluded = ForecastOutcome.model_validate(
+        _payload(
+            schema_version="1.1.0",
+            label="unscorable",
+            scoring_exclusions=["excluded_window"],
+        )
+    ).model_dump(mode="json")
+    for payload in (legacy, excluded, legacy, excluded):
+        validator.validate("forecast-outcome", payload)
+    with pytest.raises(ContractValidationError, match="pinned contract"):
+        validator.validate("forecast-outcome", excluded, version="1.0.0")
+
+
+@pytest.mark.parametrize("version", [None, 1, ""])
+def test_invalid_declared_version_does_not_select_latest(version: object) -> None:
+    raw = ForecastOutcome.model_validate(_payload()).model_dump(mode="json")
+    raw["schema_version"] = version
+    with pytest.raises(ContractValidationError, match="non-empty text"):
+        JsonSchemaContractValidator(PackageResourceSchemaRegistry()).validate(
+            "forecast-outcome", raw
+        )
+
+
 def test_forecast_outcome_accepts_grounded_true_positive() -> None:
     outcome = ForecastOutcome.model_validate(_payload())
     assert outcome.label is ForecastOutcomeLabel.TRUE_POSITIVE

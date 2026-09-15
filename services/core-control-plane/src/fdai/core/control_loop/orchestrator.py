@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 from fdai.core.assurance_twin import DynamicRuntimeCoordinator, GraphDynamicRuntimeCoordinator
+from fdai.core.case_history import CaseHistoryMaterializer
 from fdai.core.control_loop._boundary import ControlLoopBoundaryMixin
 from fdai.core.control_loop._canary import process_canary
 from fdai.core.control_loop._execution import ControlLoopExecutionMixin
@@ -259,6 +260,7 @@ class ControlLoop(
         self._direct_api_executor = direct_api_executor
         self._tool_executor = tool_executor
         self._t1_engine = t1_engine
+        self._case_history_reuse: CaseHistoryMaterializer | None = None
         self._dynamic_runtime_coordinator = dynamic_runtime_coordinator
         self._graph_dynamic_runtime_coordinator = graph_dynamic_runtime_coordinator
         self._t2_engine = t2_engine
@@ -291,6 +293,19 @@ class ControlLoop(
         self._alert_action_binder = alert_action_binder
         self._alert_plan_artifacts = alert_plan_artifacts
         self._process_runtime_store = process_runtime_store
+
+    def bind_case_history_reuse(self, materializer: CaseHistoryMaterializer) -> None:
+        """Bind the authoritative case revision reader before processing runtime events."""
+        if self._case_history_reuse is not None:
+            raise RuntimeError("case history reuse is already bound")
+        if self._t1_engine is not None:
+            self._t1_engine.bind_case_history(materializer)
+        self._case_history_reuse = materializer
+
+    @property
+    def case_history_reuse(self) -> CaseHistoryMaterializer | None:
+        """Return the current source reader, including when T1 itself is unavailable."""
+        return self._case_history_reuse
 
     async def _maybe_fire_workflows(self, event: Event) -> None:
         """Fire matched shadow Workflows without changing the primary decision."""

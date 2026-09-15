@@ -304,17 +304,32 @@ def test_five_configs_have_distinct_heads_and_explicit_adoption() -> None:
     assert len(version_tables) == 5
 
 
-def test_alert_handover_merge_preserves_both_parents_without_database_effects() -> None:
+@pytest.mark.parametrize(
+    ("revision_id", "parents"),
+    [
+        (
+            "core_alert_handover_merge_20260915",
+            {"core_process_sequence_20260915", "core_human_access_execution_20260915"},
+        ),
+        (
+            "core_alert_forecast_merge_20260915",
+            {
+                "core_alert_handover_merge_20260915",
+                "core_forecast_closure_observation_20260914",
+            },
+        ),
+    ],
+)
+def test_alert_handover_merge_preserves_both_parents_without_database_effects(
+    revision_id: str, parents: set[str]
+) -> None:
     config = Config(str(MIGRATION_ROOT / "configs/core-control-plane.ini"))
     script = ScriptDirectory.from_config(config)
-    revision = script.get_revision("core_alert_handover_merge_20260915")
+    revision = script.get_revision(revision_id)
 
     assert revision is not None
     assert revision.is_merge_point
-    assert set(revision.down_revision) == {
-        "core_process_sequence_20260915",
-        "core_human_access_execution_20260915",
-    }
+    assert set(revision.down_revision) == parents
     assert revision.revision in {item.revision for item in script.walk_revisions()}
     migration = runpy.run_path(str(revision.path))
     assert migration["migration_owner"] == "core-control-plane"

@@ -18,6 +18,11 @@ history or directory evidence stays partial; this graph's observation and single
 
 ## Design at a glance
 
+Historical Pattern explanations use the same semantic function registry but remain separate from
+observed graph state. `query.operating_patterns` requires independent principal-to-case-scope read
+admission and current source revisions. Its summaries create no resource observations or action
+authority; [case history](../rules-and-detection/prediction-learning-and-case-history.md) owns the contract.
+
 Continuous collection combines push events, resumable provider deltas, and adaptive reconciliation. It does not use a fixed six-hour scan as the normal freshness mechanism and does not run an
 unbounded tight polling loop.
 

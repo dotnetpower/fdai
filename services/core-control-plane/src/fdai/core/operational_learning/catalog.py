@@ -17,6 +17,7 @@ from .case_review import (
     CaseReviewError,
     ImmutableCaseRef,
     OperationalCaseReview,
+    parse_candidate_case_scope,
     parse_case_reviews,
     validate_case_review_window,
 )
@@ -52,6 +53,7 @@ _TRANSPORT_FIELDS = frozenset(
         "schema_version",
         "norns_consensus",
         "shadow_dwell",
+        "case_scope",
     }
 )
 _EVIDENCE_FIELDS = frozenset(
@@ -112,6 +114,8 @@ class OperationalPatternRuleCandidate:
     scenario_set_version: str
     case_reviews: tuple[OperationalCaseReview, ...]
     digest: str
+    access_scope_digest: str | None = None
+    purpose: str | None = None
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, object]) -> OperationalPatternRuleCandidate:
@@ -177,6 +181,7 @@ class OperationalPatternRuleCandidate:
         scenario_set_version = _required_identifier(evidence, "scenario_set_version")
         try:
             case_reviews = parse_case_reviews(evidence.get("case_reviews"), case_refs)
+            scope = parse_candidate_case_scope(raw)
         except CaseReviewError as exc:
             raise CatalogCompilationError(exc.code) from exc
         digest_evidence = _parse_digests(
@@ -213,6 +218,8 @@ class OperationalPatternRuleCandidate:
             "scenario_set_version": scenario_set_version,
             "case_reviews": tuple(review.to_mapping() for review in case_reviews),
         }
+        if scope is not None:
+            material["case_scope"] = dict(scope)
         return cls(
             pattern_id=pattern_id,
             failure_fingerprint=failure_fingerprint,
@@ -228,10 +235,22 @@ class OperationalPatternRuleCandidate:
             scenario_set_version=scenario_set_version,
             case_reviews=case_reviews,
             digest=_digest(material),
+            access_scope_digest=scope["access_scope_digest"] if scope is not None else None,
+            purpose=scope["purpose"] if scope is not None else None,
         )
 
     def to_mapping(self) -> dict[str, object]:
         return {
+            **(
+                {
+                    "case_scope": {
+                        "access_scope_digest": self.access_scope_digest,
+                        "purpose": self.purpose,
+                    }
+                }
+                if self.access_scope_digest is not None
+                else {}
+            ),
             "pattern_id": self.pattern_id,
             "failure_fingerprint": self.failure_fingerprint,
             "resource_type": self.resource_type,

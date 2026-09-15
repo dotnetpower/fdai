@@ -27,6 +27,7 @@ from fdai_service_contracts.semantic_turn import (
     LOGICAL_TOPIC_FIELD,
     multiplexed_consumer_group,
 )
+from fdai_service_contracts.test_context import TEST_CONTEXT_RESULT_TOPIC
 from fdai_service_contracts.wara_assessment import WARA_ASSESSMENT_TOPIC
 
 from fdai_operator_service.contract_codecs import (
@@ -102,6 +103,11 @@ class OperatorSemanticKafkaConfig:
             self.alert_quality_topic,
             occupied=configured_topics,
             error_message="alert quality topic MUST be distinct and valid",
+        )
+        _require_distinct_topic(
+            TEST_CONTEXT_RESULT_TOPIC,
+            occupied=configured_topics,
+            error_message="context projection topic MUST be distinct",
         )
         _require_distinct_topic(
             self.read_investigation_topic,
@@ -209,6 +215,7 @@ class OperatorSemanticKafkaBus:
         """Publish one canonical bounded JSON object with a stable partition key."""
         allowed = {
             self._config.request_topic,
+            f"{TEST_CONTEXT_RESULT_TOPIC}{self._config.dlq_suffix}",
             f"{self._config.request_topic}{self._config.dlq_suffix}",
             f"{self._config.projection_topic}{self._config.dlq_suffix}",
             f"{self._config.progress_topic}{self._config.dlq_suffix}",
@@ -294,6 +301,7 @@ class OperatorSemanticKafkaBus:
         """Yield valid mappings and commit only after downstream processing resumes."""
         if topic not in {
             self._config.projection_topic,
+            TEST_CONTEXT_RESULT_TOPIC,
             self._config.progress_topic,
             self._config.read_investigation_completion_topic,
             self._config.background_task_projection_topic,

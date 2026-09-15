@@ -1,5 +1,6 @@
 import type { ConversationTurnPayload } from "../user-context-client";
 import { hasAdvisoryResponse, parseActionDraftExplanation, parseAdvisoryResponse, type AdaptiveAnswer } from "./adaptive-answer";
+import { parseTestContextDraft } from "./test-context";
 import { semanticUnavailable } from "./backend-unavailable";
 import type {
   AnswerPlanMetadata,
@@ -65,6 +66,7 @@ export interface RestoredTurn {
   readonly evidenceFreshnessContext?: EvidenceFreshnessContext;
   readonly presentationArtifact?: PresentationArtifact;
   readonly semanticReceipt?: SemanticProjectionReceipt;
+  readonly testContextDraft?: import("./test-context").TestContextDraft;
 }
 
 export type DeckLayoutMode = "floating" | "dock" | "workspace";
@@ -120,6 +122,8 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
     verification,
   );
   const semanticReceipt = parseSemanticProjectionReceipt(replay?.semantic_receipt);
+  const testContextDraft = replay?.status === "action_draft"
+    ? parseTestContextDraft(replay.test_context_draft) : undefined;
   const assessmentId = parseConversationAssessmentId(replay?.assessment_id);
   const source = (advisoryAnswer ? "semantic-advisory-response" : turn.metadata.source) ?? replaySource(replay) ??
     (turn.role === "assistant" ? "history" : undefined);
@@ -136,6 +140,7 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
     recordedAt: turn.recorded_at,
     terminal: true,
     ...(assessmentId ? { assessmentId } : {}),
+    ...(testContextDraft ? { testContextDraft } : {}),
     ...(adaptiveAnswer ? { adaptiveAnswer } : {}),
     ...(attachments.length > 0 ? { attachments } : {}),
     ...(source ? { source } : {}),

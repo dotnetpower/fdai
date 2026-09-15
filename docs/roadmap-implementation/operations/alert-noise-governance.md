@@ -94,6 +94,8 @@ an all-Low review claim, or operational adoption.
 | 2026-09-15 | implemented | Round 31 resolved the merged ontology-query context's 4507-line overflow against the unchanged 4500-line budget. Replaced a duplicate semantic-retrieval implementation overview with a concise ledger link; retained normative contracts, full historical row content, source receipts and open live-evidence requirements. | `current change`; design-route budget, changed-document size, append-only implementation history and Korean translation-quality checks passed. This documentation-only repair reuses unchanged source tests; no route or budget was weakened. | Publish the repaired head and require exact-head CI. The first attempt to push `3e3b8ef3f` was stopped by the local hook; remote PR head remained `4a9cb4647`. |
 | 2026-09-15 | implemented | Confirmed that repaired head `46897130f` passed all required CI jobs. The bounded coordinator then locally integrated and published `473e8fddd` before stopping on a temporarily stale PR-head projection. Current Git/local/PR identities matched; integrated the later CI-green main `77e408882` and resolved only the Korean source-SHA conflict, preserving both documents' content and the upstream integrity signature. | `current change`; [PR CI 34937981601, attempt 1](https://github.com/dotnetpower/fdai/actions/runs/34937981601/attempts/1) and [main CI 34938224919](https://github.com/dotnetpower/fdai/actions/runs/34938224919) succeeded. The merged Console typecheck and 43 focused layout/browser-notification/service-worker cases passed; changed-document size and translation quality passed. Alert Core and callback sources are unchanged. | Publish this local integration and require exact-head protected merge evidence. Parent #1027 retains operational and authenticated-accessibility exits; no live provider or deployment operation ran. |
 
+| 2026-09-15 | implemented | Round 32 integrated the independently delivered prediction/learning changes at main `511178272`. Retained both Operator bridges, distinct result topics, readiness checks and all 215 routes. Recomputed the combined admission-surface digest through the unchanged checker. Added a no-op Core merge after the existing alert/handover and forecast heads instead of reparenting published revisions. Forseti remains judge, Heimdall remains independent observer, and no agent role, approval, model-use policy or execution authority changes. | `current change`; 71 initial merge checks and 21 focused head/topic/ingress regressions passed. The owning 232-case selection passed 231 cases and exposed one DB-only fixture without its environment; that exact case later passed against isolated loopback PostgreSQL. The full root/five-service migration alert Process/hold/privilege restart case also passed. Callback-only measurement passed 63 cases with 100% lines and 100% branches; five-source strict typing and enforced size check passed. | Publish the exact integration and require new protected CI/merge evidence. These are local source and database mechanics; provider effects, authenticated accessibility and promotion remain separate in #1027. |
+
 ### Remaining work
 
 The temporal source extension passed 121 focused replay/IaC/admitted-source checks, then 30 native
@@ -102,17 +104,17 @@ planning and pipeline regression slice passed 40 checks. Temporal replay measure
 branch coverage; changed source strict typing passed. The exact admitted reader now consumes real
 frozen source cohorts when supplied, instead of requiring an externally calculated comparison.
 
-Current integration base: `77e408882`. Assignment/handover, Teams lifecycle and ActionRun authority
-coexist with alert handlers and their workers, topics, readiness and 211-route manifest. Alert effects
+Current integration base: `511178272`. Assignment/handover, Teams lifecycle and ActionRun authority
+coexist with alert and test-context handlers, workers, topics, readiness and the 215-route manifest. Alert effects
 retain the shared no-effect completion boundary; generic PR/health evidence cannot verify delivery
-or recall. The prior integration passed 104 cases and two-source strict typing; the latest
-Console integration passed 43 focused cases and Console types without changing alert Core sources.
+or recall. The preceding Console integration passed 43 cases and types; the latest prediction/learning
+integration has the focused shared-boundary, full-migration and independent coverage evidence above.
 
 - [x] **Coverage gate:** The final owned feature measurement reached lines 96.61%, branches 90.67%
   and combined 95.06% using `--cov=fdai.core.detection.alert_noise --cov-branch`.
   Its seven database setup errors were subsequently resolved and rerun; no measured Core source
   changed. Both floors were checked independently; temporal comparison alone measured 100%.
-- [x] **Hardening batches:** Rounds 1-31 below each have focused verification and a local commit.
+- [x] **Hardening batches:** Rounds 1-32 below each have focused verification and a local commit.
   Reproduced source and delivery defects were fixed; other rounds record coverage/verification
   without inventing findings. Counting rounds does not close operational or accessibility gaps.
 - [ ] **ANG-1 evidence:** Supply independently admitted directory, current ownership/incident,
@@ -199,6 +201,7 @@ checks do not prove deployed Azure behavior or authorize promotion.
 
 | Round | Scope and hypothesis | Finding / initial severity | Change and falsifying evidence | Remaining |
 |-------|----------------------|----------------------------|--------------------------------|-----------|
+| 32 | Concurrent prediction/learning delivery must preserve alert workers and published migration ancestry. | Medium integration defect: the combined Core branch had two heads; textual topic/lifecycle conflicts also required an explicit union. | Added a no-op merge of the two current heads with unchanged ancestors; real complete-migration Process and privileges pass. Both bridges gate readiness independently and topics cannot collide; owning tests and exact admission digest pass. Callback lines/branches each reach 100%. | No live/provider or authenticated-accessibility qualification is inferred; protected delivery remains pending. |
 | 31 | Merged owner-document growth may exceed a routed context budget. | Low documentation defect, blocking publication: ontology-query context reached 4507 lines against 4500. | Shortened duplicate opening status prose and linked the retained detailed ledger; design-route, size, history and translation checks pass without changing routes, budgets or runtime contracts. | Protected publication remains pending; operational qualification is separate. |
 | 30 | New ActionTypes may invalidate exact-release semantic profile and reviewed surface references. | High availability/integration defect: rule-generation document loading held and package convergence rejected stale ontology pins. | Official source-only generator remeasured unchanged retrieval/F1-F8 cases, preserved old receipts and promotion state, and produced current exact pins; 44 plus 18 focused checks and idempotent regeneration passed. | Live evidence remains bound to its original release; source refresh never promotes the package or deployed index. |
 | 29 | Alert callback additions might exceed the two agent modules' enforced size baselines. | Medium structural defect: CI measured Forseti 1145 > 1111 and Heimdall 862 > 837. | Cohesive role-local callback mixins retain APIs and instance isolation; both baselines, strict typing and owning tests pass. No agent, role, topic or authority was added. | This source structure fix does not close operational qualification. |

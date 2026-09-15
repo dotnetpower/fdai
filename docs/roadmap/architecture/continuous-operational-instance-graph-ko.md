@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 91919282571ede158293597464631fd7e84623d9
+translation_source_sha: 0d596655869688e4344cd9b93e9bdc9ae77b505f
 translation_revised: 2026-09-15
 ---
 # 지속형 운영 인스턴스 그래프
@@ -21,6 +21,11 @@ translation_revised: 2026-09-15
 > Resource Graph, Activity Log, Monitor, Resource Health가 현재 구현된 공급자 원본입니다.
 
 ## 설계 개요
+
+과거 Pattern 설명은 같은 의미 함수 레지스트리를 사용하지만 관측된 그래프 상태와 구분합니다.
+`query.operating_patterns`는 principal과 사례 접근 범위를 연결하는 독립 조회 검증 증적 및
+현재 출처 개정을 요구합니다. 요약은 리소스 관측이나 액션 권한을 만들지 않으며,
+[사례 이력](../rules-and-detection/prediction-learning-and-case-history-ko.md)이 이 계약을 정의합니다.
 
 지속형 수집은 push 이벤트, 재개 가능한 공급자 delta, 적응형 reconciliation을 결합합니다.
 일반 최신성 수단으로 고정된 6시간 scan을 사용하지 않으며, 제한 없는 촘촘한 polling loop도

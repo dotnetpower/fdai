@@ -31,6 +31,7 @@ from fdai.core.architecture_review import OntologyArchitectureReviewLoop
 from fdai.core.capacity import CapacityGraduationController
 from fdai.core.impact_analysis import ChangeAssessmentService
 from fdai.core.operational_context import OperationalContextMaterializer
+from fdai.core.operational_context.test_context import TestContextSource as TestContextSource
 from fdai.core.operational_planning import (
     KineticActionProposalSource,
     SpecialistPlanningCoordinator,
@@ -40,6 +41,9 @@ from fdai.shared.providers.cost_governance import (
     CostAdvisoryProvider,
     CostAnalysisSample,
     CostPackageActivationReader,
+)
+from fdai.shared.providers.decision_evidence_verifier import (
+    DecisionEvidenceAdmissionProvider as DecisionEvidenceAdmissionProvider,
 )
 
 PlanningCoordinator = SpecialistPlanningCoordinator
@@ -103,6 +107,8 @@ def configured_forseti(
     change_assessor: ChangeAssessmentService | None,
     prospective_lineage_finalizer: ProspectiveLineageFinalizer | None = None,
     architecture_review_loop: OntologyArchitectureReviewLoop | None = None,
+    test_context_source: TestContextSource | None = None,
+    test_context_admission: DecisionEvidenceAdmissionProvider | None = None,
 ) -> Forseti | None:
     """Build Forseti only when composition supplies an optional binding."""
     if all(
@@ -116,6 +122,8 @@ def configured_forseti(
             prospective_lineage_finalizer,
             change_assessor,
             architecture_review_loop,
+            test_context_source,
+            test_context_admission,
         )
     ):
         return None
@@ -128,6 +136,8 @@ def configured_forseti(
         prospective_lineage_finalizer=prospective_lineage_finalizer,
         change_assessor=change_assessor,
         architecture_review_loop=architecture_review_loop,
+        test_context_source=test_context_source,
+        test_context_admission=test_context_admission,
     )
 
 

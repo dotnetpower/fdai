@@ -6,10 +6,12 @@ from fdai_operator_service.alert_quality_runtime import AlertQualityBridge
 from fdai_operator_service.incident_intervention_runtime import (
     IncidentInterventionBridge,
 )
+from fdai_operator_service.test_context_runtime import TestContextBridge
 
 __all__ = [
     "ActionConfirmationBridge",
     "AlertQualityBridge",
     "IncidentInterventionBridge",
+    "TestContextBridge",
     "build_alert_quality_bindings",
 ]

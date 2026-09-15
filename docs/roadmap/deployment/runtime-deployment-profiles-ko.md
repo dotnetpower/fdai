@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: c3b43a75f03db1d17d55dd4d867c53cca2d9056d
+translation_source_sha: 76573db285943dedfc4181f03a4ccd74b66c4572
 translation_revised: 2026-09-15
 ---
 # 런타임 배포 프로파일
@@ -16,6 +16,9 @@ Container Apps 또는 Azure Kubernetes Service(AKS)를 선택하는 방법을 �
 > Event Hubs Kafka 엔드포인트, Key Vault, 워크로드 신원, PostgreSQL 스키마를 사용합니다.
 
 ## 설계 개요
+
+공유 Operator 발신함 구성은 두 플랫폼에서 같은 테스트 맥락 작업을 사용합니다.
+facade로 import를 모아도 AKS 관측, Cost Governance 활성화, 배포 권한은 생기지 않습니다.
 
 운영자는 런타임 플랫폼과 데이터베이스 배치를 하나씩 선택합니다. `fdaictl`은 조합을 검증하고,
 용량과 비용을 추정하며, 플랫폼별 프로비저닝 그래프를 컴파일하고, 각 정확한 플랜에 대한 승인을

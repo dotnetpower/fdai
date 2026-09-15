@@ -6,7 +6,7 @@ import hashlib
 import json
 import math
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from typing import Literal, Protocol
 
@@ -19,7 +19,13 @@ from fdai.core.tiers.t1_lightweight import (
     LearnedAction,
     OperationalCaseContext,
 )
+from fdai.core.tiers.t1_lightweight.contextual_reuse import (
+    CURRENT_REUSE_EVIDENCE_PURPOSE,
+    current_reuse_evidence_digest,
+    current_reuse_scope_digest,
+)
 from fdai.shared.contracts.models import Event
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.metric import MetricPoint, MetricProvider, MetricQuery
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 
@@ -184,6 +190,7 @@ class AzureCurrentReuseVerifier:
         max_snapshot_age: timedelta = timedelta(minutes=5),
         max_future_skew: timedelta = timedelta(minutes=1),
         clock: Callable[[], datetime] | None = None,
+        admission_provider: DecisionEvidenceAdmissionProvider | None = None,
     ) -> None:
         if max_snapshot_age <= timedelta(0) or max_future_skew < timedelta(0):
             raise ValueError("Azure current snapshot freshness bounds are invalid")
@@ -192,6 +199,7 @@ class AzureCurrentReuseVerifier:
         self._max_snapshot_age = max_snapshot_age
         self._max_future_skew = max_future_skew
         self._clock = clock or (lambda: datetime.now(tz=UTC))
+        self._admission_provider = admission_provider
 
     async def verify(
         self,
@@ -221,7 +229,7 @@ class AzureCurrentReuseVerifier:
         topology_role = context.required_topology_role
         if topology_role not in snapshot.topology_roles:
             topology_role = snapshot.topology_roles[0] if snapshot.topology_roles else "unknown"
-        return CurrentReuseVerification(
+        verification = CurrentReuseVerification(
             case_ref=context.case_ref,
             observed_at=snapshot.observed_at,
             evidence_refs=evidence_refs,
@@ -238,6 +246,15 @@ class AzureCurrentReuseVerifier:
             idempotency_available=checks.idempotency_available,
             rollback_resolved=checks.rollback_resolved,
         )
+        if self._admission_provider is None:
+            return verification
+        admission = await self._admission_provider.admit(
+            evidence_digest=current_reuse_evidence_digest(verification),
+            scope_digest=current_reuse_scope_digest(event=event, action=action, context=context),
+            purpose_id=CURRENT_REUSE_EVIDENCE_PURPOSE,
+            source_revision=context.graph_digest,
+        )
+        return replace(verification, decision_evidence=admission)
 
 
 @dataclass(frozen=True, slots=True)

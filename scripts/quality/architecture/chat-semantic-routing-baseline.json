@@ -513,6 +513,13 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/shared/contracts/models/forecast_outcome.py",
+      "disposition": "retain",
+      "owner": "forecast-outcome-contract",
+      "reason": "Validates fixed forecast outcome enums, numeric and temporal evidence, schema versions, and scoring exclusions. It does not classify operator language, select semantic intent, or grant authority.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai_core_service/semantic_service_health_answer.py",
       "disposition": "retain",
       "owner": "core-service-presentation",

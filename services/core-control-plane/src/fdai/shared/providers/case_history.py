@@ -206,6 +206,16 @@ class CaseHistoryArtifactStore(Protocol):
     async def delete(self, storage_ref: str) -> None: ...
 
 
+class CaseHistoryDerivedDataStore(Protocol):
+    """Purge derived data after deletion is claimed, before final source tombstoning.
+
+    Implementations fence concurrent writers and preserve unrelated scopes and legal holds.
+    Failure leaves source deletion pending; successful retries are idempotent.
+    """
+
+    async def purge(self, record: CaseHistoryRevisionRecord) -> None: ...
+
+
 def _digest(name: str, value: str) -> None:
     if not _is_digest(value):
         raise ValueError(f"case history {name} MUST be lowercase SHA-256")

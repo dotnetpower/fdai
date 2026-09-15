@@ -27,6 +27,7 @@ from fdai.agents._framework.introspection import (
     mentioned,
     semantic_intents,
 )
+from fdai.agents._framework.mimir_context import MimirContextMixin
 from fdai.agents._framework.pantheon import _MIMIR
 from fdai.core.operational_learning import (
     CatalogCandidateCompiler,
@@ -83,7 +84,7 @@ class CatalogReviewCapacityError(RuntimeError):
     """Review work is saturated; transport must retry or dead-letter."""
 
 
-class Mimir(Agent, HandoverKnowledgeMixin):
+class Mimir(MimirContextMixin, Agent, HandoverKnowledgeMixin):
     """Wave-2 Mimir: promotion state + candidate intake."""
 
     def __init__(
@@ -152,6 +153,8 @@ class Mimir(Agent, HandoverKnowledgeMixin):
         self._rule_generation_state_store = store
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if await self._test_context_message(topic, payload, self.record_behavior):
+            return
         if topic == "object.rule-candidate":
             async with self._review_lock:
                 if await self._handover_message(topic, payload):
@@ -390,6 +393,7 @@ class Mimir(Agent, HandoverKnowledgeMixin):
             return
         compiler = self._catalog_candidate_compiler
         if compiler is None:
+            await self._require_current_candidate_cases(candidate)
             self._ensure_pending_capacity()
             self._pending_candidates.append(candidate)
             self.record_behavior("operational_catalog_compiler_unavailable")
@@ -407,6 +411,7 @@ class Mimir(Agent, HandoverKnowledgeMixin):
                 reason=f"catalog_compile:{exc.code}",
             )
             return
+        await self._require_current_candidate_cases(candidate)
         if (
             package.content_digest not in self._catalog_review_packages
             and len(self._catalog_review_packages) >= self._max_review_packages
@@ -425,6 +430,7 @@ class Mimir(Agent, HandoverKnowledgeMixin):
             raise RuntimeError("retained operational package has no compiler")
         candidate = dict(payload)
         package = compiler.compile(candidate)
+        await self._require_current_candidate_cases(candidate)
         idempotency_key = self._idempotency_key(candidate)
         published = self._published_reviews.get(idempotency_key)
         if published is not None:
@@ -465,6 +471,7 @@ class Mimir(Agent, HandoverKnowledgeMixin):
         candidate: dict[str, Any],
         package: CatalogReviewPackage,
     ) -> None:
+        await self._require_current_candidate_cases(candidate)
         publisher = self._catalog_review_publisher
         if publisher is None:
             await self._audit_outcome(

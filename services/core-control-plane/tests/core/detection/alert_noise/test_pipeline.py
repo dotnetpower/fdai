@@ -64,6 +64,33 @@ async def test_alert_callback_binding_is_single_owner_and_instance_local(
     assert calls == [payload]
 
 
+@pytest.mark.parametrize("event_type", ["alert_noise.assess", "alert_noise.propose"])
+async def test_raw_alert_event_waits_for_observation_before_forseti_planning(
+    event_type: str,
+) -> None:
+    judge = Forseti()
+    calls: list[dict[str, Any]] = []
+
+    async def planner(payload: dict[str, Any]) -> dict[str, Any]:
+        calls.append(payload)
+        return {}
+
+    judge.bind_alert_noise_planner(planner)
+    await judge.on_typed_message("object.event", {"event_type": event_type})
+    assert calls == []
+    await judge.on_typed_message("object.drift", {"kind": "alert_noise"})
+    assert calls == [{"kind": "alert_noise"}]
+
+
+@pytest.mark.parametrize("agent_type", [Forseti, Heimdall])
+async def test_alert_callback_does_not_claim_unrelated_messages(
+    agent_type: type[Forseti] | type[Heimdall],
+) -> None:
+    agent = agent_type()
+    assert not await agent._alert_noise_message("object.drift", {"kind": "unrelated"})
+    assert not await agent._alert_noise_message("object.rule", {})
+
+
 def raw_command(now: datetime, *, request_ref: str = "request:example") -> dict[str, Any]:
     command = AlertNoiseCommand(
         operation="alert_noise.assess",
