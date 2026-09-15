@@ -390,7 +390,7 @@ test("shows applied operator guidance without reloading the Incident page", asyn
   await dialog.getByRole("button", { name: "Submit request" }).click();
 
   await expect(dialog.getByText("Intervention durably queued", { exact: true })).toBeVisible();
-  await expect(dialog.getByText("Intervention applied", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Operator intervention recorded", { exact: true })).toBeVisible();
   await expect(page.locator(".incident-timeline-kind").filter({
     hasText: "incident.intervention-applied",
   })).toHaveCount(1);

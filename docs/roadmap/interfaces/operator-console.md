@@ -603,7 +603,7 @@ Split into focused owner documents:
 
 - [operator-console-wire-contracts.md](operator-console-wire-contracts.md) - audit entry, CLI REPL, approval callback (13.1-13.3), action submit, Python VM workbench, grounded code, and ontology projection (13.6-13.9).
 - [operator-console-view-snapshot.md](operator-console-view-snapshot.md) - the self-describing screen contract (13.4).
-- [operator-console-incident-roster.md](operator-console-incident-roster.md) - incident roster, fix history, bounded HTTP `202` revalidation, and the no-authority Huginn-to-Saga guidance audit path (13.5).
+- [operator-console-incident-roster.md](operator-console-incident-roster.md) - incident roster, fix history, catalog-reused queued/applied status, bounded HTTP `202` revalidation, and the no-authority Huginn-to-Saga guidance audit path (13.5).
 ## 14. MCP delivery and managed catalog
 
 FDAI's only shipped MCP integration is a single fixed-transport, read-only Azure MCP client

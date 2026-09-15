@@ -230,8 +230,11 @@ export function IncidentIntervention({ client, incident, onAccepted }: Props) {
             </div>
           ) : (
             <div class="incident-intervention-queued" role="status">
-              <strong>{t("incidents.intervention.appliedTitle")}</strong>
-              <p>{t("incidents.intervention.appliedBody")}</p>
+              <strong>{t("incidents.event.title.interventionApplied")}</strong>
+              <p>{t("incidents.event.description.interventionApplied", {
+                action: t(`incidents.intervention.action.${action}`),
+                comment: comment.trim(),
+              })}</p>
               <code>{receipt?.request_id}</code>
             </div>
           )}
