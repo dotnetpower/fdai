@@ -84,17 +84,36 @@ describe("notification service worker boundary", () => {
     expect([...context.handlers.keys()].sort()).toEqual(["activate", "install", "notificationclick"]);
   });
 
-  test("opens only the scoped Incident route", () => {
+  test("opens only scoped Audit and legacy Incident routes", () => {
     const root = loadWorker();
     expect(root.safeTarget?.("/incidents?status=all")?.href).toBe(
       "https://console.example.com/incidents?status=all",
     );
     expect(root.safeTarget?.("/approvals")).toBeNull();
     expect(root.safeTarget?.("//attacker.example/incidents")).toBeNull();
+    expect(root.safeTarget?.("/audit?correlation=corr-1")?.pathname).toBe("/audit");
+    expect(root.safeTarget?.("//attacker.example/audit")).toBeNull();
+    expect(root.safeTarget?.("/audit/other")).toBeNull();
 
     const nested = loadWorker("https://console.example.com/fdai/");
     expect(nested.safeTarget?.("/fdai/incidents?status=all")?.pathname).toBe("/fdai/incidents");
     expect(nested.safeTarget?.("/incidents?status=all")).toBeNull();
+    expect(nested.safeTarget?.("/fdai/audit?correlation=corr-1")?.pathname).toBe("/fdai/audit");
+    expect(nested.safeTarget?.("/audit?correlation=corr-1")).toBeNull();
+  });
+
+  test("opens correlated audit evidence with the click acknowledgement", async () => {
+    const openWindow = vi.fn(async () => null);
+    const context = loadWorker("https://console.example.com/fdai/", {
+      matchAll: async () => [],
+      openWindow,
+    });
+
+    await clickNotification(context, "/fdai/audit?correlation=corr-1");
+
+    expect(openWindow).toHaveBeenCalledWith(
+      `https://console.example.com/fdai/audit?correlation=corr-1${ACKNOWLEDGEMENT_SUFFIX}`,
+    );
   });
 
   test("focuses the client returned by navigation", async () => {
