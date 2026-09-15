@@ -28,10 +28,14 @@ def no_live_prices(monkeypatch):
 
 
 @pytest.mark.parametrize("deployment_ready", [False, True])
-@pytest.mark.parametrize("mode", ["review", "interactive", "approved", "ambient", "startup"])
+@pytest.mark.parametrize(
+    "mode", ["review", "interactive", "approved", "ambient", "startup", "transferred"]
+)
 def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deployment_ready, mode):
     interactive = mode == "interactive"
-    approval_file = tmp_path / "approved-checkpoint.json" if mode == "approved" else None
+    approval_file = (
+        tmp_path / "approved-checkpoint.json" if mode in {"approved", "transferred"} else None
+    )
     if approval_file is not None:
         write_private_bytes(approval_file, b"example exact approval")
     root = tmp_path / "checkout"
@@ -73,7 +77,7 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
         "prepare_source_transport",
         lambda *args, **kwargs: (
             transfers.append((args, kwargs))
-            or {"state": "prepared", "remote_transfer_verified": False}
+            or {"state": "prepared", "remote_transfer_verified": False, "archive_digest": "b" * 64}
         ),
     )
 
@@ -148,6 +152,19 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
             )
         )
         status_path.chmod(0o600)
+        host_transfer = {
+            "schema_version": "fdai.source-host-transfer-receipt.v1",
+            "state": "verified",
+            "source_commit": source.commit,
+            "target_binding": "a" * 64,
+            "snapshot_digest": "e" * 64,
+            "archive_digest": "b" * 64,
+            "state_handoff_digest": handoff["receipt_digest"],
+            "remote_transfer_verified": True,
+            "apply_authorized": False,
+            "deployment_ready": False,
+        }
+        host_transfer["receipt_digest"] = canonical_digest(host_transfer)
         return {
             "schema_version": "fdai.source-foundation-progress.v1",
             "state": "review",
@@ -160,6 +177,7 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
             "release_signature_verified": False,
             "stage": stage,
             "attempt": len(calls) - 1,
+            **({"source_host_transfer": host_transfer} if mode == "transferred" else {}),
         }
 
     monkeypatch.setattr(source_azure, "_capture", capture)
@@ -211,10 +229,18 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
         assert result["release_signature_verified"] is False
         assert result["provenance"] == "operator-selected-source"
         assert result["cost_review"]["whole_installation_cost_verified"] is False
+        if mode == "transferred":
+            assert result["source_host_transfer"]["remote_transfer_verified"] is True
+            assert (
+                result["next_action"]
+                == "build_source_images_on_attested_host_and_validate_application_inputs"
+            )
     assert len(calls) == (3 if interactive and not deployment_ready else 2)
     assert len(prompts) == int(interactive and not deployment_ready)
     assert len(initial_confirmations) == int(mode == "startup")
-    assert len(transfers) == int(not deployment_ready and mode in {"interactive", "approved"})
+    assert len(transfers) == int(
+        not deployment_ready and mode in {"interactive", "approved", "transferred"}
+    )
     if approval_file is not None:
         assert approval_file.read_bytes() == b"example exact approval"
 

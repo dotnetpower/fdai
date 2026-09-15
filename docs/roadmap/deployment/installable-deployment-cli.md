@@ -35,7 +35,8 @@ apply, resume, or tear down a tenant deployment.
 ## Connected source deployment
 
 Current source-mode support covers private preparation, read-only AKS capacity preflight,
-runner-image planning and exact-approved Foundation execution through private state handoff.
+runner-image planning, exact-approved Foundation execution through private state handoff,
+and verified source transfer to the enrolled host.
 The public source command resumes these checkpoints using the shared private coordinator;
 new interactive source installations confirm settings at startup only; later stages and JSON
 execution never prompt. `--approval-file <path>` explicitly supplies an existing
@@ -98,15 +99,35 @@ and snapshot digests before source execution. It rejects duplicate, missing, ext
 traversal, hardlink and conflicting file/directory records. Limits are 65536 files, 64 MiB per file,
 2 GiB total source bytes and 16 MiB of manifest; archive overhead is separately bounded.
 Existing output, partial state or changed receipts are preserved rather than repaired or replaced.
+At most four file writes run concurrently, each retaining its private descriptor checks and
+`fsync`. Final snapshot verification waits for every write; a failed write cannot produce success.
 
 The installed `python -m fdai_deployment_cli.source_transport` receiver accepts the archive,
 fresh destination and both independent digests, returns sanitized verification evidence, and never
-executes the received code. A later Bastion integration must supply those digests from the
-authenticated handoff, not from the archive itself. Local preparation verifies a complete receiver
-round trip before reuse. Its receipt explicitly leaves remote transfer, apply authorization and
-deployment readiness unverified. The source command reports `source_application_execution_not_connected`
-until attested-host transfer, source builds and application execution are connected; it does not
-pass source bytes to signed-kit verification or forge signed-release provenance.
+executes the received application code. `--verify-existing` checks the same archive and snapshot
+without writing, adopting partial state, or repairing files. Local preparation verifies a complete
+receiver round trip before reuse; its receipt leaves remote transfer and deployment readiness false.
+
+Installing that receiver from a signed kit would reintroduce the source-mode prerequisite this path
+removes. Instead, a deterministic zipapp contains seven receiver modules from the exact snapshot
+plus a fixed launcher. Each module's read bytes must match its manifest hash; the private bootstrap
+is bounded to 4 MiB and runs on the host's Python 3.12 or later without installing dependencies.
+It remains operator-selected source, not a signed release or entitlement.
+
+The source coordinator transfers under its existing Foundation execution lock after source CI,
+target and state authority checks. It validates the original Foundation and enrollment receipt chain,
+pins the enrolled SSH key and host-key digest, and repeats the managed-host identity/tool attestation.
+Only then does it record an immutable transfer claim, create a fresh private host directory and copy
+the receiver and source archive through Bastion. The receiver hash is checked before execution;
+archive and snapshot digests arrive independently over the authenticated connection. Returned
+evidence must match the local receiver result. All remote operations share the remaining deadline.
+
+A retained claim allows verification only, never another copy or overwrite. Failed or partial
+transfers preserve the claim and fail the source stage. Verified host transfer produces its own
+private receipt with `remote_transfer_verified=true`, but no apply authority or deployment readiness.
+The public command checks that receipt against current local source and handoff evidence, then reports
+`source_application_execution_not_connected`. Host-side image builds and application execution remain
+open. Local and mocked transport evidence do not establish a successful Azure deployment.
 
 The development source path is selected explicitly with `fdaictl provision azure --source <path>`.
 It is mutually exclusive with `--online` and `--offline-kit`. Initial support targets a new

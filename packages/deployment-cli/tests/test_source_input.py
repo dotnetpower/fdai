@@ -10,15 +10,17 @@ import tarfile
 import subprocess
 import sys
 from pathlib import Path
+from threading import Barrier, Lock
 from types import SimpleNamespace
 
 import pytest
 
-from fdai_deployment_cli import source_input
+from fdai_deployment_cli import source_input, source_transport, source_receiver
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.source_deploy import prepare_source_deployment
 from fdai_deployment_cli.source_input import inspect_source
+from fdai_deployment_cli.source_receiver import prepare_source_receiver
 from fdai_deployment_cli.source_snapshot import materialize_source, verify_source_snapshot
 from fdai_deployment_cli.source_transport import (
     archive_source_snapshot,
@@ -221,12 +223,142 @@ def test_source_transport_roundtrip_preserves_modes_and_internal_links(checkout)
     assert (destination / "tree/nested/linked.py").readlink() == Path("../source.py")
     assert not (destination / "tree/.git").exists()
     assert receipt["apply_authorized"] is False
+    assert (
+        receive_source_snapshot(
+            archive,
+            destination,
+            archive_digest=digest,
+            snapshot_digest=snapshot_digest,
+            verify_existing=True,
+        )
+        == receipt
+    )
     with pytest.raises(FileExistsError):
         receive_source_snapshot(
             archive, destination, archive_digest=digest, snapshot_digest=snapshot_digest
         )
     with pytest.raises(FileExistsError):
         archive_source_snapshot(snapshot, archive, snapshot_digest=snapshot_digest)
+
+
+def test_source_receiver_bootstrap_runs_in_isolation_and_never_repairs(checkout, monkeypatch):
+    from fdai_deployment_cli.source_receiver import _MODULES
+
+    package = checkout / "packages/deployment-cli/src/fdai_deployment_cli"
+    package.mkdir(parents=True)
+    for module in _MODULES:
+        (package / f"{module}.py").write_bytes(
+            (Path(source_input.__file__).parent / f"{module}.py").read_bytes()
+        )
+    _git(checkout, "add", ".")
+    _git(checkout, "-c", "commit.gpgsign=false", "commit", "-m", "fixture receiver")
+    snapshot = checkout.parent / "snapshot"
+    snapshot_digest = materialize_source(inspect_source(checkout), snapshot)
+    work = checkout.parent / "transfer"
+    work.mkdir(mode=0o700)
+    receiver_digest = prepare_source_receiver(snapshot, work, snapshot_digest=snapshot_digest)
+    assert (
+        prepare_source_receiver(snapshot, work, snapshot_digest=snapshot_digest) == receiver_digest
+    )
+    receiver = work / "source-receiver.pyz"
+    assert hashlib.sha256(receiver.read_bytes()).hexdigest() == receiver_digest
+    archive = work / "source.tar"
+    digest = archive_source_snapshot(snapshot, archive, snapshot_digest=snapshot_digest)
+    destination = work / "received"
+    command = [
+        sys.executable,
+        "-I",
+        str(receiver),
+        "--archive",
+        str(archive),
+        "--destination",
+        str(destination),
+        "--archive-digest",
+        digest,
+        "--snapshot-digest",
+        snapshot_digest,
+    ]
+    for arguments in (command, [*command, "--verify-existing"]):
+        result = subprocess.run(arguments, cwd=work, capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout)["deployment_ready"] is False
+    (destination / "tree/source.py").write_bytes(b"changed")
+    result = subprocess.run(
+        [*command, "--verify-existing"], cwd=work, capture_output=True, text=True, timeout=30
+    )
+    assert result.returncode == 3
+    assert (destination / "tree/source.py").read_bytes() == b"changed"
+    receiver.write_bytes(b"substituted receiver")
+    with pytest.raises(ValueError, match="receiver bootstrap differs"):
+        prepare_source_receiver(snapshot, work, snapshot_digest=snapshot_digest)
+    monkeypatch.setattr(
+        source_receiver, "_read_tracked", lambda *_args, **_kwargs: b"substituted module"
+    )
+    with pytest.raises(ValueError, match="receiver module differs"):
+        prepare_source_receiver(snapshot, work, snapshot_digest=snapshot_digest)
+
+
+@pytest.mark.parametrize("fail_write", [False, True])
+def test_source_receiver_bounds_durable_writes_before_verification(
+    checkout, monkeypatch, fail_write
+):
+    for index in range(6):
+        (checkout / f"file-{index}").write_bytes(b"source")
+    _git(checkout, "add", ".")
+    _git(checkout, "-c", "commit.gpgsign=false", "commit", "-m", "fixture bounded writes")
+    snapshot = checkout.parent / "snapshot"
+    snapshot_digest = materialize_source(inspect_source(checkout), snapshot)
+    archive = checkout.parent / "source.tar"
+    digest = archive_source_snapshot(snapshot, archive, snapshot_digest=snapshot_digest)
+    destination = checkout.parent / "received"
+    original_write = source_transport.write_private_bytes
+    original_verify = source_transport.verify_source_snapshot
+    barrier = Barrier(4)
+    lock = Lock()
+    active = peak = writes = 0
+    verified = False
+
+    def write(output, content):
+        nonlocal active, peak, writes
+        if output.parent.name != "tree":
+            return original_write(output, content)
+        with lock:
+            active += 1
+            writes += 1
+            peak = max(peak, active)
+            initial_batch = writes <= 4
+        try:
+            if initial_batch:
+                barrier.wait(timeout=5)
+            if fail_write and output.name == ".gitignore":
+                raise OSError("durable source write failed")
+            original_write(output, content)
+        finally:
+            with lock:
+                active -= 1
+
+    def verify(*args, **kwargs):
+        nonlocal verified
+        assert active == 0
+        assert writes == 8
+        verified = True
+        return original_verify(*args, **kwargs)
+
+    monkeypatch.setattr(source_transport, "write_private_bytes", write)
+    monkeypatch.setattr(source_transport, "verify_source_snapshot", verify)
+    if fail_write:
+        with pytest.raises(OSError, match="durable source write failed"):
+            receive_source_snapshot(
+                archive, destination, archive_digest=digest, snapshot_digest=snapshot_digest
+            )
+        assert not verified
+    else:
+        receive_source_snapshot(
+            archive, destination, archive_digest=digest, snapshot_digest=snapshot_digest
+        )
+        assert verified
+    assert active == 0
+    assert peak == 4
 
 
 @pytest.mark.parametrize("corruption", ["archive", "snapshot", "mode", "link", "content"])

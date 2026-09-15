@@ -269,12 +269,35 @@ def plan_source_installation(
             )
             source.reverify()
             deadline.remaining()
+            host_transfer = result.get("source_host_transfer")
+            if host_transfer is not None and (
+                not isinstance(host_transfer, dict)
+                or host_transfer.get("schema_version") != "fdai.source-host-transfer-receipt.v1"
+                or host_transfer.get("state") != "verified"
+                or host_transfer.get("source_commit") != source.commit
+                or host_transfer.get("target_binding") != preflight["target_binding"]
+                or host_transfer.get("snapshot_digest") != prepared["source_snapshot_digest"]
+                or host_transfer.get("archive_digest") != transfer.get("archive_digest")
+                or host_transfer.get("state_handoff_digest") != expected_handoff_digest
+                or host_transfer.get("remote_transfer_verified") is not True
+                or host_transfer.get("deployment_ready") is not False
+                or host_transfer.get("apply_authorized") is not False
+                or canonical_digest(
+                    {key: value for key, value in host_transfer.items() if key != "receipt_digest"}
+                )
+                != host_transfer.get("receipt_digest")
+            ):
+                raise ValueError("source host transfer differs from current local evidence")
             return {
                 **result,
                 "cost_review": cost_review,
                 "source_transfer": transfer,
                 "reason_code": "source_application_execution_not_connected",
-                "next_action": "transfer_verified_source_to_attested_host_and_validate_application_inputs",
+                "next_action": (
+                    "build_source_images_on_attested_host_and_validate_application_inputs"
+                    if host_transfer is not None
+                    else "transfer_verified_source_to_attested_host_and_validate_application_inputs"
+                ),
             }
         if not interactive or result["stage"] not in {
             "runner-image-apply",

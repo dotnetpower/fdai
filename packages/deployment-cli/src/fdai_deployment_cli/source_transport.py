@@ -11,6 +11,8 @@ import re
 import stat
 import sys
 import tarfile
+from collections import deque
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
 from typing import BinaryIO
@@ -114,13 +116,19 @@ def archive_source_snapshot(snapshot: Path, destination: Path, *, snapshot_diges
 
 
 def receive_source_snapshot(
-    archive_path: Path, destination: Path, *, archive_digest: str, snapshot_digest: str
+    archive_path: Path,
+    destination: Path,
+    *,
+    archive_digest: str,
+    snapshot_digest: str,
+    verify_existing: bool = False,
 ) -> dict[str, object]:
     """Verify the transferred bytes and recreate a fresh snapshot before any source execution.
 
     Both expected digests must arrive through the authenticated deployment handoff, not
     from the archive itself. No existing tree/state is adopted or deleted. Partial outputs
     remain on failure and cannot be resumed as verified. This does not authorize deployment.
+    Verification-only recovery reads existing files without replacing or repairing them.
     """
     for digest in (archive_digest, snapshot_digest):
         if re.fullmatch(r"[0-9a-f]{64}", digest) is None:
@@ -145,24 +153,31 @@ def receive_source_snapshot(
         if _digest(source) != archive_digest:
             raise ValueError("source transport archive digest differs")
         source.seek(0)
-        with tarfile.open(fileobj=source, mode="r:") as archive:
+        with (
+            tarfile.open(fileobj=source, mode="r:") as archive,
+            ThreadPoolExecutor(max_workers=4) as writer,
+        ):
             manifest_bytes = _blob(archive, _MANIFEST, _MAX_MANIFEST)
             records = _records(manifest_bytes, snapshot_digest)
-            parent = _open_private_parent(destination)
-            try:
-                os.mkdir(destination.name, 0o700, dir_fd=parent)
-            finally:
-                os.close(parent)
             tree = destination / "tree"
-            tree.mkdir(mode=0o700)
-            write_private_bytes(destination / _MANIFEST, manifest_bytes)
+            if not verify_existing:
+                parent = _open_private_parent(destination)
+                try:
+                    os.mkdir(destination.name, 0o700, dir_fd=parent)
+                finally:
+                    os.close(parent)
+                tree.mkdir(mode=0o700)
+                write_private_bytes(destination / _MANIFEST, manifest_bytes)
             links: list[tuple[Path, str]] = []
+            pending: deque[Future[None]] = deque()
             total = 0
             for index, record in enumerate(records):
                 content = _blob(archive, f"blobs/{index:08d}", _MAX_FILE)
                 total += len(content)
                 if total > _MAX_TOTAL or hashlib.sha256(content).hexdigest() != record["sha256"]:
                     raise ValueError("source transport blob differs or exceeds its bound")
+                if verify_existing:
+                    continue
                 output = tree / record["path"]
                 output.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
                 for ancestor in output.parents:
@@ -175,9 +190,11 @@ def receive_source_snapshot(
                         raise ValueError("source transport symlink target is invalid")
                     links.append((output, target))
                 else:
-                    write_private_bytes(output, content)
-                    if record["mode"] == "100755":
-                        output.chmod(0o700)
+                    pending.append(writer.submit(_restore_file, output, content, record["mode"]))
+                    if len(pending) == 4:
+                        pending.popleft().result()
+            for completed in pending:
+                completed.result()
             if archive.next() is not None:
                 raise ValueError("source transport contains extra archive members")
             for output, target in links:
@@ -202,6 +219,12 @@ def receive_source_snapshot(
         "deployment_ready": False,
         "mutation_performed": False,
     }
+
+
+def _restore_file(output: Path, content: bytes, mode: str) -> None:
+    write_private_bytes(output, content)
+    if mode == "100755":
+        output.chmod(0o700)
 
 
 def _records(raw: bytes, expected_digest: str) -> list[dict[str, str]]:
@@ -317,6 +340,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--destination", type=Path, required=True)
     parser.add_argument("--archive-digest", required=True)
     parser.add_argument("--snapshot-digest", required=True)
+    parser.add_argument("--verify-existing", action="store_true")
     args = parser.parse_args(argv)
     try:
         receipt = receive_source_snapshot(
@@ -324,6 +348,7 @@ def main(argv: list[str] | None = None) -> int:
             args.destination,
             archive_digest=args.archive_digest,
             snapshot_digest=args.snapshot_digest,
+            verify_existing=args.verify_existing,
         )
     except (OSError, ValueError, tarfile.TarError):
         print(
