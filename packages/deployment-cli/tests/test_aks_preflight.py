@@ -144,7 +144,7 @@ def test_failed_provider_is_not_retried(monkeypatch) -> None:
     assert len(calls) == 1
 
 
-def test_preflight_reads_each_selected_sku_once(monkeypatch) -> None:
+def test_preflight_serializes_exact_selected_skus_from_one_catalog_read(monkeypatch) -> None:
     calls: list[tuple[str, ...]] = []
     inputs = _inputs()
 
@@ -157,7 +157,7 @@ def test_preflight_reads_each_selected_sku_once(monkeypatch) -> None:
                 b'"state":"Enabled","userType":"user"}'
             )
         elif command[1:3] == ("vm", "list-skus"):
-            assert command[command.index("--size") + 1] == "Standard_D4as_v5"
+            assert command[command.index("--query") + 1] == ("[?name=='Standard_D4as_v5']")
             stdout = json.dumps(inputs["skus"]).encode()
         else:
             assert command[1:3] == ("vm", "list-usage")
@@ -174,5 +174,45 @@ def test_preflight_reads_each_selected_sku_once(monkeypatch) -> None:
     sku_calls = [command for command in calls if command[1:3] == ("vm", "list-skus")]
     assert result["state"] == "feasible"
     assert len(sku_calls) == 1
-    assert "--size" in sku_calls[0]
+    assert "--size" not in sku_calls[0]
+    assert "--query" in sku_calls[0]
     assert calls[-1][1:3] == ("vm", "list-usage")
+
+
+def test_distinct_overlapping_sku_names_use_one_exact_query(monkeypatch) -> None:
+    inputs = _inputs()
+    inputs["profile"] = replace(
+        inputs["profile"],
+        system_node_sku="Standard_D4",
+        user_node_sku="Standard_D4_v2",
+    )
+    queries: list[str] = []
+
+    def provider(command, **_kwargs):
+        if command[1:3] == ("account", "show"):
+            stdout = (
+                b'{"id":"00000000-0000-0000-0000-000000000000",'
+                b'"tenantId":"00000000-0000-0000-0000-000000000000",'
+                b'"state":"Enabled","userType":"user"}'
+            )
+        elif command[1:3] == ("vm", "list-skus"):
+            queries.append(command[command.index("--query") + 1])
+            rows = []
+            for name in ("Standard_D4", "Standard_D4_v2"):
+                row = copy.deepcopy(inputs["skus"][0])
+                row["name"] = name
+                rows.append(row)
+            stdout = json.dumps(rows).encode()
+        else:
+            stdout = json.dumps(inputs["usage"]).encode()
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr=b"")
+
+    monkeypatch.setattr(aks_preflight.subprocess, "run", provider)
+
+    result = aks_preflight.inspect_aks_target(
+        profile=inputs["profile"],
+        region="eastus",
+    )
+
+    assert result["state"] == "feasible"
+    assert queries == ["[?name=='Standard_D4' || name=='Standard_D4_v2']"]
