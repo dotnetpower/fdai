@@ -124,6 +124,9 @@ installation cannot switch platforms by changing one variable.
 The shared platform continues to own Event Hubs, Key Vault, Azure Container Registry, monitoring,
 workload identities, and `postgres-flex`. The AKS substrate state owns only the cluster, node
 pools, cluster identity, networking attachment, and cluster-scoped Azure role assignments.
+The default-disabled dev alert-noise pilot remains a shared-platform prerequisite for either
+runtime choice. Its exact target contains only one dedicated Action Group and one metric alert;
+runtime selection grants no pilot approval, notification authority, or promotion.
 Kubernetes resources are applied only after independent Azure control-plane readback proves that
 the private cluster reached `Succeeded`. The workload state then reads the approved cluster's OIDC
 issuer and uses a private kubeconfig on the managed deployment host.
