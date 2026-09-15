@@ -219,7 +219,9 @@ enrollment and state migration; retained claims select verification only. Comple
 through backend observation without repeating enrollment after local state deletion. Under the original
 lock, the verified recovery context then supplies the existing source transfer engine with the original
 application snapshot. Separate immutable progress records preserve old status and false readiness.
-Application activation remains unconnected; this path does not report a completed deployment.
+It then builds or reverifies all five service OCI archives with the original snapshot and existing
+build claims. A changed revision, incomplete inventory or false readiness flag is rejected; unavailable
+local tools return review. Dependency images, registry import and activation remain unconnected.
 
 ### Source transfer boundary
 
