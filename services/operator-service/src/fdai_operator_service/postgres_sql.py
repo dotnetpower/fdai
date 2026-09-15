@@ -60,6 +60,208 @@ SELECT artifact_id, policy_id, policy_version,
  LIMIT %(limit)s
 """
 
+BROWSER_EVIDENCE_WORKSPACE_SQL: Final = """
+ WITH observation AS (
+     SELECT CURRENT_TIMESTAMP AS observed_at
+ ),
+ classified AS (
+     SELECT workspace.*,
+            CASE
+                WHEN workspace.legal_hold THEN 'held'
+                WHEN workspace.expires_at <= observation.observed_at
+                    THEN 'expired_pending_purge'
+                WHEN workspace.expires_at
+                     <= observation.observed_at + INTERVAL '168 hours'
+                    THEN 'expiring'
+                ELSE 'retained'
+            END AS retention_state
+       FROM operator_browser_evidence_workspace AS workspace
+       CROSS JOIN observation
+ ),
+ filtered AS (
+     SELECT classified.*,
+            CASE
+                WHEN prompt_injection_finding_count > 0 THEN 0
+                WHEN retention_state = 'expired_pending_purge' THEN 1
+                WHEN retention_state = 'expiring' THEN 2
+                WHEN retention_state = 'held' THEN 3
+                ELSE 4
+            END AS attention_rank
+       FROM classified
+      WHERE (%(artifact_id)s::text IS NULL
+             OR artifact_id = %(artifact_id)s::text)
+        AND (
+            %(host)s::text IS NULL
+            OR (%(host_scope)s::text = 'requested'
+                AND source_host = %(host)s::text)
+            OR (%(host_scope)s::text = 'final'
+                AND final_host = %(host)s::text)
+            OR (%(host_scope)s::text = 'either'
+                AND (source_host = %(host)s::text
+                     OR final_host = %(host)s::text))
+        )
+        AND (%(policy_id)s::text IS NULL
+             OR policy_id = %(policy_id)s::text)
+        AND (%(policy_version)s::integer IS NULL
+             OR policy_version = %(policy_version)s::integer)
+        AND (%(captured_from)s::timestamptz IS NULL
+             OR captured_at >= %(captured_from)s::timestamptz)
+        AND (%(captured_before)s::timestamptz IS NULL
+             OR captured_at < %(captured_before)s::timestamptz)
+        AND (%(retention)s::text IS NULL
+             OR retention_state = %(retention)s::text)
+        AND (
+            %(finding)s::text IS NULL
+            OR (%(finding)s::text = 'present'
+                AND prompt_injection_finding_count > 0)
+            OR (%(finding)s::text = 'clear'
+                AND prompt_injection_finding_count = 0)
+        )
+        AND (%(custody_ref)s::text IS NULL
+             OR chain_of_custody_audit_ref = %(custody_ref)s::text)
+ ),
+ matching AS (
+     SELECT COUNT(*)::BIGINT AS matching_admitted_count,
+            COALESCE(SUM(prompt_injection_finding_count), 0)::BIGINT
+                AS security_finding_count,
+            COUNT(*) FILTER (WHERE retention_state = 'held')::BIGINT
+                AS legal_hold_count,
+            COUNT(*) FILTER (WHERE retention_state = 'expiring')::BIGINT
+                AS expiring_count,
+            COUNT(*) FILTER (
+                WHERE retention_state = 'expired_pending_purge'
+            )::BIGINT AS expired_pending_purge_count,
+            COUNT(*) FILTER (WHERE retention_state = 'retained')::BIGINT
+                AS retained_count
+       FROM filtered
+ ),
+ page AS (
+     SELECT *
+       FROM filtered
+      WHERE (
+          %(cursor_captured_at)s::timestamptz IS NULL
+          OR (
+              %(sort)s::text = 'attention'
+              AND (
+                  attention_rank > %(cursor_attention_rank)s::integer
+                  OR (
+                      attention_rank = %(cursor_attention_rank)s::integer
+                      AND (
+                          captured_at < %(cursor_captured_at)s::timestamptz
+                          OR (
+                              captured_at = %(cursor_captured_at)s::timestamptz
+                              AND artifact_id < %(cursor_artifact_id)s::text
+                          )
+                      )
+                  )
+              )
+          )
+          OR (
+              %(sort)s::text = 'newest'
+              AND (
+                  captured_at < %(cursor_captured_at)s::timestamptz
+                  OR (
+                      captured_at = %(cursor_captured_at)s::timestamptz
+                      AND artifact_id < %(cursor_artifact_id)s::text
+                  )
+              )
+          )
+      )
+      ORDER BY
+          CASE WHEN %(sort)s::text = 'attention' THEN attention_rank ELSE 0 END,
+          captured_at DESC,
+          artifact_id DESC
+      LIMIT %(fetch)s
+ )
+ SELECT observation.observed_at,
+        summary.source_observed_at,
+        summary.snapshot_total_count,
+        summary.snapshot_admitted_count,
+        (
+            summary.withheld_invalid_metadata_count
+            + summary.withheld_trust_invalid_count
+            + summary.withheld_isolation_unverified_count
+        )::BIGINT AS snapshot_withheld_count,
+        summary.withheld_invalid_metadata_count,
+        summary.withheld_trust_invalid_count,
+        summary.withheld_isolation_unverified_count,
+        matching.matching_admitted_count,
+        matching.security_finding_count,
+        matching.legal_hold_count,
+        matching.expiring_count,
+        matching.expired_pending_purge_count,
+        matching.retained_count,
+        page.artifact_id,
+        page.policy_id,
+        page.policy_version,
+        page.source_host,
+        page.final_host,
+        page.captured_at,
+        page.expires_at,
+        page.selector_count,
+        page.has_screenshot_digest,
+        page.has_text_digest,
+        page.has_snapshot_digest,
+        page.redaction_count,
+        page.browser_version,
+        page.chain_of_custody_audit_ref,
+        page.prompt_injection_finding_count,
+        page.legal_hold,
+        page.legal_hold_ref,
+        page.legal_hold_at,
+        page.retention_state,
+        page.attention_rank,
+        CASE
+            WHEN page.custody_audit_uuid IS NULL
+                THEN 'malformed'
+            WHEN audit_match.match_count = 0 THEN 'missing'
+            WHEN audit_match.match_count > 1 THEN 'ambiguous'
+            WHEN audit_match.audit_sequence > 9007199254740991
+                THEN 'unsupported_sequence'
+            ELSE 'exact'
+        END AS audit_link_state,
+        CASE
+            WHEN audit_match.match_count = 1
+                 AND audit_match.audit_sequence <= 9007199254740991
+                THEN audit_match.audit_sequence::TEXT
+            ELSE NULL
+        END AS audit_sequence,
+        CASE
+            WHEN audit_match.match_count = 1
+                 AND audit_match.audit_sequence <= 9007199254740991
+                 AND audit_match.correlation_id IS NOT NULL
+                 AND length(audit_match.correlation_id) BETWEEN 1 AND 256
+                 AND audit_match.correlation_id = BTRIM(audit_match.correlation_id)
+                 AND audit_match.correlation_id !~ '[[:cntrl:]]'
+                 AND OCTET_LENGTH(audit_match.correlation_id)
+                     = length(audit_match.correlation_id)
+                THEN audit_match.correlation_id
+            ELSE NULL
+        END AS audit_correlation_id
+   FROM observation
+   CROSS JOIN operator_browser_evidence_workspace_summary AS summary
+   CROSS JOIN matching
+   LEFT JOIN page ON TRUE
+   LEFT JOIN LATERAL (
+       SELECT COUNT(*)::INTEGER AS match_count,
+              MIN(audit.seq) AS audit_sequence,
+              MIN(audit.correlation_id) AS correlation_id
+         FROM audit_log AS audit
+        WHERE page.artifact_id IS NOT NULL
+           AND audit.event_id = page.custody_audit_uuid
+          AND audit.actor = 'fdai.browser_evidence'
+          AND audit.action_kind = 'browser_evidence.capture'
+          AND audit.entry->>'content_digest'
+              = SUBSTRING(page.artifact_id FROM 8)
+          AND audit.entry->>'untrusted' = 'true'
+          AND audit.entry->>'can_authorize_action' = 'false'
+   ) AS audit_match ON TRUE
+  ORDER BY
+      CASE WHEN %(sort)s::text = 'attention' THEN page.attention_rank ELSE 0 END,
+      page.captured_at DESC,
+      page.artifact_id DESC
+"""
+
 AGENT_INVENTORY_ACTIVITY_SQL: Final = """
 SELECT s.id, s.status, s.source, s.observation_kind, s.started_at,
        s.completed_at, s.promoted_at, s.failure_code,
