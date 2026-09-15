@@ -320,11 +320,14 @@ The **Governance > Architecture** panel renders the deployed inventory instance 
 subnet boundaries, resource status, and `attached_to` / `depends_on` links in one read-only
 SVG workbench. Pan, zoom, filtering, selection, and deep links are local view operations only.
 The console cannot add, move, resize, or delete resources.
-The bounded scope overview is visible before selection. Selecting a Resource preserves the
-overview, emphasizes that node, reveals its direct auxiliary neighbors, and opens the nonmodal
-Inspector in the same frame.
-The Network lens keeps every returned VNet visible while Resource remains at **Scope overview**;
-selecting a Resource narrows only that presentation focus.
+The bounded Landscape is visible before selection. It derives containment without requiring API
+coordinates, keeps Subscription as a neutral boundary, and shows at most 16 Resource Group summary
+cards ranked by returned descendants. Selecting a Resource opens a type-diverse, 36-record focus
+that reserves direct relationship endpoints first and opens the nonmodal Inspector in the same
+frame.
+The Network lens keeps returned VNet and Subnet boundaries plus at most 48 reported network-role
+records while Resource remains at **Scope overview**. Path calculation still uses the complete
+returned evidence graph, and selecting a Resource narrows only the presentation focus.
 
 Production responses merge the immutable reconciliation snapshot with the
 ordered real-time resource/link overlay. The toolbar shows pending real-time
@@ -352,6 +355,8 @@ fallbacks. Typed paths terminate at node and region boundaries and preserve endp
 semantics without converting layout into evidence. Card, containment, placement, and hit-target
 geometry use the same dimensions, so dense revealed Resources cannot overlap or intercept an
 adjacent card's pointer target.
+Any visible record without finite generated geometry produces an explicit unavailable
+presentation instead of falling back to coordinate zero.
 
 The Network Path Inspector view traces the shortest reported `attached_to`, `depends_on`, or
 `peered_with` path. A fresh, complete graph can report `No observed path`; stale, partial,

@@ -139,6 +139,21 @@ export function architectureSubnetMembership(
   return membership;
 }
 
+/** Adds presentation-only subnet membership before geometry synthesis. */
+export function withArchitectureSubnetMembership(
+  graph: InventoryGraphResponse,
+): InventoryGraphResponse {
+  const membership = architectureSubnetMembership(graph);
+  if (membership.size === 0) return graph;
+  return {
+    ...graph,
+    resources: graph.resources.map((resource) => {
+      const networkPlaneId = membership.get(resource.id);
+      return networkPlaneId ? { ...resource, network_plane_id: networkPlaneId } : resource;
+    }),
+  };
+}
+
 function nearestUniqueSubnet(
   resourceId: string,
   subnetIds: ReadonlySet<string>,

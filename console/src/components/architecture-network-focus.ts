@@ -22,6 +22,8 @@ import {
   ARCHITECTURE_TOPOLOGY_COLUMN_PITCH,
   ARCHITECTURE_TOPOLOGY_ROW_PITCH,
 } from "./architecture-topology-dimensions";
+import { isArchitectureBoundaryResource } from "./architecture-boundaries";
+import { architecturePresentationParentById } from "./architecture-landscape-layout";
 
 const VNET_TYPES = new Set(["virtual-network", "network.vnet"]);
 const SUBNET_TYPES = new Set(["subnet", "network.subnet"]);
@@ -30,6 +32,7 @@ const PATH_LINK_TYPES = new Set<InventoryLink["type"]>([
   "depends_on",
   "peered_with",
 ]);
+export const ARCHITECTURE_NETWORK_OVERVIEW_LIMIT = 48;
 
 export interface ArchitectureNetworkFilters {
   readonly publicExposure: boolean;
@@ -48,6 +51,74 @@ export const DEFAULT_ARCHITECTURE_NETWORK_FILTERS: ArchitectureNetworkFilters = 
   dns: true,
   privateEndpoints: true,
 };
+
+/** Limits the unselected Network lens to reported network roles and their boundaries. */
+export function architectureNetworkOverviewGraph(
+  graph: InventoryGraphResponse,
+): InventoryGraphResponse {
+  const byId = new Map(graph.resources.map((resource) => [resource.id, resource]));
+  const parentById = architecturePresentationParentById(graph, byId);
+  const candidates = graph.resources
+    .filter((resource) =>
+      !isArchitectureBoundaryResource(resource) && isNetworkOverviewResource(resource))
+    .sort((first, second) =>
+      networkOverviewPriority(first) - networkOverviewPriority(second)
+      || first.type.localeCompare(second.type)
+      || first.name.localeCompare(second.name)
+      || first.id.localeCompare(second.id))
+    .slice(0, ARCHITECTURE_NETWORK_OVERVIEW_LIMIT);
+  const visibleIds = new Set(
+    graph.resources
+      .filter((resource) =>
+        VNET_TYPES.has(resource.type) || SUBNET_TYPES.has(resource.type))
+      .map((resource) => resource.id),
+  );
+  candidates.forEach((resource) => visibleIds.add(resource.id));
+  for (const resourceId of [...visibleIds]) {
+    let parentId = parentById.get(resourceId);
+    const visited = new Set<string>();
+    while (parentId && byId.has(parentId) && !visited.has(parentId)) {
+      visited.add(parentId);
+      visibleIds.add(parentId);
+      parentId = parentById.get(parentId);
+    }
+  }
+  return {
+    ...graph,
+    resources: graph.resources.filter((resource) => visibleIds.has(resource.id)),
+    links: graph.links.filter((link) =>
+      visibleIds.has(link.source) && visibleIds.has(link.target)),
+  };
+}
+
+/** Adds exact path records and their ancestors to a bounded Network presentation. */
+export function architectureNetworkPathPresentationGraph(
+  overview: InventoryGraphResponse,
+  evidenceGraph: InventoryGraphResponse,
+  pathResourceIds: readonly string[],
+): InventoryGraphResponse {
+  if (pathResourceIds.length === 0) return overview;
+  const byId = new Map(evidenceGraph.resources.map((resource) => [resource.id, resource]));
+  const parentById = architecturePresentationParentById(evidenceGraph, byId);
+  const visibleIds = new Set(overview.resources.map((resource) => resource.id));
+  for (const resourceId of pathResourceIds) {
+    if (!byId.has(resourceId)) continue;
+    visibleIds.add(resourceId);
+    let parentId = parentById.get(resourceId);
+    const visited = new Set<string>();
+    while (parentId && byId.has(parentId) && !visited.has(parentId)) {
+      visited.add(parentId);
+      visibleIds.add(parentId);
+      parentId = parentById.get(parentId);
+    }
+  }
+  return {
+    ...overview,
+    resources: evidenceGraph.resources.filter((resource) => visibleIds.has(resource.id)),
+    links: evidenceGraph.links.filter((link) =>
+      visibleIds.has(link.source) && visibleIds.has(link.target)),
+  };
+}
 
 export interface ArchitectureNetworkPathHop {
   readonly source: string;
@@ -164,7 +235,8 @@ export function filterArchitectureNetworkGraph(
   graph: InventoryGraphResponse,
   filters: ArchitectureNetworkFilters,
 ): InventoryGraphResponse {
-  const resources = graph.resources.filter((resource) => isRegion(resource) || networkResourceIsVisible(resource, filters));
+  const resources = graph.resources.filter((resource) =>
+    isArchitectureBoundaryResource(resource) || networkResourceIsVisible(resource, filters));
   const ids = new Set(resources.map((resource) => resource.id));
   return {
     ...graph,
@@ -469,6 +541,23 @@ function networkResourceIsVisible(
   if (!filters.gateways && (type.includes("gateway") || type.includes("load-balancer"))) return false;
   if (!filters.dns && type.includes("dns")) return false;
   return true;
+}
+
+function isNetworkOverviewResource(resource: InventoryResource): boolean {
+  const type = resource.type;
+  return type.startsWith("network.")
+    || type.includes("gateway")
+    || type.includes("load-balancer")
+    || type.includes("firewall")
+    || ["front-door", "network-security-group", "nsg"].includes(type);
+}
+
+function networkOverviewPriority(resource: InventoryResource): number {
+  const type = resource.type;
+  if (type.includes("gateway") || type.includes("firewall")) return 0;
+  if (type === "network.public-ip" || type === "front-door") return 1;
+  if (type === "network.private-endpoint") return 2;
+  return 3;
 }
 
 function graphEvidencePosture(

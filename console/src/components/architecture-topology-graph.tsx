@@ -10,10 +10,13 @@ import {
   architectureTopologyBounds,
   architectureTopologyCanvasSize,
   architectureTopologyFitScale,
+  architectureTopologyInitialView,
   architectureTopologyLabelLines,
   architectureTopologyLinkRoute,
+  architectureTopologyPresentationKey,
   architectureTopologyRegionDepth,
   architectureTopologyResourcePoint,
+  architectureTopologyUnplacedIds,
   architectureTopologyZoomScrollTarget,
   clampArchitectureTopologyScale,
 } from "./architecture-topology-graph.model";
@@ -71,6 +74,10 @@ export function ArchitectureTopologyGraph({
     [graph.resources],
   );
   const activeIds = architectureTopologyActiveIds(graph, highlightedIds);
+  const presentationKey = useMemo(
+    () => architectureTopologyPresentationKey(graph.resources),
+    [graph.resources],
+  );
   const bounds = useMemo(() => architectureTopologyBounds(graph.resources), [graph.resources]);
   const canvas = useMemo(() => architectureTopologyCanvasSize(bounds), [bounds]);
   const regions = graph.resources.filter(isRegion).sort(
@@ -83,6 +90,7 @@ export function ArchitectureTopologyGraph({
     ? selectedId
     : focusOrder[0]?.id ?? null;
   const active = (resourceId: string) => !activeIds || activeIds.has(resourceId);
+  const unplacedIds = architectureTopologyUnplacedIds(graph.resources);
 
   const changeScale = (requestedScale: number, fit = false): void => {
     const scroll = scrollRef.current;
@@ -114,6 +122,7 @@ export function ArchitectureTopologyGraph({
   useEffect(() => {
     const scroll = scrollRef.current;
     if (!scroll) return;
+    let initialized = false;
     const resize = () => {
       const fit = architectureTopologyFitScale(
         canvas,
@@ -121,7 +130,18 @@ export function ArchitectureTopologyGraph({
         scroll.clientHeight,
       );
       fitScaleRef.current = fit;
-      if (scaleRef.current === 1 || scaleRef.current < fit) {
+      if (!initialized) {
+        const initial = architectureTopologyInitialView(
+          canvas,
+          scroll.clientWidth,
+          scroll.clientHeight,
+        );
+        initialized = true;
+        scaleRef.current = initial.scale;
+        setScale(initial.scale);
+        scroll.scrollLeft = initial.scroll.left;
+        scroll.scrollTop = initial.scroll.top;
+      } else if (scaleRef.current < fit) {
         scaleRef.current = fit;
         setScale(fit);
       }
@@ -130,7 +150,7 @@ export function ArchitectureTopologyGraph({
     observer.observe(scroll);
     resize();
     return () => observer.disconnect();
-  }, [canvas]);
+  }, [canvas.height, canvas.width, presentationKey]);
 
   useEffect(() => {
     const scroll = scrollRef.current;
@@ -152,6 +172,15 @@ export function ArchitectureTopologyGraph({
     if (document.fullscreenElement === frameRef.current) await document.exitFullscreen();
     else await frameRef.current.requestFullscreen();
   };
+
+  if (unplacedIds.length > 0) {
+    return (
+      <div class="architecture-topology-unavailable" role="status">
+        <strong>{t("geometryUnavailable.title")}</strong>
+        <p>{t("geometryUnavailable.description", { count: unplacedIds.length })}</p>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -205,31 +234,40 @@ export function ArchitectureTopologyGraph({
             </marker>
           </defs>
           <g class="architecture-topology-regions">
-            {regions.map((resource) => (
-              <g
-                key={resource.id}
-                class={`architecture-topology-resource architecture-topology-region${selectedId === resource.id ? " is-selected" : ""}${active(resource.id) ? "" : " is-muted"}`}
-                data-resource-id={resource.id}
-                data-region-depth={architectureTopologyRegionDepth(resource, byId)}
-                data-resource-type={resource.type}
-                role={onSelect ? "button" : undefined}
-                tabindex={onSelect && focusableId === resource.id ? 0 : -1}
-                aria-label={`${resource.name}. ${resourceTypeLabelOf(resource)}`}
-                onClick={(event) => {
-                  if (suppressRegionClickRef.current) {
-                    event.preventDefault();
-                    return;
-                  }
-                  onSelect?.(resource);
-                }}
-                onKeyDown={(event) => handleArchitectureTopologyKeyDown(
-                  event,
-                  resource,
-                  focusOrder,
-                  onSelect,
-                )}
-              >
-                <title>{resource.name}</title>
+            {regions.map((resource) => {
+              const summary = (resource.collapsed_count ?? 0) > 0
+                ? t("coverage.resourceCount", { count: resource.collapsed_count ?? 0 })
+                : null;
+              const accessibleLabel = [
+                resource.name,
+                resourceTypeLabelOf(resource),
+                summary,
+              ].filter(Boolean).join(". ");
+              return (
+                <g
+                  key={resource.id}
+                  class={`architecture-topology-resource architecture-topology-region${selectedId === resource.id ? " is-selected" : ""}${active(resource.id) ? "" : " is-muted"}`}
+                  data-resource-id={resource.id}
+                  data-region-depth={architectureTopologyRegionDepth(resource, byId)}
+                  data-resource-type={resource.type}
+                  role={onSelect ? "button" : undefined}
+                  tabindex={onSelect && focusableId === resource.id ? 0 : -1}
+                  aria-label={accessibleLabel}
+                  onClick={(event) => {
+                    if (suppressRegionClickRef.current) {
+                      event.preventDefault();
+                      return;
+                    }
+                    onSelect?.(resource);
+                  }}
+                  onKeyDown={(event) => handleArchitectureTopologyKeyDown(
+                    event,
+                    resource,
+                    focusOrder,
+                    onSelect,
+                  )}
+                >
+                  <title>{accessibleLabel}</title>
                 <rect
                   x={resource.x ?? 0}
                   y={resource.y ?? 0}
@@ -240,8 +278,29 @@ export function ArchitectureTopologyGraph({
                 <text x={(resource.x ?? 0) + .2} y={(resource.y ?? 0) + .38}>
                   {resource.name}
                 </text>
-              </g>
-            ))}
+                {(resource.collapsed_count ?? 0) > 0 ? (
+                  <text
+                    class="architecture-topology-region-count"
+                    x={(resource.x ?? 0) + .2}
+                    y={(resource.y ?? 0) + .68}
+                  >
+                    {t("coverage.resourceCount", { count: resource.collapsed_count ?? 0 })}
+                  </text>
+                ) : null}
+                {(resource.external_link_count ?? 0) > 0 ? (
+                  <text
+                    class="architecture-topology-region-links"
+                    x={(resource.x ?? 0) + .2}
+                    y={(resource.y ?? 0) + .94}
+                  >
+                    {t("coverage.externalLinkCount", {
+                      count: resource.external_link_count ?? 0,
+                    })}
+                  </text>
+                ) : null}
+                </g>
+              );
+            })}
           </g>
           <g class="architecture-topology-links">
             {graph.links.map((link, index) => {
@@ -302,6 +361,18 @@ export function ArchitectureTopologyGraph({
                 architectureTopologyNodeDimensions(resource.render_scale);
               const icon = architectureNetworkIconForResourceType(resource.type);
               const lines = architectureTopologyLabelLines(resource.name);
+              const summary = resource.presentation_role === "summary"
+                ? t("coverage.groupSummary", {
+                    resources: resource.collapsed_count ?? 0,
+                    links: resource.external_link_count ?? 0,
+                  })
+                : null;
+              const accessibleLabel = [
+                resource.name,
+                resourceTypeLabelOf(resource),
+                summary,
+                resource.status,
+              ].filter(Boolean).join(". ");
               return (
                 <g
                   key={resource.id}
@@ -310,7 +381,7 @@ export function ArchitectureTopologyGraph({
                   data-status={resource.status.toLowerCase()}
                   role={onSelect ? "button" : undefined}
                   tabindex={onSelect ? (focusableId === resource.id ? 0 : -1) : undefined}
-                  aria-label={`${resource.name}. ${resourceTypeLabelOf(resource)}. ${resource.status}`}
+                  aria-label={accessibleLabel}
                   transform={`translate(${position.x} ${position.y})`}
                   onClick={() => onSelect?.(resource)}
                   onKeyDown={(event) => handleArchitectureTopologyKeyDown(
@@ -320,7 +391,7 @@ export function ArchitectureTopologyGraph({
                     onSelect,
                   )}
                 >
-                  <title>{`${resource.name}. ${resourceTypeLabelOf(resource)}. ${resource.status}`}</title>
+                  <title>{accessibleLabel}</title>
                   <rect
                     class="architecture-topology-node-surface"
                     x={-nodeWidth / 2}
@@ -363,7 +434,7 @@ export function ArchitectureTopologyGraph({
                     x={-nodeWidth / 2 + .18}
                     y={nodeHeight / 2 - .18}
                   >
-                    {resourceTypeLabelOf(resource)}
+                    {summary ?? resourceTypeLabelOf(resource)}
                   </text>
                   {(resource.collapsed_count ?? 0) > 0 ? (
                     <g

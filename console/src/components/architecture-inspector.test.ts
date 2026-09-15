@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { architectureRelationshipLabel, architectureStatusLabel } from "./architecture-inspector";
+import {
+  architectureParentBoundary,
+  architectureRelationshipLabel,
+  architectureStatusLabel,
+} from "./architecture-inspector";
 
 describe("architecture inspector labels", () => {
   it("expresses relationship direction from the selected resource", () => {
@@ -23,5 +27,18 @@ describe("architecture inspector labels", () => {
   it("does not present unknown status as a reported state", () => {
     expect(architectureStatusLabel("unknown")).toBe("Status unavailable");
     expect(architectureStatusLabel("vm_deallocated")).toBe("Vm deallocated");
+  });
+
+  it("uses the most specific reported containment as the parent boundary", () => {
+    const graph = {
+      resources: [
+        { id: "group", type: "resource-group", name: "Group", status: "unknown" },
+        { id: "vnet", type: "network.vnet", name: "Network", status: "healthy", parent_id: "group" },
+        { id: "subnet", type: "network.subnet", name: "Subnet", status: "healthy", parent_id: "group" },
+      ],
+      links: [{ source: "vnet", target: "subnet", type: "contains" as const }],
+    };
+
+    expect(architectureParentBoundary(graph, "subnet")?.id).toBe("vnet");
   });
 });
