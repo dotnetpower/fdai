@@ -126,6 +126,29 @@ source, snapshot, human target and retained run must match on every resumption. 
 one checkpoint grants another checkpoint, and published exact-source CI remains mandatory before
 resource effects. A verified Foundation handoff still leaves application deployment incomplete.
 
+### Application group collision recovery
+
+**Initial design:** Change the shared workload token when an existing application group blocks a
+new installation. **Critique:** That also renames operations resources after a partial apply and
+can replace already created infrastructure. **Revised contract:** Optional `application_workload`
+selects only the application's CAF group-name token; null preserves the legacy name. Operations,
+state-account and image names keep their original inputs. The selected group remains Terraform-owned
+and flows through the existing group reference and private handoff, without adopting an existing group.
+
+An existing group is not an empty deployment slot, even when its tags resemble FDAI. This input is
+not a recovery command or authority: a changed name requires a new exact plan and current approval.
+Partial recovery must retain the original authoritative state and claim, prove every completed
+resource remains no-op, and reject import, replacement, deletion or expanded roles. The ordinary
+claimed apply remains verification-only; this naming input alone cannot resume the partial deployment.
+
+`genesis_foundation_recovery_plan.py` prepares that read-only comparison in a fresh private directory.
+It holds the original execution lock, validates the original review/claim/snapshot and execution copy,
+allows only the application naming change in copied configuration, and passes the original state
+path directly to Terraform. It retains bounded private command diagnostics, binds current recovery
+source and provider bytes, checks the new group is absent, and rejects concurrent state changes.
+The separate expiring review grants no apply authority and is not accepted by ordinary Foundation
+apply. A separately approved recovery executor and public-coordinator receipt handoff remain required.
+
 ### Source transfer boundary
 
 After the current private Foundation reaches its application boundary, the source coordinator

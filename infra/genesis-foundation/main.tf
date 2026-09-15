@@ -1,5 +1,6 @@
 locals {
   suffix                = "${var.workload}-${var.env}-${var.region_short}"
+  application_suffix    = "${coalesce(var.application_workload, var.workload)}-${var.env}-${var.region_short}"
   runner_bootstrap_mode = "offline"
   provenance_tags = {
     "fdai:source-commit"  = var.source_commit
@@ -19,7 +20,7 @@ locals {
 # The platform must reference this group, not create or adopt a second owner.
 resource "azapi_resource" "app_resource_group" {
   type      = "Microsoft.Resources/resourceGroups@2022-09-01"
-  name      = "rg-${local.suffix}"
+  name      = "rg-${local.application_suffix}"
   parent_id = "/subscriptions/${var.subscription_id}"
   location  = var.region
   tags = merge(local.tags, {

@@ -27,6 +27,7 @@ _RUNNER_IMAGE_NETWORKS = (
     "firewall_management_subnet_prefix",
 )
 _OPTIONAL_STRINGS = {
+    "application_workload": r"[a-z][a-z0-9]{1,11}",
     "runner_image_source_commit": r"[0-9a-f]{40}",
     "runner_image_verified_source_commit": r"[0-9a-f]{40}",
     "runner_image_run_digest": r"[0-9a-f]{64}",

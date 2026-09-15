@@ -31,6 +31,17 @@ variable "workload" {
   }
 }
 
+variable "application_workload" {
+  description = "Optional application-only CAF workload token. Null preserves the original name; changing it requires a new reviewed plan and never adopts an existing group."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.application_workload == null ? true : can(regex("^[a-z][a-z0-9]{1,11}$", var.application_workload))
+    error_message = "application_workload must be null or contain 2-12 lowercase letters or digits and start with a letter."
+  }
+}
+
 variable "env" {
   description = "Deployment environment, independent of approval and runtime authority."
   type        = string
