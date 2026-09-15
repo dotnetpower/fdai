@@ -11,29 +11,27 @@ import { t as appT } from "../i18n";
 import { routeHref } from "../router";
 import { t } from "./i18n/live";
 import {
-  sumBuckets,
   type FilterKind,
   type LiveSelectionState,
   type LiveState,
   type TileState,
 } from "./live.model";
 import {
-  compareLiveTiles,
   DetailPanel,
-  LiveQueue,
-  LiveTile,
   Sparkline,
-  StackBar,
 } from "./live.tiles";
 import type { LiveViewModel } from "./live.view-model";
 import {
   LiveObservationDetailPanel,
-  LiveObservations,
   type LiveObservationLoadState,
 } from "./live.observations";
 import { LiveCoverage, type LiveCoverageState } from "./live.coverage";
+import {
+  LiveActivityWorkspace,
+  type LiveViewMode,
+} from "./live.activity";
 
-export type LiveViewMode = "queue" | "flow";
+export type { LiveViewMode } from "./live.activity";
 
 export interface LiveRouteUpdate {
   readonly eventId?: string | null;
@@ -45,6 +43,7 @@ export function LivePanels({
   state,
   view,
   status,
+  lastSignalAt,
   lastError,
   streamSource,
   tickerPaused,
@@ -70,6 +69,7 @@ export function LivePanels({
   readonly state: LiveState;
   readonly view: LiveViewModel;
   readonly status: LiveConnectionStatus;
+  readonly lastSignalAt: number | null;
   readonly lastError: string | null;
   readonly streamSource: ObservationSource;
   readonly tickerPaused: boolean;
@@ -92,23 +92,23 @@ export function LivePanels({
   readonly selectEvent: (eventId: string | null) => void;
   readonly selectObservation: (activityId: string | null) => void;
 }) {
+  const { metrics } = view;
   const epsUpdated = useContentUpdatePulse([
     view.eps,
-    state.rateBuckets.t0.join(","),
-    state.rateBuckets.t1.join(","),
-    state.rateBuckets.t2.join(","),
+    metrics.control,
+    metrics.source,
   ].join("|"));
   const gateUpdated = useContentUpdatePulse([
     view.autoShare,
-    state.gateCounts.auto ?? 0,
-    state.gateCounts.hil ?? 0,
-    state.gateCounts.abstain ?? 0,
-    state.gateCounts.deny ?? 0,
+    metrics.gateCounts.auto,
+    metrics.gateCounts.hil,
+    metrics.gateCounts.abstain,
+    metrics.gateCounts.deny,
   ].join("|"));
   const tierUpdated = useContentUpdatePulse([
-    state.tierCounts.t0 ?? 0,
-    state.tierCounts.t1 ?? 0,
-    state.tierCounts.t2 ?? 0,
+    metrics.tierCounts.t0,
+    metrics.tierCounts.t1,
+    metrics.tierCounts.t2,
   ].join("|"));
   const displayStatus = status === "open" && !view.streamOpen
     ? "awaitingSource"
@@ -117,15 +117,20 @@ export function LivePanels({
       : status;
   const gateKeys = ["auto", "hil", "abstain", "deny"] as const;
   const gateTotal = Math.max(1, view.gateTotal);
-  const gateAutoEnd = ((state.gateCounts.auto ?? 0) / gateTotal) * 100;
-  const gateHilEnd = gateAutoEnd + ((state.gateCounts.hil ?? 0) / gateTotal) * 100;
-  const gateAbstainEnd = gateHilEnd + ((state.gateCounts.abstain ?? 0) / gateTotal) * 100;
+  const gateAutoEnd = (metrics.gateCounts.auto / gateTotal) * 100;
+  const gateHilEnd = gateAutoEnd + (metrics.gateCounts.hil / gateTotal) * 100;
+  const gateAbstainEnd = gateHilEnd + (metrics.gateCounts.abstain / gateTotal) * 100;
   const gateGradient = view.gateTotal > 0
     ? `conic-gradient(var(--gate-auto) 0 ${gateAutoEnd}%, var(--gate-hil) ${gateAutoEnd}% ${gateHilEnd}%, var(--gate-abstain) ${gateHilEnd}% ${gateAbstainEnd}%, var(--gate-deny) ${gateAbstainEnd}% 100%)`
     : "var(--bg)";
   const isSample = streamSource === "synthetic-dev";
   const statusLabel = isSample ? t("live.status.sample") : t(`live.status.${displayStatus}`);
-
+  const signalAt = isSample ? view.lastEventAt : lastSignalAt;
+  const lastSignalLabel = signalAt === null || signalAt === 0
+    ? t("live.health.notObserved")
+    : t("live.spark.secondsAgo", {
+        count: Math.max(0, Math.floor((state.now - signalAt) / 1_000)),
+      });
   return (
     <div class="live" data-filter={state.filter}>
       <PageHeader
@@ -152,28 +157,39 @@ export function LivePanels({
               {tickerPaused ? t("live.resume") : t("live.freeze")}
             </button>
           </Tooltip>
-          <span class="live-env-badge">
-            {observationSourceLabel(streamSource)}
+          <span
+            class={`live-context live-status-${
+              displayStatus === "awaitingSource" ? "awaiting-source" : displayStatus
+            }`}
+          >
+            <strong>{observationSourceLabel(streamSource)}</strong>
+            <span>{t("live.scope.readOnly")}</span>
+            <span>60s</span>
+            <span class="live-connection">
+              <i aria-hidden="true" />
+              {statusLabel}
+              {lastError ? ` · ${lastError}` : ""}
+            </span>
           </span>
-          <span class="live-context-tag">
-            {t("live.context.source")} <code>GET /live/stream</code>
-          </span>
-          <span class="live-context-tag">
-            {t("live.context.window")} <strong>60s</strong>
-          </span>
-          <div class={`live-status live-status-${displayStatus === "awaitingSource" ? "awaiting-source" : displayStatus}`}>
-            <span class="live-status-dot" />
-            <span>{statusLabel}</span>
-            {lastError ? <span class="muted"> · {lastError}</span> : null}
-          </div>
         </div>}
       />
 
       <section class="live-scope-strip" aria-label={t("live.scope.label")}>
         <span><strong>{t("live.scope.mode")}</strong>{t("live.scope.readOnly")}</span>
-        <span><strong>{t("live.scope.source")}</strong><code>GET /live/stream</code></span>
+        <span>
+          <strong>{t("live.scope.transport")}</strong>
+          <code>{isSample ? t("live.scope.syntheticTransport") : "SSE /live/stream"}</code>
+        </span>
         <span><strong>{t("live.scope.evidence")}</strong>{observationSourceLabel(streamSource)}</span>
-        <span class="live-scope-warning">
+        <span
+          class={`live-scope-boundary ${
+            isSample
+              ? "is-sample"
+              : view.streamOpen
+                ? "is-observed"
+                : "is-unavailable"
+          }`}
+        >
           {isSample
             ? t("live.scope.sample")
             : view.streamOpen
@@ -182,221 +198,184 @@ export function LivePanels({
         </span>
       </section>
 
-      <LiveCoverage coverage={coverage} />
+      <div class="live-status-rail">
+        <section class="live-health" aria-label={t("live.health.label")}>
+          <div>
+            <span>{t("live.health.lastSignal")}</span>
+            <strong>{lastSignalLabel}</strong>
+          </div>
+          <div>
+            <span>{t("live.health.backlog")}</span>
+            <strong class={droppedFrames > 0 ? "live-health-warn" : "live-health-ok"}>
+              {droppedFrames > 0
+                ? t("live.health.dropped", { count: droppedFrames })
+                : cursorReset
+                  ? t("live.health.cursorReset")
+                  : t("live.health.complete")}
+            </strong>
+          </div>
+          <div>
+            <span>{t("live.health.sourceCoverage")}</span>
+            <strong class={`live-health-${view.streamOpen ? "ok" : "warn"}`}>
+              {observationSourceLabel(streamSource)}
+            </strong>
+          </div>
+          <div>
+            <span>{t("live.health.presentation")}</span>
+            <strong>
+              {tickerPaused
+                ? t("live.health.frozen", { count: frozenObserved })
+                : t("live.health.following")}
+            </strong>
+          </div>
+        </section>
 
-      <section class="live-health" aria-label={t("live.health.label")}>
-        <div>
-          <span>{t("live.health.stream")}</span>
-          <strong class={`live-health-${view.streamOpen ? "ok" : "warn"}`}>{statusLabel}</strong>
-        </div>
-        <div>
-          <span>{t("live.health.lastEvent")}</span>
-          <strong>{view.lastEventLabel}</strong>
-        </div>
-        <div>
-          <span>{t("live.health.presentation")}</span>
-          <strong>{tickerPaused ? t("live.health.frozen", { count: frozenObserved }) : t("live.health.following")}</strong>
-        </div>
-        <div>
-          <span>{t("live.health.backlog")}</span>
-          <strong class={droppedFrames > 0 ? "live-health-warn" : "live-health-ok"}>
-            {droppedFrames > 0
-              ? t("live.health.dropped", { count: droppedFrames })
-              : cursorReset
-                ? t("live.health.cursorReset")
-              : t("live.health.complete")}
-          </strong>
-        </div>
-      </section>
+        <section
+          class={`live-attention ${view.streamOpen && view.attentionTotal > 0 ? "live-attention-active" : view.streamOpen ? "live-attention-calm" : "live-attention-unavailable"}`}
+          aria-label={t("live.attention.ariaLabel")}
+        >
+          {view.streamOpen && view.attentionTotal > 0 ? (
+            <>
+              <span class="live-attention-label">{t("live.attention.label")}</span>
+              {view.attention.hil > 0 ? (
+                <Tooltip content={t("live.attention.approvalTitle")}>
+                  <button
+                    type="button"
+                    class="live-attention-chip live-attention-hil"
+                    onClick={() => updateRoute({ filter: "hil" })}
+                  >
+                    {t("live.attention.approvals", { count: view.attention.hil })}
+                  </button>
+                </Tooltip>
+              ) : null}
+              {view.attention.deny > 0 ? (
+                <Tooltip content={t("live.attention.deniedTitle")}>
+                  <button
+                    type="button"
+                    class="live-attention-chip live-attention-deny"
+                    onClick={() => updateRoute({ filter: "deny" })}
+                  >
+                    {t("live.attention.denied", { count: view.attention.deny })}
+                  </button>
+                </Tooltip>
+              ) : null}
+              {view.attention.failed > 0 ? (
+                <Tooltip content={t("live.attention.failedTitle")}>
+                  <button
+                    type="button"
+                    class="live-attention-chip live-attention-failed"
+                    onClick={() => updateRoute({ filter: "failed" })}
+                  >
+                    {t("live.attention.failed", { count: view.attention.failed })}
+                  </button>
+                </Tooltip>
+              ) : null}
+              {view.attention.stuck > 0 ? (
+                <Tooltip content={t("live.attention.stuckTitle")}>
+                  <button
+                    type="button"
+                    class="live-attention-chip live-attention-stuck"
+                    onClick={() => updateRoute({ filter: "stuck" })}
+                  >
+                    {t("live.attention.stuck", { count: view.attention.stuck })}
+                  </button>
+                </Tooltip>
+              ) : null}
+              {view.attention.hil > 0 ? (
+                <a href={routeHref("hil-queue")}>{t("live.attention.openApprovals")}</a>
+              ) : null}
+            </>
+          ) : (
+            <span class="live-attention-calm-text">
+              <i class={`live-attention-dot ${view.streamOpen ? "" : "unavailable"}`} />
+              {view.streamOpen ? t("live.attention.none") : t("live.attention.unavailable")}
+            </span>
+          )}
+        </section>
+      </div>
 
-      <section
-        class={`live-attention ${view.streamOpen && view.attentionTotal > 0 ? "live-attention-active" : view.streamOpen ? "live-attention-calm" : "live-attention-unavailable"}`}
-        aria-label={t("live.attention.ariaLabel")}
-      >
-        {view.streamOpen && view.attentionTotal > 0 ? (
-          <>
-            <span class="live-attention-label">{t("live.attention.label")}</span>
-            {view.attention.hil > 0 ? (
-              <Tooltip content={t("live.attention.approvalTitle")}>
-                <button
-                  type="button"
-                  class="live-attention-chip live-attention-hil"
-                  onClick={() => updateRoute({ filter: "hil" })}
-                >
-                  {t("live.attention.approvals", { count: view.attention.hil })}
-                </button>
-              </Tooltip>
-            ) : null}
-            {view.attention.deny > 0 ? (
-              <Tooltip content={t("live.attention.deniedTitle")}>
-                <button
-                  type="button"
-                  class="live-attention-chip live-attention-deny"
-                  onClick={() => updateRoute({ filter: "deny" })}
-                >
-                  {t("live.attention.denied", { count: view.attention.deny })}
-                </button>
-              </Tooltip>
-            ) : null}
-            {view.attention.failed > 0 ? (
-              <Tooltip content={t("live.attention.failedTitle")}>
-                <button
-                  type="button"
-                  class="live-attention-chip live-attention-failed"
-                  onClick={() => updateRoute({ filter: "failed" })}
-                >
-                  {t("live.attention.failed", { count: view.attention.failed })}
-                </button>
-              </Tooltip>
-            ) : null}
-            {view.attention.stuck > 0 ? (
-              <Tooltip content={t("live.attention.stuckTitle")}>
-                <button
-                  type="button"
-                  class="live-attention-chip live-attention-stuck"
-                  onClick={() => updateRoute({ filter: "stuck" })}
-                >
-                  {t("live.attention.stuck", { count: view.attention.stuck })}
-                </button>
-              </Tooltip>
-            ) : null}
-            {view.attention.hil > 0 ? <a href={routeHref("hil-queue")}>{t("live.attention.openApprovals")}</a> : null}
-          </>
-        ) : (
-          <span class="live-attention-calm-text">
-            <i class={`live-attention-dot ${view.streamOpen ? "" : "unavailable"}`} />
-            {view.streamOpen ? t("live.attention.none") : t("live.attention.unavailable")}
-          </span>
-        )}
-      </section>
+      <LiveCoverage coverage={coverage} sample={isSample} />
 
       <section class="grid live-kpis">
-        <a class={`card kpi live-kpi live-kpi-eps${epsUpdated ? " is-content-updated" : ""}`} href={routeHref("audit")}>
+        <a class={`card kpi live-kpi live-kpi-eps${epsUpdated ? " is-content-updated" : ""}`} href={routeHref("agent-activity")}>
           <span class="label">{t("live.kpi.events")}</span>
+          <DrilldownCue />
           <span class="live-kpi-value">
             {view.eps}<small>{t("live.kpi.average")}</small>
           </span>
-          <Sparkline buckets={state.rateBuckets} latSum={state.latSum} latCount={state.latCount} />
-          <div class="live-spark-legend" aria-hidden="true">
-            <span class="live-spark-key t0"><i />T0 <b>{sumBuckets(state.rateBuckets.t0)}</b></span>
-            <span class="live-spark-key t1"><i />T1 <b>{sumBuckets(state.rateBuckets.t1)}</b></span>
-            <span class="live-spark-key t2"><i />T2 <b>{sumBuckets(state.rateBuckets.t2)}</b></span>
+          <Sparkline series={[
+            { label: t("live.filter.control"), values: metrics.controlBuckets, className: "live-spark-t0" },
+            { label: t("live.filter.source"), values: metrics.sourceBuckets, className: "live-spark-t1" },
+          ]} />
+          <div class="live-spark-legend">
+            <span class="live-spark-key t0"><i />{t("live.filter.control")} <b>{metrics.control}</b></span>
+            <span class="live-spark-key t1"><i />{t("live.filter.source")} <b>{metrics.source}</b></span>
           </div>
+          <span class="live-kpi-meta">{t(metrics.partial ? "live.kpi.partial" : "live.kpi.messagesHelp")}</span>
         </a>
         <a class={`card kpi live-kpi${gateUpdated ? " is-content-updated" : ""}`} href={routeHref("audit")}>
           <span class="label">{t("live.kpi.gateMix")}</span>
-          <div class="live-gate-viz">
+          <DrilldownCue />
+          {view.gateTotal === 0 ? (
+            <div class="live-kpi-unavailable">
+              <strong>{t("live.kpi.noGate")}</strong>
+              <small>{t("live.kpi.controlOnly")}</small>
+            </div>
+          ) : <div class="live-gate-viz">
             <div class="live-gate-donut" style={{ background: gateGradient }}>
               <span><strong>{view.autoShare}%</strong><small>{t("live.kpi.auto")}</small></span>
             </div>
             <div class="live-mix-legend">
             {gateKeys.map((key) => (
               <span key={key} class={`live-mix-key ${key}`}>
-                <i />{t(`live.decision.${key}`)} <b>{state.gateCounts[key] ?? 0}</b>
+                <i />{t(`live.decision.${key}`)} <b>{metrics.gateCounts[key]}</b>
               </span>
             ))}
             </div>
-          </div>
-          <span class="live-kpi-meta">{t("live.kpi.finalized", { count: view.gateTotal })}</span>
+          </div>}
+          <span class="live-kpi-meta">{t(metrics.partial ? "live.kpi.partial" : "live.kpi.finalized", { count: view.gateTotal })}</span>
         </a>
         <a class={`card kpi live-kpi${tierUpdated ? " is-content-updated" : ""}`} href={routeHref("trust-routing")}>
           <span class="label">{t("live.kpi.tierMix")}</span>
-          <div class="live-tier-plot">
+          <DrilldownCue />
+          {view.tierTotal === 0 ? (
+            <div class="live-kpi-unavailable">
+              <strong>{t("live.kpi.noTier")}</strong>
+              <small>{t("live.kpi.controlOnly")}</small>
+            </div>
+          ) : <div class="live-tier-plot">
             {(["t0", "t1", "t2"] as const).map((key) => (
               <div key={key} class={`live-tier-row live-tier-row-${key}`}>
                 <span><b>{key.toUpperCase()}</b><small>{t(`live.kpi.tierLabel.${key}`)}</small></span>
-                <i><i style={{ width: `${view.tierTotal > 0 ? ((state.tierCounts[key] ?? 0) / view.tierTotal) * 100 : 0}%` }} /></i>
-                <strong>{view.tierTotal > 0 ? Math.round(((state.tierCounts[key] ?? 0) / view.tierTotal) * 100) : 0}%</strong>
+                <i><i style={{ width: `${view.tierTotal > 0 ? (metrics.tierCounts[key] / view.tierTotal) * 100 : 0}%` }} /></i>
+                <strong>{view.tierTotal > 0 ? Math.round((metrics.tierCounts[key] / view.tierTotal) * 100) : 0}%</strong>
               </div>
             ))}
             <div class="live-tier-axis"><span>0</span><span>50</span><span>100%</span></div>
-          </div>
-          <span class="live-kpi-meta">{t("live.kpi.routed", { count: view.tierTotal })}</span>
+          </div>}
+          <span class="live-kpi-meta">{t(metrics.partial ? "live.kpi.partial" : "live.kpi.routed", { count: view.tierTotal })}</span>
         </a>
       </section>
 
-      <div class="live-workspace">
-      <section class="live-work-header">
-        <div>
-          <span class="live-eyebrow">{t("live.work.eyebrow")}</span>
-          <h3>{t("live.work.title")}</h3>
-        </div>
-        <div class="segmented-control" role="group" aria-label={t("live.work.viewModeLabel")}>
-          {(["queue", "flow"] as const).map((mode) => (
-            <button type="button" class={viewMode === mode ? "active" : undefined} aria-pressed={viewMode === mode} onClick={() => updateRoute({ view: mode })}>
-              {mode === "queue" ? t("live.work.queue") : t("live.work.flow")}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section class="live-filterbar" aria-label={t("live.work.filtersLabel")}>
-        {(["all", "hil", "deny", "failed", "stuck"] as const).map((filter, index) => (
-          <Tooltip
-            key={filter}
-            content={t("live.work.filterTitle", { filter: t(`live.filter.${filter}`), key: index + 1 })}
-          >
-            <button
-              type="button"
-              class={`live-filter-chip ${state.filter === filter ? "active" : ""}`}
-              onClick={() => updateRoute({ filter })}
-              aria-keyshortcuts={`${index + 1}`}
-            >
-              {t(`live.filter.${filter}`)}
-              <span class="live-filter-count">{view.filterCounts[filter]}</span>
-            </button>
-          </Tooltip>
-        ))}
-        <span class="muted live-filterbar-note">{t("live.work.filterNote")}</span>
-      </section>
-
-      {viewMode === "queue" ? (
-        <section aria-label={t("live.work.queueLabel")}>
-          <LiveQueue
-            tiles={view.populatedTiles}
-            filter={state.filter}
-            selectedEventId={state.selectedEventId}
-            now={state.now}
-            onSelect={selectEvent}
-          />
-        </section>
-      ) : (
-        <section class="live-swarm" aria-label={t("live.work.flowLabel")}>
-          {view.activeTileCount === 0 ? (
-            <div class="live-swarm-empty" role="status">
-              <strong>{view.streamOpen ? t("live.empty.connectedTitle") : t("live.empty.disconnectedTitle")}</strong>
-              <span>{view.emptyState}</span>
-            </div>
-          ) : null}
-          {view.populatedTiles.map((tile) => (
-            <LiveTile
-              key={tile.event_id}
-              tile={tile}
-              filter={state.filter}
-              selected={tile?.event_id === state.selectedEventId}
-              now={state.now}
-              onClick={tile
-                ? () => selectEvent(
-                    tile.event_id === state.selectedEventId ? null : tile.event_id,
-                  )
-                : undefined}
-            />
-          ))}
-        </section>
-      )}
-
-      {streamSource === "synthetic-dev" ? null : (
-        <LiveObservations
-          items={observations}
-          loadState={observationLoadState}
-          streamStatus={observationStreamStatus}
-          streamSource={observationStreamSource}
-          error={observationError}
-          selectedActivityId={selectedObservationId}
-          onSelect={selectObservation}
-        />
-      )}
-      </div>
+      <LiveActivityWorkspace
+        tiles={view.populatedTiles}
+        observations={observations}
+        observationLoadState={observationLoadState}
+        observationStreamStatus={observationStreamStatus}
+        observationStreamSource={observationStreamSource}
+        observationError={observationError}
+        sample={isSample}
+        filter={state.filter}
+        viewMode={viewMode}
+        now={state.now}
+        controlEmptyState={view.emptyState}
+        selectedEventId={state.selectedEventId}
+        selectedObservationId={selectedObservationId}
+        onFilter={(filter) => updateRoute({ filter })}
+        onViewMode={(view) => updateRoute({ view })}
+        onSelectEvent={selectEvent}
+        onSelectObservation={selectObservation}
+      />
 
       {selectionState === "waiting" && state.selectedEventId ? (
         <div class="state-block state-unavailable" role="status">
@@ -419,5 +398,13 @@ export function LivePanels({
         />
       ) : null}
     </div>
+  );
+}
+
+function DrilldownCue() {
+  return (
+    <svg class="live-kpi-detail-cue" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M5 3 H13 V11 M13 3 L4 12" />
+    </svg>
   );
 }

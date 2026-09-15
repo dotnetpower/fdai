@@ -145,3 +145,22 @@ No confirmed Medium/High defect remains in this bounded documentation change. Hu
 target selection, provider actions, current exact-plan approval and operational receipts remain
 external requirements, not downgraded local findings. Until protected merge and task-only cleanup
 are verified, #1043 publication remains incomplete.
+
+### Protected-main reconciliation
+
+Local commit `cd6fce51a5f778f719708cc4dc0d351a43bfa17c` passed normal commit and pre-push
+hooks and was published without force; the remote branch resolved to the same SHA. PR #1044
+retains the bounded documentation scope and does not close #458. The mandatory pre-push
+structural stage passed; no separate worker-wide validation was requested or duplicated.
+
+Before integration, main advanced to `511178272e7cb7994609dd45f147aead5562cfa1` with successful
+exact-main CI `34939635808`. Its four commits change other Console and prediction/case-retention
+surfaces. A normal local merge has no conflicts and leaves all seven task documents, their
+language/history checkers and dependency lock inputs unchanged. The ten integrated documentation
+questions remain valid for this delta. Prior browser results remain historical results for their
+frozen inputs, not a new whole-Console claim: upstream changed the broader Console manifest,
+including removal of Live-only stylesheet rules. No new browser, speech or provider pass is claimed.
+
+The initial PR head's running CI is superseded by the locally integrated head, not rerun as an
+edit-loop test. Exact final-head CI, protected merge, remote ancestry and task-only cleanup remain
+delivery requirements to reconcile on #1043. #458's current operational evidence remains open.

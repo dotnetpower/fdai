@@ -96,7 +96,9 @@ class JsonSchemaContractValidator:
 
     Uses JSON Schema draft-2020-12 loaded from an injected
     :class:`SchemaRegistry`. Compiled validators are cached per
-    ``(schema_name, version)`` for the lifetime of the instance.
+    ``(schema_name, version)`` for the lifetime of the instance. An explicit
+    version pins the contract; otherwise the declared message version selects
+    a registered schema. Only unversioned messages use the latest schema.
     """
 
     def __init__(self, registry: SchemaRegistry) -> None:
@@ -110,14 +112,32 @@ class JsonSchemaContractValidator:
         *,
         version: str | None = None,
     ) -> None:
-        validator = self._cache.get((schema_name, version))
+        declared_version = instance.get("schema_version")
+        if "schema_version" in instance and (
+            not isinstance(declared_version, str) or not declared_version
+        ):
+            raise ContractValidationError(
+                schema_name,
+                [ValidationIssue(path="/schema_version", message="version MUST be non-empty text")],
+            )
+        if version is not None and declared_version is not None and version != declared_version:
+            raise ContractValidationError(
+                schema_name,
+                [
+                    ValidationIssue(
+                        path="/schema_version", message="version differs from the pinned contract"
+                    )
+                ],
+            )
+        selected_version = version if version is not None else declared_version
+        validator = self._cache.get((schema_name, selected_version))
         if validator is None:
-            schema = self._registry.get(schema_name, version)
+            schema = self._registry.get(schema_name, selected_version)
             # Draft202012Validator.check_schema raises if the schema itself is
             # malformed - that is a startup bug, not a runtime user error.
             Draft202012Validator.check_schema(schema)
             validator = Draft202012Validator(schema)
-            self._cache[(schema_name, version)] = validator
+            self._cache[(schema_name, selected_version)] = validator
 
         errors = sorted(validator.iter_errors(dict(instance)), key=lambda e: list(e.path))
         if errors:

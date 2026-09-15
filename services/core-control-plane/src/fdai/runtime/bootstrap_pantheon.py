@@ -14,6 +14,7 @@ from typing import Any, cast
 import httpx
 
 from fdai.agents import (
+    Heimdall,
     Norns,
     PantheonRuntime,
     Saga,
@@ -31,6 +32,9 @@ from fdai.core.executor import MutationDependencyReadiness
 from fdai.core.impact_analysis import ChangeAssessmentService, ImpactAnalyzer
 from fdai.core.learning import PostTurnProposalModel, RuleHintSubmitter
 from fdai.core.operational_context import OperationalContextMaterializer
+from fdai.core.operational_context.test_context_commands import TestContextCommandHandler
+from fdai.core.operational_context.test_context_dispatch import TestContextDispatchGuard
+from fdai.core.operational_context.test_context_lifecycle import GovernedTestContextStore
 from fdai.core.operational_planning import (
     AssuranceTwinPlanningSimulator,
     ConstitutionalPlanningConstraintEvaluator,
@@ -51,6 +55,7 @@ from fdai.delivery.persistence import (
     PostgresCaseHistoryMetadataStoreConfig,
     StateStoreSemanticFeedbackCandidateStore,
 )
+from fdai.delivery.persistence.state_store_forecast_context import StateStoreForecastContextProvider
 from fdai.delivery.prospective_lineage import (
     OperationalPlanningProspectiveFinalizer,
     StateStoreProspectiveLineageMaterializer,
@@ -67,7 +72,10 @@ from fdai.runtime.case_history import (
 )
 from fdai.runtime.configuration import _model_endpoint_resolver
 from fdai.runtime.discovery_activation import DiscoveryActivationRuntime
-from fdai.runtime.forecast_learning import build_forecast_learning_runtime
+from fdai.runtime.forecast_learning import (
+    build_forecast_history_collector,
+    build_forecast_learning_runtime,
+)
 from fdai.runtime.operational_catalog_review import build_operational_catalog_review_bindings
 from fdai.runtime.post_turn_review import (
     PostTurnReviewRuntime,
@@ -79,6 +87,7 @@ from fdai.runtime.providers import _build_resource_lock
 from fdai.runtime.readiness import RuntimeReadinessState
 from fdai.runtime.rule_generation_documents import RuleGenerationReconciliation
 from fdai.runtime.t2_route_registry import T2RouteRegistry, bind_t2_route_selector
+from fdai.runtime.test_context_projection import TestContextApplicationPublisher
 from fdai.shared.config.models import LlmMode
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.event_bus import EventBus
@@ -291,11 +300,14 @@ async def initialize_pantheon(
         identity=case_history_identity,
         http_client=config.http_client,
         dsn=state_store_dsn,
+        pattern_library_dsn=config.environment.get("FDAI_T1_PATTERN_LIBRARY_DSN"),
         relational_read_authority=(
             config.environment.get("FDAI_CASE_HISTORY_RELATIONAL_READ", "").strip() == "1"
         ),
         models=post_turn_models,
     )
+    if case_history_runtime is not None:
+        config.control_loop.bind_case_history_reuse(case_history_runtime.materializer)
     if case_history_runtime is not None and state_store_dsn and state_store_dsn.strip():
         relational_metadata = PostgresCaseHistoryMetadataStore(
             config=PostgresCaseHistoryMetadataStoreConfig(dsn=state_store_dsn)
@@ -303,10 +315,20 @@ async def initialize_pantheon(
         await relational_metadata.verify_schema()
         if config.environment.get("FDAI_CASE_HISTORY_RELATIONAL_READ", "").strip() == "1":
             await relational_metadata.verify_read_cutover()
+    forecast_context = StateStoreForecastContextProvider(
+        config.incident_audit_store,
+        admission=config.container.decision_evidence_admission_provider,
+        collector=build_forecast_history_collector(
+            dsn=state_store_dsn,
+            bindings_json=config.environment.get("FDAI_FORECAST_HISTORY_SOURCES_JSON"),
+        ),
+    )
     forecast_learning_runtime = build_forecast_learning_runtime(
         dsn=state_store_dsn,
         targets_json=config.environment.get("FDAI_FORECAST_TARGETS_JSON"),
         metric_provider=config.container.metric_provider,
+        context_provider=forecast_context,
+        context_admission=config.container.decision_evidence_admission_provider,
     )
     if forecast_learning_runtime is not None:
         await forecast_learning_runtime.store.verify_schema()
@@ -541,6 +563,15 @@ async def initialize_pantheon(
             case_history_runtime.analyzer if case_history_runtime is not None else None
         ),
         operational_context_materializer=operational_context_materializer,
+        test_context_source=(
+            GovernedTestContextStore(
+                store=config.incident_audit_store,
+                admission=config.container.decision_evidence_admission_provider,
+            )
+            if config.container.decision_evidence_admission_provider is not None
+            else None
+        ),
+        test_context_admission=config.container.decision_evidence_admission_provider,
         operational_planner=operational_planner,
         change_assessor=(
             ChangeAssessmentService(
@@ -604,6 +635,30 @@ async def initialize_pantheon(
         semantic_router_config=config.semantic_router_config_from_env(),
         cost_runtime=cost_runtime,
     )
+    cast(Heimdall, pantheon_runtime.agents["Heimdall"]).bind_forecast_history_ingress(
+        forecast_context.ingest
+    )
+    pantheon_runtime.bridge.subscribe(
+        "object.audit-entry",
+        "test-context-projection",
+        TestContextApplicationPublisher(
+            config.bus,
+            physical_topic=(
+                config.environment.get("FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC", "").strip() or None
+            ),
+        ).handle,
+    )
+    pantheon_runtime.subscription_count += 1
+    if config.container.decision_evidence_admission_provider is not None:
+        context_commands = TestContextCommandHandler(
+            contexts=GovernedTestContextStore(
+                store=config.incident_audit_store,
+                admission=config.container.decision_evidence_admission_provider,
+            ),
+            admission=config.container.decision_evidence_admission_provider,
+        )
+        for owner in ("Mimir", "Var"):
+            cast(Any, pantheon_runtime.agents[owner]).bind_test_context_commands(context_commands)
     pantheon_runtime.subscription_count += runtime_subscriptions.bind_recovery_effect_observation(
         pantheon_runtime.bridge,
         recovery_effect_observation_handler,
@@ -611,6 +666,16 @@ async def initialize_pantheon(
     thor_agent = pantheon_runtime.agents.get("Thor")
     if thor_agent is None:  # pragma: no cover - fixed Pantheon invariant
         raise RuntimeError("Pantheon runtime is missing Thor")
+    if config.container.decision_evidence_admission_provider is not None:
+        cast(Any, thor_agent).bind_test_context_dispatch_guard(
+            TestContextDispatchGuard(
+                source=GovernedTestContextStore(
+                    store=config.incident_audit_store,
+                    admission=config.container.decision_evidence_admission_provider,
+                ),
+                admission=config.container.decision_evidence_admission_provider,
+            )
+        )
     cast(Any, thor_agent).set_shadow_required(
         lambda: (
             not _pantheon_enforce_enabled(

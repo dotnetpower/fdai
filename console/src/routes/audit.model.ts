@@ -1,8 +1,52 @@
-import type { AuditPage } from "../types";
+import type { AuditItem, AuditPage } from "../types";
 
 export interface AuditData {
   readonly items: AuditPage["items"];
   readonly nextCursor: string | null;
+}
+
+/** Return only a recorded non-empty text value; absent evidence stays absent. */
+export function auditEntryText(entry: AuditItem["entry"], key: string): string | null {
+  const value = entry[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+/** Keep causal fields attached to exact record identity in current-screen context. */
+export function auditContextRecord(item: AuditItem) {
+  return {
+    seq: item.seq, recorded_at: item.recorded_at, actor: item.actor,
+    action_kind: item.action_kind, mode: item.mode, event_id: item.event_id,
+    correlation_id: item.correlation_id ?? "-",
+    tier: auditEntryText(item.entry, "tier") ?? "-",
+    outcome: auditEntryText(item.entry, "outcome") ?? "-",
+    summary: auditEntryText(item.entry, "summary") ?? "-",
+    detail: auditEntryText(item.entry, "detail") ?? "-",
+    reason: auditEntryText(item.entry, "reason") ?? "-",
+  };
+}
+
+/** Search the loaded page, never imply a search across the complete ledger. */
+export function searchAuditItems(items: readonly AuditItem[], query: string): readonly AuditItem[] {
+  const search = query.trim().toLocaleLowerCase();
+  if (!search) return items;
+  return items.filter((item) => [
+    String(item.seq), item.action_kind, item.actor, item.event_id, item.correlation_id,
+    auditEntryText(item.entry, "rule_id"), auditEntryText(item.entry, "idempotency_key"),
+  ].some((value) => value?.toLocaleLowerCase().includes(search)));
+}
+
+export type AuditRecordedPhase = "intent" | "dispatch" | "observe" | "close";
+
+/** A named stage is evidence of that record only, not proof of an operational effect. */
+export function auditRecordedPhase(item: AuditItem): AuditRecordedPhase | null {
+  const stage = auditEntryText(item.entry, "stage");
+  switch (stage) {
+    case "intent": case "plan": case "propose": return "intent";
+    case "dispatch": case "execute": return "dispatch";
+    case "observe": case "verify": return "observe";
+    case "close": case "audit": return "close";
+    default: return null;
+  }
 }
 
 export type AuditEntrySelection =

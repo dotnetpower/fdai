@@ -15,6 +15,9 @@ selection is part of the signed `fdaictl` provisioning profile and every exact T
 
 ## Design at a glance
 
+Shared Operator outbox composition preserves the same test-context worker on both platforms.
+Its facade grouping creates no AKS observation, Cost Governance activation, or deployment authority.
+
 The operator chooses one runtime platform and one database placement. `fdaictl` validates the
 combination, estimates its capacity and cost, compiles a platform-specific provisioning graph,
 and asks for approval of each exact plan. A retry can verify an uncertain effect, but it cannot
@@ -153,6 +156,11 @@ contract; making the whole root filesystem writable is not a compatibility fallb
 Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel worker, a bounded active
 deadline, a retry limit, and bounded history. Manual jobs are created only by a separately approved
 request and are not perpetual desired-state resources.
+
+The inventory command and its CLI support module preserve read-only failure boundaries on both
+platforms and in the local managed stack. Activity Log recovery is independent of full reconciliation:
+failures before or after generation promotion are reported as unavailable, without advancing failed
+delta cursors or terminating the complete inventory loop.
 
 The managed host records the selected Deployment names, image references, and replica bounds.
 Health readback requires that complete set, current observed generations, ready replicas, and

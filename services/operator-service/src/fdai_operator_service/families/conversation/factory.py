@@ -42,6 +42,8 @@ from fdai_operator_service.streaming.shutdown import (
     shutdown_event,
     shutting_down,
 )
+from fdai_service_contracts.test_context import TestContextRequest
+from pydantic import ValidationError
 from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 from starlette.routing import Route
@@ -117,6 +119,18 @@ def _proposal_endpoint(
             )
             if spec.operation == "chat.exchange":
                 require_inline_images_absent(body)
+            if spec.operation.startswith("test-context."):
+                try:
+                    typed = TestContextRequest.model_validate(body)
+                except ValidationError as exc:
+                    raise ConversationBoundaryError(
+                        422, "invalid_test_context", "test context request is invalid"
+                    ) from exc
+                if typed.operation != spec.operation.split(".", 1)[1]:
+                    raise ConversationBoundaryError(
+                        422, "invalid_test_context", "test context operation does not match route"
+                    )
+                body = typed.model_dump(mode="json")
             if spec.requires_confirmation and body.get("confirmed") is not True:
                 raise ConversationBoundaryError(
                     409,

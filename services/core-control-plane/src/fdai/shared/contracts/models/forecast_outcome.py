@@ -8,13 +8,23 @@ from math import isfinite
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import Field, SerializerFunctionWrapHandler, model_serializer, model_validator
 
 from ._base import IdempotencyKey, SemVer, _Base
 from .enums import Mode
 
 Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 NonEmpty = Annotated[str, Field(min_length=1, max_length=512)]
+
+
+class ForecastScoringExclusion(StrEnum):
+    """Canonical reasons a measured forecast cannot enter untreated scoring."""
+
+    INTERVENTION_HISTORY_UNAVAILABLE = "intervention_history_unavailable"
+    CONTEXT_MISMATCH = "context_mismatch"
+    EXCLUDED_WINDOW = "excluded_window"
+    RESOURCE_DELETED = "resource_deleted"
+    INTERVENTION_AFFECTED = "intervention_affected"
 
 
 class ForecastOutcomeLabel(StrEnum):
@@ -68,9 +78,27 @@ class ForecastOutcome(_Base):
     telemetry_completeness: TelemetryCompleteness
     closed_at: datetime
     mode: Mode = Mode.SHADOW
+    scoring_exclusions: Annotated[tuple[ForecastScoringExclusion, ...], Field(max_length=5)] = ()
+
+    @model_serializer(mode="wrap")
+    def _serialize_version(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        """Keep the legacy wire shape while allowing explicit v1.1 scoring exclusions."""
+        payload: dict[str, object] = dict(handler(self))
+        if self.schema_version == "1.0.0":
+            payload.pop("scoring_exclusions", None)
+        return payload
 
     @model_validator(mode="after")
     def _validate_semantics(self) -> ForecastOutcome:
+        if self.schema_version not in {"1.0.0", "1.1.0"}:
+            raise ValueError("forecast outcome schema version is unsupported")
+        if self.scoring_exclusions:
+            if self.schema_version != "1.1.0":
+                raise ValueError("forecast scoring exclusions require schema version 1.1.0")
+            if self.label is not ForecastOutcomeLabel.UNSCORABLE:
+                raise ValueError("excluded forecast observations MUST be unscorable")
+            if len(set(self.scoring_exclusions)) != len(self.scoring_exclusions):
+                raise ValueError("forecast scoring exclusions MUST be unique")
         timestamps = (
             self.feature_cutoff,
             self.horizon_started_at,
@@ -179,6 +207,7 @@ class ForecastOutcome(_Base):
         if (
             self.label is ForecastOutcomeLabel.UNSCORABLE
             and self.telemetry_completeness is TelemetryCompleteness.COMPLETE
+            and not self.scoring_exclusions
         ):
             raise ValueError("unscorable outcome MUST NOT claim complete telemetry")
         return self
@@ -189,4 +218,5 @@ __all__ = [
     "ForecastOutcomeLabel",
     "ForecastMissOrigin",
     "TelemetryCompleteness",
+    "ForecastScoringExclusion",
 ]

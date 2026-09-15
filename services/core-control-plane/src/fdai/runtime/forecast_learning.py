@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
+from fdai.core.detection.forecast_context import ContextualForecastObservationProvider
 from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator, ForecastTargetSpec
+from fdai.core.detection.forecast_history import (
+    ForecastHistoryBinding,
+    StateTransitionForecastHistoryCollector,
+)
 from fdai.core.detection.forecast_observation import MetricForecastObservationProvider
 from fdai.core.detection.governance_policy import (
     DETECTION_GOVERNANCE_POLICY_PATH,
@@ -20,7 +27,13 @@ from fdai.delivery.persistence.postgres_forecast_episode import (
     PostgresForecastEpisodeStore,
     PostgresForecastEpisodeStoreConfig,
 )
+from fdai.delivery.persistence.postgres_state_transitions import (
+    PostgresStateTransitionStore,
+    PostgresStateTransitionStoreConfig,
+)
 from fdai.delivery.repo_assets import repo_asset_root
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
+from fdai.shared.providers.forecast_context import ForecastContextProvider
 from fdai.shared.providers.metric import MetricProvider
 
 
@@ -37,6 +50,9 @@ def build_forecast_learning_runtime(
     targets_json: str | None,
     metric_provider: MetricProvider,
     governance_policy_path: Path | None = None,
+    context_provider: ForecastContextProvider | None = None,
+    context_admission: DecisionEvidenceAdmissionProvider | None = None,
+    clock: Callable[[], datetime] | None = None,
 ) -> ForecastLearningRuntime | None:
     policy_path = governance_policy_path or repo_asset_root() / DETECTION_GOVERNANCE_POLICY_PATH
     governance_policy = load_detection_governance_policy(policy_path)
@@ -55,9 +71,44 @@ def build_forecast_learning_runtime(
         ),
         closer=ForecastClosureCoordinator(
             store=store,
-            observations=MetricForecastObservationProvider(metric_provider),
+            observations=ContextualForecastObservationProvider(
+                observations=MetricForecastObservationProvider(metric_provider),
+                context=context_provider,
+                admission_provider=context_admission,
+                clock=clock,
+            ),
         ),
     )
+
+
+def build_forecast_history_collector(
+    *, dsn: str | None, bindings_json: str | None
+) -> StateTransitionForecastHistoryCollector | None:
+    """Bind reviewed exact source mappings to the existing PostgreSQL state-transition store."""
+    if bindings_json is None or not bindings_json.strip():
+        return None
+    if len(bindings_json.encode()) > 262_144:
+        raise ValueError("forecast history source mappings exceed the byte limit")
+    raw = json.loads(bindings_json, object_pairs_hook=_unique_history_fields)
+    if not isinstance(raw, list) or not 1 <= len(raw) <= 256 or not dsn or not dsn.strip():
+        raise ValueError("forecast history collection requires bounded mappings and a database")
+    return StateTransitionForecastHistoryCollector(
+        store=PostgresStateTransitionStore(
+            config=PostgresStateTransitionStoreConfig(
+                dsn=dsn, statement_timeout_ms=3000, connect_timeout_s=3
+            )
+        ),
+        bindings=tuple(ForecastHistoryBinding.model_validate(item) for item in raw),
+    )
+
+
+def _unique_history_fields(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for name, value in pairs:
+        if name in result:
+            raise ValueError("forecast history source mappings contain a duplicate field")
+        result[name] = value
+    return result
 
 
 def parse_forecast_targets(

@@ -3185,6 +3185,7 @@ def _runtime_result(
     )
     planning = SimpleNamespace(
         plan=plan,
+        test_context_draft=None,
         frame=SimpleNamespace(
             operation=SemanticOperation.SELECT,
             output_shape="resource_list",

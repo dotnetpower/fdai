@@ -14,9 +14,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from copy import deepcopy
 from typing import Any
 
-from fdai.agents._framework.action_run_identity import (
-    validate_action_run_identity,
-)
+from fdai.agents._framework.action_run_identity import validate_action_run_identity
 from fdai.agents._framework.adapters import (
     AdminCard,
     AdminNotificationAdapter,
@@ -36,6 +34,7 @@ from fdai.agents._framework.introspection import (
 from fdai.agents._framework.pantheon import _VAR
 from fdai.agents._framework.var_decisions import (
     ApprovalDecisionState,
+    TestContextReviewMixin,
     VarDecisionJournal,
     approval_for_ticket,
     final_approval_record,
@@ -75,7 +74,7 @@ from fdai.shared.providers.state_store import StateStore
 ApproverAuthorizer = Callable[[str, str], bool | Awaitable[bool]]
 
 
-class Var(AssignmentReviewMixin, Agent):
+class Var(TestContextReviewMixin, AssignmentReviewMixin, Agent):
     """Wave-3 HIL approval + Wave-6 admin channel delivery."""
 
     #: Bound the in-memory maps so a long-lived approver cannot leak one entry
@@ -124,6 +123,8 @@ class Var(AssignmentReviewMixin, Agent):
         self.bus = bus
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if await self._test_context_review_message(topic, payload, self.record_behavior):
+            return
         if await self._assignment_review_message(topic, payload):
             return
         if topic == "object.audit-entry":

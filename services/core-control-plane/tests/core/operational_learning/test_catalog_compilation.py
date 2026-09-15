@@ -83,6 +83,45 @@ def _candidate() -> dict[str, object]:
     }
 
 
+def test_candidate_digest_binds_scope_and_purpose_without_rewriting_legacy_identity():
+    from fdai.core.operational_learning.catalog import OperationalPatternRuleCandidate
+
+    raw = _candidate()
+    legacy = OperationalPatternRuleCandidate.from_mapping(raw)
+    scoped = OperationalPatternRuleCandidate.from_mapping(
+        {**raw, "case_scope": {"access_scope_digest": "a" * 64, "purpose": "operational-learning"}}
+    )
+    other = OperationalPatternRuleCandidate.from_mapping(
+        {**raw, "case_scope": {"access_scope_digest": "b" * 64, "purpose": "operational-learning"}}
+    )
+    other_purpose = OperationalPatternRuleCandidate.from_mapping(
+        {**raw, "case_scope": {"access_scope_digest": "a" * 64, "purpose": "operations-review"}}
+    )
+    assert len({legacy.digest, scoped.digest, other.digest, other_purpose.digest}) == 4
+    assert "case_scope" not in legacy.to_mapping()
+    assert scoped.to_mapping()["case_scope"] == {
+        "access_scope_digest": "a" * 64,
+        "purpose": "operational-learning",
+    }
+
+
+@pytest.mark.parametrize(
+    "scope",
+    [
+        None,
+        {},
+        {"access_scope_digest": "a" * 64},
+        {"access_scope_digest": "a" * 64, "purpose": " "},
+        {"access_scope_digest": "wrong", "purpose": "operational-learning"},
+    ],
+)
+def test_malformed_candidate_scope_is_not_legacy(scope):
+    from fdai.core.operational_learning.catalog import OperationalPatternRuleCandidate
+
+    with pytest.raises(CatalogCompilationError, match="candidate_case_scope_invalid"):
+        OperationalPatternRuleCandidate.from_mapping({**_candidate(), "case_scope": scope})
+
+
 class _PassingValidator:
     def validate(self, request: CatalogValidationRequest) -> CatalogCheckReceipts:
         common = {

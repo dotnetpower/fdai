@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: e4b113d782a2aff197b97189a4edab5bb3ce3398
+translation_source_sha: eb477cc571d78356f3859fafd867e8a89547cdef
 translation_revised: 2026-09-15
 ---
 # 지속형 운영 인스턴스 그래프
@@ -16,6 +16,11 @@ translation_revised: 2026-09-15
 > Resource Graph, Activity Log, Monitor, Resource Health가 현재 구현된 공급자 원본입니다.
 
 ## 설계 개요
+
+과거 Pattern 설명은 같은 의미 함수 레지스트리를 사용하지만 관측된 그래프 상태와 구분합니다.
+`query.operating_patterns`는 principal과 사례 접근 범위를 연결하는 독립 조회 검증 증적 및
+현재 출처 개정을 요구합니다. 요약은 리소스 관측이나 액션 권한을 만들지 않으며,
+[사례 이력](../rules-and-detection/prediction-learning-and-case-history-ko.md)이 이 계약을 정의합니다.
 
 지속형 수집은 push 이벤트, 재개 가능한 공급자 delta, 적응형 reconciliation을 결합합니다.
 일반 최신성 수단으로 고정된 6시간 scan을 사용하지 않으며, 제한 없는 촘촘한 polling loop도
@@ -106,10 +111,10 @@ ARM ID와 대소문자 구분 없이 일치해야 합니다. 모순이 있으면
 어휘에 속할 때만 적격입니다. 어느 한쪽이라도 미검토 유형이면 온톨로지에 들어갈 수 없으므로
 제외합니다. 양쪽이 모두 검토된 유형이면 구독이나 Resource Group 같은 기본 제공 범위 유형을
 포함해 정확한 ARM ID 형태와 일치해야 합니다.
-공급자 리소스 ID는 모든 유형 구간 뒤에 구체적인 리소스 이름을 포함해야 합니다. 유형에서 끝나는
-컬렉션 경로는 Resource 인스턴스를 만들 수 없습니다.
-비활성화된 리소스 변경 및 복구 가속기는 수집 정책 항목을 요구하지 않으며 조정에 커서 접두사나
-오래된 커서 기한을 추가하지 않습니다.
+공급자 ID의 모든 유형 구간 뒤에는 구체적인 이름이 필요하며, 컬렉션 경로만으로 Resource 인스턴스를 만들 수 없습니다.
+비활성화된 리소스 변경 및 복구 가속기는 정책 항목을 요구하지 않고 커서 접두사나 오래된 커서 기한도 추가하지 않습니다.
+CLI 지원 모듈은 전체 조정 전과 세대 승격 후에 적용하는 Activity Log 복구의 독립 실패 경계를 소유합니다.
+거부된 변경분은 커서를 진행하거나 전체 인벤토리를 중단하거나 검증된 세대를 무효화하지 않고 사용 불가 상태로 남습니다.
 
 Kubernetes fleet 수집은 정확한 클러스터 연결마다 출처 상태 레코드 하나를 보존합니다. 레코드는
 고객에게 안전한 범위 다이제스트를 사용하므로, 사용할 수 없는 클러스터 하나가 다른 클러스터의

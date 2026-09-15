@@ -121,6 +121,7 @@ from fdai.core.ontology_platform.network_path import (
     network_path_function,
 )
 from fdai.core.ontology_platform.operational_functions import operational_function_types
+from fdai.core.ontology_platform.pattern_queries import PATTERN_QUERY, OperatingPatternQuery
 from fdai.core.ontology_platform.pod_telemetry import (
     POD_TELEMETRY_FUNCTION_NAME,
     pod_telemetry_function,
@@ -245,6 +246,7 @@ def build_semantic_query_runtime(
     metric_registry: MetricSemanticRegistry | None = None,
     metric_window_provider: MetricWindowProvider | None = None,
     incident_evidence_reader: IncidentEvidenceReader | None = None,
+    operating_pattern_reader: OperatingPatternQuery | None = None,
     read_investigation_provider: ReadInvestigationProvider | None = None,
     resource_health_reader: ResourceHealthCollectionReader | None = None,
     resource_event_reader: ResourceEventCollectionReader | None = None,
@@ -377,6 +379,11 @@ def build_semantic_query_runtime(
             ),
         )
     current_state_declaration = declarations[RESOURCE_CURRENT_STATE_FUNCTION_NAME]
+    if operating_pattern_reader is not None:
+        function_registry.register_contextual(
+            declarations[PATTERN_QUERY],
+            operating_pattern_reader.read,
+        )
     function_registry.register_contextual(
         current_state_declaration,
         semantic_resource_current_state_function(ontology_release),

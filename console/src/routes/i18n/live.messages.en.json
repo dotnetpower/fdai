@@ -6,9 +6,9 @@
   "freezeTitle": "Freeze the live view",
   "resumeTitle": "Resume the live view",
   "context": {"devTitle": "Local ControlLoop: no managed-resource changes", "source": "Source", "window": "Window"},
-  "scope": {"label": "Live observation scope", "mode": "Mode", "readOnly": "Read-only", "source": "Source", "evidence": "Evidence", "observed": "Authoritative runtime source observed", "sample": "Synthetic sample stream - not operational evidence", "notReady": "No authoritative runtime source observed - not valid as live readiness evidence"},
-  "lead": "See what needs attention now, follow each control-loop stage, and open recorded evidence. This surface observes; it never executes.",
-  "health": {"label": "Live observation health", "stream": "Stream", "lastEvent": "Last event", "environment": "Environment", "presentation": "Presentation", "backlog": "Frame continuity", "complete": "No overflow detected", "dropped": "{count} old frame(s) dropped at the bounded buffer", "cursorReset": "Stream restarted - current snapshots restored", "notObserved": "Not observed", "devLocal": "Local ControlLoop", "configuredRuntime": "Configured runtime", "following": "Following live", "frozen": "Frozen - {count} frame(s) queued"},
+  "scope": {"label": "Live observation scope", "mode": "Mode", "readOnly": "Read-only", "source": "Source", "transport": "Transport", "syntheticTransport": "Synthetic generator", "evidence": "Evidence", "observed": "Authoritative runtime source observed", "sample": "Synthetic sample stream - not operational evidence", "notReady": "No authoritative runtime source observed - not valid as live readiness evidence"},
+  "lead": "See current control-loop and source-read activity, follow recorded stages, and open bounded evidence. This surface observes; it never executes.",
+  "health": {"label": "Live observation health", "stream": "Stream", "lastEvent": "Last event", "lastSignal": "Last signal", "sourceCoverage": "Source coverage", "environment": "Environment", "presentation": "Presentation", "backlog": "Frame continuity", "complete": "No overflow detected", "dropped": "{count} old frame(s) dropped at the bounded buffer", "cursorReset": "Stream restarted - current snapshots restored", "notObserved": "Not observed", "devLocal": "Local ControlLoop", "configuredRuntime": "Configured runtime", "following": "Following live", "frozen": "Frozen - {count} frame(s) queued"},
   "status": {"idle": "Idle", "connecting": "Connecting", "open": "Live", "sample": "Sample stream", "connected": "Connected", "awaitingSource": "Awaiting source", "closed": "Closed", "unsupported": "SSE unsupported"},
   "observations": {
     "eyebrow": "Authoritative source reads",
@@ -20,6 +20,9 @@
     "records": "Newest {count} retained activity records",
     "openActivity": "Open agent activity",
     "cardLabel": "Open details for {activity}",
+    "kindBadge": "Source read",
+    "observationTitle": "{domain} observation",
+    "reasonRecorded": "{count} reason code(s) recorded",
     "loading": "Loading live observation activity",
     "waiting": "Observation stream connected. Waiting for the next source-read activity.",
     "unavailable": "Live observation activity is unavailable.",
@@ -61,6 +64,12 @@
     "status": {"started": "Active", "completed": "Completed", "failed": "Failed", "superseded": "Superseded", "degraded": "Degraded"},
     "freshness": {"fresh": "Fresh", "stale": "Stale", "unavailable": "Unavailable", "unknown": "Unknown"},
     "detail": {
+      "boundaryTitle": "Read-only observation",
+      "summaryHeading": "Observation summary",
+      "resultHeading": "Result and limitations",
+      "timingHeading": "Timing and freshness",
+      "technicalHeading": "Technical identifiers",
+      "authorityHeading": "Authority boundary",
       "instanceId": "Activity instance",
       "summary": "Observation purpose",
       "scope": "Scope class",
@@ -87,8 +96,8 @@
   },
   "coverage": {
     "eyebrow": "Evaluation coverage",
-    "title": "What is inventoried, evaluated, and detected",
-    "boundary": "Catalog inventory, Azure Resource Graph coverage, analyzer checks, and rule findings are separate evidence sets. A catalog count never implies that every rule was evaluated.",
+    "title": "Authority coverage",
+    "boundary": "Catalog, ARG, analyzer, and rule evaluation remain separate authority sets.",
     "catalog": "Catalog rules",
     "catalogHint": "{active} active - {collected} collected - {types} resource types",
     "resources": "ARG recorded resources",
@@ -105,14 +114,15 @@
     "notEvaluated": "Not evaluated",
     "notRecorded": "Not recorded",
     "analyzerUnrecorded": "No complete analyzer tick receipt has been retained.",
+    "sampleUnavailable": "Authoritative catalog, ARG, analyzer, and rule-evaluation projections are not shown in the synthetic preview.",
     "unavailable": "The authoritative projection is unavailable.",
     "error": "Projection error"
   },
   "attention": {"ariaLabel": "Operator attention triage", "label": "Attention", "approvals": "{count} approvals waiting", "denied": "{count} denied", "failed": "{count} failed", "stuck": "{count} stuck", "approvalTitle": "High-risk actions awaiting approval", "deniedTitle": "The risk gate refused these actions. Inspect the policy evidence.", "failedTitle": "A control-loop stage failed. Inspect the recorded audit entry.", "stuckTitle": "These items exceeded the latency budget published by the control plane.", "openApprovals": "Open approvals", "none": "No control-loop work currently needs attention.", "unavailable": "Live attention is unavailable. Recorded outcomes remain in History."},
-  "kpi": {"events": "Events / sec", "average": "/s - 60s avg", "gateMix": "Gate mix (60s)", "auto": "auto", "tierMix": "Tier mix (60s)", "finalized": "{count} finalized decisions", "routed": "{count} routed events", "tierLabel": {"t0": "Deterministic", "t1": "Evidence-backed", "t2": "Adaptive"}},
+  "kpi": {"events": "Events / sec", "average": "/s - 60s avg", "messagesHelp": "Unique SSE activity messages - last 60s", "partial": "Partial window - some measurements excluded", "noGate": "No gate decision observed", "noTier": "No tier assignment observed", "controlOnly": "Control-loop only; source reads are not classified here.", "gateMix": "Gate mix (60s)", "auto": "auto", "tierMix": "Tier mix (60s)", "finalized": "{count} observed decisions", "routed": "{count} routed events", "emptyTitle": "0 control-loop events in the last 60 seconds", "emptyDetail": "No gate or tier distribution is available for an empty measured window.", "tierLabel": {"t0": "Deterministic", "t1": "Evidence-backed", "t2": "Adaptive"}},
   "decision": {"auto": "Auto", "hil": "Approval", "abstain": "Held", "deny": "Denied"},
   "work": {
-    "eyebrow": "Current work", "title": "Control-loop work", "queue": "Queue", "flow": "Flow", "viewModeLabel": "Live view mode", "filtersLabel": "Control-loop filters", "queueLabel": "Prioritized live control loops", "flowLabel": "Live control-plane flow", "filterTitle": "Filter: {filter} (press {key})", "filterNote": "Select an item to inspect its stage trace.", "noMatch": "No control-loop work matches this filter.", "routing": "Routing event", "actions": "{count} actions", "unknownResource": "Unknown resource", "overBudget": "Over budget", "pending": "Pending", "approval": "Approval", "noRule": "No rule matched", "needsApproval": "Needs approval", "executionMode": "Execution mode: {mode}", "agentRelay": "Agent relay", "itemLabel": "{action} on {resource}", "why": "Why: {reason}", "slaRemaining": "{value}s left",
+    "eyebrow": "Current activity", "title": "Live activity", "summary": "{total} current - {control} control-loop - {source} source reads", "currentWindow": "Showing {visible} of {count} current items - {source}", "sampleWindow": "Synthetic activity preview - not operational evidence", "sampleSourceUnavailable": "Source-read cards are available only from the authoritative Live stream.", "activityLabel": "{count} current live activity items", "queue": "List", "flow": "Grid", "viewModeLabel": "Activity layout", "filtersLabel": "Live activity filters", "queueLabel": "Prioritized live activity list", "flowLabel": "Live activity grid", "filterTitle": "Filter: {filter} (press {key})", "filterNote": "Select an item to inspect its recorded detail.", "noMatch": "No live activity matches this filter.", "routing": "Routing event", "actions": "{count} actions", "unknownResource": "Unknown resource", "overBudget": "Over budget", "pending": "Pending", "approval": "Approval", "noRule": "No rule matched", "needsApproval": "Needs approval", "executionMode": "Execution mode: {mode}", "agentRelay": "Agent relay", "itemLabel": "{action} on {resource}", "why": "Why: {reason}", "slaRemaining": "{value}s left",
     "columns": {"controlLoop": "Control loop", "stage": "Current stage", "age": "Age", "tier": "Tier", "mode": "Mode", "decision": "Decision", "work": "Work", "tierMode": "Tier / mode", "why": "Why", "ownerStage": "Owner / stage", "riskImpact": "Risk / impact", "ageSla": "Age / SLA", "controlState": "Control state"}
   },
   "control": {"notObserved": "Not observed", "notStarted": "Not started", "notDispatched": "Not dispatched", "simulated": "Simulated", "inProgress": "In progress", "completed": "Completed", "executionFailed": "Failed"},
@@ -121,7 +131,7 @@
     "autonomy": {"A0": "A0 observes, explains, or simulates only; it cannot mutate a managed target.", "A1": "A1 permits a reversible, resource-scoped low-risk action inside current policy.", "A2": "A2 permits a promoted workflow inside a measured and pre-approved envelope.", "A3_H": "A3-H requires independent per-execution human approval before dispatch.", "A3_E": "A3-E uses valid standing human authorization for a bounded reversible emergency mitigation.", "A4": "A4 is denied; execution is prohibited.", "guide": "Authority guide: A0 observes; A1 is bounded low risk; A2 is a promoted envelope; A3-H requires current approval; A3-E requires standing authorization; A4 is denied. This event has not published an exact autonomy class."},
     "mode": {"pending": "Pending means policy and execution mode have not been observed.", "shadow": "Shadow mode evaluates and records without changing the target.", "enforce": "Enforce mode can dispatch only after policy, safety, and authority checks; dispatch does not prove effect success.", "gated": "Gated means the current decision path blocks dispatch until its required review or approval is satisfied."}
   },
-  "filter": {"all": "All", "hil": "Approval", "deny": "Denied", "failed": "Failed", "stuck": "Stuck"},
+  "filter": {"all": "All", "control": "Control loop", "source": "Source reads", "hil": "Approval", "deny": "Denied", "failed": "Failed", "stuck": "Stuck"},
   "empty": {"connectedTitle": "No events in view", "disconnectedTitle": "No live signal", "connected": "Authoritative runtime source observed. There is no current control-loop work.", "awaitingSource": "The SSE connection is open, but no authoritative runtime source has been observed. Check Core Runtime and stage-topic readiness.", "connecting": "Connecting to the live event stream.", "idle": "Live observation is idle while this view is not connected.", "unavailable": "Live observation is unavailable. Use History for recorded outcomes."},
   "selectionWaiting": "Waiting for event {event} to appear in the live stream.",
   "selectionUnavailable": "Event {event} is not available in the current bounded live window.",
@@ -130,5 +140,5 @@
   "spark": {"awaiting": "Awaiting stream samples", "noCompletions": "No completions", "averageMs": "Avg {value}ms", "averageSeconds": "Avg {value}s", "averageUnderMs": "Avg <1ms", "lastSecond": "Last full second", "secondsAgo": "{count}s ago"},
   "stage": {"ingest": "Ingest", "route": "Route", "verify": "Verify", "gate": "Gate", "execute": "Execute", "audit": "Audit"},
   "role": {"Huginn": "Event Collector", "Heimdall": "Observer", "Forseti": "Judge", "Thor": "Responder", "Var": "Approver", "Vidar": "Recovery", "Saga": "Auditor", "Odin": "Master Planner", "Bragi": "Narrator", "unknown": "Agent"},
-  "detail": {"pending": "Pending", "close": "Close", "traceLabel": "Control-loop stage trace", "inProgress": "In progress", "notObserved": "Not observed", "eventId": "Event id", "correlationId": "Correlation id", "rule": "Rule", "actionType": "ActionType", "actionTypes": "ActionTypes", "mode": "Mode", "vertical": "Vertical", "resourceType": "Resource type", "scope": "Scope", "tier": "Tier", "gateDecision": "Gate decision", "stagesCompleted": "Stages completed", "failed": "Failed", "age": "Age", "outcome": "Outcome", "yes": "Yes", "no": "No", "safety": "Safety invariants (executor guarantees)", "stopCondition": "Stop-condition on the ActionType", "rollback": "Tested rollback path", "blastRadius": "Blast-radius cap enforced", "auditEntry": "Audit-log entry per terminal outcome", "readOnly": "This panel is read-only. Approvals happen in ChatOps or via a remediation PR.", "openTrace": "Open trace", "openAudit": "Open audit", "architecture": "Architecture"}
+  "detail": {"pending": "Pending", "close": "Close", "boundaryTitle": "Read-only control-loop projection", "traceLabel": "Control-loop stage trace", "inProgress": "In progress", "notObserved": "Not observed", "controlState": "Control state", "policyDecision": "Policy decision", "authority": "Authority", "execution": "Execution", "effect": "Effect", "workSummary": "Work summary", "reason": "Why", "target": "Target", "technicalDetails": "Technical identifiers", "eventId": "Event id", "correlationId": "Correlation id", "rule": "Rule", "actionType": "ActionType", "actionTypes": "ActionTypes", "mode": "Mode", "vertical": "Vertical", "resourceType": "Resource type", "scope": "Scope", "tier": "Tier", "gateDecision": "Gate decision", "stagesCompleted": "Stages completed", "failed": "Failed", "age": "Age", "outcome": "Outcome", "yes": "Yes", "no": "No", "safety": "Required safety evidence", "stopCondition": "ActionType stop condition", "rollback": "Tested rollback path", "blastRadius": "Blast-radius cap", "auditEntry": "Terminal audit entry", "readOnly": "This panel is read-only. It presents recorded control-loop state and cannot approve or execute an action.", "openTrace": "Open trace", "openAudit": "Open audit", "architecture": "Architecture"}
 }

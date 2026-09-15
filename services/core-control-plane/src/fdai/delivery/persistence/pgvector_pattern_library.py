@@ -26,6 +26,7 @@ Notes on the wire choice:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import math
@@ -34,6 +35,7 @@ from dataclasses import dataclass
 from typing import Any, Final
 
 import psycopg
+from fdai_service_contracts.ontology_query import content_digest
 from psycopg.rows import dict_row
 
 from fdai.core.tiers.t1_lightweight.contextual_reuse import OperationalCaseContext
@@ -42,6 +44,7 @@ from fdai.core.tiers.t1_lightweight.tier import (
     PatternLibrary,
     SimilarityMatch,
 )
+from fdai.shared.providers.case_history import CaseHistoryRevisionRecord
 from fdai.shared.providers.pattern_library_writer import PatternLibraryWriter
 
 _LOGGER = logging.getLogger("fdai.persistence.pgvector_pattern_library")
@@ -175,16 +178,32 @@ class PgVectorPatternLibrary(PatternLibrary, PatternLibraryWriter):
         The signature is the natural key: the discovery loop uses it as
         the update handle so promotions / retirements do not create
         duplicates. Re-adding the same signature bumps the row in place
-        without breaking the pgvector index.
+        without breaking the pgvector index. An existing operational case
+        cannot be rebound to another case or action; context-free maintenance
+        may update statistics only while preserving its exact action identity.
         """
         literal = _encode_vector(vector)
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as conn:
+        async with (
+            asyncio.timeout(15),
+            await psycopg.AsyncConnection.connect(
+                self._config.dsn,
+                connect_timeout=self._config.connect_timeout_s,
+            ) as conn,
+        ):
             async with conn.transaction():
                 await self._set_session_knobs(conn)
-                await conn.execute(
+                await self._retention_lock(conn)
+                keys = [_retention_key("signature", action.signature)]
+                if action.operational_case is not None:
+                    keys.append(
+                        _retention_key("case", action.operational_case.case_ref.split(":")[1])
+                    )
+                blocked = await conn.execute(
+                    "SELECT key FROM state_kv WHERE key = ANY(%s) LIMIT 1", (keys,)
+                )
+                if await blocked.fetchone() is not None:
+                    raise PermissionError("pattern source or signature is pending deletion")
+                cursor = await conn.execute(
                     """
                     INSERT INTO t1_pattern_library
                         (signature, rule_id, action_type, params, embedding,
@@ -204,6 +223,14 @@ class PgVectorPatternLibrary(PatternLibrary, PatternLibraryWriter):
                             EXCLUDED.operational_case,
                             t1_pattern_library.operational_case
                         )
+                    WHERE t1_pattern_library.operational_case IS NULL OR (
+                        (EXCLUDED.operational_case IS NULL OR
+                         t1_pattern_library.operational_case = EXCLUDED.operational_case)
+                        AND t1_pattern_library.rule_id = EXCLUDED.rule_id
+                        AND t1_pattern_library.action_type = EXCLUDED.action_type
+                        AND t1_pattern_library.params = EXCLUDED.params
+                        AND t1_pattern_library.source_incident_id = EXCLUDED.source_incident_id
+                    )
                     """,
                     (
                         action.signature,
@@ -217,6 +244,82 @@ class PgVectorPatternLibrary(PatternLibrary, PatternLibraryWriter):
                         _encode_operational_case(action.operational_case),
                     ),
                 )
+                if cursor.rowcount != 1:
+                    raise ValueError(
+                        "pattern signature cannot replace its operational case or action"
+                    )
+
+    async def purge(self, record: CaseHistoryRevisionRecord) -> None:
+        """Fence and delete bounded case-linked vectors under a claimed source deletion.
+
+        Case identities are global in the authoritative metadata store. Legacy unscoped
+        references therefore remain deletable; conflicting explicit scope fails closed.
+        The durable digest-only fences block late contextual and signature-only writes.
+        """
+        if record.legal_hold or record.deletion_started_at is None:
+            raise PermissionError("pattern purge requires an unheld source deletion claim")
+        incomplete = False
+        async with (
+            asyncio.timeout(15),
+            await psycopg.AsyncConnection.connect(
+                self._config.dsn, connect_timeout=self._config.connect_timeout_s
+            ) as conn,
+        ):
+            async with conn.transaction():
+                await self._set_session_knobs(conn)
+                await self._retention_lock(conn)
+                cursor = await conn.execute(
+                    "SELECT signature, operational_case FROM t1_pattern_library "
+                    "WHERE split_part(operational_case->>'case_ref', ':', 2) = %s "
+                    "ORDER BY signature LIMIT 1000",
+                    (record.case_id,),
+                )
+                rows = await cursor.fetchall()
+                for _signature, raw in rows:
+                    context = _coerce_operational_case(raw)
+                    if context is None or context.access_scope_digest not in {
+                        None,
+                        record.access_scope_digest,
+                    }:
+                        raise PermissionError("pattern purge source scope is conflicting")
+                keys = [_retention_key("case", record.case_id)] + [
+                    _retention_key("signature", signature) for signature, _raw in rows
+                ]
+                marker = json.dumps(
+                    {
+                        "schema_version": "1.0.0",
+                        "source_digest": content_digest(
+                            {
+                                "case_id": record.case_id,
+                                "scope": record.access_scope_digest,
+                            }
+                        ),
+                        "execution_authority": False,
+                    }
+                )
+                await conn.execute(
+                    "INSERT INTO state_kv (key, value) SELECT unnest(%s::text[]), %s::jsonb "
+                    "ON CONFLICT (key) DO NOTHING",
+                    (keys, marker),
+                )
+                await conn.execute(
+                    "DELETE FROM t1_pattern_library WHERE signature = ANY(%s::text[])",
+                    ([signature for signature, _raw in rows],),
+                )
+                remaining = await conn.execute(
+                    "SELECT 1 FROM t1_pattern_library WHERE "
+                    "split_part(operational_case->>'case_ref', ':', 2) = %s LIMIT 1",
+                    (record.case_id,),
+                )
+                incomplete = await remaining.fetchone() is not None
+        if incomplete:
+            raise RuntimeError("pattern purge batch committed; retained case data requires retry")
+
+    async def _retention_lock(self, conn: psycopg.AsyncConnection[Any]) -> None:
+        await conn.execute("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
+        await conn.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended('fdai.t1.case-retention', 0))"
+        )
 
     async def upsert_pattern(
         self,
@@ -273,6 +376,10 @@ def _coerce_params(value: Any) -> Mapping[str, Any]:
     if isinstance(value, dict):
         return dict(value)
     raise RuntimeError(f"t1_pattern_library.params has unexpected type {type(value).__name__}")
+
+
+def _retention_key(kind: str, identity: str) -> str:
+    return "t1-pattern-retention:v1:" + content_digest({"kind": kind, "identity": identity})
 
 
 def _encode_operational_case(context: OperationalCaseContext | None) -> str | None:

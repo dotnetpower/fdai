@@ -7,6 +7,8 @@ import {
 import {
   activityDurationLabel,
   activityResultLabel,
+  activityTitle,
+  liveObservationUpdateKey,
   mergeLiveObservations,
 } from "./live.observations";
 
@@ -84,12 +86,25 @@ describe("Live current observation merge", () => {
 
     expect(completed).toHaveLength(1);
     expect(completed[0]?.status).toBe("completed");
+    expect(completed[0]?.started_at).toBe(activity("started").started_at);
     expect(replayedStart[0]?.status).toBe("completed");
+  });
+
+  test("pulses source facts but not timestamp-only updates", () => {
+    const completed = activity("completed");
+    expect(liveObservationUpdateKey(completed))
+      .not.toBe(liveObservationUpdateKey(activity("started")));
+    expect(liveObservationUpdateKey({
+      ...completed,
+      observed_at: "2026-09-14T00:00:10Z",
+      duration_ms: 500,
+    })).toBe(liveObservationUpdateKey(completed));
   });
 
   test("distinguishes measured zero from missing legacy evidence", () => {
     expect(activityResultLabel(activity("completed"))).toContain("0");
     expect(activityResultLabel(legacyActivity())).not.toContain("0");
+    expect(activityTitle(activity("completed"))).toBe("Inventory collection");
     expect(activityDurationLabel(45)).toContain("45");
     expect(activityDurationLabel(null)).not.toContain("0");
   });

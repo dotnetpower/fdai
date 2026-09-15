@@ -40,8 +40,16 @@ class OperationalCaseContext:
     graph_digest: str
     owner_digest: str
     evidence_cutoff: datetime
+    access_scope_digest: str | None = None
+    purpose: str | None = None
 
     def __post_init__(self) -> None:
+        if (self.access_scope_digest is None) != (self.purpose is None):
+            raise ValueError("case reuse scope and purpose MUST be supplied together")
+        if self.access_scope_digest is not None and (
+            _SHA256.fullmatch(self.access_scope_digest) is None or not self.purpose
+        ):
+            raise ValueError("case reuse scope and purpose are invalid")
         if _CASE_REF.fullmatch(self.case_ref) is None:
             raise ValueError("operational case_ref MUST be an immutable case-history reference")
         for name, value in (
@@ -62,7 +70,7 @@ class OperationalCaseContext:
             raise ValueError("operational case evidence_cutoff MUST be timezone-aware")
 
     def to_mapping(self) -> dict[str, object]:
-        return {
+        result: dict[str, object] = {
             "case_ref": self.case_ref,
             "failure_fingerprint": self.failure_fingerprint,
             "resource_type": self.resource_type,
@@ -72,6 +80,9 @@ class OperationalCaseContext:
             "owner_digest": self.owner_digest,
             "evidence_cutoff": self.evidence_cutoff.isoformat(),
         }
+        if self.access_scope_digest is not None:
+            result.update(access_scope_digest=self.access_scope_digest, purpose=self.purpose)
+        return result
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, object]) -> OperationalCaseContext:
@@ -85,7 +96,7 @@ class OperationalCaseContext:
             "owner_digest",
             "evidence_cutoff",
         }
-        if set(value) != expected:
+        if set(value) not in (expected, expected | {"access_scope_digest", "purpose"}):
             raise ValueError("operational case context has unexpected fields")
         cutoff = value.get("evidence_cutoff")
         if not isinstance(cutoff, str):
@@ -99,6 +110,10 @@ class OperationalCaseContext:
             graph_digest=_required_text(value, "graph_digest"),
             owner_digest=_required_text(value, "owner_digest"),
             evidence_cutoff=datetime.fromisoformat(cutoff.replace("Z", "+00:00")),
+            access_scope_digest=_required_text(value, "access_scope_digest")
+            if "access_scope_digest" in value
+            else None,
+            purpose=_required_text(value, "purpose") if "purpose" in value else None,
         )
 
 
@@ -176,9 +191,14 @@ def contextual_reuse_reasons(
     action: LearnedAction,
     context: OperationalCaseContext,
     verification: CurrentReuseVerification,
+    evaluated_at: datetime,
 ) -> tuple[str, ...]:
     """Return every deterministic reason that blocks contextual reuse."""
     reasons: list[str] = []
+    if evaluated_at.utcoffset() is None:
+        return ("current_evaluation_time_invalid",)
+    if verification.observed_at > evaluated_at:
+        reasons.append("current_evidence_future")
     event_resource_type = _event_resource_type(event)
     if action.action_type != context.action_type:
         reasons.append("operational_case_action_type_changed")
@@ -212,6 +232,8 @@ def contextual_reuse_reasons(
     if verification.decision_evidence is None:
         reasons.append("decision_evidence_admission_missing")
     else:
+        if evaluated_at >= verification.decision_evidence.valid_until:
+            reasons.append("current_evidence_expired")
         admission_reasons = assess_decision_evidence_admission(
             verification.decision_evidence,
             expected_evidence_digest=current_reuse_evidence_digest(verification),
@@ -222,7 +244,7 @@ def contextual_reuse_reasons(
             ),
             expected_purpose_id=CURRENT_REUSE_EVIDENCE_PURPOSE,
             expected_source_revision=context.graph_digest,
-            evaluated_at=verification.observed_at,
+            evaluated_at=evaluated_at,
         )
         reasons.extend(f"decision_evidence_{reason.value}" for reason in admission_reasons)
     return tuple(reasons)
@@ -263,8 +285,14 @@ def current_reuse_scope_digest(
     return content_digest(
         {
             "action_type": action.action_type,
+            "action_signature": action.signature,
+            "action_params": dict(action.params),
+            "rule_id": action.rule_id,
             "case_ref": context.case_ref,
+            "case_access_scope_digest": context.access_scope_digest,
+            "case_purpose": context.purpose,
             "event_id": str(event.event_id),
+            "event": event.model_dump(mode="json"),
             "resource_type": context.resource_type,
         }
     )

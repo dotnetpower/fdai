@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from pathlib import Path
 
+import fdai.runtime.forecast_learning as forecast_runtime
 import pytest
+from fdai.core.detection.forecast_episode_testing import InMemoryForecastEpisodeStore
 from fdai.core.detection.governance_policy import load_detection_governance_policy
 from fdai.runtime.forecast_learning import (
     build_forecast_learning_runtime,
     parse_forecast_targets,
 )
-from fdai.shared.providers.metric import StaticMetricProvider
+from fdai.shared.providers.metric import MetricPoint, StaticMetricProvider
+from tests.core.detection.test_forecast_episode import T0, _episode
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _POLICY_PATH = _REPO_ROOT / "config" / "detection-governance-policy.json"
@@ -48,6 +52,36 @@ def test_forecast_targets_must_match_the_governed_policy() -> None:
     assert targets[0].horizon_seconds == 86_400
 
 
+def test_forecast_history_configuration_is_bounded_complete_and_unambiguous():
+    build = forecast_runtime.build_forecast_history_collector
+    assert build(dsn=None, bindings_json=None) is None
+    assert build(dsn=None, bindings_json=" ") is None
+    with pytest.raises(ValueError, match="duplicate field"):
+        build(dsn="postgresql://example", bindings_json='[{"kind":"actions","kind":"changes"}]')
+    values = [
+        dict(
+            kind=kind,
+            access_scope_digest="a" * 64,
+            target_ref="resource-example",
+            state_type=kind,
+            to_states=["inactive", "active"],
+            active_states=["active"] if kind in {"resource_lifecycle", "excluded_windows"} else [],
+            source_identity="source-example",
+            source_revision="revision-example",
+            freshness_seconds=300,
+        )
+        for kind in ("actions", "changes", "resource_lifecycle", "excluded_windows")
+    ]
+    assert build(dsn="postgresql://example", bindings_json=json.dumps(values)) is not None
+    for invalid in ([], {}, values[:-1], values + [values[0]], [values[0]] * 257):
+        with pytest.raises(ValueError):
+            build(dsn="postgresql://example", bindings_json=json.dumps(invalid))
+    with pytest.raises(ValueError):
+        build(dsn=None, bindings_json=json.dumps(values))
+    with pytest.raises(ValueError, match="byte limit"):
+        build(dsn="postgresql://example", bindings_json="[" + " " * 262_144 + "]")
+
+
 @pytest.mark.parametrize(
     ("overrides", "message"),
     (
@@ -79,6 +113,36 @@ def test_startup_loads_policy_even_when_forecast_targets_are_disabled(tmp_path: 
             metric_provider=StaticMetricProvider([]),
             governance_policy_path=tmp_path / "missing.json",
         )
+
+
+async def test_runtime_without_context_binding_closes_unscorable_not_false_positive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = InMemoryForecastEpisodeStore()
+    monkeypatch.setattr(forecast_runtime, "PostgresForecastEpisodeStore", lambda **_kwargs: store)
+    episode = _episode(horizon_ended_at=T0 + timedelta(days=1))
+    await store.record(episode)
+    points = tuple(
+        MetricPoint(
+            metric_name=episode.metric,
+            at=T0 + timedelta(minutes=5 * index),
+            value=70.0,
+            labels={"resource_id": episode.target_ref},
+        )
+        for index in range(289)
+    )
+    runtime = build_forecast_learning_runtime(
+        dsn="postgresql://example",
+        targets_json=json.dumps([_target()]),
+        metric_provider=StaticMetricProvider(points),
+    )
+    assert runtime is not None
+    assert await runtime.closer.close_due(now=episode.closure_due_at) == 1
+    payload = next(iter(store.outbox.values())).payload
+    assert payload["schema_version"] == "1.1.0"
+    assert payload["label"] == "unscorable"
+    assert payload["telemetry_completeness"] == "complete"
+    assert payload["scoring_exclusions"] == ["intervention_history_unavailable"]
 
 
 def test_default_policy_path_is_independent_of_working_directory(

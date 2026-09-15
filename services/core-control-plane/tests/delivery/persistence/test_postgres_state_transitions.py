@@ -181,6 +181,10 @@ async def test_read_requires_positive_coverage_for_every_requested_pair() -> Non
     assert result.coverage == ()
     assert result.complete is False
     assert result.limitation == "coverage_missing"
+    assert connection.executions[0] == (
+        "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
+        None,
+    )
 
 
 async def test_identical_batch_replay_verifies_retained_children() -> None:

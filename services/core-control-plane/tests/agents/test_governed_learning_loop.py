@@ -248,6 +248,7 @@ def _wire(
         ),
         catalog_review_publisher=publisher,
     )
+    mimir.bind_case_history(muninn._case_history)
     saga = Saga(audit_chain=InMemoryAuditChain())
     for agent in (muninn, norns, mimir, saga):
         agent.bind_bus(bus)

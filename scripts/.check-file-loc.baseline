@@ -4,8 +4,6 @@
 1111 services/core-control-plane/src/fdai/agents/forseti.py
 # Pre-existing main-branch agent debt (heimdall); growth blocked until tracker #14 extraction.
 837 services/core-control-plane/src/fdai/agents/heimdall.py
-# Pre-existing main-branch agent debt (norns); growth blocked until tracker #14 extraction.
-814 services/core-control-plane/src/fdai/agents/norns.py
 # Pre-existing main-branch agent debt (thor); growth blocked until tracker #14 extraction.
 1482 services/core-control-plane/src/fdai/agents/thor.py
 # Pre-existing main-branch conversation-preflight debt; this change restores the file below its prior 1054-line cap.
