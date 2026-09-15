@@ -169,6 +169,7 @@ class SemanticPlanningService:
         conversation_model_tier: SemanticConversationModelTier | None = None,
         conversation_profile: Mapping[str, str] | None = None,
         preflight_result: ConversationPreflightResult | None = None,
+        required_document_evidence: bool = False,
     ) -> SemanticPlanningOutcome:
         """Return a verified plan, one clarification, or a typed safe hold."""
 
@@ -196,7 +197,7 @@ class SemanticPlanningService:
         try:
             context = _bounded_context(prior_turns)
             preflight_outcome = preflight_router.run(context)
-            if preflight_outcome is not None:
+            if preflight_outcome is not None and not required_document_evidence:
                 return preflight_router.finish(preflight_outcome)
             manifest = self._manifests.manifest_for(principal=principal, purpose=purpose)
             manifest_digest = manifest.manifest_digest
@@ -389,6 +390,10 @@ class SemanticPlanningService:
                 and judgment_decision.proposal is not None
                 else None
             )
+            if direct_response is not None and required_document_evidence:
+                direct_response = None
+                semantic_judgment = None
+                judgment_proposal = None
             if direct_response is not None:
                 if not preflight_router.ran:
                     preflight_outcome = preflight_router.run(context)
@@ -428,6 +433,7 @@ class SemanticPlanningService:
                 descriptors=descriptors,
                 manifest_descriptors=manifest.descriptors,
                 inventory_query_language=self._inventory_query_language,
+                bound_incident=bound_incident is not None,
             )
             if (
                 frame_result is None
@@ -528,6 +534,7 @@ class SemanticPlanningService:
                 manifest_digest=manifest.manifest_digest,
                 bound_incident=bound_incident is not None,
                 inventory_query_language=self._inventory_query_language,
+                required_document_evidence=required_document_evidence,
             )
             if isinstance(normalized_frame, SemanticPlanningOutcome):
                 return preflight_router.finish(normalized_frame)

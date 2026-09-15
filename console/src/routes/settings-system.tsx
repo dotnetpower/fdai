@@ -12,6 +12,7 @@ import {
   PageHeader,
   StatusPill,
 } from "../components/ui";
+import { BrowserNotificationControl } from "../components/browser-notification-control";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
@@ -98,6 +99,11 @@ export function isCurrentDiagnosticCheck(current: number, candidate: number): bo
   return current === candidate;
 }
 
+export function personalNotificationPrincipalLabel(auth: AuthContext): string | null {
+  const displayName = auth.account?.name?.trim();
+  return displayName || auth.account?.username || null;
+}
+
 export function SettingsIntegrationsRoute({ client, auth }: Props) {
   const authMode = authenticationMode(auth);
   const runtimeSettings = useRuntimeSettings(client);
@@ -134,6 +140,27 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
         <div class="settings-list">
           <SettingRow label={t("settings.entra")} hint={t("settings.entraHint")}>
             <StatusPill kind="neutral" label={authMode} />
+          </SettingRow>
+        </div>
+      </section>
+      <section class="settings-section" aria-labelledby="settings-personal-notification-channels">
+        <h3 id="settings-personal-notification-channels">
+          {settingsIntegrationsText("personalChannelsTitle")}
+        </h3>
+        <p class="muted">{settingsIntegrationsText("personalChannelsDescription")}</p>
+        <div class="settings-list">
+          <SettingRow
+            label={settingsIntegrationsText("consoleWebPersonalLabel")}
+            hint={settingsIntegrationsText("consoleWebPersonalHint", {
+              user: personalNotificationPrincipalLabel(auth)
+                ?? settingsIntegrationsText("localPrincipal"),
+            })}
+          >
+            <BrowserNotificationControl
+              client={client}
+              principalId={auth.account?.homeAccountId ?? null}
+              presentation="settings"
+            />
           </SettingRow>
         </div>
       </section>

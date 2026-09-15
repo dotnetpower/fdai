@@ -59,12 +59,19 @@
 .searchable-select-help,
 .searchable-select-results,
 .searchable-select-empty,
-.searchable-select-description {
+.searchable-select-description,
+.searchable-select-detail {
   margin: 0;
   color: var(--fg-muted, var(--cs-text-soft));
   font-size: var(--cs-type-label-size);
   line-height: var(--cs-type-compact-line-height);
   overflow-wrap: anywhere;
+}
+
+.searchable-select-detail {
+  display: block;
+  color: var(--fg-muted, var(--cs-text-soft));
+  font-family: var(--cs-font-mono);
 }
 
 .searchable-select-popup {
@@ -157,4 +164,24 @@
 
 .searchable-select-empty {
   padding: 12px var(--cs-control-padding-inline);
+}
+
+.searchable-select-empty-action {
+  display: flex;
+  padding: 0 var(--cs-control-padding-inline) 12px;
+}
+
+.searchable-select-empty-action > :where(button, a) {
+  min-height: var(--cs-control-height);
+}
+
+.searchable-select-loading {
+  display: grid;
+  gap: 4px;
+  padding: 4px;
+}
+
+.searchable-select-loading > span {
+  height: var(--cs-control-height-touch);
+  border-radius: var(--cs-radius-sm);
 }

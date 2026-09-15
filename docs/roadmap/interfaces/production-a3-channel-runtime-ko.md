@@ -1,8 +1,8 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: a81604eb9d6e4056f17972f4431349014894fbcf
-translation_revised: 2026-09-12
+translation_source_sha: 9d020e60d05908f1ba90263ec66a5697fd45d4a0
+translation_revised: 2026-09-14
 ---
 # 운영 A3 채널 런타임
 
@@ -90,18 +90,19 @@ FunctionType 또는 실행 권한은 추가하지 않습니다. `query.governed_
 | 보호된 Slack 비밀 구체화 | 구현됨 | `deploy-channel-edge-secrets.yml`, `materialize_channel_edge_secrets.py`, 보호된 서비스 구체화 도구, 집중 작업 흐름 및 전송 테스트 | 필수 CI가 통과한 정확한 개발 리비전은 GitHub Secrets 5개를 태그가 지정된 단일 배포 소유 Key Vault의 고정 비밀 4개로 전송할 수 있습니다. 별도의 마스킹된 프로바이더 결속은 고정된 버전 없는 비밀 리소스 식별자 4개와 Slack 작업 영역 식별자만 제공합니다. 서비스 구체화 도구는 edge 이름과 닫힌 Slack 전용 런타임 기본값을 파생하기 전에 정확한 키, 고정 비밀 이름 및 단일 vault를 검증합니다. 비공개 네트워크 및 RBAC 상태는 플랫폼과 tenant 정책이 계속 소유합니다. 이 단계는 채널, 승인 또는 실행 권한을 부여하지 않습니다. |
 | A3 edge 설계 및 소유권 | 구현됨 | [이슈 #235](https://github.com/dotnetpower/fdai/issues/235), 이 문서 쌍, Operator source 및 배포 root | 권한 없는 Operator distribution 설계를 구현했습니다. Slack 프로바이더와 배포된 런타임 근거는 아래에서 검증했으며 Teams는 프로바이더 검증 없이 구현된 상태를 유지합니다. |
 | Slack 프로바이더 및 보호된 런타임 | 검증됨 | 보호된 계획 실행 `34229586152`, 커밋 `47907cf6a684e5d1901f6cd4943f0c6dc1b84cc1`의 보호된 적용 실행 `34229833026`, [이슈 #235](https://github.com/dotnetpower/fdai/issues/235) | Slack HTTP Events API가 서명된 요청을 배포된 edge로 전달했습니다. 매핑된 principal의 요청 하나가 영속 전달, 시도, 확인 응답 각각 1건과 대체 텍스트를 포함한 Block Kit 스레드 응답 하나를 생성했습니다. 현재 리비전을 재시작한 뒤에도 확인 응답과 Slack 응답이 각각 1건으로 유지됐고 중복 위험이 없었습니다. 전용 신원에는 이미지 가져오기, Event Hubs 데이터 및 Key Vault 비밀 읽기 역할만 유지했습니다. |
-| 인증된 유입 및 프로바이더 publisher | 구현됨 | `fdai_operator_service/families/conversation/channel_edge/`, 집중 edge 검사 81개 통과 | Operator-local Slack 및 Teams adapter는 정규 principal 교체, 범위가 제한된 유입, URL 없는 첨부 메타데이터, 고정 목적지, 엄격한 token audience 및 확정 확인 응답과 모호한 확인 응답의 구분을 강제합니다. 독립 런타임이 두 경로 계열을 연결합니다. |
+| 인증된 유입 및 프로바이더 publisher | 구현됨 | `fdai_operator_service/families/conversation/channel_edge/`, 집중 edge 검사 | Operator-local Slack 및 Teams 어댑터는 정규 principal 교체, 범위가 제한된 유입, 고정 목적지, 엄격한 token audience 및 확정 확인 응답과 모호한 확인 응답의 구분을 강제합니다. 명시적으로 활성화된 보호 인제스트 연결에만 URL 없는 첨부 메타데이터를 유지하며, 그 외에는 queue 유입 전에 첨부 턴을 차단합니다. |
 | Operator migration 및 persistence | 구현됨 | `operator_a3_channel_delivery_20260819`, `channel_{delivery_models,message_ledger}.py`, `postgres_channel_{binding,delivery}.py`, live PostgreSQL 검사 9개 건너뛰기 없이 통과 | Operator branch가 inbound processing lease를 소유하고 Operator role에 channel table 6개만 부여합니다. Runtime-role 검사는 lease reclaim, permanent dedupe, binding uniqueness, idempotent delivery, claim 및 acknowledgement closure, process-loss ambiguity, breaker CAS 및 retention cleanup을 증명합니다. 독립 lifespan이 이 store를 연결합니다. |
 | 의미 요청, 결과 및 영속 전달 파이프라인 | 구현됨 | `semantic_turn_runtime.py`, `channel_edge/{pipeline,pipeline_contracts,worker}.py`, 집중 edge 검사, live PostgreSQL 연결 검사 1개 건너뛰기 없이 통과 | Operator edge는 서버 소유 범위를 해석하고 typed 의미 요청을 영속화하며 principal 범위의 최종 변환 결과를 기다립니다. 프로바이더 I/O 전에 최종 응답을 저장하고 영속 전달 소유권을 확보한 뒤에만 inbound 소유권을 완료하며, 영속 차단기로 재시도와 프로세스 손실 복구를 제한합니다. 기한이 된 전송은 프로바이더 I/O 전에 활성 principal, scope, conversation 및 channel binding을 다시 검증합니다. |
 | Principal 범위 대화 문서 | 구현됨 | `document_export.py`, 인증된 문서 경로, semantic outbox 원본 바인딩, 집중 Operator 검사 | 문서 초안은 인증된 principal의 직전 검증 결과만 replay합니다. 일부 또는 지원되지 않는 콘텐츠에는 다운로드를 만들지 않으며, 완전하고 범위가 제한된 표는 실행 권한 없이 Markdown과 선택적 PDF로 다시 생성할 수 있습니다. |
 | 새 인벤토리 문서와 원본 완전성 | 진행 중 | `semantic_planning_frame_normalization.py`; `semantic_planning_specialized_plans.py`; `semantic_turn_processor.py`; `document_export.py`; `semantic_turn_runtime.py`; 인접 합성 테스트 | 현재 변경에는 첫 요청의 문서 조회, 제한된 행 보존, 명시적 제외 항목, 엄격한 원본 완전성 검사가 포함됩니다. 집중 검사는 조정 세션에서 수행할 예정이며, 실제 모델의 바꿔 말하기 품질이나 지연 시간 개선을 주장하지 않습니다. |
-| 실패 시 닫히는 런타임과 로컬/Azure workload | 구현됨 | `channel_edge/{application,composition,entry,environment,runtime}.py`, `.vscode/tasks.json`, platform 및 서비스 Terraform root, 보호된 배포 workflow 및 helper, 집중 검사 | Platform은 provider 자격 증명 없이 전용 non-executor 신원과 Operator DSN 접근을 준비할 수 있습니다. 독립 서비스 root는 edge workload를 만들기 전에 principal scope와 완전한 Slack 또는 Teams Key Vault 계약 하나를 계속 요구합니다. |
+| 실패 시 닫히는 런타임과 로컬/Azure workload | 구현됨 | `channel_edge/{application,composition,entry,environment,runtime}.py`, `.vscode/tasks.json`, platform 및 서비스 Terraform root, 보호된 배포 workflow 및 helper, 집중 검사 | Platform은 provider 자격 증명 없이 전용 non-executor 신원과 Operator DSN 접근을 준비할 수 있습니다. 첨부 지원은 기본적으로 꺼져 있습니다. 잘못된 활성화 값은 스키마 구문 분석에서 실패하며, 운영 인제스트기 없이 활성화하면 런타임 의존성을 할당하기 전에 시작이 실패합니다. |
 | 독립 hardening | 구현됨 | [Hardening 캠페인](#hardening-캠페인), 집중 edge 검사 81개 통과, Ruff 및 strict mypy | 독립 round 10개를 완료했고 수락한 모든 finding에 집중 회귀를 추가했으며 검증된 Medium 이상 잔여가 없습니다. 보호된 런타임 근거는 별도 검증 gate로 유지합니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | 구현됨 | Operator A3 경로에서 첨부가 조용히 사라지는 동작을 제거했습니다. 비활성화된 Slack 및 Teams 첨부 턴은 queue 유입 전에 중단되고, 직접 queue 주입은 점유 또는 의미 게시 전에 중단되며, 보호 인제스트 없이 활성화된 런타임은 시작에 실패합니다. | `current change`, 집중 환경, 조립, 유입 및 파이프라인 검사 | 첨부 지원을 활성화하기 전에 버전이 지정된 문서 인제스트 전달, 비공개 벤더 가져오기 도구 및 순서가 보존된 인용 반환을 정의하고 연결합니다. |
 | 2026-09-10 | 구현됨 | 표준 semantic `aggregate` presentation을 허용하고 Console 및 A3 channel artifact에서 구조화된 count 필드를 보존했습니다. | `current change`, 집중 presentation 및 objective-oracle 회귀 | 다음 channel release 근거에서 provider rendering 호환성을 유지합니다. |
 | 2026-09-09 | 검증됨 | 기존 Slack 앱을 Socket Mode에서 HTTP Events API로 전환하고 리비전 재시작을 거친 통제된 운영 A3 요청 하나를 보존했습니다. | 보호된 계획 실행 `34229586152`, 커밋 `47907cf6a684e5d1901f6cd4943f0c6dc1b84cc1`의 보호된 적용 실행 `34229833026`, [이슈 #235](https://github.com/dotnetpower/fdai/issues/235), 2xx를 반환한 서명된 HTTP 요청 3건, 재시작 전후에 전달 완료 레코드, 시도 및 확인 응답 각각 1건을 유지한 영속 변환 결과, 대체 텍스트를 포함한 Block Kit 응답 1건을 유지한 Slack 스레드, 실행기와 유사한 역할이 없는 전용 신원 | Slack 런타임 근거를 완료했습니다. Teams 프로바이더 검증은 선택 사항이며 이슈 #235 완료를 차단하지 않습니다. |
 | 2026-09-08 | 구현됨 | Operator 롤백 사전 검사가 Core 전용 모델 결속을 호출하지 않고 비활성화된 channel-edge tfvars를 구체화할 수 있도록 빈 모델 엔드포인트 입력의 기본값을 빈 JSON 객체로 설정했습니다. | 실패한 적용 사전 검사 `34228191755`, `current change`, 집중 구체화 도구 CLI 회귀 테스트 | 정확한 보호 계획을 다시 만들고 적용한 뒤 런타임 증적을 보존합니다. |
@@ -137,6 +138,8 @@ FunctionType 또는 실행 권한은 추가하지 않습니다. `query.governed_
   profile과 principal mapping 하나를 구성합니다.
 - [x] 어떤 행이든 `validated`로 바꾸기 전에 통제된 로컬 및 보호된 배포
   plan/apply/provider-acknowledgement/rollback 증적을 보존합니다.
+- [ ] 버전이 지정된 서비스 계약을 통해 보호된 Slack 및 Teams 첨부 인제스트를 연결하고,
+  활성화 전에 통제된 가져오기, 검사, 인용, 시간 초과 및 재시작 증적을 보존합니다.
 
 ## 아키텍처 결정
 
@@ -228,14 +231,16 @@ Action, executor 또는 managed-resource grant를 받지 않습니다. 영속 re
 1. 닫힌 environment/config schema와 활성화된 channel 집합을 검증합니다.
 2. 값을 logging하지 않고 secret reference와 identity 의존성을 해석합니다.
 3. Redirect를 끄고 timeout을 제한한 PostgreSQL 및 소유 HTTP client를 엽니다.
-4. 인증된 adapter, principal resolver, 보호된 attachment ingestion, semantic bridge,
-   presentation compiler, delivery coordinator 및 고정 경로를 만듭니다.
+4. 인증된 어댑터, principal 해석기, 의미 연결, 표현 컴파일러, 전달 조정기 및 고정 경로를
+  만듭니다. 서비스 전달과 주입된 인제스트기가 완성되기 전에는 보호된 첨부 인제스트를
+  사용할 수 없습니다.
 5. Readiness를 true로 바꾸거나 트래픽을 받기 전에 만료된 `sending` 행을 조정합니다.
 6. 활성화된 adapter마다 감독되는 gateway consumer 하나를 시작합니다.
 7. 종료 시 route 수락을 중지하고 queue를 닫고 consumer를 취소하고 기다린 뒤 provider를 정확히 한 번 닫으며 분리된 read/send task를 남기지 않습니다.
 
-활성화된 channel에 secret, principal map, identity, endpoint policy, database, attachment dependency
-또는 영속 전달 binding이 없으면 트래픽 전에 시작이 실패합니다. `/health/live`와
+활성화된 channel에 secret, principal map, identity, endpoint policy, database 또는 영속 전달
+binding이 없으면 트래픽 전에 시작이 실패합니다. `FDAI_CHANNEL_ATTACHMENTS_ENABLED`는 `0` 또는
+`1`만 허용하며, `1`이면 의존성을 할당하기 전에 운영 인제스트기 연결도 필요합니다. `/health/live`와
 `/health/ready`는 content-free process 상태만 보고합니다. Channel, principal, endpoint,
 credential, delivery 또는 queue identifier를 노출하지 않습니다.
 
@@ -282,7 +287,7 @@ route가 자동 복구 뒤에 남지 않습니다.
 | 중단되거나 malformed된 확인 응답 | 변경 불가 ambiguous duplicate risk를 기록하고 자동 repost하지 않습니다. |
 | `sending` lease 중 process loss | Consumer 시작 전 startup reconciliation이 ambiguous로 닫습니다. |
 | 지원하지 않는 artifact 또는 provider 기능 | 필수 제한, 근거, 권한 및 사용 불가 상태가 있는 읽을 수 있는 정본 text를 보냅니다. |
-| Attachment 의존성 사용 불가 | Attachment support가 활성화되면 시작을 실패하고 아니면 inline processing 없이 해당 turn을 거부합니다. |
+| 첨부 의존성 사용 불가 | 첨부 지원이 활성화되면 시작을 실패합니다. 비활성화 상태에서는 queue 유입 전에 `422 attachments_unavailable`을 반환하며 직접 queue 주입은 점유 또는 의미 게시 전에 실패합니다. |
 
 ## Hardening 캠페인
 

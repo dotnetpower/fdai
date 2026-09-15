@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:f453a88a427274e8f072782fd46a112e198549a5cf9a24ea7a39d4cbefa8dd23",
+  "catalog_digest": "sha256:c237c4fc442eaa65118601af60ebd7d230d5282a2f967f28243e94fd5cc4548c",
   "execution_authority": false,
-  "generated_at": "2026-09-13T04:16:18.216909Z",
+  "generated_at": "2026-09-14T17:17:15.272457Z",
   "records": [
     {
       "designed_behavior": [
@@ -106,8 +106,17 @@
         "What is Bragi responsible for?",
         "Bragi는 무엇을 담당하나요?"
       ],
-      "record_digest": "sha256:f9246b1a2c2fe6ddd544aab9790e53295c278c7878a302d60951b939002ec53c",
+      "record_digest": "sha256:91d9b11752fb6c812fb13b19d494101849059f1d700ccdca0a61596a892c20a8",
       "sources": [
+        {
+          "authority_role": "design",
+          "blob_sha": "2d94648938cd87073bde4b24b2c6cb349ad51b27",
+          "line_end": 35,
+          "line_start": 35,
+          "path": "docs/roadmap/agents/agent-pantheon.md",
+          "source_kind": "doc",
+          "symbol": "Two-port model"
+        },
         {
           "authority_role": "implementation",
           "blob_sha": "c104281496a1fcbe77373c1240e2a734e44ffb18",
@@ -116,15 +125,6 @@
           "path": "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
           "source_kind": "code",
           "symbol": "_BRAGI"
-        },
-        {
-          "authority_role": "design",
-          "blob_sha": "f6d7e0ba041a2a8f41c89fa4c123b37711ab5039",
-          "line_end": 37,
-          "line_start": 37,
-          "path": "docs/roadmap/agents/agent-pantheon.md",
-          "source_kind": "doc",
-          "symbol": "Two-port model"
         }
       ],
       "status": "implemented",
@@ -149,22 +149,22 @@
         "How does FDAI ingest documents?",
         "FDAI는 문서를 어떻게 수집하나요?"
       ],
-      "record_digest": "sha256:293a04085786fdb0a725602f0d02f50bf62113c949bea8740991edf9d19d5ec6",
+      "record_digest": "sha256:1f6e58c555345ae2e162244c3532838a5736a5fb5a7e8d20e8814c20ad643782",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "34807036b321707abbba5ea5a0c91911222a284b",
-          "line_end": 103,
-          "line_start": 103,
+          "blob_sha": "72a809d3cc31c6540e445b1efb7ca74fbf4c4ac8",
+          "line_end": 104,
+          "line_start": 104,
           "path": "docs/roadmap/interfaces/document-ingestion.md",
           "source_kind": "doc",
           "symbol": "Authorization and shared visibility"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "34807036b321707abbba5ea5a0c91911222a284b",
-          "line_end": 570,
-          "line_start": 570,
+          "blob_sha": "72a809d3cc31c6540e445b1efb7ca74fbf4c4ac8",
+          "line_end": 573,
+          "line_start": 573,
           "path": "docs/roadmap/interfaces/document-ingestion.md",
           "source_kind": "doc",
           "symbol": "Implementation boundaries and rollout"
@@ -192,11 +192,11 @@
         "How does FDAI prevent duplicate chat replies?",
         "FDAI는 중복 채팅 응답을 어떻게 방지하나요?"
       ],
-      "record_digest": "sha256:c1f73f773ee6da2990888cdba5a23083fbe31b1a35837b07dd707b40b052eefe",
+      "record_digest": "sha256:aae363a28b5d3419db6f82916e5508619ebf892d254989ad116f0c8fd36403ae",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "3a9e20bf8dbc85db9cb0dc015d92ab622593ff4c",
+          "blob_sha": "093e0c81580c01f470a0d95895f642fe3494de4d",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/interfaces/durable-conversation-delivery.md",
@@ -205,7 +205,7 @@
         },
         {
           "authority_role": "verification",
-          "blob_sha": "3a9e20bf8dbc85db9cb0dc015d92ab622593ff4c",
+          "blob_sha": "093e0c81580c01f470a0d95895f642fe3494de4d",
           "line_end": 66,
           "line_start": 66,
           "path": "docs/roadmap/interfaces/durable-conversation-delivery.md",
@@ -268,11 +268,11 @@
         "How does FDAI authenticate and authorize people?",
         "FDAI는 사용자를 어떻게 인증하고 권한을 확인하나요?"
       ],
-      "record_digest": "sha256:a2395c52cb10cad1a388eed69adc2d8ccda27ddd7a3a0f2fe1a387b8fc0eff4d",
+      "record_digest": "sha256:7526ce9bfb6d930f297b7dbd565bd4b09d657dc9f17bb7149429baac62e61485",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "37af9e5f2e5cfdf36197d3f2292dce4b38b540c4",
+          "blob_sha": "33490f3dd158f03ab626fb69fc114aa52fe11945",
           "line_end": 27,
           "line_start": 27,
           "path": "docs/roadmap/interfaces/user-rbac-and-identity.md",
@@ -336,8 +336,17 @@
         "How are FDAI agents organized?",
         "FDAI agent 조직은 어떻게 구성되나요?"
       ],
-      "record_digest": "sha256:9eb9a50eef5a9ecc9d28b5a490082cc522fa26d2f7126a469b37def21290f3a4",
+      "record_digest": "sha256:9ce986f0a59de444c2f292794c2008061c76e42e64c65aa734bbc787dea8ddc2",
       "sources": [
+        {
+          "authority_role": "design",
+          "blob_sha": "2d94648938cd87073bde4b24b2c6cb349ad51b27",
+          "line_end": 18,
+          "line_start": 18,
+          "path": "docs/roadmap/agents/agent-pantheon.md",
+          "source_kind": "doc",
+          "symbol": "Design principles"
+        },
         {
           "authority_role": "implementation",
           "blob_sha": "c104281496a1fcbe77373c1240e2a734e44ffb18",
@@ -346,15 +355,6 @@
           "path": "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
           "source_kind": "code",
           "symbol": "PANTHEON_SPECS"
-        },
-        {
-          "authority_role": "design",
-          "blob_sha": "f6d7e0ba041a2a8f41c89fa4c123b37711ab5039",
-          "line_end": 18,
-          "line_start": 18,
-          "path": "docs/roadmap/agents/agent-pantheon.md",
-          "source_kind": "doc",
-          "symbol": "Design principles"
         }
       ],
       "status": "implemented",
@@ -448,22 +448,22 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:48e725139f2786c4e698d1ce3cd4ce0112ee40d17b3fef9fc3919322de6a3fc8",
+      "record_digest": "sha256:2b4dca8bcd0177012b8019618766dcea75eced9f1fe7435765b52ca4cefb4c6f",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "63cff6a63a0fd2551af3d484e3750e7b3b3ce0ba",
-          "line_end": 103,
-          "line_start": 103,
+          "blob_sha": "7713db252dd73a198fcbf63a8eaa16d7d37b2f5e",
+          "line_end": 105,
+          "line_start": 105,
           "path": "docs/roadmap/architecture/service-graduation-and-ownership.md",
           "source_kind": "doc",
           "symbol": "Graduation scorecard"
         },
         {
           "authority_role": "design",
-          "blob_sha": "8e6f4d75ff3b5a315bdc6f9a516c64727b2eef8b",
-          "line_end": 79,
-          "line_start": 79,
+          "blob_sha": "aa6c55dc6261f265ab7fa79b438b9e12b07a32f7",
+          "line_end": 86,
+          "line_start": 86,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
           "source_kind": "doc",
           "symbol": "Revised design"
@@ -491,13 +491,13 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:9e2a549c09f003cb9a7e9cbd8cb33902b6323030e25bd8da102148e6cbe67f63",
+      "record_digest": "sha256:e1d1d47fbcf23e061237b14c8801ba14318df19a836784b2eb3deb22215202ea",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "8e6f4d75ff3b5a315bdc6f9a516c64727b2eef8b",
-          "line_end": 79,
-          "line_start": 79,
+          "blob_sha": "aa6c55dc6261f265ab7fa79b438b9e12b07a32f7",
+          "line_end": 86,
+          "line_start": 86,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
           "source_kind": "doc",
           "symbol": "Revised design"
@@ -526,20 +526,20 @@
         "How does the existing FDAI Teams conversation path work?",
         "기존 FDAI Teams 대화 경로는 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:a3196336e98d9a475b03ea4e411178d20ee65f13f213d3df31ec5b51e5e67794",
+      "record_digest": "sha256:1d16bcf02ecf173e1566eda2752f904c9f34e1f06b245972cb1dd0c5b06ffa6d",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "a473e1301c05f8eb6401036ab97224e4b6648d87",
-          "line_end": 75,
-          "line_start": 75,
+          "blob_sha": "35722e97a4637873c81993bf74c9cb49694a4b8e",
+          "line_end": 78,
+          "line_start": 78,
           "path": "services/operator-service/src/fdai_operator_service/families/conversation/channel_edge/teams_ingress.py",
           "source_kind": "code",
           "symbol": "TeamsIngressVerifier"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "a81604eb9d6e4056f17972f4431349014894fbcf",
+          "blob_sha": "9d020e60d05908f1ba90263ec66a5697fd45d4a0",
           "line_end": 81,
           "line_start": 81,
           "path": "docs/roadmap/interfaces/production-a3-channel-runtime.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "3fc98c946a0b41f096d62fc48301b9ac354fef81"
+  "source_revision": "2c4c4dfc321ee1effa3c75b6120555bd64413e84"
 }

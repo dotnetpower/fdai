@@ -66,6 +66,7 @@ describe("console config", () => {
     vi.stubEnv("VITE_MSAL_API_SCOPE", "legacy-scope");
     vi.stubEnv("VITE_DEV_MODE", "1");
     vi.stubEnv("VITE_LOCAL_AZURE_CLI_AUTH", "1");
+    vi.stubEnv("VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM", "1");
     vi.stubEnv("VITE_LOCAL_LOGIN_PROMPT", "1");
     vi.stubEnv("VITE_AUTH_TOKEN_TIMEOUT_MS", "2500");
     vi.stubEnv("VITE_OPERATOR_API_REQUEST_TIMEOUT_MS", "15000");
@@ -118,6 +119,22 @@ describe("console config", () => {
       workflowCatalogBranch: "release",
     });
   });
+
+  test.each([
+    ["1", "0"],
+    ["0", "1"],
+  ])(
+    "rejects an unconfirmed local Azure CLI mode (%s/%s)",
+    (enabled, confirmed) => {
+      vi.stubEnv("VITE_LOCAL_AZURE_CLI_AUTH", enabled);
+      vi.stubEnv("VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM", confirmed);
+
+      expect(() => loadConfig()).toThrow(
+        "VITE_LOCAL_AZURE_CLI_AUTH and VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM " +
+          "must be enabled together.",
+      );
+    },
+  );
 
   test.each([
     {},

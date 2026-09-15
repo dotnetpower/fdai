@@ -22,6 +22,7 @@ output "private_handoff" {
     subscription_id = var.subscription_id
     tenant_id       = var.tenant_id
     region          = var.region
+    region_short    = var.region_short
     app_resource_group = {
       id                        = azapi_resource.app_resource_group.id
       name                      = azapi_resource.app_resource_group.name
@@ -42,20 +43,24 @@ output "private_handoff" {
       use_azuread_auth = true
     }
     runner = {
-      vm_name             = module.bootstrap.runner_vm_name
-      vm_id               = module.bootstrap.runner_vm_id
-      admin_username      = module.bootstrap.runner_admin_username
-      parallelism         = module.bootstrap.runner_parallelism
-      ssh_key_digest      = module.bootstrap.runner_ssh_public_key_digest
-      bootstrap_mode      = local.runner_bootstrap_mode
-      execution_transport = var.execution_transport
-      source_image_id     = var.runner_source_image_id
-      toolchain_digest    = var.runner_image_toolchain_digest
-      public_egress       = var.enable_public_egress
-      identity_id         = module.bootstrap.deploy_runner_identity_id
-      client_id           = module.bootstrap.deploy_runner_client_id
-      principal_id        = module.bootstrap.deploy_runner_principal_id
-      role_manifest       = module.bootstrap.deploy_runner_role_manifest
+      vm_name                      = module.bootstrap.runner_vm_name
+      vm_id                        = module.bootstrap.runner_vm_id
+      admin_username               = module.bootstrap.runner_admin_username
+      parallelism                  = module.bootstrap.runner_parallelism
+      ssh_key_digest               = module.bootstrap.runner_ssh_public_key_digest
+      bootstrap_mode               = local.runner_bootstrap_mode
+      execution_transport          = var.execution_transport
+      source_image_id              = var.runner_source_image_id
+      toolchain_digest             = var.runner_image_toolchain_digest
+      image_source_commit          = var.runner_image_source_commit == "" ? var.source_commit : var.runner_image_source_commit
+      image_verified_source_commit = var.runner_image_verified_source_commit == "" ? (var.runner_image_source_commit == "" ? var.source_commit : var.runner_image_source_commit) : var.runner_image_verified_source_commit
+      image_run_digest             = var.runner_image_run_digest
+      image_receipt_digest         = var.runner_image_receipt_digest
+      public_egress                = var.enable_public_egress
+      identity_id                  = module.bootstrap.deploy_runner_identity_id
+      client_id                    = module.bootstrap.deploy_runner_client_id
+      principal_id                 = module.bootstrap.deploy_runner_principal_id
+      role_manifest                = module.bootstrap.deploy_runner_role_manifest
     }
     access = {
       method       = var.enable_bastion ? "bastion" : "external"

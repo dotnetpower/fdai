@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
@@ -130,6 +131,21 @@ class HandoverDraftArtifact(HandoverContract):
     def to_dict(self) -> dict[str, object]:
         """Return the JSON-compatible API projection."""
         return self.model_dump(mode="json", exclude_computed_fields=True)
+
+
+def handover_governance_idempotency_key(artifact: HandoverDraftArtifact) -> str:
+    """Return the stable review-delivery key for one handover draft."""
+
+    digest = hashlib.sha256()
+    for part in (
+        str(artifact.upload_id),
+        str(artifact.document_id),
+        str(artifact.version_id),
+        artifact.yaml,
+    ):
+        digest.update(part.encode("utf-8"))
+        digest.update(b"\x1f")
+    return f"stewardship-handover:{digest.hexdigest()}"
 
 
 class StewardshipMergeRecord(HandoverContract):

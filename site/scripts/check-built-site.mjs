@@ -9,6 +9,7 @@ const distRoot = resolve(siteRoot, "dist");
 const manifestPath = resolve(siteRoot, "src", "data", "publication-routes.json");
 const basePath = `/${(process.env.BASE_PATH ?? "/fdai").replace(/^\/+|\/+$/gu, "")}`;
 const origin = "https://fdai.invalid";
+const standaloneRoutes = new Set(["/neural-view/"]);
 
 async function filesUnder(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -123,8 +124,8 @@ async function main() {
 
   for (const [route, page] of pages) {
     const record = manifestRoutes.get(route);
-    if (!record) errors.push(`${route}: generated HTML route has no publication record`);
-    if (record?.publication_state !== "fallback" && page.h1Count !== 1) {
+    if (!record && !standaloneRoutes.has(route)) errors.push(`${route}: generated HTML route has no publication record`);
+    if (!standaloneRoutes.has(route) && record?.publication_state !== "fallback" && page.h1Count !== 1) {
       errors.push(`${route}: expected one H1, found ${page.h1Count}`);
     }
     page.accessibility.forEach((finding) => errors.push(`${route}: ${finding}`));

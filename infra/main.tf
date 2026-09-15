@@ -243,6 +243,7 @@ module "network" {
   resource_group_name           = module.resource_group.name
   enable_functions_subnet       = var.enable_dev_operations_gateway
   enable_evidence_target_subnet = var.enable_ohl_scale_out_evidence_target
+  enable_aks_subnet             = var.compute_kind == "aks"
   tags                          = local.tags
 }
 

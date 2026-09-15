@@ -1,8 +1,8 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: d0f7a9a13fb2602d1723699b49a5b46ef2f7a141
-translation_revised: 2026-08-14
+translation_source_sha: 89ed69d51a17eed67f20d169387bd53cad1f316e
+translation_revised: 2026-09-14
 ---
 
 # 작업 흐름 Control-Loop 통합
@@ -25,6 +25,7 @@ translation_revised: 2026-08-14
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 로컬 워크플로 예시를 Operator 경계가 요구하는 Azure CLI 인증 확인 값 쌍과 맞췄습니다. | `current change`; `tools.console`; 집중 실행기 환경 테스트. | 워크플로 권한은 변경되지 않았습니다. |
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 정책 연결과 운영 동시성 근거를 완료해야 합니다. |
 | 2026-08-14 | implemented | 검증된 FDAI-CONST-009 컨트롤 루프 경계를 기록했습니다. 불완전한 보상은 영속 hold를 발행하고 일반 전달은 차단되며, 일치하는 복구는 검증된 해제 전까지 사람 승인으로 제한됩니다. | `228f0779e`; 집중 hold, 보상, control-loop 및 risk-gate 검사 10개가 통과했고 중앙 검증도 통과했습니다. | 아래의 관련 없는 가드 연결, 분산 전달 근거 및 통제된 작업을 완료해야 합니다. |
 | 2026-08-14 | implemented | 연결된 가드 평가를 실패 시 차단으로 만들었습니다. 오래된 평가 시점, 예외를 던지거나 사용할 수 없는 평가기, 불리언이 아닌 결과는 각각 단계를 차단하고 `workflow.step` 감사 행에 범위가 제한된 `guard_error`를 기록합니다. | `current change`; `workflow_step_executor.py`와 `test_guard_fail_closed.py`; 집중 workflow 검사 101건이 통과했고 작업 범위 Ruff와 strict mypy가 통과했습니다. | 아래의 다중 replica 전달 근거와 통제된 Python 작업 실행기 작업을 완료해야 합니다. |
@@ -189,8 +190,7 @@ parameter-substitution 맥락 및 `mode`를 받습니다. 기여자는 shadow를
 `ProcessRuntimeStore` 에 연결합니다. 다음 CLI 래퍼 로 실행해 볼 수 있습니다.
 
 ```bash
-FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1 uv run uvicorn \
-  'fdai.delivery.operator_api.dev.local:app' --factory --port 8000
+uv run python -m tools.console
 
 uv run python scripts/automation/run-workflow.py architecture-review \
   --target fdai-control-plane

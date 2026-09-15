@@ -1,11 +1,15 @@
 import type { InventoryLink, InventoryResource } from "./architecture-map.model";
 import {
+  ARCHITECTURE_TOPOLOGY_COLUMN_PITCH,
+  ARCHITECTURE_TOPOLOGY_ROW_PITCH,
+} from "./architecture-topology-dimensions";
+import {
   architectureNetworkPathComponents,
   architectureNetworkPathRank,
 } from "./architecture-network-path";
 
-const STAGE_DEPTH = 1.75;
-const BRANCH_WIDTH = 1.55;
+const STAGE_DEPTH = ARCHITECTURE_TOPOLOGY_ROW_PITCH;
+const BRANCH_WIDTH = ARCHITECTURE_TOPOLOGY_COLUMN_PITCH;
 const MINIMUM_LANE_WIDTH = 3.6;
 const COMPONENT_GAP = 1.8;
 

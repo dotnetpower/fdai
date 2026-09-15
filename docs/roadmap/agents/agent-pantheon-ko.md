@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: f6d7e0ba041a2a8f41c89fa4c123b37711ab5039
-translation_revised: 2026-09-11
+translation_source_sha: 2d94648938cd87073bde4b24b2c6cb349ad51b27
+translation_revised: 2026-09-15
 ---
 # 에이전트 판테온
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
@@ -30,9 +30,8 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 - **Agent-driven, ontology-constrained.** 모든 상태 전이는 에이전트가 소유합니다. 온톨로지는
   대상 신원, 관계, 근거 최신성, 허용 액션, 예상 효과를 검증하지만 그래프
   결과는 판단, 승인, 실행 또는 권한 상승을 수행하지 않습니다.
-- **Closed-loop 연산.** 수락된 신호는 observe, understand, decide, 계획, authorize,
-  execute, verify, recover, learn 전 과정에서 accountable 소유자를 가집니다. 브로커 acceptance나
-  API 성공은 운영 결과가 아니며 독립적인 관측이 루프를 종료합니다.
+- **Closed-loop 연산.** 수락된 신호는 observe, understand, decide, 계획, authorize, execute, verify, recover, learn 전 과정에서 accountable 소유자를 가집니다. 브로커 acceptance나 API 성공은 운영 결과가 아니며 독립적인 관측이 루프를 종료합니다.
+  운영 귀속은 실행 권한을 부여하지 않습니다. 감사 및 활동 레코드는 기계적인 `actor`를 보존하고, 책임지는 Pantheon 역할을 `owner_agent`에 기록하며, 인증된 이벤트 버스 게시자에만 `producer_principal`을 사용합니다. 투영 계층은 이 신원을 표시할 수 있지만 서비스 이름에서 소유권, 작성 주체 또는 권한을 추론할 수 없으며, 귀속 변경은 ActionRun 식별자나 멱등성을 바꾸지 않습니다.
 - **자율성 before 에스컬레이션.** 근거가 부족하면 사람에게 넘기기 전에 범위가 제한된 reacquisition,
   alternate-source 검사, 결정론적 reevaluation, 더 작은 safe 계획, no-op 또는 롤백을
   수행합니다. Var는 잔여 모호함, policy-mandated 승인 또는 standing 권한 밖의
@@ -64,9 +63,8 @@ Odin 에 두 라인이 보고한다: Thor (operations) 와 Forseti (judgment). 4
 조직도는 보고 라인이고 관계도는 데이터 흐름입니다. Sensing과 전문가는 Forseti에 신호를
 전달합니다. Action verdict는 Thor가 Vidar, Var 또는 실행으로 전달하며 Thor는 document-ingestion
 및 관찰 전용 아키텍처 검토 verdict를 무시합니다. Odin은 해당 ARB 관찰을 액션 포트폴리오
-개수에서 제외하고 Saga는 이를 감사 근거로 보존합니다. Var와 Saga는 document HIL의 stable idempotency를 보존하고 Saga는 gated 및
-terminal audit을 영속화합니다. Workflow request는 Huginn, Forseti, Thor를 통해 bounded
-`workflow_action` lineage를 보존합니다. Delivery 소유 producer는 하나의 완전한 operational plan에 대한 optional argument-bound kinetic proposal을 저장하고 Forseti는 주입된 source로 이를 해석해 strict validation 뒤 같은 Verdict-to-ActionRun path에 보존합니다. 둘 다 attribution 및 evidence 전용이며 quorum, mode,
+개수에서 제외하고 Saga는 이를 감사 근거로 보존합니다. Var와 Saga는 document HIL의 stable idempotency를 보존하고 Saga는 gated 및 terminal audit을 영속화합니다. 클라우드 참조 패키지도 유효한 서명과 별개로 독립 Var 승인을 요구합니다. [클라우드 리소스 지식](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)을 참조하세요.
+워크플로 요청은 양의 시도 번호를 포함한 범위가 제한된 `workflow_action` 계보를 Huginn, Forseti, Thor를 거쳐 보존합니다. Thor는 판정이 액션 식별자를 제공한 경우에만 이를 보존하고 상관관계 ID에서 액션 식별자를 만들어 내지 않으며, 범위가 제한된 ActionRun 계보 검증은 권한이 없는 `_framework` 도우미에 둡니다. Delivery 소유 producer는 하나의 완전한 operational plan에 대한 optional argument-bound kinetic proposal을 저장하고 Forseti는 주입된 source로 이를 해석해 strict validation 뒤 같은 Verdict-to-ActionRun path에 보존합니다. 둘 다 attribution 및 evidence 전용이며 quorum, mode,
 judgment, approval 또는 execution authority를 바꾸지 않습니다.
 Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 
@@ -140,7 +138,7 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 | Freyr | 용량 | 1 | CapacityForecast, SizingRecommendation, CapacityGraduationRecommendation | 용량 예측 및 shadow-only 전환 권고 | no |
 | Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
 
-Heimdall은 결정론적 예측 에피소드 평가와 종결의 accountable 소유자이며 비공개 `heimdall_forecast.py` 보조 로직이 해당 계산을 소유합니다. Repeated-event detector는 권위 있는 anomaly를 발행한
+Heimdall은 결정론적 예측 에피소드 평가와 종결의 accountable 소유자이며 비공개 `heimdall_forecast.py`와 `heimdall_alert_window.py` 보조 로직이 예측 계산과 범위가 제한된 에피소드 및 경고 구간 기록을 소유합니다. Repeated-event detector는 권위 있는 anomaly를 발행한
 뒤 선택적 `incident_candidate_hook`을 호출할 수 있습니다. 이 훅은 정규화된 리소스, 이벤트 타입, 상관관계, worst 심각도, 사유 코드, 모든 burst 근거 키를 조립 소유
 `IncidentLifecycleWorkflow`에 전달합니다. Heimdall은 인시던트를 직접 쓰거나 새 임계값 anomaly를 publish하기 전에 Heimdall은 주입된 범위가 제한된 읽기 전용
 `operational_evidence_hook`을 호출할 수 있습니다. 이 훅은 hold-only Kubernetes 용량 발견 사항 같은 프로바이더 근거를 첨부할 수 있지만 판단, 승인 또는 실행하지 않습니다. 프로바이더 실패는 구조화된 사용 불가
@@ -325,11 +323,12 @@ properties:
 ## 6. 통신 계약
 
 판테온은 Event Hubs `:9093`의 Kafka 또는 프로세스 내 로컬 어댑터인 기존 `EventBus` wire를 사용합니다. Heimdall은 한 준비 상태 통과의 6개 dimension이 모두 도착한 뒤 표류를 게시하며 Muninn은 엄격히 더 새로운 스냅샷만 수락합니다.
+Huginn은 자체 표준 시간대 UTC 시계로 수집 시각을 기록하며 이 경계에 생산자 시각을 신뢰하지 않습니다. 반복 Event 에피소드에서는 비어 있지 않은 각 Event `idempotency_key`를 한 번만 계산하고 신뢰하는 수집 시각보다 늦지 않은 유효한 출처 Event 시각이 있으면 이를 사용합니다. 따라서 at-least-once 전달, 지연된 재생 또는 미래 시각으로 Heimdall 임계값을 조작할 수 없습니다. 중복 Event는 횟수를 늘리지 않으면서 완료되지 않은 게시나 수명 주기 인계를 다시 시도할 수 있습니다. 각 anomaly 게시는 에피소드와 심각도별로 범위가 제한된 키 하나를 사용하므로 downstream 재시도도 멱등성을 유지합니다. 수락된 에피소드는 조용한 반복 구간이 지난 뒤에만 같은 심각도의 후보를 다시 만들며, 다음 에피소드에는 별도의 불투명 신원을 부여하므로 종료된 Incident가 재발을 흡수하지 않습니다.
 최선 노력 `AgentHandlerObserver`는 전달, judgment, 실행을 변경하지 않고 핸들러 수명 주기를 보고합니다. 로컬 조립은 SSE로, deployed 조립은 shared 단계 토픽으로 게시해 Operator API가 중계합니다. 관측 대상은 등록된 15개 에이전트뿐이며, 같은 브리지로 구독하는 내부 프레임워크 principal은 에이전트 활동을 투영하지 않고 전달도 영향을 받지 않습니다. `recovery-effect-observer`가 그런 principal 중 하나로, 버전이 지정된 `workflow.recovery.effect_observed.v1` 관측을 Workflow 복구 수집 지점으로 전달하는 전용 소비자 그룹입니다. 이 주체는 어떤 객체 타입도 소유하지 않고 아무것도 발행하지 않습니다. 외부 관측은 스스로 도달하지 못합니다. Huginn이 원시 신호를 `object.event`로 정규화하면, 최종 효과 관측자인 Heimdall이 Huginn이 생산했음을 입증하고 선언된 필드만 범위를 제한해 자신이 소유한 `object.recovery-effect-observation` 토픽으로 중계하며, 이 소비자 그룹은 그 토픽만 읽습니다. 이 중계는 유일한 특권 실행기가 결코 발행할 수 없는 관측자 소유 경로에 근거를 붙잡아 두고, 수집 지점은 영구 저장 전에 버스가 찍은 `producer_principal`을 다시 인증합니다. Heimdall의 중계는 출처와 형태만 입증하며, 효과를 검증하지 않고 어떤 권한도 부여하지 않습니다.
 ### 6.1 타입이 지정된 포트
 
 객체 타입마다 `object.<type>` 토픽 하나를 사용합니다. 모든 메시지는 `correlation_id`, `idempotency_key`, `producer_principal`을 carry하며 Thor는 `correlation_id:state`로 retry-safe 전이를 유지합니다.
-버스는 인증된 `producer_principal`과 정수 `envelope_schema_version`을 기록하고 페이로드의 `schema_version`은 보존합니다. 변경은 비어 있지 않은 `correlation_id`, `resource_id`, `idempotency_key`가 필요합니다.
+버스는 인증된 `producer_principal`과 정수 `envelope_schema_version`을 기록하고 페이로드의 `schema_version`은 보존합니다. 변경은 비어 있지 않은 `correlation_id`, `resource_id`, `idempotency_key`가 필요합니다. 이 인증된 버스 경로 밖에서 기록하는 운영 감사 행은 기계 실행자 `actor`를 보존하고 책임 Pantheon 구성원을 `owner_agent`로 별도 기록하며 `producer_principal`을 만들어내지 않습니다. Saga의 영속 감사 체인 복사본은 `actor: Saga`를 기록하고, 감사 대상 페이로드나 다이제스트를 바꾸지 않은 채 인증된 원본 발행자를 `principal`에 보존합니다.
 Owned-topic 생산자 검사는 끌 수 없고 알 수 없는 `object.*` 구독은 등록에 실패합니다. Ordered 변경 소비자는 poison 기록을 보관한 뒤 중지해 후속 변경의 추월을 막습니다.
 Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합니다. 오퍼레이터 redrive도 소유자, 묶음, 스키마를 다시 검사하고 실패하면 원본 페이로드만 다시 보관합니다. 각 소비자는 자기 task 안에서 구독을 닫으므로, broker adapter는 인터프리터 종료 처리 시점이 아니라 종료 절차 중에 소비자 그룹을 반납합니다.
 | 토픽 | 발행기 | 기본 subscribers |

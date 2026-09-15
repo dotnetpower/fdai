@@ -15,6 +15,7 @@ import pytest
 
 from fdai_deployment_cli import entra_graph
 from fdai_deployment_cli.entra_bootstrap import (
+    CHANNEL_ATTACHMENT_ROLE,
     ROLES,
     EntraDesired,
     apply_entra_bootstrap,
@@ -181,15 +182,25 @@ def test_fresh_exact_requests_and_private_result() -> None:
     assert len(posts) == 15  # two apps, two SPs, five groups, five assignments, one member
     api = fake.rows["applications"][0]
     assert api["appRoles"] == [
+        *[
+            {
+                "id": role_id,
+                "value": role,
+                "displayName": role,
+                "description": f"FDAI {role} human role",
+                "allowedMemberTypes": ["User"],
+                "isEnabled": True,
+            }
+            for role, role_id in zip(ROLES, plan.role_ids, strict=True)
+        ],
         {
-            "id": role_id,
-            "value": role,
-            "displayName": role,
-            "description": f"FDAI {role} human role",
-            "allowedMemberTypes": ["User"],
+            "id": plan.channel_attachment_role_id,
+            "value": CHANNEL_ATTACHMENT_ROLE,
+            "displayName": "Channel attachment submitter",
+            "description": ("Submit bounded channel attachments to the internal ingestion intake"),
+            "allowedMemberTypes": ["Application"],
             "isEnabled": True,
-        }
-        for role, role_id in zip(ROLES, plan.role_ids, strict=True)
+        },
     ]
     assert api["identifierUris"] == [f"api://{api['appId']}"]
     assert api["signInAudience"] == "AzureADMyOrg"

@@ -9,6 +9,17 @@ from fdai_deployment_cli import standalone_application
 from fdai_deployment_cli.target import compute_target_binding
 
 
+def test_recovered_state_rejects_destructive_plan_before_approval(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        standalone_application, "validate_plan_review", lambda _review: ("substrate", 1)
+    )
+
+    with pytest.raises(ValueError, match="zero-destroy"):
+        standalone_application._require_nondestructive_adoption_plan({})
+
+
 def test_missing_license_material_keeps_deployment_observation_only(monkeypatch) -> None:
     monkeypatch.setattr(standalone_application, "discover_license_signing_key", lambda _key: None)
 

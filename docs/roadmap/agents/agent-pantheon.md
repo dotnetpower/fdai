@@ -17,8 +17,7 @@ Consumers of this document:
   overrides) and which are locked (no new agents, no rename).
 ## 1. Design principles
 
-The pantheon is a thin re-framing of the existing FDAI control loop into named organizational roles. It does not change the safety envelope
-in [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md); it makes the roles legible and auditable.
+The pantheon is a thin re-framing of the existing FDAI control loop into named organizational roles. It does not change the safety envelope in [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md); it makes the roles legible and auditable.
 
 - **Deterministic-first, LLM-capable.** Every agent CAN call an LLM through
   its own bindings, but the runtime hot-path routes almost everything at T0
@@ -27,9 +26,8 @@ in [architecture.instructions.md](../../../.github/instructions/architecture.ins
 - **Agent-driven, ontology-constrained.** Agents own every state transition. The ontology validates
   target identity, relationships, evidence freshness, allowed actions, and expected effects, but a
   graph result never judges, approves, executes, or raises authority.
-- **Closed-loop operation.** Every accepted signal follows accountable ownership through observe,
-  understand, decide, plan, authorize, execute, verify, recover, and learn. Broker acceptance or an
-  API success is not an operational outcome; independent observation closes the loop.
+- **Closed-loop operation.** Every accepted signal follows accountable ownership through observe, understand, decide, plan, authorize, execute, verify, recover, and learn. Broker acceptance or an API success is not an operational outcome; independent observation closes the loop.
+  Operational attribution grants no execution authority: audit and activity records preserve the mechanical `actor`, name the accountable Pantheon role in `owner_agent`, and use `producer_principal` only for an authenticated event-bus publisher. A projection can expose those identities but cannot infer ownership, authorship, or authority from a service name, and attribution changes do not alter ActionRun identity or idempotency.
 - **Autonomy before escalation.** Missing evidence triggers bounded reacquisition, alternate-source
   checks, deterministic reevaluation, smaller safe plans, no-op, or rollback before human review.
   Var requests a person only for residual ambiguity, policy-mandated approval, or risk outside
@@ -60,8 +58,8 @@ that data flows into judgment, not directly into execution.
 
 The org chart is reporting lines; the relationship diagram is data flow. Sensing and specialists feed Forseti. Action verdicts feed Thor for dispatch to Vidar, Var, or execution; Thor ignores
 document-ingestion and observation-only architecture-review verdicts. Odin excludes those ARB observations from action-portfolio counts, while Saga retains them as audit evidence. Var and Saga preserve stable idempotency through document HIL, while
-Saga persists gated and terminal audit. Workflow requests preserve bounded `workflow_action`
-lineage through Huginn, Forseti, and Thor. A delivery-owned producer stores an optional argument-bound kinetic proposal for one complete operational plan; Forseti resolves it through an injected source and keeps it on the same Verdict-to-ActionRun path after strict validation. Both are attribution and evidence only;
+Saga persists gated and terminal audit. Cloud-reference packages also require this independent Var approval, even with a valid signature; see [Cloud resource knowledge](../interfaces/cloud-resource-knowledge-lifecycle.md). Workflow requests preserve bounded `workflow_action` lineage, including the positive attempt number, through Huginn, Forseti, and Thor.
+Thor preserves an action identifier only when the verdict supplies one and never invents one from the correlation id; bounded ActionRun lineage validation remains an authority-free `_framework` helper. A delivery-owned producer stores an optional argument-bound kinetic proposal for one complete operational plan; Forseti resolves it through an injected source and keeps it on the same Verdict-to-ActionRun path after strict validation. Both are attribution and evidence only;
 neither changes quorum, mode, judgment, approval, or execution authority.
 Norns proposes to Mimir, and Odin arbitrates conflicts before judgment.
 
@@ -137,7 +135,7 @@ operations / interface), `3` = governance staff.
 | Freyr | Capacity | 1 | CapacityForecast, SizingRecommendation, CapacityGraduationRecommendation | forecast capacity and propose shadow-only graduation | no |
 | Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
 
-Heimdall remains accountable for deterministic forecast episode evaluation and closure while the private `heimdall_forecast.py` helper owns that calculation. Its repeated-event detector can call an optional
+Heimdall remains accountable for deterministic forecast episode evaluation and closure while the private `heimdall_forecast.py` and `heimdall_alert_window.py` helpers own forecast calculation and bounded episode and alert-window bookkeeping. Its repeated-event detector can call an optional
 `incident_candidate_hook` after it emits the authoritative anomaly. The hook
 carries the normalized resource, event type, correlation, worst severity, reason
 code, and all burst evidence keys to the composition-owned `IncidentLifecycleWorkflow`.
@@ -332,11 +330,12 @@ ownership](../architecture/operating-ontology.md#agent-ownership) for the curren
 ## 6. Communication contract
 
 The pantheon uses the existing `EventBus` wire: Kafka on Event Hubs `:9093`, or the in-process local adapter. Heimdall emits Drift only after one readiness pass has all six dimensions; Muninn accepts only a strictly newer snapshot.
+Huginn stamps ingestion time from its own timezone-aware UTC clock and never trusts a producer timestamp for that boundary. A repeated-event episode counts each non-empty Event `idempotency_key` at most once and uses a validated source event time no later than trusted ingestion when present, so at-least-once delivery, delayed replay, or a future timestamp cannot manipulate Heimdall's threshold. A duplicate may retry a threshold whose publication or lifecycle handoff has not completed, without adding another count. Each anomaly publication has one bounded key per episode and severity, so that retry remains idempotent downstream. One accepted episode emits no same-severity candidate until a quiet repeat window resets it; the next episode receives a distinct opaque identity so a closed Incident does not absorb a recurrence.
 A best-effort `AgentHandlerObserver` reports handler lifecycle without changing delivery, judgment, or execution. Local composition publishes to SSE; deployed composition publishes `started`, `completed`, and `failed` onto the shared stage topic for Operator API relay. Observation covers only the 15 registered agents; internal framework principals that subscribe through the same bridge project no agent activity and their delivery is unaffected. One such principal is `recovery-effect-observer`, a dedicated consumer group that carries the versioned `workflow.recovery.effect_observed.v1` observation to the workflow recovery intake. It owns no object type and publishes nothing. An external observation is not self-delivering: Huginn normalizes the raw signal onto `object.event`, and Heimdall - the terminal effect observer - proves Huginn produced it, relays the bounded declared fields onto the `object.recovery-effect-observation` topic it owns, and lets this consumer group read only that topic. The relay keeps the evidence on an observer-owned path the sole privileged executor can never publish to, and the intake re-authenticates the `producer_principal` the bus stamped before persisting anything. Heimdall's relay proves provenance and shape only; it verifies no effect and grants no authority.
 ### 6.1 Typed port
 
 One topic per object type, named `object.<type>`. Every message carries `correlation_id`, `idempotency_key`, and `producer_principal`; Thor uses `correlation_id:state` for retry-safe transitions.
-The bus stamps authenticated `producer_principal` and integer `envelope_schema_version` while preserving a payload's `schema_version`; mutations require non-empty `correlation_id`, `resource_id`, and `idempotency_key`.
+The bus stamps authenticated `producer_principal` and integer `envelope_schema_version` while preserving a payload's `schema_version`; mutations require non-empty `correlation_id`, `resource_id`, and `idempotency_key`. Operational audit rows written outside that authenticated bus path preserve the mechanical `actor` and record the accountable Pantheon member separately as `owner_agent`; they never synthesize `producer_principal`. Saga's durable chain mirror records `actor: Saga` and keeps the authenticated source publisher in `principal` without changing the audited payload or its digest.
 Owned-topic producer checks cannot be disabled, and unknown `object.*` subscriptions fail registration. Ordered mutation consumers stop after parking poison so later mutations cannot pass it.
 Dead-letter writes retry with bounded backoff before consumer restart. Operator redrive repeats owner, envelope, and schema checks and re-parks only the original payload.
 Each consumer closes its subscription inside its own task, so the broker adapter releases the consumer group during shutdown rather than during interpreter finalization.

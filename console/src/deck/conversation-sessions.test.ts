@@ -326,6 +326,23 @@ describe("conversationTitle", () => {
       .toBe("Explain approvals");
   });
 
+  it("preserves an incident label instead of replacing it with the automatic prompt", () => {
+    const incident: ConversationSummary = {
+      ...GENERAL,
+      key: "user:abc123:conversation:incident",
+      label: "Incident INC-1",
+      kind: "screen-thread",
+      binding: {
+        kind: "incident",
+        incidentId: "INC-1",
+        correlationId: "corr-1",
+      },
+    };
+
+    expect(conversationLabelForPrompt(incident, "Investigate this incident.", false))
+      .toBe("Incident INC-1");
+  });
+
   it("keeps a first-question title when screen route metadata refreshes", () => {
     const titled = { ...GENERAL, label: "Why are approvals waiting?" };
 

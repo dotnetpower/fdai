@@ -74,17 +74,18 @@
     },
     "detection-readiness": {
       group: "Operations",
-      title: "Detection readiness",
-      subtitle: "Agent-owned evidence that monitored Kubernetes targets can produce governed failure signals.",
-      note: "Agent-owned state, not a browser health check. Readiness is reduced from stored observations.",
-      kpis: [["Monitored targets", "15", "active generation"], ["Ready", "12", "current evidence"], ["Needs attention", "3", "missing or stale"], ["Observation mode", "2", "no changes applied"]],
+      title: "Detection coverage",
+      subtitle: "Evaluation coverage across supported API, Kubernetes, AI, database, and gateway resources.",
+      note: "Coverage is read-only evaluation evidence. A no-finding result is not a health or readiness claim.",
+      kpis: [["Candidate resources", "7", "supported inventory"], ["Selected resources", "5", "latest attempt"], ["Evaluated resources", "4", "completed analysis"], ["Findings", "1", "latest attempt"]],
       sections: [
-        { title: "Evidence provenance", type: "facts", items: [["Source", "Muninn readiness projection"], ["Last agent snapshot", common.asOf], ["Generation", "gen-20260827-1015"], ["Coverage", "15 of 15 targets"]] },
-        { title: "Target readiness", description: "Each row keeps decision, evidence gaps, and authority ceiling separate.", type: "table", columns: ["Target", "Decision", "Evidence", "Coverage gaps", "Authority ceiling"], rows: [
-          [code("aks-platform-prod"), status("Ready", "success"), "4 / 4 axes", "None", "Deterministic fallback"],
-          [code("payments-api"), status("Partial", "warning"), "3 / 4 axes", "Probe result stale", "Observation mode"],
-          [code("ingress-public"), status("Blocked", "danger"), "2 / 4 axes", "Detector unavailable", "Human approval"],
-          [code("inventory-worker"), status("Ready", "success"), "4 / 4 axes", "None", "Deployment"]
+        { title: "Technical provenance", type: "facts", items: [["Source", "Analyzer run receipt"], ["Latest attempt", common.asOf], ["Coverage schema", code("1.1.0")], ["Authority", "None"]] },
+        { title: "Coverage by resource type", description: "Each row keeps candidates, evaluations, holds, findings, and errors separate.", type: "table", columns: ["Resource type", "Candidates", "Selected", "Evaluated", "Held", "Findings", "Errors"], rows: [
+          ["API gateway", "1", "1", "1", "0", "0", "0"],
+          ["Kubernetes cluster", "2", "1", "1", "1", "1", "0"],
+          ["LLM endpoint", "1", "1", "1", "0", "0", "0"],
+          ["MySQL server", "2", "1", "0", "1", "0", "1"],
+          ["Application Gateway", "1", "1", "1", "0", "0", "0"]
         ] }
       ]
     },
@@ -568,6 +569,13 @@
   }
 
   function renderSection(section) {
+    if (section.type === "disclosure") {
+      return '<section class="cp-section op-technical-disclosure"' +
+        (section.id ? ' id="' + escapeHtml(section.id) + '"' : "") +
+        '><details><summary>' + escapeHtml(section.title) + "</summary>" +
+        (section.description ? "<p>" + escapeHtml(section.description) + "</p>" : "") +
+        renderFacts(section.items) + "</details></section>";
+    }
     var body = "";
     if (section.type === "table") body = renderTable(section);
     if (section.type === "facts") body = renderFacts(section.items);
@@ -603,6 +611,11 @@
       return;
     }
     document.title = page.title + " - FDAI Console";
+    var kpiMarkup = '<section class="cp-kpis" data-kpi-count="' + page.kpis.length + '" aria-label="' + escapeHtml(page.title) + ' summary" style="--cp-kpi-columns:' +
+      Math.min(4, page.kpis.length) + '">' + page.kpis.map(function (item) {
+        return '<article class="cp-kpi"><span>' + escapeHtml(item[0]) + '</span><strong' + (/^[\d$]/.test(String(item[1])) ? "" : ' class="op-value-label"') + ">" +
+          escapeHtml(item[1]) + "</strong><small>" + escapeHtml(item[2]) + "</small></article>";
+      }).join("") + "</section>";
     root.innerHTML = '<header class="cp-header"><div class="cp-header-copy"><h1>' +
       escapeHtml(page.title) + "</h1><p>" + escapeHtml(page.subtitle) +
       '</p></div><div class="cp-header-meta"><span>Synthetic specimen</span><strong>' +
@@ -610,11 +623,13 @@
       (page.views ? '<details class="cs-readonly-banner op-preview-note"><summary><strong>Synthetic preview.</strong> No live requests or actions.</summary><p>' +
         escapeHtml(page.note || common.syntheticNote) + "</p></details>" :
         '<div class="cs-readonly-banner"><strong>Read-only specimen.</strong>' + escapeHtml(page.note || common.syntheticNote) + "</div>") +
-      '<section class="cp-kpis" data-kpi-count="' + page.kpis.length + '" aria-label="' + escapeHtml(page.title) + ' summary" style="--cp-kpi-columns:' +
-      Math.min(4, page.kpis.length) + '">' + page.kpis.map(function (item) {
-        return '<article class="cp-kpi"><span>' + escapeHtml(item[0]) + '</span><strong' + (/^[\d$]/.test(String(item[1])) ? "" : ' class="op-value-label"') + ">" +
-          escapeHtml(item[1]) + "</strong><small>" + escapeHtml(item[2]) + "</small></article>";
-      }).join("") + "</section>" + (page.views ? window.FDAI_OPERATIONS_RENDERER.views(page) : page.sections.map(renderSection).join(""));
+      (page.kpisInFirstView ? "" : kpiMarkup) +
+      (page.views
+        ? window.FDAI_OPERATIONS_RENDERER.views(
+            page,
+            page.kpisInFirstView ? kpiMarkup : "",
+          )
+        : page.sections.map(renderSection).join(""));
 
     root.querySelectorAll("[data-cp-form]").forEach(function (form) {
       form.addEventListener("submit", function (event) { event.preventDefault(); });

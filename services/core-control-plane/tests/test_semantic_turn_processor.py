@@ -66,6 +66,7 @@ from fdai_core_service.semantic_turn_processor import (
     SemanticTurnRejectedError,
     _answer_row_values,
     _bounded_document_text,
+    _decode_request,
     _incident_next_step_text,
     _project_investigation_continuation,
     _render_general_query_answer,
@@ -85,10 +86,13 @@ from fdai_service_contracts import (
     OperationalEvidenceProjection,
     RuleSearchReceipt,
     SemanticDirectResponseIntent,
+    SemanticDocumentContext,
+    SemanticDocumentContextSource,
     SemanticTurnDisposition,
     SemanticTurnRequest,
     context_selection_digest,
     rule_search_query_digest,
+    semantic_document_context_digest,
 )
 from fdai_service_contracts.ontology_query import (
     EvidenceAuthority,
@@ -2457,6 +2461,7 @@ class _Runtime:
         self.bound_investigation_continuations: list[BoundInvestigationContinuation | None] = []
         self.escalation_policies: list[SemanticPlanningEscalationPolicy | None] = []
         self.conversation_model_tiers: list[object | None] = []
+        self.document_contexts: list[object | None] = []
         self.target_agents: list[str] = []
         self.relationships: list[Mapping[str, object] | None] = []
 
@@ -2475,6 +2480,7 @@ class _Runtime:
         bound_investigation_continuation: BoundInvestigationContinuation | None = None,
         escalation_policy: SemanticPlanningEscalationPolicy | None = None,
         conversation_model_tier: object | None = None,
+        document_context: object | None = None,
     ) -> RuntimeSemanticTurnResult:
         assert utterance == "Show current operations evidence."
         self.calls += 1
@@ -2487,6 +2493,7 @@ class _Runtime:
         self.bound_investigation_continuations.append(bound_investigation_continuation)
         self.escalation_policies.append(escalation_policy)
         self.conversation_model_tiers.append(conversation_model_tier)
+        self.document_contexts.append(document_context)
         if self.failure is not None:
             raise self.failure
         if self.wait_for_cancel:
@@ -2639,6 +2646,7 @@ def _request(
     locale: str = "en",
     planning_profile: str = "interactive",
     conversation_model_tier: str | None = None,
+    document_context: dict[str, object] | None = None,
     include_model_trace: bool = False,
 ) -> dict[str, object]:
     semantic_turn: dict[str, object] = {
@@ -2661,6 +2669,8 @@ def _request(
         semantic_turn["planning_profile"] = planning_profile
     if conversation_model_tier is not None:
         semantic_turn["conversation_model_tier"] = conversation_model_tier
+    if document_context is not None:
+        semantic_turn["document_context"] = document_context
     if bound_context is not None:
         semantic_turn["bound_context"] = bound_context
     if investigation_continuation is not None:
@@ -2669,7 +2679,9 @@ def _request(
         semantic_turn["include_model_trace"] = True
     return {
         "schema_version": (
-            "1.7.0"
+            "1.8.0"
+            if document_context is not None
+            else "1.7.0"
             if conversation_model_tier is not None
             else "1.5.0"
             if investigation_continuation is not None
@@ -2688,6 +2700,74 @@ def _request(
         "requested_at": NOW.isoformat(),
         "semantic_turn": semantic_turn,
     }
+
+
+def _document_context_payload() -> dict[str, object]:
+    material: dict[str, object] = {
+        "schema_version": "1.0.0",
+        "source": SemanticDocumentContextSource.CHANNEL_ATTACHMENT,
+        "principal_ref": "operator-1",
+        "conversation_ref": "session-1",
+        "citations": (
+            "doc:00000000-0000-0000-0000-000000000001:00000000-0000-0000-0000-000000000002",
+        ),
+        "authorization_digest": f"sha256:{'a' * 64}",
+        "receipt_digests": (f"sha256:{'b' * 64}",),
+        "execution_authority": False,
+    }
+    provisional = SemanticDocumentContext.model_construct(
+        **material,
+        context_digest=f"sha256:{'0' * 64}",
+    )
+    return SemanticDocumentContext.model_validate(
+        {**material, "context_digest": semantic_document_context_digest(provisional)}
+    ).model_dump(mode="json")
+
+
+def test_core_decodes_exact_document_context_from_1_8_request() -> None:
+    payload = _request(document_context=_document_context_payload())
+
+    envelope, request, requested_at = _decode_request(payload)
+
+    assert envelope["schema_version"] == "1.8.0"
+    assert requested_at == NOW
+    assert request.document_context is not None
+    assert request.document_context.principal_ref == "operator-1"
+    assert request.document_context.conversation_ref == "session-1"
+
+
+def test_core_rejects_tampered_document_context_digest() -> None:
+    document_context = _document_context_payload()
+    document_context["context_digest"] = f"sha256:{'0' * 64}"
+
+    with pytest.raises(SemanticTurnRejectedError, match="semantic_request_invalid"):
+        _decode_request(_request(document_context=document_context))
+
+
+async def test_processor_binds_document_context_to_terminal_projection() -> None:
+    context = _document_context_payload()
+    runtime = _Runtime()
+
+    encoded = await _processor(runtime).process(_request(document_context=context))
+    projection = json.loads(encoded)
+
+    assert projection["schema_version"] == "1.7.0"
+    semantic_result = projection["semantic_result"]
+    assert semantic_result["document_context_digest"] == context["context_digest"]
+    assert runtime.document_contexts[0] is not None
+
+
+async def test_processor_holds_answer_that_omits_document_context_evidence() -> None:
+    context = _document_context_payload()
+    runtime = _Runtime(_runtime_result("answered"))
+
+    encoded = await _processor(runtime).process(_request(document_context=context))
+    projection = json.loads(encoded)
+
+    semantic_result = projection["semantic_result"]
+    assert semantic_result["disposition"] == "held"
+    assert semantic_result["reason_code"] == "semantic_evidence_incomplete"
+    assert semantic_result["document_context_digest"] == context["context_digest"]
 
 
 def _continuation_request_payload() -> dict[str, object]:

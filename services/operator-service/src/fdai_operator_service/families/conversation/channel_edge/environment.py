@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 from urllib.parse import urlsplit
@@ -13,7 +14,7 @@ from fdai_operator_service.families.conversation.channel_delivery_models import 
 from fdai_operator_service.families.conversation.channel_edge.teams_ingress import (
     normalize_teams_service_url,
 )
-from fdai_service_contracts import OperatorRole
+from fdai_service_contracts import OperatorRole, canonical_digest
 from fdai_service_contracts.venue import (
     ExecutionVenue,
     ExecutionVenueError,
@@ -32,6 +33,22 @@ SEMANTIC_PHYSICAL_TOPIC_ENV = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC"
 SEMANTIC_CONSUMER_GROUP_ENV = "FDAI_CHANNEL_EDGE_SEMANTIC_CONSUMER_GROUP_ID"
 SEMANTIC_CLIENT_ID_ENV = "FDAI_CHANNEL_EDGE_SEMANTIC_CLIENT_ID"
 PRINCIPAL_SCOPES_ENV = "FDAI_CHANNEL_EDGE_PRINCIPAL_SCOPES_JSON"
+ATTACHMENTS_ENABLED_ENV = "FDAI_CHANNEL_ATTACHMENTS_ENABLED"
+ATTACHMENT_INTAKE_ORIGIN_ENV = "FDAI_CHANNEL_ATTACHMENT_INTAKE_ORIGIN"
+ATTACHMENT_INTAKE_AUDIENCE_ENV = "FDAI_CHANNEL_ATTACHMENT_INTAKE_AUDIENCE"
+ATTACHMENT_CLIENT_ID_ENV = "FDAI_CHANNEL_ATTACHMENT_CLIENT_ID"
+ATTACHMENT_TENANT_ID_ENV = "FDAI_CHANNEL_ATTACHMENT_TENANT_ID"
+ATTACHMENT_CLIENT_SECRET_ENV = "FDAI_CHANNEL_ATTACHMENT_CLIENT_SECRET"  # noqa: S105
+ATTACHMENT_SCRATCH_DIR_ENV = "FDAI_CHANNEL_ATTACHMENT_SCRATCH_DIR"
+ATTACHMENT_SCRATCH_ENCRYPTED_ENV = "FDAI_CHANNEL_ATTACHMENT_SCRATCH_ENCRYPTED"
+ATTACHMENT_MAX_BYTES_ENV = "FDAI_CHANNEL_ATTACHMENT_MAX_CONTENT_BYTES"
+SLACK_FILES_INFO_URL_ENV = "FDAI_SLACK_FILES_INFO_URL"
+SLACK_ATTACHMENT_METADATA_HOSTS_ENV = "FDAI_SLACK_ATTACHMENT_METADATA_HOSTS_JSON"
+SLACK_ATTACHMENT_DOWNLOAD_HOSTS_ENV = "FDAI_SLACK_ATTACHMENT_DOWNLOAD_HOSTS_JSON"
+TEAMS_ATTACHMENT_URL_TEMPLATE_ENV = "FDAI_TEAMS_ATTACHMENT_URL_TEMPLATE"
+TEAMS_ATTACHMENT_AUDIENCE_ENV = "FDAI_TEAMS_ATTACHMENT_AUDIENCE"
+TEAMS_ATTACHMENT_HOSTS_ENV = "FDAI_TEAMS_ATTACHMENT_HOSTS_JSON"
+TEAMS_ATTACHMENT_AUDIENCES_ENV = "FDAI_TEAMS_ATTACHMENT_AUDIENCES_JSON"
 SLACK_SIGNING_SECRET_ENV = "FDAI_SLACK_SIGNING_SECRET"  # noqa: S105 - environment key
 SLACK_BOT_TOKEN_ENV = "FDAI_SLACK_BOT_TOKEN"  # noqa: S105 - environment key
 SLACK_TEAM_ID_ENV = "FDAI_SLACK_TEAM_ID"
@@ -88,6 +105,27 @@ class TeamsEdgeSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class AttachmentEdgeSettings:
+    """Configure only fixed internal and vendor attachment trust boundaries."""
+
+    intake_origin: str
+    intake_audience: str
+    client_id: str
+    tenant_id: str | None
+    client_secret: str | None = field(repr=False)
+    scratch_directory: Path
+    max_content_bytes: int
+    principal_manifest_digest: str
+    slack_files_info_url: str | None = None
+    slack_metadata_hosts: frozenset[str] = frozenset()
+    slack_download_hosts: frozenset[str] = frozenset()
+    teams_url_template: str | None = None
+    teams_audience: str | None = None
+    teams_hosts: frozenset[str] = frozenset()
+    teams_audiences: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True, slots=True)
 class ChannelEdgeEnvironment:
     """Hold one immutable, fully resolved channel-edge environment snapshot."""
 
@@ -105,6 +143,8 @@ class ChannelEdgeEnvironment:
     semantic_consumer_group: str
     semantic_client_id: str
     managed_identity_client_id: str | None
+    attachments_enabled: bool
+    attachments: AttachmentEdgeSettings | None
     principal_scopes: Mapping[str, PrincipalScopeSettings]
     slack: SlackEdgeSettings | None
     teams: TeamsEdgeSettings | None
@@ -136,6 +176,7 @@ class ChannelEdgeEnvironment:
                 "semantic request and projection topics MUST differ"
             )
         semantic_physical_topic = values.get(SEMANTIC_PHYSICAL_TOPIC_ENV, "").strip() or None
+        attachments_enabled = _binary_flag(values, ATTACHMENTS_ENABLED_ENV)
         principal_scopes = _principal_scopes(_required(values, PRINCIPAL_SCOPES_ENV))
         slack = (
             _slack_settings(values, principal_scopes)
@@ -145,6 +186,15 @@ class ChannelEdgeEnvironment:
         teams = (
             _teams_settings(values, principal_scopes, execution_venue=execution_venue)
             if ChannelKind.TEAMS in enabled_channels
+            else None
+        )
+        attachments = (
+            _attachment_settings(
+                values,
+                execution_venue=execution_venue,
+                enabled_channels=enabled_channels,
+            )
+            if attachments_enabled
             else None
         )
         return cls(
@@ -168,10 +218,149 @@ class ChannelEdgeEnvironment:
             managed_identity_client_id=(
                 values.get(MANAGED_IDENTITY_CLIENT_ID_ENV, "").strip() or None
             ),
+            attachments_enabled=attachments_enabled,
+            attachments=attachments,
             principal_scopes=MappingProxyType(principal_scopes),
             slack=slack,
             teams=teams,
         )
+
+
+def _attachment_settings(
+    values: Mapping[str, str],
+    *,
+    execution_venue: ExecutionVenue,
+    enabled_channels: frozenset[ChannelKind],
+) -> AttachmentEdgeSettings:
+    if not _binary_flag(values, ATTACHMENT_SCRATCH_ENCRYPTED_ENV):
+        raise ChannelEdgeConfigurationError(
+            f"{ATTACHMENT_SCRATCH_ENCRYPTED_ENV} MUST be 1 when attachments are enabled"
+        )
+    intake_origin = _attachment_origin(
+        _required(values, ATTACHMENT_INTAKE_ORIGIN_ENV),
+        execution_venue=execution_venue,
+    )
+    configured_scratch = Path(_required(values, ATTACHMENT_SCRATCH_DIR_ENV))
+    if not configured_scratch.is_absolute():
+        raise ChannelEdgeConfigurationError(
+            f"{ATTACHMENT_SCRATCH_DIR_ENV} MUST be an absolute path"
+        )
+    scratch_directory = configured_scratch.resolve()
+    slack_files_info_url: str | None = None
+    slack_metadata_hosts: frozenset[str] = frozenset()
+    slack_download_hosts: frozenset[str] = frozenset()
+    if ChannelKind.SLACK in enabled_channels:
+        slack_metadata_hosts = _host_allowlist(
+            _required(values, SLACK_ATTACHMENT_METADATA_HOSTS_ENV),
+            SLACK_ATTACHMENT_METADATA_HOSTS_ENV,
+        )
+        slack_download_hosts = _host_allowlist(
+            _required(values, SLACK_ATTACHMENT_DOWNLOAD_HOSTS_ENV),
+            SLACK_ATTACHMENT_DOWNLOAD_HOSTS_ENV,
+        )
+        slack_files_info_url = _fixed_https_url(
+            _required(values, SLACK_FILES_INFO_URL_ENV),
+            SLACK_FILES_INFO_URL_ENV,
+            allowed_hosts=slack_metadata_hosts,
+        )
+    teams_url_template: str | None = None
+    teams_audience: str | None = None
+    teams_hosts: frozenset[str] = frozenset()
+    teams_audiences: frozenset[str] = frozenset()
+    if ChannelKind.TEAMS in enabled_channels:
+        teams_hosts = _host_allowlist(
+            _required(values, TEAMS_ATTACHMENT_HOSTS_ENV),
+            TEAMS_ATTACHMENT_HOSTS_ENV,
+        )
+        teams_audiences = _text_allowlist(
+            _required(values, TEAMS_ATTACHMENT_AUDIENCES_ENV),
+            TEAMS_ATTACHMENT_AUDIENCES_ENV,
+        )
+        teams_audience = _required(values, TEAMS_ATTACHMENT_AUDIENCE_ENV)
+        if teams_audience not in teams_audiences:
+            raise ChannelEdgeConfigurationError(
+                f"{TEAMS_ATTACHMENT_AUDIENCE_ENV} MUST be in the configured audience allowlist"
+            )
+        teams_url_template = _required(values, TEAMS_ATTACHMENT_URL_TEMPLATE_ENV)
+        if teams_url_template.count("{attachment_id}") != 1:
+            raise ChannelEdgeConfigurationError(
+                f"{TEAMS_ATTACHMENT_URL_TEMPLATE_ENV} MUST contain one attachment_id placeholder"
+            )
+        _fixed_https_url(
+            teams_url_template.replace("{attachment_id}", "probe"),
+            TEAMS_ATTACHMENT_URL_TEMPLATE_ENV,
+            allowed_hosts=teams_hosts,
+        )
+    return AttachmentEdgeSettings(
+        intake_origin=intake_origin,
+        intake_audience=_bounded(
+            _required(values, ATTACHMENT_INTAKE_AUDIENCE_ENV),
+            ATTACHMENT_INTAKE_AUDIENCE_ENV,
+            512,
+        ),
+        client_id=_attachment_client_id(values, execution_venue=execution_venue),
+        tenant_id=(
+            _bounded(
+                _required(values, ATTACHMENT_TENANT_ID_ENV),
+                ATTACHMENT_TENANT_ID_ENV,
+                200,
+            )
+            if execution_venue is ExecutionVenue.LOCAL
+            else None
+        ),
+        client_secret=(
+            _required(values, ATTACHMENT_CLIENT_SECRET_ENV)
+            if execution_venue is ExecutionVenue.LOCAL
+            else None
+        ),
+        scratch_directory=scratch_directory,
+        max_content_bytes=_bounded_int(
+            values,
+            ATTACHMENT_MAX_BYTES_ENV,
+            25 * 1024 * 1024,
+            minimum=1,
+            maximum=1024 * 1024 * 1024,
+        ),
+        principal_manifest_digest=_principal_manifest_digest(
+            _required(values, PRINCIPAL_SCOPES_ENV)
+        ),
+        slack_files_info_url=slack_files_info_url,
+        slack_metadata_hosts=slack_metadata_hosts,
+        slack_download_hosts=slack_download_hosts,
+        teams_url_template=teams_url_template,
+        teams_audience=teams_audience,
+        teams_hosts=teams_hosts,
+        teams_audiences=teams_audiences,
+    )
+
+
+def _attachment_client_id(
+    values: Mapping[str, str],
+    *,
+    execution_venue: ExecutionVenue,
+) -> str:
+    configured = _bounded(
+        _required(values, ATTACHMENT_CLIENT_ID_ENV), ATTACHMENT_CLIENT_ID_ENV, 200
+    )
+    secret = values.get(ATTACHMENT_CLIENT_SECRET_ENV, "").strip()
+    tenant = values.get(ATTACHMENT_TENANT_ID_ENV, "").strip()
+    if execution_venue is ExecutionVenue.LOCAL:
+        if not secret or not tenant:
+            raise ChannelEdgeConfigurationError(
+                "local attachment identity requires tenant and client secret"
+            )
+    else:
+        if secret or tenant:
+            raise ChannelEdgeConfigurationError(
+                "deployed attachment identity MUST NOT use tenant or client secret settings"
+            )
+        managed = values.get(MANAGED_IDENTITY_CLIENT_ID_ENV, "").strip()
+        if not managed or configured != managed:
+            raise ChannelEdgeConfigurationError(
+                f"{ATTACHMENT_CLIENT_ID_ENV} MUST equal "
+                f"{MANAGED_IDENTITY_CLIENT_ID_ENV} when deployed"
+            )
+    return configured
 
 
 def _slack_settings(
@@ -286,6 +475,22 @@ def _principal_scopes(value: str) -> dict[str, PrincipalScopeSettings]:
     return scopes
 
 
+def _principal_manifest_digest(value: str) -> str:
+    raw = _json(value)
+    if not isinstance(raw, dict):
+        raise ChannelEdgeConfigurationError(f"{PRINCIPAL_SCOPES_ENV} MUST be an object")
+    normalized: dict[str, dict[str, object]] = {}
+    for principal_id, item in raw.items():
+        if not isinstance(principal_id, str) or not isinstance(item, dict):
+            raise ChannelEdgeConfigurationError(f"{PRINCIPAL_SCOPES_ENV} has invalid entries")
+        normalized[principal_id] = {
+            "scope_ref": item.get("scope_ref"),
+            "roles": item.get("roles"),
+            "locale": item.get("locale", "en"),
+        }
+    return canonical_digest(normalized)
+
+
 def _principal_mapping(
     value: str,
     *,
@@ -355,6 +560,83 @@ def _https_url(value: object, name: str, *, allow_query: bool) -> str:
     return value
 
 
+def _attachment_origin(value: str, *, execution_venue: ExecutionVenue) -> str:
+    parts = urlsplit(value)
+    local_http = (
+        execution_venue is ExecutionVenue.LOCAL
+        and parts.scheme == "http"
+        and parts.hostname in {"127.0.0.1", "localhost", "::1"}
+    )
+    if (
+        not (parts.scheme == "https" or local_http)
+        or not parts.hostname
+        or parts.username is not None
+        or parts.password is not None
+        or parts.path not in {"", "/"}
+        or parts.query
+        or parts.fragment
+        or (parts.scheme == "https" and parts.port not in {None, 443})
+    ):
+        raise ChannelEdgeConfigurationError(
+            f"{ATTACHMENT_INTAKE_ORIGIN_ENV} MUST be a fixed HTTPS origin"
+        )
+    return value.rstrip("/")
+
+
+def _fixed_https_url(
+    value: str,
+    name: str,
+    *,
+    allowed_hosts: frozenset[str],
+) -> str:
+    parts = urlsplit(value)
+    if (
+        parts.scheme != "https"
+        or parts.hostname not in allowed_hosts
+        or parts.port not in {None, 443}
+        or parts.username is not None
+        or parts.password is not None
+        or parts.query
+        or parts.fragment
+    ):
+        raise ChannelEdgeConfigurationError(f"{name} is outside its fixed HTTPS hosts")
+    return value
+
+
+def _host_allowlist(value: str, name: str) -> frozenset[str]:
+    raw = _json(value)
+    if not isinstance(raw, list) or not raw:
+        raise ChannelEdgeConfigurationError(f"{name} MUST be a non-empty JSON array")
+    hosts: list[str] = []
+    for item in raw:
+        if (
+            not isinstance(item, str)
+            or len(item) > 253
+            or item != item.lower()
+            or urlsplit("https://" + item).hostname != item
+            or any(character in item for character in "/:@?#")
+        ):
+            raise ChannelEdgeConfigurationError(f"{name} contains an invalid host")
+        hosts.append(item)
+    if len(hosts) != len(set(hosts)):
+        raise ChannelEdgeConfigurationError(f"{name} MUST contain unique hosts")
+    return frozenset(hosts)
+
+
+def _text_allowlist(value: str, name: str) -> frozenset[str]:
+    raw = _json(value)
+    if (
+        not isinstance(raw, list)
+        or not raw
+        or any(not isinstance(item, str) or not item.strip() or len(item) > 512 for item in raw)
+        or len(raw) != len(set(raw))
+    ):
+        raise ChannelEdgeConfigurationError(
+            f"{name} MUST be a non-empty unique bounded JSON string array"
+        )
+    return frozenset(raw)
+
+
 def _required(values: Mapping[str, str], key: str) -> str:
     value = values.get(key, "").strip()
     if not value:
@@ -386,7 +668,15 @@ def _bounded_int(
     return value
 
 
+def _binary_flag(values: Mapping[str, str], key: str) -> bool:
+    value = values.get(key, "0").strip()
+    if value not in {"0", "1"}:
+        raise ChannelEdgeConfigurationError(f"{key} MUST be 0 or 1")
+    return value == "1"
+
+
 __all__ = [
+    "AttachmentEdgeSettings",
     "ChannelEdgeConfigurationError",
     "ChannelEdgeEnvironment",
     "PrincipalScopeSettings",

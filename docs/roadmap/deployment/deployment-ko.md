@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 558001017f69f74bb4554b37b9e0aa9a9fc5668b
-translation_revised: 2026-09-13
+translation_source_sha: a2731a6763bf3a6226566f848e621802ab45532f
+translation_revised: 2026-09-14
 ---
 
 # 배포(배포)
@@ -34,6 +34,7 @@ translation_revised: 2026-09-13
 |------|------|------|------|
 | 새 clone 공개 개발 Core 경로 | implemented | `azd-up.sh`, 플랫폼 및 Core Terraform 루트, 기여자 배포 테스트, 집중 Terraform 계획 | 확인된 clean-checkout 실행은 공개 `dev` 구독 하나에서 플랫폼, 이미지, 스키마, 카탈로그, Core, Job, canary 및 초기 인벤토리를 단계적으로 배포합니다. 관찰 모드를 유지하며 비공개, 공유, 스테이징 또는 운영 경로가 아닙니다. |
 | Standalone 대상 환경 배포 | implemented | `fdaictl provision azure`, `fdai-up.sh`, standalone Managed Host 모듈, 집중 패키지 및 Genesis 테스트 | 연결 및 아티팩트 오프라인 모드는 GitHub workflow dispatch 없이 하나의 로컬 조정기, 정확한 터미널 승인 및 별도 Managed Host 신원을 공유합니다. 통제된 Azure 증적은 남아 있습니다. |
+| 검증된 공개 상태 채택 | implemented | 애플리케이션 상태 단계 처리, standalone 조정기와 Managed Host 점검 지점, 집중 패키지 및 Genesis 테스트 | 고급 복구 경로는 원래 로컬 상태를 유지하고 리소스 그룹 소유권만 분리하며 비어 있는 원격 애플리케이션 백엔드를 요구합니다. 변경 불가능한 claim 뒤에서 한 번만 push하고 권위 있는 readback을 검증합니다. 서명 release를 사용한 Azure 채택 및 수렴 증적은 아직 필요합니다. |
 | 기능 라이선스 Trial 전달 | implemented | Core 라이선스 및 실행 게이트 테스트, 독립 Core Terraform 검증, 기여자 배포 계약 | 토큰 없는 배포는 관찰 전용으로 유지됩니다. 공개 개발 경로는 소유자 전용 로컬 키가 검증될 때만 최대 30일의 전체 카탈로그 토큰을 발급하고 파일 입력으로 토큰별 다이제스트 이름의 Key Vault 시크릿에 전송하며, 버전 없는 참조와 비밀이 아닌 다이제스트만 Terraform에 전달합니다. 실제 Azure 발급, 갱신 또는 만료 증적은 아직 보존하지 않았습니다. |
 | Terraform 계획/적용 및 공급망 게이트 | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml` 및 집중 workflow 테스트 | 운영 입력, 이미지 증명, 표류 계획 및 post-apply smoke 검사가 제공됩니다. |
 | 명시적 이미지 후보와 PR 패키징 집중 검사 | implemented | `container-supply-chain.yml`, 이미지 선택기, 워크플로 및 Genesis 회귀 검사; 집중 테스트 182개 통과 | 게시에는 보호된 main의 디스패치와 명시적 이미지 선택이 필요합니다. Genesis는 필요한 이미지만 요청하며 성공한 PR이나 일부 후보를 재사용할 수 없습니다. 다이제스트 검증은 독립적으로 유지합니다. |
@@ -55,6 +56,7 @@ translation_revised: 2026-09-13
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-13 | implemented | 검증된 공개 개발 실패 상태 하나를 Foundation이 관리하는 원격 애플리케이션 백엔드에 단계적으로 넘기는 삭제 없는 복구 경로를 추가했습니다. Managed Host는 비어 있지 않은 백엔드를 거부하고, 한 번의 상태 push 전에 claim을 기록하며, 정확한 readback을 검증하고, 단조롭게 증가하는 lineage 및 serial 검사로 재개합니다. 정식 region naming과 Terraform에서 가져온 license binding으로 workstation의 이름 추측을 제거했습니다. | `current change`, 집중 deployment CLI 테스트, strict typing, Genesis 통합 테스트, 관리 리소스 인스턴스 98개와 리소스 그룹 소유자 주소 두 개만 제거한 실제 보존 상태 단계 검사 | 병합된 개정 번호에서 서명 키트를 게시하고 Managed Host에서 정확한 채택을 실행하며 삭제 없는 계획을 검토한 뒤 애플리케이션 수렴과 두 번째 변경 없음 계획 근거를 보존합니다. |
 | 2026-09-13 | implemented | 안전장치 출시에서 요구하는 기본 비활성 legacy-unbound 전환 연결을 표준 격리 실행기 업데이트 한 번으로 구체화할 수 있게 했습니다. 계획 가드는 값이 없는 상태에서 `0`으로 바뀌는 경우만 허용합니다. 권한 확대, 반복 적용 및 관련 없는 런타임 표류는 계속 거부하며 이전 개정 번호를 롤백 경계로 유지합니다. | `current change`, `guard_plan.py`, 집중 서비스 배포 회귀 테스트 | 가드 변경을 게시하고 정확한 Core 및 격리 실행기 이미지를 다시 빌드한 뒤 하나의 고정된 개정 번호에서 보호된 계획과 적용 근거를 보존합니다. |
 | 2026-09-12 | implemented | Provider-schema 전용 plan, apply, resume 및 status를 지원되는 활성 Core 이미지 프로필 중 하나에 결속했습니다. `provider-cost` 요청 하위 유형은 workflow 입력을 추가하지 않고 Cost Governance 배포판을 선택하며, provider 근거는 패키지 전용 관측보다 우선하고 정확한 이미지, 정상 기준선, 영속 세대 및 조건부 에이전트 검토에 계속 결속됩니다. Provider 카탈로그 변경은 이제 패키징 검사에서 Core 이미지 프로필 두 개를 모두 선택합니다. | `current change`, deployment CLI, 요청 검증기, plan/apply 근거 생성기, 보호된 workflow, 이미지 선택기 및 집중 회귀 검사 | 정확한 Cost Governance 후보 하나를 병합하고 게시해 독립 Core 서비스 경로로 배포한 뒤 이슈 #290을 위한 zero-destroy provider 계획, exact apply 및 영속 근거를 보존합니다. |
 | 2026-09-12 | implemented | 로컬 standalone 조정기와 수동 Managed Host를 대상 환경 배포 전송 계층으로 지정하고, 공개 workflow dispatch 명령을 제거하고, 아티팩트 오프라인 배포 어플라이언스 경로를 추가했습니다. | `current change`, 배포 CLI, 어플라이언스 스크립트, 집중 패키지 및 통합 테스트 | 연결 및 어플라이언스 기반 Azure 배포 증적을 보존합니다. 저장소 workflow는 CI와 release 자동화로만 유지합니다. |
@@ -113,6 +115,9 @@ translation_revised: 2026-09-13
 | 2026-09-12 | implemented | 모델 전용 적용이 Terraform 수렴 후 관련 없는 inventory Job 이미지 검사에서 실패한 문제를 해결하면서 모델 산출물 전달을 완성했습니다. Resolver 산출물은 해시 전에 정본화하고, 산출물 전용 복구 계획은 해당 다이제스트가 증명된 활성 Core 다이제스트와 다를 때만 허용하며, 모델 수렴은 프로바이더 readback 전에 deployment만 다시 계획합니다. 선택적 서술기 라우팅이 없으면 Core는 권위 있는 플랫폼 상태에서 단일 기본 엔드포인트를 도출할 수 있습니다. | 실패한 적용 `34691214670`, `current change`, `deploy-dev.yml`, `enforce_plan_scope.py`, `verify_deploy_convergence.sh`, `materialize_tfvars.py`, 집중 테스트 131개 통과, Ruff, 셸 구문 및 strict mypy 통과. | 수정한 제어를 게시하고 산출물 전용 플랫폼 계획과 적용을 완료한 뒤 보호된 Core 이미지, rollout, 상태 및 모델 연결 근거를 보존합니다. |
 ### 남은 작업
 
+- [ ] 병합된 애플리케이션 상태 채택 개정 번호에서 서명 키트를 게시하고, 이를 사용해 Azure
+  리소스를 삭제하지 않고 검증된 보존 상태를 채택한 뒤 삭제 없는 애플리케이션 계획, 수렴,
+  서비스 상태 및 두 번째 변경 없음 계획 근거를 보존합니다.
 - [ ] 정확한 clean revision, 검토한 미리보기, 임시 접근 정리, Core 상태, canary, 초기
   인벤토리 및 두 번째 실행 no-change 계획을 포함하는 저장소 안전 공개 새 구독 증적 하나를 보존합니다.
 - [x] 후보 전용 게시, PR 패키징 집중 검사 및 Genesis 호출 호환성에 대한 선택기, 워크플로,

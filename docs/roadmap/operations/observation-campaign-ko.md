@@ -1,8 +1,8 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: c81ff119404b53e979fd8901a26f7571bbfaf822
-translation_revised: 2026-09-12
+translation_source_sha: 799652360db57c1b49212906b1fd76fcd606977a
+translation_revised: 2026-09-15
 ---
 
 # 권한 인식 관측 캠페인
@@ -31,10 +31,10 @@ translation_revised: 2026-09-12
 | 캠페인 계약 및 출처 레지스트리 | implemented | `config/observation-sources.yaml`, `fdai_service_contracts/operational_activity.py`, `delivery/observation_source_catalog.py`, 집중 계약 및 카탈로그 테스트 | 엄격한 의미 digest 카탈로그가 10개 도메인을 모두 다루고 알 수 없는 필드, 잘못된 소유자, 제한 없는 한도 및 원시 활동 사유 문구를 거부합니다. |
 | 영속 캠페인 실행기 | implemented | `delivery/observation_campaign.py`, 집중 수명 주기 테스트 | 원자적 lease, 개정 번호를 확인하는 종료 기록, 충돌 복구, 현재 상태 커서, 부분 격리, 동시성 4 및 개인정보가 제한된 활동 요약을 실행할 수 있습니다. |
 | 로컬 및 배포 예약 동등성 | implemented | `delivery/observation_campaign_cli.py`, `delivery/inventory_sync_cli.py`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 CLI 및 workspace 테스트 | 두 실행 위치 모두 매분 캠페인 실행 조건을 확인합니다. 유효한 기존 배포 Job 이름은 유지하며 환경 이름 때문에 길이 제한을 넘을 때만 축약된 `caj-<workload>-<env>-observation` 형식을 사용합니다. |
-| Agent Activity 관측 변환 결과 | implemented | `fdai_operator_service/activity_projection.py`, `console/src/agent-operational-activity.ts`, 집중 Operator 및 Console 테스트 | 시작 및 종료 출처 상태를 실제 전달 전에 불러오고, 안정적인 활동 id를 사용하며, 잘못된 개인정보 필드를 거부하고, 지역화된 도메인 레이블을 표시합니다. |
+| Agent Activity 관측 변환 결과 | validated | `fdai_operator_service/activity_projection.py`, `console/src/agent-operational-activity.ts`, `console/src/hooks/sse-client.ts`, 집중 Operator 및 Console 테스트, production-adapter Playwright, 인증된 표준 스택 검사 | 스키마 `1.3.0`은 안정적인 활동 인스턴스를 전이 id와 분리하고 측정된 0, 기록 안 됨, 사용 불가 결과를 구분하며 현재 활동을 중앙 Live SSE 스냅샷 및 delta 경로로 전달합니다. 보존 이력은 명시적인 bounded GET으로 유지됩니다. |
 | 통제된 실제 캠페인 근거 | in-progress | 로컬 캠페인 `campaign-20260819t005835689445-9e1850c2`, 카탈로그 digest `sha256:0a3a4fa0c1ef0a0893f3ce50aec56320c6a558424af1e935eed81e27f81dc9fd`, 인증된 Agent Activity | 보존된 로컬 캠페인은 출처 10개가 모두 준비되고 최신인 상태로 완료됐으며 사유 코드가 없고 성공한 빈 상태도 명시적으로 유지합니다. 동등한 배포 개정 번호 근거는 열려 있습니다. |
 
-공유 활동 스키마의 Assurance Twin `1.2.0` 소유권 조건은 이 캠페인의 `1.1.0` 관측 도메인
+공유 활동 스키마의 Assurance Twin 소유권 조건은 이 캠페인의 `1.3.0` 관측 도메인
 계약과 분리됩니다. 캠페인 출처를 추가하거나 관측 소유자, 생산자, 범위 또는 권한을 넓히지
 않습니다. 역방향 스키마 조건도 `assurance-twin` 생산자를 `assurance-twin.posture` 종류에만
 예약하므로 이 생산자는 캠페인 또는 인벤토리 활동을 가장할 수 없습니다.
@@ -54,6 +54,10 @@ translation_revised: 2026-09-12
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | validated | 로컬 스키마 `1.3.0` 활동 스냅샷 및 delta 경로와 보존 이력 경계를 검증했습니다. Live는 SSE 연결 하나를 사용하고 암묵적인 Agent GET을 보내지 않았으며, 명시적 Agent Activity는 요청한 `1.3.0` 행 500개를 모두 반환하고 live delta로 행을 잃지 않고 렌더링했습니다. | `current change`; backend 집중 테스트 `353 passed, 1 skipped`; Console 집중 테스트 `188 passed`; strict mypy 및 typecheck 통과; production-adapter Playwright `1 passed`; 표준 로컬 서비스 `11/11`; 인증된 표준 Live 검사와 안전한 1440×900 session screenshot. | 별도로 통제되는 실제 캠페인 행을 validated로 올리기 전에 동등한 배포 개정 번호 근거를 보존합니다. |
+| 2026-09-15 | implemented | 실행 중 및 실패한 부분 개수를 제한한 뒤 스키마 `1.3.0` 활동 생성과 영속 projection을 다시 검증했습니다. 표준 로컬 projection은 요청한 500개 행을 모두 `1.3.0`으로 반환했고 측정됨, 기록 안 됨, 사용 불가 상태를 포함했습니다. | `current change`; backend 집중 테스트 `278 passed, 1 skipped`; strict mypy 통과; 표준 로컬 서비스 `11/11`; 영속 활동 projection `500/500`. | Browser Entra를 갱신한 뒤 인증된 Live 카드와 실패 전이 artifact를 캡처하고, 통제된 실제 캠페인 근거를 validated로 올리기 전에 동등한 배포 개정 번호 근거를 보존합니다. |
+| 2026-09-14 | implemented | 시작 또는 실패 상태인 인벤토리와 관측 행이 일부 출처 개수를 완료된 근거처럼 노출하지 않도록 했습니다. 두 상태는 `evidence_count: 0`을 게시하고 `result_count`를 비우며, 측정이 완료된 종료 행만 관측 개수를 유지합니다. | `current change`; Core 활동 생산자 및 Operator 변환 결과 회귀 검사 13개가 통과했습니다. | 런타임 검증을 주장하기 전에 인증된 표준 스택에서 실패 전이 하나를 보존합니다. |
+| 2026-09-14 | implemented | 안정적인 수명 주기 신원, 등록된 표현 사실, 타입이 지정된 결과 상태와 단위, 소스 기준 시각, 선택적 타이밍을 포함하는 operational activity 스키마 `1.3.0`을 추가했습니다. Operator는 delta 커서를 할당하지 않고 현재 활동을 Live SSE에 seed하며 CAS에서 대체된 작업은 측정된 0을 만들지 않고 기록 안 됨으로 유지합니다. | `current change`; service-contract, Core 생산자, Operator projection/stream 및 Console decoder/card 경로와 현재 세션의 focused 검사. | 통제된 실제 캠페인 근거를 validated로 올리기 전에 인증된 표준 로컬 스택 관찰과 동등한 배포 개정 번호 근거를 보존합니다. |
 | 2026-09-12 | implemented | 캠페인 출처를 추가하지 않고 독립 `ops.start-vm@1.0.0` 효과 관측을 위한 정확한 대상 Azure VM 전원 상태 읽기 계약을 추가했습니다. | `current change`; `delivery/azure/vm_power_state.py`; 정확한 범위, 신원, 응답 한계, 안전한 실패 집중 테스트입니다. | 별도 승인된 A3-E 런타임 근거 작업 전까지 어댑터를 연결하지 않고, 검증 전 동등한 배포 근거를 보존합니다. |
 | 2026-09-04 | implemented | 일반 관측 캠페인의 범위를 넓히지 않고 전용 예약 WARA Job을 추가했습니다. 범위 판독기는 기존 shadow 관측기를 실행하기 전에 최신 승격 세대, 완전한 워크로드 관계, 인벤토리가 소유하는 정확한 ARM ID를 요구합니다. | `current change`; 집중 WARA CLI, PostgreSQL 범위, 런타임, Azure 어댑터 검사가 통과했습니다. | 별도로 권한이 부여된 배포 WARA 증적을 보존하고 WARA를 일반 출처 검색 밖에 유지합니다. |
 | 2026-09-04 | implemented | 강화 라운드 13에서 각 WARA 위반 쿼리 전에 정확한 ID를 사용하는 보조 `Resources` 커버리지 쿼리를 추가했습니다. 모든 대상이 같은 읽기 신원에 표시되는 경우에만 위반 0건을 충족으로 처리할 수 있습니다. | `current change`; 집중 부분 RBAC 및 표시되지 않는 대상 회귀 검사입니다. | 이후 예약 출처 등록에서도 동일한 커버리지 증명을 보존합니다. |
@@ -224,16 +228,36 @@ scheduler, 실행기, 어댑터, 영속 저장소 및 Operator 변환 결과는 
 ## Agent Activity 표현
 
 각 출처 시도는 영속 전이 뒤 범위가 제한된 `agent.operational-activity` 요약을 발행합니다.
+스키마 `1.3.0`은 안정적인 `activity_instance_id`를 전이 멱등성에서 분리하고 등록된 요약 키,
+안전한 범위 분류, 선택적 대상 수, 타입이 지정된 결과 수와 단위, 결과 상태, 소스 기준 시각,
+선택적 시작 및 완료 시각만 추가합니다. `result_state`는 측정된 0을 기록되지 않았거나 얻을 수
+없는 결과와 구분합니다. 빈 사유 코드 목록은 올바른 성공 상태이며 누락된 근거로 표시하지
+않습니다. 원시 로그 줄, 클라우드 식별자, 조회 텍스트, 신원 및 프로바이더 오류는 공유 활동
+스트림 밖에 둡니다.
 Agent Activity는 도메인, 소유자, 출처 레이블, 종료 상태, 최신성, 근거 개수, 기간 및 사유
 코드를 표시합니다. 원시 로그 줄, 클라우드 식별자, 조회 텍스트, 신원 및 프로바이더 오류는 공유
 활동 스트림 밖에 둡니다.
+영속 출처 상태와 전이 감사에는 기계 실행 출처인
+`actor: fdai.delivery.observation_campaign`을 유지하고 출처 카탈로그의 책임 Pantheon 구성원을
+`owner_agent`에 기록합니다. 이 책임 메타데이터는 발행, 승인 또는 실행 권한을 부여하지 않습니다.
+소유자가 없는 레거시 상태는 원래 기본 제공 출처 id의 소유자가 하나로 고정된 경우에만 재사용합니다.
+사용자 정의 또는 재배정된 출처는 재사용 전에 다시 수집하며, 제거된 모호한 행은 도메인만으로
+소유자를 추정하지 않고 Agent Activity에서 제외합니다.
 
-영속 Operator 변환 결과는 실제 스트림보다 먼저 각 출처의 현재 상태를 불러옵니다. 영속 전달과
-실제 전달은 하나의 activity id를 공유하므로 다시 연결하거나 새로 고쳐도 행을 중복 생성하지
-않습니다. 모든 출처를 건너뛰는 수동 scheduler 기동은 새 작업 행으로 표시하지 않고 정상 상태를
+실패한 종료 및 시작 변환 결과는 출처 행에 일부 개수가 있더라도 `evidence_count`를 0으로
+설정하고 `result_count`를 비워 둡니다. 종료 전 또는 실패 전 작업은 완료된 근거가 아닙니다.
+`started` 입력은 종료 전용 개수와 사유 필드를 생략할 수 있으며, Operator는 종료 검증을
+완화하지 않고 이러한 생략을 정규화합니다.
+
+Operator는 영속 현재 상태를 커서가 없는 Live SSE 스냅샷으로 불러옵니다. 이후 operational
+activity는 같은 물리 Live 스트림의 커서가 있는 delta를 사용하며 에이전트 상태는
+`/agents/stream`에 유지됩니다. 스냅샷과 delta는 `activity_instance_id`를 공유하므로 수명 주기
+전이는 이력 GET 없이 현재 카드 하나를 갱신합니다. Agent Activity는 운영자가 해당 경로를
+명시적으로 열 때만 범위가 제한된 보존 이력을 요청합니다. 모든 출처를 건너뛰는 수동 scheduler
+기동은 새 작업 행으로 표시하지 않고 정상 상태를
 만들어내는 대신 마지막 커버리지 결과를 보존합니다.
 
-공유 `agent.operational-activity` 계약(스키마 `1.2.0`)은 이 캠페인 밖에서 쓰이는 종류도 하나
+공유 `agent.operational-activity` 계약은 이 캠페인 밖에서 쓰이는 종류도 하나
 선언합니다: `assurance-twin.posture`로, 계산된 Assurance Twin 자세 보고서나 선제적 변경 검토를
 위해 예약되어 있습니다([assurance-twin-ko.md](assurance-twin-ko.md#모듈-배치) 참고). 이 종류는
 `observation_domain`을 사용하지 않으며 `observation-campaign-job`이 발행하지 않으므로 위의

@@ -25,6 +25,9 @@ from fdai_service_contracts.venue import (
 )
 
 from fdai_document_worker_service.adapters.activity import PostgresDocumentActivitySink
+from fdai_document_worker_service.adapters.cloud_index_verification import (
+    PostgresCloudIndexVerifier,
+)
 from fdai_document_worker_service.adapters.event_bus import (
     EventHubsKafkaBus,
     EventHubsKafkaConfig,
@@ -118,9 +121,14 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
     """Build all worker providers without starting consumer loops."""
     env = dict(environ)
     execution_venue = _execution_venue(env)
+    retrieval_mode = env.get("FDAI_DOCUMENT_RETRIEVAL_MODE", "hybrid")
+    if retrieval_mode not in {"hybrid", "lexical"}:
+        raise ProductionConfigurationError("FDAI_DOCUMENT_RETRIEVAL_MODE is invalid")
     required = _COMMON_REQUIRED_ENV + (
         _DEPLOYED_REQUIRED_ENV if execution_venue is ExecutionVenue.DEPLOYED else ()
     )
+    if retrieval_mode == "lexical":
+        required = tuple(key for key in required if not key.startswith("FDAI_EMBEDDING_"))
     missing = [key for key in required if not env.get(key, "").strip()]
     if missing:
         raise ProductionConfigurationError(
@@ -218,8 +226,10 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
         )
     )
     dimension = _positive_int(env, "FDAI_EMBEDDING_DIM", 384)
-    embedding: EmbeddingModel
-    if uses_local_document_providers(execution_venue):
+    embedding: EmbeddingModel | None
+    if retrieval_mode == "lexical":
+        embedding = None
+    elif uses_local_document_providers(execution_venue):
         embedding = DeterministicLocalEmbeddingModel(dimension=dimension)
     else:
         embedding = AzureEmbeddingModel(
@@ -305,6 +315,8 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
     else:
         protection = SignatureProtectionInspector(max_input_bytes=max_document_bytes)
         protection_reconciliation = None
+    from fdai_document_worker_service.adapters.cloud_knowledge import CloudReferenceGuard
+
     worker = DocumentIngestionWorker(
         metadata=metadata,
         objects=source_store,
@@ -338,6 +350,8 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
         ),
         artifacts=artifact_store,
         index=document_index,
+        cloud_reference_guard=CloudReferenceGuard(env).check,
+        cloud_index_verifier=PostgresCloudIndexVerifier(dsn=dsn),
         purge_verifier=PostgresDocumentPurgeVerifier(
             dsn=dsn,
             artifacts=artifact_store,
@@ -382,9 +396,10 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
             source_store,
             artifact_store,
             raw_bus,
-            embedding,
             malware,
         ]
+        if embedding is not None:
+            configured.append(embedding)
         configured.append(ocr)
         if isinstance(protection, PurviewRmsProtectionInspector):
             configured.append(protection)

@@ -1,11 +1,17 @@
 import { describe, expect, test } from "vitest";
 import { OperatorApiError } from "../api";
-import { blastRadiusFailure, inventoryGraphMatchesImpact } from "./blast-radius";
+import {
+  blastRadiusFailure,
+  inventoryGraphMatchesImpact,
+  missingImpactResourceIds,
+} from "./blast-radius";
 import {
   decodeBlastRadiusResponse,
   blastRadiusHref,
   blastRadiusQueryFromSearch,
   blastRadiusRequestIsCurrent,
+  blastRadiusResponseMatchesQuery,
+  impactEdgeEvidenceState,
 } from "./blast-radius.model";
 
 describe("blast-radius route query", () => {
@@ -14,13 +20,33 @@ describe("blast-radius route query", () => {
     expect(blastRadiusRequestIsCurrent(4, 4)).toBe(true);
   });
 
+  test("binds a simulation response to the exact submitted query", () => {
+    const response = decodeBlastRadiusResponse(impactResponse());
+    const query = {
+      target: "root",
+      depth: 1,
+      links: ["contains"],
+      architectureView: null,
+    };
+
+    expect(blastRadiusResponseMatchesQuery(response, query)).toBe(true);
+    expect(blastRadiusResponseMatchesQuery(response, {
+      ...query,
+      target: "other",
+    })).toBe(false);
+    expect(blastRadiusResponseMatchesQuery(response, {
+      ...query,
+      links: ["runtime_calls"],
+    })).toBe(false);
+  });
+
   test("decodes a shareable simulation query", () => {
     expect(blastRadiusQueryFromSearch(
-      "?target=web-api&depth=4&links=contains,attached_to&view=production",
+      "?target=web-api&depth=4&links=contains,attached_to,runtime_calls&view=production",
     )).toEqual({
       target: "web-api",
       depth: 4,
-      links: ["contains", "attached_to"],
+      links: ["contains", "attached_to", "runtime_calls"],
       architectureView: "production",
     });
   });
@@ -98,6 +124,24 @@ describe("blast-radius route query", () => {
     expect(inventoryGraphMatchesImpact({
       snapshot_at: "2026-08-19T00:30:00Z",
     }, impact)).toBe(false);
+    expect(inventoryGraphMatchesImpact({
+      snapshot_at: "2026-02-31T00:00:00Z",
+    }, {
+      source_generation: "generation-1",
+      source_cutoff: "2026-03-03T00:00:00Z",
+    })).toBe(false);
+  });
+
+  test("rejects an impact map projection that omits reached Resources", () => {
+    expect(missingImpactResourceIds({
+      resources: [{ id: "root", type: "compute.vm", name: "Root", status: "healthy" }],
+    }, {
+      target: "root",
+      reached: [
+        { resource_id: "root", depth: 0, via_link_type: null },
+        { resource_id: "outside", depth: 1, via_link_type: "depends_on" },
+      ],
+    })).toEqual(["outside"]);
   });
 
   test("decodes an exact-release no-authority impact projection", () => {
@@ -131,6 +175,247 @@ describe("blast-radius route query", () => {
 
     expect(decoded.affected_count).toBe(1);
     expect(decoded.mutation_authority).toBe(false);
+    expect(decoded.relationship_evidence_complete).toBeNull();
+    expect(impactEdgeEvidenceState(decoded.edges[0]!)).toBe("legacy_unverified");
+  });
+
+  test("decodes current configuration and independent relationship evidence", () => {
+    const configurationEvidence = relationshipEvidence("configuration");
+    const observationEvidence = relationshipEvidence("observation");
+    const decoded = decodeBlastRadiusResponse({
+      ...impactResponse(),
+      edges: [
+        {
+          source: "root",
+          target: "child",
+          link_type: "contains",
+          depth: 1,
+          verification_status: "verified",
+          evidence: configurationEvidence,
+        },
+        {
+          source: "root",
+          target: "observer",
+          link_type: "contains",
+          depth: 1,
+          verification_status: "verified",
+          evidence: observationEvidence,
+        },
+      ],
+      reached: [
+        { resource_id: "root", depth: 0, via_link_type: null },
+        { resource_id: "child", depth: 1, via_link_type: "contains" },
+        { resource_id: "observer", depth: 1, via_link_type: "contains" },
+      ],
+      affected_count: 2,
+      relationship_evidence_complete: true,
+      relationship_source_coverage: {
+        materialized: 2,
+        reviewed_unavailable: 0,
+        unclassified: 0,
+        total_candidates: 2,
+        complete: true,
+      },
+    });
+
+    expect(decoded.schema_version).toBe("1.1.0");
+    expect(impactEdgeEvidenceState(decoded.edges[0]!)).toBe("configuration_observed");
+    expect(impactEdgeEvidenceState(decoded.edges[1]!)).toBe("independently_verified");
+  });
+
+  test("keeps stale relationship evidence unresolved", () => {
+    const decoded = decodeBlastRadiusResponse({
+      ...impactResponse(),
+      edges: [{
+        source: "root",
+        target: "child",
+        link_type: "contains",
+        depth: 1,
+        verification_status: "unverified",
+        evidence: {
+          ...relationshipEvidence("configuration"),
+          status: "stale",
+          complete: false,
+          reason: "relationship_evidence_stale",
+        },
+      }],
+      relationship_evidence_complete: false,
+    });
+
+    expect(impactEdgeEvidenceState(decoded.edges[0]!)).toBe("stale");
+  });
+
+  test("preserves configuration provenance when source coverage is unavailable", () => {
+    const decoded = decodeBlastRadiusResponse({
+      ...impactResponse(),
+      edges: [{
+        source: "root",
+        target: "child",
+        link_type: "contains",
+        depth: 1,
+        verification_status: "unverified",
+        evidence: {
+          ...relationshipEvidence("configuration"),
+          status: "unavailable",
+          complete: false,
+          reason: "relationship_source_coverage_unavailable",
+        },
+      }],
+      relationship_evidence_complete: false,
+      relationship_source_coverage: null,
+    });
+
+    expect(impactEdgeEvidenceState(decoded.edges[0]!)).toBe("coverage_unavailable");
+    expect(decoded.edges[0]?.evidence?.source).toBe("azure-resource-graph");
+    expect(decoded.edges[0]?.evidence?.mapping_id).toBe("test.relationship");
+  });
+
+  test("preserves configuration provenance when the relationship source is incomplete", () => {
+    const decoded = decodeBlastRadiusResponse({
+      ...impactResponse(),
+      edges: [{
+        source: "root",
+        target: "child",
+        link_type: "contains",
+        depth: 1,
+        verification_status: "unverified",
+        evidence: {
+          ...relationshipEvidence("configuration"),
+          status: "unavailable",
+          complete: false,
+          reason: "relationship_source_incomplete",
+        },
+      }],
+      relationship_evidence_complete: false,
+      relationship_source_coverage: {
+        materialized: 1,
+        reviewed_unavailable: 0,
+        unclassified: 1,
+        total_candidates: 2,
+        complete: false,
+      },
+    });
+
+    expect(impactEdgeEvidenceState(decoded.edges[0]!)).toBe("source_incomplete");
+    expect(decoded.edges[0]?.evidence?.source).toBe("azure-resource-graph");
+    expect(decoded.edges[0]?.evidence?.mapping_id).toBe("test.relationship");
+  });
+
+  test("rejects contradictory current relationship evidence", () => {
+    expect(() => decodeBlastRadiusResponse({
+      ...impactResponse(),
+      edges: [{
+        source: "root",
+        target: "child",
+        link_type: "contains",
+        depth: 1,
+        verification_status: "unverified",
+        evidence: relationshipEvidence("configuration"),
+      }],
+    })).toThrow("verification_status MUST match current evidence");
+
+    expect(() => decodeBlastRadiusResponse({
+      ...impactResponse(),
+      edges: [{
+        source: "root",
+        target: "child",
+        link_type: "contains",
+        depth: 1,
+        verification_status: "verified",
+        evidence: {
+          ...relationshipEvidence("configuration"),
+          verification_status: "independently_verified",
+        },
+      }],
+    })).toThrow("verification class MUST match its evidence kind");
+
+    expect(() => decodeBlastRadiusResponse({
+      ...impactResponse(),
+      relationship_evidence_complete: false,
+    })).toThrow("completeness MUST match every edge");
+
+    expect(() => decodeBlastRadiusResponse({
+      ...impactResponse(),
+      edges: [{
+        source: "root",
+        target: "child",
+        link_type: "contains",
+        depth: 1,
+        verification_status: "verified",
+        evidence: {
+          ...relationshipEvidence("configuration"),
+          unexpected: true,
+        },
+      }],
+    })).toThrow("relationship evidence fields MUST match schema");
+
+    expect(() => decodeBlastRadiusResponse({
+      ...impactResponse(),
+      edges: [{
+        source: "root",
+        target: "child",
+        link_type: "contains",
+        depth: 1,
+        verification_status: "verified",
+        evidence: {
+          ...relationshipEvidence("configuration"),
+          cutoff: "2026-08-19T00:00:01Z",
+        },
+      }],
+    })).toThrow("MUST carry the future-cutoff stale reason");
+
+    expect(() => decodeBlastRadiusResponse({
+      ...impactResponse(),
+      edges: [{
+        source: "root",
+        target: "child",
+        link_type: "contains",
+        depth: 1,
+        verification_status: "unverified",
+        evidence: {
+          ...relationshipEvidence("configuration"),
+          status: "stale",
+          complete: false,
+          cutoff: "2026-08-19T00:00:01Z",
+          reason: "relationship_evidence_stale",
+        },
+      }],
+      relationship_evidence_complete: false,
+    })).toThrow("MUST carry the future-cutoff stale reason");
+
+    expect(() => decodeBlastRadiusResponse({
+      ...impactResponse(),
+      relationship_source_coverage: {
+        materialized: 1,
+        reviewed_unavailable: 1,
+        unclassified: 0,
+        total_candidates: 1,
+        complete: true,
+      },
+    })).toThrow("source coverage counts MUST reconcile");
+  });
+
+  test("rejects arrays above the server traversal bounds before graph validation", () => {
+    expect(() => decodeBlastRadiusResponse({
+      ...impactResponse(),
+      reached: Array.from({ length: 1_002 }, (_, index) => ({
+        resource_id: `resource-${index}`,
+        depth: index === 0 ? 0 : 1,
+        via_link_type: index === 0 ? null : "contains",
+      })),
+    })).toThrow("reached exceeds the 1001 Resource bound");
+
+    expect(() => decodeBlastRadiusResponse({
+      ...impactResponse(),
+      edges: Array.from({ length: 1_001 }, (_, index) => ({
+        source: "root",
+        target: `resource-${index}`,
+        link_type: "contains",
+        depth: 1,
+        verification_status: "verified",
+        evidence: relationshipEvidence("configuration"),
+      })),
+    })).toThrow("edges exceed the 1000 relationship bound");
   });
 
   test("rejects authority and contradictory completeness", () => {
@@ -160,6 +445,64 @@ describe("blast-radius route query", () => {
       truncation_reasons: ["edge_limit"],
     })).toThrow("MUST match truncation reasons");
   });
+
+  function relationshipEvidence(
+    kind: "configuration" | "observation",
+  ): Record<string, unknown> {
+    return {
+      status: "available",
+      evidence_kind: kind,
+      verification_status: kind === "configuration"
+        ? "configuration_observed"
+        : "independently_verified",
+      source: kind === "configuration" ? "azure-resource-graph" : "runtime-telemetry",
+      source_property_path: "properties.parent",
+      mapping_id: "test.relationship",
+      evidence_method: "deterministic-cross-check",
+      cutoff: "2026-08-19T00:00:00Z",
+      freshness_ceiling_seconds: 3_600,
+      complete: true,
+      reason: null,
+    };
+  }
+
+  function impactResponse(): Record<string, unknown> {
+    return {
+      schema_version: "1.1.0",
+      ontology_release_digest: `sha256:${"a".repeat(64)}`,
+      source_generation: "generation-1",
+      source_cutoff: "2026-08-19T00:00:00Z",
+      target: "root",
+      traversal_depth: 1,
+      traversal_links: ["contains"],
+      reached: [
+        { resource_id: "root", depth: 0, via_link_type: null },
+        { resource_id: "child", depth: 1, via_link_type: "contains" },
+      ],
+      edges: [{
+        source: "root",
+        target: "child",
+        link_type: "contains",
+        depth: 1,
+        verification_status: "verified",
+        evidence: relationshipEvidence("configuration"),
+      }],
+      affected_count: 1,
+      complete: true,
+      relationship_evidence_complete: true,
+      relationship_source_coverage: {
+        materialized: 1,
+        reviewed_unavailable: 0,
+        unclassified: 0,
+        total_candidates: 1,
+        complete: true,
+      },
+      truncated_at_depth: false,
+      truncation_reasons: [],
+      execution_authority: false,
+      mutation_authority: false,
+    };
+  }
 
   test("rejects impact edges outside the reached projection", () => {
     expect(() => decodeBlastRadiusResponse({
@@ -326,5 +669,31 @@ describe("blast-radius route query", () => {
       execution_authority: false,
       mutation_authority: false,
     })).toThrow("MUST NOT contain duplicate relationships");
+  });
+
+  test("rejects a self-referential impact relationship", () => {
+    expect(() => decodeBlastRadiusResponse({
+      schema_version: "1.0.0",
+      ontology_release_digest: `sha256:${"a".repeat(64)}`,
+      source_generation: "generation-1",
+      source_cutoff: "2026-08-19T00:00:00Z",
+      target: "root",
+      traversal_depth: 1,
+      traversal_links: ["contains"],
+      reached: [{ resource_id: "root", depth: 0, via_link_type: null }],
+      edges: [{
+        source: "root",
+        target: "root",
+        link_type: "contains",
+        depth: 1,
+        verification_status: "unverified",
+      }],
+      affected_count: 0,
+      complete: true,
+      truncated_at_depth: false,
+      truncation_reasons: [],
+      execution_authority: false,
+      mutation_authority: false,
+    })).toThrow("MUST NOT be a self-link");
   });
 });

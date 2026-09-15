@@ -67,7 +67,9 @@ export function operationsSampleResponse(
   if (path === "/audit") return { items: [], next_cursor: null };
   if (path === "/hil-queue") return sampleApprovals();
   if (path === "/onboarding") return sampleOnboarding();
-  if (path === "/detection-readiness") return sampleDetectionReadiness();
+  if (path === "/detection-coverage" || path === "/detection-readiness") {
+    return sampleDetectionReadiness();
+  }
   if (path === "/configuration-baselines") return sampleConfigurationBaselines();
   if (path === "/views/process") return sampleProcessList();
   if (path === "/views/process/sample-process-1/events") return sampleProcessJournal();

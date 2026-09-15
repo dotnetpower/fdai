@@ -4,6 +4,12 @@ import subprocess
 from typing import cast
 
 import pytest
+from fdai_operator_service.environment import (
+    AUDIENCE_ENV,
+    GROUP_ENV,
+    TENANT_ENV,
+    OperatorEnvironment,
+)
 from tools import console
 
 
@@ -16,8 +22,23 @@ def test_local_operator_api_env_uses_azure_cli_identity(
     env = console._local_operator_api_env()
 
     assert env["FDAI_OPERATOR_API_LOCAL_AZURE_CLI"] == "1"
+    assert env["FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM"] == "1"
     assert "FDAI_OPERATOR_API_DEV_MODE" not in env
     assert "FDAI_OPERATOR_API_LOCAL_ENTRA" not in env
+
+
+def test_local_operator_api_env_passes_operator_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(TENANT_ENV, "tenant")
+    monkeypatch.setenv(AUDIENCE_ENV, "audience")
+    monkeypatch.setenv("RUNTIME_ENV", "dev")
+    for index, key in enumerate(GROUP_ENV.values()):
+        monkeypatch.setenv(key, f"group-{index}")
+
+    environment = OperatorEnvironment.parse(console._local_operator_api_env())
+
+    assert environment.local_azure_cli_auth is True
 
 
 def test_select_operator_api_port_reuses_compatible_api(
@@ -54,6 +75,7 @@ def test_operator_api_command_uses_independent_operator_service() -> None:
     assert "fdai_operator_service.main:create_app" in rendered
     assert "services/operator-service/src" in rendered
     assert "FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1" in rendered
+    assert "FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=1" in rendered
     assert "fdai.delivery.operator_api" not in rendered
     assert command[-1] == "43123"
 

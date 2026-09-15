@@ -126,6 +126,14 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
   );
   const selectedLeft = rootBox?.x ?? rootNode.x;
   const selectedWidth = rootBox?.width ?? INSTANCE_NODE_WIDTH;
+  const graphCanvasWidth = layout.width * graphScale;
+  const graphCanvasHeight = layout.height * graphScale;
+  const incomingSurfaceWidth = selectedLeft * graphScale;
+  const selectedSurfaceWidth = selectedWidth * graphScale;
+  const outgoingSurfaceWidth = Math.max(
+    0,
+    layout.width - selectedLeft - selectedWidth,
+  ) * graphScale;
   const omittedByOwner = new Map(nested.boxes
     .filter((box) => box.omittedChildren > 0)
     .map((box) => [box.resource.id, box.omittedChildren]));
@@ -240,56 +248,67 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
 
   return (
     <div class="ontology-instance-graph" ref={graphRef}>
-      <section
+      <details
         class="ontology-instance-presentation-coverage"
-        aria-label={t("ontology.instances.presentationCoverageTitle")}
       >
-        <header>
-          <strong>{t("ontology.instances.presentationCoverageTitle")}</strong>
+        <summary>
+          <span class="ontology-instance-presentation-coverage-title">
+            <strong>{t("ontology.instances.presentationCoverageTitle")}</strong>
+            <span>
+              {t("ontology.instances.coverageResponse")}{" "}
+              {t("ontology.instances.coverageResourceLinkCounts", {
+                resources: formatNumber(presentationCoverage.responseResources),
+                links: formatNumber(presentationCoverage.responseLinks),
+              })}
+            </span>
+          </span>
           <span class={presentationCoverage.graphConsistent ? "is-complete" : "is-incomplete"}>
             {t(presentationCoverage.graphConsistent
               ? "ontology.instances.presentationCoverageConsistent"
               : "ontology.instances.presentationCoverageInconsistent")}
           </span>
-        </header>
-        <dl>
-          <div>
-            <dt>{t("ontology.instances.coverageResponse")}</dt>
-            <dd>{t("ontology.instances.coverageResourceLinkCounts", {
-              resources: formatNumber(presentationCoverage.responseResources),
-              links: formatNumber(presentationCoverage.responseLinks),
-            })}</dd>
-          </div>
-          <div>
-            <dt>{t("ontology.instances.coverageFocusGraph")}</dt>
-            <dd>{t("ontology.instances.coverageResourceLinkCounts", {
-              resources: formatNumber(presentationCoverage.graphResources),
-              links: formatNumber(presentationCoverage.graphLinks),
-            })}</dd>
-          </div>
-          <div>
-            <dt>{t("ontology.instances.coverageInspectorOnly")}</dt>
-            <dd>{formatNumber(presentationCoverage.inspectorOnlyLinks)}</dd>
-          </div>
-          <div>
-            <dt>{t("ontology.instances.coverageIamDelegated")}</dt>
-            <dd>{t("ontology.instances.coverageResourceLinkCounts", {
-              resources: formatNumber(presentationCoverage.delegatedResources),
-              links: formatNumber(presentationCoverage.delegatedLinks),
-            })}</dd>
-          </div>
-        </dl>
-        {data.relationship_coverage ? (
-          <p>
-            {t("ontology.instances.sourceCandidateCoverage", {
-              total: formatNumber(data.relationship_coverage.total_candidates),
-              materialized: formatNumber(data.relationship_coverage.materialized),
-              unavailable: formatNumber(data.relationship_coverage.reviewed_unavailable),
-              unclassified: formatNumber(data.relationship_coverage.unclassified),
-            })}
-          </p>
-        ) : null}
-      </section>
+          <i aria-hidden="true" />
+        </summary>
+        <div class="ontology-instance-presentation-coverage-details">
+          <dl>
+            <div>
+              <dt>{t("ontology.instances.coverageResponse")}</dt>
+              <dd>{t("ontology.instances.coverageResourceLinkCounts", {
+                resources: formatNumber(presentationCoverage.responseResources),
+                links: formatNumber(presentationCoverage.responseLinks),
+              })}</dd>
+            </div>
+            <div>
+              <dt>{t("ontology.instances.coverageFocusGraph")}</dt>
+              <dd>{t("ontology.instances.coverageResourceLinkCounts", {
+                resources: formatNumber(presentationCoverage.graphResources),
+                links: formatNumber(presentationCoverage.graphLinks),
+              })}</dd>
+            </div>
+            <div>
+              <dt>{t("ontology.instances.coverageInspectorOnly")}</dt>
+              <dd>{formatNumber(presentationCoverage.inspectorOnlyLinks)}</dd>
+            </div>
+            <div>
+              <dt>{t("ontology.instances.coverageIamDelegated")}</dt>
+              <dd>{t("ontology.instances.coverageResourceLinkCounts", {
+                resources: formatNumber(presentationCoverage.delegatedResources),
+                links: formatNumber(presentationCoverage.delegatedLinks),
+              })}</dd>
+            </div>
+          </dl>
+          {data.relationship_coverage ? (
+            <p>
+              {t("ontology.instances.sourceCandidateCoverage", {
+                total: formatNumber(data.relationship_coverage.total_candidates),
+                materialized: formatNumber(data.relationship_coverage.materialized),
+                unavailable: formatNumber(data.relationship_coverage.reviewed_unavailable),
+                unclassified: formatNumber(data.relationship_coverage.unclassified),
+              })}
+            </p>
+          ) : null}
+        </div>
+      </details>
       <p id="ontology-instance-map-description" class="sr-only">
         {t("ontology.instances.mapDescription", {
           depth: formatNumber(data.depth),
@@ -302,46 +321,53 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
         })}
       </p>
       <div class="ontology-instance-graph-viewport">
-        <div class="ontology-instance-legend-dock">
-          <div class="ontology-instance-graph-key" aria-label={t("ontology.instances.graphLegend") }>
-            <span><i class="is-direction" aria-hidden="true" />{t("ontology.instances.storedDirection")}</span>
-            <span><i class="is-traffic" aria-hidden="true" />{t("ontology.instances.verifiedTrafficPath")}</span>
-            <span><i class="is-runtime" aria-hidden="true" />{t("ontology.instances.runtimeContext")}</span>
-            <span><i class="is-access" aria-hidden="true" />{t("ontology.instances.accessContext")}</span>
-            <span><i class="is-containment" aria-hidden="true" />{t("ontology.instances.containmentContext")}</span>
-          </div>
-          {!showEdgeLabels ? (
-            <div class="ontology-instance-dense-legend" aria-label={t("ontology.instances.relationshipTypes") }>
-              <span>
-                {t("ontology.instances.relationshipTypes")} ·{" "}
-                {layout.edges.length + nested.absorbedLinks.length}/{data.links.length}
-              </span>
-              <ul id="ontology-instance-relationship-types">
-                {visibleLinkTypeCounts.map((item) => (
-                  <li key={item.linkType}>
-                    <i class={`is-${item.linkType}`} aria-hidden="true" />
-                    <strong>{t(`ontology.instances.link.${item.linkType}`)}</strong>
-                    <span>{item.displayed}/{item.count}</span>
-                  </li>
-                ))}
-              </ul>
-              {hiddenLinkTypeCount > 0 ? (
-                <button
-                  type="button"
-                  aria-controls="ontology-instance-relationship-types"
-                  aria-expanded={showAllRelationshipTypes}
-                  onClick={() => setShowAllRelationshipTypes((current) => !current)}
-                >
-                  {t(showAllRelationshipTypes
-                    ? "ontology.instances.showBasicRelationshipTypes"
-                    : "ontology.instances.showMoreRelationshipTypes", {
-                      count: hiddenLinkTypeCount,
-                    })}
-                </button>
-              ) : null}
+        <details class="ontology-instance-legend-dock">
+          <summary>
+            <span>{t("ontology.instances.graphLegend")}</span>
+            <small>{t("ontology.instances.relationships")} {formatNumber(data.links.length)}</small>
+            <i aria-hidden="true" />
+          </summary>
+          <div class="ontology-instance-legend-body">
+            <div class="ontology-instance-graph-key" aria-label={t("ontology.instances.graphLegend") }>
+              <span><i class="is-direction" aria-hidden="true" />{t("ontology.instances.storedDirection")}</span>
+              <span><i class="is-traffic" aria-hidden="true" />{t("ontology.instances.verifiedTrafficPath")}</span>
+              <span><i class="is-runtime" aria-hidden="true" />{t("ontology.instances.runtimeContext")}</span>
+              <span><i class="is-access" aria-hidden="true" />{t("ontology.instances.accessContext")}</span>
+              <span><i class="is-containment" aria-hidden="true" />{t("ontology.instances.containmentContext")}</span>
             </div>
-          ) : null}
-        </div>
+            {!showEdgeLabels ? (
+              <div class="ontology-instance-dense-legend" aria-label={t("ontology.instances.relationshipTypes") }>
+                <span>
+                  {t("ontology.instances.relationshipTypes")} ·{" "}
+                  {layout.edges.length + nested.absorbedLinks.length}/{data.links.length}
+                </span>
+                <ul id="ontology-instance-relationship-types">
+                  {visibleLinkTypeCounts.map((item) => (
+                    <li key={item.linkType}>
+                      <i class={`is-${item.linkType}`} aria-hidden="true" />
+                      <strong>{t(`ontology.instances.link.${item.linkType}`)}</strong>
+                      <span>{item.displayed}/{item.count}</span>
+                    </li>
+                  ))}
+                </ul>
+                {hiddenLinkTypeCount > 0 ? (
+                  <button
+                    type="button"
+                    aria-controls="ontology-instance-relationship-types"
+                    aria-expanded={showAllRelationshipTypes}
+                    onClick={() => setShowAllRelationshipTypes((current) => !current)}
+                  >
+                    {t(showAllRelationshipTypes
+                      ? "ontology.instances.showBasicRelationshipTypes"
+                      : "ontology.instances.showMoreRelationshipTypes", {
+                        count: hiddenLinkTypeCount,
+                      })}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </details>
         <div class="ontology-instance-graph-tools" aria-label={t("ontology.instances.graphControls") }>
           <Tooltip content={t(fullscreen
             ? "ontology.instances.exitFullscreen"
@@ -376,6 +402,20 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
             ));
           }}
         >
+          <div
+            class="ontology-instance-direction-surface"
+            aria-hidden="true"
+            style={{
+              width: `${graphCanvasWidth}px`,
+              height: `${graphCanvasHeight}px`,
+              minHeight: "100%",
+              gridTemplateColumns: `${incomingSurfaceWidth}px ${selectedSurfaceWidth}px ${outgoingSurfaceWidth}px`,
+            }}
+          >
+            <span class="is-incoming" />
+            <span class="is-selected" />
+            <span class="is-outgoing" />
+          </div>
         <svg
           class={`ontology-instance-graph-canvas${focusedResourceId === null ? "" : " has-focus-path"}`}
           data-layout-direction={layout.direction}
@@ -385,10 +425,10 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
           aria-label={t("ontology.instances.graphTitle")}
           aria-describedby="ontology-instance-map-description"
           style={{
-            width: `${layout.width * graphScale}px`,
-            minWidth: `${layout.width * graphScale}px`,
-            height: `${layout.height * graphScale}px`,
-            minHeight: `${layout.height * graphScale}px`,
+            width: `${graphCanvasWidth}px`,
+            minWidth: `${graphCanvasWidth}px`,
+            height: `${graphCanvasHeight}px`,
+            minHeight: `${graphCanvasHeight}px`,
           }}
         >
           <defs>
@@ -397,9 +437,6 @@ export function OntologyInstanceGraph({ data, onSelect }: Props) {
             </marker>
           </defs>
           <g class="ontology-instance-direction-bands" aria-hidden="true">
-            <rect class="is-incoming" x="0" y="0" width={selectedLeft} height={layout.height} />
-            <rect class="is-selected" x={selectedLeft} y="0" width={selectedWidth} height={layout.height} />
-            <rect class="is-outgoing" x={selectedLeft + selectedWidth} y="0" width={Math.max(0, layout.width - selectedLeft - selectedWidth)} height={layout.height} />
             <text x={Math.max(70, selectedLeft / 2)} y="19">
               {t("ontology.instances.graphTowardSelection")}
             </text>

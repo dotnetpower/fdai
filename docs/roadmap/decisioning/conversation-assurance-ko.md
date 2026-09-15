@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: df3a7d2705f6d6538bdcf7ce2f9ef536148e2bfb
-translation_revised: 2026-09-13
+translation_source_sha: 17b4e2358aeaffebccd3131a59d6ce652abe3748
+translation_revised: 2026-09-14
 ---
 # 대화 품질 보증
 
@@ -224,8 +224,10 @@ observability and 재생 `0.10`의 고정된 정규화된 가중치를 적용합
 구간 안의 권위 있는 타임스탬프, 모든 단계의 출처 이력 약속값을 갖는 정확한 세션부터 감사까지의
 연결에만 `complete_trace=true`를 설정합니다.
 Timing binder는 이어서 고유하고 완전한 추적 500개 이상과 latency 산출물의 출처 리비전, 추적
-수, 추적 집합 다이제스트, 설치된 계약이 정확히 일치하도록 요구합니다. 이 연결만
-`QualificationEvidence`의 두 timing 필드를 파생합니다.
+수, 추적 집합 다이제스트, 설치된 계약이 정확히 일치하도록 요구합니다. 축약된 latency, trace 및
+cohort 객체는 단계, 통과 여부, 공백, 타임스탬프 권위 출처 및 계약 불변식을 다시 검증합니다.
+Timing boolean은 두 산출물 콘텐츠 다이제스트가 존재하고 모든 실행과 항목에서 일치하며 수용된
+qualification 다이제스트에 포함될 때만 하드 상한을 해제합니다.
 
 계약과 scorer에는 measured 결과, 말뭉치 라벨, 배포 식별자 또는 승격 상태가
 포함되지 않습니다. 이 산출물만으로 기준선 또는 qualification을 입증할 수 없습니다. 별도의
@@ -235,9 +237,11 @@ version-pinned 말뭉치 실행기와 점수표 산출물이 같은 승격 변�
 리포지토리 실행기 `scripts/evaluation/chatops-quality-qualification.py`는 각 실행에서 50개 항목의
 완전한 관측값을 받고 원시 근거 상태에서 하드 상한을 계산하며, 표시 점수가 `9.8`로 반올림되더라도
 반올림 전 임계값 판정을 보존합니다. 결정 근거 수용 검증 시각은 마지막 실행 완료 시각보다 앞설 수
-없습니다. 입력 스키마 `1.0.0`은 로케일별 개수만 운반하고 로케일별 원시 결과나 신뢰도
-계산을 운반하지 않으므로 `locale_statistical_evidence_missing`을 기록하고 qualification하지
-않습니다. 후속 계약은 표본 단위, 원시 개수 및 정확한 `predeclared-binomial-v1` 계산식을 정의해야
+없습니다. 입력 `1.0.0`은 timing 산출물 약속값을 운반하지 않으므로 timing 주장에 계속 상한을
+적용합니다. 입력 `1.1.0`은 latency 및 trace-cohort 콘텐츠 다이제스트 쌍을 추가하고 점수표
+`1.1.0`은 재생을 위해 이 연결을 노출합니다. 두 입력 버전 모두 로케일별 원시 결과와 신뢰도
+계산을 운반하지 않으므로 `locale_statistical_evidence_missing`을 기록합니다. 후속 계약은 표본
+단위, 원시 개수 및 정확한 `predeclared-binomial-v1` 계산식을 정의해야
 합니다. CLI는 중복 키와 심볼릭 링크 출력을 차단하고 점수표를 원자적으로 교체하며 공백이 하나라도
 남아 있으면 `--require-qualified`가 0이 아닌 종료 코드를 반환하도록 유지합니다. 모든 산출물은
 `qualification_authority: false`를 설정합니다.

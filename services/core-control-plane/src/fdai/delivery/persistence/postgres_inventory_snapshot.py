@@ -22,10 +22,18 @@ from fdai.delivery.persistence.postgres_inventory_graph_helpers import (
     _source_priority,
     _unavailable_graph,
 )
+from fdai.delivery.persistence.postgres_inventory_snapshot_support import (
+    canonical_json_mapping as _canonical_json_mapping,
+)
+from fdai.delivery.persistence.postgres_inventory_snapshot_support import (
+    read_inventory_context,
+)
+from fdai.delivery.persistence.postgres_inventory_snapshot_support import (
+    snapshot_relationship_props as _snapshot_relationship_props,
+)
 from fdai.shared.providers.inventory import (
     INVENTORY_RELATIONSHIP_RECONCILIATION_PREFIX,
     InventoryBatch,
-    LinkRecord,
     ResourceRecord,
 )
 from fdai.shared.providers.inventory_snapshot import (
@@ -33,7 +41,6 @@ from fdai.shared.providers.inventory_snapshot import (
     InventoryCoverageManifest,
     InventoryObservationKind,
 )
-from fdai.shared.providers.state_evidence import LINK_OBSERVATION_METADATA_PROPERTY
 
 _PROMOTION_LOCK: Final[int] = 732_410_991
 _MAX_GRAPH_ROWS: Final[int] = 5000
@@ -364,6 +371,57 @@ class PostgresInventorySnapshotStore:
         }
         return snapshot_id, resources
 
+    async def read_active_resources_by_provider_refs(
+        self,
+        *,
+        provider_refs: tuple[str, ...],
+    ) -> tuple[str | None, Mapping[str, ResourceRecord]]:
+        """Read active Resources keyed by normalized exact provider reference."""
+
+        normalized = tuple(sorted({value.casefold() for value in provider_refs}))
+        if (
+            provider_refs != normalized
+            or len(provider_refs) > 1000
+            or any(not value or len(value) > 2048 for value in provider_refs)
+        ):
+            raise ValueError(
+                "active provider references MUST be normalized, unique, ordered, and bounded"
+            )
+        async with await self._connect() as connection:
+            async with connection.transaction():
+                await self._set_timeout(connection)
+                active_cursor = await connection.execute(
+                    "SELECT snapshot_id FROM inventory_active WHERE singleton=TRUE FOR SHARE"
+                )
+                active = await active_cursor.fetchone()
+                if active is None:
+                    return None, {}
+                snapshot_id = str(active["snapshot_id"])
+                if not provider_refs:
+                    return snapshot_id, {}
+                cursor = await connection.execute(
+                    "SELECT resource_id, resource_type, props, provider_ref, last_seen "
+                    "FROM inventory_snapshot_resource "
+                    "WHERE snapshot_id=%s AND lower(provider_ref)=ANY(%s::text[]) "
+                    "ORDER BY provider_ref, resource_id",
+                    (snapshot_id, list(provider_refs)),
+                )
+                rows = await cursor.fetchall()
+        resources: dict[str, ResourceRecord] = {}
+        for row in rows:
+            provider_ref = str(row["provider_ref"])
+            key = provider_ref.casefold()
+            if key in resources:
+                raise ValueError("active inventory provider reference maps to multiple resources")
+            resources[key] = ResourceRecord(
+                resource_id=str(row["resource_id"]),
+                type=str(row["resource_type"]),
+                props=dict(row["props"]),
+                provider_ref=provider_ref,
+                last_seen=(row["last_seen"].isoformat() if row["last_seen"] is not None else None),
+            )
+        return snapshot_id, resources
+
     async def _require_collecting(
         self, connection: psycopg.AsyncConnection[Any], attempt_id: str
     ) -> None:
@@ -386,44 +444,6 @@ class PostgresInventorySnapshotStore:
             "SELECT set_config('statement_timeout', %s, true)",
             (str(self._config.statement_timeout_ms),),
         )
-
-
-def _canonical_json_mapping(value: object, field: str) -> str:
-    if not isinstance(value, Mapping):
-        raise ValueError(f"{field} MUST be an object")
-    try:
-        return json.dumps(
-            dict(value),
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-            allow_nan=False,
-        )
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{field} MUST be JSON-compatible") from exc
-
-
-def _snapshot_relationship_props(link: LinkRecord) -> Mapping[str, object]:
-    """Retain reviewed mapping or observation evidence without provider payloads."""
-
-    properties: dict[str, object] = dict(link.link_props)
-    evidence = link.mapping_evidence
-    if evidence is not None:
-        properties["provider_relationship_evidence"] = {
-            "mapping_id": evidence.mapping_id,
-            "mapping_revision": evidence.mapping_revision,
-            "mapping_receipt_ref": evidence.mapping_receipt_ref,
-            "source_identity": evidence.source_identity,
-            "source_property_path": evidence.source_property_path,
-            "source_schema_version": evidence.source_schema_version,
-            "source_schema_digest": evidence.source_schema_digest,
-            "evidence_method": evidence.evidence_method,
-            "freshness_ceiling_seconds": evidence.freshness_ceiling_seconds,
-            "observation_receipt_ref": evidence.observation_receipt_ref,
-        }
-    if link.observation_metadata is not None:
-        properties[LINK_OBSERVATION_METADATA_PROPERTY] = link.observation_metadata.to_mapping()
-    return properties
 
 
 class PostgresInventoryGraphProvider:
@@ -743,39 +763,11 @@ class PostgresInventoryContextProvider:
         self._config = config
 
     async def __call__(self, resource_ref: str) -> Mapping[str, Any] | None:
-        async with await psycopg.AsyncConnection.connect(
-            self._config.dsn,
-            row_factory=dict_row,
-            connect_timeout=self._config.connect_timeout_s,
-        ) as connection:
-            await connection.execute(
-                "SELECT set_config('statement_timeout', %s, true)",
-                (str(self._config.statement_timeout_ms),),
-            )
-            await connection.execute("SELECT pg_advisory_xact_lock_shared(%s)", (_PROMOTION_LOCK,))
-            cursor = await connection.execute(
-                "WITH effective AS ("
-                "SELECT d.resource_id, d.resource_type, d.props, d.change_kind, 0 AS priority "
-                "FROM inventory_realtime_resource d WHERE d.resource_id=%s "
-                "UNION ALL SELECT r.resource_id, r.resource_type, r.props, 'upsert', 1 "
-                "FROM inventory_active a JOIN inventory_snapshot s ON s.id=a.snapshot_id "
-                "JOIN inventory_snapshot_resource r ON r.snapshot_id=a.snapshot_id "
-                "WHERE a.singleton=TRUE AND s.status='active' AND r.resource_id=%s) "
-                "SELECT resource_id, resource_type, props, change_kind FROM effective "
-                "ORDER BY priority LIMIT 1",
-                (resource_ref, resource_ref),
-            )
-            row = await cursor.fetchone()
-        if row is None or row["change_kind"] == "delete":
-            return None
-        props = row["props"]
-        if isinstance(props, str):
-            props = json.loads(props)
-        return {
-            "resource_id": str(row["resource_id"]),
-            "resource_type": str(row["resource_type"]),
-            "props": dict(props) if isinstance(props, Mapping) else {},
-        }
+        return await read_inventory_context(
+            self._config,
+            resource_ref,
+            promotion_lock=_PROMOTION_LOCK,
+        )
 
 
 __all__ = [

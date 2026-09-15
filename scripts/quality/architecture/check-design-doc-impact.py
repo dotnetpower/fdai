@@ -156,7 +156,9 @@ def missing_doc_updates(
 ) -> list[tuple[str, tuple[str, ...], tuple[str, ...]]]:
     failures: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = []
     canonical_paths = {_canonical_doc_path(path) for path in paths}
-    for route in manifest["routes"]:
+    routes = manifest["routes"]
+    routes_by_id = {str(route["id"]): route for route in routes}
+    for route in routes:
         required_docs = tuple(str(path) for path in route.get("docs_update", ()))
         if not required_docs:
             continue
@@ -174,7 +176,28 @@ def missing_doc_updates(
         )
         if not impacted or any(doc in canonical_paths for doc in required_docs):
             continue
-        failures.append((str(route["id"]), impacted, required_docs))
+        uncovered = set(impacted)
+        for owner_route_id in route.get("docs_update_routes", ()):
+            owner_route = routes_by_id.get(str(owner_route_id))
+            if owner_route is None:
+                continue
+            owner_docs = tuple(str(path) for path in owner_route.get("docs_update", ()))
+            if not any(doc in canonical_paths for doc in owner_docs):
+                continue
+            owner_patterns = tuple(owner_route.get("paths", ())) + tuple(
+                owner_route.get("optional_paths", ())
+            )
+            uncovered = {
+                path
+                for path in uncovered
+                if not any(
+                    _matches(candidate, pattern)
+                    for candidate in _route_paths(path)
+                    for pattern in owner_patterns
+                )
+            }
+        if uncovered:
+            failures.append((str(route["id"]), tuple(sorted(uncovered)), required_docs))
     return failures
 
 

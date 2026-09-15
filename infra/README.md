@@ -182,18 +182,19 @@ observation-mode continuity issues. Full latency analysis:
 | Variable | Type | Purpose |
 |----------|------|---------|
 | `analyzer_tick_cron_expression` | string | Cron for the tick job. Default: `"* * * * *"`. An explicit empty string disables it. |
-| `analyzer_targets_json` | string | Optional JSON array of `{"resource_id", "kind"}` pairs. `kind` MUST be one of `aks_cluster` / `mysql_flexible_server` / `azure_openai` / `application_gateway` / `api_management`. Empty uses durable inventory and exits quietly only when both sources have no supported targets. |
+| `analyzer_targets_json` | string | Optional JSON array of `{"resource_id", "kind", "provider_resource_id"?}` targets. `resource_id` is the logical ontology identity. `provider_resource_id` is the exact metric-query identity and is required for a metric-backed target when inventory is unavailable. `kind` MUST be one of `aks_cluster` / `mysql_flexible_server` / `azure_openai` / `application_gateway` / `api_management`. Empty uses durable inventory and exits quietly only when both sources have no supported targets. |
 | `trace_topologies_json` | string | Optional JSON array of `{"topology_ref", "resource_ref", "expected_hops"}` declarations. Empty disables trace-continuity checks without changing the metric analyzers. |
 | `analyzer_window_seconds` | string | Look-back window per analyzer per tick. Empty -> CLI default (300 s). |
 | `trace_window_seconds` | string | Trace-continuity detection window. One window yields at most one detected issue, so it MUST stay several times shorter than the correlation window. Empty -> analyzer window. |
 | `analyzer_budget_seconds` | string | Coordinator time budget; over this the outcome is `BUDGET_EXCEEDED`. Empty -> CLI default (60 s). |
-| `prometheus_endpoint` | string | Base URL of a Prometheus-compatible query API (AKS Managed Prometheus data-collection endpoint, self-hosted Prom, Thanos, Cortex, Mimir). When set alongside a Log Analytics workspace, `wire_azure_container` builds a **RoutedMetricProvider**: Prom serves its declared metrics (AKS-scoped: `node_cpu_percent`, ...) and AML fills the rest of the 14-metric analyzer catalog. Prom-only or AML-only cases keep the single-backend binding. |
+| `prometheus_endpoint` | string | Base URL of a Prometheus-compatible query API (AKS Managed Prometheus, self-hosted Prom, Thanos, Cortex, Mimir). It is available to explicitly composed metric consumers. The inventory-backed analyzer doesn't treat Azure Managed Prometheus's cluster-name alias as an exact ARM identity and therefore keeps the Azure Monitor Logs route unless an injected query catalog preserves an exact `resource_id` label. |
 | `prometheus_audience` | string | OIDC audience for the Prometheus bearer token. AKS Managed Prometheus with AAD requires `https://prometheus.monitor.azure.com`. Empty -> unauthenticated Prom. |
 
 **Latency envelope with these enabled:**
 
-- AKS-scoped metrics (`node_cpu_percent`, ...) with `prometheus_endpoint` wired:
-  ~15-60 s (Prom scrape + tick cadence).
+- AKS-scoped analyzer metrics use Azure Monitor Logs by default. An explicitly composed Prometheus
+  query catalog may provide ~15-60 s detection only when every series preserves the exact
+  inventory `resource_id`.
 - Non-AKS resources (App Gateway, MySQL, Azure OpenAI, APIM): ~2-5 min
   (Azure Monitor Logs KQL ingestion floor - not a tunable).
 - Event-based paths (`KubeEvents`, Activity Log, forwarded diagnostics via

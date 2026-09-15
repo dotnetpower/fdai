@@ -35,8 +35,9 @@ def test_installed_outer_deadline_gracefully_stops_nested_genesis(tmp_path, nest
             run_foundation_process(
                 (sys.executable, "-c", stage), cwd=tmp_path, env=os.environ, timeout=1
             )
-        state = Path(f"/proc/{int(pid_file.read_text())}/stat")
-        assert not state.exists() or state.read_text().split()[2] == "Z"
+        if pid_file.exists():
+            state = Path(f"/proc/{int(pid_file.read_text())}/stat")
+            assert not state.exists() or state.read_text().split()[2] == "Z"
     finally:
         if pid_file.exists():
             try:

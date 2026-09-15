@@ -31,66 +31,6 @@ durable delivery, and the Teams Workflows webhook binding are owned by
 > Customer-agnostic: every channel id, group name, and endpoint below is a **placeholder**.
 > A fork supplies its own tenant, workspace, and endpoint values via config
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
-
-## Implementation status
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Provider contracts and config-driven routing | implemented | [`base.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/base.py), [`hil_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py), [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_matrix.py`](../../../services/core-control-plane/tests/notifications/test_matrix.py), [`test_fanout_delivery.py`](../../../services/core-control-plane/tests/notifications/test_fanout_delivery.py) | Separate A1, A2/A4, and A3 contracts exist. A1/A3 keep trust-preserving failover; A2/A4 use explicit fan-out with named binding enablement, per-channel durable state, bounded retries, and aggregate outcomes. |
-| A2/A4 capability-state, presentation, and shadow-delivery contracts | implemented | [`capability.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/capability.py), [`presentation.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/presentation.py), [`shadow.py`](../../../services/core-control-plane/src/fdai/core/notifications/shadow.py), [`test_channel_foundation.py`](../../../services/core-control-plane/tests/notifications/test_channel_foundation.py) | Owned in detail by [Multi-channel notification delivery § 8](multi-channel-notification-delivery.md#8-capability-state-presentation-and-shadow-delivery-contracts). Adds a read-only availability/enablement/authority contract, a pre-render fail-closed redaction and bound boundary, and a `NotificationChannel` that renders and durably records without any network call for a binding still in shadow mode. |
-| Pairing and cross-channel identity linkage | implemented | [`channel_access.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_access.py), [`postgres_channel_pairing.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_pairing.py), [`postgres_channel_identity_link.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_identity_link.py), [`test_channel_access.py`](../../../services/core-control-plane/tests/conversation/test_channel_access.py), [`test_identity_links.py`](../../../services/core-control-plane/tests/conversation/test_identity_links.py), [`test_postgres_channel_pairing.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_pairing.py), [`test_postgres_channel_identity_link.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_identity_link.py) | Service-level pairing, challenge-digest handling, explicit identity links, and restart persistence pass focused tests. The two PostgreSQL integration files passed four cases with zero skips against a disposable supported database. |
-| Teams, Slack, and outbound notification adapters | implemented | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py); `fdai_operator_service/families/conversation/channel_edge/`; `families/iam/hil_callback*.py`; focused edge, callback, Kafka, workflow, and canary checks | Teams implements `HilChannel`; Core and Operator derive the same callback audience from a separately configured group-connected team and channel. Operator persists each decision outbox record before broker publication and marks delivery only after acceptance. Slack A1 can operate independently with a configured workspace and Entra map. A dedicated outbound Slack `HilChannel` and deployed receipts remain open. |
-| Durable outbound conversation delivery | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | The coordinator distinguishes definitive rejection from ambiguous acknowledgement, bounds retries, reconciles interrupted sends, and preserves stable delivery identity in focused tests. |
-| Pure channel presentation rendering | implemented | `fdai_operator_service/families/conversation/channel_edge/{presentation,renderers}.py`; focused Operator renderer checks | One normalized envelope preserves canonical text, facts, limitations, evidence, authority, and unavailable state. Pure Teams and Slack payload builders enforce capability bounds without transport or acknowledgement, and malformed artifacts degrade to canonical text. |
-| Channel-aware presentation assurance | implemented | [`channel_assurance.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/channel_assurance.py), [`test_channel_assurance.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_channel_assurance.py) | Common content, limitation, evidence, and authority checks apply to every channel. Optional progress, activity, rich, thread, and edit checks follow an injected capability profile. Direct Line and custom profiles are supported as contracts; no Direct Line transport is implemented. |
-| Opt-in browser notifications | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`notification-sw.js`](../../../console/public/notification-sw.js), and focused browser notification tests | Permission, preference, visibility, delivery, and notification-click focus behavior pass focused Vitest cases. No live Windows notification or push-service receipt is recorded. |
-| Stakeholder briefing and A3 edge runtime | implemented | [`briefing.py`](../../../services/core-control-plane/src/fdai/core/notifications/briefing.py), [`test_briefing.py`](../../../services/core-control-plane/tests/notifications/test_briefing.py), [Production A3 channel runtime](production-a3-channel-runtime.md) | Deterministic stakeholder briefing passes focused tests. The standalone Operator-distribution ASGI factory, local launch, and optional Container App are implemented; governed provider and protected deployment evidence remain with the runtime owner. |
-| Dedicated system-knowledge Teams mention endpoint | in-progress | [System Knowledge Service](system-knowledge-service.md); `services/system-knowledge-service/`; focused service checks | The read-only service uses a separate distribution, catalog, and delivery ledger. A deployment selects either a Bot Framework identity or a team-scoped HMAC-authenticated Outgoing Webhook. Production Teams and rollback evidence remain open and do not change A1-A4 readiness. |
-| Optional Cost Governance notifications | implemented | `fdai_cost_governance/notifications.py`; package notification tests; `config/notifications-matrix.yaml` | The package checks activation and applies the same disclosure policy used by API projections before producing a notification. Disabled packages send nothing, while global incident, approval, KPI, and LLM Cost routes remain independent. |
-### Implementation history
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-09-13 | implemented | Added channel-aware presentation assessment without changing canonical response content or transport authority. | `current change`; focused channel assurance and structural attribution tests passed 14 cases. | Bind authoritative presentation observations in each deployed channel and implement a Direct Line transport before claiming runtime support. |
-| 2026-09-10 | implemented | Added the HMAC-authenticated Teams Outgoing Webhook alternative without changing A1-A4 routing. | `current change`; transport-specific service, Terraform, protected workflow, and focused tests. | Retain live `@FDAI-bot`, five-second response, restart, cost, disable, and restore evidence. |
-| 2026-09-10 | implemented | Added the knowledge bot's dedicated Azure Bot, Teams app package, Managed Identity Blob claim boundary, and protected plan/apply workflow without changing A1-A4 routing. | `current change`; service Terraform, deployment workflow, package builder, and focused checks. | Retain live Teams, cost, disable, and timed rollback evidence. |
-| 2026-09-09 | in-progress | Added a dedicated mention-only System Knowledge Teams bot as a separate distribution without changing the operational A3 edge or A1-A4 readiness. | `current change`; System Knowledge Service design, package, contracts, catalog, Teams boundary, ledger, and focused checks. | Retain production provider, persistent-volume, disable, and timed rollback evidence. |
-| 2026-08-31 | implemented | Made a browser notification click focus the window returned by same-origin Incident navigation and open the target when exact-window focus or navigation fails. | `current change`; focused service-worker and browser-notification tests, Console typecheck, and build. | Retain a human-confirmed Windows notification click receipt before claiming live desktop validation. |
-| 2026-08-29 | implemented | Added activation- and disclosure-gated Cost Governance notification production without changing shared routing authority. | `current change`; package notification, disclosure, and disabled-send tests. | Retain governed delivery receipts during live Cost Governance validation. |
-| 2026-08-13 | in-progress | Adopted the implementation ledger and corrected unsupported Slack A1 and standalone runtime implementation claims without reconstructing earlier provenance. | Current change; 170 focused Python tests passed, two PostgreSQL integration tests skipped because `FDAI_DATABASE_URL` was unset, and seven focused browser-notification tests passed. Test paths are listed in the scope table. | Run the database-backed checks, implement Slack A1 and production conversation adapters, compose the standalone runtime, and capture governed runtime receipts. |
-| 2026-08-14 | implemented | Promoted pairing and cross-channel identity linkage after proving restart persistence against PostgreSQL. | Current change; `test_postgres_channel_pairing.py` and `test_postgres_channel_identity_link.py` passed four cases with zero skips against a disposable supported database. | Implement Slack A1 and production conversation adapters, compose the standalone runtime, and capture governed runtime receipts. |
-| 2026-08-19 | in-progress | Accepted the capability-rendering design after separating canonical fact preservation from vendor payload shaping and separating pure rendering from the unimplemented A3 transport. | `current change`; this owner document pair. | Implement bounded pure renderers and fake custom extension tests without changing the production adapter status. |
-| 2026-08-19 | implemented | Added the provider-neutral renderer Protocol and capability profile, strict one-time artifact normalization, mandatory readable fallback, pure Adaptive Card and Block Kit builders, and a fake custom renderer. Oversized payloads remove optional visual detail before text fallback, while mandatory limitations, evidence, authority, and unavailable state never disappear. | `current change`; [Issue #234](https://github.com/dotnetpower/fdai/issues/234); focused renderer and durable response checks passed 40 cases; Ruff, formatting, and strict mypy passed. | Production Slack and Teams A3 transport, identity, acknowledgement, startup, and runtime receipts remain open. |
-| 2026-08-19 | implemented | Added authenticated bounded Slack and Teams A3 transport adapters with closed principal mappings, URL-free file metadata, fixed provider destinations, and explicit acknowledgement ambiguity. The transports are not runtime-bound. | `current change`; [Issue #235](https://github.com/dotnetpower/fdai/issues/235); focused channel and gateway checks passed 92 cases; Ruff, formatting, and strict mypy passed. | Add PostgreSQL stores and fail-closed startup composition before claiming availability. |
-| 2026-08-19 | in-progress | Corrected production A3 package and writer ownership from Core to a separate edge workload in the Operator distribution. The tested Core-local transports remain prototypes until the Operator implementations pass equivalent checks. | `current change`; [Production A3 channel runtime](production-a3-channel-runtime.md); service-migration checks passed 47 cases and design-route checks passed 122 cases. | Implement Operator-local transports, stores, lifecycle, workload, and governed runtime evidence. |
-| 2026-08-20 | implemented | Replaced the temporary Core-local A3 prototypes with the Operator-owned transport, renderer, durable pipeline, supervised runtime, local launch, and optional Container App. Core retains the implementation-free rich channel contract only. | `current change`; focused shared and Operator channel checks passed 110 cases; edge package checks passed 74 cases; Ruff and strict mypy passed; platform and Operator service Terraform roots validated. | Retain governed local provider and protected deployed receipts before claiming validation. |
-| 2026-08-20 | implemented | Hardened the standalone A3 edge across ten independent ingress, identity, persistence, publisher, lifecycle, deployment, and replay reviews. Known Teams keys refresh after a bounded TTL, due sends revalidate active binding authority, local secret preparation disables inherited tracing, and owned resources close once. | `current change`; focused edge checks passed 81 cases; Ruff and strict mypy passed; [Production A3 channel runtime](production-a3-channel-runtime.md). | Retain governed local provider and protected deployed receipts before claiming validation. |
-| 2026-08-27 | implemented | Added A2/A4 named fan-out bindings, durable per-channel dispatch, Teams Workflows transport, and independent publication receipt verification without changing the A1 or A3 authority boundaries. | `current change`; [Multi-channel notification delivery ledger](../../roadmap-implementation/interfaces/multi-channel-notification-delivery.md); focused notification, incident checkpoint, and runtime settings checks passed 162 cases; task-owned Ruff and strict mypy passed. | Capture governed Teams and PostgreSQL runtime receipts before claiming validation. |
-| 2026-09-04 | implemented | Split Teams readiness into per-category rows with an owning runtime and an `observed` flag, refused `a1_hil_approval` and `a3_chat_command` on every notification binding, and removed the retired Incoming Webhook wording from the A1 transport docstrings. | `current change`; [`bindings.py`](../../../services/core-control-plane/src/fdai/delivery/notifications/bindings.py), [`integration_readiness.py`](../../../services/core-control-plane/src/fdai/delivery/integration_readiness.py), [`test_integration_readiness.py`](../../../services/core-control-plane/tests/delivery/test_integration_readiness.py), [`test_bindings.py`](../../../services/core-control-plane/tests/notifications/test_bindings.py); focused notification, runtime settings, and readiness checks passed. | A1 rows report configuration completeness only; a governed live Teams approval round trip and broker receipt remain open. |
-| 2026-09-09 | implemented | Added the A2/A4 capability-state, presentation, and shadow-delivery contracts owned in detail by [Multi-channel notification delivery § 8](multi-channel-notification-delivery.md#8-capability-state-presentation-and-shadow-delivery-contracts), without changing `NotificationChannel`, `NotificationRouter`, fan-out delivery, or the one-audit-entry invariant. A same-day critique pass hardened case-insensitive interactive-key matching, bounded and scanned metadata keys, an https-only link scheme, a deterministic idempotent shadow record id, a timezone-aware shadow clock check, and an immutable presentation-envelope metadata mapping. | `current change`; [`test_channel_foundation.py`](../../../services/core-control-plane/tests/notifications/test_channel_foundation.py) 31 cases; full `services/core-control-plane/tests/notifications` suite passed 178 cases; task-owned Ruff format/lint passed; strict mypy passed the 5 changed notification source files. | None for this foundation scope; a concrete vendor adapter's shadow-to-enforce promotion is tracked by that adapter's own row. |
-| 2026-09-09 | implemented | Added a bilingual Settings guide that separates protected FDAI Teams A1 preparation from provider-hosted tenant consent, app installation, and final deployment approval. The Console never collects a client secret. | `current change`; focused Console tests, typecheck, build, catalog parity, and three-viewport visual checks. | Connect the guide to live onboarding progress after the protected provisioning workflow exposes a read-only status contract. |
-| 2026-09-09 | implemented | Connected the Teams A1 guide to an Owner-only, revisioned protected-plan request. Operator persists the proposal and no-authority state before the Console reports that preparation was requested. | `current change`; focused Operator persistence and route checks, Console decoder tests, typecheck, build, and strict mypy. | Bind the proposal to the protected provisioning workflow and retain provider and deployment receipts. |
-| 2026-09-09 | implemented | Separated Teams A1 Bot delivery from the Core execution identity and made the Bot activity endpoint sufficient to allocate the shared HTTP client. Service Terraform now attaches the declared Bot managed identity and the first stewardship adoption guard requires the complete Teams destination. | `current change`; focused bootstrap, HIL wiring, service plan guard, Terraform contract, Ruff, mypy, and Core service Terraform validation. | Retain a protected deployment and one authenticated Teams approval round trip before claiming validation. |
-
-### Remaining work
-
-- [x] Run `test_postgres_channel_pairing.py` and `test_postgres_channel_identity_link.py` against
-  PostgreSQL with zero skips and retain the passing result before promoting durable pairing and
-  identity linkage to `implemented`.
-- [ ] Retain a governed live Teams callback and broker receipt, and add the dedicated outbound
-  Slack `HilChannel`; local callback, replay, quorum, and no-network canary mechanics pass.
-- [x] Add authenticated Slack and Teams A3 ingress plus bounded rich-response publishers, with
-  focused signature, service-identity, principal-resolution, and acknowledgement tests.
-- [x] Implement `ProductionChannelRuntime`, a production ASGI factory, a service entry point, and
-  a Terraform workload; focused startup and shutdown tests must prove fail-closed composition.
-- [ ] Record governed runtime receipts for enabled delivery, fallback, browser behavior, and the
-  deployed standalone channel process before promoting any row to `validated`.
-- [x] Implement pure Teams, Slack, and injected custom presentation renderers whose parity tests
-  preserve canonical facts, limitations, evidence references, authority, and readable fallback.
-- [x] Add and document the shared A2/A4 capability-state, presentation, and shadow-delivery
-  contracts, and cover unavailable/shadowed/rejected/fallback outcomes plus router idempotency
-  with focused tests, proven by `test_channel_foundation.py`.
-
 ## 1. Design Principles
 
 1. **Three narrow abstractions, many adapters.** `NotificationChannel` owns A2/A4 push,
@@ -207,16 +147,13 @@ different principals, the service rejects the request before any write. The dete
 makes retries idempotent, and the PostgreSQL record survives restart without modifying either
 sender mapping or either principal's role.
 
-Channel attachments are evidence inputs, never instructions. Slack and Teams adapters normalize
+Channel attachments are evidence inputs, never instructions. Slack and Teams adapters can normalize
 only bounded file metadata and an opaque vendor id; payload-supplied download URLs are discarded.
-A server-owned, app-credential fetcher resolves that id, and `ProtectedChannelAttachmentIngestor`
-verifies the fetched byte count and SHA-256 before sending the source through the existing malware,
-protection, extraction, indexing, access, and retention pipeline. The conversation gateway dispatches
-the operator's original text unchanged and appends only READY `doc:` refs to response citations.
-Held, infected, unknown-protection, oversized, or malformed attachments block tool dispatch. Common
-bitmap signatures produce metadata-only envelopes with no text units, so image bytes cannot become
-prompt instructions. Deployments bind vendor credential fetchers as part of the P0-15 channel
-composition; arbitrary attachment URLs are not a supported seam.
+The current production A3 composition does not bind a private fetcher or protected ingestor. It keeps
+attachment support off and returns `422 attachments_unavailable` before queue admission. Setting
+`FDAI_CHANNEL_ATTACHMENTS_ENABLED=1` fails startup until the versioned document-ingestion handoff is bound. A direct queue injection also fails before claim or semantic publication. Future
+fetch and ingestion must preserve the original text, admit only READY `doc:` citations, and retain
+the malware, protection, indexing, access, retention, and agent-ownership gates.
 
 Teams ingress separates two identities. `TeamsServiceTokenVerifier` verifies the Bot Framework
 service token against cached JWKS with RS256 signature, app audience, Bot Framework issuer,
@@ -238,7 +175,8 @@ process. It isn't mounted into the Operator API process and never receives the e
 The production ASGI factory and Terraform workload register only enabled bounded ingress routes and
 start one Operator semantic-turn consumer per adapter. Missing credentials, Teams identity,
 endpoint policy, JWT configuration, principal scopes, or persistence fail startup before a route
-accepts traffic. Shutdown closes queues, consumers, provider clients, and credentials exactly once.
+accepts traffic. Attachment enablement without a production ingestor fails at the same boundary.
+Shutdown closes queues, consumers, provider clients, and credentials exactly once.
 
 Channel enablement uses `FDAI_CHANNEL_EDGE_ENABLED_CHANNELS`; queue and request bounds remain
 server-owned. Container Apps native Key Vault references populate the Slack and Teams secret
@@ -368,30 +306,12 @@ enters event-ingest, trust routing, risk gating, and audit; the webhook never ex
 
 ### 4.4 Browser system notifications
 
-The Console can deliver opt-in A2 status notifications through the browser Notifications API and
-an origin-scoped service worker. The operator enables the feature from an explicit Console control;
-FDAI never requests permission during page load. The authenticated `GET /live/stream` feed stays
-connected while an enabled tab is in the background and emits notifications only for human approval,
-denial, or failure outcomes. Replay frames and routine successful stages remain silent.
-
-Browser notifications are informational. They contain localized generic text, an opaque bounded
-event tag, and a server-derived same-origin link to the read-only Incident view. They never include
-raw errors, resource identifiers, approval controls, or execution links. Repeated frames replace the
-same event notification, and the opt-in preference is scoped to the signed-in browser principal.
-A principal-scoped browser ledger suppresses duplicate event tags for five minutes across tabs and
-limits delivery to five system notifications per minute; suppressed events remain in the audit and
-Incident views.
-
-The service worker keeps notification rendering and click handling available while the page is
-backgrounded, but the current Console does not register a Push API subscription or a server-side
-subscription store. A fully closed browser therefore receives no notification. Closed-browser Web
-Push requires a separately authenticated write service, encrypted subscription storage, revocation,
-CSRF protection, and delivery audit before it can be enabled; it does not belong in the Operator API.
-
-Clicking a notification focuses an exact Console window when one exists. Otherwise, the service
-worker navigates a same-origin Console window to the read-only Incident target and focuses the
-window returned by that navigation. If browser focus or navigation fails, it opens the same
-validated target in a new window. This activation behavior does not approve or execute an action.
+The explicit client-local `console-web` channel is owned by
+[Console Web Notifications](console-web-notifications.md). Settings is its canonical
+principal-and-browser selection surface, the header is a synchronized shortcut, and only
+`runtime-observed` approval, denial, and failure frames are eligible. Its bounded local display and
+click receipts never satisfy Core delivery, approval, or execution evidence. Organization-managed
+A2/A4 routes remain separate channel-as-audience bindings.
 
 ## 5. Channel Interfaces (contracts)
 
@@ -648,3 +568,9 @@ the source strings are English, and a channel MAY render them in another locale.
   per channel in `config/notifications-matrix.yaml` under `matrix.channels`
   (`<channel-id>: { locale: ko }`), not per operator. A channel without an entry
   renders in English.
+
+## Related docs
+
+| To learn about | Read |
+|----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/interfaces/channels-and-notifications.md) |

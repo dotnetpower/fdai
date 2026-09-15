@@ -133,6 +133,7 @@ def _local_operator_api_env() -> dict[str, str]:
     env.pop("FDAI_OPERATOR_API_DEV_MODE", None)
     env.pop("FDAI_OPERATOR_API_LOCAL_ENTRA", None)
     env["FDAI_OPERATOR_API_LOCAL_AZURE_CLI"] = "1"
+    env["FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM"] = "1"
     return env
 
 
@@ -165,6 +166,7 @@ source "$1"
 set +a
 unset FDAI_OPERATOR_API_DEV_MODE FDAI_OPERATOR_API_LOCAL_ENTRA
 export FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1
+export FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=1
 export PYTHONPATH="$2/services/operator-service/src:\
 $2/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}"
 exec "$2/.venv/bin/python" -m uvicorn fdai_operator_service.main:create_app \

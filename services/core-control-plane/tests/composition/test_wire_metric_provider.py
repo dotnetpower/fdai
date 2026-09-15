@@ -87,6 +87,8 @@ async def test_native_override_needs_no_workspace_and_empty_override_fails(
 
 
 async def test_route_order_preserves_prometheus_native_then_logs(container: Container) -> None:
+    from fdai.delivery.prometheus import aks_managed_prometheus_queries
+
     async with httpx.AsyncClient() as client:
         bound = attach_metric_provider(
             container,
@@ -96,7 +98,7 @@ async def test_route_order_preserves_prometheus_native_then_logs(container: Cont
             monitor_queries=None,
             metrics_api_queries=None,
             prometheus_base_url="https://example.com",
-            prometheus_queries=None,
+            prometheus_queries=aks_managed_prometheus_queries(),
             prometheus_audience=None,
         )
     provider = bound.metric_provider

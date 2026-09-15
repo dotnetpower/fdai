@@ -13,7 +13,7 @@ out="$2"
 terraform_bin="$3"
 platform="$4"
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-python="$repo_root/.venv/bin/python"
+python="${PYTHON:-$repo_root/.venv/bin/python}"
 scratch="$out/mirror-src"
 mirror="$out/mirror"
 deadline=$((SECONDS + 3600))
@@ -58,6 +58,9 @@ roots=(
   infra/genesis-foundation
   infra/genesis-runner-image
   infra/scenario-lab
+  infra/runtimes/aks/cluster
+  infra/runtimes/aks/database
+  infra/runtimes/aks/workloads
   infra/services/core-control-plane
   infra/services/operator-service
   infra/services/document-ingestion-api

@@ -731,10 +731,13 @@ def test_resume_prompt_executes_by_default_and_keeps_status_read_only() -> None:
     assert "Commit only when the recovered user" in prompt
 
 
-def test_agent_workflow_keeps_commit_and_live_validation_opt_in() -> None:
+def test_agent_workflow_uses_standing_delivery_and_keeps_live_validation_gated() -> None:
     instructions = (REPO_ROOT / ".github" / "copilot-instructions.md").read_text(encoding="utf-8")
 
-    assert "Do not commit by default" in instructions
+    assert "standing delivery preference" in instructions
+    assert "An explicit request to stop" in instructions
+    assert "never selects a tenant, subscription" in instructions
+    assert "required human plan approval" in instructions
     assert "MUST NOT interrupt unfinished implementation" in instructions
     assert "do not authorize a coding session to invoke a" in instructions
     assert "unexpected `T2` fallback" in instructions

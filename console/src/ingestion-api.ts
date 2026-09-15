@@ -88,6 +88,138 @@ export interface HandoverDraftResult {
   } | null;
 }
 
+/** Server-owned freshness of reference knowledge, never observed cloud resource health. */
+export type CloudKnowledgeFreshness = "fresh" | "refresh_due" | "stale" | "unknown";
+
+/** Latest collection attempt; a failed attempt does not renew a source check. */
+export interface CloudKnowledgeAttempt {
+  readonly checked_at: string;
+  readonly outcome: "fetched" | "unchanged" | "changed" | "failed" | "withdrawal_pending";
+  readonly reason: string;
+}
+
+/** Registered source status, keeping admitted source evidence separate from collector attempts. */
+export interface CloudKnowledgeSource {
+  readonly source_id: string;
+  readonly title: string;
+  readonly collection_id: string;
+  readonly mode: "online" | "offline";
+  readonly enabled: boolean;
+  readonly check_interval_seconds: number;
+  readonly max_unverified_seconds: number;
+  readonly collected_at: string | null;
+  readonly checked_at: string | null;
+  readonly freshness: CloudKnowledgeFreshness;
+  readonly next_due_at: string | null;
+  readonly last_attempt: CloudKnowledgeAttempt | null;
+  readonly update_pending: boolean;
+  readonly consecutive_failures: number;
+}
+
+/** Immutable per-source provenance supplied by a release, not a new fetch instruction. */
+export interface CloudKnowledgeSourceEvidence {
+  readonly source_id: string;
+  readonly source_url: string;
+  readonly source_sha256: string;
+  readonly normalized_sha256: string;
+  readonly collected_at: string;
+  readonly source_updated_at: string | null;
+  readonly license_ref: string;
+  readonly check: CloudKnowledgeAttempt & {
+    readonly source_id: string;
+    readonly source_url: string;
+    readonly content_sha256: string | null;
+    readonly equivalence: "body_hash" | "strong_etag" | "none";
+    readonly etag: string | null;
+    readonly last_modified: string | null;
+    readonly collector_id: string;
+    readonly collector_version: string;
+  };
+  readonly applicability: {
+    readonly provider: string;
+    readonly resource_type: string;
+    readonly service_generation: string;
+    readonly skus: readonly string[];
+    readonly api_versions: readonly string[];
+    readonly regions: readonly string[];
+    readonly deployment_modes: readonly string[];
+  };
+  readonly policy: {
+    readonly policy_id: string;
+    readonly check_interval_seconds: number;
+    readonly max_unverified_seconds: number;
+    readonly full_fetch_interval_seconds: number;
+  };
+}
+
+/** A verified provenance binding is not approval, admission, or activation. */
+export interface CloudKnowledgeRelease {
+  readonly release_id: string;
+  readonly sequence: number;
+  readonly manifest_digest: string;
+  readonly registry_digest: string;
+  readonly package_created_at: string;
+  readonly imported_at: string;
+  readonly admission_expires_at: string;
+  readonly verified_key_id: string;
+  readonly sources: readonly CloudKnowledgeSourceEvidence[];
+  readonly rollback_of: string | null;
+}
+
+/** Stored document-version projection; visibility is reported only by the server. */
+export interface CloudKnowledgeVersion {
+  readonly document_id: string;
+  readonly version_id: string;
+  readonly state: string;
+  readonly active: boolean;
+  readonly available: boolean;
+  readonly updated_at: string;
+  readonly release: CloudKnowledgeRelease;
+}
+
+/** Bounded, access-scoped version list for a registered collection. */
+export interface CloudKnowledgeCollection {
+  readonly collection_id: string;
+  readonly versions: readonly CloudKnowledgeVersion[];
+}
+
+/** Capability omissions stay read-only, including older or unavailable service responses. */
+export interface CloudKnowledgeOverview {
+  readonly available: boolean;
+  readonly reason?: string;
+  readonly registry_revision?: number;
+  readonly registry_valid_until?: string;
+  readonly can_refresh?: boolean;
+  readonly can_import?: boolean;
+  readonly sources: readonly CloudKnowledgeSource[];
+  readonly collections: readonly CloudKnowledgeCollection[];
+  readonly automatic_activation?: false;
+  readonly approval_required?: true;
+}
+
+/** Result of one bounded due-only sweep; completion does not imply source or activation success. */
+export interface CloudKnowledgeRefreshResult {
+  readonly checked: number;
+  readonly failed: number;
+  readonly status: string;
+}
+
+/** Successful inspection verifies a candidate without importing it or granting approval. */
+export interface CloudKnowledgeInspectionResult {
+  readonly status: "verified_candidate";
+  readonly approval_required: true;
+  readonly release: CloudKnowledgeRelease;
+  readonly document_count: number;
+}
+
+/** Intake acknowledgement only; independent review and activation remain in the document pipeline. */
+export interface CloudKnowledgeIntakeResult {
+  readonly session: Pick<UploadSession, "upload_id" | "document_id" | "version_id" | "state">;
+  readonly approval_required: true;
+  readonly status: "ingestion_requested";
+  readonly release: CloudKnowledgeRelease;
+}
+
 interface CreateUploadResponse {
   readonly session: UploadSession;
   readonly upload: {
@@ -134,6 +266,72 @@ export class IngestionApiClient {
 
   async capabilities(): Promise<IngestionCapabilities> {
     return this.#json<IngestionCapabilities>("/ingestion/capabilities", { method: "GET" });
+  }
+
+  /** Read configured sources, admitted evidence, stored revisions, and current server capabilities. */
+  async cloudKnowledge(signal?: AbortSignal): Promise<CloudKnowledgeOverview> {
+    return this.#json<CloudKnowledgeOverview>("/ingestion/cloud-knowledge", {
+      method: "GET", signal: signal ?? null,
+    });
+  }
+
+    async rollbackCloudKnowledge(
+      collectionId: string,
+      versionId: string,
+      signal?: AbortSignal,
+    ): Promise<CloudKnowledgeIntakeResult> {
+      return this.#json<CloudKnowledgeIntakeResult>(
+        `/ingestion/cloud-knowledge/${encodeURIComponent(collectionId)}/versions/${encodeURIComponent(versionId)}/rollback`,
+        { method: "POST", signal: signal ?? null },
+      );
+    }
+
+  /** Owner-only due sweep, with no force option or body. The server may take up to 15 minutes. */
+  async refreshCloudKnowledge(signal?: AbortSignal): Promise<CloudKnowledgeRefreshResult> {
+    return this.#json<CloudKnowledgeRefreshResult>("/ingestion/cloud-knowledge/refresh", {
+      method: "POST", signal: signal ?? null,
+    });
+  }
+
+  /** Download unsigned JSON review material for an independently approved external signer. */
+  async exportCloudKnowledge(collectionId: string, signal?: AbortSignal): Promise<Blob> {
+    const response = await this.#request(new URL(
+      `/ingestion/cloud-knowledge/${encodeURIComponent(collectionId)}/export`, this.#baseUrl,
+    ), { method: "POST", signal: signal ?? null });
+    return response.blob();
+  }
+
+  /** Submit the collected revision for governed review; never approve or activate it here. */
+  async stageCloudKnowledge(
+    collectionId: string,
+    signal?: AbortSignal,
+  ): Promise<CloudKnowledgeIntakeResult> {
+    return this.#json<CloudKnowledgeIntakeResult>(
+      `/ingestion/cloud-knowledge/${encodeURIComponent(collectionId)}/stage`,
+      { method: "POST", signal: signal ?? null },
+    );
+  }
+
+  /** Send exact file bytes to the offline verifier; no client-supplied trust or reviewer fields. */
+  async inspectCloudKnowledgePackage(
+    file: Blob,
+    signal?: AbortSignal,
+  ): Promise<CloudKnowledgeInspectionResult> {
+    return this.#json<CloudKnowledgeInspectionResult>("/ingestion/cloud-knowledge/packages/inspect", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: file, signal: signal ?? null,
+    });
+  }
+
+  /** Import the same sealed bytes after explicit confirmation; the server verifies them again. */
+  async importCloudKnowledgePackage(
+    file: Blob,
+    signal?: AbortSignal,
+  ): Promise<CloudKnowledgeIntakeResult> {
+    return this.#json<CloudKnowledgeIntakeResult>("/ingestion/cloud-knowledge/packages/import", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: file, signal: signal ?? null,
+    });
   }
 
   async createUpload(input: CreateUploadInput): Promise<CreateUploadResponse> {
@@ -231,7 +429,8 @@ export class IngestionApiClient {
     const response = await this.#request(new URL(path, this.#baseUrl), init);
     try {
       return (await response.json()) as T;
-    } catch {
+    } catch (error) {
+      if (init.signal?.aborted) throw error;
       throw new IngestionApiError(response.status, "The ingestion service returned invalid JSON.");
     }
   }
@@ -241,12 +440,14 @@ export class IngestionApiClient {
     init: RequestInit,
     options: { readonly authorize?: boolean } = {},
   ): Promise<Response> {
+    init.signal?.throwIfAborted();
     const headers = new Headers(init.headers);
     headers.set("accept", "application/json");
     if (options.authorize !== false) {
       const authorization = await this.#readClient.authorizationHeader();
       if (authorization) headers.set("authorization", authorization);
     }
+    init.signal?.throwIfAborted();
     const response = await fetch(url, { ...init, headers, credentials: "omit" });
     if (!response.ok) {
       let message = `HTTP ${response.status}`;

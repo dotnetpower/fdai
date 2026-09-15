@@ -14,13 +14,16 @@ service="$1"
 wait_ready=0
 if [[ $# -eq 2 ]]; then
   if [[ "$2" != "--wait-ready" \
-    || ( "$service" != "core-runtime" && "$service" != "operator-api" ) ]]; then
+    || ( "$service" != "core-runtime" \
+      && "$service" != "operator-api" \
+      && "$service" != "local-analyzer" ) ]]; then
     usage
   fi
   wait_ready=1
 fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$repo_root"
+local_azure_cli_auth=0
 readiness_seconds="${FDAI_CONSOLE_START_READINESS_SECONDS:-60}"
 if [[ ! "$readiness_seconds" =~ ^[1-9][0-9]*$ ]]; then
   echo "FDAI_CONSOLE_START_READINESS_SECONDS must be a positive integer" >&2
@@ -28,8 +31,24 @@ if [[ ! "$readiness_seconds" =~ ^[1-9][0-9]*$ ]]; then
 fi
 readiness_budget_seconds=$((readiness_seconds + 5))
 
+if [[ "$service" == "operator-api" || "$service" == "console-frontend" ]]; then
+  expected_auth_mode="${FDAI_CONSOLE_EXPECTED_AUTH_MODE:-}"
+  case "$expected_auth_mode" in
+    browser-entra)
+      local_azure_cli_auth=0
+      ;;
+    azure-cli)
+      local_azure_cli_auth=1
+      ;;
+    *)
+      echo "FDAI_CONSOLE_EXPECTED_AUTH_MODE must be browser-entra or azure-cli" >&2
+      exit 1
+      ;;
+  esac
+fi
+
 case "$service" in
-  core-runtime|inventory-reconciliation|observation-campaign)
+  core-runtime|inventory-reconciliation|observation-campaign|local-analyzer)
     env_file=".fdai/local-runtime.env"
     source_root="services/core-control-plane/src"
     project_file="services/core-control-plane/pyproject.toml"
@@ -43,6 +62,11 @@ case "$service" in
     env_file=".fdai/local-channel-edge.env"
     source_root="services/operator-service/src"
     project_file="services/operator-service/pyproject.toml"
+    ;;
+  document-channel-intake)
+    env_file=".fdai/local-document-channel-intake.env"
+    source_root="services/document-ingestion-api/src"
+    project_file="services/document-ingestion-api/pyproject.toml"
     ;;
   document-ingestion-api)
     env_file=".fdai/local-document-ingestion-api.env"
@@ -75,7 +99,7 @@ case "$service" in
     ;;
 esac
 
-if [[ "$service" == "operator-channel-edge" ]]; then
+if [[ "$service" == "operator-channel-edge" || "$service" == "document-channel-intake" ]]; then
   bash "$repo_root/scripts/deployment/local/prepare-channel-edge-env.sh"
 fi
 
@@ -127,6 +151,13 @@ if [[ -n "$env_file" ]]; then
   set +a
 fi
 
+if [[ "$service" == "operator-api" ]] \
+  && { [[ "${FDAI_OPERATOR_API_LOCAL_AZURE_CLI:-0}" != "$local_azure_cli_auth" ]] \
+    || [[ "${FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM:-0}" != "$local_azure_cli_auth" ]]; }; then
+  echo "prepared Console and Operator API auth modes do not match" >&2
+  exit 1
+fi
+
 export FDAI_LOCAL_SERVICE_INPUT_DIGEST="$input_digest"
 export FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain
 export FDAI_LOCAL_SERVICE_RESTART_STALE=1
@@ -159,6 +190,13 @@ case "$service" in
       "$repo_root/.venv/bin/fdai-operator-channel-edge"
     )
     ;;
+  document-channel-intake)
+    service_command=(
+      env -u AZURE_CONFIG_DIR
+      PYTHONPATH="$service_pythonpath"
+      "$repo_root/.venv/bin/fdai-document-channel-intake"
+    )
+    ;;
   inventory-reconciliation)
     service_command=(
       env -u AZURE_CONFIG_DIR
@@ -178,6 +216,17 @@ case "$service" in
       FDAI_OBSERVATION_SCOPES="$AZURE_SUBSCRIPTION_ID"
       PYTHONPATH="$service_pythonpath"
       "$repo_root/.venv/bin/python" -m fdai.delivery.observation_campaign_cli --loop
+    )
+    ;;
+  local-analyzer)
+    local_analyzer_run_id="${FDAI_ANALYZER_RUN_ID:-local-analyzer-$(date -u +%s)-$$}"
+    service_command=(
+      env -u AZURE_CONFIG_DIR
+      FDAI_EXECUTION_VENUE=local
+      FDAI_ANALYZER_RUN_ID="$local_analyzer_run_id"
+      FDAI_INVENTORY_DSN="${FDAI_INVENTORY_DSN:-$FDAI_STATE_STORE_DSN}"
+      PYTHONPATH="$service_pythonpath"
+      "$repo_root/.venv/bin/python" -m fdai.delivery.analyzer_tick_cli --loop
     )
     ;;
   document-ingestion-api)
@@ -207,6 +256,8 @@ case "$service" in
     service_command=(
       env
       VITE_DEV_MODE=0
+      VITE_LOCAL_AZURE_CLI_AUTH="$local_azure_cli_auth"
+      VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM="$local_azure_cli_auth"
       VITE_OPERATOR_API_BASE_URL=http://127.0.0.1:8010
       VITE_INGESTION_API_BASE_URL=http://127.0.0.1:8011
       VITE_MANUAL_STUDIO_URL=http://127.0.0.1:5474

@@ -2,7 +2,6 @@ import { Tooltip } from "../components/tooltip";
 import { PageHeader } from "../components/ui";
 import type { LiveConnectionStatus } from "../hooks/use-live-stream";
 import type { AgentOperationalActivityMessage } from "../agent-operational-activity";
-import type { AgentStreamStatus } from "../hooks/use-agent-stream";
 import {
   observationSourceLabel,
   type ObservationSource,
@@ -28,9 +27,11 @@ import {
 } from "./live.tiles";
 import type { LiveViewModel } from "./live.view-model";
 import {
+  LiveObservationDetailPanel,
   LiveObservations,
   type LiveObservationLoadState,
 } from "./live.observations";
+import { LiveCoverage, type LiveCoverageState } from "./live.coverage";
 
 export type LiveViewMode = "queue" | "flow";
 
@@ -49,17 +50,22 @@ export function LivePanels({
   tickerPaused,
   frozenObserved,
   droppedFrames,
+  cursorReset,
   observations,
   observationLoadState,
   observationStreamStatus,
   observationStreamSource,
   observationError,
+  coverage,
   viewMode,
   selectionState,
   selectedTile,
+  selectedObservationId,
+  selectedObservation,
   togglePause,
   updateRoute,
   selectEvent,
+  selectObservation,
 }: {
   readonly state: LiveState;
   readonly view: LiveViewModel;
@@ -69,17 +75,22 @@ export function LivePanels({
   readonly tickerPaused: boolean;
   readonly frozenObserved: number;
   readonly droppedFrames: number;
+  readonly cursorReset: boolean;
   readonly observations: readonly AgentOperationalActivityMessage[];
   readonly observationLoadState: LiveObservationLoadState;
-  readonly observationStreamStatus: AgentStreamStatus;
+  readonly observationStreamStatus: LiveConnectionStatus;
   readonly observationStreamSource: ObservationSource;
   readonly observationError: string | null;
+  readonly coverage: LiveCoverageState;
   readonly viewMode: LiveViewMode;
   readonly selectionState: LiveSelectionState;
   readonly selectedTile: TileState | null;
+  readonly selectedObservationId: string | null;
+  readonly selectedObservation: AgentOperationalActivityMessage | null;
   readonly togglePause: () => void;
   readonly updateRoute: (update: LiveRouteUpdate) => void;
   readonly selectEvent: (eventId: string | null) => void;
+  readonly selectObservation: (activityId: string | null) => void;
 }) {
   const epsUpdated = useContentUpdatePulse([
     view.eps,
@@ -171,6 +182,8 @@ export function LivePanels({
         </span>
       </section>
 
+      <LiveCoverage coverage={coverage} />
+
       <section class="live-health" aria-label={t("live.health.label")}>
         <div>
           <span>{t("live.health.stream")}</span>
@@ -189,20 +202,12 @@ export function LivePanels({
           <strong class={droppedFrames > 0 ? "live-health-warn" : "live-health-ok"}>
             {droppedFrames > 0
               ? t("live.health.dropped", { count: droppedFrames })
+              : cursorReset
+                ? t("live.health.cursorReset")
               : t("live.health.complete")}
           </strong>
         </div>
       </section>
-
-      {streamSource === "synthetic-dev" ? null : (
-        <LiveObservations
-          items={observations}
-          loadState={observationLoadState}
-          streamStatus={observationStreamStatus}
-          streamSource={observationStreamSource}
-          error={observationError}
-        />
-      )}
 
       <section
         class={`live-attention ${view.streamOpen && view.attentionTotal > 0 ? "live-attention-active" : view.streamOpen ? "live-attention-calm" : "live-attention-unavailable"}`}
@@ -310,6 +315,7 @@ export function LivePanels({
         </a>
       </section>
 
+      <div class="live-workspace">
       <section class="live-work-header">
         <div>
           <span class="live-eyebrow">{t("live.work.eyebrow")}</span>
@@ -362,9 +368,9 @@ export function LivePanels({
               <span>{view.emptyState}</span>
             </div>
           ) : null}
-          {state.tiles.map((tile, slotIndex) => (
+          {view.populatedTiles.map((tile) => (
             <LiveTile
-              key={`slot-${slotIndex}`}
+              key={tile.event_id}
               tile={tile}
               filter={state.filter}
               selected={tile?.event_id === state.selectedEventId}
@@ -379,6 +385,19 @@ export function LivePanels({
         </section>
       )}
 
+      {streamSource === "synthetic-dev" ? null : (
+        <LiveObservations
+          items={observations}
+          loadState={observationLoadState}
+          streamStatus={observationStreamStatus}
+          streamSource={observationStreamSource}
+          error={observationError}
+          selectedActivityId={selectedObservationId}
+          onSelect={selectObservation}
+        />
+      )}
+      </div>
+
       {selectionState === "waiting" && state.selectedEventId ? (
         <div class="state-block state-unavailable" role="status">
           {t("live.selectionWaiting", { event: state.selectedEventId })}
@@ -392,6 +411,12 @@ export function LivePanels({
 
       {selectedTile ? (
         <DetailPanel tile={selectedTile} now={state.now} onClose={() => selectEvent(null)} />
+      ) : null}
+      {selectedObservation ? (
+        <LiveObservationDetailPanel
+          item={selectedObservation}
+          onClose={() => selectObservation(null)}
+        />
       ) : null}
     </div>
   );

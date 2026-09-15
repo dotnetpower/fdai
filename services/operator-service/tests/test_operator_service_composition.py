@@ -32,6 +32,7 @@ from fdai_operator_service.environment import (
     HOST_ENV,
     KAFKA_BOOTSTRAP_SERVERS_ENV,
     LIVE_STAGE_CONSUMER_GROUP_ENV,
+    LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV,
     LOCAL_AZURE_CLI_AUTH_ENV,
     LOCAL_AZURE_NARRATOR_ENV,
     LOCAL_ENTRA_AUTH_ENV,
@@ -206,6 +207,8 @@ def _verify(token: str) -> Mapping[str, object]:
         roles = [OperatorRole.READER.value]
     elif token == "approver":
         roles = [OperatorRole.APPROVER.value]
+    elif token == "owner":
+        roles = [OperatorRole.OWNER.value]
     else:
         roles = []
     return {"oid": "operator", "idtyp": "user", "roles": roles}
@@ -579,6 +582,42 @@ def test_service_preserves_exact_frozen_minimal_routes() -> None:
     assert snapshot == EXPECTED_ROUTES
 
 
+def test_incident_opened_template_matches_the_reviewed_design_specimen() -> None:
+    response = _client(read_model=EmptyReadModel()).get(
+        "/notification-templates/incident-opened",
+        headers={"Authorization": "Bearer reader"},
+    )
+    design = (REPO_ROOT / "mocks/email-template/incident-opened.html").read_text(encoding="utf-8")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "key": "incident-opened",
+        "subject": "[SEV2] Incident opened - API latency after configuration rollout",
+        "plain_text": (
+            "SEV2 incident opened at 06:03 UTC. Eight signals were correlated. "
+            "No recovery action has run."
+        ),
+        "html": design,
+    }
+
+
+def test_incident_opened_template_preserves_the_safe_email_boundary() -> None:
+    response = _client(read_model=EmptyReadModel()).get(
+        "/notification-templates/incident-opened",
+        headers={"Authorization": "Bearer reader"},
+    )
+    html = response.json()["html"]
+
+    assert response.status_code == 200
+    assert isinstance(html, str)
+    assert 'class="wrap" width="640"' in html
+    assert "FDAI / FIELD DISPATCH" in html
+    assert "Fail-closed" in html
+    assert "approval and execution stay in the console" in html
+    assert "<script" not in html.lower()
+    assert "<form" not in html.lower()
+
+
 def test_health_is_public_and_fails_closed_without_postgres() -> None:
     response = _client().get("/healthz")
     assert (response.status_code, response.json()) == (503, {"status": "not-ready"})
@@ -599,6 +638,38 @@ def test_health_reflects_required_dependency_loss_after_startup() -> None:
     available = False
     response = client.get("/healthz")
     assert (response.status_code, response.json()) == (503, {"status": "not-ready"})
+
+
+@pytest.mark.parametrize(
+    ("token", "expected_detail_level", "expected_include_details"),
+    [
+        ("reader", "count_only", False),
+        ("approver", "full", True),
+        ("owner", "full", True),
+    ],
+)
+def test_hil_queue_detail_level_follows_verified_operator_role(
+    token: str,
+    expected_detail_level: str,
+    expected_include_details: bool,
+) -> None:
+    class CapturingReadModel(EmptyReadModel):
+        query: HilQueueQuery | None = None
+
+        async def list_hil_queue(self, query: HilQueueQuery) -> HilQueueProjection:
+            self.query = query
+            return HilQueueProjection(items=(), total=0)
+
+    model = CapturingReadModel()
+    response = _client(read_model=model).get(
+        "/hil-queue",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["detail_level"] == expected_detail_level
+    assert model.query is not None
+    assert model.query.include_details is expected_include_details
 
 
 def _local_cli_identity() -> LocalAzureCliIdentity:
@@ -626,6 +697,7 @@ def test_local_cli_mode_projects_profile_and_authorizes_reader_routes() -> None:
                 **BASE_ENV,
                 "RUNTIME_ENV": "dev",
                 LOCAL_AZURE_CLI_AUTH_ENV: "1",
+                LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
                 CORS_ORIGINS_ENV: "http://127.0.0.1:5273",
             },
             composition=composition,
@@ -672,6 +744,7 @@ def test_cors_preflight_allows_durable_sse_replay_header() -> None:
                 **BASE_ENV,
                 "RUNTIME_ENV": "dev",
                 LOCAL_AZURE_CLI_AUTH_ENV: "1",
+                LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
                 CORS_ORIGINS_ENV: "http://localhost:5273",
             },
             composition=composition,
@@ -709,6 +782,7 @@ def test_cors_exposes_document_integrity_headers() -> None:
                 **BASE_ENV,
                 "RUNTIME_ENV": "dev",
                 LOCAL_AZURE_CLI_AUTH_ENV: "1",
+                LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
                 CORS_ORIGINS_ENV: "http://localhost:5273",
             },
             composition=composition,
@@ -742,6 +816,7 @@ def test_local_cli_mode_rejects_non_loopback_requests() -> None:
                 **BASE_ENV,
                 "RUNTIME_ENV": "dev",
                 LOCAL_AZURE_CLI_AUTH_ENV: "1",
+                LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
             },
             composition=composition,
         ),
@@ -774,6 +849,7 @@ def test_local_cli_mode_rejects_untrusted_browser_origin() -> None:
                 **BASE_ENV,
                 "RUNTIME_ENV": "dev",
                 LOCAL_AZURE_CLI_AUTH_ENV: "1",
+                LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
                 CORS_ORIGINS_ENV: "http://127.0.0.1:5273",
             },
             composition=composition,
@@ -796,14 +872,20 @@ def test_local_cli_profile_route_is_absent_when_mode_is_disabled() -> None:
 @pytest.mark.parametrize(
     "overrides",
     [
-        {LOCAL_AZURE_CLI_AUTH_ENV: "1", "RUNTIME_ENV": "prod"},
         {
             LOCAL_AZURE_CLI_AUTH_ENV: "1",
+            LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
+            "RUNTIME_ENV": "prod",
+        },
+        {
+            LOCAL_AZURE_CLI_AUTH_ENV: "1",
+            LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
             "RUNTIME_ENV": "dev",
             "FDAI_OPERATOR_API_DEV_MODE": "1",
         },
         {
             LOCAL_AZURE_CLI_AUTH_ENV: "1",
+            LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
             "RUNTIME_ENV": "dev",
             LOCAL_ENTRA_AUTH_ENV: "1",
         },
@@ -831,8 +913,23 @@ def test_local_cli_mode_surfaces_unavailable_azure_cli() -> None:
                 **BASE_ENV,
                 "RUNTIME_ENV": "dev",
                 LOCAL_AZURE_CLI_AUTH_ENV: "1",
+                LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1",
             }
         )
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {LOCAL_AZURE_CLI_AUTH_ENV: "1"},
+        {LOCAL_AZURE_CLI_AUTH_CONFIRM_ENV: "1"},
+    ],
+)
+def test_local_cli_mode_requires_explicit_confirmation(
+    overrides: Mapping[str, str],
+) -> None:
+    with pytest.raises(OperatorServiceConfigurationError, match="enabled together"):
+        OperatorEnvironment.parse({**BASE_ENV, "RUNTIME_ENV": "dev", **overrides})
 
 
 def test_live_stream_requires_reader_authentication_before_opening() -> None:
@@ -980,7 +1077,7 @@ def test_database_url_binds_service_owned_postgres_projection() -> None:
         "/assurance-twin/reviews",
         "/assurance-twin/review",
     } <= set(source.routes)
-    assert runtime.lifecycle is None
+    assert isinstance(runtime.lifecycle, operator_composition._LiveActivitySnapshotLoader)
 
 
 def test_unserved_measurement_routes_declare_an_explicit_unavailable_source() -> None:
@@ -1042,14 +1139,14 @@ def test_durable_console_evidence_routes_declare_authoritative_sources() -> None
     expected = {
         "configuration-baseline": "/configuration-baselines",
         "conversation-delivery": "/conversation-delivery",
-        "detection-readiness": "/detection-readiness",
+        "detection-readiness": ("/detection-coverage", "/detection-readiness"),
         "runtime-skill": "/skills",
         "forecast-learning": "/forecast-learning",
         "operator-memory": "/operator-memory",
     }
     for key, route in expected.items():
         source = next(item for item in runtime.data_sources if item.key == key)
-        assert source.routes == (route,)
+        assert source.routes == (route if isinstance(route, tuple) else (route,))
         assert source.availability == "unknown"
         assert source.configured is True
         assert source.authoritative is True

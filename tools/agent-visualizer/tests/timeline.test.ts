@@ -123,7 +123,7 @@ test("broadcasts use canonical ownership and subscriber declarations with concur
   assert.deepEqual(eventFlowAt(22, scenarios[0]!), flow);
 });
 
-test("1x is the default and ARG requests retain a separate three-per-display-second budget", () => {
+test("1x is the default and Azure Resource Graph requests retain a separate three-per-display-second budget", () => {
   assert.equal(DEFAULT_PLAYBACK_SPEED, 1);
   for (const speed of [0.5, 1, 1.5, 2]) {
     const next = advancePlayback(10, 5, 1, speed, 72, true);
@@ -156,7 +156,7 @@ test("all 15 independent workload lanes use real functions and overlap without a
   assert.ok(ARG_WORKFLOWS.some((work) => work.query.endsWith("AzureResourceChangeFeed.poll")));
 });
 
-test("ARG is three visual request slots per second, with source budget semantics preserved", () => {
+test("Azure Resource Graph is three visual request slots per second, with source budget semantics preserved", () => {
   assert.equal(codeGraph.arg.requests_per_second, 3);
   assert.equal(codeGraph.arg.burst, 15);
   assert.match(codeGraph.arg.semantics, /not a polling scheduler/);

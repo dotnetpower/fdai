@@ -76,10 +76,15 @@ def test_operator_child_uses_run_scoped_outbox_namespace(tmp_path: Path) -> None
 
     operator = next(spec for spec in runner._service_specs() if spec.label == "operator")
     assert 'FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE="${3,,}"' in operator.command[2]
+    assert "export FDAI_OPERATOR_API_LOCAL_AZURE_CLI=0" in operator.command[2]
+    assert "export FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=0" in operator.command[2]
+    assert "export FDAI_OPERATOR_API_LOCAL_ENTRA=1" in operator.command[2]
     assert operator.command[6] == "issue63-run-1"
 
     console = next(spec for spec in runner._service_specs() if spec.label == "console")
     assert 'export VITE_CACHE_DIR="$2"' in console.command[2]
+    assert "export VITE_LOCAL_AZURE_CLI_AUTH=0" in console.command[2]
+    assert "export VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM=0" in console.command[2]
     cache_dir = Path(console.command[5])
     assert cache_dir == runner.run_root / "vite-cache"
     assert tmp_path not in cache_dir.parents

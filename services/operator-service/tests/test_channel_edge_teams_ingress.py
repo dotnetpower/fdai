@@ -89,12 +89,17 @@ def _activity(
     ).encode()
 
 
-def _ingress(jwks: _Jwks | None = None) -> TeamsIngressVerifier:
+def _ingress(
+    jwks: _Jwks | None = None,
+    *,
+    attachments_enabled: bool = False,
+) -> TeamsIngressVerifier:
     return TeamsIngressVerifier(
         config=TeamsIngressConfig(
             tenant_id=_TENANT_ID,
             allowed_service_urls=frozenset({_SERVICE_URL}),
             principal_by_aad_object_id={"aad-user-example": "principal-example"},
+            attachments_enabled=attachments_enabled,
         ),
         tokens=TeamsServiceTokenVerifier(
             config=TeamsTokenConfig(application_id=_APPLICATION_ID),
@@ -194,13 +199,76 @@ async def test_teams_file_attachment_discards_content_url() -> None:
             "content": {"uniqueId": "file-example", "fileSize": 8},
         }
     ]
-    result = await _ingress().parse(
+    result = await _ingress(attachments_enabled=True).parse(
         body=json.dumps(activity).encode(),
         authorization="Bearer " + _token(),
         received_at=_NOW,
     )
     assert result.turn.attachments[0].source_ref == "teams-file:file-example"
     assert "evil" not in repr(result.turn.attachments)
+
+
+async def test_teams_attachment_fails_closed_when_protected_ingestion_is_disabled() -> None:
+    activity = json.loads(_activity())
+    activity["attachments"] = [
+        {
+            "contentType": "application/octet-stream",
+            "name": "evidence.bin",
+            "content": {"uniqueId": "file-example", "fileSize": 8},
+        }
+    ]
+
+    with pytest.raises(TeamsIngressError) as raised:
+        await _ingress().parse(
+            body=json.dumps(activity).encode(),
+            authorization="Bearer " + _token(),
+            received_at=_NOW,
+        )
+
+    assert raised.value.code == "attachments_unavailable"
+    assert raised.value.http_status == 422
+
+
+async def test_teams_attachment_availability_is_not_disclosed_before_authentication() -> None:
+    activity = json.loads(_activity())
+    activity["attachments"] = [
+        {
+            "contentType": "application/octet-stream",
+            "name": "evidence.bin",
+            "content": {"uniqueId": "file-example", "fileSize": 8},
+        }
+    ]
+
+    with pytest.raises(TeamsIngressError) as raised:
+        await _ingress().parse(
+            body=json.dumps(activity).encode(),
+            authorization="Bearer " + _token(audience="another-application"),
+            received_at=_NOW,
+        )
+
+    assert raised.value.code == "invalid_service_identity"
+    assert raised.value.http_status == 401
+
+
+async def test_teams_attachment_name_must_be_a_safe_leaf() -> None:
+    activity = json.loads(_activity())
+    activity["attachments"] = [
+        {
+            "contentType": "application/octet-stream",
+            "name": "../evidence.bin",
+            "content": {"uniqueId": "file-example", "fileSize": 8},
+        }
+    ]
+
+    with pytest.raises(TeamsIngressError) as raised:
+        await _ingress(attachments_enabled=True).parse(
+            body=json.dumps(activity).encode(),
+            authorization="Bearer " + _token(),
+            received_at=_NOW,
+        )
+
+    assert raised.value.code == "invalid_payload"
+    assert raised.value.http_status == 400
 
 
 async def test_teams_ingress_rejects_duplicate_json_keys_and_malformed_service_url() -> None:

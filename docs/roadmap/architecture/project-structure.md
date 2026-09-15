@@ -38,6 +38,7 @@ would need a separate, domain-bounded design that explicitly preserves coverage 
 ## Module Boundaries
 
 Dependency direction is strict and one-way; a violation is a review blocker.
+Cloud-reference collection belongs to ingestion API, parsing/index activation to the worker, and dated evidence to Core; [the lifecycle owner](../interfaces/cloud-resource-knowledge-lifecycle.md) defines the shared contracts and no-authority boundary. Core exposes applicability as bounded scalar selectors, preserving dependency-only evidence objects. Exact document contexts intersect these selectors before ranking and cannot fall back to broader collection reads. Each new ingestion test has one service-suite owner, and the API's already-declared `aiohttp` dependency is classified as direct rather than indirect. New cloud-reference packages use normalized-only v2 records; collector originals stay API-owned, while package/worker readers preserve exact v1 identity and unchanged approval gates.
 
 - **core is portable**: it MUST NOT import any cloud SDK directly. Cloud specifics enter
   only through the CSP-neutral interfaces in `shared/providers/`, whose implementations live
@@ -47,7 +48,7 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   `shared/` contracts, providers, telemetry, and config; `delivery/` may compose `core/` and
   `shared/` behind adapter boundaries; `composition/` binds all layers. `core/` and `agents/`
   never import `delivery/`; provider behavior enters through shared Protocols and composition.
-  Focused sibling modules may own canonical identity projection and hashing while the established owner module re-exports that public surface. Idempotency reservation stable-operation comparison follows this split; serialized bytes, transition validation, and replay semantics remain unchanged. Versioned terminal measurement contracts follow the same service boundary: Core retains normalized event classifications atomically with audit, and Operator reads them without importing Core or treating a classification as execution or effect authority. A duplicate acknowledgement requires matching retained facts; a collision cannot silently replace or discard the original classification. Measurement timestamps require explicit timezone-bearing datetime or ISO 8601 text, never implicit numeric epoch coercion.
+  Focused sibling modules may own canonical identity projection and hashing while the established owner module re-exports that public surface. Analyzer finding receipts, analyzer-job configuration and composition, and inventory snapshot context helpers follow the same split; their established modules continue to re-export public contracts, and no writer, provider, or authority moves. Idempotency reservation stable-operation comparison follows this split; serialized bytes, transition validation, and replay semantics remain unchanged. Versioned terminal measurement contracts follow the same service boundary: Core retains normalized event classifications atomically with audit, and Operator reads them without importing Core or treating a classification as execution or effect authority. Versioned operational activity follows that boundary: Core emits schema-validated, privacy-bounded records, Operator stores and relays only their read models, and Console localizes presentation only. Conflict evidence maps to machine-safe activity reason codes without changing its source token. A duplicate acknowledgement requires matching retained facts; a collision cannot silently replace or discard the original classification. Measurement timestamps require explicit timezone-bearing datetime or ISO 8601 text, never implicit numeric epoch coercion.
 - **human approval stays split by service authority**: Operator owns Teams/Slack authentication,
   cryptographic verification, callback audit, and the durable decision outbox. Core consumes only
   the typed decision event, routes workflow slots to the registry, and sends action parks to the
@@ -162,9 +163,9 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   The repository CLI parses content-free samples and never converts a trace commitment into a
   complete-trace claim. The adjacent `quality_trace.py` reducer accepts only record commitments and
   proves completeness from the exact ordered session-to-audit chain; it performs no provider read
-  and grants no qualification authority. `quality_timing.py` joins only matching source revisions,
-  trace counts, trace-set commitments, and the installed latency contract before deriving the two
-  qualification timing fields.
+  and grants no authority. `quality_timing.py` joins the installed contract, source revision,
+  trace count/set, and paired artifact digests before deriving timing fields. Legacy input remains
+  capped; runtime owners retain timestamp and producer authority, and Core/CLI cannot create it.
 - **authorization is instance-bound**: the context provider must return the exact Resource ID from
   `ExecutionAuthorizationRequest.target_resource_ref`. A mismatch holds before policy, identity,
   or effective-access evaluation and is retained in the no-authority audit context.
@@ -550,8 +551,7 @@ clearing the quality-gate. Boundary hardening keeps that sequence fail-closed: i
 comparison, T1 rejects malformed reuse evidence, and a T2 proposal cannot bypass grounding authority when a provider fails. HIL approval ids
 and executor idempotency keys are claimed atomically, while per-resource locking serializes competing applies before any delivery adapter
 can mutate state. HIL resume resolves catalog rules from the current catalog and accepts a parked server-validated operator-request rule
-only when its rule id, action type, and fixed check reference still match. Idempotency reservation identity and transition contracts remain in one Core module, while codec, lifecycle, and state-shape validation live in adjacent single-purpose modules with no authority; the facade re-exports lifecycle behavior without wrapper duplication.
-
+only when its rule id, action type, and fixed check reference still match. Idempotency reservation identity and transition contracts remain in one Core module, while codec, lifecycle, state-shape validation, HIL result records, and execution-effect completion live in adjacent single-purpose modules with no authority; the facade re-exports lifecycle behavior without wrapper duplication. Executor results cross Core as `accepted`, `pending`, `no_effect`, or `failed`; acceptance proves delivery only, while HIL, workflow, and reconciliation preserve original correlation plus supplied action-attempt identity and send any potentially effective outcome to independent reconciliation before claiming closure.
 ![Control-Loop Wiring. The main stages are events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.en.svg)
 
 ## Configuration Model
@@ -597,6 +597,7 @@ only when its rule id, action type, and fixed check reference still match. Idemp
   reviewed image composition supplies package code and resources. Core never imports an optional
   package, and package activation remains independent from user access and action promotion. Protected W7 workflows preserve exact release, Process, disclosure, and retention evidence without moving judgment, approval, execution, or promotion authority into package or Operator composition.
 - Service wire contracts live in `packages/service-contracts/src/fdai_service_contracts/`; `execution_safeguards.py` owns the provider-neutral, authority-free seven-proof bundle shared by Core, workflow, and isolated-Executor producers and validators. `recorded_resource_state.py` owns the provider-neutral state-path applicability sets and bounded unavailable-reason tokens shared by Core projection and Operator reads. Provider adapters may select only a reviewed token; provider response text and provisioning inference stay outside the contract.
+  `operational_activity.py` owns versioned, authority-free Agent Activity lifecycle evidence. Version `1.3.0` separates stable activity identity from transition idempotency and requires machine-safe reason codes. `runtime_call.py` owns exact caller and target Resource references plus the no-authority evidence metadata used by authenticated runtime-call projection. Core composition may enrich inventory only after exact release, generation, scope, freshness, and independent-verifier checks.
   Each versioned JSON Schema under `schemas/<contract-id>/<version>.json` is immutable, so a new
   field ships as a new additive version that older consumers keep ignoring. A repository-owned,
   checksum-pinned generator projects every compatibility-manifest N/N-1 schema into Python types

@@ -35,6 +35,7 @@ from fdai_service_contracts import (  # noqa: E402
     load_json_object,
     project_additive_fields,
     run_delivery_transition_harness,
+    transition_certified_matrix,
     validate_manifest,
     validate_peer_upgrade_receipt,
 )
@@ -89,6 +90,7 @@ def validate(
         "check-service-compatibility: OK "
         f"(mode={mode} proof_kind={mode} services={summary.service_count} "
         f"contracts={summary.contract_count} matrix_edges={summary.matrix_edge_count} "
+        f"transition_certified_edges={len(transition_certified_matrix(manifest))} "
         f"mechanics_proofs={receipt_summary.focused_receipts} "
         f"live_proofs={receipt_summary.live_receipts} "
         f"live_service_proofs={receipt_summary.live_services})"

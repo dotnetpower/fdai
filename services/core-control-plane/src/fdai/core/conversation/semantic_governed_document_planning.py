@@ -20,6 +20,7 @@ from fdai.core.ontology_platform.governed_document_queries import (
     GOVERNED_DOCUMENT_FUNCTION_NAME,
 )
 
+from .semantic_cloud_reference import cloud_reference_arguments, cloud_reference_constraints
 from .semantic_planning_frame_core import build_semantic_frame
 from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
 
@@ -50,6 +51,34 @@ def apply_document_evidence_requirement(
         updated = proposal.model_copy(update={"evidence_requirements": retained})
         return updated, build_semantic_frame(updated, utterance=utterance, context=context)
     requirement = _requirement(judgment.document_evidence_mode)
+    retained = tuple(
+        value
+        for value in proposal.evidence_requirements
+        if not value.startswith(_REQUIREMENT_PREFIX)
+    )
+    subjects = proposal.subject_constraints
+    if proposal.output_shape is SemanticOutputShape.GOVERNED_DOCUMENT_EXCERPTS:
+        subjects = tuple(value for value in subjects if not value.startswith("cloud-reference:"))
+        subjects += cloud_reference_constraints(judgment, utterance=utterance)
+    updated = proposal.model_copy(
+        update={
+            "evidence_requirements": (*retained, requirement),
+            "subject_constraints": subjects,
+        }
+    )
+    return updated, build_semantic_frame(updated, utterance=utterance, context=context)
+
+
+def apply_required_document_evidence(
+    proposal: SemanticFrameProposal,
+    frame: SemanticProblemFrame,
+    *,
+    utterance: str,
+    context: tuple[str, ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame]:
+    """Force the server-owned document lane for an exact request context."""
+
+    requirement = _requirement(SemanticDocumentEvidenceMode.REQUIRED)
     retained = tuple(
         value
         for value in proposal.evidence_requirements
@@ -118,7 +147,11 @@ def append_governed_document_plan(
             node.depends_on
             or node.node_id not in plan.output_node_ids
             or node.arguments.get("arguments")
-            != {"query": utterance.strip(), "evidence_mode": mode.value}
+            != {
+                "query": utterance.strip(),
+                "evidence_mode": mode.value,
+                **cloud_reference_arguments(frame),
+            }
             or node.arguments.get("dependency_arguments") != {}
         ):
             raise ValueError("existing governed document node does not match the required read")
@@ -183,6 +216,7 @@ def _build_plan(
                 "arguments": {
                     "query": query,
                     "evidence_mode": mode.value,
+                    **cloud_reference_arguments(frame),
                 },
                 "dependency_arguments": {},
             }
@@ -232,6 +266,7 @@ def _has_function(manifest: QueryManifest) -> bool:
 __all__ = [
     "append_governed_document_plan",
     "apply_document_evidence_requirement",
+    "apply_required_document_evidence",
     "compile_governed_document_plan",
     "document_evidence_mode",
 ]

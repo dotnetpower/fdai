@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import re
-from uuid import UUID
 
 from fdai.core.decision_case import ObjectiveEffect
 from fdai.core.ontology_platform.kinetics import ReconciliationStatus
@@ -53,18 +52,19 @@ class EffectReconciliationLineageMaterializer:
         operational_plan_id = mutation_plan.operational_plan_ref
         if operational_plan_id is None:
             return False
-        try:
-            action_id = str(UUID(outcome.correlation_id))
-        except ValueError:
+        restored = await self._artifacts.resolve_by_correlation(outcome.correlation_id)
+        if restored is None:
             return False
-        if action_id != outcome.correlation_id:
-            return False
+        action, correlation_artifacts = restored
+        action_id = str(action.action_id)
         resolved_artifacts = await self._artifacts.resolve_by_action_id(action_id)
         if resolved_artifacts is None:
             return False
         kinetic_receipt, artifacts = resolved_artifacts
         if (
-            artifacts.plan != mutation_plan
+            artifacts != correlation_artifacts
+            or kinetic_receipt.action_id != action.action_id
+            or artifacts.plan != mutation_plan
             or artifacts.active_release.ref() != outcome.request.evidence.ontology_release_ref
             or artifacts.action_type.name != mutation_plan.action_type_ref.name
             or artifacts.action_type.version != mutation_plan.action_type_ref.version
@@ -77,7 +77,7 @@ class EffectReconciliationLineageMaterializer:
         if proposal.plan != mutation_plan:
             raise ValueError("operational lineage proposal does not match reconciliation plan")
         execution = await self._observations.resolve_record(
-            action_id=outcome.correlation_id,
+            action_id=action_id,
             plan_digest=mutation_plan.digest,
         )
         if execution is None:
@@ -120,7 +120,7 @@ def _build_lineage(
     ):
         raise ValueError("operational lineage argument digest changed after dispatch")
     expected_effects = prospective.expected_effects
-    action_run_id = f"action-run:{outcome.correlation_id}"
+    action_run_id = f"action-run:{execution.action_id}"
     action_run = OntologyObjectRecord(
         id=action_run_id,
         object_type="ActionRun",

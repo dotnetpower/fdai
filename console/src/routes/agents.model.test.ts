@@ -68,7 +68,94 @@ function turnMsg(correlation_id: string): AgentActivityMessage {
   };
 }
 
+function operationalActivity(
+  activityId: string,
+): Extract<AgentActivityMessage, { type: "agent.operational-activity" }> {
+  return {
+    type: "agent.operational-activity",
+    schema_version: "1.0.0",
+    activity_id: activityId,
+    idempotency_key: activityId,
+    kind: "inventory.scan",
+    status: "completed",
+    owner_agent: "Huginn",
+    producer: "inventory-sync-job",
+    observation_domain: null,
+    observed_at: "2026-07-12T00:00:00+00:00",
+    source: "inventory",
+    freshness: "fresh",
+    evidence_count: 1,
+    duration_ms: 1,
+    correlation_id: activityId,
+    reason_codes: [],
+    execution_authority: false,
+  };
+}
+
 describe("agents.model", () => {
+  it("retains all 500 hydrated rows across live-first and later deltas", () => {
+    const activities = Array.from(
+      { length: 500 },
+      (_, index) =>
+        operationalActivity(`inventory.scan:attempt-${index}:completed`),
+    );
+    let state = makeInitialState();
+    for (const activity of activities.slice(0, 20)) {
+      state = reducer(state, { kind: "message", msg: activity });
+    }
+    state = reducer(state, {
+      kind: "hydrate-activity",
+      activities,
+    });
+    for (let index = 0; index < 100; index += 1) {
+      state = reducer(state, {
+        kind: "message",
+        msg: operationalActivity(`inventory.scan:new-${index}:completed`),
+      });
+    }
+    for (let index = 0; index < 100; index += 1) {
+      state = reducer(state, {
+        kind: "message",
+        msg: stateMsg("Huginn", "collecting", `live-${index}`),
+      });
+    }
+
+    const activityIds = new Set(
+      state.liveActivity.flatMap((event) =>
+        event.activityId === null ? [] : [event.activityId]
+      ),
+    );
+    expect(state.liveActivity).toHaveLength(700);
+    expect(
+      activities.every((activity) => activityIds.has(activity.activity_id)),
+    ).toBe(true);
+    expect(
+      state.liveActivity.filter((event) => event.retained === true),
+    ).toHaveLength(500);
+
+    for (let index = 100; index < 150; index += 1) {
+      state = reducer(state, {
+        kind: "message",
+        msg: operationalActivity(`inventory.scan:new-${index}:completed`),
+      });
+    }
+    const advancedIds = new Set(
+      state.liveActivity.flatMap((event) =>
+        event.activityId === null ? [] : [event.activityId]
+      ),
+    );
+    expect(
+      Array.from(
+        { length: 150 },
+        (_, index) => `inventory.scan:new-${index}:completed`,
+      ).every((activityId) => advancedIds.has(activityId)),
+    ).toBe(true);
+    expect(
+      state.liveActivity.filter((event) => event.operationalKind !== null),
+    ).toHaveLength(600);
+    expect(state.liveActivity).toHaveLength(700);
+  });
+
   it("seeds all 15 agents as unobserved", () => {
     const s = makeInitialState();
     expect(Object.keys(s.agents)).toHaveLength(15);
@@ -138,10 +225,11 @@ describe("agents.model", () => {
       kind: "hydrate-activity",
       activities: [activity],
     });
+    expect(state.liveActivity[0]?.source).toBe("replay");
     state = reducer(state, { kind: "message", msg: activity });
 
     expect(state.liveActivity).toHaveLength(1);
-    expect(state.liveActivity[0]?.source).toBe("replay");
+    expect(state.liveActivity[0]?.source).toBe("runtime-observed");
     expect(state.agents.Heimdall?.state).toBe("watching");
   });
 

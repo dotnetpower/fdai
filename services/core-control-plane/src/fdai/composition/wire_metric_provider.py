@@ -150,6 +150,7 @@ def _build_prometheus_route(
             base_url=base_url,
             queries=prom_queries,
             audience=audience,
+            case_insensitive_labels=frozenset({"resource_id"}),
         ),
         http_client=http_client,
         identity=identity if audience else None,

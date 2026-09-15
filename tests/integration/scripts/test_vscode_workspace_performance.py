@@ -74,7 +74,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
     assert isinstance(tasks, dict)
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
-    assert len(tasks_by_label) == len(tasks["tasks"]) == 24
+    assert len(tasks_by_label) == len(tasks["tasks"]) == 27
     allowed_instance_policies = {
         "terminateNewest",
         "terminateOldest",
@@ -90,7 +90,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
 
     prepare_stack = tasks_by_label["console: prepare full stack"]
     assert prepare_stack["command"] == (
-        "bash scripts/deployment/local/prepare-console-full-stack.sh"
+        "bash scripts/deployment/local/prepare-console-full-stack.sh --auth-mode browser-entra"
     )
     assert "dependsOn" not in prepare_stack
     assert prepare_stack["runOptions"] == {"instanceLimit": 1}
@@ -172,7 +172,9 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "console: start core runtime",
         "console: restart core runtime",
         "console: restart operator api",
+        "console: start local services",
         "console: start full stack",
+        "console: start full stack (Azure CLI debug, Contributor)",
         "console: keep full stack ready (10m)",
         "console: wait full stack ready",
         "analyzer: run continuously (local)",
@@ -230,6 +232,9 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "bash scripts/deployment/local/run-console-service.sh operator-api --wait-ready"
     )
     assert restart_operator_api["isBackground"] is True
+    assert restart_operator_api["options"]["env"] == {
+        "FDAI_CONSOLE_EXPECTED_AUTH_MODE": "browser-entra"
+    }
     assert restart_operator_api["runOptions"] == {
         "instanceLimit": 2,
         "instancePolicy": "silent",
@@ -241,7 +246,10 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     }
 
     local_services = tasks_by_label["console: start local services"]
-    assert local_services["command"] == ("bash scripts/deployment/local/start-console-services.sh")
+    assert local_services["command"] == (
+        "bash scripts/deployment/local/start-console-services.sh --auth-mode browser-entra"
+    )
+    assert local_services["hide"] is False
     assert local_services["isBackground"] is True
     assert "dependsOn" not in local_services
     assert local_services["runOptions"] == {
@@ -254,6 +262,19 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "endsPattern": "service=console-stack event=(ready|failed)(?: |$)",
     }
     assert local_services["presentation"]["close"] is True
+
+    cli_prepare = tasks_by_label["console: prepare full stack (Azure CLI debug, Contributor)"]
+    assert cli_prepare["command"].endswith("--auth-mode azure-cli")
+    assert cli_prepare["hide"] is True
+    cli_services = tasks_by_label["console: start local services (Azure CLI debug)"]
+    assert cli_services["command"].endswith("--auth-mode azure-cli")
+    assert cli_services["hide"] is True
+    cli_stack = tasks_by_label["console: start full stack (Azure CLI debug, Contributor)"]
+    assert cli_stack["dependsOn"] == [
+        "console: require primary worktree",
+        "console: prepare full stack (Azure CLI debug, Contributor)",
+        "console: start local services (Azure CLI debug)",
+    ]
 
     wait_ready = tasks_by_label["console: wait full stack ready"]
     assert "run-bounded-command.py" in wait_ready["command"]

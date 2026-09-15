@@ -66,6 +66,42 @@ def test_projection_merges_authoritative_sources_newest_first() -> None:
     assert items[0]["activity_id"] == "current-state.read:read-correlation:one:completed"
 
 
+@pytest.mark.parametrize(
+    ("status", "failure_code", "result_state"),
+    [
+        ("collecting", None, "not-recorded"),
+        ("failed", "provider_failure", "unavailable"),
+    ],
+)
+def test_partial_inventory_rows_do_not_poison_unmeasured_activity(
+    status: str,
+    failure_code: str | None,
+    result_state: str,
+) -> None:
+    payload = durable_activity_projection(
+        inventory_rows=(
+            {
+                "id": "attempt-partial",
+                "status": status,
+                "source": "azure-resource-graph",
+                "started_at": NOW,
+                "completed_at": NOW if status == "failed" else None,
+                "failure_code": failure_code,
+                "resource_count": 10,
+                "link_count": 5,
+            },
+        ),
+        ontology_rows=(),
+        read_rows=(),
+        limit=10,
+    )
+
+    item = payload["items"][0]
+    assert item["result_state"] == result_state
+    assert item["evidence_count"] == 0
+    assert item["result_count"] is None
+
+
 def test_projects_durable_observation_campaign_activity() -> None:
     payload = durable_activity_projection(
         inventory_rows=(),
@@ -92,11 +128,15 @@ def test_projects_durable_observation_campaign_activity() -> None:
     )
 
     item = payload["items"][0]
-    assert item["schema_version"] == "1.1.0"
+    assert item["schema_version"] == "1.3.0"
     assert item["kind"] == "observation"
     assert item["observation_domain"] == "resource-health"
     assert item["owner_agent"] == "Heimdall"
     assert item["activity_id"] == "observation:resource-health:campaign-1:completed"
+    assert item["activity_instance_id"] == "observation:resource-health:campaign-1"
+    assert item["result_state"] == "measured"
+    assert item["result_count"] == 2
+    assert item["result_unit"] == "records"
 
 
 def test_projects_in_progress_observation_without_terminal_fields() -> None:
@@ -112,8 +152,6 @@ def test_projects_in_progress_observation_without_terminal_fields() -> None:
                     "domain": "activity-log",
                     "campaign_id": "campaign-active",
                     "status": "started",
-                    "evidence_count": 0,
-                    "reason_codes": [],
                     "started_at": "2026-08-14T00:00:00+00:00",
                 },
                 "updated_at": "2026-08-14T00:00:00+00:00",
@@ -127,6 +165,63 @@ def test_projects_in_progress_observation_without_terminal_fields() -> None:
     assert item["freshness"] == "unknown"
     assert item["duration_ms"] is None
     assert item["activity_id"] == "observation:activity-log:campaign-active:started"
+
+
+def test_projects_explicit_freyr_metrics_owner_without_reclassification() -> None:
+    payload = durable_activity_projection(
+        inventory_rows=(),
+        ontology_rows=(),
+        read_rows=(),
+        observation_rows=(
+            {
+                "key": "observation-campaign:source:capacity-metrics",
+                "value": {
+                    "source_id": "capacity-metrics",
+                    "domain": "metrics",
+                    "owner_agent": "Freyr",
+                    "campaign_id": "campaign-capacity",
+                    "status": "completed",
+                    "freshness": "fresh",
+                    "evidence_count": 1,
+                    "duration_ms": 50,
+                    "reason_codes": [],
+                    "completed_at": "2026-08-14T00:00:00+00:00",
+                },
+                "updated_at": "2026-08-14T00:00:00+00:00",
+            },
+        ),
+        limit=10,
+    )
+
+    assert payload["items"][0]["owner_agent"] == "Freyr"
+
+
+def test_omits_ambiguous_legacy_metrics_owner() -> None:
+    payload = durable_activity_projection(
+        inventory_rows=(),
+        ontology_rows=(),
+        read_rows=(),
+        observation_rows=(
+            {
+                "key": "observation-campaign:source:capacity-metrics",
+                "value": {
+                    "source_id": "capacity-metrics",
+                    "domain": "metrics",
+                    "campaign_id": "campaign-capacity",
+                    "status": "completed",
+                    "freshness": "fresh",
+                    "evidence_count": 1,
+                    "duration_ms": 50,
+                    "reason_codes": [],
+                    "completed_at": "2026-08-14T00:00:00+00:00",
+                },
+                "updated_at": "2026-08-14T00:00:00+00:00",
+            },
+        ),
+        limit=10,
+    )
+
+    assert payload["items"] == []
 
 
 def test_projection_rejects_failed_inventory_without_reason() -> None:

@@ -401,7 +401,7 @@ export function conversationLabelForPrompt(
   prompt: string,
   hasOperatorTurn: boolean,
 ): string {
-  if (summary.agent) return summary.agent;
+  if (summary.agent || summary.binding) return summary.label;
   if (!hasOperatorTurn) return conversationTitle(prompt);
   return summary.label;
 }

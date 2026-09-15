@@ -132,6 +132,7 @@ async def test_run_store_retains_complete_tick_reports_without_authority() -> No
 
     assert len(records) == 2
     assert {record["run_id"] for record in records} == {"run-1", "run-2"}
+    assert {record["schema_version"] for record in records} == {"1.3.0"}
     assert all(record["execution_authority"] is False for record in records)
     assert all(len(str(record["report_digest"])) == 64 for record in records)
 

@@ -1,11 +1,11 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 544f084ce904027a6f22b91126015d64a49ef880
-translation_revised: 2026-09-13
+translation_source_sha: aeb41e8f7758757890350cc77a3aaefd87ec43cc
+translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
-이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
+이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다. 지식 전체 현황은 [클라우드 참조 수명 주기](cloud-resource-knowledge-lifecycle-ko.md)의 날짜, 가장 제한적인 출처 최신성, 정확한 바이트의 패키지 검토와 확인된 롤백 요청을 표시합니다. 반입이나 색인 검증 대기를 검색 활성화로 표시하지 않으며 원본 URL은 표시용으로 유지합니다. 만료된 정책은 이력을 숨기지 않고 쓰기 작업을 차단합니다. 대소문자를 구분하지 않는 JSON 파일명 검사는 파일 형식만 검증하며 대화 의도를 해석하지 않습니다.
 ## 탐색 컨텍스트
 활동 Bar 영역을 선택하면 Explorer가 열리고 운영자의 로컬 순서 및 표시 설정에 따라 첫 번째 visible 패널로 이동합니다. Command Deck이 닫혀 있거나 floating 상태여도 이 탐색은 동작하며, full-workspace Deck은 경로가 변경되기 전에 닫힙니다. 현재 화면 Command Deck을 여는 브라우저 근거는 `Overview`와 같은 일반 패널에서 시작합니다. `Settings`는 모달 오버레이를 소유하므로 뒤쪽의 실행 버튼을 누르는 컨텍스트로 사용하지 않습니다.
 좌측 메뉴의 대화 버튼은 경로나 탐색 패널을 바꾸지 않고 일반 대화를 열거나 이어갑니다. `aria-pressed` 상태는 일반 대화만 나타냅니다. 하단 버튼과 `Ctrl+K` 또는 `/`는 현재 화면의 별도 대화를 엽니다. 일반 대화는 전체 작업 영역, 화면 대화는 우측 패널이 기본값입니다. 마우스를 올리거나 키보드 포커스를 주면 좌측 툴팁은 오른쪽에, 하단 툴팁은 위쪽에 표시하며 참고 맥락과 실제 열기 또는 닫기 동작을 안내합니다. 초안 보존과 명시적 화면 추가는 [대화 수명 주기](operator-console-progressive-conversations-ko.md#command-deck-작업-영역-수명-주기)에서 정의합니다.
@@ -76,11 +76,7 @@ Integrations는 sandboxed iframe으로 incident-open 이메일도 렌더링합�
 엔드포인트는 Azure Communication Services 이메일이 사용하는 동일한 운영 렌더러를 호출하고
 합성 자리 표시자만 제공합니다. 미리 보기는 런타임 인시던트, 엔드포인트, recipient 또는 신원 값을
 노출하지 않으며 전송, 승인 또는 실행 컨트롤을 제공하지 않습니다.
-Operations에는 Muninn의 영속 StateSnapshot만 사용하는 감지 준비도 경로가 있습니다.
-이 화면은 Heimdall 판정, 6개 근거 차원, 공백, 권한 상한, 원본, 관찰 시각을 표시합니다.
-브라우저는 AKS를 탐색하거나 대체 판정을 만들지 않습니다. 각 대상은 아키텍처 리소스로,
-승격 관련 개수는 승격 gates로 연결됩니다. 성공한 HTTP 응답이 strict 디코딩을
-통과하지 못하면 해당 경로와 Capabilities는 로딩 골격에 머물거나 알 수 없는 자율성 모드를 적용으로 취급하지 않고 오류를 렌더링합니다.
+Operations는 `/detection-coverage`에서 감지 커버리지를 제공하고 `/detection-readiness`를 호환 별칭으로 유지합니다. 이 경로는 최신 시도, 최근 성공한 실행, 보존된 발견 사항 및 정확한 리소스의 선택형 Kubernetes 근거를 분리합니다. 필터와 선택은 URL에 유지하고 정규 사유는 기술 상세에 보존합니다. 브라우저는 성공 응답에서 리소스 상태, 준비도, 커버리지 또는 권한을 추론하지 않습니다.
 Server-pinned drift 맥락이 있으면 GET-only 구성 기준선 경로가 신원, 수명 주기, drift, Knowledge 인용, topology, 지연 시간, 예약 검토, 네 안전성 counter를 fresh 읽기로 표시합니다.
 연결 또는 campaign 부재는 사용 불가이나 `not-configured`로 보고하며 진행 상황을 만들지 않고 malformed 데이터를 strict하게 거부하며 in-scope 변경할 수 없는 버전 비교와 failed-attempt 개수를 읽습니다. SPA는 activation, 재개, 예약 생성, 승인, 완화, 리소스 변경을 노출하지 않고 evidence-run, 재개, 청사진 검토, 구체화는 별도 인증된 경로를 사용합니다.
 운영은 mounted JSON/DOCX 쌍, 읽기 전용 Managed Identity, exact resource-group 허용 목록을 시작에서 검증한 뒤 패널을 노출합니다. Operator API는 실행기 신원을 받지 않습니다.
@@ -137,7 +133,7 @@ Exact Incident deep link는 두 변환 결과의 analytical snapshot sequence가
 결과는 라벨이 있는 content-local cue로 계속 표시합니다.
 Console 카드 계약 테스트는 shared KPI 목적지를 확인하고, 중첩된 whole-card 링크를 차단하며,
 nullable KPI 값에 근거 상태를 요구하고, raw 데이터 카드에 링크 또는 명시적 상세 컨트롤을
-요구하며, structural 카드 이름을 차단합니다.
+요구하며, structural 카드 이름을 차단합니다. 탐지 범위 사유와 Trace 상관관계, 단계 및 타임스탬프 세부 정보는 포인터 또는 키보드 포커스에서 공용 툴팁을 사용하며, 네이티브 `title` 속성은 포함된 프레임에만 사용합니다. 로딩 및 사용 불가 범위 카드는 소유 화면 링크를 유지하고, 영향 범위는 읽기 전용 권한을 바꾸지 않으면서 반응형 단일 열 모바일 양식, 라벨이 있는 근거 그래프 및 44 px 모바일 컨트롤을 사용합니다. 관계 범례 견본은 두꺼운 색상 콘텐츠 표면 경계 대신 키 안의 색상과 선 패턴을 사용합니다.
 
 운영 성과는 지표, 값, 기준선, 구간, 표본 수, 신뢰도와 출처를 범위가 제한된
 Command Deck 스냅샷으로 제공합니다. 영역별 분석은 자동 해결률 화면에만 포함합니다.
@@ -391,7 +387,7 @@ Read-source 출처 이력, 온톨로지 browse, 화면 간 operational 및 인�
 근거에서 결정론적으로 렌더링됩니다. 온톨로지 browse는 대상과 browse verb를 요구하고,
 허용 목록에 있는 신원 필드와 256자 이하 프롬프트 값만 전달하며, 중복되거나 malformed인 개수와
 선택을 사용 불가로 표시합니다. 온톨로지 변환 결과와 결정론적 browse 답변은 일반 프롬프트
-assembly와 분리된 자체 프롬프트 모듈에 위치합니다. Ontology Instances는 활성 세대 프로바이더 유형 커버리지를 Resource 상태 및 관계 커버리지와 분리해 전달하며, 브라우저는 일치하는 개수를 검증하고 원시 개체 식별자나 속성 없이 범위가 제한된 unknown 유형 이름을 표시합니다. Promotion Gates는 서버가 결합한 영속 모드와 catalog-default 또는 registry 출처를 표시하며 브라우저 값은 두 필드를 만들 수 없습니다. 모드 필드가 유효해도 형식이 잘못된 누락 근거 목록은 거부하며, 디코더 회귀 테스트 데이터는 두 검증을 각각 확인해야 합니다. Dashboard v2는 타입이 지정된 인벤토리 또는 온톨로지 세대 전환에만 제한된 전체 페이지 탐색을 다시 시작하고, 일부 페이지를 버리며, 처음 시작한 제한 시간을 지연된 재시도 2회와 공유합니다. 지속되는 불일치는 세대를 섞거나 빈 인벤토리를 반환하지 않고 계속 표시합니다. Architecture map은 모든 정식 ResourceType에 명시적인 계층, 색상 토큰 및 약어를 할당하며 알 수 없는 미래 유형만 일반 fallback을 사용합니다.
+assembly와 분리된 자체 프롬프트 모듈에 위치합니다. Ontology Instances는 활성 세대 프로바이더 유형 커버리지를 Resource 상태 및 관계 커버리지와 분리해 전달하며, 브라우저는 일치하는 개수를 검증하고 원시 개체 식별자나 속성 없이 범위가 제한된 unknown 유형 이름을 표시합니다. Promotion Gates는 서버가 결합한 영속 모드와 catalog-default 또는 registry 출처를 표시하며 브라우저 값은 두 필드를 만들 수 없습니다. 모드 필드가 유효해도 형식이 잘못된 누락 근거 목록은 거부하며, 디코더 회귀 테스트 데이터는 두 검증을 각각 확인해야 합니다. Dashboard v2는 타입이 지정된 인벤토리 또는 온톨로지 세대 전환에만 제한된 전체 페이지 탐색을 다시 시작하고, 일부 페이지를 버리며, 처음 시작한 제한 시간을 지연된 재시도 2회와 공유합니다. 지속되는 불일치는 세대를 섞거나 빈 인벤토리를 반환하지 않고 계속 표시합니다. Architecture map은 모든 정식 ResourceType에 명시적인 계층, 색상 토큰 및 약어를 할당하며 알 수 없는 미래 유형만 일반 fallback을 사용합니다. 상관관계 Trace는 서버가 변환한 액션 ID, 시도 번호, 실행 경로, 결과를 보존합니다. 자연어 라우터를 추가하지 않고 정확한 이벤트 이름 경계로 시도별 제안, 판단, 승인, 전달, 관측, 복구를 분류하며, 근거 누락은 `기록 없음`, 입증된 무효과는 `시도 안 함`으로 표시하고 누락에서 성공을 추론하지 않습니다.
 Reader-gated `/ontology/graph` 변환 결과는 스키마 버전, 변환 결과 개정, 릴리스 다이제스트,
 선언 기록, 의미 맵 프로필 및 카탈로그 토폴로지를 포함하는 하나의 exact 카탈로그 릴리스를
 제공합니다. 배포 인스턴스 속성은 반환하지 않습니다. 런타임 객체와 상태 사실은 기준 시각,
@@ -503,10 +499,7 @@ Cross-origin direct-upload 대상에는 내용 헤더를 보내지만 Operator A
 
 ## 스트림 복구 및 authentication
 
-인증된 실제 운영, 에이전트 및 프로비저닝 SSE 읽기 담당은 keepalive comment를 포함해 45초 동안 바이트가 없으면
-취소하고 범위가 제한된 reconnect를 사용합니다. 프로비저닝은 이벤트 전달 실패 시 읽기 담당도 취소합니다.
-에이전트 스트림의 `401`은 전체 화면 login 복구를 기다리고, `403`은 새 App 역할을 페이지 reload 없이
-반영할 수 있도록 reconnect합니다.
+인증된 GET-SSE 소비자는 범위가 제한된 parsing, 비활성 timeout, 재연결 및 커서 처리를 공유합니다. Decoder가 프레임을 수락한 뒤에만 커서를 진행하며 커서 전용 `400` 또는 `416`과 검증된 `stream_epoch_changed` 누락 프레임만 커서를 지웁니다. Epoch 전이 뒤 현재 스냅샷을 다시 받고, 프레임 폐기 수를 만들어 내지 않으면서 스트림 재시작으로 표시합니다. 인증, 요청 제한 및 거부된 프레임은 커서와 backoff를 보존합니다. 서버의 누락 안내는 표시하지만 로컬 cache 제거는 wire 손실이 아닙니다. 소비자별 visibility와 탭 정책은 분리하고 요청 범위 대화 스트림은 별도 경로를 유지합니다.
 
 Command Deck 조사 활동에는 선택적인 관찰된 실행 근거가 포함될 수 있습니다. 서버는 발행 전에 자격 증명과 민감한 식별자를 제거하고 `redacted=true`를 설정하며, 브라우저는 이 확인이
 없는 입력 근거를 폐기합니다. `input_kind=command`는 기록된 프로세스 호출이 필요하며 exit
@@ -565,16 +558,9 @@ Web 작성기는 선택, 폐기 및 clipboard paste raster를 동일한 범위�
 Turn이 검증된 inline 이미지 첨부를 carry하면 스트리밍 경로는 서술기가 작성하기 전에 읽기 전용 `vision_analyzing`을, 답변 전에 `vision_grounded`를 발행하며, 각 프레임은 이미지 출처 미리 보기(이름, media 타입, 크기)를 포함하되 base64 페이로드는 절대 포함하지 않습니다.
 해당 턴은 vision 지원 서술기로 escalate되고, 답변 준비 trace는 이 단계를 웹 검색 grounding과 동일하게 렌더링합니다.
 
-Interactive 실제 운영 경로는 tab이 hidden 상태일 때 SSE 읽기 담당을 pause합니다. Shell의 인시던트,
-액세스 권한 및 Operator가 활성화한 브라우저 notification 소비자는 Web Locks를 사용해 same-origin 탭의
-각 채널에서 principal 범위로 한정된 읽기 담당 하나를 선출합니다. 인시던트 및 액세스 권한 leader는
-검증된 스냅샷을 `BroadcastChannel`을 통해 follower 탭으로 보내므로 각 shell은 중복 SSE 연결을 열지
-않고 attention 상태를 유지합니다. Notification leader는 background에서 인증된 실제 운영 읽기 담당을
-유지합니다. 이 고정 연결 예산은 HTTP/1.1에서 일반 Operator API 요청에 필요한 용량을 남깁니다.
-Notification leader는 기존 capped 재시도 대기로 authentication 실패를 재시도하며, notification 권한
-또는 principal 범위로 한정된 명시적 선택이 제거되면 즉시 중지합니다. 재생이 아닌 프레임의 사람 승인,
-거부, 실패 결과만 발행합니다. Shared 브라우저 원장은 여러 tab에서 같은 이벤트 tag를 5분 동안 억제하고
-system notification 전달을 분당 5건으로 제한하지만 감사 또는 인시던트 근거는 제거하지 않습니다.
+Live 단계, 준비 상태 및 권한이 없는 활동은 인증된 `/live/stream` 하나를 공유합니다. 스냅샷은 Operator 발급 delta 커서를 진행하지 않으며, 범위가 제한된 cache는 독립 GET 변환 결과를 대체하지 않고 늦은 로컬 구독자에게 현재 프레임을 제공합니다. 에이전트 상태와 보존 이력은 별도 경로와 권한을 유지합니다. 표준 스택 Live E2E 실행 장치는 이 연결 예산, 타입이 지정된 현재 활동, 명시적 보존 이력 읽기 및 반응형 표현을 측정하지만, 실행 장치 자체가 인증된 런타임 검증은 아닙니다.
+
+Interactive Live 구독자는 tab이 hidden 상태일 때 유휴 상태를 보고합니다. Shell의 인시던트, 액세스 권한 및 Operator가 활성화한 브라우저 notification 소비자는 Web Locks를 사용해 same-origin 탭의 각 채널에서 principal 범위로 한정된 읽기 담당 하나를 선출합니다. 인시던트 및 액세스 권한 leader는 검증된 스냅샷을 `BroadcastChannel`을 통해 follower 탭으로 보내므로 각 shell은 중복 SSE 연결을 열지 않고 attention 상태를 유지합니다. Notification leader는 background에서 인증된 실제 운영 읽기 담당을 유지합니다. 이 고정 연결 예산은 HTTP/1.1에서 일반 Operator API 요청에 필요한 용량을 남깁니다. Notification leader는 기존 capped 재시도 대기로 authentication 실패를 재시도하며, notification 권한 또는 principal 범위로 한정된 명시적 선택이 제거되면 즉시 중지합니다. 재생이 아닌 프레임의 사람 승인, 거부, 실패 결과만 발행합니다. Shared 브라우저 원장은 여러 tab에서 같은 이벤트 tag를 5분 동안 억제하고 system notification 전달을 분당 5건으로 제한하지만 감사 또는 인시던트 근거는 제거하지 않습니다.
 
 에이전트 활동 경로는 shared 에이전트 스트림을 열기 전에 범위가 제한된 영속 인벤토리 검사,
 온톨로지 변환 및 현재 상태 읽기 기록을 불러옵니다. 정확한 activity id로 재생과 실제 운영 전달을
@@ -584,7 +570,7 @@ malformed, 미래 또는 권한을 가진 프레임은 선언된 연결을 관�
 API 복제본은 instance-scoped 소비자 그룹을 사용하므로 모든 Console이 완전한 하트비트 집합을
 수신합니다. Give up 또는 halt된 소비자는 형제를 유지한 채 health-derived 하트비트에서 빠지고 Saga
 또는 Vidar 실패는 sticky shadow를 계속 강제합니다. 이 기록은 액션 감사 근거의 복사본이 아닌 운영
-활동입니다.
+활동입니다. 활동 저널은 Saga 감사 체인 복사본, 시작 감사 점검 및 원시 관측 전이 행을 제외합니다. Waterfall은 이 감사 근거를 유지하며 명시된 Pantheon principal, `owner_agent`, 알려진 actor 또는 고정된 레거시 작업 소유자만 사용해 책임 에이전트를 표시합니다. 알 수 없는 기계 생산자를 추측으로 배정하지 않습니다. 에이전트 활동은 에이전트별 감사와 인계 순서를 보여주는 시간 기반 작업 공간을 소유합니다. URL로 복원할 수 있는 역할 및 소유권 대화 상자는 고정 보고 트리, 역할 소유권, 권한 경계 및 보조 현재 상태만 포함하고 닫힐 때 기존 필터를 유지하며, `/pantheon`과 같은 역할 전용 컴포넌트를 사용합니다. 두 화면 모두 인시던트 시간 순서나 대화 근거를 중복 표시하지 않습니다.
 
 Command Deck은 완전한 또는 pending SSE 프레임이 256 KiB를 넘으면 `data:` 줄 누적이나 JSON parse
 전에 거부하고 결정론적 interrupted-stream 대체 경로를 사용합니다. Correlation-filtered 액션
@@ -599,66 +585,51 @@ Console 데이터를 열기 전에 초기화는 인증된 `GET /iam/self`로 pri
 
 ## 아키텍처 지도 복원력
 
-아키텍처 경로는 지도 오른쪽 위에 떠 있는 간결한 패널에 범위 선택만 배치합니다. 인벤토리 개수, 설명문 및 계층 필터는 표시하지 않습니다. 리소스를 선택하기 전의 Map 모드는 리소스, 관계, 지도 컨트롤, 범례 또는 관계 인덱스를 렌더링하지 않으며 리소스 선택기, 범위 선택기, 표현 모드 컨트롤 및 가운데 선택 안내는 계속 사용할 수 있습니다. 리소스를 선택하면 범위가 제한된 지도와 점검 컨트롤을 표시합니다. 잘린 그래프는 짧은 상태 배지 하나로 알립니다. Resource-color legend는 floating 또는 bottom 패널이 아니라 구독 경계 옆 세계 하한에 직접 그립니다. Camera fit은 범례가 들어갈 하한 공간을 예약합니다. 고정된 legend box, title 또는 color swatch 없이 리소스 타입 이름을 해당 하한에 직접 표시합니다. 타입 이름은 pan과 함께 이동하고 읽을 수 있는 범위 안에서 지도 zoom에 비례해 조정됩니다.
-Resource glyph는 Microsoft Cloud Adoption Framework의 [Azure 리소스 abbreviations](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations)를 사용합니다. 알려진 모든 정본 타입은 명시적인 lowercase abbreviation을 가지며, Kubernetes API 타입은 runtime layer, AKS color family 및 자동 initialism이 아닌 고정된 확장을 사용합니다. focused 검사가 카탈로그 어휘를 훑어 선언된 ResourceClass에 layer, 색, abbreviation이 없으면 실패합니다. 그렇지 않으면 지도는 계속 그리면서도 해당 타입을 일반 대체 도형으로 조용히 뭉개기 때문입니다. `llm-model-deployment` 하위 리소스는 runtime layer, 기존 Azure application-service 색상 계열, 안정적인 `model` 약어를 사용하고 상위 리소스는 `llm-endpoint`로 유지합니다.
-관계 legend는 간결한 캔버스 컨트롤로 유지합니다. 기본 isometric 지도는 Reflections와 Connections가 활성화된 상태로 시작합니다. Containment는 흐린 dashed 링크로, 첨부 및 의존성은 각각의 directional style로 표시하고 리소스 형태를 렌더링합니다. Top 및 front 화면은 선택적입니다. 단순 변환 결과는 선택된 단일 범위를 포함한 모든 resource-group 패널의 크기를 관찰된 하위 수에 따라 정하고 균형 잡힌 세계에 패널을 배치합니다. Focused 서비스 및 resource-group 화면은 full 구독 프레임이 아니라 repacked 내용에 맞춰 표시합니다. Resource 노드는 표준 Event Grid 토픽 블록보다 작게 렌더링되지 않습니다. 인벤토리에 맞춰 세계와 캔버스가 커지며 authored 중첩된 배치는 supplied 형상을 유지합니다. 지도는 workspace 전체 너비를 사용하고 점검 상세는 아래에 배치합니다. 좁은 뷰포트에서는 box를 읽을 수 없게 줄이는 대신 노드 크기를 유지하고 지도 panning을 사용합니다. 선택은 인벤토리를 reload하지 않고 정본 deep 링크를 갱신하며 technical 식별자보다 directional 관계를 먼저 표시합니다. 선택 중에는 모든 공통 리소스 coordinate를 유지하면서 auxiliary neighbor만 표시합니다. 관련 없는 리소스는 흐리게 처리하지 않으며 선택된 outline과 점검 상세만 사용해 선택을 나타냅니다. 가상 머신을 포함한 모든 리소스 선택은 현재 camera 규모와 position을 유지합니다. Zoom, fit, pan 및 camera-view 컨트롤은 운영자가 명시적으로 조작할 때만 변경됩니다.
+아키텍처 경로는 Ontology Instances 표현과 같은 그래프 우선 작업 영역을 사용합니다. 상단 툴바에는
+등록된 범위 선택, 범위가 제한된 Resource 검색, `Topology | Network` 보기, 간결한 읽기 전용 출처
+상태만 배치합니다. 범위 선택은 권위 있는 변환 결과를 다시 불러옵니다. Resource 검색은 해당 변환
+결과가 이미 반환한 기록만 선택하며 범위가 제한된 페이지를 완전한 테넌트 검색으로 표시하지 않습니다.
 
-별도의 `Network` 모드는 완전한 인벤토리 응답을 권위 있는 상태로 유지하고 isometric 표현을 범위가 제한된 2D 포커스로 바꿉니다. 리소스를 선택한 경우 해당 VNet을 선택하고, 선택한 리소스가 없으면 관측된 subnet containment가 가장 많은 VNet을 선택합니다. VNet 및 subnet 사각형은 타입이 지정된 `contains` 링크로 다시 만들며 리소스 배치는 아래의 제한된 unique-subnet attachment 규칙만 사용합니다. 범주 필터 6개, 선택 및 경로 강조는 표현만 바꿉니다.
+선택 전에도 토폴로지를 표시합니다. 결정론적 표현은 프로바이더 보조 리소스를 접고 모든 반환 개수는
+별도의 표현 범위 영역에 유지합니다. 이 영역은 표시된 Resource와 관계, 반환된 Resource와 관계,
+스냅샷 시각, 최신성, 완전 또는 부분 범위를 구분합니다. Resource를 선택하면 공통 좌표를 유지하고
+직접 보조 이웃을 표시하며 정본 딥 링크를 갱신하고 인벤토리를 변경하지 않은 채 비모달 상세 패널을
+엽니다.
 
-소스-대상 쿼리는 보고된 `attached_to`, 저장 방향의 `depends_on` 및 대칭 `peered_with` 관계만 탐색합니다. 그래프가 최신이고 잘리지 않았으며 세 관계 종류 모두 완전한 범위를 선언할 때만 `no_observed_path`를 반환합니다. 그 외의 모든 부정 결과는 `unknown`입니다. 식별자가 없는 내보내기는 스냅샷 시각, 최신성, 완전성 및 리소스 타입 라벨을 유지하면서 이름, 원시 프로바이더 id, 구독 id, 엔드포인트 및 자격 증명을 제외합니다. SVG와 PNG는 같은 정제된 SVG 소스를 사용합니다.
+작업 영역은 토폴로지, Network 및 영향 범위 지도에 하나의 접근 가능한 직교 SVG를 사용합니다.
+Subscription, Resource Group, VNet 및 Subnet 기록은 중첩된 중립 경계로 표시합니다. Resource는
+검토된 공식 아이콘을 사용할 수 있으면 이를 사용하고, 그렇지 않으면 Cloud Adoption Framework의
+고정된 약어를 사용합니다. 간결한 텍스트, 접근 가능한 이름, 검색 및 상세 패널은 색상에 의존하지
+않고 이름, 타입 및 상태를 유지합니다. 타입이 지정된 간선은 현재 노드 또는 경계 형상에서 끝납니다.
+포함 관계는 공간으로 표현하고 `attached_to`, `depends_on`, `peered_with`는 구분되는 경로,
+엔드포인트 점 및 방향 표시를 유지합니다.
 
-Factual 개수와 점검 인덱스는 계속 완전한 권위 있는 인벤토리를 사용합니다. Isometric
-개요는 네트워크 인터페이스와 managed disk를 표시하고 진단, certificate 및 프로바이더 보조 로직
-리소스를 접는 presentation-only 변환 결과를 적용합니다. 표시된 각 소유자는 접힌 neighbor
-수에 해당하는 `+N` 배지를 표시합니다. Resource를 선택하면 새 인벤토리를 요청하거나 만들어 내지
-않고 direct auxiliary 하위와 semantic neighbor를 표시합니다. 개요는 표시된 리소스만 packing하고
-하위를 계층 및 타입 순서로 정렬하며 접힌 소유자 옆에 최대 두 개의 satellite 자리를 예약합니다. 큰
-resource-group 패널을 wide 행에 먼저 배치하므로 숨겨진 auxiliary가 빈 grid hole을 만들거나 세계를
-부풀리지 않습니다. Virtual Network와 subnet은 낮은 하한
-레인으로 렌더링하므로 compute, 데이터 및 게이트웨이 노드를 네트워크 plane 위에서 읽을 수 있습니다. 하한
-레인은 reflection을 렌더링하지 않습니다. Azure 인벤토리는 VNet 페이로드 안에서 관찰된 subnet만
-`network.subnet` 기록으로 승격하고 관찰된 VNet-to-subnet containment 간선을 생성합니다. Console은
-등록된 `attached_to` 링크가 범위가 제한된 resource-to-interface-to-subnet 체인 안에서 하나의 subnet에만
-도달하거나 disk가 범위가 제한된 disk-to-workload-to-interface-to-subnet 체인으로 도달할 때 리소스를 해당
-subnet에 배치합니다. 구성원이 없거나 모호하면 resource-group의 neutral
-하한에 유지하며 이름과 프로바이더 식별자를 topology 근거로 사용하지 않습니다.
+오른쪽 상세 패널은 접을 수 있으며 같은 작업 영역에 유지됩니다. 개요는 선택한 상태와 영향 범위
+이동을 소유합니다. 관계는 정확한 직접 수신 및 송신 관계를 소유합니다. 경로는 Network 소스와 대상,
+근거 결과, 필터 및 정제된 내보내기를 소유합니다. 출처는 스냅샷, 최신성, 표시 및 반환 개수,
+완전성, 보고된 관계 타입 및 기술 식별자를 소유합니다. 제한된 너비에서는 상세 패널이 그래프
+아래로 이동하며 선택, 탭, 배율 또는 경로 상태를 버리지 않습니다.
 
-Isometric 렌더러는 VNet을 outer 하한으로, subnet을 visible 구성원 수에 따라 크기가 정해지는 inset
-하한 plane으로 그립니다. Evidence-derived 구성원 rail과 direct `attached_to` 링크는 하한에
-유지하고 `depends_on` arrow는 리소스 top 위에 유지합니다. Plane 이름은 floating 라벨 카드 없이
-세계 축을 따릅니다. Plane을 선택하면 동일한 리소스 inspector를 사용하며 가장 작은 containing
-plane이 포인터 대상으로 유지됩니다. Focused 서비스 또는 resource-group 화면은 공간이 허용될 때
-3개의 네트워크 하한을 한 행에 배치하는 wide packing 대상을 사용합니다. 완전한 인벤토리 화면보다
-작은 desktop legend reserve와 캔버스 높이를 사용합니다. 좁은 뷰포트에서는 동일한 노드 크기를
-유지하고 캔버스를 520 px로 제한하며 더 넓어진 하한을 panning으로 탐색합니다.
+Network 보기는 완전한 `InventoryGraphResponse`를 권위 있는 상태로 유지합니다. **범위 개요**를
+선택하면 반환된 모든 VNet과 범위 안의 Resource를 표시합니다. Resource를 선택할 때만 범위가 제한된
+표현 포커스를 파생하고 해당 선택을 라우트 상태에 기록합니다. 경로 추적은 보고된 `attached_to`,
+저장 방향의 `depends_on`, 대칭 `peered_with` 관계만 탐색합니다. 최신이고 완전한 관계 범위에서만
+`no_observed_path`를 반환하며, 불완전한 모든 부정 결과는 `unknown`으로 유지합니다. 필터와 강조는
+표현만 변경합니다. SVG와 PNG 내보내기는 정제된 출처 이력을 유지하고 이름, 원시 프로바이더 id,
+구독 id, 엔드포인트 및 자격 증명을 제외합니다.
 
-서브넷 안에서 표시되는 경로 참여자는 관찰된 `attached_to` 구성 요소로 묶여 네트워크 경계부터 공용 IP 및 보안 리소스, 네트워크 인터페이스, 워크로드, 디스크와 데이터 리소스 순서로 연속 배치되며 이는 추론한 트래픽 방향이 아닙니다. 각 구성 요소는 깊이 방향 레인을 사용하고 겹치는 서브넷 내부 간선은 하나의 바닥 중심선을 공유하며 평면을 가로지르는 연결만 직접 경로를 유지합니다. 워크로드는 보조 리소스보다 크게 표시됩니다. 밀집된 개요에서는 글리프가 보조 라벨을 대체하고 선택 및 집중 화면은 이름, 유형 및 서브넷 라벨을 복원합니다. 원근법은 범위가 제한된 깊이
-범위에서 projected 지점을 조정해 가까운 리소스를 먼 리소스보다 크게 표시하고 picking과
-containment도 동일한 변환 결과를 사용합니다. Zoom은 512x 규모까지 상세 탐색을 지원하고 포인터를
-중심으로 확대하며, content-driven 세계는 고정 canvas-height 상한 없이 확장됩니다. Fit은 완전한
-프레임을 복원하는 명시적 컨트롤로 유지됩니다. 기본 isometric camera는 경로 레인을 좌우로 읽고 깊이가
-뒤로 물러나도록 낮은 oblique angle을 사용합니다. Fit은 간결한 세계 위쪽에 visual 깊이를 남기기
-위해 화면 중심보다 약간 아래에 배치합니다. Content-driven 캔버스가 projected 세계보다 크게 높은
-경우에는 세계를 접기 아래에 중앙 정렬하지 않고 첫 visible 프레임에 upper 한계를 고정합니다.
-왼쪽 버튼 끌기는 projected 세계를 pan합니다. 가운데 버튼 끌기는 정규화된 continuous yaw로
-세계 center 주위에서 camera를 좌우로 orbit하며 세로 이동은 pitch를 변경하지 않습니다. 오른쪽 버튼은
-브라우저 행동을 유지합니다. Orbit 입력은 동일한 animation-frame coalescing을 사용하고 라벨만
-지연하며 하한, 경로 및 reflection은 계속 표시합니다.
+SVG 뷰포트는 이동, 휠 확대 및 축소, 맞춤, 전체 화면, 키보드 노드 탐색 및 간결한 관계 범례를
+소유합니다. 공유 카드 형상은 배치, 포함 관계, 경로 및 서로 겹치지 않는 선택 영역에 함께
+적용됩니다. 시각적 카드는 확장된 포인터 선택 영역보다 위에 렌더링되므로 인접한 선택 영역이 카드
+클릭을 가로채지 않습니다. 모바일 컨트롤과 노드 선택 영역은 최소 44 px입니다. 뷰포트는 텍스트를
+읽을 수 없는 크기로 줄이지 않고 범위가 제한된 이동 가능한 영역을 유지합니다. Resource 검색과
+상세 패널은 제스처를 사용하지 않는 동등한 접근 경로를 제공합니다. 동작 줄이기 및 강제 색상
+설정에서도 조작과 의미를 유지합니다.
 
-라벨은 충돌을 피하고 긴 이름을 맞추며 각 리소스 이름과 읽기 쉬운 리소스 타입을 함께
-표시합니다. 블록의 간결한 acronym은 보조 cue이며 리소스를 식별하는 유일한 방법이 아닙니다.
-라벨은 zoom에 따라 13 px에서 20 px까지 커지고 선택된 라벨은 22 px까지 커질 수 있습니다. Zoom
-단계는 reciprocal이고 색상은 콘솔 테마를 따르며, keyboard-accessible 리소스 및 관계
-인덱스는 filtered 캔버스와 동등합니다. 포인터 대상은 containment 경계를 포함해 최소 44 px입니다.
-선택된 라벨은 마지막 캔버스 overlay이므로 블록 glyph, 관계 또는 인접 라벨이 가릴 수
-없습니다. 잘린 스냅샷은 partial-inventory notice를 명시합니다.
-캔버스는 containment를 subdued dashed center-to-center 간선으로 렌더링합니다. Semantic 관계는
-연결된 블록 top보다 높은 directional node-to-node arrow를 사용하며 resource-group 지역을 operational
-엔드포인트로 연결하지 않습니다. 끌기 입력은 animation 프레임마다 한 번만 draw하고 포인터가 이동하는
-동안에도 reflection을 계속 표시하며 라벨만 생략합니다. 포인터 release는 라벨을 복원합니다.
-로컬 변환 결과는 선택된 엔드포인트 id와 리소스 타입이 일치하는 등록된 관계 타입만
-표시합니다. Malformed 또는 over-limit 벤더 관계는 폐기하고 스냅샷을 잘린으로 표시하며,
-신뢰할 수 없는 간선을 렌더링하지 않고 마지막 완전한 리소스 그래프를 유지합니다.
+영향 범위 지도는 시뮬레이션 스냅샷에 해당하는 범위 미지정 그래프 프로젝션을 요청하고, 렌더링 전에
+모든 대상 및 도달 Resource 식별자를 비교합니다. 스냅샷이 일치하지 않거나 영향 식별자가 하나라도
+누락되면 영향받는 토폴로지를 축소해 표시하지 않고 지도를 명시적으로 사용할 수 없는 상태로
+표시합니다. 시뮬레이션 결과와 표가 권위 있는 영향 기록으로 유지됩니다.
 
 Subscription-scoped cached 스냅샷은 즉시 렌더링됩니다. 만료된 또는 change-invalidated 스냅샷은
 background refresh 동안 stale로 표시됩니다. 브라우저는 Operator API가 완료된 refresh를 원자적으로
