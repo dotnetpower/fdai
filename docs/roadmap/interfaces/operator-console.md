@@ -660,4 +660,4 @@ deployment gates.
 
 | To learn about | Read |
 |----------------|------|
-| Delivery status and Live measurements | [Implementation ledger](../../roadmap-implementation/interfaces/operator-console.md), [Live metrics](live-cockpit-metrics.md) |
+| Delivery status and Live design | [Implementation ledger](../../roadmap-implementation/interfaces/operator-console.md), [Live metrics](live-cockpit-metrics.md), [Live and Audit presentation](live-audit-presentation.md) |
