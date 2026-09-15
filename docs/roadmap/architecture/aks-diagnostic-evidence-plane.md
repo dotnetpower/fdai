@@ -169,6 +169,35 @@ as a conflict and its metric cannot contribute a diagnostic signal.
 An independent coverage receipt can mark a window complete only when its timezone-aware provider
 cutoff reaches or exceeds the requested interval end.
 
+#### Safe metric failure diagnostics
+
+`MetricProviderError(message)` remains valid and keeps its original message. Its optional
+`reason` uses the provider-neutral `MetricFailureReason` enum; `http_status` accepts only an
+integer from 100 to 599, excluding booleans. The default is `unknown` with no HTTP status.
+
+| Reason | Observed condition |
+|--------|--------------------|
+| `unknown` | The provider supplied no classification. |
+| `timeout` | The HTTP client reported a timeout. |
+| `transport_error` | The HTTP client reported another request failure. |
+| `http_error` | An HTTP failure response or status exception was received. |
+| `invalid_response` | Response structure, values, or required identity checks failed. |
+| `response_limit` | A configured byte, row, or point limit was exceeded. |
+| `invalid_query` | The metric template or required query scope was unavailable or unsupported. |
+| `provider_error` | The response explicitly reported a metric-level failure. |
+
+Azure Monitor Logs and Azure Monitor Metrics assign these categories at error construction.
+The Analyzer's mapped identity boundary retains only validated reason and status fields, renders
+them in the redacted error message, and detaches the provider exception chain. It does not copy
+provider messages, URLs, resource identifiers, or response bodies. Existing providers that supply
+only a message remain unclassified; no retry or provider fallback is added.
+
+These categories describe failures, not established root causes, persistent defects, or diagnostic
+coverage. `http_429_rate` is a computed Logs KQL metric name, not evidence that a query returned
+HTTP 429. Earlier generic mapped errors cannot establish their historical cause. A successful query
+with valid columns and zero rows stays empty, and missing native aggregate bins remain missing
+rather than becoming zero. Failures still stop the query; partial results do not authorize an action.
+
 ### Logs
 
 Log evidence is queried by exact Pod UID and bounded time window. Raw bodies are discarded after

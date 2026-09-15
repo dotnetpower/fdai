@@ -7,6 +7,7 @@ from dataclasses import replace
 
 from fdai.delivery.analyzer_tick import AnalyzerTarget
 from fdai.shared.providers.metric import (
+    MetricFailureReason,
     MetricPoint,
     MetricProvider,
     MetricProviderError,
@@ -24,6 +25,8 @@ class AnalyzerMetricProvider:
     The wrapped provider receives the target's provider-native reference.
     Returned points are checked against that reference and relabeled with the
     logical Resource id before they re-enter analyzer code.
+    Mapped failures retain only validated failure metadata, without the
+    provider's message or exception chain.
     """
 
     def __init__(
@@ -76,10 +79,14 @@ class AnalyzerMetricProvider:
                 point = await anext(points)
             except StopAsyncIteration:
                 return
-            except MetricProviderError:
-                raise MetricProviderError(
-                    f"mapped metric query failed for {query.metric_name!r}"
-                ) from None
+            except MetricProviderError as exc:
+                failure = MetricProviderError(
+                    f"mapped metric query failed for {query.metric_name!r}",
+                    reason=exc.reason,
+                    http_status=exc.http_status,
+                )
+                failure.args = (f"{failure} ({failure.safe_context})",)
+                break
             point_labels = dict(point.labels)
             returned_ref = point_labels.get("resource_id")
             if (
@@ -87,11 +94,14 @@ class AnalyzerMetricProvider:
                 and self._normalize_provider_ref(returned_ref) != provider_ref
             ):
                 raise MetricProviderError(
-                    "metric provider returned another mapped resource identity"
+                    "metric provider returned another mapped resource identity",
+                    reason=MetricFailureReason.INVALID_RESPONSE,
                 )
             if returned_ref is not None:
                 point_labels["resource_id"] = logical_ref
             yield replace(point, labels=point_labels)
+        # Raising outside the handler also detaches the private __context__.
+        raise failure from None
 
 
 __all__ = ["AnalyzerMetricProvider"]
