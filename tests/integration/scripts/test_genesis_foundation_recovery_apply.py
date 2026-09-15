@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import sys
@@ -15,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts/deployment/azure"))
 
 import genesis_foundation_recovery_apply as recovery  # noqa: E402
+import genesis_foundation_recovery_handoff as handover  # noqa: E402
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest  # noqa: E402
 from fdai_deployment_cli.private_output import write_private_bytes  # noqa: E402
 from fdai_deployment_cli.target import compute_target_binding  # noqa: E402
@@ -172,7 +174,15 @@ def test_recovery_execution_records_claim_before_effect_and_never_reapplies(
         lambda command, **_kwargs: (
             "false"
             if "exists" in command
-            else json.dumps({"source_commit": "a" * 40, "private_reference": "synthetic"})
+            else json.dumps(
+                {
+                    "source_commit": "a" * 40,
+                    "private_reference": "synthetic",
+                    "tenant_id": target.tenant_id,
+                    "subscription_id": target.subscription_id,
+                    "run_digest": "2" * 64,
+                }
+            )
         ),
     )
 
@@ -213,6 +223,60 @@ def test_recovery_execution_records_claim_before_effect_and_never_reapplies(
         assert result["control_plane_readback_verified"] is True
         assert result["zero_change_verified"] is True
         assert result["deployment_ready"] is False
+        original_context["run_digest"] = "2" * 64
+        (original / "foundation-plan.json").write_bytes(canonical_bytes(prior))
+        monkeypatch.setattr(handover, "load_profile", recovery.load_profile)
+        monkeypatch.setattr(handover, "verify_foundation_plan", recovery.verify_foundation_plan)
+        monkeypatch.setattr(handover, "load_apply_claim", recovery.load_apply_claim)
+        monkeypatch.setattr(handover, "verify_source_snapshot", recovery.verify_source_snapshot)
+        with handover.recovery_lock(original):
+            accepted = handover.load_recovery_handoff(
+                original_directory=original,
+                recovery_directory=work,
+                source_snapshot=tmp_path / "snapshot",
+                expected_digest=str(result["receipt_digest"]),
+                target_binding=target_binding,
+            )
+        assert accepted.receipt == result
+        assert accepted.foundation_reference["receipt_digest"] == result["receipt_digest"]
+        assert "schema_version" not in accepted.foundation_reference
+        assert not (original / "foundation-apply-receipt.json").exists()
+        with (original.parent / "source-execution.lock").open("r+") as held:
+            fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            with pytest.raises(BlockingIOError), handover.recovery_lock(original):
+                pytest.fail("a second handover must not acquire the original lock")
+        receipt_path = work / "recovery-apply-receipt.json"
+        for field, value in (
+            ("zero_change_verified", False),
+            ("runner_attested", True),
+            ("execution_source_commit", "9" * 40),
+            ("claim_digest", "0" * 64),
+        ):
+            altered = {**result, field: value}
+            altered["receipt_digest"] = canonical_digest(
+                {key: item for key, item in altered.items() if key != "receipt_digest"}
+            )
+            receipt_path.write_bytes(canonical_bytes(altered))
+            with pytest.raises(ValueError):
+                handover.load_recovery_handoff(
+                    original_directory=original,
+                    recovery_directory=work,
+                    source_snapshot=tmp_path / "snapshot",
+                    expected_digest=str(altered["receipt_digest"]),
+                    target_binding=target_binding,
+                )
+        receipt_path.write_bytes(canonical_bytes(result))
+        state_bytes = state_path.read_bytes()
+        state_path.write_bytes(b"changed")
+        with pytest.raises(ValueError, match="current state differs"):
+            handover.load_recovery_handoff(
+                original_directory=original,
+                recovery_directory=work,
+                source_snapshot=tmp_path / "snapshot",
+                expected_digest=str(result["receipt_digest"]),
+                target_binding=target_binding,
+            )
+        state_path.write_bytes(state_bytes)
         assert calls.index("observe") < calls.index("zero-change")
         for _ in range(2):
             resumed = recovery.apply_recovery(

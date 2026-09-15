@@ -175,6 +175,25 @@ and a zero-change plan gates the separate recovery receipt. Each verification ke
 diagnostics; no original receipt is fabricated or overwritten. Successful recovery still leaves
 runner attestation, private state migration and application deployment incomplete.
 
+### Recovered host enrollment
+
+Rewriting a recovery receipt as an ordinary Foundation receipt would lose
+its original/recovery provenance and state owner. Instead, the enrollment adapter validates the
+unaltered recovery receipt, both claims, review, original snapshot, state hash/lineage and private
+handoff under the original execution lock. It projects only the shared correlation fields in memory;
+that projection is not a new receipt and is never persisted as one. Current enrollment approval,
+source CI and independent host attestation remain separate requirements. This acceptance boundary
+does not migrate state or activate the application.
+
+The runner enrollment command accepts `--foundation-recovery-directory` together with the original
+plan directory and `--original-source-snapshot`. A new enrollment requires `--recovery-approval-file`;
+the official prompt produces it from `--recovered-foundation-receipt`. Approval binds that receipt's
+digest and the enrollment source, not the earlier recovery plan. Recovery and enrollment source CI
+must both pass. Claims, known hosts and enrollment receipts stay in the recovery directory, retain
+their recovery receipt reference and record the enrollment source. Verification-only resume cannot
+reenroll or silently change that source. Ordinary Foundation enrollment remains unchanged.
+The claim and resulting receipt retain the verified enrollment approval's actor digest.
+
 ### Source transfer boundary
 
 After the current private Foundation reaches its application boundary, the source coordinator

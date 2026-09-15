@@ -260,6 +260,28 @@ def _approval_from_residual_review(
     return digest, source, {"review_digest": digest, "plan_digest": str(review["plan_digest"])}
 
 
+def _approval_from_recovered_foundation(path: Path) -> tuple[str, str, dict[str, str]]:
+    """Bind a separate enrollment approval to a verified recovery receipt and current source."""
+    from fdai_deployment_cli.source_input import inspect_source
+
+    receipt = _load_status(path)
+    digest = receipt.pop("receipt_digest", None)
+    if (
+        not isinstance(digest, str)
+        or canonical_digest(receipt) != digest
+        or receipt.get("schema_version") != "fdai.foundation-recovery-receipt.v1"
+        or receipt.get("state") != "verified"
+        or receipt.get("control_plane_readback_verified") is not True
+        or receipt.get("zero_change_verified") is not True
+        or receipt.get("remote_backend_authority_verified") is not False
+        or receipt.get("runner_attested") is not False
+        or receipt.get("deployment_ready") is not False
+    ):
+        raise ValueError("recovered Foundation receipt is invalid for enrollment approval")
+    source = inspect_source(Path(__file__).resolve().parents[3])
+    return digest, source.commit, {"foundation_receipt_digest": digest}
+
+
 def main() -> int:
     """Prompt from one private status or residual review and publish an exact approval."""
 
@@ -268,9 +290,15 @@ def main() -> int:
     context.add_argument("--status", type=Path)
     context.add_argument("--residual-review", type=Path)
     context.add_argument("--foundation-recovery-review", type=Path)
+    context.add_argument("--recovered-foundation-receipt", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    if args.foundation_recovery_review is not None:
+    if args.recovered_foundation_receipt is not None:
+        run_binding, source_commit, evidence = _approval_from_recovered_foundation(
+            args.recovered_foundation_receipt
+        )
+        stage = "runner-enrollment"
+    elif args.foundation_recovery_review is not None:
         run_binding, source_commit, evidence = _approval_from_residual_review(
             args.foundation_recovery_review, foundation=True
         )
