@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 4e77477385599219c0c5077e4f028c003a7333c6
+translation_source_sha: 5a7af1f9c668978a86306ca3aac5ce1dcbb4e95a
 translation_revised: 2026-09-15
 ---
 # 지속형 운영 인스턴스 그래프
@@ -108,7 +108,7 @@ ARM ID와 대소문자 구분 없이 일치해야 합니다. 모순이 있으면
 포함해 정확한 ARM ID 형태와 일치해야 합니다.
 공급자 ID의 모든 유형 구간 뒤에는 구체적인 이름이 필요하며, 컬렉션 경로만으로 Resource 인스턴스를 만들 수 없습니다.
 비활성화된 리소스 변경 및 복구 가속기는 정책 항목을 요구하지 않고 커서 접두사나 오래된 커서 기한도 추가하지 않습니다.
-Activity Log 복구는 전체 조정 전과 완전한 세대 승격 후에 동일한 독립 실패 경계를 적용합니다.
+CLI 지원 모듈은 전체 조정 전과 세대 승격 후에 적용하는 Activity Log 복구의 독립 실패 경계를 소유합니다.
 거부된 변경분은 커서를 진행하거나 전체 인벤토리를 중단하거나 검증된 세대를 무효화하지 않고 사용 불가 상태로 남습니다.
 
 Kubernetes fleet 수집은 정확한 클러스터 연결마다 출처 상태 레코드 하나를 보존합니다. 레코드는

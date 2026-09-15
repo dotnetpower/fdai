@@ -103,7 +103,7 @@ discarded because it cannot enter the ontology. If both are reviewed, they must 
 ID shape, including built-in subscription and Resource Group types.
 Provider IDs require a concrete name after every type segment; collection-only paths cannot create Resource instances.
 Disabled resource-change and recovery accelerators need no policy entries and add no cursor prefixes or stale-cursor deadlines.
-Activity Log recovery uses one independent failure boundary before reconciliation and after complete-generation promotion.
+The CLI support module owns Activity Log recovery's independent failure boundary before reconciliation and after generation promotion.
 A rejected delta stays unavailable without advancing its cursor, stopping full inventory, or invalidating a verified generation.
 
 Kubernetes fleet collection retains one source-state record per exact cluster binding. The record

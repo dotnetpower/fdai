@@ -9,7 +9,6 @@ import logging
 import os
 import ssl
 import sys
-from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -546,7 +545,7 @@ async def run(
                 ),
             )
             if config.recovery_delta_enabled:
-                await _try_recovery_delta_operation(
+                await inventory_sync_cli_support.try_recovery_delta_operation(
                     lambda: _forward_recovery_deltas(
                         config=config,
                         identity=identity,
@@ -555,7 +554,8 @@ async def run(
                         event_bus=event_bus,
                         topic=event_topic,
                         scope_lock=_recovery_delta_lock(config),
-                    )
+                    ),
+                    logger=_LOGGER,
                 )
         finally:
             await event_bus.close()
@@ -727,22 +727,9 @@ async def _try_resource_change_feed(config: InventoryJobConfig) -> int | None:
 async def _try_recovery_delta(config: InventoryJobConfig) -> int | None:
     if not config.recovery_delta_enabled:
         return 0
-    return await _try_recovery_delta_operation(lambda: run_recovery_delta(config))
-
-
-async def _try_recovery_delta_operation(
-    operation: Callable[[], Awaitable[int]],
-) -> int | None:
-    """Degrade one read-only Activity Log accelerator attempt independently."""
-
-    try:
-        return await operation()
-    except Exception as exc:  # noqa: BLE001 - read-only accelerator degrades independently
-        _LOGGER.warning(
-            "inventory_change_stream_unavailable",
-            extra={"reason": type(exc).__name__},
-        )
-        return None
+    return await inventory_sync_cli_support.try_recovery_delta_operation(
+        lambda: run_recovery_delta(config), logger=_LOGGER
+    )
 
 
 async def _main(argv: list[str]) -> None:
