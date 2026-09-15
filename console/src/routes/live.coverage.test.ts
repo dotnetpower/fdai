@@ -30,6 +30,8 @@ describe("Live authoritative coverage boundaries", () => {
       execution_authority: false,
       mutation_authority: false,
       source_kind: "inventory_snapshot_resource",
+      source_generation: "generation-1",
+      source_cutoff: "2026-09-05T03:00:00Z",
       total_count: 840,
     })).toBe(840);
   });
@@ -61,7 +63,9 @@ describe("Live authoritative coverage boundaries", () => {
     const calls: number[] = [];
     const waits: number[] = [];
     const client = {
-      async panel(): Promise<unknown> {
+      async panel(path: string, params?: Record<string, string>): Promise<unknown> {
+        expect(path).toBe("/ontology/instances/states");
+        expect(params).toEqual({ summary: "count" });
         calls.push(calls.length + 1);
         if (calls.length === 1) {
           throw new OperatorApiError(
@@ -74,6 +78,8 @@ describe("Live authoritative coverage boundaries", () => {
           execution_authority: false,
           mutation_authority: false,
           source_kind: "inventory_snapshot_resource",
+          source_generation: "generation-1",
+          source_cutoff: "2026-09-05T03:00:00Z",
           total_count: 840,
         };
       },
@@ -89,7 +95,7 @@ describe("Live authoritative coverage boundaries", () => {
     expect(calls).toHaveLength(2);
     expect(waits).toEqual([250]);
 
-    const boundedWaits: number[] = [];
+    const ontologyWaits: number[] = [];
     await expect(loadLiveResourceTotal(
       {
         panel: async () => {
@@ -101,23 +107,32 @@ describe("Live authoritative coverage boundaries", () => {
       },
       () => false,
       async (delay) => {
-        boundedWaits.push(delay);
+        ontologyWaits.push(delay);
       },
     )).rejects.toMatchObject({ status: 409 });
-    expect(boundedWaits).toEqual([
-      250,
-      500,
-      1_000,
-      2_000,
-      4_000,
-      8_000,
-      8_000,
-    ]);
+    expect(ontologyWaits).toEqual([]);
 
     await expect(loadLiveResourceTotal({
       panel: async () => {
         throw new OperatorApiError(503, "projection unavailable");
       },
     })).rejects.toMatchObject({ status: 503 });
+  });
+
+  test.each([
+    { source_generation: "" },
+    { source_generation: "x".repeat(257) },
+    { source_cutoff: "not-a-time" },
+  ])("rejects malformed ARG source identity: %j", (patch) => {
+    expect(() => decodeResourceTotal({
+      schema_version: "1.0.0",
+      execution_authority: false,
+      mutation_authority: false,
+      source_kind: "inventory_snapshot_resource",
+      source_generation: "generation-1",
+      source_cutoff: "2026-09-05T03:00:00Z",
+      total_count: 840,
+      ...patch,
+    })).toThrow("resource page authority is malformed");
   });
 });
