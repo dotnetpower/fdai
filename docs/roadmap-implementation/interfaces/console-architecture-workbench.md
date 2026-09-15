@@ -1,0 +1,27 @@
+# Console Architecture Workbench implementation ledger
+
+This ledger records the current implementation state and reviewable evidence for the focused
+Architecture workbench owner.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Geometry-less Landscape and Resource focus | implemented | `architecture-{landscape-layout,boundaries,map-layout}.*`; focused Console tests | Returned containment produces finite generated geometry, a 16-scope Landscape, and a direct-first 36-record focus without using API coordinates. |
+| Network and Impact presentation | implemented | `architecture-network-focus.ts`; shared topology SVG; Blast Radius integration; focused model and browser tests | Network overview is bounded separately from path evidence. Found paths and inferred Impact Subnet membership remain visible without changing source semantics. |
+| Accessibility and responsive operation | implemented | bilingual catalogs; topology SVG; synthetic Playwright at four widths; six independent review passes | Visible summary counts match accessible names. Mobile targets, keyboard navigation, Fit, full screen, reduced motion, and forced colors retain the read-only task. |
+| Exact-source post-fix evidence | in-progress | authenticated standard-5273 failure baseline; isolated 5274 SSO and access-boundary attempt | The failure baseline is exact-source. Post-fix exact-source rendering requires the merged revision on the standard 5273 origin; no alternate-origin CORS or authentication control was weakened. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Corrected the live geometry-less inventory regression and completed 22 focused critique-and-hardening rounds. | `current change`; geometry-less 500-record tests; focused Vitest (`185 passed`); typecheck; build and entry budget (`482762` raw / `149952` gzip, 63 lazy imports); synthetic Playwright (`5 passed`); six independent reviews ended with no Medium-or-higher or Low finding. | Retain post-merge exact-source rendering on the standard 5273 origin before changing the evidence row to `validated`. |
+
+### Remaining work
+
+- [ ] Open the merged revision on the authenticated standard `http://localhost:5273/architecture`
+  route and retain measured finite geometry, bounded displayed counts, nonzero boundaries, unique
+  positions, and responsive desktop/mobile evidence.

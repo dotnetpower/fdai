@@ -11,6 +11,7 @@ import {
   type InventoryResource,
 } from "./architecture-map.model";
 import { architectureTopologyNodeDimensions } from "./architecture-topology-dimensions";
+import { isArchitectureRenderedBoundary } from "./architecture-boundaries";
 
 export {
   ARCHITECTURE_TOPOLOGY_NODE_HEIGHT,
@@ -38,6 +39,36 @@ export const ARCHITECTURE_TOPOLOGY_WORLD_UNIT = 64;
 export const ARCHITECTURE_TOPOLOGY_MIN_SCALE = .28;
 export const ARCHITECTURE_TOPOLOGY_MAX_SCALE = 1.8;
 export const ARCHITECTURE_TOPOLOGY_SCALE_STEP = .2;
+
+/** Creates a stable reset identity from the visible records and generated geometry. */
+export function architectureTopologyPresentationKey(
+  resources: readonly InventoryResource[],
+): string {
+  return [...resources]
+    .sort((first, second) => first.id.localeCompare(second.id))
+    .map((resource) => [
+      resource.id,
+      resource.x,
+      resource.y,
+      resource.w,
+      resource.h,
+      resource.render_scale,
+    ].join(":"))
+    .join("|");
+}
+
+/** Returns records that cannot be represented without inventing an origin coordinate. */
+export function architectureTopologyUnplacedIds(
+  resources: readonly InventoryResource[],
+): readonly string[] {
+  return resources
+    .filter((resource) => {
+      if (!Number.isFinite(resource.x) || !Number.isFinite(resource.y)) return true;
+      return isArchitectureRenderedBoundary(resource)
+        && (!Number.isFinite(resource.w) || !Number.isFinite(resource.h));
+    })
+    .map((resource) => resource.id);
+}
 
 /** Computes a stable world box for both scope and focused topology projections. */
 export function architectureTopologyBounds(
@@ -73,6 +104,18 @@ export function architectureTopologyFitScale(
     Math.max(1, viewportWidth - padding) / canvas.width,
     Math.max(1, viewportHeight - padding) / canvas.height,
   ));
+}
+
+/** Starts each new presentation canvas at a complete, origin-aligned overview. */
+export function architectureTopologyInitialView(
+  canvas: ArchitectureTopologyCanvasSize,
+  viewportWidth: number,
+  viewportHeight: number,
+): { readonly scale: number; readonly scroll: ArchitectureTopologyScrollTarget } {
+  return {
+    scale: architectureTopologyFitScale(canvas, viewportWidth, viewportHeight),
+    scroll: { left: 0, top: 0 },
+  };
 }
 
 /** Preserves the viewport center while the operator changes topology scale. */

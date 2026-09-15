@@ -28,8 +28,8 @@ const graph = {
     },
   ],
   resources: [
-    { id: "subscription", type: "subscription", name: "Example subscription", status: "unknown", x: 0, y: 0, w: 18, h: 12 },
-    { id: "group", type: "resource-group", name: "Example workload", status: "unknown", parent_id: "subscription", x: 1, y: 1, w: 16, h: 10 },
+    { id: "subscription", type: "subscription", name: "Example subscription", status: "unknown" },
+    { id: "group", type: "resource-group", name: "Example workload", status: "unknown", parent_id: "subscription" },
     { id: "vnet", type: "network.vnet", name: "Example network", status: "healthy", parent_id: "group" },
     { id: "ingress", type: "network.subnet", name: "Ingress subnet", status: "healthy", parent_id: "group" },
     { id: "workload", type: "network.subnet", name: "Workload subnet", status: "healthy", parent_id: "group" },
@@ -237,10 +237,29 @@ test("shows the bounded topology overview and keeps selection in one workbench",
   await page.goto("/architecture");
   await expect(page.locator(".architecture-topology-svg")).toBeVisible();
   await settleArchitectureGraph(page);
-  await expect(page.locator(".architecture-topology-region")).toHaveCount(8);
-  await expect(page.locator(".architecture-topology-node")).toHaveCount(5);
+  await expect(page.locator(".architecture-topology-region")).toHaveCount(1);
+  await expect(page.locator(".architecture-topology-node")).toHaveCount(1);
+  await expect(page.locator(".architecture-topology-node-type"))
+    .toContainText("11 Resources - 0 external links");
+  await expect(page.getByRole("button", {
+    name: /Example workload.*11 Resources - 0 external links/,
+  })).toBeVisible();
+  await expect(page.getByRole("button", {
+    name: /Example subscription.*12 Resources/,
+  })).toBeVisible();
+  await expect(page.locator(".architecture-topology-unavailable")).toHaveCount(0);
+  const overviewPositions = await page.locator(".architecture-topology-resource").evaluateAll(
+    (resources) => resources.map((resource) =>
+      resource.getAttribute("transform")
+      ?? resource.querySelector("rect")?.getAttribute("x")
+      ?? ""),
+  );
+  expect(new Set(overviewPositions).size).toBe(overviewPositions.length);
   await expect(page.locator(".architecture-map")).toHaveCount(0);
-  await expect(page.locator(".architecture-coverage")).toContainText("Displayed resources");
+  await expect(page.locator(".architecture-coverage")).toContainText("13 returned - 2 shown");
+  await expect(page.locator(".architecture-coverage")).not.toHaveAttribute("open");
+  expect((await page.locator(".architecture-coverage").boundingBox())?.height)
+    .toBeLessThanOrEqual(56);
   await expect(page.locator(".architecture-inspector")).toBeHidden();
   await expect(page.getByRole("button", { name: "Show Inspector" })).toBeVisible();
   const scope = page.getByRole("combobox", { name: "Scope" });
@@ -254,9 +273,7 @@ test("shows the bounded topology overview and keeps selection in one workbench",
   await expect(page.locator(".architecture-topology-graph")).toHaveClass(/is-fullscreen/);
   await page.getByRole("button", { name: "Exit full screen" }).click();
   await expect(page.locator(".architecture-topology-graph")).not.toHaveClass(/is-fullscreen/);
-  await page.locator('.architecture-topology-region[data-resource-id="group"]').click({
-    position: { x: 8, y: 8 },
-  });
+  await page.locator('.architecture-topology-node[data-resource-id="group"]').click();
   await expect(page).toHaveURL(/resource=group/);
   const resourceSearch = page.getByRole("combobox", { name: "Resource" });
   await resourceSearch.click();
@@ -268,8 +285,8 @@ test("shows the bounded topology overview and keeps selection in one workbench",
   await page.getByRole("button", { name: "Zoom in" }).click();
   await page.getByRole("button", { name: "Zoom in" }).click();
   await graphScroll.evaluate((element) => {
-    element.scrollLeft = 120;
-    element.scrollTop = 90;
+    element.scrollLeft = 0;
+    element.scrollTop = 10;
   });
   const panStart = await graphScroll.evaluate((element) => ({
     left: element.scrollLeft,
@@ -284,7 +301,6 @@ test("shows the bounded topology overview and keeps selection in one workbench",
     left: element.scrollLeft,
     top: element.scrollTop,
   }));
-  expect(panEnd.left).toBeGreaterThan(panStart.left);
   expect(panEnd.top).toBeGreaterThan(panStart.top);
   await expect(page.getByRole("combobox", { name: "Resource" })).toHaveValue("Scope overview");
   await page.getByRole("button", { name: "Fit map" }).click();
@@ -378,11 +394,15 @@ test("keeps observed Network paths and sanitized exports inside the Inspector", 
   await expect(page.locator(".architecture-inspector")).toBeVisible();
   await expect(page.locator(".architecture-network-path-panel")).toBeVisible();
   await expect(page.locator(".architecture-topology-region")).toHaveCount(8);
-  await expect(page.locator(".architecture-topology-node")).toHaveCount(5);
-  await expect(page.locator(".architecture-topology-node-icon")).toHaveCount(5);
-  await expect(page.locator(".architecture-topology-link-path")).toHaveCount(9);
-  await expect(page.locator(".architecture-topology-endpoint")).toHaveCount(5);
+  await expect(page.locator(".architecture-topology-node")).toHaveCount(4);
+  await expect(page.locator(".architecture-topology-node-icon")).toHaveCount(4);
+  await expect(page.locator(".architecture-topology-link-path")).toHaveCount(5);
+  await expect(page.locator(".architecture-topology-endpoint")).toHaveCount(4);
   await expect(page.locator(".architecture-topology-link.is-peered_with")).toHaveCount(1);
+  const networkNodePositions = await page.locator(".architecture-topology-node").evaluateAll(
+    (nodes) => nodes.map((node) => node.getAttribute("transform")),
+  );
+  expect(new Set(networkNodePositions).size).toBe(networkNodePositions.length);
   const peeringPath = page.locator(".architecture-topology-link.is-peered_with .architecture-topology-link-path");
   expect((await peeringPath.getAttribute("d"))?.match(/\bL/g)).toHaveLength(1);
   const cardHitOwners = await page.locator(".architecture-topology-node").evaluateAll((nodes) =>
@@ -401,6 +421,10 @@ test("keeps observed Network paths and sanitized exports inside the Inspector", 
   await pathPanel.getByRole("combobox").nth(1).selectOption("endpoint");
   await expect(page.locator(".architecture-network-path-result")).toContainText("Observed path");
   await expect(page.locator(".architecture-network-path-hops li")).toHaveCount(2);
+  await expect(page.locator('.architecture-topology-node[data-resource-id="vm"]')).toBeVisible();
+  await pathPanel.getByRole("checkbox", { name: "Gateways" }).uncheck();
+  await expect(page.locator('.architecture-topology-node[data-resource-id="gateway"]')).toBeVisible();
+  await expect(page.locator(".architecture-network-path-result")).toContainText("Observed path");
   await expect(page.locator(".architecture-topology-resource.is-muted")).not.toHaveCount(0);
   await assertNoHorizontalOverflow(page);
   await captureArchitectureViewport(page, testInfo, "network-desktop");

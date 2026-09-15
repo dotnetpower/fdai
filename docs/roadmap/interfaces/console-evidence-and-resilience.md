@@ -595,59 +595,13 @@ After that schedule is exhausted, the surface offers access-check retry and sign
 
 ## Architecture-map resilience
 
-The Architecture route uses one graph-first workbench modeled on the Ontology Instances
-presentation. Its top toolbar contains only registered scope selection, bounded Resource search,
-the `Topology | Network` lens, and a compact read-only source state. Scope selection reloads the
-authoritative projection. Resource search selects only a record already returned by that
-projection and never presents a bounded page as a complete tenant search.
+The focused [Console Architecture Workbench](console-architecture-workbench.md) owner defines
+Landscape aggregation, Resource focus, generated geometry, Network paths, Impact presentation,
+responsive interaction, and the geometry-less live-response regression gates.
 
-Topology is visible before selection. The deterministic presentation collapses provider helpers
-while keeping every returned count in a separate coverage strip. The strip distinguishes displayed
-and returned Resources and relationships, snapshot time, freshness, and complete or partial
-coverage. Selecting a Resource preserves common coordinates, reveals direct auxiliary neighbors,
-updates the canonical deep link, and opens a nonmodal Inspector without changing inventory.
-
-The workbench uses one accessible orthographic SVG for Topology, Network, and the Impact scope map.
-Subscription, Resource Group, VNet, and Subnet records render as nested neutral boundaries.
-Resources use reviewed official icons where available and stable Cloud Adoption Framework
-abbreviations otherwise. Compact text, accessible names, search, and Inspector content preserve
-name, type, and state without relying on color. Typed edges terminate on current node or boundary
-geometry. Containment remains spatial; `attached_to`, `depends_on`, and `peered_with` retain
-distinct paths, endpoint dots, and direction markers.
-
-The right Inspector is collapsible and stays in the same workbench. Overview owns the selected
-state and impact-scope drill-down. Links owns exact incoming and outgoing direct relationships.
-Path owns Network source and destination, evidence result, filters, and sanitized export. Sources
-owns snapshot, freshness, displayed and returned counts, completeness, reported relationship
-types, and technical identifiers. At constrained widths the Inspector moves below the graph
-without discarding selection, tab, scale, or path state.
-
-The Network lens keeps the complete `InventoryGraphResponse` authoritative. With **Scope
-overview** selected, it presents every returned VNet and bounded Resource; selecting a Resource
-derives one bounded presentation focus and records that selection in route state. Path tracing
-walks only reported `attached_to`, stored-direction `depends_on`, and symmetric `peered_with`
-relationships. It returns `no_observed_path` only for fresh, complete relationship coverage; every
-incomplete negative result stays `unknown`. Filters and highlighting change only presentation.
-SVG and PNG exports retain sanitized provenance and omit names, raw provider ids, subscription
-ids, endpoints, and credentials.
-
-The SVG viewport owns pan, wheel zoom, Fit, full screen, keyboard node navigation, and a compact
-relationship legend. Shared card geometry drives placement, containment, routing, and nonoverlapping
-hit regions; visual cards render above their expanded pointer targets so an adjacent target cannot
-steal a card click. Mobile controls and node hit regions are at least 44 px. The viewport remains
-bounded and pannable rather than shrinking text below a readable scale. The Resource search and
-Inspector provide equivalent non-gesture access. Reduced motion and forced colors preserve
-operation and meaning.
-
-The Impact scope map requests an unscoped graph projection at the simulation snapshot and compares
-every target and reached Resource identity before rendering. A snapshot mismatch or any omitted
-impact identity produces an explicit unavailable map instead of understating the affected
-topology. The simulation result and table remain the authoritative impact record.
-
-A subscription-scoped cached snapshot renders immediately. Expired or change-invalidated snapshots
-are marked stale while a background refresh runs. The browser polls only until the Operator API
-atomically promotes the completed refresh, never upgrades the server freshness verdict, and retries
-transient failures with bounded 2-to-30-second backoff while the stale graph remains usable.
+This resilience owner continues to define inventory source availability, snapshot freshness,
+bounded refresh, localization fallback, and unavailable-state behavior shared with other Console
+routes.
 
 ## Verification
 
@@ -656,9 +610,18 @@ transient failures with bounded 2-to-30-second backoff while the stale graph rem
 - Provenance tests cover unavailable, unknown, malformed, and route-owner states.
 - Stream tests cover inactivity, authentication classification, frame limits, and action timeout.
 - Architecture tests cover layout, selection, accessibility, cache freshness, and bounded polling. Browser Entra state transfer accepts only the exact MSAL cache-encryption cookie, keeps its value out of logs, and binds it to the target loopback origin; live Command Deck evidence follows the accessible `complementary` or full-workspace `dialog` role and creates a new conversation through the history panel.
+- Architecture layout regression uses a geometry-less, truncated 500-record projection with 40
+  Resource Groups and verifies bounded Landscape and focus counts, finite placement, unique
+  positions, and zero implicit origin fallback.
+- Browser checks assert unique rendered transforms, no unavailable-geometry fallback, a compact
+  collapsed coverage summary, exact path-hop restoration, and zero horizontal overflow before
+  responsive states can pass.
+- Architecture hardening completion requires an independent review with no confirmed
+  Medium-or-higher finding after the geometry-less live-shape regression passes.
 
 ## Related docs
 
 | To learn about | Read |
 |----------------|------|
+| Architecture Landscape, focus, and generated geometry | [Console Architecture Workbench](console-architecture-workbench.md) |
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/interfaces/console-evidence-and-resilience.md) |

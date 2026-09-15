@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_ARCHITECTURE_NETWORK_FILTERS,
+  ARCHITECTURE_NETWORK_OVERVIEW_LIMIT,
   architectureNetworkFocusGraph,
+  architectureNetworkOverviewGraph,
+  architectureNetworkPathPresentationGraph,
   exportArchitectureNetworkSvg,
   filterArchitectureNetworkGraph,
   layoutArchitectureNetworkFocusGraph,
@@ -54,6 +57,51 @@ describe("observed network focus", () => {
     expect(architectureNetworkFocusGraph(graph, null)).toBe(graph);
     expect(layoutArchitectureNetworkFocusGraph(graph).resources.map((resource) => resource.id))
       .toContain("vnet-secondary");
+  });
+
+  it("bounds the Network overview to network roles and required ancestors", () => {
+    const unrelated = Array.from({ length: 80 }, (_, index) => ({
+      id: `app-${index}`,
+      type: "app-service",
+      name: `Application ${index}`,
+      status: "healthy",
+      parent_id: "rg-a",
+    }));
+    const networkRoles = Array.from({ length: 60 }, (_, index) => ({
+      id: `gateway-${index}`,
+      type: "network.application-gateway",
+      name: `Gateway ${index}`,
+      status: "healthy",
+      parent_id: "rg-a",
+    }));
+    const overview = architectureNetworkOverviewGraph({
+      ...GRAPH,
+      resources: [...GRAPH.resources, ...unrelated, ...networkRoles],
+    });
+
+    expect(overview.resources.some((resource) => resource.id === "sub")).toBe(true);
+    expect(overview.resources.some((resource) => resource.id === "rg-a")).toBe(true);
+    expect(overview.resources.some((resource) => resource.id === "app-0")).toBe(false);
+    expect(overview.resources.filter((resource) =>
+      resource.id.startsWith("gateway-"))).toHaveLength(ARCHITECTURE_NETWORK_OVERVIEW_LIMIT);
+  });
+
+  it("adds exact path hops back to the bounded presentation", () => {
+    const overview = architectureNetworkOverviewGraph(GRAPH);
+    const presented = architectureNetworkPathPresentationGraph(
+      overview,
+      GRAPH,
+      ["public", "nic", "vm", "db"],
+    );
+    const ids = new Set(presented.resources.map((resource) => resource.id));
+
+    expect(ids.has("vm")).toBe(true);
+    expect(ids.has("db")).toBe(true);
+    expect(presented.links).toContainEqual({
+      source: "vm",
+      target: "db",
+      type: "depends_on",
+    });
   });
 
   it("focuses one VNet while retaining only required ancestors and linked resources", () => {

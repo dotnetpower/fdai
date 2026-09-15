@@ -13,6 +13,7 @@ import {
   type InventoryLink,
   type InventoryResource,
 } from "./architecture-map.model";
+import { architecturePresentationParentById } from "./architecture-landscape-layout";
 import "./architecture-inspector.css";
 
 interface Props {
@@ -61,6 +62,15 @@ export function architectureStatusLabel(status: string): string {
   return status.replaceAll(/[._-]+/g, " ").replace(/^./, (character) => character.toUpperCase());
 }
 
+export function architectureParentBoundary(
+  graph: Pick<InventoryGraphResponse, "links" | "resources">,
+  selectedId: string,
+): InventoryResource | null {
+  const byId = new Map(graph.resources.map((resource) => [resource.id, resource]));
+  const parentId = architecturePresentationParentById(graph, byId).get(selectedId);
+  return parentId ? byId.get(parentId) ?? null : null;
+}
+
 export function ArchitectureInspector({
   graph,
   displayedGraph,
@@ -76,7 +86,7 @@ export function ArchitectureInspector({
     mode === "network" ? "path" : "overview",
   );
   const byId = new Map(graph.resources.map((resource) => [resource.id, resource]));
-  const parent = selected?.parent_id ? byId.get(selected.parent_id) ?? null : null;
+  const parent = selected ? architectureParentBoundary(graph, selected.id) : null;
   const relationships = selected
     ? graph.links.filter((link) => link.source === selected.id || link.target === selected.id)
     : [];

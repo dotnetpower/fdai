@@ -5,7 +5,15 @@ import {
   type InventoryGraphResponse,
   type InventoryResource,
 } from "./architecture-map.model";
-import { layoutArchitectureNetworkFloors } from "./architecture-network-layout";
+import {
+  layoutArchitectureNetworkFloors,
+  withArchitectureSubnetMembership,
+} from "./architecture-network-layout";
+import {
+  architectureLandscapeOverviewGraph,
+  architectureScopeDetailGraph,
+  layoutGeometrylessArchitectureGraph,
+} from "./architecture-landscape-layout";
 import {
   ARCHITECTURE_TOPOLOGY_COLUMN_PITCH,
   ARCHITECTURE_TOPOLOGY_ROW_PITCH,
@@ -16,11 +24,25 @@ export function layoutArchitecturePresentation(
   graph: InventoryGraphResponse,
   selectedId: string | null,
 ): InventoryGraphResponse {
-  const networkLayout = layoutArchitectureNetworkFloors(graph);
+  const sourceGraph = selectedId === null
+    ? architectureLandscapeOverviewGraph(graph)
+    : architectureScopeDetailGraph(graph, selectedId);
+  const networkLayout = layoutArchitectureNetworkFloors(
+    layoutGeometrylessArchitectureGraph(withArchitectureSubnetMembership(sourceGraph)),
+  );
   const overview = constrainGraph(architecturePresentationGraph(networkLayout, null));
   if (selectedId === null) return overview;
   const presented = architecturePresentationGraph(networkLayout, selectedId);
   return positionArchitecturePresentation(overview, presented, new Set([selectedId]));
+}
+
+/** Positions a bounded Network overview without collapsing it into the Landscape summary. */
+export function layoutArchitectureNetworkOverviewPresentation(
+  graph: InventoryGraphResponse,
+): InventoryGraphResponse {
+  return constrainGraph(layoutGeometrylessArchitectureGraph(
+    withArchitectureSubnetMembership(graph),
+  ));
 }
 
 /** Keeps every impacted Resource and its bounded context in one shared SVG layout. */
@@ -28,7 +50,9 @@ export function layoutArchitectureImpactPresentation(
   graph: InventoryGraphResponse,
   impactedIds: ReadonlySet<string>,
 ): InventoryGraphResponse {
-  const networkLayout = layoutArchitectureNetworkFloors(graph);
+  const networkLayout = layoutArchitectureNetworkFloors(
+    layoutGeometrylessArchitectureGraph(withArchitectureSubnetMembership(graph)),
+  );
   const overview = constrainGraph(architecturePresentationGraph(networkLayout, null));
   const visibleIds = new Set(overview.resources.map((resource) => resource.id));
   for (const resourceId of impactedIds) {

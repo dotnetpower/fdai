@@ -1,7 +1,7 @@
 ---
 title: 네트워크 토폴로지 시각화
 translation_of: network-topology-visualization.md
-translation_source_sha: fa271544e2fbf99e028faff2458d87a63f9d4689
+translation_source_sha: 7c50ff8e2cb13871b8ebbecc028e225a873f6254
 translation_revised: 2026-09-15
 ---
 # 네트워크 토폴로지 시각화
@@ -209,6 +209,12 @@ Console SVG 작업 영역은 범위가 제한된 Resource 검색, 이동식 노�
 스냅샷과 선택적 PNG를 생성합니다. 자격 증명, 구독 id, 원시 프로바이더 리소스 id, 엔드포인트 또는
 고객별 값을 포함하지 않습니다. 라이브 내보내기는 스냅샷 시간, 소스, 최신성, 범위, 잘림 및
 `Read-only observed topology`를 표시합니다.
+Console은 먼저 권위 있는 포함 관계 식별자와 타입이 지정된 관계에서 표현 전용 형상을 파생합니다.
+기본 Landscape는 Subscription 및 Resource Group 경계 아래의 하위 항목을 집계하고, Network
+개요는 표시 기록을 네트워크 경계와 보고된 네트워크 역할로 제한합니다. 반환된 모든 VNet 및 Subnet
+경계와 그 상위 범위를 유지하고, 그 밖의 네트워크 역할은 최대 48개 표시합니다. API 응답의 배치 좌표는
+권한이나 근거가 아니며 필요하지도 않습니다. 표시되는 모든 기록은 SVG 렌더러에 도달하기 전에
+유한한 생성 형상을 가져야 합니다.
 관측된 링크는 시각적 중심이 아니라 노드 및 영역 경계에서 끝납니다. 중립 halo와 타입이 지정된
 endpoint dot은 중첩된 경계에서도 짧은 containment attachment를 보이게 하고, 모바일 icon
 노드는 포인터와 키보드에 최소 44 px 선택 영역을 제공합니다. 배치 간격은 전체 선택 영역 크기를
@@ -227,7 +233,7 @@ Live 지도와 정제된 내보내기는 하나의 obstacle-aware 직교 router�
 | 스키마 | 공유 어휘 동등성과 작성 다이어그램 및 관측 표현 상태의 별도 긍정 및 부정 fixture입니다. |
 | 배치 | 정본 허브-스포크, 이중 유입, Private Endpoint fan-out 및 밀집 교차 fixture가 무결성 검사를 통과합니다. |
 | 렌더링 | 영어 및 한국어 SVG가 모든 경계, 아이콘, 연결, 주석 및 접근 가능한 상세를 포함합니다. |
-| Console 모델 | 포커스 선택, 모호성, 경로 추적, 필터링 및 관측 경로 없음 동작이 결정론적 테스트를 통과합니다. |
+| Console 모델 | 형상이 없는 인벤토리, 범위가 제한된 Landscape 집계, 포커스 선택, 모호성, 경로 추적, 필터링 및 관측 경로 없음 동작이 결정론적 테스트를 통과합니다. |
 | Console UI | 데스크톱 `1440x900`, 제한된 데스크톱 `993x641` 및 모바일 `390x844`에서 부자연스러운 겹침이나 문서 가로 overflow가 없습니다. |
 | 출처 이력 | Stale, partial, expected, observed 및 unknown 상태가 UI와 내보내기에서 구분됩니다. |
 
@@ -239,5 +245,6 @@ Live 지도와 정제된 내보내기는 하나의 obstacle-aware 직교 router�
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
 | 인벤토리 권위 및 제한된 네트워크 수집 | [제한된 네트워크의 Azure 인벤토리](../architecture/azure-inventory-network-paths-ko.md) |
+| Console Landscape 및 생성 형상 | [Console 아키텍처 작업 영역](console-architecture-workbench-ko.md) |
 | Console 근거 및 지도 복원력 | [Console 근거 및 복원력](console-evidence-and-resilience-ko.md#아키텍처-지도-복원력) |
 | 배포 네트워크 요구 사항 | [네트워크 연결 매트릭스](../deployment/network-connectivity-matrix-ko.md) |
