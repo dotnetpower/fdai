@@ -52,6 +52,23 @@ _COST_GOVERNANCE = frozenset(
         "azurerm_container_app_job.cost_governance_collector[0]",
     }
 )
+_ALERT_NOISE_PILOT_ACTION_GROUP = "module.alert_noise_pilot[0].azurerm_monitor_action_group.pilot"
+_ALERT_NOISE_PILOT_RULE = "module.alert_noise_pilot[0].azurerm_monitor_metric_alert.pilot"
+_ALERT_NOISE_PILOT = frozenset({_ALERT_NOISE_PILOT_ACTION_GROUP, _ALERT_NOISE_PILOT_RULE})
+_ALERT_NOISE_BASELINE_THRESHOLD = 0.0
+_ALERT_NOISE_TREATMENT_THRESHOLD = 101.0
+_ALERT_NOISE_RECEIVER_COLLECTIONS = (
+    "arm_role_receiver",
+    "automation_runbook_receiver",
+    "azure_app_push_receiver",
+    "azure_function_receiver",
+    "event_hub_receiver",
+    "itsm_receiver",
+    "logic_app_receiver",
+    "sms_receiver",
+    "voice_receiver",
+    "webhook_receiver",
+)
 _OPERATIONAL_HISTORY_PREFIXES = (
     "module.operational_history_storage[0].",
     "azurerm_private_endpoint.operational_history_blob[0]",
@@ -98,6 +115,152 @@ def _model_addresses(resolved: dict[str, Any]) -> frozenset[str]:
 def _canonical_digest(value: dict[str, Any]) -> str:
     canonical = json.dumps(value, separators=(",", ":"), sort_keys=True).encode()
     return hashlib.sha256(canonical).hexdigest()
+
+
+def _pilot_threshold(resource: dict[str, Any] | None) -> float | None:
+    if not isinstance(resource, dict):
+        return None
+    criteria = resource.get("criteria")
+    if not isinstance(criteria, list) or len(criteria) != 1 or not isinstance(criteria[0], dict):
+        return None
+    threshold = criteria[0].get("threshold")
+    return float(threshold) if isinstance(threshold, (int, float)) else None
+
+
+def _without_pilot_threshold(resource: dict[str, Any]) -> dict[str, Any]:
+    value = json.loads(json.dumps(resource))
+    criteria = value.get("criteria")
+    if not isinstance(criteria, list) or len(criteria) != 1 or not isinstance(criteria[0], dict):
+        raise ValueError("Alert-noise pilot rule must have exactly one metric criterion")
+    criteria[0].pop("threshold", None)
+    return value
+
+
+def _pilot_group_is_safe(resource: dict[str, Any] | None) -> bool:
+    if not isinstance(resource, dict):
+        return False
+    email = resource.get("email_receiver")
+    if (
+        not isinstance(email, list)
+        or len(email) != 1
+        or not isinstance(email[0], dict)
+        or email[0].get("name") != "approved-test-recipient"
+        or not isinstance(email[0].get("email_address"), str)
+        or not email[0].get("email_address", "").strip()
+        or email[0].get("use_common_alert_schema") is not True
+    ):
+        return False
+    return all(resource.get(name) in (None, []) for name in _ALERT_NOISE_RECEIVER_COLLECTIONS)
+
+
+def _pilot_rule_is_safe(
+    resource: dict[str, Any] | None, *, allowed_thresholds: frozenset[float]
+) -> bool:
+    if not isinstance(resource, dict):
+        return False
+    criteria = resource.get("criteria")
+    actions = resource.get("action")
+    scopes = resource.get("scopes")
+    if (
+        not isinstance(criteria, list)
+        or len(criteria) != 1
+        or not isinstance(criteria[0], dict)
+        or criteria[0].get("metric_namespace") != "Microsoft.KeyVault/vaults"
+        or criteria[0].get("metric_name") != "Availability"
+        or criteria[0].get("aggregation") != "Average"
+        or criteria[0].get("operator") != "LessThan"
+        or _pilot_threshold(resource) not in allowed_thresholds
+        or resource.get("severity") != 3
+        or resource.get("auto_mitigate") is not True
+        or resource.get("enabled") is not True
+        or resource.get("frequency") != "PT5M"
+        or resource.get("window_size") != "PT5M"
+        or not isinstance(actions, list)
+        or len(actions) != 1
+        or not isinstance(scopes, list)
+        or len(scopes) != 1
+        or not isinstance(scopes[0], str)
+        or re.fullmatch(
+            r"(?i)/subscriptions/[0-9a-f-]{36}/resourceGroups/[^/]+/providers/"
+            r"Microsoft\.KeyVault/vaults/[^/]+",
+            scopes[0],
+        )
+        is None
+    ):
+        return False
+    return True
+
+
+def _validate_alert_noise_pilot(plan: dict[str, Any], changed: frozenset[str]) -> None:
+    unexpected = sorted(changed.difference(_ALERT_NOISE_PILOT))
+    if unexpected:
+        raise ValueError(
+            "Alert-noise pilot plan contains changes outside its bounded scope: "
+            + ", ".join(unexpected)
+        )
+    changes = {
+        str(item.get("address")): item.get("change", {})
+        for item in plan.get("resource_changes", [])
+        if isinstance(item, dict) and str(item.get("address")) in changed
+    }
+    if not changes:
+        return
+    if changed == _ALERT_NOISE_PILOT:
+        actions = {address: change.get("actions") for address, change in changes.items()}
+        if all(value == ["create"] for value in actions.values()):
+            rule = changes[_ALERT_NOISE_PILOT_RULE].get("after")
+            group = changes[_ALERT_NOISE_PILOT_ACTION_GROUP].get("after")
+            if not _pilot_group_is_safe(group) or not _pilot_rule_is_safe(
+                rule,
+                allowed_thresholds=frozenset({_ALERT_NOISE_BASELINE_THRESHOLD}),
+            ):
+                raise ValueError("Alert-noise pilot create plan violates the inert baseline")
+            return
+        if all(value == ["delete"] for value in actions.values()):
+            rule = changes[_ALERT_NOISE_PILOT_RULE].get("before")
+            group = changes[_ALERT_NOISE_PILOT_ACTION_GROUP].get("before")
+            if not _pilot_group_is_safe(group) or not _pilot_rule_is_safe(
+                rule,
+                allowed_thresholds=frozenset(
+                    {_ALERT_NOISE_BASELINE_THRESHOLD, _ALERT_NOISE_TREATMENT_THRESHOLD}
+                ),
+            ):
+                raise ValueError("Alert-noise pilot cleanup cannot delete a drifted resource pair")
+            return
+        raise ValueError(
+            "Alert-noise pilot pair must be a create-only baseline or delete-only cleanup"
+        )
+    if changed == frozenset({_ALERT_NOISE_PILOT_RULE}):
+        change = changes[_ALERT_NOISE_PILOT_RULE]
+        before = change.get("before")
+        after = change.get("after")
+        if (
+            change.get("actions") != ["update"]
+            or not isinstance(before, dict)
+            or not isinstance(after, dict)
+            or not _pilot_rule_is_safe(
+                before,
+                allowed_thresholds=frozenset(
+                    {_ALERT_NOISE_BASELINE_THRESHOLD, _ALERT_NOISE_TREATMENT_THRESHOLD}
+                ),
+            )
+            or not _pilot_rule_is_safe(
+                after,
+                allowed_thresholds=frozenset(
+                    {_ALERT_NOISE_BASELINE_THRESHOLD, _ALERT_NOISE_TREATMENT_THRESHOLD}
+                ),
+            )
+            or {_pilot_threshold(before), _pilot_threshold(after)}
+            != {_ALERT_NOISE_BASELINE_THRESHOLD, _ALERT_NOISE_TREATMENT_THRESHOLD}
+            or _without_pilot_threshold(before) != _without_pilot_threshold(after)
+        ):
+            raise ValueError(
+                "Alert-noise pilot treatment or recovery must change only threshold 0 and 101"
+            )
+        return
+    raise ValueError(
+        "Alert-noise pilot plan must create or delete the pair, or update only the rule threshold"
+    )
 
 
 def _primary_replacement_is_exact(
@@ -205,6 +368,9 @@ def enforce(
                 + ", ".join(unexpected)
             )
         return changed
+    elif mode == "alert-noise-pilot":
+        _validate_alert_noise_pilot(plan, changed)
+        return changed
     elif mode == "rca-reader-identity":
         unexpected = sorted(changed.difference(_RCA_READER_IDENTITY))
         if unexpected:
@@ -292,6 +458,7 @@ def main() -> int:
     parser.add_argument(
         "--mode",
         choices=(
+            "alert-noise-pilot",
             "core-model-quorum",
             "cost-governance",
             "deploy-identity",

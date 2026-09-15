@@ -2944,6 +2944,41 @@ module "monitoring" {
 }
 
 # -----------------------------------------------------------------------
+# Alert-noise qualification pilot (dev-only, opt-in). This creates exactly
+# one dedicated Action Group and one Key Vault Availability alert. Baseline
+# cannot fire; treatment changes only the threshold and recovery restores it.
+# -----------------------------------------------------------------------
+module "alert_noise_pilot" {
+  count  = var.enable_alert_noise_pilot ? 1 : 0
+  source = "./modules/observability/alert-noise-pilot"
+
+  environment             = local.env_label
+  phase                   = var.alert_noise_pilot_phase
+  resource_group_name     = module.resource_group.name
+  target_resource_id      = var.alert_noise_pilot_target_resource_id
+  action_group_name       = "ag-${var.workload}-noise-pilot${local.full_suffix}"
+  action_group_short_name = "fdai-pilot"
+  alert_name              = "alert-${var.workload}-noise-pilot${local.full_suffix}"
+  receiver_email          = var.alert_noise_pilot_email
+  tags                    = merge(local.tags, { "fdai:component" = "alert-noise-pilot" })
+}
+
+check "alert_noise_pilot_boundary" {
+  assert {
+    condition = !var.enable_alert_noise_pilot || (
+      local.env_label == "dev" &&
+      !var.enable_monitoring &&
+      trimspace(var.alert_noise_pilot_email) != "" &&
+      can(regex(
+        "(?i)^/subscriptions/[0-9a-f-]{36}/resourceGroups/[^/]+/providers/Microsoft\\.KeyVault/vaults/[^/]+$",
+        var.alert_noise_pilot_target_resource_id,
+      ))
+    )
+    error_message = "Alert-noise pilot requires dev, broad monitoring disabled, one protected recipient, and one existing Key Vault target."
+  }
+}
+
+# -----------------------------------------------------------------------
 # Operator console (opt-in) - Azure Static Web App hosting the read-only
 # SPA (`console/dist/`). Layer 3 in app-shape.instructions.md. The SWA is
 # a passive HTTPS artifact host; the SPA issues no privileged calls, so no
