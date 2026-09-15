@@ -327,7 +327,12 @@ export function SettingsDiagnosticsRoute({ client, auth }: Props) {
                 kind={health === "available" ? "success" : health === "unavailable" ? "danger" : "neutral"}
                 label={t(`settings.health.${health}`)}
               />
-              <button type="button" disabled={health === "checking"} onClick={() => { void checkHealth(); }}>
+              <button
+                type="button"
+                class="secondary"
+                disabled={health === "checking"}
+                onClick={() => { void checkHealth(); }}
+              >
                 {t("settings.retry")}
               </button>
             </span>

@@ -746,7 +746,11 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                       placeholder={modelText("domainPlaceholder")}
                       onInput={(event) => setDomainDraft(event.currentTarget.value)}
                     />
-                    <button type="submit" disabled={!domainDraft.trim()}>
+                    <button
+                      type="submit"
+                      class="secondary"
+                      disabled={!domainDraft.trim()}
+                    >
                       {modelText("add")}
                     </button>
                   </div>

@@ -136,6 +136,7 @@ export function AccessRequestsView({
       {hasMore ? (
         <button
           type="button"
+          class="secondary"
           disabled={loadingMore}
           onClick={() => {
             setLoadingMore(true);
@@ -228,6 +229,7 @@ function RequestReviewActions({ item, auth, client, reload }: {
       <div>
         <button
           type="button"
+          class="btn primary"
           disabled={submitting}
           onClick={() => { void review("approve"); }}
         >
@@ -235,6 +237,7 @@ function RequestReviewActions({ item, auth, client, reload }: {
         </button>
         <button
           type="button"
+          class="secondary"
           disabled={submitting}
           onClick={() => { void review("reject"); }}
         >
