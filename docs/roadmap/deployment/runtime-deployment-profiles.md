@@ -15,6 +15,9 @@ selection is part of the signed `fdaictl` provisioning profile and every exact T
 
 ## Design at a glance
 
+Shared Operator outbox composition preserves the same test-context worker on both platforms.
+Its facade grouping creates no AKS observation, Cost Governance activation, or deployment authority.
+
 The operator chooses one runtime platform and one database placement. `fdaictl` validates the
 combination, estimates its capacity and cost, compiles a platform-specific provisioning graph,
 and asks for approval of each exact plan. A retry can verify an uncertain effect, but it cannot

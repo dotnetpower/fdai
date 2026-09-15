@@ -460,6 +460,9 @@ The validated bundle, extension, trusted-artifact, skill disclosure, and revocat
 
 ### Injectable Seams
 
+Operator's durable-outbox facade re-exports the test-context bridge without a wrapper; grouping
+imports preserves worker identity, document intake, source ownership, and the composition fanout limit.
+
 The eight seams marked **CSP-neutrality contract** below realize the wire-level contracts in [csp-neutrality.md](csp-neutrality.md). `core/` sees only the interface; a fork or a future
 non-Azure phase registers a new implementation at the composition root without editing `core/`.
 

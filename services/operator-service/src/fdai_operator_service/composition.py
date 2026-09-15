@@ -109,6 +109,7 @@ from fdai_operator_service.model_lifecycle_composition import (
 from fdai_operator_service.outbox_runtime import (
     ActionConfirmationBridge,
     IncidentInterventionBridge,
+    TestContextBridge,
 )
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
@@ -154,7 +155,6 @@ from fdai_operator_service.runtime_projection_reader import (
     RuntimeProjectionReaderConfig,
 )
 from fdai_operator_service.streaming import LiveStreamEvent, LiveStreamHub
-from fdai_operator_service.test_context_runtime import TestContextBridge
 
 WEBHOOK_SIGNING_SECRET_ENV = "FDAI_OPERATOR_WEBHOOK_SECRET"  # noqa: S105
 COST_PSEUDONYM_KEY_ENV = "FDAI_COST_PSEUDONYM_KEY"  # noqa: S105

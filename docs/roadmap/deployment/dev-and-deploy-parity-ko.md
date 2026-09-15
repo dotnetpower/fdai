@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: a2d884abd5586fc1648fbb26822cd477b32fbe4e
+translation_source_sha: 277cf6db552039e76801dd03738beafdedc7ad70
 translation_revised: 2026-09-15
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -16,6 +16,7 @@ WAF 및 CAF 평가 소비자도 같은 동등성 규칙을 따릅니다. 로컬�
 AKS fleet 인벤토리는 두 프로필에서 같은 정확한 managed cluster ARM 신원과 Core 소유 수명 주기 범위 마이그레이션을 사용하며, 배포는 해당 managed cluster 리소스에만 읽기 신원 권한을 부여합니다. 검토 목록은 각 영속 키를 본문의 정확하고 불투명한 검토 신원과 대조합니다. 통제된 코호트 반입도 같은 동등성 규칙을 따릅니다. 테스트는 정규화한 합성 고정본을 사용하고 배포 환경은 묶음당 관측값을 1,000개로 제한하며 각 관측 다이제스트를 묶음과 exporter workflow에 연결한 뒤 private PostgreSQL에서 멱등 재생을 검증합니다. 산출물은 군, 리비전, 프로토콜, 출처, 승인 또는 권한을 선택할 수 없고, 빈 군별 allowlist는 exporter workflow와 정책 항목이 함께 추가될 때까지 어떤 출처도 신뢰하지 않습니다.
 Cost Governance 공개 전달도 같은 동등성 규칙을 따릅니다. 두 프로필은 비용 데이터를 반환하기 전에 내용이 없는 승인 증적을 하나 영속화하고 감사 영속화가 실패하면 응답을 차단하며, 변경할 수 없는 증적에 같은 400일 보존, 30일 삭제 유예, 법적 보존 및 tombstone 계약을 적용합니다. 로컬 고정본은 실제 W7 근거가 되지 않습니다.
 ## 전수조사 - 로컬 동작 vs Azure 필요
+테스트 맥락 명령은 로컬과 배포 프로필에서 같은 영속 발신함 facade와 준비 상태 의존성을 사용합니다. import를 모아도 테스트 고정본을 활성화하거나 실행 권한을 부여하지 않습니다.
 로컬 준비는 의존성이나 공급자 작업 전에 OPA를 확인하며, VS Code 작업 터미널은 사용자 설치 도구를 찾도록 `~/.local/bin`을 포함합니다. 모델 파일을 선택하면 해당 파일의 정확한 `LLM_RESOLVED_MODELS_SHA256`을 Operator 환경에 전달하고, 시작 시 확인값이 없거나 파일이 변경되었으면 차단합니다. `FDAI_LOCAL_NO_AZURE_DEPLOYMENT=1`에서는 활성 구독에서 명시적인 `FDAI_LOCAL_RESOURCE_GROUP`을 확인한 뒤에만 Terraform 검색을 생략합니다. 프로세스 환경에서 값을 정의하지 않은 경우 준비 작업은 Git에서 무시되는 `console/.env.local`에서 서버가 소유하는 이 두 설정만 읽을 수 있습니다. 키가 중복되면 안전하게 차단하며 모드와 범위는 모두 환경 캐시 다이제스트에 포함됩니다. PostgreSQL과 Redpanda는 로컬로 유지하고, 없는 소스는 사용 불가로 남으며, 가짜 실행기나 실행 게이트웨이는 선택하지 않습니다. HTTP 생존 확인과 `pantheon_ready`만으로 소비자 준비 상태나 대화 추론 성공을 입증할 수는 없습니다.
 2026-07-21 기준. "자동화 테스트"는 테스트 실행기가 실행하는 pytest 또는 committed mock을 뜻합니다. "Full-stack 로컬"은 운영자에 브라우저 Entra를 사용하고 서버 측 Azure 어댑터에 현재 Azure CLI 맥락을 사용하는 VS 코드 compound launch입니다. 테스트 고정본은 이 launch 프로파일에서 활성화되지 않습니다.
 ### 자동화 테스트에서 완전 동작 (Azure 불필요)

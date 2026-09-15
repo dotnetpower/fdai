@@ -26,6 +26,8 @@ Typed test-context drafts retain exact targets, expected bounds, aware intervals
 through HTTP, streaming, and replay. Strict decoding rejects extra authority fields and invalid dates;
 only an `action_draft` result carries this candidate. Scope/policy selection and submission UI remain
 unimplemented; see [case-history delivery](../rules-and-detection/prediction-learning-and-case-history.md).
+Operator composition imports the unchanged test-context worker through its existing durable-outbox
+facade; this grouping changes neither worker identity, readiness, publication, nor authority.
 
 Validated advisory terminals render their complete canonical text immediately. They do not replay
 an artificial typewriter after the server has already completed review. Ordinary streamed deltas

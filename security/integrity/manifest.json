@@ -875,7 +875,7 @@
     "services/core-control-plane/src/fdai/core/operational_context/principal_context.py": "c23018f226a3361bd0c6845247d883e7ffeb8e803102aee46fce6ce45a6cbe1f",
     "services/core-control-plane/src/fdai/core/operational_context/projector.py": "9ef664341ebf708929f3b893613bcb5ffeeb7bff7cc2988af294a95df8f1a2a7",
     "services/core-control-plane/src/fdai/core/operational_context/test_context.py": "afe2675ef5d21a454429988f582b67ac4daa1f6e18ea416222fc101859530197",
-    "services/core-control-plane/src/fdai/core/operational_context/test_context_commands.py": "cf164ff1ca795e8c8fab61ac1bff12b5072b5f80fd728499f87d165fb2e8d91f",
+    "services/core-control-plane/src/fdai/core/operational_context/test_context_commands.py": "62f7576c76dd5dd89a3b01c3337839c3007f0d6ed2562d07538dd0c22db741c5",
     "services/core-control-plane/src/fdai/core/operational_context/test_context_dispatch.py": "d26b2cbd0e0a90b8b228ac8bc6f0a873f5a1e2edb10b2c9165cdb2d82b2823b0",
     "services/core-control-plane/src/fdai/core/operational_context/test_context_lifecycle.py": "72b4bcc7490284df79cb646e80210159f8b430c477519fc68986330b7dbd5856",
     "services/core-control-plane/src/fdai/core/operational_learning/__init__.py": "a69ab56aa4ac2bfaaa8ac833f5ae8aef471ed3bfa72477c9d4aeb593452dee2e",

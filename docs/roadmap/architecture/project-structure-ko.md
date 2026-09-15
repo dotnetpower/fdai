@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 6572a0d992ade7ceed2a2c3bbc9703028434f310
+translation_source_sha: 7c84fe4860e810358d83a67566e7c6309ed69b06
 translation_revised: 2026-09-15
 ---
 # 프로젝트 구조
@@ -453,6 +453,9 @@ checkpoint부터 재개합니다.
 검증된 번들, 확장, trusted-artifact, 스킬 공개 및 철회 수명 주기는 [기능 번들 수명 주기](capability-bundle-lifecycle-ko.md)에서 소유합니다. 프롬프트 공개 예산은 저장된 Markdown 본문만이 아니라 trusted XML wrapper를 포함한 완전한 렌더링 스킬 또는 bundle 레이어에 적용됩니다. turn별 Operator Memory 조립은 독립적인 Resource Group 및 Resource 범위를 동시에 읽고 두 읽기가 완료된 뒤 결정론적 계층 순서를 보존합니다. 콘텐츠가 없는 조립 로그는 렌더링된 프롬프트나 memory 본문을 기록하지 않고 전체, Operator Memory, 스킬 공개 시간을 분리합니다.
 
 ### 주입 가능한 Seams
+
+Operator의 영속 발신함 facade는 별도 래퍼 없이 테스트 맥락 브리지를 재노출합니다.
+import를 모아도 작업 정체성, 문서 수집, 출처 소유권, 구성 의존성 상한은 유지합니다.
 
 아래 **CSP-중립성 계약** 으로 표시된 여덟 경계는 [csp-neutrality-ko.md](csp-neutrality-ko.md)의 와이어 수준 계약을 구현합니다. `core/` 는 인터페이스만 봅니다; 포크 또는 미래의 비-Azure
 단계 는 `core/` 를 편집하지 않고 조립 루트 에서 새 구현을 등록합니다.
