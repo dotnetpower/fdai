@@ -2,7 +2,7 @@
 title: 알림 과다 수신 관리
 description: 조직 전체의 과도한 알림을 진단하고 탐지 품질을 유지하면서 승인 기반 알림 변경을 제안합니다.
 translation_of: alert-noise-governance.md
-translation_source_sha: 2c17cfae7d0e54cf40812d56086b1834a7745d7b
+translation_source_sha: be04b9741fd54c4d28087bb65246ca01d1feb647
 translation_revised: 2026-09-15
 ---
 # 알림 과다 수신 관리
@@ -190,11 +190,11 @@ T2(근거에 기반한 LLM 추론)는 남은 모호성에만 선택적으로 사
 
 ### 등록된 작업과 현재 전달 한계
 
-네 `ActionType` 선언은 `default_mode: shadow`, `pr_revert`, `execution_path: pr_manual`로
-등록되어 있습니다. 작업 인자는 보존된 정방향 계획의 64자리 소문자 `plan_digest` 하나이며
-호출자가 고른 변경 필드는 받지 않습니다. 등록은 승격이 아닙니다. 현재 Var 승인 정족수,
-위험 판정, 원본 작성자 통제, 안전장치 및 독립 증명이 여전히 전달 조건입니다. 현재 정책에 따라
-T2는 `shadow_only`를 유지합니다.
+네 `ActionType` 선언은 `default_mode: shadow`, `pr_revert`, `execution_path: pr_manual`로 등록합니다.
+작업 인자는 보존된 정방향 계획의 64자리 소문자 `plan_digest` 하나이며 호출자가 고른 변경 필드는 받지 않습니다.
+등록은 승격이 아닙니다. 현재 Var 승인 정족수, 위험 판정, 원본 작성자 통제, 안전장치 및 독립 증명이 전달 조건입니다.
+런타임 지원 매니페스트는 집중 테스트에 근거한 조건부 Core 실행, 관찰 및 복구를 기록하며 실제 운영 준비를 입증하지 않습니다.
+현재 정책에 따라 T2는 `shadow_only`를 유지합니다.
 
 | 등록된 ActionType | 구현된 제한적 변경 | 전달 경계 |
 |-----------------|--------------------|----------------|

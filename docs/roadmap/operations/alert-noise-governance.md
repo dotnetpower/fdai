@@ -185,11 +185,11 @@ revoked forward approval never becomes blanket recovery permission.
 
 ### Registered actions and current delivery limits
 
-The four `ActionType` declarations are registered with `default_mode: shadow`, `pr_revert`, and
-`execution_path: pr_manual`. Their only action argument is the retained forward plan's 64-character
-lowercase `plan_digest`, not caller-selected fields. Registration is not promotion: current Var
-quorum, risk, source fencing, safeguards, and independent proofs still gate dispatch. T2 remains
-`shadow_only` under current policy.
+The four `ActionType` declarations use `default_mode: shadow`, `pr_revert` and `execution_path: pr_manual`.
+Their only argument is the retained forward plan's 64-character lowercase `plan_digest`, never caller-selected fields.
+Registration is not promotion: current Var quorum, risk, source fencing, safeguards and independent proofs gate dispatch.
+The runtime-support manifest records conditional Core execution, observation and recovery backed by focused tests, not operational readiness.
+T2 remains `shadow_only` under current policy.
 
 | Registered ActionType | Implemented bounded change | Delivery boundary |
 |---------------------|----------------|------------------|

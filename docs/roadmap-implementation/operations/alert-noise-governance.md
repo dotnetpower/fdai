@@ -72,6 +72,8 @@ an all-Low review claim, or operational adoption.
 
 | 2026-09-15 | in-progress | Established the full-outcome tracking issue and its bounded source-delivery child before publication. Both retain explicit observable exits; source merge cannot close operational qualification. | [Full outcome #1027](https://github.com/dotnetpower/fdai/issues/1027), [source delivery #1028](https://github.com/dotnetpower/fdai/issues/1028), verified local checkpoint `151c9fcb0`, and [successful CI for integrated main `91ff893cb`](https://github.com/dotnetpower/fdai/actions/runs/34928980843). The best-effort Project projection timed out; issue content remains authoritative. | Push the exact local head, retain its protected PR checks/merge, and keep the parent operational/accessibility exits open. |
 
+| 2026-09-15 | implemented | Round 22 repaired the first push's structural-gate rejection: the runtime-support manifest omitted the four catalogued alert actions. Added an exact source-set binding and conditional manual-PR execution, observation and recovery claims with focused-test evidence only. The failed push published no branch. | `current change`; [support manifest](../../../config/action-type-runtime-support.json) validates all 53 catalog actions; [support regression](../../../tests/integration/scripts/test_action_type_runtime_support.py) plus alert execution/effect-runtime checks passed 108 cases. Tests pin shadow defaults and reject any derived demo-ready claim. | Retry normal protected publication without bypassing the remaining structural gates. No deployed receipt, promotion, provider effect or authenticated-accessibility claim was added. |
+
 ### Remaining work
 
 The temporal source extension passed 121 focused replay/IaC/admitted-source checks, then 30 native
@@ -89,7 +91,7 @@ or recall. The latest integration checks passed 147 cases and five-boundary stri
   and combined 95.06% using `--cov=fdai.core.detection.alert_noise --cov-branch`.
   Its seven database setup errors were subsequently resolved and rerun; no measured Core source
   changed. Both floors were checked independently; temporal comparison alone measured 100%.
-- [x] **Hardening batches:** Rounds 1-21 below each have focused verification and a local commit.
+- [x] **Hardening batches:** Rounds 1-22 below each have focused verification and a local commit.
   Reproduced source and delivery defects were fixed; other rounds record coverage/verification
   without inventing findings. Counting rounds does not close operational or accessibility gaps.
 - [ ] **ANG-1 evidence:** Supply independently admitted directory, current ownership/incident,
@@ -176,6 +178,7 @@ checks do not prove deployed Azure behavior or authorize promotion.
 
 | Round | Scope and hypothesis | Finding / initial severity | Change and falsifying evidence | Remaining |
 |-------|----------------------|----------------------------|--------------------------------|-----------|
+| 22 | Catalogued alert actions might be absent from the source-grounded runtime-support inventory. | Medium delivery defect: the normal pre-push structural gate rejected all four missing alert entries before publication. | Added exact `ALERT_ACTIONS` membership and conditional Core manual-PR, observation and recovery support; all 53 actions validate and 108 focused tests pass. Evidence stays `focused_tests`, default modes stay shadow, and no action becomes demo-ready. | Remaining structural and protected PR checks must pass normally; operational prerequisites remain open. |
 | 21 | The wheel installed outside the checkout might not include the complete signed contract inventory. | Medium delivery-gate defect: the wheel validated 12 contracts and edges, but its test still required the old count of 9. | The isolated-wheel test now pins 12 contracts/edges, all three exact alert names and the unchanged seven-edge certification count; the focused rerun passed. | No known residual for the stale expectation; installed artifacts remain distinct from deployed compatibility evidence. |
 | 20 | Independent Core migration branches might leave multiple heads after integrating main. | High availability: all seven full-migration lifecycle cases failed because `core_process_sequence_20260915` and `core_human_access_execution_20260915` were both heads. | A no-op merge preserves both parent revisions; the single-head and no-database-effect regressions plus all seven complete-migration lifecycle cases passed (9 total, zero skips). | No known residual for migration convergence; this does not qualify a deployed provider or independent operational receipts. |
 | 19 | Expanded table header contrast and keyboard navigation. | Medium accessibility: seven headers measured 4.416:1 against their actual backgrounds. | Existing foreground token, 220-node computed contrast and 29-target tab/focus regression passed; minimum measured ratio 4.707:1. | Full state/theme and human assistive-technology evidence remains open; no WCAG certification claimed. |
