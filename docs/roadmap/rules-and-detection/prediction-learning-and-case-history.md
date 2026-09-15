@@ -75,6 +75,148 @@ Boundary validation requires the label-specific breach, intervention, observatio
 evidence in both JSON Schema and the typed model. The typed model also rejects a magnitude error
 whose breach falls outside the declared forecast horizon.
 
+Version `1.1.0` adds bounded `scoring_exclusions` independently of telemetry completeness. Missing
+intervention history, mismatched context, an excluded window, resource deletion, or an intervention
+affecting an observed breach makes the episode `unscorable` without relabeling complete metrics as
+missing. A non-empty exclusion set cannot accompany a scored outcome. Version `1.0.0` remains a
+readable contract and its serialized shape stays unchanged. A deployment without a context evidence
+binding holds new forecast scoring; an empty intervention list alone never proves absence.
+
+## Context-aware decision contract
+
+Keep six conclusions independent: observed fact, expected condition, service impact, response
+disposition, learning eligibility, and execution eligibility. A test environment is neither an
+expected-fault declaration nor an exemption. A real load-test observation is authoritative test
+evidence, not a synthetic fixture and not an untreated production incident.
+
+Operator statements and shared documents enter through the existing semantic judgment boundary.
+They propose typed context with exact targets, source reference, accountable owner, effective
+interval, recorded time, expected signals and limits, and requested handling. Missing targets,
+time bounds, or conflicting claims require clarification or review. Personal memory consent does
+not authorize a shared operational exception. Reuse reviewed `Environment`, `Experiment`, and
+`ChangeWindow` semantics before extending the ontology; a declared type alone is not a runtime
+producer. Policy changes use the existing reviewed governance path, never a conversational write
+to an active catalog.
+
+Forseti binds each decision to exact evidence, context, and policy revisions. An expected signal
+can change handling only within a currently authorized exact scope and interval. Security,
+data-integrity, unexpected symptoms, and affected production dependencies retain their protection.
+Expiry, revocation, source loss, or conflict removes exception eligibility, not the observation.
+Thor still revalidates current authorization and all action safeguards before dispatch. A context
+change during execution follows the action's stop and recovery contract; it never erases an attempt.
+
+Claim approval and observation admission are separate. Suppressing an expected test signal requires
+both the exact reviewed claim and independent evidence binding the current measurement, service
+impact, and protected-signal classification. Caller-supplied flags cannot attest that production is
+unaffected. Context composition can only lower an existing decision's autonomy ceiling.
+
+`GovernedTestContextStore` retains proposal, reviewed, and terminal revoked revisions with target
+CAS and atomic audit. Review cannot change the proposed envelope, requester, source, or policy.
+Each transition requires independent `test-context-transition` admission; overlap, self-review,
+revision conflict, and expiry during admission block activation. Runtime composition binds its
+signal-scoped reader to Forseti, which separately re-admits the claim and observation. The store
+does not authenticate conversational text or supply a human-review channel by itself.
+
+Accepted `create.test_context` semantic judgments produce a typed `TestContextDraft` through the
+ordinary chat projection. Exact source spans bind the target, signal, range, and explicit aware
+times; unresolved fields require clarification. Drafts grant no scope or review authority.
+Console decoding and replay retain valid drafts; scope/policy selection and submission UI remain open.
+Authenticated `POST /test-context/proposals`, `/test-context/reviews`, and `/test-context/revocations`
+persist commands in the Operator outbox. Huginn normalizes ingress, Var publishes independent
+reviews, Mimir records policy revisions, and Saga audits them. Thor ignores these non-action reviews.
+`GET /test-context/commands/{proposal_id}` exposes only the requesting principal's delivery and application metadata.
+After auditing Mimir's exact revision, Saga publishes the result through `core.test-context.projections`.
+Operator atomically binds it to the original actor, command digest, target, policy, and revision.
+`published` means broker acceptance; `policy_application=recorded` requires that audited result.
+Absent results remain `unknown`; `current_authorization=not_evaluated` never implies current activation.
+Exact historical review replay after revocation acknowledges the original application without a write.
+Result-source probing and stream cleanup have five-second limits. Failed workers become unready;
+explicit restart preserves failed offsets. Invalid JSON reaches a sanitized DLQ before offset commit.
+Forseti rechecks source changes during judgment; ActionRun retains the exact context binding and
+Thor rechecks current source and admission before executor I/O. In-flight stopping remains the
+action's existing stop/recovery contract, not a context-granted execution permission.
+
+### Forecast evidence admission
+
+Metric completeness requires a bounded observation policy: unique sample times, finite values,
+coverage of the entire forecast horizon, and a maximum tolerated gap. A single endpoint sample,
+conflicting duplicate samples, or missing horizon coverage is insufficient. Telemetry grace permits
+late ingestion but does not extend the scored horizon or manufacture a horizon observation.
+
+The metric adapter's injectable `ForecastObservationPolicy` defaults to three distinct samples,
+90% horizon span coverage, a 300-second maximum gap including the boundary gaps, 10,000 raw points,
+and a five-second query deadline. A single dimension set is required. The configured policy and
+scope/target/window-bound sample digest accompany the observation. These are metric admission
+checks, not proof that no intervention occurred; the context join below remains independently required.
+
+The observation adapter joins independently sourced intervention, deletion, and excluded-window
+evidence by exact target and event time. An unavailable join is unknown, not proof that no action
+ran. A relevant intervention separates the episode from untreated forecast scoring; observed
+recovery alone does not establish prevention or causal efficacy. Negative and abstained episodes
+retain completeness and censoring reasons so denominator gaps stay visible.
+
+With `FDAI_FORECAST_HISTORY_SOURCES_JSON`, Heimdall collects missing, expired, or incomplete retained
+history from the normalized state-transition store. Each exact scope/target needs all four reviewed
+source mappings. JSON fields and states must be unique; mappings are bounded to 64 targets.
+Queries keep all destination states, at most 64 transitions per source, and one five-second total
+deadline. Unknown states, conflicting chains, synthetic rows, truncation, or incomplete coverage hold scoring.
+Stateful mappings declare active and inactive states with at most one day of pre-horizon lookback.
+The state at the inclusive horizon start controls eligibility; an unknown initial state remains unknown.
+`StateStoreForecastContextProvider` independently admits each slice and the exact aggregate before retention.
+Source identity, revision, scope, target, interval, checkpoint completeness, and freshness must all match.
+The metric/context/verification join has its own five-second total deadline; history or verifier failures
+retain measured telemetry with an explicit scoring exclusion. This collector does not produce raw provider
+history or independent proofs, and neither configuration nor a complete empty query grants admission.
+
+History ingress requires independently admitted action, change, resource-lifecycle, and excluded-window
+coverage plus admission of their aggregate. Corrections append a bounded revision under scope-window
+CAS and must name the exact previous context digest; prior evidence is retained, not overwritten.
+An exact old delivery is acknowledged without restoring it as current. This permits late coverage
+and renewed evidence without revising a closed forecast outcome or manufacturing source completeness.
+
+The episode closure carries its observation even when no `ForecastOutcome` is published. The Core
+`core_forecast_closure_observation_20260914` migration adds nullable `closure_observation` metadata.
+New writes retain the observation atomically with closure and the publication outbox; conflicting
+retry content is rejected. Legacy null values remain missing evidence. The read-only health
+aggregate distinguishes complete, partial, unavailable, and missing observations. Deploy the Core
+migration before the changed reader/writer; rollback requires stopped writers and exported evidence.
+
+### Correction and reuse
+
+Saga retains what was known at each decision cutoff. Muninn appends late corrections as new case
+revisions without rewriting a prior forecast or decision. Analysis selects one eligible revision
+per case and preserves the frozen revision set for reproducible historical evaluation. Revocation
+and deletion invalidate dependent retrieval and candidate eligibility. Digests do not grant data
+sharing permission or make private evidence anonymous.
+
+Norns publishes only inert patterns and candidates from balanced, scope-authorized cohorts. Mimir
+uses incident-grouped rolling-origin evaluation, separate test/live cohorts, and the same frozen
+inputs for incumbent and challenger. Candidate construction from two cases is not promotion proof.
+The configured minimum days and episodes are floors; uncertainty, guard-metric regressions, or
+policy escapes still block promotion. Proven recovery is never withheld to create a control group.
+
+Current T1 admission binds the complete event, action parameters, signature, and rule as well as the
+immutable case. Validate expiry against the decision clock after provider I/O, with an exclusive
+expiry boundary, rather than against the observation's own timestamp. A changed target or parameter
+requires fresh admission. Existing receipts with the older scope digest cannot authorize new reuse.
+
+### Delivery and review gates
+
+| Package | Completion evidence |
+|---------|---------------------|
+| P0 - Contracts | Six independent conclusions, ownership, revisions, and failure handling are reviewed. |
+| P1 - Outcome integrity | Endpoint-only, gaps, conflicting samples, intervention, deletion, and late-arrival tests preserve honest scoring. |
+| P2 - Context admission | Exact-target semantic intake, independent review, expiry, revocation, and conflict tests deny unauthorized exceptions. |
+| P3 - Decision integration | The same versioned input replays to the same response, learning, and authority decisions with Saga audit. |
+| P4 - Durable reuse | Muninn cases, Norns patterns, and current-evidence T1 reuse survive duplicate delivery, restart, and corrections. |
+| P5 - Candidate measurement | Frozen replay and shadow evidence prove improvement without guard regression; demotion is repeatable. |
+| P6 - Operational qualification | Read-only explanations, deadlines, subscriber isolation, recovery, and separately authorized non-production drills are evidenced. |
+
+Each hardening round reviews at least ten distinct concerns, records genuine findings and their
+severity, and reruns focused regression checks after fixes. Completion requires no known unresolved
+finding above Low within the delivered scope. Missing external qualification stays open rather than
+being counted as a passing local test.
+
 ## Case history model
 
 A case is a stable, access-scope-bound identity with append-only revisions. Reopening an incident
@@ -149,6 +291,37 @@ and zero policy escapes. Regression returns the detector or policy to shadow aut
 
 ## Retention and deletion
 
+### Completion design
+
+`query.operating_patterns` requires an exact independent `case-history-read` admission binding the
+authenticated principal, case scope, purpose, arguments, and active release. It returns bounded
+recompiled summaries only, with current-source checks and no historical action parameters. T1
+separately checks current case revisions before and after verification; legacy unscoped operational
+cases remain held. Publishing an inert Pattern does not enroll or promote it in the T1 library.
+
+The remaining implementation follows one evidence chain, not independent optional helpers:
+
+| Boundary | Owner and input | Durable result | Failure behavior |
+|----------|-----------------|----------------|------------------|
+| Historical coverage | Heimdall reads normalized action, change, resource-lifecycle, and experiment histories plus source coverage checkpoints | Exact scope, target, interval, source revisions, event references, and completeness evidence | A missing source, truncated page, late watermark, or unverified checkpoint is unknown, even when no events were returned. |
+| Context proposal | Bragi translates an authenticated operator turn into typed target, signal envelope, interval, and source references | An inert proposal revision with authenticated requester attribution | Missing semantic grounding or identity requires clarification; no lexical interpretation or direct exception write. |
+| Review and activation | Var supplies independent authenticated review; Mimir owns the reviewed policy projection | Immutable reviewed revisions and a current pointer with expiry and revocation | Self-review, revision mismatch, concurrent review, conflicting overlapping claims, or absent admission blocks activation. |
+| Decision and dispatch | Forseti joins the current claim and independently admitted observation; Thor uses ordinary dispatch gates | Six-axis decision, exact claim/observation/policy digests, and Saga audit | Expired or revoked evidence removes eligibility. A queued earlier decision cannot restore it. |
+| Pattern reuse | Muninn resolves exact current case revisions; Norns and Mimir retain their existing candidate/review split | Scoped inert Pattern and frozen case identities | Correction, deletion intent, unavailable source, or incompatible cohort blocks current reuse and qualification. |
+| Derived-data deletion | Muninn's existing retention worker follows the source deletion claim | Scrubbed cohort/snapshot/Pattern projections before the final case tombstone | A failed scrub leaves deletion pending and retryable; legal holds precede every destructive step. |
+| Qualification and explanation | Existing read authorization and O3-O7 measurement boundaries consume the same frozen identities | Read-only evidence with gaps and independently reviewed candidate measurements | Unit evidence cannot count as live days, deployment, promotion, or successful operational effects. |
+
+The design review rejected three shortcuts: empty audit queries as completeness proof, reviewed
+personal memory as a shared test exception, and retrieval denial as deletion. It also rejected a
+second promotion registry and direct agent calls. Existing broker retry, CAS, review identity,
+case-history deletion claims, and independent admission remain authoritative.
+
+Implement and validate one boundary at a time, but report completion only for the connected chain.
+Tests should inject missing coverage, stale source revisions, overlapping claims, self-review,
+concurrent update, source deletion during materialization, failed deletion and restart, cross-scope
+reads, candidate correction, expired dispatch, and interrupted publication. Deployed qualification
+still requires an explicitly selected non-production target and independently retained receipts.
+
 Each case carries purpose, access scope, retention, deletion due date, and legal-hold metadata with
 a non-empty authority reference when a hold is active.
 Deletion first commits a durable intent containing every revision artifact reference. Pending
@@ -163,33 +336,27 @@ event is diagnostic only. Muninn evaluates due dates against its trusted UTC clo
 publisher cannot accelerate deletion. A failed retention publisher task terminates the runtime
 with an unsuccessful exit instead of silently disabling future ticks.
 
-## Implementation status
+New derived cohorts, frozen snapshots, Pattern bodies, and emission markers share one scope-bound
+`CaseHistoryProjectionStore` revision. Creation uses atomic create-and-audit; later writes use CAS
+and revalidate current source cases after contention. Deletion updates that same revision even when
+empty, so an in-flight first write cannot race the deletion claim. Source tombstoning waits for
+derived purge; failures remain retryable. No duplicate case-body cache is retained in Muninn.
+Each scope is bounded to 512 entries and 4 MiB, with three CAS attempts; saturation backpressures
+rather than dropping evidence. Runtime binds this store to the existing Muninn retention tick.
+This is a new, not-yet-deployed projection layout, not an automatic migration of the earlier
+experimental `operational-case-fingerprint-cohort:v2:*` state keys. Legacy projection cleanup,
+broker retention, and other downstream candidate deletion require their own verified steps.
 
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Forecast detector, agent pub/sub runtime, and single-writer enforcement | implemented | [Forecast outcome contract](#forecast-outcome-contract), pantheon single-writer registry | Shadow findings only; no execution authority. |
-| Governed trajectory serialization, scanning, checksum, and retention primitives | implemented | [Retention and deletion](#retention-and-deletion) | Reused rather than reimplemented. |
-| `ForecastOutcome` schema, episode closer, transactional outbox, and the positive, negative, and held-for-review ledger | implemented | [Learning and promotion](#learning-and-promotion) | Held episodes stay inert. |
-| StateStore authority, PostgreSQL shadow dual-write, and the episode, revision, chunk, migration-marker, and tombstone tables | implemented | [Target PostgreSQL hot index](#target-postgresql-hot-index), [Immutable artifact](#immutable-artifact) | Full-chain keyset backfill and the zero-mismatch cutover gate are included. |
-| Operational receipt compiler and action/incident case intake | implemented | [Retrieval for analysis](#retrieval-for-analysis) | |
-| Azure private artifact adapter, mechanical forecast tick Job, and read-only console health view | implemented | [Immutable artifact](#immutable-artifact) | Deployment stays opt-in. |
-| Muninn case materialization, scheduled retention, fingerprint-keyed cohorts, and inert Norns candidate choreography | in-progress | [Learning and promotion](#learning-and-promotion) | Implemented through O2; raw response outcomes remain insufficient mechanism evidence. |
-| Durable `Pattern` publication | not-started | `PANTHEON_SPECS`; `agents/_framework/topics.py` | Norns owns `Pattern` and `object.pattern` is registered, but nothing publishes or subscribes it, so recurrence answers come from volatile in-memory counters. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-08-15 | in-progress | Adopted the implementation ledger from the existing status table without reconstructing earlier provenance, and renamed the owned learning object to `Pattern`. | Current source and the sections referenced in the scope table. | Complete the observable exit conditions below. |
-
-### Remaining work
-
-- [ ] Publish `Pattern` from Norns on `object.pattern` with a live consumer, or retire the object
-  type and its topic, updating `PANTHEON_SPECS` and both pantheon documents in the same change.
-- [ ] Supply mechanism evidence strong enough to promote raw response outcomes beyond O2.
-
+T1 vector cleanup follows the existing source deletion claim, not a new retention policy. Its writer
+and purge share a PostgreSQL transaction lock under a 15-second total deadline. Each batch atomically
+records content-free case and signature fences and deletes at most 1,000 matching rows. Remaining
+rows keep source deletion pending; retries continue safely. Late writes cannot restore a fenced case
+or signature. Original case/action identity cannot change through an upsert; unchanged context-free
+statistics maintenance remains compatible. Runtime uses `FDAI_T1_PATTERN_LIBRARY_DSN`, never the
+case-metadata DSN. Legacy unscoped references are removed by the globally unique case identity;
+conflicting explicit scope or a legal hold blocks deletion. The review rejects standalone DELETE
+because it permits resurrection, and read denial because it leaves copied bodies. This fence covers
+the T1 library only; broker and other downstream copies remain separate work.
 ## Verification
 
 The implementation must prove:
@@ -203,10 +370,40 @@ The implementation must prove:
 - subscriber concurrency, failure isolation, ownership, and duplicate delivery safety;
 - no model output can write an active rule, detector, promotion, or action directly.
 
+## Connected validation handoff
+
+Use the same source revision on the connected machine. First run the focused local regressions:
+
+```bash
+.venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/core/conversation/test_semantic_test_context.py services/core-control-plane/tests/agents/test_operational_context_verdict.py services/core-control-plane/tests/core/tiers/t1_lightweight/test_contextual_reuse.py services/operator-service/tests/test_test_context_commands.py
+```
+
+The storage test requires process-local `FDAI_DATABASE_URL` for a loopback PostgreSQL database with
+temporary-schema permission. It never targets a remote database. Keep credentials out of arguments,
+recorded command output, and committed files. The command invokes no live model.
+
+For separately authorized non-production runtime validation, record the deployed SHA, policy and
+source revisions, scope digest, timestamps, and immutable receipt references. Use existing identity
+bindings and the governed deployment workflow; do not seed final state or reuse test admissions.
+
+| Stage | Observable evidence required |
+|-------|------------------------------|
+| Semantic proposal | English and Korean direct turns produce exact source-grounded drafts; missing or relative time clarifies; quotation never activates context. |
+| Authenticated lifecycle | Contributor proposal, distinct Approver review, and revocation pass the three POST routes; wrong roles, identity injection, self-review, and changed envelopes fail. |
+| Durable delivery | Broker stop/restart and expired leases preserve the same command identity; Var Approval, Mimir Policy, and Saga audit appear exactly for the accepted transition. HTTP 202 or bus publication alone is insufficient. |
+| Observation and dispatch | Expected signals stay non-executing; protected or affected-service signals retain ordinary gates. Queue a shadow action, then revoke or expire its context and verify the dispatch hold and audit. |
+| Forecast history | All four source coverage checkpoints and independent aggregate admission precede scoring; missing, partial, late, or intervened evidence retains exclusions and the denominator. |
+| Case lifecycle | Current scoped explanations disappear after correction/deletion; restart cannot resurrect retained bodies. Qualify broker, legacy keys, and downstream embeddings separately. |
+| Learning promotion | Frozen O3-O7 replay and measured shadow evidence satisfy existing floors and ActionType gates. Local tests never manufacture elapsed days, sample counts, or promotion authority. |
+
+Stop on missing identity, incomplete source coverage, 429/503, deadline, or conflicting evidence.
+Keep the result blocked with the exact missing stage; no live qualification is implied by this guide.
+
 ## Related docs
 
 | To learn about | Read |
 |----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/rules-and-detection/prediction-learning-and-case-history.md) |
 | Detection and forecast scoring | [Observability and detection](observability-and-detection.md) |
 | Agent ownership and topics | [Agent pantheon](../agents/agent-pantheon.md) |
 | Governed offline records | [Governed trajectory datasets](../interfaces/governed-trajectory-datasets.md) |

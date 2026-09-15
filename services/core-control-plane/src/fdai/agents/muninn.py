@@ -7,6 +7,7 @@ persistent backend (Postgres, pgvector).
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from collections.abc import Callable, Mapping
@@ -28,11 +29,18 @@ from fdai.core.case_history import (
     CaseHistoryRetentionService,
     OperationalCaseInput,
 )
+from fdai.core.case_history.derived import CaseHistoryProjectionStore
 from fdai.core.ontology_platform.evidence_conflict import (
     EvidenceConflictRevision,
     EvidenceConflictSink,
 )
-from fdai.core.operational_learning import PatternCase, pattern_case_from_operational_case
+from fdai.core.operational_learning import (
+    OperatingPatternCompiler,
+    PatternCase,
+    pattern_case_from_operational_case,
+)
+from fdai.core.operational_learning.cohort_retention import retain_cohort_case
+from fdai.core.operational_learning.patterns import valid_pattern_publication_envelope
 from fdai.core.operational_planning.prospective_lineage import (
     ProspectiveLineage,
     ProspectiveLineageMaterializer,
@@ -85,13 +93,18 @@ class Muninn(Agent):
         self._case_history = case_history
         self._case_history_retention = case_history_retention
         self._case_history_clock = case_history_clock or _utc_now
-        self._case_retention_days = case_retention_days
-        self._case_deletion_days = case_deletion_days
+        self._case_retention_days, self._case_deletion_days = (
+            case_retention_days,
+            case_deletion_days,
+        )
         self._evidence_conflict_sink = evidence_conflict_sink
         self._prospective_lineage_materializer = prospective_lineage_materializer
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
-        if topic == "object.turn":
+        if topic == "object.pattern":
+            async with asyncio.timeout(5):
+                await self._materialize_operating_pattern(payload)
+        elif topic == "object.turn":
             turn_id = str(payload.get("turn_id") or payload.get("id", ""))
             if turn_id:
                 self.state_store.put("conversation_turns", turn_id, payload)
@@ -268,11 +281,12 @@ class Muninn(Agent):
         if not isinstance(attributes, Mapping):
             self.record_behavior("operational_case:invalid_payload")
             return
-        if self._case_history is None:
-            self.record_behavior("operational_case:materializer_unavailable")
-            return
-        if self._durable_state_store is None:
-            self.record_behavior("operational_case:durable_store_unavailable")
+        if self._case_history is None or self._durable_state_store is None:
+            self.record_behavior(
+                "operational_case:materializer_unavailable"
+                if self._case_history is None
+                else "operational_case:durable_store_unavailable"
+            )
             return
         try:
             case_input = OperationalCaseInput.from_mapping(attributes)
@@ -290,30 +304,40 @@ class Muninn(Agent):
             self.record_behavior("operational_case:held")
             return
         fingerprint = case.failure_fingerprint
-        state_key = _operating_pattern_state_key(fingerprint)
-        state = self.state_store.get("operational_case_fingerprint_cohorts", fingerprint)
-        if state is None:
-            state = await self._durable_state_store.read_state(state_key)
-        cohort = _append_pattern_case(
-            state,
-            case,
+        state_key = _operating_pattern_state_key(case_input)
+        projections = self._case_projection_store(case_input.access_scope_digest)
+        cohort = await retain_cohort_case(
+            projections,
+            key=state_key,
+            case=case,
+            access_scope_digest=case_input.access_scope_digest,
+            purpose=case_input.purpose,
             recorded_at=sealed.record.sealed_at,
         )
-        await self._durable_state_store.write_state(state_key, cohort)
-        self.state_store.put("operational_case_fingerprint_cohorts", fingerprint, cohort)
         cases = cohort["cases"]
         digest = _cohort_digest(cases) if len(cases) >= 2 else None
-        if digest is None or digest == cohort.get("last_emitted_digest") or self.bus is None:
+        if digest is None or self.bus is None:
             self.record_behavior("operational_case:stored")
             return
+        emission_key = f"{state_key}:emitted:{digest}"
+        if await projections.read_state(emission_key) is not None:
+            self.record_behavior("operational_case:stored")
+            return
+        snapshot_key = f"{state_key}:snapshot:{digest}"
+        await projections.write_state_if_absent(snapshot_key, cohort)
+        if await projections.read_state(snapshot_key) != cohort:
+            raise ValueError("operational cohort snapshot conflict")
         await self.bus.publish(
             "Muninn",
             "object.context-index",
             {
                 "producer_principal": "Muninn",
                 "kind": "operational_case_fingerprint_cohort",
-                "correlation_id": fingerprint,
+                "correlation_id": state_key,
                 "idempotency_key": f"operational-case-fingerprint-cohort:{digest}",
+                "access_scope_digest": case_input.access_scope_digest,
+                "purpose": case_input.purpose,
+                "cohort_snapshot_ref": snapshot_key,
                 "case_id": case.case_id,
                 "revision": case.revision,
                 "manifest_digest": case.manifest_digest,
@@ -327,14 +351,212 @@ class Muninn(Agent):
                 "cases": [record["case"] for record in cases],
             },
         )
-        emitted_cohort = {**cohort, "last_emitted_digest": digest}
-        await self._durable_state_store.write_state(state_key, emitted_cohort)
-        self.state_store.put(
-            "operational_case_fingerprint_cohorts",
-            fingerprint,
-            emitted_cohort,
+        await projections.write_state_if_absent(
+            emission_key, {"digest": digest, "revision": cohort["revision"]}
         )
         self.record_behavior("operational_case:published")
+
+    async def _materialize_operating_pattern(self, payload: dict[str, Any]) -> None:
+        if not valid_pattern_publication_envelope(payload):
+            self.record_behavior("operating_pattern:invalid_payload")
+            return
+        if (
+            payload.get("producer_principal") != "Norns"
+            or payload.get("kind") != "operational_pattern"
+        ):
+            self.record_behavior("operating_pattern:invalid_producer")
+            return
+        if self._durable_state_store is None:
+            raise RuntimeError("operating pattern durable store is unavailable")
+        pattern_id = payload.get("pattern_id")
+        cohort_key = payload.get("cohort_key")
+        scope = payload.get("access_scope_digest")
+        purpose = payload.get("purpose")
+        snapshot_key = payload.get("cohort_snapshot_ref")
+        if (
+            not isinstance(pattern_id, str)
+            or len(pattern_id) != 64
+            or any(character not in "0123456789abcdef" for character in pattern_id)
+            or not isinstance(cohort_key, str)
+            or not cohort_key.startswith("operational-case-fingerprint-cohort:v2:")
+            or len(cohort_key) != len("operational-case-fingerprint-cohort:v2:") + 64
+            or payload.get("correlation_id") != cohort_key
+            or payload.get("idempotency_key") != f"operating-pattern:{pattern_id}"
+            or not isinstance(snapshot_key, str)
+            or not snapshot_key.startswith(f"{cohort_key}:snapshot:")
+            or len(snapshot_key) != len(cohort_key) + len(":snapshot:") + 64
+        ):
+            self.record_behavior("operating_pattern:invalid_payload")
+            return
+        projections = self._case_projection_store(str(scope))
+        cohort = await projections.read_state(snapshot_key)
+        if (
+            not isinstance(cohort, Mapping)
+            or cohort.get("access_scope_digest") != scope
+            or cohort.get("purpose") != purpose
+        ):
+            self.record_behavior("operating_pattern:scope_mismatch")
+            return
+        raw_cases = cohort.get("cases")
+        if (
+            not isinstance(raw_cases, list)
+            or not 2 <= len(raw_cases) <= _MAX_OPERATING_PATTERN_CASES
+        ):
+            self.record_behavior("operating_pattern:invalid_payload")
+            return
+        try:
+            if snapshot_key != f"{cohort_key}:snapshot:{_cohort_digest(raw_cases)}":
+                self.record_behavior("operating_pattern:invalid_snapshot")
+                return
+            cases = tuple(PatternCase.from_mapping(record["case"]) for record in raw_cases)
+            compiled = OperatingPatternCompiler().compile(
+                cases, reviewed_at=self._case_history_clock()
+            )
+        except (KeyError, TypeError, ValueError):
+            self.record_behavior("operating_pattern:invalid_payload")
+            return
+        if compiled is None or compiled.pattern_id != pattern_id:
+            self.record_behavior("operating_pattern:cohort_changed")
+            return
+        if self._case_history is None:
+            raise RuntimeError("operating pattern case evidence is unavailable")
+        for case_ref in compiled.immutable_case_refs:
+            if not await self._case_history.current_revision_available(
+                case_ref=case_ref,
+                access_scope_digest=str(scope),
+                purpose=str(purpose),
+                now=self._case_history_clock(),
+            ):
+                self.record_behavior("operating_pattern:case_unavailable")
+                return
+        record = {
+            "schema_version": "1.0.0",
+            "pattern_id": pattern_id,
+            "access_scope_digest": scope,
+            "purpose": purpose,
+            "cohort_key": cohort_key,
+            "candidate": compiled.to_rule_candidate_mapping(),
+            "cases": [case.to_mapping() for case in cases],
+            "execution_authority": False,
+            "promotion_authority": False,
+        }
+        key = f"{cohort_key}:pattern:{pattern_id}"
+        existing = await projections.read_state(key)
+        if existing is not None and existing != record:
+            raise ValueError("operating pattern immutable identity conflict")
+        if existing is None:
+            await projections.write_state_if_absent(key, record)
+            if await projections.read_state(key) != record:
+                raise ValueError("operating pattern immutable identity conflict")
+        if self.bus is not None:
+            await self.bus.publish(
+                "Muninn",
+                "object.state-snapshot",
+                {
+                    "producer_principal": "Muninn",
+                    "kind": "operating_pattern_retained",
+                    "correlation_id": cohort_key,
+                    "idempotency_key": f"operating-pattern-retained:{pattern_id}",
+                    "pattern_id": pattern_id,
+                    "access_scope_digest": scope,
+                    "purpose": purpose,
+                    "execution_authority": False,
+                    "promotion_authority": False,
+                },
+            )
+        self.record_behavior("operating_pattern:retained")
+
+    async def read_operating_pattern(
+        self, *, cohort_key: str, pattern_id: str, access_scope_digest: str, purpose: str
+    ) -> dict[str, Any] | None:
+        """Read an inert retained pattern only while its exact scoped cases remain current."""
+        try:
+            async with asyncio.timeout(5):
+                return await self._read_operating_pattern(
+                    cohort_key=cohort_key,
+                    pattern_id=pattern_id,
+                    access_scope_digest=access_scope_digest,
+                    purpose=purpose,
+                )
+        except (TimeoutError, ValueError, TypeError):
+            return None
+
+    async def _read_operating_pattern(
+        self, *, cohort_key: str, pattern_id: str, access_scope_digest: str, purpose: str
+    ) -> dict[str, Any] | None:
+        if self._durable_state_store is None or self._case_history is None:
+            return None
+        prefix = "operational-case-fingerprint-cohort:v2:"
+        if not cohort_key.startswith(prefix) or len(cohort_key) != len(prefix) + 64:
+            return None
+        if any(
+            len(value) != 64 or any(character not in "0123456789abcdef" for character in value)
+            for value in (cohort_key[len(prefix) :], pattern_id, access_scope_digest)
+        ):
+            return None
+        if not purpose.strip() or len(purpose) > 512:
+            return None
+        key = f"{cohort_key}:pattern:{pattern_id}"
+        record = await self._case_projection_store(access_scope_digest).read_state(key)
+        if not isinstance(record, dict) or (
+            record.get("schema_version") != "1.0.0"
+            or set(record)
+            != {
+                "schema_version",
+                "pattern_id",
+                "access_scope_digest",
+                "purpose",
+                "cohort_key",
+                "candidate",
+                "cases",
+                "execution_authority",
+                "promotion_authority",
+            }
+            or record.get("access_scope_digest") != access_scope_digest
+            or record.get("purpose") != purpose
+            or record.get("pattern_id") != pattern_id
+            or record.get("cohort_key") != cohort_key
+            or record.get("execution_authority") is not False
+            or record.get("promotion_authority") is not False
+        ):
+            return None
+        try:
+            raw_cases = record["cases"]
+            if not isinstance(raw_cases, list) or not 2 <= len(raw_cases) <= 100:
+                return None
+            compiled = OperatingPatternCompiler().compile(
+                tuple(PatternCase.from_mapping(item) for item in raw_cases),
+                reviewed_at=self._case_history_clock(),
+            )
+            if (
+                compiled is None
+                or compiled.pattern_id != pattern_id
+                or compiled.to_rule_candidate_mapping() != record["candidate"]
+            ):
+                return None
+            for case_ref in compiled.immutable_case_refs:
+                if not isinstance(
+                    case_ref, str
+                ) or not await self._case_history.current_revision_available(
+                    case_ref=case_ref,
+                    access_scope_digest=access_scope_digest,
+                    purpose=purpose,
+                    now=self._case_history_clock(),
+                ):
+                    return None
+        except (KeyError, TypeError, ValueError):
+            return None
+        return record
+
+    def _case_projection_store(self, scope: str) -> CaseHistoryProjectionStore:
+        if self._durable_state_store is None or self._case_history is None:
+            raise RuntimeError("case projection dependencies are unavailable")
+        return CaseHistoryProjectionStore(
+            store=self._durable_state_store,
+            materializer=self._case_history,
+            access_scope_digest=scope,
+            clock=self._case_history_clock,
+        )
 
     async def _materialize_detection_readiness(self, payload: dict[str, Any]) -> None:
         """Persist and publish one validated Heimdall readiness snapshot."""
@@ -572,43 +794,21 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-def _operating_pattern_state_key(failure_fingerprint: str) -> str:
-    return f"operational-case-fingerprint-cohort:{failure_fingerprint}"
-
-
-def _append_pattern_case(
-    state: object,
-    case: PatternCase,
-    *,
-    recorded_at: datetime,
-) -> dict[str, Any]:
-    current = dict(state) if isinstance(state, Mapping) else {}
-    raw_cases = current.get("cases")
-    records = (
-        [dict(item) for item in raw_cases if isinstance(item, Mapping)]
-        if isinstance(raw_cases, list)
-        else []
-    )
-    mapping = case.to_mapping()
-    records = [
-        record for record in records if record.get("case", {}).get("case_id") != case.case_id
-    ]
-    records.append({"recorded_at": recorded_at.isoformat(), "case": mapping})
-    records.sort(
-        key=lambda record: (
-            str(record.get("recorded_at", "")),
-            str(record.get("case", {}).get("case_id", "")),
-        )
-    )
-    cohort = {
-        "schema_version": "1.0.0",
-        "failure_fingerprint": case.failure_fingerprint,
-        "cases": records[-_MAX_OPERATING_PATTERN_CASES:],
+def _operating_pattern_state_key(case_input: OperationalCaseInput) -> str:
+    material = {
+        "access_scope_digest": case_input.access_scope_digest,
+        "purpose": case_input.purpose,
+        "failure_fingerprint": case_input.failure_fingerprint.digest,
+        "action_type": case_input.action_type,
+        "fdai_revision": case_input.fdai_revision,
+        "scenario_set_version": case_input.scenario_set_version,
+        "source_kind": case_input.source_kind.value,
+        "source_synthetic": case_input.source_synthetic,
     }
-    last_emitted_digest = current.get("last_emitted_digest")
-    if isinstance(last_emitted_digest, str):
-        cohort["last_emitted_digest"] = last_emitted_digest
-    return cohort
+    digest = hashlib.sha256(
+        json.dumps(material, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    return f"operational-case-fingerprint-cohort:v2:{digest}"
 
 
 def _cohort_digest(cases: list[dict[str, Any]]) -> str:

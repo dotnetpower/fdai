@@ -25,6 +25,7 @@ from fdai.core.ontology_platform.incident_queries import IncidentEvidenceReader
 from fdai.core.ontology_platform.inventory_projection import (
     DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
 )
+from fdai.core.ontology_platform.pattern_queries import OperatingPatternQuery
 from fdai.core.operational_context import OperationalEvidenceReadService
 from fdai.core.readiness import AuthorityCeiling, ProbeCriticality, StartupPhase, StartupProbeSpec
 from fdai.delivery.azure.llm.t1_probe import T1MiniProbe
@@ -318,6 +319,16 @@ async def build_semantic_runtime(
         metric_registry=metric_registry,
         metric_window_provider=metric_window_provider,
         incident_evidence_reader=incident_evidence_reader,
+        operating_pattern_reader=(
+            OperatingPatternQuery(
+                store=state_store,
+                materializer=lambda: control_loop.case_history_reuse,
+                admission=container.decision_evidence_admission_provider,
+                source_revision=control_loop.ontology_release.digest,
+            )
+            if control_loop.ontology_release is not None
+            else None
+        ),
         read_investigation_provider=read_investigation_provider,
         resource_health_reader=resource_health_reader,
         resource_event_reader=resource_event_reader,

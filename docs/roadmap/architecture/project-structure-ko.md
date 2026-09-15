@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: bb337cfc9cd06f8b2c68ca26c77a85b92e226955
+translation_source_sha: 48ba041f77ee7be7d1f51d4de624f4c826c2b965
 translation_revised: 2026-09-15
 ---
 # 프로젝트 구조
@@ -473,12 +473,12 @@ provenance는 Process 계보에 사용할 표준 `process_ref`를 유지합니�
 
 ### 주입 가능한 Seams
 
-아래 **CSP-중립성 계약** 으로 표시된 여덟 경계는 [csp-neutrality-ko.md](csp-neutrality-ko.md)
-의 와이어 수준 계약을 구현합니다. `core/` 는 인터페이스만 봅니다; 포크 또는 미래의 비-Azure
+아래 **CSP-중립성 계약** 으로 표시된 여덟 경계는 [csp-neutrality-ko.md](csp-neutrality-ko.md)의 와이어 수준 계약을 구현합니다. `core/` 는 인터페이스만 봅니다; 포크 또는 미래의 비-Azure
 단계 는 `core/` 를 편집하지 않고 조립 루트 에서 새 구현을 등록합니다.
 
 | 경계 | 인터페이스 (`shared/`) | 계약 | 기본 (상류) | 포크 오버라이드 예시 |
 |------|-----------------------|-----|-------------|---------------------|
+| 예측·테스트 맥락과 파생 사례 수명 주기 | `ForecastContextProvider`; `TestContextSource` (Core); `CaseHistoryDerivedDataStore` | 정확한 범위, 대상, 시각과 독립 검증 근거. 파생 정리가 끝나야 원본 삭제를 완료하며 실행 권한은 없음 | 이력 수집·조회, 의미 초안, 인증된 맥락 발신함, Var/Mimir 전이, Thor 실행 직전 검사, 승인된 Pattern 조회, T1 현재 출처 검사를 연결함. 연결 환경의 수집 범위와 후속 저장소 보존 검증은 별개임 | 거버넌스를 따르는 출처·검증 증적 공급자와 삭제를 보호하는 사례 저장 어댑터 |
 | Event 버스 | `EventBus` (Kafka 프로듀서/컨슈머) | **CSP-중립성 계약** - [이벤트버스](csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜) | SASL/OAUTHBEARER (Entra 토큰 소스) 를 사용하는 librdkafka 기반 클라이언트 | AWS IAM SigV4 인증, GCP IAM 인증, Confluent SASL/PLAIN, 자체 호스팅 Kafka mTLS |
 | 런타임 | `RuntimeAdapter` (OCI + Knative 호환 매니페스트 렌더링) | **CSP-중립성 계약** - [런타임](csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트) | Container Apps IaC 렌더러 (Bicep/Terraform) | Cloud 실행 YAML, App 실행기 서비스, 어떤 K8s 위의 Knative 서비스 |
 | 시크릿 & 구성 | `SecretProvider` / `ConfigProvider` | **CSP-중립성 계약** - [시크릿](csp-neutrality-ko.md#3-시크릿-계약--환경변수--k8s-secret) | env + Container Apps KV-reference 브릿지 | ESO + Key Vault / AWS Secrets Manager / GCP 시크릿 Manager / HashiCorp Vault |

@@ -93,6 +93,40 @@ CONVERSATION_ROUTE_MANIFEST: tuple[ConversationRouteSpec, ...] = (
     ),
     ConversationRouteSpec("GET", "/me/context", "context", "user.context", "read"),
     ConversationRouteSpec(
+        "GET",
+        "/test-context/commands/{proposal_id:str}",
+        "test_context_command_status",
+        "test-context.command-status",
+        "read",
+    ),
+    ConversationRouteSpec(
+        "POST",
+        "/test-context/proposals",
+        "propose_test_context",
+        "test-context.propose",
+        "proposal",
+        202,
+        16_000,
+    ),
+    ConversationRouteSpec(
+        "POST",
+        "/test-context/reviews",
+        "review_test_context",
+        "test-context.review",
+        "proposal",
+        202,
+        16_000,
+    ),
+    ConversationRouteSpec(
+        "POST",
+        "/test-context/revocations",
+        "revoke_test_context",
+        "test-context.revoke",
+        "proposal",
+        202,
+        16_000,
+    ),
+    ConversationRouteSpec(
         "GET", "/me/conversations", "conversation_page", "user.conversations", "read"
     ),
     ConversationRouteSpec(

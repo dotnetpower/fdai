@@ -2,11 +2,47 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TypeGuard
+
+from fdai.core.case_history import CaseHistoryMaterializer
+
+
+async def require_current_candidate_cases(
+    candidate: Mapping[str, object],
+    *,
+    materializer: CaseHistoryMaterializer | None,
+    clock: Callable[[], datetime],
+) -> None:
+    """Require current source revisions before reviewing scoped candidates; legacy stays inert."""
+    if "case_scope" not in candidate:
+        return
+    scope = candidate.get("case_scope")
+    if not isinstance(scope, dict) or set(scope) != {"access_scope_digest", "purpose"}:
+        raise ValueError("operational candidate case scope is invalid")
+    evidence = candidate.get("evidence")
+    references = evidence.get("immutable_case_refs") if isinstance(evidence, dict) else None
+    if not isinstance(references, list) or not 1 <= len(references) <= 100:
+        raise ValueError("operational candidate case references are invalid")
+    if materializer is None:
+        raise RuntimeError("Mimir current case history is unavailable")
+    async with asyncio.timeout(5):
+        for reference in references:
+            if (
+                await materializer.current_revision_available(
+                    case_ref=reference,
+                    access_scope_digest=scope["access_scope_digest"],
+                    purpose=scope["purpose"],
+                    now=clock(),
+                )
+                is not True
+            ):
+                raise PermissionError("operational candidate source is no longer current")
+
 
 _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")

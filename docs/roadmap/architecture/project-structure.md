@@ -476,12 +476,12 @@ The validated bundle, extension, trusted-artifact, skill disclosure, and revocat
 
 ### Injectable Seams
 
-The eight seams marked **CSP-neutrality contract** below realize the wire-level contracts in
-[csp-neutrality.md](csp-neutrality.md). `core/` sees only the interface; a fork or a future
+The eight seams marked **CSP-neutrality contract** below realize the wire-level contracts in [csp-neutrality.md](csp-neutrality.md). `core/` sees only the interface; a fork or a future
 non-Azure phase registers a new implementation at the composition root without editing `core/`.
 
 | Seam | Interface (in `shared/`) | Contract | Default (upstream) | Fork override example |
 |------|--------------------------|----------|--------------------|-----------------------|
+| Forecast, test context, and derived case lifecycle | `ForecastContextProvider`; `TestContextSource` (Core); `CaseHistoryDerivedDataStore` | Exact scope, target, time, independently admitted evidence; source deletion waits for derived purge; no execution authority | Runtime binds history ingress/read, semantic drafts, authenticated context outbox, Var/Mimir lifecycle, Thor dispatch guard, admitted Pattern queries, and T1 current-source checks. Connected source coverage and downstream retention remain separate qualification | Governed source/admission providers and deletion-fenced case projection adapter |
 | Event bus | `EventBus` (Kafka producer/consumer) | **CSP-neutrality contract** - [event bus](csp-neutrality.md#1-event-bus-contract--kafka-wire-protocol) | librdkafka-based client with SASL/OAUTHBEARER (Entra token source) | AWS IAM SigV4 auth, GCP IAM auth, Confluent SASL/PLAIN, self-hosted Kafka mTLS |
 | Runtime | `RuntimeAdapter` (renders OCI + Knative-compatible manifest) | **CSP-neutrality contract** - [runtime](csp-neutrality.md#2-runtime-contract--oci-image--knative-compatible-manifest) | Container Apps IaC renderer (Bicep/Terraform) | Cloud Run YAML, App Runner service, Knative Service on any K8s |
 | Secret & config | `SecretProvider` / `ConfigProvider` | **CSP-neutrality contract** - [secret](csp-neutrality.md#3-secret-contract--environment--k8s-secret) | env + Container Apps KV-reference bridge | ESO + Key Vault / AWS Secrets Manager / GCP Secret Manager / HashiCorp Vault |

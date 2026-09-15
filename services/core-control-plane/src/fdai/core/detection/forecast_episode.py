@@ -11,6 +11,7 @@ from math import isfinite
 from typing import Protocol
 from uuid import NAMESPACE_URL, UUID, uuid5
 
+from fdai.core.detection.forecast_outcome import ForecastObservation
 from fdai.shared.contracts.models import Mode
 
 
@@ -38,6 +39,7 @@ class ForecastEpisodeClosure:
     closed_at: datetime
     reason: ForecastClosureReason
     outcome_payload: Mapping[str, object] | None
+    observation: ForecastObservation | None = None
 
 
 @dataclass(frozen=True, slots=True)

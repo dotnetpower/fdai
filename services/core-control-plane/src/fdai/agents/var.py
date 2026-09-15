@@ -16,6 +16,8 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
+from fdai_service_contracts.test_context import TestContextCommand
+
 from fdai.agents._framework.adapters import (
     AdminCard,
     AdminNotificationAdapter,
@@ -38,6 +40,7 @@ from fdai.agents._framework.var_decisions import (
     approval_for_ticket,
     final_approval_record,
 )
+from fdai.core.operational_context.test_context_commands import TestContextCommandHandler
 from fdai.shared.providers.state_store import StateStore
 
 ApproverAuthorizer = Callable[[str, str], bool | Awaitable[bool]]
@@ -130,6 +133,13 @@ class Var(Agent):
             self._MAX_PENDING
         )
         self._published_approvals: BoundedLruSet[str] = BoundedLruSet(self._MAX_PENDING)
+        self._test_context_commands: TestContextCommandHandler | None = None
+
+    def bind_test_context_commands(self, handler: TestContextCommandHandler) -> None:
+        """Bind independent context review admission before publishing a review event."""
+        if self._test_context_commands is not None:
+            raise RuntimeError("Var context command handler is already bound")
+        self._test_context_commands = handler
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -137,6 +147,33 @@ class Var(Agent):
     # ---- typed port ----------------------------------------------------
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic == "object.event" and payload.get("event_type") == "test_context.command.v1":
+            if payload.get("producer_principal") != "Huginn":
+                raise PermissionError("context review requires normalized authenticated ingress")
+            command = payload.get("attributes")
+            if not isinstance(command, dict):
+                raise ValueError("test context review command is malformed")
+            typed_command = TestContextCommand.model_validate(command)
+            if typed_command.request.operation == "propose":
+                return
+            if self._test_context_commands is None or self.bus is None:
+                raise RuntimeError("Var test context dependencies are unavailable")
+            async with asyncio.timeout(5):
+                verified = await self._test_context_commands.review(command)
+                await self.bus.publish(
+                    "Var",
+                    "object.approval",
+                    {
+                        "kind": "test_context_review",
+                        "state": "review_recorded",
+                        "correlation_id": verified.idempotency_key,
+                        "idempotency_key": "context-review:" + verified.idempotency_key,
+                        "command": verified.model_dump(mode="json"),
+                        "execution_authority": False,
+                    },
+                )
+            self.record_behavior("test_context:review_published")
+            return
         if topic == "object.audit-entry":
             self._ingest_document_hil(payload)
             self._ingest_shadow_review(payload)

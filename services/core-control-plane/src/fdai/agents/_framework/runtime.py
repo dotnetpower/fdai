@@ -159,6 +159,8 @@ class PantheonRuntime:
         semantic_feedback_store: SemanticFeedbackCandidateSink | None = None,
         case_history_analyzer: CaseHistoryAnalyzer | None = None,
         operational_context_materializer: OperationalContextMaterializer | None = None,
+        test_context_source: factory.TestContextSource | None = None,
+        test_context_admission: factory.DecisionEvidenceAdmissionProvider | None = None,
         operational_planner: factory.PlanningCoordinator | None = None,
         kinetic_proposal_source: factory.KineticProposalSource | None = None,
         prospective_lineage_finalizer: ProspectiveLineageFinalizer | None = None,
@@ -210,16 +212,7 @@ class PantheonRuntime:
             resource_lock=execution_resource_lock,
         )
 
-        disabled = frozenset(disabled_agents or frozenset())
-        unknown = disabled - PANTHEON_NAMES
-        if unknown:
-            raise ValueError(f"unknown agents in disabled set: {sorted(unknown)}")
-        forbidden = disabled & HARD_DEPENDENCY_AGENTS
-        if forbidden:
-            raise ValueError(
-                "hard-dependency agents cannot be disabled (audit / rollback "
-                f"are mutation safety invariants): {sorted(forbidden)}"
-            )
+        disabled = execution_safety.validate_disabled_agents(disabled_agents)
 
         reg = registry or load_pantheon()
         bridge = EventBusBridge(
@@ -277,6 +270,8 @@ class PantheonRuntime:
             operator_rbac=operator_rbac,
             action_semantics=action_semantics,
             operational_context_materializer=operational_context_materializer,
+            test_context_source=test_context_source,
+            test_context_admission=test_context_admission,
             operational_planner=operational_planner,
             kinetic_proposal_source=kinetic_proposal_source,
             prospective_lineage_finalizer=prospective_lineage_finalizer,

@@ -8,6 +8,8 @@ import inspect
 from collections.abc import Awaitable
 from typing import Any, Protocol
 
+from fdai_service_contracts.test_context import TestContextApplication
+
 from fdai.agents._framework.action_semantics import RESULT_VALUES, outcome_result
 from fdai.agents._framework.adapters import (
     AuditEntry,
@@ -123,6 +125,19 @@ class Saga(Agent):
             await self._republish_forecast_outcome(payload, correlation_id)
         if topic == "object.rule" and payload.get("kind") == "catalog_review_outcome":
             await self._republish_catalog_review_outcome(payload, correlation_id)
+        if topic == "object.policy" and payload.get("kind") == "test_context_revision":
+            if principal != "Mimir" or self.bus is None:
+                raise ValueError("context application requires Mimir policy and Saga audit transport")
+            application = TestContextApplication.model_validate(payload.get("application"))
+            if application.request_key != correlation_id:
+                raise ValueError("context application correlation mismatch")
+            await self.bus.publish("Saga", "object.audit-entry", {
+                "kind": "test_context_application", "audited_topic": "object.policy",
+                "correlation_id": correlation_id,
+                "idempotency_key": "test-context-application:" + application.command_digest,
+                "application": application.model_dump(mode="json"),
+                "execution_authority": False,
+            })
         if topic == "object.handoff-escalation":
             await self._materialize_handoff(payload, correlation_id)
         if topic == "object.prospective-lineage":

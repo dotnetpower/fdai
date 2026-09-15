@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+import pytest
 from fdai.core.detection.forecast_outcome import (
     ForecastExpectation,
     ForecastObservation,
@@ -10,6 +11,7 @@ from fdai.core.detection.forecast_outcome import (
     close_missed_breach,
 )
 from fdai.shared.contracts.models import ForecastOutcomeLabel, TelemetryCompleteness
+from fdai.shared.contracts.models.forecast_outcome import ForecastScoringExclusion
 
 T0 = datetime(2026, 7, 1, tzinfo=UTC)
 
@@ -63,6 +65,34 @@ def test_close_forecast_labels_partial_telemetry_unscorable() -> None:
         closed_at=T0 + timedelta(hours=2),
     )
     assert outcome.label is ForecastOutcomeLabel.UNSCORABLE
+
+
+@pytest.mark.parametrize(
+    "exclusion",
+    [
+        "intervention_history_unavailable",
+        "context_mismatch",
+        "excluded_window",
+        "resource_deleted",
+        "intervention_affected",
+    ],
+)
+def test_scoring_exclusion_preserves_complete_metrics(exclusion: ForecastScoringExclusion) -> None:
+    outcome = close_forecast(
+        _expectation(),
+        ForecastObservation(
+            observed_value=96.0,
+            actual_breach_at=T0 + timedelta(minutes=30),
+            telemetry_completeness=TelemetryCompleteness.COMPLETE,
+            evidence_refs=("metric-window:example",),
+            scoring_exclusions=(exclusion,),
+        ),
+        closed_at=T0 + timedelta(hours=2),
+    )
+    assert outcome.schema_version == "1.1.0"
+    assert outcome.label is ForecastOutcomeLabel.UNSCORABLE
+    assert outcome.telemetry_completeness is TelemetryCompleteness.COMPLETE
+    assert outcome.scoring_exclusions == (exclusion,)
 
 
 def test_close_missed_breach_is_stable_false_negative() -> None:

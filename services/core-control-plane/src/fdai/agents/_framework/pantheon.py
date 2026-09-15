@@ -343,7 +343,7 @@ _VAR = AgentSpec(
     ),
     executes=(),
     initiates=(),
-    subscribes=("object.action-run", "object.audit-entry"),  # action + document HIL
+    subscribes=("object.action-run", "object.audit-entry", "object.event"),
     question_domains=("hil_pending", "approval_backlog"),
     owns_code_paths=("services/core-control-plane/src/fdai/agents/var.py",),
 )
@@ -429,6 +429,7 @@ _SAGA = AgentSpec(
         "object.prospective-lineage",
         "object.handoff-escalation",
         "object.rule",
+        "object.policy",
     ),
     question_domains=("fdai_action_history", "audit_log", "approval_history"),
     owns_code_paths=("services/core-control-plane/src/fdai/agents/saga.py",),
@@ -482,6 +483,8 @@ _MIMIR = AgentSpec(
         "object.issue",
         "object.rule-generation-build-request",
         "object.retrieval-validation",
+        "object.event",
+        "object.approval",
     ),
     question_domains=("rule_lookup", "policy_explain", "rule_history"),
     owns_code_paths=("services/core-control-plane/src/fdai/agents/mimir.py", "rule-catalog/**"),
@@ -528,6 +531,7 @@ _MUNINN = AgentSpec(
         "object.evidence-conflict",
         "object.prospective-lineage",
         "object.retrieval-validation",
+        "object.pattern",
     ),
     question_domains=(
         "current_state",

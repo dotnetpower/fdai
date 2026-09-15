@@ -152,6 +152,7 @@ from fdai_operator_service.runtime_projection_reader import (
     RuntimeProjectionReaderConfig,
 )
 from fdai_operator_service.streaming import LiveStreamEvent, LiveStreamHub
+from fdai_operator_service.test_context_runtime import TestContextBridge
 
 WEBHOOK_SIGNING_SECRET_ENV = "FDAI_OPERATOR_WEBHOOK_SECRET"  # noqa: S105
 COST_PSEUDONYM_KEY_ENV = "FDAI_COST_PSEUDONYM_KEY"  # noqa: S105
@@ -364,6 +365,13 @@ class ProductionOperatorComposition:
             if family_store is not None and semantic_bus is not None and event_topic is not None
             else None
         )
+        test_context_bridge = (
+            TestContextBridge(
+                store=family_store, publisher=semantic_bus, topic=event_topic, source=semantic_bus
+            )
+            if family_store is not None and semantic_bus is not None and event_topic is not None
+            else None
+        )
         local_cli_identity = (
             self.local_cli_identity_factory() if environment.local_azure_cli_auth else None
         )
@@ -449,6 +457,7 @@ class ProductionOperatorComposition:
                 azure_monitor_webhook_bridge,
                 live_stage_relay,
                 hil_decision_outbox_bridge,
+                test_context_bridge=test_context_bridge,
             ),
             live_stream_hub=live_stream_hub,
             agent_stream_hub=agent_stream_hub,
@@ -474,6 +483,7 @@ class ProductionOperatorComposition:
                 narrator_scheduler,
                 hil_decision_outbox_bridge,
                 teams_http_client,
+                test_context_bridge=test_context_bridge,
             ),
         )
 
@@ -910,6 +920,7 @@ def _application_lifecycle(
     narrator_scheduler: PeriodicNarratorRefreshScheduler | None,
     hil_decision_outbox_bridge: HilDecisionOutboxBridge | None,
     teams_http_client: httpx.AsyncClient | None,
+    test_context_bridge: TestContextBridge | None = None,
 ) -> ApplicationLifecycle | None:
     services = tuple(
         service
@@ -930,6 +941,7 @@ def _application_lifecycle(
             live_stage_relay,
             narrator_scheduler,
             hil_decision_outbox_bridge,
+            test_context_bridge,
             _OwnedHttpClient(teams_http_client) if teams_http_client is not None else None,
         )
         if service is not None
@@ -955,6 +967,7 @@ def _readiness_probe(
     azure_monitor_webhook_bridge: AzureMonitorWebhookBridge | None,
     live_stage_relay: LiveStageKafkaRelay | None,
     hil_decision_outbox_bridge: HilDecisionOutboxBridge | None = None,
+    test_context_bridge: TestContextBridge | None = None,
 ) -> ReadinessProbe:
     if store is None:
         return _unavailable
@@ -992,6 +1005,7 @@ def _readiness_probe(
             )
             and (live_stage_relay is None or live_stage_relay.readiness())
             and (hil_decision_outbox_bridge is None or hil_decision_outbox_bridge.workers_ready())
+            and (test_context_bridge is None or test_context_bridge.workers_ready())
         )
 
     return probe

@@ -59,6 +59,29 @@ _GIT_REVISION = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 _DEFAULT_MAX_CASE_AGE = timedelta(days=90)
 
 
+def valid_pattern_publication_envelope(payload: Mapping[str, object]) -> bool:
+    """Validate only the versioned inert Pattern fields and optional broker envelope."""
+    fields = {
+        "producer_principal",
+        "schema_version",
+        "kind",
+        "pattern_id",
+        "cohort_key",
+        "cohort_snapshot_ref",
+        "access_scope_digest",
+        "purpose",
+        "correlation_id",
+        "idempotency_key",
+    }
+    envelope_version = payload.get("envelope_schema_version", 1)
+    return (
+        set(payload) in (fields, fields | {"envelope_schema_version"})
+        and payload.get("schema_version") == "1.0.0"
+        and type(envelope_version) is int
+        and envelope_version == 1
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class PatternCase:
     case_id: str

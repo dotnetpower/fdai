@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping
-from datetime import datetime
+from collections.abc import Callable, Mapping
+from datetime import datetime, timedelta
 from typing import Any, Protocol
 
 from fdai.agents._framework.action_semantics import outcome_result
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.core.operational_learning import (
+    OperatingPatternCompiler,
+    PatternCase,
     ShadowDwellEvidence,
     ShadowDwellEvidenceError,
     ShadowDwellLedger,
@@ -42,12 +44,80 @@ class NornsLearningState(Protocol):
     _rollback_alarm_rate: float
     _shadow_dwell: ShadowDwellLedger
     pending_candidates: list[dict[str, Any]]
+    _operating_pattern_compiler: OperatingPatternCompiler
+    _operational_case_max_age: timedelta
+    _clock: Callable[[], datetime]
+    _operating_pattern_ids: BoundedLruSet[str]
+    _pattern_publications: dict[str, dict[str, Any]]
 
     def _append_candidate(self, candidate: dict[str, Any]) -> None: ...
 
     def _ensure_pending_capacity(self) -> None: ...
 
     def record_behavior(self, name: str, amount: int = 1) -> None: ...
+
+
+def observe_operational_case_cohort(
+    state: NornsLearningState, payload: Mapping[str, Any]
+) -> str | None:
+    """Compile an inert candidate and return the identity whose publication must finish."""
+    if payload.get("producer_principal") != "Muninn":
+        state.record_behavior("operational_case_cohort_invalid_producer")
+        return None
+    raw_cases = payload.get("cases")
+    if not isinstance(raw_cases, list) or not 1 <= len(raw_cases) <= 100:
+        state.record_behavior("operational_case_cohort_invalid_payload")
+        return None
+    try:
+        cases = tuple(
+            PatternCase.from_mapping(item) for item in raw_cases if isinstance(item, dict)
+        )
+    except ValueError:
+        state.record_behavior("operational_case_cohort_invalid_payload")
+        return None
+    fingerprint = str(payload.get("failure_fingerprint") or "")
+    if (
+        len(cases) != len(raw_cases)
+        or not fingerprint
+        or any(case.failure_fingerprint != fingerprint for case in cases)
+    ):
+        state.record_behavior("operational_case_cohort_invalid_payload")
+        return None
+    candidate = state._operating_pattern_compiler.compile(
+        cases, reviewed_at=state._clock(), max_case_age=state._operational_case_max_age
+    )
+    if candidate is None:
+        state.record_behavior("operational_case_cohort_held")
+        return None
+    if candidate.pattern_id in state._operating_pattern_ids:
+        state.record_behavior("operational_case_cohort_duplicate")
+        return candidate.pattern_id
+    state._ensure_pending_capacity()
+    scope, purpose, cohort_key = (
+        payload.get("access_scope_digest"),
+        payload.get("purpose"),
+        payload.get("correlation_id"),
+    )
+    if isinstance(scope, str) and isinstance(purpose, str) and isinstance(cohort_key, str):
+        state._pattern_publications[candidate.pattern_id] = {
+            "producer_principal": "Norns",
+            "schema_version": "1.0.0",
+            "kind": "operational_pattern",
+            "pattern_id": candidate.pattern_id,
+            "cohort_key": cohort_key,
+            "cohort_snapshot_ref": payload.get("cohort_snapshot_ref"),
+            "access_scope_digest": scope,
+            "purpose": purpose,
+            "correlation_id": cohort_key,
+            "idempotency_key": f"operating-pattern:{candidate.pattern_id}",
+        }
+    state._operating_pattern_ids.add(candidate.pattern_id)
+    proposal = candidate.to_rule_candidate_mapping()
+    if isinstance(scope, str) and isinstance(purpose, str):
+        proposal["case_scope"] = {"access_scope_digest": scope, "purpose": purpose}
+    state._append_candidate(proposal)
+    state.record_behavior("operational_case_candidate_created")
+    return candidate.pattern_id
 
 
 def observe_fingerprint(state: NornsLearningState, payload: Mapping[str, Any]) -> None:

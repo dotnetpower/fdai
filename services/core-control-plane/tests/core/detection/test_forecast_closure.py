@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from datetime import timedelta
 
 import pytest
@@ -9,6 +10,7 @@ from fdai.core.detection.forecast_episode import ForecastEpisode, ForecastEvalua
 from fdai.core.detection.forecast_episode_testing import InMemoryForecastEpisodeStore
 from fdai.core.detection.forecast_outcome import ForecastObservation
 from fdai.shared.contracts.models import TelemetryCompleteness
+from fdai.shared.contracts.models.forecast_outcome import ForecastScoringExclusion
 
 from .test_forecast_episode import T0, _episode
 
@@ -108,6 +110,36 @@ async def test_negative_evaluation_breach_becomes_false_negative() -> None:
     assert payload["miss_origin"] == "model"
 
 
+@pytest.mark.parametrize(
+    ("exclusions", "interventions"),
+    [(("context_mismatch",), ()), ((), ("action-receipt:example",))],
+)
+async def test_negative_evaluation_with_context_exclusion_or_intervention_is_not_a_miss(
+    exclusions: tuple[ForecastScoringExclusion, ...],
+    interventions: tuple[str, ...],
+) -> None:
+    store = InMemoryForecastEpisodeStore()
+    episode = _episode(
+        evaluation_kind=ForecastEvaluationKind.PREDICTED_NO_BREACH,
+        predicted_value=None,
+        interval_lower=None,
+        interval_upper=None,
+    )
+    await store.record(episode)
+    observation = ForecastObservation(
+        observed_value=96.0,
+        actual_breach_at=T0 + timedelta(minutes=30),
+        telemetry_completeness=TelemetryCompleteness.COMPLETE,
+        evidence_refs=("metric-window:example",),
+        intervention_refs=interventions,
+        scoring_exclusions=exclusions,
+    )
+    coordinator = ForecastClosureCoordinator(store=store, observations=_Observations(observation))
+    assert await coordinator.close_due(now=episode.closure_due_at) == 1
+    assert store.outbox == {}
+    assert next(iter(store.closures.values())).observation == observation
+
+
 async def test_abstained_evaluation_breach_is_pipeline_miss() -> None:
     store = InMemoryForecastEpisodeStore()
     await store.record(
@@ -190,7 +222,19 @@ async def test_incomplete_telemetry_breach_is_not_scored_as_a_miss() -> None:
     closure = next(iter(store.closures.values()))
     assert closure.outcome_payload is None
     assert closure.reason.value == "abstained_no_breach"
+    assert closure.observation is not None
+    assert closure.observation.actual_breach_at == T0 + timedelta(minutes=30)
+    assert closure.observation.telemetry_completeness is TelemetryCompleteness.PARTIAL
+    assert closure.observation.evidence_refs == ("breach:1",)
     assert store.outbox == {}
+    assert not await store.close(closure)
+    with pytest.raises(ValueError, match="closure conflict"):
+        await store.close(
+            replace(
+                closure,
+                observation=replace(closure.observation, observed_value=97.0),
+            )
+        )
 
 
 async def test_one_failing_observation_does_not_block_the_rest_of_the_batch() -> None:

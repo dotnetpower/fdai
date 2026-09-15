@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
+from typing import Literal, get_args
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from fdai.shared.contracts.models import (
@@ -15,6 +15,7 @@ from fdai.shared.contracts.models import (
     Mode,
     TelemetryCompleteness,
 )
+from fdai.shared.contracts.models.forecast_outcome import ForecastScoringExclusion
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +46,24 @@ class ForecastObservation:
     telemetry_completeness: TelemetryCompleteness
     evidence_refs: tuple[str, ...]
     intervention_refs: tuple[str, ...] = ()
+    scoring_exclusions: tuple[ForecastScoringExclusion, ...] = ()
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.scoring_exclusions, tuple)
+            or len(self.scoring_exclusions) > 5
+            or any(
+                value not in get_args(ForecastScoringExclusion) for value in self.scoring_exclusions
+            )
+            or len(set(self.scoring_exclusions)) != len(self.scoring_exclusions)
+        ):
+            raise ValueError("forecast observation scoring exclusions MUST be unique known codes")
+        if self.intervention_refs and self.actual_breach_at is not None:
+            object.__setattr__(
+                self,
+                "scoring_exclusions",
+                tuple(sorted({*self.scoring_exclusions, "intervention_affected"})),
+            )
 
 
 def close_forecast(
@@ -60,7 +79,7 @@ def close_forecast(
         f"{expectation.prediction_id}:{expectation.horizon_ended_at.isoformat()}",
     )
     return ForecastOutcome(
-        schema_version="1.0.0",
+        schema_version="1.1.0" if observation.scoring_exclusions else "1.0.0",
         outcome_id=outcome_id,
         idempotency_key=f"forecast-outcome:{outcome_id}",
         correlation_id=expectation.correlation_id,
@@ -84,6 +103,7 @@ def close_forecast(
         intervention_refs=observation.intervention_refs,
         evidence_refs=tuple(sorted(set(expectation.evidence_refs + observation.evidence_refs))),
         telemetry_completeness=observation.telemetry_completeness,
+        scoring_exclusions=observation.scoring_exclusions,
         closed_at=closed_at,
         mode=expectation.mode,
     )
@@ -144,7 +164,10 @@ def _label(
     expectation: ForecastExpectation,
     observation: ForecastObservation,
 ) -> ForecastOutcomeLabel:
-    if observation.telemetry_completeness is not TelemetryCompleteness.COMPLETE:
+    if (
+        observation.scoring_exclusions
+        or observation.telemetry_completeness is not TelemetryCompleteness.COMPLETE
+    ):
         return ForecastOutcomeLabel.UNSCORABLE
     if observation.intervention_refs and observation.actual_breach_at is None:
         return ForecastOutcomeLabel.INTERVENTION_CENSORED

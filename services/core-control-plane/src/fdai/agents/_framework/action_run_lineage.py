@@ -2,8 +2,52 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
+from copy import deepcopy
+from datetime import UTC, datetime
 from typing import Any
+
+
+def bounded_operational_context(raw: object) -> dict[str, Any] | None:
+    """Retain only a bounded structured operational context, without raising its ceiling."""
+    if not isinstance(raw, Mapping):
+        return None
+    required_lists = {
+        "service_ids",
+        "workload_ids",
+        "objective_ids",
+        "constraint_ids",
+        "stale_sources",
+        "conflicts",
+    }
+    if (
+        not isinstance(raw.get("snapshot_id"), str)
+        or not str(raw["snapshot_id"]).strip()
+        or not isinstance(raw.get("autonomy_ceiling"), str)
+        or any(not isinstance(raw.get(field), list) for field in required_lists)
+    ):
+        return None
+    try:
+        encoded = json.dumps(raw, allow_nan=False, ensure_ascii=True, sort_keys=True)
+    except (TypeError, ValueError):
+        return None
+    return deepcopy(dict(raw)) if len(encoded) <= 16_384 else None
+
+
+def optional_datetime(value: object, *, field_name: str) -> datetime | None:
+    """Parse a durable aware timestamp in UTC; malformed expiry cannot become absent."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"durable ActionRun {field_name} MUST be text")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"durable ActionRun {field_name} is invalid") from exc
+    if parsed.tzinfo is None:
+        raise ValueError(f"durable ActionRun {field_name} MUST be timezone-aware")
+    return parsed.astimezone(UTC)
 
 
 def optional_bounded_text(value: object, *, field_name: str) -> str | None:

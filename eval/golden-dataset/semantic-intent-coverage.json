@@ -304,7 +304,7 @@
     "unverified_operational_success_claim_rate",
     "worst_slice_regression_count"
   ],
-  "inventory_digest": "sha256:12299bb7e50cfa95842d5824f09d57da93b0a9c5d2d83c78dc6fbd4999b8723c",
+  "inventory_digest": "sha256:e2e7921aa00f4315ed5c9dc2d6a1ca40f11c6ae944e8a9e0ab5b09807d1fb118",
   "metric_contract": {
     "ambiguity": [
       {
@@ -937,7 +937,7 @@
     "set_recall": "true_positive_items / expected_items"
   },
   "source_digests": {
-    "console/src/deck/backend-types.ts": "sha256:2432d1c9224751d4f4c133a540d03b1a6fba1e8b66a091602c55ba916e133559",
+    "console/src/deck/backend-types.ts": "sha256:9c521b68414f5ecbcdcb2b718f3f9fa254bcc541a8198139a5c46c96c55e263c",
     "console/src/deck/presentation-artifact.ts": "sha256:5946d614e455c632368810c25954a233aaa9de60b69b53f0f733d4b06485973c",
     "console/src/deck/presentation-modules/charts.tsx": "sha256:9b93cf0c49ca9151f41e4e5037e8a1b3c0ade3b0cf949c89b15d02f29a57d890",
     "console/src/deck/presentation-modules/registry.tsx": "sha256:980c49bf7a12162ca3690966bcafefc57f379c81c6febb4844e94d6691f0d029",
@@ -951,10 +951,10 @@
     "scripts/automation/conversation_quality_sources.py": "sha256:d6c6e311ef2b4532916148086fc2badee40fa7589dab78d137f2ab88a97107aa",
     "scripts/automation/presentation_quality_metrics.py": "sha256:d5ad9c62e2e8fb29e58a2d7fe708417be5a4fbefe35cb0f5d66bed391c4284f9",
     "scripts/automation/semantic_intent_metrics.py": "sha256:c590f8e15bfc22d3f6ce124a1e42aa915800bdc10b2e2049a958395724bf4add",
-    "services/core-control-plane/src/fdai/agents/_framework/pantheon.py": "sha256:4f5db5e252caf8805612922c02c362d45ffed45c5822156401e1aed3e9c50de2",
+    "services/core-control-plane/src/fdai/agents/_framework/pantheon.py": "sha256:d5a562a09141f151162ea47af5fde612786924ba0f59a956a6d1dfd1e839bee5",
     "services/core-control-plane/src/fdai/core/conversation/question_adequacy.py": "sha256:fe9a5288e009fdf4dac438717e0ac3128a0e4caac4885b870604e732591d9aec",
     "services/core-control-plane/src/fdai/core/conversation_assurance/models.py": "sha256:4c191e51be8e6515a3508b97ae9e157c3761430cd29f63b78722f09ad9240020",
-    "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:7ab424c59b69523e2cf8cdbe19e602519295cf76669a29be770cd143be7687a0",
+    "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:93b36a181f57f31f4cac238138724d40c4fc7bd5d225063ff31a4f2b83f34c52",
     "services/operator-service/src/fdai_operator_service/families/conversation/presentation_artifact_v3.py": "sha256:618e049ecfc064c3dcc3972c1508dd1d0a7d48def7e8e1ab4411777f3d260299",
     "services/operator-service/src/fdai_operator_service/families/conversation/presentation_planner.py": "sha256:2a5a515d0ebb49a4389df1ff662e99f3afbd234efaa613c92a722dc91d31795f"
   },

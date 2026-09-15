@@ -147,7 +147,7 @@ class PostgresStateTransitionStore:
         *,
         subject_refs: tuple[str, ...],
         state_types: tuple[str, ...],
-        to_states: tuple[str, ...],
+        to_states: tuple[str, ...] | None,
         start_at: datetime,
         end_at: datetime,
         known_at: datetime,
@@ -164,6 +164,9 @@ class PostgresStateTransitionStore:
         )
         async with await self._connect() as connection:
             async with connection.transaction():
+                await connection.execute(
+                    "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"
+                )
                 await self._set_timeout(connection)
                 cursor = await connection.execute(
                     "SELECT transition_id, idempotency_key, subject_ref, subject_type, "
@@ -174,13 +177,14 @@ class PostgresStateTransitionStore:
                     "synthetic, execution_authority "
                     "FROM operational_state_transition "
                     "WHERE subject_ref = ANY(%s) AND state_type = ANY(%s) "
-                    "AND to_state = ANY(%s) "
+                    "AND (%s::text[] IS NULL OR to_state = ANY(%s::text[])) "
                     "AND effective_at >= %s AND effective_at <= %s AND recorded_at <= %s "
                     "ORDER BY effective_at, recorded_at, transition_id LIMIT %s",
                     (
                         list(subject_refs),
                         list(state_types),
-                        list(to_states),
+                        list(to_states) if to_states is not None else None,
+                        list(to_states) if to_states is not None else None,
                         start_at,
                         end_at,
                         known_at,
@@ -341,7 +345,7 @@ def _coverage(row: dict[str, Any]) -> StateTransitionCoverage:
 def _validate_read(
     subject_refs: tuple[str, ...],
     state_types: tuple[str, ...],
-    to_states: tuple[str, ...],
+    to_states: tuple[str, ...] | None,
     start_at: datetime,
     end_at: datetime,
     known_at: datetime,
@@ -350,10 +354,9 @@ def _validate_read(
     if (
         not subject_refs
         or not state_types
-        or not to_states
         or subject_refs != tuple(sorted(set(subject_refs)))
         or state_types != tuple(sorted(set(state_types)))
-        or to_states != tuple(sorted(set(to_states)))
+        or (to_states is not None and (not to_states or to_states != tuple(sorted(set(to_states)))))
     ):
         raise ValueError("state transition read scope MUST be non-empty, unique, and ordered")
     timestamps = (start_at, end_at, known_at)
