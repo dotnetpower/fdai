@@ -39,7 +39,6 @@ from fdai_operator_service.assessment_projections import (
     FrameworkAssessmentProjectionBridge,
     WaraAssessmentProjectionBridge,
 )
-from fdai_operator_service.assignment_outbox import AssignmentNoticeBridge
 from fdai_operator_service.auth import (
     EntraJwtVerifier,
     LocalAzureCliIdentity,
@@ -93,8 +92,10 @@ from fdai_operator_service.family_adapters import (
 from fdai_operator_service.family_authorization import OperatorFamilyAuthorizer
 from fdai_operator_service.iam_composition import (
     HIL_SIGNING_SECRET_ENV,
+    AssignmentNoticeBridge,
     HilDecisionOutboxBridge,
     build_adaptive_relationship_resolver,
+    build_assignment_notice_bridge,
     build_hil_decision_outbox_bridge,
     build_postgres_iam_bindings,
     build_teams_hil_http_client,
@@ -113,7 +114,6 @@ from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
     PostgresOperatorReadModelConfig,
 )
-from fdai_operator_service.postgres_assignment_outbox import build_assignment_notice_bridge
 from fdai_operator_service.postgres_background_task_projection import (
     PostgresBackgroundTaskProjectionConfig,
     PostgresBackgroundTaskProjectionRepository,

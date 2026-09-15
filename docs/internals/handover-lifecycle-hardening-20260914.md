@@ -1265,3 +1265,21 @@ The topic-parent size comparison initially classified a main-owned 402-line new 
 task-new. The correct delivery-base comparison passes without modifying that unrelated document
 or weakening the gate. Normal integration hooks and exact pushed-SHA protection remain the
 delivery boundary; their final commit, PR, and merge evidence belongs to #946.
+
+### Publication preflight correction
+
+Integration commit `4013e536deb5fd43530d34d8488eadaa00744c43` passed normal commit
+hooks and its tree was byte-identical to the tested tree. The first normal pre-push stopped
+before publication: combining the two branches left the Operator composition root at 41 unique
+imports, above the existing rejection boundary of 40. No remote branch or PR was created.
+
+The correction groups assignment transport beside the existing HIL re-export in
+`iam_composition`. `AssignmentNoticeBridge` and `build_assignment_notice_bridge` remain exactly
+the original class and factory objects; an explicit identity regression covers both import paths.
+There is no wrapper, new service, authority, changed lifecycle, or threshold exception. The owning
+boundary gate now measures 39 imports and passes. Actual Operator composition/full-composition
+tests pass 98 cases with one unchanged optional PDF-extra skip. The three edited Python files pass
+Ruff and formatting. The MI-01 through MI-10 source boundaries were reviewed again against this
+identity-preserving import change; their source contracts and SQL/UI inputs are unchanged, while
+the new composition evidence covers the changed import graph. This is not ten more test runs or
+an additional claim of operational validation. Publication and exact-head CI remain pending.
