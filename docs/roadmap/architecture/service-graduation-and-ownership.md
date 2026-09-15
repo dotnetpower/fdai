@@ -51,6 +51,7 @@ Core only after the exact live evidence closes.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Refreshed the derived System Knowledge source commitments after reconciling protected handover delivery and its bounded local UI evidence. | `current change`; canonical catalog compiler and derived-source checks; [handover UI record](../../internals/handover-ui-evidence-20260915.md). | No service, writer, transport or authority changed. Real assistive-technology, provider and deployment evidence remains separate. |
 | 2026-09-14 | implemented | Regenerated the System Knowledge catalog after rebasing the reviewed identity guidance onto the latest protected source revisions. | `current change`; generated catalog, translation parity, and derived-source gate. | No service boundary, writer, or authority changed. |
 | 2026-09-14 | implemented | Refreshed the derived System Knowledge catalog after the reviewed human-identity guidance changed. | `current change`; generated catalog and derived-source gate. | No service boundary, writer, or authority changed. |
 | 2026-09-13 | implemented | Registered the autonomy measurement projection test with the Operator unit suite and aligned the retained availability-state regression with the reviewed provider capability classification. | `current change`; `tests/integration/service-suites.json`; focused service-suite and recorded-state checks passed. | No service boundary, writer, or authority changed. |

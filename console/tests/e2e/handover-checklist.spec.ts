@@ -117,7 +117,10 @@ test("handover upload rejects multiple dropped files before content transfer", a
   await expect(page.getByRole("alert").filter({ hasText: "Select one file for the chosen handover evidence area." })).toBeVisible();
   await expect(page.locator(".document-upload-row")).toHaveCount(0);
   await expect(page.locator('input[type="file"]')).not.toHaveAttribute("multiple");
-  await page.locator('input[type="file"]').setInputFiles({ name: "one.txt", mimeType: "text/plain", buffer: Buffer.from("synthetic one") });
+  const chooserReady = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Choose files", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await (await chooserReady).setFiles({ name: "one.txt", mimeType: "text/plain", buffer: Buffer.from("synthetic one") });
   await expect(page.locator(".document-upload-row")).toHaveCount(1);
   await expect(page.getByRole("alert").filter({ hasText: "Select one file" })).toHaveCount(0);
   expect(writes).toEqual([]);
