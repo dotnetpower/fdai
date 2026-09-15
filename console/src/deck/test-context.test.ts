@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
 import { parseTestContextDraft } from "./test-context";
 import { parseTurns, serializeTurns } from "./transcript-store";
 import { restoredTurn } from "./command-deck-session";
@@ -29,8 +30,8 @@ describe("test context draft", () => {
       status: "action_draft", source: "ontology-query", answer: "Context draft",
       test_context_draft: draft,
       semantic_receipt: {
-        schema_version: "1.0.0", projection_id: "00000000-0000-4000-8000-000000000002",
-        request_id: "00000000-0000-4000-8000-000000000001", disposition: "action_draft",
+        schema_version: "1.0.0", projection_id: randomUUID(),
+        request_id: randomUUID(), disposition: "action_draft",
         reason_code: "semantic_action_draft", semantic_route: "semantic_action_draft",
         execution_authority: false,
       },

@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "core_forecast_closure_observation_20260914"
-down_revision: str | Sequence[str] | None = "core_cost_governance_review_20260913"
+down_revision: str | Sequence[str] | None = "core_human_access_execution_20260915"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -15,7 +15,7 @@ migration_owner = "core-control-plane"
 owned_tables = ("forecast_episode",)
 rollback = {
     "strategy": "drop-forecast-closure-observation-after-export",
-    "restores": "core_cost_governance_review_20260913",
+    "restores": "core_human_access_execution_20260915",
     "requires": "forecast-writers-stopped-and-closure-observations-exported",
 }
 

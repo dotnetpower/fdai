@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 775a434feec0b19b90cd2e3e5b392eb4b14a011f
+translation_source_sha: 6c42d80ba20a9008b132ffba4acc383d2254c01c
 translation_revised: 2026-09-15
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -29,6 +29,8 @@ HTTP, 스트리밍, 재생 과정에서 보존합니다. 엄격한 해석으로 
 구현되지 않았습니다. [사례 이력 전달](../rules-and-detection/prediction-learning-and-case-history-ko.md)을 참고하세요.
 Operator 구성은 기존 영속 발신함 facade에서 같은 테스트 맥락 작업을 가져옵니다.
 import를 모아도 작업의 정체성, 준비 상태, 발행 방식, 권한은 바뀌지 않습니다.
+재생 회귀 검사는 실행 중 합성 UUIDv4 식별자를 생성합니다. 운영 증적 파서는 잘못된 식별자
+형식을 계속 거부하며 테스트 식별자를 실제 근거로 취급하지 않습니다.
 
 검증된 자문 최종 응답은 완성된 원문을 즉시 표시합니다. 서버가 검토를 마친 뒤 인위적인 타자
 효과를 다시 재생하지 않습니다. 일반 스트리밍 조각은 기존 표시 속도와 순서를 유지하며 잘못된

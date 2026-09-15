@@ -28,6 +28,8 @@ only an `action_draft` result carries this candidate. Scope/policy selection and
 unimplemented; see [case-history delivery](../rules-and-detection/prediction-learning-and-case-history.md).
 Operator composition imports the unchanged test-context worker through its existing durable-outbox
 facade; this grouping changes neither worker identity, readiness, publication, nor authority.
+Replay regression fixtures generate synthetic UUIDv4 identities at test time; the production
+receipt parser still rejects invalid identity shapes and never treats fixture identifiers as evidence.
 
 Validated advisory terminals render their complete canonical text immediately. They do not replay
 an artificial typewriter after the server has already completed review. Ordinary streamed deltas
