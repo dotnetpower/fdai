@@ -148,6 +148,54 @@ def test_non_positive_timeout_is_rejected() -> None:
         OpaRegoEvaluator(policies_root=POLICIES_ROOT, timeout_seconds=0)
 
 
+def test_version_timeout_fails_construction(monkeypatch: pytest.MonkeyPatch) -> None:
+    import subprocess
+
+    monkeypatch.setattr(shutil, "which", lambda _binary: "/usr/bin/opa")
+
+    def _timeout(*args: Any, **kwargs: Any) -> Any:
+        raise subprocess.TimeoutExpired(cmd="opa version", timeout=1)
+
+    monkeypatch.setattr(subprocess, "run", _timeout)
+
+    with pytest.raises(OpaEvaluatorError, match="opa version timed out"):
+        OpaRegoEvaluator(policies_root=POLICIES_ROOT)
+
+
+def test_version_nonzero_exit_fails_construction(monkeypatch: pytest.MonkeyPatch) -> None:
+    import subprocess
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(shutil, "which", lambda _binary: "/usr/bin/opa")
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=7, stdout="", stderr="failed"),
+    )
+
+    with pytest.raises(OpaEvaluatorError, match="opa version failed"):
+        OpaRegoEvaluator(policies_root=POLICIES_ROOT)
+
+
+@pytest.mark.parametrize("stdout", ["", "Version:\n", "OPA 1.0.0\n"])
+def test_malformed_version_output_fails_construction(
+    stdout: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import subprocess
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(shutil, "which", lambda _binary: "/usr/bin/opa")
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout=stdout, stderr=""),
+    )
+
+    with pytest.raises(OpaEvaluatorError, match="unsupported format"):
+        OpaRegoEvaluator(policies_root=POLICIES_ROOT)
+
+
 # ---------------------------------------------------------------------------
 # Package derivation is purely static; runs without opa.
 # ---------------------------------------------------------------------------

@@ -18,7 +18,7 @@ for the *human* side; the executor-side mapping stays as declared there.
 > answers *who owns each of the 15 agents* now that FDAI runs the work (accountability
 > + escalation + handover). A person is typically in both; being a steward grants no
 > RBAC capability by itself. Authenticated Settings catalog reads use a separate bounded model-configuration reader; discovering a deployed model grants no model-selection, provisioning, assignment, or execution authority.
-> Local and deployed conversation assembly use `iam_composition.py` to bind optional read-only relationship adapters from existing ownership, directory, and assignment ports while preserving injected resolvers. Construction performs no reads or writes. A proof binds the authenticated human, fixed target agent, source revision, and at most five minutes; Core rechecks identity and time before using an identity-free prompt profile. Missing, stale, ambiguous, or mismatched evidence remains unknown and never changes RBAC, approval, or executor identity.
+> Local and deployed conversation assembly use the `iam_composition` module to bind optional read-only relationship adapters from existing ownership, directory, and assignment ports while preserving injected resolvers. Construction performs no reads or writes. A proof binds the authenticated human, fixed target agent, source revision, and at most five minutes; Core rechecks identity and time before using an identity-free prompt profile. Missing, stale, ambiguous, or mismatched evidence remains unknown and never changes RBAC, approval, or executor identity. The same facade re-exports the original `AssignmentNoticeBridge` and `build_assignment_notice_bridge` objects alongside `HilDecisionOutboxBridge`, without wrappers. This groups assignment and HIL transport imports only; decision authentication and authorization, Core-only assignment-case writes, and executor identity remain unchanged.
 
 > Customer-agnostic: all group names, app registration names, and GUIDs below are
 > **placeholders**; a fork supplies the real values via config
@@ -38,11 +38,16 @@ for the *human* side; the executor-side mapping stays as declared there.
 | Notification integration configuration and diagnostics | implemented | `teams_workflow_binding.py`; `teams_workflow_diagnostics.py`; `families/iam/{capabilities,settings,manifest}.py`; focused binding, diagnostic, and IAM-family tests | Owner can save and test the Teams endpoint. Contributor, Approver, and Owner receive only secret-free binding version and time metadata through a no-store response; the endpoint value never returns to the browser. Reader and BreakGlass receive `visible: false`. Slack remains a transient test. Every Teams save, test, and metadata-read audit record omits the URL. |
 | Per-user Cost Governance access | implemented | `CostAccessGrant`; `CostDisclosureCeiling`; Cost Governance Operator routes and focused tests | The reader selects the latest matching principal, purpose, and scope grant before applying time checks and the deployment disclosure ceiling. The server applies `hidden`, `aggregate`, `masked`, or `detailed` disclosure before serialization; the grant cannot enable the package or promote an action. |
 | IAM administration diagnostics and request projection | implemented | `entra_directory.py`; `families/iam/iam_routes.py`; `postgres_iam.py`; `console/src/routes/settings-iam*`; focused Operator, Console, and Browser tests | The Console distinguishes FDAI Owner from tenant administration, uses a server-side read-only Graph directory when credentials are available, and projects durable request and review proposals without claiming that approval changed membership. |
+| Independently reviewed revocation intent | implemented | [Revocation intent](../../../services/core-control-plane/src/fdai/core/human_assignment/revocation_intent.py); [recorded execution checkpoint](../../internals/handover-lifecycle-hardening-20260914.md#execution-source-critique-checkpoint) | Request/result `1.1.0` pin original and replacement revisions. Fresh removal review, an original CAS hold, independent IAM removal, and a review-only old-duty PR remain separate effects. Core has no mutation fallback; the isolated path still requires current approval, safeguards, and independent promotion. |
+| Core and Operator handover authorization and budget | implemented | [Acceptance](../../../services/operator-service/src/fdai_operator_service/families/iam/handover_acceptance.py); [session budget](../../../services/operator-service/src/fdai_operator_service/families/iam/handover_session_budget.py); [Core binding](../../../services/core-control-plane/src/fdai/runtime/core_handover.py); [recorded Core evidence](../../internals/handover-lifecycle-hardening-20260914.md#core-source-and-retrieval-critique-checkpoint) | Six slots, independent review, durable subject-wide limits, and current Core goal/reviewer/admission/retrieval bindings are implemented. Reader backups require current observed role-group membership matching exact document ACL; private metadata, duty labels, or an App Role alone never supply missing group proof. |
+| Scoped ownership review and H10 UI | implemented | [Scoped runtime](../../../services/core-control-plane/src/fdai/runtime/scoped_duties.py); [Console workspace](../../../console/src/routes/scoped-duty-workspace.tsx); [recorded H10 UI evidence](../../internals/handover-lifecycle-hardening-20260914.md#h10-console-implementation-and-focused-critique-evidence): 95 unit tests and 6 Playwright scenarios | Owner-only user/group/schedule duties, exact scope, UTC windows, static fallback, review, merge observation, and supersession are connected. HTTP 202 remains awaiting Core. Desktop/mobile, account-reset, and contrast evidence is synthetic actual-route evidence, not complete WCAG/rubric or live certification. |
+| Isolated human-access dispatch and inverse | implemented | [Runtime binding](../../../services/core-control-plane/src/fdai/runtime/human_access_runtime.py); [isolated executor](../../../services/isolated-executor/src/fdai_executor_service/human_access.py); [recorded execution evidence](../../internals/handover-lifecycle-hardening-20260914.md#execution-source-critique-checkpoint): 132 owning tests and a separate overlapping 21-test actual SQL/fixed-agent selection | Original Action/material/HIL, unchanged approved revision, exact preparation, current approval policy/kill/health, dedicated identity, seven safeguards, and operation-independent membership lock gate Thor. Independent Heimdall evidence and shared closure precede effects. Vidar's fresh approved inverse retains original ownership, current demand, and target generation; no old approval or role authority is copied. |
+| Restricted source observation and readiness reads | implemented | [Core admission reader](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_handover_admission.py); [readiness model](../../../services/core-control-plane/src/fdai/core/human_assignment/readiness.py); recorded actual SQL and focused evidence above | Restricted source/ACL/search functions grant no raw document-table `SELECT`. Readiness now has empty `source_gaps` but retains external blockers, ten-minute expiry, `shadow`, and `operationally_ready=false`. No live deployment, mutation authority, or whole-task validation is implied. |
 
 ### Implementation history
-
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-14 | implemented | Added current role-group-backed Reader review, strict document admission, exact Operator SQL role checks, and first/prior review revalidation. Corrected target-lock, isolated Executor binding, and IAM-effect ingress classification to unfinished source work. | `current change`; `test_handover_reviewer_groups.py`, `test_entra_directory.py`, and acceptance selection: 35 passed; real SQL lifecycle/reviewer selection: 48 passed. | Retain live group/ACL evidence separately. H10, alternate Core bindings, semantic compilation, urgency, and execution source wiring remain open; no IAM effect or promotion was enabled. |
 | 2026-09-06 | implemented | Bound optional dialogue relationships to current ownership and directory evidence without exposing principal identifiers in system prompts or changing human/executor authority. | `current change`; relationship and prompt checks included in 653 passing focused Python checks. | Retain separately authorized live directory and model evidence. |
 | 2026-09-01 | implemented | Repaired the Identity and access request contract, added explicit FDAI Owner and directory diagnostics, bound a read-only Graph directory for local and deployed credentials, and replaced misleading add-user copy with the actual request-review-apply-verify boundary. | `current change`; `entra_directory.py`; `postgres_iam.py`; `settings-iam*.tsx`; focused Operator, Console, catalog, and Playwright checks. | Retain a deployed Graph-read receipt and complete the separately promoted assignment-to-IAM apply workflow before claiming automatic membership changes. |
 | 2026-09-01 | implemented | Added encrypted local and Key Vault-backed Teams Workflows endpoint persistence, plus an audited `view-integration-secrets` capability for Contributor, Approver, and Owner. Reader and BreakGlass receive no binding metadata. | `current change`; `teams_workflow_binding.py`; `teams_workflow_diagnostics.py`; `families/iam/{capabilities,settings,manifest}.py`; 53 focused Operator tests passed; Terraform validation passed. | Retain a deployed runtime receipt before claiming the Key Vault reveal path is validated. |
@@ -53,15 +58,22 @@ for the *human* side; the executor-side mapping stays as declared there.
 | 2026-08-15 | implemented | Added the `POST /system/break-glass/activation` request boundary with a BreakGlass-only capability, incident id, reason, bounded future expiry, and an audit-only projection. | `current change`; `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `pytest services/operator-service/tests` (308 passed, 1 skipped). | Bind a durable activation store, TTL enforcement, and sign-in alerting in a deployment. |
 | 2026-08-21 | implemented | Added a loopback-only durable MSAL cache and one lifecycle-owned proactive refresh loop without changing deployed token storage or API verification. | `current change`; `console/src/auth-session.ts`; `console/src/auth.ts`; `console/src/app.tsx`; focused auth tests passed 10 cases and Console typecheck passed. An unretained loopback Browser check restored a second tab with no MSAL `sessionStorage` entry and observed one successful startup refresh. | Retain a governed Browser receipt across a webview recreation or overnight suspension before claiming runtime validation. |
 | 2026-08-31 | implemented | Replaced callback-supplied identity and roles with server-verified Entra authority for Teams and mapped Slack A1 decisions. Callback context, expiry, justification, no-self-approval, duplicate handling, first-timestamp audit idempotency, proposal-first recovery, and durable Kafka publication now fail closed. Teams audience comes from a separate group-connected team and channel rather than an RBAC group id. | `current change`; focused Operator IAM, PostgreSQL, Kafka, composition, workflow approval, and local canary checks. | Retain one governed deployed Teams OBO and broker-acceptance receipt without storing a token or tenant value. |
+| 2026-09-14 | implemented | Hardened the bounded removal-intent, Operator goal acceptance/session, restricted source-read, and Owner-only readiness boundaries without enabling IAM execution. | `current change`; sources above; the main implementation session reported 451 passing focused task tests including actual SQL, plus 41 Console unit tests and an isolated four-width document-route scenario with keyboard disclosure, 200% text, and forced colors. | Alternate Core current admission/reviewer bindings, Reader-backup group ACL, and other named source gaps remain open; external provider, identity, GitHub App, IAM effect, lock, drill, Teams, document, deployment, and cohort evidence remains separate. |
+| 2026-09-15 | implemented | Superseded the earlier missing Core admission/reviewer/retrieval, H10 UI, and isolated execution/target-lock/effect-ingress claims. Core constructs no mutation identity; fixed owners now bind original material and HIL, exact preparation, isolated dispatch, independent effect closure, and a fresh approved inverse that leaves the case degraded/supersedable. Readiness source gaps are empty, not operationally ready. | `current change`; sources above and [latest internal checkpoint](../../internals/handover-lifecycle-hardening-20260914.md#execution-source-critique-checkpoint): 132 execution tests and a separate 21-test actual loopback SQL/fixed-agent selection, overlapping rather than additive. Recorded H10 evidence is 95 unit tests and 6 actual-route/component Playwright scenarios; provider HTTP and Owner observations were synthetic. | New ActionTypes remain shadow-default and local authority cutover is prohibited. Live identity, Graph, GitHub, Teams, drills, cohorts, promotion, complete UI rubric/WCAG evidence, final integrated critiques, static/docs reconciliation, and delivery remain open; #458 is not completed. |
+| 2026-09-15 | implemented | Completed 12 distinct final integrated critique rounds after remaining source implementation; no unresolved confirmed Medium/High source finding. | `current change`; [FI-01 through FI-12](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation), including 145 goal/revocation/replacement/Operator/Reader/catalog and 92 actual-SQL/fixed-agent/migration checks; overlapping, not summed. | Translation SHA refresh, canonical generation, local hooks, publication/CI, complete UI/assistive evidence, and live operational criteria remain pending. #458 stays open; no authority or promotion changes. |
+| 2026-09-15 | implemented | Grouped assignment transport imports with the existing HIL bridge in the IAM composition facade, preserving the original class and factory objects without wrappers. | `current change`; [IAM facade](../../../services/operator-service/src/fdai_operator_service/iam_composition.py); [identity regression](../../../services/operator-service/tests/test_operator_service_full_composition.py); the main implementation session reported 98 Operator composition/full-composition passes, 1 unchanged optional PDF-extra skip, and 39 distinct composition imports. No checks were run for this documentation edit. | Decision authentication and authorization, Core-only case writes, roles, durable transport, and executor identity are unchanged. Translation SHA refresh and canonical generation remain pending for this edit; no live IAM, deployment, or promotion evidence is added. |
 
-An exact HIL decision replay must preserve both the decision and the normalized approver identity.
-Reusing the same idempotency key from another approver is a conflict even when the decision matches.
+An exact HIL decision replay must preserve both the decision and the normalized approver identity. Reusing the same idempotency key from another approver is a conflict even when the decision matches.
 
 ### Remaining work
 
 - [x] The production Break-Glass activation endpoint exists, requires an incident id, a reason, and a bounded future expiry, records the activation audit evidence, and grants no runtime HIL approval or executor identity, proven by `services/operator-service/tests/test_operator_break_glass_activation.py`.
 - [ ] Bind a durable activation store, TTL enforcement, and sign-in alerting in a deployment, and retain one governed activation receipt.
 - [ ] Retain one governed loopback Browser receipt across a webview recreation or overnight suspension without exposing cached authentication artifacts. A Conditional Access or MFA challenge remains an interactive authentication boundary.
+- [x] Bind current Core goals, reviewer eligibility, admission, and standalone retrieval; the [Core checkpoint](../../internals/handover-lifecycle-hardening-20260914.md#core-source-and-retrieval-critique-checkpoint) records source and actual SQL evidence.
+- [ ] Retain governed Reader-backup group ACL, current deployment identity, Graph/GitHub/Teams, inverse drills, document lifecycle, and independent promotion/cohort evidence under [#458](https://github.com/dotnetpower/fdai/issues/458) and its dependencies.
+- [ ] Complete EN/KO review, translation SHA refresh, canonical generation, local hooks, publication, and exact-pushed-SHA CI; the [12-round final source review](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) is complete, not pending.
+- [ ] Retain complete H10 per-ID rubric, exhaustive keyboard, assistive-technology, and long/expanded-state evidence before a full WCAG/UI-score claim; the [operational criteria](human-agent-assignment-implementation-plan.md#definition-of-complete) remain open.
 
 ## 1. Design Principles Recalled
 
@@ -75,7 +87,7 @@ Three safety principles govern this design; every choice below preserves them:
   ([console-operations.md](console-operations.md)).
 
 The Operator Service serializes roles only after token verification and server-owned App Role resolution; browser payloads cannot widen them. Core rechecks principal-scoped purpose before reads, and broker command identity never grants executor authority.
-Contracts accept only four ordinary roles and pinned topics, readiness requires both bridge workers, and transactional storage and replay bind every projection to its request, principal, and result digest.
+Contracts accept only four ordinary roles and pinned topics, readiness requires the configured bridge workers, and transactional storage and replay bind every projection to its request, principal, and result digest. Assignment requests use an insert-only Operator receipt and the same fixed-agent review/seal chain locally and when deployed. Core-only case writes and exact command receipts prevent a displayed Operator approval from becoming assignment or IAM authority; independent Owner review excludes both requester and subject.
 
 ## 2. Role Model (4 tiers + Break-Glass)
 
@@ -536,46 +548,31 @@ domains instead of leaving the previous domain menu visible.
 
 ### 11.1 IAM projection
 
-`GET /iam` returns the server-verified principal, the five fixed role definitions, the effective capability union, explicit FDAI Owner authority, directory availability, and the request and provider-mutation boundaries. Azure subscription, Entra tenant, and application administrator roles don't imply FDAI Owner. `GET /iam/access-requests` returns requests visible to that principal. Access-request identities are Owner-only; Reader, Contributor, and Approver requests receive `403`. The Users and Access requests tabs remain visible with a lock icon; selecting either tab renders an immediate Access denied surface instead of ignoring the interaction. An unassigned user sees only their own request through the role-optional `GET /iam/self` projection.
-For an assigned principal, `GET /iam/self` derives console access directly from verified App Roles and does not depend on the access-request projection. An unassigned principal still requires that projection and gains no access when it is unavailable.
+IAM reads separate verified identity, observed roles, and proposals; tenant or subscription administration never implies FDAI Owner.
 
-The Users tab combines two bounded sources. It shows the verified signed-in principal and users referenced by visible access requests. An Owner can also search the configured `HumanIdentityDirectory` through `GET /iam/directory/users?q=...` and select an account to prefill a governed access request. Local execution uses the server's Azure CLI credential and deployed execution uses the Operator managed identity. Both are read-only Graph bindings, and the browser never receives provider credentials.
+| Surface | Current authorization and evidence |
+|---------|------------------------------------|
+| `GET /iam` | Verified principal, five fixed roles, capability union, Owner authority, directory availability, and request/mutation boundaries. |
+| `GET /iam/access-requests` and Users tab | Request identities are Owner-only; Reader, Contributor, and Approver receive `403`. Locked tabs remain visible and open an immediate Access denied surface. Users combine the signed-in principal and visible request subjects. |
+| `GET /iam/self` | Assigned users derive access from verified App Roles, independently of request storage. Unassigned users see only their own request and gain no access if its projection is unavailable. |
+| `GET /iam/directory/users?q=...` | Owner search can prefill a request. The API stamps the configured provider and uses `get_by_subject_id` to recheck exact subject, username, and active state; client provider labels never choose a backend. |
+| `GET /iam/directory/roster` | Discovers the enterprise-app service principal, maps App Role ids, expands transitive group members, and merges direct/group roles by stable subject id. People/Groups filters grant no authority; routine role requests target active people only. |
+| `GET /iam/assignments` | Joins observed directory roles, the reviewed map, cases, and handover availability. Missing evidence stays `null` or `not_connected`; no route receives a Graph writer. |
 
-`GET /iam/directory/roster` projects the FDAI enterprise application's live App Role assignments.
-The Entra adapter discovers the service principal, maps each App Role id to its role value, and
-expands assigned groups through transitive membership. Direct user assignments and group-derived
-assignments are merged by stable subject id. The Users tab can filter People and Groups, but role
-requests are available only for active people.
+`HumanIdentityDirectory` returns provider, stable subject id, username, display name, user type, and
+active state. Entra is the implemented adapter; Microsoft Graph `/users` and membership reads use
+`User.Read.All` and `GroupMember.Read.All`. AWS IAM Identity Center and Google Cloud Identity remain
+future adapters behind the same cloud-provider-neutral Protocol. Local Graph reads use server-side
+Azure CLI credentials; deployments use the Operator Managed Identity. Both discover actual tenant
+roles and memberships without browser credentials or a synthetic fallback; fixtures remain pytest-only.
 
-`HumanIdentityDirectory` is cloud-provider-neutral. Every adapter returns a stable
-`provider`, `subject_id`, username, display name, user type, and active flag. Microsoft
-Entra ID is the implemented adapter and uses Microsoft Graph `/users` with managed identity
-and the application permissions `User.Read.All` and `GroupMember.Read.All`. AWS IAM Identity Center and Google Cloud
-Identity adapters are future scope; they can implement the same Protocol without changing
-the core service, API payload, or console.
+Agent oversight > Mapping reviews (`/agent-oversight/mapping-reviews`) owns the Owner-only workspace; Identity and access links there. `POST /iam/assignment-cases` remains exact-person role/duty/goal/reason intent with CAS submit/review.
+H10's separate six ownership-only routes and editor now support current user/group/schedule duties, exact scope, UTC windows, static person fallback, independent review, merge observation, and explicit supersession. Future-only declarations stay draft; no group or schedule receives aggregate IAM authority.
 
-Before the API accepts a governed role request, it stamps the configured provider and uses
-`get_by_subject_id` to verify the subject, username, and active state. Client-supplied
-provider labels never select the identity backend.
+A new `revocation` pins original and replacement revisions in request/result `1.1.0` and needs fresh independent removal review, not grant approval. Creation/submission recheck the exact person; only removal permits an inactive target. Core holds the original by CAS and follows `approved -> iam_applying -> iam_revoked -> ownership_pr_open -> revoked`. Independent IAM removal precedes the review-only old-duty PR; exact signed merge closes it without a grant. Browser roles or accepted intent prove no effect.
 
-Agent oversight > Mapping reviews owns the Owner-only assignment workspace; Identity and access
-links to it rather than duplicating a fifth tab. `POST /iam/assignment-cases` revalidates the exact active
-subject and records immutable role, duty, goal, and justification intent. Revisioned submit and
-review commands use compare-and-set. `GET /iam/assignments` joins only observed directory roles,
-the configured ownership map, assignment cases, and handover availability. Missing provider or
-handover evidence stays `null` or `not_connected`; no route receives a Graph write provider.
-
-After a matching reviewed ownership merge, the governance service publishes one idempotent
-`ops.apply-human-access` request into typed ingress. The runtime-only adapter uses a
-dedicated managed identity, the configured Reader, Contributor, Approver, and Owner group ids, and
-bounded apply, verify, and rollback calls. It rejects BreakGlass, dynamic groups, role-assignable
-groups, and arbitrary group ids. The path is observation-only until separately promoted.
-
-Interactive local mode doesn't fall back to a synthetic directory. The Microsoft Graph
-adapter uses the server's Azure CLI credential to discover the FDAI service principal, live App
-Role assignments, and transitive group members. Alias search, the role roster, and
-access-request targets therefore reflect the signed-in tenant while provider credentials
-remain outside the browser. Offline fixture identities remain pytest-only.
+Core binds a read-only planner and never constructs mutation identity. Thor's separately typed execution path uses only the isolated dedicated Managed Identity and four exact allowlisted routine role groups; BreakGlass, arbitrary, dynamic, and role-assignable groups are rejected.
+Matching grant merges retain idempotent apply intent; legacy IAM notices stay shadow-only. Current original Action/HIL, source, safeguards, independent effects, and fresh inverse rules below are required. All new ActionTypes remain shadow-default, local authority cutover is prohibited, and [#458](https://github.com/dotnetpower/fdai/issues/458) remains open.
 
 ### 11.2 Governed request flow
 
@@ -591,46 +588,46 @@ A Contributor or higher role can submit `POST /iam/access-requests` with these f
 | `role` | `Reader`, `Contributor`, `Approver`, or `Owner`. Routine `BreakGlass` requests are blocked. |
 | `justification` | 20-2000 characters. Stored with the request proposal and later Core audit transition. |
 
-The API derives the requester and capabilities from the validated token. It stores each request
-as a durable, safe-to-retry Operator proposal and projects the complete request back to the
-Console. Review decisions are separate durable proposals, reject self-review, and overlay the
-request projection without changing the original intent. Request review looks up the stable
-`request_id` directly, so older requests remain reviewable after pagination. The response status
-is `pending`; submitting the form doesn't approve the request or change Entra group membership.
-Core publication and its hash-chained `iam.access-requested` and `iam.access-reviewed` records
-remain a separate delivery boundary.
-
-Approval stays in ChatOps or the governance pull-request path. After approval, an Owner
-applies the allowlisted `aw-*` group change through the tenant's identity-administration
-process. This separation keeps the browser, Operator API, and executor identity away from
-Microsoft Graph membership permissions.
+The verified token supplies requester and capabilities. Operator stores a durable retry-safe
+`pending` proposal; submission neither approves nor changes membership. Separate review proposals
+reject self-review and overlay, never rewrite, intent. Direct `request_id` lookup keeps older cases
+reviewable after pagination. Core publication and hash-chained `iam.access-requested` /
+`iam.access-reviewed` audit remain separate. After the required ChatOps or governance approval,
+an Owner applies the allowlisted change through tenant identity administration. This manual path
+grants no Graph membership credential to the browser, Operator API, or general executor identity.
 
 ### 11.3 First sign-in without a role
 
-An authenticated user with no FDAI App Role doesn't enter the operator shell. The console
-calls role-optional `GET /iam/self` and renders an Access Required screen with:
+A user without an FDAI App Role sees Access Required, not the operator shell. Role-optional
+`GET /iam/self` supplies the verified account, Reader-only self-service request, optional message,
+pending request id/status, check-again, and sign-out. `POST /iam/access-requests/self` derives the
+target from the token and permits only `grant Reader` to that subject, regardless of browser edits.
 
-- the verified account;
-- the only self-service role available, `Reader`;
-- an optional message;
-- the current request id and `pending` status after submission;
-- check-again and sign-out actions.
+An Owner sees requester, provider subject, role, and audit correlation in Identity and access and
+may record a justified `approve` or `reject`. Self-approval is blocked; the separate decision carries
+`iam.access-reviewed` audit and never approves a runtime action. ChatOps and Approvals retain that
+authority. `approved` still needs provider membership before a new token carries the role; approval
+and assignment principals remain separate. Future automation may consume, not rewrite, that projection.
 
-`POST /iam/access-requests/self` derives the target subject from the verified token. It
-allows only `grant Reader` for that same subject. Requests for another subject, a higher
-role, or a revoke are blocked even if the browser body is modified.
+### 11.4 Handover authorization and readiness
 
-The request appears in Settings > Identity and access for an Owner, including the requester,
-provider subject, role, and audit correlation. An Owner can record `approve` or `reject` with
-a justification in IAM. The API blocks self-approval and stores the decision separately from
-the immutable request, with an `iam.access-reviewed` audit entry. High-risk runtime approvals
-remain in ChatOps and the regular Approvals surface; an IAM review never approves an
-autonomous action.
+These current-source boundaries preserve RBAC, ownership, evidence review, and execution as separate authorities.
 
-An approved IAM request has status `approved` but still requires the provider-side group
-assignment before the user's next token carries the role. Approval and assignment remain
-separate principals. Provider automation can consume the approved projection later without
-changing the request or review contract.
+| Boundary | Rule |
+|----------|------|
+| Checklist and history | Shared checklist `1.0.0` has six explicit slots. Each needs admitted evidence or its own reasoned exemption. Unslotted legacy documents prove no completeness; incomplete legacy accepted/review-ready records project as `blocked` without rewriting history. |
+| Review | Independent Owner plus distinct current backup is the high-impact default. First and prior reviewers' current roles, duties, and document access are rechecked. Reader backups need currently observed role-group membership matching exact document ACL; direct App Roles or duty labels prove no group membership, and missing/partial proof holds. |
+| Current source | Core and Operator now bind current goals, `GoalEvidenceAdmission`, reviewer eligibility, and source-before-content retrieval to actual consumers. Exact subject, goal/source revision, document version/digest, ACL, collection, and original chunk provenance are checked; missing or stale prerequisites still hold. |
+| Durable budget | Subject-wide: one active session, three unique turn identities, five non-sliding minutes, two actual sessions per ISO week. Exact retries keep their deadline but recheck ownership, identity, busy state, and stale/accepted goal holds. |
+| Reuse | Same-person/scope/current-ownership-revision evidence may be reused across current agents after a source recheck. Reviews are never copied. |
+| SQL boundary | Service-role-restricted source, reviewer-ACL, and search functions check current uploader, exact version/digest, governed availability, index, and retention without raw document/chunk `SELECT` grants. Local SQL evidence is not deployed directory or cohort certification. |
+| Original human-access approval | Full original Action plus case/source, role-map, and promotion material is retained before Var parks the existing HIL slots. Current independent Owner quorum and principal-to-ActionType policy are required; preparation CAS advances `r -> r+1` without changing approved `expected_revision=r`, Action bytes, or the original approval window. |
+| Isolated dispatch | Thor alone uses the dedicated isolated identity and current exact source/allowlist. Kill/health, approval policy, promotion, and all seven safeguards are rechecked before publication and under the operation-independent subject/group membership lock. One durable intent precedes mutation and acknowledgement follows; unknown attempts never automatically retry. |
+| Effect and inverse | Independent Heimdall evidence, Forseti judgment, Saga seal, and shared release closure precede Core effect recording. Vidar proposes/finishes and Thor dispatches a fresh separately approved inverse only for an original owned mutation with current demand and the same target generation. Pre-existing or unacknowledged changes are not invertible. The case stays degraded/supersedable; no old approval, duty, goal, or role authority is restored. |
+| Readiness evidence | Bounded reconciliation reports sampled/total/invalid counts, partial state, alerts, empty `source_gaps`, and retained external blockers. Mean effect-receipt interval uses only two-effect cases; no qualifying cases yields `null`. Source-review completion is supported by the separate final critique record, not an empty gap list. |
+| Readiness authority | Owner-only `GET /handover/readiness` expires in ten minutes; future or malformed reports are unavailable. Always `shadow` and `operationally_ready=false`; no alert dispatch, provider check, recovery write, or promotion. |
+
+The [implementation plan](human-agent-assignment-implementation-plan.md#current-change-evidence-and-remaining-scope) and [final record](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) document source completion and 12 distinct final integrated rounds with no unresolved confirmed Medium/High source finding. Translation refresh, canonical generation, hooks, publication/CI, and full UI/assistive/live evidence remain separate and open; no local result certifies production or enables authority cutover.
 
 ## 12. Open Decisions
 

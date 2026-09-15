@@ -17,7 +17,7 @@ from datetime import UTC, datetime, timedelta
 from typing import cast
 
 import pytest
-from fdai.agents import request_rule_generation
+from fdai.agents import StateStoreIssueTrackerAdapter, request_rule_generation
 from fdai.agents._framework.bus_bridge import EventBusBridge
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.pantheon import PANTHEON_NAMES, PANTHEON_SPECS
@@ -35,6 +35,8 @@ from fdai.agents.muninn import Muninn
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
+from fdai.agents.var import Var
+from fdai.agents.vidar import Vidar
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.chaos.symptom_index import build_from_entries
 from fdai.core.executor.lock import ResourceLockManager
@@ -248,6 +250,139 @@ def test_runtime_injects_durable_state_store_into_muninn() -> None:
     muninn = runtime.agents["Muninn"]
     assert isinstance(muninn, Muninn)
     assert muninn._durable_state_store is store
+
+
+def test_runtime_injects_durable_issue_dedup_store_into_norns() -> None:
+    store = InMemoryStateStore()
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        muninn_state_store=store,
+    )
+
+    norns = runtime.agents["Norns"]
+    assert isinstance(norns, Norns)
+    assert norns._issue_deduplicator._state_store is store  # noqa: SLF001
+
+
+def test_runtime_rehydrates_pending_norns_issue_candidate() -> None:
+    store = InMemoryStateStore()
+    payloads = [
+        {
+            "fingerprint": f"startup-fingerprint-{cohort}",
+            "idempotency_key": f"handoff:startup-{cohort}-{index}",
+        }
+        for cohort in range(2)
+        for index in range(3)
+    ]
+    seed = Norns(promotion_threshold=3, issue_state_store=store)
+    for payload in payloads:
+        asyncio.run(seed.on_typed_message("object.issue", payload))
+    assert len(seed.pending_candidates) == 2
+
+    provider = InMemoryEventBus()
+    runtime = PantheonRuntime.build(
+        provider=provider,
+        raw_event_topic=_RAW_TOPIC,
+        muninn_state_store=store,
+    )
+    asyncio.run(runtime._rehydrate())  # noqa: SLF001 - startup recovery assertion
+
+    norns = runtime.agents["Norns"]
+    assert isinstance(norns, Norns)
+    assert norns.pending_candidates == []
+    assert len(provider._records["object.rule-candidate"]) == 2  # noqa: SLF001
+    replayed = Norns(promotion_threshold=3, issue_state_store=store)
+    asyncio.run(replayed.on_typed_message("object.issue", dict(payloads[0])))
+    assert replayed.pending_candidates == []
+
+
+def test_runtime_rehydrates_durable_saga_issue_projection() -> None:
+    store = InMemoryStateStore()
+    first_adapter = StateStoreIssueTrackerAdapter(store)
+    asyncio.run(
+        first_adapter.create_or_comment_once(
+            operation_id="handoff:runtime-rehydrate",
+            fingerprint="runtime-rehydrate-fingerprint",
+            title="[no_route] Bragi handoff",
+            body="Correlation id: runtime-rehydrate",
+        )
+    )
+    restarted = Saga(github=StateStoreIssueTrackerAdapter(store))
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        saga=restarted,
+    )
+
+    asyncio.run(runtime._rehydrate())  # noqa: SLF001 - startup recovery assertion
+
+    assert len(restarted.github.issues) == 1
+    issue = restarted.github.issues["runtime-rehydrate-fingerprint"]
+    assert issue.title == "[no_route] Bragi handoff"
+
+
+def test_runtime_recovers_unpublished_var_approval() -> None:
+    store = InMemoryStateStore()
+    seed = Var(state_store=store)
+    asyncio.run(
+        seed.on_typed_message(
+            "object.action-run",
+            {
+                "correlation_id": "runtime-var-recovery",
+                "action_type": "ops.restart-service",
+                "state": "hil_pending",
+                "idempotency_key": "runtime-var-recovery:hil_pending",
+            },
+        )
+    )
+    finalized = asyncio.run(
+        seed.decide(
+            "runtime-var-recovery",
+            approver="reviewer@example.com",
+            decision="approve",
+        )
+    )
+    assert finalized is not None
+
+    provider = InMemoryEventBus()
+    runtime = PantheonRuntime.build(
+        provider=provider,
+        raw_event_topic=_RAW_TOPIC,
+        var_state_store=store,
+    )
+    asyncio.run(runtime._rehydrate())  # noqa: SLF001 - startup recovery assertion
+
+    records = provider._records["object.approval"]  # noqa: SLF001
+    assert len(records) == 1
+    assert records[0][1]["correlation_id"] == "runtime-var-recovery"
+
+
+def test_runtime_injects_durable_state_store_into_var() -> None:
+    store = InMemoryStateStore()
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        var_state_store=store,
+    )
+
+    var = runtime.agents["Var"]
+    assert isinstance(var, Var)
+    assert var._state_store is store  # noqa: SLF001 - composition assertion
+
+
+def test_runtime_injects_durable_state_store_into_vidar() -> None:
+    store = InMemoryStateStore()
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        vidar_state_store=store,
+        rollback_executors={},
+    )
+
+    vidar = runtime.agents["Vidar"]
+    assert isinstance(vidar, Vidar)
+    assert vidar._state_store is store  # noqa: SLF001 - composition assertion
 
 
 def test_runtime_wires_rule_generation_results_to_mimir_with_durable_store() -> None:
@@ -757,12 +892,20 @@ def test_enforce_true_disables_forced_shadow() -> None:
         thor_executor=executor,
         thor_state_store=StateStoreActionRunStore(store=state_store),
         rollback_executors={"state_forward_only": rollback_executor},
+        vidar_state_store=state_store,
+        var_state_store=state_store,
         approver_authorizer=lambda _principal, _action_type: True,
         execution_resource_lock=_DistributedTestLock(),
     )
     assert runtime.enforce is True
     thor = runtime.agents["Thor"]
+    vidar = runtime.agents["Vidar"]
+    var = runtime.agents["Var"]
     assert isinstance(thor, Thor)
+    assert isinstance(vidar, Vidar)
+    assert isinstance(var, Var)
+    assert vidar._state_store is state_store  # noqa: SLF001 - enforce binding assertion
+    assert var._state_store is state_store  # noqa: SLF001 - enforce binding assertion
 
     async def _dispatch() -> object:
         return await thor.dispatch_verdict(
@@ -897,6 +1040,25 @@ def test_injected_saga_replaces_the_default() -> None:
                 "saga": Saga(audit_chain=StateStoreAuditChainAdapter(store=InMemoryStateStore())),
             },
             "rollback_executors",
+        ),
+        (
+            {
+                "thor_executor": lambda _: None,
+                "thor_state_store": StateStoreActionRunStore(store=InMemoryStateStore()),
+                "saga": Saga(audit_chain=StateStoreAuditChainAdapter(store=InMemoryStateStore())),
+                "rollback_executors": {"state_forward_only": lambda _: None},
+            },
+            "vidar_state_store",
+        ),
+        (
+            {
+                "thor_executor": lambda _: None,
+                "thor_state_store": StateStoreActionRunStore(store=InMemoryStateStore()),
+                "saga": Saga(audit_chain=StateStoreAuditChainAdapter(store=InMemoryStateStore())),
+                "rollback_executors": {"state_forward_only": lambda _: None},
+                "vidar_state_store": InMemoryStateStore(),
+            },
+            "var_state_store",
         ),
     ],
 )

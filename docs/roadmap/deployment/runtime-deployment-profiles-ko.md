@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 7e4f646a19980fe1c31c0f58cce4a285a10e37f5
-translation_revised: 2026-09-14
+translation_source_sha: be0492445f5ea69c0dcace696edbfb3d94812780
+translation_revised: 2026-09-15
 ---
 # 런타임 배포 프로파일
 
@@ -112,6 +112,11 @@ Container Apps 렌더러는 명세를 Container Apps와 Container Apps Jobs로 �
 명세를 typed Kubernetes `Deployment`, `Service`, `ServiceAccount`, `HorizontalPodAutoscaler`,
 `PodDisruptionBudget`, `NetworkPolicy`, `CronJob` 리소스로 변환합니다. 첫 AKS 구현은 장기 실행
 서비스마다 두 개의 replica를 유지하며 Knative 또는 KEDA를 요구하지 않습니다.
+
+Operator의 배정 알림과 사람 승인(HIL) 전송에 필요한 가져오기는 같은 Operator Service
+패키지와 런타임 안의 기존 `iam_composition` 모듈에 모읍니다. 원래 어댑터와 팩터리 객체를
+래퍼 없이 다시 내보낼 뿐이며 어느 렌더러에서도 토폴로지, 워크로드 신원, 준비 상태 동작,
+정확한 배포 플랜의 승인 요건은 바뀌지 않습니다.
 
 장기 실행 서비스 컨테이너는 `image_pull_policy=Always`, 읽기 전용 루트 파일시스템, 크기가
 `1Gi`로 제한된 전용 `/tmp` 임시 볼륨을 사용합니다. 워크로드 검증은 플랜 생성 전에 변경 가능한

@@ -24,6 +24,7 @@ from fdai.agents._framework.action_semantics import (
     quorum_for,
     rollback_contract_for,
 )
+from fdai.agents._framework.assignment_workflow import AssignmentJudgmentMixin
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.bus import PantheonBus
@@ -55,14 +56,18 @@ from fdai.agents._framework.forseti_decision_helpers import (
 from fdai.agents._framework.forseti_judgment import RISK_VERDICT as _RISK_VERDICT
 from fdai.agents._framework.forseti_judgment import RULE_MATCH as _RULE_MATCH
 from fdai.agents._framework.forseti_judgment import ForsetiJudgmentMixin
+from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
+    attach_agent_state_evidence,
     capability_facts,
+    evidence_backed_result,
     mentioned,
     semantic_intents,
 )
 from fdai.agents._framework.pantheon import _FORSETI
 from fdai.agents._framework.registry import load_pantheon
+from fdai.agents._framework.role_answers import forseti_role_answer
 from fdai.agents._framework.runtime_health import (
     AGENT_DEGRADATION_POLICIES,
     evaluate_degradation,
@@ -147,7 +152,7 @@ class _ChangeAssessor(Protocol):
     ) -> ChangeAssessment: ...
 
 
-class Forseti(Agent, ForsetiJudgmentMixin):
+class Forseti(Agent, ForsetiJudgmentMixin, HandoverKnowledgeMixin, AssignmentJudgmentMixin):
     """Wave-3 Forseti: rule match + risk verdict + RBAC + SecurityEvent."""
 
     def __init__(
@@ -171,6 +176,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         super().__init__(spec=_FORSETI)
         self.bus = bus
         self._alert_noise_hook: Callable[[dict[str, Any]], Awaitable[dict[str, Any]]] | None = None
+        self.initialize_assignment_checks()
         self._rbac = rbac if rbac is not None else _DEFAULT_RBAC
         self._action_semantics = action_semantics
         self._operational_context = operational_context
@@ -180,9 +186,7 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         self._prospective_lineage_finalizer = prospective_lineage_finalizer
         self._change_assessor = change_assessor
         self._architecture_review_loop = architecture_review_loop
-        # Runtime health seam: reports which pantheon agents are currently
-        # unreachable. Bound by the composition root; absent in a bare unit
-        # (an unbound probe never invents unavailability).
+        # Optional runtime probe; an absent probe never invents agent unavailability.
         self._agent_availability = agent_availability
         self._cross_vertical_timeout_seconds = cross_vertical_timeout_seconds
         self._cross_vertical_candidates = CrossVerticalCandidateAccumulator(
@@ -205,15 +209,9 @@ class Forseti(Agent, ForsetiJudgmentMixin):
         # name the resource a human must look at. Odin's decision carries the
         # correlation but not the resource.
         self._arbitration_resources: BoundedLruDict[str, str] = BoundedLruDict(_MAX_RESOURCES)
-        # Accumulated domain advice per resource id: {resource: {domain:
-        # recommendation}}. Fed by object.cost-anomaly / capacity-forecast
-        # so conflicting advice arriving on separate signals still triggers
-        # arbitration. Bounded (LRU): non-conflicting advice that never gets
-        # popped would otherwise grow one entry per resource forever.
+        # Bounded advice joins cost/capacity signals per resource for conflict arbitration.
         self._domain_advice: BoundedLruDict[str, dict[str, str]] = BoundedLruDict(_MAX_RESOURCES)
-        # Measured impact magnitude per (resource, domain) in [0, 1], derived
-        # from the signal (cost overspend ratio, capacity forecast util). Fed
-        # to Odin so arbitration weighs magnitude, not just priority.
+        # Measured [0,1] domain impacts let Odin weigh magnitude instead of priority alone.
         self._domain_impact: BoundedLruDict[str, dict[str, float]] = BoundedLruDict(_MAX_RESOURCES)
         self._domain_observed_at: BoundedLruDict[str, str] = BoundedLruDict(_MAX_RESOURCES)
         self._domain_arguments: BoundedLruDict[str, dict[str, dict[str, object]]] = BoundedLruDict(
@@ -256,6 +254,10 @@ class Forseti(Agent, ForsetiJudgmentMixin):
     # ---- typed port ----------------------------------------------------
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if await self._handover_message(topic, payload):
+            return
+        if await self._assignment_message(topic, payload):
+            return
         if topic == "object.event" and payload.get("event_type") in {
             "alert_noise.assess",
             "alert_noise.propose",
@@ -1126,22 +1128,17 @@ class Forseti(Agent, ForsetiJudgmentMixin):
             "rca_evidence_available": False,
         }
         if "rca_evidence" in semantic_intents(context):
-            return IntrospectionResult(
-                answer="No grounded RCA record is retained by this conversational projection.",
-                facts=facts,
-            )
+            statement = "No grounded RCA record is retained by this conversational projection"
+            return evidence_backed_result(self.spec.name, facts, statement)
         actions = mentioned(question, _RISK_VERDICT)
         if actions:
             action = actions[0]
             verdict = _RISK_VERDICT[action]
             facts.update({"action_type": action, "risk_verdict": verdict})
-            answer = f"Action {action!r} has default risk verdict {verdict!r}."
-            return IntrospectionResult(answer=answer, facts=facts)
-        answer = (
-            "I judge events into auto/hil/deny verdicts; "
-            f"{len(_RISK_VERDICT)} action verdict(s) and {len(_RULE_MATCH)} "
-            "rule match(es) known."
-        )
+            statement = f"Action {action!r} has configured default risk verdict {verdict!r}"
+            return evidence_backed_result(self.spec.name, facts, statement)
+        evidence_ref = attach_agent_state_evidence(self.spec.name, facts)
+        answer = forseti_role_answer(str(context.get("locale")), facts, evidence_ref)
         return IntrospectionResult(answer=answer, facts=facts)
 
 

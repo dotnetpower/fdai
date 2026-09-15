@@ -133,6 +133,38 @@ _OUTCOME_MAP = {
 }
 
 
+def _candidate_context_mismatch(
+    candidate: QualityCandidate,
+    context: T2ProposalContext,
+) -> str | None:
+    if candidate.target_resource_ref != context.target_resource_ref:
+        return "target_resource_ref"
+    if (
+        candidate.target_resource_type is not None
+        and candidate.target_resource_type != context.target_resource_type
+    ):
+        return "target_resource_type"
+    if not candidate.cited_rule_ids:
+        return "cited_rules_missing"
+    if len(set(candidate.cited_rule_ids)) != len(candidate.cited_rule_ids):
+        return "cited_rules_duplicate"
+    allowed_rules = {rule.id: rule for rule in context.allowed_rules}
+    cited_rules = tuple(allowed_rules.get(rule_id) for rule_id in candidate.cited_rule_ids)
+    if any(rule is None for rule in cited_rules):
+        return "cited_rule_not_allowed"
+    supporting_rules = tuple(
+        rule
+        for rule in cited_rules
+        if rule is not None
+        and (rule.remediates == candidate.action_type or candidate.action_type in rule.alternatives)
+    )
+    if not supporting_rules:
+        return "action_type_not_allowed"
+    if len(supporting_rules) != 1:
+        return "action_type_rule_ambiguous"
+    return None
+
+
 class T2Tier:
     """Frontier-model reasoning tier - propose, quality-gate, map."""
 
@@ -229,6 +261,19 @@ class T2Tier:
                 candidate=None,
                 quality_decision=None,
                 reason="t2_proposer_abstained",
+            )
+        context_mismatch = _candidate_context_mismatch(candidate, context)
+        if context_mismatch is not None:
+            return T2Decision(
+                outcome=T2Outcome.DENIED,
+                candidate=candidate,
+                quality_decision=None,
+                reason=f"t2_candidate_context_mismatch:{context_mismatch}",
+            )
+        if candidate.target_resource_type is None:
+            candidate = replace(
+                candidate,
+                target_resource_type=context.target_resource_type,
             )
         stability_hold = False
         if self._self_consistency is not None:

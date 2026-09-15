@@ -88,7 +88,12 @@ async def test_operator_round_trip_preserves_legacy_evidence_column(
     with psycopg.connect(os.environ["FDAI_DATABASE_URL"], autocommit=True) as connection:
         baseline_column = _evidence_column(connection)
         assert baseline_column == ("jsonb", "NO", "'[]'::jsonb")
-        for service in ("core-control-plane", "document-ingestion-api", "operator-service"):
+        for service in (
+            "document-ingestion-api",
+            "document-processing-worker",
+            "core-control-plane",
+            "operator-service",
+        ):
             _run(
                 "service-migrations/migrate.py",
                 service,

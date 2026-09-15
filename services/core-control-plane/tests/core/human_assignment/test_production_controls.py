@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+from dataclasses import replace
 from datetime import UTC, datetime
 
+import pytest
 from fdai.core.human_assignment import (
     AssignmentCase,
     AssignmentIntent,
@@ -144,3 +147,78 @@ async def test_reconciler_isolates_plain_value_error_from_decoder(caplog) -> Non
         if record.message == "assignment_reconciliation_case_malformed"
     )
     assert malformed_record.exception_type == "ValueError"
+
+
+async def test_reconciler_visits_every_bounded_page_and_wraps_without_duplicate_audit() -> None:
+    store = InMemoryStateStore()
+    cases = tuple(
+        replace(_case(AssignmentState.DEGRADED), case_id=f"case-{index}") for index in range(5)
+    )
+    for case in cases:
+        await store.write_state(f"human_assignment:case:{case.case_id}", case.to_dict())
+    reconciler = AssignmentReconciler(store=store, scan_limit=2)
+    pages = [await reconciler.plan() for _ in range(6)]
+    assert [[item.case_id for item in page] for page in pages] == [
+        ["case-4", "case-3"],
+        ["case-2", "case-1"],
+        ["case-0"],
+        ["case-4", "case-3"],
+        ["case-2", "case-1"],
+        ["case-0"],
+    ]
+    assert len(tuple(store.audit_entries)) == 5
+
+
+async def test_reconciliation_page_failure_does_not_advance_cursor(monkeypatch) -> None:
+    store = InMemoryStateStore()
+    for index in range(2):
+        case = replace(_case(AssignmentState.DEGRADED), case_id=f"case-{index}")
+        await store.write_state(f"human_assignment:case:{case.case_id}", case.to_dict())
+    reconciler = AssignmentReconciler(store=store, scan_limit=1)
+    write = store.write_state_with_audit_if_absent
+
+    async def fail(*args, **kwargs):
+        raise OSError("test store unavailable")
+
+    monkeypatch.setattr(store, "write_state_with_audit_if_absent", fail)
+    with pytest.raises(OSError):
+        await reconciler.plan()
+    monkeypatch.setattr(store, "write_state_with_audit_if_absent", write)
+    first = await reconciler.plan()
+    second = await reconciler.plan()
+    assert [item.case_id for item in first] == ["case-1"]
+    assert [item.case_id for item in second] == ["case-0"]
+
+
+async def test_reconciliation_concurrent_ticks_serialize_page_progress() -> None:
+    store = InMemoryStateStore()
+    for index in range(3):
+        case = replace(_case(AssignmentState.DEGRADED), case_id=f"case-{index}")
+        await store.write_state(f"human_assignment:case:{case.case_id}", case.to_dict())
+    reconciler = AssignmentReconciler(store=store, scan_limit=1)
+    pages = await asyncio.gather(*(reconciler.plan() for _ in range(3)))
+    assert {item.case_id for page in pages for item in page} == {"case-0", "case-1", "case-2"}
+    assert len(tuple(store.audit_entries)) == 3
+
+
+async def test_reconciliation_restart_reuses_audit_and_visits_later_pages() -> None:
+    store = InMemoryStateStore()
+    for index in range(3):
+        case = replace(_case(AssignmentState.DEGRADED), case_id=f"case-{index}")
+        await store.write_state(f"human_assignment:case:{case.case_id}", case.to_dict())
+    await AssignmentReconciler(store=store, scan_limit=1).plan()
+    restarted = AssignmentReconciler(store=store, scan_limit=1)
+    pages = [await restarted.plan() for _ in range(3)]
+    assert {item.case_id for page in pages for item in page} == {"case-0", "case-1", "case-2"}
+    assert len(tuple(store.audit_entries)) == 3
+
+
+async def test_reconciliation_wraps_when_retention_shrinks_the_page_set() -> None:
+    store = InMemoryStateStore()
+    for index in range(3):
+        case = replace(_case(AssignmentState.DEGRADED), case_id=f"case-{index}")
+        await store.write_state(f"human_assignment:case:{case.case_id}", case.to_dict())
+    reconciler = AssignmentReconciler(store=store, scan_limit=2)
+    await reconciler.plan()
+    await store.delete_states_beyond("human_assignment:case:", retain_newest=1)
+    assert [item.case_id for item in await reconciler.plan()] == ["case-2"]

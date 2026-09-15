@@ -463,6 +463,7 @@ async def test_a_contributor_is_told_it_answers_bragi_for_another_owner() -> Non
         timeout_seconds=2.0,
         logger=logging.getLogger(__name__),
         primary_agent="Njord",
+        locale="ko",
     )
     composition = captured["agent_prompt_composition"]
 
@@ -471,11 +472,14 @@ async def test_a_contributor_is_told_it_answers_bragi_for_another_owner() -> Non
     assert captured["a2a"] is True
     assert captured["requester"] == "Bragi"
     assert captured["handoff_owner"] == "Njord"
+    assert captured["locale"] == "ko"
     # The contributor composes the peer audience and the handoff owner, so
     # it contributes owned evidence instead of narrating to the operator.
     assert "audience_peer" in composition["layers"]
     assert "handoff_pending" in composition["layers"]
+    assert "locale_ko" in composition["layers"]
     assert "handoff=Njord" in composition["situation"]
+    assert "locale=ko" in composition["situation"]
 
 
 def test_a_constraint_layer_is_never_subject_to_the_situational_budget() -> None:

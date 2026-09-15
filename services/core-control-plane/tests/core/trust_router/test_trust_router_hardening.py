@@ -12,12 +12,32 @@ from tests.core.trust_router.test_trust_router import _event, _index, _rule
     ("payload", "expected_type", "expected_tier"),
     [
         ({"resource": {"type": " compute.vm "}}, "compute.vm", RoutingTier.T0),
+        ({"resource": {"resource_type": " compute.vm "}}, "compute.vm", RoutingTier.T0),
         ({"resource_type": "\tcompute.vm\n"}, "compute.vm", RoutingTier.T0),
         ({"resource": {"type": "   "}}, None, RoutingTier.ABSTAIN),
+        ({"resource": {"resource_type": "\t"}}, None, RoutingTier.ABSTAIN),
         ({"resource_type": "\t"}, None, RoutingTier.ABSTAIN),
         ({"resource": {"type": " "}, "resource_type": "compute.vm"}, "compute.vm", RoutingTier.T0),
         (
+            {
+                "resource": {"type": " ", "resource_type": "compute.vm"},
+                "resource_type": "object-storage",
+            },
+            "compute.vm",
+            RoutingTier.T0,
+        ),
+        (
             {"resource": {"type": "compute.vm"}, "resource_type": "object-storage"},
+            "compute.vm",
+            RoutingTier.T0,
+        ),
+        (
+            {
+                "resource": {
+                    "type": "compute.vm",
+                    "resource_type": "object-storage",
+                }
+            },
             "compute.vm",
             RoutingTier.T0,
         ),

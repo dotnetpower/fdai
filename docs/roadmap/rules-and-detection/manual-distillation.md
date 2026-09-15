@@ -296,6 +296,28 @@ when it cannot cite support the tier abstains to HIL. A structured
 knowledge-graph retrieval (over the existing PostgreSQL state store, no new service)
 is preferred over flat vector RAG when relationship traversal matters.
 
+## Accepted handover source integration
+
+Current Core goal, reviewer, admission, and retrieval bindings feed the existing Norns/Mimir owner
+chain. Norns compiles only independently accepted sources with exact document versions, current
+reviewers, ACL, retention, and `manual_distillation` purpose. It reads complete same-venue normalized
+envelopes, not partial chunks. Mimir independently admits sources before package content and
+recompiles deterministically without a model. Saga and the bus receive content-free references only.
+
+Exact `fdai.rule.candidate.v1` JSON units compile into Rule candidates with unchanged string values,
+original locators, and policy, remediation, and schema digests. Single-extractor prose Rules remain
+held; ontology candidates use the described `Distiller` and existing review gates. Durable claims
+prevent repeated model work after restart or cancellation. The 120-second maximum never extends
+the original source-check window. Packages remain inert and source coverage remains incomplete.
+
+Mimir's existing subscription now retires private packages monotonically on withdrawal, access,
+purpose or digest drift, or original/current expiry. Scrubbing requires exact current policy with
+`legal_hold` explicitly `false` for every bound source. A hold, missing/unknown policy, or source
+outage never authorizes erasure. Claim identity, receipt, digest, and audit survive; releasing a hold
+permits scrubbing, not revival. The existing scheduler rotates at most 25 packages per notice with
+atomic audit. This grants no catalog, graph, mutation, or promotion authority. The [12-round final source review](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) followed remaining implementation and leaves no unresolved confirmed Medium/High source finding.
+Translation refresh, canonical generation, local hooks, publication/CI, provider conformance, and live lifecycle/cohort evidence remain open in the linked ledger; full UI/assistive evidence remains separate.
+
 ## Implementation surfaces
 
 The ingestion and verification mechanism ships upstream; the LLM-backed and
@@ -313,6 +335,7 @@ customer-connector parts are fork seams with abstaining defaults.
 | Ontology claim inventory | `inventory_claims`, `reconcile_claims` | `rule_catalog/pipeline/distill/ontology_claims.py` |
 | Envelope provenance and format equivalence | `manual_document_from_envelope`, normalized claim/proposal/graph digests | `rule_catalog/pipeline/distill/ontology_ingestion.py`, `ontology_evaluation.py` |
 | Ontology proposal + verifier | strict compiler, authority/identity/evidence gates, review package | `rule_catalog/pipeline/distill/ontology_*.py` |
+| Private handover package lifecycle | Norns immutable compilation; Mimir independent review, retirement, and conditional scrubbing | [Retention policy](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/handover_retention.py), [private SQL packages](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_handover_semantics.py) |
 | Orchestrator + CLI | `build_distillation_plan`, `distill_cli` | `rule_catalog/pipeline/distill/orchestrator.py`, `distill_cli.py` |
 | Source parser id | `manual-distill` source-manifest parser | `rule_catalog/schema/source_manifest.schema.json` |
 | Container wiring | `distiller`, default `AbstainingDistiller` | `composition/` |

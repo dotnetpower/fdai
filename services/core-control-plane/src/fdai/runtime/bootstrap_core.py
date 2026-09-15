@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from fdai.composition import (
@@ -157,6 +157,9 @@ class CoreRuntime:
     stewardship_identity_health_worker: StewardshipIdentityHealthWorker | None = None
     stewardship_merge_effects_worker: StewardshipMergeEffectsWorker | None = None
     handover_knowledge_lifecycle_worker: HandoverKnowledgeLifecycleWorker | None = None
+    assignment_intake_consumer: Any = None
+    assignment_outcome_consumer: Any = None
+    human_access_reconciliation: Any = None
 
     def task_configuration(self, stop: asyncio.Event) -> RuntimeTaskConfiguration:
         """Project assembled bindings into the task-supervision contract."""
@@ -199,6 +202,9 @@ class CoreRuntime:
             stewardship_identity_health_worker=self.stewardship_identity_health_worker,
             stewardship_merge_effects_worker=self.stewardship_merge_effects_worker,
             handover_knowledge_lifecycle_worker=self.handover_knowledge_lifecycle_worker,
+            assignment_intake_consumer=self.assignment_intake_consumer,
+            assignment_outcome_consumer=self.assignment_outcome_consumer,
+            human_access_reconciliation=self.human_access_reconciliation,
         )
 
 
@@ -259,6 +265,23 @@ async def build_core_runtime(
         )
 
     state_store = state_store or _build_audit_store()
+    from fdai.runtime.assignment_transport import (
+        build_assignment_transport,
+        build_handover_goal_reader,
+    )
+
+    if (
+        environment.get("FDAI_SCOPED_DUTY_CATALOG_PATH", "").strip()
+        or (environment.get("FDAI_STATE_STORE_DSN", "").strip() and identity is not None)
+    ) and resources.http_client is None:
+        resources.http_client = _new_http_client()
+    assignment_transport = build_assignment_transport(
+        store=state_store,
+        environment=environment,
+        catalog_root=_resolve_catalog_root(),
+        http_client=resources.http_client,
+        identity=identity,
+    )
     decision_evidence_container_url = environment.get(
         "FDAI_DECISION_EVIDENCE_CONTAINER_URL",
         "",
@@ -283,10 +306,12 @@ async def build_core_runtime(
         container = bind_decision_evidence_admission(container, state_store=state_store)
     stewardship_governance_worker: StewardshipGovernanceWorker | None = None
     stewardship_merge_effects_worker: StewardshipMergeEffectsWorker | None = None
+    scoped_publisher = None
     if gitops_delivery_requested:
         if resources.http_client is None:  # pragma: no cover - guarded above
             raise RuntimeError("stewardship governance GitOps delivery requires an HTTP client")
         publisher = _build_publisher(resources.http_client)
+        scoped_publisher = publisher
         stewardship_governance_worker = build_stewardship_governance_worker(
             store=state_store,
             publisher=publisher,
@@ -327,6 +352,17 @@ async def build_core_runtime(
                     environment.get("FDAI_STEWARDSHIP_GOVERNANCE_INTERVAL_SECONDS", "60")
                 ),
             )
+    from fdai.runtime.bootstrap_assignment import bind_assignment_outcomes
+
+    scoped_projection, assignment_outcome_consumer = bind_assignment_outcomes(
+        transport=assignment_transport,
+        store=state_store,
+        environment=environment,
+        http_client=resources.http_client,
+        publisher=scoped_publisher,
+        merge_worker=stewardship_merge_effects_worker,
+        resource_lock=_build_resource_lock,
+    )
     stewardship_identity_health_worker = build_stewardship_identity_health_worker(
         store=state_store,
         http_client=resources.http_client,
@@ -337,6 +373,7 @@ async def build_core_runtime(
     handover_knowledge_lifecycle_worker = (
         HandoverKnowledgeLifecycleWorker(
             store=state_store,
+            operator_goals=build_handover_goal_reader(environment),
             bus=messaging.bus,
             topic=container.config.kafka.topic_events,
             interval_seconds=float(
@@ -387,17 +424,16 @@ async def build_core_runtime(
         if runtime_values_snapshot is not None
         else await runtime_settings.effective_values()
     )
-    assignment_worker: AssignmentReconciliationWorker | None = None
-    if runtime_settings.durable:
-        from fdai.core.human_assignment import AssignmentReconciler
+    from fdai.runtime.bootstrap_assignment import build_assignment_observation_worker
 
-        assignment_worker = AssignmentReconciliationWorker(
-            reconciler=AssignmentReconciler(store=state_store),
-            interval_seconds=_runtime_positive_integer(
-                runtime_values,
-                "human_access.reconciliation_interval_seconds",
-            ),
-        )
+    assignment_worker = build_assignment_observation_worker(
+        store=state_store,
+        durable=runtime_settings.durable,
+        values=runtime_values,
+        outcome_consumer=assignment_outcome_consumer,
+        scoped_projection=scoped_projection,
+        positive_integer=_runtime_positive_integer,
+    )
     logging.getLogger().setLevel(str(runtime_values["logging.level"]))
     incident_runtime = await build_incident_runtime(
         state_store=state_store,
@@ -440,6 +476,19 @@ async def build_core_runtime(
         container,
         environment=environment,
     )
+    if assignment_transport is not None and assignment_transport.core_handover is not None:
+        from fdai.runtime.handover_document_reader import (
+            CombinedGovernedHandoverReader,
+            CoreHandoverDocumentReader,
+        )
+
+        container = replace(
+            container,
+            governed_document_reader=CombinedGovernedHandoverReader(
+                CoreHandoverDocumentReader(assignment_transport.core_handover),
+                container.governed_document_reader,
+            ),
+        )
     container = await bind_t1_rca_from_environment(
         container,
         incident_lookup=incident_runtime.registry.get,
@@ -623,6 +672,23 @@ async def build_core_runtime(
         runtime_settings=runtime_settings,
         startup_readiness=readiness.state,
     )
+    from fdai.runtime.bootstrap_assignment import (
+        bind_assignment_capabilities,
+        bind_assignment_reconciliation,
+    )
+
+    assignment_transport, human_access_workflow = bind_assignment_capabilities(
+        transport=assignment_transport,
+        container=container,
+        loop=control_loop,
+        store=state_store,
+        catalog_root=_resolve_catalog_root(),
+        environment=environment,
+        http_client=resources.http_client,
+        identity=identity,
+        runtime_values=runtime_values,
+        readiness=readiness.state,
+    )
     resources.pantheon = await initialize_pantheon(
         PantheonInitialization(
             container=container,
@@ -649,7 +715,11 @@ async def build_core_runtime(
             runtime_positive_integer=_runtime_positive_integer,
             build_mutation_dependency_readiness=_build_mutation_dependency_readiness,
             semantic_router_config_from_env=_semantic_router_config_from_env,
+            assignment_workflow=(assignment_transport.workflow if assignment_transport else None),
         )
+    )
+    human_access_reconciliation = bind_assignment_reconciliation(
+        human_access_workflow, resources.pantheon.runtime
     )
     if semantic.semantic_turn_binding is not None:
         llm_bindings = container.llm_bindings
@@ -699,6 +769,13 @@ async def build_core_runtime(
         stewardship_identity_health_worker=stewardship_identity_health_worker,
         stewardship_merge_effects_worker=stewardship_merge_effects_worker,
         handover_knowledge_lifecycle_worker=handover_knowledge_lifecycle_worker,
+        assignment_intake_consumer=(
+            assignment_transport.with_pantheon(resources.pantheon.runtime)
+            if assignment_transport is not None
+            else None
+        ),
+        assignment_outcome_consumer=assignment_outcome_consumer,
+        human_access_reconciliation=human_access_reconciliation,
     )
 
 

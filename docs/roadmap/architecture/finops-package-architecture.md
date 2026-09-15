@@ -26,6 +26,13 @@ domain code and assets. It does not create another control plane or move authori
 > The outbox lifecycle facade also exposes the unrelated Incident intervention worker. Its
 > lifecycle and readiness state cannot activate a Cost Governance package or publish a Njord-owned
 > record.
+> The shared Pantheon runtime may inject the same durable StateStore into Var for final approval
+> replay, Vidar for rollback claim replay, and Norns for bounded startup recovery of pending
+> handoff-learning work. Those lifecycle and learner records cannot install, activate,
+> configure, publish, or grant data access to the Cost Governance package.
+> Enforce composition names Vidar and Var durable bindings separately from Thor's store. Supplying
+> the same provider instance through all exact parameters still grants no Cost Governance package
+> activation, data, publication, or execution authority.
 > Non-agent runtime observation consumers likewise record replay and health evidence only; they do
 > not change Njord ownership, package activation, or action authority.
 > Global Terraform roots can carry unrelated AKS observation bindings. Those values and Reader
@@ -73,6 +80,12 @@ promotion state; runtime images continue to resolve their service-owned dependen
 > **Composition isolation:** The shared Operator route assembly may decorate web conversation
 > proposals with a verified handover binding. That decorator does not wrap Cost Governance routes,
 > change package activation, or grant access to cost data.
+> The same assembly binds assignment notice workers and fixed-agent case validation. Their SQL
+> receipts, readiness, and review-only ownership PRs are outside the Cost Governance package;
+> assigning a human to Njord never enables the package or grants access to cost data.
+> The separately bound membership Executor and Vidar inverse use their own current human approvals,
+> target lock and independent effect closure. Their readiness cannot enable an unbound generic Thor
+> executor, a Cost Governance mutation, package activation or package data access.
 
 The shared audit route also preserves measurement source, time-window and sequence filters.
 Reading admitted operational spend or a cohort comparison does not enable Cost Governance,
@@ -129,6 +142,15 @@ immutable context snapshot pinned to the exact release, profile version, princip
 cutoff. Missing service mapping, stale topology, conflicting objectives, incomplete evidence, or
 an unverified link can only lower autonomy. The graph never becomes a coordination store, policy
 engine, approval record, or execution surface.
+
+For a reviewed ontology release change, use the [release-derived pin generator](../../../scripts/catalog/refresh-release-derived-pins.py)
+under the [check-by-default, review-gated write workflow](../rules-and-detection/rule-semantic-retrieval.md#source-only-release-refresh).
+Refresh the exact release and canonical profile digest, packaged profile-byte SHA-256, asset
+manifest reference, and W6 source inventory's `package_manifest_sha256` together with all 16 F1-F8
+fixture references. Re-evaluate the unchanged expected outcomes for eight positive and eight
+negative cases; retain the deliberately foreign release in the F6 mixed-release negative case.
+This source-only refresh does not qualify W7 live evidence or change enablement, data access,
+mode, or promotion. Earlier live receipts remain bound to their original release.
 
 ### Keep agents active and ownership fixed
 
@@ -284,6 +306,13 @@ order. This restart hydration rebuilds the provider baseline and Njord's convers
 without republishing historical findings. A missing package, disabled activation, or provider
 mismatch keeps the binding disabled or blocks inconsistent startup; it never creates a direct agent
 call or changes action authority.
+The shared Pantheon conversation entry point forwards the validated operator locale into Njord's
+per-turn prompt composition. Locale affects presentation only; it cannot activate the package or
+change advisory facts or action authority.
+Broad Njord responses expose scope counts only. A scope identity appears in facts or prose only
+when the authenticated question names that exact scope.
+Broad Freyr responses likewise expose resource counts only. A resource identity appears in facts
+or prose only when the authenticated question names that exact resource.
 Only authoritative USD observations enter the `amount_usd` specialist ingress. Other source
 currencies remain available to disclosure-filtered analytics but do not enter Njord advisory
 baselines without an authoritative conversion.

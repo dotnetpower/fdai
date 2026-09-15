@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from fdai.core.human_assignment import AssignmentReconciler
+from fdai.core.human_assignment.readiness import HandoverReadinessPublisher
 
 _LOGGER = logging.getLogger("fdai.human_assignment.reconciliation")
 
@@ -15,13 +17,30 @@ _LOGGER = logging.getLogger("fdai.human_assignment.reconciliation")
 class AssignmentReconciliationWorker:
     reconciler: AssignmentReconciler
     interval_seconds: float = 300.0
+    removal_artifact: Callable[[str, int], Awaitable[None]] | None = None
+    readiness: HandoverReadinessPublisher | None = None
+    scoped_observation: Callable[[], Awaitable[None]] | None = None
 
     def __post_init__(self) -> None:
         if self.interval_seconds <= 0:
             raise ValueError("assignment reconciliation interval MUST be positive")
 
     async def run_once(self) -> int:
-        return len(await self.reconciler.plan())
+        """Observe a bounded page and retry independently verified review-only artifacts."""
+        items = await self.reconciler.plan()
+        for item in items:
+            if item.next_step == "review_old_duty_removal" and self.removal_artifact is not None:
+                try:
+                    await self.removal_artifact(item.case_id, item.revision)
+                except ValueError:
+                    _LOGGER.warning(
+                        "assignment_removal_artifact_held", extra={"case_id": item.case_id}
+                    )
+        if self.readiness is not None:
+            await self.readiness.publish()
+        if self.scoped_observation is not None:
+            await self.scoped_observation()
+        return len(items)
 
     async def run(self, stop: asyncio.Event) -> None:
         while not stop.is_set():

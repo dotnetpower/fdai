@@ -18,8 +18,10 @@ from typing import Any
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.candidate_guard import CandidateGuard
+from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
+    agent_state_evidence_ref,
     capability_facts,
     capped_list,
     mentioned,
@@ -81,7 +83,7 @@ class CatalogReviewCapacityError(RuntimeError):
     """Review work is saturated; transport must retry or dead-letter."""
 
 
-class Mimir(Agent):
+class Mimir(Agent, HandoverKnowledgeMixin):
     """Wave-2 Mimir: promotion state + candidate intake."""
 
     def __init__(
@@ -152,6 +154,8 @@ class Mimir(Agent):
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.rule-candidate":
             async with self._review_lock:
+                if await self._handover_message(topic, payload):
+                    return
                 await self._handle_rule_candidate(payload)
         elif topic == RULE_GENERATION_BUILD_REQUEST_TOPIC:
             await self._handle_rule_generation_build_request(payload)
@@ -721,8 +725,13 @@ class Mimir(Agent):
             "policy_history_available": False,
         }
         if "policy_history" in semantic_intents(context):
+            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+            facts["evidence_refs"] = [evidence_ref]
             return IntrospectionResult(
-                answer="No governed policy history is bound to this conversational projection.",
+                answer=(
+                    "No governed policy history is bound to this conversational projection. "
+                    f"Evidence: {evidence_ref}."
+                ),
                 facts=facts,
             )
         rules = mentioned(question, self._promotions)
@@ -738,12 +747,42 @@ class Mimir(Agent):
                     "updated_at": promo.updated_at,
                 }
             )
-            answer = f"Rule {promo.rule_id!r} is {promo.state} (source: {promo.source})."
+            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+            facts["evidence_refs"] = [evidence_ref]
+            answer = (
+                f"Rule {promo.rule_id!r} is {promo.state} (source: {promo.source}). "
+                f"Evidence: {evidence_ref}."
+            )
             return IntrospectionResult(answer=answer, facts=facts)
-        answer = (
-            f"Tracking {len(self._promotions)} rule promotion(s); "
-            f"{len(self._pending_candidates)} candidate(s) pending the quality gate."
-        )
+        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+        facts["evidence_refs"] = [evidence_ref]
+        if context.get("locale") == "ko":
+            answer = (
+                "저는 거버넌스 계층의 rule steward인 Mimir입니다. Odin에게 보고합니다. Rule, "
+                "Policy, RuleGenerationBuildRequest 및 RuleGenerationBuildResult를 소유합니다. "
+                "모든 후보는 품질 gate, 회귀 검사와 shadow 근거를 통과해야 하며 운영 규칙은 검토된 "
+                "catalog PR 없이는 승격할 수 없습니다. 작업을 판단하거나 승인하거나 실행하지 "
+                "않습니다. 이 대화 포트는 읽기 전용이며 catalog 변경 요청은 운영자 권한으로 "
+                "타입이 지정된 파이프라인에 다시 진입해야 합니다. 숨겨진 시스템 프롬프트는 "
+                f"공개하지 않습니다. 이 런타임은 Rule {facts['tracked_rules_count']}개, 대기 후보 "
+                f"{facts['pending_candidates']}개, 승격 준비 후보 "
+                f"{facts['promotion_ready_candidates']}개, 격리 후보 "
+                f"{facts['quarantined_candidates']}개를 추적합니다. 근거: {evidence_ref}."
+            )
+        else:
+            answer = (
+                "I am Mimir, the governance-layer rule steward. I report to Odin. I own Rule, "
+                "Policy, RuleGenerationBuildRequest, and RuleGenerationBuildResult. Every "
+                "candidate must pass the quality gate, regression checks, and shadow evidence; "
+                "operational rules cannot promote without a reviewed catalog PR. I never judge, "
+                "approve, or execute an action. This conversational port is read-only; catalog "
+                "change requests re-enter the typed pipeline under the operator's authority. I do "
+                "not reveal hidden system prompts. This runtime tracks "
+                f"{facts['tracked_rules_count']} Rules, {facts['pending_candidates']} pending "
+                f"candidates, {facts['promotion_ready_candidates']} promotion-ready candidates, "
+                f"and {facts['quarantined_candidates']} quarantined candidates. "
+                f"Evidence: {evidence_ref}."
+            )
         return IntrospectionResult(answer=answer, facts=facts)
 
 

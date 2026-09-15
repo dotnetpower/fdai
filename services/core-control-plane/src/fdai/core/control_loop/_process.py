@@ -12,10 +12,12 @@ from fdai.core.control_loop._execution_outcomes import (
 from fdai.core.control_loop._execution_outcomes import (
     is_execution_pending as _is_execution_pending,
 )
+from fdai.core.control_loop._execution_outcomes import (
+    is_execution_success as _is_execution_success,
+)
 from fdai.core.control_loop._helpers import (
     _extract_resource_id,
     _extract_resource_props,
-    _is_execution_success,
     _synthetic_action_build_failure,
     apply_governance_override_to_rule,
 )
@@ -79,6 +81,32 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
             "incident_id": incident_id,
         },
     )
+    if event.event_type in {
+        "human.assignment.iam_apply_requested",
+        "human.assignment.execution.v1",
+        "knowledge.handover.source_observed.v1",
+    }:
+        await host._audit_store.append_audit_entry(
+            {
+                "event_id": event_id,
+                "correlation_id": correlation_id,
+                "action_kind": (
+                    "handover.knowledge_source_routed"
+                    if event.event_type == "knowledge.handover.source_observed.v1"
+                    else "human.assignment.iam_request_routed"
+                ),
+                "reason": "pantheon_shadow_review_owner",
+                "mode": "shadow",
+                "execution_authority": False,
+            }
+        )
+        return ControlLoopResult(
+            outcome=ControlLoopOutcome.OPERATOR_REQUEST_LOGGED,
+            tier="t0",
+            decision="shadow",
+            resource_type="human-assignment",
+            reason="pantheon_shadow_review_owner",
+        )
     await host._maybe_fire_workflows(event)
 
     if event.event_type == "operator_request":
@@ -485,6 +513,7 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
                     action=action,
                     rule=rule,
                     correlation_id=correlation_id,
+                    event=event,
                 )
             continue
         result = await host._dispatch_action(

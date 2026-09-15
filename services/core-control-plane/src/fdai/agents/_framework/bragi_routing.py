@@ -10,6 +10,7 @@ from fdai_service_contracts.semantic_judgment import (
 )
 
 from fdai.agents._framework.bragi_models import RoutingDecision
+from fdai.agents._framework.introspection import mentioned
 from fdai.agents._framework.pantheon import PANTHEON_NAMES, PANTHEON_SPECS
 
 _PANTHEON_PRECEDENCE = {"governance": 0, "pipeline": 1, "domain": 2}
@@ -37,6 +38,7 @@ def route_semantic_judgment(
     judgment: SemanticJudgmentProposal,
     *,
     max_contributors: int,
+    question: str | None = None,
 ) -> RoutingDecision:
     """Route exact canonical intents and targets from one verified judgment."""
 
@@ -54,6 +56,19 @@ def route_semantic_judgment(
             contributors=tuple(explicit_contributors[:max_contributors]),
             method="explicit",
         )
+    if question is not None:
+        domain_owners = {
+            spec.name for spec in PANTHEON_SPECS if mentioned(question, spec.question_domains)
+        }
+        if len(domain_owners) == 1:
+            owner = domain_owners.pop()
+            return RoutingDecision(
+                primary_agent=owner,
+                scores={owner: 10.0},
+                tie_break="canonical_question_domain",
+                contributors=(),
+                method="semantic_judgment",
+            )
     intents = frozenset(
         (judgment.primary_intent, *judgment.secondary_intents, *judgment.requested_facets)
     )

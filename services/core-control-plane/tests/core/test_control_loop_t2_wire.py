@@ -19,6 +19,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -44,7 +45,7 @@ from fdai.core.tiers.t2_reasoning import (
 )
 from fdai.core.trust_router import RoutingDecision, RoutingTier, TrustRouter
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
-from fdai.shared.contracts.models import Event, Mode, Rule
+from fdai.shared.contracts.models import Event, Mode, Rule, Tier
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.contracts.validation import (
     JsonSchemaContractValidator,
@@ -91,7 +92,7 @@ class _NoopPublisher:
 def _candidate() -> QualityCandidate:
     return QualityCandidate(
         action_type="remediate.tag-add",
-        target_resource_ref="resource:example/rg/x",
+        target_resource_ref="res-01",
         params={"tag": "owner"},
         cited_rule_ids=("r1",),
         confidence_signals={"a": 0.8, "b": 0.9},
@@ -143,6 +144,16 @@ def _make_loop(
     )
 
 
+def _configure_action_builder(loop: ControlLoop) -> None:
+    action_types = load_action_type_catalog(
+        Path(__file__).resolve().parents[4] / "rule-catalog" / "action-types",
+        schema_registry=PackageResourceSchemaRegistry(),
+    )
+    loop._action_builder = ActionBuilder(  # noqa: SLF001 - composition assertion
+        action_types_by_name={item.name: item for item in action_types}
+    )
+
+
 def _routing() -> RoutingDecision:
     return RoutingDecision(
         tier=RoutingTier.T0,
@@ -152,11 +163,15 @@ def _routing() -> RoutingDecision:
     )
 
 
-def _rule() -> Rule:
+def _rule(
+    *,
+    rule_id: str = "r1",
+    remediates: str = "remediate.tag-add",
+) -> Rule:
     return Rule.model_validate(
         {
             "schema_version": "1.0.0",
-            "id": "r1",
+            "id": rule_id,
             "version": "1.0.0",
             "source": "custom",
             "severity": "low",
@@ -164,9 +179,9 @@ def _rule() -> Rule:
             "resource_type": "compute.vm.novel",
             "check_logic": {"kind": "rego", "reference": "policies/example.rego"},
             "remediation": {"template_ref": "remediations/example"},
-            "remediates": "remediate.tag-add",
+            "remediates": remediates,
             "provenance": {
-                "source_url": "https://example.com/rules/r1",
+                "source_url": f"https://example.com/rules/{rule_id}",
                 "resolved_ref": "0000000000000000000000000000000000000000",
                 "content_hash": "sha256:example",
                 "license": "MIT",
@@ -295,6 +310,98 @@ async def test_consult_t2_without_risk_gate_records_hil_hold(tmp_path: Path) -> 
 
 
 @pytest.mark.asyncio
+async def test_t2_candidate_uses_t2_authority_ceiling(tmp_path: Path) -> None:
+    audit = InMemoryStateStore()
+    loop = _make_loop(t2_engine=None, audit=audit, tmp_path=tmp_path)
+    _configure_action_builder(loop)
+    loop._risk_table = object()  # type: ignore[assignment]  # noqa: SLF001
+    loop._risk_gate = object()  # type: ignore[assignment]  # noqa: SLF001
+    risk_decision = AsyncMock(
+        return_value=SimpleNamespace(
+            is_auto=False,
+            requires_hil=True,
+            is_denied=False,
+            decision="hil",
+        )
+    )
+    loop._evaluate_and_audit = risk_decision  # type: ignore[method-assign]
+    event = await _ingest("evt-t2-authority-tier")
+    candidate = replace(_candidate(), params={})
+    t2 = T2Decision(
+        outcome=T2Outcome.PROPOSED,
+        candidate=candidate,
+        quality_decision=QualityDecision(
+            outcome=QualityOutcome.ELIGIBLE,
+            candidate=candidate,
+        ),
+        reason="eligible",
+    )
+
+    result = await loop._route_t2_candidate(  # noqa: SLF001 - focused routing contract
+        event=event,
+        decision=_routing(),
+        t2=t2,
+        cs_decision=None,
+        t1_decision=None,
+        event_id=str(event.event_id),
+        correlation_id=str(event.event_id),
+    )
+
+    assert result is not None
+    assert result.outcome is ControlLoopOutcome.HIL
+    assert risk_decision.await_args.kwargs["tier"] is Tier.T2
+
+
+@pytest.mark.asyncio
+async def test_t2_candidate_binds_risk_to_its_unique_supporting_rule(
+    tmp_path: Path,
+) -> None:
+    audit = InMemoryStateStore()
+    loop = _make_loop(t2_engine=None, audit=audit, tmp_path=tmp_path)
+    _configure_action_builder(loop)
+    loop._rules_by_id = {  # noqa: SLF001 - focused routing contract
+        "r1": _rule(rule_id="r1", remediates="remediate.vm-restart"),
+        "r2": _rule(rule_id="r2"),
+    }
+    loop._risk_table = object()  # type: ignore[assignment]  # noqa: SLF001
+    loop._risk_gate = object()  # type: ignore[assignment]  # noqa: SLF001
+    risk_decision = AsyncMock(
+        return_value=SimpleNamespace(
+            is_auto=False,
+            requires_hil=True,
+            is_denied=False,
+            decision="hil",
+        )
+    )
+    loop._evaluate_and_audit = risk_decision  # type: ignore[method-assign]
+    event = await _ingest("evt-t2-supporting-rule")
+    candidate = replace(_candidate(), params={}, cited_rule_ids=("r1", "r2"))
+    t2 = T2Decision(
+        outcome=T2Outcome.PROPOSED,
+        candidate=candidate,
+        quality_decision=QualityDecision(
+            outcome=QualityOutcome.ELIGIBLE,
+            candidate=candidate,
+        ),
+        reason="eligible",
+    )
+
+    result = await loop._route_t2_candidate(  # noqa: SLF001 - focused routing contract
+        event=event,
+        decision=_routing(),
+        t2=t2,
+        cs_decision=None,
+        t1_decision=None,
+        event_id=str(event.event_id),
+        correlation_id=str(event.event_id),
+    )
+
+    assert result is not None
+    assert result.outcome is ControlLoopOutcome.HIL
+    assert risk_decision.await_args.kwargs["rule"].id == "r2"
+
+
+@pytest.mark.asyncio
 async def test_consult_t2_routed_result_emits_terminal_audit_stage(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -345,13 +452,7 @@ async def test_consult_t2_routed_result_emits_terminal_audit_stage(
 async def test_t2_candidate_requires_execution_authorization(tmp_path: Path) -> None:
     audit = InMemoryStateStore()
     loop = _make_loop(t2_engine=None, audit=audit, tmp_path=tmp_path)
-    action_types = load_action_type_catalog(
-        Path(__file__).resolve().parents[4] / "rule-catalog" / "action-types",
-        schema_registry=PackageResourceSchemaRegistry(),
-    )
-    loop._action_builder = ActionBuilder(  # noqa: SLF001 - composition assertion
-        action_types_by_name={item.name: item for item in action_types}
-    )
+    _configure_action_builder(loop)
 
     class _ProhibitedAuthorization:
         def __init__(self) -> None:

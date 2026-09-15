@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import cast
 from unittest.mock import AsyncMock
 
 import pytest
-from fdai.agents._framework.adapters import AuditChainError, InMemoryAuditChain
+from fdai.agents._framework.adapters import (
+    AuditChainError,
+    InMemoryAuditChain,
+    InMemoryGithubIssueAdapter,
+)
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.mimir import Mimir
 from fdai.agents.muninn import Muninn
-from fdai.agents.norns import Norns
+from fdai.agents.norns import Norns, NornsCapacityError
 from fdai.agents.saga import Saga, compute_fingerprint
 from fdai.core.rule_semantic_generation import (
     RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
@@ -196,8 +201,42 @@ def test_saga_issue_dedup_creates_once_and_appends_comment_on_repeat() -> None:
     assert idx["occurrence_count"] == 2
 
 
+def test_saga_direct_issue_operation_replay_is_idempotent() -> None:
+    saga = Saga()
+    fp = compute_fingerprint(
+        intent_category="cost_query_failed",
+        resource_type="storage_account",
+        normalized_selector="public_network_field",
+        primary_agent="Heimdall",
+        failure_reason_code="no_owned_data",
+    )
+
+    first = asyncio.run(
+        saga.escalate_to_github_issue(
+            fingerprint=fp,
+            emitting_agent="Heimdall",
+            intent_category="cost_query_failed",
+            failure_reason_code="no_owned_data",
+            correlation_id="same-correlation",
+        )
+    )
+    replay = asyncio.run(
+        saga.escalate_to_github_issue(
+            fingerprint=fp,
+            emitting_agent="Heimdall",
+            intent_category="cost_query_failed",
+            failure_reason_code="no_owned_data",
+            correlation_id="same-correlation",
+        )
+    )
+
+    assert replay == first
+    assert saga.github.issues[fp].comments == []
+
+
 def test_saga_handoff_redelivery_is_idempotent() -> None:
     saga = Saga()
+    saga.bind_bus(InMemoryBus(registry=load_pantheon()))
     payload = {
         "producer_principal": "Bragi",
         "id": "handoff-1",
@@ -216,6 +255,380 @@ def test_saga_handoff_redelivery_is_idempotent() -> None:
     issue = next(iter(saga.github.issues.values()))
     assert issue.comments == []
     assert saga.behavior_snapshot()["handoff:duplicate"] == 1
+
+
+def test_saga_durable_handoff_does_not_mirror_unused_local_receipt() -> None:
+    store = InMemoryStateStore()
+    saga = Saga(durable_state_store=store)
+    saga.bind_bus(InMemoryBus(registry=load_pantheon()))
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-no-local-receipt",
+        "escalation_id": "handoff-no-local-receipt",
+        "correlation_id": "corr-no-local-receipt",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+
+    asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+
+    assert (
+        saga.state_store.get(
+            "handoff_escalation_receipts",
+            "handoff-no-local-receipt",
+        )
+        is None
+    )
+
+
+def test_saga_busless_handoff_resumes_publication_after_binding() -> None:
+    store = InMemoryStateStore()
+    saga = Saga(durable_state_store=store)
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-late-bus",
+        "escalation_id": "handoff-late-bus",
+        "correlation_id": "corr-late-bus",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+
+    with pytest.raises(RuntimeError, match="publication bus is unavailable"):
+        asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+
+    bus = InMemoryBus(registry=load_pantheon())
+    saga.bind_bus(bus)
+    asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+    asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+
+    assert len(bus.messages_on("object.issue")) == 1
+    assert saga.behavior_snapshot()["handoff:publication_pending"] == 1
+    assert saga.behavior_snapshot()["handoff:duplicate"] == 1
+
+
+def test_saga_handoff_requires_idempotent_issue_adapter() -> None:
+    class _LegacyIssueTracker:
+        def __init__(self) -> None:
+            self.issues = {}
+
+        def create_or_comment(self, *, fingerprint, title, body):  # noqa: ANN001, ANN201
+            raise AssertionError("non-idempotent issue mutation MUST NOT run")
+
+        def close(self, fingerprint, *, closed_by_pr):  # noqa: ANN001, ANN201
+            del fingerprint, closed_by_pr
+
+    saga = Saga(github=_LegacyIssueTracker())
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-legacy-adapter",
+        "escalation_id": "handoff-legacy-adapter",
+        "correlation_id": "corr-legacy-adapter",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+
+    with pytest.raises(RuntimeError, match="requires an idempotent issue-tracker adapter"):
+        asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+
+
+def test_saga_completed_handoff_rejects_conflicting_redelivery() -> None:
+    store = InMemoryStateStore()
+    saga = Saga(durable_state_store=store)
+    saga.bind_bus(InMemoryBus(registry=load_pantheon()))
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-conflict",
+        "escalation_id": "handoff-conflict",
+        "correlation_id": "corr-conflict",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+
+    asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+
+    with pytest.raises(ValueError, match="conflicts with its durable claim"):
+        asyncio.run(
+            saga.on_typed_message(
+                "object.handoff-escalation",
+                {**payload, "failure_reason_code": "different_reason"},
+            )
+        )
+
+
+def test_saga_rejects_malformed_completion_receipt() -> None:
+    store = InMemoryStateStore()
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-malformed-receipt",
+        "escalation_id": "handoff-malformed-receipt",
+        "correlation_id": "corr-malformed-receipt",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+    first = Saga(durable_state_store=store)
+    first.bind_bus(InMemoryBus(registry=load_pantheon()))
+    asyncio.run(first.on_typed_message("object.handoff-escalation", payload))
+    digest = hashlib.sha256(b"handoff-malformed-receipt").hexdigest()
+    receipt_key = f"pantheon/saga/handoff/{digest}/receipt"
+    asyncio.run(store.write_state(receipt_key, {"schema_version": "invalid"}))
+
+    with pytest.raises(ValueError, match="completion receipt is malformed"):
+        asyncio.run(
+            Saga(durable_state_store=store).on_typed_message(
+                "object.handoff-escalation",
+                payload,
+            )
+        )
+
+
+def test_saga_rejects_malformed_mutation_checkpoint() -> None:
+    class _FailIssueAudit(InMemoryAuditChain):
+        def append(self, *, principal, topic, correlation_id, payload):  # noqa: ANN001, ANN201
+            if topic == "object.issue":
+                raise RuntimeError("stop after mutation checkpoint")
+            return super().append(
+                principal=principal,
+                topic=topic,
+                correlation_id=correlation_id,
+                payload=payload,
+            )
+
+    store = InMemoryStateStore()
+    github = InMemoryGithubIssueAdapter()
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-malformed-checkpoint",
+        "escalation_id": "handoff-malformed-checkpoint",
+        "correlation_id": "corr-malformed-checkpoint",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+    with pytest.raises(RuntimeError, match="stop after mutation checkpoint"):
+        asyncio.run(
+            Saga(
+                audit_chain=_FailIssueAudit(),
+                durable_state_store=store,
+                github=github,
+            ).on_typed_message("object.handoff-escalation", payload)
+        )
+    digest = hashlib.sha256(b"handoff-malformed-checkpoint").hexdigest()
+    checkpoint_key = f"pantheon/saga/handoff/{digest}/checkpoint"
+    asyncio.run(store.write_state(checkpoint_key, {"schema_version": "invalid"}))
+
+    with pytest.raises(ValueError, match="handoff checkpoint is malformed"):
+        asyncio.run(
+            Saga(durable_state_store=store, github=github).on_typed_message(
+                "object.handoff-escalation",
+                payload,
+            )
+        )
+    assert github.operation_results.keys() == {"handoff:handoff-malformed-checkpoint"}
+    assert next(iter(github.issues.values())).comments == []
+
+
+def test_saga_cross_instance_handoff_uses_one_external_operation() -> None:
+    class _ConcurrentIssueTracker(InMemoryGithubIssueAdapter):
+        def __init__(self) -> None:
+            super().__init__()
+            self.arrivals = 0
+            self.ready = asyncio.Event()
+
+        async def create_or_comment_once(
+            self,
+            *,
+            operation_id,
+            fingerprint,
+            title,
+            body,
+        ):  # noqa: ANN001, ANN201
+            self.arrivals += 1
+            if self.arrivals == 2:
+                self.ready.set()
+            await self.ready.wait()
+            return super().create_or_comment_once(
+                operation_id=operation_id,
+                fingerprint=fingerprint,
+                title=title,
+                body=body,
+            )
+
+    async def _run() -> tuple[Saga, Saga, _ConcurrentIssueTracker]:
+        store = InMemoryStateStore()
+        github = _ConcurrentIssueTracker()
+        first = Saga(durable_state_store=store, github=github)
+        second = Saga(durable_state_store=store, github=github)
+        bus = InMemoryBus(registry=load_pantheon())
+        first.bind_bus(bus)
+        second.bind_bus(bus)
+        payload = {
+            "producer_principal": "Bragi",
+            "id": "handoff-concurrent-replicas",
+            "escalation_id": "handoff-concurrent-replicas",
+            "correlation_id": "corr-concurrent-replicas",
+            "emitting_agent": "Bragi",
+            "intent_category": "no_route",
+            "normalized_selector": "sha256:selector",
+            "failure_reason_code": "no_route",
+        }
+        await asyncio.gather(
+            first.on_typed_message("object.handoff-escalation", payload),
+            second.on_typed_message("object.handoff-escalation", payload),
+        )
+        return first, second, github
+
+    first, second, github = asyncio.run(_run())
+
+    assert github.arrivals == 2
+    assert github.operation_results.keys() == {"handoff:handoff-concurrent-replicas"}
+    assert len(github.issues) == 1
+    assert next(iter(github.issues.values())).comments == []
+    assert first.behavior_snapshot()["handoff:materialized"] == 1
+    assert second.behavior_snapshot()["handoff:materialized"] == 1
+
+
+def test_saga_handoff_audit_retry_does_not_duplicate_github_mutation() -> None:
+    class _FailOnceIssueAudit(InMemoryAuditChain):
+        def __init__(self) -> None:
+            super().__init__()
+            self.failed = False
+
+        def append(self, *, principal, topic, correlation_id, payload):  # noqa: ANN001, ANN201
+            if topic == "object.issue" and not self.failed:
+                self.failed = True
+                raise RuntimeError("audit unavailable")
+            return super().append(
+                principal=principal,
+                topic=topic,
+                correlation_id=correlation_id,
+                payload=payload,
+            )
+
+    chain = _FailOnceIssueAudit()
+    store = InMemoryStateStore()
+    github = InMemoryGithubIssueAdapter()
+    saga = Saga(
+        audit_chain=chain,
+        durable_state_store=store,
+        github=github,
+    )
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-audit-retry",
+        "escalation_id": "handoff-audit-retry",
+        "correlation_id": "corr-audit-retry",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+
+    with pytest.raises(RuntimeError, match="audit unavailable"):
+        asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+    restarted = Saga(
+        audit_chain=chain,
+        durable_state_store=store,
+        github=github,
+    )
+    restarted.bind_bus(InMemoryBus(registry=load_pantheon()))
+    asyncio.run(restarted.on_typed_message("object.handoff-escalation", payload))
+
+    issue = next(iter(github.issues.values()))
+    assert issue.comments == []
+    assert len([entry for entry in chain.entries if entry.topic == "object.issue"]) == 1
+    assert restarted.behavior_snapshot()["handoff:materialized"] == 1
+
+
+def test_saga_external_operation_id_closes_precheckpoint_crash_window() -> None:
+    class _FailOnceCheckpointStore(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.failed = False
+
+        async def write_state(self, key, value):  # noqa: ANN001, ANN201
+            if key.endswith("/checkpoint") and not self.failed:
+                self.failed = True
+                raise RuntimeError("checkpoint unavailable")
+            await super().write_state(key, value)
+
+    store = _FailOnceCheckpointStore()
+    github = InMemoryGithubIssueAdapter()
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-checkpoint-retry",
+        "escalation_id": "handoff-checkpoint-retry",
+        "correlation_id": "corr-checkpoint-retry",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+    first = Saga(durable_state_store=store, github=github)
+
+    with pytest.raises(RuntimeError, match="checkpoint unavailable"):
+        asyncio.run(first.on_typed_message("object.handoff-escalation", payload))
+
+    restarted = Saga(durable_state_store=store, github=github)
+    restarted.bind_bus(InMemoryBus(registry=load_pantheon()))
+    asyncio.run(restarted.on_typed_message("object.handoff-escalation", payload))
+
+    issue = next(iter(github.issues.values()))
+    assert issue.comments == []
+    assert restarted.behavior_snapshot()["handoff:materialized"] == 1
+
+
+def test_saga_handoff_publication_retry_does_not_repeat_audit_or_github() -> None:
+    class _FailOnceIssueBus:
+        def __init__(self) -> None:
+            self.publish_calls = 0
+            self.payloads: list[dict[str, object]] = []
+
+        def subscribe(self, topic, agent_name, handler):  # noqa: ANN001, ANN201
+            del topic, agent_name, handler
+
+        async def publish(self, principal, topic, payload):  # noqa: ANN001, ANN201
+            self.publish_calls += 1
+            if self.publish_calls == 1:
+                raise RuntimeError("bus unavailable")
+            assert principal == "Saga"
+            assert topic == "object.issue"
+            self.payloads.append(dict(payload))
+
+    chain = InMemoryAuditChain()
+    bus = _FailOnceIssueBus()
+    saga = Saga(audit_chain=chain)
+    saga.bind_bus(bus)
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-publish-retry",
+        "escalation_id": "handoff-publish-retry",
+        "correlation_id": "corr-publish-retry",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+
+    with pytest.raises(RuntimeError, match="bus unavailable"):
+        asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+    asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+
+    issue = next(iter(saga.github.issues.values()))
+    assert issue.comments == []
+    assert len([entry for entry in chain.entries if entry.topic == "object.issue"]) == 1
+    assert bus.publish_calls == 2
+    assert bus.payloads[0]["idempotency_key"] == "handoff:handoff-publish-retry"
 
 
 def test_saga_close_issue_records_promoting_pr() -> None:
@@ -755,6 +1168,359 @@ def test_norns_dedups_candidate_proposals() -> None:
         asyncio.run(norns.on_typed_message("object.issue", payload))
     # Threshold crossed once, proposal must not repeat.
     assert len(norns.pending_candidates) == 1
+
+
+def test_norns_dedups_replayed_issue_operation_before_counting() -> None:
+    norns = Norns(promotion_threshold=2)
+    replay = {
+        "fingerprint": "replayed-fingerprint",
+        "idempotency_key": "handoff:one-operation",
+    }
+
+    asyncio.run(norns.on_typed_message("object.issue", dict(replay)))
+    asyncio.run(norns.on_typed_message("object.issue", dict(replay)))
+
+    assert norns.occurrences("replayed-fingerprint") == 1
+    assert norns.pending_candidates == []
+    assert norns.behavior_snapshot()["issue_learning_duplicate"] == 1
+
+
+def test_norns_durable_issue_dedup_survives_restart() -> None:
+    store = InMemoryStateStore()
+    payload = {
+        "fingerprint": "durable-fingerprint",
+        "idempotency_key": "handoff:durable-operation",
+    }
+    first = Norns(promotion_threshold=2, issue_state_store=store)
+    restarted = Norns(promotion_threshold=2, issue_state_store=store)
+
+    asyncio.run(first.on_typed_message("object.issue", dict(payload)))
+    asyncio.run(restarted.on_typed_message("object.issue", dict(payload)))
+
+    assert first.occurrences("durable-fingerprint") == 1
+    assert restarted.occurrences("durable-fingerprint") == 1
+    assert restarted.behavior_snapshot()["issue_learning_duplicate"] == 1
+
+
+def test_norns_resumes_claim_interrupted_before_fingerprint_apply() -> None:
+    class _FailFirstFingerprintApply(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.failed = False
+
+        async def write_state_with_audit_if_absent(
+            self,
+            key,
+            value,
+            audit_entry,
+        ):  # noqa: ANN001, ANN201
+            if "/fingerprints/" in key and not self.failed:
+                self.failed = True
+                raise RuntimeError("fingerprint apply interrupted")
+            return await super().write_state_with_audit_if_absent(
+                key,
+                value,
+                audit_entry,
+            )
+
+        async def read_states(self, prefix, *, limit):  # noqa: ANN001, ANN201
+            raise AssertionError(
+                f"pending recovery MUST NOT scan terminal history: {prefix=} {limit=}"
+            )
+
+    store = _FailFirstFingerprintApply()
+    payload = {
+        "fingerprint": "interrupted-fingerprint",
+        "idempotency_key": "handoff:interrupted-operation",
+    }
+
+    with pytest.raises(RuntimeError, match="fingerprint apply interrupted"):
+        asyncio.run(
+            Norns(
+                promotion_threshold=1,
+                issue_state_store=store,
+            ).on_typed_message("object.issue", dict(payload))
+        )
+
+    restarted = Norns(promotion_threshold=1, issue_state_store=store)
+    asyncio.run(restarted.on_typed_message("object.issue", dict(payload)))
+
+    assert restarted.occurrences("interrupted-fingerprint") == 1
+    assert len(restarted.pending_candidates) == 1
+    assert restarted.pending_candidates[0]["evidence"]["fingerprint"] == "interrupted-fingerprint"
+
+
+def test_norns_startup_recovers_pending_operation_without_redelivery() -> None:
+    class _FailFirstFingerprintApply(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.failed = False
+
+        async def write_state_with_audit_if_absent(
+            self,
+            key,
+            value,
+            audit_entry,
+        ):  # noqa: ANN001, ANN201
+            if "/fingerprints/" in key and not self.failed:
+                self.failed = True
+                raise RuntimeError("fingerprint apply interrupted")
+            return await super().write_state_with_audit_if_absent(
+                key,
+                value,
+                audit_entry,
+            )
+
+        async def read_states(self, prefix, *, limit):  # noqa: ANN001, ANN201
+            raise AssertionError(
+                f"pending recovery MUST NOT scan terminal history: {prefix=} {limit=}"
+            )
+
+    store = _FailFirstFingerprintApply()
+    payload = {
+        "fingerprint": "startup-operation-fingerprint",
+        "idempotency_key": "handoff:startup-operation",
+    }
+    with pytest.raises(RuntimeError, match="fingerprint apply interrupted"):
+        asyncio.run(
+            Norns(
+                promotion_threshold=2,
+                issue_state_store=store,
+            ).on_typed_message("object.issue", dict(payload))
+        )
+
+    restarted = Norns(promotion_threshold=2, issue_state_store=store)
+    assert asyncio.run(restarted.recover_issue_learning()) == 0
+    assert restarted.occurrences("startup-operation-fingerprint") == 1
+    assert restarted.pending_candidates == []
+
+
+def test_norns_rebuilds_pending_candidate_after_restart() -> None:
+    store = InMemoryStateStore()
+    payload = {
+        "fingerprint": "pending-candidate-fingerprint",
+        "idempotency_key": "handoff:pending-candidate-operation",
+    }
+    first = Norns(promotion_threshold=1, issue_state_store=store)
+    asyncio.run(first.on_typed_message("object.issue", dict(payload)))
+    assert len(first.pending_candidates) == 1
+
+    restarted = Norns(promotion_threshold=1, issue_state_store=store)
+    asyncio.run(restarted.on_typed_message("object.issue", dict(payload)))
+
+    assert restarted.occurrences("pending-candidate-fingerprint") == 1
+    assert len(restarted.pending_candidates) == 1
+
+
+def test_norns_does_not_rebuild_delivered_candidate_after_restart() -> None:
+    store = InMemoryStateStore()
+    bus = InMemoryBus(registry=load_pantheon())
+    payload = {
+        "fingerprint": "delivered-candidate-fingerprint",
+        "idempotency_key": "handoff:delivered-candidate-operation",
+    }
+    first = Norns(promotion_threshold=1, issue_state_store=store)
+    first.bind_bus(bus)
+    asyncio.run(first.on_typed_message("object.issue", dict(payload)))
+    assert len(bus.messages_on("object.rule-candidate")) == 1
+
+    restarted = Norns(promotion_threshold=1, issue_state_store=store)
+    asyncio.run(restarted.on_typed_message("object.issue", dict(payload)))
+
+    assert restarted.occurrences("delivered-candidate-fingerprint") == 1
+    assert restarted.pending_candidates == []
+
+
+def test_norns_public_flush_completes_durable_candidate_delivery() -> None:
+    store = InMemoryStateStore()
+    bus = InMemoryBus(registry=load_pantheon())
+    enabled = [False]
+    payload = {
+        "fingerprint": "batch-flush-fingerprint",
+        "idempotency_key": "handoff:batch-flush-operation",
+    }
+    norns = Norns(promotion_threshold=1, issue_state_store=store)
+    norns.bind_bus(bus)
+    norns.bind_candidate_publication_gate(lambda: enabled[0])
+    asyncio.run(norns.on_typed_message("object.issue", dict(payload)))
+    assert len(norns.pending_candidates) == 1
+
+    enabled[0] = True
+    assert asyncio.run(norns.flush_candidates()) == 1
+
+    restarted = Norns(promotion_threshold=1, issue_state_store=store)
+    asyncio.run(restarted.on_typed_message("object.issue", dict(payload)))
+    assert restarted.pending_candidates == []
+
+
+def test_norns_public_flush_recovers_candidates_behind_blocked_head() -> None:
+    store = InMemoryStateStore()
+    seed = Norns(promotion_threshold=1, issue_state_store=store)
+    for cohort in range(2):
+        asyncio.run(
+            seed.on_typed_message(
+                "object.issue",
+                {
+                    "fingerprint": f"blocked-fingerprint-{cohort}",
+                    "idempotency_key": f"handoff:blocked-{cohort}",
+                },
+            )
+        )
+    assert len(seed.pending_candidates) == 2
+
+    bus = InMemoryBus(registry=load_pantheon())
+    enabled = [False]
+    restarted = Norns(promotion_threshold=1, issue_state_store=store)
+    restarted.bind_bus(bus)
+    restarted.bind_candidate_publication_gate(lambda: enabled[0])
+    assert asyncio.run(restarted.recover_issue_learning()) == 1
+    assert asyncio.run(restarted.flush_candidates()) == 0
+    assert len(restarted.pending_candidates) == 1
+
+    enabled[0] = True
+    assert asyncio.run(restarted.flush_candidates()) == 2
+    assert restarted.pending_candidates == []
+    assert len(bus.messages_on("object.rule-candidate")) == 2
+
+
+def test_norns_saturated_recovery_does_not_deliver_an_unpublished_candidate() -> None:
+    class _InterruptFingerprintApply(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.allow_fingerprint_apply = False
+
+        async def write_state_with_audit_if_absent(
+            self,
+            key,
+            value,
+            audit_entry,
+        ):  # noqa: ANN001, ANN201
+            if "/fingerprints/" in key and not self.allow_fingerprint_apply:
+                raise RuntimeError("fingerprint apply interrupted")
+            return await super().write_state_with_audit_if_absent(
+                key,
+                value,
+                audit_entry,
+            )
+
+    store = _InterruptFingerprintApply()
+    fingerprints = {"saturated-fingerprint-a", "saturated-fingerprint-b"}
+    for index, fingerprint in enumerate(sorted(fingerprints)):
+        with pytest.raises(RuntimeError, match="fingerprint apply interrupted"):
+            asyncio.run(
+                Norns(
+                    promotion_threshold=1,
+                    issue_state_store=store,
+                ).on_typed_message(
+                    "object.issue",
+                    {
+                        "fingerprint": fingerprint,
+                        "idempotency_key": f"handoff:saturated-{index}",
+                    },
+                )
+            )
+
+    store.allow_fingerprint_apply = True
+    bus = InMemoryBus(registry=load_pantheon())
+    restarted = Norns(
+        promotion_threshold=1,
+        max_pending_candidates=1,
+        issue_state_store=store,
+    )
+    restarted.bind_bus(bus)
+
+    with pytest.raises(NornsCapacityError, match="capacity exhausted"):
+        asyncio.run(restarted.recover_issue_learning())
+    assert len(restarted.pending_candidates) == 1
+    assert bus.messages_on("object.rule-candidate") == []
+
+    with pytest.raises(RuntimeError, match="candidate recovery capacity exceeded"):
+        asyncio.run(restarted.flush_candidates())
+    assert len(bus.messages_on("object.rule-candidate")) == 1
+    assert asyncio.run(restarted.flush_candidates()) == 1
+    published = {
+        message.payload["evidence"]["fingerprint"]
+        for message in bus.messages_on("object.rule-candidate")
+    }
+    assert published == fingerprints
+
+    final_restart = Norns(
+        promotion_threshold=1,
+        max_pending_candidates=1,
+        issue_state_store=store,
+    )
+    assert asyncio.run(final_restart.recover_issue_learning()) == 0
+    assert final_restart.pending_candidates == []
+
+
+def test_norns_durable_issue_operation_rejects_fingerprint_collision() -> None:
+    store = InMemoryStateStore()
+    norns = Norns(issue_state_store=store)
+
+    asyncio.run(
+        norns.on_typed_message(
+            "object.issue",
+            {
+                "fingerprint": "first-fingerprint",
+                "idempotency_key": "handoff:colliding-operation",
+            },
+        )
+    )
+
+    with pytest.raises(ValueError, match="collides with"):
+        asyncio.run(
+            norns.on_typed_message(
+                "object.issue",
+                {
+                    "fingerprint": "different-fingerprint",
+                    "idempotency_key": "handoff:colliding-operation",
+                },
+            )
+        )
+
+
+def test_saga_accepted_then_timeout_replay_counts_one_norns_occurrence() -> None:
+    class _AcceptedThenTimeoutBus:
+        def __init__(self, norns: Norns) -> None:
+            self.norns = norns
+            self.calls = 0
+
+        def subscribe(self, topic, agent_name, handler):  # noqa: ANN001, ANN201
+            del topic, agent_name, handler
+
+        async def publish(self, principal, topic, payload):  # noqa: ANN001, ANN201
+            assert principal == "Saga"
+            assert topic == "object.issue"
+            self.calls += 1
+            await self.norns.on_typed_message(topic, dict(payload))
+            if self.calls == 1:
+                raise RuntimeError("broker acknowledgement timed out")
+
+    store = InMemoryStateStore()
+    norns = Norns(promotion_threshold=2, issue_state_store=store)
+    bus = _AcceptedThenTimeoutBus(norns)
+    saga = Saga(durable_state_store=store)
+    saga.bind_bus(bus)
+    payload = {
+        "producer_principal": "Bragi",
+        "id": "handoff-accepted-timeout",
+        "escalation_id": "handoff-accepted-timeout",
+        "correlation_id": "corr-accepted-timeout",
+        "emitting_agent": "Bragi",
+        "intent_category": "no_route",
+        "normalized_selector": "sha256:selector",
+        "failure_reason_code": "no_route",
+    }
+
+    with pytest.raises(RuntimeError, match="acknowledgement timed out"):
+        asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+    asyncio.run(saga.on_typed_message("object.handoff-escalation", payload))
+
+    fingerprint = next(iter(saga.github.issues))
+    assert bus.calls == 2
+    assert norns.occurrences(fingerprint) == 1
+    assert norns.pending_candidates == []
+    assert norns.behavior_snapshot()["issue_learning_duplicate"] == 1
 
 
 # ---------------------------------------------------------------------------

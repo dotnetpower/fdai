@@ -1,7 +1,7 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 591dfd99b1bdfae2e06382e5c31992fadd8f7b85
-translation_revised: 2026-08-29
+translation_source_sha: 85edf092624e0cf9cb9e35cca54717e2b4cc9286
+translation_revised: 2026-09-15
 ---
 # Rule 의미 검색
 
@@ -100,6 +100,7 @@ translation_revised: 2026-08-29
 | 2026-08-13 | in-progress | Mimir 소유의 빌드 요청/결과 topic을 영속 빌더에 연결하고 Heimdall 소유의 독립 검증을 기존 RetrievalValidation topic에 연결했습니다. Mimir는 검증 근거를 권한 없는 변환 결과로 저장하며 Muninn은 이를 검색 실패 피드백으로 변환하지 않습니다. | `current change`; 집중 Pantheon 소유권, 동등성, handler 및 런타임 검사 221개와 exact chain 및 위조/미연결 검사가 통과했고 Ruff 및 strict mypy가 통과했습니다. | 운영 카탈로그 resolver와 reconciliation trigger를 추가한 뒤 독립 근거에 따라 exact 활성화 명령을 발행합니다. |
 | 2026-08-13 | implemented | endpoint binding에서 파생한 임베딩 식별자, 엄격한 승격 표면 문서 로딩, replay가 동일한 요청 영속성, 정확한 준비 상태 증적 연결 및 Heimdall 검증 뒤의 Mimir 소유 활성화 명령 발행으로 운영 세대 reconciliation을 완료했습니다. 질의 바인딩도 다른 임베딩 공간 또는 모델 버전의 활성 세대를 거부합니다. | `current change`; `rule_generation_documents.py`, 의미 인덱스 어댑터, `mimir.py`, `activation.py` 및 집중 문서, worker, 런타임, 활성화, bootstrap 검사 | 이 기능을 `validated`로 변경하기 전에 통제된 실제 빌드, 검증, 활성화 및 Reader 범위 변환 결과 근거를 기록합니다. |
 | 2026-08-29 | implemented | 하드닝 18차에서 운영 연결, 조정, 활성화 게시, Mimir/Heimdall 소유권, Reader 범위 변환 결과를 다시 감사했습니다. 저장소 구현에는 Low를 넘는 문제가 없었고 유일한 남은 항목은 관리되는 실제 근거입니다. | `current change`; 집중 의미 검색, 부팅, 활성화, 게시 및 변환 결과 검사. | 저장소 권한을 바꾸지 않고 관리되는 실제 근거를 기록합니다. |
+| 2026-09-15 | implemented | 기존 ActionType 수정으로 온톨로지 release가 바뀌어 [#946](https://github.com/dotnetpower/fdai/issues/946) / [PR #1014](https://github.com/dotnetpower/fdai/pull/1014)의 소스 참조만 갱신했습니다. 실제 메모리 내 어휘 검색으로 동일한 평가 전용 사례 7개에서 한국어 증적을 다시 계산했습니다. 필수 집단마다 표본은 1개이며, 직접 작성한 표면의 승격 상태, 학습 자료, 현재 임계값과 이전 증적은 유지했습니다. | `current change`; [새 한국어 증적](../../../rule-catalog/surface-validation-receipts/3e44e952cbe8bbed633e91a1482ddd0380241895c1d51c5d494fecdb29a7d187.json); 변경하지 않은 데이터셋 `sha256:1307e83d264c8c0b6fdc4342f840b51cebe18f930ca4bd9242387052da54d6de`. 구현 세션 결과: 정본 증적 로딩과 [`test_korean_surface_candidate_passes_exact_inactive_generation_review`](../../../services/core-control-plane/tests/rule_catalog/test_discovery_catalog_search.py)가 통과했고, 강화한 [생성기 회귀 검사](../../../tests/integration/scripts/test_refresh_release_derived_pins.py)는 `9 passed`, 두 번째 기본 검사는 `measured=7 fixtures=16 changed=0`을 기록했습니다. 이번 문서 편집에서는 다시 실행하지 않았습니다. | [일반 CI 실행 34921323157의 시도 1](https://github.com/dotnetpower/fdai/actions/runs/34921323157/attempts/1)은 head `c8edd`에서 실패했습니다. 로컬 수정은 새 커밋과 해당 head의 CI를 기다립니다. 운영 연결과 Reader 범위 변환 결과의 통제된 실제 근거는 미완료로 유지합니다. 배포 인덱스나 승격 레지스트리를 활성화하거나 변경하지 않았습니다. |
 
 ### 남은 작업
 
@@ -288,6 +289,18 @@ source revision
 모델 의미 확장은 요청 및 API 시작 경로 밖에서 실행됩니다. 원본 텍스트는 신뢰하지 않는
 데이터이며 모델 instruction으로 취급하지 않습니다. 알 수 없는 개념 ID는 온톨로지를 자동으로
 확장하지 않고 inert 온톨로지 제안을 생성합니다.
+
+### 소스 전용 release 갱신
+
+검토된 온톨로지 변경으로 소스의 고정 참조가 맞지 않으면
+[release 참조 생성기](../../../scripts/catalog/refresh-release-derived-pins.py)를 사용합니다.
+기본 동작은 검사이며, `--write`는 실제 메모리 내 어휘 검색과 정본 `evaluate_semantic_surface`로
+기존 평가 전용 사례 7개를 다시 평가하고 현재 정책에서 `ELIGIBLE_FOR_REVIEW`를 받은 뒤에만
+허용됩니다. 지표를 복사하지 않고 다시 계산하되 고정 데이터셋, 학습 질의, 구성된 임계값,
+직접 작성한 표면의 `promoted` 상태와 내용 기반 주소를 가진 이전 증적은 보존합니다.
+쓰기 전에는 소스/정책 지문과 대상 파일의 원래 바이트가 여전히 일치해야 합니다. 끊어진 링크를
+포함한 심볼릭 링크 대상과 변경 불가능한 증적의 덮어쓰기는 차단합니다. 활성화는 임시 평가
+인덱스에만 한정하며, 배포 인덱스나 승격 레지스트리는 변경하지 않습니다.
 
 ### 독립 세대 검증
 

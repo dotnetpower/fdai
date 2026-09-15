@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import hashlib
-import re
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Protocol
 from uuid import UUID
 
-import psycopg
 from fdai_operator_service.families.conversation.contracts import (
     ConversationBoundaryError,
     ConversationProposal,
@@ -18,6 +15,7 @@ from fdai_operator_service.families.conversation.contracts import (
 from fdai_operator_service.families.iam.contracts import (
     HandoverGoalCommand,
     HumanIdentityDirectory,
+    IamPrincipal,
     JsonMapping,
 )
 from fdai_operator_service.families.iam.errors import (
@@ -25,12 +23,50 @@ from fdai_operator_service.families.iam.errors import (
     IamNotFoundError,
     IamUnavailableError,
 )
+from fdai_operator_service.families.iam.handover_command_guard import (
+    authorize_goal_command,
+    goal_command_digest,
+)
+from fdai_operator_service.families.iam.handover_contribution import HandoverContributionGuard
+from fdai_operator_service.families.iam.handover_postgres import (
+    PostgresHandoverActivityGuard,
+    PostgresHandoverEvidenceVerifier,
+)
+from fdai_operator_service.families.iam.handover_review_eligibility import (
+    reader_evidence_current,
+    revalidate_goal_reviews,
+)
+from fdai_operator_service.families.iam.handover_session_budget import HandoverSessionBudget
+from fdai_operator_service.families.iam.handover_state import _DOCUMENT_REF as _DOCUMENT_REF
+from fdai_operator_service.families.iam.handover_state import _SHA256 as _SHA256
+from fdai_operator_service.families.iam.handover_state import _aware as _aware
+from fdai_operator_service.families.iam.handover_state import _digest as _digest
+from fdai_operator_service.families.iam.handover_state import _document_receipt as _document_receipt
+from fdai_operator_service.families.iam.handover_state import (
+    _goal_is_invitable as _goal_is_invitable,
+)
+from fdai_operator_service.families.iam.handover_state import _mapping as _mapping
+from fdai_operator_service.families.iam.handover_state import _new_goal as _new_goal
+from fdai_operator_service.families.iam.handover_state import _non_negative_int as _non_negative_int
+from fdai_operator_service.families.iam.handover_state import _positive_int as _positive_int
+from fdai_operator_service.families.iam.handover_state import _sequence as _sequence
+from fdai_operator_service.families.iam.handover_state import _string_list as _string_list
+from fdai_operator_service.families.iam.handover_state import _transition as _transition
 from fdai_operator_service.families.operations.contracts import ProjectionQuery, ProjectionReader
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStoreUnavailable,
     PostgresProposalConflict,
 )
 from fdai_service_contracts import OperatorRole
+from fdai_service_contracts.handover_checklist import (
+    acceptance_complete,
+    checklist_digest,
+    project_checklist,
+)
+from fdai_service_contracts.handover_readiness import (
+    HANDOVER_READINESS_KEY,
+    HandoverReadinessReport,
+)
 
 _GOAL_PREFIX = "operator-handover-goal:"
 _INVITATION_PREFIX = "operator-handover-invitation:"
@@ -38,13 +74,6 @@ _WEEK_PREFIX = "operator-handover-week:"
 _MAX_WEEKLY_INVITATIONS = 2
 _MAX_CAS_ATTEMPTS = 4
 _MAX_GOALS = 15
-_DOCUMENT_REF = re.compile(
-    r"^doc:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-"
-    r"[89ab][0-9a-f]{3}-[0-9a-f]{12}:"
-    r"[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-"
-    r"[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-)
-_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
 class HandoverStateStore(Protocol):
@@ -88,89 +117,6 @@ class HandoverActivityGuard(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
-class PostgresHandoverActivityGuard:
-    """Suppress invitations while any incident or human approval is active."""
-
-    dsn: str
-    connect_timeout_s: int = 10
-    statement_timeout_ms: int = 10_000
-
-    async def may_invite(self) -> bool:
-        try:
-            async with await psycopg.AsyncConnection.connect(
-                self.dsn,
-                connect_timeout=self.connect_timeout_s,
-            ) as connection:
-                await connection.execute(
-                    "SELECT set_config('statement_timeout', %s, true)",
-                    (f"{self.statement_timeout_ms}ms",),
-                )
-                row = await (
-                    await connection.execute(
-                        """
-                        SELECT
-                            EXISTS (
-                                SELECT 1
-                                  FROM operator_incident_projection
-                                 WHERE valid_to_seq IS NULL
-                                   AND has_incident_activity
-                                   AND LOWER(projected_state) NOT IN (
-                                       'closed', 'resolved', 'mitigated'
-                                   )
-                            ) AS incident_busy,
-                            EXISTS (
-                                SELECT 1
-                                  FROM state_kv
-                                 WHERE key LIKE 'hil_park:%'
-                                   AND value ->> 'status' = 'pending'
-                            ) AS approval_busy
-                        """
-                    )
-                ).fetchone()
-        except psycopg.Error:
-            return False
-        return row is not None and row[0] is False and row[1] is False
-
-
-@dataclass(frozen=True, slots=True)
-class PostgresHandoverEvidenceVerifier:
-    """Read only the exact document version needed for a handover receipt."""
-
-    dsn: str
-    connect_timeout_s: int = 10
-    statement_timeout_ms: int = 10_000
-
-    async def verify(
-        self,
-        *,
-        principal_id: str,
-        document_id: UUID,
-        version_id: UUID,
-        source_sha256: str,
-    ) -> bool:
-        if not self.dsn:
-            raise IamUnavailableError("handover evidence verifier is not configured")
-        try:
-            async with await psycopg.AsyncConnection.connect(
-                self.dsn,
-                connect_timeout=self.connect_timeout_s,
-            ) as connection:
-                await connection.execute(
-                    "SELECT set_config('statement_timeout', %s, true)",
-                    (f"{self.statement_timeout_ms}ms",),
-                )
-                row = await (
-                    await connection.execute(
-                        "SELECT fdai_verify_handover_document(%s, %s, %s, %s)",
-                        (principal_id, document_id, version_id, source_sha256),
-                    )
-                ).fetchone()
-        except psycopg.Error as exc:
-            raise IamUnavailableError("authoritative document metadata is unavailable") from exc
-        return row is not None and row[0] is True
-
-
-@dataclass(frozen=True, slots=True)
 class ProactiveHandoverRuntime:
     """Create one bounded invitation from the authoritative ownership projection."""
 
@@ -180,6 +126,7 @@ class ProactiveHandoverRuntime:
     evidence_verifier: HandoverEvidenceVerifier
     activity_guard: HandoverActivityGuard
     clock: Callable[[], datetime] = lambda: datetime.now(UTC)
+    contribution_guard: HandoverContributionGuard | None = None
 
     async def invitation_for_session(
         self,
@@ -248,24 +195,78 @@ class ProactiveHandoverRuntime:
         goal = await self._read(f"{_GOAL_PREFIX}{goal_id}")
         if goal is None:
             raise IamNotFoundError(f"handover goal {goal_id!r} was not found")
-        return await self._refresh_evidence(goal)
+        try:
+            projected = project_checklist(goal)
+        except (TypeError, ValueError) as exc:
+            raise IamUnavailableError("handover checklist state is unavailable") from exc
+        return await self._refresh_evidence(projected)
+
+    async def lifecycle_readiness(self) -> JsonMapping:
+        """Read a current, consistent Core observation; missing evidence never implies health."""
+        try:
+            report = HandoverReadinessReport.model_validate(
+                await self._read(HANDOVER_READINESS_KEY)
+            )
+            report.require_current(_aware(self.clock()))
+        except (TypeError, ValueError) as exc:
+            raise IamUnavailableError("handover lifecycle readiness is unavailable") from exc
+        return report.model_dump(mode="json")
 
     async def submit(self, command: HandoverGoalCommand) -> JsonMapping:
         current = dict(await self.get_goal(command.goal_id))
+        subject_ref = authorize_goal_command(current, command)
+        agents, source_revision = await self._mapped_agents(
+            subject_ref=subject_ref,
+            roles=command.principal.roles,
+            reader_ref=command.principal.oid,
+        )
+        if (
+            current.get("agent_name") not in agents
+            or not source_revision
+            or source_revision == "unversioned"
+            or current.get("source_revision") != source_revision
+        ):
+            raise IamConflictError("handover goal ownership is no longer current")
+        if command.operation == "acknowledge" and not await self.may_review_goal(
+            current, command.principal
+        ):
+            raise IamConflictError("handover acknowledgement requires the current distinct backup")
+        if command.operation in {"accept", "acknowledge"}:
+            await revalidate_goal_reviews(
+                current,
+                command,
+                directory=self.directory,
+                backup_eligible=self.may_review_goal,
+                at=_aware(self.clock()),
+            )
+        reused: JsonMapping | None = None
+        if command.operation == "reuse":
+            if not command.source_goal_id or command.source_goal_id == command.goal_id:
+                raise IamConflictError("handover reuse requires a distinct source goal")
+            reused = await self.get_goal(command.source_goal_id)
+            if (
+                reused.get("subject_ref") != subject_ref
+                or reused.get("scope_ref") != current.get("scope_ref")
+                or reused.get("source_revision") != source_revision
+                or reused.get("state") != "accepted"
+                or reused.get("agent_name") not in agents
+                or not acceptance_complete(reused)
+            ):
+                raise IamConflictError(
+                    "handover reuse requires current accepted same-scope evidence"
+                )
+        command_digest = goal_command_digest(command)
         if (
             current.get("revision") == command.expected_revision + 1
             and current.get("last_operation") == command.operation
             and current.get("last_expected_revision") == command.expected_revision
-            and current.get("last_actor") == command.principal.oid
+            and str(current.get("last_actor") or "").casefold() == command.principal.oid.casefold()
         ):
+            if current.get("last_command_digest") != command_digest:
+                raise IamConflictError("handover command replay payload conflicts")
             return current
         if _positive_int(current, "revision") != command.expected_revision:
             raise IamConflictError("handover goal revision is stale")
-        if (
-            str(current.get("subject_ref")) != command.principal.oid
-            and command.operation != "accept"
-        ):
-            raise IamConflictError("handover goal belongs to another subject")
         if command.operation == "evidence":
             document_id, version_id = _document_receipt(command)
             if not await self.evidence_verifier.verify(
@@ -275,7 +276,35 @@ class ProactiveHandoverRuntime:
                 source_sha256=command.digest or "",
             ):
                 raise IamConflictError("handover evidence is not an admitted document")
+        if current.get("state") in {"accepted", "stale", "declined", "superseded"}:
+            raise IamConflictError("handover goal is closed to commands")
+        if command.operation in {"accept", "acknowledge"}:
+            # Bound the final human checks after document I/O, rather than reusing a check made
+            # before an arbitrarily slow source read.
+            final_agents, final_revision = await self._mapped_agents(
+                subject_ref=subject_ref,
+                roles=command.principal.roles,
+                reader_ref=command.principal.oid,
+            )
+            if current.get("agent_name") not in final_agents or final_revision != source_revision:
+                raise IamConflictError("handover ownership changed during evidence review")
         updated = _transition(current, command=command, now=_aware(self.clock()))
+        if reused is not None:
+            if current.get("evidence") or current.get("slot_exemptions"):
+                raise IamConflictError("handover reuse cannot overwrite existing evidence")
+            updated.update(
+                evidence=list(reused["evidence"]),
+                slot_exemptions=dict(reused["slot_exemptions"]),
+                owner_review=None,
+                backup_review=None,
+                state="ready_for_review",
+                reused_from={
+                    "goal_id": reused["goal_id"],
+                    "revision": reused["revision"],
+                    "digest": checklist_digest(reused),
+                },
+            )
+        updated["last_command_digest"] = command_digest
         try:
             await self.store.append_revisioned_proposal(
                 family="iam",
@@ -288,6 +317,7 @@ class ProactiveHandoverRuntime:
                     "goal_id": command.goal_id,
                     "operation": command.operation,
                     "expected_revision": command.expected_revision,
+                    "command_digest": command_digest,
                     "execution_authority": False,
                 },
                 state_key=f"{_GOAL_PREFIX}{command.goal_id}",
@@ -299,6 +329,27 @@ class ProactiveHandoverRuntime:
         except PostgresFamilyStoreUnavailable as exc:
             raise IamUnavailableError("handover goal state is unavailable") from exc
         return dict(await self.get_goal(command.goal_id))
+
+    async def may_review_goal(self, goal: JsonMapping, principal: IamPrincipal) -> bool:
+        """Check the exact current backup duty and ownership revision, never infer a role."""
+        if str(goal.get("subject_ref", "")).casefold() == principal.oid.casefold():
+            return False
+        if not principal.roles - {OperatorRole.BREAK_GLASS}:
+            return False
+        agents, revision = await self._mapped_agents(
+            subject_ref=principal.oid,
+            roles=principal.roles,
+            required_duties=frozenset({"backup", "escalation"}),
+        )
+        if goal.get("agent_name") not in agents or goal.get("source_revision") != revision:
+            return False
+        if goal.get("evidence") and not principal.roles.intersection(
+            {OperatorRole.CONTRIBUTOR, OperatorRole.APPROVER, OperatorRole.OWNER}
+        ):
+            return await reader_evidence_current(
+                goal, principal, directory=self.directory, verifier=self.evidence_verifier
+            )
+        return True
 
     async def bind_conversation(self, proposal: ConversationProposal) -> ConversationProposal:
         """Resolve an optional handover goal and inject its server-owned agent target."""
@@ -327,7 +378,7 @@ class ProactiveHandoverRuntime:
             raise ConversationBoundaryError(
                 404, "handover_goal_not_found", "handover goal was not found"
             )
-        if goal.get("state") in {"declined", "stale", "superseded"}:
+        if goal.get("state") in {"accepted", "declined", "stale", "superseded"}:
             raise ConversationBoundaryError(
                 409,
                 "handover_goal_closed",
@@ -356,7 +407,41 @@ class ProactiveHandoverRuntime:
                 "handover_agent_mismatch",
                 "handover agent does not match the verified goal",
             )
-        binding_key = f"operator-handover-conversation:{proposal.scope.subject_id}:{goal_id}"
+        try:
+            agents, revision = await self._mapped_agents(
+                subject_ref=proposal.scope.subject_id,
+                roles=frozenset(OperatorRole(role) for role in proposal.scope.roles),
+            )
+            if (
+                agent_name not in agents
+                or revision == "unversioned"
+                or goal.get("source_revision") != revision
+            ):
+                raise IamConflictError("handover conversation ownership is no longer current")
+            if not await self.activity_guard.may_invite():
+                raise IamConflictError("handover session is held during incident or approval work")
+            snoozed = goal.get("snoozed_until")
+            if isinstance(snoozed, str) and _aware(datetime.fromisoformat(snoozed)) > _aware(
+                self.clock()
+            ):
+                raise IamConflictError("handover session is snoozed")
+            deadline = await HandoverSessionBudget(self.store).claim(
+                proposal, goal_id=goal_id, now=_aware(self.clock())
+            )
+            if _aware(self.clock()) >= datetime.fromisoformat(deadline):
+                raise IamConflictError("handover turn deadline expired during admission")
+        except (IamConflictError, ValueError) as exc:
+            raise ConversationBoundaryError(409, "handover_session_held", str(exc)) from exc
+        except (IamUnavailableError, PostgresFamilyStoreUnavailable) as exc:
+            raise ConversationBoundaryError(
+                503,
+                "handover_state_unavailable",
+                "handover state is unavailable",
+            ) from exc
+        binding_key = (
+            f"operator-handover-conversation:{proposal.scope.subject_id}:"
+            f"{goal_id}:{_digest(session_id)}"
+        )
         binding = {
             "goal_id": goal_id,
             "subject_ref": proposal.scope.subject_id,
@@ -385,6 +470,7 @@ class ProactiveHandoverRuntime:
                 **proposal.body,
                 "prompt": f"@{agent_name} {prompt.strip()}",
                 "target_agent": agent_name,
+                "deadline_at": deadline,
             },
         )
 
@@ -393,12 +479,14 @@ class ProactiveHandoverRuntime:
         *,
         subject_ref: str,
         roles: frozenset[OperatorRole],
+        reader_ref: str | None = None,
+        required_duties: frozenset[str] | None = None,
     ) -> tuple[tuple[str, ...], str]:
         try:
             payload = await self.ownership.read(
                 ProjectionQuery(
                     operation="stewardship.coverage",
-                    principal_id=subject_ref,
+                    principal_id=reader_ref or subject_ref,
                     path={},
                     params={},
                     limit=100,
@@ -424,7 +512,13 @@ class ProactiveHandoverRuntime:
             identity = await self.directory.get_by_subject_id(subject_ref)
         except (RuntimeError, IamUnavailableError) as exc:
             raise IamUnavailableError("human identity directory is unavailable") from exc
-        if identity is None or not identity.active:
+        if (
+            identity is None
+            or not identity.active
+            or identity.provider != "entra"
+            or identity.principal_type != "person"
+            or identity.subject_id.casefold() != subject_ref.casefold()
+        ):
             return (), source_revision
         matched: list[tuple[int, str]] = []
         duty_order = {"primary": 0, "backup": 1, "escalation": 2}
@@ -442,11 +536,18 @@ class ProactiveHandoverRuntime:
                     == subject_ref
                     and subject.get("responsibility") == "accountable"
                     and (not current_shape or subject.get("active") is True)
+                    and (required_duties is None or subject.get("duty") in required_duties)
                 ):
                     matched.append((duty_order.get(str(subject.get("duty")), 3), name))
                     break
         matched.sort(key=lambda item: (item[0], item[1]))
-        return tuple(name for _duty, name in matched), source_revision
+        allowed = []
+        for _duty, name in matched:
+            if self.contribution_guard is None or await self.contribution_guard.may_contribute(
+                subject_ref=subject_ref, agent_name=name
+            ):
+                allowed.append(name)
+        return tuple(allowed), source_revision
 
     async def _refresh_evidence(self, goal: dict[str, object]) -> dict[str, object]:
         evidence = _sequence(goal.get("evidence"), "handover goal evidence")
@@ -563,162 +664,6 @@ class ProactiveHandoverRuntime:
             return await self.store.create_state(key, value)
         except PostgresFamilyStoreUnavailable as exc:
             raise IamUnavailableError("handover state is unavailable") from exc
-
-
-def _new_goal(
-    *,
-    goal_id: str,
-    subject_ref: str,
-    agent_name: str,
-    source_revision: str,
-    now: datetime,
-) -> dict[str, object]:
-    return {
-        "goal_id": goal_id,
-        "subject_ref": subject_ref,
-        "agent_name": agent_name,
-        "scope_ref": "scope://stewardship/current",
-        "source_revision": source_revision,
-        "prompt_ref": f"handover.goal.{agent_name.casefold()}-v1",
-        "priority": 100,
-        "state": "not_started",
-        "revision": 1,
-        "evidence": [],
-        "not_applicable_reason_ref": None,
-        "snoozed_until": None,
-        "created_at": now.isoformat(),
-        "execution_authority": False,
-    }
-
-
-def _goal_is_invitable(goal: Mapping[str, object], *, now: datetime) -> bool:
-    if goal.get("state") not in {"not_started", "in_progress"}:
-        return False
-    snoozed = goal.get("snoozed_until")
-    if snoozed is None:
-        return True
-    if not isinstance(snoozed, str):
-        raise IamUnavailableError("handover goal snooze state is malformed")
-    return _aware(datetime.fromisoformat(snoozed)) <= now
-
-
-def _transition(
-    current: dict[str, object],
-    *,
-    command: HandoverGoalCommand,
-    now: datetime,
-) -> dict[str, object]:
-    operation = command.operation
-    updated = {
-        **current,
-        "revision": command.expected_revision + 1,
-        "updated_at": now.isoformat(),
-        "last_operation": command.operation,
-        "last_expected_revision": command.expected_revision,
-        "last_actor": command.principal.oid,
-    }
-    if operation == "snooze":
-        updated.update(state="in_progress", snoozed_until=(now + timedelta(hours=24)).isoformat())
-    elif operation == "decline":
-        updated.update(state="declined", snoozed_until=None)
-    elif operation == "not-applicable":
-        if not command.reason_ref:
-            raise IamConflictError("not-applicable requires a reason reference")
-        updated.update(
-            state="ready_for_review",
-            not_applicable_reason_ref=command.reason_ref,
-            snoozed_until=None,
-        )
-    elif operation == "evidence":
-        if not command.evidence_ref or not command.digest or not command.kind:
-            raise IamConflictError("evidence requires reference, digest, and kind")
-        if (
-            command.kind != "document"
-            or _DOCUMENT_REF.fullmatch(command.evidence_ref) is None
-            or _SHA256.fullmatch(command.digest) is None
-        ):
-            raise IamConflictError("handover evidence is not a canonical document receipt")
-        evidence = _sequence(current.get("evidence"), "handover goal evidence")
-        if any(
-            isinstance(item, Mapping) and item.get("evidence_ref") == command.evidence_ref
-            for item in evidence
-        ):
-            raise IamConflictError("handover evidence reference already exists")
-        updated.update(
-            state="ready_for_review",
-            evidence=[
-                *evidence,
-                {
-                    "evidence_ref": command.evidence_ref,
-                    "digest": command.digest,
-                    "kind": command.kind,
-                },
-            ],
-            snoozed_until=None,
-        )
-    elif operation == "accept":
-        if current.get("state") != "ready_for_review":
-            raise IamConflictError("handover goal is not ready for review")
-        updated.update(state="accepted", snoozed_until=None)
-    else:
-        raise IamNotFoundError("unknown handover goal command")
-    return updated
-
-
-def _document_receipt(command: HandoverGoalCommand) -> tuple[UUID, UUID]:
-    if (
-        command.kind != "document"
-        or command.evidence_ref is None
-        or _DOCUMENT_REF.fullmatch(command.evidence_ref) is None
-        or command.digest is None
-        or _SHA256.fullmatch(command.digest) is None
-    ):
-        raise IamConflictError("handover evidence is not a canonical document receipt")
-    _, document_id, version_id = command.evidence_ref.split(":", 2)
-    return UUID(document_id), UUID(version_id)
-
-
-def _mapping(value: object, label: str) -> Mapping[str, object]:
-    if not isinstance(value, Mapping):
-        raise IamUnavailableError(f"{label} is malformed")
-    return value
-
-
-def _sequence(value: object, label: str) -> Sequence[object]:
-    if not isinstance(value, list):
-        raise IamUnavailableError(f"{label} is malformed")
-    return value
-
-
-def _positive_int(value: Mapping[str, object], key: str) -> int:
-    item = value.get(key)
-    if not isinstance(item, int) or isinstance(item, bool) or item < 1:
-        raise IamUnavailableError(f"handover goal {key} is malformed")
-    return item
-
-
-def _non_negative_int(value: Mapping[str, object], key: str) -> int:
-    item = value.get(key)
-    if not isinstance(item, int) or isinstance(item, bool) or item < 0:
-        raise IamUnavailableError(f"handover invitation {key} is malformed")
-    return item
-
-
-def _string_list(value: Mapping[str, object], key: str) -> list[str]:
-    item = value.get(key)
-    if not isinstance(item, list) or not all(isinstance(entry, str) for entry in item):
-        raise IamUnavailableError(f"handover invitation {key} is malformed")
-    return list(item)
-
-
-def _aware(value: datetime) -> datetime:
-    if value.tzinfo is None or value.utcoffset() is None:
-        raise ValueError("handover time MUST be timezone-aware")
-    return value.astimezone(UTC)
-
-
-def _digest(value: str) -> str:
-    return hashlib.sha256(value.encode()).hexdigest()
 
 
 __all__ = [

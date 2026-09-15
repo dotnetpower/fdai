@@ -3,6 +3,7 @@ import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { DataTable, LoadingState, StatusPill } from "../components/ui";
 import { t } from "../i18n";
+import { handoverText } from "../deck/handover-i18n";
 import { identityForMutationIntent, type MutationIntentIdentity } from "../mutation-intent";
 import {
   createAssignmentCase,
@@ -311,7 +312,11 @@ function AssignmentEvidence({ item, auth, client, principalOid, onClose, onChang
 
 function CoveragePill({ item }: { readonly item: AssignmentProjectionItem }) { const kind = item.coverage === null ? "neutral" : item.coverage.some((entry) => entry.primaryCount < 1 || entry.backupOrEscalationCount < 1) ? "warning" : "success"; const label = item.coverage === null ? t("settings.iam.notObserved") : kind === "warning" ? t("settings.iam.coverageGap") : t("settings.iam.covered"); return <StatusPill kind={kind} label={label} />; }
 function AssignmentLocked() { return <section class="settings-iam-panel settings-locked-panel" role="alert"><strong>{t("settings.iam.accessDenied")}</strong><p>{t("settings.iam.assignmentsOwnerOnly")}</p></section>; }
-function assignmentStateLabel(assignmentCase: AssignmentCase): string { return t(`settings.iam.assignmentState.${assignmentCase.state}`); }
+function assignmentStateLabel(assignmentCase: AssignmentCase): string {
+  if (assignmentCase.state === "iam_revoked") return handoverText("iamRevoked");
+  if (assignmentCase.state === "revoked") return handoverText("revoked");
+  return t(`settings.iam.assignmentState.${assignmentCase.state}`);
+}
 export function canReviewAssignmentCase(requesterRef: string, principalOid: string): boolean {
   return requesterRef.trim().toLowerCase() !== principalOid.trim().toLowerCase();
 }

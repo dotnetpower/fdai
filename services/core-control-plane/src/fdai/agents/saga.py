@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import inspect
 from collections.abc import Awaitable
@@ -10,21 +11,30 @@ from typing import Any, Protocol
 from fdai.agents._framework.action_semantics import RESULT_VALUES, outcome_result
 from fdai.agents._framework.adapters import (
     AuditEntry,
+    IdempotentIssueTrackerAdapter,
     InMemoryAuditChain,
     InMemoryGithubIssueAdapter,
     InMemoryStateStore,
     IssueTrackerAdapter,
 )
+from fdai.agents._framework.assignment_workflow import seal_assignment
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
+from fdai.agents._framework.human_access_workflow import seal_human_access
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
+    agent_state_evidence_ref,
     capability_facts,
     mentioned,
 )
 from fdai.agents._framework.pantheon import _SAGA
+from fdai.agents._framework.saga_handoff import (
+    HandoffIssueCheckpoint,
+    SagaHandoffJournal,
+)
+from fdai.shared.providers.state_store import StateStore
 
 _FINGERPRINT_BUCKET = "issue_fingerprint_index"
-_HANDOFF_RECEIPT_BUCKET = "handoff_escalation_receipts"
 
 
 class SagaAuditChain(Protocol):
@@ -43,7 +53,7 @@ class SagaAuditChain(Protocol):
     def entries_for_correlation(self, correlation_id: str) -> list[AuditEntry]: ...
 
 
-class Saga(Agent):
+class Saga(Agent, HandoverKnowledgeMixin):
     """Wave-2 Saga: audit chain + GitHub Issue dedup."""
 
     def __init__(
@@ -51,17 +61,32 @@ class Saga(Agent):
         *,
         audit_chain: SagaAuditChain | None = None,
         state_store: InMemoryStateStore | None = None,
+        durable_state_store: StateStore | None = None,
         github: IssueTrackerAdapter | None = None,
     ) -> None:
         super().__init__(spec=_SAGA)
         self.audit_chain: SagaAuditChain = audit_chain or InMemoryAuditChain()
         self.state_store = state_store or InMemoryStateStore()
+        self._durable_state_store = durable_state_store
+        self._handoff_journal = SagaHandoffJournal(
+            local_store=self.state_store,
+            durable_store=durable_state_store,
+        )
+        self._handoff_lock = asyncio.Lock()
         self.github = github or InMemoryGithubIssueAdapter()
 
     @property
     def durable_audit(self) -> bool:
         """Return whether the configured audit chain survives restart."""
         return bool(getattr(self.audit_chain, "durable", False))
+
+    async def rehydrate_issue_tracker(self) -> int:
+        """Restore a durable issue projection when the adapter supports it."""
+        rehydrate = getattr(self.github, "rehydrate", None)
+        if not callable(rehydrate):
+            return 0
+        restored = rehydrate()
+        return int(await restored if inspect.isawaitable(restored) else restored)
 
     async def _append_audit(
         self,
@@ -89,6 +114,14 @@ class Saga(Agent):
             correlation_id=correlation_id,
             payload=payload,
         )
+        if await self._handover_message(topic, payload):
+            return
+        if payload.get("kind") == "human_access_execution":
+            await seal_human_access(self, topic, payload)
+            return
+        if payload.get("kind") == "human_assignment":
+            await seal_assignment(self, topic, payload)
+            return
         if topic == "object.verdict" and payload.get("kind") == "document_ingestion":
             await self._republish_document_decision(payload, correlation_id)
         if topic == "object.approval" and payload.get("kind") == "document_ingestion":
@@ -204,6 +237,14 @@ class Saga(Agent):
         payload: dict[str, Any],
         correlation_id: str,
     ) -> None:
+        async with self._handoff_lock:
+            await self._materialize_handoff_locked(payload, correlation_id)
+
+    async def _materialize_handoff_locked(
+        self,
+        payload: dict[str, Any],
+        correlation_id: str,
+    ) -> None:
         escalation_id = str(payload.get("escalation_id") or payload.get("id") or "")
         emitting_agent = str(payload.get("emitting_agent") or "")
         intent_category = str(payload.get("intent_category") or "")
@@ -214,9 +255,6 @@ class Saga(Agent):
         ):
             self.record_behavior("handoff:invalid")
             return
-        if self.state_store.get(_HANDOFF_RECEIPT_BUCKET, escalation_id) is not None:
-            self.record_behavior("handoff:duplicate")
-            return
         fingerprint = compute_fingerprint(
             intent_category=intent_category,
             resource_type=str(payload.get("resource_type") or ""),
@@ -224,14 +262,66 @@ class Saga(Agent):
             primary_agent=emitting_agent,
             failure_reason_code=failure_reason,
         )
-        result = await self.escalate_to_github_issue(
+        operation_id = f"handoff:{escalation_id}"
+        await self._handoff_journal.claim(
+            escalation_id=escalation_id,
             fingerprint=fingerprint,
-            emitting_agent=emitting_agent,
-            intent_category=intent_category,
-            failure_reason_code=failure_reason,
             correlation_id=correlation_id,
+            operation_id=operation_id,
         )
-        self.state_store.put(_HANDOFF_RECEIPT_BUCKET, escalation_id, result)
+        if await self._handoff_journal.is_complete(
+            escalation_id=escalation_id,
+            fingerprint=fingerprint,
+            correlation_id=correlation_id,
+        ):
+            self.record_behavior("handoff:duplicate")
+            return
+        checkpoint = await self._handoff_journal.read_checkpoint(escalation_id)
+        if checkpoint is None:
+            issue_number, created, occurrence_count = await self._mutate_github_issue(
+                operation_id=operation_id,
+                fingerprint=fingerprint,
+                emitting_agent=emitting_agent,
+                intent_category=intent_category,
+                failure_reason_code=failure_reason,
+                correlation_id=correlation_id,
+                require_idempotent=True,
+            )
+            checkpoint = HandoffIssueCheckpoint(
+                fingerprint=fingerprint,
+                correlation_id=correlation_id,
+                issue_number=issue_number,
+                created=created,
+                occurrence_count=occurrence_count,
+            )
+            await self._handoff_journal.write_checkpoint(escalation_id, checkpoint)
+        elif checkpoint.fingerprint != fingerprint or checkpoint.correlation_id != correlation_id:
+            raise ValueError("handoff escalation id conflicts with its mutation checkpoint")
+
+        if not checkpoint.audit_recorded:
+            await self._append_issue_audit(
+                fingerprint=fingerprint,
+                issue_number=checkpoint.issue_number,
+                created=checkpoint.created,
+                correlation_id=correlation_id,
+                operation_id=operation_id,
+            )
+            checkpoint = checkpoint.with_audit_recorded()
+            await self._handoff_journal.write_checkpoint(escalation_id, checkpoint)
+        if self.bus is None:
+            self.record_behavior("handoff:publication_pending")
+            raise RuntimeError("Saga issue publication bus is unavailable")
+        if not checkpoint.published:
+            await self._publish_issue(
+                fingerprint=fingerprint,
+                issue_number=checkpoint.issue_number,
+                created=checkpoint.created,
+                correlation_id=correlation_id,
+                operation_id=operation_id,
+            )
+            checkpoint = checkpoint.with_published()
+            await self._handoff_journal.write_checkpoint(escalation_id, checkpoint)
+        await self._handoff_journal.complete(escalation_id, checkpoint)
         self.record_behavior("handoff:materialized")
 
     async def _republish_forecast_outcome(
@@ -391,6 +481,49 @@ class Saga(Agent):
         correlation_id: str,
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        operation_id = f"handoff:{fingerprint}:{correlation_id}"
+        issue_number, created, occurrence_count = await self._mutate_github_issue(
+            operation_id=operation_id,
+            fingerprint=fingerprint,
+            emitting_agent=emitting_agent,
+            intent_category=intent_category,
+            failure_reason_code=failure_reason_code,
+            correlation_id=correlation_id,
+            context=context,
+        )
+        await self._append_issue_audit(
+            fingerprint=fingerprint,
+            issue_number=issue_number,
+            created=created,
+            correlation_id=correlation_id,
+            operation_id=operation_id,
+        )
+        if self.bus is not None:
+            await self._publish_issue(
+                fingerprint=fingerprint,
+                issue_number=issue_number,
+                created=created,
+                correlation_id=correlation_id,
+                operation_id=operation_id,
+            )
+        return {
+            "issue_number": issue_number,
+            "created": created,
+            "occurrence_count": occurrence_count,
+        }
+
+    async def _mutate_github_issue(
+        self,
+        *,
+        operation_id: str,
+        fingerprint: str,
+        emitting_agent: str,
+        intent_category: str,
+        failure_reason_code: str,
+        correlation_id: str,
+        context: dict[str, Any] | None = None,
+        require_idempotent: bool = False,
+    ) -> tuple[int, bool, int]:
         title = f"[{intent_category}] {emitting_agent} handoff"
         body_lines = [
             f"Fingerprint: `{fingerprint}`",
@@ -403,52 +536,78 @@ class Saga(Agent):
                 body_lines.append(f"- {k}: {v}")
         body = "\n".join(body_lines)
 
-        issue_result = self.github.create_or_comment(
-            fingerprint=fingerprint,
-            title=title,
-            body=body,
-        )
+        if isinstance(self.github, IdempotentIssueTrackerAdapter):
+            issue_result = self.github.create_or_comment_once(
+                operation_id=operation_id,
+                fingerprint=fingerprint,
+                title=title,
+                body=body,
+            )
+        elif require_idempotent:
+            raise RuntimeError("Saga handoff requires an idempotent issue-tracker adapter")
+        else:
+            issue_result = self.github.create_or_comment(
+                fingerprint=fingerprint,
+                title=title,
+                body=body,
+            )
         issue, created = await issue_result if inspect.isawaitable(issue_result) else issue_result
+        occurrence_count = 1 + len(issue.comments)
         self.state_store.put(
             _FINGERPRINT_BUCKET,
             fingerprint,
             {
                 "issue_number": issue.number,
-                "occurrence_count": 1 + len(issue.comments),
+                "occurrence_count": occurrence_count,
                 "last_correlation_id": correlation_id,
             },
         )
+        return issue.number, created, occurrence_count
+
+    async def _append_issue_audit(
+        self,
+        *,
+        fingerprint: str,
+        issue_number: int,
+        created: bool,
+        correlation_id: str,
+        operation_id: str,
+    ) -> None:
         await self._append_audit(
             principal="Saga",
             topic="object.issue",
             correlation_id=correlation_id,
             payload={
+                "idempotency_key": operation_id,
                 "fingerprint": fingerprint,
-                "issue_number": issue.number,
+                "issue_number": issue_number,
                 "created": created,
             },
         )
-        # Publish object.issue onto the bus (Saga is the single writer of the
-        # Issue object type) so the discovery loop's fingerprint learner
-        # (Norns) can count recurring handoffs and propose a new rule. A
-        # bus-less Saga (unit scenarios) records to the append-only chain only.
-        if self.bus is not None:
-            await self.bus.publish(
-                "Saga",
-                "object.issue",
-                {
-                    "producer_principal": "Saga",
-                    "correlation_id": correlation_id,
-                    "fingerprint": fingerprint,
-                    "issue_number": issue.number,
-                    "created": created,
-                },
-            )
-        return {
-            "issue_number": issue.number,
-            "created": created,
-            "occurrence_count": 1 + len(issue.comments),
-        }
+
+    async def _publish_issue(
+        self,
+        *,
+        fingerprint: str,
+        issue_number: int,
+        created: bool,
+        correlation_id: str,
+        operation_id: str,
+    ) -> None:
+        if self.bus is None:
+            return
+        await self.bus.publish(
+            "Saga",
+            "object.issue",
+            {
+                "producer_principal": "Saga",
+                "correlation_id": correlation_id,
+                "idempotency_key": operation_id,
+                "fingerprint": fingerprint,
+                "issue_number": issue_number,
+                "created": created,
+            },
+        )
 
     async def close_issue(self, *, fingerprint: str, closed_by_pr: str) -> None:
         result = self.github.close(fingerprint, closed_by_pr=closed_by_pr)
@@ -497,19 +656,45 @@ class Saga(Agent):
                     ],
                 }
             )
+            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+            facts["evidence_refs"] = [evidence_ref]
             actors = ", ".join(sorted({e.principal for e in scoped})) or "none"
-            answer = f"Correlation {corr[0]!r}: {len(scoped)} audit entr(ies), actor(s): {actors}."
-            return IntrospectionResult(answer=answer, facts=facts)
-        if not entries:
             answer = (
-                "Audit chain is empty; I record every terminal action-lifecycle "
-                "event on an append-only chain."
+                f"Correlation {corr[0]!r}: {len(scoped)} audit entr(ies), actor(s): {actors}. "
+                f"Evidence: {evidence_ref}."
+            )
+            return IntrospectionResult(answer=answer, facts=facts)
+        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+        facts["evidence_refs"] = [evidence_ref]
+        if context.get("locale") == "ko":
+            answer = (
+                "저는 거버넌스 계층의 추가 전용 auditor이자 handoff-to-issue 소유자인 Saga입니다. "
+                "Odin에게 보고합니다. 모든 최종 수명 주기 상태를 해시로 연결된 AuditEntry에 "
+                "추가하고 중복을 제거해 필요한 Issue를 생성합니다. 저는 hard dependency이므로 "
+                "감사 근거가 필요한 전이는 사용할 수 없을 때 fail-closed로 중단돼야 합니다. "
+                "작업을 판단하거나 승인하거나 관리 리소스를 변경하지 않습니다. 이 대화 포트는 "
+                "읽기 전용이며 작업 요청은 운영자 권한으로 타입이 지정된 파이프라인에 다시 "
+                "진입해야 합니다. 숨겨진 시스템 프롬프트는 공개하지 않습니다. 이 런타임은 "
+                f"AuditEntry {facts['audit_entries']}건, 전체 Issue {facts['issues_total']}건, "
+                f"열린 Issue {facts['issues_open']}건을 기록했습니다. 근거: {evidence_ref}."
             )
         else:
-            last = entries[-1]
+            audit_state = (
+                f"The latest sealed entry is sequence {facts['chain_head_seq']}."
+                if entries
+                else "The audit chain is empty."
+            )
             answer = (
-                f"{len(entries)} audit entr(ies) recorded; latest: {last.principal} "
-                f"-> {last.topic}."
+                "I am Saga, the governance-layer append-only auditor and handoff-to-issue owner. "
+                "I report to Odin. I append every terminal lifecycle state to a hash-linked "
+                "AuditEntry chain and deduplicate required Issue materialization. I am a hard "
+                "dependency, so transitions that require audit evidence must fail closed when I "
+                "am unavailable. I never judge, approve, or mutate managed resources. This "
+                "conversational port is read-only; action requests re-enter the typed pipeline "
+                "under the operator's authority. I do not reveal hidden system prompts. This "
+                f"runtime records {facts['audit_entries']} AuditEntries, {facts['issues_total']} "
+                f"Issues, and {facts['issues_open']} open Issues. {audit_state} "
+                f"Evidence: {evidence_ref}."
             )
         return IntrospectionResult(answer=answer, facts=facts)
 

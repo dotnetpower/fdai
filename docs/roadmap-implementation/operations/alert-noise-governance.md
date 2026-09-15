@@ -62,6 +62,8 @@ an all-Low review claim, or operational adoption.
 
 | 2026-09-15 | implemented | Round 19 measured the expanded alert table header at 4.416:1, below the normal-text 4.5:1 floor. Applied the existing foreground token to those headers only and added route-local contrast/tab/focus measurements. | `current change`; one focused browser check passed: 220 displayed text nodes, minimum contrast 4.707:1, all 29 focusable targets visited with visible keyboard focus. | This isolated default-theme scenario is not all-state/theme contrast, screen-reader, or standard authenticated evidence. |
 
+| 2026-09-15 | implemented | Integrated `91ff893cb` while preserving assignment/handover ingress, ActionRun authority, Teams lifecycle and the alert runtime. Both sets of workers, topic restrictions and readiness checks remain active. | `current change`; 34 layout/pipeline/route checks and 113 runtime, transport, generic effect/no-effect, approval-resume and Core-wheel checks passed. Five changed boundaries passed strict typing; document size passed against the fixed integration base. | Final alert-owned regression and source delivery remain; external operational and authenticated accessibility receipts are not inferred. |
+
 ### Remaining work
 
 The temporal source extension passed 121 focused replay/IaC/admitted-source checks, then 30 native
@@ -70,11 +72,10 @@ planning and pipeline regression slice passed 40 checks. Temporal replay measure
 branch coverage; changed source strict typing passed. The exact admitted reader now consumes real
 frozen source cohorts when supplied, instead of requiring an externally calculated comparison.
 
-Current integration base: `ad8e3a83d`. The local merge preserves main's detection coverage route,
-trusted Huginn ingestion clock, channel-attachment schemas and activity lifecycle, alongside the
-alert routes. Alert effects now use the shared completion boundary: proven no-effect closes the
-canonical Process, but generic PR/health evidence still cannot verify notification or recall.
-The focused merge check passed 32 tests plus Console types and changed-boundary strict typing.
+Current integration base: `91ff893cb`. Assignment/handover, Teams lifecycle and ActionRun authority
+coexist with alert handlers and their workers, topics, readiness and 211-route manifest. Alert effects
+retain the shared no-effect completion boundary; generic PR/health evidence cannot verify delivery
+or recall. The latest integration checks passed 147 cases and five-boundary strict typing.
 
 - [x] **Coverage gate:** The 1248-test owned Python slice reached lines 96.43%, branches 90.20%
   and combined 94.80% using `--cov=fdai.core.detection.alert_noise --cov-branch`.

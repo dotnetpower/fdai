@@ -3,14 +3,28 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any, Literal
 from uuid import uuid4
 
+from fdai.agents._framework.action_run_identity import (
+    action_fingerprint,
+    action_run_identity_digest,
+    claim_durable_action_run_identity,
+    durable_action_run_payload,
+    durable_action_run_state,
+    load_durable_action_run_correlation,
+    validate_durable_action_run_state,
+)
+from fdai.agents._framework.action_run_store_time import (
+    claim_lease_expiry as _claim_lease_expiry,
+)
+from fdai.agents._framework.action_run_store_time import (
+    lease_expiry as _lease_expiry,
+)
 from fdai.agents._framework.adapters import AuditEntry, _digest
 from fdai.agents.thor import ActionRun, ActionRunState
 from fdai.shared.providers.state_store import StateStore
@@ -168,6 +182,25 @@ class StateStoreActionRunStore:
     owner_id: str = field(default_factory=lambda: uuid4().hex)
     claim_lease_seconds: int = 600
 
+    async def claim_correlation_identity(
+        self, run: ActionRun
+    ) -> Literal["acquired", "existing", "completed", "contended"]:
+        return await claim_durable_action_run_identity(
+            self.store,
+            run_key=f"{self.run_prefix}{run.correlation_id}",
+            completion_key=self._completion_key(run.idempotency_key),
+            candidate=run.to_dict(),
+            action_fingerprint=action_fingerprint(run.to_dict()),
+        )
+
+    async def load_correlation_identity(
+        self, run: ActionRun
+    ) -> tuple[Literal["pending", "active", "completed"], ActionRun | None]:
+        status, payload = await load_durable_action_run_correlation(
+            self.store, run_prefix=self.run_prefix, candidate=run.to_dict()
+        )
+        return status, ActionRun.from_dict(payload) if payload is not None else None
+
     async def save(self, run: ActionRun) -> None:
         completion = await self.store.read_state(self._completion_key(run.idempotency_key))
         if completion is not None:
@@ -192,10 +225,11 @@ class StateStoreActionRunStore:
             if current is None:
                 if await self.store.write_state_if_absent(
                     key,
-                    {**run.to_dict(), "active": "true", "revision": 0},
+                    durable_action_run_state(run.to_dict(), active=True, revision=0),
                 ):
                     return
                 continue
+            validate_durable_action_run_state(current, run.to_dict())
             if current.get("active") == "false":
                 return
             try:
@@ -214,25 +248,26 @@ class StateStoreActionRunStore:
             if current_rank == candidate_rank:
                 candidate = run.to_dict()
                 differences = {key for key, value in candidate.items() if current.get(key) != value}
+                pending_claim = current.get("active") == "pending"
                 claim_recovery = (
                     differences == {"resource_claimed"}
                     and current.get("resource_claimed") is False
                     and candidate["resource_claimed"] is True
                 )
-                if differences and not claim_recovery:
+                if differences and not claim_recovery and not pending_claim:
                     raise RuntimeError("Thor ActionRun same-state payload conflicts")
-                if not differences:
+                if not differences and not pending_claim:
                     return
             revision = current.get("revision", 0)
             if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
                 raise RuntimeError("Thor ActionRun revision is invalid")
             if await self.store.compare_and_set_state_with_audit(
                 key,
-                {
-                    **run.to_dict(),
-                    "active": "true",
-                    "revision": revision + 1,
-                },
+                durable_action_run_state(
+                    run.to_dict(),
+                    active=True,
+                    revision=revision + 1,
+                ),
                 expected_revision=revision,
                 audit_entry={
                     "kind": "thor.action-run-save",
@@ -255,9 +290,7 @@ class StateStoreActionRunStore:
             raise RuntimeError("Thor active ActionRun count exceeds its recovery bound")
         for raw in rows:
             try:
-                payload = dict(raw)
-                payload.pop("active", None)
-                run = ActionRun.from_dict(payload)
+                run = ActionRun.from_dict(durable_action_run_payload(raw))
                 runs_by_correlation[run.correlation_id] = run
             except (KeyError, ValueError, TypeError):
                 # A single corrupt / schema-drifted row MUST NOT abort the
@@ -367,18 +400,13 @@ class StateStoreActionRunStore:
     async def delete(self, correlation_id: str) -> None:
         key = f"{self.run_prefix}{correlation_id}"
         current = await self.store.read_state(key)
-        resource_id = current.get("resource_id") if isinstance(current, Mapping) else None
-        idempotency_key = current.get("idempotency_key") if isinstance(current, Mapping) else None
-        if isinstance(resource_id, str) and resource_id:
-            if not isinstance(current, Mapping):  # pragma: no cover - resource came from mapping
-                raise RuntimeError("Thor terminal ActionRun state is invalid")
-            current_run = ActionRun.from_dict(
-                {
-                    name: value
-                    for name, value in current.items()
-                    if name not in {"active", "revision"}
-                }
-            )
+        if current is None or current.get("active") == "false":
+            return
+        claim_pending = current.get("active") == "pending"
+        current_run = ActionRun.from_dict(durable_action_run_payload(current))
+        resource_id = current_run.resource_id
+        idempotency_key = current_run.idempotency_key
+        if isinstance(resource_id, str) and resource_id and not claim_pending:
             effective_key = (
                 idempotency_key
                 if isinstance(idempotency_key, str) and idempotency_key
@@ -388,7 +416,7 @@ class StateStoreActionRunStore:
                 idempotency_key=effective_key,
                 resource_id=resource_id,
                 correlation_id=correlation_id,
-                action_fingerprint=_action_fingerprint(current_run),
+                action_fingerprint=action_fingerprint(current_run.to_dict()),
             ):
                 raise RuntimeError("Thor completion marker conflicts with terminal run")
         for _ in range(8):
@@ -402,7 +430,9 @@ class StateStoreActionRunStore:
                 key,
                 {
                     "active": "false",
+                    "action_run_identity": action_run_identity_digest(current),
                     "correlation_id": correlation_id,
+                    "idempotency_key": idempotency_key,
                     "revision": revision + 1,
                 },
                 expected_revision=revision,
@@ -429,7 +459,7 @@ class StateStoreActionRunStore:
         if idempotency_status != "acquired":
             return idempotency_status
         key = self._resource_claim_key(resource_id)
-        action_fingerprint = _action_fingerprint(run)
+        action_fingerprint_value = action_fingerprint(run.to_dict())
         value = {
             "revision": 0,
             "status": "claimed",
@@ -438,7 +468,7 @@ class StateStoreActionRunStore:
             "idempotency_key": run.idempotency_key,
             "owner_id": self.owner_id,
             "lease_expires_at": _lease_expiry(self.claim_lease_seconds),
-            "action_fingerprint": action_fingerprint,
+            "action_fingerprint": action_fingerprint_value,
             "run": {**run.to_dict(), "resource_claimed": True},
         }
         if await self.store.write_state_if_absent(key, value):
@@ -450,7 +480,12 @@ class StateStoreActionRunStore:
         if current.get("status") != "released" or current.get("resource_id") != resource_id:
             return "contended"
         if current.get("correlation_id") == correlation_id:
-            return "completed"
+            if (
+                current.get("idempotency_key") == run.idempotency_key
+                and current.get("action_fingerprint") == action_fingerprint_value
+            ):
+                return "completed"
+            raise ValueError("released resource claim conflicts with ActionRun identity")
         revision = current.get("revision")
         if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
             return "contended"
@@ -548,7 +583,7 @@ class StateStoreActionRunStore:
             or reservation.get("status") != "reserved"
             or reservation.get("owner_id") != self.owner_id
             or reservation.get("correlation_id") != run.correlation_id
-            or reservation.get("action_fingerprint") != _action_fingerprint(run)
+            or reservation.get("action_fingerprint") != action_fingerprint(run.to_dict())
             or isinstance(reservation_revision, bool)
             or not isinstance(reservation_revision, int)
             or reservation_revision < 0
@@ -607,7 +642,7 @@ class StateStoreActionRunStore:
         resource_id = str(run.resource_id or "")
         if not resource_id:
             return False
-        fingerprint = _action_fingerprint(run)
+        fingerprint = action_fingerprint(run.to_dict())
         claim = await self.store.read_state(self._resource_claim_key(resource_id))
         reservation = await self.store.read_state(self._completion_key(run.idempotency_key))
         now = datetime.now(tz=UTC)
@@ -650,7 +685,7 @@ class StateStoreActionRunStore:
             "idempotency_key": run.idempotency_key,
             "owner_id": self.owner_id,
             "lease_expires_at": _lease_expiry(self.claim_lease_seconds),
-            "action_fingerprint": _action_fingerprint(run),
+            "action_fingerprint": action_fingerprint(run.to_dict()),
         }
         if await self.store.write_state_if_absent(key, reservation):
             return "acquired"
@@ -743,42 +778,6 @@ class StateStoreActionRunStore:
                 "revision": revision + 1,
             },
         )
-
-
-def _action_fingerprint(run: ActionRun) -> str:
-    payload = {
-        "action_type": run.action_type,
-        "resource_id": run.resource_id,
-        "idempotency_key": run.idempotency_key,
-        "params": run.params,
-        "decision_case": run.decision_case,
-        "operational_context": run.operational_context,
-        "workflow_action": run.workflow_action,
-        "kinetic_proposal": run.kinetic_proposal,
-    }
-    encoded = json.dumps(
-        payload,
-        allow_nan=False,
-        ensure_ascii=True,
-        separators=(",", ":"),
-        sort_keys=True,
-    )
-    return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
-
-
-def _lease_expiry(seconds: int) -> str:
-    return (datetime.now(tz=UTC) + timedelta(seconds=seconds)).isoformat()
-
-
-def _claim_lease_expiry(claim: Mapping[str, Any]) -> datetime:
-    raw = claim.get("lease_expires_at")
-    if not isinstance(raw, str):
-        return datetime.min.replace(tzinfo=UTC)
-    try:
-        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except ValueError:
-        return datetime.min.replace(tzinfo=UTC)
-    return parsed.astimezone(UTC) if parsed.tzinfo is not None else datetime.min.replace(tzinfo=UTC)
 
 
 __all__ = [

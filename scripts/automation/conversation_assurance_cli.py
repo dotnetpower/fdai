@@ -95,6 +95,12 @@ class OperatorHttpEvaluator:
         campaign_id: str,
     ) -> PantheonTurnDiagnostic:
         terminal = await asyncio.to_thread(self._request, case, campaign_id)
+        if terminal.get("status") == "held":
+            receipt = terminal.get("semantic_receipt")
+            reason = receipt.get("reason_code") if isinstance(receipt, Mapping) else None
+            if not isinstance(reason, str) or _ASSESSMENT_REASON.fullmatch(reason) is None:
+                reason = "terminal_held"
+            raise CampaignHoldError(reason)
         assessment_state = terminal.get("assessment_state")
         assessment_reasons = _assessment_reasons(terminal.get("assessment_reasons"))
         if assessment_state == "deferred":

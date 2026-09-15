@@ -66,6 +66,9 @@ class ResolveOutcome(StrEnum):
     CONFLICTING_DECISION = "conflicting_decision"
     """A different terminal decision was already recorded."""
 
+    OWNED_ROUTE_HELD = "owned_route_held"
+    """A separately owned approval route never uses the legacy direct dispatcher."""
+
 
 @dataclass(frozen=True, slots=True)
 class RequestApprovalResult:

@@ -12,6 +12,7 @@ from typing import Any
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
 
 from fdai.agents._framework import architecture_review_runtime as arb_runtime
+from fdai.agents._framework import assignment_wiring as assignment_runtime
 from fdai.agents._framework import execution_safety, factory, runtime_health, runtime_subscriptions
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.base import Agent
@@ -85,7 +86,10 @@ from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.state_store import StateStore
 
-from .runtime_operational_agents import bind_operational_agents
+from .runtime_operational_agents import (
+    bind_operational_agents,
+    rehydrate_operational_agents,
+)
 
 _LOG = logging.getLogger(__name__)
 _INGRESS_PRINCIPAL = "Huginn"
@@ -134,6 +138,8 @@ class PantheonRuntime:
         thor_executor: ActionExecutor | None = None,
         thor_state_store: ActionRunStore | None = None,
         rollback_executors: dict[str, RollbackExecutor] | None = None,
+        vidar_state_store: StateStore | None = None,
+        var_state_store: StateStore | None = None,
         operator_rbac: dict[str, frozenset[str]] | None = None,
         approver_authorizer: ApproverAuthorizer | None = None,
         execution_resource_lock: ResourceLock | None = None,
@@ -180,6 +186,7 @@ class PantheonRuntime:
         conversation_tool_timeout_seconds: float = 5.0,
         cost_runtime: factory.CostRuntimeBindings = factory.DEFAULT_COST_RUNTIME_BINDINGS,
         capacity_graduation_controller: CapacityGraduationController | None = None,
+        assignment_workflow: assignment_runtime.AssignmentWorkflowBindings | None = None,
     ) -> PantheonRuntime:
         """Instantiate + wire the pantheon against ``provider``.
 
@@ -193,12 +200,16 @@ class PantheonRuntime:
         if not raw_event_topic or not raw_event_topic.strip():
             raise ValueError("raw_event_topic MUST be a non-empty topic name")
 
+        human_access = assignment_workflow.human_access if assignment_workflow is not None else None
+        human_access_bound = human_access is not None and human_access.execution_bound
         execution_safety.validate_enforce_bindings(
             enforce=enforce,
-            has_executor=thor_executor is not None,
+            has_executor=thor_executor is not None or human_access_bound,
             has_state_store=thor_state_store is not None,
             saga=saga,
-            has_rollback=bool(rollback_executors),
+            has_rollback=bool(rollback_executors) or human_access_bound,
+            has_vidar_state_store=vidar_state_store is not None,
+            has_var_state_store=var_state_store is not None,
             has_approver_authorizer=approver_authorizer is not None,
             resource_lock=execution_resource_lock,
         )
@@ -294,12 +305,17 @@ class PantheonRuntime:
             operational_evidence_hook=operational_evidence_hook,
             action_observation_hook=heimdall_action_observation_hook,
         )
-        if approver_authorizer is not None:
-            instantiated["Var"] = Var(approver_authorizer=approver_authorizer)
+        if approver_authorizer is not None or var_state_store is not None:
+            instantiated["Var"] = Var(
+                approver_authorizer=approver_authorizer, state_store=var_state_store
+            )
         if saga is not None:
             instantiated["Saga"] = saga
-        if rollback_executors is not None:
-            instantiated["Vidar"] = Vidar(executors=rollback_executors)
+        if rollback_executors is not None or vidar_state_store is not None:
+            instantiated["Vidar"] = Vidar(
+                executors=rollback_executors, state_store=vidar_state_store
+            )
+        assignment_runtime.bind_assignment_workflow(instantiated, assignment_workflow)
         heimdall = instantiated["Heimdall"]
         if read_investigation_hook is not None and isinstance(heimdall, Heimdall):
             heimdall.register_read_investigation(read_investigation_hook)
@@ -326,30 +342,21 @@ class PantheonRuntime:
 
             heimdall.register_incident_candidate(observe_and_open)
 
-        # Safety: force Thor to shadow unless an explicit promotion opts
-        # into enforce. Without this the pantheon Thor would auto-execute
-        # every 'auto' verdict in parallel with the P1 loop - a double
-        # mutation and a "shadow before enforce" violation.
+        # Only explicit promotion permits Thor enforce; otherwise parallel P1 dispatch
+        # could double-mutate and violate shadow-before-enforce.
         thor = instantiated["Thor"]
         if isinstance(thor, Thor):
-            if thor_executor is not None:
-                thor.set_executor(thor_executor)
-            thor.set_shadow(not enforce)
-            if thor_state_store is not None:
-                thor.set_state_store(thor_state_store)
-            execution_safety.bind_execution_audit(
+            execution_safety.configure_thor_execution(
                 thor=thor,
+                executor=thor_executor,
+                state_store=thor_state_store,
+                resource_lock=execution_resource_lock,
                 saga=saga,
                 enforce=enforce,
-            )
-            thor.set_execution_resource_lock(
-                execution_resource_lock,
-                required=enforce,
+                human_access_bound=human_access_bound,
             )
 
-        # Apply the disabled filter: disabled agents are neither bound nor
-        # subscribed, so nobody publishes their owned topics and their
-        # handlers never fire.
+        # Disabled agents are neither bound nor subscribed; their owned topics stay idle.
         agents = {n: a for n, a in instantiated.items() if n not in disabled}
 
         for agent in agents.values():
@@ -362,6 +369,9 @@ class PantheonRuntime:
             rule_generation_workers=rule_generation_workers,
             rule_generation_activation_binder=rule_generation_activation_binder,
             rule_generation_state_store=rule_generation_state_store,
+            human_access=assignment_workflow.human_access
+            if assignment_workflow is not None
+            else None,
         )
 
         conversation_tools = AgentConversationToolRegistry(
@@ -499,6 +509,7 @@ class PantheonRuntime:
         session_id: str,
         user_id: str,
         question: str,
+        locale: str = "en",
         initiator_role: str | None = None,
         allow_action_proposal: bool = True,
         materialize_handoff: bool = True,
@@ -514,6 +525,7 @@ class PantheonRuntime:
 
         ``initiator_role`` (the console session's Entra role) drives the entry
         RBAC gate for an action command - a Reader cannot submit an action.
+        ``locale`` is forwarded to the server-owned prompt composition.
         Read-only channel adapters disable ``allow_action_proposal`` and
         ``materialize_handoff`` so the narrator can contribute evidence without
         creating a proposal or a discovery issue behind that channel's back.
@@ -524,6 +536,7 @@ class PantheonRuntime:
             session_id=session_id,
             user_id=user_id,
             question=question,
+            locale=locale,
             initiator_role=initiator_role,
             allow_action_proposal=allow_action_proposal,
             materialize_handoff=materialize_handoff,
@@ -679,17 +692,8 @@ class PantheonRuntime:
         )
 
     async def _rehydrate(self) -> None:
-        """Restore durable agent state (in-flight ActionRuns) on startup.
-
-        Runs before the consumer starts so a restart cannot start a
-        second run on a resource that already had one in flight. No-op
-        when no durable store is wired.
-        """
-        thor = self.agents.get("Thor")
-        if isinstance(thor, Thor):
-            restored = await thor.rehydrate()
-            if restored:
-                _LOG.info("pantheon_thor_rehydrated", extra={"in_flight_runs": restored})
+        """Restore durable agent work before consumers start."""
+        await rehydrate_operational_agents(self.agents)
 
     def health(self) -> dict[str, Any]:
         """Return a health snapshot (agents, mode, bridge metrics).

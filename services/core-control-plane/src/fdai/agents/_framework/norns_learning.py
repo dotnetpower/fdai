@@ -41,6 +41,7 @@ class NornsLearningState(Protocol):
     _rejection_revise_threshold: int
     _rollback_alarm_rate: float
     _shadow_dwell: ShadowDwellLedger
+    pending_candidates: list[dict[str, Any]]
 
     def _append_candidate(self, candidate: dict[str, Any]) -> None: ...
 
@@ -55,10 +56,20 @@ def observe_fingerprint(state: NornsLearningState, payload: Mapping[str, Any]) -
     if not fingerprint:
         return
     count = (state._fingerprint_counter.get(fingerprint) or 0) + 1
+    apply_fingerprint_count(state, fingerprint, count, propose=True)
+
+
+def apply_fingerprint_count(
+    state: NornsLearningState,
+    fingerprint: str,
+    count: int,
+    *,
+    propose: bool,
+) -> None:
+    """Project a validated count and optionally materialize its inert candidate."""
     state._fingerprint_counter.set(fingerprint, count)
-    if count < state._promotion_threshold or fingerprint in state._proposed:
+    if not propose or count < state._promotion_threshold or fingerprint in state._proposed:
         return
-    state._proposed.add(fingerprint)
     state._append_candidate(
         {
             "source_signal": "handoff_fingerprint",
@@ -67,6 +78,7 @@ def observe_fingerprint(state: NornsLearningState, payload: Mapping[str, Any]) -
             "proposal_kind": "new",
         }
     )
+    state._proposed.add(fingerprint)
 
 
 def observe_outcome(state: NornsLearningState, payload: Mapping[str, Any]) -> None:

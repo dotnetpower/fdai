@@ -260,6 +260,11 @@ class CrossCheckModel(Protocol):
     payload seeded by the input, so tests are reproducible.
     """
 
+    @property
+    def model_id(self) -> str:
+        """Canonical identity of the independent model or model pool."""
+        ...
+
     async def propose(self, candidate: QualityCandidate) -> tuple[str, Mapping[str, Any]]: ...
 
 
@@ -364,11 +369,20 @@ class QualityGate:
         # a quorum of two, so a single model would grant execution eligibility.
         if len({id(model) for model in cross_check_models}) != len(cross_check_models):
             raise ValueError("cross-check models MUST be distinct instances")
-        declared_ids = [
-            str(model_id)
-            for model_id in (getattr(model, "model_id", None) for model in cross_check_models)
-            if model_id is not None
-        ]
+        declared_ids: list[str] = []
+        for model in cross_check_models:
+            model_id = getattr(model, "model_id", None)
+            if (
+                not isinstance(model_id, str)
+                or not model_id
+                or len(model_id) > 256
+                or not model_id.isascii()
+                or any(character.isspace() for character in model_id)
+            ):
+                raise ValueError(
+                    "cross-check models MUST declare bounded non-empty ASCII model ids"
+                )
+            declared_ids.append(model_id)
         if len(set(declared_ids)) != len(declared_ids):
             raise ValueError("cross-check models MUST declare distinct model ids")
         # Wave 4.5 delta-2b: debate wire is opt-in. Half-wiring

@@ -105,6 +105,7 @@ class ControlLoopBoundaryMixin:
         rule: Rule,
         correlation_id: str,
         submitter_oid: str = _HIL_SYSTEM_SUBMITTER,
+        event: Event | None = None,
     ) -> None:
         """Park a HIL-routed action and push an approval card."""
         await request_hil_approval(
@@ -114,6 +115,7 @@ class ControlLoopBoundaryMixin:
             rule=rule,
             correlation_id=correlation_id,
             submitter_oid=submitter_oid,
+            event=event,
         )
 
     async def _emit_stage(

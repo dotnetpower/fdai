@@ -14,9 +14,17 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fdai.agents._framework.adapters import InMemoryStateStore
+from fdai.agents._framework.assignment_workflow import (
+    AssignmentClock,
+    AssignmentMaterializer,
+    assignment_clock,
+    materialize_assignment,
+)
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
+    agent_state_evidence_ref,
     capability_facts,
     capped_list,
     mentioned,
@@ -60,7 +68,7 @@ def _readiness_generated_at(record: Mapping[str, Any]) -> datetime | None:
 _MAX_OPERATING_PATTERN_CASES = 100
 
 
-class Muninn(Agent):
+class Muninn(Agent, HandoverKnowledgeMixin):
     """Wave-2 Muninn: state / context store proxy."""
 
     def __init__(
@@ -88,8 +96,26 @@ class Muninn(Agent):
         self._case_deletion_days = case_deletion_days
         self._evidence_conflict_sink = evidence_conflict_sink
         self._prospective_lineage_materializer = prospective_lineage_materializer
+        self._assignment_materializer: AssignmentMaterializer | None = None
+        self._assignment_clock: AssignmentClock = assignment_clock
+
+    def bind_assignment_materializer(
+        self,
+        materializer: AssignmentMaterializer,
+        *,
+        clock: AssignmentClock = assignment_clock,
+    ) -> None:
+        """Bind an audit-sealed case projector, not an IAM or PR executor."""
+        self._assignment_materializer, self._assignment_clock = materializer, clock
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if await self._handover_message(topic, payload):
+            return
+        if topic == "object.audit-entry" and payload.get("kind") == "human_assignment":
+            await materialize_assignment(
+                self, payload, self._assignment_materializer, clock=self._assignment_clock
+            )
+            return
         if topic == "object.turn":
             turn_id = str(payload.get("turn_id") or payload.get("id", ""))
             if turn_id:
@@ -530,12 +556,40 @@ class Muninn(Agent):
         if buckets:
             bucket = buckets[0]
             facts.update({"bucket": bucket, "key_count": len(data[bucket])})
-            answer = f"Bucket {bucket!r} holds {len(data[bucket])} key(s)."
+            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+            facts["evidence_refs"] = [evidence_ref]
+            answer = (
+                f"Bucket {bucket!r} holds {len(data[bucket])} key(s). Evidence: {evidence_ref}."
+            )
             return IntrospectionResult(answer=answer, facts=facts)
-        answer = (
-            f"Holding {len(data)} state bucket(s) with "
-            f"{sum(len(v) for v in data.values())} key(s) total."
-        )
+        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+        facts["evidence_refs"] = [evidence_ref]
+        if context.get("locale") == "ko":
+            answer = (
+                "저는 거버넌스 계층의 memory 에이전트인 Muninn입니다. Odin에게 보고합니다. "
+                "StateSnapshot과 ContextIndex를 소유하고 현재 상태, bitemporal 상태와 사례 이력 "
+                "맥락을 출처 및 신선도와 함께 보존합니다. 저장된 기억은 현재 프로바이더 관측이나 "
+                "작업 권한을 자동으로 증명하지 않습니다. 작업을 판단하거나 승인하거나 실행하지 "
+                "않습니다. 이 대화 포트는 읽기 전용이며 상태 변경 요청은 운영자 권한으로 타입이 "
+                "지정된 파이프라인에 다시 진입해야 합니다. 숨겨진 시스템 프롬프트는 공개하지 "
+                f"않습니다. 이 런타임은 bucket {facts['buckets_count']}개와 key "
+                f"{facts['total_keys']}개를 보존하며 사례 이력 서비스 사용 가능 상태는 "
+                f"{str(facts['case_history_available']).lower()}입니다. 근거: {evidence_ref}."
+            )
+        else:
+            answer = (
+                "I am Muninn, the governance-layer memory agent. I report to Odin. I own "
+                "StateSnapshot and ContextIndex and retain current, bitemporal, and case-history "
+                "context with provenance and freshness. Stored memory does not by itself prove a "
+                "current provider observation or action authority. I never judge, approve, or "
+                "execute an action. This conversational port is read-only; state-change requests "
+                "re-enter the typed pipeline under the operator's authority. I do not reveal "
+                "hidden system prompts. This runtime retains "
+                f"{facts['buckets_count']} state bucket(s) and {facts['total_keys']} keys; "
+                "case-history "
+                f"service availability is {str(facts['case_history_available']).lower()}. "
+                f"Evidence: {evidence_ref}."
+            )
         return IntrospectionResult(answer=answer, facts=facts)
 
 

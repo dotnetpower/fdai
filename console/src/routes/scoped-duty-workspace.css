@@ -1,0 +1,180 @@
+/* Route-local composition over the shared Calm Slate forms, buttons and skeletons. */
+.scoped-duty-workspace {
+  display: grid;
+  gap: 32px;
+  min-width: 0;
+  max-width: 100%;
+  margin-block: 32px;
+  container-type: inline-size;
+  color: var(--cs-text);
+  font-size: var(--cs-type-body-size);
+  line-height: var(--cs-type-body-line-height);
+  overflow-wrap: anywhere;
+}
+
+.scoped-duty-workspace :where(section, form, fieldset, label, div, dl, dd, details, pre, code) {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.scoped-duty-workspace :where(h3, h4, h5) {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.scoped-duty-workspace h4,
+.scoped-duty-workspace h5 {
+  font-size: var(--cs-type-panel-title-size);
+  line-height: var(--cs-type-panel-title-line-height);
+}
+
+.scoped-duty-workspace p {
+  max-width: 76ch;
+  margin-block: 8px 16px;
+}
+
+.scoped-duty-workspace fieldset {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.scoped-duty-workspace .scoped-duty-binding {
+  gap: 16px;
+  margin-block: 16px 24px;
+  padding-block: 8px 24px;
+  border-bottom: 1px solid var(--cs-hairline);
+}
+
+.scoped-duty-workspace legend {
+  padding: 0;
+  font-weight: 600;
+}
+
+.scoped-duty-workspace .scoped-duty-heading,
+.scoped-duty-workspace .scoped-duty-inline,
+.scoped-duty-workspace .scoped-duty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+
+.scoped-duty-workspace .scoped-duty-heading { align-items: center; }
+.scoped-duty-workspace .scoped-duty-inline > label { flex: 1 1 20rem; }
+.scoped-duty-workspace .scoped-duty-actions > p { flex-basis: 100%; }
+
+.scoped-duty-workspace .scoped-duty-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 16px 24px;
+  align-items: start;
+}
+
+.scoped-duty-workspace .scoped-duty-facts {
+  display: grid;
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+  gap: 8px 24px;
+  margin-block: 16px 24px;
+}
+
+.scoped-duty-workspace dt { font-weight: 600; }
+.scoped-duty-workspace dd { margin: 0; }
+
+.scoped-duty-workspace .scoped-duty-boundary,
+.scoped-duty-workspace .scoped-duty-notice {
+  padding: 16px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-shade);
+  box-shadow: none;
+}
+
+.scoped-duty-workspace .scoped-duty-notice { margin-block: 16px; }
+.scoped-duty-workspace .scoped-duty-notice time { display: block; }
+
+.scoped-duty-workspace :is(.cs-control-button, .cs-control-input, .cs-control-select) {
+  min-height: var(--cs-control-height-touch);
+  height: auto;
+  max-width: 100%;
+  font-size: var(--cs-type-body-size);
+  line-height: var(--cs-type-body-line-height);
+}
+
+.scoped-duty-workspace .cs-control-button {
+  min-width: var(--cs-control-height-touch);
+  padding-block: 10px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  justify-self: start;
+}
+
+.scoped-duty-workspace :is(.cs-control-input, .cs-control-select) { padding-block: 10px; }
+.scoped-duty-workspace :is(.cs-control-button, .cs-control-input, .cs-control-select, .cs-control-textarea):not(:disabled) {
+  border-color: var(--cs-text-soft);
+}
+.scoped-duty-workspace .cs-control-textarea { font-family: var(--cs-font); font-size: var(--cs-type-body-size); }
+.scoped-duty-workspace :is(.cs-control-help, .cs-control-error) { font-size: var(--cs-type-compact-size); line-height: var(--cs-type-compact-line-height); }
+.scoped-duty-workspace .cs-control-label { font-size: var(--cs-type-compact-size); }
+
+.scoped-duty-workspace :is(button, input, select, textarea, summary, a):focus-visible {
+  outline: 3px solid var(--cs-steel);
+  outline-offset: 3px;
+}
+
+.scoped-duty-workspace summary {
+  min-height: var(--cs-control-height-touch);
+  padding-block: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.scoped-duty-workspace .scoped-duty-link,
+.scoped-duty-workspace .scoped-duty-validation a {
+  display: inline-block;
+  min-height: var(--cs-control-height-touch);
+  padding-block: 10px;
+  color: var(--cs-steel);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.scoped-duty-workspace code {
+  font-family: var(--cs-font-mono);
+  font-size: var(--cs-type-compact-size);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.scoped-duty-workspace #scoped-source_revision code { display: block; margin-top: 8px; }
+.scoped-duty-workspace pre {
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-shade);
+  font: var(--cs-type-compact-size)/var(--cs-type-compact-line-height) var(--cs-font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.scoped-duty-workspace .scoped-duty-reviews { padding-left: 24px; }
+.scoped-duty-workspace .scoped-duty-reviews li { margin-block: 16px; }
+.scoped-duty-workspace .scoped-duty-reviews :is(code, span, time) { display: block; }
+.scoped-duty-workspace .loading-skeleton-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+@container (max-width: 36rem) {
+  .scoped-duty-workspace .scoped-duty-facts { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .scoped-duty-workspace .scoped-duty-facts dd { margin-bottom: 12px; }
+  .scoped-duty-workspace .scoped-duty-inline > label { flex-basis: 100%; }
+  .scoped-duty-workspace .scoped-duty-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (forced-colors: active) {
+  .scoped-duty-workspace :is(.cs-control-button, .cs-control-input, .cs-control-select, .cs-control-textarea) { border-color: ButtonText; }
+  .scoped-duty-workspace :is(button, input, select, textarea, summary, a):focus-visible { outline-color: Highlight; }
+}

@@ -16,7 +16,7 @@ import json
 from collections import defaultdict
 from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 # ---------------------------------------------------------------------------
 # Audit chain (Saga)
@@ -177,6 +177,22 @@ class IssueTrackerAdapter(Protocol):
     ) -> None | Awaitable[None]: ...
 
 
+@runtime_checkable
+class IdempotentIssueTrackerAdapter(IssueTrackerAdapter, Protocol):
+    """Issue tracker that atomically binds an operation id to exact content."""
+
+    def create_or_comment_once(
+        self,
+        *,
+        operation_id: str,
+        fingerprint: str,
+        title: str,
+        body: str,
+    ) -> tuple[GitHubIssue, bool] | Awaitable[tuple[GitHubIssue, bool]]:
+        """Replay one result, and reject an operation id/content collision."""
+        ...
+
+
 @dataclass
 class InMemoryGithubIssueAdapter:
     """Stand-in for the real GitHub App integration.
@@ -188,6 +204,9 @@ class InMemoryGithubIssueAdapter:
 
     issues: dict[str, GitHubIssue] = field(default_factory=dict)
     next_number: int = 1
+    operation_results: dict[str, tuple[str, str, str, GitHubIssue, bool]] = field(
+        default_factory=dict
+    )
 
     def create_or_comment(
         self,
@@ -196,7 +215,6 @@ class InMemoryGithubIssueAdapter:
         title: str,
         body: str,
     ) -> tuple[GitHubIssue, bool]:
-        """Return (issue, was_created). Comment append on duplicate."""
         existing = self.issues.get(fingerprint)
         if existing is not None and existing.open:
             existing.comments.append(body)
@@ -211,6 +229,37 @@ class InMemoryGithubIssueAdapter:
         )
         self.issues[fingerprint] = issue
         return issue, True
+
+    def create_or_comment_once(
+        self,
+        *,
+        operation_id: str,
+        fingerprint: str,
+        title: str,
+        body: str,
+    ) -> tuple[GitHubIssue, bool]:
+        """Return one atomic idempotent mutation result per operation id."""
+        if not operation_id:
+            raise ValueError("issue operation_id MUST be non-empty")
+        prior = self.operation_results.get(operation_id)
+        if prior is not None:
+            prior_fingerprint, prior_title, prior_body, issue, created = prior
+            if (prior_fingerprint, prior_title, prior_body) != (fingerprint, title, body):
+                raise ValueError("issue operation_id reused with different content")
+            return issue, created
+        issue, created = self.create_or_comment(
+            fingerprint=fingerprint,
+            title=title,
+            body=body,
+        )
+        self.operation_results[operation_id] = (
+            fingerprint,
+            title,
+            body,
+            issue,
+            created,
+        )
+        return issue, created
 
     def close(self, fingerprint: str, *, closed_by_pr: str) -> None:
         issue = self.issues.get(fingerprint)

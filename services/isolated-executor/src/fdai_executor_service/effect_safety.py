@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime
 from typing import Protocol
 
@@ -12,6 +13,11 @@ from fdai_service_contracts.executor import (
     DirectApiRequest,
     Mode,
     resolve_azure_operation_target,
+)
+from fdai_service_contracts.executor_models import executor_action_payload_digest
+from fdai_service_contracts.human_access_execution import (
+    HUMAN_ACCESS_ACTIONS,
+    HUMAN_ACCESS_IDENTITY,
 )
 
 
@@ -69,7 +75,18 @@ def blast_radius_refusal(action: Action, ceilings: EffectCeilings) -> str | None
 
 
 def target_binding_refusal(action: Action) -> str | None:
-    """Return why an action is not bound to its canonical Azure target."""
+    """Check target shape; the membership adapter additionally resolves its private plan."""
+
+    if action.action_type in HUMAN_ACCESS_ACTIONS:
+        if (
+            re.fullmatch(r"human-membership:[a-f0-9]{64}", action.target_resource_ref) is None
+            or action.executor_identity_ref != HUMAN_ACCESS_IDENTITY
+        ):
+            return (
+                "human access requires an original normalized membership target "
+                "and dedicated identity"
+            )
+        return None
 
     try:
         target = resolve_azure_operation_target(action.action_type, action.params)
@@ -80,7 +97,9 @@ def target_binding_refusal(action: Action) -> str | None:
     return None
 
 
-def build_direct_api_request(action: Action) -> DirectApiRequest:
+def build_direct_api_request(
+    action: Action, *, deadline_at: datetime | None = None
+) -> DirectApiRequest:
     """Render one validated Action into the provider-neutral request."""
 
     rollback_ref = action.rollback_ref.kind.value
@@ -94,6 +113,12 @@ def build_direct_api_request(action: Action) -> DirectApiRequest:
     }
     if action.executor_identity_ref is not None:
         metadata["executor_identity_ref"] = action.executor_identity_ref
+    if action.action_type in HUMAN_ACCESS_ACTIONS:
+        metadata["action_payload_digest"] = executor_action_payload_digest(
+            action.model_dump(mode="json")
+        )
+        if deadline_at is not None:
+            metadata["command_deadline_at"] = deadline_at.isoformat()
     return DirectApiRequest(
         action_id=action.action_id,
         idempotency_key=action.idempotency_key,

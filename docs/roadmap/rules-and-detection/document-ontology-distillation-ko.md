@@ -1,7 +1,7 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: b530f844fccdad6f8de0e0123905debf46f409e1
-translation_revised: 2026-09-10
+translation_source_sha: ebfd46a61c5142e7d3feb3967fc1a96b5719e39a
+translation_revised: 2026-09-15
 ---
 # 문서 온톨로지 증류
 
@@ -146,6 +146,13 @@ parse하지 않습니다. 브리지는 비어 있지 않은 structural 단위 �
 만들고 해당 줄의 출처 format, 단위 id 및 위치 지정자를 기록합니다. 점유 근거, 제안 근거,
 review-package 다이제스트 및 재생 다이제스트가 이 튜플을 모두 보존하므로 인용이 다른 paragraph, 형태,
 표 cell, 페이지 블록 또는 speaker note로 이동할 수 없습니다.
+
+브리지는 이전 묶음과 독립 작업자의 서비스 계약을 모두 수락하며 더 좁은 모델로 다시
+해석하지 않습니다. 배치 정규화는 유효한 JSON 문자열 값 안의 의미 있는 공백을 보존합니다.
+[수락된 인수인계 연결](manual-distillation-ko.md#수락된-인수인계-원본-연결)은 이제 현재 Core
+목표, 검토자, 원본 허용, 검색 확인을 Norns 컴파일과 내용보다 원본을 먼저 확인하는 독립 Mimir
+검토에 연결합니다. 비공개 패키지는 이 브리지와 기존 온톨로지 컴파일러를 사용하며 연결된
+보존 수명 주기는 그래프, 카탈로그 또는 실행 권한을 부여하지 않습니다.
 
 위치 지정자는 결정론적 grammar와 1-based ordinal을 사용합니다.
 
@@ -390,6 +397,11 @@ stale 또는 말뭉치 임계값 미달이면 false를 유지합니다.
 - **Rollback:** 변환 결과 실패 또는 later 거절은 exact 이전 그래프 개정 번호를 복원하고 실패한
   제안 다이제스트를 기록합니다. 롤백 전환은 변환 결과가 시작될 때 기록한 이전 개정 번호만
   허용하며 호출자가 다른 그래프 개정 번호로 바꿀 수 없습니다.
+- **비공개 인수인계 패키지:** Mimir의 기존 구독은 패키지를 되살릴 수 없도록 사용 종료하고,
+  모든 연결 원본에 정확한 현재 `legal_hold: false` 근거가 있을 때만 내용을 제거합니다.
+  알 수 없거나 누락된 정책과 원본 장애는 삭제 권한이 아니며 예약, 증적, 다이제스트, 감사는
+  보존합니다. 이는 비공개 패키지 관리이며 그래프 변경이나 카탈로그 폐기 권한이 아닙니다.
+  [매뉴얼 증류](manual-distillation-ko.md#수락된-인수인계-원본-연결)가 이 계약을 소유합니다.
 
 변환 결과와 조정은 별개입니다. Declared 의도를 수락하면 통제된 의도 변환 결과를
 갱신할 수 있습니다. Provider-observed 구문은 fresh 외부 관측과 일치한 뒤에만 현재
@@ -525,6 +537,9 @@ D4d 실제 운영 검사는 세 pinned 배포 모두에서 Entra-authenticated s
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 인수인계 묶음 호환성과 JSON 충실도 | implemented | [출처 브리지](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_ingestion.py); [런타임 연결](../../../services/core-control-plane/src/fdai/runtime/handover_semantics.py); [기록된 SEM 근거](../../internals/handover-lifecycle-hardening-20260914.md#reboot-recovery-and-semantic-compilation-critique-checkpoint) | 이전 묶음과 독립 작업자 묶음은 원래 위치와 JSON 값을 보존합니다. 현재 Core 목표/검토자/원본 허용/검색 연결이 Norns와 독립 Mimir 검토에 원본을 제공합니다. 비공개 원본 수명 주기는 연결됐지만 운영 적합성 확인은 완료되지 않았습니다. |
+| 비공개 인수인계 패키지 사용 종료 | implemented | [보존 정책](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/handover_retention.py); [SQL 패키지](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_handover_semantics.py); [최종 의미/보존/Core 런타임 검사 61개 통과](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) | Mimir가 기존 구독에서 되돌릴 수 없는 사용 종료와 정확한 현재 법적 보존 조건에 따른 내용 제거를 담당합니다. 누락되거나 알 수 없는 정책과 장애는 삭제 권한이 아니며 법적 보존 해제로 패키지를 되살리지 않습니다. 활성 그래프, 카탈로그, 변경, 승격 권한은 추가하지 않습니다. |
+| 최종 인수인계 소스 비판 검토 | implemented | [FI-01부터 FI-12](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) | 잔여 소스 구현 이후 서로 다른 통합 검토 12회를 완료했으며 미해결로 확인된 Medium/High 소스 문제는 없습니다. 번역 갱신, 정본 생성, 훅, 게시/CI, 전체 UI/보조 기술 근거, 실제 적합성 확인은 별도의 열린 요건입니다. |
 | 제안, 점유 인벤토리, 결정론적 게이트 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_claims.py`; `ontology_verify.py`; `ontology_review.py`; `tests/rule_catalog/pipeline/distill/`의 집중 테스트 | D0-D4 계약과 실패 시 차단되는 검토 패키지가 구현되어 있습니다. 구조 인벤토리는 모델과 통제된 근거가 의미를 제공할 때까지 분류되지 않은 상태를 유지합니다. |
 | 묶음 출처 이력 및 형식 동등성 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_ingestion.py`; `ontology_evaluation.py`; `tests/rule_catalog/pipeline/distill/test_ontology_format_equivalence.py` | 구조화된 위치와 정규화된 제안 신원을 합성 교차 형식 근거로 검증합니다. |
 | 실제 말뭉치 추출 적합성 | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_conformance.py`; `ontology_corpus_gate.py`; `tests/rule_catalog/pipeline/distill/test_ontology_conformance.py` | 영어 Markdown 및 SGML 구획은 검증됐습니다. 필수 PDF, Office, OCR, 한국어 주석은 남아 있습니다. |
@@ -533,6 +548,8 @@ D4d 실제 운영 검사는 세 pinned 배포 모두에서 Entra-authenticated s
 
 ### 구현 이력
 
+새 이력은 [영문 구현 이력](document-ontology-distillation.md#implementation-history)에만 추가합니다. 아래 기존 번역 이력은 그대로 보존합니다.
+
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스, 하드닝 기록, 집중 테스트. | 누락된 말뭉치 구획을 닫고 관리되는 shadow 근거를 보존합니다. |
@@ -540,6 +557,11 @@ D4d 실제 운영 검사는 세 pinned 배포 모두에서 Entra-authenticated s
 
 ### 남은 작업
 
+- [x] 재시도 신원과 감사를 보존하면서 비공개 인수인계 패키지 사용 종료와 정확한 현재 법적
+  보존 조건에 따른 내용 제거를 연결했습니다. [기록된 보존 체크포인트](../../internals/handover-lifecycle-hardening-20260914.md#semantic-retention-review-evidence)를 참조하세요.
+- [x] 잔여 구현 이후 서로 다른 최종 통합 소스 검토 12회를 완료했습니다. [최종 기록](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)에 미해결로 확인된 Medium/High 소스 문제는 없습니다.
+- [ ] 영문/한국어 검토, 번역 SHA 갱신, 정본 생성, 로컬 훅, 게시, 정확한 게시 SHA의 CI를 완료합니다. 전체 UI/보조 기술 근거는 [인수인계 계획](../interfaces/human-agent-assignment-implementation-plan-ko.md#현재-변경의-근거와-남은-범위)의 별도 열린 요건입니다.
+- [ ] [#458](https://github.com/dotnetpower/fdai/issues/458) 및 [#424](https://github.com/dotnetpower/fdai/issues/424)의 배포 원본 ACL, 법적 보존 해제/삭제, 코호트 근거를 보존합니다.
 - [ ] 필수 PDF, Office, OCR, 한국어 구획에 라이선스가 허용된 주석 또는 합성 주석을 추가하고 연결된 프로바이더로 말뭉치 게이트를 통과합니다.
 - [ ] 문서화된 격리 작업자 경계에서 신뢰할 수 없는 PDF 압축 해제를 실행하고 실패 시 차단되는 적합성 근거를 보존합니다.
 - [ ] 승격 검토 전에 최소 30개의 서로 다른 live-shadow 일자와 적격 검토 제안 500건을 방어 규칙 위반 없이 보존합니다.

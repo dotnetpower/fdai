@@ -58,12 +58,15 @@ from fdai.agents._framework.heimdall_retrieval_validation import (
 )
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
+    attach_agent_state_evidence,
     capability_facts,
     capped_list,
+    evidence_backed_result,
     mentioned,
     semantic_intents,
 )
 from fdai.agents._framework.pantheon import _HEIMDALL
+from fdai.agents._framework.role_answers import heimdall_role_answer
 from fdai.agents._framework.specialist_ingress import SPECIALIST_EVENT_PREFIX
 from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_episode import ForecastEpisodeStore
@@ -807,14 +810,16 @@ class Heimdall(
         }
         intents = semantic_intents(context)
         if "forecast" in intents:
-            return IntrospectionResult(
-                answer="No retained forecast episode is bound to this conversational projection.",
-                facts=facts,
+            return evidence_backed_result(
+                self.spec.name,
+                facts,
+                "No retained forecast episode is bound to this conversational projection",
             )
         if "drift" in intents:
-            return IntrospectionResult(
-                answer="No retained drift finding is bound to this conversational projection.",
-                facts=facts,
+            return evidence_backed_result(
+                self.spec.name,
+                facts,
+                "No retained drift finding is bound to this conversational projection",
             )
         resources = mentioned(
             question,
@@ -838,15 +843,14 @@ class Heimdall(
                     "recent_event_types": event_types,
                 }
             )
+            evidence_ref = attach_agent_state_evidence(self.spec.name, facts)
             answer = (
                 f"Resource {rid!r}: {len(history)} recent event(s), "
-                f"type(s): {', '.join(event_types) or 'none'}."
+                f"type(s): {', '.join(event_types) or 'none'}. Evidence: {evidence_ref}."
             )
             return IntrospectionResult(answer=answer, facts=facts)
-        answer = (
-            f"Watching {len({key[0] for key in self._recent_events})} resource(s); "
-            f"{len(self._security_recent)} security event(s) in window."
-        )
+        evidence_ref = attach_agent_state_evidence(self.spec.name, facts)
+        answer = heimdall_role_answer(str(context.get("locale")), facts, evidence_ref)
         return IntrospectionResult(answer=answer, facts=facts)
 
 

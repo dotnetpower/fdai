@@ -1086,12 +1086,14 @@
       "id": "agents",
       "paths": [
         "services/core-control-plane/src/fdai/agents/**",
+        "docs/roadmap/agents/agent-pantheon-implementation*.md",
         "docs/roadmap/agents/agent-workflow-rollout*.md"
       ],
       "must_read": [
         ".github/instructions/agent-pantheon.instructions.md",
         ".github/skills/agent-pantheon-edit/SKILL.md",
         "docs/roadmap/agents/agent-pantheon.md",
+        "docs/roadmap/agents/agent-pantheon-implementation.md",
         "docs/roadmap/agents/conversational-deliberation.md",
         "docs/roadmap/agents/agent-workflow-rollout.md",
         "docs/roadmap/decisioning/operational-planning.md",
@@ -1099,6 +1101,7 @@
       ],
       "docs_update": [
         "docs/roadmap/agents/agent-pantheon.md",
+        "docs/roadmap/agents/agent-pantheon-implementation.md",
         "docs/roadmap/agents/conversational-deliberation.md",
         "docs/roadmap/agents/agent-workflow-rollout.md"
       ],

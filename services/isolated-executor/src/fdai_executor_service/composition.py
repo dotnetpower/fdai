@@ -6,7 +6,12 @@ import os
 from collections.abc import Mapping
 
 import httpx
-from fdai_service_contracts.executor import IdempotencyStore, ResourceLock, WorkloadIdentity
+from fdai_service_contracts.executor import (
+    DirectApiExecutor,
+    IdempotencyStore,
+    ResourceLock,
+    WorkloadIdentity,
+)
 
 from fdai_executor_service.adapters.gateway_direct_api import (
     AzureGatewayDirectApiConfig,
@@ -117,8 +122,32 @@ def build_direct_api_effect_executor(
         identities=identities,
         http_client=http_client,
     )
+    from fdai_executor_service.adapters.entra_membership import EntraMembershipClient
+    from fdai_executor_service.adapters.postgres_human_access import PostgresHumanAccessSource
+    from fdai_executor_service.human_access import IsolatedHumanAccessExecutor
+    from fdai_executor_service.human_access_binding import (
+        HumanAccessDirectApiRouter,
+        human_access_role_groups,
+        require_human_access_identity,
+    )
+
+    executor: DirectApiExecutor = gateway
+    role_groups = human_access_role_groups(os.environ)
+    if role_groups is not None:
+        require_human_access_identity(os.environ)
+        human_identity = build_workload_identity(
+            http_client, client_id_env="FDAI_HUMAN_ACCESS_MI_CLIENT_ID", require_client_id=True
+        )
+        human = IsolatedHumanAccessExecutor(
+            source=PostgresHumanAccessSource(_required("FDAI_STATE_STORE_DSN"), role_groups),
+            graph=EntraMembershipClient(
+                http_client, human_identity, frozenset(role_groups.values())
+            ),
+            store=audit_store,
+        )
+        executor = HumanAccessDirectApiRouter(human, gateway)
     return ServiceDirectApiEffectExecutor(
-        executor=gateway,
+        executor=executor,
         audit_store=audit_store,
         resource_lock=resource_lock,
         idempotency=idempotency,

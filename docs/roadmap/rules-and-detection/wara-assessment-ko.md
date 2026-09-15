@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: efa741f950e061a3984380c78a41638b5c786c8d
+translation_source_sha: 9bb302382ea4fbd30c7b7abefc56f7099787e4e0
 translation_revised: 2026-09-15
 ---
 # WARA 근거 기반 평가
@@ -35,6 +35,9 @@ Resiliency Library(APRL) 목록을 범위를 인식하는 읽기 전용 평가�
 결합하거나 해석하지 않습니다.
 공유 원본 상태 디코더도 정식 기계 토큰 사유만 허용하므로 principal 텍스트와 프로바이더 세부
 정보가 해당 저장 경로를 통해 WARA에 들어올 수 없습니다.
+배정 요청·결과 토픽은 Operator 전송을 공유하지만 WARA 근거나 상태를 공유하지 않습니다.
+수락된 사람의 검토, 담당 체계 PR, 인수인계 목표 관찰은 APRL 측정이 아니며 권고 적용 여부,
+평가 근거 수락, 운영 권한을 바꿀 수 없습니다.
 
 ## 교차워크와 적용 가능성
 
