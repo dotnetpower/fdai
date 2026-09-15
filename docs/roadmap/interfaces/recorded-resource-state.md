@@ -124,6 +124,9 @@ discarding every accumulated page; two delayed retries share the original total 
 Display filters and local pages operate on this received set; the server query remains the authority. The shared Console decoder recognizes only an `OperatorApiError` with status `409` and the exact `inventory_generation_changed` or `ontology_generation_changed` code as a generation transition; every other failure remains terminal for that load.
 A classified source-gate `503` for this route renders unavailable. A generic service or proxy
 `503` remains a visible error; it is not evidence that the projection is absent.
+Validation evidence for this client behavior binds to the exact Console and upstream revisions.
+An integration that changes routing or loading inputs requires the owning unit, build, and browser
+checks to run again before their evidence is reused.
 
 ## Unified state ingestion and readers
 

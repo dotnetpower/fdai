@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 1c5bd31974220266c2d067b2f36f0fbbbda88cdd
+translation_source_sha: 6da8e2fc5076c44330b070ff4f92798032f3c9ff
 translation_revised: 2026-09-16
 ---
 
@@ -377,6 +377,8 @@ Core Pantheon 시작 과정은 패키지 중립 저장소를 통해 보존된 �
 않습니다.
 경로가 소유한 디코더는 해당 읽기가 시작된 뒤에만 로드되므로 관련 없는 감사, 에이전트 활동,
 분석 및 보고 디코더가 초기 Cost Governance Console 경로에 포함되지 않습니다.
+진입 번들 측정값은 정확한 Console 및 upstream revision에 결속됩니다. 해당 입력을 바꾸는 rebase
+또는 통합이 있으면 크기 근거를 재사용하기 전에 다시 측정합니다.
 
 설치, 업그레이드 및 롤백은 비공개 배포 실행기의 별도 보호 워크플로를 사용합니다. 워크플로는
 수명 주기 함수를 호출하기 전에 보호된 `main`, 필수 CI, 정확한 release 소스, 서명된 이미지
