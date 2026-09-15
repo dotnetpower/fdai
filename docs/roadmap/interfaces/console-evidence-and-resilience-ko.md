@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 30977c9c131d18560b52b50713f75f47f5a60f97
+translation_source_sha: 1d38a9b076c16b09a42383fb36114206f676f37b
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -672,6 +672,9 @@ transient 실패를 범위가 제한된 2-30초 재시도 대기로 재시도합
 - 출처 이력 테스트가 사용 불가, 알 수 없음, malformed 및 route-owner 상태를 검증합니다.
 - 스트림 테스트가 inactivity, authentication 분류, 프레임 한도 및 액션 시간 초과를 검증합니다.
 - 아키텍처 테스트가 배치, 선택, accessibility, 캐시 최신성 및 범위가 제한된 polling을 검증합니다. Browser Entra 상태 전송은 정확한 MSAL cache encryption cookie만 수락하고 값을 log에 남기지 않으며 대상 loopback origin에 연결합니다. Live Command Deck 근거는 접근 가능한 `complementary` 또는 전체 작업 영역 `dialog` 역할을 따르고 history panel에서 새 대화를 만듭니다.
+- 아키텍처 배치 회귀 검사는 형상이 없고 잘린 500개 기록과 40개 Resource Group을 사용합니다.
+  범위가 제한된 Landscape 및 포커스 개수, 유한한 배치, 고유한 위치, 암묵적인 원점 대체 0개를
+  검증합니다.
 
 ## 관련 문서
 

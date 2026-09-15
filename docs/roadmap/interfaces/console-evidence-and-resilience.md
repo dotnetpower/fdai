@@ -691,6 +691,9 @@ transient failures with bounded 2-to-30-second backoff while the stale graph rem
 - Provenance tests cover unavailable, unknown, malformed, and route-owner states.
 - Stream tests cover inactivity, authentication classification, frame limits, and action timeout.
 - Architecture tests cover layout, selection, accessibility, cache freshness, and bounded polling. Browser Entra state transfer accepts only the exact MSAL cache-encryption cookie, keeps its value out of logs, and binds it to the target loopback origin; live Command Deck evidence follows the accessible `complementary` or full-workspace `dialog` role and creates a new conversation through the history panel.
+- Architecture layout regression uses a geometry-less, truncated 500-record projection with 40
+  Resource Groups and verifies bounded Landscape and focus counts, finite placement, unique
+  positions, and zero implicit origin fallback.
 
 ## Related docs
 

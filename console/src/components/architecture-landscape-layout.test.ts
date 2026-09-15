@@ -7,6 +7,8 @@ import {
   layoutGeometrylessArchitectureGraph,
 } from "./architecture-landscape-layout";
 import type { InventoryGraphResponse } from "./architecture-map.model";
+import { layoutArchitecturePresentation } from "./architecture-map-layout";
+import { architectureTopologyUnplacedIds } from "./architecture-topology-graph.model";
 
 const RAW_GRAPH: InventoryGraphResponse = {
   snapshot_at: "2026-09-15T00:00:00Z",
@@ -120,5 +122,60 @@ describe("geometry-less Architecture inventory", () => {
       { source: "subscription", target: "group-a", type: "contains" },
       { source: "subscription", target: "group-b", type: "contains" },
     ]);
+  });
+
+  it("lays out a geometry-less partial 500-record response without overlap at origin", () => {
+    const groups = Array.from({ length: 40 }, (_, index) => ({
+      id: `group-${index}`,
+      type: "resource-group",
+      name: `Group ${index.toString().padStart(2, "0")}`,
+      status: "unknown",
+      parent_id: "subscription",
+    }));
+    const resources = Array.from({ length: 459 }, (_, index) => ({
+      id: `resource-${index}`,
+      type: ["app-service", "postgresql", "storage-account", "network.interface"][index % 4]!,
+      name: `Resource ${index.toString().padStart(3, "0")}`,
+      status: index % 3 === 0 ? "unknown" : "healthy",
+      parent_id: groups[index % groups.length]!.id,
+    }));
+    const graph: InventoryGraphResponse = {
+      snapshot_at: "2026-09-15T00:00:00Z",
+      freshness: "fresh",
+      scope: null,
+      depth: 4,
+      limit: 500,
+      included_link_types: ["contains", "depends_on"],
+      truncated: true,
+      truncation_reasons: ["limit"],
+      resources: [
+        { id: "subscription", type: "subscription", name: "Example subscription", status: "unknown" },
+        ...groups,
+        ...resources,
+      ],
+      links: resources.slice(1).map((resource, index) => ({
+        source: resources[index]!.id,
+        target: resource.id,
+        type: "depends_on" as const,
+      })),
+    };
+
+    const overview = layoutArchitecturePresentation(graph, null);
+    const focused = layoutArchitecturePresentation(graph, "resource-458");
+    const overviewPositions = overview.resources.map((resource) =>
+      `${resource.x}:${resource.y}:${resource.w}:${resource.h}`);
+    const focusedNodes = focused.resources.filter((resource) =>
+      resource.type !== "subscription" && resource.type !== "resource-group");
+
+    expect(graph.resources).toHaveLength(500);
+    expect(overview.resources.length).toBeLessThanOrEqual(
+      ARCHITECTURE_LANDSCAPE_GROUP_LIMIT + 1,
+    );
+    expect(new Set(overviewPositions).size).toBe(overview.resources.length);
+    expect(architectureTopologyUnplacedIds(overview.resources)).toEqual([]);
+    expect(focused.resources.length).toBeLessThanOrEqual(ARCHITECTURE_SCOPE_DETAIL_LIMIT + 8);
+    expect(new Set(focusedNodes.map((resource) => `${resource.x}:${resource.y}`)).size)
+      .toBe(focusedNodes.length);
+    expect(architectureTopologyUnplacedIds(focused.resources)).toEqual([]);
   });
 });
