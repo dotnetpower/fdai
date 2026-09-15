@@ -19,9 +19,14 @@ from fdai.delivery.azure.observation_campaign import (
     AzureResourceGraphObservation,
     AzureResourceGraphObservationProbe,
     PromotedInventoryObservationProbe,
+    _raise_for_status,
     _subscription_cursor_key,
 )
-from fdai.delivery.observation_campaign import ObservationCoverage, ObservationSourceSpec
+from fdai.delivery.observation_campaign import (
+    ObservationCoverage,
+    ObservationSourceSpec,
+    ObservationThrottledError,
+)
 from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
 from fdai_service_contracts import ObservationDomain
 
@@ -548,6 +553,12 @@ async def test_promoted_inventory_absence_does_not_require_measured_counts() -> 
     assert result.coverage is ObservationCoverage.UNCONFIGURED
     assert result.reason_codes == ("source_unconfigured",)
     assert result.evidence_count == 0
+
+
+def test_azure_throttle_retains_the_provider_retry_deadline() -> None:
+    with pytest.raises(ObservationThrottledError) as raised:
+        _raise_for_status(httpx.Response(429, headers={"Retry-After": "600"}), source="cost")
+    assert getattr(raised.value, "retry_not_before", None) is not None
 
 
 @pytest.mark.parametrize(

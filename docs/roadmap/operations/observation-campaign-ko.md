@@ -1,7 +1,7 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: 80ed31c010cbddeb5f2d37253c97850a4714b6de
+translation_source_sha: d6b6df131244d7a6dafa11f534c57bb54703f1ea
 translation_revised: 2026-09-15
 ---
 
@@ -180,6 +180,7 @@ translation_revised: 2026-09-15
 - **커서 복구:** Pull 읽기 담당은 영속 출처 커서로 공백을 닫고 종료 결과가 영속화된 뒤에만
   커서를 확정합니다. Activity Log 복구는 timestamp 전용 닫힌 창을 요청하고 완전히 읽은 창만
   checkpoint하며, 관련 없는 실패를 가속하지 않고 명시적 `source_catchup` 상태만 즉시 이어갑니다.
+- **공급자 재시도 대기:** `Retry-After`와 Cost Management 재시도 기한 중 가장 늦은 값을 UTC로 보존합니다. 재시작이나 따라잡기도 기한 전에 재시도하지 않으며, 짧은 대기 값이 등록된 주기를 줄이지 않습니다. 잘못된 재시도 상태는 해당 출처를 명시적으로 차단합니다.
 - **완전 조정:** 권위 있는 인벤토리 CLI는 로컬과 배포의 같은 실행 조건 게이트를 통해 전체
   ARG/ARM 승격을 수행합니다. 캠페인은 해당 승격 그래프를 관측하며 구성, 비용 및 복구 probe는
   등록된 범위 제한 읽기를 각각 실행합니다.

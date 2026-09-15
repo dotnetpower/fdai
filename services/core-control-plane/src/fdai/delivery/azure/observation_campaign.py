@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 import httpx
 
 from fdai.delivery.azure.log_query import AzureLogAnalyticsQueryProvider
+from fdai.delivery.http_retry import retry_not_before
 from fdai.delivery.observation_campaign import (
     ObservationCoverage,
     ObservationProbeContractError,
@@ -555,7 +556,20 @@ def _raise_for_status(response: httpx.Response, *, source: str) -> None:
     if response.status_code in {401, 403}:
         raise PermissionError(f"{source} access denied")
     if response.status_code == 429:
-        raise ObservationThrottledError(f"{source} throttled")
+        try:
+            deadline = retry_not_before(
+                response.headers,
+                now=datetime.now(UTC),
+                extra_headers=(
+                    "x-ms-ratelimit-microsoft.costmanagement-qpu-retry-after",
+                    "x-ms-ratelimit-microsoft.costmanagement-entity-retry-after",
+                    "x-ms-ratelimit-microsoft.costmanagement-clienttype-retry-after",
+                    "x-ms-ratelimit-microsoft.costmanagement-tenant-retry-after",
+                ),
+            )
+        except ValueError as exc:
+            raise ObservationProbeContractError("provider retry metadata is invalid") from exc
+        raise ObservationThrottledError(f"{source} throttled", retry_not_before=deadline)
     if response.status_code >= 400:
         raise RuntimeError(f"{source} returned HTTP {response.status_code}")
 

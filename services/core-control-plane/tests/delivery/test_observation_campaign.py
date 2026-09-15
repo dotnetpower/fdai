@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -12,6 +13,7 @@ from fdai.delivery.observation_campaign import (
     ObservationProbeResult,
     ObservationSourceSpec,
     ObservationThrottledError,
+    _due,
 )
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_service_contracts import ObservationDomain
@@ -206,6 +208,96 @@ async def test_normalizes_throttling_as_expected_partial_coverage() -> None:
     assert summary.sources[0].status.value == "degraded"
     assert summary.sources[0].coverage is ObservationCoverage.PARTIAL
     assert summary.sources[0].reason_codes == ("source_throttled",)
+
+
+async def test_provider_cooldown_survives_runner_restart_and_blocks_early_retry() -> None:
+    clock = SimpleNamespace(now=datetime(2026, 8, 14, tzinfo=UTC))
+    throttled = ObservationThrottledError(
+        "throttled", retry_not_before=clock.now + timedelta(seconds=120)
+    )
+    probe = Probe(throttled)
+    store = InMemoryStateStore()
+    source = _source("activity-log", ObservationDomain.ACTIVITY_LOG, "Huginn")
+
+    async def run(campaign: str):
+        return await ObservationCampaignRunner(
+            sources=(source,),
+            probes={"activity-log": probe},
+            store=store,
+            publisher=RecordingPublisher(),
+            clock=lambda: clock.now,
+        ).run(campaign)
+
+    await run("campaign-first")
+    clock.now += timedelta(seconds=60)
+    skipped = await run("campaign-before-cooldown")
+    assert len(probe.calls) == 1
+    assert skipped.sources[0].skipped is True
+    clock.now += timedelta(seconds=60)
+    await run("campaign-after-cooldown")
+    assert len(probe.calls) == 2
+
+
+def test_catchup_cannot_bypass_a_provider_cooldown() -> None:
+    now = datetime(2026, 8, 14, tzinfo=UTC)
+    state = {
+        "completed_at": now.isoformat(),
+        "reason_codes": ["source_catchup"],
+        "retry_not_before": (now + timedelta(seconds=600)).isoformat(),
+    }
+    assert _due(state, now=now + timedelta(seconds=300), interval_seconds=60) is False
+    assert _due(state, now=now + timedelta(seconds=600), interval_seconds=60) is True
+
+
+async def test_retry_hint_does_not_shorten_the_daily_cost_schedule() -> None:
+    clock = SimpleNamespace(now=datetime(2026, 8, 14, tzinfo=UTC))
+    probe = Probe(
+        ObservationThrottledError("throttled", retry_not_before=clock.now + timedelta(seconds=120))
+    )
+    runner = ObservationCampaignRunner(
+        sources=(
+            replace(_source("cost", ObservationDomain.COST, "Njord"), interval_seconds=86_400),
+        ),
+        probes={"cost": probe},
+        store=InMemoryStateStore(),
+        publisher=RecordingPublisher(),
+        clock=lambda: clock.now,
+    )
+    await runner.run("cost-first")
+    clock.now += timedelta(seconds=120)
+    summary = await runner.run("cost-before-cadence")
+    assert summary.sources[0].skipped is True
+    assert len(probe.calls) == 1
+
+
+async def test_malformed_retry_state_blocks_only_its_source() -> None:
+    now = datetime(2026, 8, 14, tzinfo=UTC)
+    store = InMemoryStateStore()
+    await store.write_state(
+        "observation-campaign:source:activity-log",
+        {
+            "revision": 1,
+            "status": "degraded",
+            "completed_at": now.isoformat(),
+            "retry_not_before": "2026-08-14T01:00:00",
+        },
+    )
+    blocked = Probe(ObservationProbeResult(coverage=ObservationCoverage.READY))
+    healthy = Probe(ObservationProbeResult(coverage=ObservationCoverage.READY))
+    summary = await ObservationCampaignRunner(
+        sources=(
+            _source("activity-log", ObservationDomain.ACTIVITY_LOG, "Huginn"),
+            _source("resource-health", ObservationDomain.RESOURCE_HEALTH, "Heimdall"),
+        ),
+        probes={"activity-log": blocked, "resource-health": healthy},
+        store=store,
+        publisher=RecordingPublisher(),
+        clock=lambda: now,
+    ).run("invalid-retry-state")
+    assert blocked.calls == []
+    assert len(healthy.calls) == 1
+    assert summary.sources[0].reason_codes == ("state_retry_invalid",)
+    assert summary.sources[1].coverage is ObservationCoverage.READY
 
 
 async def test_rejects_probe_count_above_registered_result_limit() -> None:
