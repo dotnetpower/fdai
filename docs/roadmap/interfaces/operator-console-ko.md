@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 688596b74ce9e7b1980517c936e9c1324dd21ae3
+translation_source_sha: 96aa2064ef1b40c277eb3e2c9c6e6d6356338add
 translation_revised: 2026-09-15
 ---
 # FDAI Console 대화
@@ -65,7 +65,7 @@ Process 저널은 적응형 조사 공간도 제공합니다. Operator는 Proces
 명시적으로 선택한 Sample 모드는 일반적인 읽기 전용 실행 예시 3건을 제공합니다. 빈 Live 소스를 대체하거나 허용된 상태 전환을 제공하지 않습니다. 같은 본문 폭의 시안 비교, 키보드 조작, 밝은·어두운 테마의 상태 글자 대비, 320-1440px 화면 재배치 검사가 이 표현을 검증합니다. 카탈로그 검증은 관련 없는 형식 지정 도우미가 아니라 가져온 `t` 바인딩을 따릅니다.
 Operator 소유 Kafka 어댑터는 의미 제안을 게시하고 의미 변환 결과를 소비하며 검증된 Core 단계 및 Pantheon 런타임 상태 프레임을 별도의 범위 제한 `/live/stream`과 `/agents/stream` SSE 허브로 중계합니다. 실시간 화면은 제어 루프 결정에 `/live/stream`을 사용하고 현재 소스 읽기 활동에는 별도의 읽기 전용 `/agents/stream` 구독을 사용합니다. 따라서 인벤토리, 상태, 메트릭, 로그, 비용 및 복구 관찰을 결정이나 실행으로 표시하지 않으면서도 활동 상태를 계속 확인할 수 있습니다. 인증된 `GET /agents/activity`는 Console이 새 스트림 프레임을 적용하기 전에 영속 원본에서 범위가 제한된 인벤토리 검사, 온톨로지 변환 및 현재 상태 읽기 이력을 제공하며 현재 상태 재생과 실제 운영 프레임은 같은 해시 상관관계 활동 ID를 사용합니다. 이 관찰 경로는 스냅샷 읽기와 같은 bearer 게이트를 사용하고 Kafka가 없으면 연결 유지 신호를 보내며, 권한 있는 프레임이 도착할 때까지 `Awaiting source`를 표시합니다. `GET /chat/health`는 영속 대화 변환 결과 행을 요구하지 않고 의미 브리지의 프로세스 소유 워커 준비 상태를 직접 읽습니다.
 Terraform은 request와 projection topic을 고정합니다. Core는 검증된 query table을 렌더링하고 Operator는 영속 result를 기존 `done` event로 변환합니다.
-주입된 provider가 우선하며 local narrator와 semantic transport는 상호 배타적입니다.
+주입된 provider가 우선하며 local narrator와 semantic transport는 상호 배타적입니다. `FDAI_LOCAL_RESOLVED_MODELS_PATH`가 명시적인 절대 경로 아티팩트를 선택하면 전체 스택 준비는 해당 경로와 파일 바이트를 기존 캐시와 단계별 런타임 환경 캐시 식별값에 모두 포함합니다. 경로나 파일이 바뀌면 오래된 출력을 재사용하지 않고 모델 연결을 다시 생성합니다.
 Operator API는 검토를 준비된으로 표시하거나 카탈로그 제안을 만들거나 권한을 부여하지 않습니다. 잘못된 답변 보고는 자율 재평가 근거만 추가하며 통제된 transition에는 exact 재생 근거와 기존 카탈로그 수명 주기가 계속 필요합니다.
 ### 1.1 공유 glossary에 추가된 어휘
 

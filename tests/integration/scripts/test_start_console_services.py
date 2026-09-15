@@ -428,7 +428,9 @@ def test_preparation_reuses_an_unchanged_healthy_stack(
     _write_executable(repo / "console/node_modules/.bin/vite", "#!/usr/bin/env bash\nexit 0\n")
     _write_ready_dependency_script(repo)
     _write_executable(repo / "console/node_modules/.bin/opa", "#!/usr/bin/env bash\nexit 0\n")
-    mode_digest = hashlib.sha256(f"{digest}\nauth-mode={auth_mode}\n".encode()).hexdigest()
+    mode_digest = hashlib.sha256(
+        f"{digest}\nauth-mode={auth_mode}\nresolved-models-override=\n".encode()
+    ).hexdigest()
     (repo / ".fdai/console-full-stack-preparation.sha256").write_text(
         f"{mode_digest}\n",
         encoding="utf-8",
@@ -540,7 +542,7 @@ printf 'FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM=%s\n' "$flag" \
             stage_digest = digest
             if stage == "runtime-environment":
                 stage_digest = hashlib.sha256(
-                    f"{digest}\nkubernetes=0\nteams-notifications=0\nno-azure-deployment=0\nlocal-resource-group=\n".encode()
+                    f"{digest}\nkubernetes=0\nteams-notifications=0\nno-azure-deployment=0\nlocal-resource-group=\nresolved-models-override=\n".encode()
                 ).hexdigest()
             if stage == "service-environments":
                 stage_digest = hashlib.sha256(
