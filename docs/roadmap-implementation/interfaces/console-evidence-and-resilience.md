@@ -213,8 +213,8 @@ checks, not claims that this documentation-only change reran browser or live val
 
 ### Remaining work
 
-- [ ] Finish the remaining Live upper-layout, KPI chart, fullscreen-control, and Sample-story
-  parity against the unchanged design specimen, with paired screenshots at the same viewport.
+- [x] Finish the remaining Live upper-layout, KPI chart, fullscreen-control, and Sample-story
+  parity: [focused presentation evidence](live-audit-presentation.md) records paired viewport checks.
 - [ ] Retain an authenticated `/detection-coverage` Browser Entra artifact for all three hardened
   views after a local or deployed analyzer writes a version `1.3.0` cross-resource coverage
   receipt, confirming latest-attempt separation, URL restoration, collapsed Kubernetes scope, and

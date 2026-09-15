@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 64b2827b69b4c8b955a47b349b369fa3b9b71dd7
+translation_source_sha: 92aaf3ffb4532910b0aa1d26d74f1b45b16c985b
 translation_revised: 2026-09-15
 ---
 # FDAI Console 대화
@@ -654,4 +654,4 @@ future 범위입니다.
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
-| 구현 상태 및 Live 측정 | [구현 원장](../../roadmap-implementation/interfaces/operator-console.md), [Live 지표](live-cockpit-metrics-ko.md) |
+| 구현 상태 및 Live 설계 | [구현 원장](../../roadmap-implementation/interfaces/operator-console.md), [Live 지표](live-cockpit-metrics-ko.md), [Live와 감사 로그 화면](live-audit-presentation-ko.md) |

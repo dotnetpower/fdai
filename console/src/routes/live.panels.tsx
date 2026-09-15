@@ -47,6 +47,7 @@ export function LivePanels({
   lastError,
   streamSource,
   tickerPaused,
+  restartSample,
   frozenObserved,
   droppedFrames,
   cursorReset,
@@ -73,6 +74,7 @@ export function LivePanels({
   readonly lastError: string | null;
   readonly streamSource: ObservationSource;
   readonly tickerPaused: boolean;
+  readonly restartSample: (() => void) | undefined;
   readonly frozenObserved: number;
   readonly droppedFrames: number;
   readonly cursorReset: boolean;
@@ -117,12 +119,6 @@ export function LivePanels({
       : status;
   const gateKeys = ["auto", "hil", "abstain", "deny"] as const;
   const gateTotal = Math.max(1, view.gateTotal);
-  const gateAutoEnd = (metrics.gateCounts.auto / gateTotal) * 100;
-  const gateHilEnd = gateAutoEnd + (metrics.gateCounts.hil / gateTotal) * 100;
-  const gateAbstainEnd = gateHilEnd + (metrics.gateCounts.abstain / gateTotal) * 100;
-  const gateGradient = view.gateTotal > 0
-    ? `conic-gradient(var(--gate-auto) 0 ${gateAutoEnd}%, var(--gate-hil) ${gateAutoEnd}% ${gateHilEnd}%, var(--gate-abstain) ${gateHilEnd}% ${gateAbstainEnd}%, var(--gate-deny) ${gateAbstainEnd}% 100%)`
-    : "var(--bg)";
   const isSample = streamSource === "synthetic-dev";
   const statusLabel = isSample ? t("live.status.sample") : t(`live.status.${displayStatus}`);
   const signalAt = isSample ? view.lastEventAt : lastSignalAt;
@@ -137,6 +133,13 @@ export function LivePanels({
         title={appT("nav.panel.live")}
         subtitle={t("live.lead")}
         actions={<div class="live-header-right">
+          {restartSample ? (
+            <Tooltip content={t("live.sample.restartHelp")}>
+              <button type="button" class="live-sample-restart" onClick={restartSample}>
+                {t("live.sample.restart")}
+              </button>
+            </Tooltip>
+          ) : null}
           <Tooltip content={tickerPaused ? t("live.resumeTitle") : t("live.freezeTitle")}>
             <button
               type="button"
@@ -322,7 +325,19 @@ export function LivePanels({
               <small>{t("live.kpi.controlOnly")}</small>
             </div>
           ) : <div class="live-gate-viz">
-            <div class="live-gate-donut" style={{ background: gateGradient }}>
+            <div class="live-gate-donut">
+              <svg viewBox="0 0 64 64" aria-hidden="true">
+                <circle class="live-gate-track" cx="32" cy="32" r="26" />
+                {gateKeys.map((key, index) => {
+                  const share = metrics.gateCounts[key] / gateTotal * 100;
+                  const offset = gateKeys.slice(0, index).reduce(
+                    (sum, previous) => sum + metrics.gateCounts[previous], 0,
+                  ) / gateTotal * 100;
+                  return <circle key={key} class={`live-gate-segment is-${key}`}
+                    cx="32" cy="32" r="26" pathLength="100"
+                    stroke-dasharray={`${share} ${100 - share}`} stroke-dashoffset={-offset} />;
+                })}
+              </svg>
               <span><strong>{view.autoShare}%</strong><small>{t("live.kpi.auto")}</small></span>
             </div>
             <div class="live-mix-legend">
@@ -389,7 +404,7 @@ export function LivePanels({
       ) : null}
 
       {selectedTile ? (
-        <DetailPanel tile={selectedTile} now={state.now} onClose={() => selectEvent(null)} />
+        <DetailPanel tile={selectedTile} now={state.now} sample={isSample} onClose={() => selectEvent(null)} />
       ) : null}
       {selectedObservation ? (
         <LiveObservationDetailPanel
