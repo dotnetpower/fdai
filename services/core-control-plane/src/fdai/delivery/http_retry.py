@@ -8,6 +8,14 @@ from email.utils import parsedate_to_datetime
 from math import isfinite
 
 
+class InvalidRetryAfterError(ValueError):
+    """Retain any known cooldown while reporting malformed companion hints."""
+
+    def __init__(self, *, retry_not_before: datetime | None) -> None:
+        super().__init__("provider Retry-After MUST be a delay or timezone-aware HTTP date")
+        self.retry_not_before = retry_not_before
+
+
 def retry_after_seconds(raw: str | None) -> float | None:
     """Keep the existing finite numeric Retry-After parsing contract."""
     if raw is None:
@@ -31,6 +39,7 @@ def retry_not_before(
     now = now.astimezone(UTC)
     normalized = {name.lower(): value for name, value in headers.items()}
     latest: datetime | None = None
+    invalid = False
     ceiling = datetime.max.replace(tzinfo=UTC)
     for name in ("retry-after", *extra_headers):
         raw = normalized.get(name.lower())
@@ -51,9 +60,10 @@ def retry_not_before(
                     raise ValueError("missing timezone")
                 deadline = parsed.astimezone(UTC)
             except (TypeError, ValueError, OverflowError):
-                raise ValueError(
-                    "provider Retry-After MUST be a delay or timezone-aware HTTP date"
-                ) from None
+                invalid = True
+                continue
         deadline = max(now, deadline)
         latest = deadline if latest is None else max(latest, deadline)
+    if invalid:
+        raise InvalidRetryAfterError(retry_not_before=latest)
     return latest

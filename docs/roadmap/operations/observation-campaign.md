@@ -177,7 +177,7 @@ No missing source becomes a zero count, healthy state, or permission inference. 
   only after the terminal result is durable. Activity Log recovery requests timestamp-only closed
   windows, checkpoints only a fully read window, and immediately continues an explicit
   `source_catchup` state without accelerating unrelated failures.
-- **Provider cooldown:** Persist the latest `Retry-After` or Cost Management retry deadline in UTC. Neither restart nor catch-up can retry before it, and a short hint never shortens the registered interval. Malformed retry state blocks that source explicitly.
+- **Provider cooldown:** Persist the latest `Retry-After` or Cost Management retry deadline in UTC, including valid hints beside malformed companion headers. Neither restart nor catch-up can retry before it, and a short hint never shortens the registered interval. Malformed retry state blocks that source explicitly.
 - **Complete reconciliation:** The authoritative inventory CLI performs the full ARG/ARM promotion
   through the same due gate in local and deployment. The campaign observes that promoted graph;
   configuration, cost, and recovery probes execute their own bounded registered reads.

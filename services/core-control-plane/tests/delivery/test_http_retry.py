@@ -3,7 +3,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fdai.delivery.http_retry import retry_after_seconds, retry_not_before
+from fdai.delivery.http_retry import InvalidRetryAfterError, retry_after_seconds, retry_not_before
 
 NOW = datetime(2026, 9, 15, 8, tzinfo=UTC)
 
@@ -38,3 +38,14 @@ def test_numeric_parser_keeps_existing_arg_behavior() -> None:
     assert retry_after_seconds("0.5") == 0.5
     assert retry_after_seconds(None) is None
     assert retry_after_seconds("NaN") is None
+
+
+@pytest.mark.parametrize("standard", ["invalid", "172800"])
+def test_malformed_companion_hint_keeps_the_valid_cooldown(standard: str) -> None:
+    headers = {
+        "Retry-After": standard,
+        "x-provider-retry": "172800" if standard == "invalid" else "invalid",
+    }
+    with pytest.raises(InvalidRetryAfterError) as error:
+        retry_not_before(headers, now=NOW, extra_headers=("x-provider-retry",))
+    assert error.value.retry_not_before == NOW + timedelta(days=2)

@@ -76,6 +76,10 @@ class ObservationThrottledError(RuntimeError):
 class ObservationProbeContractError(RuntimeError):
     """Signal that a probe returned metadata outside its registered limits."""
 
+    def __init__(self, message: str, *, retry_not_before: datetime | None = None) -> None:
+        super().__init__(message)
+        self.retry_not_before = retry_not_before
+
 
 @dataclass(frozen=True, slots=True)
 class ObservationSourceSpec:
@@ -454,11 +458,12 @@ class ObservationCampaignRunner:
                 ),
                 False,
             )
-        except ObservationProbeContractError:
+        except ObservationProbeContractError as exc:
             return (
                 ObservationProbeResult(
                     coverage=ObservationCoverage.UNREACHABLE,
                     reason_codes=("provider_contract_violation",),
+                    retry_not_before=exc.retry_not_before,
                 ),
                 True,
             )

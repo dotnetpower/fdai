@@ -7,6 +7,10 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
+import httpx
+import pytest
+from fdai.delivery.azure import observation_campaign as azure_observation
+from fdai.delivery.azure.observation_campaign import _raise_for_status
 from fdai.delivery.observation_campaign import (
     ObservationCampaignRunner,
     ObservationCoverage,
@@ -298,6 +302,54 @@ async def test_malformed_retry_state_blocks_only_its_source() -> None:
     assert len(healthy.calls) == 1
     assert summary.sources[0].reason_codes == ("state_retry_invalid",)
     assert summary.sources[1].coverage is ObservationCoverage.READY
+
+
+async def test_mixed_retry_headers_preserve_cooldown_after_contract_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock = SimpleNamespace(now=datetime(2026, 8, 14, tzinfo=UTC))
+    monkeypatch.setattr(azure_observation, "datetime", SimpleNamespace(now=lambda _tz: clock.now))
+
+    class MixedHeaderProbe:
+        calls = 0
+
+        async def collect(self, spec, *, cursor):  # type: ignore[no-untyped-def]
+            self.calls += 1
+            _raise_for_status(
+                httpx.Response(
+                    429,
+                    headers={
+                        "Retry-After": "172800",
+                        "x-ms-ratelimit-microsoft.costmanagement-qpu-retry-after": "invalid",
+                    },
+                ),
+                source="cost",
+            )
+            raise AssertionError("429 must not be accepted")
+
+    probe = MixedHeaderProbe()
+    store = InMemoryStateStore()
+    sources = (replace(_source("cost", ObservationDomain.COST, "Njord"), interval_seconds=86_400),)
+    first = await ObservationCampaignRunner(
+        sources=sources,
+        probes={"cost": probe},
+        store=store,
+        publisher=RecordingPublisher(),
+        clock=lambda: clock.now,
+    ).run("mixed-hints-first")
+    assert first.sources[0].reason_codes == ("provider_contract_violation",)
+    state = await store.read_state("observation-campaign:source:cost")
+    assert state is not None and isinstance(state.get("retry_not_before"), str)
+    clock.now += timedelta(days=1)
+    second = await ObservationCampaignRunner(
+        sources=sources,
+        probes={"cost": probe},
+        store=store,
+        publisher=RecordingPublisher(),
+        clock=lambda: clock.now,
+    ).run("mixed-hints-next-day")
+    assert second.sources[0].skipped is True
+    assert probe.calls == 1
 
 
 async def test_rejects_probe_count_above_registered_result_limit() -> None:
