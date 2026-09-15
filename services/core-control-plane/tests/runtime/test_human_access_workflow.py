@@ -313,7 +313,7 @@ async def test_actual_shared_safeguards_publish_original_action_and_keep_receipt
     from tests.runtime.test_isolated_executor_receipt_journal import _bind_journal, _command
 
     f = setup
-    f.clock["now"] = datetime.now(UTC)
+    f.clock["now"] = AT + timedelta(minutes=1)
     f.notice = HumanAccessWorkNotice.model_validate(
         {
             **f.notice.model_dump(),
