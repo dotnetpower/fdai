@@ -18,8 +18,8 @@ security-reviewed offline document packages without presenting an old snapshot a
 ## Design at a glance
 
 The [structured retrieval extension](cloud-resource-knowledge-structured-rag.md) specifies the
-versioned extraction, safe-chunk and bilingual evaluation follow-up without changing source clocks
-or granting operational approval.
+implemented versioned extraction, safe chunks, opt-in retained-source preparation and bilingual
+evaluation boundary without changing source clocks or granting operational approval.
 
 A registered source produces immutable document revisions and append-only source-check receipts.
 Both online updates and offline packages enter the existing governed document-ingestion boundary.
@@ -81,7 +81,9 @@ hold, never an invented date. A missing publisher modification date alone is acc
 fetch/check can establish what the source served, but not when its author changed it.
 
 A successful full-body fetch of identical bytes adds a fetch/check receipt without rebuilding
-chunks. HTTP 304 adds only a check receipt. It is valid only for the exact origin, representation,
+unchanged chunks. Reviewed metadata or normalizer changes produce a new processing candidate even
+when the body matches; a retained-byte upgrade preserves the existing successful check. HTTP 304
+adds a check receipt, not a collection date. It is valid only for the exact origin, representation,
 and request validator already bound to an available complete body; otherwise perform a bounded full
 fetch or record unknown. Preserve ETag strength, Last-Modified, request binding, and response outcome.
 Record the equivalence basis: a weak/date validator is a server assertion, not byte equality.
@@ -222,8 +224,9 @@ together; old readers cannot consume v2. The complete-collection, rights, 16 MiB
 UTF-8 byte, signature, revocation, replay, approval, and independent activation checks stay in force.
 
 Readers retain exact v1 verification and persisted-worker compatibility without rewriting old
-digests. New export, signing, detached assembly, collected staging, and higher-sequence rollback
-produce only v2. Rollback from eligible v1 pins its original admitted manifest digest while creating
+digests. Default export, signing, detached assembly, collected staging, and higher-sequence rollback
+use normalized-only v2; explicit structured v3 follows its versioned owner, and v3 rollback preserves
+the original normalizer, reader and excerpt identities. Rollback from eligible v1 pins its original admitted manifest digest while creating
 a new normalized-only candidate with unchanged source evidence and admission expiry. Existing signed
 bytes are never stripped in place. This transport change does not resolve the real-page hidden-UI,
 link, or cross-section caveat findings recorded in [Issue #995](https://github.com/dotnetpower/fdai/issues/995#issuecomment-5667579564).

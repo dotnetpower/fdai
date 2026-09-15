@@ -27,6 +27,7 @@ RECIPE_DIGEST = content_digest(STRUCTURE_RECIPE.encode())
 MAX_EXCERPT_BYTES = 8192
 MAX_DERIVED_BYTES = 16 * 1024 * 1024
 MAX_BLOCKS = 8192
+StructuredNormalizerVersion = Literal["2.0.0", "2.1.0"]
 
 
 class CloudArticleBlock(KnowledgeContract):
@@ -86,7 +87,7 @@ class CloudStructuredDocument(KnowledgeContract):
     evidence: CloudSourceEvidence
     title: Annotated[str, Field(min_length=1, max_length=256)]
     text: Annotated[str, Field(min_length=1, max_length=8 * 1024 * 1024)]
-    normalizer_version: Literal["2.0.0"] = "2.0.0"
+    normalizer_version: StructuredNormalizerVersion = "2.0.0"
     recipe: Literal["article-blocks-2.0.0"] = STRUCTURE_RECIPE
     recipe_digest: Digest = RECIPE_DIGEST
     derived_at: datetime

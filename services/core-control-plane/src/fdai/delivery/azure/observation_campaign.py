@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 import httpx
 
 from fdai.delivery.azure.log_query import AzureLogAnalyticsQueryProvider
+from fdai.delivery.http_retry import InvalidRetryAfterError, retry_not_before
 from fdai.delivery.observation_campaign import (
     ObservationCoverage,
     ObservationProbeContractError,
@@ -501,22 +502,28 @@ class PromotedInventoryObservationProbe:
     ) -> ObservationProbeResult:
         del cursor
         summary = await self._coverage_reader(spec.max_results)
-        count = _bounded_aggregate(summary, "resource_count") + _bounded_aggregate(
-            summary,
-            "link_count",
-        )
         if summary.get("source") == "unavailable":
             return ObservationProbeResult(
                 coverage=ObservationCoverage.UNCONFIGURED,
                 reason_codes=("source_unconfigured",),
             )
-        if summary.get("freshness") in {"stale", "unknown"}:
+        count = _bounded_aggregate(summary, "resource_count") + _bounded_aggregate(
+            summary,
+            "link_count",
+        )
+        freshness = summary.get("freshness")
+        if not isinstance(freshness, str) or freshness not in {"fresh", "stale", "unknown"}:
+            raise RuntimeError("inventory freshness MUST be fresh, stale, or unknown")
+        truncated_value = summary.get("truncated")
+        if not isinstance(truncated_value, bool):
+            raise RuntimeError("inventory truncated MUST be an explicit boolean")
+        if freshness in {"stale", "unknown"}:
             return ObservationProbeResult(
                 coverage=ObservationCoverage.STALE,
                 evidence_count=min(count, spec.max_results),
                 reason_codes=("source_stale",),
             )
-        truncated = bool(summary.get("truncated")) or count > spec.max_results
+        truncated = truncated_value or count > spec.max_results
         return ObservationProbeResult(
             coverage=(ObservationCoverage.PARTIAL if truncated else ObservationCoverage.READY),
             evidence_count=min(count, spec.max_results),
@@ -549,7 +556,22 @@ def _raise_for_status(response: httpx.Response, *, source: str) -> None:
     if response.status_code in {401, 403}:
         raise PermissionError(f"{source} access denied")
     if response.status_code == 429:
-        raise ObservationThrottledError(f"{source} throttled")
+        try:
+            deadline = retry_not_before(
+                response.headers,
+                now=datetime.now(UTC),
+                extra_headers=(
+                    "x-ms-ratelimit-microsoft.costmanagement-qpu-retry-after",
+                    "x-ms-ratelimit-microsoft.costmanagement-entity-retry-after",
+                    "x-ms-ratelimit-microsoft.costmanagement-clienttype-retry-after",
+                    "x-ms-ratelimit-microsoft.costmanagement-tenant-retry-after",
+                ),
+            )
+        except InvalidRetryAfterError as exc:
+            raise ObservationProbeContractError(
+                "provider retry metadata is invalid", retry_not_before=exc.retry_not_before
+            ) from exc
+        raise ObservationThrottledError(f"{source} throttled", retry_not_before=deadline)
     if response.status_code >= 400:
         raise RuntimeError(f"{source} returned HTTP {response.status_code}")
 

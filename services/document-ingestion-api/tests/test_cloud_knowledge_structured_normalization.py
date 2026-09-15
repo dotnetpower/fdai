@@ -455,3 +455,206 @@ def test_snapshot_hashes_are_revalidated_before_derivation() -> None:
     tampered = snapshot.model_copy(update={"original_text": "<main><p>Other.</p></main>"})
     with pytest.raises(ValueError, match="hash"):
         reprocess_document(tampered, now=DERIVED)
+
+
+def test_extended_disclosure_and_nobr_preserve_body_and_source_dates() -> None:
+    snapshot = _snapshot(
+        "<main><h1>Guide</h1><details><summary>Dedicated generation</summary>"
+        "<p>Use <nobr>12 units</nobr> only.</p></details><p>Outside.</p></main>"
+    )
+    legacy = reprocess_document(snapshot, now=DERIVED)
+    assert "unsupported_structure" in legacy.unresolved_dependencies
+    expanded = reprocess_document(snapshot, now=DERIVED, normalizer_version="2.1.0")
+    assert not expanded.unresolved_dependencies
+    assert expanded.normalizer_version == "2.1.0"
+    assert expanded.evidence.model_dump(exclude={"normalized_sha256"}) == (
+        snapshot.evidence.model_dump(exclude={"normalized_sha256"})
+    )
+    assert expanded.text.count("Use 12 units only.") == 1
+    excerpts = structured_excerpts(expanded)
+    body = next(item for item in excerpts if "Use 12 units" in item.text)
+    assert "Disclosure: Dedicated generation" in body.text
+    assert "Disclosure:" not in excerpts[-1].text
+
+
+def test_extended_tab_labels_use_exact_same_group_source_link() -> None:
+    snapshot = _snapshot(
+        '<main><h1>Guide</h1><div class="tabGroup"><ul role="tablist">'
+        '<li role="presentation"><a data-tab="script" href="#panel-a">Shell</a></li></ul>'
+        '<section id="panel-a" role="tabpanel" data-tab="script" hidden>'
+        "<p>Keep hidden instructions.</p></section></div><p>Outside.</p></main>"
+    )
+    legacy = reprocess_document(snapshot, now=DERIVED)
+    assert "unlabelled_tab" in legacy.unresolved_dependencies
+    expanded = reprocess_document(snapshot, now=DERIVED, normalizer_version="2.1.0")
+    assert not expanded.unresolved_dependencies
+    assert expanded.blocks[1].heading_path == ("Guide", "Tab: Shell")
+    assert expanded.blocks[-1].heading_path == ("Guide",)
+    assert expanded.text.count("Keep hidden instructions.") == 1
+
+
+@pytest.mark.parametrize("referenced", [False, True])
+def test_extended_duplicate_ids_do_not_choose_a_reference_target(referenced: bool) -> None:
+    link = '<p><a role="doc-noteref" href="#repeat">Note</a></p>' if referenced else ""
+    snapshot = _snapshot(
+        '<main><h1>Guide</h1><p id="repeat">First.</p><p id="repeat">Second.</p>' + link + "</main>"
+    )
+    expanded = reprocess_document(snapshot, now=DERIVED, normalizer_version="2.1.0")
+    assert ("duplicate_html_id" in expanded.unresolved_dependencies) is referenced
+    assert "First." in expanded.text and "Second." in expanded.text
+    if referenced:
+        with pytest.raises(ValueError, match="unresolved"):
+            structured_excerpts(expanded)
+    else:
+        assert structured_excerpts(expanded)
+
+
+def test_extended_header_only_table_preserves_captured_absence_not_resource_absence() -> None:
+    snapshot = _snapshot(
+        "<main><h1>Guide</h1><table><thead><tr><th>Name</th><th>Value</th></tr>"
+        "</thead></table><p>Other source evidence.</p></main>"
+    )
+    legacy = reprocess_document(snapshot, now=DERIVED)
+    assert "unsupported_table" in legacy.unresolved_dependencies
+    expanded = reprocess_document(snapshot, now=DERIVED, normalizer_version="2.1.0")
+    assert not expanded.unresolved_dependencies
+    row = next(b for b in expanded.blocks if b.kind == "table_row")
+    assert row.table_header == "Name | Value"
+    assert "No data rows in captured table." in expanded.text
+    assert structured_excerpts(expanded)
+
+
+def test_extended_nested_code_notice_and_table_keep_atomic_context() -> None:
+    snapshot = _snapshot(
+        "<main><h1>Guide</h1><ol><li>Before.<pre><code>  exact_code()\n</code></pre>"
+        '<div class="note"><p>Only this generation.</p></div>'
+        "<table><tr><th>Limit</th></tr><tr><td>12</td></tr></table>After.</li></ol>"
+        "<p>Related guidance.</p></main>"
+    )
+    expanded = reprocess_document(snapshot, now=DERIVED, normalizer_version="2.1.0")
+    assert not expanded.unresolved_dependencies
+    assert expanded.text.count("exact_code()") == 1
+    assert "Code block:" in expanded.text and "      exact_code()" in expanded.text
+    assert "Table columns: Limit" in expanded.text
+    assert "Only this generation." in structured_excerpts(expanded)[-1].text
+
+
+@pytest.mark.parametrize(
+    "body,reason",
+    [
+        ("<details><p>No source summary.</p></details>", "unsupported_structure"),
+        (
+            '<section role="tabpanel" data-tab="guess"><p>Unknown label.</p></section>',
+            "unlabelled_tab",
+        ),
+        ('<img alt="Useful image" src="/diagram.png"><p>Body.</p>', "unsupported_media"),
+        ("<p><custom-inline>Unknown structure.</custom-inline></p>", "unsupported_structure"),
+        (
+            '<table><tr><th colspan="2">H</th></tr><tr><td>A</td><td>B</td></tr></table>',
+            "unsupported_table",
+        ),
+    ],
+)
+def test_extended_normalizer_retains_unproven_dependency_holds(body: str, reason: str) -> None:
+    expanded = reprocess_document(
+        _snapshot(f"<main><h1>Guide</h1>{body}</main>"), now=DERIVED, normalizer_version="2.1.0"
+    )
+    assert reason in expanded.unresolved_dependencies
+    with pytest.raises(ValueError, match="unresolved"):
+        structured_excerpts(expanded)
+
+
+@pytest.mark.parametrize("tag", ["details", "nobr"])
+def test_extended_elements_do_not_discard_required_dependency_attributes(tag: str) -> None:
+    body = "<summary>Scope</summary><p>Body.</p>" if tag == "details" else "Body."
+    doc = reprocess_document(
+        _snapshot(f'<main><h1>Guide</h1><{tag} data-include="/required">{body}</{tag}></main>'),
+        now=DERIVED,
+        normalizer_version="2.1.0",
+    )
+    assert "unresolved_dependency" in doc.unresolved_dependencies
+
+
+def test_extended_tab_group_never_borrows_another_group_label() -> None:
+    html = (
+        '<main><h1>Guide</h1><div class="tabGroup"><ul role="tablist">'
+        '<li><a data-tab="shell" href="#panel">Not this group</a></li></ul></div>'
+        '<div class="tabGroup"><section id="panel" role="tabpanel" data-tab="shell">'
+        "<p>Unlabelled body.</p></section></div></main>"
+    )
+    doc = reprocess_document(_snapshot(html), now=DERIVED, normalizer_version="2.1.0")
+    assert "unlabelled_tab" in doc.unresolved_dependencies
+
+
+def test_extended_disclosure_cannot_hide_unrepresented_view_conditions() -> None:
+    doc = reprocess_document(
+        _snapshot(
+            '<main><h1>Guide</h1><details data-monikers="only-one-view">'
+            "<summary>Scope</summary><p>Body.</p></details></main>"
+        ),
+        now=DERIVED,
+        normalizer_version="2.1.0",
+    )
+    assert "unsupported_condition" in doc.unresolved_dependencies
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_extended_table_uses_the_selected_inline_normalizer(nested: bool) -> None:
+    table = "<table><tr><th>Limit</th></tr><tr><td><nobr>12 units</nobr></td></tr></table>"
+    body = f"<ol><li>Respect this table.{table}</li></ol>" if nested else table
+    snapshot = _snapshot(f"<main><h1>Guide</h1>{body}</main>")
+    legacy = reprocess_document(snapshot, now=DERIVED)
+    assert "unsupported_structure" in legacy.unresolved_dependencies
+    doc = reprocess_document(snapshot, now=DERIVED, normalizer_version="2.1.0")
+    assert not doc.unresolved_dependencies
+    assert any("12 units" in excerpt.text for excerpt in structured_excerpts(doc))
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        '<ol><li>Step.<pre><code data-monikers="restricted">run()</code></pre></li></ol>',
+        '<table data-tab-condition="restricted"><tr><th>Limit</th></tr>'
+        "<tr><td>12</td></tr></table>",
+    ],
+)
+def test_extended_composites_keep_descendant_view_conditions(body: str) -> None:
+    doc = reprocess_document(
+        _snapshot(f"<main><h1>Guide</h1>{body}</main>"), now=DERIVED, normalizer_version="2.1.0"
+    )
+    assert "unsupported_condition" in doc.unresolved_dependencies
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "<p>Before.<summary>Orphan summary.</summary>After.</p>",
+        "<details><p>Body before summary.</p><summary>Late.</summary></details>",
+        "<details><summary>First.</summary><summary>Second.</summary><p>Body.</p></details>",
+    ],
+)
+def test_extended_summary_is_only_supported_in_its_explicit_disclosure(body: str) -> None:
+    doc = reprocess_document(
+        _snapshot(f"<main><h1>Guide</h1>{body}</main>"), now=DERIVED, normalizer_version="2.1.0"
+    )
+    assert "unsupported_structure" in doc.unresolved_dependencies
+
+
+@pytest.mark.parametrize("tag", ["details", "nobr"])
+def test_extended_elements_retain_explicit_notice_ownership(tag: str) -> None:
+    content = (
+        "<summary>Restriction</summary><p>Dedicated generation only.</p>"
+        if tag == "details"
+        else "Dedicated generation only."
+    )
+    doc = reprocess_document(
+        _snapshot(
+            f'<main><h1>Guide</h1><{tag} role="note">{content}</{tag}>'
+            "<p>Follow the procedure.</p></main>"
+        ),
+        now=DERIVED,
+        normalizer_version="2.1.0",
+    )
+    assert not doc.unresolved_dependencies
+    assert doc.required_context_ids
+    assert "Dedicated generation only." in structured_excerpts(doc)[-1].text

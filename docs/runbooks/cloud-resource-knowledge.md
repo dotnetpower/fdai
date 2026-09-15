@@ -11,8 +11,8 @@ Collection, package verification, and import are separate from approval and sear
 > Establish source rights, production signing trust, internal reviewers, and deployment configuration
 > before enabling collection. Local tests do not establish those approvals or a production rollout.
 >
-> **Structured preview:** Original-free v2 remains the default. The v3 opt-in below is under
-> development, not a fully implemented or live-validated rollout.
+> **Structured implementation:** Original-free v2 remains the default. The v3 opt-in is implemented;
+> source qualification, independent answer review and production rollout remain separate.
 
 ## Prerequisites
 
@@ -39,7 +39,8 @@ Mount independently reviewed policy files read-only and protect their parent dir
 |---------|----------|---------|
 | `FDAI_CLOUD_KNOWLEDGE_REGISTRY_PATH` | ingestion API, worker, Core | Path to the same reviewed source registry revision |
 | `FDAI_CLOUD_KNOWLEDGE_TRUST_PATH` | ingestion API, worker, Core | Independently managed signing trust and revocation evidence |
-| `FDAI_CLOUD_KNOWLEDGE_FORMAT` | ingestion API | Default `v2`; explicit `v3` selects the developing structured format, not trust, approval, or activation |
+| `FDAI_CLOUD_KNOWLEDGE_FORMAT` | ingestion API | Default `v2`; explicit `v3` selects the structured format, not trust, approval, or activation |
+| `FDAI_CLOUD_KNOWLEDGE_NORMALIZER_VERSION` | ingestion API | Default `2.0.0`; explicit `2.1.0` requires `v3` and compatible reader `3.1.0`; unknown/incompatible values fail startup |
 | `FDAI_DOCUMENT_COLLECTIONS` | ingestion API | Includes every registered knowledge collection |
 | `FDAI_DOCUMENT_RETRIEVAL_MODE` | ingestion API, worker | `lexical` avoids embedding construction and startup/query probes; `hybrid` preserves the existing default |
 | Existing `FDAI_RCA_DOCUMENT_*` settings | Core | Bind the authorized governed document collection/read store to semantic conversations |
@@ -82,11 +83,57 @@ without re-embedding or replacing the active document. New body content remains 
 The operational defaults are seven-day checks and a thirty-day unverified ceiling; reference
 profiles can use thirty-day checks and a ninety-day ceiling after review.
 
+## Prepare retained sources without network access
+
+Use the installed `fdai_ingestion_api_service.cloud_knowledge.review` module to assess existing
+collector files before a new release proposal. It performs no fetch, signing, approval, index write
+or model call. The operating system must enforce any required egress isolation; the command does
+not change the host network or claim production isolation on its own.
+
+Prepare a UTF-8 JSON input with schema `fdai.cloud-knowledge-review.v1` and a `sources` array. Each
+entry contains exact retained `CloudSourceEvidence` as `evidence`, its `title`, and `original_path`
+and `normalized_path` relative to the selected source root. Preserve the original observations;
+do not insert current timestamps or invented rights. Paths are bounded canonical POSIX names and
+cannot traverse parents or symbolic/hard links. The plan references originals but never embeds them.
+
+```bash
+python -m fdai_ingestion_api_service.cloud_knowledge.review \
+  --input /private/review-input.json --source-root /private/retained \
+  --output /private/new-review --normalizer-version 2.1.0 \
+  --per-source-seconds 30 --total-seconds 900
+```
+
+The paths are placeholders. Input and output parents must already exist; the output directory must
+not exist. The command creates private files without overwriting prior evidence. It retains one
+original-free structured candidate per successfully normalized source, including candidates with
+explicit structural or excerpt-size holds. The canonical `report.json` binds the exact input hash,
+candidate hashes, processing identities, original dates, byte accounting and complete source scope.
+Failed inputs and expired budgets remain visible as held or unprocessed rows with unknown metrics.
+
+| Boundary | Maximum |
+|---|---|
+| Input plan / source count | 2 MiB / 256 |
+| Each original or normalized file / cumulative source bytes | 8 MiB / 64 MiB |
+| Each candidate / cumulative candidate bytes | 16 MiB / 64 MiB |
+| Child wire output / address space / CPU | 32 MiB / 768 MiB / 30 seconds |
+| Per-source processing / total processing | 30 seconds / 900 seconds |
+
+The child bounds normalization and complete excerpt measurement together. Progress reports expose
+counts, not source text. A deadline never publishes a late candidate as successful; output I/O
+failure is terminal and partial files are retained for diagnosis. Use local regular storage, not a
+network-mounted path; processing deadlines are not a hard deadline for a blocked filesystem call.
+
+Exit `0` means all declared sources are structurally processable, `1` means the complete report
+contains holds/unprocessed sources, and `2` means invalid top-level input or output failure. Even
+exit `0` leaves rights, independent review, production qualification and execution authority false.
+Candidates and this report are not directly importable release manifests. Preserve the declared
+scope for independent review and use the existing governed producer/signing path afterward.
+
 ## Prepare a signed offline package
 
 The default v2 review manifest contains exact normalized UTF-8 text, per-source original and
 normalized hashes, collection/check times, applicability, license reference, and complete collection
-identity. The developing v3 format adds body blocks and sealed excerpt digests, not source originals.
+identity. The v3 format adds body blocks and sealed excerpt digests, not source originals.
 Original HTML/Markdown is retained in the collector checkpoint and is not included in new
 exports, packages, collected submissions, or rollback candidates. The 16 MiB hard ceiling remains;
 ZIP/TAR, scripts, plugins, model weights, and database dumps are not accepted.
@@ -94,7 +141,8 @@ Split large source inventories into separately reviewed bounded collections, not
 
 Default packages use `fdai.cloud-knowledge-package.v2`, manifest `fdai.cloud-knowledge.v2`, and
 reader `2.0.0`. The opt-in v3 uses `fdai.cloud-knowledge-package.v3`, `fdai.cloud-knowledge.v3`, and
-reader `3.0.0`; older readers cannot consume it. Upgrade the API/CLI and worker together and confirm
+reader `3.0.0` for normalizer `2.0.0`, or reader `3.1.0` when any document uses `2.1.0`.
+Older readers cannot consume newer representations. Upgrade the API/CLI and worker together and confirm
 the full reader path before delivery. Retained v1/v2 bytes and signatures stay unchanged and remain
 verifiable/importable under current admission gates. Never strip fields or relabel a signed package;
 create a new review manifest and signature. Eligible v1/v2 rollback creates a higher-sequence v2
@@ -105,7 +153,7 @@ The receiver verifies the included text's SHA-256 and signature. The original SH
 producer provenance, not a claim that the receiver rehashed an absent body. Verification makes no
 network request to retrieve it. Removing originals does not remove text storage/transfer conditions,
 attribution and modification notices, internal inspection, or independent approval. It also does not
-fix the real-page normalization and table-caveat findings in [Issue #995](https://github.com/dotnetpower/fdai/issues/995#issuecomment-5667579564).
+qualify unresolved media, ambiguous tables or source-dependent context in [Issue #995](https://github.com/dotnetpower/fdai/issues/995).
 
 An independently approved signing process signs the exact canonical manifest bytes prefixed with
 the ASCII purpose `fdai.cloud-knowledge.release.v1` and one zero byte. It retains the private key.
@@ -168,7 +216,7 @@ does not prove cancellation; reload status before another request.
   approved source policy before issuing a new registry revision; do not erase audit/check history.
 - **Full-text rights absent:** Keep the source reference-only. Do not export or import its full text.
 - **Oversized section:** Legacy v1/v2 requires a complete heading-bounded section plus provenance
-  within 8 KiB. The developing v3 path uses bounded structural excerpts with required context;
+  within 8 KiB. The v3 path uses bounded structural excerpts with required context;
   an unsupported or oversized atomic unit holds the complete generation rather than dropping content.
 - **Current guidance:** Exact typed resource conditions and fresh source evidence are required for
   an as-of operational explanation. A live-current request returns a new-observation requirement;
@@ -180,6 +228,9 @@ Before production rollout, retain a real complete source collection and an egres
 package-to-answer drill with your actual signing root, security reviewers, scanner, service roles,
 and policies. Include tamper, replay, source expiry, unavailable trust, duplicate worker, and rollback
 cases. Repository tests use synthetic documents and test-only signing keys; they are not this receipt.
+Local retained-source processing in an OS network namespace proves only that bounded preparation
+ran with the recorded network restrictions. It does not prove internal import, reviewer identity,
+stored retrieval, bilingual answer quality, signing trust or deployed network policy.
 
 ## Related docs
 

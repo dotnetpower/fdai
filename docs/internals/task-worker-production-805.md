@@ -252,3 +252,18 @@ and Korean quality check also pass. The repair changes documentation only; prior
 SQL and packaging evidence remains unchanged and was not rerun just to obtain another CI attempt.
 The stopped delivery coordinator is resumed only after a locally committed, non-force-published
 repair. Protected merge and final issue closure still require exact-head CI evidence.
+
+The supporting English/Korean indexes now link to the moved ledger, and their bounded-worker
+summary distinguishes implemented composition from unfinished product and operational work.
+All seven repair documents passed punctuation and readable-Hangul checks; both document pairs
+passed translation parity and quality, and 38 relative link targets plus the moved worker-status
+anchors were verified. Runtime and checker source were not changed.
+
+The repair was integrated with main `165cfe3e8c8fae862f236438f741192657bafe12`, whose exact CI
+`34958359447` succeeded. The two Project Structure conflict regions were reconciled without
+losing either parent's history: 227 prior topic rows and 226 main rows remain. All worker source,
+tests and locked dependency inputs are byte-identical to the preceding topic checkpoint.
+After integration, **30 focused tests passed in 8.25 seconds** across translated-document
+structure, Core worker composition, shutdown and wheel/cold import. Three English/Korean pairs,
+three Korean quality checks, six changed roadmap size checks and both owning implementation
+ledgers passed. Existing SQL evidence was reused; no test database or live provider was started.
