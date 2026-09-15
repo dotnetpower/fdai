@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from types import MappingProxyType
 
+from fdai_operator_service.alert_quality_history import AlertQualityRequestSource
 from fdai_operator_service.alert_quality_records import (
     AlertQualitySource,
     AlertQualityStateStore,
@@ -84,6 +85,7 @@ class AlertQualityDependencies:
     clock: Callable[[], datetime] = lambda: datetime.now(UTC)
     timeout_seconds: float = 15.0
     preference_store: AlertQualityPreferenceStore | None = None
+    request_source: AlertQualityRequestSource | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -106,6 +108,7 @@ def alert_quality_dependencies_from_environment(
     producer_ready: ProducerReady | None = None,
     enabled: bool = True,
     preference_store: AlertQualityPreferenceStore | None = None,
+    request_source: AlertQualityRequestSource | None = None,
 ) -> AlertQualityDependencies:
     """Bind the existing Operator store/writer without a producer-readiness fallback.
 
@@ -120,4 +123,5 @@ def alert_quality_dependencies_from_environment(
         producer_ready=producer_ready,
         enabled=enabled,
         preference_store=preference_store,
+        request_source=request_source,
     )

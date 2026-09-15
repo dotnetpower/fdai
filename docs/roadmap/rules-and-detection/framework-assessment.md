@@ -47,6 +47,8 @@ scope, evidence admission, replay, or results.
 operation-filtered outbox claims, and a signed result consumer to the shared host. Alert evidence,
 preferences, and producer health cannot satisfy WAF/CAF evidence or readiness. Existing assessment
 scope, catalog pins, admission, and readiness criteria are unchanged; no alert result updates them.
+Alert request history selects its own outbox namespace, principal and exact scope; its signed
+terminal and baseline detail are not framework-assessment receipts and never update WAF/CAF state.
 
 ## Design decision and critique
 

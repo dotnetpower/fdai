@@ -259,7 +259,7 @@ export function AlertQualityPlans({ plans, now }: { readonly plans: readonly Ale
   </section>;
 }
 
-function AlertQualityTreatmentView({ plan }: { readonly plan: AlertQualityPlan }) {
+export function AlertQualityTreatmentView({ plan, baselineAvailable = false }: { readonly plan: AlertQualityPlan; readonly baselineAvailable?: boolean }) {
   const treatment = plan.treatment;
   if (treatment.kind === "routing") return <section class="stack-section">
     <h4>{text("treatmentDiff")}</h4>
@@ -268,12 +268,12 @@ function AlertQualityTreatmentView({ plan }: { readonly plan: AlertQualityPlan }
       <Fact label={text("removedBinding")}>{treatment.remove_group_ref}</Fact>
       <Fact label={text("addedBinding")}>{treatment.replacement_group_ref}</Fact>
     </Facts>
-    <p class="muted">{text("beforeMissing")}</p>
+    {baselineAvailable ? null : <p class="muted">{text("beforeMissing")}</p>}
   </section>;
   return <section class="stack-section">
     <h4>{text("treatmentDiff")}</h4>
     <Facts><Fact label={text("rule")}>{treatment.target_ref}</Fact></Facts>
-    <h4>{text("before")}</h4><p class="muted">{text("beforeMissing")}</p>
+    {baselineAvailable ? null : <><h4>{text("before")}</h4><p class="muted">{text("beforeMissing")}</p></>}
     <h4>{text("after")}</h4>
     {treatment.kind === "suppression" ? <>
       <Facts>

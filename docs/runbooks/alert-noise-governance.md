@@ -101,6 +101,7 @@ All routes revalidate current identity and exact scope; responses use `Cache-Con
 |---------|---------|
 | `GET /alert-quality/scopes` | Discover only the signed-in subject's configured opaque scopes; no query arguments. |
 | `GET /alert-quality?scope_ref=<scope-ref>` | Read retained evidence and current requestability. A missing assessment is not proof of zero noise. |
+| `GET /alert-quality/requests?scope_ref=<scope-ref>` | Read at most 25 recent original acceptances and exact signed terminals for the current principal. `truncated` is explicit; optional `request_key` selects one original client idempotency key. |
 | `POST /alert-quality/assess` | Human Contributor, Approver, or Owner requests a bounded assessment with one `Idempotency-Key`. `202` proves durable acceptance only. |
 | `POST /alert-quality/proposals` | Same human role floor; submit exact `scope_ref`, current `evidence_digest`, and one typed `treatment` with one `Idempotency-Key`. No approval or execution fields. |
 | `GET /alert-quality/settings?scope_ref=<scope-ref>` | Read prerequisites, preference state/revision, `mode: shadow`, and `execution_authority: false`. |
@@ -126,11 +127,16 @@ unreadable bound preference vetoes new requests, never accepted work or separate
    references. Source episodes, attempts, deliveries, and acknowledgements are different measures.
 2. **Request one assessment.** Use the typed assessment request only when the authenticated source,
    writer, producer readiness, and preference checks allow it. Preserve its correlation reference.
-   If the result is unknown, reconcile the retained request before another submission.
+   If the result is unknown, explicitly refresh request history to reconcile its exact original key
+   before another deliberate submission. A newer report, broker acceptance, missing row or elapsed
+   deadline cannot clear uncertainty. History refresh never resends a write.
 3. **Prepare one inert treatment.** Use current complete evidence and one routing, finite-window,
    or supported evaluation change. Retain the immutable plan and exact source/forward/rollback
    artifacts. Window/frequency changes require temporal evidence; threshold-only receipts cannot
    substitute. Provider and promotion qualification remain separate.
+   Recorded request details show the plan-bound baseline, measured replay guards and original
+   Process reference when present. Follow the canonical Process link for current approvals,
+   independent outcomes and recovery, not a second approval surface in this report.
 4. **Review future enforcement prerequisites.** Through Var, obtain current decisions from all
    affected service owners and a distinct Owner-level change authority. Neither requester nor
    executor can approve. Pins cover the plan, dependencies, policy, workflow, expiry, and recovery.

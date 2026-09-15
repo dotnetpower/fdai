@@ -13,9 +13,20 @@ export type AlertQualityCommandState = "idle" | "pending" | "submitted" | "rejec
 /** Unknown writes stay held across scope refresh/switch; overflow fails closed, never evicts a hold. */
 export function createAlertQualityRequestMemory() {
   const uncertain = new Set<string>();
+  const lastKeys = new Map<string, string>();
   let allHeld = false;
   return {
     isUnknown: (scope: string): boolean => allHeld || uncertain.has(scope),
+    remember: (scope: string, key: string): void => {
+      if (lastKeys.size >= ALERT_MAX_SCOPES && !lastKeys.has(scope)) allHeld = true;
+      else lastKeys.set(scope, key);
+    },
+    uncertainKey: (scope: string): string | null => uncertain.has(scope) ? lastKeys.get(scope) ?? null : null,
+    reconcile: (scope: string, key: string): boolean => {
+      if (allHeld || !uncertain.has(scope) || lastKeys.get(scope) !== key) return false;
+      uncertain.delete(scope);
+      return true;
+    },
     markUnknown: (scope: string): void => {
       if (uncertain.size >= ALERT_MAX_SCOPES && !uncertain.has(scope)) allHeld = true;
       else uncertain.add(scope);
@@ -152,6 +163,7 @@ export function createAlertQualitySession(
     let next: AlertQualityCommandState;
     try {
       const key = globalThis.crypto.randomUUID();
+      memory.remember(scope, key);
       const authorization = async (): Promise<string> => {
         const header = await client.authorizationHeader();
         if (!current() || generation !== commandGeneration || !requestable() || header === null

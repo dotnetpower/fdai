@@ -2,7 +2,7 @@
 title: 알림 과다 수신 관리 런북
 description: shadow 우선 알림 평가와 정확한 계획에 따른 수동 PR 변경 및 복구 선행 조건을 검토합니다.
 translation_of: alert-noise-governance.md
-translation_source_sha: c148b96f79a605f8738a9cefcd2dc8a784bd81eb
+translation_source_sha: 88e2b9a7e38d197b999907b4638f401b96b9fcb5
 translation_revised: 2026-09-15
 fdai_runbook:
   schema_version: 1.0.0
@@ -101,6 +101,7 @@ fdai_runbook:
 |------|------|
 | `GET /alert-quality/scopes` | 로그인한 주체에게 구성된 불투명 범위만 조회하며 쿼리 인자를 받지 않습니다. |
 | `GET /alert-quality?scope_ref=<scope-ref>` | 보존된 근거와 현재 요청 가능 여부를 읽습니다. 평가가 없다는 것은 알림 과다가 없다는 증명이 아닙니다. |
+| `GET /alert-quality/requests?scope_ref=<scope-ref>` | 현재 principal의 최근 원본 접수와 정확한 서명 결과를 최대 25개 읽습니다. `truncated`로 잘림을 명시하며 선택적 `request_key`로 원래 클라이언트 멱등 키 하나를 지정합니다. |
 | `POST /alert-quality/assess` | 사람 Contributor, Approver 또는 Owner가 `Idempotency-Key` 하나로 제한적 평가를 요청합니다. `202`는 영속 접수만 입증합니다. |
 | `POST /alert-quality/proposals` | 같은 사람 역할 기준을 적용하며 정확한 `scope_ref`, 현재 `evidence_digest`, 타입 지정 `treatment` 하나와 `Idempotency-Key` 하나를 제출합니다. 승인이나 실행 필드는 받지 않습니다. |
 | `GET /alert-quality/settings?scope_ref=<scope-ref>` | 선행 조건, 선호 상태/개정 번호, `mode: shadow`, `execution_authority: false`를 읽습니다. |
@@ -126,11 +127,16 @@ PUT은 본문의 정수 `expected_revision` 또는 강한 ETag/일반 숫자 형
    경보 묶음, 시도, 전달 및 수신 확인은 서로 다른 측정값입니다.
 2. **평가 하나를 요청합니다.** 인증된 출처, 요청 작성자, 생산자 준비 상태 및 선호 설정 검사가
    허용할 때만 타입 지정 평가 요청을 사용합니다. 상관관계 참조를 보존합니다. 결과를 모르면
-   다시 제출하기 전에 보존된 요청을 대조합니다.
+   요청 이력을 명시적으로 새로 고쳐 정확한 원래 키를 대조한 뒤 새 요청을 선택합니다. 새
+   보고서, 브로커 접수, 누락된 행이나 기한 경과로 불확실성을 해제하지 않습니다. 이력 새로
+   고침은 쓰기를 다시 보내지 않습니다.
 3. **비활성 조정안 하나를 준비합니다.** 최신의 완전한 근거와 라우팅, 유한한 구간 또는 지원되는
    평가 조건 변경 하나를 사용합니다. 불변 계획과 정확한 원본/정방향/복구 산출물을 보존합니다.
    평가 구간/주기 변경에는 시간축 근거가 필요하며 임계값 전용 증적으로 대신할 수 없습니다.
    공급자 적격성과 승격 검증은 별개입니다.
+   기록된 요청 상세에는 계획에 결속된 기준선, 측정된 재생 보호 지표 및 원래 Process 참조가
+   있으면 표시합니다. 현재 승인, 독립 결과 및 복구는 정본 Process 링크에서 확인하며 이
+   보고서에 별도 승인 화면을 만들지 않습니다.
 4. **향후 적용 선행 조건을 검토합니다.** Var를 통해 모든 영향 서비스 담당자의 현재 결정과
    별도 Owner 수준 변경 권한자의 결정을 받습니다. 요청자와 실행자는 승인할 수 없습니다.
    고정값에는 계획, 의존성, 정책, 작업 흐름, 만료 및 복구가 포함됩니다. 카탈로그 등록과

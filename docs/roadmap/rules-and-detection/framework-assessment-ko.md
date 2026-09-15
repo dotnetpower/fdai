@@ -1,7 +1,7 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: ba7fc48d45fbd0d6f04aa0c3e7145fe46081eb71
+translation_source_sha: b750e1cf1dc5b6d9e7f41714e06ab57b19790551
 translation_revised: 2026-09-15
 ---
 # WAF 및 CAF 근거 기반 평가
@@ -48,6 +48,8 @@ Framework(CAF) 카탈로그를 범위에 결합되고 재현 가능한 shadow �
 경로, 작업별 발신함 점유 및 서명된 결과 소비자를 추가합니다. 알림 근거, 선호 설정, 생산자
 상태로 WAF/CAF 근거나 준비 상태를 충족할 수 없습니다. 기존 평가 범위, 카탈로그 고정값,
 수락 및 준비 상태 기준은 바뀌지 않으며 알림 결과로 이 항목을 갱신하지 않습니다.
+알림 요청 이력은 자체 발신함 네임스페이스, principal 및 정확한 범위로 한정합니다. 서명된
+최종 결과와 기준선 상세는 프레임워크 평가 증적이 아니며 WAF/CAF 상태를 갱신하지 않습니다.
 
 ## 설계 결정 및 비판
 

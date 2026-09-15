@@ -8,6 +8,7 @@ import {
   useAlertQualityIdentity, useAlertQualityReport, useAlertQualityScopes, useAlertQualitySettings, type AlertQualityIdentity,
 } from "./alert-quality.controller";
 import { AlertQualityProposalForm } from "./alert-quality.forms";
+import { AlertQualityHistory } from "./alert-quality.history";
 import { alertQualityRequestable, isAlertQualityRef } from "./alert-quality.model";
 import {
   AlertQualityEvidence, AlertQualityFact as Fact, AlertQualityFacts as Facts, AlertQualityFindings,
@@ -121,5 +122,6 @@ function ScopedAlertQuality({ identity, scopes, scope, rule, invalidRule }: {
         <AlertQualityPlans plans={data.plans} now={now} />
       </div>}
     </AsyncBoundary>
+    <AlertQualityHistory identity={identity} scopes={scopes} scope={scope} onReconciled={report.refresh} />
   </>;
 }

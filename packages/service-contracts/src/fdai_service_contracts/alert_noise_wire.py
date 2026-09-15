@@ -16,6 +16,7 @@ from fdai_service_contracts.alert_noise_base import AlertContractBase as Contrac
 from fdai_service_contracts.alert_noise_base import AlertTime as AwareDatetime
 from fdai_service_contracts.alert_noise_base import FalseOnly
 from fdai_service_contracts.alert_noise_plan import AlertChangePlan, AlertTreatment
+from fdai_service_contracts.alert_noise_projection import AlertProposalDetail
 from fdai_service_contracts.executor_models import Digest
 
 ALERT_NOISE_RESULT_TOPIC = "fdai.alert-noise.results"
@@ -74,6 +75,7 @@ class AlertNoiseResult(ContractBase):
     reason: Ref | None = None
     assessment: NoiseAssessment | None = None
     plan: AlertChangePlan | None = None
+    detail: AlertProposalDetail | None = None
     execution_authority: FalseOnly = False
 
     @model_validator(mode="after")
@@ -100,6 +102,10 @@ class AlertNoiseResult(ContractBase):
             or self.plan.evidence_digest != self.assessment.evidence_digest
         ):
             raise ValueError("alert plan result MUST match its exact request")
+        if self.detail is not None:
+            if self.plan is None or self.detail.recorded_at > self.recorded_at:
+                raise ValueError("alert proposal details require a preceding retained plan")
+            self.detail.require_plan(self.plan)
         return self
 
 

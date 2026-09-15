@@ -224,7 +224,7 @@ def test_route_builder_matches_its_explicit_method_path_name_manifest() -> None:
     _, _, dependencies = _harness()
     routes = build_alert_quality_routes(dependencies)
     assert isinstance(routes, tuple)
-    assert len(routes) == 6
+    assert len(routes) == 7
     assert (
         tuple(
             (method, route.path, route.name)

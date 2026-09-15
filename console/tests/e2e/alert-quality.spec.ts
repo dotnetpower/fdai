@@ -4,6 +4,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import reportFixture from "../../src/routes/alert-quality.backend.fixture.json" with { type: "json" };
 import settingsFixture from "../../src/routes/alert-quality.settings.fixture.json" with { type: "json" };
+import historyFixture from "../../src/routes/alert-quality.history.fixture.json" with { type: "json" };
 import en from "../../src/routes/i18n/alert-quality.en.json" with { type: "json" };
 import ko from "../../src/routes/i18n/alert-quality.ko.json" with { type: "json" };
 
@@ -16,6 +17,7 @@ async function fixture(page: Page, options: {
   locale?: "en" | "ko"; anonymous?: boolean; missing?: boolean;
   expired?: boolean; ambiguous?: boolean; settingsConflict?: boolean;
   scopeGate?: Promise<void>;
+  reconcile?: boolean;
 } = {}) {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.clock.setFixedTime(new Date(now));
@@ -61,6 +63,16 @@ async function fixture(page: Page, options: {
         source: "alert-noise-governance", scope_refs: [scope], execution_authority: false,
       } });
     }
+    if (path === "/alert-quality/requests") {
+      const history = structuredClone(historyFixture);
+      if (options.reconcile && writes[0]?.key !== undefined) {
+        Object.assign(history.requests[0]!, {
+          request_key: writes[0].key, operation: "alert_noise.assess",
+          status: "assessment_ready", plan: null, detail: null,
+        });
+      }
+      return route.fulfill({ json: history });
+    }
     if (path === "/alert-quality/settings") {
       if (request.method() === "PUT") {
         const body = request.postDataJSON() as Record<string, unknown>;
@@ -99,6 +111,32 @@ async function geometry(page: Page) {
 }
 
 test.describe.configure({ mode: "serial" });
+
+test("desktop request history exposes exact baseline and canonical Process navigation", async ({ page }, info) => {
+  const { writes } = await fixture(page);
+  const history = page.getByRole("region", { name: en["history.title"] });
+  await expect(history.getByRole("button", { name: en["history.refresh"] })).toBeEnabled();
+  await history.locator("summary").click();
+  await expect(history.getByRole("heading", { name: en.before, exact: true })).toBeVisible();
+  await expect(history.getByText(en["history.baselineGroups"], { exact: true })).toBeVisible();
+  await expect(history.getByRole("link", { name: en["history.openProcess"] })).toHaveAttribute("href", "/processes/example-alert-process");
+  await expect(history.getByText(en.beforeMissing, { exact: true })).toHaveCount(0);
+  expect(writes).toHaveLength(0);
+  await geometry(page);
+  await history.getByRole("heading", { name: en.before, exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath("alert-history-en-desktop.png") });
+});
+
+test("desktop exact terminal reconciliation never resends an uncertain request", async ({ page }) => {
+  const { writes } = await fixture(page, { ambiguous: true, reconcile: true });
+  const main = page.locator("main");
+  await main.getByRole("button", { name: en.assess, exact: true }).click();
+  await expect(main.getByText(en["command.unknown"], { exact: true })).toBeVisible();
+  await main.getByRole("button", { name: en["history.refresh"], exact: true }).click();
+  await expect(main.getByRole("button", { name: en.assess, exact: true })).toBeEnabled();
+  expect(writes).toHaveLength(1);
+  await geometry(page);
+});
 
 test("desktop completes routing and revision-bound preference", async ({ page }, info) => {
   const { writes } = await fixture(page);
@@ -180,6 +218,9 @@ test("Korean expanded evidence fits desktop then constrained and mobile", async 
     await geometry(page);
     await page.locator("main").evaluate((element) => { element.scrollTop = 0; });
     await page.screenshot({ path: info.outputPath(`alert-quality-ko-${viewport.width}.png`), fullPage: true });
+    await page.getByRole("region", { name: ko["history.title"] })
+      .getByRole("heading", { name: ko.before, exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath(`alert-history-ko-${viewport.width}.png`) });
   }
 });
 

@@ -35,10 +35,10 @@ Console operations use four boundaries:
 | Operator API domain request routes | Authenticate, authorize, validate the source revision and domain schema, deduplicate, and publish | Accept a request; never decide or execute it. |
 | Agent runtime | Judge, approve, execute, recover, and audit through typed pub/sub | Existing pantheon ownership remains authoritative. |
 
-The Operator API remains a mechanical relay. It is the shared, non-privileged HTTP backend for
-FDAI Console and operator clients. It does not become an orchestrator, a hidden agent, or a generic
-workflow engine, and it never receives Thor's executor identity. Agents do not call each other
-directly.
+The Operator API is a shared non-privileged relay, not a workflow engine or hidden agent, and never
+holds Thor's executor identity. Agents communicate through typed events, not direct calls.
+[Alert noise requests](../operations/alert-noise-governance.md) expose original acceptances and signed results.
+Only an exact-key terminal resolves uncertainty; the canonical Process owns approval and effect state.
 
 Recorded Resource state views consume the shared independent state axes rather than interpreting
 raw provider fields in the browser. An exact Static Web App default-environment `BuildStatus`

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
 import re
 from datetime import datetime
@@ -20,6 +18,7 @@ from fdai_operator_service.alert_quality_boundary import (
     _response,
     _unavailable,
 )
+from fdai_operator_service.alert_quality_command import alert_request_ref
 from fdai_operator_service.alert_quality_config import AlertQualityDependencies
 from fdai_operator_service.alert_quality_contracts import (
     AlertAssessmentBody,
@@ -152,11 +151,7 @@ async def _post(
             raise _RequestError(503, "unavailable")
         # Namespace the existing globally keyed outbox by principal, NOT body content.
         # Reusing a key with another scope, operation or treatment therefore conflicts.
-        raw_key = json.dumps(
-            ["operator-alert-quality-request-v1", principal.subject_id, keys[0]],
-            separators=(",", ":"),
-        )
-        request_key = "alert-noise:" + hashlib.sha256(raw_key.encode()).hexdigest()
+        request_key = alert_request_ref(principal.subject_id, keys[0])
         proposal = EventProposal(
             operation=operation,
             principal_id=principal.subject_id,

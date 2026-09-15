@@ -5,13 +5,12 @@ from __future__ import annotations
 import asyncio
 import hashlib
 from collections.abc import AsyncIterator, Callable, Mapping
-from datetime import UTC, datetime, timedelta
-from typing import Any, Protocol
+from datetime import UTC, datetime
+from typing import Protocol
 from uuid import NAMESPACE_URL, uuid5
 
 from fdai_service_contracts.alert_noise_wire import (
     ALERT_NOISE_RESULT_TOPIC,
-    AlertNoiseCommand,
     SignedAlertCommand,
     SignedAlertReadiness,
     SignedAlertResult,
@@ -19,10 +18,11 @@ from fdai_service_contracts.alert_noise_wire import (
     verify_alert_record,
 )
 
+from fdai_operator_service.alert_quality_command import command_from_record as command_from_record
+from fdai_operator_service.alert_quality_history import StateKvAlertQualityRequestSource
 from fdai_operator_service.alert_quality_store import (
     AlertQualityStaleError,
     StateKvAlertQualityStore,
-    alert_quality_requester_ref,
 )
 from fdai_operator_service.postgres_family_store import PostgresFamilyStore
 
@@ -33,39 +33,6 @@ class AlertQualityTransport(Protocol):
     async def publish(self, topic: str, key: str, payload: Mapping[str, object]) -> object: ...
 
     def subscribe(self, topic: str, group_id: str) -> AsyncIterator[Mapping[str, object]]: ...
-
-
-def command_from_record(record: Mapping[str, Any]) -> AlertNoiseCommand:
-    """Reconstruct the exact command from authenticated, immutable acceptance fields."""
-    outer = record.get("payload")
-    if not isinstance(outer, Mapping) or not isinstance(outer.get("payload"), Mapping):
-        raise ValueError("alert request body is malformed")
-    body = outer["payload"]
-    subject, key = record.get("principal_id"), record.get("idempotency_key")
-    if not isinstance(subject, str) or not isinstance(key, str):
-        raise ValueError("alert request identity missing")
-    if outer.get("principal_id") != subject or outer.get("idempotency_key") != key:
-        raise ValueError("alert request identity mismatch")
-    if outer.get("operation") != record.get("operation"):
-        raise ValueError("alert request operation mismatch")
-    scope = body.get("scope_ref")
-    if not isinstance(scope, str) or body.get("requester_ref") != alert_quality_requester_ref(
-        subject, scope
-    ):
-        raise ValueError("alert request principal scope mismatch")
-    accepted = datetime.fromisoformat(str(record.get("accepted_at", "")).replace("Z", "+00:00"))
-    return AlertNoiseCommand.model_validate(
-        {
-            "operation": record["operation"],
-            "request_ref": key,
-            "requester_ref": body["requester_ref"],
-            "scope_ref": scope,
-            "requested_at": accepted,
-            "expires_at": accepted + timedelta(minutes=5),
-            "evidence_digest": body.get("evidence_digest"),
-            "treatment": body.get("treatment"),
-        }
-    )
 
 
 class AlertQualityBridge:
@@ -86,6 +53,9 @@ class AlertQualityBridge:
         self.store, self.transport, self.topic = store, transport, event_topic
         self.key, self.scopes, self.clock = transport_key, scopes, clock
         self.projections = StateKvAlertQualityStore(store, clock=clock)
+        self.requests = StateKvAlertQualityRequestSource(
+            store, transport_key=transport_key, clock=clock
+        )
         self._tasks: tuple[asyncio.Task[None], ...] = ()
         self._ready: SignedAlertReadiness | None = None
 

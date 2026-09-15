@@ -10,7 +10,9 @@ intercepted synthetic API records. It is not Browser Entra or provider validatio
 - Navigation: default collapsed rail; evidence and retained-plan disclosures both expanded.
 - Browser: Chromium; desktop 1440x900 first, then 993x641 and 390x844.
 - Inputs: route-local report/Settings fixtures and signed-in test principal, no actual credentials.
-- [Browser scenarios](tests/e2e/alert-quality.spec.ts): 10 passed; Console TypeScript passed.
+- [Browser scenarios](tests/e2e/alert-quality.spec.ts): 12 passed after the request-history extension;
+  271 Console tests and TypeScript passed. The later baseline metadata addition rechecked desktop
+  history and Korean expanded geometry across all three viewports.
 - DOM checks: document and main have no horizontal overflow; standalone route controls are at
   least 44px high. The existing inline title breadcrumb is excluded from that standalone target
   requirement, not hidden or changed.
@@ -18,8 +20,14 @@ intercepted synthetic API records. It is not Browser Entra or provider validatio
   treatment; Settings sends one revision-bound PUT; ambiguous POST and conflicting PUT never retry.
 - State: missing/expired reports allow reassessment but not proposals; anonymous mode sends no
   alert reads or writes; loading has a semantic skeleton with reduced motion.
+- Request history: exact baseline and canonical Process links are visible in recorded details.
+  A deliberate exact-original-key terminal read can reconcile a previously uncertain request;
+  a general evidence refresh or an unconfirmed result cannot. No POST is resent.
 - Local screenshot names: `alert-quality-en-desktop.png` and `alert-quality-ko-{1440,993,390}.png`
   in the runner's temporary output. Inspected images contain synthetic references only.
+  The main scroll container means a full-page capture can show only its opening viewport. Dedicated
+  `alert-history-*` captures scroll the actual baseline into view; neither image proves unvisited
+  content or a complete keyboard/assistive-technology matrix.
 
 ## Rubric assessment
 

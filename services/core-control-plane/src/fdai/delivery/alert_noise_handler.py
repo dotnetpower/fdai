@@ -14,6 +14,7 @@ from fdai_service_contracts.alert_noise import (
     digest_record,
 )
 from fdai_service_contracts.alert_noise_plan import AlertChangePlan
+from fdai_service_contracts.alert_noise_projection import AlertProposalDetail
 from fdai_service_contracts.alert_noise_wire import (
     AlertNoiseCommand,
     AlertNoiseResult,
@@ -28,6 +29,7 @@ from fdai.core.detection.alert_noise import AlertPlanHeld, assess_alert_noise, p
 from fdai.core.detection.alert_noise.execution import AlertExecutionHeld
 from fdai.core.detection.alert_noise.workflow import AlertWorkflowCoordinator
 from fdai.delivery.alert_noise_evidence import StateStoreAlertEvaluationReader
+from fdai.delivery.alert_noise_projection import alert_proposal_detail
 from fdai.shared.providers.alert_noise import AlertEvidenceSource, AlertPlanArtifacts
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.state_store import StateStore
@@ -155,6 +157,7 @@ class AlertNoiseAgentHandler:
             reason = str(exc)
         report: NoiseAssessment | None = None
         plan: AlertChangePlan | None = None
+        detail: AlertProposalDetail | None = None
         status = "held"
         evidence_digest = retained.get("evidence_digest")
         if reason is None and isinstance(evidence_digest, str):
@@ -191,12 +194,18 @@ class AlertNoiseAgentHandler:
                     if self.artifacts is not None:
                         await self.artifacts.prepare(plan=plan, evidence=evidence)
                     self._request_now(command)
-                    if self.workflows is not None:
+                    workflow = (
                         await self.workflows.run(
                             plan_digest=digest_record(plan),
                             evidence_digest=plan.evidence_digest,
                             correlation_id=command.request_ref,
                         )
+                        if self.workflows is not None
+                        else None
+                    )
+                    detail = alert_proposal_detail(
+                        plan, evidence, comparison, workflow, now=self._request_now(command)
+                    )
                     status = "proposal_ready"
                 except (AlertPlanHeld, AlertExecutionHeld) as exc:
                     status, reason, plan = "held", str(exc), None
@@ -214,6 +223,7 @@ class AlertNoiseAgentHandler:
                 "reason": reason or ("evidence_unavailable" if status == "held" else None),
                 "assessment": report,
                 "plan": plan,
+                "detail": detail if plan is not None else None,
             }
         )
         await self._retain(

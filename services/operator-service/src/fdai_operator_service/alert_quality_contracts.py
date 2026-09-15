@@ -26,7 +26,7 @@ UnavailableReason = Literal[
     "proposal_pending",
 ]
 Operation = Literal["alert_noise.assess", "alert_noise.propose"]
-RouteOperation = Operation | Literal["scopes", "settings.get", "settings.put"]
+RouteOperation = Operation | Literal["scopes", "settings.get", "settings.put", "requests.get"]
 
 
 class AlertQualityResponse(ContractBase):

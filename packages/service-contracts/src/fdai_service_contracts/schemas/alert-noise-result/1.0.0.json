@@ -323,6 +323,17 @@
           ],
           "default": null
         },
+        "detail": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlertProposalDetail"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "execution_authority": {
           "const": false,
           "default": false,
@@ -337,6 +348,255 @@
         "status"
       ],
       "title": "AlertNoiseResult",
+      "type": "object"
+    },
+    "AlertProcessLink": {
+      "additionalProperties": false,
+      "description": "Recorded invocation reference, never a substitute for the current canonical journal.",
+      "properties": {
+        "process_id": {
+          "pattern": "^[A-Za-z0-9_.:-]{1,200}$",
+          "title": "Process Id",
+          "type": "string"
+        },
+        "workflow_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Workflow Ref",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "running",
+            "waiting",
+            "compensating",
+            "compensated",
+            "succeeded",
+            "failed",
+            "cancelled",
+            "timed_out"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "shadow",
+            "enforce"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "process_id",
+        "workflow_ref",
+        "status",
+        "mode"
+      ],
+      "title": "AlertProcessLink",
+      "type": "object"
+    },
+    "AlertProposalDetail": {
+      "additionalProperties": false,
+      "description": "Safe baseline values and measured detector guards with exact retained-plan commitments.",
+      "properties": {
+        "plan_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Plan Digest",
+          "type": "string"
+        },
+        "baseline": {
+          "$ref": "#/$defs/AlertRollbackBaseline"
+        },
+        "evaluation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvaluationReceipt"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "process": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlertProcessLink"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "recorded_at": {
+          "format": "date-time",
+          "title": "Recorded At",
+          "type": "string"
+        },
+        "execution_authority": {
+          "const": false,
+          "default": false,
+          "title": "Execution Authority",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "plan_digest",
+        "baseline",
+        "recorded_at"
+      ],
+      "title": "AlertProposalDetail",
+      "type": "object"
+    },
+    "AlertRollbackBaseline": {
+      "additionalProperties": false,
+      "description": "Exact pre-change configuration for the changed object, not its dependency.",
+      "properties": {
+        "rule": {
+          "$ref": "#/$defs/AlertRule"
+        },
+        "processing_rule": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProcessingRule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "rule"
+      ],
+      "title": "AlertRollbackBaseline",
+      "type": "object"
+    },
+    "AlertRule": {
+      "additionalProperties": false,
+      "description": "Exact observed configuration linked to service and policy, not caller labels.",
+      "properties": {
+        "ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "resource_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Resource Ref",
+          "type": "string"
+        },
+        "service_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Service Ref",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Revision",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "metric",
+            "log",
+            "activity",
+            "processing",
+            "unknown"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "severity": {
+          "anyOf": [
+            {
+              "maximum": 4,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Severity"
+        },
+        "classification": {
+          "default": "unknown",
+          "enum": [
+            "informational",
+            "operational",
+            "security",
+            "compliance",
+            "slo",
+            "recovery",
+            "service_health",
+            "telemetry_loss",
+            "approval",
+            "unknown"
+          ],
+          "title": "Classification",
+          "type": "string"
+        },
+        "group_refs": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 5,
+          "title": "Group Refs",
+          "type": "array"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "stateful": {
+          "default": true,
+          "title": "Stateful",
+          "type": "boolean"
+        },
+        "evaluation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Evaluation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "active_incident": {
+          "default": false,
+          "title": "Active Incident",
+          "type": "boolean"
+        },
+        "iac_owned": {
+          "default": false,
+          "title": "Iac Owned",
+          "type": "boolean"
+        },
+        "ownership_verified": {
+          "default": false,
+          "title": "Ownership Verified",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref",
+        "resource_ref",
+        "service_ref",
+        "revision",
+        "kind"
+      ],
+      "title": "AlertRule",
       "type": "object"
     },
     "AlertTreatment": {
@@ -493,6 +753,218 @@
         "aggregation"
       ],
       "title": "Evaluation",
+      "type": "object"
+    },
+    "EvaluationCaseResult": {
+      "additionalProperties": false,
+      "description": "Paired detection for one labeled temporal case; absence is never zero latency.",
+      "properties": {
+        "ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "actionable": {
+          "title": "Actionable",
+          "type": "boolean"
+        },
+        "baseline_detected": {
+          "title": "Baseline Detected",
+          "type": "boolean"
+        },
+        "treatment_detected": {
+          "title": "Treatment Detected",
+          "type": "boolean"
+        },
+        "baseline_latency_seconds": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Baseline Latency Seconds"
+        },
+        "treatment_latency_seconds": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Treatment Latency Seconds"
+        }
+      },
+      "required": [
+        "ref",
+        "actionable",
+        "baseline_detected",
+        "treatment_detected",
+        "baseline_latency_seconds",
+        "treatment_latency_seconds"
+      ],
+      "title": "EvaluationCaseResult",
+      "type": "object"
+    },
+    "EvaluationReceipt": {
+      "additionalProperties": false,
+      "description": "Measured replay result bound to the exact target, baseline and treatment.",
+      "properties": {
+        "rule_ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Rule Ref",
+          "type": "string"
+        },
+        "rule_revision": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Rule Revision",
+          "type": "string"
+        },
+        "scenario_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Scenario Digest",
+          "type": "string"
+        },
+        "baseline": {
+          "$ref": "#/$defs/Evaluation"
+        },
+        "treatment": {
+          "$ref": "#/$defs/Evaluation"
+        },
+        "evaluated_at": {
+          "format": "date-time",
+          "title": "Evaluated At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "baseline_true_positive": {
+          "maximum": 10000000,
+          "minimum": 0,
+          "title": "Baseline True Positive",
+          "type": "integer"
+        },
+        "treatment_true_positive": {
+          "maximum": 10000000,
+          "minimum": 0,
+          "title": "Treatment True Positive",
+          "type": "integer"
+        },
+        "baseline_false_positive": {
+          "maximum": 10000000,
+          "minimum": 0,
+          "title": "Baseline False Positive",
+          "type": "integer"
+        },
+        "treatment_false_positive": {
+          "maximum": 10000000,
+          "minimum": 0,
+          "title": "Treatment False Positive",
+          "type": "integer"
+        },
+        "baseline_false_negative": {
+          "maximum": 10000000,
+          "minimum": 0,
+          "title": "Baseline False Negative",
+          "type": "integer"
+        },
+        "treatment_false_negative": {
+          "maximum": 10000000,
+          "minimum": 0,
+          "title": "Treatment False Negative",
+          "type": "integer"
+        },
+        "accepted": {
+          "title": "Accepted",
+          "type": "boolean"
+        },
+        "reason": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Reason",
+          "type": "string"
+        },
+        "replay_method": {
+          "default": "same-bucket-threshold-v1",
+          "enum": [
+            "same-bucket-threshold-v1",
+            "uniform-metric-series-v1"
+          ],
+          "title": "Replay Method",
+          "type": "string"
+        },
+        "baseline_max_latency_seconds": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline Max Latency Seconds"
+        },
+        "treatment_max_latency_seconds": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Treatment Max Latency Seconds"
+        },
+        "case_results": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EvaluationCaseResult"
+          },
+          "maxItems": 128,
+          "title": "Case Results",
+          "type": "array"
+        },
+        "execution_authority": {
+          "const": false,
+          "default": false,
+          "title": "Execution Authority",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "rule_ref",
+        "rule_revision",
+        "scenario_digest",
+        "baseline",
+        "treatment",
+        "evaluated_at",
+        "expires_at",
+        "baseline_true_positive",
+        "treatment_true_positive",
+        "baseline_false_positive",
+        "treatment_false_positive",
+        "baseline_false_negative",
+        "treatment_false_negative",
+        "accepted",
+        "reason"
+      ],
+      "title": "EvaluationReceipt",
       "type": "object"
     },
     "NoiseAssessment": {
@@ -784,6 +1256,79 @@
         "protected"
       ],
       "title": "NoiseFinding",
+      "type": "object"
+    },
+    "ProcessingRule": {
+      "additionalProperties": false,
+      "description": "Exact finite effective-rule projection; unknown filters fail closed.",
+      "properties": {
+        "ref": {
+          "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+          "title": "Ref",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Revision",
+          "type": "string"
+        },
+        "rule_refs": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 2000,
+          "title": "Rule Refs",
+          "type": "array"
+        },
+        "action": {
+          "enum": [
+            "suppress",
+            "add"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "group_refs": {
+          "default": [],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+            "type": "string"
+          },
+          "maxItems": 5,
+          "title": "Group Refs",
+          "type": "array"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "effective_from": {
+          "format": "date-time",
+          "title": "Effective From",
+          "type": "string"
+        },
+        "effective_to": {
+          "format": "date-time",
+          "title": "Effective To",
+          "type": "string"
+        },
+        "semantics_complete": {
+          "default": false,
+          "title": "Semantics Complete",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref",
+        "revision",
+        "rule_refs",
+        "action",
+        "enabled",
+        "effective_from",
+        "effective_to"
+      ],
+      "title": "ProcessingRule",
       "type": "object"
     }
   },

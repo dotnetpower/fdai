@@ -107,6 +107,8 @@ export interface AlertQualityPayload {
 
 type RecordValue = Readonly<Record<string, unknown>>;
 
+export { plan as decodeAlertQualityPlan, evaluation as decodeAlertQualityEvaluation };
+
 function exact(value: unknown, keys: string): RecordValue {
   const row = panelRecord(value, "alert quality");
   const allowed = new Set(keys.split(" "));

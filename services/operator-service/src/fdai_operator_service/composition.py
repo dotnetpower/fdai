@@ -425,6 +425,7 @@ class ProductionOperatorComposition:
                 producer_ready=alert_quality_bridge.producer_ready
                 if alert_quality_bridge
                 else None,
+                request_source=alert_quality_bridge.requests if alert_quality_bridge else None,
                 preference_store=(
                     StateKvAlertQualityPreferenceStore(family_store)
                     if family_store is not None

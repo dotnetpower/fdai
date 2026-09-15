@@ -54,6 +54,7 @@ from fdai_operator_service.alert_quality_handlers import _post as _post
 from fdai_operator_service.alert_quality_handlers import (
     _require_current_evidence as _require_current_evidence,
 )
+from fdai_operator_service.alert_quality_history_handler import get_alert_quality_history
 from fdai_operator_service.alert_quality_records import AlertQualityConflictError
 from fdai_operator_service.alert_quality_settings import AlertQualityPreferenceConflictError
 from fdai_operator_service.alert_quality_settings_handlers import _settings as _settings
@@ -93,6 +94,7 @@ ALERT_QUALITY_ROUTE_MANIFEST = (
     ("GET", "/alert-quality/scopes", "get_alert_quality_scopes"),
     ("GET", "/alert-quality/settings", "get_alert_quality_settings"),
     ("PUT", "/alert-quality/settings", "put_alert_quality_settings"),
+    ("GET", "/alert-quality/requests", "get_alert_quality_requests"),
 )
 _LOGGER = logging.getLogger(__name__)
 
@@ -113,6 +115,7 @@ def build_alert_quality_routes(dependencies: AlertQualityDependencies) -> tuple[
         "scopes",
         "settings.get",
         "settings.put",
+        "requests.get",
     )
     return tuple(
         Route(path, endpoint(operation), methods=[method], name=name)
@@ -136,6 +139,8 @@ async def _handle(
                     return await _get(request, dependencies, principal)
                 if operation == "scopes":
                     return _get_scopes(request, dependencies, principal)
+                if operation == "requests.get":
+                    return await get_alert_quality_history(request, dependencies, principal)
                 if operation in {"settings.get", "settings.put"}:
                     return await _settings(request, dependencies, principal, write=owner)
                 return await _post(request, dependencies, principal, cast(Operation, operation))

@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: f145428beff5f1d247f246cd2335671f5b9fae57
+translation_source_sha: efa741f950e061a3984380c78a41638b5c786c8d
 translation_revised: 2026-09-15
 ---
 # WARA 근거 기반 평가
@@ -169,6 +169,8 @@ Operator 조립 루트는 검토된 fanout 상한을 유지하기 위해 하나�
 발신함 점유 및 서명된 결과 소비자를 사용합니다. 비공개 근거, 선호 설정 및 생산자 상태로
 WARA 조회 결과를 갱신하거나 근거/준비 상태 요구 사항을 충족하지 않습니다. WARA의 기존 범위,
 고정 쿼리, 소비자 격리 및 준비 상태 기준은 그대로 유지됩니다.
+알림 요청 이력 쿼리는 자체 발신함 네임스페이스, principal 및 정확한 범위만 선택합니다.
+서명된 최종 결과와 기준선 상세로 WARA 평가 상태를 충족하거나 갱신하지 않습니다.
 
 각 행은 범위, 평가 시각, 출처 리비전, 근거 완전성, 제한 사항을 표시합니다. 카탈로그 존재와
 `product_group_verified`는 메타데이터이며 충족 배지가 아닙니다. 선택적 변환 결과가 없으면
