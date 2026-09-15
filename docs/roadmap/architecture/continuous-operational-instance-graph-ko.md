@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: f9bf9382a5c4437adce6f09cc87ea342e3ef42e7
+translation_source_sha: 21be3b4311d58849689a76a830ea66ddf2519c2b
 translation_revised: 2026-09-15
 ---
 # 지속형 운영 인스턴스 그래프
@@ -86,7 +86,7 @@ Azure CLI로 대체하지 않습니다. 로컬 자격 증명 정책은 그대로
 수집기는 필요한 최신성을 보존할 수 있는 가장 저렴한 권위 있는 신호를 사용합니다.
 
 1. 리소스 생성, 변경, 삭제 이벤트를 정식 이벤트 스트림에 push합니다.
-2. 지연 또는 불완전한 overlay가 존재하는 동안 유한한 양의 기한 안에 검증된 영속 텍스트 커서에서 재개 가능한 공급자
+2. 지연 또는 불완전한 overlay가 존재하는 동안 커서 읽기와 최종 쓰기를 포함한 유한한 양의 전체 기한 안에 검증된 영속 텍스트 커서에서 재개 가능한 공급자
    delta를 가져옵니다. 잘못된 저장 커서는 조회 구간을 초기화하지 않고 복구를 차단합니다.
 3. 누락 이벤트를 찾고 관계를 복구하며 범위 완전성을 증명하도록 제한된 reconciliation을 실행합니다.
 4. inventory에 근거 유형이 없거나 검증된 쿼리에 더 최신 근거가 필요할 때만 정확한 실시간 조회를 실행합니다.

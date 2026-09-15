@@ -187,6 +187,34 @@ class _StalledInventory:
         yield InventoryBatch(final=True, cursor=cursor)
 
 
+@pytest.mark.parametrize("operation", ["read_state", "write_state"])
+async def test_delta_deadline_covers_cursor_storage(
+    operation: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    state = InMemoryStateStore()
+    await state.write_state("inventory_delta_cursor:subscription-1", {"cursor": "cursor-old"})
+    read_original = state.read_state
+
+    async def stalled(*_args: object, **_kwargs: object) -> None:
+        await asyncio.sleep(0.2)
+
+    monkeypatch.setattr(state, operation, AsyncMock(side_effect=stalled))
+    with pytest.raises(RuntimeError, match="exceeded its deadline"):
+        await asyncio.wait_for(
+            forward_inventory_delta(
+                inventory=_Inventory(),
+                state_store=state,
+                event_bus=InMemoryEventBus(),
+                topic="events",
+                scope="subscription-1",
+                properties_complete=False,
+                deadline_seconds=0.01,
+            ),
+            timeout=0.1,
+        )
+    assert await read_original("inventory_delta_cursor:subscription-1") == {"cursor": "cursor-old"}
+
+
 class _PartiallyInvalidBatchInventory:
     async def delta(self, cursor: str):  # type: ignore[no-untyped-def]
         yield InventoryBatch(
