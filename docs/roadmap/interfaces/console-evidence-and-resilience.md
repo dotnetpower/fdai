@@ -627,6 +627,8 @@ substitutes coordinate zero for a missing placement.
 The default Landscape shows at most 16 returned Resource Group boundaries, ranked by returned
 descendant count with stable name and identity tie-breakers. Displayed counts and search continue
 to expose that this is a bounded presentation over the complete returned page.
+If no Resource Group is returned, the Landscape falls back to at most 16 stably ordered actual
+Resource records plus required ancestors rather than rendering the complete page.
 Subscription remains a neutral outer boundary while each Resource Group becomes a compact summary
 card with returned descendant and cross-scope relationship counts. An empty nested panel is not
 used as a summary. Summary generation discards any incoming presentation coordinates and dimensions

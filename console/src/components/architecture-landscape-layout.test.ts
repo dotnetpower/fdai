@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ARCHITECTURE_LANDSCAPE_GROUP_LIMIT,
+  ARCHITECTURE_LANDSCAPE_FALLBACK_LIMIT,
   ARCHITECTURE_SCOPE_DETAIL_LIMIT,
   architectureLandscapeOverviewGraph,
   architectureScopeDetailGraph,
@@ -327,5 +328,25 @@ describe("geometry-less Architecture inventory", () => {
     expect(endpoints.every((resource) => ids.has(resource.id))).toBe(true);
     expect(ids.has("group-b")).toBe(true);
     expect(detail.presentation?.omitted_direct_relationships).toBe(0);
+  });
+
+  it("bounds a geometry-less projection without Resource Groups", () => {
+    const graph: InventoryGraphResponse = {
+      ...RAW_GRAPH,
+      resources: Array.from({ length: 500 }, (_, index) => ({
+        id: `resource-${index}`,
+        type: index % 2 === 0 ? "app-service" : "storage-account",
+        name: `Resource ${index.toString().padStart(3, "0")}`,
+        status: "unknown",
+      })),
+      links: [],
+    };
+    const overview = architectureLandscapeOverviewGraph(graph);
+    const laidOut = layoutGeometrylessArchitectureGraph(overview);
+
+    expect(overview.resources).toHaveLength(ARCHITECTURE_LANDSCAPE_FALLBACK_LIMIT);
+    expect(architectureTopologyUnplacedIds(laidOut.resources)).toEqual([]);
+    expect(new Set(laidOut.resources.map((resource) => `${resource.x}:${resource.y}`)).size)
+      .toBe(laidOut.resources.length);
   });
 });

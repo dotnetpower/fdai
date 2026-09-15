@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 3d794976a9423a4c118207e5034eb1b0dcc4b892
+translation_source_sha: e1f8ccda1806a0da918f29e8fd785e679c9bf979
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -614,6 +614,8 @@ Resource는
 기본 Landscape는 반환된 하위 Resource 수가 많은 순서로 Resource Group 경계를 최대 16개
 표시하며, 개수가 같으면 이름과 식별자 순서로 안정적으로 정렬합니다. 표시 개수와 검색은 이 화면이
 반환된 전체 페이지를 사용한 범위가 제한된 표현임을 계속 드러냅니다.
+Resource Group이 반환되지 않으면 전체 페이지를 렌더링하지 않고 안정적으로 정렬된 실제 Resource
+기록 최대 16개와 필요한 상위 경계를 표시합니다.
 Subscription은 중립적인 바깥 경계로 유지하고 각 Resource Group은 반환된 하위 항목 수와 범위 간
 관계 수를 담은 간결한 요약 카드로 표시합니다. 비어 있는 중첩 패널을 요약으로 사용하지 않습니다.
 요약을 생성할 때 입력에 있던 표현 좌표와 크기를 제거한 뒤 간결한 카드 형상을 새로 할당합니다.

@@ -19,6 +19,7 @@ const BOUNDARY_HEADER = .85;
 const BOUNDARY_BOTTOM = .4;
 const ITEM_GAP = .45;
 export const ARCHITECTURE_LANDSCAPE_GROUP_LIMIT = 16;
+export const ARCHITECTURE_LANDSCAPE_FALLBACK_LIMIT = 16;
 export const ARCHITECTURE_SCOPE_DETAIL_LIMIT = 36;
 
 interface LayoutPlan extends RectangleItem {
@@ -34,7 +35,23 @@ export function architectureLandscapeOverviewGraph(
   const byId = new Map(graph.resources.map((resource) => [resource.id, resource]));
   const parentById = architecturePresentationParentById(graph, byId);
   const groups = graph.resources.filter((resource) => resource.type === "resource-group");
-  if (groups.length === 0) return graph;
+  if (groups.length === 0) {
+    const visibleIds = new Set(
+      [...graph.resources]
+        .sort(compareResources)
+        .slice(0, ARCHITECTURE_LANDSCAPE_FALLBACK_LIMIT)
+        .map((resource) => resource.id),
+    );
+    for (const resourceId of [...visibleIds]) {
+      addAncestors(resourceId, parentById, byId, visibleIds);
+    }
+    return {
+      ...graph,
+      resources: graph.resources.filter((resource) => visibleIds.has(resource.id)),
+      links: graph.links.filter((link) =>
+        visibleIds.has(link.source) && visibleIds.has(link.target)),
+    };
+  }
   const descendants = new Map(groups.map((group) => [
     group.id,
     descendantCount(group.id, graph.resources, parentById),
