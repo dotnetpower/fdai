@@ -125,9 +125,10 @@ and source file/line; click or keyboard activation opens the caller/callee view.
   individual brightness changes and a quieter center so it doesn't compete with the graph.
   Stars pause with playback and remain static under Reduce motion. A depth-only node silhouette
   keeps the screen-space backdrop behind graph nodes while the camera moves.
-- **Nebula backdrop:** Activity and Cinema use a faint, static teal and violet cloud behind the
-  graph. This bundled SVG is decorative, not telemetry; it adds no camera or playback motion.
-  Ontology keeps its existing background, and forced colors removes the cloud.
+- **Nebula backdrop:** Activity and Cinema use faint, static teal and violet clouds across the
+  full-page space background, not inside the graph panel. Clouds frame a dark center to keep the
+  agents readable. This bundled SVG is decorative, not telemetry, and adds no motion.
+  Ontology keeps its existing background, and forced colors removes the clouds.
 - **Shared functions:** A shared function appears once, placed near one reachable agent.
   Reachability and visual grouping don't transfer ownership or execution authority.
 - **Capability labels:** The side panel retains readable role descriptions; these aren't

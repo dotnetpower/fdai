@@ -36,6 +36,7 @@ p, h1, h2, h3 { margin: 0; }
 .skip-link { position: absolute; left: 24px; top: -80px; z-index: 30; padding: 12px; color: #071313; background: var(--accent); }
 .skip-link:focus { top: 12px; }
 #app { min-height: 760px; height: 100dvh; position: relative; overflow: hidden; }
+#app:not(.ontology-mode) { background: url("./scene/nebula.svg") center / cover no-repeat; }
 .topbar {
   position: relative; z-index: 5; height: 84px; padding: 0 32px;
   display: flex; justify-content: space-between; align-items: center; gap: 20px;
@@ -98,7 +99,6 @@ select { border: 1px solid #647783; border-radius: 4px; color: #dbe8ed; backgrou
 .agent-chip[aria-pressed="true"] { border-color: #709ba5; background: #10232b; color: #fff; }
 .visual-field { position: absolute; top: 0; bottom: 156px; left: 252px; right: 265px; }
 #stage { width: 100%; height: 100%; position: relative; }
-#app:not(.ontology-mode) #stage { background: url("./scene/nebula.svg") center / 100% 100% no-repeat; }
 #stage canvas { position: absolute; inset: 0; touch-action: none; }
 .node-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .node-label {
@@ -287,7 +287,7 @@ input[type="range"] { accent-color: var(--accent); height: 22px; cursor: pointer
   #cinema::after { animation: none; opacity: .35; }
 }
 @media (forced-colors: active) {
-  #app:not(.ontology-mode) #stage { background-image: none; }
+  #app:not(.ontology-mode) { background-image: none; }
   #cinema::after { display: none; }
   .agent-chip[aria-pressed="true"], .camera-group button[aria-pressed="true"], .node-label.is-selected { outline: 2px solid Highlight; }
   #stage canvas { opacity: .35; }

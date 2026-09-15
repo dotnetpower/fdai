@@ -10,12 +10,13 @@
       <stop offset=".45" stop-color="#493863" stop-opacity=".35"/>
       <stop offset="1" stop-color="#282139" stop-opacity="0"/>
     </radialGradient>
-    <radialGradient id="edge">
-      <stop offset=".4" stop-color="white"/>
-      <stop offset="1" stop-color="black"/>
+    <radialGradient id="quiet-center">
+      <stop offset=".2" stop-color="black"/>
+      <stop offset=".55" stop-color="#888"/>
+      <stop offset="1" stop-color="white"/>
     </radialGradient>
-    <mask id="fade">
-      <rect width="1200" height="800" fill="url(#edge)"/>
+    <mask id="surround">
+      <rect width="1200" height="800" fill="url(#quiet-center)"/>
     </mask>
     <filter id="cloud" x="-20%" y="-30%" width="140%" height="160%" color-interpolation-filters="sRGB">
       <feTurbulence type="fractalNoise" baseFrequency=".006 .01" numOctaves="3" seed="19" result="noise"/>
@@ -24,11 +25,12 @@
       <feComposite in="wisp" in2="density" operator="in"/>
     </filter>
   </defs>
-  <g mask="url(#fade)" opacity=".7">
+  <g mask="url(#surround)" opacity=".7">
     <g filter="url(#cloud)">
-      <ellipse cx="450" cy="310" rx="540" ry="190" fill="url(#teal)" transform="rotate(-28 450 310)"/>
-      <ellipse cx="780" cy="410" rx="470" ry="220" fill="url(#violet)" transform="rotate(-32 780 410)"/>
-      <ellipse cx="540" cy="590" rx="370" ry="120" fill="url(#teal)" transform="rotate(-24 540 590)" opacity=".6"/>
+      <ellipse cx="120" cy="250" rx="550" ry="200" fill="url(#teal)" transform="rotate(-28 120 250)"/>
+      <ellipse cx="1050" cy="140" rx="520" ry="230" fill="url(#violet)" transform="rotate(-32 1050 140)"/>
+      <ellipse cx="1080" cy="690" rx="510" ry="190" fill="url(#teal)" transform="rotate(-24 1080 690)"/>
+      <ellipse cx="170" cy="760" rx="430" ry="190" fill="url(#violet)" transform="rotate(-28 170 760)" opacity=".6"/>
     </g>
   </g>
 </svg>
