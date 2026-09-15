@@ -218,7 +218,7 @@ Existing claims build/reverify five original-source images; wrong revisions, inv
 are rejected. Missing tools return review; registry import and activation remain unconnected.
 
 **Design and critique:** A kit-shaped source object implies release trust. Instead, `standalone_host
-verify-source-runtime` checks pinned snapshot/runtime/bundle digests, six OCI images and platform, then
+verify-source-runtime` binds the snapshot's canonical `source_commit`, pinned digests and six OCI images, then
 rechecks bytes. Opaque hashes prove neither executable contents nor signatures; no login, installation,
 publication or authority follows. Support installation takes an admitted root, without kit fallback.
 

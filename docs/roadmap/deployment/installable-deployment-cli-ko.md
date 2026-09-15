@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 9b8ba71b1bcd99a2ed4d0906ced2c1f22b8f4352
+translation_source_sha: 7b05ce8c7b5233c0a159062b9a4e3b0e824a445b
 translation_revised: 2026-09-15
 ---
 
@@ -222,7 +222,7 @@ SKU·할당량, 구성·provider·계획·도구·상태 해시와 만료를 검
 레지스트리 import와 활성화는 아직 연결되지 않았습니다.
 
 **설계와 검토:** kit 형태의 소스 객체는 release 신뢰로 오해될 수 있습니다. 대신 호스트의
-`verify-source-runtime`은 고정된 스냅샷·런타임·번들 해시, OCI 이미지 6개와 플랫폼을 검증하고
+`verify-source-runtime`은 스냅샷의 정규 `source_commit`, 고정된 해시, OCI 이미지 6개와 플랫폼을 검증하고
 바이트를 재확인합니다. 불투명한 파일의 해시 일치는 실행 내용이나 서명을 증명하지 않으며 로그인·
 설치·게시·권한을 부여하지 않습니다. 지원 자료 설치기는 검증된 경로를 명시적으로 받고 kit로 대체하지 않습니다.
 

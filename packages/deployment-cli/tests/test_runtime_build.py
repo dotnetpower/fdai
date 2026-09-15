@@ -9,6 +9,7 @@ from test_oci_archive import make_archive
 
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.source_runtime import verify_source_runtime
+from fdai_deployment_cli.source_input import SourceDeploymentInput
 from fdai_deployment_cli.runtime_build import build_runtime_release
 from fdai_deployment_cli.runtime_release import (
     RUNTIME_SERVICES,
@@ -133,13 +134,13 @@ def _source_runtime(tmp_path: Path) -> dict[str, object]:
     ]
     manifest = {
         "schema_version": "fdai.source-snapshot.v1",
-        "source": {
-            "commit": COMMIT,
-            "provenance": "operator-selected-source",
-            "release_signature_verified": False,
-            "file_count": 1,
-            "content_digest": canonical_digest({"files": records}),
-        },
+        "source": SourceDeploymentInput(
+            root=tree,
+            commit=COMMIT,
+            tree="b" * 40,
+            content_digest=canonical_digest({"files": records}),
+            file_count=1,
+        ).to_mapping(),
         "files": records,
     }
     (snapshot / "source-input.json").write_bytes(canonical_bytes(manifest))

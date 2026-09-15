@@ -35,7 +35,7 @@ def verify_source_runtime(
     if any(not path.is_absolute() for path in (snapshot, runtime_root, deployment_bundle)):
         raise ValueError("source runtime paths must be absolute")
     source = verify_source_snapshot(snapshot, expected_digest=snapshot_digest)
-    commit = source.get("commit")
+    commit = source.get("source_commit")
     if not isinstance(commit, str) or re.fullmatch(r"[0-9a-f]{40}", commit) is None:
         raise ValueError("source runtime source commit is invalid")
     release = load_runtime_release(
