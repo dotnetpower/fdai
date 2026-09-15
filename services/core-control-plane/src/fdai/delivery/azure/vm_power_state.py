@@ -271,6 +271,59 @@ class AzureArmVmPowerStateSource:
         return bytes(content), response
 
 
+class AzureSubscriptionVmPowerStateSource:
+    """Create one exact target-pinned ARM reader inside an allowed subscription."""
+
+    def __init__(
+        self,
+        *,
+        identity: WorkloadIdentity,
+        http_client: httpx.AsyncClient,
+        subscription_id: str,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
+        try:
+            canonical_subscription_id = str(UUID(subscription_id))
+        except ValueError as exc:
+            raise ValueError(
+                "VM power-state observer subscription MUST be a canonical UUID"
+            ) from exc
+        if canonical_subscription_id != subscription_id.casefold():
+            raise ValueError("VM power-state observer subscription MUST be a canonical UUID")
+        self._identity = identity
+        self._http = http_client
+        self._subscription_id = canonical_subscription_id
+        self._clock = clock
+
+    async def observe(
+        self,
+        *,
+        resource_ref: str,
+        target_revision: int,
+    ) -> AzureVmPowerStateReading:
+        """Read one Action target without widening the configured subscription."""
+
+        match = _VM_RESOURCE.fullmatch(resource_ref)
+        if match is None or match.group("subscription").casefold() != self._subscription_id:
+            raise AzureVmPowerStateSourceError(
+                "VM power-state request is outside the configured subscription"
+            )
+        source = AzureArmVmPowerStateSource(
+            identity=self._identity,
+            http_client=self._http,
+            config=AzureVmPowerStateConfig(
+                resource_ref=resource_ref,
+                resource_group=match.group("resource_group"),
+                vm_name=match.group("vm_name"),
+            ),
+            clock=self._clock,
+        )
+        return await source.observe(
+            resource_ref=resource_ref,
+            target_revision=target_revision,
+        )
+
+
 def _validate_response_identity(payload: Mapping[str, object], resource_ref: str) -> None:
     response_id = payload.get("id")
     response_type = payload.get("type")
@@ -342,6 +395,7 @@ def _digest(value: object) -> str:
 
 __all__ = [
     "AzureArmVmPowerStateSource",
+    "AzureSubscriptionVmPowerStateSource",
     "AzureVmPowerStateConfig",
     "AzureVmPowerStateReading",
     "AzureVmPowerStateSource",

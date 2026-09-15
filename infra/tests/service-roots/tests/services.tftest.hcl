@@ -30,10 +30,12 @@ run "core_control_plane_plan" {
       }
     }
     observation_context = {
-      enabled                     = true
-      signing_seed_secret_id      = "https://example.vault.azure.net/secrets/ohl-signing-seed"
-      executor_credential_lineage = "azure-managed-identity:executor"
-      source_credential_lineage   = "azure-managed-identity:inventory"
+      enabled                              = true
+      signing_seed_secret_id               = "https://example.vault.azure.net/secrets/ohl-signing-seed"
+      executor_credential_lineage          = "azure-managed-identity:executor"
+      vm_start_executor_credential_lineage = "azure-managed-identity:vm-start-executor"
+      source_credential_lineage            = "azure-managed-identity:inventory"
+      source_identity_client_id            = "00000000-0000-0000-0000-000000000003"
     }
     rollback    = { strategy = "previous-revision", previous_image = "registry.example.com/fdai@sha256:1111111111111111111111111111111111111111111111111111111111111111" }
     runtime_env = "dev"

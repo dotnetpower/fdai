@@ -120,13 +120,12 @@ class AzureVmStartObservationCollector:
             or reading.recorded_at > now
         ):
             return None
-        if (
+        transitioning = (
             reading.state == _IN_PROGRESS_STATE
             and reading.complete
             and not reading.conflicts
             and not reading.censoring_refs
-        ):
-            return None
+        )
         records: tuple[ObservedEffectRecord, ...] = ()
         if reading.state is not None:
             record = OntologyObjectRecord(
@@ -151,7 +150,7 @@ class AzureVmStartObservationCollector:
             observation_cutoff=reading.observed_at,
             recorded_at=reading.recorded_at,
             fresh_until=reading.fresh_until,
-            complete=reading.complete,
+            complete=reading.complete and not transitioning,
             synthetic=False,
             conflicts=reading.conflicts,
             censoring_refs=reading.censoring_refs,

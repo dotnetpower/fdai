@@ -222,6 +222,7 @@ output "contributor_core_service_tfvars" {
       extra_resource_ids = concat(
         [module.rca_reader_identity.resource_id],
         local.core_vertical_identity_ids,
+        var.enable_isolated_executor ? [module.inventory_identity.resource_id] : [],
         var.enable_email_notifications ? [module.notification_identity[0].resource_id] : [],
         var.enable_case_history ? [module.case_history_identity[0].resource_id] : [],
       )
@@ -265,10 +266,12 @@ output "contributor_core_service_tfvars" {
       resolved_models_digest     = var.resolved_models_sha256
     }
     observation_context = {
-      enabled                     = var.enable_isolated_executor
-      signing_seed_secret_id      = var.enable_isolated_executor ? azurerm_key_vault_secret.ohl_observation_signing_seed.id : ""
-      executor_credential_lineage = var.enable_isolated_executor ? "azure-managed-identity:${module.isolated_executor_identity[0].client_id}" : ""
-      source_credential_lineage   = var.enable_isolated_executor ? "azure-managed-identity:${module.inventory_identity.client_id}" : ""
+      enabled                              = var.enable_isolated_executor
+      signing_seed_secret_id               = var.enable_isolated_executor ? azurerm_key_vault_secret.ohl_observation_signing_seed.id : ""
+      executor_credential_lineage          = var.enable_isolated_executor ? "azure-managed-identity:${module.identity_finops.client_id}" : ""
+      vm_start_executor_credential_lineage = var.enable_isolated_executor ? "azure-managed-identity:${module.identity_resilience.client_id}" : ""
+      source_credential_lineage            = var.enable_isolated_executor ? "azure-managed-identity:${module.inventory_identity.client_id}" : ""
+      source_identity_client_id            = var.enable_isolated_executor ? module.inventory_identity.client_id : ""
     }
     decision_evidence_container_url = (
       var.enable_operational_history ? module.decision_evidence_storage[0].container_url : ""
@@ -317,12 +320,17 @@ output "ohl_scale_out_evidence_proposal_job_name" {
 }
 
 output "ohl_observation_context_binding" {
-  description = "Deployment-owned OHL observation signing and credential-lineage binding. Null without the isolated Executor."
-  value = var.enable_isolated_executor ? {
-    signing_seed_secret_id      = azurerm_key_vault_secret.ohl_observation_signing_seed.id
-    executor_credential_lineage = "azure-managed-identity:${module.isolated_executor_identity[0].client_id}"
-    source_credential_lineage   = "azure-managed-identity:${module.inventory_identity.client_id}"
-  } : null
+  description = "Deployment-owned OHL observation binding and exact source identity for enable or removal."
+  value = merge({
+    enabled                     = var.enable_isolated_executor
+    source_identity_client_id   = module.inventory_identity.client_id
+    source_identity_resource_id = module.inventory_identity.resource_id
+    }, var.enable_isolated_executor ? {
+    signing_seed_secret_id               = azurerm_key_vault_secret.ohl_observation_signing_seed.id
+    executor_credential_lineage          = "azure-managed-identity:${module.identity_finops.client_id}"
+    vm_start_executor_credential_lineage = "azure-managed-identity:${module.identity_resilience.client_id}"
+    source_credential_lineage            = "azure-managed-identity:${module.inventory_identity.client_id}"
+  } : {})
 }
 
 output "stewardship_gitops_binding" {

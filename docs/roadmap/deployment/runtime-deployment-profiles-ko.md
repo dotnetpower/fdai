@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: a6d62af712dd72ff06bed79d927280a101d5e899
+translation_source_sha: 549a3622635cb7113a9360af5b33de7c16343e32
 translation_revised: 2026-09-15
 ---
 # 런타임 배포 프로파일
@@ -202,6 +202,13 @@ Core와 격리된 Executor는 대상별 캐시와 동시 요청 통합을 유지
 직접 가져오는 SDK와 SDK 내부에서 사용하는 전송 의존성을 구분합니다. Operator와 문서 서비스는 기존 어댑터에 SDK의
 공통 비동기 자격 증명 계약을 전달합니다. 이 로컬 통합 검사만으로 배포된 연합 인증, Event Hubs
 접근 또는 서비스 준비 상태가 입증되지는 않습니다.
+
+Container Apps 프로필에서 보호된 플랫폼과 Core 사이의 인계는 관측 컨텍스트와 함께 정확한
+인벤토리 읽기 신원의 리소스 ID 및 client ID를 전달합니다. 서비스 구체화 도구는 이 읽기 전용
+신원을 한 번만 연결하고, 관측을 비활성화하면 해당 신원만 제거하며, 일치하지 않는 결속을
+거부합니다. 서명된 규모 확장 근거는 FinOps 실행 자격 증명 계보를 기록하고, VM 시작 근거는
+Resilience 실행 자격 증명 계보를 기록합니다. 어떤 신원 선택도 실행 권한을 부여하지 않으며
+로컬 interactive는 이 결속을 받지 않습니다.
 
 AKS managed Key Vault CSI 공급자는 각 워크로드의 federated identity를 사용해 고정된 Key Vault
 참조를 namespace의 Kubernetes Secrets로 동기화합니다. 애플리케이션은 계속 환경 변수를 읽으며

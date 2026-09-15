@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import pytest
+from fdai.core.ontology_platform import (
+    ReconciliationRequestProduction,
+    ReconciliationRequestProductionStatus,
+)
 from fdai.delivery.executed_action_observation import (
+    ActionRoutedExecutedActionObservationCollector,
     HeimdallExecutedActionObservationHandler,
 )
 from fdai.delivery.reconciliation_artifacts import StateStoreExecutedActionArtifactStore
 from fdai.delivery.reconciliation_observations import StateStoreExecutedActionObservationStore
-from fdai.shared.contracts.models import WorkflowActionRef
+from fdai.shared.contracts.models import Mode, WorkflowActionRef
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 from tests.delivery.test_reconciliation_observations import _Verifier
@@ -34,20 +39,22 @@ def _payload(action, correlation_id: str, *, state: str = "succeeded") -> dict[s
         "resource_id": action.target_resource_ref,
         "state": state,
         "terminal_at": action.created_at.isoformat(),
-        "execution_receipt_ref": "receipt:provider:one",
+        "shadow_mode": action.mode is Mode.SHADOW,
+        "execution_audit_receipt": "receipt:audit:one",
     }
 
 
-async def _handler():
+async def _handler(*, mode: Mode = Mode.ENFORCE):
     artifacts, action, observation = _inputs()
     action = action.model_copy(
         update={
+            "mode": mode,
             "workflow_action": WorkflowActionRef(
                 process_id="process-observation-001",
                 step_id="verify",
                 proposal_ref="proposal:observation:001",
                 attempt=3,
-            )
+            ),
         }
     )
     correlation_id = str(action.action_id)
@@ -81,21 +88,142 @@ async def test_terminal_action_run_collects_and_seals_exact_observation() -> Non
         action=action,
         artifacts=artifacts,
         execution_outcome="succeeded",
-        execution_receipt_ref="receipt:provider:one",
+        execution_receipt_ref="receipt:audit:one",
         correlation_id=correlation_id,
     )
 
     assert loaded is not None
+    recorded = await observations.resolve_record(
+        action_id=str(action.action_id),
+        plan_digest=artifacts.plan.digest,
+    )
+    assert recorded is not None
+    assert recorded.execution_mode == "enforce"
+    assert recorded.execution_receipt_ref == "receipt:audit:one"
     assert len(collector.calls) == 1
     audit = tuple(store.audit_entries)[-1]["entry"]
     assert audit["correlation_id"] == correlation_id
     assert audit["workflow_action"]["attempt"] == 3
 
 
+async def test_routed_collector_selects_only_the_exact_action_type() -> None:
+    artifacts, action, observation = _inputs()
+    selected = _Collector(observation)
+    other = _Collector(None)
+    collector = ActionRoutedExecutedActionObservationCollector(
+        {action.action_type: selected, "ops.other": other}
+    )
+
+    result = await collector.collect(
+        action=action,
+        artifacts=artifacts,
+        execution_outcome="succeeded",
+        execution_completed_at=action.created_at,
+        execution_receipt_ref="receipt:audit:one",
+        correlation_id=str(action.action_id),
+    )
+
+    assert result is observation
+    assert len(selected.calls) == 1
+    assert other.calls == []
+
+
+async def test_recorded_observation_triggers_reconciliation_after_persistence() -> None:
+    artifacts, action, observation = _inputs()
+    action = action.model_copy(update={"mode": Mode.ENFORCE})
+    correlation_id = str(action.action_id)
+    store = InMemoryStateStore()
+    artifact_store = StateStoreExecutedActionArtifactStore(store=store)
+    await artifact_store.store(
+        action=action,
+        plan=artifacts.plan,
+        action_type=artifacts.action_type,
+        active_release=artifacts.active_release,
+        correlation_id=correlation_id,
+    )
+    observation_store = StateStoreExecutedActionObservationStore(
+        store=store,
+        verifier=_Verifier(),
+    )
+    calls: list[str] = []
+    attempts = 0
+
+    async def request_reconciliation(
+        requested_action,
+        execution_outcome,
+        execution_receipt_ref,
+        *,
+        correlation_id=None,
+    ):
+        nonlocal attempts
+        retained = await observation_store.observe(
+            action=requested_action,
+            artifacts=artifacts,
+            execution_outcome=execution_outcome,
+            execution_receipt_ref=execution_receipt_ref,
+            correlation_id=correlation_id,
+        )
+        assert retained is not None
+        assert correlation_id is not None
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("synthetic broker interruption")
+        calls.append(correlation_id)
+        return ReconciliationRequestProduction(
+            ReconciliationRequestProductionStatus.PUBLISHED,
+            "broker_acknowledged",
+            "reconciliation:" + "a" * 64,
+        )
+
+    collector = _Collector(observation)
+    handler = HeimdallExecutedActionObservationHandler(
+        artifacts=artifact_store,
+        collector=collector,
+        observations=observation_store,
+        reconciliation_requests=request_reconciliation,
+    )
+
+    with pytest.raises(RuntimeError, match="synthetic broker interruption"):
+        await handler.handle(_payload(action, correlation_id))
+    assert await handler.handle(_payload(action, correlation_id)) is True
+    assert len(collector.calls) == 1
+    assert attempts == 2
+    assert calls == [correlation_id]
+
+
 async def test_nonterminal_action_run_does_not_call_collector() -> None:
     handler, collector, _, _, action, correlation_id, _ = await _handler()
 
     assert await handler.handle(_payload(action, correlation_id, state="executing")) is False
+    assert collector.calls == []
+
+
+async def test_shadow_terminal_action_run_does_not_collect_effect() -> None:
+    handler, collector, _, _, action, correlation_id, _ = await _handler(mode=Mode.SHADOW)
+    payload = _payload(action, correlation_id)
+
+    assert payload["shadow_mode"] is True
+    assert await handler.handle(payload) is False
+    assert collector.calls == []
+
+
+async def test_enforced_action_run_requires_execution_audit_receipt() -> None:
+    handler, collector, _, _, action, correlation_id, _ = await _handler()
+    payload = _payload(action, correlation_id)
+    payload["execution_audit_receipt"] = None
+
+    with pytest.raises(ValueError, match="requires an execution audit receipt"):
+        await handler.handle(payload)
+    assert collector.calls == []
+
+
+async def test_action_run_cannot_raise_shadow_action_to_enforce() -> None:
+    handler, collector, _, _, action, correlation_id, _ = await _handler(mode=Mode.SHADOW)
+    payload = _payload(action, correlation_id)
+    payload["shadow_mode"] = False
+
+    with pytest.raises(ValueError, match="cannot raise a shadow Action"):
+        await handler.handle(payload)
     assert collector.calls == []
 
 
