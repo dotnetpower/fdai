@@ -416,6 +416,9 @@ test("keeps observed Network paths and sanitized exports inside the Inspector", 
   await expect(page.locator(".architecture-network-path-result")).toContainText("Observed path");
   await expect(page.locator(".architecture-network-path-hops li")).toHaveCount(2);
   await expect(page.locator('.architecture-topology-node[data-resource-id="vm"]')).toBeVisible();
+  await pathPanel.getByRole("checkbox", { name: "Gateways" }).uncheck();
+  await expect(page.locator('.architecture-topology-node[data-resource-id="gateway"]')).toBeVisible();
+  await expect(page.locator(".architecture-network-path-result")).toContainText("Observed path");
   await expect(page.locator(".architecture-topology-resource.is-muted")).not.toHaveCount(0);
   await assertNoHorizontalOverflow(page);
   await captureArchitectureViewport(page, testInfo, "network-desktop");

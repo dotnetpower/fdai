@@ -670,6 +670,8 @@ relationships. It returns `no_observed_path` only for fresh, complete relationsh
 incomplete negative result stays `unknown`. Filters and highlighting change only presentation.
 Path tracing always uses the complete returned evidence graph rather than the bounded Network
 overview. A found path adds its exact Resources, ancestors, and stored links to the presentation.
+Category filters apply to surrounding context before that restoration, so they cannot remove a
+current found-path hop from the map or sanitized export while the Inspector still reports it.
 SVG and PNG exports retain sanitized provenance and omit names, raw provider ids, subscription
 ids, endpoints, and credentials.
 

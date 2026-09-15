@@ -65,10 +65,11 @@ export function ArchitectureWorkbench({
     () => traceArchitectureNetworkPath(networkEvidenceGraph, pathSourceId, pathTargetId),
     [networkEvidenceGraph, pathSourceId, pathTargetId],
   );
-  const networkPresentationGraph = useMemo(() => {
-    const base = selectedId
-      ? networkEvidenceGraph
-      : architectureNetworkOverviewGraph(graph);
+  const filteredNetworkGraph = useMemo(() => {
+    const base = filterArchitectureNetworkGraph(
+      selectedId ? networkEvidenceGraph : architectureNetworkOverviewGraph(graph),
+      networkFilters,
+    );
     return networkPath?.status === "found"
       ? architectureNetworkPathPresentationGraph(
           base,
@@ -76,11 +77,7 @@ export function ArchitectureWorkbench({
           networkPath.resourceIds,
         )
       : base;
-  }, [graph, networkEvidenceGraph, networkPath, selectedId]);
-  const filteredNetworkGraph = useMemo(
-    () => filterArchitectureNetworkGraph(networkPresentationGraph, networkFilters),
-    [networkFilters, networkPresentationGraph],
-  );
+  }, [graph, networkEvidenceGraph, networkFilters, networkPath, selectedId]);
   const displayedGraph = useMemo(
     () => mode === "network"
       ? selectedId
