@@ -627,6 +627,9 @@ to expose that this is a bounded presentation over the complete returned page.
 Resource focus retains its reported ancestor boundaries and direct relationships, then fills the
 smallest containing scope with at most 36 type-diverse returned records. Selection never expands
 the workbench back to the full raw page.
+The Inspector resolves its parent boundary through the same reported containment precedence as the
+graph, so a VNet-contained Subnet does not fall back to a less specific Resource Group merely
+because its provider parent field is broader.
 Landscape boundaries count reported non-containment relationships that cross Resource Group
 scope, but they do not rewrite those links onto aggregate endpoints. Exact source, target, type,
 and direction appear only when the original records are visible in a focused scope.

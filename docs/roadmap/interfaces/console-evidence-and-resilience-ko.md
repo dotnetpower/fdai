@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 264e1cc639f86c118b2bc1fbe6ee3c3bd89cda33
+translation_source_sha: 8cbd7f4057ae64652b3d1880c298bc09cd2696e5
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -613,6 +613,8 @@ Resource는
 반환된 전체 페이지를 사용한 범위가 제한된 표현임을 계속 드러냅니다.
 Resource 포커스는 보고된 상위 경계와 직접 관계를 유지한 뒤, 가장 작은 포함 범위를 타입이 다양한
 반환 기록 최대 36개로 채웁니다. 선택해도 작업 영역이 전체 원시 페이지로 다시 확장되지 않습니다.
+상세 패널은 그래프와 같은 보고된 포함 우선순위로 상위 경계를 확인합니다. 따라서 VNet에 포함된
+Subnet은 프로바이더 상위 필드가 더 넓다는 이유로 Resource Group을 상위 경계로 표시하지 않습니다.
 Landscape 경계는 Resource Group 범위를 넘는 보고된 비포함 관계의 개수만 집계하며, 해당 관계의
 엔드포인트를 집계 경계로 다시 쓰지 않습니다. 정확한 원본, 대상, 타입 및 방향은 원본 기록이 포커스
 범위에 표시될 때만 나타납니다.
