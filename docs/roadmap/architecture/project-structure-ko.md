@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d9a7b1e4c14bbe22e8b97624c3969763fa54eb6f
+translation_source_sha: 3994740066f25be2e51fdfa43eab026cf196f598
 translation_revised: 2026-09-15
 ---
 # 프로젝트 구조
@@ -40,7 +40,7 @@ checkpoint부터 재개합니다.
 커버리지와 fan-out 의미를 명시적으로 보존하는 별도의 도메인 범위 설계가 필요합니다.
 
 ## 모듈 경계(모듈 Boundaries)
-[알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)가 출처, 기간, 서명, Process 및 효과 계약을 소유합니다. 코덱은 서비스 구현을 공유하지 않으며 권한은 Core 원장 시퀀스의 `USAGE`로 제한합니다. 생성 지식/UI/오프라인 근거는 권한이나 인증을 부여하지 않습니다.
+[알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)가 출처, 기간, 서명, Process 및 효과 계약을 소유합니다. 코덱은 서비스 구현을 공유하지 않으며 권한은 Core 원장 시퀀스의 `USAGE`로 제한합니다. 생성 지식/UI/오프라인 근거는 권한이나 인증을 부여하지 않습니다. 데이터 변경 없는 마이그레이션으로 알림과 사람 접근 권한의 분기 끝을 결합하며 어느 쪽의 적용 이력도 재작성하지 않습니다.
 의존 방향은 엄격하게 단방향이며, 위반은 리뷰 블로커입니다.
 클라우드 참조 수집은 수집 API, 파싱/색인 활성화는 작업자, 날짜를 명시한 근거는 Core가 담당합니다. [수명 주기 설계](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)는 공유 계약과 실행 권한이 없는 경계를 정의합니다. Core는 적용 조건을 제한된 단일 값 선택자로 노출하며 근거 객체는 의존 조회 결과로만 받습니다. 정확한 문서 맥락은 순위 계산 전에 이 선택 조건과 함께 적용하며 더 넓은 컬렉션 조회로 대체할 수 없습니다. 새 수집 테스트마다 서비스 테스트 소유자가 하나이며, 이미 선언된 API의 `aiohttp` 의존성은 간접이 아닌 직접 사용으로 분류합니다. 새 클라우드 참조 패키지는 정규화 텍스트 전용 v2 레코드를 사용합니다. 수집 원본은 API가 계속 소유하고 패키지/작업자 읽기 경로는 정확한 v1 식별 정보와 기존 승인 조건을 유지합니다.
 

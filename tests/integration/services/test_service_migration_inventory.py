@@ -304,6 +304,27 @@ def test_five_configs_have_distinct_heads_and_explicit_adoption() -> None:
     assert len(version_tables) == 5
 
 
+def test_alert_handover_merge_preserves_both_parents_without_database_effects() -> None:
+    config = Config(str(MIGRATION_ROOT / "configs/core-control-plane.ini"))
+    script = ScriptDirectory.from_config(config)
+    revision = script.get_revision("core_alert_handover_merge_20260915")
+
+    assert revision is not None
+    assert revision.is_merge_point
+    assert set(revision.down_revision) == {
+        "core_process_sequence_20260915",
+        "core_human_access_execution_20260915",
+    }
+    assert revision.revision in {item.revision for item in script.walk_revisions()}
+    migration = runpy.run_path(str(revision.path))
+    assert migration["migration_owner"] == "core-control-plane"
+    assert migration["owned_tables"] == ()
+    assert migration["rollback"]["requires"] == "none"
+    assert set(migration["rollback"]["restores"].split(",")) == set(revision.down_revision)
+    assert migration["upgrade"]() is None
+    assert migration["downgrade"]() is None
+
+
 def test_core_runtime_call_link_migration_extends_both_inventory_constraints() -> None:
     path = (
         MIGRATION_ROOT / "branches/core-control-plane/versions/"
