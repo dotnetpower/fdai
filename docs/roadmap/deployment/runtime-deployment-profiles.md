@@ -85,6 +85,17 @@ integer strings returned by Azure CLI. Boolean, fractional, signed, whitespace-p
 representations remain blocked. Available quota never overrides a SKU restriction, missing zone,
 unsupported architecture or missing host encryption; a different target requires a fresh review.
 
+Source execution separately reads the [Azure Retail Prices API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices)
+after initial settings confirmation and before Foundation planning. It selects exactly one primary
+USD hourly Linux consumption meter per selected VM SKU and region; Windows, Spot, Low Priority,
+reservation, foreign-service, future-effective and tiered prices cannot substitute. Four complete
+pages share one deadline, each body is bounded, and redirects or failed reads never trigger retries.
+The partial compute projection uses system nodes plus the user autoscaler maximum for 730 hours.
+If that component alone exceeds the monthly ceiling, planning is blocked. Otherwise the result
+remains `partial`, with Foundation, control-plane, disk, database, network, registry, storage,
+monitoring, messaging, model, tax, surge and setup costs explicitly excluded. It is not a full
+installation estimate, setup-cost verification, billing cap or execution authorization.
+
 Runtime selection does not replace one resource type with another in the same state. Each owner
 has a distinct backend key so a new installation creates only its selected platform and an existing
 installation cannot switch platforms by changing one variable.
@@ -102,6 +113,9 @@ pools, cluster identity, networking attachment, and cluster-scoped Azure role as
 Kubernetes resources are applied only after independent Azure control-plane readback proves that
 the private cluster reached `Succeeded`. The workload state then reads the approved cluster's OIDC
 issuer and uses a private kubeconfig on the managed deployment host.
+The common plan-review validator accepts the existing `substrate`, `runtime`, `database` and
+`application` stages with the same exact digest, expiry and destructive-confirmation checks.
+Accepting an AKS stage never grants it approval or permission to skip an earlier stage.
 
 ## Runtime rendering
 

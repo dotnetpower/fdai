@@ -14,6 +14,18 @@ from fdai_deployment_cli.private_output import write_private_bytes
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 
 
+@pytest.fixture(autouse=True)
+def no_live_prices(monkeypatch):
+    monkeypatch.setattr(
+        source_azure,
+        "inspect_aks_compute_cost",
+        lambda **_: {
+            "state": "partial",
+            "whole_installation_cost_verified": False,
+        },
+    )
+
+
 @pytest.mark.parametrize("deployment_ready", [False, True])
 @pytest.mark.parametrize("mode", ["review", "interactive", "approved", "ambient", "startup"])
 def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deployment_ready, mode):
@@ -162,6 +174,7 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
         assert result["deployment_ready"] is False
         assert result["release_signature_verified"] is False
         assert result["provenance"] == "operator-selected-source"
+        assert result["cost_review"]["whole_installation_cost_verified"] is False
     assert len(calls) == (3 if interactive and not deployment_ready else 2)
     assert len(prompts) == int(interactive and not deployment_ready)
     assert len(initial_confirmations) == int(mode == "startup")
@@ -200,6 +213,48 @@ def test_source_orchestration_stops_before_foundation_on_capacity_block(
         timeout_seconds=1800,
     )
     assert result["stage"] == "aks-preflight"
+    assert not (tmp_path / "work").exists()
+
+
+def test_over_budget_source_stops_before_foundation(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        source_azure, "prepare_source_deployment", lambda **_: {"source_commit": "c" * 40}
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "inspect_source",
+        lambda *_, **__: SimpleNamespace(commit="c" * 40, root=tmp_path, reverify=lambda: None),
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "inspect_aks_target",
+        lambda **_: {"state": "feasible", "target_binding": "a" * 64},
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "inspect_aks_compute_cost",
+        lambda **_: {
+            "state": "blocked",
+            "stage": "cost-review",
+            "reason_code": "aks_compute_exceeds_monthly_ceiling",
+            "deployment_ready": False,
+        },
+    )
+    monkeypatch.setattr(
+        source_azure, "_capture", lambda *_: pytest.fail("must not enter Foundation")
+    )
+    result = source_azure.plan_source_installation(
+        source_root=tmp_path,
+        work_dir=tmp_path / "work",
+        runtime_profile=RuntimeDeploymentProfile.create(
+            runtime_platform="aks", database_placement="postgres-flex"
+        ),
+        region="eastus",
+        monthly_cost_ceiling=100,
+        timeout_seconds=1800,
+    )
+    assert result["stage"] == "cost-review"
+    assert result["state"] == "blocked"
     assert not (tmp_path / "work").exists()
 
 

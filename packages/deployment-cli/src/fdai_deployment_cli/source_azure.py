@@ -10,6 +10,7 @@ from pathlib import Path
 
 from fdai_deployment_cli.aks_preflight import inspect_aks_target
 from fdai_deployment_cli.contracts import load_json_object
+from fdai_deployment_cli.deployment_cost import inspect_aks_compute_cost
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.installation_scope import InstallationOptions, confirm_installation_scope
 from fdai_deployment_cli.private_output import read_private_bytes
@@ -76,6 +77,15 @@ def plan_source_installation(
         source.reverify()
         if confirmation["state"] != "confirmed":
             return {**confirmation, "source_commit": source.commit}
+    cost_review = inspect_aks_compute_cost(
+        profile=runtime_profile,
+        region=region,
+        monthly_cost_ceiling=monthly_cost_ceiling,
+        timeout_seconds=deadline.remaining(120),
+    )
+    source.reverify()
+    if cost_review["state"] == "blocked":
+        return {**cost_review, "source_commit": source.commit}
     tools = work_dir / "source-tools"
     tools.mkdir(mode=0o700, exist_ok=True)
     terraform = tools / "terraform"
@@ -202,7 +212,7 @@ def plan_source_installation(
             "runner-enrollment",
             "foundation-state",
         }:
-            return result
+            return {**result, "cost_review": cost_review}
         approval.unlink(missing_ok=True)
         prompt = subprocess.run(
             (

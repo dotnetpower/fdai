@@ -445,6 +445,13 @@ def create_review(
         "retained_type_counts": dict(sorted(retained_types.items())),
         "monthly_fixed_cost_upper_bound_usd": _MONTHLY_FIXED_COST_UPPER_BOUND_USD,
         "approved_monthly_cost_ceiling_usd": inputs.monthly_cost_ceiling,
+        "cost_evidence": {
+            "basis": "policy-estimate-only",
+            "pricing_verified": False,
+            "setup_cost_verified": False,
+            "whole_installation_cost_verified": False,
+            "billing_cap_enforced": False,
+        },
     }
     if inputs.sku_selection is not None:
         require_selection_projection(

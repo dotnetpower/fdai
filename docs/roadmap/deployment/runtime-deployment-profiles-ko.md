@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: fa78a211589b5cd60cd871cdd6da0109f46745f7
+translation_source_sha: 3bef6174869c4ea500401cf3725793c2dd5c5d22
 translation_revised: 2026-09-15
 ---
 # 런타임 배포 프로파일
@@ -86,6 +86,16 @@ $$
 차단합니다. 할당량이 남아 있어도 SKU 제한, 가용 영역 누락, 지원하지 않는 아키텍처 또는
 호스트 암호화 미지원 조건을 무시하지 않습니다. 대상이 바뀌면 새 검토가 필요합니다.
 
+소스 실행은 초기 설정 확인 이후, Foundation 계획 이전에 [Azure Retail Prices API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices)를 별도로
+조회합니다. 선택한 VM SKU와 리전별로 기본 USD 시간 단위 Linux 종량제 계량기 하나만
+선택합니다. Windows, Spot, Low Priority, 예약, 다른 서비스, 미래 적용일, 구간별 가격은
+대신 사용할 수 없습니다. 최대 네 페이지가 하나의 제한 시간을 공유하고 응답 크기도 제한하며,
+리다이렉트나 조회 실패 시 자동 재시도하지 않습니다. 컴퓨트 부분 추정치는 시스템 노드와 사용자
+자동 확장 최대 노드를 월 730시간 사용하는 경우를 계산합니다. 이 부분만으로 월 한도를 넘으면
+계획을 차단합니다. 그렇지 않아도 결과는 `partial`이며 Foundation, 컨트롤 플레인, 디스크,
+DB, 네트워크, 레지스트리, 저장소, 모니터링, 메시지, 모델, 세금, 추가 노드 및 구축 비용은
+명시적으로 제외합니다. 전체 설치 견적, 구축 비용 검증, 실제 청구 상한이나 실행 승인이 아닙니다.
+
 런타임 선택은 같은 상태에서 한 리소스 유형을 다른 유형으로 교체하지 않습니다. 각 소유자는
 별도의 backend key를 사용하므로 신규 설치는 선택한 플랫폼만 만들고, 기존 설치는 변수 하나를
 바꾸는 방식으로 플랫폼을 전환할 수 없습니다.
@@ -102,6 +112,9 @@ $$
 연결, 클러스터 범위 Azure 역할 할당만 소유합니다. 독립적인 Azure 컨트롤 플레인 확인에서 비공개
 클러스터가 `Succeeded` 상태에 도달한 것을 증명한 뒤 Kubernetes 리소스를 적용합니다. 워크로드
 상태는 승인된 클러스터의 OIDC 발급자를 읽고 managed 배포 호스트의 비공개 kubeconfig를 사용합니다.
+공용 계획 검토기는 기존 `substrate`, `runtime`, `database`, `application` 단계에 같은
+정확한 digest·만료·파괴적 변경 확인 조건을 적용합니다. AKS 단계를 허용한다고 승인하거나
+선행 단계를 생략할 권한을 부여하지는 않습니다.
 
 ## 런타임 렌더링
 

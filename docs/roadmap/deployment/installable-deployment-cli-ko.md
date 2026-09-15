@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: e80a352c8d1490f39b9725c0eac77807244ef1a7
+translation_source_sha: d18eb09eee0fc1bf88acb88829ed771dab6a86bf
 translation_revised: 2026-09-15
 ---
 
@@ -52,6 +52,13 @@ GitHub Actions는 소스를 검증하고 이미지를 빌드하며 서명된 rel
 필수 가용 영역, 자동 확장 최대치와 동시 33퍼센트 추가 노드를 포함한 계열 및 전체 할당량을
 조회합니다. 용량을 예약하거나 Foundation 자원까지 계산하지는 않습니다. 별도의 소스 작업
 디렉터리는 기존 키트 실행 상태를 인수하지 않습니다.
+
+초기 확인 후에는 제한된 공개 가격 조회로 AKS 컴퓨트 부분 비용을 검토하고 Foundation 계획을
+진행합니다. 컴퓨트만으로 한도를 넘으면 차단하며, 한도 이내라도 전체 설치와 구축 비용은
+미검증 상태입니다. [런타임 프로파일 설계](runtime-deployment-profiles-ko.md#상태-소유권)가
+가격 선택과 제외 항목을 정의합니다. 관리 호스트 이미지 검토는 호환성을 위해 기존 숫자 추정치를
+유지하되 `policy-estimate-only`로 표시하며 가격·구축·전체 설치·청구 상한 검증은 모두
+false입니다. 이 추정치는 독립적인 비용 근거를 대신할 수 없습니다.
 
 Foundation 입력과 VM 메타데이터 조회는 운영자가 소유한 로컬 설치를 포함해 기존의 신뢰된
 설치 경로에서 Azure CLI를 찾습니다. `/usr/bin/az`의 존재를 요구하거나 `PATH`의 임의 실행

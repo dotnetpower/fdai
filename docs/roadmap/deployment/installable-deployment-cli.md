@@ -49,6 +49,13 @@ restrictions, x64 architecture, host encryption, required zones and shared-famil
 autoscaler maximum plus simultaneous 33-percent surge. It neither reserves capacity nor accounts
 for the Foundation graph. The distinct source work directory never adopts a kit run.
 
+After initial confirmation, a bounded public-price read adds an explicit partial AKS compute
+cost review before Foundation planning. A compute-only overrun blocks; an under-ceiling result
+still leaves full installation and setup costs unverified. The [runtime profile owner](runtime-deployment-profiles.md#state-ownership)
+defines price selection and exclusions. Runner-image reviews retain their legacy numeric estimate
+for compatibility but label it `policy-estimate-only`, with price, setup, whole-installation and
+billing-cap verification all false. That estimate cannot stand in for independent cost evidence.
+
 Foundation input and VM metadata reads resolve Azure CLI through the existing trusted installation
 roots, including the operator-owned local installation. They do not require `/usr/bin/az` to exist
 or accept an arbitrary executable from `PATH`. The selected Azure configuration, bounded reads and

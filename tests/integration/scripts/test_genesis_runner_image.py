@@ -473,6 +473,13 @@ def test_review_binds_plan_projection_and_rejects_tampering(tmp_path: Path) -> N
     ]
     assert verified["effect_summary"]["monthly_fixed_cost_upper_bound_usd"] == 500
     assert verified["effect_summary"]["approved_monthly_cost_ceiling_usd"] == 500
+    assert verified["effect_summary"]["cost_evidence"] == {
+        "basis": "policy-estimate-only",
+        "pricing_verified": False,
+        "setup_cost_verified": False,
+        "whole_installation_cost_verified": False,
+        "billing_cap_enforced": False,
+    }
     assert verified["effect_summary"]["egress_class"] == "fqdn-allowlisted-firewall-basic"
     assert verified["apply_authorized"] is False
     with (work / PLAN_NAME).open("ab") as stream:
