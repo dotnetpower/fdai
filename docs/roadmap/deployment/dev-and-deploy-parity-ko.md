@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 1a1c42e778a3f9c24944d107e2e68ee61dfa115e
-translation_revised: 2026-09-15
+translation_source_sha: 5c5c6a0b3bf9cacd0069c10b449c278c93f62386
+translation_revised: 2026-09-16
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 **목표**: 자동화 테스트는 결정론적이고 비밀 없는 상태를 유지하며, 대화형 로컬 Console은 권위 있는 Azure 상태를 표시합니다. Azure 배포는 **배포자 권한과 리전 카탈로그로 프로비저닝할 리소스를 선택**합니다. 별도 `docs site: serve (4321)` 작업은 루프백에서 공개 문서만 미리 보여 줍니다. 백엔드나 채널 경계를 시작하지 않으며 런타임 권한을 부여하지 않습니다. 세 명제가 동시에 참입니다:
@@ -144,12 +144,7 @@ IAM 초기화가 성공하면 대시보드는 `GET /kpi`를 필수 backbone으�
 해석되는 즉시 경로 골격을 종료합니다. 선택 FinOps, promotion-gate 및 자율성 변환 결과는
 독립적으로 합류하며 `404`, `501`, `503`이면 사용 불가로 표시하고 전체 대시보드를 실패시키지 않습니다.
 모든 브라우저 Operator API 요청에도 구성 가능한 기본 30초 시간 초과를 적용합니다. 정지한 fetch는
-abort되고 영구 골격을 남기지 않고 기존 경로 오류 표면으로 전환됩니다.
-로컬과 배포 환경의 브라우저 근거는 동일한 Reader 전용 v2 작업 공간 경로 및 PostgreSQL 뷰를
-사용합니다. 두 환경 모두 배포 버전 차이를 위해 v1 경로를 유지하고, 커서 페이지를 변경을 고려하는 상태로
-표시하며, 허용된 메타데이터와 식별정보가 없는 보류 개수를 분리하고, v2 경로가 없으면 사용
-불가로 표시합니다. 어떤 환경도 테스트 고정본 기록을 대입하거나 v1 묶음을 v2 근거로 대체 사용하지
-않습니다.
+abort되고 영구 골격을 남기지 않고 기존 경로 오류 표면으로 전환됩니다. 로컬과 배포 환경의 브라우저 근거는 동일한 Reader 전용 v2 작업 공간 경로와 PostgreSQL 뷰를 사용하고, 배포 버전 차이를 위해 v1을 유지하고, 커서 페이지를 변경을 고려하는 상태로 표시하고, 허용된 메타데이터와 식별정보가 없는 보류 개수를 분리하며 v2 경로가 없으면 사용 불가로 표시합니다. 어떤 환경도 테스트 고정본을 대입하거나 v1 묶음을 v2 근거로 취급하지 않습니다.
 각 long-running Console 작업은 VS 코드 인스턴스 하나만 허용합니다. Core 작업과 debug launch는
 `.fdai/core-runtime.lock`도 공유하므로 두 번째 프로세스는 Kafka 소비자 그룹에 참여하기 전에
 실패합니다. 따라서 작업/debug overlap이 중복 Pantheon 소비자와 지속적인 rebalance를 만들지 않습니다.

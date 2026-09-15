@@ -137,11 +137,7 @@ After IAM bootstrap succeeds, Dashboard treats `GET /kpi` as its required backbo
 route skeleton as soon as that response resolves. Optional FinOps, promotion-gate, and autonomy
 projections join independently; `404`, `501`, or `503` renders them unavailable and never fails the complete Dashboard.
 Every browser Operator API request also has a configurable 30-second default timeout. A stalled fetch
-is aborted and enters the existing route error surface instead of leaving a permanent skeleton.
-Local and deployed Browser evidence use the same Reader-only v2 workspace route and PostgreSQL
-views. Both retain the v1 route for deployment skew, label cursor pages as drift-aware, separate
-admitted metadata from non-identifying withheld counts, and render a missing v2 route unavailable.
-Neither venue substitutes fixture records or falls back to the v1 envelope as v2 evidence.
+is aborted and enters the existing route error surface instead of leaving a permanent skeleton. Local and deployed Browser evidence use the same Reader-only v2 workspace route and PostgreSQL views, retain v1 for deployment skew, label cursor pages as drift-aware, separate admitted metadata from non-identifying withheld counts, and render a missing v2 route unavailable; neither venue substitutes fixtures or treats the v1 envelope as v2 evidence.
 Each long-running Console task permits one VS Code instance. The core task and debug launch also
 share `.fdai/core-runtime.lock`; a second process fails before joining Kafka consumer groups. This
 prevents task/debug overlap from creating duplicate Pantheon consumers and continuous rebalancing.

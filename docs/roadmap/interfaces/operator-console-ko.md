@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: c1be54ff6ed45ea5f7cc343e595e1dcb86080fdd
+translation_source_sha: 7f1bbe8a13615aa034fa928db968982a9b26f0f8
 translation_revised: 2026-09-16
 ---
 # FDAI Console 대화
@@ -303,11 +303,7 @@ Catalog-owned resource-health 이력 의도도 같은 결정론적 precedence를
 임베딩 조회, T2 모델, 외부 어댑터, 어떤 변경 표면도
 호출하지 않고, PR과 감사 항목을 쓰기 안 함. 그 `side_effect_class`는
 `read` 이며, shadow-mode 테스트가 실행기 / PR 어댑터 / 상태 저장소를 절대
-건드리지 않음을 assert. 이것이 읽기 담당 하한에서 안전한 이유입니다. 브라우저 수집은 [브라우저 근거 수집](browser-evidence-ko.md) 계약을 따르며 Bragi는 브라우저 handle을 받지 않습니다.
-Reader 전용 브라우저 근거 작업 공간은 버전이 지정된 변환 결과를 통해 허용된 스칼라 보관
-메타데이터를 받으며 스냅샷 전체 보류 사유에는 기록 식별정보가 없습니다. 정확한 필터, 커서 및
-Audit 또는 Trace 링크는 읽기 작업으로 유지됩니다. 수집을 요청하거나 수집 자료를 공개하거나
-승격, 승인 또는 실행 권한을 부여할 수 없습니다.
+건드리지 않음을 assert. 이것이 읽기 담당 하한에서 안전한 이유입니다. 브라우저 수집과 Reader 전용 v2 작업 공간은 [브라우저 근거 수집](browser-evidence-ko.md) 계약을 따릅니다. 허용된 스칼라 보관 메타데이터, 식별정보가 없는 보류 개수, 정확한 필터, 커서 및 Audit 또는 Trace 링크는 읽기 전용이며 수집을 요청하거나 수집 자료를 공개하거나 승격, 승인 또는 실행 권한을 부여할 수 없습니다. Bragi는 브라우저 handle을 받지 않습니다.
 ### 3.2 Week-1 추가 (쓰기 / approve / 런북)
 
 | 도구 | 목적 | RBAC 하한 | 참고 |
