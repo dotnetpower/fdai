@@ -140,6 +140,9 @@ blob pins and the catalog digest only, without changing retrieval authority or m
 behavior.
 Attachment-boundary documentation follows the same source-driven refresh rule: its catalog update
 does not claim that protected channel ingestion is enabled or runtime-validated.
+Console resilience source revisions follow the same rule. Retry and loading-presentation changes
+update source blob pins and the catalog digest only; they do not widen catalog content, retrieval,
+message delivery, or authority.
 Document baseline validation rejects non-finite inputs and derived rates. Refreshing its source
 pins records that numeric contract, not an authenticated corpus receipt or measured deployment capacity.
 Post-turn migration citations follow the shared Operator rollback contract: evidence inherited

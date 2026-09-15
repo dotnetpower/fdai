@@ -4,6 +4,7 @@ import {
   DECK_OPEN_READY_EVENT,
   DECK_STATE_EVENT,
   DECK_TOGGLE_EVENT,
+  hasPendingDeckOpen,
   isDeckOpen,
   isGeneralDeckOpen,
   isDeckOpenListenerReady,
@@ -38,6 +39,7 @@ afterEach(() => {
 describe("openDeckWithPrompt", () => {
   it("dispatches the deck-open event with a seeded prompt", () => {
     const dispatched: FakeCustomEvent<{ prompt?: string }>[] = [];
+    setDeckOpenListenerReady(true);
     vi.stubGlobal("CustomEvent", FakeCustomEvent);
     vi.stubGlobal("window", {
       dispatchEvent: (e: FakeCustomEvent<{ prompt?: string }>) => dispatched.push(e),
@@ -52,6 +54,7 @@ describe("openDeckWithPrompt", () => {
 
   it("dispatches an event with no prompt when none is given", () => {
     const dispatched: FakeCustomEvent<{ prompt?: string }>[] = [];
+    setDeckOpenListenerReady(true);
     vi.stubGlobal("CustomEvent", FakeCustomEvent);
     vi.stubGlobal("window", {
       dispatchEvent: (e: FakeCustomEvent<{ prompt?: string }>) => dispatched.push(e),
@@ -77,13 +80,16 @@ describe("openDeckWithContext", () => {
 
     expect(isDeckOpenListenerReady()).toBe(false);
     expect(openDeckWithContext({ onlyWhenIdle: true })).toBe(true);
-    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(hasPendingDeckOpen()).toBe(true);
+    expect(dispatch).toHaveBeenCalledTimes(2);
+    expect((dispatch.mock.calls[0]?.[0] as Event).type).toBe("fdai:deck:activate");
 
     setDeckOpenListenerReady(true);
-    expect(dispatch).toHaveBeenCalledTimes(3);
-    expect((dispatch.mock.calls[1]?.[0] as FakeCustomEvent<Record<string, unknown>>).type)
+    expect(hasPendingDeckOpen()).toBe(false);
+    expect(dispatch).toHaveBeenCalledTimes(4);
+    expect((dispatch.mock.calls[2]?.[0] as FakeCustomEvent<Record<string, unknown>>).type)
       .toBe(DECK_OPEN_EVENT);
-    expect((dispatch.mock.calls[2]?.[0] as Event).type).toBe(DECK_OPEN_READY_EVENT);
+    expect((dispatch.mock.calls[3]?.[0] as Event).type).toBe(DECK_OPEN_READY_EVENT);
   });
 
   it("reports when an idle-only open request is deferred", () => {
@@ -106,11 +112,12 @@ describe("openDeckWithContext", () => {
     });
 
     expect(openDeckWithContext({ prompt: "investigate", submitPrompt: true })).toBe(true);
-    expect(dispatched).toHaveLength(1);
+    expect(dispatched).toHaveLength(2);
+    expect(dispatched[0]?.type).toBe("fdai:deck:activate");
 
     setDeckOpenListenerReady(true);
-    expect(dispatched).toHaveLength(2);
-    expect(dispatched[1]?.type).toBe(DECK_OPEN_READY_EVENT);
+    expect(dispatched).toHaveLength(3);
+    expect(dispatched[2]?.type).toBe(DECK_OPEN_READY_EVENT);
   });
 
   it("dispatches a fresh agent-conversation request", () => {
@@ -171,13 +178,16 @@ describe("openDeckWithContext", () => {
 describe("Activity Bar Deck controls", () => {
   it("defers one toggle until the lazy Deck listener is ready", () => {
     const target = new EventTarget();
+    const activate = vi.fn();
     const toggle = vi.fn();
     const ready = vi.fn();
+    target.addEventListener("fdai:deck:activate", activate);
     target.addEventListener(DECK_TOGGLE_EVENT, toggle);
     target.addEventListener(DECK_OPEN_READY_EVENT, ready);
     vi.stubGlobal("window", target);
 
     requestDeckToggle();
+    expect(activate).toHaveBeenCalledOnce();
     expect(toggle).not.toHaveBeenCalled();
 
     setDeckOpenListenerReady(true);

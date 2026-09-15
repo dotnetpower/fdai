@@ -17,7 +17,7 @@ import {
 } from "./local-auth-session";
 import { Shell } from "./components/shell";
 import { PanelErrorBoundary } from "./components/panel-error-boundary";
-import { PageHeader } from "./components/ui";
+import { ErrorState, PageHeader } from "./components/ui";
 import { setChatAuth } from "./deck/auth";
 import { buildFallbackViewSnapshot, ViewContextProvider } from "./deck/context";
 import { deckUserFromAuth, setDeckUser } from "./deck/deck-user";
@@ -64,9 +64,9 @@ interface BackgroundRoute {
   readonly search: URLSearchParams;
 }
 
-const CommandDeck = lazy(async () => {
-  const module = await import("./deck/command-deck");
-  return { default: module.CommandDeck };
+const DeferredCommandDeck = lazy(async () => {
+  const module = await import("./deck/deferred-command-deck");
+  return { default: module.DeferredCommandDeck };
 });
 
 const SettingsOverlay = lazy(async () => {
@@ -142,6 +142,7 @@ export function App() {
   const [localDevBypass, setLocalDevBypass] = useState(readLocalAuthBypass);
   const preferredDataModeRef = useRef(readConsoleDataMode());
   const [preferredDataMode, setPreferredDataMode] = useState(preferredDataModeRef.current);
+  const activePanel = panelForId(panelId);
 
   useEffect(() => {
     migrateLegacyHash();
@@ -314,10 +315,9 @@ export function App() {
   }, [panelId, preferredDataMode, state]);
 
   if (state.status === "loading") {
-    const loadingPanel = panelForId(panelId);
     return (
       <main class="console-bootstrap">
-        <PanelLoading title={loadingPanel.label} subtitle={loadingPanel.subtitle} />
+        <PanelLoading title={activePanel.label} subtitle={activePanel.subtitle} />
       </main>
     );
   }
@@ -327,11 +327,10 @@ export function App() {
     if (!auth) {
       return <div class="empty error">{t("console.internalStateMissing")}</div>;
     }
-    const loadingPanel = panelForId(panelId);
     return (
       <Suspense fallback={(
         <main class="console-bootstrap">
-          <PanelLoading title={loadingPanel.label} subtitle={loadingPanel.subtitle} />
+          <PanelLoading title={activePanel.label} subtitle={activePanel.subtitle} />
         </main>
       )}>
         <LoginRoute auth={auth} startup />
@@ -341,10 +340,13 @@ export function App() {
 
   if (state.status === "error") {
     return (
-      <div class="empty error">
-        <p>{t("console.initializeFailed")}</p>
-        <p class="mono">{state.error}</p>
-      </div>
+      <main class="console-bootstrap">
+        <ErrorState
+          message={state.error ?? t("console.initializeFailed")}
+          onRetry={() => window.location.reload()}
+          retryLabel={t("shared.reloadConsole")}
+        />
+      </main>
     );
   }
 
@@ -354,7 +356,7 @@ export function App() {
       return <div class="empty error">{t("console.internalStateMissing")}</div>;
     }
     return (
-      <Suspense fallback={null}>
+      <Suspense fallback={<PanelLoading title={activePanel.label} subtitle={activePanel.subtitle} />}>
         <LoginRoute
           auth={auth}
           accessRecovery={{
@@ -375,7 +377,11 @@ export function App() {
   }
 
   if (!auth.devMode && !auth.account) {
-    return <Suspense fallback={null}><LoginRoute auth={auth} /></Suspense>;
+    return (
+      <Suspense fallback={<PanelLoading title={activePanel.label} subtitle={activePanel.subtitle} />}>
+        <LoginRoute auth={auth} />
+      </Suspense>
+    );
   }
 
   if (
@@ -386,7 +392,7 @@ export function App() {
   ) {
     const allowDevBypass = shouldAllowLocalDevBypass(auth);
     return (
-      <Suspense fallback={null}>
+      <Suspense fallback={<PanelLoading title={activePanel.label} subtitle={activePanel.subtitle} />}>
         <LoginRoute
           auth={auth}
           allowDevBypass={allowDevBypass}
@@ -403,13 +409,13 @@ export function App() {
 
   if (state.iamSelf && shouldShowAccessRequired(auth, state.iamSelf)) {
     return (
-      <Suspense fallback={null}>
+      <Suspense fallback={<PanelLoading title={activePanel.label} subtitle={activePanel.subtitle} />}>
         <AccessRequiredRoute auth={auth} client={client} initialStatus={state.iamSelf} />
       </Suspense>
     );
   }
 
-  const panel = panelForId(panelId);
+  const panel = activePanel;
   const PanelComponent = panel.component;
   const route = currentRoute();
   const dataMode = consoleDataMode(panel.id, route.search, preferredDataMode);
@@ -465,35 +471,37 @@ export function App() {
             : {}
         )}
       >
-        <PanelErrorBoundary key={settingsOpen ? backgroundRoute.routeKey : routeKey}>
-          <Suspense
-            fallback={(
-              <PanelLoading
-                title={backgroundPanel.label}
-                subtitle={backgroundPanel.subtitle}
-              />
-            )}
-          >
-            {backgroundDataMode === "sample" ? sampleClient === undefined ? (
-              <PanelLoading title={backgroundPanel.label} subtitle={backgroundPanel.subtitle} />
-            ) : (
-              <BackgroundPanelComponent
-                client={sampleClient}
-                auth={auth}
-                dataMode={backgroundDataMode}
-              />
-            ) : (
-              <BackgroundPanelComponent
-                client={client}
-                auth={auth}
-                dataMode={backgroundDataMode}
-              />
-            )}
-          </Suspense>
-        </PanelErrorBoundary>
+        {!settingsOpen || hasTransientRoute() ? (
+          <PanelErrorBoundary key={settingsOpen ? backgroundRoute.routeKey : routeKey}>
+            <Suspense
+              fallback={(
+                <PanelLoading
+                  title={backgroundPanel.label}
+                  subtitle={backgroundPanel.subtitle}
+                />
+              )}
+            >
+              {backgroundDataMode === "sample" ? sampleClient === undefined ? (
+                <PanelLoading title={backgroundPanel.label} subtitle={backgroundPanel.subtitle} />
+              ) : (
+                <BackgroundPanelComponent
+                  client={sampleClient}
+                  auth={auth}
+                  dataMode={backgroundDataMode}
+                />
+              ) : (
+                <BackgroundPanelComponent
+                  client={client}
+                  auth={auth}
+                  dataMode={backgroundDataMode}
+                />
+              )}
+            </Suspense>
+          </PanelErrorBoundary>
+        ) : null}
       </Shell>
       {settingsOpen ? (
-        <Suspense fallback={null}>
+        <Suspense fallback={<i class="settings-overlay-scrim" />}>
           <SettingsOverlay activePanelId={panel.id} onClose={closeSettings}>
             <PanelErrorBoundary key={routeKey}>
               <Suspense fallback={<PanelLoading title={panel.label} subtitle={panel.subtitle} />}>
@@ -503,8 +511,14 @@ export function App() {
           </SettingsOverlay>
         </Suspense>
       ) : null}
-      <Suspense fallback={null}>
-        <CommandDeck client={client} />
+      <Suspense
+        fallback={(
+          <span class="sr-only" role="status">
+            {t("shared.loadingResource", { resource: t("deck.conversation") })}
+          </span>
+        )}
+      >
+        <DeferredCommandDeck client={client} routeLabel={backgroundPanel.label} />
       </Suspense>
     </ViewContextProvider>
   );

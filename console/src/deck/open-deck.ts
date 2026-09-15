@@ -12,6 +12,7 @@
 /** The window event name the CommandDeck listens for. */
 export const DECK_OPEN_EVENT = "fdai:deck:open";
 export const DECK_OPEN_READY_EVENT = "fdai:deck:open-ready";
+const DECK_ACTIVATE_EVENT = "fdai:deck:activate";
 export const DECK_TOGGLE_EVENT = "fdai:deck:toggle";
 export const DECK_STATE_EVENT = "fdai:deck:state";
 
@@ -75,6 +76,10 @@ export function isDeckOpenListenerReady(): boolean {
   return deckOpenListenerReady;
 }
 
+export function hasPendingDeckOpen(): boolean {
+  return pendingDeckToggle || pendingDeckOpens.length > 0;
+}
+
 export function isDeckOpen(): boolean {
   return deckOpen;
 }
@@ -116,6 +121,7 @@ export function requestDeckToggle(): void {
   if (typeof window === "undefined" || typeof Event === "undefined") return;
   if (!deckOpenListenerReady) {
     pendingDeckToggle = !pendingDeckToggle;
+    requestDeckActivation();
     return;
   }
   window.dispatchEvent(new Event(DECK_TOGGLE_EVENT));
@@ -132,9 +138,7 @@ export function acknowledgeDeckOpenEvent(event: Event): void {
  * input on receipt; the seeded text is a draft, never an auto-submitted turn.
  */
 export function openDeckWithPrompt(prompt?: string): void {
-  if (typeof window === "undefined" || typeof CustomEvent === "undefined") return;
-  const detail: DeckOpenDetail = prompt ? { prompt } : {};
-  window.dispatchEvent(new CustomEvent<DeckOpenDetail>(DECK_OPEN_EVENT, { detail }));
+  void openDeckWithContext(prompt ? { prompt } : {});
 }
 
 /**
@@ -147,12 +151,19 @@ export function openDeckWithPrompt(prompt?: string): void {
 export function openDeckWithContext(detail: DeckOpenDetail): boolean {
   if (typeof window === "undefined" || typeof CustomEvent === "undefined") return false;
   if (!deckOpenListenerReady) {
+    requestDeckActivation();
     const attempt = dispatchDeckOpen(detail);
     if (attempt.handled) return attempt.accepted;
     pendingDeckOpens = [...pendingDeckOpens.slice(-(MAX_PENDING_DECK_OPENS - 1)), detail];
     return true;
   }
   return dispatchDeckOpen(detail).accepted;
+}
+
+function requestDeckActivation(): void {
+  if (typeof Event !== "undefined") {
+    window.dispatchEvent(new Event(DECK_ACTIVATE_EVENT));
+  }
 }
 
 function dispatchDeckOpen(detail: DeckOpenDetail): { accepted: boolean; handled: boolean } {

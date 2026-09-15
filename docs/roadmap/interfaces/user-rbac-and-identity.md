@@ -461,6 +461,8 @@ but MUST NOT gain any capability:
 - Role-protected endpoints return `403`, while role-optional `GET /iam/self` provides the
   self-service projection for the Access Required screen. A dedicated `sign-in-denied` audit
   event isn't implemented yet.
+- Settings > Identity and access preserves the verified token and current route when its initial
+  projection fails. Retry repeats only the authorized reads and never grants a capability.
 
 ### 10.4 ChatOps (Teams) Sign-In
 

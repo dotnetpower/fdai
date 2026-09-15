@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 13e510bca352ee9733134d0d6916f19cd347364c
+translation_source_sha: bf3ad16ffb739331d56803fa6f979282cd8d22c4
 translation_revised: 2026-09-15
 ---
 
@@ -459,6 +459,8 @@ JWKS는 지연 fetch 후 프로세스 내 캐시; 요청별 검증은 로컬 RSA
 - 역할이 필요한 엔드포인트는 `403`을 반환하고, role-optional `GET /iam/self`는 접근 필수
   화면에 필요한 self-service 변환 결과를 제공합니다. 전용 `sign-in-denied` 감사 이벤트는
   아직 구현되어 있지 않습니다.
+- Settings > ID 및 액세스의 최초 변환 결과 조회에 실패하면 검증된 토큰과 현재 경로를
+  유지합니다. 재시도는 권한이 확인된 읽기만 반복하며 어떤 기능도 부여하지 않습니다.
 
 ### 10.4 ChatOps (Teams) 사인인
 
