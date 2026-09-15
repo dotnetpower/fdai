@@ -68,6 +68,17 @@ It accepts only stopped or deallocated power states and propagates CLI errors. A
 an apply claim can leave billable resources even when the coordinator has no success receipt.
 Preserve the original plan, claim and Terraform state; read-only observation does not authorize
 reapplying the plan or establish that a stopped VM is deallocated.
+
+For a failed local poweroff wait, recovery starts with a new read-only residual plan, not another
+apply of the claimed binary. Planning retains the original variables and authoritative state,
+binds the original review and claim, and permits only the reviewed CLI-path correction in a fresh
+Terraform configuration. It neither copies authoritative state into a second execution venue nor
+changes the original plan. Completed Azure resources and deprovision commands must remain no-op.
+Only the failed local wait marker may be replaced; remaining image capture, verifier and VM
+deallocation/generalization steps must preserve the original known intent. Drift, deferred work,
+changed ownership, extra resources or failed checks block the result. This inspection grants no
+apply authority; a residual plan needs its own execution contract and current approval before use.
+
 The interactive checkpoint prompt resolves that same trusted CLI before reading the current
 human approver. A missing trusted executable or a service-principal account cannot create approval.
 
