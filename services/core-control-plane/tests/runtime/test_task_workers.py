@@ -179,7 +179,7 @@ async def test_actual_core_assembly_calls_the_production_worker_boundary(
         pass
 
     build = AsyncMock(side_effect=ReachedWorkerBoundaryError)
-    monkeypatch.setattr(bootstrap_core, "build_task_worker_runtime_from_env", build)
+    monkeypatch.setattr(task_workers, "build_task_worker_runtime_from_env", build)
     monkeypatch.setattr(
         bootstrap_core,
         "build_messaging_runtime",
@@ -223,3 +223,31 @@ async def test_binding_releases_its_store_and_reports_a_failed_drain() -> None:
         await binding.aclose()
     runtime.aclose.assert_awaited_once_with()
     store.aclose.assert_awaited_once_with()
+
+
+async def test_core_binding_attaches_the_exact_factory_result_to_cleanup_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    binding = object()
+    build = AsyncMock(return_value=binding)
+    monkeypatch.setattr(task_workers, "build_task_worker_runtime_from_env", build)
+    args = binding_arguments()
+    container = SimpleNamespace(
+        resolved_models=args["resolved_models"],
+        held_model_capabilities=frozenset(),
+        llm_bindings=SimpleNamespace(conversation_pricing=args["pricing"]),
+    )
+    async with httpx.AsyncClient() as client:
+        resources = RuntimeResources(http_client=client)
+        await task_workers.bind_task_workers(
+            container, resources, args["identity"], args["environment"]
+        )
+        assert resources.task_workers is binding
+        build.assert_awaited_once_with(
+            environment=args["environment"],
+            resolved_models=args["resolved_models"],
+            held_capabilities=frozenset(),
+            identity=args["identity"],
+            http_client=client,
+            pricing=args["pricing"],
+        )

@@ -221,3 +221,92 @@ def test_prompt_rejects_non_tty_or_wrong_exact_text(tmp_path: Path) -> None:
             output=tmp_path / "denied.json",
             input_stream=_TtyInput("yes\n"),
         )
+
+
+@pytest.fixture
+def residual_review(tmp_path):
+    tmp_path.chmod(0o700)
+    moment = datetime.now(timezone.utc).replace(microsecond=0)  # noqa: UP017
+    plan = b"exact residual binary plan"
+    value = {
+        "schema_version": "fdai.runner-image-residual-review.v1",
+        "state": "review",
+        "apply_authorized": False,
+        "mutation_performed": False,
+        "deployment_ready": False,
+        "original_state_unchanged": True,
+        "source_commit": "a" * 40,
+        "recovery_source_commit": SOURCE_COMMIT,
+        "plan_digest": hashlib.sha256(plan).hexdigest(),
+        "provider_digest": "c" * 64,
+        "original_lineage_digest": "d" * 64,
+        "created_at": moment.isoformat(),
+        "expires_at": (moment + timedelta(minutes=30)).isoformat(),
+    }
+    prompt.write_private_output(tmp_path / "residual.tfplan", plan.decode())
+    return tmp_path / "residual-review.json", value
+
+
+def test_residual_prompt_binds_recovery_review_not_original_status(residual_review, monkeypatch):
+    path, value = residual_review
+    value["review_digest"] = prompt.canonical_digest(value)
+    _write(path, value)
+    output = path.parent / "approval.json"
+    monkeypatch.setattr(
+        sys, "argv", ["prompt", "--residual-review", str(path), "--output", str(output)]
+    )
+    seen = []
+    monkeypatch.setattr(
+        prompt, "current_actor_digest", lambda binding: seen.append(binding) or "9" * 64
+    )
+
+    def interact(**kwargs):
+        return create_approval(
+            **kwargs, input_stream=_TtyInput("runner-image\n"), output_stream=io.StringIO()
+        )
+
+    monkeypatch.setattr(prompt, "create_approval", interact)
+    assert prompt.main() == 0
+    assert seen == [value["review_digest"]]
+    approval = load_genesis_approval(
+        output, run_binding=value["review_digest"], source_commit=SOURCE_COMMIT
+    )
+    assert approval.authorizes(
+        "runner-image", review_digest=value["review_digest"], plan_digest=value["plan_digest"]
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["digest", "source", "plan", "provider", "lineage", "expired", "naive", "authority", "schema"],
+)
+def test_residual_prompt_rejects_invalid_review_before_identity_or_approval(
+    residual_review, monkeypatch, mutation
+):
+    path, value = residual_review
+    if mutation == "source":
+        value["recovery_source_commit"] = "invalid"
+    elif mutation == "plan":
+        value["plan_digest"] = "e" * 64
+    elif mutation in {"provider", "lineage"}:
+        value.pop("provider_digest" if mutation == "provider" else "original_lineage_digest")
+    elif mutation == "expired":
+        value["expires_at"] = "2000-01-01T00:00:00+00:00"
+    elif mutation == "naive":
+        value["created_at"] = "2000-01-01T00:00:00"
+    elif mutation == "authority":
+        value["apply_authorized"] = True
+    elif mutation == "schema":
+        value["schema_version"] = "original-review"
+    value["review_digest"] = "f" * 64 if mutation == "digest" else prompt.canonical_digest(value)
+    _write(path, value)
+    output = path.parent / "approval.json"
+    monkeypatch.setattr(
+        sys, "argv", ["prompt", "--residual-review", str(path), "--output", str(output)]
+    )
+    monkeypatch.setattr(
+        prompt, "current_actor_digest", lambda *_args: pytest.fail("identity must not be read")
+    )
+    with pytest.raises(ValueError, match="Genesis residual"):
+        prompt.main()
+    assert not output.exists()

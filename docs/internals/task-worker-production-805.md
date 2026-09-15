@@ -152,7 +152,7 @@ failures. It is superseded by the completed batch above, not added to its denomi
 repository-wide suite, live model, Azure operation, deployment, promotion or invoice evidence is
 part of this local result.
 
-## Final integrated source review
+## Final integrated source review before main integration
 
 These reviews followed the last executable source change and the passing completed batch. Later
 edits only corrected documentation and formatting, with execution-tree comparison. They are not
@@ -177,3 +177,47 @@ No unresolved confirmed Medium/High finding remains in this bounded source revie
 packages and operational validation remain explicit in the bilingual owner and its implementation
 ledger. Local success does not replace exact-head protected CI or an independently authorized
 deployment.
+
+## Main integration and final review
+
+The task-owned local checkpoint is `bc34645bea8de023194d293c0d22f6fef31e9bd6`. All normal
+commit hooks passed. It was merged locally with main
+`d7067f50ef0825ea1c439b1d7fe2187531babca6`, preserving all six intervening revisions and both
+implementation histories. The Korean Project Structure conflict affected its source hash only;
+both language bodies retain the upstream work and the worker seam.
+
+Main's CI run `34952099392`, attempt 1, is terminal **failure**, not success. Its safety-core job
+`104326391726` has no runner or steps; the exact check annotation says the job was not started
+because it repeatedly failed to be acquired after five attempts. This is an infrastructure
+allocation failure, not a task-worker test result. It was inspected once, never rerun or bypassed.
+
+Integration made Core bootstrap 812 lines. The new worker dependency projection moved into
+`bind_task_workers` in the existing task-worker composition module; two single-symbol imports
+were normalized. Bootstrap now has 800 lines without weakening the limit or moving main's
+observation behavior. A new test verifies the exact factory result attaches to the cleanup owner.
+
+After that final executable change, this focused selection passed **47 tests in 14.12 seconds**:
+runtime task workers, bootstrap shutdown, actual PostgreSQL worker integration, and Core wheel
+packaging. The 19 SQL and 4 packaging cases are included. Strict mypy passed on all 14 changed
+source modules; Ruff lint/format passed on the three integration-edited Python files. The earlier
+151-case batch remains prior-checkpoint evidence, not 151 fresh tests on the merged tree; unchanged
+core/provider tests are reused, not added to the 47-case denominator.
+
+| Round | Final integrated boundary | Review result |
+|-------|---------------------------|---------------|
+| MI-01 | Merge ownership and append-only evidence | Both parents' source work and ledger rows remain. Only worker-owned source and explicit document conflict resolutions are adjusted. |
+| MI-02 | Dependency projection extraction | The helper forwards the same environment, resolved models, holds, identity, HTTP client and pricing at the original startup point. |
+| MI-03 | New main observation wiring | Main's HTTP injection and effect-request sink stay intact; worker composition adds no observation, approval or executor authority. |
+| MI-04 | Import and startup behavior | New container/resource annotations are type-only imports. No model, token, database or worker starts merely from importing the module. |
+| MI-05 | Accounting compatibility | Core, prepared provider and storage semantics did not change in integration. Prior measured/reserved usage and malformed-envelope regressions remain applicable. |
+| MI-06 | Actual durable recovery | The 19 SQL cases reran on isolated databases, covering login/role, grants, lease, restart, cancellation and atomic terminal event rollback. |
+| MI-07 | Recorded read identity/time | The same exact-resource SQL reader still binds state and provenance in one statement; actual stale/future/expected/overlay cases reran. |
+| MI-08 | Cleanup ownership | Fresh factory-result and failure-drain tests verify resource attachment and authority-first/shared-last shutdown ordering. |
+| MI-09 | Packaging and structural boundary | The merged Core wheel cold-imports and carries each new module; bootstrap is exactly 800 lines, with no service ownership change. |
+| MI-10 | Scope versus operational claims | Parent admission/tool selection, five provider sources, Operator/Console, detached completion, live models and deployment remain explicitly outside the delivered foundation. |
+| MI-11 | Main CI interpretation | The missing-runner annotation is infrastructure evidence only. Neither local tests nor that failed run can substitute for the eventual exact-PR-head required checks. |
+| MI-12 | Delivery and authority | No force push, remote-created source commit, provider call, tenant choice, deployment, promotion or approval bypass is introduced. Protected publication/merge remains a separate stage. |
+
+No additional confirmed Medium/High source finding was found in these post-integration reviews.
+Publication and protected merge evidence will be recorded on #805 and its PR after it exists;
+neither is claimed by this local checkpoint.

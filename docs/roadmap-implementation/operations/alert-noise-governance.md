@@ -6,13 +6,13 @@ title: Alert Noise Governance Implementation Ledger
 This ledger tracks delivery of [Alert Noise Governance](../../roadmap/operations/alert-noise-governance.md).
 The owner and its Korean translation describe the shadow-first implementation and its intended
 operational boundaries. This English engineering ledger is the only implementation status source.
-The current source is a locally verified shadow-first checkpoint, not full design completion,
-an all-Low review claim, or operational adoption.
+The current source is a protected-delivered shadow-first checkpoint, not full design completion,
+an all-Low review claim, operational adoption, or provider qualification.
 
-> **Evidence boundary:** The parent coding session ran the focused checks recorded below, including
-> disposable loopback PostgreSQL and a test-only browser. Passing these checks does not prove
-> independently produced operational
-> receipts, provider notification tests, Azure mutations, promotion, publication, or deployment.
+> **Evidence boundary:** The source delivery passed the focused and protected checks recorded below,
+> including disposable loopback PostgreSQL and a test-only browser. Source publication and merge do
+> not prove independently produced operational receipts, provider notification tests, Azure
+> mutations, alert-remediation publication, promotion, deployment, or operational adoption.
 
 ## Implementation status
 
@@ -35,7 +35,8 @@ an all-Low review claim, or operational adoption.
 | ANG-5: evaluation-window/frequency mechanics | implemented | [Uniform series comparison](../../../services/core-control-plane/src/fdai/core/detection/alert_noise/temporal_evaluation.py), [temporal tests](../../../services/core-control-plane/tests/core/detection/alert_noise/test_temporal_evaluation.py), [native patch tests](../../../services/core-control-plane/tests/core/detection/alert_noise/test_metric_iac.py) | One metric window/frequency axis, equal frozen exposure, individual recall/latency guards, bounded compute and exact native duration rendering. Comparison module measured 100% lines and branches; independent source production and live qualification remain open. |
 | ANG-5: provider pilot and promotion | not-started | [Measurement and exit conditions](../../roadmap/operations/alert-noise-governance.md#9-delivery-sequence-and-exit-evidence) | No provider notification test, timed pilot, or ActionType/Workflow promotion is claimed. |
 | Local hardening and focused integration | implemented | Rounds 1-23 below; [Core tests](../../../services/core-control-plane/tests/core/detection/alert_noise/), [PostgreSQL tests](../../../services/operator-service/tests/test_alert_quality_postgres.py), [browser tests](../../../console/tests/e2e/alert-quality.spec.ts) | Final feature checks passed in bounded slices: 1446 cases plus 7 full-migration reruns after the head fix; 292 Console cases and 14 browser scenarios. Core coverage: 96.61% lines / 90.67% branches. Separate integration, artifact, ownership and static results are recorded below, not added as unique feature cases. |
-| Full source and operational acceptance | in-progress | [Remaining work](#remaining-work), [UI review](../../../console/alert-quality-hardening-review.md) | Supported temporal evaluation, detailed projections, source selectors and complete persistence lifecycle now have focused evidence. Authoritative operational producers, provider pilot/promotion, standard authenticated accessibility and protected delivery remain open. Shadow defaults do not reclassify these gaps as Low. |
+| Full source delivery | implemented | [Source delivery #1028](https://github.com/dotnetpower/fdai/issues/1028), [protected PR #1030](https://github.com/dotnetpower/fdai/pull/1030), reviewed head `005c4f347a8fca65621b25650f59ae4dedd7575e`, and squash `95d4f6eabd81c7a14c6485413dd3230667aa34d9` | Required exact-head CI `34942621940`, image build and inspection `34942621789`, and resulting-main CI `34943027781` succeeded. Reviewed and squash trees matched, remote main contained the squash, and the source issue closed. |
+| Operational acceptance | in-progress | [Remaining work](#remaining-work), [full outcome #1027](https://github.com/dotnetpower/fdai/issues/1027), [UI review](../../../console/alert-quality-hardening-review.md) | Authoritative operational producers, provider conformance/effect/recovery, pilot/promotion, standard authenticated accessibility, and human assistive-technology confirmation remain open. Source delivery and shadow defaults do not reclassify these gaps as Low. |
 
 ### Implementation history
 
@@ -98,6 +99,8 @@ an all-Low review claim, or operational adoption.
 
 | 2026-09-15 | implemented | Round 33 fixed a test synchronization race exposed by exact-head CI at `96322a7f6` after the coordinator's documentation-only main merge. A child could log readiness while its parent was truncating and publishing the final owner/child lock record; the test captured an empty baseline and later rejected the unchanged completed record. The test now waits within its existing deadline for the complete record and still proves no sibling stop or lock replacement. Production launcher and safety policy are unchanged. | `current change`; CI `34941829094`, attempt 1, regression shard 4 job `104292248735`, step 8: one failure, 7830 passes. Six focused supervisor tests passed, including deterministic empty, two-field and missing-newline interleavings plus all three real process reuse/refusal cases. Ruff and format passed. | Publish the focused test repair and require new exact-head CI; do not rerun the failed attempt or infer runtime/operational success. |
 
+| 2026-09-15 | implemented | Completed protected source delivery after all 33 hardening rounds. Source issue #1028 closed only after the exact reviewed head passed required CI and image inspection, protected PR #1030 squash-merged, reviewed and squash trees matched, and remote main ancestry plus resulting-main CI were verified. | [Source delivery #1028](https://github.com/dotnetpower/fdai/issues/1028), [PR #1030](https://github.com/dotnetpower/fdai/pull/1030), reviewed head `005c4f347a8fca65621b25650f59ae4dedd7575e`, squash `95d4f6eabd81c7a14c6485413dd3230667aa34d9`, required CI `34942621940`, image build and inspection `34942621789`, and resulting-main CI `34943027781`. | Parent #1027 remains open for genuine operational sources, approved provider conformance/effect/recovery, independently labeled pilot/promotion evidence, standard Browser Entra checks, and human assistive-technology confirmation. |
+
 ### Remaining work
 
 The temporal source extension passed 121 focused replay/IaC/admitted-source checks, then 30 native
@@ -106,11 +109,12 @@ planning and pipeline regression slice passed 40 checks. Temporal replay measure
 branch coverage; changed source strict typing passed. The exact admitted reader now consumes real
 frozen source cohorts when supplied, instead of requiring an externally calculated comparison.
 
-Current integration base: `511178272`. Assignment/handover, Teams lifecycle and ActionRun authority
-coexist with alert and test-context handlers, workers, topics, readiness and the 215-route manifest. Alert effects
-retain the shared no-effect completion boundary; generic PR/health evidence cannot verify delivery
-or recall. The preceding Console integration passed 43 cases and types; the latest prediction/learning
-integration has the focused shared-boundary, full-migration and independent coverage evidence above.
+Protected source delivery completed at reviewed head `005c4f347a8fca65621b25650f59ae4dedd7575e`
+and squash `95d4f6eabd81c7a14c6485413dd3230667aa34d9`. Assignment/handover, Teams
+lifecycle and ActionRun authority coexist with alert and test-context handlers, workers, topics,
+readiness and the route manifest. Alert effects retain the shared no-effect completion boundary;
+generic PR/health evidence cannot verify delivery or recall. The detailed integration and focused
+shared-boundary, full-migration and independent coverage evidence remains in the append-only history.
 
 - [x] **Coverage gate:** The final owned feature measurement reached lines 96.61%, branches 90.67%
   and combined 95.06% using `--cov=fdai.core.detection.alert_noise --cov-branch`.
@@ -119,7 +123,7 @@ integration has the focused shared-boundary, full-migration and independent cove
 - [x] **Hardening batches:** Rounds 1-33 below each have focused verification and a local commit.
   Reproduced source and delivery defects were fixed; other rounds record coverage/verification
   without inventing findings. Counting rounds does not close operational or accessibility gaps.
-- [ ] **ANG-1 evidence:** Supply independently admitted directory, current ownership/incident,
+- [ ] **ANG-1 evidence ([#1056](https://github.com/dotnetpower/fdai/issues/1056)):** Supply independently admitted directory, current ownership/incident,
   complete reverse-dependency, historical revision, and delivery evidence bound to the exact native
   snapshot. Retain denial, partial, stale, conflicting, and privacy outcomes without fabricated
   recipients or inventory truth; resolve any required ontology declaration separately.
@@ -150,45 +154,49 @@ integration has the focused shared-boundary, full-migration and independent cove
   PostgreSQL safeguard stores. Independently admitted restore completes as compensated; missing
   and adverse observations remain recovery-incomplete with persisted holds and no release intent.
   New effect/runtime connections replay without another forward or restore publication.
-- [ ] **ANG-3 authority and source fencing:** Demonstrate current Var service-owner plus distinct
+- [ ] **ANG-3 authority and source fencing ([#1056](https://github.com/dotnetpower/fdai/issues/1056)):** Demonstrate current Var service-owner plus distinct
   Owner quorum, revocation, target/dependency/source revalidation, tested rollback and dry-run, real
   replacement-recipient reachability, and independently admitted exclusive-writer protection through
   the existing GitOps sink. An environment map or advisory read-then-write check is not that proof.
-- [ ] **Independent closure:** Bind actual effect and recovery producers plus separate canonical
+- [ ] **Independent closure ([#1056](https://github.com/dotnetpower/fdai/issues/1056)):** Bind actual effect and recovery producers plus separate canonical
   Workflow outcome admissions. Retain missing, late, conflicting, failed, and successful observation
   receipts with exact publication/bundle/Process lineage, and verify separately authorized recovery
   without treating PR publication or merge as an Azure effect.
-- [ ] **ANG-4 operation:** Under separate authorization, retain provider conformance for suppression
+- [ ] **ANG-4 operation ([#1057](https://github.com/dotnetpower/fdai/issues/1057)):** Under separate authorization, retain provider conformance for suppression
   precedence, protected/automation exclusion, unaffected collection, propagation, absolute expiry,
   time-zone behavior, post-expiry observation, ambiguous acknowledgement, and recovery. No notification
   test or Azure mutation is requested by this checkpoint.
 - [x] **ANG-5 source mechanics:** Implement threshold and uniform-series window/frequency replay,
   paired positive/negative outcomes, individual recall/latency guards and exact native JSON fields.
   Focused replay, native renderer and admitted-reader tests pass; temporal coverage is 100%.
-- [ ] **ANG-5 operational evidence:** Supply independently labeled operational cohorts and record
+- [ ] **ANG-5 operational evidence ([#1057](https://github.com/dotnetpower/fdai/issues/1057)):** Supply independently labeled operational cohorts and record
   any later provider qualification, pilot and promotion only with separately authorized evidence.
 - [x] **Isolated browser mechanics:** All 14 final actual-route scenarios passed, including three
   forms, Settings, source selectors, request detail/reconciliation, adverse states, reduced-motion
   loading, contrast, keyboard focus and EN/KO responsive layout. Intercepted API/identity fixtures
   contacted no real provider and do not substitute for standard authenticated evidence.
-- [ ] **Standard browser and accessibility:** Retain authenticated English/Korean standard Console evidence for scope selection,
+- [ ] **Standard browser and accessibility ([#1058](https://github.com/dotnetpower/fdai/issues/1058)):** Retain authenticated English/Korean standard Console evidence for scope selection,
   three forms, Settings Owner/conflict/unavailable states, stale authentication, unknown outcomes,
   responsive layout, and keyboard use. Passing Console unit tests and types are not browser proof.
 - [x] **Focused local gates:** Task-owned Ruff lint/format, 107-source strict typing, schema parity,
   installed contract and service wheel membership, fixed pantheon layout, test ownership, 211-route
   composition and Console build pass. Changed-doc size, history, impact and normal commit hooks
   pass without bypasses. Exact-head CI remains authoritative for integration and merge.
-- [ ] **Publication:** [Source delivery #1028](https://github.com/dotnetpower/fdai/issues/1028)
-  now tracks exact-head publication and protected merge. [Full outcome #1027](https://github.com/dotnetpower/fdai/issues/1027)
-  retains operational/accessibility exits. Required PR CI and separately authorized operational
-  validation remain distinct from local tests; the best-effort Project projection is deferred.
+- [x] **Source publication:** [Source delivery #1028](https://github.com/dotnetpower/fdai/issues/1028)
+  closed after reviewed head `005c4f347a8fca65621b25650f59ae4dedd7575e` passed required CI
+  `34942621940` and image inspection `34942621789`, protected PR
+  [#1030](https://github.com/dotnetpower/fdai/pull/1030) squash-merged as
+  `95d4f6eabd81c7a14c6485413dd3230667aa34d9`, and resulting-main CI
+  `34943027781` succeeded. Reviewed/squash tree equality and remote-main ancestry were verified.
+  [Full outcome #1027](https://github.com/dotnetpower/fdai/issues/1027) retains every operational
+  and accessibility exit below; source delivery is not alert-remediation publication or adoption.
 
 ### Current unresolved scope
 
 | Priority | Unclosed outcome | Next falsifying evidence |
 |----------|------------------|--------------------------|
-| High | End-to-end approved provider effect and recovery cannot be qualified from reader factories or synthetic receipts. | Select an authorized environment, bind real directory/ownership/delivery/exclusion/observer sources and retain independently admitted exact-plan observations. No secrets or tenant values belong in this ledger. |
-| Medium | Standard authenticated accessibility remains unverified. | Forward and compensation replay now pass complete migrations; finish the remaining UI rubric gates. Intercepted browser data is not authenticated operational evidence. |
+| High | End-to-end approved provider effect and recovery cannot be qualified from reader factories or synthetic receipts. | Complete [#1056](https://github.com/dotnetpower/fdai/issues/1056) for genuine sources, then [#1057](https://github.com/dotnetpower/fdai/issues/1057) for the separately approved provider pilot. No secrets or tenant values belong in this ledger. |
+| Medium | Standard authenticated accessibility remains unverified. | Complete [#1058](https://github.com/dotnetpower/fdai/issues/1058) in a selected Browser Entra environment with actual human assistive-technology observation. Intercepted browser data is not authenticated operational evidence. |
 
 These open items mean the complete user-requested design is not yet implemented or at an all-Low
 exit. Their priority must not be lowered merely because the shipped actions remain shadow.
@@ -241,5 +249,4 @@ Document, translation, link, and route checks establish documentation consistenc
 focused baseline proves bounded implementation mechanics, not live delivery or safety in a tenant.
 Operational adoption still requires real independently produced receipts and the open exits above.
 Azure access, notification tests, model calls, promotion, runtime remediation publication and
-deployment are not part of this checkpoint. Source-code delivery is separately authorized and
-tracked by its issue/PR; this ledger grants no operational authority.
+deployment were not performed by source delivery. This ledger grants no operational authority.

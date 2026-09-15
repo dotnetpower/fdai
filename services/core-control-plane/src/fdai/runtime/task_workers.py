@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import httpx
 
@@ -30,6 +31,28 @@ from fdai.delivery.task_worker_inventory import (
 from fdai.rule_catalog.schema.llm_resolver import ResolvedModels
 from fdai.runtime.configuration import _model_endpoint_resolver
 from fdai.shared.providers.workload_identity import WorkloadIdentity
+
+if TYPE_CHECKING:
+    from fdai.composition import Container
+    from fdai.runtime.bootstrap_resources import RuntimeResources
+
+
+async def bind_task_workers(
+    container: Container,
+    resources: RuntimeResources,
+    identity: WorkloadIdentity | None,
+    environment: Mapping[str, str],
+) -> None:
+    """Attach the factory result to Core's cleanup owner without duplicating bootstrap policy."""
+    llm_bindings = container.llm_bindings
+    resources.task_workers = await build_task_worker_runtime_from_env(
+        environment=environment,
+        resolved_models=container.resolved_models,
+        held_capabilities=container.held_model_capabilities,
+        identity=identity,
+        http_client=resources.http_client,
+        pricing=llm_bindings.conversation_pricing if llm_bindings is not None else None,
+    )
 
 
 @dataclass(frozen=True, slots=True)

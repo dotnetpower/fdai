@@ -1,7 +1,7 @@
 ---
 title: 클라우드 리소스 지식 수명 주기
 translation_of: cloud-resource-knowledge-lifecycle.md
-translation_source_sha: b9baff34f1b3025276d75a752dd300d9c47e286d
+translation_source_sha: 42e6f5f71868cfe64c01d4d69e0794ca2f02efdc
 translation_revised: 2026-09-15
 ---
 # 클라우드 리소스 지식 수명 주기
@@ -19,6 +19,9 @@ translation_revised: 2026-09-15
 > 패키지는 데이터만 포함하며 실행 가능한 규칙, 프롬프트, 플러그인, 배포를 포함하지 않습니다.
 
 ## 한눈에 보는 설계
+
+[구조화된 검색 확장](cloud-resource-knowledge-structured-rag-ko.md)은 원문 시각을 바꾸거나
+운영 승인을 부여하지 않고 버전이 있는 추출, 안전한 청킹 및 이중 언어 평가 후속 작업을 정의합니다.
 
 등록된 출처에서 변경할 수 없는 문서 개정본과 추가 전용 원본 확인 증적을 생성합니다.
 온라인 갱신과 오프라인 패키지는 모두 기존의 통제된 문서 수집 경계를 거칩니다.
