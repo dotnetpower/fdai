@@ -1,0 +1,84 @@
+{
+  "schema_version": "1.0.0",
+  "recorded_on": "2026-09-15",
+  "issue": 1073,
+  "execution_venue": "local",
+  "source_merge": "f4b5b5a73a68422ec600c1307597c02da8060f23",
+  "shared_base_revision": "165cfe3e8c8fae862f236438f741192657bafe12",
+  "shared_worktree_clean": false,
+  "unrelated_diff_sha256_before_and_after": "102b8fdfcd6aea158578d905d608dfeafc1ce8d21bd000531eff8fc808206f44",
+  "overlay_reconciliation": {
+    "finding": "The retained local skip-only patch preempted the merged parent-only child reconciliation signal.",
+    "before": {"failed": 2, "passed": 1},
+    "after_shared_activity_log_and_delta": {"passed": 72},
+    "isolated_activity_log": {"passed": 40},
+    "ruff_check": "passed",
+    "ruff_format_check": "passed",
+    "production_activity_log_matches_merged_source": true,
+    "regression": "A child-only page advances its cursor and requests reconciliation without inventing a child resource."
+  },
+  "restart": {
+    "canonical_full_stack_restarts": 1,
+    "auth_mode": "browser-entra",
+    "runtime_environment": "reused",
+    "service_environments": "reused",
+    "entra_redirect_configuration": "reused",
+    "startup_ready": 11,
+    "startup_total": 11,
+    "console_http_status": 200,
+    "operator_healthz_http_status": 200
+  },
+  "live_observation": {
+    "console_port": 5273,
+    "sample": false,
+    "seconds": 92,
+    "central_stream_connections": 1,
+    "stream_http_status": 200,
+    "read_errors": 0,
+    "frames": {
+      "hello": 1,
+      "source": 9,
+      "activity-snapshot": 63,
+      "activity-status-snapshot": 1,
+      "activity": 5,
+      "stage": 0
+    },
+    "snapshot_frames_are_not_new_activity": true,
+    "no_payload_injection": true
+  },
+  "runtime_outcomes": {
+    "inventory_probe_coverage": "ready",
+    "inventory_probe_evidence_count": 3207,
+    "inventory_probe_evidence_count_is_not_resource_total_count": true,
+    "cost": {"status": "degraded", "reason": "source_throttled", "skipped": true},
+    "analyzer_initial": {
+      "candidates": 35,
+      "evaluated": 22,
+      "held": 13,
+      "held_reason": "unverified_state_fact",
+      "findings": 0,
+      "published": 0,
+      "source_complete": true,
+      "errors": 0
+    },
+    "followup": {
+      "ready_during_inventory_generation_transition": 9,
+      "inventory_generation_and_projection_later_matched": true,
+      "ready_after_inventory_convergence": 10,
+      "unavailable": ["local-analyzer"],
+      "analyzer_evaluated": 20,
+      "analyzer_errors": 2,
+      "error_type": "MetricProviderError",
+      "metric_name": "http_429_rate",
+      "metric_name_is_not_an_http_response_status": true,
+      "underlying_error_cause": "Not retained by the mapped provider error boundary.",
+      "stable_all_ready_claim": false
+    }
+  },
+  "remaining": [
+    "Diagnose the bounded http_429_rate provider failures without exposing provider identities or treating missing evidence as zero.",
+    "Retain stable Analyzer readiness evidence after that diagnosis; startup readiness alone is insufficient.",
+    "Keep valid admission holds and provider cooldowns; do not generate activity to make the display busy."
+  ],
+  "tenant_deployment_performed": false
+}

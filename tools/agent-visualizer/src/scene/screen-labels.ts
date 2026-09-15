@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { placeLabels, type LabelCandidate } from "./label-layout";
 import { approachLabelOpacity, functionLabelOpacity, LABEL_INTERACTION_OPACITY } from "./label-visibility";
+import { setAttribute } from "../ui/dom-state";
 
 interface LabelEntry {
   readonly id: string;
@@ -8,7 +9,11 @@ interface LabelEntry {
   readonly anchor: () => THREE.Vector3 | null;
   readonly leader: SVGLineElement;
   readonly compact: boolean;
+  readonly nearOrigin: boolean;
   opacity: number;
+  appliedOpacity: number | null;
+  interactive: boolean | null;
+  transform: string | null;
   metrics: { text: string; width: number; height: number } | null;
 }
 
@@ -18,6 +23,9 @@ export class ScreenLabels {
   private readonly svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   private readonly projected = new THREE.Vector3();
   private size = "";
+  private animating = false;
+
+  get pendingAnimation(): boolean { return this.animating; }
 
   constructor(layer: HTMLElement) {
     this.svg.classList.add("label-leaders");
@@ -25,14 +33,19 @@ export class ScreenLabels {
     layer.prepend(this.svg);
   }
 
-  register(id: string, element: HTMLElement, anchor: () => THREE.Vector3 | null, compact = false) {
+  /** Register a label and return its leader for synchronized presentation effects. */
+  register(id: string, element: HTMLElement, anchor: () => THREE.Vector3 | null, compact = false,
+    options: { nearOrigin?: boolean } = {}) {
     const leader = document.createElementNS("http://www.w3.org/2000/svg", "line");
     this.svg.append(leader);
     element.dataset.sceneLabel = id;
-    this.entries.push({ id, element, anchor, leader, compact, opacity: compact ? 0 : 1, metrics: null });
+    this.entries.push({ id, element, anchor, leader, compact, nearOrigin: options.nearOrigin ?? false,
+      opacity: compact ? 0 : 1, appliedOpacity: null, interactive: null, transform: null, metrics: null });
+    return leader;
   }
 
   update(camera: THREE.PerspectiveCamera, width: number, height: number, priorities: ReadonlyMap<string, number>, delta: number, reduced: boolean) {
+    this.animating = false;
     const size = `${width}:${height}`;
     if (size !== this.size) {
       this.entries.forEach((entry) => { entry.metrics = null; });
@@ -59,6 +72,7 @@ export class ScreenLabels {
       const distance = camera.position.distanceTo(anchor);
       const target = entry.compact && !focused ? functionLabelOpacity(distance, camera.zoom) : 1;
       entry.opacity = focused ? 1 : approachLabelOpacity(entry.opacity, target, delta, reduced);
+      this.animating ||= entry.opacity !== target;
       if (entry.opacity < 0.01) continue;
       this.projected.copy(anchor).project(camera);
       const x = (this.projected.x * 0.5 + 0.5) * width;
@@ -70,29 +84,41 @@ export class ScreenLabels {
         width: entry.metrics!.width, height: entry.metrics!.height,
         priority: focused ? 1000 : (priorities.get(entry.id) ?? (entry.compact ? -200 : 0)) - (entry.compact ? distance * 0.1 : 0),
         compact: entry.compact && !focused,
+        nearOrigin: entry.nearOrigin,
       });
     }
     const placements = new Map(placeLabels(candidates, width, height).map((placement) => [placement.id, placement]));
     for (const entry of this.entries) {
       const placement = placements.get(entry.id);
-      entry.element.hidden = !placement;
-      entry.leader.style.display = placement ? "" : "none";
+      if (entry.element.hidden !== !placement) entry.element.hidden = !placement;
+      const display = placement ? "" : "none";
+      if (entry.leader.style.display !== display) entry.leader.style.display = display;
       if (entry.compact) {
-        entry.element.style.opacity = String(entry.opacity);
-        entry.leader.style.opacity = String(entry.opacity * 0.5);
+        if (entry.appliedOpacity !== entry.opacity) {
+          entry.element.style.opacity = String(entry.opacity);
+          entry.leader.style.opacity = String(entry.opacity * 0.5);
+          entry.appliedOpacity = entry.opacity;
+        }
         const interactive = Boolean(placement) && entry.opacity >= LABEL_INTERACTION_OPACITY;
-        entry.element.tabIndex = interactive ? 0 : -1;
-        entry.element.style.pointerEvents = interactive ? "auto" : "none";
-        entry.element.setAttribute("aria-hidden", String(!interactive));
+        if (entry.interactive !== interactive) {
+          entry.element.tabIndex = interactive ? 0 : -1;
+          entry.element.style.pointerEvents = interactive ? "auto" : "none";
+          setAttribute(entry.element, "aria-hidden", String(!interactive));
+          entry.interactive = interactive;
+        }
       }
       if (!placement) continue;
-      entry.element.style.transform = `translate(${placement.left}px, ${placement.top}px)`;
+      const transform = `translate(${placement.left}px, ${placement.top}px)`;
+      if (entry.transform !== transform) {
+        entry.element.style.transform = transform;
+        entry.transform = transform;
+      }
       const endX = Math.max(placement.left, Math.min(placement.left + placement.width, placement.x));
       const endY = Math.max(placement.top, Math.min(placement.top + placement.height, placement.y));
-      entry.leader.setAttribute("x1", String(placement.x));
-      entry.leader.setAttribute("y1", String(placement.y));
-      entry.leader.setAttribute("x2", String(endX));
-      entry.leader.setAttribute("y2", String(endY));
+      setAttribute(entry.leader, "x1", String(placement.x));
+      setAttribute(entry.leader, "y1", String(placement.y));
+      setAttribute(entry.leader, "x2", String(endX));
+      setAttribute(entry.leader, "y2", String(endY));
     }
   }
 }

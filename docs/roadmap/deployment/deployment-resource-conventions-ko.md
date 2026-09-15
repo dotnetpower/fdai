@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 9f980d16e72ce5a64ba7315008836bcdb501c942
+translation_source_sha: 5b25f6e2151cf41a8c49873c5ccdc3532fc50fd7
 translation_revised: 2026-09-15
 ---
 # 배포 리소스 규약
@@ -62,6 +62,13 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 관련 없는 커밋으로 `main`이 전진해도 plan revision이 여전히 ancestor이고 보호된 요청 control이
 같을 때만 유효 기간이 남은 plan을 사용할 수 있습니다. 따라서 사람 유지관리자는 자체 검토 또는
 관리자 우회를 활성화하지 않고 bot 소유 배포를 승인할 수 있습니다.
+
+알림 과다 수신 검증 선행 조건은 광범위한 모니터링에 포함되지 않는 개발 환경 전용 대상입니다.
+보호 구성에 있는 기존 Key Vault ID 하나를 대상으로 정확히
+`ag-<workload>-noise-pilot-<env>-<region>`과
+`alert-<workload>-noise-pilot-<env>-<region>`을 만듭니다. 수신자는 소유자 전용 배포 구성에
+유지합니다. 정확한 적용 전에 기준선, 조정안, 복구 및 정리 계획의 범위를 각각 독립적으로
+검증합니다.
 
 ## 구현 상태
 

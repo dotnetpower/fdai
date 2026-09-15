@@ -10,11 +10,12 @@ import { VisualizerUI, type ViewState } from "./ui/shell";
 import { NeuralScene } from "./scene/neural-scene";
 import { t } from "./ui/i18n";
 import type { AgentId, CameraMode } from "./model";
-import { functionById, homeAgent } from "./source-graph";
+import { functionById, homeAgent, serviceFor } from "./source-graph";
 import { recorded } from "./recorded/state";
 import { relationshipSubset } from "./recorded/layout";
 import { DEFAULT_ACTIVITY_CAMERA } from "./camera/director";
 import { observeControlsDock } from "./ui/controls-dock";
+import { setText } from "./ui/dom-state";
 
 const root = document.querySelector<HTMLElement>("#app");
 if (!root) throw new Error("The visualizer root is missing.");
@@ -89,19 +90,21 @@ function duration() {
 ui.translate(state.locale, scenarios);
 ui.update(state);
 try {
-  scene = new NeuralScene(ui.stage, state.scenario, selectAgent,
-    () => { state.camera = "manual"; ui.update(state); },
-    () => {
+  scene = NeuralScene.create({
+    container: ui.stage, scenario: state.scenario, onSelect: selectAgent,
+    onManual: () => { state.camera = "manual"; ui.update(state); },
+    onContextLost: () => {
       graphicsReady = false;
       state.playing = false;
       ui.setGraphicsAvailable(false);
       ui.showError("contextLost");
       ui.update(state);
-    }, selectFunction, () => {
+    }, onFunction: selectFunction, onBus: () => {
       const panel = ui.element<HTMLDetailsElement>("broadcast-panel");
       panel.open = true;
       panel.focus();
-    }, selectInstance);
+    }, onInstance: selectInstance,
+  });
   graphicsReady = true;
   ui.setGraphicsAvailable(true);
   ui.ready();
@@ -165,6 +168,11 @@ click("restart", () => { state.time = 0; state.transportTime = 0; });
 click("loop", () => { state.loop = !state.loop; });
 click("reset", () => { state.selected = null; state.selectedFunction = null; scene?.director.reset(); setCamera("orbit"); });
 click("focus", () => {
+  if (state.selectedFunction && serviceFor(functionById.get(state.selectedFunction)!)) {
+    state.camera = "follow";
+    scene?.focusFunction(state.selectedFunction);
+    return;
+  }
   const id = state.selected ?? projectTimeline(state.scenario, state.time).latest?.agent;
   if (id && scene) {
     state.selected = id;
@@ -272,12 +280,12 @@ function animate(now: number) {
     if (!state.loop && state.time === duration()) state.playing = false;
   }
   if (state.view === "ontology") recorded.setReplay(state.time, duration());
-  if (graphicsReady) scene?.render(state.scenario, state.time, state.transportTime, delta, state.reduced, state.glow, state.selected, state.selectedFunction, state.stars,
+  const rendered = graphicsReady && scene?.render(state.scenario, state.time, state.transportTime, delta, state.reduced, state.glow, state.selected, state.selectedFunction, state.stars,
     state.view, state.stateAxis, state.relationshipType);
   if (now - lastUi > 100) { ui.update(state); lastUi = now; }
-  frames++;
+  if (rendered) frames++;
   if (now - lastFps >= 1000) {
-    ui.element("fps").textContent = graphicsReady ? String(Math.round(frames * 1000 / (now - lastFps))) : "--";
+    setText(ui.element("fps"), graphicsReady ? String(Math.round(frames * 1000 / (now - lastFps))) : "--");
     frames = 0;
     lastFps = now;
   }
@@ -295,14 +303,17 @@ function dispose() {
   lifetime.abort();
   stopDockObserver();
   recorded.dispose();
-  scene?.dispose();
+  const retired = scene;
+  scene = null;
+  graphicsReady = false;
+  retired?.dispose();
 }
-window.addEventListener("pagehide", (event) => {
-  if (event.persisted) cancelAnimationFrame(frame);
+listen(window, "pagehide", (event) => {
+  if (event instanceof PageTransitionEvent && event.persisted) cancelAnimationFrame(frame);
   else dispose();
 });
-window.addEventListener("pageshow", (event) => {
-  if (event.persisted) {
+listen(window, "pageshow", (event) => {
+  if (event instanceof PageTransitionEvent && event.persisted) {
     previousFrame = performance.now();
     cancelAnimationFrame(frame);
     frame = requestAnimationFrame(animate);

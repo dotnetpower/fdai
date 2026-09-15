@@ -1414,6 +1414,9 @@ def test_redundant_workflow_stages_stay_consolidated() -> None:
     assert "npm --prefix tools/architecture-diagrams ci" in page_commands
     assert "npm --prefix site ci" in page_commands
     assert "npm --prefix site test" in page_commands
+    assert page_commands.index("npm --prefix tools/agent-visualizer run graph") < (
+        page_commands.index("npm --prefix tools/agent-visualizer test")
+    )
     assert "npm run build" in page_commands
     assert "npm run check:built" in page_commands
     assert "git diff --exit-code -- src/data/publication-routes.json" in page_commands

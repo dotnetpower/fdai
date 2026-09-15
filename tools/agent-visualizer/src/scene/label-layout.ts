@@ -6,6 +6,7 @@ export interface LabelCandidate {
   readonly height: number;
   readonly priority: number;
   readonly compact?: boolean;
+  readonly nearOrigin?: boolean;
 }
 
 export interface LabelPlacement extends LabelCandidate {
@@ -37,7 +38,7 @@ export function placeLabels(candidates: readonly LabelCandidate[], width: number
       [-w / 2, 14], [-w / 2, -h - 14], [14, -h / 2], [-w - 14, -h / 2],
       [14, 14], [-w - 14, 14], [14, -h - 14], [-w - 14, -h - 14],
     ];
-    if (!candidate.compact) {
+    if (!candidate.compact && !candidate.nearOrigin) {
       for (let ring = 2; ring <= 5; ring++) offsets.push([-w / 2, ring * (h + 6)], [-w / 2, -ring * (h + 6)]);
     }
     for (const [dx, dy] of candidate.compact ? offsets.slice(0, 2) : offsets) {

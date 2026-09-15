@@ -63,6 +63,12 @@ unrelated commits advance `main` only if its revision remains an ancestor and th
 controls remain identical. The human maintainer can then approve that bot-owned deployment without
 enabling self-review or administrator bypass.
 
+The alert-noise qualification prerequisite is a separate dev-only target, not part of broad
+monitoring. It creates exactly `ag-<workload>-noise-pilot-<env>-<region>` and
+`alert-<workload>-noise-pilot-<env>-<region>` against one protected existing Key Vault ID. The
+recipient remains in owner-only deployment configuration. Baseline, treatment, recovery, and
+cleanup plans are independently scope-checked before any exact apply.
+
 ## Implementation status
 
 ### Implementation scope

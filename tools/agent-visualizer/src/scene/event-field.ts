@@ -2,12 +2,13 @@ import * as THREE from "three";
 import { agents, agentColor } from "../agents";
 import { callsFrom, functionById } from "../source-graph";
 import type { AgentId, Scenario } from "../model";
-import { ARG_VISUAL_HZ, eventFlowAt } from "../playback/event-flow";
+import { ARG_VISUAL_HZ, BUS_FANOUT_DELAY, eventFlowAt } from "../playback/event-flow";
 import { ARG_WORKFLOWS, independentWorkloads } from "../playback/workloads";
 import { BUS_POSITION, connectionCurve, createPointMaterial } from "./geometry";
+import { serviceMarker, servicePortPositions } from "./service-layout";
 
 const CAPACITY = 4096;
-export const AZURE_SERVICE_POSITION = new THREE.Vector3(-31, 24, 6);
+export const AZURE_SERVICE_POSITION = servicePortPositions["resource-graph"]!;
 export const ARG_ENTRY = ARG_WORKFLOWS[0].query;
 
 /** Parallel synthetic work over source-backed functions and declared subscriptions; no network I/O. */
@@ -35,11 +36,7 @@ export class EventField {
     const bus = new THREE.Mesh(new THREE.OctahedronGeometry(0.75),
       new THREE.MeshBasicMaterial({ color: "#94c5c2", wireframe: true, transparent: true, opacity: 0.6 }));
     bus.position.copy(BUS_POSITION);
-    const serviceGeometry = new THREE.BoxGeometry(2.8, 1.7, 0.5);
-    const azure = new THREE.LineSegments(new THREE.EdgesGeometry(serviceGeometry),
-      new THREE.LineBasicMaterial({ color: "#85a9c5", transparent: true, opacity: 0.8 }));
-    serviceGeometry.dispose();
-    azure.position.copy(AZURE_SERVICE_POSITION);
+    const azure = serviceMarker(AZURE_SERVICE_POSITION);
     this.ring = new THREE.Mesh(new THREE.RingGeometry(1.2, 1.23, 64),
       new THREE.MeshBasicMaterial({ color: "#8abcd0", transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false }));
     this.ring.position.copy(BUS_POSITION);
@@ -98,7 +95,7 @@ export class EventField {
     for (const broadcast of flow.broadcasts) {
       trail(this.routes.get(`${broadcast.topic.publisher}:publish`)!, broadcast.age / 0.8, [0.6, 1.2, 1.1], 0.8);
       for (const id of broadcast.subscribers) {
-        trail(this.routes.get(`${id}:subscribe`)!, (broadcast.age - 0.65) / 1.4, [0.4, 1.3, 0.9], 0.75);
+        trail(this.routes.get(`${id}:subscribe`)!, (broadcast.age - BUS_FANOUT_DELAY) / 1.4, [0.4, 1.3, 0.9], 0.75);
       }
     }
     for (const work of flow.independent) {

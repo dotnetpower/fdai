@@ -9,6 +9,8 @@ import { activityEnergy, projectTimeline } from "../playback/timeline";
 import type { AgentId, Scenario } from "../model";
 import { createPointMaterial, createPointOcclusionMaterial, makeNeuralGeometry, BUS_POSITION } from "./geometry";
 import { EventField, ARG_ENTRY, AZURE_SERVICE_POSITION } from "./event-field";
+import { EventLaunchLabels } from "./event-launch-labels";
+import { ExternalServices } from "./external-services";
 import { FunctionSelection } from "./function-selection";
 import { eventFlowAt } from "../playback/event-flow";
 import { sampleTour } from "../camera/tour";
@@ -21,6 +23,19 @@ import { RecordedRelationScene } from "../recorded/scene";
 import { recorded } from "../recorded/state";
 import type { RecordedAxis as StateAxis } from "../recorded/contract";
 import { layoutRelationships } from "../recorded/layout";
+import { SceneResources, disposeSceneObjects } from "./resources";
+import { setAttribute } from "../ui/dom-state";
+
+interface SceneOptions {
+  readonly container: HTMLElement;
+  readonly scenario: Scenario;
+  readonly onSelect: (id: AgentId) => void;
+  readonly onManual: () => void;
+  readonly onContextLost: () => void;
+  readonly onFunction: (id: string) => void;
+  readonly onBus: () => void;
+  readonly onInstance: (id: string) => void;
+}
 
 const DEFAULT_TOUR_FUNCTION = codeGraph.functions.find(
   (fn) => fn.direct_owners.includes("Huginn") && fn.name === "ingest",
@@ -40,6 +55,8 @@ export class NeuralScene {
   private readonly pointGeometry = new THREE.BufferGeometry();
   private readonly pointMaterial: THREE.ShaderMaterial;
   private readonly events: EventField;
+  private readonly launchLabels: EventLaunchLabels;
+  private readonly external: ExternalServices;
   private readonly functionSelection: FunctionSelection;
   private readonly nodePoints: THREE.Points;
   private readonly labels = new Map<AgentId, HTMLButtonElement>();
@@ -54,18 +71,40 @@ export class NeuralScene {
   private disposed = false;
   private width = 1;
   private height = 1;
+  private readonly listeners = new AbortController();
+  private readonly container: HTMLElement;
+  private activityKey = "";
+  private previousScenario: Scenario | null = null;
+  private previousFocus: Element | null = null;
+  private readonly renderedCamera = new THREE.Matrix4();
+  private readonly renderedProjection = new THREE.Matrix4();
 
-  constructor(
-    private readonly container: HTMLElement,
-    scenario: Scenario,
-    onSelect: (id: AgentId) => void,
-    onManual: () => void,
-    onContextLost: () => void,
-    onFunction: (id: string) => void,
-    onBus: () => void,
-    onInstance: (id: string) => void,
-  ) {
+  /** Construction either returns a complete view or releases all acquired resources before throwing. */
+  static create(options: SceneOptions): NeuralScene {
+    const resources = new SceneResources();
+    try {
+      return new NeuralScene(options, resources);
+    } catch (error) {
+      try { resources.dispose(); } catch (cleanupError) {
+        throw new AggregateError([error, cleanupError], "Scene initialization and cleanup failed.");
+      }
+      throw error;
+    }
+  }
+
+  private constructor(options: SceneOptions, private readonly resources: SceneResources) {
+    const { container, scenario, onSelect, onManual, onContextLost, onFunction, onBus, onInstance } = options;
+    this.container = container;
+    resources.add(() => { this.disposed = true; });
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+    resources.add(() => {
+      this.renderer.dispose();
+      this.renderer.forceContextLoss();
+      this.renderer.domElement.remove();
+    });
+    resources.add(() => disposeSceneObjects(this.scene));
+    resources.add(() => this.listeners.abort());
+    resources.add(() => this.labelLayer.remove());
     const ratio = Math.min(window.devicePixelRatio, 1.75);
     this.renderer.setPixelRatio(ratio);
     this.renderer.setClearColor(0x070d13, 0);
@@ -76,6 +115,10 @@ export class NeuralScene {
     this.scene.add(this.stars.object);
     this.scene.add(this.activity);
     this.ontology = new RecordedRelationScene(container, onInstance, ratio);
+    resources.add(() => {
+      this.scene.remove(this.ontology.group);
+      this.ontology.dispose();
+    });
     this.ontology.group.visible = false;
     this.ontology.labelLayer.hidden = true;
     this.scene.add(this.ontology.group);
@@ -83,10 +126,12 @@ export class NeuralScene {
     this.renderer.domElement.addEventListener("webglcontextlost", (event) => {
       event.preventDefault();
       onContextLost();
-    });
+    }, { signal: this.listeners.signal });
     container.append(this.renderer.domElement);
     this.director = new CameraDirector(this.camera, this.renderer.domElement, this.neural.anchors, onManual);
+    resources.add(() => this.director.controls.dispose());
     this.stopLabelWheel = installLabelWheelZoom(container, this.renderer.domElement);
+    resources.add(this.stopLabelWheel);
 
     this.pointMaterial = createPointMaterial(ratio);
     this.nodeCount = this.neural.points.length;
@@ -116,7 +161,7 @@ export class NeuralScene {
       label.textContent = agent.id;
       label.type = "button";
       label.style.setProperty("--agent-color", agentColor(agent.id));
-      label.addEventListener("click", () => onSelect(agent.id));
+      label.addEventListener("click", () => onSelect(agent.id), { signal: this.listeners.signal });
       this.labelLayer.append(label);
       this.labels.set(agent.id, label);
       this.screenLabels.register(agent.id, label, () => this.neural.anchors.get(agent.id)!);
@@ -135,7 +180,7 @@ export class NeuralScene {
       label.type = "button";
       label.className = "node-label service-label";
       label.textContent = text;
-      label.addEventListener("click", handler);
+      label.addEventListener("click", handler, { signal: this.listeners.signal });
       this.labelLayer.append(label);
       this.screenLabels.register(text, label, () => position);
     }
@@ -143,7 +188,7 @@ export class NeuralScene {
     raycaster.params.Points.threshold = 0.4;
     const pointer = new THREE.Vector2();
     let pressed = { x: 0, y: 0 };
-    this.renderer.domElement.addEventListener("pointerdown", (event) => { pressed = { x: event.clientX, y: event.clientY }; });
+    this.renderer.domElement.addEventListener("pointerdown", (event) => { pressed = { x: event.clientX, y: event.clientY }; }, { signal: this.listeners.signal });
     this.renderer.domElement.addEventListener("pointerup", (event) => {
       if (Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) > 5) return;
       const rect = this.renderer.domElement.getBoundingClientRect();
@@ -153,19 +198,40 @@ export class NeuralScene {
       const hit = raycaster.intersectObject(this.nodePoints)[0];
       const point = hit?.index === undefined ? null : this.neural.points[hit.index];
       if (point?.functionId) onFunction(point.functionId);
-    });
+    }, { signal: this.listeners.signal });
     this.addAmbientField();
     this.events = new EventField(this.neural.anchors, this.neural.functionPositions, ratio);
+    resources.add(() => disposeSceneObjects(this.events.group));
+    this.external = new ExternalServices(this.neural.functionPositions, ratio);
+    resources.add(() => disposeSceneObjects(this.external.group));
+    for (const port of this.external.ports) {
+      const label = document.createElement("button");
+      label.type = "button";
+      label.className = "node-label service-label";
+      label.dataset.servicePort = port.id;
+      label.textContent = port.label;
+      label.title = port.functionId;
+      label.addEventListener("click", () => onFunction(port.functionId), { signal: this.listeners.signal });
+      this.labelLayer.append(label);
+      this.screenLabels.register(port.label, label, () => port.position);
+    }
+    this.launchLabels = new EventLaunchLabels(this.labelLayer, this.screenLabels, this.neural.anchors);
     this.functionSelection = new FunctionSelection(this.neural.functionPositions, this.labelLayer);
+    resources.add(() => this.functionSelection.dispose());
     this.screenLabels.register("function", this.functionSelection.label, () => this.functionSelection.anchor);
-    registerFunctionLabels(this.labelLayer, this.screenLabels, this.neural.functionPositions, onFunction);
-    this.activity.add(this.events.group, this.functionSelection.object);
+    registerFunctionLabels(this.labelLayer, this.screenLabels, this.neural.functionPositions, onFunction, this.listeners.signal);
+    this.activity.add(this.events.group, this.external.group, this.functionSelection.object);
     this.composer = new EffectComposer(this.renderer);
+    resources.add(() => {
+      for (const pass of this.composer.passes) pass.dispose();
+      this.composer.dispose();
+    });
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.8, 0.7, 0.5);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
     this.resizeObserver = new ResizeObserver(() => this.resize());
+    resources.add(() => this.resizeObserver.disconnect());
     this.resizeObserver.observe(container);
     this.resize();
   }
@@ -205,18 +271,19 @@ export class NeuralScene {
 
   render(scenario: Scenario, time: number, transportTime: number, delta: number, reduced: boolean, glow: number, selected: AgentId | null, selectedFunction: string | null, stars: boolean,
     view: "activity" | "ontology", stateAxis: StateAxis, relationshipType: string) {
-    if (this.disposed) return;
+    if (this.disposed) return false;
     this.view = view;
     this.activity.visible = view === "activity";
-    this.labelLayer.hidden = view !== "activity";
+    if (this.labelLayer.hidden !== (view !== "activity")) this.labelLayer.hidden = view !== "activity";
     this.ontology.group.visible = view === "ontology";
-    this.ontology.labelLayer.hidden = view !== "ontology";
+    if (this.ontology.labelLayer.hidden !== (view !== "ontology")) this.ontology.labelLayer.hidden = view !== "ontology";
     this.stars.update(transportTime, stars, reduced);
-    this.container.dataset.starsVisible = String(this.stars.object.visible);
-    this.container.dataset.starTime = String(this.stars.object.material.uniforms.time!.value);
-    this.container.dataset.view = view;
-    this.container.dataset.transportTime = transportTime.toFixed(4);
+    setAttribute(this.container, "data-stars-visible", String(this.stars.object.visible));
+    setAttribute(this.container, "data-star-time", String(this.stars.object.material.uniforms.time!.value));
+    setAttribute(this.container, "data-view", view);
+    setAttribute(this.container, "data-transport-time", transportTime.toFixed(4));
     if (view === "ontology") {
+      this.activityKey = "";
       const tour = sampleTour(0, 72, this.camera.aspect, {
         bus: [0, 0, 0], source: [0, 0, 0], azure: [0, 0, 0],
       });
@@ -230,7 +297,7 @@ export class NeuralScene {
       this.container.dataset.recordedLinks = String(recorded.graph?.links.length ?? 0);
       this.bloom.strength = glow * 0.65;
       this.composer.render();
-      return;
+      return true;
     }
     const projection = projectTimeline(scenario, time);
     const tourFunction = selectedFunction ?? DEFAULT_TOUR_FUNCTION;
@@ -241,10 +308,17 @@ export class NeuralScene {
       azure: [AZURE_SERVICE_POSITION.x, AZURE_SERVICE_POSITION.y, AZURE_SERVICE_POSITION.z],
     });
     this.director.update(time, delta, projection.latest?.agent ?? null, reduced, tour);
-    this.container.dataset.cameraDistance = this.director.controls.getDistance().toFixed(4);
+    setAttribute(this.container, "data-camera-distance", this.director.controls.getDistance().toFixed(4));
     this.camera.updateMatrixWorld();
-    this.container.dataset.cameraMode = this.director.mode;
-    this.container.dataset.cameraShot = this.director.mode === "tour" ? tour.shot : "";
+    setAttribute(this.container, "data-camera-mode", this.director.mode);
+    setAttribute(this.container, "data-camera-shot", this.director.mode === "tour" ? tour.shot : "");
+    const key = JSON.stringify([time, transportTime, reduced, glow, selected, selectedFunction, stars,
+      this.director.mode, this.width, this.height]);
+    const focus = document.activeElement;
+    const sameCamera = this.renderedCamera.equals(this.camera.matrixWorld)
+      && this.renderedProjection.equals(this.camera.projectionMatrix);
+    if (sameCamera && !this.screenLabels.pendingAnimation && this.activityKey === key
+      && this.previousScenario === scenario && this.previousFocus === focus) return false;
     const highlightedFunction = selectedFunction ?? (this.director.mode === "tour" && tour.shot === "function" ? tourFunction : null);
     const energies = new Map(agents.map((agent) => [agent.id, activityEnergy(scenario.events, time, agent.id)]));
     const flow = eventFlowAt(time, scenario);
@@ -258,8 +332,12 @@ export class NeuralScene {
     });
     attribute.needsUpdate = true;
     this.events.update(time, transportTime, scenario, this.camera, reduced);
+    const serviceTraffic = this.external.update(transportTime, reduced);
+    this.container.dataset.serviceParticles = String(serviceTraffic.count);
+    this.container.dataset.channelStreamParticles = String(serviceTraffic.channelStreamCount);
     this.functionSelection.update(highlightedFunction);
     const priorities = new Map<string, number>([["function", 300], ["EVENT BUS", 180], ["AZURE RESOURCE GRAPH", 180]]);
+    for (const port of this.external.ports) priorities.set(port.label, 180);
     for (const work of flow.independent) priorities.set(`python:${work.functionId}`, -80);
     if (selected) {
       for (const fn of codeGraph.functions) if (fn.direct_owners.includes(selected)) priorities.set(`python:${fn.id}`, -60);
@@ -274,31 +352,26 @@ export class NeuralScene {
       const label = this.labels.get(agent.id)!;
       label.classList.toggle("is-active", energy > 0.2);
       label.classList.toggle("is-selected", selected === agent.id);
-      label.setAttribute("aria-pressed", String(selected === agent.id));
+      setAttribute(label, "aria-pressed", String(selected === agent.id));
       priorities.set(agent.id, selected === agent.id ? 200 : energy > 0.2 ? 100 : 0);
     }
+    this.launchLabels.update(flow, reduced, priorities);
     this.screenLabels.update(this.camera, this.width, this.height, priorities, delta, reduced);
     this.bloom.strength = glow;
     this.composer.render();
+    this.activityKey = key;
+    this.previousScenario = scenario;
+    this.previousFocus = focus;
+    this.renderedCamera.copy(this.camera.matrixWorld);
+    this.renderedProjection.copy(this.camera.projectionMatrix);
+    return true;
   }
 
   dispose() {
+    if (this.disposed) return;
     this.disposed = true;
-    this.resizeObserver.disconnect();
-    this.stopLabelWheel();
-    this.director.controls.dispose();
-    this.scene.traverse((object) => {
-      if (object instanceof THREE.Mesh || object instanceof THREE.Points || object instanceof THREE.Line) {
-        object.geometry.dispose();
-        const materials = Array.isArray(object.material) ? object.material : [object.material];
-        for (const material of materials) material.dispose();
-      }
-    });
-    for (const pass of this.composer.passes) pass.dispose();
-    this.composer.dispose();
-    this.renderer.dispose();
-    this.renderer.domElement.remove();
-    this.labelLayer.remove();
-    this.ontology.dispose();
+    this.resources.dispose();
+    this.labels.clear();
+    this.rings.clear();
   }
 }
