@@ -144,8 +144,10 @@ module "container_app" {
     { name = "FDAI_OHL_OBSERVER_IDENTITY", value = "observer:heimdall:azure-container-apps" },
     { name = "FDAI_OHL_OBSERVER_CREDENTIAL_LINEAGE", value = "azure-managed-identity:${var.identity.client_id}" },
     { name = "FDAI_OHL_EXECUTOR_CREDENTIAL_LINEAGE", value = var.observation_context.executor_credential_lineage },
+    { name = "FDAI_OHL_VM_START_EXECUTOR_CREDENTIAL_LINEAGE", value = var.observation_context.vm_start_executor_credential_lineage },
     { name = "FDAI_OHL_SOURCE_IDENTITY", value = "source:promoted-azure-inventory" },
     { name = "FDAI_OHL_SOURCE_CREDENTIAL_LINEAGE", value = var.observation_context.source_credential_lineage },
+    { name = "FDAI_OHL_SOURCE_MI_CLIENT_ID", value = var.observation_context.source_identity_client_id },
     { name = "FDAI_OHL_VERIFIER_IDENTITY", value = "observation-verifier:ohl-ed25519" },
     ], !var.governed_rca.enabled ? [] : [
     { name = "FDAI_RCA_DOCUMENT_DSN", secret_name = "governed-rca-document-dsn" },

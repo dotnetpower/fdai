@@ -181,6 +181,65 @@ async def test_activity_log_rejects_type_that_conflicts_with_the_arm_id() -> Non
         await client.aclose()
 
 
+@pytest.mark.parametrize("next_link", [0, False, [], {}])
+async def test_malformed_continuation_never_looks_like_a_complete_page(next_link: object) -> None:
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"value": [], "nextLink": next_link})
+
+    factory, client, _ = _factory(handler)
+    try:
+        with pytest.raises(ActivityLogError, match="nextLink"):
+            await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.parametrize("operation", ["write", "delete"])
+async def test_known_parent_only_child_change_requests_reconciliation_without_fabricating_child(
+    operation: str,
+) -> None:
+    base = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-a/providers/"
+    at = "2026-07-10T06:15:00Z"
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "value": [
+                    {
+                        "resourceId": base + "Microsoft.CognitiveServices/accounts/account-one",
+                        "resourceType": {
+                            "value": "Microsoft.CognitiveServices/accounts/deployments"
+                        },
+                        "operationName": {
+                            "value": f"Microsoft.CognitiveServices/accounts/deployments/{operation}"
+                        },
+                        "status": {"value": "Succeeded"},
+                        "eventTimestamp": at,
+                    },
+                    {
+                        "resourceId": base + "Microsoft.Compute/virtualMachines/vm-one",
+                        "resourceType": {"value": "Microsoft.Compute/virtualMachines"},
+                        "operationName": {"value": "Microsoft.Compute/virtualMachines/read"},
+                        "status": {"value": "Succeeded"},
+                        "eventTimestamp": at,
+                    },
+                ]
+            },
+        )
+
+    factory, client, _ = _factory(handler)
+    try:
+        page = await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")
+    finally:
+        await client.aclose()
+    assert len(page.resources) == 1
+    assert page.resources[0].type == "compute.vm"
+    assert page.relationship_reconciliation_after == "2026-07-10T06:15:00+00:00"
+    assert page.cursor == "2026-07-10T06:15:00+00:00"
+    assert page.has_more is False
+
+
 @pytest.mark.asyncio
 async def test_delete_event_is_not_upserted_and_still_advances_cursor() -> None:
     vocab = _vocab()

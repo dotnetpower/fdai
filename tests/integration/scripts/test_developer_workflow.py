@@ -717,6 +717,26 @@ def test_core_restart_readiness_spans_one_log_rotation(tmp_path: Path) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "reason",
+    ["tick_failed", "target_resolution_unavailable", "run_receipt_unavailable", "tick_deadline"],
+)
+def test_analyzer_waiting_invalidates_prior_ready_marker(tmp_path: Path, reason: str) -> None:
+    log_dir = tmp_path / ".fdai" / "logs"
+    log_dir.mkdir(parents=True)
+    log = log_dir / "local-analyzer.log"
+    log.write_text(
+        "service=local-analyzer event=starting\n"
+        "service=local-analyzer event=ready\n"
+        f"service=local-analyzer event=waiting reason={reason}\n",
+        encoding="utf-8",
+    )
+    assert not developer_workflow_runtime._analyzer_tick_ready(tmp_path)
+    with log.open("a", encoding="utf-8") as stream:
+        stream.write("service=local-analyzer event=ready\n")
+    assert developer_workflow_runtime._analyzer_tick_ready(tmp_path)
+
+
 def test_analyzer_readiness_requires_success_after_latest_start(tmp_path: Path) -> None:
     log_dir = tmp_path / ".fdai" / "logs"
     log_dir.mkdir(parents=True)

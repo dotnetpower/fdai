@@ -294,10 +294,15 @@
     "core-start-vm": {
       "delivery_status": "executable",
       "effect_observation": {
-        "status": "source_only",
+        "status": "wired",
         "refs": [
           {
-            "path": "services/core-control-plane/src/fdai/delivery/azure/vm_power_state_effect_source.py"
+            "path": "services/core-control-plane/src/fdai/runtime/observation_evidence.py",
+            "symbol": "_OBSERVED_ACTION_TYPES"
+          },
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/azure/vm_power_state_observation.py",
+            "symbol": "AzureVmStartObservationCollector"
           },
           {
             "path": "services/core-control-plane/tests/delivery/azure/test_vm_power_state_observation.py"
@@ -317,6 +322,15 @@
         "refs": [
           {
             "path": "services/core-control-plane/tests/delivery/azure/test_gateway_direct_api.py"
+          },
+          {
+            "path": "services/core-control-plane/tests/delivery/azure/test_vm_power_state_observation.py"
+          },
+          {
+            "path": "services/core-control-plane/tests/delivery/test_executed_action_observation.py"
+          },
+          {
+            "path": "services/core-control-plane/tests/runtime/test_observation_evidence.py"
           }
         ]
       }
@@ -383,10 +397,15 @@
     "isolated-start-vm": {
       "delivery_status": "executable",
       "effect_observation": {
-        "status": "source_only",
+        "status": "wired",
         "refs": [
           {
-            "path": "services/core-control-plane/src/fdai/delivery/azure/vm_power_state_effect_source.py"
+            "path": "services/core-control-plane/src/fdai/runtime/observation_evidence.py",
+            "symbol": "_OBSERVED_ACTION_TYPES"
+          },
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/azure/vm_power_state_observation.py",
+            "symbol": "AzureVmStartObservationCollector"
           }
         ]
       },
@@ -406,6 +425,15 @@
           },
           {
             "path": "services/isolated-executor/tests/test_safeguard_bundle_revalidation.py"
+          },
+          {
+            "path": "services/core-control-plane/tests/delivery/azure/test_vm_power_state_observation.py"
+          },
+          {
+            "path": "services/core-control-plane/tests/delivery/test_executed_action_observation.py"
+          },
+          {
+            "path": "services/core-control-plane/tests/runtime/test_observation_evidence.py"
           }
         ]
       }
@@ -728,7 +756,7 @@
         "core-azure-gateway": "core-start-vm",
         "isolated-azure-gateway": "isolated-start-vm"
       },
-      "note": "The strongest demo candidate, but independent observation is source-only and no current-revision end-to-end receipt exists."
+      "note": "The independent VM power-state observer is runtime-wired for Core and isolated Executor outcomes, but no current-revision end-to-end receipt exists."
     },
     "ops.switch-t2-proposer-route@1.0.0": {
       "bindings": {
