@@ -15,6 +15,7 @@ does not promote the capability or prove a deployed worker path.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Metered planning adapter prerequisite | implemented | `core/task_worker/planning_executor.py`; `tests/core/task_worker/test_planning_executor.py` | Both ceilings reach the bounded provider. Measured token/cost usage survives success, abstention, budget rejection, and terminal replay. Unmetered providers fail construction; no production provider is bound. |
 | Request model, isolated context, and capability attenuation | implemented | `core/task_worker/models.py`, `attenuation.py`, `profiles.py`; `tests/core/task_worker/test_attenuation.py` | The request is depth-one, the context projection is bounded, and the final tool set is the deterministic intersection of the three authorities. |
 | Runtime lifecycle, planning executor, and tool gateway | implemented | `core/task_worker/runtime.py`, `planning_executor.py`, `tools.py`; focused runtime and planning-executor tests | State transitions, concurrency, timeouts, cancellation ownership, budgets, heartbeats, read-only dispatch, abstention, and bounded failures are implemented without a production runtime binding. |
 | Durable snapshots, branch events, recovery, and owner-scoped queries | implemented | `delivery/persistence/postgres_task_worker.py`; Alembic revision `20260720_0039`; `tests/persistence/test_task_worker.py` | PostgreSQL compare-and-swap persistence and restart recovery exist. This row does not claim a deployed database validation. |
@@ -26,6 +27,7 @@ does not promote the capability or prove a deployed worker path.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Reproduced acceptance of an unmetered provider, then replaced ignored cost limits and summary-derived tokens with a worker-specific bounded response. Review rejected adapting the unmetered shadow seam or treating a Protocol as proof of actual billing control. | `current change`; #805; focused planning-executor and runtime selection passed 34 tests; strict targeted mypy passed. | Prove concrete pre-dispatch limits and failure/cancellation accounting, then complete production composition and restart verification under #805. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger and separated the implemented worker core from unfinished production and projection integration. | Current task-worker source, persistence adapter and migration, focused core and persistence tests, and Operator API route tests. | Bind the production runtime and projections, expose the read-only operator experience, and capture governed live evidence. |
 
 ### Remaining work
