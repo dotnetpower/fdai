@@ -41,6 +41,7 @@ export function RcaRoute({ client }: Props) {
     () => correlationFromLocation(),
   );
   const [lookupOpen, setLookupOpen] = useState(() => !correlationFromLocation());
+  const [lookupFocusRequest, setLookupFocusRequest] = useState(0);
   const [state, setState] = useState<AsyncState<RcaView>>({ status: "idle" });
   const requestGeneration = useRef(0);
   const lookupInput = useRef<HTMLInputElement>(null);
@@ -78,6 +79,9 @@ export function RcaRoute({ client }: Props) {
       setSelectedCorrelationId(deepLinked);
       setDraftCorrelationId(deepLinked);
       setLookupOpen(false);
+      if (deepLinked === selectedCorrelationId && consumeLookupFocusState()) {
+        setLookupFocusRequest((current) => current + 1);
+      }
       void fetchRca(deepLinked);
     };
     sync();
@@ -92,9 +96,8 @@ export function RcaRoute({ client }: Props) {
   }, []);
 
   useEffect(() => {
-    if (!consumeLookupFocusState()) return;
-    window.requestAnimationFrame(() => lookupToggle.current?.focus());
-  }, []);
+    if (lookupFocusRequest > 0) lookupToggle.current?.focus();
+  }, [lookupFocusRequest]);
 
   const loadedCorrelation = state.status === "ready"
     ? state.data.correlation_id
@@ -166,7 +169,13 @@ export function RcaRoute({ client }: Props) {
           <button
             type="submit"
             class="btn primary"
-            disabled={state.status === "loading" || !draftCorrelationId.trim()}
+            disabled={
+              !draftCorrelationId.trim()
+              || (
+                state.status === "loading"
+                && draftCorrelationId.trim() === loadedCorrelation.trim()
+              )
+            }
           >
             {t("rca.fetch")}
           </button>

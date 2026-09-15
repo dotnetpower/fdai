@@ -451,7 +451,9 @@ At constrained widths the causal reconstruction uses bounded horizontal scrollin
 widths it becomes one vertical sequence and related-view links remain 44 px touch targets.
 Grounded, abstained, loading, empty, and failed states remain distinct. An abstained result shows
 unavailable confidence, missing citations, and no linked response instead of presenting a
-synthetic cause.
+synthetic cause. A loading request accepts a different non-empty correlation but rejects a
+same-correlation duplicate. Same-route and replacement submissions restore keyboard focus to the
+correlation disclosure after it renders.
 
 Operational evidence remains one of `matched`, `summary`, `ambiguous`, `none`, or `unavailable`.
 For a collection summary request, `summary` renders the bounded matching set immediately without

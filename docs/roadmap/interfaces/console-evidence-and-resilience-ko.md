@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: b51f3ab88abb4288902d20febd75fcc26a9042e4
+translation_source_sha: 61f6d420a9b12c7e4f55e1a1619db8d1041cf1a1
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -450,7 +450,9 @@ technical 이력으로 유지합니다.
 스크롤을 사용합니다. 모바일에서는 하나의 세로 순서로 바뀌며 관련 화면 링크는 44 px 터치
 대상을 유지합니다. 근거 있음, 판단 보류, 불러오는 중, 빈 결과, 실패 상태는 서로 구분합니다.
 판단 보류 결과는 합성한 원인을 제시하지 않고, 신뢰도를 확인할 수 없으며 인용과 연결된 대응이
-없음을 명시합니다.
+없음을 명시합니다. 요청을 불러오는 중에는 비어 있지 않은 다른 상관관계로 교체할 수 있지만 같은
+상관관계의 중복 요청은 거부합니다. 같은 경로 또는 다른 경로로 제출을 마치면 상관관계 펼침
+컨트롤이 렌더링된 뒤 키보드 포커스를 복원합니다.
 
 Operational 근거는 `matched`, `summary`, `ambiguous`, `none`, `unavailable` 중 하나입니다.
 Collection 요약 요청에서 `summary`는 인시던트 하나를 선택하도록 요구하지 않고 범위가 제한된 matching

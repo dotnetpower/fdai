@@ -183,6 +183,10 @@ test("matches the RCA design hierarchy and keeps correlation lookup recoverable"
   await page.getByRole("button", { name: "Change correlation" }).click();
   const input = page.getByRole("textbox", { name: "Correlation id" });
   await expect(input).toBeFocused();
+  await input.press("Enter");
+  await expect(page).toHaveURL(new RegExp(`correlation=${groundedCorrelation}`));
+  await expect(page.getByRole("button", { name: "Change correlation" })).toBeFocused();
+  await page.getByRole("button", { name: "Change correlation" }).click();
   await input.fill("");
   await expect(page.locator(".rca-lookup-summary")).toContainText(groundedCorrelation);
   await expect(page.getByRole("button", { name: "Cancel change" })).toBeVisible();
@@ -268,8 +272,14 @@ test("keeps abstained, empty, and failed RCA states distinct", async ({ page }, 
   await page.goto("/root-cause-analysis?correlation=inc-loading");
   await expect(page.locator(".rca-skeleton")).toBeVisible();
   await expect(page.locator(".rca-skeleton")).toHaveAttribute("aria-busy", "true");
-  fixture.releaseLoading();
+  await page.getByRole("button", { name: "Change correlation" }).click();
+  const replacement = page.getByRole("textbox", { name: "Correlation id" });
+  await replacement.fill(groundedCorrelation);
+  await expect(page.getByRole("button", { name: "Fetch RCA" })).toBeEnabled();
+  await replacement.press("Enter");
+  await expect(page).toHaveURL(new RegExp(`correlation=${groundedCorrelation}`));
   await expect(page.getByRole("heading", { name: "Root-cause hypotheses" })).toBeVisible();
+  fixture.releaseLoading();
 
   await page.goto("/root-cause-analysis?correlation=inc-abstained");
   await expect(page.getByRole("heading", {
