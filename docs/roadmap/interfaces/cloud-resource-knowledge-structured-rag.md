@@ -52,6 +52,8 @@ Both block-local and document-wide required context reject nested dependencies t
 one-level recipe cannot completely represent.
 Selecting an article content region cannot silently discard adjacent text, headings or caveats;
 all unaccounted non-chrome text holds the candidate regardless of its HTML tag.
+Explicit publisher page-action, hidden authorization-template and feedback roles are chrome;
+this classification does not discard generic hidden tabs or arbitrary adjacent prose.
 Every resulting excerpt includes source identity and remains within 8192 UTF-8 bytes. Text and
 metadata limits are independent. Stable IDs bind source revision, block identity, recipe and bytes.
 Expanded text is bounded to 16 MiB and 8192 blocks per complete generation, in addition to the

@@ -34,6 +34,14 @@ CONTROL_TOKENS = frozenset(
     "breadcrumb page-actions unauthorized-message authorized-message authorization-message "
     "permission-content-unauthorized permission-content-authorized ask-learn download-pdf".split()
 )
+PUBLISHER_CONTROLS = frozenset(
+    {
+        "permission-content-unauthorized-private",
+        "site-user-feedback-footer",
+        "site-feedback-section",
+        "ms--additional-resources-mobile",
+    }
+)
 NOTICE_TOKENS = frozenset(
     "note tip warning caution important danger alert admonition footnote footnotes "
     "footnote-definition".split()
@@ -63,6 +71,8 @@ def excluded(node: Element) -> bool:
         node.tag in OPAQUE | CONTROLS | {"link", "meta", "base"}
         or node.attrs.get("role", "").lower() in CONTROL_ROLES
         or bool(node.tokens & CONTROL_TOKENS)
+        or bool(node.tokens & PUBLISHER_CONTROLS)
+        or "data-page-action-item" in node.attrs
         or (
             node.tag in INLINE
             and node.attrs.get("role") in {"presentation", "none"}

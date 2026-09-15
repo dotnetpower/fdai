@@ -87,6 +87,7 @@ incomplete structure holds the complete generation; legacy v1/v2 extraction rema
 
 Structured article selection holds all unaccounted non-chrome text outside the chosen content region;
 successful parsing cannot silently omit an applicability caveat.
+Explicit publisher page controls are excluded by structural role, not by deleting hidden content.
 Structured table rows retain preceding paragraph/list conditions from their heading ancestry.
 Format upgrades from retained bytes require a durable processing checkpoint, not another download;
 export cannot substitute a transient conversion for that checkpoint.

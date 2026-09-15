@@ -133,6 +133,21 @@ def test_table_rows_keep_preceding_section_applicability() -> None:
     assert "Applies only to the dedicated generation." in rows[0].text
 
 
+def test_publisher_page_controls_are_not_missing_article_evidence() -> None:
+    html = (
+        '<main><a data-page-action-item="overflow-all">Page action</a>'
+        '<div data-bi-name="permission-content-unauthorized-private" hidden>'
+        "<p>Authentication template.</p></div>"
+        '<div class="content"><h1>Guide</h1><p>Actual guidance.</p></div>'
+        '<section id="site-user-feedback-footer"><h2>Feedback</h2></section>'
+        '<div id="ms--additional-resources-mobile"><h2>Site recommendations</h2></div></main>'
+    )
+    doc = reprocess_document(_snapshot(html), now=DERIVED)
+    assert not doc.unresolved_dependencies
+    assert "Authentication template" not in doc.text
+    assert "Actual guidance" in doc.text
+
+
 def test_top_level_content_scopes_keep_title_and_body_without_duplication() -> None:
     html = (
         '<div class="content"><h1>Guide</h1></div><nav>Outside</nav>'
