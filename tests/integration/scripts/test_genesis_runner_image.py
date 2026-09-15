@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from dataclasses import replace
@@ -1152,8 +1153,12 @@ def test_terraform_environment_rejects_ambient_authority_controls(
         )
 
 
+@pytest.mark.parametrize(
+    ("power_state", "exit_status"),
+    [("PowerState/stopped", 0), ("PowerState/deallocated", 0), ("", 9)],
+)
 def test_terraform_environment_uses_private_empty_configuration(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, power_state: str, exit_status: int
 ) -> None:
     for key in tuple(os.environ):
         if key.startswith(("TF_CLI_ARGS", "TF_VAR_", "TF_LOG", "ARM_")):
@@ -1173,7 +1178,11 @@ def test_terraform_environment_uses_private_empty_configuration(
     work.mkdir(mode=0o700)
 
     azure_cli = tmp_path / "trusted-az"
-    azure_cli.write_text("#!/bin/sh\nexit 0\n")
+    azure_cli.write_text(
+        "#!/bin/sh\n"
+        'test "$1" = vm && test "$2" = get-instance-view && test "$4" = example-vm || exit 99\n'
+        f"printf '%s\\n' '{power_state}'\nexit {exit_status}\n"
+    )
     azure_cli.chmod(0o700)
     monkeypatch.setattr(command, "_trusted_azure_cli", lambda: azure_cli)
     environment = command._terraform_environment(
@@ -1193,6 +1202,21 @@ def test_terraform_environment_uses_private_empty_configuration(
         == f"{tools}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
     )
     assert (tools / "az").resolve(strict=True) == azure_cli
+    terraform_source = (ROOT / "infra/genesis-runner-image/main.tf").read_text()
+    wait_block = terraform_source.split('resource "terraform_data" "await_builder_poweroff"', 1)[1]
+    wait_block = wait_block.split('\nresource "', 1)[0]
+    assert "AZ_CLI" not in wait_block
+    wait_command = re.search(r"command\s*=\s*<<-SCRIPT\n(.*?)\n\s*SCRIPT", wait_block, re.S)
+    assert wait_command is not None
+    completed = subprocess.run(  # noqa: S603
+        ["/bin/bash", "-c", wait_command.group(1)],
+        env={**environment, "VM_ID": "example-vm"},
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=False,
+    )
+    assert completed.returncode == exit_status, completed.stderr
     assert (
         command._terraform_environment(work, subscription_id=SUBSCRIPTION, tenant_id=TENANT)
         == environment

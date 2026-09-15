@@ -390,7 +390,7 @@ resource "terraform_data" "await_builder_poweroff" {
     command     = <<-SCRIPT
       set -euo pipefail
       for _ in $(seq 1 90); do
-        state="$("$AZ_CLI" vm get-instance-view --ids "$VM_ID" --query "instanceView.statuses[?starts_with(code, 'PowerState/')].code | [0]" --output tsv --only-show-errors)"
+        state="$(az vm get-instance-view --ids "$VM_ID" --query "instanceView.statuses[?starts_with(code, 'PowerState/')].code | [0]" --output tsv --only-show-errors)"
         case "$state" in
           PowerState/stopped|PowerState/deallocated) exit 0 ;;
         esac
@@ -399,8 +399,7 @@ resource "terraform_data" "await_builder_poweroff" {
       exit 1
     SCRIPT
     environment = {
-      AZ_CLI = abspath("/usr/bin/az")
-      VM_ID  = azurerm_linux_virtual_machine.builder.id
+      VM_ID = azurerm_linux_virtual_machine.builder.id
     }
   }
 }
