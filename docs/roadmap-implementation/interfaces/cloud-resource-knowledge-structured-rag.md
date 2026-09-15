@@ -22,6 +22,7 @@ follow-up. Issue #995 continues to own independent operational qualification.
 
 | Date | State | Change | Evidence | Remaining |
 |---|---|---|---|---|
+| 2026-09-15 | in-progress | PR #1068 exposed a test coupling, not a production fail-open: a controlled-clock publication test also required a real child to start within one second. CI correctly returned the earlier child-timeout hold. The test now injects an actually derived worker result before advancing its fake clock; separate real-child and timeout tests remain. | Exact head `1419765ba`, CI run `34956931240` attempt 1, completed regression job `104341216279`, step `Run regression shard`; its assertion reproduced deterministically with an injected cold-start timeout. Production source and deadlines are unchanged. | Verify the repaired focused tests, publish the new local commit and require its own exact-head CI/protected merge. Prior bounded no-finding statements apply to their checkpoints; Issue #995 remains separate. |
 | 2026-09-15 | implemented | Reconciled the original protected delivery without rewriting its pre-merge history. | [PR #1047](https://github.com/dotnetpower/fdai/pull/1047), head `9006a9d57`, squash `672bc81d4`, exact-head CI `34946844303` and merged-main CI `34947425231` succeeded; [Issue #1019 closure](https://github.com/dotnetpower/fdai/issues/1019#issuecomment-5677313393). | Retained-source follow-up is Issue #1061; operational qualification remains Issue #995. |
 | 2026-09-15 | implemented | Added opt-in normalizer `2.1.0` with reader `3.1.0`, complete supported disclosures/tabs/composites, exact-source checkpoint upgrades and bounded original-free offline review. | `current change`; [Issue #1061](https://github.com/dotnetpower/fdai/issues/1061), source/test paths and follow-up review below; 392 focused cases, eleven-source strict typing and seventeen-file Ruff/format passed. Actual local network-isolated retained-source preparation and independent file readback preserved the frozen denominator and original evidence. | Exact-head protected delivery remains pending. Private corpus holds, independent semantic labels, production rights/trust/reviewers and operational receipts are not completed by this source evidence. |
 | 2026-09-15 | not-started | Recorded structured-release compatibility, source-clock, safe-chunk and bilingual evaluation decisions before implementation. | `current change`; design, critique and Issue #1019 | Implement and verify the bounded source scope; preserve external qualification boundaries. |
@@ -107,3 +108,8 @@ this proves local preparation, not the internal package-to-answer production dri
 No further confirmed Medium-or-higher finding remained in this bounded source review. Unresolved
 media, ambiguous source relationships, oversized required context, independent EN/KO claim labels,
 production rights/trust/reviewers and the selected operating target remain separate completion conditions.
+
+PR #1068's later test-only correction is recorded in history rather than hidden by that checkpoint.
+All 34 offline-review cases passed with four workers after separating the fake publication clock
+from real child startup. The production source, subprocess timeout, late-publication hold and
+actual retained-corpus results were unchanged; exact-head delivery still needs its own CI result.

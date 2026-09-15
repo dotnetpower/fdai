@@ -132,6 +132,8 @@ model answer. Paths are no-follow and confined to the selected input root; outpu
 private. Source, output and total-byte ceilings plus per-source/total deadlines bound the run.
 Normalization and complete excerpt measurement share a resource-limited child process. A late
 candidate is not published as successful, and a held/unprocessed source cannot claim excerpt metrics.
+Deadline regressions separate controlled-clock publication from actual child startup/timeout checks;
+a slow host cannot change which boundary a controlled-clock test exercises.
 Reported processing time cannot renew collection or successful-check time. A partial run preserves
 the complete requested denominator and explicit unprocessed entries, not a smaller successful scope.
 Live source/media/model calls, independent reviewer labels, production trust and operating targets

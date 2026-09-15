@@ -96,6 +96,8 @@ Structured table rows retain preceding paragraph/list conditions from their head
 Format upgrades from retained bytes require a durable processing checkpoint, not another download;
 export cannot substitute a transient conversion for that checkpoint.
 Structured collected submissions and rollback requests remain received-only until normal approval.
+Local review tests separate controlled-clock candidate publication from real child-process startup
+and timeout evidence; both remain required without changing the processing limits.
 
 Embedded images use bounded package-member extraction and the effective OCR provider. A modern
 Office document with usable native text can finish as `ready_with_warnings` when embedded-image OCR

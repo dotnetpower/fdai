@@ -278,7 +278,23 @@ def test_deadline_is_rechecked_after_input_loading(
 def test_expired_total_deadline_cannot_publish_a_successful_candidate(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from fdai_ingestion_api_service.cloud_knowledge.review_worker import _measure
+    from fdai_ingestion_api_service.cloud_knowledge.structured_normalization import (
+        reprocess_document,
+    )
+    from fdai_service_contracts.cloud_knowledge_release import CloudKnowledgeDocument
+
     source = _source(tmp_path)
+    snapshot = CloudKnowledgeDocument(
+        evidence=source.evidence,
+        title=source.title,
+        original_text=(tmp_path / source.original_path).read_text(),
+        text=(tmp_path / source.normalized_path).read_text(),
+    )
+    result = _measure(reprocess_document(snapshot, now=NOW, normalizer_version="2.1.0"))
+    # This tests the post-worker clock boundary, not host load or real process startup time.
+    # Actual child execution and child timeout have separate focused cases.
+    monkeypatch.setattr(review, "_process", lambda *args, **kwargs: result)
     ticks = iter([0.0, 0.0, 0.0, 2.0])
     monkeypatch.setattr(review.time, "monotonic", lambda: next(ticks))
     output = tmp_path / "review"
