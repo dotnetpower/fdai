@@ -157,6 +157,11 @@ Scheduled jobs use `concurrencyPolicy=Forbid`, one completion, one parallel work
 deadline, a retry limit, and bounded history. Manual jobs are created only by a separately approved
 request and are not perpetual desired-state resources.
 
+The inventory command and its CLI support module preserve read-only failure boundaries on both
+platforms and in the local managed stack. Activity Log recovery is independent of full reconciliation:
+failures before or after generation promotion are reported as unavailable, without advancing failed
+delta cursors or terminating the complete inventory loop.
+
 The managed host records the selected Deployment names, image references, and replica bounds.
 Health readback requires that complete set, current observed generations, ready replicas, and
 running Pod image digests from the same source revision. Empty, duplicate, stale, malformed, or

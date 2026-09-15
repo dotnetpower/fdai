@@ -77,6 +77,7 @@ export interface UseLiveStreamOptions {
 export interface UseLiveStreamResult {
   readonly status: LiveConnectionStatus;
   readonly source: ObservationSource;
+  readonly lastSignalAt: number | null;
   readonly lastError: string | null;
 }
 
@@ -258,7 +259,10 @@ export function useLiveStream(
   options: UseLiveStreamOptions,
 ): UseLiveStreamResult {
   const [source, setSource] = useState<ObservationSource>("unknown");
+  const [lastSignalAt, setLastSignalAt] = useState<number | null>(null);
   const sourceExpiryTimerRef = useRef<number | null>(null);
+  const lastSignalValueRef = useRef<number | null>(null);
+  const lastSignalFlushTimerRef = useRef<number | null>(null);
   const {
     url,
     getAuthorizationHeader = noAuthorization,
@@ -285,6 +289,14 @@ export function useLiveStream(
       setSource("unknown");
     }, LIVE_SOURCE_FRESHNESS_MS);
   };
+  const observeSignal = (): void => {
+    lastSignalValueRef.current = Date.now();
+    if (lastSignalFlushTimerRef.current !== null) return;
+    lastSignalFlushTimerRef.current = window.setTimeout(() => {
+      lastSignalFlushTimerRef.current = null;
+      setLastSignalAt(lastSignalValueRef.current);
+    }, 250);
+  };
   const connection = useSharedAuthenticatedSse("live", {
     url,
     enabled,
@@ -301,27 +313,44 @@ export function useLiveStream(
       if (next === "closed" || next === "idle") clearSourceObservation();
       options.onStatus?.(next);
     },
-    onFrame: (frame) => consumeLiveFrame(
-      frame,
-      options.onEvent,
-      (event) => {
-        if (isLiveSourceObservationFresh(event.ts)) {
-          observeSource(event.source);
-        }
-      },
-      options.onActivity,
-      options.onGap,
-      options.onActivityStatus,
-      options.onCursorReset,
-      (incoming, timestamp) => {
-        if (isLiveSourceObservationFresh(timestamp)) observeSource(incoming);
-      },
-    ),
+    onFrame: (frame) => {
+      const accepted = consumeLiveFrame(
+        frame,
+        options.onEvent,
+        (event) => {
+          if (isLiveSourceObservationFresh(event.ts)) {
+            observeSource(event.source);
+          }
+        },
+        options.onActivity,
+        options.onGap,
+        options.onActivityStatus,
+        options.onCursorReset,
+        (incoming, timestamp) => {
+          if (isLiveSourceObservationFresh(timestamp)) observeSource(incoming);
+        },
+      );
+      if (accepted) observeSignal();
+    },
   });
+
+  useEffect(() => {
+    if (!enabled) {
+      lastSignalValueRef.current = null;
+      if (lastSignalFlushTimerRef.current !== null) {
+        window.clearTimeout(lastSignalFlushTimerRef.current);
+        lastSignalFlushTimerRef.current = null;
+      }
+      setLastSignalAt(null);
+    }
+  }, [enabled]);
 
   useEffect(() => () => {
     if (sourceExpiryTimerRef.current !== null) {
       window.clearTimeout(sourceExpiryTimerRef.current);
+    }
+    if (lastSignalFlushTimerRef.current !== null) {
+      window.clearTimeout(lastSignalFlushTimerRef.current);
     }
   }, []);
 
@@ -329,6 +358,7 @@ export function useLiveStream(
     status: connection.status,
     lastError: connection.lastError,
     source,
+    lastSignalAt,
   };
 }
 

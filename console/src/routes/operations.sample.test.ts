@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { decodeHilQueuePage, decodeIncidentPage } from "../api";
+import { decodeAgentOperationalActivity } from "../agent-operational-activity";
 import { decodeAutomationBlueprints } from "./automation-blueprints";
 import {
   decodeBackgroundTaskDetail,
@@ -19,6 +20,7 @@ import {
   OPERATIONS_SAMPLE_PROVISION_EVENTS,
   OPERATIONS_SAMPLE_LIVE_STAGE_INTERVAL_MS,
   OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT,
+  sampleLiveObservations,
   sampleLiveEvents,
   operationsSampleResponse,
 } from "./operations.sample";
@@ -85,7 +87,20 @@ describe("Operations Sample registry", () => {
       .toBe(OPERATIONS_SAMPLE_LIVE_HISTORY_COUNT);
     expect(terminal.filter((event) => event.detail?.["decision"] === "hil")).toHaveLength(3);
     expect(terminal.filter((event) => event.phase === "failed")).toHaveLength(4);
-    expect(OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT).toBe(30);
+    expect(OPERATIONS_SAMPLE_LIVE_VISIBLE_COUNT).toBe(12);
+    const sourceReads = sampleLiveObservations();
+    expect(sourceReads).toHaveLength(3);
+    expect(sourceReads.every(
+      (activity) => decodeAgentOperationalActivity(activity) !== null,
+    )).toBe(true);
+    expect(sourceReads[2]).toMatchObject({
+      kind: "inventory.scan",
+      status: "degraded",
+      freshness: "stale",
+      result_count: 3_205,
+      result_unit: "evidence-items",
+      execution_authority: false,
+    });
     expect(OPERATIONS_SAMPLE_LIVE_LOOP_INTERVAL_MS).toBe(1_000);
     expect(OPERATIONS_SAMPLE_LIVE_EVENTS_PER_LOOP).toBe(3);
     expect(OPERATIONS_SAMPLE_LIVE_STAGE_INTERVAL_MS).toBe(800);
