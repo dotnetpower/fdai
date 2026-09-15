@@ -42,6 +42,8 @@ atomic units hold the complete declared generation. A narrower source scope need
 Preserve heading paths, ordered steps, table headers/units, notices and link destinations.
 Paragraphs and table rows are atomic; larger tables may split only with repeated header and
 required context. Dependencies are explicit source-local references, not inferred authority.
+Table data rows also inherit preceding paragraph/list context from their heading ancestry; the
+parser does not guess whether ordinary prose contains an applicability restriction.
 Both block-local and document-wide required context reject nested dependencies that the installed
 one-level recipe cannot completely represent.
 Selecting an article content region cannot silently discard an adjacent paragraph or caveat;

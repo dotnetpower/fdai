@@ -121,6 +121,17 @@ def test_content_selection_cannot_silently_drop_outside_caveat() -> None:
         structured_excerpts(document)
 
 
+def test_table_rows_keep_preceding_section_applicability() -> None:
+    doc = _document(
+        "<h2>Ports</h2><p>Applies only to the dedicated generation.</p>"
+        "<table><tr><th>Port</th><th>Protocol</th></tr>"
+        "<tr><td>443</td><td>TCP</td></tr></table>"
+    )
+    rows = [item for item in structured_excerpts(doc) if "443 | TCP" in item.text]
+    assert len(rows) == 1
+    assert "Applies only to the dedicated generation." in rows[0].text
+
+
 def test_top_level_content_scopes_keep_title_and_body_without_duplication() -> None:
     html = (
         '<div class="content"><h1>Guide</h1></div><nav>Outside</nav>'

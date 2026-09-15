@@ -290,7 +290,15 @@ class _Structure:
             raise ValueError("article table exceeds the complete header limit")
         self.tables += 1
         table_id = f"table:{self.tables}"
-        context: list[str] = []
+        path = tuple(label for _, label in self.headings) + self.tabs
+        context = [
+            block.block_id
+            for block in self.blocks
+            if block.kind in {"paragraph", "list"}
+            and path[: len(block.heading_path)] == block.heading_path
+        ]
+        if len(context) + len(headers) > 64:
+            raise ValueError("article table exceeds the required context limit")
         for child in node.children:
             if isinstance(child, Element) and child.tag == "caption":
                 self.emit(child, "notice", text_content(child, self.issues))

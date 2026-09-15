@@ -87,6 +87,7 @@ incomplete structure holds the complete generation; legacy v1/v2 extraction rema
 
 Structured article selection holds unaccounted paragraphs outside the chosen content region;
 successful parsing cannot silently omit an applicability caveat.
+Structured table rows retain preceding paragraph/list conditions from their heading ancestry.
 
 Embedded images use bounded package-member extraction and the effective OCR provider. A modern
 Office document with usable native text can finish as `ready_with_warnings` when embedded-image OCR
