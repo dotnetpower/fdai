@@ -30,3 +30,12 @@ Issue #1019 owns source delivery. Issue #995 continues to own independent operat
 - [ ] Record at least ten critique rounds and a final review with no confirmed in-scope Medium-or-higher finding remaining.
 - [ ] Complete protected source delivery and report exact source/CI/merge identities.
 - [ ] Keep Issue #995 open until its actual trust, rights, reviewer, service and authorized runtime receipts are supplied.
+
+## Critique and hardening rounds
+
+Severity reflects the demonstrated defect, not missing external operating approval. Each numbered
+round is a separate local checkpoint; false positives are retained rather than turned into fixes.
+
+| Round | Severity | Finding and disposition | Verification |
+|---|---|---|---|
+| 1 | Medium | Selecting inner content regions could omit an adjacent applicability paragraph. Unaccounted structural content now holds the candidate. | Added regression failed before the fix; the focused normalization module passes after it. |

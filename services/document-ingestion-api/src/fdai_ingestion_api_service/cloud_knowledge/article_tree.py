@@ -244,6 +244,13 @@ def parse_article(original: str) -> tuple[tuple[Element, ...], set[str]]:
         if _auth_form(scope) or login_title:
             raise ValueError("source HTML is an authentication page, not an article")
     selected = [part for scope in scopes for part in (_regions(scope, content=True) or [scope])]
+    represented = {id(node) for part in selected for node in elements(part)}
+    for scope in scopes:
+        for node in elements(scope):
+            if id(node) not in represented and not excluded(node):
+                if node.tag in {"p", "pre", "ul", "ol", "table", "blockquote"}:
+                    if text_content(node, set()).strip():
+                        parser.issues.add("article_scope_omission")
     return tuple(selected), parser.issues
 
 

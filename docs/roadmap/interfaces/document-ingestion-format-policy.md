@@ -85,6 +85,9 @@ incomplete structure holds the complete generation; legacy v1/v2 extraction rema
 
 ## Extraction and failure behavior
 
+Structured article selection holds unaccounted paragraphs outside the chosen content region;
+successful parsing cannot silently omit an applicability caveat.
+
 Embedded images use bounded package-member extraction and the effective OCR provider. A modern
 Office document with usable native text can finish as `ready_with_warnings` when embedded-image OCR
 is unavailable. An image-only document, scanned PDF, or image-only Office package cannot become

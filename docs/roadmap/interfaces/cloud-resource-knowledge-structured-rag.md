@@ -42,6 +42,8 @@ atomic units hold the complete declared generation. A narrower source scope need
 Preserve heading paths, ordered steps, table headers/units, notices and link destinations.
 Paragraphs and table rows are atomic; larger tables may split only with repeated header and
 required context. Dependencies are explicit source-local references, not inferred authority.
+Selecting an article content region cannot silently discard an adjacent paragraph or caveat;
+unaccounted structural body content holds the candidate for review.
 Every resulting excerpt includes source identity and remains within 8192 UTF-8 bytes. Text and
 metadata limits are independent. Stable IDs bind source revision, block identity, recipe and bytes.
 

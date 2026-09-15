@@ -110,6 +110,17 @@ def test_explicit_article_and_content_scopes(wrap: str) -> None:
     assert not document.unresolved_dependencies
 
 
+def test_content_selection_cannot_silently_drop_outside_caveat() -> None:
+    html = (
+        "<main><p>Only the reviewed service generation is supported.</p>"
+        '<div class="content"><h1>Guide</h1><p>Configure the endpoint.</p></div></main>'
+    )
+    document = reprocess_document(_snapshot(html), now=DERIVED)
+    assert "article_scope_omission" in document.unresolved_dependencies
+    with pytest.raises(ValueError, match="unresolved"):
+        structured_excerpts(document)
+
+
 def test_top_level_content_scopes_keep_title_and_body_without_duplication() -> None:
     html = (
         '<div class="content"><h1>Guide</h1></div><nav>Outside</nav>'
