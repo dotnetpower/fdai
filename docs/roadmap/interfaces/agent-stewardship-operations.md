@@ -20,6 +20,11 @@ ownership (`stewardship`). It complements the handover-map schema and ownership 
 > [PR #1014](https://github.com/dotnetpower/fdai/pull/1014) completed #946 delivery at `953a17de4` from reviewed head `8c1d9977c`; exact-head CI `34925881557` and post-merge CI `34926168342` passed.
 > [#1017 local UI evidence](../../internals/handover-ui-evidence-20260915.md) accounts for all 50 rubric IDs, retaining real screen-reader checks as `needs-human` without a final score. Readiness stays `shadow`, `operationally_ready=false`; [#458](https://github.com/dotnetpower/fdai/issues/458) remains open.
 
+The [operational validation guide](../../user-guide/guides/validate-ownership-handover.md) separates
+actual speech, current identity, provider, recovery, cohort and exact-plan evidence. #1017 delivery
+completed through [PR #1031](https://github.com/dotnetpower/fdai/pull/1031), squash `33c76944cec4489b51bc3bb90820cc273159d99d`;
+exact-head CI `34933740673` and post-merge main CI `34934077457` succeeded. This does not complete #458.
+
 Cloud-reference collection and signed intake share this ingestion host, not its ownership authority.
 They never create a handover draft or change a steward; [their lifecycle](cloud-resource-knowledge-lifecycle.md)
 uses separate source/trust policy and the existing independent document approval gates.
@@ -64,6 +69,7 @@ The lifecycle has four independent safety boundaries:
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | implemented | Corrected current deployment guidance to the standalone exact-plan coordinator and managed host, separated injected-clock tests from live refresh, and added a bilingual speech/operational evidence protocol without runtime changes. | `current change`; [validation guide](../../user-guide/guides/validate-ownership-handover.md); [#1043 review record](../../internals/handover-operational-readiness-20260915.md); protected #1031 source and successful post-merge CI `34934077457`. | Real EN/KO speech and all current #458 operational receipts remain required. Historical source/image/map evidence is not current deployment approval. |
 | 2026-09-15 | implemented | Reconciled completed #946 source delivery and recorded #1017's local UI correction/evidence boundary. Tenant deployment uses the current standalone exact-plan coordinator and managed host, not historical GitHub workflow transport. | [PR #1014](https://github.com/dotnetpower/fdai/pull/1014), reviewed `8c1d9977c`, squash `953a17de4`, successful exact-head CI `34925881557` and post-merge CI `34926168342`; `current change`; [UI evidence and operational prerequisites](../../internals/handover-ui-evidence-20260915.md). | #458 remains open for selected release/target, independent exact-plan approval, current identities, App/ChatOps setup, source/ACL/hold evidence, independent effects, recovery drills and promotion cohorts. Real screen-reader output remains unmeasured. |
 | 2026-08-21 | implemented | Aligned the ingestion API's fallback Pantheon transport with the canonical `fdai.pantheon.objects` Event Bus topic. Terraform remains the naming authority, and the change does not alter stewardship resolution, notification ordering, RBAC, approval, or execution authority. | `current change`; ingestion composition defaults, Event Bus naming contract, and focused independent-service checks. | Retain the protected Event Bus migration and post-apply transport receipt tracked by the deployment naming owner. |
 | 2026-08-18 | in-progress | Made the ingestion API composition that builds the stewardship webhook and repository handover intake resolve its execution venue through the shared contract instead of a private parser, so a venue-selected credential or endpoint cannot diverge from the other services. No stewardship lifecycle behavior changed. | `current change`; `services/document-ingestion-api/tests` passed with the other independent service suites at 874 focused cases and 1 skip; the venue gate reported OK across 6 source trees. | The unwired post-merge ownership effects and scheduled identity health below remain open. |
@@ -318,9 +324,13 @@ one-hour installation lease closes. No token or JWT is logged. A static `gitops_
 only as a mutually exclusive compatibility input. Configure the GitHub webhook for pull-request
 events and point it to the published ingestion gateway route.
 
-The protected workflow reads `ENABLE_STEWARDSHIP_GOVERNANCE`, `GITOPS_OWNER`, and `GITOPS_REPO`
-from repository Variables and reads `GITOPS_TOKEN` and `GITHUB_WEBHOOK_SECRET` from repository
-Secrets. Keep activation disabled until those values and the existing ChatOps secrets are present.
+Supply reviewed activation, repository/App bindings and protected secret references through the
+selected standalone deployment's private configuration. `fdaictl provision azure` coordinates
+exact-plan human approval and the dedicated managed-host identity; GitHub Actions is not a tenant
+plan/apply transport. The historical workflow variables in earlier evidence do not configure a
+current deployment. Keep governance disabled until current App, signed-webhook and independently
+approved channel prerequisites are verified. Do not substitute a static personal token or put
+secret values in chat, CLI arguments, source control or public issue evidence.
 
 ## Failure and recovery
 
@@ -346,7 +356,9 @@ uv run pytest services/core-control-plane/tests/core/stewardship services/core-c
 terraform -chdir=infra validate
 ```
 
-After deployment, verify:
+After a separately authorized deployment, verify these observations within the selected drill's
+scope and deadlines. Use the [evidence protocol](../../user-guide/guides/validate-ownership-handover.md)
+for current identities, exact approvals, inverse/restart/outage drills and independent cohorts:
 
 1. `GET /stewardship` returns 15 agents and the expected coverage findings.
 2. `stewardship_health:current` exists and `stewardship_health:last_success` has the same revision
@@ -355,13 +367,15 @@ After deployment, verify:
 4. Reprocessing the upload returns the same PR reference.
 5. Merging a reviewed test change produces one merge audit and one operational notification.
 6. Re-delivering the same GitHub delivery id produces no second record.
-7. Advancing the injected clock across the refresh skew produces one renewed installation token,
-   while concurrent callers share one mint request and no credential appears in logs or receipts.
+7. An approved bounded real token-refresh observation retains renewal and concurrent-lease
+  evidence without credential values. Injected-clock checks prove only local provider mechanics;
+  never change a deployment clock or claim a synthetic refresh is a live observation.
 
 ## Related docs
 
 | To learn about | Read |
 |----------------|------|
+| Remaining speech and operational evidence | [Validation guide](../../user-guide/guides/validate-ownership-handover.md) |
 | Ownership schema and handover concepts | [agent-stewardship-and-handover.md](agent-stewardship-and-handover.md) |
 | Notification routes and fallback | [channels-and-notifications.md](channels-and-notifications.md) |
 | Human authorization | [user-rbac-and-identity.md](user-rbac-and-identity.md) |
