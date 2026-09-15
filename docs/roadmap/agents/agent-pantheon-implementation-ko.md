@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 3946e84b055635b9811a3da3e4f261db25c20cf2
+translation_source_sha: ab5f8dfdd869777de5e5e0a49739079284eb0799
 translation_revised: 2026-09-15
 ---
 
