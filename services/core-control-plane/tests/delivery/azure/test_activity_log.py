@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -33,10 +34,14 @@ from fdai.delivery.azure.activity_log import (
     AzureActivityLogFactory,
     AzureActivityLogFactoryConfig,
 )
+from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGraphInventory
+from fdai.delivery.inventory_delta import forward_inventory_delta
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
     load_resource_type_registry_from_mapping,
 )
+from fdai.shared.providers.testing.event_bus import InMemoryEventBus
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -281,10 +286,275 @@ async def test_parent_only_child_page_retains_reconciliation_without_resources()
     assert page.relationship_reconciliation_after == "2026-07-10T06:15:00+00:00"
 
 
-@pytest.mark.asyncio
-async def test_delete_event_is_not_upserted_and_still_advances_cursor() -> None:
-    vocab = _vocab()
-    _, arm_type = _arm_type_for(vocab)
+def _key_vault_delete_event(
+    provider_type: str = "Microsoft.KeyVault/vaults",
+) -> dict[str, Any]:
+    return {
+        "resourceId": (
+            "/subscriptions/00000000-0000-0000-0000-000000000001/"
+            f"resourceGroups/rg-a/providers/{provider_type}/resource-one"
+        ),
+        "resourceType": {"value": "Microsoft.Resources/subscriptions/resourcegroups"},
+        "operationName": {"value": f"{provider_type}/delete"},
+        "status": {"value": "Succeeded"},
+        "eventTimestamp": "2026-07-10T06:15:00Z",
+    }
+
+
+@pytest.mark.parametrize(
+    "supplied_type",
+    [
+        "Microsoft.Resources/subscriptions/resourcegroups",
+        "Microsoft.Resources/resourceGroups",
+        "MICROSOFT.RESOURCES/SUBSCRIPTIONS/RESOURCEGROUPS",
+    ],
+)
+@pytest.mark.parametrize("include_valid_row", [False, True])
+@pytest.mark.parametrize(
+    "provider_type", ["Microsoft.KeyVault/vaults", "Microsoft.Storage/storageAccounts"]
+)
+async def test_known_delete_envelope_requests_reconciliation_without_upsert(
+    supplied_type: str, include_valid_row: bool, provider_type: str
+) -> None:
+    event = _key_vault_delete_event(provider_type)
+    event["resourceType"] = {"value": supplied_type}
+    events = [event]
+    if include_valid_row:
+        events.append(
+            {
+                "resourceId": (
+                    "/subscriptions/00000000-0000-0000-0000-000000000001/"
+                    "resourceGroups/rg-a/providers/Microsoft.Compute/virtualMachines/vm-one"
+                ),
+                "resourceType": {"value": "Microsoft.Compute/virtualMachines"},
+                "operationName": {"value": "Microsoft.Compute/virtualMachines/read"},
+                "status": {"value": "Succeeded"},
+                "eventTimestamp": "2026-07-10T06:30:00Z",
+            }
+        )
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"value": events})
+
+    factory, client, _ = _factory(handler)
+    try:
+        page = await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")
+    finally:
+        await client.aclose()
+
+    assert [resource.type for resource in page.resources] == (
+        ["compute.vm"] if include_valid_row else []
+    )
+    assert len(page.links) == int(include_valid_row)
+    assert page.relationship_reconciliation_after == "2026-07-10T06:15:00+00:00"
+    assert page.cursor == (
+        "2026-07-10T06:30:00+00:00" if include_valid_row else "2026-07-10T06:15:00+00:00"
+    )
+    assert page.has_more is False
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("operationName", {"value": "Microsoft.KeyVault/vaults/write"}),
+        ("operationName", {"value": "Microsoft.KeyVault/vaults/read"}),
+        ("operationName", {"value": "Microsoft.KeyVault/vaults/keys/delete"}),
+        ("operationName", {"value": "Microsoft.Resources/resourceGroups/delete"}),
+        ("operationName", {"value": "Microsoft.KeyVault/vaults/delete/extra"}),
+        ("operationName", {"value": "Microsoft.Storage/storageAccounts/delete"}),
+        ("operationName", None),
+        ("resourceType", {"value": "Microsoft.Storage/storageAccounts"}),
+        (
+            "resourceId",
+            "/subscriptions/00000000-0000-0000-0000-000000000001/"
+            "resourceGroups/rg-a/providers/Microsoft.Storage/storageAccounts/storage-one",
+        ),
+    ],
+)
+async def test_key_vault_delete_envelope_rejects_other_reviewed_conflicts(
+    field: str, value: object
+) -> None:
+    event = _key_vault_delete_event()
+    event[field] = value
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"value": [event]})
+
+    factory, client, _ = _factory(handler)
+    try:
+        with pytest.raises(ActivityLogError, match="resource type conflicts"):
+            await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.parametrize("status", ["Failed", "Started", "succeeded", None])
+@pytest.mark.parametrize("only_succeeded", [False, True])
+@pytest.mark.parametrize(
+    "provider_type", ["Microsoft.KeyVault/vaults", "Microsoft.Storage/storageAccounts"]
+)
+async def test_known_delete_envelope_requires_succeeded(
+    status: str | None, only_succeeded: bool, provider_type: str
+) -> None:
+    event = _key_vault_delete_event(provider_type)
+    event["status"] = {"value": status}
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"value": [event]})
+
+    factory, client, _ = _factory(handler, _config(only_succeeded=only_succeeded))
+    try:
+        if not only_succeeded:
+            with pytest.raises(ActivityLogError, match="resource type conflicts"):
+                await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")
+        else:
+            page = await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")
+            assert page.resources == ()
+            assert page.links == ()
+            assert page.relationship_reconciliation_after is None
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.parametrize("timestamp", [None, "", "invalid", "2026-07-10T06:15:00"])
+@pytest.mark.parametrize(
+    "provider_type", ["Microsoft.KeyVault/vaults", "Microsoft.Storage/storageAccounts"]
+)
+async def test_known_delete_envelope_requires_ordering_timestamp(
+    timestamp: str | None, provider_type: str
+) -> None:
+    event = _key_vault_delete_event(provider_type)
+    event["eventTimestamp"] = timestamp
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"value": [event]})
+
+    factory, client, _ = _factory(handler)
+    try:
+        with pytest.raises(ActivityLogError, match="eventTimestamp"):
+            await factory.build_fetch_fn()("2026-07-10T05:00:00+00:00")
+    finally:
+        await client.aclose()
+
+
+@pytest.mark.parametrize(
+    "failure", [None, "http", "conflict", "timestamp", "continuation", "marker"]
+)
+@pytest.mark.parametrize(
+    "provider_type", ["Microsoft.KeyVault/vaults", "Microsoft.Storage/storageAccounts"]
+)
+async def test_known_delete_envelope_persists_marker_and_cursor_only_after_complete_stream(
+    failure: str | None, monkeypatch: pytest.MonkeyPatch, provider_type: str
+) -> None:
+    state = InMemoryStateStore()
+    bus = InMemoryEventBus()
+    cursor_key = "inventory_delta_cursor:subscription-1"
+    marker_key = "inventory-relationship-reconciliation:subscription-1"
+    original_cursor = {"cursor": "2026-07-10T05:00:00+00:00"}
+    await state.write_state(cursor_key, original_cursor)
+    requests = 0
+    written_keys: list[str] = []
+    original_write = state.write_state
+
+    async def write_state(key: str, value: Any) -> None:
+        assert requests == 2
+        written_keys.append(key)
+        if failure == "marker":
+            raise RuntimeError("reconciliation marker unavailable")
+        await original_write(key, value)
+
+    monkeypatch.setattr(state, "write_state", write_state)
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        assert await state.read_state(cursor_key) == original_cursor
+        assert await state.read_state(marker_key) is None
+        if requests == 1:
+            return httpx.Response(
+                200,
+                json={
+                    "value": [_key_vault_delete_event(provider_type)],
+                    "nextLink": "https://management.azure.com/next",
+                },
+            )
+        assert requests == 2
+        if failure == "http":
+            return httpx.Response(503)
+        if failure in {"conflict", "timestamp"}:
+            invalid = _key_vault_delete_event()
+            if failure == "conflict":
+                invalid["operationName"] = {"value": "Microsoft.KeyVault/vaults/write"}
+            else:
+                invalid["eventTimestamp"] = None
+            return httpx.Response(200, json={"value": [invalid]})
+        return httpx.Response(
+            200, json={"value": [], "nextLink": False if failure == "continuation" else None}
+        )
+
+    factory, client, _ = _factory(handler)
+    query = AsyncMock(side_effect=AssertionError("delta must not invoke a full scan"))
+    inventory = AzureResourceGraphInventory(
+        config=AzureInventoryConfig(resource_types=()),
+        query=query,
+        delta_fetch=factory.build_fetch_fn(),
+    )
+    try:
+        if failure is None:
+            assert (
+                await forward_inventory_delta(
+                    inventory=inventory,
+                    state_store=state,
+                    event_bus=bus,
+                    topic="events",
+                    scope="subscription-1",
+                    properties_complete=False,
+                )
+                == 0
+            )
+        else:
+            with pytest.raises(
+                RuntimeError if failure == "marker" else ActivityLogError,
+                match={
+                    "http": "HTTP 503",
+                    "conflict": "resource type conflicts",
+                    "timestamp": "eventTimestamp",
+                    "continuation": "nextLink",
+                    "marker": "reconciliation marker unavailable",
+                }[failure],
+            ):
+                await forward_inventory_delta(
+                    inventory=inventory,
+                    state_store=state,
+                    event_bus=bus,
+                    topic="events",
+                    scope="subscription-1",
+                    properties_complete=False,
+                )
+    finally:
+        await client.aclose()
+
+    query.assert_not_awaited()
+    assert requests == 2
+    assert [item async for item in bus.subscribe("events", "reader")] == []
+    if failure is None:
+        assert written_keys == [marker_key, cursor_key]
+        marker = await state.read_state(marker_key)
+        assert marker is not None
+        assert marker["observed_at"] == "2026-07-10T06:15:00+00:00"
+        assert await state.read_state(cursor_key) == {"cursor": "2026-07-10T06:15:00+00:00"}
+    else:
+        assert written_keys == ([marker_key] if failure == "marker" else [])
+        assert await state.read_state(marker_key) is None
+        assert await state.read_state(cursor_key) == original_cursor
+
+
+@pytest.mark.parametrize("arm_type", [None, "Microsoft.KeyVault/vaults"])
+async def test_delete_event_is_not_upserted_and_still_advances_cursor(
+    arm_type: str | None,
+) -> None:
+    if arm_type is None:
+        _, arm_type = _arm_type_for(_vocab())
     arm_id = (
         "/subscriptions/00000000-0000-0000-0000-000000000001"
         f"/resourceGroups/rg-a/providers/{arm_type}/thing-deleted"

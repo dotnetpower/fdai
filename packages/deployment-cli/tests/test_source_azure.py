@@ -452,6 +452,42 @@ def test_source_approval_cannot_be_silently_ignored(monkeypatch, capsys, argumen
     assert "--approval-file requires source deployment" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize(
+    "extra", [[], ["--prepare-only"], ["--preflight-only"], ["--setup-cost-ceiling", "1000"]]
+)
+def test_explicit_foundation_recovery_never_reconfirms_initial_scope(monkeypatch, capsys, extra):
+    calls = []
+    monkeypatch.setattr(cli.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(
+        cli,
+        "plan_source_installation",
+        lambda **kwargs: calls.append(kwargs) or {"state": "review"},
+    )
+    result = cli.main(
+        [
+            "provision",
+            "azure",
+            "--source",
+            ".",
+            "--runtime",
+            "aks",
+            "--work-dir",
+            "/tmp/example-run",
+            "--foundation-recovery-directory",
+            "/tmp/example-recovery",
+            *extra,
+        ]
+    )
+    if extra:
+        assert result == 3
+        assert not calls
+    else:
+        assert result == 2
+        assert calls[0]["foundation_recovery_directory"] == Path("/tmp/example-recovery")
+        assert calls[0]["installation_options"] is None
+        assert calls[0]["confirm_initial"] is False
+
+
 @pytest.mark.parametrize("confirmation_state", ["review", "confirmed"])
 def test_initial_confirmation_precedes_foundation_and_does_not_enable_interactive(
     tmp_path, monkeypatch, confirmation_state

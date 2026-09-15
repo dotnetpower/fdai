@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:9fdc41f774f040e2ffbcafcd1e8147e61aa8e9960c05f4afd501cb1009091761",
+  "catalog_digest": "sha256:febd4d1ddcc07af4b068a710ce024b1c2ea48370067ad27cea0661a08892bfdc",
   "execution_authority": false,
-  "generated_at": "2026-09-15T12:39:58.646983Z",
+  "generated_at": "2026-09-15T15:17:03.179327Z",
   "records": [
     {
       "designed_behavior": [
@@ -268,13 +268,13 @@
         "How does FDAI authenticate and authorize people?",
         "FDAI는 사용자를 어떻게 인증하고 권한을 확인하나요?"
       ],
-      "record_digest": "sha256:144956ea360ea6077b7a8c52e16f7e2331c17910a5577ae86f6da0ebd3639830",
+      "record_digest": "sha256:ac98102e85da7fdeb28b5c4ed487f43f7411d6b2414ece8bb98f1a1a6f9497fa",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "e48450e2a73925e8d37624ec1e19f51602e6a568",
-          "line_end": 27,
-          "line_start": 27,
+          "blob_sha": "f806f62926b40ad7e07a4ac81beebbb800a07339",
+          "line_end": 23,
+          "line_start": 23,
           "path": "docs/roadmap/interfaces/user-rbac-and-identity.md",
           "source_kind": "doc",
           "symbol": "Implementation status"
@@ -448,7 +448,7 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:45e666fe8e9d6ee8a851f3a58a2f95435e82c0a266ddef951137f0cd37fe9aa7",
+      "record_digest": "sha256:04423c119a6defacff01848af89920db91af65d8b17cfd06a70e64a2a296ed04",
       "sources": [
         {
           "authority_role": "design",
@@ -461,7 +461,7 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "7e632998aa38c3733ac6e0226e5d313d6f44c5a8",
+          "blob_sha": "e9e2774da19ee01a72d0cdd89e94f650cc376745",
           "line_end": 86,
           "line_start": 86,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -491,11 +491,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:ccd047dd7c3cf586f3adc420b222f89a88d5289db6b67a52affd6dfa436aadc4",
+      "record_digest": "sha256:f21139c51c34b37dce1aa527eeaa113ad38f7234433f60f9420736bf7eb993ba",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "7e632998aa38c3733ac6e0226e5d313d6f44c5a8",
+          "blob_sha": "e9e2774da19ee01a72d0cdd89e94f650cc376745",
           "line_end": 86,
           "line_start": 86,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "921f8de96c626bfb3fcfb4f002d5e11f94ccb4a5"
+  "source_revision": "9545ac69ce9eddb871978ddc777649cd93460cbe"
 }

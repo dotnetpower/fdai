@@ -147,16 +147,28 @@ async def test_iam_principal_uses_verified_email_without_replacing_oid() -> None
     assert principal.roles == frozenset()
 
 
-async def test_delegated_reader_without_idtyp_keeps_human_role_gate() -> None:
+async def test_delegated_reader_without_idtyp_can_start_interactive_chat() -> None:
     authorizer = OperatorFamilyAuthorizer(
         _authenticator({"oid": "operator-a", "scp": "access_as_user", "roles": ["Reader"]})
     )
-    scope = await authorizer.authorize(_request(), operation="chat.health")
 
-    assert scope.principal_kind is OperatorPrincipalKind.HUMAN
-    assert scope.roles == frozenset({"Reader"})
+    for operation in ("chat.health", "chat.stream"):
+        scope = await authorizer.authorize(_request(), operation=operation)
+        assert scope.principal_kind is OperatorPrincipalKind.HUMAN
+        assert scope.roles == frozenset({"Reader"})
+
+
+@pytest.mark.parametrize(
+    "operation",
+    ["chat.exchange", "busy.submit", "background.create", "user.preferences.put"],
+)
+async def test_delegated_reader_cannot_submit_non_stream_proposals(operation: str) -> None:
+    authorizer = OperatorFamilyAuthorizer(
+        _authenticator({"oid": "operator-a", "scp": "access_as_user", "roles": ["Reader"]})
+    )
+
     with pytest.raises(AuthorizationError, match="principal lacks required role"):
-        await authorizer.authorize(_request(), operation="chat.stream")
+        await authorizer.authorize(_request(), operation=operation)
 
 
 def test_delegated_scope_without_roles_cannot_grant_reader_access() -> None:

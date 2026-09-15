@@ -65,6 +65,13 @@
       "issue": 252
     },
     {
+      "path": "console/src/deck/deferred-command-deck.tsx",
+      "disposition": "retain",
+      "owner": "console-command-deck",
+      "reason": "Retains keyboard and activation-event matching for lazy presentation loading only. It does not inspect question text, select semantic intent, or grant authority.",
+      "issue": 252
+    },
+    {
       "path": "console/src/deck/presentation-modules/table.tsx",
       "disposition": "retain",
       "owner": "console-presentation",

@@ -112,7 +112,12 @@ T2 primary exception remains owned by
 `LocalAzureNarratorAdapters` is the separate legacy local narrator, not the semantic Kafka path.
 Its ordered fallback, text/vision probes, rolling p50/TTFT windows, failure penalties, and
 Operator-owned periodic scheduler do not implement Core mini routing. Do not enable the legacy
-narrator alongside semantic Kafka to obtain model measurements. Image turns remain unavailable
+narrator alongside semantic Kafka to obtain model measurements. The adapter invokes its injected
+HTTP stream with an explicit `POST` method. It skips answer-free Azure prompt-filter, passing
+content-filter, terminal-stop, and usage metadata frames, while malformed or oversized data still
+fails closed. Provider-status and malformed-frame warnings are bounded and contain no prompt,
+endpoint, token, or response body. Its bounded system prompt states FDAI's product scope and treats
+FDAI as a product name rather than inventing an acronym expansion. Image turns remain unavailable
 without a server-owned resolver from an opaque conversation-image id to validated bounded bytes;
 client-provided image fields cannot supply that authority.
 

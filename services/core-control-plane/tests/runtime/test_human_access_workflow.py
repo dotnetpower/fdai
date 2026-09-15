@@ -140,9 +140,9 @@ async def setup():
 
     identity = SimpleNamespace(
         get_token=AsyncMock(
-            return_value=IdentityToken(
+            side_effect=lambda _audience: IdentityToken(
                 "synthetic-placeholder",
-                AT + timedelta(hours=1),
+                time() + timedelta(hours=1),
                 "https://graph.microsoft.com/.default",
             )
         )
@@ -179,6 +179,14 @@ async def setup():
             graph_requests=graph_requests,
             present=present,
         )
+
+
+async def test_observer_fixture_issues_token_against_injected_clock(setup):
+    setup.clock["now"] = AT + timedelta(days=2)
+    token = await setup.runtime.observer.identity.get_token("https://graph.microsoft.com/.default")
+    assert token.expires_at == setup.clock["now"] + timedelta(hours=1)
+    setup.clock["now"] += timedelta(hours=2)
+    assert token.expires_at < setup.clock["now"]
 
 
 async def reviewed(setup):
@@ -314,6 +322,8 @@ async def test_actual_shared_safeguards_publish_original_action_and_keep_receipt
 
     f = setup
     f.clock["now"] = datetime.now(UTC)
+    token = await f.runtime.observer.identity.get_token("https://graph.microsoft.com/.default")
+    assert token.expires_at == f.clock["now"] + timedelta(hours=1)
     f.notice = HumanAccessWorkNotice.model_validate(
         {
             **f.notice.model_dump(),
@@ -431,13 +441,17 @@ async def test_valid_material_with_poison_case_is_audited_without_stalling_page(
     assert await worker.tick() == 0
 
 
-async def test_independent_observer_rejects_a_token_for_another_audience(setup):
+@pytest.mark.parametrize("expired", [False, True])
+async def test_independent_observer_rejects_wrong_audience_or_expired_token(setup, expired):
     f = setup
     material, approval = await reviewed(f)
     pending = await f.runtime.dispatch(await f.runtime.review(await f.runtime.prepare(approval)))
     await dispatch_receipt(f, material)
+    f.runtime.observer.identity.get_token.side_effect = None
     f.runtime.observer.identity.get_token.return_value = IdentityToken(
-        "synthetic-placeholder", f.clock["now"] + timedelta(minutes=5), "https://example.com"
+        "synthetic-placeholder",
+        f.clock["now"] + timedelta(minutes=-1 if expired else 5),
+        "https://graph.microsoft.com/.default" if expired else "https://example.com",
     )
     with pytest.raises(ValueError, match="identity is expired"):
         await f.runtime.observe(pending)

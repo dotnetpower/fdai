@@ -29,7 +29,7 @@ additional_tags = {
 }
 
 # Alert-noise provider qualification is a separate, one-rule dev pilot.
-# Keep it disabled until an exact protected plan and both human approval lanes exist.
+# Keep it disabled until the exact protected plan satisfies its applicable approval contract.
 # Never commit either populated value.
 # enable_alert_noise_pilot             = true
 # alert_noise_pilot_phase              = "baseline"

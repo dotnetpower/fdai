@@ -2,6 +2,12 @@
 # Run: terraform -chdir=infra/bootstrap test -filter=tests/offline_runner.tftest.hcl
 
 mock_provider "azurerm" {
+  mock_data "azurerm_role_definition" {
+    defaults = {
+      role_definition_id = "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.Authorization/roleDefinitions/00000000-0000-0000-0000-000000000001"
+    }
+  }
+
   mock_data "azurerm_subscription" {
     defaults = {
       id              = "/subscriptions/00000000-0000-0000-0000-000000000000"
@@ -31,6 +37,29 @@ variables {
   state_storage_account_name = "stexamplebootstrapdrill"
   # Reuse the throwaway public key from public_egress.tftest.hcl.
   runner_ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHA6I7nugiew177uO389Zhg2zliPDuRZdNRwT2lKu3To terraform-plan-evaluation-only"
+}
+
+run "delegated_observation_roles_use_guid_operands" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      for role_id in local.subscription_observation_role_ids :
+      can(regex("^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$", role_id))
+    ]) && length(local.subscription_observation_role_ids) == 3
+    error_message = "Delegated role GUID comparisons must not contain scoped role-definition paths."
+  }
+
+  assert {
+    condition = (
+      toset(keys(data.azurerm_role_definition.subscription_observation)) == toset(["Cost Management Reader", "Monitoring Reader", "Reader"]) &&
+      azurerm_role_assignment.runner_subscription_observation_role_delegate[0].condition_version == "2.0" &&
+      length(regexall("/providers/", local.subscription_observation_role_condition)) == 0 &&
+      length(regexall("PrincipalType.*ForAnyOfAnyValues:StringEqualsIgnoreCase", local.subscription_observation_role_condition)) == 2 &&
+      length(regexall("'ServicePrincipal'", local.subscription_observation_role_condition)) == 2
+    )
+    error_message = "Both write and delete delegation must retain exactly the three observation roles and service-principal restriction."
+  }
 }
 
 run "online_default_preserves_marketplace_and_cloud_init" {
@@ -92,6 +121,7 @@ run "offline_gallery_version_skips_network_bootstrap" {
       azurerm_linux_virtual_machine.runner[0].identity[0].type == "UserAssigned" &&
       length(azurerm_linux_virtual_machine.runner[0].identity[0].identity_ids) == 1 &&
       length(output.deploy_runner_role_manifest) == 8 &&
+      azurerm_linux_virtual_machine.runner[0].os_disk[0].caching == "ReadOnly" &&
       azurerm_linux_virtual_machine.runner[0].os_disk[0].diff_disk_settings[0].option == "Local" &&
       azurerm_linux_virtual_machine.runner[0].os_disk[0].diff_disk_settings[0].placement == "ResourceDisk" &&
       length(azurerm_dev_test_global_vm_shutdown_schedule.runner) == 0

@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: e48450e2a73925e8d37624ec1e19f51602e6a568
-translation_revised: 2026-09-15
+translation_source_sha: f806f62926b40ad7e07a4ac81beebbb800a07339
+translation_revised: 2026-09-16
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -99,8 +99,8 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 
 | # | 롤 | Entra 보안 그룹 | 유사 | 가능 |
 |---|-----|----------------|------|------|
-| 1 | **읽기 담당** | `aw-readers` | Azure 읽기 담당 | 콘솔 조회: KPI 대시보드, 감사 로그, shadow 결과, HIL 큐 |
-| 2 | **기여자** | `aw-contributors` | Azure 기여자 | 읽기 담당 + 초안 PR 작성 및 범위가 제한된 읽기 조사 시작 |
+| 1 | **읽기 담당** | `aw-readers` | Azure 읽기 담당 | 콘솔 조회: KPI 대시보드, 감사 로그, shadow 결과, HIL 큐 및 읽기 담당 권한으로 허용된 대화 도구 사용 |
+| 2 | **기여자** | `aw-contributors` | Azure 기여자 | 읽기 담당 + 초안 PR 작성 및 범위가 제한된 백그라운드 읽기 조사 시작 |
 | 3 | **Approver** | `aw-approvers` | (검토자) | 읽기 담당 + 거버넌스 PR 리뷰/승인 + 런타임 HIL 요청 승인 + enforce 승격 / exemption / 재정의 승인 (고위험은 quorum - §5 참조) |
 | 4 | **Owner** | `aw-owners` | Azure Owner | Approver + 비상 정지 트리거 + 런타임 설정, 환경 모델 바인딩 초안 및 Entra 그룹 멤버십 관리 + 인프라 IaC 적용 |
 | - | **Break-Glass** | `aw-break-glass` | (별도 비상 계정) | Console 조회, 비상 정지, 비상 접근 권한 부여 기능만 가집니다. 런타임 HIL 승인 기능은 없으며 Owner의 superset이 아닙니다. |
@@ -130,7 +130,8 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 | 액션 | 읽기 담당 | 기여자 | Approver | Owner | Break-Glass |
 |------|:------:|:-----------:|:--------:|:-----:|:-----------:|
 | 콘솔 조회 | ✓ | ✓ | ✓ | ✓ | ✓ |
-| 범위가 제한된 읽기 조사 시작 | | ✓ | ✓ | ✓ | |
+| 대화형 읽기 전용 대화 시작 | ✓ | ✓ | ✓ | ✓ | |
+| 범위가 제한된 백그라운드 읽기 조사 시작 | | ✓ | ✓ | ✓ | |
 | 규칙 / 룰셋 초안 PR 작성 | | ✓ | ✓ | ✓ | |
 | 할당 / exemption / 재정의 초안 PR 작성 | | ✓ | ✓ | ✓ | |
 | 표준 거버넌스 PR 리뷰 + 승인 | | | ✓ | ✓ | |
@@ -147,6 +148,12 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 | `aw-*` 그룹 멤버십 관리 | | | | ✓ | |
 | 인프라 IaC 적용 (deployer) | | | | ✓ | |
 | 실행기 Managed Identity 보유 | (절대) - MI는 비-사람 |||||
+
+대화형 `chat.stream` 턴은 읽기 담당 작업이며 범위가 제한된 백그라운드 읽기 조사와 다릅니다.
+질문과 답변을 재생할 수 있도록 영속적으로 기록할 수 있지만 호출자의 기존 RBAC 하한에 맞는
+도구만 호출할 수 있습니다. 변경 제안을 제출하거나 백그라운드 조사를 시작하거나 승인하거나
+실행할 수 없으며 principal 역할을 높이지 않습니다. 그 밖의 모든 제안 및 POST 스트림 작업은
+문서화된 역할 하한을 유지합니다.
 
 운영 API는 영속 명령 서비스가 연결된 경우에만 `POST /system/kill-switch`를
 노출합니다. Owner 또는 externally activated BreakGlass 역할은 기능 검사를 통과하지만,
@@ -459,6 +466,8 @@ JWKS는 지연 fetch 후 프로세스 내 캐시; 요청별 검증은 로컬 RSA
 - 역할이 필요한 엔드포인트는 `403`을 반환하고, role-optional `GET /iam/self`는 접근 필수
   화면에 필요한 self-service 변환 결과를 제공합니다. 전용 `sign-in-denied` 감사 이벤트는
   아직 구현되어 있지 않습니다.
+- Settings > ID 및 액세스의 최초 변환 결과 조회에 실패하면 검증된 토큰과 현재 경로를
+  유지합니다. 재시도는 권한이 확인된 읽기만 반복하며 어떤 기능도 부여하지 않습니다.
 
 ### 10.4 ChatOps (Teams) 사인인
 

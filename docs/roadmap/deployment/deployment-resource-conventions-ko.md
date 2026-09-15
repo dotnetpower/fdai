@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 0026e7fceb3c5aaaba6aa09a147559bb31705546
+translation_source_sha: e12ce117eaeb8d7058e716da5c79badf0837f4e8
 translation_revised: 2026-09-15
 ---
 # 배포 리소스 규약
@@ -29,6 +29,13 @@ bootstrap-reconcile`은 해당 이름을 검토된 프로필 및 소스 커밋�
 별도로 승인된 기반 단계가 비공개 `tfstate` 및 `deployment-plans` 컨테이너 생성과 원격 상태
 인계를 소유합니다. 애플리케이션 계획 전용 실행은 두 컨테이너를 전제 조건으로 취급하며,
 하나라도 없으면 중지합니다. 계획의 부수 효과로 기반 리소스를 만들지 않습니다.
+
+초기 구성 호스트의 임시 OS 디스크는 AzureRM의 `diff_disk_settings` 요구에 따라 `ReadOnly`
+캐시를 사용합니다. 범위가 포함된 역할 정의 식별자는 GUID 부분만 추출해 ABAC `GuidEquals`로
+비교합니다. 관측 역할 위임은 쓰기와 삭제 모두에서 `ServicePrincipal` 대상의 Cost Management
+Reader, Monitoring Reader와 Reader만 허용합니다. 부분 적용 실패 시 상태와 실행 전 기록을
+보존하고 [설치 가능한 배포 CLI](installable-deployment-cli-ko.md)의 제한된 복구 계약을 사용합니다.
+실행 전 기록이 있는 적용을 반복하지 않습니다.
 
 애플리케이션 기능 입력은 전체 계획에서 원하는 플랫폼 상태를 나타냅니다. 모니터링이 유일하게
 선택된 기능일 때만 범위가 제한된 `module.monitoring` 대상을 사용합니다. 애플리케이션 기능과 함께
@@ -61,7 +68,9 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 `ag-<workload>-noise-pilot-<env>-<region>`과
 `alert-<workload>-noise-pilot-<env>-<region>`을 만듭니다. 수신자는 소유자 전용 배포 구성에
 유지합니다. 정확한 적용 전에 기준선, 조정안, 복구 및 정리 계획의 범위를 각각 독립적으로
-검증합니다.
+검증합니다. 별도 관리 신원이 실행하고 읽기 전용 공급자 경로가 관측하는 이 격리된 개발 환경
+형태는 유지관리자 한 명이 승인할 수 있습니다. 공용 또는 프로덕션 경보 변경은 기존 승인
+정족수를 유지합니다.
 
 ## 구현 상태
 
@@ -69,6 +78,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 초기 구성 임시 디스크와 관측 역할 위임 | implemented | `infra/bootstrap/main.tf`; 오프라인 호스트 Terraform 테스트 14건 통과 | 필수 ReadOnly 캐시와 GUID 비교 값은 기존 디스크 배치, 역할 목록과 principal 제한을 유지합니다. 실제 부분 복구에는 정확한 승인과 독립 효과 근거가 아직 필요합니다. |
 | Core control plane startup probe | not-applicable | `current change`; 서비스 root에서 `terraform fmt`와 `terraform validate` 통과 | Health 포트를 늦게 여는 부팅을 덮으려고 startup probe 예산을 세 번 조정했습니다. 이제 런타임이 startup readiness보다 먼저 포트를 열어 liveness가 즉시 응답하므로 이 probe는 필요 없습니다. 보호된 갱신 계약도 image와 revision suffix 변경만 rollback을 증명하므로 이 probe를 거부했습니다. |
 | CAF 명명 및 `fdai:` 소유권 tag | implemented | `infra/main.tf`, `infra/bootstrap/main.tf` 및 집중 Terraform test | Terraform이 이름과 tag를 계산하고 런타임 코드는 출력을 사용합니다. |
 | Operator API 물리 리소스 이름 | implemented | `infra/main.tf`, `infra/services/operator-service/variables.tf` 및 `tests/integration/infra/test_operator_api_resource_naming.py` | 새 계획은 워크로드 신원과 Container App에 `operator-api` 구성 요소를 사용합니다. 기존 개발 리소스에는 검토된 교체 적용이 아직 필요합니다. |
@@ -91,6 +101,7 @@ readback으로 검증합니다. 하나의 공유 요청 workflow는 허용 목�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | implemented | 실제 부분 Foundation 복구에서 provider와 Azure 조건 오류가 드러난 뒤 임시 OS 캐시와 범위가 포함된 역할 정의 비교 값을 수정했습니다. | 현재 변경; `terraform -chdir=infra/bootstrap test -filter=tests/offline_runner.tftest.hcl`: 정확한 역할·principal 제한과 디스크 캐시를 포함해 14건 통과. | 완료된 작업을 보존하는 별도 승인 후속 계획·적용과 독립 호스트·상태 인계 근거를 보존합니다. |
 | 2026-09-09 | implemented | 동작을 바꾸지 않고 배포 workflow 검토 예산을 복원하고 직접 azd 테스트 harness가 필요한 모든 실행 파일 전제 조건을 제공하도록 수정했습니다. | `current change`, 정확한 deploy-workflow diet 및 Azure context 테스트 23건 통과 | 보호된 배포를 재개하기 전에 새 exact-green main 증적을 보존합니다. |
 | 2026-09-09 | implemented | 기본적으로 비공개인 Foundry network 입력을 추가하고 local 인증을 활성화하지 않은 채 공개 기여자 profile을 명시적인 공개 선택 항목에 연결했습니다. | `current change`; 집중 Foundry 비공개 및 공개 Terraform 계획 통과. | Runtime 사용을 validated로 분류하기 전에 새 구독 endpoint와 managed identity 추론 재확인을 보존합니다. |
 | 2026-09-08 | implemented | Core 이외 서비스의 롤백 tfvars 구체화가 Core 모델 결속 계약과 독립적으로 유지되도록 모델 엔드포인트 입력이 없을 때 빈 JSON 객체를 기본값으로 사용합니다. | 실패한 적용 사전 검사 `34228191755`, `current change`, 집중 구체화 도구 CLI 회귀 테스트 | 정확한 보호 Operator 계획을 다시 만들고 적용합니다. |

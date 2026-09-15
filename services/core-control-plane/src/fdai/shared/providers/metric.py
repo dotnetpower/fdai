@@ -26,6 +26,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
 
@@ -60,13 +61,66 @@ class MetricPoint:
     labels: Mapping[str, str] = field(default_factory=dict)
 
 
+class MetricFailureReason(StrEnum):
+    """Bounded failure categories, not root causes or retry instructions."""
+
+    UNKNOWN = "unknown"
+    TIMEOUT = "timeout"
+    TRANSPORT_ERROR = "transport_error"
+    HTTP_ERROR = "http_error"
+    INVALID_RESPONSE = "invalid_response"
+    RESPONSE_LIMIT = "response_limit"
+    INVALID_QUERY = "invalid_query"
+    PROVIDER_ERROR = "provider_error"
+
+
 class MetricProviderError(RuntimeError):
     """Raised on any unrecoverable provider failure.
 
     Fail-closed: the caller MUST NOT proceed to auto-remediate on a
     partial result; abstain and route to HIL per the safety-invariant
     rule in ``architecture.instructions.md``.
+
+    Existing ``MetricProviderError(message)`` calls retain their message and
+    default to unknown. A redacting boundary copies optional metadata to a
+    fresh error before rendering ``safe_context``, never the provider's message.
+    Metadata is validated and describes the observed failure, not retry eligibility.
     """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        reason: MetricFailureReason = MetricFailureReason.UNKNOWN,
+        http_status: int | None = None,
+    ) -> None:
+        if not isinstance(reason, MetricFailureReason):
+            raise ValueError("metric failure reason MUST be a MetricFailureReason")
+        if http_status is not None and (
+            type(http_status) is not int or not 100 <= http_status <= 599
+        ):
+            raise ValueError("metric failure HTTP status MUST be an integer from 100 to 599")
+        super().__init__(message)
+        self._reason = reason
+        self._http_status = http_status
+
+    @property
+    def reason(self) -> MetricFailureReason:
+        """Return the validated provider-neutral failure category."""
+        return self._reason
+
+    @property
+    def http_status(self) -> int | None:
+        """Return the observed HTTP status, if one was supplied."""
+        return self._http_status
+
+    @property
+    def safe_context(self) -> str:
+        """Render only bounded metadata, never the message or exception chain."""
+        context = f"reason={self.reason.value}"
+        if self.http_status is not None:
+            context += f", http_status={self.http_status}"
+        return context
 
 
 @runtime_checkable
@@ -130,6 +184,7 @@ class StaticMetricProvider:
 
 
 __all__ = [
+    "MetricFailureReason",
     "MetricPoint",
     "MetricProvider",
     "MetricProviderError",
