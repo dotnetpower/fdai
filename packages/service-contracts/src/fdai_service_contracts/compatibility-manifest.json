@@ -77,6 +77,78 @@
   ],
   "contracts": [
     {
+      "id": "alert-noise-command",
+      "owner": "operator-service",
+      "producer": "operator-service",
+      "consumer": "core-control-plane",
+      "compatibility_policy": "version-negotiated",
+      "compatibility_notes": "Exact signed command 1.0.0; 0.0.0 is an offline unavailable-capability marker, never active traffic. Install both N peers before activation. Current Core readiness gates new requests; disable and reconcile accepted work before either rollback. No signed-record downgrade or deployed-transition certification is claimed.",
+      "producer_schemas": {
+        "N-1": {"version": "0.0.0", "path": "schemas/alert-noise-command/0.0.0.json"},
+        "N": {"version": "1.0.0", "path": "schemas/alert-noise-command/1.0.0.json"}
+      },
+      "consumer_accepts": {"N-1": ["0.0.0"], "N": ["0.0.0", "1.0.0"]},
+      "producer_codecs": {"N-1": "fdai_operator_service.alert_quality_codecs:COMMAND_PRODUCER_UNAVAILABLE", "N": "fdai_operator_service.alert_quality_codecs:COMMAND_PRODUCER_V1"},
+      "consumer_codecs": {"N-1": "fdai.delivery.alert_noise_codecs:COMMAND_CONSUMER_UNAVAILABLE", "N": "fdai.delivery.alert_noise_codecs:COMMAND_CONSUMER_V1"},
+      "delivery": {
+        "guarantee": "at-least-once",
+        "partition_key_field": "command.request_ref",
+        "idempotency_key_field": "command.request_ref",
+        "duplicate_policy": "deduplicate-by-idempotency-key",
+        "reorder_policy": "partition-sequence",
+        "normal_retention_days": 1,
+        "dlq_retention_days": 7
+      }
+    },
+    {
+      "id": "alert-noise-result",
+      "owner": "core-control-plane",
+      "producer": "core-control-plane",
+      "consumer": "operator-service",
+      "compatibility_policy": "version-negotiated",
+      "compatibility_notes": "Exact signed result 1.0.0 including proposal detail; optional fields do not imply signature-compatible downgrade. The 0.0.0 marker is unavailable, not a result. Both N consumers precede activation; preserve durable accepted work and terminal reservations during rollback. The alert-specific 950000-byte bound does not widen generic service codecs or certify deployed transitions.",
+      "producer_schemas": {
+        "N-1": {"version": "0.0.0", "path": "schemas/alert-noise-result/0.0.0.json"},
+        "N": {"version": "1.0.0", "path": "schemas/alert-noise-result/1.0.0.json"}
+      },
+      "consumer_accepts": {"N-1": ["0.0.0"], "N": ["0.0.0", "1.0.0"]},
+      "producer_codecs": {"N-1": "fdai.delivery.alert_noise_codecs:RESULT_PRODUCER_UNAVAILABLE", "N": "fdai.delivery.alert_noise_codecs:RESULT_PRODUCER_V1"},
+      "consumer_codecs": {"N-1": "fdai_operator_service.alert_quality_codecs:RESULT_CONSUMER_UNAVAILABLE", "N": "fdai_operator_service.alert_quality_codecs:RESULT_CONSUMER_V1"},
+      "delivery": {
+        "guarantee": "at-least-once",
+        "partition_key_field": "result.command.request_ref",
+        "idempotency_key_field": "result.command.request_ref",
+        "duplicate_policy": "deduplicate-by-idempotency-key",
+        "reorder_policy": "partition-sequence",
+        "normal_retention_days": 1,
+        "dlq_retention_days": 7
+      }
+    },
+    {
+      "id": "alert-noise-readiness",
+      "owner": "core-control-plane",
+      "producer": "core-control-plane",
+      "consumer": "operator-service",
+      "compatibility_policy": "version-negotiated",
+      "compatibility_notes": "Exact signed readiness schema 1.0.0, fixed kind and at-most-120-second validity; no provider-health, promotion or execution claim. The offline 0.0.0 marker cannot establish readiness. Both N peers precede activation; rollback withdraws request availability without deleting accepted work. No deployed-transition certification is claimed.",
+      "producer_schemas": {
+        "N-1": {"version": "0.0.0", "path": "schemas/alert-noise-readiness/0.0.0.json"},
+        "N": {"version": "1.0.0", "path": "schemas/alert-noise-readiness/1.0.0.json"}
+      },
+      "consumer_accepts": {"N-1": ["0.0.0"], "N": ["0.0.0", "1.0.0"]},
+      "producer_codecs": {"N-1": "fdai.delivery.alert_noise_codecs:READINESS_PRODUCER_UNAVAILABLE", "N": "fdai.delivery.alert_noise_codecs:READINESS_PRODUCER_V1"},
+      "consumer_codecs": {"N-1": "fdai_operator_service.alert_quality_codecs:READINESS_CONSUMER_UNAVAILABLE", "N": "fdai_operator_service.alert_quality_codecs:READINESS_CONSUMER_V1"},
+      "delivery": {
+        "guarantee": "at-least-once",
+        "partition_key_field": "alert-noise:readiness",
+        "idempotency_key_field": "signature",
+        "duplicate_policy": "deduplicate-by-idempotency-key",
+        "reorder_policy": "partition-sequence",
+        "normal_retention_days": 1,
+        "dlq_retention_days": 7
+      }
+    },
+    {
       "id": "operator-core-request",
       "owner": "operator-service",
       "producer": "operator-service",
@@ -292,6 +364,45 @@
     }
   ],
   "producer_consumer_matrix": [
+    {
+      "contract_id": "alert-noise-command",
+      "producer": "operator-service",
+      "consumer": "core-control-plane",
+      "supported_pairs": [
+        {"producer_release": "N-1", "consumer_release": "N-1"},
+        {"producer_release": "N-1", "consumer_release": "N"},
+        {"producer_release": "N", "consumer_release": "N"}
+      ],
+      "unsupported_pairs": [
+        {"producer_release": "N", "consumer_release": "N-1", "reason": "active signed commands require the N Core consumer; no downgrade exists"}
+      ]
+    },
+    {
+      "contract_id": "alert-noise-result",
+      "producer": "core-control-plane",
+      "consumer": "operator-service",
+      "supported_pairs": [
+        {"producer_release": "N-1", "consumer_release": "N-1"},
+        {"producer_release": "N-1", "consumer_release": "N"},
+        {"producer_release": "N", "consumer_release": "N"}
+      ],
+      "unsupported_pairs": [
+        {"producer_release": "N", "consumer_release": "N-1", "reason": "active signed results require the N Operator consumer; no downgrade exists"}
+      ]
+    },
+    {
+      "contract_id": "alert-noise-readiness",
+      "producer": "core-control-plane",
+      "consumer": "operator-service",
+      "supported_pairs": [
+        {"producer_release": "N-1", "consumer_release": "N-1"},
+        {"producer_release": "N-1", "consumer_release": "N"},
+        {"producer_release": "N", "consumer_release": "N"}
+      ],
+      "unsupported_pairs": [
+        {"producer_release": "N", "consumer_release": "N-1", "reason": "signed readiness requires the N Operator consumer and never enables an old peer"}
+      ]
+    },
     {
       "contract_id": "operator-core-request",
       "producer": "operator-service",

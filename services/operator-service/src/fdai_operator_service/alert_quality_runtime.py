@@ -18,6 +18,11 @@ from fdai_service_contracts.alert_noise_wire import (
     verify_alert_record,
 )
 
+from fdai_operator_service.alert_quality_codecs import (
+    COMMAND_PRODUCER_V1,
+    READINESS_CONSUMER_V1,
+    RESULT_CONSUMER_V1,
+)
 from fdai_operator_service.alert_quality_command import command_from_record as command_from_record
 from fdai_operator_service.alert_quality_history import StateKvAlertQualityRequestSource
 from fdai_operator_service.alert_quality_store import (
@@ -112,7 +117,11 @@ class AlertQualityBridge:
                 "source": "operator-alert-noise",
                 "event_type": command.operation,
                 "resource_ref": command.scope_ref,
-                "payload": {"alert_noise": signed.model_dump(mode="json")},
+                "payload": {
+                    "alert_noise": COMMAND_PRODUCER_V1.encode_mapping(
+                        signed.model_dump(mode="json")
+                    )
+                },
                 "detected_at": command.requested_at.isoformat(),
                 "ingested_at": command.requested_at.isoformat(),
                 "incident_correlation": "none",
@@ -137,7 +146,9 @@ class AlertQualityBridge:
         is completed by replaying only the retained result; reservation is not completion.
         """
         if "readiness" in raw:
-            signed_ready = SignedAlertReadiness.model_validate(raw)
+            signed_ready = SignedAlertReadiness.model_validate(
+                READINESS_CONSUMER_V1.decode_mapping(raw)
+            )
             verify_alert_record(signed_ready.readiness, signed_ready.signature, self.key)
             value = signed_ready.readiness
             if not value.generated_at <= self.clock() < value.valid_until:
@@ -145,7 +156,7 @@ class AlertQualityBridge:
             if self._ready is None or value.generated_at > self._ready.readiness.generated_at:
                 self._ready = signed_ready
             return
-        signed = SignedAlertResult.model_validate(raw)
+        signed = SignedAlertResult.model_validate(RESULT_CONSUMER_V1.decode_mapping(raw))
         verify_alert_record(signed.result, signed.signature, self.key)
         result = signed.result
         if result.recorded_at > self.clock():

@@ -17,6 +17,7 @@ from fdai_service_contracts.alert_noise_wire import (
 
 from fdai.agents import Forseti, Heimdall, Huginn, PantheonRuntime
 from fdai.core.detection.alert_noise.workflow import AlertWorkflowCoordinator
+from fdai.delivery.alert_noise_codecs import READINESS_PRODUCER_V1
 from fdai.delivery.alert_noise_evidence import (
     AdmittedAlertEvidenceSource,
     StateStoreAlertEvaluationReader,
@@ -151,7 +152,9 @@ async def run_alert_noise(
                 signature=sign_alert_record(readiness, handler.transport_key),
             )
             await bus.publish(
-                ALERT_NOISE_RESULT_TOPIC, "alert-noise:readiness", signed.model_dump(mode="json")
+                ALERT_NOISE_RESULT_TOPIC,
+                "alert-noise:readiness",
+                READINESS_PRODUCER_V1.encode_mapping(signed.model_dump(mode="json")),
             )
             try:
                 await asyncio.wait_for(stop.wait(), timeout=30)

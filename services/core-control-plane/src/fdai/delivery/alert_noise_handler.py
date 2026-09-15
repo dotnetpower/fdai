@@ -13,6 +13,7 @@ from fdai_service_contracts.alert_noise import (
     NoisePolicy,
     digest_record,
 )
+from fdai_service_contracts.alert_noise_codec import ALERT_RESULT_WIRE_BYTES
 from fdai_service_contracts.alert_noise_plan import AlertChangePlan
 from fdai_service_contracts.alert_noise_projection import AlertProposalDetail
 from fdai_service_contracts.alert_noise_wire import (
@@ -28,6 +29,7 @@ from fdai_service_contracts.alert_noise_wire import (
 from fdai.core.detection.alert_noise import AlertPlanHeld, assess_alert_noise, plan_alert_change
 from fdai.core.detection.alert_noise.execution import AlertExecutionHeld
 from fdai.core.detection.alert_noise.workflow import AlertWorkflowCoordinator
+from fdai.delivery.alert_noise_codecs import COMMAND_CONSUMER_V1, RESULT_PRODUCER_V1
 from fdai.delivery.alert_noise_evidence import StateStoreAlertEvaluationReader
 from fdai.delivery.alert_noise_projection import alert_proposal_detail
 from fdai.shared.providers.alert_noise import AlertEvidenceSource, AlertPlanArtifacts
@@ -65,7 +67,9 @@ class AlertNoiseAgentHandler:
 
     def verify_ingress(self, raw: Mapping[str, Any]) -> SignedAlertCommand:
         """Authenticate exact outer routing before either ingress path deduplicates it."""
-        return validate_alert_ingress(raw, self.transport_key)
+        signed = validate_alert_ingress(raw, self.transport_key)
+        COMMAND_CONSUMER_V1.decode_mapping(signed.model_dump(mode="json"))
+        return signed
 
     async def observe(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Heimdall records bounded evidence and returns one no-authority Drift payload."""
@@ -297,7 +301,7 @@ async def drain_alert_noise_results(
             result=result, signature=sign_alert_record(result, handler.transport_key)
         )
         payload = signed.model_dump(mode="json")
-        if len(signed.model_dump_json().encode()) > 950_000:
+        if len(signed.model_dump_json().encode()) > ALERT_RESULT_WIRE_BYTES:
             # Publish an explicit terminal hold, never truncate a scope or loop on poison data.
             result = AlertNoiseResult(
                 command=result.command,
@@ -310,6 +314,7 @@ async def drain_alert_noise_results(
                 result=result, signature=sign_alert_record(result, handler.transport_key)
             )
             payload = signed.model_dump(mode="json")
+        payload = RESULT_PRODUCER_V1.encode_mapping(payload)
         async with asyncio.timeout(15):
             await bus.publish(topic, result.command.request_ref, payload)
         changed = await handler.store.compare_and_set_state_with_audit(

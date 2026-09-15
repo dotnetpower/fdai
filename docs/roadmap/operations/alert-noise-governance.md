@@ -238,12 +238,12 @@ Record assessment phases as child events, not replacements for canonical Process
 verification stops forward dispatch. Recovery uses the existing compensation and automation-hold
 contracts; an interrupted attempt cannot be retried as an unrelated fresh plan.
 
-Core owns decision records, Operator owns authenticated request outboxes and authorized projections,
-and the Executor owns dispatch state. Services consume typed events, not each other's database
-tables. Observer artifacts remain private and content-addressed; bus and audit carry references.
-Local and deployed venues use the same contracts and gates; local processes gain no privileged
-identity. The deterministic assessment adds no live-model dependency; the conversational semantic
-boundary retains its existing model requirements. No new service or browser execution route is added.
+Core owns decisions, Operator owns request outboxes/projections, and Executor owns dispatch state.
+Services exchange typed events, not each other's tables. Signed command/result/readiness codecs
+preserve exact models and bounds; unavailable old peers never authorize downgrade or readiness.
+Both consumers precede activation; rollback preserves accepted work. Observer artifacts remain
+private. Local/deployed contracts and gates match, without local privileged identity or a new
+service/browser executor. Deterministic assessment adds no live-model dependency.
 
 The opt-in runtime reuses the existing Workflow coordinator, Process store, Var approval path,
 promotion registry, safeguard lifecycle, and GitOps publisher. It retains the exact plan, workflow,

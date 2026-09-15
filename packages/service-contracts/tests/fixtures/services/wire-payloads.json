@@ -1,5 +1,67 @@
 [
   {
+    "contract_id": "alert-noise-command",
+    "producer_release": "N-1",
+    "payload": {"schema_version": "0.0.0", "capability": "unavailable"}
+  },
+  {
+    "contract_id": "alert-noise-command",
+    "producer_release": "N",
+    "payload": {
+      "command": {
+        "schema_version": "1.0.0", "operation": "alert_noise.assess",
+        "request_ref": "request:example", "requester_ref": "principal:example",
+        "scope_ref": "scope:example", "requested_at": "2026-09-15T00:00:00Z",
+        "expires_at": "2026-09-15T00:05:00Z", "evidence_digest": null,
+        "treatment": null, "execution_authority": false
+      },
+      "signature": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  {
+    "contract_id": "alert-noise-result",
+    "producer_release": "N-1",
+    "payload": {"schema_version": "0.0.0", "capability": "unavailable"}
+  },
+  {
+    "contract_id": "alert-noise-result",
+    "producer_release": "N",
+    "payload": {
+      "result": {
+        "schema_version": "1.0.0", "producer": "Forseti",
+        "command": {
+          "schema_version": "1.0.0", "operation": "alert_noise.assess",
+          "request_ref": "request:example", "requester_ref": "principal:example",
+          "scope_ref": "scope:example", "requested_at": "2026-09-15T00:00:00Z",
+          "expires_at": "2026-09-15T00:05:00Z", "evidence_digest": null,
+          "treatment": null, "execution_authority": false
+        },
+        "command_digest": "sha256:f4a0b869b8dd829fee879f0a20445fb1801a658901a79e6945f94f62508da615",
+        "recorded_at": "2026-09-15T00:00:01Z", "status": "held",
+        "reason": "source_unavailable", "assessment": null, "plan": null,
+        "detail": null, "execution_authority": false
+      },
+      "signature": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  {
+    "contract_id": "alert-noise-readiness",
+    "producer_release": "N-1",
+    "payload": {"schema_version": "0.0.0", "capability": "unavailable"}
+  },
+  {
+    "contract_id": "alert-noise-readiness",
+    "producer_release": "N",
+    "payload": {
+      "readiness": {
+        "kind": "alert-noise.readiness", "scope_refs": ["scope:example"],
+        "generated_at": "2026-09-15T00:00:00Z", "valid_until": "2026-09-15T00:01:00Z",
+        "execution_authority": false
+      },
+      "signature": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  {
     "contract_id": "operator-core-request",
     "producer_release": "N",
     "payload": {

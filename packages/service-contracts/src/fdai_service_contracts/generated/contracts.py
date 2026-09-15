@@ -6,6 +6,265 @@ from __future__ import annotations
 from typing import Literal, NotRequired, TypedDict
 
 
+class AlertNoiseCommandV0_0_0(TypedDict):
+    schema_version: Literal['0.0.0']
+    capability: Literal['unavailable']
+
+
+class AlertNoiseCommandV1_0_0Evaluation(TypedDict):
+    metric_ref: str
+    operator: Literal['above', 'below']
+    threshold: float
+    window_seconds: int
+    frequency_seconds: int
+    aggregation: Literal['average', 'maximum', 'minimum']
+
+
+class AlertNoiseCommandV1_0_0AlertTreatment(TypedDict):
+    kind: Literal['routing', 'suppression', 'evaluation']
+    target_ref: str
+    replacement_group_ref: NotRequired[str | None]
+    remove_group_ref: NotRequired[str | None]
+    processing_rule_ref: NotRequired[str | None]
+    starts_at: NotRequired[str | None]
+    ends_at: NotRequired[str | None]
+    evaluation: NotRequired[AlertNoiseCommandV1_0_0Evaluation | None]
+
+
+class AlertNoiseCommandV1_0_0AlertNoiseCommand(TypedDict):
+    schema_version: NotRequired[Literal['1.0.0']]
+    operation: Literal['alert_noise.assess', 'alert_noise.propose']
+    request_ref: str
+    requester_ref: str
+    scope_ref: str
+    requested_at: str
+    expires_at: str
+    evidence_digest: NotRequired[str | None]
+    treatment: NotRequired[AlertNoiseCommandV1_0_0AlertTreatment | None]
+    execution_authority: NotRequired[Literal[False]]
+
+
+class AlertNoiseCommandV1_0_0(TypedDict):
+    command: AlertNoiseCommandV1_0_0AlertNoiseCommand
+    signature: str
+
+
+class AlertNoiseReadinessV0_0_0(TypedDict):
+    schema_version: Literal['0.0.0']
+    capability: Literal['unavailable']
+
+
+class AlertNoiseReadinessV1_0_0AlertNoiseReadiness(TypedDict):
+    kind: NotRequired[Literal['alert-noise.readiness']]
+    scope_refs: tuple[str, ...]
+    generated_at: str
+    valid_until: str
+    execution_authority: NotRequired[Literal[False]]
+
+
+class AlertNoiseReadinessV1_0_0(TypedDict):
+    readiness: AlertNoiseReadinessV1_0_0AlertNoiseReadiness
+    signature: str
+
+
+class AlertNoiseResultV0_0_0(TypedDict):
+    schema_version: Literal['0.0.0']
+    capability: Literal['unavailable']
+
+
+class AlertNoiseResultV1_0_0Evaluation(TypedDict):
+    metric_ref: str
+    operator: Literal['above', 'below']
+    threshold: float
+    window_seconds: int
+    frequency_seconds: int
+    aggregation: Literal['average', 'maximum', 'minimum']
+
+
+class AlertNoiseResultV1_0_0AlertTreatment(TypedDict):
+    kind: Literal['routing', 'suppression', 'evaluation']
+    target_ref: str
+    replacement_group_ref: NotRequired[str | None]
+    remove_group_ref: NotRequired[str | None]
+    processing_rule_ref: NotRequired[str | None]
+    starts_at: NotRequired[str | None]
+    ends_at: NotRequired[str | None]
+    evaluation: NotRequired[AlertNoiseResultV1_0_0Evaluation | None]
+
+
+class AlertNoiseResultV1_0_0AlertNoiseCommand(TypedDict):
+    schema_version: NotRequired[Literal['1.0.0']]
+    operation: Literal['alert_noise.assess', 'alert_noise.propose']
+    request_ref: str
+    requester_ref: str
+    scope_ref: str
+    requested_at: str
+    expires_at: str
+    evidence_digest: NotRequired[str | None]
+    treatment: NotRequired[AlertNoiseResultV1_0_0AlertTreatment | None]
+    execution_authority: NotRequired[Literal[False]]
+
+
+class AlertNoiseResultV1_0_0NoiseFinding(TypedDict):
+    rule_ref: str
+    service_ref: str
+    reason: Literal['storm', 'flapping', 'overlap', 'broad_role', 'unowned', 'protected', 'incomplete']
+    guidance: Literal['review-routing', 'review-evaluation', 'review-ownership', 'retain-protected', 'collect-evidence']
+    source_episodes: int | None
+    observed_deliveries: int | None
+    potential_recipients_lower: NotRequired[int | None]
+    potential_recipients_upper: NotRequired[int | None]
+    duplicate_paths: NotRequired[int]
+    protected: bool
+
+
+class AlertNoiseResultV1_0_0NoiseAssessment(TypedDict):
+    schema_version: NotRequired[Literal['1.0.0']]
+    source: NotRequired[Literal['alert-noise-evidence']]
+    evidence_digest: str
+    policy_digest: str
+    tenant_ref: str
+    scope_ref: str
+    observed_at: str
+    valid_until: str
+    window_start: NotRequired[str | None]
+    window_end: NotRequired[str | None]
+    coverage: Literal['complete', 'partial', 'unavailable']
+    reasons: tuple[str, ...]
+    source_episodes: int | None
+    notification_attempts: int | None
+    confirmed_deliveries: int | None
+    acknowledgements: int | None
+    findings: tuple[AlertNoiseResultV1_0_0NoiseFinding, ...]
+    execution_authority: NotRequired[Literal[False]]
+
+
+class AlertNoiseResultV1_0_0AlertChangePlan(TypedDict):
+    schema_version: NotRequired[Literal['1.0.0']]
+    action_type: Literal['ops.update-alert-routing', 'ops.set-alert-notification-window', 'ops.tune-alert-evaluation', 'ops.restore-alert-configuration']
+    tenant_ref: str
+    scope_ref: str
+    requester_ref: str
+    evidence_digest: str
+    policy_digest: str
+    target_revision: str
+    treatment: AlertNoiseResultV1_0_0AlertTreatment
+    service_refs: tuple[str, ...]
+    lock_refs: tuple[str, ...]
+    created_at: str
+    expires_at: str
+    max_execution_seconds: int
+    max_observation_seconds: int
+    max_recovery_seconds: int
+    rollback_ref: str
+    evaluation_receipt_digest: NotRequired[str | None]
+    execution_path: NotRequired[Literal['pr_manual']]
+    default_mode: NotRequired[Literal['shadow']]
+    quorum_required: NotRequired[Literal[2]]
+    execution_authority: NotRequired[Literal[False]]
+
+
+class AlertNoiseResultV1_0_0AlertRule(TypedDict):
+    ref: str
+    resource_ref: str
+    service_ref: str
+    revision: str
+    kind: Literal['metric', 'log', 'activity', 'processing', 'unknown']
+    severity: NotRequired[int | None]
+    classification: NotRequired[Literal['informational', 'operational', 'security', 'compliance', 'slo', 'recovery', 'service_health', 'telemetry_loss', 'approval', 'unknown']]
+    group_refs: NotRequired[tuple[str, ...]]
+    enabled: NotRequired[bool]
+    stateful: NotRequired[bool]
+    evaluation: NotRequired[AlertNoiseResultV1_0_0Evaluation | None]
+    active_incident: NotRequired[bool]
+    iac_owned: NotRequired[bool]
+    ownership_verified: NotRequired[bool]
+
+
+class AlertNoiseResultV1_0_0ProcessingRule(TypedDict):
+    ref: str
+    revision: str
+    rule_refs: tuple[str, ...]
+    action: Literal['suppress', 'add']
+    group_refs: NotRequired[tuple[str, ...]]
+    enabled: bool
+    effective_from: str
+    effective_to: str
+    semantics_complete: NotRequired[bool]
+
+
+class AlertNoiseResultV1_0_0AlertRollbackBaseline(TypedDict):
+    rule: AlertNoiseResultV1_0_0AlertRule
+    processing_rule: NotRequired[AlertNoiseResultV1_0_0ProcessingRule | None]
+
+
+class AlertNoiseResultV1_0_0EvaluationCaseResult(TypedDict):
+    ref: str
+    actionable: bool
+    baseline_detected: bool
+    treatment_detected: bool
+    baseline_latency_seconds: int | None
+    treatment_latency_seconds: int | None
+
+
+class AlertNoiseResultV1_0_0EvaluationReceipt(TypedDict):
+    rule_ref: str
+    rule_revision: str
+    scenario_digest: str
+    baseline: AlertNoiseResultV1_0_0Evaluation
+    treatment: AlertNoiseResultV1_0_0Evaluation
+    evaluated_at: str
+    expires_at: str
+    baseline_true_positive: int
+    treatment_true_positive: int
+    baseline_false_positive: int
+    treatment_false_positive: int
+    baseline_false_negative: int
+    treatment_false_negative: int
+    accepted: bool
+    reason: str
+    replay_method: NotRequired[Literal['same-bucket-threshold-v1', 'uniform-metric-series-v1']]
+    baseline_max_latency_seconds: NotRequired[int | None]
+    treatment_max_latency_seconds: NotRequired[int | None]
+    case_results: NotRequired[tuple[AlertNoiseResultV1_0_0EvaluationCaseResult, ...]]
+    execution_authority: NotRequired[Literal[False]]
+
+
+class AlertNoiseResultV1_0_0AlertProcessLink(TypedDict):
+    process_id: str
+    workflow_ref: str
+    status: Literal['pending', 'running', 'waiting', 'compensating', 'compensated', 'succeeded', 'failed', 'cancelled', 'timed_out']
+    mode: Literal['shadow', 'enforce']
+
+
+class AlertNoiseResultV1_0_0AlertProposalDetail(TypedDict):
+    plan_digest: str
+    baseline: AlertNoiseResultV1_0_0AlertRollbackBaseline
+    evaluation: NotRequired[AlertNoiseResultV1_0_0EvaluationReceipt | None]
+    process: NotRequired[AlertNoiseResultV1_0_0AlertProcessLink | None]
+    recorded_at: str
+    execution_authority: NotRequired[Literal[False]]
+
+
+class AlertNoiseResultV1_0_0AlertNoiseResult(TypedDict):
+    schema_version: NotRequired[Literal['1.0.0']]
+    producer: NotRequired[Literal['Forseti']]
+    command: AlertNoiseResultV1_0_0AlertNoiseCommand
+    command_digest: str
+    recorded_at: str
+    status: Literal['assessment_ready', 'proposal_ready', 'held']
+    reason: NotRequired[str | None]
+    assessment: NotRequired[AlertNoiseResultV1_0_0NoiseAssessment | None]
+    plan: NotRequired[AlertNoiseResultV1_0_0AlertChangePlan | None]
+    detail: NotRequired[AlertNoiseResultV1_0_0AlertProposalDetail | None]
+    execution_authority: NotRequired[Literal[False]]
+
+
+class AlertNoiseResultV1_0_0(TypedDict):
+    result: AlertNoiseResultV1_0_0AlertNoiseResult
+    signature: str
+
+
 class ChannelAttachmentAdmissionV0_0_0(TypedDict):
     schema_version: Literal['0.0.0']
     capability: Literal['unavailable']
@@ -1116,6 +1375,12 @@ class OperatorCoreRequestV1_8_0(TypedDict):
     semantic_turn: NotRequired[OperatorCoreRequestV1_8_0SemanticTurn]
 
 __all__ = (
+    "AlertNoiseCommandV0_0_0",
+    "AlertNoiseCommandV1_0_0",
+    "AlertNoiseReadinessV0_0_0",
+    "AlertNoiseReadinessV1_0_0",
+    "AlertNoiseResultV0_0_0",
+    "AlertNoiseResultV1_0_0",
     "ChannelAttachmentAdmissionV0_0_0",
     "ChannelAttachmentAdmissionV1_0_0",
     "ChannelAttachmentReceiptV0_0_0",

@@ -53,6 +53,8 @@ an all-Low review claim, or operational adoption.
 
 | 2026-09-15 | in-progress | Round 18 separated canonical Workflow dispatch references from letter-prefixed audience refs; numeric UUIDs now survive exact publication/effect validation. Added real complete-migration dispatch and effect replay. | `current change`: 10 failing numeric-prefix cases reproduced before correction; 70 focused identity/outcome tests passed. Eight actual PostgreSQL checks passed, including three full-migration cases with real lock, reservation, audit, generation, closure, Process and hold stores; only the PR sink and independent observation/approval facts are explicit synthetic fixtures. | Separately authorized operational source/pilot evidence, source selectors, complete accessibility and versioned rollout remain open. |
 
+| 2026-09-15 | implemented | Registered actual signed command, result and readiness codecs and all 12 N/N-1 pairs. Old capability markers remain offline-only; no signed record downgrade exists. Runtime paths use the same codec instances and retain signature checks. | `current change`; 164 focused contract, bridge, agent-pipeline and runtime checks passed. The generator refreshes only ten offline mechanics receipts; the seven-edge historical live certificate remains unchanged. | Exact deployed peer activation/rollback evidence remains separate from source compatibility. |
+
 ### Remaining work
 
 The temporal source extension passed 121 focused replay/IaC/admitted-source checks, then 30 native
@@ -79,6 +81,10 @@ The focused merge check passed 32 tests plus Console types and changed-boundary 
   recipients or inventory truth; resolve any required ontology declaration separately.
 - [x] **ANG-2 scale:** Round 8 retained 500 synthetic principals, 20 teams and 10000 events with
   skew, overlapping direct/group/role audiences, exact admission and tamper detection.
+- [x] **Wire compatibility mechanics:** Three signed schemas and their actual service-owned codecs
+  classify every peer pair. N-to-N-1 active traffic is rejected without a translator. JSON, signature
+  preservation, actual runtime binding, and alert-specific byte bounds pass focused checks. Generated
+  offline mechanics receipts do not expand the historical deployed transition certificate.
 - [x] **ANG-2 request detail:** Exact original acceptance and signed terminals expose pending,
   held and unconfirmed outcomes. New proposal details bind the normalized rollback baseline,
   detector replay guards and actual Process link. Current approvals and outcomes stay journal-owned.
@@ -130,7 +136,7 @@ The focused merge check passed 32 tests plus Console types and changed-boundary 
 |----------|------------------|--------------------------|
 | High | End-to-end approved provider effect and recovery cannot be qualified from reader factories or synthetic receipts. | Select an authorized environment, bind real directory/ownership/delivery/exclusion/observer sources and retain independently admitted exact-plan observations. No secrets or tenant values belong in this ledger. |
 | Medium | Team/audience-kind/period selectors require authoritative source fields. | Exact source-backed facets and frozen-period selection, without relabeling services as teams or inventing historical coverage. |
-| Medium | Full PostgreSQL lifecycle and standard authenticated accessibility matrix remain unverified. | Complete service-migration replay and the remaining UI rubric gates; minimal state primitives and intercepted browser data are insufficient. |
+| Medium | Durable compensation and standard authenticated accessibility remain unverified. | Forward dispatch/effect replay now passes complete migrations; separately prove compensation restart and the remaining UI rubric gates. Intercepted browser data is not authenticated operational evidence. |
 
 These open items mean the complete user-requested design is not yet implemented or at an all-Low
 exit. Their priority must not be lowered merely because the shipped actions remain shadow.

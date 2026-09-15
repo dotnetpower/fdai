@@ -93,6 +93,20 @@ independent onset labels; no missing sample, lost positive or delayed positive i
 Bind `criteria.0.threshold`, `window_size`, or `frequency` to the selected axis. Unsupported native
 values, dynamic/mixed criteria, missing source durations, or a mismatched baseline hold the plan.
 
+### Wire compatibility and ordered rollout
+
+The three signed command, result and readiness contracts are pinned to `1.0.0`. The initial idea
+of treating optional fields as additive compatibility is rejected: model serialization participates
+in the signature, and a result can exceed the unrelated 256 KiB service codec. Dedicated bounded
+codecs preserve the exact signed models, reject malformed JSON and unsupported versions, and do
+not authenticate a sender by decoding alone. Runtime signature and request-binding checks remain.
+The `0.0.0` matrix marker means the old capability is unavailable; it is never live traffic or
+readiness. Install both accepting Core and Operator revisions before configuring this capability.
+New requests require fresh signed Core readiness. Before either peer rolls back, disable new
+requests, reconcile accepted work, and retain its outboxes, results and recovery state. No active
+record has an old-peer translator. The three new edges are mechanical compatibility evidence,
+not part of the previously certified seven-edge deployed transition.
+
 ### Settings and request API
 
 All routes revalidate current identity and exact scope; responses use `Cache-Control: no-store`.
