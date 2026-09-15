@@ -3,6 +3,8 @@
 This design extends cloud reference knowledge with reproducible article extraction, bounded
 structural excerpts, and separately evaluated bilingual retrieval. It preserves the existing
 agent-owned admission and activation path rather than introducing another RAG service.
+Composed legacy/text and structured tests exercise the same real agent handlers, including
+self-approval rejection, audit-before-index, no Thor execution, and English/Korean source dates.
 
 > **Scope:** Source implementation is authorized under Issue #1019. Operational qualification,
 > source rights, production trust, independent human reviewers and live model evaluation remain

@@ -1,6 +1,6 @@
 ---
 translation_of: cloud-resource-knowledge-structured-rag.md
-translation_source_sha: 56c4f4ff3b8057c9e1a7eedd45fca65e556f1122
+translation_source_sha: 3d38c9d95416fd6183f334d416a2408779dfbcea
 translation_revised: 2026-09-15
 ---
 # 구조화된 클라우드 문서 검색
@@ -8,6 +8,8 @@ translation_revised: 2026-09-15
 이 설계는 재현 가능한 본문 추출, 크기가 제한된 구조적 인용문, 별도로 평가하는 이중 언어
 검색으로 클라우드 참조 지식을 확장합니다. 별도의 RAG 서비스를 만들지 않고 기존 에이전트
 소유의 반입 승인과 활성화 경로를 유지합니다.
+기존 텍스트와 구조화된 문서의 조합 테스트는 같은 실제 에이전트 처리기를 사용하며 자기 승인
+차단, 감사 이후 색인, Thor 실행 없음 및 영어·한국어 원문 날짜를 확인합니다.
 
 > **범위:** Issue #1019에서 소스 구현을 요청했습니다. 운영 검증, 원문 사용 권리, 운영 신뢰,
 > 독립된 사람 검토자와 실제 모델 평가는 Issue #995의 별도 선행 조건입니다. 구현 테스트는
