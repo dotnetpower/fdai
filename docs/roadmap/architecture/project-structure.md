@@ -537,9 +537,8 @@ knowledge updates its source commitment without gaining approval or execution au
 
 Every terminal path writes an audit entry, and T2 output reaches the safety check only after the quality gate. Each action retains its
 originating T0, T1, or T2 authority tier; routing, evidence reuse, grounding, approval, rollback, and restart ambiguity fail closed.
-The [Agent Pantheon implementation plan](../agents/agent-pantheon-implementation.md#durable-authority-and-replay) owns detailed CAS, lease, idempotency, publication, and startup-recovery contracts.
-Parked approvals require exact current catalog identity, and potentially effective executor results reach independent reconciliation before the control loop claims closure.
-`core/control_loop/_execution_outcomes.py` owns provider-neutral pending, no-effect, and verified-success classification. A dispatched or already-applied receipt counts as success only when `effect_verified: true`; the package facade preserves the existing import.
+The [Agent Pantheon implementation plan](../agents/agent-pantheon-implementation.md#durable-authority-and-replay) owns detailed CAS, lease, idempotency, publication, and startup-recovery contracts; provider-neutral outcome predicates stay in `_execution_outcomes.py`.
+Parked approvals and recovery receipts require the exact current ActionRun identity, and potentially effective executor results reach independent reconciliation before the control loop claims closure.
 ![Control-Loop Wiring. The main stages are events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.en.svg)
 
 ## Configuration Model

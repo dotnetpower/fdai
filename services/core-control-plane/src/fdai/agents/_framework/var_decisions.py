@@ -67,7 +67,10 @@ class ApprovalDecisionState:
 
 class ApprovalTicket(Protocol):
     correlation_id: str
+    action_id: str | None
     action_type: str
+    action_run_identity: str | None
+    resource_id: str | None
     quorum_required: int
     approvers: list[str]
     kind: str
@@ -75,6 +78,7 @@ class ApprovalTicket(Protocol):
     document_id: str | None
     upload_id: str | None
     idempotency_key: str
+    rollback_contract: str
     decision_case: dict[str, Any] | None
     params: dict[str, Any]
 
@@ -467,7 +471,12 @@ def approval_for_ticket(
         "kind": ticket.kind,
         "correlation_id": ticket.correlation_id,
         "idempotency_key": (ticket.idempotency_key or f"{ticket.correlation_id}:hil_pending"),
+        "action_id": ticket.action_id,
         "action_type": ticket.action_type,
+        "action_run_identity": ticket.action_run_identity,
+        "action_idempotency_key": ticket.idempotency_key,
+        "resource_id": ticket.resource_id,
+        "rollback_contract": ticket.rollback_contract,
         "state": state,
         "approvers": list(approvers if approvers is not None else ticket.approvers),
         "decision_case": ticket.decision_case,

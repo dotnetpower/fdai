@@ -9,12 +9,15 @@ window and the last-seen counter is incremented on repeat.
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import inspect
 from collections.abc import Awaitable, Callable, Mapping
 from copy import deepcopy
+from dataclasses import dataclass
 from typing import Any
 
+from fdai.agents._framework.action_run_identity import (
+    validate_action_run_identity,
+)
 from fdai.agents._framework.adapters import (
     AdminCard,
     AdminNotificationAdapter,
@@ -39,16 +42,46 @@ from fdai.agents._framework.introspection import (
 from fdai.agents._framework.pantheon import _VAR
 from fdai.agents._framework.var_decisions import (
     ApprovalDecisionState,
-    PendingHilTicket,
-    PendingShadowReview,
     VarDecisionJournal,
     approval_for_ticket,
     final_approval_record,
 )
+from fdai.agents._framework.var_ticket_identity import (
+    APPROVAL_STATE_PREFIX,
+    PendingHilTicket,
+)
+from fdai.agents._framework.var_ticket_identity import (
+    approval_action_identity as _approval_action_identity,
+)
+from fdai.agents._framework.var_ticket_identity import (
+    approval_cache_key as _approval_cache_key,
+)
+from fdai.agents._framework.var_ticket_identity import (
+    approval_state_key as _approval_state_key,
+)
+from fdai.agents._framework.var_ticket_identity import (
+    remove_pending_ticket as _remove_pending_ticket,
+)
+from fdai.agents._framework.var_ticket_identity import (
+    ticket_from_identity as _ticket_from_identity,
+)
+from fdai.agents._framework.var_ticket_identity import (
+    ticket_identity as _ticket_identity,
+)
 from fdai.shared.providers.state_store import StateStore
 
 ApproverAuthorizer = Callable[[str, str], bool | Awaitable[bool]]
-_APPROVAL_STATE_PREFIX = "pantheon/var/approval"
+
+
+@dataclass(frozen=True, slots=True)
+class PendingShadowReview:
+    """One Saga-authenticated shadow outcome awaiting a human comparison."""
+
+    correlation_id: str
+    action_type: str
+    observed_at: str
+    policy_escape: bool
+    initiator_principal: str | None
 
 
 def _evict_oldest_ticket(mapping: dict[Any, Any], cap: int, *, keep: Any = None) -> None:
@@ -61,11 +94,6 @@ def _evict_oldest_ticket(mapping: dict[Any, Any], cap: int, *, keep: Any = None)
                 break
         else:  # only `keep` remains
             break
-
-
-def _approval_state_key(correlation_id: str, suffix: str) -> str:
-    correlation_digest = hashlib.sha256(correlation_id.encode("utf-8")).hexdigest()
-    return f"{_APPROVAL_STATE_PREFIX}/{correlation_digest}/{suffix}"
 
 
 class Var(Agent):
@@ -90,7 +118,7 @@ class Var(Agent):
         self._approver_authorizer = approver_authorizer
         self._state_store = state_store
         self._decision_journal = (
-            VarDecisionJournal(state_store, state_prefix=_APPROVAL_STATE_PREFIX)
+            VarDecisionJournal(state_store, state_prefix=APPROVAL_STATE_PREFIX)
             if state_store is not None
             else None
         )
@@ -106,10 +134,10 @@ class Var(Agent):
         # the security metric. Bounded (a distinct blocked attempt still
         # counts; only an exact retry is deduped).
         self._blocked_attempts: BoundedLruSet[str] = BoundedLruSet(self._MAX_PENDING)
-        self._final_approvals: BoundedLruDict[str, dict[str, Any]] = BoundedLruDict(
+        self._final_approvals: BoundedLruDict[tuple[str, str], dict[str, Any]] = BoundedLruDict(
             self._MAX_PENDING
         )
-        self._published_approvals: BoundedLruSet[str] = BoundedLruSet(self._MAX_PENDING)
+        self._published_approvals: BoundedLruSet[tuple[str, str]] = BoundedLruSet(self._MAX_PENDING)
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -137,7 +165,12 @@ class Var(Agent):
         if payload.get("state") != "hil_pending":
             return
         correlation = str(payload.get("correlation_id", ""))
-        if not correlation or correlation in self._pending:
+        if not correlation:
+            return
+        try:
+            action_run_identity = validate_action_run_identity(payload)
+        except ValueError:
+            self.record_behavior("ticket_invalid_action_identity")
             return
         # Clamp quorum to a floor of 1: a forged / malformed action-run must
         # never yield a zero-or-negative quorum that would approve with no
@@ -156,7 +189,10 @@ class Var(Agent):
         if raw_initiator is not None and not isinstance(raw_initiator, str):
             self.record_behavior("ticket_invalid_initiator")
             return
-        raw_idempotency_key = payload.get("idempotency_key")
+        raw_idempotency_key = payload.get(
+            "action_idempotency_key",
+            payload.get("idempotency_key"),
+        )
         if raw_idempotency_key is not None and (
             not isinstance(raw_idempotency_key, str)
             or not raw_idempotency_key
@@ -164,13 +200,36 @@ class Var(Agent):
         ):
             self.record_behavior("ticket_invalid_idempotency_key")
             return
+        raw_action_id = payload.get("action_id")
+        if raw_action_id is not None and not isinstance(raw_action_id, str):
+            self.record_behavior("ticket_invalid_action_id")
+            return
+        raw_resource_id = payload.get("resource_id")
+        if raw_resource_id is not None and not isinstance(raw_resource_id, str):
+            self.record_behavior("ticket_invalid_resource_id")
+            return
+        raw_rollback_contract = payload.get("rollback_contract", "state_forward_only")
+        if not isinstance(raw_rollback_contract, str) or not raw_rollback_contract:
+            self.record_behavior("ticket_invalid_rollback_contract")
+            return
+        if await self._load_final_approval(correlation, action_run_identity) is not None:
+            self.record_behavior("ticket_finalized_replay")
+            return
+        existing = self._pending.get(correlation)
+        if existing is not None:
+            if existing.action_run_identity == action_run_identity:
+                return
+            self.record_behavior("ticket_identity_superseded")
         self._pending[correlation] = PendingHilTicket(
             correlation_id=correlation,
+            action_id=raw_action_id,
             action_type=str(payload.get("action_type", "")),
-            resource_id=payload.get("resource_id"),
+            resource_id=raw_resource_id,
             quorum_required=quorum,
+            action_run_identity=action_run_identity,
             initiator_principal=raw_initiator.strip() if raw_initiator else None,
             idempotency_key=raw_idempotency_key or "",
+            rollback_contract=raw_rollback_contract,
             params=(dict(payload["params"]) if isinstance(payload.get("params"), Mapping) else {}),
             decision_case=(
                 dict(payload["decision_case"])
@@ -272,12 +331,17 @@ class Var(Agent):
         approver: str,
         decision: str,
     ) -> dict[str, Any] | None:
-        final_approval = await self._load_final_approval(correlation_id)
-        if final_approval is not None:
-            return await self._publish_final_approval(final_approval)
         ticket = self._pending.get(correlation_id)
         if ticket is None:
             return None
+        final_approval = await self._load_final_approval(
+            correlation_id,
+            ticket.action_run_identity,
+        )
+        if final_approval is not None:
+            if final_approval.get("action_run_identity") != ticket.action_run_identity:
+                raise RuntimeError("stored final approval conflicts with the pending ticket")
+            return await self._publish_final_approval(final_approval)
 
         approver_norm = approver.strip().casefold()
         if not approver_norm:
@@ -326,7 +390,11 @@ class Var(Agent):
         durable_decision: ApprovalDecisionState | None = None
         if self._decision_journal is not None:
             durable_decision = await self._decision_journal.record(
-                state_key=_approval_state_key(correlation_id, "decisions"),
+                state_key=_approval_state_key(
+                    correlation_id,
+                    "decisions",
+                    ticket.action_run_identity,
+                ),
                 correlation_id=correlation_id,
                 action_type=ticket.action_type,
                 quorum_required=ticket.quorum_required,
@@ -349,7 +417,11 @@ class Var(Agent):
             final_approval = await self._checkpoint_final_approval(approval)
             if durable_decision is not None and self._decision_journal is not None:
                 await self._decision_journal.mark_finalized(
-                    state_key=_approval_state_key(correlation_id, "decisions"),
+                    state_key=_approval_state_key(
+                        correlation_id,
+                        "decisions",
+                        ticket.action_run_identity,
+                    ),
                     ticket_identity=durable_decision.ticket_identity,
                 )
             return await self._publish_final_approval(final_approval)
@@ -374,7 +446,11 @@ class Var(Agent):
                 )
                 await self._checkpoint_final_approval(approval)
                 await journal.mark_finalized(
-                    state_key=_approval_state_key(ticket.correlation_id, "decisions"),
+                    state_key=_approval_state_key(
+                        ticket.correlation_id,
+                        "decisions",
+                        ticket.action_run_identity,
+                    ),
                     ticket_identity=decision.ticket_identity,
                 )
                 finalized += 1
@@ -391,17 +467,26 @@ class Var(Agent):
             published += 1
         return finalized, published
 
-    async def _load_final_approval(self, correlation_id: str) -> dict[str, Any] | None:
-        cached = self._final_approvals.get(correlation_id)
+    async def _load_final_approval(
+        self,
+        correlation_id: str,
+        action_run_identity: str | None,
+    ) -> dict[str, Any] | None:
+        cache_key = _approval_cache_key(correlation_id, action_run_identity)
+        cached = self._final_approvals.get(cache_key)
         if cached is not None:
             return deepcopy(cached)
         if self._state_store is None:
             return None
-        stored = await self._state_store.read_state(_approval_state_key(correlation_id, "final"))
+        stored = await self._state_store.read_state(
+            _approval_state_key(correlation_id, "final", action_run_identity)
+        )
         if stored is None:
             return None
         approval, _published = self._validate_final_record(stored, correlation_id)
-        self._final_approvals.set(correlation_id, deepcopy(approval))
+        if approval.get("action_run_identity") != action_run_identity:
+            raise RuntimeError("stored final approval identity does not match its key")
+        self._final_approvals.set(cache_key, deepcopy(approval))
         return approval
 
     async def _checkpoint_final_approval(
@@ -409,13 +494,15 @@ class Var(Agent):
         approval: dict[str, Any],
     ) -> dict[str, Any]:
         correlation_id = str(approval["correlation_id"])
-        cached = self._final_approvals.get(correlation_id)
+        action_run_identity = _approval_action_identity(approval)
+        cache_key = _approval_cache_key(correlation_id, action_run_identity)
+        cached = self._final_approvals.get(cache_key)
         if cached is not None:
             if cached != approval:
                 raise RuntimeError("approval finalization collided with a different payload")
             return deepcopy(cached)
         if self._state_store is not None:
-            key = _approval_state_key(correlation_id, "final")
+            key = _approval_state_key(correlation_id, "final", action_run_identity)
             record = final_approval_record(
                 approval,
                 publication_status="pending",
@@ -430,7 +517,7 @@ class Var(Agent):
                 if stored_approval != approval:
                     raise RuntimeError("approval finalization collided with a different payload")
                 approval = stored_approval
-        self._final_approvals.set(correlation_id, deepcopy(approval))
+        self._final_approvals.set(cache_key, deepcopy(approval))
         return deepcopy(approval)
 
     async def _publish_final_approval(
@@ -438,35 +525,59 @@ class Var(Agent):
         approval: dict[str, Any],
     ) -> dict[str, Any] | None:
         correlation_id = str(approval["correlation_id"])
-        if await self._approval_was_published(correlation_id):
-            self._pending.pop(correlation_id, None)
+        action_run_identity = _approval_action_identity(approval)
+        if await self._approval_was_published(correlation_id, action_run_identity):
+            _remove_pending_ticket(
+                self._pending,
+                correlation_id,
+                action_run_identity,
+            )
             return None
         if self.bus is None:
-            self._pending.pop(correlation_id, None)
+            _remove_pending_ticket(
+                self._pending,
+                correlation_id,
+                action_run_identity,
+            )
             return deepcopy(approval)
         await self.bus.publish("Var", "object.approval", deepcopy(approval))
         await self._mark_approval_published(approval)
-        self._pending.pop(correlation_id, None)
+        _remove_pending_ticket(
+            self._pending,
+            correlation_id,
+            action_run_identity,
+        )
         return deepcopy(approval)
 
-    async def _approval_was_published(self, correlation_id: str) -> bool:
-        if correlation_id in self._published_approvals:
+    async def _approval_was_published(
+        self,
+        correlation_id: str,
+        action_run_identity: str | None,
+    ) -> bool:
+        cache_key = _approval_cache_key(correlation_id, action_run_identity)
+        if cache_key in self._published_approvals:
             return True
         if self._state_store is None:
             return False
-        stored = await self._state_store.read_state(_approval_state_key(correlation_id, "final"))
+        stored = await self._state_store.read_state(
+            _approval_state_key(correlation_id, "final", action_run_identity)
+        )
         if stored is None:
             return False
         _approval, published = self._validate_final_record(stored, correlation_id)
         if not published:
             return False
-        self._published_approvals.add(correlation_id)
+        if _approval_action_identity(_approval) != action_run_identity:
+            raise RuntimeError("stored final approval identity does not match its key")
+        self._published_approvals.add(cache_key)
         return True
 
     async def _mark_approval_published(self, approval: Mapping[str, Any]) -> None:
         correlation_id = str(approval["correlation_id"])
+        action_run_identity = _approval_action_identity(approval)
+        cache_key = _approval_cache_key(correlation_id, action_run_identity)
         if self._state_store is not None:
-            key = _approval_state_key(correlation_id, "final")
+            key = _approval_state_key(correlation_id, "final", action_run_identity)
             for _attempt in range(16):
                 stored = await self._state_store.read_state(key)
                 if stored is None:
@@ -497,13 +608,13 @@ class Var(Agent):
                     break
             else:
                 raise RuntimeError("approval publication CAS retry limit exceeded")
-        self._published_approvals.add(correlation_id)
+        self._published_approvals.add(cache_key)
 
     async def _next_pending_final_approval(self) -> dict[str, Any] | None:
         if self._state_store is None:
             return None
         stored = await self._state_store.find_state(
-            f"{_APPROVAL_STATE_PREFIX}/",
+            f"{APPROVAL_STATE_PREFIX}/",
             field="publication_status",
             value="pending",
         )
@@ -527,6 +638,7 @@ class Var(Agent):
             or not approval["idempotency_key"]
         ):
             raise RuntimeError("stored final approval is malformed")
+        _approval_action_identity(approval)
         return deepcopy(approval)
 
     @classmethod
@@ -716,74 +828,6 @@ class Var(Agent):
                 answer += " No HIL approvals pending in this runtime."
             answer += f" Evidence: {evidence_ref}."
         return IntrospectionResult(answer=answer, facts=facts)
-
-
-def _ticket_from_identity(identity: Mapping[str, Any]) -> PendingHilTicket:
-    correlation_id = identity.get("correlation_id")
-    action_type = identity.get("action_type")
-    quorum_required = identity.get("quorum_required")
-    params = identity.get("params")
-    decision_case = identity.get("decision_case")
-    if (
-        not isinstance(correlation_id, str)
-        or not correlation_id
-        or not isinstance(action_type, str)
-        or not action_type
-        or not isinstance(quorum_required, int)
-        or isinstance(quorum_required, bool)
-        or quorum_required < 1
-        or not isinstance(params, Mapping)
-        or decision_case is not None
-        and not isinstance(decision_case, Mapping)
-    ):
-        raise RuntimeError("stored approval ticket identity is malformed")
-    optional_strings = {
-        field: identity.get(field)
-        for field in (
-            "resource_id",
-            "initiator_principal",
-            "document_id",
-            "upload_id",
-            "stage",
-        )
-    }
-    if any(value is not None and not isinstance(value, str) for value in optional_strings.values()):
-        raise RuntimeError("stored approval ticket identity is malformed")
-    kind = identity.get("kind")
-    idempotency_key = identity.get("idempotency_key")
-    if not isinstance(kind, str) or not isinstance(idempotency_key, str):
-        raise RuntimeError("stored approval ticket identity is malformed")
-    return PendingHilTicket(
-        correlation_id=correlation_id,
-        action_type=action_type,
-        resource_id=optional_strings["resource_id"],
-        quorum_required=quorum_required,
-        initiator_principal=optional_strings["initiator_principal"],
-        params=dict(params),
-        kind=kind,
-        document_id=optional_strings["document_id"],
-        upload_id=optional_strings["upload_id"],
-        stage=optional_strings["stage"],
-        idempotency_key=idempotency_key,
-        decision_case=dict(decision_case) if decision_case is not None else None,
-    )
-
-
-def _ticket_identity(ticket: PendingHilTicket) -> dict[str, Any]:
-    return {
-        "correlation_id": ticket.correlation_id,
-        "action_type": ticket.action_type,
-        "resource_id": ticket.resource_id,
-        "quorum_required": ticket.quorum_required,
-        "initiator_principal": ticket.initiator_principal,
-        "kind": ticket.kind,
-        "document_id": ticket.document_id,
-        "upload_id": ticket.upload_id,
-        "stage": ticket.stage,
-        "idempotency_key": ticket.idempotency_key,
-        "params": ticket.params,
-        "decision_case": ticket.decision_case,
-    }
 
 
 __all__ = ["PendingHilTicket", "PendingShadowReview", "Var"]

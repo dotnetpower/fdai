@@ -8,16 +8,53 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
+from fdai.agents._framework.action_run_identity import action_run_identity_digest
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.huginn import Huginn
 from fdai.agents.saga import Saga
-from fdai.agents.thor import ActionRunState, Thor
+from fdai.agents.thor import ActionRun, ActionRunState, Thor
 from fdai.agents.var import Var
 from fdai.agents.vidar import RollbackClaimInProgressError, Vidar
 from fdai.shared.contracts.models import IncidentSeverity
+
+
+def _approval_for_run(run, *, state: str = "approved") -> dict[str, object]:  # noqa: ANN001
+    return {
+        "producer_principal": "Var",
+        "kind": "action",
+        "correlation_id": run.correlation_id,
+        "idempotency_key": run.idempotency_key,
+        "action_id": run.action_id,
+        "action_type": run.action_type,
+        "action_run_identity": action_run_identity_digest(run.to_dict()),
+        "action_idempotency_key": run.idempotency_key,
+        "resource_id": run.resource_id,
+        "rollback_contract": run.rollback_contract,
+        "state": state,
+    }
+
+
+def _rollback_for_run(
+    run,  # noqa: ANN001
+    *,
+    state: str = "succeeded",
+    rollback_ref: str | None = "rollback:test",
+) -> dict[str, object]:
+    return {
+        "producer_principal": "Vidar",
+        "kind": "action",
+        "correlation_id": run.correlation_id,
+        "action_run_identity": action_run_identity_digest(run.to_dict()),
+        "action_type": run.action_type,
+        "resource_id": run.resource_id,
+        "contract": run.rollback_contract,
+        "state": state,
+        "rollback_ref": rollback_ref,
+    }
+
 
 # ---------------------------------------------------------------------------
 # Huginn
@@ -1060,7 +1097,7 @@ def test_thor_duplicate_approval_does_not_re_execute() -> None:
         return True
 
     thor = Thor(bus=bus, executor=counting)
-    asyncio.run(
+    run = asyncio.run(
         thor.dispatch_verdict(
             {
                 "correlation_id": "c-dup-appr",
@@ -1071,7 +1108,7 @@ def test_thor_duplicate_approval_does_not_re_execute() -> None:
             }
         )
     )
-    approval = {"correlation_id": "c-dup-appr", "state": "approved"}
+    approval = _approval_for_run(run)
     asyncio.run(thor._handle_approval(dict(approval)))  # noqa: SLF001
     assert thor.action_runs["c-dup-appr"].state == ActionRunState.SUCCEEDED
     assert calls["n"] == 1
@@ -1079,6 +1116,74 @@ def test_thor_duplicate_approval_does_not_re_execute() -> None:
     asyncio.run(thor._handle_approval(dict(approval)))  # noqa: SLF001
     assert calls["n"] == 1
     assert thor.action_runs["c-dup-appr"].state == ActionRunState.SUCCEEDED
+
+
+def test_thor_rejects_stale_approval_for_reused_correlation() -> None:
+    calls: list[str] = []
+
+    async def execute(context):
+        calls.append(context["run"].action_type)
+        return True
+
+    correlation = "c-reused-approval"
+    old_run = asyncio.run(
+        Thor().dispatch_verdict(
+            {
+                "correlation_id": correlation,
+                "action_type": "ops.restart-service",
+                "risk_verdict": "hil",
+                "resource_id": "vm-old",
+            }
+        )
+    )
+    stale_approval = _approval_for_run(old_run)
+    thor = Thor(executor=execute)
+    current = asyncio.run(
+        thor.dispatch_verdict(
+            {
+                "correlation_id": correlation,
+                "action_type": "remediate.delete-storage",
+                "risk_verdict": "hil",
+                "resource_id": "storage-current",
+            }
+        )
+    )
+
+    with pytest.raises(ValueError, match="identity does not match"):
+        asyncio.run(thor.on_typed_message("object.approval", stale_approval))
+
+    assert current.state is ActionRunState.HIL_PENDING
+    assert calls == []
+    assert thor.behavior_snapshot()["approval:identity_mismatch"] == 1
+
+
+def test_thor_ignores_stale_rollback_for_reused_correlation() -> None:
+    correlation = "c-reused-rollback"
+    old_run = ActionRun(
+        correlation_id=correlation,
+        action_type="ops.restart-service",
+        resource_id="vm-old",
+        state=ActionRunState.FAILED,
+        verdict="auto",
+    )
+    stale_rollback = _rollback_for_run(old_run, rollback_ref="rollback:old")
+    current = ActionRun(
+        correlation_id=correlation,
+        action_type="remediate.delete-storage",
+        resource_id="storage-current",
+        state=ActionRunState.FAILED,
+        verdict="auto",
+    )
+    thor = Thor()
+    thor.action_runs[correlation] = current
+    thor._resource_locks.add("storage-current")
+
+    asyncio.run(thor.on_typed_message("object.rollback", stale_rollback))
+
+    assert current.state is ActionRunState.FAILED
+    assert current.rollback_ref is None
+    assert "storage-current" in thor._resource_locks
+    assert thor.behavior_snapshot()["rollback:identity_mismatch"] == 1
 
 
 def test_thor_rejects_deny_verdict_without_execution() -> None:
@@ -1284,11 +1389,7 @@ def test_thor_rejects_blank_succeeded_rollback_receipt() -> None:
     asyncio.run(
         thor.on_typed_message(
             "object.rollback",
-            {
-                "correlation_id": "c-forged-blank-rollback",
-                "state": "succeeded",
-                "rollback_ref": "   ",
-            },
+            _rollback_for_run(run, rollback_ref="   "),
         )
     )
 
@@ -1400,7 +1501,7 @@ def test_vidar_replays_durable_terminal_result_after_restart() -> None:
     assert len(bus.messages_on("object.rollback")) == 1
 
 
-def test_vidar_rejects_changed_rollback_command_inputs() -> None:
+def test_vidar_isolates_changed_rollback_command_inputs() -> None:
     from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
     calls: list[str] = []
@@ -1435,20 +1536,12 @@ def test_vidar_rejects_changed_rollback_command_inputs() -> None:
         **original,
         "params": {"restore_point": "B"},
     }
-    with pytest.raises(
-        ValueError,
-        match="rollback correlation collides with different action identity",
-    ):
-        asyncio.run(first.rollback(dict(changed)))
+    changed_result = asyncio.run(first.rollback(dict(changed)))
 
-    restarted = Vidar(executors={"pitr": rollback_executor}, state_store=store)
-    with pytest.raises(
-        ValueError,
-        match="rollback correlation collides with different action identity",
-    ):
-        asyncio.run(restarted.rollback(dict(changed)))
-
-    assert calls == ["A"]
+    assert changed_result is not None
+    assert changed_result.rollback_ref == "restore:B"
+    assert changed_result.action_run_identity != completed.action_run_identity
+    assert calls == ["A", "B"]
 
 
 def test_vidar_ignores_regenerated_terminal_delivery_metadata() -> None:
@@ -1531,8 +1624,9 @@ def test_vidar_rejects_noncanonical_durable_terminal_state(
     completed = asyncio.run(first.rollback(dict(failed)))
     assert completed is not None
 
-    digest = hashlib.sha256(b"c-malformed-terminal").hexdigest()
-    state_key = f"pantheon/vidar/rollback/{digest}/state"
+    correlation_digest = hashlib.sha256(b"c-malformed-terminal").hexdigest()
+    identity_digest = completed.action_run_identity.removeprefix("sha256:")
+    state_key = f"pantheon/vidar/rollback/{correlation_digest}/{identity_digest}/state"
     terminal = asyncio.run(store.read_state(state_key))
     assert terminal is not None
     corrupted = dict(terminal)
@@ -1892,16 +1986,59 @@ def test_var_replays_final_approval_after_restart() -> None:
 
     bus = InMemoryBus(registry=load_pantheon())
     restarted = Var(bus=bus, state_store=store)
-    replayed = asyncio.run(
+    assert asyncio.run(restarted.recover_approvals()) == (0, 1)
+    assert len(bus.messages_on("object.approval")) == 1
+
+
+def test_var_scopes_final_approval_to_action_identity() -> None:
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    store = InMemoryStateStore()
+    correlation = "c-var-reused-correlation"
+    first = Var(state_store=store)
+    asyncio.run(
+        first.on_typed_message(
+            "object.action-run",
+            {
+                "correlation_id": correlation,
+                "action_type": "ops.restart-service",
+                "resource_id": "vm-old",
+                "state": "hil_pending",
+            },
+        )
+    )
+    old_approval = asyncio.run(
+        first.decide(
+            correlation,
+            approver="reviewer-a@example.com",
+            decision="approve",
+        )
+    )
+    assert old_approval is not None
+
+    restarted = Var(state_store=store)
+    asyncio.run(
+        restarted.on_typed_message(
+            "object.action-run",
+            {
+                "correlation_id": correlation,
+                "action_type": "remediate.delete-storage",
+                "resource_id": "storage-current",
+                "state": "hil_pending",
+            },
+        )
+    )
+    current_approval = asyncio.run(
         restarted.decide(
-            "c-approval-restart",
-            approver="reviewer@example.com",
+            correlation,
+            approver="reviewer-b@example.com",
             decision="approve",
         )
     )
 
-    assert replayed == finalized
-    assert len(bus.messages_on("object.approval")) == 1
+    assert current_approval is not None
+    assert current_approval["action_type"] == "remediate.delete-storage"
+    assert current_approval["action_run_identity"] != old_approval["action_run_identity"]
 
 
 def test_var_recovers_unpublished_final_without_repeated_human_decision() -> None:
@@ -2183,7 +2320,7 @@ def test_var_decide_unknown_correlation_returns_none() -> None:
     )
 
 
-def test_var_ingest_ignores_non_hil_and_duplicate_runs() -> None:
+def test_var_ingest_replaces_a_reused_correlation_with_new_identity() -> None:
     var = _var_with_pending("c-dup")
     # Wrong topic is ignored.
     asyncio.run(
@@ -2195,7 +2332,7 @@ def test_var_ingest_ignores_non_hil_and_duplicate_runs() -> None:
     asyncio.run(
         var.on_typed_message("object.action-run", {"correlation_id": "", "state": "hil_pending"})
     )
-    # A duplicate of an already-pending correlation does not overwrite it.
+    # A different ActionRun reusing a correlation supersedes the stale ticket.
     asyncio.run(
         var.on_typed_message(
             "object.action-run",
@@ -2204,7 +2341,8 @@ def test_var_ingest_ignores_non_hil_and_duplicate_runs() -> None:
     )
     tickets = {t.correlation_id for t in var.pending_tickets()}
     assert tickets == {"c-dup"}
-    assert var.pending_tickets()[0].action_type == "remediate.delete-storage"
+    assert var.pending_tickets()[0].action_type == "other"
+    assert var.behavior_snapshot()["ticket_identity_superseded"] == 1
 
 
 def test_var_quorum_met_without_bus_still_consumes_ticket() -> None:

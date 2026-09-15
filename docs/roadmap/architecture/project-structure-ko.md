@@ -535,9 +535,8 @@ Var는 순수 승인 대기 데이터를 비공개 결정 레코드 도우미에
 
 모든 종단 경로는 감사 항목을 기록하고 T2 출력은 품질 게이트를 통과한 뒤에만 안전성 검토에 도달합니다. 각 액션은
 실제 시작 T0, T1 또는 T2 권한 tier를 유지하며 라우팅, 근거 재사용, 근거 확인, 승인, 롤백 및 재시작의 모호성은 실패 시 차단됩니다.
-[에이전트 판테온 구현 계획](../agents/agent-pantheon-implementation-ko.md#영속-권한과-재생)이 세부 CAS, 점유 유효 기간, 멱등성, 게시 및 시작 복구 계약을 소유합니다.
-대기 중인 승인은 현재 카탈로그 신원이 정확히 일치해야 하며, 효과가 발생했을 수 있는 실행기 결과는 컨트롤 루프가 종료를 주장하기 전에 독립 조정을 거칩니다.
-`core/control_loop/_execution_outcomes.py`는 프로바이더 중립적인 대기, 효과 없음 및 검증된 성공 분류를 소유합니다. 전달됨 또는 이미 적용됨 증적은 `effect_verified: true`인 경우에만 성공으로 계산하며, 패키지 공개 진입점은 기존 가져오기를 유지합니다.
+[에이전트 판테온 구현 계획](../agents/agent-pantheon-implementation-ko.md#영속-권한과-재생)이 세부 CAS, 점유 유효 기간, 멱등성, 게시 및 시작 복구 계약을 소유하며 프로바이더 중립 결과 조건식은 `_execution_outcomes.py`에 둡니다.
+대기 중인 승인과 복구 증적은 현재 ActionRun 신원이 정확히 일치해야 하며, 효과가 발생했을 수 있는 실행기 결과는 컨트롤 루프가 종료를 주장하기 전에 독립 조정을 거칩니다.
 ![컨트롤 루프 배선. 주요 단계는 events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops입니다.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.ko.svg)
 
 ## 구성 모델

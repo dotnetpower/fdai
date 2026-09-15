@@ -17,6 +17,10 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
+from fdai.agents._framework.action_run_identity import (
+    is_action_run_identity,
+    validate_action_run_identity,
+)
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
@@ -34,6 +38,7 @@ _MAX_CLAIM_LEASE = timedelta(hours=1)
 _MAX_ROLLBACK_REF_LENGTH = 2_048
 _ROLLBACK_COMMAND_FIELDS = (
     "correlation_id",
+    "action_run_identity",
     "idempotency_key",
     "action_idempotency_key",
     "action_id",
@@ -64,6 +69,7 @@ _ROLLBACK_COMMAND_FIELDS = (
 @dataclass(frozen=True, slots=True)
 class RollbackRecord:
     correlation_id: str
+    action_run_identity: str
     action_type: str
     resource_id: str | None
     contract: str
@@ -119,13 +125,13 @@ class Vidar(Agent):
         # Idempotency guard: at-least-once delivery means the same failed
         # ActionRun can arrive twice. Rolling a resource back twice is not a
         # no-op for a real rollback contract (double PITR restore, double
-        # revert), so a correlation is rolled back at most once. Bounded so
+        # revert), so one immutable ActionRun identity is rolled back at most once. Bounded so
         # the guard cannot leak on a long-lived recovery principal. Publication
         # completion is tracked separately so a broker failure can replay safely.
-        self._rollback_results: BoundedLruDict[str, _CachedRollback] = BoundedLruDict(
+        self._rollback_results: BoundedLruDict[tuple[str, str], _CachedRollback] = BoundedLruDict(
             self._MAX_RECORDS
         )
-        self._published_rollbacks: BoundedLruSet[str] = BoundedLruSet(self._MAX_RECORDS)
+        self._published_rollbacks: BoundedLruSet[tuple[str, str]] = BoundedLruSet(self._MAX_RECORDS)
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -136,7 +142,10 @@ class Vidar(Agent):
             return
         if payload.get("state") != "failed":
             return
-        await self.rollback(payload)
+        try:
+            await self.rollback(payload)
+        except ValueError:
+            self.record_behavior("rollback:action_identity_mismatch")
 
     async def rollback(self, action_run: dict[str, Any]) -> RollbackRecord | None:
         async with self._rollback_lock:
@@ -145,9 +154,11 @@ class Vidar(Agent):
     async def _rollback_locked(self, action_run: dict[str, Any]) -> RollbackRecord | None:
         correlation_id = str(action_run.get("correlation_id", ""))
         contract = str(action_run.get("rollback_contract", "state_forward_only"))
+        action_run_identity = validate_action_run_identity(action_run)
         request_digest = _rollback_request_digest(action_run, contract=contract)
         if correlation_id:
-            existing = self._rollback_results.get(correlation_id)
+            cache_key = (correlation_id, action_run_identity)
+            existing = self._rollback_results.get(cache_key)
             if existing is not None:
                 if existing.request_digest != request_digest:
                     raise ValueError("rollback correlation collides with different action identity")
@@ -159,9 +170,14 @@ class Vidar(Agent):
                     action_run,
                     correlation_id,
                     contract=contract,
+                    action_run_identity=action_run_identity,
                     request_digest=request_digest,
                 )
-        rec = await self._execute_rollback(action_run, correlation_id)
+        rec = await self._execute_rollback(
+            action_run,
+            correlation_id,
+            action_run_identity=action_run_identity,
+        )
         self._remember_rollback(rec, request_digest=request_digest)
         await self._publish_rollback_once(rec)
         return rec
@@ -172,12 +188,13 @@ class Vidar(Agent):
         correlation_id: str,
         *,
         contract: str,
+        action_run_identity: str,
         request_digest: str,
     ) -> RollbackRecord | None:
         store = self._state_store
         if store is None:
             raise RuntimeError("durable rollback requires a StateStore")
-        state_key = _rollback_state_key(correlation_id, "state")
+        state_key = _rollback_state_key(correlation_id, "state", action_run_identity)
         stored = await store.read_state(state_key)
         if stored is None:
             claimed_at = _clock_now(self._clock)
@@ -187,6 +204,7 @@ class Vidar(Agent):
                 "revision": 1,
                 "status": "in_progress",
                 "correlation_id": correlation_id,
+                "action_run_identity": action_run_identity,
                 "request_digest": request_digest,
                 "owner_token": self._owner_token,
                 "claimed_at": claimed_at.isoformat(),
@@ -208,7 +226,11 @@ class Vidar(Agent):
                 },
             )
             if claimed:
-                rec = await self._execute_rollback(action_run, correlation_id)
+                rec = await self._execute_rollback(
+                    action_run,
+                    correlation_id,
+                    action_run_identity=action_run_identity,
+                )
                 rec = await self._complete_durable_rollback(
                     state_key=state_key,
                     request_digest=request_digest,
@@ -226,6 +248,7 @@ class Vidar(Agent):
         _validate_rollback_state_identity(
             stored,
             correlation_id=correlation_id,
+            action_run_identity=action_run_identity,
             request_digest=request_digest,
         )
         if stored.get("status") == "terminal":
@@ -238,6 +261,7 @@ class Vidar(Agent):
                 )
             rec = RollbackRecord(
                 correlation_id=correlation_id,
+                action_run_identity=str(stored.get("action_run_identity") or ""),
                 action_type=str(stored.get("action_type") or ""),
                 resource_id=(
                     str(stored["resource_id"]) if stored.get("resource_id") is not None else None
@@ -300,6 +324,7 @@ class Vidar(Agent):
         _validate_rollback_state_identity(
             stored,
             correlation_id=rec.correlation_id,
+            action_run_identity=rec.action_run_identity,
             request_digest=request_digest,
         )
         return _rollback_record_from_state(stored)
@@ -308,6 +333,8 @@ class Vidar(Agent):
         self,
         action_run: dict[str, Any],
         correlation_id: str,
+        *,
+        action_run_identity: str,
     ) -> RollbackRecord:
         contract = str(action_run.get("rollback_contract", "state_forward_only"))
         executor = self._executors.get(contract)
@@ -330,6 +357,7 @@ class Vidar(Agent):
                     notes = "rollback executor returned no receipt"
         rec = RollbackRecord(
             correlation_id=correlation_id,
+            action_run_identity=str(action_run_identity),
             action_type=str(action_run.get("action_type", "")),
             resource_id=_resource_id(action_run),
             contract=contract,
@@ -346,13 +374,14 @@ class Vidar(Agent):
         request_digest: str,
     ) -> None:
         if rec.correlation_id:
-            existing = self._rollback_results.get(rec.correlation_id)
+            cache_key = (rec.correlation_id, rec.action_run_identity)
+            existing = self._rollback_results.get(cache_key)
             if existing is not None:
                 if existing.request_digest != request_digest:
                     raise ValueError("rollback correlation collides with different action identity")
                 return
             self._rollback_results.set(
-                rec.correlation_id,
+                cache_key,
                 _CachedRollback(request_digest=request_digest, record=rec),
             )
         self.records.append(rec)
@@ -362,7 +391,10 @@ class Vidar(Agent):
             del self.records[:keep_from]
 
     async def _publish_rollback_once(self, rec: RollbackRecord) -> bool:
-        if rec.correlation_id and await self._rollback_was_published(rec.correlation_id):
+        if rec.correlation_id and await self._rollback_was_published(
+            rec.correlation_id,
+            rec.action_run_identity,
+        ):
             return False
         published = await self._publish_rollback(rec)
         if not published:
@@ -371,35 +403,48 @@ class Vidar(Agent):
             await self._mark_rollback_published(rec)
         return True
 
-    async def _rollback_was_published(self, correlation_id: str) -> bool:
-        if correlation_id in self._published_rollbacks:
+    async def _rollback_was_published(
+        self,
+        correlation_id: str,
+        action_run_identity: str,
+    ) -> bool:
+        cache_key = (correlation_id, action_run_identity)
+        if cache_key in self._published_rollbacks:
             return True
         if self._state_store is None:
             return False
         stored = await self._state_store.read_state(
-            _rollback_state_key(correlation_id, "published")
+            _rollback_state_key(correlation_id, "published", action_run_identity)
         )
         if stored is None:
             return False
-        if stored.get("correlation_id") != correlation_id:
+        if (
+            stored.get("correlation_id") != correlation_id
+            or stored.get("action_run_identity") != action_run_identity
+        ):
             raise RuntimeError("rollback publication receipt has conflicting identity")
-        self._published_rollbacks.add(correlation_id)
+        self._published_rollbacks.add(cache_key)
         return True
 
     async def _mark_rollback_published(self, rec: RollbackRecord) -> None:
         receipt = {
             "correlation_id": rec.correlation_id,
-            "idempotency_key": f"{rec.correlation_id}:rollback:{rec.state}",
+            "action_run_identity": rec.action_run_identity,
+            "idempotency_key": _rollback_idempotency_key(rec),
             "state": rec.state,
         }
         if self._state_store is not None:
-            key = _rollback_state_key(rec.correlation_id, "published")
+            key = _rollback_state_key(
+                rec.correlation_id,
+                "published",
+                rec.action_run_identity,
+            )
             created = await self._state_store.write_state_if_absent(key, receipt)
             if not created:
                 stored = await self._state_store.read_state(key)
                 if stored != receipt:
                     raise RuntimeError("rollback publication receipt collision")
-        self._published_rollbacks.add(rec.correlation_id)
+        self._published_rollbacks.add((rec.correlation_id, rec.action_run_identity))
 
     async def _publish_rollback(self, rec: RollbackRecord) -> bool:
         if self.bus is None:
@@ -410,7 +455,8 @@ class Vidar(Agent):
             {
                 "producer_principal": "Vidar",
                 "correlation_id": rec.correlation_id,
-                "idempotency_key": (f"{rec.correlation_id}:rollback:{rec.state}"),
+                "idempotency_key": _rollback_idempotency_key(rec),
+                "action_run_identity": rec.action_run_identity,
                 "action_type": rec.action_type,
                 "resource_id": rec.resource_id,
                 "contract": rec.contract,
@@ -490,9 +536,18 @@ def _resource_id(action_run: Mapping[str, Any]) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
-def _rollback_state_key(correlation_id: str, suffix: str) -> str:
+def _rollback_idempotency_key(rec: RollbackRecord) -> str:
+    return f"{rec.correlation_id}:{rec.action_run_identity[7:19]}:rollback:{rec.state}"
+
+
+def _rollback_state_key(
+    correlation_id: str,
+    suffix: str,
+    action_run_identity: str,
+) -> str:
     digest = hashlib.sha256(correlation_id.encode("utf-8")).hexdigest()
-    return f"{_ROLLBACK_STATE_PREFIX}/{digest}/{suffix}"
+    identity_scope = action_run_identity.removeprefix("sha256:")
+    return f"{_ROLLBACK_STATE_PREFIX}/{digest}/{identity_scope}/{suffix}"
 
 
 def _rollback_request_digest(action_run: Mapping[str, Any], *, contract: str) -> str:
@@ -559,6 +614,7 @@ def _rollback_record_state(
         "revision": 2,
         "status": "terminal",
         "correlation_id": rec.correlation_id,
+        "action_run_identity": rec.action_run_identity,
         "request_digest": request_digest,
         "claim_owner_token": claim_owner_token,
         "lease_expires_at": lease_expires_at.isoformat(),
@@ -576,10 +632,12 @@ def _validate_rollback_state_identity(
     stored: Mapping[str, Any],
     *,
     correlation_id: str,
+    action_run_identity: str,
     request_digest: str,
 ) -> None:
     if (
         stored.get("correlation_id") != correlation_id
+        or stored.get("action_run_identity") != action_run_identity
         or stored.get("request_digest") != request_digest
     ):
         raise ValueError("rollback correlation collides with different action identity")
@@ -644,6 +702,7 @@ def _parse_lease_expiry(value: str) -> datetime:
 
 def _rollback_record_from_state(stored: Mapping[str, Any]) -> RollbackRecord:
     correlation_id = stored.get("correlation_id")
+    action_run_identity = stored.get("action_run_identity")
     action_type = stored.get("action_type")
     contract = stored.get("contract")
     notes = stored.get("notes")
@@ -656,6 +715,7 @@ def _rollback_record_from_state(stored: Mapping[str, Any]) -> RollbackRecord:
         or stored.get("revision") != 2
         or stored.get("status") != "terminal"
         or not isinstance(correlation_id, str)
+        or not is_action_run_identity(action_run_identity)
         or not isinstance(action_type, str)
         or not isinstance(contract, str)
         or not isinstance(notes, str)
@@ -669,6 +729,7 @@ def _rollback_record_from_state(stored: Mapping[str, Any]) -> RollbackRecord:
     rollback_ref = stored.get("rollback_ref")
     rec = RollbackRecord(
         correlation_id=correlation_id,
+        action_run_identity=str(action_run_identity),
         action_type=action_type,
         resource_id=resource_id if isinstance(resource_id, str) else None,
         contract=contract,

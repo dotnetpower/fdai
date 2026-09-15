@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
+from fdai.agents._framework.action_run_identity import action_run_identity_digest
 from fdai.agents._framework.provider_adapters import StateStoreActionRunStore
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents.thor import ActionRun, ActionRunState, Thor
@@ -18,6 +19,40 @@ from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from tests.core.operational_planning.test_kinetic_proposal import _proposal
 
 _RAW_TOPIC = "fdai.events"
+
+
+def _approval_for_run(run: ActionRun, *, state: str = "approved") -> dict[str, object]:
+    return {
+        "producer_principal": "Var",
+        "kind": "action",
+        "correlation_id": run.correlation_id,
+        "idempotency_key": run.idempotency_key,
+        "action_id": run.action_id,
+        "action_type": run.action_type,
+        "action_run_identity": action_run_identity_digest(run.to_dict()),
+        "action_idempotency_key": run.idempotency_key,
+        "resource_id": run.resource_id,
+        "rollback_contract": run.rollback_contract,
+        "state": state,
+    }
+
+
+def _rollback_for_run(
+    run: ActionRun,
+    *,
+    state: str = "succeeded",
+    rollback_ref: str | None = "rollback:test",
+) -> dict[str, object]:
+    return {
+        "producer_principal": "Vidar",
+        "correlation_id": run.correlation_id,
+        "action_run_identity": action_run_identity_digest(run.to_dict()),
+        "action_type": run.action_type,
+        "resource_id": run.resource_id,
+        "contract": run.rollback_contract,
+        "state": state,
+        "rollback_ref": rollback_ref,
+    }
 
 
 class _FakeActionRunStore:
@@ -192,7 +227,7 @@ def test_thor_rechecks_live_authority_after_hil_approval() -> None:
     asyncio.run(
         thor.on_typed_message(
             "object.approval",
-            {"correlation_id": run.correlation_id, "state": "approved"},
+            _approval_for_run(run),
         )
     )
 
@@ -212,7 +247,7 @@ def test_thor_preserves_shadow_only_ceiling_after_hil_approval() -> None:
     asyncio.run(
         thor.on_typed_message(
             "object.approval",
-            {"correlation_id": run.correlation_id, "state": "approved"},
+            _approval_for_run(run),
         )
     )
 
@@ -400,7 +435,7 @@ def test_approval_and_verdict_redelivery_share_correlation_lock() -> None:
             thor.dispatch_verdict(verdict),
             thor.on_typed_message(
                 "object.approval",
-                {"correlation_id": run.correlation_id, "state": "approved"},
+                _approval_for_run(run),
             ),
         )
 
@@ -737,11 +772,7 @@ def test_execution_unknown_accepts_only_explicit_rollback_result() -> None:
     asyncio.run(
         thor.on_typed_message(
             "object.rollback",
-            {
-                "correlation_id": run.correlation_id,
-                "state": "succeeded",
-                "rollback_ref": "rollback:unknown",
-            },
+            _rollback_for_run(run, rollback_ref="rollback:unknown"),
         )
     )
 
@@ -772,11 +803,7 @@ def test_resolving_one_duplicate_unknown_run_keeps_shared_resource_locked() -> N
     asyncio.run(
         thor.on_typed_message(
             "object.rollback",
-            {
-                "correlation_id": first.correlation_id,
-                "state": "succeeded",
-                "rollback_ref": "rollback:first",
-            },
+            _rollback_for_run(first, rollback_ref="rollback:first"),
         )
     )
 
@@ -801,11 +828,7 @@ def test_later_successful_rollback_closes_prior_rollback_failure() -> None:
     asyncio.run(
         thor.on_typed_message(
             "object.rollback",
-            {
-                "correlation_id": run.correlation_id,
-                "state": "succeeded",
-                "rollback_ref": "rollback:retry",
-            },
+            _rollback_for_run(run, rollback_ref="rollback:retry"),
         )
     )
 

@@ -26,6 +26,12 @@ from weakref import WeakValueDictionary
 from pydantic import ValidationError
 
 from fdai.agents._framework import action_run_lineage
+from fdai.agents._framework.action_run_identity import (
+    action_run_identity_digest,
+    approval_matches_action_run,
+    bounded_rollback_ref,
+    rollback_matches_action_run,
+)
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import (
@@ -206,7 +212,7 @@ class ActionRun:
             initiator_principal=data.get("initiator_principal"),
             rollback_contract=str(data.get("rollback_contract", "state_forward_only")),
             rollback_ref=data.get("rollback_ref"),
-            decision_case=_bounded_decision_case(data.get("decision_case")),
+            decision_case=action_run_lineage.bounded_decision_case(data.get("decision_case")),
             operational_context=operational_context,
             workflow_action=action_run_lineage.bounded_workflow_action(data.get("workflow_action")),
             kinetic_proposal=_durable_kinetic_proposal(data.get("kinetic_proposal")),
@@ -493,6 +499,9 @@ class Thor(Agent):
             if payload.get("kind") == "document_ingestion":
                 self.record_behavior("document_approval_ignored")
                 return
+            if payload.get("kind") != "action":
+                self.record_behavior("non_action_approval_ignored")
+                return
             await self._handle_approval(payload)
         elif topic == "object.rollback":
             await self._handle_rollback(payload)
@@ -524,7 +533,7 @@ class Thor(Agent):
             risk_verdict = "hil"
         resource_id = verdict.get("resource_id")
         raw_decision_case = verdict.get("decision_case")
-        decision_case = _bounded_decision_case(raw_decision_case)
+        decision_case = action_run_lineage.bounded_decision_case(raw_decision_case)
         raw_params = verdict.get("params")
         params = deepcopy(dict(raw_params)) if isinstance(raw_params, Mapping) else {}
         operational_context = _bounded_operational_context(verdict.get("operational_context"))
@@ -928,6 +937,9 @@ class Thor(Agent):
         run = self.action_runs.get(correlation)
         if run is None:
             return
+        if not approval_matches_action_run(approval, run.to_dict()):
+            self.record_behavior("approval:identity_mismatch")
+            raise ValueError("approval identity does not match the current ActionRun")
         # Idempotency: only a run still awaiting its HIL decision may act on an
         # approval. At-least-once delivery can redeliver the same object.approval
         # (or a duplicate can arrive), and without this guard an approval for a
@@ -1022,7 +1034,10 @@ class Thor(Agent):
         correlation: str,
     ) -> None:
         run = self.action_runs.get(correlation)
-        rollback_ref = _bounded_rollback_ref(rollback.get("rollback_ref"))
+        if run is not None and not rollback_matches_action_run(rollback, run.to_dict()):
+            self.record_behavior("rollback:identity_mismatch")
+            return
+        rollback_ref = bounded_rollback_ref(rollback.get("rollback_ref"))
         succeeded = rollback.get("state") == "succeeded" and rollback_ref is not None
         if run is not None and run.state is ActionRunState.ROLLBACK_FAILED and succeeded:
             run.rollback_ref = rollback_ref
@@ -1150,6 +1165,7 @@ class Thor(Agent):
         }
         if run.action_id is not None:
             payload["action_id"] = run.action_id
+        payload["action_run_identity"] = action_run_identity_digest(payload)
         if run.state in _TERMINAL_STATES:
             payload["terminal_at"] = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
         await self.bus.publish("Thor", "object.action-run", payload)
@@ -1255,48 +1271,6 @@ __all__ = [
     "ActionRunStore",
     "ExecutionAuditRecorder",
 ]
-
-
-def _bounded_rollback_ref(raw: object) -> str | None:
-    if not isinstance(raw, str):
-        return None
-    normalized = raw.strip()
-    return normalized if normalized and len(normalized) <= 2_048 else None
-
-
-def _bounded_decision_case(raw: object) -> dict[str, Any] | None:
-    if not isinstance(raw, Mapping):
-        return None
-    required_strings = (
-        "case_id",
-        "correlation_id",
-        "context_snapshot_id",
-        "created_at",
-        "selected_option_id",
-    )
-    if any(
-        not isinstance(raw.get(field), str) or not str(raw[field]).strip()
-        for field in required_strings
-    ):
-        return None
-    required_arrays = (
-        "protected_objective_ids",
-        "active_constraint_ids",
-        "no_action_effects",
-        "options",
-        "evidence_refs",
-    )
-    if any(not isinstance(raw.get(field), list) for field in required_arrays):
-        return None
-    if not raw["no_action_effects"] or not raw["options"] or not raw["evidence_refs"]:
-        return None
-    try:
-        encoded = json.dumps(raw, allow_nan=False, ensure_ascii=True, sort_keys=True)
-    except (TypeError, ValueError):
-        return None
-    if len(encoded) > 16_384:
-        return None
-    return dict(raw)
 
 
 def _bounded_operational_context(raw: object) -> dict[str, Any] | None:
