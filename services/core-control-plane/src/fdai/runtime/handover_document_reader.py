@@ -15,6 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from fdai_service_contracts.cloud_knowledge import Applicability
 from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.core.human_assignment.knowledge_handover import HandoverKnowledgeAccessContext
@@ -43,6 +44,11 @@ class CoreHandoverDocumentReader:
         principal_groups: frozenset[str],
         purpose: str,
         limit: int,
+        target: Applicability | None = None,
+        exact_refs: tuple[str, ...] = (),
+        context_source: str | None = None,
+        conversation_ref: str | None = None,
+        document_context_digest: str | None = None,
     ) -> GovernedDocumentCollection:
         """Serve real citations via query.governed_documents, always disclosing incomplete
         coverage.
@@ -51,6 +57,14 @@ class CoreHandoverDocumentReader:
         collection and ACL references only narrow exact subject-owned documents. Current
         goal, source, reviewer, or role failures abort the read without substituting content.
         """
+        if (
+            target is not None
+            or exact_refs
+            or context_source is not None
+            or conversation_ref is not None
+            or document_context_digest is not None
+        ):
+            raise PermissionError("scoped document context requires its governed source reader")
         if (
             purpose != "operations-review"
             or principal_role
@@ -174,8 +188,39 @@ class CombinedGovernedHandoverReader:
         principal_groups: frozenset[str],
         purpose: str,
         limit: int,
+        target: Applicability | None = None,
+        exact_refs: tuple[str, ...] = (),
+        context_source: str | None = None,
+        conversation_ref: str | None = None,
+        document_context_digest: str | None = None,
     ) -> GovernedDocumentCollection:
-        """Combine independently authorized excerpts; conflicting or unavailable sources hold."""
+        """Combine ordinary authorized reads; exact context stays with its original source.
+
+        Target or document-context selectors never widen into subject-wide handover search.
+        The scoped reader's authorization failure propagates without a fallback or added excerpt.
+        """
+        if (
+            target is not None
+            or exact_refs
+            or context_source is not None
+            or conversation_ref is not None
+            or document_context_digest is not None
+        ):
+            if self.existing is None:
+                raise PermissionError("scoped document reader is unavailable")
+            return await self.existing.search(
+                query=query,
+                principal_ref=principal_ref,
+                principal_role=principal_role,
+                principal_groups=principal_groups,
+                purpose=purpose,
+                limit=limit,
+                target=target,
+                exact_refs=exact_refs,
+                context_source=context_source,
+                conversation_ref=conversation_ref,
+                document_context_digest=document_context_digest,
+            )
         handover = await self.handover.search(
             query=query,
             principal_ref=principal_ref,

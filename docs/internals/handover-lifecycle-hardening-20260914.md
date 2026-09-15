@@ -1331,3 +1331,90 @@ identity, fresh human approvals, owned inverse, independent closure, source ACL/
 service ownership, and honest UI states remain intact; new durable prerequisites strengthen the
 enforce boundary instead of enabling a fallback. This is merge revalidation, not ten repeated
 runs or a claim that upstream's separate live criteria were completed.
+
+### Exact-head CI correction design
+
+PR #1014's first conflict-free head `c8edd2769f6614f798eb5915e2868ffabf352b28` failed
+CI `34921323157`, attempt 1. The bounded delivery coordinator stopped on failed checks, without
+merging or repairing. Terminal job evidence identified code/integration defects, not a live
+provider outage: shared-parser facade drift, two differently typed Huginn notice locals sharing
+one name, an expanded governed-document reader protocol, an outdated migration fixture order,
+release-dependent semantic/profile pins, and a Console lexical-detector false positive caused
+by combining ordinary name filtering with literal effect-kind membership checks.
+
+The reader fix forwards every exact document/target/context selector to its existing governed
+source unchanged. It never combines unrelated subject-wide handover excerpts into constrained
+results, and source absence/failure has no wider-search fallback. The actual SQL function fixture
+uses the validated invocation contract rather than a partial namespace. The migration fixture
+adopts ingestion and worker before Core/Operator. Its first actual Alembic execution exposed
+SQLAlchemy interpreting the SQL literal `:intent` as a bind parameter; concatenating the colon
+preserves the exact key without escaping semantics that differ between direct SQL and Alembic.
+
+Release-pin repair is an offline artifact operation, not promotion. Recompute the exact ontology
+release from the reviewed catalog, rebuild the existing authored Korean surface against the
+same complete active Rule corpus, and rerun the existing seven held-out cases through the actual
+in-memory lexical index and canonical evaluator. Preserve training/evaluation identities, policy
+thresholds, surface lifecycle, old content-addressed receipts, and all false authority fields.
+Persist a new receipt only after canonical review eligibility passes; never replace its metrics
+with prior numbers. Cost profile regeneration changes only exact release/profile/resource
+commitments and corresponding synthetic F1-F8 references; recompute and validate every unchanged
+expected reduction, retain the mixed-release negative, and change no package activation or W7
+operational evidence. A reusable scoped generator prepares and validates all outputs before
+writing, refuses changed input bytes and immutable receipt collisions, and defaults to checking.
+
+Critique/revision: merely editing the digest would conceal stale evaluation, and deleting a
+surface or disabling its gate would remove working functionality. Treating the source inventory
+as a live receipt would also overstate authority. The revised plan reruns the deterministic
+evaluation, updates only source commitments, and leaves independent live validation and every
+promotion/enablement record unchanged. The Console decoder uses a set for effect-kind presence;
+no natural-language route, detector exception, or baseline expansion is added.
+
+#### CI repair verification and final critique
+
+The diagnosed CI run completed with failure at the same exact head and attempt. Static job
+`104229935018` failed its Python contract step; database job `104229935024` failed the skill
+proposal roundtrip; coverage job `104229935114` failed the membership facade identity test and
+therefore produced no upload artifact. Regression jobs `104229934994`, `104229935020`, and
+`104229935190` identified the stale semantic/profile pins and lexical baseline detection. The
+required aggregator correctly failed. No job was rerun and no failure was classified as flaky.
+
+The local repairs passed the exact owning checks: normal import-following mypy on Huginn and
+Core bootstrap, strict reader typing, 47 reader/contract/actual inverse-SQL tests, the corrected
+actual Core SQL invocation, and one actual Alembic bootstrap/downgrade/upgrade roundtrip. The
+semantic runtime and canonical candidate-versus-promoted receipt replay passed in a 54-test
+selection before two independent Cost expected pins were updated. The corrected Cost plus initial
+generator selection passed 46; strengthened generator tests later passed 9. Console's existing
+assignment module now passes 8 tests, source TypeScript passes, and the unchanged lexical gate
+passes all 10 tests. Counts overlap and are not summed. Nine repaired Python files pass Ruff and
+formatting. The generator's formatting-only edit preserved its recorded AST fingerprint; later
+explicit source-snapshot and receipt-loader hardening has separate passing evidence.
+
+The new surface receipt is
+`sha256:3e44e952cbe8bbed633e91a1482ddd0380241895c1d51c5d494fecdb29a7d187`; its seven
+cohorts were actually re-evaluated against the current complete active corpus, with one case per
+cohort. This is bounded local lexical evidence, not statistical or live certification. All prior
+receipt files remain. The second generator check reports `measured=7 fixtures=16 changed=0`.
+The exact release is `sha256:b03904b29d8dd7d82882654f8723849ba425c44454c2ba60a45efe318aa24414`;
+the new source profile is `sha256:d568f90288439ad02257c1b4a223e0057421be0dbb06aa5b52dbf685391d83b7`.
+Only corresponding source/fixture commitments changed; W7 live evidence and activation did not.
+
+These ten distinct final questions follow the CI source corrections; they do not count reruns as
+new rounds or erase the earlier failed-head evidence:
+
+| Round | Integration question | Resolution and evidence |
+|-------|----------------------|-------------------------|
+| CR-01 | Can one renamed notice local alter typed owner publication? | Huginn keeps the same schema, attributes, correlation, and topic. Normal import-following mypy plus actual handover/knowledge owner tests pass. |
+| CR-02 | Can Core and isolated Executor diverge on role-map parsing? | The legacy facade now re-exports the exact SDK parser object; the previously failing identity test passes without a duplicate implementation. |
+| CR-03 | Can a target or exact document context broaden into subject-wide knowledge? | Six selector cases prove unchanged delegation, including all selectors together, and no handover call. No existing source means an explicit hold before content. |
+| CR-04 | Can a scoped-source failure recover through a broader fallback? | Every selector regression forces the existing reader to fail and proves the handover reader is never awaited. Direct handover calls reject scoped contexts before SQL. |
+| CR-05 | Are real invocation and migration contracts exercised rather than partial mocks? | The actual SQL query uses `FunctionInvocationContext`; the full Alembic roundtrip adopts ingestion/worker/Core/Operator and passes. The dependency guard was not changed. |
+| CR-06 | Can Alembic escaping change Executor-owned intent identity? | Concatenated colon literals produce the original `:intent`/`:result` keys in both real Alembic and direct SQL tests; actual inverse recovery still passes. |
+| CR-07 | Can a release-pin refresh reuse old surface metrics? | The existing seven held-out cases run through the real local index and canonical evaluator; exact promoted-candidate replay passes. Old receipt bodies are untouched. |
+| CR-08 | Can the generator write after a source race or replace immutable evidence? | Policy/catalog snapshots, original output bytes, canonical receipt loader, duplicate paths, existing/dangling symlinks, immutable collisions, and check-only behavior are covered by nine tests. |
+| CR-09 | Do Cost source references alter operational authority or negative outcomes? | Sixteen F1-F8 fixtures retain eight positive/eight negative outcomes and the foreign mixed-release control. Profile/package convergence passes without changing W7, mode, access, enablement, or promotion. |
+| CR-10 | Does the Console fix bypass semantic safety or weaken convergence evidence? | Effect-kind Set membership still requires IAM plus ownership; duplicate IAM does not substitute. Eight existing-route model tests, TypeScript, and the unchanged ten-test lexical gate pass without an exception. |
+
+No confirmed Medium/High defect from this failed-head diagnosis remains intentionally deferred as
+external work. Final repair publication, exact-head protected CI, merge, and cleanup remain under
+#946. Live provider, full UI/assistive, deployment, and promotion evidence remain outside this
+source-delivery authorization.

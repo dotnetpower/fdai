@@ -384,9 +384,9 @@ class Huginn(Agent):
         if payload["event_type"] == "human.assignment.execution.v1":
             from fdai_service_contracts.human_access_workflow import HumanAccessWorkNotice
 
-            notice = HumanAccessWorkNotice.model_validate(canonical_payload.get("notice"))
-            payload["attributes"] = {"human_access_notice": notice.model_dump(mode="json")}
-            payload["correlation_id"] = str(notice.request_id)
+            access_notice = HumanAccessWorkNotice.model_validate(canonical_payload.get("notice"))
+            payload["attributes"] = {"human_access_notice": access_notice.model_dump(mode="json")}
+            payload["correlation_id"] = str(access_notice.request_id)
             payload["incident_correlation"] = "none"
         change_projection = _change_projection(
             raw=raw,

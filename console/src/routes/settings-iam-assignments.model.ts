@@ -166,12 +166,12 @@ export function decodeAssignmentCase(value: unknown): AssignmentCase {
   const subject = record(intent["subject"], "assignment case.intent.subject");
   const state = assignmentState(root["state"]);
   const effects = array(root["effect_receipts"], "assignment case.effect_receipts");
-  const kinds = effects.map((effect) => record(effect, "assignment effect")["kind"]);
+  const kinds = new Set(effects.map((effect) => record(effect, "assignment effect")["kind"]));
   if (intent["revocation"] !== undefined && state === "active") throw new Error("Revocation cannot become active.");
-  if ((state === "active" || state === "revoked") && (!kinds.includes("iam") || !kinds.includes("ownership"))) {
+  if ((state === "active" || state === "revoked") && (!kinds.has("iam") || !kinds.has("ownership"))) {
     throw new Error("Converged assignment requires both effects.");
   }
-  if (state === "iam_revoked" && !kinds.includes("iam")) throw new Error("IAM removal requires effect evidence.");
+  if (state === "iam_revoked" && !kinds.has("iam")) throw new Error("IAM removal requires effect evidence.");
   return {
     caseId: string(root["case_id"], "assignment case.case_id"),
     state,

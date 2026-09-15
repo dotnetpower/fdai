@@ -96,9 +96,9 @@ def upgrade() -> None:
                 'isolated-executor:human-access:' || encode(sha256(convert_to(
                     '{"idempotency_key":' ||
                     to_json(material.value #>> '{inverse,original_idempotency_key}')::text ||
-                    '}', 'UTF8')), 'hex') || ':intent'
+                    '}', 'UTF8')), 'hex') || ':' || 'intent'
             LEFT JOIN public.state_kv inverse_result ON inverse_result.key =
-                replace(inverse_intent.key, ':intent', ':result')
+                replace(inverse_intent.key, ':' || 'intent', ':' || 'result')
             LEFT JOIN public.target_dispatch_fence fence ON fence.target_digest =
                 'sha256:' || encode(sha256(convert_to('{"target_resource_ref":' ||
                     to_json((material.value->>'action_json')::jsonb

@@ -6,6 +6,7 @@ from fdai_service_contracts.human_access import (
     HumanAccessPlan,
     HumanAccessProvisioner,
     HumanAccessReceipt,
+    parse_human_access_role_groups,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "HumanAccessPlan",
     "HumanAccessProvisioner",
     "HumanAccessReceipt",
+    "parse_human_access_role_groups",
 ]

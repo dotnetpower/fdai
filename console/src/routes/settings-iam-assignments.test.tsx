@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import type { AuthContext } from "../auth";
 import { canReviewAssignmentCase } from "./settings-iam-assignments";
 import { createAssignmentCase, submitAssignmentCase } from "./settings-iam-assignments.command";
-import { assignmentValidation, decodeAssignmentProjectionPage, filterAssignments, type AssignmentDraft } from "./settings-iam-assignments.model";
+import { assignmentValidation, decodeAssignmentCase, decodeAssignmentProjectionPage, filterAssignments, type AssignmentDraft } from "./settings-iam-assignments.model";
 
 const wireCase = { case_id: "case-1", state: "draft", revision: 1, intent: { idempotency_key: "assignment-1", subject: { provider: "entra", subject_id: "target-1" }, requested_role: "Reader", duty_bindings: [{ agent_name: "Odin", duty: "primary", scope_ref: "scope:platform" }], goal_refs: ["goal:odin:v1"], requester_ref: "owner-1", justification: "Assign bounded platform ownership." }, reviews: [], effect_receipts: [], degraded_reason: null, superseded_by: null };
 const wireProjection = { items: [{ subject: { provider: "entra", subject_id: "target-1", display_name: null, username: null, active: null }, roles: null, duties: [{ agent_name: "Odin", duty: "primary", responsibility: "accountable", source: "stewardship" }], coverage: [{ agent_name: "Odin", primary_count: 1, backup_or_escalation_count: 1, finding_codes: [] }], case: wireCase, handover: { goal_refs: ["goal:odin:v1"], state: null, evidence_refs: null, availability: "not_connected" } }], total: 1, next_cursor: null, authority: "observation_only", directory_availability: "available", case_projection_truncated: false };
@@ -14,6 +14,19 @@ const auth: AuthContext = { devMode: false, account: null, getAuthorizationHeade
 afterEach(() => vi.unstubAllGlobals());
 
 describe("IAM assignment contracts", () => {
+  test.each(["active", "revoked"])("%s requires both distinct effect kinds", (state) => {
+    const effect = (kind: string) => ({ kind, receipt_ref: `receipt:${kind}`, digest: "a".repeat(64), received_at: "2026-09-15T12:00:00Z" });
+    for (const effectReceipts of [[], [effect("iam")], [effect("ownership")], [effect("iam"), effect("iam")]]) {
+      expect(() => decodeAssignmentCase({ ...wireCase, state, effect_receipts: effectReceipts })).toThrow("both effects");
+    }
+    expect(decodeAssignmentCase({ ...wireCase, state, effect_receipts: [effect("ownership"), effect("iam")] }).state).toBe(state);
+  });
+
+  test("IAM removal needs membership evidence but cannot make revocation active", () => {
+    expect(() => decodeAssignmentCase({ ...wireCase, state: "iam_revoked" })).toThrow("effect evidence");
+    expect(() => decodeAssignmentCase({ ...wireCase, state: "active", intent: { ...wireCase.intent, revocation: {} } })).toThrow("cannot become active");
+  });
+
   test("decodes unavailable provider state without fabricating values", () => {
     const page = decodeAssignmentProjectionPage(wireProjection);
     expect(page.items[0]?.roles).toBeNull();

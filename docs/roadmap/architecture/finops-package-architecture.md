@@ -143,6 +143,15 @@ cutoff. Missing service mapping, stale topology, conflicting objectives, incompl
 an unverified link can only lower autonomy. The graph never becomes a coordination store, policy
 engine, approval record, or execution surface.
 
+For a reviewed ontology release change, use the [release-derived pin generator](../../../scripts/catalog/refresh-release-derived-pins.py)
+under the [check-by-default, review-gated write workflow](../rules-and-detection/rule-semantic-retrieval.md#source-only-release-refresh).
+Refresh the exact release and canonical profile digest, packaged profile-byte SHA-256, asset
+manifest reference, and W6 source inventory's `package_manifest_sha256` together with all 16 F1-F8
+fixture references. Re-evaluate the unchanged expected outcomes for eight positive and eight
+negative cases; retain the deliberately foreign release in the F6 mixed-release negative case.
+This source-only refresh does not qualify W7 live evidence or change enablement, data access,
+mode, or promotion. Earlier live receipts remain bound to their original release.
+
 ### Keep agents active and ownership fixed
 
 The package is useful only when its behavior enters the existing typed choreography. It can provide

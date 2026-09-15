@@ -12,11 +12,11 @@ approval, conversation, and document ingestion while keeping each authority inde
 > administrator workflow may request both outcomes, but RBAC and operational ownership are still
 > validated, approved, applied, and audited as separate axes.
 > **Current scope:** The bounded source requirements and 12 distinct final integrated critique rounds
-> after remaining source implementation are complete. The [final record](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) has no
-> unresolved confirmed Medium/High source finding. Local source and integration commits passed normal
-> hooks; publication preflight and exact-head protected CI/merge remain tracked by [#946](https://github.com/dotnetpower/fdai/issues/946). Full UI-rubric/assistive-technology
-> and live operational evidence remain separate. No deployment or promotion is enabled; readiness
-> stays `shadow` with `operationally_ready=false`.
+> after remaining implementation are complete at the [recorded checkpoint](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation), with no unresolved confirmed Medium/High source finding there.
+> The second local main merge succeeded and was published as `c8edd2769` in [PR #1014](https://github.com/dotnetpower/fdai/pull/1014).
+> [CI run 34921323157, attempt 1](https://github.com/dotnetpower/fdai/actions/runs/34921323157/attempts/1) failed on that head. Focused source repairs are implemented locally; delivery repair remains in progress under [#946](https://github.com/dotnetpower/fdai/issues/946).
+> The latest published head remains `c8edd2769`; protected CI/merge, full UI-rubric/assistive-technology, and live operational evidence remain open.
+> No deployment or promotion is enabled; readiness stays `shadow` with `operationally_ready=false`.
 
 ## Design at a glance
 
@@ -348,13 +348,13 @@ processing warnings never hide an uploaded document's failed handover link.
 Same-person, same-scope, same-current-ownership-revision evidence may be reused across current
 agents after source revalidation, but reviews are never copied and the target needs new acceptance.
 
-Operator's current source binding performs the required admission checks. Core now binds its
-goal service, `GoalEvidenceAdmission`, `GoalReviewerEligibility`, and standalone retrieval through
-its own document reader, `PostgresCoreHandoverReview`, and `PostgresCoreHandoverSearch`.
-The knowledge-owner source path uses current Core goal validation, and authenticated
-governed-document retrieval uses the bound search. Source admission precedes content access;
-missing or stale identity, reviewer, ACL, or source evidence holds without borrowing Operator
-authority.
+Operator's current source binding performs the required admission checks. Core binds its goal service,
+`GoalEvidenceAdmission`, `GoalReviewerEligibility`, and retrieval through `CoreHandoverDocumentReader`,
+`PostgresCoreHandoverReview`, and `PostgresCoreHandoverSearch`; the knowledge-owner path retains current Core goal validation.
+`CombinedGovernedHandoverReader` accepts `target`, `exact_refs`, `context_source`, `conversation_ref`, and `document_context_digest`; any explicit selector is forwarded unchanged only to the existing governed reader, never the broad Core handover search.
+For these scoped requests, an absent or failed existing source raises without widening or fallback. Direct `CoreHandoverDocumentReader` calls accept the same signature but hold scoped requests before I/O.
+Ordinary unconstrained merging is unchanged. Source admission precedes content; missing or stale identity,
+reviewer, ACL, or source evidence holds without borrowing Operator authority.
 Operator admission requires governed knowledge, an active index, live retention, exact uploader
 and digest, and actual boolean availability. Its restricted SQL reads require the Operator role;
 neither that reader nor the Core source reader receives document-table `SELECT`.
@@ -484,8 +484,8 @@ actions, or promote any capability.
 
 The [current-change scope](human-agent-assignment-implementation-plan.md#current-change-evidence-and-remaining-scope)
 and [12-round final integrated record](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) document completed bounded source implementation and source review.
-No unresolved confirmed Medium/High source finding remains; overlapping evidence counts are not summed.
-Translation SHA refresh, canonical generation, local hooks, publication, and exact-pushed-SHA CI are pending.
+That conclusion is limited to the recorded checkpoint; overlapping evidence counts are not summed.
+The second local merge is published as `c8edd2769`; CI 34921323157 attempt 1 failed. Focused local source repairs are implemented, while reviewed translation refresh, canonical generation, repair hooks/PR update, and passing exact-head protected CI/merge remain open under [#946](https://github.com/dotnetpower/fdai/issues/946).
 Full UI-rubric/assistive-technology evidence and live provider, identity, IAM, GitHub App, Teams,
 source policy, deployment, drills, and cohorts remain separate open requirements.
 

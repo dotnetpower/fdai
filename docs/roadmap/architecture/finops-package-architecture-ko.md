@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: b12f7a465332f9c134ec6e55e6f72cfcd02846e9
+translation_source_sha: beaee56483cf34fb731457a4b019b3bc3b1e6c50
 translation_revised: 2026-09-15
 ---
 
@@ -140,6 +140,15 @@ exact release, 프로필 버전, principal, 목적 및 기준 시점에 고정�
 스냅샷을 반환합니다. 서비스 매핑 누락, 오래된 토폴로지, 충돌하는 목표, 불완전한 근거 또는
 검증되지 않은 링크는 자율성만 낮출 수 있습니다. 그래프는 조정 저장소, 정책 엔진, 승인 기록
 또는 실행 표면이 되지 않습니다.
+
+검토된 온톨로지 release가 바뀌면 [release 참조 생성기](../../../scripts/catalog/refresh-release-derived-pins.py)를
+[기본 검사와 검토 자격에 따른 쓰기 절차](../rules-and-detection/rule-semantic-retrieval-ko.md#소스-전용-release-갱신)에 따라 사용합니다.
+정확한 release와 정본 프로필 다이제스트, 패키지에 포함된 프로필 바이트의 SHA-256, 자산
+매니페스트 참조, W6 소스 목록의 `package_manifest_sha256`을 F1-F8 고정본 16개의 참조와 함께
+갱신합니다. 양성 8개와 음성 8개의 예상 결과는 바꾸지 않고 다시 평가하며, F6의 release 혼합
+음성 사례에는 의도적으로 다른 release를 유지합니다. 이 소스 전용 갱신은 W7 실제 근거의
+적격성을 입증하지 않으며 활성화, 데이터 접근, 모드 또는 승격을 변경하지 않습니다.
+이전 실제 증적은 원래 release에 계속 연결됩니다.
 
 ### 에이전트를 활성 상태로 유지하고 소유권 고정
 

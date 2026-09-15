@@ -9,11 +9,16 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
+from fdai.core.ontology_platform.governed_document_queries import GovernedDocumentCollection
 from fdai.runtime.core_handover import CurrentCoreHandoverSource, build_core_handover_services
-from fdai.runtime.handover_document_reader import CoreHandoverDocumentReader
+from fdai.runtime.handover_document_reader import (
+    CombinedGovernedHandoverReader,
+    CoreHandoverDocumentReader,
+)
 from fdai.shared.contracts.models import CeilingRole
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai.shared.providers.workload_identity import IdentityToken
+from fdai_service_contracts.cloud_knowledge import Applicability
 
 ROOT = Path(__file__).resolve().parents[4]
 AT = datetime(2026, 9, 14, 12, tzinfo=UTC)
@@ -125,5 +130,77 @@ async def test_governed_read_context_is_checked_before_any_source_io(changes):
                 "limit": 8,
                 **changes,
             }
+        )
+    source._connect.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "selectors",
+    [
+        {
+            "target": Applicability(
+                resource_type="Microsoft.Compute/virtualMachines", service_generation="v1"
+            )
+        },
+        {"exact_refs": (f"doc:{PERSON}:{GROUP}",)},
+        {"context_source": "channel_attachment"},
+        {"conversation_ref": "conversation:example"},
+        {"document_context_digest": "sha256:" + "a" * 64},
+        {
+            "target": Applicability(
+                resource_type="Microsoft.Compute/virtualMachines", service_generation="v1"
+            ),
+            "exact_refs": (f"doc:{PERSON}:{GROUP}",),
+            "context_source": "web_reference",
+            "conversation_ref": "conversation:example",
+            "document_context_digest": "sha256:" + "b" * 64,
+        },
+    ],
+)
+async def test_scoped_document_context_never_adds_unrelated_handover_excerpts(selectors):
+    handover = SimpleNamespace(search=AsyncMock())
+    collection = GovernedDocumentCollection(
+        excerpts=(),
+        observed_at=AT,
+        complete=True,
+        limitation=None,
+        index_generation="document-index:example",
+        access_scope_digest="sha256:" + "c" * 64,
+        retrieval_mode="lexical",
+    )
+    existing = SimpleNamespace(search=AsyncMock(return_value=collection))
+    query = {
+        "query": "rollback",
+        "principal_ref": PERSON,
+        "principal_role": CeilingRole.READER,
+        "principal_groups": frozenset({GROUP}),
+        "purpose": "operations-review",
+        "limit": 3,
+    }
+    reader = CombinedGovernedHandoverReader(handover, existing)
+    assert await reader.search(**query, **selectors) is collection
+    existing.search.assert_awaited_once_with(
+        **query,
+        **{
+            "target": None,
+            "exact_refs": (),
+            "context_source": None,
+            "conversation_ref": None,
+            "document_context_digest": None,
+            **selectors,
+        },
+    )
+    handover.search.assert_not_awaited()
+    existing.search.side_effect = PermissionError("scoped document evidence unavailable")
+    with pytest.raises(PermissionError, match="scoped document evidence unavailable"):
+        await reader.search(**query, **selectors)
+    handover.search.assert_not_awaited()
+    with pytest.raises(PermissionError, match="scoped document reader is unavailable"):
+        await CombinedGovernedHandoverReader(handover, None).search(**query, **selectors)
+    handover.search.assert_not_awaited()
+    source = SimpleNamespace(_connect=AsyncMock())
+    with pytest.raises(PermissionError, match="requires its governed source reader"):
+        await CoreHandoverDocumentReader(SimpleNamespace(source=source)).search(
+            **query, **selectors
         )
     source._connect.assert_not_awaited()

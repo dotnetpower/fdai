@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: f44927c2dc2449cae3763520d7c176a8ee17db48
+translation_source_sha: ea455d52bee8ab9132394ed55b65232103f5c9ec
 translation_revised: 2026-09-15
 ---
 # 에이전트 판테온
@@ -54,7 +54,7 @@ Var 승인, Vidar 복구, Saga 인계, Norns 학습도 [에이전트 판테온 �
 - **지식:** Huginn -> Forseti -> Saga -> Muninn StateSnapshot -> Saga -> Norns -> Mimir -> Saga 담당 경로를 유지합니다. 현재 Core 목표/검토자/원본 허용/검색 연결은 독립 원본 확인과 소유자별 CAS에 사용됩니다. Norns는 합의/게시 게이트를 유지하면서 비공개 Rule/온톨로지 후보를 컴파일합니다. Mimir는 내용보다 원본을 먼저 확인하고 모델 없이 재컴파일하며 되돌릴 수 없는 사용 종료와 정확한 현재 `legal_hold: false` 조건의 내용 제거를 담당합니다. 알 수 없는 정책이나 장애에서는 삭제하지 않습니다. 명시적인 다이제스트 충돌은 Odin에게 전달하며 패키지, 검토, 스케줄러 출처 이름, 병합은 IAM, 카탈로그, 그래프, 실행 권한을 부여하지 않습니다.
 - **영속 권한과 재생:** 구현된 담당 계약은 실제 T0/T1/T2 권한, 정확한 T2 대상/규칙/인용 결속, 서로 다른 정본 교차 검사 모델 신원을 보존합니다. Var는 감사된 불변 principal 결정 CAS와 최종 발신함 복구를 유지합니다. Vidar는 다시 생성된 전달 메타데이터를 제외한 하나의 효과 관련 필드 허용 목록을 실행기 입력과 다이제스트에 함께 사용하고 소유자 토큰 임대, 개정 경계, 검증된 최종 증적을 유지합니다. 유효한 점유는 재시도 가능한 실패로 남고 검증된 임대 만료는 `execution_unknown`이 되며, 성공에는 Thor의 점유 해제 전에 범위가 제한된 비어 있지 않은 `rollback_ref`가 필요합니다.
   Saga는 변경 -> 감사 -> 필수 게시 -> 완료 단계를 유지합니다. Norns는 대기 작업 -> 영속 지문 횟수 -> 후보 게시 또는 결정론적 보류를 유지하며 대기 항목만 제한된 범위에서 복구하고 막힌 선두 항목을 처리한 뒤 다음 후보를 이어서 복구합니다. Enforce에는 명시적인 `thor_state_store`, `vidar_state_store`, `var_state_store`가 필요하며 담당 저장소 연결이 없으면 프로세스 로컬 권한으로 대체할 수 없습니다. Saga의 체크포인트 및 이슈 작업 신원에 관한 Low 심각도 한계 2개는 별도 구현 계획에서 미해결로 유지합니다.
-- **소스 완료와 전달 경계:** 인수인계 소스는 구현되었으며 실행 경로 강화 20회(EX-01부터 EX-20), [최종 통합 소스 검토 12회(FI-01부터 FI-12)](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation), [추가 병합 전용 검토 10회(MI-01부터 MI-10)](../../internals/handover-lifecycle-hardening-20260914.md#final-merge-specific-integrated-critique)가 기록되어 있습니다. 이들은 서로 다른 이전 체크포인트이며 두 번째 병합의 새 근거가 아닙니다. 미해결로 확인된 Medium/High 문제가 없다는 결론도 검토한 소스에만 적용됩니다. 소스는 [PR #1014](https://github.com/dotnetpower/fdai/pull/1014)에 게시되었지만 main `e7433259baac0373726ced890645d808d69a9b54`의 두 번째 로컬 병합은 [#946](https://github.com/dotnetpower/fdai/issues/946)에서 아직 미완료입니다. [구현 원장](../../roadmap-implementation/agents/agent-pantheon.md)은 번역 의미 검토/SHA 갱신, 정본 생성, 훅, 정확한 새 헤드의 CI/병합을 전체 UI/보조 기술/실제 운영 근거 및 승격과 구분하며 게시만으로 어느 결과도 충족하지 않습니다.
+- **소스 완료와 전달 경계:** 인수인계 소스는 구현되었으며 실행 경로 강화 20회(EX-01부터 EX-20), [최종 통합 소스 검토 12회(FI-01부터 FI-12)](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation), [추가 병합 전용 검토 10회(MI-01부터 MI-10)](../../internals/handover-lifecycle-hardening-20260914.md#final-merge-specific-integrated-critique)가 기록되어 있습니다. 이들은 서로 다른 이전 체크포인트이며 두 번째 병합의 새 근거가 아닙니다. 미해결로 확인된 Medium/High 문제가 없다는 결론도 검토한 소스에만 적용됩니다. 두 번째 로컬 main 병합은 성공했고 [PR #1014](https://github.com/dotnetpower/fdai/pull/1014)에 `c8edd2769`로 게시되었지만 [CI 실행 34921323157의 1차 시도](https://github.com/dotnetpower/fdai/actions/runs/34921323157/attempts/1)는 실패했습니다. Huginn의 로컬 수정은 타입이 지정된 알림 두 개의 변수 이름을 분리하여 mypy 오류를 해결하며 역할이나 토픽은 바꾸지 않습니다. 집중 소스 수정은 로컬에서 구현되었고 전달 복구는 [#946](https://github.com/dotnetpower/fdai/issues/946)에서 진행 중이며 최신 게시 헤드는 여전히 `c8edd2769`입니다. [구현 원장](../../roadmap-implementation/agents/agent-pantheon.md)은 검토 후 번역 갱신, 정본 생성, 수정본 훅/PR 갱신, 정확한 헤드의 보호된 CI/병합, UI/보조 기술/실제 운영/배포/승격 근거를 별도의 미완료 요건으로 유지합니다.
 
 ![3. 런타임 관계도. 주요 단계는 Huginn, Heimdall, Forseti, Mimir, Muninn, Njord, Freyr, Loki, Thor, Vidar, Var, Saga입니다.](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-02.ko.svg)
 

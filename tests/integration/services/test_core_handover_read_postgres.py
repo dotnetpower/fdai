@@ -29,6 +29,7 @@ from fdai.core.human_assignment.model import (
     ProviderSubject,
 )
 from fdai.core.human_assignment.service import AssignmentCaseService
+from fdai.core.ontology_platform.functions import FunctionInvocationContext
 from fdai.core.ontology_platform.governed_document_queries import (
     GOVERNED_DOCUMENT_FUNCTION_NAME,
     governed_document_function,
@@ -247,7 +248,8 @@ async def test_real_core_source_review_and_existing_governed_function_consume_re
     )
     result = await function(
         {"query": "rollback", "evidence_mode": "required", "limit": 8},
-        SimpleNamespace(
+        FunctionInvocationContext(
+            caller_agent="Bragi",
             purposes=("operations-review",),
             principal_ref="human:subject",
             caller_role=CeilingRole.READER,

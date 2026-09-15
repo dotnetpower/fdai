@@ -1,6 +1,6 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: 1e815b4a718cd49beb2afa60e1ddaa470bb877d1
+translation_source_sha: dfb46d73e3838325672e19533f7e8336910130d3
 translation_revised: 2026-09-15
 ---
 # 사용자-에이전트 할당 및 지식 이전
@@ -13,11 +13,11 @@ translation_revised: 2026-09-15
 > **안전 경계:** 사용자를 에이전트에 매핑해도 FDAI 역할은 부여되지 않습니다. 통합 관리자
 > 워크플로가 두 결과를 함께 요청할 수는 있지만, RBAC과 운영 담당 체계는 여전히 별도 축으로
 > 검증, 승인, 적용, 감사됩니다.
-> **현재 범위:** 한정된 소스 요건과 잔여 소스 구현 이후 서로 다른 최종 통합 비판 검토 12회를
-> 완료했습니다. [최종 기록](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)에 미해결로 확인된 Medium/High 소스 문제는 없습니다.
-> 로컬 소스 및 통합 커밋은 정상 훅을 통과했습니다. 게시 사전 검사와 정확한 게시 SHA의 보호된 CI/병합은 [#946](https://github.com/dotnetpower/fdai/issues/946)에서 추적합니다. 전체 UI 평가표/
-> 보조 기술 및 실제 운영 근거도 별도 요건입니다. 배포나 승격을 활성화하지 않으며
-> 준비도는 `shadow`와 `operationally_ready=false`를 유지합니다.
+> **현재 범위:** 한정된 소스 요건과 잔여 소스 구현 이후 서로 다른 최종 통합 비판 검토 12회는 [최종 기록](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)의 체크포인트에서 완료했으며 당시 미해결로 확인된 Medium/High 소스 문제는 없었습니다.
+> 두 번째 로컬 main 병합은 성공했고 [PR #1014](https://github.com/dotnetpower/fdai/pull/1014)에 `c8edd2769`로 게시되었습니다.
+> 해당 헤드의 [CI 실행 34921323157의 1차 시도](https://github.com/dotnetpower/fdai/actions/runs/34921323157/attempts/1)는 실패했습니다. 집중 소스 수정은 로컬에서 구현되었고 전달 복구는 [#946](https://github.com/dotnetpower/fdai/issues/946)에서 진행 중입니다.
+> 최신 게시 헤드는 여전히 `c8edd2769`이며 보호된 CI/병합, 전체 UI 평가표/보조 기술, 실제 운영 근거는 미완료 요건입니다.
+> 배포나 승격을 활성화하지 않으며 준비도는 `shadow`와 `operationally_ready=false`를 유지합니다.
 
 ## 설계 개요
 
@@ -347,12 +347,12 @@ API는 비활성 상태인 정확한 사람을 제거 대상으로만 허용합�
 같은 사람, 범위, 현재 담당 체계 리비전의 근거는 원본 재검증 후 현재 에이전트 사이에서
 재사용할 수 있지만 검토는 복사하지 않으며 대상 목표에는 새 수락이 필요합니다.
 
-Operator의 현재 원본 연결은 필요한 허용 검사를 수행합니다. Core도 이제 자체 문서 읽기
-모듈, `PostgresCoreHandoverReview`, `PostgresCoreHandoverSearch`를 통해 목표 서비스,
-`GoalEvidenceAdmission`, `GoalReviewerEligibility`, 독립 검색을 연결합니다.
-지식 담당 에이전트의 원본 경로는 현재 Core 목표 검증을 사용하며 인증된 통제 문서 검색은
-연결된 검색 모듈을 사용합니다. 내용에 접근하기 전에 원본 허용 여부를 확인합니다.
-신원, 검토자, ACL 또는 원본 근거가 없거나 오래되면 Operator 권한을 빌리지 않고 보류합니다.
+Operator의 현재 원본 연결은 필요한 허용 검사를 수행합니다. Core는 목표 서비스,
+`GoalEvidenceAdmission`, `GoalReviewerEligibility`, 검색을 `CoreHandoverDocumentReader`, `PostgresCoreHandoverReview`, `PostgresCoreHandoverSearch`에 연결하며 지식 담당 경로는 현재 Core 목표 검증을 유지합니다.
+`CombinedGovernedHandoverReader`는 `target`, `exact_refs`, `context_source`, `conversation_ref`, `document_context_digest`를 받습니다.
+선택자를 하나라도 명시하면 기존 통제 문서 읽기 모듈에만 그대로 전달하며 광범위한 Core 인수인계 검색은 호출하지 않습니다.
+이러한 범위 지정 요청에서 기존 원본이 없거나 실패하면 범위 확장이나 대체 경로 없이 예외를 발생시킵니다. `CoreHandoverDocumentReader`를 직접 호출해도 같은 인자를 받지만 범위 지정 요청은 I/O 전에 보류합니다.
+조건 없는 일반 병합은 바뀌지 않습니다. 내용 접근 전에 원본 허용 여부를 확인하며 신원, 검토자, ACL 또는 원본 근거가 없거나 오래되면 Operator 권한을 빌리지 않고 보류합니다.
 Operator는 통제된 지식, 활성 인덱스, 유효한 보존 상태, 정확한 업로더와 다이제스트,
 실제 불리언 가용성을 요구합니다. 제한된 SQL 읽기에는 Operator 역할이 필요합니다.
 이 읽기 모듈과 Core 원본 읽기 모듈 어느 쪽에도 문서 테이블 `SELECT` 권한을 부여하지 않습니다.
@@ -479,8 +479,8 @@ S5는 이 재조정에서 표본별 개수, 전체 개수, 잘못된 기록 수,
 
 [현재 변경 범위](human-agent-assignment-implementation-plan-ko.md#현재-변경의-근거와-남은-범위)는
 [최종 통합 검토 12회 기록](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)과 함께 한정된 소스 구현과 검토 완료를 문서화합니다.
-미해결로 확인된 Medium/High 소스 문제는 없으며 겹치는 근거 수는 합산하지 않습니다.
-번역 SHA 갱신, 정본 생성, 로컬 훅, 게시, 정확한 게시 SHA의 CI는 미완료입니다.
+이 결론은 기록된 체크포인트에만 적용되며 겹치는 근거 수는 합산하지 않습니다.
+두 번째 로컬 병합은 `c8edd2769`로 게시되었지만 CI 34921323157의 1차 시도는 실패했습니다. 집중 소스 수정은 로컬에서 구현되었으며 검토 후 번역 갱신, 정본 생성, 수정본 훅/PR 갱신, 정확한 헤드의 보호된 CI 통과/병합은 [#946](https://github.com/dotnetpower/fdai/issues/946)의 미완료 요건입니다.
 전체 UI 평가표/보조 기술 근거와 실제 공급자, 신원, IAM, GitHub App, Teams, 원본 정책,
 배포, 훈련, 코호트 근거는 별도의 열린 요건입니다.
 
