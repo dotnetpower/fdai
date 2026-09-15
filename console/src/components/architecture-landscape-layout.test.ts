@@ -77,6 +77,8 @@ describe("geometry-less Architecture inventory", () => {
 
     expect(visibleGroups).toHaveLength(ARCHITECTURE_LANDSCAPE_GROUP_LIMIT);
     expect(visibleGroups[0]?.collapsed_count).toBeGreaterThan(0);
+    expect(visibleGroups.every((resource) =>
+      resource.presentation_role === "summary")).toBe(true);
     expect(visibleGroups.some((resource) => resource.id === "group-23")).toBe(true);
     expect(visibleGroups.some((resource) => resource.id === "group-0")).toBe(false);
   });
@@ -171,6 +173,10 @@ describe("geometry-less Architecture inventory", () => {
     expect(overview.resources.length).toBeLessThanOrEqual(
       ARCHITECTURE_LANDSCAPE_GROUP_LIMIT + 1,
     );
+    expect(overview.resources.filter((resource) =>
+      resource.presentation_role === "summary")).toHaveLength(
+        ARCHITECTURE_LANDSCAPE_GROUP_LIMIT,
+      );
     expect(new Set(overviewPositions).size).toBe(overview.resources.length);
     expect(architectureTopologyUnplacedIds(overview.resources)).toEqual([]);
     expect(focused.resources.length).toBeLessThanOrEqual(ARCHITECTURE_SCOPE_DETAIL_LIMIT + 8);

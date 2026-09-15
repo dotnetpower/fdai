@@ -15,3 +15,10 @@ export function isArchitectureBoundaryResource(
 ): boolean {
   return ARCHITECTURE_BOUNDARY_TYPES.has(resource.type);
 }
+
+/** Distinguishes a rendered boundary from a Landscape summary of that boundary. */
+export function isArchitectureRenderedBoundary(
+  resource: Pick<InventoryResource, "presentation_role" | "type">,
+): boolean {
+  return resource.presentation_role !== "summary" && isArchitectureBoundaryResource(resource);
+}

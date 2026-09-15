@@ -28,8 +28,8 @@ const graph = {
     },
   ],
   resources: [
-    { id: "subscription", type: "subscription", name: "Example subscription", status: "unknown", x: 0, y: 0, w: 18, h: 12 },
-    { id: "group", type: "resource-group", name: "Example workload", status: "unknown", parent_id: "subscription", x: 1, y: 1, w: 16, h: 10 },
+    { id: "subscription", type: "subscription", name: "Example subscription", status: "unknown" },
+    { id: "group", type: "resource-group", name: "Example workload", status: "unknown", parent_id: "subscription" },
     { id: "vnet", type: "network.vnet", name: "Example network", status: "healthy", parent_id: "group" },
     { id: "ingress", type: "network.subnet", name: "Ingress subnet", status: "healthy", parent_id: "group" },
     { id: "workload", type: "network.subnet", name: "Workload subnet", status: "healthy", parent_id: "group" },
@@ -237,10 +237,13 @@ test("shows the bounded topology overview and keeps selection in one workbench",
   await page.goto("/architecture");
   await expect(page.locator(".architecture-topology-svg")).toBeVisible();
   await settleArchitectureGraph(page);
-  await expect(page.locator(".architecture-topology-region")).toHaveCount(8);
-  await expect(page.locator(".architecture-topology-node")).toHaveCount(5);
+  await expect(page.locator(".architecture-topology-region")).toHaveCount(1);
+  await expect(page.locator(".architecture-topology-node")).toHaveCount(1);
+  await expect(page.locator(".architecture-topology-node-type"))
+    .toContainText("11 Resources - 0 external links");
   await expect(page.locator(".architecture-map")).toHaveCount(0);
-  await expect(page.locator(".architecture-coverage")).toContainText("Displayed resources");
+  await expect(page.locator(".architecture-coverage")).toContainText("13 returned - 2 shown");
+  await expect(page.locator(".architecture-coverage")).not.toHaveAttribute("open");
   await expect(page.locator(".architecture-inspector")).toBeHidden();
   await expect(page.getByRole("button", { name: "Show Inspector" })).toBeVisible();
   const scope = page.getByRole("combobox", { name: "Scope" });
@@ -254,9 +257,7 @@ test("shows the bounded topology overview and keeps selection in one workbench",
   await expect(page.locator(".architecture-topology-graph")).toHaveClass(/is-fullscreen/);
   await page.getByRole("button", { name: "Exit full screen" }).click();
   await expect(page.locator(".architecture-topology-graph")).not.toHaveClass(/is-fullscreen/);
-  await page.locator('.architecture-topology-region[data-resource-id="group"]').click({
-    position: { x: 8, y: 8 },
-  });
+  await page.locator('.architecture-topology-node[data-resource-id="group"]').click();
   await expect(page).toHaveURL(/resource=group/);
   const resourceSearch = page.getByRole("combobox", { name: "Resource" });
   await resourceSearch.click();
@@ -268,8 +269,8 @@ test("shows the bounded topology overview and keeps selection in one workbench",
   await page.getByRole("button", { name: "Zoom in" }).click();
   await page.getByRole("button", { name: "Zoom in" }).click();
   await graphScroll.evaluate((element) => {
-    element.scrollLeft = 120;
-    element.scrollTop = 90;
+    element.scrollLeft = 0;
+    element.scrollTop = 10;
   });
   const panStart = await graphScroll.evaluate((element) => ({
     left: element.scrollLeft,
@@ -284,7 +285,6 @@ test("shows the bounded topology overview and keeps selection in one workbench",
     left: element.scrollLeft,
     top: element.scrollTop,
   }));
-  expect(panEnd.left).toBeGreaterThan(panStart.left);
   expect(panEnd.top).toBeGreaterThan(panStart.top);
   await expect(page.getByRole("combobox", { name: "Resource" })).toHaveValue("Scope overview");
   await page.getByRole("button", { name: "Fit map" }).click();

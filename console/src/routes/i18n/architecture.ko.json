@@ -136,7 +136,8 @@
     "returnedRelationships": "반환된 관계",
     "note": "스냅샷 {time}. 표현 개수는 인벤토리 근거를 변경하지 않습니다.",
     "resourceCount": "Resource {count}개",
-    "externalLinkCount": "보고된 외부 관계 {count}개"
+    "externalLinkCount": "보고된 외부 관계 {count}개",
+    "groupSummary": "Resource {resources}개 - 외부 관계 {links}개"
   },
   "inspector": {
     "title": "상세 패널",

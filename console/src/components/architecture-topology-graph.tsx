@@ -407,7 +407,12 @@ export function ArchitectureTopologyGraph({
                     x={-nodeWidth / 2 + .18}
                     y={nodeHeight / 2 - .18}
                   >
-                    {resourceTypeLabelOf(resource)}
+                    {resource.presentation_role === "summary"
+                      ? t("coverage.groupSummary", {
+                          resources: resource.collapsed_count ?? 0,
+                          links: resource.external_link_count ?? 0,
+                        })
+                      : resourceTypeLabelOf(resource)}
                   </text>
                   {(resource.collapsed_count ?? 0) > 0 ? (
                     <g

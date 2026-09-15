@@ -1,5 +1,8 @@
 import type { InventoryGraphResponse, InventoryResource } from "./architecture-map.model";
-import { isArchitectureBoundaryResource } from "./architecture-boundaries";
+import {
+  isArchitectureBoundaryResource,
+  isArchitectureRenderedBoundary,
+} from "./architecture-boundaries";
 import {
   architectureLayoutTargetWidth,
   packArchitectureRectangles,
@@ -62,7 +65,11 @@ export function architectureLandscapeOverviewGraph(
         if (count === undefined) return resource;
         const counted = { ...resource, collapsed_count: count };
         return resource.type === "resource-group"
-          ? { ...counted, external_link_count: externalLinks.get(resource.id) ?? 0 }
+          ? {
+              ...counted,
+              external_link_count: externalLinks.get(resource.id) ?? 0,
+              presentation_role: "summary" as const,
+            }
           : counted;
       }),
     links: graph.links.filter((link) =>
@@ -192,7 +199,7 @@ function buildLayoutPlan(
   childrenById: ReadonlyMap<string, readonly InventoryResource[]>,
   trail: ReadonlySet<string>,
 ): LayoutPlan {
-  const boundary = isArchitectureBoundaryResource(resource);
+  const boundary = isArchitectureRenderedBoundary(resource);
   if (!boundary || trail.has(resource.id)) {
     return {
       resource,
@@ -254,7 +261,7 @@ function applyLayoutPlan(
 
 function resourceHasCompleteGeometry(resource: InventoryResource): boolean {
   if (!Number.isFinite(resource.x) || !Number.isFinite(resource.y)) return false;
-  return !isArchitectureBoundaryResource(resource)
+  return !isArchitectureRenderedBoundary(resource)
     || (Number.isFinite(resource.w) && Number.isFinite(resource.h));
 }
 

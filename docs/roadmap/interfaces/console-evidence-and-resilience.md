@@ -627,6 +627,9 @@ substitutes coordinate zero for a missing placement.
 The default Landscape shows at most 16 returned Resource Group boundaries, ranked by returned
 descendant count with stable name and identity tie-breakers. Displayed counts and search continue
 to expose that this is a bounded presentation over the complete returned page.
+Subscription remains a neutral outer boundary while each Resource Group becomes a compact summary
+card with returned descendant and cross-scope relationship counts. An empty nested panel is not
+used as a summary.
 Resource focus retains its reported ancestor boundaries and direct relationships, then fills the
 smallest containing scope with at most 36 type-diverse returned records. Selection never expands
 the workbench back to the full raw page.

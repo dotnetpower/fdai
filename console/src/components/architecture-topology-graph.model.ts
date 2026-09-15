@@ -11,7 +11,7 @@ import {
   type InventoryResource,
 } from "./architecture-map.model";
 import { architectureTopologyNodeDimensions } from "./architecture-topology-dimensions";
-import { isArchitectureBoundaryResource } from "./architecture-boundaries";
+import { isArchitectureRenderedBoundary } from "./architecture-boundaries";
 
 export {
   ARCHITECTURE_TOPOLOGY_NODE_HEIGHT,
@@ -47,7 +47,7 @@ export function architectureTopologyUnplacedIds(
   return resources
     .filter((resource) => {
       if (!Number.isFinite(resource.x) || !Number.isFinite(resource.y)) return true;
-      return isArchitectureBoundaryResource(resource)
+      return isArchitectureRenderedBoundary(resource)
         && (!Number.isFinite(resource.w) || !Number.isFinite(resource.h));
     })
     .map((resource) => resource.id);
