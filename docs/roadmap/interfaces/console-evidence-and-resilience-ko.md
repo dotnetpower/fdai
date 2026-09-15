@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 158a24092e562f5808f3edc4e21668f8d7608425
+translation_source_sha: c32ff97cfc7177392b4f3dbe453444a93b0f959e
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -442,6 +442,14 @@ notification-delivery 에스컬레이션이 있으면 이를 우선 표시하고
 또는 cause로 표시하지 않습니다. Trace 경로는 raw ordered 표보다 먼저 notification 에스컬레이션,
 response-decision 근거, RCA 근거 및 named 파이프라인 단계를 분리한 interpretation 요약을
 표시합니다. 범용 correlated 활동은 cause 점유가 아니라 technical 이력으로 유지합니다.
+
+인용 근거가 있는 가설이 존재하면 RCA 경로는 상관관계 편집기를 접고 주요 가설과 라벨이 있는
+신뢰도, 인과 체인, 인용 대상 링크, 연결된 대응 계획 사실 순서로 검토 화면을 표시합니다.
+신뢰도는 정량 근거일 뿐 권한이 아닙니다. 제한된 너비에서는 인과 재구성에 범위가 제한된 가로
+스크롤을 사용합니다. 모바일에서는 하나의 세로 순서로 바뀌며 관련 화면 링크는 44 px 터치
+대상을 유지합니다. 근거 있음, 판단 보류, 불러오는 중, 빈 결과, 실패 상태는 서로 구분합니다.
+판단 보류 결과는 합성한 원인을 제시하지 않고, 신뢰도를 확인할 수 없으며 인용과 연결된 대응이
+없음을 명시합니다.
 
 Operational 근거는 `matched`, `summary`, `ambiguous`, `none`, `unavailable` 중 하나입니다.
 Collection 요약 요청에서 `summary`는 인시던트 하나를 선택하도록 요구하지 않고 범위가 제한된 matching

@@ -443,6 +443,15 @@ separates notification escalation, response-decision evidence, RCA evidence, and
 stages before showing the raw ordered table; generic correlated activity remains technical history,
 not a cause claim.
 
+Once a citation-grounded hypothesis exists, the RCA route collapses the correlation editor and
+presents one review sequence: primary hypothesis and labeled confidence, causal chain, citation
+destinations, and linked response-plan facts. Confidence is quantitative evidence, never authority.
+At constrained widths the causal reconstruction uses bounded horizontal scrolling; at mobile
+widths it becomes one vertical sequence and related-view links remain 44 px touch targets.
+Grounded, abstained, loading, empty, and failed states remain distinct. An abstained result shows
+unavailable confidence, missing citations, and no linked response instead of presenting a
+synthetic cause.
+
 Operational evidence remains one of `matched`, `summary`, `ambiguous`, `none`, or `unavailable`.
 For a collection summary request, `summary` renders the bounded matching set immediately without
 requiring a single incident selection. Model prose cannot change the selected incident, search

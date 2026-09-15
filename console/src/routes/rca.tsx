@@ -1,42 +1,30 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
-import { architectureHref } from "../components/architecture-map.model";
-import type { RcaHypothesis, RcaView } from "../types";
 import {
   AsyncBoundary,
-  DataTable,
-  KpiCard,
-  KpiGrid,
-  StatusPill,
   PageHeader,
-  kpiEvidenceLabel,
   type AsyncState,
-  type Column,
-  type PillKind,
 } from "../components/ui";
-import { usePublishViewContext } from "../deck/context";
-import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { navigate, routeHref } from "../router";
-import "./incident-clarity.css";
+import type { RcaView } from "../types";
+import { rcaText } from "./rca.i18n";
+import { RcaBody } from "./rca.presentation";
+import "./rca.css";
+
+export { hasRecordedRca } from "./rca.presentation";
 
 /**
- * RCA (root-cause analysis) view. Given an incident correlation id, calls
- * ``GET /rca?correlation=...`` and renders the tiered, grounded
- * root-cause hypotheses (T0 / T1 / T2), their citations, and the linked
- * response plan. Read-only projection over the audit log; an RCA
- * hypothesis answers "why", never "execute" - execution eligibility stays
- * with the risk gate + verifier. An ungrounded hypothesis is shown
- * explicitly as "insufficient grounding -> HIL", never a confident cause.
+ * Read-only RCA route for one incident correlation. The route owns loading
+ * and deep-link state; the result module owns evidence presentation.
  */
 
 interface Props {
   readonly client: OperatorApiClient;
 }
 
-/** Read a ``?correlation=`` deep-link value from the hash query string.
- * The Incidents roster links here (``#/rca?correlation=...``). */
-function correlationFromHash(): string {
+/** Read the ``?correlation=`` value used by incident and evidence deep links. */
+function correlationFromLocation(): string {
   const params = new URLSearchParams(window.location.search);
   return params.get("correlation")?.trim() ?? "";
 }
@@ -46,9 +34,11 @@ export function rcaCorrelationHref(correlationId: string): string {
 }
 
 export function RcaRoute({ client }: Props) {
-  const [correlationId, setCorrelationId] = useState(() => correlationFromHash());
+  const [correlationId, setCorrelationId] = useState(() => correlationFromLocation());
+  const [lookupOpen, setLookupOpen] = useState(() => !correlationFromLocation());
   const [state, setState] = useState<AsyncState<RcaView>>({ status: "idle" });
   const requestGeneration = useRef(0);
+  const lookupInput = useRef<HTMLInputElement>(null);
 
   async function fetchRca(id: string = correlationId): Promise<void> {
     if (!id) return;
@@ -68,18 +58,18 @@ export function RcaRoute({ client }: Props) {
     }
   }
 
-  // Auto-fetch when arriving via a deep link (or when the deep-link
-  // correlation changes while this panel stays mounted).
   useEffect(() => {
     const sync = () => {
-      const deepLinked = correlationFromHash();
+      const deepLinked = correlationFromLocation();
       if (!deepLinked) {
         requestGeneration.current += 1;
         setCorrelationId("");
+        setLookupOpen(true);
         setState({ status: "idle" });
         return;
       }
       setCorrelationId(deepLinked);
+      setLookupOpen(false);
       void fetchRca(deepLinked);
     };
     sync();
@@ -93,44 +83,85 @@ export function RcaRoute({ client }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const loadedCorrelation = state.status === "ready"
+    ? state.data.correlation_id
+    : correlationId;
+  const hasCorrelation = Boolean(loadedCorrelation.trim());
+
+  function toggleLookup(): void {
+    if (lookupOpen) {
+      const retainedCorrelation = state.status === "ready"
+        ? state.data.correlation_id
+        : correlationFromLocation();
+      setCorrelationId(retainedCorrelation);
+      setLookupOpen(false);
+      return;
+    }
+    setLookupOpen(true);
+    window.requestAnimationFrame(() => lookupInput.current?.focus());
+  }
+
   return (
-    <div class="stack">
+    <div class="stack rca-page">
       <PageHeader title={t("route.rca")} subtitle={t("rca.subtitle")} />
-      <section class="stack-section">
-        <h3 class="section-title">{t("rca.lookup")}</h3>
+      <aside class="rca-authority-note" role="note">
+        <strong>{rcaText("readOnlyTitle")}</strong>
+        <span>{rcaText("readOnlyBody")}</span>
+      </aside>
+      <section class="rca-query-panel" aria-label={t("rca.lookup")}>
+        {hasCorrelation ? (
+          <div class="rca-lookup-summary">
+            <div>
+              <strong class="mono">{loadedCorrelation}</strong>
+              <small>{lookupStatusLabel(state)}</small>
+            </div>
+            <button
+              type="button"
+              class="btn"
+              aria-controls="rca-lookup-form"
+              aria-expanded={lookupOpen}
+              onClick={toggleLookup}
+            >
+              {lookupOpen ? rcaText("cancelChange") : rcaText("changeCorrelation")}
+            </button>
+          </div>
+        ) : null}
         <form
-          class="form-grid inline"
-          onSubmit={(e) => {
-            e.preventDefault();
-            navigate(rcaCorrelationHref(correlationId));
+          id="rca-lookup-form"
+          class="rca-lookup-form"
+          hidden={hasCorrelation && !lookupOpen}
+          onSubmit={(event) => {
+            event.preventDefault();
+            const normalized = correlationId.trim();
+            if (normalized) navigate(rcaCorrelationHref(normalized));
           }}
         >
-          <label>
-            {t("rca.correlationLabel")}
+          <label class="rca-lookup-field">
+            <span>{t("rca.correlationLabel")}</span>
             <input
+              ref={lookupInput}
               type="text"
               value={correlationId}
-              onInput={(e) => {
-                requestGeneration.current += 1;
-                setCorrelationId((e.target as HTMLInputElement).value);
-                setState({ status: "idle" });
-              }}
+              aria-describedby="rca-lookup-help"
+              onInput={(event) => setCorrelationId((event.target as HTMLInputElement).value)}
               required
             />
           </label>
           <button
             type="submit"
             class="btn primary"
-            disabled={state.status === "loading" || !correlationId}
+            disabled={state.status === "loading" || !correlationId.trim()}
           >
             {t("rca.fetch")}
           </button>
+          <small id="rca-lookup-help">{rcaText("lookupHelp")}</small>
         </form>
       </section>
       <AsyncBoundary
         state={state}
         resourceLabel={t("route.rca")}
-        idle={<p class="muted footnote">{t("rca.idle")}</p>}
+        loading={<RcaLoadingState />}
+        idle={<p class="rca-idle-state">{t("rca.idle")}</p>}
       >
         {(data) => <RcaBody data={data} />}
       </AsyncBoundary>
@@ -138,272 +169,26 @@ export function RcaRoute({ client }: Props) {
   );
 }
 
-function RcaBody({ data }: { readonly data: RcaView }) {
-  const recorded = hasRecordedRca(data);
-  usePublishViewContext(
-    () => ({
-      routeId: "rca",
-      routeLabel: t("route.rca"),
-      purpose: t("rca.viewPurpose"),
-      glossary: composeGlossary([
-        TERMS.correlationId,
-        TERMS.tier,
-        TERMS.gateDecision,
-        TERMS.mode,
-        TERMS.outcome,
-      ]),
-      headline: t("rca.viewHeadline", {
-        count: data.hypotheses.length,
-        correlation: data.correlation_id,
-      }),
-      capturedAt: new Date().toISOString(),
-      facts: [
-        { key: "correlation_id", value: data.correlation_id, group: "rca" },
-        { key: "hypothesis_count", value: data.hypotheses.length, group: "rca" },
-        { key: "verdict", value: data.response?.verdict ?? null, group: "rca" },
-      ],
-      records: {
-        hypotheses: data.hypotheses.map((h) => ({ ...h })),
-        response: data.response ? [{ ...data.response }] : [],
-      },
-    }),
-    [data],
-  );
+function lookupStatusLabel(state: AsyncState<RcaView>): string {
+  if (state.status === "loading") return rcaText("lookupStatusLoading");
+  if (state.status === "ready") return rcaText("lookupStatusReady");
+  if (state.status === "error") return rcaText("lookupStatusError");
+  return rcaText("lookupStatusSelected");
+}
 
+function RcaLoadingState() {
   return (
-    <div class="stack">
-      <p>
-        <a href={routeHref("incidents", { params: { status: "all", correlation: data.correlation_id } })}>
-          {t("rca.incident")}
-        </a>
-        {" | "}
-        <a href={routeHref("audit", { params: { correlation: data.correlation_id } })}>
-          {t("rca.auditRecords")}
-        </a>
-        {" | "}
-        <a href={routeHref("trace", { params: { correlation: data.correlation_id } })}>
-          {t("rca.technicalActivity")}
-        </a>
-        {recorded ? (
-          <>
-            {" | "}
-            <a href={routeHref("reports", {
-              segments: ["incident-rca-dossier"],
-              params: { correlation_id: data.correlation_id },
-            })}>
-              {t("rca.report")}
-            </a>
-          </>
-        ) : null}
-      </p>
-      {recorded ? (
-        <>
-          <ResponsePlan data={data} />
-          <section class="stack-section">
-            <h3 class="section-title">{t("rca.hypotheses")}</h3>
-          <div class="stack">
-            {data.hypotheses.map((hypothesis) => (
-              <HypothesisCard key={hypothesis.seq} hypothesis={hypothesis} correlationId={data.correlation_id} />
-            ))}
-          </div>
-          </section>
-        </>
-      ) : (
-        <section class="rca-unavailable-state" aria-labelledby="rca-unavailable-title">
-          <h3 id="rca-unavailable-title">{t("rca.notRecordedTitle")}</h3>
-          <p>{t("rca.notRecordedBody")}</p>
-        </section>
-      )}
+    <div class="rca-skeleton" role="status" aria-live="polite" aria-busy="true">
+      <span class="sr-only">{t("shared.loadingResource", { resource: t("route.rca") })}</span>
+      <div class="rca-skeleton-hero" aria-hidden="true">
+        <span class="skeleton-shimmer" />
+        <span class="skeleton-shimmer" />
+        <span class="skeleton-shimmer" />
+      </div>
+      <div class="rca-skeleton-panels" aria-hidden="true">
+        <span class="skeleton-shimmer" />
+        <span class="skeleton-shimmer" />
+      </div>
     </div>
   );
-}
-
-export function hasRecordedRca(data: RcaView): boolean {
-  return data.hypotheses.length > 0;
-}
-
-function ResponsePlan({ data }: { readonly data: RcaView }) {
-  const response = data.response;
-  const auditHref = routeHref("audit", { params: { correlation: data.correlation_id } });
-  const traceHref = routeHref("trace", { params: { correlation: data.correlation_id } });
-  return (
-    <section class="stack-section">
-      <h3 class="section-title">{t("rca.response")}</h3>
-      {response === null ? (
-        <p class="muted">{t("rca.noResponse")}</p>
-      ) : (
-        <KpiGrid>
-          <KpiCard
-            href={traceHref}
-            label={t("rca.verdict")}
-            value={<StatusPill kind={verdictPill(response.verdict)} label={response.verdict} />}
-          />
-          <KpiCard evidenceState={response.decision === null ? "not-applicable" : "measured"} href={traceHref} label={t("rca.decision")} value={response.decision ?? kpiEvidenceLabel("not-applicable")} />
-          <KpiCard
-            evidenceState={response.action_kind === null ? "not-applicable" : "measured"}
-            href={auditHref}
-            label={t("rca.action")}
-            value={<span class="mono small">{response.action_kind ?? kpiEvidenceLabel("not-applicable")}</span>}
-          />
-          <KpiCard
-            evidenceState={response.mode === null ? "not-applicable" : "measured"}
-            href={response.mode === null
-              ? auditHref
-              : routeHref("audit", { params: { correlation: data.correlation_id, mode: response.mode } })}
-            label={t("rca.modeColumn")}
-            value={
-              response.mode === null ? (
-                kpiEvidenceLabel("not-applicable")
-              ) : (
-                <StatusPill kind={response.mode} label={response.mode} />
-              )
-            }
-          />
-          <KpiCard
-            evidenceState={response.rollback_reference === null ? "not-applicable" : "measured"}
-            href={auditHref}
-            label={t("rca.rollback")}
-            value={<span class="mono small">{response.rollback_reference ?? kpiEvidenceLabel("not-applicable")}</span>}
-          />
-        </KpiGrid>
-      )}
-    </section>
-  );
-}
-
-function HypothesisCard({ hypothesis, correlationId }: { readonly hypothesis: RcaHypothesis; readonly correlationId: string }) {
-  const auditEntryHref = routeHref("audit", {
-    params: { correlation: correlationId, entry: hypothesis.seq },
-  });
-  return (
-    <section class="stack-section">
-      <div class="cluster">
-        <StatusPill kind="info" label={t(`rca.tierName.${hypothesis.tier}`)} />
-        <StatusPill
-          kind={hypothesis.grounded ? "success" : "hil"}
-          label={hypothesis.grounded ? t("rca.grounded") : t("rca.abstained")}
-        />
-        <StatusPill kind="neutral" label={t(`rca.causeDomain.${hypothesis.cause_domain}`)} />
-        <StatusPill kind={hypothesis.mode} label={hypothesis.mode} />
-      </div>
-      <KpiGrid>
-        <KpiCard
-          evidenceState={hypothesis.confidence === null ? "not-measured" : "measured"}
-          href={auditEntryHref}
-          label={t("rca.confidence")}
-          value={hypothesis.confidence === null ? kpiEvidenceLabel("not-measured") : hypothesis.confidence.toFixed(2)}
-        />
-        <KpiCard
-          href={auditEntryHref}
-          label={t("rca.recordedAt")}
-          value={<span class="mono small">{hypothesis.recorded_at}</span>}
-        />
-        <KpiCard
-          evidenceState={hypothesis.remediation_ref === null ? "not-applicable" : "measured"}
-          href={auditEntryHref}
-          label={t("rca.remediation")}
-          value={<span class="mono small">{hypothesis.remediation_ref ?? kpiEvidenceLabel("not-applicable")}</span>}
-        />
-      </KpiGrid>
-      {!hypothesis.grounded ? (
-        <p class="state-error-text" role="note">
-          {t("rca.abstainedNotice")}
-        </p>
-      ) : null}
-      <p>
-        <strong>{t("rca.cause")}:</strong> {hypothesis.cause ?? t("rca.none")}
-      </p>
-      {hypothesis.reason ? (
-        <p class="muted footnote">
-          <strong>{t("rca.reason")}:</strong> {hypothesis.reason}
-        </p>
-      ) : null}
-      <CausalChainSection hypothesis={hypothesis} />
-      <CitationsTable hypothesis={hypothesis} />
-    </section>
-  );
-}
-
-function CausalChainSection({ hypothesis }: { readonly hypothesis: RcaHypothesis }) {
-  const chain = hypothesis.causal_chain;
-  if (chain === null) return null;
-  return (
-    <section class="rca-chain" aria-labelledby={`rca-chain-${hypothesis.seq}`}>
-      <div class="section-header">
-        <h4 id={`rca-chain-${hypothesis.seq}`} class="section-title">{t("rca.causalChain")}</h4>
-        <span class="footnote">
-          {t("rca.causalSummary", {
-            hops: chain.hops.length,
-            ambiguity: chain.ambiguity,
-          })}
-        </span>
-      </div>
-      <ol class="rca-chain-list">
-        {chain.hops.map((hop, index) => (
-          <li key={`${hop.cause_event_id}:${hop.effect_event_id}:${index}`}>
-            <div class="rca-chain-edge">
-              <span class="status-pill status-pill-info">{hop.relationship}</span>
-              <span class="footnote">
-                {t("rca.causalLead", { seconds: hop.lead_seconds.toFixed(1) })}
-              </span>
-              <span class="footnote">
-                {t("rca.causalConfidence", { value: hop.confidence.toFixed(2) })}
-              </span>
-            </div>
-            <div class="rca-chain-nodes">
-              <span>
-                <a href={architectureHref(hop.cause_resource_ref)}><strong>{hop.cause_resource_ref}</strong></a>
-                <code>{hop.cause_event_id}</code>
-              </span>
-              <span aria-hidden="true">-&gt;</span>
-              <span>
-                <a href={architectureHref(hop.effect_resource_ref)}><strong>{hop.effect_resource_ref}</strong></a>
-                <code>{hop.effect_event_id}</code>
-              </span>
-            </div>
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
-
-function CitationsTable({ hypothesis }: { readonly hypothesis: RcaHypothesis }) {
-  const columns: readonly Column<RcaHypothesis["citations"][number]>[] = [
-    {
-      key: "kind",
-      header: t("rca.citationKind"),
-      render: (item) => <StatusPill kind="neutral" label={item.kind} />,
-    },
-    {
-      key: "ref",
-      header: t("rca.citationRef"),
-      render: (item) => item.kind === "rule" ? (
-        <a class="mono small" href={routeHref("rules", { params: { rule: item.ref } })}>
-          {item.ref}
-        </a>
-      ) : <span class="mono small">{item.ref}</span>,
-      cellClass: "mono",
-    },
-  ];
-  return (
-    <div class="stack">
-      <h4 class="section-title">{t("rca.citations")}</h4>
-      <DataTable
-        columns={columns}
-        rows={hypothesis.citations}
-        keyOf={(item, index) => `${item.kind}:${item.ref}:${index}`}
-        empty={t("rca.noCitations")}
-      />
-    </div>
-  );
-}
-
-function verdictPill(verdict: string): PillKind {
-  const value = verdict.toLowerCase();
-  if (value === "auto") return "auto";
-  if (value === "hil") return "hil";
-  if (value === "deny") return "danger";
-  if (value === "abstain") return "neutral";
-  return "info";
 }
