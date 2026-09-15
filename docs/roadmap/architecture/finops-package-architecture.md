@@ -74,6 +74,9 @@ promotion state; runtime images continue to resolve their service-owned dependen
 > The same assembly binds assignment notice workers and fixed-agent case validation. Their SQL
 > receipts, readiness, and review-only ownership PRs are outside the Cost Governance package;
 > assigning a human to Njord never enables the package or grants access to cost data.
+> The separately bound membership Executor and Vidar inverse use their own current human approvals,
+> target lock and independent effect closure. Their readiness cannot enable an unbound generic Thor
+> executor, a Cost Governance mutation, package activation or package data access.
 
 The shared audit route also preserves measurement source, time-window and sequence filters.
 Reading admitted operational spend or a cohort comparison does not enable Cost Governance,

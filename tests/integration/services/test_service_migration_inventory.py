@@ -95,6 +95,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
     future_tables = set(manifest.table_migrators) - tables
     assert tables <= set(manifest.table_migrators)
     assert future_tables == {
+        "handover_semantic_package",
         "operator_assignment_receipt",
         "document_api_outbox",
         "document_connector_batch",
@@ -227,6 +228,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
     ordered = ownership_module.migration_order(manifest, SERVICE_IDS)
     assert ordered.index("core-control-plane") < ordered.index("isolated-executor")
     assert ordered.index("document-ingestion-api") < ordered.index("document-processing-worker")
+    assert ordered.index("document-processing-worker") < ordered.index("core-control-plane")
 
 
 def test_ownership_manifest_rejects_overlapping_migrators(tmp_path: Path) -> None:
@@ -1340,10 +1342,10 @@ def test_dispatcher_all_upgrade_uses_manifest_dependency_order(
 
     assert cli_module.main(["all", "upgrade"]) == 0
     assert tuple(calls) == (
-        "core-control-plane",
         "document-ingestion-api",
-        "operator-service",
         "document-processing-worker",
+        "core-control-plane",
+        "operator-service",
         "isolated-executor",
     )
 
@@ -1638,6 +1640,9 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
     assignment_receipt_migration = inventory_module.load_revision_metadata(
         MIGRATION_ROOT / "branches/core-control-plane/versions/20260914_core_assignment_receipts.py"
     )
+    handover_semantic_migration = inventory_module.load_revision_metadata(
+        MIGRATION_ROOT / "branches/core-control-plane/versions/20260914_core_handover_semantics.py"
+    )
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
@@ -1673,6 +1678,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(resource_change_receipt_migration.owned_tables)
         | set(certification_support_migration.owned_tables)
         | set(assignment_receipt_migration.owned_tables)
+        | set(handover_semantic_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")
@@ -2273,3 +2279,113 @@ def test_operator_handover_document_read_grant_is_exact() -> None:
         "schema_prerequisites": ["document_version"],
         "provider_rollback": "blocked-until-operator-handover-document-read-rollback",
     }
+
+
+def test_core_handover_admission_is_boolean_only_and_has_an_explicit_schema_dependency():
+    path = MIGRATION_ROOT / (
+        "branches/core-control-plane/versions/20260914_core_handover_admission.py"
+    )
+    source = path.read_text(encoding="utf-8")
+    migration = runpy.run_path(str(path))
+    assert migration["owned_tables"] == ()
+    assert migration["down_revision"] == "core_assignment_receipts_20260914"
+    assert "RETURNS BOOLEAN" in source
+    assert "SET search_path = pg_catalog, public" in source
+    assert "GRANT EXECUTE ON FUNCTION" in source
+    assert "TO fdai_core" in source
+    assert "GRANT SELECT" not in source
+    assert "GRANT INSERT" not in source
+    dependencies = json.loads((MIGRATION_ROOT / "ownership.json").read_text())[
+        "migration_dependencies"
+    ]
+    actual = next(
+        item for item in dependencies if item["consumer_revision"] == migration["revision"]
+    )
+    assert actual == {
+        "consumer_service": "core-control-plane",
+        "consumer_revision": migration["revision"],
+        "provider_service": "document-ingestion-api",
+        "provider_revision": "ingestion_api_outbox_20260808",
+        "schema_prerequisites": ["document_version"],
+        "provider_rollback": "blocked-until-core-handover-admission-rollback",
+    }
+
+
+def test_operator_reviewer_admission_has_no_table_grant_and_an_owned_dependency():
+    path = MIGRATION_ROOT / (
+        "branches/operator-service/versions/20260914_operator_handover_admission.py"
+    )
+    source = path.read_text(encoding="utf-8")
+    migration = runpy.run_path(str(path))
+    assert migration["owned_tables"] == ()
+    assert migration["migration_owner"] == "operator-service"
+    assert migration["down_revision"] == "operator_assignment_receipts_20260914"
+    assert source.count("RETURNS BOOLEAN") == 2
+    assert source.count("SET search_path = pg_catalog, public") == 2
+    assert "TO fdai_operator" in source
+    assert all(grant not in source for grant in ("GRANT SELECT", "GRANT INSERT", "GRANT UPDATE"))
+    dependencies = json.loads((MIGRATION_ROOT / "ownership.json").read_text())[
+        "migration_dependencies"
+    ]
+    actual = next(
+        item for item in dependencies if item["consumer_revision"] == migration["revision"]
+    )
+    assert actual["consumer_service"] == "operator-service"
+    assert actual["provider_service"] == "document-ingestion-api"
+    assert actual["schema_prerequisites"] == ["document_version"]
+
+
+def test_core_handover_current_review_and_search_keep_exact_role_and_owned_dependencies():
+    path = (
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20260914_core_handover_review_read.py"
+    )
+    source = path.read_text(encoding="utf-8")
+    migration = runpy.run_path(str(path))
+    assert migration["owned_tables"] == ("state_kv",)
+    assert migration["migration_owner"] == "core-control-plane"
+    assert migration["down_revision"] == "core_handover_admission_20260914"
+    assert "current_user <> 'fdai_core'" in source
+    assert "LIMIT p_limit" in source and "p_limit BETWEEN 1 AND 20" in source
+    assert all(grant not in source for grant in ("GRANT SELECT", "GRANT INSERT", "GRANT UPDATE"))
+    dependencies = json.loads((MIGRATION_ROOT / "ownership.json").read_text())[
+        "migration_dependencies"
+    ]
+    actual = next(
+        item for item in dependencies if item["consumer_revision"] == migration["revision"]
+    )
+    assert actual == {
+        "consumer_service": "core-control-plane",
+        "consumer_revision": migration["revision"],
+        "provider_service": "document-processing-worker",
+        "provider_revision": "document_worker_outbox_20260808",
+        "schema_prerequisites": ["knowledge_chunk"],
+        "provider_rollback": "blocked-until-core-handover-review-read-rollback",
+    }
+
+
+def test_human_access_exact_read_depends_on_core_immutable_material_and_shared_fence():
+    core = runpy.run_path(
+        str(
+            MIGRATION_ROOT
+            / "branches/core-control-plane/versions/20260915_core_human_access_execution.py"
+        )
+    )
+    executor = runpy.run_path(
+        str(
+            MIGRATION_ROOT
+            / "branches/isolated-executor/versions/20260915_executor_human_access_read.py"
+        )
+    )
+    assert core["down_revision"] == "core_handover_semantics_20260914"
+    assert executor["down_revision"] == "executor_safeguard_bundle_read_20260912"
+    assert executor["migration_prerequisites"] == {
+        "service": "core-control-plane",
+        "revision": core["revision"],
+    }
+    dependencies = json.loads((MIGRATION_ROOT / "ownership.json").read_text())[
+        "migration_dependencies"
+    ]
+    actual = next(row for row in dependencies if row["consumer_revision"] == executor["revision"])
+    assert actual["provider_revision"] == core["revision"]
+    assert actual["schema_prerequisites"] == ["fdai_executor_human_access_source"]

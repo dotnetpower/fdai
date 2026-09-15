@@ -402,6 +402,8 @@ class PostgresIamAdapters:
             payload = record.value.get("payload")
             if not isinstance(payload, Mapping):
                 continue
+            if payload.get("case_kind") == "scoped_duty":
+                continue
             case_id = payload.get("case_id")
             if operation == "assignments.create":
                 cases.append(_assignment_case_from_proposal(record.value))
@@ -1107,6 +1109,11 @@ def _assignment_case_from_proposal(value: Mapping[str, object]) -> dict[str, obj
             "goal_refs": goal_refs,
             "requester_ref": requester,
             "justification": justification,
+            **(
+                {"revocation": payload["revocation"]}
+                if payload.get("revocation") is not None
+                else {}
+            ),
         },
         "state": "draft",
         "revision": 1,
@@ -1430,7 +1437,11 @@ def _principal_id(payload: Mapping[str, object]) -> str | None:
 def _command_payload(command: object) -> dict[str, object]:
     if isinstance(command, Mapping):
         return _json_mapping(command)
-    return _json_mapping(asdict(cast(Any, command)))
+    payload = _json_mapping(asdict(cast(Any, command)))
+    if isinstance(command, AssignmentCreateCommand) and command.revocation is None:
+        # Preserve the exact immutable request digest of grants accepted before version 1.1.0.
+        payload.pop("revocation", None)
+    return payload
 
 
 def _json_mapping(value: object) -> dict[str, object]:

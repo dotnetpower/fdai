@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, Final
 
 from fdai_operator_service.families.iam.contracts import (
     AuthorizePrincipal,
     HandoverGoalCommand,
     HandoverGoalOutbox,
+    HandoverReadinessReader,
+    HandoverReviewReader,
+    IamPrincipal,
 )
 from fdai_operator_service.families.iam.errors import IamFamilyError
 from fdai_operator_service.families.iam.http import (
@@ -28,6 +32,38 @@ def make_handover_routes(
     *, outbox: HandoverGoalOutbox | None, authorize: AuthorizePrincipal
 ) -> tuple[Route, ...]:
     """Build invitation and revisioned goal request routes."""
+
+    async def readiness(request: Request) -> Response:
+        principal = await authorize(request)
+        if OperatorRole.OWNER not in principal.roles:
+            return error_response(403, "handover lifecycle readiness requires Owner")
+        if not isinstance(outbox, HandoverReadinessReader):
+            return error_response(503, "handover lifecycle readiness is not configured")
+        try:
+            return JSONResponse({"readiness": dict(await outbox.lifecycle_readiness())})
+        except IamFamilyError as exc:
+            return family_error(exc)
+
+    async def describe(goal: Mapping[str, Any], principal: IamPrincipal) -> dict[str, Any]:
+        allowed: list[str] = []
+        if goal.get("state") not in {"accepted", "declined", "stale", "superseded"}:
+            if principal.oid.casefold() == str(goal.get("subject_ref", "")).casefold():
+                allowed = ["evidence", "not-applicable", "reuse", "snooze", "decline"]
+            else:
+                if (
+                    goal.get("state") == "ready_for_review"
+                    and goal.get("owner_review") is None
+                    and OperatorRole.OWNER in principal.roles
+                ):
+                    allowed.append("accept")
+                if (
+                    goal.get("state") == "ready_for_review"
+                    and goal.get("backup_review") is None
+                    and isinstance(outbox, HandoverReviewReader)
+                    and await outbox.may_review_goal(goal, principal)
+                ):
+                    allowed.append("acknowledge")
+        return {**dict(goal), "allowed_operations": allowed}
 
     async def invitation(request: Request) -> Response:
         principal = await authorize(request)
@@ -75,9 +111,9 @@ def make_handover_routes(
                 expected_revision=revision,
             )
             updated = await outbox.submit(command_value)
+            return JSONResponse({"goal": await describe(updated, principal)})
         except IamFamilyError as exc:
             return family_error(exc)
-        return JSONResponse({"goal": dict(updated)})
 
     async def get_goal(request: Request) -> Response:
         principal = await authorize(request)
@@ -85,17 +121,22 @@ def make_handover_routes(
             return error_response(503, "handover goal outbox is not configured")
         try:
             goal = await outbox.get_goal(str(request.path_params["goal_id"]))
+            subject_ref = goal.get("subject_ref")
+            if not isinstance(subject_ref, str) or (
+                principal.oid.casefold() != subject_ref.casefold()
+                and OperatorRole.OWNER not in principal.roles
+                and not (
+                    isinstance(outbox, HandoverReviewReader)
+                    and await outbox.may_review_goal(goal, principal)
+                )
+            ):
+                return error_response(404, "handover goal was not found")
+            return JSONResponse({"goal": await describe(goal, principal)})
         except IamFamilyError as exc:
             return family_error(exc)
-        subject_ref = goal.get("subject_ref")
-        if not isinstance(subject_ref, str) or (
-            principal.oid.casefold() != subject_ref.casefold()
-            and OperatorRole.OWNER not in principal.roles
-        ):
-            return error_response(404, "handover goal was not found")
-        return JSONResponse({"goal": dict(goal)})
 
     return (
+        Route("/handover/readiness", readiness, methods=["GET"]),
         Route("/handover/goals/invitation", invitation, methods=["GET"]),
         Route("/handover/goals/{goal_id:str}", get_goal, methods=["GET"]),
         Route(
@@ -117,7 +158,13 @@ def _authorize_operation(
         if OperatorRole.OWNER not in roles or principal_oid.casefold() == subject_ref.casefold():
             return error_response(403, "independent Owner review is required")
         return None
-    if operation not in {"snooze", "decline", "not-applicable", "evidence"}:
+    if operation == "acknowledge":
+        if principal_oid.casefold() == subject_ref.casefold() or not roles - {
+            OperatorRole.BREAK_GLASS
+        }:
+            return error_response(403, "independent backup acknowledgement is required")
+        return None
+    if operation not in {"snooze", "decline", "not-applicable", "evidence", "reuse"}:
         return error_response(404, "unknown handover goal command")
     if principal_oid.casefold() != subject_ref.casefold():
         return error_response(403, "goal belongs to another subject")
@@ -151,6 +198,14 @@ def _command_from_body(
                 "kind": _required_text(body, "kind"),
             }
         )
+    slot = None
+    source_goal_id = None
+    if operation == "reuse":
+        allowed.add("source_goal_id")
+        source_goal_id = _required_text(body, "source_goal_id")
+    if operation in {"evidence", "not-applicable"} and "slot" in body:
+        allowed.add("slot")
+        slot = _required_text(body, "slot")
     if set(body) != allowed:
         raise IamFamilyError("handover goal body fields do not match")
     return HandoverGoalCommand(
@@ -162,6 +217,8 @@ def _command_from_body(
         evidence_ref=values["evidence_ref"],
         digest=values["digest"],
         kind=values["kind"],
+        slot=slot,
+        source_goal_id=source_goal_id,
     )
 
 

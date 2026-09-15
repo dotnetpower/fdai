@@ -73,12 +73,20 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
             "incident_id": incident_id,
         },
     )
-    if event.event_type == "human.assignment.iam_apply_requested":
+    if event.event_type in {
+        "human.assignment.iam_apply_requested",
+        "human.assignment.execution.v1",
+        "knowledge.handover.source_observed.v1",
+    }:
         await host._audit_store.append_audit_entry(
             {
                 "event_id": event_id,
                 "correlation_id": correlation_id,
-                "action_kind": "human.assignment.iam_request_routed",
+                "action_kind": (
+                    "handover.knowledge_source_routed"
+                    if event.event_type == "knowledge.handover.source_observed.v1"
+                    else "human.assignment.iam_request_routed"
+                ),
                 "reason": "pantheon_shadow_review_owner",
                 "mode": "shadow",
                 "execution_authority": False,

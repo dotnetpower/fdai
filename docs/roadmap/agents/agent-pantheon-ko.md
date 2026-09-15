@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: f2c0d4f2649f46f6f418461f921bec8e733ab001
-translation_revised: 2026-09-14
+translation_source_sha: ce14ab3124ba44b23e0b4d8fd0935e149c04e2b4
+translation_revised: 2026-09-15
 ---
 # 에이전트 판테온
 FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임을 소유합니다. 에이전트는 schema-checked 이벤트로 관측, 판단, 계획, 승인, 실행, 검증, 복구, 감사, 학습합니다. 운영 온톨로지는 타입이 지정된 meaning과 범위가 제한된 맥락을 제공하며 행위자, 권한 또는 실행기가 아닙니다. 판테온은 업스트림에서 정의되고 포크는 에이전트를 추가하거나 이름을 바꾸지 않습니다.
@@ -52,23 +52,20 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
   `_framework`에 둡니다. 외부 호출자는 `fdai.agents`만 가져오기하며 배치 테스트가 이를 강제합니다.
 ## 2. 조직도
 
-Odin 에 두 라인이 보고한다: Thor (operations) 와 Forseti (judgment). 4개의
-거버넌스 staff 가 staff 라인 (점선) 으로 Odin 에 보고하며, operations 라인과
-독립적이다. 도메인 전문가 와 sensing 에이전트는 Forseti 아래에 위치해
-데이터가 실행이 아니라 판단으로 흐르도록 한다.
+Thor(운영)와 Forseti(판단)가 Odin에게 보고합니다. 거버넌스 담당 4명은 독립적인 점선 보고 체계를 가집니다.
+영역 전문가와 관측 에이전트는 Forseti 아래에서 실행이 아닌 판단에 근거를 제공합니다.
 
 ![2. 조직도. 주요 단계는 Odin / (Master Planner), Thor / (Responder), Forseti / (Judge), Mimir / (Rule Steward), Muninn / (Memory), Saga / (Auditor), Norns / (Learner), Vidar / (Recovery), Bragi / (Narrator), Var / (Approver), Huginn / (Event Collector), Heimdall / (Observer)입니다.](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-01.ko.svg)
 
 ## 3. 런타임 관계도
 
-조직도는 보고 라인이고 관계도는 데이터 흐름입니다. Sensing과 전문가는 Forseti에 신호를
-전달합니다. Action verdict는 Thor가 Vidar, Var 또는 실행으로 전달하며 Thor는 document-ingestion
-및 사람 배정·관찰 전용 아키텍처 검토 판정을 무시합니다. Odin은 실행이 아닌 관찰을 액션 포트폴리오
-개수에서 제외하고 Saga는 이를 감사 근거로 보존합니다. Var와 Saga는 document HIL의 stable idempotency를 보존하고 Saga는 gated 및
-terminal audit을 영속화합니다. Workflow request는 Huginn, Forseti, Thor를 통해 bounded
-`workflow_action` lineage를 보존합니다. Delivery 소유 producer는 하나의 완전한 operational plan에 대한 optional argument-bound kinetic proposal을 저장하고 Forseti는 주입된 source로 이를 해석해 strict validation 뒤 같은 Verdict-to-ActionRun path에 보존합니다. 둘 다 attribution 및 evidence 전용이며 quorum, mode,
-judgment, approval 또는 execution authority를 바꾸지 않습니다. [배정 명령](../interfaces/human-agent-assignment-implementation-plan-ko.md#명령-이벤트-작업)은 Huginn이 정확한 증적 알림을 정규화하고 Forseti가 검증하며, Var가 독립적인 사람의 검토를 확인합니다. Saga가 각 담당자의 결정을 봉인한 뒤 Muninn이 사례를 반영합니다. 모든 단계는 기존 소유 토픽을 사용하며 Operator 화면 상태를 권한으로 신뢰하거나 IAM 권한을 획득하지 않습니다.
-Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다. 일치하는 배정 병합은 Huginn의 범위가 제한된 IAM 알림으로 다시 들어옵니다. Forseti는 정확한 Core 사례와 담당 체계 결과를 다시 읽고 shadow 상한의 사람 검토 또는 거부만 발행합니다. Thor의 기존 경로는 이 상한을 유지하며 원래 사례 검토나 병합은 현재 실행 승인을 대신하지 않습니다.
+관측과 전문가 근거는 Forseti로, 작업 판정은 Var, Vidar 또는 실행 처리를 위해 Thor로 전달합니다. Thor는 문서 수집, 배정 검토, 관찰 전용 아키텍처 검토 판정을 실행하지 않습니다. Odin은 이를 작업 개수에서 제외하고 Saga는 감사 근거를 보존합니다.
+Var와 Saga는 문서 HIL의 멱등성과 게이트/최종 감사를 보존합니다. 범위가 제한된 `workflow_action` 계보와 전달 계층이 소유한 인자 결속 실행 제안은 하나의 완전한 운영 계획에 대해 검증된 Huginn/Forseti/Thor 경로를 유지하며 정족수, 모드, 판단, 승인, 실행 권한을 바꾸지 않습니다.
+
+- **배정 검토:** [배정 명령](../interfaces/human-agent-assignment-implementation-plan-ko.md#명령-이벤트-작업)은 기존 토픽에서 Huginn 유입, Forseti 검증, 독립 Var 검토, Saga 봉인, Muninn 사례 반영을 거칩니다. Operator 조회 결과는 권한이 아닙니다. 이전 IAM 알림은 shadow 전용이며 새 제거 검토와 독립 IAM 제거 근거가 있어야 검토 전용 이전 임무 PR을 만듭니다. Forseti의 증적 처리는 비공개 배정 믹스인에 유지합니다.
+- **멤버십 실행:** 별도로 타입이 지정된 경로는 Var가 원래 사람 승인 슬롯을 만들기 전에 전체 원래 Action과 정확한 사례, 역할 맵, 승격 원본을 보존합니다. Muninn 준비는 CAS `r -> r+1`이며 승인된 `expected_revision=r`을 수정하지 않습니다. Core는 변경 신원을 만들지 않습니다. Thor는 격리된 전용 신원, 정확한 현재 원본/허용 목록 확인, 7개 안전장치, 연산과 무관한 멤버십 잠금을 통해 전달합니다. 현재 비상 정지/상태와 principal별 ActionType 승인 정책을 다시 확인합니다. 시도 전에 영속 의도를 기록하고 응답 뒤 확인 기록을 남기며 결과를 모르는 시도는 자동 재시도하지 않습니다.
+- **효과와 복구:** 독립 Heimdall 관측, Forseti 판단, Saga 봉인, 공유 잠금 해제 종결이 Muninn의 효과 기록보다 먼저입니다. Vidar는 새로 별도 승인받는 역방향 작업을 제안하고 마무리합니다. Thor는 원래 직접 수행한 변경의 근거, 현재 수요, 같은 대상 세대가 있을 때만 전달합니다. 사례는 degraded 상태로 남아 별도 대체가 가능하며 이전 승인이나 역할 권한을 복사하지 않습니다. 새 ActionType은 계속 shadow가 기본이고 로컬 권한 전환은 허용하지 않습니다.
+- **지식:** Huginn -> Forseti -> Saga -> Muninn StateSnapshot -> Saga -> Norns -> Mimir -> Saga 담당 경로를 유지합니다. 현재 Core 목표/검토자/원본 허용/검색 연결은 독립 원본 확인과 소유자별 CAS에 사용됩니다. Norns는 합의/게시 게이트를 유지하면서 비공개 Rule/온톨로지 후보를 컴파일합니다. Mimir는 내용보다 원본을 먼저 확인하고 모델 없이 재컴파일하며 되돌릴 수 없는 사용 종료와 정확한 현재 `legal_hold: false` 조건의 내용 제거를 담당합니다. 알 수 없는 정책이나 장애에서는 삭제하지 않습니다. 명시적인 다이제스트 충돌은 Odin에게 전달하며 패키지, 검토, 스케줄러 출처 이름, 병합은 IAM, 카탈로그, 그래프, 실행 권한을 부여하지 않습니다. 잔여 구현 이후 [최종 소스 검토 12회](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)를 완료했으며 미해결로 확인된 Medium/High 소스 문제는 없습니다. [구현 원장](../../roadmap-implementation/agents/agent-pantheon.md)은 번역 갱신, 정본 생성, 훅, 게시/CI, 전체 UI/보조 기술 및 실제 운영 근거를 별도의 미완료 요건으로 유지하며 승격을 주장하지 않습니다.
 
 ![3. 런타임 관계도. 주요 단계는 Huginn, Heimdall, Forseti, Mimir, Muninn, Njord, Freyr, Loki, Thor, Vidar, Var, Saga입니다.](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-02.ko.svg)
 

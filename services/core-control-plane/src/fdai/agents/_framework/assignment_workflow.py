@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from fdai_service_contracts.assignment_transport import (
     AssignmentAgentDecision,
@@ -32,6 +32,40 @@ def assignment_clock() -> datetime:
     return datetime.now(UTC)
 
 
+class AssignmentJudgmentMixin:
+    """Forseti's receipt-only assignment boundary, kept outside its general decision machinery."""
+
+    def initialize_assignment_checks(self) -> None:
+        """Create independent per-instance optional readers before the runtime binds them."""
+        self._assignment_check: AssignmentCheck | None = None
+        self._assignment_clock: AssignmentClock = assignment_clock
+        self._assignment_iam_reader: AssignmentIamRead | None = None
+
+    def bind_assignment_check(
+        self, check: AssignmentCheck, *, clock: AssignmentClock = assignment_clock
+    ) -> None:
+        """Bind read-only receipt validation, never a case writer or executor."""
+        self._assignment_check, self._assignment_clock = check, clock
+
+    def bind_assignment_iam_reader(self, reader: AssignmentIamRead) -> None:
+        """Bind exact ownership-effect reads; judgment remains shadow-ceiling HIL."""
+        self._assignment_iam_reader = reader
+
+    async def _assignment_message(self, topic: str, payload: dict[str, Any]) -> bool:
+        """Consume only the exact assignment event types through their existing judged path."""
+        if topic != "object.event":
+            return False
+        if payload.get("event_type") == "human.assignment.iam_apply_requested":
+            await judge_iam_request(cast(Agent, self), payload, self._assignment_iam_reader)
+            return True
+        if payload.get("event_type") == "human.assignment.requested":
+            await judge_assignment(
+                cast(Agent, self), payload, self._assignment_check, clock=self._assignment_clock
+            )
+            return True
+        return False
+
+
 async def judge_iam_request(
     agent: Agent, payload: Mapping[str, Any], reader: AssignmentIamRead | None
 ) -> None:
@@ -52,6 +86,10 @@ async def judge_iam_request(
             result = {"risk_verdict": "deny", "reason": "assignment_iam_evidence_mismatch"}
     if agent.bus is None:
         raise RuntimeError("IAM request judgment bus is unavailable")
+    action_type = result.get("action_type", "ops.apply-human-access")
+    if action_type not in {"ops.apply-human-access", "ops.revoke-human-access"}:
+        action_type = "ops.apply-human-access"
+        result = {"risk_verdict": "deny", "reason": "assignment_iam_evidence_mismatch"}
     await agent.bus.publish(
         agent.spec.name,
         "object.verdict",
@@ -62,7 +100,7 @@ async def judge_iam_request(
             "correlation_id": payload.get("correlation_id"),
             "idempotency_key": payload.get("idempotency_key"),
             "event_id": payload.get("event_id"),
-            "action_type": "ops.apply-human-access",
+            "action_type": action_type,
             "resolved_autonomy_ceiling": "shadow_only",
             "execution_authority": False,
         },
@@ -233,6 +271,7 @@ __all__ = [
     "AssignmentCheck",
     "AssignmentClock",
     "AssignmentMaterializer",
+    "AssignmentJudgmentMixin",
     "AssignmentIamRead",
     "assignment_clock",
     "judge_assignment",

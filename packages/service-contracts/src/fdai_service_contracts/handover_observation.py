@@ -7,6 +7,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from fdai_service_contracts.handover_knowledge import knowledge_source_digest
+
 _Ref = Annotated[str, Field(min_length=1, max_length=256, pattern=r"^[A-Za-z0-9._:/-]+$")]
 
 
@@ -17,13 +19,14 @@ class HandoverEvidenceObservation(BaseModel):
     evidence_ref: _Ref
     digest: _Ref
     kind: _Ref
+    slot: _Ref | None = None
 
 
 class HandoverGoalObservation(BaseModel):
     """Observe a goal revision without copying its subject, text, or acceptance authority."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.0.0", "1.1.0"] = "1.0.0"
     goal_id: _Ref
     assignment_case_id: _Ref | None = None
     agent_name: _Ref
@@ -34,6 +37,7 @@ class HandoverGoalObservation(BaseModel):
         "not_started", "in_progress", "blocked", "ready_for_review", "accepted", "stale", "declined"
     ]
     revision: Annotated[int, Field(strict=True, ge=1)]
+    source_digest: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None = None
     evidence: Annotated[tuple[HandoverEvidenceObservation, ...], Field(max_length=64)] = Field(
         default_factory=tuple
     )
@@ -44,6 +48,8 @@ def handover_observation_fields(record: Mapping[str, Any]) -> dict[str, Any]:
     projected = {
         field: record[field] for field in HandoverGoalObservation.model_fields if field in record
     }
+    if "source_digest" not in record:
+        projected.update(schema_version="1.1.0", source_digest=knowledge_source_digest(record))
     evidence = record.get("evidence", [])
     if isinstance(evidence, list):
         projected["evidence"] = [

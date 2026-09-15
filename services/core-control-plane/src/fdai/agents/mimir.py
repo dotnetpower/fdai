@@ -18,6 +18,7 @@ from typing import Any
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.candidate_guard import CandidateGuard
+from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     capability_facts,
@@ -81,7 +82,7 @@ class CatalogReviewCapacityError(RuntimeError):
     """Review work is saturated; transport must retry or dead-letter."""
 
 
-class Mimir(Agent):
+class Mimir(Agent, HandoverKnowledgeMixin):
     """Wave-2 Mimir: promotion state + candidate intake."""
 
     def __init__(
@@ -152,6 +153,8 @@ class Mimir(Agent):
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.rule-candidate":
             async with self._review_lock:
+                if await self._handover_message(topic, payload):
+                    return
                 await self._handle_rule_candidate(payload)
         elif topic == RULE_GENERATION_BUILD_REQUEST_TOPIC:
             await self._handle_rule_generation_build_request(payload)

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
+from fdai.core.hil_resume.forecast_urgency import VerifiedForecastUrgency
 from fdai.rule_catalog.schema.escalation_ladder import (
     EscalationCatalog,
     resolve_schedule,
@@ -23,7 +25,11 @@ class CatalogEscalationTiming:
     urgency_policy_id: str = "default-forecast-urgency"
 
     def resolve(
-        self, context: Mapping[str, Any] | None, subjects: Sequence[str]
+        self,
+        context: Mapping[str, Any] | None,
+        subjects: Sequence[str],
+        *,
+        at: datetime | None = None,
     ) -> Mapping[str, Any]:
         """Unknown source/audience is explicit; never guess which person a group represents."""
         if context is None:
@@ -50,16 +56,13 @@ class CatalogEscalationTiming:
             for audience, subject in zip(resolved, normalized, strict=False)
         ):
             return {"catalog_status": "audience_mismatch", "catalog_id": ladder.id}
-        lead = context.get("remaining_lead_time_seconds")
-        confidence = context.get("forecast_confidence")
-        if (
-            not isinstance(lead, int)
-            or isinstance(lead, bool)
-            or not isinstance(confidence, int | float)
-            or isinstance(confidence, bool)
-            or not 0 <= confidence <= 1
-        ):
-            lead, confidence = None, None
+        verified = context.get("verified_forecast_urgency")
+        lead = (
+            verified.remaining_seconds(at)
+            if isinstance(verified, VerifiedForecastUrgency) and at is not None
+            else None
+        )
+        confidence = verified.confidence if isinstance(verified, VerifiedForecastUrgency) else None
         windows = resolve_schedule(
             ladder,
             policy=self.catalog.urgency_policy(self.urgency_policy_id),
@@ -72,6 +75,12 @@ class CatalogEscalationTiming:
             "catalog_overall_seconds": ladder.overall_deadline_seconds,
             "catalog_ttl_seconds": [window.effective_ttl_seconds for window in windows],
             "catalog_compressed": any(window.compressed for window in windows),
+            "forecast_timing_status": "verified" if lead is not None else "unavailable",
+            "forecast_timing_digest": (
+                verified.source_digest
+                if isinstance(verified, VerifiedForecastUrgency) and lead is not None
+                else None
+            ),
         }
 
 

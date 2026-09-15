@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 8fe261c57db0aff7a26447ab383bf0b5fa234bd4
-translation_revised: 2026-09-14
+translation_source_sha: a19d741ed8e69714f7e00ea4b5382f4948a0087e
+translation_revised: 2026-09-15
 ---
 # 프로젝트 구조
 이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 검증된 5개 서비스 기준선과 독립 패키지 시스템 지식 서비스 후보의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. Post-turn 런타임 스킬 초안은 스킬을 활성화하지 않고 정규화된 검증 근거 참조를 제안 식별자, 영속 저장소 및 감사 메타데이터에 보존합니다. Bootstrap은 후보를 평가하거나 게시하기 전에 Norns 룰 힌트를 현재 discovery-activation 결정 뒤에 결속합니다. 패키지 release 카탈로그는 도달 가능한 소스 개정 번호에만 고정하며 파생 소스 게이트는 커밋 전과 CI에서 기록된 모든 소스 blob을 비교합니다. 소유 설계 원본만 바뀌면 upstream 통합 뒤에 다시 생성하여 카탈로그 레코드는 유지하고 원본 약속값과 집계 다이제스트만 최종 병합 blob 및 도달 가능한 보호 main 개정 번호에 맞춥니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요.
@@ -46,16 +46,12 @@ translation_revised: 2026-09-14
   `core/`와 `shared/`를 조립하고 `composition/`이 모든 계층을 연결합니다. `core/`와 `agents/`는
   `delivery/`를 가져오기하지 않으며 provider 동작은 shared Protocol과 composition으로 진입합니다.
   집중 sibling 모듈은 canonical identity 투영과 hashing을 소유할 수 있으며 기존 소유 모듈은 해당 공개 표면을 다시 내보냅니다. 멱등성 예약의 안정된 작업 비교도 이 분리를 따르며 직렬화 바이트, 전이 검증, replay 의미는 바뀌지 않습니다. 버전이 있는 최종 측정 계약도 같은 서비스 경계를 따릅니다. Core는 정규화 이벤트의 분류를 감사 기록과 원자적으로 보존하고, Operator는 Core를 가져오거나 분류를 실행 및 효과 권한으로 해석하지 않고 읽습니다. 중복 확인 응답은 일치하는 보존 기록을 요구하며, 충돌 때문에 원래 분류를 조용히 대체하거나 버리지 않습니다. 측정 시각에는 시간대가 명시된 datetime 또는 ISO 8601 문자열을 사용하고 숫자를 암묵적으로 epoch 시각으로 바꾸지 않습니다.
-- **사람 승인 권한은 서비스별로 분리**: Operator는 Teams/Slack 인증, 암호화 검증, 콜백 감사 및
-  영속 결정 보낼 편지함을 소유합니다. Core는 형식화된 결정 이벤트만 소비하고 워크플로 슬롯은
-  레지스트리로, 액션 park는 HIL 코디네이터로 라우팅합니다. Operator 패키지는 로컬 JWT/JWK
-  검증을 위해 `cryptography`에 의존하지만 Core 구현을 가져오거나 실행기 신원을 받지 않습니다. Core composition root는 별도로 연결한 Bot 관리 ID를 Teams A1 전달에 넘기며 실행기 신원을 재사용하지 않습니다.
-- **문서 OCR은 계약과 공급자 소유권으로 분리**: 공유 서비스 계약 SDK는 배포 권한이 없는 수정
-  버전 기반 공급자 정책을 소유합니다. 문서 워커는 범위가 제한된 로컬 Tesseract 어댑터와 Azure
-  어댑터 선택을 소유합니다. 인프라는 선택한 엔드포인트, 신원 및 공급자 값만 전달하므로 수집
-  서비스가 다른 서비스 구현을 가져오지 않습니다. 서비스 마이그레이션 CI는 적용 후 스키마를 변경하는 수명 주기 검사를 직렬화하고 forward 복구는 rollback 후 root 소유 공유 index를 보존합니다. 서비스 소유 migration을 검증하기 전에 legacy Alembic 호환 head와 5개 adoption manifest를 함께 전진시켜 분리된 계보를 방지합니다. 영향을 받는 각 서비스 fingerprint는 기준 adoption 전에 소유 legacy 열 및 제약 조건과 함께 전진합니다.
-- **운영 담당 체계 초안 전달은 검토 전용으로 유지**: 런타임 구성과 보호된 Core 배포는 [에이전트 운영 담당 체계 수명 주기](../interfaces/agent-stewardship-operations-ko.md)에 정의된 GitOps, 병합 결과, 신원 상태 및 지식 수명 주기 경계를 보존합니다. 정확한 결과를 읽는 IAM 확인기와 대체 담당 계획은 공급자 중립적입니다. 전용 전달 어댑터가 대상과 결속된 멤버십·역방향 롤백 증적을 검증합니다. 카탈로그 시간과 현재 역할 HIL 확인기는 런타임에 연결되지만 단계 전달이나 IAM 적용 모드를 활성화하지 않습니다.
-  Operator 목표 명령은 담당 체계를 다시 검증하고 전체 재시도 내용을 결합합니다. Core 복구 조회는 제한된 페이지를 순회하고 실패한 페이지를 재시도하며, 공급자 호출 없이 영속 사례 및 리비전 감사 점유를 사용합니다. 배정 알림은 Core의 읽기 전용 어댑터로 Operator의 추가 전용 증적을 확인하며, 데이터베이스는 `human_assignment:` 쓰기를 Core로 제한합니다. Huginn, Forseti, Var, Saga, Muninn이 소유 토픽의 형식화된 이벤트를 교환한 뒤 기존 검토용 문서 전달 경로가 PR을 만듭니다. 전송이나 Operator의 Core 효과 조회는 IAM 권한을 부여하지 않습니다.
+- **사람 승인 권한은 서비스별로 분리**: Operator는 Teams/Slack 인증, `cryptography`를 통한 JWT/JWK 암호화 검증, 콜백 감사, 영속 결정 발신함을 소유합니다. Core 구현을 가져오거나 실행기 신원을 받지 않습니다.
+  Core는 타입이 지정된 결정을 워크플로 레지스트리, 작업 HIL 조정기 또는 정확한 사용자 접근 경로로 전달합니다. 별도로 연결된 Bot Managed Identity는 Teams A1용이며 실행기 신원을 재사용하지 않습니다.
+- **문서 OCR은 계약과 공급자 소유권으로 분리**: 공유 SDK는 배포 권한이 없는 버전별 공급자 정책을, 문서 워커는 범위가 제한된 Tesseract와 Azure 어댑터 선택을 소유합니다. 인프라는 서비스 간 구현 가져오기 없이 엔드포인트, 신원, 공급자 값을 제공합니다. 마이그레이션 CI는 기준선 도입 후 스키마 변경 수명 주기 검사를 직렬화하며 후속 복구는 롤백 뒤 루트 소유 공유 인덱스를 보존합니다. 이전 Alembic 헤드, 도입 매니페스트 5개, 관련 서비스 지문은 기준선 도입 전에 소유 열과 제약 조건을 함께 반영하여 계보 분리를 방지합니다.
+- **담당 체계와 인수인계는 서비스별로 소유**: 런타임과 보호된 Core 배포는 [에이전트 운영 담당 체계 수명 주기](../interfaces/agent-stewardship-operations-ko.md)의 GitOps, 병합 결과, 신원 상태, 카탈로그 시간 정책, 지식 경계를 보존합니다. Operator는 체크리스트 전환, 현재 검토자, SQL 읽기 어댑터, 개인 전체의 세션 예산, 담당 체계 전용 H10 경로 6개를 소유합니다. Console의 범위별 편집기는 IAM이나 미래 담당 권한 없이 현재 사용자/그룹/일정 임무, UTC 구간, 대체 담당자, 사례 대체를 다루며 검토된 초안 전달과 병합 관측은 분리됩니다.
+  Core만 배정 사례를 쓰고 보류, 대체 담당 확인, 원본 검증, 소유자별 단계, 준비도 관찰을 소유합니다. `CoreHandoverServices`, `PostgresCoreHandoverReview`, `PostgresCoreHandoverSearch`가 현재 목표, 검토자, 원본 허용, 검색을 연결합니다. `bind_handover_semantics`는 기존 `AssignmentWorkflowBindings`로 실제 Norns/Mimir 소비자를 연결하고 내용보다 원본 ACL, 목적, 현재 검토를 먼저 확인합니다. 정확한 타입 지정 JSON Rule과 기능 서술자가 있는 `Distiller`의 온톨로지 후보는 비공개 불변 패키지에 저장되며 Mimir가 모델 없이 독립적으로 재컴파일합니다. 이제 기존 구독에서 되돌릴 수 없는 사용 종료와 정확한 현재 법적 보존 해제 근거에 따른 내용 제거를 수행합니다. 알 수 없는 정책이나 장애에서는 삭제하지 않으며 예약, 증적, 다이제스트, 감사는 보존합니다. 문서 테이블 `SELECT`, 활성 카탈로그/그래프 쓰기, 단일 모델 산문 Rule의 원문 충실도를 보장하지 않습니다.
+  Core는 `HumanAccessPlanner`만 만들며 변경 신원을 생성하지 않습니다. `HumanAccessWorkflowRuntime`은 원래 HIL 검토 전에 전체 원래 Action/사례/역할 맵/승격 자료를 결속하고, 승인된 인자를 바꾸지 않는 준비 CAS `r -> r+1` 및 고정 담당 pub/sub를 Thor의 격리된 전용 Managed Identity에 연결합니다. 정확한 현재 원본/허용 목록, 비상 정지/상태, principal별 ActionType 정책, 7개 안전장치, 연산과 무관한 멤버십 잠금은 계속 필요합니다. 전달 전에 영속 의도를 하나 기록하며 확인 응답은 효과 근거가 아니고 결과를 모르는 시도는 자동 반복하지 않습니다. 독립 Heimdall 관측과 공유 잠금 해제 종결이 Core의 효과 기록보다 먼저입니다. Vidar는 원래 직접 수행한 변경, 현재 수요, 같은 대상 세대에 결속된 새 독립 승인 역방향 작업을 제안하고 마무리합니다. 사례는 이전 승인이나 역할 권한을 복사하지 않고 degraded/대체 가능 상태로 남습니다. 새 ActionType은 shadow가 기본이며 로컬 권한 전환은 허용하지 않습니다. 잔여 구현 이후 [최종 소스 검토 12회](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)를 완료했으며 미해결로 확인된 Medium/High 소스 문제는 없습니다. [구현 원장](../../roadmap-implementation/architecture/project-structure.md)은 이 완료와 미완료 번역 갱신, 정본 생성, 훅, 게시/CI, 전체 UI/보조 기술 및 실제 운영 근거를 구분하며 운영 준비 상태는 false로 유지합니다.
 - **관찰 모드 ARB 구성**: `core/architecture_review/observation_loop.py`는 프로바이더 중립적인
   Change -> 인증된 컨텍스트 -> 근거 묶음 -> 시나리오 -> DecisionCase 및 ImpactEnvelope 구성을
   담당합니다. Forseti만 기존 형식화된 버스에 관찰 판정을 게시하고 Saga가 감사하며,

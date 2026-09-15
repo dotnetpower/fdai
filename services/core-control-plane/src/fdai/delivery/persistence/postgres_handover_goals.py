@@ -48,14 +48,19 @@ class PostgresHandoverGoalReader:
                 )
                 rows = await cursor.fetchall()
         return (
-            tuple(
-                handover_observation_fields(row["value"])
-                if isinstance(row["value"], Mapping)
-                else {}
-                for row in rows
-            ),
+            tuple(_project(row["value"]) for row in rows),
             int(count_row["total"]) if count_row is not None else 0,
         )
+
+
+def _project(value: object) -> dict[str, Any]:
+    """A malformed row becomes a content-free invalid marker, never a whole-page outage."""
+    if not isinstance(value, Mapping):
+        return {}
+    try:
+        return handover_observation_fields(value)
+    except (TypeError, ValueError):
+        return {}
 
 
 __all__ = ["PostgresHandoverGoalReader"]

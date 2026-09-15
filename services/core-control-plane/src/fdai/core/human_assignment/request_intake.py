@@ -166,6 +166,8 @@ class AssignmentRequestIntake:
         payload = request["payload"]
         if not isinstance(payload, Mapping):
             return "operator_receipt_unauthorized"
+        if (payload.get("case_kind") == "scoped_duty") != (notice.schema_version == "1.2.0"):
+            return "operator_receipt_mismatch"
         source_case = (
             record["proposal_id"]
             if notice.operation == "assignments.create"

@@ -11,6 +11,13 @@ approval, conversation, and document ingestion while keeping each authority inde
 > **Safety boundary:** Mapping a person to an agent never grants an FDAI role. A combined
 > administrator workflow may request both outcomes, but RBAC and operational ownership are still
 > validated, approved, applied, and audited as separate axes.
+> **Current scope:** The bounded source requirements and 12 distinct final integrated critique rounds
+> after remaining source implementation are complete. The [final record](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) has no
+> unresolved confirmed Medium/High source finding. Translation SHA refresh, canonical generation,
+> local hooks, publication, and exact-pushed-SHA CI remain pending. Full UI-rubric/assistive-technology
+> and live operational evidence remain separate. No deployment or promotion is enabled; readiness
+> stays `shadow` with `operationally_ready=false`.
+
 ## Design at a glance
 
 The target experience separates authority from operational oversight. `Settings > Identity and
@@ -121,6 +128,44 @@ hints, not authoritative identifiers.
 The editor may save a private draft, but submission creates one immutable `AssignmentCase`. A
 later intent change creates a superseding case instead of editing approved history.
 
+**H10 ownership-only source path:** Exact user, group, and configured schedule declarations use
+separate scoped-duty cases, not personal IAM assignments. Owner-only
+`POST /handover/scoped-duty-cases` enters the existing immutable outbox and fixed-agent review
+chain with transport `1.2.0`. Two distinct current Owners review the exact plan; the requester,
+resolved targets, and static fallbacks cannot review it. Replays retain each command's original
+state and revision even when a later review has already completed.
+
+Core binds `FDAI_SCOPED_DUTY_CATALOG_PATH` to a private, bounded JSON catalog with
+`schema_version: "1.0.0"`, exact `scopes`, and configured `shifts` (`rotation`, `primary_oid`,
+`secondary_oid`, `start`, `until`). Its content-derived revision is reread after identity I/O.
+Entra reads require complete active-person expansion; schedule lookup reuses `OnCallSchedule`.
+Unknown scopes, ambiguous or incomplete groups, expired sources, and future-only intervals hold.
+The declared static person is separately resolved when a schedule is unavailable.
+
+After independent review, the existing draft publisher proposes one immutable file under
+`config/scoped-duty-plans/` in the private deployment repository. A separate reader checks the
+exact PR head's human review, human merge, and matching content at both the merge commit and current
+default branch. Only then does `GET /handover/scoped-duties?agent_name=...&scope_ref=...` expose
+current scope coverage. The observation expires within 60 seconds or sooner at a source or duty
+boundary; configured reconciliation runs at most 30 seconds apart. Partial scans, overlapping
+cases, changed artifacts, and unavailable sources are held, not merged with the global map.
+`GET /handover/scoped-duties/catalog` separately reports catalog and artifact-delivery availability.
+An explicit `supersedes_case_id` can replace only a reviewed case over the same agent/scopes.
+Until the new artifact is independently observed as merged, it cannot displace the old observation.
+After that observation, retained negative supersession prevents an outage from reviving old duties.
+
+The actual `/agent-oversight/mapping-reviews` Console route now includes this ownership-only
+workspace. Its six existing API calls support exact case navigation, explicit UTC intervals,
+static schedule fallback, supersession, and manual refresh. HTTP202 remains `awaiting_core` until
+an authoritative GET supplies the case; uncertain retries preserve the original request identity.
+The recorded 95 unit checks and six actual-route/component Playwright checks use synthetic API
+responses. They are not full WCAG, complete UI-rubric, or live-scope evidence.
+
+Group expansion never creates personal grants, today's schedule proves no future coverage, and
+the global v2 map stays unchanged. The workspace grants no IAM role, document ACL, or execution
+authority. Live identity, GitHub evidence, operational adoption, and the broader UI review remain
+separate requirements.
+
 ## Assignment and duty model
 
 ### Composite assignment case
@@ -138,10 +183,12 @@ later intent change creates a superseding case instead of editing approved histo
 | `requester`, `reviewers`, and `justification` | Separation of duties and attribution. |
 | `effect_receipts` | Ownership PR and IAM provider receipts. |
 
-Recommended states are `draft`, `pending_review`, `approved`, `ownership_pr_open`,
-`ownership_merged`, `iam_applying`, `active`, `rejected`, `degraded`, and `superseded`. Only
-`active` allows a proactive handover invitation or a goal mutation. A degraded or superseded
-assignment leaves existing evidence readable but can't add, defer, decline, or accept a goal.
+Grant states are `draft -> pending_review -> approved -> ownership_pr_open -> ownership_merged ->
+iam_applying -> active`. A separately reviewed `revocation` intent pins the original and replacement
+revisions and follows `approved -> iam_applying -> iam_revoked -> ownership_pr_open -> revoked`.
+`rejected`, `degraded`, and `superseded` remain terminal or held outcomes. Core goal mutation needs
+an active, unheld assignment; current ownership and evidence checks still apply. Held or removed
+assignments preserve permitted prior evidence, not mutation or acceptance authority.
 
 ### Minimum coverage
 
@@ -154,9 +201,11 @@ Every non-autonomous agent and governed operational scope needs:
 - **Platform fallback:** FDAI maintainers remain the final platform escalation, but they don't
   satisfy domain backup coverage unless explicitly assigned to that duty.
 
-The validator expands groups and rejects a clean state when primary and backup resolve to the same
-person. A group that can't be expanded remains a notification target but doesn't prove two-person
-approval coverage. One person may own several agents, but overload remains visible.
+Coverage requires current resolution to distinct people; a primary and backup that resolve to one
+person cannot prove it. An unresolved group may remain a notification target but proves no
+two-person approval coverage. H10's current group/schedule resolution is connected to scoped
+review, merge observation, projection, and the bounded Console workspace. Live coverage still
+requires current deployment evidence. One person may own several agents, but overload remains visible.
 
 ### Operational reporting graph
 
@@ -175,32 +224,69 @@ schedule adapter supplies the current on-call person.
 
 ## Governed IAM provisioning
 
-The assignment path now includes a write-only `HumanAccessProvisioner` provider behind Thor. The
-existing `HumanIdentityDirectory` and every Operator API route remain read-only. The new path is
-observation-only until its ActionType is separately promoted.
+The shared membership SDK, Core material and approval services, and isolated Graph adapter form
+the implemented source path. Core plans and reads evidence without a mutation identity. Operator
+accepts governed proposals and human decisions but, like the browser and ingestion services,
+receives no Graph writer. The legacy Core `HumanAccessDirectApiExecutor` still refuses enforce;
+the separate isolated path supports it only after current, independent promotion and all gates.
 
-1. Forseti validates the exact active subject, configured role group, coverage rules, requester
-   separation, and expected current membership.
-2. Var obtains independent approval. Reader and Contributor grants require one eligible Owner.
-   Approver and Owner grants require two eligible reviewers. The requester and target don't count.
-3. The ownership draft PR is reviewed and merged first.
-4. Thor invokes the provisioner with the approved subject, allowlisted group slot, action hash,
-   expected membership revision, and idempotency key.
-5. The controller reads the role roster until membership converges, stores a content-free receipt,
-   and marks the case active. The user may need a new token before the role claim appears.
-6. Saga records every transition. Vidar can remove the new membership if verification proves that
-   the wrong subject or group changed.
+1. **Material:** After the grant's reviewed ownership merge, Forseti binds the original catalog
+  `Action` to the exact case, person, allowlisted role group, current promotion, and target digest.
+  A removal instead requires its new reviewed intent and current replacement coverage.
+2. **Human approval:** Var parks existing human-in-the-loop (HIL) slots for that immutable material.
+  Reader/Contributor access requires one current eligible Owner; Approver/Owner access requires
+  two distinct current eligible Owners. The requester and target never count. Existing role,
+  ActionType approval policy, risk/quorum ceilings, and the original non-sliding five-minute
+  window apply. Original case reviews are not execution approval.
+3. **Preparation:** After Saga seals the review, Muninn atomically records the exact material and
+  case preparation from revision `r` to `r+1`. The approved `expected_revision=r`, Action bytes,
+  and approval expiry remain unchanged. Restart cannot renew or rebind them.
+4. **Dispatch:** Thor alone publishes through the shared seven-safeguard coordinator. Core and
+  Executor use the same normalized subject/group lock across cases, grants, removals, and inverses.
+  Current source, human approval, role/action policy, kill switch, degradation, and promotion are
+  rechecked before publication and at their dispatch boundaries. The isolated Executor persists
+  exact pre-state and intent before one Graph mutation, then an immutable acknowledged result.
+5. **Effect:** A provider acknowledgement is not success. Independently attributed Heimdall
+  observation, Forseti judgment, Saga sealing, and the existing atomic post-release closure precede
+  Muninn's IAM effect. Only the required ownership and IAM effects can activate or revoke a case.
+  A new user token may still be needed before the role claim appears.
 
-The adapter uses a dedicated workload identity and an immutable allowlist of the four routine FDAI
-role groups. It can't create a group, grant BreakGlass, target an arbitrary, dynamic, or
-role-assignable group, or reuse Thor's cloud-resource permissions. Microsoft Graph requires the
-tenant-wide application permission `GroupMember.ReadWrite.All` for user membership mutation. The
-active-user precheck also requires `User.Read.All`. The allowlist is a compensating control, not a
-directory permission boundary.
+The seven safeguards remain stop condition, tested rollback, bounded blast radius, successful
+dry-run, logical-target lock, stable idempotency key, and two-phase audit. The isolated writer uses
+a distinct dedicated identity and an immutable allowlist of four routine FDAI role groups. It
+cannot create groups, grant BreakGlass, target arbitrary/dynamic/role-assignable groups, or borrow
+cloud-resource execution permissions. Microsoft Graph membership mutation requires
+`GroupMember.ReadWrite.All`; active-user inspection also requires `User.Read.All`. These are
+external tenant permissions, and the code allowlist does not narrow their directory permission scope.
 
-For revocation, the administrator assigns replacement coverage first. Access is revoked before the
-old duty is removed, and the backup becomes primary while the reviewed ownership PR converges. No
-automated flow silently removes an unrelated existing role.
+**Recovery is a new approval, not an automatic inverse.** Existing `ops.apply-human-access` and
+`ops.revoke-human-access` ActionTypes use `recovery_of` to bind the exact original owned mutation,
+pre-state, immutable intent/result, current demand, and target generation. Forseti judges; Vidar
+proposes and finishes on its owned Rollback topic; Var requires fresh independent Owner slots and
+the existing ActionType whitelist; Thor alone dispatches. Independent inverse observation and
+shared atomic closure are required before rollback completion. The Core case stays `degraded`:
+recovery restores no duties, goal authority, approval, or promotion. `ALREADY_APPLIED`, unknown
+ownership, intervening attempts, and unacknowledged dispatch cannot authorize an inverse or an
+automatic mutation retry. A reference string alone is not tested rollback evidence.
+
+Every venue uses the same source/configuration and authority rules; only venue-owned credentials,
+endpoints, and provider scope differ. Local authority cutover is forbidden, and shadow performs
+no mutation. A legacy shadow notice never becomes enforce-capable through replay.
+
+Revocation starts with pinned, current replacement coverage and a new removal review, not the
+grant's old approval. Request and result transport `1.1.0` preserve that intent; legacy grant
+compatibility never reinterprets removal as a grant. Core holds the exact original case through
+compare-and-set (CAS) before effects and keeps the hold recoverable after restart. A hold is not
+proof of removal or restoration.
+
+The reverse effect order removes IAM access before opening a review-only old-duty PR. The PR
+requires an independently recorded IAM removal receipt; only its exact signed merge reaches
+`revoked` and closes the original hold without another grant request. Rendering rechecks pinned
+replacement revisions and current duties, not an inferred promotion of a backup. Other active or
+uncertain grants retain their membership. The API permits an inactive exact person only as a
+removal target. Execution approval, target locking, independent observation, and recovery are now
+source-connected. Live credentials, permissions, Graph effects, lock/recovery drills, and promotion
+remain external gates; [#458](https://github.com/dotnetpower/fdai/issues/458) remains open.
 
 ## Approval non-response and escalation
 
@@ -244,18 +330,42 @@ A `HandoverGoal` is a versioned checklist with evidence requirements. The defaul
 - known failure modes, exceptions, and unresolved risks;
 - authoritative documents, source owners, review dates, and retention class.
 
-Each item is complete only with a cited answer or document span, or an explicit `not_applicable`
-decision with a reason. States are `not_started`, `in_progress`, `blocked`, `ready_for_review`,
-`accepted`, and `stale`. The primary owner reviews the summary; high-impact goals also require
-backup acknowledgement before `accepted`.
+The shared `handover_checklist` `1.0.0` assigns six explicit slots. Each requires admitted document
+evidence or its own reasoned `not_applicable` exemption; an unslotted legacy document proves no
+completeness. States are `not_started`, `in_progress`, `blocked`, `ready_for_review`, `accepted`,
+and `stale`. Legacy accepted or review-ready records missing current requirements project as
+`blocked`; their persisted history is not rewritten.
+
+Acceptance binds an independent Owner and, by the high-impact default, a distinct current backup
+to the exact checklist digest. The first and prior reviewers' current directory roles and backup
+duties are rechecked. Unknown impact does not lower review requirements. Reader-only backup
+review requires current role-group membership observed by the directory and a matching document
+ACL. A direct Reader role, duty, token, or goal field never proves membership. The group evidence
+stays server-private; an unavailable or partial roster holds the review.
+The document route uses the shared slots, exemptions, and server-authorized review commands.
+Choose one file for each selected handover area. Multi-file drops are rejected before transfer;
+processing warnings never hide an uploaded document's failed handover link.
+Same-person, same-scope, same-current-ownership-revision evidence may be reused across current
+agents after source revalidation, but reviews are never copied and the target needs new acceptance.
+
+Operator's current source binding performs the required admission checks. Core now binds its
+goal service, `GoalEvidenceAdmission`, `GoalReviewerEligibility`, and standalone retrieval through
+its own document reader, `PostgresCoreHandoverReview`, and `PostgresCoreHandoverSearch`.
+The knowledge-owner source path uses current Core goal validation, and authenticated
+governed-document retrieval uses the bound search. Source admission precedes content access;
+missing or stale identity, reviewer, ACL, or source evidence holds without borrowing Operator
+authority.
+Operator admission requires governed knowledge, an active index, live retention, exact uploader
+and digest, and actual boolean availability. Its restricted SQL reads require the Operator role;
+neither that reader nor the Core source reader receives document-table `SELECT`.
 
 ### Fatigue budget
 
 Use configurable defaults that prefer asynchronous evidence over repeated questions:
 
-- at most one proactive invitation per login and one active handover session;
-- at most three questions or five minutes per session;
-- a 24-hour snooze and no more than two proactive sessions per week;
+- at most one proactive invitation per login and one active handover session across the subject;
+- at most three unique turn identities within a fixed, non-sliding five-minute session;
+- a 24-hour snooze and no more than two actual handover sessions per ISO week;
 - no invitation while the user is handling an incident or approval;
 - ask the highest-risk unresolved question first and reuse accepted facts across agents;
 - always offer `Upload document`, `Answer now`, and `Remind me later`.
@@ -263,33 +373,73 @@ Use configurable defaults that prefer asynchronous evidence over repeated questi
 Critical gaps remain visible in the assignment roster after the budget is exhausted. They become
 accountable work, not repeated pop-ups.
 
+Operator reserves each turn before narration in a durable subject-wide record. Exact retries keep
+the original deadline; changed content conflicts. A fourth unique turn, another active session,
+a third ISO-week session, expired reuse, or backward clock movement is held. Even exact retries
+recheck current ownership, active identity, busy-work suppression, and goal eligibility; invalidated
+ownership, a busy user, or a stale or accepted goal cannot bypass the hold. The semantic deadline is
+lowered to the remaining session time, never extended by retry, restart, or the browser.
+The Console conversation key retains both login and goal identity. A later login does not reuse
+an exhausted goal-only session; the subject-wide server ceilings still apply.
+Successful authentication redirects renew that identity even in the same tab. Reload and silent
+token renewal keep the current identity; neither refreshes the server's weekly allowance.
+
 ## Knowledge processing and agent collaboration
 
-Answers, links, and files enter the existing document-ingestion boundary. The conversation never
-writes directly to a vector index or ontology.
+Answers, links, and files first enter the existing document-ingestion boundary, which owns
+admission, protection, chunking, and ACL enforcement. The conversation never writes directly to a
+vector index or ontology. The handover chain now connects private semantic-package compilation
+and independent review without replacing ingestion. The Core bootstrap uses
+`bind_handover_semantics` through existing `AssignmentWorkflowBindings` with actual Norns/Mimir
+providers.
 
-| Stage | Agent responsibility |
-|-------|----------------------|
-| Intake and correlation | Huginn emits a bounded handover evidence event. |
-| Protection and admissibility | Heimdall and Forseti scan, classify, and hold unsafe material. |
-| Sensitive promotion | Var obtains human approval with no self-approval. |
-| Structure-aware chunking and retrieval | Muninn preserves headings, tables, source spans, version, ACL, and content digest. |
-| Ontology and rule candidates | Mimir proposes typed concepts; Norns proposes recurring patterns. Neither promotes them. |
-| Conflict resolution | Forseti verifies evidence; Odin arbitrates contradictory ownership claims; the user receives one focused clarification. |
-| Audit and explanation | Saga stores content-free lifecycle records; Bragi cites admitted source spans. |
+The worker publishes mechanical `knowledge.handover.source_observed.v1` notices, not source labels
+that pretend to be Muninn, Mimir, or Norns decisions. The actual chain is:
+Huginn -> Forseti -> Saga -> Muninn `StateSnapshot` -> Saga -> Norns -> Mimir -> Saga.
 
-Agent discussion uses typed, replayable events such as `handover.goal.requested`,
-`knowledge.gap.raised`, `knowledge.evidence.proposed`, `knowledge.conflict.detected`, and
-`handover.goal.review-requested`. Events carry references and digests, not raw document text.
-Every subscriber is independently retryable, and a missing response doesn't block other agents.
+| Owner | Current responsibility |
+|-------|------------------------|
+| Huginn | Normalize the content-free source notice. |
+| Forseti | Independently check the exact source and route explicit digest conflicts for clarification. |
+| Saga | Record independent stage results and seal content-free package references at the chain's audit boundaries. |
+| Muninn | Materialize a `StateSnapshot`, not a compiled rule or ontology fact. |
+| Norns | Retain existing consensus, publication gate, and rate limit; compile exact `fdai.rule.candidate.v1` JSON Rules and existing described `Distiller` ontology candidates into private immutable SQL packages. |
+| Mimir | Reread current sources before private content, independently recompile without model calls, and retire or scrub packages under current retention policy on its existing subscription; emit inert review results. |
 
-Chunks are deterministic for a document version and chunk-policy version. They preserve tenant and
-document ACLs, never cross an authorization boundary during retrieval, and are deleted or
-superseded with their source version. Ontology links and RAG chunks cite the same source spans.
-The chunk record carries a typed source span, ACL reference, chunk-policy version, content digest,
-and optional goal reference. Candidate events are content-free and always require review.
-Automatic goal-to-upload binding and agent candidate delivery are bound in shadow mode. Candidate
-promotion remains an independently reviewed rollout action.
+Forseti, Muninn, Norns, and Mimir independently reread the source and use owner-local CAS. Messages carry
+references and digests, never document text or shared mutable stage authority. Each subscriber is
+independently retryable; another owner's state cannot substitute for its own decision.
+
+- **Exact observation:** Goal observation `1.1.0` uses a content-free digest and exact source-read
+  checks. Observing accepted state neither admits its documents nor grants review authority.
+- **Restricted SQL:** Core's restricted document functions check exact uploader/digest, boolean
+  availability, governed state, active index, retention, and principal-bound ACLs without raw
+  document-table `SELECT`. Semantic reads also require `manual_distillation` purpose and current
+  review before source or private package content access. These local checks are not live
+  directory, cohort, or deployed source evidence.
+- **Withdrawal:** Withdrawal is monotonic for the same source revision. A fixed five-minute
+  recheck and a tracked latest source identity preserve deletion and restart handling.
+  Ongoing revocation holds block contribution. A closed removal permits a separately active new
+  grant for the exact agent and scope; it never reactivates the old case.
+- **Conflict boundary:** An explicit same-document conflicting digest follows Forseti -> Odin and
+  produces clarification-required, without a winner. The older `publish_knowledge_conflict` helper
+  remains a proposal primitive, not arbitrary semantic contradiction detection.
+
+Existing deterministic chunks retain source spans, version, ACL, chunk-policy version, content
+digest, and optional goal references. Retrieval remains source-ACL-bound and requires current
+admission. Compilation preserves significant whitespace within JSON strings and original source
+locators. Compilation checks canonical package, source, and claim identities plus current policy,
+remediation-template, and schema digests. Cancellation propagates, and work is capped by the
+original notice deadline.
+
+Private-package compilation, independent review, and source-connected retention are implemented.
+Mimir checks at most 25 packages per notice and retires them monotonically on withdrawal, drift,
+or the stricter original/current expiry. Legal hold preserves inaccessible bytes; unknown hold or
+unavailable source never authorizes scrubbing. Erasure requires explicit current no-hold evidence
+and preserves immutable claim, digest, receipt, and audit so extraction cannot restart under the
+same identity. Typed Rule compilation still does not prove single-model prose Rule fidelity.
+Provider conformance, deployed source/hold policy, and cohort evidence remain external. Private
+packages grant no catalog, graph, promotion, IAM, or new document-read authority.
 
 ## Security, privacy, and failure behavior
 
@@ -299,12 +449,14 @@ promotion remains an independently reviewed rollout action.
   or general event topics. Audit stores stable references and digests.
 - A directory outage blocks new assignment submission or IAM apply but doesn't erase ownership. A
   schedule outage uses the required static backup.
-- If ownership merged but IAM failed, the case is `degraded`, the user has no new role, the backup
-  remains active, and an Owner can retry the same idempotent write.
+- If ownership merged but IAM is uncertain or failed, hold the case and preserve backup coverage.
+  Reconcile the retained attempt without repeating a possibly applied mutation; a separately
+  approved inverse is available only for proven owned change.
 - A handover conversation can't raise autonomy, modify IAM, approve its own evidence, or promote a
   rule or ontology candidate.
-- Every mutation has a stop condition, bounded target group, idempotency key, rollback or
-  forward-repair path, and Saga audit record.
+- Every mutation retains all seven safeguards and independent effect verification. Recovery
+  restores only the exact approved membership pre-state, never duty, approval, document ACL,
+  or promotion authority.
 
 ## Delivery plan and exit criteria
 
@@ -315,23 +467,35 @@ permissions, rollout evidence, and stop conditions are defined in the
 Production controls expose independent availability, enabled, and authority-mode axes. A kill
 switch only lowers mutation eligibility. The audited enabled preference takes effect at restart
 and can suppress privileged adapter composition without changing promotion state. Reconciliation
-currently emits audited shadow recovery plans for held cases and never invokes the IAM provider.
-With durable state configured, a readiness-gated runtime worker repeats that observation at the
-bounded `human_access.reconciliation_interval_seconds` cadence.
+uses the existing bounded worker at `human_access.reconciliation_interval_seconds`; it observes
+held cases without invoking the IAM provider or writing recovery actions.
 
-1. **Assignment projection:** Add the composite read model, coverage validator, IAM identity
-  projection, and Governance Agent oversight workspace.
-   Submission remains observation-only and creates no provider mutation.
-2. **Governed IAM apply:** Add the allowlisted provisioner, elevated-review policy, convergence
-   receipt, retry, and rollback. Promote after shadow comparisons show zero target mismatch.
-3. **Approval supervisor:** Add primary, backup, and escalation duties plus the non-response timer.
+S5 adds a report from that reconciliation: sampled counts, total, invalid count, partial status,
+alert observations, explicit source gaps, and external blockers. Mean effect-receipt interval uses
+only cases with two effects and is `null` when none qualify. Owner-only `GET /handover/readiness`
+expires after ten minutes; future-dated or malformed reports are unavailable. It always reports
+`shadow` and not operationally ready. It does not dispatch alerts, check providers, write recovery
+actions, or promote any capability.
+
+The [current-change scope](human-agent-assignment-implementation-plan.md#current-change-evidence-and-remaining-scope)
+and [12-round final integrated record](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation) document completed bounded source implementation and source review.
+No unresolved confirmed Medium/High source finding remains; overlapping evidence counts are not summed.
+Translation SHA refresh, canonical generation, local hooks, publication, and exact-pushed-SHA CI are pending.
+Full UI-rubric/assistive-technology evidence and live provider, identity, IAM, GitHub App, Teams,
+source policy, deployment, drills, and cohorts remain separate open requirements.
+
+1. **Assignment projection:** Use the composite read model, coverage validator, IAM identity
+  projection, and Governance Agent oversight workspace. Submission creates no provider mutation.
+2. **Governed IAM apply:** Use the isolated, exact-approved path and independently observed recovery.
+  Promote only after the required shadow comparisons and non-production drills.
+3. **Approval supervisor:** Use primary, backup, and escalation duties plus the non-response timer.
    Run shadow timing against real approval history before enabling rung transitions.
-4. **Proactive handover:** Add goal templates, one-invitation policy, snooze, summaries, and review.
+4. **Proactive handover:** Use goal templates, one-invitation policy, snooze, summaries, and review.
    Measure completion and opt-out, not message count.
-5. **Knowledge lifecycle:** Add evidence events, deterministic chunks, ontology candidates,
-   conflict review, staleness, and deletion propagation.
+5. **Knowledge lifecycle:** Use independent source observations and inert private compilation,
+   review, and retention. Retain provider conformance and live source/cohort evidence separately.
 
-The first release is complete when:
+The following first-release operational criteria remain open; source checks alone do not close them:
 
 - [ ] An Owner can search an exact active Entra subject and see existing role and agent mappings.
 - [ ] Every active mapping proves one primary and one distinct backup or escalation target.

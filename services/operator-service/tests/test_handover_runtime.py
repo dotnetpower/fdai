@@ -21,6 +21,7 @@ from fdai_operator_service.families.iam.handover_runtime import ProactiveHandove
 from fdai_operator_service.families.operations.contracts import ProjectionQuery
 from fdai_operator_service.postgres_family_store import PostgresProposalConflict
 from fdai_service_contracts import OperatorRole
+from fdai_service_contracts.handover_checklist import HANDOVER_SLOTS
 
 _NOW = datetime(2026, 9, 5, 3, 0, tzinfo=UTC)
 _SUBJECT = str(uuid5(NAMESPACE_URL, "fdai-test-handover-subject"))
@@ -127,6 +128,19 @@ class OwnershipReader:
 class IdentityDirectory:
     def __init__(self, *, active: bool) -> None:
         self.active = active
+
+    async def list_role_roster(self, _groups, *, limit):
+        return (
+            DirectoryIdentity(
+                provider="entra",
+                subject_id=_OTHER_SUBJECT,
+                username="user@example.com",
+                display_name=None,
+                active=self.active,
+                roles=("Owner",),
+                principal_type="person",
+            ),
+        )
 
     async def get_by_subject_id(self, subject_id: str) -> DirectoryIdentity | None:
         return DirectoryIdentity(
@@ -313,7 +327,7 @@ async def test_evidence_transition_is_revision_fenced_and_reviewable() -> None:
         )
     )
 
-    assert updated["state"] == "ready_for_review"
+    assert updated["state"] == "in_progress"
     assert updated["revision"] == 2
     assert updated["evidence"] == [
         {
@@ -549,24 +563,27 @@ async def test_independent_review_rechecks_goal_subject_not_reviewer_mapping() -
     )
     assert invitation is not None
     goal_id = str(invitation["goal_id"])
-    await runtime.submit(
-        HandoverGoalCommand(
-            principal=IamPrincipal(oid=_SUBJECT, roles=frozenset({OperatorRole.READER})),
-            goal_id=goal_id,
-            operation="not-applicable",
-            expected_revision=1,
-            reason_ref="reason:outside-scope",
+    for revision, slot in enumerate(HANDOVER_SLOTS, start=1):
+        await runtime.submit(
+            HandoverGoalCommand(
+                principal=IamPrincipal(oid=_SUBJECT, roles=frozenset({OperatorRole.READER})),
+                goal_id=goal_id,
+                operation="not-applicable",
+                expected_revision=revision,
+                reason_ref="reason:outside-scope",
+                slot=slot,
+            )
         )
-    )
     accepted = await runtime.submit(
         HandoverGoalCommand(
             principal=IamPrincipal(oid=_OTHER_SUBJECT, roles=frozenset({OperatorRole.OWNER})),
             goal_id=goal_id,
             operation="accept",
-            expected_revision=2,
+            expected_revision=7,
         )
     )
-    assert accepted["state"] == "accepted"
+    assert accepted["state"] == "ready_for_review"
+    assert accepted["owner_review"]["reviewer_ref"] == _OTHER_SUBJECT
     assert reader.queries[-1].principal_id == _OTHER_SUBJECT
 
 
@@ -587,6 +604,7 @@ async def test_independent_acceptance_fails_after_mapping_removed() -> None:
             operation="not-applicable",
             expected_revision=1,
             reason_ref="reason:outside-scope",
+            slot=HANDOVER_SLOTS[0],
         )
     )
     reader.mapped = False

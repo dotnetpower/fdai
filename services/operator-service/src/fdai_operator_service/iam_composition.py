@@ -80,6 +80,7 @@ from fdai_operator_service.postgres_family_store import (
 )
 from fdai_operator_service.postgres_hil_decision import PostgresHilDecisionStore
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
+from fdai_operator_service.postgres_scoped_duties import PostgresScopedDuties
 from fdai_operator_service.slack_webhook_diagnostics import SlackWebhookDiagnosticTester
 from fdai_operator_service.teams_workflow_binding import (
     KeyVaultTeamsWorkflowBindingStore,
@@ -314,10 +315,15 @@ def build_postgres_iam_bindings(
         if hil_secret is not None and teams_http_client is not None
         else None
     )
+    from fdai_operator_service.families.iam.handover_contribution import (
+        PostgresHandoverContributionGuard,
+    )
+
     handover = ProactiveHandoverRuntime(
         store=store,
         ownership=PostgresOperationsAdapters(store),
         directory=directory,
+        contribution_guard=PostgresHandoverContributionGuard(environment.database_url),
         evidence_verifier=PostgresHandoverEvidenceVerifier(
             dsn=environment.database_url,
             connect_timeout_s=environment.database_connect_timeout_s,
@@ -336,6 +342,7 @@ def build_postgres_iam_bindings(
         human_access=iam,
         directory=directory,
         assignments=iam,
+        scoped_duties=PostgresScopedDuties(store),
         handover_goals=handover,
         handover_conversations=handover,
         model_settings=iam,

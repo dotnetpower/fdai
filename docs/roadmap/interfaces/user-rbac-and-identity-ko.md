@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 6605f5abd40ee6b1d03794477756bbd87e215ad0
-translation_revised: 2026-09-14
+translation_source_sha: 06ce27a70b3aa1ac1ae9074a0f5ce01dc9c7504b
+translation_revised: 2026-09-15
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -39,11 +39,18 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 | 알림 통합 구성 및 진단 | 구현됨 | `teams_workflow_binding.py`; `teams_workflow_diagnostics.py`; `families/iam/{capabilities,settings,manifest}.py`; 집중 바인딩, 진단 및 IAM 기능군 테스트 | Owner는 Teams 엔드포인트를 저장하고 테스트할 수 있습니다. Contributor, Approver 및 Owner는 `no-store` 응답으로 시크릿이 없는 바인딩 버전과 시각 메타데이터만 받으며 엔드포인트 값은 브라우저로 반환되지 않습니다. Reader와 BreakGlass에는 `visible: false`만 반환합니다. Slack은 일회성 테스트로 유지합니다. 모든 Teams 저장, 테스트 및 메타데이터 조회 감사 기록에는 URL을 넣지 않습니다. |
 | 사용자별 비용 거버넌스 접근 | 구현됨 | `CostAccessGrant`, `CostDisclosureCeiling`, 비용 거버넌스 Operator 경로 및 집중 테스트 | Reader는 시간 검사와 배포 공개 상한을 적용하기 전에 principal, 목적, scope가 일치하는 최신 grant를 선택합니다. 서버는 직렬화 전에 `hidden`, `aggregate`, `masked` 또는 `detailed` 공개 정책을 적용하며, 권한은 패키지를 활성화하거나 액션을 승격할 수 없습니다. |
 | IAM 관리 진단 및 요청 변환 결과 | implemented | `entra_directory.py`; `families/iam/iam_routes.py`; `postgres_iam.py`; `console/src/routes/settings-iam*`; 집중 Operator, Console 및 Browser 테스트 | Console은 FDAI Owner와 테넌트 관리자를 구분하고, 자격 증명을 사용할 수 있을 때 서버 측 읽기 전용 Graph 디렉터리를 사용하며, 승인이 멤버십을 변경했다고 주장하지 않고 영속 요청 및 검토 제안을 표시합니다. |
+| 독립적으로 검토한 회수 의도 | implemented | [회수 의도](../../../services/core-control-plane/src/fdai/core/human_assignment/revocation_intent.py); [기록된 실행 체크포인트](../../internals/handover-lifecycle-hardening-20260914.md#execution-source-critique-checkpoint) | 요청/결과 `1.1.0`이 원래 사례와 대체 사례의 리비전을 고정합니다. 새 제거 검토, 원래 사례의 CAS 보류, 독립 IAM 회수, 검토 전용 이전 임무 PR은 별도 결과입니다. Core에는 변경 대체 경로가 없으며 격리 경로에도 현재 승인, 안전장치, 독립 승격이 필요합니다. |
+| Core와 Operator 인수인계 권한과 예산 | implemented | [수락](../../../services/operator-service/src/fdai_operator_service/families/iam/handover_acceptance.py); [세션 예산](../../../services/operator-service/src/fdai_operator_service/families/iam/handover_session_budget.py); [Core 연결](../../../services/core-control-plane/src/fdai/runtime/core_handover.py); [기록된 Core 근거](../../internals/handover-lifecycle-hardening-20260914.md#core-source-and-retrieval-critique-checkpoint) | 영역 6개, 독립 검토, 개인 전체의 영속 제한, 현재 Core 목표/검토자/원본 허용/검색 연결을 구현했습니다. Reader 백업은 현재 관찰한 역할 그룹 소속과 정확한 문서 ACL이 일치해야 합니다. 비공개 메타데이터, 임무 이름, App Role만으로 부족한 그룹 근거를 채우지 않습니다. |
+| 범위별 담당 검토와 H10 UI | implemented | [범위별 런타임](../../../services/core-control-plane/src/fdai/runtime/scoped_duties.py); [Console 작업 영역](../../../console/src/routes/scoped-duty-workspace.tsx); [기록된 H10 UI 근거](../../internals/handover-lifecycle-hardening-20260914.md#h10-console-implementation-and-focused-critique-evidence): 단위 테스트 95개, Playwright 시나리오 6개 | Owner 전용 사용자/그룹/일정 임무, 정확한 범위, UTC 구간, 고정 대체 담당자, 검토, 병합 관측, 사례 대체를 연결했습니다. HTTP 202는 Core 처리 대기입니다. 데스크톱/모바일, 계정 초기화, 대비 근거는 실제 경로의 합성 근거이며 전체 WCAG/평가 기준이나 실제 운영 인증이 아닙니다. |
+| 격리된 사용자 접근 전달과 역방향 작업 | implemented | [런타임 연결](../../../services/core-control-plane/src/fdai/runtime/human_access_runtime.py); [격리 실행기](../../../services/isolated-executor/src/fdai_executor_service/human_access.py); [기록된 실행 근거](../../internals/handover-lifecycle-hardening-20260914.md#execution-source-critique-checkpoint): 담당 검사 132개와 일부가 겹치는 별도 실제 SQL/고정 에이전트 검사 21개 | 원래 Action/자료/HIL, 변경하지 않은 승인 리비전, 정확한 준비, 현재 승인 정책/비상 정지/상태, 전용 신원, 7개 안전장치, 연산과 무관한 멤버십 잠금으로 Thor를 제한합니다. 독립 Heimdall 근거와 공유 종결이 효과보다 먼저입니다. Vidar의 새 승인 역방향 작업은 원래 변경 소유권, 현재 수요, 대상 세대를 보존하며 이전 승인이나 역할 권한을 복사하지 않습니다. |
+| 제한된 원본 관찰과 준비도 조회 | implemented | [Core 원본 허용 확인기](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_handover_admission.py); [준비도 모델](../../../services/core-control-plane/src/fdai/core/human_assignment/readiness.py); 위에 기록된 실제 SQL 및 집중 근거 | 제한된 원본/ACL/검색 함수는 원시 문서 테이블 `SELECT` 권한을 주지 않습니다. 준비도의 `source_gaps`는 이제 비어 있지만 외부 차단 요인, 10분 만료, `shadow`, `operationally_ready=false`는 유지합니다. 실제 배포, 변경 권한, 전체 작업 검증을 뜻하지 않습니다. |
 
 ### 구현 이력
 
+새 이력은 [영문 구현 이력](user-rbac-and-identity.md#implementation-history)에만 추가하며 아래 기존 번역 이력은 그대로 보존합니다.
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-14 | implemented | 현재 역할 그룹에 근거한 Reader 검토, 엄격한 문서 허용, 정확한 Operator SQL 역할 검사, 최초/이전 검토의 재검증을 추가했습니다. 대상 잠금, 독립 실행기 연결, IAM 결과 수신은 미완료 소스 작업으로 분류를 바로잡았습니다. | `current change`; `test_handover_reviewer_groups.py`, `test_entra_directory.py` 및 수락 검사 35개 통과; 실제 SQL 수명 주기/검토자 검사 48개 통과 | 실제 그룹/ACL 근거는 별도로 보존합니다. H10, 대체 Core 연결, 의미 컴파일, 긴급도, 실행 소스 연결은 미완료이며 IAM 결과나 승격을 활성화하지 않았습니다. |
 | 2026-09-06 | implemented | 선택적 대화 관계를 현재 담당 체계와 디렉터리 근거에 결속했습니다. 시스템 프롬프트에 주체 식별자를 노출하거나 사람과 실행기의 권한을 바꾸지 않습니다. | `current change`; 집중 Python 검사 653개에 포함된 담당 관계 및 프롬프트 검사 통과 | 별도로 승인된 실제 디렉터리 및 모델 근거를 보존합니다. |
 | 2026-09-01 | implemented | ID 및 액세스 요청 계약을 복구하고, 명시적인 FDAI Owner 및 디렉터리 진단을 추가하고, 로컬 및 배포 자격 증명에 읽기 전용 Graph 디렉터리를 연결했으며, 오해를 일으키는 사용자 추가 문구를 실제 요청-검토-적용-검증 경계로 교체했습니다. | `current change`; `entra_directory.py`; `postgres_iam.py`; `settings-iam*.tsx`; 집중 Operator, Console, 카탈로그 및 Playwright 검사. | 자동 멤버십 변경을 주장하기 전에 배포된 Graph 읽기 증적을 보존하고 별도로 승격되는 할당-IAM 적용 워크플로를 완료합니다. |
 | 2026-09-01 | 구현됨 | 암호화된 로컬 및 Key Vault 기반 Teams Workflows 엔드포인트 영속화와 Contributor, Approver 및 Owner용 감사된 `view-integration-secrets` 기능을 추가했습니다. Reader와 BreakGlass에는 바인딩 메타데이터를 제공하지 않습니다. | `current change`; `teams_workflow_binding.py`; `teams_workflow_diagnostics.py`; `families/iam/{capabilities,settings,manifest}.py`; 집중 Operator 테스트 53개 통과; Terraform 검증 통과. | Key Vault reveal 경로를 검증됨으로 주장하기 전에 배포 런타임 증적을 보존합니다. |
@@ -54,12 +61,17 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 | 2026-08-15 | 구현됨 | BreakGlass 전용 기능, 인시던트 id, 사유, 한도 안의 미래 만료, 감사 전용 projection을 갖춘 `POST /system/break-glass/activation` 요청 경계를 추가했습니다. | `current change`; `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `pytest services/operator-service/tests` (308 passed, 1 skipped). | 배포에서 영속 활성화 저장소, TTL 적용, 사인인 알림을 연결합니다. |
 | 2026-08-21 | 구현됨 | 배포 token 저장이나 API 검증을 바꾸지 않고 loopback 전용 영속 MSAL cache와 App 수명 주기가 소유하는 proactive refresh loop 하나를 추가했습니다. | `current change`; `console/src/auth-session.ts`; `console/src/auth.ts`; `console/src/app.tsx`; focused 인증 테스트 10개와 Console typecheck가 통과했습니다. 보존하지 않은 loopback Browser 검사에서 MSAL `sessionStorage` 항목 없이 두 번째 탭을 복구했고 startup refresh 한 번의 성공을 관찰했습니다. | runtime 검증을 주장하기 전에 webview 재생성 또는 야간 중단을 통과한 관리되는 Browser 증적을 보존합니다. |
 | 2026-08-31 | 구현됨 | 콜백이 제공한 신원과 역할을 서버가 검증한 Teams 및 매핑된 Slack Entra 권한으로 교체했습니다. 콜백 문맥, 만료, 사유, 자기 승인 차단, 중복 처리, 첫 감사 시각 보존, 제안 우선 복구 및 영속 Kafka 게시가 이제 실패 시 차단됩니다. Teams 대상은 RBAC 그룹 id가 아니라 별도의 그룹 연결 팀과 채널에서 파생됩니다. | `current change`, 집중 Operator IAM, PostgreSQL, Kafka, 조립, 워크플로 승인 및 로컬 카나리 검사. | 토큰이나 테넌트 값을 저장하지 않는 통제된 배포 Teams OBO 및 브로커 수락 증적을 하나 보존합니다. |
+| 2026-09-14 | implemented | IAM 실행을 활성화하지 않고 제한된 회수 의도, Operator 목표 수락/세션, 제한된 원본 읽기, Owner 전용 준비도 경계를 강화했습니다. | `current change`; 위 소스; 주 구현 세션에서 실제 SQL을 포함한 집중 작업 테스트 451개, Console 단위 테스트 41개, 너비 4개와 키보드 펼침, 200% 텍스트, 강제 색 모드를 다룬 격리 문서 화면 시나리오 통과를 보고했습니다. | 대체 Core의 현재 원본 허용/검토자 연결, Reader 백업 그룹 ACL 등 명시된 소스 공백은 열려 있습니다. 외부 공급자, 신원, GitHub App, IAM 결과, 잠금, 훈련, Teams, 문서, 배포, 코호트 근거는 별도 요건입니다. |
 
 ### 남은 작업
 
 - [x] 운영 Break-Glass 활성화 endpoint가 존재하며 인시던트 id, 사유, 한도 안의 미래 만료 시각을 요구하고 활성화 감사 근거를 기록하면서 런타임 HIL 승인이나 executor identity를 부여하지 않습니다. `services/operator-service/tests/test_operator_break_glass_activation.py`가 이를 증명합니다.
 - [ ] 배포에서 영속 활성화 저장소, TTL 적용, 사인인 알림을 연결하고 관리되는 활성화 영수증 하나를 보존합니다.
 - [ ] cache된 인증 artifact를 노출하지 않고 webview 재생성 또는 야간 중단을 통과한 loopback Browser 증적 하나를 보존합니다. Conditional Access 또는 MFA challenge는 대화형 인증 경계로 유지됩니다.
+- [x] 현재 Core 목표, 검토자 적격성, 원본 허용, 독립 검색을 연결했습니다. [Core 체크포인트](../../internals/handover-lifecycle-hardening-20260914.md#core-source-and-retrieval-critique-checkpoint)에 소스와 실제 SQL 근거가 기록되어 있습니다.
+- [ ] [#458](https://github.com/dotnetpower/fdai/issues/458) 및 의존 항목의 통제된 Reader 백업 그룹 ACL, 현재 배포 신원, Graph/GitHub/Teams, 역방향 훈련, 문서 수명 주기, 독립 승격/코호트 근거를 보존합니다.
+- [ ] 영문/한국어 검토, 번역 SHA 갱신, 정본 생성, 로컬 훅, 게시, 정확한 게시 SHA의 CI를 완료합니다. [최종 소스 검토 12회](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)는 이미 완료했으며 대기 작업이 아닙니다.
+- [ ] 전체 WCAG/UI 점수를 주장하기 전에 H10의 ID별 평가표, 전체 키보드 순서, 보조 기술, 긴 내용/펼침 상태 근거를 보존합니다. [운영 기준](human-agent-assignment-implementation-plan-ko.md#완료-정의)은 열린 상태입니다.
 
 ## 1. 상기하는 설계 원칙
 
@@ -529,60 +541,31 @@ Settings 활동 bar 그룹은 콘솔의 클라우드 권한을 넓히지 않고 
 
 ### 11.1 IAM 변환 결과
 
-`GET /iam`은 서버가 검증한 principal, 고정된 다섯 역할 정의, 유효 기능 합집합, 명시적인
-FDAI Owner 권한, 디렉터리 가용성, 요청 및 공급자 변경 경계를 반환합니다. Azure 구독,
-Entra 테넌트 또는 애플리케이션 관리자 역할이 FDAI Owner를 의미하지는 않습니다.
-`GET /iam/access-requests`는 해당 principal이 볼 수 있는 요청을 반환합니다.
-접근 요청 ID는 Owner에게만 표시됩니다. 읽기 담당, 기여자 및 Approver 요청은 `403`을
-받습니다. Users 및 접근 requests 탭은 잠금 아이콘과 함께 계속 표시되며, 탭을 선택하면
-상호 작용을 무시하지 않고 즉시 접근 거부된 표면을 렌더링합니다. 역할이 없는 사용자는
-role-optional `GET /iam/self` 변환 결과를 통해 자신의 요청만 봅니다.
-역할이 할당된 principal의 `GET /iam/self`는 검증된 App 역할에서 콘솔 접근을 직접 도출하므로 access-request 변환 결과에 의존하지 않습니다. 역할이 없는 principal은 계속 해당 변환 결과가 필요하며, 사용 불가이면 어떤 접근도 얻지 못합니다.
+IAM 조회는 검증된 신원, 관찰된 역할, 제안을 구분합니다. 테넌트나 구독 관리 권한이 FDAI Owner를 뜻하지 않습니다.
 
-Users 탭은 범위가 제한된 두 원본을 결합합니다. 검증된 로그인 principal과 표시 가능한
-액세스 요청에 참조된 사용자를 보여줍니다. Owner는 `GET /iam/directory/users?q=...`를 통해
-구성된 `HumanIdentityDirectory`를 검색하고 계정을 선택해 통제된 액세스 요청을 미리 채울
-수도 있습니다. 로컬 실행은 서버의 Azure CLI 자격 증명을 사용하고 배포 실행은 Operator
-Managed Identity를 사용합니다. 두 경로 모두 읽기 전용 Graph 바인딩이며 브라우저는
-프로바이더 자격 증명을 받지 않습니다.
+| 경로 | 현재 권한과 근거 |
+|------|------------------|
+| `GET /iam` | 검증된 주체, 고정 역할 5개, 기능 합집합, Owner 권한, 디렉터리 가용성, 요청/변경 경계를 반환합니다. |
+| `GET /iam/access-requests`와 Users 탭 | 요청 신원은 Owner 전용이며 Reader, Contributor, Approver는 `403`을 받습니다. 잠긴 탭도 표시하며 선택 시 즉시 접근 거부 화면을 엽니다. Users는 로그인한 주체와 표시 가능한 요청 대상을 결합합니다. |
+| `GET /iam/self` | 역할이 있는 사용자는 요청 저장소와 독립적으로 검증된 App Roles에서 접근을 얻습니다. 미할당 사용자는 자신의 요청만 보며 해당 조회를 사용할 수 없으면 접근을 얻지 못합니다. |
+| `GET /iam/directory/users?q=...` | Owner 검색으로 요청을 미리 채울 수 있습니다. API는 구성된 공급자를 기록하고 `get_by_subject_id`로 정확한 대상, 사용자 이름, 활성 상태를 다시 확인합니다. 클라이언트의 공급자 이름으로 백엔드를 선택하지 않습니다. |
+| `GET /iam/directory/roster` | 엔터프라이즈 앱의 서비스 principal을 찾고 App Role ID를 매핑하며 하위 그룹 구성원을 확장하고 안정적인 주체 ID로 직접/그룹 역할을 합칩니다. People/Groups 필터는 권한을 부여하지 않으며 일반 역할 요청은 활성 사람만 대상으로 합니다. |
+| `GET /iam/assignments` | 관찰된 디렉터리 역할, 검토된 맵, 사례, 인수인계 가용성을 결합합니다. 근거가 없으면 `null` 또는 `not_connected`로 유지하며 어떤 경로도 Graph 쓰기 모듈을 받지 않습니다. |
 
-`GET /iam/directory/roster`는 FDAI 엔터프라이즈 애플리케이션의 실제 App Role 할당을
-표시합니다. Entra 어댑터는 서비스 principal을 찾고 각 App Role ID를 역할 값에 매핑하며,
-할당된 그룹의 모든 하위 멤버를 확장합니다. 직접 사용자 할당과 그룹에서 파생된 할당은
-안정적인 대상 ID로 병합됩니다. Users 탭은 People 및 Groups를 필터링하지만 역할 요청은
-활성 상태인 사람에게만 제공됩니다.
+`HumanIdentityDirectory`는 공급자, 안정적인 주체 ID, 사용자 이름, 표시 이름, 사용자 유형,
+활성 상태를 반환합니다. Entra가 구현된 어댑터이며 Microsoft Graph `/users`와 멤버십
+조회에 `User.Read.All`, `GroupMember.Read.All`을 사용합니다. AWS IAM Identity Center와
+Google Cloud Identity는 같은 공급자 중립 프로토콜의 향후 어댑터입니다. 로컬 Graph 조회는
+서버의 Azure CLI 자격 증명을, 배포는 Operator Managed Identity를 사용합니다. 브라우저에
+자격 증명을 주거나 합성 데이터로 대체하지 않고 실제 테넌트 역할과 멤버십을 찾으며 고정본은 pytest 전용입니다.
 
-`HumanIdentityDirectory`는 cloud-provider-neutral 계약입니다. 각 어댑터는 안정적인
-`provider`, `subject_id`, 사용자 이름, 표시 이름, 사용자 유형 및 활성 상태를 반환합니다.
-Microsoft Entra ID가 구현된 어댑터이며 managed 신원 및 애플리케이션 권한
-`User.Read.All`, `GroupMember.Read.All`로 Microsoft Graph `/users` 및 역할 그룹 멤버십을
-사용합니다. AWS IAM 신원 Center와 Google
-Cloud 신원 어댑터는 향후 범위입니다. 동일한 프로토콜을 구현하면 코어 서비스, API
-페이로드 또는 콘솔을 변경하지 않고 추가할 수 있습니다.
+에이전트 감독의 매핑 검토(`/agent-oversight/mapping-reviews`)가 Owner 전용 작업 영역을 소유하며 ID 및 액세스는 이곳으로 연결합니다. `POST /iam/assignment-cases`는 정확한 사람의 역할/임무/목표/사유 의도와 CAS 제출/검토를 유지합니다.
+H10의 별도 담당 체계 전용 경로 6개와 편집기는 이제 현재 사용자/그룹/일정 임무, 정확한 범위, UTC 구간, 고정 대체 담당자, 독립 검토, 병합 관측, 명시적 사례 대체를 지원합니다. 미래에만 유효한 선언은 초안이며 그룹이나 일정에 일괄 IAM 권한을 주지 않습니다.
 
-API는 통제된 역할 요청을 수락하기 전에 구성된 프로바이더를 기록하고
-`get_by_subject_id`로 대상, 사용자 이름 및 활성 상태를 확인합니다. 클라이언트가 제공한
-프로바이더 라벨은 ID 백엔드를 선택하지 않습니다.
+새 `revocation`은 요청/결과 `1.1.0`에 원래 사례와 대체 사례 리비전을 고정하고 기존 부여 승인이 아닌 새 독립 제거 검토를 요구합니다. 생성/제출은 정확한 사람을 다시 확인하며 제거만 비활성 대상을 허용합니다. Core는 원래 사례를 CAS로 보류하고 `approved -> iam_applying -> iam_revoked -> ownership_pr_open -> revoked`를 따릅니다. 독립 IAM 제거가 검토 전용 이전 임무 PR보다 먼저이며 정확한 서명 병합은 재부여 없이 종료합니다. 브라우저 역할이나 요청 수락은 효과 근거가 아닙니다.
 
-Agent oversight > 매핑 검토가 Owner 전용 할당 작업 영역을 담당합니다. ID 및 액세스는
-다섯 번째 탭을 중복해서 만들지 않고 이 작업 영역으로 연결합니다.
-`POST /iam/assignment-cases`는 정확한 활성
-대상을 다시 검증하고 변경 불가능한 역할, 임무, 목표 및 사유 의도를 기록합니다. 리비전 기반
-제출 및 검토 명령은 CAS를 사용합니다. `GET /iam/assignments`는 관측된 디렉터리 역할, 구성된 담당
-체계 맵, 할당 케이스 및 인수인계 가용성만 조인합니다. 누락된 프로바이더 또는 인수인계 근거는
-`null` 또는 `not_connected`로 유지하며 어떤 경로도 Graph 쓰기 프로바이더를 받지 않습니다.
-
-일치하는 검토 후 담당 체계 병합이 끝나면 거버넌스 서비스가 멱등
-`ops.apply-human-access` 요청 하나를 타입이 지정된 유입에 게시합니다. 런타임 전용 어댑터는
-전용 관리 ID, 구성된 읽기 담당, 기여자, Approver, Owner 그룹 ID, 제한된 apply, verify,
-롤백 호출을 사용합니다. BreakGlass, 동적 그룹, role-assignable 그룹, 임의 그룹 ID를
-차단합니다. 이 경로는 별도 승격 전까지 관찰 전용입니다.
-
-Interactive 로컬 모드는 synthetic 디렉터리로 대체 경로하지 않습니다. Microsoft Graph
-어댑터는 서버의 Azure CLI 자격 증명을 사용해 FDAI 서비스 principal, 실제 App Role 할당,
-모든 하위 그룹 멤버를 찾습니다. 따라서 별칭 검색, 역할 명단 및 접근
-요청 대상은 로그인한 테넌트의 실제 데이터를 반영하며 프로바이더 자격 증명은 브라우저
-외부에 유지됩니다. Offline 고정본 신원은 pytest 전용입니다.
+Core는 읽기 전용 플래너를 연결하고 변경 신원을 만들지 않습니다. Thor의 별도 타입 지정 실행 경로만 격리된 전용 Managed Identity와 정확한 일반 역할 그룹 4개를 사용합니다. BreakGlass, 임의 그룹, 동적 그룹, 역할 할당 가능 그룹은 차단합니다.
+일치하는 부여 병합은 멱등 적용 의도를 유지하고 이전 IAM 알림은 shadow 전용입니다. 아래의 현재 원래 Action/HIL, 원본, 안전장치, 독립 효과, 새 역방향 승인 규칙이 필요합니다. 새 ActionType은 shadow가 기본이고 로컬 권한 전환은 허용하지 않으며 [#458](https://github.com/dotnetpower/fdai/issues/458)은 열린 상태입니다.
 
 ### 11.2 통제된 요청 흐름
 
@@ -598,42 +581,46 @@ Interactive 로컬 모드는 synthetic 디렉터리로 대체 경로하지 않�
 | `role` | `Reader`, `Contributor`, `Approver` 또는 `Owner`입니다. 일반 `BreakGlass` 요청은 차단됩니다. |
 | `justification` | 20-2000자입니다. 요청 제안과 이후 Core 감사 전환에 저장됩니다. |
 
-API는 검증된 토큰에서 요청자와 기능을 도출합니다. 각 요청을 안전하게 다시 시도할 수 있는
-영속 Operator 제안으로 저장하고 완전한 요청 변환 결과를 Console에 반환합니다. 검토 결정은
-별도의 영속 제안이며 자기 검토를 차단하고 원래 의도를 변경하지 않은 채 요청 변환 결과에
-반영됩니다. 요청 검토는 안정적인 `request_id`를 직접 조회하므로 목록에 페이지 나누기가
-적용된 뒤에도 이전 요청을 검토할 수 있습니다. 응답 상태는 `pending`입니다. 양식 제출은
-요청을 승인하거나 Entra 그룹 멤버십을 변경하지 않습니다. Core 게시와 hash-chain 기반
-`iam.access-requested` 및 `iam.access-reviewed` 기록은 별도의 전달 경계로 유지됩니다.
-
-승인은 ChatOps 또는 거버넌스 PR 경로에 유지됩니다. 승인 후 Owner가 테넌트의 ID 관리
-프로세스를 통해 허용 목록에 포함된 `aw-*` 그룹 변경을 반영합니다. 이 분리를 통해 브라우저,
-Operator API 및 실행기 ID가 Microsoft Graph 멤버십 권한을 갖지 않도록 유지합니다.
+검증된 토큰이 요청자와 기능을 제공합니다. Operator는 재시도가 안전한 영속 `pending`
+제안을 저장하며 제출로 승인하거나 멤버십을 바꾸지 않습니다. 별도 검토 제안은 자기 검토를
+차단하고 의도를 다시 쓰지 않은 채 반영됩니다. `request_id` 직접 조회로 페이지가 달라져도
+이전 사례를 검토할 수 있습니다. Core 게시와 해시 체인 `iam.access-requested` /
+`iam.access-reviewed` 감사는 별도 경계입니다. 필요한 ChatOps 또는 거버넌스 승인 후 Owner가
+테넌트 신원 관리로 허용된 변경을 적용합니다. 이 수동 경로는 브라우저, Operator API,
+일반 실행기 신원에 Graph 멤버십 자격 증명을 부여하지 않습니다.
 
 ### 11.3 역할이 없는 첫 로그인
 
-FDAI App 역할이 없는 인증된 사용자는 운영자 shell에 진입하지 않습니다. 콘솔은 역할이
-필요 없는 `GET /iam/self`를 호출하고 다음 항목을 포함한 접근 필수 화면을 렌더링합니다.
+FDAI App Role이 없는 사용자는 운영자 화면 대신 접근 필수 화면을 봅니다. 역할이 필요 없는
+`GET /iam/self`는 검증된 계정, Reader 전용 본인 요청, 선택적 메시지, 대기 중 요청 ID/상태,
+다시 확인, 로그아웃을 제공합니다. `POST /iam/access-requests/self`는 토큰에서 대상을
+도출하며 브라우저 변경과 무관하게 해당 주체의 `grant Reader`만 허용합니다.
 
-- 검증된 계정
-- self-service로 사용할 수 있는 유일한 역할인 `Reader`
-- 선택적 메시지
-- 제출 후 현재 요청 ID 및 `pending` 상태
-- 다시 확인 및 로그아웃 작업
+Owner는 ID 및 액세스에서 요청자, 공급자 주체, 역할, 감사 상관관계를 보고 사유와 함께
+`approve` 또는 `reject`를 기록합니다. 자기 승인은 차단되며 별도 결정에 `iam.access-reviewed`
+감사를 남기고 런타임 작업을 승인하지 않습니다. 그 권한은 ChatOps와 Approvals에 유지합니다.
+`approved`여도 새 토큰에 역할을 담으려면 공급자 멤버십이 필요합니다. 승인과 할당 주체는
+분리되며 향후 자동화도 이 변환 결과를 소비할 뿐 다시 쓰지 않습니다.
 
-`POST /iam/access-requests/self`는 검증된 토큰에서 대상 대상을 도출합니다. 동일 대상에
-대한 `grant Reader`만 허용합니다. 브라우저 본문을 수정해도 다른 대상, 상위 역할 또는
-철회 요청은 차단됩니다.
+### 11.4 인수인계 권한과 준비도
 
-요청은 요청자, 프로바이더 대상, 역할 및 감사 상관관계와 함께 Settings > 신원 and
-접근에서 Owner에게 표시됩니다. Owner는 IAM에서 justification과 함께 `approve` 또는
-`reject`를 기록할 수 있습니다. API는 자기 승인을 차단하고 불변 요청과 별도로 결정을
-저장하며 `iam.access-reviewed` 감사 항목을 기록합니다. 고위험 런타임 승인은 ChatOps와 기존
-Approvals 표면에 유지됩니다. IAM 검토는 자율 작업을 승인하지 않습니다.
+현재 소스의 다음 경계는 RBAC, 담당 체계, 근거 검토, 실행을 서로 다른 권한으로 유지합니다.
 
-승인된 IAM 요청은 `approved` 상태이지만 다음 토큰에 역할이 포함되기 전에 프로바이더 측 그룹
-할당이 여전히 필요합니다. 승인 principal과 할당 principal은 분리됩니다. 향후 프로바이더
-자동화는 요청 또는 검토 계약을 변경하지 않고 승인된 변환 결과를 소비할 수 있습니다.
+| 경계 | 규칙 |
+|------|------|
+| 체크리스트와 이력 | 공통 체크리스트 `1.0.0`에 명시 영역 6개가 있습니다. 각 영역에는 허용된 근거 또는 사유가 있는 개별 면제가 필요합니다. 영역 없는 이전 문서는 완전성을 입증하지 않으며 요건이 부족한 이전 수락/검토 준비 기록은 이력을 다시 쓰지 않고 `blocked`로 표시합니다. |
+| 검토 | 독립 Owner와 별도의 현재 백업이 고영향 기본 기준입니다. 최초 및 이전 검토자의 현재 역할, 임무, 문서 접근을 다시 확인합니다. Reader 백업은 현재 관찰한 역할 그룹 소속과 정확한 문서 ACL이 일치해야 합니다. 직접 App Role이나 임무 이름은 그룹 소속을 입증하지 않으며 누락되거나 불완전한 근거는 보류합니다. |
+| 현재 원본 | Core와 Operator는 이제 현재 목표, `GoalEvidenceAdmission`, 검토자 적격성, 내용보다 원본을 먼저 확인하는 검색을 실제 소비자에 연결합니다. 정확한 대상, 목표/원본 리비전, 문서 버전/다이제스트, ACL, 컬렉션, 원래 조각 출처를 확인하며 요건이 없거나 오래되면 보류합니다. |
+| 영속 예산 | 개인 전체에 활성 세션 하나, 서로 다른 턴 식별자 최대 3개, 연장되지 않는 5분, ISO 주당 실제 세션 최대 2개를 적용합니다. 정확한 재시도도 마감을 유지하면서 담당 체계, 신원, 업무 중 상태, 오래됨/수락됨 목표 보류를 다시 확인합니다. |
+| 재사용 | 같은 사람/범위/현재 담당 체계 리비전의 근거는 원본 재확인 후 현재 에이전트 사이에서 재사용할 수 있습니다. 검토는 복사하지 않습니다. |
+| SQL 경계 | 서비스 역할로 제한된 원본, 검토자 ACL, 검색 함수가 원시 문서/조각 `SELECT` 권한 없이 현재 업로더, 정확한 버전/다이제스트, 통제된 가용성, 인덱스, 보존 상태를 확인합니다. 로컬 SQL 근거는 배포 디렉터리나 코호트 인증이 아닙니다. |
+| 원래 사용자 접근 승인 | Var가 기존 HIL 슬롯을 만들기 전에 전체 원래 Action과 사례/원본, 역할 맵, 승격 자료를 보존합니다. 현재 독립 Owner 정족수와 principal별 ActionType 정책이 필요합니다. 준비 CAS는 승인된 `expected_revision=r`, Action 바이트, 원래 승인 구간을 바꾸지 않고 `r -> r+1`로 전진합니다. |
+| 격리 전달 | Thor만 격리된 전용 신원과 정확한 현재 원본/허용 목록을 사용합니다. 게시 전과 연산에 무관한 대상/그룹 멤버십 잠금 안에서 비상 정지/상태, 승인 정책, 승격, 7개 안전장치를 다시 확인합니다. 변경 전에 영속 의도를 하나 기록하고 응답 뒤 확인 기록을 남기며 결과를 모르는 시도는 자동 반복하지 않습니다. |
+| 효과와 역방향 작업 | 독립 Heimdall 근거, Forseti 판단, Saga 봉인, 공유 잠금 해제 종결이 Core 효과 기록보다 먼저입니다. Vidar가 제안/마무리하고 Thor가 전달하는 새 독립 승인 역방향 작업에는 원래 직접 수행한 변경, 현재 수요, 같은 대상 세대가 필요합니다. 원래 있던 상태나 응답을 확인하지 못한 변경은 되돌리지 않습니다. 사례는 degraded/대체 가능 상태이며 이전 승인, 임무, 목표, 역할 권한을 복원하지 않습니다. |
+| 준비도 근거 | 범위가 제한된 재조정이 표본/전체/잘못된 기록 개수, 부분 상태, 경고, 빈 `source_gaps`, 유지된 외부 차단 요인을 보고합니다. 평균 효과 증적 간격은 효과가 두 개 있는 사례만 사용하며 해당 사례가 없으면 `null`입니다. 소스 검토 완료의 근거는 빈 공백 목록이 아니라 별도의 최종 비판 검토 기록입니다. |
+| 준비도 권한 | Owner 전용 `GET /handover/readiness`는 10분 후 만료됩니다. 미래 시각이거나 형식이 잘못된 보고서는 사용할 수 없습니다. 항상 `shadow` 및 `operationally_ready=false`이며 경고 전달, 공급자 점검, 복구 변경, 승격을 수행하지 않습니다. |
+
+[구현 계획](human-agent-assignment-implementation-plan-ko.md#현재-변경의-근거와-남은-범위)과 [최종 기록](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)은 소스 완료와 서로 다른 최종 통합 검토 12회, 미해결로 확인된 Medium/High 소스 문제가 없음을 문서화합니다. 번역 갱신, 정본 생성, 훅, 게시/CI, 전체 UI/보조 기술 및 실제 운영 근거는 별도의 열린 요건입니다. 로컬 결과는 운영 인증이나 권한 전환을 허용하지 않습니다.
 
 ## 12. 열림 Decisions
 

@@ -1,4 +1,4 @@
-"""Fail-fast runtime binding for privileged Entra human access."""
+"""Fail-fast Core membership planning; privileged dispatch belongs only to isolated Executor."""
 
 from __future__ import annotations
 
@@ -8,12 +8,11 @@ from collections.abc import Mapping
 
 import httpx
 
-from fdai.core.human_assignment import AssignmentCaseService, HumanAccessApplyCoordinator
+from fdai.core.human_assignment import AssignmentCaseService
+from fdai.core.human_assignment.access_planning import HumanAccessPlanner
 from fdai.core.human_assignment.replacement import ReplacementCoveragePlanner
 from fdai.core.rbac.roles import Role
-from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
-from fdai.delivery.identity import EntraHumanAccessProvisioner, HumanAccessDirectApiExecutor
-from fdai.runtime.bootstrap_bindings import human_access_identity_client_id
+from fdai.delivery.identity import HumanAccessDirectApiExecutor
 from fdai.shared.providers.direct_api import DirectApiExecutor
 from fdai.shared.providers.state_store import StateStore
 
@@ -27,32 +26,21 @@ def build_human_access_direct_api(
     environment: Mapping[str, str] = os.environ,
     enabled: bool = True,
 ) -> DirectApiExecutor | None:
+    """Bind read-only planning from the group map without reading any mutation credentials.
+
+    ``http_client`` is retained for caller compatibility and is intentionally unused.
+    Neither enabling this capability nor a configured identity raises Core authority.
+    """
+    del http_client
     if not enabled:
         return None
     raw = environment.get("FDAI_HUMAN_ACCESS_ROLE_GROUPS_JSON", "").strip()
     if not raw:
         return None
-    if http_client is None:
-        raise RuntimeError("human access binding requires a shared HTTP client")
-    human_access_identity_client_id(environment)
     role_group_ids = _parse_role_group_ids(raw)
-    identity = ManagedIdentityWorkloadIdentity.from_env(
-        http_client=http_client,
-        env=environment,
-        client_id_env="FDAI_HUMAN_ACCESS_MI_CLIENT_ID",
-    )
-    provisioner = EntraHumanAccessProvisioner(
-        client=http_client,
-        identity=identity,
-        allowed_group_ids=frozenset(role_group_ids.values()),
-    )
     cases = AssignmentCaseService(audit_store)
     return HumanAccessDirectApiExecutor(
-        HumanAccessApplyCoordinator(
-            cases,
-            provisioner,
-            role_group_ids,
-        ),
+        HumanAccessPlanner(cases, role_group_ids),
         replacement=ReplacementCoveragePlanner(cases, role_group_ids),
     )
 

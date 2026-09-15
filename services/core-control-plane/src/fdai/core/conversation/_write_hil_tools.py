@@ -105,6 +105,13 @@ class ApproveHilTool:
                 status="error",
                 preview=f"approve_hil: no pending item for idempotency_key={idempotency_key!r}",
             )
+        if item.metadata.get("decision_route") == "human_access":
+            return ToolResult(
+                status="error",
+                preview=(
+                    "approve_hil: human access requires the authenticated Operator decision route"
+                ),
+            )
         workflow_required_role = _workflow_required_role(item)
         if item.metadata.get("decision_route") == "workflow" and workflow_required_role is None:
             return ToolResult(

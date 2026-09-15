@@ -12,6 +12,10 @@ from enum import StrEnum
 from typing import Any, Protocol
 
 from fdai.core.hil_resume.escalation_catalog_binding import CatalogEscalationTiming
+from fdai.core.hil_resume.forecast_urgency import (
+    ForecastUrgencyReader,
+    bind_forecast_timing_context,
+)
 from fdai.core.hil_resume.load_control import approval_request_from_park
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.hil_channel import HilChannel, HilChannelError
@@ -101,6 +105,7 @@ class HumanNonResponseSupervisor:
         clock: Callable[[], datetime] | None = None,
         actor: str = "fdai.core.hil_resume.escalation_supervisor",
         catalog_timing: CatalogEscalationTiming | None = None,
+        forecast_urgency_reader: ForecastUrgencyReader | None = None,
     ) -> None:
         self._state_store = state_store
         self._channel = channel
@@ -109,9 +114,30 @@ class HumanNonResponseSupervisor:
             raise ValueError("enforce escalation requires current-rung eligibility verification")
         self._eligibility = eligibility or _UnavailableEligibility()
         self._catalog_timing = catalog_timing
+        self._forecast_urgency_reader = forecast_urgency_reader
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._actor = actor
         self._scan_offset = 0
+
+    async def attach_with_source(
+        self,
+        parked: Mapping[str, Any],
+        *,
+        rungs: Sequence[EscalationRung],
+        now: datetime,
+        context: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Read the exact forecast before attachment; an unavailable source keeps normal timing."""
+        action = parked["action"]
+        verified_context = await bind_forecast_timing_context(
+            self._forecast_urgency_reader,
+            correlation_id=str(parked.get("correlation_id", "")),
+            target_ref=str(action["target_resource_ref"]),
+            impact=str(action["blast_radius"]["scope"]),
+            context=context,
+            at=now,
+        )
+        return self.attach(parked, rungs=rungs, now=self._clock(), context=verified_context)
 
     def attach(
         self,
@@ -168,7 +194,9 @@ class HumanNonResponseSupervisor:
             "decision_deadline": None,
         }
         if self._catalog_timing is not None:
-            timing = self._catalog_timing.resolve(context, [rung.subject_ref for rung in unique])
+            timing = self._catalog_timing.resolve(
+                context, [rung.subject_ref for rung in unique], at=timestamp
+            )
             updated["escalation"].update(timing)
             if timing.get("catalog_status") == "resolved":
                 overall_deadline = min(

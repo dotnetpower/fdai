@@ -104,6 +104,7 @@ from fdai.core.hil_resume.load_control import (
     ApprovalReminderDispatcher,
     approval_request_from_park,
 )
+from fdai.core.hil_resume.rule_source import resolve_parked_rule
 from fdai.core.oncall import OnCallResolution, OnCallResolver
 from fdai.core.ontology_platform.evidence_conflict import EvidenceConflictCurrentReader
 from fdai.core.operational_planning import PreDispatchKineticSafetyWriter
@@ -180,6 +181,9 @@ class ResolveOutcome(StrEnum):
 
     CONFLICTING_DECISION = "conflicting_decision"
     """A different terminal decision was already recorded; refused."""
+
+    OWNED_ROUTE_HELD = "owned_route_held"
+    """A separately owned approval route remains unchanged and never uses direct dispatch."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -375,7 +379,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         if resolved_escalation_rungs:
             if self.escalation_supervisor is None:
                 raise ValueError("escalation_rungs require an escalation supervisor")
-            parked = self.escalation_supervisor.attach(
+            parked = await self.escalation_supervisor.attach_with_source(
                 parked,
                 rungs=resolved_escalation_rungs,
                 now=parked_at,
@@ -541,6 +545,21 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         correlation_id = str(parked.get("correlation_id") or approval_id)
         idem = str(parked.get("idempotency_key") or approval_id)
         assignee_oid = str(parked.get("assignee_oid") or "").strip() or None
+
+        metadata = parked.get("metadata")
+        if isinstance(metadata, Mapping) and metadata.get("decision_route") == "human_access":
+            await self._audit(
+                action_kind="hil.resolve.owned_route_held",
+                idempotency_key=f"{idem}:owned_route_held",
+                approval_id=approval_id,
+                correlation_id=correlation_id,
+                detail={"decision_route": "human_access"},
+            )
+            return ResolveResult(
+                outcome=ResolveOutcome.OWNED_ROUTE_HELD,
+                approval_id=approval_id,
+                reason="human access approval requires the Var-owned exact-material quorum",
+            )
 
         if parked.get("status") == _STATUS_RESOLVED:
             prior = str(parked.get("decision") or "")
@@ -743,23 +762,7 @@ class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
         )
 
     def _resolve_rule(self, parked: Mapping[str, object], *, action: Action) -> Rule | None:
-        rule_id = str(parked.get("rule_id") or "")
-        catalog_rule = self._rules_by_id.get(rule_id)
-        if catalog_rule is not None:
-            return catalog_rule
-        if rule_id != f"operator.request.{action.action_type}":
-            return None
-        try:
-            parked_rule = Rule.model_validate(parked.get("rule"))
-        except ValueError:
-            return None
-        if (
-            parked_rule.id != rule_id
-            or parked_rule.remediates != action.action_type
-            or parked_rule.check_logic.reference != "server-validated-operator-request"
-        ):
-            return None
-        return parked_rule
+        return resolve_parked_rule(parked, action=action, rules_by_id=self._rules_by_id)
 
     # ------------------------------------------------------------------
     # helpers

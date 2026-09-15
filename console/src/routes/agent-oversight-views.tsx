@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import {
@@ -16,6 +16,7 @@ import { currentRoute, navigate, routeHref } from "../router";
 import { PANTHEON } from "./agents.model";
 import { HandoverProposalEditor } from "./handover-editor";
 import { ownershipText } from "./ownership-copy";
+import { ScopedDutyWorkspace } from "./scoped-duty-workspace";
 import type {
   CurrentOwnershipAgentDto,
   FindingDto,
@@ -651,18 +652,30 @@ export function groupCoverageFindings(findings: readonly FindingDto[]): readonly
 }
 
 function MappingReviews({ client, auth }: { readonly client: OperatorApiClient; readonly auth: AuthContext }) {
+  const sequence = useRef(0);
+  const home = auth.account?.homeAccountId, local = auth.account?.localAccountId;
+  const version = useMemo(() => ++sequence.current, [client, auth, home, local]);
+  return <MappingReviewsSession key={version} client={client} auth={auth}
+    contextCurrent={() => version === sequence.current && auth.account?.homeAccountId === home
+      && auth.account?.localAccountId === local} />;
+}
+
+function MappingReviewsSession({ client, auth, contextCurrent }: {
+  readonly client: OperatorApiClient; readonly auth: AuthContext; readonly contextCurrent: () => boolean;
+}) {
   const [state, setState] = useState<{ readonly status: "loading" } | { readonly status: "error"; readonly message: string } | { readonly status: "ready"; readonly overview: IamOverview }>({ status: "loading" });
   useEffect(() => {
     let cancelled = false;
     client.iamOverview().then(
-      (overview) => { if (!cancelled) setState({ status: "ready", overview }); },
-      (reason) => { if (!cancelled) setState({ status: "error", message: reason instanceof Error ? reason.message : String(reason) }); },
+      (overview) => { if (!cancelled && contextCurrent()) setState({ status: "ready", overview }); },
+      (reason) => { if (!cancelled && contextCurrent()) setState({ status: "error", message: reason instanceof Error ? reason.message : String(reason) }); },
     );
     return () => { cancelled = true; };
   }, [client]);
   if (state.status === "loading") return <LoadingState label={t("handover.mappingReviewsLoading")} />;
   if (state.status === "error") return <UnavailableView title={t("handover.view.mapping-reviews")} message={state.message} />;
-  return <SettingsIamAssignments client={client} auth={auth} canManage={state.overview.principal.capabilities.includes("manage-group-membership")} principalOid={state.overview.principal.oid} />;
+  return <><SettingsIamAssignments client={client} auth={auth} canManage={state.overview.principal.capabilities.includes("manage-group-membership")} principalOid={state.overview.principal.oid} />
+    <ScopedDutyWorkspace client={client} auth={auth} canManage={state.overview.principal.capabilities.includes("manage-group-membership")} principalOid={state.overview.principal.oid} /></>;
 }
 
 function UnavailableView({ title, message }: { readonly title: string; readonly message: string }) {

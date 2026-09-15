@@ -116,9 +116,16 @@ def _hil_decision_unavailable_reason(
         decision_route = route_value if isinstance(route_value, str) else None
     else:
         return "missing_decision_route"
-    if decision_route not in {"action", "workflow"}:
+    if decision_route not in {"action", "workflow", "human_access"}:
         return "missing_decision_route"
-    if decision_route == "workflow" and not _nonempty(metadata.get("required_role")):
+    if decision_route in {"workflow", "human_access"} and not _nonempty(
+        metadata.get("required_role")
+    ):
+        return "missing_required_role"
+    if decision_route == "human_access" and (
+        metadata.get("required_role") != "Owner"
+        or not _nonempty(metadata.get("target_subject_ref"))
+    ):
         return "missing_required_role"
     return None
 

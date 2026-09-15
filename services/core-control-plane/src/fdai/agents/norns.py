@@ -52,6 +52,7 @@ from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
+from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     capability_facts,
@@ -101,7 +102,7 @@ class NornsCapacityError(RuntimeError):
     """Pending proposals are saturated; the caller must retry or dead-letter."""
 
 
-class Norns(Agent):
+class Norns(Agent, HandoverKnowledgeMixin):
     """Wave-2 Norns: fingerprint aggregator + outcome / override / approval learner."""
 
     def __init__(
@@ -244,6 +245,8 @@ class Norns(Agent):
             await self._observe_post_turn_review(payload)
             return
         async with self._learning_lock:
+            if await self._handover_message(topic, payload):
+                return
             await self._handle_typed_message(topic, payload)
 
     async def _handle_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
@@ -499,14 +502,9 @@ class Norns(Agent):
     async def _flush_candidates_unlocked(self) -> int:
         """Publish newly-accumulated inert RuleCandidates onto the bus.
 
-        Norns is the single writer of ``object.rule-candidate`` (it owns the
-        ``RuleCandidate`` object type), so it publishes each candidate its
-        learners produced for Mimir's ``CandidateGuard`` + the quality gate to
-        inspect. Publishing does NOT promote anything - candidates stay inert
-        data until the quality gate acts (architecture discovery loop). This
-        is off-path batch work: ``on_typed_message`` flushes after each
-        learner pass, and a batch tick / the sync learners' caller MAY call it
-        directly to drain override / coverage candidates.
+        Norns alone publishes ``object.rule-candidate`` for Mimir's guard and quality gate.
+        Publication is inert, never promotion. Typed learner passes or an off-path batch tick
+        drain the same pending override and coverage proposals.
 
         Before publication, the internal Urd, Verdandi, and Skuld perspectives
         must agree. A disagreement is removed from ``pending_candidates`` and

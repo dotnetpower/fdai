@@ -360,6 +360,36 @@ def test_explicit_null_metadata_is_never_treated_as_legacy_action() -> None:
     assert projected["decision_unavailable_reason"] == "missing_decision_route"
 
 
+@pytest.mark.parametrize(
+    "metadata,requestable",
+    [
+        (
+            {
+                "decision_route": "human_access",
+                "required_role": "Owner",
+                "target_subject_ref": "person:target",
+            },
+            True,
+        ),
+        (
+            {
+                "decision_route": "human_access",
+                "required_role": "Approver",
+                "target_subject_ref": "person:target",
+            },
+            False,
+        ),
+        ({"decision_route": "human_access", "required_role": "Owner"}, False),
+    ],
+)
+def test_human_access_projection_requires_exact_owner_and_target_metadata(metadata, requestable):
+    row = _hil_row()
+    row["value"] = {**row["value"], "metadata": metadata}
+    projected = hil_item(row)
+    assert projected is not None
+    assert projected["decision_requestable"] is requestable
+
+
 def test_atomic_writer_normalizes_only_metadata_absent_legacy_action_parks() -> None:
     row = _hil_row()
     parked = dict(row["value"])

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -48,10 +49,12 @@ class _RemoteDirectApiLifecycleDispatchPort:
         client: EventBusDirectApiExecutionClient,
         action: Action,
         source_revision: str,
+        source_guard: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         self._client = client
         self._action = action
         self._source_revision = source_revision
+        self._source_guard = source_guard
         self.command: SafeguardBoundExecutorCommand | None = None
         self.error: BaseException | None = None
 
@@ -70,13 +73,20 @@ class _RemoteDirectApiLifecycleDispatchPort:
         del started_at
         identity = evidence_record.identity
         attempt = identity.reservation_attempt
+
+        async def guarded_publish() -> datetime:
+            await pre_invoke_guard()
+            if self._source_guard is not None:
+                await self._source_guard()
+            return await pre_invoke_guard()
+
         try:
             self.command = await self._client.publish_bound(
                 action=self._action,
                 safeguard_bundle_digest=evidence_record.bundle.bundle_digest,
                 source_revision=self._source_revision,
                 attempt=attempt,
-                pre_publish_guard=pre_invoke_guard,
+                pre_publish_guard=guarded_publish,
                 correlation_context=BoundExecutorCommandContext(
                     action_id=identity.action_id,
                     reservation_attempt=identity.reservation_attempt,
@@ -123,7 +133,9 @@ class SafeguardBoundEventBusDirectApiExecutionClient:
     client: EventBusDirectApiExecutionClient
     coordinator: SafeguardLifecycleCoordinator
 
-    async def execute(self, *, action: Action) -> RemoteDirectApiExecutionResult:
+    async def execute(
+        self, *, action: Action, source_guard: Callable[[], Awaitable[None]] | None = None
+    ) -> RemoteDirectApiExecutionResult:
         """Return only a result retaining the exact finalized bundle digest."""
 
         request = _build_direct_api_request(action)
@@ -145,6 +157,7 @@ class SafeguardBoundEventBusDirectApiExecutionClient:
             client=self.client,
             action=action,
             source_revision=self.coordinator.source_revision,
+            source_guard=source_guard,
         )
         coordinated = await self.coordinator.dispatch(
             action=action,
@@ -171,6 +184,12 @@ class SafeguardBoundEventBusDirectApiExecutionClient:
                 mode=action.mode,
                 safeguard_bundle_digest=coordinated.bundle_digest,
                 reason=coordinated.reason or "dispatch continuity is quarantined",
+                audit_context={
+                    "dispatch_status": "pending",
+                    "command_id": str(port.command.command_id),
+                }
+                if port.command is not None
+                else {},
             )
         if not coordinated.dispatch_performed:
             return RemoteDirectApiExecutionResult(
@@ -191,6 +210,10 @@ class SafeguardBoundEventBusDirectApiExecutionClient:
             mode=action.mode,
             safeguard_bundle_digest=coordinated.bundle_digest,
             reason="isolated Executor command awaits independent effect evidence",
+            audit_context={
+                "dispatch_status": "pending",
+                "command_id": str(port.command.command_id) if port.command is not None else None,
+            },
         )
 
 

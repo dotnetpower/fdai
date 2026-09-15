@@ -158,10 +158,14 @@ def assignment_capability_status(
 
 
 def _next_step(case: AssignmentCase) -> str | None:
+    if case.state is AssignmentState.IAM_REVOKED:
+        return "review_old_duty_removal"
     if case.state is AssignmentState.OWNERSHIP_MERGED:
         return "request_iam_apply"
     if case.state is AssignmentState.IAM_APPLYING:
-        return "verify_iam_membership"
+        return (
+            "verify_iam_removal" if case.intent.revocation is not None else "verify_iam_membership"
+        )
     if case.state is AssignmentState.DEGRADED:
         return "operator_repair"
     return None

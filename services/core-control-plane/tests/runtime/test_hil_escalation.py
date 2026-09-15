@@ -5,9 +5,28 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from fdai.runtime.hil_escalation import build_escalation_timing, build_rung_eligibility
+from fdai.runtime.hil_escalation import (
+    build_escalation_timing,
+    build_forecast_urgency_reader,
+    build_rung_eligibility,
+)
 
 ROOT = Path(__file__).resolve().parents[4]
+
+
+def test_runtime_binds_existing_core_forecast_source_without_connecting(monkeypatch):
+    import psycopg
+    from fdai.delivery.persistence.postgres_forecast_urgency import PostgresForecastUrgencyReader
+
+    def unexpected(*args, **kwargs):
+        raise AssertionError("composition must not query a provider")
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", unexpected)
+    assert build_forecast_urgency_reader({}) is None
+    reader = build_forecast_urgency_reader(
+        {"FDAI_STATE_STORE_DSN": "host=localhost dbname=example"}
+    )
+    assert isinstance(reader, PostgresForecastUrgencyReader)
 
 
 def test_runtime_loads_shipped_catalog_with_explicit_unavailable_audience():

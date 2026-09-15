@@ -195,12 +195,14 @@ class PantheonRuntime:
         if not raw_event_topic or not raw_event_topic.strip():
             raise ValueError("raw_event_topic MUST be a non-empty topic name")
 
+        human_access = assignment_workflow.human_access if assignment_workflow is not None else None
+        human_access_bound = human_access is not None and human_access.execution_bound
         execution_safety.validate_enforce_bindings(
             enforce=enforce,
-            has_executor=thor_executor is not None,
+            has_executor=thor_executor is not None or human_access_bound,
             has_state_store=thor_state_store is not None,
             saga=saga,
-            has_rollback=bool(rollback_executors),
+            has_rollback=bool(rollback_executors) or human_access_bound,
             has_approver_authorizer=approver_authorizer is not None,
             resource_lock=execution_resource_lock,
         )
@@ -335,19 +337,14 @@ class PantheonRuntime:
         # mutation and a "shadow before enforce" violation.
         thor = instantiated["Thor"]
         if isinstance(thor, Thor):
-            if thor_executor is not None:
-                thor.set_executor(thor_executor)
-            thor.set_shadow(not enforce)
-            if thor_state_store is not None:
-                thor.set_state_store(thor_state_store)
-            execution_safety.bind_execution_audit(
+            execution_safety.configure_thor_execution(
                 thor=thor,
+                executor=thor_executor,
+                state_store=thor_state_store,
+                resource_lock=execution_resource_lock,
                 saga=saga,
                 enforce=enforce,
-            )
-            thor.set_execution_resource_lock(
-                execution_resource_lock,
-                required=enforce,
+                human_access_bound=human_access_bound,
             )
 
         # Apply the disabled filter: disabled agents are neither bound nor
@@ -365,6 +362,9 @@ class PantheonRuntime:
             rule_generation_workers=rule_generation_workers,
             rule_generation_activation_binder=rule_generation_activation_binder,
             rule_generation_state_store=rule_generation_state_store,
+            human_access=assignment_workflow.human_access
+            if assignment_workflow is not None
+            else None,
         )
 
         conversation_tools = AgentConversationToolRegistry(

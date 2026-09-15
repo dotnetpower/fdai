@@ -116,9 +116,11 @@ describe("handover invitation", () => {
 
     expect(load).toHaveBeenCalledOnce();
     expect(dispatched.at(-1)?.detail).toMatchObject({
-      sessionKey: "handover:goal-1",
+      sessionKey: "login:session-1:handover:goal-1",
       targetAgent: "Muninn",
       onlyWhenIdle: true,
     });
+    await offerProactiveHandover({} as never, new MemoryStorage(), vi.fn().mockResolvedValue({ ...invitation, sessionId: "session-2" }));
+    expect(dispatched.at(-1)?.detail.sessionKey).toBe("login:session-2:handover:goal-1");
   });
 });

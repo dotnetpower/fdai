@@ -3,10 +3,12 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from uuid import UUID
 
 import pytest
 from fdai.core.hil_resume.escalation_catalog_binding import CatalogEscalationTiming
 from fdai.core.hil_resume.escalation_supervisor import EscalationPolicy, HumanNonResponseSupervisor
+from fdai.core.hil_resume.forecast_urgency import VerifiedForecastUrgency
 from fdai.core.hil_resume.rung_eligibility import DirectoryRungEligibility
 from fdai.rule_catalog.schema.escalation_ladder import load_escalation_catalog
 from fdai.shared.contracts.models import Mode
@@ -59,7 +61,18 @@ async def test_catalog_timing_is_snapshotted_and_only_shortens_the_human_window(
         policy=EscalationPolicy(mode=Mode.ENFORCE),
         clock=lambda: NOW,
     )
-    parked = supervisor.attach(_park(NOW), rungs=_rungs(), now=NOW, context=_context())
+    context = {
+        **_context(),
+        "verified_forecast_urgency": VerifiedForecastUrgency(
+            episode_id=UUID(int=1),
+            source_digest="a" * 64,
+            feature_cutoff=NOW,
+            predicted_breach_at=NOW + timedelta(seconds=200),
+            expires_at=NOW + timedelta(seconds=200),
+            confidence=0.95,
+        ),
+    }
+    parked = supervisor.attach(_park(NOW), rungs=_rungs(), now=NOW, context=context)
     assert parked["escalation"]["catalog_status"] == "resolved"
     assert parked["escalation"]["catalog_ttl_seconds"] == [100, 100, 100]
     assert parked["action"] == _park(NOW)["action"]
@@ -79,6 +92,11 @@ def test_missing_audience_resolution_never_guesses_stewardship_positions():
     result = _timing(False).resolve(_context(), [rung.subject_ref for rung in _rungs()])
     assert result["catalog_status"] == "audience_unavailable"
     assert "catalog_ttl_seconds" not in result
+
+
+def test_raw_forecast_numbers_never_substitute_for_an_authoritative_source_check():
+    result = _timing().resolve(_context(), [rung.subject_ref for rung in _rungs()])
+    assert result["catalog_ttl_seconds"] == [300, 300, 600]
 
 
 def test_enforce_supervisor_cannot_default_to_eligible_without_a_verifier():

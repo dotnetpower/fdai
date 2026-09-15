@@ -9,6 +9,7 @@ from fdai.core.detection.forecast_evaluation import (
     ForecastTargetSpec,
 )
 from fdai.core.detection.metric_source import MetricSeriesSource
+from fdai.core.hil_resume.forecast_urgency import ForecastUrgencySource, verify_forecast_urgency
 from fdai.shared.providers.metric import MetricPoint, StaticMetricProvider
 
 T0 = datetime(2026, 7, 23, 15, 0, tzinfo=UTC)
@@ -60,6 +61,16 @@ async def test_positive_evaluation_records_forecast_publication_atomically() -> 
     publication = next(iter(store.outbox.values()))
     assert publication.topic == "object.forecast"
     assert publication.payload["prediction_id"] == str(episode.episode_id)
+    proof = verify_forecast_urgency(
+        ForecastUrgencySource(episode, publication.payload),
+        episode_id=episode.episode_id,
+        target_ref=episode.target_ref,
+        at=T0 + timedelta(seconds=10),
+    )
+    assert proof is not None
+    assert proof.confidence == 0.9
+    assert proof.predicted_breach_at == T0 + timedelta(seconds=20)
+    assert proof.remaining_seconds(T0 + timedelta(seconds=10)) == 10
 
 
 async def test_flat_series_records_negative_without_publication() -> None:

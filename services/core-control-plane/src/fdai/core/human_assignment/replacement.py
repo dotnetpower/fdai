@@ -6,8 +6,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 
-from fdai.core.human_assignment.coverage import normalize_principal_ref
+from fdai.core.human_assignment.coverage import approval_quorum_satisfied, normalize_principal_ref
 from fdai.core.human_assignment.model import AssignmentCase, AssignmentState
+from fdai.core.human_assignment.revocation_target import require_revocation_target
 from fdai.core.human_assignment.service import AssignmentCaseService
 from fdai.core.rbac.roles import Role
 from fdai.core.stewardship import Duty
@@ -42,6 +43,38 @@ class ReplacementCoveragePlanner:
     cases: AssignmentCaseService
     role_group_ids: Mapping[Role, str]
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "role_group_ids", MappingProxyType(dict(self.role_group_ids)))
+
+    async def plan_revocation(
+        self, *, case_id: str, expected_revision: int
+    ) -> ReplacementCoveragePlan:
+        """Resolve a separately approved removal without borrowing the original grant reviews."""
+        removal = await self.cases.get_case(case_id)
+        if (
+            type(expected_revision) is not int
+            or removal.revision != expected_revision
+            or removal.intent.revocation is None
+            or removal.state
+            not in {
+                AssignmentState.APPROVED,
+                AssignmentState.IAM_APPLYING,
+                AssignmentState.DEGRADED,
+            }
+            or removal.effect_receipts
+            or not approval_quorum_satisfied(removal.intent, removal.reviews)
+        ):
+            raise ValueError("revocation plan requires its own exact independently reviewed case")
+        original = await require_revocation_target(
+            self.cases.store, removal.intent, revocation_case_id=case_id, allow_held=True
+        )
+        return await self._plan(
+            original,
+            replacement_revisions=removal.intent.revocation.replacement_revisions,
+            removal_case_id=case_id,
+            idempotency_key=f"human-access-revoke:{case_id}",
+        )
+
     async def plan(
         self,
         *,
@@ -54,6 +87,23 @@ class ReplacementCoveragePlanner:
             raise ValueError("replacement coverage requires bounded independent cases")
         current = await self.cases.get_case(case_id)
         _active_revision(current, expected_revision)
+        return await self._plan(
+            current,
+            replacement_revisions=replacement_revisions,
+            removal_case_id=current.case_id,
+            idempotency_key=f"human-access-revoke:{current.case_id}:{current.revision}",
+        )
+
+    async def _plan(
+        self,
+        current: AssignmentCase,
+        *,
+        replacement_revisions: Mapping[str, int],
+        removal_case_id: str,
+        idempotency_key: str,
+    ) -> ReplacementCoveragePlan:
+        if current.intent.subject.provider != "entra":
+            raise ValueError("replacement provider is unsupported")
         replacements: list[AssignmentCase] = []
         for replacement_id, revision in replacement_revisions.items():
             replacement = await self.cases.get_case(replacement_id)
@@ -95,18 +145,18 @@ class ReplacementCoveragePlanner:
         await self._require_no_other_role_demand(current)
         return ReplacementCoveragePlan(
             removal=HumanAccessPlan(
-                case_id=current.case_id,
+                case_id=removal_case_id,
                 subject_id=current.intent.subject.subject_id,
                 group_id=group,
                 operation=HumanAccessOperation.REVOKE,
-                idempotency_key=f"human-access-revoke:{current.case_id}:{current.revision}",
+                idempotency_key=idempotency_key,
             ),
             replacement_revisions=replacement_revisions,
             covered_slots=tuple(covered),
         )
 
     async def _require_no_other_role_demand(self, current: AssignmentCase) -> None:
-        """Never revoke a group still needed by another active assignment of the same person."""
+        """Preserve another grant's active or uncertain membership until explicitly resolved."""
         offset = 0
         while offset < 1000:
             rows, total = await self.cases.store.read_state_page(
@@ -118,13 +168,19 @@ class ReplacementCoveragePlanner:
                 other = AssignmentCase.from_dict(dict(row))
                 if (
                     other.case_id != current.case_id
-                    and other.state is AssignmentState.ACTIVE
+                    and other.intent.revocation is None
+                    and other.state
+                    in {
+                        AssignmentState.ACTIVE,
+                        AssignmentState.IAM_APPLYING,
+                        AssignmentState.DEGRADED,
+                    }
                     and other.intent.requested_role is current.intent.requested_role
                     and other.intent.subject.provider == current.intent.subject.provider
                     and normalize_principal_ref(other.intent.subject.subject_id)
                     == normalize_principal_ref(current.intent.subject.subject_id)
                 ):
-                    raise ValueError("membership is still required by another active assignment")
+                    raise ValueError("membership is still required by another unresolved grant")
             offset += len(rows)
             if offset >= total:
                 return

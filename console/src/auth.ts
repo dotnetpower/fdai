@@ -20,6 +20,7 @@ import {
   msalCacheLocationForOrigin,
 } from "./auth-session";
 import type { ConsoleConfig } from "./config";
+import { resetHandoverLoginSession } from "./handover-session";
 
 type InteractionRequiredAuthErrorConstructor =
   typeof import("@azure/msal-browser").InteractionRequiredAuthError;
@@ -138,6 +139,7 @@ class MsalAuth implements AuthContext {
     // Consume any redirect response first - MSAL requires this before
     // any silent-acquire call.
     const redirectResult = await this.#client.handleRedirectPromise();
+    if (redirectResult?.account) resetHandoverLoginSession(window.sessionStorage);
     const accounts = this.#client.getAllAccounts();
     this.#account = redirectResult?.account ?? (accounts.length > 0 ? (accounts[0] ?? null) : null);
   }

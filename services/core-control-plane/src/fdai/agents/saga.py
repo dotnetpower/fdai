@@ -17,6 +17,8 @@ from fdai.agents._framework.adapters import (
 )
 from fdai.agents._framework.assignment_workflow import seal_assignment
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
+from fdai.agents._framework.human_access_workflow import seal_human_access
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     capability_facts,
@@ -44,7 +46,7 @@ class SagaAuditChain(Protocol):
     def entries_for_correlation(self, correlation_id: str) -> list[AuditEntry]: ...
 
 
-class Saga(Agent):
+class Saga(Agent, HandoverKnowledgeMixin):
     """Wave-2 Saga: audit chain + GitHub Issue dedup."""
 
     def __init__(
@@ -90,6 +92,11 @@ class Saga(Agent):
             correlation_id=correlation_id,
             payload=payload,
         )
+        if await self._handover_message(topic, payload):
+            return
+        if payload.get("kind") == "human_access_execution":
+            await seal_human_access(self, topic, payload)
+            return
         if payload.get("kind") == "human_assignment":
             await seal_assignment(self, topic, payload)
             return

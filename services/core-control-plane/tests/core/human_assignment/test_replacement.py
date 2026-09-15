@@ -125,3 +125,21 @@ async def test_unrelated_other_role_does_not_expand_the_single_role_removal():
     plan = await _plan(planner)
     assert plan.removal.group_id == "group:reader"
     assert (await planner.cases.get_case("unrelated")).state is AssignmentState.ACTIVE
+
+
+@pytest.mark.parametrize("state", [AssignmentState.IAM_APPLYING, AssignmentState.DEGRADED])
+async def test_uncertain_or_degraded_other_grant_preserves_existing_membership(state):
+    other = replace(
+        _active("other", "human:old", agent="Odin"),
+        state=state,
+        degraded_reason="verification_pending" if state is AssignmentState.DEGRADED else None,
+    )
+    planner = await _planner(other)
+    with pytest.raises(ValueError, match="still required"):
+        await _plan(planner)
+
+
+async def test_shadow_plan_retry_identity_is_stable_and_unchanged_inputs_are_read_only():
+    planner = await _planner()
+    assert await _plan(planner) == await _plan(planner)
+    assert not tuple(planner.cases.store.audit_entries)

@@ -79,6 +79,7 @@ class RuntimeTaskConfiguration:
     handover_knowledge_lifecycle_worker: Any = None
     assignment_intake_consumer: Any = None
     assignment_outcome_consumer: Any = None
+    human_access_reconciliation: Any = None
     t1_mini_probe: T1MiniProbe | None = None
 
 
@@ -301,6 +302,11 @@ async def run_runtime_tasks(
                     coordinator=hil_coordinator,
                     stop=config.stop,
                     workflow_registry=config.hil_workflow_registry,
+                    human_access_ingress=(
+                        config.human_access_reconciliation.decision
+                        if config.human_access_reconciliation is not None
+                        else None
+                    ),
                 ),
             ),
             name="hil-decision-consumer",
@@ -522,6 +528,16 @@ async def run_runtime_tasks(
     )
     await hooks.supervise_runtime_tasks(
         required=(
+            (
+                asyncio.create_task(
+                    config.readiness.run_when_ready(
+                        config.stop, lambda: config.human_access_reconciliation.run(config.stop)
+                    ),
+                    name="human-access-evidence-reconciliation",
+                )
+                if config.human_access_reconciliation is not None
+                else None
+            ),
             (
                 asyncio.create_task(
                     config.readiness.run_when_ready(

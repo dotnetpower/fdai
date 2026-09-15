@@ -7,6 +7,30 @@
   },
   "migration_dependencies": [
     {
+      "consumer_service": "core-control-plane",
+      "consumer_revision": "core_handover_review_read_20260914",
+      "provider_service": "document-processing-worker",
+      "provider_revision": "document_worker_outbox_20260808",
+      "schema_prerequisites": ["knowledge_chunk"],
+      "provider_rollback": "blocked-until-core-handover-review-read-rollback"
+    },
+    {
+      "consumer_service": "operator-service",
+      "consumer_revision": "operator_handover_admission_20260914",
+      "provider_service": "document-ingestion-api",
+      "provider_revision": "ingestion_api_outbox_20260808",
+      "schema_prerequisites": ["document_version"],
+      "provider_rollback": "blocked-until-operator-handover-admission-rollback"
+    },
+    {
+      "consumer_service": "core-control-plane",
+      "consumer_revision": "core_handover_admission_20260914",
+      "provider_service": "document-ingestion-api",
+      "provider_revision": "ingestion_api_outbox_20260808",
+      "schema_prerequisites": ["document_version"],
+      "provider_rollback": "blocked-until-core-handover-admission-rollback"
+    },
+    {
       "consumer_service": "operator-service",
       "consumer_revision": "operator_assignment_receipts_20260914",
       "provider_service": "core-control-plane",
@@ -100,6 +124,16 @@
       "provider_rollback": "blocked-until-executor-bundle-read-rollback"
     },
     {
+      "consumer_service": "isolated-executor",
+      "consumer_revision": "executor_human_access_read_20260915",
+      "provider_service": "core-control-plane",
+      "provider_revision": "core_human_access_execution_20260915",
+      "schema_prerequisites": [
+        "fdai_executor_human_access_source"
+      ],
+      "provider_rollback": "blocked-until-executor-human-access-read-rollback"
+    },
+    {
       "consumer_service": "document-processing-worker",
       "consumer_revision": "document_worker_outbox_20260808",
       "provider_service": "document-ingestion-api",
@@ -139,6 +173,7 @@
   },
   "table_migrations": {
     "core-control-plane": [
+      "handover_semantic_package",
       "operator_assignment_receipt",
       "action_outbox",
       "audit_log",
@@ -347,6 +382,7 @@
   },
   "whole_table_writers": {
     "core-control-plane": [
+      "handover_semantic_package",
       "action_outbox",
       "case_history",
       "case_history_chunk",

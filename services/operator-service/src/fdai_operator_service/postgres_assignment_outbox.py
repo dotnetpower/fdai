@@ -66,7 +66,10 @@ class PostgresAssignmentOutbox:
                            <= NOW() - interval '5 minutes'
                        OR EXISTS (
                            SELECT 1 FROM state_kv AS binding JOIN state_kv AS snapshot
-                             ON snapshot.key = 'human_assignment:case:' ||
+                             ON snapshot.key = CASE
+                                 WHEN binding.value ->> 'case_kind' = 'scoped_duty'
+                                 THEN 'human_assignment:scoped-case:'
+                                 ELSE 'human_assignment:case:' END ||
                                  (binding.value ->> 'case_id')
                             WHERE binding.key = 'human_assignment:operator-case:' ||
                                   (request.value -> 'payload' ->> 'case_id')

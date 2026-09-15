@@ -7,7 +7,10 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, Final
 
+from fdai_service_contracts.human_access_execution import HumanAccessPreparation
+
 from fdai.core.human_assignment.command_receipt import AssignmentCommandReceipt
+from fdai.core.human_assignment.revocation_intent import AssignmentRevocation
 from fdai.core.rbac.roles import Role
 from fdai.core.stewardship.model import Duty
 from fdai.core.stewardship.names import AGENT_NAME_SET
@@ -29,7 +32,9 @@ class AssignmentState(StrEnum):
     OWNERSHIP_PR_OPEN = "ownership_pr_open"
     OWNERSHIP_MERGED = "ownership_merged"
     IAM_APPLYING = "iam_applying"
+    IAM_REVOKED = "iam_revoked"
     ACTIVE = "active"
+    REVOKED = "revoked"
     REJECTED = "rejected"
     DEGRADED = "degraded"
     SUPERSEDED = "superseded"
@@ -96,6 +101,7 @@ class AssignmentIntent:
     goal_refs: tuple[str, ...]
     requester_ref: str
     justification: str
+    revocation: AssignmentRevocation | None = None
 
     def __post_init__(self) -> None:
         if self.requested_role is Role.BREAK_GLASS:
@@ -113,6 +119,8 @@ class AssignmentIntent:
         if len(set(normalized_goals)) != len(normalized_goals):
             raise AssignmentModelError("goal refs MUST be unique")
         object.__setattr__(self, "goal_refs", normalized_goals)
+        if self.revocation is not None and self.goal_refs:
+            raise AssignmentModelError("revocation cannot create handover goals")
         justification = self.justification.strip()
         if not justification:
             raise AssignmentModelError("justification MUST be non-empty")
@@ -131,6 +139,7 @@ class AssignmentIntent:
             "goal_refs": list(self.goal_refs),
             "requester_ref": self.requester_ref,
             "justification": self.justification,
+            **({"revocation": self.revocation.to_dict()} if self.revocation is not None else {}),
         }
 
 
@@ -190,10 +199,18 @@ class AssignmentCase:
     degraded_reason: str | None = None
     superseded_by: str | None = None
     command_receipts: tuple[AssignmentCommandReceipt, ...] = ()
+    revocation_case_id: str | None = None
+    iam_preparation: HumanAccessPreparation | None = None
+    iam_recovery_preparation: HumanAccessPreparation | None = None
+    iam_recovery_effect: EffectReceipt | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "case_id", _identifier(self.case_id, "case_id"))
-        if self.revision < 1:
+        if (
+            not isinstance(self.revision, int)
+            or isinstance(self.revision, bool)
+            or self.revision < 1
+        ):
             raise AssignmentModelError("revision MUST be >= 1")
         object.__setattr__(self, "reviews", tuple(self.reviews))
         object.__setattr__(self, "effect_receipts", tuple(self.effect_receipts))
@@ -211,6 +228,53 @@ class AssignmentCase:
             raise AssignmentModelError(
                 "active assignment requires ownership and IAM effect receipts"
             )
+        if self.intent.revocation is not None and self.state is AssignmentState.ACTIVE:
+            raise AssignmentModelError("revocation cannot activate an assignment")
+        if self.state in {AssignmentState.IAM_REVOKED, AssignmentState.REVOKED}:
+            if self.intent.revocation is None or EffectKind.IAM not in self.effect_kinds:
+                raise AssignmentModelError("revocation state requires a removal intent and effect")
+        if self.state is AssignmentState.REVOKED and not self.has_required_effects:
+            raise AssignmentModelError("revoked assignment requires IAM and ownership effects")
+        if self.iam_preparation is not None:
+            if (
+                not isinstance(self.iam_preparation, HumanAccessPreparation)
+                or self.revision < self.iam_preparation.prepared_revision
+                or self.state
+                in {
+                    AssignmentState.DRAFT,
+                    AssignmentState.PENDING_REVIEW,
+                    AssignmentState.APPROVED,
+                }
+            ):
+                raise AssignmentModelError(
+                    "IAM preparation requires its typed post-review revision"
+                )
+        if self.iam_recovery_preparation is not None:
+            if (
+                not isinstance(self.iam_recovery_preparation, HumanAccessPreparation)
+                or self.iam_preparation is None
+                or self.state not in {AssignmentState.DEGRADED, AssignmentState.SUPERSEDED}
+                or self.revision < self.iam_recovery_preparation.prepared_revision
+            ):
+                raise AssignmentModelError(
+                    "IAM recovery preparation requires a held original execution"
+                )
+        if self.iam_recovery_effect is not None and (
+            self.iam_recovery_preparation is None
+            or self.iam_recovery_effect.kind is not EffectKind.IAM
+            or self.revision <= self.iam_recovery_preparation.prepared_revision
+        ):
+            raise AssignmentModelError(
+                "IAM recovery effect requires an independently observed inverse"
+            )
+        if self.revocation_case_id is not None:
+            object.__setattr__(
+                self,
+                "revocation_case_id",
+                _identifier(self.revocation_case_id, "revocation_case_id"),
+            )
+            if self.state not in {AssignmentState.DEGRADED, AssignmentState.SUPERSEDED}:
+                raise AssignmentModelError("a revocation-held assignment cannot become active")
         if self.degraded_reason is not None:
             object.__setattr__(
                 self,
@@ -243,6 +307,26 @@ class AssignmentCase:
             "degraded_reason": self.degraded_reason,
             "superseded_by": self.superseded_by,
             "command_receipts": [receipt.to_dict() for receipt in self.command_receipts],
+            **(
+                {"revocation_case_id": self.revocation_case_id}
+                if self.revocation_case_id is not None
+                else {}
+            ),
+            **(
+                {"iam_preparation": self.iam_preparation.model_dump(mode="json")}
+                if self.iam_preparation is not None
+                else {}
+            ),
+            **(
+                {"iam_recovery_preparation": self.iam_recovery_preparation.model_dump(mode="json")}
+                if self.iam_recovery_preparation is not None
+                else {}
+            ),
+            **(
+                {"iam_recovery_effect": self.iam_recovery_effect.to_dict()}
+                if self.iam_recovery_effect is not None
+                else {}
+            ),
         }
 
     @classmethod
@@ -269,6 +353,11 @@ class AssignmentCase:
             ),
             requester_ref=_string(raw_intent, "requester_ref"),
             justification=_string(raw_intent, "justification"),
+            revocation=(
+                AssignmentRevocation.from_dict(_mapping(raw_intent, "revocation"))
+                if "revocation" in raw_intent
+                else None
+            ),
         )
         return cls(
             case_id=_string(value, "case_id"),
@@ -294,6 +383,29 @@ class AssignmentCase:
             ),
             degraded_reason=_optional_string(value, "degraded_reason"),
             superseded_by=_optional_string(value, "superseded_by"),
+            revocation_case_id=_optional_string(value, "revocation_case_id"),
+            iam_preparation=(
+                HumanAccessPreparation.model_validate(value["iam_preparation"])
+                if "iam_preparation" in value
+                else None
+            ),
+            iam_recovery_preparation=(
+                HumanAccessPreparation.model_validate(value["iam_recovery_preparation"])
+                if "iam_recovery_preparation" in value
+                else None
+            ),
+            iam_recovery_effect=(
+                EffectReceipt(
+                    kind=EffectKind(_string(_mapping(value, "iam_recovery_effect"), "kind")),
+                    receipt_ref=_string(_mapping(value, "iam_recovery_effect"), "receipt_ref"),
+                    digest=_string(_mapping(value, "iam_recovery_effect"), "digest"),
+                    received_at=datetime.fromisoformat(
+                        _string(_mapping(value, "iam_recovery_effect"), "received_at")
+                    ),
+                )
+                if "iam_recovery_effect" in value
+                else None
+            ),
             command_receipts=tuple(
                 AssignmentCommandReceipt(
                     proposal_id=_string(item, "proposal_id"),
@@ -360,7 +472,7 @@ def _optional_string(value: dict[str, Any], key: str) -> str | None:
 
 def _integer(value: dict[str, Any], key: str) -> int:
     item = value.get(key)
-    if not isinstance(item, int):
+    if not isinstance(item, int) or isinstance(item, bool):
         raise AssignmentModelError(f"stored assignment {key} MUST be an integer")
     return item
 

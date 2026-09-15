@@ -23,7 +23,11 @@ from fdai.core.human_assignment.model import (
     ProviderSubject,
     ReviewDecision,
 )
+from fdai.core.human_assignment.repository import assignment_case_id
 from fdai.core.human_assignment.request_intake import AssignmentRequestIntake
+from fdai.core.human_assignment.revocation_intent import AssignmentRevocation
+from fdai.core.human_assignment.revocation_target import require_revocation_target
+from fdai.core.human_assignment.scoped_duty_requests import ScopedDutyRequestProcessor
 from fdai.core.human_assignment.service import AssignmentCaseService
 from fdai.core.rbac.resolver import Principal
 from fdai.core.rbac.roles import Role
@@ -44,12 +48,27 @@ class AssignmentRequestProcessor:
 
     intake: AssignmentRequestIntake
     cases: AssignmentCaseService
+    scoped: ScopedDutyRequestProcessor | None = None
 
     async def validate(self, notice: AssignmentRequestNotice, *, at: datetime) -> None:
         """Forseti validates exact source identity, command shape, and current case revision."""
+        if notice.schema_version == "1.2.0":
+            if self.scoped is None:
+                raise ValueError("scoped duty current-source bindings are unavailable")
+            await self.scoped.validate(notice, at=at)
+            return
         payload, principal = await self._source(notice, at=at)
         if notice.operation == "assignments.create":
-            validate_duty_bindings(self._intent(payload, principal).duty_bindings)
+            intent = self._intent(payload, principal)
+            validate_duty_bindings(intent.duty_bindings)
+            if intent.revocation is not None:
+                await require_revocation_target(
+                    self.cases.store,
+                    intent,
+                    revocation_case_id=assignment_case_id(
+                        intent.requester_ref, intent.idempotency_key
+                    ),
+                )
             return
         case = await self._case(payload)
         expected = _revision(payload)
@@ -68,6 +87,11 @@ class AssignmentRequestProcessor:
 
     async def validate_review(self, notice: AssignmentRequestNotice, *, at: datetime) -> None:
         """Var rechecks the authenticated independent Owner; a notice never supplies roles."""
+        if notice.schema_version == "1.2.0":
+            if self.scoped is None:
+                raise ValueError("scoped duty current-source bindings are unavailable")
+            await self.scoped.validate_review(notice, at=at)
+            return
         if notice.operation != "assignments.review":
             raise ValueError("human review requires a review command")
         payload, principal = await self._source(notice, at=at)
@@ -94,6 +118,10 @@ class AssignmentRequestProcessor:
 
     async def apply(self, notice: AssignmentRequestNotice, *, at: datetime) -> Mapping[str, object]:
         """Materialize a Saga-sealed command once, with recovery after an interrupted write."""
+        if notice.schema_version == "1.2.0":
+            if self.scoped is None:
+                raise ValueError("scoped duty current-source bindings are unavailable")
+            return await self.scoped.apply(notice, at=at)
         payload, principal = await self._source(notice, at=at)
         result_key = f"{_RESULT_PREFIX}{notice.proposal_id}"
         previous = await self.cases.store.read_state(result_key)
@@ -147,6 +175,7 @@ class AssignmentRequestProcessor:
                     command_receipt=_receipt(notice),
                 )
         result: dict[str, object] = {
+            **({"schema_version": "1.1.0"} if case.intent.revocation is not None else {}),
             "proposal_id": notice.proposal_id,
             "request_digest": notice.proposal_digest,
             "operator_case_id": operator_case_id,
@@ -175,6 +204,12 @@ class AssignmentRequestProcessor:
         if reason != "verified_operator_receipt" or record is None:
             raise PermissionError(reason)
         payload = record["payload"]
+        if notice.schema_version != "1.1.0":
+            removal = payload.get("revocation") is not None
+            if notice.operation != "assignments.create":
+                removal = (await self._case(payload)).intent.revocation is not None
+            if removal:
+                raise ValueError("revocation commands require transport version 1.1.0")
         principal = payload["principal"]
         return payload, Principal(
             oid=principal["oid"],
@@ -207,6 +242,9 @@ class AssignmentRequestProcessor:
             raise ValueError("assignment duties or goals are malformed")
         if _text(payload, "subject_provider") != "entra":
             raise ValueError("assignment subject provider is not supported")
+        revocation = payload.get("revocation")
+        if revocation is not None and not isinstance(revocation, Mapping):
+            raise ValueError("assignment revocation MUST be an object")
         return AssignmentIntent(
             idempotency_key=_text(payload, "idempotency_key"),
             subject=ProviderSubject("entra", _text(payload, "subject_id")),
@@ -222,6 +260,9 @@ class AssignmentRequestProcessor:
             goal_refs=tuple(goals),
             requester_ref=principal.oid,
             justification=_text(payload, "justification"),
+            revocation=(
+                AssignmentRevocation.from_dict(revocation) if revocation is not None else None
+            ),
         )
 
 

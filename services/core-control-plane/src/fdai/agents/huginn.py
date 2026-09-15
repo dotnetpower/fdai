@@ -325,6 +325,20 @@ class Huginn(Agent):
                 if field in canonical_payload
             }
             payload["incident_correlation"] = "none"
+        if payload["event_type"] == "knowledge.handover.source_observed.v1":
+            from fdai_service_contracts.handover_knowledge import HandoverKnowledgeNotice
+
+            notice = HandoverKnowledgeNotice.model_validate(canonical_payload.get("notice"))
+            payload["attributes"] = {"knowledge_notice": notice.model_dump(mode="json")}
+            payload["correlation_id"] = notice.source_id
+            payload["incident_correlation"] = "none"
+        if payload["event_type"] == "human.assignment.execution.v1":
+            from fdai_service_contracts.human_access_workflow import HumanAccessWorkNotice
+
+            notice = HumanAccessWorkNotice.model_validate(canonical_payload.get("notice"))
+            payload["attributes"] = {"human_access_notice": notice.model_dump(mode="json")}
+            payload["correlation_id"] = str(notice.request_id)
+            payload["incident_correlation"] = "none"
         change_projection = _change_projection(
             raw=raw,
             canonical_payload=canonical_payload,

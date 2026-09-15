@@ -1,0 +1,30 @@
+.handover-checklist {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--fg);
+}
+.handover-checklist header,
+.handover-checklist-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.handover-checklist header { justify-content: space-between; }
+.handover-checklist p,
+.handover-checklist h3 { margin: 0; max-width: 76ch; }
+.handover-checklist-slots { display: grid; gap: 8px; padding-inline-start: 24px; }
+.handover-checklist-slots li { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.handover-checklist-slots li > span { display: block; }
+.handover-checklist code { overflow-wrap: anywhere; white-space: normal; }
+.handover-checklist-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.handover-checklist label { display: grid; gap: 4px; min-width: 0; flex: 1 1 220px; }
+.handover-checklist input,
+.handover-checklist select { max-width: 100%; min-width: 0; }
+.handover-checklist button,
+.handover-checklist select,
+.handover-checklist input,
+.handover-checklist summary { min-height: var(--cs-control-height-touch); max-width: 100%; }

@@ -21,6 +21,7 @@ from fdai.agents._framework.assignment_workflow import (
     materialize_assignment,
 )
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.handover_knowledge import HandoverKnowledgeMixin
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     capability_facts,
@@ -66,7 +67,7 @@ def _readiness_generated_at(record: Mapping[str, Any]) -> datetime | None:
 _MAX_OPERATING_PATTERN_CASES = 100
 
 
-class Muninn(Agent):
+class Muninn(Agent, HandoverKnowledgeMixin):
     """Wave-2 Muninn: state / context store proxy."""
 
     def __init__(
@@ -107,6 +108,8 @@ class Muninn(Agent):
         self._assignment_materializer, self._assignment_clock = materializer, clock
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if await self._handover_message(topic, payload):
+            return
         if topic == "object.audit-entry" and payload.get("kind") == "human_assignment":
             await materialize_assignment(
                 self, payload, self._assignment_materializer, clock=self._assignment_clock

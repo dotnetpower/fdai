@@ -10,10 +10,13 @@ import httpx
 import yaml
 
 from fdai.core.hil_resume.escalation_catalog_binding import CatalogEscalationTiming
+from fdai.core.hil_resume.forecast_urgency import ForecastUrgencyReader
 from fdai.core.hil_resume.rung_eligibility import DirectoryRungEligibility
 from fdai.core.rbac.resolver import GroupMapping
 from fdai.core.rbac.roles import Role
 from fdai.delivery.identity.entra_directory import EntraHumanIdentityDirectory
+from fdai.delivery.persistence.postgres import PostgresStateStoreConfig
+from fdai.delivery.persistence.postgres_forecast_urgency import PostgresForecastUrgencyReader
 from fdai.rule_catalog.schema.escalation_ladder import load_escalation_catalog
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -80,4 +83,10 @@ def build_rung_eligibility(
     )
 
 
-__all__ = ["build_escalation_timing", "build_rung_eligibility"]
+def build_forecast_urgency_reader(environment: Mapping[str, str]) -> ForecastUrgencyReader | None:
+    """Bind the same Core forecast ledger locally and deployed; no in-memory fallback."""
+    dsn = environment.get("FDAI_STATE_STORE_DSN", "").strip()
+    return PostgresForecastUrgencyReader(PostgresStateStoreConfig(dsn=dsn)) if dsn else None
+
+
+__all__ = ["build_escalation_timing", "build_forecast_urgency_reader", "build_rung_eligibility"]

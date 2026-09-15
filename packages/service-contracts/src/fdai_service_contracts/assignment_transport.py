@@ -44,6 +44,34 @@ def assignment_content_digest(value: Mapping[str, object]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+class AssignmentRevocationRequest(BaseModel):
+    """Pin an original Core case and replacements inside authenticated request intent.
+
+    References do not prove replacement liveness, human review, or a provider effect. Core
+    independently resolves them through its canonical assignment state before planning removal.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    case_id: Annotated[str, Field(strict=True, min_length=1, max_length=256)]
+    revision: Annotated[int, Field(strict=True, ge=1)]
+    replacement_revisions: Annotated[
+        dict[
+            Annotated[str, Field(strict=True, min_length=1, max_length=256)],
+            Annotated[int, Field(strict=True, ge=1)],
+        ],
+        Field(min_length=1, max_length=30),
+    ]
+
+    @model_validator(mode="after")
+    def _exact_references(self) -> AssignmentRevocationRequest:
+        if any(value != value.strip() for value in (self.case_id, *self.replacement_revisions)):
+            raise ValueError("revocation references MUST be exact without surrounding whitespace")
+        if self.case_id in self.replacement_revisions:
+            raise ValueError("revocation target cannot be its own replacement")
+        return self
+
+
 class AssignmentRequestNotice(_NoAuthorityRecord):
     """Reference an authenticated immutable proposal without copying identity or prose.
 
@@ -53,7 +81,7 @@ class AssignmentRequestNotice(_NoAuthorityRecord):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.0.0", "1.1.0", "1.2.0"] = "1.0.0"
     proposal_ref: Annotated[str, Field(pattern=_REFERENCE)]
     proposal_id: Annotated[str, Field(pattern=r"^operator-[a-f0-9]{32}$")]
     case_id: Annotated[str, Field(pattern=r"^operator-[a-f0-9]{32}$")]
@@ -105,6 +133,7 @@ class AssignmentIntakeProjection(_NoAuthorityRecord):
 class AssignmentCaseResult(_NoAuthorityRecord):
     """Read-only case observation; active status requires both independent effect references."""
 
+    schema_version: Literal["1.1.0", "1.2.0"] | None = None
     proposal_id: Annotated[str, Field(pattern=r"^operator-[a-f0-9]{32}$")]
     request_digest: Annotated[str, Field(pattern=_DIGEST)]
     operator_case_id: Annotated[str, Field(pattern=r"^operator-[a-f0-9]{32}$")]
@@ -116,7 +145,9 @@ class AssignmentCaseResult(_NoAuthorityRecord):
         "ownership_pr_open",
         "ownership_merged",
         "iam_applying",
+        "iam_revoked",
         "active",
+        "revoked",
         "rejected",
         "degraded",
         "superseded",
@@ -130,8 +161,26 @@ class AssignmentCaseResult(_NoAuthorityRecord):
     def _verified_state(self) -> AssignmentCaseResult:
         if self.proposal_id != f"operator-{self.request_digest[:32]}":
             raise ValueError("assignment result identity does not match its digest")
-        if self.state == "active" and not (self.ownership_effect_ref and self.iam_effect_ref):
-            raise ValueError("active assignment result requires both effect references")
+        if self.state in {"active", "revoked"} and not (
+            self.ownership_effect_ref and self.iam_effect_ref
+        ):
+            raise ValueError("converged assignment result requires both effect references")
+        if self.state == "iam_revoked" and not self.iam_effect_ref:
+            raise ValueError("IAM removal observation requires an independent effect reference")
+        if self.state in {"iam_revoked", "revoked"} and self.schema_version != "1.1.0":
+            raise ValueError("revocation observations require contract version 1.1.0")
+        if self.schema_version == "1.2.0":
+            if self.iam_effect_ref is not None or self.state not in {
+                "draft",
+                "pending_review",
+                "approved",
+                "ownership_pr_open",
+                "ownership_merged",
+                "rejected",
+            }:
+                raise ValueError("scoped duty result MUST NOT represent an IAM lifecycle")
+            if self.state == "ownership_merged" and not self.ownership_effect_ref:
+                raise ValueError("scoped duty ownership requires its independent merge reference")
         return self
 
 
@@ -173,6 +222,13 @@ class AssignmentAgentDecision(_NoAuthorityRecord):
             or self.result.request_digest != self.notice.proposal_digest
         ):
             raise ValueError("assignment materialization does not match its exact notice")
+        if self.result is not None and self.result.schema_version == "1.1.0":
+            if self.notice.schema_version != "1.1.0":
+                raise ValueError("revocation result cannot downgrade its request contract")
+        if self.result is not None and (
+            (self.result.schema_version == "1.2.0") != (self.notice.schema_version == "1.2.0")
+        ):
+            raise ValueError("scoped duty transport cannot become a personal IAM assignment")
         return self
 
 
@@ -184,6 +240,7 @@ __all__ = [
     "AssignmentIntakeReason",
     "AssignmentIntakeProjection",
     "AssignmentRequestNotice",
+    "AssignmentRevocationRequest",
     "AssignmentAgentDecision",
     "AssignmentCaseResult",
     "assignment_content_digest",

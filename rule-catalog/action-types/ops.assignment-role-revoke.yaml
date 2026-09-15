@@ -30,6 +30,7 @@ argument_schema:
   properties:
     case_id: {type: string, pattern: "^[A-Za-z0-9._:-]{1,256}$", x-fdai-audit-safe: true}
     expected_revision: {type: integer, minimum: 1, maximum: 2147483647, x-fdai-audit-safe: true}
+    recovery_of: {type: string, pattern: "^[a-f0-9-]{36}$", x-fdai-audit-safe: true}
     replacement_revisions:
       type: object
       minProperties: 1
@@ -41,6 +42,6 @@ prod_downgrade: {mode: enforce_hil, detection_ref: risk-classification/env-detec
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: action-type:ops.revoke-human-access@1.0.0
-  content_hash: sha256:27d21442b72934b55e0f31297a15d714ce09866ab02017b04e4f14149bed0b0b
+  content_hash: sha256:0b066fda29b1eab7073395122eee92dca59c3d55f508b28951a0214e2ca62042
   license: MIT
   retrieved_at: "2026-08-01T00:00:00Z"

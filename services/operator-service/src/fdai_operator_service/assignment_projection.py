@@ -37,8 +37,13 @@ async def join_assignment_case(
     if not isinstance(effects, list) or any(not isinstance(item, Mapping) for item in effects):
         raise ValueError("assignment Core effects are malformed")
     by_kind = {item.get("kind"): item.get("receipt_ref") for item in effects}
+    intent = current.get("intent")
+    revoke = isinstance(intent, Mapping) and intent.get("revocation") is not None
+    if revoke and current.get("state") == "active":
+        raise ValueError("revocation cannot project an active assignment")
     result = AssignmentCaseResult.model_validate(
         {
+            **({"schema_version": "1.1.0"} if revoke else {}),
             "proposal_id": operator_id,
             "request_digest": digest,
             "operator_case_id": operator_id,
