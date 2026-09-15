@@ -12,8 +12,8 @@ stream consumes:
   ``provider_ref``.
 - Non-``Succeeded`` events and events whose ARM type is not in the
   vocabulary are dropped.
-- Known child changes reported against only a parent ARM id request reconciliation
-  without reconstructing the missing child identity.
+- Known child operations reported against only a parent ARM id are omitted
+  and request authoritative relationship reconciliation.
 - Non-2xx / non-JSON / missing ``value`` responses raise ``ActivityLogError``
   so the delta stream fails closed without a ``final=True`` fence.
 
