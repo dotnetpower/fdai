@@ -22,6 +22,48 @@ from fdai_service_contracts.alert_noise_wire import (
 _KEY = b"synthetic-unit-transport-key-not-a-credential"
 
 
+@pytest.mark.parametrize(
+    ("agent_type", "binder", "topic", "payload"),
+    [
+        (Forseti, "bind_alert_noise_planner", "object.drift", {"kind": "alert_noise"}),
+        (Forseti, "bind_alert_effect_planner", "object.drift", {"kind": "alert_noise_effect"}),
+        (
+            Heimdall,
+            "bind_alert_noise_observer",
+            "object.event",
+            {"event_type": "alert_noise.assess"},
+        ),
+        (
+            Heimdall,
+            "bind_alert_effect_observer",
+            "object.action-run",
+            {"kind": "alert_noise_publication"},
+        ),
+    ],
+)
+async def test_alert_callback_binding_is_single_owner_and_instance_local(
+    agent_type: type[Forseti] | type[Heimdall],
+    binder: str,
+    topic: str,
+    payload: dict[str, Any],
+) -> None:
+    bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
+    bound, unbound = agent_type(bus=bus), agent_type(bus=bus)
+    calls: list[dict[str, Any]] = []
+
+    async def callback(value: dict[str, Any]) -> dict[str, Any]:
+        calls.append(value)
+        return {"kind": "alert_noise"}
+
+    getattr(bound, binder)(callback)
+    with pytest.raises(RuntimeError, match="already bound"):
+        getattr(bound, binder)(callback)
+    with pytest.raises(RuntimeError, match="unavailable"):
+        await unbound.on_typed_message(topic, payload)
+    await bound.on_typed_message(topic, payload)
+    assert calls == [payload]
+
+
 def raw_command(now: datetime, *, request_ref: str = "request:example") -> dict[str, Any]:
     command = AlertNoiseCommand(
         operation="alert_noise.assess",

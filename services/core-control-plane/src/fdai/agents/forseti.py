@@ -1,20 +1,13 @@
-"""Forseti - Judge (Wave 3 behavior).
+"""Forseti owns typed judgment, cross-domain arbitration and bounded planning.
 
-Forseti issues verdicts (auto / hil / deny) based on:
-- a rule-match table (deterministic keyword -> ActionType id)
-- a risk_verdict table (deterministic ActionType id -> auto/hil/deny)
-- an RBAC hook (initiator principal + role → deny + SecurityEvent)
-
-Wave 3 keeps rule matching intentionally simple; the real T0 loader is
-in :mod:`fdai.rule_catalog`. Mixed-model cross-check and grounding
-(T2) land in later waves.
+Evidence, current policy and RBAC govern verdicts; planning never grants execution authority.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime
 from functools import lru_cache
 from typing import Any, Protocol
@@ -24,6 +17,7 @@ from fdai.agents._framework.action_semantics import (
     quorum_for,
     rollback_contract_for,
 )
+from fdai.agents._framework.alert_noise_callbacks import ForsetiAlertNoiseMixin
 from fdai.agents._framework.assignment_workflow import AssignmentJudgmentMixin
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict
@@ -152,7 +146,13 @@ class _ChangeAssessor(Protocol):
     ) -> ChangeAssessment: ...
 
 
-class Forseti(Agent, ForsetiJudgmentMixin, HandoverKnowledgeMixin, AssignmentJudgmentMixin):
+class Forseti(
+    Agent,
+    ForsetiJudgmentMixin,
+    HandoverKnowledgeMixin,
+    AssignmentJudgmentMixin,
+    ForsetiAlertNoiseMixin,
+):
     """Wave-3 Forseti: rule match + risk verdict + RBAC + SecurityEvent."""
 
     def __init__(
@@ -175,7 +175,6 @@ class Forseti(Agent, ForsetiJudgmentMixin, HandoverKnowledgeMixin, AssignmentJud
             raise ValueError("cross_vertical_timeout_seconds MUST be in (0, 300]")
         super().__init__(spec=_FORSETI)
         self.bus = bus
-        self._alert_noise_hook: Callable[[dict[str, Any]], Awaitable[dict[str, Any]]] | None = None
         self.initialize_assignment_checks()
         self._rbac = rbac if rbac is not None else _DEFAULT_RBAC
         self._action_semantics = action_semantics
@@ -230,23 +229,6 @@ class Forseti(Agent, ForsetiJudgmentMixin, HandoverKnowledgeMixin, AssignmentJud
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
 
-    def bind_alert_noise_planner(
-        self,
-        hook: Callable[[dict[str, Any]], Awaitable[dict[str, Any]]],
-    ) -> None:
-        """Bind exact-evidence proposal planning without adding execution authority."""
-        if self._alert_noise_hook is not None:
-            raise RuntimeError("alert noise planner is already bound")
-        self._alert_noise_hook = hook
-
-    def bind_alert_effect_planner(
-        self, hook: Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]
-    ) -> None:
-        """Bind outcome-driven Process resume and recovery holds on the existing Drift topic."""
-        if getattr(self, "_alert_effect_hook", None) is not None:
-            raise RuntimeError("alert effect planner is already bound")
-        self._alert_effect_hook = hook
-
     def bind_agent_availability(self, probe: Callable[[], Iterable[str]]) -> None:
         """Bind the runtime health probe that reports unreachable agents."""
         self._agent_availability = probe
@@ -258,24 +240,7 @@ class Forseti(Agent, ForsetiJudgmentMixin, HandoverKnowledgeMixin, AssignmentJud
             return
         if await self._assignment_message(topic, payload):
             return
-        if topic == "object.event" and payload.get("event_type") in {
-            "alert_noise.assess",
-            "alert_noise.propose",
-        }:
-            self.record_behavior("alert_noise:observation_deferred")
-            return
-        if topic == "object.drift" and payload.get("kind") == "alert_noise":
-            if self._alert_noise_hook is None:
-                raise RuntimeError("alert noise planner is unavailable")
-            await self._alert_noise_hook(payload)
-            self.record_behavior("alert_noise:planned")
-            return
-        if topic == "object.drift" and payload.get("kind") == "alert_noise_effect":
-            hook = getattr(self, "_alert_effect_hook", None)
-            if hook is None:
-                raise RuntimeError("alert effect planner is unavailable")
-            await hook(payload)
-            self.record_behavior("alert_noise:effect_reviewed")
+        if await self._alert_noise_message(topic, payload):
             return
         if is_cross_vertical_candidate(topic, payload):
             await self._ingest_cross_vertical_candidate(topic, payload)
