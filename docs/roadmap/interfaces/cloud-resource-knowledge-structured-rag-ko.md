@@ -1,6 +1,6 @@
 ---
 translation_of: cloud-resource-knowledge-structured-rag.md
-translation_source_sha: 5dd6373abfdbea28f77169a88e3a5bb475bc8656
+translation_source_sha: d1ed42e64c027dbbbed722a6c97c248b4151755c
 translation_revised: 2026-09-15
 ---
 # 구조화된 클라우드 문서 검색
@@ -35,7 +35,8 @@ translation_revised: 2026-09-15
 
 V1과 v2의 서명 및 정규 바이트는 변경하지 않습니다. 과거 정규화 내용은 기존 절 추출기로
 처리합니다. 운영 환경에서 구조화 후보를 만들기 전에 수집기, API/CLI, 워커와 Core에 새 읽기
-기능이 준비되어야 합니다. 보관된 원문을 다시 처리하면 새 후보와 별도 파생 시각을 만들며,
+기능이 준비되어야 합니다. 수집 결과 제출과 보관 버전 롤백 모두 새 검토 후보이며 원문 근거,
+처리 식별자 및 반입 만료 시각을 보존합니다. 보관된 원문을 다시 처리하면 새 후보와 별도 파생 시각을 만들며,
 원문을 다시 가져오거나 확인한 것처럼 기록하지 않습니다.
 
 ## 추출과 청킹

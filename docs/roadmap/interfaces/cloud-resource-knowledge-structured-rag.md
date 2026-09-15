@@ -31,6 +31,8 @@ vector, database dump or package-supplied approval. Unknown versions and recipes
 V1 and v2 signatures and canonical bytes remain unchanged. Their historical normalized content
 continues through its original section extractor. New structured readers must be available in
 the collector, API/CLI, worker and Core before a structured candidate is emitted operationally.
+Collected staging and retained-version rollback both create review candidates and preserve
+source evidence, processing identity and admission expiry.
 Reprocessing retained source bytes creates a new candidate and separate derivation time; it never
 pretends that a source was fetched or checked again.
 
