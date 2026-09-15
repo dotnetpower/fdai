@@ -771,6 +771,14 @@ function IncidentBody({
                 {data.nextCursor
                   ? ` ${t("evidence.incidents.continueSearch")}`
                   : ` ${t("evidence.incidents.filteredUnavailable")}`}
+                {dataMode === "live" ? (
+                  <>
+                    {" "}
+                    <a href={routeHref("audit", { params: { correlation: selectedId } })}>
+                      {t("evidence.incidents.openAudit")}
+                    </a>
+                  </>
+                ) : null}
               </span>
             </div>
           ) : <p class="muted">{t("incidents.select")}</p>
