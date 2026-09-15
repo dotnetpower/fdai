@@ -114,6 +114,7 @@ async function assertRoom(page: Page): Promise<void> {
   await installFixture(page);
   await page.goto("/processes");
 
+  await page.locator(".process-detail-section > summary").filter({ hasText: "Investigation Room" }).click();
   const room = page.getByRole("region", { name: "Investigation Room" });
   await expect(room).toBeVisible();
   await expect(room).toContainText("3 active hypotheses");

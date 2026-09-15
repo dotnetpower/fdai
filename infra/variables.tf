@@ -1025,6 +1025,37 @@ variable "alert_webhook_url" {
   sensitive   = true
 }
 
+variable "enable_alert_noise_pilot" {
+  description = "Create one dev-only Key Vault Availability alert and dedicated test Action Group for exact alert-noise qualification."
+  type        = bool
+  default     = false
+}
+
+variable "alert_noise_pilot_phase" {
+  description = "Exact alert-noise pilot threshold phase. Baseline is inert; treatment changes only the threshold."
+  type        = string
+  default     = "baseline"
+
+  validation {
+    condition     = contains(["baseline", "treatment"], var.alert_noise_pilot_phase)
+    error_message = "alert_noise_pilot_phase must be baseline or treatment."
+  }
+}
+
+variable "alert_noise_pilot_target_resource_id" {
+  description = "Existing dev Key Vault resource id for the isolated alert-noise pilot. Supply through protected configuration."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "alert_noise_pilot_email" {
+  description = "Dedicated approved dev test recipient. Never commit a populated value."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "enable_chatops_hil" {
   description = "Enable signed ChatOps delivery for runtime HIL approvals."
   type        = bool
