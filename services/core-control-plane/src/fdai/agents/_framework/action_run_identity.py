@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
-from typing import Any, Protocol
+from typing import Any
 
 _DIGEST_PREFIX = "sha256:"
 _IDENTITY_FIELDS = (
@@ -26,17 +26,6 @@ _IDENTITY_FIELDS = (
     "verdict",
     "workflow_action",
 )
-
-
-class _StateWriter(Protocol):
-    async def compare_and_set_state_with_audit(
-        self,
-        key: str,
-        value: dict[str, Any],
-        *,
-        expected_revision: int,
-        audit_entry: dict[str, Any],
-    ) -> bool: ...
 
 
 def action_run_identity_projection(value: Mapping[str, Any]) -> dict[str, Any]:
@@ -156,11 +145,11 @@ def bounded_rollback_ref(value: object, *, max_length: int = 2_048) -> str | Non
     return normalized if normalized and len(normalized) <= max_length else None
 
 
-def replace_inactive_action_run(
+def validate_inactive_action_run_replay(
     current: Mapping[str, Any],
     candidate: Mapping[str, Any],
-) -> tuple[dict[str, Any], int] | None:
-    """Build a new active generation or suppress a stale replay."""
+) -> None:
+    """Suppress the same completed generation and reject correlation reuse."""
 
     if current.get("active") != "false":
         raise ValueError("ActionRun replacement requires an inactive tombstone")
@@ -172,35 +161,9 @@ def replace_inactive_action_run(
     prior_idempotency = current.get("idempotency_key")
     next_idempotency = candidate.get("idempotency_key")
     if not isinstance(prior_idempotency, str) or not prior_idempotency:
-        return None
-    if prior_idempotency == next_idempotency:
-        return None
-    return {**dict(candidate), "active": "true", "revision": revision + 1}, revision
-
-
-async def replace_inactive_action_run_state(
-    store: _StateWriter,
-    *,
-    key: str,
-    current: Mapping[str, Any],
-    candidate: Mapping[str, Any],
-) -> bool:
-    """Replace a tombstone generation or report a suppressed stale replay."""
-
-    replacement = replace_inactive_action_run(current, candidate)
-    if replacement is None:
-        return True
-    value, revision = replacement
-    return await store.compare_and_set_state_with_audit(
-        key,
-        value,
-        expected_revision=revision,
-        audit_entry={
-            "kind": "thor.action-run-generation-replaced",
-            "correlation_id": str(candidate.get("correlation_id") or ""),
-            "revision": revision + 1,
-        },
-    )
+        raise RuntimeError("legacy ActionRun tombstone cannot authorize correlation reuse")
+    if prior_idempotency != next_idempotency:
+        raise ValueError("ActionRun correlation cannot bind a different idempotency generation")
 
 
 __all__ = [
@@ -209,8 +172,7 @@ __all__ = [
     "action_run_identity_projection",
     "bounded_rollback_ref",
     "is_action_run_identity",
-    "replace_inactive_action_run",
-    "replace_inactive_action_run_state",
     "rollback_matches_action_run",
+    "validate_inactive_action_run_replay",
     "validate_action_run_identity",
 ]

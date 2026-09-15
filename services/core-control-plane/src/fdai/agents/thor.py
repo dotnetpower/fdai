@@ -594,8 +594,12 @@ class Thor(Agent):
         # run and re-execute. Return the existing run for a correlation we have
         # already dispatched, so a duplicate verdict is a no-op (defense in
         # depth with the event idempotency_key dedup at ingress).
+        idempotency_key = str(verdict.get("idempotency_key") or correlation)
         existing_by_corr = self.action_runs.get(correlation)
         if existing_by_corr is not None:
+            if existing_by_corr.idempotency_key != idempotency_key:
+                self.record_behavior("dispatch:correlation_reuse_rejected")
+                raise ValueError("ActionRun correlation cannot be reused by another generation")
             self.record_behavior("dispatch:duplicate")
             if existing_by_corr.state not in _TERMINAL_STATES:
                 await self._resume_rehydrated(existing_by_corr)
@@ -605,7 +609,6 @@ class Thor(Agent):
             else:
                 await self._finalize_terminal_replay(existing_by_corr)
             return existing_by_corr
-        idempotency_key = str(verdict.get("idempotency_key") or correlation)
         existing_by_idempotency = self._idempotency_runs.get(idempotency_key)
         if existing_by_idempotency is not None:
             self.record_behavior("dispatch:idempotent_duplicate")

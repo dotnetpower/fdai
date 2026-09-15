@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from uuid import uuid4
 
-from fdai.agents._framework.action_run_identity import replace_inactive_action_run_state
+from fdai.agents._framework.action_run_identity import validate_inactive_action_run_replay
 from fdai.agents._framework.adapters import AuditEntry, _digest
 from fdai.agents.thor import ActionRun, ActionRunState
 from fdai.shared.providers.state_store import StateStore
@@ -198,14 +198,8 @@ class StateStoreActionRunStore:
                     return
                 continue
             if current.get("active") == "false":
-                if await replace_inactive_action_run_state(
-                    self.store,
-                    key=key,
-                    current=current,
-                    candidate=run.to_dict(),
-                ):
-                    return
-                continue
+                validate_inactive_action_run_replay(current, run.to_dict())
+                return
             try:
                 current_state = ActionRunState(str(current.get("state") or ""))
             except ValueError as exc:
@@ -459,7 +453,12 @@ class StateStoreActionRunStore:
         if current.get("status") != "released" or current.get("resource_id") != resource_id:
             return "contended"
         if current.get("correlation_id") == correlation_id:
-            return "completed"
+            if (
+                current.get("idempotency_key") == run.idempotency_key
+                and current.get("action_fingerprint") == action_fingerprint
+            ):
+                return "completed"
+            raise ValueError("released resource claim conflicts with ActionRun identity")
         revision = current.get("revision")
         if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
             return "contended"

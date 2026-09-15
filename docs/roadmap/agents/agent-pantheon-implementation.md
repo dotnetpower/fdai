@@ -35,6 +35,7 @@ cross-agent workflow has an independent rollout record in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-09-15 | withdrawn | Withdrew reused-correlation generation replacement after independent review found decision, delivery-order, delete, and resource-claim races. Thor, Var, and durable adapters now bind each correlation to one immutable ActionRun identity and reject every distinct generation; exact same-generation replay remains idempotent. | `current change`; live and durable reuse rejection, legacy tombstone, released-claim, stale authority, and shadow partial-quorum restart regressions passed 300 tests. | Resolve the two recorded Low-severity residuals. |
 | 2026-09-15 | implemented | Preserved the prior action idempotency generation in inactive Thor tombstones and CAS-replaced the row only for a distinct generation. Reused correlations now persist a new shadow HIL run without resurrecting the completed run. | `current change`; stale-generation suppression, tombstone replacement, and reused-correlation partial-quorum restart regressions passed. | Resolve the two recorded Low-severity residuals. |
 | 2026-09-15 | implemented | Persisted Thor ActionRuns in production shadow mode whenever Var uses durable recovery, so an incomplete quorum and its exact matching run rehydrate together before the second approval. | `current change`; partial-quorum shadow restart plus runtime and bootstrap suites passed 137 tests; strict mypy and Ruff passed. | Resolve the two recorded Low-severity residuals. |
 | 2026-09-15 | implemented | Bound Var approvals and Vidar rollbacks to one lifecycle-stable ActionRun digest, scoped their durable records by that identity, and made Thor reject stale authority messages before execution or claim release. | `current change`; authority identity, correlation-reuse, rollback, and full Agent suites; strict mypy, Ruff, agent-import, and LOC gates passed. | Persist matching Thor ActionRuns in shadow mode, then resolve the two recorded Low-severity residuals. |
@@ -132,7 +133,8 @@ recovery, or publication authority to a different agent.
 - Thor stamps one lifecycle-stable ActionRun identity over correlation, action id and type, resource,
   action idempotency, parameters, quorum, initiator, rollback contract, verdict, and workflow
   lineage. Var scopes decision and final records by this identity, echoes it with explicit action
-  fields, and Thor rejects a stale approval before execution.
+  fields, and Thor rejects a stale approval before execution. Thor and Var also claim the
+  correlation for this identity; a different idempotency generation cannot reuse it.
 
 #### Rollback claims and terminal replay
 
@@ -184,8 +186,9 @@ requires explicit `thor_state_store`, `vidar_state_store`, and `var_state_store`
 provides the durable Thor store in shadow and enforce modes whenever Var recovery is durable, so an
 incomplete quorum and its matching ActionRun resume together. Enforcement still requires every
 exact agent-owned binding before process-local approval or rollback state can be used. An inactive
-Thor row retains its stable idempotency generation: the same generation remains suppressed, while a
-different generation can CAS-replace the tombstone for an explicitly reused correlation.
+Thor row retains its stable idempotency generation. The same generation remains suppressed, while a
+different generation fails closed, including pre-campaign tombstones whose generation is unknown.
+Released resource claims require the same correlation, idempotency key, and action fingerprint.
 
 ### Conversational action re-entry
 

@@ -49,6 +49,7 @@ from fdai.agents._framework.var_decisions import (
 from fdai.agents._framework.var_ticket_identity import (
     APPROVAL_STATE_PREFIX,
     PendingHilTicket,
+    claim_action_correlation_identity,
 )
 from fdai.agents._framework.var_ticket_identity import (
     approval_action_identity as _approval_action_identity,
@@ -138,6 +139,9 @@ class Var(Agent):
             self._MAX_PENDING
         )
         self._published_approvals: BoundedLruSet[tuple[str, str]] = BoundedLruSet(self._MAX_PENDING)
+        self._action_correlation_identities: BoundedLruDict[str, str] = BoundedLruDict(
+            self._MAX_PENDING
+        )
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -171,6 +175,14 @@ class Var(Agent):
             action_run_identity = validate_action_run_identity(payload)
         except ValueError:
             self.record_behavior("ticket_invalid_action_identity")
+            return
+        if not await claim_action_correlation_identity(
+            self._state_store,
+            self._action_correlation_identities,
+            correlation,
+            action_run_identity,
+        ):
+            self.record_behavior("ticket_identity_conflict")
             return
         # Clamp quorum to a floor of 1: a forged / malformed action-run must
         # never yield a zero-or-negative quorum that would approve with no
@@ -219,7 +231,8 @@ class Var(Agent):
         if existing is not None:
             if existing.action_run_identity == action_run_identity:
                 return
-            self.record_behavior("ticket_identity_superseded")
+            self.record_behavior("ticket_identity_conflict")
+            return
         self._pending[correlation] = PendingHilTicket(
             correlation_id=correlation,
             action_id=raw_action_id,

@@ -976,7 +976,7 @@ def test_statestore_completion_marker_blocks_stale_run_resurrection() -> None:
     assert asyncio.run(first.load_active()) == []
 
 
-def test_statestore_replaces_inactive_tombstone_for_new_generation() -> None:
+def test_statestore_rejects_new_generation_for_inactive_correlation() -> None:
     state = InMemoryStateStore()
     first = StateStoreActionRunStore(store=state)
     previous = ActionRun(
@@ -998,12 +998,67 @@ def test_statestore_replaces_inactive_tombstone_for_new_generation() -> None:
         verdict="hil",
         idempotency_key="generation-current",
     )
-    asyncio.run(StateStoreActionRunStore(store=state).save(replacement))
+    with pytest.raises(ValueError, match="correlation cannot bind"):
+        asyncio.run(StateStoreActionRunStore(store=state).save(replacement))
 
-    active = asyncio.run(first.load_active())
-    assert len(active) == 1
-    assert active[0].idempotency_key == "generation-current"
-    assert active[0].action_type == "remediate.delete-storage"
+    assert asyncio.run(first.load_active()) == []
+
+
+def test_statestore_rejects_reuse_of_legacy_inactive_correlation() -> None:
+    state = InMemoryStateStore()
+    key = "thor:run|legacy-correlation"
+    asyncio.run(
+        state.write_state(
+            key,
+            {
+                "active": "false",
+                "correlation_id": "legacy-correlation",
+                "revision": 7,
+            },
+        )
+    )
+    replacement = ActionRun(
+        correlation_id="legacy-correlation",
+        action_type="remediate.delete-storage",
+        resource_id="storage-current",
+        state=ActionRunState.HIL_PENDING,
+        verdict="hil",
+        idempotency_key="generation-current",
+    )
+
+    with pytest.raises(RuntimeError, match="legacy ActionRun tombstone"):
+        asyncio.run(StateStoreActionRunStore(store=state).save(replacement))
+    assert asyncio.run(state.read_state(key)) == {
+        "active": "false",
+        "correlation_id": "legacy-correlation",
+        "revision": 7,
+    }
+
+
+def test_released_claim_rejects_new_generation_with_same_correlation() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreActionRunStore(store=state)
+    previous = ActionRun(
+        correlation_id="claim-correlation",
+        action_type="ops.restart-service",
+        resource_id="shared-resource",
+        state=ActionRunState.EXECUTING,
+        verdict="auto",
+        idempotency_key="claim-generation-old",
+    )
+    assert asyncio.run(store.claim_resource(previous)) == "acquired"
+    assert asyncio.run(store.release_resource("shared-resource", "claim-correlation"))
+
+    replacement = ActionRun(
+        correlation_id=previous.correlation_id,
+        action_type="remediate.delete-storage",
+        resource_id=previous.resource_id,
+        state=ActionRunState.EXECUTING,
+        verdict="auto",
+        idempotency_key="claim-generation-current",
+    )
+    with pytest.raises(ValueError, match="released resource claim conflicts"):
+        asyncio.run(store.claim_resource(replacement))
 
 
 def test_statestore_rejects_stale_lifecycle_overwrite_before_terminal_publish() -> None:

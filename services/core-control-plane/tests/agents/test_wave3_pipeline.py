@@ -1157,6 +1157,37 @@ def test_thor_rejects_stale_approval_for_reused_correlation() -> None:
     assert thor.behavior_snapshot()["approval:identity_mismatch"] == 1
 
 
+def test_thor_rejects_live_correlation_reuse() -> None:
+    thor = Thor()
+    previous = asyncio.run(
+        thor.dispatch_verdict(
+            {
+                "correlation_id": "c-live-correlation-reuse",
+                "idempotency_key": "generation-old",
+                "action_type": "ops.restart-service",
+                "risk_verdict": "deny",
+                "resource_id": "vm-old",
+            }
+        )
+    )
+
+    with pytest.raises(ValueError, match="correlation cannot be reused"):
+        asyncio.run(
+            thor.dispatch_verdict(
+                {
+                    "correlation_id": previous.correlation_id,
+                    "idempotency_key": "generation-current",
+                    "action_type": "remediate.delete-storage",
+                    "risk_verdict": "hil",
+                    "resource_id": "storage-current",
+                }
+            )
+        )
+
+    assert thor.action_runs[previous.correlation_id] is previous
+    assert thor.behavior_snapshot()["dispatch:correlation_reuse_rejected"] == 1
+
+
 def test_thor_ignores_stale_rollback_for_reused_correlation() -> None:
     correlation = "c-reused-rollback"
     old_run = ActionRun(
@@ -1990,7 +2021,7 @@ def test_var_replays_final_approval_after_restart() -> None:
     assert len(bus.messages_on("object.approval")) == 1
 
 
-def test_var_scopes_final_approval_to_action_identity() -> None:
+def test_var_rejects_durable_correlation_reuse() -> None:
     from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
     store = InMemoryStateStore()
@@ -2028,17 +2059,18 @@ def test_var_scopes_final_approval_to_action_identity() -> None:
             },
         )
     )
-    current_approval = asyncio.run(
-        restarted.decide(
-            correlation,
-            approver="reviewer-b@example.com",
-            decision="approve",
+    assert restarted.pending_tickets() == ()
+    assert (
+        asyncio.run(
+            restarted.decide(
+                correlation,
+                approver="reviewer-b@example.com",
+                decision="approve",
+            )
         )
+        is None
     )
-
-    assert current_approval is not None
-    assert current_approval["action_type"] == "remediate.delete-storage"
-    assert current_approval["action_run_identity"] != old_approval["action_run_identity"]
+    assert restarted.behavior_snapshot()["ticket_identity_conflict"] == 1
 
 
 def test_shadow_hil_partial_quorum_survives_restart() -> None:
@@ -2046,22 +2078,6 @@ def test_shadow_hil_partial_quorum_survives_restart() -> None:
     from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
     store = InMemoryStateStore()
-    prior_thor = Thor(
-        bus=InMemoryBus(registry=load_pantheon()),
-        state_store=StateStoreActionRunStore(store),
-    )
-    asyncio.run(
-        prior_thor.dispatch_verdict(
-            {
-                "correlation_id": "c-shadow-quorum-restart",
-                "idempotency_key": "generation-old",
-                "action_type": "ops.restart-service",
-                "risk_verdict": "deny",
-                "resource_id": "vm-old",
-            }
-        )
-    )
-
     first_bus = InMemoryBus(registry=load_pantheon())
     first_thor = Thor(bus=first_bus, state_store=StateStoreActionRunStore(store))
     first_var = Var(bus=first_bus, state_store=store)
@@ -2070,7 +2086,7 @@ def test_shadow_hil_partial_quorum_survives_restart() -> None:
         first_thor.dispatch_verdict(
             {
                 "correlation_id": "c-shadow-quorum-restart",
-                "idempotency_key": "generation-current",
+                "idempotency_key": "shadow-quorum-generation",
                 "action_type": "remediate.delete-storage",
                 "risk_verdict": "hil",
                 "resolved_autonomy_ceiling": "shadow_only",
@@ -2392,7 +2408,7 @@ def test_var_decide_unknown_correlation_returns_none() -> None:
     )
 
 
-def test_var_ingest_replaces_a_reused_correlation_with_new_identity() -> None:
+def test_var_ingest_rejects_a_reused_correlation_with_new_identity() -> None:
     var = _var_with_pending("c-dup")
     # Wrong topic is ignored.
     asyncio.run(
@@ -2404,7 +2420,7 @@ def test_var_ingest_replaces_a_reused_correlation_with_new_identity() -> None:
     asyncio.run(
         var.on_typed_message("object.action-run", {"correlation_id": "", "state": "hil_pending"})
     )
-    # A different ActionRun reusing a correlation supersedes the stale ticket.
+    # A different ActionRun cannot reuse an already claimed correlation.
     asyncio.run(
         var.on_typed_message(
             "object.action-run",
@@ -2413,8 +2429,8 @@ def test_var_ingest_replaces_a_reused_correlation_with_new_identity() -> None:
     )
     tickets = {t.correlation_id for t in var.pending_tickets()}
     assert tickets == {"c-dup"}
-    assert var.pending_tickets()[0].action_type == "other"
-    assert var.behavior_snapshot()["ticket_identity_superseded"] == 1
+    assert var.pending_tickets()[0].action_type == "remediate.delete-storage"
+    assert var.behavior_snapshot()["ticket_identity_conflict"] == 1
 
 
 def test_var_quorum_met_without_bus_still_consumes_ticket() -> None:

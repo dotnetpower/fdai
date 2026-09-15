@@ -37,6 +37,7 @@ translation_revised: 2026-09-15
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-09-15 | withdrawn | 독립 검토에서 결정, 전달 순서, 삭제 및 리소스 점유 경쟁을 발견해 상관관계 재사용 generation 교체를 철회했습니다. 이제 Thor, Var 및 영속 어댑터는 상관관계마다 변경할 수 없는 ActionRun 신원 하나를 결속하고 서로 다른 모든 generation을 거부합니다. 정확히 같은 generation 재생만 멱등성을 유지합니다. | `current change`; 실제 및 영속 재사용 거부, 기존 tombstone, 해제된 점유, 오래된 권한 및 shadow 일부 정족수 재시작 회귀 검사 300개 통과. | 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
 | 2026-09-15 | implemented | 비활성 Thor tombstone에 이전 액션 멱등성 generation을 보존하고 서로 다른 generation에서만 행을 CAS로 교체하도록 했습니다. 재사용한 상관관계도 완료된 실행을 되살리지 않고 새 shadow HIL 실행을 영속화합니다. | `current change`; 오래된 generation 억제, tombstone 교체 및 상관관계 재사용 일부 정족수 재시작 회귀 검사 통과. | 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
 | 2026-09-15 | implemented | Var가 영속 복구를 사용할 때 프로덕션 shadow 모드에서도 Thor ActionRun을 영속화해 미완료 정족수와 정확히 일치하는 실행이 두 번째 승인 전에 함께 복원되도록 했습니다. | `current change`; 일부 정족수 shadow 재시작, 런타임 및 bootstrap 검사 137개 통과, strict mypy 및 Ruff 통과. | 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
 | 2026-09-15 | implemented | Var 승인과 Vidar 롤백을 수명 주기 동안 안정적인 ActionRun 다이제스트 하나에 결속하고 영속 레코드를 해당 신원으로 범위화했으며, Thor가 실행이나 점유 해제 전에 오래된 권한 메시지를 거부하도록 했습니다. | `current change`; 권한 신원, 상관관계 재사용, 롤백 및 전체 에이전트 검사, strict mypy, Ruff, 에이전트 가져오기 및 LOC 게이트 통과. | Shadow 모드에서 일치하는 Thor ActionRun을 영속화한 뒤 기록된 Low 심각도 잔여 문제 두 건을 해결합니다. |
@@ -132,7 +133,8 @@ translation_revised: 2026-09-15
 - Thor는 상관관계, 액션 ID와 유형, 리소스, 액션 멱등성, 매개변수, 정족수, 시작 주체, 롤백
   계약, 판정 및 작업 흐름 계보에 수명 주기 동안 안정적인 ActionRun 신원 하나를 기록합니다.
   Var는 결정 및 최종 레코드를 이 신원으로 범위화하고 명시적 액션 필드와 함께 전달하며,
-  Thor는 오래된 승인을 실행 전에 거부합니다.
+  Thor는 오래된 승인을 실행 전에 거부합니다. Thor와 Var는 상관관계도 이 신원에 결속하므로
+  다른 멱등성 generation이 같은 상관관계를 재사용할 수 없습니다.
 
 #### 롤백 점유와 종결 재생
 
@@ -184,8 +186,9 @@ translation_revised: 2026-09-15
 ActionRun이 함께 재개됩니다. 적용 모드 조립은 여전히 명시적인 `thor_state_store`,
 `vidar_state_store`, `var_state_store` 바인딩을 모두 요구하며, 하나라도 없으면 프로세스 로컬
 승인 또는 롤백 상태를 사용하기 전에 시작을 차단합니다. 비활성 Thor 행은 안정적인 멱등성
-generation을 유지합니다. 같은 generation은 계속 억제하고, 명시적으로 재사용한 상관관계의 다른
-generation만 tombstone을 CAS로 교체할 수 있습니다.
+generation을 유지합니다. 같은 generation은 계속 억제하고 다른 generation은 실패 시
+차단합니다. Generation을 알 수 없는 기존 tombstone도 재사용 권한을 부여하지 않습니다. 해제된
+리소스 점유는 상관관계, 멱등성 키 및 액션 지문이 모두 같아야 완료된 같은 실행으로 인정합니다.
 
 ### 대화형 액션 재진입
 

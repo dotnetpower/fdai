@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 from fdai.agents._framework.action_run_identity import (
     action_run_identity_digest,
@@ -13,6 +13,18 @@ from fdai.agents._framework.action_run_identity import (
 )
 
 APPROVAL_STATE_PREFIX = "pantheon/var/approval"
+
+
+class _IdentityStore(Protocol):
+    async def write_state_if_absent(self, key: str, value: dict[str, Any]) -> bool: ...
+
+    async def read_state(self, key: str) -> Mapping[str, Any] | None: ...
+
+
+class _LocalIdentityStore(Protocol):
+    def get(self, key: str) -> str | None: ...
+
+    def set(self, key: str, value: str) -> None: ...
 
 
 @dataclass
@@ -86,6 +98,40 @@ def approval_cache_key(
     """Return the process-local key matching the durable identity scope."""
 
     return correlation_id, action_run_identity or "non-action"
+
+
+async def claim_action_correlation_identity(
+    store: _IdentityStore | None,
+    local: _LocalIdentityStore,
+    correlation_id: str,
+    action_run_identity: str,
+) -> bool:
+    """Claim one immutable action identity for a correlation across restart."""
+
+    prior_identity = local.get(correlation_id)
+    if prior_identity is not None and prior_identity != action_run_identity:
+        return False
+    if store is None:
+        local.set(correlation_id, action_run_identity)
+        return True
+    correlation_digest = hashlib.sha256(correlation_id.encode("utf-8")).hexdigest()
+    key = f"{APPROVAL_STATE_PREFIX}/{correlation_digest}/action-identity"
+    claim = {
+        "correlation_id": correlation_id,
+        "action_run_identity": action_run_identity,
+    }
+    if await store.write_state_if_absent(key, claim):
+        local.set(correlation_id, action_run_identity)
+        return True
+    stored = await store.read_state(key)
+    if stored is None:
+        raise RuntimeError("approval ActionRun identity claim disappeared")
+    if stored == claim:
+        local.set(correlation_id, action_run_identity)
+        return True
+    if set(stored) != set(claim):
+        raise RuntimeError("stored approval ActionRun identity claim is malformed")
+    return False
 
 
 def remove_pending_ticket(
@@ -213,6 +259,7 @@ __all__ = [
     "approval_action_identity",
     "approval_cache_key",
     "approval_state_key",
+    "claim_action_correlation_identity",
     "remove_pending_ticket",
     "ticket_from_identity",
     "ticket_identity",
