@@ -85,8 +85,11 @@ Cloud-reference collection belongs to ingestion API, parsing/index activation to
 - **executed-action observation authentication stays in delivery**:
   `delivery/azure/observation_context.py` signs the exact observation digest and four identity
   lineages with a deployment-owned Ed25519 key. `runtime/observation_evidence.py` binds its verifier
-  and Azure collector only for one complete deployed configuration, while Core receives the seed
-  through a Managed Identity-backed Key Vault reference. The separate
+  and ActionType-routed Azure collectors only for one complete deployed configuration. The
+  protected service handoff attaches the inventory-reader Managed Identity to Core only as the
+  observation source, binds scale-out to the FinOps execution lineage and VM start to the
+  Resilience execution lineage, and removes that exact extra identity when observation is
+  disabled. Core receives the seed through a Managed Identity-backed Key Vault reference. The separate
   `fdai-operational-instance-certification` reads generation-fenced PostgreSQL aggregates and writes
   one private Blob receipt through a non-executor identity; all authority fields stay false.
 - **standing-authorization lifecycle has one writer**: authenticated Operator commands enter through

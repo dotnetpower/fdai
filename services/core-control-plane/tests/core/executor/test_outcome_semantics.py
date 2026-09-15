@@ -20,6 +20,7 @@ from fdai.shared.contracts.execution_outcomes import (
     [
         ("dispatched", ExecutionLifecycleDisposition.ACCEPTED, True),
         ("already_applied", ExecutionLifecycleDisposition.ACCEPTED, True),
+        ("succeeded", ExecutionLifecycleDisposition.ACCEPTED, True),
         ("awaiting_effect_evidence", ExecutionLifecycleDisposition.PENDING, True),
         ("receipt_timeout", ExecutionLifecycleDisposition.PENDING, True),
         ("execution_unknown", ExecutionLifecycleDisposition.PENDING, True),

@@ -1,8 +1,8 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 0887b9e937cbf7449aace35cc46fe8da3df055f5
-translation_revised: 2026-09-14
+translation_source_sha: 9a5ee7d65697af7aba6b875a48ceb00333cb9f1a
+translation_revised: 2026-09-15
 ---
 
 # 실행 모델
@@ -461,6 +461,19 @@ Best for: 구성 변경, IaC patch, 카탈로그 업데이트, 거버넌스 변�
   모두 구성되면 headless 런타임은 enforce-capable `AzureGatewayDirectApiExecutor`를 연결합니다. Core는 `ops.start-vm`, `ops.deallocate-vm`, `ops.scale-out`, `ops.upsert-network-rule`, `ops.delete-network-rule`을 지원하고 격리 실행기는 `ops.scale-out`을 제외합니다.
   모든 ActionType은 사람 승인이 필요한 T0 상한과 shadow-first를 유지하며 `config/action-type-runtime-support.json`이 표면별 지원을 기록합니다. `dispatch_not_attempted`는 무효과이고 `receipt_timeout`, `execution_unknown`, `awaiting_effect_evidence`는 실패나 성공이 아닌 대기 상태입니다. 현재 개정 증적은 축약 액션 이름이 아니라 버전을 포함한 정확한 `action_type_ref`에 결속됩니다.
   PR, direct-API, 도구, 원격, 작업 흐름, HIL 경로는 원래 상관관계와 제공된 Action ID 및 시도 번호를 보존합니다. Trace는 각 액션 시도를 분리하고 효과가 발생했을 수 있는 HIL 결과는 종료 전에 독립 조정으로 보냅니다. 실행 전 무효과 종료도 프로바이더를 호출하지 않은 채 작업 흐름의 영속 `not_attempted` 결과를 기록합니다.
+  배포 관측 컨텍스트가 활성화되면 Core는 전용 인벤토리 읽기 Managed Identity를 독립
+  출처로 연결하고 최종 `ops.start-vm` ActionRun 이벤트를 정확한 구독 범위의 ARM 인스턴스
+  보기 수집기로 보냅니다. Heimdall은 서명된 관측을 영속화한 다음 영속 조정 요청 생성을
+  다시 시도하므로, 전달 시점에 관측이 없었더라도 효과가 미결 상태로 남지 않습니다.
+  재전달은 새 값을 수집해 충돌을 만들지 않고 봉인된 관측을 재사용하여 발행을 다시
+  시도합니다. 로컬 interactive는 연결하지 않으며 전달 또는 프로바이더 증적만으로 성공을
+  종료하지 않습니다. VM이 여전히 `starting`이면 불완전한 관측으로 보존하여 알 수 없음
+  보류로 종료하며, 유해한 ActionRun으로 간주해 재시도하지 않습니다.
+  서명된 컨텍스트는 격리 실행기 서비스 신원이 아니라 `ops.scale-out`에는 FinOps 실행
+  자격 증명 계보를, `ops.start-vm`에는 Resilience 실행 자격 증명 계보를 결속합니다.
+  Heimdall은 Thor의 정규 `shadow_mode`에서 유효 모드를 해석합니다. shadow는 수집을
+  억제할 수만 있으며, enforce 관측은 복원된 Action도 `enforce`이고 Thor의 범위가 제한된
+  효과 전 감사 증적을 포함할 때만 허용됩니다.
 - **Long-running 연산 잠금** - ARM `202`는 대상 Blob 임차 기간을 비공개 연산 기록에
   유지합니다. 실행기 상태 polling이 임차 기간을 renew하고 최종 상태를 ETag
   compare-and-swap으로 기록한 후 release합니다. 알 수 없는 상태 URL 조회 필드는 차단합니다.

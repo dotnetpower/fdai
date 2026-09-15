@@ -470,6 +470,19 @@ Best for: configuration changes, IaC patches, catalog updates, governance change
   audience are both configured, the headless runtime binds an enforce-capable `AzureGatewayDirectApiExecutor`; Core supports `ops.start-vm`, `ops.deallocate-vm`, `ops.scale-out`, `ops.upsert-network-rule`, and `ops.delete-network-rule`, while the isolated Executor excludes `ops.scale-out`.
   Every ActionType remains shadow-first with a human-approved T0 ceiling, and `config/action-type-runtime-support.json` records the surface-specific support. `dispatch_not_attempted` remains no-effect, while `receipt_timeout`, `execution_unknown`, and `awaiting_effect_evidence` remain pending rather than failure or success. Current-revision receipts bind the exact versioned `action_type_ref`, not a bare action name.
   PR, direct-API, tool, remote, workflow, and HIL paths retain original correlation plus supplied Action id and attempt; Trace separates each action attempt, potentially effective HIL outcomes enter independent reconciliation before closure, and pre-executor no-effect exits still write the workflow's durable `not_attempted` result without invoking a provider.
+  With the deployed observation context enabled, Core attaches the dedicated inventory-reader
+  Managed Identity as an independent source and routes terminal `ops.start-vm` ActionRun events to
+  an exact-subscription ARM instance-view collector. Heimdall persists the signed observation
+  before it retries durable reconciliation request production, so an earlier dispatch-time miss
+  cannot strand the effect. Redelivery reuses that sealed observation before retrying publication
+  instead of collecting a conflicting later reading. Local interactive remains unbound and a
+  dispatch or provider receipt alone never closes success. A still-`starting` VM is retained as an
+  incomplete observation and closes as an unknown hold; it is not retried as a poison ActionRun.
+  The signed context binds `ops.scale-out` to the FinOps execution credential lineage and
+  `ops.start-vm` to the Resilience execution credential lineage, rather than attesting the
+  isolated-Executor service identity. Heimdall derives the effective mode from Thor's canonical
+  `shadow_mode`: shadow can only suppress collection, while an enforce observation also requires
+  the restored Action to be `enforce` and carry Thor's bounded pre-effect audit receipt.
 - **Long-running operation lock** - an ARM `202` keeps the target's Blob lease in the private
   operation record. Executor status polling renews the lease, then records terminal status with
   ETag compare-and-swap before releasing it. Unknown status URL query fields are rejected.
