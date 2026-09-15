@@ -16,6 +16,7 @@
 import { createActionConfirmer, createActionSubmitter } from "./backend-actions";
 import { hasAdvisoryResponse, parseActionDraftExplanation, parseAdvisoryResponse } from "./adaptive-answer";
 import { parseActionDraft } from "./backend-stream";
+import { parseTestContextDraft } from "./test-context";
 import {
   citationsForVerification,
   createBackendRequestPayload,
@@ -243,6 +244,8 @@ export async function askBackend(
   const advisoryAnswer = parseAdvisoryResponse(payloadRecord);
   const adaptiveAnswer = advisoryAnswer ?? parseActionDraftExplanation(payloadRecord);
   const actionDraft = parseActionDraft(payloadRecord?.action_draft);
+  const testContextDraft = payloadRecord?.status === "action_draft"
+    ? parseTestContextDraft(payloadRecord.test_context_draft) : undefined;
   const semanticReceipt = parseSemanticProjectionReceipt(payloadRecord?.semantic_receipt);
   if (hasAdvisoryResponse(payloadRecord) && adaptiveAnswer === undefined) {
     return semanticUnavailable("invalid advisory response");
@@ -269,6 +272,7 @@ export async function askBackend(
     ...base,
     ...(adaptiveAnswer ? { adaptiveAnswer } : {}),
     ...(actionDraft ? { actionDraft } : {}),
+    ...(testContextDraft ? { testContextDraft } : {}),
     ...(semanticReceipt ? { semanticReceipt } : {}),
     ...(router ? { router } : {}),
     ...(delegation ? { delegation } : {}),

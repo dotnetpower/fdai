@@ -1,3 +1,4 @@
+import { parseTestContextDraft } from "./test-context";
 /**
  * Transcript persistence for the command deck.
  *
@@ -131,6 +132,7 @@ export interface PersistedTurn {
   readonly evidenceMode?: import("./backend-types").IntentEvidenceMode;
   readonly semanticReceipt?: SemanticProjectionReceipt;
   readonly adaptiveAnswer?: AdaptiveAnswer;
+  readonly testContextDraft?: import("./test-context").TestContextDraft;
   readonly conversationBinding?: IncidentConversationBinding;
 }
 
@@ -188,6 +190,8 @@ export function serializeTurns(
       const intentGraph = parseIntentGraph(t.intentGraph);
       const intentGraphEvidence = parseIntentGraphEvidence(t.intentGraphEvidence);
       const semanticReceipt = parseSemanticProjectionReceipt(t.semanticReceipt);
+      const testContextDraft = semanticReceipt?.disposition === "action_draft"
+        ? parseTestContextDraft(t.testContextDraft) : undefined;
       const assessmentId = parseConversationAssessmentId(t.assessmentId);
       const adaptiveAnswer = parseAdaptiveAnswer(
         t.adaptiveAnswer, semanticReceipt?.disposition === "action_draft" ? undefined : t.text,
@@ -204,6 +208,7 @@ export function serializeTurns(
       return {
         ...base,
         ...(assessmentId ? { assessmentId } : {}),
+        ...(testContextDraft ? { testContextDraft } : {}),
         ...(boundedString(t.groundingText, MAX_TURN_TEXT_CHARS)
           ? { groundingText: t.groundingText }
           : {}),
@@ -325,6 +330,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
     const semanticReceipt = parseSemanticProjectionReceipt(rec.semanticReceipt);
     const assessmentId = parseConversationAssessmentId(rec.assessmentId);
     const draftExplanation = semanticReceipt?.disposition === "action_draft";
+    const testContextDraft = draftExplanation ? parseTestContextDraft(rec.testContextDraft) : undefined;
     const adaptiveAnswer = parseAdaptiveAnswer(rec.adaptiveAnswer, draftExplanation ? undefined : rec.text);
     if (!draftExplanation && (
       rec.adaptiveAnswer !== undefined || rec.source === "semantic-advisory-response"
@@ -349,6 +355,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
       text: rec.text,
       at: rec.at,
       ...(assessmentId ? { assessmentId } : {}),
+      ...(testContextDraft ? { testContextDraft } : {}),
       ...(boundedTimestamp(rec.recordedAt) ? { recordedAt: rec.recordedAt } : {}),
       ...(boundedString(rec.groundingText, MAX_TURN_TEXT_CHARS)
         ? { groundingText: rec.groundingText }

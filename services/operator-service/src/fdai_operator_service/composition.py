@@ -109,6 +109,7 @@ from fdai_operator_service.model_lifecycle_composition import (
 from fdai_operator_service.outbox_runtime import (
     ActionConfirmationBridge,
     IncidentInterventionBridge,
+    TestContextBridge,
 )
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
@@ -367,6 +368,13 @@ class ProductionOperatorComposition:
             if family_store is not None and semantic_bus is not None and event_topic is not None
             else None
         )
+        test_context_bridge = (
+            TestContextBridge(
+                store=family_store, publisher=semantic_bus, topic=event_topic, source=semantic_bus
+            )
+            if family_store is not None and semantic_bus is not None and event_topic is not None
+            else None
+        )
         local_cli_identity = (
             self.local_cli_identity_factory() if environment.local_azure_cli_auth else None
         )
@@ -453,6 +461,7 @@ class ProductionOperatorComposition:
                 live_stage_relay,
                 hil_decision_outbox_bridge,
                 assignment_notice_bridge,
+                test_context_bridge=test_context_bridge,
             ),
             live_stream_hub=live_stream_hub,
             agent_stream_hub=agent_stream_hub,
@@ -479,6 +488,7 @@ class ProductionOperatorComposition:
                 hil_decision_outbox_bridge,
                 teams_http_client,
                 assignment_notice_bridge,
+                test_context_bridge=test_context_bridge,
             ),
         )
 
@@ -914,6 +924,7 @@ def _application_lifecycle(
     hil_decision_outbox_bridge: HilDecisionOutboxBridge | None,
     teams_http_client: httpx.AsyncClient | None,
     assignment_notice_bridge: AssignmentNoticeBridge | None = None,
+    test_context_bridge: TestContextBridge | None = None,
 ) -> ApplicationLifecycle | None:
     services = tuple(
         service
@@ -934,6 +945,7 @@ def _application_lifecycle(
             live_stage_relay,
             narrator_scheduler,
             hil_decision_outbox_bridge,
+            test_context_bridge,
             assignment_notice_bridge,
             _OwnedHttpClient(teams_http_client) if teams_http_client is not None else None,
         )
@@ -961,6 +973,7 @@ def _readiness_probe(
     live_stage_relay: LiveStageKafkaRelay | None,
     hil_decision_outbox_bridge: HilDecisionOutboxBridge | None = None,
     assignment_notice_bridge: AssignmentNoticeBridge | None = None,
+    test_context_bridge: TestContextBridge | None = None,
 ) -> ReadinessProbe:
     if store is None:
         return _unavailable
@@ -998,6 +1011,7 @@ def _readiness_probe(
             )
             and (live_stage_relay is None or live_stage_relay.readiness())
             and (hil_decision_outbox_bridge is None or hil_decision_outbox_bridge.workers_ready())
+            and (test_context_bridge is None or test_context_bridge.workers_ready())
             and (assignment_notice_bridge is None or assignment_notice_bridge.workers_ready())
         )
 

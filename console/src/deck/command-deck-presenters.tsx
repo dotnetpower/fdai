@@ -90,6 +90,7 @@ export interface Turn {
   readonly presentationArtifact?: import("./backend-types").PresentationArtifact;
   readonly documentArtifact?: import("./backend-types").ConversationDocumentArtifact;
   readonly actionDraft?: ActionDraft;
+  readonly testContextDraft?: import("./test-context").TestContextDraft;
   readonly modelTrace?: ModelTrace;
   readonly modelLatencyMs?: number;
   readonly modelUsage?: import("./backend-types").ModelUsage;

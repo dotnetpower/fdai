@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "description": "Complete inventory of registered positive decision boundaries that must resolve decision-critical evidence through the shared admission contract (FDAI-CONST-002).",
-  "decision_surface_digest": "81eb4c43d0ab98e590c335b534a789847702c64f4cedcafef82cc4e66e51bd25",
+  "decision_surface_digest": "4b89f567e86833038d46bf323b116314a160c6b6fe76ec2cf90ba2a05d570b2e",
   "shared_admission": {
     "module": "fdai.shared.providers.decision_evidence_verifier",
     "assessor": "assess_decision_evidence_admission",
@@ -163,7 +163,8 @@
             }
           ],
           "fail_closed_markers": [
-            "decision_evidence_admission_missing"
+            "decision_evidence_admission_missing",
+            "current_evaluation_time_invalid"
           ]
         }
       ]
@@ -233,6 +234,66 @@
       ]
     },
     {
+      "id": "forecast-context-scoring",
+      "positive_decision": "Admit exact target and horizon context into forecast scoring without replacing measured telemetry.",
+      "module": "services/core-control-plane/src/fdai/core/detection/forecast_context.py",
+      "purpose_constant": null,
+      "purpose_id": null,
+      "purpose_note": "Uses the exact forecast-context admission purpose; exclusions remain unscorable.",
+      "tests": [
+        "services/core-control-plane/tests/core/detection/test_forecast_context.py"
+      ],
+      "decisions": [
+        {
+          "function": "ContextualForecastObservationProvider._join_context",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "_exclude("
+          ]
+        }
+      ]
+    },
+    {
+      "id": "forecast-history-retention",
+      "positive_decision": "Retain all four source coverage slices and aggregate exact-window context with independent admission and audit.",
+      "module": "services/core-control-plane/src/fdai/delivery/persistence/state_store_forecast_context.py",
+      "purpose_constant": null,
+      "purpose_id": null,
+      "purpose_note": "Admits forecast-history-actions, changes, resource_lifecycle, excluded_windows and forecast-context separately; immutable replay never renews evidence or authority.",
+      "tests": [
+        "services/core-control-plane/tests/persistence/test_state_store_forecast_context.py"
+      ],
+      "decisions": [
+        {
+          "function": "StateStoreForecastContextProvider._require_admission",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": []
+        },
+        {
+          "function": "StateStoreForecastContextProvider._retain",
+          "guards": [
+            {
+              "name": "self._require_admission",
+              "kind": "raises"
+            }
+          ],
+          "fail_closed_markers": [
+            "_parse_evidence(retained).digest"
+          ]
+        }
+      ]
+    },
+    {
       "id": "ontology-query-authority",
       "positive_decision": "Accept a secured ontology query receipt as decision-grade evidence.",
       "module": "services/core-control-plane/src/fdai/core/ontology_platform/query_receipt_authority.py",
@@ -254,6 +315,29 @@
           "fail_closed_markers": [
             "False"
           ]
+        }
+      ]
+    },
+    {
+      "id": "operating-pattern-read",
+      "positive_decision": "Read inert current Pattern summaries for an independently admitted principal and case scope.",
+      "module": "services/core-control-plane/src/fdai/core/ontology_platform/pattern_queries.py",
+      "purpose_constant": null,
+      "purpose_id": null,
+      "purpose_note": "Uses case-history-read admission bound to the query arguments and authenticated principal.",
+      "tests": [
+        "services/core-control-plane/tests/agents/test_operating_pattern_learning_e2e.py"
+      ],
+      "decisions": [
+        {
+          "function": "OperatingPatternQuery._read",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": []
         }
       ]
     },
@@ -351,6 +435,81 @@
       ]
     },
     {
+      "id": "operational-test-context",
+      "positive_decision": "Classify an observation as expected only after independent claim and observation admission; authority remains subject to ordinary gates.",
+      "module": "services/core-control-plane/src/fdai/core/operational_context/test_context.py",
+      "purpose_constant": null,
+      "purpose_id": null,
+      "purpose_note": "Separately assesses operational-test-context and operational-test-observation.",
+      "tests": [
+        "services/core-control-plane/tests/core/operational_context/test_test_context.py"
+      ],
+      "decisions": [
+        {
+          "function": "evaluate_test_context",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "observation_invalid",
+            "protected_or_service_impact",
+            "service_impact_unknown",
+            "context_missing",
+            "context_scope_mismatch",
+            "independent_review_required",
+            "context_not_current_at_decision",
+            "context_admission_required"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "operator-test-context-command",
+      "positive_decision": "Accept an authenticated context command and permit owner-separated review and transition handling.",
+      "module": "services/core-control-plane/src/fdai/core/operational_context/test_context_commands.py",
+      "purpose_constant": null,
+      "purpose_id": null,
+      "purpose_note": "Uses operator-test-context-command admission bound to the complete typed command.",
+      "tests": [
+        "services/core-control-plane/tests/agents/test_runtime.py"
+      ],
+      "decisions": [
+        {
+          "function": "TestContextCommandHandler.validate",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": []
+        },
+        {
+          "function": "TestContextCommandHandler.review",
+          "guards": [
+            {
+              "name": "self.validate",
+              "kind": "raises"
+            }
+          ],
+          "fail_closed_markers": []
+        },
+        {
+          "function": "TestContextCommandHandler.transition",
+          "guards": [
+            {
+              "name": "self.validate",
+              "kind": "raises"
+            }
+          ],
+          "fail_closed_markers": []
+        }
+      ]
+    },
+    {
       "id": "rubric-promotion",
       "positive_decision": "Promote a quality gate rubric revision.",
       "module": "services/core-control-plane/src/fdai/core/quality_gate/promotion.py",
@@ -394,6 +553,56 @@
             }
           ],
           "fail_closed_markers": []
+        }
+      ]
+    },
+    {
+      "id": "test-context-dispatch-currentness",
+      "positive_decision": "Confirm the exact independently admitted context remains current immediately before ordinary executor gates.",
+      "module": "services/core-control-plane/src/fdai/core/operational_context/test_context_dispatch.py",
+      "purpose_constant": null,
+      "purpose_id": null,
+      "purpose_note": "Uses operational-test-context admission and an independent latest source read; never grants execution.",
+      "tests": [
+        "services/core-control-plane/tests/agents/test_operational_context_verdict.py"
+      ],
+      "decisions": [
+        {
+          "function": "TestContextDispatchGuard.current",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "False"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "test-context-transition",
+      "positive_decision": "Persist a new context lifecycle revision and audit atomically after independent transition admission.",
+      "module": "services/core-control-plane/src/fdai/core/operational_context/test_context_lifecycle.py",
+      "purpose_constant": null,
+      "purpose_id": null,
+      "purpose_note": "Uses test-context-transition; exact historical replay is a non-mutating no-op, not renewed authority.",
+      "tests": [
+        "services/core-control-plane/tests/core/operational_context/test_test_context.py"
+      ],
+      "decisions": [
+        {
+          "function": "GovernedTestContextStore._record",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "False"
+          ]
         }
       ]
     },

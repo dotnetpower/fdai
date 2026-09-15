@@ -123,6 +123,7 @@ from .forecast_outcome import (
     ForecastMissOrigin,
     ForecastOutcome,
     ForecastOutcomeLabel,
+    ForecastScoringExclusion,
     TelemetryCompleteness,
 )
 from .incident import Incident
@@ -266,6 +267,7 @@ __all__ = [
     "SafeguardBoundExecutorCommand",
     "ForecastOutcome",
     "ForecastOutcomeLabel",
+    "ForecastScoringExclusion",
     "ForecastMissOrigin",
     "Incident",
     "IncidentSeverity",

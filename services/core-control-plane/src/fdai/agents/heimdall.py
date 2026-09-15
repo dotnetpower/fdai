@@ -221,7 +221,7 @@ class Heimdall(
             )
         elif topic == RULE_GENERATION_BUILD_RESULT_TOPIC:
             await self._validate_rule_generation(payload)
-        elif topic == "object.event":
+        elif topic == "object.event" and not await self._forecast_context_message(payload):
             if payload.get("event_type") == "evidence.conflict.candidate.v1":
                 await self._publish_evidence_conflict(payload)
                 return

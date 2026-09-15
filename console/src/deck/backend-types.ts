@@ -689,6 +689,7 @@ export type ProgressiveAnswer = Answer & {
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
   readonly confirmed?: ConfirmedAnswerSegment;
   readonly actionDraft?: ActionDraft;
+  readonly testContextDraft?: import("./test-context").TestContextDraft;
   readonly resourceContext?: ResourceContext;
   readonly evidenceFreshnessContext?: EvidenceFreshnessContext;
   readonly modelTrace?: ModelTrace;

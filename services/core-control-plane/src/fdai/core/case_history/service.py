@@ -11,6 +11,7 @@ from datetime import datetime
 from fdai.shared.contracts.models import ForecastOutcome
 from fdai.shared.providers.case_history import (
     CaseHistoryArtifactStore,
+    CaseHistoryDerivedDataStore,
     CaseHistoryMetadataStore,
     CaseHistoryRevisionRecord,
 )
@@ -60,6 +61,46 @@ class CaseHistoryMaterializer:
     ) -> None:
         self._metadata = metadata
         self._artifacts = artifacts
+
+    async def current_revision_available(
+        self,
+        *,
+        case_ref: str,
+        access_scope_digest: str,
+        purpose: str,
+        now: datetime,
+    ) -> bool:
+        """Check a retained current revision without returning evidence across scope boundaries."""
+        if not isinstance(case_ref, str) or len(case_ref) > 512 or now.utcoffset() is None:
+            return False
+        parts = case_ref.split(":")
+        if (
+            len(parts) != 4
+            or parts[0] != "case-history"
+            or not parts[2].isascii()
+            or not parts[2].isdigit()
+            or len(parts[2]) > 12
+        ):
+            return False
+        record = await self._metadata.latest(parts[1], access_scope_digest=access_scope_digest)
+        if record is None or (
+            record.case_id != parts[1]
+            or record.revision != int(parts[2])
+            or record.manifest_digest != parts[3]
+            or record.access_scope_digest != access_scope_digest
+            or record.purpose != purpose
+            or record.deleted_at is not None
+            or record.deletion_started_at is not None
+            or record.storage_ref is None
+            or not record.sealed_at <= now < record.deletion_due_at
+        ):
+            return False
+        content = await self._artifacts.get(record.storage_ref)
+        if content is None or hashlib.sha256(content).hexdigest() != record.manifest_digest:
+            return False
+        return (
+            await self._metadata.latest(parts[1], access_scope_digest=access_scope_digest) == record
+        )
 
     async def seal_forecast_outcome(
         self,
@@ -308,16 +349,18 @@ class CaseHistoryMaterializer:
 
 
 class CaseHistoryRetentionService:
-    """Delete due artifacts before committing metadata tombstones."""
+    """Delete due artifacts and derived data before committing metadata tombstones."""
 
     def __init__(
         self,
         *,
         metadata: CaseHistoryMetadataStore,
         artifacts: CaseHistoryArtifactStore,
+        derived_data: CaseHistoryDerivedDataStore | None = None,
     ) -> None:
         self._metadata = metadata
         self._artifacts = artifacts
+        self._derived_data = derived_data
 
     async def delete_due(self, *, now: datetime, limit: int = 500) -> tuple[str, ...]:
         due = await self._metadata.list_due(now=now, limit=limit)
@@ -339,6 +382,8 @@ class CaseHistoryRetentionService:
                 )
             for storage_ref in storage_refs:
                 await self._artifacts.delete(storage_ref)
+            if self._derived_data is not None:
+                await self._derived_data.purge(record)
             await self._metadata.mark_deleted(
                 record.case_id,
                 access_scope_digest=record.access_scope_digest,

@@ -98,6 +98,7 @@ from .semantic_planning_support import (
 )
 from .semantic_resource_state_planning import resource_condition_intents_grounded
 from .semantic_target_candidate_planning import build_stated_resource_filter_frame
+from .semantic_test_context import test_context_capability, test_context_planning_outcome
 from .session import Principal, Turn
 
 _LOGGER = logging.getLogger(__name__)
@@ -253,6 +254,7 @@ class SemanticPlanningService:
             judgment_decision: _JudgmentDecision | None = None
             if self._semantic_judgment is not None:
                 judgment_capabilities = _semantic_judgment_capabilities(descriptors)
+                judgment_capabilities = (*judgment_capabilities, test_context_capability())
                 bound_subject_types = (
                     ("Incident",)
                     if bound_incident is not None
@@ -284,6 +286,14 @@ class SemanticPlanningService:
                         locale=locale,
                         direct_response_profile=response_profile,
                     )
+                    context_outcome = test_context_planning_outcome(
+                        judgment=judgment_result,
+                        utterance=utterance,
+                        locale=locale,
+                        observations=tuple(model_observations),
+                    )
+                    if context_outcome is not None:
+                        return context_outcome
                     judgment_decision = _JudgmentDecision(
                         proposal=judgment_result.proposal,
                         disposition=judgment_result.receipt.disposition,

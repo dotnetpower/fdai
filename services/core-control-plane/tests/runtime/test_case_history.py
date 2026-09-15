@@ -71,6 +71,7 @@ async def test_case_history_runtime_builds_storage_and_mixed_family_analysis() -
         )
     assert runtime is not None
     assert runtime.analyzer is not None
+    assert runtime.retention._derived_data is not None
 
 
 async def test_case_history_runtime_uses_relational_metadata_when_dsn_is_configured() -> None:
@@ -82,9 +83,14 @@ async def test_case_history_runtime_uses_relational_metadata_when_dsn_is_configu
             identity=_Identity(),
             http_client=client,
             dsn="postgresql://example.invalid/fdai",
+            pattern_library_dsn="postgresql://example.invalid/patterns",
         )
     assert runtime is not None
     assert isinstance(runtime.metadata, DualWriteCaseHistoryMetadataStore)
+    assert (
+        runtime.retention._derived_data._downstream[0]._config.dsn
+        == "postgresql://example.invalid/patterns"
+    )
 
 
 def test_case_history_retention_defaults_and_validation() -> None:

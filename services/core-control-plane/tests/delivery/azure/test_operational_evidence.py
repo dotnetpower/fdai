@@ -18,6 +18,7 @@ from fdai.delivery.azure.operational_evidence import (
     AzureTemporalPolicy,
 )
 from fdai.shared.contracts.models import Event
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.metric import MetricPoint, StaticMetricProvider
 
 _NOW = datetime(2026, 8, 1, 1, tzinfo=UTC)
@@ -180,6 +181,41 @@ async def test_current_reuse_verifier_combines_snapshot_and_safety_evidence() ->
     assert result.evidence_refs == ("c" * 64, "d" * 64)
     assert result.policy_allowed is True
     assert result.dry_run_passed is True
+    assert result.decision_evidence is None
+
+
+async def test_current_reuse_adapter_requests_exact_independent_admission() -> None:
+    from fdai.core.tiers.t1_lightweight.contextual_reuse import (
+        current_reuse_evidence_digest,
+        current_reuse_scope_digest,
+    )
+
+    class _Admission:
+        async def admit(self, **values):
+            return DecisionEvidenceAdmission(
+                receipt_digest="sha256:" + "8" * 64,
+                verification_bundle_digest="sha256:" + "9" * 64,
+                verified_at=_clock(),
+                valid_until=_clock() + timedelta(minutes=1),
+                **values,
+            )
+
+    verifier = AzureCurrentReuseVerifier(
+        snapshots=_Snapshots(),
+        safety=_Safety(),
+        clock=_clock,
+        admission_provider=_Admission(),
+    )
+    event, action, context = _event(), _action(), _context()
+    result = await verifier.verify(event=event, action=action, context=context)
+    assert result.decision_evidence is not None
+    assert result.decision_evidence.evidence_digest == current_reuse_evidence_digest(result)
+    assert result.decision_evidence.scope_digest == current_reuse_scope_digest(
+        event=event,
+        action=action,
+        context=context,
+    )
+    assert result.decision_evidence.purpose_id == "current-case-reuse"
 
 
 async def test_current_reuse_accepts_recent_cache_before_event_ingestion() -> None:

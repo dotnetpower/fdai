@@ -573,6 +573,39 @@ async def test_multiplexed_dead_letter_uses_shared_physical_dlq(monkeypatch) -> 
     await bus.aclose()
 
 
+@pytest.mark.parametrize("multiplexed", [False, True])
+async def test_context_result_dead_letter_is_allowed_without_result_publish_authority(
+    monkeypatch, multiplexed
+):
+    from fdai_service_contracts.test_context import TEST_CONTEXT_RESULT_TOPIC
+
+    bus, _ = _multiplexed_bus(monkeypatch) if multiplexed else _bus(monkeypatch)
+    topic = "fdai.pantheon.objects" if multiplexed else TEST_CONTEXT_RESULT_TOPIC
+    valid = {"execution_authority": False}
+    if multiplexed:
+        valid[LOGICAL_TOPIC_FIELD] = TEST_CONTEXT_RESULT_TOPIC
+    Consumer.messages = [
+        SimpleNamespace(topic=topic, key=b"invalid", value=b"{", offset=7),
+        SimpleNamespace(topic=topic, key=b"valid", value=json.dumps(valid).encode(), offset=8),
+    ]
+    stream = bus.subscribe(TEST_CONTEXT_RESULT_TOPIC, "operator-test-context-results")
+    try:
+        assert await anext(stream) == {"execution_authority": False}
+        assert Consumer.latest is not None and Consumer.latest.commits == 1
+        assert Producer.latest is not None
+        destination, _key, encoded = Producer.latest.sent[-1]
+        assert destination == topic + ".dlq"
+        projection = json.loads(encoded)
+        assert projection["source_offset"] == 7 and "value" not in projection
+        if multiplexed:
+            assert projection[LOGICAL_TOPIC_FIELD] == TEST_CONTEXT_RESULT_TOPIC
+        with pytest.raises(ValueError, match="publish topic"):
+            await bus.publish(TEST_CONTEXT_RESULT_TOPIC, "forged", {"execution_authority": False})
+    finally:
+        await stream.aclose()
+        await bus.aclose()
+
+
 async def test_invalid_payload_is_dead_lettered_and_committed_before_next_yield(
     monkeypatch,  # type: ignore[no-untyped-def]
 ) -> None:
