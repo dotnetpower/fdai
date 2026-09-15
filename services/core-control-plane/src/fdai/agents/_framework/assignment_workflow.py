@@ -66,6 +66,31 @@ class AssignmentJudgmentMixin:
         return False
 
 
+class AssignmentReviewMixin:
+    """Var's independent review binding outside its approval machinery."""
+
+    def initialize_assignment_review(self) -> None:
+        self._assignment_check: AssignmentCheck | None = None
+        self._assignment_clock: AssignmentClock = assignment_clock
+
+    def bind_assignment_check(
+        self, check: AssignmentCheck, *, clock: AssignmentClock = assignment_clock
+    ) -> None:
+        """Bind read-only human-review verification without case-write authority."""
+        self._assignment_check, self._assignment_clock = check, clock
+
+    async def _assignment_review_message(self, topic: str, payload: dict[str, Any]) -> bool:
+        if topic != "object.audit-entry" or payload.get("kind") != "human_assignment":
+            return False
+        await review_assignment(
+            cast(Agent, self),
+            payload,
+            self._assignment_check,
+            clock=self._assignment_clock,
+        )
+        return True
+
+
 async def judge_iam_request(
     agent: Agent, payload: Mapping[str, Any], reader: AssignmentIamRead | None
 ) -> None:
