@@ -32,12 +32,12 @@ The default Landscape derives Subscription, Resource Group, VNet, and Subnet con
 canonical Resource types, `parent_id`, and reported `contains` links. It does not require
 presentation coordinates from the API.
 
-- At most 16 Resource Group summaries are shown, ranked by returned descendant count with stable
+- At most 8 Resource Group summaries are shown, ranked by returned descendant count with stable
   name and identity tie-breakers.
 - Subscription remains a neutral outer boundary.
 - Each Resource Group becomes a compact summary card with descendant and cross-scope relationship
   counts.
-- If no Resource Group is returned, at most 16 stably ordered actual Resources plus required
+- If no Resource Group is returned, at most 8 stably ordered actual Resources plus required
   ancestors are shown.
 - Incoming summary coordinates and dimensions are discarded before compact placement.
 - Visible counts and accessible names use the same localized summary.
@@ -71,9 +71,16 @@ direction appear only when the original records are visible in Resource focus.
 
 ## Network and Impact
 
-The Network lens keeps the complete returned graph as evidence. Its default overview shows all
-returned VNet and Subnet boundaries plus at most 48 other reported network-role Resources and
+The Network lens keeps the complete returned graph as evidence. Its default overview shows at most
+2 ranked VNet boundaries, 4 related Subnet boundaries, 4 related network-role Resources, and
 required ancestors. It does not repeat the complete raw Resource set.
+VNet ranking and Subnet selection use the same canonical `contains` then `parent_id` precedence as
+the rest of the workbench. Subnets are allocated round-robin in ranked VNet order before another
+Subnet is taken from the same VNet. Network roles retain presentation-only inferred Subnet
+membership when a connector Resource is outside the overview limit and after a found path expands
+the presentation.
+The default Network overview uses a wider compound-packing aspect than Resource focus so the two
+ranked VNet scopes remain side-by-side when the available pane can contain them.
 
 Path tracing walks only reported `attached_to`, stored-direction `depends_on`, and symmetric
 `peered_with` relationships. It uses the complete returned evidence graph rather than the bounded
@@ -96,7 +103,8 @@ relationship totals remain available when expanded.
 The SVG viewport owns pan, wheel zoom, Fit, full screen, and roving keyboard navigation. A new
 Landscape or scope starts at its fitted origin. Reset identity includes visible Resource identities
 and geometry, so equal-sized scopes cannot retain stale zoom or scroll. Resize within the same
-canvas preserves zoom unless content would become smaller than Fit.
+canvas preserves operator-selected zoom. A canvas that is still in auto-Fit recalculates Fit when
+the Inspector or viewport changes its available size.
 
 The Inspector owns Overview, Links, Path, and Sources. It remains adjacent on desktop and moves
 below the graph at constrained widths without discarding selection or path state. Mobile controls
@@ -113,6 +121,8 @@ Architecture verification includes:
 - direct endpoint reservation and exact omitted-link accounting;
 - path restoration after category filtering;
 - visible and accessible summary parity;
+- default desktop Fit of at least 75% for dense Landscape and 50% for dense Network overview;
+- fitted dense overview scroll dimensions no larger than the graph viewport;
 - desktop `1440x900`, constrained `993x641`, mobile `390x844`, and minimum `320x844`;
 - independent review with no confirmed Medium-or-higher finding.
 
