@@ -553,8 +553,8 @@ export function browserAlertForLiveEvent(event: LiveStageEvent): BrowserAlert | 
   return {
     kind,
     tag: `fdai:${event.event_id}`,
-    path: routeHref("incidents", {
-      params: { status: "all", correlation: event.correlation_id },
+    path: routeHref("audit", {
+      params: { correlation: event.correlation_id },
     }),
   };
 }

@@ -5,6 +5,13 @@ import { browserNotificationText } from "./browser-notifications";
 afterEach(() => setLocale("en"));
 
 describe("browser notification catalog", () => {
+  test("approval evidence does not claim that an Incident exists", () => {
+    expect(browserNotificationText("approvalBody"))
+      .toBe("Open the Console to review the approval evidence.");
+    setLocale("ko");
+    expect(browserNotificationText("approvalBody")).toBe("콘솔에서 승인 근거를 검토하세요.");
+  });
+
   test("renders explicit Console web channel states in both locales", () => {
     expect(browserNotificationText("stateAcknowledged")).toBe("Sent + opened");
     expect(browserNotificationText("stateAcknowledgedCompact")).toBe("Opened");

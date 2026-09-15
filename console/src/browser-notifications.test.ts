@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { LiveStageEvent } from "./hooks/use-live-stream";
+import { consoleDataMode } from "./console-data-mode";
 import {
   acknowledgeBrowserAlertDelivery,
   acknowledgeBrowserAlertDeliveryForClaim,
@@ -104,11 +105,11 @@ describe("browser notification boundary", () => {
     expect(JSON.stringify(alert)).not.toContain("credential");
   });
 
-  test("creates a bounded same-origin incident route and replacement tag", () => {
+  test("opens correlated audit evidence without assuming an Incident exists", () => {
     expect(browserAlertForLiveEvent(event())).toEqual({
       kind: "approval",
       tag: "fdai:event-1",
-      path: "/incidents?status=all&correlation=correlation-1",
+      path: "/audit?correlation=correlation-1",
     });
     expect(browserNotificationWorkerPaths("/fdai")).toEqual({
       scriptUrl: "/fdai/notification-sw.js",
@@ -131,13 +132,23 @@ describe("browser notification boundary", () => {
       channel_id: CONSOLE_WEB_NOTIFICATION_CHANNEL_ID,
       tag: "fdai:event-1",
       acknowledgement_token: ACKNOWLEDGEMENT_TOKEN,
-      path: "/incidents?status=all&correlation=correlation-1",
+      path: "/audit?correlation=correlation-1",
     });
     expect(() => browserAlertNotificationData(
       browserAlertForLiveEvent(event())!,
       "/",
       "predictable",
     )).toThrow(/token is invalid/);
+  });
+
+  test("keeps runtime alert evidence live even when the tab prefers Sample", () => {
+    const alert = browserAlertForLiveEvent(event({ correlation_id: "corr/one&two" }));
+    const target = new URL(alert!.path, "https://console.example.com");
+    expect(target.pathname).toBe("/audit");
+    expect(target.searchParams.get("correlation")).toBe("corr/one&two");
+    expect(consoleDataMode("audit", target.searchParams, "sample")).toBe("live");
+    expect(browserAlertNotificationData(alert!, "/fdai/", ACKNOWLEDGEMENT_TOKEN).path)
+      .toBe("/fdai/audit?correlation=corr%2Fone%26two");
   });
 
   test("scopes opt-in storage to the browser principal", () => {
