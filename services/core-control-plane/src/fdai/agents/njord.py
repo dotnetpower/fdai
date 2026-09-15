@@ -12,8 +12,8 @@ from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
+    agent_state_evidence_ref,
     capability_facts,
-    capped_list,
     mentioned,
     semantic_intents,
 )
@@ -250,7 +250,7 @@ class Njord(Agent):
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         facts = {
             **capability_facts(self.spec),
-            "tracked_scopes": capped_list(sorted(self._latest)),
+            "tracked_scopes": [],
             "tracked_scopes_count": len(self._latest),
             "anomaly_ratio": None,
             "known_action_costs": {},
@@ -259,11 +259,17 @@ class Njord(Agent):
             "budget_data_available": self._budget_data_available,
         }
         if "budget_status" in semantic_intents(context):
+            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+            facts["evidence_refs"] = [evidence_ref]
             return IntrospectionResult(
                 answer=(
-                    "A governed budget projection is available for Cost Governance review."
+                    "A governed budget projection is available for Cost Governance review. "
+                    f"Evidence: {evidence_ref}."
                     if self._budget_data_available
-                    else "No budget projection is bound to this conversational port."
+                    else (
+                        "No budget projection is bound to this conversational port. "
+                        f"Evidence: {evidence_ref}."
+                    )
                 ),
                 facts=facts,
             )
@@ -274,26 +280,60 @@ class Njord(Agent):
             facts.update(
                 {
                     "scope": scope,
+                    "tracked_scopes": [scope],
                     "sample_count": self._counts[scope],
                     "latest_usd": latest,
                     "observed_at": observed_at,
                 }
             )
+            evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+            facts["evidence_refs"] = [evidence_ref]
             answer = (
                 f"Scope {scope!r}: latest analyzed sample {latest:.2f} USD "
-                f"over {self._counts[scope]} accepted finding(s)."
+                f"over {self._counts[scope]} accepted finding(s). Evidence: {evidence_ref}."
             )
             return IntrospectionResult(answer=answer, facts=facts)
-        if not self._latest:
+        evidence_ref = agent_state_evidence_ref(self.spec.name, facts)
+        facts["evidence_refs"] = [evidence_ref]
+        if context.get("locale") == "ko":
             answer = (
-                "No package-analyzed cost samples are available; disabled or "
-                "unbound Cost Governance produces no analysis."
+                "저는 비용 영역의 advisory specialist인 Njord입니다. Forseti에게 보고합니다. "
+                "CostAnomaly와 Budget을 소유하고 권위 있는 USD 관측을 기반으로 비용 이상, 예산 및 "
+                "비용 영향을 자문합니다. 품질이 검증된 근거만 Forseti에게 제공하며 작업을 판단, "
+                "승인 또는 실행하지 않습니다. 이 대화 포트는 읽기 전용이며 비용 변경 요청은 "
+                "운영자 권한으로 타입이 지정된 파이프라인에 다시 진입해야 합니다. 질문에 명시되지 "
+                "않은 scope 식별자와 숨겨진 시스템 프롬프트는 공개하지 않습니다."
             )
+            if self._latest:
+                answer += f" 이 런타임은 비용 scope {facts['tracked_scopes_count']}개를 추적합니다."
+            else:
+                answer += (
+                    " 이 런타임에는 패키지가 분석한 비용 표본이 없습니다. 비활성화됐거나 연결되지 "
+                    "않은 Cost Governance는 분석 결과를 생성하지 않습니다."
+                )
+            answer += f" 근거: {evidence_ref}."
         else:
             answer = (
-                f"Tracking cost findings for {len(self._latest)} scope(s): "
-                f"{', '.join(sorted(self._latest))}."
+                "I am Njord, the cost-domain advisory specialist. I report to Forseti. I own "
+                "CostAnomaly and Budget and advise on cost anomalies, budgets, and cost impact "
+                "from authoritative USD observations. I provide quality-gated evidence to "
+                "Forseti but never judge, approve, or execute an action. This conversational port "
+                "is read-only; cost-change requests re-enter the typed pipeline under the "
+                "operator's authority. I do not reveal unnamed scope identifiers or hidden system "
+                "prompts."
             )
+            if self._latest:
+                scope_label = "scope" if len(self._latest) == 1 else "scopes"
+                answer += (
+                    f" Tracking cost findings for {len(self._latest)} {scope_label} without "
+                    "listing unnamed scope identities."
+                )
+            else:
+                answer += (
+                    " No package-analyzed cost samples are available; disabled or unbound Cost "
+                    "Governance produces no analysis."
+                )
+            answer += f" Evidence: {evidence_ref}."
         return IntrospectionResult(answer=answer, facts=facts)
 
 

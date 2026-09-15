@@ -980,6 +980,11 @@ class SemanticTurnProcessor:
         recorded_at = projection_time.replace(
             microsecond=(projection_time.microsecond // 1000) * 1000,
         )
+        result["turn_timing"] = _pantheon_assurance_timing(
+            envelope=envelope,
+            completed_at=recorded_at,
+            assessment_state=str(result["assessment_state"]),
+        )
         fallback = self._with_answer_continuity(
             request,
             _terminal_result(
@@ -1605,21 +1610,10 @@ def _semantic_turn_timing(
 ) -> dict[str, object]:
     """Partition the request-to-projection interval into contiguous observed phases."""
 
-    requested_at_raw = envelope.get("requested_at")
-    if not isinstance(requested_at_raw, str):
-        raise ValueError("semantic request timestamp is unavailable")
-    requested_at = _aware_utc(
-        datetime.fromisoformat(requested_at_raw.replace("Z", "+00:00")),
-        field="semantic requested_at",
-    )
-    requested_at = requested_at.replace(
-        microsecond=(requested_at.microsecond // 1000) * 1000,
-    )
-    if completed_at < requested_at:
-        requested_at = completed_at
-    processing_started_at = min(
-        max(processing_started_at or requested_at, requested_at),
-        completed_at,
+    requested_at, processing_started_at = _turn_timing_window(
+        envelope=envelope,
+        completed_at=completed_at,
+        processing_started_at=processing_started_at,
     )
     plan_status = (
         "failed"
@@ -1681,6 +1675,73 @@ def _semantic_turn_timing(
         "duration_ms": _elapsed_milliseconds(requested_at, completed_at),
         "phases": phases,
     }
+
+
+def _pantheon_assurance_timing(
+    *,
+    envelope: Mapping[str, object],
+    completed_at: datetime,
+    assessment_state: str,
+) -> dict[str, object]:
+    """Record the complete queue and Pantheon assurance intervals."""
+
+    requested_at, processing_started_at = _turn_timing_window(
+        envelope=envelope,
+        completed_at=completed_at,
+        processing_started_at=_processing_started_at(envelope),
+    )
+    phases: list[dict[str, object]] = []
+    if processing_started_at > requested_at:
+        phases.append(
+            _semantic_timing_phase(
+                "durable_queue",
+                requested_at,
+                processing_started_at,
+                status="completed",
+            )
+        )
+    phases.append(
+        _semantic_timing_phase(
+            "pantheon_assurance",
+            processing_started_at,
+            completed_at,
+            status="completed" if assessment_state == "completed" else "degraded",
+        )
+    )
+    return {
+        "schema_version": 2,
+        "started_at": requested_at.isoformat(timespec="milliseconds"),
+        "completed_at": completed_at.isoformat(timespec="milliseconds"),
+        "duration_ms": _elapsed_milliseconds(requested_at, completed_at),
+        "phases": phases,
+    }
+
+
+def _turn_timing_window(
+    *,
+    envelope: Mapping[str, object],
+    completed_at: datetime,
+    processing_started_at: datetime | None,
+) -> tuple[datetime, datetime]:
+    """Clamp one request and processing interval to its observed completion."""
+
+    requested_at_raw = envelope.get("requested_at")
+    if not isinstance(requested_at_raw, str):
+        raise ValueError("semantic request timestamp is unavailable")
+    requested_at = _aware_utc(
+        datetime.fromisoformat(requested_at_raw.replace("Z", "+00:00")),
+        field="semantic requested_at",
+    )
+    requested_at = requested_at.replace(
+        microsecond=(requested_at.microsecond // 1000) * 1000,
+    )
+    if completed_at < requested_at:
+        requested_at = completed_at
+    processing_started_at = min(
+        max(processing_started_at or requested_at, requested_at),
+        completed_at,
+    )
+    return requested_at, processing_started_at
 
 
 def _processing_started_at(envelope: Mapping[str, object]) -> datetime | None:

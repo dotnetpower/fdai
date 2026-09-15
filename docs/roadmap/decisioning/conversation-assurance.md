@@ -44,12 +44,19 @@ The fixed census contains 230 balanced cases:
 Every measured turn binds the exact prompt-profile digest, content-free route, evidence,
 verification, T1/T2, complete request budget, metering, timing, and terminal-state data in one trace
 receipt. Private question and answer bodies remain outside tracked evidence.
+Core also records schema-v2 timing across durable queue and Pantheon assurance phases. Operator
+returns the same phase list with trace latency, and a deferred assessment marks its phase degraded.
+A UUID-shaped deployment scope in an answer records `hidden_scope_leak` as a hard-zero violation;
+the existing sensitivity scan may independently record `sensitive_output` for the same answer.
 
 ### Explicit campaign operation
 
 Use `scripts/automation/conversation-assurance.py` to preview or start a campaign, read status, or
 request a stop. One child evaluates at most 20 questions. Larger census runs use sequential child
 campaigns and stop after the first hold or incomplete child.
+Before measuring a fixed case, the runtime forwards its registered locale to the Pantheon
+conversation port. The trace `participants[].situation` must record that same locale; a mismatch
+fails the diagnostic instead of silently defaulting to English.
 
 The optional Unix-socket supervisor waits for explicit commands. Restarting it does not resume or
 start a campaign. Provider throttling, unavailability, timeout, or a missing measurement contract

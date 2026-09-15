@@ -281,6 +281,13 @@ order. This restart hydration rebuilds the provider baseline and Njord's convers
 without republishing historical findings. A missing package, disabled activation, or provider
 mismatch keeps the binding disabled or blocks inconsistent startup; it never creates a direct agent
 call or changes action authority.
+The shared Pantheon conversation entry point forwards the validated operator locale into Njord's
+per-turn prompt composition. Locale affects presentation only; it cannot activate the package or
+change advisory facts or action authority.
+Broad Njord responses expose scope counts only. A scope identity appears in facts or prose only
+when the authenticated question names that exact scope.
+Broad Freyr responses likewise expose resource counts only. A resource identity appears in facts
+or prose only when the authenticated question names that exact resource.
 Only authoritative USD observations enter the `amount_usd` specialist ingress. Other source
 currencies remain available to disclosure-filtered analytics but do not enter Njord advisory
 baselines without an authoritative conversion.

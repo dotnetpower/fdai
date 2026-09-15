@@ -187,6 +187,7 @@ class RuntimePantheonConversationAssurance:
             session_id=request.session_id,
             user_id=request.principal.subject_id,
             question=request.utterance,
+            locale=request.locale,
             initiator_role=request.principal.roles[-1].value,
             allow_action_proposal=False,
             materialize_handoff=False,
