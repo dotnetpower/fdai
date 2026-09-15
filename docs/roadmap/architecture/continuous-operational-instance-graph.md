@@ -97,7 +97,7 @@ their incomplete relationship set. Nested subnet records retain the observed VNe
 an exact child cannot fall back to a Resource Group parent between reconciliations.
 One support boundary owns Resource Changes cursor, retry, ingestion-fence, and publication
 semantics; the provider feed module re-exports that behavior instead of maintaining a second loop.
-Malformed Activity Log continuation metadata cannot close a page stream or advance its durable cursor.
+Malformed Activity Log continuation metadata cannot close a page stream or advance its durable cursor. Azure Cognitive Services deployment writes/deletes reported only against a parent account are non-projectable change signals: request complete reconciliation without inventing the absent child or blocking unrelated valid rows; other identity contradictions remain errors.
 
 A collected property becomes a relationship only through a reviewed provider mapping. If that
 mapping omits an observed connection target, an absent graph edge never proves an absent path.
