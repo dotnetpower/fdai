@@ -241,9 +241,19 @@ test("shows the bounded topology overview and keeps selection in one workbench",
   await expect(page.locator(".architecture-topology-node")).toHaveCount(1);
   await expect(page.locator(".architecture-topology-node-type"))
     .toContainText("11 Resources - 0 external links");
+  await expect(page.locator(".architecture-topology-unavailable")).toHaveCount(0);
+  const overviewPositions = await page.locator(".architecture-topology-resource").evaluateAll(
+    (resources) => resources.map((resource) =>
+      resource.getAttribute("transform")
+      ?? resource.querySelector("rect")?.getAttribute("x")
+      ?? ""),
+  );
+  expect(new Set(overviewPositions).size).toBe(overviewPositions.length);
   await expect(page.locator(".architecture-map")).toHaveCount(0);
   await expect(page.locator(".architecture-coverage")).toContainText("13 returned - 2 shown");
   await expect(page.locator(".architecture-coverage")).not.toHaveAttribute("open");
+  expect((await page.locator(".architecture-coverage").boundingBox())?.height)
+    .toBeLessThanOrEqual(56);
   await expect(page.locator(".architecture-inspector")).toBeHidden();
   await expect(page.getByRole("button", { name: "Show Inspector" })).toBeVisible();
   const scope = page.getByRole("combobox", { name: "Scope" });
@@ -378,11 +388,15 @@ test("keeps observed Network paths and sanitized exports inside the Inspector", 
   await expect(page.locator(".architecture-inspector")).toBeVisible();
   await expect(page.locator(".architecture-network-path-panel")).toBeVisible();
   await expect(page.locator(".architecture-topology-region")).toHaveCount(8);
-  await expect(page.locator(".architecture-topology-node")).toHaveCount(5);
-  await expect(page.locator(".architecture-topology-node-icon")).toHaveCount(5);
-  await expect(page.locator(".architecture-topology-link-path")).toHaveCount(9);
-  await expect(page.locator(".architecture-topology-endpoint")).toHaveCount(5);
+  await expect(page.locator(".architecture-topology-node")).toHaveCount(4);
+  await expect(page.locator(".architecture-topology-node-icon")).toHaveCount(4);
+  await expect(page.locator(".architecture-topology-link-path")).toHaveCount(5);
+  await expect(page.locator(".architecture-topology-endpoint")).toHaveCount(4);
   await expect(page.locator(".architecture-topology-link.is-peered_with")).toHaveCount(1);
+  const networkNodePositions = await page.locator(".architecture-topology-node").evaluateAll(
+    (nodes) => nodes.map((node) => node.getAttribute("transform")),
+  );
+  expect(new Set(networkNodePositions).size).toBe(networkNodePositions.length);
   const peeringPath = page.locator(".architecture-topology-link.is-peered_with .architecture-topology-link-path");
   expect((await peeringPath.getAttribute("d"))?.match(/\bL/g)).toHaveLength(1);
   const cardHitOwners = await page.locator(".architecture-topology-node").evaluateAll((nodes) =>
@@ -401,6 +415,7 @@ test("keeps observed Network paths and sanitized exports inside the Inspector", 
   await pathPanel.getByRole("combobox").nth(1).selectOption("endpoint");
   await expect(page.locator(".architecture-network-path-result")).toContainText("Observed path");
   await expect(page.locator(".architecture-network-path-hops li")).toHaveCount(2);
+  await expect(page.locator('.architecture-topology-node[data-resource-id="vm"]')).toBeVisible();
   await expect(page.locator(".architecture-topology-resource.is-muted")).not.toHaveCount(0);
   await assertNoHorizontalOverflow(page);
   await captureArchitectureViewport(page, testInfo, "network-desktop");

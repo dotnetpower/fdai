@@ -91,6 +91,35 @@ export function architectureNetworkOverviewGraph(
   };
 }
 
+/** Adds exact path records and their ancestors to a bounded Network presentation. */
+export function architectureNetworkPathPresentationGraph(
+  overview: InventoryGraphResponse,
+  evidenceGraph: InventoryGraphResponse,
+  pathResourceIds: readonly string[],
+): InventoryGraphResponse {
+  if (pathResourceIds.length === 0) return overview;
+  const byId = new Map(evidenceGraph.resources.map((resource) => [resource.id, resource]));
+  const parentById = architecturePresentationParentById(evidenceGraph, byId);
+  const visibleIds = new Set(overview.resources.map((resource) => resource.id));
+  for (const resourceId of pathResourceIds) {
+    if (!byId.has(resourceId)) continue;
+    visibleIds.add(resourceId);
+    let parentId = parentById.get(resourceId);
+    const visited = new Set<string>();
+    while (parentId && byId.has(parentId) && !visited.has(parentId)) {
+      visited.add(parentId);
+      visibleIds.add(parentId);
+      parentId = parentById.get(parentId);
+    }
+  }
+  return {
+    ...overview,
+    resources: evidenceGraph.resources.filter((resource) => visibleIds.has(resource.id)),
+    links: evidenceGraph.links.filter((link) =>
+      visibleIds.has(link.source) && visibleIds.has(link.target)),
+  };
+}
+
 export interface ArchitectureNetworkPathHop {
   readonly source: string;
   readonly target: string;

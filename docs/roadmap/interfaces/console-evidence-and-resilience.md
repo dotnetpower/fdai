@@ -664,6 +664,8 @@ selection in route state. Path tracing
 walks only reported `attached_to`, stored-direction `depends_on`, and symmetric `peered_with`
 relationships. It returns `no_observed_path` only for fresh, complete relationship coverage; every
 incomplete negative result stays `unknown`. Filters and highlighting change only presentation.
+Path tracing always uses the complete returned evidence graph rather than the bounded Network
+overview. A found path adds its exact Resources, ancestors, and stored links to the presentation.
 SVG and PNG exports retain sanitized provenance and omit names, raw provider ids, subscription
 ids, endpoints, and credentials.
 
@@ -697,6 +699,9 @@ transient failures with bounded 2-to-30-second backoff while the stale graph rem
 - Architecture layout regression uses a geometry-less, truncated 500-record projection with 40
   Resource Groups and verifies bounded Landscape and focus counts, finite placement, unique
   positions, and zero implicit origin fallback.
+- Browser checks assert unique rendered transforms, no unavailable-geometry fallback, a compact
+  collapsed coverage summary, exact path-hop restoration, and zero horizontal overflow before
+  responsive states can pass.
 
 ## Related docs
 

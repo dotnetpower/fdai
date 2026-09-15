@@ -4,6 +4,7 @@ import {
   ARCHITECTURE_NETWORK_OVERVIEW_LIMIT,
   architectureNetworkFocusGraph,
   architectureNetworkOverviewGraph,
+  architectureNetworkPathPresentationGraph,
   exportArchitectureNetworkSvg,
   filterArchitectureNetworkGraph,
   layoutArchitectureNetworkFocusGraph,
@@ -83,6 +84,24 @@ describe("observed network focus", () => {
     expect(overview.resources.some((resource) => resource.id === "app-0")).toBe(false);
     expect(overview.resources.filter((resource) =>
       resource.id.startsWith("gateway-"))).toHaveLength(ARCHITECTURE_NETWORK_OVERVIEW_LIMIT);
+  });
+
+  it("adds exact path hops back to the bounded presentation", () => {
+    const overview = architectureNetworkOverviewGraph(GRAPH);
+    const presented = architectureNetworkPathPresentationGraph(
+      overview,
+      GRAPH,
+      ["public", "nic", "vm", "db"],
+    );
+    const ids = new Set(presented.resources.map((resource) => resource.id));
+
+    expect(ids.has("vm")).toBe(true);
+    expect(ids.has("db")).toBe(true);
+    expect(presented.links).toContainEqual({
+      source: "vm",
+      target: "db",
+      type: "depends_on",
+    });
   });
 
   it("focuses one VNet while retaining only required ancestors and linked resources", () => {

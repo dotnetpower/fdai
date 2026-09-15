@@ -6,8 +6,9 @@ import { ArchitectureNetworkPathPanel } from "../components/architecture-network
 import { ArchitectureTopologyGraph } from "../components/architecture-topology-graph";
 import {
   DEFAULT_ARCHITECTURE_NETWORK_FILTERS,
-  architectureNetworkOverviewGraph,
   architectureNetworkFocusGraph,
+  architectureNetworkOverviewGraph,
+  architectureNetworkPathPresentationGraph,
   exportArchitectureNetworkSvg,
   filterArchitectureNetworkGraph,
   layoutArchitectureNetworkFocusGraph,
@@ -56,15 +57,29 @@ export function ArchitectureWorkbench({
   const [pathSourceId, setPathSourceId] = useState<string | null>(null);
   const [pathTargetId, setPathTargetId] = useState<string | null>(null);
   const selected = graph.resources.find((resource) => resource.id === selectedId) ?? null;
-  const networkFocusGraph = useMemo(
-    () => selectedId
-      ? architectureNetworkFocusGraph(graph, selectedId)
-      : architectureNetworkOverviewGraph(graph),
+  const networkEvidenceGraph = useMemo(
+    () => architectureNetworkFocusGraph(graph, selectedId),
     [graph, selectedId],
   );
+  const networkPath = useMemo(
+    () => traceArchitectureNetworkPath(networkEvidenceGraph, pathSourceId, pathTargetId),
+    [networkEvidenceGraph, pathSourceId, pathTargetId],
+  );
+  const networkPresentationGraph = useMemo(() => {
+    const base = selectedId
+      ? networkEvidenceGraph
+      : architectureNetworkOverviewGraph(graph);
+    return networkPath?.status === "found"
+      ? architectureNetworkPathPresentationGraph(
+          base,
+          networkEvidenceGraph,
+          networkPath.resourceIds,
+        )
+      : base;
+  }, [graph, networkEvidenceGraph, networkPath, selectedId]);
   const filteredNetworkGraph = useMemo(
-    () => filterArchitectureNetworkGraph(networkFocusGraph, networkFilters),
-    [networkFilters, networkFocusGraph],
+    () => filterArchitectureNetworkGraph(networkPresentationGraph, networkFilters),
+    [networkFilters, networkPresentationGraph],
   );
   const displayedGraph = useMemo(
     () => mode === "network"
@@ -73,10 +88,6 @@ export function ArchitectureWorkbench({
         : layoutArchitectureNetworkOverviewPresentation(filteredNetworkGraph)
       : layoutArchitecturePresentation(graph, selectedId),
     [filteredNetworkGraph, graph, mode, selectedId],
-  );
-  const networkPath = useMemo(
-    () => traceArchitectureNetworkPath(networkFocusGraph, pathSourceId, pathTargetId),
-    [networkFocusGraph, pathSourceId, pathTargetId],
   );
   const highlightedIds = networkPath?.status === "found"
     ? new Set(networkPath.resourceIds)
@@ -210,7 +221,7 @@ export function ArchitectureWorkbench({
           sourceLabel={sourceLabel}
           pathContent={(
             <ArchitectureNetworkPathPanel
-              graph={networkFocusGraph}
+              graph={networkEvidenceGraph}
               sourceId={pathSourceId}
               targetId={pathTargetId}
               result={networkPath}
@@ -251,6 +262,7 @@ function ArchitectureCoverage({
   return (
     <details class="architecture-coverage">
       <summary>
+        <span class="sr-only">{t("coverage.title")}. </span>
         <span class="architecture-coverage-primary">
           <strong class={graph.truncated ? "is-partial" : "is-complete"}>
             {t(graph.truncated ? "coverage.partial" : "coverage.complete")}
