@@ -8,7 +8,14 @@ export function registerFunctionLabels(
   labels: ScreenLabels,
   positions: ReadonlyMap<string, THREE.Vector3>,
   onSelect: (id: string) => void,
+  signal?: AbortSignal,
 ) {
+  layer.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const button = target.closest<HTMLButtonElement>(".function-node-label[data-function-id]");
+    if (button?.dataset.functionId) onSelect(button.dataset.functionId);
+  }, { signal });
   for (const fn of pythonFunctions) {
     const label = document.createElement("button");
     label.type = "button";
@@ -26,7 +33,6 @@ export function registerFunctionLabels(
     label.title = `${fn.id}()\n${fn.file}:${fn.line}`;
     label.setAttribute("aria-label", `${fn.id}()`);
     label.dataset.functionId = fn.id;
-    label.addEventListener("click", () => onSelect(fn.id));
     layer.append(label);
     labels.register(`python:${fn.id}`, label, () => positions.get(fn.id)!, true);
   }

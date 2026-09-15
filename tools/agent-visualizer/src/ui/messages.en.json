@@ -227,5 +227,11 @@
   "historyStateType": "Recorded state transition type",
   "catalogCoveragePartial": "The stored catalog reports incomplete coverage.",
   "unresolvedDbLinks": "stored links have endpoints outside the current graph.",
-  "controlsDock": "Playback and camera controls"
+  "controlsDock": "Playback and camera controls",
+  "sourceAdapters": "SOURCE ADAPTERS",
+  "sourceFocus": "SOURCE IN FOCUS",
+  "sourceChannels": "Channels",
+  "sourceAdapterNote": "Source adapter, not an agent. Traffic is simulated.",
+  "sourceDefinitions": "FUNCTIONS IN THIS SOURCE GROUP",
+  "serviceTrafficNote": "Fast particles illustrate model chunks and Console SSE, not measured throughput. Teams and Slack send discrete messages. These source views make no external requests."
 }

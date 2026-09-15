@@ -124,5 +124,21 @@ export class RecordedStore {
     this.frameKey = String(events.length);
   }
 
-  dispose() { this.controller?.abort(); this.controller = null; }
+  dispose() {
+    this.controller?.abort();
+    this.controller = null;
+    this.onChange = () => {};
+    this.directory = null;
+    this.graph = null;
+    this.snapshot = null;
+    this.events = [];
+    this.changes = [];
+    this.selectedId = "";
+    this.replayAt = null;
+    this.replayEnabled = false;
+    this.frameKey = "";
+    this.status = "idle";
+    this.error = "";
+    this.busy = false;
+  }
 }

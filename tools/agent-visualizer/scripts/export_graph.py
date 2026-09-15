@@ -11,6 +11,7 @@ from pathlib import Path
 
 from source_events import arg_metadata, event_metadata
 from source_index import SourceIndex
+from source_services import service_group, service_metadata
 
 
 def pantheon_records(index: SourceIndex) -> list[dict]:
@@ -78,32 +79,30 @@ def export(root: Path) -> dict:
             visited.add(identifier)
             owners[identifier].add(record["id"])
             queue.extend(outgoing[identifier])
-    # Azure provider entry points are real definitions but are not assigned agent ownership.
-    azure_functions = [
-        definition.identifier
-        for definition in index.functions.values()
-        if definition.module
-        in {
-            "fdai.delivery.azure.arg_query",
-            "fdai.delivery.azure.arg_transport",
-            "fdai.delivery.azure.arg_resource_changes",
-            "fdai.delivery.azure.inventory",
-            "fdai.delivery.inventory_change_acceleration",
-        }
-    ]
-    pending = deque(azure_functions)
-    azure_reachable = set()
-    while pending:
-        identifier = pending.popleft()
-        if identifier in azure_reachable:
-            continue
-        azure_reachable.add(identifier)
-        owners.setdefault(identifier, set())
-        pending.extend(outgoing[identifier])
+    # Adapter grouping is not ownership, even when a declared interface is agent-reachable.
+    services = service_metadata(index)
+    service_seeds: dict[str, list[str]] = defaultdict(list)
+    for definition in index.functions.values():
+        group = service_group(definition.module)
+        if group:
+            service_seeds[group].append(definition.identifier)
+    service_reachable: dict[str, set[str]] = defaultdict(set)
+    for group, seeds in service_seeds.items():
+        pending = deque(seeds)
+        while pending:
+            identifier = pending.popleft()
+            if group in service_reachable[identifier]:
+                continue
+            service_reachable[identifier].add(group)
+            owners.setdefault(identifier, set())
+            pending.extend(outgoing[identifier])
     topics = event_metadata(index, records, owners)
     functions = []
     for identifier in sorted(owners):
         definition = index.functions[identifier]
+        group = service_group(definition.module)
+        if group is None and not owners[identifier] and service_reachable[identifier]:
+            group = sorted(service_reachable[identifier])[0]
         functions.append(
             {
                 "id": identifier,
@@ -115,6 +114,7 @@ def export(root: Path) -> dict:
                 "owners": sorted(owners[identifier]),
                 "direct_owners": sorted(direct[identifier]),
                 "unresolved": unresolved.get(identifier, []),
+                **({"service": group} if group else {}),
             }
         )
     digest = hashlib.sha256()
@@ -128,7 +128,7 @@ def export(root: Path) -> dict:
         "input_digest": digest.hexdigest(),
         "scope": (
             "Agent-owned Python definitions, resolved transitive callees, "
-            "and Azure Resource Graph provider definitions."
+            "and source-backed Azure Resource Graph, Azure OpenAI, and channel adapters."
         ),
         "limitations": [
             "Static definition references, not observed execution or complete dynamic dispatch.",
@@ -141,7 +141,8 @@ def export(root: Path) -> dict:
         "calls": [
             edge for edge in all_edges if edge["source"] in owners and edge["target"] in owners
         ],
-        "azure_functions": azure_functions,
+        "azure_functions": service_seeds["azure-resource-graph"],
+        "services": services,
         "topics": topics,
         "arg": arg_metadata(index),
         "subscription_scope": (
