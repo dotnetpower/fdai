@@ -13,7 +13,9 @@ from fdai_service_contracts.cloud_knowledge_structure import (
     CloudArticleBlock,
     CloudArticleLink,
     CloudStructuredDocument,
+    StructuredNormalizerVersion,
 )
+from pydantic import TypeAdapter
 
 from .article_tree import (
     INLINE,
@@ -29,6 +31,7 @@ from .article_tree import (
 
 _Kind = Literal["heading", "paragraph", "list", "code", "table_row", "notice"]
 _HEADINGS = frozenset("h1 h2 h3 h4 h5 h6".split())
+_NORMALIZER: TypeAdapter[StructuredNormalizerVersion] = TypeAdapter(StructuredNormalizerVersion)
 
 
 def _link_target(base: str, href: str) -> str | None:
@@ -57,6 +60,8 @@ def _link_target(base: str, href: str) -> str | None:
 
 
 class _Structure:
+    allow_header_only = False
+
     def __init__(self, scopes: tuple[Element, ...], issues: set[str], source_url: str) -> None:
         self.issues = issues
         self.source_url = source_url
@@ -90,6 +95,14 @@ class _Structure:
                 destination = self.ids.get(urlsplit(target).fragment)
                 if destination is not None:
                     self.note_targets.add(destination)
+
+    def text(self, node: Element) -> str:
+        """Render through the selected normalizer, leaving the original algorithm unchanged."""
+        return text_content(node, self.issues)
+
+    def inspect(self, node: Element) -> None:
+        """Inspect original structure through the selected normalizer's supported vocabulary."""
+        inspect_structure(node, self.issues)
 
     def emit(
         self,
@@ -142,7 +155,7 @@ class _Structure:
             raise ValueError("article tab exceeds the label reference limit")
         if not label and labels and all(identity in self.ids for identity in labels):
             for identity in labels:
-                part = text_content(self.ids[identity], self.issues).strip()
+                part = self.text(self.ids[identity]).strip()
                 if len(label) + len(part) + 1 > 251:
                     raise ValueError("article tab exceeds the label limit")
                 label = (label + " " + part).strip()
@@ -155,13 +168,13 @@ class _Structure:
         self.headings, self.tabs = previous_headings, previous_tabs
 
     def visit(self, node: Element) -> None:
-        inspect_structure(node, self.issues)
+        self.inspect(node)
         if excluded(node):
             return
         if node.attrs.get("role") == "tabpanel" or "data-tab" in node.attrs:
             self.panel(node)
         elif node.tag in _HEADINGS:
-            label = text_content(node, self.issues).strip()
+            label = self.text(node).strip()
             if not label:
                 self.issues.add("empty_heading")
                 return
@@ -170,14 +183,14 @@ class _Structure:
             self.headings.append((level, label))
             self.emit(node, "heading", "#" * level + " " + label)
         elif is_notice(node) or node in self.note_targets:
-            self.emit(node, "notice", text_content(node, self.issues))
+            self.emit(node, "notice", self.text(node))
         elif node.tag == "table":
             self.table(node)
         elif node.tag in {"p", "pre", "ul", "ol"}:
             kind: _Kind = (
                 "code" if node.tag == "pre" else "list" if node.tag in {"ul", "ol"} else "paragraph"
             )
-            self.emit(node, kind, text_content(node, self.issues))
+            self.emit(node, kind, self.text(node))
         elif node.tag not in {"img", "source", "hr", "wbr"}:
             if node.tag in {"li", "tr", "td", "th", "thead", "tbody", "tfoot"}:
                 self.issues.add("orphan_structure")
@@ -191,7 +204,7 @@ class _Structure:
             if pending:
                 paragraph = Element("p", children=pending.copy())
                 kind: _Kind = "notice" if is_notice(paragraph) else "paragraph"
-                self.emit(paragraph, kind, text_content(paragraph, self.issues))
+                self.emit(paragraph, kind, self.text(paragraph))
                 pending.clear()
 
         for child in node.children:
@@ -232,7 +245,7 @@ class _Structure:
                 break
         invalid = (
             not headers
-            or len(headers) == len(rows)
+            or (len(headers) == len(rows) and not self.allow_header_only)
             or any(child.tag == "table" and child is not node for child in all_nodes)
             or any(
                 "rowspan" in child.attrs or "colspan" in child.attrs or "headers" in child.attrs
@@ -246,9 +259,7 @@ class _Structure:
         if headers:
             invalid = invalid or any(len(row_cells) != len(headers[0]) for row_cells in cells)
             invalid = invalid or any(
-                not text_content(cell, self.issues).strip()
-                for row_cells in headers
-                for cell in row_cells
+                not self.text(cell).strip() for row_cells in headers for cell in row_cells
             )
         permitted_children: dict[str, set[str]] = {
             "table": {"caption", "thead", "tbody", "tfoot", "tr", "colgroup", "col"},
@@ -260,7 +271,7 @@ class _Structure:
             "col": set(),
         }
         for part in all_nodes:
-            inspect_structure(part, self.issues)
+            self.inspect(part)
             if part.tag in permitted_children:
                 permitted = permitted_children[part.tag]
                 if any(
@@ -279,11 +290,11 @@ class _Structure:
                 invalid = True
         if invalid:
             self.issues.add("unsupported_table")
-            retained = text_content(Element("div", children=node.children), self.issues)
+            retained = self.text(Element("div", children=node.children))
             self.emit(node, "paragraph", retained)
             return
         header = " | ".join(
-            " / ".join(text_content(row[index], self.issues).strip() for row in headers)
+            " / ".join(self.text(row[index]).strip() for row in headers)
             for index in range(len(headers[0]))
         )
         if len(header) > 4096 or len(headers) > 64:
@@ -301,11 +312,13 @@ class _Structure:
             raise ValueError("article table exceeds the required context limit")
         for child in node.children:
             if isinstance(child, Element) and child.tag == "caption":
-                self.emit(child, "notice", text_content(child, self.issues))
+                self.emit(child, "notice", self.text(child))
         for index, (row, row_cells) in enumerate(zip(rows, cells, strict=True)):
-            if not any(text_content(cell, self.issues).strip() for cell in row_cells):
+            if not any(self.text(cell).strip() for cell in row_cells):
                 self.issues.add("empty_table_row")
-            body = " | ".join(text_content(cell, self.issues).strip() for cell in row_cells)
+            body = " | ".join(self.text(cell).strip() for cell in row_cells)
+            if len(headers) == len(rows):
+                body += "\nNo data rows in captured table."
             block_id = self.emit(
                 row,
                 "table_row",
@@ -325,7 +338,7 @@ class _Structure:
             if node.tag != "a" or "href" not in node.attrs or excluded(node):
                 continue
             target = _link_target(self.source_url, node.attrs["href"])
-            label = text_content(node, self.issues).strip()
+            label = self.text(node).strip()
             if target is None or len(label) > 1024:
                 self.issues.add("unsupported_link")
                 continue
@@ -349,15 +362,20 @@ class _Structure:
 
 
 def reprocess_document(
-    snapshot: CloudKnowledgeDocument, *, now: datetime
+    snapshot: CloudKnowledgeDocument,
+    *,
+    now: datetime,
+    normalizer_version: StructuredNormalizerVersion = "2.0.0",
 ) -> CloudStructuredDocument:
     """Derive an original-free article candidate from the retained HTML only, with no I/O.
 
     Source clocks, raw digest, rights and applicability remain unchanged; only the
     normalized digest changes. Invalid input/metadata or exceeded budgets raise
-    ValueError. Unsupported structures return explicit unresolved dependencies;
+    ValueError. The legacy default preserves the original v3 algorithm; version
+    2.1.0 must be selected explicitly. Unsupported structures return unresolved dependencies;
     oversized atomic blocks remain intact for the installed chunker's whole-document hold.
     """
+    normalizer_version = _NORMALIZER.validate_python(normalizer_version, strict=True)
     if len(snapshot.original_text.encode("utf-8")) > MAX_INPUT_BYTES:
         raise ValueError("source HTML exceeds the input byte limit")
     snapshot = CloudKnowledgeDocument.model_validate(snapshot.model_dump(warnings="error"))
@@ -371,7 +389,12 @@ def reprocess_document(
         if not excluded(node)
     ):
         raise ValueError("source article contains no structured document text")
-    structure = _Structure(scopes, issues, snapshot.evidence.source_url)
+    if normalizer_version == "2.1.0":
+        from .article_extended import ExtendedStructure
+
+        structure: _Structure = ExtendedStructure(scopes, issues, snapshot.evidence.source_url)
+    else:
+        structure = _Structure(scopes, issues, snapshot.evidence.source_url)
     for scope in scopes:
         structure.visit(scope)
     if not any(block.kind != "heading" for block in structure.blocks):
@@ -387,6 +410,7 @@ def reprocess_document(
         evidence=CloudSourceEvidence.model_validate(values),
         title=snapshot.title,
         text=text,
+        normalizer_version=normalizer_version,
         derived_at=now,
         parent_normalized_sha256=snapshot.evidence.normalized_sha256,
         blocks=tuple(structure.blocks),

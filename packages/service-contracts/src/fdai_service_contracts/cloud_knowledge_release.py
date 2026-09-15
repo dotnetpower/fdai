@@ -133,11 +133,15 @@ class KnowledgeStructuredReleaseManifest(_ReleaseManifest[CloudStructuredDocumen
     """V3 complete structured generation with sealed deterministic excerpt digests."""
 
     schema_version: Literal["fdai.cloud-knowledge.v3"] = "fdai.cloud-knowledge.v3"
-    reader_version: Literal["3.0.0"] = "3.0.0"
+    reader_version: Literal["3.0.0", "3.1.0"] = "3.0.0"
     excerpt_digests: Annotated[tuple[Digest, ...], Field(min_length=1, max_length=256)]
 
     @model_validator(mode="after")
     def derived_inventory(self) -> Self:
+        if self.reader_version == "3.0.0" and any(
+            doc.normalizer_version != "2.0.0" for doc in self.documents
+        ):
+            raise ValueError("extended normalizers require structured reader 3.1.0")
         if any(doc.derived_at > self.package_created_at for doc in self.documents):
             raise ValueError("package creation cannot precede derivation")
         if sum(len(doc.blocks) for doc in self.documents) > MAX_BLOCKS:
@@ -163,7 +167,7 @@ _MANIFEST_ADAPTER: TypeAdapter[KnowledgeManifest] = TypeAdapter(KnowledgeManifes
 
 
 def parse_knowledge_manifest(content: bytes) -> KnowledgeManifest:
-    """Read an explicitly versioned v1/v2 manifest; callers still verify canonical
+    """Read an explicitly versioned v1/v2/v3 manifest; callers still verify canonical
     identity/trust.
     """
     return _MANIFEST_ADAPTER.validate_json(content)

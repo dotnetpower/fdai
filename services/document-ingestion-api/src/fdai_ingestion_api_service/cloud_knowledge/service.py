@@ -157,14 +157,22 @@ class CloudKnowledgeService:
                 if state.structured_document is None:
                     raise ValueError("structured source checkpoint requires a processing sweep")
                 if (
-                    state.structured_document.evidence.source_sha256
-                    != state.document.evidence.source_sha256
+                    state.structured_document.title != state.document.title
+                    or state.structured_document.evidence.model_dump(
+                        exclude={"normalized_sha256", "check"}
+                    )
+                    != state.document.evidence.model_dump(exclude={"normalized_sha256", "check"})
                 ):
-                    raise ValueError("structured source checkpoint does not match retained bytes")
+                    raise ValueError("structured source checkpoint does not match retained source")
                 structured_documents.append(state.structured_document)
         sequence = await self._store.next_sequence(collection_id)
         if self._structured:
             return KnowledgeStructuredReleaseManifest(
+                reader_version=(
+                    "3.1.0"
+                    if any(d.normalizer_version == "2.1.0" for d in structured_documents)
+                    else "3.0.0"
+                ),
                 release_id=f"{collection_id}-{sequence}",
                 sequence=sequence,
                 collection_id=collection_id,
