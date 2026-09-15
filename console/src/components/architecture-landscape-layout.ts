@@ -18,8 +18,8 @@ const BOUNDARY_INSET_X = .45;
 const BOUNDARY_HEADER = .85;
 const BOUNDARY_BOTTOM = .4;
 const ITEM_GAP = .45;
-export const ARCHITECTURE_LANDSCAPE_GROUP_LIMIT = 16;
-export const ARCHITECTURE_LANDSCAPE_FALLBACK_LIMIT = 16;
+export const ARCHITECTURE_LANDSCAPE_GROUP_LIMIT = 8;
+export const ARCHITECTURE_LANDSCAPE_FALLBACK_LIMIT = 8;
 export const ARCHITECTURE_SCOPE_DETAIL_LIMIT = 36;
 
 interface LayoutPlan extends RectangleItem {
@@ -167,6 +167,7 @@ export function architectureScopeDetailGraph(
 /** Generates presentation-only geometry when an inventory projection provides none. */
 export function layoutGeometrylessArchitectureGraph(
   graph: InventoryGraphResponse,
+  aspect = 1.8,
 ): InventoryGraphResponse {
   if (graph.resources.every(resourceHasCompleteGeometry)) return graph;
   const byId = new Map(graph.resources.map((resource) => [resource.id, resource]));
@@ -183,10 +184,10 @@ export function layoutGeometrylessArchitectureGraph(
     resources.map((resource) => resource.id)));
   const roots = graph.resources.filter((resource) => !childIds.has(resource.id));
   const plans = roots.map((resource) =>
-    buildLayoutPlan(resource, childrenById, new Set<string>()));
+    buildLayoutPlan(resource, childrenById, new Set<string>(), aspect));
   const packedRoots = packArchitectureRectangles(
     plans,
-    architectureLayoutTargetWidth(plans),
+    architectureLayoutTargetWidth(plans, aspect),
     .8,
   );
   const positioned = new Map<string, InventoryResource>();
@@ -240,6 +241,7 @@ function buildLayoutPlan(
   resource: InventoryResource,
   childrenById: ReadonlyMap<string, readonly InventoryResource[]>,
   trail: ReadonlySet<string>,
+  aspect: number,
 ): LayoutPlan {
   const boundary = isArchitectureRenderedBoundary(resource);
   if (!boundary || trail.has(resource.id)) {
@@ -255,10 +257,10 @@ function buildLayoutPlan(
   nextTrail.add(resource.id);
   const childPlans = [...(childrenById.get(resource.id) ?? [])]
     .sort(compareResources)
-    .map((child) => buildLayoutPlan(child, childrenById, nextTrail));
+    .map((child) => buildLayoutPlan(child, childrenById, nextTrail, aspect));
   const packed = packArchitectureRectangles(
     childPlans,
-    architectureLayoutTargetWidth(childPlans),
+    architectureLayoutTargetWidth(childPlans, aspect),
     ITEM_GAP,
   );
   return {

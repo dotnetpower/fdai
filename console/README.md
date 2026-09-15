@@ -321,13 +321,13 @@ subnet boundaries, resource status, and `attached_to` / `depends_on` links in on
 SVG workbench. Pan, zoom, filtering, selection, and deep links are local view operations only.
 The console cannot add, move, resize, or delete resources.
 The bounded Landscape is visible before selection. It derives containment without requiring API
-coordinates, keeps Subscription as a neutral boundary, and shows at most 16 Resource Group summary
+coordinates, keeps Subscription as a neutral boundary, and shows at most 8 Resource Group summary
 cards ranked by returned descendants. Selecting a Resource opens a type-diverse, 36-record focus
 that reserves direct relationship endpoints first and opens the nonmodal Inspector in the same
 frame.
-The Network lens keeps returned VNet and Subnet boundaries plus at most 48 reported network-role
-records while Resource remains at **Scope overview**. Path calculation still uses the complete
-returned evidence graph, and selecting a Resource narrows only the presentation focus.
+The Network lens keeps at most 2 VNet boundaries, 4 related Subnet boundaries, and 4 related
+network-role records while Resource remains at **Scope overview**. Path calculation still uses the
+complete returned evidence graph, and selecting a Resource narrows only the presentation focus.
 
 Production responses merge the immutable reconciliation snapshot with the
 ordered real-time resource/link overlay. The toolbar shows pending real-time
