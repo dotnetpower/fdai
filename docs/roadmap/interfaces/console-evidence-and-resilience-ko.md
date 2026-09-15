@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 0430bf3d4dea64b1873f8c1126707c6b6d4f8fbf
+translation_source_sha: 88446c11e782046f0b04b28aeefe406b1f8d24fc
 translation_revised: 2026-09-15
 ---
 # 콘솔 근거 및 복원력
@@ -699,6 +699,8 @@ transient 실패를 범위가 제한된 2-30초 재시도 대기로 재시도합
   검증합니다.
 - 브라우저 검사는 고유한 렌더링 위치, 사용 불가 형상 대체 0개, 간결하게 접힌 표현 범위 요약,
   정확한 경로 Resource 복원 및 가로 overflow 0을 검증한 뒤에만 반응형 상태를 통과시킵니다.
+- 아키텍처 하드닝 완료에는 형상이 없는 라이브 형태 회귀 통과 후 독립 리뷰에서 확인된 Medium
+  이상 finding이 없어야 합니다.
 
 ## 관련 문서
 

@@ -720,6 +720,8 @@ transient failures with bounded 2-to-30-second backoff while the stale graph rem
 - Browser checks assert unique rendered transforms, no unavailable-geometry fallback, a compact
   collapsed coverage summary, exact path-hop restoration, and zero horizontal overflow before
   responsive states can pass.
+- Architecture hardening completion requires an independent review with no confirmed
+  Medium-or-higher finding after the geometry-less live-shape regression passes.
 
 ## Related docs
 
