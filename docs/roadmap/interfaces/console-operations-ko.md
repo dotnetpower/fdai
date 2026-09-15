@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 23143123f7fb3b3e936688f6218c575a26d4c3b1
+translation_source_sha: 55e56473efb8dbd03a8206ffd66ce91dcc0f2b26
 translation_revised: 2026-09-15
 ---
 
@@ -40,7 +40,7 @@ Operations 영역은 기존 도메인 변환 결과를 읽고, 각 스키마와 
 
 Operator API는 실행기 신원이 없는 중계이며 에이전트 직접 호출 대신 타입 지정 이벤트를 사용합니다. 작업 흐름 엔진이나 숨은 에이전트가 아닙니다.
 출처 필터는 합계를 보존하며 알림 표 머리글은 읽기 쉬운 텍스트 토큰을 사용합니다. [알림 과다 수신 요청](../operations/alert-noise-governance-ko.md)은 원래 접수와 서명된 결과를 표시합니다.
-불확실성은 정확한 요청 키의 최종 결과로만 해소하며 승인과 효과 상태는 정본 Process가 소유합니다.
+불확실성은 정확한 요청 키의 최종 결과로만 해소하며 승인과 효과 상태는 정본 Process가 소유합니다. 격리된 테스트 데이터로 인증된 화면의 접근성을 입증할 수는 없습니다.
 
 기록된 Resource 상태 화면은 브라우저에서 공급자 원시 필드를 해석하지 않고 공유하는 독립 상태
 축을 사용합니다. 따라서 정확한 Static Web App 기본 환경 `BuildStatus`를 운영 값으로 표시하고,
