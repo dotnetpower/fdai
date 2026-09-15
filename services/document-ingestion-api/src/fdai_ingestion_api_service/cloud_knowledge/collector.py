@@ -17,6 +17,8 @@ from fdai_service_contracts.cloud_knowledge import (
     content_digest,
 )
 from fdai_service_contracts.cloud_knowledge_release import CloudKnowledgeDocument
+from fdai_service_contracts.cloud_knowledge_structure import CloudStructuredDocument
+from pydantic import Field
 
 from fdai_ingestion_api_service.cloud_knowledge.normalization import normalize_source
 
@@ -43,6 +45,9 @@ class SourceState(KnowledgeContract):
     """Checkpoint cache; document source times never derive from local row timestamps."""
 
     document: CloudKnowledgeDocument | None = None
+    structured_document: CloudStructuredDocument | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     last_attempt: SourceCheckReceipt | None = None
     last_full_fetch_at: datetime | None = None
     retry_after: datetime | None = None
@@ -71,12 +76,14 @@ class CloudDocumentCollector:
         *,
         collector_id: str,
         request_timeout_seconds: float = 30.0,
+        structured: bool = False,
     ) -> None:
         if not 0 < request_timeout_seconds <= 30:
             raise ValueError("source request timeout MUST be in (0, 30]")
         self._transport = transport
         self._collector_id = collector_id
         self._timeout = request_timeout_seconds
+        self._structured = structured
 
     async def collect(
         self,
@@ -131,6 +138,7 @@ class CloudDocumentCollector:
                 )
                 return SourceState(
                     document=updated,
+                    structured_document=self._structure(updated, previous, now),
                     last_attempt=check,
                     last_full_fetch_at=previous.last_full_fetch_at,
                 )
@@ -176,18 +184,38 @@ class CloudDocumentCollector:
                 policy=source.policy,
                 license_ref=source.license_ref,
             )
+            document = CloudKnowledgeDocument(
+                evidence=evidence, title=source.title, original_text=original, text=text
+            )
             return SourceState(
-                document=CloudKnowledgeDocument(
-                    evidence=evidence,
-                    title=source.title,
-                    original_text=original,
-                    text=text,
-                ),
+                document=document,
+                structured_document=self._structure(document, previous, now),
                 last_attempt=check,
                 last_full_fetch_at=now,
             )
         except (TimeoutError, OSError, ValueError):
             return self._failed(source, previous, now, "source_unavailable")
+
+    def _structure(
+        self, document: CloudKnowledgeDocument, previous: SourceState, now: datetime
+    ) -> CloudStructuredDocument | None:
+        """Derive content separately from fetch clocks; a 304 can reuse the exact old recipe."""
+        if not self._structured:
+            return None
+        from fdai_ingestion_api_service.cloud_knowledge.structured_normalization import (
+            reprocess_document,
+        )
+
+        old = previous.structured_document
+        if old is not None and old.evidence.source_sha256 == document.evidence.source_sha256:
+            return CloudStructuredDocument.model_validate(
+                old.model_dump()
+                | {
+                    "evidence": old.evidence.model_dump()
+                    | {"check": document.evidence.check.model_dump()}
+                }
+            )
+        return reprocess_document(document, now=now)
 
     def _receipt(
         self,
@@ -229,6 +257,7 @@ class CloudDocumentCollector:
         jitter = int(content_digest(source.source_id.encode())[:4], 16) % 300
         return SourceState(
             document=previous.document,
+            structured_document=previous.structured_document,
             last_full_fetch_at=previous.last_full_fetch_at,
             consecutive_failures=failures,
             retry_after=now + timedelta(seconds=delay + jitter),

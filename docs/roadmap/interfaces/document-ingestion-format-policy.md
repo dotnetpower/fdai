@@ -78,6 +78,11 @@ workflow-supplied provider value.
 | DOC, PPT, XLS, and other OLE binaries | Not accepted | Save a modern OOXML or PDF version in the source application |
 | ZIP and other generic archives | Not accepted | Archive expansion isn't an upload format |
 
+Cloud-reference packages follow the [structured retrieval design](cloud-resource-knowledge-structured-rag.md),
+not a new general upload format. The v3 opt-in is under development: one normalized body plus blocks
+supports excerpts with table headers and required context within 8192 UTF-8 bytes. Unsafe or
+incomplete structure holds the complete generation; legacy v1/v2 extraction remains unchanged.
+
 ## Extraction and failure behavior
 
 Embedded images use bounded package-member extraction and the effective OCR provider. A modern

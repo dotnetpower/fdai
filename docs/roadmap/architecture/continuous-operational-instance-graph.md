@@ -23,6 +23,9 @@ unbounded tight polling loop.
 - **Observed truth:** Only authenticated provider observations can enter the `observed` state lane.
   Questions, model output, intended state, dispatch receipts, and executor results cannot create an
   observed fact.
+  The developing [structured cloud-document path](../interfaces/cloud-resource-knowledge-structured-rag.md)
+  supplies dated reference excerpts only. Source-check times and query digests cannot refresh
+  Resource state or prove graph completeness.
 - **Deployment evidence:** Protected platform plan metadata is built by a focused repository
   module. Workflow YAML passes sealed inputs to it; neither the plan nor its receipt can establish
   an observed graph fact. Every status-overriding service-deployment run or action step executes

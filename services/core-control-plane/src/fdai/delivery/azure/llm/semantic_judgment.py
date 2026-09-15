@@ -197,7 +197,13 @@ class AzureOpenAISemanticJudgmentModel:
                 encoded,
                 input_digest=input_digest,
                 proposal_schema=_semantic_judgment_proposal_schema(
-                    intent_hardening_enabled=self._config.intent_hardening_enabled
+                    intent_hardening_enabled=self._config.intent_hardening_enabled,
+                    document_query_enabled=any(
+                        capability.get("kind") == "function_type"
+                        and capability.get("name") == "query.governed_documents"
+                        for capability in capabilities
+                    ),
+                    source_locale=locale,
                 ),
                 system_prompt=self._config.system_prompt,
                 prompt_manifest=self._config.system_prompt_manifest,
@@ -600,24 +606,40 @@ def _validate_output_reserve(
 def _semantic_judgment_proposal_schema(
     *,
     intent_hardening_enabled: bool,
+    document_query_enabled: bool = False,
+    source_locale: str | None = None,
 ) -> dict[str, Any]:
-    """Expose additive forbidden-action output only to an explicit shadow candidate."""
+    """Add retrieval terms only to the existing document-capable judgment call.
+
+    Exact supplied capability identity selects the output contract, not an intent.
+    Legacy callers retain their schema pin; forbidden actions still require the
+    independent hardening opt-in. Query guidance stays in the generated schema,
+    so configured prompts, replay manifests, budgets and observations stay intact.
+    """
 
     schema = SemanticJudgmentProposal.model_json_schema()
-    schema_version = schema.get("properties", {}).get("schema_version")
-    if not isinstance(schema_version, dict):
-        raise ValueError("semantic judgment proposal schema has no version property")
-    if intent_hardening_enabled:
-        schema_version.clear()
-        schema_version["const"] = "1.1.0"
-        schema_version["type"] = "string"
-        return schema
     properties = schema.get("properties")
     if not isinstance(properties, dict):
         raise ValueError("semantic judgment proposal schema has no properties")
-    properties.pop("forbidden_actions", None)
+    schema_version = properties.get("schema_version")
+    if not isinstance(schema_version, dict):
+        raise ValueError("semantic judgment proposal schema has no version property")
+    if not intent_hardening_enabled:
+        properties.pop("forbidden_actions", None)
+    if not document_query_enabled:
+        properties.pop("document_query", None)
+        schema.get("$defs", {}).pop("DocumentRetrievalQuery", None)
+    elif source_locale is not None:
+        if source_locale not in {"en", "ko"}:
+            raise ValueError("document retrieval source locale MUST be en or ko")
+        schema["$defs"]["DocumentRetrievalQuery"]["properties"]["source_locale"] = {
+            "type": "string",
+            "const": source_locale,
+        }
     schema_version.clear()
-    schema_version["const"] = "1.0.0"
+    schema_version["const"] = (
+        "1.2.0" if document_query_enabled else "1.1.0" if intent_hardening_enabled else "1.0.0"
+    )
     schema_version["type"] = "string"
     return schema
 

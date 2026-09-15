@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 13a9ac6f5d34e9860f37e649d8d5f970bc2cfcd3
+translation_source_sha: 7b717af6e25ac5ee0ae641e4b2e956f7ca2e9e78
 translation_revised: 2026-09-15
 ---
 # 프로젝트 구조
@@ -42,7 +42,7 @@ checkpoint부터 재개합니다.
 ## 모듈 경계(모듈 Boundaries)
 
 의존 방향은 엄격하게 단방향이며, 위반은 리뷰 블로커입니다.
-클라우드 참조 수집은 수집 API, 파싱/색인 활성화는 작업자, 날짜를 명시한 근거는 Core가 담당합니다. [수명 주기 설계](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)는 공유 계약과 실행 권한이 없는 경계를 정의합니다. Core는 적용 조건을 제한된 단일 값 선택자로 노출하며 근거 객체는 의존 조회 결과로만 받습니다. 정확한 문서 맥락은 순위 계산 전에 이 선택 조건과 함께 적용하며 더 넓은 컬렉션 조회로 대체할 수 없습니다. 새 수집 테스트마다 서비스 테스트 소유자가 하나이며, 이미 선언된 API의 `aiohttp` 의존성은 간접이 아닌 직접 사용으로 분류합니다. 새 클라우드 참조 패키지는 정규화 텍스트 전용 v2 레코드를 사용합니다. 수집 원본은 API가 계속 소유하고 패키지/작업자 읽기 경로는 정확한 v1 식별 정보와 기존 승인 조건을 유지합니다.
+클라우드 참조 수집은 수집 API, 파싱/색인 활성화는 작업자, 날짜를 명시한 근거는 Core가 담당합니다. [수명 주기 설계](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)는 공유 계약과 실행 권한이 없는 경계를 정의합니다. Core는 적용 조건을 제한된 단일 값 선택자로 노출하며 근거 객체는 의존 조회 결과로만 받습니다. 정확한 문서 맥락은 순위 계산 전에 이 선택 조건과 함께 적용하며 더 넓은 컬렉션 조회로 대체할 수 없습니다. 새 수집 테스트마다 서비스 테스트 소유자가 하나이며, 이미 선언된 API의 `aiohttp` 의존성은 간접이 아닌 직접 사용으로 분류합니다. 새 클라우드 참조 패키지는 정규화 텍스트 전용 v2가 기본값이며, 명시적으로 선택하는 [구조화된 v3 확장](../interfaces/cloud-resource-knowledge-structured-rag-ko.md)은 개발 중입니다. 수집 원본은 API가 계속 소유하고 새 전송에는 포함하지 않습니다. 패키지/작업자 읽기 경로는 정확한 v1/v2 식별 정보와 기존 승인 조건을 유지합니다.
 
 - **코어는 이식 가능**: 어떤 클라우드 SDK도 직접 가져오기 하지 **않습니다**. 클라우드 특이성은
   `shared/providers/` 의 CSP-중립 인터페이스로만 진입하며, 구현은 `delivery/` 와 `infra/` 에 있고

@@ -8,6 +8,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal, Protocol, runtime_checkable
 
+from fdai_service_contracts.cloud_knowledge_query import DocumentRetrievalQuery
 from fdai_service_contracts.ontology_query import (
     IntentGraph,
     OntologyQueryPlan,
@@ -207,7 +208,7 @@ class _Proposal(BaseModel):
 
 
 class SemanticFrameProposal(_Proposal):
-    """Untrusted model proposal without server-owned identity or authority fields."""
+    """Untrusted frame; only accepted judgment can bind its optional document query."""
 
     operation: SemanticOperation
     subject_constraints: tuple[str, ...] = Field(default=(), max_length=32)
@@ -217,6 +218,14 @@ class SemanticFrameProposal(_Proposal):
     evidence_requirements: tuple[
         Annotated[str, Field(pattern=r"^[a-z][a-z0-9_.-]{0,79}$")], ...
     ] = Field(default=(), max_length=32)
+    document_query: DocumentRetrievalQuery | None = Field(
+        default=None,
+        exclude_if=lambda query: query is None,
+        description=(
+            "Return null. Core binds this field exclusively from accepted semantic judgment; "
+            "a frame model cannot propose or replace retrieval terms."
+        ),
+    )
     unresolved_terms: tuple[str, ...] = Field(default=(), max_length=8)
     clarification_requirements: tuple[ClarificationRequirement, ...] = Field(
         default=(), max_length=8

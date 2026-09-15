@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 2472d3e31fea70cba9552ab7fc1298b9444f4aa6
-translation_revised: 2026-09-14
+translation_source_sha: 979f482994d9de3d73cb02af78cda852a0c9efe6
+translation_revised: 2026-09-15
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -47,6 +47,10 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 게이트웨이 진단은 `routes_to`와 검토된 게이트웨이 함수를 추가합니다. 이 변환 결과는 프롬프트
 최소화를 위한 보기이며 다른 매니페스트나 권한 원본이 아닙니다. 모든 서술자는 여전히 전체
 principal 범위 매니페스트에서 오고 계획 검증은 정확한 release에 대해 수행됩니다.
+개발 중인 [구조화된 클라우드 문서 확장](../interfaces/cloud-resource-knowledge-structured-rag-ko.md)은
+수락된 모델 판단의 `document_query` 검색어를 단일 값 적용 조건 및 정확한 문서 접근 범위와
+분리합니다. 검색어/프레임 다이제스트는 원래 질문에 연결되며, 검색된 인용문은 참조 근거일 뿐
+관측 상태나 실행 권한이 아닙니다.
 생성된 의미 의도 범위 산출물은 정본 온톨로지 조회 또는 Resource 어휘가 바뀌면 다시 생성합니다.
 오래된 산출물은 런타임 근거가 아니라 CI 실패로 유지됩니다.
 ## Catalog-owned 인스턴스 변환 결과

@@ -208,7 +208,8 @@
       "test_groups": {
         "unit": [
           "services/document-ingestion-api/tests/test_cloud_knowledge_collection.py",
-          "services/document-ingestion-api/tests/test_cloud_knowledge_scheduler.py"
+          "services/document-ingestion-api/tests/test_cloud_knowledge_scheduler.py",
+          "services/document-ingestion-api/tests/test_cloud_knowledge_structured_normalization.py"
         ],
         "contract": [
           "services/document-ingestion-api/tests/test_cloud_knowledge_offline.py",

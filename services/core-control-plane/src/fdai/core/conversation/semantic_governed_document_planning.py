@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from fdai_service_contracts.cloud_knowledge_query import DocumentRetrievalQuery
 from fdai_service_contracts.ontology_query import (
     OntologyQueryNode,
     OntologyQueryPlan,
@@ -25,7 +26,13 @@ from .semantic_planning_frame_core import build_semantic_frame
 from .semantic_planning_models import SemanticFrameProposal, SemanticOutputShape
 
 _REQUIREMENT_PREFIX = "governed_documents."
+_QUERY_PREFIX = "document-query:"
+_QUERY_UNAVAILABLE = f"{_QUERY_PREFIX}unavailable"
 _NODE_ID = "governed-documents"
+
+
+class DocumentRetrievalQueryUnavailableError(ValueError):
+    """A structured document request has no accepted query transformation."""
 
 
 def apply_document_evidence_requirement(
@@ -36,34 +43,46 @@ def apply_document_evidence_requirement(
     utterance: str,
     context: tuple[str, ...],
 ) -> tuple[SemanticFrameProposal, SemanticProblemFrame]:
-    """Bind the accepted document mode without changing the primary output shape."""
+    """Bind accepted judgment terms and source identity, never a frame-model query.
 
-    if judgment is None:
-        return proposal, frame
-    if judgment.document_evidence_mode is SemanticDocumentEvidenceMode.NONE:
-        retained = tuple(
-            value
-            for value in proposal.evidence_requirements
-            if not value.startswith(_REQUIREMENT_PREFIX)
-        )
-        if retained == proposal.evidence_requirements:
-            return proposal, frame
-        updated = proposal.model_copy(update={"evidence_requirements": retained})
-        return updated, build_semantic_frame(updated, utterance=utterance, context=context)
-    requirement = _requirement(judgment.document_evidence_mode)
-    retained = tuple(
-        value
-        for value in proposal.evidence_requirements
-        if not value.startswith(_REQUIREMENT_PREFIX)
+    The caller must pass only an accepted judgment, or ``None``. Reserved query
+    constraints are always rebuilt from that judgment. Legacy absent queries keep
+    original-text retrieval; schema 1.2 document requests without terms stay held.
+    """
+
+    subjects = tuple(
+        value for value in proposal.subject_constraints if not value.startswith(_QUERY_PREFIX)
     )
-    subjects = proposal.subject_constraints
-    if proposal.output_shape is SemanticOutputShape.GOVERNED_DOCUMENT_EXCERPTS:
-        subjects = tuple(value for value in subjects if not value.startswith("cloud-reference:"))
-        subjects += cloud_reference_constraints(judgment, utterance=utterance)
-    updated = proposal.model_copy(
-        update={
-            "evidence_requirements": (*retained, requirement),
+    requirements = proposal.evidence_requirements
+    document_query: DocumentRetrievalQuery | None = None
+    if judgment is not None:
+        requirements = tuple(
+            value for value in requirements if not value.startswith(_REQUIREMENT_PREFIX)
+        )
+        if judgment.document_evidence_mode is not SemanticDocumentEvidenceMode.NONE:
+            requirements += (_requirement(judgment.document_evidence_mode),)
+            if proposal.output_shape is SemanticOutputShape.GOVERNED_DOCUMENT_EXCERPTS:
+                subjects = tuple(
+                    value for value in subjects if not value.startswith("cloud-reference:")
+                )
+                subjects += cloud_reference_constraints(judgment, utterance=utterance)
+            document_query = judgment.document_query
+            if document_query is not None:
+                subjects += (_QUERY_PREFIX + document_query.binding_digest(utterance=utterance),)
+            elif judgment.schema_version == "1.2.0":
+                subjects += (_QUERY_UNAVAILABLE,)
+    if (
+        requirements == proposal.evidence_requirements
+        and subjects == proposal.subject_constraints
+        and document_query == proposal.document_query
+    ):
+        return proposal, frame
+    updated = SemanticFrameProposal.model_validate(
+        {
+            **proposal.model_dump(mode="python"),
+            "evidence_requirements": requirements,
             "subject_constraints": subjects,
+            "document_query": document_query,
         }
     )
     return updated, build_semantic_frame(updated, utterance=utterance, context=context)
@@ -95,17 +114,23 @@ def compile_governed_document_plan(
     manifest: QueryManifest,
     verifier: OntologyQueryPlanVerifier,
     purpose: str,
+    document_query: DocumentRetrievalQuery | None = None,
 ) -> OntologyQueryPlan | None:
-    """Compile one document-only query from the original bounded utterance."""
+    """Compile bound retrieval terms, or the original utterance for legacy frames.
+
+    A supplied query must match the frame's exact DTO-and-source commitment.
+    Mismatch raises without falling back; a missing structured query is unavailable.
+    """
 
     if frame.output_shape != SemanticOutputShape.GOVERNED_DOCUMENT_EXCERPTS:
         return None
     mode = document_evidence_mode(frame)
     if mode is not SemanticDocumentEvidenceMode.EXPLICIT or not _has_function(manifest):
         return None
+    query = _document_query_text(frame, utterance=utterance, document_query=document_query)
     return _build_plan(
         frame=frame,
-        utterance=utterance,
+        query=query,
         manifest=manifest,
         verifier=verifier,
         purpose=purpose,
@@ -123,14 +148,27 @@ def append_governed_document_plan(
     manifest: QueryManifest,
     verifier: OntologyQueryPlanVerifier,
     purpose: str,
+    document_query: DocumentRetrievalQuery | None = None,
 ) -> OntologyQueryPlan | None:
-    """Append an independent document read, or report an unavailable binding."""
+    """Append or reuse an exact bound document read without widening its filters.
+
+    Invalid query commitments never fall back to original text, including optional
+    evidence and already-present document nodes. Missing structured terms are held.
+    """
 
     mode = document_evidence_mode(frame)
     if mode is None:
+        if document_query is not None or any(
+            value.startswith(_QUERY_PREFIX) for value in frame.subject_constraints
+        ):
+            raise ValueError("document retrieval query requires a document evidence mode")
         return plan
-    if frame.output_shape == SemanticOutputShape.GOVERNED_DOCUMENT_EXCERPTS:
-        return plan if mode is SemanticDocumentEvidenceMode.EXPLICIT else None
+    query = _document_query_text(frame, utterance=utterance, document_query=document_query)
+    if (
+        frame.output_shape == SemanticOutputShape.GOVERNED_DOCUMENT_EXCERPTS
+        and mode is not SemanticDocumentEvidenceMode.EXPLICIT
+    ):
+        return None
     if not _has_function(manifest):
         return None
     document_nodes = tuple(
@@ -148,19 +186,26 @@ def append_governed_document_plan(
             or node.node_id not in plan.output_node_ids
             or node.arguments.get("arguments")
             != {
-                "query": utterance.strip(),
+                "query": query,
                 "evidence_mode": mode.value,
                 **cloud_reference_arguments(frame),
             }
             or node.arguments.get("dependency_arguments") != {}
         ):
             raise ValueError("existing governed document node does not match the required read")
+        if document_query is not None:
+            if plan.problem_frame_digest != frame.frame_digest:
+                raise ValueError("governed document plan does not match its query-bound frame")
+            OntologyQueryPlan.model_validate(plan.model_dump(mode="json"))
+            verifier.verify(plan, manifest=manifest)
         return plan
+    if frame.output_shape == SemanticOutputShape.GOVERNED_DOCUMENT_EXCERPTS:
+        raise ValueError("document-only plan requires its governed document node")
     if any(node.node_id == _NODE_ID for node in plan.nodes):
         raise ValueError("semantic plan already contains the governed document node")
     return _build_plan(
         frame=frame,
-        utterance=utterance,
+        query=query,
         manifest=manifest,
         verifier=verifier,
         purpose=purpose,
@@ -193,10 +238,40 @@ def document_evidence_mode(
     return mode
 
 
+def _document_query_text(
+    frame: SemanticProblemFrame,
+    *,
+    utterance: str,
+    document_query: DocumentRetrievalQuery | None,
+) -> str:
+    """Resolve exact terms at the compiler boundary; query metadata grants no scope."""
+
+    bindings = tuple(
+        value for value in frame.subject_constraints if value.startswith(_QUERY_PREFIX)
+    )
+    if document_query is not None or bindings:
+        SemanticProblemFrame.model_validate(frame.model_dump(mode="json"))
+        if document_query is None:
+            if bindings == (_QUERY_UNAVAILABLE,):
+                raise DocumentRetrievalQueryUnavailableError(
+                    "structured document retrieval requires an accepted query transformation"
+                )
+            raise ValueError("document retrieval query is missing its bound proposal")
+        query = DocumentRetrievalQuery.model_validate(document_query)
+        expected = _QUERY_PREFIX + query.binding_digest(utterance=utterance)
+        if bindings != (expected,):
+            raise ValueError("document retrieval query does not match its frame and source")
+        return query.query_text
+    legacy_query = utterance.strip()
+    if not legacy_query or len(legacy_query) > 20_000:
+        raise ValueError("governed document search query MUST be in [1, 20000] characters")
+    return legacy_query
+
+
 def _build_plan(
     *,
     frame: SemanticProblemFrame,
-    utterance: str,
+    query: str,
     manifest: QueryManifest,
     verifier: OntologyQueryPlanVerifier,
     purpose: str,
@@ -204,9 +279,6 @@ def _build_plan(
     existing_nodes: tuple[OntologyQueryNode, ...],
     existing_output_node_ids: tuple[str, ...],
 ) -> OntologyQueryPlan:
-    query = utterance.strip()
-    if not query or len(query) > 20_000:
-        raise ValueError("governed document search query MUST be in [1, 20000] characters")
     node = OntologyQueryNode(
         node_id=_NODE_ID,
         kind=QueryNodeKind.FUNCTION,
@@ -264,6 +336,7 @@ def _has_function(manifest: QueryManifest) -> bool:
 
 
 __all__ = [
+    "DocumentRetrievalQueryUnavailableError",
     "append_governed_document_plan",
     "apply_document_evidence_requirement",
     "apply_required_document_evidence",

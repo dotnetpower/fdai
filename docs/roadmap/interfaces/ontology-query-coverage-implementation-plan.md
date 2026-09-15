@@ -5,12 +5,15 @@ title: Ontology Query Coverage Implementation Plan
 
 This plan closes the implementation gap between FDAI's bounded conversation and ontology foundations and the target non-keyword path for operator questions. It records the verified current baseline, service and agent ownership, dependency-ordered work packages, cutover gates, and rollback units for 100% structural query coverage.
 
-Governed cloud-reference queries preserve original source dates and accept exact source-spanned
-provider, generation, SKU, and other applicability conditions from typed judgment. As-of guidance
-requires fresh matching evidence; live-current requests terminate without fetching during an answer.
-The [cloud knowledge owner](cloud-resource-knowledge-lifecycle.md) records this bounded implementation.
-Applicability uses scalar selectors rather than evidence-object literals. Regenerating the semantic
-coverage inventory after this contract change refreshes source digests, not measured coverage.
+Governed cloud-reference queries preserve source dates and source-spanned provider, generation, SKU,
+and other applicability conditions from typed judgment as scalar selectors, not evidence-object literals.
+Fresh matching evidence supports as-of guidance; live-current requests end without an answer-time fetch.
+The [lifecycle owner](cloud-resource-knowledge-lifecycle.md) records that baseline. The developing
+[structured retrieval extension](cloud-resource-knowledge-structured-rag.md) adds semantic-judgment
+`1.2.0` `document_query` only from accepted model judgment, bound by digest to the exact original
+question before frame and plan compilation. Terms cannot replace applicability or widen access.
+A missing or mismatched v1.2 query holds the document lane; legacy no-query behavior stays separate.
+Coverage-inventory regeneration refreshes source digests, not measured coverage.
 
 > **Coverage boundary:** 100% means every readable declaration in one active ontology release has a principal-scoped query descriptor or a typed unavailable reason. It does not promise a complete or correct answer when identity, provider data, history, or evidence is missing.
 >

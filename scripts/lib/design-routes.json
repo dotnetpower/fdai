@@ -1953,6 +1953,8 @@
       "paths": [
         "docs/roadmap/interfaces/cloud-resource-knowledge-lifecycle*.md",
         "docs/roadmap-implementation/interfaces/cloud-resource-knowledge-lifecycle.md",
+        "docs/roadmap/interfaces/cloud-resource-knowledge-structured-rag*.md",
+        "docs/roadmap-implementation/interfaces/cloud-resource-knowledge-structured-rag.md",
         "docs/runbooks/cloud-resource-knowledge*.md",
         "packages/service-contracts/src/fdai_service_contracts/cloud_knowledge*.py",
         "packages/service-contracts/tests/test_cloud_knowledge*.py",
@@ -1967,23 +1969,30 @@
         "services/core-control-plane/src/fdai/core/knowledge/cloud_applicability.py",
         "services/core-control-plane/src/fdai/core/conversation/semantic_cloud_reference.py",
         "services/core-control-plane/tests/conversation/test_semantic_cloud_reference.py",
+        "services/core-control-plane/tests/conversation/test_semantic_document_query.py",
         "services/core-control-plane/src/fdai/delivery/persistence/postgres_cloud_knowledge_read.py",
         "services/core-control-plane/tests/core/knowledge/test_cloud_reference.py",
         "console/src/routes/cloud-knowledge*",
         "console/tests/e2e/cloud-knowledge.spec.ts",
         "service-migrations/branches/*/versions/20260914_cloud_knowledge*.py",
-        "tests/integration/services/test_cloud_knowledge_postgres.py"
+        "tests/integration/services/test_cloud_knowledge_postgres.py",
+        "scripts/evaluation/cloud_knowledge_evidence.py",
+        "tests/integration/scripts/test_cloud_knowledge_evidence.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
         "docs/roadmap/interfaces/cloud-resource-knowledge-lifecycle.md",
+        "docs/roadmap/interfaces/cloud-resource-knowledge-structured-rag.md",
+        "docs/roadmap-implementation/interfaces/cloud-resource-knowledge-structured-rag.md",
         "docs/roadmap/interfaces/document-lifecycle-governance.md",
         "docs/roadmap/interfaces/document-ingestion-agent-ownership.md",
         "docs/roadmap/deployment/disconnected-deployment.md"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/cloud-resource-knowledge-lifecycle.md",
-        "docs/roadmap-implementation/interfaces/cloud-resource-knowledge-lifecycle.md"
+        "docs/roadmap-implementation/interfaces/cloud-resource-knowledge-lifecycle.md",
+        "docs/roadmap/interfaces/cloud-resource-knowledge-structured-rag.md",
+        "docs/roadmap-implementation/interfaces/cloud-resource-knowledge-structured-rag.md"
       ],
       "validate": [
         "bash scripts/quality/localization/check-translations.sh {changed_paths}",

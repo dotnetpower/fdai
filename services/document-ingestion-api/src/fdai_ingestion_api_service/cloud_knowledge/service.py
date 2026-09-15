@@ -24,10 +24,12 @@ from fdai_service_contracts.cloud_knowledge_package import KnowledgeTrustPolicy,
 from fdai_service_contracts.cloud_knowledge_release import (
     KnowledgeManifest,
     KnowledgeReleaseBinding,
+    KnowledgeStructuredReleaseManifest,
     KnowledgeTextReleaseManifest,
     normalized_document,
     parse_knowledge_manifest,
 )
+from fdai_service_contracts.cloud_knowledge_structure import CloudStructuredDocument, excerpt_digest
 
 from fdai_ingestion_api_service.cloud_knowledge.projection import project_source, project_status
 from fdai_ingestion_api_service.cloud_knowledge.scheduler import CloudKnowledgeScheduler
@@ -55,6 +57,7 @@ class CloudKnowledgeService:
         retention_policy: str,
         current_policy: Callable[[], tuple[SourceRegistryRevision, KnowledgeTrustPolicy]]
         | None = None,
+        structured: bool = False,
     ) -> None:
         self.registry = registry
         self.trust = trust
@@ -65,6 +68,7 @@ class CloudKnowledgeService:
         self._groups = reader_groups
         self._retention_policy = retention_policy
         self._current_policy = current_policy or (lambda: (registry, trust))
+        self._structured = structured
 
     def _policies(self) -> tuple[SourceRegistryRevision, KnowledgeTrustPolicy]:
         registry, trust = self._current_policy()
@@ -125,7 +129,9 @@ class CloudKnowledgeService:
         self._policies()
         return await self._scheduler.tick()
 
-    async def proposal(self, collection_id: str) -> KnowledgeTextReleaseManifest:
+    async def proposal(
+        self, collection_id: str
+    ) -> KnowledgeTextReleaseManifest | KnowledgeStructuredReleaseManifest:
         """Build complete normalized-only review material; collector originals stay local."""
         now = self._clock()
         self._policies()
@@ -135,6 +141,7 @@ class CloudKnowledgeService:
         if not sources:
             raise ValueError("collection is not registered")
         documents = []
+        structured_documents: list[CloudStructuredDocument] = []
         for source in sources:
             state = (await self._store.get(self.registry.digest, source.source_id)).state
             if (
@@ -146,7 +153,28 @@ class CloudKnowledgeService:
             if not source.storage_allowed or not source.internal_transfer_allowed:
                 raise ValueError("document review export requires approved transfer rights")
             documents.append(normalized_document(state.document))
+            if self._structured:
+                from fdai_ingestion_api_service.cloud_knowledge.structured_normalization import (
+                    reprocess_document,
+                )
+
+                structured_documents.append(
+                    state.structured_document or reprocess_document(state.document, now=now)
+                )
         sequence = await self._store.next_sequence(collection_id)
+        if self._structured:
+            return KnowledgeStructuredReleaseManifest(
+                release_id=f"{collection_id}-{sequence}",
+                sequence=sequence,
+                collection_id=collection_id,
+                registry_digest=self.registry.digest,
+                package_created_at=now,
+                expires_at=min(self.registry.valid_until, now + timedelta(days=30)),
+                documents=tuple(structured_documents),
+                excerpt_digests=tuple(
+                    excerpt_digest(document) for document in structured_documents
+                ),
+            )
         return KnowledgeTextReleaseManifest(
             release_id=f"{collection_id}-{sequence}",
             sequence=sequence,
@@ -173,6 +201,11 @@ class CloudKnowledgeService:
             verified_key_id="connected-collector",
             intake_origin="collector",
             sources=tuple(item.evidence for item in manifest.documents),
+            processing_digests=(
+                tuple(item.processing_digest for item in manifest.documents)
+                if isinstance(manifest, KnowledgeStructuredReleaseManifest)
+                else ()
+            ),
         )
         return await self._ingest(manifest, binding, actor_id=actor_id, actor_groups=actor_groups)
 
@@ -231,18 +264,30 @@ class CloudKnowledgeService:
         if withdrawn.intersection(source.source_id for source in prior.sources):
             raise ValueError("knowledge rollback cannot resurrect a withdrawn source")
         sequence = await self._store.next_sequence(collection_id)
-        manifest = KnowledgeTextReleaseManifest.model_validate(
-            original.model_dump(exclude={"schema_version", "reader_version", "documents"})
-            | {
-                "release_id": f"{collection_id}-rollback-{sequence}",
-                "sequence": sequence,
-                "package_created_at": self._clock(),
-                "expires_at": prior.admission_expires_at,
-                "documents": tuple(
-                    normalized_document(document) for document in original.documents
-                ),
-            }
-        )
+        manifest: KnowledgeTextReleaseManifest | KnowledgeStructuredReleaseManifest
+        if isinstance(original, KnowledgeStructuredReleaseManifest):
+            manifest = KnowledgeStructuredReleaseManifest.model_validate(
+                original.model_dump()
+                | {
+                    "release_id": f"{collection_id}-rollback-{sequence}",
+                    "sequence": sequence,
+                    "package_created_at": self._clock(),
+                    "expires_at": prior.admission_expires_at,
+                }
+            )
+        else:
+            manifest = KnowledgeTextReleaseManifest.model_validate(
+                original.model_dump(exclude={"schema_version", "reader_version", "documents"})
+                | {
+                    "release_id": f"{collection_id}-rollback-{sequence}",
+                    "sequence": sequence,
+                    "package_created_at": self._clock(),
+                    "expires_at": prior.admission_expires_at,
+                    "documents": tuple(
+                        normalized_document(document) for document in original.documents
+                    ),
+                }
+            )
         binding = KnowledgeReleaseBinding(
             release_id=manifest.release_id,
             sequence=sequence,
@@ -256,6 +301,7 @@ class CloudKnowledgeService:
             rollback_of=prior.release_id,
             rollback_source_digest=prior.manifest_digest,
             sources=prior.sources,
+            processing_digests=prior.processing_digests,
             withdrawn_source_ids=original.withdrawn_source_ids,
         )
         return await self._ingest(manifest, binding, actor_id=actor_id, actor_groups=actor_groups)

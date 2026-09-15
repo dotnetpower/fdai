@@ -1,8 +1,8 @@
 ---
 title: 통제된 문서 형식 정책
 translation_of: document-ingestion-format-policy.md
-translation_source_sha: 8010f7e9465d8b303aec3ed22c0c5739fd6085d1
-translation_revised: 2026-09-05
+translation_source_sha: 40fb8fcc3a77c71087e0adce1ddf6cd0abf2a369
+translation_revised: 2026-09-15
 ---
 # 통제된 문서 형식 정책
 
@@ -76,6 +76,11 @@ Azure 모드는 관리 ID를 통해 `prebuilt-read` 모델을 사용합니다. �
 | PNG, JPEG, TIFF | OCR이 구성된 경우 허용 | OCR이 필요하며 이미지 바이트는 인덱스나 감사 기록에 넣지 않습니다. |
 | DOC, PPT, XLS 및 기타 OLE 바이너리 | 허용하지 않음 | 원본 애플리케이션에서 최신 OOXML 또는 PDF 버전으로 저장합니다. |
 | ZIP 및 기타 일반 압축 파일 | 허용하지 않음 | 압축 파일 확장은 업로드 형식으로 사용하지 않습니다. |
+
+클라우드 참조 패키지는 새 일반 업로드 형식이 아니라 [구조화 검색 설계](cloud-resource-knowledge-structured-rag-ko.md)를
+따릅니다. 명시적으로 선택하는 v3는 개발 중이며, 정규화된 본문 하나와 블록으로 표 머리글과
+필수 문맥을 포함한 인용문을 UTF-8 기준 8192바이트 이내로 구성합니다. 안전하지 않거나 불완전한
+구조는 세대 전체를 보류하며, 기존 v1/v2 추출 방식은 바꾸지 않습니다.
 
 ## 추출 및 실패 동작
 

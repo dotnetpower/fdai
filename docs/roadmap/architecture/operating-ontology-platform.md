@@ -43,6 +43,10 @@ the two reviewed configuration functions; gateway diagnostics add `routes_to` an
 gateway function. This projection is a prompt-minimization view, not another manifest or authority
 source. Every descriptor still originates in the complete principal-scoped manifest, and plan
 verification still resolves against the exact release.
+The developing [structured cloud-document extension](../interfaces/cloud-resource-knowledge-structured-rag.md)
+keeps model-accepted `document_query` terms separate from scalar applicability and exact document
+access. Query/frame digests bind the original question; retrieved excerpts remain reference evidence,
+not observed state or execution authority.
 The generated semantic-intent coverage artifact is regenerated when canonical ontology query or
 Resource vocabulary changes. A stale artifact remains a CI failure, not runtime evidence.
 ## Catalog-owned instance projection
