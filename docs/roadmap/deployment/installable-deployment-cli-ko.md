@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: e843da52ab71cabb5cd35be94e2916cb0499ef2c
-translation_revised: 2026-09-14
+translation_source_sha: 12def7c66f79fce591141c41ee264679c4df672f
+translation_revised: 2026-09-15
 ---
 
 # 설치형 배포 CLI
@@ -47,6 +47,11 @@ GitHub Actions는 소스를 검증하고 이미지를 빌드하며 서명된 rel
 필수 가용 영역, 자동 확장 최대치와 동시 33퍼센트 추가 노드를 포함한 계열 및 전체 할당량을
 조회합니다. 용량을 예약하거나 Foundation 자원까지 계산하지는 않습니다. 별도의 소스 작업
 디렉터리는 기존 키트 실행 상태를 인수하지 않습니다.
+
+Foundation 입력과 VM 메타데이터 조회는 운영자가 소유한 로컬 설치를 포함해 기존의 신뢰된
+설치 경로에서 Azure CLI를 찾습니다. `/usr/bin/az`의 존재를 요구하거나 `PATH`의 임의 실행
+파일을 허용하지 않습니다. 선택한 Azure 구성, 조회 시간 제한과 민감한 값을 제외한 실패
+보고는 그대로 유지합니다.
 
 소스와 키트 Foundation 입력은 서로 다른 타입과 저장 계획 스키마를 사용합니다. 보존된 소스
 계획은 현재 스냅샷과 소스 입력의 digest가 일치해야 합니다. 소스 실행은 검증된 인프라를

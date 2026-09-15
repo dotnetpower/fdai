@@ -75,6 +75,31 @@ def test_source_preparation_retains_inputs_without_publisher_keys(tmp_path, monk
         source_genesis.prepare(args)
 
 
+def test_foundation_input_capture_resolves_trusted_user_cli(tmp_path, monkeypatch):
+    config = tmp_path / "azure"
+    config.mkdir(mode=0o700)
+    monkeypatch.setenv("AZURE_CONFIG_DIR", str(config))
+    resolved = str(tmp_path / "trusted-cli/az")
+    monkeypatch.setattr(
+        genesis_prepare_inputs,
+        "trusted_tool",
+        lambda name: resolved if name == "az" else pytest.fail("unexpected tool"),
+    )
+    calls = []
+
+    def run(arguments, **kwargs):
+        calls.append((arguments, kwargs))
+        return subprocess.CompletedProcess(arguments, 0, "available\n", "")
+
+    monkeypatch.setattr(genesis_prepare_inputs.subprocess, "run", run)
+    assert (
+        genesis_prepare_inputs._capture(("/usr/bin/az", "account", "show"), cwd=ROOT) == "available"
+    )
+    assert calls[0][0] == (resolved, "account", "show")
+    assert calls[0][1]["env"]["AZURE_CONFIG_DIR"] == str(config)
+    assert calls[0][1]["timeout"] == 120
+
+
 def test_standalone_run_binding_matches_runner_image_mode() -> None:
     shared = f"{TENANT}:{SUBSCRIPTION}:koreacentral:dev:signed-kit"
 

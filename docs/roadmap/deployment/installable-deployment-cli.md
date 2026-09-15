@@ -45,6 +45,11 @@ restrictions, x64 architecture, host encryption, required zones and shared-famil
 autoscaler maximum plus simultaneous 33-percent surge. It neither reserves capacity nor accounts
 for the Foundation graph. The distinct source work directory never adopts a kit run.
 
+Foundation input and VM metadata reads resolve Azure CLI through the existing trusted installation
+roots, including the operator-owned local installation. They do not require `/usr/bin/az` to exist
+or accept an arbitrary executable from `PATH`. The selected Azure configuration, bounded reads and
+sanitized provider failures remain unchanged.
+
 Source and kit Foundation inputs use distinct types and saved-plan schemas. A retained source
 plan must match the current snapshot and source-input digests. Source execution copies the
 verified infrastructure into a private state-preserving directory, verifies the pinned Terraform
