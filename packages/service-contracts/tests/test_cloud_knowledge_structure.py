@@ -255,6 +255,16 @@ def test_global_context_cannot_hide_another_required_dependency() -> None:
         CloudStructuredDocument.model_validate(values)
 
 
+def test_required_context_expansion_has_an_aggregate_byte_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import fdai_service_contracts.cloud_knowledge_structure as structure
+
+    monkeypatch.setattr(structure, "MAX_DERIVED_BYTES", 300, raising=False)
+    with pytest.raises(ValueError, match="aggregate"):
+        structured_excerpts(document())
+
+
 def test_signature_covers_context_and_version_pair() -> None:
     import json
 

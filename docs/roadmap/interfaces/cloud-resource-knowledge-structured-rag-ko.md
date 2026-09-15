@@ -1,6 +1,6 @@
 ---
 translation_of: cloud-resource-knowledge-structured-rag.md
-translation_source_sha: e80f34f0389c415da49794d4bddf5320eb52c907
+translation_source_sha: af3829c2f8d362eb729e92c4a8ff90c41b7f66fd
 translation_revised: 2026-09-15
 ---
 # 구조화된 클라우드 문서 검색
@@ -52,6 +52,8 @@ V1과 v2의 서명 및 정규 바이트는 변경하지 않습니다. 과거 정
 각 인용문은 원문 식별자를
 포함하며 UTF-8 기준 8192바이트 이내입니다. 텍스트와 메타데이터 제한은 독립적입니다. 안정된
 식별자는 원문 버전, 블록 식별자, 청킹 규칙 및 바이트에 연결됩니다.
+인용문별 제한과 함께 전체 세대의 확장 텍스트를 16 MiB 및 8192블록으로 제한합니다.
+필수 문맥 반복으로 입력이 크기 제한 없는 색인으로 늘어나지 않습니다.
 
 워커는 Saga가 감사한 Var 승인과 Muninn의 색인 명령 이후에만 봉인된 청크 목록을 재현합니다.
 별도의 읽기 전용 트랜잭션이 저장된 전체 행을 확인한 뒤 동시성 보호가 적용된 가시성 전환을

@@ -25,6 +25,7 @@ from fdai_service_contracts.cloud_knowledge import (
 STRUCTURE_RECIPE: Final = "article-blocks-2.0.0"
 RECIPE_DIGEST = content_digest(STRUCTURE_RECIPE.encode())
 MAX_EXCERPT_BYTES = 8192
+MAX_DERIVED_BYTES = 16 * 1024 * 1024
 MAX_BLOCKS = 8192
 
 
@@ -181,6 +182,7 @@ def structured_excerpts(document: CloudStructuredDocument) -> tuple[CloudStructu
         f"SKU: {', '.join(source.applicability.skus) or 'not specified'}\n"
     )
     excerpts = []
+    derived_bytes = 0
     for block in document.blocks:
         heading = " / ".join(block.heading_path) or document.title
         context = dict.fromkeys((*document.required_context_ids, *block.context_ids))
@@ -197,6 +199,12 @@ def structured_excerpts(document: CloudStructuredDocument) -> tuple[CloudStructu
         for identity in dict.fromkeys((block.block_id, *context)):
             for link in links_by_block.get(identity, ()):
                 parts.append(f"\nLink: {link.label} <{link.target}>")
+        size = sum(len(part.encode()) for part in parts)
+        if size > MAX_EXCERPT_BYTES:
+            raise ValueError("article evidence bundle exceeds the safe excerpt byte limit")
+        derived_bytes += size
+        if derived_bytes > MAX_DERIVED_BYTES:
+            raise ValueError("article aggregate derived text exceeds its byte limit")
         text = "".join(parts)
         identity = content_digest((processing + block.block_id + text).encode())[:32]
         excerpts.append(

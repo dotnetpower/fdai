@@ -15,7 +15,12 @@ from fdai_service_contracts.cloud_knowledge import (
     canonical_bytes,
     content_digest,
 )
-from fdai_service_contracts.cloud_knowledge_structure import CloudStructuredDocument, excerpt_digest
+from fdai_service_contracts.cloud_knowledge_structure import (
+    MAX_BLOCKS,
+    MAX_DERIVED_BYTES,
+    CloudStructuredDocument,
+    structured_excerpts,
+)
 
 
 class CloudKnowledgeDocument(KnowledgeContract):
@@ -135,7 +140,17 @@ class KnowledgeStructuredReleaseManifest(_ReleaseManifest[CloudStructuredDocumen
     def derived_inventory(self) -> Self:
         if any(doc.derived_at > self.package_created_at for doc in self.documents):
             raise ValueError("package creation cannot precede derivation")
-        if self.excerpt_digests != tuple(excerpt_digest(doc) for doc in self.documents):
+        if sum(len(doc.blocks) for doc in self.documents) > MAX_BLOCKS:
+            raise ValueError("structured generation exceeds its block limit")
+        derived_bytes = 0
+        digests = []
+        for document in self.documents:
+            excerpts = structured_excerpts(document)
+            derived_bytes += sum(len(excerpt.text.encode()) for excerpt in excerpts)
+            if derived_bytes > MAX_DERIVED_BYTES:
+                raise ValueError("structured generation exceeds its aggregate derived byte limit")
+            digests.append(content_digest(b"\n".join(canonical_bytes(item) for item in excerpts)))
+        if self.excerpt_digests != tuple(digests):
             raise ValueError("structured release excerpt inventory does not match")
         return self
 

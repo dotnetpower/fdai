@@ -48,6 +48,8 @@ Selecting an article content region cannot silently discard an adjacent paragrap
 unaccounted structural body content holds the candidate for review.
 Every resulting excerpt includes source identity and remains within 8192 UTF-8 bytes. Text and
 metadata limits are independent. Stable IDs bind source revision, block identity, recipe and bytes.
+Expanded text is bounded to 16 MiB and 8192 blocks per complete generation, in addition to the
+per-excerpt ceiling; repeated required context cannot multiply an input into an unbounded index.
 
 The worker reproduces the sealed chunk inventory only after Saga-audited Var approval and Muninn's
 index command. A separate read-only transaction checks the complete persisted row set before the
